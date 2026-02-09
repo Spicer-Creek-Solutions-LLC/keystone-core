@@ -111,6 +111,7 @@ func TestEvent_BatchExecutionEmitsEvents(t *testing.T) {
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_COMPLETE:
 			t.Logf("Event: BATCH_COMPLETE")
 			summary = resp.Summary
+		default:
 		}
 	}
 

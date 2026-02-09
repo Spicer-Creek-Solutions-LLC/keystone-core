@@ -11,8 +11,8 @@ import (
 
 // HealthServer provides health check endpoints for the secret broker.
 type HealthServer struct {
-	broker     *SecretBroker
-	metrics    *BrokerMetrics
+	broker      *SecretBroker
+	metrics     *BrokerMetrics
 	rateLimiter *RateLimiter
 
 	mu      sync.RWMutex
@@ -179,10 +179,9 @@ func (h *HealthServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
+	// Return 503 if unhealthy, 200 otherwise (including degraded - still serving)
 	if status.Status == "unhealthy" {
 		w.WriteHeader(http.StatusServiceUnavailable)
-	} else if status.Status == "degraded" {
-		w.WriteHeader(http.StatusOK) // Still return 200 for degraded
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
@@ -243,9 +242,9 @@ func (h *HealthServer) handleStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	stats := struct {
-		Broker    *BrokerStats      `json:"broker,omitempty"`
-		Metrics   *MetricsSnapshot  `json:"metrics,omitempty"`
-		RateLimit *RateLimitStats   `json:"rate_limit,omitempty"`
+		Broker    *BrokerStats     `json:"broker,omitempty"`
+		Metrics   *MetricsSnapshot `json:"metrics,omitempty"`
+		RateLimit *RateLimitStats  `json:"rate_limit,omitempty"`
 	}{}
 
 	if h.broker != nil {
@@ -406,8 +405,8 @@ func (h *HealthServer) checkDetailedHealth(ctx context.Context) *HealthStatus {
 				Status:      "pass",
 				LastChecked: time.Now(),
 				Metadata: map[string]interface{}{
-					"entries":   brokerStats.CacheStats.Entries,
-					"hit_rate":  brokerStats.CacheStats.HitRate(),
+					"entries":  brokerStats.CacheStats.Entries,
+					"hit_rate": brokerStats.CacheStats.HitRate(),
 				},
 			}
 			status.Checks = append(status.Checks, cacheCheck)
@@ -483,7 +482,7 @@ func NewHealthClient(baseURL string) *HealthClient {
 
 // CheckHealth checks the broker health.
 func (c *HealthClient) CheckHealth(ctx context.Context) (*HealthStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +503,7 @@ func (c *HealthClient) CheckHealth(ctx context.Context) (*HealthStatus, error) {
 
 // CheckLiveness checks the broker liveness.
 func (c *HealthClient) CheckLiveness(ctx context.Context) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health/live", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health/live", http.NoBody)
 	if err != nil {
 		return false, err
 	}
@@ -520,7 +519,7 @@ func (c *HealthClient) CheckLiveness(ctx context.Context) (bool, error) {
 
 // CheckReadiness checks the broker readiness.
 func (c *HealthClient) CheckReadiness(ctx context.Context) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health/ready", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health/ready", http.NoBody)
 	if err != nil {
 		return false, err
 	}
@@ -536,7 +535,7 @@ func (c *HealthClient) CheckReadiness(ctx context.Context) (bool, error) {
 
 // GetStats retrieves broker statistics.
 func (c *HealthClient) GetStats(ctx context.Context) (map[string]interface{}, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/stats", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/stats", http.NoBody)
 	if err != nil {
 		return nil, err
 	}

@@ -84,11 +84,12 @@ func TestGitOps_ReadinessEndpoint(t *testing.T) {
 	defer resp.Body.Close()
 
 	// Readiness might be 200 or 503 depending on dependencies
-	if resp.StatusCode == http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
 		t.Log("Server is ready")
-	} else if resp.StatusCode == http.StatusServiceUnavailable {
+	case http.StatusServiceUnavailable:
 		t.Log("Server is not yet ready (dependencies may be missing)")
-	} else {
+	default:
 		t.Errorf("Unexpected status code: %d", resp.StatusCode)
 	}
 }

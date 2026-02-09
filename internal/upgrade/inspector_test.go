@@ -133,8 +133,9 @@ func TestDatabaseInspector_GetVersion_WithSchemaTable(t *testing.T) {
 	}
 	defer db.Close()
 
+	ctx := context.Background()
 	// Create schema_version table
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE schema_version (
 			version TEXT NOT NULL,
 			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -145,13 +146,12 @@ func TestDatabaseInspector_GetVersion_WithSchemaTable(t *testing.T) {
 	}
 
 	// Insert a version
-	_, err = db.Exec(`INSERT INTO schema_version (version) VALUES ('1.5.0')`)
+	_, err = db.ExecContext(ctx, `INSERT INTO schema_version (version) VALUES ('1.5.0')`)
 	if err != nil {
 		t.Fatalf("Failed to insert version: %v", err)
 	}
 
 	inspector := NewDatabaseInspector(db, "sqlite")
-	ctx := context.Background()
 
 	version, err := inspector.GetVersion(ctx)
 	if err != nil {
@@ -171,8 +171,9 @@ func TestDatabaseInspector_GetVersion_WithMetadataTable(t *testing.T) {
 	}
 	defer db.Close()
 
+	ctx := context.Background()
 	// Create kscore_metadata table
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE kscore_metadata (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL
@@ -183,13 +184,12 @@ func TestDatabaseInspector_GetVersion_WithMetadataTable(t *testing.T) {
 	}
 
 	// Insert schema version
-	_, err = db.Exec(`INSERT INTO kscore_metadata (key, value) VALUES ('schema_version', '2.3.1')`)
+	_, err = db.ExecContext(ctx, `INSERT INTO kscore_metadata (key, value) VALUES ('schema_version', '2.3.1')`)
 	if err != nil {
 		t.Fatalf("Failed to insert metadata: %v", err)
 	}
 
 	inspector := NewDatabaseInspector(db, "sqlite")
-	ctx := context.Background()
 
 	version, err := inspector.GetVersion(ctx)
 	if err != nil {

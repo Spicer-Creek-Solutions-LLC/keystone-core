@@ -15,6 +15,7 @@ import (
 // AuditEventType represents the type of audit event.
 type AuditEventType string
 
+// AuditEventAccess constants define the events.
 const (
 	AuditEventAccess   AuditEventType = "file.access"
 	AuditEventDownload AuditEventType = "file.download"
@@ -298,7 +299,8 @@ type JSONFileAuditLogger struct {
 
 // NewJSONFileAuditLogger creates a new JSON file audit logger.
 func NewJSONFileAuditLogger(path string) (*JSONFileAuditLogger, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	//nolint:gosec // G302: Audit log files need to be readable for log analysis
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open audit log file: %w", err)
 	}
@@ -441,7 +443,7 @@ func (r *AuditRecorder) generateID() string {
 }
 
 // RecordAccess records a file access event.
-func (r *AuditRecorder) RecordAccess(ctx context.Context, identity *Identity, req *AccessRequest, result *AccessResult) error {
+func (r *AuditRecorder) RecordAccess(ctx context.Context, identity *Identity, req *Request, result *Result) error {
 	eventType := AuditEventAccess
 	if !result.Allowed {
 		eventType = AuditEventDenied

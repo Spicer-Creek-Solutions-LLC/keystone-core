@@ -100,7 +100,7 @@ Internal project policies, design philosophies, and architectural guardrails ins
   - Sensitive data handling and redaction guidelines
   - Contributor security guidelines with code patterns to avoid
 
-### Epic 35: Network Protocol Expansion (Planned)
+### Epic 42: Network Protocol Expansion (Planned)
 
 Expand network device management with additional protocols and vendor support.
 

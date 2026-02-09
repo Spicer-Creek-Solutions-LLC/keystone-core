@@ -282,7 +282,7 @@ agent:
   # Local NATS for offline operation
   nats:
     mode: local
-    storage: /var/lib/kscore/nats
+    storage: /var/lib/keystone-core/nats
     sync_interval: 5m  # Sync when connected
 
   # Retry and buffering

@@ -290,8 +290,8 @@ func TestServiceNowClient_GetCMDBCI(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"result": map[string]interface{}{
-					"sys_id":        "ci123",
-					"name":          "web-server-01",
+					"sys_id":         "ci123",
+					"name":           "web-server-01",
 					"sys_class_name": "cmdb_ci_server",
 				},
 			})
@@ -325,7 +325,7 @@ func TestServiceNowClient_UpdateCMDBCI(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"result": map[string]interface{}{
-				"sys_id":            "ci123",
+				"sys_id":             "ci123",
 				"operational_status": 1,
 			},
 		})
@@ -950,7 +950,7 @@ func TestResolveIncidentMapping(t *testing.T) {
 		{"incident.raw_data.category", "hardware"},
 		{"incident.raw_data.subcategory", "server"},
 		{"incident.raw_data.nonexistent", "incident.raw_data.nonexistent"}, // returns original
-		{"literal_value", "literal_value"},                                  // unknown returns as-is
+		{"literal_value", "literal_value"},                                 // unknown returns as-is
 	}
 
 	for _, tt := range tests {

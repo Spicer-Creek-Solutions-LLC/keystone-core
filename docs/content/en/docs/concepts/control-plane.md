@@ -281,7 +281,7 @@ nats:
 
 storage:
   type: sqlite
-  path: /var/lib/kscore/state.db
+  path: /var/lib/keystone-core/state.db
 
 api:
   listen: "0.0.0.0:8080"
@@ -310,7 +310,7 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/kscore/nats.creds
+  credentials: /etc/keystone-core/nats.creds
 
 storage:
   type: postgresql
@@ -320,8 +320,8 @@ api:
   listen: "0.0.0.0:8080"
   tls:
     enabled: true
-    cert_file: /etc/kscore/tls/server.crt
-    key_file: /etc/kscore/tls/server.key
+    cert_file: /etc/keystone-core/tls/server.crt
+    key_file: /etc/keystone-core/tls/server.key
 ```
 
 Characteristics:
@@ -630,7 +630,7 @@ curl -X POST http://localhost:8080/admin/log-level -d '{"level":"debug"}'
 
 ## Next Steps
 
-- Learn about [Agents](agents/) that connect to the control plane
-- Understand the [Message Bus](message-bus/) architecture
-- Explore [State Storage](state-storage/) design decisions
-- See [Remote Execution](remote-execution/) for command dispatching details
+- Learn about [Agents](/docs/concepts/agents/) that connect to the control plane
+- Understand the [Message Bus](/docs/concepts/message-bus/) architecture
+- Explore [State Storage](/docs/concepts/state-storage/) design decisions
+- See [Remote Execution](/docs/concepts/remote-execution/) for command dispatching details

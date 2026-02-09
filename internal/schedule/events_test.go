@@ -72,15 +72,15 @@ func TestEventBridge_PublishScheduleEvent(t *testing.T) {
 	tests := []struct {
 		name       string
 		publisher  *mockEventPublisher
-		event      *ScheduleEvent
+		event      *Event
 		wantEvents int
 		wantErr    bool
 	}{
 		{
 			name:      "publish event",
 			publisher: &mockEventPublisher{},
-			event: &ScheduleEvent{
-				Type:         string(ScheduleEventCreated),
+			event: &Event{
+				Type:         string(EventCreated),
 				ScheduleID:   "schedule-1",
 				ScheduleName: "test-schedule",
 				Timestamp:    time.Now().UTC(),
@@ -93,8 +93,8 @@ func TestEventBridge_PublishScheduleEvent(t *testing.T) {
 		{
 			name:      "publish with execution ID",
 			publisher: &mockEventPublisher{},
-			event: &ScheduleEvent{
-				Type:         string(ScheduleEventTriggered),
+			event: &Event{
+				Type:         string(EventTriggered),
 				ScheduleID:   "schedule-1",
 				ScheduleName: "test-schedule",
 				ExecutionID:  "exec-1",
@@ -106,13 +106,13 @@ func TestEventBridge_PublishScheduleEvent(t *testing.T) {
 		{
 			name:      "publish with schedule details",
 			publisher: &mockEventPublisher{},
-			event: &ScheduleEvent{
-				Type:         string(ScheduleEventUpdated),
+			event: &Event{
+				Type:         string(EventUpdated),
 				ScheduleID:   "schedule-1",
 				ScheduleName: "test-schedule",
 				Schedule: &Schedule{
-					Type:   ScheduleTypeCommand,
-					Status: ScheduleStatusActive,
+					Type:   TypeCommand,
+					Status: StatusActive,
 				},
 				Timestamp: time.Now().UTC(),
 			},
@@ -122,8 +122,8 @@ func TestEventBridge_PublishScheduleEvent(t *testing.T) {
 		{
 			name:      "publish with additional data",
 			publisher: &mockEventPublisher{},
-			event: &ScheduleEvent{
-				Type:       string(ScheduleEventCompleted),
+			event: &Event{
+				Type:       string(EventCompleted),
 				ScheduleID: "schedule-1",
 				Timestamp:  time.Now().UTC(),
 				Data: map[string]interface{}{
@@ -137,8 +137,8 @@ func TestEventBridge_PublishScheduleEvent(t *testing.T) {
 		{
 			name:      "nil publisher",
 			publisher: nil,
-			event: &ScheduleEvent{
-				Type:       string(ScheduleEventCreated),
+			event: &Event{
+				Type:       string(EventCreated),
 				ScheduleID: "schedule-1",
 				Timestamp:  time.Now().UTC(),
 			},
@@ -270,13 +270,13 @@ func TestEventBridge_PublishMaintenanceEvent(t *testing.T) {
 	}
 }
 
-func TestScheduleManagerEventAdapter(t *testing.T) {
+func TestManagerEventAdapter(t *testing.T) {
 	publisher := &mockEventPublisher{}
 	bridge := NewEventBridge(publisher, "")
-	adapter := NewScheduleManagerEventAdapter(bridge)
+	adapter := NewManagerEventAdapter(bridge)
 
-	event := &ScheduleEvent{
-		Type:         string(ScheduleEventCreated),
+	event := &Event{
+		Type:         string(EventCreated),
 		ScheduleID:   "schedule-1",
 		ScheduleName: "test-schedule",
 		Timestamp:    time.Now().UTC(),
@@ -289,12 +289,12 @@ func TestScheduleManagerEventAdapter(t *testing.T) {
 	}
 }
 
-func TestScheduleManagerEventAdapter_NilBridge(t *testing.T) {
-	adapter := NewScheduleManagerEventAdapter(nil)
+func TestManagerEventAdapter_NilBridge(t *testing.T) {
+	adapter := NewManagerEventAdapter(nil)
 
 	// Should not panic
-	adapter.HandleEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventCreated),
+	adapter.HandleEvent(&Event{
+		Type:       string(EventCreated),
 		ScheduleID: "schedule-1",
 		Timestamp:  time.Now().UTC(),
 	})
@@ -397,7 +397,7 @@ func TestIntegrateWithEventSystem(t *testing.T) {
 	publisher := &mockEventPublisher{}
 
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	scheduleManager, _ := NewScheduleManager(managerConfig, store)
+	scheduleManager, _ := NewManager(managerConfig, store)
 
 	maintenanceConfig := &MaintenanceManagerConfig{MemberID: "member-1"}
 	maintenanceManager, _ := NewMaintenanceWindowManager(maintenanceConfig, store)

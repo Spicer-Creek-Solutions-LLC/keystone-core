@@ -64,5 +64,5 @@ func NewAzureDNSProvider(creds dns.ResolvedCredentials) (dns.Provider, error) {
 }
 
 func init() {
-	dns.RegisterProvider("azure", NewAzureDNSProvider, AzureDNSCapabilities)
+	_ = dns.RegisterProvider("azure", NewAzureDNSProvider, AzureDNSCapabilities) //nolint:errcheck // provider registration in init
 }

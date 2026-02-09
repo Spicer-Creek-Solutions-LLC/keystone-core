@@ -17,40 +17,42 @@ const (
 // ShutdownPhase represents the current phase of shutdown.
 type ShutdownPhase string
 
+// ShutdownPhase constants define the phases.
 const (
-	ShutdownPhaseRunning      ShutdownPhase = "running"
-	ShutdownPhaseInitiated    ShutdownPhase = "initiated"
-	ShutdownPhaseDraining     ShutdownPhase = "draining"
-	ShutdownPhaseTransferring ShutdownPhase = "transferring"
+	ShutdownPhaseRunning       ShutdownPhase = "running"
+	ShutdownPhaseInitiated     ShutdownPhase = "initiated"
+	ShutdownPhaseDraining      ShutdownPhase = "draining"
+	ShutdownPhaseTransferring  ShutdownPhase = "transferring"
 	ShutdownPhaseDeregistering ShutdownPhase = "deregistering"
-	ShutdownPhaseCompleted    ShutdownPhase = "completed"
-	ShutdownPhaseFailed       ShutdownPhase = "failed"
+	ShutdownPhaseCompleted     ShutdownPhase = "completed"
+	ShutdownPhaseFailed        ShutdownPhase = "failed"
 )
 
 // ShutdownReason indicates why shutdown was initiated.
 type ShutdownReason string
 
+// ShutdownReasonRequested constants define the reasons.
 const (
-	ShutdownReasonRequested    ShutdownReason = "requested"
-	ShutdownReasonMaintenance  ShutdownReason = "maintenance"
-	ShutdownReasonUpgrade      ShutdownReason = "upgrade"
-	ShutdownReasonScaleDown    ShutdownReason = "scale_down"
-	ShutdownReasonHealthy      ShutdownReason = "unhealthy"
-	ShutdownReasonSignal       ShutdownReason = "signal"
+	ShutdownReasonRequested   ShutdownReason = "requested"
+	ShutdownReasonMaintenance ShutdownReason = "maintenance"
+	ShutdownReasonUpgrade     ShutdownReason = "upgrade"
+	ShutdownReasonScaleDown   ShutdownReason = "scale_down"
+	ShutdownReasonHealthy     ShutdownReason = "unhealthy"
+	ShutdownReasonSignal      ShutdownReason = "signal"
 )
 
 // ShutdownStatus contains the current shutdown status.
 type ShutdownStatus struct {
-	Phase             ShutdownPhase
-	Reason            ShutdownReason
-	StartTime         time.Time
-	CurrentStep       string
-	AgentsDrained     int
-	AgentsRemaining   int
-	JobsCompleted     int
-	JobsRemaining     int
+	Phase                 ShutdownPhase
+	Reason                ShutdownReason
+	StartTime             time.Time
+	CurrentStep           string
+	AgentsDrained         int
+	AgentsRemaining       int
+	JobsCompleted         int
+	JobsRemaining         int
 	LeadershipTransferred bool
-	Error             error
+	Error                 error
 }
 
 // ShutdownEvent is emitted during shutdown.
@@ -66,16 +68,17 @@ type ShutdownEvent struct {
 // ShutdownEventType identifies shutdown event types.
 type ShutdownEventType string
 
+// ShutdownEventStarted constants define the events.
 const (
-	ShutdownEventStarted       ShutdownEventType = "shutdown_started"
-	ShutdownEventDrainStarted  ShutdownEventType = "drain_started"
-	ShutdownEventAgentDrained  ShutdownEventType = "agent_drained"
-	ShutdownEventJobsCompleted ShutdownEventType = "jobs_completed"
+	ShutdownEventStarted        ShutdownEventType = "shutdown_started"
+	ShutdownEventDrainStarted   ShutdownEventType = "drain_started"
+	ShutdownEventAgentDrained   ShutdownEventType = "agent_drained"
+	ShutdownEventJobsCompleted  ShutdownEventType = "jobs_completed"
 	ShutdownEventLeaderTransfer ShutdownEventType = "leader_transferred"
-	ShutdownEventDeregistered  ShutdownEventType = "deregistered"
-	ShutdownEventCompleted     ShutdownEventType = "shutdown_completed"
-	ShutdownEventFailed        ShutdownEventType = "shutdown_failed"
-	ShutdownEventTimeout       ShutdownEventType = "shutdown_timeout"
+	ShutdownEventDeregistered   ShutdownEventType = "deregistered"
+	ShutdownEventCompleted      ShutdownEventType = "shutdown_completed"
+	ShutdownEventFailed         ShutdownEventType = "shutdown_failed"
+	ShutdownEventTimeout        ShutdownEventType = "shutdown_timeout"
 )
 
 // ShutdownObserver is called during shutdown events.
@@ -83,11 +86,11 @@ type ShutdownObserver func(event ShutdownEvent)
 
 // ShutdownConfig holds shutdown configuration.
 type ShutdownConfig struct {
-	DrainTimeout      time.Duration
-	ShutdownTimeout   time.Duration
-	ForceAfterTimeout bool
+	DrainTimeout       time.Duration
+	ShutdownTimeout    time.Duration
+	ForceAfterTimeout  bool
 	TransferLeadership bool
-	WaitForJobs       bool
+	WaitForJobs        bool
 }
 
 // DefaultShutdownConfig returns default shutdown configuration.
@@ -115,7 +118,7 @@ type GracefulShutdown struct {
 	status    *ShutdownStatus
 	observers []ShutdownObserver
 
-	mu       sync.RWMutex
+	mu           sync.RWMutex
 	shutdownChan chan struct{}
 	doneChan     chan struct{}
 	inProgress   bool
@@ -278,16 +281,12 @@ func (g *GracefulShutdown) executeShutdown(ctx context.Context, reason ShutdownR
 	// Phase 4: Transfer leadership if we're leader
 	g.updatePhase(ShutdownPhaseTransferring, "transferring leadership")
 	if g.config.TransferLeadership && g.leader != nil && g.leader.IsLeader() {
-		if err = g.transferLeadership(ctx); err != nil {
-			// Leadership transfer failed, but continue
-		}
+		_ = g.transferLeadership(ctx) // best-effort, continue on failure
 	}
 
 	// Phase 5: Deregister from cluster
 	g.updatePhase(ShutdownPhaseDeregistering, "deregistering")
-	if err = g.deregister(ctx); err != nil {
-		// Log but continue
-	}
+	_ = g.deregister(ctx) // best-effort deregistration
 
 	// Complete
 	g.completeShutdown()
@@ -477,7 +476,7 @@ func (g *GracefulShutdown) deregister(ctx context.Context) error {
 // notifyCluster notifies other members of impending shutdown.
 func (g *GracefulShutdown) notifyCluster(ctx context.Context) {
 	// Update member status to leaving
-	g.membership.UpdateLocalMember(ctx, func(m *Member) {
+	_ = g.membership.UpdateLocalMember(ctx, func(m *Member) { //nolint:errcheck // best-effort notification
 		m.Status = MemberStatusLeaving
 	})
 }

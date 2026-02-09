@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 )
@@ -294,7 +293,6 @@ func newBenchMockProvider() *benchMockProvider {
 
 type benchMockProvider struct {
 	keys map[string][]byte
-	mu   sync.RWMutex
 }
 
 func (m *benchMockProvider) Type() ProviderType               { return "mock" }

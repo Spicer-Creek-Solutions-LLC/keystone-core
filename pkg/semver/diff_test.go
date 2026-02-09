@@ -6,11 +6,11 @@ import (
 
 func TestCompare(t *testing.T) {
 	tests := []struct {
-		name      string
-		from      string
-		to        string
-		wantType  ChangeType
-		wantDir   Direction
+		name     string
+		from     string
+		to       string
+		wantType ChangeType
+		wantDir  Direction
 	}{
 		// No change
 		{"no change", "1.0.0", "1.0.0", ChangeNone, DirectionNone},
@@ -155,10 +155,10 @@ func TestDiff_IsBugFix(t *testing.T) {
 
 func TestDiff_IsUpgradeDowngrade(t *testing.T) {
 	tests := []struct {
-		from        string
-		to          string
-		wantUp      bool
-		wantDown    bool
+		from     string
+		to       string
+		wantUp   bool
+		wantDown bool
 	}{
 		{"1.0.0", "2.0.0", true, false},
 		{"2.0.0", "1.0.0", false, true},

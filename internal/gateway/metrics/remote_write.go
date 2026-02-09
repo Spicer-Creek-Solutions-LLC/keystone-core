@@ -96,7 +96,7 @@ type WriteRequest struct {
 type RemoteWriter struct {
 	config RemoteWriteConfig
 	client *http.Client
-	store  *MetricsStore
+	store  *Store
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -117,7 +117,7 @@ type RemoteWriter struct {
 }
 
 // NewRemoteWriter creates a new remote writer.
-func NewRemoteWriter(store *MetricsStore, config RemoteWriteConfig) *RemoteWriter {
+func NewRemoteWriter(store *Store, config RemoteWriteConfig) *RemoteWriter {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RemoteWriter{
 		config: config,
@@ -243,8 +243,7 @@ func (w *RemoteWriter) convertToTimeSeries(families []*dto.MetricFamily) []TimeS
 }
 
 // getValueAndTimestamp extracts value and timestamp from a metric.
-func (w *RemoteWriter) getValueAndTimestamp(m *dto.Metric, metricType *dto.MetricType) (float64, int64) {
-	var value float64
+func (w *RemoteWriter) getValueAndTimestamp(m *dto.Metric, metricType *dto.MetricType) (value float64, timestamp int64) {
 	var ts int64
 
 	if m.TimestampMs != nil {
@@ -337,6 +336,7 @@ func (w *RemoteWriter) marshalSample(s *Sample) []byte {
 
 	// Field 2: int64 timestamp (wire type 0 = varint)
 	buf.WriteByte(0x10) // field 2, wire type 0
+	//nolint:gosec // G115: Unix timestamp in milliseconds is positive and fits in uint64
 	writeVarint(&buf, uint64(s.Timestamp))
 
 	return buf.Bytes()

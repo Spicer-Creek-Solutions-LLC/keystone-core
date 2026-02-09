@@ -23,6 +23,7 @@ var (
 // Level represents audit log severity.
 type Level string
 
+// Level constants define the audit log severity levels.
 const (
 	LevelInfo     Level = "info"
 	LevelWarning  Level = "warning"
@@ -32,6 +33,7 @@ const (
 // Category represents audit event category.
 type Category string
 
+// Category constants define the audit event categories.
 const (
 	CategoryAuth       Category = "authentication"
 	CategoryAuthz      Category = "authorization"
@@ -46,6 +48,7 @@ const (
 // Action represents the type of action performed.
 type Action string
 
+// Action constants define the types of actions that can be audited.
 const (
 	ActionCreate  Action = "create"
 	ActionRead    Action = "read"
@@ -63,6 +66,7 @@ const (
 // Outcome represents the result of an action.
 type Outcome string
 
+// Outcome constants define the possible results of an audited action.
 const (
 	OutcomeSuccess Outcome = "success"
 	OutcomeFailure Outcome = "failure"
@@ -493,7 +497,7 @@ func (l *Logger) flushLoop() {
 	for {
 		select {
 		case event := <-l.buffer:
-			l.writeEvent(event)
+			_ = l.writeEvent(event) //nolint:errcheck // best-effort async write
 		case <-ticker.C:
 			l.Flush()
 		case <-l.stopCh:
@@ -501,7 +505,7 @@ func (l *Logger) flushLoop() {
 			for {
 				select {
 				case event := <-l.buffer:
-					l.writeEvent(event)
+					_ = l.writeEvent(event) //nolint:errcheck // best-effort drain
 				default:
 					return
 				}
@@ -632,7 +636,8 @@ type FileWriter struct {
 
 // NewFileWriter creates a new file writer.
 func NewFileWriter(path string) (*FileWriter, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	//nolint:gosec // G302: Audit log files need to be readable for log analysis
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, err
 	}

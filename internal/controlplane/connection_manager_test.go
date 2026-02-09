@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -150,7 +150,7 @@ func TestConnectionManager_AgentRegistration(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := cm.GetAgent("test-agent-1")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		agent = loaded
 		return true, nil
@@ -227,7 +227,7 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := cm.GetAgent("test-agent-2")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		if loaded.LastMetrics == nil {
 			return false, nil
@@ -443,7 +443,7 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		agent, err := cm.GetAgent("test-agent-cmd")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		return agent.Status == pb.AgentStatus_AGENT_STATUS_ONLINE, nil
 	}); err != nil {
@@ -608,7 +608,7 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := cm.GetAgent("recovery-agent")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		if loaded.Status != pb.AgentStatus_AGENT_STATUS_ONLINE {
 			return false, nil

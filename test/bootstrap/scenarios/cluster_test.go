@@ -60,7 +60,7 @@ func TestProductionClusterDryRun(t *testing.T) {
 				}
 
 				label := fmt.Sprintf("production cluster dry-run node %d", i+1)
-				result := execBootstrap(t, ctx, env, args...)
+				result := execBootstrap(ctx, t, env, args...)
 				requireExecSuccess(t, result, label)
 				requireOutputContains(t, result.Stdout+result.Stderr, "bootstrap configuration validated", label)
 

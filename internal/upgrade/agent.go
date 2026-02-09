@@ -133,7 +133,7 @@ func (u *AgentUpgrader) upgradeBatch(ctx context.Context, batch []NodeInfo, targ
 	var batchFailed int
 	var mu sync.Mutex
 
-	for _, agent := range batch {
+	for i := range batch {
 		wg.Add(1)
 		go func(a NodeInfo) {
 			defer wg.Done()
@@ -159,7 +159,7 @@ func (u *AgentUpgrader) upgradeBatch(ctx context.Context, batch []NodeInfo, targ
 				u.completed++
 				mu.Unlock()
 			}
-		}(agent)
+		}(batch[i])
 	}
 
 	wg.Wait()
@@ -230,10 +230,6 @@ func (u *AgentUpgrader) waitForAgentHealth(ctx context.Context, agentID string, 
 			return true
 		}
 
-		select {
-		case <-ctx.Done():
-			return false
-		}
 		if err := wait.ForContext(ctx, 5*time.Second); err != nil {
 			return false
 		}
@@ -246,7 +242,8 @@ func (u *AgentUpgrader) waitForAgentHealth(ctx context.Context, agentID string, 
 func (u *AgentUpgrader) filterAgents(agents []NodeInfo) []NodeInfo {
 	var filtered []NodeInfo
 
-	for _, agent := range agents {
+	for i := range agents {
+		agent := &agents[i]
 		// Check include selectors
 		if len(u.config.Selectors) > 0 {
 			match := true
@@ -275,7 +272,7 @@ func (u *AgentUpgrader) filterAgents(agents []NodeInfo) []NodeInfo {
 			}
 		}
 
-		filtered = append(filtered, agent)
+		filtered = append(filtered, agents[i])
 	}
 
 	return filtered
@@ -377,7 +374,8 @@ func (u *AgentUpgrader) GetAgentVersionReport(ctx context.Context, targetVersion
 
 	targetVer, _ := ParseVersion(targetVersion)
 
-	for _, agent := range agents {
+	for i := range agents {
+		agent := &agents[i]
 		version := agent.Version.String()
 		report.VersionCounts[version]++
 		report.AgentsByVersion[version] = append(report.AgentsByVersion[version], agent.ID)
@@ -466,7 +464,7 @@ func (u *AgentUpgrader) UpgradeAgentsWithResult(ctx context.Context, targetVersi
 
 		batch := sorted[i:end]
 
-		for _, agent := range batch {
+		for j := range batch {
 			wg.Add(1)
 			go func(a NodeInfo) {
 				defer wg.Done()
@@ -487,7 +485,7 @@ func (u *AgentUpgrader) UpgradeAgentsWithResult(ctx context.Context, targetVersi
 					result.UpgradedAgentIDs = append(result.UpgradedAgentIDs, a.ID)
 					mu.Unlock()
 				}
-			}(agent)
+			}(batch[j])
 		}
 
 		wg.Wait()

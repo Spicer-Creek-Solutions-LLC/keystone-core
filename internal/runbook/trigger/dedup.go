@@ -146,12 +146,12 @@ type RateLimiter struct {
 
 // rateBucket tracks rate limit state for a trigger.
 type rateBucket struct {
-	mu         sync.Mutex
-	tokens     int
-	maxTokens  int
-	window     time.Duration
-	lastRefill time.Time
-	count      int64 // total requests within current window
+	mu          sync.Mutex
+	tokens      int
+	maxTokens   int
+	window      time.Duration
+	lastRefill  time.Time
+	count       int64 // total requests within current window
 	windowStart time.Time
 }
 

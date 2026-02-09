@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -12,6 +13,7 @@ import (
 // DriftSeverity indicates the severity level of drift
 type DriftSeverity string
 
+// DriftNone and related constants.
 const (
 	DriftNone     DriftSeverity = "none"
 	DriftLow      DriftSeverity = "low"
@@ -184,7 +186,7 @@ func (d *StateDiffer) checkStateDrift(decl *StateDeclaration) (*DriftStatus, err
 	}
 
 	// Check current state
-	checkResult, err := module.Check(nil, decl)
+	checkResult, err := module.Check(context.Background(), decl)
 	if err != nil {
 		return nil, fmt.Errorf("check failed: %w", err)
 	}
@@ -204,7 +206,7 @@ func (d *StateDiffer) checkStateDrift(decl *StateDeclaration) (*DriftStatus, err
 	}
 
 	// Parse differences from check result
-	if checkResult.Diff != nil && len(checkResult.Diff) > 0 {
+	if len(checkResult.Diff) > 0 {
 		status.Differences = d.parseDifferences(decl, checkResult.Diff)
 	}
 
@@ -476,6 +478,8 @@ func (d *StateDiffer) emitDriftEvent(runID string, status *DriftStatus) {
 		eventSeverity = events.SeverityWarning
 	case DriftLow:
 		eventSeverity = events.SeverityInfo
+	default:
+		// DriftNone uses default SeverityInfo
 	}
 
 	// Build differences data

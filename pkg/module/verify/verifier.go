@@ -1,6 +1,9 @@
+// Package verify provides module verification including hash validation,
+// cryptographic signatures, and trust policy enforcement.
 package verify
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -24,12 +27,12 @@ func NewModuleVerifier(opts *VerificationOptions) *ModuleVerifier {
 	if opts != nil {
 		for i, keyPEM := range opts.TrustedKeys {
 			identity := fmt.Sprintf("key-%d", i)
-			verifier.trustPolicy.AddTrustedKey(identity, []byte(keyPEM))
+			_ = verifier.trustPolicy.AddTrustedKey(identity, keyPEM) //nolint:errcheck // keys from options are valid
 		}
 
 		for _, keyID := range opts.TrustedKeyIDs {
 			if policy, ok := verifier.trustPolicy.(*DefaultTrustPolicy); ok {
-				policy.AddTrustedKeyID(keyID)
+				_ = policy.AddTrustedKeyID(keyID) //nolint:errcheck // key IDs from options are valid
 			}
 		}
 	}
@@ -89,7 +92,7 @@ func (v *ModuleVerifier) Verify(modulePath string, opts *VerificationOptions) (*
 				if publicKey, err := policy.GetPublicKey(trustedKeys[0]); err == nil {
 					valid, err := v.sigVerifier.VerifySignature(modulePath, signaturePath, publicKey)
 					if err != nil {
-						if err != ErrSignatureNotFound || opts.RequireSignature {
+						if !errors.Is(err, ErrSignatureNotFound) || opts.RequireSignature {
 							result.AddError(fmt.Errorf("signature verification failed: %w", err))
 						}
 						result.SignatureValid = false

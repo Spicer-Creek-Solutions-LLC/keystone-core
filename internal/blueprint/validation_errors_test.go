@@ -48,19 +48,19 @@ func TestValidationError_DetailedMessage(t *testing.T) {
 	}
 }
 
-func TestNewValidationErrors(t *testing.T) {
-	errs := NewValidationErrors()
+func TestNewBlueprintValidationError(t *testing.T) {
+	errs := NewBlueprintValidationError()
 
 	if errs.HasErrors() {
-		t.Error("New ValidationErrors should have no errors")
+		t.Error("New BlueprintValidationError should have no errors")
 	}
 	if errs.Count() != 0 {
 		t.Errorf("Count() = %d, want 0", errs.Count())
 	}
 }
 
-func TestValidationErrors_Add(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_Add(t *testing.T) {
+	errs := NewBlueprintValidationError()
 
 	err := &ValidationError{Parameter: "test", Kind: ErrorKindRequired}
 	errs.Add(err)
@@ -73,8 +73,8 @@ func TestValidationErrors_Add(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_AddError(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_AddError(t *testing.T) {
+	errs := NewBlueprintValidationError()
 
 	err := errs.AddError("name", ErrorKindRequired, "Name is required")
 
@@ -89,8 +89,8 @@ func TestValidationErrors_AddError(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_ByKind(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_ByKind(t *testing.T) {
+	errs := NewBlueprintValidationError()
 	errs.AddError("param1", ErrorKindRequired, "msg1")
 	errs.AddError("param2", ErrorKindType, "msg2")
 	errs.AddError("param3", ErrorKindRequired, "msg3")
@@ -106,8 +106,8 @@ func TestValidationErrors_ByKind(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_ByParameter(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_ByParameter(t *testing.T) {
+	errs := NewBlueprintValidationError()
 	errs.AddError("config.server.port", ErrorKindConstraint, "msg1")
 	errs.AddError("config.server.host", ErrorKindFormat, "msg2")
 	errs.AddError("config.database.url", ErrorKindRequired, "msg3")
@@ -123,8 +123,8 @@ func TestValidationErrors_ByParameter(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_Error(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_Error(t *testing.T) {
+	errs := NewBlueprintValidationError()
 
 	if errs.Error() != "no validation errors" {
 		t.Errorf("Empty errors Error() = %s", errs.Error())
@@ -141,8 +141,8 @@ func TestValidationErrors_Error(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_Format(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_Format(t *testing.T) {
+	errs := NewBlueprintValidationError()
 	errs.Add(&ValidationError{
 		Parameter:  "name",
 		Kind:       ErrorKindRequired,
@@ -173,8 +173,8 @@ func TestValidationErrors_Format(t *testing.T) {
 	}
 }
 
-func TestValidationErrors_FormatCompact(t *testing.T) {
-	errs := NewValidationErrors()
+func TestBlueprintValidationError_FormatCompact(t *testing.T) {
+	errs := NewBlueprintValidationError()
 
 	if errs.FormatCompact() != "OK" {
 		t.Error("Empty errors should format as 'OK'")

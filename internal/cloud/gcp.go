@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,6 +75,7 @@ func (d *GCPDetector) Detect() (*Metadata, error) {
 		if err := d.collectComputeEngineMetadata(metadata); err != nil {
 			return nil, fmt.Errorf("failed to collect Compute Engine metadata: %w", err)
 		}
+	default:
 	}
 
 	return metadata, nil
@@ -137,7 +139,8 @@ func (d *GCPDetector) isGKE() bool {
 
 // isComputeEngine checks if running on GCP Compute Engine
 func (d *GCPDetector) isComputeEngine() bool {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
+	// Use context.Background() since this is a simple detection call with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", gcpMetadataBaseURL, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return false
 	}
@@ -324,7 +327,8 @@ func (d *GCPDetector) collectCloudFunctionsMetadata(metadata *Metadata) error {
 
 // getMetadata gets a metadata value from GCP metadata service
 func (d *GCPDetector) getMetadata(path string) (string, error) {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL+path, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
+	// Use context.Background() since this is called from detection/collection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", gcpMetadataBaseURL+path, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return "", err
 	}
@@ -352,7 +356,8 @@ func (d *GCPDetector) getMetadata(path string) (string, error) {
 
 // getInstanceAttributes gets instance attributes (labels)
 func (d *GCPDetector) getInstanceAttributes() (map[string]string, error) {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL+"/instance/attributes/?recursive=true", nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
+	// Use context.Background() since this is called from detection/collection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", gcpMetadataBaseURL+"/instance/attributes/?recursive=true", http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return nil, err
 	}

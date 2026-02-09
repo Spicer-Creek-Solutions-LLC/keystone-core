@@ -62,7 +62,7 @@ func (m *Manager) Subscribe(subject string, handler EventHandler) (*Subscription
 }
 
 // SubscribeQueue subscribes with queue group (load-balanced)
-func (m *Manager) SubscribeQueue(subject string, queue string, handler EventHandler) (*Subscription, error) {
+func (m *Manager) SubscribeQueue(subject, queue string, handler EventHandler) (*Subscription, error) {
 	return m.subscriber.SubscribeQueue(subject, queue, handler)
 }
 

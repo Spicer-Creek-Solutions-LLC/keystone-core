@@ -7,8 +7,8 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-func TestUpgradeStateMachine_BasicWorkflow(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_BasicWorkflow(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// Initial state
 	if usm.Phase() != PhaseIdle {
@@ -69,8 +69,8 @@ func TestUpgradeStateMachine_BasicWorkflow(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_FailureAndRollback(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_FailureAndRollback(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// Progress to upgrading
 	usm.Fire(EventStart)
@@ -114,19 +114,19 @@ func TestUpgradeStateMachine_FailureAndRollback(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_Cancel(t *testing.T) {
+func TestStateMachine_Cancel(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupEvents []UpgradeEvent
+		setupEvents []Event
 	}{
-		{"cancel from pending", []UpgradeEvent{EventStart}},
-		{"cancel from validating", []UpgradeEvent{EventStart, EventValidate}},
-		{"cancel from preparing", []UpgradeEvent{EventStart, EventValidate, EventPrepareOk}},
+		{"cancel from pending", []Event{EventStart}},
+		{"cancel from validating", []Event{EventStart, EventValidate}},
+		{"cancel from preparing", []Event{EventStart, EventValidate, EventPrepareOk}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usm := NewUpgradeStateMachine(nil)
+			usm := NewStateMachine(nil)
 
 			for _, event := range tt.setupEvents {
 				usm.Fire(event)
@@ -149,8 +149,8 @@ func TestUpgradeStateMachine_Cancel(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_InvalidTransitions(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_InvalidTransitions(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// Can't go directly to upgrading from idle
 	err := usm.Fire(EventBeginUpgrade)
@@ -167,8 +167,8 @@ func TestUpgradeStateMachine_InvalidTransitions(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_CanFire(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_CanFire(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// From idle, can only start
 	if !usm.CanFire(EventStart) {
@@ -192,8 +192,8 @@ func TestUpgradeStateMachine_CanFire(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_AvailableEvents(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_AvailableEvents(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	events := usm.AvailableEvents()
 	if len(events) != 1 {
@@ -211,11 +211,11 @@ func TestUpgradeStateMachine_AvailableEvents(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_Progress(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_Progress(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	tests := []struct {
-		event    UpgradeEvent
+		event    Event
 		progress int
 	}{
 		{EventStart, 5},                // Pending
@@ -235,8 +235,8 @@ func TestUpgradeStateMachine_Progress(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_IsActive(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_IsActive(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// Not active in idle
 	if usm.IsActive() {
@@ -254,20 +254,20 @@ func TestUpgradeStateMachine_IsActive(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_IsTerminal(t *testing.T) {
+func TestStateMachine_IsTerminal(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(*UpgradeStateMachine)
+		setup    func(*StateMachine)
 		terminal bool
 	}{
 		{
 			"idle is not terminal",
-			func(usm *UpgradeStateMachine) {},
+			func(usm *StateMachine) {},
 			false,
 		},
 		{
 			"completed is terminal",
-			func(usm *UpgradeStateMachine) {
+			func(usm *StateMachine) {
 				usm.Fire(EventStart)
 				usm.Fire(EventValidate)
 				usm.Fire(EventPrepareOk)
@@ -279,7 +279,7 @@ func TestUpgradeStateMachine_IsTerminal(t *testing.T) {
 		},
 		{
 			"cancelled is terminal",
-			func(usm *UpgradeStateMachine) {
+			func(usm *StateMachine) {
 				usm.Fire(EventStart)
 				usm.Fire(EventCancel)
 			},
@@ -287,7 +287,7 @@ func TestUpgradeStateMachine_IsTerminal(t *testing.T) {
 		},
 		{
 			"rolled_back is terminal",
-			func(usm *UpgradeStateMachine) {
+			func(usm *StateMachine) {
 				usm.Fire(EventStart)
 				usm.Fire(EventValidate)
 				usm.Fire(EventValidationFailed)
@@ -300,7 +300,7 @@ func TestUpgradeStateMachine_IsTerminal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usm := NewUpgradeStateMachine(nil)
+			usm := NewStateMachine(nil)
 			tt.setup(usm)
 			if usm.IsTerminal() != tt.terminal {
 				t.Errorf("expected terminal=%v, got %v", tt.terminal, usm.IsTerminal())
@@ -309,18 +309,18 @@ func TestUpgradeStateMachine_IsTerminal(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_Callbacks(t *testing.T) {
-	var phaseChanges []struct{ from, to UpgradePhase }
+func TestStateMachine_Callbacks(t *testing.T) {
+	var phaseChanges []struct{ from, to Phase }
 
-	config := &UpgradeStateMachineConfig{
+	config := &StateMachineConfig{
 		Strategy: StrategyRolling,
-		OnPhaseChange: func(from, to UpgradePhase) {
-			phaseChanges = append(phaseChanges, struct{ from, to UpgradePhase }{from, to})
+		OnPhaseChange: func(from, to Phase) {
+			phaseChanges = append(phaseChanges, struct{ from, to Phase }{from, to})
 		},
 		HistorySize: 50,
 	}
 
-	usm := NewUpgradeStateMachine(config)
+	usm := NewStateMachine(config)
 
 	usm.Fire(EventStart)
 	usm.Fire(EventValidate)
@@ -339,13 +339,13 @@ func TestUpgradeStateMachine_Callbacks(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_History(t *testing.T) {
-	config := &UpgradeStateMachineConfig{
+func TestStateMachine_History(t *testing.T) {
+	config := &StateMachineConfig{
 		Strategy:    StrategyRolling,
 		HistorySize: 50,
 	}
 
-	usm := NewUpgradeStateMachine(config)
+	usm := NewStateMachine(config)
 
 	usm.Fire(EventStart)
 	usm.Fire(EventValidate)
@@ -362,8 +362,8 @@ func TestUpgradeStateMachine_History(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_ValidationFailure(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_ValidationFailure(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	usm.Fire(EventStart)
 	usm.Fire(EventValidate)
@@ -378,8 +378,8 @@ func TestUpgradeStateMachine_ValidationFailure(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateMachine_RollbackFailure(t *testing.T) {
-	usm := NewUpgradeStateMachine(nil)
+func TestStateMachine_RollbackFailure(t *testing.T) {
+	usm := NewStateMachine(nil)
 
 	// Progress to failed state
 	usm.Fire(EventStart)
@@ -404,8 +404,8 @@ func TestUpgradeStateMachine_RollbackFailure(t *testing.T) {
 
 func TestPhaseToStatus(t *testing.T) {
 	tests := []struct {
-		phase  UpgradePhase
-		status UpgradeStatus
+		phase  Phase
+		status Status
 	}{
 		{PhaseIdle, StatusPending},
 		{PhasePending, StatusPending},
@@ -431,7 +431,7 @@ func TestPhaseToStatus(t *testing.T) {
 
 func TestPhaseDisplayName(t *testing.T) {
 	tests := []struct {
-		phase   UpgradePhase
+		phase   Phase
 		display string
 	}{
 		{PhaseIdle, "Idle"},

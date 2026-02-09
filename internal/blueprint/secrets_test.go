@@ -308,7 +308,7 @@ func TestSecretParameterProcessor(t *testing.T) {
 
 func TestCollectSecretReferences(t *testing.T) {
 	params := map[string]interface{}{
-		"normal": "value",
+		"normal":  "value",
 		"secret1": "!secret database/password",
 		"nested": map[string]interface{}{
 			"secret2": "!secret api/key",

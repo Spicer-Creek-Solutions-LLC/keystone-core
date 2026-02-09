@@ -2,6 +2,7 @@ package cardinality
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -85,7 +86,7 @@ func TestLimiter_StrategyDrop(t *testing.T) {
 
 	// Next should be dropped
 	err := limiter.Record(ctx, "test_metric", Labels{"id": "new"})
-	if err != ErrMetricDropped {
+	if !errors.Is(err, ErrMetricDropped) {
 		t.Errorf("Expected ErrMetricDropped, got %v", err)
 	}
 
@@ -218,7 +219,7 @@ func TestLimiter_WarnThreshold(t *testing.T) {
 	var warnings int
 	var mu sync.Mutex
 
-	limiter.AddListener(func(event *CardinalityEvent) {
+	limiter.AddListener(func(event *Event) {
 		if event.Type == "warning" {
 			mu.Lock()
 			warnings++
@@ -332,7 +333,7 @@ func TestLimiter_SetMetricLimit(t *testing.T) {
 
 	// This should be dropped
 	err := limiter.Record(ctx, "test_metric", Labels{"c": "3"})
-	if err != ErrMetricDropped {
+	if !errors.Is(err, ErrMetricDropped) {
 		t.Error("Expected metric to be dropped after custom limit")
 	}
 }
@@ -378,10 +379,10 @@ func TestLimiter_Events(t *testing.T) {
 	limiter := NewLimiter(config)
 	defer limiter.Stop()
 
-	var events []*CardinalityEvent
+	var events []*Event
 	var mu sync.Mutex
 
-	limiter.AddListener(func(event *CardinalityEvent) {
+	limiter.AddListener(func(event *Event) {
 		mu.Lock()
 		events = append(events, event)
 		mu.Unlock()

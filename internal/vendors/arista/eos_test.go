@@ -1,6 +1,7 @@
 package arista
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -250,7 +251,7 @@ func TestNewEOSAdapterFactory(t *testing.T) {
 func TestEOSAdapterDisconnect(t *testing.T) {
 	adapter := NewEOSAdapter(nil)
 
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -260,7 +261,7 @@ func TestEOSAdapterHealthCheckNotConnected(t *testing.T) {
 	adapter := NewEOSAdapter(nil)
 
 	// For SSH mode with no connection
-	result, err := adapter.HealthCheck(nil)
+	result, err := adapter.HealthCheck(context.Background())
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}
@@ -295,7 +296,7 @@ func TestEOSConfigStructure(t *testing.T) {
 func TestEOSAdapterRunCommandNilShell(t *testing.T) {
 	adapter := NewEOSAdapter(nil)
 
-	_, err := adapter.runCommand(nil, "show version")
+	_, err := adapter.runCommand(context.Background(), "show version")
 	if err == nil {
 		t.Error("expected error when shell is nil")
 	}
@@ -309,7 +310,7 @@ func TestEOSEnterEnableAlreadyInEnable(t *testing.T) {
 	adapter.inEnable = true
 
 	// Should succeed when already in enable mode
-	err := adapter.enterEnable(nil)
+	err := adapter.enterEnable(context.Background())
 	if err != nil {
 		t.Errorf("enterEnable() error = %v, want nil", err)
 	}
@@ -319,7 +320,7 @@ func TestEOSExitConfigNotInConfig(t *testing.T) {
 	adapter := NewEOSAdapter(nil)
 	adapter.inConfig = false
 
-	err := adapter.exitConfig(nil)
+	err := adapter.exitConfig(context.Background())
 	if err != nil {
 		t.Errorf("exitConfig() error = %v", err)
 	}

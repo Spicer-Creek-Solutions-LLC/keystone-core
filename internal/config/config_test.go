@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -708,7 +709,7 @@ func TestConfig_Validate_AuthConfig(t *testing.T) {
 			},
 			TLS: TLSConfig{
 				Enabled: true,
-				CAFile:  "/etc/kscore/ca.crt",
+				CAFile:  "/etc/keystone-core/ca.crt",
 			},
 		}
 	}
@@ -765,7 +766,7 @@ func TestConfig_Validate_AuthConfig(t *testing.T) {
 				cfg.Auth.Enabled = true
 				cfg.Auth.Type = "jwt"
 				cfg.Auth.JWT.Secret = "secret"
-				cfg.Auth.JWT.PublicKeyFile = "/etc/kscore/jwt.pub"
+				cfg.Auth.JWT.PublicKeyFile = "/etc/keystone-core/jwt.pub"
 			},
 			errContains: "mutually exclusive",
 		},
@@ -1395,8 +1396,8 @@ func TestNATSConfig_Validate_ErrorMessages(t *testing.T) {
 				t.Fatal("expected validation error, got nil")
 			}
 
-			natsErr, ok := err.(*NATSConfigError)
-			if !ok {
+			var natsErr *NATSConfigError
+			if !errors.As(err, &natsErr) {
 				t.Fatalf("expected *NATSConfigError, got %T", err)
 			}
 

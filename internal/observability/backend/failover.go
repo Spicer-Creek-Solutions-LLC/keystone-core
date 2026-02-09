@@ -90,8 +90,8 @@ type QueueItem struct {
 	Retries   int
 }
 
-// BackendState tracks the state of a backend.
-type BackendState struct {
+// State tracks the state of a backend.
+type State struct {
 	Backend         Backend
 	Healthy         bool
 	ConsecFailures  int
@@ -121,7 +121,7 @@ type Listener func(*FailoverEvent)
 // Manager manages backend failover and queuing.
 type Manager struct {
 	config    *Config
-	backends  []*BackendState
+	backends  []*State
 	queue     chan *QueueItem
 	listeners []Listener
 	primary   int
@@ -138,9 +138,9 @@ func NewManager(config *Config, backends ...Backend) *Manager {
 		config = DefaultConfig()
 	}
 
-	states := make([]*BackendState, len(backends))
+	states := make([]*State, len(backends))
 	for i, b := range backends {
-		states[i] = &BackendState{
+		states[i] = &State{
 			Backend: b,
 			Healthy: true,
 		}
@@ -194,7 +194,7 @@ func (m *Manager) WriteSync(ctx context.Context, data []byte) error {
 	return m.writeToBackend(ctx, backend, data)
 }
 
-func (m *Manager) selectBackend() *BackendState {
+func (m *Manager) selectBackend() *State {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -214,7 +214,7 @@ func (m *Manager) selectBackend() *BackendState {
 	}
 }
 
-func (m *Manager) selectPrimary() *BackendState {
+func (m *Manager) selectPrimary() *State {
 	// Try primary first
 	if m.primary < len(m.backends) {
 		state := m.backends[m.primary]
@@ -239,7 +239,7 @@ func (m *Manager) selectPrimary() *BackendState {
 	return nil
 }
 
-func (m *Manager) selectRoundRobin() *BackendState {
+func (m *Manager) selectRoundRobin() *State {
 	n := len(m.backends)
 	for i := 0; i < n; i++ {
 		idx := int(atomic.AddInt64(&m.current, 1)-1) % n
@@ -254,8 +254,8 @@ func (m *Manager) selectRoundRobin() *BackendState {
 	return nil
 }
 
-func (m *Manager) selectLeastLatency() *BackendState {
-	var best *BackendState
+func (m *Manager) selectLeastLatency() *State {
+	var best *State
 	var bestLatency time.Duration
 
 	for _, state := range m.backends {
@@ -277,7 +277,7 @@ func (m *Manager) selectLeastLatency() *BackendState {
 	return best
 }
 
-func (m *Manager) writeToBackend(ctx context.Context, state *BackendState, data []byte) error {
+func (m *Manager) writeToBackend(ctx context.Context, state *State, data []byte) error {
 	// Apply timeout
 	writeCtx, cancel := context.WithTimeout(ctx, m.config.WriteTimeout)
 	defer cancel()
@@ -376,6 +376,7 @@ func (m *Manager) processItem(item *QueueItem) {
 		item.Retries++
 
 		// Exponential backoff
+		//nolint:gosec // G115: item.Retries is bounded by MaxRetries config, fits in uint
 		backoff := m.config.RetryInterval * time.Duration(1<<uint(item.Retries-1))
 		if backoff > time.Minute {
 			backoff = time.Minute
@@ -467,14 +468,14 @@ func (m *Manager) Stats() *ManagerStats {
 	stats := &ManagerStats{
 		QueueSize:  len(m.queue),
 		QueueCap:   cap(m.queue),
-		Backends:   make([]*BackendStats, len(m.backends)),
+		Backends:   make([]*Stats, len(m.backends)),
 		Strategy:   m.config.Strategy,
 		PrimaryIdx: m.primary,
 	}
 
 	for i, state := range m.backends {
 		state.mu.RLock()
-		stats.Backends[i] = &BackendStats{
+		stats.Backends[i] = &Stats{
 			Name:           state.Backend.Name(),
 			Healthy:        state.Healthy,
 			TotalWrites:    state.TotalWrites,
@@ -493,13 +494,13 @@ func (m *Manager) Stats() *ManagerStats {
 type ManagerStats struct {
 	QueueSize  int
 	QueueCap   int
-	Backends   []*BackendStats
+	Backends   []*Stats
 	Strategy   FailoverStrategy
 	PrimaryIdx int
 }
 
-// BackendStats holds backend statistics.
-type BackendStats struct {
+// Stats holds backend statistics.
+type Stats struct {
 	Name           string
 	Healthy        bool
 	TotalWrites    int64

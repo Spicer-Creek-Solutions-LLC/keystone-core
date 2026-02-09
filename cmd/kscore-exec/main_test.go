@@ -86,7 +86,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check that global flags exist
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag to exist")
+		t.Fatal("expected --server flag to exist")
 	}
 	if serverFlag.DefValue != "localhost:50051" {
 		t.Errorf("expected server default to be localhost:50051, got %s", serverFlag.DefValue)
@@ -99,7 +99,7 @@ func TestGlobalFlags(t *testing.T) {
 
 	auditLevelFlag := cmd.PersistentFlags().Lookup("audit-level")
 	if auditLevelFlag == nil {
-		t.Error("expected --audit-level flag to exist")
+		t.Fatal("expected --audit-level flag to exist")
 	}
 	if auditLevelFlag.DefValue != "all" {
 		t.Errorf("expected audit-level default to be 'all', got %s", auditLevelFlag.DefValue)
@@ -177,7 +177,7 @@ func TestListCommandFlags(t *testing.T) {
 
 	pageSizeFlag := listCmd.Flags().Lookup("page-size")
 	if pageSizeFlag == nil {
-		t.Error("expected --page-size flag on list command")
+		t.Fatal("expected --page-size flag on list command")
 	}
 	if pageSizeFlag.DefValue != "20" {
 		t.Errorf("expected page-size default to be 20, got %s", pageSizeFlag.DefValue)

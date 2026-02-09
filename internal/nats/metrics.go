@@ -42,21 +42,21 @@ type EndpointMetrics struct {
 	Reconnections       atomic.Int64
 
 	// Circuit breaker
-	CircuitOpenCount    atomic.Int64
-	CircuitCloseCount   atomic.Int64
+	CircuitOpenCount     atomic.Int64
+	CircuitCloseCount    atomic.Int64
 	CircuitCurrentlyOpen atomic.Bool
 
 	// Health checks
-	HealthCheckCount    atomic.Int64
+	HealthCheckCount     atomic.Int64
 	HealthCheckSuccesses atomic.Int64
-	HealthCheckFailures atomic.Int64
+	HealthCheckFailures  atomic.Int64
 
 	// Latency tracking
-	TotalLatency         atomic.Int64 // nanoseconds
-	LatencyCount         atomic.Int64
-	MinLatency           atomic.Int64 // nanoseconds
-	MaxLatency           atomic.Int64 // nanoseconds
-	latencyBuckets       [8]atomic.Int64 // Histogram buckets
+	TotalLatency   atomic.Int64 // nanoseconds
+	LatencyCount   atomic.Int64
+	MinLatency     atomic.Int64    // nanoseconds
+	MaxLatency     atomic.Int64    // nanoseconds
+	latencyBuckets [8]atomic.Int64 // Histogram buckets
 
 	// Messages
 	MessagesPublished atomic.Int64
@@ -65,10 +65,10 @@ type EndpointMetrics struct {
 	BytesReceived     atomic.Int64
 
 	// Errors
-	LastError      error
-	LastErrorTime  time.Time
-	ErrorCount     atomic.Int64
-	errorMu        sync.RWMutex
+	LastError     error
+	LastErrorTime time.Time
+	ErrorCount    atomic.Int64
+	errorMu       sync.RWMutex
 }
 
 // LatencyBuckets defines the latency histogram bucket boundaries (in ms)
@@ -344,10 +344,10 @@ func (em *EndpointMetrics) LatencyHistogram() []int64 {
 }
 
 // GetLastError returns the last error and when it occurred
-func (em *EndpointMetrics) GetLastError() (error, time.Time) {
+func (em *EndpointMetrics) GetLastError() (time.Time, error) {
 	em.errorMu.RLock()
 	defer em.errorMu.RUnlock()
-	return em.LastError, em.LastErrorTime
+	return em.LastErrorTime, em.LastError
 }
 
 // SuccessRate returns the connection success rate
@@ -370,7 +370,7 @@ func (em *EndpointMetrics) HealthCheckSuccessRate() float64 {
 
 // Summary returns a summary of endpoint metrics
 func (em *EndpointMetrics) Summary() EndpointMetricsSummary {
-	lastErr, lastErrTime := em.GetLastError()
+	lastErrTime, lastErr := em.GetLastError()
 	return EndpointMetricsSummary{
 		Address:              em.Address,
 		ConnectionAttempts:   em.ConnectionAttempts.Load(),
@@ -450,13 +450,13 @@ func MetricsCollectorCallbacks(metrics *ConnectionMetrics) ConnectionCallbacks {
 	}
 }
 
-// NATSStatsCollector collects metrics from NATS connection stats
-type NATSStatsCollector struct {
+// StatsCollector collects metrics from NATS connection stats
+type StatsCollector struct {
 	metrics   *ConnectionMetrics
 	conn      ConnectionProvider
 	address   string
 	mu        sync.Mutex
-	lastStats NATSStats
+	lastStats Stats
 }
 
 // ConnectionProvider provides access to a NATS connection
@@ -465,8 +465,8 @@ type ConnectionProvider interface {
 	ActiveEndpoint() *Endpoint
 }
 
-// NATSStats holds a snapshot of NATS statistics
-type NATSStats struct {
+// Stats holds a snapshot of NATS statistics
+type Stats struct {
 	InMsgs     uint64
 	OutMsgs    uint64
 	InBytes    uint64
@@ -474,9 +474,9 @@ type NATSStats struct {
 	Reconnects uint64
 }
 
-// NewNATSStatsCollector creates a collector that updates metrics from NATS stats
-func NewNATSStatsCollector(metrics *ConnectionMetrics, conn ConnectionProvider, address string) *NATSStatsCollector {
-	return &NATSStatsCollector{
+// NewStatsCollector creates a collector that updates metrics from NATS stats
+func NewStatsCollector(metrics *ConnectionMetrics, conn ConnectionProvider, address string) *StatsCollector {
+	return &StatsCollector{
 		metrics: metrics,
 		conn:    conn,
 		address: address,
@@ -484,14 +484,14 @@ func NewNATSStatsCollector(metrics *ConnectionMetrics, conn ConnectionProvider, 
 }
 
 // Collect collects current NATS statistics
-func (c *NATSStatsCollector) Collect() {
+func (c *StatsCollector) Collect() {
 	conn := c.conn.Connection()
 	if conn == nil {
 		return
 	}
 
 	stats := conn.Stats()
-	current := NATSStats{
+	current := Stats{
 		InMsgs:     stats.InMsgs,
 		OutMsgs:    stats.OutMsgs,
 		InBytes:    stats.InBytes,
@@ -512,24 +512,24 @@ func (c *NATSStatsCollector) Collect() {
 
 	// Add deltas to endpoint metrics
 	if current.InMsgs >= c.lastStats.InMsgs {
-		em.MessagesReceived.Add(int64(current.InMsgs - c.lastStats.InMsgs))
+		em.MessagesReceived.Add(int64(current.InMsgs - c.lastStats.InMsgs)) //nolint:gosec // G115: bounded delta
 	}
 	if current.OutMsgs >= c.lastStats.OutMsgs {
-		em.MessagesPublished.Add(int64(current.OutMsgs - c.lastStats.OutMsgs))
+		em.MessagesPublished.Add(int64(current.OutMsgs - c.lastStats.OutMsgs)) //nolint:gosec // G115: bounded delta
 	}
 	if current.InBytes >= c.lastStats.InBytes {
-		em.BytesReceived.Add(int64(current.InBytes - c.lastStats.InBytes))
+		em.BytesReceived.Add(int64(current.InBytes - c.lastStats.InBytes)) //nolint:gosec // G115: bounded delta
 	}
 	if current.OutBytes >= c.lastStats.OutBytes {
-		em.BytesSent.Add(int64(current.OutBytes - c.lastStats.OutBytes))
+		em.BytesSent.Add(int64(current.OutBytes - c.lastStats.OutBytes)) //nolint:gosec // G115: bounded delta
 	}
 
 	c.lastStats = current
 }
 
 // Reset resets the last stats baseline
-func (c *NATSStatsCollector) Reset() {
+func (c *StatsCollector) Reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.lastStats = NATSStats{}
+	c.lastStats = Stats{}
 }

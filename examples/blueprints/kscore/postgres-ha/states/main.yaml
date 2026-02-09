@@ -7,12 +7,12 @@ states:
   postgres_config_dir:
     module: file
     state: directory
-    name: /etc/kscore
+    name: /etc/keystone-core
 
   postgres_config_file:
     module: file
     state: managed
-    name: /etc/kscore/postgres-ha.yaml
+    name: /etc/keystone-core/postgres-ha.yaml
     contents: |
       postgres:
         primary_host: "{{ .primary_host }}"

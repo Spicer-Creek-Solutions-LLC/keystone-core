@@ -64,7 +64,7 @@ func TestAPIHandler_ListMirrors(t *testing.T) {
 	handler := NewAPIHandler(registry, syncEngine)
 
 	// Add a test group
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -85,7 +85,7 @@ func TestAPIHandler_ListMirrors(t *testing.T) {
 		t.Fatalf("got status %d, want %d", rr.Code, http.StatusOK)
 	}
 
-	var response []*MirrorGroupResponse
+	var response []*GroupResponse
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestAPIHandler_GetMirror(t *testing.T) {
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
 	handler := NewAPIHandler(registry, syncEngine)
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -127,7 +127,7 @@ func TestAPIHandler_GetMirror(t *testing.T) {
 		t.Fatalf("got status %d, want %d", rr.Code, http.StatusOK)
 	}
 
-	var response MirrorGroupResponse
+	var response GroupResponse
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestAPIHandler_DeleteMirror(t *testing.T) {
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
 	handler := NewAPIHandler(registry, syncEngine)
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -194,7 +194,7 @@ func TestAPIHandler_Health(t *testing.T) {
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
 	handler := NewAPIHandler(registry, syncEngine)
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -204,7 +204,7 @@ func TestAPIHandler_Health(t *testing.T) {
 		WritePolicy:  WritePolicyAll,
 	})
 	registry.Register(group)
-	group.UpdateHealth("mirror-1", MirrorStateHealthy, 10*time.Millisecond, nil)
+	group.UpdateHealth("mirror-1", StateHealthy, 10*time.Millisecond, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/mirrors/health", nil)
 	rr := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestAPIHandler_SyncTrigger(t *testing.T) {
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
 	handler := NewAPIHandler(registry, syncEngine)
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -272,7 +272,7 @@ func TestAPIHandler_SyncStatus(t *testing.T) {
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
 	handler := NewAPIHandler(registry, syncEngine)
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -354,8 +354,8 @@ func TestAPIHandler_MethodNotAllowed(t *testing.T) {
 
 func TestHealthToResponse(t *testing.T) {
 	now := time.Now()
-	h := &MirrorHealth{
-		State:            MirrorStateHealthy,
+	h := &Health{
+		State:            StateHealthy,
 		LastCheck:        now,
 		ConsecutiveFails: 0,
 		AvgLatency:       50 * time.Millisecond,
@@ -366,7 +366,7 @@ func TestHealthToResponse(t *testing.T) {
 		t.Fatal("healthToResponse returned nil")
 	}
 
-	if response.State != MirrorStateHealthy {
+	if response.State != StateHealthy {
 		t.Errorf("got state %s, want healthy", response.State)
 	}
 	if response.AvgLatencyMs != 50 {

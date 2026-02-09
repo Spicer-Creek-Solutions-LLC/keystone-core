@@ -1,3 +1,4 @@
+// Package output provides output formatting utilities for CLI commands.
 package output
 
 import (
@@ -14,6 +15,7 @@ import (
 // Format represents supported output formats.
 type Format string
 
+// FormatText constants define the output formats.
 const (
 	FormatText  Format = "text"
 	FormatJSON  Format = "json"

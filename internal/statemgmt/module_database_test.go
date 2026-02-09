@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 )
@@ -37,7 +38,7 @@ func TestPostgresDatabaseModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -59,7 +60,7 @@ func TestPostgresDatabaseModule_Check_NoPsql(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected psql not available error")
 	}
@@ -92,7 +93,7 @@ func TestPostgresUserModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestPostgresUserModule_Check_NoPsql(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected psql not available error")
 	}
@@ -148,7 +149,7 @@ func TestPostgresExtensionModule_Check_MissingName(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestPostgresExtensionModule_Check_MissingDatabase(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "database parameter is required" {
 		t.Errorf("expected database required error, got: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestMySQLDatabaseModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestMySQLDatabaseModule_Check_NoMysql(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected mysql not available error")
 	}
@@ -252,7 +253,7 @@ func TestMySQLUserModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -335,7 +336,7 @@ func TestRedisModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required (config key or user)" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -357,7 +358,7 @@ func TestRedisModule_Check_NoRedisCli(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected redis-cli not available error")
 	}
@@ -452,7 +453,7 @@ func TestEscapeMySQLIdentifier(t *testing.T) {
 
 func TestPostgresDatabaseModule_Integration(t *testing.T) {
 	// Check if psql is available
-	cmd := exec.Command("psql", "--version")
+	cmd := exec.CommandContext(context.Background(),"psql", "--version")
 	if err := cmd.Run(); err != nil {
 		t.Skip("psql is not available")
 	}
@@ -467,7 +468,7 @@ func TestPostgresDatabaseModule_Integration(t *testing.T) {
 
 func TestMySQLDatabaseModule_Integration(t *testing.T) {
 	// Check if mysql is available
-	cmd := exec.Command("mysql", "--version")
+	cmd := exec.CommandContext(context.Background(),"mysql", "--version")
 	if err := cmd.Run(); err != nil {
 		t.Skip("mysql is not available")
 	}
@@ -482,7 +483,7 @@ func TestMySQLDatabaseModule_Integration(t *testing.T) {
 
 func TestRedisModule_Integration(t *testing.T) {
 	// Check if redis-cli is available
-	cmd := exec.Command("redis-cli", "--version")
+	cmd := exec.CommandContext(context.Background(),"redis-cli", "--version")
 	if err := cmd.Run(); err != nil {
 		t.Skip("redis-cli is not available")
 	}

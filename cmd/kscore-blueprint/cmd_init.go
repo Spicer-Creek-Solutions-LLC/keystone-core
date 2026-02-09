@@ -83,12 +83,12 @@ func initExecute(cmd *cobra.Command, args []string) error {
 
 	// Validate name characters
 	for _, r := range name {
-		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '_' {
 			return fmt.Errorf("blueprint name must contain only lowercase letters, numbers, hyphens, and underscores")
 		}
 	}
 	for _, r := range vendor {
-		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '_' {
 			return fmt.Errorf("vendor name must contain only lowercase letters, numbers, hyphens, and underscores")
 		}
 	}
@@ -118,7 +118,8 @@ func initExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: blueprint directory needs to be accessible by users
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -154,10 +155,12 @@ func initExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create .gitkeep files
-	if err := os.WriteFile(filepath.Join(outputDir, "templates", ".gitkeep"), []byte(""), 0644); err != nil {
+	//nolint:gosec // G306: gitkeep files need to be readable for version control
+	if err := os.WriteFile(filepath.Join(outputDir, "templates", ".gitkeep"), []byte(""), 0o644); err != nil {
 		return fmt.Errorf("failed to create templates/.gitkeep: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(outputDir, "files", ".gitkeep"), []byte(""), 0644); err != nil {
+	//nolint:gosec // G306: gitkeep files need to be readable for version control
+	if err := os.WriteFile(filepath.Join(outputDir, "files", ".gitkeep"), []byte(""), 0o644); err != nil {
 		return fmt.Errorf("failed to create files/.gitkeep: %w", err)
 	}
 
@@ -204,7 +207,7 @@ func createBlueprintManifest(fullName, vendor, name, outputDir string) error {
 	}
 
 	manifest := fmt.Sprintf(`# Blueprint manifest for %s
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -299,7 +302,8 @@ outputs:
 #     - states/post_apply.yaml
 `, fullName, name, description, maintainers, initLicense, keywords, initCategory)
 
-	return os.WriteFile(filepath.Join(outputDir, "blueprint.yaml"), []byte(manifest), 0644)
+	//nolint:gosec // G306: blueprint manifest needs to be readable by operators and tools
+	return os.WriteFile(filepath.Join(outputDir, "blueprint.yaml"), []byte(manifest), 0o644)
 }
 
 func createReadme(fullName, name, outputDir string) error {
@@ -395,7 +399,8 @@ kscorectl blueprint test .
 		"`", "`", "`", "`", "`", "`",
 		initLicense)
 
-	return os.WriteFile(filepath.Join(outputDir, "README.md"), []byte(readme), 0644)
+	//nolint:gosec // G306: README needs to be readable by users
+	return os.WriteFile(filepath.Join(outputDir, "README.md"), []byte(readme), 0o644)
 }
 
 func createChangelog(name, outputDir string) error {
@@ -416,7 +421,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic %s functionality
 `, date, name)
 
-	return os.WriteFile(filepath.Join(outputDir, "CHANGELOG.md"), []byte(changelog), 0644)
+	//nolint:gosec // G306: CHANGELOG needs to be readable by users
+	return os.WriteFile(filepath.Join(outputDir, "CHANGELOG.md"), []byte(changelog), 0o644)
 }
 
 func createLicense(outputDir string) error {
@@ -505,7 +511,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 `, year, author)
 	}
 
-	return os.WriteFile(filepath.Join(outputDir, "LICENSE"), []byte(licenseText), 0644)
+	//nolint:gosec // G306: LICENSE needs to be readable by users
+	return os.WriteFile(filepath.Join(outputDir, "LICENSE"), []byte(licenseText), 0o644)
 }
 
 func createInitState(name, outputDir string) error {
@@ -524,7 +531,7 @@ states:
     params:
       path: "/etc/{{ .params.app_name }}"
       state: directory
-      mode: "0755"
+      mode: "0o755"
 
   # Example: Deploy configuration file from template
   - id: config_file
@@ -532,7 +539,7 @@ states:
     params:
       path: "/etc/{{ .params.app_name }}/config.yaml"
       state: present
-      mode: "0644"
+      mode: "0o644"
       contents: |
         # Configuration for {{ .params.app_name }}
         environment: {{ .params.environment }}
@@ -544,7 +551,8 @@ states:
   # See: https://docs.keystone-core.io/docs/reference/modules/
 `, name, name)
 
-	return os.WriteFile(filepath.Join(outputDir, "states", "init.yaml"), []byte(state), 0644)
+	//nolint:gosec // G306: state files need to be readable by the state executor
+	return os.WriteFile(filepath.Join(outputDir, "states", "init.yaml"), []byte(state), 0o644)
 }
 
 func createDefaultVars(outputDir string) error {
@@ -565,7 +573,8 @@ config:
 #     config_dir: /usr/local/etc
 `
 
-	return os.WriteFile(filepath.Join(outputDir, "vars", "defaults.yaml"), []byte(vars), 0644)
+	//nolint:gosec // G306: vars files need to be readable by operators and tools
+	return os.WriteFile(filepath.Join(outputDir, "vars", "defaults.yaml"), []byte(vars), 0o644)
 }
 
 func createBasicTest(name, outputDir string) error {
@@ -609,5 +618,6 @@ cleanup:
     recursive: true
 `, name)
 
-	return os.WriteFile(filepath.Join(outputDir, "tests", "test_basic.yaml"), []byte(test), 0644)
+	//nolint:gosec // G306: test files need to be readable by the test runner
+	return os.WriteFile(filepath.Join(outputDir, "tests", "test_basic.yaml"), []byte(test), 0o644)
 }

@@ -77,16 +77,16 @@ func createTestTrustBundle(t *testing.T, trustDomain string) *identity.TrustBund
 
 // Type tests
 
-func TestFederationState(t *testing.T) {
+func TestState(t *testing.T) {
 	tests := []struct {
-		state    FederationState
+		state    State
 		expected string
 	}{
-		{FederationStatePending, "pending"},
-		{FederationStateActive, "active"},
-		{FederationStateSuspended, "suspended"},
-		{FederationStateRevoked, "revoked"},
-		{FederationStateExpired, "expired"},
+		{StatePending, "pending"},
+		{StateActive, "active"},
+		{StateSuspended, "suspended"},
+		{StateRevoked, "revoked"},
+		{StateExpired, "expired"},
 	}
 
 	for _, tt := range tests {
@@ -128,7 +128,7 @@ func TestFederatedDomain_IsExpired(t *testing.T) {
 func TestFederatedDomain_IsActive(t *testing.T) {
 	t.Run("active_not_expired", func(t *testing.T) {
 		domain := &FederatedDomain{
-			State:     FederationStateActive,
+			State:     StateActive,
 			ExpiresAt: time.Now().Add(time.Hour),
 		}
 		if !domain.IsActive() {
@@ -138,7 +138,7 @@ func TestFederatedDomain_IsActive(t *testing.T) {
 
 	t.Run("active_expired", func(t *testing.T) {
 		domain := &FederatedDomain{
-			State:     FederationStateActive,
+			State:     StateActive,
 			ExpiresAt: time.Now().Add(-time.Hour),
 		}
 		if domain.IsActive() {
@@ -148,7 +148,7 @@ func TestFederatedDomain_IsActive(t *testing.T) {
 
 	t.Run("pending", func(t *testing.T) {
 		domain := &FederatedDomain{
-			State: FederationStatePending,
+			State: StatePending,
 		}
 		if domain.IsActive() {
 			t.Error("expected not active when pending")
@@ -156,8 +156,8 @@ func TestFederatedDomain_IsActive(t *testing.T) {
 	})
 }
 
-func TestDefaultFederationConfig(t *testing.T) {
-	config := DefaultFederationConfig("test.local")
+func TestDefaultConfig(t *testing.T) {
+	config := DefaultConfig("test.local")
 
 	if config.LocalTrustDomain != "test.local" {
 		t.Errorf("expected trust domain test.local, got %s", config.LocalTrustDomain)
@@ -184,14 +184,14 @@ func TestNewManager(t *testing.T) {
 	})
 
 	t.Run("missing_trust_domain", func(t *testing.T) {
-		_, err := NewManager(&FederationConfig{})
+		_, err := NewManager(&Config{})
 		if err == nil {
 			t.Error("expected error for missing trust domain")
 		}
 	})
 
 	t.Run("valid_config", func(t *testing.T) {
-		config := DefaultFederationConfig("test.local")
+		config := DefaultConfig("test.local")
 		manager, err := NewManager(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -203,7 +203,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestManager_AddFederatedDomain(t *testing.T) {
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
 
@@ -212,7 +212,7 @@ func TestManager_AddFederatedDomain(t *testing.T) {
 	t.Run("add_valid_domain", func(t *testing.T) {
 		domain := &FederatedDomain{
 			TrustDomain: "federated.domain",
-			Type:        FederationTypeBidirectional,
+			Type:        TypeBidirectional,
 			TrustBundle: createTestTrustBundle(t, "federated.domain"),
 		}
 
@@ -229,7 +229,7 @@ func TestManager_AddFederatedDomain(t *testing.T) {
 		if retrieved.TrustDomain != "federated.domain" {
 			t.Errorf("expected federated.domain, got %s", retrieved.TrustDomain)
 		}
-		if retrieved.State != FederationStateActive {
+		if retrieved.State != StateActive {
 			t.Errorf("expected active state, got %s", retrieved.State)
 		}
 	})
@@ -272,7 +272,7 @@ func TestManager_AddFederatedDomain(t *testing.T) {
 }
 
 func TestManager_RemoveFederatedDomain(t *testing.T) {
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
 	ctx := context.Background()
@@ -304,7 +304,7 @@ func TestManager_RemoveFederatedDomain(t *testing.T) {
 }
 
 func TestManager_ListFederatedDomains(t *testing.T) {
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
 	ctx := context.Background()
@@ -327,7 +327,7 @@ func TestManager_ListFederatedDomains(t *testing.T) {
 }
 
 func TestManager_UpdateFederatedDomain(t *testing.T) {
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
 	ctx := context.Background()
@@ -335,19 +335,19 @@ func TestManager_UpdateFederatedDomain(t *testing.T) {
 	// Add a domain
 	domain := &FederatedDomain{
 		TrustDomain: "update.domain",
-		State:       FederationStateActive,
+		State:       StateActive,
 	}
 	manager.AddFederatedDomain(ctx, domain)
 
 	t.Run("update_existing", func(t *testing.T) {
-		domain.State = FederationStateSuspended
+		domain.State = StateSuspended
 		err := manager.UpdateFederatedDomain(ctx, domain)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		retrieved, _ := manager.GetFederatedDomain(ctx, "update.domain")
-		if retrieved.State != FederationStateSuspended {
+		if retrieved.State != StateSuspended {
 			t.Errorf("expected suspended state, got %s", retrieved.State)
 		}
 	})
@@ -365,7 +365,7 @@ func TestManager_UpdateFederatedDomain(t *testing.T) {
 
 func TestManager_GetAggregatedTrustBundle(t *testing.T) {
 	localBundle := createTestTrustBundle(t, "local.domain")
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.LocalTrustBundle = localBundle
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
@@ -375,7 +375,7 @@ func TestManager_GetAggregatedTrustBundle(t *testing.T) {
 	federatedBundle := createTestTrustBundle(t, "federated.domain")
 	domain := &FederatedDomain{
 		TrustDomain: "federated.domain",
-		State:       FederationStateActive,
+		State:       StateActive,
 		TrustBundle: federatedBundle,
 	}
 	manager.AddFederatedDomain(ctx, domain)
@@ -393,7 +393,7 @@ func TestManager_GetAggregatedTrustBundle(t *testing.T) {
 
 func TestManager_ValidateSVID(t *testing.T) {
 	localBundle := createTestTrustBundle(t, "local.domain")
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.LocalTrustBundle = localBundle
 	config.RequireApproval = false
 	manager, _ := NewManager(config)
@@ -464,8 +464,8 @@ func TestManager_ValidateSVID(t *testing.T) {
 		}
 		domain := &FederatedDomain{
 			TrustDomain: "federated.domain",
-			State:       FederationStateActive,
-			Type:        FederationTypeBidirectional,
+			State:       StateActive,
+			Type:        TypeBidirectional,
 			TrustBundle: federatedBundle,
 		}
 		manager.AddFederatedDomain(ctx, domain)
@@ -489,7 +489,7 @@ func TestManager_ValidateSVID(t *testing.T) {
 		if !result.IsFederated {
 			t.Error("expected federated")
 		}
-		if result.FederationType != FederationTypeBidirectional {
+		if result.FederationType != TypeBidirectional {
 			t.Errorf("expected bidirectional, got %s", result.FederationType)
 		}
 	})
@@ -497,7 +497,7 @@ func TestManager_ValidateSVID(t *testing.T) {
 
 func TestManager_Lifecycle(t *testing.T) {
 	store := NewInMemoryStore()
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.Store = store
 	config.RequireApproval = false
 
@@ -507,7 +507,7 @@ func TestManager_Lifecycle(t *testing.T) {
 	// Add domain before start
 	domain := &FederatedDomain{
 		TrustDomain: "prestart.domain",
-		State:       FederationStateActive,
+		State:       StateActive,
 	}
 	store.Save(ctx, domain)
 
@@ -534,7 +534,7 @@ func TestManager_Lifecycle(t *testing.T) {
 // Policy tests
 
 func TestApplyPolicy(t *testing.T) {
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	manager, _ := NewManager(config)
 
 	tests := []struct {
@@ -631,7 +631,7 @@ func TestInMemoryStore(t *testing.T) {
 	t.Run("save_and_load", func(t *testing.T) {
 		domain := &FederatedDomain{
 			TrustDomain: "test.domain",
-			State:       FederationStateActive,
+			State:       StateActive,
 		}
 
 		err := store.Save(ctx, domain)
@@ -843,11 +843,11 @@ func TestExtractServiceName(t *testing.T) {
 // Event callback test
 
 func TestEventCallback(t *testing.T) {
-	var events []*FederationEvent
+	var events []*Event
 
-	config := DefaultFederationConfig("local.domain")
+	config := DefaultConfig("local.domain")
 	config.RequireApproval = false
-	config.EventCallback = func(event *FederationEvent) {
+	config.EventCallback = func(event *Event) {
 		events = append(events, event)
 	}
 
@@ -863,7 +863,7 @@ func TestEventCallback(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if events[0].Type != FederationEventAdded {
+	if events[0].Type != EventAdded {
 		t.Errorf("expected added event, got %s", events[0].Type)
 	}
 	if events[0].TrustDomain != "event.domain" {
@@ -876,7 +876,7 @@ func TestEventCallback(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("expected 2 events, got %d", len(events))
 	}
-	if events[1].Type != FederationEventRemoved {
+	if events[1].Type != EventRemoved {
 		t.Errorf("expected removed event, got %s", events[1].Type)
 	}
 }

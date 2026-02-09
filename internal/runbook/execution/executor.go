@@ -20,10 +20,10 @@ type Executor struct {
 	storage Storage
 
 	// Callbacks
-	onExecutionStart    func(ctx context.Context, exec *ExecutionContext)
-	onExecutionComplete func(ctx context.Context, exec *ExecutionContext)
-	onStepStart         func(ctx context.Context, exec *ExecutionContext, step *StepContext)
-	onStepComplete      func(ctx context.Context, exec *ExecutionContext, step *StepContext)
+	onExecutionStart    func(ctx context.Context, exec *Context)
+	onExecutionComplete func(ctx context.Context, exec *Context)
+	onStepStart         func(ctx context.Context, exec *Context, step *StepContext)
+	onStepComplete      func(ctx context.Context, exec *Context, step *StepContext)
 }
 
 // Storage interface for persisting execution state.
@@ -57,8 +57,8 @@ func WithRegistry(registry *handlers.Registry) ExecutorOption {
 
 // WithExecutionCallbacks sets execution lifecycle callbacks.
 func WithExecutionCallbacks(
-	onStart func(ctx context.Context, exec *ExecutionContext),
-	onComplete func(ctx context.Context, exec *ExecutionContext),
+	onStart func(ctx context.Context, exec *Context),
+	onComplete func(ctx context.Context, exec *Context),
 ) ExecutorOption {
 	return func(e *Executor) {
 		e.onExecutionStart = onStart
@@ -68,8 +68,8 @@ func WithExecutionCallbacks(
 
 // WithStepCallbacks sets step lifecycle callbacks.
 func WithStepCallbacks(
-	onStart func(ctx context.Context, exec *ExecutionContext, step *StepContext),
-	onComplete func(ctx context.Context, exec *ExecutionContext, step *StepContext),
+	onStart func(ctx context.Context, exec *Context, step *StepContext),
+	onComplete func(ctx context.Context, exec *Context, step *StepContext),
 ) ExecutorOption {
 	return func(e *Executor) {
 		e.onStepStart = onStart
@@ -104,7 +104,7 @@ func (e *Executor) Execute(ctx context.Context, rb *runbook.Runbook, inputs map[
 
 	// Create execution context
 	executionID := uuid.New().String()
-	execCtx := NewExecutionContext(executionID, rb, inputs)
+	execCtx := NewContext(executionID, rb, inputs)
 
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(ctx)
@@ -125,7 +125,7 @@ func (e *Executor) Execute(ctx context.Context, rb *runbook.Runbook, inputs map[
 }
 
 // executeRunbook performs the actual runbook execution.
-func (e *Executor) executeRunbook(ctx context.Context, rb *runbook.Runbook, execCtx *ExecutionContext) (*runbook.Execution, error) {
+func (e *Executor) executeRunbook(ctx context.Context, rb *runbook.Runbook, execCtx *Context) (*runbook.Execution, error) {
 	// Start execution
 	if err := execCtx.Start(ctx); err != nil {
 		return execCtx.ToExecution(), fmt.Errorf("failed to start execution: %w", err)
@@ -186,7 +186,7 @@ func (e *Executor) executeRunbook(ctx context.Context, rb *runbook.Runbook, exec
 }
 
 // executeSteps executes a list of steps respecting dependencies.
-func (e *Executor) executeSteps(ctx context.Context, steps []runbook.Step, execCtx *ExecutionContext) error {
+func (e *Executor) executeSteps(ctx context.Context, steps []runbook.Step, execCtx *Context) error {
 	// Build dependency graph
 	graph := buildDependencyGraph(steps)
 
@@ -231,7 +231,7 @@ func (e *Executor) executeSteps(ctx context.Context, steps []runbook.Step, execC
 }
 
 // executeStep executes a single step with retry support.
-func (e *Executor) executeStep(ctx context.Context, step *runbook.Step, stepCtx *StepContext, execCtx *ExecutionContext) error {
+func (e *Executor) executeStep(ctx context.Context, step *runbook.Step, stepCtx *StepContext, execCtx *Context) error {
 	// Create variable context for this step
 	varCtx := &variableContext{
 		execCtx: execCtx,
@@ -244,10 +244,7 @@ func (e *Executor) executeStep(ctx context.Context, step *runbook.Step, stepCtx 
 			return fmt.Errorf("condition evaluation failed: %w", err)
 		}
 		if !shouldRun {
-			if err := stepCtx.Skip(ctx); err != nil {
-				return err
-			}
-			return nil
+			return stepCtx.Skip(ctx)
 		}
 	}
 
@@ -270,9 +267,6 @@ func (e *Executor) executeStep(ctx context.Context, step *runbook.Step, stepCtx 
 	}
 
 	// Apply step timeout
-	stepCtx.mu.Lock()
-	stepCtx.mu.Unlock()
-
 	execCtxForStep := ctx
 	if step.Timeout != "" {
 		if timeout, err := time.ParseDuration(step.Timeout); err == nil {
@@ -381,7 +375,7 @@ func (e *Executor) validateInputs(rb *runbook.Runbook, inputs map[string]interfa
 
 // variableContext implements handlers.VariableContext.
 type variableContext struct {
-	execCtx *ExecutionContext
+	execCtx *Context
 }
 
 func (v *variableContext) GetInput(name string) (interface{}, bool) {
@@ -424,7 +418,8 @@ func buildDependencyGraph(steps []runbook.Step) map[string]*dependencyNode {
 	graph := make(map[string]*dependencyNode)
 
 	// Initialize nodes
-	for _, step := range steps {
+	for i := range steps {
+		step := &steps[i]
 		graph[step.Name] = &dependencyNode{
 			name: step.Name,
 			deps: step.DependsOn,
@@ -513,7 +508,7 @@ func (e *Executor) ExecuteAsync(ctx context.Context, rb *runbook.Runbook, inputs
 
 	// Start execution in background
 	go func() {
-		execCtx := NewExecutionContext(executionID, rb, inputs)
+		execCtx := NewContext(executionID, rb, inputs)
 		_, _ = e.executeRunbook(ctx, rb, execCtx)
 	}()
 
@@ -523,9 +518,9 @@ func (e *Executor) ExecuteAsync(ctx context.Context, rb *runbook.Runbook, inputs
 // activeExecutions tracks running executions for cancellation.
 var activeExecutions = struct {
 	sync.RWMutex
-	executions map[string]*ExecutionContext
+	executions map[string]*Context
 }{
-	executions: make(map[string]*ExecutionContext),
+	executions: make(map[string]*Context),
 }
 
 // CancelExecution cancels a running execution by ID.

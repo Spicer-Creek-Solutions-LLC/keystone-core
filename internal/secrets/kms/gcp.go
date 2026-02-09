@@ -15,7 +15,6 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // GCPConfig configures the GCP Cloud KMS provider.
@@ -110,14 +109,14 @@ func buildGCPClientOptions(cfg *GCPConfig) ([]option.ClientOption, error) {
 
 	// Configure authentication
 	if len(cfg.ServiceAccountKeyJSON) > 0 {
-		opts = append(opts, option.WithCredentialsJSON(cfg.ServiceAccountKeyJSON))
+		opts = append(opts, option.WithCredentialsJSON(cfg.ServiceAccountKeyJSON)) //nolint:staticcheck // SA1019: option.WithCredentialsJSON is deprecated but requires using impersonate package for migration
 	} else if cfg.ServiceAccountKeyFile != "" {
-		opts = append(opts, option.WithCredentialsFile(cfg.ServiceAccountKeyFile))
+		opts = append(opts, option.WithCredentialsFile(cfg.ServiceAccountKeyFile)) //nolint:staticcheck // SA1019: option.WithCredentialsFile is deprecated but requires using impersonate package for migration
 	}
 
 	// Handle impersonation
 	if cfg.ImpersonateServiceAccount != "" {
-		opts = append(opts, option.ImpersonateCredentials(cfg.ImpersonateServiceAccount))
+		opts = append(opts, option.ImpersonateCredentials(cfg.ImpersonateServiceAccount)) //nolint:staticcheck // SA1019: option.ImpersonateCredentials is deprecated but requires using impersonate package for migration
 	}
 
 	return opts, nil
@@ -172,11 +171,11 @@ func (p *GCPProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyMet
 	}
 
 	meta := &KeyMetadata{
-		KeyID:       keyID,
-		ARN:         key.Name,
-		Provider:    ProviderTypeGCP,
-		CreatedAt:   key.CreateTime.AsTime(),
-		Tags:        key.Labels,
+		KeyID:     keyID,
+		ARN:       key.Name,
+		Provider:  ProviderTypeGCP,
+		CreatedAt: key.CreateTime.AsTime(),
+		Tags:      key.Labels,
 	}
 
 	// Determine key type and spec
@@ -188,6 +187,7 @@ func (p *GCPProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyMet
 	case kmspb.CryptoKey_ASYMMETRIC_DECRYPT:
 		meta.KeyUsage = KeyUsageEncryptDecrypt
 		meta.KeyType = KeyTypeAsymmetric
+	default:
 	}
 
 	// Get primary version to determine key spec
@@ -212,6 +212,7 @@ func (p *GCPProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyMet
 		case kmspb.CryptoKeyVersion_EC_SIGN_P384_SHA384:
 			meta.KeyType = KeyTypeAsymmetric
 			meta.KeySpec = KeySpecECCNISTP384
+		default:
 		}
 
 		meta.Enabled = key.Primary.State == kmspb.CryptoKeyVersion_ENABLED
@@ -561,7 +562,7 @@ func (p *GCPProvider) ListKeyVersions(ctx context.Context, keyID string) ([]KeyV
 
 	for {
 		version, err := it.Next()
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
@@ -653,7 +654,7 @@ func (p *GCPProvider) GenerateRandomBytes(ctx context.Context, length int) ([]by
 
 	result, err := p.client.GenerateRandomBytes(ctx, &kmspb.GenerateRandomBytesRequest{
 		Location:        fmt.Sprintf("projects/%s/locations/%s", p.config.ProjectID, p.config.Location),
-		LengthBytes:     int32(length),
+		LengthBytes:     int32(length), //nolint:gosec // G115: byte length for random gen
 		ProtectionLevel: kmspb.ProtectionLevel_HSM,
 	})
 	if err != nil {
@@ -761,7 +762,7 @@ func extractVersionNumber(versionName string) string {
 
 // encodeGCPContext encodes encryption context as AAD bytes.
 func encodeGCPContext(ctx map[string]string) []byte {
-	var parts []string
+	parts := make([]string, 0, len(ctx))
 	for k, v := range ctx {
 		parts = append(parts, k+"="+v)
 	}
@@ -776,7 +777,7 @@ func translateGCPError(err error) error {
 
 	st, ok := status.FromError(err)
 	if !ok {
-		return fmt.Errorf("%w: %v", ErrProviderUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrProviderUnavailable, err)
 	}
 
 	switch st.Code() {
@@ -796,13 +797,8 @@ func translateGCPError(err error) error {
 	case codes.Unavailable:
 		return ErrProviderUnavailable
 	default:
-		return fmt.Errorf("%w: %v", ErrProviderUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrProviderUnavailable, err)
 	}
-}
-
-// Helper for wrapping int values
-func int32Wrapper(v int32) *wrapperspb.Int32Value {
-	return wrapperspb.Int32(v)
 }
 
 // Ensure GCPProvider implements interfaces.

@@ -59,7 +59,7 @@ func TestBootstrap_SeedConfigValidation(t *testing.T) {
 				},
 				Database: bootstrap.DatabaseConfig{
 					Type: bootstrap.DatabaseTypeSQLite,
-					Path: "/var/lib/kscore/state.db",
+					Path: "/var/lib/keystone-core/state.db",
 				},
 			},
 			expectError: false,
@@ -156,7 +156,7 @@ nats:
   mode: embedded
 database:
   type: sqlite
-  path: /var/lib/kscore/state.db
+  path: /var/lib/keystone-core/state.db
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -215,7 +215,7 @@ database:
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	opts := bootstrap.BootstrapOptions{
+	opts := bootstrap.Options{
 		Mode:           bootstrap.BootstrapModeSeed,
 		SeedConfigPath: configPath,
 		DryRun:         true,
@@ -256,8 +256,8 @@ func TestBackup_CreateAndVerify(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backup")
 
 	// Create backup configuration
-	config := &backup.BackupConfig{
-		Type: backup.BackupTypeFull,
+	config := &backup.Config{
+		Type: backup.TypeFull,
 		Components: []backup.ComponentType{
 			backup.ComponentTypeConfig,
 		},
@@ -289,7 +289,7 @@ func TestBackup_CreateAndVerify(t *testing.T) {
 		t.Fatalf("Backup failed: %v", err)
 	}
 
-	if result.Status != backup.BackupStatusCompleted {
+	if result.Status != backup.StatusCompleted {
 		t.Errorf("Expected status Completed, got: %v", result.Status)
 	}
 
@@ -402,8 +402,8 @@ func TestBackup_Encryption(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Verify config can be used in BackupConfig
-			backupConfig := &backup.BackupConfig{
-				Type:       backup.BackupTypeFull,
+			backupConfig := &backup.Config{
+				Type:       backup.TypeFull,
 				Encryption: tt.config,
 			}
 
@@ -445,13 +445,13 @@ func TestRestore_ValidateBackup(t *testing.T) {
 	}
 
 	// Create a backup manifest
-	manifest := &backup.BackupManifest{
+	manifest := &backup.Manifest{
 		ManifestVersion: backup.ManifestVersion,
-		Backup: backup.BackupInfo{
+		Backup: backup.Info{
 			ID:        "test-backup",
 			Name:      "test-backup",
-			Type:      backup.BackupTypeFull,
-			Status:    backup.BackupStatusCompleted,
+			Type:      backup.TypeFull,
+			Status:    backup.StatusCompleted,
 			StartTime: time.Now(),
 		},
 		CreatedAt: time.Now(),
@@ -888,7 +888,7 @@ func TestSelfMgmt_Validation(t *testing.T) {
 	}
 
 	// Test path validation
-	if err := validator.ValidatePath("/etc/kscore"); err != nil {
+	if err := validator.ValidatePath("/etc/keystone-core"); err != nil {
 		t.Errorf("Expected absolute path to be valid: %v", err)
 	}
 	if err := validator.ValidatePath("relative/path"); err == nil {

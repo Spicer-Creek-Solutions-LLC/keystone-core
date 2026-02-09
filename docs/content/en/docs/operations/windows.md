@@ -426,11 +426,11 @@ execution:
 
 **PowerShell-specific commands:**
 ```bash
-# Execute PowerShell command
-kscorectl exec run --shell powershell "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10"
+# Execute PowerShell command (agent uses configured default_shell)
+kscorectl exec run "os:windows" -- powershell -Command "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10"
 
 # Execute with PowerShell 7 specifically
-kscorectl exec run --shell pwsh "Get-Process | ForEach-Object -Parallel { $_.Name }"
+kscorectl exec run "os:windows" -- pwsh -Command "Get-Process | ForEach-Object -Parallel { $_.Name }"
 ```
 
 ### Troubleshooting PowerShell Issues
@@ -3085,7 +3085,7 @@ Get-WinEvent -FilterHashtable @{
 |-------|----------|
 | Invalid service account | Verify account exists and password is correct |
 | Missing permissions | Grant "Log on as a service" right to service account |
-| Config file syntax error | Validate YAML with `kscore-agent --validate-config` |
+| Config file syntax error | Validate YAML syntax with `yamllint agent.yaml` or a YAML validator |
 | Port conflict | Check if NATS port (4222) is in use |
 | Missing dependencies | Ensure VC++ Redistributable is installed |
 
@@ -3475,11 +3475,11 @@ resources:
 
 **Diagnostic Steps**:
 ```powershell
-# Run state in check mode
-kscorectl state apply --target "this-agent" --check-only
+# Run state in dry-run mode (check what would change)
+kscorectl state apply --target "this-agent" --dry-run
 
-# View detailed state output
-kscorectl state apply --target "this-agent" --verbose
+# Preview rendered state before applying
+kscorectl state apply --target "this-agent" --preview
 
 # Check module-specific logs
 Get-Content "C:\Program Files\kscore\logs\state.log" -Tail 100

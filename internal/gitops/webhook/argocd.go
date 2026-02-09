@@ -12,7 +12,7 @@ import (
 type ArgoCDHandler struct{}
 
 // Type returns the webhook type
-func (h *ArgoCDHandler) Type() WebhookType {
+func (h *ArgoCDHandler) Type() Type {
 	return WebhookTypeArgoCD
 }
 
@@ -48,7 +48,7 @@ type ArgoCDWebhookPayload struct {
 }
 
 // Parse parses an ArgoCD webhook payload
-func (h *ArgoCDHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, error) {
+func (h *ArgoCDHandler) Parse(r *http.Request, body []byte) (*Event, error) {
 	var payload ArgoCDWebhookPayload
 	if err := ParseJSON(body, &payload); err != nil {
 		return nil, fmt.Errorf("failed to parse ArgoCD webhook: %w", err)
@@ -68,7 +68,7 @@ func (h *ArgoCDHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, erro
 		status = payload.Application.Status.Health.Status
 	}
 
-	event := &WebhookEvent{
+	event := &Event{
 		ID:          uuid.New().String(),
 		Type:        WebhookTypeArgoCD,
 		EventType:   eventType,

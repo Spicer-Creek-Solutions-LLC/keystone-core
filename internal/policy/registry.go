@@ -8,12 +8,12 @@ import (
 
 // Registry manages policy storage and retrieval
 type Registry struct {
-	policies    map[string]*Policy
-	policySets  map[string]*PolicySet
-	bindings    map[string]*PolicyBinding
-	mu          sync.RWMutex
-	setsMu      sync.RWMutex
-	bindingsMu  sync.RWMutex
+	policies   map[string]*Policy
+	policySets map[string]*PolicySet
+	bindings   map[string]*PolicyBinding
+	mu         sync.RWMutex
+	setsMu     sync.RWMutex
+	bindingsMu sync.RWMutex
 }
 
 // NewRegistry creates a new policy registry

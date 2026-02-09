@@ -71,7 +71,7 @@ func DefaultEdgeConfig() *Config {
 	return &Config{
 		EnableOfflineMode:           true,
 		EnableLightweightMode:       false,
-		LocalCachePath:              "/var/lib/kscore/cache",
+		LocalCachePath:              "/var/lib/keystone-core/cache",
 		MaxCacheSize:                100 * 1024 * 1024, // 100 MB
 		MaxCacheAge:                 24 * time.Hour,
 		ReconnectInterval:           30 * time.Second,
@@ -86,17 +86,17 @@ func DefaultEdgeConfig() *Config {
 
 // Status represents current edge agent status
 type Status struct {
-	Mode                 OperationMode
-	Connected            bool
-	LastConnected        time.Time
-	ReconnectAttempts    int
-	CacheSize            int64
-	CachedStatesCount    int
-	CachedCommandsCount  int
-	MemoryUsageMB        int
-	CPUUsagePercent      int
-	UptimeSeconds        int64
-	ResourceConstrained  bool
+	Mode                OperationMode
+	Connected           bool
+	LastConnected       time.Time
+	ReconnectAttempts   int
+	CacheSize           int64
+	CachedStatesCount   int
+	CachedCommandsCount int
+	MemoryUsageMB       int
+	CPUUsagePercent     int
+	UptimeSeconds       int64
+	ResourceConstrained bool
 }
 
 // CacheEntry represents a cached item

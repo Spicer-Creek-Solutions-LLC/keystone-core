@@ -15,36 +15,36 @@ import (
 )
 
 var (
-	advapi32                     = syscall.NewLazyDLL("advapi32.dll")
-	procGetSecurityInfo          = advapi32.NewProc("GetSecurityInfo")
-	procSetSecurityInfo          = advapi32.NewProc("SetSecurityInfo")
-	procLookupAccountSidW        = advapi32.NewProc("LookupAccountSidW")
-	procLookupAccountNameW       = advapi32.NewProc("LookupAccountNameW")
-	procGetLengthSid             = advapi32.NewProc("GetLengthSid")
-	procConvertSidToStringSid    = advapi32.NewProc("ConvertSidToStringSidW")
-	procConvertStringSidToSid    = advapi32.NewProc("ConvertStringSidToSidW")
-	procGetAce                   = advapi32.NewProc("GetAce")
-	procGetAclInformation        = advapi32.NewProc("GetAclInformation")
-	procInitializeAcl            = advapi32.NewProc("InitializeAcl")
-	procAddAccessAllowedAceEx    = advapi32.NewProc("AddAccessAllowedAceEx")
-	procAddAccessDeniedAceEx     = advapi32.NewProc("AddAccessDeniedAceEx")
-	procSetNamedSecurityInfoW    = advapi32.NewProc("SetNamedSecurityInfoW")
-	procGetNamedSecurityInfoW    = advapi32.NewProc("GetNamedSecurityInfoW")
-	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
-	procLocalFree                = kernel32.NewProc("LocalFree")
-	procGetFileAttributesW       = kernel32.NewProc("GetFileAttributesW")
-	procSetFileAttributesW       = kernel32.NewProc("SetFileAttributesW")
-	procGetLongPathNameW         = kernel32.NewProc("GetLongPathNameW")
-	procGetShortPathNameW        = kernel32.NewProc("GetShortPathNameW")
-	procGetFullPathNameW         = kernel32.NewProc("GetFullPathNameW")
+	advapi32                  = syscall.NewLazyDLL("advapi32.dll")
+	procGetSecurityInfo       = advapi32.NewProc("GetSecurityInfo")
+	procSetSecurityInfo       = advapi32.NewProc("SetSecurityInfo")
+	procLookupAccountSidW     = advapi32.NewProc("LookupAccountSidW")
+	procLookupAccountNameW    = advapi32.NewProc("LookupAccountNameW")
+	procGetLengthSid          = advapi32.NewProc("GetLengthSid")
+	procConvertSidToStringSid = advapi32.NewProc("ConvertSidToStringSidW")
+	procConvertStringSidToSid = advapi32.NewProc("ConvertStringSidToSidW")
+	procGetAce                = advapi32.NewProc("GetAce")
+	procGetAclInformation     = advapi32.NewProc("GetAclInformation")
+	procInitializeAcl         = advapi32.NewProc("InitializeAcl")
+	procAddAccessAllowedAceEx = advapi32.NewProc("AddAccessAllowedAceEx")
+	procAddAccessDeniedAceEx  = advapi32.NewProc("AddAccessDeniedAceEx")
+	procSetNamedSecurityInfoW = advapi32.NewProc("SetNamedSecurityInfoW")
+	procGetNamedSecurityInfoW = advapi32.NewProc("GetNamedSecurityInfoW")
+	kernel32                  = syscall.NewLazyDLL("kernel32.dll")
+	procLocalFree             = kernel32.NewProc("LocalFree")
+	procGetFileAttributesW    = kernel32.NewProc("GetFileAttributesW")
+	procSetFileAttributesW    = kernel32.NewProc("SetFileAttributesW")
+	procGetLongPathNameW      = kernel32.NewProc("GetLongPathNameW")
+	procGetShortPathNameW     = kernel32.NewProc("GetShortPathNameW")
+	procGetFullPathNameW      = kernel32.NewProc("GetFullPathNameW")
 )
 
 const (
-	SE_FILE_OBJECT              = 1
-	OWNER_SECURITY_INFORMATION  = 0x00000001
-	GROUP_SECURITY_INFORMATION  = 0x00000002
-	DACL_SECURITY_INFORMATION   = 0x00000004
-	SACL_SECURITY_INFORMATION   = 0x00000008
+	SE_FILE_OBJECT                      = 1
+	OWNER_SECURITY_INFORMATION          = 0x00000001
+	GROUP_SECURITY_INFORMATION          = 0x00000002
+	DACL_SECURITY_INFORMATION           = 0x00000004
+	SACL_SECURITY_INFORMATION           = 0x00000008
 	PROTECTED_DACL_SECURITY_INFORMATION = 0x80000000
 
 	// ACL revision
@@ -78,9 +78,9 @@ const (
 	FILE_READ_ATTRIBUTES  = 0x0080
 	FILE_WRITE_ATTRIBUTES = 0x0100
 
-	FILE_ALL_ACCESS     = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF
-	FILE_GENERIC_READ   = STANDARD_RIGHTS_READ | FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | SYNCHRONIZE
-	FILE_GENERIC_WRITE  = STANDARD_RIGHTS_WRITE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA | SYNCHRONIZE
+	FILE_ALL_ACCESS      = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF
+	FILE_GENERIC_READ    = STANDARD_RIGHTS_READ | FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | SYNCHRONIZE
+	FILE_GENERIC_WRITE   = STANDARD_RIGHTS_WRITE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA | SYNCHRONIZE
 	FILE_GENERIC_EXECUTE = STANDARD_RIGHTS_EXECUTE | FILE_READ_ATTRIBUTES | FILE_EXECUTE | SYNCHRONIZE
 
 	// ACE types
@@ -88,11 +88,11 @@ const (
 	ACCESS_DENIED_ACE_TYPE  = 1
 
 	// ACE flags
-	OBJECT_INHERIT_ACE         = 0x01
-	CONTAINER_INHERIT_ACE      = 0x02
-	NO_PROPAGATE_INHERIT_ACE   = 0x04
-	INHERIT_ONLY_ACE           = 0x08
-	INHERITED_ACE              = 0x10
+	OBJECT_INHERIT_ACE       = 0x01
+	CONTAINER_INHERIT_ACE    = 0x02
+	NO_PROPAGATE_INHERIT_ACE = 0x04
+	INHERIT_ONLY_ACE         = 0x08
+	INHERITED_ACE            = 0x10
 
 	// File attributes
 	FILE_ATTRIBUTE_READONLY            = 0x00000001
@@ -135,34 +135,34 @@ type ACL_SIZE_INFORMATION struct {
 
 // WindowsACL represents Windows Access Control List
 type WindowsACL struct {
-	Owner   string            // Owner SID or name
-	Group   string            // Primary group SID or name
-	Entries []WindowsACE      // Access Control Entries
+	Owner   string       // Owner SID or name
+	Group   string       // Primary group SID or name
+	Entries []WindowsACE // Access Control Entries
 }
 
 // WindowsACE represents a single Access Control Entry
 type WindowsACE struct {
-	Type       string // "allow" or "deny"
-	Principal  string // SID or account name
-	Access     uint32 // Access mask
-	Flags      byte   // Inheritance flags
-	Inherited  bool   // Whether this ACE is inherited
+	Type      string // "allow" or "deny"
+	Principal string // SID or account name
+	Access    uint32 // Access mask
+	Flags     byte   // Inheritance flags
+	Inherited bool   // Whether this ACE is inherited
 }
 
 // WindowsFileAttributes represents Windows file attributes
 type WindowsFileAttributes struct {
-	ReadOnly            bool
-	Hidden              bool
-	System              bool
-	Archive             bool
-	Compressed          bool
-	Encrypted           bool
-	NotContentIndexed   bool
-	Temporary           bool
-	Offline             bool
-	ReparsePoint        bool
-	SparseFile          bool
-	RawValue            uint32
+	ReadOnly          bool
+	Hidden            bool
+	System            bool
+	Archive           bool
+	Compressed        bool
+	Encrypted         bool
+	NotContentIndexed bool
+	Temporary         bool
+	Offline           bool
+	ReparsePoint      bool
+	SparseFile        bool
+	RawValue          uint32
 }
 
 // getFileOwnership returns a pseudo UID/GID for Windows file ownership.

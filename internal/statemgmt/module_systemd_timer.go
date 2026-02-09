@@ -89,26 +89,27 @@ func (m *SystemdTimerModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Check if timer exists
-	exists, enabled := m.timerExists(config)
+	exists, enabled := m.timerExists(ctx, config)
 
 	switch decl.State {
 	case "present":
-		if !exists {
+		switch {
+		case !exists:
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["state"] = map[string]string{"current": "absent", "desired": "present"}
-		} else if !enabled {
+		case !enabled:
 			result.Present = true
 			result.CurrentState = "disabled"
 			result.Matches = false
 			result.Diff["enabled"] = map[string]string{"current": "disabled", "desired": "enabled"}
-		} else if !m.timerMatches(config) {
+		case !m.timerMatches(config):
 			result.Present = true
 			result.CurrentState = "different"
 			result.Matches = false
 			result.Diff["config"] = map[string]string{"current": "different", "desired": "matching"}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "present"
 			result.Matches = true
@@ -164,14 +165,14 @@ func (m *SystemdTimerModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 
 		// Reload systemd
-		if err := m.systemctlReload(config.UserUnit); err != nil {
+		if err := m.systemctlReload(ctx, config.UserUnit); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to reload systemd: %v", err)
 			return result, err
 		}
 
 		// Enable and start the timer
-		if err := m.enableTimer(config); err != nil {
+		if err := m.enableTimer(ctx, config); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to enable timer: %v", err)
 			return result, err
@@ -181,14 +182,14 @@ func (m *SystemdTimerModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		result.Comment = fmt.Sprintf("Timer '%s' created and enabled", config.Name)
 
 	case "absent":
-		exists, _ := m.timerExists(config)
+		exists, _ := m.timerExists(ctx, config)
 		if !exists {
 			result.Comment = fmt.Sprintf("Timer '%s' already absent", config.Name)
 			return result, nil
 		}
 
 		// Stop and disable the timer
-		if err := m.disableTimer(config); err != nil {
+		if err := m.disableTimer(ctx, config); err != nil {
 			// Ignore errors for non-existent timers
 			if !strings.Contains(err.Error(), "not found") {
 				result.Success = false
@@ -205,7 +206,7 @@ func (m *SystemdTimerModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 
 		// Reload systemd
-		if err := m.systemctlReload(config.UserUnit); err != nil {
+		if err := m.systemctlReload(ctx, config.UserUnit); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to reload systemd: %v", err)
 			return result, err
@@ -293,13 +294,13 @@ func (m *SystemdTimerModule) parseConfig(decl *StateDeclaration) (*SystemdTimerC
 func (m *SystemdTimerModule) getUnitPath(config *SystemdTimerConfig) string {
 	if config.UserUnit {
 		home := os.Getenv("HOME")
-		return filepath.Join(home, ".config/systemd/user")
+		return filepath.Join(home, ".config", "systemd", "user")
 	}
 	return "/etc/systemd/system"
 }
 
 // timerExists checks if the timer unit exists.
-func (m *SystemdTimerModule) timerExists(config *SystemdTimerConfig) (exists bool, enabled bool) {
+func (m *SystemdTimerModule) timerExists(ctx context.Context, config *SystemdTimerConfig) (exists, enabled bool) {
 	timerPath := filepath.Join(m.getUnitPath(config), config.Name+".timer")
 	if _, err := os.Stat(timerPath); os.IsNotExist(err) {
 		return false, false
@@ -310,7 +311,7 @@ func (m *SystemdTimerModule) timerExists(config *SystemdTimerConfig) (exists boo
 	if config.UserUnit {
 		args = append([]string{"--user"}, args...)
 	}
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return true, false
@@ -426,22 +427,25 @@ func (m *SystemdTimerModule) createUnits(config *SystemdTimerConfig) error {
 	unitPath := m.getUnitPath(config)
 
 	// Ensure directory exists
-	if err := os.MkdirAll(unitPath, 0755); err != nil {
-		return fmt.Errorf("failed to create unit directory: %v", err)
+	//nolint:gosec // G301: systemd unit directory needs system access
+	if err := os.MkdirAll(unitPath, 0o755); err != nil {
+		return fmt.Errorf("failed to create unit directory: %w", err)
 	}
 
 	// Write timer unit
 	timerPath := filepath.Join(unitPath, config.Name+".timer")
 	timerContent := m.generateTimerUnit(config)
-	if err := os.WriteFile(timerPath, []byte(timerContent), 0644); err != nil {
-		return fmt.Errorf("failed to write timer unit: %v", err)
+	//nolint:gosec // G306: systemd unit files need to be readable by systemd
+	if err := os.WriteFile(timerPath, []byte(timerContent), 0o644); err != nil {
+		return fmt.Errorf("failed to write timer unit: %w", err)
 	}
 
 	// Write service unit
 	servicePath := filepath.Join(unitPath, config.Name+".service")
 	serviceContent := m.generateServiceUnit(config)
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
-		return fmt.Errorf("failed to write service unit: %v", err)
+	//nolint:gosec // G306: systemd unit files need to be readable by systemd
+	if err := os.WriteFile(servicePath, []byte(serviceContent), 0o644); err != nil {
+		return fmt.Errorf("failed to write service unit: %w", err)
 	}
 
 	return nil
@@ -453,32 +457,32 @@ func (m *SystemdTimerModule) removeUnits(config *SystemdTimerConfig) error {
 
 	timerPath := filepath.Join(unitPath, config.Name+".timer")
 	if err := os.Remove(timerPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove timer unit: %v", err)
+		return fmt.Errorf("failed to remove timer unit: %w", err)
 	}
 
 	servicePath := filepath.Join(unitPath, config.Name+".service")
 	if err := os.Remove(servicePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove service unit: %v", err)
+		return fmt.Errorf("failed to remove service unit: %w", err)
 	}
 
 	return nil
 }
 
 // systemctlReload reloads systemd configuration.
-func (m *SystemdTimerModule) systemctlReload(userUnit bool) error {
+func (m *SystemdTimerModule) systemctlReload(ctx context.Context, userUnit bool) error {
 	args := []string{"daemon-reload"}
 	if userUnit {
 		args = append([]string{"--user"}, args...)
 	}
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl daemon-reload failed: %v: %s", err, string(output))
+		return fmt.Errorf("systemctl daemon-reload failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // enableTimer enables and starts the timer.
-func (m *SystemdTimerModule) enableTimer(config *SystemdTimerConfig) error {
+func (m *SystemdTimerModule) enableTimer(ctx context.Context, config *SystemdTimerConfig) error {
 	timerName := config.Name + ".timer"
 
 	args := []string{"enable", "--now", timerName}
@@ -486,16 +490,16 @@ func (m *SystemdTimerModule) enableTimer(config *SystemdTimerConfig) error {
 		args = append([]string{"--user"}, args...)
 	}
 
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl enable failed: %v: %s", err, string(output))
+		return fmt.Errorf("systemctl enable failed: %w: %s", err, string(output))
 	}
 
 	return nil
 }
 
 // disableTimer stops and disables the timer.
-func (m *SystemdTimerModule) disableTimer(config *SystemdTimerConfig) error {
+func (m *SystemdTimerModule) disableTimer(ctx context.Context, config *SystemdTimerConfig) error {
 	timerName := config.Name + ".timer"
 
 	args := []string{"disable", "--now", timerName}
@@ -503,9 +507,9 @@ func (m *SystemdTimerModule) disableTimer(config *SystemdTimerConfig) error {
 		args = append([]string{"--user"}, args...)
 	}
 
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl disable failed: %v: %s", err, string(output))
+		return fmt.Errorf("systemctl disable failed: %w: %s", err, string(output))
 	}
 
 	return nil

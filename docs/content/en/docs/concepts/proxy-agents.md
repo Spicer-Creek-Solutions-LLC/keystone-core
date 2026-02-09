@@ -7,11 +7,11 @@ description: >
 
 ## Overview
 
-Keystone Core proxy agents enable management of devices that cannot run the native agent software. This includes network hardware, legacy systems, IoT devices, and appliances that only expose management interfaces via SSH, SNMP, REST APIs, or WinRM.
+Keystone Core proxy agents enable management of devices that cannot run the native agent software. This includes network hardware, legacy systems, IoT devices, and appliances that only expose management interfaces via SSH, SNMP, REST APIs, WinRM, NETCONF, RESTCONF, or gNMI.
 
 **Key Capabilities**:
-- **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM
-- **Network Device Support**: Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense
+- **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM, NETCONF, RESTCONF, gNMI, Telnet
+- **Network Device Support**: 25 vendor drivers — Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense, HP ProCurve, HP ArubaOS, Aruba AOS-CX, Dell OS10/OS9/PowerSwitch, Fortinet FortiOS, Palo Alto PAN-OS, F5 BIG-IP, Check Point Gaia, MikroTik RouterOS, Ubiquiti EdgeOS, Extreme EXOS, Nokia SR OS, Huawei VRP, Mellanox/NVIDIA Onyx, Allied Telesis AlliedWare Plus, Ciena SAOS
 - **Transparent Targeting**: Proxied devices appear as virtual agents in targeting expressions
 - **Secure Credentials**: Encrypted storage with Vault, Kubernetes secrets, or file backends
 - **Auto-Discovery**: Network scanning with vendor detection and approval workflows
@@ -155,6 +155,107 @@ device:
 - PowerShell and CMD execution
 - TLS encryption (port 5986)
 
+### NETCONF Adapter
+
+For devices supporting NETCONF (RFC 6241) over SSH:
+
+```yaml
+device:
+  id: core-router-01
+  type: router
+  vendor: Juniper
+  protocol: netconf
+  address: 192.168.1.1
+  port: 830
+  credential_ref: router-ssh-creds
+```
+
+**Features**:
+- Full RFC 6241 operation set (get-config, edit-config, lock, commit, etc.)
+- NETCONF 1.0 (EOM framing) and 1.1 (chunked framing, RFC 6242)
+- Automatic capability negotiation
+- YANG model metadata from server capabilities
+- Subtree and XPath filter support
+- Reuses SSH credentials
+
+See the [NETCONF Protocol Reference]({{< relref "../reference/netconf.md" >}}) for details.
+
+### RESTCONF Adapter
+
+For devices supporting RESTCONF (RFC 8040) over HTTPS:
+
+```yaml
+device:
+  id: sdn-controller
+  type: controller
+  vendor: OpenDaylight
+  protocol: restconf
+  address: 192.168.1.50
+  port: 8181
+  credential_ref: odl-basic-auth
+```
+
+**Features**:
+- Full RFC 8040 data operations (GET, POST, PUT, PATCH, DELETE)
+- YANG RPC/action invocation
+- Server-Sent Events (SSE) for notification streams
+- Well-known root path discovery
+- JSON and XML YANG encoding
+- Reuses REST/HTTP credentials
+
+See the [RESTCONF Protocol Reference]({{< relref "../reference/restconf.md" >}}) for details.
+
+### gNMI Adapter
+
+For modern network devices supporting gRPC Network Management Interface:
+
+```yaml
+device:
+  id: spine-01
+  type: switch
+  vendor: Arista
+  protocol: gnmi
+  address: 10.0.1.1
+  port: 9339
+  credential_ref: gnmi-mtls-creds
+```
+
+**Features**:
+- Full gNMI RPC support: Capabilities, Get, Set, Subscribe
+- Streaming telemetry via channel-based subscriptions (ONCE, STREAM, POLL)
+- mTLS and per-RPC username/password authentication
+- OpenConfig path parsing with key selectors and origin prefixes
+- Multiple encoding support: JSON_IETF, JSON, PROTO, ASCII, BYTES
+- gNOI stubs for future system operations (Reboot, Ping, Traceroute)
+
+See the [gNMI Protocol Reference]({{< relref "../reference/gnmi.md" >}}) for details.
+
+### Telnet Adapter
+
+For legacy devices that only support Telnet CLI access:
+
+```yaml
+device:
+  id: legacy-switch-01
+  type: switch
+  vendor: Cisco
+  protocol: telnet
+  address: 192.168.1.10
+  port: 23
+  credential_ref: switch-password-creds
+```
+
+**Features**:
+- RFC 854/855 IAC negotiation (terminal type, window size, echo)
+- Expect-style I/O with prompt detection and pattern matching
+- Security controls: IP allowlisting, deprecation warnings, audit logging
+- Session time limits for long-running connections
+- Reuses SSH password credentials
+
+**Security note**: Telnet transmits all data in plaintext. Use IP allowlisting and audit logging to mitigate risk, and plan migration to SSH where possible.
+
+See the [Telnet Protocol Reference]({{< relref "../reference/telnet.md" >}}) for details.
+
 ## Debugging and Protocol Tracing
 
 Proxy agents include a protocol-level debug logger for troubleshooting device interactions. Debug output can be captured at different verbosity levels and rendered as text, JSON, or raw hex.
@@ -166,7 +267,7 @@ Proxy agents include a protocol-level debug logger for troubleshooting device in
 - `trace`: Full protocol data including raw byte dumps
 
 **Supported Protocol Labels**:
-`ssh`, `snmp`, `rest`, `winrm`, `telnet`, `api`
+`ssh`, `snmp`, `rest`, `winrm`, `netconf`, `restconf`, `gnmi`, `telnet`, `api`
 
 **Event Types**:
 `connect`, `disconnect`, `authenticate`, `send`, `receive`, `command`, `response`, `error`, `warning`, `handshake`, `keepalive`, `timeout`
@@ -191,6 +292,7 @@ Proxy agents include a protocol-level debug logger for troubleshooting device in
 | `rest_bearer` | Bearer token | REST APIs with JWT |
 | `rest_apikey` | API key header | REST APIs |
 | `rest_oauth2` | OAuth2 client credentials | Cloud APIs |
+| `gnmi` | gNMI mTLS + metadata auth | gNMI devices |
 
 ### Credential Storage Backends
 
@@ -198,8 +300,8 @@ Proxy agents include a protocol-level debug logger for troubleshooting device in
 ```yaml
 credential_store:
   type: file
-  path: /etc/kscore/credentials
-  encryption_key_file: /etc/kscore/key
+  path: /etc/keystone-core/credentials
+  encryption_key_file: /etc/keystone-core/key
 ```
 
 **HashiCorp Vault**:
@@ -223,19 +325,19 @@ credential_store:
 
 ```bash
 # SSH password credential
-kscorectl proxy credential create cisco-ssh \
+kscorectl proxy credential add cisco-ssh \
   --type ssh_password \
   --username admin \
   --password-file /path/to/password
 
 # SSH key credential
-kscorectl proxy credential create linux-key \
+kscorectl proxy credential add linux-key \
   --type ssh_key \
   --username root \
   --key-file ~/.ssh/id_ed25519
 
 # SNMPv3 credential
-kscorectl proxy credential create snmp-secure \
+kscorectl proxy credential add snmp-secure \
   --type snmpv3 \
   --username snmpuser \
   --auth-protocol sha256 \
@@ -243,6 +345,43 @@ kscorectl proxy credential create snmp-secure \
   --priv-protocol aes256 \
   --priv-password encrypt456 \
   --security-level authPriv
+```
+
+### Credential Rotation
+
+Credentials can be automatically rotated based on age-based policies with cron scheduling. The rotation engine validates the old credential, generates a new one, applies it to the device, verifies it works, and stores it — rolling back automatically if any step fails.
+
+**Supported credential rotation:**
+
+| Protocol | Types | Method |
+|----------|-------|--------|
+| SSH | Password, Key | Random generation, ed25519 keypair |
+| SNMP | v2c community, v3 auth/priv | Random string generation |
+| REST | Basic, Bearer, API Key, OAuth2 | API-driven rotation |
+| Certificate | gNMI TLS | ECDSA P-256 certificate generation |
+
+**Policy-based scheduling:**
+
+```yaml
+credential_rotation:
+  policies:
+    - id: ssh-90-day
+      credential_types: [ssh_password, ssh_key]
+      max_age: 2160h    # 90 days
+      warning_age: 1800h
+      schedule: "0 2 * * 0"
+      auto_rotate: true
+      rollback_on_fail: true
+```
+
+**Manual rotation:**
+
+```bash
+# Trigger immediate rotation for a credential
+kscorectl proxy credential rotate cisco-ssh
+
+# Check rotation status
+kscorectl proxy credential rotation-status cisco-ssh
 ```
 
 ## Discovery
@@ -288,13 +427,31 @@ discovery:
 Discovered devices are automatically matched to vendor profiles:
 
 ```
-Cisco IOS:     "Cisco IOS Software" in sysDescr or "cisco" in SSH banner
-Cisco NX-OS:   "NX-OS" in sysDescr or "Nexus" in model
-Juniper JUNOS: "JUNOS" in sysDescr or "juniper" in SSH banner
-Arista EOS:    "Arista" in sysDescr
-pfSense:       "pfsense" in SSH banner or sysDescr
-OPNsense:      "opnsense" in SSH banner or sysDescr
-VyOS:          "vyos" or "vyatta" in SSH banner or sysDescr
+Cisco IOS:       "Cisco IOS Software" in sysDescr or "cisco" in SSH banner
+Cisco NX-OS:     "NX-OS" in sysDescr or "Nexus" in model
+Juniper JUNOS:   "JUNOS" in sysDescr or "juniper" in SSH banner
+Arista EOS:      "Arista" in sysDescr
+pfSense:         "pfsense" in SSH banner or sysDescr
+OPNsense:        "opnsense" in SSH banner or sysDescr
+VyOS:            "vyos" or "vyatta" in SSH banner or sysDescr
+HP ProCurve:     "ProCurve" in sysDescr or SSH banner
+HP ArubaOS:      "ArubaOS" in sysDescr or SSH banner
+Aruba AOS-CX:    "AOS-CX" in sysDescr or SSH banner
+Dell OS10:       "OS10" or "Dell EMC Networking" in sysDescr
+Dell OS9/FTOS:   "FTOS" or "Force10" in sysDescr
+Dell PowerSwitch: "Dell Networking N" in sysDescr
+Fortinet FortiOS: "FortiGate" or "FortiOS" in SSH banner or sysDescr
+Palo Alto PAN-OS: "Palo Alto" or "PAN-OS" in SSH banner or sysDescr
+F5 BIG-IP:       "BIG-IP" in SSH banner or sysDescr
+Check Point Gaia: "Gaia" or "Check Point" in sysDescr
+MikroTik RouterOS: "MikroTik" or "RouterOS" in sysDescr
+Ubiquiti EdgeOS: "EdgeOS" or "EdgeRouter" in sysDescr
+Extreme EXOS:    "ExtremeXOS" or "EXOS" in sysDescr
+Nokia SR OS:     "TiMOS" or "SR OS" in sysDescr
+Huawei VRP:      "Huawei" or "VRP" in sysDescr
+Mellanox Onyx:   "MLNX-OS" or "Onyx" in sysDescr
+Allied Telesis:  "AlliedWare" or "AT-" in sysDescr
+Ciena SAOS:      "SAOS" or "Ciena" in sysDescr
 ```
 
 ### Approval Workflow
@@ -445,6 +602,104 @@ Vendor-specific configuration modules:
       description: Allow HTTPS
 ```
 
+**HP ProCurve**:
+```yaml
+- id: configure-vlan
+  module: hp_procurve_config
+  params:
+    lines:
+      - "vlan 100"
+      - "name Management"
+    save: true
+```
+
+**Dell OS10**:
+```yaml
+- id: configure-interface
+  module: dell_os10_config
+  params:
+    lines:
+      - "interface ethernet1/1/1"
+      - "no shutdown"
+    save: true
+```
+
+**Fortinet FortiOS**:
+```yaml
+- id: configure-interface
+  module: fortios_config
+  params:
+    section: "system interface"
+    name: "port1"
+    settings:
+      ip: "10.0.0.1/24"
+      allowaccess: "ping https ssh"
+    backup: true
+```
+
+**Palo Alto PAN-OS**:
+```yaml
+- id: configure-security-zone
+  module: panos_config
+  params:
+    lines:
+      - "set network zone trust network layer3 ethernet1/1"
+    commit: true
+```
+
+**F5 BIG-IP**:
+```yaml
+- id: create-pool
+  module: bigip_config
+  params:
+    commands:
+      - "create ltm pool web-pool members add { 10.0.1.10:80 10.0.1.11:80 }"
+      - "create ltm virtual web-vs destination 10.0.0.100:80 pool web-pool"
+    save: true
+```
+
+**Check Point Gaia**:
+```yaml
+- id: configure-interface
+  module: checkpoint_gaia_config
+  params:
+    commands:
+      - "set interface eth0 ipv4-address 10.0.1.1 mask-length 24"
+    save: true
+```
+
+**MikroTik RouterOS**:
+```yaml
+- id: configure-ip
+  module: mikrotik_routeros_config
+  params:
+    commands:
+      - "/ip address add address=10.0.1.1/24 interface=ether1"
+```
+
+**Huawei VRP**:
+```yaml
+- id: configure-interface
+  module: huawei_vrp_config
+  params:
+    lines:
+      - "interface GE0/0/1"
+      - "ip address 10.0.1.1 255.255.255.0"
+    save: true
+```
+
+**Nokia SR OS**:
+```yaml
+- id: configure-router
+  module: nokia_sros_config
+  params:
+    commands:
+      - "router interface system address 10.0.0.1/32"
+    save: true
+```
+
+See the [Vendor Drivers Reference]({{< relref "../reference/vendor-drivers.md" >}}) for complete details on all 25 vendor drivers and their state modules.
+
 ### WinRM Modules
 
 For Windows systems via WinRM:
@@ -496,6 +751,24 @@ For Windows systems via WinRM:
 | pfSense | Firewall | REST API | `pfsense` |
 | OPNsense | Firewall | REST API | `opnsense` |
 | VyOS/EdgeOS | Router | SSH | `vyos` |
+| HP ProCurve | Switch | SSH | `hp_procurve` |
+| HP ArubaOS | Wireless Controller | SSH | `hp_arubaos` |
+| Aruba AOS-CX | Switch | SSH | `hp_aoscx` |
+| Dell OS10 | Switch | SSH | `dell_os10` |
+| Dell OS9 / FTOS | Switch | SSH | `dell_os9` |
+| Dell PowerSwitch | Switch | SSH | `dell_powerswitch` |
+| Fortinet FortiOS | Firewall | SSH | `fortinet_fortios` |
+| Palo Alto PAN-OS | Firewall | SSH | `paloalto_panos` |
+| F5 BIG-IP | Load Balancer | SSH (tmsh) | `f5_bigip` |
+| Check Point Gaia | Firewall | SSH (clish) | `checkpoint_gaia` |
+| MikroTik RouterOS | Router | SSH | `mikrotik_routeros` |
+| Ubiquiti EdgeOS | Router | SSH | `ubiquiti_edgeos` |
+| Extreme EXOS | Switch | SSH | `extreme_exos` |
+| Nokia SR OS | Router | SSH | `nokia_sros` |
+| Huawei VRP | Router/Switch | SSH | `huawei_vrp` |
+| Mellanox/NVIDIA Onyx | Switch | SSH | `mellanox_onyx` |
+| Allied Telesis AWPlus | Switch | SSH | `alliedtelesis_awplus` |
+| Ciena SAOS | Switch | SSH | `ciena_saos` |
 
 ### Vendor Adapter Interface
 
@@ -563,7 +836,7 @@ Monitor configuration drift on proxied devices:
 drift:
   enabled: true
   check_interval: 1h
-  baseline_store: /var/lib/kscore/baselines
+  baseline_store: /var/lib/keystone-core/baselines
 
   # Severity classification
   severity:
@@ -645,7 +918,7 @@ A pre-built dashboard is available at `deploy/grafana/dashboards/proxy-agents.js
 ### Proxy Agent Configuration
 
 ```yaml
-# /etc/kscore/proxy-agent.yaml
+# /etc/keystone-core/proxy-agent.yaml
 proxy:
   # Control plane connection
   nats:
@@ -655,7 +928,7 @@ proxy:
   # Device registry
   registry:
     type: file  # or postgres
-    path: /var/lib/kscore/devices.json
+    path: /var/lib/keystone-core/devices.json
 
   # Credential store
   credentials:
@@ -784,7 +1057,7 @@ kscorectl proxy device config show device-id
 
 ## Next Steps
 
-- Learn about [Agents](agents/) for native agent deployment
-- Explore [State Management](state-management/) for declarative configuration
-- See [Events](events/) for event-driven automation with proxied devices
-- Review [Observability](observability/) for monitoring proxied devices
+- Learn about [Agents](/docs/concepts/agents/) for native agent deployment
+- Explore [State Management](/docs/concepts/state-management/) for declarative configuration
+- See [Events](/docs/concepts/events/) for event-driven automation with proxied devices
+- Review [Observability](/docs/concepts/observability/) for monitoring proxied devices

@@ -96,7 +96,8 @@ func (m *JobsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		switch msg.String() {
 		case "r":
 			// Refresh jobs
-			return m, m.Fetch()
+			cmd := m.Fetch()
+			return m, cmd
 		case "tab":
 			// Toggle between commands and batch jobs
 			if m.viewMode == "commands" {
@@ -385,9 +386,9 @@ func formatBatchJobStatus(status pb.BatchJobStatus) string {
 func formatDuration(d time.Duration) string {
 	if d.Seconds() < 60 {
 		return fmt.Sprintf("%.1fs", d.Seconds())
-	} else if d.Minutes() < 60 {
-		return fmt.Sprintf("%.0fm %.0fs", d.Minutes(), d.Seconds()-d.Minutes()*60)
-	} else {
-		return fmt.Sprintf("%.0fh %.0fm", d.Hours(), d.Minutes()-d.Hours()*60)
 	}
+	if d.Minutes() < 60 {
+		return fmt.Sprintf("%.0fm %.0fs", d.Minutes(), d.Seconds()-d.Minutes()*60)
+	}
+	return fmt.Sprintf("%.0fh %.0fm", d.Hours(), d.Minutes()-d.Hours()*60)
 }

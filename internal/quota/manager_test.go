@@ -163,8 +163,8 @@ func TestManager_Create(t *testing.T) {
 	store := NewInMemoryStore()
 	manager := NewManager(store)
 
-	var events []*QuotaEvent
-	manager.AddListener(func(e *QuotaEvent) {
+	var events []*Event
+	manager.AddListener(func(e *Event) {
 		events = append(events, e)
 	})
 
@@ -172,7 +172,7 @@ func TestManager_Create(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -233,7 +233,7 @@ func TestManager_CheckAllocation(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -273,7 +273,7 @@ func TestManager_CheckAllocation(t *testing.T) {
 		},
 	}
 
-	scope := &QuotaScope{Type: "namespace", Name: "default"}
+	scope := &Scope{Type: "namespace", Name: "default"}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -296,7 +296,7 @@ func TestManager_Allocate(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -309,7 +309,7 @@ func TestManager_Allocate(t *testing.T) {
 	}
 	manager.Create(ctx, quota)
 
-	scope := &QuotaScope{Type: "namespace", Name: "default"}
+	scope := &Scope{Type: "namespace", Name: "default"}
 	request := &Request{
 		Resources: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 500},
@@ -339,7 +339,7 @@ func TestManager_Release(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -352,7 +352,7 @@ func TestManager_Release(t *testing.T) {
 	}
 	manager.Create(ctx, quota)
 
-	scope := &QuotaScope{Type: "namespace", Name: "default"}
+	scope := &Scope{Type: "namespace", Name: "default"}
 	request := &Request{
 		Resources: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 500},
@@ -379,7 +379,7 @@ func TestManager_GetUsageReport(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -414,7 +414,7 @@ func TestInMemoryStore(t *testing.T) {
 	quota := &Quota{
 		ID:   "quota-1",
 		Name: "test-quota",
-		Scope: &QuotaScope{
+		Scope: &Scope{
 			Type: "namespace",
 			Name: "default",
 		},
@@ -439,7 +439,7 @@ func TestInMemoryStore(t *testing.T) {
 	}
 
 	// Test GetByScope
-	byScope, err := store.GetByScope(ctx, &QuotaScope{Type: "namespace", Name: "default"})
+	byScope, err := store.GetByScope(ctx, &Scope{Type: "namespace", Name: "default"})
 	if err != nil {
 		t.Fatalf("GetByScope failed: %v", err)
 	}
@@ -480,12 +480,12 @@ func TestInMemoryStore(t *testing.T) {
 func TestQuotaEnforcer(t *testing.T) {
 	store := NewInMemoryStore()
 	manager := NewManager(store)
-	enforcer := NewQuotaEnforcer(manager)
+	enforcer := NewEnforcer(manager)
 
 	ctx := context.Background()
 	quota := &Quota{
-		ID:   "quota-1",
-		Scope: &QuotaScope{Type: "namespace", Name: "default"},
+		ID:    "quota-1",
+		Scope: &Scope{Type: "namespace", Name: "default"},
 		Hard: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 1000},
 		},
@@ -496,7 +496,7 @@ func TestQuotaEnforcer(t *testing.T) {
 	manager.Create(ctx, quota)
 
 	// Test allowed
-	err := enforcer.Enforce(ctx, &QuotaScope{Type: "namespace", Name: "default"}, &Request{
+	err := enforcer.Enforce(ctx, &Scope{Type: "namespace", Name: "default"}, &Request{
 		Resources: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 100},
 		},
@@ -506,7 +506,7 @@ func TestQuotaEnforcer(t *testing.T) {
 	}
 
 	// Test exceeded
-	err = enforcer.Enforce(ctx, &QuotaScope{Type: "namespace", Name: "default"}, &Request{
+	err = enforcer.Enforce(ctx, &Scope{Type: "namespace", Name: "default"}, &Request{
 		Resources: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 500},
 		},
@@ -521,7 +521,7 @@ func TestQuotaEnforcer(t *testing.T) {
 		t.Error("Enforcer should be disabled")
 	}
 
-	err = enforcer.Enforce(ctx, &QuotaScope{Type: "namespace", Name: "default"}, &Request{
+	err = enforcer.Enforce(ctx, &Scope{Type: "namespace", Name: "default"}, &Request{
 		Resources: map[ResourceType]Quantity{
 			ResourceCPU: {Value: 5000},
 		},
@@ -534,7 +534,7 @@ func TestQuotaEnforcer(t *testing.T) {
 func TestQuotaAggregator(t *testing.T) {
 	store := NewInMemoryStore()
 	manager := NewManager(store)
-	aggregator := NewQuotaAggregator(manager)
+	aggregator := NewAggregator(manager)
 
 	ctx := context.Background()
 
@@ -542,13 +542,13 @@ func TestQuotaAggregator(t *testing.T) {
 	quotas := []*Quota{
 		{
 			ID:    "q1",
-			Scope: &QuotaScope{Type: "namespace", Name: "ns1"},
+			Scope: &Scope{Type: "namespace", Name: "ns1"},
 			Hard:  map[ResourceType]Quantity{ResourceCPU: {Value: 1000}},
 			Used:  map[ResourceType]Quantity{ResourceCPU: {Value: 500}},
 		},
 		{
 			ID:    "q2",
-			Scope: &QuotaScope{Type: "namespace", Name: "ns2"},
+			Scope: &Scope{Type: "namespace", Name: "ns2"},
 			Hard:  map[ResourceType]Quantity{ResourceCPU: {Value: 2000}},
 			Used:  map[ResourceType]Quantity{ResourceCPU: {Value: 1000}},
 		},
@@ -577,9 +577,9 @@ func TestQuotaAggregator(t *testing.T) {
 	}
 }
 
-func TestQuotaExceededError(t *testing.T) {
-	err := &QuotaExceededError{
-		Scope:        &QuotaScope{Type: "namespace", Name: "default"},
+func TestExceededError(t *testing.T) {
+	err := &ExceededError{
+		Scope:        &Scope{Type: "namespace", Name: "default"},
 		Insufficient: []ResourceType{ResourceCPU, ResourceMemory},
 		Message:      "quota exceeded",
 	}
@@ -589,8 +589,8 @@ func TestQuotaExceededError(t *testing.T) {
 	}
 }
 
-func TestQuotaScope(t *testing.T) {
-	scope := &QuotaScope{
+func TestScope(t *testing.T) {
+	scope := &Scope{
 		Type:      "namespace",
 		Name:      "production",
 		Namespace: "production",
@@ -645,7 +645,7 @@ func TestUsageReport(t *testing.T) {
 	report := &UsageReport{
 		QuotaID:     "quota-1",
 		QuotaName:   "test-quota",
-		Scope:       &QuotaScope{Type: "namespace", Name: "default"},
+		Scope:       &Scope{Type: "namespace", Name: "default"},
 		GeneratedAt: time.Now(),
 		Resources: []ResourceUsage{
 			{
@@ -680,11 +680,11 @@ func TestResourceUsage(t *testing.T) {
 	}
 }
 
-func TestQuotaEvent(t *testing.T) {
-	event := &QuotaEvent{
+func TestEvent(t *testing.T) {
+	event := &Event{
 		Type:      "warning",
 		QuotaID:   "quota-1",
-		Scope:     &QuotaScope{Type: "namespace", Name: "default"},
+		Scope:     &Scope{Type: "namespace", Name: "default"},
 		Timestamp: time.Now(),
 		Message:   "CPU usage at 90%",
 		Details: map[string]interface{}{

@@ -243,7 +243,7 @@ func runListMirrors(cmd *cobra.Command, args []string) error {
 	case output.FormatYAML:
 		return output.WriteYAML(os.Stdout, infos)
 	case output.FormatTable, output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -256,7 +256,8 @@ func runListMirrors(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tMIRRORS\tSTRATEGY\tPOLICY")
 	fmt.Fprintln(w, "--\t----\t-------\t--------\t------")
-	for _, info := range infos {
+	for i := range infos {
+		info := &infos[i]
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
 			info.ID, info.Name, info.MirrorCount, info.ReadStrategy, info.WritePolicy)
 	}
@@ -377,7 +378,7 @@ func runShowMirror(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	case output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -517,7 +518,7 @@ func runSyncStatus(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	case output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -681,7 +682,7 @@ func runMirrorHealth(cmd *cobra.Command, args []string) error {
 	case output.FormatYAML:
 		return output.WriteYAML(os.Stdout, entries)
 	case output.FormatTable, output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -798,7 +799,7 @@ func runLatencyMatrix(cmd *cobra.Command, args []string) error {
 	case output.FormatYAML:
 		return output.WriteYAML(os.Stdout, entries)
 	case output.FormatTable, output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -811,8 +812,8 @@ func runLatencyMatrix(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "GROUP\tMIRROR\tLATENCY (EMA)")
 	fmt.Fprintln(w, "-----\t------\t------------")
-	for _, e := range entries {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", e.GroupID, e.MirrorID, e.Latency)
+	for i := range entries {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", entries[i].GroupID, entries[i].MirrorID, entries[i].Latency)
 	}
 	return w.Flush()
 }
@@ -861,7 +862,7 @@ func runListConflicts(cmd *cobra.Command, args []string) error {
 	case output.FormatYAML:
 		return output.WriteYAML(os.Stdout, infos)
 	case output.FormatTable, output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -972,7 +973,7 @@ func runSyncHistory(cmd *cobra.Command, args []string) error {
 	case output.FormatYAML:
 		return output.WriteYAML(os.Stdout, infos)
 	case output.FormatTable, output.FormatText:
-		// continue below
+		// Handled after switch
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
@@ -985,7 +986,8 @@ func runSyncHistory(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "STARTED\tGROUP\tSOURCE\tTARGET\tFILES\tBYTES\tDURATION\tSTATUS")
 	fmt.Fprintln(w, "-------\t-----\t------\t------\t-----\t-----\t--------\t------")
-	for _, h := range infos {
+	for i := range infos {
+		h := &infos[i]
 		files := fmt.Sprintf("%d", h.FilesCompleted)
 		if h.FilesFailed > 0 {
 			files += fmt.Sprintf(" (%d failed)", h.FilesFailed)

@@ -25,22 +25,22 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("KSCORE_POSTGRES_SSLMODE", "prefer")
 	t.Setenv("KSCORE_NATS_URLS", "nats://nats1:4222,nats://nats2:4222")
 	t.Setenv("KSCORE_GENERATE_CERTS", "true")
-	t.Setenv("KSCORE_TLS_CERT_FILE", "/etc/kscore/tls.crt")
-	t.Setenv("KSCORE_TLS_KEY_FILE", "/etc/kscore/tls.key")
-	t.Setenv("KSCORE_TLS_CA_FILE", "/etc/kscore/ca.crt")
-	t.Setenv("KSCORE_TLS_CSR_FILE", "/etc/kscore/kscore.csr")
+	t.Setenv("KSCORE_TLS_CERT_FILE", "/etc/keystone-core/tls.crt")
+	t.Setenv("KSCORE_TLS_KEY_FILE", "/etc/keystone-core/tls.key")
+	t.Setenv("KSCORE_TLS_CA_FILE", "/etc/keystone-core/ca.crt")
+	t.Setenv("KSCORE_TLS_CSR_FILE", "/etc/keystone-core/kscore.csr")
 	t.Setenv("KSCORE_TLS_RENEWAL_COMMAND", "/usr/local/bin/renew-tls")
-	t.Setenv("KSCORE_TLS_RENEWAL_SCRIPT", "/etc/kscore/tls/renew.sh")
-	t.Setenv("KSCORE_NATS_CREDS_FILE", "/etc/kscore/nats.creds")
+	t.Setenv("KSCORE_TLS_RENEWAL_SCRIPT", "/etc/keystone-core/tls/renew.sh")
+	t.Setenv("KSCORE_NATS_CREDS_FILE", "/etc/keystone-core/nats.creds")
 	t.Setenv("KSCORE_NATS_USER", "nats-user")
 	t.Setenv("KSCORE_NATS_PASSWORD", "nats-pass")
 	t.Setenv("KSCORE_PACKAGE_CHANNEL", "stable")
 	t.Setenv("KSCORE_PACKAGE_VERSION", "1.2.3")
-	t.Setenv("KSCORE_MIGRATE_FROM_SQLITE", "/var/lib/kscore/kscore.db")
+	t.Setenv("KSCORE_MIGRATE_FROM_SQLITE", "/var/lib/keystone-core/keystone-core.db")
 	t.Setenv("KSCORE_MIGRATE_BATCH_SIZE", "250")
 	t.Setenv("KSCORE_MIGRATE_CONTINUE_ON_ERROR", "true")
 	t.Setenv("KSCORE_MIGRATE_SKIP_EXISTING", "false")
-	t.Setenv("KSCORE_BLUEPRINTS_DIR", "/etc/kscore/blueprints")
+	t.Setenv("KSCORE_BLUEPRINTS_DIR", "/etc/keystone-core/blueprints")
 	t.Setenv("KSCORE_APPLY_BLUEPRINTS", "blueprints/demo,blueprints/metrics@1.0.0")
 	t.Setenv("KSCORE_BLUEPRINT_PARAMS", "blueprints/demo:replicas=2")
 	t.Setenv("KSCORE_BLUEPRINT_FEATURES", "blueprints/demo:monitoring=true")
@@ -108,26 +108,26 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if !opts.GenerateCerts {
 		t.Fatal("expected generate certs true")
 	}
-	if opts.TLSCertFile != "/etc/kscore/tls.crt" {
-		t.Fatalf("expected tls cert file /etc/kscore/tls.crt, got %s", opts.TLSCertFile)
+	if opts.TLSCertFile != "/etc/keystone-core/tls.crt" {
+		t.Fatalf("expected tls cert file /etc/keystone-core/tls.crt, got %s", opts.TLSCertFile)
 	}
-	if opts.TLSKeyFile != "/etc/kscore/tls.key" {
-		t.Fatalf("expected tls key file /etc/kscore/tls.key, got %s", opts.TLSKeyFile)
+	if opts.TLSKeyFile != "/etc/keystone-core/tls.key" {
+		t.Fatalf("expected tls key file /etc/keystone-core/tls.key, got %s", opts.TLSKeyFile)
 	}
-	if opts.TLSCAFile != "/etc/kscore/ca.crt" {
-		t.Fatalf("expected tls ca file /etc/kscore/ca.crt, got %s", opts.TLSCAFile)
+	if opts.TLSCAFile != "/etc/keystone-core/ca.crt" {
+		t.Fatalf("expected tls ca file /etc/keystone-core/ca.crt, got %s", opts.TLSCAFile)
 	}
-	if opts.TLSCSRFile != "/etc/kscore/kscore.csr" {
-		t.Fatalf("expected tls csr file /etc/kscore/kscore.csr, got %s", opts.TLSCSRFile)
+	if opts.TLSCSRFile != "/etc/keystone-core/kscore.csr" {
+		t.Fatalf("expected tls csr file /etc/keystone-core/kscore.csr, got %s", opts.TLSCSRFile)
 	}
 	if opts.TLSRenewalCommand != "/usr/local/bin/renew-tls" {
 		t.Fatalf("expected tls renewal command /usr/local/bin/renew-tls, got %s", opts.TLSRenewalCommand)
 	}
-	if opts.TLSRenewalScriptPath != "/etc/kscore/tls/renew.sh" {
-		t.Fatalf("expected tls renewal script /etc/kscore/tls/renew.sh, got %s", opts.TLSRenewalScriptPath)
+	if opts.TLSRenewalScriptPath != "/etc/keystone-core/tls/renew.sh" {
+		t.Fatalf("expected tls renewal script /etc/keystone-core/tls/renew.sh, got %s", opts.TLSRenewalScriptPath)
 	}
-	if opts.NATSCredsFile != "/etc/kscore/nats.creds" {
-		t.Fatalf("expected nats creds file /etc/kscore/nats.creds, got %s", opts.NATSCredsFile)
+	if opts.NATSCredsFile != "/etc/keystone-core/nats.creds" {
+		t.Fatalf("expected nats creds file /etc/keystone-core/nats.creds, got %s", opts.NATSCredsFile)
 	}
 	if opts.NATSUser != "nats-user" {
 		t.Fatalf("expected nats user nats-user, got %s", opts.NATSUser)
@@ -141,8 +141,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if opts.PackageVersion != "1.2.3" {
 		t.Fatalf("expected package version 1.2.3, got %s", opts.PackageVersion)
 	}
-	if opts.MigrateFromSQLite != "/var/lib/kscore/kscore.db" {
-		t.Fatalf("expected migrate from sqlite /var/lib/kscore/kscore.db, got %s", opts.MigrateFromSQLite)
+	if opts.MigrateFromSQLite != "/var/lib/keystone-core/keystone-core.db" {
+		t.Fatalf("expected migrate from sqlite /var/lib/keystone-core/keystone-core.db, got %s", opts.MigrateFromSQLite)
 	}
 	if opts.MigrateBatchSize != 250 {
 		t.Fatalf("expected migrate batch size 250, got %d", opts.MigrateBatchSize)
@@ -153,8 +153,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if opts.MigrateSkipExisting {
 		t.Fatal("expected migrate skip existing false")
 	}
-	if opts.BlueprintsDir != "/etc/kscore/blueprints" {
-		t.Fatalf("expected blueprints dir /etc/kscore/blueprints, got %s", opts.BlueprintsDir)
+	if opts.BlueprintsDir != "/etc/keystone-core/blueprints" {
+		t.Fatalf("expected blueprints dir /etc/keystone-core/blueprints, got %s", opts.BlueprintsDir)
 	}
 	if len(opts.ApplyBlueprints) != 2 {
 		t.Fatalf("expected 2 apply blueprints, got %d", len(opts.ApplyBlueprints))

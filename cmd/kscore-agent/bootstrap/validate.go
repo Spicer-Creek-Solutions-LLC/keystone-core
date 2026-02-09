@@ -46,7 +46,7 @@ func validatePhase(ctx context.Context, state *State) error {
 	return nil
 }
 
-func validateBootstrapConfig(cfg *BootstrapConfig) error {
+func validateBootstrapConfig(cfg *Config) error {
 	if cfg.Mode == "" {
 		return fmt.Errorf("mode is required")
 	}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -135,9 +136,12 @@ func (h *ScriptHandler) Execute(ctx context.Context, step *runbook.Step, varCtx 
 
 	// Build command
 	args := h.getArgs(config, varCtx)
-	cmdArgs := append(interpreter, scriptFile)
+	cmdArgs := make([]string, 0, len(interpreter)+1+len(args))
+	cmdArgs = append(cmdArgs, interpreter...)
+	cmdArgs = append(cmdArgs, scriptFile)
 	cmdArgs = append(cmdArgs, args...)
 
+	//nolint:gosec // G204: script execution is intentional for runbook automation
 	cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 
 	// Set environment
@@ -170,7 +174,8 @@ func (h *ScriptHandler) Execute(ctx context.Context, step *runbook.Step, varCtx 
 	}
 
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			outputs["exit_code"] = exitError.ExitCode()
 		}
 
@@ -214,7 +219,7 @@ func (h *ScriptHandler) getLanguage(config map[string]interface{}) ScriptLanguag
 }
 
 // getInterpreter returns the interpreter command and file extension for the language.
-func (h *ScriptHandler) getInterpreter(lang ScriptLanguage) ([]string, string) {
+func (h *ScriptHandler) getInterpreter(lang ScriptLanguage) (interpreter []string, extension string) {
 	switch lang {
 	case ScriptLanguageBash:
 		return []string{"bash"}, ".sh"
@@ -253,7 +258,7 @@ func (h *ScriptHandler) createScriptFile(script, ext string) (string, error) {
 
 	// Make executable on Unix
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(f.Name(), 0700); err != nil {
+		if err := os.Chmod(f.Name(), 0o700); err != nil { //nolint:gosec // G302: Script must be executable by owner
 			os.Remove(f.Name())
 			return "", err
 		}
@@ -389,9 +394,12 @@ func (h *ScriptFileHandler) Execute(ctx context.Context, step *runbook.Step, var
 	// Build command
 	scriptHandler := &ScriptHandler{}
 	args := scriptHandler.getArgs(config, varCtx)
-	cmdArgs := append(interpreter, filePath)
+	cmdArgs := make([]string, 0, len(interpreter)+1+len(args))
+	cmdArgs = append(cmdArgs, interpreter...)
+	cmdArgs = append(cmdArgs, filePath)
 	cmdArgs = append(cmdArgs, args...)
 
+	//nolint:gosec // G204: script file execution is intentional for runbook automation
 	cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 
 	// Set environment
@@ -425,7 +433,8 @@ func (h *ScriptFileHandler) Execute(ctx context.Context, step *runbook.Step, var
 	}
 
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			outputs["exit_code"] = exitError.ExitCode()
 		}
 

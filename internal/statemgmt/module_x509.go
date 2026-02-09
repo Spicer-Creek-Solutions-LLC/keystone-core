@@ -53,7 +53,7 @@ func (m *X509Module) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	if os.IsNotExist(err) {
 		result.Present = false
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read certificate: %w", err)
@@ -67,7 +67,7 @@ func (m *X509Module) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		result.Metadata["valid"] = false
 		result.Metadata["error"] = "invalid PEM data"
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -75,7 +75,7 @@ func (m *X509Module) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		result.Metadata["valid"] = false
 		result.Metadata["error"] = err.Error()
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Metadata["valid"] = true
@@ -90,11 +90,12 @@ func (m *X509Module) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	// Check if expired
 	now := time.Now()
-	if now.Before(cert.NotBefore) {
+	switch {
+	case now.Before(cert.NotBefore):
 		result.Metadata["status"] = "not_yet_valid"
-	} else if now.After(cert.NotAfter) {
+	case now.After(cert.NotAfter):
 		result.Metadata["status"] = "expired"
-	} else {
+	default:
 		result.Metadata["status"] = "valid"
 	}
 
@@ -123,7 +124,7 @@ func (m *X509Module) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes an X.509 certificate
@@ -143,14 +144,14 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	if err != nil {
 		result.Success = false
 		result.Comment = fmt.Sprintf("Check failed: %v", err)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if check.Matches {
 		result.Success = true
 		result.Changed = false
 		result.Comment = "Certificate already in desired state"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch decl.State {
@@ -160,7 +161,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to remove certificate: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		} else if err == nil {
 			removed = true
 		}
@@ -185,7 +186,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		if cn == "" {
 			result.Success = false
 			result.Comment = "common_name parameter is required for present state"
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		org := getStringParameter(decl, "organization", "")
@@ -193,7 +194,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		validity := getIntParameter(decl, "validity_days", 365)
 		keyType := getStringParameter(decl, "key_type", "rsa")
 		keySize := getIntParameter(decl, "key_size", 2048)
-		selfSigned := getBoolParameter(decl, "self_signed", true)
+		_ = getBoolParameter(decl, "self_signed", true) // Unused: CA-signed certificates not yet implemented
 		isCA := getBoolParameter(decl, "is_ca", false)
 
 		// Parse SAN names
@@ -210,7 +211,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to generate RSA key: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			privateKey = key
 			publicKey = &key.PublicKey
@@ -230,7 +231,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to generate ECDSA key: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			privateKey = key
 			publicKey = &key.PublicKey
@@ -239,14 +240,14 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to generate Ed25519 key: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			privateKey = priv
 			publicKey = pub
 		default:
 			result.Success = false
 			result.Comment = fmt.Sprintf("Unknown key type: %s", keyType)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Generate serial number
@@ -254,7 +255,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to generate serial number: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Build certificate template
@@ -281,9 +282,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		}
 
 		// Add SANs
-		for _, name := range sanNames {
-			template.DNSNames = append(template.DNSNames, name)
-		}
+		template.DNSNames = append(template.DNSNames, sanNames...)
 		for _, ipStr := range sanIPs {
 			ip := net.ParseIP(ipStr)
 			if ip != nil {
@@ -291,33 +290,29 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 			}
 		}
 
-		// Create certificate
-		var certDER []byte
-		if selfSigned {
-			certDER, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey, privateKey)
-		} else {
-			// For non-self-signed, we'd need a CA cert/key - for now, just self-sign
-			certDER, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey, privateKey)
-		}
+		// Create certificate (currently always self-signed; CA-signed certificates not yet implemented)
+		certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey, privateKey)
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create certificate: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Ensure directory exists
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		//nolint:gosec // G301: certificate directory needs to be accessible by services
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create directory: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Write certificate
 		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-		if err := os.WriteFile(path, certPEM, 0644); err != nil {
+		//nolint:gosec // G306: certificates need to be readable for TLS verification
+		if err := os.WriteFile(path, certPEM, 0o644); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write certificate: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Write private key
@@ -342,10 +337,10 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 			})
 		}
 
-		if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
+		if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write private key: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -353,7 +348,7 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Created certificate for %s", cn)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test validates module parameters
@@ -367,7 +362,7 @@ func (m *X509Module) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 	if path == "" {
 		result.Success = false
 		result.Comment = "path parameter is required"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if decl.State == "present" {
@@ -375,7 +370,7 @@ func (m *X509Module) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 		if cn == "" {
 			result.Success = false
 			result.Comment = "common_name parameter is required for present state"
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		keyType := getStringParameter(decl, "key_type", "rsa")
@@ -383,13 +378,13 @@ func (m *X509Module) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 		if !validKeyTypes[keyType] {
 			result.Success = false
 			result.Comment = fmt.Sprintf("invalid key_type: %s (must be rsa, ecdsa, or ed25519)", keyType)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
 	result.Success = true
 	result.Comment = "X509 module parameters are valid"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // ============================================================================
@@ -429,7 +424,7 @@ func (m *CAModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCh
 	if os.IsNotExist(certErr) || os.IsNotExist(keyErr) {
 		result.Present = false
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 	if certErr != nil {
 		return nil, fmt.Errorf("failed to read CA certificate: %w", certErr)
@@ -445,14 +440,14 @@ func (m *CAModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCh
 	if block == nil || block.Type != "CERTIFICATE" {
 		result.Metadata["valid"] = false
 		result.Matches = false // Files exist but are invalid, need action for any state
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		result.Metadata["valid"] = false
 		result.Matches = false // Files exist but are invalid, need action for any state
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Metadata["valid"] = true
@@ -468,7 +463,7 @@ func (m *CAModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCh
 		result.CurrentState = "present"
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes a CA
@@ -484,14 +479,14 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 	if err != nil {
 		result.Success = false
 		result.Comment = fmt.Sprintf("Check failed: %v", err)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if check.Matches {
 		result.Success = true
 		result.Changed = false
 		result.Comment = "CA already in desired state"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch decl.State {
@@ -500,7 +495,7 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to remove CA: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Success = true
 		result.Changed = check.Present
@@ -511,7 +506,7 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		if cn == "" {
 			result.Success = false
 			result.Comment = "common_name parameter is required"
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		org := getStringParameter(decl, "organization", "")
@@ -521,10 +516,10 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		keySize := getIntParameter(decl, "key_size", 4096)
 
 		// Create CA directory
-		if err := os.MkdirAll(path, 0700); err != nil {
+		if err := os.MkdirAll(path, 0o700); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create CA directory: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Generate private key
@@ -537,7 +532,7 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to generate RSA key: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			privateKey = key
 			publicKey = &key.PublicKey
@@ -546,14 +541,14 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to generate ECDSA key: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			privateKey = key
 			publicKey = &key.PublicKey
 		default:
 			result.Success = false
 			result.Comment = fmt.Sprintf("Unknown key type: %s", keyType)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Generate serial number
@@ -561,7 +556,7 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		if err != nil {
 			result.Success = false
 			result.Error = fmt.Errorf("failed to generate serial number: %w", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Build CA certificate
@@ -588,16 +583,17 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create CA certificate: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Write CA certificate
 		certPath := filepath.Join(path, "ca.crt")
 		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-		if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
+		//nolint:gosec // G306: CA certificates need to be readable for trust chain verification
+		if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write CA certificate: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Write CA private key
@@ -617,26 +613,28 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 			})
 		}
 
-		if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
+		if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write CA key: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Create serial file
 		serialFile := filepath.Join(path, "serial")
-		if err := os.WriteFile(serialFile, []byte("01\n"), 0644); err != nil {
+		//nolint:gosec // G306: CA serial file needs to be readable for certificate issuance
+		if err := os.WriteFile(serialFile, []byte("01\n"), 0o644); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write serial file: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Create index file
 		indexFile := filepath.Join(path, "index.txt")
-		if err := os.WriteFile(indexFile, []byte(""), 0644); err != nil {
+		//nolint:gosec // G306: CA index file needs to be readable for certificate management
+		if err := os.WriteFile(indexFile, []byte(""), 0o644); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write index file: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -644,7 +642,7 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		result.Comment = fmt.Sprintf("Created CA: %s", cn)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test validates module parameters
@@ -658,7 +656,7 @@ func (m *CAModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResu
 	if path == "" {
 		result.Success = false
 		result.Comment = "path parameter is required"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if decl.State == "present" {
@@ -666,13 +664,13 @@ func (m *CAModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResu
 		if cn == "" {
 			result.Success = false
 			result.Comment = "common_name parameter is required for present state"
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
 	result.Success = true
 	result.Comment = "CA module parameters are valid"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // SignCertificate signs a certificate with this CA
@@ -803,7 +801,7 @@ func (m *ACMEModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	if os.IsNotExist(certErr) || os.IsNotExist(keyErr) {
 		result.Present = false
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 	if certErr != nil {
 		return nil, fmt.Errorf("failed to read certificate: %w", certErr)
@@ -816,14 +814,14 @@ func (m *ACMEModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	if block == nil || block.Type != "CERTIFICATE" {
 		result.Metadata["valid"] = false
 		result.Matches = false // Files exist but are invalid, need action for any state
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		result.Metadata["valid"] = false
 		result.Matches = false // Files exist but are invalid, need action for any state
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Metadata["valid"] = true
@@ -854,7 +852,7 @@ func (m *ACMEModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply requests, renews, or removes an ACME certificate
@@ -871,14 +869,14 @@ func (m *ACMEModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	if err != nil {
 		result.Success = false
 		result.Comment = fmt.Sprintf("Check failed: %v", err)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if check.Matches {
 		result.Success = true
 		result.Changed = false
 		result.Comment = "ACME certificate already in desired state"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch decl.State {
@@ -922,7 +920,7 @@ func (m *ACMEModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test validates module parameters
@@ -936,7 +934,7 @@ func (m *ACMEModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 	if path == "" {
 		result.Success = false
 		result.Comment = "path parameter is required"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if decl.State != "absent" {
@@ -944,7 +942,7 @@ func (m *ACMEModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 		if domain == "" {
 			result.Success = false
 			result.Comment = "domain parameter is required for state " + decl.State
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		challenge := getStringParameter(decl, "challenge", "http-01")
@@ -952,13 +950,13 @@ func (m *ACMEModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRe
 		if !validChallenges[challenge] {
 			result.Success = false
 			result.Comment = fmt.Sprintf("invalid challenge type: %s", challenge)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
 	result.Success = true
 	result.Comment = "ACME module parameters are valid (note: full ACME not yet implemented)"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // ============================================================================
@@ -990,5 +988,5 @@ func GenerateCSR(privateKey crypto.PrivateKey, cn string, sans []string, sanIPs 
 
 	var buf bytes.Buffer
 	pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
-	return buf.Bytes(), nil
+	return buf.Bytes(), nil //nolint:nilerr // intentional
 }

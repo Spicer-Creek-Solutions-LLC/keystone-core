@@ -36,14 +36,14 @@ func TestDemoBootstrapIdempotent(t *testing.T) {
 				t.Fatalf("failed to copy agent binary: %v", err)
 			}
 
-			first := execBootstrap(t, ctx, env,
+			first := execBootstrap(ctx, t, env,
 				"--mode", "demo",
 				"--non-interactive",
 				"--dry-run",
 			)
 			requireExecSuccess(t, first, "demo bootstrap dry-run (first)")
 
-			second := execBootstrap(t, ctx, env,
+			second := execBootstrap(ctx, t, env,
 				"--mode", "demo",
 				"--non-interactive",
 				"--dry-run",

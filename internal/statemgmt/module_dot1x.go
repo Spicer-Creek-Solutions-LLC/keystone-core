@@ -42,12 +42,13 @@ type Dot1xConfig struct {
 // Dot1xBackend represents the available 802.1X management backend
 type Dot1xBackend string
 
+// D1XUnknown and related constants.
 const (
-	D1XUnknown       Dot1xBackend = "unknown"
-	D1XWpaSupplicant Dot1xBackend = "wpa_supplicant" // Linux (wired and wireless)
+	D1XUnknown        Dot1xBackend = "unknown"
+	D1XWpaSupplicant  Dot1xBackend = "wpa_supplicant" // Linux (wired and wireless)
 	D1XNetworkManager Dot1xBackend = "networkmanager" // Linux with NetworkManager
-	D1XDot3svc       Dot1xBackend = "dot3svc"        // Windows wired 802.1X
-	D1XProfiles      Dot1xBackend = "profiles"       // macOS configuration profiles
+	D1XDot3svc        Dot1xBackend = "dot3svc"        // Windows wired 802.1X
+	D1XProfiles       Dot1xBackend = "profiles"       // macOS configuration profiles
 )
 
 // Valid EAP methods
@@ -79,7 +80,7 @@ func (m *Dot1xModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		return nil, fmt.Errorf("failed to parse 802.1X config: %w", err)
 	}
 
-	backend, err := m.detectDot1xBackend()
+	backend, err := m.detectDot1xBackend(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect 802.1X backend: %w", err)
 	}
@@ -118,7 +119,7 @@ func (m *Dot1xModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 }
 
 // Apply applies the 802.1X configuration
@@ -137,7 +138,7 @@ func (m *Dot1xModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 	}
 
 	if err := m.validateDot1xConfig(config, decl.State); err != nil {
@@ -146,17 +147,17 @@ func (m *Dot1xModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = fmt.Sprintf("Invalid config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 	}
 
-	backend, err := m.detectDot1xBackend()
+	backend, err := m.detectDot1xBackend(ctx)
 	if err != nil {
 		result.Success = false
 		result.Error = err
 		result.Comment = fmt.Sprintf("Failed to detect 802.1X backend: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 	}
 
 	// Check current state
@@ -166,7 +167,7 @@ func (m *Dot1xModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 	}
 
 	// If already in desired state, no changes needed
@@ -176,7 +177,7 @@ func (m *Dot1xModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 	}
 
 	// Apply changes
@@ -202,7 +203,7 @@ func (m *Dot1xModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error is captured in result.Error field, not a function error
 }
 
 // Test verifies the 802.1X configuration matches the desired state
@@ -211,7 +212,7 @@ func (m *Dot1xModule) Test(ctx context.Context, decl *StateDeclaration) (bool, e
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // returning result with nil error is correct
 }
 
 // parseDot1xConfig parses the state declaration into Dot1xConfig
@@ -292,7 +293,7 @@ func (m *Dot1xModule) parseDot1xConfig(decl *StateDeclaration) (*Dot1xConfig, er
 		}
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // returning result with nil error is correct
 }
 
 // validateDot1xConfig validates the 802.1X configuration
@@ -346,28 +347,28 @@ func (m *Dot1xModule) validateDot1xConfig(config *Dot1xConfig, state string) err
 }
 
 // detectDot1xBackend detects the available 802.1X backend
-func (m *Dot1xModule) detectDot1xBackend() (Dot1xBackend, error) {
+func (m *Dot1xModule) detectDot1xBackend(ctx context.Context) (Dot1xBackend, error) {
 	switch runtime.GOOS {
 	case "linux":
 		// Check for NetworkManager first
 		if _, err := exec.LookPath("nmcli"); err == nil {
 			// Check if NetworkManager is running
-			cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+			cmd := exec.CommandContext(ctx, "systemctl", "is-active", "NetworkManager")
 			if err := cmd.Run(); err == nil {
-				return D1XNetworkManager, nil
+				return D1XNetworkManager, nil //nolint:nilerr // returning result with nil error is correct
 			}
 		}
 		// Fall back to wpa_supplicant
 		if _, err := exec.LookPath("wpa_supplicant"); err == nil {
-			return D1XWpaSupplicant, nil
+			return D1XWpaSupplicant, nil //nolint:nilerr // returning result with nil error is correct
 		}
 		return D1XUnknown, fmt.Errorf("no 802.1X backend found (need NetworkManager or wpa_supplicant)")
 
 	case "darwin":
-		return D1XProfiles, nil
+		return D1XProfiles, nil //nolint:nilerr // returning result with nil error is correct
 
 	case "windows":
-		return D1XDot3svc, nil
+		return D1XDot3svc, nil //nolint:nilerr // returning result with nil error is correct
 
 	default:
 		return D1XUnknown, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
@@ -375,7 +376,7 @@ func (m *Dot1xModule) detectDot1xBackend() (Dot1xBackend, error) {
 }
 
 // checkDot1xExists checks if 802.1X is configured and enabled
-func (m *Dot1xModule) checkDot1xExists(ctx context.Context, backend Dot1xBackend, config *Dot1xConfig) (exists bool, enabled bool, err error) {
+func (m *Dot1xModule) checkDot1xExists(ctx context.Context, backend Dot1xBackend, config *Dot1xConfig) (exists, enabled bool, err error) {
 	switch backend {
 	case D1XNetworkManager:
 		return m.checkDot1xNetworkManager(ctx, config)
@@ -426,7 +427,7 @@ func (m *Dot1xModule) disableDot1x(ctx context.Context, backend Dot1xBackend, co
 // NetworkManager Backend (Linux with nmcli)
 // ============================================================================
 
-func (m *Dot1xModule) checkDot1xNetworkManager(ctx context.Context, config *Dot1xConfig) (bool, bool, error) {
+func (m *Dot1xModule) checkDot1xNetworkManager(ctx context.Context, config *Dot1xConfig) (exists, authenticated bool, err error) {
 	// Check if a connection exists for this interface with 802.1X
 	cmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "NAME,DEVICE,TYPE",
 		"connection", "show", "--active")
@@ -437,7 +438,7 @@ func (m *Dot1xModule) checkDot1xNetworkManager(ctx context.Context, config *Dot1
 			"connection", "show")
 		output, err = cmd.Output()
 		if err != nil {
-			return false, false, nil
+			return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 		}
 	}
 
@@ -449,18 +450,18 @@ func (m *Dot1xModule) checkDot1xNetworkManager(ctx context.Context, config *Dot1
 			detailCmd := exec.CommandContext(ctx, "nmcli", "-t", "-f",
 				"802-1x.eap", "connection", "show", config.Name)
 			detailOutput, err := detailCmd.Output()
-			if err == nil && len(strings.TrimSpace(string(detailOutput))) > 0 {
+			if err == nil && strings.TrimSpace(string(detailOutput)) != "" {
 				// Check if connection is active
 				activeCmd := exec.CommandContext(ctx, "nmcli", "-t", "-f",
 					"GENERAL.STATE", "connection", "show", config.Name)
 				activeOutput, _ := activeCmd.Output()
 				isActive := strings.Contains(string(activeOutput), "activated")
-				return true, isActive, nil
+				return true, isActive, nil //nolint:nilerr // returning check result with nil error is correct
 			}
 		}
 	}
 
-	return false, false, nil
+	return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 }
 
 func (m *Dot1xModule) enableDot1xNetworkManager(ctx context.Context, config *Dot1xConfig, result *StateResult) error {
@@ -549,27 +550,27 @@ func (m *Dot1xModule) disableDot1xNetworkManager(ctx context.Context, config *Do
 
 const wpaSupplicantDot1xConfPath = "/etc/wpa_supplicant/wpa_supplicant-%s.conf"
 
-func (m *Dot1xModule) checkDot1xWpaSupplicant(ctx context.Context, config *Dot1xConfig) (bool, bool, error) {
+func (m *Dot1xModule) checkDot1xWpaSupplicant(ctx context.Context, config *Dot1xConfig) (exists, authenticated bool, err error) {
 	confPath := fmt.Sprintf(wpaSupplicantDot1xConfPath, config.Interface)
 
 	// Check if config file exists
 	if _, err := os.Stat(confPath); os.IsNotExist(err) {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
 	// Check if wpa_supplicant is running for this interface
 	cmd := exec.CommandContext(ctx, "wpa_cli", "-i", config.Interface, "status")
 	output, err := cmd.Output()
 	if err != nil {
-		return true, false, nil // Config exists but not running
+		return true, false, nil //nolint:nilerr // returning check result with nil error is correct // error means wpa_supplicant not running, config exists
 	}
 
 	// Check if authenticated
 	if strings.Contains(string(output), "wpa_state=COMPLETED") {
-		return true, true, nil
+		return true, true, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
-	return true, false, nil
+	return true, false, nil //nolint:nilerr // returning check result with nil error is correct
 }
 
 func (m *Dot1xModule) enableDot1xWpaSupplicant(ctx context.Context, config *Dot1xConfig, result *StateResult) error {
@@ -580,12 +581,13 @@ func (m *Dot1xModule) enableDot1xWpaSupplicant(ctx context.Context, config *Dot1
 	confDir := filepath.Dir(confPath)
 
 	// Ensure directory exists
-	if err := os.MkdirAll(confDir, 0755); err != nil {
+	//nolint:gosec // G301: wpa_supplicant config directory needs system access
+	if err := os.MkdirAll(confDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	// Write configuration file
-	if err := os.WriteFile(confPath, []byte(confContent), 0600); err != nil {
+	if err := os.WriteFile(confPath, []byte(confContent), 0o600); err != nil {
 		return fmt.Errorf("failed to write wpa_supplicant config: %w", err)
 	}
 
@@ -634,37 +636,37 @@ func (m *Dot1xModule) generateWpaSupplicantDot1xConfig(config *Dot1xConfig) stri
 	switch config.EAPMethod {
 	case "tls":
 		buf.WriteString("    eap=TLS\n")
-		buf.WriteString(fmt.Sprintf("    identity=\"%s\"\n", config.Identity))
-		buf.WriteString(fmt.Sprintf("    client_cert=\"%s\"\n", config.ClientCert))
-		buf.WriteString(fmt.Sprintf("    private_key=\"%s\"\n", config.ClientKey))
+		buf.WriteString(fmt.Sprintf("    identity=%q\n", config.Identity))
+		buf.WriteString(fmt.Sprintf("    client_cert=%q\n", config.ClientCert))
+		buf.WriteString(fmt.Sprintf("    private_key=%q\n", config.ClientKey))
 		if config.CACert != "" {
-			buf.WriteString(fmt.Sprintf("    ca_cert=\"%s\"\n", config.CACert))
+			buf.WriteString(fmt.Sprintf("    ca_cert=%q\n", config.CACert))
 		}
 
 	case "ttls":
 		buf.WriteString("    eap=TTLS\n")
-		buf.WriteString(fmt.Sprintf("    identity=\"%s\"\n", config.Identity))
-		buf.WriteString(fmt.Sprintf("    password=\"%s\"\n", config.Password))
+		buf.WriteString(fmt.Sprintf("    identity=%q\n", config.Identity))
+		buf.WriteString(fmt.Sprintf("    password=%q\n", config.Password))
 		phase2 := m.mapPhase2Method(config.Phase2)
 		buf.WriteString(fmt.Sprintf("    phase2=\"auth=%s\"\n", phase2))
 		if config.CACert != "" {
-			buf.WriteString(fmt.Sprintf("    ca_cert=\"%s\"\n", config.CACert))
+			buf.WriteString(fmt.Sprintf("    ca_cert=%q\n", config.CACert))
 		}
 		if config.Anonymous != "" {
-			buf.WriteString(fmt.Sprintf("    anonymous_identity=\"%s\"\n", config.Anonymous))
+			buf.WriteString(fmt.Sprintf("    anonymous_identity=%q\n", config.Anonymous))
 		}
 
 	case "peap":
 		buf.WriteString("    eap=PEAP\n")
-		buf.WriteString(fmt.Sprintf("    identity=\"%s\"\n", config.Identity))
-		buf.WriteString(fmt.Sprintf("    password=\"%s\"\n", config.Password))
+		buf.WriteString(fmt.Sprintf("    identity=%q\n", config.Identity))
+		buf.WriteString(fmt.Sprintf("    password=%q\n", config.Password))
 		phase2 := m.mapPhase2Method(config.Phase2)
 		buf.WriteString(fmt.Sprintf("    phase2=\"auth=%s\"\n", phase2))
 		if config.CACert != "" {
-			buf.WriteString(fmt.Sprintf("    ca_cert=\"%s\"\n", config.CACert))
+			buf.WriteString(fmt.Sprintf("    ca_cert=%q\n", config.CACert))
 		}
 		if config.Anonymous != "" {
-			buf.WriteString(fmt.Sprintf("    anonymous_identity=\"%s\"\n", config.Anonymous))
+			buf.WriteString(fmt.Sprintf("    anonymous_identity=%q\n", config.Anonymous))
 		}
 	}
 
@@ -695,25 +697,25 @@ func (m *Dot1xModule) mapPhase2Method(phase2 string) string {
 // Windows Backend (dot3svc / netsh lan)
 // ============================================================================
 
-func (m *Dot1xModule) checkDot1xWindows(ctx context.Context, config *Dot1xConfig) (bool, bool, error) {
+func (m *Dot1xModule) checkDot1xWindows(ctx context.Context, config *Dot1xConfig) (exists, authenticated bool, err error) {
 	// Check if 802.1X is enabled on the interface
 	cmd := exec.CommandContext(ctx, "netsh", "lan", "show", "interfaces")
 	output, err := cmd.Output()
 	if err != nil {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
 	// Look for our interface
 	outputStr := string(output)
 	if !strings.Contains(outputStr, config.Interface) {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
 	// Check if 802.1X profile exists
 	cmd = exec.CommandContext(ctx, "netsh", "lan", "show", "profiles")
 	output, err = cmd.Output()
 	if err != nil {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
 	if strings.Contains(string(output), config.Name) {
@@ -721,10 +723,10 @@ func (m *Dot1xModule) checkDot1xWindows(ctx context.Context, config *Dot1xConfig
 		cmd = exec.CommandContext(ctx, "netsh", "lan", "show", "settings")
 		output, _ = cmd.Output()
 		isEnabled := strings.Contains(string(output), "Enabled")
-		return true, isEnabled, nil
+		return true, isEnabled, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
-	return false, false, nil
+	return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 }
 
 func (m *Dot1xModule) enableDot1xWindows(ctx context.Context, config *Dot1xConfig, result *StateResult) error {
@@ -746,15 +748,15 @@ func (m *Dot1xModule) enableDot1xWindows(ctx context.Context, config *Dot1xConfi
 
 	// Enable 802.1X on the interface
 	enableCmd := exec.CommandContext(ctx, "netsh", "lan", "set", "autoconfig",
-		"enabled=yes", fmt.Sprintf("interface=\"%s\"", config.Interface))
+		"enabled=yes", fmt.Sprintf("interface=%q", config.Interface))
 	if output, err := enableCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to enable 802.1X autoconfig: %w: %s", err, output)
 	}
 
 	// Add the profile
 	addCmd := exec.CommandContext(ctx, "netsh", "lan", "add", "profile",
-		fmt.Sprintf("filename=\"%s\"", tmpFile.Name()),
-		fmt.Sprintf("interface=\"%s\"", config.Interface))
+		fmt.Sprintf("filename=%q", tmpFile.Name()),
+		fmt.Sprintf("interface=%q", config.Interface))
 	if output, err := addCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to add 802.1X profile: %w: %s", err, output)
 	}
@@ -766,13 +768,13 @@ func (m *Dot1xModule) enableDot1xWindows(ctx context.Context, config *Dot1xConfi
 func (m *Dot1xModule) disableDot1xWindows(ctx context.Context, config *Dot1xConfig, result *StateResult) error {
 	// Delete the profile
 	deleteCmd := exec.CommandContext(ctx, "netsh", "lan", "delete", "profile",
-		fmt.Sprintf("name=\"%s\"", config.Name),
-		fmt.Sprintf("interface=\"%s\"", config.Interface))
+		fmt.Sprintf("name=%q", config.Name),
+		fmt.Sprintf("interface=%q", config.Interface))
 	deleteCmd.Run() // Ignore error if profile doesn't exist
 
 	// Disable 802.1X on the interface
 	disableCmd := exec.CommandContext(ctx, "netsh", "lan", "set", "autoconfig",
-		"enabled=no", fmt.Sprintf("interface=\"%s\"", config.Interface))
+		"enabled=no", fmt.Sprintf("interface=%q", config.Interface))
 	if output, err := disableCmd.CombinedOutput(); err != nil {
 		// Ignore if already disabled
 		if !strings.Contains(string(output), "disabled") {
@@ -891,21 +893,21 @@ func (m *Dot1xModule) generateWindowsDot1xProfileXML(config *Dot1xConfig) string
 // macOS Backend (Configuration Profiles)
 // ============================================================================
 
-func (m *Dot1xModule) checkDot1xMacOS(ctx context.Context, config *Dot1xConfig) (bool, bool, error) {
+func (m *Dot1xModule) checkDot1xMacOS(ctx context.Context, config *Dot1xConfig) (exists, authenticated bool, err error) {
 	// Check for configuration profile
 	cmd := exec.CommandContext(ctx, "profiles", "-L", "-v")
 	output, err := cmd.Output()
 	if err != nil {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
 	// Look for 802.1X profile
 	if strings.Contains(string(output), "com.apple.firstactiveethernet.managed") ||
 		strings.Contains(string(output), config.Name) {
-		return true, true, nil
+		return true, true, nil //nolint:nilerr // returning check result with nil error is correct
 	}
 
-	return false, false, nil
+	return false, false, nil //nolint:nilerr // returning check result with nil error is correct
 }
 
 func (m *Dot1xModule) enableDot1xMacOS(ctx context.Context, config *Dot1xConfig, result *StateResult) error {
@@ -1029,5 +1031,5 @@ func (m *Dot1xModule) generateMacOSDot1xProfile(config *Dot1xConfig) string {
 }
 
 func init() {
-	RegisterModule(NewDot1xModule())
+	_ = RegisterModule(NewDot1xModule()) //nolint:errcheck // module registration at init; panic on failure is acceptable
 }

@@ -54,19 +54,19 @@ func (q Quantity) String() string {
 
 // Quota defines resource limits for a scope.
 type Quota struct {
-	ID          string                   `json:"id"`
-	Name        string                   `json:"name"`
-	Scope       *QuotaScope              `json:"scope"`
+	ID          string                    `json:"id"`
+	Name        string                    `json:"name"`
+	Scope       *Scope               `json:"scope"`
 	Hard        map[ResourceType]Quantity `json:"hard"`
 	Used        map[ResourceType]Quantity `json:"used,omitempty"`
-	Labels      map[string]string        `json:"labels,omitempty"`
-	Annotations map[string]string        `json:"annotations,omitempty"`
-	CreatedAt   time.Time                `json:"createdAt"`
-	UpdatedAt   time.Time                `json:"updatedAt"`
+	Labels      map[string]string         `json:"labels,omitempty"`
+	Annotations map[string]string         `json:"annotations,omitempty"`
+	CreatedAt   time.Time                 `json:"createdAt"`
+	UpdatedAt   time.Time                 `json:"updatedAt"`
 }
 
-// QuotaScope defines the scope of a quota.
-type QuotaScope struct {
+// Scope defines the scope of a quota.
+type Scope struct {
 	Type      string `json:"type"` // namespace, cluster, team, project
 	Name      string `json:"name"`
 	Namespace string `json:"namespace,omitempty"`
@@ -140,17 +140,17 @@ type Request struct {
 
 // AllocationResult represents the result of an allocation request.
 type AllocationResult struct {
-	Allowed     bool                     `json:"allowed"`
-	Reason      string                   `json:"reason,omitempty"`
-	Requested   map[ResourceType]Quantity `json:"requested"`
-	Available   map[ResourceType]Quantity `json:"available,omitempty"`
-	Insufficient []ResourceType           `json:"insufficient,omitempty"`
+	Allowed      bool                      `json:"allowed"`
+	Reason       string                    `json:"reason,omitempty"`
+	Requested    map[ResourceType]Quantity `json:"requested"`
+	Available    map[ResourceType]Quantity `json:"available,omitempty"`
+	Insufficient []ResourceType            `json:"insufficient,omitempty"`
 }
 
-// QuotaStore is the interface for storing quotas.
-type QuotaStore interface {
+// Store is the interface for storing quotas.
+type Store interface {
 	Get(ctx context.Context, id string) (*Quota, error)
-	GetByScope(ctx context.Context, scope *QuotaScope) (*Quota, error)
+	GetByScope(ctx context.Context, scope *Scope) (*Quota, error)
 	List(ctx context.Context) ([]*Quota, error)
 	ListByType(ctx context.Context, scopeType string) ([]*Quota, error)
 	Save(ctx context.Context, quota *Quota) error
@@ -159,27 +159,27 @@ type QuotaStore interface {
 
 // Manager manages resource quotas.
 type Manager struct {
-	store     QuotaStore
+	store     Store
 	defaults  map[string]*Quota // Default quotas by scope type
-	listeners []QuotaListener
+	listeners []Listener
 	mu        sync.RWMutex
 }
 
-// QuotaListener is called when quota events occur.
-type QuotaListener func(event *QuotaEvent)
+// Listener is called when quota events occur.
+type Listener func(event *Event)
 
-// QuotaEvent represents a quota event.
-type QuotaEvent struct {
-	Type      string    `json:"type"` // created, updated, exceeded, warning
-	QuotaID   string    `json:"quotaId"`
-	Scope     *QuotaScope `json:"scope"`
-	Timestamp time.Time `json:"timestamp"`
-	Message   string    `json:"message"`
+// Event represents a quota event.
+type Event struct {
+	Type      string                 `json:"type"` // created, updated, exceeded, warning
+	QuotaID   string                 `json:"quotaId"`
+	Scope     *Scope            `json:"scope"`
+	Timestamp time.Time              `json:"timestamp"`
+	Message   string                 `json:"message"`
 	Details   map[string]interface{} `json:"details,omitempty"`
 }
 
 // NewManager creates a new quota manager.
-func NewManager(store QuotaStore) *Manager {
+func NewManager(store Store) *Manager {
 	return &Manager{
 		store:    store,
 		defaults: make(map[string]*Quota),
@@ -187,16 +187,16 @@ func NewManager(store QuotaStore) *Manager {
 }
 
 // AddListener adds a quota event listener.
-func (m *Manager) AddListener(listener QuotaListener) {
+func (m *Manager) AddListener(listener Listener) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.listeners = append(m.listeners, listener)
 }
 
 // emit sends an event to all listeners.
-func (m *Manager) emit(event *QuotaEvent) {
+func (m *Manager) emit(event *Event) {
 	m.mu.RLock()
-	listeners := make([]QuotaListener, len(m.listeners))
+	listeners := make([]Listener, len(m.listeners))
 	copy(listeners, m.listeners)
 	m.mu.RUnlock()
 
@@ -232,7 +232,7 @@ func (m *Manager) Create(ctx context.Context, quota *Quota) error {
 		return err
 	}
 
-	m.emit(&QuotaEvent{
+	m.emit(&Event{
 		Type:      "created",
 		QuotaID:   quota.ID,
 		Scope:     quota.Scope,
@@ -251,7 +251,7 @@ func (m *Manager) Update(ctx context.Context, quota *Quota) error {
 		return err
 	}
 
-	m.emit(&QuotaEvent{
+	m.emit(&Event{
 		Type:      "updated",
 		QuotaID:   quota.ID,
 		Scope:     quota.Scope,
@@ -273,7 +273,7 @@ func (m *Manager) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	m.emit(&QuotaEvent{
+	m.emit(&Event{
 		Type:      "deleted",
 		QuotaID:   id,
 		Scope:     quota.Scope,
@@ -290,7 +290,7 @@ func (m *Manager) Get(ctx context.Context, id string) (*Quota, error) {
 }
 
 // GetByScope retrieves a quota by scope.
-func (m *Manager) GetByScope(ctx context.Context, scope *QuotaScope) (*Quota, error) {
+func (m *Manager) GetByScope(ctx context.Context, scope *Scope) (*Quota, error) {
 	return m.store.GetByScope(ctx, scope)
 }
 
@@ -300,7 +300,7 @@ func (m *Manager) List(ctx context.Context) ([]*Quota, error) {
 }
 
 // CheckAllocation checks if resources can be allocated.
-func (m *Manager) CheckAllocation(ctx context.Context, scope *QuotaScope, request *Request) (*AllocationResult, error) {
+func (m *Manager) CheckAllocation(ctx context.Context, scope *Scope, request *Request) (*AllocationResult, error) {
 	quota, err := m.store.GetByScope(ctx, scope)
 	if err != nil {
 		// If no quota exists, check for default
@@ -340,7 +340,7 @@ func (m *Manager) CheckAllocation(ctx context.Context, scope *QuotaScope, reques
 }
 
 // Allocate allocates resources.
-func (m *Manager) Allocate(ctx context.Context, scope *QuotaScope, request *Request) (*AllocationResult, error) {
+func (m *Manager) Allocate(ctx context.Context, scope *Scope, request *Request) (*AllocationResult, error) {
 	// First check if allocation is possible
 	result, err := m.CheckAllocation(ctx, scope, request)
 	if err != nil {
@@ -355,7 +355,7 @@ func (m *Manager) Allocate(ctx context.Context, scope *QuotaScope, request *Requ
 	quota, err := m.store.GetByScope(ctx, scope)
 	if err != nil {
 		// No quota, nothing to track
-		return result, nil
+		return result, nil //nolint:nilerr // no quota is not an error
 	}
 
 	// Update usage
@@ -380,7 +380,7 @@ func (m *Manager) Allocate(ctx context.Context, scope *QuotaScope, request *Requ
 	percentages := quota.UsagePercentage()
 	for rt, pct := range percentages {
 		if pct >= 90 {
-			m.emit(&QuotaEvent{
+			m.emit(&Event{
 				Type:      "warning",
 				QuotaID:   quota.ID,
 				Scope:     quota.Scope,
@@ -398,10 +398,10 @@ func (m *Manager) Allocate(ctx context.Context, scope *QuotaScope, request *Requ
 }
 
 // Release releases resources.
-func (m *Manager) Release(ctx context.Context, scope *QuotaScope, request *Request) error {
+func (m *Manager) Release(ctx context.Context, scope *Scope, request *Request) error {
 	quota, err := m.store.GetByScope(ctx, scope)
 	if err != nil {
-		return nil // No quota, nothing to release
+		return nil //nolint:nilerr // no quota is not an error
 	}
 
 	if quota.Used == nil {
@@ -467,7 +467,7 @@ func (m *Manager) GetUsageReport(ctx context.Context, id string) (*UsageReport, 
 type UsageReport struct {
 	QuotaID     string          `json:"quotaId"`
 	QuotaName   string          `json:"quotaName"`
-	Scope       *QuotaScope     `json:"scope"`
+	Scope       *Scope     `json:"scope"`
 	GeneratedAt time.Time       `json:"generatedAt"`
 	Resources   []ResourceUsage `json:"resources"`
 }
@@ -507,7 +507,7 @@ func (s *InMemoryStore) Get(_ context.Context, id string) (*Quota, error) {
 }
 
 // GetByScope retrieves a quota by scope.
-func (s *InMemoryStore) GetByScope(_ context.Context, scope *QuotaScope) (*Quota, error) {
+func (s *InMemoryStore) GetByScope(_ context.Context, scope *Scope) (*Quota, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -570,15 +570,15 @@ func (s *InMemoryStore) Delete(_ context.Context, id string) error {
 }
 
 func copyQuota(q *Quota) *Quota {
-	copy := &Quota{
-		ID:          q.ID,
-		Name:        q.Name,
-		CreatedAt:   q.CreatedAt,
-		UpdatedAt:   q.UpdatedAt,
+	copied := &Quota{
+		ID:        q.ID,
+		Name:      q.Name,
+		CreatedAt: q.CreatedAt,
+		UpdatedAt: q.UpdatedAt,
 	}
 
 	if q.Scope != nil {
-		copy.Scope = &QuotaScope{
+		copied.Scope = &Scope{
 			Type:      q.Scope.Type,
 			Name:      q.Scope.Name,
 			Namespace: q.Scope.Namespace,
@@ -587,74 +587,74 @@ func copyQuota(q *Quota) *Quota {
 	}
 
 	if q.Hard != nil {
-		copy.Hard = make(map[ResourceType]Quantity)
+		copied.Hard = make(map[ResourceType]Quantity)
 		for k, v := range q.Hard {
-			copy.Hard[k] = v
+			copied.Hard[k] = v
 		}
 	}
 
 	if q.Used != nil {
-		copy.Used = make(map[ResourceType]Quantity)
+		copied.Used = make(map[ResourceType]Quantity)
 		for k, v := range q.Used {
-			copy.Used[k] = v
+			copied.Used[k] = v
 		}
 	}
 
 	if q.Labels != nil {
-		copy.Labels = make(map[string]string)
+		copied.Labels = make(map[string]string)
 		for k, v := range q.Labels {
-			copy.Labels[k] = v
+			copied.Labels[k] = v
 		}
 	}
 
 	if q.Annotations != nil {
-		copy.Annotations = make(map[string]string)
+		copied.Annotations = make(map[string]string)
 		for k, v := range q.Annotations {
-			copy.Annotations[k] = v
+			copied.Annotations[k] = v
 		}
 	}
 
-	return copy
+	return copied
 }
 
-// QuotaEnforcer enforces quotas before resource creation.
-type QuotaEnforcer struct {
+// Enforcer enforces quotas before resource creation.
+type Enforcer struct {
 	manager *Manager
 	enabled bool
 	mu      sync.RWMutex
 }
 
-// NewQuotaEnforcer creates a new quota enforcer.
-func NewQuotaEnforcer(manager *Manager) *QuotaEnforcer {
-	return &QuotaEnforcer{
+// NewEnforcer creates a new quota enforcer.
+func NewEnforcer(manager *Manager) *Enforcer {
+	return &Enforcer{
 		manager: manager,
 		enabled: true,
 	}
 }
 
 // Enable enables quota enforcement.
-func (e *QuotaEnforcer) Enable() {
+func (e *Enforcer) Enable() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.enabled = true
 }
 
 // Disable disables quota enforcement.
-func (e *QuotaEnforcer) Disable() {
+func (e *Enforcer) Disable() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.enabled = false
 }
 
 // IsEnabled returns whether enforcement is enabled.
-func (e *QuotaEnforcer) IsEnabled() bool {
+func (e *Enforcer) IsEnabled() bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.enabled
 }
 
 // Enforce checks if resources can be allocated and returns an error if not.
-func (e *QuotaEnforcer) Enforce(ctx context.Context, scope *QuotaScope, request *Request) error {
+func (e *Enforcer) Enforce(ctx context.Context, scope *Scope, request *Request) error {
 	if !e.IsEnabled() {
 		return nil
 	}
@@ -665,7 +665,7 @@ func (e *QuotaEnforcer) Enforce(ctx context.Context, scope *QuotaScope, request 
 	}
 
 	if !result.Allowed {
-		return &QuotaExceededError{
+		return &ExceededError{
 			Scope:        scope,
 			Insufficient: result.Insufficient,
 			Message:      result.Reason,
@@ -675,38 +675,38 @@ func (e *QuotaEnforcer) Enforce(ctx context.Context, scope *QuotaScope, request 
 	return nil
 }
 
-// QuotaExceededError is returned when quota is exceeded.
-type QuotaExceededError struct {
-	Scope        *QuotaScope
+// ExceededError is returned when quota is exceeded.
+type ExceededError struct {
+	Scope        *Scope
 	Insufficient []ResourceType
 	Message      string
 }
 
-func (e *QuotaExceededError) Error() string {
+func (e *ExceededError) Error() string {
 	return e.Message
 }
 
-// QuotaAggregator aggregates quotas from multiple scopes.
-type QuotaAggregator struct {
+// Aggregator aggregates quotas from multiple scopes.
+type Aggregator struct {
 	manager *Manager
 }
 
-// NewQuotaAggregator creates a new quota aggregator.
-func NewQuotaAggregator(manager *Manager) *QuotaAggregator {
-	return &QuotaAggregator{manager: manager}
+// NewAggregator creates a new quota aggregator.
+func NewAggregator(manager *Manager) *Aggregator {
+	return &Aggregator{manager: manager}
 }
 
 // AggregatedQuota represents aggregated quota information.
 type AggregatedQuota struct {
-	ScopeType   string                   `json:"scopeType"`
-	QuotaCount  int                      `json:"quotaCount"`
+	ScopeType   string                    `json:"scopeType"`
+	QuotaCount  int                       `json:"quotaCount"`
 	TotalHard   map[ResourceType]Quantity `json:"totalHard"`
 	TotalUsed   map[ResourceType]Quantity `json:"totalUsed"`
 	Utilization map[ResourceType]float64  `json:"utilization"`
 }
 
 // Aggregate aggregates quotas by scope type.
-func (a *QuotaAggregator) Aggregate(ctx context.Context, scopeType string) (*AggregatedQuota, error) {
+func (a *Aggregator) Aggregate(ctx context.Context, scopeType string) (*AggregatedQuota, error) {
 	quotas, err := a.manager.store.ListByType(ctx, scopeType)
 	if err != nil {
 		return nil, err

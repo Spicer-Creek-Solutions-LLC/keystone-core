@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -488,7 +489,7 @@ func TestPusher_StoppedError(t *testing.T) {
 
 	// Don't start the pusher
 	err := pusher.Push(&Entry{Timestamp: time.Now(), Line: "test"})
-	if err != ErrPusherStopped {
+	if !errors.Is(err, ErrPusherStopped) {
 		t.Errorf("Expected ErrPusherStopped, got %v", err)
 	}
 }
@@ -518,7 +519,7 @@ func TestLogWriter(t *testing.T) {
 	}
 
 	// Empty write should succeed
-	n, err = writer.Write([]byte("  \n  "))
+	_, err = writer.Write([]byte("  \n  "))
 	if err != nil {
 		t.Fatalf("Empty write failed: %v", err)
 	}

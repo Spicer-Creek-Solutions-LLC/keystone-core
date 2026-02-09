@@ -7,7 +7,7 @@ appVersion: "0.10.0"
 kubeVersion: ">=1.23.0-0"
 home: https://keystonecore.io
 sources:
-  - https://github.com/keystone-core/keystone-core
+  - https://github.com/shawnbutts/keystone-core
 maintainers:
   - name: Keystone Core Team
     email: maintainers@keystonecore.io

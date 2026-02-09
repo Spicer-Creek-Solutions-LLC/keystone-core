@@ -166,17 +166,18 @@ func (r *Router) RemoveRule(id string) error {
 	defer r.mu.Unlock()
 
 	for i, rule := range r.rules {
-		if rule.ID == id {
-			// Remove rule
-			r.rules = append(r.rules[:i], r.rules[i+1:]...)
-
-			// Remove metrics
-			r.metrics.mu.Lock()
-			delete(r.metrics.ruleMetrics, id)
-			r.metrics.mu.Unlock()
-
-			return nil
+		if rule.ID != id {
+			continue
 		}
+		// Remove rule
+		r.rules = append(r.rules[:i], r.rules[i+1:]...)
+
+		// Remove metrics
+		r.metrics.mu.Lock()
+		delete(r.metrics.ruleMetrics, id)
+		r.metrics.mu.Unlock()
+
+		return nil
 	}
 
 	return fmt.Errorf("rule %s not found", id)

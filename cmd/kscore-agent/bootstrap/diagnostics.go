@@ -99,7 +99,7 @@ func renderSystemSummary(state *State) string {
 	return builder.String()
 }
 
-func renderConfigSummary(cfg *BootstrapConfig) string {
+func renderConfigSummary(cfg *Config) string {
 	if cfg == nil {
 		return "- no config available\n"
 	}
@@ -257,7 +257,7 @@ func collectServiceStatus(ctx context.Context, initSystem, service string) strin
 }
 
 func collectServiceLogs(ctx context.Context, initSystem, service string, lines int) string {
-	if strings.ToLower(initSystem) != "systemd" {
+	if !strings.EqualFold(initSystem, "systemd") {
 		return "log collection unsupported for init system\n"
 	}
 	output, err := runCommandWithTimeout(ctx, 5*time.Second, "journalctl", "-u", service, "-n", fmt.Sprintf("%d", lines), "--no-pager")
@@ -279,7 +279,8 @@ func runCommandWithTimeout(ctx context.Context, timeout time.Duration, name stri
 func writeDiagnosticsReport(report string) (string, error) {
 	timestamp := time.Now().UTC().Format("20060102T150405Z")
 	filename := fmt.Sprintf("%s-%s.log", diagnosticsFilePrefix, timestamp)
-	dir := "/var/log/kscore"
+	dir := "/var/log/keystone-core"
+	//nolint:gosec // G301: log directory needs to be accessible by admin users
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		dir = os.TempDir()
 	}
@@ -290,7 +291,7 @@ func writeDiagnosticsReport(report string) (string, error) {
 	return path, nil
 }
 
-func diagnosticHints(cfg *BootstrapConfig, failure error) []string {
+func diagnosticHints(cfg *Config, failure error) []string {
 	if failure == nil {
 		return nil
 	}

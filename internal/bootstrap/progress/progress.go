@@ -177,14 +177,14 @@ func DefaultConfig() *Config {
 
 // Tracker tracks bootstrap progress
 type Tracker struct {
-	config        *Config
-	mu            sync.RWMutex
-	startedAt     time.Time
-	currentPhase  Phase
-	phases        map[Phase]*PhaseInfo
-	phaseOrder    []Phase
-	lastCallback  time.Time
-	stats         *Stats
+	config       *Config
+	mu           sync.RWMutex
+	startedAt    time.Time
+	currentPhase Phase
+	phases       map[Phase]*PhaseInfo
+	phaseOrder   []Phase
+	lastCallback time.Time
+	stats        *Stats
 }
 
 // NewTracker creates a new progress tracker
@@ -474,10 +474,10 @@ func (t *Tracker) GetReport() *Report {
 
 func (t *Tracker) buildReport() *Report {
 	report := &Report{
-		StartedAt:       t.startedAt,
-		CurrentPhase:    t.currentPhase,
-		Phases:          make(map[Phase]*PhaseInfo),
-		ElapsedTime:     time.Since(t.startedAt),
+		StartedAt:    t.startedAt,
+		CurrentPhase: t.currentPhase,
+		Phases:       make(map[Phase]*PhaseInfo),
+		ElapsedTime:  time.Since(t.startedAt),
 	}
 
 	// Copy phase info
@@ -538,6 +538,7 @@ func (t *Tracker) calculateOverallProgress() int {
 			completedWeight += weight
 		case StatusRunning:
 			completedWeight += weight * info.Progress / 100
+		default:
 		}
 	}
 
@@ -633,11 +634,11 @@ func (s *Stats) RecordFailure(phase Phase) {
 }
 
 // Snapshot returns a copy of the current stats
-func (s *Stats) Snapshot() Stats {
+func (s *Stats) Snapshot() *Stats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot := Stats{
+	snapshot := &Stats{
 		StartedAt:     s.StartedAt,
 		CompletedAt:   s.CompletedAt,
 		TotalDuration: s.TotalDuration,
@@ -660,8 +661,8 @@ func (s *Stats) Snapshot() Stats {
 	return snapshot
 }
 
-// ProgressWriter wraps an io.Writer to track progress
-type ProgressWriter struct {
+// Writer wraps an io.Writer to track progress
+type Writer struct {
 	tracker  *Tracker
 	phase    Phase
 	stepName string
@@ -670,8 +671,8 @@ type ProgressWriter struct {
 }
 
 // NewProgressWriter creates a new progress writer
-func NewProgressWriter(tracker *Tracker, phase Phase, stepName string, total int64) *ProgressWriter {
-	return &ProgressWriter{
+func NewProgressWriter(tracker *Tracker, phase Phase, stepName string, total int64) *Writer {
+	return &Writer{
 		tracker:  tracker,
 		phase:    phase,
 		stepName: stepName,
@@ -680,15 +681,15 @@ func NewProgressWriter(tracker *Tracker, phase Phase, stepName string, total int
 }
 
 // Write implements io.Writer
-func (pw *ProgressWriter) Write(p []byte) (int, error) {
+func (pw *Writer) Write(p []byte) (int, error) {
 	n := len(p)
 	pw.written += int64(n)
 	pw.tracker.UpdateStepBytes(pw.phase, pw.stepName, pw.written, pw.total)
 	return n, nil
 }
 
-// ProgressReader wraps an io.Reader to track progress
-type ProgressReader struct {
+// Reader wraps an io.Reader to track progress
+type Reader struct {
 	tracker  *Tracker
 	phase    Phase
 	stepName string
@@ -698,8 +699,8 @@ type ProgressReader struct {
 }
 
 // NewProgressReader creates a new progress reader
-func NewProgressReader(tracker *Tracker, phase Phase, stepName string, total int64, reader interface{ Read([]byte) (int, error) }) *ProgressReader {
-	return &ProgressReader{
+func NewProgressReader(tracker *Tracker, phase Phase, stepName string, total int64, reader interface{ Read([]byte) (int, error) }) *Reader {
+	return &Reader{
 		tracker:  tracker,
 		phase:    phase,
 		stepName: stepName,
@@ -709,7 +710,7 @@ func NewProgressReader(tracker *Tracker, phase Phase, stepName string, total int
 }
 
 // Read implements io.Reader
-func (pr *ProgressReader) Read(p []byte) (int, error) {
+func (pr *Reader) Read(p []byte) (int, error) {
 	n, err := pr.reader.Read(p)
 	pr.read += int64(n)
 	pr.tracker.UpdateStepBytes(pr.phase, pr.stepName, pr.read, pr.total)
@@ -768,12 +769,12 @@ func FormatBytes(b int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-func clamp(value, min, max int) int {
-	if value < min {
-		return min
+func clamp(value, minVal, maxVal int) int {
+	if value < minVal {
+		return minVal
 	}
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 	return value
 }

@@ -135,15 +135,15 @@ func TestSecretsReadCapability_ReadSecret(t *testing.T) {
 	store := newMockSecretsStore()
 	store.Set("app/db/password", "secret123")
 
-	cap := &SecretsReadCapability{
+	testCap := &SecretsReadCapability{
 		AllowedPaths: []string{"app/*"},
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test reading allowed secret
-	value, err := cap.ReadSecret(ctx, "app/db/password")
+	value, err := testCap.ReadSecret(ctx, "app/db/password")
 	if err != nil {
 		t.Fatalf("failed to read secret: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestSecretsReadCapability_ReadSecret(t *testing.T) {
 	}
 
 	// Test reading not allowed secret
-	_, err = cap.ReadSecret(ctx, "other/secret")
+	_, err = testCap.ReadSecret(ctx, "other/secret")
 	if !errors.Is(err, ErrPathNotAllowed) {
 		t.Errorf("expected ErrPathNotAllowed, got %v", err)
 	}
@@ -162,15 +162,15 @@ func TestSecretsReadCapability_ReadSecret(t *testing.T) {
 func TestSecretsWriteCapability_WriteSecret(t *testing.T) {
 	store := newMockSecretsStore()
 
-	cap := &SecretsWriteCapability{
+	testCap := &SecretsWriteCapability{
 		AllowedPaths: []string{"app/*"},
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test writing allowed secret
-	err := cap.WriteSecret(ctx, "app/api/key", "apikey123")
+	err := testCap.WriteSecret(ctx, "app/api/key", "apikey123")
 	if err != nil {
 		t.Fatalf("failed to write secret: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestSecretsWriteCapability_WriteSecret(t *testing.T) {
 	}
 
 	// Test writing not allowed secret
-	err = cap.WriteSecret(ctx, "other/secret", "value")
+	err = testCap.WriteSecret(ctx, "other/secret", "value")
 	if !errors.Is(err, ErrPathNotAllowed) {
 		t.Errorf("expected ErrPathNotAllowed, got %v", err)
 	}
@@ -192,15 +192,15 @@ func TestSecretsWriteCapability_DeleteSecret(t *testing.T) {
 	store := newMockSecretsStore()
 	store.Set("app/temp", "value")
 
-	cap := &SecretsWriteCapability{
+	testCap := &SecretsWriteCapability{
 		AllowedPaths: []string{"app/*"},
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test deleting allowed secret
-	err := cap.DeleteSecret(ctx, "app/temp")
+	err := testCap.DeleteSecret(ctx, "app/temp")
 	if err != nil {
 		t.Fatalf("failed to delete secret: %v", err)
 	}
@@ -263,13 +263,13 @@ func TestLogCapability_Validate(t *testing.T) {
 func TestLogCapability_Log(t *testing.T) {
 	logger := &mockLogger{}
 
-	cap := &LogCapability{}
-	cap.SetLogger(logger)
+	testCap := &LogCapability{}
+	testCap.SetLogger(logger)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test logging
-	err := cap.Log(ctx, "info", "test message", map[string]interface{}{
+	err := testCap.Log(ctx, "info", "test message", map[string]interface{}{
 		"key": "value",
 	})
 	if err != nil {
@@ -296,29 +296,29 @@ func TestLogCapability_Log(t *testing.T) {
 func TestLogCapability_LogRateLimit(t *testing.T) {
 	logger := &mockLogger{}
 
-	cap := &LogCapability{
+	testCap := &LogCapability{
 		RateLimit: &RateLimit{
 			Requests: 2,
 			Period:   time.Minute,
 		},
 	}
-	cap.SetLogger(logger)
+	testCap.SetLogger(logger)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// First two logs should succeed
-	err := cap.Log(ctx, "info", "message 1", nil)
+	err := testCap.Log(ctx, "info", "message 1", nil)
 	if err != nil {
 		t.Fatalf("first log failed: %v", err)
 	}
 
-	err = cap.Log(ctx, "info", "message 2", nil)
+	err = testCap.Log(ctx, "info", "message 2", nil)
 	if err != nil {
 		t.Fatalf("second log failed: %v", err)
 	}
 
 	// Third log should fail due to rate limit
-	err = cap.Log(ctx, "info", "message 3", nil)
+	err = testCap.Log(ctx, "info", "message 3", nil)
 	if !errors.Is(err, ErrRateLimitExceeded) {
 		t.Errorf("expected ErrRateLimitExceeded, got %v", err)
 	}
@@ -332,18 +332,18 @@ func TestLogCapability_LogRateLimit(t *testing.T) {
 // Tests for TimeCapability
 
 func TestTimeCapability_Validate(t *testing.T) {
-	cap := &TimeCapability{}
-	if err := cap.Validate(); err != nil {
+	timeCap := &TimeCapability{}
+	if err := timeCap.Validate(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestTimeCapability_Now(t *testing.T) {
-	cap := &TimeCapability{}
+	timeCap := &TimeCapability{}
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	before := time.Now()
-	now := cap.Now(ctx)
+	now := timeCap.Now(ctx)
 	after := time.Now()
 
 	if now.Before(before) || now.After(after) {
@@ -352,11 +352,11 @@ func TestTimeCapability_Now(t *testing.T) {
 }
 
 func TestTimeCapability_Unix(t *testing.T) {
-	cap := &TimeCapability{}
+	timeCap := &TimeCapability{}
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	before := time.Now().Unix()
-	unix := cap.Unix(ctx)
+	unix := timeCap.Unix(ctx)
 	after := time.Now().Unix()
 
 	if unix < before || unix > after {
@@ -404,21 +404,21 @@ func TestKVCapability_Validate(t *testing.T) {
 func TestKVCapability_SetGet(t *testing.T) {
 	store := newMockKVStore()
 
-	cap := &KVCapability{
+	testCap := &KVCapability{
 		Namespace: "test-module",
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test set
-	err := cap.Set(ctx, "key1", "value1")
+	err := testCap.Set(ctx, "key1", "value1")
 	if err != nil {
 		t.Fatalf("failed to set: %v", err)
 	}
 
 	// Test get
-	value, err := cap.Get(ctx, "key1")
+	value, err := testCap.Get(ctx, "key1")
 	if err != nil {
 		t.Fatalf("failed to get: %v", err)
 	}
@@ -438,15 +438,15 @@ func TestKVCapability_Delete(t *testing.T) {
 	store := newMockKVStore()
 	store.Set("test-module/key1", "value1")
 
-	cap := &KVCapability{
+	testCap := &KVCapability{
 		Namespace: "test-module",
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test delete
-	err := cap.Delete(ctx, "key1")
+	err := testCap.Delete(ctx, "key1")
 	if err != nil {
 		t.Fatalf("failed to delete: %v", err)
 	}
@@ -464,15 +464,15 @@ func TestKVCapability_List(t *testing.T) {
 	store.Set("test-module/key2", "value2")
 	store.Set("other-module/key3", "value3")
 
-	cap := &KVCapability{
+	testCap := &KVCapability{
 		Namespace: "test-module",
 	}
-	cap.SetStore(store)
+	testCap.SetStore(store)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test list
-	keys, err := cap.List(ctx)
+	keys, err := testCap.List(ctx)
 	if err != nil {
 		t.Fatalf("failed to list: %v", err)
 	}

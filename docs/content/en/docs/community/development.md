@@ -150,9 +150,9 @@ ls build/bin/
 
 ```bash
 # Build specific binaries
-make build-server      # Control plane server
-make build-agent       # Agent daemon
-make build-cli         # All CLI tools
+make server            # Control plane server
+make agent             # Agent daemon
+make cli               # All CLI tools
 
 # Or build manually
 go build -o build/bin/kscore-server ./cmd/kscore-server
@@ -183,16 +183,13 @@ GOOS=windows GOARCH=amd64 make build
 GOOS=darwin GOARCH=arm64 make build
 
 # Build all platforms
-make build-all
+make build-all-platforms
 ```
 
 ### Docker Build
 
 ```bash
 # Build Docker images
-make docker-build
-
-# Build specific image
 docker build -t kscore-server:dev -f deploy/docker/Dockerfile.server .
 docker build -t kscore-agent:dev -f deploy/docker/Dockerfile.agent .
 
@@ -471,20 +468,17 @@ make check
 # Run with embedded NATS and SQLite (development mode)
 ./build/bin/kscore-server --config configs/server-dev.yaml
 
-# Or run from source
-go run ./cmd/kscore-server --log-level=debug
+# Or run from source with debug logging (via env var)
+KSCORE_LOG_LEVEL=debug go run ./cmd/kscore-server
 ```
 
 **Start an Agent:**
 ```bash
-# Connect to local control plane
-./build/bin/kscore-agent \
-  --server-url=nats://localhost:4222 \
-  --agent-id=dev-agent-1 \
-  --log-level=debug
+# Connect to local control plane (configure NATS URL in agent config)
+./build/bin/kscore-agent --config configs/agent-dev.yaml
 
-# Or run from source
-go run ./cmd/kscore-agent --server-url=nats://localhost:4222
+# Or run from source with debug logging
+KSCORE_LOG_LEVEL=debug go run ./cmd/kscore-agent --config configs/agent-dev.yaml
 ```
 
 **Use CLI Tools:**

@@ -399,8 +399,8 @@ func TestVersionChecker(t *testing.T) {
 // Upgrade Types Tests
 // =============================================================================
 
-func TestUpgradeStrategy(t *testing.T) {
-	strategies := []UpgradeStrategy{
+func TestStrategy(t *testing.T) {
+	strategies := []Strategy{
 		StrategyRolling,
 		StrategyBlueGreen,
 		StrategyCanary,
@@ -416,8 +416,8 @@ func TestUpgradeStrategy(t *testing.T) {
 	}
 }
 
-func TestUpgradePhase(t *testing.T) {
-	phases := []UpgradePhase{
+func TestPhase(t *testing.T) {
+	phases := []Phase{
 		PhaseIdle,
 		PhasePending,
 		PhaseValidating,
@@ -589,10 +589,10 @@ func TestDefaultAgentBatchConfig(t *testing.T) {
 // Upgrade State Tests
 // =============================================================================
 
-func TestUpgradeState(t *testing.T) {
+func TestState(t *testing.T) {
 	toVersion, _ := ParseVersion("2.0.0")
 	fromVersion, _ := ParseVersion("1.0.0")
-	state := &UpgradeState{
+	state := &State{
 		ID:          "upgrade-123",
 		Phase:       PhasePending,
 		Status:      StatusPending,
@@ -619,8 +619,8 @@ func TestUpgradeState(t *testing.T) {
 	}
 }
 
-func TestUpgradeStatePhaseTransition(t *testing.T) {
-	state := &UpgradeState{
+func TestStatePhaseTransition(t *testing.T) {
+	state := &State{
 		ID:         "upgrade-123",
 		Phase:      PhasePending,
 		NodeStates: make(map[string]*NodeUpgradeState),
@@ -634,16 +634,16 @@ func TestUpgradeStatePhaseTransition(t *testing.T) {
 	}
 }
 
-func TestUpgradeStateErrors(t *testing.T) {
-	state := &UpgradeState{
+func TestStateErrors(t *testing.T) {
+	state := &State{
 		ID:         "upgrade-123",
 		Phase:      PhasePending,
 		NodeStates: make(map[string]*NodeUpgradeState),
-		Errors:     []UpgradeError{},
+		Errors:     []Error{},
 	}
 
 	// Add error
-	state.Errors = append(state.Errors, UpgradeError{
+	state.Errors = append(state.Errors, Error{
 		Message: "test error",
 		NodeID:  "test-node",
 		Time:    time.Now(),
@@ -788,8 +788,8 @@ func TestCanaryStrategy_UpgradeNode_ContextCancel(t *testing.T) {
 	nm.healthMap["node-1"] = HealthUnhealthy
 
 	strategy := NewCanaryStrategy(nm, nil, DefaultCanaryConfig())
-	state := &UpgradeState{
-		Config: &UpgradeConfig{
+	state := &State{
+		Config: &Config{
 			TargetVersion: "1.1.0",
 		},
 		NodeStates: make(map[string]*NodeUpgradeState),
@@ -895,19 +895,19 @@ func TestRollbackOperation(t *testing.T) {
 // Upgrade Manager Tests
 // =============================================================================
 
-func TestNewDefaultUpgradeManager(t *testing.T) {
-	manager := NewDefaultUpgradeManager(nil, nil, nil)
+func TestNewDefaultManager(t *testing.T) {
+	manager := NewDefaultManager(nil, nil, nil)
 
 	if manager == nil {
-		t.Fatal("NewDefaultUpgradeManager() returned nil")
+		t.Fatal("NewDefaultManager() returned nil")
 	}
 }
 
-func TestUpgradeCheckResult(t *testing.T) {
+func TestCheckResult(t *testing.T) {
 	currentVersion, _ := ParseVersion("1.0.0")
 	targetVersion, _ := ParseVersion("2.0.0")
 
-	check := &UpgradeCheck{
+	check := &Check{
 		Compatible:     true,
 		CurrentVersion: currentVersion,
 		TargetVersion:  targetVersion,
@@ -927,13 +927,13 @@ func TestUpgradeCheckResult(t *testing.T) {
 	}
 }
 
-func TestUpgradePlan(t *testing.T) {
-	plan := &UpgradePlan{
+func TestPlan(t *testing.T) {
+	plan := &Plan{
 		ID: "plan-123",
-		Config: &UpgradeConfig{
+		Config: &Config{
 			Strategy: StrategyRolling,
 		},
-		Steps: []UpgradeStep{
+		Steps: []Step{
 			{
 				Order:     1,
 				Name:      "upgrade-servers",
@@ -1273,7 +1273,7 @@ func TestRollbackOnUpgradeFailure(t *testing.T) {
 	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-1",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1344,7 +1344,7 @@ func TestRollbackPartialSuccess(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-2",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1428,7 +1428,7 @@ func TestManualRollbackAbortOnFailure(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-3",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1505,7 +1505,7 @@ func TestRollbackHealthCheckTimeout(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-4",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1585,7 +1585,7 @@ func TestRollbackVersionMismatch(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-5",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1662,7 +1662,7 @@ func TestRollbackReverseOrder(t *testing.T) {
 	now := time.Now()
 
 	// Simulate upgrade order: node-1, node-2, node-3
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-6",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1741,7 +1741,7 @@ func TestRollbackSkipsNonCompletedNodes(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-7",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1820,7 +1820,7 @@ func TestRollbackCancellation(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-8",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,
@@ -1876,7 +1876,7 @@ func TestEvaluateRollbackNeed(t *testing.T) {
 	now := time.Now()
 
 	t.Run("no rollback needed", func(t *testing.T) {
-		upgradeState := &UpgradeState{
+		upgradeState := &State{
 			ID:          "upgrade-eval-1",
 			FromVersion: fromVersion,
 			ToVersion:   toVersion,
@@ -1900,7 +1900,7 @@ func TestEvaluateRollbackNeed(t *testing.T) {
 	})
 
 	t.Run("rollback needed - threshold met", func(t *testing.T) {
-		upgradeState := &UpgradeState{
+		upgradeState := &State{
 			ID:          "upgrade-eval-2",
 			FromVersion: fromVersion,
 			ToVersion:   toVersion,
@@ -1939,7 +1939,7 @@ func TestEvaluateRollbackNeed(t *testing.T) {
 	})
 
 	t.Run("below threshold", func(t *testing.T) {
-		upgradeState := &UpgradeState{
+		upgradeState := &State{
 			ID:          "upgrade-eval-3",
 			FromVersion: fromVersion,
 			ToVersion:   toVersion,
@@ -1989,7 +1989,7 @@ func TestRollbackDrainFailureContinues(t *testing.T) {
 	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
 	now := time.Now()
 
-	upgradeState := &UpgradeState{
+	upgradeState := &State{
 		ID:          "upgrade-test-drain",
 		FromVersion: fromVersion,
 		ToVersion:   toVersion,

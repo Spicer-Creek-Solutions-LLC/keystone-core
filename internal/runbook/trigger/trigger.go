@@ -27,7 +27,7 @@ type Trigger struct {
 	Filter string `yaml:"filter" json:"filter"`
 
 	// Conditions provides additional trigger control.
-	Conditions *TriggerConditions `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+	Conditions *Conditions `yaml:"conditions,omitempty" json:"conditions,omitempty"`
 
 	// InputMappings maps event data to runbook inputs.
 	InputMappings map[string]string `yaml:"inputMappings,omitempty" json:"input_mappings,omitempty"`
@@ -57,8 +57,8 @@ type RunbookRef struct {
 	Version string `yaml:"version,omitempty" json:"version,omitempty"`
 }
 
-// TriggerConditions provides advanced trigger control.
-type TriggerConditions struct {
+// Conditions provides advanced trigger control.
+type Conditions struct {
 	// OnlyIf specifies an additional condition that must be true.
 	OnlyIf string `yaml:"onlyIf,omitempty" json:"only_if,omitempty"`
 
@@ -121,8 +121,8 @@ type TimeWindowConfig struct {
 	Timezone string `yaml:"timezone,omitempty" json:"timezone,omitempty"`
 }
 
-// TriggerExecution records a trigger activation.
-type TriggerExecution struct {
+// Execution records a trigger activation.
+type Execution struct {
 	// ID is the unique execution identifier.
 	ID string `json:"id"`
 
@@ -142,37 +142,37 @@ type TriggerExecution struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 
 	// Status is the execution status.
-	Status TriggerExecutionStatus `json:"status"`
+	Status ExecutionStatus `json:"status"`
 
 	// Error contains any error message.
 	Error string `json:"error,omitempty"`
 }
 
-// TriggerExecutionStatus represents trigger execution status.
-type TriggerExecutionStatus string
+// ExecutionStatus represents trigger execution status.
+type ExecutionStatus string
 
 const (
-	// TriggerStatusPending indicates the trigger is waiting to execute.
-	TriggerStatusPending TriggerExecutionStatus = "pending"
+	// StatusPending indicates the trigger is waiting to execute.
+	StatusPending ExecutionStatus = "pending"
 
-	// TriggerStatusRunning indicates the runbook is executing.
-	TriggerStatusRunning TriggerExecutionStatus = "running"
+	// StatusRunning indicates the runbook is executing.
+	StatusRunning ExecutionStatus = "running"
 
-	// TriggerStatusCompleted indicates successful completion.
-	TriggerStatusCompleted TriggerExecutionStatus = "completed"
+	// StatusCompleted indicates successful completion.
+	StatusCompleted ExecutionStatus = "completed"
 
-	// TriggerStatusFailed indicates execution failed.
-	TriggerStatusFailed TriggerExecutionStatus = "failed"
+	// StatusFailed indicates execution failed.
+	StatusFailed ExecutionStatus = "failed"
 
-	// TriggerStatusSkipped indicates the trigger was skipped (dedup, rate limit, etc.).
-	TriggerStatusSkipped TriggerExecutionStatus = "skipped"
+	// StatusSkipped indicates the trigger was skipped (dedup, rate limit, etc.).
+	StatusSkipped ExecutionStatus = "skipped"
 
-	// TriggerStatusThrottled indicates the trigger was throttled.
-	TriggerStatusThrottled TriggerExecutionStatus = "throttled"
+	// StatusThrottled indicates the trigger was throttled.
+	StatusThrottled ExecutionStatus = "throttled"
 )
 
-// TriggerMetrics provides trigger statistics.
-type TriggerMetrics struct {
+// Metrics provides trigger statistics.
+type Metrics struct {
 	// TotalTriggers is the number of registered triggers.
 	TotalTriggers int `json:"total_triggers"`
 
@@ -195,16 +195,16 @@ type TriggerMetrics struct {
 	AverageLatencyMs float64 `json:"average_latency_ms"`
 
 	// ByTrigger has per-trigger metrics.
-	ByTrigger map[string]*TriggerStats `json:"by_trigger,omitempty"`
+	ByTrigger map[string]*Stats `json:"by_trigger,omitempty"`
 }
 
-// TriggerStats provides statistics for a single trigger.
-type TriggerStats struct {
-	TriggerID    string    `json:"trigger_id"`
-	Activations  int64     `json:"activations"`
-	Successes    int64     `json:"successes"`
-	Failures     int64     `json:"failures"`
-	Skipped      int64     `json:"skipped"`
+// Stats provides statistics for a single trigger.
+type Stats struct {
+	TriggerID      string    `json:"trigger_id"`
+	Activations    int64     `json:"activations"`
+	Successes      int64     `json:"successes"`
+	Failures       int64     `json:"failures"`
+	Skipped        int64     `json:"skipped"`
 	LastActivation time.Time `json:"last_activation,omitempty"`
 }
 

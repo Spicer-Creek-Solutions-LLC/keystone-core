@@ -52,7 +52,7 @@ func NewNXOSAdapter(config *NXOSConfig) *NXOSAdapter {
 
 	sshConfig := ssh.DefaultConfig()
 	sshConfig.ConnectionConfig = protocols.DefaultConnectionConfig()
-	sshConfig.ConnectionConfig.Timeout = config.Timeout
+	sshConfig.Timeout = config.Timeout
 
 	return &NXOSAdapter{
 		BaseVendorAdapter: vendors.BaseVendorAdapter{
@@ -93,19 +93,15 @@ func (a *NXOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, 
 	}
 	shell, err := a.sshAdapter.NewNetworkDeviceShell(ctx, shellConfig)
 	if err != nil {
-		a.sshAdapter.Disconnect(ctx)
+		_ = a.sshAdapter.Disconnect(ctx) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to create shell: %w", err)
 	}
 	a.shell = shell
 
-	// Disable paging
+	// Disable paging - best-effort, non-fatal if unsupported
 	if a.Config.DisablePaging {
-		if _, err := a.runCommand(ctx, "terminal length 0"); err != nil {
-			// Non-fatal
-		}
-		if _, err := a.runCommand(ctx, "terminal width 511"); err != nil {
-			// Non-fatal
-		}
+		_, _ = a.runCommand(ctx, "terminal length 0")
+		_, _ = a.runCommand(ctx, "terminal width 511")
 	}
 
 	a.Connected = true
@@ -218,7 +214,7 @@ func (a *NXOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 		if err := a.enterConfig(ctx); err != nil {
 			return err
 		}
-		defer a.exitConfig(ctx)
+		defer func() { _ = a.exitConfig(ctx) }() //nolint:errcheck // best-effort cleanup
 	}
 
 	// Execute each command

@@ -67,22 +67,23 @@ func (m *SwapModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	switch decl.State {
 	case "enabled":
 		// enabled: swap is active and in fstab (if persist)
-		if !exists {
+		switch {
+		case !exists:
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["exists"] = map[string]interface{}{"current": false, "desired": true}
-		} else if !isActive {
+		case !isActive:
 			result.Present = true
 			result.CurrentState = "disabled"
 			result.Matches = false
 			result.Diff["active"] = map[string]interface{}{"current": false, "desired": true}
-		} else if config.Persist && !inFstab {
+		case config.Persist && !inFstab:
 			result.Present = true
 			result.CurrentState = "enabled (not persistent)"
 			result.Matches = false
 			result.Diff["persistent"] = map[string]interface{}{"current": false, "desired": true}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "enabled"
 			result.Matches = true
@@ -90,17 +91,18 @@ func (m *SwapModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	case "disabled":
 		// disabled: swap exists but is not active
-		if !exists {
+		switch {
+		case !exists:
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["exists"] = map[string]interface{}{"current": false, "desired": true}
-		} else if isActive {
+		case isActive:
 			result.Present = true
 			result.CurrentState = "enabled"
 			result.Matches = false
 			result.Diff["active"] = map[string]interface{}{"current": true, "desired": false}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "disabled"
 			result.Matches = true
@@ -172,7 +174,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "enabled":
 		// Create swap if it doesn't exist
 		if !exists {
-			if err := m.createSwap(config); err != nil {
+			if err := m.createSwap(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create swap: %v", err)
 				return result, err
@@ -182,7 +184,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 		// Enable swap if not active
 		if !isActive {
-			if err := m.enableSwap(config); err != nil {
+			if err := m.enableSwap(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to enable swap: %v", err)
 				return result, err
@@ -205,7 +207,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "disabled":
 		// Create swap if it doesn't exist
 		if !exists {
-			if err := m.createSwap(config); err != nil {
+			if err := m.createSwap(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create swap: %v", err)
 				return result, err
@@ -215,7 +217,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 		// Disable swap if active
 		if isActive {
-			if err := m.disableSwap(config.Path); err != nil {
+			if err := m.disableSwap(ctx, config.Path); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to disable swap: %v", err)
 				return result, err
@@ -228,7 +230,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "present":
 		// Create swap if it doesn't exist
 		if !exists {
-			if err := m.createSwap(config); err != nil {
+			if err := m.createSwap(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create swap: %v", err)
 				return result, err
@@ -241,7 +243,7 @@ func (m *SwapModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "absent":
 		// Disable swap if active
 		if isActive {
-			if err := m.disableSwap(config.Path); err != nil {
+			if err := m.disableSwap(ctx, config.Path); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to disable swap: %v", err)
 				return result, err
@@ -375,9 +377,9 @@ func (m *SwapModule) isInFstab(path string) bool {
 }
 
 // createSwap creates a swap file or initializes a swap partition.
-func (m *SwapModule) createSwap(config *SwapConfig) error {
+func (m *SwapModule) createSwap(ctx context.Context, config *SwapConfig) error {
 	// Check if it's a partition or file
-	info, err := os.Stat(config.Path)
+	_, err := os.Stat(config.Path)
 
 	if os.IsNotExist(err) {
 		// Create swap file
@@ -391,18 +393,17 @@ func (m *SwapModule) createSwap(config *SwapConfig) error {
 		}
 
 		// Create the swap file using fallocate or dd
-		if err := m.createSwapFile(config.Path, sizeBytes); err != nil {
+		if err := m.createSwapFile(ctx, config.Path, sizeBytes); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
-	} else if info.Mode().IsRegular() {
-		// File exists, check if we need to resize
-		// For now, just use mkswap
 	}
+	// Note: If file exists and is regular, we proceed directly to mkswap.
+	// Resizing existing swap files is not currently supported.
 
 	// Set proper permissions
-	if err := os.Chmod(config.Path, 0600); err != nil {
+	if err := os.Chmod(config.Path, 0o600); err != nil {
 		return err
 	}
 
@@ -415,19 +416,19 @@ func (m *SwapModule) createSwap(config *SwapConfig) error {
 		args = append([]string{"-U", config.UUID}, args...)
 	}
 
-	cmd := exec.Command("mkswap", args...)
+	cmd := exec.CommandContext(ctx, "mkswap", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mkswap failed: %v: %s", err, string(output))
+		return fmt.Errorf("mkswap failed: %w: %s", err, string(output))
 	}
 
 	return nil
 }
 
 // createSwapFile creates a swap file of the specified size.
-func (m *SwapModule) createSwapFile(path string, sizeBytes int64) error {
+func (m *SwapModule) createSwapFile(ctx context.Context, path string, sizeBytes int64) error {
 	// Try fallocate first (faster)
-	cmd := exec.Command("fallocate", "-l", fmt.Sprintf("%d", sizeBytes), path)
+	cmd := exec.CommandContext(ctx, "fallocate", "-l", fmt.Sprintf("%d", sizeBytes), path)
 	if err := cmd.Run(); err == nil {
 		return nil
 	}
@@ -438,10 +439,10 @@ func (m *SwapModule) createSwapFile(path string, sizeBytes int64) error {
 		sizeMB = 1
 	}
 
-	cmd = exec.Command("dd", "if=/dev/zero", "of="+path, "bs=1M", fmt.Sprintf("count=%d", sizeMB))
+	cmd = exec.CommandContext(ctx, "dd", "if=/dev/zero", "of="+path, "bs=1M", fmt.Sprintf("count=%d", sizeMB))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("dd failed: %v: %s", err, string(output))
+		return fmt.Errorf("dd failed: %w: %s", err, string(output))
 	}
 
 	return nil
@@ -459,19 +460,20 @@ func (m *SwapModule) parseSize(size string) (int64, error) {
 	var numStr string
 
 	size = strings.ToUpper(size)
-	if strings.HasSuffix(size, "G") || strings.HasSuffix(size, "GB") || strings.HasSuffix(size, "GIB") {
+	switch {
+	case strings.HasSuffix(size, "G") || strings.HasSuffix(size, "GB") || strings.HasSuffix(size, "GIB"):
 		multiplier = 1024 * 1024 * 1024
-		numStr = strings.TrimRight(size, "GBIB")
-	} else if strings.HasSuffix(size, "M") || strings.HasSuffix(size, "MB") || strings.HasSuffix(size, "MIB") {
+		numStr = strings.TrimRight(size, "GIB")
+	case strings.HasSuffix(size, "M") || strings.HasSuffix(size, "MB") || strings.HasSuffix(size, "MIB"):
 		multiplier = 1024 * 1024
-		numStr = strings.TrimRight(size, "MBIB")
-	} else if strings.HasSuffix(size, "K") || strings.HasSuffix(size, "KB") || strings.HasSuffix(size, "KIB") {
+		numStr = strings.TrimRight(size, "MIB")
+	case strings.HasSuffix(size, "K") || strings.HasSuffix(size, "KB") || strings.HasSuffix(size, "KIB"):
 		multiplier = 1024
-		numStr = strings.TrimRight(size, "KBIB")
-	} else if strings.HasSuffix(size, "T") || strings.HasSuffix(size, "TB") || strings.HasSuffix(size, "TIB") {
+		numStr = strings.TrimRight(size, "KIB")
+	case strings.HasSuffix(size, "T") || strings.HasSuffix(size, "TB") || strings.HasSuffix(size, "TIB"):
 		multiplier = 1024 * 1024 * 1024 * 1024
-		numStr = strings.TrimRight(size, "TBIB")
-	} else {
+		numStr = strings.TrimRight(size, "TIB")
+	default:
 		numStr = size
 	}
 
@@ -484,26 +486,26 @@ func (m *SwapModule) parseSize(size string) (int64, error) {
 }
 
 // enableSwap enables the swap.
-func (m *SwapModule) enableSwap(config *SwapConfig) error {
+func (m *SwapModule) enableSwap(ctx context.Context, config *SwapConfig) error {
 	args := []string{config.Path}
 	if config.Priority >= 0 {
 		args = append([]string{"-p", fmt.Sprintf("%d", config.Priority)}, args...)
 	}
 
-	cmd := exec.Command("swapon", args...)
+	cmd := exec.CommandContext(ctx, "swapon", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("swapon failed: %v: %s", err, string(output))
+		return fmt.Errorf("swapon failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // disableSwap disables the swap.
-func (m *SwapModule) disableSwap(path string) error {
-	cmd := exec.Command("swapoff", path)
+func (m *SwapModule) disableSwap(ctx context.Context, path string) error {
+	cmd := exec.CommandContext(ctx, "swapoff", path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("swapoff failed: %v: %s", err, string(output))
+		return fmt.Errorf("swapoff failed: %w: %s", err, string(output))
 	}
 	return nil
 }
@@ -525,7 +527,7 @@ func (m *SwapModule) addToFstab(config *SwapConfig) error {
 	entry := fmt.Sprintf("%s\tnone\tswap\t%s\t0\t0\n", config.Path, priority)
 
 	// Append to file
-	f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) //nolint:gosec // G302: /etc/fstab must be world-readable for mount operations
 	if err != nil {
 		return err
 	}
@@ -599,7 +601,8 @@ func (m *SwapModule) removeFromFstab(path string) error {
 		return err
 	}
 
-	return os.WriteFile("/etc/fstab", []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: fstab needs to be readable by mount commands
+	return os.WriteFile("/etc/fstab", []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 // GetSwapInfo returns information about active swap.

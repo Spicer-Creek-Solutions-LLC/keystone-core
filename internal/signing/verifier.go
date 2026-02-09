@@ -52,11 +52,12 @@ func NewKeyVerifier(config *KeyVerifierConfig) (*KeyVerifier, error) {
 	var keyType KeyType
 	var err error
 
-	if len(config.PublicKeyPEM) > 0 {
+	switch {
+	case len(config.PublicKeyPEM) > 0:
 		publicKey, keyType, err = LoadPublicKey(config.PublicKeyPEM)
-	} else if config.PublicKeyPath != "" {
+	case config.PublicKeyPath != "":
 		publicKey, keyType, err = LoadPublicKeyFromFile(config.PublicKeyPath)
-	} else {
+	default:
 		return nil, fmt.Errorf("public key is required (provide PublicKeyPEM or PublicKeyPath)")
 	}
 
@@ -81,9 +82,9 @@ func (v *KeyVerifier) Verify(ctx context.Context, data, signature []byte) (bool,
 	// Calculate hash
 	hasher := v.newHasher()
 	hasher.Write(data)
-	hash := hasher.Sum(nil)
+	digest := hasher.Sum(nil)
 
-	return v.verifyHash(hash, signature)
+	return v.verifyHash(digest, signature)
 }
 
 // VerifyFile verifies a signature against a file.
@@ -138,16 +139,16 @@ func (v *KeyVerifier) newHasher() hash.Hash {
 }
 
 // verifyHash verifies a signature against a hash.
-func (v *KeyVerifier) verifyHash(hash, signature []byte) (bool, error) {
+func (v *KeyVerifier) verifyHash(digest, signature []byte) (bool, error) {
 	switch key := v.publicKey.(type) {
 	case *ecdsa.PublicKey:
-		return verifyECDSA(key, hash, signature)
+		return verifyECDSA(key, digest, signature)
 
 	case *rsa.PublicKey:
-		return verifyRSA(key, hash, signature, v.cryptoHash())
+		return verifyRSA(key, digest, signature, v.cryptoHash())
 
 	case ed25519.PublicKey:
-		return verifyEd25519(key, hash, signature)
+		return verifyEd25519(key, digest, signature)
 
 	default:
 		return false, fmt.Errorf("%w: %T", ErrUnsupportedKeyType, key)
@@ -167,9 +168,9 @@ func (v *KeyVerifier) cryptoHash() crypto.Hash {
 }
 
 // verifyECDSA verifies an ECDSA signature.
-func verifyECDSA(pubKey *ecdsa.PublicKey, hash, signature []byte) (bool, error) {
+func verifyECDSA(pubKey *ecdsa.PublicKey, digest, signature []byte) (bool, error) {
 	// Try ASN.1 DER format first
-	if ecdsa.VerifyASN1(pubKey, hash, signature) {
+	if ecdsa.VerifyASN1(pubKey, digest, signature) {
 		return true, nil
 	}
 
@@ -178,7 +179,7 @@ func verifyECDSA(pubKey *ecdsa.PublicKey, hash, signature []byte) (bool, error) 
 	if len(signature) == keySize*2 {
 		r := new(big.Int).SetBytes(signature[:keySize])
 		s := new(big.Int).SetBytes(signature[keySize:])
-		if ecdsa.Verify(pubKey, hash, r, s) {
+		if ecdsa.Verify(pubKey, digest, r, s) {
 			return true, nil
 		}
 	}
@@ -187,15 +188,15 @@ func verifyECDSA(pubKey *ecdsa.PublicKey, hash, signature []byte) (bool, error) 
 }
 
 // verifyRSA verifies an RSA signature.
-func verifyRSA(pubKey *rsa.PublicKey, hash, signature []byte, hashType crypto.Hash) (bool, error) {
-	err := rsa.VerifyPKCS1v15(pubKey, hashType, hash, signature)
+func verifyRSA(pubKey *rsa.PublicKey, digest, signature []byte, hashType crypto.Hash) (bool, error) {
+	err := rsa.VerifyPKCS1v15(pubKey, hashType, digest, signature)
 	return err == nil, nil
 }
 
 // verifyEd25519 verifies an Ed25519 signature.
-func verifyEd25519(pubKey ed25519.PublicKey, hash, signature []byte) (bool, error) {
+func verifyEd25519(pubKey ed25519.PublicKey, digest, signature []byte) (bool, error) {
 	// Ed25519 signs the message directly, but we sign the hash for consistency
-	return ed25519.Verify(pubKey, hash, signature), nil
+	return ed25519.Verify(pubKey, digest, signature), nil
 }
 
 // decodeSignature decodes a signature from various formats.

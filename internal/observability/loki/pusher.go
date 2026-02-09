@@ -30,6 +30,7 @@ var (
 // LogLevel represents a log level.
 type LogLevel string
 
+// LogLevel constants define the severity levels.
 const (
 	LogLevelDebug LogLevel = "debug"
 	LogLevelInfo  LogLevel = "info"
@@ -236,10 +237,19 @@ func (p *Pusher) AddListener(listener PushEventListener) {
 }
 
 // Stats returns the pusher statistics.
-func (p *Pusher) Stats() Stats {
+func (p *Pusher) Stats() *Stats {
 	p.stats.mu.RLock()
 	defer p.stats.mu.RUnlock()
-	return *p.stats
+	return &Stats{
+		EntriesPushed:     p.stats.EntriesPushed,
+		EntriesDropped:    p.stats.EntriesDropped,
+		BytesPushed:       p.stats.BytesPushed,
+		PushCount:         p.stats.PushCount,
+		PushErrors:        p.stats.PushErrors,
+		LastPushTime:      p.stats.LastPushTime,
+		LastPushError:     p.stats.LastPushError,
+		LastPushErrorTime: p.stats.LastPushErrorTime,
+	}
 }
 
 func (p *Pusher) run() {
@@ -365,11 +375,11 @@ func (p *Pusher) pushEntries(entries []*Entry) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: %v", ErrPushFailed, lastErr)
+	return fmt.Errorf("%w: %w", ErrPushFailed, lastErr)
 }
 
 func (p *Pusher) doPush(body io.Reader, data []byte, contentType string) error {
-	req, err := http.NewRequest("POST", p.config.URL, body)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", p.config.URL, body)
 	if err != nil {
 		return err
 	}
@@ -448,12 +458,14 @@ func (p *Pusher) buildPushRequest(entries []*Entry) *PushRequest {
 
 func (p *Pusher) calculateBackoff(attempt int) time.Duration {
 	// Exponential backoff with jitter
+	//nolint:gosec // G115: attempt is bounded by MaxRetries config, fits in uint
 	delay := p.config.RetryBaseDelay * (1 << uint(attempt))
 	if delay > p.config.RetryMaxDelay {
 		delay = p.config.RetryMaxDelay
 	}
 
 	// Add jitter (0-25%)
+	//nolint:gosec // G404: math/rand used for backoff jitter timing, not security
 	jitter := time.Duration(rand.Int63n(int64(delay / 4))) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	return delay + jitter
 }
@@ -535,7 +547,7 @@ func (bp *BatchPusher) Flush() {
 	bp.bufMu.Unlock()
 
 	for _, entry := range entries {
-		bp.pusher.Push(entry)
+		_ = bp.pusher.Push(entry) //nolint:errcheck // best-effort batch push
 	}
 }
 
@@ -545,7 +557,7 @@ func (bp *BatchPusher) AddListener(listener PushEventListener) {
 }
 
 // Stats returns statistics.
-func (bp *BatchPusher) Stats() Stats {
+func (bp *BatchPusher) Stats() *Stats {
 	return bp.pusher.Stats()
 }
 
@@ -622,7 +634,7 @@ func (mp *MultiTenantPusher) GetPusher(tenantID string) *Pusher {
 	config := *mp.baseConfig
 	config.TenantID = tenantID
 	pusher = NewPusher(&config)
-	pusher.Start()
+	_ = pusher.Start() //nolint:errcheck // pusher start is best-effort
 	mp.pushers[tenantID] = pusher
 
 	return pusher
@@ -715,6 +727,7 @@ func NewSamplingPusher(pusher *Pusher, sampleRate float64) *SamplingPusher {
 
 // Push pushes an entry based on sample rate.
 func (sp *SamplingPusher) Push(entry *Entry) error {
+	//nolint:gosec // G404: math/rand used for probabilistic sampling, not security
 	if rand.Float64() > sp.sampleRate { // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- sampling does not require crypto randomness
 		return nil
 	}

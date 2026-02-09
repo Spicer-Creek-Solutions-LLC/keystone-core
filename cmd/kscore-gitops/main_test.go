@@ -97,7 +97,7 @@ func TestVerifyCommandFlags(t *testing.T) {
 
 	timeoutFlag := verifyCmd.Flags().Lookup("timeout")
 	if timeoutFlag == nil {
-		t.Error("expected --timeout flag on verify command")
+		t.Fatal("expected --timeout flag on verify command")
 	}
 	if timeoutFlag.DefValue != "2m" {
 		t.Errorf("expected timeout default to be '2m', got %s", timeoutFlag.DefValue)
@@ -105,7 +105,7 @@ func TestVerifyCommandFlags(t *testing.T) {
 
 	outputFlag := verifyCmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on verify command")
+		t.Fatal("expected --output flag on verify command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)
@@ -127,7 +127,7 @@ func TestRollbackCommandFlags(t *testing.T) {
 
 	namespaceFlag := rollbackCmd.Flags().Lookup("namespace")
 	if namespaceFlag == nil {
-		t.Error("expected --namespace flag on rollback command")
+		t.Fatal("expected --namespace flag on rollback command")
 	}
 	if namespaceFlag.DefValue != "default" {
 		t.Errorf("expected namespace default to be 'default', got %s", namespaceFlag.DefValue)
@@ -135,7 +135,7 @@ func TestRollbackCommandFlags(t *testing.T) {
 
 	typeFlag := rollbackCmd.Flags().Lookup("type")
 	if typeFlag == nil {
-		t.Error("expected --type flag on rollback command")
+		t.Fatal("expected --type flag on rollback command")
 	}
 	if typeFlag.DefValue != "argocd" {
 		t.Errorf("expected type default to be 'argocd', got %s", typeFlag.DefValue)
@@ -143,7 +143,7 @@ func TestRollbackCommandFlags(t *testing.T) {
 
 	strategyFlag := rollbackCmd.Flags().Lookup("strategy")
 	if strategyFlag == nil {
-		t.Error("expected --strategy flag on rollback command")
+		t.Fatal("expected --strategy flag on rollback command")
 	}
 	if strategyFlag.DefValue != "previous" {
 		t.Errorf("expected strategy default to be 'previous', got %s", strategyFlag.DefValue)
@@ -246,7 +246,7 @@ func TestStatusCommandFlags(t *testing.T) {
 
 	typeFlag := statusCmd.Flags().Lookup("type")
 	if typeFlag == nil {
-		t.Error("expected --type flag on status command")
+		t.Fatal("expected --type flag on status command")
 	}
 	if typeFlag.DefValue != "all" {
 		t.Errorf("expected type default to be 'all', got %s", typeFlag.DefValue)
@@ -254,7 +254,7 @@ func TestStatusCommandFlags(t *testing.T) {
 
 	limitFlag := statusCmd.Flags().Lookup("limit")
 	if limitFlag == nil {
-		t.Error("expected --limit flag on status command")
+		t.Fatal("expected --limit flag on status command")
 	}
 	if limitFlag.DefValue != "10" {
 		t.Errorf("expected limit default to be '10', got %s", limitFlag.DefValue)

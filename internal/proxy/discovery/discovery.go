@@ -12,7 +12,7 @@ import (
 // Discovery provides device discovery capabilities.
 type Discovery struct {
 	// config holds discovery configuration
-	config DiscoveryConfig
+	config Config
 
 	// scanners are the registered discovery scanners
 	scanners map[string]Scanner
@@ -39,8 +39,8 @@ type Discovery struct {
 	running bool
 }
 
-// DiscoveryConfig configures device discovery.
-type DiscoveryConfig struct {
+// Config configures device discovery.
+type Config struct {
 	// ScanInterval is how often to scan for new devices
 	ScanInterval time.Duration
 
@@ -75,9 +75,9 @@ type DiscoveryConfig struct {
 	SNMPPort int
 }
 
-// DefaultDiscoveryConfig returns default discovery configuration.
-func DefaultDiscoveryConfig() DiscoveryConfig {
-	return DiscoveryConfig{
+// DefaultConfig returns default discovery configuration.
+func DefaultConfig() Config {
+	return Config{
 		ScanInterval:  1 * time.Hour,
 		ScanTimeout:   30 * time.Second,
 		MaxConcurrent: 50,
@@ -105,28 +105,29 @@ type ProfileMatcher interface {
 
 // EventEmitter emits discovery events.
 type EventEmitter interface {
-	Emit(event DiscoveryEvent)
+	Emit(event Event)
 }
 
-// DiscoveryEvent represents a discovery event.
-type DiscoveryEvent struct {
-	Type      DiscoveryEventType
+// Event represents a discovery event.
+type Event struct {
+	Type      EventType
 	DeviceID  string
 	Device    *DiscoveredDevice
 	Timestamp time.Time
 	Error     error
 }
 
-// DiscoveryEventType represents the type of discovery event.
-type DiscoveryEventType string
+// EventType represents the type of discovery event.
+type EventType string
 
+// EventDeviceDiscovered constants define the events.
 const (
-	EventDeviceDiscovered DiscoveryEventType = "device.discovered"
-	EventDeviceApproved   DiscoveryEventType = "device.approved"
-	EventDeviceRejected   DiscoveryEventType = "device.rejected"
-	EventScanStarted      DiscoveryEventType = "scan.started"
-	EventScanCompleted    DiscoveryEventType = "scan.completed"
-	EventScanFailed       DiscoveryEventType = "scan.failed"
+	EventDeviceDiscovered EventType = "device.discovered"
+	EventDeviceApproved   EventType = "device.approved"
+	EventDeviceRejected   EventType = "device.rejected"
+	EventScanStarted      EventType = "scan.started"
+	EventScanCompleted    EventType = "scan.completed"
+	EventScanFailed       EventType = "scan.failed"
 )
 
 // DiscoveredDevice represents a discovered device.
@@ -144,7 +145,7 @@ type DiscoveredDevice struct {
 	Port int `json:"port"`
 
 	// Protocol is the discovered protocol
-	Protocol DiscoveryProtocol `json:"protocol"`
+	Protocol Protocol `json:"protocol"`
 
 	// Type is the device type
 	Type DeviceType `json:"type,omitempty"`
@@ -183,50 +184,53 @@ type DiscoveredDevice struct {
 	LastSeen time.Time `json:"last_seen"`
 
 	// Status is the device status
-	Status DiscoveryStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// Metadata contains additional discovery metadata
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-// DiscoveryProtocol is the protocol used for discovery.
-type DiscoveryProtocol string
+// Protocol is the protocol used for discovery.
+type Protocol string
 
+// ProtocolSSH and related constants.
 const (
-	ProtocolSSH   DiscoveryProtocol = "ssh"
-	ProtocolSNMP  DiscoveryProtocol = "snmp"
-	ProtocolHTTP  DiscoveryProtocol = "http"
-	ProtocolHTTPS DiscoveryProtocol = "https"
-	ProtocolWinRM DiscoveryProtocol = "winrm"
-	ProtocolICMP  DiscoveryProtocol = "icmp"
+	ProtocolSSH   Protocol = "ssh"
+	ProtocolSNMP  Protocol = "snmp"
+	ProtocolHTTP  Protocol = "http"
+	ProtocolHTTPS Protocol = "https"
+	ProtocolWinRM Protocol = "winrm"
+	ProtocolICMP  Protocol = "icmp"
 )
 
 // DeviceType is the type of discovered device.
 type DeviceType string
 
+// DeviceType constants define the supported types.
 const (
-	DeviceTypeUnknown       DeviceType = "unknown"
-	DeviceTypeRouter        DeviceType = "router"
-	DeviceTypeSwitch        DeviceType = "switch"
-	DeviceTypeFirewall      DeviceType = "firewall"
-	DeviceTypeServer        DeviceType = "server"
-	DeviceTypeWorkstation   DeviceType = "workstation"
-	DeviceTypeAccessPoint   DeviceType = "access_point"
-	DeviceTypeLoadBalancer  DeviceType = "load_balancer"
-	DeviceTypePrinter       DeviceType = "printer"
-	DeviceTypeStorage       DeviceType = "storage"
+	DeviceTypeUnknown        DeviceType = "unknown"
+	DeviceTypeRouter         DeviceType = "router"
+	DeviceTypeSwitch         DeviceType = "switch"
+	DeviceTypeFirewall       DeviceType = "firewall"
+	DeviceTypeServer         DeviceType = "server"
+	DeviceTypeWorkstation    DeviceType = "workstation"
+	DeviceTypeAccessPoint    DeviceType = "access_point"
+	DeviceTypeLoadBalancer   DeviceType = "load_balancer"
+	DeviceTypePrinter        DeviceType = "printer"
+	DeviceTypeStorage        DeviceType = "storage"
 	DeviceTypeVirtualMachine DeviceType = "vm"
-	DeviceTypeContainer     DeviceType = "container"
+	DeviceTypeContainer      DeviceType = "container"
 )
 
-// DiscoveryStatus is the status of a discovered device.
-type DiscoveryStatus string
+// Status is the status of a discovered device.
+type Status string
 
+// StatusPending constants define the possible statuses.
 const (
-	StatusPending  DiscoveryStatus = "pending"
-	StatusApproved DiscoveryStatus = "approved"
-	StatusRejected DiscoveryStatus = "rejected"
-	StatusIgnored  DiscoveryStatus = "ignored"
+	StatusPending  Status = "pending"
+	StatusApproved Status = "approved"
+	StatusRejected Status = "rejected"
+	StatusIgnored  Status = "ignored"
 )
 
 // Neighbor represents an LLDP/CDP neighbor.
@@ -238,7 +242,7 @@ type Neighbor struct {
 }
 
 // NewDiscovery creates a new discovery service.
-func NewDiscovery(config DiscoveryConfig) *Discovery {
+func NewDiscovery(config Config) *Discovery {
 	return &Discovery{
 		config:     config,
 		scanners:   make(map[string]Scanner),
@@ -279,7 +283,7 @@ func (d *Discovery) Scan(ctx context.Context) (*ScanResult, error) {
 
 	// Emit scan started event
 	if d.eventEmitter != nil {
-		d.eventEmitter.Emit(DiscoveryEvent{
+		d.eventEmitter.Emit(Event{
 			Type:      EventScanStarted,
 			Timestamp: startTime,
 		})
@@ -335,7 +339,7 @@ func (d *Discovery) Scan(ctx context.Context) (*ScanResult, error) {
 
 			// Emit discovery event
 			if d.eventEmitter != nil {
-				d.eventEmitter.Emit(DiscoveryEvent{
+				d.eventEmitter.Emit(Event{
 					Type:      EventDeviceDiscovered,
 					DeviceID:  device.ID,
 					Device:    device,
@@ -364,7 +368,7 @@ func (d *Discovery) Scan(ctx context.Context) (*ScanResult, error) {
 
 	// Emit scan completed event
 	if d.eventEmitter != nil {
-		d.eventEmitter.Emit(DiscoveryEvent{
+		d.eventEmitter.Emit(Event{
 			Type:      EventScanCompleted,
 			Timestamp: result.EndTime,
 		})
@@ -498,7 +502,7 @@ func (d *Discovery) Approve(deviceID string) error {
 	d.approved[deviceID] = device
 
 	if d.eventEmitter != nil {
-		d.eventEmitter.Emit(DiscoveryEvent{
+		d.eventEmitter.Emit(Event{
 			Type:      EventDeviceApproved,
 			DeviceID:  deviceID,
 			Device:    device,
@@ -523,7 +527,7 @@ func (d *Discovery) Reject(deviceID string) error {
 	delete(d.approved, deviceID)
 
 	if d.eventEmitter != nil {
-		d.eventEmitter.Emit(DiscoveryEvent{
+		d.eventEmitter.Emit(Event{
 			Type:      EventDeviceRejected,
 			DeviceID:  deviceID,
 			Device:    device,

@@ -1,0 +1,32 @@
+{
+  "ietf-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth0",
+        "type": "iana-if-type:ethernetCsmacd",
+        "enabled": true,
+        "ietf-ip:ipv4": {
+          "address": [
+            {
+              "ip": "192.168.1.1",
+              "prefix-length": 24
+            }
+          ]
+        }
+      },
+      {
+        "name": "lo0",
+        "type": "iana-if-type:softwareLoopback",
+        "enabled": true,
+        "ietf-ip:ipv4": {
+          "address": [
+            {
+              "ip": "127.0.0.1",
+              "prefix-length": 8
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

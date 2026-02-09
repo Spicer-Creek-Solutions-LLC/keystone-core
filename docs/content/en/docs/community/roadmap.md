@@ -25,12 +25,12 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-31)                 PLANNED (Epics 32-35, 100)
+COMPLETED (Epics 1-31)                 PLANNED (Epics 32-34, 42, 100)
 ───────────────────────────────────────────────────────────────────────
 Epic 1: Core Infrastructure            Epic 32: Cross-Platform Testing
                                        Epic 33: Multi-Cloud Real Env Testing
                                        Epic 34: Blueprint Marketplace
-                                       Epic 35: Network Protocol Expansion
+                                       Epic 42: Network Protocol Expansion
 
 Epic 2: Remote Execution
 Epic 30: CLI UX Restructuring
@@ -872,7 +872,7 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 - **Minor versions (0.X.0)**: New features, backward compatible
 - **Patch versions (0.0.X)**: Bug fixes, security patches
 
-For detailed information on support windows, upgrade paths, and compatibility guarantees, see the [Compatibility & Support Policy](compatibility/).
+For detailed information on support windows, upgrade paths, and compatibility guarantees, see the [Compatibility & Support Policy](/docs/community/compatibility/).
 
 ### Planned Releases
 

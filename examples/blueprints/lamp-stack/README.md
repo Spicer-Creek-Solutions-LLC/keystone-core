@@ -136,10 +136,10 @@ include:
 
 ## Testing
 
-Run integration tests after deployment:
+Run blueprint tests:
 
 ```bash
-kscorectl blueprint test blueprints/kscore/lamp-stack --target 'role:webserver'
+kscorectl blueprint test blueprints/kscore/lamp-stack
 ```
 
 ## Customization

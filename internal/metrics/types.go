@@ -34,6 +34,7 @@ type Collector interface {
 // MetricType represents the type of metric
 type MetricType string
 
+// MetricTypeCounter constants define the supported types.
 const (
 	MetricTypeCounter   MetricType = "counter"
 	MetricTypeGauge     MetricType = "gauge"
@@ -43,12 +44,12 @@ const (
 
 // MetricDefinition defines a metric's metadata
 type MetricDefinition struct {
-	Name        string
-	Type        MetricType
-	Help        string
-	Labels      []string
-	Buckets     []float64 // For histograms
-	Objectives  map[float64]float64 // For summaries (quantile -> error)
+	Name       string
+	Type       MetricType
+	Help       string
+	Labels     []string
+	Buckets    []float64           // For histograms
+	Objectives map[float64]float64 // For summaries (quantile -> error)
 }
 
 // MetricRegistry manages metric definitions

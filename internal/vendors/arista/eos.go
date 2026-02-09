@@ -76,7 +76,7 @@ func NewEOSAdapter(config *EOSConfig) *EOSAdapter {
 	if config.Mode == "ssh" {
 		sshConfig := ssh.DefaultConfig()
 		sshConfig.ConnectionConfig = protocols.DefaultConnectionConfig()
-		sshConfig.ConnectionConfig.Timeout = config.Timeout
+		sshConfig.Timeout = config.Timeout
 		adapter.sshAdapter = ssh.NewAdapter(sshConfig)
 	}
 
@@ -123,16 +123,14 @@ func (a *EOSAdapter) connectSSH(ctx context.Context, device *proxy.ProxiedDevice
 	}
 	shell, err := a.sshAdapter.NewNetworkDeviceShell(ctx, shellConfig)
 	if err != nil {
-		a.sshAdapter.Disconnect(ctx)
+		_ = a.sshAdapter.Disconnect(ctx) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to create shell: %w", err)
 	}
 	a.shell = shell
 
-	// Disable paging
+	// Disable paging - best-effort, non-fatal if unsupported
 	if a.Config.DisablePaging {
-		if _, err := a.runCommand(ctx, "terminal length 0"); err != nil {
-			// Non-fatal
-		}
+		_, _ = a.runCommand(ctx, "terminal length 0")
 	}
 
 	// Enter enable mode if needed
@@ -276,7 +274,7 @@ func (a *EOSAdapter) setConfigSSH(ctx context.Context, commands []string) error 
 	// Execute commands
 	for _, cmd := range commands {
 		if _, err := a.runCommand(ctx, cmd); err != nil {
-			a.exitConfig(ctx)
+			_ = a.exitConfig(ctx) //nolint:errcheck // best-effort exit config on error
 			return fmt.Errorf("config command failed: %s: %w", cmd, err)
 		}
 	}
@@ -459,10 +457,10 @@ func (a *EOSAdapter) exitConfig(ctx context.Context) error {
 
 // eAPIRequest represents an eAPI JSON-RPC request.
 type eAPIRequest struct {
-	JSONRPC string        `json:"jsonrpc"`
-	Method  string        `json:"method"`
-	Params  eAPIParams    `json:"params"`
-	ID      string        `json:"id"`
+	JSONRPC string     `json:"jsonrpc"`
+	Method  string     `json:"method"`
+	Params  eAPIParams `json:"params"`
+	ID      string     `json:"id"`
 }
 
 type eAPIParams struct {
@@ -473,10 +471,10 @@ type eAPIParams struct {
 
 // eAPIResponse represents an eAPI JSON-RPC response.
 type eAPIResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      string      `json:"id"`
+	JSONRPC string       `json:"jsonrpc"`
+	ID      string       `json:"id"`
 	Result  []eAPIResult `json:"result,omitempty"`
-	Error   *eAPIError  `json:"error,omitempty"`
+	Error   *eAPIError   `json:"error,omitempty"`
 }
 
 type eAPIResult struct {
@@ -642,13 +640,14 @@ func (a *EOSAdapter) parseInterfaces(output string, facts *vendors.DeviceFacts) 
 			OperStatus: strings.ToLower(fields[2]),
 		}
 
-		if iface.OperStatus == "connected" {
+		switch iface.OperStatus {
+		case "connected":
 			iface.OperStatus = "up"
 			iface.AdminStatus = "up"
-		} else if iface.OperStatus == "notconnect" {
+		case "notconnect":
 			iface.OperStatus = "down"
 			iface.AdminStatus = "up"
-		} else if iface.OperStatus == "disabled" {
+		case "disabled":
 			iface.OperStatus = "down"
 			iface.AdminStatus = "down"
 		}

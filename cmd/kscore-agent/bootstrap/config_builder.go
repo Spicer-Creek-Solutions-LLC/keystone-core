@@ -16,7 +16,7 @@ const (
 	jetstreamStoreDir = "/var/lib/keystone-core/jetstream"
 )
 
-func buildServerConfig(cfg *BootstrapConfig) ([]byte, error) {
+func buildServerConfig(cfg *Config) ([]byte, error) {
 	config := map[string]any{
 		"server":  buildServerSection(cfg),
 		"nats":    buildNATSSection(cfg, true),
@@ -31,7 +31,7 @@ func buildServerConfig(cfg *BootstrapConfig) ([]byte, error) {
 	return yaml.Marshal(config)
 }
 
-func buildAgentConfig(cfg *BootstrapConfig) ([]byte, error) {
+func buildAgentConfig(cfg *Config) ([]byte, error) {
 	config := map[string]any{
 		"nats":  buildNATSSection(cfg, false),
 		"agent": buildAgentSection(cfg),
@@ -48,7 +48,7 @@ func buildAgentConfig(cfg *BootstrapConfig) ([]byte, error) {
 	return yaml.Marshal(config)
 }
 
-func buildServerSection(cfg *BootstrapConfig) map[string]any {
+func buildServerSection(cfg *Config) map[string]any {
 	server := map[string]any{}
 	bindAddr := cfg.BindAddress
 	if bindAddr == "" {
@@ -60,7 +60,7 @@ func buildServerSection(cfg *BootstrapConfig) map[string]any {
 	return server
 }
 
-func buildAgentSection(cfg *BootstrapConfig) map[string]any {
+func buildAgentSection(cfg *Config) map[string]any {
 	agent := map[string]any{}
 	if cfg.NodeName != "" {
 		agent["id"] = cfg.NodeName
@@ -74,7 +74,7 @@ func buildAgentSection(cfg *BootstrapConfig) map[string]any {
 	return agent
 }
 
-func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
+func buildNATSSection(cfg *Config, forServer bool) map[string]any {
 	nats := map[string]any{}
 
 	mode := strings.ToLower(cfg.NATSMode)
@@ -159,7 +159,7 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 	return nats
 }
 
-func defaultNATSURL(cfg *BootstrapConfig) string {
+func defaultNATSURL(cfg *Config) string {
 	address := cfg.Advertise
 	if address == "" {
 		address = cfg.BindAddress
@@ -170,7 +170,7 @@ func defaultNATSURL(cfg *BootstrapConfig) string {
 	return fmt.Sprintf("nats://%s:4222", address)
 }
 
-func buildStorageSection(cfg *BootstrapConfig) map[string]any {
+func buildStorageSection(cfg *Config) map[string]any {
 	storage := map[string]any{}
 	switch strings.ToLower(cfg.Storage) {
 	case "postgres":
@@ -187,7 +187,7 @@ func buildStorageSection(cfg *BootstrapConfig) map[string]any {
 	return storage
 }
 
-func buildTLSSection(cfg *BootstrapConfig) map[string]any {
+func buildTLSSection(cfg *Config) map[string]any {
 	tls := map[string]any{}
 	certPath, keyPath, caPath := resolveTLSPaths(cfg)
 	if cfg.GenerateCerts || certPath != "" || keyPath != "" || caPath != "" {
@@ -205,7 +205,7 @@ func buildTLSSection(cfg *BootstrapConfig) map[string]any {
 	return tls
 }
 
-func buildPostgresDSN(cfg *BootstrapConfig) string {
+func buildPostgresDSN(cfg *Config) string {
 	sslMode := cfg.PostgresSSLMode
 	if sslMode == "" {
 		sslMode = "prefer"
@@ -221,7 +221,7 @@ func buildPostgresDSN(cfg *BootstrapConfig) string {
 	)
 }
 
-func buildAuthSection(cfg *BootstrapConfig) map[string]any {
+func buildAuthSection(cfg *Config) map[string]any {
 	auth := map[string]any{}
 
 	// Demo mode disables auth for easy testing/evaluation

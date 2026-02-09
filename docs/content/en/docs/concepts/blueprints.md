@@ -6,6 +6,16 @@ weight: 15
 
 Blueprints are pre-packaged, reusable collections of states that can be shared, versioned, and composed to deploy complex infrastructure stacks. Similar to Salt Formulas, Ansible Roles, or Helm Charts, blueprints enable teams to encapsulate infrastructure patterns and share them across projects.
 
+> **Implementation Note**: The `kscorectl blueprint` CLI currently supports:
+> - **Development**: `init`, `validate`, `lint`, `test`, `docs`
+> - **Registry**: `search`, `info`, `versions`, `install`, `update`, `remove`
+> - **Distribution**: `publish`, `sign`, `verify`
+> - **Versioning**: `rollback`, `snapshot list/delete`
+>
+> Some commands shown in this document (e.g., `build`, `list`, `show`, `apply`, `applied`,
+> `bundle`, `mirror`, `tree`) represent planned features. Use `blueprint info` instead of
+> `blueprint show`, and `blueprint search` instead of `blueprint list`.
+
 ## Overview
 
 ### What is a Blueprint?
@@ -145,13 +155,14 @@ Platform defaults are automatically available in templates:
 
 ```yaml
 # states/packages.yaml
-nginx_package:
-  pkg.installed:
-    - name: {{ .vars.package_name }}
+package:
+  nginx_package:
+    state: installed
+    name: {{ .vars.package_name }}
 
-php_fpm:
-  pkg.installed:
-    - name: {{ .vars.php_package }}
+  php_fpm:
+    state: installed
+    name: {{ .vars.php_package }}
 ```
 
 ## Blueprint Manifest
@@ -159,7 +170,7 @@ php_fpm:
 The `blueprint.yaml` file is the heart of a blueprint:
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -314,27 +325,30 @@ States define the desired infrastructure configuration:
 
 ```yaml
 # states/nginx.yaml
-nginx_package:
-  pkg.installed:
-    - name: nginx
-    - version: "{{ default "latest" .parameters.nginx_version }}"
+package:
+  nginx_package:
+    state: installed
+    name: nginx
+    version: "{{ default "latest" .parameters.nginx_version }}"
 
-nginx_config:
-  file.managed:
-    - name: /etc/nginx/nginx.conf
-    - source: template://templates/nginx.conf.tmpl
-    - template: true
-    - vars:
-        domain: "{{ .parameters.domain }}"
-        port: "{{ .parameters.port }}"
-    - require:
-      - pkg: nginx_package
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    source: template://templates/nginx.conf.tmpl
+    template: true
+    vars:
+      domain: "{{ .parameters.domain }}"
+      port: "{{ .parameters.port }}"
+    require:
+      - package: nginx_package
 
-nginx_service:
-  service.running:
-    - name: nginx
-    - enable: true
-    - watch:
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    enabled: true
+    watch:
       - file: nginx_config
 ```
 
@@ -444,8 +458,8 @@ kscorectl blueprint lint myorg/my-blueprint
 # Run tests
 kscorectl blueprint test myorg/my-blueprint
 
-# Build for distribution
-kscorectl blueprint build myorg/my-blueprint
+# Publish to registry
+kscorectl blueprint publish myorg/my-blueprint
 ```
 
 ### Lifecycle Hooks
@@ -514,15 +528,16 @@ Hook state files have access to the same context as main states:
 
 ```yaml
 # states/hooks/verify-services.yaml
-nginx_service_check:
-  cmd.run:
-    - name: systemctl is-active {{ .parameters.service_name }}
-    - failhard: true
+cmd:
+  nginx_service_check:
+    state: run
+    command: systemctl is-active {{ .parameters.service_name }}
+    failhard: true
 
-health_check:
-  cmd.run:
-    - name: curl -sf http://localhost:{{ .parameters.port }}/health
-    - unless: test "{{ .parameters.skip_health_check }}" = "true"
+  health_check:
+    state: run
+    command: curl -sf http://localhost:{{ .parameters.port }}/health
+    unless: test "{{ .parameters.skip_health_check }}" = "true"
 ```
 
 **Available context:**
@@ -547,26 +562,27 @@ health_check:
 ```yaml
 # Example: pre_apply validation hook
 # states/hooks/validate-prerequisites.yaml
-check_disk_space:
-  cmd.run:
-    - name: |
-        available=$(df /var --output=avail | tail -1)
-        required={{ .parameters.required_disk_mb | default 1024 }}000
-        if [ "$available" -lt "$required" ]; then
-          echo "ERROR: Insufficient disk space"
-          exit 1
-        fi
-    - failhard: true
+cmd:
+  check_disk_space:
+    state: run
+    command: |
+      available=$(df /var --output=avail | tail -1)
+      required={{ .parameters.required_disk_mb | default 1024 }}000
+      if [ "$available" -lt "$required" ]; then
+        echo "ERROR: Insufficient disk space"
+        exit 1
+      fi
+    failhard: true
 
-check_port_available:
-  cmd.run:
-    - name: |
-        if netstat -tuln | grep -q ":{{ .parameters.port }} "; then
-          echo "ERROR: Port {{ .parameters.port }} is already in use"
-          exit 1
-        fi
-    - failhard: true
-    - unless: test "{{ .features.skip_port_check }}" = "true"
+  check_port_available:
+    state: run
+    command: |
+      if netstat -tuln | grep -q ":{{ .parameters.port }} "; then
+        echo "ERROR: Port {{ .parameters.port }} is already in use"
+        exit 1
+      fi
+    failhard: true
+    unless: test "{{ .features.skip_port_check }}" = "true"
 ```
 
 ### Publishing Blueprints
@@ -657,11 +673,11 @@ kscorectl state apply /srv/states/webserver.yaml --dry-run
 ### Managing Installed Blueprints
 
 ```bash
-# List installed blueprints
-kscorectl blueprint list
+# Search for available blueprints
+kscorectl blueprint search nginx
 
-# Show applied blueprint details
-kscorectl blueprint show community/nginx-stack
+# Show blueprint details
+kscorectl blueprint info community/nginx-stack
 
 # Update to latest compatible version
 kscorectl blueprint update community/nginx-stack
@@ -1007,24 +1023,26 @@ Each entrypoint has access to the same context:
 
 ```yaml
 # states/upgrade.yaml
-check_prerequisites:
-  cmd.run:
-    - name: |
-        echo "Upgrading {{ .metadata.name }} from {{ .parameters.from_version }}"
-        # Verify disk space, permissions, etc.
-    - failhard: true
+cmd:
+  check_prerequisites:
+    state: run
+    command: |
+      echo "Upgrading {{ .metadata.name }} from {{ .parameters.from_version }}"
+      # Verify disk space, permissions, etc.
+    failhard: true
 
-backup_data:
-  cmd.run:
-    - name: pg_dumpall > /backup/pre-upgrade-{{ .parameters.from_version }}.sql
-    - unless: test "{{ .parameters.backup_first }}" != "true"
-    - require:
+  backup_data:
+    state: run
+    command: pg_dumpall > /backup/pre-upgrade-{{ .parameters.from_version }}.sql
+    unless: test "{{ .parameters.backup_first }}" != "true"
+    require:
       - cmd: check_prerequisites
 
-perform_upgrade:
-  pkg.installed:
-    - name: postgresql-{{ .parameters.to_version }}
-    - require:
+package:
+  perform_upgrade:
+    state: installed
+    name: postgresql-{{ .parameters.to_version }}
+    require:
       - cmd: backup_data
 ```
 
@@ -1036,19 +1054,21 @@ The `rollback` entrypoint receives special context parameters:
 # states/rollback.yaml
 {{- $rollback := .parameters.rollback -}}
 
-announce_rollback:
-  cmd.run:
-    - name: |
-        echo "Rolling back from {{ $rollback.from_version }} to {{ $rollback.to_version }}"
-        {{- if $rollback.snapshot_id }}
-        echo "Using snapshot: {{ $rollback.snapshot_id }}"
-        {{- end }}
+cmd:
+  announce_rollback:
+    state: run
+    command: |
+      echo "Rolling back from {{ $rollback.from_version }} to {{ $rollback.to_version }}"
+      {{- if $rollback.snapshot_id }}
+      echo "Using snapshot: {{ $rollback.snapshot_id }}"
+      {{- end }}
 
-restore_config:
-  file.managed:
-    - name: /etc/myapp/config.yaml
-    - source: file://{{ $rollback.snapshot_path }}/config.yaml
-    - require:
+file:
+  restore_config:
+    state: present
+    name: /etc/myapp/config.yaml
+    source: file://{{ $rollback.snapshot_path }}/config.yaml
+    require:
       - cmd: announce_rollback
 ```
 
@@ -1091,7 +1111,7 @@ kscorectl blueprint validate myorg/my-blueprint --entrypoint upgrade
 
 ```yaml
 # blueprint.yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -1156,7 +1176,7 @@ The tracking system maintains per-agent state with full history:
 │  │                     │  │    [applied web v1.1.0] │   │
 │  └─────────────────────┘  └─────────────────────────┘   │
 │                                                          │
-│  Storage: /var/lib/kscore/blueprint-tracker.json         │
+│  Storage: /var/lib/keystone-core/blueprint-tracker.json         │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1198,7 +1218,7 @@ Configure the tracker in the control plane:
 # server.yaml
 blueprint_tracker:
   # Where to store tracking data
-  store_path: /var/lib/kscore/blueprint-tracker.json
+  store_path: /var/lib/keystone-core/blueprint-tracker.json
 
   # Maximum history entries per agent (oldest trimmed)
   max_history_per_agent: 100
@@ -1342,7 +1362,7 @@ The tracker uses atomic file operations for reliability:
 
 ```bash
 # Tracker data location
-ls -la /var/lib/kscore/blueprint-tracker.json
+ls -la /var/lib/keystone-core/blueprint-tracker.json
 
 # Example content structure
 {
@@ -1611,7 +1631,7 @@ kscorectl blueprint sign my-stack-bundle.tar.gz --key cosign.key
 ```bash
 # Start mirror server
 kscorectl blueprint mirror serve \
-  --storage-dir /var/lib/kscore/blueprints \
+  --storage-dir /var/lib/keystone-core/blueprints \
   --listen :8080
 
 # Import bundle to mirror

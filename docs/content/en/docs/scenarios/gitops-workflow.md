@@ -5,6 +5,12 @@ description: >
   Implement complete GitOps with ArgoCD/Flux integration, verification, and automatic rollback
 ---
 
+> **Note**: This scenario shows a complete GitOps workflow. The `kscore-gitops` CLI provides:
+> `verify`, `rollback`, `promote`, `status`, `webhook list/test`, `repo list/add/remove/sync`,
+> and `deploy list/show/rollback/approve`. Some commands shown with flags like `--deployment`
+> or `--environment` may differ from the actual implementation. Run `kscorectl gitops --help`
+> for current syntax.
+
 ## Overview
 
 This scenario implements a complete GitOps workflow where:
@@ -76,7 +82,7 @@ infrastructure-repo/
 Enable the webhook receiver in Keystone Core:
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 gitops:
   webhook:
     enabled: true
@@ -215,19 +221,18 @@ metadata:
       required: true
       timeout: 5m
 
-parameters:
+variables:
   app_version: "1.5.2"
   replicas: 3
   domain: webapp.example.com
 
-states:
+blueprint:
   webapp_deployment:
-    module: blueprint
-    blueprint: webapp
+    name: webapp
     parameters:
-      version: {{ .parameters.app_version }}
-      replicas: {{ .parameters.replicas }}
-      domain: {{ .parameters.domain }}
+      version: "{{ .vars.app_version }}"
+      replicas: "{{ .vars.replicas }}"
+      domain: "{{ .vars.domain }}"
       environment: production
 
 verification:
@@ -506,8 +511,8 @@ kscorectl gitops webhook-stats
 kscorectl gitops verify --deployment webapp-production --verbose
 
 # Check metrics
-kscorectl exec "role:control-plane" --cmd \
-  "curl -s localhost:9090/api/v1/query?query=rate(http_requests_total{status=~'5..'}[5m])"
+kscorectl exec run "role:control-plane" -- \
+  curl -s "localhost:9090/api/v1/query?query=rate(http_requests_total{status=~'5..'}[5m])"
 ```
 
 ### Rollback Not Working

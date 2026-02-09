@@ -51,10 +51,10 @@ func DefaultExecutorConfig() *ExecutorConfig {
 // Handler executes a specific schedule type.
 type Handler interface {
 	// Type returns the schedule type this handler handles.
-	Type() ScheduleType
+	Type() Type
 
 	// Execute executes the schedule.
-	Execute(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) error
+	Execute(ctx context.Context, schedule *Schedule, execution *Execution) error
 
 	// Validate validates the schedule payload.
 	Validate(schedule *Schedule) error
@@ -64,11 +64,11 @@ type Handler interface {
 type Executor struct {
 	config             *ExecutorConfig
 	store              Store
-	scheduleManager    *ScheduleManager
+	scheduleManager    *Manager
 	maintenanceManager *MaintenanceWindowManager
 	cronParser         *CronParser
-	handlers           map[ScheduleType]Handler
-	activeExecutions   map[string]*ScheduleExecution
+	handlers           map[Type]Handler
+	activeExecutions   map[string]*Execution
 	listeners          []ExecutorEventListener
 	mu                 sync.RWMutex
 	stopChan           chan struct{}
@@ -94,7 +94,7 @@ type ExecutorEvent struct {
 func NewExecutor(
 	config *ExecutorConfig,
 	store Store,
-	scheduleManager *ScheduleManager,
+	scheduleManager *Manager,
 	maintenanceManager *MaintenanceWindowManager,
 ) (*Executor, error) {
 	if config == nil {
@@ -116,8 +116,8 @@ func NewExecutor(
 		scheduleManager:    scheduleManager,
 		maintenanceManager: maintenanceManager,
 		cronParser:         NewCronParser(),
-		handlers:           make(map[ScheduleType]Handler),
-		activeExecutions:   make(map[string]*ScheduleExecution),
+		handlers:           make(map[Type]Handler),
+		activeExecutions:   make(map[string]*Execution),
 		listeners:          make([]ExecutorEventListener, 0),
 		stopChan:           make(chan struct{}),
 		doneChan:           make(chan struct{}),
@@ -143,7 +143,7 @@ func (e *Executor) RegisterHandler(handler Handler) error {
 }
 
 // UnregisterHandler unregisters a handler.
-func (e *Executor) UnregisterHandler(scheduleType ScheduleType) {
+func (e *Executor) UnregisterHandler(scheduleType Type) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	delete(e.handlers, scheduleType)
@@ -221,8 +221,8 @@ func (e *Executor) run(ctx context.Context) {
 // checkSchedules checks for due schedules and executes them.
 func (e *Executor) checkSchedules(ctx context.Context) {
 	// Get all active schedules
-	filter := &ScheduleFilter{
-		Status: []ScheduleStatus{ScheduleStatusActive},
+	filter := &Filter{
+		Status: []Status{StatusActive},
 	}
 
 	schedules, err := e.scheduleManager.List(ctx, filter)
@@ -287,7 +287,7 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 
 	// Create execution record
 	now := time.Now().UTC()
-	execution := &ScheduleExecution{
+	execution := &Execution{
 		ID:            uuid.New().String(),
 		ScheduleID:    schedule.ID,
 		ScheduleName:  schedule.Name,
@@ -426,17 +426,20 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 }
 
 // completeExecution completes an execution and updates records.
-func (e *Executor) completeExecution(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) {
+func (e *Executor) completeExecution(ctx context.Context, schedule *Schedule, execution *Execution) {
 	// Record result through manager
 	if err := e.scheduleManager.RecordExecutionResult(ctx, execution); err != nil {
 		log.Printf("[ERROR] Failed to record execution result: %v", err)
 	}
 
 	eventType := "execution.completed"
-	if execution.Status == ExecutionStatusFailed {
+	switch execution.Status {
+	case ExecutionStatusFailed:
 		eventType = "execution.failed"
-	} else if execution.Status == ExecutionStatusTimeout {
+	case ExecutionStatusTimeout:
 		eventType = "execution.timeout"
+	default:
+		// Other statuses use default "execution.completed"
 	}
 
 	e.emitEvent(&ExecutorEvent{
@@ -561,17 +564,17 @@ func (e *Executor) checkMaintenanceWindows(ctx context.Context) {
 }
 
 // ExecuteNow executes a schedule immediately.
-func (e *Executor) ExecuteNow(ctx context.Context, scheduleID string, triggeredBy string) (*ScheduleExecution, error) {
+func (e *Executor) ExecuteNow(ctx context.Context, scheduleID, triggeredBy string) (*Execution, error) {
 	// Delegate to schedule manager
 	return e.scheduleManager.TriggerNow(ctx, scheduleID, triggeredBy)
 }
 
 // GetActiveExecutions returns currently active executions.
-func (e *Executor) GetActiveExecutions() []*ScheduleExecution {
+func (e *Executor) GetActiveExecutions() []*Execution {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	executions := make([]*ScheduleExecution, 0, len(e.activeExecutions))
+	executions := make([]*Execution, 0, len(e.activeExecutions))
 	for _, exec := range e.activeExecutions {
 		executions = append(executions, exec)
 	}
@@ -619,12 +622,12 @@ func (e *Executor) emitEvent(event *ExecutorEvent) {
 type CommandHandler struct {
 	// ExecuteFunc is the function that executes commands on agents.
 	// This should be provided by the control plane.
-	ExecuteFunc func(ctx context.Context, target *ScheduleTarget, payload *CommandPayload) (map[string]*AgentExecutionResult, error)
+	ExecuteFunc func(ctx context.Context, target *Target, payload *CommandPayload) (map[string]*AgentExecutionResult, error)
 }
 
 // Type returns the schedule type.
-func (h *CommandHandler) Type() ScheduleType {
-	return ScheduleTypeCommand
+func (h *CommandHandler) Type() Type {
+	return TypeCommand
 }
 
 // Validate validates the schedule payload.
@@ -646,7 +649,7 @@ func (h *CommandHandler) Validate(schedule *Schedule) error {
 }
 
 // Execute executes the schedule.
-func (h *CommandHandler) Execute(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) error {
+func (h *CommandHandler) Execute(ctx context.Context, schedule *Schedule, execution *Execution) error {
 	if h.ExecuteFunc == nil {
 		return fmt.Errorf("execute function not configured")
 	}
@@ -682,12 +685,12 @@ func (h *CommandHandler) Execute(ctx context.Context, schedule *Schedule, execut
 // StateHandler handles state schedule execution.
 type StateHandler struct {
 	// ApplyFunc is the function that applies state on agents.
-	ApplyFunc func(ctx context.Context, target *ScheduleTarget, payload *StatePayload) (map[string]*AgentExecutionResult, error)
+	ApplyFunc func(ctx context.Context, target *Target, payload *StatePayload) (map[string]*AgentExecutionResult, error)
 }
 
 // Type returns the schedule type.
-func (h *StateHandler) Type() ScheduleType {
-	return ScheduleTypeState
+func (h *StateHandler) Type() Type {
+	return TypeState
 }
 
 // Validate validates the schedule payload.
@@ -709,7 +712,7 @@ func (h *StateHandler) Validate(schedule *Schedule) error {
 }
 
 // Execute executes the schedule.
-func (h *StateHandler) Execute(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) error {
+func (h *StateHandler) Execute(ctx context.Context, schedule *Schedule, execution *Execution) error {
 	if h.ApplyFunc == nil {
 		return fmt.Errorf("apply function not configured")
 	}
@@ -745,12 +748,12 @@ func (h *StateHandler) Execute(ctx context.Context, schedule *Schedule, executio
 // BlueprintHandler handles blueprint schedule execution.
 type BlueprintHandler struct {
 	// ApplyFunc is the function that applies blueprints.
-	ApplyFunc func(ctx context.Context, target *ScheduleTarget, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error)
+	ApplyFunc func(ctx context.Context, target *Target, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error)
 }
 
 // Type returns the schedule type.
-func (h *BlueprintHandler) Type() ScheduleType {
-	return ScheduleTypeBlueprint
+func (h *BlueprintHandler) Type() Type {
+	return TypeBlueprint
 }
 
 // Validate validates the schedule payload.
@@ -772,7 +775,7 @@ func (h *BlueprintHandler) Validate(schedule *Schedule) error {
 }
 
 // Execute executes the schedule.
-func (h *BlueprintHandler) Execute(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) error {
+func (h *BlueprintHandler) Execute(ctx context.Context, schedule *Schedule, execution *Execution) error {
 	if h.ApplyFunc == nil {
 		return fmt.Errorf("apply function not configured")
 	}

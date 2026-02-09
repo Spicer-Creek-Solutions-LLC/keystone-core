@@ -1,3 +1,4 @@
+// Package main implements the kscore-audit CLI for policy evaluation auditing and compliance reporting.
 package main
 
 import (
@@ -151,7 +152,7 @@ Examples:
 
 func runLog(cmd *cobra.Command, args []string) error {
 	// Create auditor (in production, would connect to control plane)
-	auditor := policy.NewPolicyAuditor(1000)
+	auditor := policy.NewAuditor(1000)
 
 	// Build filter
 	filter := &policy.AuditFilter{
@@ -215,7 +216,8 @@ func runLog(cmd *cobra.Command, args []string) error {
 	case output.FormatTable, output.FormatText:
 		fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
 		fmt.Println(strings.Repeat("-", 85))
-		for _, entry := range entries {
+		for i := range entries {
+			entry := &entries[i]
 			result := "ALLOWED"
 			if !entry.Allowed {
 				result = "DENIED"
@@ -283,7 +285,7 @@ Examples:
 func runReport(cmd *cobra.Command, args []string) error {
 	// Create components (in production, connect to control plane)
 	registry := policy.NewRegistry()
-	auditor := policy.NewPolicyAuditor(10000)
+	auditor := policy.NewAuditor(10000)
 	reporter := policy.NewComplianceReporter(auditor, registry)
 
 	// Generate report
@@ -422,7 +424,7 @@ Examples:
 
 func runExport(cmd *cobra.Command, args []string) error {
 	// Create auditor (in production, connect to control plane)
-	auditor := policy.NewPolicyAuditor(10000)
+	auditor := policy.NewAuditor(10000)
 
 	// Build filter with time range
 	since := time.Now().AddDate(0, 0, -exportDays)
@@ -460,7 +462,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 	case "csv":
 		// Write CSV header
 		fmt.Fprintln(out, "timestamp,policy_id,resource_type,allowed,violations_count,duration_ms")
-		for _, entry := range entries {
+		for i := range entries {
+			entry := &entries[i]
 			fmt.Fprintf(out, "%s,%s,%s,%t,%d,%d\n",
 				entry.Timestamp.Format(time.RFC3339),
 				entry.PolicyID,
@@ -516,7 +519,7 @@ Examples:
 
 func runStats(cmd *cobra.Command, args []string) error {
 	// Create auditor (in production, connect to control plane)
-	auditor := policy.NewPolicyAuditor(10000)
+	auditor := policy.NewAuditor(10000)
 
 	// Build filter
 	since := time.Now().AddDate(0, 0, -statsDays)
@@ -534,7 +537,8 @@ func runStats(cmd *cobra.Command, args []string) error {
 	policyEvaluations := make(map[string]int)
 	totalViolations := 0
 
-	for _, entry := range entries {
+	for i := range entries {
+		entry := &entries[i]
 		if entry.Allowed {
 			allowedCount++
 		} else {

@@ -170,7 +170,7 @@ func TestTracker_FailPhase(t *testing.T) {
 	if info.Status != StatusFailed {
 		t.Errorf("Status = %s, want failed", info.Status)
 	}
-	if info.Error != testErr {
+	if !errors.Is(info.Error, testErr) {
 		t.Error("Error should be set")
 	}
 	if report.CurrentPhase != PhaseFailed {
@@ -274,7 +274,7 @@ func TestTracker_FailStep(t *testing.T) {
 	if step.Status != StatusFailed {
 		t.Errorf("Step status = %s, want failed", step.Status)
 	}
-	if step.Error != testErr {
+	if !errors.Is(step.Error, testErr) {
 		t.Error("Step error should be set")
 	}
 }
@@ -549,7 +549,7 @@ func TestWaitForCompletion_Timeout(t *testing.T) {
 	defer cancel()
 
 	err := WaitForCompletion(ctx, tr)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Expected DeadlineExceeded, got %v", err)
 	}
 }

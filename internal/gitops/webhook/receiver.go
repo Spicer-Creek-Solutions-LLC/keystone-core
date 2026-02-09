@@ -15,18 +15,17 @@ import (
 
 // EventProcessor handles webhook events
 type EventProcessor interface {
-	ProcessEvent(ctx context.Context, event *WebhookEvent) error
+	ProcessEvent(ctx context.Context, event *Event) error
 }
 
 // Receiver receives and processes webhooks
 type Receiver struct {
-	config     *WebhookConfig
-	auth       Authenticator
-	registry   *HandlerRegistry
-	processor  EventProcessor
-	server     *http.Server
-	mu         sync.RWMutex
-	stats      *ReceiverStats
+	config    *Config
+	auth      Authenticator
+	registry  *HandlerRegistry
+	processor EventProcessor
+	server    *http.Server
+	stats     *ReceiverStats
 }
 
 // ReceiverStats tracks webhook receiver statistics
@@ -35,13 +34,13 @@ type ReceiverStats struct {
 	TotalReceived     int64
 	TotalProcessed    int64
 	TotalFailed       int64
-	ByType            map[WebhookType]int64
+	ByType            map[Type]int64
 	LastReceivedTime  time.Time
 	LastProcessedTime time.Time
 }
 
 // NewReceiver creates a new webhook receiver
-func NewReceiver(config *WebhookConfig, processor EventProcessor) *Receiver {
+func NewReceiver(config *Config, processor EventProcessor) *Receiver {
 	if config == nil {
 		config = DefaultWebhookConfig()
 	}
@@ -51,7 +50,7 @@ func NewReceiver(config *WebhookConfig, processor EventProcessor) *Receiver {
 
 	// Register default handlers
 	for _, handlerType := range config.Handlers {
-		switch WebhookType(handlerType) {
+		switch Type(handlerType) {
 		case WebhookTypeArgoCD:
 			registry.Register(&ArgoCDHandler{})
 		case WebhookTypeFlux:
@@ -69,7 +68,7 @@ func NewReceiver(config *WebhookConfig, processor EventProcessor) *Receiver {
 		registry:  registry,
 		processor: processor,
 		stats: &ReceiverStats{
-			ByType: make(map[WebhookType]int64),
+			ByType: make(map[Type]int64),
 		},
 	}
 }
@@ -159,7 +158,7 @@ func (r *Receiver) handleWebhook(w http.ResponseWriter, req *http.Request) {
 	r.incrementReceived(webhookType)
 
 	// Process event asynchronously
-	go func() {
+	go func() { //nolint:contextcheck // async processing uses fresh context
 		ctx := context.Background()
 		if err := r.processor.ProcessEvent(ctx, event); err != nil {
 			log.Printf("Failed to process webhook event: %v", err)
@@ -201,7 +200,7 @@ func (r *Receiver) handleStats(w http.ResponseWriter, req *http.Request) {
 }
 
 // incrementReceived increments received counter
-func (r *Receiver) incrementReceived(webhookType WebhookType) {
+func (r *Receiver) incrementReceived(webhookType Type) {
 	r.stats.mu.Lock()
 	defer r.stats.mu.Unlock()
 	r.stats.TotalReceived++
@@ -234,7 +233,7 @@ func (r *Receiver) GetStats() *ReceiverStats {
 		TotalReceived:     r.stats.TotalReceived,
 		TotalProcessed:    r.stats.TotalProcessed,
 		TotalFailed:       r.stats.TotalFailed,
-		ByType:            make(map[WebhookType]int64),
+		ByType:            make(map[Type]int64),
 		LastReceivedTime:  r.stats.LastReceivedTime,
 		LastProcessedTime: r.stats.LastProcessedTime,
 	}
@@ -259,7 +258,7 @@ func NewEventBusProcessor(publisher events.EventPublisher) *EventBusProcessor {
 }
 
 // ProcessEvent publishes webhook events to the event bus
-func (p *EventBusProcessor) ProcessEvent(ctx context.Context, webhook *WebhookEvent) error {
+func (p *EventBusProcessor) ProcessEvent(ctx context.Context, webhook *Event) error {
 	// Convert webhook to Keystone Core event
 	event := webhook.ToKscoreEvent()
 

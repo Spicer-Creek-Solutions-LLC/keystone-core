@@ -62,14 +62,14 @@ type EndpointConfig struct {
 	// TLS configuration
 	TLS EndpointTLSConfig `yaml:"tls,omitempty" json:"tls,omitempty"`
 	// Connection settings
-	ConnectTimeout   time.Duration `yaml:"connect_timeout,omitempty" json:"connect_timeout,omitempty"`
-	ReconnectWait    time.Duration `yaml:"reconnect_wait,omitempty" json:"reconnect_wait,omitempty"`
-	MaxReconnects    int           `yaml:"max_reconnects,omitempty" json:"max_reconnects,omitempty"`
-	ReconnectJitter  time.Duration `yaml:"reconnect_jitter,omitempty" json:"reconnect_jitter,omitempty"`
-	PingInterval     time.Duration `yaml:"ping_interval,omitempty" json:"ping_interval,omitempty"`
-	MaxPingsOut      int           `yaml:"max_pings_out,omitempty" json:"max_pings_out,omitempty"`
+	ConnectTimeout  time.Duration `yaml:"connect_timeout,omitempty" json:"connect_timeout,omitempty"`
+	ReconnectWait   time.Duration `yaml:"reconnect_wait,omitempty" json:"reconnect_wait,omitempty"`
+	MaxReconnects   int           `yaml:"max_reconnects,omitempty" json:"max_reconnects,omitempty"`
+	ReconnectJitter time.Duration `yaml:"reconnect_jitter,omitempty" json:"reconnect_jitter,omitempty"`
+	PingInterval    time.Duration `yaml:"ping_interval,omitempty" json:"ping_interval,omitempty"`
+	MaxPingsOut     int           `yaml:"max_pings_out,omitempty" json:"max_pings_out,omitempty"`
 	// Failover settings
-	FailoverTimeout  time.Duration `yaml:"failover_timeout,omitempty" json:"failover_timeout,omitempty"`
+	FailoverTimeout     time.Duration `yaml:"failover_timeout,omitempty" json:"failover_timeout,omitempty"`
 	HealthCheckInterval time.Duration `yaml:"health_check_interval,omitempty" json:"health_check_interval,omitempty"`
 	// Environment variable prefix for interpolation
 	EnvPrefix string `yaml:"env_prefix,omitempty" json:"env_prefix,omitempty"`
@@ -370,7 +370,7 @@ func getDefaultPort(scheme Scheme) int {
 var envVarPattern = regexp.MustCompile(`\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)`)
 
 // interpolateEnvString replaces environment variable references in a string
-func interpolateEnvString(s string, prefix string) (string, error) {
+func interpolateEnvString(s, prefix string) (string, error) {
 	if s == "" {
 		return s, nil
 	}
@@ -492,7 +492,7 @@ func (l EndpointList) FilterIPv6() EndpointList {
 // For PreferIPv6: IPv6 endpoints first, then IPv4.
 // For IPv4Only: only IPv4 endpoints.
 // For IPv6Only: only IPv6 endpoints.
-func (l EndpointList) OrderByAddressFamilyPreference(preferIPv6 bool, onlyPreferred bool) EndpointList {
+func (l EndpointList) OrderByAddressFamilyPreference(preferIPv6, onlyPreferred bool) EndpointList {
 	if onlyPreferred {
 		return l.FilterByAddressFamily(preferIPv6)
 	}

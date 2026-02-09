@@ -8,15 +8,15 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// ExecutionEvent represents events that drive execution state transitions.
-type ExecutionEvent string
+// Event represents events that drive execution state transitions.
+type Event string
 
 // Execution event constants.
 const (
-	EventStart    ExecutionEvent = "start"
-	EventComplete ExecutionEvent = "complete"
-	EventFail     ExecutionEvent = "fail"
-	EventCancel   ExecutionEvent = "cancel"
+	EventStart    Event = "start"
+	EventComplete Event = "complete"
+	EventFail     Event = "fail"
+	EventCancel   Event = "cancel"
 )
 
 // StepEvent represents events that drive step state transitions.
@@ -30,7 +30,7 @@ const (
 	EventStepSkip     StepEvent = "skip"
 )
 
-// ExecutionMachine wraps a state machine for tracking runbook execution state.
+// Machine wraps a state machine for tracking runbook execution state.
 // It provides type-safe methods for managing execution lifecycle.
 //
 // State diagram (Mermaid):
@@ -45,13 +45,13 @@ const (
 //	    completed --> [*]
 //	    failed --> [*]
 //	    cancelled --> [*]
-type ExecutionMachine struct {
-	machine *statemachine.Machine[runbook.ExecutionState, ExecutionEvent]
+type Machine struct {
+	machine *statemachine.Machine[runbook.ExecutionState, Event]
 }
 
-// NewExecutionMachine creates a new state machine for tracking runbook execution.
-func NewExecutionMachine() *ExecutionMachine {
-	machine := statemachine.New[runbook.ExecutionState, ExecutionEvent](runbook.ExecutionStatePending).
+// NewMachine creates a new state machine for tracking runbook execution.
+func NewMachine() *Machine {
+	machine := statemachine.New[runbook.ExecutionState, Event](runbook.ExecutionStatePending).
 		WithName("runbook-execution").
 		WithHistory(100).
 		// From pending
@@ -63,14 +63,14 @@ func NewExecutionMachine() *ExecutionMachine {
 		AddTransition(runbook.ExecutionStateRunning, EventCancel, runbook.ExecutionStateCancelled).
 		MustBuild()
 
-	return &ExecutionMachine{machine: machine}
+	return &Machine{machine: machine}
 }
 
-// NewExecutionMachineWithCallbacks creates a new execution state machine with callbacks.
-func NewExecutionMachineWithCallbacks(
-	onStateChange func(ctx context.Context, from, to runbook.ExecutionState, event ExecutionEvent),
-) *ExecutionMachine {
-	builder := statemachine.New[runbook.ExecutionState, ExecutionEvent](runbook.ExecutionStatePending).
+// NewMachineWithCallbacks creates a new execution state machine with callbacks.
+func NewMachineWithCallbacks(
+	onStateChange func(ctx context.Context, from, to runbook.ExecutionState, event Event),
+) *Machine {
+	builder := statemachine.New[runbook.ExecutionState, Event](runbook.ExecutionStatePending).
 		WithName("runbook-execution").
 		WithHistory(100).
 		// From pending
@@ -85,56 +85,56 @@ func NewExecutionMachineWithCallbacks(
 		builder.OnTransition(onStateChange)
 	}
 
-	return &ExecutionMachine{machine: builder.MustBuild()}
+	return &Machine{machine: builder.MustBuild()}
 }
 
 // State returns the current execution state.
-func (m *ExecutionMachine) State() runbook.ExecutionState {
+func (m *Machine) State() runbook.ExecutionState {
 	return m.machine.State()
 }
 
 // Start transitions from pending to running.
-func (m *ExecutionMachine) Start(ctx context.Context) error {
+func (m *Machine) Start(ctx context.Context) error {
 	return m.machine.FireCtx(ctx, EventStart)
 }
 
 // Complete transitions from running to completed.
-func (m *ExecutionMachine) Complete(ctx context.Context) error {
+func (m *Machine) Complete(ctx context.Context) error {
 	return m.machine.FireCtx(ctx, EventComplete)
 }
 
 // Fail transitions from running to failed.
-func (m *ExecutionMachine) Fail(ctx context.Context) error {
+func (m *Machine) Fail(ctx context.Context) error {
 	return m.machine.FireCtx(ctx, EventFail)
 }
 
 // Cancel transitions to cancelled from pending or running.
-func (m *ExecutionMachine) Cancel(ctx context.Context) error {
+func (m *Machine) Cancel(ctx context.Context) error {
 	return m.machine.FireCtx(ctx, EventCancel)
 }
 
 // CanStart returns true if the execution can be started.
-func (m *ExecutionMachine) CanStart() bool {
+func (m *Machine) CanStart() bool {
 	return m.machine.CanFire(EventStart)
 }
 
 // CanCancel returns true if the execution can be cancelled.
-func (m *ExecutionMachine) CanCancel() bool {
+func (m *Machine) CanCancel() bool {
 	return m.machine.CanFire(EventCancel)
 }
 
 // IsTerminal returns true if the execution is in a terminal state.
-func (m *ExecutionMachine) IsTerminal() bool {
+func (m *Machine) IsTerminal() bool {
 	return m.machine.State().IsTerminal()
 }
 
 // IsPending returns true if the execution is pending.
-func (m *ExecutionMachine) IsPending() bool {
+func (m *Machine) IsPending() bool {
 	return m.machine.IsInState(runbook.ExecutionStatePending)
 }
 
 // IsRunning returns true if the execution is running.
-func (m *ExecutionMachine) IsRunning() bool {
+func (m *Machine) IsRunning() bool {
 	return m.machine.IsInState(runbook.ExecutionStateRunning)
 }
 
@@ -160,7 +160,7 @@ type StepMachine struct {
 // NewStepMachine creates a new state machine for tracking step execution.
 func NewStepMachine(stepName string) *StepMachine {
 	machine := statemachine.New[runbook.StepState, StepEvent](runbook.StepStatePending).
-		WithName("runbook-step-" + stepName).
+		WithName("runbook-step-"+stepName).
 		WithHistory(50).
 		// From pending
 		AddTransition(runbook.StepStatePending, EventStepStart, runbook.StepStateRunning).
@@ -182,7 +182,7 @@ func NewStepMachineWithCallbacks(
 	onStateChange func(ctx context.Context, from, to runbook.StepState, event StepEvent),
 ) *StepMachine {
 	builder := statemachine.New[runbook.StepState, StepEvent](runbook.StepStatePending).
-		WithName("runbook-step-" + stepName).
+		WithName("runbook-step-"+stepName).
 		WithHistory(50).
 		// From pending
 		AddTransition(runbook.StepStatePending, EventStepStart, runbook.StepStateRunning).

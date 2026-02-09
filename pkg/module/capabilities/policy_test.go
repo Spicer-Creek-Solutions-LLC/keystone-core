@@ -9,13 +9,13 @@ import (
 
 func TestPolicyEvaluator_EvaluateCapability(t *testing.T) {
 	tests := []struct {
-		name           string
-		policy         *CapabilityPolicy
-		moduleName     string
-		capName        string
-		moduleConfig   *CapabilityPolicyConfig
-		wantAllowed    bool
-		wantReason     string
+		name         string
+		policy       *CapabilityPolicy
+		moduleName   string
+		capName      string
+		moduleConfig *CapabilityPolicyConfig
+		wantAllowed  bool
+		wantReason   string
 	}{
 		{
 			name: "allow with default policy",

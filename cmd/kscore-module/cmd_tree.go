@@ -158,7 +158,7 @@ func printFlatDeps(m *manifest.Manifest, lockFile *manifest.LockFile) error {
 
 func printTreeDeps(m *manifest.Manifest, lockFile *manifest.LockFile, depth int) error {
 	// Get sorted dependency names
-	var names []string
+	names := make([]string, 0, len(m.Dependencies))
 	for name := range m.Dependencies {
 		names = append(names, name)
 	}
@@ -183,11 +183,12 @@ func printTreeDeps(m *manifest.Manifest, lockFile *manifest.LockFile, depth int)
 			prefix = "└── "
 		}
 
-		if resolved != "" && resolved != constraint {
+		switch {
+		case resolved != "" && resolved != constraint:
 			fmt.Printf("%s%s@%s (constraint: %s)\n", prefix, name, resolved, constraint)
-		} else if resolved != "" {
+		case resolved != "":
 			fmt.Printf("%s%s@%s\n", prefix, name, resolved)
-		} else {
+		default:
 			fmt.Printf("%s%s@%s (unresolved)\n", prefix, name, constraint)
 		}
 

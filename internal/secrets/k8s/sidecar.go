@@ -70,11 +70,11 @@ type TemplateSpec struct {
 
 // SidecarStats contains sidecar statistics.
 type SidecarStats struct {
-	StartTime        time.Time
-	LastRefreshTime  time.Time
-	RefreshCount     int64
-	RefreshErrors    int64
-	SecretsInjected  int64
+	StartTime         time.Time
+	LastRefreshTime   time.Time
+	RefreshCount      int64
+	RefreshErrors     int64
+	SecretsInjected   int64
 	TemplatesRendered int64
 }
 
@@ -196,12 +196,13 @@ func (s *Sidecar) Stats() SidecarStats {
 func (s *Sidecar) initializeInjectors() error {
 	// Build file injection rules
 	var fileRules []injection.FileRule
-	for _, secret := range s.config.Secrets {
+	for j := range s.config.Secrets {
+		secret := &s.config.Secrets[j]
 		if secret.Type == SecretTypeFile || secret.Type == "" {
 			rule := injection.FileRule{
 				SecretPath: secret.SecretPath,
 				SecretKey:  secret.SecretKey,
-				FilePath:   s.resolveFilePath(secret),
+				FilePath:   s.resolveFilePath(*secret),
 			}
 			if secret.FileMode != "" {
 				mode, err := parseFileMode(secret.FileMode)
@@ -224,12 +225,12 @@ func (s *Sidecar) initializeInjectors() error {
 		}
 
 		fileConfig := &injection.FileInjectionConfig{
-			InjectionConfig: injection.InjectionConfig{
+			Config: injection.Config{
 				Enabled:         true,
 				RefreshInterval: s.config.RefreshInterval,
 			},
 			BasePath:    s.config.SecretVolumePath,
-			DefaultMode: 0600,
+			DefaultMode: 0o600,
 			AtomicWrite: true,
 			Files:       fileRules,
 		}
@@ -251,7 +252,7 @@ func (s *Sidecar) initializeInjectors() error {
 				Mode:        tmpl.Mode,
 			}
 			if rule.Mode == 0 {
-				rule.Mode = 0644
+				rule.Mode = 0o644
 			}
 			templateRules = append(templateRules, rule)
 		}
@@ -265,7 +266,7 @@ func (s *Sidecar) initializeInjectors() error {
 		}
 
 		templateConfig := &injection.TemplateInjectionConfig{
-			InjectionConfig: injection.InjectionConfig{
+			Config: injection.Config{
 				Enabled:         true,
 				RefreshInterval: s.config.RefreshInterval,
 			},

@@ -21,7 +21,7 @@ var CloudflareCapabilities = dns.ProviderCapabilities{
 		dns.RecordTypeNS,
 	},
 	SupportsProxied:     true,
-	MinTTL:              60,  // Cloudflare minimum TTL (1 minute, or "Auto" which is ~300)
+	MinTTL:              60, // Cloudflare minimum TTL (1 minute, or "Auto" which is ~300)
 	MaxTTL:              86400,
 	SupportsRootRecords: true,
 	SupportsALIAS:       false, // Cloudflare uses CNAME flattening at root instead
@@ -47,5 +47,5 @@ func NewCloudflareProvider(creds dns.ResolvedCredentials) (dns.Provider, error) 
 }
 
 func init() {
-	dns.RegisterProvider("cloudflare", NewCloudflareProvider, CloudflareCapabilities)
+	_ = dns.RegisterProvider("cloudflare", NewCloudflareProvider, CloudflareCapabilities) //nolint:errcheck // provider registration in init
 }

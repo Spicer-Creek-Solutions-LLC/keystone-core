@@ -2,6 +2,7 @@
 package certpin
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -138,12 +139,12 @@ type ViolationReport struct {
 
 // Pinner performs certificate pinning verification
 type Pinner struct {
-	config     *Config
-	services   map[string]*ServiceConfig
-	mu         sync.RWMutex
-	cache      map[string]*cacheEntry
-	cacheMu    sync.RWMutex
-	stats      *Stats
+	config   *Config
+	services map[string]*ServiceConfig
+	mu       sync.RWMutex
+	cache    map[string]*cacheEntry
+	cacheMu  sync.RWMutex
+	stats    *Stats
 }
 
 type cacheEntry struct {
@@ -415,7 +416,7 @@ func (p *Pinner) TLSConfig(hostname string) *tls.Config {
 func (p *Pinner) Dialer(hostname string, timeout time.Duration) func(network, addr string) (net.Conn, error) {
 	return func(network, addr string) (net.Conn, error) {
 		dialer := &net.Dialer{Timeout: timeout}
-		conn, err := tls.DialWithDialer(dialer, network, addr, p.TLSConfig(hostname))
+		conn, err := (&tls.Dialer{NetDialer: dialer, Config: p.TLSConfig(hostname)}).DialContext(context.Background(), network, addr)
 		if err != nil {
 			return nil, err
 		}
@@ -476,14 +477,14 @@ func NewPinFromHash(hash string, pinType PinType, comment string) *Pin {
 
 // Stats tracks certificate pinning statistics
 type Stats struct {
-	mu              sync.Mutex
-	TotalVerifications int64
+	mu                      sync.Mutex
+	TotalVerifications      int64
 	SuccessfulVerifications int64
-	FailedVerifications int64
-	CacheHits       int64
-	CacheMisses     int64
-	Violations      int64
-	ByHost          map[string]*HostStats
+	FailedVerifications     int64
+	CacheHits               int64
+	CacheMisses             int64
+	Violations              int64
+	ByHost                  map[string]*HostStats
 }
 
 // HostStats tracks stats for a specific hostname
@@ -502,7 +503,7 @@ func NewStats() *Stats {
 }
 
 // RecordVerification records a verification attempt
-func (s *Stats) RecordVerification(hostname string, success bool, cached bool) {
+func (s *Stats) RecordVerification(hostname string, success, cached bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -542,11 +543,11 @@ func (s *Stats) RecordViolation(hostname string) {
 }
 
 // Snapshot returns a copy of current stats
-func (s *Stats) Snapshot() Stats {
+func (s *Stats) Snapshot() *Stats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot := Stats{
+	snapshot := &Stats{
 		TotalVerifications:      s.TotalVerifications,
 		SuccessfulVerifications: s.SuccessfulVerifications,
 		FailedVerifications:     s.FailedVerifications,

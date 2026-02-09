@@ -15,6 +15,7 @@ import (
 // SearchSort represents a sort field.
 type SearchSort string
 
+// SortByRelevance constants define the sort fields.
 const (
 	SortByRelevance  SearchSort = "relevance"
 	SortByName       SearchSort = "name"
@@ -27,6 +28,7 @@ const (
 // SortOrder represents a sort order.
 type SortOrder string
 
+// OrderAsc constants define the sort orders.
 const (
 	OrderAsc  SortOrder = "asc"
 	OrderDesc SortOrder = "desc"
@@ -102,7 +104,7 @@ type BlueprintSearchResult struct {
 	// UpdatedAt is when the blueprint was last updated.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 
-	// Deprecated indicates if the blueprint is deprecated.
+	// IsDeprecated indicates if the blueprint is deprecated.
 	Deprecated bool `json:"deprecated,omitempty"`
 
 	// DeprecatedMessage is the deprecation message.
@@ -218,7 +220,7 @@ func (c *SearchClient) Search(ctx context.Context, query *ExtendedSearchQuery) (
 
 	u.RawQuery = params.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -247,7 +249,7 @@ func (c *SearchClient) Search(ctx context.Context, query *ExtendedSearchQuery) (
 func (c *SearchClient) ListNamespaces(ctx context.Context) ([]string, error) {
 	u := c.baseURL + "/-/api/namespaces"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -276,7 +278,7 @@ func (c *SearchClient) ListNamespaces(ctx context.Context) ([]string, error) {
 func (c *SearchClient) ListCategories(ctx context.Context) ([]string, error) {
 	u := c.baseURL + "/-/api/categories"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -305,7 +307,7 @@ func (c *SearchClient) ListCategories(ctx context.Context) ([]string, error) {
 func (c *SearchClient) ListPopularTags(ctx context.Context, limit int) ([]TagCount, error) {
 	u := fmt.Sprintf("%s/-/api/tags?limit=%d", c.baseURL, limit)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -538,17 +540,18 @@ func (s *LocalSearcher) calculateScore(bp *BlueprintSearchResult, query *Extende
 		term := strings.ToLower(query.Query)
 
 		// Exact name match is highest
-		if strings.EqualFold(bp.ShortName, query.Query) {
+		switch {
+		case strings.EqualFold(bp.ShortName, query.Query):
 			score += 100
-		} else if strings.EqualFold(bp.Name, query.Query) {
+		case strings.EqualFold(bp.Name, query.Query):
 			score += 90
-		} else if strings.HasPrefix(strings.ToLower(bp.ShortName), term) {
+		case strings.HasPrefix(strings.ToLower(bp.ShortName), term):
 			score += 50
-		} else if strings.Contains(strings.ToLower(bp.ShortName), term) {
+		case strings.Contains(strings.ToLower(bp.ShortName), term):
 			score += 30
-		} else if strings.Contains(strings.ToLower(bp.Name), term) {
+		case strings.Contains(strings.ToLower(bp.Name), term):
 			score += 20
-		} else if strings.Contains(strings.ToLower(bp.Description), term) {
+		case strings.Contains(strings.ToLower(bp.Description), term):
 			score += 10
 		}
 	}
@@ -618,10 +621,9 @@ func FilterByNamespace(namespace string) SearchFilter {
 
 // FilterByTag returns a filter for tag.
 func FilterByTag(tag string) SearchFilter {
-	tag = strings.ToLower(tag)
 	return func(bp *BlueprintSearchResult) bool {
 		for _, t := range bp.Tags {
-			if strings.ToLower(t) == tag {
+			if strings.EqualFold(t, tag) {
 				return true
 			}
 		}
@@ -631,9 +633,8 @@ func FilterByTag(tag string) SearchFilter {
 
 // FilterByAuthor returns a filter for author.
 func FilterByAuthor(author string) SearchFilter {
-	author = strings.ToLower(author)
 	return func(bp *BlueprintSearchResult) bool {
-		return strings.ToLower(bp.Author) == author
+		return strings.EqualFold(bp.Author, author)
 	}
 }
 

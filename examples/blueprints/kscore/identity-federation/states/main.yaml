@@ -7,12 +7,12 @@ states:
   identity_federation_config_dir:
     module: file
     state: directory
-    name: /etc/kscore
+    name: /etc/keystone-core
 
   identity_federation_config:
     module: file
     state: managed
-    name: /etc/kscore/identity-federation.yaml
+    name: /etc/keystone-core/identity-federation.yaml
     contents: |
       identity:
         local_domain: "{{ .local_domain }}"

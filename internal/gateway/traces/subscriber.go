@@ -36,8 +36,8 @@ func DefaultSubscriberConfig() SubscriberConfig {
 	}
 }
 
-// TracesMessage represents a traces message from an agent.
-type TracesMessage struct {
+// Message represents a traces message from an agent.
+type Message struct {
 	// AgentID is the source agent
 	AgentID string `json:"agent_id"`
 
@@ -92,7 +92,7 @@ type SpanEventMessage struct {
 type Subscriber struct {
 	nc     *nats.Conn
 	js     nats.JetStreamContext
-	store  *TracesStore
+	store  *Store
 	config SubscriberConfig
 
 	sub    *nats.Subscription
@@ -115,7 +115,7 @@ type Subscriber struct {
 }
 
 // NewSubscriber creates a new traces subscriber.
-func NewSubscriber(nc *nats.Conn, store *TracesStore, config SubscriberConfig) *Subscriber {
+func NewSubscriber(nc *nats.Conn, store *Store, config SubscriberConfig) *Subscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		nc:     nc,
@@ -217,7 +217,7 @@ func (s *Subscriber) handleMessage(msg *nats.Msg) {
 	s.mu.Unlock()
 
 	// Parse the message
-	var tracesMsg TracesMessage
+	var tracesMsg Message
 	if err := json.Unmarshal(msg.Data, &tracesMsg); err != nil {
 		s.recordError(fmt.Errorf("failed to parse traces message: %w", err))
 		s.nak(msg)
@@ -226,7 +226,8 @@ func (s *Subscriber) handleMessage(msg *nats.Msg) {
 
 	// Convert and store spans
 	spans := make([]Span, 0, len(tracesMsg.Spans))
-	for _, sm := range tracesMsg.Spans {
+	for i := range tracesMsg.Spans {
+		sm := &tracesMsg.Spans[i]
 		span := Span{
 			TraceID:       sm.TraceID,
 			SpanID:        sm.SpanID,
@@ -251,11 +252,7 @@ func (s *Subscriber) handleMessage(msg *nats.Msg) {
 		if len(sm.Events) > 0 {
 			span.Events = make([]SpanEvent, len(sm.Events))
 			for i, e := range sm.Events {
-				span.Events[i] = SpanEvent{
-					Name:       e.Name,
-					Timestamp:  e.Timestamp,
-					Attributes: e.Attributes,
-				}
+				span.Events[i] = SpanEvent(e)
 			}
 		}
 

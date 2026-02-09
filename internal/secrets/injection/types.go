@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-// InjectionType represents the type of secret injection.
-type InjectionType string
+// Type represents the type of secret injection.
+type Type string
 
 const (
-	// InjectionTypeFile injects secrets as files.
-	InjectionTypeFile InjectionType = "file"
+	// TypeFile injects secrets as files.
+	TypeFile Type = "file"
 
-	// InjectionTypeEnv injects secrets as environment variables.
-	InjectionTypeEnv InjectionType = "env"
+	// TypeEnv injects secrets as environment variables.
+	TypeEnv Type = "env"
 
-	// InjectionTypeTemplate renders secrets into templates.
-	InjectionTypeTemplate InjectionType = "template"
+	// TypeTemplate renders secrets into templates.
+	TypeTemplate Type = "template"
 )
 
 // SecretSource provides secrets for injection.
@@ -78,8 +78,8 @@ func (s *Secret) GetBytes(key string) []byte {
 	return nil
 }
 
-// InjectionConfig is the base configuration for all injection types.
-type InjectionConfig struct {
+// Config is the base configuration for all injection types.
+type Config struct {
 	// Enabled indicates if injection is enabled.
 	Enabled bool `yaml:"enabled"`
 
@@ -89,7 +89,7 @@ type InjectionConfig struct {
 
 // FileInjectionConfig configures file-based secret injection.
 type FileInjectionConfig struct {
-	InjectionConfig `yaml:",inline"`
+	Config `yaml:",inline"`
 
 	// BasePath is the base directory for secret files.
 	BasePath string `yaml:"base_path"`
@@ -140,7 +140,7 @@ type FileRule struct {
 
 // EnvInjectionConfig configures environment variable injection.
 type EnvInjectionConfig struct {
-	InjectionConfig `yaml:",inline"`
+	Config `yaml:",inline"`
 
 	// Prefix is the prefix for injected environment variables.
 	Prefix string `yaml:"prefix"`
@@ -166,7 +166,7 @@ type EnvRule struct {
 
 // TemplateInjectionConfig configures template-based secret injection.
 type TemplateInjectionConfig struct {
-	InjectionConfig `yaml:",inline"`
+	Config `yaml:",inline"`
 
 	// Templates is the list of template injection rules.
 	Templates []TemplateRule `yaml:"templates"`
@@ -211,10 +211,10 @@ type NotifyConfig struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
-// InjectionResult represents the result of an injection operation.
-type InjectionResult struct {
+// Result represents the result of an injection operation.
+type Result struct {
 	// Type is the injection type.
-	Type InjectionType
+	Type Type
 
 	// Target is the injection target (file path, env var, etc.).
 	Target string
@@ -235,7 +235,7 @@ type InjectionResult struct {
 // Injector is the interface for secret injectors.
 type Injector interface {
 	// Inject performs the injection.
-	Inject(ctx context.Context) ([]InjectionResult, error)
+	Inject(ctx context.Context) ([]Result, error)
 
 	// Watch starts watching for secret changes and re-injecting.
 	Watch(ctx context.Context) error

@@ -45,4 +45,4 @@
 // The v1 subpackage contains generated Protocol Buffer types for gRPC services.
 // Key services include ControlPlaneService for agent management and command execution,
 // and CoordinationService for cluster operations.
-package api
+package api //nolint:revive // Standard name for API package hierarchy

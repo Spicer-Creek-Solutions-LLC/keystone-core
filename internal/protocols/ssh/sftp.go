@@ -44,7 +44,7 @@ func (a *SFTPAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, 
 	a.sftpMu.Lock()
 	defer a.sftpMu.Unlock()
 
-	client := a.Adapter.Client()
+	client := a.Client()
 	if client == nil {
 		return fmt.Errorf("SSH client not available")
 	}
@@ -92,9 +92,10 @@ func (a *SFTPAdapter) Upload(ctx context.Context, req *protocols.UploadRequest) 
 
 	// Get content reader
 	var reader io.Reader
-	if req.Content != nil {
+	switch {
+	case req.Content != nil:
 		reader = req.Content
-	} else if req.LocalPath != "" {
+	case req.LocalPath != "":
 		f, err := os.Open(req.LocalPath)
 		if err != nil {
 			result.Error = fmt.Sprintf("failed to open local file: %v", err)
@@ -103,7 +104,7 @@ func (a *SFTPAdapter) Upload(ctx context.Context, req *protocols.UploadRequest) 
 		}
 		defer f.Close()
 		reader = f
-	} else {
+	default:
 		return nil, fmt.Errorf("either Content or LocalPath must be provided")
 	}
 
@@ -188,11 +189,13 @@ func (a *SFTPAdapter) Download(ctx context.Context, req *protocols.DownloadReque
 	var writer io.Writer
 	var localFile *os.File
 
-	if req.Writer != nil {
+	switch {
+	case req.Writer != nil:
 		writer = req.Writer
-	} else if req.LocalPath != "" {
+	case req.LocalPath != "":
 		// Create parent directories
-		if err := os.MkdirAll(filepath.Dir(req.LocalPath), 0755); err != nil {
+		//nolint:gosec // G301: local directory needs to be accessible by users
+		if err := os.MkdirAll(filepath.Dir(req.LocalPath), 0o755); err != nil {
 			result.Error = fmt.Sprintf("failed to create local directories: %v", err)
 			result.Duration = time.Since(start)
 			return result, err
@@ -206,7 +209,7 @@ func (a *SFTPAdapter) Download(ctx context.Context, req *protocols.DownloadReque
 		}
 		defer localFile.Close()
 		writer = localFile
-	} else {
+	default:
 		return nil, fmt.Errorf("either Writer or LocalPath must be provided")
 	}
 

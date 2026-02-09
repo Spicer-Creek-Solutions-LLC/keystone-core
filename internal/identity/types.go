@@ -243,8 +243,8 @@ type ProviderInfo struct {
 	Metadata map[string]string
 }
 
-// IdentityProvider is the interface for all identity providers.
-type IdentityProvider interface {
+// Provider is the interface for all identity providers.
+type Provider interface {
 	// Type returns the provider type.
 	Type() ProviderType
 
@@ -476,8 +476,8 @@ type SVIDRotationCallback func(oldSVID, newSVID *X509SVID)
 // TrustBundleUpdateCallback is called when the trust bundle is updated.
 type TrustBundleUpdateCallback func(bundle *TrustBundle)
 
-// IdentityClient is the interface for agents to obtain identity.
-type IdentityClient interface {
+// Client is the interface for agents to obtain identity.
+type Client interface {
 	// Connect connects to the identity provider.
 	Connect(ctx context.Context) error
 

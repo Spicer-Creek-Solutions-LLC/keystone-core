@@ -33,12 +33,12 @@ func TestNamespaceCRUD(t *testing.T) {
 	// Test Create
 	t.Run("CreateNamespace", func(t *testing.T) {
 		spec := NamespaceSpec{
-			Name:   "test-ns",
-			Labels: map[string]string{"env": "test"},
+			Name:        "test-ns",
+			Labels:      map[string]string{"env": "test"},
 			Annotations: map[string]string{"description": "Test namespace"},
 		}
 
-		err := client.CreateNamespace(spec)
+		err := client.CreateNamespace(spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateNamespace failed: %v", err)
 		}
@@ -90,8 +90,8 @@ func TestNamespaceCRUD(t *testing.T) {
 	// Test Update
 	t.Run("UpdateNamespace", func(t *testing.T) {
 		spec := NamespaceSpec{
-			Name:   "test-ns",
-			Labels: map[string]string{"env": "production"},
+			Name:        "test-ns",
+			Labels:      map[string]string{"env": "production"},
 			Annotations: map[string]string{"description": "Updated namespace"},
 		}
 
@@ -157,7 +157,7 @@ func TestDeploymentCRUD(t *testing.T) {
 			Selector:      map[string]string{"app": "nginx"},
 		}
 
-		err := client.CreateDeployment(namespace, spec)
+		err := client.CreateDeployment(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateDeployment failed: %v", err)
 		}
@@ -255,7 +255,7 @@ func TestServiceCRUD(t *testing.T) {
 			Selector: map[string]string{"app": "nginx"},
 		}
 
-		err := client.CreateService(namespace, spec)
+		err := client.CreateService(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateService failed: %v", err)
 		}
@@ -352,7 +352,7 @@ func TestConfigMapCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateConfigMap(namespace, spec)
+		err := client.CreateConfigMap(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateConfigMap failed: %v", err)
 		}
@@ -446,7 +446,7 @@ func TestSecretCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateSecret(namespace, spec)
+		err := client.CreateSecret(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateSecret failed: %v", err)
 		}
@@ -487,7 +487,7 @@ func TestSecretCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.UpdateSecret(namespace, spec)
+		err := client.UpdateSecret(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("UpdateSecret failed: %v", err)
 		}
@@ -541,7 +541,7 @@ func TestStatefulSetCRUD(t *testing.T) {
 			Selector:    map[string]string{"app": "redis"},
 		}
 
-		err := client.CreateStatefulSet(namespace, spec)
+		err := client.CreateStatefulSet(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateStatefulSet failed: %v", err)
 		}
@@ -610,7 +610,7 @@ func TestDaemonSetCRUD(t *testing.T) {
 			Selector: map[string]string{"app": "fluentd"},
 		}
 
-		err := client.CreateDaemonSet(namespace, spec)
+		err := client.CreateDaemonSet(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateDaemonSet failed: %v", err)
 		}
@@ -677,7 +677,7 @@ func TestJobCRUD(t *testing.T) {
 			RestartPolicy: "Never",
 		}
 
-		err := client.CreateJob(namespace, spec)
+		err := client.CreateJob(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateJob failed: %v", err)
 		}
@@ -746,7 +746,7 @@ func TestCronJobCRUD(t *testing.T) {
 			RestartPolicy:     "OnFailure",
 		}
 
-		err := client.CreateCronJob(namespace, spec)
+		err := client.CreateCronJob(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateCronJob failed: %v", err)
 		}
@@ -840,7 +840,7 @@ func TestPVCCRUD(t *testing.T) {
 			StorageSize:      "10Gi",
 		}
 
-		err := client.CreatePVC(namespace, spec)
+		err := client.CreatePVC(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreatePVC failed: %v", err)
 		}
@@ -1052,10 +1052,7 @@ func TestClusterInfo(t *testing.T) {
 		if info.Nodes != 3 {
 			t.Errorf("Expected 3 nodes, got %d", info.Nodes)
 		}
-		// Version will be empty with fake client
-		if info.Version == "" {
-			// This is expected with fake client
-		}
+		// Note: info.Version is expected to be empty with fake client
 	})
 }
 
@@ -1089,7 +1086,7 @@ func TestIngressCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateIngress(namespace, spec)
+		err := client.CreateIngress(namespace, spec) //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("CreateIngress failed: %v", err)
 		}
@@ -1187,7 +1184,7 @@ func TestHPACRUD(t *testing.T) {
 		}
 
 		// Test Get
-		info, err := client.GetHPA(namespace, "nginx-hpa")
+		info, err := client.GetHPA(namespace, "nginx-hpa") //nolint:contextcheck // test: method doesn't take context
 		if err != nil {
 			t.Fatalf("GetHPA failed: %v", err)
 		}

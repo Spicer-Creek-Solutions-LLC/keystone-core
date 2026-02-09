@@ -110,9 +110,9 @@ func TestParseAddressIPv4(t *testing.T) {
 		{"localhost:8080", "localhost", 8080, FamilyUnknown, false},
 		{"example.com:443", "example.com", 443, FamilyUnknown, false},
 		{"", "", 0, FamilyUnknown, true},
-		{"192.168.1.1:99999", "", 0, FamilyUnknown, true},     // Port out of range
-		{"192.168.1.1:-1", "", 0, FamilyUnknown, true},        // Negative port
-		{"192.168.1.1:abc", "", 0, FamilyUnknown, true},       // Invalid port
+		{"192.168.1.1:99999", "", 0, FamilyUnknown, true}, // Port out of range
+		{"192.168.1.1:-1", "", 0, FamilyUnknown, true},    // Negative port
+		{"192.168.1.1:abc", "", 0, FamilyUnknown, true},   // Invalid port
 	}
 
 	for _, tt := range tests {

@@ -70,14 +70,14 @@ type SingletonTaskStatus struct {
 
 // SingletonTaskManager manages singleton tasks across the cluster.
 type SingletonTaskManager struct {
-	leader         *LeaderElector
-	membership     *MembershipManager
-	tasks          map[SingletonTaskType]*SingletonTask
-	taskStatuses   map[SingletonTaskType]*SingletonTaskStatus
-	taskCancels    map[SingletonTaskType]context.CancelFunc
-	mu             sync.RWMutex
-	stopChan       chan struct{}
-	started        bool
+	leader       *LeaderElector
+	membership   *MembershipManager
+	tasks        map[SingletonTaskType]*SingletonTask
+	taskStatuses map[SingletonTaskType]*SingletonTaskStatus
+	taskCancels  map[SingletonTaskType]context.CancelFunc
+	mu           sync.RWMutex
+	stopChan     chan struct{}
+	started      bool
 }
 
 // NewSingletonTaskManager creates a new singleton task manager.
@@ -207,13 +207,14 @@ func (m *SingletonTaskManager) onLeadershipChange(event LeadershipEvent) {
 			// We lost leadership, stop leader-only tasks
 			m.stopLeaderTasks()
 		}
+	default:
 	}
 }
 
 // manageTasks continuously manages tasks based on leadership status.
 func (m *SingletonTaskManager) manageTasks(ctx context.Context) {
 	// Initial check
-	m.reconcileTasks()
+	m.reconcileTasks(ctx)
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -225,13 +226,13 @@ func (m *SingletonTaskManager) manageTasks(ctx context.Context) {
 		case <-m.stopChan:
 			return
 		case <-ticker.C:
-			m.reconcileTasks()
+			m.reconcileTasks(ctx)
 		}
 	}
 }
 
 // reconcileTasks ensures tasks are running based on current state.
-func (m *SingletonTaskManager) reconcileTasks() {
+func (m *SingletonTaskManager) reconcileTasks(ctx context.Context) {
 	isLeader := m.leader.IsLeader()
 
 	m.mu.Lock()
@@ -245,7 +246,7 @@ func (m *SingletonTaskManager) reconcileTasks() {
 
 		if shouldRun && !isRunning {
 			// Start the task
-			m.startTaskLocked(taskType, task)
+			m.startTaskLocked(ctx, taskType, task)
 		} else if !shouldRun && isRunning {
 			// Stop the task
 			m.stopTaskLocked(taskType)
@@ -269,7 +270,7 @@ func (m *SingletonTaskManager) startLeaderTasks() {
 	for taskType, task := range m.tasks {
 		if task.LeaderOnly {
 			if _, running := m.taskCancels[taskType]; !running {
-				m.startTaskLocked(taskType, task)
+				m.startTaskLocked(context.Background(), taskType, task) //nolint:contextcheck // no parent context available
 			}
 		}
 	}
@@ -300,8 +301,9 @@ func (m *SingletonTaskManager) stopAllTasks() {
 }
 
 // startTaskLocked starts a task. Must be called with m.mu held.
-func (m *SingletonTaskManager) startTaskLocked(taskType SingletonTaskType, task *SingletonTask) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (m *SingletonTaskManager) startTaskLocked(parentCtx context.Context, taskType SingletonTaskType, task *SingletonTask) {
+	// Use WithoutCancel so task lifecycle is independent of caller's context
+	ctx, cancel := context.WithCancel(context.WithoutCancel(parentCtx))
 	m.taskCancels[taskType] = cancel
 
 	status := m.taskStatuses[taskType]
@@ -338,7 +340,7 @@ func (m *SingletonTaskManager) stopTaskLocked(taskType SingletonTaskType) {
 
 	// Call OnStop if defined
 	if task, exists := m.tasks[taskType]; exists && task.OnStop != nil {
-		task.OnStop()
+		_ = task.OnStop() //nolint:errcheck // best-effort stop callback
 	}
 }
 
@@ -445,7 +447,7 @@ func (m *SingletonTaskManager) ForceStartTask(taskType SingletonTaskType) error 
 		return fmt.Errorf("task %s is already running", taskType)
 	}
 
-	m.startTaskLocked(taskType, task)
+	m.startTaskLocked(context.Background(), taskType, task) //nolint:contextcheck // manual force operation
 	return nil
 }
 

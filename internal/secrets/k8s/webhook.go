@@ -38,30 +38,30 @@ type WebhookStats struct {
 
 // AdmissionReview represents a Kubernetes admission review request/response.
 type AdmissionReview struct {
-	APIVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Request    *AdmissionRequest `json:"request,omitempty"`
+	APIVersion string             `json:"apiVersion"`
+	Kind       string             `json:"kind"`
+	Request    *AdmissionRequest  `json:"request,omitempty"`
 	Response   *AdmissionResponse `json:"response,omitempty"`
 }
 
 // AdmissionRequest is the request portion of an AdmissionReview.
 type AdmissionRequest struct {
-	UID       string          `json:"uid"`
-	Kind      GroupVersionKind `json:"kind"`
+	UID       string               `json:"uid"`
+	Kind      GroupVersionKind     `json:"kind"`
 	Resource  GroupVersionResource `json:"resource"`
-	Namespace string          `json:"namespace"`
-	Name      string          `json:"name"`
-	Operation string          `json:"operation"`
-	Object    json.RawMessage `json:"object"`
-	OldObject json.RawMessage `json:"oldObject,omitempty"`
+	Namespace string               `json:"namespace"`
+	Name      string               `json:"name"`
+	Operation string               `json:"operation"`
+	Object    json.RawMessage      `json:"object"`
+	OldObject json.RawMessage      `json:"oldObject,omitempty"`
 }
 
 // AdmissionResponse is the response portion of an AdmissionReview.
 type AdmissionResponse struct {
-	UID     string `json:"uid"`
-	Allowed bool   `json:"allowed"`
-	Status  *Status `json:"status,omitempty"`
-	Patch   []byte `json:"patch,omitempty"`
+	UID       string  `json:"uid"`
+	Allowed   bool    `json:"allowed"`
+	Status    *Status `json:"status,omitempty"`
+	Patch     []byte  `json:"patch,omitempty"`
 	PatchType *string `json:"patchType,omitempty"`
 }
 
@@ -87,8 +87,8 @@ type Status struct {
 
 // PodSpec represents the relevant parts of a Kubernetes PodSpec.
 type PodSpec struct {
-	Metadata       PodMetadata              `json:"metadata"`
-	Spec           PodSpecInner             `json:"spec"`
+	Metadata PodMetadata  `json:"metadata"`
+	Spec     PodSpecInner `json:"spec"`
 }
 
 // PodMetadata contains pod metadata.
@@ -101,21 +101,21 @@ type PodMetadata struct {
 
 // PodSpecInner contains the spec portion of a pod.
 type PodSpecInner struct {
-	Containers               []Container         `json:"containers,omitempty"`
-	InitContainers           []Container         `json:"initContainers,omitempty"`
-	Volumes                  []Volume            `json:"volumes,omitempty"`
-	ServiceAccountName       string              `json:"serviceAccountName,omitempty"`
-	ShareProcessNamespace    *bool               `json:"shareProcessNamespace,omitempty"`
+	Containers            []Container `json:"containers,omitempty"`
+	InitContainers        []Container `json:"initContainers,omitempty"`
+	Volumes               []Volume    `json:"volumes,omitempty"`
+	ServiceAccountName    string      `json:"serviceAccountName,omitempty"`
+	ShareProcessNamespace *bool       `json:"shareProcessNamespace,omitempty"`
 }
 
 // Container represents a Kubernetes container.
 type Container struct {
-	Name         string            `json:"name"`
-	Image        string            `json:"image"`
-	Command      []string          `json:"command,omitempty"`
-	Args         []string          `json:"args,omitempty"`
-	Env          []EnvVar          `json:"env,omitempty"`
-	VolumeMounts []VolumeMount     `json:"volumeMounts,omitempty"`
+	Name         string              `json:"name"`
+	Image        string              `json:"image"`
+	Command      []string            `json:"command,omitempty"`
+	Args         []string            `json:"args,omitempty"`
+	Env          []EnvVar            `json:"env,omitempty"`
+	VolumeMounts []VolumeMount       `json:"volumeMounts,omitempty"`
 	Resources    *ContainerResources `json:"resources,omitempty"`
 }
 
@@ -134,8 +134,8 @@ type VolumeMount struct {
 
 // Volume represents a Kubernetes volume.
 type Volume struct {
-	Name     string      `json:"name"`
-	EmptyDir *EmptyDir   `json:"emptyDir,omitempty"`
+	Name      string     `json:"name"`
+	EmptyDir  *EmptyDir  `json:"emptyDir,omitempty"`
 	Projected *Projected `json:"projected,omitempty"`
 }
 
@@ -248,13 +248,13 @@ func (w *MutatingWebhook) Run(ctx context.Context) error {
 	// Wait for shutdown
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //nolint:contextcheck // intentional: ctx is done
 		defer cancel()
-		return w.server.Shutdown(shutdownCtx)
+		return w.server.Shutdown(shutdownCtx) //nolint:contextcheck // using fresh shutdown context
 	case <-w.stopCh:
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //nolint:contextcheck // intentional: stopping
 		defer cancel()
-		return w.server.Shutdown(shutdownCtx)
+		return w.server.Shutdown(shutdownCtx) //nolint:contextcheck // using fresh shutdown context
 	case err := <-errCh:
 		return err
 	}
@@ -490,8 +490,8 @@ func (w *MutatingWebhook) buildPatches(pod *PodSpec, spec *PodInjectionSpec) []J
 
 	// Add secrets volume
 	volumePatch := JSONPatch{
-		Op:   "add",
-		Path: "/spec/volumes/-",
+		Op:    "add",
+		Path:  "/spec/volumes/-",
 		Value: builder.BuildVolumeSpec(),
 	}
 	if len(pod.Spec.Volumes) == 0 {
@@ -516,8 +516,8 @@ func (w *MutatingWebhook) buildPatches(pod *PodSpec, spec *PodInjectionSpec) []J
 			WithInjectionSpec(spec)
 
 		initPatch := JSONPatch{
-			Op:   "add",
-			Path: "/spec/initContainers/-",
+			Op:    "add",
+			Path:  "/spec/initContainers/-",
 			Value: initBuilder.BuildContainerSpec(),
 		}
 		if len(pod.Spec.InitContainers) == 0 {

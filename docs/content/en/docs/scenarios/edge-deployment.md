@@ -55,147 +55,142 @@ Edge deployments present unique challenges:
 
 ```yaml
 # edge-agent-config.yaml
-apiVersion: v1
-kind: state
 metadata:
   name: edge-agent-config
 
 target: "role:edge-proxy"
 
-resources:
-  - type: file.managed
-    name: /etc/kscore/agent.yaml
-    properties:
-      contents: |
-        # Edge-optimized agent configuration
-        server:
-          urls:
-            - "{{ pillar.control_plane_url }}"
+file:
+  edge_agent_config:
+    state: present
+    name: /etc/keystone-core/agent.yaml
+    contents: |
+      # Edge-optimized agent configuration
+      server:
+        urls:
+          - "{{ .vars.control_plane_url }}"
 
-        # Aggressive reconnection for intermittent connectivity
-        reconnect:
-          initial_delay: 1s
-          max_delay: 5m
-          multiplier: 2
+      # Aggressive reconnection for intermittent connectivity
+      reconnect:
+        initial_delay: 1s
+        max_delay: 5m
+        multiplier: 2
 
-        # Local state caching for offline operation
-        cache:
-          enabled: true
-          path: /var/lib/kscore/cache
-          max_size: 1GB
-          ttl: 24h
+      # Local state caching for offline operation
+      cache:
+        enabled: true
+        path: /var/lib/keystone-core/cache
+        max_size: 1GB
+        ttl: 24h
 
-        # Queue commands when disconnected
-        offline:
-          enabled: true
-          queue_size: 1000
-          persist_path: /var/lib/kscore/queue
+      # Queue commands when disconnected
+      offline:
+        enabled: true
+        queue_size: 1000
+        persist_path: /var/lib/keystone-core/queue
 
-        # Proxy mode for downstream devices
-        proxy:
-          enabled: true
-          listen: "0.0.0.0:4222"
-          allowed_networks:
-            - "10.0.0.0/8"
-            - "192.168.0.0/16"
+      # Proxy mode for downstream devices
+      proxy:
+        enabled: true
+        listen: "0.0.0.0:4222"
+        allowed_networks:
+          - "10.0.0.0/8"
+          - "192.168.0.0/16"
 ```
 
 ### 2. Edge Site State
 
 ```yaml
 # edge-site-base.yaml
-apiVersion: v1
-kind: state
 metadata:
   name: edge-site-base
 
-parameters:
-  site_id:
-    type: string
-    required: true
-  timezone:
-    type: string
-    default: "UTC"
+variables:
+  site_id: ""
+  timezone: "UTC"
+  ntp_server: "time.example.com"
 
-resources:
-  # System configuration
-  - type: timezone.system
-    name: set-timezone
-    properties:
-      name: "{{ parameters.timezone }}"
+# System configuration
+timezone:
+  set_timezone:
+    state: present
+    name: "{{ .vars.timezone }}"
 
-  # Local NTP for time sync
-  - type: pkg.installed
+# Local NTP for time sync
+package:
+  chrony:
+    state: installed
     name: chrony
 
-  - type: file.managed
-    name: /etc/chrony.conf
-    properties:
-      contents: |
-        # Use central NTP when available, local fallback
-        server {{ pillar.ntp_server }} iburst prefer
-        server 0.pool.ntp.org iburst
-        server 1.pool.ntp.org iburst
-
-        # Allow local network to sync
-        allow 10.0.0.0/8
-        allow 192.168.0.0/16
-
-        # Serve time even when not synced
-        local stratum 10
-
-  - type: service.running
-    name: chronyd
-    properties:
-      enable: true
-    require:
-      - file: /etc/chrony.conf
-
-  # Local monitoring
-  - type: pkg.installed
+  prometheus_node_exporter:
+    state: installed
     name: prometheus-node-exporter
 
-  - type: service.running
+file:
+  chrony_config:
+    state: present
+    name: /etc/chrony.conf
+    contents: |
+      # Use central NTP when available, local fallback
+      server {{ .vars.ntp_server }} iburst prefer
+      server 0.pool.ntp.org iburst
+      server 1.pool.ntp.org iburst
+
+      # Allow local network to sync
+      allow 10.0.0.0/8
+      allow 192.168.0.0/16
+
+      # Serve time even when not synced
+      local stratum 10
+
+service:
+  chronyd:
+    state: running
+    name: chronyd
+    enabled: true
+    require:
+      - file: chrony_config
+
+  node_exporter:
+    state: running
     name: node_exporter
-    properties:
-      enable: true
+    enabled: true
 ```
 
 ### 3. Device Management
 
 ```yaml
 # edge-device-management.yaml
-apiVersion: v1
-kind: state
 metadata:
   name: edge-device-management
 
 target: "role:edge-proxy"
 
-resources:
-  # Device discovery script
-  - type: file.managed
+# Device discovery script
+file:
+  discover_devices_script:
+    state: present
     name: /usr/local/bin/discover-devices.sh
-    properties:
-      mode: "0755"
-      contents: |
-        #!/bin/bash
-        # Discover devices on local network
-        nmap -sn 192.168.1.0/24 -oG - | \
-          awk '/Up$/{print $2}' | \
-          while read ip; do
-            # Register device with agent
-            curl -s -X POST http://localhost:8080/api/devices \
-              -d "{\"ip\": \"$ip\", \"site\": \"{{ grains.site_id }}\"}"
-          done
+    mode: "0755"
+    contents: |
+      #!/bin/bash
+      # Discover devices on local network
+      nmap -sn 192.168.1.0/24 -oG - | \
+        awk '/Up$/{print $2}' | \
+        while read ip; do
+          # Register device with agent
+          curl -s -X POST http://localhost:8080/api/devices \
+            -d "{\"ip\": \"$ip\", \"site\": \"{{ .facts.site_id }}\"}"
+        done
 
-  # Scheduled discovery
-  - type: cron.present
+# Scheduled discovery
+cron:
+  device_discovery:
+    state: present
     name: device-discovery
-    properties:
-      user: root
-      minute: "*/15"
-      job: /usr/local/bin/discover-devices.sh
+    user: root
+    minute: "*/15"
+    command: /usr/local/bin/discover-devices.sh
 ```
 
 ### 4. Offline State Application
@@ -234,18 +229,18 @@ spec:
 
 ```bash
 # Check edge site connectivity
-kscorectl ping -t "role:edge-proxy" --timeout 30s
+kscorectl agents list --label "role=edge-proxy"
 
 # View offline queue status
-kscorectl exec -t "site:edge-001" -- \
-  cat /var/lib/kscore/queue/status.json
+kscorectl exec run "site:edge-001" -- \
+  cat /var/lib/keystone-core/queue/status.json
 
 # Check cache health
-kscorectl exec -t "role:edge-proxy" -- \
-  du -sh /var/lib/kscore/cache
+kscorectl exec run "role:edge-proxy" -- \
+  du -sh /var/lib/keystone-core/cache
 
 # Verify device discovery
-kscorectl exec -t "site:edge-001" -- \
+kscorectl exec run "site:edge-001" -- \
   /usr/local/bin/discover-devices.sh
 ```
 
@@ -255,7 +250,7 @@ kscorectl exec -t "site:edge-001" -- \
 
 Check reconnection settings and network:
 ```bash
-kscorectl exec -t "site:edge-001" -- \
+kscorectl exec run "site:edge-001" -- \
   journalctl -u kscore-agent -f
 ```
 
@@ -263,16 +258,15 @@ kscorectl exec -t "site:edge-001" -- \
 
 Clear and rebuild cache:
 ```bash
-kscorectl exec -t "site:edge-001" -- \
-  rm -rf /var/lib/kscore/cache/* && \
-  systemctl restart kscore-agent
+kscorectl exec run "site:edge-001" -- \
+  sh -c "rm -rf /var/lib/keystone-core/cache/* && systemctl restart kscore-agent"
 ```
 
 ### Device Discovery Failing
 
 Verify network connectivity and nmap:
 ```bash
-kscorectl exec -t "site:edge-001" -- \
+kscorectl exec run "site:edge-001" -- \
   nmap -sn 192.168.1.0/24
 ```
 

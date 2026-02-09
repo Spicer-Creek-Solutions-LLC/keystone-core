@@ -829,8 +829,28 @@ Total: **18 weeks**
 
 ## Future Enhancements (Post-Epic)
 
-- **Active Directory integration**: Domain join, GPO, LDAP
-- **Windows DSC integration**: Run DSC configurations
+### Planned State Modules
+
+These modules are documented as conceptual designs in `docs/content/en/docs/scenarios/windows-infrastructure.md`:
+
+- **`ad_user` module**: Create, modify, delete Active Directory users
+  - Properties: name, display_name, email, department, enabled, password settings, group membership
+  - Requires: Active Directory PowerShell module, domain controller access
+
+- **`ad_group` module**: Manage Active Directory groups
+  - Properties: name, scope (domain local, global, universal), type (security, distribution), members
+  - Requires: Active Directory PowerShell module
+
+- **`gpo` module**: Create and configure Group Policy Objects
+  - Properties: name, domain, links (OU paths), settings (computer/user configuration)
+  - Requires: GroupPolicy PowerShell module, domain admin privileges
+
+- **`dsc` module**: Apply PowerShell Desired State Configuration
+  - Properties: configuration (DSC script), configuration_name, refresh_mode
+  - Provides declarative wrapper around DSC engine
+
+### Other Future Enhancements
+
 - **Hyper-V management**: VM lifecycle management
 - **Windows Containers**: Container management on Windows
 - **Windows Admin Center integration**: WAC extension

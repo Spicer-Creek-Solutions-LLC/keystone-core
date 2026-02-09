@@ -49,10 +49,10 @@ type TelemetrySubscriber struct {
 	closed  bool
 
 	// Subscriptions
-	logSub     *nats.Subscription
-	metricSub  *nats.Subscription
-	traceSub   *nats.Subscription
-	auditSub   *nats.Subscription
+	logSub    *nats.Subscription
+	metricSub *nats.Subscription
+	traceSub  *nats.Subscription
+	auditSub  *nats.Subscription
 
 	// Configuration
 	logSubject    string
@@ -260,14 +260,11 @@ func (t *TelemetrySubscriber) SubscribeAll() error {
 	if err := t.SubscribeTraces(); err != nil {
 		return err
 	}
-	if err := t.SubscribeAudit(); err != nil {
-		return err
-	}
-	return nil
+	return t.SubscribeAudit()
 }
 
 // Stats returns subscription statistics
-func (t *TelemetrySubscriber) Stats() (logs, metrics, traces, audits int64) {
+func (t *TelemetrySubscriber) Stats() (logsCount, metricsCount, tracesCount, auditsCount int64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.logsReceived, t.metricsReceived, t.tracesReceived, t.auditsReceived

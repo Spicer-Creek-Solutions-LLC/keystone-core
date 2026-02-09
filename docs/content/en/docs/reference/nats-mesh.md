@@ -27,16 +27,16 @@ server:
     embedded:
       listen: 0.0.0.0:4222
       http_port: 8222
-      store_dir: /var/lib/kscore/nats
+      store_dir: /var/lib/keystone-core/nats
       max_memory: 1GB
       max_file: 10GB
 
     # TLS configuration
     tls:
       enabled: true
-      cert: /etc/kscore/server.crt
-      key: /etc/kscore/server.key
-      ca: /etc/kscore/ca.crt
+      cert: /etc/keystone-core/server.crt
+      key: /etc/keystone-core/server.key
+      ca: /etc/keystone-core/ca.crt
       verify: true
       min_version: "1.3"
 
@@ -44,9 +44,9 @@ server:
     leaf:
       listen: 0.0.0.0:7422
       tls:
-        cert: /etc/kscore/leaf.crt
-        key: /etc/kscore/leaf.key
-        ca: /etc/kscore/ca.crt
+        cert: /etc/keystone-core/leaf.crt
+        key: /etc/keystone-core/leaf.key
+        ca: /etc/keystone-core/ca.crt
 
     # Gateway configuration (supercluster)
     gateway:
@@ -63,8 +63,8 @@ server:
       listen: 0.0.0.0:443
       path: /nats
       tls:
-        cert: /etc/kscore/websocket.crt
-        key: /etc/kscore/websocket.key
+        cert: /etc/keystone-core/websocket.crt
+        key: /etc/keystone-core/websocket.key
       compression: true
       cors:
         allowed_origins:
@@ -106,9 +106,9 @@ agent:
     # TLS configuration
     tls:
       enabled: true
-      cert: /etc/kscore/agent.crt
-      key: /etc/kscore/agent.key
-      ca: /etc/kscore/ca.crt
+      cert: /etc/keystone-core/agent.crt
+      key: /etc/keystone-core/agent.key
+      ca: /etc/keystone-core/ca.crt
       skip_verify: false
 
     # Connection settings
@@ -131,15 +131,15 @@ agent:
     hub:
       urls:
         - nats-leaf://hub.example.com:7422
-      credentials: /etc/kscore/leaf.creds
+      credentials: /etc/keystone-core/leaf.creds
       tls:
-        ca: /etc/kscore/ca.crt
-        cert: /etc/kscore/leaf.crt
-        key: /etc/kscore/leaf.key
+        ca: /etc/keystone-core/ca.crt
+        cert: /etc/keystone-core/leaf.crt
+        key: /etc/keystone-core/leaf.key
 
     embedded:
       listen: 127.0.0.1:4222
-      store_dir: /var/lib/kscore/nats
+      store_dir: /var/lib/keystone-core/nats
 
     # Buffer settings
     buffer:
@@ -148,7 +148,7 @@ agent:
       max_messages: 100000
       max_age: 24h
       persistence: true
-      persist_dir: /var/lib/kscore/buffer
+      persist_dir: /var/lib/keystone-core/buffer
       overflow: drop_oldest | drop_newest | block
 
     # WebSocket settings

@@ -225,11 +225,12 @@ func parseOrConstraint(s string) (Constraint, error) {
 func newCaretConstraint(v Version, original string) Constraint {
 	var upper Version
 
-	if v.Major > 0 {
+	switch {
+	case v.Major > 0:
 		upper = New(v.Major+1, 0, 0)
-	} else if v.Minor > 0 {
+	case v.Minor > 0:
 		upper = New(0, v.Minor+1, 0)
-	} else {
+	default:
 		upper = New(0, 0, v.Patch+1)
 	}
 

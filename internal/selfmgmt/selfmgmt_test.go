@@ -410,8 +410,8 @@ func TestGetDefaultKscoreConfigPath(t *testing.T) {
 			t.Errorf("expected absolute path, got '%s'", path)
 		}
 	default:
-		if path != "/etc/kscore" {
-			t.Errorf("expected '/etc/kscore', got '%s'", path)
+		if path != "/etc/keystone-core" {
+			t.Errorf("expected '/etc/keystone-core', got '%s'", path)
 		}
 	}
 }
@@ -429,8 +429,8 @@ func TestGetDefaultKscoreDataDir(t *testing.T) {
 			t.Errorf("expected absolute path, got '%s'", path)
 		}
 	default:
-		if path != "/var/lib/kscore" {
-			t.Errorf("expected '/var/lib/kscore', got '%s'", path)
+		if path != "/var/lib/keystone-core" {
+			t.Errorf("expected '/var/lib/keystone-core', got '%s'", path)
 		}
 	}
 }

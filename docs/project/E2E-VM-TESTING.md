@@ -279,4 +279,4 @@ so failover tests can start/stop services via SSH.
 
 - Capture logs from control plane + agents after each test suite.
 - Persist `test/e2e/performance/baselines/*.json` from VM runs.
-- Archive service logs under `/var/log/kscore/` and OS journal outputs.
+- Archive service logs under `/var/log/keystone-core/` and OS journal outputs.

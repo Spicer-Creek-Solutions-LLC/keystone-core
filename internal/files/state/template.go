@@ -9,6 +9,9 @@ import (
 	"os"
 	"strings"
 	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render plain state files, not HTML responses
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // TemplateRenderer renders templates with variable substitution.
@@ -82,7 +85,7 @@ func (r *TemplateRenderer) addDefaultFuncs() {
 	// String functions.
 	r.funcs["upper"] = strings.ToUpper
 	r.funcs["lower"] = strings.ToLower
-	r.funcs["title"] = strings.Title
+	r.funcs["title"] = cases.Title(language.English).String
 	r.funcs["trim"] = strings.TrimSpace
 	r.funcs["trimPrefix"] = strings.TrimPrefix
 	r.funcs["trimSuffix"] = strings.TrimSuffix

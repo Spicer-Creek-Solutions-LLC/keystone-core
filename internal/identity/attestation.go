@@ -106,7 +106,7 @@ func NewAttestationEngine(config *AttestationEngineConfig) (*AttestationEngine, 
 		}
 	}
 
-	return engine, nil
+	return engine, nil //nolint:nilerr // returning valid engine with nil error is correct
 }
 
 // Attest performs attestation using the appropriate attestor.
@@ -160,11 +160,11 @@ func (e *AttestationEngine) Attest(ctx context.Context, evidence *AttestationEvi
 			}
 			// Prepend the original attestor to the attempted list
 			fallbackResult.AttemptedAttestors = append([]string{evidence.Type}, fallbackResult.AttemptedAttestors...)
-			return fallbackResult, nil
+			return fallbackResult, nil //nolint:nilerr // returning valid result with nil error is correct
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // returning valid result with nil error is correct
 }
 
 // attestWithFallback tries each attestor in order until one succeeds.
@@ -199,7 +199,7 @@ func (e *AttestationEngine) attestWithFallback(ctx context.Context, evidence *At
 
 		if result.Success {
 			result.AttemptedAttestors = attempted
-			return result, nil
+			return result, nil //nolint:nilerr // returning valid result with nil error is correct
 		}
 
 		lastError = fmt.Sprintf("%s: %s", attestorName, result.Error)
@@ -287,7 +287,7 @@ func (a *JoinTokenAttestor) Attest(ctx context.Context, evidence *AttestationEvi
 
 	token, err := a.store.Get(ctx, tokenValue)
 	if err != nil {
-		return &AttestationResult{
+		return &AttestationResult{ //nolint:nilerr // error captured in result.Error, not a function error
 			Success:  false,
 			Error:    "token not found",
 			Attestor: a.Name(),
@@ -741,7 +741,7 @@ func (s *InMemoryTokenStore) Get(ctx context.Context, tokenValue string) (*JoinT
 	// Search for the token by computing hash with each token's salt
 	for _, token := range s.tokens {
 		if hashToken(tokenValue, token.Salt) == token.TokenHash {
-			return token, nil
+			return token, nil //nolint:nilerr // returning found token with nil error is correct
 		}
 	}
 
@@ -807,7 +807,7 @@ func (s *InMemoryTokenStore) List(ctx context.Context) ([]*JoinToken, error) {
 		tokens = append(tokens, tokenCopy)
 	}
 
-	return tokens, nil
+	return tokens, nil //nolint:nilerr // returning valid list with nil error is correct
 }
 
 // Cleanup removes expired and used tokens.
@@ -825,7 +825,7 @@ func (s *InMemoryTokenStore) Cleanup(ctx context.Context) (int, error) {
 		}
 	}
 
-	return count, nil
+	return count, nil //nolint:nilerr // returning cleanup count with nil error is correct
 }
 
 // Helper functions
@@ -835,7 +835,7 @@ func generateToken(length int) (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("failed to generate random token: %w", err)
 	}
-	return base64.RawURLEncoding.EncodeToString(b)[:length], nil
+	return base64.RawURLEncoding.EncodeToString(b)[:length], nil //nolint:nilerr // returning generated token with nil error is correct
 }
 
 func generateAgentID() (string, error) {
@@ -843,7 +843,7 @@ func generateAgentID() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("failed to generate random agent ID: %w", err)
 	}
-	return fmt.Sprintf("agent-%s", base64.RawURLEncoding.EncodeToString(b)[:16]), nil
+	return fmt.Sprintf("agent-%s", base64.RawURLEncoding.EncodeToString(b)[:16]), nil //nolint:nilerr // returning generated ID with nil error is correct
 }
 
 // generateSalt generates a random salt for token hashing.
@@ -852,7 +852,7 @@ func generateSalt() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("failed to generate random salt: %w", err)
 	}
-	return hex.EncodeToString(b), nil
+	return hex.EncodeToString(b), nil //nolint:nilerr // returning generated salt with nil error is correct
 }
 
 // hashToken computes a salted SHA-256 hash of the token.

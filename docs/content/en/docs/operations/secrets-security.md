@@ -529,36 +529,41 @@ secrets:
 
 ### Key Compromise Procedure
 
-1. **Rotate master key**
+> **Note**: Key rotation and re-encryption are handled by your secrets backend (e.g., Vault).
+> Keystone Core's secrets CLI focuses on rotation orchestration for application credentials.
+
+1. **Rotate master key** (using Vault)
    ```bash
-   kscorectl secrets key rotate --master --immediate
+   vault operator rekey -init
+   vault operator rekey -key-shares=5 -key-threshold=3
    ```
 
-2. **Re-encrypt all data**
+2. **Trigger rotation of all managed secrets**
    ```bash
-   kscorectl secrets rekey --all
+   kscorectl secrets rotate start --all
    ```
 
-3. **Verify integrity**
+3. **Verify rotation completed**
    ```bash
-   kscorectl secrets verify --all
+   kscorectl secrets rotate list --status completed
    ```
 
 ## Security Testing
 
 ### Penetration Testing
 
-Keystone Core includes a built-in security testing suite:
+> **Note**: Security testing should be performed using dedicated security tools.
+> Keystone Core does not include a built-in pentest suite.
+
+Recommended security testing approach:
 
 ```bash
-# Run security tests
-kscorectl secrets pentest run \
-  --categories authentication,authorization,cryptography \
-  --output report.json
+# Use dedicated security scanning tools
+# Example with trivy for configuration scanning
+trivy config /etc/keystone-core/
 
-# Test specific vulnerabilities
-kscorectl secrets pentest run \
-  --test AUTH-001,CRYPTO-002
+# Use vault-benchmark for Vault security testing
+vault-benchmark check --all
 ```
 
 ### Test Categories

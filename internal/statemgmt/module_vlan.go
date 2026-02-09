@@ -70,13 +70,14 @@ func (m *VLANModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 			result.Diff["vlan"] = map[string]string{"current": "absent", "desired": "present"}
 		} else {
 			// Check if VLAN ID and parent match
-			if config.ID != currentID {
+			switch {
+			case config.ID != currentID:
 				result.Matches = false
 				result.Diff["vlan_id"] = map[string]int{"current": currentID, "desired": config.ID}
-			} else if config.Parent != currentParent {
+			case config.Parent != currentParent:
 				result.Matches = false
 				result.Diff["parent"] = map[string]string{"current": currentParent, "desired": config.Parent}
-			} else {
+			default:
 				result.Matches = true
 			}
 		}
@@ -87,7 +88,7 @@ func (m *VLANModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the VLAN configuration
@@ -108,7 +109,7 @@ func (m *VLANModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check platform support
@@ -117,7 +118,7 @@ func (m *VLANModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("VLAN interfaces are not supported on %s", runtime.GOOS)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -127,7 +128,7 @@ func (m *VLANModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -137,28 +138,26 @@ func (m *VLANModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect network manager
-	nm, err := m.detectNetworkManager()
+	nm, err := m.detectNetworkManager(ctx)
 	if err != nil {
 		result.Error = err
 		result.Comment = fmt.Sprintf("Failed to detect network manager: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
 	var applyErr error
 	switch decl.State {
 	case "present":
-		// If VLAN exists but with different config, delete first
+		// If VLAN exists but with different config, delete first - best-effort
 		if checkResult.Present && len(checkResult.Diff) > 0 {
-			if err := m.deleteVLAN(ctx, nm, config); err != nil {
-				// Continue anyway, createVLAN might succeed
-			}
+			_ = m.deleteVLAN(ctx, nm, config)
 		}
 		applyErr = m.createVLAN(ctx, nm, config, result)
 	case "absent":
@@ -182,7 +181,7 @@ func (m *VLANModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the VLAN is in the desired state
@@ -191,7 +190,7 @@ func (m *VLANModule) Test(ctx context.Context, decl *StateDeclaration) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseVLANConfig extracts VLAN configuration from declaration parameters
@@ -230,7 +229,7 @@ func (m *VLANModule) parseVLANConfig(decl *StateDeclaration) (*VLANConfig, error
 		return nil, fmt.Errorf("VLAN ID must be between 1 and 4094, got %d", config.ID)
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // checkVLANExists checks if a VLAN interface exists and returns its ID and parent
@@ -244,13 +243,13 @@ func (m *VLANModule) checkVLANExists(ctx context.Context, config *VLANConfig) (e
 }
 
 // checkVLANExistsLinux checks VLAN existence on Linux
-func (m *VLANModule) checkVLANExistsLinux(ctx context.Context, config *VLANConfig) (bool, int, string, error) {
+func (m *VLANModule) checkVLANExistsLinux(ctx context.Context, config *VLANConfig) (exists bool, vlanID int, parentIface string, err error) {
 	// Use ip link show to check if interface exists and is a VLAN
 	cmd := exec.CommandContext(ctx, "ip", "-d", "link", "show", config.Name)
 	output, err := cmd.Output()
 	if err != nil {
 		// Interface doesn't exist
-		return false, 0, "", nil
+		return false, 0, "", nil //nolint:nilerr // interface not existing is a valid state
 	}
 
 	// Parse output to extract VLAN info
@@ -258,11 +257,10 @@ func (m *VLANModule) checkVLANExistsLinux(ctx context.Context, config *VLANConfi
 	outputStr := string(output)
 	if !strings.Contains(outputStr, "vlan protocol") {
 		// Interface exists but is not a VLAN
-		return false, 0, "", nil
+		return false, 0, "", nil //nolint:nilerr // non-VLAN interface is a valid state
 	}
 
 	// Extract VLAN ID
-	var vlanID int
 	lines := strings.Split(outputStr, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "vlan protocol") {
@@ -290,37 +288,37 @@ func (m *VLANModule) checkVLANExistsLinux(ctx context.Context, config *VLANConfi
 		}
 	}
 
-	return true, vlanID, parent, nil
+	return true, vlanID, parent, nil //nolint:nilerr // returning parsed VLAN info, no error
 }
 
 // detectNetworkManager detects the available network manager on Linux
-func (m *VLANModule) detectNetworkManager() (NetworkManager, error) {
+func (m *VLANModule) detectNetworkManager(ctx context.Context) (NetworkManager, error) {
 	// Check for nmcli (NetworkManager)
 	if _, err := exec.LookPath("nmcli"); err == nil {
-		cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+		cmd := exec.CommandContext(ctx,"systemctl", "is-active", "NetworkManager")
 		if err := cmd.Run(); err == nil {
-			return NMNetworkManager, nil
+			return NMNetworkManager, nil //nolint:nilerr // NetworkManager active, returning its type
 		}
 	}
 
 	// Check for netplan
 	if _, err := exec.LookPath("netplan"); err == nil {
-		return NMNetplan, nil
+		return NMNetplan, nil //nolint:nilerr // netplan available, returning its type
 	}
 
 	// Check for systemd-networkd
-	cmd := exec.Command("systemctl", "is-active", "systemd-networkd")
+	cmd := exec.CommandContext(ctx,"systemctl", "is-active", "systemd-networkd")
 	if err := cmd.Run(); err == nil {
-		return NMSystemdNetworkd, nil
+		return NMSystemdNetworkd, nil //nolint:nilerr // intentional
 	}
 
 	// Check for ifupdown
 	if _, err := exec.LookPath("ifup"); err == nil {
-		return NMIfupdown, nil
+		return NMIfupdown, nil //nolint:nilerr // intentional
 	}
 
 	// Fallback to raw ip commands
-	return NMUnknown, nil
+	return NMUnknown, nil //nolint:nilerr // intentional
 }
 
 // createVLAN creates a VLAN interface
@@ -355,7 +353,7 @@ func (m *VLANModule) deleteVLAN(ctx context.Context, nm NetworkManager, config *
 		return nil
 	case NMNetplan:
 		// Remove netplan file and apply
-		netplanFile := filepath.Join("/etc/netplan", fmt.Sprintf("90-kscore-vlan-%s.yaml", config.Name))
+		netplanFile := filepath.Join("/etc", "netplan", fmt.Sprintf("90-kscore-vlan-%s.yaml", config.Name))
 		if err := os.Remove(netplanFile); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove netplan file: %w", err)
 		}
@@ -407,8 +405,7 @@ func (m *VLANModule) createVLANNmcli(ctx context.Context, config *VLANConfig, re
 
 	// Add IP configuration
 	if len(config.Addresses) > 0 {
-		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","))
-		args = append(args, "ipv4.method", "manual")
+		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","), "ipv4.method", "manual")
 	} else {
 		args = append(args, "ipv4.method", "disabled")
 	}
@@ -442,7 +439,8 @@ func (m *VLANModule) createVLANNetplan(ctx context.Context, config *VLANConfig, 
 	netplanDir := "/etc/netplan"
 	netplanFile := filepath.Join(netplanDir, fmt.Sprintf("90-kscore-vlan-%s.yaml", config.Name))
 
-	if err := os.MkdirAll(netplanDir, 0755); err != nil {
+	//nolint:gosec // G301: netplan directory needs system access
+	if err := os.MkdirAll(netplanDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create netplan directory: %w", err)
 	}
 
@@ -472,7 +470,7 @@ func (m *VLANModule) createVLANNetplan(ctx context.Context, config *VLANConfig, 
 		content.WriteString("      nameservers:\n")
 		content.WriteString("        addresses:\n")
 		for _, dns := range config.DNS {
-			content.WriteString(fmt.Sprintf("          - \"%s\"\n", dns))
+			content.WriteString(fmt.Sprintf("          - %q\n", dns))
 		}
 	}
 
@@ -480,7 +478,7 @@ func (m *VLANModule) createVLANNetplan(ctx context.Context, config *VLANConfig, 
 		content.WriteString(fmt.Sprintf("      mtu: %d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(netplanFile, content.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(netplanFile, content.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("failed to write netplan file: %w", err)
 	}
 
@@ -496,7 +494,8 @@ func (m *VLANModule) createVLANNetplan(ctx context.Context, config *VLANConfig, 
 // createVLANSystemdNetworkd creates a VLAN using systemd-networkd
 func (m *VLANModule) createVLANSystemdNetworkd(ctx context.Context, config *VLANConfig, result *StateResult) error {
 	networkDir := "/etc/systemd/network"
-	if err := os.MkdirAll(networkDir, 0755); err != nil {
+	//nolint:gosec // G301: systemd network directory needs system access
+	if err := os.MkdirAll(networkDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create network directory: %w", err)
 	}
 
@@ -510,7 +509,8 @@ func (m *VLANModule) createVLANSystemdNetworkd(ctx context.Context, config *VLAN
 	netdevContent.WriteString("\n[VLAN]\n")
 	netdevContent.WriteString(fmt.Sprintf("Id=%d\n", config.ID))
 
-	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: netdev files need to be readable by systemd-networkd
+	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write netdev file: %w", err)
 	}
 
@@ -541,7 +541,8 @@ func (m *VLANModule) createVLANSystemdNetworkd(ctx context.Context, config *VLAN
 		networkContent.WriteString(fmt.Sprintf("MTUBytes=%d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: network files need to be readable by systemd-networkd
+	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write network file: %w", err)
 	}
 
@@ -552,7 +553,8 @@ func (m *VLANModule) createVLANSystemdNetworkd(ctx context.Context, config *VLAN
 		if !strings.Contains(string(parentContent), fmt.Sprintf("VLAN=%s", config.Name)) {
 			// Append VLAN reference to [Network] section
 			newContent := strings.Replace(string(parentContent), "[Network]\n", fmt.Sprintf("[Network]\nVLAN=%s\n", config.Name), 1)
-			os.WriteFile(parentNetworkFile, []byte(newContent), 0644)
+			//nolint:gosec // G306: network files need to be readable by systemd-networkd
+			_ = os.WriteFile(parentNetworkFile, []byte(newContent), 0o644) //nolint:errcheck // best-effort parent update
 		}
 	}
 
@@ -612,7 +614,8 @@ func (m *VLANModule) createVLANIfupdown(ctx context.Context, config *VLANConfig,
 
 	// Append to interfaces file
 	newContent := string(content) + vlanStanza.String()
-	if err := os.WriteFile(interfacesFile, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: interfaces file needs to be readable by ifupdown
+	if err := os.WriteFile(interfacesFile, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write interfaces file: %w", err)
 	}
 
@@ -664,5 +667,5 @@ func (m *VLANModule) createVLANRaw(ctx context.Context, config *VLANConfig, resu
 }
 
 func init() {
-	RegisterModule(NewVLANModule())
+	_ = RegisterModule(NewVLANModule()) //nolint:errcheck // module registration in init
 }

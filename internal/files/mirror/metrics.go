@@ -12,15 +12,15 @@ import (
 	"time"
 )
 
-// MirrorMetrics collects metrics for mirror operations.
-type MirrorMetrics struct {
+// Metrics collects metrics for mirror operations.
+type Metrics struct {
 	mu sync.RWMutex
 
 	// Group metrics
 	groupCount int
 
 	// Mirror metrics by group and mirror
-	mirrorHealth map[string]map[string]MirrorState
+	mirrorHealth map[string]map[string]State
 
 	// Operation counts
 	readOperations  map[string]int64 // by group
@@ -50,10 +50,10 @@ type MirrorMetrics struct {
 	latencyBuckets []float64
 }
 
-// NewMirrorMetrics creates a new metrics collector.
-func NewMirrorMetrics() *MirrorMetrics {
-	return &MirrorMetrics{
-		mirrorHealth:            make(map[string]map[string]MirrorState),
+// NewMetrics creates a new metrics collector.
+func NewMetrics() *Metrics {
+	return &Metrics{
+		mirrorHealth:            make(map[string]map[string]State),
 		readOperations:          make(map[string]int64),
 		writeOperations:         make(map[string]int64),
 		readBytes:               make(map[string]int64),
@@ -77,24 +77,24 @@ func NewMirrorMetrics() *MirrorMetrics {
 }
 
 // SetGroupCount sets the number of mirror groups.
-func (m *MirrorMetrics) SetGroupCount(count int) {
+func (m *Metrics) SetGroupCount(count int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.groupCount = count
 }
 
 // SetMirrorHealth sets the health state for a mirror.
-func (m *MirrorMetrics) SetMirrorHealth(groupID, mirrorID string, state MirrorState) {
+func (m *Metrics) SetMirrorHealth(groupID, mirrorID string, state State) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.mirrorHealth[groupID] == nil {
-		m.mirrorHealth[groupID] = make(map[string]MirrorState)
+		m.mirrorHealth[groupID] = make(map[string]State)
 	}
 	m.mirrorHealth[groupID][mirrorID] = state
 }
 
 // RecordRead records a read operation.
-func (m *MirrorMetrics) RecordRead(groupID string, bytes int64, latency time.Duration, err error) {
+func (m *Metrics) RecordRead(groupID string, bytes int64, latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -108,7 +108,7 @@ func (m *MirrorMetrics) RecordRead(groupID string, bytes int64, latency time.Dur
 }
 
 // RecordWrite records a write operation.
-func (m *MirrorMetrics) RecordWrite(groupID string, bytes int64, latency time.Duration, err error) {
+func (m *Metrics) RecordWrite(groupID string, bytes int64, latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -122,7 +122,7 @@ func (m *MirrorMetrics) RecordWrite(groupID string, bytes int64, latency time.Du
 }
 
 // RecordSyncOperation records a sync operation.
-func (m *MirrorMetrics) RecordSyncOperation(groupID string, succeeded bool, bytes int64, files int, latency time.Duration) {
+func (m *Metrics) RecordSyncOperation(groupID string, succeeded bool, bytes int64, files int, latency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -142,21 +142,21 @@ func (m *MirrorMetrics) RecordSyncOperation(groupID string, succeeded bool, byte
 }
 
 // SetActiveSyncOperations sets the number of active sync operations.
-func (m *MirrorMetrics) SetActiveSyncOperations(groupID string, count int64) {
+func (m *Metrics) SetActiveSyncOperations(groupID string, count int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.syncOperationsActive[groupID] = count
 }
 
 // RecordConflict records a sync conflict.
-func (m *MirrorMetrics) RecordConflict(groupID string) {
+func (m *Metrics) RecordConflict(groupID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.syncConflicts[groupID]++
 }
 
 // recordLatencyBucket records a latency in the appropriate bucket.
-func (m *MirrorMetrics) recordLatencyBucket(buckets map[string][]int64, groupID string, latency time.Duration) {
+func (m *Metrics) recordLatencyBucket(buckets map[string][]int64, groupID string, latency time.Duration) {
 	if buckets[groupID] == nil {
 		buckets[groupID] = make([]int64, len(m.latencyBuckets)+1)
 	}
@@ -173,7 +173,7 @@ func (m *MirrorMetrics) recordLatencyBucket(buckets map[string][]int64, groupID 
 }
 
 // Export returns all metrics in Prometheus text format.
-func (m *MirrorMetrics) Export() string {
+func (m *Metrics) Export() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -190,7 +190,7 @@ func (m *MirrorMetrics) Export() string {
 	for groupID, mirrors := range m.mirrorHealth {
 		for mirrorID, state := range mirrors {
 			healthy := 0
-			if state == MirrorStateHealthy {
+			if state == StateHealthy {
 				healthy = 1
 			}
 			fmt.Fprintf(&sb, "kscore_mirror_health{group=\"%s\",mirror=\"%s\",state=\"%s\"} %d\n",
@@ -308,7 +308,7 @@ func (m *MirrorMetrics) Export() string {
 }
 
 // writeHistogram writes a histogram in Prometheus format.
-func (m *MirrorMetrics) writeHistogram(sb *strings.Builder, name, help string, buckets map[string][]int64) {
+func (m *Metrics) writeHistogram(sb *strings.Builder, name, help string, buckets map[string][]int64) {
 	if len(buckets) == 0 {
 		return
 	}
@@ -342,7 +342,7 @@ func (m *MirrorMetrics) writeHistogram(sb *strings.Builder, name, help string, b
 }
 
 // MetricsHandler returns an HTTP handler for Prometheus metrics.
-func (m *MirrorMetrics) MetricsHandler() func(w http.ResponseWriter, r *http.Request) {
+func (m *Metrics) MetricsHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		if _, err := io.WriteString(w, m.Export()); err != nil { // nosemgrep: go.lang.security.audit.xss.no-io-writestring-to-responsewriter.no-io-writestring-to-responsewriter -- Prometheus text format, not HTML
@@ -352,7 +352,7 @@ func (m *MirrorMetrics) MetricsHandler() func(w http.ResponseWriter, r *http.Req
 }
 
 // CollectFromRegistry collects metrics from a mirror registry.
-func (m *MirrorMetrics) CollectFromRegistry(registry *Registry) {
+func (m *Metrics) CollectFromRegistry(registry *Registry) {
 	groups := registry.List()
 	m.SetGroupCount(len(groups))
 
@@ -366,7 +366,7 @@ func (m *MirrorMetrics) CollectFromRegistry(registry *Registry) {
 }
 
 // CollectFromSyncEngine collects metrics from a sync engine.
-func (m *MirrorMetrics) CollectFromSyncEngine(engine *SyncEngine) {
+func (m *Metrics) CollectFromSyncEngine(engine *SyncEngine) {
 	if engine == nil {
 		return
 	}

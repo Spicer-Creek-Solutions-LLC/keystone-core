@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestDefaultPolicy(t *testing.T) {
 	policy := DefaultPolicy()
 
-	if policy.Mode != ExecutionModeNormal {
+	if policy.Mode != ModeNormal {
 		t.Errorf("DefaultPolicy mode = %v, want normal", policy.Mode)
 	}
 	if !policy.AllowShellExecution {
@@ -23,7 +24,7 @@ func TestStrictPolicy(t *testing.T) {
 	allowedCmds := []string{"ls", "cat", "echo"}
 	policy := StrictPolicy(allowedCmds)
 
-	if policy.Mode != ExecutionModeStrict {
+	if policy.Mode != ModeStrict {
 		t.Errorf("StrictPolicy mode = %v, want strict", policy.Mode)
 	}
 	if policy.AllowShellExecution {
@@ -44,7 +45,7 @@ func TestValidate_EmptyCommand(t *testing.T) {
 	tests := []string{"", "   ", "\t", "\n"}
 	for _, cmd := range tests {
 		err := policy.Validate(cmd)
-		if err != ErrEmptyCommand {
+		if !errors.Is(err, ErrEmptyCommand) {
 			t.Errorf("Validate(%q) = %v, want ErrEmptyCommand", cmd, err)
 		}
 	}
@@ -187,7 +188,7 @@ func TestValidate_AllowedCommands_StrictMode(t *testing.T) {
 
 func TestValidate_PermissiveMode(t *testing.T) {
 	policy := DefaultPolicy()
-	policy.SetMode(ExecutionModePermissive)
+	policy.SetMode(ModePermissive)
 
 	// Most commands should pass in permissive mode
 	tests := []string{
@@ -300,7 +301,7 @@ func TestAddRemoveAllowedCommand(t *testing.T) {
 
 func TestAddBlockedCommand(t *testing.T) {
 	policy := DefaultPolicy()
-	policy.SetMode(ExecutionModePermissive)
+	policy.SetMode(ModePermissive)
 
 	// "mycommand" should be allowed initially in permissive mode
 	err := policy.Validate("mycommand arg")
@@ -472,7 +473,7 @@ func TestConcurrentPolicyAccess(t *testing.T) {
 	go func() {
 		for i := 0; i < 100; i++ {
 			policy.AddBlockedCommand("cmd2")
-			policy.SetMode(ExecutionModeNormal)
+			policy.SetMode(ModeNormal)
 		}
 		done <- true
 	}()

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render state files, not HTML responses
+	"unicode"
 )
 
 // TemplateContext holds data for template rendering
@@ -54,13 +55,28 @@ func (r *TemplateRenderer) Render(templateStr string, ctx *TemplateContext) (str
 	return buf.String(), nil
 }
 
+// titleCase converts a string to title case.
+// It capitalizes the first letter of each word, where a word is defined
+// as starting after whitespace or at the beginning of the string.
+func titleCase(s string) string {
+	prev := ' '
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(prev) {
+			prev = r
+			return unicode.ToTitle(r)
+		}
+		prev = r
+		return r
+	}, s)
+}
+
 // getTemplateFunctions returns custom template functions
 func getTemplateFunctions() template.FuncMap {
 	return template.FuncMap{
 		// String functions
-		"upper":     strings.ToUpper,
-		"lower":     strings.ToLower,
-		"title":     strings.Title,
+		"upper": strings.ToUpper,
+		"lower": strings.ToLower,
+		"title": titleCase,
 		"trim":      strings.TrimSpace,
 		"split":     strings.Split,
 		"join":      strings.Join,

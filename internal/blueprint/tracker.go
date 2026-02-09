@@ -27,7 +27,7 @@ type TrackerConfig struct {
 // DefaultTrackerConfig returns default tracker configuration.
 func DefaultTrackerConfig() *TrackerConfig {
 	return &TrackerConfig{
-		StorePath:          "/var/lib/kscore/blueprint-tracker.json",
+		StorePath:          "/var/lib/keystone-core/blueprint-tracker.json",
 		MaxHistoryPerAgent: 100,
 		PersistOnChange:    true,
 	}
@@ -87,8 +87,8 @@ type AppliedBlueprintInfo struct {
 	Checksum string `json:"checksum,omitempty"`
 }
 
-// BlueprintHistoryEntry represents a single history entry.
-type BlueprintHistoryEntry struct {
+// HistoryEntry represents a single history entry.
+type HistoryEntry struct {
 	// Timestamp is when this action occurred.
 	Timestamp time.Time `json:"timestamp"`
 
@@ -126,7 +126,7 @@ type AgentHistory struct {
 	AgentID string `json:"agent_id"`
 
 	// Entries are the history entries, newest first.
-	Entries []BlueprintHistoryEntry `json:"entries"`
+	Entries []HistoryEntry `json:"entries"`
 }
 
 // TrackerData is the full tracker data structure for persistence.
@@ -210,7 +210,7 @@ func (t *Tracker) RecordApply(agentID string, blueprint *AppliedBlueprintInfo, t
 	state.LastUpdated = time.Now()
 
 	// Record history
-	t.addHistoryEntry(agentID, BlueprintHistoryEntry{
+	t.addHistoryEntry(agentID, HistoryEntry{
 		Timestamp:     time.Now(),
 		Action:        "applied",
 		BlueprintName: blueprint.Name,
@@ -247,7 +247,7 @@ func (t *Tracker) RecordRemove(agentID, namespace, triggeredBy string, duration 
 	}
 
 	// Record history before removing
-	t.addHistoryEntry(agentID, BlueprintHistoryEntry{
+	t.addHistoryEntry(agentID, HistoryEntry{
 		Timestamp:     time.Now(),
 		Action:        "removed",
 		BlueprintName: existing.Name,
@@ -299,7 +299,7 @@ func (t *Tracker) RecordRollback(agentID, namespace, toVersion, triggeredBy stri
 	state.LastUpdated = time.Now()
 
 	// Record history
-	t.addHistoryEntry(agentID, BlueprintHistoryEntry{
+	t.addHistoryEntry(agentID, HistoryEntry{
 		Timestamp:     time.Now(),
 		Action:        "rolled_back",
 		BlueprintName: existing.Name,
@@ -362,7 +362,7 @@ func (t *Tracker) GetAppliedBlueprint(agentID, namespace string) *AppliedBluepri
 }
 
 // GetAgentHistory returns the history for an agent.
-func (t *Tracker) GetAgentHistory(agentID string, limit int) []BlueprintHistoryEntry {
+func (t *Tracker) GetAgentHistory(agentID string, limit int) []HistoryEntry {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
@@ -376,7 +376,7 @@ func (t *Tracker) GetAgentHistory(agentID string, limit int) []BlueprintHistoryE
 	}
 
 	// Return copies
-	result := make([]BlueprintHistoryEntry, limit)
+	result := make([]HistoryEntry, limit)
 	copy(result, history.Entries[:limit])
 	return result
 }
@@ -422,7 +422,8 @@ func (t *Tracker) FindRollbackTarget(agentID, namespace string) (string, error) 
 
 	// Find the most recent successful apply before the current one
 	foundCurrent := false
-	for _, entry := range history.Entries {
+	for i := range history.Entries {
+		entry := &history.Entries[i]
 		if entry.Namespace != namespace {
 			continue
 		}
@@ -482,13 +483,15 @@ func (t *Tracker) save() error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(t.config.StorePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: tracker directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Write atomically
 	tmpPath := t.config.StorePath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	//nolint:gosec // G306: tracker data needs to be readable for status queries
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write tracker data: %w", err)
 	}
 
@@ -510,7 +513,7 @@ func (t *Tracker) ClearAgent(agentID string) {
 }
 
 // addHistoryEntry adds a history entry (caller must hold lock).
-func (t *Tracker) addHistoryEntry(agentID string, entry BlueprintHistoryEntry) {
+func (t *Tracker) addHistoryEntry(agentID string, entry HistoryEntry) {
 	history, ok := t.data.History[agentID]
 	if !ok {
 		history = &AgentHistory{
@@ -520,7 +523,7 @@ func (t *Tracker) addHistoryEntry(agentID string, entry BlueprintHistoryEntry) {
 	}
 
 	// Prepend to entries (newest first)
-	history.Entries = append([]BlueprintHistoryEntry{entry}, history.Entries...)
+	history.Entries = append([]HistoryEntry{entry}, history.Entries...)
 
 	// Trim if over limit
 	if len(history.Entries) > t.config.MaxHistoryPerAgent {

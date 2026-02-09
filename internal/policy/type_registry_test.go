@@ -523,9 +523,9 @@ type testHandler struct {
 	validateFunc func(policy *Policy) error
 }
 
-func (h *testHandler) Type() PolicyType        { return h.typeValue }
-func (h *testHandler) Name() string            { return h.name }
-func (h *testHandler) Description() string     { return h.description }
+func (h *testHandler) Type() PolicyType                   { return h.typeValue }
+func (h *testHandler) Name() string                       { return h.name }
+func (h *testHandler) Description() string                { return h.description }
 func (h *testHandler) SupportedFeatures() []PolicyFeature { return h.features }
 
 func (h *testHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {

@@ -83,7 +83,7 @@ identity:
     key_type: "ecdsa-p256"    # ecdsa-p256, ecdsa-p384, rsa-2048, rsa-4096
     root_ttl: 87600h          # 10 years
     signing_ttl: 8760h        # 1 year
-    data_dir: "/var/lib/kscore/identity"
+    data_dir: "/var/lib/keystone-core/identity"
 
   # Attestation configuration
   attestation:
@@ -160,7 +160,7 @@ identity:
 #### Step 3: Start the Agent
 
 ```bash
-kscore-agent --config /etc/kscore/agent.yaml
+kscore-agent --config /etc/keystone-core/agent.yaml
 ```
 
 The agent will:
@@ -551,7 +551,7 @@ flowchart TB
 CA certificates and keys are stored securely:
 
 ```
-/var/lib/kscore/identity/
+/var/lib/keystone-core/identity/
 ├── root-ca.crt           # Root CA certificate (public)
 ├── root-ca.key           # Root CA private key (600 permissions)
 ├── signing-ca.crt        # Signing CA certificate (public)
@@ -573,7 +573,7 @@ Back up CA data regularly:
 
 ```bash
 # Backup
-tar -czvf kscore-ca-backup.tar.gz /var/lib/kscore/identity/
+tar -czvf kscore-ca-backup.tar.gz /var/lib/keystone-core/identity/
 
 # Restore
 tar -xzvf kscore-ca-backup.tar.gz -C /
@@ -594,15 +594,15 @@ identity:
       method: "encrypted"  # plaintext, encrypted, hsm
       encryption_key_env_var: "KSCORE_CA_KEK"
       # Or load from file:
-      # encryption_key_file: "/etc/kscore/kek.key"
+      # encryption_key_file: "/etc/keystone-core/kek.key"
 ```
 
 Generate a Key Encryption Key (KEK):
 
 ```bash
 # Generate 256-bit KEK
-openssl rand -base64 32 > /etc/kscore/kek.key
-chmod 600 /etc/kscore/kek.key
+openssl rand -base64 32 > /etc/keystone-core/kek.key
+chmod 600 /etc/keystone-core/kek.key
 
 # Or set as environment variable
 export KSCORE_CA_KEK=$(openssl rand -base64 32)

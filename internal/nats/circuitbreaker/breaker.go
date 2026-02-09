@@ -44,27 +44,27 @@ func (s State) String() string {
 
 // Config configures a circuit breaker.
 type Config struct {
-	Name               string        `json:"name"`
-	MaxFailures        int64         `json:"maxFailures"`
-	Timeout            time.Duration `json:"timeout"`
-	HalfOpenMaxRequests int64        `json:"halfOpenMaxRequests"`
-	SuccessThreshold   int64         `json:"successThreshold"`
-	FailureRateThreshold float64     `json:"failureRateThreshold"`
-	MinRequests        int64         `json:"minRequests"`
-	WindowSize         time.Duration `json:"windowSize"`
+	Name                 string        `json:"name"`
+	MaxFailures          int64         `json:"maxFailures"`
+	Timeout              time.Duration `json:"timeout"`
+	HalfOpenMaxRequests  int64         `json:"halfOpenMaxRequests"`
+	SuccessThreshold     int64         `json:"successThreshold"`
+	FailureRateThreshold float64       `json:"failureRateThreshold"`
+	MinRequests          int64         `json:"minRequests"`
+	WindowSize           time.Duration `json:"windowSize"`
 }
 
 // DefaultConfig returns a default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Name:                "default",
-		MaxFailures:         5,
-		Timeout:             30 * time.Second,
-		HalfOpenMaxRequests: 3,
-		SuccessThreshold:    3,
+		Name:                 "default",
+		MaxFailures:          5,
+		Timeout:              30 * time.Second,
+		HalfOpenMaxRequests:  3,
+		SuccessThreshold:     3,
 		FailureRateThreshold: 0.5,
-		MinRequests:         10,
-		WindowSize:          60 * time.Second,
+		MinRequests:          10,
+		WindowSize:           60 * time.Second,
 	}
 }
 
@@ -96,13 +96,13 @@ func (c *Counts) Reset() {
 
 // Breaker implements the circuit breaker pattern.
 type Breaker struct {
-	config    *Config
-	state     int32 // atomic State
-	counts    Counts
-	lastFailure time.Time
-	openedAt  time.Time
-	mu        sync.RWMutex
-	listeners []StateChangeListener
+	config           *Config
+	state            int32 // atomic State
+	counts           Counts
+	lastFailure      time.Time
+	openedAt         time.Time
+	mu               sync.RWMutex
+	listeners        []StateChangeListener
 	halfOpenRequests int64 // atomic
 }
 
@@ -242,6 +242,8 @@ func (b *Breaker) RecordFailure() {
 	case StateHalfOpen:
 		// Any failure in half-open returns to open
 		b.transitionTo(StateOpen)
+
+	default:
 	}
 }
 
@@ -369,8 +371,8 @@ func (b *Breaker) emit(event *StateChangeEvent) {
 
 // Registry manages multiple circuit breakers.
 type Registry struct {
-	breakers map[string]*Breaker
-	mu       sync.RWMutex
+	breakers      map[string]*Breaker
+	mu            sync.RWMutex
 	defaultConfig *Config
 }
 
@@ -517,13 +519,13 @@ func (w *WrappedFunc[T]) Execute() (T, error) {
 
 // WindowedBreaker uses a sliding window for failure tracking.
 type WindowedBreaker struct {
-	config    *Config
-	state     int32 // atomic State
-	windows   []windowEntry
-	windowMu  sync.RWMutex
-	openedAt  time.Time
-	listeners []StateChangeListener
-	listenerMu sync.RWMutex
+	config           *Config
+	state            int32 // atomic State
+	windows          []windowEntry
+	windowMu         sync.RWMutex
+	openedAt         time.Time
+	listeners        []StateChangeListener
+	listenerMu       sync.RWMutex
 	halfOpenRequests int64 // atomic
 }
 
@@ -627,6 +629,8 @@ func (b *WindowedBreaker) RecordFailure() {
 
 	case StateHalfOpen:
 		b.transitionTo(StateOpen)
+
+	default:
 	}
 }
 

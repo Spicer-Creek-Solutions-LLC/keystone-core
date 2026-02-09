@@ -20,7 +20,7 @@ func TestCheckpointManager_Initialize(t *testing.T) {
 		{Name: PhaseInstall},
 	}
 
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NodeRole: "agent",
 	}
 
@@ -142,7 +142,7 @@ func TestCheckpointManager_PhaseLifecycle(t *testing.T) {
 	}
 
 	// Complete phase
-	artifacts := []string{"/etc/kscore/config.yaml", "/var/lib/kscore/data.db"}
+	artifacts := []string{"/etc/keystone-core/config.yaml", "/var/lib/keystone-core/data.db"}
 	err = mgr.CompletePhase(0, artifacts)
 	if err != nil {
 		t.Fatalf("CompletePhase() error = %v", err)
@@ -336,7 +336,7 @@ func TestCheckpointManager_InstallArtifacts(t *testing.T) {
 	artifacts := &InstallArtifacts{
 		PackageManager: "apt",
 		Packages:       []string{"kscore-server", "kscore-agent"},
-		CreatedFiles:   []string{"/etc/kscore/config.yaml"},
+		CreatedFiles:   []string{"/etc/keystone-core/config.yaml"},
 	}
 
 	err := mgr.SetInstallArtifacts(artifacts)

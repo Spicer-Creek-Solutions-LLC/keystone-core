@@ -14,9 +14,9 @@ type InMemoryModuleCache struct {
 }
 
 type cacheEntry struct {
-	result     *LoadResult
-	insertTime time.Time
-	accessTime time.Time
+	result      *LoadResult
+	insertTime  time.Time
+	accessTime  time.Time
 	accessCount int
 }
 
@@ -30,7 +30,7 @@ func NewInMemoryModuleCache(maxSize int, ttl time.Duration) *InMemoryModuleCache
 }
 
 // Get retrieves a cached module by path and hash
-func (c *InMemoryModuleCache) Get(modulePath string, contentHash string) (*LoadResult, bool) {
+func (c *InMemoryModuleCache) Get(modulePath, contentHash string) (*LoadResult, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -54,7 +54,7 @@ func (c *InMemoryModuleCache) Get(modulePath string, contentHash string) (*LoadR
 }
 
 // Put stores a loaded module in cache
-func (c *InMemoryModuleCache) Put(modulePath string, contentHash string, result *LoadResult) {
+func (c *InMemoryModuleCache) Put(modulePath, contentHash string, result *LoadResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -136,12 +136,12 @@ func (c *InMemoryModuleCache) CleanupExpired() {
 }
 
 // cacheKey generates a cache key from module path and content hash
-func cacheKey(modulePath string, contentHash string) string {
+func cacheKey(modulePath, contentHash string) string {
 	return modulePath + ":" + contentHash
 }
 
 // matchesPath checks if a cache key matches a module path
-func matchesPath(key string, path string) bool {
+func matchesPath(key, path string) bool {
 	// Simple prefix match - in production would parse the key properly
 	return len(key) > len(path) && key[:len(path)] == path
 }

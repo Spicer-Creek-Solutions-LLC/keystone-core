@@ -203,9 +203,9 @@ func (l *InMemoryBootstrapAuditLogger) GetEvents() []BootstrapAuditEvent {
 // GetEventsByType returns events filtered by type
 func (l *InMemoryBootstrapAuditLogger) GetEventsByType(eventType string) []BootstrapAuditEvent {
 	var result []BootstrapAuditEvent
-	for _, event := range l.events {
-		if event.EventType == eventType {
-			result = append(result, event)
+	for i := range l.events {
+		if l.events[i].EventType == eventType {
+			result = append(result, l.events[i])
 		}
 	}
 	return result
@@ -214,9 +214,9 @@ func (l *InMemoryBootstrapAuditLogger) GetEventsByType(eventType string) []Boots
 // GetEventsByCredentialID returns events for a specific credential
 func (l *InMemoryBootstrapAuditLogger) GetEventsByCredentialID(credentialID string) []BootstrapAuditEvent {
 	var result []BootstrapAuditEvent
-	for _, event := range l.events {
-		if event.CredentialID == credentialID {
-			result = append(result, event)
+	for i := range l.events {
+		if l.events[i].CredentialID == credentialID {
+			result = append(result, l.events[i])
 		}
 	}
 	return result
@@ -225,9 +225,9 @@ func (l *InMemoryBootstrapAuditLogger) GetEventsByCredentialID(credentialID stri
 // GetEventsByAgentID returns events for a specific agent
 func (l *InMemoryBootstrapAuditLogger) GetEventsByAgentID(agentID string) []BootstrapAuditEvent {
 	var result []BootstrapAuditEvent
-	for _, event := range l.events {
-		if event.AgentID == agentID {
-			result = append(result, event)
+	for i := range l.events {
+		if l.events[i].AgentID == agentID {
+			result = append(result, l.events[i])
 		}
 	}
 	return result
@@ -236,9 +236,9 @@ func (l *InMemoryBootstrapAuditLogger) GetEventsByAgentID(agentID string) []Boot
 // GetFailedEvents returns all failed events
 func (l *InMemoryBootstrapAuditLogger) GetFailedEvents() []BootstrapAuditEvent {
 	var result []BootstrapAuditEvent
-	for _, event := range l.events {
-		if !event.Success {
-			result = append(result, event)
+	for i := range l.events {
+		if !l.events[i].Success {
+			result = append(result, l.events[i])
 		}
 	}
 	return result

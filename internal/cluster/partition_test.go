@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -637,7 +638,7 @@ func TestNetworkPartition_ContextTimeout(t *testing.T) {
 	if err == nil {
 		t.Error("Expected timeout error")
 	}
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Expected DeadlineExceeded, got %v", err)
 	}
 }

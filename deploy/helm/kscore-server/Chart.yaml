@@ -11,9 +11,9 @@ keywords:
   - configuration-management
   - nats
   - salt-alternative
-home: https://github.com/keystone-core/keystone-core
+home: https://github.com/shawnbutts/keystone-core
 sources:
-  - https://github.com/keystone-core/keystone-core
+  - https://github.com/shawnbutts/keystone-core
 maintainers:
   - name: Keystone Core Team
 icon: https://raw.githubusercontent.com/keystone-core/keystone-core/main/docs/static/images/logo.png

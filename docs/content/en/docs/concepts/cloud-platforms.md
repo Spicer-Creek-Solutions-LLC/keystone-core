@@ -354,17 +354,16 @@ target:
 Deploy configurations across multiple cloud providers:
 
 ```yaml
-states:
-  file:
-    - id: /etc/app/config.yaml
-      state: present
-      parameters:
-        source: template://config.yaml.tpl
-        mode: "0644"
-      # Template uses cloud facts
-      # {{ if eq .facts.cloud.provider "aws" }}
-      # region: {{ .facts.cloud.region }}
-      # {{ end }}
+file:
+  app_config:
+    state: present
+    name: /etc/app/config.yaml
+    source: template://config.yaml.tpl
+    mode: "0644"
+    # Template uses cloud facts
+    # {{ if eq .facts.cloud.provider "aws" }}
+    # region: {{ .facts.cloud.region }}
+    # {{ end }}
 ```
 
 ### Cloud-Specific Configurations

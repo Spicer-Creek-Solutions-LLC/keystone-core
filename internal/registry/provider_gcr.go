@@ -42,7 +42,7 @@ func (p *GCRCredentialProvider) GetCredential(ctx context.Context, registry stri
 	projectID, _ := p.getMetadata(ctx, "/project/project-id")
 
 	return &Credential{
-		Type:      RegistryTypeGCR,
+		Type:      TypeGCR,
 		Registry:  registry,
 		Username:  "_token",
 		Password:  token,
@@ -61,16 +61,16 @@ func (p *GCRCredentialProvider) IsAvailable() bool {
 	return err == nil
 }
 
-// RegistryType returns the registry type this provider handles.
-func (p *GCRCredentialProvider) RegistryType() RegistryType {
-	return RegistryTypeGCR
+// Type returns the registry type this provider handles.
+func (p *GCRCredentialProvider) Type() Type {
+	return TypeGCR
 }
 
 // getAccessToken retrieves an access token from GCP metadata service.
 func (p *GCRCredentialProvider) getAccessToken(ctx context.Context) (string, time.Time, error) {
 	url := "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -106,7 +106,7 @@ func (p *GCRCredentialProvider) getAccessToken(ctx context.Context) (string, tim
 func (p *GCRCredentialProvider) getMetadata(ctx context.Context, path string) (string, error) {
 	url := "http://metadata.google.internal/computeMetadata/v1" + path
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}

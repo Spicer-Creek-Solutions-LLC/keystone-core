@@ -22,7 +22,7 @@ func TestHandlerRegistry(t *testing.T) {
 	// Test retrieval
 	tests := []struct {
 		name        string
-		webhookType WebhookType
+		webhookType Type
 		wantFound   bool
 	}{
 		{"get argocd", WebhookTypeArgoCD, true},
@@ -48,7 +48,7 @@ func TestDetectType(t *testing.T) {
 	tests := []struct {
 		name    string
 		headers map[string]string
-		want    WebhookType
+		want    Type
 		wantErr bool
 	}{
 		{

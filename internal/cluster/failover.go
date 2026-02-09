@@ -21,6 +21,7 @@ const (
 // FailoverState represents the current state of a failover operation.
 type FailoverState string
 
+// FailoverState constants define the possible states.
 const (
 	FailoverStateIdle       FailoverState = "idle"
 	FailoverStateDetecting  FailoverState = "detecting"
@@ -34,6 +35,7 @@ const (
 // FailoverReason indicates why failover was triggered.
 type FailoverReason string
 
+// FailoverReasonHeartbeatLoss constants define the reasons.
 const (
 	FailoverReasonHeartbeatLoss    FailoverReason = "heartbeat_loss"
 	FailoverReasonHealthCheck      FailoverReason = "health_check_failed"
@@ -81,6 +83,7 @@ type FailoverEvent struct {
 // FailoverEventType identifies failover event types.
 type FailoverEventType string
 
+// FailoverEventStarted constants define the events.
 const (
 	FailoverEventStarted    FailoverEventType = "failover_started"
 	FailoverEventProgress   FailoverEventType = "failover_progress"
@@ -296,10 +299,7 @@ func (f *FailoverManager) onHealthEvent(event HealthEvent) {
 		ctx, cancel := context.WithTimeout(context.Background(), defaultFailoverTimeout)
 		defer cancel()
 
-		_, err := f.TriggerFailover(ctx, event.MemberID, FailoverReasonHeartbeatLoss)
-		if err != nil {
-			// Log error but don't fail - failover may already be in progress
-		}
+		_, _ = f.TriggerFailover(ctx, event.MemberID, FailoverReasonHeartbeatLoss) //nolint:errcheck // best-effort async failover, may already be in progress
 	}
 }
 
@@ -310,7 +310,7 @@ func (f *FailoverManager) onMembershipEvent(event MembershipEvent) {
 		ctx, cancel := context.WithTimeout(context.Background(), defaultFailoverTimeout)
 		defer cancel()
 
-		f.TriggerFailover(ctx, event.Member.ID, FailoverReasonHeartbeatLoss)
+		_, _ = f.TriggerFailover(ctx, event.Member.ID, FailoverReasonHeartbeatLoss) //nolint:errcheck // best-effort async failover
 	}
 }
 
@@ -339,26 +339,27 @@ func (f *FailoverManager) checkFailoverTimeouts() {
 	defer f.mu.Unlock()
 
 	for memberID, op := range f.activeFailovers {
-		if time.Since(op.StartTime) > defaultFailoverTimeout {
-			op.State = FailoverStateFailed
-			op.Error = fmt.Errorf("failover timed out after %v", defaultFailoverTimeout)
-			now := time.Now()
-			op.EndTime = &now
-
-			f.failoverHistory = append(f.failoverHistory, op)
-			delete(f.activeFailovers, memberID)
-
-			go f.notifyObservers(FailoverEvent{
-				Type:        FailoverEventFailed,
-				OperationID: op.ID,
-				MemberID:    memberID,
-				State:       op.State,
-				Timestamp:   time.Now(),
-				Details: map[string]interface{}{
-					"error": op.Error.Error(),
-				},
-			})
+		if time.Since(op.StartTime) <= defaultFailoverTimeout {
+			continue
 		}
+		op.State = FailoverStateFailed
+		op.Error = fmt.Errorf("failover timed out after %v", defaultFailoverTimeout)
+		now := time.Now()
+		op.EndTime = &now
+
+		f.failoverHistory = append(f.failoverHistory, op)
+		delete(f.activeFailovers, memberID)
+
+		go f.notifyObservers(FailoverEvent{
+			Type:        FailoverEventFailed,
+			OperationID: op.ID,
+			MemberID:    memberID,
+			State:       op.State,
+			Timestamp:   time.Now(),
+			Details: map[string]interface{}{
+				"error": op.Error.Error(),
+			},
+		})
 	}
 }
 
@@ -390,7 +391,7 @@ func (f *FailoverManager) executeFailover(ctx context.Context, op *FailoverOpera
 		op.Error = err
 		return
 	}
-	defer lock.Unlock(ctx)
+	defer func() { _ = lock.Unlock(ctx) }() //nolint:errcheck // best-effort unlock
 	f.completeStep(step)
 
 	// Step 3: Reassign agents
@@ -539,25 +540,26 @@ func (f *FailoverManager) reassignJobs(ctx context.Context, op *FailoverOperatio
 	reassigned := 0
 
 	for _, job := range activeJobs {
-		if job.AssignedMemberID == op.FailedMemberID {
-			// Reset job to pending for redistribution
-			job.Status = JobStatusPending
-			job.AssignedMemberID = ""
-			job.RetryCount++
-
-			// The job distributor will pick it up and reassign
-			reassigned++
-
-			f.notifyObservers(FailoverEvent{
-				Type:        FailoverEventJobMoved,
-				OperationID: op.ID,
-				MemberID:    op.FailedMemberID,
-				Timestamp:   time.Now(),
-				Details: map[string]interface{}{
-					"job_id": job.ID,
-				},
-			})
+		if job.AssignedMemberID != op.FailedMemberID {
+			continue
 		}
+		// Reset job to pending for redistribution
+		job.Status = JobStatusPending
+		job.AssignedMemberID = ""
+		job.RetryCount++
+
+		// The job distributor will pick it up and reassign
+		reassigned++
+
+		f.notifyObservers(FailoverEvent{
+			Type:        FailoverEventJobMoved,
+			OperationID: op.ID,
+			MemberID:    op.FailedMemberID,
+			Timestamp:   time.Now(),
+			Details: map[string]interface{}{
+				"job_id": job.ID,
+			},
+		})
 	}
 
 	return reassigned, nil
@@ -574,7 +576,7 @@ func (f *FailoverManager) reassignEventPartitions(ctx context.Context, op *Failo
 func (f *FailoverManager) updateClusterState(ctx context.Context, op *FailoverOperation) error {
 	// Record failover in etcd for audit
 	key := fmt.Sprintf("/cluster/failovers/%s", op.ID)
-	data := fmt.Sprintf(`{"member_id":"%s","reason":"%s","agents":%d,"jobs":%d,"time":"%s"}`,
+	data := fmt.Sprintf(`{"member_id":%q,"reason":%q,"agents":%d,"jobs":%d,"time":%q}`,
 		op.FailedMemberID, op.Reason, op.AgentsReassigned, op.JobsReassigned, op.StartTime.Format(time.RFC3339))
 
 	return f.etcd.Put(ctx, key, []byte(data), 0)
@@ -663,13 +665,15 @@ func (f *FailoverManager) GetFailoverStats() map[string]interface{} {
 	totalDuration := time.Duration(0)
 
 	for _, op := range f.failoverHistory {
-		if op.State == FailoverStateCompleted {
+		switch op.State {
+		case FailoverStateCompleted:
 			completedCount++
 			if op.EndTime != nil {
 				totalDuration += op.EndTime.Sub(op.StartTime)
 			}
-		} else if op.State == FailoverStateFailed {
+		case FailoverStateFailed:
 			failedCount++
+		default:
 		}
 	}
 

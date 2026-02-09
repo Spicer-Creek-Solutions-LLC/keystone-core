@@ -223,7 +223,7 @@ func TestModuleLoader_CreateCapability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cap, err := loader.createCapability(tt.capName, mf, nil)
+			capability, err := loader.createCapability(tt.capName, mf, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -233,7 +233,7 @@ func TestModuleLoader_CreateCapability(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error for capability %s: %v", tt.capName, err)
 				}
-				if cap == nil {
+				if capability == nil {
 					t.Errorf("Expected capability to be created for %s", tt.capName)
 				}
 			}

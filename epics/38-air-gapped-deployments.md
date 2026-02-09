@@ -264,17 +264,17 @@ keystone-bootstrap-v1.0.0-linux-amd64.tar.gz
 A local registry serves modules and blueprints without internet:
 
 ```yaml
-# /etc/kscore/registry.yaml
+# /etc/keystone-core/registry.yaml
 registry:
   mode: offline
 
   storage:
     type: filesystem
-    path: /var/lib/kscore/registry
+    path: /var/lib/keystone-core/registry
 
   verification:
     required: true
-    trust_root: /etc/kscore/trust/root.json
+    trust_root: /etc/keystone-core/trust/root.json
     allowed_signers:
       - keyid: "abc123..."
         name: "Keystone Release Key"
@@ -292,7 +292,7 @@ registry:
 
 **Registry Directory Structure:**
 ```
-/var/lib/kscore/registry/
+/var/lib/keystone-core/registry/
 ├── modules/
 │   ├── std/
 │   │   ├── core/
@@ -607,7 +607,7 @@ kscorectl airgap validate
 ### Air-Gap Mode Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 server:
   # Enable air-gap mode
   airgap:
@@ -622,23 +622,23 @@ server:
     # Disable telemetry upload
     telemetry:
       upload: false
-      local_storage: /var/lib/kscore/telemetry
+      local_storage: /var/lib/keystone-core/telemetry
       retention: 90d
 
   # Module registry configuration
   registry:
     mode: offline
-    path: /var/lib/kscore/registry
+    path: /var/lib/keystone-core/registry
 
   # Embedded NATS for air-gap
   nats:
     mode: embedded
-    data_dir: /var/lib/kscore/nats
+    data_dir: /var/lib/keystone-core/nats
 
   # Local certificate authority
   pki:
     mode: local
-    ca_path: /etc/kscore/pki/ca
+    ca_path: /etc/keystone-core/pki/ca
     auto_rotate: true
     cert_lifetime: 365d
 ```
@@ -646,16 +646,16 @@ server:
 ### Import Station Configuration
 
 ```yaml
-# /etc/kscore/import-station.yaml
+# /etc/keystone-core/import-station.yaml
 import:
   # Watch directory for new packages
   watch_path: /mnt/import
 
   # Processed packages moved here
-  archive_path: /var/lib/kscore/import-archive
+  archive_path: /var/lib/keystone-core/import-archive
 
   # Rejected packages
-  reject_path: /var/lib/kscore/import-rejected
+  reject_path: /var/lib/keystone-core/import-rejected
 
   # Verification settings
   verification:
@@ -663,10 +663,10 @@ import:
     allowed_signers:
       - name: "Release Key"
         keyid: "abc123..."
-        public_key: /etc/kscore/trust/release.pub
+        public_key: /etc/keystone-core/trust/release.pub
       - name: "Org Key"
         keyid: "def456..."
-        public_key: /etc/kscore/trust/org.pub
+        public_key: /etc/keystone-core/trust/org.pub
 
   # Auto-import settings
   auto_import:
@@ -690,7 +690,7 @@ import:
 ### Export Configuration
 
 ```yaml
-# /etc/kscore/export.yaml
+# /etc/keystone-core/export.yaml
 export:
   # Default encryption
   encryption:
@@ -703,7 +703,7 @@ export:
 
   # Signing
   signing:
-    key: /etc/kscore/export/signing-key.pem
+    key: /etc/keystone-core/export/signing-key.pem
 
   # Export schedules
   schedules:
@@ -728,7 +728,7 @@ export:
 ### Data Diode Configuration
 
 ```yaml
-# /etc/kscore/diode.yaml
+# /etc/keystone-core/diode.yaml
 diode:
   # Sender configuration (air-gapped side)
   sender:
@@ -765,7 +765,7 @@ diode:
 
     # Output
     output:
-      path: /var/lib/kscore/diode-received
+      path: /var/lib/keystone-core/diode-received
       verify_checksum: true
 ```
 
@@ -821,7 +821,7 @@ kscorectl airgap install keystone-bootstrap-v1.0.0-linux-amd64.tar.gz \
 
 ```bash
 # Initialize local registry
-kscorectl airgap registry init --path /var/lib/kscore/registry
+kscorectl airgap registry init --path /var/lib/keystone-core/registry
 
 # Import modules to registry
 kscorectl airgap registry import modules-bundle.tar.gz

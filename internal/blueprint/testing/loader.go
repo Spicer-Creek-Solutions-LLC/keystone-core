@@ -136,7 +136,8 @@ func (l *TestLoader) validateTestSuite(suite *TestSuite, sourcePath string) erro
 		return fmt.Errorf("test suite must have at least one test")
 	}
 
-	for i, test := range suite.Tests {
+	for i := range suite.Tests {
+		test := &suite.Tests[i]
 		if test.Name == "" {
 			return fmt.Errorf("test %d: name is required", i+1)
 		}
@@ -152,11 +153,12 @@ func (l *TestLoader) validateTestSuite(suite *TestSuite, sourcePath string) erro
 		}
 
 		// Validate assertion types
-		for j, assertion := range test.Assertions {
+		for j := range test.Assertions {
+			assertion := &test.Assertions[j]
 			if assertion.Type == "" {
 				return fmt.Errorf("test %q assertion %d: type is required", test.Name, j+1)
 			}
-			if err := l.validateAssertion(&assertion, test.Name, j+1); err != nil {
+			if err := l.validateAssertion(assertion, test.Name, j+1); err != nil {
 				return err
 			}
 		}
@@ -280,7 +282,8 @@ func FilterTests(tests []TestCase, includeTags, excludeTags []string) []TestCase
 	}
 
 	var filtered []TestCase
-	for _, test := range tests {
+	for i := range tests {
+		test := &tests[i]
 		// Check include tags
 		if len(includeTags) > 0 {
 			if !hasAnyTag(test.Tags, includeTags) {
@@ -295,7 +298,7 @@ func FilterTests(tests []TestCase, includeTags, excludeTags []string) []TestCase
 			}
 		}
 
-		filtered = append(filtered, test)
+		filtered = append(filtered, tests[i])
 	}
 
 	return filtered
@@ -322,9 +325,9 @@ func FilterTestsByName(tests []TestCase, pattern string) []TestCase {
 	}
 
 	var filtered []TestCase
-	for _, test := range tests {
-		if matchesPattern(test.Name, pattern) {
-			filtered = append(filtered, test)
+	for i := range tests {
+		if matchesPattern(tests[i].Name, pattern) {
+			filtered = append(filtered, tests[i])
 		}
 	}
 

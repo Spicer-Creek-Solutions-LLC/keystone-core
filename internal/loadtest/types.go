@@ -115,17 +115,17 @@ func ConfigFromEnv() *Config {
 	return cfg
 }
 
-// LoadTestResult holds the results of a load test.
-type LoadTestResult struct {
-	TestName      string            `json:"test_name"`
-	Config        ResultConfig      `json:"config"`
-	Metrics       Metrics           `json:"metrics"`
-	AgentMetrics  []AgentMetric     `json:"agent_metrics,omitempty"`
-	Errors        []string          `json:"errors,omitempty"`
-	StartTime     time.Time         `json:"start_time"`
-	EndTime       time.Time         `json:"end_time"`
-	Duration      time.Duration     `json:"duration_ns"`
-	Success       bool              `json:"success"`
+// Result holds the results of a load test.
+type Result struct {
+	TestName     string        `json:"test_name"`
+	Config       ResultConfig  `json:"config"`
+	Metrics      Metrics       `json:"metrics"`
+	AgentMetrics []AgentMetric `json:"agent_metrics,omitempty"`
+	Errors       []string      `json:"errors,omitempty"`
+	StartTime    time.Time     `json:"start_time"`
+	EndTime      time.Time     `json:"end_time"`
+	Duration     time.Duration `json:"duration_ns"`
+	Success      bool          `json:"success"`
 }
 
 // ResultConfig is a subset of Config for result storage.
@@ -139,17 +139,17 @@ type ResultConfig struct {
 
 // Metrics holds aggregated performance metrics.
 type Metrics struct {
-	TotalOps       int64         `json:"total_ops"`
-	SuccessfulOps  int64         `json:"successful_ops"`
-	FailedOps      int64         `json:"failed_ops"`
-	OpsPerSecond   float64       `json:"ops_per_second"`
-	AvgLatency     time.Duration `json:"avg_latency_ns"`
-	MinLatency     time.Duration `json:"min_latency_ns"`
-	MaxLatency     time.Duration `json:"max_latency_ns"`
-	P50Latency     time.Duration `json:"p50_latency_ns"`
-	P95Latency     time.Duration `json:"p95_latency_ns"`
-	P99Latency     time.Duration `json:"p99_latency_ns"`
-	ErrorRate      float64       `json:"error_rate_percent"`
+	TotalOps      int64         `json:"total_ops"`
+	SuccessfulOps int64         `json:"successful_ops"`
+	FailedOps     int64         `json:"failed_ops"`
+	OpsPerSecond  float64       `json:"ops_per_second"`
+	AvgLatency    time.Duration `json:"avg_latency_ns"`
+	MinLatency    time.Duration `json:"min_latency_ns"`
+	MaxLatency    time.Duration `json:"max_latency_ns"`
+	P50Latency    time.Duration `json:"p50_latency_ns"`
+	P95Latency    time.Duration `json:"p95_latency_ns"`
+	P99Latency    time.Duration `json:"p99_latency_ns"`
+	ErrorRate     float64       `json:"error_rate_percent"`
 
 	// Registration-specific
 	RegistrationTime time.Duration `json:"registration_time_ns,omitempty"`
@@ -213,7 +213,9 @@ func (c *LatencyCollector) Count() int {
 }
 
 // Calculate calculates latency statistics.
-func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Duration) {
+//
+//nolint:gocritic // tooManyResultsChecker: 6 results needed for latency stats (min, max, avg, p50, p95, p99)
+func (c *LatencyCollector) Calculate() (minVal, maxVal, avg, p50, p95, p99 time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -226,8 +228,8 @@ func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Durati
 	copy(sorted, c.latencies)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
-	min = sorted[0]
-	max = sorted[len(sorted)-1]
+	minVal = sorted[0]
+	maxVal = sorted[len(sorted)-1]
 
 	var sum time.Duration
 	for _, l := range sorted {
@@ -241,7 +243,7 @@ func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Durati
 	if len(sorted) >= 100 {
 		p99 = sorted[len(sorted)*99/100]
 	} else {
-		p99 = max
+		p99 = maxVal
 	}
 
 	return
@@ -311,8 +313,9 @@ func (c *Counter) Value() int64 {
 }
 
 // SaveResult saves a load test result to a JSON file.
-func SaveResult(result *LoadTestResult, dir string) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+func SaveResult(result *Result, dir string) error {
+	//nolint:gosec // G301: report directory needs to be accessible by users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create report directory: %w", err)
 	}
 
@@ -322,7 +325,8 @@ func SaveResult(result *LoadTestResult, dir string) error {
 		return fmt.Errorf("failed to marshal result: %w", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	//nolint:gosec // G306: load test results need to be readable for analysis
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write result file: %w", err)
 	}
 
@@ -330,13 +334,13 @@ func SaveResult(result *LoadTestResult, dir string) error {
 }
 
 // LoadResult loads a load test result from a JSON file.
-func LoadResult(filename string) (*LoadTestResult, error) {
+func LoadResult(filename string) (*Result, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)
 	}
 
-	var result LoadTestResult
+	var result Result
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal result: %w", err)
 	}

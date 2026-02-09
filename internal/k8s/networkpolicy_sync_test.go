@@ -8,7 +8,6 @@ import (
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -580,9 +579,4 @@ func TestNetworkPolicySynchronizer_SyncWithVerification(t *testing.T) {
 	if result.PoliciesVerified == 0 {
 		t.Error("Expected verification to be attempted")
 	}
-}
-
-func createFakeK8sClient(objects ...runtime.Object) *Client {
-	fakeClient := fake.NewSimpleClientset(objects...)
-	return NewClientWithInterface(fakeClient, ClusterConfig{})
 }

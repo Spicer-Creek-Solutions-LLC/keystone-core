@@ -8,6 +8,7 @@ import (
 // Status represents the health status of a component
 type Status string
 
+// StatusHealthy constants define the possible statuses.
 const (
 	StatusHealthy   Status = "healthy"
 	StatusDegraded  Status = "degraded"
@@ -52,16 +53,16 @@ type LivenessResponse struct {
 
 // ReadinessResponse is the response for the readiness probe
 type ReadinessResponse struct {
-	Status Status                      `json:"status"`
+	Status Status                     `json:"status"`
 	Checks map[string]ComponentStatus `json:"checks"`
 }
 
 // StatusResponse is the detailed status response
 type StatusResponse struct {
-	Status     Status                      `json:"status"`
-	Version    string                      `json:"version"`
-	Uptime     string                      `json:"uptime"`
-	StartTime  time.Time                   `json:"start_time"`
+	Status     Status                     `json:"status"`
+	Version    string                     `json:"version"`
+	Uptime     string                     `json:"uptime"`
+	StartTime  time.Time                  `json:"start_time"`
 	Components map[string]ComponentStatus `json:"components"`
 }
 

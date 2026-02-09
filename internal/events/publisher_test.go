@@ -194,23 +194,23 @@ func TestPublisher_SubjectGeneration(t *testing.T) {
 	defer publisher.Close()
 
 	tests := []struct {
-		name          string
-		eventType     EventType
+		name            string
+		eventType       EventType
 		expectedSubject string
 	}{
 		{
-			name:          "agent event",
-			eventType:     EventTypeAgentConnect,
+			name:            "agent event",
+			eventType:       EventTypeAgentConnect,
 			expectedSubject: "agent.connect",
 		},
 		{
-			name:          "state event",
-			eventType:     EventTypeStateChange,
+			name:            "state event",
+			eventType:       EventTypeStateChange,
 			expectedSubject: "state.change",
 		},
 		{
-			name:          "system event",
-			eventType:     EventTypeSystemShutdown,
+			name:            "system event",
+			eventType:       EventTypeSystemShutdown,
 			expectedSubject: "system.shutdown",
 		},
 	}

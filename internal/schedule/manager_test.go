@@ -3,11 +3,12 @@ package schedule
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 )
 
-func TestNewScheduleManager(t *testing.T) {
+func TestNewManager(t *testing.T) {
 	store := NewMockStore()
 
 	tests := []struct {
@@ -40,9 +41,9 @@ func TestNewScheduleManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewScheduleManager(tt.config, tt.store)
+			_, err := NewManager(tt.config, tt.store)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewScheduleManager() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewManager() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -51,7 +52,7 @@ func TestNewScheduleManager(t *testing.T) {
 func TestScheduleManager_Create(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -67,9 +68,9 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "valid cron schedule",
 			schedule: &Schedule{
 				Name: "test-schedule",
-				Type: ScheduleTypeCommand,
+				Type: TypeCommand,
 				Cron: "0 2 * * *",
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 				Payload: json.RawMessage(`{"command": "echo hello"}`),
@@ -80,9 +81,9 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "valid interval schedule",
 			schedule: &Schedule{
 				Name:     "interval-schedule",
-				Type:     ScheduleTypeState,
+				Type:     TypeState,
 				Interval: time.Hour,
-				Target: &ScheduleTarget{
+				Target: &Target{
 					AgentIDs: []string{"agent-1"},
 				},
 				Payload: json.RawMessage(`{"state_path": "/path/to/state"}`),
@@ -97,9 +98,9 @@ func TestScheduleManager_Create(t *testing.T) {
 		{
 			name: "missing name",
 			schedule: &Schedule{
-				Type: ScheduleTypeCommand,
+				Type: TypeCommand,
 				Cron: "0 2 * * *",
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			},
@@ -110,7 +111,7 @@ func TestScheduleManager_Create(t *testing.T) {
 			schedule: &Schedule{
 				Name: "no-type",
 				Cron: "0 2 * * *",
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			},
@@ -122,7 +123,7 @@ func TestScheduleManager_Create(t *testing.T) {
 				Name: "invalid-type",
 				Type: "invalid",
 				Cron: "0 2 * * *",
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			},
@@ -132,8 +133,8 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "missing cron and interval",
 			schedule: &Schedule{
 				Name: "no-schedule",
-				Type: ScheduleTypeCommand,
-				Target: &ScheduleTarget{
+				Type: TypeCommand,
+				Target: &Target{
 					All: true,
 				},
 			},
@@ -143,9 +144,9 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "invalid cron",
 			schedule: &Schedule{
 				Name: "invalid-cron",
-				Type: ScheduleTypeCommand,
+				Type: TypeCommand,
 				Cron: "invalid",
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			},
@@ -155,7 +156,7 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "missing target",
 			schedule: &Schedule{
 				Name: "no-target",
-				Type: ScheduleTypeCommand,
+				Type: TypeCommand,
 				Cron: "0 2 * * *",
 			},
 			wantErr: true,
@@ -164,9 +165,9 @@ func TestScheduleManager_Create(t *testing.T) {
 			name: "empty target",
 			schedule: &Schedule{
 				Name:   "empty-target",
-				Type:   ScheduleTypeCommand,
+				Type:   TypeCommand,
 				Cron:   "0 2 * * *",
-				Target: &ScheduleTarget{},
+				Target: &Target{},
 			},
 			wantErr: true,
 		},
@@ -199,7 +200,7 @@ func TestScheduleManager_Create(t *testing.T) {
 func TestScheduleManager_Update(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -209,9 +210,9 @@ func TestScheduleManager_Update(t *testing.T) {
 	// Create initial schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -243,7 +244,7 @@ func TestScheduleManager_Update(t *testing.T) {
 func TestScheduleManager_Delete(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -253,9 +254,9 @@ func TestScheduleManager_Delete(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -270,7 +271,7 @@ func TestScheduleManager_Delete(t *testing.T) {
 
 	// Verify deletion
 	_, err = manager.Get(ctx, schedule.ID)
-	if err != ErrScheduleNotFound {
+	if !errors.Is(err, ErrScheduleNotFound) {
 		t.Errorf("Get() error = %v, want ErrScheduleNotFound", err)
 	}
 }
@@ -278,7 +279,7 @@ func TestScheduleManager_Delete(t *testing.T) {
 func TestScheduleManager_List(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -289,17 +290,17 @@ func TestScheduleManager_List(t *testing.T) {
 	schedules := []*Schedule{
 		{
 			Name: "schedule-1",
-			Type: ScheduleTypeCommand,
+			Type: TypeCommand,
 			Cron: "0 2 * * *",
-			Target: &ScheduleTarget{
+			Target: &Target{
 				All: true,
 			},
 		},
 		{
 			Name: "schedule-2",
-			Type: ScheduleTypeState,
+			Type: TypeState,
 			Cron: "0 3 * * *",
-			Target: &ScheduleTarget{
+			Target: &Target{
 				All: true,
 			},
 		},
@@ -321,8 +322,8 @@ func TestScheduleManager_List(t *testing.T) {
 	}
 
 	// List with filter
-	filter := &ScheduleFilter{
-		Type: []ScheduleType{ScheduleTypeCommand},
+	filter := &Filter{
+		Type: []Type{TypeCommand},
 	}
 	list, err = manager.List(ctx, filter)
 	if err != nil {
@@ -336,7 +337,7 @@ func TestScheduleManager_List(t *testing.T) {
 func TestScheduleManager_PauseResume(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -346,9 +347,9 @@ func TestScheduleManager_PauseResume(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -362,7 +363,7 @@ func TestScheduleManager_PauseResume(t *testing.T) {
 	}
 
 	got, _ := manager.Get(ctx, schedule.ID)
-	if got.Status != ScheduleStatusPaused {
+	if got.Status != StatusPaused {
 		t.Errorf("Status = %v, want paused", got.Status)
 	}
 
@@ -372,7 +373,7 @@ func TestScheduleManager_PauseResume(t *testing.T) {
 	}
 
 	got, _ = manager.Get(ctx, schedule.ID)
-	if got.Status != ScheduleStatusActive {
+	if got.Status != StatusActive {
 		t.Errorf("Status = %v, want active", got.Status)
 	}
 }
@@ -380,7 +381,7 @@ func TestScheduleManager_PauseResume(t *testing.T) {
 func TestScheduleManager_DisableEnable(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -390,9 +391,9 @@ func TestScheduleManager_DisableEnable(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -406,7 +407,7 @@ func TestScheduleManager_DisableEnable(t *testing.T) {
 	}
 
 	got, _ := manager.Get(ctx, schedule.ID)
-	if got.Status != ScheduleStatusDisabled {
+	if got.Status != StatusDisabled {
 		t.Errorf("Status = %v, want disabled", got.Status)
 	}
 	if got.NextRun != nil {
@@ -419,7 +420,7 @@ func TestScheduleManager_DisableEnable(t *testing.T) {
 	}
 
 	got, _ = manager.Get(ctx, schedule.ID)
-	if got.Status != ScheduleStatusActive {
+	if got.Status != StatusActive {
 		t.Errorf("Status = %v, want active", got.Status)
 	}
 	if got.NextRun == nil {
@@ -430,7 +431,7 @@ func TestScheduleManager_DisableEnable(t *testing.T) {
 	if err := manager.Disable(ctx, schedule.ID, "admin"); err != nil {
 		t.Fatalf("Disable() error = %v", err)
 	}
-	if err := manager.Pause(ctx, schedule.ID, "admin"); err != ErrScheduleDisabled {
+	if err := manager.Pause(ctx, schedule.ID, "admin"); !errors.Is(err, ErrScheduleDisabled) {
 		t.Errorf("Pause() on disabled schedule should return ErrScheduleDisabled, got %v", err)
 	}
 }
@@ -438,7 +439,7 @@ func TestScheduleManager_DisableEnable(t *testing.T) {
 func TestScheduleManager_TriggerNow(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -448,9 +449,9 @@ func TestScheduleManager_TriggerNow(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -479,7 +480,7 @@ func TestScheduleManager_TriggerNow(t *testing.T) {
 		t.Fatalf("Disable() error = %v", err)
 	}
 	_, err = manager.TriggerNow(ctx, schedule.ID, "admin")
-	if err != ErrScheduleDisabled {
+	if !errors.Is(err, ErrScheduleDisabled) {
 		t.Errorf("TriggerNow() on disabled schedule should return ErrScheduleDisabled, got %v", err)
 	}
 }
@@ -487,7 +488,7 @@ func TestScheduleManager_TriggerNow(t *testing.T) {
 func TestScheduleManager_ApprovalWorkflow(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -497,10 +498,10 @@ func TestScheduleManager_ApprovalWorkflow(t *testing.T) {
 	// Create schedule requiring approval
 	schedule := &Schedule{
 		Name:            "test-schedule",
-		Type:            ScheduleTypeCommand,
+		Type:            TypeCommand,
 		Cron:            "0 2 * * *",
 		RequireApproval: true,
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -537,7 +538,7 @@ func TestScheduleManager_ApprovalWorkflow(t *testing.T) {
 func TestScheduleManager_RejectExecution(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -547,10 +548,10 @@ func TestScheduleManager_RejectExecution(t *testing.T) {
 	// Create schedule requiring approval
 	schedule := &Schedule{
 		Name:            "test-schedule",
-		Type:            ScheduleTypeCommand,
+		Type:            TypeCommand,
 		Cron:            "0 2 * * *",
 		RequireApproval: true,
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -587,7 +588,7 @@ func TestScheduleManager_RejectExecution(t *testing.T) {
 func TestScheduleManager_GetStats(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -597,9 +598,9 @@ func TestScheduleManager_GetStats(t *testing.T) {
 	// Create schedules
 	schedule1 := &Schedule{
 		Name: "schedule-1",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -609,9 +610,9 @@ func TestScheduleManager_GetStats(t *testing.T) {
 
 	schedule2 := &Schedule{
 		Name: "schedule-2",
-		Type: ScheduleTypeState,
+		Type: TypeState,
 		Cron: "0 3 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -639,11 +640,11 @@ func TestScheduleManager_GetStats(t *testing.T) {
 	if stats.PausedSchedules != 1 {
 		t.Errorf("PausedSchedules = %v, want 1", stats.PausedSchedules)
 	}
-	if stats.ByType[ScheduleTypeCommand] != 1 {
-		t.Errorf("ByType[command] = %v, want 1", stats.ByType[ScheduleTypeCommand])
+	if stats.ByType[TypeCommand] != 1 {
+		t.Errorf("ByType[command] = %v, want 1", stats.ByType[TypeCommand])
 	}
-	if stats.ByType[ScheduleTypeState] != 1 {
-		t.Errorf("ByType[state] = %v, want 1", stats.ByType[ScheduleTypeState])
+	if stats.ByType[TypeState] != 1 {
+		t.Errorf("ByType[state] = %v, want 1", stats.ByType[TypeState])
 	}
 }
 
@@ -653,7 +654,7 @@ func TestScheduleManager_RecordExecutionResult(t *testing.T) {
 		MemberID:            "member-1",
 		MaxExecutionHistory: 10,
 	}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -663,9 +664,9 @@ func TestScheduleManager_RecordExecutionResult(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -713,7 +714,7 @@ func TestScheduleManager_RecordExecutionResult(t *testing.T) {
 func TestScheduleManager_EventEmission(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -721,17 +722,17 @@ func TestScheduleManager_EventEmission(t *testing.T) {
 	ctx := context.Background()
 
 	// Track events
-	var events []*ScheduleEvent
-	manager.AddListener(func(event *ScheduleEvent) {
+	var events []*Event
+	manager.AddListener(func(event *Event) {
 		events = append(events, event)
 	})
 
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -742,7 +743,7 @@ func TestScheduleManager_EventEmission(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("Expected 1 event, got %d", len(events))
 	}
-	if events[0].Type != string(ScheduleEventCreated) {
+	if events[0].Type != string(EventCreated) {
 		t.Errorf("Event type = %v, want schedule.created", events[0].Type)
 	}
 
@@ -755,7 +756,7 @@ func TestScheduleManager_EventEmission(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("Expected 2 events, got %d", len(events))
 	}
-	if events[1].Type != string(ScheduleEventUpdated) {
+	if events[1].Type != string(EventUpdated) {
 		t.Errorf("Event type = %v, want schedule.updated", events[1].Type)
 	}
 
@@ -767,7 +768,7 @@ func TestScheduleManager_EventEmission(t *testing.T) {
 	if len(events) != 3 {
 		t.Fatalf("Expected 3 events, got %d", len(events))
 	}
-	if events[2].Type != string(ScheduleEventDeleted) {
+	if events[2].Type != string(EventDeleted) {
 		t.Errorf("Event type = %v, want schedule.deleted", events[2].Type)
 	}
 }
@@ -775,7 +776,7 @@ func TestScheduleManager_EventEmission(t *testing.T) {
 func TestScheduleManager_Close(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -789,13 +790,13 @@ func TestScheduleManager_Close(t *testing.T) {
 	ctx := context.Background()
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
-	if err := manager.Create(ctx, schedule); err != ErrStoreClosed {
+	if err := manager.Create(ctx, schedule); !errors.Is(err, ErrStoreClosed) {
 		t.Errorf("Create() after close should return ErrStoreClosed, got %v", err)
 	}
 }
@@ -803,7 +804,7 @@ func TestScheduleManager_Close(t *testing.T) {
 func TestScheduleManager_WindowValidation(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -849,10 +850,10 @@ func TestScheduleManager_WindowValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			schedule := &Schedule{
 				Name:   "window-test",
-				Type:   ScheduleTypeCommand,
+				Type:   TypeCommand,
 				Cron:   tt.cron,
 				Window: tt.window,
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			}
@@ -868,7 +869,7 @@ func TestScheduleManager_WindowValidation(t *testing.T) {
 func TestScheduleManager_TimezoneValidation(t *testing.T) {
 	store := NewMockStore()
 	config := &ManagerConfig{MemberID: "member-1"}
-	manager, err := NewScheduleManager(config, store)
+	manager, err := NewManager(config, store)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -889,10 +890,10 @@ func TestScheduleManager_TimezoneValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			schedule := &Schedule{
 				Name:     "tz-test",
-				Type:     ScheduleTypeCommand,
+				Type:     TypeCommand,
 				Cron:     "0 2 * * *",
 				Timezone: tt.timezone,
-				Target: &ScheduleTarget{
+				Target: &Target{
 					All: true,
 				},
 			}

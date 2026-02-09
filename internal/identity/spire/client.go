@@ -22,6 +22,7 @@ import (
 // ClientState represents the state of the SPIRE client.
 type ClientState string
 
+// ClientStateDisconnected constants define the possible states.
 const (
 	ClientStateDisconnected ClientState = "disconnected"
 	ClientStateConnecting   ClientState = "connecting"
@@ -127,13 +128,14 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	// Use Unix socket dialer
 	dialer := func(ctx context.Context, addr string) (net.Conn, error) {
-		return net.DialTimeout("unix", c.config.SocketPath, c.config.DialTimeout)
+		d := &net.Dialer{Timeout: c.config.DialTimeout}
+		return d.DialContext(ctx, "unix", c.config.SocketPath)
 	}
 
-	conn, err := grpc.DialContext(dialCtx, "unix://"+c.config.SocketPath,
+	conn, err := grpc.DialContext(dialCtx, "unix://"+c.config.SocketPath, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		c.mu.Lock()
@@ -544,6 +546,7 @@ func (c *Client) calculateRetryDelay(attempt int, config *RetryConfig) time.Dura
 	// Add jitter
 	if config.Jitter > 0 {
 		jitterAmount := float64(delay) * config.Jitter
+		//nolint:gosec // G404: math/rand used for retry jitter timing, not security
 		delay = time.Duration(float64(delay) + (rand.Float64()*2-1)*jitterAmount) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	}
 

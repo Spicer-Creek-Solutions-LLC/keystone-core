@@ -381,7 +381,7 @@ func (rm *RestoreManager) RestoreHistory() []RestoreInfo {
 }
 
 // ListAvailableBackups lists all available backups that can be restored
-func (rm *RestoreManager) ListAvailableBackups(ctx context.Context) ([]BackupInfo, error) {
+func (rm *RestoreManager) ListAvailableBackups(ctx context.Context) ([]Info, error) {
 	if rm.source == nil {
 		return nil, fmt.Errorf("no backup source configured")
 	}
@@ -389,7 +389,7 @@ func (rm *RestoreManager) ListAvailableBackups(ctx context.Context) ([]BackupInf
 }
 
 // GetBackupManifest retrieves the manifest for a specific backup
-func (rm *RestoreManager) GetBackupManifest(ctx context.Context, backupName string) (*BackupManifest, error) {
+func (rm *RestoreManager) GetBackupManifest(ctx context.Context, backupName string) (*Manifest, error) {
 	if rm.source == nil {
 		return nil, fmt.Errorf("no backup source configured")
 	}
@@ -436,7 +436,7 @@ type RestoreOptions struct {
 	Components      []ComponentType
 	VerifyIntegrity bool
 	DryRun          bool
-	PreRestoreHook  func(ctx context.Context, manifest *BackupManifest) error
+	PreRestoreHook  func(ctx context.Context, manifest *Manifest) error
 	PostRestoreHook func(ctx context.Context, result *RestoreInfo) error
 }
 
@@ -482,7 +482,7 @@ func (rm *RestoreManager) PointInTimeRestore(ctx context.Context, targetTime tim
 	}
 
 	// Find the best backup (most recent before target time)
-	var bestBackup *BackupInfo
+	var bestBackup *Info
 	for i := range backups {
 		if backups[i].EndTime.Before(targetTime) || backups[i].EndTime.Equal(targetTime) {
 			if bestBackup == nil || backups[i].EndTime.After(bestBackup.EndTime) {

@@ -91,7 +91,8 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	// Create HTTP client
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			MinVersion:         tls.VersionTLS12,
+			MinVersion: tls.VersionTLS12,
+			//nolint:gosec // G402: InsecureSkipVerify is user-controlled via config for devices with self-signed certs
 			InsecureSkipVerify: a.config.InsecureSkipVerify,
 		},
 	}
@@ -329,7 +330,8 @@ func (a *Adapter) parseInterfaces(data []byte, facts *vendors.DeviceFacts) {
 		return
 	}
 
-	for name, stats := range ifStats {
+	for name := range ifStats {
+		stats := ifStats[name]
 		iface := vendors.InterfaceFact{
 			Name:        name,
 			Description: stats.Description,

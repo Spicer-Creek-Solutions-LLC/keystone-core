@@ -8,65 +8,6 @@ import (
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
-// mockNATSStatusProvider implements NATSStatusProvider for testing.
-type mockNATSStatusProvider struct {
-	connected       bool
-	urls            []string
-	jetStreamAvail  bool
-	lastPublishTime time.Time
-	lastSubTime     time.Time
-}
-
-func (m *mockNATSStatusProvider) IsConnected() bool {
-	return m.connected
-}
-
-func (m *mockNATSStatusProvider) ConnectedURLs() []string {
-	return m.urls
-}
-
-func (m *mockNATSStatusProvider) JetStreamAvailable() bool {
-	return m.jetStreamAvail
-}
-
-func (m *mockNATSStatusProvider) LastPublishTime() time.Time {
-	return m.lastPublishTime
-}
-
-func (m *mockNATSStatusProvider) LastSubscribeTime() time.Time {
-	return m.lastSubTime
-}
-
-// mockLeaderElection implements LeaderElection for testing.
-type mockLeaderElection struct {
-	isLeader bool
-	leaderID string
-}
-
-func (m *mockLeaderElection) Campaign(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockLeaderElection) Resign(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockLeaderElection) IsLeader() bool {
-	return m.isLeader
-}
-
-func (m *mockLeaderElection) GetLeader(ctx context.Context) (string, error) {
-	return m.leaderID, nil
-}
-
-func (m *mockLeaderElection) TransferLeadership(ctx context.Context, targetID string) error {
-	return nil
-}
-
-func (m *mockLeaderElection) AddObserver(observer LeadershipObserver) {}
-
-func (m *mockLeaderElection) RemoveObserver(observer LeadershipObserver) {}
-
 func TestNewCoordinationServer(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -117,8 +58,8 @@ func TestCoordinationServer_Heartbeat(t *testing.T) {
 
 	ctx := context.Background()
 	req := &pb.ServerHeartbeatRequest{
-		SenderId:  "server-2",
-		Sequence:  1,
+		SenderId: "server-2",
+		Sequence: 1,
 	}
 
 	resp, err := server.Heartbeat(ctx, req)
@@ -158,11 +99,11 @@ func TestCoordinationServer_RecoveryCoordinate(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name           string
-		action         pb.RecoveryAction
-		initialState   pb.RecoveryState
-		wantAccepted   bool
-		wantState      pb.RecoveryState
+		name         string
+		action       pb.RecoveryAction
+		initialState pb.RecoveryState
+		wantAccepted bool
+		wantState    pb.RecoveryState
 	}{
 		{
 			name:         "pause action",
@@ -287,12 +228,12 @@ func TestCoordinationServer_PropagateState(t *testing.T) {
 
 func TestConvertClusterStatus(t *testing.T) {
 	tests := []struct {
-		input  ClusterStatus
+		input  Status
 		output pb.ClusterHealthStatus
 	}{
-		{ClusterStatusHealthy, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_HEALTHY},
-		{ClusterStatusDegraded, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_DEGRADED},
-		{ClusterStatusUnhealthy, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_UNHEALTHY},
+		{StatusHealthy, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_HEALTHY},
+		{StatusDegraded, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_DEGRADED},
+		{StatusUnhealthy, pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_UNHEALTHY},
 		{"unknown", pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_UNKNOWN},
 	}
 

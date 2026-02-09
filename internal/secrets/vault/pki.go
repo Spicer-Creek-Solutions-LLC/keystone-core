@@ -14,6 +14,7 @@ import (
 // CertificateType represents the type of certificate to issue.
 type CertificateType string
 
+// CertificateTypeServer constants define the supported types.
 const (
 	CertificateTypeServer     CertificateType = "server"
 	CertificateTypeClient     CertificateType = "client"

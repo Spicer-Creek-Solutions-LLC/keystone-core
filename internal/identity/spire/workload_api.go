@@ -2,6 +2,7 @@ package spire
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -195,7 +196,7 @@ type x509SVIDStreamImpl struct {
 func (s *x509SVIDStreamImpl) Recv() (*X509SVIDResponse, error) {
 	resp := &X509SVIDResponse{}
 	if err := s.stream.RecvMsg(resp); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to receive message: %w", err)
@@ -214,7 +215,7 @@ type x509BundleStreamImpl struct {
 func (s *x509BundleStreamImpl) Recv() (*X509BundleResponse, error) {
 	resp := &X509BundleResponse{}
 	if err := s.stream.RecvMsg(resp); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to receive message: %w", err)

@@ -10,9 +10,9 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
 
-func TestNewExecutionQueue(t *testing.T) {
+func TestNewQueue(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor)
+	queue := NewQueue(executor)
 
 	if queue == nil {
 		t.Fatal("expected non-nil queue")
@@ -31,15 +31,15 @@ func TestNewExecutionQueue(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueEnqueue(t *testing.T) {
+func TestQueueEnqueue(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor)
+	queue := NewQueue(executor)
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -65,9 +65,9 @@ func TestExecutionQueueEnqueue(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueEnqueueNilRunbook(t *testing.T) {
+func TestQueueEnqueueNilRunbook(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor)
+	queue := NewQueue(executor)
 
 	_, err := queue.Enqueue(nil, nil, PriorityNormal)
 	if err == nil {
@@ -75,15 +75,15 @@ func TestExecutionQueueEnqueueNilRunbook(t *testing.T) {
 	}
 }
 
-func TestExecutionQueuePriority(t *testing.T) {
+func TestQueuePriority(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor)
+	queue := NewQueue(executor)
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -110,11 +110,11 @@ func TestExecutionQueuePriority(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueProcessing(t *testing.T) {
+func TestQueueProcessing(t *testing.T) {
 	executor := NewExecutor()
 
 	var completed int64
-	queue := NewExecutionQueue(executor,
+	queue := NewQueue(executor,
 		WithMaxConcurrent(2),
 		WithQueueCallbacks(
 			nil,
@@ -129,7 +129,7 @@ func TestExecutionQueueProcessing(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -160,15 +160,15 @@ func TestExecutionQueueProcessing(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueCancel(t *testing.T) {
+func TestQueueCancel(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor, WithMaxConcurrent(0)) // Don't process
+	queue := NewQueue(executor, WithMaxConcurrent(0)) // Don't process
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -189,15 +189,15 @@ func TestExecutionQueueCancel(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueGetStatus(t *testing.T) {
+func TestQueueGetStatus(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor, WithMaxConcurrent(0))
+	queue := NewQueue(executor, WithMaxConcurrent(0))
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -223,7 +223,7 @@ func TestExecutionQueueGetStatus(t *testing.T) {
 	}
 }
 
-func TestExecutionQueueConcurrency(t *testing.T) {
+func TestQueueConcurrency(t *testing.T) {
 	executor := NewExecutor()
 
 	maxConcurrent := 3
@@ -231,7 +231,7 @@ func TestExecutionQueueConcurrency(t *testing.T) {
 	var currentActive int64
 	var mu sync.Mutex
 
-	queue := NewExecutionQueue(executor,
+	queue := NewQueue(executor,
 		WithMaxConcurrent(maxConcurrent),
 		WithQueueCallbacks(
 			nil,
@@ -255,7 +255,7 @@ func TestExecutionQueueConcurrency(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -542,13 +542,13 @@ func (pq *priorityQueue) down(i, n int) bool {
 
 func TestEnqueueWithTimeout(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor)
+	queue := NewQueue(executor)
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -567,13 +567,13 @@ func TestEnqueueWithTimeout(t *testing.T) {
 
 func TestQueueStats(t *testing.T) {
 	executor := NewExecutor()
-	queue := NewExecutionQueue(executor, WithMaxConcurrent(1))
+	queue := NewQueue(executor, WithMaxConcurrent(1))
 
 	rb := &runbook.Runbook{
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test", Namespace: "default"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},

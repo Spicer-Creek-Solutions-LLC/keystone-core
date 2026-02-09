@@ -24,11 +24,11 @@ const (
 
 // Result represents the result of a rate limit check.
 type Result struct {
-	Allowed     bool          `json:"allowed"`
-	Remaining   int64         `json:"remaining"`
-	Limit       int64         `json:"limit"`
-	RetryAfter  time.Duration `json:"retryAfter,omitempty"`
-	ResetAt     time.Time     `json:"resetAt,omitempty"`
+	Allowed    bool          `json:"allowed"`
+	Remaining  int64         `json:"remaining"`
+	Limit      int64         `json:"limit"`
+	RetryAfter time.Duration `json:"retryAfter,omitempty"`
+	ResetAt    time.Time     `json:"resetAt,omitempty"`
 }
 
 // Limiter is the interface for rate limiters.
@@ -40,11 +40,11 @@ type Limiter interface {
 
 // Config configures a rate limiter.
 type Config struct {
-	Strategy     Strategy      `json:"strategy"`
-	Limit        int64         `json:"limit"`
-	Window       time.Duration `json:"window"`
-	BurstSize    int64         `json:"burstSize,omitempty"`
-	RefillRate   float64       `json:"refillRate,omitempty"` // tokens per second
+	Strategy        Strategy      `json:"strategy"`
+	Limit           int64         `json:"limit"`
+	Window          time.Duration `json:"window"`
+	BurstSize       int64         `json:"burstSize,omitempty"`
+	RefillRate      float64       `json:"refillRate,omitempty"` // tokens per second
 	CleanupInterval time.Duration `json:"cleanupInterval,omitempty"`
 }
 
@@ -62,16 +62,16 @@ func DefaultConfig() *Config {
 
 // TokenBucket implements the token bucket algorithm.
 type TokenBucket struct {
-	config    *Config
-	buckets   map[string]*bucket
-	mu        sync.RWMutex
-	stopCh    chan struct{}
+	config  *Config
+	buckets map[string]*bucket
+	mu      sync.RWMutex
+	stopCh  chan struct{}
 }
 
 type bucket struct {
-	tokens    float64
+	tokens     float64
 	lastRefill time.Time
-	mu        sync.Mutex
+	mu         sync.Mutex
 }
 
 // NewTokenBucket creates a new token bucket limiter.
@@ -225,8 +225,8 @@ type SlidingWindow struct {
 }
 
 type window struct {
-	counts    []windowCount
-	mu        sync.Mutex
+	counts []windowCount
+	mu     sync.Mutex
 }
 
 type windowCount struct {
@@ -520,16 +520,16 @@ func (fw *FixedWindow) doCleanup() {
 
 // LeakyBucket implements the leaky bucket algorithm.
 type LeakyBucket struct {
-	config    *Config
-	buckets   map[string]*leakyBucketEntry
-	mu        sync.RWMutex
-	stopCh    chan struct{}
+	config  *Config
+	buckets map[string]*leakyBucketEntry
+	mu      sync.RWMutex
+	stopCh  chan struct{}
 }
 
 type leakyBucketEntry struct {
-	level       float64
-	lastLeak    time.Time
-	mu          sync.Mutex
+	level    float64
+	lastLeak time.Time
+	mu       sync.Mutex
 }
 
 // NewLeakyBucket creates a new leaky bucket limiter.

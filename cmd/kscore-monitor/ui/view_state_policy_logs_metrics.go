@@ -34,10 +34,12 @@ func NewStateDriftModel(cfg *config.Config) *StateDriftModel {
 	}
 }
 
+// Init initializes the state drift model.
 func (m *StateDriftModel) Init() tea.Cmd {
 	return m.Fetch()
 }
 
+// Update handles messages and updates the state drift model.
 func (m *StateDriftModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -57,9 +59,9 @@ func (m *StateDriftModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "r":
-			return m, m.Fetch()
+		if msg.String() == "r" {
+			cmd := m.Fetch()
+			return m, cmd
 		}
 	}
 
@@ -67,6 +69,7 @@ func (m *StateDriftModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the state drift model.
 func (m *StateDriftModel) View() string {
 	if !m.ready {
 		return "Loading state drift..."
@@ -91,6 +94,7 @@ func (m *StateDriftModel) View() string {
 	)
 }
 
+// Fetch retrieves state drift data.
 func (m *StateDriftModel) Fetch() tea.Cmd {
 	return nil
 }
@@ -147,10 +151,12 @@ func NewPolicyViolationsModel(cfg *config.Config) *PolicyViolationsModel {
 	}
 }
 
+// Init initializes the policy violations model.
 func (m *PolicyViolationsModel) Init() tea.Cmd {
 	return m.Fetch()
 }
 
+// Update handles messages and updates the policy violations model.
 func (m *PolicyViolationsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -170,9 +176,9 @@ func (m *PolicyViolationsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "r":
-			return m, m.Fetch()
+		if msg.String() == "r" {
+			cmd := m.Fetch()
+			return m, cmd
 		}
 	}
 
@@ -180,6 +186,7 @@ func (m *PolicyViolationsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the policy violations model.
 func (m *PolicyViolationsModel) View() string {
 	if !m.ready {
 		return "Loading policy violations..."
@@ -209,6 +216,7 @@ func (m *PolicyViolationsModel) View() string {
 	)
 }
 
+// Fetch retrieves policy violations data.
 func (m *PolicyViolationsModel) Fetch() tea.Cmd {
 	return nil
 }
@@ -252,7 +260,6 @@ type LogsModel struct {
 	config    *config.Config
 	viewport  viewport.Model
 	logBuffer *events.LogBuffer
-	filter    string
 	paused    bool
 	width     int
 	height    int
@@ -274,10 +281,12 @@ func NewLogsModel(cfg *config.Config) *LogsModel {
 	}
 }
 
+// Init initializes the logs model.
 func (m *LogsModel) Init() tea.Cmd {
 	return m.Fetch()
 }
 
+// Update handles messages and updates the logs model.
 func (m *LogsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -305,7 +314,8 @@ func (m *LogsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "r":
-			return m, m.Fetch()
+			cmd := m.Fetch()
+			return m, cmd
 		case "c":
 			m.logBuffer.Clear()
 			m.updateViewport()
@@ -318,6 +328,7 @@ func (m *LogsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the logs model.
 func (m *LogsModel) View() string {
 	if !m.ready {
 		return "Loading logs..."
@@ -354,6 +365,7 @@ func (m *LogsModel) View() string {
 	)
 }
 
+// Fetch retrieves logs data.
 func (m *LogsModel) Fetch() tea.Cmd {
 	return nil
 }
@@ -440,10 +452,12 @@ func NewMetricsModel(cfg *config.Config) *MetricsModel {
 	}
 }
 
+// Init initializes the metrics model.
 func (m *MetricsModel) Init() tea.Cmd {
 	return m.Fetch()
 }
 
+// Update handles messages and updates the metrics model.
 func (m *MetricsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -471,7 +485,8 @@ func (m *MetricsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "r":
-			return m, m.Fetch()
+			cmd := m.Fetch()
+			return m, cmd
 		case "c":
 			m.metricBuffer.Clear()
 			m.updateViewport()
@@ -482,6 +497,7 @@ func (m *MetricsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the metrics model.
 func (m *MetricsModel) View() string {
 	if !m.ready {
 		return "Loading metrics..."
@@ -512,6 +528,7 @@ func (m *MetricsModel) View() string {
 	)
 }
 
+// Fetch retrieves metrics data.
 func (m *MetricsModel) Fetch() tea.Cmd {
 	return nil
 }
@@ -569,8 +586,7 @@ Press 'r' to refresh, 'c' to clear.`)
 	}
 
 	var lines []string
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Render("System Metrics Overview"))
-	lines = append(lines, "")
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Render("System Metrics Overview"), "")
 
 	for service, svcMetrics := range serviceMetrics {
 		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62")).Render(service+":"))

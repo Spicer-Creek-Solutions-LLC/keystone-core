@@ -84,7 +84,8 @@ type PackageManagerConfig struct {
 // NewPackageManager creates a new package manager.
 func NewPackageManager(config *PackageManagerConfig) (*PackageManager, error) {
 	// Create cache directory.
-	if err := os.MkdirAll(config.CacheDir, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(config.CacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -242,7 +243,8 @@ func (m *PackageManager) WriteYumRepo(repo *PackageRepository) error {
 
 	// Write file.
 	repoFile := filepath.Join(m.repoDir, repo.Name+".repo")
-	if err := os.WriteFile(repoFile, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: yum repo files need to be readable by the package manager
+	if err := os.WriteFile(repoFile, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write repo file: %w", err)
 	}
 
@@ -263,7 +265,8 @@ func (m *PackageManager) WriteAptSource(repo *PackageRepository) error {
 
 	// Write file.
 	sourceFile := filepath.Join(m.repoDir, repo.Name+".list")
-	if err := os.WriteFile(sourceFile, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: apt source files need to be readable by the package manager
+	if err := os.WriteFile(sourceFile, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write source file: %w", err)
 	}
 
@@ -271,7 +274,7 @@ func (m *PackageManager) WriteAptSource(repo *PackageRepository) error {
 }
 
 // RemoveRepo removes a repository file.
-func (m *PackageManager) RemoveRepo(name string, repoType string) error {
+func (m *PackageManager) RemoveRepo(name, repoType string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

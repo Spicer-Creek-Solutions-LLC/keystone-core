@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"os/user"
@@ -35,7 +36,8 @@ func (m *GroupModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 	// Check if group exists
 	grp, err := user.LookupGroup(groupName)
 	if err != nil {
-		if _, ok := err.(user.UnknownGroupError); ok {
+		var unknownGroupErr user.UnknownGroupError
+		if errors.As(err, &unknownGroupErr) {
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = (decl.State == "absent")
@@ -70,7 +72,7 @@ func (m *GroupModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 
 	// Check members
 	if desiredMembers := getStringSliceParameter(decl, "members"); desiredMembers != nil {
-		currentMembers, err := m.getGroupMembers(groupName)
+		currentMembers, err := m.getGroupMembers(ctx, groupName)
 		if err == nil {
 			if !stringSlicesEqual(currentMembers, desiredMembers) {
 				result.Matches = false
@@ -161,7 +163,8 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 	groupName := decl.ID
 	args := []string{}
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		// Linux/FreeBSD: groupadd
 		args = append(args, "groupadd")
 
@@ -177,13 +180,13 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 
 		args = append(args, groupName)
 
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl (Directory Service command line)
 		return m.createGroupDarwin(ctx, decl, result)
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net localgroup
 		return m.createGroupWindows(ctx, decl, result)
-	} else {
+	default:
 		return fmt.Errorf("group creation not supported on %s", runtime.GOOS)
 	}
 
@@ -194,7 +197,7 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 	}
 
 	// Add members if specified
-	if members := getStringSliceParameter(decl, "members"); members != nil && len(members) > 0 {
+	if members := getStringSliceParameter(decl, "members"); len(members) > 0 {
 		for _, member := range members {
 			if err := m.addUserToGroup(ctx, groupName, member); err != nil {
 				return fmt.Errorf("failed to add member %s: %w", member, err)
@@ -246,7 +249,7 @@ func (m *GroupModule) createGroupDarwin(ctx context.Context, decl *StateDeclarat
 	}
 
 	// Add members if specified
-	if members := getStringSliceParameter(decl, "members"); members != nil && len(members) > 0 {
+	if members := getStringSliceParameter(decl, "members"); len(members) > 0 {
 		for _, member := range members {
 			if err := m.addUserToGroupDarwin(ctx, groupName, member); err != nil {
 				// Log but don't fail - user might not exist
@@ -266,7 +269,8 @@ func (m *GroupModule) modifyGroup(ctx context.Context, decl *StateDeclaration, r
 	groupName := decl.ID
 	args := []string{}
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		// Linux/FreeBSD: groupmod
 		args = append(args, "groupmod")
 
@@ -287,13 +291,13 @@ func (m *GroupModule) modifyGroup(ctx context.Context, decl *StateDeclaration, r
 
 		args = append(args, groupName)
 
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl
 		return m.modifyGroupDarwin(ctx, decl, result)
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net localgroup
 		return m.modifyGroupWindows(ctx, decl, result)
-	} else {
+	default:
 		return fmt.Errorf("group modification not supported on %s", runtime.GOOS)
 	}
 
@@ -356,26 +360,27 @@ func (m *GroupModule) modifyGroupDarwin(ctx context.Context, decl *StateDeclarat
 func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
 	groupName := decl.ID
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		cmd := exec.CommandContext(ctx, "groupdel", groupName) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to delete group: %w (output: %s)", err, string(output))
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl to delete group
 		groupPath := "/Groups/" + groupName
 		if err := m.dsclDelete(ctx, groupPath); err != nil {
 			return fmt.Errorf("failed to delete group: %w", err)
 		}
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net localgroup /delete
 		cmd := exec.CommandContext(ctx, "net", "localgroup", groupName, "/delete") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to delete group: %w (output: %s)", err, string(output))
 		}
-	} else {
+	default:
 		return fmt.Errorf("group deletion not supported on %s", runtime.GOOS)
 	}
 
@@ -384,20 +389,20 @@ func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, r
 }
 
 // getGroupMembers gets the members of a group
-func (m *GroupModule) getGroupMembers(groupName string) ([]string, error) {
+func (m *GroupModule) getGroupMembers(ctx context.Context, groupName string) ([]string, error) {
 	if runtime.GOOS == "darwin" {
-		return m.getGroupMembersDarwin(groupName)
+		return m.getGroupMembersDarwin(ctx, groupName)
 	}
 
 	if runtime.GOOS == "windows" {
-		return m.getGroupMembersWindows(groupName)
+		return m.getGroupMembersWindows(ctx, groupName)
 	}
 
 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
 		return nil, fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	cmd := exec.Command("getent", "group", groupName) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(ctx, "getent", "group", groupName) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -417,15 +422,16 @@ func (m *GroupModule) getGroupMembers(groupName string) ([]string, error) {
 }
 
 // getGroupMembersDarwin gets the members of a group on macOS using dscl
-func (m *GroupModule) getGroupMembersDarwin(groupName string) ([]string, error) {
+func (m *GroupModule) getGroupMembersDarwin(ctx context.Context, groupName string) ([]string, error) {
 	groupPath := "/Groups/" + groupName
 
 	// Read GroupMembership property
-	cmd := exec.Command("dscl", ".", "-read", groupPath, "GroupMembership") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-read", groupPath, "GroupMembership") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		// GroupMembership might not exist if group has no members
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			// Exit code 185 means the key doesn't exist (no members)
 			if exitErr.ExitCode() != 0 {
 				return []string{}, nil
@@ -455,7 +461,7 @@ func (m *GroupModule) getGroupMembersDarwin(groupName string) ([]string, error) 
 
 // updateGroupMembers updates the members of a group
 func (m *GroupModule) updateGroupMembers(ctx context.Context, groupName string, desiredMembers []string) error {
-	currentMembers, err := m.getGroupMembers(groupName)
+	currentMembers, err := m.getGroupMembers(ctx, groupName)
 	if err != nil {
 		return err
 	}
@@ -591,7 +597,7 @@ func (m *GroupModule) removeUserFromGroupDarwin(ctx context.Context, groupName, 
 
 // updateGroupMembersDarwin updates the members of a group on macOS
 func (m *GroupModule) updateGroupMembersDarwin(ctx context.Context, groupName string, desiredMembers []string) error {
-	currentMembers, err := m.getGroupMembersDarwin(groupName)
+	currentMembers, err := m.getGroupMembersDarwin(ctx, groupName)
 	if err != nil {
 		return err
 	}
@@ -637,7 +643,7 @@ func (m *GroupModule) createGroupWindows(ctx context.Context, decl *StateDeclara
 
 	// Comment/description
 	if comment := getStringParameter(decl, "description", ""); comment != "" {
-		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+		args = append(args, fmt.Sprintf("/comment:%q", comment))
 	}
 
 	cmd := exec.CommandContext(ctx, "net", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
@@ -647,7 +653,7 @@ func (m *GroupModule) createGroupWindows(ctx context.Context, decl *StateDeclara
 	}
 
 	// Add members if specified
-	if members := getStringSliceParameter(decl, "members"); members != nil && len(members) > 0 {
+	if members := getStringSliceParameter(decl, "members"); len(members) > 0 {
 		for _, member := range members {
 			if err := m.addUserToGroupWindows(ctx, groupName, member); err != nil {
 				result.Comment = fmt.Sprintf("Group %s created (warning: failed to add member %s: %v)", groupName, member, err)
@@ -687,9 +693,9 @@ func (m *GroupModule) modifyGroupWindows(ctx context.Context, decl *StateDeclara
 }
 
 // getGroupMembersWindows gets the members of a group on Windows
-func (m *GroupModule) getGroupMembersWindows(groupName string) ([]string, error) {
+func (m *GroupModule) getGroupMembersWindows(ctx context.Context, groupName string) ([]string, error) {
 	// Use net localgroup to list members
-	cmd := exec.Command("net", "localgroup", groupName) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(ctx, "net", "localgroup", groupName) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get group members: %w", err)
@@ -758,7 +764,7 @@ func (m *GroupModule) removeUserFromGroupWindows(ctx context.Context, groupName,
 
 // updateGroupMembersWindows updates the members of a group on Windows
 func (m *GroupModule) updateGroupMembersWindows(ctx context.Context, groupName string, desiredMembers []string) error {
-	currentMembers, err := m.getGroupMembersWindows(groupName)
+	currentMembers, err := m.getGroupMembersWindows(ctx, groupName)
 	if err != nil {
 		return err
 	}
@@ -796,5 +802,5 @@ func (m *GroupModule) updateGroupMembersWindows(ctx context.Context, groupName s
 }
 
 func init() {
-	RegisterModule(NewGroupModule())
+	_ = RegisterModule(NewGroupModule()) //nolint:errcheck // module registration in init
 }

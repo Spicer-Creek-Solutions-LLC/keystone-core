@@ -64,7 +64,7 @@ func DefaultOTLPConfig() OTLPConfig {
 type OTLPExporter struct {
 	config OTLPConfig
 	client *http.Client
-	store  *TracesStore
+	store  *Store
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -85,7 +85,7 @@ type OTLPExporter struct {
 }
 
 // NewOTLPExporter creates a new OTLP exporter.
-func NewOTLPExporter(store *TracesStore, config OTLPConfig) *OTLPExporter {
+func NewOTLPExporter(store *Store, config OTLPConfig) *OTLPExporter {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &OTLPExporter{
 		config: config,
@@ -255,15 +255,17 @@ func (e *OTLPExporter) tracesToOTLP(traces []*Trace) *otlpTraceRequest {
 	// Group spans by service
 	serviceSpans := make(map[string][]otlpSpan)
 
-	for _, trace := range traces {
-		for _, span := range trace.Spans {
-			otlpSpan := e.spanToOTLP(span)
+	for i := range traces {
+		trace := traces[i]
+		for j := range trace.Spans {
+			span := &trace.Spans[j]
+			otlpSpan := e.spanToOTLP(*span)
 			serviceSpans[span.ServiceName] = append(serviceSpans[span.ServiceName], otlpSpan)
 		}
 	}
 
 	// Build resource spans
-	var resourceSpans []otlpResourceSpans
+	resourceSpans := make([]otlpResourceSpans, 0, len(serviceSpans))
 	for serviceName, spans := range serviceSpans {
 		rs := otlpResourceSpans{
 			Resource: otlpResource{

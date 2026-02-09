@@ -33,7 +33,7 @@ pygmentsUseClasses = true
   offlineSearchMaxResults = 25
 
   # Repository
-  github_repo = "https://github.com/shawnbutts/keystone-core"
+  github_repo = ""
   github_branch = "main"
 
   # Mermaid diagram support
@@ -57,13 +57,13 @@ pygmentsUseClasses = true
   # Links
   [[params.links.user]]
     name = "GitHub"
-    url = "https://github.com/shawnbutts/keystone-core"
+    url = "https://github.com/keystonecore"
     icon = "fab fa-github"
     desc = "Development takes place here!"
 
   [[params.links.developer]]
     name = "GitHub"
-    url = "https://github.com/shawnbutts/keystone-core"
+    url = "https://github.com/keystonecore"
     icon = "fab fa-github"
     desc = "Contribute to the project!"
 
@@ -76,7 +76,7 @@ pygmentsUseClasses = true
   [[menu.main]]
     name = "GitHub"
     weight = 50
-    url = "https://github.com/shawnbutts/keystone-core"
+    url = "https://github.com/keystonecore"
 
 [outputs]
   home = ["HTML"]

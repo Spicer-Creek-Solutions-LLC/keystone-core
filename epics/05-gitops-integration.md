@@ -180,7 +180,7 @@ git_repositories:
   - name: infrastructure-states
     url: git@github.com:myorg/kscore-states.git
     branch: main
-    path: /etc/kscore/states
+    path: /etc/keystone-core/states
     sync_interval: 5m
     paths:
       states: states/
@@ -190,7 +190,7 @@ git_repositories:
   - name: production-config
     url: git@github.com:myorg/kscore-prod.git
     branch: production
-    path: /etc/kscore/production
+    path: /etc/keystone-core/production
     sync_interval: 1m
 ```
 

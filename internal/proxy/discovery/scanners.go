@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,7 @@ func (s *ICMPScanner) Scan(ctx context.Context, targets []string) ([]*Discovered
 				}
 
 				// Try reverse DNS
-				if names, err := net.LookupAddr(ip); err == nil && len(names) > 0 {
+				if names, err := (&net.Resolver{}).LookupAddr(ctx, ip); err == nil && len(names) > 0 {
 					device.Hostname = strings.TrimSuffix(names[0], ".")
 				}
 
@@ -201,13 +202,13 @@ func (s *SSHScanner) scanHost(ctx context.Context, ip string) *DiscoveredDevice 
 	}
 
 	// Try reverse DNS
-	if names, err := net.LookupAddr(ip); err == nil && len(names) > 0 {
+	if names, err := (&net.Resolver{}).LookupAddr(ctx, ip); err == nil && len(names) > 0 {
 		device.Hostname = strings.TrimSuffix(names[0], ".")
 	}
 
 	// Grab SSH banner
 	if s.grabBanner {
-		conn.SetReadDeadline(time.Now().Add(s.timeout))
+		_ = conn.SetReadDeadline(time.Now().Add(s.timeout)) //nolint:errcheck // best-effort deadline
 		banner := make([]byte, 256)
 		n, err := conn.Read(banner)
 		if err == nil && n > 0 {
@@ -288,11 +289,11 @@ type SNMPScanner struct {
 
 // SNMPv3Config holds SNMPv3 authentication settings.
 type SNMPv3Config struct {
-	Username     string
-	AuthProtocol string // MD5, SHA, SHA256, SHA512
-	AuthPassword string
-	PrivProtocol string // DES, AES, AES192, AES256
-	PrivPassword string
+	Username      string
+	AuthProtocol  string // MD5, SHA, SHA256, SHA512
+	AuthPassword  string
+	PrivProtocol  string // DES, AES, AES192, AES256
+	PrivPassword  string
 	SecurityLevel string // noAuthNoPriv, authNoPriv, authPriv
 }
 
@@ -368,10 +369,11 @@ func (s *SNMPScanner) scanHost(ctx context.Context, ip string) *DiscoveredDevice
 	// Build SNMP GET request for sysDescr, sysObjectID, sysName
 	// OIDs: 1.3.6.1.2.1.1.1.0 (sysDescr), 1.3.6.1.2.1.1.2.0 (sysObjectID), 1.3.6.1.2.1.1.5.0 (sysName)
 
-	addr := fmt.Sprintf("%s:%d", ip, s.port)
+	addr := net.JoinHostPort(ip, strconv.Itoa(s.port))
 
 	// Create UDP connection
-	conn, err := net.DialTimeout("udp", addr, s.timeout)
+	d := &net.Dialer{Timeout: s.timeout}
+	conn, err := d.DialContext(ctx, "udp", addr)
 	if err != nil {
 		return nil
 	}
@@ -383,7 +385,7 @@ func (s *SNMPScanner) scanHost(ctx context.Context, ip string) *DiscoveredDevice
 		"1.3.6.1.2.1.1.5.0", // sysName
 	})
 
-	conn.SetDeadline(time.Now().Add(s.timeout))
+	_ = conn.SetDeadline(time.Now().Add(s.timeout)) //nolint:errcheck // best-effort deadline
 	_, err = conn.Write(request)
 	if err != nil {
 		return nil
@@ -439,7 +441,7 @@ func (s *SNMPScanner) buildGetRequest(oids []string) []byte {
 	var packet []byte
 
 	// Build OID bindings
-	var bindings []byte
+	bindings := make([]byte, 0, len(oids)*16) // Estimate 16 bytes per OID binding
 	for _, oid := range oids {
 		binding := s.encodeOIDBinding(oid)
 		bindings = append(bindings, binding...)
@@ -451,16 +453,20 @@ func (s *SNMPScanner) buildGetRequest(oids []string) []byte {
 	errorIndex := []byte{0x02, 0x01, 0x00}                  // Integer: 0
 	varbindList := append([]byte{0x30, byte(len(bindings))}, bindings...)
 
-	pduContent := append(requestID, errorStatus...)
+	pduContent := make([]byte, 0, len(requestID)+len(errorStatus)+len(errorIndex)+len(varbindList))
+	pduContent = append(pduContent, requestID...)
+	pduContent = append(pduContent, errorStatus...)
 	pduContent = append(pduContent, errorIndex...)
 	pduContent = append(pduContent, varbindList...)
 	pdu := append([]byte{0xa0, byte(len(pduContent))}, pduContent...) // GetRequest PDU
 
 	// Build message
-	version := []byte{0x02, 0x01, 0x01}                              // Integer: 1 (SNMPv2c)
+	version := []byte{0x02, 0x01, 0x01} // Integer: 1 (SNMPv2c)
 	community := append([]byte{0x04, byte(len(s.community))}, []byte(s.community)...)
 
-	messageContent := append(version, community...)
+	messageContent := make([]byte, 0, len(version)+len(community)+len(pdu))
+	messageContent = append(messageContent, version...)
+	messageContent = append(messageContent, community...)
 	messageContent = append(messageContent, pdu...)
 	packet = append([]byte{0x30, byte(len(messageContent))}, messageContent...)
 
@@ -473,7 +479,9 @@ func (s *SNMPScanner) encodeOIDBinding(oid string) []byte {
 	oidBytes := s.encodeOID(oid)
 	nullValue := []byte{0x05, 0x00} // NULL
 
-	content := append(oidBytes, nullValue...)
+	content := make([]byte, 0, len(oidBytes)+len(nullValue))
+	content = append(content, oidBytes...)
+	content = append(content, nullValue...)
 	return append([]byte{0x30, byte(len(content))}, content...)
 }
 
@@ -538,7 +546,7 @@ func (s *SNMPScanner) parseResponse(data []byte) (sysDescr, sysName string) {
 				str := string(data[i+2 : i+2+length])
 				if sysDescr == "" && len(str) > 10 {
 					sysDescr = str
-				} else if sysName == "" && len(str) > 0 && len(str) < 64 {
+				} else if sysName == "" && str != "" && len(str) < 64 {
 					sysName = str
 				}
 			}
@@ -627,13 +635,14 @@ func (s *SNMPScanner) parseSysDescr(device *DiscoveredDevice) {
 
 	case strings.Contains(descr, "linux"):
 		device.Type = DeviceTypeServer
-		if strings.Contains(descr, "ubuntu") {
+		switch {
+		case strings.Contains(descr, "ubuntu"):
 			device.Vendor = "Ubuntu"
-		} else if strings.Contains(descr, "debian") {
+		case strings.Contains(descr, "debian"):
 			device.Vendor = "Debian"
-		} else if strings.Contains(descr, "centos") {
+		case strings.Contains(descr, "centos"):
 			device.Vendor = "CentOS"
-		} else if strings.Contains(descr, "red hat") {
+		case strings.Contains(descr, "red hat"):
 			device.Vendor = "Red Hat"
 		}
 
@@ -751,12 +760,12 @@ func (s *HTTPScanner) scanHost(ctx context.Context, ip string, port int) *Discov
 	}
 
 	// Try reverse DNS
-	if names, err := net.LookupAddr(ip); err == nil && len(names) > 0 {
+	if names, err := (&net.Resolver{}).LookupAddr(ctx, ip); err == nil && len(names) > 0 {
 		device.Hostname = strings.TrimSuffix(names[0], ".")
 	}
 
 	// Send HTTP request to get server header
-	conn.SetDeadline(time.Now().Add(s.timeout))
+	_ = conn.SetDeadline(time.Now().Add(s.timeout)) //nolint:errcheck // best-effort deadline
 	request := fmt.Sprintf("GET / HTTP/1.0\r\nHost: %s\r\n\r\n", ip)
 	conn.Write([]byte(request))
 
@@ -900,7 +909,7 @@ func (s *WinRMScanner) scanHost(ctx context.Context, ip string, port int) *Disco
 	}
 
 	// Try reverse DNS
-	if names, err := net.LookupAddr(ip); err == nil && len(names) > 0 {
+	if names, err := (&net.Resolver{}).LookupAddr(ctx, ip); err == nil && len(names) > 0 {
 		device.Hostname = strings.TrimSuffix(names[0], ".")
 	}
 

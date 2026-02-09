@@ -1,3 +1,4 @@
+// Package main implements the kscore-policy CLI for policy enforcement and compliance management.
 package main
 
 import (
@@ -59,6 +60,10 @@ Examples:
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(activateCmd)
 	rootCmd.AddCommand(deactivateCmd)
+
+	// Compliance and violations commands
+	rootCmd.AddCommand(complianceCmd)
+	rootCmd.AddCommand(violationsCmd)
 
 	// Add deprecated commands (moving to kscore-audit)
 	rootCmd.AddCommand(auditCmd)
@@ -168,14 +173,14 @@ func listExecute(cmd *cobra.Command, args []string) error {
 
 	// Apply filters
 	filtered := make([]PolicyDefinition, 0)
-	for _, p := range policies {
-		if listCategory != "" && !strings.EqualFold(p.Category, listCategory) {
+	for i := range policies {
+		if listCategory != "" && !strings.EqualFold(policies[i].Category, listCategory) {
 			continue
 		}
-		if listType != "" && !strings.EqualFold(p.Type, listType) {
+		if listType != "" && !strings.EqualFold(policies[i].Type, listType) {
 			continue
 		}
-		filtered = append(filtered, p)
+		filtered = append(filtered, policies[i])
 	}
 
 	format, err := output.ParseFormat(listOutput)
@@ -204,7 +209,8 @@ func printPolicyTable(policies []PolicyDefinition) {
 
 	fmt.Printf("%-30s %-8s %-12s %-10s %-8s\n", "ID", "TYPE", "CATEGORY", "SEVERITY", "ENABLED")
 	fmt.Println(strings.Repeat("-", 75))
-	for _, p := range policies {
+	for i := range policies {
+		p := &policies[i]
 		enabled := "yes"
 		if !p.Enabled {
 			enabled = "no"
@@ -265,7 +271,8 @@ func validateExecute(cmd *cobra.Command, args []string) error {
 	errors := 0
 	warnings := 0
 
-	for _, pDef := range policyFile.Policies {
+	for i := range policyFile.Policies {
+		pDef := &policyFile.Policies[i]
 		fmt.Printf("Validating: %s\n", pDef.ID)
 
 		// Check required fields
@@ -394,7 +401,8 @@ func checkExecute(cmd *cobra.Command, args []string) error {
 
 	// Load input
 	var resource interface{}
-	if checkInputFile != "" {
+	switch {
+	case checkInputFile != "":
 		data, err := os.ReadFile(checkInputFile)
 		if err != nil {
 			return fmt.Errorf("failed to read input file: %w", err)
@@ -402,11 +410,11 @@ func checkExecute(cmd *cobra.Command, args []string) error {
 		if err := json.Unmarshal(data, &resource); err != nil {
 			return fmt.Errorf("failed to parse input JSON: %w", err)
 		}
-	} else if checkInputJSON != "" {
+	case checkInputJSON != "":
 		if err := json.Unmarshal([]byte(checkInputJSON), &resource); err != nil {
 			return fmt.Errorf("failed to parse inline JSON: %w", err)
 		}
-	} else {
+	default:
 		return fmt.Errorf("input required: use --input-file or --input")
 	}
 
@@ -426,8 +434,8 @@ func checkExecute(cmd *cobra.Command, args []string) error {
 
 	// Find the policy
 	var targetPolicy *PolicyDefinition
-	for i, p := range policyFile.Policies {
-		if p.ID == checkPolicyID {
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == checkPolicyID {
 			targetPolicy = &policyFile.Policies[i]
 			break
 		}
@@ -596,8 +604,8 @@ func showExecute(cmd *cobra.Command, args []string) error {
 
 	// Find the policy
 	var targetPolicy *PolicyDefinition
-	for i, p := range policyFile.Policies {
-		if p.ID == policyID {
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == policyID {
 			targetPolicy = &policyFile.Policies[i]
 			break
 		}
@@ -752,8 +760,8 @@ func createExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check for duplicate ID
-	for _, p := range policyFile.Policies {
-		if p.ID == createName {
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == createName {
 			return fmt.Errorf("policy with ID '%s' already exists", createName)
 		}
 	}
@@ -811,7 +819,6 @@ func createExecute(cmd *cobra.Command, args []string) error {
 // =============================================================================
 
 var (
-	updateFile            string
 	updateDescription     string
 	updateSeverity        string
 	updateEnforcementMode string
@@ -864,9 +871,9 @@ func updateExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find the policy
-	var targetIndex int = -1
-	for i, p := range policyFile.Policies {
-		if p.ID == policyID {
+	var targetIndex = -1
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == policyID {
 			targetIndex = i
 			break
 		}
@@ -979,9 +986,9 @@ func deleteExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find the policy
-	var targetIndex int = -1
-	for i, p := range policyFile.Policies {
-		if p.ID == policyID {
+	var targetIndex = -1
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == policyID {
 			targetIndex = i
 			break
 		}
@@ -996,7 +1003,7 @@ func deleteExecute(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Delete policy '%s' from %s? [y/N]: ", policyID, policyFilePath)
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 			fmt.Println("Deletion cancelled.")
 			return nil
 		}
@@ -1052,9 +1059,9 @@ func activateExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find the policy
-	var targetIndex int = -1
-	for i, p := range policyFile.Policies {
-		if p.ID == policyID {
+	var targetIndex = -1
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == policyID {
 			targetIndex = i
 			break
 		}
@@ -1123,9 +1130,9 @@ func deactivateExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find the policy
-	var targetIndex int = -1
-	for i, p := range policyFile.Policies {
-		if p.ID == policyID {
+	var targetIndex = -1
+	for i := range policyFile.Policies {
+		if policyFile.Policies[i].ID == policyID {
 			targetIndex = i
 			break
 		}
@@ -1198,7 +1205,7 @@ func init() {
 
 func auditExecute(cmd *cobra.Command, args []string) error {
 	// Create a sample auditor (in production, this would connect to the control plane)
-	auditor := policy.NewPolicyAuditor(1000)
+	auditor := policy.NewAuditor(1000)
 
 	// Build filter
 	filter := &policy.AuditFilter{
@@ -1244,7 +1251,8 @@ func auditExecute(cmd *cobra.Command, args []string) error {
 	case output.FormatTable, output.FormatText:
 		fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
 		fmt.Println(strings.Repeat("-", 85))
-		for _, entry := range entries {
+		for i := range entries {
+			entry := &entries[i]
 			result := "ALLOWED"
 			if !entry.Allowed {
 				result = "DENIED"
@@ -1299,7 +1307,7 @@ func init() {
 func reportExecute(cmd *cobra.Command, args []string) error {
 	// Create sample components (in production, connect to control plane)
 	registry := policy.NewRegistry()
-	auditor := policy.NewPolicyAuditor(10000)
+	auditor := policy.NewAuditor(10000)
 	reporter := policy.NewComplianceReporter(auditor, registry)
 
 	// Generate report
@@ -1397,6 +1405,233 @@ func reportExecute(cmd *cobra.Command, args []string) error {
 }
 
 // =============================================================================
+// Compliance Command
+// =============================================================================
+
+var (
+	complianceDays      int
+	complianceOutputFmt string
+)
+
+var complianceCmd = &cobra.Command{
+	Use:   "compliance",
+	Short: "Show compliance status",
+	Long: `Display compliance status and summary across all policies.
+
+This command provides a quick view of overall compliance state.
+
+Examples:
+  # Show compliance status
+  kscorectl policy compliance
+
+  # Show compliance for last 30 days
+  kscorectl policy compliance --days 30
+
+  # Output as JSON
+  kscorectl policy compliance --output json`,
+	RunE: complianceExecute,
+}
+
+func init() {
+	complianceCmd.Flags().IntVar(&complianceDays, "days", 7, "Number of days to include")
+	complianceCmd.Flags().StringVarP(&complianceOutputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
+}
+
+func complianceExecute(cmd *cobra.Command, args []string) error {
+	// Create sample components (in production, connect to control plane)
+	registry := policy.NewRegistry()
+	auditor := policy.NewAuditor(10000)
+	reporter := policy.NewComplianceReporter(auditor, registry)
+
+	// Generate report
+	period := policy.ReportPeriod{
+		Start: time.Now().AddDate(0, 0, -complianceDays),
+		End:   time.Now(),
+	}
+
+	report := reporter.GenerateReport(period)
+
+	format, err := output.ParseFormat(complianceOutputFmt)
+	if err != nil {
+		return err
+	}
+
+	type ComplianceStatus struct {
+		GeneratedAt    time.Time `json:"generated_at" yaml:"generated_at"`
+		TotalPolicies  int       `json:"total_policies" yaml:"total_policies"`
+		CompliantCount int       `json:"compliant_count" yaml:"compliant_count"`
+		ViolatingCount int       `json:"violating_count" yaml:"violating_count"`
+		ComplianceRate float64   `json:"compliance_rate" yaml:"compliance_rate"`
+		OverallStatus  string    `json:"overall_status" yaml:"overall_status"`
+	}
+
+	status := ComplianceStatus{
+		GeneratedAt:    report.GeneratedAt,
+		TotalPolicies:  report.TotalPolicies,
+		CompliantCount: report.CompliantPolicies,
+		ViolatingCount: report.ViolatingPolicies,
+		ComplianceRate: report.ComplianceRate,
+	}
+
+	switch {
+	case report.ViolatingPolicies == 0 && report.TotalPolicies > 0:
+		status.OverallStatus = "COMPLIANT"
+	case report.ViolatingPolicies > 0:
+		status.OverallStatus = "NON-COMPLIANT"
+	default:
+		status.OverallStatus = "UNKNOWN"
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, status)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, status)
+	case output.FormatTable, output.FormatText:
+		fmt.Println("Compliance Status")
+		fmt.Println("=================")
+		fmt.Printf("Overall Status:   %s\n", status.OverallStatus)
+		fmt.Printf("Compliance Rate:  %.1f%%\n", status.ComplianceRate)
+		fmt.Printf("Total Policies:   %d\n", status.TotalPolicies)
+		fmt.Printf("Compliant:        %d\n", status.CompliantCount)
+		fmt.Printf("Violating:        %d\n", status.ViolatingCount)
+		fmt.Printf("Generated:        %s\n", status.GeneratedAt.Format(time.RFC3339))
+
+		if status.TotalPolicies == 0 {
+			fmt.Println("\nNote: No policy evaluation data found.")
+			fmt.Println("For production data, use the control plane API.")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", complianceOutputFmt)
+	}
+}
+
+// =============================================================================
+// Violations Command
+// =============================================================================
+
+var (
+	violationsPolicyID     string
+	violationsResourceType string
+	violationsLimit        int
+	violationsOutputFmt    string
+)
+
+var violationsCmd = &cobra.Command{
+	Use:   "violations",
+	Short: "List policy violations",
+	Long: `List policy violations from recent evaluations.
+
+This command shows only denied policy evaluations (violations).
+
+Examples:
+  # List all violations
+  kscorectl policy violations
+
+  # Filter by policy
+  kscorectl policy violations --policy security-no-root
+
+  # Filter by resource type
+  kscorectl policy violations --resource-type container
+
+  # Limit results
+  kscorectl policy violations --limit 50`,
+	RunE: violationsExecute,
+}
+
+func init() {
+	violationsCmd.Flags().StringVar(&violationsPolicyID, "policy", "", "Filter by policy ID")
+	violationsCmd.Flags().StringVar(&violationsResourceType, "resource-type", "", "Filter by resource type")
+	violationsCmd.Flags().IntVar(&violationsLimit, "limit", 100, "Maximum entries to show")
+	violationsCmd.Flags().StringVarP(&violationsOutputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
+}
+
+func violationsExecute(cmd *cobra.Command, args []string) error {
+	// Create a sample auditor (in production, this would connect to the control plane)
+	auditor := policy.NewAuditor(1000)
+
+	// Build filter - only show denied evaluations
+	denied := false
+	filter := &policy.AuditFilter{
+		PolicyID:     violationsPolicyID,
+		ResourceType: violationsResourceType,
+		Limit:        violationsLimit,
+		Allowed:      &denied,
+	}
+
+	// Get entries
+	entries := auditor.GetEntries(filter)
+
+	format, err := output.ParseFormat(violationsOutputFmt)
+	if err != nil {
+		return err
+	}
+
+	if len(entries) == 0 {
+		switch format {
+		case output.FormatJSON:
+			return output.WriteJSON(os.Stdout, entries)
+		case output.FormatYAML:
+			return output.WriteYAML(os.Stdout, entries)
+		case output.FormatTable, output.FormatText:
+			fmt.Println("No policy violations found.")
+			fmt.Println("\nNote: This CLI reads from an in-memory store.")
+			fmt.Println("For production data, use the control plane API.")
+			return nil
+		default:
+			return fmt.Errorf("unsupported output format: %s", violationsOutputFmt)
+		}
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, entries)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, entries)
+	case output.FormatTable, output.FormatText:
+		fmt.Printf("%-20s %-25s %-15s %-10s %s\n", "TIMESTAMP", "POLICY", "RESOURCE", "SEVERITY", "VIOLATIONS")
+		fmt.Println(strings.Repeat("-", 90))
+		for i := range entries {
+			entry := &entries[i]
+			violationCount := len(entry.Violations)
+			var severity string
+			if len(entry.Violations) > 0 {
+				// Get the highest severity from violations
+				severity = "low"
+				for _, v := range entry.Violations {
+					sev := strings.ToLower(string(v.Severity))
+					switch sev {
+					case "critical":
+						severity = "critical"
+					case "high":
+						if severity != "critical" {
+							severity = "high"
+						}
+					case "medium":
+						if severity != "critical" && severity != "high" {
+							severity = "medium"
+						}
+					}
+				}
+			}
+			fmt.Printf("%-20s %-25s %-15s %-10s %d\n",
+				entry.Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(entry.PolicyID, 25),
+				truncate(entry.ResourceType, 15),
+				severity,
+				violationCount,
+			)
+		}
+
+		fmt.Printf("\nTotal: %d violations\n", len(entries))
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", violationsOutputFmt)
+	}
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -1431,7 +1666,8 @@ func savePolicyFile(path string, policyFile *PolicyFile) error {
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(absPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: policy directory needs to be accessible by admin users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -1442,7 +1678,8 @@ func savePolicyFile(path string, policyFile *PolicyFile) error {
 	}
 
 	// Write file
-	if err := os.WriteFile(absPath, data, 0644); err != nil {
+	//nolint:gosec // G306: policy files need to be readable by the policy engine
+	if err := os.WriteFile(absPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 

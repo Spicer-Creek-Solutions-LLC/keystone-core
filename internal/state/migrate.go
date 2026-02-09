@@ -13,9 +13,9 @@ type MigrationStats struct {
 	Duration  time.Duration
 
 	// Counts
-	AgentsMigrated           int
-	CommandsMigrated         int
-	BatchJobsMigrated        int
+	AgentsMigrated            int
+	CommandsMigrated          int
+	BatchJobsMigrated         int
 	BatchAgentResultsMigrated int
 
 	// Errors
@@ -326,9 +326,7 @@ func (m *Migrator) migrateBatchAgentResults(ctx context.Context, stats *Migratio
 		if err != nil {
 			continue
 		}
-		for _, result := range fullJob.AgentResults {
-			allResults = append(allResults, result)
-		}
+		allResults = append(allResults, fullJob.AgentResults...)
 	}
 
 	total := len(allResults)
@@ -485,7 +483,7 @@ func MigrateFromSQLiteToPostgreSQL(ctx context.Context, sqlitePath, postgresDSN 
 		SQLitePath: sqlitePath,
 		SQLiteWAL:  true,
 	}
-	source, err := NewSQLiteStore(sourceConfig)
+	source, err := NewSQLiteStore(sourceConfig) //nolint:contextcheck // NewSQLiteStore doesn't take context
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
@@ -496,7 +494,7 @@ func MigrateFromSQLiteToPostgreSQL(ctx context.Context, sqlitePath, postgresDSN 
 		Backend:       "postgresql",
 		PostgreSQLDSN: postgresDSN,
 	}
-	target, err := NewPostgreSQLStore(targetConfig)
+	target, err := NewPostgreSQLStore(targetConfig) //nolint:contextcheck // NewPostgreSQLStore doesn't take context
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 	}
@@ -515,7 +513,7 @@ func ValidateSQLiteToPostgreSQLMigration(ctx context.Context, sqlitePath, postgr
 		SQLitePath: sqlitePath,
 		SQLiteWAL:  true,
 	}
-	source, err := NewSQLiteStore(sourceConfig)
+	source, err := NewSQLiteStore(sourceConfig) //nolint:contextcheck // NewSQLiteStore doesn't take context
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
@@ -526,7 +524,7 @@ func ValidateSQLiteToPostgreSQLMigration(ctx context.Context, sqlitePath, postgr
 		Backend:       "postgresql",
 		PostgreSQLDSN: postgresDSN,
 	}
-	target, err := NewPostgreSQLStore(targetConfig)
+	target, err := NewPostgreSQLStore(targetConfig) //nolint:contextcheck // NewPostgreSQLStore doesn't take context
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 	}

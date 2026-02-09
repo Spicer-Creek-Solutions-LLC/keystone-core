@@ -52,9 +52,9 @@ func TestPolicyEnforcerEnforceForResource(t *testing.T) {
 	registry.RegisterBinding(binding)
 
 	config := &EnforcementConfig{
-		Point:          EnforcementPointPreExecution,
-		Action:         EnforcementActionBlock,
-		ResourceTypes:  []string{"pod"},
+		Point:               EnforcementPointPreExecution,
+		Action:              EnforcementActionBlock,
+		ResourceTypes:       []string{"pod"},
 		EnableEventEmission: false,
 	}
 

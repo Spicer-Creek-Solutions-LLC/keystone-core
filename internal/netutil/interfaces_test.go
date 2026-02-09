@@ -242,13 +242,13 @@ func TestIsGlobalUnicastIPv6(t *testing.T) {
 		expected bool
 	}{
 		{"2001:db8::1", true},
-		{"2607:f8b0:4004:800::200e", true},   // Google
-		{"2600:1f18:1234:5678::1", true},     // AWS
-		{"fd00::1", false},                   // Unique local
-		{"fc00::1", false},                   // Unique local
-		{"fe80::1", false},                   // Link local
-		{"::1", false},                       // Loopback
-		{"192.168.1.1", false},               // IPv4
+		{"2607:f8b0:4004:800::200e", true}, // Google
+		{"2600:1f18:1234:5678::1", true},   // AWS
+		{"fd00::1", false},                 // Unique local
+		{"fc00::1", false},                 // Unique local
+		{"fe80::1", false},                 // Link local
+		{"::1", false},                     // Loopback
+		{"192.168.1.1", false},             // IPv4
 	}
 
 	for _, tt := range tests {

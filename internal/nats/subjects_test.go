@@ -411,7 +411,7 @@ func TestAgentPermissions(t *testing.T) {
 	}
 
 	expectedPublish := map[string]bool{
-		"kscore.prod.agent.heartbeat":         true,
+		"kscore.prod.agent.heartbeat":          true,
 		"kscore.prod.agent.agent-456.response": true,
 		"kscore.prod.agent.agent-456.events":   true,
 	}

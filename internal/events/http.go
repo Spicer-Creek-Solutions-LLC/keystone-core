@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -368,7 +369,7 @@ type HTTPSender struct {
 }
 
 // NewHTTPSender creates a new HTTP event sender
-func NewHTTPSender(url string, secret string, useCloudEvents bool) *HTTPSender {
+func NewHTTPSender(url, secret string, useCloudEvents bool) *HTTPSender {
 	return &HTTPSender{
 		url:            url,
 		secret:         secret,
@@ -398,7 +399,7 @@ func (s *HTTPSender) Send(event *Event) error {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", s.url, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", s.url, strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -451,7 +452,7 @@ func (s *HTTPSender) SendBatch(events []*Event) error {
 		url += "/batch"
 	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

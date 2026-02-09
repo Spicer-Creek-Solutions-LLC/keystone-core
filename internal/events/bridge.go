@@ -245,11 +245,11 @@ func (b *Bridge) handleEvent(event *Event) error {
 }
 
 // GetMetrics returns current bridge metrics
-func (b *Bridge) GetMetrics() BridgeMetrics {
+func (b *Bridge) GetMetrics() *BridgeMetrics {
 	b.metrics.mu.RLock()
 	defer b.metrics.mu.RUnlock()
 
-	return BridgeMetrics{
+	return &BridgeMetrics{
 		EventsReceived:  atomic.LoadInt64(&b.metrics.EventsReceived),
 		EventsFiltered:  atomic.LoadInt64(&b.metrics.EventsFiltered),
 		EventsForwarded: atomic.LoadInt64(&b.metrics.EventsForwarded),
@@ -406,11 +406,11 @@ func (m *BridgeManager) StopAll() error {
 }
 
 // GetAllMetrics returns metrics for all bridges
-func (m *BridgeManager) GetAllMetrics() map[string]BridgeMetrics {
+func (m *BridgeManager) GetAllMetrics() map[string]*BridgeMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	metrics := make(map[string]BridgeMetrics)
+	metrics := make(map[string]*BridgeMetrics)
 	for name, bridge := range m.bridges {
 		metrics[name] = bridge.GetMetrics()
 	}

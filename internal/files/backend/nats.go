@@ -193,8 +193,8 @@ func (b *NATSBackend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *NATSBackend) Type() BackendType {
-	return BackendTypeNATSObject
+func (b *NATSBackend) Type() Type {
+	return TypeNATSObject
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -209,7 +209,7 @@ func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions
 	b.mu.RUnlock()
 
 	if store == nil {
-		return nil, &BackendError{Op: "get", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
+		return nil, &Error{Op: "get", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	name := b.fullName(filePath)
@@ -221,7 +221,7 @@ func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions
 			if isNATSNotFound(err) {
 				return nil, ErrNotFound
 			}
-			return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+			return nil, &Error{Op: "get", Path: filePath, Err: err}
 		}
 		// Check if digest matches
 		if info.Digest == opts.IfNoneMatch {
@@ -234,7 +234,7 @@ func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions
 		if isNATSNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+		return nil, &Error{Op: "get", Path: filePath, Err: err}
 	}
 
 	// Extract content type from headers
@@ -253,6 +253,7 @@ func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions
 		}
 	}
 
+	//nolint:gosec // G115: file size from NATS is uint64, but file sizes fit in int64
 	return &GetResult{
 		Reader: obj.Body,
 		Info: &FileInfo{
@@ -271,7 +272,7 @@ func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions
 // Put uploads a file to NATS Object Store.
 func (b *NATSBackend) Put(ctx context.Context, filePath string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
 	if b.config.ReadOnly {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: ErrReadOnly}
+		return nil, &Error{Op: "put", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -279,7 +280,7 @@ func (b *NATSBackend) Put(ctx context.Context, filePath string, reader io.Reader
 	b.mu.RUnlock()
 
 	if store == nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	name := b.fullName(filePath)
@@ -287,7 +288,7 @@ func (b *NATSBackend) Put(ctx context.Context, filePath string, reader io.Reader
 	// Read content to calculate checksum
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
 	}
 
 	// Calculate SHA256
@@ -316,9 +317,10 @@ func (b *NATSBackend) Put(ctx context.Context, filePath string, reader io.Reader
 
 	info, err := store.Put(ctx, name, bytes.NewReader(content), natsOpts)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: err}
+		return nil, &Error{Op: "put", Path: filePath, Err: err}
 	}
 
+	//nolint:gosec // G115: file size from NATS is uint64, but file sizes fit in int64
 	return &PutResult{
 		Size:     int64(info.Size),
 		Checksum: checksum,
@@ -329,7 +331,7 @@ func (b *NATSBackend) Put(ctx context.Context, filePath string, reader io.Reader
 // Delete removes a file from NATS Object Store.
 func (b *NATSBackend) Delete(ctx context.Context, filePath string) error {
 	if b.config.ReadOnly {
-		return &BackendError{Op: "delete", Path: filePath, Err: ErrReadOnly}
+		return &Error{Op: "delete", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -337,7 +339,7 @@ func (b *NATSBackend) Delete(ctx context.Context, filePath string) error {
 	b.mu.RUnlock()
 
 	if store == nil {
-		return &BackendError{Op: "delete", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
+		return &Error{Op: "delete", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	name := b.fullName(filePath)
@@ -346,7 +348,7 @@ func (b *NATSBackend) Delete(ctx context.Context, filePath string) error {
 		if isNATSNotFound(err) {
 			return nil // Idempotent delete
 		}
-		return &BackendError{Op: "delete", Path: filePath, Err: err}
+		return &Error{Op: "delete", Path: filePath, Err: err}
 	}
 
 	return nil
@@ -359,7 +361,7 @@ func (b *NATSBackend) Exists(ctx context.Context, filePath string) (bool, error)
 	b.mu.RUnlock()
 
 	if store == nil {
-		return false, &BackendError{Op: "exists", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
+		return false, &Error{Op: "exists", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	name := b.fullName(filePath)
@@ -369,7 +371,7 @@ func (b *NATSBackend) Exists(ctx context.Context, filePath string) (bool, error)
 		if isNATSNotFound(err) {
 			return false, nil
 		}
-		return false, &BackendError{Op: "exists", Path: filePath, Err: err}
+		return false, &Error{Op: "exists", Path: filePath, Err: err}
 	}
 
 	return !info.Deleted, nil
@@ -382,7 +384,7 @@ func (b *NATSBackend) Stat(ctx context.Context, filePath string) (*FileInfo, err
 	b.mu.RUnlock()
 
 	if store == nil {
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
+		return nil, &Error{Op: "stat", Path: filePath, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	name := b.fullName(filePath)
@@ -392,7 +394,7 @@ func (b *NATSBackend) Stat(ctx context.Context, filePath string) (*FileInfo, err
 		if isNATSNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: err}
+		return nil, &Error{Op: "stat", Path: filePath, Err: err}
 	}
 
 	if info.Deleted {
@@ -423,6 +425,7 @@ func (b *NATSBackend) Stat(ctx context.Context, filePath string) (*FileInfo, err
 		}
 	}
 
+	//nolint:gosec // G115: file size from NATS is uint64, but file sizes fit in int64
 	return &FileInfo{
 		Name:         path.Base(filePath),
 		Path:         filePath,
@@ -442,7 +445,7 @@ func (b *NATSBackend) List(ctx context.Context, prefix string, opts *ListOptions
 	b.mu.RUnlock()
 
 	if store == nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: fmt.Errorf("nats object store not configured")}
+		return nil, &Error{Op: "list", Path: prefix, Err: fmt.Errorf("nats object store not configured")}
 	}
 
 	fullPrefix := b.fullName(prefix)
@@ -454,7 +457,7 @@ func (b *NATSBackend) List(ctx context.Context, prefix string, opts *ListOptions
 
 	objects, err := store.List(ctx, natsOpts)
 	if err != nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: err}
+		return nil, &Error{Op: "list", Path: prefix, Err: err}
 	}
 
 	var files []FileInfo
@@ -485,6 +488,7 @@ func (b *NATSBackend) List(ctx context.Context, prefix string, opts *ListOptions
 			}
 		}
 
+		//nolint:gosec // G115: file size from NATS is uint64, but file sizes fit in int64
 		files = append(files, FileInfo{
 			Name:         path.Base(obj.Name),
 			Path:         relPath,

@@ -463,11 +463,11 @@ func TestPolicySynchronizer_ChangeDetection(t *testing.T) {
 
 func TestSyncResult_Types(t *testing.T) {
 	result := &SyncResult{
-		Timestamp:        time.Now(),
-		PoliciesFound:    10,
-		PoliciesVerified: 8,
-		PoliciesPassed:   7,
-		PoliciesFailed:   1,
+		Timestamp:         time.Now(),
+		PoliciesFound:     10,
+		PoliciesVerified:  8,
+		PoliciesPassed:    7,
+		PoliciesFailed:    1,
 		AuthPoliciesFound: 5,
 		DestRulesFound:    3,
 		Errors: []SyncError{

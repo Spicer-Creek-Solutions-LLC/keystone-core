@@ -128,8 +128,8 @@ func TestResolveFromManifest_Simple(t *testing.T) {
 
 	// Create manifest
 	m := &manifest.Manifest{
-		Version:      "1.0.0",
-		Name:         "myapp",
+		Version: "1.0.0",
+		Name:    "myapp",
 		Dependencies: map[string]string{
 			"std/files": "^1.0.0",
 		},

@@ -6,9 +6,9 @@ import (
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		input      string
-		want       Version
-		wantErr    bool
+		input   string
+		want    Version
+		wantErr bool
 	}{
 		// Basic versions
 		{"1.2.3", Version{Major: 1, Minor: 2, Patch: 3}, false},
@@ -221,8 +221,8 @@ func TestVersion_Compare(t *testing.T) {
 		{"1.0.0+build", "1.0.0", 0},
 
 		// Real-world examples
-		{"1.9.0", "1.10.0", -1},  // Numeric comparison, not string
-		{"2.0.0", "10.0.0", -1},  // Numeric comparison
+		{"1.9.0", "1.10.0", -1}, // Numeric comparison, not string
+		{"2.0.0", "10.0.0", -1}, // Numeric comparison
 	}
 
 	for _, tt := range tests {

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -171,7 +172,7 @@ func (d *DefaultDetector) DetectInitSystem() (InitSystem, error) {
 }
 
 // IsVirtualMachine checks if running in a virtual machine
-func (d *DefaultDetector) IsVirtualMachine() (bool, string, error) {
+func (d *DefaultDetector) IsVirtualMachine() (isVM bool, vmType string, err error) {
 	switch runtime.GOOS {
 	case "linux":
 		return detectLinuxVirtualization()
@@ -190,7 +191,7 @@ func (d *DefaultDetector) IsVirtualMachine() (bool, string, error) {
 }
 
 // IsContainer checks if running in a container
-func (d *DefaultDetector) IsContainer() (bool, string, error) {
+func (d *DefaultDetector) IsContainer() (isContainer bool, containerType string, err error) {
 	switch runtime.GOOS {
 	case "linux":
 		return detectLinuxContainer()
@@ -201,14 +202,14 @@ func (d *DefaultDetector) IsContainer() (bool, string, error) {
 
 // Helper functions
 
-func parseOSRelease(path string) (DistroType, string) {
+func parseOSRelease(path string) (distro DistroType, version string) {
 	file, err := os.Open(path)
 	if err != nil {
 		return DistroUnknown, ""
 	}
 	defer file.Close()
 
-	var id, version string
+	var id string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -223,14 +224,14 @@ func parseOSRelease(path string) (DistroType, string) {
 	return normalizeDistroID(id), version
 }
 
-func parseLSBRelease(path string) (DistroType, string) {
+func parseLSBRelease(path string) (distro DistroType, version string) {
 	file, err := os.Open(path)
 	if err != nil {
 		return DistroUnknown, ""
 	}
 	defer file.Close()
 
-	var id, version string
+	var id string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -245,15 +246,15 @@ func parseLSBRelease(path string) (DistroType, string) {
 	return normalizeDistroID(id), version
 }
 
-func detectDistroFromFiles() (DistroType, string) {
+func detectDistroFromFiles() (distro DistroType, version string) {
 	// Check for specific distro release files
 	distroFiles := map[string]DistroType{
 		"/etc/redhat-release": DistroCentOS,
 		"/etc/centos-release": DistroCentOS,
 		"/etc/fedora-release": DistroFedora,
-		"/etc/debian_version":  DistroDebian,
-		"/etc/alpine-release":  DistroAlpine,
-		"/etc/arch-release":    DistroArch,
+		"/etc/debian_version": DistroDebian,
+		"/etc/alpine-release": DistroAlpine,
+		"/etc/arch-release":   DistroArch,
 	}
 
 	for file, distro := range distroFiles {
@@ -360,7 +361,7 @@ func detectLinuxInitSystem() (InitSystem, error) {
 	return InitUnknown, nil
 }
 
-func detectLinuxVirtualization() (bool, string, error) {
+func detectLinuxVirtualization() (isVM bool, vmType string, err error) {
 	// Check /proc/cpuinfo for hypervisor flag
 	if checkFileContains("/proc/cpuinfo", "hypervisor") {
 		// Try to determine the type
@@ -388,7 +389,7 @@ func detectLinuxVirtualization() (bool, string, error) {
 	return false, "", nil
 }
 
-func detectLinuxContainer() (bool, string, error) {
+func detectLinuxContainer() (isContainer bool, containerType string, err error) {
 	// Check for Docker
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		return true, "docker", nil
@@ -412,7 +413,7 @@ func detectLinuxContainer() (bool, string, error) {
 
 func detectKernelVersion() string {
 	if runtime.GOOS == "linux" {
-		output, err := exec.Command("uname", "-r").Output()
+		output, err := exec.CommandContext(context.Background(), "uname", "-r").Output()
 		if err == nil {
 			return strings.TrimSpace(string(output))
 		}
@@ -448,7 +449,7 @@ func readFirstLine(path string) string {
 }
 
 // Global default detector instance
-var defaultDetector Detector = NewDetector()
+var defaultDetector = NewDetector()
 
 // Detect performs platform detection using the default detector
 func Detect() (*Info, error) {

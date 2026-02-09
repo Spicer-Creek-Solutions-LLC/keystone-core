@@ -434,10 +434,10 @@ func TestManager_History(t *testing.T) {
 func TestManager_Events(t *testing.T) {
 	manager := NewManager(nil)
 
-	var events []*ConflictEvent
+	var events []*Event
 	var mu sync.Mutex
 
-	manager.AddListener(func(event *ConflictEvent) {
+	manager.AddListener(func(event *Event) {
 		mu.Lock()
 		events = append(events, event)
 		mu.Unlock()

@@ -228,8 +228,7 @@ Note: module archive entries larger than 256 MB are rejected during install.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `policy evaluate` | Test evaluation | `policy evaluate --input input.json` |
-| `policy test <file>` | Run policy tests | `policy test policy_test.rego` |
+| `policy check <file>` | Evaluate policy | `policy check policy.rego --input input.json` |
 | `policy validate <file>` | Validate syntax | `policy validate policy.rego` |
 
 ### Policy Audit
@@ -468,7 +467,7 @@ Configure remotes first with `rclone config`.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `events retention show` | Show retention | `events retention show` |
+| `events retention list` | List retention policies | `events retention list` |
 | `events retention set` | Set retention | `events retention set --max-age 30d` |
 | `events dlq list` | List DLQ events | `events dlq list` |
 | `events dlq retry` | Retry DLQ events | `events dlq retry --all` |
@@ -709,7 +708,7 @@ kscorectl exec history --target web-05 --limit 10
 kscorectl state history --target web-05
 
 # 4. Check events
-kscorectl event list --agent web-05 --since 1h
+kscorectl events list --source web-05 --since 1h
 ```
 
 ### Cluster Maintenance
@@ -739,8 +738,8 @@ package kscore.policy
 allow { input.resource.labels.owner }
 EOF
 
-# 2. Test policy
-kscorectl policy test require-labels.rego
+# 2. Check policy
+kscorectl policy check require-labels.rego
 
 # 3. Deploy in audit mode
 kscorectl policy create require-labels.rego --mode audit
@@ -750,6 +749,53 @@ kscorectl policy audit --policy require-labels --since 7d
 
 # 5. Enable enforcement
 kscorectl policy activate require-labels --mode enforce
+```
+
+---
+
+## Repository Tools
+
+### Repository Generation (kscore-repo-gen)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `repo-gen all` | Generate all repos | `repo-gen all --version 0.1.0 --output build/repos` |
+| `repo-gen dnf` | Generate DNF repo | `repo-gen dnf --version 0.1.0 --output build/repos/dnf` |
+| `repo-gen apt` | Generate APT repo | `repo-gen apt --version 0.1.0 --output build/repos/apt` |
+| `repo-gen windows` | Generate Windows repo | `repo-gen windows --version 0.1.0` |
+| `repo-gen blueprints` | Generate blueprint registry | `repo-gen blueprints --output build/repos/blueprints` |
+| `repo-gen modules` | Generate module registry | `repo-gen modules --output build/repos/modules` |
+
+### Repository Mirroring (kscore-repo-mirror)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `repo-mirror` | Mirror all repos | `repo-mirror --output /mnt/usb/mirror` |
+| `repo-mirror --only dnf,apt` | Mirror Linux only | `repo-mirror --only dnf,apt` |
+| `repo-mirror --skip docs` | Skip documentation | `repo-mirror --skip docs,macos` |
+| `repo-mirror --verbose` | Verbose output | `repo-mirror --verbose` |
+
+**Repository Types** (for `--only` and `--skip`):
+- `dnf`, `apt`, `windows`, `macos` - Package repositories
+- `blueprints`, `modules` - Registries
+- `docs` - Documentation
+
+**Example: Air-Gapped Deployment**
+
+```bash
+# 1. Mirror repos on connected machine
+kscore-repo-mirror --output /mnt/usb/kscore-mirror
+
+# 2. Transfer to air-gapped environment
+
+# 3. Serve via HTTP
+cd /path/to/mirror && python3 -m http.server 8080
+
+# 4. Configure DNF (RHEL/CentOS)
+sudo cp keystonecore-local.repo /etc/yum.repos.d/
+
+# 5. Install packages
+sudo dnf install kscore-server kscore-agent
 ```
 
 ---

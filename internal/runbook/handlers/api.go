@@ -201,9 +201,10 @@ func (h *APIHandler) Execute(ctx context.Context, step *runbook.Step, vars Varia
 
 	// Check expected status
 	expectedStatus := 0
-	if expected, ok := step.Config["expected_status"].(int); ok {
+	switch expected := step.Config["expected_status"].(type) {
+	case int:
 		expectedStatus = expected
-	} else if expected, ok := step.Config["expected_status"].(float64); ok {
+	case float64:
 		expectedStatus = int(expected)
 	}
 

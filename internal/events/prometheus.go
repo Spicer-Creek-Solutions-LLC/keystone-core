@@ -221,15 +221,15 @@ func (e *PrometheusExporter) ExportString() (string, error) {
 
 // MetricsSummary provides a human-readable summary of metrics
 type MetricsSummary struct {
-	TotalPublished  int64
-	TotalReceived   int64
-	TotalProcessed  int64
-	TotalFailed     int64
-	TopEventTypes   []EventTypeCount
-	ErrorRate       float64
+	TotalPublished        int64
+	TotalReceived         int64
+	TotalProcessed        int64
+	TotalFailed           int64
+	TopEventTypes         []EventTypeCount
+	ErrorRate             float64
 	AverageProcessingTime time.Duration
-	Uptime          time.Duration
-	EventsPerSecond float64
+	Uptime                time.Duration
+	EventsPerSecond       float64
 }
 
 // EventTypeCount holds event type and count for sorting

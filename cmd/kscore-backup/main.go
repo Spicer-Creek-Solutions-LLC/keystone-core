@@ -1,3 +1,4 @@
+// Package main implements the kscore-backup CLI for backup management operations.
 package main
 
 import (
@@ -111,35 +112,35 @@ type BackupInfo struct {
 
 // VerificationResult represents backup verification result
 type VerificationResult struct {
-	BackupID       string            `json:"backup_id" yaml:"backup_id"`
-	Valid          bool              `json:"valid" yaml:"valid"`
-	ChecksumMatch  bool              `json:"checksum_match" yaml:"checksum_match"`
-	ComponentsOK   map[string]bool   `json:"components_ok" yaml:"components_ok"`
-	IntegrityOK    bool              `json:"integrity_ok" yaml:"integrity_ok"`
-	Restorable     bool              `json:"restorable" yaml:"restorable"`
-	Issues         []string          `json:"issues,omitempty" yaml:"issues,omitempty"`
-	VerifiedAt     string            `json:"verified_at" yaml:"verified_at"`
-	VerificationID string            `json:"verification_id" yaml:"verification_id"`
+	BackupID       string          `json:"backup_id" yaml:"backup_id"`
+	Valid          bool            `json:"valid" yaml:"valid"`
+	ChecksumMatch  bool            `json:"checksum_match" yaml:"checksum_match"`
+	ComponentsOK   map[string]bool `json:"components_ok" yaml:"components_ok"`
+	IntegrityOK    bool            `json:"integrity_ok" yaml:"integrity_ok"`
+	Restorable     bool            `json:"restorable" yaml:"restorable"`
+	Issues         []string        `json:"issues,omitempty" yaml:"issues,omitempty"`
+	VerifiedAt     string          `json:"verified_at" yaml:"verified_at"`
+	VerificationID string          `json:"verification_id" yaml:"verification_id"`
 }
 
 // ReplicationStatus represents backup replication status
 type ReplicationStatus struct {
-	Enabled      bool                `json:"enabled" yaml:"enabled"`
-	Destinations []ReplicationDest   `json:"destinations" yaml:"destinations"`
-	LastSync     string              `json:"last_sync" yaml:"last_sync"`
-	NextSync     string              `json:"next_sync" yaml:"next_sync"`
-	SyncInterval string              `json:"sync_interval" yaml:"sync_interval"`
-	Status       string              `json:"status" yaml:"status"`
+	Enabled      bool              `json:"enabled" yaml:"enabled"`
+	Destinations []ReplicationDest `json:"destinations" yaml:"destinations"`
+	LastSync     string            `json:"last_sync" yaml:"last_sync"`
+	NextSync     string            `json:"next_sync" yaml:"next_sync"`
+	SyncInterval string            `json:"sync_interval" yaml:"sync_interval"`
+	Status       string            `json:"status" yaml:"status"`
 }
 
 // ReplicationDest represents a replication destination
 type ReplicationDest struct {
-	Name       string `json:"name" yaml:"name"`
-	Type       string `json:"type" yaml:"type"`
-	Status     string `json:"status" yaml:"status"`
-	LastSync   string `json:"last_sync" yaml:"last_sync"`
-	BackupCount int   `json:"backup_count" yaml:"backup_count"`
-	TotalSize  string `json:"total_size" yaml:"total_size"`
+	Name        string `json:"name" yaml:"name"`
+	Type        string `json:"type" yaml:"type"`
+	Status      string `json:"status" yaml:"status"`
+	LastSync    string `json:"last_sync" yaml:"last_sync"`
+	BackupCount int    `json:"backup_count" yaml:"backup_count"`
+	TotalSize   string `json:"total_size" yaml:"total_size"`
 }
 
 // RestoreResult represents restore operation result
@@ -171,14 +172,14 @@ type ScheduleInfo struct {
 
 // RetentionPolicy represents backup retention policy
 type RetentionPolicy struct {
-	Name          string `json:"name" yaml:"name"`
-	MaxBackups    int    `json:"max_backups" yaml:"max_backups"`
-	MaxAge        string `json:"max_age" yaml:"max_age"`
-	KeepDaily     int    `json:"keep_daily" yaml:"keep_daily"`
-	KeepWeekly    int    `json:"keep_weekly" yaml:"keep_weekly"`
-	KeepMonthly   int    `json:"keep_monthly" yaml:"keep_monthly"`
-	KeepYearly    int    `json:"keep_yearly" yaml:"keep_yearly"`
-	AppliesTo     string `json:"applies_to" yaml:"applies_to"`
+	Name        string `json:"name" yaml:"name"`
+	MaxBackups  int    `json:"max_backups" yaml:"max_backups"`
+	MaxAge      string `json:"max_age" yaml:"max_age"`
+	KeepDaily   int    `json:"keep_daily" yaml:"keep_daily"`
+	KeepWeekly  int    `json:"keep_weekly" yaml:"keep_weekly"`
+	KeepMonthly int    `json:"keep_monthly" yaml:"keep_monthly"`
+	KeepYearly  int    `json:"keep_yearly" yaml:"keep_yearly"`
+	AppliesTo   string `json:"applies_to" yaml:"applies_to"`
 }
 
 func newCreateCmd(cfg *Config) *cobra.Command {
@@ -286,7 +287,7 @@ func runCreate(cfg *Config, backupType string, components []string, destination 
 		// Using rclone destination
 		destination = fmt.Sprintf("rclone:%s:%s", rcloneRemote, rclonePath)
 	} else if destination == "" {
-		destination = "local:/var/lib/kscore/backups"
+		destination = "local:/var/lib/keystone-core/backups"
 	}
 
 	// Handle compression
@@ -457,7 +458,7 @@ func runList(cfg *Config, last, backupType, status string, limit int) error {
 			Size:        "0 B",
 			SizeBytes:   0,
 			Components:  []string{"database"},
-			Destination: "local:/var/lib/kscore/backups",
+			Destination: "local:/var/lib/keystone-core/backups",
 			Encrypted:   false,
 			Compressed:  true,
 			CreatedAt:   "2024-01-13T12:00:00Z",
@@ -483,9 +484,9 @@ func runList(cfg *Config, last, backupType, status string, limit int) error {
 	// Filter by type
 	if backupType != "" {
 		var filtered []BackupInfo
-		for _, b := range backups {
-			if b.Type == backupType {
-				filtered = append(filtered, b)
+		for i := range backups {
+			if backups[i].Type == backupType {
+				filtered = append(filtered, backups[i])
 			}
 		}
 		backups = filtered
@@ -494,9 +495,9 @@ func runList(cfg *Config, last, backupType, status string, limit int) error {
 	// Filter by status
 	if status != "" {
 		var filtered []BackupInfo
-		for _, b := range backups {
-			if b.Status == status {
-				filtered = append(filtered, b)
+		for i := range backups {
+			if backups[i].Status == status {
+				filtered = append(filtered, backups[i])
 			}
 		}
 		backups = filtered
@@ -517,11 +518,13 @@ func runList(cfg *Config, last, backupType, status string, limit int) error {
 			Headers: []string{"ID", "TYPE", "STATUS", "SIZE", "COMPONENTS", "DESTINATION", "CREATED"},
 		}
 
-		for _, b := range backups {
+		for i := range backups {
+			b := &backups[i]
 			statusIcon := "✓"
-			if b.Status == "failed" {
+			switch b.Status {
+			case "failed":
 				statusIcon = "✗"
-			} else if b.Status == "running" {
+			case "running":
 				statusIcon = "◐"
 			}
 
@@ -763,17 +766,19 @@ func runRestore(cfg *Config, backupID, target string, components []string, dryRu
 		DryRun:     dryRun,
 	}
 
-	if dryRun {
+	switch {
+	case dryRun:
 		result.Status = "dry-run"
-	} else if async {
+	case async:
 		result.Status = "running"
-	} else {
+	default:
 		result.CompletedAt = time.Now().Add(5 * time.Minute).Format(time.RFC3339)
 		result.Duration = "5m12s"
 	}
 
 	return outputResult(cfg.OutputFormat, result, func() {
-		if dryRun {
+		switch {
+		case dryRun:
 			fmt.Printf("Restore Dry-Run\n")
 			fmt.Printf("===============\n\n")
 			fmt.Printf("This would restore from backup: %s\n\n", backupID)
@@ -783,12 +788,12 @@ func runRestore(cfg *Config, backupID, target string, components []string, dryRu
 			}
 			fmt.Printf("\nTarget: %s\n", target)
 			fmt.Printf("\nNo changes made (dry-run mode)\n")
-		} else if async {
+		case async:
 			fmt.Printf("Restore started: %s\n", result.RestoreID)
 			fmt.Printf("Backup ID:       %s\n", result.BackupID)
 			fmt.Printf("Status:          %s\n", result.Status)
 			fmt.Printf("\nUse 'kscorectl backup show %s' to check progress\n", result.RestoreID)
-		} else {
+		default:
 			fmt.Printf("Restore Completed\n")
 			fmt.Printf("=================\n\n")
 			fmt.Printf("Restore ID: %s\n", result.RestoreID)
@@ -806,7 +811,7 @@ func runRestore(cfg *Config, backupID, target string, components []string, dryRu
 
 func newDeleteCmd(cfg *Config) *cobra.Command {
 	var (
-		force   bool
+		force     bool
 		olderThan string
 	)
 
@@ -940,9 +945,10 @@ func runReplicationStatus(cfg *Config) error {
 
 		for _, d := range status.Destinations {
 			statusIcon := "✓"
-			if d.Status == "syncing" {
+			switch d.Status {
+			case "syncing":
 				statusIcon = "◐"
-			} else if d.Status == "failed" {
+			case "failed":
 				statusIcon = "✗"
 			}
 
@@ -1024,7 +1030,8 @@ func newScheduleListCmd(cfg *Config) *cobra.Command {
 					Headers: []string{"NAME", "SCHEDULE", "TYPE", "ENABLED", "LAST RUN", "NEXT RUN", "RETAIN"},
 				}
 
-				for _, s := range schedules {
+				for i := range schedules {
+					s := &schedules[i]
 					enabled := "✓"
 					if !s.Enabled {
 						enabled = "✗"

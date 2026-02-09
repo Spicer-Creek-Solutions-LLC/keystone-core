@@ -76,6 +76,7 @@ type Operation struct {
 // OperationType represents the type of operation
 type OperationType string
 
+// OpCreate constants define the operators.
 const (
 	OpCreate   OperationType = "create"
 	OpUpdate   OperationType = "update"
@@ -306,6 +307,7 @@ func (r *Recorder) computeSummary() *Summary {
 			summary.Updates++
 		case OpDelete:
 			summary.Deletes++
+		default:
 		}
 	}
 

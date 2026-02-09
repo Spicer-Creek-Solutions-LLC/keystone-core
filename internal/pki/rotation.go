@@ -42,25 +42,25 @@ const (
 
 // CAInfo contains information about a Certificate Authority.
 type CAInfo struct {
-	ID            string            `json:"id"`
-	Name          string            `json:"name"`
-	State         CAState           `json:"state"`
-	SerialNumber  string            `json:"serialNumber"`
-	Subject       string            `json:"subject"`
-	Issuer        string            `json:"issuer,omitempty"`
-	NotBefore     time.Time         `json:"notBefore"`
-	NotAfter      time.Time         `json:"notAfter"`
-	KeyType       string            `json:"keyType"`
-	KeySize       int               `json:"keySize"`
-	SignatureAlg  string            `json:"signatureAlg"`
-	Fingerprint   string            `json:"fingerprint"`
-	IsRoot        bool              `json:"isRoot"`
-	ParentID      string            `json:"parentId,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"`
-	ActivatedAt   *time.Time        `json:"activatedAt,omitempty"`
-	RotatedAt     *time.Time        `json:"rotatedAt,omitempty"`
-	RevokedAt     *time.Time        `json:"revokedAt,omitempty"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	State        CAState           `json:"state"`
+	SerialNumber string            `json:"serialNumber"`
+	Subject      string            `json:"subject"`
+	Issuer       string            `json:"issuer,omitempty"`
+	NotBefore    time.Time         `json:"notBefore"`
+	NotAfter     time.Time         `json:"notAfter"`
+	KeyType      string            `json:"keyType"`
+	KeySize      int               `json:"keySize"`
+	SignatureAlg string            `json:"signatureAlg"`
+	Fingerprint  string            `json:"fingerprint"`
+	IsRoot       bool              `json:"isRoot"`
+	ParentID     string            `json:"parentId,omitempty"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	ActivatedAt  *time.Time        `json:"activatedAt,omitempty"`
+	RotatedAt    *time.Time        `json:"rotatedAt,omitempty"`
+	RevokedAt    *time.Time        `json:"revokedAt,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 // RemainingValidity returns the remaining validity period.
@@ -135,11 +135,11 @@ func DefaultRotationPolicy() *RotationPolicy {
 	return &RotationPolicy{
 		Name:               "default",
 		Strategy:           StrategyOverlap,
-		RotateBeforeExpiry: 30 * 24 * time.Hour, // 30 days
-		MinValidityPeriod:  90 * 24 * time.Hour, // 90 days
+		RotateBeforeExpiry: 30 * 24 * time.Hour,  // 30 days
+		MinValidityPeriod:  90 * 24 * time.Hour,  // 90 days
 		MaxValidityPeriod:  365 * 24 * time.Hour, // 1 year
-		OverlapPeriod:      7 * 24 * time.Hour,  // 7 days
-		GracePeriod:        24 * time.Hour,      // 1 day
+		OverlapPeriod:      7 * 24 * time.Hour,   // 7 days
+		GracePeriod:        24 * time.Hour,       // 1 day
 		AutoRotate:         true,
 		NotifyBeforeDays:   []int{30, 14, 7, 1},
 		KeyConfig: &KeyConfig{
@@ -152,19 +152,19 @@ func DefaultRotationPolicy() *RotationPolicy {
 
 // RotationSchedule represents a scheduled rotation.
 type RotationSchedule struct {
-	ID            string         `json:"id"`
-	CAID          string         `json:"caId"`
-	PolicyName    string         `json:"policyName"`
-	ScheduledAt   time.Time      `json:"scheduledAt"`
-	Status        ScheduleStatus `json:"status"`
-	ApprovedBy    string         `json:"approvedBy,omitempty"`
-	ApprovedAt    *time.Time     `json:"approvedAt,omitempty"`
-	StartedAt     *time.Time     `json:"startedAt,omitempty"`
-	CompletedAt   *time.Time     `json:"completedAt,omitempty"`
-	FailedAt      *time.Time     `json:"failedAt,omitempty"`
-	Error         string         `json:"error,omitempty"`
-	NewCAID       string         `json:"newCaId,omitempty"`
-	RollbackCAID  string         `json:"rollbackCaId,omitempty"`
+	ID           string         `json:"id"`
+	CAID         string         `json:"caId"`
+	PolicyName   string         `json:"policyName"`
+	ScheduledAt  time.Time      `json:"scheduledAt"`
+	Status       ScheduleStatus `json:"status"`
+	ApprovedBy   string         `json:"approvedBy,omitempty"`
+	ApprovedAt   *time.Time     `json:"approvedAt,omitempty"`
+	StartedAt    *time.Time     `json:"startedAt,omitempty"`
+	CompletedAt  *time.Time     `json:"completedAt,omitempty"`
+	FailedAt     *time.Time     `json:"failedAt,omitempty"`
+	Error        string         `json:"error,omitempty"`
+	NewCAID      string         `json:"newCaId,omitempty"`
+	RollbackCAID string         `json:"rollbackCaId,omitempty"`
 }
 
 // ScheduleStatus represents the status of a scheduled rotation.
@@ -189,12 +189,12 @@ const (
 
 // RotationEvent represents an event during rotation.
 type RotationEvent struct {
-	Type       string    `json:"type"`
-	CAID       string    `json:"caId,omitempty"`
-	ScheduleID string    `json:"scheduleId,omitempty"`
-	Timestamp  time.Time `json:"timestamp"`
-	Message    string    `json:"message"`
-	Error      string    `json:"error,omitempty"`
+	Type       string                 `json:"type"`
+	CAID       string                 `json:"caId,omitempty"`
+	ScheduleID string                 `json:"scheduleId,omitempty"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Message    string                 `json:"message"`
+	Error      string                 `json:"error,omitempty"`
 	Details    map[string]interface{} `json:"details,omitempty"`
 }
 
@@ -225,13 +225,13 @@ type CAGenerator interface {
 
 // CAGenerationConfig configures CA generation.
 type CAGenerationConfig struct {
-	Name          string
-	Subject       string
-	ValidityDays  int
-	KeyConfig     *KeyConfig
-	ParentID      string
-	IsRoot        bool
-	Metadata      map[string]string
+	Name         string
+	Subject      string
+	ValidityDays int
+	KeyConfig    *KeyConfig
+	ParentID     string
+	IsRoot       bool
+	Metadata     map[string]string
 }
 
 // RotationManager manages CA rotation.
@@ -464,7 +464,7 @@ func (rm *RotationManager) processPendingSchedules(ctx context.Context) {
 
 	for _, schedule := range schedules {
 		if schedule.ScheduledAt.Before(time.Now()) {
-			rm.executeRotation(ctx, schedule)
+			_ = rm.executeRotation(ctx, schedule) //nolint:errcheck // best-effort scheduled rotation
 		}
 	}
 }
@@ -551,9 +551,9 @@ func (rm *RotationManager) executeRotation(ctx context.Context, schedule *Rotati
 		Timestamp:  completedAt,
 		Message:    fmt.Sprintf("Rotation completed. New CA: %s", newCA.ID),
 		Details: map[string]interface{}{
-			"newCaId":      newCA.ID,
-			"oldCaId":      currentCA.ID,
-			"newNotAfter":  newCA.NotAfter,
+			"newCaId":     newCA.ID,
+			"oldCaId":     currentCA.ID,
+			"newNotAfter": newCA.NotAfter,
 		},
 	})
 
@@ -565,7 +565,7 @@ func (rm *RotationManager) failRotation(ctx context.Context, schedule *RotationS
 	schedule.Status = StatusFailed
 	schedule.FailedAt = &now
 	schedule.Error = err.Error()
-	rm.scheduleStore.Save(ctx, schedule)
+	_ = rm.scheduleStore.Save(ctx, schedule) //nolint:errcheck // best-effort persistence
 
 	rm.emit(&RotationEvent{
 		Type:       "rotation_failed",
@@ -773,9 +773,9 @@ func (s *InMemoryCAStore) Get(_ context.Context, id string) (*CAInfo, error) {
 
 	// Return a copy
 	data, _ := json.Marshal(ca)
-	var copy CAInfo
-	_ = json.Unmarshal(data, &copy)
-	return &copy, nil
+	var copied CAInfo
+	_ = json.Unmarshal(data, &copied)
+	return &copied, nil
 }
 
 // List lists all CAs.
@@ -786,9 +786,9 @@ func (s *InMemoryCAStore) List(_ context.Context) ([]*CAInfo, error) {
 	result := make([]*CAInfo, 0, len(s.cas))
 	for _, ca := range s.cas {
 		data, _ := json.Marshal(ca)
-		var copy CAInfo
-		_ = json.Unmarshal(data, &copy)
-		result = append(result, &copy)
+		var copied CAInfo
+		_ = json.Unmarshal(data, &copied)
+		result = append(result, &copied)
 	}
 	return result, nil
 }
@@ -802,9 +802,9 @@ func (s *InMemoryCAStore) ListByState(_ context.Context, state CAState) ([]*CAIn
 	for _, ca := range s.cas {
 		if ca.State == state {
 			data, _ := json.Marshal(ca)
-			var copy CAInfo
-			_ = json.Unmarshal(data, &copy)
-			result = append(result, &copy)
+			var copied CAInfo
+			_ = json.Unmarshal(data, &copied)
+			result = append(result, &copied)
 		}
 	}
 	return result, nil
@@ -817,9 +817,9 @@ func (s *InMemoryCAStore) Save(_ context.Context, ca *CAInfo) error {
 
 	// Store a copy
 	data, _ := json.Marshal(ca)
-	var copy CAInfo
-	_ = json.Unmarshal(data, &copy)
-	s.cas[ca.ID] = &copy
+	var copied CAInfo
+	_ = json.Unmarshal(data, &copied)
+	s.cas[ca.ID] = &copied
 	return nil
 }
 
@@ -868,9 +868,9 @@ func (s *InMemoryScheduleStore) Get(_ context.Context, id string) (*RotationSche
 	}
 
 	data, _ := json.Marshal(schedule)
-	var copy RotationSchedule
-	_ = json.Unmarshal(data, &copy)
-	return &copy, nil
+	var copied RotationSchedule
+	_ = json.Unmarshal(data, &copied)
+	return &copied, nil
 }
 
 // List lists all schedules.
@@ -881,9 +881,9 @@ func (s *InMemoryScheduleStore) List(_ context.Context) ([]*RotationSchedule, er
 	result := make([]*RotationSchedule, 0, len(s.schedules))
 	for _, schedule := range s.schedules {
 		data, _ := json.Marshal(schedule)
-		var copy RotationSchedule
-		_ = json.Unmarshal(data, &copy)
-		result = append(result, &copy)
+		var copied RotationSchedule
+		_ = json.Unmarshal(data, &copied)
+		result = append(result, &copied)
 	}
 	return result, nil
 }
@@ -897,9 +897,9 @@ func (s *InMemoryScheduleStore) ListByCA(_ context.Context, caID string) ([]*Rot
 	for _, schedule := range s.schedules {
 		if schedule.CAID == caID {
 			data, _ := json.Marshal(schedule)
-			var copy RotationSchedule
-			_ = json.Unmarshal(data, &copy)
-			result = append(result, &copy)
+			var copied RotationSchedule
+			_ = json.Unmarshal(data, &copied)
+			result = append(result, &copied)
 		}
 	}
 	return result, nil
@@ -914,9 +914,9 @@ func (s *InMemoryScheduleStore) ListByStatus(_ context.Context, status ScheduleS
 	for _, schedule := range s.schedules {
 		if schedule.Status == status {
 			data, _ := json.Marshal(schedule)
-			var copy RotationSchedule
-			_ = json.Unmarshal(data, &copy)
-			result = append(result, &copy)
+			var copied RotationSchedule
+			_ = json.Unmarshal(data, &copied)
+			result = append(result, &copied)
 		}
 	}
 	return result, nil
@@ -928,9 +928,9 @@ func (s *InMemoryScheduleStore) Save(_ context.Context, schedule *RotationSchedu
 	defer s.mu.Unlock()
 
 	data, _ := json.Marshal(schedule)
-	var copy RotationSchedule
-	_ = json.Unmarshal(data, &copy)
-	s.schedules[schedule.ID] = &copy
+	var copied RotationSchedule
+	_ = json.Unmarshal(data, &copied)
+	s.schedules[schedule.ID] = &copied
 	return nil
 }
 
@@ -988,7 +988,7 @@ func generateFingerprint() string {
 }
 
 // ValidateCertificate validates a certificate against a CA.
-func ValidateCertificate(cert *x509.Certificate, ca *x509.Certificate) error {
+func ValidateCertificate(cert, ca *x509.Certificate) error {
 	// Check if certificate is signed by CA
 	if err := cert.CheckSignatureFrom(ca); err != nil {
 		return fmt.Errorf("certificate not signed by CA: %w", err)

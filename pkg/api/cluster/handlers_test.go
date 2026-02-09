@@ -11,76 +11,6 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/cluster"
 )
 
-// mockMembershipManager implements the methods we need for testing
-type mockMembershipManager struct {
-	members      []*cluster.Member
-	hasQuorum    bool
-	localMember  *cluster.Member
-}
-
-func (m *mockMembershipManager) ListMembers() []*cluster.Member {
-	return m.members
-}
-
-func (m *mockMembershipManager) GetMember(id string) (*cluster.Member, error) {
-	for _, member := range m.members {
-		if member.ID == id {
-			return member, nil
-		}
-	}
-	return nil, nil
-}
-
-func (m *mockMembershipManager) HasQuorum() bool {
-	return m.hasQuorum
-}
-
-func (m *mockMembershipManager) GetHealthyMembers() []*cluster.Member {
-	healthy := make([]*cluster.Member, 0)
-	for _, member := range m.members {
-		if member.Status.IsHealthy() {
-			healthy = append(healthy, member)
-		}
-	}
-	return healthy
-}
-
-func (m *mockMembershipManager) LocalMember() *cluster.Member {
-	return m.localMember
-}
-
-// mockLeaderElector implements the methods we need for testing
-type mockLeaderElector struct {
-	leaderID string
-}
-
-func (m *mockLeaderElector) GetLeaderID() string {
-	return m.leaderID
-}
-
-// mockHealthMonitor implements the methods we need for testing
-type mockHealthMonitor struct {
-	hasQuorum bool
-}
-
-func (m *mockHealthMonitor) HasQuorum() bool {
-	return m.hasQuorum
-}
-
-// mockShardManager implements the methods we need for testing
-type mockShardManager struct {
-	assignments map[string]string
-	agentCounts map[string]int
-}
-
-func (m *mockShardManager) GetAllAssignments() map[string]string {
-	return m.assignments
-}
-
-func (m *mockShardManager) GetAgentCountForMember(memberID string) int {
-	return m.agentCounts[memberID]
-}
-
 func TestBackupData_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -93,7 +23,7 @@ func TestBackupData_Validation(t *testing.T) {
 			backup: BackupData{
 				Version:   "1.0",
 				Timestamp: time.Now(),
-				Cluster: ClusterBackup{
+				Cluster: Backup{
 					Name:       "test-cluster",
 					QuorumSize: 2,
 				},
@@ -104,7 +34,7 @@ func TestBackupData_Validation(t *testing.T) {
 			name: "missing version",
 			backup: BackupData{
 				Timestamp: time.Now(),
-				Cluster: ClusterBackup{
+				Cluster: Backup{
 					Name: "test-cluster",
 				},
 			},
@@ -116,7 +46,7 @@ func TestBackupData_Validation(t *testing.T) {
 			backup: BackupData{
 				Version:   "2.0",
 				Timestamp: time.Now(),
-				Cluster: ClusterBackup{
+				Cluster: Backup{
 					Name: "test-cluster",
 				},
 			},
@@ -127,7 +57,7 @@ func TestBackupData_Validation(t *testing.T) {
 			name: "missing timestamp",
 			backup: BackupData{
 				Version: "1.0",
-				Cluster: ClusterBackup{
+				Cluster: Backup{
 					Name: "test-cluster",
 				},
 			},
@@ -139,7 +69,7 @@ func TestBackupData_Validation(t *testing.T) {
 			backup: BackupData{
 				Version:   "1.0",
 				Timestamp: time.Now(),
-				Cluster:   ClusterBackup{},
+				Cluster:   Backup{},
 			},
 			wantErr: true,
 			errMsg:  "missing cluster name",
@@ -176,7 +106,7 @@ func TestBackupData_JSONRoundTrip(t *testing.T) {
 	original := BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now().UTC().Truncate(time.Second),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name:       "test-cluster",
 			QuorumSize: 3,
 			LeaderID:   "member-1",
@@ -313,7 +243,7 @@ func TestHandleRestore_MissingVersion(t *testing.T) {
 
 	backup := BackupData{
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name: "test",
 		},
 	}
@@ -338,7 +268,7 @@ func TestCreateBackup_RequiresMembership(t *testing.T) {
 	backup := BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now().UTC(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name:       "test-cluster",
 			QuorumSize: 2,
 			LeaderID:   "member-1",
@@ -448,8 +378,8 @@ func TestSetConfigStore(t *testing.T) {
 	}
 }
 
-func TestClusterBackup_Structure(t *testing.T) {
-	cb := ClusterBackup{
+func TestBackup_Structure(t *testing.T) {
+	cb := Backup{
 		Name:       "my-cluster",
 		QuorumSize: 3,
 		LeaderID:   "leader-1",
@@ -720,9 +650,9 @@ func TestContains_Helper(t *testing.T) {
 	}
 }
 
-func TestClusterStatusResponse_Structure(t *testing.T) {
+func TestStatusResponse_Structure(t *testing.T) {
 	now := time.Now().UTC()
-	resp := ClusterStatusResponse{
+	resp := StatusResponse{
 		Healthy:     true,
 		MemberCount: 3,
 		QuorumSize:  2,
@@ -747,12 +677,12 @@ func TestClusterStatusResponse_Structure(t *testing.T) {
 	// Test JSON serialization
 	data, err := json.Marshal(resp)
 	if err != nil {
-		t.Fatalf("Failed to marshal ClusterStatusResponse: %v", err)
+		t.Fatalf("Failed to marshal StatusResponse: %v", err)
 	}
 
-	var restored ClusterStatusResponse
+	var restored StatusResponse
 	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal ClusterStatusResponse: %v", err)
+		t.Fatalf("Failed to unmarshal StatusResponse: %v", err)
 	}
 
 	if restored.Healthy != resp.Healthy {
@@ -1131,7 +1061,7 @@ func TestRestoreRequest_Structure(t *testing.T) {
 		Backup: BackupData{
 			Version:   "1.0",
 			Timestamp: now,
-			Cluster: ClusterBackup{
+			Cluster: Backup{
 				Name:       "test-cluster",
 				QuorumSize: 3,
 			},
@@ -1172,7 +1102,7 @@ func TestClusterMismatch_Validation(t *testing.T) {
 	backup := BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name: backupCluster,
 		},
 	}
@@ -1236,7 +1166,7 @@ func TestValidateBackup_MissingClusterName(t *testing.T) {
 	backup := &BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name: "", // Missing cluster name
 		},
 	}
@@ -1260,7 +1190,7 @@ func TestValidateBackup_UnsupportedVersion(t *testing.T) {
 	backup := &BackupData{
 		Version:   "2.0", // Unsupported version
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name: "my-cluster",
 		},
 	}
@@ -1284,7 +1214,7 @@ func TestValidateBackup_Valid(t *testing.T) {
 	backup := &BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name: "my-cluster",
 		},
 	}
@@ -1390,12 +1320,12 @@ func TestBackupData_EmptyFields(t *testing.T) {
 	backup := BackupData{
 		Version:   "1.0",
 		Timestamp: time.Now(),
-		Cluster: ClusterBackup{
+		Cluster: Backup{
 			Name:    "test",
 			Members: []MemberStatusResponse{}, // Empty members
 		},
 		Shards: []ShardBackup{}, // Empty shards
-		Config: nil,              // Nil config
+		Config: nil,             // Nil config
 	}
 
 	data, err := json.Marshal(backup)
@@ -1451,9 +1381,9 @@ func TestMemberStatusResponse_AllFields(t *testing.T) {
 	}
 }
 
-func TestClusterStatusResponse_AllFields(t *testing.T) {
+func TestStatusResponse_AllFields(t *testing.T) {
 	now := time.Now().UTC()
-	resp := ClusterStatusResponse{
+	resp := StatusResponse{
 		Healthy:     false,
 		MemberCount: 5,
 		QuorumSize:  3,

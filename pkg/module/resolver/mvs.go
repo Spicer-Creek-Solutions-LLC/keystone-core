@@ -58,7 +58,7 @@ func (r *MVSConflictResolver) resolveMultiple(moduleName string, constraints []V
 			if versionStr[0] == '=' {
 				versionStr = versionStr[1:]
 			}
-			if len(versionStr) > 0 && versionStr[0] == '=' {
+			if versionStr != "" && versionStr[0] == '=' {
 				versionStr = versionStr[1:]
 			}
 			exactVersions = append(exactVersions, versionStr)
@@ -180,10 +180,10 @@ func (b *BuildRequirementList) AddRequirement(moduleName, versionConstraint stri
 	if constraint.IsExact() {
 		versionStr := constraint.String()
 		// Remove operator prefix
-		if len(versionStr) > 0 && versionStr[0] == '=' {
+		if versionStr != "" && versionStr[0] == '=' {
 			versionStr = versionStr[1:]
 		}
-		if len(versionStr) > 0 && versionStr[0] == '=' {
+		if versionStr != "" && versionStr[0] == '=' {
 			versionStr = versionStr[1:]
 		}
 

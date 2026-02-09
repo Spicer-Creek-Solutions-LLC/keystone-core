@@ -20,13 +20,13 @@ func NewGitExecutor(manager *gitsync.Manager) *GitExecutor {
 }
 
 // Type returns the rollback type
-func (e *GitExecutor) Type() RollbackType {
-	return RollbackTypeGit
+func (e *GitExecutor) Type() Type {
+	return TypeGit
 }
 
 // Execute executes a Git rollback
-func (e *GitExecutor) Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error) {
-	result := &RollbackResult{
+func (e *GitExecutor) Execute(ctx context.Context, config *Config, request *Request) (*Result, error) {
+	result := &Result{
 		Config:  config,
 		Request: request,
 	}
@@ -85,7 +85,7 @@ func (e *GitExecutor) Execute(ctx context.Context, config *RollbackConfig, reque
 }
 
 // GetPreviousRevision gets the previous commit (parent of HEAD)
-func (e *GitExecutor) GetPreviousRevision(ctx context.Context, config *RollbackConfig) (string, error) {
+func (e *GitExecutor) GetPreviousRevision(ctx context.Context, config *Config) (string, error) {
 	repo, ok := e.manager.GetRepository(config.Application)
 	if !ok {
 		return "", fmt.Errorf("repository not found: %s", config.Application)
@@ -103,7 +103,7 @@ func (e *GitExecutor) GetPreviousRevision(ctx context.Context, config *RollbackC
 // Since Git doesn't track deployment success, this returns the previous commit
 // as the best approximation. For production use, you should track deployment
 // status externally (e.g., via annotations, tags, or a deployment database).
-func (e *GitExecutor) GetLastKnownGood(ctx context.Context, config *RollbackConfig) (string, error) {
+func (e *GitExecutor) GetLastKnownGood(ctx context.Context, config *Config) (string, error) {
 	repo, ok := e.manager.GetRepository(config.Application)
 	if !ok {
 		return "", fmt.Errorf("repository not found: %s", config.Application)

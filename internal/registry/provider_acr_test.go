@@ -20,11 +20,11 @@ func TestNewACRCredentialProvider(t *testing.T) {
 	}
 }
 
-func TestACRCredentialProvider_RegistryType(t *testing.T) {
+func TestACRCredentialProvider_Type(t *testing.T) {
 	provider := NewACRCredentialProvider()
 
-	if provider.RegistryType() != RegistryTypeACR {
-		t.Errorf("RegistryType() = %v, want %v", provider.RegistryType(), RegistryTypeACR)
+	if provider.Type() != TypeACR {
+		t.Errorf("Type() = %v, want %v", provider.Type(), TypeACR)
 	}
 }
 
@@ -89,18 +89,18 @@ func TestACRCredentialProvider_MockTokenExchange(t *testing.T) {
 			return
 		}
 
-		switch {
-		case r.URL.Path == "/metadata/identity/oauth2/token":
+		switch r.URL.Path {
+		case "/metadata/identity/oauth2/token":
 			response := map[string]interface{}{
-				"access_token":  "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
-				"expires_in":    "3600",
-				"expires_on":    "1609459200",
-				"resource":      r.URL.Query().Get("resource"),
-				"token_type":    "Bearer",
-				"client_id":     "test-client-id",
+				"access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
+				"expires_in":   "3600",
+				"expires_on":   "1609459200",
+				"resource":     r.URL.Query().Get("resource"),
+				"token_type":   "Bearer",
+				"client_id":    "test-client-id",
 			}
 			json.NewEncoder(w).Encode(response)
-		case r.URL.Path == "/metadata/instance/compute":
+		case "/metadata/instance/compute":
 			response := map[string]interface{}{
 				"subscriptionId":    "sub-12345",
 				"resourceGroupName": "my-rg",
@@ -133,7 +133,7 @@ func TestACRCredentialProvider_MockTokenExchange(t *testing.T) {
 func TestACRCredential_Format(t *testing.T) {
 	// Test that ACR credentials use the correct format
 	cred := &Credential{
-		Type:           RegistryTypeACR,
+		Type:           TypeACR,
 		Registry:       "myregistry.azurecr.io",
 		Username:       "00000000-0000-0000-0000-000000000000",
 		Password:       "acr-refresh-token",

@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -35,7 +36,7 @@ func (m *SELinuxModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		return nil, fmt.Errorf("SELinux tools not found")
 	}
 
-	currentMode, err := m.getCurrentMode()
+	currentMode, err := m.getCurrentMode(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +153,8 @@ func (m *SELinuxModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 	return result.Matches, nil
 }
 
-func (m *SELinuxModule) getCurrentMode() (string, error) {
-	cmd := exec.Command("getenforce")
+func (m *SELinuxModule) getCurrentMode(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "getenforce")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("getenforce failed: %w", err)
@@ -175,7 +176,8 @@ func (m *SELinuxModule) setPersistentMode(mode string) error {
 	pattern := regexp.MustCompile(`(?m)^SELINUX=.*$`)
 	newContent := pattern.ReplaceAllString(string(content), fmt.Sprintf("SELINUX=%s", mode))
 
-	if err := os.WriteFile(configPath, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: SELinux config needs to be readable by the system
+	if err := os.WriteFile(configPath, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", configPath, err)
 	}
 
@@ -205,7 +207,7 @@ func (m *SELinuxBooleanModule) Check(ctx context.Context, decl *StateDeclaration
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
-	currentValue, err := m.getBooleanValue(name)
+	currentValue, err := m.getBooleanValue(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -301,8 +303,8 @@ func (m *SELinuxBooleanModule) Test(ctx context.Context, decl *StateDeclaration)
 	return result.Matches, nil
 }
 
-func (m *SELinuxBooleanModule) getBooleanValue(name string) (bool, error) {
-	cmd := exec.Command("getsebool", name)
+func (m *SELinuxBooleanModule) getBooleanValue(ctx context.Context, name string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "getsebool", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("getsebool failed: %w", err)
@@ -457,7 +459,7 @@ func (m *AppArmorModule) Test(ctx context.Context, decl *StateDeclaration) (bool
 	return result.Matches, nil
 }
 
-func (m *AppArmorModule) getProfileMode(profile string) (string, bool, error) {
+func (m *AppArmorModule) getProfileMode(profile string) (mode string, exists bool, err error) {
 	// Read /sys/kernel/security/apparmor/profiles
 	file, err := os.Open("/sys/kernel/security/apparmor/profiles")
 	if err != nil {
@@ -503,11 +505,12 @@ func (m *AppArmorModule) disableProfile(ctx context.Context, profile string) err
 	if err := cmd.Run(); err != nil {
 		// Try creating a symlink in /etc/apparmor.d/disable
 		disableDir := "/etc/apparmor.d/disable"
-		if err := os.MkdirAll(disableDir, 0755); err != nil {
+		//nolint:gosec // G301: apparmor disable directory needs system access
+		if err := os.MkdirAll(disableDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create disable directory: %w", err)
 		}
 
-		profilePath := filepath.Join("/etc/apparmor.d", profile)
+		profilePath := filepath.Join("/etc", "apparmor.d", profile)
 		disablePath := filepath.Join(disableDir, profile)
 
 		// Create symlink
@@ -549,7 +552,7 @@ func (m *AppArmorProfileModule) Check(ctx context.Context, decl *StateDeclaratio
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
-	profilePath := filepath.Join("/etc/apparmor.d", name)
+	profilePath := filepath.Join("/etc", "apparmor.d", name)
 	exists := false
 	var currentContent []byte
 
@@ -586,7 +589,7 @@ func (m *AppArmorProfileModule) Check(ctx context.Context, decl *StateDeclaratio
 			} else {
 				desiredContent = []byte(content)
 			}
-			result.Matches = exists && string(currentContent) == string(desiredContent)
+			result.Matches = exists && bytes.Equal(currentContent, desiredContent)
 			if !result.Matches {
 				result.Diff["content"] = "differs"
 			}
@@ -638,7 +641,8 @@ func (m *AppArmorProfileModule) Apply(ctx context.Context, decl *StateDeclaratio
 	switch decl.State {
 	case "present":
 		var profileContent []byte
-		if source != "" {
+		switch {
+		case source != "":
 			var err error
 			profileContent, err = os.ReadFile(source)
 			if err != nil {
@@ -650,9 +654,9 @@ func (m *AppArmorProfileModule) Apply(ctx context.Context, decl *StateDeclaratio
 					Comment: fmt.Sprintf("Failed to read source: %v", err),
 				}, nil
 			}
-		} else if content != "" {
+		case content != "":
 			profileContent = []byte(content)
-		} else {
+		default:
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),
@@ -662,7 +666,8 @@ func (m *AppArmorProfileModule) Apply(ctx context.Context, decl *StateDeclaratio
 			}, nil
 		}
 
-		if err := os.WriteFile(profilePath, profileContent, 0644); err != nil {
+		//nolint:gosec // G306: AppArmor profiles need to be readable by the kernel
+		if err := os.WriteFile(profilePath, profileContent, 0o644); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),

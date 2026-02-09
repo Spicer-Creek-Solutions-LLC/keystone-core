@@ -53,7 +53,7 @@ func TestExecCapability_Validate(t *testing.T) {
 }
 
 func TestExecCapability_CheckCommand(t *testing.T) {
-	cap := &ExecCapability{
+	execCap := &ExecCapability{
 		AllowedCommands: []string{
 			"/bin/echo",
 			"/usr/bin/grep",
@@ -80,7 +80,7 @@ func TestExecCapability_CheckCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := cap.CheckCommand(tt.command)
+			err := execCap.CheckCommand(tt.command)
 			if tt.expectError != nil {
 				if err == nil {
 					t.Errorf("expected error %v but got nil", tt.expectError)
@@ -101,7 +101,7 @@ func TestExecCapability_Exec(t *testing.T) {
 		echoCmd = "C:\\Windows\\System32\\cmd.exe"
 	}
 
-	cap := &ExecCapability{
+	execCap := &ExecCapability{
 		AllowedCommands: []string{echoCmd},
 		TimeoutMax:      5 * time.Second,
 	}
@@ -109,14 +109,14 @@ func TestExecCapability_Exec(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test successful execution
-	args := []string{}
+	var args []string
 	if runtime.GOOS == "windows" {
 		args = []string{"/C", "echo", "hello world"}
 	} else {
 		args = []string{"hello", "world"}
 	}
 
-	result, err := cap.Exec(ctx, echoCmd, args...)
+	result, err := execCap.Exec(ctx, echoCmd, args...)
 	if err != nil {
 		t.Fatalf("command execution failed: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestExecCapability_Exec(t *testing.T) {
 	}
 
 	// Check output (may have newline)
-	expectedOutput := "hello world"
+	var expectedOutput string
 	if runtime.GOOS == "windows" {
 		expectedOutput = "hello world\r\n"
 	} else {
@@ -139,7 +139,7 @@ func TestExecCapability_Exec(t *testing.T) {
 }
 
 func TestExecCapability_ExecNotAllowed(t *testing.T) {
-	cap := &ExecCapability{
+	execCap := &ExecCapability{
 		AllowedCommands: []string{"/bin/echo"},
 		TimeoutMax:      5 * time.Second,
 	}
@@ -147,7 +147,7 @@ func TestExecCapability_ExecNotAllowed(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test execution of non-allowed command
-	_, err := cap.Exec(ctx, "/bin/rm", "-rf", "/")
+	_, err := execCap.Exec(ctx, "/bin/rm", "-rf", "/")
 	if !errors.Is(err, ErrCommandNotAllowed) {
 		t.Errorf("expected ErrCommandNotAllowed, got %v", err)
 	}
@@ -160,7 +160,7 @@ func TestExecCapability_ExecWithInput(t *testing.T) {
 		catCmd = "C:\\Windows\\System32\\findstr.exe"
 	}
 
-	cap := &ExecCapability{
+	execCap := &ExecCapability{
 		AllowedCommands: []string{catCmd},
 		TimeoutMax:      5 * time.Second,
 	}
@@ -173,7 +173,7 @@ func TestExecCapability_ExecWithInput(t *testing.T) {
 		args = []string{"."} // findstr . (match any character, effectively cat)
 	}
 
-	result, err := cap.ExecWithInput(ctx, input, catCmd, args...)
+	result, err := execCap.ExecWithInput(ctx, input, catCmd, args...)
 	if err != nil {
 		t.Fatalf("command execution failed: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestExecCapability_ExecTimeout(t *testing.T) {
 	sleepCmd := "/usr/bin/yes"
 	args := []string{}
 
-	cap := &ExecCapability{
+	execCap := &ExecCapability{
 		AllowedCommands: []string{sleepCmd},
 		TimeoutMax:      200 * time.Millisecond,
 	}
@@ -206,7 +206,7 @@ func TestExecCapability_ExecTimeout(t *testing.T) {
 
 	// Test timeout
 	startTime := time.Now()
-	result, err := cap.Exec(ctx, sleepCmd, args...)
+	result, err := execCap.Exec(ctx, sleepCmd, args...)
 	duration := time.Since(startTime)
 
 	// The command should be killed by timeout

@@ -37,7 +37,8 @@ func NewLocalStorage(basePath string, readOnly bool) (*LocalStorage, error) {
 		if readOnly {
 			return nil, fmt.Errorf("base path does not exist: %s", basePath)
 		}
-		if err := os.MkdirAll(basePath, 0755); err != nil {
+		//nolint:gosec // G301: storage directory needs to be accessible by service user
+		if err := os.MkdirAll(basePath, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create base path: %w", err)
 		}
 	}
@@ -54,7 +55,7 @@ func NewLocalStorage(basePath string, readOnly bool) (*LocalStorage, error) {
 }
 
 // Get retrieves a blueprint by name and optional version.
-func (s *LocalStorage) Get(ctx context.Context, name string, version string) (*Blueprint, error) {
+func (s *LocalStorage) Get(ctx context.Context, name, version string) (*Blueprint, error) {
 	// Parse the blueprint name to extract vendor/name
 	vendor, bpName, err := parseBlueprintName(name)
 	if err != nil {
@@ -78,8 +79,8 @@ func (s *LocalStorage) Get(ctx context.Context, name string, version string) (*B
 }
 
 // List returns all blueprints matching the optional filter.
-func (s *LocalStorage) List(ctx context.Context, filter *ListFilter) ([]*BlueprintInfo, error) {
-	var results []*BlueprintInfo
+func (s *LocalStorage) List(ctx context.Context, filter *ListFilter) ([]*Info, error) {
+	var results []*Info
 
 	// Walk the vendor directories
 	vendors, err := os.ReadDir(s.basePath)
@@ -116,9 +117,9 @@ func (s *LocalStorage) List(ctx context.Context, filter *ListFilter) ([]*Bluepri
 			bpGroups[bpName] = append(bpGroups[bpName], version)
 		}
 
-		// Create BlueprintInfo for each blueprint
+		// Create Info for each blueprint
 		for bpName, versions := range bpGroups {
-			info, err := s.getBlueprintInfo(vendor, bpName, versions)
+			info, err := s.getInfo(vendor, bpName, versions)
 			if err != nil {
 				continue
 			}
@@ -202,10 +203,10 @@ func (s *LocalStorage) Versions(ctx context.Context, name string) ([]string, err
 }
 
 // Exists checks if a blueprint exists.
-func (s *LocalStorage) Exists(ctx context.Context, name string, version string) (bool, error) {
+func (s *LocalStorage) Exists(ctx context.Context, name, version string) (bool, error) {
 	vendor, bpName, err := parseBlueprintName(name)
 	if err != nil {
-		return false, nil // Invalid name doesn't exist
+		return false, nil //nolint:nilerr // invalid name treated as not found
 	}
 
 	_, err = s.findBlueprintDir(vendor, bpName, version)
@@ -246,7 +247,8 @@ func (s *LocalStorage) Put(ctx context.Context, bp *Blueprint) error {
 	dirName := fmt.Sprintf("%s-%s", bp.Metadata.Name, bp.Metadata.Version)
 	bpDir := filepath.Join(s.basePath, vendor, dirName)
 
-	if err := os.MkdirAll(bpDir, 0755); err != nil {
+	//nolint:gosec // G301: blueprint directory needs to be accessible by service user
+	if err := os.MkdirAll(bpDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create blueprint directory: %w", err)
 	}
 
@@ -257,7 +259,8 @@ func (s *LocalStorage) Put(ctx context.Context, bp *Blueprint) error {
 	}
 
 	manifestPath := filepath.Join(bpDir, "blueprint.yaml")
-	if err := os.WriteFile(manifestPath, data, 0644); err != nil {
+	//nolint:gosec // G306: blueprint manifest needs to be readable by operators and tools
+	if err := os.WriteFile(manifestPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
@@ -265,7 +268,7 @@ func (s *LocalStorage) Put(ctx context.Context, bp *Blueprint) error {
 }
 
 // Delete removes a blueprint version.
-func (s *LocalStorage) Delete(ctx context.Context, name string, version string) error {
+func (s *LocalStorage) Delete(ctx context.Context, name, version string) error {
 	if s.readOnly {
 		return ErrStorageReadOnly
 	}
@@ -420,8 +423,8 @@ func (s *LocalStorage) findBlueprintDir(vendor, name, version string) (string, e
 	return latestDir, nil
 }
 
-// getBlueprintInfo creates a BlueprintInfo from a blueprint.
-func (s *LocalStorage) getBlueprintInfo(vendor, name string, versions []string) (*BlueprintInfo, error) {
+// getInfo creates a Info from a blueprint.
+func (s *LocalStorage) getInfo(vendor, name string, versions []string) (*Info, error) {
 	// Sort versions descending
 	sortVersionsDesc(versions)
 
@@ -441,7 +444,7 @@ func (s *LocalStorage) getBlueprintInfo(vendor, name string, versions []string) 
 		return nil, err
 	}
 
-	return &BlueprintInfo{
+	return &Info{
 		Name:              fmt.Sprintf("blueprints/%s/%s", vendor, name),
 		Version:           bp.Metadata.Version,
 		Description:       bp.Metadata.Description,

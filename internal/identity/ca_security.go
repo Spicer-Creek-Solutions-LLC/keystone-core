@@ -557,13 +557,13 @@ func (bm *CABackupManager) CreateBackup(
 // SaveBackup saves a backup to disk.
 func (bm *CABackupManager) SaveBackup(backup *CABackup) (string, error) {
 	// Ensure backup directory exists
-	if err := os.MkdirAll(bm.backupDir, 0700); err != nil {
+	if err := os.MkdirAll(bm.backupDir, 0o700); err != nil {
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
 	// Generate backup filename
 	filename := fmt.Sprintf("ca-backup-%s.json", backup.CreatedAt.Format("20060102-150405"))
-	filepath := filepath.Join(bm.backupDir, filename)
+	backupPath := filepath.Join(bm.backupDir, filename)
 
 	// Serialize backup
 	data, err := json.MarshalIndent(backup, "", "  ")
@@ -572,16 +572,16 @@ func (bm *CABackupManager) SaveBackup(backup *CABackup) (string, error) {
 	}
 
 	// Write backup file
-	if err := os.WriteFile(filepath, data, 0600); err != nil {
+	if err := os.WriteFile(backupPath, data, 0o600); err != nil {
 		return "", fmt.Errorf("failed to write backup file: %w", err)
 	}
 
-	return filepath, nil
+	return backupPath, nil
 }
 
 // LoadBackup loads a backup from disk.
-func (bm *CABackupManager) LoadBackup(filepath string) (*CABackup, error) {
-	data, err := os.ReadFile(filepath)
+func (bm *CABackupManager) LoadBackup(backupPath string) (*CABackup, error) {
+	data, err := os.ReadFile(backupPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read backup file: %w", err)
 	}

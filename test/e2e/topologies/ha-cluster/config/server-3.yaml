@@ -13,7 +13,7 @@ nats:
   reconnectwait: 2s
   jetstream:
     enabled: true
-    storedir: "/var/lib/kscore/jetstream"
+    storedir: "/var/lib/keystone-core/jetstream"
 
 storage:
   backend: postgresql

@@ -28,7 +28,7 @@ flowchart TB
 
 ### Kubernetes Client Wrapper
 
-The client wrapper (`pkg/k8s/client.go`) provides a unified interface for Kubernetes operations:
+The client wrapper (`internal/k8s/client.go`) provides a unified interface for Kubernetes operations. Note that this is an internal API; for external integrations, use the REST or gRPC endpoints.
 
 - **Multi-cluster support**: Connect to multiple Kubernetes clusters simultaneously
 - **Context switching**: Seamlessly switch between cluster contexts
@@ -43,8 +43,12 @@ client, err := k8s.NewClient(k8s.ClusterConfig{
 })
 
 // Execute a command in a pod
-result, err := client.PodExec(ctx, "my-namespace", "my-pod", "my-container",
-    []string{"ls", "-la"})
+result, err := client.ExecInPod(k8s.PodExecOptions{
+    Namespace: "my-namespace",
+    PodName:   "my-pod",
+    Container: "my-container",
+    Command:   []string{"ls", "-la"},
+})
 ```
 
 ### Custom Resource Definitions
@@ -354,7 +358,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - https://github.com/keystone-core/deploy/kubernetes/base
+  - https://github.com/shawnbutts/keystone-core/deploy/kubernetes/base
 
 namespace: keystone-system
 
@@ -440,7 +444,7 @@ If CRDs are not installed:
 kubectl get crd remoteexecutions.keystone.io stateconfigs.keystone.io
 
 # Install CRDs manually
-kubectl apply -f https://github.com/keystone-core/deploy/kubernetes/crds/
+kubectl apply -f https://github.com/shawnbutts/keystone-core/deploy/kubernetes/crds/
 ```
 
 ### Controller Not Reconciling
@@ -468,7 +472,7 @@ Test cluster connectivity:
 KUBECONFIG=/etc/keystone/kubeconfig-prod kubectl cluster-info
 
 # Check Keystone Core cluster status
-kscorectl cluster status --cluster=production
+kscorectl cluster status
 ```
 
 ## See Also

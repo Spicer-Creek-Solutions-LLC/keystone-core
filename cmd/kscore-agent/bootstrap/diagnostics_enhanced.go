@@ -19,26 +19,26 @@ type DiagnosticReport struct {
 	BootstrapID string    `json:"bootstrap_id,omitempty"`
 
 	// Error information
-	Phase       PhaseName           `json:"phase"`
-	Error       *DiagnosticError    `json:"error,omitempty"`
-	RootCause   string              `json:"root_cause,omitempty"`
-	ErrorChain  []string            `json:"error_chain,omitempty"`
+	Phase      PhaseName        `json:"phase"`
+	Error      *DiagnosticError `json:"error,omitempty"`
+	RootCause  string           `json:"root_cause,omitempty"`
+	ErrorChain []string         `json:"error_chain,omitempty"`
 
 	// System information
-	System      *DiagnosticSystem   `json:"system,omitempty"`
-	Environment map[string]string   `json:"environment,omitempty"`
+	System      *DiagnosticSystem `json:"system,omitempty"`
+	Environment map[string]string `json:"environment,omitempty"`
 
 	// Configuration
-	Config      *DiagnosticConfig   `json:"config,omitempty"`
+	Config *DiagnosticConfig `json:"config,omitempty"`
 
 	// Artifacts
-	Artifacts   *DiagnosticArtifacts `json:"artifacts,omitempty"`
+	Artifacts *DiagnosticArtifacts `json:"artifacts,omitempty"`
 
 	// Recovery
-	Recovery    *DiagnosticRecovery  `json:"recovery,omitempty"`
+	Recovery *DiagnosticRecovery `json:"recovery,omitempty"`
 
 	// Logs
-	Logs        *DiagnosticLogs      `json:"logs,omitempty"`
+	Logs *DiagnosticLogs `json:"logs,omitempty"`
 
 	// Preflight results
 	PreflightResults []PreflightResult `json:"preflight_results,omitempty"`
@@ -57,38 +57,38 @@ type DiagnosticError struct {
 
 // DiagnosticSystem captures system information.
 type DiagnosticSystem struct {
-	OS             string `json:"os"`
-	Arch           string `json:"arch"`
-	Distro         string `json:"distro,omitempty"`
-	Version        string `json:"version,omitempty"`
-	Kernel         string `json:"kernel,omitempty"`
-	PackageManager string `json:"package_manager,omitempty"`
-	InitSystem     string `json:"init_system,omitempty"`
-	CPUCount       int    `json:"cpu_count"`
-	MemoryMB       uint64 `json:"memory_mb"`
-	DiskFreeGB     uint64 `json:"disk_free_gb"`
-	Hostname       string `json:"hostname,omitempty"`
-	IPv4           string `json:"ipv4,omitempty"`
-	IPv6           string `json:"ipv6,omitempty"`
-	IsVirtual      bool   `json:"is_virtual,omitempty"`
-	IsContainer    bool   `json:"is_container,omitempty"`
-	ExistingInstall bool  `json:"existing_install"`
+	OS              string `json:"os"`
+	Arch            string `json:"arch"`
+	Distro          string `json:"distro,omitempty"`
+	Version         string `json:"version,omitempty"`
+	Kernel          string `json:"kernel,omitempty"`
+	PackageManager  string `json:"package_manager,omitempty"`
+	InitSystem      string `json:"init_system,omitempty"`
+	CPUCount        int    `json:"cpu_count"`
+	MemoryMB        uint64 `json:"memory_mb"`
+	DiskFreeGB      uint64 `json:"disk_free_gb"`
+	Hostname        string `json:"hostname,omitempty"`
+	IPv4            string `json:"ipv4,omitempty"`
+	IPv6            string `json:"ipv6,omitempty"`
+	IsVirtual       bool   `json:"is_virtual,omitempty"`
+	IsContainer     bool   `json:"is_container,omitempty"`
+	ExistingInstall bool   `json:"existing_install"`
 }
 
 // DiagnosticConfig captures configuration snapshot.
 type DiagnosticConfig struct {
-	Mode           string            `json:"mode"`
-	ClusterName    string            `json:"cluster_name,omitempty"`
-	NodeRole       string            `json:"node_role"`
-	NodeName       string            `json:"node_name,omitempty"`
-	Storage        string            `json:"storage"`
-	NATSMode       string            `json:"nats_mode"`
-	TLSMode        string            `json:"tls_mode"`
-	Join           string            `json:"join,omitempty"`
-	HasJoinToken   bool              `json:"has_join_token"`
-	BlueprintsDir  string            `json:"blueprints_dir,omitempty"`
-	ApplyBlueprints []string         `json:"apply_blueprints,omitempty"`
-	CustomSettings map[string]string `json:"custom_settings,omitempty"`
+	Mode            string            `json:"mode"`
+	ClusterName     string            `json:"cluster_name,omitempty"`
+	NodeRole        string            `json:"node_role"`
+	NodeName        string            `json:"node_name,omitempty"`
+	Storage         string            `json:"storage"`
+	NATSMode        string            `json:"nats_mode"`
+	TLSMode         string            `json:"tls_mode"`
+	Join            string            `json:"join,omitempty"`
+	HasJoinToken    bool              `json:"has_join_token"`
+	BlueprintsDir   string            `json:"blueprints_dir,omitempty"`
+	ApplyBlueprints []string          `json:"apply_blueprints,omitempty"`
+	CustomSettings  map[string]string `json:"custom_settings,omitempty"`
 }
 
 // DiagnosticArtifacts captures install artifacts.
@@ -101,10 +101,10 @@ type DiagnosticArtifacts struct {
 
 // DiagnosticRecovery captures recovery information.
 type DiagnosticRecovery struct {
-	Actions          []RecoveryAction  `json:"actions,omitempty"`
-	AttemptedActions []RecoveryResult  `json:"attempted_actions,omitempty"`
-	ScriptPath       string            `json:"script_path,omitempty"`
-	Hints            []string          `json:"hints,omitempty"`
+	Actions          []RecoveryAction `json:"actions,omitempty"`
+	AttemptedActions []RecoveryResult `json:"attempted_actions,omitempty"`
+	ScriptPath       string           `json:"script_path,omitempty"`
+	Hints            []string         `json:"hints,omitempty"`
 }
 
 // DiagnosticLogs captures relevant log excerpts.
@@ -183,15 +183,13 @@ func (c *EnhancedDiagnosticsCollector) Collect(ctx context.Context, phase PhaseN
 	report.Logs = c.collectLogs(ctx)
 
 	// Get bootstrap ID from checkpoint if available
-	if c.state != nil && c.state.BootstrapConfig != nil {
-		// Would normally get from checkpoint
-	}
+	// Note: bootstrap ID is retrieved from checkpoint when available in state.BootstrapConfig
 
 	return report
 }
 
 // analyzeRootCause attempts to determine the root cause.
-func (c *EnhancedDiagnosticsCollector) analyzeRootCause(bErr *BootstrapError) string {
+func (c *EnhancedDiagnosticsCollector) analyzeRootCause(bErr *Error) string {
 	switch bErr.Category {
 	case ErrorCategoryPermission:
 		return "Insufficient system permissions - bootstrap requires root/sudo access"
@@ -266,7 +264,7 @@ func (c *EnhancedDiagnosticsCollector) buildErrorChain(err error) []string {
 }
 
 // buildEnhancedHints creates context-aware hints.
-func (c *EnhancedDiagnosticsCollector) buildEnhancedHints(bErr *BootstrapError) []string {
+func (c *EnhancedDiagnosticsCollector) buildEnhancedHints(bErr *Error) []string {
 	hints := []string{}
 
 	// Add suggestion first
@@ -319,6 +317,8 @@ func (c *EnhancedDiagnosticsCollector) buildEnhancedHints(bErr *BootstrapError) 
 			"Check: df -h (disk space)",
 			"Check: free -h (memory)",
 		)
+
+	default:
 	}
 
 	// Add recovery script hint if generated
@@ -423,11 +423,12 @@ func (c *EnhancedDiagnosticsCollector) collectConfig() *DiagnosticConfig {
 	}
 
 	// TLS mode
-	if cfg.GenerateCerts {
+	switch {
+	case cfg.GenerateCerts:
 		diag.TLSMode = "generate"
-	} else if cfg.TLSCSRFile != "" {
+	case cfg.TLSCSRFile != "":
 		diag.TLSMode = "csr"
-	} else if cfg.TLSCertFile != "" {
+	case cfg.TLSCertFile != "":
 		diag.TLSMode = "provided"
 	}
 
@@ -487,27 +488,28 @@ func (c *EnhancedDiagnosticsCollector) collectLogs(ctx context.Context) *Diagnos
 }
 
 // WriteReport writes the diagnostic report to disk.
-func (c *EnhancedDiagnosticsCollector) WriteReport(report *DiagnosticReport) (string, string, error) {
+func (c *EnhancedDiagnosticsCollector) WriteReport(report *DiagnosticReport) (jsonPath, textPath string, err error) {
 	timestamp := report.Timestamp.Format("20060102T150405Z")
 
 	// Ensure directory exists
-	dir := "/var/log/kscore"
+	dir := "/var/log/keystone-core"
+	//nolint:gosec // G301: log directory needs to be accessible by admin users
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		dir = os.TempDir()
 	}
 
 	// Write JSON report
-	jsonPath := filepath.Join(dir, fmt.Sprintf("%s-%s.json", diagnosticsFilePrefix, timestamp))
+	jsonPath = filepath.Join(dir, fmt.Sprintf("%s-%s.json", diagnosticsFilePrefix, timestamp))
 	jsonData, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return "", "", fmt.Errorf("marshal JSON report: %w", err)
 	}
-	if err := os.WriteFile(jsonPath, jsonData, 0o600); err != nil {
+	if err = os.WriteFile(jsonPath, jsonData, 0o600); err != nil {
 		return "", "", fmt.Errorf("write JSON report: %w", err)
 	}
 
 	// Write human-readable report
-	textPath := filepath.Join(dir, fmt.Sprintf("%s-%s.log", diagnosticsFilePrefix, timestamp))
+	textPath = filepath.Join(dir, fmt.Sprintf("%s-%s.log", diagnosticsFilePrefix, timestamp))
 	textData := c.formatTextReport(report)
 	if err := os.WriteFile(textPath, []byte(textData), 0o600); err != nil {
 		return jsonPath, "", fmt.Errorf("write text report: %w", err)
@@ -585,7 +587,8 @@ func (c *EnhancedDiagnosticsCollector) formatTextReport(report *DiagnosticReport
 	// Recovery section
 	if report.Recovery != nil && len(report.Recovery.Actions) > 0 {
 		b.WriteString("┌─ RECOVERY OPTIONS ─────────────────────────────────────────────\n")
-		for i, action := range report.Recovery.Actions {
+		for i := range report.Recovery.Actions {
+			action := &report.Recovery.Actions[i]
 			b.WriteString(fmt.Sprintf("│ %d. %s [%s/%s]\n", i+1, action.Description, action.Type, action.Risk))
 			if action.Command != "" {
 				b.WriteString(fmt.Sprintf("│    $ %s\n", action.Command))

@@ -632,13 +632,13 @@ rollback_policy:
 **Approve rollback**:
 ```bash
 # List pending rollbacks
-kscorectl rollback list --status pending
+kscorectl gitops rollbacklist --status pending
 
 # Approve
-kscorectl rollback approve abc123 --message "Approved by ops team"
+kscorectl gitops rollbackapprove abc123 --message "Approved by ops team"
 
 # Reject
-kscorectl rollback reject abc123 --message "False alarm, deployment is healthy"
+kscorectl gitops rollbackreject abc123 --message "False alarm, deployment is healthy"
 ```
 
 ## Promotion Pipelines
@@ -739,7 +739,7 @@ rolling:
 
 **Manual**:
 ```bash
-kscorectl promote myapp --from staging --to production
+kscorectl gitops promotemyapp --from staging --to production
 ```
 
 **Automatic** (on verification success):
@@ -786,7 +786,7 @@ git_sync:
       # Authentication
       auth:
         type: ssh
-        ssh_key_path: /etc/kscore/id_rsa
+        ssh_key_path: /etc/keystone-core/id_rsa
 
       # What to sync
       paths:
@@ -1204,11 +1204,13 @@ All conflicts emit events for monitoring and alerting:
 4. **Validation in CI Pipeline**
    ```yaml
    # GitHub Actions example
-   - name: Validate Keystone configs
+   - name: Validate Keystone state files
      run: |
-       kscorectl config validate states/
-       kscorectl config validate reactors/
-       kscorectl config validate vars/
+       # Validate all state and reactor files
+       for f in states/*.yaml reactors/*.yaml; do
+         echo "Validating $f"
+         kscorectl state check "$f" || exit 1
+       done
    ```
 
 5. **Audit Trail**
@@ -1903,23 +1905,23 @@ multi_platform_approval:
 
 ```bash
 # List pending approvals
-kscorectl approvals list --status pending
+kscorectl runbook approvalslist --status pending
 
 # Approve via CLI
-kscorectl approvals approve <approval-id> \
+kscorectl runbook approvalsapprove <approval-id> \
   --approver "admin@example.com" \
   --reason "Reviewed and tested in staging"
 
 # Reject via CLI
-kscorectl approvals reject <approval-id> \
+kscorectl runbook approvalsreject <approval-id> \
   --approver "admin@example.com" \
   --reason "Found regression in integration tests"
 
 # View approval history
-kscorectl approvals history --application myapp --env production
+kscorectl runbook approvalshistory --application myapp --env production
 
 # Check approval requirements
-kscorectl approvals requirements myapp --env production
+kscorectl runbook approvalsrequirements myapp --env production
 ```
 
 ### Approval Audit Trail
@@ -2056,8 +2058,8 @@ curl -X POST http://kscore-server:8090/webhooks/argocd \
 # Check webhook metrics
 curl http://kscore-server:8080/metrics | grep gitops_webhooks
 
-# Check logs
-kscorectl logs --filter "component == 'webhook-receiver'"
+# Check logs (use journalctl or container logs)
+journalctl -u kscore-server --grep "webhook-receiver"
 ```
 
 ### Verification Failing
@@ -2067,10 +2069,10 @@ kscorectl logs --filter "component == 'webhook-receiver'"
 Debug:
 ```bash
 # Run verification manually
-kscorectl verify run myapp-verification --namespace production
+kscorectl gitops verify run myapp-verification --namespace production
 
 # Check verification logs
-kscorectl verify logs myapp-verification --limit 10
+kscorectl gitops verify logs myapp-verification --limit 10
 
 # Test individual steps
 curl http://myapp.production.svc.cluster.local/health
@@ -2083,13 +2085,13 @@ curl http://myapp.production.svc.cluster.local/health
 Check:
 ```bash
 # Verify rollback policy is enabled
-kscorectl rollback policy show myapp
+kscorectl gitops rollbackpolicy show myapp
 
 # Check rollback triggers
-kscorectl rollback triggers myapp
+kscorectl gitops rollbacktriggers myapp
 
 # Manual rollback
-kscorectl rollback execute myapp --namespace production --strategy previous
+kscorectl gitops rollbackexecute myapp --namespace production --strategy previous
 ```
 
 ### Git Sync Not Working
@@ -2107,8 +2109,8 @@ kscorectl git-sync trigger infrastructure-config
 # Check authentication
 ssh -T git@github.com
 
-# Check logs
-kscorectl logs --filter "component == 'git-sync'"
+# Check logs (use journalctl or container logs)
+journalctl -u kscore-server --grep "git-sync"
 ```
 
 ## Next Steps

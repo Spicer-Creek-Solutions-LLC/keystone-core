@@ -37,10 +37,10 @@ type mockSession struct {
 }
 
 type mockObject struct {
-	handle     ObjectHandle
-	class      PKCS11ObjectClass
-	keyType    PKCS11KeyType
-	label      string
+	handle      ObjectHandle
+	class       PKCS11ObjectClass
+	keyType     PKCS11KeyType
+	label       string
 	keyMaterial []byte
 }
 
@@ -83,22 +83,22 @@ func (m *MockPKCS11Interface) GetSlotInfo(ctx context.Context, slotID uint32) (*
 
 func (m *MockPKCS11Interface) GetTokenInfo(ctx context.Context, slotID uint32) (*TokenInfo, error) {
 	return &TokenInfo{
-		Label:            "MockToken",
-		ManufacturerID:   "Test",
-		Model:            "Mock HSM",
-		SerialNumber:     "12345",
-		MaxSessionCount:  10,
+		Label:             "MockToken",
+		ManufacturerID:    "Test",
+		Model:             "Mock HSM",
+		SerialNumber:      "12345",
+		MaxSessionCount:   10,
 		MaxRwSessionCount: 10,
 	}, nil
 }
 
 func (m *MockPKCS11Interface) GetMechanismList(ctx context.Context, slotID uint32) ([]PKCS11Mechanism, error) {
 	return []PKCS11Mechanism{
-		CKM_AES_KEY_GEN,
-		CKM_AES_GCM,
-		CKM_AES_KEY_WRAP,
-		CKM_RSA_PKCS,
-		CKM_SHA256_RSA_PKCS,
+		CkmAESKeyGen,
+		CkmAESGCM,
+		CkmAESKeyWrap,
+		CkmRSAPKCS,
+		CkmSHA256RSAPKCS,
 	}, nil
 }
 
@@ -160,10 +160,10 @@ func (m *MockPKCS11Interface) Login(ctx context.Context, session SessionHandle, 
 	defer m.mu.Unlock()
 
 	if m.loggedIn {
-		return NewPKCS11Error(CKR_USER_ALREADY_LOGGED_IN)
+		return NewPKCS11Error(ErrCkrUserAlreadyLoggedIn)
 	}
 	if pin != "test-pin" {
-		return NewPKCS11Error(CKR_PIN_INCORRECT)
+		return NewPKCS11Error(ErrCkrPINIncorrect)
 	}
 	m.loggedIn = true
 	return nil
@@ -187,8 +187,8 @@ func (m *MockPKCS11Interface) GenerateKey(ctx context.Context, session SessionHa
 	label, _ := template["CKA_LABEL"].(string)
 	obj := &mockObject{
 		handle:      m.nextObject,
-		class:       CKO_SECRET_KEY,
-		keyType:     CKK_AES,
+		class:       CkoSecretKey,
+		keyType:     CkkAES,
 		label:       label,
 		keyMaterial: key,
 	}
@@ -204,16 +204,16 @@ func (m *MockPKCS11Interface) GenerateKeyPair(ctx context.Context, session Sessi
 	m.nextObject++
 	pubObj := &mockObject{
 		handle:  m.nextObject,
-		class:   CKO_PUBLIC_KEY,
-		keyType: CKK_RSA,
+		class:   CkoPublicKey,
+		keyType: CkkRSA,
 	}
 	m.objects[pubObj.handle] = pubObj
 
 	m.nextObject++
 	privObj := &mockObject{
 		handle:      m.nextObject,
-		class:       CKO_PRIVATE_KEY,
-		keyType:     CKK_RSA,
+		class:       CkoPrivateKey,
+		keyType:     CkkRSA,
 		keyMaterial: make([]byte, 256),
 	}
 	rand.Read(privObj.keyMaterial)
@@ -402,8 +402,8 @@ func (m *MockPKCS11Interface) UnwrapKey(ctx context.Context, session SessionHand
 	label, _ := template["CKA_LABEL"].(string)
 	obj := &mockObject{
 		handle:      m.nextObject,
-		class:       CKO_SECRET_KEY,
-		keyType:     CKK_AES,
+		class:       CkoSecretKey,
+		keyType:     CkkAES,
 		label:       label,
 		keyMaterial: keyMaterial,
 	}
@@ -435,8 +435,8 @@ func (m *MockPKCS11Interface) AddTestKey(label string) ObjectHandle {
 
 	obj := &mockObject{
 		handle:      m.nextObject,
-		class:       CKO_SECRET_KEY,
-		keyType:     CKK_AES,
+		class:       CkoSecretKey,
+		keyType:     CkkAES,
 		label:       label,
 		keyMaterial: key,
 	}
@@ -644,7 +644,7 @@ func TestHSMSessionPool_Concurrency(t *testing.T) {
 				return
 			}
 			time.Sleep(10 * time.Millisecond)
-			session.Release()
+			session.Release() //nolint:contextcheck // test: Release uses state machine Fire
 		}()
 	}
 
@@ -737,9 +737,10 @@ func TestHSMCluster_Failover(t *testing.T) {
 	stats := cluster.Stats()
 	var failingStats, workingStats HSMNodeStats
 	for _, s := range stats {
-		if s.Name == "failing" {
+		switch s.Name {
+		case "failing":
 			failingStats = s
-		} else if s.Name == "working" {
+		case "working":
 			workingStats = s
 		}
 	}
@@ -821,9 +822,9 @@ func TestPKCS11Types(t *testing.T) {
 		mechanism PKCS11Mechanism
 		expected  string
 	}{
-		{CKM_AES_GCM, "CKM_AES_GCM"},
-		{CKM_RSA_PKCS, "CKM_RSA_PKCS"},
-		{CKM_SHA256_RSA_PKCS, "CKM_SHA256_RSA_PKCS"},
+		{CkmAESGCM, "CKM_AES_GCM"},
+		{CkmRSAPKCS, "CKM_RSA_PKCS"},
+		{CkmSHA256RSAPKCS, "CKM_SHA256_RSA_PKCS"},
 		{PKCS11Mechanism(0xFFFFFFFF), "CKM_UNKNOWN_0xFFFFFFFF"},
 	}
 
@@ -838,12 +839,12 @@ func TestPKCS11Types(t *testing.T) {
 
 func TestPKCS11Error(t *testing.T) {
 	tests := []struct {
-		code    PKCS11ReturnValue
+		code    PKCS11ReturnError
 		wantErr bool
 	}{
-		{CKR_OK, false},
-		{CKR_GENERAL_ERROR, true},
-		{CKR_PIN_INCORRECT, true},
+		{ErrCkrOK, false},
+		{ErrCkrGeneralError, true},
+		{ErrCkrPINIncorrect, true},
 	}
 
 	for _, tt := range tests {

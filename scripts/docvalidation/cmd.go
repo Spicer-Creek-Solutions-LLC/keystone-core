@@ -14,7 +14,8 @@ func RunLinkCheck(rootDir string, checkExternal, verbose bool) int {
 
 	report := GenerateLinkReport(results)
 	outputPath := "./scripts/docvalidation/link-check-report.md"
-	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+	//nolint:gosec // G306: validation reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(report), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return -1
 	}
@@ -66,7 +67,8 @@ func RunExampleValidation(rootDir string, verbose bool) {
 	// Generate report
 	report := GenerateExampleReport(validator.examples)
 	outputPath := "./scripts/docvalidation/example-validation-report.md"
-	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+	//nolint:gosec // G306: validation reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(report), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return
 	}
@@ -89,7 +91,8 @@ func GodocCoverageReport(rootDir string, verbose bool) {
 
 	var sb fmt.Stringer = &godocReport{packages: inv.Packages}
 	outputPath := "./scripts/docvalidation/godoc-coverage-report.md"
-	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {
+	//nolint:gosec // G306: coverage reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(sb.String()), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return
 	}
@@ -181,7 +184,8 @@ func RunBlueprintValidation(rootDir string, verbose bool) {
 	// Generate report
 	report := GenerateBlueprintReport(inventory)
 	outputPath := "./scripts/docvalidation/blueprint-validation-report.md"
-	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+	//nolint:gosec // G306: validation reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(report), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return
 	}
@@ -202,4 +206,3 @@ func RunBlueprintValidation(rootDir string, verbose bool) {
 		fmt.Println("\nAll blueprint files are valid!")
 	}
 }
-

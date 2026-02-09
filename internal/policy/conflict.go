@@ -55,8 +55,8 @@ const (
 	StrategyCustom ResolutionStrategy = "custom"
 )
 
-// PolicyConflict represents a detected conflict between policies
-type PolicyConflict struct {
+// Conflict represents a detected conflict between policies
+type Conflict struct {
 	// ID is a unique conflict identifier
 	ID string `json:"id"`
 
@@ -129,7 +129,7 @@ func DefaultConflictDetectorConfig() *ConflictDetectorConfig {
 type ConflictDetector struct {
 	config    *ConflictDetectorConfig
 	registry  *Registry
-	conflicts []*PolicyConflict
+	conflicts []*Conflict
 	mu        sync.RWMutex
 }
 
@@ -142,16 +142,16 @@ func NewConflictDetector(registry *Registry, config *ConflictDetectorConfig) *Co
 	return &ConflictDetector{
 		config:    config,
 		registry:  registry,
-		conflicts: make([]*PolicyConflict, 0),
+		conflicts: make([]*Conflict, 0),
 	}
 }
 
 // DetectAll detects all conflicts in the registry
-func (d *ConflictDetector) DetectAll() []*PolicyConflict {
+func (d *ConflictDetector) DetectAll() []*Conflict {
 	policies := d.registry.ListPolicies()
 
 	d.mu.Lock()
-	d.conflicts = make([]*PolicyConflict, 0)
+	d.conflicts = make([]*Conflict, 0)
 	d.mu.Unlock()
 
 	// Check pairwise conflicts
@@ -166,8 +166,8 @@ func (d *ConflictDetector) DetectAll() []*PolicyConflict {
 }
 
 // detectBetween detects conflicts between two policies
-func (d *ConflictDetector) detectBetween(p1, p2 *Policy) []*PolicyConflict {
-	var conflicts []*PolicyConflict
+func (d *ConflictDetector) detectBetween(p1, p2 *Policy) []*Conflict {
+	var conflicts []*Conflict
 
 	// Check for overlap
 	if d.config.EnableOverlapDetection {
@@ -194,7 +194,7 @@ func (d *ConflictDetector) detectBetween(p1, p2 *Policy) []*PolicyConflict {
 }
 
 // detectOverlap checks if two policies have overlapping scope
-func (d *ConflictDetector) detectOverlap(p1, p2 *Policy) *PolicyConflict {
+func (d *ConflictDetector) detectOverlap(p1, p2 *Policy) *Conflict {
 	// Check category overlap
 	if p1.Category != p2.Category {
 		return nil // Different categories rarely conflict
@@ -223,7 +223,7 @@ func (d *ConflictDetector) detectOverlap(p1, p2 *Policy) *PolicyConflict {
 }
 
 // detectContradiction checks if two policies have contradicting rules
-func (d *ConflictDetector) detectContradiction(p1, p2 *Policy) *PolicyConflict {
+func (d *ConflictDetector) detectContradiction(p1, p2 *Policy) *Conflict {
 	// Check for same category with different severities (potential contradiction)
 	if p1.Category == p2.Category && p1.Severity != p2.Severity {
 		// If the difference is significant
@@ -251,7 +251,7 @@ func (d *ConflictDetector) detectContradiction(p1, p2 *Policy) *PolicyConflict {
 }
 
 // detectDuplicate checks if two policies are effectively duplicates
-func (d *ConflictDetector) detectDuplicate(p1, p2 *Policy) *PolicyConflict {
+func (d *ConflictDetector) detectDuplicate(p1, p2 *Policy) *Conflict {
 	// Same type, category, and enforcement mode with similar policy content
 	if p1.Type != p2.Type {
 		return nil
@@ -334,7 +334,7 @@ func calculateSimilarity(s1, s2 string) float64 {
 }
 
 // addConflicts adds conflicts to the list
-func (d *ConflictDetector) addConflicts(conflicts []*PolicyConflict) {
+func (d *ConflictDetector) addConflicts(conflicts []*Conflict) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -358,21 +358,21 @@ func (d *ConflictDetector) meetsThreshold(severity ConflictSeverity) bool {
 }
 
 // GetConflicts returns all detected conflicts
-func (d *ConflictDetector) GetConflicts() []*PolicyConflict {
+func (d *ConflictDetector) GetConflicts() []*Conflict {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	result := make([]*PolicyConflict, len(d.conflicts))
+	result := make([]*Conflict, len(d.conflicts))
 	copy(result, d.conflicts)
 	return result
 }
 
 // GetConflictsByType returns conflicts of a specific type
-func (d *ConflictDetector) GetConflictsByType(conflictType ConflictType) []*PolicyConflict {
+func (d *ConflictDetector) GetConflictsByType(conflictType ConflictType) []*Conflict {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	var result []*PolicyConflict
+	var result []*Conflict
 	for _, c := range d.conflicts {
 		if c.Type == conflictType {
 			result = append(result, c)
@@ -382,7 +382,7 @@ func (d *ConflictDetector) GetConflictsByType(conflictType ConflictType) []*Poli
 }
 
 // GetConflictsBySeverity returns conflicts at or above a severity level
-func (d *ConflictDetector) GetConflictsBySeverity(minSeverity ConflictSeverity) []*PolicyConflict {
+func (d *ConflictDetector) GetConflictsBySeverity(minSeverity ConflictSeverity) []*Conflict {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -393,7 +393,7 @@ func (d *ConflictDetector) GetConflictsBySeverity(minSeverity ConflictSeverity) 
 		ConflictCritical: 3,
 	}
 
-	var result []*PolicyConflict
+	var result []*Conflict
 	for _, c := range d.conflicts {
 		if order[c.Severity] >= order[minSeverity] {
 			result = append(result, c)
@@ -406,7 +406,7 @@ func (d *ConflictDetector) GetConflictsBySeverity(minSeverity ConflictSeverity) 
 func (d *ConflictDetector) Clear() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.conflicts = make([]*PolicyConflict, 0)
+	d.conflicts = make([]*Conflict, 0)
 }
 
 // ConflictResolver resolves policy conflicts
@@ -418,7 +418,7 @@ type ConflictResolver struct {
 }
 
 // ResolverFunc is a custom resolution function
-type ResolverFunc func(conflict *PolicyConflict, policies []*Policy) *ConflictResolution
+type ResolverFunc func(conflict *Conflict, policies []*Policy) *ConflictResolution
 
 // NewConflictResolver creates a new conflict resolver
 func NewConflictResolver(defaultStrategy ResolutionStrategy) *ConflictResolver {
@@ -451,7 +451,7 @@ func (r *ConflictResolver) RegisterResolver(conflictType ConflictType, fn Resolv
 }
 
 // Resolve resolves a conflict
-func (r *ConflictResolver) Resolve(conflict *PolicyConflict, policies []*Policy) *ConflictResolution {
+func (r *ConflictResolver) Resolve(conflict *Conflict, policies []*Policy) *ConflictResolution {
 	// Check for custom resolver
 	r.mu.RLock()
 	customResolver, hasCustom := r.customResolvers[string(conflict.Type)]
@@ -467,7 +467,7 @@ func (r *ConflictResolver) Resolve(conflict *PolicyConflict, policies []*Policy)
 
 // ResolveWithStrategy resolves using a specific strategy
 func (r *ConflictResolver) ResolveWithStrategy(
-	conflict *PolicyConflict,
+	conflict *Conflict,
 	policies []*Policy,
 	strategy ResolutionStrategy,
 ) *ConflictResolution {
@@ -476,7 +476,7 @@ func (r *ConflictResolver) ResolveWithStrategy(
 
 // resolveWithStrategy implements resolution strategies
 func (r *ConflictResolver) resolveWithStrategy(
-	conflict *PolicyConflict,
+	conflict *Conflict,
 	policies []*Policy,
 	strategy ResolutionStrategy,
 ) *ConflictResolution {
@@ -646,7 +646,7 @@ type ConflictReport struct {
 	ConflictsBySeverity map[ConflictSeverity]int `json:"conflicts_by_severity"`
 
 	// Conflicts list
-	Conflicts []*PolicyConflict `json:"conflicts"`
+	Conflicts []*Conflict `json:"conflicts"`
 
 	// Recommendations for resolution
 	Recommendations []string `json:"recommendations,omitempty"`
@@ -688,3 +688,6 @@ func (d *ConflictDetector) GenerateReport() *ConflictReport {
 
 	return report
 }
+
+// PolicyConflict is deprecated: Use Conflict instead.
+type PolicyConflict = Conflict //nolint:revive // Deprecated alias for backward compatibility

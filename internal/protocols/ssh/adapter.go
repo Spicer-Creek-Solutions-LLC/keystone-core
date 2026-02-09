@@ -3,6 +3,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -170,13 +171,14 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 func (a *Adapter) buildSSHConfig(cred credentials.Credential) (*ssh.ClientConfig, error) {
 	// Determine host key callback
 	var hostKeyCallback ssh.HostKeyCallback
-	if a.config.HostKeyCallback != nil {
+	switch {
+	case a.config.HostKeyCallback != nil:
 		// Explicit callback takes precedence
 		hostKeyCallback = a.config.HostKeyCallback
-	} else if a.config.HostKeyVerifier != nil {
+	case a.config.HostKeyVerifier != nil:
 		// Use provided verifier
 		hostKeyCallback = a.config.HostKeyVerifier.HostKeyCallback()
-	} else {
+	default:
 		// Create verifier based on config
 		verifier := NewHostKeyVerifier(a.config.HostKeyCheckMode)
 		if a.config.KnownHostsPath != "" {
@@ -353,11 +355,9 @@ func (a *Adapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*
 		}
 	}
 
-	// Set environment variables
+	// Set environment variables - some servers don't allow env vars, so we ignore errors
 	for k, v := range req.Environment {
-		if err := session.Setenv(k, v); err != nil {
-			// Some servers don't allow env vars - log but continue
-		}
+		_ = session.Setenv(k, v)
 	}
 
 	// Set stdin
@@ -429,7 +429,8 @@ func (a *Adapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*
 
 	// Handle execution error
 	if execErr != nil {
-		if exitErr, ok := execErr.(*ssh.ExitError); ok {
+		var exitErr *ssh.ExitError
+		if errors.As(execErr, &exitErr) {
 			result.ExitCode = exitErr.ExitStatus()
 		} else {
 			result.Error = execErr.Error()

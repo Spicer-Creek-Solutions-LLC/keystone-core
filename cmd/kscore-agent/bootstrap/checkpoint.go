@@ -13,7 +13,7 @@ import (
 
 const (
 	// DefaultCheckpointDir is the default directory for checkpoint files.
-	DefaultCheckpointDir = "/var/lib/kscore/bootstrap"
+	DefaultCheckpointDir = "/var/lib/keystone-core/bootstrap"
 
 	// CheckpointFileName is the name of the checkpoint file.
 	CheckpointFileName = "checkpoint.json"
@@ -45,8 +45,8 @@ type PhaseCheckpoint struct {
 	Artifacts []string         `json:"artifacts,omitempty"` // Files/packages created
 }
 
-// BootstrapCheckpoint represents the complete bootstrap state for persistence.
-type BootstrapCheckpoint struct {
+// Checkpoint represents the complete bootstrap state for persistence.
+type Checkpoint struct {
 	// Metadata
 	ID        string    `json:"id"`
 	Version   string    `json:"version"`
@@ -59,7 +59,7 @@ type BootstrapCheckpoint struct {
 
 	// Configuration snapshot
 	Mode            DeploymentMode   `json:"mode"`
-	BootstrapConfig *BootstrapConfig `json:"bootstrap_config,omitempty"`
+	BootstrapConfig *Config `json:"bootstrap_config,omitempty"`
 
 	// Phase tracking
 	Phases       []PhaseCheckpoint `json:"phases"`
@@ -97,9 +97,9 @@ type CheckpointSystemInfo struct {
 
 // CheckpointManager handles checkpoint persistence and recovery.
 type CheckpointManager struct {
-	mu           sync.RWMutex
+	mu            sync.RWMutex
 	checkpointDir string
-	checkpoint   *BootstrapCheckpoint
+	checkpoint    *Checkpoint
 }
 
 // NewCheckpointManager creates a new checkpoint manager.
@@ -113,12 +113,12 @@ func NewCheckpointManager(checkpointDir string) *CheckpointManager {
 }
 
 // Initialize creates a new checkpoint for a fresh bootstrap.
-func (m *CheckpointManager) Initialize(mode DeploymentMode, cfg *BootstrapConfig, phases []Phase) error {
+func (m *CheckpointManager) Initialize(mode DeploymentMode, cfg *Config, phases []Phase) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	now := time.Now()
-	checkpoint := &BootstrapCheckpoint{
+	checkpoint := &Checkpoint{
 		ID:              generateCheckpointID(),
 		Version:         "1.0",
 		CreatedAt:       now,
@@ -143,7 +143,7 @@ func (m *CheckpointManager) Initialize(mode DeploymentMode, cfg *BootstrapConfig
 }
 
 // Load attempts to load an existing checkpoint.
-func (m *CheckpointManager) Load() (*BootstrapCheckpoint, error) {
+func (m *CheckpointManager) Load() (*Checkpoint, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -156,7 +156,7 @@ func (m *CheckpointManager) Load() (*BootstrapCheckpoint, error) {
 		return nil, fmt.Errorf("read checkpoint: %w", err)
 	}
 
-	var checkpoint BootstrapCheckpoint
+	var checkpoint Checkpoint
 	if err := json.Unmarshal(data, &checkpoint); err != nil {
 		return nil, fmt.Errorf("parse checkpoint: %w", err)
 	}
@@ -173,7 +173,7 @@ func (m *CheckpointManager) HasCheckpoint() bool {
 }
 
 // GetCheckpoint returns the current checkpoint.
-func (m *CheckpointManager) GetCheckpoint() *BootstrapCheckpoint {
+func (m *CheckpointManager) GetCheckpoint() *Checkpoint {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.checkpoint
@@ -436,6 +436,7 @@ func (m *CheckpointManager) RestoreArtifacts() *InstallArtifacts {
 
 // persist writes the checkpoint to disk.
 func (m *CheckpointManager) persist() error {
+	//nolint:gosec // G301: checkpoint directory needs to be accessible by admin users
 	if err := os.MkdirAll(m.checkpointDir, 0o755); err != nil {
 		return fmt.Errorf("create checkpoint directory: %w", err)
 	}
@@ -448,6 +449,7 @@ func (m *CheckpointManager) persist() error {
 	path := filepath.Join(m.checkpointDir, CheckpointFileName)
 	// Write atomically via temp file
 	tmpPath := path + ".tmp"
+	//nolint:gosec // G306: checkpoint files need to be readable for recovery
 	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("write checkpoint: %w", err)
 	}

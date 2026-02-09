@@ -8,20 +8,21 @@ import (
 	"time"
 )
 
-// SchemaType represents the type of observability schema
-type SchemaType string
+// Type represents the type of observability schema
+type Type string
 
+// SchemaTypeLog constants define the supported types.
 const (
-	SchemaTypeLog     SchemaType = "log"
-	SchemaTypeMetric  SchemaType = "metric"
-	SchemaTypeTrace   SchemaType = "trace"
-	SchemaTypeAudit   SchemaType = "audit"
-	SchemaTypeEvent   SchemaType = "event"
-	SchemaTypeAlert   SchemaType = "alert"
+	SchemaTypeLog    Type = "log"
+	SchemaTypeMetric Type = "metric"
+	SchemaTypeTrace  Type = "trace"
+	SchemaTypeAudit  Type = "audit"
+	SchemaTypeEvent  Type = "event"
+	SchemaTypeAlert  Type = "alert"
 )
 
 // CurrentVersions holds the current schema versions for each type
-var CurrentVersions = map[SchemaType]int{
+var CurrentVersions = map[Type]int{
 	SchemaTypeLog:    2,
 	SchemaTypeMetric: 2,
 	SchemaTypeTrace:  2,
@@ -30,10 +31,10 @@ var CurrentVersions = map[SchemaType]int{
 	SchemaTypeAlert:  1,
 }
 
-// SchemaVersion represents a versioned schema
-type SchemaVersion struct {
+// Version represents a versioned schema
+type Version struct {
 	// Type is the schema type
-	Type SchemaType `json:"type"`
+	Type Type `json:"type"`
 
 	// Version is the schema version number
 	Version int `json:"version"`
@@ -71,7 +72,7 @@ type FieldDefinition struct {
 	// Description describes the field
 	Description string `json:"description,omitempty"`
 
-	// Deprecated indicates if the field is deprecated
+	// IsDeprecated indicates if the field is deprecated
 	Deprecated bool `json:"deprecated,omitempty"`
 
 	// Default is the default value
@@ -90,9 +91,9 @@ type FieldDefinition struct {
 	RenamedFrom string `json:"renamed_from,omitempty"`
 }
 
-// SchemaRegistry manages schema versions
-type SchemaRegistry struct {
-	schemas   map[SchemaType]map[int]*SchemaVersion
+// Registry manages schema versions
+type Registry struct {
+	schemas   map[Type]map[int]*Version
 	migrators map[string]Migrator
 	mu        sync.RWMutex
 }
@@ -113,9 +114,9 @@ type Migrator interface {
 }
 
 // NewSchemaRegistry creates a new schema registry
-func NewSchemaRegistry() *SchemaRegistry {
-	r := &SchemaRegistry{
-		schemas:   make(map[SchemaType]map[int]*SchemaVersion),
+func NewSchemaRegistry() *Registry {
+	r := &Registry{
+		schemas:   make(map[Type]map[int]*Version),
 		migrators: make(map[string]Migrator),
 	}
 
@@ -127,12 +128,12 @@ func NewSchemaRegistry() *SchemaRegistry {
 }
 
 // RegisterSchema registers a schema version
-func (r *SchemaRegistry) RegisterSchema(schema *SchemaVersion) error {
+func (r *Registry) RegisterSchema(schema *Version) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, ok := r.schemas[schema.Type]; !ok {
-		r.schemas[schema.Type] = make(map[int]*SchemaVersion)
+		r.schemas[schema.Type] = make(map[int]*Version)
 	}
 
 	r.schemas[schema.Type][schema.Version] = schema
@@ -140,7 +141,7 @@ func (r *SchemaRegistry) RegisterSchema(schema *SchemaVersion) error {
 }
 
 // GetSchema returns a specific schema version
-func (r *SchemaRegistry) GetSchema(typ SchemaType, version int) (*SchemaVersion, bool) {
+func (r *Registry) GetSchema(typ Type, version int) (*Version, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -153,7 +154,7 @@ func (r *SchemaRegistry) GetSchema(typ SchemaType, version int) (*SchemaVersion,
 }
 
 // GetCurrentSchema returns the current schema version for a type
-func (r *SchemaRegistry) GetCurrentSchema(typ SchemaType) (*SchemaVersion, bool) {
+func (r *Registry) GetCurrentSchema(typ Type) (*Version, bool) {
 	currentVersion, ok := CurrentVersions[typ]
 	if !ok {
 		return nil, false
@@ -162,11 +163,11 @@ func (r *SchemaRegistry) GetCurrentSchema(typ SchemaType) (*SchemaVersion, bool)
 }
 
 // ListSchemaVersions returns all versions for a schema type
-func (r *SchemaRegistry) ListSchemaVersions(typ SchemaType) []*SchemaVersion {
+func (r *Registry) ListSchemaVersions(typ Type) []*Version {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var schemas []*SchemaVersion
+	var schemas []*Version
 	if versions, ok := r.schemas[typ]; ok {
 		for _, schema := range versions {
 			schemas = append(schemas, schema)
@@ -176,7 +177,7 @@ func (r *SchemaRegistry) ListSchemaVersions(typ SchemaType) []*SchemaVersion {
 }
 
 // RegisterMigrator registers a schema migrator
-func (r *SchemaRegistry) RegisterMigrator(typ SchemaType, migrator Migrator) {
+func (r *Registry) RegisterMigrator(typ Type, migrator Migrator) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -185,7 +186,7 @@ func (r *SchemaRegistry) RegisterMigrator(typ SchemaType, migrator Migrator) {
 }
 
 // GetMigrator returns a migrator for a version transition
-func (r *SchemaRegistry) GetMigrator(typ SchemaType, fromVersion, toVersion int) (Migrator, bool) {
+func (r *Registry) GetMigrator(typ Type, fromVersion, toVersion int) (Migrator, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -195,7 +196,7 @@ func (r *SchemaRegistry) GetMigrator(typ SchemaType, fromVersion, toVersion int)
 }
 
 // Migrate migrates data from one schema version to another
-func (r *SchemaRegistry) Migrate(typ SchemaType, data map[string]interface{}, fromVersion, toVersion int) (map[string]interface{}, error) {
+func (r *Registry) Migrate(typ Type, data map[string]interface{}, fromVersion, toVersion int) (map[string]interface{}, error) {
 	if fromVersion == toVersion {
 		return data, nil
 	}
@@ -224,7 +225,7 @@ func (r *SchemaRegistry) Migrate(typ SchemaType, data map[string]interface{}, fr
 }
 
 // MigrateToLatest migrates data to the latest schema version
-func (r *SchemaRegistry) MigrateToLatest(typ SchemaType, data map[string]interface{}, fromVersion int) (map[string]interface{}, error) {
+func (r *Registry) MigrateToLatest(typ Type, data map[string]interface{}, fromVersion int) (map[string]interface{}, error) {
 	latestVersion, ok := CurrentVersions[typ]
 	if !ok {
 		return nil, fmt.Errorf("unknown schema type: %s", typ)
@@ -233,7 +234,7 @@ func (r *SchemaRegistry) MigrateToLatest(typ SchemaType, data map[string]interfa
 }
 
 // ValidateData validates data against a schema
-func (r *SchemaRegistry) ValidateData(typ SchemaType, version int, data map[string]interface{}) []ValidationError {
+func (r *Registry) ValidateData(typ Type, version int, data map[string]interface{}) []ValidationError {
 	schema, ok := r.GetSchema(typ, version)
 	if !ok {
 		return []ValidationError{{
@@ -248,7 +249,8 @@ func (r *SchemaRegistry) ValidateData(typ SchemaType, version int, data map[stri
 func validateFields(fields []FieldDefinition, data map[string]interface{}, prefix string) []ValidationError {
 	var errors []ValidationError
 
-	for _, field := range fields {
+	for i := range fields {
+		field := &fields[i]
 		fieldPath := field.Name
 		if prefix != "" {
 			fieldPath = prefix + "." + field.Name
@@ -270,7 +272,7 @@ func validateFields(fields []FieldDefinition, data map[string]interface{}, prefi
 		}
 
 		// Type validation
-		if err := validateType(field, value); err != nil {
+		if err := validateType(*field, value); err != nil {
 			errors = append(errors, ValidationError{
 				Field:   fieldPath,
 				Message: err.Error(),
@@ -350,22 +352,22 @@ func (e ValidationError) Error() string {
 	return e.Message
 }
 
-func migratorKey(typ SchemaType, from, to int) string {
+func migratorKey(typ Type, from, to int) string {
 	return fmt.Sprintf("%s:%d->%d", typ, from, to)
 }
 
 // VersionedRecord is a record with schema version information
 type VersionedRecord struct {
-	SchemaType    SchemaType             `json:"_schema_type"`
-	SchemaVersion int                    `json:"_schema_version"`
+	Type    Type             `json:"_schema_type"`
+	Version int                    `json:"_schema_version"`
 	Data          map[string]interface{} `json:"data"`
 }
 
 // NewVersionedRecord creates a new versioned record
-func NewVersionedRecord(typ SchemaType, data map[string]interface{}) *VersionedRecord {
+func NewVersionedRecord(typ Type, data map[string]interface{}) *VersionedRecord {
 	return &VersionedRecord{
-		SchemaType:    typ,
-		SchemaVersion: CurrentVersions[typ],
+		Type:    typ,
+		Version: CurrentVersions[typ],
 		Data:          data,
 	}
 }
@@ -374,8 +376,8 @@ func NewVersionedRecord(typ SchemaType, data map[string]interface{}) *VersionedR
 func (r *VersionedRecord) MarshalJSON() ([]byte, error) {
 	// Flatten the record with schema info at top level
 	output := make(map[string]interface{})
-	output["_schema_type"] = r.SchemaType
-	output["_schema_version"] = r.SchemaVersion
+	output["_schema_type"] = r.Type
+	output["_schema_version"] = r.Version
 	for k, v := range r.Data {
 		output[k] = v
 	}
@@ -390,12 +392,12 @@ func (r *VersionedRecord) UnmarshalJSON(data []byte) error {
 	}
 
 	if typ, ok := raw["_schema_type"].(string); ok {
-		r.SchemaType = SchemaType(typ)
+		r.Type = Type(typ)
 		delete(raw, "_schema_type")
 	}
 
 	if ver, ok := raw["_schema_version"].(float64); ok {
-		r.SchemaVersion = int(ver)
+		r.Version = int(ver)
 		delete(raw, "_schema_version")
 	}
 
@@ -404,9 +406,9 @@ func (r *VersionedRecord) UnmarshalJSON(data []byte) error {
 }
 
 // registerBuiltinSchemas registers the built-in schema versions
-func (r *SchemaRegistry) registerBuiltinSchemas() {
+func (r *Registry) registerBuiltinSchemas() {
 	// Log Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeLog,
 		Version:     1,
 		Name:        "Log Entry V1",
@@ -421,7 +423,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Log Schema V2
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeLog,
 		Version:     2,
 		Name:        "Log Entry V2",
@@ -448,7 +450,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Metric Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeMetric,
 		Version:     1,
 		Name:        "Metric V1",
@@ -463,7 +465,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Metric Schema V2
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeMetric,
 		Version:     2,
 		Name:        "Metric V2",
@@ -490,7 +492,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Trace Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeTrace,
 		Version:     1,
 		Name:        "Trace Span V1",
@@ -507,7 +509,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Trace Schema V2
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeTrace,
 		Version:     2,
 		Name:        "Trace Span V2",
@@ -538,7 +540,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Audit Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeAudit,
 		Version:     1,
 		Name:        "Audit Entry V1",
@@ -553,7 +555,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Audit Schema V2
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeAudit,
 		Version:     2,
 		Name:        "Audit Entry V2",
@@ -589,7 +591,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Event Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeEvent,
 		Version:     1,
 		Name:        "Event V1",
@@ -604,7 +606,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Event Schema V2 (CloudEvents aligned)
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeEvent,
 		Version:     2,
 		Name:        "Event V2 (CloudEvents)",
@@ -629,7 +631,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 	})
 
 	// Alert Schema V1
-	r.RegisterSchema(&SchemaVersion{
+	_ = r.RegisterSchema(&Version{ //nolint:errcheck // built-in schema registration
 		Type:        SchemaTypeAlert,
 		Version:     1,
 		Name:        "Alert V1",
@@ -650,7 +652,7 @@ func (r *SchemaRegistry) registerBuiltinSchemas() {
 }
 
 // registerBuiltinMigrators registers the built-in schema migrators
-func (r *SchemaRegistry) registerBuiltinMigrators() {
+func (r *Registry) registerBuiltinMigrators() {
 	// Log V1 -> V2
 	r.RegisterMigrator(SchemaTypeLog, &logMigratorV1ToV2{})
 

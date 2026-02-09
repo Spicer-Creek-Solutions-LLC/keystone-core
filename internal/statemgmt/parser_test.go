@@ -262,9 +262,10 @@ service:
 	// Verify main file
 	var mainState, includedState *StateFile
 	for _, f := range files {
-		if f.Path == mainFile {
+		switch f.Path {
+		case mainFile:
 			mainState = f
-		} else if f.Path == includedFile {
+		case includedFile:
 			includedState = f
 		}
 	}
@@ -326,9 +327,9 @@ package:
 
 func TestParseSource(t *testing.T) {
 	tests := []struct {
-		input        string
-		wantType     SourceType
-		wantPath     string
+		input    string
+		wantType SourceType
+		wantPath string
 	}{
 		{
 			input:    "file:///etc/nginx/nginx.conf",
@@ -690,11 +691,11 @@ cmd:
 
 	// Check all requisite types
 	tests := []struct {
-		name     string
-		reqs     []StateReference
-		wantLen  int
-		wantMod  string
-		wantID   string
+		name    string
+		reqs    []StateReference
+		wantLen int
+		wantMod string
+		wantID  string
 	}{
 		{"Require", fileState.Requisites.Require, 1, "package", "app-pkg"},
 		{"RequireIn", fileState.Requisites.RequireIn, 1, "service", "app"},

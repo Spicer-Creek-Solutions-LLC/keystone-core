@@ -1,3 +1,5 @@
+// Package webhook provides webhook handling for GitOps events from ArgoCD,
+// Flux, GitHub, and GitLab sources.
 package webhook
 
 import (
@@ -6,20 +8,21 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
-// WebhookType represents the type of webhook source
-type WebhookType string
+// Type represents the type of webhook source
+type Type string
 
+// WebhookTypeArgoCD constants define the supported types.
 const (
-	WebhookTypeArgoCD WebhookType = "argocd"
-	WebhookTypeFlux   WebhookType = "flux"
-	WebhookTypeGitHub WebhookType = "github"
-	WebhookTypeGitLab WebhookType = "gitlab"
+	WebhookTypeArgoCD Type = "argocd"
+	WebhookTypeFlux   Type = "flux"
+	WebhookTypeGitHub Type = "github"
+	WebhookTypeGitLab Type = "gitlab"
 )
 
-// WebhookEvent represents a parsed webhook event
-type WebhookEvent struct {
+// Event represents a parsed webhook event
+type Event struct {
 	ID          string                 `json:"id"`
-	Type        WebhookType            `json:"type"`
+	Type        Type            `json:"type"`
 	EventType   string                 `json:"event_type"`
 	Source      string                 `json:"source"`
 	Timestamp   time.Time              `json:"timestamp"`
@@ -31,7 +34,7 @@ type WebhookEvent struct {
 }
 
 // ToKscoreEvent converts a webhook event to a Keystone Core event
-func (w *WebhookEvent) ToKscoreEvent() *events.Event {
+func (w *Event) ToKscoreEvent() *events.Event {
 	eventType := events.EventType("gitops.webhook")
 	switch w.Type {
 	case WebhookTypeArgoCD:
@@ -73,14 +76,15 @@ type AuthConfig struct {
 // AuthType represents the authentication method
 type AuthType string
 
+// AuthType constants define the supported types.
 const (
 	AuthTypeNone   AuthType = "none"
 	AuthTypeHMAC   AuthType = "hmac"
 	AuthTypeBearer AuthType = "bearer"
 )
 
-// WebhookConfig represents webhook receiver configuration
-type WebhookConfig struct {
+// Config represents webhook receiver configuration
+type Config struct {
 	Enabled  bool       `json:"enabled"`
 	Addr     string     `json:"addr"`
 	Path     string     `json:"path"`
@@ -89,8 +93,8 @@ type WebhookConfig struct {
 }
 
 // DefaultWebhookConfig returns default configuration
-func DefaultWebhookConfig() *WebhookConfig {
-	return &WebhookConfig{
+func DefaultWebhookConfig() *Config {
+	return &Config{
 		Enabled: true,
 		Addr:    ":8080",
 		Path:    "/webhooks",

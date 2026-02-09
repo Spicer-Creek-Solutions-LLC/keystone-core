@@ -6,16 +6,16 @@ import (
 
 func TestCommandVerifierType(t *testing.T) {
 	verifier := NewCommandVerifier()
-	if verifier.Type() != VerificationTypeCommand {
-		t.Errorf("Type() = %v, want %v", verifier.Type(), VerificationTypeCommand)
+	if verifier.Type() != TypeCommand {
+		t.Errorf("Type() = %v, want %v", verifier.Type(), TypeCommand)
 	}
 }
 
 func TestCommandVerifierSuccess(t *testing.T) {
 	verifier := NewCommandVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "echo-test",
-		Type: VerificationTypeCommand,
+		Type: TypeCommand,
 		Config: map[string]interface{}{
 			"command":         "echo hello",
 			"expected_output": "hello",
@@ -38,9 +38,9 @@ func TestCommandVerifierSuccess(t *testing.T) {
 
 func TestCommandVerifierFailure(t *testing.T) {
 	verifier := NewCommandVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "failing-command",
-		Type: VerificationTypeCommand,
+		Type: TypeCommand,
 		Config: map[string]interface{}{
 			"command": "exit 1",
 		},
@@ -62,9 +62,9 @@ func TestCommandVerifierFailure(t *testing.T) {
 
 func TestCommandVerifierExpectedExitCode(t *testing.T) {
 	verifier := NewCommandVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "expected-failure",
-		Type: VerificationTypeCommand,
+		Type: TypeCommand,
 		Config: map[string]interface{}{
 			"command":            "exit 42",
 			"expected_exit_code": 42,
@@ -83,9 +83,9 @@ func TestCommandVerifierExpectedExitCode(t *testing.T) {
 
 func TestCommandVerifierMissingCommand(t *testing.T) {
 	verifier := NewCommandVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name:   "no-command",
-		Type:   VerificationTypeCommand,
+		Type:   TypeCommand,
 		Config: map[string]interface{}{},
 	}
 
@@ -101,16 +101,16 @@ func TestCommandVerifierMissingCommand(t *testing.T) {
 
 func TestScriptVerifierType(t *testing.T) {
 	verifier := NewScriptVerifier()
-	if verifier.Type() != VerificationTypeScript {
-		t.Errorf("Type() = %v, want %v", verifier.Type(), VerificationTypeScript)
+	if verifier.Type() != TypeScript {
+		t.Errorf("Type() = %v, want %v", verifier.Type(), TypeScript)
 	}
 }
 
 func TestScriptVerifierSuccess(t *testing.T) {
 	verifier := NewScriptVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "script-test",
-		Type: VerificationTypeScript,
+		Type: TypeScript,
 		Config: map[string]interface{}{
 			"script": "echo",
 			"args":   []interface{}{"test"},
@@ -129,9 +129,9 @@ func TestScriptVerifierSuccess(t *testing.T) {
 
 func TestScriptVerifierMissingScript(t *testing.T) {
 	verifier := NewScriptVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name:   "no-script",
-		Type:   VerificationTypeScript,
+		Type:   TypeScript,
 		Config: map[string]interface{}{},
 	}
 

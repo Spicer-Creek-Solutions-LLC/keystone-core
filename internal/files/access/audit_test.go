@@ -366,14 +366,14 @@ func TestAuditRecorder_RecordAccess(t *testing.T) {
 		Roles: []string{"reader"},
 	}
 
-	req := &AccessRequest{
+	req := &Request{
 		Identity:  identity,
 		Namespace: "packages",
 		Path:      "/nginx.deb",
 		Action:    ActionGet,
 	}
 
-	result := &AccessResult{
+	result := &Result{
 		Allowed:     true,
 		Reason:      "allowed by ACL",
 		MatchedRule: "allow-readers",

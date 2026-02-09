@@ -207,19 +207,20 @@ func (h *SwitchHandler) Execute(ctx context.Context, step *runbook.Step, varCtx 
 	var matchedSteps []runbook.Step
 
 	for caseName, caseSteps := range casesConfig {
-		if caseName == resolvedValue {
-			matchedCase = caseName
-			steps, err := parseStepList(caseSteps)
-			if err != nil {
-				return &runbook.StepResult{
-					Success:  false,
-					Message:  fmt.Sprintf("invalid steps for case '%s': %v", caseName, err),
-					Duration: time.Since(startTime),
-				}, err
-			}
-			matchedSteps = steps
-			break
+		if caseName != resolvedValue {
+			continue
 		}
+		matchedCase = caseName
+		steps, err := parseStepList(caseSteps)
+		if err != nil {
+			return &runbook.StepResult{
+				Success:  false,
+				Message:  fmt.Sprintf("invalid steps for case '%s': %v", caseName, err),
+				Duration: time.Since(startTime),
+			}, err
+		}
+		matchedSteps = steps
+		break
 	}
 
 	// If no case matched, try default
@@ -353,34 +354,37 @@ func parseStep(m map[string]interface{}) (runbook.Step, error) {
 	// Parse outputs
 	if outputs, ok := m["outputs"].([]interface{}); ok {
 		for _, out := range outputs {
-			if outMap, ok := out.(map[string]interface{}); ok {
-				output := runbook.OutputDef{}
-				if name, ok := outMap["name"].(string); ok {
-					output.Name = name
-				}
-				if source, ok := outMap["source"].(string); ok {
-					output.Source = runbook.OutputSource(source)
-				}
-				if parser, ok := outMap["parser"].(string); ok {
-					output.Parser = runbook.OutputParser(parser)
-				}
-				if path, ok := outMap["path"].(string); ok {
-					output.Path = path
-				}
-				if def, ok := outMap["default"]; ok {
-					output.Default = def
-				}
-				step.Outputs = append(step.Outputs, output)
+			outMap, ok := out.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			output := runbook.OutputDef{}
+			if name, ok := outMap["name"].(string); ok {
+				output.Name = name
+			}
+			if source, ok := outMap["source"].(string); ok {
+				output.Source = runbook.OutputSource(source)
+			}
+			if parser, ok := outMap["parser"].(string); ok {
+				output.Parser = runbook.OutputParser(parser)
+			}
+			if path, ok := outMap["path"].(string); ok {
+				output.Path = path
+			}
+			if def, ok := outMap["default"]; ok {
+				output.Default = def
+			}
+			step.Outputs = append(step.Outputs, output)
 		}
 	}
 
 	// Parse retries
 	if retries, ok := m["retries"].(map[string]interface{}); ok {
 		step.Retries = &runbook.RetryConfig{}
-		if maxAttempts, ok := retries["maxAttempts"].(int); ok {
+		switch maxAttempts := retries["maxAttempts"].(type) {
+		case int:
 			step.Retries.MaxAttempts = maxAttempts
-		} else if maxAttempts, ok := retries["maxAttempts"].(float64); ok {
+		case float64:
 			step.Retries.MaxAttempts = int(maxAttempts)
 		}
 		if delay, ok := retries["delay"].(string); ok {

@@ -13,6 +13,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
+// InstallArtifacts holds information about packages and files installed during bootstrap.
 type InstallArtifacts struct {
 	PackageManager platform.PackageManager
 	Packages       []string
@@ -71,7 +72,7 @@ func installPhase(ctx context.Context, state *State) error {
 		}
 		artifacts.CreatedFiles = append(artifacts.CreatedFiles, created...)
 
-		if err = runCommands(ctx, plan.Commands, state.Output, state.Verbose); err != nil {
+		if err := runCommands(ctx, plan.Commands, state.Output, state.Verbose); err != nil {
 			return err
 		}
 	}
@@ -166,8 +167,8 @@ func runCommands(ctx context.Context, commands []CommandPlan, output io.Writer, 
 		if verbose {
 			fmt.Fprintf(output, "running: %s %s\n", cmd.Name, strings.Join(cmd.Args, " "))
 		}
-		// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- bootstrap install runs predefined commands from validated plans
-		result, err := exec.CommandContext(ctx, cmd.Name, cmd.Args...).CombinedOutput()
+		//nolint:gosec // G204: bootstrap install runs predefined commands from validated plans
+		result, err := exec.CommandContext(ctx, cmd.Name, cmd.Args...).CombinedOutput() // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 		if err != nil {
 			return fmt.Errorf("command %s failed: %w (output: %s)", cmd.Name, err, strings.TrimSpace(string(result)))
 		}
@@ -179,7 +180,7 @@ func runCommands(ctx context.Context, commands []CommandPlan, output io.Writer, 
 }
 
 func fetchURL(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +198,7 @@ func fetchURL(ctx context.Context, url string) ([]byte, error) {
 }
 
 func writeFile(path string, data []byte, mode os.FileMode) error {
+	//nolint:gosec // G301: parent directory needs to be accessible by service user
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -217,6 +219,7 @@ func applyServicePlan(ctx context.Context, plan ServicePlan, output io.Writer, v
 		if verbose {
 			fmt.Fprintf(output, "writing %s\n", file.Path)
 		}
+		//nolint:gosec // G115: file.Mode is a Unix permission mode (0-0777), always fits in uint32
 		if createdFile, err := writeFileTracked(file.Path, file.Content, os.FileMode(file.Mode)); err != nil {
 			return nil, fmt.Errorf("write %s: %w", file.Path, err)
 		} else if createdFile {
@@ -230,7 +233,7 @@ func applyServicePlan(ctx context.Context, plan ServicePlan, output io.Writer, v
 	return created, nil
 }
 
-func ensureTLSFiles(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]string, error) {
+func ensureTLSFiles(cfg *Config, output io.Writer, verbose bool) ([]string, error) {
 	certPath, keyPath, caPath := resolveTLSPaths(cfg)
 	cfg.TLSCertFile = certPath
 	cfg.TLSKeyFile = keyPath

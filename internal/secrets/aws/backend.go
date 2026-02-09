@@ -360,11 +360,12 @@ func (b *Backend) valueToSecret(path string, value *SecretValue) *secrets.Secret
 	// Set metadata
 	secret.Metadata["arn"] = value.ARN
 	secret.Metadata["version_id"] = value.VersionID
-	if value.IsCurrentVersion() {
+	switch {
+	case value.IsCurrentVersion():
 		secret.Metadata["version_stage"] = "AWSCURRENT"
-	} else if value.IsPreviousVersion() {
+	case value.IsPreviousVersion():
 		secret.Metadata["version_stage"] = "AWSPREVIOUS"
-	} else if value.IsPendingVersion() {
+	case value.IsPendingVersion():
 		secret.Metadata["version_stage"] = "AWSPENDING"
 	}
 	if !value.CreatedDate.IsZero() {
@@ -372,7 +373,8 @@ func (b *Backend) valueToSecret(path string, value *SecretValue) *secrets.Secret
 	}
 
 	// Parse the secret data
-	if b.config.JSONKeys && value.SecretString != "" {
+	switch {
+	case b.config.JSONKeys && value.SecretString != "":
 		// Try to parse as JSON
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal([]byte(value.SecretString), &jsonData); err == nil {
@@ -381,9 +383,9 @@ func (b *Backend) valueToSecret(path string, value *SecretValue) *secrets.Secret
 			// Not JSON, store as raw value
 			secret.Data["value"] = value.SecretString
 		}
-	} else if value.SecretString != "" {
+	case value.SecretString != "":
 		secret.Data["value"] = value.SecretString
-	} else if value.SecretBinary != nil {
+	case value.SecretBinary != nil:
 		secret.Data["value"] = value.SecretBinary
 	}
 

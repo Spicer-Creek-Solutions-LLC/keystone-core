@@ -90,8 +90,8 @@ const (
 	PolicyActionWarn PolicyAction = "warn"
 )
 
-// PolicyViolation represents a policy violation
-type PolicyViolation struct {
+// PolicyViolationError represents a policy violation error
+type PolicyViolationError struct {
 	// Module is the module that violated the policy
 	Module string `json:"module"`
 
@@ -114,6 +114,7 @@ type PolicyViolation struct {
 // ViolationSeverity indicates how severe a policy violation is
 type ViolationSeverity string
 
+// ViolationSeverity constants define the severity levels.
 const (
 	ViolationSeverityError   ViolationSeverity = "error"
 	ViolationSeverityWarning ViolationSeverity = "warning"
@@ -121,7 +122,7 @@ const (
 )
 
 // Error implements the error interface
-func (v PolicyViolation) Error() string {
+func (v PolicyViolationError) Error() string {
 	return fmt.Sprintf("[%s] %s@%s: %s", v.Severity, v.Module, v.Version, v.Message)
 }
 
@@ -189,7 +190,7 @@ type CheckResult struct {
 	Allowed bool
 
 	// Violations is the list of policy violations
-	Violations []PolicyViolation
+	Violations []PolicyViolationError
 
 	// Warnings is the list of warnings
 	Warnings []string
@@ -199,14 +200,14 @@ type CheckResult struct {
 func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	result := &CheckResult{
 		Allowed:    true,
-		Violations: []PolicyViolation{},
+		Violations: []PolicyViolationError{},
 		Warnings:   []string{},
 	}
 
 	// Check if module is blocked
 	if c.isModuleBlocked(info.Module) {
 		result.Allowed = false
-		result.Violations = append(result.Violations, PolicyViolation{
+		result.Violations = append(result.Violations, PolicyViolationError{
 			Module:   info.Module,
 			Version:  info.Version,
 			Rule:     "blocked_module",
@@ -218,7 +219,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	// Check if module is in allowlist (if allowlist is not empty)
 	if len(c.policy.AllowedModules) > 0 && !c.isModuleAllowed(info.Module) {
 		result.Allowed = false
-		result.Violations = append(result.Violations, PolicyViolation{
+		result.Violations = append(result.Violations, PolicyViolationError{
 			Module:   info.Module,
 			Version:  info.Version,
 			Rule:     "allowed_modules",
@@ -230,7 +231,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	// Check yanked versions
 	if info.State == VersionStateYanked && !c.policy.AllowYanked {
 		result.Allowed = false
-		violation := PolicyViolation{
+		violation := PolicyViolationError{
 			Module:   info.Module,
 			Version:  info.Version,
 			Rule:     "yanked_version",
@@ -246,7 +247,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	// Check retracted versions
 	if info.State == VersionStateRetracted {
 		result.Allowed = false
-		violation := PolicyViolation{
+		violation := PolicyViolationError{
 			Module:   info.Module,
 			Version:  info.Version,
 			Rule:     "retracted_version",
@@ -268,7 +269,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	if info.IsDeprecated() {
 		if !c.policy.AllowDeprecated {
 			result.Allowed = false
-			violation := PolicyViolation{
+			violation := PolicyViolationError{
 				Module:   info.Module,
 				Version:  info.Version,
 				Rule:     "deprecated_version",
@@ -287,7 +288,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 		if info.Deprecation != nil {
 			if !c.severityAllowed(info.Deprecation.Severity) {
 				result.Allowed = false
-				result.Violations = append(result.Violations, PolicyViolation{
+				result.Violations = append(result.Violations, PolicyViolationError{
 					Module:   info.Module,
 					Version:  info.Version,
 					Rule:     "deprecation_severity",
@@ -301,7 +302,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	// Check sunset dates
 	if c.policy.EnforceSunsetDates && info.IsSunset() {
 		result.Allowed = false
-		result.Violations = append(result.Violations, PolicyViolation{
+		result.Violations = append(result.Violations, PolicyViolationError{
 			Module:   info.Module,
 			Version:  info.Version,
 			Rule:     "sunset_date",
@@ -314,7 +315,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	if info.IsPrerelease() {
 		if !c.policy.AllowPrerelease {
 			result.Allowed = false
-			result.Violations = append(result.Violations, PolicyViolation{
+			result.Violations = append(result.Violations, PolicyViolationError{
 				Module:   info.Module,
 				Version:  info.Version,
 				Rule:     "prerelease_version",
@@ -330,7 +331,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 	if info.HasSecurityIssues() {
 		if !c.policy.AllowSecurityVulnerabilities {
 			result.Allowed = false
-			result.Violations = append(result.Violations, PolicyViolation{
+			result.Violations = append(result.Violations, PolicyViolationError{
 				Module:   info.Module,
 				Version:  info.Version,
 				Rule:     "security_vulnerability",
@@ -348,7 +349,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 			switch rule.Action {
 			case PolicyActionDeny:
 				result.Allowed = false
-				result.Violations = append(result.Violations, PolicyViolation{
+				result.Violations = append(result.Violations, PolicyViolationError{
 					Module:   info.Module,
 					Version:  info.Version,
 					Rule:     rule.Name,
@@ -361,6 +362,7 @@ func (c *PolicyChecker) Check(info *VersionInfo) *CheckResult {
 					msg = fmt.Sprintf("Custom rule '%s' matched", rule.Name)
 				}
 				result.Warnings = append(result.Warnings, msg)
+			default:
 			}
 		}
 	}
@@ -443,9 +445,9 @@ func CheckVersionWithPolicy(info *VersionInfo, policy *VersionPolicy) *CheckResu
 }
 
 // FilterVersions filters a list of versions to only include allowed ones
-func (c *PolicyChecker) FilterVersions(versions []*VersionInfo) ([]*VersionInfo, []PolicyViolation) {
+func (c *PolicyChecker) FilterVersions(versions []*VersionInfo) ([]*VersionInfo, []PolicyViolationError) {
 	var allowed []*VersionInfo
-	var allViolations []PolicyViolation
+	var allViolations []PolicyViolationError
 
 	for _, v := range versions {
 		result := c.Check(v)
@@ -460,16 +462,13 @@ func (c *PolicyChecker) FilterVersions(versions []*VersionInfo) ([]*VersionInfo,
 }
 
 // SelectBestVersion selects the best version from a list, considering the policy
-func (c *PolicyChecker) SelectBestVersion(versions []*VersionInfo) (*VersionInfo, []string) {
+func (c *PolicyChecker) SelectBestVersion(versions []*VersionInfo) (best *VersionInfo, warnings []string) {
 	allowed, _ := c.FilterVersions(versions)
 	if len(allowed) == 0 {
 		return nil, nil
 	}
 
 	// Prefer stable, non-deprecated versions
-	var best *VersionInfo
-	var warnings []string
-
 	for _, v := range allowed {
 		if best == nil {
 			best = v
@@ -546,11 +545,11 @@ type SecurityIssueEntry struct {
 
 // UpgradeSuggestion provides a suggested upgrade path
 type UpgradeSuggestion struct {
-	Module         string `json:"module"`
-	CurrentVersion string `json:"current_version"`
+	Module           string `json:"module"`
+	CurrentVersion   string `json:"current_version"`
 	SuggestedVersion string `json:"suggested_version"`
-	Reason         string `json:"reason"`
-	MigrationGuide string `json:"migration_guide,omitempty"`
+	Reason           string `json:"reason"`
+	MigrationGuide   string `json:"migration_guide,omitempty"`
 }
 
 // GenerateDeprecationReport creates a deprecation report for a set of modules

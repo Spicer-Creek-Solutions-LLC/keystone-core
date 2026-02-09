@@ -11,6 +11,7 @@ import (
 // EnforcementPoint defines where policy enforcement occurs
 type EnforcementPoint string
 
+// EnforcementPointPreExecution and related constants.
 const (
 	EnforcementPointPreExecution  EnforcementPoint = "pre_execution"  // Before state execution
 	EnforcementPointPostExecution EnforcementPoint = "post_execution" // After state execution
@@ -22,10 +23,11 @@ const (
 // EnforcementAction defines what happens when a policy fails
 type EnforcementAction string
 
+// EnforcementActionBlock constants define the actions.
 const (
-	EnforcementActionBlock    EnforcementAction = "block"     // Block the operation
-	EnforcementActionWarn     EnforcementAction = "warn"      // Warn but allow
-	EnforcementActionAudit    EnforcementAction = "audit"     // Log for audit
+	EnforcementActionBlock     EnforcementAction = "block"     // Block the operation
+	EnforcementActionWarn      EnforcementAction = "warn"      // Warn but allow
+	EnforcementActionAudit     EnforcementAction = "audit"     // Log for audit
 	EnforcementActionRemediate EnforcementAction = "remediate" // Auto-remediate
 )
 
@@ -47,19 +49,19 @@ type EnforcementConfig struct {
 	EventPublisher events.EventPublisher
 }
 
-// PolicyEnforcer enforces policies at various points in the system
-type PolicyEnforcer struct {
-	engine            *PolicyEngine
+// Enforcer enforces policies at various points in the system
+type Enforcer struct {
+	engine            *Engine
 	config            *EnforcementConfig
 	violationHandlers []ViolationHandler
 }
 
 // ViolationHandler handles policy violations
-type ViolationHandler func(ctx context.Context, result *PolicyResult) error
+type ViolationHandler func(ctx context.Context, result *Result) error
 
-// NewPolicyEnforcer creates a new policy enforcer
-func NewPolicyEnforcer(engine *PolicyEngine, config *EnforcementConfig) *PolicyEnforcer {
-	return &PolicyEnforcer{
+// NewEnforcer creates a new policy enforcer
+func NewEnforcer(engine *Engine, config *EnforcementConfig) *Enforcer {
+	return &Enforcer{
 		engine:            engine,
 		config:            config,
 		violationHandlers: make([]ViolationHandler, 0),
@@ -67,12 +69,12 @@ func NewPolicyEnforcer(engine *PolicyEngine, config *EnforcementConfig) *PolicyE
 }
 
 // AddViolationHandler adds a custom violation handler
-func (e *PolicyEnforcer) AddViolationHandler(handler ViolationHandler) {
+func (e *Enforcer) AddViolationHandler(handler ViolationHandler) {
 	e.violationHandlers = append(e.violationHandlers, handler)
 }
 
 // EnforceForResource evaluates and enforces policies for a resource
-func (e *PolicyEnforcer) EnforceForResource(ctx context.Context, resourceType string, input *EvaluationInput) (*PolicyResult, error) {
+func (e *Enforcer) EnforceForResource(ctx context.Context, resourceType string, input *EvaluationInput) (*PolicyResult, error) {
 	// Check if resource type is in scope
 	if len(e.config.ResourceTypes) > 0 {
 		inScope := false
@@ -113,12 +115,9 @@ func (e *PolicyEnforcer) EnforceForResource(ctx context.Context, resourceType st
 		}
 	}
 
-	// Emit event if configured
+	// Emit event if configured - best-effort, don't fail enforcement
 	if e.config.EnableEventEmission && e.config.EventPublisher != nil {
-		if err := e.emitPolicyEvent(ctx, result); err != nil {
-			// Log error but don't fail enforcement
-			// In production, this would use proper logging
-		}
+		_ = e.emitPolicyEvent(ctx, result)
 	}
 
 	// Apply enforcement action
@@ -126,7 +125,7 @@ func (e *PolicyEnforcer) EnforceForResource(ctx context.Context, resourceType st
 }
 
 // EnforcePolicy evaluates and enforces a specific policy
-func (e *PolicyEnforcer) EnforcePolicy(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
+func (e *Enforcer) EnforcePolicy(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
 	// Evaluate policy
 	result, err := e.engine.Evaluate(ctx, policyID, input)
 	if err != nil {
@@ -141,10 +140,10 @@ func (e *PolicyEnforcer) EnforcePolicy(ctx context.Context, policyID string, inp
 			EvaluatedAt:   result.EvaluatedAt,
 			TotalDuration: result.Duration,
 			Summary: &PolicySummary{
-				TotalPolicies:   1,
-				AllowedPolicies: 0,
-				DeniedPolicies:  1,
-				TotalViolations: len(result.Violations),
+				TotalPolicies:        1,
+				AllowedPolicies:      0,
+				DeniedPolicies:       1,
+				TotalViolations:      len(result.Violations),
 				ViolationsBySeverity: make(map[Severity]int),
 			},
 		}
@@ -163,7 +162,7 @@ func (e *PolicyEnforcer) EnforcePolicy(ctx context.Context, policyID string, inp
 }
 
 // handleViolations processes policy violations
-func (e *PolicyEnforcer) handleViolations(ctx context.Context, result *PolicyResult) error {
+func (e *Enforcer) handleViolations(ctx context.Context, result *PolicyResult) error {
 	// Call custom violation handlers
 	for _, handler := range e.violationHandlers {
 		if err := handler(ctx, result); err != nil {
@@ -175,7 +174,7 @@ func (e *PolicyEnforcer) handleViolations(ctx context.Context, result *PolicyRes
 }
 
 // applyEnforcementAction applies the configured enforcement action
-func (e *PolicyEnforcer) applyEnforcementAction(result *PolicyResult) (*PolicyResult, error) {
+func (e *Enforcer) applyEnforcementAction(result *PolicyResult) (*PolicyResult, error) {
 	switch e.config.Action {
 	case EnforcementActionBlock:
 		// Block on violations - result.Allowed already reflects this
@@ -202,7 +201,7 @@ func (e *PolicyEnforcer) applyEnforcementAction(result *PolicyResult) (*PolicyRe
 }
 
 // emitPolicyEvent emits a policy evaluation event
-func (e *PolicyEnforcer) emitPolicyEvent(ctx context.Context, result *PolicyResult) error {
+func (e *Enforcer) emitPolicyEvent(ctx context.Context, result *PolicyResult) error {
 	if e.config.EventPublisher == nil {
 		return nil
 	}
@@ -255,7 +254,7 @@ func (e *PolicyEnforcer) emitPolicyEvent(ctx context.Context, result *PolicyResu
 }
 
 // severityToEventSeverity converts policy severity to event severity
-func (e *PolicyEnforcer) severityToEventSeverity(severityMap map[Severity]int) events.Severity {
+func (e *Enforcer) severityToEventSeverity(severityMap map[Severity]int) events.Severity {
 	if severityMap[SeverityCritical] > 0 {
 		return events.SeverityCritical
 	}
@@ -269,7 +268,7 @@ func (e *PolicyEnforcer) severityToEventSeverity(severityMap map[Severity]int) e
 }
 
 // StateEnforcementHook creates a hook for state management integration
-func (e *PolicyEnforcer) StateEnforcementHook(resourceType string) func(context.Context, interface{}) error {
+func (e *Enforcer) StateEnforcementHook(resourceType string) func(context.Context, interface{}) error {
 	return func(ctx context.Context, resource interface{}) error {
 		// Convert resource to evaluation input
 		input := &EvaluationInput{
@@ -295,24 +294,24 @@ func (e *PolicyEnforcer) StateEnforcementHook(resourceType string) func(context.
 	}
 }
 
-// PolicyEnforcementAction implements an action for policy enforcement
-type PolicyEnforcementAction struct {
-	enforcer     *PolicyEnforcer
+// EnforcerAction implements an action for policy enforcement
+type EnforcerAction struct {
+	enforcer     *Enforcer
 	resourceType string
 }
 
 // Name returns the action name
-func (a *PolicyEnforcementAction) Name() string {
+func (a *EnforcerAction) Name() string {
 	return fmt.Sprintf("policy-enforce-%s", a.resourceType)
 }
 
 // Type returns the action type
-func (a *PolicyEnforcementAction) Type() string {
+func (a *EnforcerAction) Type() string {
 	return "policy-enforcement"
 }
 
 // Execute enforces policies on the event
-func (a *PolicyEnforcementAction) Execute(ctx context.Context, event *events.Event) error {
+func (a *EnforcerAction) Execute(ctx context.Context, event *events.Event) error {
 	// Extract resource from event
 	input := &EvaluationInput{
 		Resource: event.Data,
@@ -339,21 +338,33 @@ func (a *PolicyEnforcementAction) Execute(ctx context.Context, event *events.Eve
 }
 
 // EventEnforcementReactor creates a reactor for event-based policy enforcement
-func (e *PolicyEnforcer) EventEnforcementReactor(resourceType string) *events.Reactor {
-	action := &PolicyEnforcementAction{
+func (e *Enforcer) EventEnforcementReactor(resourceType string) *events.Reactor {
+	action := &EnforcerAction{
 		enforcer:     e,
 		resourceType: resourceType,
 	}
 
 	return &events.Reactor{
-		ID:          fmt.Sprintf("policy-enforcer-%s", resourceType),
-		Name:        fmt.Sprintf("Policy Enforcer for %s", resourceType),
-		Description: fmt.Sprintf("Enforces policies on %s resources", resourceType),
-		Filter:      nil, // Would be configured based on requirements
-		Actions:     []events.Action{action},
-		Enabled:      true,
+		ID:            fmt.Sprintf("policy-enforcer-%s", resourceType),
+		Name:          fmt.Sprintf("Policy Enforcer for %s", resourceType),
+		Description:   fmt.Sprintf("Enforces policies on %s resources", resourceType),
+		Filter:        nil, // Would be configured based on requirements
+		Actions:       []events.Action{action},
+		Enabled:       true,
 		MaxConcurrent: 5,
-		Timeout:      30 * time.Second,
+		Timeout:       30 * time.Second,
 	}
 }
 
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyEnforcer is deprecated: Use Enforcer instead.
+	PolicyEnforcer = Enforcer
+	// PolicyEnforcementAction is deprecated: Use EnforcerAction instead.
+	PolicyEnforcementAction = EnforcerAction
+)
+
+// NewPolicyEnforcer is deprecated: Use NewEnforcer instead.
+var NewPolicyEnforcer = NewEnforcer

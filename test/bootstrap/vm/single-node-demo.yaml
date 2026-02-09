@@ -8,6 +8,7 @@
 #   - Ubuntu 22.04, Debian 12, Rocky 9, or any supported OS
 #
 # Usage:
+#   KSCORE_VM_DEMO_HOST=vm-demo.example.internal \
 #   KSCORE_VM_CONFIG=test/bootstrap/vm/single-node-demo.yaml make test-vm-demo
 
 vm_provider: ssh
@@ -16,7 +17,7 @@ ssh:
   clean_nodes: true  # Reset node state before testing
   nodes:
     - name: demo
-      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Your VM IP address
+      host: ${KSCORE_VM_DEMO_HOST}  # VM hostname or IP
       port: 22
       user: test               # <-- UPDATE: SSH user (root or sudo user)
       key_file: ~/.ssh/id_ed25519  # <-- UPDATE: Path to SSH private key

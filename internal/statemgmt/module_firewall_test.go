@@ -111,9 +111,9 @@ func TestFirewallModule_ParseConfig(t *testing.T) {
 				State:  "present",
 				Module: "firewall",
 				Parameters: map[string]interface{}{
-					"port":     80,
-					"source":   "192.168.1.0/24",
-					"action":   "accept",
+					"port":   80,
+					"source": "192.168.1.0/24",
+					"action": "accept",
 				},
 			},
 			wantPort:   80,
@@ -174,8 +174,9 @@ func TestFirewallModule_ParseConfig(t *testing.T) {
 
 func TestFirewallModule_DetectBackend(t *testing.T) {
 	m := NewFirewallModule()
+	ctx := context.Background()
 
-	backend, err := m.detectFirewallBackend()
+	backend, err := m.detectFirewallBackend(ctx)
 
 	switch runtime.GOOS {
 	case "darwin":

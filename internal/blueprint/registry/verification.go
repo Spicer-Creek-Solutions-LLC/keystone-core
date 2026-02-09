@@ -423,8 +423,7 @@ func NewTrustPolicyEvaluator(policy *TrustPolicy) *TrustPolicyEvaluator {
 }
 
 // Evaluate evaluates a verification result against the policy.
-func (e *TrustPolicyEvaluator) Evaluate(result *VerificationResult) (bool, []string) {
-	var violations []string
+func (e *TrustPolicyEvaluator) Evaluate(result *VerificationResult) (allowed bool, violations []string) {
 
 	if e.policy.RequireSignature && !result.Valid {
 		violations = append(violations, "signature is required but verification failed")

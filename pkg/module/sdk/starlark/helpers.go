@@ -1,3 +1,5 @@
+// Package starlark provides Starlark SDK helpers for module development
+// including type conversion, templates, and testing utilities.
 package starlark
 
 import (
@@ -78,7 +80,7 @@ func ConvertFromGo(val interface{}) (starlark.Value, error) {
 	case int64:
 		return starlark.MakeInt64(v), nil
 	case uint:
-		return starlark.MakeUint(uint(v)), nil
+		return starlark.MakeUint(v), nil
 	case uint32:
 		return starlark.MakeUint(uint(v)), nil
 	case uint64:
@@ -123,18 +125,16 @@ func MakeBuiltin(name string, fn func(thread *starlark.Thread, fn *starlark.Buil
 }
 
 // UnpackArgs is a helper to unpack positional arguments
-func UnpackArgs(fnName string, args starlark.Tuple, min, max int) ([]starlark.Value, error) {
-	if len(args) < min {
-		return nil, fmt.Errorf("%s: got %d arguments, want at least %d", fnName, len(args), min)
+func UnpackArgs(fnName string, args starlark.Tuple, minVal, maxVal int) ([]starlark.Value, error) {
+	if len(args) < minVal {
+		return nil, fmt.Errorf("%s: got %d arguments, want at least %d", fnName, len(args), minVal)
 	}
-	if max >= 0 && len(args) > max {
-		return nil, fmt.Errorf("%s: got %d arguments, want at most %d", fnName, len(args), max)
+	if maxVal >= 0 && len(args) > maxVal {
+		return nil, fmt.Errorf("%s: got %d arguments, want at most %d", fnName, len(args), maxVal)
 	}
 
 	result := make([]starlark.Value, len(args))
-	for i, arg := range args {
-		result[i] = arg
-	}
+	copy(result, args)
 	return result, nil
 }
 

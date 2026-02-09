@@ -207,7 +207,7 @@ func TestE2E_Federation(t *testing.T) {
 
 	// Create federation manager for domain1
 	store := federation.NewInMemoryStore()
-	config := &federation.FederationConfig{
+	config := &federation.Config{
 		LocalTrustDomain:       domain1,
 		LocalTrustBundle:       bundle1,
 		DefaultRefreshInterval: 5 * time.Minute,
@@ -222,8 +222,8 @@ func TestE2E_Federation(t *testing.T) {
 	// Add domain2 as federated domain
 	fedDomain := &federation.FederatedDomain{
 		TrustDomain: domain2,
-		Type:        federation.FederationTypeBidirectional,
-		State:       federation.FederationStateActive,
+		Type:        federation.TypeBidirectional,
+		State:       federation.StateActive,
 		TrustBundle: bundle2,
 		Policy: &federation.TrustPolicy{
 			Name:         "allow-agents",
@@ -326,7 +326,7 @@ func TestE2E_FederationPolicy(t *testing.T) {
 
 	// Create manager with restrictive policy
 	store := federation.NewInMemoryStore()
-	config := &federation.FederationConfig{
+	config := &federation.Config{
 		LocalTrustDomain:       domain1,
 		LocalTrustBundle:       bundle1,
 		DefaultRefreshInterval: 5 * time.Minute,
@@ -342,8 +342,8 @@ func TestE2E_FederationPolicy(t *testing.T) {
 	// Only allow /service/** paths, deny /admin/**
 	fedDomain := &federation.FederatedDomain{
 		TrustDomain: domain2,
-		Type:        federation.FederationTypeBidirectional,
-		State:       federation.FederationStateActive,
+		Type:        federation.TypeBidirectional,
+		State:       federation.StateActive,
 		TrustBundle: bundle2,
 		Policy: &federation.TrustPolicy{
 			Name:         "restrict-admin",
@@ -435,7 +435,7 @@ func TestE2E_FederationStateTransitions(t *testing.T) {
 	}
 
 	store := federation.NewInMemoryStore()
-	config := &federation.FederationConfig{
+	config := &federation.Config{
 		LocalTrustDomain:       domain1,
 		LocalTrustBundle:       bundle1,
 		DefaultRefreshInterval: 5 * time.Minute,
@@ -450,8 +450,8 @@ func TestE2E_FederationStateTransitions(t *testing.T) {
 	// Create federated domain
 	fedDomain := &federation.FederatedDomain{
 		TrustDomain: domain2,
-		Type:        federation.FederationTypeBidirectional,
-		State:       federation.FederationStateActive,
+		Type:        federation.TypeBidirectional,
+		State:       federation.StateActive,
 		TrustBundle: bundle2,
 		Policy: &federation.TrustPolicy{
 			Name:         "default",
@@ -480,7 +480,7 @@ func TestE2E_FederationStateTransitions(t *testing.T) {
 	}
 
 	// Suspend the federation
-	fedDomain.State = federation.FederationStateSuspended
+	fedDomain.State = federation.StateSuspended
 	if err := manager.UpdateFederatedDomain(ctx, fedDomain); err != nil {
 		t.Fatalf("failed to suspend federation: %v", err)
 	}
@@ -492,7 +492,7 @@ func TestE2E_FederationStateTransitions(t *testing.T) {
 	}
 
 	// Reactivate the federation
-	fedDomain.State = federation.FederationStateActive
+	fedDomain.State = federation.StateActive
 	if err := manager.UpdateFederatedDomain(ctx, fedDomain); err != nil {
 		t.Fatalf("failed to reactivate federation: %v", err)
 	}
@@ -504,7 +504,7 @@ func TestE2E_FederationStateTransitions(t *testing.T) {
 	}
 
 	// Revoke the federation
-	fedDomain.State = federation.FederationStateRevoked
+	fedDomain.State = federation.StateRevoked
 	if err := manager.UpdateFederatedDomain(ctx, fedDomain); err != nil {
 		t.Fatalf("failed to revoke federation: %v", err)
 	}
@@ -622,11 +622,11 @@ func TestE2E_FileBasedIdentity(t *testing.T) {
 // E2E Test: SPIFFE ID parsing and validation
 func TestE2E_SPIFFEIDParsing(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		wantDomain  string
-		wantPath    string
-		wantValid   bool
+		name       string
+		input      string
+		wantDomain string
+		wantPath   string
+		wantValid  bool
 	}{
 		{
 			name:       "standard agent ID",
@@ -748,18 +748,18 @@ func TestE2E_FederationStorePersistence(t *testing.T) {
 	domains := []*federation.FederatedDomain{
 		{
 			TrustDomain: "domain-a.example.org",
-			Type:        federation.FederationTypeBidirectional,
-			State:       federation.FederationStateActive,
+			Type:        federation.TypeBidirectional,
+			State:       federation.StateActive,
 		},
 		{
 			TrustDomain: "domain-b.example.org",
-			Type:        federation.FederationTypeUnidirectional,
-			State:       federation.FederationStatePending,
+			Type:        federation.TypeUnidirectional,
+			State:       federation.StatePending,
 		},
 		{
 			TrustDomain: "domain-c.example.org",
-			Type:        federation.FederationTypeBidirectional,
-			State:       federation.FederationStateSuspended,
+			Type:        federation.TypeBidirectional,
+			State:       federation.StateSuspended,
 		},
 	}
 
@@ -845,7 +845,7 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 
 	// Step 1: Create federation manager
 	store := federation.NewInMemoryStore()
-	manager, err := federation.NewManager(&federation.FederationConfig{
+	manager, err := federation.NewManager(&federation.Config{
 		LocalTrustDomain:       localDomain,
 		LocalTrustBundle:       localBundle,
 		DefaultRefreshInterval: 5 * time.Minute,
@@ -858,8 +858,8 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 	// Step 2: Establish federation with remote domain
 	err = manager.AddFederatedDomain(ctx, &federation.FederatedDomain{
 		TrustDomain: remoteDomain,
-		Type:        federation.FederationTypeBidirectional,
-		State:       federation.FederationStateActive,
+		Type:        federation.TypeBidirectional,
+		State:       federation.StateActive,
 		TrustBundle: remoteBundle,
 		Policy: &federation.TrustPolicy{
 			Name:            "production-services",

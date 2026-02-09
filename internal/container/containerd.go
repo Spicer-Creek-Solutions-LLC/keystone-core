@@ -92,7 +92,7 @@ func (d *ContainerdDetector) GetRuntime() Runtime {
 }
 
 // getContainerIDFromCgroup extracts container ID from cgroup file
-func (d *ContainerdDetector) getContainerIDFromCgroup() (string, string) {
+func (d *ContainerdDetector) getContainerIDFromCgroup() (containerID, cgroupPath string) {
 	content := readFile("/proc/self/cgroup")
 	if content == "" {
 		return "", ""
@@ -146,7 +146,7 @@ func (d *ContainerdDetector) getContainerIDFromCgroup() (string, string) {
 // isHexString checks if a string contains only hex characters
 func isHexString(s string) bool {
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}

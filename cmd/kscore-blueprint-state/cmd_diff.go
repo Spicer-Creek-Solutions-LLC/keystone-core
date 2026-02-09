@@ -1,3 +1,4 @@
+// Package main implements the kscore-blueprint-state CLI for managing blueprint state snapshots.
 package main
 
 import (
@@ -47,17 +48,17 @@ func init() {
 
 // DiffResult represents the differences between two snapshots
 type DiffResult struct {
-	Snapshot1 string        `json:"snapshot1"`
-	Snapshot2 string        `json:"snapshot2"`
-	Files     FileDiff      `json:"files,omitempty"`
-	Packages  PackageDiff   `json:"packages,omitempty"`
-	Services  ServiceDiff   `json:"services,omitempty"`
-	Summary   DiffSummary   `json:"summary"`
+	Snapshot1 string      `json:"snapshot1"`
+	Snapshot2 string      `json:"snapshot2"`
+	Files     FileDiff    `json:"files,omitempty"`
+	Packages  PackageDiff `json:"packages,omitempty"`
+	Services  ServiceDiff `json:"services,omitempty"`
+	Summary   DiffSummary `json:"summary"`
 }
 
 type FileDiff struct {
-	Added    []string          `json:"added,omitempty"`
-	Removed  []string          `json:"removed,omitempty"`
+	Added    []string           `json:"added,omitempty"`
+	Removed  []string           `json:"removed,omitempty"`
 	Modified []FileModification `json:"modified,omitempty"`
 }
 
@@ -70,8 +71,8 @@ type FileModification struct {
 }
 
 type PackageDiff struct {
-	Added   []PackageInfo `json:"added,omitempty"`
-	Removed []PackageInfo `json:"removed,omitempty"`
+	Added   []PackageInfo   `json:"added,omitempty"`
+	Removed []PackageInfo   `json:"removed,omitempty"`
 	Changed []PackageChange `json:"changed,omitempty"`
 }
 
@@ -87,8 +88,8 @@ type PackageChange struct {
 }
 
 type ServiceDiff struct {
-	Added   []ServiceInfo `json:"added,omitempty"`
-	Removed []ServiceInfo `json:"removed,omitempty"`
+	Added   []ServiceInfo   `json:"added,omitempty"`
+	Removed []ServiceInfo   `json:"removed,omitempty"`
 	Changed []ServiceChange `json:"changed,omitempty"`
 }
 
@@ -190,11 +191,11 @@ func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 	map1 := make(map[string]blueprint.FileCaptureEntry)
 	map2 := make(map[string]blueprint.FileCaptureEntry)
 
-	for _, f := range files1 {
-		map1[f.Path] = f
+	for i := range files1 {
+		map1[files1[i].Path] = files1[i]
 	}
-	for _, f := range files2 {
-		map2[f.Path] = f
+	for i := range files2 {
+		map2[files2[i].Path] = files2[i]
 	}
 
 	for path := range map2 {
@@ -209,7 +210,8 @@ func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 		}
 	}
 
-	for path, f1 := range map1 {
+	for path := range map1 {
+		f1 := map1[path]
 		if f2, exists := map2[path]; exists {
 			if f1.Checksum != f2.Checksum || f1.Mode != f2.Mode {
 				diff.Modified = append(diff.Modified, FileModification{
@@ -472,12 +474,14 @@ func truncateHash(hash string) string {
 }
 
 func serviceState(s blueprint.ServiceCaptureEntry) string {
-	if s.Running && s.Enabled {
+	switch {
+	case s.Running && s.Enabled:
 		return "running, enabled"
-	} else if s.Running {
+	case s.Running:
 		return "running, disabled"
-	} else if s.Enabled {
+	case s.Enabled:
 		return "stopped, enabled"
+	default:
+		return "stopped, disabled"
 	}
-	return "stopped, disabled"
 }

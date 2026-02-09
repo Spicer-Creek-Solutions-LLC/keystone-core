@@ -1,3 +1,4 @@
+// Package main implements the kscore-migrate CLI for database migration between SQLite and PostgreSQL.
 package main
 
 import (

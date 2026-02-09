@@ -13,7 +13,7 @@ import (
 
 func TestMirrorConfig_Structure(t *testing.T) {
 	config := &MirrorConfig{
-		StorageDir:        "/var/lib/kscore/blueprints",
+		StorageDir:        "/var/lib/keystone-core/blueprints",
 		ListenAddr:        ":8080",
 		UpstreamURL:       "https://registry.example.com",
 		SyncInterval:      time.Hour,
@@ -22,8 +22,8 @@ func TestMirrorConfig_Structure(t *testing.T) {
 		RequireSignatures: true,
 	}
 
-	if config.StorageDir != "/var/lib/kscore/blueprints" {
-		t.Errorf("StorageDir = %q, want %q", config.StorageDir, "/var/lib/kscore/blueprints")
+	if config.StorageDir != "/var/lib/keystone-core/blueprints" {
+		t.Errorf("StorageDir = %q, want %q", config.StorageDir, "/var/lib/keystone-core/blueprints")
 	}
 	if config.ListenAddr != ":8080" {
 		t.Errorf("ListenAddr = %q, want %q", config.ListenAddr, ":8080")

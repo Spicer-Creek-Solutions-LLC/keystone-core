@@ -7,7 +7,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// ExecutionState represents the state of a command execution.
+// State represents the state of a command execution.
 //
 // State diagram:
 //
@@ -31,49 +31,49 @@ import (
 //	Timeout --> [*]
 //
 // ```
-type ExecutionState string
+type State string
 
 const (
-	// ExecutionStatePending indicates execution is waiting to start
-	ExecutionStatePending ExecutionState = "pending"
-	// ExecutionStateRunning indicates command is executing
-	ExecutionStateRunning ExecutionState = "running"
-	// ExecutionStateRetrying indicates waiting to retry after failure
-	ExecutionStateRetrying ExecutionState = "retrying"
-	// ExecutionStateCompleted indicates execution finished successfully
-	ExecutionStateCompleted ExecutionState = "completed"
-	// ExecutionStateFailed indicates execution finished with error
-	ExecutionStateFailed ExecutionState = "failed"
-	// ExecutionStateCancelled indicates execution was cancelled
-	ExecutionStateCancelled ExecutionState = "cancelled"
-	// ExecutionStateTimeout indicates execution timed out
-	ExecutionStateTimeout ExecutionState = "timeout"
+	// StatePending indicates execution is waiting to start
+	StatePending State = "pending"
+	// StateRunning indicates command is executing
+	StateRunning State = "running"
+	// StateRetrying indicates waiting to retry after failure
+	StateRetrying State = "retrying"
+	// StateCompleted indicates execution finished successfully
+	StateCompleted State = "completed"
+	// StateFailed indicates execution finished with error
+	StateFailed State = "failed"
+	// StateCancelled indicates execution was cancelled
+	StateCancelled State = "cancelled"
+	// StateTimeout indicates execution timed out
+	StateTimeout State = "timeout"
 )
 
-// ExecutionEvent represents events that trigger execution state transitions.
-type ExecutionEvent string
+// Event represents events that trigger execution state transitions.
+type Event string
 
 const (
 	// ExecEventStart starts the execution
-	ExecEventStart ExecutionEvent = "start"
+	ExecEventStart Event = "start"
 	// ExecEventComplete marks execution as completed
-	ExecEventComplete ExecutionEvent = "complete"
+	ExecEventComplete Event = "complete"
 	// ExecEventFail marks execution as failed
-	ExecEventFail ExecutionEvent = "fail"
+	ExecEventFail Event = "fail"
 	// ExecEventTimeout marks execution as timed out
-	ExecEventTimeout ExecutionEvent = "timeout"
+	ExecEventTimeout Event = "timeout"
 	// ExecEventCancel cancels the execution
-	ExecEventCancel ExecutionEvent = "cancel"
+	ExecEventCancel Event = "cancel"
 	// ExecEventRetryRequested requests a retry after failure
-	ExecEventRetryRequested ExecutionEvent = "retry_requested"
+	ExecEventRetryRequested Event = "retry_requested"
 	// ExecEventRetry starts a retry attempt
-	ExecEventRetry ExecutionEvent = "retry"
+	ExecEventRetry Event = "retry"
 	// ExecEventMaxRetriesExceeded indicates max retries reached
-	ExecEventMaxRetriesExceeded ExecutionEvent = "max_retries_exceeded"
+	ExecEventMaxRetriesExceeded Event = "max_retries_exceeded"
 )
 
-// ExecutionCallbacks holds callbacks for execution state transitions.
-type ExecutionCallbacks struct {
+// Callbacks holds callbacks for execution state transitions.
+type Callbacks struct {
 	// OnStarted is called when execution starts
 	OnStarted func(commandID string)
 	// OnCompleted is called when execution completes successfully
@@ -94,11 +94,11 @@ type ExecutionCallbacks struct {
 type ManagedExecution struct {
 	Request *ExecuteRequest
 	Result  *CommandResult
-	machine *statemachine.Machine[ExecutionState, ExecutionEvent]
+	machine *statemachine.Machine[State, Event]
 
 	// Tracking
 	commandID   string
-	callbacks   *ExecutionCallbacks
+	callbacks   *Callbacks
 	attempt     int
 	maxAttempts int
 	lastError   error
@@ -107,7 +107,7 @@ type ManagedExecution struct {
 }
 
 // NewManagedExecution creates a new managed execution with state machine.
-func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *ExecutionCallbacks) *ManagedExecution {
+func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Callbacks) *ManagedExecution {
 	me := &ManagedExecution{
 		Request:     req,
 		commandID:   req.CommandID,
@@ -119,25 +119,25 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 		},
 	}
 
-	me.machine = statemachine.New[ExecutionState, ExecutionEvent](ExecutionStatePending).
+	me.machine = statemachine.New[State, Event](StatePending).
 		WithName("execution-"+req.CommandID).
 		WithHistory(20).
 		// From Pending
-		AddTransition(ExecutionStatePending, ExecEventStart, ExecutionStateRunning).
-		AddTransition(ExecutionStatePending, ExecEventCancel, ExecutionStateCancelled).
+		AddTransition(StatePending, ExecEventStart, StateRunning).
+		AddTransition(StatePending, ExecEventCancel, StateCancelled).
 		// From Running
-		AddTransition(ExecutionStateRunning, ExecEventComplete, ExecutionStateCompleted).
-		AddTransition(ExecutionStateRunning, ExecEventFail, ExecutionStateFailed).
-		AddTransition(ExecutionStateRunning, ExecEventTimeout, ExecutionStateTimeout).
-		AddTransition(ExecutionStateRunning, ExecEventCancel, ExecutionStateCancelled).
-		AddTransition(ExecutionStateRunning, ExecEventRetryRequested, ExecutionStateRetrying).
+		AddTransition(StateRunning, ExecEventComplete, StateCompleted).
+		AddTransition(StateRunning, ExecEventFail, StateFailed).
+		AddTransition(StateRunning, ExecEventTimeout, StateTimeout).
+		AddTransition(StateRunning, ExecEventCancel, StateCancelled).
+		AddTransition(StateRunning, ExecEventRetryRequested, StateRetrying).
 		// From Retrying
-		AddTransition(ExecutionStateRetrying, ExecEventRetry, ExecutionStateRunning).
-		AddTransition(ExecutionStateRetrying, ExecEventCancel, ExecutionStateCancelled).
-		AddTransition(ExecutionStateRetrying, ExecEventMaxRetriesExceeded, ExecutionStateFailed).
+		AddTransition(StateRetrying, ExecEventRetry, StateRunning).
+		AddTransition(StateRetrying, ExecEventCancel, StateCancelled).
+		AddTransition(StateRetrying, ExecEventMaxRetriesExceeded, StateFailed).
 		// Callbacks
-		OnEnter(ExecutionStateRunning, func(ctx context.Context, state, from ExecutionState) {
-			if from == ExecutionStatePending {
+		OnEnter(StateRunning, func(ctx context.Context, state, from State) {
+			if from == StatePending {
 				me.startTime = time.Now()
 				me.Result.StartTime = me.startTime
 			}
@@ -152,12 +152,12 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 				}
 			}
 		}).
-		OnEnter(ExecutionStateRetrying, func(ctx context.Context, state, from ExecutionState) {
+		OnEnter(StateRetrying, func(ctx context.Context, state, from State) {
 			if me.callbacks != nil && me.callbacks.OnRetrying != nil {
 				me.callbacks.OnRetrying(me.commandID, me.attempt, me.maxAttempts)
 			}
 		}).
-		OnEnter(ExecutionStateCompleted, func(ctx context.Context, state, from ExecutionState) {
+		OnEnter(StateCompleted, func(ctx context.Context, state, from State) {
 			me.endTime = time.Now()
 			me.Result.EndTime = me.endTime
 			me.Result.ExitCode = 0
@@ -165,7 +165,7 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 				me.callbacks.OnCompleted(me.commandID, me.Result)
 			}
 		}).
-		OnEnter(ExecutionStateFailed, func(ctx context.Context, state, from ExecutionState) {
+		OnEnter(StateFailed, func(ctx context.Context, state, from State) {
 			me.endTime = time.Now()
 			me.Result.EndTime = me.endTime
 			me.Result.Error = me.lastError
@@ -173,7 +173,7 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 				me.callbacks.OnFailed(me.commandID, me.lastError)
 			}
 		}).
-		OnEnter(ExecutionStateTimeout, func(ctx context.Context, state, from ExecutionState) {
+		OnEnter(StateTimeout, func(ctx context.Context, state, from State) {
 			me.endTime = time.Now()
 			me.Result.EndTime = me.endTime
 			me.Result.Error = context.DeadlineExceeded
@@ -181,7 +181,7 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 				me.callbacks.OnTimeout(me.commandID)
 			}
 		}).
-		OnEnter(ExecutionStateCancelled, func(ctx context.Context, state, from ExecutionState) {
+		OnEnter(StateCancelled, func(ctx context.Context, state, from State) {
 			me.endTime = time.Now()
 			me.Result.EndTime = me.endTime
 			me.Result.Error = context.Canceled
@@ -195,7 +195,7 @@ func NewManagedExecution(req *ExecuteRequest, maxAttempts int, callbacks *Execut
 }
 
 // State returns the current execution state.
-func (me *ManagedExecution) State() ExecutionState {
+func (me *ManagedExecution) State() State {
 	return me.machine.State()
 }
 
@@ -252,37 +252,37 @@ func (me *ManagedExecution) CanRetry() bool {
 
 // IsPending returns true if execution is pending.
 func (me *ManagedExecution) IsPending() bool {
-	return me.machine.IsInState(ExecutionStatePending)
+	return me.machine.IsInState(StatePending)
 }
 
 // IsRunning returns true if execution is running.
 func (me *ManagedExecution) IsRunning() bool {
-	return me.machine.IsInState(ExecutionStateRunning)
+	return me.machine.IsInState(StateRunning)
 }
 
 // IsRetrying returns true if execution is in retry state.
 func (me *ManagedExecution) IsRetrying() bool {
-	return me.machine.IsInState(ExecutionStateRetrying)
+	return me.machine.IsInState(StateRetrying)
 }
 
 // IsCompleted returns true if execution completed successfully.
 func (me *ManagedExecution) IsCompleted() bool {
-	return me.machine.IsInState(ExecutionStateCompleted)
+	return me.machine.IsInState(StateCompleted)
 }
 
 // IsTerminal returns true if execution is in a terminal state.
 func (me *ManagedExecution) IsTerminal() bool {
 	return me.machine.IsInAnyState(
-		ExecutionStateCompleted,
-		ExecutionStateFailed,
-		ExecutionStateCancelled,
-		ExecutionStateTimeout,
+		StateCompleted,
+		StateFailed,
+		StateCancelled,
+		StateTimeout,
 	)
 }
 
 // IsSuccessful returns true if execution completed successfully.
 func (me *ManagedExecution) IsSuccessful() bool {
-	return me.machine.IsInState(ExecutionStateCompleted)
+	return me.machine.IsInState(StateCompleted)
 }
 
 // Attempt returns the current attempt number.
@@ -307,31 +307,31 @@ func (me *ManagedExecution) Duration() time.Duration {
 }
 
 // History returns the state transition history.
-func (me *ManagedExecution) History() *statemachine.History[ExecutionState, ExecutionEvent] {
+func (me *ManagedExecution) History() *statemachine.History[State, Event] {
 	return me.machine.History()
 }
 
 // AvailableEvents returns events that can be fired from the current state.
-func (me *ManagedExecution) AvailableEvents() []ExecutionEvent {
+func (me *ManagedExecution) AvailableEvents() []Event {
 	return me.machine.AvailableEvents()
 }
 
-// ExecutionStateToString returns a human-readable name for the state.
-func ExecutionStateToString(state ExecutionState) string {
+// StateToString returns a human-readable name for the state.
+func StateToString(state State) string {
 	switch state {
-	case ExecutionStatePending:
+	case StatePending:
 		return "Pending"
-	case ExecutionStateRunning:
+	case StateRunning:
 		return "Running"
-	case ExecutionStateRetrying:
+	case StateRetrying:
 		return "Retrying"
-	case ExecutionStateCompleted:
+	case StateCompleted:
 		return "Completed"
-	case ExecutionStateFailed:
+	case StateFailed:
 		return "Failed"
-	case ExecutionStateCancelled:
+	case StateCancelled:
 		return "Cancelled"
-	case ExecutionStateTimeout:
+	case StateTimeout:
 		return "Timeout"
 	default:
 		return string(state)

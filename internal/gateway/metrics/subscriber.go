@@ -40,8 +40,8 @@ func DefaultSubscriberConfig() SubscriberConfig {
 	}
 }
 
-// MetricsMessage represents a metrics message from an agent.
-type MetricsMessage struct {
+// Message represents a metrics message from an agent.
+type Message struct {
 	// AgentID is the source agent
 	AgentID string `json:"agent_id"`
 
@@ -62,7 +62,7 @@ type MetricsMessage struct {
 type Subscriber struct {
 	nc     *nats.Conn
 	js     nats.JetStreamContext
-	store  *MetricsStore
+	store  *Store
 	config SubscriberConfig
 
 	sub    *nats.Subscription
@@ -85,7 +85,7 @@ type Subscriber struct {
 }
 
 // NewSubscriber creates a new metrics subscriber.
-func NewSubscriber(nc *nats.Conn, store *MetricsStore, config SubscriberConfig) *Subscriber {
+func NewSubscriber(nc *nats.Conn, store *Store, config SubscriberConfig) *Subscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		nc:     nc,
@@ -189,7 +189,7 @@ func (s *Subscriber) handleMessage(msg *nats.Msg) {
 	s.mu.Unlock()
 
 	// Parse the message
-	var metricsMsg MetricsMessage
+	var metricsMsg Message
 	if err := json.Unmarshal(msg.Data, &metricsMsg); err != nil {
 		s.recordError(fmt.Errorf("failed to parse metrics message: %w", err))
 		s.nak(msg)

@@ -27,8 +27,8 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Field, e.Message)
 }
 
-// ValidationResult contains the result of validating an event
-type EventValidationResult struct {
+// EventValidationError contains the result of validating an event.
+type EventValidationError struct {
 	// Valid indicates whether the event passed validation
 	Valid bool `json:"valid"`
 
@@ -37,7 +37,7 @@ type EventValidationResult struct {
 }
 
 // Error returns a combined error message from all validation errors
-func (r *EventValidationResult) Error() string {
+func (r *EventValidationError) Error() string {
 	if len(r.Errors) == 0 {
 		return ""
 	}
@@ -50,7 +50,7 @@ func (r *EventValidationResult) Error() string {
 }
 
 // Summary returns a brief summary of validation errors
-func (r *EventValidationResult) Summary() string {
+func (r *EventValidationError) Summary() string {
 	if r.Valid {
 		return "validation passed"
 	}
@@ -120,7 +120,7 @@ type SchemaValidatorConfig struct {
 func DefaultSchemaValidatorConfig() *SchemaValidatorConfig {
 	return &SchemaValidatorConfig{
 		AllowUnknownEventTypes: true,
-		AllowEmptyID:           true,  // IDs are typically auto-generated
+		AllowEmptyID:           true, // IDs are typically auto-generated
 		AllowFutureTimestamps:  false,
 		MaxTimestampSkew:       5 * time.Minute,
 		MaxTagCount:            50,
@@ -167,8 +167,8 @@ func NewEventSchemaValidator(config *SchemaValidatorConfig) *EventSchemaValidato
 }
 
 // Validate validates an event against the schema
-func (v *EventSchemaValidator) Validate(event *Event) *EventValidationResult {
-	result := &EventValidationResult{
+func (v *EventSchemaValidator) Validate(event *Event) *EventValidationError {
+	result := &EventValidationError{
 		Valid:  true,
 		Errors: make([]*ValidationError, 0),
 	}
@@ -212,7 +212,7 @@ func (v *EventSchemaValidator) Validate(event *Event) *EventValidationResult {
 }
 
 // validateID validates the event ID
-func (v *EventSchemaValidator) validateID(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateID(event *Event, result *EventValidationError) {
 	if event.ID == "" {
 		if !v.config.AllowEmptyID {
 			result.Errors = append(result.Errors, &ValidationError{
@@ -244,7 +244,7 @@ func (v *EventSchemaValidator) validateID(event *Event, result *EventValidationR
 }
 
 // validateType validates the event type
-func (v *EventSchemaValidator) validateType(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateType(event *Event, result *EventValidationError) {
 	if event.Type == "" {
 		result.Errors = append(result.Errors, &ValidationError{
 			Field:   "type",
@@ -328,7 +328,7 @@ func (v *EventSchemaValidator) isKnownEventType(eventType EventType) bool {
 }
 
 // validateSource validates the event source
-func (v *EventSchemaValidator) validateSource(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateSource(event *Event, result *EventValidationError) {
 	if event.Source == "" {
 		result.Errors = append(result.Errors, &ValidationError{
 			Field:   "source",
@@ -358,7 +358,7 @@ func (v *EventSchemaValidator) validateSource(event *Event, result *EventValidat
 }
 
 // validateTime validates the event timestamp
-func (v *EventSchemaValidator) validateTime(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateTime(event *Event, result *EventValidationError) {
 	if event.Time.IsZero() {
 		result.Errors = append(result.Errors, &ValidationError{
 			Field:   "time",
@@ -393,7 +393,7 @@ func (v *EventSchemaValidator) validateTime(event *Event, result *EventValidatio
 }
 
 // validateSeverity validates the event severity
-func (v *EventSchemaValidator) validateSeverity(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateSeverity(event *Event, result *EventValidationError) {
 	if event.Severity == "" {
 		result.Errors = append(result.Errors, &ValidationError{
 			Field:   "severity",
@@ -422,7 +422,7 @@ func (v *EventSchemaValidator) validateSeverity(event *Event, result *EventValid
 }
 
 // validateCorrelationID validates the correlation ID
-func (v *EventSchemaValidator) validateCorrelationID(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateCorrelationID(event *Event, result *EventValidationError) {
 	if v.config.RequireCorrelationID && event.CorrelationID == "" {
 		result.Errors = append(result.Errors, &ValidationError{
 			Field:   "correlation_id",
@@ -443,7 +443,7 @@ func (v *EventSchemaValidator) validateCorrelationID(event *Event, result *Event
 }
 
 // validateTags validates the event tags
-func (v *EventSchemaValidator) validateTags(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateTags(event *Event, result *EventValidationError) {
 	if event.Tags == nil {
 		return
 	}
@@ -504,7 +504,7 @@ func (v *EventSchemaValidator) validateTags(event *Event, result *EventValidatio
 }
 
 // validateData validates the event data payload
-func (v *EventSchemaValidator) validateData(event *Event, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateData(event *Event, result *EventValidationError) {
 	if event.Data == nil {
 		return
 	}
@@ -526,7 +526,7 @@ func (v *EventSchemaValidator) validateData(event *Event, result *EventValidatio
 }
 
 // validateDataValue validates a single data field value
-func (v *EventSchemaValidator) validateDataValue(key string, value interface{}, result *EventValidationResult) {
+func (v *EventSchemaValidator) validateDataValue(key string, value interface{}, result *EventValidationError) {
 	switch val := value.(type) {
 	case string:
 		if len(val) > v.config.MaxDataValueSize {

@@ -105,7 +105,7 @@ func TestDetectCaching(t *testing.T) {
 	}
 
 	// Should be a new detection
-	if info1.DetectedAt == info3.DetectedAt {
+	if info1.DetectedAt.Equal(info3.DetectedAt) {
 		t.Error("expected cache to expire")
 	}
 }

@@ -106,7 +106,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check metrics flag
 	metricsFlag := cmd.PersistentFlags().Lookup("metrics")
 	if metricsFlag == nil {
-		t.Error("expected --metrics flag")
+		t.Fatal("expected --metrics flag")
 	}
 	if metricsFlag.DefValue != "true" {
 		t.Errorf("expected metrics default to be 'true', got %s", metricsFlag.DefValue)
@@ -115,7 +115,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check logs flag
 	logsFlag := cmd.PersistentFlags().Lookup("logs")
 	if logsFlag == nil {
-		t.Error("expected --logs flag")
+		t.Fatal("expected --logs flag")
 	}
 	if logsFlag.DefValue != "true" {
 		t.Errorf("expected logs default to be 'true', got %s", logsFlag.DefValue)
@@ -124,7 +124,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check traces flag
 	tracesFlag := cmd.PersistentFlags().Lookup("traces")
 	if tracesFlag == nil {
-		t.Error("expected --traces flag")
+		t.Fatal("expected --traces flag")
 	}
 	if tracesFlag.DefValue != "true" {
 		t.Errorf("expected traces default to be 'true', got %s", tracesFlag.DefValue)
@@ -249,7 +249,7 @@ func TestConfig(t *testing.T) {
 
 func TestConfigWithValues(t *testing.T) {
 	config := Config{
-		ConfigFile:     "/etc/kscore/gateway.yaml",
+		ConfigFile:     "/etc/keystone-core/gateway.yaml",
 		ListenAddr:     "0.0.0.0:9091",
 		NATSURL:        "nats://localhost:4222",
 		MetricsEnabled: true,
@@ -257,8 +257,8 @@ func TestConfigWithValues(t *testing.T) {
 		TracesEnabled:  true,
 	}
 
-	if config.ConfigFile != "/etc/kscore/gateway.yaml" {
-		t.Errorf("expected ConfigFile to be '/etc/kscore/gateway.yaml', got %s", config.ConfigFile)
+	if config.ConfigFile != "/etc/keystone-core/gateway.yaml" {
+		t.Errorf("expected ConfigFile to be '/etc/keystone-core/gateway.yaml', got %s", config.ConfigFile)
 	}
 	if config.ListenAddr != "0.0.0.0:9091" {
 		t.Errorf("expected ListenAddr to be '0.0.0.0:9091', got %s", config.ListenAddr)

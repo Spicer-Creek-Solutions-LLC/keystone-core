@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func TestPolicyAuditorRecordEvaluation(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+func TestAuditorRecordEvaluation(t *testing.T) {
+	auditor := NewAuditor(100)
 
 	result := &EvaluationResult{
 		PolicyID:    "test-policy",
@@ -45,8 +45,8 @@ func TestPolicyAuditorRecordEvaluation(t *testing.T) {
 	}
 }
 
-func TestPolicyAuditorCapacity(t *testing.T) {
-	auditor := NewPolicyAuditor(5) // Small capacity
+func TestAuditorCapacity(t *testing.T) {
+	auditor := NewAuditor(5) // Small capacity
 
 	ctx := context.Background()
 
@@ -69,8 +69,8 @@ func TestPolicyAuditorCapacity(t *testing.T) {
 	}
 }
 
-func TestPolicyAuditorRecordPolicyResult(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+func TestAuditorRecordPolicyResult(t *testing.T) {
+	auditor := NewAuditor(100)
 
 	result := &PolicyResult{
 		Allowed:       false,
@@ -109,7 +109,7 @@ func TestPolicyAuditorRecordPolicyResult(t *testing.T) {
 }
 
 func TestAuditFilterPolicyID(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add entries with different policy IDs
@@ -140,7 +140,7 @@ func TestAuditFilterPolicyID(t *testing.T) {
 }
 
 func TestAuditFilterResourceType(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add entries with different resource types
@@ -171,7 +171,7 @@ func TestAuditFilterResourceType(t *testing.T) {
 }
 
 func TestAuditFilterAllowed(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add allowed and denied entries
@@ -204,7 +204,7 @@ func TestAuditFilterAllowed(t *testing.T) {
 }
 
 func TestAuditFilterTimeRange(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	now := time.Now()
@@ -235,7 +235,7 @@ func TestAuditFilterTimeRange(t *testing.T) {
 }
 
 func TestAuditFilterLimit(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add many entries
@@ -262,7 +262,7 @@ func TestAuditFilterLimit(t *testing.T) {
 }
 
 func TestAuditSummary(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add varied entries
@@ -335,7 +335,7 @@ func TestAuditSummary(t *testing.T) {
 }
 
 func TestAuditorClear(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	// Add entries
@@ -364,7 +364,7 @@ func TestAuditorClear(t *testing.T) {
 
 func TestComplianceReporter(t *testing.T) {
 	registry := NewRegistry()
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	reporter := NewComplianceReporter(auditor, registry)
 
 	// Register policies
@@ -437,7 +437,7 @@ func TestComplianceReporter(t *testing.T) {
 
 func TestComplianceReporterTopViolations(t *testing.T) {
 	registry := NewRegistry()
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	reporter := NewComplianceReporter(auditor, registry)
 
 	// Register policies
@@ -494,7 +494,7 @@ func TestComplianceReporterTopViolations(t *testing.T) {
 }
 
 func TestAuditFilterUserAndAction(t *testing.T) {
-	auditor := NewPolicyAuditor(100)
+	auditor := NewAuditor(100)
 	ctx := context.Background()
 
 	users := []string{"alice", "bob", "charlie"}

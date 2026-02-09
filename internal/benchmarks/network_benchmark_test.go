@@ -37,13 +37,15 @@ func startTCPServer(b *testing.B, network string) (string, func()) {
 	var listener net.Listener
 	var err error
 
+	lc := &net.ListenConfig{}
+	ctx := context.Background()
 	switch network {
 	case "tcp4":
-		listener, err = net.Listen("tcp4", "127.0.0.1:0")
+		listener, err = lc.Listen(ctx, "tcp4", "127.0.0.1:0")
 	case "tcp6":
-		listener, err = net.Listen("tcp6", "[::1]:0")
+		listener, err = lc.Listen(ctx, "tcp6", "[::1]:0")
 	default:
-		listener, err = net.Listen("tcp", "localhost:0")
+		listener, err = lc.Listen(ctx, "tcp", "localhost:0")
 	}
 
 	if err != nil {
@@ -83,7 +85,7 @@ func BenchmarkTCPConnect(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				conn, err := net.Dial(tt.network, addr)
+				conn, err := (&net.Dialer{}).DialContext(context.Background(), tt.network, addr)
 				if err != nil {
 					b.Fatalf("Dial failed: %v", err)
 				}
@@ -109,7 +111,7 @@ func BenchmarkTCPRoundTrip(b *testing.B) {
 			addr, cleanup := startTCPServer(b, tt.network)
 			defer cleanup()
 
-			conn, err := net.Dial(tt.network, addr)
+			conn, err := (&net.Dialer{}).DialContext(context.Background(), tt.network, addr)
 			if err != nil {
 				b.Skipf("Dial failed: %v", err)
 			}
@@ -151,7 +153,7 @@ func BenchmarkTCPThroughput(b *testing.B) {
 				addr, cleanup := startTCPServer(b, tt.network)
 				defer cleanup()
 
-				conn, err := net.Dial(tt.network, addr)
+				conn, err := (&net.Dialer{}).DialContext(context.Background(), tt.network, addr)
 				if err != nil {
 					b.Skipf("Dial failed: %v", err)
 				}
@@ -198,7 +200,7 @@ func BenchmarkTCPConcurrent(b *testing.B) {
 				// Pre-establish connections
 				conns := make([]net.Conn, workers)
 				for i := 0; i < workers; i++ {
-					conn, err := net.Dial(tt.network, addr)
+					conn, err := (&net.Dialer{}).DialContext(context.Background(), tt.network, addr)
 					if err != nil {
 						b.Skipf("Dial failed: %v", err)
 					}
@@ -240,13 +242,15 @@ func startHTTPServer(b *testing.B, network string) (string, func()) {
 	var listener net.Listener
 	var err error
 
+	lc := &net.ListenConfig{}
+	ctx := context.Background()
 	switch network {
 	case "tcp4":
-		listener, err = net.Listen("tcp4", "127.0.0.1:0")
+		listener, err = lc.Listen(ctx, "tcp4", "127.0.0.1:0")
 	case "tcp6":
-		listener, err = net.Listen("tcp6", "[::1]:0")
+		listener, err = lc.Listen(ctx, "tcp6", "[::1]:0")
 	default:
-		listener, err = net.Listen("tcp", "localhost:0")
+		listener, err = lc.Listen(ctx, "tcp", "localhost:0")
 	}
 
 	if err != nil {
@@ -300,7 +304,11 @@ func BenchmarkHTTPRequest(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				resp, err := client.Get(url)
+				req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+				if err != nil {
+					b.Fatalf("Request creation failed: %v", err)
+				}
+				resp, err := client.Do(req)
 				if err != nil {
 					b.Fatalf("Request failed: %v", err)
 				}
@@ -354,7 +362,7 @@ func BenchmarkUDPRoundTrip(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			// Server
-			serverConn, err := net.ListenPacket(tt.network, tt.addr)
+			serverConn, err := (&net.ListenConfig{}).ListenPacket(context.Background(), tt.network, tt.addr)
 			if err != nil {
 				b.Skipf("Cannot listen on %s: %v", tt.network, err)
 			}
@@ -373,7 +381,7 @@ func BenchmarkUDPRoundTrip(b *testing.B) {
 			}()
 
 			// Client
-			clientConn, err := net.Dial(tt.network, serverConn.LocalAddr().String())
+			clientConn, err := (&net.Dialer{}).DialContext(context.Background(), tt.network, serverConn.LocalAddr().String())
 			if err != nil {
 				b.Fatalf("Dial failed: %v", err)
 			}

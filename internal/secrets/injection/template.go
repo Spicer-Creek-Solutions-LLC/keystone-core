@@ -53,8 +53,8 @@ func NewTemplateInjector(config *TemplateInjectionConfig, source SecretSource, n
 }
 
 // Inject performs the template injection.
-func (t *TemplateInjector) Inject(ctx context.Context) ([]InjectionResult, error) {
-	results := make([]InjectionResult, 0, len(t.config.Templates))
+func (t *TemplateInjector) Inject(ctx context.Context) ([]Result, error) {
+	results := make([]Result, 0, len(t.config.Templates))
 
 	anyChanged := false
 	for _, rule := range t.config.Templates {
@@ -81,9 +81,9 @@ func (t *TemplateInjector) Inject(ctx context.Context) ([]InjectionResult, error
 	return results, nil
 }
 
-func (t *TemplateInjector) injectTemplate(ctx context.Context, rule TemplateRule) InjectionResult {
-	result := InjectionResult{
-		Type:      InjectionTypeTemplate,
+func (t *TemplateInjector) injectTemplate(ctx context.Context, rule TemplateRule) Result {
+	result := Result{
+		Type:      TypeTemplate,
 		Target:    rule.Destination,
 		Timestamp: time.Now(),
 	}
@@ -122,12 +122,13 @@ func (t *TemplateInjector) injectTemplate(ctx context.Context, rule TemplateRule
 	// Determine file mode
 	mode := rule.Mode
 	if mode == 0 {
-		mode = 0644
+		mode = 0o644
 	}
 
 	// Ensure directory exists
 	dir := filepath.Dir(rule.Destination)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: template output directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		result.Error = fmt.Errorf("failed to create directory %s: %w", dir, err)
 		return result
 	}
@@ -156,24 +157,6 @@ func (t *TemplateInjector) injectTemplate(ctx context.Context, rule TemplateRule
 	return result
 }
 
-func (t *TemplateInjector) loadTemplate(rule TemplateRule) (*template.Template, error) {
-	// Check cache
-	t.mu.RLock()
-	if tmpl, exists := t.templates[rule.Source]; exists {
-		t.mu.RUnlock()
-		return tmpl, nil
-	}
-	t.mu.RUnlock()
-
-	// Read template file
-	content, err := os.ReadFile(rule.Source)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read template: %w", err)
-	}
-
-	return t.parseTemplateContent(rule, string(content))
-}
-
 func (t *TemplateInjector) parseTemplateWithFuncs(rule TemplateRule, funcs template.FuncMap) (*template.Template, error) {
 	content, err := os.ReadFile(rule.Source)
 	if err != nil {
@@ -195,22 +178,6 @@ func (t *TemplateInjector) parseTemplateWithFuncs(rule TemplateRule, funcs templ
 		Funcs(funcs)
 
 	return tmpl.Parse(string(content))
-}
-
-func (t *TemplateInjector) parseTemplateContent(rule TemplateRule, content string) (*template.Template, error) {
-	leftDelim := rule.LeftDelim
-	rightDelim := rule.RightDelim
-	if leftDelim == "" {
-		leftDelim = "{{"
-	}
-	if rightDelim == "" {
-		rightDelim = "}}"
-	}
-
-	tmpl := template.New(filepath.Base(rule.Source)).
-		Delims(leftDelim, rightDelim)
-
-	return tmpl.Parse(content)
 }
 
 // createTemplateFuncs creates the template functions for secret access.
@@ -514,7 +481,7 @@ func hashContent(data []byte) string {
 	// Use a simple checksum for change detection
 	var sum uint64
 	for i, b := range data {
-		sum += uint64(b) * uint64(i+1)
+		sum += uint64(b) * uint64(i+1) //nolint:gosec // G115: loop index is bounded by len(data)
 	}
 	return fmt.Sprintf("%016x", sum)
 }

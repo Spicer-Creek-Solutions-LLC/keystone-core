@@ -30,8 +30,8 @@ func TestDiffer_Diff(t *testing.T) {
 			expectedNoop:   0,
 		},
 		{
-			name: "delete records",
-			zone: "example.com",
+			name:    "delete records",
+			zone:    "example.com",
 			desired: []Record{},
 			current: []Record{
 				{Type: RecordTypeA, Name: "www", Value: "192.0.2.1", TTL: 300, ID: "rec1"},
@@ -74,9 +74,9 @@ func TestDiffer_Diff(t *testing.T) {
 			name: "mixed changes",
 			zone: "example.com",
 			desired: []Record{
-				{Type: RecordTypeA, Name: "www", Value: "192.0.2.1", TTL: 300},  // unchanged
-				{Type: RecordTypeA, Name: "api", Value: "192.0.2.2", TTL: 600},  // update TTL
-				{Type: RecordTypeA, Name: "new", Value: "192.0.2.3", TTL: 300},  // create
+				{Type: RecordTypeA, Name: "www", Value: "192.0.2.1", TTL: 300}, // unchanged
+				{Type: RecordTypeA, Name: "api", Value: "192.0.2.2", TTL: 600}, // update TTL
+				{Type: RecordTypeA, Name: "new", Value: "192.0.2.3", TTL: 300}, // create
 			},
 			current: []Record{
 				{Type: RecordTypeA, Name: "www", Value: "192.0.2.1", TTL: 300, ID: "rec1"},

@@ -10,8 +10,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
 
-// ExecutionQueue manages queued runbook executions with priority support.
-type ExecutionQueue struct {
+// Queue manages queued runbook executions with priority support.
+type Queue struct {
 	mu sync.RWMutex
 
 	// Priority queue for pending executions
@@ -64,12 +64,12 @@ const (
 	PriorityLow      = 100
 )
 
-// QueueOption configures the ExecutionQueue.
-type QueueOption func(*ExecutionQueue)
+// QueueOption configures the Queue.
+type QueueOption func(*Queue)
 
 // WithMaxConcurrent sets the maximum number of concurrent executions.
 func WithMaxConcurrent(n int) QueueOption {
-	return func(q *ExecutionQueue) {
+	return func(q *Queue) {
 		if n > 0 {
 			q.maxConcurrent = n
 		}
@@ -78,7 +78,7 @@ func WithMaxConcurrent(n int) QueueOption {
 
 // WithDefaultQueueTimeout sets the default timeout for queued executions.
 func WithDefaultQueueTimeout(d time.Duration) QueueOption {
-	return func(q *ExecutionQueue) {
+	return func(q *Queue) {
 		q.defaultTimeout = d
 	}
 }
@@ -89,18 +89,18 @@ func WithQueueCallbacks(
 	onStarted func(*QueuedExecution),
 	onCompleted func(*QueuedExecution),
 ) QueueOption {
-	return func(q *ExecutionQueue) {
+	return func(q *Queue) {
 		q.onQueued = onQueued
 		q.onStarted = onStarted
 		q.onCompleted = onCompleted
 	}
 }
 
-// NewExecutionQueue creates a new execution queue.
-func NewExecutionQueue(executor *Executor, opts ...QueueOption) *ExecutionQueue {
+// NewQueue creates a new execution queue.
+func NewQueue(executor *Executor, opts ...QueueOption) *Queue {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	q := &ExecutionQueue{
+	q := &Queue{
 		pending:        &priorityQueue{},
 		active:         make(map[string]*QueuedExecution),
 		maxConcurrent:  10,
@@ -120,7 +120,7 @@ func NewExecutionQueue(executor *Executor, opts ...QueueOption) *ExecutionQueue 
 }
 
 // Start begins processing the queue.
-func (q *ExecutionQueue) Start() {
+func (q *Queue) Start() {
 	q.mu.Lock()
 	if q.started {
 		q.mu.Unlock()
@@ -134,7 +134,7 @@ func (q *ExecutionQueue) Start() {
 }
 
 // Stop stops the queue processor.
-func (q *ExecutionQueue) Stop() {
+func (q *Queue) Stop() {
 	q.cancel()
 	q.wg.Wait()
 
@@ -144,7 +144,7 @@ func (q *ExecutionQueue) Stop() {
 }
 
 // Enqueue adds an execution to the queue.
-func (q *ExecutionQueue) Enqueue(rb *runbook.Runbook, inputs map[string]interface{}, priority int) (*QueuedExecution, error) {
+func (q *Queue) Enqueue(rb *runbook.Runbook, inputs map[string]interface{}, priority int) (*QueuedExecution, error) {
 	if rb == nil {
 		return nil, errors.New("runbook is required")
 	}
@@ -170,7 +170,7 @@ func (q *ExecutionQueue) Enqueue(rb *runbook.Runbook, inputs map[string]interfac
 }
 
 // EnqueueWithTimeout adds an execution with a custom timeout.
-func (q *ExecutionQueue) EnqueueWithTimeout(rb *runbook.Runbook, inputs map[string]interface{}, priority int, timeout time.Duration) (*QueuedExecution, error) {
+func (q *Queue) EnqueueWithTimeout(rb *runbook.Runbook, inputs map[string]interface{}, priority int, timeout time.Duration) (*QueuedExecution, error) {
 	exec, err := q.Enqueue(rb, inputs, priority)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (q *ExecutionQueue) EnqueueWithTimeout(rb *runbook.Runbook, inputs map[stri
 }
 
 // Cancel cancels a queued or running execution.
-func (q *ExecutionQueue) Cancel(executionID string) bool {
+func (q *Queue) Cancel(executionID string) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -203,7 +203,7 @@ func (q *ExecutionQueue) Cancel(executionID string) bool {
 }
 
 // GetStatus returns the status of a queued execution.
-func (q *ExecutionQueue) GetStatus(executionID string) (*QueuedExecution, bool) {
+func (q *Queue) GetStatus(executionID string) (*QueuedExecution, bool) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
@@ -231,7 +231,7 @@ type QueueStats struct {
 }
 
 // Stats returns current queue statistics.
-func (q *ExecutionQueue) Stats() QueueStats {
+func (q *Queue) Stats() QueueStats {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
@@ -250,7 +250,7 @@ func (q *ExecutionQueue) Stats() QueueStats {
 }
 
 // processLoop continuously processes queued executions.
-func (q *ExecutionQueue) processLoop() {
+func (q *Queue) processLoop() {
 	defer q.wg.Done()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -267,7 +267,7 @@ func (q *ExecutionQueue) processLoop() {
 }
 
 // processNext starts the next execution if capacity allows.
-func (q *ExecutionQueue) processNext() {
+func (q *Queue) processNext() {
 	q.mu.Lock()
 
 	// Check if we have capacity
@@ -299,7 +299,7 @@ func (q *ExecutionQueue) processNext() {
 }
 
 // executeRunbook runs a queued execution.
-func (q *ExecutionQueue) executeRunbook(exec *QueuedExecution) {
+func (q *Queue) executeRunbook(exec *QueuedExecution) {
 	defer q.wg.Done()
 
 	// Create timeout context
@@ -478,6 +478,7 @@ type CircuitBreaker struct {
 // CircuitState represents the state of a circuit breaker.
 type CircuitState int
 
+// CircuitClosed constants define the circuit states.
 const (
 	CircuitClosed CircuitState = iota
 	CircuitOpen
@@ -544,6 +545,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 		}
 	case CircuitClosed:
 		cb.failures = 0
+	default:
 	}
 }
 
@@ -562,6 +564,7 @@ func (cb *CircuitBreaker) RecordFailure() {
 		}
 	case CircuitHalfOpen:
 		cb.state = CircuitOpen
+	default:
 	}
 }
 

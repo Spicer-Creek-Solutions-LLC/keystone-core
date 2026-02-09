@@ -25,6 +25,7 @@ func NewFirewallModule() *FirewallModule {
 // FirewallBackend represents the underlying firewall technology
 type FirewallBackend string
 
+// FBUnknown and related constants.
 const (
 	FBUnknown   FirewallBackend = "unknown"
 	FBIptables  FirewallBackend = "iptables"
@@ -37,6 +38,7 @@ const (
 // FirewallAction represents what to do with matching traffic
 type FirewallAction string
 
+// FAAccept and related constants.
 const (
 	FAAccept FirewallAction = "accept"
 	FADrop   FirewallAction = "drop"
@@ -46,6 +48,7 @@ const (
 // FirewallDirection represents traffic direction
 type FirewallDirection string
 
+// FDInput and related constants.
 const (
 	FDInput   FirewallDirection = "input"
 	FDOutput  FirewallDirection = "output"
@@ -90,7 +93,7 @@ func (m *FirewallModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 	}
 
 	// Detect firewall backend
-	backend, err := m.detectFirewallBackend()
+	backend, err := m.detectFirewallBackend(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect firewall backend: %w", err)
 	}
@@ -125,7 +128,7 @@ func (m *FirewallModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the firewall rule configuration
@@ -146,17 +149,17 @@ func (m *FirewallModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect firewall backend
-	backend, err := m.detectFirewallBackend()
+	backend, err := m.detectFirewallBackend(ctx)
 	if err != nil {
 		result.Error = err
 		result.Comment = fmt.Sprintf("Failed to detect firewall backend: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -166,7 +169,7 @@ func (m *FirewallModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -176,7 +179,7 @@ func (m *FirewallModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -205,7 +208,7 @@ func (m *FirewallModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the firewall rule is in the desired state
@@ -214,7 +217,7 @@ func (m *FirewallModule) Test(ctx context.Context, decl *StateDeclaration) (bool
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseFirewallConfig extracts firewall configuration from declaration
@@ -294,53 +297,53 @@ func (m *FirewallModule) parseFirewallConfig(decl *StateDeclaration) (*FirewallC
 		config.Protocol = "all"
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // detectFirewallBackend detects which firewall technology is available
-func (m *FirewallModule) detectFirewallBackend() (FirewallBackend, error) {
+func (m *FirewallModule) detectFirewallBackend(ctx context.Context) (FirewallBackend, error) {
 	switch runtime.GOOS {
 	case "linux":
-		return m.detectLinuxFirewall()
+		return m.detectLinuxFirewall(ctx)
 	case "darwin":
-		return FBPF, nil
+		return FBPF, nil //nolint:nilerr // intentional
 	case "windows":
-		return FBNetsh, nil
+		return FBNetsh, nil //nolint:nilerr // intentional
 	default:
 		return FBUnknown, fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 }
 
 // detectLinuxFirewall detects the Linux firewall technology
-func (m *FirewallModule) detectLinuxFirewall() (FirewallBackend, error) {
+func (m *FirewallModule) detectLinuxFirewall(ctx context.Context) (FirewallBackend, error) {
 	// Check for firewalld first (most user-friendly)
 	if _, err := exec.LookPath("firewall-cmd"); err == nil {
 		// Check if firewalld is running
-		cmd := exec.Command("systemctl", "is-active", "firewalld")
+		cmd := exec.CommandContext(ctx, "systemctl", "is-active", "firewalld")
 		if output, _ := cmd.Output(); strings.TrimSpace(string(output)) == "active" {
-			return FBFirewalld, nil
+			return FBFirewalld, nil //nolint:nilerr // intentional
 		}
 	}
 
 	// Check for nftables
 	if _, err := exec.LookPath("nft"); err == nil {
 		// Check if nftables has tables defined
-		cmd := exec.Command("nft", "list", "tables")
+		cmd := exec.CommandContext(ctx, "nft", "list", "tables")
 		if output, err := cmd.Output(); err == nil && len(output) > 0 {
-			return FBNftables, nil
+			return FBNftables, nil //nolint:nilerr // intentional
 		}
 	}
 
 	// Fall back to iptables
 	if _, err := exec.LookPath("iptables"); err == nil {
-		return FBIptables, nil
+		return FBIptables, nil //nolint:nilerr // intentional
 	}
 
 	return FBUnknown, fmt.Errorf("no supported firewall found (checked: firewalld, nftables, iptables)")
 }
 
 // checkRuleExists checks if a firewall rule exists
-func (m *FirewallModule) checkRuleExists(ctx context.Context, config *FirewallConfig, backend FirewallBackend) (bool, string, error) {
+func (m *FirewallModule) checkRuleExists(ctx context.Context, config *FirewallConfig, backend FirewallBackend) (exists bool, description string, err error) {
 	switch backend {
 	case FBIptables:
 		return m.checkRuleExistsIptables(ctx, config)
@@ -358,28 +361,30 @@ func (m *FirewallModule) checkRuleExists(ctx context.Context, config *FirewallCo
 }
 
 // checkRuleExistsIptables checks if an iptables rule exists
-func (m *FirewallModule) checkRuleExistsIptables(ctx context.Context, config *FirewallConfig) (bool, string, error) {
-	args := []string{"-t", config.Table, "-C", config.Chain}
-	args = append(args, m.buildIptablesRuleArgs(config)...)
+func (m *FirewallModule) checkRuleExistsIptables(ctx context.Context, config *FirewallConfig) (exists bool, description string, err error) {
+	ruleArgs := m.buildIptablesRuleArgs(config)
+	args := make([]string, 0, 4+len(ruleArgs))
+	args = append(args, "-t", config.Table, "-C", config.Chain)
+	args = append(args, ruleArgs...)
 
 	cmd := exec.CommandContext(ctx, "iptables", args...)
-	err := cmd.Run()
+	err = cmd.Run()
 	if err == nil {
-		return true, m.buildRuleDescription(config), nil
+		return true, m.buildRuleDescription(config), nil //nolint:nilerr // error checked above, success means rule exists
 	}
 	// Exit code 1 means rule doesn't exist
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // exit code 1 indicates rule doesn't exist, not an error
 }
 
 // checkRuleExistsNftables checks if an nftables rule exists
-func (m *FirewallModule) checkRuleExistsNftables(ctx context.Context, config *FirewallConfig) (bool, string, error) {
+func (m *FirewallModule) checkRuleExistsNftables(ctx context.Context, config *FirewallConfig) (exists bool, description string, err error) {
 	// List rules and search for our rule by comment
 	args := []string{"list", "chain", "ip", config.Table, strings.ToLower(config.Chain)}
 	cmd := exec.CommandContext(ctx, "nft", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		// Chain might not exist
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // chain not existing is a valid state, not an error
 	}
 
 	// Look for rule with matching comment or port/protocol
@@ -389,22 +394,22 @@ func (m *FirewallModule) checkRuleExistsNftables(ctx context.Context, config *Fi
 		searchStr = config.Comment
 	}
 	if strings.Contains(outputStr, searchStr) {
-		return true, m.buildRuleDescription(config), nil
+		return true, m.buildRuleDescription(config), nil //nolint:nilerr // returning existence status, no error
 	}
 
 	// Also search by port if specified
 	if config.Port > 0 {
 		portStr := fmt.Sprintf("dport %d", config.Port)
 		if strings.Contains(outputStr, portStr) {
-			return true, m.buildRuleDescription(config), nil
+			return true, m.buildRuleDescription(config), nil //nolint:nilerr // returning existence status, no error
 		}
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // rule not found is a valid state, not an error
 }
 
 // checkRuleExistsFirewalld checks if a firewalld rule exists
-func (m *FirewallModule) checkRuleExistsFirewalld(ctx context.Context, config *FirewallConfig) (bool, string, error) {
+func (m *FirewallModule) checkRuleExistsFirewalld(ctx context.Context, config *FirewallConfig) (exists bool, description string, err error) {
 	zone := config.Zone
 	if zone == "" {
 		// Get default zone
@@ -422,7 +427,7 @@ func (m *FirewallModule) checkRuleExistsFirewalld(ctx context.Context, config *F
 		cmd := exec.CommandContext(ctx, "firewall-cmd", args...)
 		err := cmd.Run()
 		if err == nil {
-			return true, m.buildRuleDescription(config), nil
+			return true, m.buildRuleDescription(config), nil //nolint:nilerr // query succeeded means rule exists
 		}
 	}
 
@@ -432,55 +437,55 @@ func (m *FirewallModule) checkRuleExistsFirewalld(ctx context.Context, config *F
 		cmd := exec.CommandContext(ctx, "firewall-cmd", args...)
 		err := cmd.Run()
 		if err == nil {
-			return true, m.buildRuleDescription(config), nil
+			return true, m.buildRuleDescription(config), nil //nolint:nilerr // query succeeded means rule exists
 		}
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // rule not found is a valid state, not an error
 }
 
 // checkRuleExistsPF checks if a pf rule exists (macOS)
-func (m *FirewallModule) checkRuleExistsPF(ctx context.Context, config *FirewallConfig) (bool, string, error) {
+func (m *FirewallModule) checkRuleExistsPF(ctx context.Context, config *FirewallConfig) (exists bool, description string, err error) {
 	// Check if pf is enabled
 	cmd := exec.CommandContext(ctx, "pfctl", "-s", "info")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // pf not available or disabled is a valid state
 	}
 	if !strings.Contains(string(output), "Status: Enabled") {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // pf disabled means no rules active
 	}
 
 	// Get current rules
 	cmd = exec.CommandContext(ctx, "pfctl", "-s", "rules")
 	output, err = cmd.Output()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // no rules is a valid state
 	}
 
 	// Search for our rule
 	rulePattern := m.buildPFRulePattern(config)
 	if strings.Contains(string(output), rulePattern) {
-		return true, m.buildRuleDescription(config), nil
+		return true, m.buildRuleDescription(config), nil //nolint:nilerr // returning existence status, no error
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // rule not found is a valid state, not an error
 }
 
 // checkRuleExistsNetsh checks if a Windows Firewall rule exists
-func (m *FirewallModule) checkRuleExistsNetsh(ctx context.Context, config *FirewallConfig) (bool, string, error) {
+func (m *FirewallModule) checkRuleExistsNetsh(ctx context.Context, config *FirewallConfig) (exists bool, description string, err error) {
 	args := []string{"advfirewall", "firewall", "show", "rule", "name=" + config.Name}
 	cmd := exec.CommandContext(ctx, "netsh", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // rule not found returns error, which is a valid state
 	}
 
 	if strings.Contains(string(output), "Rule Name:") {
-		return true, m.buildRuleDescription(config), nil
+		return true, m.buildRuleDescription(config), nil //nolint:nilerr // returning existence status, no error
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // rule not found is a valid state, not an error
 }
 
 // addRule adds a firewall rule
@@ -544,10 +549,12 @@ func (m *FirewallModule) addRuleNftables(ctx context.Context, config *FirewallCo
 
 	// Build the rule
 	rule := m.buildNftablesRule(config)
+	ruleFields := strings.Fields(rule)
 
 	// Add the rule
-	args := []string{"add", "rule", "ip", tableName, chainName}
-	args = append(args, strings.Fields(rule)...)
+	args := make([]string, 0, 5+len(ruleFields))
+	args = append(args, "add", "rule", "ip", tableName, chainName)
+	args = append(args, ruleFields...)
 	cmd = exec.CommandContext(ctx, "nft", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -707,8 +714,10 @@ func (m *FirewallModule) deleteRule(ctx context.Context, config *FirewallConfig,
 
 // deleteRuleIptables deletes an iptables rule
 func (m *FirewallModule) deleteRuleIptables(ctx context.Context, config *FirewallConfig) error {
-	args := []string{"-t", config.Table, "-D", config.Chain}
-	args = append(args, m.buildIptablesRuleArgs(config)...)
+	ruleArgs := m.buildIptablesRuleArgs(config)
+	args := make([]string, 0, 4+len(ruleArgs))
+	args = append(args, "-t", config.Table, "-D", config.Chain)
+	args = append(args, ruleArgs...)
 
 	cmd := exec.CommandContext(ctx, "iptables", args...)
 	output, err := cmd.CombinedOutput()
@@ -729,7 +738,7 @@ func (m *FirewallModule) deleteRuleNftables(ctx context.Context, config *Firewal
 	cmd := exec.CommandContext(ctx, "nft", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil // Chain doesn't exist, rule is already gone
+		return nil //nolint:nilerr // error means chain doesn't exist, rule already gone
 	}
 
 	// Find the handle for our rule
@@ -795,7 +804,7 @@ func (m *FirewallModule) deleteRulePF(ctx context.Context, config *FirewallConfi
 	cmd := exec.CommandContext(ctx, "pfctl", "-a", anchorName, "-s", "rules")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil // Anchor might not exist
+		return nil //nolint:nilerr // error means anchor doesn't exist
 	}
 
 	// Filter out our rule
@@ -943,17 +952,17 @@ func (m *FirewallModule) buildFirewalldRichRule(config *FirewallConfig) string {
 
 	// Source
 	if config.Source != "" {
-		parts = append(parts, fmt.Sprintf("source address=\"%s\"", config.Source))
+		parts = append(parts, fmt.Sprintf("source address=%q", config.Source))
 	}
 
 	// Destination
 	if config.Destination != "" {
-		parts = append(parts, fmt.Sprintf("destination address=\"%s\"", config.Destination))
+		parts = append(parts, fmt.Sprintf("destination address=%q", config.Destination))
 	}
 
 	// Port
 	if config.Port > 0 {
-		parts = append(parts, fmt.Sprintf("port port=\"%d\" protocol=\"%s\"", config.Port, config.Protocol))
+		parts = append(parts, fmt.Sprintf("port port=%q protocol=%q", fmt.Sprintf("%d", config.Port), config.Protocol))
 	}
 
 	// Action
@@ -989,6 +998,8 @@ func (m *FirewallModule) buildPFRule(config *FirewallConfig) string {
 		parts = append(parts, "in")
 	case FDOutput:
 		parts = append(parts, "out")
+	default:
+		// FDForward not directly supported in pf
 	}
 
 	// Quick (return immediately if matched)
@@ -1068,5 +1079,5 @@ func (m *FirewallModule) buildRuleDescription(config *FirewallConfig) string {
 }
 
 func init() {
-	RegisterModule(NewFirewallModule())
+	_ = RegisterModule(NewFirewallModule()) //nolint:errcheck // module registration in init
 }

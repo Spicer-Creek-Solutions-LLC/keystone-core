@@ -1,8 +1,8 @@
 package statemgmt
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -69,21 +69,23 @@ func (m *NginxSiteModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 	case "enabled":
 		enabled, _ := result.Metadata["enabled"].(bool)
 		result.Matches = result.Present && enabled
-		if enabled {
+		switch {
+		case enabled:
 			result.CurrentState = "enabled"
-		} else if result.Present {
+		case result.Present:
 			result.CurrentState = "disabled"
-		} else {
+		default:
 			result.CurrentState = "absent"
 		}
 	case "disabled":
 		enabled, _ := result.Metadata["enabled"].(bool)
 		result.Matches = result.Present && !enabled
-		if enabled {
+		switch {
+		case enabled:
 			result.CurrentState = "enabled"
-		} else if result.Present {
+		case result.Present:
 			result.CurrentState = "disabled"
-		} else {
+		default:
 			result.CurrentState = "absent"
 		}
 	case "absent":
@@ -141,10 +143,12 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 	case "enabled":
 		// Create/update site configuration if content or source is provided
 		if content != "" {
-			if err := os.MkdirAll(paths.sitesAvailable, 0755); err != nil {
+			//nolint:gosec // G301: nginx sites-available directory needs system access
+			if err := os.MkdirAll(paths.sitesAvailable, 0o755); err != nil {
 				return nil, fmt.Errorf("failed to create sites-available directory: %w", err)
 			}
-			if err := os.WriteFile(availablePath, []byte(content), 0644); err != nil {
+			//nolint:gosec // G306: nginx site config files need to be readable by nginx
+			if err := os.WriteFile(availablePath, []byte(content), 0o644); err != nil {
 				return nil, fmt.Errorf("failed to write site configuration: %w", err)
 			}
 		} else if source != "" {
@@ -152,21 +156,24 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 			if err != nil {
 				return nil, fmt.Errorf("failed to read source file: %w", err)
 			}
-			if err := os.MkdirAll(paths.sitesAvailable, 0755); err != nil {
+			//nolint:gosec // G301: nginx sites-available directory needs system access
+			if err := os.MkdirAll(paths.sitesAvailable, 0o755); err != nil {
 				return nil, fmt.Errorf("failed to create sites-available directory: %w", err)
 			}
-			if err := os.WriteFile(availablePath, sourceContent, 0644); err != nil {
+			//nolint:gosec // G306: nginx site config files need to be readable by nginx
+			if err := os.WriteFile(availablePath, sourceContent, 0o644); err != nil {
 				return nil, fmt.Errorf("failed to write site configuration: %w", err)
 			}
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Enable site by creating symlink
-		if err := os.MkdirAll(paths.sitesEnabled, 0755); err != nil {
+		//nolint:gosec // G301: nginx sites-enabled directory needs system access
+		if err := os.MkdirAll(paths.sitesEnabled, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create sites-enabled directory: %w", err)
 		}
 		_ = os.Remove(enabledPath) // Remove existing symlink if any
@@ -176,7 +183,7 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -199,7 +206,7 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -229,7 +236,7 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -280,20 +287,20 @@ func (m *NginxSiteModule) getNginxPaths() nginxPaths {
 	}
 }
 
-func (m *NginxSiteModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxSiteModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxSiteModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxSiteModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -331,9 +338,9 @@ func (m *NginxConfigModule) Check(ctx context.Context, decl *StateDeclaration) (
 	if dest == "" {
 		// Default to conf.d directory
 		if runtime.GOOS == "darwin" {
-			dest = "/usr/local/etc/nginx/conf.d"
+			dest = filepath.Join("/usr", "local", "etc", "nginx", "conf.d")
 		} else {
-			dest = "/etc/nginx/conf.d"
+			dest = filepath.Join("/etc", "nginx", "conf.d")
 		}
 	}
 
@@ -413,9 +420,9 @@ func (m *NginxConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 	if dest == "" {
 		if runtime.GOOS == "darwin" {
-			dest = "/usr/local/etc/nginx/conf.d"
+			dest = filepath.Join("/usr", "local", "etc", "nginx", "conf.d")
 		} else {
-			dest = "/etc/nginx/conf.d"
+			dest = filepath.Join("/etc", "nginx", "conf.d")
 		}
 	}
 
@@ -454,17 +461,19 @@ func (m *NginxConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (
 		}
 
 		// Create directory if needed
-		if err := os.MkdirAll(dest, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dest, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, configContent, 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, configContent, 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write config file: %w", err)
 		}
 
 		// Validate configuration
-		cmd := exec.Command("nginx", "-t")
+		cmd := exec.CommandContext(ctx,"nginx", "-t")
 		if output, err := cmd.CombinedOutput(); err != nil {
 			// Rollback: remove the config file
 			_ = os.Remove(configPath)
@@ -473,7 +482,7 @@ func (m *NginxConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 		// Reload nginx if requested
 		if reload {
-			cmd := exec.Command("nginx", "-s", "reload")
+			cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %s", string(output))
 			}
@@ -494,7 +503,7 @@ func (m *NginxConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 		// Reload nginx if requested
 		if reload {
-			cmd := exec.Command("nginx", "-s", "reload")
+			cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %s", string(output))
 			}
@@ -617,24 +626,26 @@ func (m *NginxUpstreamModule) Apply(ctx context.Context, decl *StateDeclaration)
 
 		// Create directory if needed
 		dir := filepath.Dir(configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write upstream config: %w", err)
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			_ = os.Remove(configPath)
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -653,7 +664,7 @@ func (m *NginxUpstreamModule) Apply(ctx context.Context, decl *StateDeclaration)
 		}
 
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -681,12 +692,13 @@ func (m *NginxUpstreamModule) Test(ctx context.Context, decl *StateDeclaration) 
 
 func (m *NginxUpstreamModule) getUpstreamPath(name string) string {
 	var dir string
-	if m.upstreamDir != "" {
+	switch {
+	case m.upstreamDir != "":
 		dir = m.upstreamDir
-	} else if runtime.GOOS == "darwin" {
-		dir = "/usr/local/etc/nginx/conf.d"
-	} else {
-		dir = "/etc/nginx/conf.d"
+	case runtime.GOOS == "darwin":
+		dir = filepath.Join("/usr", "local", "etc", "nginx", "conf.d")
+	default:
+		dir = filepath.Join("/etc", "nginx", "conf.d")
 	}
 	return filepath.Join(dir, "upstream-"+name+".conf")
 }
@@ -713,7 +725,7 @@ func (m *NginxUpstreamModule) buildUpstreamConfig(decl *StateDeclaration, name s
 		}
 	case "random":
 		sb.WriteString("    random;\n")
-	// round_robin is default, no directive needed
+		// round_robin is default, no directive needed
 	}
 
 	// Keepalive connections
@@ -758,20 +770,20 @@ func (m *NginxUpstreamModule) buildUpstreamConfig(decl *StateDeclaration, name s
 	return sb.String()
 }
 
-func (m *NginxUpstreamModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxUpstreamModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxUpstreamModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxUpstreamModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -871,24 +883,26 @@ func (m *NginxProxyModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 		// Create directory if needed
 		dir := filepath.Dir(configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write proxy config: %w", err)
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			_ = os.Remove(configPath)
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -907,7 +921,7 @@ func (m *NginxProxyModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 		}
 
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -935,9 +949,9 @@ func (m *NginxProxyModule) Test(ctx context.Context, decl *StateDeclaration) (bo
 
 func (m *NginxProxyModule) getProxyPath(name string) string {
 	if runtime.GOOS == "darwin" {
-		return filepath.Join("/usr/local/etc/nginx/conf.d", "proxy_"+name+".conf")
+		return filepath.Join("/usr", "local", "etc", "nginx", "conf.d", "proxy_"+name+".conf")
 	}
-	return filepath.Join("/etc/nginx/conf.d", "proxy_"+name+".conf")
+	return filepath.Join("/etc", "nginx", "conf.d", "proxy_"+name+".conf")
 }
 
 func (m *NginxProxyModule) buildProxyConfig(decl *StateDeclaration, name, backend string) string {
@@ -948,7 +962,7 @@ func (m *NginxProxyModule) buildProxyConfig(decl *StateDeclaration, name, backen
 	location := getStringParameter(decl, "location", "/")
 
 	sb.WriteString(fmt.Sprintf("# Reverse proxy configuration for %s\n", name))
-	sb.WriteString(fmt.Sprintf("server {\n"))
+	sb.WriteString("server {\n")
 	sb.WriteString(fmt.Sprintf("    listen %s;\n", listen))
 	sb.WriteString(fmt.Sprintf("    server_name %s;\n\n", serverName))
 
@@ -1008,20 +1022,20 @@ func (m *NginxProxyModule) buildProxyConfig(decl *StateDeclaration, name, backen
 	return sb.String()
 }
 
-func (m *NginxProxyModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxProxyModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxProxyModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxProxyModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -1131,24 +1145,26 @@ func (m *NginxSSLModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 
 		// Create directory if needed
 		dir := filepath.Dir(configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write SSL config: %w", err)
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			_ = os.Remove(configPath)
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1167,7 +1183,7 @@ func (m *NginxSSLModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		}
 
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1195,9 +1211,9 @@ func (m *NginxSSLModule) Test(ctx context.Context, decl *StateDeclaration) (bool
 
 func (m *NginxSSLModule) getSSLPath(name string) string {
 	if runtime.GOOS == "darwin" {
-		return filepath.Join("/usr/local/etc/nginx/conf.d", "ssl_"+name+".conf")
+		return filepath.Join("/usr", "local", "etc", "nginx", "conf.d", "ssl_"+name+".conf")
 	}
-	return filepath.Join("/etc/nginx/conf.d", "ssl_"+name+".conf")
+	return filepath.Join("/etc", "nginx", "conf.d", "ssl_"+name+".conf")
 }
 
 func (m *NginxSSLModule) buildSSLConfig(decl *StateDeclaration, name, certificate, certificateKey string) string {
@@ -1262,7 +1278,7 @@ func (m *NginxSSLModule) buildSSLConfig(decl *StateDeclaration, name, certificat
 		if hstsPreload {
 			hstsValue += "; preload"
 		}
-		sb.WriteString(fmt.Sprintf("\n    add_header Strict-Transport-Security \"%s\" always;\n", hstsValue))
+		sb.WriteString(fmt.Sprintf("\n    add_header Strict-Transport-Security %q always;\n", hstsValue))
 	}
 
 	// Root and location
@@ -1280,20 +1296,20 @@ func (m *NginxSSLModule) buildSSLConfig(decl *StateDeclaration, name, certificat
 	return sb.String()
 }
 
-func (m *NginxSSLModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxSSLModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxSSLModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxSSLModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -1393,24 +1409,26 @@ func (m *NginxLocationModule) Apply(ctx context.Context, decl *StateDeclaration)
 
 		// Create directory if needed
 		dir := filepath.Dir(configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write location config: %w", err)
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			_ = os.Remove(configPath)
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1429,7 +1447,7 @@ func (m *NginxLocationModule) Apply(ctx context.Context, decl *StateDeclaration)
 		}
 
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1457,9 +1475,9 @@ func (m *NginxLocationModule) Test(ctx context.Context, decl *StateDeclaration) 
 
 func (m *NginxLocationModule) getLocationPath(name string) string {
 	if runtime.GOOS == "darwin" {
-		return filepath.Join("/usr/local/etc/nginx/conf.d", "location_"+name+".conf")
+		return filepath.Join("/usr", "local", "etc", "nginx", "conf.d", "location_"+name+".conf")
 	}
-	return filepath.Join("/etc/nginx/conf.d", "location_"+name+".conf")
+	return filepath.Join("/etc", "nginx", "conf.d", "location_"+name+".conf")
 }
 
 func (m *NginxLocationModule) buildLocationConfig(decl *StateDeclaration, name, path string) string {
@@ -1467,7 +1485,7 @@ func (m *NginxLocationModule) buildLocationConfig(decl *StateDeclaration, name, 
 
 	// Location modifier
 	modifier := getStringParameter(decl, "modifier", "")
-	locationDirective := ""
+	var locationDirective string
 	if modifier != "" {
 		locationDirective = fmt.Sprintf("location %s %s", modifier, path)
 	} else {
@@ -1561,20 +1579,20 @@ func (m *NginxLocationModule) buildLocationConfig(decl *StateDeclaration, name, 
 	return sb.String()
 }
 
-func (m *NginxLocationModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxLocationModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxLocationModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxLocationModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -1678,24 +1696,26 @@ func (m *NginxRateLimitModule) Apply(ctx context.Context, decl *StateDeclaration
 
 		// Create directory if needed
 		dir := filepath.Dir(configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: nginx config directory needs system access
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create config directory: %w", err)
 		}
 
 		// Write config file
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		//nolint:gosec // G306: nginx config files need to be readable by nginx
+		if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write rate limit config: %w", err)
 		}
 
 		// Validate configuration
-		if err := m.validateConfig(); err != nil {
+		if err := m.validateConfig(ctx); err != nil {
 			_ = os.Remove(configPath)
 			return nil, fmt.Errorf("nginx configuration validation failed: %w", err)
 		}
 
 		// Reload nginx if requested
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1714,7 +1734,7 @@ func (m *NginxRateLimitModule) Apply(ctx context.Context, decl *StateDeclaration
 		}
 
 		if reload {
-			if err := m.reloadNginx(); err != nil {
+			if err := m.reloadNginx(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload nginx: %w", err)
 			}
 		}
@@ -1742,9 +1762,9 @@ func (m *NginxRateLimitModule) Test(ctx context.Context, decl *StateDeclaration)
 
 func (m *NginxRateLimitModule) getRateLimitPath(name string) string {
 	if runtime.GOOS == "darwin" {
-		return filepath.Join("/usr/local/etc/nginx/conf.d", "ratelimit_"+name+".conf")
+		return filepath.Join("/usr", "local", "etc", "nginx", "conf.d", "ratelimit_"+name+".conf")
 	}
-	return filepath.Join("/etc/nginx/conf.d", "ratelimit_"+name+".conf")
+	return filepath.Join("/etc", "nginx", "conf.d", "ratelimit_"+name+".conf")
 }
 
 func (m *NginxRateLimitModule) buildRateLimitConfig(decl *StateDeclaration, name, zone, rate string) string {
@@ -1757,7 +1777,7 @@ func (m *NginxRateLimitModule) buildRateLimitConfig(decl *StateDeclaration, name
 	sb.WriteString(fmt.Sprintf("limit_req_zone %s zone=%s:%s rate=%s;\n\n", key, zone, size, rate))
 
 	// Generate location snippet for applying rate limit
-	sb.WriteString(fmt.Sprintf("# Apply in location block:\n"))
+	sb.WriteString("# Apply in location block:\n")
 	sb.WriteString(fmt.Sprintf("# limit_req zone=%s", zone))
 
 	burst := getIntParameter(decl, "burst", 0)
@@ -1800,20 +1820,20 @@ func (m *NginxRateLimitModule) buildRateLimitConfig(decl *StateDeclaration, name
 	return sb.String()
 }
 
-func (m *NginxRateLimitModule) validateConfig() error {
-	cmd := exec.Command("nginx", "-t")
+func (m *NginxRateLimitModule) validateConfig(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-t")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
 
-func (m *NginxRateLimitModule) reloadNginx() error {
-	cmd := exec.Command("nginx", "-s", "reload")
+func (m *NginxRateLimitModule) reloadNginx(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx,"nginx", "-s", "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
 }
@@ -1875,20 +1895,22 @@ func (m *ApacheSiteModule) Check(ctx context.Context, decl *StateDeclaration) (*
 	switch decl.State {
 	case "enabled":
 		result.Matches = result.Present && enabled
-		if enabled {
+		switch {
+		case enabled:
 			result.CurrentState = "enabled"
-		} else if result.Present {
+		case result.Present:
 			result.CurrentState = "disabled"
-		} else {
+		default:
 			result.CurrentState = "absent"
 		}
 	case "disabled":
 		result.Matches = result.Present && !enabled
-		if enabled {
+		switch {
+		case enabled:
 			result.CurrentState = "enabled"
-		} else if result.Present {
+		case result.Present:
 			result.CurrentState = "disabled"
-		} else {
+		default:
 			result.CurrentState = "absent"
 		}
 	case "absent":
@@ -1954,22 +1976,24 @@ func (m *ApacheSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 					return nil, fmt.Errorf("failed to read source file: %w", err)
 				}
 			}
-			if err := os.MkdirAll(paths.sitesAvailable, 0755); err != nil {
+			//nolint:gosec // G301: apache sites-available directory needs system access
+			if err := os.MkdirAll(paths.sitesAvailable, 0o755); err != nil {
 				return nil, fmt.Errorf("failed to create sites-available directory: %w", err)
 			}
-			if err := os.WriteFile(availablePath, configContent, 0644); err != nil {
+			//nolint:gosec // G306: apache site config files need to be readable by apache
+			if err := os.WriteFile(availablePath, configContent, 0o644); err != nil {
 				return nil, fmt.Errorf("failed to write site configuration: %w", err)
 			}
 		}
 
 		// Enable site using a2ensite
-		if err := m.runA2ensite(name); err != nil {
+		if err := m.runA2ensite(ctx, name); err != nil {
 			return nil, fmt.Errorf("failed to enable site: %w", err)
 		}
 
 		// Reload apache if requested
 		if reload {
-			if err := m.reloadApache(); err != nil {
+			if err := m.reloadApache(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload apache: %w", err)
 			}
 		}
@@ -1984,13 +2008,13 @@ func (m *ApacheSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 	case "disabled":
 		// Disable site using a2dissite
-		if err := m.runA2dissite(name); err != nil {
+		if err := m.runA2dissite(ctx, name); err != nil {
 			return nil, fmt.Errorf("failed to disable site: %w", err)
 		}
 
 		// Reload apache if requested
 		if reload {
-			if err := m.reloadApache(); err != nil {
+			if err := m.reloadApache(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload apache: %w", err)
 			}
 		}
@@ -2005,7 +2029,7 @@ func (m *ApacheSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 	case "absent":
 		// Disable site first
-		_ = m.runA2dissite(name) // Ignore error if already disabled
+		_ = m.runA2dissite(ctx, name) // Ignore error if already disabled
 
 		// Remove site configuration
 		if err := os.Remove(availablePath); err != nil && !os.IsNotExist(err) {
@@ -2014,7 +2038,7 @@ func (m *ApacheSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 		// Reload apache if requested
 		if reload {
-			if err := m.reloadApache(); err != nil {
+			if err := m.reloadApache(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload apache: %w", err)
 			}
 		}
@@ -2070,9 +2094,9 @@ func (m *ApacheSiteModule) getApachePaths() apachePaths {
 	}
 }
 
-func (m *ApacheSiteModule) runA2ensite(name string) error {
+func (m *ApacheSiteModule) runA2ensite(ctx context.Context, name string) error {
 	// Try a2ensite first (Debian/Ubuntu)
-	cmd := exec.Command("a2ensite", name)
+	cmd := exec.CommandContext(ctx,"a2ensite", name)
 	if output, err := cmd.CombinedOutput(); err == nil {
 		return nil
 	} else if !strings.Contains(string(output), "not found") {
@@ -2084,16 +2108,17 @@ func (m *ApacheSiteModule) runA2ensite(name string) error {
 	availablePath := filepath.Join(paths.sitesAvailable, name+".conf")
 	enabledPath := filepath.Join(paths.sitesEnabled, name+".conf")
 
-	if err := os.MkdirAll(paths.sitesEnabled, 0755); err != nil {
+	//nolint:gosec // G301: apache sites-enabled directory needs system access
+	if err := os.MkdirAll(paths.sitesEnabled, 0o755); err != nil {
 		return fmt.Errorf("failed to create sites-enabled directory: %w", err)
 	}
 	_ = os.Remove(enabledPath)
 	return os.Symlink(availablePath, enabledPath)
 }
 
-func (m *ApacheSiteModule) runA2dissite(name string) error {
+func (m *ApacheSiteModule) runA2dissite(ctx context.Context, name string) error {
 	// Try a2dissite first (Debian/Ubuntu)
-	cmd := exec.Command("a2dissite", name)
+	cmd := exec.CommandContext(ctx,"a2dissite", name)
 	if output, err := cmd.CombinedOutput(); err == nil {
 		return nil
 	} else if !strings.Contains(string(output), "not found") {
@@ -2106,18 +2131,18 @@ func (m *ApacheSiteModule) runA2dissite(name string) error {
 	return os.Remove(enabledPath)
 }
 
-func (m *ApacheSiteModule) reloadApache() error {
+func (m *ApacheSiteModule) reloadApache(ctx context.Context) error {
 	// Try different service names
 	serviceNames := []string{"apache2", "httpd"}
 	for _, svc := range serviceNames {
-		cmd := exec.Command("systemctl", "reload", svc)
+		cmd := exec.CommandContext(ctx,"systemctl", "reload", svc)
 		if err := cmd.Run(); err == nil {
 			return nil
 		}
 	}
 
 	// Try apachectl
-	cmd := exec.Command("apachectl", "graceful")
+	cmd := exec.CommandContext(ctx,"apachectl", "graceful")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload apache: %s", string(output))
 	}
@@ -2158,7 +2183,7 @@ func (m *ApacheModuleModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Check if module is enabled
-	enabled := m.isModuleEnabled(name)
+	enabled := m.isModuleEnabled(ctx, name)
 	result.Metadata["enabled"] = enabled
 
 	if enabled {
@@ -2211,12 +2236,12 @@ func (m *ApacheModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 	switch decl.State {
 	case "enabled":
-		if err := m.runA2enmod(name); err != nil {
+		if err := m.runA2enmod(ctx, name); err != nil {
 			return nil, fmt.Errorf("failed to enable module: %w", err)
 		}
 
 		if reload {
-			if err := m.reloadApache(); err != nil {
+			if err := m.reloadApache(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload apache: %w", err)
 			}
 		}
@@ -2230,12 +2255,12 @@ func (m *ApacheModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}, nil
 
 	case "disabled":
-		if err := m.runA2dismod(name); err != nil {
+		if err := m.runA2dismod(ctx, name); err != nil {
 			return nil, fmt.Errorf("failed to disable module: %w", err)
 		}
 
 		if reload {
-			if err := m.reloadApache(); err != nil {
+			if err := m.reloadApache(ctx); err != nil {
 				return nil, fmt.Errorf("failed to reload apache: %w", err)
 			}
 		}
@@ -2261,13 +2286,13 @@ func (m *ApacheModuleModule) Test(ctx context.Context, decl *StateDeclaration) (
 	return checkResult.Matches, nil
 }
 
-func (m *ApacheModuleModule) isModuleEnabled(name string) bool {
+func (m *ApacheModuleModule) isModuleEnabled(ctx context.Context, name string) bool {
 	// Check using apache2ctl -M
-	cmd := exec.Command("apache2ctl", "-M")
+	cmd := exec.CommandContext(ctx,"apache2ctl", "-M")
 	output, err := cmd.Output()
 	if err != nil {
 		// Try apachectl
-		cmd = exec.Command("apachectl", "-M")
+		cmd = exec.CommandContext(ctx,"apachectl", "-M")
 		output, err = cmd.Output()
 		if err != nil {
 			return false
@@ -2302,34 +2327,34 @@ func (m *ApacheModuleModule) isModuleAvailable(name string) bool {
 	return false
 }
 
-func (m *ApacheModuleModule) runA2enmod(name string) error {
-	cmd := exec.Command("a2enmod", name)
+func (m *ApacheModuleModule) runA2enmod(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx,"a2enmod", name)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
 	return nil
 }
 
-func (m *ApacheModuleModule) runA2dismod(name string) error {
-	cmd := exec.Command("a2dismod", name)
+func (m *ApacheModuleModule) runA2dismod(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx,"a2dismod", name)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
 	return nil
 }
 
-func (m *ApacheModuleModule) reloadApache() error {
+func (m *ApacheModuleModule) reloadApache(ctx context.Context) error {
 	// Try different service names
 	serviceNames := []string{"apache2", "httpd"}
 	for _, svc := range serviceNames {
-		cmd := exec.Command("systemctl", "reload", svc)
+		cmd := exec.CommandContext(ctx,"systemctl", "reload", svc)
 		if err := cmd.Run(); err == nil {
 			return nil
 		}
 	}
 
 	// Try apachectl
-	cmd := exec.Command("apachectl", "graceful")
+	cmd := exec.CommandContext(ctx,"apachectl", "graceful")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload apache: %s", string(output))
 	}
@@ -2337,13 +2362,13 @@ func (m *ApacheModuleModule) reloadApache() error {
 }
 
 func init() {
-	RegisterModule(NewNginxSiteModule())
-	RegisterModule(NewNginxConfigModule())
-	RegisterModule(NewNginxUpstreamModule())
-	RegisterModule(NewNginxProxyModule())
-	RegisterModule(NewNginxSSLModule())
-	RegisterModule(NewNginxLocationModule())
-	RegisterModule(NewNginxRateLimitModule())
-	RegisterModule(NewApacheSiteModule())
-	RegisterModule(NewApacheModuleModule())
+	_ = RegisterModule(NewNginxSiteModule())
+	_ = RegisterModule(NewNginxConfigModule())
+	_ = RegisterModule(NewNginxUpstreamModule())
+	_ = RegisterModule(NewNginxProxyModule())
+	_ = RegisterModule(NewNginxSSLModule())
+	_ = RegisterModule(NewNginxLocationModule())
+	_ = RegisterModule(NewNginxRateLimitModule())
+	_ = RegisterModule(NewApacheSiteModule())
+	_ = RegisterModule(NewApacheModuleModule())
 }

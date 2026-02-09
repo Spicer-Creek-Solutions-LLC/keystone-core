@@ -210,7 +210,7 @@ func (c *Client) parseResourceStatus(obj *unstructured.Unstructured, kind Resour
 	// Get status fields
 	statusObj, found, err := unstructured.NestedMap(obj.Object, "status")
 	if err != nil || !found {
-		return status, nil
+		return status, nil //nolint:nilerr // missing status is not an error
 	}
 
 	// Parse conditions

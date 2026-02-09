@@ -85,7 +85,7 @@ func (m *K8sServiceModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check ports
 	desiredPorts := getServicePorts(decl)
-	if desiredPorts != nil && len(desiredPorts) > 0 {
+	if len(desiredPorts) > 0 {
 		if !compareServicePorts(service.Ports, desiredPorts) {
 			result.Matches = false
 			result.Diff["ports"] = map[string]interface{}{
@@ -97,7 +97,7 @@ func (m *K8sServiceModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(service.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -109,7 +109,7 @@ func (m *K8sServiceModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(service.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{
@@ -301,19 +301,13 @@ func convertToServicePortSpecs(ports []k8s.ServicePort) []k8s.ServicePortSpec {
 	}
 	specs := make([]k8s.ServicePortSpec, len(ports))
 	for i, p := range ports {
-		specs[i] = k8s.ServicePortSpec{
-			Name:       p.Name,
-			Protocol:   p.Protocol,
-			Port:       p.Port,
-			TargetPort: p.TargetPort,
-			NodePort:   p.NodePort,
-		}
+		specs[i] = k8s.ServicePortSpec(p)
 	}
 	return specs
 }
 
 // compareServicePorts compares two service port slices
-func compareServicePorts(current []k8s.ServicePort, desired []k8s.ServicePort) bool {
+func compareServicePorts(current, desired []k8s.ServicePort) bool {
 	if len(current) != len(desired) {
 		return false
 	}
@@ -355,13 +349,13 @@ func getMapStringValue(m map[string]interface{}, key, defaultValue string) strin
 func toInt32(v interface{}) int32 {
 	switch val := v.(type) {
 	case int:
-		return int32(val)
+		return int32(val) //nolint:gosec // G115: k8s service params are small ints
 	case int32:
 		return val
 	case int64:
-		return int32(val)
+		return int32(val) //nolint:gosec // G115: k8s service params are small ints
 	case float64:
-		return int32(val)
+		return int32(val) //nolint:gosec // G115: k8s service params are small ints
 	default:
 		return 0
 	}

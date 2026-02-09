@@ -81,7 +81,7 @@ func execCommand(ctx context.Context, name string, args ...string) (string, erro
 	return string(result), nil
 }
 
-func renderCompletionReport(cfg *BootstrapConfig) string {
+func renderCompletionReport(cfg *Config) string {
 	var builder strings.Builder
 	builder.WriteString("bootstrap complete\n\n")
 	builder.WriteString(fmt.Sprintf("cluster: %s\n", cfg.ClusterName))
@@ -111,15 +111,15 @@ func renderCompletionReport(cfg *BootstrapConfig) string {
 	return builder.String()
 }
 
-func requiresServer(cfg *BootstrapConfig) bool {
+func requiresServer(cfg *Config) bool {
 	return cfg.NodeRole == "control-plane" || cfg.NodeRole == "both"
 }
 
-func requiresAgent(cfg *BootstrapConfig) bool {
+func requiresAgent(cfg *Config) bool {
 	return cfg.NodeRole == "agent" || cfg.NodeRole == "both"
 }
 
-func checkAPIConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
+func checkAPIConnectivity(ctx context.Context, cfg *Config) error {
 	host := resolveDialHost(cfg.BindAddress, cfg.Advertise)
 	grpcAddr := net.JoinHostPort(host, strconv.Itoa(config.DefaultGRPCPort))
 	// Retry connection with backoff since server may still be starting
@@ -137,11 +137,11 @@ func checkTCPWithRetry(ctx context.Context, address string, maxRetries int, init
 	var lastErr error
 	delay := initialDelay
 	for i := 0; i < maxRetries; i++ {
-		if err := checkTCP(ctx, address); err == nil {
+		err := checkTCP(ctx, address)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -155,7 +155,7 @@ func checkTCPWithRetry(ctx context.Context, address string, maxRetries int, init
 	return lastErr
 }
 
-func checkNATSConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
+func checkNATSConnectivity(ctx context.Context, cfg *Config) error {
 	addresses, err := resolveNATSAddresses(cfg)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func checkNATSConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
 	return nil
 }
 
-func checkClusterMembership(ctx context.Context, cfg *BootstrapConfig) error {
+func checkClusterMembership(ctx context.Context, cfg *Config) error {
 	if !shouldCheckClusterMembership(cfg) {
 		return nil
 	}
@@ -177,7 +177,7 @@ func checkClusterMembership(ctx context.Context, cfg *BootstrapConfig) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(timeoutCtx, grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.DialContext(timeoutCtx, grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()) //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 	if err != nil {
 		return fmt.Errorf("cluster health dial failed: %w", err)
 	}
@@ -209,7 +209,7 @@ func checkClusterMembership(ctx context.Context, cfg *BootstrapConfig) error {
 	return nil
 }
 
-func checkPostgresConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
+func checkPostgresConnectivity(ctx context.Context, cfg *Config) error {
 	if !strings.EqualFold(cfg.Storage, "postgres") {
 		return nil
 	}
@@ -227,7 +227,7 @@ func checkPostgresConnectivity(ctx context.Context, cfg *BootstrapConfig) error 
 	return nil
 }
 
-func resolveNATSAddresses(cfg *BootstrapConfig) ([]string, error) {
+func resolveNATSAddresses(cfg *Config) ([]string, error) {
 	// If explicit NATS URLs are provided, use them (for external, leaf, or agent connecting to control-plane)
 	if len(cfg.NATSURLs) > 0 {
 		addresses := make([]string, 0, len(cfg.NATSURLs))
@@ -245,7 +245,7 @@ func resolveNATSAddresses(cfg *BootstrapConfig) ([]string, error) {
 	return []string{net.JoinHostPort(host, "4222")}, nil
 }
 
-func resolvePostgresAddress(cfg *BootstrapConfig) (string, error) {
+func resolvePostgresAddress(cfg *Config) (string, error) {
 	host := strings.TrimSpace(cfg.PostgresHost)
 	if host == "" {
 		return "", fmt.Errorf("postgres host is required")
@@ -260,7 +260,7 @@ func resolvePostgresAddress(cfg *BootstrapConfig) (string, error) {
 	return net.JoinHostPort(host, strconv.Itoa(port)), nil
 }
 
-func shouldCheckClusterMembership(cfg *BootstrapConfig) bool {
+func shouldCheckClusterMembership(cfg *Config) bool {
 	if cfg == nil {
 		return false
 	}
@@ -329,10 +329,7 @@ func checkTCP(ctx context.Context, address string) error {
 	if err != nil {
 		return err
 	}
-	if err := conn.Close(); err != nil {
-		return err
-	}
-	return nil
+	return conn.Close()
 }
 
 func serviceStatusCommand(initSystem, service string) (CommandPlan, bool) {

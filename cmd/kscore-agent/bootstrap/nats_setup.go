@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func setupNATS(cfg *BootstrapConfig, output io.Writer, verbose bool) error {
+func setupNATS(cfg *Config, output io.Writer, verbose bool) error {
 	if err := validateNATSURLs(cfg.NATSURLs); err != nil {
 		return err
 	}
@@ -50,6 +50,7 @@ func ensureNATSDirectories(output io.Writer, verbose bool) error {
 			fmt.Fprintf(output, "kscore user not found, creating directories without chown: %v\n", err)
 		}
 		for _, dir := range dirs {
+			//nolint:gosec // G301: NATS directory needs to be accessible by service user
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return fmt.Errorf("create nats directory %s: %w", dir, err)
 			}
@@ -70,6 +71,7 @@ func ensureNATSDirectories(output io.Writer, verbose bool) error {
 	}
 
 	for _, dir := range dirs {
+		//nolint:gosec // G301: NATS directory needs to be accessible by service user
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create nats directory %s: %w", dir, err)
 		}

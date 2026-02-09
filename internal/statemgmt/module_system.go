@@ -31,7 +31,7 @@ func (m *TimezoneModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
-	currentTZ, err := m.getCurrentTimezone()
+	currentTZ, err := m.getCurrentTimezone(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +111,11 @@ func (m *TimezoneModule) Test(ctx context.Context, decl *StateDeclaration) (bool
 	return result.Matches, nil
 }
 
-func (m *TimezoneModule) getCurrentTimezone() (string, error) {
+func (m *TimezoneModule) getCurrentTimezone(ctx context.Context) (string, error) {
 	switch runtime.GOOS {
 	case "linux":
 		// Try timedatectl first
-		cmd := exec.Command("timedatectl", "show", "-p", "Timezone", "--value")
+		cmd := exec.CommandContext(ctx,"timedatectl", "show", "-p", "Timezone", "--value")
 		output, err := cmd.Output()
 		if err == nil {
 			return strings.TrimSpace(string(output)), nil
@@ -138,7 +138,7 @@ func (m *TimezoneModule) getCurrentTimezone() (string, error) {
 		return "", fmt.Errorf("could not determine current timezone")
 
 	case "darwin":
-		cmd := exec.Command("systemsetup", "-gettimezone")
+		cmd := exec.CommandContext(ctx,"systemsetup", "-gettimezone")
 		output, err := cmd.Output()
 		if err != nil {
 			return "", err
@@ -151,7 +151,7 @@ func (m *TimezoneModule) getCurrentTimezone() (string, error) {
 		return "", fmt.Errorf("could not parse timezone output")
 
 	case "windows":
-		cmd := exec.Command("tzutil", "/g")
+		cmd := exec.CommandContext(ctx,"tzutil", "/g")
 		output, err := cmd.Output()
 		if err != nil {
 			return "", err
@@ -173,7 +173,7 @@ func (m *TimezoneModule) setTimezone(ctx context.Context, name string) error {
 		}
 
 		// Fallback: symlink /etc/localtime
-		zonePath := filepath.Join("/usr/share/zoneinfo", name)
+		zonePath := filepath.Join("/usr", "share", "zoneinfo", name)
 		if _, err := os.Stat(zonePath); os.IsNotExist(err) {
 			return fmt.Errorf("timezone %s not found", name)
 		}
@@ -184,7 +184,8 @@ func (m *TimezoneModule) setTimezone(ctx context.Context, name string) error {
 		}
 
 		// Also update /etc/timezone
-		return os.WriteFile("/etc/timezone", []byte(name+"\n"), 0644)
+		//nolint:gosec // G306: timezone file needs to be readable by the system
+		return os.WriteFile("/etc/timezone", []byte(name+"\n"), 0o644)
 
 	case "darwin":
 		cmd := exec.CommandContext(ctx, "systemsetup", "-settimezone", name)
@@ -222,7 +223,7 @@ func (m *LocaleModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 		return nil, fmt.Errorf("name parameter is required (e.g., en_US.UTF-8)")
 	}
 
-	currentLocale, err := m.getCurrentLocale()
+	currentLocale, err := m.getCurrentLocale(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -301,11 +302,11 @@ func (m *LocaleModule) Test(ctx context.Context, decl *StateDeclaration) (bool, 
 	return result.Matches, nil
 }
 
-func (m *LocaleModule) getCurrentLocale() (string, error) {
+func (m *LocaleModule) getCurrentLocale(ctx context.Context) (string, error) {
 	switch runtime.GOOS {
 	case "linux":
 		// Try localectl
-		cmd := exec.Command("localectl", "status")
+		cmd := exec.CommandContext(ctx,"localectl", "status")
 		output, err := cmd.Output()
 		if err == nil {
 			for _, line := range strings.Split(string(output), "\n") {
@@ -338,7 +339,7 @@ func (m *LocaleModule) getCurrentLocale() (string, error) {
 
 	case "darwin":
 		// macOS uses different locale system
-		cmd := exec.Command("defaults", "read", "-g", "AppleLocale")
+		cmd := exec.CommandContext(ctx,"defaults", "read", "-g", "AppleLocale")
 		output, err := cmd.Output()
 		if err != nil {
 			return "", err
@@ -366,12 +367,14 @@ func (m *LocaleModule) setLocale(ctx context.Context, name string) error {
 		content := fmt.Sprintf("LANG=%s\n", name)
 
 		// Try /etc/locale.conf (systemd)
-		if err := os.WriteFile("/etc/locale.conf", []byte(content), 0644); err == nil {
+		//nolint:gosec // G306: locale config files need to be readable by the system
+		if err := os.WriteFile("/etc/locale.conf", []byte(content), 0o644); err == nil {
 			return nil
 		}
 
 		// Try /etc/default/locale (Debian)
-		return os.WriteFile("/etc/default/locale", []byte(content), 0644)
+		//nolint:gosec // G306: locale config files need to be readable by the system
+		return os.WriteFile("/etc/default/locale", []byte(content), 0o644)
 
 	case "darwin":
 		cmd := exec.CommandContext(ctx, "defaults", "write", "-g", "AppleLocale", name)
@@ -497,7 +500,8 @@ func (m *HostnameModule) setHostname(ctx context.Context, name string, persisten
 		}
 
 		if persistent {
-			return os.WriteFile("/etc/hostname", []byte(name+"\n"), 0644)
+			//nolint:gosec // G306: hostname file needs to be readable by the system
+			return os.WriteFile("/etc/hostname", []byte(name+"\n"), 0o644)
 		}
 		return nil
 
@@ -685,7 +689,7 @@ func (m *HostsModule) getHostsPath() string {
 	return "/etc/hosts"
 }
 
-func (m *HostsModule) entryExists(path, ip string) (bool, []string, error) {
+func (m *HostsModule) entryExists(path, ip string) (exists bool, hostnames []string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return false, nil, err
@@ -750,7 +754,8 @@ func (m *HostsModule) addEntry(path, ip string, names []string) error {
 	newEntry := fmt.Sprintf("%s\t%s", ip, strings.Join(names, " "))
 	lines = append(lines, newEntry)
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: hosts file needs to be readable by the system
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 func (m *HostsModule) removeEntry(path, ip string) error {
@@ -776,7 +781,8 @@ func (m *HostsModule) removeEntry(path, ip string) error {
 		lines = append(lines, line)
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+	//nolint:gosec // G306: hosts file needs to be readable by the system
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 // SysctlModule manages Linux sysctl settings
@@ -916,9 +922,9 @@ func (m *SysctlModule) Test(ctx context.Context, decl *StateDeclaration) (bool, 
 	return result.Matches, nil
 }
 
-func (m *SysctlModule) getValue(name string) (string, bool, error) {
+func (m *SysctlModule) getValue(name string) (value string, exists bool, err error) {
 	// Convert to path format (net.ipv4.ip_forward -> /proc/sys/net/ipv4/ip_forward)
-	path := filepath.Join("/proc/sys", strings.ReplaceAll(name, ".", "/"))
+	path := filepath.Join("/proc", "sys", strings.ReplaceAll(name, ".", "/"))
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -967,16 +973,18 @@ func (m *SysctlModule) addToSysctlConf(name, value string) error {
 	entries[name] = value
 
 	// Write back
-	var lines []string
+	lines := make([]string, 0, 1+len(entries))
 	lines = append(lines, "# Managed by Keystone Core")
 	for k, v := range entries {
 		lines = append(lines, fmt.Sprintf("%s = %s", k, v))
 	}
 
-	if err := os.MkdirAll("/etc/sysctl.d", 0755); err != nil {
+	//nolint:gosec // G301: sysctl.d directory needs system access
+	if err := os.MkdirAll("/etc/sysctl.d", 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(confPath, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: sysctl config files need to be readable by the kernel
+	return os.WriteFile(confPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 func (m *SysctlModule) isInSysctlConf(name string) bool {
@@ -1014,7 +1022,8 @@ func (m *SysctlModule) removeFromSysctlConf(name string) error {
 		lines = append(lines, line)
 	}
 
-	return os.WriteFile(confPath, []byte(strings.Join(lines, "\n")), 0644)
+	//nolint:gosec // G306: sysctl config files need to be readable by the kernel
+	return os.WriteFile(confPath, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 // KernelModuleModule manages Linux kernel modules
@@ -1116,7 +1125,7 @@ func (m *KernelModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 	case "loaded":
 		// Remove from blacklist if needed
 		if m.isBlacklisted(name) {
-			m.removeFromBlacklist(name)
+			_ = m.removeFromBlacklist(name) //nolint:errcheck // best-effort blacklist removal
 		}
 
 		if err := m.loadModule(ctx, name, params); err != nil {
@@ -1130,7 +1139,7 @@ func (m *KernelModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 
 		if persistent {
-			m.addToModulesLoad(name)
+			_ = m.addToModulesLoad(name) //nolint:errcheck // best-effort persistent config
 		}
 
 		return &StateResult{
@@ -1153,7 +1162,7 @@ func (m *KernelModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 
 		if persistent {
-			m.removeFromModulesLoad(name)
+			_ = m.removeFromModulesLoad(name) //nolint:errcheck // best-effort persistent config
 		}
 
 		return &StateResult{
@@ -1167,7 +1176,7 @@ func (m *KernelModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 	case "blacklisted":
 		// Unload if loaded
 		if checkResult.Present {
-			m.unloadModule(ctx, name)
+			_ = m.unloadModule(ctx, name) //nolint:errcheck // best-effort unload before blacklist
 		}
 
 		if err := m.addToBlacklist(name); err != nil {
@@ -1264,7 +1273,8 @@ func (m *KernelModuleModule) addToBlacklist(name string) error {
 	}
 
 	lines = append(lines, fmt.Sprintf("blacklist %s", name))
-	return os.WriteFile(blacklistPath, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: modprobe.d config files need to be readable by the kernel
+	return os.WriteFile(blacklistPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 func (m *KernelModuleModule) removeFromBlacklist(name string) error {
@@ -1285,7 +1295,8 @@ func (m *KernelModuleModule) removeFromBlacklist(name string) error {
 		}
 	}
 
-	return os.WriteFile(blacklistPath, []byte(strings.Join(lines, "\n")), 0644)
+	//nolint:gosec // G306: modprobe.d config files need to be readable by the kernel
+	return os.WriteFile(blacklistPath, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 func (m *KernelModuleModule) addToModulesLoad(name string) error {
@@ -1304,10 +1315,12 @@ func (m *KernelModuleModule) addToModulesLoad(name string) error {
 	}
 
 	lines = append(lines, name)
-	if err := os.MkdirAll("/etc/modules-load.d", 0755); err != nil {
+	//nolint:gosec // G301: modules-load.d directory needs system access
+	if err := os.MkdirAll("/etc/modules-load.d", 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: modules-load.d config files need to be readable by systemd
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 func (m *KernelModuleModule) removeFromModulesLoad(name string) error {
@@ -1327,5 +1340,6 @@ func (m *KernelModuleModule) removeFromModulesLoad(name string) error {
 		}
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+	//nolint:gosec // G306: modules-load.d config files need to be readable by systemd
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 }

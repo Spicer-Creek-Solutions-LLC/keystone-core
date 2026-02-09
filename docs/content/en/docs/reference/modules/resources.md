@@ -8,7 +8,7 @@ weight: 20
 
 Package resources provides configurable resource limits for Keystone plugin modules.
 
-**Import:** `/home/sbutts/code/keystone-core/pkg/plugin/resources`
+**Import:** `github.com/shawnbutts/keystone-core/pkg/plugin/resources`
 
 ## Contents
 

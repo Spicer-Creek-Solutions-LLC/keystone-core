@@ -16,8 +16,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/secrets"
 )
 
-// KMSSecretCacheConfig configures a KMS-backed secret cache.
-type KMSSecretCacheConfig struct {
+// SecretCacheConfig configures a KMS-backed secret cache.
+type SecretCacheConfig struct {
 	// MaxEntries is the maximum number of cached entries.
 	MaxEntries int `json:"max_entries,omitempty"`
 
@@ -34,9 +34,9 @@ type KMSSecretCacheConfig struct {
 	RotateKeyOnStart bool `json:"rotate_key_on_start,omitempty"`
 }
 
-// DefaultKMSSecretCacheConfig returns default configuration.
-func DefaultKMSSecretCacheConfig() *KMSSecretCacheConfig {
-	return &KMSSecretCacheConfig{
+// DefaultSecretCacheConfig returns default configuration.
+func DefaultSecretCacheConfig() *SecretCacheConfig {
+	return &SecretCacheConfig{
 		MaxEntries:      10000,
 		DefaultTTL:      5 * time.Minute,
 		CleanupInterval: time.Minute,
@@ -44,15 +44,15 @@ func DefaultKMSSecretCacheConfig() *KMSSecretCacheConfig {
 	}
 }
 
-// KMSSecretCache provides a secret cache with KMS-backed encryption.
-type KMSSecretCache struct {
+// SecretCache provides a secret cache with KMS-backed encryption.
+type SecretCache struct {
 	mu sync.RWMutex
 
-	config   *KMSSecretCacheConfig
-	manager  *KeyHierarchyManager
-	gcm      cipher.AEAD
-	keyInfo  *DerivedKey
-	entries  map[string]*kmsCacheEntry
+	config  *SecretCacheConfig
+	manager *KeyHierarchyManager
+	gcm     cipher.AEAD
+	keyInfo *DerivedKey
+	entries map[string]*kmsCacheEntry
 
 	hits        atomic.Int64
 	misses      atomic.Int64
@@ -79,14 +79,14 @@ func (e *kmsCacheEntry) isExpired() bool {
 	return time.Now().After(e.expiresAt)
 }
 
-// NewKMSSecretCache creates a new KMS-backed secret cache.
-func NewKMSSecretCache(ctx context.Context, manager *KeyHierarchyManager, config *KMSSecretCacheConfig) (*KMSSecretCache, error) {
+// NewSecretCache creates a new KMS-backed secret cache.
+func NewSecretCache(ctx context.Context, manager *KeyHierarchyManager, config *SecretCacheConfig) (*SecretCache, error) {
 	if manager == nil {
 		return nil, fmt.Errorf("key hierarchy manager is required")
 	}
 
 	if config == nil {
-		config = DefaultKMSSecretCacheConfig()
+		config = DefaultSecretCacheConfig()
 	}
 
 	// Get or generate the cache encryption key
@@ -115,7 +115,7 @@ func NewKMSSecretCache(ctx context.Context, manager *KeyHierarchyManager, config
 
 	cacheCtx, cancel := context.WithCancel(context.Background())
 
-	cache := &KMSSecretCache{
+	cache := &SecretCache{
 		config:  config,
 		manager: manager,
 		gcm:     gcm,
@@ -133,7 +133,7 @@ func NewKMSSecretCache(ctx context.Context, manager *KeyHierarchyManager, config
 }
 
 // Get retrieves a secret from the cache.
-func (c *KMSSecretCache) Get(ctx context.Context, path string) (*secrets.Secret, bool) {
+func (c *SecretCache) Get(ctx context.Context, path string) (*secrets.Secret, bool) {
 	c.mu.RLock()
 	entry, exists := c.entries[path]
 	if !exists {
@@ -160,7 +160,7 @@ func (c *KMSSecretCache) Get(ctx context.Context, path string) (*secrets.Secret,
 	plaintext, err := c.gcm.Open(nil, nonce, encryptedData, nil)
 	if err != nil {
 		c.misses.Add(1)
-		go c.Delete(ctx, path)
+		go func() { _ = c.Delete(ctx, path) }() //nolint:errcheck // best-effort cleanup
 		return nil, false
 	}
 
@@ -175,7 +175,7 @@ func (c *KMSSecretCache) Get(ctx context.Context, path string) (*secrets.Secret,
 }
 
 // Put stores a secret in the cache with the given TTL.
-func (c *KMSSecretCache) Put(ctx context.Context, secret *secrets.Secret, ttl time.Duration) error {
+func (c *SecretCache) Put(ctx context.Context, secret *secrets.Secret, ttl time.Duration) error {
 	if secret == nil {
 		return fmt.Errorf("secret is required")
 	}
@@ -221,7 +221,7 @@ func (c *KMSSecretCache) Put(ctx context.Context, secret *secrets.Secret, ttl ti
 }
 
 // Delete removes a secret from the cache.
-func (c *KMSSecretCache) Delete(ctx context.Context, path string) error {
+func (c *SecretCache) Delete(ctx context.Context, path string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.entries, path)
@@ -229,7 +229,7 @@ func (c *KMSSecretCache) Delete(ctx context.Context, path string) error {
 }
 
 // DeleteByPrefix removes all secrets matching a path prefix.
-func (c *KMSSecretCache) DeleteByPrefix(ctx context.Context, prefix string) (int, error) {
+func (c *SecretCache) DeleteByPrefix(ctx context.Context, prefix string) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -245,7 +245,7 @@ func (c *KMSSecretCache) DeleteByPrefix(ctx context.Context, prefix string) (int
 }
 
 // Clear removes all secrets from the cache.
-func (c *KMSSecretCache) Clear(ctx context.Context) error {
+func (c *SecretCache) Clear(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.entries = make(map[string]*kmsCacheEntry)
@@ -253,7 +253,7 @@ func (c *KMSSecretCache) Clear(ctx context.Context) error {
 }
 
 // Stats returns cache statistics.
-func (c *KMSSecretCache) Stats() *secrets.CacheStats {
+func (c *SecretCache) Stats() *secrets.CacheStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -274,7 +274,7 @@ func (c *KMSSecretCache) Stats() *secrets.CacheStats {
 }
 
 // Close closes the cache and releases resources.
-func (c *KMSSecretCache) Close() error {
+func (c *SecretCache) Close() error {
 	c.cancel()
 	c.wg.Wait()
 
@@ -286,7 +286,7 @@ func (c *KMSSecretCache) Close() error {
 }
 
 // RotateKey rotates the cache encryption key.
-func (c *KMSSecretCache) RotateKey(ctx context.Context) error {
+func (c *SecretCache) RotateKey(ctx context.Context) error {
 	// Get new key
 	newKeyInfo, err := c.manager.RotateDataKey(ctx, c.config.KeyPurpose)
 	if err != nil {
@@ -341,14 +341,14 @@ func (c *KMSSecretCache) RotateKey(ctx context.Context) error {
 }
 
 // KeyVersion returns the current cache key version.
-func (c *KMSSecretCache) KeyVersion() int {
+func (c *SecretCache) KeyVersion() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.keyInfo.Version
 }
 
 // evictLRU evicts the least recently used entry.
-func (c *KMSSecretCache) evictLRU() {
+func (c *SecretCache) evictLRU() {
 	var oldestPath string
 	var oldestTime time.Time
 
@@ -366,7 +366,7 @@ func (c *KMSSecretCache) evictLRU() {
 }
 
 // deleteExpired removes an expired entry.
-func (c *KMSSecretCache) deleteExpired(path string) {
+func (c *SecretCache) deleteExpired(path string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -377,7 +377,7 @@ func (c *KMSSecretCache) deleteExpired(path string) {
 }
 
 // cleanupLoop periodically removes expired entries.
-func (c *KMSSecretCache) cleanupLoop() {
+func (c *SecretCache) cleanupLoop() {
 	defer c.wg.Done()
 
 	interval := c.config.CleanupInterval
@@ -399,7 +399,7 @@ func (c *KMSSecretCache) cleanupLoop() {
 }
 
 // cleanup removes all expired entries.
-func (c *KMSSecretCache) cleanup() {
+func (c *SecretCache) cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -422,7 +422,7 @@ type MultiTierCacheConfig struct {
 	L1Config *L1CacheConfig `json:"l1,omitempty"`
 
 	// L2Config configures the L2 (KMS-encrypted) cache.
-	L2Config *KMSSecretCacheConfig `json:"l2,omitempty"`
+	L2Config *SecretCacheConfig `json:"l2,omitempty"`
 }
 
 // L1CacheConfig configures the L1 in-memory cache.
@@ -441,7 +441,7 @@ func DefaultMultiTierCacheConfig() *MultiTierCacheConfig {
 			MaxEntries: 1000,
 			TTL:        30 * time.Second,
 		},
-		L2Config: DefaultKMSSecretCacheConfig(),
+		L2Config: DefaultSecretCacheConfig(),
 	}
 }
 
@@ -449,7 +449,7 @@ func DefaultMultiTierCacheConfig() *MultiTierCacheConfig {
 type MultiTierSecretCache struct {
 	config *MultiTierCacheConfig
 	l1     *l1Cache
-	l2     *KMSSecretCache
+	l2     *SecretCache
 }
 
 // l1Cache is a simple in-memory cache for frequently accessed secrets.
@@ -533,7 +533,7 @@ func NewMultiTierSecretCache(ctx context.Context, manager *KeyHierarchyManager, 
 		config = DefaultMultiTierCacheConfig()
 	}
 
-	l2, err := NewKMSSecretCache(ctx, manager, config.L2Config)
+	l2, err := NewSecretCache(ctx, manager, config.L2Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L2 cache: %w", err)
 	}
@@ -618,6 +618,6 @@ func (c *MultiTierSecretCache) Close() error {
 
 // Ensure interfaces are implemented.
 var (
-	_ secrets.SecretCache = (*KMSSecretCache)(nil)
+	_ secrets.SecretCache = (*SecretCache)(nil)
 	_ secrets.SecretCache = (*MultiTierSecretCache)(nil)
 )

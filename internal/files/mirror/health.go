@@ -12,7 +12,7 @@ import (
 
 // HealthMonitor monitors the health of mirrors in a group.
 type HealthMonitor struct {
-	group      *MirrorGroup
+	group      *Group
 	nc         *nats.Conn
 	config     *HealthCheckConfig
 	stopCh     chan struct{}
@@ -22,10 +22,10 @@ type HealthMonitor struct {
 }
 
 // HealthChangeCallback is called when mirror health changes.
-type HealthChangeCallback func(mirrorID string, oldState, newState MirrorState)
+type HealthChangeCallback func(mirrorID string, oldState, newState State)
 
 // NewHealthMonitor creates a new health monitor.
-func NewHealthMonitor(group *MirrorGroup, nc *nats.Conn) *HealthMonitor {
+func NewHealthMonitor(group *Group, nc *nats.Conn) *HealthMonitor {
 	return &HealthMonitor{
 		group:  group,
 		nc:     nc,
@@ -94,7 +94,7 @@ func (m *HealthMonitor) checkAllMirrors() {
 func (m *HealthMonitor) checkMirror(mirror *Mirror) {
 	// Get current state before check
 	oldHealth, _ := m.group.GetHealth(mirror.ID)
-	oldState := MirrorStateUnknown
+	oldState := StateUnknown
 	if oldHealth != nil {
 		oldState = oldHealth.State
 	}
@@ -114,12 +114,12 @@ func (m *HealthMonitor) checkMirror(mirror *Mirror) {
 	latency := time.Since(start)
 
 	// Update health
-	var newState MirrorState
+	var newState State
 	if err != nil {
-		newState = MirrorStateUnhealthy
+		newState = StateUnhealthy
 		m.group.UpdateHealth(mirror.ID, newState, latency, err)
 	} else {
-		newState = MirrorStateHealthy
+		newState = StateHealthy
 		m.group.UpdateHealth(mirror.ID, newState, latency, nil)
 	}
 
@@ -129,7 +129,7 @@ func (m *HealthMonitor) checkMirror(mirror *Mirror) {
 	}
 }
 
-func (m *HealthMonitor) notifyHealthChange(mirrorID string, oldState, newState MirrorState) {
+func (m *HealthMonitor) notifyHealthChange(mirrorID string, oldState, newState State) {
 	m.callbackMu.RLock()
 	callbacks := make([]HealthChangeCallback, len(m.callbacks))
 	copy(callbacks, m.callbacks)
@@ -142,14 +142,14 @@ func (m *HealthMonitor) notifyHealthChange(mirrorID string, oldState, newState M
 
 // LatencyProber measures latency to mirrors.
 type LatencyProber struct {
-	group      *MirrorGroup
-	nc         *nats.Conn
-	config     *LatencyProbeConfig
-	router     *NearestRouter
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
-	latencies  map[string]*latencyHistory
-	latencyMu  sync.RWMutex
+	group     *Group
+	nc        *nats.Conn
+	config    *LatencyProbeConfig
+	router    *NearestRouter
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
+	latencies map[string]*latencyHistory
+	latencyMu sync.RWMutex
 }
 
 type latencyHistory struct {
@@ -165,7 +165,7 @@ type latencyHistory struct {
 }
 
 // NewLatencyProber creates a new latency prober.
-func NewLatencyProber(group *MirrorGroup, nc *nats.Conn, router *NearestRouter) *LatencyProber {
+func NewLatencyProber(group *Group, nc *nats.Conn, router *NearestRouter) *LatencyProber {
 	return &LatencyProber{
 		group:     group,
 		nc:        nc,
@@ -247,7 +247,7 @@ func (p *LatencyProber) probeMirror(mirror *Mirror) {
 	// If probe file is configured, request it; otherwise just ping
 	var payload []byte
 	if p.config.ProbeFile != "" {
-		payload = []byte(fmt.Sprintf(`{"type":"probe","file":"%s"}`, p.config.ProbeFile))
+		payload = []byte(fmt.Sprintf(`{"type":"probe","file":%q}`, p.config.ProbeFile))
 	} else {
 		payload = []byte(`{"type":"ping"}`)
 	}
@@ -394,6 +394,7 @@ type CircuitBreaker struct {
 // CircuitState represents circuit breaker state.
 type CircuitState int
 
+// CircuitClosed constants define the circuit states.
 const (
 	CircuitClosed CircuitState = iota
 	CircuitOpen

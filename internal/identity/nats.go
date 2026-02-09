@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -11,10 +12,10 @@ import (
 
 // NATSIdentityIntegration provides SPIFFE-based identity for NATS connections.
 type NATSIdentityIntegration struct {
-	config       *NATSIdentityConfig
-	identClient  *AgentIdentityClient
-	tlsConfig    *tls.Config
-	tlsConfigMu  sync.RWMutex
+	config      *NATSIdentityConfig
+	identClient *AgentIdentityClient
+	tlsConfig   *tls.Config
+	tlsConfigMu sync.RWMutex
 
 	// For server-side verification
 	allowedSPIFFEPrefixes []string
@@ -34,7 +35,7 @@ func NewNATSIdentityIntegration(config *NATSIdentityConfig, client *AgentIdentit
 
 	// Register for SVID rotation updates
 	if client != nil {
-		_ = client.WatchX509SVID(nil, func(oldSVID, newSVID *X509SVID) {
+		_ = client.WatchX509SVID(context.Background(), func(oldSVID, newSVID *X509SVID) {
 			n.updateTLSConfig(newSVID)
 		})
 	}
@@ -249,7 +250,7 @@ func (a *SPIFFEIDAuthorizer) CanSubscribe(spiffeID SPIFFEID, subject string) boo
 
 // GetPermissionsForSPIFFEID returns the NATS permissions for a SPIFFE ID.
 // Returns (publishAllowed, subscribeAllowed).
-func (a *SPIFFEIDAuthorizer) GetPermissionsForSPIFFEID(spiffeID SPIFFEID) (publish []string, subscribe []string) {
+func (a *SPIFFEIDAuthorizer) GetPermissionsForSPIFFEID(spiffeID SPIFFEID) (publish, subscribe []string) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -322,7 +323,7 @@ func NewNATSAuthorizationMapper(trustDomain, clusterPrefix string) *NATSAuthoriz
 }
 
 // MapCertToPermissions extracts SPIFFE ID from cert and returns NATS permissions.
-func (m *NATSAuthorizationMapper) MapCertToPermissions(cert *x509.Certificate) (publish []string, subscribe []string, err error) {
+func (m *NATSAuthorizationMapper) MapCertToPermissions(cert *x509.Certificate) (publish, subscribe []string, err error) {
 	spiffeID, err := ExtractSPIFFEIDFromCert(cert)
 	if err != nil {
 		return nil, nil, err

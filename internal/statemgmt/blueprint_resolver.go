@@ -177,19 +177,19 @@ func (r *BlueprintResolver) namespaceStateDeclarations(decls []StateDeclaration,
 	}
 
 	result := make([]StateDeclaration, len(decls))
-	for i, decl := range decls {
-		result[i] = decl
-		result[i].ID = namespace + ":" + decl.ID
+	for i := range decls {
+		result[i] = decls[i]
+		result[i].ID = namespace + ":" + decls[i].ID
 
 		// Update requisite references
-		result[i].Requisites.Require = r.namespaceReferences(decl.Requisites.Require, namespace)
-		result[i].Requisites.RequireIn = r.namespaceReferences(decl.Requisites.RequireIn, namespace)
-		result[i].Requisites.Watch = r.namespaceReferences(decl.Requisites.Watch, namespace)
-		result[i].Requisites.WatchIn = r.namespaceReferences(decl.Requisites.WatchIn, namespace)
-		result[i].Requisites.Prereq = r.namespaceReferences(decl.Requisites.Prereq, namespace)
-		result[i].Requisites.PrereqIn = r.namespaceReferences(decl.Requisites.PrereqIn, namespace)
-		result[i].Requisites.Onchanges = r.namespaceReferences(decl.Requisites.Onchanges, namespace)
-		result[i].Requisites.OnchangesIn = r.namespaceReferences(decl.Requisites.OnchangesIn, namespace)
+		result[i].Requisites.Require = r.namespaceReferences(decls[i].Requisites.Require, namespace)
+		result[i].Requisites.RequireIn = r.namespaceReferences(decls[i].Requisites.RequireIn, namespace)
+		result[i].Requisites.Watch = r.namespaceReferences(decls[i].Requisites.Watch, namespace)
+		result[i].Requisites.WatchIn = r.namespaceReferences(decls[i].Requisites.WatchIn, namespace)
+		result[i].Requisites.Prereq = r.namespaceReferences(decls[i].Requisites.Prereq, namespace)
+		result[i].Requisites.PrereqIn = r.namespaceReferences(decls[i].Requisites.PrereqIn, namespace)
+		result[i].Requisites.Onchanges = r.namespaceReferences(decls[i].Requisites.Onchanges, namespace)
+		result[i].Requisites.OnchangesIn = r.namespaceReferences(decls[i].Requisites.OnchangesIn, namespace)
 	}
 	return result
 }
@@ -283,4 +283,3 @@ func (p *Parser) parseBytes(data []byte, path string) (*StateFile, error) {
 
 	return stateFile, nil
 }
-

@@ -186,8 +186,8 @@ func (b *GitBackend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *GitBackend) Type() BackendType {
-	return BackendTypeGit
+func (b *GitBackend) Type() Type {
+	return TypeGit
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -202,7 +202,7 @@ func (b *GitBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 	b.mu.RUnlock()
 
 	if repo == nil {
-		return nil, &BackendError{Op: "get", Path: filePath, Err: fmt.Errorf("git repository not configured")}
+		return nil, &Error{Op: "get", Path: filePath, Err: fmt.Errorf("git repository not configured")}
 	}
 
 	fullPath := b.fullPath(filePath)
@@ -212,7 +212,7 @@ func (b *GitBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 		if isGitNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+		return nil, &Error{Op: "get", Path: filePath, Err: err}
 	}
 
 	// Calculate SHA256 checksum
@@ -259,12 +259,12 @@ func (b *GitBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 
 // Put is not supported for Git backend (read-only).
 func (b *GitBackend) Put(ctx context.Context, filePath string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
-	return nil, &BackendError{Op: "put", Path: filePath, Err: ErrReadOnly}
+	return nil, &Error{Op: "put", Path: filePath, Err: ErrReadOnly}
 }
 
 // Delete is not supported for Git backend (read-only).
 func (b *GitBackend) Delete(ctx context.Context, filePath string) error {
-	return &BackendError{Op: "delete", Path: filePath, Err: ErrReadOnly}
+	return &Error{Op: "delete", Path: filePath, Err: ErrReadOnly}
 }
 
 // Exists checks if a file exists in the Git repository.
@@ -274,7 +274,7 @@ func (b *GitBackend) Exists(ctx context.Context, filePath string) (bool, error) 
 	b.mu.RUnlock()
 
 	if repo == nil {
-		return false, &BackendError{Op: "exists", Path: filePath, Err: fmt.Errorf("git repository not configured")}
+		return false, &Error{Op: "exists", Path: filePath, Err: fmt.Errorf("git repository not configured")}
 	}
 
 	fullPath := b.fullPath(filePath)
@@ -284,7 +284,7 @@ func (b *GitBackend) Exists(ctx context.Context, filePath string) (bool, error) 
 		if isGitNotFound(err) {
 			return false, nil
 		}
-		return false, &BackendError{Op: "exists", Path: filePath, Err: err}
+		return false, &Error{Op: "exists", Path: filePath, Err: err}
 	}
 
 	return exists, nil
@@ -297,7 +297,7 @@ func (b *GitBackend) Stat(ctx context.Context, filePath string) (*FileInfo, erro
 	b.mu.RUnlock()
 
 	if repo == nil {
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: fmt.Errorf("git repository not configured")}
+		return nil, &Error{Op: "stat", Path: filePath, Err: fmt.Errorf("git repository not configured")}
 	}
 
 	fullPath := b.fullPath(filePath)
@@ -307,7 +307,7 @@ func (b *GitBackend) Stat(ctx context.Context, filePath string) (*FileInfo, erro
 		if isGitNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: err}
+		return nil, &Error{Op: "stat", Path: filePath, Err: err}
 	}
 
 	// Calculate SHA256 checksum
@@ -337,7 +337,7 @@ func (b *GitBackend) List(ctx context.Context, prefix string, opts *ListOptions)
 	b.mu.RUnlock()
 
 	if repo == nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: fmt.Errorf("git repository not configured")}
+		return nil, &Error{Op: "list", Path: prefix, Err: fmt.Errorf("git repository not configured")}
 	}
 
 	fullPath := b.fullPath(prefix)
@@ -345,7 +345,7 @@ func (b *GitBackend) List(ctx context.Context, prefix string, opts *ListOptions)
 	recursive := opts != nil && opts.Recursive
 	files, err := repo.ListFiles(ctx, fullPath, recursive)
 	if err != nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: err}
+		return nil, &Error{Op: "list", Path: prefix, Err: err}
 	}
 
 	var result []FileInfo

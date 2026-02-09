@@ -83,8 +83,8 @@ type Change struct {
 	Suggestion  string      `json:"suggestion,omitempty"`
 }
 
-// AuditResult contains the result of an API audit
-type AuditResult struct {
+// Result contains the result of an API audit
+type Result struct {
 	Module        string    `json:"module"`
 	OldVersion    string    `json:"old_version"`
 	NewVersion    string    `json:"new_version"`
@@ -117,11 +117,11 @@ func NewAuditor() *Auditor {
 }
 
 // CompareSnapshots compares two API snapshots and returns detected changes
-func (a *Auditor) CompareSnapshots(old, new *APISnapshot) *AuditResult {
-	result := &AuditResult{
-		Module:     new.Module,
+func (a *Auditor) CompareSnapshots(old, updated *APISnapshot) *Result {
+	result := &Result{
+		Module:     updated.Module,
 		OldVersion: old.Version,
-		NewVersion: new.Version,
+		NewVersion: updated.Version,
 		Changes:    make([]*Change, 0),
 		Compatible: true,
 	}
@@ -131,7 +131,7 @@ func (a *Auditor) CompareSnapshots(old, new *APISnapshot) *AuditResult {
 		if a.IgnorePrivate && !oldElem.Exported {
 			continue
 		}
-		if newElem, exists := new.Elements[key]; !exists {
+		if newElem, exists := updated.Elements[key]; !exists {
 			change := &Change{
 				Type:        ChangeRemoved,
 				Severity:    SeverityMajor,
@@ -163,7 +163,7 @@ func (a *Auditor) CompareSnapshots(old, new *APISnapshot) *AuditResult {
 	}
 
 	// Check for added elements (minor)
-	for key, newElem := range new.Elements {
+	for key, newElem := range updated.Elements {
 		if a.IgnorePrivate && !newElem.Exported {
 			continue
 		}
@@ -190,11 +190,11 @@ func (a *Auditor) CompareSnapshots(old, new *APISnapshot) *AuditResult {
 	return result
 }
 
-func (a *Auditor) compareElements(old, new *APIElement) []*Change {
+func (a *Auditor) compareElements(old, updated *APIElement) []*Change {
 	var changes []*Change
 
 	// Check for signature changes (breaking for functions/methods)
-	if old.Signature != new.Signature && old.Signature != "" && new.Signature != "" {
+	if old.Signature != updated.Signature && old.Signature != "" && updated.Signature != "" {
 		change := &Change{
 			Type:        ChangeModified,
 			Severity:    SeverityMajor,
@@ -202,14 +202,14 @@ func (a *Auditor) compareElements(old, new *APIElement) []*Change {
 			Kind:        old.Kind,
 			Description: fmt.Sprintf("Signature changed for %s %s", old.Kind, old.Name),
 			Before:      old,
-			After:       new,
+			After: updated,
 			Suggestion:  "Add a new function with the new signature and deprecate the old one",
 		}
 		changes = append(changes, change)
 	}
 
 	// Check for deprecation changes
-	if !old.Deprecated && new.Deprecated {
+	if !old.Deprecated && updated.Deprecated {
 		change := &Change{
 			Type:        ChangeDeprecated,
 			Severity:    SeverityPatch,
@@ -217,13 +217,13 @@ func (a *Auditor) compareElements(old, new *APIElement) []*Change {
 			Kind:        old.Kind,
 			Description: fmt.Sprintf("Deprecated %s %s", old.Kind, old.Name),
 			Before:      old,
-			After:       new,
+			After: updated,
 		}
 		changes = append(changes, change)
 	}
 
 	// In strict mode, check doc changes
-	if a.StrictMode && old.Doc != new.Doc {
+	if a.StrictMode && old.Doc != updated.Doc {
 		change := &Change{
 			Type:        ChangeModified,
 			Severity:    SeverityPatch,
@@ -231,7 +231,7 @@ func (a *Auditor) compareElements(old, new *APIElement) []*Change {
 			Kind:        old.Kind,
 			Description: fmt.Sprintf("Documentation changed for %s %s", old.Kind, old.Name),
 			Before:      old,
-			After:       new,
+			After: updated,
 		}
 		changes = append(changes, change)
 	}
@@ -509,7 +509,7 @@ func formatFuncSignature(fn *ast.FuncDecl) string {
 
 	// Results
 	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
-		var results []string
+		results := make([]string, 0, len(fn.Type.Results.List))
 		for _, r := range fn.Type.Results.List {
 			results = append(results, formatFieldType(r.Type))
 		}
@@ -543,7 +543,7 @@ func formatFieldType(expr ast.Expr) string {
 	case *ast.FuncType:
 		return "func(...)"
 	case *ast.ChanType:
-		dir := ""
+		var dir string
 		switch t.Dir {
 		case ast.SEND:
 			dir = "chan<- "
@@ -563,7 +563,7 @@ func formatFieldType(expr ast.Expr) string {
 }
 
 // Format formats the audit result as a human-readable string
-func (r *AuditResult) Format() string {
+func (r *Result) Format() string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("API Audit: %s\n", r.Module))
@@ -628,7 +628,7 @@ func (r *AuditResult) Format() string {
 }
 
 // SuggestedVersion suggests the minimum version bump based on changes
-func (r *AuditResult) SuggestedVersion() string {
+func (r *Result) SuggestedVersion() string {
 	if r.BreakingCount > 0 {
 		return "major"
 	}

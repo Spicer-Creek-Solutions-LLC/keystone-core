@@ -18,10 +18,10 @@ import (
 // V3Adapter extends Adapter with SNMPv3-specific operations.
 type V3Adapter struct {
 	*Adapter
-	engineID       string
-	engineBoots    int32
-	engineTime     int32
-	contextName    string
+	engineID        string
+	engineBoots     int32
+	engineTime      int32
+	contextName     string
 	contextEngineID string
 }
 
@@ -57,8 +57,8 @@ func NewV3Adapter(config *V3Config) *V3Adapter {
 	}
 	config.Version = SNMPv3
 	return &V3Adapter{
-		Adapter:     NewAdapter(config.Config),
-		contextName: config.ContextName,
+		Adapter:         NewAdapter(config.Config),
+		contextName:     config.ContextName,
 		contextEngineID: config.ContextEngineID,
 	}
 }
@@ -91,6 +91,7 @@ func (a *V3Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cr
 	}
 
 	// Create SNMP client
+	//nolint:gosec // G115: port is a valid port number (1-65535), fits in uint16
 	client := &gosnmp.GoSNMP{
 		Target:         device.Address,
 		Port:           uint16(port),
@@ -134,9 +135,9 @@ func (a *V3Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cr
 
 	// Store engine information if available
 	if usp, ok := client.SecurityParameters.(*gosnmp.UsmSecurityParameters); ok {
-		a.engineID = string(usp.AuthoritativeEngineID)
-		a.engineBoots = int32(usp.AuthoritativeEngineBoots)
-		a.engineTime = int32(usp.AuthoritativeEngineTime)
+		a.engineID = usp.AuthoritativeEngineID
+		a.engineBoots = int32(usp.AuthoritativeEngineBoots) //nolint:gosec // G115: SNMP 32-bit per RFC 3414
+		a.engineTime = int32(usp.AuthoritativeEngineTime)   //nolint:gosec // G115: SNMP 32-bit per RFC 3414
 	}
 
 	return nil
@@ -421,7 +422,7 @@ func ValidatePrivProtocol(proto string) bool {
 }
 
 // GetBulk performs an SNMP GETBULK operation.
-func (a *V3Adapter) GetBulk(ctx context.Context, oids []string, nonRepeaters uint8, maxRepetitions uint32) ([]SNMPVariable, error) {
+func (a *V3Adapter) GetBulk(ctx context.Context, oids []string, nonRepeaters uint8, maxRepetitions uint32) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected

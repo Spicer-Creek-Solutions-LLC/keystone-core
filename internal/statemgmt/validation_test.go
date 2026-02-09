@@ -611,7 +611,7 @@ func TestValidationResult_Summary(t *testing.T) {
 		t.Errorf("Expected 'Validation passed', got '%s'", result.Summary())
 	}
 
-	result.AddIssue(&ValidationIssue{
+	result.AddIssue(&StateValidationError{
 		Level:   ValidationLevelWarning,
 		Message: "test warning",
 	})
@@ -620,7 +620,7 @@ func TestValidationResult_Summary(t *testing.T) {
 		t.Errorf("Expected summary to mention warnings: %s", result.Summary())
 	}
 
-	result.AddIssue(&ValidationIssue{
+	result.AddIssue(&StateValidationError{
 		Level:   ValidationLevelError,
 		Message: "test error",
 	})
@@ -731,7 +731,7 @@ func TestIsValidFileMode(t *testing.T) {
 func TestValidationResult_ErrorMessages(t *testing.T) {
 	tests := []struct {
 		name     string
-		issues   []*ValidationIssue
+		issues   []*StateValidationError
 		expected []string
 	}{
 		{
@@ -741,7 +741,7 @@ func TestValidationResult_ErrorMessages(t *testing.T) {
 		},
 		{
 			name: "only warnings and info",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelWarning, Message: "warning message"},
 				{Level: ValidationLevelInfo, Message: "info message"},
 			},
@@ -749,7 +749,7 @@ func TestValidationResult_ErrorMessages(t *testing.T) {
 		},
 		{
 			name: "only errors",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelError, Message: "error 1"},
 				{Level: ValidationLevelError, Message: "error 2"},
 			},
@@ -757,7 +757,7 @@ func TestValidationResult_ErrorMessages(t *testing.T) {
 		},
 		{
 			name: "mixed issues",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelError, Message: "error message"},
 				{Level: ValidationLevelWarning, Message: "warning message"},
 				{Level: ValidationLevelInfo, Message: "info message"},
@@ -766,21 +766,21 @@ func TestValidationResult_ErrorMessages(t *testing.T) {
 		},
 		{
 			name: "error with module and state ID",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelError, Module: "file", StateID: "test", Message: "error message"},
 			},
 			expected: []string{"[file.test] error: error message"},
 		},
 		{
 			name: "error with field",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelError, Message: "error message", Field: "mode"},
 			},
 			expected: []string{"error: error message (field: mode)"},
 		},
 		{
 			name: "error with line and column",
-			issues: []*ValidationIssue{
+			issues: []*StateValidationError{
 				{Level: ValidationLevelError, Message: "error message", Line: 10, Column: 5},
 			},
 			expected: []string{"error: error message at line 10, column 5"},
@@ -1123,15 +1123,15 @@ func TestKnownModuleNames(t *testing.T) {
 	}
 }
 
-func TestValidationIssue_Error(t *testing.T) {
+func TestStateValidationError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
-		issue    *ValidationIssue
+		issue    *StateValidationError
 		expected string
 	}{
 		{
 			name: "basic error",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Message: "test error",
 			},
@@ -1139,7 +1139,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "with module only",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelWarning,
 				Module:  "file",
 				Message: "test warning",
@@ -1148,7 +1148,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "with module and state ID",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Module:  "file",
 				StateID: "test-file",
@@ -1158,7 +1158,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "with field",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Message: "test error",
 				Field:   "mode",
@@ -1167,7 +1167,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "with line only",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Message: "test error",
 				Line:    10,
@@ -1176,7 +1176,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "with line and column",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Message: "test error",
 				Line:    10,
@@ -1186,7 +1186,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "full details",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelError,
 				Module:  "file",
 				StateID: "test-file",
@@ -1199,7 +1199,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		},
 		{
 			name: "info level",
-			issue: &ValidationIssue{
+			issue: &StateValidationError{
 				Level:   ValidationLevelInfo,
 				Message: "info message",
 			},
@@ -1219,12 +1219,12 @@ func TestValidationIssue_Error(t *testing.T) {
 
 func TestValidationResult_AddIssue(t *testing.T) {
 	tests := []struct {
-		name           string
-		levels         []ValidationLevel
-		wantErrors     int
-		wantWarnings   int
-		wantInfos      int
-		wantValid      bool
+		name         string
+		levels       []ValidationLevel
+		wantErrors   int
+		wantWarnings int
+		wantInfos    int
+		wantValid    bool
 	}{
 		{
 			name:         "no issues",
@@ -1279,7 +1279,7 @@ func TestValidationResult_AddIssue(t *testing.T) {
 			result := &ValidationResult{Valid: true}
 
 			for i, level := range tt.levels {
-				result.AddIssue(&ValidationIssue{
+				result.AddIssue(&StateValidationError{
 					Level:   level,
 					Message: "test",
 					Code:    "TEST" + string(rune('0'+i)),

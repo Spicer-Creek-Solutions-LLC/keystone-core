@@ -16,7 +16,7 @@ import (
 
 // Handler provides HTTP handlers for metrics endpoints.
 type Handler struct {
-	store *MetricsStore
+	store *Store
 
 	// Label manipulation
 	addLabels     map[string]string
@@ -25,7 +25,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new metrics handler.
-func NewHandler(store *MetricsStore) *Handler {
+func NewHandler(store *Store) *Handler {
 	return &Handler{
 		store:         store,
 		addLabels:     make(map[string]string),
@@ -120,11 +120,11 @@ func (h *Handler) transformLabels(m *dto.Metric) {
 
 // FederateHandler provides the /federate endpoint for Prometheus federation.
 type FederateHandler struct {
-	store *MetricsStore
+	store *Store
 }
 
 // NewFederateHandler creates a new federate handler.
-func NewFederateHandler(store *MetricsStore) *FederateHandler {
+func NewFederateHandler(store *Store) *FederateHandler {
 	return &FederateHandler{store: store}
 }
 
@@ -257,12 +257,12 @@ func (h *FederateHandler) metricsMatchLabels(m *dto.Metric, matchers map[string]
 
 // HealthHandler provides health check endpoints.
 type HealthHandler struct {
-	store      *MetricsStore
+	store      *Store
 	subscriber *Subscriber
 }
 
 // NewHealthHandler creates a new health handler.
-func NewHealthHandler(store *MetricsStore, subscriber *Subscriber) *HealthHandler {
+func NewHealthHandler(store *Store, subscriber *Subscriber) *HealthHandler {
 	return &HealthHandler{
 		store:      store,
 		subscriber: subscriber,

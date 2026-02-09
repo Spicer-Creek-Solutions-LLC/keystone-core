@@ -52,8 +52,8 @@ type Agent struct {
 	lastMetadata time.Time
 }
 
-// AgentConfig holds configuration for an agent
-type AgentConfig struct {
+// Config holds configuration for an agent
+type Config struct {
 	// ID is the unique identifier for this agent (optional, auto-generated if empty)
 	ID string
 	// Cluster is the logical cluster name for subject namespacing (defaults to "default")
@@ -72,7 +72,7 @@ type AgentConfig struct {
 
 // NewAgent creates a new agent instance (legacy constructor)
 func NewAgent(id string, natsManager *natsmgr.Manager, heartbeatInterval, metadataInterval, commandTimeout time.Duration) (*Agent, error) {
-	return NewAgentWithConfig(natsManager, &AgentConfig{
+	return NewAgentWithConfig(natsManager, &Config{
 		ID:                id,
 		HeartbeatInterval: heartbeatInterval,
 		MetadataInterval:  metadataInterval,
@@ -81,9 +81,9 @@ func NewAgent(id string, natsManager *natsmgr.Manager, heartbeatInterval, metada
 }
 
 // NewAgentWithConfig creates a new agent instance with configuration
-func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *AgentConfig) (*Agent, error) {
+func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *Config) (*Agent, error) {
 	if cfg == nil {
-		cfg = &AgentConfig{}
+		cfg = &Config{}
 	}
 
 	// Generate ID if not provided
@@ -438,6 +438,7 @@ func (a *Agent) handleCommandRequest(msg *nats.Msg) {
 		resp := &pb.ExecuteCommandResponse{
 			CommandId: req.CommandId,
 			Type:      respType,
+			//nolint:gosec // G115: exit codes are 0-255 on Unix, -1 to 255 on Windows, fits in int32
 			ExitCode:  int32(result.ExitCode),
 			Timestamp: timestamppb.Now(),
 		}

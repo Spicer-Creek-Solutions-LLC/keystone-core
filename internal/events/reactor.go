@@ -397,7 +397,7 @@ func (e *ReactorEngine) ProcessEvent(event *Event) error {
 // executeReactor executes a single reactor for an event
 func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, event *Event) error {
 	// Start tracing span for reactor execution
-	ctx, span := tracing.StartEventSpan(ctx, tracing.SpanReactorExecute,
+	_, span := tracing.StartEventSpan(ctx, tracing.SpanReactorExecute,
 		tracing.StringAttr("reactor.id", reactor.ID),
 		tracing.StringAttr("reactor.name", reactor.Name),
 		tracing.IntAttr("reactor.priority", reactor.Priority),
@@ -458,6 +458,7 @@ func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, ev
 		// Try to increment active count
 		for {
 			active := atomic.LoadInt32(&exec.activeCount)
+			//nolint:gosec // G115: MaxConcurrent is a small config value, fits in int32
 			if active >= int32(reactor.MaxConcurrent) {
 				return fmt.Errorf("max concurrent executions reached")
 			}
@@ -473,7 +474,7 @@ func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, ev
 	}
 
 	// Execute actions
-	go e.executeActions(reactor, event, exec)
+	go e.executeActions(reactor, event, exec) //nolint:contextcheck // async execution
 
 	return nil
 }
@@ -513,7 +514,7 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 	success := true
 	var lastErr error
 
-	var failedActionIndex int = -1
+	var failedActionIndex = -1
 	var failedActionName string
 
 	for i, action := range reactor.Actions {
@@ -541,12 +542,10 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 		}
 
 		// Check context cancellation
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			lastErr = ctx.Err()
 			success = false
 			break
-		default:
 		}
 
 		// Emit action event
@@ -578,6 +577,7 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 	metrics.mu.Unlock()
 
 	// Update average duration
+	//nolint:gosec // G115: duration.Milliseconds() is non-negative and fits in uint64
 	atomic.AddUint64(&metrics.totalDurationMs, uint64(duration.Milliseconds()))
 	count := atomic.AddUint64(&metrics.executionCount, 1)
 	atomic.StoreUint64(&metrics.AvgDurationMs, atomic.LoadUint64(&metrics.totalDurationMs)/count)
@@ -653,7 +653,7 @@ func (e *ReactorEngine) emitReactorEvent(reactor *Reactor, triggerEvent *Event, 
 		DataMap(data).
 		Build()
 
-	e.eventPublisher.PublishAsync(event)
+	_ = e.eventPublisher.PublishAsync(event) //nolint:errcheck // fire-and-forget async publish
 }
 
 // emitActionEvent emits an event for action execution
@@ -688,7 +688,7 @@ func (e *ReactorEngine) emitActionEvent(reactor *Reactor, action Action, index i
 		DataMap(data).
 		Build()
 
-	e.eventPublisher.PublishAsync(event)
+	_ = e.eventPublisher.PublishAsync(event) //nolint:errcheck // fire-and-forget async publish
 }
 
 // enqueueToDeadLetterQueue adds a failed execution to the dead letter queue
@@ -719,7 +719,7 @@ func (e *ReactorEngine) enqueueToDeadLetterQueue(reactor *Reactor, event *Event,
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		dlq.Enqueue(ctx, entry)
+		_ = dlq.Enqueue(ctx, entry) //nolint:errcheck // fire-and-forget async enqueue
 	}()
 }
 

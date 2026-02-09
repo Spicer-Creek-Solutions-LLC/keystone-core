@@ -40,7 +40,7 @@ func TestGitModule_Check_MissingDest(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "dest parameter is required" {
 		t.Errorf("expected dest required error, got: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestGitModule_Check_MissingRepo(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "repo parameter is required for state present" {
 		t.Errorf("expected repo required error, got: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestGitModule_Check_AbsentDoesntNeedRepo(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestGitModule_Check_NonGitDirectory(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestGitModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestGitModule_Test_MissingGit(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -178,21 +178,21 @@ func TestGitModule_Integration_CloneAndUpdate(t *testing.T) {
 	workRepo := filepath.Join(tmpDir, "work")
 
 	// Initialize bare repo
-	cmd := exec.Command("git", "init", "--bare", bareRepo)
+	cmd := exec.CommandContext(context.Background(),"git", "init", "--bare", bareRepo)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create bare repo: %v", err)
 	}
 
 	// Create a work repo and push initial commit
-	cmd = exec.Command("git", "clone", bareRepo, workRepo)
+	cmd = exec.CommandContext(context.Background(),"git", "clone", bareRepo, workRepo)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to clone bare repo: %v", err)
 	}
 
 	// Configure git user in work repo
-	cmd = exec.Command("git", "-C", workRepo, "config", "user.email", "test@test.com")
+	cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "config", "user.email", "test@test.com")
 	cmd.Run()
-	cmd = exec.Command("git", "-C", workRepo, "config", "user.name", "Test User")
+	cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "config", "user.name", "Test User")
 	cmd.Run()
 
 	// Create initial commit
@@ -200,16 +200,16 @@ func TestGitModule_Integration_CloneAndUpdate(t *testing.T) {
 	if err := os.WriteFile(testFile, []byte("# Test"), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
-	cmd = exec.Command("git", "-C", workRepo, "add", ".")
+	cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "add", ".")
 	cmd.Run()
-	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "commit", "-m", "Initial commit")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to commit: %v", err)
 	}
-	cmd = exec.Command("git", "-C", workRepo, "push", "origin", "master")
+	cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "push", "origin", "master")
 	// Push might fail if branch is main, try both
 	if err := cmd.Run(); err != nil {
-		cmd = exec.Command("git", "-C", workRepo, "push", "origin", "main")
+		cmd = exec.CommandContext(context.Background(),"git", "-C", workRepo, "push", "origin", "main")
 		cmd.Run()
 	}
 
@@ -327,7 +327,7 @@ func TestGitConfigModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestGitConfigModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestGitConfigModule_Test_InvalidScope(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestGitConfigModule_Test_MissingValue(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}

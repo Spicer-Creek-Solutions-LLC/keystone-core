@@ -1,3 +1,4 @@
+// Package remediation provides automated remediation actions for deployment failures.
 package remediation
 
 import (
@@ -9,57 +10,57 @@ import (
 	"github.com/google/uuid"
 )
 
-// RemediationType defines the type of remediation action
-type RemediationType string
+// Type defines the type of remediation action
+type Type string
 
 const (
-	// RemediationTypeRollback rolls back to previous version
-	RemediationTypeRollback RemediationType = "rollback"
-	// RemediationTypeRestart restarts the affected services
-	RemediationTypeRestart RemediationType = "restart"
-	// RemediationTypeScale scales up/down resources
-	RemediationTypeScale RemediationType = "scale"
-	// RemediationTypeRunbook executes a predefined runbook
-	RemediationTypeRunbook RemediationType = "runbook"
-	// RemediationTypeScript executes a custom script
-	RemediationTypeScript RemediationType = "script"
-	// RemediationTypeWebhook calls an external webhook
-	RemediationTypeWebhook RemediationType = "webhook"
-	// RemediationTypeAlert sends alerts without automated action
-	RemediationTypeAlert RemediationType = "alert"
-	// RemediationTypeCustom executes a custom remediation handler
-	RemediationTypeCustom RemediationType = "custom"
+	// TypeRollback rolls back to previous version
+	TypeRollback Type = "rollback"
+	// TypeRestart restarts the affected services
+	TypeRestart Type = "restart"
+	// TypeScale scales up/down resources
+	TypeScale Type = "scale"
+	// TypeRunbook executes a predefined runbook
+	TypeRunbook Type = "runbook"
+	// TypeScript executes a custom script
+	TypeScript Type = "script"
+	// TypeWebhook calls an external webhook
+	TypeWebhook Type = "webhook"
+	// TypeAlert sends alerts without automated action
+	TypeAlert Type = "alert"
+	// TypeCustom executes a custom remediation handler
+	TypeCustom Type = "custom"
 )
 
-// RemediationStatus tracks the status of a remediation action
-type RemediationStatus string
+// Status tracks the status of a remediation action
+type Status string
 
 const (
 	// StatusTriggered remediation has been triggered
-	StatusTriggered RemediationStatus = "triggered"
+	StatusTriggered Status = "triggered"
 	// StatusPending waiting to execute
-	StatusPending RemediationStatus = "pending"
+	StatusPending Status = "pending"
 	// StatusRunning remediation is executing
-	StatusRunning RemediationStatus = "running"
+	StatusRunning Status = "running"
 	// StatusSucceeded remediation completed successfully
-	StatusSucceeded RemediationStatus = "succeeded"
+	StatusSucceeded Status = "succeeded"
 	// StatusFailed remediation failed
-	StatusFailed RemediationStatus = "failed"
+	StatusFailed Status = "failed"
 	// StatusSkipped remediation was skipped
-	StatusSkipped RemediationStatus = "skipped"
+	StatusSkipped Status = "skipped"
 	// StatusCooldown in cooldown period after previous remediation
-	StatusCooldown RemediationStatus = "cooldown"
+	StatusCooldown Status = "cooldown"
 	// StatusMaxAttemptsReached max remediation attempts exceeded
-	StatusMaxAttemptsReached RemediationStatus = "max_attempts_reached"
+	StatusMaxAttemptsReached Status = "max_attempts_reached"
 )
 
-// RemediationAction defines a single remediation action
-type RemediationAction struct {
+// Action defines a single remediation action
+type Action struct {
 	// Name of the action
 	Name string `json:"name"`
 
 	// Type of remediation
-	Type RemediationType `json:"type"`
+	Type Type `json:"type"`
 
 	// Priority for action ordering (higher executes first)
 	Priority int `json:"priority,omitempty"`
@@ -77,8 +78,8 @@ type RemediationAction struct {
 	RequiresConfirmation bool `json:"requires_confirmation,omitempty"`
 }
 
-// RemediationPolicy defines when and how to remediate
-type RemediationPolicy struct {
+// Policy defines when and how to remediate
+type Policy struct {
 	// Name of the policy
 	Name string `json:"name"`
 
@@ -95,10 +96,10 @@ type RemediationPolicy struct {
 	Application string `json:"application,omitempty"`
 
 	// Triggers that activate this policy
-	Triggers []RemediationTrigger `json:"triggers"`
+	Triggers []Trigger `json:"triggers"`
 
 	// Actions to execute in order
-	Actions []RemediationAction `json:"actions"`
+	Actions []Action `json:"actions"`
 
 	// MaxAttempts maximum remediation attempts before giving up
 	MaxAttempts int `json:"max_attempts"`
@@ -119,8 +120,8 @@ type RemediationPolicy struct {
 	DryRun bool `json:"dry_run,omitempty"`
 }
 
-// RemediationTrigger defines what triggers remediation
-type RemediationTrigger struct {
+// Trigger defines what triggers remediation
+type Trigger struct {
 	// Type of trigger
 	Type TriggerType `json:"type"`
 
@@ -195,8 +196,8 @@ const (
 	EscalationWebhook EscalationType = "webhook"
 )
 
-// RemediationEvent records a remediation event
-type RemediationEvent struct {
+// Event records a remediation event
+type Event struct {
 	// ID of the event
 	ID string `json:"id"`
 
@@ -219,7 +220,7 @@ type RemediationEvent struct {
 	Actions []ActionResult `json:"actions"`
 
 	// Status overall status
-	Status RemediationStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// Attempt number
 	Attempt int `json:"attempt"`
@@ -252,10 +253,10 @@ type ActionResult struct {
 	Name string `json:"name"`
 
 	// Type of action
-	Type RemediationType `json:"type"`
+	Type Type `json:"type"`
 
 	// Status of the action
-	Status RemediationStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime of action
 	StartTime time.Time `json:"start_time"`
@@ -273,23 +274,23 @@ type ActionResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-// RemediationHandler executes a specific type of remediation
-type RemediationHandler interface {
+// Handler executes a specific type of remediation
+type Handler interface {
 	// Type returns the remediation type this handler handles
-	Type() RemediationType
+	Type() Type
 
 	// Execute performs the remediation action
-	Execute(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error)
+	Execute(ctx context.Context, action *Action, event *Event) (*ActionResult, error)
 
 	// Validate validates the action configuration
-	Validate(action *RemediationAction) error
+	Validate(action *Action) error
 }
 
 // Engine orchestrates automatic remediation
 type Engine struct {
-	handlers       map[RemediationType]RemediationHandler
-	policies       map[string]*RemediationPolicy
-	events         []*RemediationEvent
+	handlers       map[Type]Handler
+	policies       map[string]*Policy
+	events         []*Event
 	cooldowns      map[string]time.Time // key: environment:application
 	attemptCounts  map[string]int       // key: environment:application
 	mu             sync.RWMutex
@@ -303,13 +304,13 @@ type Engine struct {
 // Notifier sends notifications
 type Notifier interface {
 	// Notify sends a notification
-	Notify(ctx context.Context, channels []string, message string, event *RemediationEvent) error
+	Notify(ctx context.Context, channels []string, message string, event *Event) error
 }
 
 // ApprovalStore manages remediation approvals
 type ApprovalStore interface {
 	// RequestApproval creates an approval request
-	RequestApproval(ctx context.Context, event *RemediationEvent, approvers []string) (string, error)
+	RequestApproval(ctx context.Context, event *Event, approvers []string) (string, error)
 
 	// GetApprovalStatus checks if approval was granted
 	GetApprovalStatus(ctx context.Context, requestID string) (bool, string, error)
@@ -321,21 +322,21 @@ type ApprovalStore interface {
 // EventListener receives remediation events
 type EventListener interface {
 	// OnRemediationStarted called when remediation starts
-	OnRemediationStarted(event *RemediationEvent)
+	OnRemediationStarted(event *Event)
 
 	// OnRemediationCompleted called when remediation completes
-	OnRemediationCompleted(event *RemediationEvent)
+	OnRemediationCompleted(event *Event)
 
 	// OnActionCompleted called when an action completes
-	OnActionCompleted(event *RemediationEvent, result *ActionResult)
+	OnActionCompleted(event *Event, result *ActionResult)
 }
 
 // NewEngine creates a new remediation engine
 func NewEngine() *Engine {
 	return &Engine{
-		handlers:       make(map[RemediationType]RemediationHandler),
-		policies:       make(map[string]*RemediationPolicy),
-		events:         make([]*RemediationEvent, 0),
+		handlers:       make(map[Type]Handler),
+		policies:       make(map[string]*Policy),
+		events:         make([]*Event, 0),
 		cooldowns:      make(map[string]time.Time),
 		attemptCounts:  make(map[string]int),
 		eventListeners: make([]EventListener, 0),
@@ -360,14 +361,14 @@ func (e *Engine) AddEventListener(listener EventListener) {
 }
 
 // RegisterHandler registers a remediation handler
-func (e *Engine) RegisterHandler(handler RemediationHandler) {
+func (e *Engine) RegisterHandler(handler Handler) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.handlers[handler.Type()] = handler
 }
 
 // RegisterPolicy registers a remediation policy
-func (e *Engine) RegisterPolicy(policy *RemediationPolicy) error {
+func (e *Engine) RegisterPolicy(policy *Policy) error {
 	if policy.Name == "" {
 		return fmt.Errorf("policy name is required")
 	}
@@ -397,7 +398,7 @@ func (e *Engine) RegisterPolicy(policy *RemediationPolicy) error {
 }
 
 // GetPolicy returns a policy by name
-func (e *Engine) GetPolicy(name string) (*RemediationPolicy, bool) {
+func (e *Engine) GetPolicy(name string) (*Policy, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	policy, ok := e.policies[name]
@@ -405,11 +406,11 @@ func (e *Engine) GetPolicy(name string) (*RemediationPolicy, bool) {
 }
 
 // ListPolicies returns all registered policies
-func (e *Engine) ListPolicies() []*RemediationPolicy {
+func (e *Engine) ListPolicies() []*Policy {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	policies := make([]*RemediationPolicy, 0, len(e.policies))
+	policies := make([]*Policy, 0, len(e.policies))
 	for _, p := range e.policies {
 		policies = append(policies, p)
 	}
@@ -449,19 +450,19 @@ type TriggerRequest struct {
 }
 
 // Trigger triggers remediation based on matching policies
-func (e *Engine) Trigger(ctx context.Context, req *TriggerRequest) ([]*RemediationEvent, error) {
+func (e *Engine) Trigger(ctx context.Context, req *TriggerRequest) ([]*Event, error) {
 	// Find matching policies
 	policies := e.findMatchingPolicies(req)
 	if len(policies) == 0 {
 		return nil, nil // No matching policies
 	}
 
-	events := make([]*RemediationEvent, 0, len(policies))
+	events := make([]*Event, 0, len(policies))
 	for _, policy := range policies {
 		event, err := e.executePolicy(ctx, policy, req)
 		if err != nil {
 			// Log error but continue with other policies
-			event = &RemediationEvent{
+			event = &Event{
 				ID:             uuid.New().String(),
 				PolicyName:     policy.Name,
 				TriggerType:    req.TriggerType,
@@ -483,11 +484,11 @@ func (e *Engine) Trigger(ctx context.Context, req *TriggerRequest) ([]*Remediati
 }
 
 // findMatchingPolicies finds policies that match the trigger
-func (e *Engine) findMatchingPolicies(req *TriggerRequest) []*RemediationPolicy {
+func (e *Engine) findMatchingPolicies(req *TriggerRequest) []*Policy {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	var matches []*RemediationPolicy
+	var matches []*Policy
 	for _, policy := range e.policies {
 		if !policy.Enabled {
 			continue
@@ -522,7 +523,7 @@ func (e *Engine) findMatchingPolicies(req *TriggerRequest) []*RemediationPolicy 
 }
 
 // executePolicy executes a single policy
-func (e *Engine) executePolicy(ctx context.Context, policy *RemediationPolicy, req *TriggerRequest) (*RemediationEvent, error) {
+func (e *Engine) executePolicy(ctx context.Context, policy *Policy, req *TriggerRequest) (*Event, error) {
 	key := fmt.Sprintf("%s:%s", req.Environment, req.Application)
 
 	// Check cooldown
@@ -532,17 +533,17 @@ func (e *Engine) executePolicy(ctx context.Context, policy *RemediationPolicy, r
 		e.cooldownMu.RUnlock()
 
 		if hasCooldown && time.Since(lastRun) < policy.CooldownPeriod {
-			return &RemediationEvent{
-				ID:             uuid.New().String(),
-				PolicyName:     policy.Name,
-				TriggerType:    req.TriggerType,
-				Environment:    req.Environment,
-				Application:    req.Application,
-				Status:         StatusCooldown,
-				StartTime:      time.Now(),
-				EndTime:        time.Now(),
-				TriggeredBy:    req.TriggeredBy,
-				Message:        fmt.Sprintf("In cooldown period until %v", lastRun.Add(policy.CooldownPeriod)),
+			return &Event{
+				ID:          uuid.New().String(),
+				PolicyName:  policy.Name,
+				TriggerType: req.TriggerType,
+				Environment: req.Environment,
+				Application: req.Application,
+				Status:      StatusCooldown,
+				StartTime:   time.Now(),
+				EndTime:     time.Now(),
+				TriggeredBy: req.TriggeredBy,
+				Message:     fmt.Sprintf("In cooldown period until %v", lastRun.Add(policy.CooldownPeriod)),
 			}, nil
 		}
 	}
@@ -555,18 +556,18 @@ func (e *Engine) executePolicy(ctx context.Context, policy *RemediationPolicy, r
 
 		if policy.MaxAttempts > 0 && attempts >= policy.MaxAttempts {
 			// Handle escalation
-			event := &RemediationEvent{
-				ID:             uuid.New().String(),
-				PolicyName:     policy.Name,
-				TriggerType:    req.TriggerType,
-				Environment:    req.Environment,
-				Application:    req.Application,
-				Status:         StatusMaxAttemptsReached,
-				Attempt:        attempts + 1,
-				StartTime:      time.Now(),
-				EndTime:        time.Now(),
-				TriggeredBy:    req.TriggeredBy,
-				Message:        fmt.Sprintf("Max attempts (%d) reached", policy.MaxAttempts),
+			event := &Event{
+				ID:          uuid.New().String(),
+				PolicyName:  policy.Name,
+				TriggerType: req.TriggerType,
+				Environment: req.Environment,
+				Application: req.Application,
+				Status:      StatusMaxAttemptsReached,
+				Attempt:     attempts + 1,
+				StartTime:   time.Now(),
+				EndTime:     time.Now(),
+				TriggeredBy: req.TriggeredBy,
+				Message:     fmt.Sprintf("Max attempts (%d) reached", policy.MaxAttempts),
 			}
 
 			// Execute escalation
@@ -579,7 +580,7 @@ func (e *Engine) executePolicy(ctx context.Context, policy *RemediationPolicy, r
 	}
 
 	// Create event
-	event := &RemediationEvent{
+	event := &Event{
 		ID:             uuid.New().String(),
 		PolicyName:     policy.Name,
 		TriggerType:    req.TriggerType,
@@ -695,7 +696,7 @@ func (e *Engine) executePolicy(ctx context.Context, policy *RemediationPolicy, r
 }
 
 // executeAction executes a single remediation action
-func (e *Engine) executeAction(ctx context.Context, action *RemediationAction, event *RemediationEvent, dryRun bool) *ActionResult {
+func (e *Engine) executeAction(ctx context.Context, action *Action, event *Event, dryRun bool) *ActionResult {
 	result := &ActionResult{
 		Name:      action.Name,
 		Type:      action.Type,
@@ -734,12 +735,13 @@ func (e *Engine) executeAction(ctx context.Context, action *RemediationAction, e
 
 	// Execute
 	execResult, err := handler.Execute(actionCtx, action, event)
-	if err != nil {
+	switch {
+	case err != nil:
 		result.Status = StatusFailed
 		result.Error = err.Error()
-	} else if execResult != nil {
+	case execResult != nil:
 		result = execResult
-	} else {
+	default:
 		result.Status = StatusSucceeded
 	}
 
@@ -749,7 +751,7 @@ func (e *Engine) executeAction(ctx context.Context, action *RemediationAction, e
 }
 
 // executeEscalation handles escalation when max attempts reached
-func (e *Engine) executeEscalation(ctx context.Context, policy *EscalationPolicy, event *RemediationEvent) {
+func (e *Engine) executeEscalation(ctx context.Context, policy *EscalationPolicy, event *Event) {
 	if e.notifier == nil {
 		return
 	}
@@ -762,6 +764,8 @@ func (e *Engine) executeEscalation(ctx context.Context, policy *EscalationPolicy
 		_ = e.notifier.Notify(ctx, policy.Channels, message, event)
 	case EscalationWebhook:
 		_ = e.notifier.Notify(ctx, []string{policy.WebhookURL}, message, event)
+	default:
+		// EscalationRunbook - runbook execution handled elsewhere
 	}
 }
 
@@ -778,11 +782,11 @@ func (e *Engine) notifyListeners(fn func(EventListener)) {
 }
 
 // GetEvents returns remediation events with optional filters
-func (e *Engine) GetEvents(environment, application string, limit int) []*RemediationEvent {
+func (e *Engine) GetEvents(environment, application string, limit int) []*Event {
 	e.eventsMu.RLock()
 	defer e.eventsMu.RUnlock()
 
-	var filtered []*RemediationEvent
+	var filtered []*Event
 	for i := len(e.events) - 1; i >= 0; i-- {
 		event := e.events[i]
 		if environment != "" && event.Environment != environment {
@@ -800,7 +804,7 @@ func (e *Engine) GetEvents(environment, application string, limit int) []*Remedi
 }
 
 // GetEvent returns a specific event by ID
-func (e *Engine) GetEvent(id string) (*RemediationEvent, bool) {
+func (e *Engine) GetEvent(id string) (*Event, bool) {
 	e.eventsMu.RLock()
 	defer e.eventsMu.RUnlock()
 
@@ -830,16 +834,16 @@ func (e *Engine) GetAttemptCount(environment, application string) int {
 }
 
 // DefaultPolicies returns common default remediation policies
-var DefaultPolicies = map[string]*RemediationPolicy{
+var DefaultPolicies = map[string]*Policy{
 	"verification-failure-rollback": {
 		Name:        "verification-failure-rollback",
 		Description: "Automatically rollback on verification failure",
 		Enabled:     true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback, Priority: 100},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback, Priority: 100},
 		},
 		MaxAttempts:    3,
 		CooldownPeriod: 5 * time.Minute,
@@ -852,11 +856,11 @@ var DefaultPolicies = map[string]*RemediationPolicy{
 		Name:        "health-check-restart",
 		Description: "Restart service on health check failure",
 		Enabled:     true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerHealthCheckFailure, Condition: ConditionConsecutive, Threshold: 3},
 		},
-		Actions: []RemediationAction{
-			{Name: "restart", Type: RemediationTypeRestart, Priority: 100},
+		Actions: []Action{
+			{Name: "restart", Type: TypeRestart, Priority: 100},
 		},
 		MaxAttempts:    5,
 		CooldownPeriod: 2 * time.Minute,
@@ -865,11 +869,11 @@ var DefaultPolicies = map[string]*RemediationPolicy{
 		Name:        "deployment-failure-alert",
 		Description: "Alert on deployment failure without automated action",
 		Enabled:     true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerDeploymentFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "alert", Type: RemediationTypeAlert, Priority: 100,
+		Actions: []Action{
+			{Name: "alert", Type: TypeAlert, Priority: 100,
 				Config: map[string]interface{}{
 					"channels": []string{"deployments", "oncall"},
 					"severity": "high",
@@ -881,7 +885,7 @@ var DefaultPolicies = map[string]*RemediationPolicy{
 }
 
 // GetDefaultPolicy returns a default policy by name
-func GetDefaultPolicy(name string) (*RemediationPolicy, bool) {
+func GetDefaultPolicy(name string) (*Policy, bool) {
 	policy, ok := DefaultPolicies[name]
 	return policy, ok
 }

@@ -139,7 +139,7 @@ func (m *K8sHPAModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(hpa.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -151,7 +151,7 @@ func (m *K8sHPAModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(hpa.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{
@@ -313,15 +313,15 @@ func getInt32PointerParameter(decl *StateDeclaration, name string) *int32 {
 
 	switch v := val.(type) {
 	case int:
-		i := int32(v)
+		i := int32(v) //nolint:gosec // G115: k8s HPA params are small ints
 		return &i
 	case int32:
 		return &v
 	case int64:
-		i := int32(v)
+		i := int32(v) //nolint:gosec // G115: k8s HPA params are small ints
 		return &i
 	case float64:
-		i := int32(v)
+		i := int32(v) //nolint:gosec // G115: k8s HPA params are small ints
 		return &i
 	default:
 		return nil

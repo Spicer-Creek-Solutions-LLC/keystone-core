@@ -19,7 +19,8 @@ type FileCache struct {
 // NewFileCache creates a new file-based cache
 func NewFileCache(basePath string) (*FileCache, error) {
 	// Create cache directory if it doesn't exist
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(basePath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -40,7 +41,8 @@ func (c *FileCache) Set(entry *CacheEntry) error {
 
 	// Create entry directory if needed
 	entryDir := filepath.Join(c.basePath, entry.Type)
-	if err := os.MkdirAll(entryDir, 0755); err != nil {
+	//nolint:gosec // G301: cache entry directory needs to be accessible by service user
+	if err := os.MkdirAll(entryDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create entry directory: %w", err)
 	}
 
@@ -52,7 +54,8 @@ func (c *FileCache) Set(entry *CacheEntry) error {
 
 	// Write to file
 	entryPath := filepath.Join(entryDir, entry.ID+".json")
-	if err := os.WriteFile(entryPath, data, 0644); err != nil {
+	//nolint:gosec // G306: cache files need to be readable by the edge agent
+	if err := os.WriteFile(entryPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write cache entry: %w", err)
 	}
 
@@ -169,7 +172,8 @@ func (c *FileCache) Clear() error {
 			}
 		}
 		// Recreate the directory
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
+		//nolint:gosec // G301: cache directory needs to be accessible by service user
+		if err := os.MkdirAll(dirPath, 0o755); err != nil {
 			return fmt.Errorf("failed to recreate directory: %w", err)
 		}
 	}

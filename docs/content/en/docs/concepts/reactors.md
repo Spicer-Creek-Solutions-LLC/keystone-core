@@ -136,7 +136,7 @@ Reactors can execute multiple actions in sequence or parallel:
 **State Apply Action**:
 ```yaml
 - type: state_apply
-  state_file: "/etc/kscore/states/web-server.yaml"
+  state_file: "/etc/keystone-core/states/web-server.yaml"
   target: "role:web and datacenter:{{ event.data.datacenter }}"
   check_only: false
 ```

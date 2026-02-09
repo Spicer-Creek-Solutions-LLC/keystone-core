@@ -2,6 +2,8 @@ package verification
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -17,13 +19,13 @@ func NewCommandVerifier() *CommandVerifier {
 }
 
 // Type returns the verification type
-func (v *CommandVerifier) Type() VerificationType {
-	return VerificationTypeCommand
+func (v *CommandVerifier) Type() Type {
+	return TypeCommand
 }
 
 // Verify executes a command and checks its result
-func (v *CommandVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
-	result := &VerificationResult{
+func (v *CommandVerifier) Verify(step *Step) (*Result, error) {
+	result := &Result{
 		StepName:  step.Name,
 		Timestamp: time.Now(),
 		Data:      make(map[string]interface{}),
@@ -39,9 +41,10 @@ func (v *CommandVerifier) Verify(step *VerificationStep) (*VerificationResult, e
 
 	// Optional: expected exit code (default 0)
 	expectedExitCode := 0
-	if code, ok := step.Config["expected_exit_code"].(int); ok {
+	switch code := step.Config["expected_exit_code"].(type) {
+	case int:
 		expectedExitCode = code
-	} else if code, ok := step.Config["expected_exit_code"].(float64); ok {
+	case float64:
 		expectedExitCode = int(code)
 	}
 
@@ -52,7 +55,8 @@ func (v *CommandVerifier) Verify(step *VerificationStep) (*VerificationResult, e
 	workDir, _ := step.Config["working_dir"].(string)
 
 	// Execute command
-	cmd := exec.Command("sh", "-c", command) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: shell command execution is intentional for GitOps verification
+	cmd := exec.CommandContext(context.Background(), "sh", "-c", command) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -67,7 +71,8 @@ func (v *CommandVerifier) Verify(step *VerificationStep) (*VerificationResult, e
 
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			result.Success = false
@@ -114,13 +119,13 @@ func NewScriptVerifier() *ScriptVerifier {
 }
 
 // Type returns the verification type
-func (v *ScriptVerifier) Type() VerificationType {
-	return VerificationTypeScript
+func (v *ScriptVerifier) Type() Type {
+	return TypeScript
 }
 
 // Verify executes a script and checks its result
-func (v *ScriptVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
-	result := &VerificationResult{
+func (v *ScriptVerifier) Verify(step *Step) (*Result, error) {
+	result := &Result{
 		StepName:  step.Name,
 		Timestamp: time.Now(),
 		Data:      make(map[string]interface{}),
@@ -153,7 +158,8 @@ func (v *ScriptVerifier) Verify(step *VerificationStep) (*VerificationResult, er
 	workDir, _ := step.Config["working_dir"].(string)
 
 	// Execute script
-	cmd := exec.Command(script, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: script execution is intentional for GitOps verification
+	cmd := exec.CommandContext(context.Background(), script, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -168,7 +174,8 @@ func (v *ScriptVerifier) Verify(step *VerificationStep) (*VerificationResult, er
 
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			result.Success = false

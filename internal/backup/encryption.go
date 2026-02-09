@@ -44,6 +44,7 @@ func (e *AgeEncryptor) Type() EncryptionType {
 // Encrypt encrypts data using age
 func (e *AgeEncryptor) Encrypt(ctx context.Context, plaintext io.Reader, ciphertext io.Writer) error {
 	args := []string{"-r", e.recipientKey, "-a"}
+	//nolint:gosec // G204: age CLI execution is intentional for backup encryption
 	cmd := exec.CommandContext(ctx, "age", args...)
 	cmd.Stdin = plaintext
 	cmd.Stdout = ciphertext
@@ -60,6 +61,7 @@ func (e *AgeEncryptor) Encrypt(ctx context.Context, plaintext io.Reader, ciphert
 // Decrypt decrypts data using age
 func (e *AgeEncryptor) Decrypt(ctx context.Context, ciphertext io.Reader, plaintext io.Writer) error {
 	args := []string{"-d", "-i", e.identityPath}
+	//nolint:gosec // G204: age CLI execution is intentional for backup decryption
 	cmd := exec.CommandContext(ctx, "age", args...)
 	cmd.Stdin = ciphertext
 	cmd.Stdout = plaintext
@@ -76,6 +78,7 @@ func (e *AgeEncryptor) Decrypt(ctx context.Context, ciphertext io.Reader, plaint
 // EncryptFile encrypts a file using age
 func (e *AgeEncryptor) EncryptFile(ctx context.Context, inputPath, outputPath string) error {
 	args := []string{"-r", e.recipientKey, "-o", outputPath, inputPath}
+	//nolint:gosec // G204: age CLI execution is intentional for backup encryption
 	cmd := exec.CommandContext(ctx, "age", args...)
 	cmd.Stderr = os.Stderr
 
@@ -90,6 +93,7 @@ func (e *AgeEncryptor) EncryptFile(ctx context.Context, inputPath, outputPath st
 // DecryptFile decrypts a file using age
 func (e *AgeEncryptor) DecryptFile(ctx context.Context, inputPath, outputPath string) error {
 	args := []string{"-d", "-i", e.identityPath, "-o", outputPath, inputPath}
+	//nolint:gosec // G204: age CLI execution is intentional for backup decryption
 	cmd := exec.CommandContext(ctx, "age", args...)
 	cmd.Stderr = os.Stderr
 
@@ -103,12 +107,11 @@ func (e *AgeEncryptor) DecryptFile(ctx context.Context, inputPath, outputPath st
 
 // AWSKMSEncryptor implements encryption using AWS KMS
 type AWSKMSEncryptor struct {
-	keyID     string
-	region    string
-	profile   string
-	endpoint  string // optional, for LocalStack testing
-	logger    Logger
-	dataKey   []byte // cached data encryption key
+	keyID    string
+	region   string
+	profile  string
+	endpoint string // optional, for LocalStack testing
+	logger   Logger
 }
 
 // AWSKMSConfig holds AWS KMS configuration
@@ -147,6 +150,7 @@ func (e *AWSKMSEncryptor) Encrypt(ctx context.Context, plaintext io.Reader, ciph
 	}
 
 	// Write encrypted key length and key first
+	//nolint:gosec // G115: encryptedKey length is bounded by KMS key size (typically <1KB)
 	keyLen := uint32(len(encryptedKey))
 	if _, err := ciphertext.Write([]byte{byte(keyLen >> 24), byte(keyLen >> 16), byte(keyLen >> 8), byte(keyLen)}); err != nil {
 		return err
@@ -286,7 +290,7 @@ func (e *AWSKMSEncryptor) DecryptFile(ctx context.Context, inputPath, outputPath
 }
 
 // generateDataKey generates a data key using AWS KMS
-func (e *AWSKMSEncryptor) generateDataKey(ctx context.Context) ([]byte, []byte, error) {
+func (e *AWSKMSEncryptor) generateDataKey(ctx context.Context) (plaintext, ciphertext []byte, err error) {
 	args := []string{
 		"kms", "generate-data-key",
 		"--key-id", e.keyID,
@@ -303,6 +307,7 @@ func (e *AWSKMSEncryptor) generateDataKey(ctx context.Context) ([]byte, []byte, 
 		args = append(args, "--endpoint-url", e.endpoint)
 	}
 
+	//nolint:gosec // G204: AWS CLI execution is intentional for KMS key generation
 	cmd := exec.CommandContext(ctx, "aws", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -310,8 +315,8 @@ func (e *AWSKMSEncryptor) generateDataKey(ctx context.Context) ([]byte, []byte, 
 	}
 
 	var result struct {
-		Plaintext        string `json:"Plaintext"`
-		CiphertextBlob   string `json:"CiphertextBlob"`
+		Plaintext      string `json:"Plaintext"`
+		CiphertextBlob string `json:"CiphertextBlob"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse KMS response: %w", err)
@@ -359,6 +364,7 @@ func (e *AWSKMSEncryptor) decryptDataKey(ctx context.Context, encryptedKey []byt
 		args = append(args, "--endpoint-url", e.endpoint)
 	}
 
+	//nolint:gosec // G204: AWS CLI execution is intentional for KMS decryption
 	cmd := exec.CommandContext(ctx, "aws", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -446,6 +452,7 @@ func (e *GCPKMSEncryptor) Encrypt(ctx context.Context, plaintext io.Reader, ciph
 		"--ciphertext-file", tmpCipher.Name(),
 	}
 
+	//nolint:gosec // G204: gcloud CLI execution is intentional for KMS encryption
 	cmd := exec.CommandContext(ctx, "gcloud", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud kms encrypt failed: %w", err)
@@ -498,6 +505,7 @@ func (e *GCPKMSEncryptor) Decrypt(ctx context.Context, ciphertext io.Reader, pla
 		"--plaintext-file", tmpPlain.Name(),
 	}
 
+	//nolint:gosec // G204: gcloud CLI execution is intentional for KMS decryption
 	cmd := exec.CommandContext(ctx, "gcloud", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud kms decrypt failed: %w", err)
@@ -526,6 +534,7 @@ func (e *GCPKMSEncryptor) EncryptFile(ctx context.Context, inputPath, outputPath
 		"--ciphertext-file", outputPath,
 	}
 
+	//nolint:gosec // G204: gcloud CLI execution is intentional for KMS file encryption
 	cmd := exec.CommandContext(ctx, "gcloud", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud kms encrypt failed: %w", err)
@@ -544,6 +553,7 @@ func (e *GCPKMSEncryptor) DecryptFile(ctx context.Context, inputPath, outputPath
 		"--plaintext-file", outputPath,
 	}
 
+	//nolint:gosec // G204: gcloud CLI execution is intentional for KMS file decryption
 	cmd := exec.CommandContext(ctx, "gcloud", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud kms decrypt failed: %w", err)
@@ -603,6 +613,7 @@ func (e *AzureKeyVaultEncryptor) Encrypt(ctx context.Context, plaintext io.Reade
 		"--output", "json",
 	}
 
+	//nolint:gosec // G204: Azure CLI execution is intentional for Key Vault encryption
 	cmd := exec.CommandContext(ctx, "az", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -649,6 +660,7 @@ func (e *AzureKeyVaultEncryptor) Decrypt(ctx context.Context, ciphertext io.Read
 		"--output", "json",
 	}
 
+	//nolint:gosec // G204: Azure CLI execution is intentional for Key Vault decryption
 	cmd := exec.CommandContext(ctx, "az", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -976,7 +988,7 @@ func NewEncryptor(config *EncryptionConfig, logger Logger) (Encryptor, error) {
 			KeyName:  config.AzureKeyName,
 		}
 		if azureConfig.VaultURL == "" || azureConfig.KeyName == "" {
-			return nil, fmt.Errorf("Azure Key Vault encryption requires vault URL and key name")
+			return nil, fmt.Errorf("azure Key Vault encryption requires vault URL and key name")
 		}
 		return NewAzureKeyVaultEncryptor(azureConfig, logger), nil
 
@@ -989,7 +1001,7 @@ func NewEncryptor(config *EncryptionConfig, logger Logger) (Encryptor, error) {
 			Namespace: config.VaultNamespace,
 		}
 		if vaultConfig.Address == "" || vaultConfig.Token == "" || vaultConfig.KeyName == "" {
-			return nil, fmt.Errorf("Vault Transit encryption requires address, token, and key name")
+			return nil, fmt.Errorf("vault transit encryption requires address, token, and key name")
 		}
 		return NewVaultTransitEncryptor(vaultConfig, logger), nil
 

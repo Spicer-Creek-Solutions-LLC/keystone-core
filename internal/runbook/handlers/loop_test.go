@@ -354,10 +354,10 @@ func TestLoopVariableContext(t *testing.T) {
 
 func TestToSlice(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    interface{}
-		wantLen  int
-		wantErr  bool
+		name    string
+		input   interface{}
+		wantLen int
+		wantErr bool
 	}{
 		{
 			name:    "interface slice",

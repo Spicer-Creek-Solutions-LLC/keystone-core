@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -59,7 +60,7 @@ func TestEnforcer_MemoryLimit(t *testing.T) {
 
 	// Record exceeding limits
 	err = enforcer.RecordMemory(600)
-	if err != ErrMemoryExceeded {
+	if !errors.Is(err, ErrMemoryExceeded) {
 		t.Errorf("RecordMemory exceeding = %v, want ErrMemoryExceeded", err)
 	}
 
@@ -174,12 +175,12 @@ func TestEnforcer_NetworkDisabled(t *testing.T) {
 	enforcer := NewEnforcer(limits)
 
 	err := enforcer.CheckNetwork()
-	if err != ErrNetworkDisabled {
+	if !errors.Is(err, ErrNetworkDisabled) {
 		t.Errorf("CheckNetwork = %v, want ErrNetworkDisabled", err)
 	}
 
 	err = enforcer.RecordNetworkConn()
-	if err != ErrNetworkDisabled {
+	if !errors.Is(err, ErrNetworkDisabled) {
 		t.Errorf("RecordNetworkConn = %v, want ErrNetworkDisabled", err)
 	}
 }
@@ -192,7 +193,7 @@ func TestEnforcer_FilesystemDisabled(t *testing.T) {
 	enforcer := NewEnforcer(limits)
 
 	err := enforcer.CheckFilesystem()
-	if err != ErrFilesystemDisabled {
+	if !errors.Is(err, ErrFilesystemDisabled) {
 		t.Errorf("CheckFilesystem = %v, want ErrFilesystemDisabled", err)
 	}
 }
@@ -326,14 +327,14 @@ func TestEnforcer_Monitor(t *testing.T) {
 	enforcer.Start(ctx)
 
 	if err := helpers.WaitForTimeout(500*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
-		return enforcer.Violated() == ErrTimeoutExceeded, nil
+		return errors.Is(enforcer.Violated(), ErrTimeoutExceeded), nil
 	}); err != nil {
 		t.Fatalf("expected wall time violation: %v", err)
 	}
 
 	enforcer.Stop()
 
-	if enforcer.Violated() != ErrTimeoutExceeded {
+	if !errors.Is(enforcer.Violated(), ErrTimeoutExceeded) {
 		t.Errorf("Violated = %v, want ErrTimeoutExceeded", enforcer.Violated())
 	}
 }
@@ -361,7 +362,7 @@ func TestLimitedContext(t *testing.T) {
 	// So we need to manually set it for this test
 	enforcer.setViolated(ErrMemoryExceeded)
 
-	if lc.Err() != ErrMemoryExceeded {
+	if !errors.Is(lc.Err(), ErrMemoryExceeded) {
 		t.Errorf("Err() = %v, want ErrMemoryExceeded", lc.Err())
 	}
 }
@@ -425,7 +426,7 @@ func TestPool_AcquireBlocking(t *testing.T) {
 	defer cancel()
 
 	err := pool.Acquire(ctx, 50)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Acquire on full pool = %v, want DeadlineExceeded", err)
 	}
 }

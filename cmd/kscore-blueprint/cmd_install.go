@@ -82,7 +82,7 @@ func installExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 60 * time.Second,
 	})
@@ -172,7 +172,8 @@ func extractBlueprint(data []byte, destDir string) error {
 	tr := tar.NewReader(gzr)
 
 	// Create destination directory
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	//nolint:gosec // G301: blueprint directory needs to be accessible by users
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -186,12 +187,13 @@ func extractBlueprint(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read tar: %w", err)
 		}
 
-		target := filepath.Join(destDir, header.Name)
-
-		// Ensure the target is within destDir (security check)
-		if !filepath.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) && target != filepath.Clean(destDir) {
+		// Ensure the target is within destDir (security check for G305)
+		cleanDest := filepath.Clean(destDir)
+		cleanTarget := filepath.Clean(filepath.Join(destDir, header.Name)) //nolint:gosec // G305: path validated by HasPrefix check below
+		if !strings.HasPrefix(cleanTarget, cleanDest+string(os.PathSeparator)) && cleanTarget != cleanDest {
 			return fmt.Errorf("invalid file path in archive: %s", header.Name)
 		}
+		target := cleanTarget
 
 		if header.Typeflag == tar.TypeReg && (header.Size < 0 || header.Size > maxBlueprintArchiveEntrySize) {
 			return fmt.Errorf("archive entry %s exceeds max size", header.Name)
@@ -199,14 +201,17 @@ func extractBlueprint(data []byte, destDir string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
 				return err
 			}
 		case tar.TypeReg:
 			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			//nolint:gosec // G301: parent directory needs to be accessible by users
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				return err
@@ -278,7 +283,7 @@ func updateExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 60 * time.Second,
 	})
@@ -532,7 +537,7 @@ func findBlueprintDependents(baseDir, target string) ([]string, error) {
 
 		bp, err := blueprint.ParseManifestFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // skip unparseable files in walk
 		}
 		if bp.Metadata.Name == target {
 			return nil

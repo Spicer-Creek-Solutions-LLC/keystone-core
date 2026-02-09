@@ -13,14 +13,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestAuthRateLimiter_IsAllowed(t *testing.T) {
+func TestRateLimiter_IsAllowed(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     3,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	clientID := "192.168.1.1"
@@ -44,14 +44,14 @@ func TestAuthRateLimiter_IsAllowed(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_RecordSuccess(t *testing.T) {
+func TestRateLimiter_RecordSuccess(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     3,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	clientID := "192.168.1.1"
@@ -72,14 +72,14 @@ func TestAuthRateLimiter_RecordSuccess(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_LockoutRemaining(t *testing.T) {
+func TestRateLimiter_LockoutRemaining(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     2,
 		LockoutDuration: 1 * time.Second,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	clientID := "192.168.1.1"
@@ -111,14 +111,14 @@ func TestAuthRateLimiter_LockoutRemaining(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_Disabled(t *testing.T) {
+func TestRateLimiter_Disabled(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     1,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         false, // Disabled
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	clientID := "192.168.1.1"
@@ -133,14 +133,14 @@ func TestAuthRateLimiter_Disabled(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_Stats(t *testing.T) {
+func TestRateLimiter_Stats(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     3,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	// Record failures for multiple clients
@@ -162,14 +162,14 @@ func TestAuthRateLimiter_Stats(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_Reset(t *testing.T) {
+func TestRateLimiter_Reset(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     3,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	// Record some failures
@@ -231,14 +231,14 @@ func TestClientIDFromContext_Unknown(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimiter_CheckRateLimit(t *testing.T) {
+func TestRateLimiter_CheckRateLimit(t *testing.T) {
 	config := RateLimitConfig{
 		MaxFailures:     2,
 		LockoutDuration: 5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 		Enabled:         true,
 	}
-	rl := NewAuthRateLimiter(config)
+	rl := NewRateLimiter(config)
 	defer rl.Stop()
 
 	// Create context with peer

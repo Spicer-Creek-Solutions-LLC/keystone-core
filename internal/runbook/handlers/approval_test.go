@@ -423,8 +423,8 @@ func TestApprovalHandler_Execute_WithTemplates(t *testing.T) {
 		Name: "approve-deploy",
 		Type: runbook.StepTypeApproval,
 		Config: map[string]interface{}{
-			"title":       "Deploy to {{ .inputs.environment }}",
-			"approvers":   []interface{}{"{{ .inputs.approver_email }}"},
+			"title":     "Deploy to {{ .inputs.environment }}",
+			"approvers": []interface{}{"{{ .inputs.approver_email }}"},
 		},
 	}
 

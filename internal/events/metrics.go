@@ -185,7 +185,7 @@ func (c *DefaultMetricsCollector) RecordReactorExecution(reactorID string, durat
 }
 
 // RecordActionExecution records an action execution
-func (c *DefaultMetricsCollector) RecordActionExecution(actionName string, actionType string, duration time.Duration, success bool) {
+func (c *DefaultMetricsCollector) RecordActionExecution(actionName, actionType string, duration time.Duration, success bool) {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
 
@@ -304,6 +304,7 @@ func (d *DurationStats) calculatePercentiles() {
 // HealthStatus represents the health status of a component
 type HealthStatus string
 
+// HealthStatus constants define the possible statuses.
 const (
 	HealthStatusHealthy   HealthStatus = "healthy"
 	HealthStatusDegraded  HealthStatus = "degraded"
@@ -374,10 +375,13 @@ func (h *HealthMonitor) GetOverallStatus() HealthStatus {
 	hasDegraded := false
 
 	for _, result := range results {
-		if result.Status == HealthStatusUnhealthy {
+		switch result.Status {
+		case HealthStatusUnhealthy:
 			hasUnhealthy = true
-		} else if result.Status == HealthStatusDegraded {
+		case HealthStatusDegraded:
 			hasDegraded = true
+		default:
+			// Healthy status doesn't set any flags
 		}
 	}
 

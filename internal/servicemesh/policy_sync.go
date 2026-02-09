@@ -116,14 +116,14 @@ type PolicySynchronizer struct {
 	store    *PolicyStore
 
 	// State
-	mu            sync.RWMutex
-	running       bool
-	stopCh        chan struct{}
+	mu             sync.RWMutex
+	running        bool
+	stopCh         chan struct{}
 	lastSyncResult *SyncResult
-	lastSyncError error
+	lastSyncError  error
 
 	// Known policies for change detection
-	knownMTLSPolicies map[string]*MTLSPolicy       // key: namespace/name
+	knownMTLSPolicies map[string]*MTLSPolicy // key: namespace/name
 	knownAuthPolicies map[string]*AuthorizationPolicy
 
 	// Callbacks

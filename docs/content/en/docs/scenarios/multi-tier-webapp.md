@@ -55,9 +55,9 @@ First, assign roles to your servers using grain data or targeting:
 
 ```bash
 # Tag servers with their roles
-kscorectl exec "role:lb" --cmd "echo 'tier: loadbalancer' >> /etc/kscore/grains.yaml"
-kscorectl exec "role:app" --cmd "echo 'tier: application' >> /etc/kscore/grains.yaml"
-kscorectl exec "role:db" --cmd "echo 'tier: database' >> /etc/kscore/grains.yaml"
+kscorectl exec run "role:lb" -- sh -c "echo 'tier: loadbalancer' >> /etc/keystone-core/grains.yaml"
+kscorectl exec run "role:app" -- sh -c "echo 'tier: application' >> /etc/keystone-core/grains.yaml"
+kscorectl exec run "role:db" -- sh -c "echo 'tier: database' >> /etc/keystone-core/grains.yaml"
 ```
 
 ### Step 2: Load Balancer Configuration
@@ -502,25 +502,24 @@ kscorectl state apply states/webapp/database-primary.yaml \
 curl -k https://webapp.example.com/health
 
 # Check application servers directly
-kscorectl exec "tier:application" --cmd "curl -s localhost:3000/health"
+kscorectl exec run "tier:application" -- curl -s localhost:3000/health
 
 # Check database connectivity
-kscorectl exec "tier:application" --cmd "pg_isready -h 10.0.3.10 -p 5432"
+kscorectl exec run "tier:application" -- pg_isready -h 10.0.3.10 -p 5432
 
 # Verify replication status
-kscorectl exec "tier:database and role:primary" --cmd \
-  "sudo -u postgres psql -c 'SELECT client_addr, state, sync_state FROM pg_stat_replication;'"
+kscorectl exec run "tier:database and role:primary" -- \
+  sudo -u postgres psql -c 'SELECT client_addr, state, sync_state FROM pg_stat_replication;'
 ```
 
 ### Load Testing
 
 ```bash
 # Install load testing tool
-kscorectl exec "lb-01" --cmd "apt-get install -y apache2-utils"
+kscorectl exec run "lb-01" -- apt-get install -y apache2-utils
 
 # Run basic load test
-kscorectl exec "lb-01" --cmd \
-  "ab -n 10000 -c 100 https://webapp.example.com/"
+kscorectl exec run "lb-01" -- ab -n 10000 -c 100 https://webapp.example.com/
 ```
 
 ## Troubleshooting
@@ -530,29 +529,29 @@ kscorectl exec "lb-01" --cmd \
 **502 Bad Gateway from Nginx**
 ```bash
 # Check if app servers are running
-kscorectl exec "tier:application" --cmd "systemctl status webapp"
+kscorectl exec run "tier:application" -- systemctl status webapp
 
 # Check Nginx upstream status
-kscorectl exec "tier:loadbalancer" --cmd "nginx -t && tail -50 /var/log/nginx/error.log"
+kscorectl exec run "tier:loadbalancer" -- sh -c "nginx -t && tail -50 /var/log/nginx/error.log"
 ```
 
 **Database Connection Failures**
 ```bash
 # Verify PostgreSQL is listening
-kscorectl exec "tier:database" --cmd "ss -tlnp | grep 5432"
+kscorectl exec run "tier:database" -- sh -c "ss -tlnp | grep 5432"
 
 # Check pg_hba.conf rules
-kscorectl exec "tier:database" --cmd "cat /etc/postgresql/15/main/pg_hba.conf"
+kscorectl exec run "tier:database" -- cat /etc/postgresql/15/main/pg_hba.conf
 
 # Test connection from app server
-kscorectl exec "app-01" --cmd "PGPASSWORD=xxx psql -h 10.0.3.10 -U webapp_user -d webapp -c '\dt'"
+kscorectl exec run "app-01" -- sh -c "PGPASSWORD=xxx psql -h 10.0.3.10 -U webapp_user -d webapp -c '\dt'"
 ```
 
 **Replication Lag**
 ```bash
 # Check replication lag on primary
-kscorectl exec "tier:database and role:primary" --cmd \
-  "sudo -u postgres psql -c 'SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), sent_lsn) as send_lag, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) as replay_lag FROM pg_stat_replication;'"
+kscorectl exec run "tier:database and role:primary" -- \
+  sudo -u postgres psql -c 'SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), sent_lsn) as send_lag, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) as replay_lag FROM pg_stat_replication;'
 ```
 
 ## Maintenance
@@ -573,6 +572,6 @@ kscorectl state apply states/webapp/application.yaml \
 
 ```bash
 # Create backup
-kscorectl exec "tier:database and role:primary" --cmd \
-  "sudo -u postgres pg_dump webapp | gzip > /backup/webapp-$(date +%Y%m%d).sql.gz"
+kscorectl exec run "tier:database and role:primary" -- \
+  sh -c "sudo -u postgres pg_dump webapp | gzip > /backup/webapp-\$(date +%Y%m%d).sql.gz"
 ```

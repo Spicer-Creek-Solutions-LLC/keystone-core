@@ -32,14 +32,14 @@ func TestRouteModule_ParseConfig(t *testing.T) {
 	m := NewRouteModule()
 
 	tests := []struct {
-		name        string
-		decl        *StateDeclaration
-		wantDest    string
-		wantGW      string
-		wantIface   string
-		wantMetric  int
-		wantTable   string
-		wantErr     bool
+		name       string
+		decl       *StateDeclaration
+		wantDest   string
+		wantGW     string
+		wantIface  string
+		wantMetric int
+		wantTable  string
+		wantErr    bool
 	}{
 		{
 			name: "basic route via gateway",

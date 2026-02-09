@@ -247,7 +247,7 @@ func TestTrapStructure(t *testing.T) {
 		GenericTrap:  6,
 		SpecificTrap: 1,
 		Timestamp:    12345,
-		Variables: []SNMPVariable{
+		Variables: []Variable{
 			{OID: ".1.3.6.1.2.1.1.3.0", Type: gosnmp.TimeTicks, Value: uint32(12345)},
 		},
 	}
@@ -322,7 +322,7 @@ func TestInformResponseStructure(t *testing.T) {
 		RequestID: 12345,
 		Error:     gosnmp.NoError,
 		ErrorIdx:  0,
-		Variables: []SNMPVariable{
+		Variables: []Variable{
 			{OID: ".1.3.6.1.2.1.1.3.0", Type: gosnmp.TimeTicks, Value: uint32(12345)},
 		},
 	}

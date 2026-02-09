@@ -11,18 +11,18 @@ import (
 // MockVerifier for testing
 type MockVerifier struct {
 	mu      sync.Mutex
-	vtype   VerificationType
-	result  *VerificationResult
+	vtype   Type
+	result  *Result
 	delay   time.Duration
 	failN   int32
 	callNum int32
 }
 
-func (m *MockVerifier) Type() VerificationType {
+func (m *MockVerifier) Type() Type {
 	return m.vtype
 }
 
-func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
+func (m *MockVerifier) Verify(step *Step) (*Result, error) {
 	if m.delay > 0 {
 		timer := time.NewTimer(m.delay)
 		<-timer.C
@@ -34,7 +34,7 @@ func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 	// Fail first N attempts
 	failN := atomic.LoadInt32(&m.failN)
 	if callNum <= failN {
-		return &VerificationResult{
+		return &Result{
 			StepName:  step.Name,
 			Success:   false,
 			Message:   "Mock failure",
@@ -53,7 +53,7 @@ func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 		return &resultCopy, nil
 	}
 
-	return &VerificationResult{
+	return &Result{
 		StepName:  step.Name,
 		Success:   true,
 		Message:   "Mock success",
@@ -63,11 +63,11 @@ func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 
 func TestEngineRegisterVerifier(t *testing.T) {
 	engine := NewEngine()
-	verifier := &MockVerifier{vtype: VerificationTypeHTTP}
+	verifier := &MockVerifier{vtype: TypeHTTP}
 
 	engine.RegisterVerifier(verifier)
 
-	retrieved, ok := engine.GetVerifier(VerificationTypeHTTP)
+	retrieved, ok := engine.GetVerifier(TypeHTTP)
 	if !ok {
 		t.Error("Failed to retrieve registered verifier")
 	}
@@ -79,22 +79,22 @@ func TestEngineRegisterVerifier(t *testing.T) {
 
 func TestEngineExecuteSequential(t *testing.T) {
 	engine := NewEngine()
-	engine.RegisterVerifier(&MockVerifier{vtype: VerificationTypeHTTP})
-	engine.RegisterVerifier(&MockVerifier{vtype: VerificationTypeCommand})
+	engine.RegisterVerifier(&MockVerifier{vtype: TypeHTTP})
+	engine.RegisterVerifier(&MockVerifier{vtype: TypeCommand})
 
-	workflow := &VerificationWorkflow{
+	workflow := &Workflow{
 		Name: "test-workflow",
-		Steps: []*VerificationStep{
+		Steps: []*Step{
 			{
 				Name: "step1",
-				Type: VerificationTypeHTTP,
+				Type: TypeHTTP,
 				Config: map[string]interface{}{
 					"url": "http://example.com",
 				},
 			},
 			{
 				Name: "step2",
-				Type: VerificationTypeCommand,
+				Type: TypeCommand,
 				Config: map[string]interface{}{
 					"command": "echo test",
 				},
@@ -130,16 +130,16 @@ func TestEngineExecuteSequential(t *testing.T) {
 func TestEngineExecuteParallel(t *testing.T) {
 	engine := NewEngine()
 	engine.RegisterVerifier(&MockVerifier{
-		vtype: VerificationTypeHTTP,
+		vtype: TypeHTTP,
 		delay: 100 * time.Millisecond,
 	})
 
-	workflow := &VerificationWorkflow{
+	workflow := &Workflow{
 		Name: "parallel-workflow",
-		Steps: []*VerificationStep{
-			{Name: "step1", Type: VerificationTypeHTTP, Config: map[string]interface{}{}},
-			{Name: "step2", Type: VerificationTypeHTTP, Config: map[string]interface{}{}},
-			{Name: "step3", Type: VerificationTypeHTTP, Config: map[string]interface{}{}},
+		Steps: []*Step{
+			{Name: "step1", Type: TypeHTTP, Config: map[string]interface{}{}},
+			{Name: "step2", Type: TypeHTTP, Config: map[string]interface{}{}},
+			{Name: "step3", Type: TypeHTTP, Config: map[string]interface{}{}},
 		},
 		Parallel: true,
 	}
@@ -167,16 +167,16 @@ func TestEngineExecuteParallel(t *testing.T) {
 func TestEngineRetries(t *testing.T) {
 	engine := NewEngine()
 	engine.RegisterVerifier(&MockVerifier{
-		vtype: VerificationTypeHTTP,
+		vtype: TypeHTTP,
 		failN: 2, // Fail first 2 attempts
 	})
 
-	workflow := &VerificationWorkflow{
+	workflow := &Workflow{
 		Name: "retry-workflow",
-		Steps: []*VerificationStep{
+		Steps: []*Step{
 			{
 				Name:       "step-with-retry",
-				Type:       VerificationTypeHTTP,
+				Type:       TypeHTTP,
 				Retries:    3,
 				RetryDelay: 10 * time.Millisecond,
 				Config:     map[string]interface{}{},
@@ -203,26 +203,26 @@ func TestEngineRetries(t *testing.T) {
 func TestEngineContinueOnFailure(t *testing.T) {
 	engine := NewEngine()
 	engine.RegisterVerifier(&MockVerifier{
-		vtype: VerificationTypeHTTP,
-		result: &VerificationResult{
+		vtype: TypeHTTP,
+		result: &Result{
 			Success: false,
 			Message: "Always fails",
 		},
 	})
-	engine.RegisterVerifier(&MockVerifier{vtype: VerificationTypeCommand})
+	engine.RegisterVerifier(&MockVerifier{vtype: TypeCommand})
 
-	workflow := &VerificationWorkflow{
+	workflow := &Workflow{
 		Name: "continue-workflow",
-		Steps: []*VerificationStep{
+		Steps: []*Step{
 			{
 				Name:              "failing-step",
-				Type:              VerificationTypeHTTP,
+				Type:              TypeHTTP,
 				Config:            map[string]interface{}{},
 				ContinueOnFailure: true,
 			},
 			{
 				Name:   "second-step",
-				Type:   VerificationTypeCommand,
+				Type:   TypeCommand,
 				Config: map[string]interface{}{},
 			},
 		},
@@ -253,26 +253,26 @@ func TestEngineContinueOnFailure(t *testing.T) {
 func TestEngineStopOnFailure(t *testing.T) {
 	engine := NewEngine()
 	engine.RegisterVerifier(&MockVerifier{
-		vtype: VerificationTypeHTTP,
-		result: &VerificationResult{
+		vtype: TypeHTTP,
+		result: &Result{
 			Success: false,
 			Message: "Always fails",
 		},
 	})
-	engine.RegisterVerifier(&MockVerifier{vtype: VerificationTypeCommand})
+	engine.RegisterVerifier(&MockVerifier{vtype: TypeCommand})
 
-	workflow := &VerificationWorkflow{
+	workflow := &Workflow{
 		Name: "stop-workflow",
-		Steps: []*VerificationStep{
+		Steps: []*Step{
 			{
 				Name:   "failing-step",
-				Type:   VerificationTypeHTTP,
+				Type:   TypeHTTP,
 				Config: map[string]interface{}{},
 				// ContinueOnFailure is false by default
 			},
 			{
 				Name:   "second-step",
-				Type:   VerificationTypeCommand,
+				Type:   TypeCommand,
 				Config: map[string]interface{}{},
 			},
 		},

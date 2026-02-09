@@ -1,7 +1,7 @@
 # Security Baseline Blueprint
 # Implements security hardening best practices for Linux servers
 
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: security-baseline
@@ -11,7 +11,7 @@ metadata:
     SSH hardening, firewall configuration, system hardening, and audit logging.
   maintainers:
     - name: Keystone Core Team
-      email: team@kscore.io
+      email: team@keystone-core.io
   license: Apache-2.0
   keywords:
     - security

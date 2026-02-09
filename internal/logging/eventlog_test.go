@@ -4,6 +4,7 @@
 package logging
 
 import (
+	"errors"
 	"runtime"
 	"testing"
 )
@@ -30,7 +31,7 @@ func TestNewEventLogOutputOnNonWindows(t *testing.T) {
 	}
 
 	output, err := NewEventLogOutput(nil)
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 	if output != nil {
@@ -45,7 +46,7 @@ func TestEventLogOutputWriteOnNonWindows(t *testing.T) {
 
 	output := &EventLogOutput{}
 	err := output.Write([]byte("test"))
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -57,7 +58,7 @@ func TestEventLogOutputWriteEntryOnNonWindows(t *testing.T) {
 
 	output := &EventLogOutput{}
 	err := output.WriteEntry(&Entry{Message: "test"})
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -81,7 +82,7 @@ func TestInstallEventSourceOnNonWindows(t *testing.T) {
 	}
 
 	err := InstallEventSource("TestSource", "Application")
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -92,7 +93,7 @@ func TestRemoveEventSourceOnNonWindows(t *testing.T) {
 	}
 
 	err := RemoveEventSource("TestSource")
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }

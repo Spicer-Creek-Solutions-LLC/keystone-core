@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,11 +12,11 @@ import (
 type RateLimiter struct {
 	config *RateLimitConfig
 
-	mu       sync.RWMutex
-	buckets  map[string]*tokenBucket
-	global   *tokenBucket
-	closed   bool
-	stopCh   chan struct{}
+	mu      sync.RWMutex
+	buckets map[string]*tokenBucket
+	global  *tokenBucket
+	closed  bool
+	stopCh  chan struct{}
 
 	stats RateLimitStats
 }
@@ -84,12 +85,12 @@ type ClientRateLimitRule struct {
 func DefaultRateLimitConfig() *RateLimitConfig {
 	return &RateLimitConfig{
 		Enabled:         true,
-		GlobalLimit:     1000,  // 1000 requests/second globally
-		GlobalBurst:     2000,  // Allow bursts up to 2000
-		PerClientLimit:  100,   // 100 requests/second per client
-		PerClientBurst:  200,   // Allow bursts up to 200 per client
-		PerPathLimit:    50,    // 50 requests/second per path
-		PerPathBurst:    100,   // Allow bursts up to 100 per path
+		GlobalLimit:     1000, // 1000 requests/second globally
+		GlobalBurst:     2000, // Allow bursts up to 2000
+		PerClientLimit:  100,  // 100 requests/second per client
+		PerClientBurst:  200,  // Allow bursts up to 200 per client
+		PerPathLimit:    50,   // 50 requests/second per path
+		PerPathBurst:    100,  // Allow bursts up to 100 per path
 		CleanupInterval: time.Minute,
 		BucketExpiry:    5 * time.Minute,
 	}
@@ -124,7 +125,7 @@ type tokenBucket struct {
 	mu         sync.Mutex
 	tokens     float64
 	capacity   float64
-	rate       float64  // tokens per second
+	rate       float64 // tokens per second
 	lastUpdate time.Time
 	lastUsed   time.Time
 }
@@ -519,6 +520,6 @@ func (e *RateLimitError) Error() string {
 
 // IsRateLimitError returns true if the error is a rate limit error.
 func IsRateLimitError(err error) bool {
-	_, ok := err.(*RateLimitError)
-	return ok
+	var rle *RateLimitError
+	return errors.As(err, &rle)
 }

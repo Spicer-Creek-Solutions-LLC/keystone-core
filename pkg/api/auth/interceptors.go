@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ type InterceptorConfig struct {
 	// AuditLogger is called for authentication events (optional)
 	AuditLogger func(ctx context.Context, method string, principal *Principal, err error)
 	// RateLimiter for limiting failed authentication attempts (optional but recommended)
-	RateLimiter *AuthRateLimiter
+	RateLimiter *RateLimiter
 }
 
 // NewInterceptorConfigFromConfig creates interceptor config from app config
@@ -96,7 +97,7 @@ func NewInterceptorConfigFromConfig(cfg config.AuthConfig) (*InterceptorConfig, 
 	ic.Authorizer = NewRBACAuthorizer(cfg.BypassMethods)
 
 	// Create rate limiter with defaults (can be customized via SetRateLimiter)
-	ic.RateLimiter = NewAuthRateLimiter(DefaultRateLimitConfig())
+	ic.RateLimiter = NewRateLimiter(DefaultRateLimitConfig())
 
 	return ic, nil
 }
@@ -284,35 +285,37 @@ func authenticate(ctx context.Context, cfg *InterceptorConfig) (*Principal, erro
 		attemptsRemaining := cfg.RateLimiter.config.MaxFailures - failCount
 		if attemptsRemaining > 0 && lastErr != nil {
 			// Map auth errors to gRPC status codes with attempts remaining
-			switch lastErr {
-			case ErrNoCredentials:
+			if errors.Is(lastErr, ErrNoCredentials) {
 				return nil, status.Errorf(codes.Unauthenticated, "no credentials provided (%d attempts remaining)", attemptsRemaining)
-			case ErrInvalidCredentials:
-				return nil, status.Errorf(codes.Unauthenticated, "invalid credentials (%d attempts remaining)", attemptsRemaining)
-			case ErrExpiredCredentials:
-				return nil, status.Errorf(codes.Unauthenticated, "credentials expired (%d attempts remaining)", attemptsRemaining)
-			case ErrDisabledKey:
-				return nil, status.Errorf(codes.Unauthenticated, "API key is disabled (%d attempts remaining)", attemptsRemaining)
-			default:
-				return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v (%d attempts remaining)", lastErr, attemptsRemaining)
 			}
+			if errors.Is(lastErr, ErrInvalidCredentials) {
+				return nil, status.Errorf(codes.Unauthenticated, "invalid credentials (%d attempts remaining)", attemptsRemaining)
+			}
+			if errors.Is(lastErr, ErrExpiredCredentials) {
+				return nil, status.Errorf(codes.Unauthenticated, "credentials expired (%d attempts remaining)", attemptsRemaining)
+			}
+			if errors.Is(lastErr, ErrDisabledKey) {
+				return nil, status.Errorf(codes.Unauthenticated, "API key is disabled (%d attempts remaining)", attemptsRemaining)
+			}
+			return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v (%d attempts remaining)", lastErr, attemptsRemaining)
 		}
 	}
 
 	// Map auth errors to gRPC status codes (when rate limiter is disabled or nil)
 	if lastErr != nil {
-		switch lastErr {
-		case ErrNoCredentials:
+		if errors.Is(lastErr, ErrNoCredentials) {
 			return nil, status.Errorf(codes.Unauthenticated, "no credentials provided")
-		case ErrInvalidCredentials:
-			return nil, status.Errorf(codes.Unauthenticated, "invalid credentials")
-		case ErrExpiredCredentials:
-			return nil, status.Errorf(codes.Unauthenticated, "credentials expired")
-		case ErrDisabledKey:
-			return nil, status.Errorf(codes.Unauthenticated, "API key is disabled")
-		default:
-			return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v", lastErr)
 		}
+		if errors.Is(lastErr, ErrInvalidCredentials) {
+			return nil, status.Errorf(codes.Unauthenticated, "invalid credentials")
+		}
+		if errors.Is(lastErr, ErrExpiredCredentials) {
+			return nil, status.Errorf(codes.Unauthenticated, "credentials expired")
+		}
+		if errors.Is(lastErr, ErrDisabledKey) {
+			return nil, status.Errorf(codes.Unauthenticated, "API key is disabled")
+		}
+		return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v", lastErr)
 	}
 
 	return nil, status.Errorf(codes.Unauthenticated, "no authenticator could validate credentials")

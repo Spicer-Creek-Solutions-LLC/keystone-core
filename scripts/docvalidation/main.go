@@ -15,6 +15,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // DocFile represents a documentation file
@@ -45,24 +48,24 @@ type Package struct {
 
 // DocInventory holds the complete documentation inventory
 type DocInventory struct {
-	DocsRoot     string             `json:"docs_root"`
-	PkgRoot      string             `json:"pkg_root"`
-	DocFiles     []DocFile          `json:"doc_files"`
-	Packages     []Package          `json:"packages"`
-	EpicCoverage map[int][]string   `json:"epic_coverage"`
-	Summary      InventorySummary   `json:"summary"`
+	DocsRoot     string           `json:"docs_root"`
+	PkgRoot      string           `json:"pkg_root"`
+	DocFiles     []DocFile        `json:"doc_files"`
+	Packages     []Package        `json:"packages"`
+	EpicCoverage map[int][]string `json:"epic_coverage"`
+	Summary      InventorySummary `json:"summary"`
 }
 
 // InventorySummary provides summary statistics
 type InventorySummary struct {
-	TotalDocs           int     `json:"total_docs"`
-	TotalPackages       int     `json:"total_packages"`
-	DocsWithExamples    int     `json:"docs_with_examples"`
-	AvgGodocCoverage    float64 `json:"avg_godoc_coverage"`
-	PackagesFullyCovered int    `json:"packages_fully_covered"`
-	PackagesNoCoverage  int     `json:"packages_no_coverage"`
-	TotalExportedSymbols int    `json:"total_exported_symbols"`
-	TotalDocumentedSymbols int  `json:"total_documented_symbols"`
+	TotalDocs              int     `json:"total_docs"`
+	TotalPackages          int     `json:"total_packages"`
+	DocsWithExamples       int     `json:"docs_with_examples"`
+	AvgGodocCoverage       float64 `json:"avg_godoc_coverage"`
+	PackagesFullyCovered   int     `json:"packages_fully_covered"`
+	PackagesNoCoverage     int     `json:"packages_no_coverage"`
+	TotalExportedSymbols   int     `json:"total_exported_symbols"`
+	TotalDocumentedSymbols int     `json:"total_documented_symbols"`
 }
 
 // Epic to package mapping
@@ -178,7 +181,7 @@ func runInventoryCommand(args []string) {
 	outputFile := fs.String("output", "", "Output file for report")
 	format := fs.String("format", "text", "Output format: text, json, markdown")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	docsRoot := filepath.Join(*rootDir, "docs", "content", "en", "docs")
 	pkgRoot := filepath.Join(*rootDir, "pkg")
@@ -227,7 +230,8 @@ func runInventoryCommand(args []string) {
 	}
 
 	if *outputFile != "" {
-		if err := os.WriteFile(*outputFile, []byte(output), 0644); err != nil {
+		//nolint:gosec // G306: output reports need to be readable by developers
+		if err := os.WriteFile(*outputFile, []byte(output), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
 			os.Exit(1)
 		}
@@ -243,7 +247,7 @@ func runLinksCommand(args []string) {
 	verbose := fs.Bool("verbose", false, "Verbose output")
 	external := fs.Bool("external", false, "Check external links")
 	strict := fs.Bool("strict", true, "Exit with error code on broken internal links (default: true)")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	brokenInternal := RunLinkCheck(*rootDir, *external, *verbose)
 
@@ -257,7 +261,7 @@ func runExamplesCommand(args []string) {
 	fs := flag.NewFlagSet("examples", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	RunExampleValidation(*rootDir, *verbose)
 }
@@ -266,7 +270,7 @@ func runGodocCommand(args []string) {
 	fs := flag.NewFlagSet("godoc", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	GodocCoverageReport(*rootDir, *verbose)
 }
@@ -275,7 +279,7 @@ func runDriftCommand(args []string) {
 	fs := flag.NewFlagSet("drift", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	RunDriftDetection(*rootDir, *verbose)
 }
@@ -284,7 +288,7 @@ func runSyncCommand(args []string) {
 	fs := flag.NewFlagSet("sync", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	RunSyncCheck(*rootDir, *verbose)
 }
@@ -293,7 +297,7 @@ func runBlueprintsCommand(args []string) {
 	fs := flag.NewFlagSet("blueprints", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	RunBlueprintValidation(*rootDir, *verbose)
 }
@@ -303,7 +307,7 @@ func runAllCommand(args []string) {
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
 	external := fs.Bool("external", false, "Check external links")
-	fs.Parse(args)
+	_ = fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
 	fmt.Println("=== Running Full Documentation Validation ===")
 	fmt.Println()
@@ -623,7 +627,8 @@ func appendUnique(slice []int, val int) []int {
 }
 
 func buildEpicCoverage(inv *DocInventory) {
-	for _, doc := range inv.DocFiles {
+	for i := range inv.DocFiles {
+		doc := &inv.DocFiles[i]
 		for _, epic := range doc.Epics {
 			inv.EpicCoverage[epic] = append(inv.EpicCoverage[epic], doc.RelPath)
 		}
@@ -634,8 +639,8 @@ func calculateSummary(inv *DocInventory) {
 	inv.Summary.TotalDocs = len(inv.DocFiles)
 	inv.Summary.TotalPackages = len(inv.Packages)
 
-	for _, doc := range inv.DocFiles {
-		if doc.HasExamples {
+	for i := range inv.DocFiles {
+		if inv.DocFiles[i].HasExamples {
 			inv.Summary.DocsWithExamples++
 		}
 	}
@@ -654,30 +659,6 @@ func calculateSummary(inv *DocInventory) {
 	}
 	if len(inv.Packages) > 0 {
 		inv.Summary.AvgGodocCoverage = totalCoverage / float64(len(inv.Packages))
-	}
-}
-
-func checkInternalLinks(inv *DocInventory, rootDir string, verbose bool) {
-	docPaths := make(map[string]bool)
-	for _, doc := range inv.DocFiles {
-		docPaths[doc.RelPath] = true
-	}
-
-	for i := range inv.DocFiles {
-		doc := &inv.DocFiles[i]
-		var validLinks []string
-		for _, link := range doc.Links {
-			// Skip external links
-			if strings.HasPrefix(link, "http://") || strings.HasPrefix(link, "https://") {
-				continue
-			}
-			// Skip anchors
-			if strings.HasPrefix(link, "#") {
-				continue
-			}
-			validLinks = append(validLinks, link)
-		}
-		doc.Links = validLinks
 	}
 }
 
@@ -707,8 +688,8 @@ func formatText(inv *DocInventory) string {
 	sb.WriteString("DOCUMENTATION BY CATEGORY\n")
 	sb.WriteString(strings.Repeat("-", 40) + "\n")
 	categories := make(map[string][]DocFile)
-	for _, doc := range inv.DocFiles {
-		categories[doc.Category] = append(categories[doc.Category], doc)
+	for i := range inv.DocFiles {
+		categories[inv.DocFiles[i].Category] = append(categories[inv.DocFiles[i].Category], inv.DocFiles[i])
 	}
 
 	catNames := make([]string, 0, len(categories))
@@ -720,7 +701,8 @@ func formatText(inv *DocInventory) string {
 	for _, cat := range catNames {
 		docs := categories[cat]
 		sb.WriteString(fmt.Sprintf("\n%s (%d files)\n", strings.ToUpper(cat), len(docs)))
-		for _, doc := range docs {
+		for i := range docs {
+			doc := &docs[i]
 			examples := ""
 			if doc.HasExamples {
 				examples = " [has examples]"
@@ -825,8 +807,8 @@ func formatMarkdown(inv *DocInventory) string {
 	// Documentation by category
 	sb.WriteString("## Documentation by Category\n\n")
 	categories := make(map[string][]DocFile)
-	for _, doc := range inv.DocFiles {
-		categories[doc.Category] = append(categories[doc.Category], doc)
+	for i := range inv.DocFiles {
+		categories[inv.DocFiles[i].Category] = append(categories[inv.DocFiles[i].Category], inv.DocFiles[i])
 	}
 
 	catNames := make([]string, 0, len(categories))
@@ -837,10 +819,11 @@ func formatMarkdown(inv *DocInventory) string {
 
 	for _, cat := range catNames {
 		docs := categories[cat]
-		sb.WriteString(fmt.Sprintf("### %s (%d files)\n\n", strings.Title(cat), len(docs)))
+		sb.WriteString(fmt.Sprintf("### %s (%d files)\n\n", cases.Title(language.English).String(cat), len(docs)))
 		sb.WriteString("| File | Lines | Has Examples |\n")
 		sb.WriteString("|------|-------|-------------|\n")
-		for _, doc := range docs {
+		for i := range docs {
+			doc := &docs[i]
 			examples := "No"
 			if doc.HasExamples {
 				examples = "Yes"

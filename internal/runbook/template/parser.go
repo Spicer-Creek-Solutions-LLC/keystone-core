@@ -59,16 +59,8 @@ func (p *Parser) ParseReader(r io.Reader) (*Template, error) {
 
 // ParseMulti parses multiple templates from a multi-document YAML.
 func (p *Parser) ParseMulti(data []byte) ([]*Template, error) {
-	decoder := yaml.NewDecoder(nil)
-	_ = decoder // Reset decoder with actual data
-
 	// Split by YAML document separator
 	var templates []*Template
-	decoder = yaml.NewDecoder(nil)
-
-	// Use a different approach - parse with Document decoder
-	dec := yaml.NewDecoder(nil)
-	_ = dec
 
 	// Simple approach: split on ---
 	docs := splitYAMLDocuments(data)
@@ -148,7 +140,7 @@ func LoadFromDirectory(path string, registry *Registry) error {
 		}
 
 		name := entry.Name()
-		if !(hasExtension(name, ".yaml") || hasExtension(name, ".yml")) {
+		if !hasExtension(name, ".yaml") && !hasExtension(name, ".yml") {
 			continue
 		}
 

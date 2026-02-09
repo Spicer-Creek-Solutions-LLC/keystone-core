@@ -13,7 +13,7 @@ const (
 )
 
 // NewFSReadCapability creates a file system read capability
-func NewFSReadCapability(ctx *CapabilityContext, allowedPaths []string, deniedPaths []string, maxFileSize int64) Capability {
+func NewFSReadCapability(ctx *CapabilityContext, allowedPaths, deniedPaths []string, maxFileSize int64) Capability {
 	if maxFileSize <= 0 {
 		maxFileSize = DefaultMaxFileSize
 	}
@@ -25,7 +25,7 @@ func NewFSReadCapability(ctx *CapabilityContext, allowedPaths []string, deniedPa
 }
 
 // NewFSWriteCapability creates a file system write capability
-func NewFSWriteCapability(ctx *CapabilityContext, allowedPaths []string, deniedPaths []string) Capability {
+func NewFSWriteCapability(ctx *CapabilityContext, allowedPaths, deniedPaths []string) Capability {
 	return &FSWriteCapability{
 		AllowedPaths: allowedPaths,
 		DeniedPaths:  deniedPaths,
@@ -57,7 +57,7 @@ func NewHTTPGetCapability(ctx *CapabilityContext, allowedDomains []string, timeo
 }
 
 // NewHTTPPostCapability creates an HTTP POST capability
-func NewHTTPPostCapability(ctx *CapabilityContext, allowedDomains []string, timeout time.Duration, maxRequestSize int64, maxResponseSize int64, maxRequests int) Capability {
+func NewHTTPPostCapability(ctx *CapabilityContext, allowedDomains []string, timeout time.Duration, maxRequestSize, maxResponseSize int64, maxRequests int) Capability {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -97,26 +97,26 @@ func NewExecCapability(ctx *CapabilityContext, allowedCommands []string, timeout
 
 // NewSecretsReadCapability creates a secrets read capability
 func NewSecretsReadCapability(ctx *CapabilityContext, allowedPrefixes []string, store SecretsStore) Capability {
-	cap := &SecretsReadCapability{
+	capability := &SecretsReadCapability{
 		AllowedPaths: allowedPrefixes,
 		AuditAll:     true,
 	}
 	if store != nil {
-		cap.SetStore(store)
+		capability.SetStore(store)
 	}
-	return cap
+	return capability
 }
 
 // NewSecretsWriteCapability creates a secrets write capability
 func NewSecretsWriteCapability(ctx *CapabilityContext, allowedPrefixes []string, store SecretsStore) Capability {
-	cap := &SecretsWriteCapability{
+	capability := &SecretsWriteCapability{
 		AllowedPaths: allowedPrefixes,
 		AuditAll:     true,
 	}
 	if store != nil {
-		cap.SetStore(store)
+		capability.SetStore(store)
 	}
-	return cap
+	return capability
 }
 
 // NewLogCapability creates a logging capability
@@ -128,13 +128,13 @@ func NewLogCapability(ctx *CapabilityContext, logger Logger, rateLimit int) Capa
 			Period:   time.Minute,
 		}
 	}
-	cap := &LogCapability{
+	capability := &LogCapability{
 		RateLimit: rl,
 	}
 	if logger != nil {
-		cap.SetLogger(logger)
+		capability.SetLogger(logger)
 	}
-	return cap
+	return capability
 }
 
 // NewTimeCapability creates a time access capability
@@ -145,11 +145,11 @@ func NewTimeCapability(ctx *CapabilityContext) Capability {
 
 // NewKVCapability creates a key-value storage capability
 func NewKVCapability(ctx *CapabilityContext, namespace string, store interface{}) Capability {
-	cap := &KVCapability{
+	capability := &KVCapability{
 		Namespace: namespace,
 	}
 	if kvStore, ok := store.(KVStore); ok && kvStore != nil {
-		cap.SetStore(kvStore)
+		capability.SetStore(kvStore)
 	}
-	return cap
+	return capability
 }

@@ -199,13 +199,13 @@ resources:
 
 ```bash
 # Check service mesh status
-kscorectl exec -t "role:k8s-master" -- istioctl analyze
+kscorectl exec run "role:k8s-master" -- istioctl analyze
 
 # Verify services are registered
-kscorectl exec -t "role:k8s-master" -- kubectl get pods -n microservices
+kscorectl exec run "role:k8s-master" -- kubectl get pods -n microservices
 
 # Test service connectivity
-kscorectl exec -t "role:k8s-master" -- \
+kscorectl exec run "role:k8s-master" -- \
   kubectl exec -n microservices deploy/api-gateway -- \
   curl -s http://backend-service/health
 ```

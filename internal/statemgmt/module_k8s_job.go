@@ -70,11 +70,12 @@ func (m *K8sJobModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 	result.Metadata["status"] = string(job.Status)
 
 	// Determine current state based on job status
-	if job.CompletionTime != nil && job.Succeeded >= job.Completions {
+	switch {
+	case job.CompletionTime != nil && job.Succeeded >= job.Completions:
 		result.CurrentState = "completed"
-	} else if job.Failed > 0 && job.Active == 0 {
+	case job.Failed > 0 && job.Active == 0:
 		result.CurrentState = "failed"
-	} else {
+	default:
 		result.CurrentState = "present"
 	}
 
@@ -145,15 +146,15 @@ func (m *K8sJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	case "present":
 		if !checkResult.Present {
 			spec := k8s.JobSpec{
-				Name:         name,
-				Labels:       getLabels(decl),
-				Annotations:  getAnnotations(decl),
-				Image:        getStringParameter(decl, "image", ""),
-				Command:      getCommandParameter(decl),
-				Args:         getArgsParameter(decl),
-				Completions:  getInt32Parameter(decl, "completions", 1),
-				Parallelism:  getInt32Parameter(decl, "parallelism", 1),
-				BackoffLimit: getInt32Parameter(decl, "backoff_limit", 6),
+				Name:          name,
+				Labels:        getLabels(decl),
+				Annotations:   getAnnotations(decl),
+				Image:         getStringParameter(decl, "image", ""),
+				Command:       getCommandParameter(decl),
+				Args:          getArgsParameter(decl),
+				Completions:   getInt32Parameter(decl, "completions", 1),
+				Parallelism:   getInt32Parameter(decl, "parallelism", 1),
+				BackoffLimit:  getInt32Parameter(decl, "backoff_limit", 6),
 				RestartPolicy: getStringParameter(decl, "restart_policy", "Never"),
 			}
 
@@ -188,15 +189,15 @@ func (m *K8sJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		if !checkResult.Present {
 			// Need to create the job first
 			spec := k8s.JobSpec{
-				Name:         name,
-				Labels:       getLabels(decl),
-				Annotations:  getAnnotations(decl),
-				Image:        getStringParameter(decl, "image", ""),
-				Command:      getCommandParameter(decl),
-				Args:         getArgsParameter(decl),
-				Completions:  getInt32Parameter(decl, "completions", 1),
-				Parallelism:  getInt32Parameter(decl, "parallelism", 1),
-				BackoffLimit: getInt32Parameter(decl, "backoff_limit", 6),
+				Name:          name,
+				Labels:        getLabels(decl),
+				Annotations:   getAnnotations(decl),
+				Image:         getStringParameter(decl, "image", ""),
+				Command:       getCommandParameter(decl),
+				Args:          getArgsParameter(decl),
+				Completions:   getInt32Parameter(decl, "completions", 1),
+				Parallelism:   getInt32Parameter(decl, "parallelism", 1),
+				BackoffLimit:  getInt32Parameter(decl, "backoff_limit", 6),
 				RestartPolicy: getStringParameter(decl, "restart_policy", "Never"),
 			}
 

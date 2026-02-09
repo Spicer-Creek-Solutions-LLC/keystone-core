@@ -76,6 +76,7 @@ func (e *ModuleNotFoundError) Error() string {
 	return msg
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *ModuleNotFoundError) Hint() string {
 	hints := []string{
 		"Check the module name for typos",
@@ -88,10 +89,12 @@ func (e *ModuleNotFoundError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *ModuleNotFoundError) Command() string {
 	return "kscore module search " + e.Module
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *ModuleNotFoundError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/finding-modules"
 }
@@ -115,6 +118,7 @@ func (e *VersionNotFoundError) Error() string {
 	return fmt.Sprintf("version %s of module %q not found", e.Version, e.Module)
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *VersionNotFoundError) Hint() string {
 	hints := []string{
 		"Check that the version exists: kscore module versions " + e.Module,
@@ -129,10 +133,12 @@ func (e *VersionNotFoundError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *VersionNotFoundError) Command() string {
 	return "kscore module versions " + e.Module
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *VersionNotFoundError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/versioning"
 }
@@ -148,6 +154,7 @@ func (e *CircularDependencyError) Error() string {
 	return fmt.Sprintf("circular dependency detected: %s", strings.Join(e.Cycle, " -> "))
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *CircularDependencyError) Hint() string {
 	hints := []string{
 		"Circular dependencies prevent modules from being loaded in the correct order",
@@ -161,10 +168,12 @@ func (e *CircularDependencyError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *CircularDependencyError) Command() string {
 	return "kscore module graph"
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *CircularDependencyError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/dependencies#circular-dependencies"
 }
@@ -189,11 +198,8 @@ func (e *ConstraintError) Error() string {
 	return fmt.Sprintf("constraint error for %s (%s): %s", e.Module, e.Constraint, e.Reason)
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *ConstraintError) Hint() string {
-	hints := []string{
-		"Version constraints use semantic versioning (semver)",
-	}
-
 	examples := e.ValidExamples
 	if len(examples) == 0 {
 		examples = []string{
@@ -204,7 +210,8 @@ func (e *ConstraintError) Hint() string {
 			"*       - Any version",
 		}
 	}
-	hints = append(hints, "Valid constraint examples:")
+	hints := make([]string, 0, 2+len(examples))
+	hints = append(hints, "Version constraints use semantic versioning (semver)", "Valid constraint examples:")
 	for _, ex := range examples {
 		hints = append(hints, "  "+ex)
 	}
@@ -212,10 +219,12 @@ func (e *ConstraintError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *ConstraintError) Command() string {
 	return ""
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *ConstraintError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/versioning#constraints"
 }
@@ -247,6 +256,7 @@ func (e *ConflictError) Error() string {
 	return fmt.Sprintf("version conflict for %s: %s", e.Module, strings.Join(e.Constraints, ", "))
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *ConflictError) Hint() string {
 	hints := []string{
 		"Multiple modules require incompatible versions of " + e.Module,
@@ -273,10 +283,12 @@ func (e *ConflictError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *ConflictError) Command() string {
 	return "kscore module why " + e.Module
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *ConflictError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/dependencies#resolving-conflicts"
 }
@@ -315,35 +327,29 @@ func (e *RegistryError) Unwrap() error {
 	return e.Err
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *RegistryError) Hint() string {
 	hints := []string{}
 
 	switch e.StatusCode {
 	case 401:
-		hints = append(hints, "Authentication required. Log in to the registry:")
-		hints = append(hints, "  kscore registry login "+e.RegistryURL)
+		hints = append(hints, "Authentication required. Log in to the registry:", "  kscore registry login "+e.RegistryURL)
 	case 403:
-		hints = append(hints, "Access denied. Check your permissions for this module")
-		hints = append(hints, "Verify your authentication token is valid: kscore registry whoami")
+		hints = append(hints, "Access denied. Check your permissions for this module", "Verify your authentication token is valid: kscore registry whoami")
 	case 404:
-		hints = append(hints, "Module or version not found. Verify the module name and version")
-		hints = append(hints, "Search for available modules: kscore module search "+e.Module)
+		hints = append(hints, "Module or version not found. Verify the module name and version", "Search for available modules: kscore module search "+e.Module)
 	case 429:
-		hints = append(hints, "Rate limited. Wait a moment and try again")
-		hints = append(hints, "Consider using a local cache: kscore config set module.cache.enabled true")
+		hints = append(hints, "Rate limited. Wait a moment and try again", "Consider using a local cache: kscore config set module.cache.enabled true")
 	case 500, 502, 503:
-		hints = append(hints, "Registry server error. The registry may be temporarily unavailable")
-		hints = append(hints, "Check registry status or try again later")
-		hints = append(hints, "Use offline mode if you have cached modules: kscore module --offline")
+		hints = append(hints, "Registry server error. The registry may be temporarily unavailable", "Check registry status or try again later", "Use offline mode if you have cached modules: kscore module --offline")
 	default:
-		hints = append(hints, "Check your network connection")
-		hints = append(hints, "Verify the registry URL is correct: "+e.RegistryURL)
-		hints = append(hints, "Try using a different registry: kscore config set module.registry <url>")
+		hints = append(hints, "Check your network connection", "Verify the registry URL is correct: "+e.RegistryURL, "Try using a different registry: kscore config set module.registry <url>")
 	}
 
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *RegistryError) Command() string {
 	if e.StatusCode == 401 || e.StatusCode == 403 {
 		return "kscore registry login"
@@ -351,6 +357,7 @@ func (e *RegistryError) Command() string {
 	return ""
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *RegistryError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/registries"
 }
@@ -389,14 +396,14 @@ func (e *VerificationError) Unwrap() error {
 	return e.Err
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *VerificationError) Hint() string {
 	hints := []string{
 		"Module verification ensures the downloaded content matches the expected hash",
 	}
 
 	if e.ExpectedHash != "" && e.ActualHash != "" {
-		hints = append(hints, fmt.Sprintf("Expected: %s", e.ExpectedHash))
-		hints = append(hints, fmt.Sprintf("Actual:   %s", e.ActualHash))
+		hints = append(hints, fmt.Sprintf("Expected: %s", e.ExpectedHash), fmt.Sprintf("Actual:   %s", e.ActualHash))
 	}
 
 	hints = append(hints,
@@ -416,10 +423,12 @@ func (e *VerificationError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *VerificationError) Command() string {
 	return "kscore module cache clean " + e.Module
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *VerificationError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/security#verification"
 }
@@ -452,24 +461,23 @@ func (e *CacheError) Unwrap() error {
 	return e.Err
 }
 
+// Hint returns a helpful hint for resolving the error.
 func (e *CacheError) Hint() string {
 	hints := []string{}
 
 	switch e.Operation {
 	case "read":
-		hints = append(hints, "Failed to read from the module cache")
-		hints = append(hints, "The cached module may be corrupted or incomplete")
-		hints = append(hints, "Try clearing the cache: kscore module cache clean")
+		hints = append(hints, "Failed to read from the module cache", "The cached module may be corrupted or incomplete", "Try clearing the cache: kscore module cache clean")
 	case "write":
-		hints = append(hints, "Failed to write to the module cache")
-		hints = append(hints, "Possible causes:")
-		hints = append(hints, "  - Insufficient disk space")
-		hints = append(hints, "  - Permission denied on cache directory")
-		hints = append(hints, "  - Cache directory doesn't exist")
-		hints = append(hints, "Check cache location: kscore config get module.cache.dir")
+		hints = append(hints,
+			"Failed to write to the module cache",
+			"Possible causes:",
+			"  - Insufficient disk space",
+			"  - Permission denied on cache directory",
+			"  - Cache directory doesn't exist",
+			"Check cache location: kscore config get module.cache.dir")
 	case "delete":
-		hints = append(hints, "Failed to delete from the module cache")
-		hints = append(hints, "The file may be in use by another process")
+		hints = append(hints, "Failed to delete from the module cache", "The file may be in use by another process")
 	default:
 		hints = append(hints, "An error occurred with the module cache")
 	}
@@ -489,10 +497,12 @@ func (e *CacheError) Hint() string {
 	return strings.Join(hints, "\n  - ")
 }
 
+// Command returns a command that can help resolve the error.
 func (e *CacheError) Command() string {
 	return "kscore module cache clean"
 }
 
+// DocURL returns a URL to documentation about the error.
 func (e *CacheError) DocURL() string {
 	return "https://docs.keystonecore.io/modules/cache"
 }
@@ -508,7 +518,8 @@ func FormatActionableError(err error) string {
 	sb.WriteString(err.Error())
 	sb.WriteString("\n")
 
-	if ae, ok := err.(ActionableError); ok {
+	var ae ActionableError
+	if errors.As(err, &ae) {
 		if hint := ae.Hint(); hint != "" {
 			sb.WriteString("\nSuggestions:\n  - ")
 			sb.WriteString(hint)

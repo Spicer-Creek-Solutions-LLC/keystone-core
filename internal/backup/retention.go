@@ -41,7 +41,7 @@ func DefaultRetentionConfig() *RetentionConfig {
 }
 
 // Apply applies the retention policy, returning list of deleted backups
-func (m *RetentionManager) Apply(ctx context.Context) ([]BackupInfo, error) {
+func (m *RetentionManager) Apply(ctx context.Context) ([]Info, error) {
 	// Get all backups
 	backups, err := m.destination.List(ctx)
 	if err != nil {
@@ -58,36 +58,36 @@ func (m *RetentionManager) Apply(ctx context.Context) ([]BackupInfo, error) {
 
 	// Build map of backups to keep
 	keepMap := make(map[string]bool)
-	for _, b := range toKeep {
-		keepMap[b.Name] = true
+	for i := range toKeep {
+		keepMap[toKeep[i].Name] = true
 	}
 
 	// Delete backups not in keep list
-	var deleted []BackupInfo
-	for _, backup := range backups {
-		if keepMap[backup.Name] {
+	var deleted []Info
+	for i := range backups {
+		if keepMap[backups[i].Name] {
 			continue
 		}
 
-		m.logger.Debug("deleting backup due to retention policy", "name", backup.Name)
-		if err := m.destination.Delete(ctx, backup.Name); err != nil {
-			m.logger.Error("failed to delete backup", "name", backup.Name, "error", err)
+		m.logger.Debug("deleting backup due to retention policy", "name", backups[i].Name)
+		if err := m.destination.Delete(ctx, backups[i].Name); err != nil {
+			m.logger.Error("failed to delete backup", "name", backups[i].Name, "error", err)
 			continue
 		}
-		deleted = append(deleted, backup)
+		deleted = append(deleted, backups[i])
 	}
 
 	return deleted, nil
 }
 
 // selectBackupsToKeep selects backups to keep based on retention policy
-func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInfo {
+func (m *RetentionManager) selectBackupsToKeep(backups []Info) []Info {
 	now := time.Now()
-	var toKeep []BackupInfo
+	var toKeep []Info
 	keepMap := make(map[string]bool)
 
 	// Helper to add backup if not already added
-	addBackup := func(b BackupInfo) {
+	addBackup := func(b Info) {
 		if !keepMap[b.Name] {
 			keepMap[b.Name] = true
 			toKeep = append(toKeep, b)
@@ -96,20 +96,20 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 
 	// Apply MaxBackups limit (always keep the most recent N backups)
 	if m.config.MaxBackups > 0 {
-		for i, backup := range backups {
+		for i := range backups {
 			if i >= m.config.MaxBackups {
 				break
 			}
-			addBackup(backup)
+			addBackup(backups[i])
 		}
 	}
 
 	// Apply MaxAge filter (keep all backups newer than max age)
 	if m.config.MaxAge > 0 {
 		cutoff := now.Add(-m.config.MaxAge)
-		for _, backup := range backups {
-			if backup.EndTime.After(cutoff) {
-				addBackup(backup)
+		for i := range backups {
+			if backups[i].EndTime.After(cutoff) {
+				addBackup(backups[i])
 			}
 		}
 	}
@@ -119,8 +119,8 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 		daily := m.selectByPeriod(backups, m.config.KeepDaily, func(t time.Time) string {
 			return t.Format("2006-01-02")
 		})
-		for _, b := range daily {
-			addBackup(b)
+		for i := range daily {
+			addBackup(daily[i])
 		}
 	}
 
@@ -130,8 +130,8 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 			year, week := t.ISOWeek()
 			return time.Date(year, 0, 0, 0, 0, 0, 0, time.UTC).AddDate(0, 0, week*7).Format("2006-W02")
 		})
-		for _, b := range weekly {
-			addBackup(b)
+		for i := range weekly {
+			addBackup(weekly[i])
 		}
 	}
 
@@ -140,8 +140,8 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 		monthly := m.selectByPeriod(backups, m.config.KeepMonthly, func(t time.Time) string {
 			return t.Format("2006-01")
 		})
-		for _, b := range monthly {
-			addBackup(b)
+		for i := range monthly {
+			addBackup(monthly[i])
 		}
 	}
 
@@ -150,8 +150,8 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 		yearly := m.selectByPeriod(backups, m.config.KeepYearly, func(t time.Time) string {
 			return t.Format("2006")
 		})
-		for _, b := range yearly {
-			addBackup(b)
+		for i := range yearly {
+			addBackup(yearly[i])
 		}
 	}
 
@@ -159,15 +159,15 @@ func (m *RetentionManager) selectBackupsToKeep(backups []BackupInfo) []BackupInf
 }
 
 // selectByPeriod selects the newest backup for each period
-func (m *RetentionManager) selectByPeriod(backups []BackupInfo, count int, periodFunc func(time.Time) string) []BackupInfo {
-	periodBackups := make(map[string]BackupInfo)
+func (m *RetentionManager) selectByPeriod(backups []Info, count int, periodFunc func(time.Time) string) []Info {
+	periodBackups := make(map[string]Info)
 	var periods []string
 
 	// Group backups by period
-	for _, backup := range backups {
-		period := periodFunc(backup.EndTime)
+	for i := range backups {
+		period := periodFunc(backups[i].EndTime)
 		if _, exists := periodBackups[period]; !exists {
-			periodBackups[period] = backup
+			periodBackups[period] = backups[i]
 			periods = append(periods, period)
 		}
 	}
@@ -178,7 +178,7 @@ func (m *RetentionManager) selectByPeriod(backups []BackupInfo, count int, perio
 	})
 
 	// Take the first N periods
-	var result []BackupInfo
+	var result []Info
 	for i, period := range periods {
 		if i >= count {
 			break
@@ -207,25 +207,25 @@ func (m *RetentionManager) Preview(ctx context.Context) (*RetentionPreview, erro
 
 	// Build map of backups to keep
 	keepMap := make(map[string]bool)
-	for _, b := range toKeep {
-		keepMap[b.Name] = true
+	for i := range toKeep {
+		keepMap[toKeep[i].Name] = true
 	}
 
 	// Categorize backups
 	preview := &RetentionPreview{
 		TotalBackups: len(backups),
-		ToKeep:       make([]BackupInfo, 0),
-		ToDelete:     make([]BackupInfo, 0),
+		ToKeep:       make([]Info, 0),
+		ToDelete:     make([]Info, 0),
 	}
 
 	var keepSize, deleteSize int64
-	for _, backup := range backups {
-		if keepMap[backup.Name] {
-			preview.ToKeep = append(preview.ToKeep, backup)
-			keepSize += backup.Size
+	for i := range backups {
+		if keepMap[backups[i].Name] {
+			preview.ToKeep = append(preview.ToKeep, backups[i])
+			keepSize += backups[i].Size
 		} else {
-			preview.ToDelete = append(preview.ToDelete, backup)
-			deleteSize += backup.Size
+			preview.ToDelete = append(preview.ToDelete, backups[i])
+			deleteSize += backups[i].Size
 		}
 	}
 
@@ -244,8 +244,8 @@ type RetentionPreview struct {
 	DeleteCount  int          `json:"delete_count"`
 	KeepSize     int64        `json:"keep_size"`
 	DeleteSize   int64        `json:"delete_size"`
-	ToKeep       []BackupInfo `json:"to_keep"`
-	ToDelete     []BackupInfo `json:"to_delete"`
+	ToKeep       []Info `json:"to_keep"`
+	ToDelete     []Info `json:"to_delete"`
 }
 
 // ScheduledRetention runs retention on a schedule
@@ -254,7 +254,7 @@ type ScheduledRetention struct {
 	interval  time.Duration
 	stopCh    chan struct{}
 	logger    Logger
-	onApplied func(deleted []BackupInfo, err error)
+	onApplied func(deleted []Info, err error)
 }
 
 // NewScheduledRetention creates a scheduled retention runner
@@ -271,7 +271,7 @@ func NewScheduledRetention(manager *RetentionManager, interval time.Duration, lo
 }
 
 // SetCallback sets a callback to be called after each retention run
-func (s *ScheduledRetention) SetCallback(fn func(deleted []BackupInfo, err error)) {
+func (s *ScheduledRetention) SetCallback(fn func(deleted []Info, err error)) {
 	s.onApplied = fn
 }
 
@@ -310,11 +310,11 @@ func (s *ScheduledRetention) Stop() {
 
 // PerTypeRetentionConfig allows different retention for different backup types
 type PerTypeRetentionConfig struct {
-	Default      *RetentionConfig
-	Full         *RetentionConfig
-	Incremental  *RetentionConfig
-	Database     *RetentionConfig
-	Config       *RetentionConfig
+	Default     *RetentionConfig
+	Full        *RetentionConfig
+	Incremental *RetentionConfig
+	Database    *RetentionConfig
+	Config      *RetentionConfig
 }
 
 // PerTypeRetentionManager manages retention with different policies per backup type
@@ -342,7 +342,7 @@ func NewPerTypeRetentionManager(dest Destination, config *PerTypeRetentionConfig
 }
 
 // Apply applies per-type retention policies
-func (m *PerTypeRetentionManager) Apply(ctx context.Context) ([]BackupInfo, error) {
+func (m *PerTypeRetentionManager) Apply(ctx context.Context) ([]Info, error) {
 	// Get all backups
 	backups, err := m.destination.List(ctx)
 	if err != nil {
@@ -350,13 +350,13 @@ func (m *PerTypeRetentionManager) Apply(ctx context.Context) ([]BackupInfo, erro
 	}
 
 	// Group backups by type
-	byType := make(map[BackupType][]BackupInfo)
-	for _, backup := range backups {
-		byType[backup.Type] = append(byType[backup.Type], backup)
+	byType := make(map[Type][]Info)
+	for i := range backups {
+		byType[backups[i].Type] = append(byType[backups[i].Type], backups[i])
 	}
 
 	// Apply retention to each type
-	var allDeleted []BackupInfo
+	var allDeleted []Info
 	for backupType, typeBackups := range byType {
 		config := m.getConfigForType(backupType)
 		if config == nil {
@@ -371,22 +371,22 @@ func (m *PerTypeRetentionManager) Apply(ctx context.Context) ([]BackupInfo, erro
 
 		toKeep := tempManager.selectBackupsToKeep(typeBackups)
 		keepMap := make(map[string]bool)
-		for _, b := range toKeep {
-			keepMap[b.Name] = true
+		for i := range toKeep {
+			keepMap[toKeep[i].Name] = true
 		}
 
 		// Delete backups not in keep list
-		for _, backup := range typeBackups {
-			if keepMap[backup.Name] {
+		for i := range typeBackups {
+			if keepMap[typeBackups[i].Name] {
 				continue
 			}
 
-			m.logger.Debug("deleting backup due to retention policy", "name", backup.Name, "type", backupType)
-			if err := m.destination.Delete(ctx, backup.Name); err != nil {
-				m.logger.Error("failed to delete backup", "name", backup.Name, "error", err)
+			m.logger.Debug("deleting backup due to retention policy", "name", typeBackups[i].Name, "type", backupType)
+			if err := m.destination.Delete(ctx, typeBackups[i].Name); err != nil {
+				m.logger.Error("failed to delete backup", "name", typeBackups[i].Name, "error", err)
 				continue
 			}
-			allDeleted = append(allDeleted, backup)
+			allDeleted = append(allDeleted, typeBackups[i])
 		}
 	}
 
@@ -394,24 +394,25 @@ func (m *PerTypeRetentionManager) Apply(ctx context.Context) ([]BackupInfo, erro
 }
 
 // getConfigForType returns the retention config for a backup type
-func (m *PerTypeRetentionManager) getConfigForType(backupType BackupType) *RetentionConfig {
+func (m *PerTypeRetentionManager) getConfigForType(backupType Type) *RetentionConfig {
 	switch backupType {
-	case BackupTypeFull:
+	case TypeFull:
 		if m.config.Full != nil {
 			return m.config.Full
 		}
-	case BackupTypeIncremental:
+	case TypeIncremental:
 		if m.config.Incremental != nil {
 			return m.config.Incremental
 		}
-	case BackupTypeDatabase:
+	case TypeDatabase:
 		if m.config.Database != nil {
 			return m.config.Database
 		}
-	case BackupTypeConfiguration:
+	case TypeConfiguration:
 		if m.config.Config != nil {
 			return m.config.Config
 		}
+	default:
 	}
 	return m.config.Default
 }

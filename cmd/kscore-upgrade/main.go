@@ -1,3 +1,4 @@
+// Package main implements the kscore-upgrade CLI for upgrade management operations.
 package main
 
 import (
@@ -93,15 +94,15 @@ Usage via kscorectl:
 
 // UpgradeCheck represents upgrade availability check result
 type UpgradeCheck struct {
-	CurrentVersion  string            `json:"current_version" yaml:"current_version"`
-	LatestVersion   string            `json:"latest_version" yaml:"latest_version"`
-	UpgradeAvailable bool             `json:"upgrade_available" yaml:"upgrade_available"`
-	TargetVersion   string            `json:"target_version,omitempty" yaml:"target_version,omitempty"`
-	Compatible      bool              `json:"compatible" yaml:"compatible"`
-	BreakingChanges []string          `json:"breaking_changes,omitempty" yaml:"breaking_changes,omitempty"`
-	Prerequisites   []string          `json:"prerequisites,omitempty" yaml:"prerequisites,omitempty"`
-	ReleaseNotes    string            `json:"release_notes,omitempty" yaml:"release_notes,omitempty"`
-	Components      []ComponentStatus `json:"components" yaml:"components"`
+	CurrentVersion   string            `json:"current_version" yaml:"current_version"`
+	LatestVersion    string            `json:"latest_version" yaml:"latest_version"`
+	UpgradeAvailable bool              `json:"upgrade_available" yaml:"upgrade_available"`
+	TargetVersion    string            `json:"target_version,omitempty" yaml:"target_version,omitempty"`
+	Compatible       bool              `json:"compatible" yaml:"compatible"`
+	BreakingChanges  []string          `json:"breaking_changes,omitempty" yaml:"breaking_changes,omitempty"`
+	Prerequisites    []string          `json:"prerequisites,omitempty" yaml:"prerequisites,omitempty"`
+	ReleaseNotes     string            `json:"release_notes,omitempty" yaml:"release_notes,omitempty"`
+	Components       []ComponentStatus `json:"components" yaml:"components"`
 }
 
 // ComponentStatus represents a component's upgrade status
@@ -115,44 +116,45 @@ type ComponentStatus struct {
 
 // UpgradePlan represents an upgrade plan
 type UpgradePlan struct {
-	PlanID         string         `json:"plan_id" yaml:"plan_id"`
-	CurrentVersion string         `json:"current_version" yaml:"current_version"`
-	TargetVersion  string         `json:"target_version" yaml:"target_version"`
-	Strategy       string         `json:"strategy" yaml:"strategy"`
-	Steps          []UpgradeStep  `json:"steps" yaml:"steps"`
-	EstimatedTime  string         `json:"estimated_time" yaml:"estimated_time"`
-	RiskLevel      string         `json:"risk_level" yaml:"risk_level"`
-	Backups        bool           `json:"backups" yaml:"backups"`
-	CreatedAt      string         `json:"created_at" yaml:"created_at"`
+	PlanID         string        `json:"plan_id" yaml:"plan_id"`
+	CurrentVersion string        `json:"current_version" yaml:"current_version"`
+	TargetVersion  string        `json:"target_version" yaml:"target_version"`
+	Strategy       string        `json:"strategy" yaml:"strategy"`
+	BatchSize      int           `json:"batch_size" yaml:"batch_size"`
+	Steps          []UpgradeStep `json:"steps" yaml:"steps"`
+	EstimatedTime  string        `json:"estimated_time" yaml:"estimated_time"`
+	RiskLevel      string        `json:"risk_level" yaml:"risk_level"`
+	Backups        bool          `json:"backups" yaml:"backups"`
+	CreatedAt      string        `json:"created_at" yaml:"created_at"`
 }
 
 // UpgradeStep represents a step in the upgrade plan
 type UpgradeStep struct {
-	Order       int      `json:"order" yaml:"order"`
-	Component   string   `json:"component" yaml:"component"`
-	Action      string   `json:"action" yaml:"action"`
-	Description string   `json:"description" yaml:"description"`
-	Duration    string   `json:"duration" yaml:"duration"`
-	Rollback    string   `json:"rollback,omitempty" yaml:"rollback,omitempty"`
+	Order       int    `json:"order" yaml:"order"`
+	Component   string `json:"component" yaml:"component"`
+	Action      string `json:"action" yaml:"action"`
+	Description string `json:"description" yaml:"description"`
+	Duration    string `json:"duration" yaml:"duration"`
+	Rollback    string `json:"rollback,omitempty" yaml:"rollback,omitempty"`
 }
 
 // UpgradeStatus represents upgrade execution status
 type UpgradeStatus struct {
-	UpgradeID       string            `json:"upgrade_id" yaml:"upgrade_id"`
-	Status          string            `json:"status" yaml:"status"`
-	Phase           string            `json:"phase" yaml:"phase"`
-	CurrentVersion  string            `json:"current_version" yaml:"current_version"`
-	TargetVersion   string            `json:"target_version" yaml:"target_version"`
-	Strategy        string            `json:"strategy" yaml:"strategy"`
-	Progress        int               `json:"progress" yaml:"progress"`
-	StartedAt       string            `json:"started_at" yaml:"started_at"`
-	CompletedAt     string            `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
-	CurrentStep     string            `json:"current_step" yaml:"current_step"`
-	StepsCompleted  int               `json:"steps_completed" yaml:"steps_completed"`
-	StepsTotal      int               `json:"steps_total" yaml:"steps_total"`
-	Components      []ComponentStatus `json:"components" yaml:"components"`
-	CanaryStatus    *CanaryStatus     `json:"canary_status,omitempty" yaml:"canary_status,omitempty"`
-	Error           string            `json:"error,omitempty" yaml:"error,omitempty"`
+	UpgradeID      string            `json:"upgrade_id" yaml:"upgrade_id"`
+	Status         string            `json:"status" yaml:"status"`
+	Phase          string            `json:"phase" yaml:"phase"`
+	CurrentVersion string            `json:"current_version" yaml:"current_version"`
+	TargetVersion  string            `json:"target_version" yaml:"target_version"`
+	Strategy       string            `json:"strategy" yaml:"strategy"`
+	Progress       int               `json:"progress" yaml:"progress"`
+	StartedAt      string            `json:"started_at" yaml:"started_at"`
+	CompletedAt    string            `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
+	CurrentStep    string            `json:"current_step" yaml:"current_step"`
+	StepsCompleted int               `json:"steps_completed" yaml:"steps_completed"`
+	StepsTotal     int               `json:"steps_total" yaml:"steps_total"`
+	Components     []ComponentStatus `json:"components" yaml:"components"`
+	CanaryStatus   *CanaryStatus     `json:"canary_status,omitempty" yaml:"canary_status,omitempty"`
+	Error          string            `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
 // CanaryStatus represents canary deployment status
@@ -168,17 +170,17 @@ type CanaryStatus struct {
 
 // AgentUpgradeStatus represents agent fleet upgrade status
 type AgentUpgradeStatus struct {
-	TargetVersion   string        `json:"target_version" yaml:"target_version"`
-	TotalAgents     int           `json:"total_agents" yaml:"total_agents"`
-	Upgraded        int           `json:"upgraded" yaml:"upgraded"`
-	Pending         int           `json:"pending" yaml:"pending"`
-	InProgress      int           `json:"in_progress" yaml:"in_progress"`
-	Failed          int           `json:"failed" yaml:"failed"`
-	Progress        int           `json:"progress" yaml:"progress"`
-	BatchSize       int           `json:"batch_size" yaml:"batch_size"`
-	CurrentBatch    int           `json:"current_batch" yaml:"current_batch"`
-	TotalBatches    int           `json:"total_batches" yaml:"total_batches"`
-	AgentDetails    []AgentDetail `json:"agent_details,omitempty" yaml:"agent_details,omitempty"`
+	TargetVersion string        `json:"target_version" yaml:"target_version"`
+	TotalAgents   int           `json:"total_agents" yaml:"total_agents"`
+	Upgraded      int           `json:"upgraded" yaml:"upgraded"`
+	Pending       int           `json:"pending" yaml:"pending"`
+	InProgress    int           `json:"in_progress" yaml:"in_progress"`
+	Failed        int           `json:"failed" yaml:"failed"`
+	Progress      int           `json:"progress" yaml:"progress"`
+	BatchSize     int           `json:"batch_size" yaml:"batch_size"`
+	CurrentBatch  int           `json:"current_batch" yaml:"current_batch"`
+	TotalBatches  int           `json:"total_batches" yaml:"total_batches"`
+	AgentDetails  []AgentDetail `json:"agent_details,omitempty" yaml:"agent_details,omitempty"`
 }
 
 // AgentDetail represents individual agent upgrade detail
@@ -193,19 +195,23 @@ type AgentDetail struct {
 
 // UpgradeHistory represents an upgrade history entry
 type UpgradeHistory struct {
-	UpgradeID     string `json:"upgrade_id" yaml:"upgrade_id"`
-	FromVersion   string `json:"from_version" yaml:"from_version"`
-	ToVersion     string `json:"to_version" yaml:"to_version"`
-	Strategy      string `json:"strategy" yaml:"strategy"`
-	Status        string `json:"status" yaml:"status"`
-	StartedAt     string `json:"started_at" yaml:"started_at"`
-	CompletedAt   string `json:"completed_at" yaml:"completed_at"`
-	Duration      string `json:"duration" yaml:"duration"`
-	InitiatedBy   string `json:"initiated_by" yaml:"initiated_by"`
+	UpgradeID   string `json:"upgrade_id" yaml:"upgrade_id"`
+	FromVersion string `json:"from_version" yaml:"from_version"`
+	ToVersion   string `json:"to_version" yaml:"to_version"`
+	Strategy    string `json:"strategy" yaml:"strategy"`
+	Status      string `json:"status" yaml:"status"`
+	StartedAt   string `json:"started_at" yaml:"started_at"`
+	CompletedAt string `json:"completed_at" yaml:"completed_at"`
+	Duration    string `json:"duration" yaml:"duration"`
+	InitiatedBy string `json:"initiated_by" yaml:"initiated_by"`
 }
 
 func newCheckCmd(cfg *Config) *cobra.Command {
-	var target string
+	var (
+		target            string
+		includePrerelease bool
+		channel           string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "check",
@@ -217,21 +223,37 @@ Examples:
   kscorectl upgrade check
 
   # Check compatibility with specific version
-  kscorectl upgrade check --target 2.0.0`,
+  kscorectl upgrade check --target 2.0.0
+
+  # Include prerelease versions
+  kscorectl upgrade check --include-prerelease
+
+  # Check specific release channel
+  kscorectl upgrade check --channel stable`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCheck(cfg, target)
+			return runCheck(cfg, target, includePrerelease, channel)
 		},
 	}
 
 	cmd.Flags().StringVarP(&target, "target", "t", "", "Check compatibility with specific target version")
+	cmd.Flags().BoolVar(&includePrerelease, "include-prerelease", false, "Include prerelease versions in check")
+	cmd.Flags().StringVar(&channel, "channel", "stable", "Release channel to check (stable, beta, nightly)")
 
 	return cmd
 }
 
-func runCheck(cfg *Config, target string) error {
+func runCheck(cfg *Config, target string, includePrerelease bool, channel string) error {
+	latestVersion := "1.6.0"
+	if includePrerelease {
+		latestVersion = "1.7.0-beta.1"
+	}
+	if channel == "nightly" {
+		latestVersion = "1.7.0-dev.20240115"
+	}
+
 	check := UpgradeCheck{
 		CurrentVersion:   "1.5.0",
-		LatestVersion:    "1.6.0",
+		LatestVersion:    latestVersion,
 		UpgradeAvailable: true,
 		TargetVersion:    target,
 		Compatible:       true,
@@ -242,8 +264,8 @@ func runCheck(cfg *Config, target string) error {
 		},
 		ReleaseNotes: "https://github.com/shawnbutts/keystone-core/releases/tag/v1.6.0",
 		Components: []ComponentStatus{
-			{Name: "server", CurrentVersion: "1.5.0", TargetVersion: "1.6.0", Status: "upgrade_available", UpgradeNeeded: true},
-			{Name: "agent", CurrentVersion: "1.5.0", TargetVersion: "1.6.0", Status: "upgrade_available", UpgradeNeeded: true},
+			{Name: "server", CurrentVersion: "1.5.0", TargetVersion: latestVersion, Status: "upgrade_available", UpgradeNeeded: true},
+			{Name: "agent", CurrentVersion: "1.5.0", TargetVersion: latestVersion, Status: "upgrade_available", UpgradeNeeded: true},
 			{Name: "nats", CurrentVersion: "2.10.0", TargetVersion: "2.10.0", Status: "up_to_date", UpgradeNeeded: false},
 			{Name: "etcd", CurrentVersion: "3.5.10", TargetVersion: "3.5.10", Status: "up_to_date", UpgradeNeeded: false},
 		},
@@ -310,8 +332,10 @@ func runCheck(cfg *Config, target string) error {
 
 func newPlanCmd(cfg *Config) *cobra.Command {
 	var (
-		target   string
-		strategy string
+		target    string
+		strategy  string
+		batchSize int
+		save      string
 	)
 
 	cmd := &cobra.Command{
@@ -329,25 +353,34 @@ Examples:
   kscorectl upgrade plan --target 1.6.0
 
   # Plan with canary strategy
-  kscorectl upgrade plan --target 1.6.0 --strategy canary`,
+  kscorectl upgrade plan --target 1.6.0 --strategy canary
+
+  # Save plan to file
+  kscorectl upgrade plan --target 1.6.0 --save upgrade-plan.yaml
+
+  # Plan with batch size for rolling upgrades
+  kscorectl upgrade plan --target 1.6.0 --batch-size 10`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPlan(cfg, target, strategy)
+			return runPlan(cfg, target, strategy, batchSize, save)
 		},
 	}
 
 	cmd.Flags().StringVarP(&target, "target", "t", "", "Target version (required)")
 	cmd.Flags().StringVar(&strategy, "strategy", "rolling", "Upgrade strategy (rolling, canary, blue-green)")
+	cmd.Flags().IntVar(&batchSize, "batch-size", 5, "Number of nodes to upgrade in parallel (for rolling strategy)")
+	cmd.Flags().StringVar(&save, "save", "", "Save plan to file (YAML format)")
 	cmd.MarkFlagRequired("target")
 
 	return cmd
 }
 
-func runPlan(cfg *Config, target, strategy string) error {
+func runPlan(cfg *Config, target, strategy string, batchSize int, save string) error {
 	plan := UpgradePlan{
 		PlanID:         fmt.Sprintf("plan-%s", time.Now().Format("20060102-150405")),
 		CurrentVersion: "1.5.0",
 		TargetVersion:  target,
 		Strategy:       strategy,
+		BatchSize:      batchSize,
 		EstimatedTime:  "15m",
 		RiskLevel:      "low",
 		Backups:        true,
@@ -374,12 +407,26 @@ func runPlan(cfg *Config, target, strategy string) error {
 		})
 	}
 
+	// Save plan to file if requested
+	if save != "" {
+		data, err := yaml.Marshal(plan)
+		if err != nil {
+			return fmt.Errorf("failed to marshal plan: %w", err)
+		}
+		//nolint:gosec // G306: upgrade plan files need to be readable by operators
+		if err := os.WriteFile(save, data, 0o644); err != nil {
+			return fmt.Errorf("failed to write plan to %s: %w", save, err)
+		}
+		fmt.Printf("Plan saved to: %s\n\n", save)
+	}
+
 	return outputResult(cfg.OutputFormat, plan, func() {
 		fmt.Printf("Upgrade Plan\n")
 		fmt.Printf("============\n\n")
 		fmt.Printf("Plan ID:        %s\n", plan.PlanID)
 		fmt.Printf("Current:        %s → %s\n", plan.CurrentVersion, plan.TargetVersion)
 		fmt.Printf("Strategy:       %s\n", plan.Strategy)
+		fmt.Printf("Batch Size:     %d\n", plan.BatchSize)
 		fmt.Printf("Estimated Time: %s\n", plan.EstimatedTime)
 		fmt.Printf("Risk Level:     %s\n", plan.RiskLevel)
 		fmt.Printf("Auto Backup:    %v\n", plan.Backups)
@@ -399,11 +446,14 @@ func runPlan(cfg *Config, target, strategy string) error {
 
 func newExecuteCmd(cfg *Config) *cobra.Command {
 	var (
-		target       string
-		strategy     string
-		skipBackup   bool
-		force        bool
+		target         string
+		strategy       string
+		skipBackup     bool
+		force          bool
 		maxUnavailable int
+		planFile       string
+		async          bool
+		confirm        bool
 	)
 
 	cmd := &cobra.Command{
@@ -419,23 +469,54 @@ Examples:
   kscorectl upgrade execute --target 1.6.0 --strategy canary
 
   # Execute with custom rolling parameters
-  kscorectl upgrade execute --target 1.6.0 --strategy rolling --max-unavailable 2`,
+  kscorectl upgrade execute --target 1.6.0 --strategy rolling --max-unavailable 2
+
+  # Execute from a saved plan file
+  kscorectl upgrade execute --plan upgrade-plan.yaml
+
+  # Execute asynchronously (returns immediately)
+  kscorectl upgrade execute --target 1.6.0 --async
+
+  # Skip confirmation prompt
+  kscorectl upgrade execute --target 1.6.0 --confirm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runExecute(cfg, target, strategy, skipBackup, force, maxUnavailable)
+			return runExecute(cfg, target, strategy, skipBackup, force, maxUnavailable, planFile, async, confirm)
 		},
 	}
 
-	cmd.Flags().StringVarP(&target, "target", "t", "", "Target version (required)")
+	cmd.Flags().StringVarP(&target, "target", "t", "", "Target version (required unless --plan is specified)")
 	cmd.Flags().StringVar(&strategy, "strategy", "rolling", "Upgrade strategy (rolling, canary, blue-green)")
 	cmd.Flags().BoolVar(&skipBackup, "skip-backup", false, "Skip automatic backup before upgrade")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force upgrade even with warnings")
 	cmd.Flags().IntVar(&maxUnavailable, "max-unavailable", 1, "Maximum unavailable nodes during rolling upgrade")
-	cmd.MarkFlagRequired("target")
+	cmd.Flags().StringVar(&planFile, "plan", "", "Execute from a saved plan file")
+	cmd.Flags().BoolVar(&async, "async", false, "Execute asynchronously (returns immediately)")
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "Skip confirmation prompt")
+	cmd.MarkFlagsMutuallyExclusive("target", "plan")
 
 	return cmd
 }
 
-func runExecute(cfg *Config, target, strategy string, skipBackup, force bool, maxUnavailable int) error {
+func runExecute(cfg *Config, target, strategy string, skipBackup, force bool, maxUnavailable int, planFile string, async, confirm bool) error {
+	// Load target from plan file if specified
+	if planFile != "" {
+		data, err := os.ReadFile(planFile)
+		if err != nil {
+			return fmt.Errorf("failed to read plan file: %w", err)
+		}
+		var plan UpgradePlan
+		if err := yaml.Unmarshal(data, &plan); err != nil {
+			return fmt.Errorf("failed to parse plan file: %w", err)
+		}
+		target = plan.TargetVersion
+		strategy = plan.Strategy
+		fmt.Printf("Loaded plan from %s: upgrading to %s with %s strategy\n\n", planFile, target, strategy)
+	}
+
+	if target == "" {
+		return fmt.Errorf("--target is required (or use --plan to load from file)")
+	}
+
 	status := UpgradeStatus{
 		UpgradeID:      fmt.Sprintf("upgrade-%s", time.Now().Format("20060102-150405")),
 		Status:         "in_progress",
@@ -584,34 +665,46 @@ func runStatus(cfg *Config, watch bool) error {
 }
 
 func newCancelCmd(cfg *Config) *cobra.Command {
-	var force bool
+	var (
+		force    bool
+		rollback bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "cancel",
 		Short: "Cancel an in-progress upgrade",
-		Long: `Cancel an in-progress upgrade and trigger rollback if needed.
+		Long: `Cancel an in-progress upgrade and optionally trigger rollback.
 
 Examples:
   # Cancel current upgrade
   kscorectl upgrade cancel
 
   # Force cancel without confirmation
-  kscorectl upgrade cancel --force`,
+  kscorectl upgrade cancel --force
+
+  # Cancel and trigger immediate rollback
+  kscorectl upgrade cancel --rollback`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCancel(cfg, force)
+			return runCancel(cfg, force, rollback)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force cancel without confirmation")
+	cmd.Flags().BoolVar(&rollback, "rollback", false, "Trigger immediate rollback after cancel")
 
 	return cmd
 }
 
-func runCancel(cfg *Config, force bool) error {
+func runCancel(cfg *Config, force, rollback bool) error {
 	fmt.Printf("Cancelling upgrade: upgrade-20240115-100000\n")
-	fmt.Printf("Status: Rollback initiated\n")
-	fmt.Printf("\nThe upgrade has been cancelled and rollback is in progress.\n")
-	fmt.Printf("Use 'kscorectl upgrade status' to monitor rollback progress.\n")
+	if rollback {
+		fmt.Printf("Status: Rollback initiated\n")
+		fmt.Printf("\nThe upgrade has been cancelled and rollback is in progress.\n")
+	} else {
+		fmt.Printf("Status: Cancelled\n")
+		fmt.Printf("\nThe upgrade has been cancelled.\n")
+	}
+	fmt.Printf("Use 'kscorectl upgrade status' to monitor progress.\n")
 	return nil
 }
 
@@ -797,9 +890,10 @@ func runAgentReport(cfg *Config) error {
 		}
 		for _, a := range agents {
 			icon := "✓"
-			if a.Status == "upgrade_available" {
+			switch a.Status {
+			case "upgrade_available":
 				icon = "↑"
-			} else if a.Status == "failed" {
+			case "failed":
 				icon = "✗"
 			}
 			table.Rows = append(table.Rows, []string{
@@ -1001,11 +1095,13 @@ func runHistory(cfg *Config, limit int) error {
 		table := &output.Table{
 			Headers: []string{"UPGRADE ID", "FROM", "TO", "STRATEGY", "STATUS", "DURATION", "STARTED"},
 		}
-		for _, h := range history {
+		for i := range history {
+			h := &history[i]
 			icon := "✓"
-			if h.Status == "failed" {
+			switch h.Status {
+			case "failed":
 				icon = "✗"
-			} else if h.Status == "rolled_back" {
+			case "rolled_back":
 				icon = "↩"
 			}
 			table.Rows = append(table.Rows, []string{

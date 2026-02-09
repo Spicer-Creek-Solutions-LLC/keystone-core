@@ -1,6 +1,7 @@
 package servicemesh
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,16 +16,16 @@ const (
 	consulEnvoyAdminURL  = "http://localhost:19000"
 
 	// Consul environment variables
-	consulServiceEnv         = "CONSUL_SERVICE"
-	consulServiceNameEnv     = "CONSUL_SERVICE_NAME"
-	consulServiceIDEnv       = "CONSUL_SERVICE_ID"
-	consulNamespaceEnv       = "CONSUL_NAMESPACE"
-	consulDatacenterEnv      = "CONSUL_DATACENTER"
-	consulHTTPAddrEnv        = "CONSUL_HTTP_ADDR"
-	consulGRPCAddrEnv        = "CONSUL_GRPC_ADDR"
-	consulCACertEnv          = "CONSUL_CACERT"
-	consulClientCertEnv      = "CONSUL_CLIENT_CERT"
-	consulClientKeyEnv       = "CONSUL_CLIENT_KEY"
+	consulServiceEnv     = "CONSUL_SERVICE"
+	consulServiceNameEnv = "CONSUL_SERVICE_NAME"
+	consulServiceIDEnv   = "CONSUL_SERVICE_ID"
+	consulNamespaceEnv   = "CONSUL_NAMESPACE"
+	consulDatacenterEnv  = "CONSUL_DATACENTER"
+	consulHTTPAddrEnv    = "CONSUL_HTTP_ADDR"
+	consulGRPCAddrEnv    = "CONSUL_GRPC_ADDR"
+	consulCACertEnv      = "CONSUL_CACERT"
+	consulClientCertEnv  = "CONSUL_CLIENT_CERT"
+	consulClientKeyEnv   = "CONSUL_CLIENT_KEY"
 )
 
 // ConsulDetector detects Consul Connect service mesh
@@ -104,11 +105,14 @@ func (d *ConsulDetector) Detect() (*Metadata, error) {
 func (d *ConsulDetector) IsServiceMesh() bool {
 	// Check for Consul Envoy proxy admin endpoint
 	// Note: Port might be configured differently
-	resp, err := d.httpClient.Get(consulEnvoyAdminURL + "/server_info")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, consulEnvoyAdminURL+"/server_info", http.NoBody)
 	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			return true
+		resp, err := d.httpClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
 		}
 	}
 
@@ -134,7 +138,11 @@ func (d *ConsulDetector) GetMeshType() MeshType {
 
 // getEnvoyServerInfo gets Envoy server info from admin API
 func (d *ConsulDetector) getEnvoyServerInfo() (*consulEnvoyServerInfo, error) {
-	resp, err := d.httpClient.Get(consulEnvoyAdminURL + "/server_info")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, consulEnvoyAdminURL+"/server_info", http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

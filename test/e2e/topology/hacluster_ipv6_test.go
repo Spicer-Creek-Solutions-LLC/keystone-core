@@ -4,6 +4,7 @@ package topology
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -263,7 +264,7 @@ func TestHAClusterIPv6_BatchCommand(t *testing.T) {
 	var responses []*pb.BatchExecuteCommandResponse
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -329,7 +330,7 @@ func TestHAClusterIPv6_TargetByLabels(t *testing.T) {
 	var summary *pb.BatchSummary
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -383,7 +384,7 @@ func TestHAClusterIPv6_GetBatchJobStatus(t *testing.T) {
 	// Consume the stream to completion
 	for {
 		_, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -452,7 +453,7 @@ func TestHAClusterIPv6_ListBatchJobs(t *testing.T) {
 		// Consume the stream to completion
 		for {
 			_, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

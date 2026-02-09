@@ -14,13 +14,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
+	"github.com/shawnbutts/keystone-core/pkg/api/server"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // testEnvironment holds all components for e2e testing
@@ -120,7 +120,7 @@ func setupTestEnvironment(t *testing.T) *testEnvironment {
 	apiServer := server.NewControlPlaneServer(connMgr, cmdDispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
-	listener, err := net.Listen("tcp", "localhost:0") // Random available port
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "localhost:0") // Random available port
 	if err != nil {
 		connMgr.Stop()
 		stateStore.Close()
@@ -271,7 +271,8 @@ func (a *mockAgent) commandLoop(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("Agent %s: failed to subscribe to commands: %v", a.id, err)
+		t.Errorf("Agent %s: failed to subscribe to commands: %v", a.id, err)
+		return
 	}
 	defer sub.Unsubscribe()
 
@@ -332,9 +333,9 @@ func TestBatchExecution_E2E_MultipleAgents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, env.grpcAddr,
+	conn, err := grpc.DialContext(ctx, env.grpcAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		t.Fatalf("Failed to connect to gRPC server: %v", err)
@@ -470,9 +471,9 @@ func TestBatchExecution_E2E_AllAgents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, env.grpcAddr,
+	conn, err := grpc.DialContext(ctx, env.grpcAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		t.Fatalf("Failed to connect to gRPC server: %v", err)
@@ -564,9 +565,9 @@ func TestBatchExecution_E2E_ConcurrencyControl(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, env.grpcAddr,
+	conn, err := grpc.DialContext(ctx, env.grpcAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		t.Fatalf("Failed to connect to gRPC server: %v", err)

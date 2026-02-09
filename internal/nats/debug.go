@@ -17,6 +17,7 @@ import (
 // DebugLevel defines the logging level for debug output
 type DebugLevel int
 
+// DebugLevelOff constants define the severity levels.
 const (
 	DebugLevelOff DebugLevel = iota
 	DebugLevelError
@@ -103,20 +104,21 @@ func DefaultDebugConfig() *DebugConfig {
 
 // ConnectionEvent represents a connection state change event
 type ConnectionEvent struct {
-	Timestamp   time.Time              `json:"timestamp"`
-	Type        ConnectionEventType    `json:"type"`
-	Endpoint    string                 `json:"endpoint,omitempty"`
-	Strategy    string                 `json:"strategy,omitempty"`
-	FromState   string                 `json:"from_state,omitempty"`
-	ToState     string                 `json:"to_state,omitempty"`
-	Error       string                 `json:"error,omitempty"`
-	Latency     time.Duration          `json:"latency,omitempty"`
-	Details     map[string]interface{} `json:"details,omitempty"`
+	Timestamp time.Time              `json:"timestamp"`
+	Type      ConnectionEventType    `json:"type"`
+	Endpoint  string                 `json:"endpoint,omitempty"`
+	Strategy  string                 `json:"strategy,omitempty"`
+	FromState string                 `json:"from_state,omitempty"`
+	ToState   string                 `json:"to_state,omitempty"`
+	Error     string                 `json:"error,omitempty"`
+	Latency   time.Duration          `json:"latency,omitempty"`
+	Details   map[string]interface{} `json:"details,omitempty"`
 }
 
 // ConnectionEventType defines the type of connection event
 type ConnectionEventType string
 
+// EventTypeConnect constants define the supported types.
 const (
 	EventTypeConnect       ConnectionEventType = "connect"
 	EventTypeDisconnect    ConnectionEventType = "disconnect"
@@ -132,39 +134,39 @@ const (
 
 // MessageTrace represents a traced message flow
 type MessageTrace struct {
-	TraceID       string          `json:"trace_id"`
-	MessageID     string          `json:"message_id"`
-	Subject       string          `json:"subject"`
-	Source        string          `json:"source"`
-	Destination   string          `json:"destination,omitempty"`
-	StartTime     time.Time       `json:"start_time"`
-	EndTime       time.Time       `json:"end_time,omitempty"`
-	TotalLatency  time.Duration   `json:"total_latency,omitempty"`
-	Hops          []MessageHop    `json:"hops"`
-	Status        string          `json:"status"`
-	Error         string          `json:"error,omitempty"`
-	Size          int64           `json:"size"`
+	TraceID      string        `json:"trace_id"`
+	MessageID    string        `json:"message_id"`
+	Subject      string        `json:"subject"`
+	Source       string        `json:"source"`
+	Destination  string        `json:"destination,omitempty"`
+	StartTime    time.Time     `json:"start_time"`
+	EndTime      time.Time     `json:"end_time,omitempty"`
+	TotalLatency time.Duration `json:"total_latency,omitempty"`
+	Hops         []MessageHop  `json:"hops"`
+	Status       string        `json:"status"`
+	Error        string        `json:"error,omitempty"`
+	Size         int64         `json:"size"`
 }
 
 // MessageHop represents a single hop in a message trace
 type MessageHop struct {
-	HopNumber   int           `json:"hop_number"`
-	Component   string        `json:"component"`
-	Endpoint    string        `json:"endpoint,omitempty"`
-	EntryTime   time.Time     `json:"entry_time"`
-	ExitTime    time.Time     `json:"exit_time,omitempty"`
-	Latency     time.Duration `json:"latency,omitempty"`
-	Action      string        `json:"action"`
-	Error       string        `json:"error,omitempty"`
+	HopNumber int           `json:"hop_number"`
+	Component string        `json:"component"`
+	Endpoint  string        `json:"endpoint,omitempty"`
+	EntryTime time.Time     `json:"entry_time"`
+	ExitTime  time.Time     `json:"exit_time,omitempty"`
+	Latency   time.Duration `json:"latency,omitempty"`
+	Action    string        `json:"action"`
+	Error     string        `json:"error,omitempty"`
 }
 
 // ConnectionTimeline represents a timeline of connection events
 type ConnectionTimeline struct {
-	Endpoint    string            `json:"endpoint"`
-	StartTime   time.Time         `json:"start_time"`
-	EndTime     time.Time         `json:"end_time,omitempty"`
-	Events      []ConnectionEvent `json:"events"`
-	Summary     TimelineSummary   `json:"summary"`
+	Endpoint  string            `json:"endpoint"`
+	StartTime time.Time         `json:"start_time"`
+	EndTime   time.Time         `json:"end_time,omitempty"`
+	Events    []ConnectionEvent `json:"events"`
+	Summary   TimelineSummary   `json:"summary"`
 }
 
 // TimelineSummary summarizes a connection timeline
@@ -267,7 +269,8 @@ func (d *ConnectionDebugger) updateTimelineSummary(timeline *ConnectionTimeline)
 	var failureIntervals []time.Duration
 	var recoveryDurations []time.Duration
 
-	for _, event := range timeline.Events {
+	for i := range timeline.Events {
+		event := &timeline.Events[i]
 		switch event.Type {
 		case EventTypeConnect:
 			summary.TotalConnections++
@@ -287,6 +290,7 @@ func (d *ConnectionDebugger) updateTimelineSummary(timeline *ConnectionTimeline)
 			lastDisconnected = event.Timestamp
 		case EventTypeFailover:
 			summary.TotalFailovers++
+		default:
 		}
 
 		if event.Latency > 0 {
@@ -444,11 +448,11 @@ func (d *ConnectionDebugger) GetEvents(filter *EventFilter) []ConnectionEvent {
 	defer d.mu.RUnlock()
 
 	var result []ConnectionEvent
-	for _, event := range d.events {
-		if filter != nil && !filter.matches(event) {
+	for i := range d.events {
+		if filter != nil && !filter.matches(d.events[i]) {
 			continue
 		}
-		result = append(result, event)
+		result = append(result, d.events[i])
 	}
 	return result
 }
@@ -655,23 +659,23 @@ func matchSubject(pattern, subject string) bool {
 
 // DiagnosticReport generates a diagnostic report
 type DiagnosticReport struct {
-	GeneratedAt     time.Time                      `json:"generated_at"`
-	Endpoints       map[string]EndpointDiagnostic  `json:"endpoints"`
-	ActiveTraces    int                            `json:"active_traces"`
-	RecentErrors    []ConnectionEvent              `json:"recent_errors"`
-	LatencySpikes   []ConnectionEvent              `json:"latency_spikes"`
-	Recommendations []string                       `json:"recommendations"`
+	GeneratedAt     time.Time                     `json:"generated_at"`
+	Endpoints       map[string]EndpointDiagnostic `json:"endpoints"`
+	ActiveTraces    int                           `json:"active_traces"`
+	RecentErrors    []ConnectionEvent             `json:"recent_errors"`
+	LatencySpikes   []ConnectionEvent             `json:"latency_spikes"`
+	Recommendations []string                      `json:"recommendations"`
 }
 
 // EndpointDiagnostic contains diagnostic info for an endpoint
 type EndpointDiagnostic struct {
-	Endpoint    string          `json:"endpoint"`
-	Status      string          `json:"status"`
-	Uptime      time.Duration   `json:"uptime"`
-	LastError   *ConnectionEvent `json:"last_error,omitempty"`
-	AvgLatency  time.Duration   `json:"avg_latency"`
-	ErrorRate   float64         `json:"error_rate"`
-	Healthy     bool            `json:"healthy"`
+	Endpoint   string           `json:"endpoint"`
+	Status     string           `json:"status"`
+	Uptime     time.Duration    `json:"uptime"`
+	LastError  *ConnectionEvent `json:"last_error,omitempty"`
+	AvgLatency time.Duration    `json:"avg_latency"`
+	ErrorRate  float64          `json:"error_rate"`
+	Healthy    bool             `json:"healthy"`
 }
 
 // GenerateDiagnosticReport generates a comprehensive diagnostic report
@@ -725,12 +729,12 @@ func (d *ConnectionDebugger) GenerateDiagnosticReport() *DiagnosticReport {
 	}
 
 	// Collect recent errors and latency spikes
-	for _, event := range d.events {
-		if event.Type == EventTypeError && len(report.RecentErrors) < 10 {
-			report.RecentErrors = append(report.RecentErrors, event)
+	for i := range d.events {
+		if d.events[i].Type == EventTypeError && len(report.RecentErrors) < 10 {
+			report.RecentErrors = append(report.RecentErrors, d.events[i])
 		}
-		if event.Type == EventTypeLatencySpike && len(report.LatencySpikes) < 10 {
-			report.LatencySpikes = append(report.LatencySpikes, event)
+		if d.events[i].Type == EventTypeLatencySpike && len(report.LatencySpikes) < 10 {
+			report.LatencySpikes = append(report.LatencySpikes, d.events[i])
 		}
 	}
 
@@ -783,11 +787,11 @@ func (d *ConnectionDebugger) ExportJSON() (string, error) {
 // DiagnosticCLI provides CLI commands for diagnostics
 type DiagnosticCLI struct {
 	debugger  *ConnectionDebugger
-	collector *NATSMetricsCollector
+	collector *MetricsCollector
 }
 
 // NewDiagnosticCLI creates a new diagnostic CLI
-func NewDiagnosticCLI(debugger *ConnectionDebugger, collector *NATSMetricsCollector) *DiagnosticCLI {
+func NewDiagnosticCLI(debugger *ConnectionDebugger, collector *MetricsCollector) *DiagnosticCLI {
 	return &DiagnosticCLI{
 		debugger:  debugger,
 		collector: collector,
@@ -817,6 +821,7 @@ func (cli *DiagnosticCLI) StatusCommand() string {
 					status = "✗ disconnected"
 				case EventTypeError:
 					status = "⚠ error: " + lastEvent.Error
+				default:
 				}
 			}
 			output.WriteString(fmt.Sprintf("  %s: %s\n", endpoint, status))
@@ -851,7 +856,9 @@ func (cli *DiagnosticCLI) EventsCommand(limit int) string {
 		start = len(events) - limit
 	}
 
-	for _, event := range events[start:] {
+	eventsSlice := events[start:]
+	for i := range eventsSlice {
+		event := &eventsSlice[i]
 		output.WriteString(fmt.Sprintf("[%s] %s on %s",
 			event.Timestamp.Format("15:04:05.000"),
 			event.Type,
@@ -887,7 +894,8 @@ func (cli *DiagnosticCLI) TraceCommand(traceID string) string {
 
 	if len(trace.Hops) > 0 {
 		output.WriteString("\nHops:\n")
-		for _, hop := range trace.Hops {
+		for i := range trace.Hops {
+			hop := &trace.Hops[i]
 			output.WriteString(fmt.Sprintf("  %d. %s @ %s: %s (%s)",
 				hop.HopNumber, hop.Component, hop.Endpoint, hop.Action, hop.Latency))
 			if hop.Error != "" {
@@ -926,7 +934,8 @@ func (cli *DiagnosticCLI) DiagnoseCommand() string {
 	// Recent errors
 	if len(report.RecentErrors) > 0 {
 		output.WriteString("\nRecent Errors:\n")
-		for _, err := range report.RecentErrors {
+		for i := range report.RecentErrors {
+			err := &report.RecentErrors[i]
 			output.WriteString(fmt.Sprintf("  [%s] %s: %s\n",
 				err.Timestamp.Format("15:04:05"), err.Endpoint, err.Error))
 		}
@@ -960,7 +969,7 @@ func (cli *DiagnosticCLI) LatencyTest(ctx context.Context, endpoint string, coun
 
 	// Return cached latency data if available
 	if timeline := cli.debugger.GetTimeline(endpoint); timeline != nil {
-		output.WriteString(fmt.Sprintf("\nCached Statistics:\n"))
+		output.WriteString("\nCached Statistics:\n")
 		output.WriteString(fmt.Sprintf("  Average Latency: %s\n", timeline.Summary.AvgLatency))
 		output.WriteString(fmt.Sprintf("  Total Connections: %d\n", timeline.Summary.TotalConnections))
 		output.WriteString(fmt.Sprintf("  MTBF: %s\n", timeline.Summary.MTBF))

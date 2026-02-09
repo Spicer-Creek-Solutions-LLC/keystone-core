@@ -65,9 +65,9 @@ func TestHardwareProfileMatcher_GetProfile(t *testing.T) {
 
 func TestHardwareProfileMatcher_Match_CPUCriteria(t *testing.T) {
 	tests := []struct {
-		name       string
-		server     *Server
-		criteria   HardwareProfileCriteria
+		name        string
+		server      *Server
+		criteria    HardwareProfileCriteria
 		shouldMatch bool
 	}{
 		{
@@ -777,8 +777,8 @@ func TestDefaultHardwareProfileMatcher_MatchRealServer(t *testing.T) {
 	matcher := DefaultHardwareProfileMatcher()
 
 	tests := []struct {
-		name           string
-		server         *Server
+		name            string
+		server          *Server
 		expectedProfile string
 	}{
 		{

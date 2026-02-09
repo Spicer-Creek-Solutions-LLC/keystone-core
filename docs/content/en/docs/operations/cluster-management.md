@@ -119,12 +119,10 @@ When scaling up the cluster:
 # 1. Prepare the new node with kscore-server installed
 
 # 2. Add member to cluster (run on existing member)
-kscorectl cluster add-member \
-  --name kscore-4 \
-  --peer-urls https://192.168.1.13:2380
+kscorectl cluster add https://192.168.1.13:2380
 
 # 3. Start kscore-server on new node with join config
-kscore-server --config /etc/kscore/server.yaml --join
+kscore-server --config /etc/keystone-core/server.yaml --join
 ```
 
 ### Remove a Member
@@ -172,7 +170,7 @@ For planned maintenance:
 
 ```bash
 # Step down current leader (triggers election)
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 
 # Verify new leader
 kscorectl cluster leader
@@ -181,14 +179,14 @@ kscorectl cluster leader
 ### Monitoring Failovers
 
 ```bash
-# View leader history
-kscorectl cluster leader --history
+# Check current leader
+kscorectl cluster leader
 
-# Output:
-# Leader History:
-#   2026-01-10T08:30:15Z  kscore-1  (current)
-#   2026-01-09T22:15:30Z  kscore-2  (stepped down)
-#   2026-01-09T14:00:00Z  kscore-1  (failover from kscore-3)
+# View leader election history via etcd
+ETCDCTL_API=3 etcdctl endpoint status --cluster
+
+# Monitor leader changes via metrics
+curl -s http://localhost:9090/api/v1/query?query=kscore_cluster_leader_changes_total | jq
 ```
 
 ## Recovery Procedures
@@ -210,7 +208,7 @@ If one member fails:
 3. **If unrecoverable**: Remove and replace
    ```bash
    kscorectl cluster remove <member-id>
-   kscorectl cluster add-member --name new-member --peer-urls <urls>
+   kscorectl cluster add <address>
    ```
 
 ### Quorum Loss Recovery
@@ -230,7 +228,7 @@ kscore-server --force-new-cluster
 kscorectl cluster status
 
 # 4. Add new members to restore HA
-kscorectl cluster add-member --name kscore-2 --peer-urls ...
+kscorectl cluster add <new-member-address>
 ```
 
 ### Data Recovery from Backup
@@ -520,8 +518,8 @@ cluster:
 # Preview rebalance plan
 kscorectl cluster rebalance --dry-run
 
-# Execute with rate limiting
-kscorectl cluster rebalance --max-concurrent 50 --delay 5s
+# Execute rebalance (rate limiting is controlled via config)
+kscorectl cluster rebalance --reason "adding new member"
 ```
 
 ### Leader Election in Large Clusters
@@ -575,14 +573,11 @@ flowchart TB
 
 **Adding learner nodes:**
 ```bash
-# Add learner (non-voting member)
-kscorectl cluster add-member \
-  --name kscore-read-1 \
-  --peer-urls https://192.168.1.20:2380 \
-  --learner
+# Add a new member
+kscorectl cluster add https://192.168.1.20:2380
 
-# Learner receives all updates but cannot vote
-# Reduces load on voting members for read queries
+# Note: Learner (non-voting) mode is configured in the server
+# configuration, not via CLI flags
 ```
 
 **Routing reads to learners:**
@@ -968,10 +963,10 @@ Rolling upgrades require more care with larger clusters:
 CLUSTER_SIZE=$(kscorectl cluster members | wc -l)
 BATCH_SIZE=$((CLUSTER_SIZE / 3))  # Upgrade 1/3 at a time
 
-# Get members by role
+# Get members by role (filter with jq)
 LEADER=$(kscorectl cluster leader --output json | jq -r '.name')
-LEARNERS=$(kscorectl cluster members --role learner --output json | jq -r '.[].name')
-FOLLOWERS=$(kscorectl cluster members --role follower --output json | jq -r '.[].name')
+LEARNERS=$(kscorectl cluster members --output json | jq -r '.[] | select(.role=="learner") | .name')
+FOLLOWERS=$(kscorectl cluster members --output json | jq -r '.[] | select(.role=="follower") | .name')
 
 # 1. Upgrade learners first (no impact on writes)
 for learner in $LEARNERS; do
@@ -993,7 +988,7 @@ done
 
 # 3. Stepdown and upgrade leader last
 echo "Stepping down leader: $LEADER"
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 sleep 15
 ssh $LEADER "systemctl stop kscore-server && yum update -y kscore-server && systemctl start kscore-server"
 sleep 30
@@ -1044,23 +1039,20 @@ When reducing cluster size:
 
 ```bash
 # 1. Check current distribution
-kscorectl cluster members --output wide
+kscorectl cluster members --output yaml
 
 # 2. Migrate agents off nodes being removed
 kscorectl cluster drain kscore-7
 kscorectl cluster drain kscore-6
 
 # 3. Wait for drain to complete
-watch 'kscorectl cluster members --output wide | grep -E "kscore-[67]"'
+watch 'kscorectl cluster members --output yaml | grep -E "kscore-[67]"'
 
 # 4. Remove drained members
 kscorectl cluster remove kscore-7
 kscorectl cluster remove kscore-6
 
-# 5. Compact etcd after membership changes
-kscorectl cluster compact --all-members
-
-# 6. Verify new cluster size
+# 5. Verify new cluster size
 kscorectl cluster status
 ```
 
@@ -1122,7 +1114,7 @@ for member in kscore-2 kscore-3; do
 done
 
 # 2. Failover from leader
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 
 # 3. Restart old leader
 ssh kscore-1 "systemctl restart kscore-server"
@@ -1153,7 +1145,7 @@ ETCDCTL_API=3 etcdctl defrag
 etcdctl snapshot save /backup/etcd-$(date +%Y%m%d).db
 
 # Backup Keystone Core config
-tar -czf /backup/kscore-config-$(date +%Y%m%d).tar.gz /etc/kscore/
+tar -czf /backup/kscore-config-$(date +%Y%m%d).tar.gz /etc/keystone-core/
 ```
 
 ### Zero-Downtime etcd Upgrade
@@ -1319,7 +1311,7 @@ echo "=== Upgrading leader: $LEADER ==="
 
 # 2. Step down leader to trigger election
 echo "Stepping down leader..."
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 
 # 3. Wait for new leader election
 sleep 15
@@ -1368,7 +1360,7 @@ done
 kscorectl cluster health
 
 # Verify agent connectivity
-kscorectl agent list --status connected | wc -l
+kscorectl agents list --status connected | wc -l
 
 # Run a test command
 kscorectl exec run --target '*' --limit 3 'hostname'
@@ -1392,7 +1384,7 @@ kscorectl cluster remove $FAILED_MEMBER --force
 
 # Re-add as new member
 ssh $FAILED_MEMBER "rm -rf /var/lib/etcd/*"
-kscorectl cluster add-member --name $FAILED_MEMBER --peer-urls https://${FAILED_MEMBER_IP}:2380
+kscorectl cluster add https://${FAILED_MEMBER_IP}:2380
 ssh $FAILED_MEMBER "systemctl start kscore-server"
 ```
 
@@ -1575,7 +1567,7 @@ done
 
 # Upgrade leader
 echo "Step 5: Upgrading leader ($LEADER)..."
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 sleep 15
 ssh $LEADER "systemctl stop kscore-server"
 sleep 10
@@ -1652,7 +1644,7 @@ Before running drills, verify your HA configuration meets best practices:
 
 ```bash
 # Check HA recommendations
-kscorectl cluster ha-check
+kscorectl cluster health
 
 # Output:
 # HA Configuration Check
@@ -1693,7 +1685,7 @@ kscorectl cluster members --output yaml > /tmp/pre-drill-members.yaml
 **Option A: Graceful stepdown (safest)**
 ```bash
 # Step down current leader, triggering election
-kscorectl cluster stepdown
+kscorectl cluster transfer-leader <target-member-id>
 
 # Wait for new leader election
 sleep 10

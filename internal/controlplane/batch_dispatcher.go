@@ -7,18 +7,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/targeting"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // BatchDispatcher handles batch command execution across multiple agents
 type BatchDispatcher struct {
-	connMgr   *ConnectionManager
-	cmdDsp    *CommandDispatcher
-	store     state.BatchJobStore
-	executor  *targeting.BatchExecutor
+	connMgr  *ConnectionManager
+	cmdDsp   *CommandDispatcher
+	store    state.BatchJobStore
+	executor *targeting.BatchExecutor
 
 	// Track batch jobs
 	mu        sync.RWMutex
@@ -27,14 +27,14 @@ type BatchDispatcher struct {
 
 // BatchJob represents a batch execution job
 type BatchJob struct {
-	ID        string
-	Target    string
-	Command   string
-	Args      []string
-	Env       map[string]string
-	Status    pb.BatchJobStatus
-	CreatedAt time.Time
-	StartedAt *time.Time
+	ID          string
+	Target      string
+	Command     string
+	Args        []string
+	Env         map[string]string
+	Status      pb.BatchJobStatus
+	CreatedAt   time.Time
+	StartedAt   *time.Time
 	CompletedAt *time.Time
 
 	// Progress tracking
@@ -157,7 +157,7 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 	job.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING
 
 	// Update status in database
-	bd.store.UpdateBatchJobStatus(ctx, job.ID, job.Status)
+	_ = bd.store.UpdateBatchJobStatus(ctx, job.ID, job.Status) //nolint:errcheck // best-effort persistence
 
 	responseChan <- &pb.BatchExecuteCommandResponse{
 		BatchJobId: job.ID,
@@ -198,10 +198,12 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 
 	// Update total count
 	total, _, _ := batch.Progress()
+	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
 	job.Total = int32(total)
 
 	// Persist initial progress
-	bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{
+	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
+	_ = bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{ //nolint:errcheck // best-effort persistence
 		TotalAgents: int32(total),
 		StartedAt:   job.StartedAt,
 	})
@@ -225,12 +227,13 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 				successful := completed - failed
 				successRate := batch.SuccessRate()
 
-				job.Completed = int32(completed)
-				job.Successful = int32(successful)
-				job.Failed = int32(failed)
+				job.Completed = int32(completed)   //nolint:gosec // G115: bounded by cluster size
+				job.Successful = int32(successful) //nolint:gosec // G115: bounded by cluster size
+				job.Failed = int32(failed)         //nolint:gosec // G115: bounded by cluster size
 
 				// Persist progress to database
-				bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{
+				//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
+				_ = bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{ //nolint:errcheck // best-effort persistence
 					TotalAgents:      int32(total),
 					CompletedAgents:  int32(completed),
 					SuccessfulAgents: int32(successful),
@@ -240,6 +243,7 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 				})
 
 				now := time.Now()
+				//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
 				responseChan <- &pb.BatchExecuteCommandResponse{
 					BatchJobId: job.ID,
 					Type:       pb.BatchResponseType_BATCH_RESPONSE_TYPE_PROGRESS,
@@ -275,7 +279,7 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 		}
 
 		// Persist each agent result to database
-		bd.store.SaveBatchAgentResult(ctx, job.ID, &state.BatchAgentResultRecord{
+		_ = bd.store.SaveBatchAgentResult(ctx, job.ID, &state.BatchAgentResultRecord{ //nolint:errcheck // best-effort persistence
 			BatchJobID: job.ID,
 			AgentID:    result.AgentID,
 			Success:    result.Success,
@@ -293,9 +297,9 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 	successful := completed - failed
 	successRate := batch.SuccessRate()
 
-	job.Completed = int32(completed)
-	job.Successful = int32(successful)
-	job.Failed = int32(failed)
+	job.Completed = int32(completed)   //nolint:gosec // G115: bounded by cluster size
+	job.Successful = int32(successful) //nolint:gosec // G115: bounded by cluster size
+	job.Failed = int32(failed)         //nolint:gosec // G115: bounded by cluster size
 
 	// Send completion
 	completedTime := time.Now()
@@ -305,7 +309,8 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 	duration := completedTime.Sub(job.CreatedAt)
 
 	// Persist final state to database
-	bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{
+	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
+	_ = bd.store.UpdateBatchJobProgress(ctx, job.ID, &state.BatchJobProgress{ //nolint:errcheck // best-effort persistence
 		TotalAgents:      int32(total),
 		CompletedAgents:  int32(completed),
 		SuccessfulAgents: int32(successful),
@@ -315,8 +320,9 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 		CompletedAt:      &completedTime,
 		DurationMs:       duration.Milliseconds(),
 	})
-	bd.store.UpdateBatchJobStatus(ctx, job.ID, job.Status)
+	_ = bd.store.UpdateBatchJobStatus(ctx, job.ID, job.Status) //nolint:errcheck // best-effort persistence
 
+	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
 	responseChan <- &pb.BatchExecuteCommandResponse{
 		BatchJobId: job.ID,
 		Type:       pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_COMPLETE,

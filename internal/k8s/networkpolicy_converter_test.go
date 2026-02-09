@@ -542,10 +542,10 @@ func TestEmptySelectorsAndRules(t *testing.T) {
 
 	k8sPolicy := ToK8sNetworkPolicy(policy)
 
-	if k8sPolicy.Spec.PodSelector.MatchLabels != nil && len(k8sPolicy.Spec.PodSelector.MatchLabels) > 0 {
+	if len(k8sPolicy.Spec.PodSelector.MatchLabels) > 0 {
 		t.Error("Empty pod selector should have no match labels")
 	}
-	if k8sPolicy.Spec.Ingress != nil && len(k8sPolicy.Spec.Ingress) > 0 {
+	if len(k8sPolicy.Spec.Ingress) > 0 {
 		t.Error("Empty ingress should deny all")
 	}
 

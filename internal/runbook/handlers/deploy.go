@@ -12,13 +12,13 @@ import (
 // DeployOrchestrator defines the interface for deployment orchestration.
 type DeployOrchestrator interface {
 	// Execute executes an orchestration request and returns the result.
-	Execute(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error)
+	Execute(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error)
 
 	// GetPlan retrieves an orchestration plan by name.
-	GetPlan(name string) (*orchestration.OrchestrationPlan, bool)
+	GetPlan(name string) (*orchestration.Plan, bool)
 
 	// Rollback rolls back an orchestration to a previous state.
-	Rollback(ctx context.Context, orchestrationID string) (*orchestration.OrchestrationResult, error)
+	Rollback(ctx context.Context, orchestrationID string) (*orchestration.Result, error)
 }
 
 // DeployHandler handles deploy step execution.
@@ -148,10 +148,10 @@ func (h *DeployHandler) Execute(ctx context.Context, step *runbook.Step, varCtx 
 	return h.buildResult(result, startTime), nil
 }
 
-// buildRequest builds an OrchestrationRequest from step configuration.
-func (h *DeployHandler) buildRequest(step *runbook.Step, varCtx VariableContext) (*orchestration.OrchestrationRequest, error) {
+// buildRequest builds a Request from step configuration.
+func (h *DeployHandler) buildRequest(step *runbook.Step, varCtx VariableContext) (*orchestration.Request, error) {
 	config := step.Config
-	req := &orchestration.OrchestrationRequest{
+	req := &orchestration.Request{
 		RequestedBy: h.requestedBy,
 		Revisions:   make(map[string]string),
 	}
@@ -237,7 +237,7 @@ func (h *DeployHandler) shouldRollback(config map[string]interface{}) bool {
 }
 
 // handleRollback handles rollback on deployment failure.
-func (h *DeployHandler) handleRollback(ctx context.Context, failedResult *orchestration.OrchestrationResult, startTime time.Time) (*runbook.StepResult, error) {
+func (h *DeployHandler) handleRollback(ctx context.Context, failedResult *orchestration.Result, startTime time.Time) (*runbook.StepResult, error) {
 	// Attempt rollback
 	rollbackResult, rollbackErr := h.orchestrator.Rollback(ctx, failedResult.ID)
 
@@ -271,7 +271,7 @@ func (h *DeployHandler) handleRollback(ctx context.Context, failedResult *orches
 }
 
 // buildResult builds a step result from an orchestration result.
-func (h *DeployHandler) buildResult(result *orchestration.OrchestrationResult, startTime time.Time) *runbook.StepResult {
+func (h *DeployHandler) buildResult(result *orchestration.Result, startTime time.Time) *runbook.StepResult {
 	outputs := h.extractOutputs(result)
 
 	success := result.Status == orchestration.StatusCompleted
@@ -292,7 +292,7 @@ func (h *DeployHandler) buildResult(result *orchestration.OrchestrationResult, s
 }
 
 // buildErrorResult builds an error result from an orchestration result.
-func (h *DeployHandler) buildErrorResult(result *orchestration.OrchestrationResult, err error, startTime time.Time, config map[string]interface{}) *runbook.StepResult {
+func (h *DeployHandler) buildErrorResult(result *orchestration.Result, err error, startTime time.Time, config map[string]interface{}) *runbook.StepResult {
 	outputs := map[string]interface{}{
 		"error": err.Error(),
 	}
@@ -311,7 +311,7 @@ func (h *DeployHandler) buildErrorResult(result *orchestration.OrchestrationResu
 }
 
 // extractOutputs extracts outputs from an orchestration result.
-func (h *DeployHandler) extractOutputs(result *orchestration.OrchestrationResult) map[string]interface{} {
+func (h *DeployHandler) extractOutputs(result *orchestration.Result) map[string]interface{} {
 	outputs := map[string]interface{}{
 		"orchestration_id": result.ID,
 		"status":           string(result.Status),
@@ -365,7 +365,7 @@ func (h *DeployHandler) extractOutputs(result *orchestration.OrchestrationResult
 }
 
 // getFailureReason extracts a failure reason from the result.
-func (h *DeployHandler) getFailureReason(result *orchestration.OrchestrationResult) string {
+func (h *DeployHandler) getFailureReason(result *orchestration.Result) string {
 	if len(result.FailedGroups) > 0 {
 		return fmt.Sprintf("failed groups: %v", result.FailedGroups)
 	}

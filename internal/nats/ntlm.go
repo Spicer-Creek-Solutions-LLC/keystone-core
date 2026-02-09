@@ -3,7 +3,7 @@ package nats
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // G501: MD5 required by NTLMv2 protocol specification (HMAC-MD5)
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
@@ -23,28 +23,28 @@ const (
 
 // NTLM negotiate flags
 const (
-	ntlmFlagNegotiateUnicode              = 0x00000001
-	ntlmFlagNegotiateOEM                  = 0x00000002
-	ntlmFlagRequestTarget                 = 0x00000004
-	ntlmFlagNegotiateSign                 = 0x00000010
-	ntlmFlagNegotiateSeal                 = 0x00000020
-	ntlmFlagNegotiateDatagram             = 0x00000040
-	ntlmFlagNegotiateLMKey                = 0x00000080
-	ntlmFlagNegotiateNTLM                 = 0x00000200
-	ntlmFlagNegotiateAnonymous            = 0x00000800
-	ntlmFlagNegotiateDomainSupplied       = 0x00001000
-	ntlmFlagNegotiateWorkstationSupplied  = 0x00002000
-	ntlmFlagNegotiateAlwaysSign           = 0x00008000
-	ntlmFlagNegotiateTargetTypeDomain     = 0x00010000
-	ntlmFlagNegotiateTargetTypeServer     = 0x00020000
-	ntlmFlagNegotiateExtendedSecurity     = 0x00080000
-	ntlmFlagNegotiateIdentify             = 0x00100000
-	ntlmFlagRequestNonNTSession           = 0x00400000
-	ntlmFlagNegotiateTargetInfo           = 0x00800000
-	ntlmFlagNegotiateVersion              = 0x02000000
-	ntlmFlagNegotiate128                  = 0x20000000
-	ntlmFlagNegotiateKeyExchange          = 0x40000000
-	ntlmFlagNegotiate56                   = 0x80000000
+	ntlmFlagNegotiateUnicode             = 0x00000001
+	ntlmFlagNegotiateOEM                 = 0x00000002
+	ntlmFlagRequestTarget                = 0x00000004
+	ntlmFlagNegotiateSign                = 0x00000010
+	ntlmFlagNegotiateSeal                = 0x00000020
+	ntlmFlagNegotiateDatagram            = 0x00000040
+	ntlmFlagNegotiateLMKey               = 0x00000080
+	ntlmFlagNegotiateNTLM                = 0x00000200
+	ntlmFlagNegotiateAnonymous           = 0x00000800
+	ntlmFlagNegotiateDomainSupplied      = 0x00001000
+	ntlmFlagNegotiateWorkstationSupplied = 0x00002000
+	ntlmFlagNegotiateAlwaysSign          = 0x00008000
+	ntlmFlagNegotiateTargetTypeDomain    = 0x00010000
+	ntlmFlagNegotiateTargetTypeServer    = 0x00020000
+	ntlmFlagNegotiateExtendedSecurity    = 0x00080000
+	ntlmFlagNegotiateIdentify            = 0x00100000
+	ntlmFlagRequestNonNTSession          = 0x00400000
+	ntlmFlagNegotiateTargetInfo          = 0x00800000
+	ntlmFlagNegotiateVersion             = 0x02000000
+	ntlmFlagNegotiate128                 = 0x20000000
+	ntlmFlagNegotiateKeyExchange         = 0x40000000
+	ntlmFlagNegotiate56                  = 0x80000000
 )
 
 // NTLM signature
@@ -201,10 +201,10 @@ func (n *NTLMAuth) GenerateAuthenticateMessage(challenge *NTLMChallenge) ([]byte
 	// Fixed header size: 88 bytes (including version)
 	headerSize := uint32(88)
 	lmOffset := headerSize
-	ntOffset := lmOffset + uint32(len(lmv2Response))
-	domainOffset := ntOffset + uint32(len(ntlmv2Response))
-	usernameOffset := domainOffset + uint32(len(domainBytes))
-	workstationOffset := usernameOffset + uint32(len(usernameBytes))
+	ntOffset := lmOffset + uint32(len(lmv2Response))                   //nolint:gosec // G115: NTLM field len
+	domainOffset := ntOffset + uint32(len(ntlmv2Response))             //nolint:gosec // G115: NTLM field len
+	usernameOffset := domainOffset + uint32(len(domainBytes))          //nolint:gosec // G115: NTLM field len
+	workstationOffset := usernameOffset + uint32(len(usernameBytes))   //nolint:gosec // G115: NTLM field len
 
 	// Build message
 	buf := new(bytes.Buffer)
@@ -216,34 +216,34 @@ func (n *NTLMAuth) GenerateAuthenticateMessage(challenge *NTLMChallenge) ([]byte
 	binary.Write(buf, binary.LittleEndian, uint32(ntlmTypeAuthenticate))
 
 	// LM response fields
-	binary.Write(buf, binary.LittleEndian, uint16(len(lmv2Response)))  // Len
-	binary.Write(buf, binary.LittleEndian, uint16(len(lmv2Response)))  // MaxLen
-	binary.Write(buf, binary.LittleEndian, lmOffset)                   // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(len(lmv2Response))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, uint16(len(lmv2Response))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, lmOffset)
 
 	// NT response fields
-	binary.Write(buf, binary.LittleEndian, uint16(len(ntlmv2Response))) // Len
-	binary.Write(buf, binary.LittleEndian, uint16(len(ntlmv2Response))) // MaxLen
-	binary.Write(buf, binary.LittleEndian, ntOffset)                    // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(len(ntlmv2Response))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, uint16(len(ntlmv2Response))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, ntOffset)
 
 	// Domain fields
-	binary.Write(buf, binary.LittleEndian, uint16(len(domainBytes))) // Len
-	binary.Write(buf, binary.LittleEndian, uint16(len(domainBytes))) // MaxLen
-	binary.Write(buf, binary.LittleEndian, domainOffset)             // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(len(domainBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, uint16(len(domainBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, domainOffset)
 
 	// Username fields
-	binary.Write(buf, binary.LittleEndian, uint16(len(usernameBytes))) // Len
-	binary.Write(buf, binary.LittleEndian, uint16(len(usernameBytes))) // MaxLen
-	binary.Write(buf, binary.LittleEndian, usernameOffset)             // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(len(usernameBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, uint16(len(usernameBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, usernameOffset)
 
 	// Workstation fields
-	binary.Write(buf, binary.LittleEndian, uint16(len(workstationBytes))) // Len
-	binary.Write(buf, binary.LittleEndian, uint16(len(workstationBytes))) // MaxLen
-	binary.Write(buf, binary.LittleEndian, workstationOffset)             // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(len(workstationBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, uint16(len(workstationBytes))) //nolint:gosec // G115: NTLM len
+	binary.Write(buf, binary.LittleEndian, workstationOffset)
 
 	// Encrypted random session key fields (empty)
-	binary.Write(buf, binary.LittleEndian, uint16(0))                             // Len
-	binary.Write(buf, binary.LittleEndian, uint16(0))                             // MaxLen
-	binary.Write(buf, binary.LittleEndian, workstationOffset+uint32(len(workstationBytes))) // Offset
+	binary.Write(buf, binary.LittleEndian, uint16(0))
+	binary.Write(buf, binary.LittleEndian, uint16(0))
+	binary.Write(buf, binary.LittleEndian, workstationOffset+uint32(len(workstationBytes))) //nolint:gosec // G115: NTLM len
 
 	// NegotiateFlags
 	flags := uint32(
@@ -292,24 +292,27 @@ func md4Hash(data []byte) []byte {
 	return h.Sum(nil)
 }
 
-// calculateNTLMv2Response computes the NTLMv2 response
+// calculateNTLMv2Response computes the NTLMv2 response.
+// Algorithm: NTProofStr is HMAC-MD5(NTLMv2Hash, ServerChallenge + Blob),
+// then Response is NTProofStr concatenated with Blob.
 func calculateNTLMv2Response(ntlmv2Hash, serverChallenge, blob []byte) []byte {
-	// NTProofStr = HMAC-MD5(NTLMv2Hash, ServerChallenge + Blob)
+	// Compute NTProofStr via HMAC-MD5
 	h := hmac.New(md5.New, ntlmv2Hash)
 	h.Write(serverChallenge)
 	h.Write(blob)
 	ntProofStr := h.Sum(nil)
 
-	// Response = NTProofStr + Blob
+	// Concatenate NTProofStr with Blob
 	response := make([]byte, len(ntProofStr)+len(blob))
 	copy(response, ntProofStr)
 	copy(response[len(ntProofStr):], blob)
 	return response
 }
 
-// calculateLMv2Response computes the LMv2 response
+// calculateLMv2Response computes the LMv2 response.
+// Algorithm: HMAC-MD5(NTLMv2Hash, ServerChallenge + ClientChallenge) concatenated with ClientChallenge.
 func calculateLMv2Response(ntlmv2Hash, serverChallenge, clientChallenge []byte) []byte {
-	// LMv2Response = HMAC-MD5(NTLMv2Hash, ServerChallenge + ClientChallenge) + ClientChallenge
+	// Compute proof via HMAC-MD5
 	h := hmac.New(md5.New, ntlmv2Hash)
 	h.Write(serverChallenge)
 	h.Write(clientChallenge)
@@ -355,6 +358,7 @@ func buildNTLMv2Blob(clientChallenge []byte, timestamp uint64, targetInfo []byte
 func windowsTimestamp(t time.Time) uint64 {
 	// Windows FILETIME: 100-nanosecond intervals since January 1, 1601
 	const epochDiff = 116444736000000000 // 100-ns intervals between 1601 and 1970
+	//nolint:gosec // G115: UnixNano/100 is positive for current timestamps, fits in int64
 	return uint64(t.UnixNano()/100) + epochDiff
 }
 
@@ -449,19 +453,20 @@ func base64Encode(data []byte) string {
 	for i := 0; i < len(data); i += 3 {
 		var val uint32
 		remaining := len(data) - i
-		if remaining >= 3 {
+		switch {
+		case remaining >= 3:
 			val = uint32(data[i])<<16 | uint32(data[i+1])<<8 | uint32(data[i+2])
 			result[j] = alphabet[val>>18&0x3F]
 			result[j+1] = alphabet[val>>12&0x3F]
 			result[j+2] = alphabet[val>>6&0x3F]
 			result[j+3] = alphabet[val&0x3F]
-		} else if remaining == 2 {
+		case remaining == 2:
 			val = uint32(data[i])<<16 | uint32(data[i+1])<<8
 			result[j] = alphabet[val>>18&0x3F]
 			result[j+1] = alphabet[val>>12&0x3F]
 			result[j+2] = alphabet[val>>6&0x3F]
 			result[j+3] = '='
-		} else {
+		default:
 			val = uint32(data[i]) << 16
 			result[j] = alphabet[val>>18&0x3F]
 			result[j+1] = alphabet[val>>12&0x3F]

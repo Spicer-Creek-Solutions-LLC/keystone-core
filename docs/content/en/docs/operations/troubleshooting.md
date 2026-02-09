@@ -21,7 +21,7 @@ This guide provides systematic troubleshooting procedures for common Keystone Co
 ## Agent Connectivity Issues
 
 ### Symptoms
-- Agents show as "offline" in `kscorectl agent list`
+- Agents show as "offline" in `kscorectl agents list`
 - Agents cannot connect to control plane
 - Heartbeat failures
 
@@ -48,7 +48,7 @@ telnet nats-server 4222
 **3. Verify Credentials:**
 ```bash
 # Check agent configuration
-cat /etc/kscore/agent.yaml | grep -A5 nats
+cat /etc/keystone-core/agent.yaml | grep -A5 nats
 
 # Test authentication
 nats-sub -s nats://username:password@nats-server:4222 test
@@ -81,7 +81,7 @@ echo "10.0.1.10 nats-server" | sudo tee -a /etc/hosts
 openssl s_client -connect nats-server:4222 -showcerts
 
 # Verify certificate CN matches hostname
-openssl x509 -in /etc/kscore/certs/ca.crt -text -noout | grep Subject
+openssl x509 -in /etc/keystone-core/certs/ca.crt -text -noout | grep Subject
 ```
 
 **Agent Credential Mismatch:**
@@ -501,7 +501,7 @@ sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 **Check:**
 ```bash
 # Verify credentials in config
-cat /etc/kscore/agent.yaml | grep -A3 credentials
+cat /etc/keystone-core/agent.yaml | grep -A3 credentials
 ```
 
 **Fix:**
@@ -559,7 +559,7 @@ slow_operation:
 **Check:**
 ```bash
 # Check policy evaluation logs
-kscorectl policy audit --resource "state/nginx-config"
+kscorectl policy audit --denied --limit 20
 ```
 
 **Fix:**
@@ -590,7 +590,7 @@ kscorectl state apply web-server.yaml
 
 **Control Plane:**
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 logging:
   level: debug  # Change from info
 ```
@@ -605,7 +605,7 @@ sudo journalctl -u kscore-server -f | grep DEBUG
 
 **Agent:**
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 logging:
   level: debug
 ```
@@ -855,13 +855,13 @@ echo -n "NATS: "
 nats server check connection > /dev/null 2>&1 && echo "OK" || echo "FAIL"
 
 # Agents
-TOTAL=$(kscorectl agent list | wc -l)
-CONNECTED=$(kscorectl agent list --filter "status:healthy" | wc -l)
+TOTAL=$(kscorectl agents list | wc -l)
+CONNECTED=$(kscorectl agents list --filter "status:healthy" | wc -l)
 echo "Agents: $CONNECTED/$TOTAL connected"
 
 # Disk space
 echo "Disk Space:"
-df -h / /var/lib/kscore /var/lib/postgresql | grep -v Filesystem
+df -h / /var/lib/keystone-core /var/lib/postgresql | grep -v Filesystem
 ```
 
 ### Collect Diagnostic Bundle
@@ -883,11 +883,11 @@ journalctl -u kscore-server --since "1 hour ago" > "$BUNDLE_DIR/server-logs.txt"
 journalctl -u kscore-agent --since "1 hour ago" > "$BUNDLE_DIR/agent-logs.txt"
 
 # Configuration (redact sensitive data)
-sed 's/password: .*/password: [REDACTED]/' /etc/kscore/server.yaml > "$BUNDLE_DIR/server-config.yaml"
+sed 's/password: .*/password: [REDACTED]/' /etc/keystone-core/server.yaml > "$BUNDLE_DIR/server-config.yaml"
 
 # Status
 kscorectl cluster status > "$BUNDLE_DIR/cluster-status.txt"
-kscorectl agent list > "$BUNDLE_DIR/agents.txt"
+kscorectl agents list > "$BUNDLE_DIR/agents.txt"
 
 # Database
 psql -U kscore -c "\dt" > "$BUNDLE_DIR/db-tables.txt"
@@ -981,18 +981,18 @@ kscorectl exec history --limit 10
 kscorectl exec show JOB_ID
 
 # Check agent execution capability
-kscorectl agent show AGENT_ID | grep -A5 capabilities
+kscorectl agents show AGENT_ID
 ```
 
 **Common Issues:**
 
 **Command Blocked by Policy:**
 ```bash
-# Check policy evaluation
-kscorectl policy evaluate --action exec.run --user $USER --target $AGENT
+# Check policy evaluation results
+kscorectl policy audit --denied --limit 20
 
-# View policy audit
-kscorectl policy audit --action exec.run --since 1h
+# Test policy locally with OPA
+opa eval -i input.json -d policy.rego "data.kscore.allow"
 ```
 
 **Agent Execution Mode Restrictions:**
@@ -1043,11 +1043,11 @@ nats stream info kscore-events
 # View consumer lag
 nats consumer info kscore-events kscore-reactor
 
-# Check reactor status
-kscorectl reactor status
+# Check reactor status (via NATS consumer info)
+nats consumer info kscore-events kscore-reactor
 
 # View recent events
-kscorectl event list --since 1h
+kscorectl events list --since 1h
 ```
 
 **Common Issues:**
@@ -1066,20 +1066,20 @@ events:
 
 **Event Schema Validation Failures:**
 ```bash
-# Check for rejected events
-kscorectl event list --status rejected --since 24h
+# Check for rejected events in dead letter queue
+kscorectl events dlq list
 
-# View event details
-kscorectl event show EVENT_ID
+# Check NATS dead letter stream for details
+nats stream info kscore-events-dlq
 ```
 
 **Reactor Execution Failures:**
 ```bash
-# Check reactor error logs
-kscorectl reactor errors --since 1h
+# Check reactor error logs via server logs
+journalctl -u kscore-server --since "1 hour ago" | grep -i reactor
 
-# View specific reactor execution
-kscorectl reactor history REACTOR_NAME --limit 10
+# View dead letter queue for failed reactor executions
+kscorectl events dlq list --limit 10
 ```
 
 **Event Ordering Issues:**
@@ -1097,7 +1097,7 @@ events:
 nats stream info kscore-events-dlq
 
 # Replay dead letter events
-kscorectl event replay --stream kscore-events-dlq --limit 100
+kscorectl events replay --stream kscore-events-dlq --limit 100
 ```
 
 ---
@@ -1113,22 +1113,22 @@ kscorectl event replay --stream kscore-events-dlq --limit 100
 **Diagnostic Steps:**
 
 ```bash
-# Check webhook status
-kscorectl webhook status
+# Check server logs for webhook activity
+journalctl -u kscore-server | grep -i webhook
 
-# View recent webhook events
-kscorectl webhook events --since 1h
+# List configured repositories
+kscorectl gitops repo list
 
-# Check sync status
-kscorectl gitops sync status
+# Check recent deployments
+kscorectl gitops deploy list
 ```
 
 **Common Issues:**
 
 **Webhook Signature Verification Failure:**
 ```bash
-# Check webhook logs
-kscorectl webhook logs --filter "verification failed"
+# Check server logs for webhook errors
+journalctl -u kscore-server | grep -i "webhook.*verification"
 
 # Verify HMAC secret matches source
 # GitHub: Settings > Webhooks > Secret
@@ -1150,26 +1150,26 @@ curl -s https://api.github.com/meta | jq '.hooks[]'
 # Test git credentials
 git ls-remote https://github.com/org/repo.git
 
-# Check credential configuration
-kscorectl gitops config show | grep -A5 git
+# List configured repositories
+kscorectl gitops repo list
 ```
 
 **Sync Conflicts:**
 ```bash
-# View sync conflict details
-kscorectl gitops sync conflicts
+# Sync a specific repository (will show any conflicts)
+kscorectl gitops repo sync REPO_NAME
 
-# Force resync from git (use carefully)
-kscorectl gitops sync --force
+# Check deployment status for conflicts
+kscorectl gitops deploy list
 ```
 
 **Approval Workflow Issues:**
 ```bash
 # Check pending approvals
-kscorectl approval list --status pending
+kscorectl runbook approvals --state pending
 
-# View approval history
-kscorectl approval history DEPLOYMENT_ID
+# View approval history for an execution
+kscorectl runbook approvals --execution EXECUTION_ID
 ```
 
 ---
@@ -1185,14 +1185,14 @@ kscorectl approval history DEPLOYMENT_ID
 **Diagnostic Steps:**
 
 ```bash
-# Test policy evaluation
-kscorectl policy evaluate --input '{"action":"exec.run","target":"agent-1"}'
+# Test policy evaluation with OPA locally
+opa eval -i input.json -d policy.rego "data.kscore.allow"
 
 # View policy decisions
-kscorectl policy audit --since 1h
+kscorectl policy audit --limit 50
 
 # List active policies
-kscorectl policy list --status active
+kscorectl policy list
 ```
 
 **Common Issues:**
@@ -1208,17 +1208,17 @@ opa eval -i input.json -d my-policy.rego "data.kscore.allow"
 
 **Policy Conflict Resolution:**
 ```bash
-# Check policy precedence
-kscorectl policy precedence --action state.apply
+# Review policy files for conflicting rules
+cat /etc/keystone-core/policies/*.rego
 
-# View conflicting policies
-kscorectl policy conflicts
+# Test policies with OPA
+opa eval -d policies/ -i input.json "data.kscore"
 ```
 
 **Policy Evaluation Performance:**
 ```bash
-# Profile policy evaluation
-kscorectl policy profile --action state.apply --iterations 100
+# Profile policy evaluation with OPA
+opa eval --profile -d policy.rego -i input.json "data.kscore.allow"
 
 # Check for expensive rules
 # Avoid unbounded iterations in policies
@@ -1226,8 +1226,8 @@ kscorectl policy profile --action state.apply --iterations 100
 
 **CEL Policy Issues:**
 ```bash
-# Test CEL expression
-kscorectl policy eval-cel 'request.user.role == "admin"' --input '{"user":{"role":"admin"}}'
+# Test CEL expressions using cel-go or online validator
+# CEL policies are defined in YAML policy files
 ```
 
 **Policy Not Applied:**
@@ -1308,7 +1308,7 @@ logging:
   format: json  # Required for log aggregation
   output:
     - type: file
-      path: /var/log/kscore/server.log
+      path: /var/log/keystone-core/server.log
     - type: syslog
       address: "udp://logserver:514"
 ```
@@ -1335,14 +1335,14 @@ curl http://prometheus:9090/api/v1/label/__name__/values | jq '.data | map(selec
 **Diagnostic Steps:**
 
 ```bash
-# Check cloud provider integration
-kscorectl cloud status
+# Check cloud provider metadata (AWS example)
+curl -s http://169.254.169.254/latest/meta-data/instance-id
 
 # Verify K8s connection
-kscorectl k8s status
+kubectl cluster-info
 
-# View environment configuration
-kscorectl env list
+# View agents by environment tag
+kscorectl agents list --filter "environment:production"
 ```
 
 **Common Issues:**
@@ -1400,25 +1400,25 @@ nats server info --gateway
 **Diagnostic Steps:**
 
 ```bash
-# List loaded modules
+# List installed modules
 kscorectl module list
 
-# Check module status
-kscorectl module status MODULE_NAME
+# Show module details
+kscorectl module show MODULE_NAME
 
-# View module capabilities
-kscorectl module capabilities MODULE_NAME
+# Verify module signature
+kscorectl module verify MODULE_NAME
 ```
 
 **Common Issues:**
 
 **Module Signature Verification Failed:**
 ```bash
-# Check module signature
+# Verify module signature
 kscorectl module verify MODULE_NAME
 
-# View signing key
-kscorectl module signing-key show
+# Check server logs for signature errors
+journalctl -u kscore-server | grep -i "signature"
 
 # If signature invalid, module may be tampered
 ```
@@ -1436,17 +1436,17 @@ modules:
 
 **Module Capability Denied:**
 ```bash
-# Check capability policy
-kscorectl module capabilities show MODULE_NAME
+# Check capability policy file
+cat /etc/keystone-core/capability-policy.yaml
 
-# Grant required capability
-kscorectl module capabilities grant MODULE_NAME fs.read
+# Review module manifest for declared capabilities
+kscorectl module show MODULE_NAME
 ```
 
 **Starlark Execution Errors:**
 ```bash
-# Debug Starlark module
-kscorectl module debug MODULE_NAME --input '{"key":"value"}'
+# Check server logs for Starlark errors
+journalctl -u kscore-server | grep -i "starlark"
 
 # Common issues:
 # - Undefined variables
@@ -1456,8 +1456,8 @@ kscorectl module debug MODULE_NAME --input '{"key":"value"}'
 
 **WASM Module Issues:**
 ```bash
-# Check WASM runtime status
-kscorectl module wasm status
+# Check server logs for WASM errors
+journalctl -u kscore-server | grep -i "wasm"
 
 # Verify WASM file is valid
 wasm-validate module.wasm
@@ -1515,12 +1515,14 @@ etcdctl endpoint status --cluster
 
 **Leader Election Issues:**
 ```bash
-# Force leader election
-# WARNING: Use only if cluster is stuck
-kscorectl cluster elect --force
+# Check current leader
+kscorectl cluster leader
 
-# Check leadership history
-kscorectl cluster leadership-history
+# View etcd election status
+etcdctl elect kscore-leader
+
+# If cluster is stuck, restart minority partition nodes
+# They will trigger a new election
 ```
 
 **Agent Rebalancing Slow:**
@@ -1815,11 +1817,11 @@ Add-MpPreference -ExclusionProcess "kscore-agent.exe"
 # Check proxy agent status
 kscorectl proxy status
 
-# Test device connectivity
-kscorectl proxy test DEVICE_ID
-
 # View proxy agent logs
-journalctl -u kscore-proxy-agent -f
+journalctl -u kscore-proxy -f
+
+# List managed devices
+kscorectl proxy device list
 ```
 
 **Common Issues:**
@@ -1841,8 +1843,8 @@ ssh-keygen -p -m PEM -f ~/.ssh/id_rsa
 # Test SNMPv3 manually
 snmpwalk -v3 -u admin -l authPriv -a SHA -A authpass -x AES -X privpass device-ip sysDescr
 
-# Check credentials in proxy config
-kscorectl proxy credentials show DEVICE_ID
+# Check device configuration
+kscorectl proxy device show DEVICE_ID
 ```
 
 **REST API Issues:**
@@ -1856,13 +1858,13 @@ openssl s_client -connect device-ip:443 -showcerts
 
 **Credential Rotation:**
 ```bash
-# Update device credentials
-kscorectl proxy credentials update DEVICE_ID \
+# Update device credentials via device update
+kscorectl proxy device update DEVICE_ID \
   --username admin \
   --password new-password
 
-# Verify connection
-kscorectl proxy test DEVICE_ID
+# Test SSH connectivity manually
+ssh -v admin@device-ip
 ```
 
 ---
@@ -1878,27 +1880,27 @@ kscorectl proxy test DEVICE_ID
 **Diagnostic Steps:**
 
 ```bash
-# Check file server status
-kscorectl file status
+# Check storage backend status
+kscorectl files-storage backend list
 
-# View recent transfers
-kscorectl file transfers --since 1h
+# Check server logs for storage errors
+journalctl -u kscore-server | grep -i "storage"
 
-# Check storage backend
-kscorectl file storage status
+# Test S3 backend connectivity (if using S3)
+aws s3 ls s3://kscore-files/
 ```
 
 **Common Issues:**
 
 **Upload Failures:**
 ```bash
-# Check file size limits
+# Check file size limits in server configuration
 # server.yaml
 file_distribution:
   max_file_size: "1GB"  # Increase if needed
 
-# Check storage quota
-kscorectl file storage quota
+# Check server logs for upload errors
+journalctl -u kscore-server | grep -i "upload"
 ```
 
 **Download Timeouts:**
@@ -1912,11 +1914,11 @@ file_distribution:
 
 **Checksum Mismatch:**
 ```bash
-# Verify file checksum
-kscorectl file verify FILE_ID
+# Verify file checksum manually
+sha256sum /path/to/local/file
 
-# Re-upload if corrupted
-kscorectl file upload --replace /path/to/file
+# Sync backend to resolve inconsistencies
+kscorectl files-storage backend sync SOURCE_BACKEND DEST_BACKEND
 ```
 
 **S3 Backend Issues:**
@@ -1944,57 +1946,52 @@ aws s3 ls s3://kscore-files/
 **Diagnostic Steps:**
 
 ```bash
-# Check blueprint status
-kscorectl blueprint status DEPLOYMENT_ID
+# Validate blueprint
+kscorectl blueprint validate ./my-blueprint
 
-# View deployment logs
-kscorectl blueprint logs DEPLOYMENT_ID
+# List installed blueprints
+kscorectl blueprint search
 
-# List blueprint resources
-kscorectl blueprint resources DEPLOYMENT_ID
+# Check server logs for deployment errors
+journalctl -u kscore-server | grep -i "blueprint"
 ```
 
 **Common Issues:**
 
 **Parameter Validation Errors:**
 ```bash
-# Validate blueprint parameters
-kscorectl blueprint validate my-blueprint \
-  --param cluster_size=3 \
-  --param region=us-west-2
+# Validate blueprint with parameters
+kscorectl blueprint validate ./my-blueprint
 
-# Check parameter schema
-kscorectl blueprint show my-blueprint --show-params
+# Check blueprint info for parameter schema
+kscorectl blueprint info my-blueprint
 ```
 
 **Resource Creation Failures:**
 ```bash
-# Check individual resource status
-kscorectl blueprint resource status DEPLOYMENT_ID RESOURCE_NAME
+# Check state application logs
+journalctl -u kscore-server | grep -i "state"
 
-# View resource error
-kscorectl blueprint resource logs DEPLOYMENT_ID RESOURCE_NAME
+# Check agent logs for resource errors
+journalctl -u kscore-agent | grep -i "error"
 ```
 
 **Rollback Issues:**
 ```bash
-# Check rollback capability
-kscorectl blueprint can-rollback DEPLOYMENT_ID
+# List available snapshots
+kscorectl blueprint snapshot list my-blueprint
 
-# View rollback plan
-kscorectl blueprint rollback --dry-run DEPLOYMENT_ID
-
-# Execute rollback
-kscorectl blueprint rollback DEPLOYMENT_ID
+# Rollback to a previous snapshot
+kscorectl blueprint rollback my-blueprint --to SNAPSHOT_ID
 ```
 
 **Dependency Resolution:**
 ```bash
-# View dependency graph
-kscorectl blueprint deps DEPLOYMENT_ID
+# Validate blueprint for dependency issues
+kscorectl blueprint validate ./my-blueprint
 
-# Check for circular dependencies
-kscorectl blueprint validate my-blueprint --check-cycles
+# Lint blueprint for best practices
+kscorectl blueprint lint ./my-blueprint
 ```
 
 ---
@@ -2036,10 +2033,10 @@ kscorectl bootstrap validate seed.yaml
 **Certificate Generation Failures:**
 ```bash
 # Check CA availability
-openssl verify -CAfile /etc/kscore/certs/ca.crt /etc/kscore/certs/server.crt
+openssl verify -CAfile /etc/keystone-core/certs/ca.crt /etc/keystone-core/certs/server.crt
 
-# Regenerate certificates
-kscorectl bootstrap regenerate-certs
+# Generate new certificates manually
+openssl req -new -x509 -days 365 -key ca-key.pem -out ca.pem
 ```
 
 **Database Initialization Errors:**
@@ -2047,17 +2044,17 @@ kscorectl bootstrap regenerate-certs
 # Check database connectivity
 psql -U kscore -h localhost -d keystonecore -c "SELECT 1;"
 
-# Reinitialize database (WARNING: destructive)
-kscorectl bootstrap init-db --force
+# Check server logs for database errors
+journalctl -u kscore-server | grep -i "database"
 ```
 
 **Agent Enrollment Stuck:**
 ```bash
-# Check join token validity
-kscorectl agent token validate TOKEN
+# Generate new enrollment token
+kscorectl agents token create --ttl 1h
 
-# Generate new token
-kscorectl agent token create --ttl 1h
+# Check bootstrap status
+kscorectl bootstrap status
 ```
 
 ---
@@ -2137,8 +2134,8 @@ kscorectl exec run "systemctl restart kscore-agent" --target "role:web"
 
 ## See Also
 
-- [Monitoring Guide](monitoring/) - Set up observability to catch issues early
-- [Maintenance Guide](maintenance/) - Regular maintenance prevents issues
-- [Security Guide](security/) - Secure your deployment
-- [Deployment Guide](deployment/) - Proper deployment reduces issues
-- [Runbooks](https://github.com/keystone-core/keystone-core/tree/main/docs/runbooks) - Step-by-step operational procedures
+- [Monitoring Guide](/docs/operations/monitoring/) - Set up observability to catch issues early
+- [Maintenance Guide](/docs/operations/maintenance/) - Regular maintenance prevents issues
+- [Security Guide](/docs/operations/security/) - Secure your deployment
+- [Deployment Guide](/docs/operations/deployment/) - Proper deployment reduces issues
+- [Runbooks](https://github.com/shawnbutts/keystone-core/tree/main/docs/runbooks) - Step-by-step operational procedures

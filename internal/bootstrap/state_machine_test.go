@@ -55,7 +55,7 @@ func TestManagedBootstrap_FullWorkflow(t *testing.T) {
 
 	steps := []struct {
 		action        func() error
-		expectedPhase BootstrapPhase
+		expectedPhase Phase
 		expectedProg  int
 	}{
 		{mb.Start, PhaseValidating, 10},
@@ -231,7 +231,7 @@ func TestManagedBootstrap_FailFromEachPhase(t *testing.T) {
 			if !mb.IsTerminal() {
 				t.Error("expected IsTerminal() to be true")
 			}
-			if mb.Error() != testErr {
+			if !errors.Is(mb.Error(), testErr) {
 				t.Errorf("expected error to be %v, got %v", testErr, mb.Error())
 			}
 			if mb.Result.Success {
@@ -292,23 +292,23 @@ func TestManagedBootstrap_CannotTransitionFromTerminal(t *testing.T) {
 }
 
 func TestManagedBootstrap_Callbacks(t *testing.T) {
-	var phaseStarted, phaseCompleted []BootstrapPhase
-	var failedPhase BootstrapPhase
+	var phaseStarted, phaseCompleted []Phase
+	var failedPhase Phase
 	var failedErr error
 	var completeCalled bool
 
-	callbacks := &BootstrapCallbacks{
-		OnPhaseStarted: func(phase BootstrapPhase) {
+	callbacks := &Callbacks{
+		OnPhaseStarted: func(phase Phase) {
 			phaseStarted = append(phaseStarted, phase)
 		},
-		OnPhaseCompleted: func(phase BootstrapPhase) {
+		OnPhaseCompleted: func(phase Phase) {
 			phaseCompleted = append(phaseCompleted, phase)
 		},
-		OnFailed: func(phase BootstrapPhase, err error) {
+		OnFailed: func(phase Phase, err error) {
 			failedPhase = phase
 			failedErr = err
 		},
-		OnComplete: func(result *BootstrapResult) {
+		OnComplete: func(result *Result) {
 			completeCalled = true
 		},
 	}
@@ -345,22 +345,22 @@ func TestManagedBootstrap_Callbacks(t *testing.T) {
 	if failedPhase != PhaseFailed {
 		t.Errorf("expected failed phase callback, got %v", failedPhase)
 	}
-	if failedErr != testErr {
+	if !errors.Is(failedErr, testErr) {
 		t.Errorf("expected error %v, got %v", testErr, failedErr)
 	}
 }
 
 func TestManagedBootstrap_ProgressCallback(t *testing.T) {
 	var progressUpdates []struct {
-		phase    BootstrapPhase
+		phase    Phase
 		progress int
 		message  string
 	}
 
-	callbacks := &BootstrapCallbacks{
-		OnProgress: func(phase BootstrapPhase, progress int, message string) {
+	callbacks := &Callbacks{
+		OnProgress: func(phase Phase, progress int, message string) {
 			progressUpdates = append(progressUpdates, struct {
-				phase    BootstrapPhase
+				phase    Phase
 				progress int
 				message  string
 			}{phase, progress, message})
@@ -531,7 +531,7 @@ func TestManagedBootstrap_NilCallbacks(t *testing.T) {
 }
 
 func TestManagedBootstrap_EmptyCallbacks(t *testing.T) {
-	callbacks := &BootstrapCallbacks{}
+	callbacks := &Callbacks{}
 	mb := NewManagedBootstrap(BootstrapModeSeed, "test-cluster", callbacks)
 
 	// These should not panic with empty callbacks
@@ -569,7 +569,7 @@ func TestManagedBootstrap_StatusUpdates(t *testing.T) {
 
 func TestPhaseToString(t *testing.T) {
 	tests := []struct {
-		phase    BootstrapPhase
+		phase    Phase
 		expected string
 	}{
 		{PhaseInitializing, "Initializing"},
@@ -585,7 +585,7 @@ func TestPhaseToString(t *testing.T) {
 		{PhaseHandoff, "Handoff"},
 		{PhaseComplete, "Complete"},
 		{PhaseFailed, "Failed"},
-		{BootstrapPhase("unknown"), "unknown"},
+		{Phase("unknown"), "unknown"},
 	}
 
 	for _, tt := range tests {
@@ -611,12 +611,12 @@ func TestManagedBootstrap_StateDiagram(t *testing.T) {
 
 func TestRunFullBootstrapWorkflow(t *testing.T) {
 	mb := NewManagedBootstrap(BootstrapModeSeed, "test-cluster", nil)
-	opts := BootstrapOptions{
+	opts := Options{
 		SkipVerification: false,
 	}
 
-	phasesExecuted := make([]BootstrapPhase, 0)
-	doPhase := func(phase BootstrapPhase) error {
+	phasesExecuted := make([]Phase, 0)
+	doPhase := func(phase Phase) error {
 		phasesExecuted = append(phasesExecuted, phase)
 		return nil
 	}
@@ -630,7 +630,7 @@ func TestRunFullBootstrapWorkflow(t *testing.T) {
 		t.Error("expected bootstrap to be complete")
 	}
 
-	expectedPhases := []BootstrapPhase{
+	expectedPhases := []Phase{
 		PhaseValidating,
 		PhaseInstallingDeps,
 		PhaseInstallingServer,
@@ -656,12 +656,12 @@ func TestRunFullBootstrapWorkflow(t *testing.T) {
 
 func TestRunFullBootstrapWorkflow_SkipVerification(t *testing.T) {
 	mb := NewManagedBootstrap(BootstrapModeSeed, "test-cluster", nil)
-	opts := BootstrapOptions{
+	opts := Options{
 		SkipVerification: true,
 	}
 
-	phasesExecuted := make([]BootstrapPhase, 0)
-	doPhase := func(phase BootstrapPhase) error {
+	phasesExecuted := make([]Phase, 0)
+	doPhase := func(phase Phase) error {
 		phasesExecuted = append(phasesExecuted, phase)
 		return nil
 	}
@@ -681,10 +681,10 @@ func TestRunFullBootstrapWorkflow_SkipVerification(t *testing.T) {
 
 func TestRunFullBootstrapWorkflow_FailureHandling(t *testing.T) {
 	mb := NewManagedBootstrap(BootstrapModeSeed, "test-cluster", nil)
-	opts := BootstrapOptions{}
+	opts := Options{}
 
 	expectedErr := errors.New("server install failed")
-	doPhase := func(phase BootstrapPhase) error {
+	doPhase := func(phase Phase) error {
 		if phase == PhaseInstallingServer {
 			return expectedErr
 		}
@@ -692,7 +692,7 @@ func TestRunFullBootstrapWorkflow_FailureHandling(t *testing.T) {
 	}
 
 	err := RunFullBootstrapWorkflow(mb, opts, doPhase)
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error %v, got %v", expectedErr, err)
 	}
 
@@ -705,7 +705,7 @@ func TestManagedBootstrap_ResultTracking(t *testing.T) {
 	mb := NewManagedBootstrap(BootstrapModeSeed, "test-cluster", nil)
 
 	// Set result during workflow
-	result := &BootstrapResult{
+	result := &Result{
 		ClusterID:     "test-123",
 		APIEndpoint:   "localhost:8080",
 		AdminToken:    "token",

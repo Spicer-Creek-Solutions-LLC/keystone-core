@@ -22,9 +22,9 @@ This runbook covers TLS certificate rotation for Keystone Core components.
 
 | Certificate | Location | Purpose | Typical Validity |
 |-------------|----------|---------|------------------|
-| CA | `/etc/kscore/certs/ca.crt` | Root CA | 10 years |
-| Server | `/etc/kscore/certs/server.crt` | API/NATS | 1 year |
-| Agent | `/etc/kscore/certs/agent.crt` | Agent auth | 1 year |
+| CA | `/etc/keystone-core/certs/ca.crt` | Root CA | 10 years |
+| Server | `/etc/keystone-core/certs/server.crt` | API/NATS | 1 year |
+| Agent | `/etc/keystone-core/certs/agent.crt` | Agent auth | 1 year |
 | etcd | `/etc/etcd/certs/etcd.crt` | etcd cluster | 1 year |
 
 ## Procedure
@@ -43,7 +43,7 @@ kscorectl certs status
 # etcd                 2025-02-15          61         OK
 
 # Check specific certificate
-openssl x509 -in /etc/kscore/certs/server.crt -noout -dates
+openssl x509 -in /etc/keystone-core/certs/server.crt -noout -dates
 ```
 
 ### Step 2: Backup Current Certificates
@@ -104,12 +104,12 @@ kscorectl certs rotate-ca
 ```bash
 # Certificates are automatically distributed via state management
 # Apply certificate state
-kscorectl state apply /etc/kscore/states/certificates.yaml
+kscorectl state apply /etc/keystone-core/states/certificates.yaml
 
 # For manual distribution:
 for node in ks-server-1 ks-server-2 ks-server-3; do
-  scp /etc/kscore/certs/*.crt $node:/etc/kscore/certs/
-  scp /etc/kscore/certs/*.key $node:/etc/kscore/certs/
+  scp /etc/keystone-core/certs/*.crt $node:/etc/keystone-core/certs/
+  scp /etc/keystone-core/certs/*.key $node:/etc/keystone-core/certs/
 done
 ```
 
@@ -133,7 +133,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
   done
 
   # Uncordon
-  kscorectl cluster uncordon $node
+  kscorectl cluster undrain $node
 done
 ```
 
@@ -148,7 +148,7 @@ kscorectl agent list --show-cert-expiry
 
 # For manual agent update:
 # On each agent node:
-scp /etc/kscore/certs/ca.crt agent-node:/etc/kscore/certs/
+scp /etc/keystone-core/certs/ca.crt agent-node:/etc/keystone-core/certs/
 ssh agent-node "sudo systemctl restart kscore-agent"
 ```
 
@@ -206,10 +206,10 @@ done
 
 ```bash
 # View certificate details
-openssl x509 -in /etc/kscore/certs/server.crt -noout -text
+openssl x509 -in /etc/keystone-core/certs/server.crt -noout -text
 
 # Check certificate chain
-openssl verify -CAfile /etc/kscore/certs/ca.crt /etc/kscore/certs/server.crt
+openssl verify -CAfile /etc/keystone-core/certs/ca.crt /etc/keystone-core/certs/server.crt
 
 # Check key matches certificate
 diff <(openssl x509 -in cert.crt -noout -modulus) \
@@ -226,7 +226,7 @@ echo $(( ($(date -d "$(openssl x509 -in cert.crt -noout -enddate | cut -d= -f2)"
 
 ```yaml
 # Automatic certificate monitoring state
-# /etc/kscore/states/cert-monitoring.yaml
+# /etc/keystone-core/states/cert-monitoring.yaml
 certificate_monitor:
   check_expiry:
     state: configured

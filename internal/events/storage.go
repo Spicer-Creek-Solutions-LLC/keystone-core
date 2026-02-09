@@ -105,7 +105,7 @@ type EventStoreConfig struct {
 	IndexSeverity        bool
 
 	// Auto-retention
-	AutoRetention        bool
+	AutoRetention          bool
 	RetentionCheckInterval time.Duration
 	DefaultRetentionPolicy *RetentionPolicy
 }
@@ -125,8 +125,8 @@ func DefaultEventStoreConfig() *EventStoreConfig {
 		RetentionCheckInterval: 1 * time.Hour,
 		DefaultRetentionPolicy: &RetentionPolicy{
 			MaxAge:      30 * 24 * time.Hour, // 30 days
-			MaxCount:    1000000,              // 1 million events
-			MinSeverity: SeverityDebug,        // Keep all severities
+			MaxCount:    1000000,             // 1 million events
+			MinSeverity: SeverityDebug,       // Keep all severities
 		},
 	}
 }
@@ -262,7 +262,7 @@ func (q *EventQuery) WithSort(sortBy, sortOrder string) *EventQuery {
 func DefaultRetentionPolicy() *RetentionPolicy {
 	return &RetentionPolicy{
 		MaxAge:      30 * 24 * time.Hour, // 30 days
-		MaxCount:    1000000,              // 1 million events
+		MaxCount:    1000000,             // 1 million events
 		MinSeverity: SeverityDebug,
 	}
 }

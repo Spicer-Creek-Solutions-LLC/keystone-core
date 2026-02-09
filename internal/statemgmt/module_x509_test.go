@@ -42,7 +42,7 @@ func TestX509Module_Check_MissingPath(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "path parameter is required" {
 		t.Errorf("expected path required error, got: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestX509Module_Check_NonExistent(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestX509Module_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestX509Module_Test_MissingCommonName(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestX509Module_Test_InvalidKeyType(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -150,14 +150,14 @@ func TestX509Module_Integration_CreateAndRemove(t *testing.T) {
 		Module: "x509",
 		State:  "present",
 		Parameters: map[string]interface{}{
-			"path":         certPath,
-			"common_name":  "test.example.com",
-			"organization": "Test Org",
-			"country":      "US",
+			"path":          certPath,
+			"common_name":   "test.example.com",
+			"organization":  "Test Org",
+			"country":       "US",
 			"validity_days": 30,
-			"key_type":     "rsa",
-			"key_size":     2048,
-			"self_signed":  true,
+			"key_type":      "rsa",
+			"key_size":      2048,
+			"self_signed":   true,
 		},
 	}
 
@@ -405,7 +405,7 @@ func TestCAModule_Check_MissingPath(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "path parameter is required" {
 		t.Errorf("expected path required error, got: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestCAModule_Check_NonExistent(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -447,7 +447,7 @@ func TestCAModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestCAModule_Test_MissingCommonName(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -490,10 +490,10 @@ func TestCAModule_Integration_CreateAndRemove(t *testing.T) {
 		Module: "ca",
 		State:  "present",
 		Parameters: map[string]interface{}{
-			"path":         caPath,
-			"common_name":  "Test Root CA",
-			"organization": "Test Org",
-			"country":      "US",
+			"path":          caPath,
+			"common_name":   "Test Root CA",
+			"organization":  "Test Org",
+			"country":       "US",
 			"validity_days": 365,
 		},
 	}
@@ -641,7 +641,7 @@ func TestACMEModule_Check_MissingPath(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "path parameter is required" {
 		t.Errorf("expected path required error, got: %v", err)
 	}
@@ -658,7 +658,7 @@ func TestACMEModule_Check_MissingDomain(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "domain parameter is required for state present" {
 		t.Errorf("expected domain required error, got: %v", err)
 	}
@@ -676,7 +676,7 @@ func TestACMEModule_Check_NonExistent(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -702,7 +702,7 @@ func TestACMEModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
@@ -725,7 +725,7 @@ func TestACMEModule_Test_InvalidChallenge(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(nil, decl)
+	result, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}

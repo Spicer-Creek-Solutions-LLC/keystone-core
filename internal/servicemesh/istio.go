@@ -1,6 +1,7 @@
 package servicemesh
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -115,11 +116,14 @@ func (d *IstioDetector) Detect() (*Metadata, error) {
 // IsServiceMesh checks if running in Istio service mesh
 func (d *IstioDetector) IsServiceMesh() bool {
 	// Check for Envoy proxy admin endpoint
-	resp, err := d.httpClient.Get(istioEnvoyAdminURL + "/server_info")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, istioEnvoyAdminURL+"/server_info", http.NoBody)
 	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			return true
+		resp, err := d.httpClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
 		}
 	}
 
@@ -162,7 +166,11 @@ func (d *IstioDetector) readIstioLabels() (map[string]string, error) {
 
 // getEnvoyServerInfo gets Envoy server info from admin API
 func (d *IstioDetector) getEnvoyServerInfo() (*envoyServerInfo, error) {
-	resp, err := d.httpClient.Get(istioEnvoyAdminURL + "/server_info")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, istioEnvoyAdminURL+"/server_info", http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +249,7 @@ func (d *IstioDetector) getTLSConfig() (*TLSConfig, error) {
 	// Try to get SPIFFE ID from environment or cert
 	config.SPIFFEID = os.Getenv("SPIFFE_ID")
 	if config.SPIFFEID == "" {
-		// Format: spiffe://<trust-domain>/ns/<namespace>/sa/<service-account>
+		// Build SPIFFE ID in standard Istio format
 		trustDomain := os.Getenv(istioMetaTrustDomain)
 		namespace := os.Getenv(istioNamespaceEnv)
 		serviceAccount := os.Getenv("SERVICE_ACCOUNT")
@@ -258,11 +266,11 @@ func (d *IstioDetector) getTLSConfig() (*TLSConfig, error) {
 // Helper types
 
 type envoyServerInfo struct {
-	Version              string `json:"version"`
-	State                string `json:"state"`
-	UptimeCurrentEpoch   int64  `json:"uptime_current_epoch"`
-	UptimeAllEpochs      int64  `json:"uptime_all_epochs"`
-	CommandLineOptions   map[string]interface{} `json:"command_line_options"`
+	Version            string                 `json:"version"`
+	State              string                 `json:"state"`
+	UptimeCurrentEpoch int64                  `json:"uptime_current_epoch"`
+	UptimeAllEpochs    int64                  `json:"uptime_all_epochs"`
+	CommandLineOptions map[string]interface{} `json:"command_line_options"`
 }
 
 // extractIstioVersion extracts Istio version from Envoy version string

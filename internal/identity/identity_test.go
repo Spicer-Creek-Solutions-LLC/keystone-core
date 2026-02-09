@@ -10,11 +10,11 @@ import (
 
 func TestParseSPIFFEID(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		wantDomain  string
-		wantPath    string
-		wantErr     bool
+		name       string
+		input      string
+		wantDomain string
+		wantPath   string
+		wantErr    bool
 	}{
 		{
 			name:       "valid agent ID",

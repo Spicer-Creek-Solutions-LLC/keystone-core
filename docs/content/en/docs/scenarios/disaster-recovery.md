@@ -80,8 +80,8 @@ backup:
     - name: state-files
       type: files
       paths:
-        - /var/lib/kscore/states/
-        - /etc/kscore/
+        - /var/lib/keystone-core/states/
+        - /etc/keystone-core/
       destination:
         type: s3
         bucket: kscore-backups
@@ -120,7 +120,7 @@ etcd_backup_script:
     set -euo pipefail
 
     TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-    BACKUP_DIR="/var/lib/kscore/backups/etcd"
+    BACKUP_DIR="/var/lib/keystone-core/backups/etcd"
     S3_BUCKET="{{ .pillar.backup_bucket }}"
     S3_PREFIX="etcd"
 
@@ -130,9 +130,9 @@ etcd_backup_script:
     # Create etcd snapshot
     etcdctl snapshot save ${BACKUP_DIR}/snapshot-${TIMESTAMP}.db \
       --endpoints={{ .pillar.etcd_endpoints }} \
-      --cacert=/etc/kscore/pki/etcd/ca.crt \
-      --cert=/etc/kscore/pki/etcd/server.crt \
-      --key=/etc/kscore/pki/etcd/server.key
+      --cacert=/etc/keystone-core/pki/etcd/ca.crt \
+      --cert=/etc/keystone-core/pki/etcd/server.crt \
+      --key=/etc/keystone-core/pki/etcd/server.key
 
     # Verify snapshot
     etcdctl snapshot status ${BACKUP_DIR}/snapshot-${TIMESTAMP}.db
@@ -168,7 +168,7 @@ backup_cron:
   user: root
   minute: "0"
   hour: "*/6"
-  job: /opt/kscore/scripts/backup-etcd.sh >> /var/log/kscore/backup.log 2>&1
+  job: /opt/kscore/scripts/backup-etcd.sh >> /var/log/keystone-core/backup.log 2>&1
 
 config_backup_script:
   module: file
@@ -180,15 +180,15 @@ config_backup_script:
     set -euo pipefail
 
     TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-    BACKUP_DIR="/var/lib/kscore/backups/config"
+    BACKUP_DIR="/var/lib/keystone-core/backups/config"
     S3_BUCKET="{{ .pillar.backup_bucket }}"
 
     mkdir -p ${BACKUP_DIR}
 
     # Create config archive
     tar -czf ${BACKUP_DIR}/config-${TIMESTAMP}.tar.gz \
-      /etc/kscore/ \
-      /var/lib/kscore/states/ \
+      /etc/keystone-core/ \
+      /var/lib/keystone-core/states/ \
       --exclude='*.key' \
       --exclude='*.pem'
 
@@ -208,7 +208,7 @@ config_backup_cron:
   user: root
   minute: "0"
   hour: "*/6"
-  job: /opt/kscore/scripts/backup-config.sh >> /var/log/kscore/backup.log 2>&1
+  job: /opt/kscore/scripts/backup-config.sh >> /var/log/keystone-core/backup.log 2>&1
 ```
 
 ### Step 3: Recovery Runbook
@@ -535,7 +535,7 @@ kscorectl backup restore --id backup-20240115-060000 --target test-cluster
 
 ```bash
 # Check backup logs
-tail -100 /var/log/kscore/backup.log
+tail -100 /var/log/keystone-core/backup.log
 
 # Verify S3 permissions
 aws s3 cp /tmp/test.txt s3://kscore-backups/test.txt

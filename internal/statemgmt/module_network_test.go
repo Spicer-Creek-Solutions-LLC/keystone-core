@@ -36,15 +36,15 @@ func TestNetworkModule_ParseConfig(t *testing.T) {
 	m := NewNetworkModule()
 
 	tests := []struct {
-		name       string
-		decl       *StateDeclaration
-		wantIface  string
-		wantAddr   string
-		wantGW     string
-		wantDNS    []string
-		wantMTU    int
-		wantDHCP   bool
-		wantErr    bool
+		name      string
+		decl      *StateDeclaration
+		wantIface string
+		wantAddr  string
+		wantGW    string
+		wantDNS   []string
+		wantMTU   int
+		wantDHCP  bool
+		wantErr   bool
 	}{
 		{
 			name: "basic static config",
@@ -186,8 +186,9 @@ func TestNetworkModule_ParseConfig(t *testing.T) {
 
 func TestNetworkModule_DetectNetworkManager(t *testing.T) {
 	m := NewNetworkModule()
+	ctx := context.Background()
 
-	nm, err := m.detectNetworkManager()
+	nm, err := m.detectNetworkManager(ctx)
 	if err != nil {
 		// Not an error if no network manager is available in test environment
 		t.Logf("No network manager detected: %v", err)
@@ -576,9 +577,9 @@ func TestNetworkModule_ParseIPv6Config(t *testing.T) {
 				State:  "configured",
 				Module: "network",
 				Parameters: map[string]interface{}{
-					"address6":      "2001:db8::1/64",
-					"ipv6_privacy":  true,
-					"ipv6_enabled":  true,
+					"address6":     "2001:db8::1/64",
+					"ipv6_privacy": true,
+					"ipv6_enabled": true,
 				},
 			},
 			wantAddr6:    "2001:db8::1/64",
@@ -790,9 +791,9 @@ func TestIsValidMAC(t *testing.T) {
 		{"AA:BB:CC:DD:EE:FF", true},
 		{"", false},
 		{"not-a-mac", false},
-		{"00:11:22:33:44", false},    // too short
+		{"00:11:22:33:44", false},       // too short
 		{"00:11:22:33:44:55:66", false}, // too long
-		{"gg:hh:ii:jj:kk:ll", false}, // invalid hex
+		{"gg:hh:ii:jj:kk:ll", false},    // invalid hex
 	}
 
 	for _, tt := range tests {
@@ -822,7 +823,7 @@ func TestIsValidWoLMode(t *testing.T) {
 		{"b", true},
 		{"a", true},
 		{"d", true},
-		{"MAGIC", true},  // case insensitive
+		{"MAGIC", true}, // case insensitive
 		{"Magic", true},
 		{"G", true},
 		{"", false},
@@ -851,8 +852,8 @@ func TestWolModeToEthtool(t *testing.T) {
 		{"broadcast", "b"},
 		{"arp", "a"},
 		{"off", "d"},
-		{"MAGIC", "g"},  // case insensitive
-		{"g", "g"},      // already shorthand
+		{"MAGIC", "g"}, // case insensitive
+		{"g", "g"},     // already shorthand
 		{"d", "d"},
 		{"unknown", "unknown"}, // passthrough
 	}
@@ -871,10 +872,10 @@ func TestNetworkModule_ParseMACAndWoL(t *testing.T) {
 	m := NewNetworkModule()
 
 	tests := []struct {
-		name      string
-		decl      *StateDeclaration
-		wantMAC   string
-		wantWoL   string
+		name    string
+		decl    *StateDeclaration
+		wantMAC string
+		wantWoL string
 	}{
 		{
 			name: "config with MAC address",

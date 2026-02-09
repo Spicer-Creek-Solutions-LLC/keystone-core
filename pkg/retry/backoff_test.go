@@ -168,7 +168,7 @@ func TestConstantBackoff_NextBackoff(t *testing.T) {
 }
 
 func TestRetrier_Do_Success(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 3},
 	})
 
@@ -190,7 +190,7 @@ func TestRetrier_Do_Success(t *testing.T) {
 }
 
 func TestRetrier_Do_RetryThenSuccess(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 5},
 	})
 
@@ -215,7 +215,7 @@ func TestRetrier_Do_RetryThenSuccess(t *testing.T) {
 }
 
 func TestRetrier_Do_MaxRetriesExceeded(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 3},
 	})
 
@@ -238,7 +238,7 @@ func TestRetrier_Do_MaxRetriesExceeded(t *testing.T) {
 }
 
 func TestRetrier_Do_NonRetryableError(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy:    &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 5},
 		IsRetryable: func(err error) bool { return false },
 	})
@@ -261,7 +261,7 @@ func TestRetrier_Do_NonRetryableError(t *testing.T) {
 }
 
 func TestRetrier_Do_ContextCancellation(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 1 * time.Second, MaxRetries: 10},
 	})
 
@@ -293,7 +293,7 @@ func TestRetrier_Do_ContextCancellation(t *testing.T) {
 
 func TestRetrier_OnRetryCallback(t *testing.T) {
 	retryCount := 0
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 3},
 		OnRetry: func(attempt int, err error, nextBackoff time.Duration) {
 			retryCount++
@@ -313,7 +313,7 @@ func TestRetrier_OnRetryCallback(t *testing.T) {
 }
 
 func TestDoWithValue(t *testing.T) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 10 * time.Millisecond, MaxRetries: 5},
 	})
 
@@ -406,8 +406,8 @@ func TestCommandRetryConfig_ShouldRetryCommand(t *testing.T) {
 	}
 }
 
-func TestRetryStats(t *testing.T) {
-	stats := NewRetryStats()
+func TestStats(t *testing.T) {
+	stats := NewStats()
 
 	stats.RecordAttempt()
 	stats.RecordAttempt()
@@ -483,7 +483,7 @@ func BenchmarkExponentialBackoff_NextBackoff(b *testing.B) {
 }
 
 func BenchmarkRetrier_Do(b *testing.B) {
-	r := NewRetrier(&RetryConfig{
+	r := NewRetrier(&Config{
 		Strategy: &ConstantBackoff{Interval: 0, MaxRetries: 3},
 	})
 

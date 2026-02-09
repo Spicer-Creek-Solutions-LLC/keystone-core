@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"math/big"
 	"net"
 	"net/url"
@@ -245,9 +246,9 @@ func TestMTLSAuthenticator_AuthenticateWithURI(t *testing.T) {
 func TestMTLSAuthenticator_GlobPatterns(t *testing.T) {
 	cfg := config.MTLSAuthConfig{
 		CertRoles: map[string]string{
-			"*.admin.example.com":  "admin",
+			"*.admin.example.com":   "admin",
 			"svc-*.ops.example.com": "operator",
-			"**":                   "readonly",
+			"**":                    "readonly",
 		},
 	}
 
@@ -300,7 +301,7 @@ func TestMTLSAuthenticator_NoMatchingRole(t *testing.T) {
 	ctx := contextWithCert(t, cert)
 
 	_, err = auth.AuthenticateFromContext(ctx)
-	if err != ErrNoMatchingCertRole {
+	if !errors.Is(err, ErrNoMatchingCertRole) {
 		t.Errorf("Expected ErrNoMatchingCertRole, got %v", err)
 	}
 }
@@ -344,7 +345,7 @@ func TestMTLSAuthenticator_NoPeerInfo(t *testing.T) {
 	ctx := context.Background()
 
 	_, err = auth.AuthenticateFromContext(ctx)
-	if err != ErrNoPeerInfo {
+	if !errors.Is(err, ErrNoPeerInfo) {
 		t.Errorf("Expected ErrNoPeerInfo, got %v", err)
 	}
 }
@@ -367,7 +368,7 @@ func TestMTLSAuthenticator_NoTLSInfo(t *testing.T) {
 	ctx := peer.NewContext(context.Background(), p)
 
 	_, err = auth.AuthenticateFromContext(ctx)
-	if err != ErrNoTLSInfo {
+	if !errors.Is(err, ErrNoTLSInfo) {
 		t.Errorf("Expected ErrNoTLSInfo, got %v", err)
 	}
 }
@@ -395,7 +396,7 @@ func TestMTLSAuthenticator_NoClientCert(t *testing.T) {
 	ctx := peer.NewContext(context.Background(), p)
 
 	_, err = auth.AuthenticateFromContext(ctx)
-	if err != ErrNoClientCert {
+	if !errors.Is(err, ErrNoClientCert) {
 		t.Errorf("Expected ErrNoClientCert, got %v", err)
 	}
 }
@@ -572,7 +573,7 @@ func TestCompileGlobPattern_Regex(t *testing.T) {
 
 func TestCompileGlobPattern_Invalid(t *testing.T) {
 	_, err := compileGlobPattern("")
-	if err != ErrInvalidCertPattern {
+	if !errors.Is(err, ErrInvalidCertPattern) {
 		t.Errorf("Expected ErrInvalidCertPattern for empty pattern, got %v", err)
 	}
 }
@@ -594,7 +595,7 @@ func TestExtractClientCertFromContext(t *testing.T) {
 func TestExtractClientCertFromContext_Errors(t *testing.T) {
 	// No peer info
 	_, err := ExtractClientCertFromContext(context.Background())
-	if err != ErrNoPeerInfo {
+	if !errors.Is(err, ErrNoPeerInfo) {
 		t.Errorf("Expected ErrNoPeerInfo, got %v", err)
 	}
 
@@ -602,7 +603,7 @@ func TestExtractClientCertFromContext_Errors(t *testing.T) {
 	p := &peer.Peer{Addr: &net.TCPAddr{}}
 	ctx := peer.NewContext(context.Background(), p)
 	_, err = ExtractClientCertFromContext(ctx)
-	if err != ErrNoTLSInfo {
+	if !errors.Is(err, ErrNoTLSInfo) {
 		t.Errorf("Expected ErrNoTLSInfo, got %v", err)
 	}
 
@@ -611,7 +612,7 @@ func TestExtractClientCertFromContext_Errors(t *testing.T) {
 	p = &peer.Peer{Addr: &net.TCPAddr{}, AuthInfo: tlsInfo}
 	ctx = peer.NewContext(context.Background(), p)
 	_, err = ExtractClientCertFromContext(ctx)
-	if err != ErrNoClientCert {
+	if !errors.Is(err, ErrNoClientCert) {
 		t.Errorf("Expected ErrNoClientCert, got %v", err)
 	}
 }

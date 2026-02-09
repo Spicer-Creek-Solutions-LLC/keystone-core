@@ -255,7 +255,7 @@ func TestKeySignerSignFile(t *testing.T) {
 			return
 		}
 		if result == nil {
-			t.Error("expected non-nil result")
+			t.Fatal("expected non-nil result")
 		}
 		if len(result.Signature) == 0 {
 			t.Error("expected non-empty signature")

@@ -37,7 +37,7 @@ func TestSQLiteStorage_SaveAndGetRequest(t *testing.T) {
 		Title:         "Deploy to production",
 		Description:   "Please review and approve",
 		Approvers:     []string{"admin@example.com", "ops-team"},
-		Mode:          ApprovalModeAny,
+		Mode:          ModeAny,
 		RequiredCount: 1,
 		Timeout:       time.Hour,
 		ExpiresAt:     &expiresAt,
@@ -80,8 +80,8 @@ func TestSQLiteStorage_SaveAndGetRequest(t *testing.T) {
 	if len(retrieved.Approvers) != 2 {
 		t.Errorf("Approvers count = %d, want 2", len(retrieved.Approvers))
 	}
-	if retrieved.Mode != ApprovalModeAny {
-		t.Errorf("Mode = %q, want %q", retrieved.Mode, ApprovalModeAny)
+	if retrieved.Mode != ModeAny {
+		t.Errorf("Mode = %q, want %q", retrieved.Mode, ModeAny)
 	}
 	if retrieved.Metadata["environment"] != "production" {
 		t.Errorf("Metadata[environment] = %v, want %q", retrieved.Metadata["environment"], "production")
@@ -113,7 +113,7 @@ func TestSQLiteStorage_GetRequestByExecution(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -143,7 +143,7 @@ func TestSQLiteStorage_UpdateRequest(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -197,7 +197,7 @@ func TestSQLiteStorage_ListRequests(t *testing.T) {
 			State:       state,
 			Title:       "Test",
 			Approvers:   []string{"user1"},
-			Mode:        ApprovalModeAny,
+			Mode:        ModeAny,
 			CreatedAt:   now.Add(time.Duration(i) * time.Minute),
 			UpdatedAt:   now,
 		}
@@ -263,7 +263,7 @@ func TestSQLiteStorage_DeleteRequest(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -293,7 +293,7 @@ func TestSQLiteStorage_UniqueConstraint(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test 1",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -310,7 +310,7 @@ func TestSQLiteStorage_UniqueConstraint(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test 2",
 		Approvers:   []string{"user2"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

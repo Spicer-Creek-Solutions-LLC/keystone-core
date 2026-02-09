@@ -7,8 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// BootstrapConfig represents bootstrap configuration serialized to YAML.
-type BootstrapConfig struct {
+// Config represents bootstrap configuration serialized to YAML.
+type Config struct {
 	Mode                   string                            `yaml:"mode"`
 	ClusterName            string                            `yaml:"cluster_name,omitempty"`
 	NodeRole               string                            `yaml:"node_role,omitempty"`
@@ -60,13 +60,13 @@ type BootstrapConfig struct {
 }
 
 // LoadBootstrapConfig reads a bootstrap configuration from disk.
-func LoadBootstrapConfig(path string) (*BootstrapConfig, error) {
+func LoadBootstrapConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read bootstrap config: %w", err)
 	}
 
-	var cfg BootstrapConfig
+	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse bootstrap config: %w", err)
 	}
@@ -75,7 +75,7 @@ func LoadBootstrapConfig(path string) (*BootstrapConfig, error) {
 }
 
 // WriteBootstrapConfig writes a bootstrap configuration to disk.
-func WriteBootstrapConfig(path string, cfg *BootstrapConfig) error {
+func WriteBootstrapConfig(path string, cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshal bootstrap config: %w", err)

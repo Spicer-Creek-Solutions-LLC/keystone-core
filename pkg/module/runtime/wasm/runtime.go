@@ -1,3 +1,4 @@
+// Package wasm provides a sandboxed WebAssembly runtime for module execution.
 package wasm
 
 import (
@@ -200,11 +201,11 @@ func (rt *Runtime) Call(funcName string, args ...interface{}) (interface{}, erro
 	for i, arg := range args {
 		switch v := arg.(type) {
 		case int32:
-			wasmArgs[i] = uint64(v)
+			wasmArgs[i] = uint64(v) //nolint:gosec // G115: WASM ABI uses uint64
 		case uint32:
 			wasmArgs[i] = uint64(v)
 		case int64:
-			wasmArgs[i] = uint64(v)
+			wasmArgs[i] = uint64(v) //nolint:gosec // G115: WASM ABI uses uint64
 		case uint64:
 			wasmArgs[i] = v
 		case float32:
@@ -228,7 +229,7 @@ func (rt *Runtime) Call(funcName string, args ...interface{}) (interface{}, erro
 	}
 
 	// Return as int32 for compatibility with existing tests
-	return int32(results[0]), nil
+	return int32(results[0]), nil //nolint:gosec // G115: WASM i32 result fits in int32
 }
 
 // GetMemory returns the WASM module's linear memory
@@ -415,11 +416,13 @@ type RuntimeOptions struct {
 	FuelLimit uint64
 }
 
-// WasmRuntime is an alias for Runtime to implement the runtime.Runtime interface
+// WasmRuntime is deprecated: Use Runtime instead.
+//
+//nolint:revive,staticcheck // kept for backward compatibility
 type WasmRuntime = Runtime
 
 // NewWasmRuntime creates a new WASM runtime for the module loader
-func NewWasmRuntime(opts *RuntimeOptions) *WasmRuntime {
+func NewWasmRuntime(opts *RuntimeOptions) *Runtime {
 	if opts == nil {
 		opts = &RuntimeOptions{
 			MaxMemory: 64 * 1024 * 1024, // 64MB
@@ -428,7 +431,7 @@ func NewWasmRuntime(opts *RuntimeOptions) *WasmRuntime {
 	}
 
 	// Convert memory bytes to pages (64KB per page)
-	maxPages := uint32(opts.MaxMemory / 65536)
+	maxPages := uint32(opts.MaxMemory / 65536) //nolint:gosec // G115: WASM memory pages
 	if maxPages == 0 {
 		maxPages = 1
 	}
@@ -456,7 +459,7 @@ func NewWasmRuntime(opts *RuntimeOptions) *WasmRuntime {
 func (rt *Runtime) ExecuteFunction(ctx context.Context, funcName string, input map[string]interface{}) (interface{}, error) {
 	// For now, we'll just call the function with no args
 	// In a real implementation, we'd serialize input as JSON and pass it
-	result, err := rt.Call(funcName)
+	result, err := rt.Call(funcName) //nolint:contextcheck // Call uses internal context
 	if err != nil {
 		return nil, err
 	}

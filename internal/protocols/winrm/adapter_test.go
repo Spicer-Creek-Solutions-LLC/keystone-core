@@ -1,6 +1,7 @@
 package winrm
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -52,12 +53,12 @@ func TestNewAdapter(t *testing.T) {
 
 	t.Run("custom config", func(t *testing.T) {
 		cfg := &Config{
-			Port:          5986,
-			HTTPS:         true,
-			Insecure:      true,
-			UseNTLM:       false,
-			UseKerberos:   true,
-			DefaultShell:  "cmd",
+			Port:             5986,
+			HTTPS:            true,
+			Insecure:         true,
+			UseNTLM:          false,
+			UseKerberos:      true,
+			DefaultShell:     "cmd",
 			ConnectionConfig: nil, // Should be set to default
 		}
 		adapter := NewAdapter(cfg)
@@ -281,7 +282,7 @@ func TestAdapterNotConnected(t *testing.T) {
 	adapter := NewAdapter(nil)
 
 	t.Run("RunPowerShell not connected", func(t *testing.T) {
-		_, _, _, err := adapter.RunPowerShell(nil, "Get-Process")
+		_, _, _, err := adapter.RunPowerShell(context.Background(), "Get-Process")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
@@ -291,7 +292,7 @@ func TestAdapterNotConnected(t *testing.T) {
 	})
 
 	t.Run("RunCmd not connected", func(t *testing.T) {
-		_, _, _, err := adapter.RunCmd(nil, "dir")
+		_, _, _, err := adapter.RunCmd(context.Background(), "dir")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
@@ -305,7 +306,7 @@ func TestAdapterDisconnect(t *testing.T) {
 	adapter := NewAdapter(nil)
 
 	// Disconnect on unconnected adapter should succeed
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -319,7 +320,7 @@ func TestAdapterDisconnect(t *testing.T) {
 func TestAdapterHealthCheckNotConnected(t *testing.T) {
 	adapter := NewAdapter(nil)
 
-	result, err := adapter.HealthCheck(nil)
+	result, err := adapter.HealthCheck(context.Background())
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}

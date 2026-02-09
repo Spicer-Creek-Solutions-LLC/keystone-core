@@ -122,17 +122,14 @@ curl http://localhost:8080/health/nats
 #### Agent Health
 
 ```bash
-# Check agent NATS status
-kscore-agent nats status
+# Check agent status (includes NATS connection info)
+kscorectl agents show <agent-id>
 
-# Output
-NATS Connection Status
-  Endpoint: nats://nats-1:4222
-  State: connected
-  Uptime: 24h 15m 32s
-  Messages Sent: 12,456
-  Messages Received: 8,234
-  Last Heartbeat: 2s ago
+# Check agent logs for NATS connection details
+journalctl -u kscore-agent -f | grep -i nats
+
+# View agent metrics (if Prometheus endpoint enabled)
+curl -s http://localhost:9100/metrics | grep nats
 ```
 
 ## Troubleshooting
@@ -172,11 +169,14 @@ openssl s_client -connect nats.example.com:4222 -servername nats.example.com
 #### Symptom: Frequent Reconnections
 
 ```bash
-# Check reconnection events
-kscorectl debug nats events --type reconnect --limit 50
+# Check agent logs for reconnection events
+journalctl -u kscore-agent --since "1 hour ago" | grep -i reconnect
 
-# Check connection timeline
-kscorectl debug nats timeline --endpoint nats://nats-1:4222
+# Check NATS server connection logs
+nats server report connections
+
+# Monitor NATS server for connection churn
+watch -n 5 'nats server report connections | head -20'
 ```
 
 **Common causes:**
@@ -231,8 +231,11 @@ agent:
 # Check delivery metrics
 curl -s http://localhost:8080/metrics | grep nats_delivery
 
-# Trace specific message
-kscorectl debug nats trace --message-id msg-12345
+# Check JetStream message by sequence
+nats stream get KSCORE_COMMANDS <sequence-number>
+
+# View pending messages in stream
+nats stream view KSCORE_COMMANDS
 ```
 
 **Common causes:**
@@ -279,17 +282,14 @@ agent:
 #### Symptom: Buffer Overflow
 
 ```bash
-# Check buffer status
-kscore-agent nats buffer status
+# Check agent logs for buffer warnings
+journalctl -u kscore-agent | grep -i "buffer\|overflow"
 
-# Output
-Buffer Status
-  Mode: leaf
-  State: buffering
-  Messages: 45,234 / 100,000
-  Size: 78 MB / 100 MB
-  Oldest Message: 2h ago
-  Flush Pending: true
+# Monitor agent memory usage (buffers are in-memory)
+ps aux | grep kscore-agent
+
+# Check agent metrics for buffer status
+curl -s http://localhost:9100/metrics | grep buffer
 ```
 
 **Solutions:**
@@ -308,8 +308,11 @@ agent:
 #### Symptom: Leaf Not Connecting
 
 ```bash
-# Check leaf configuration
-kscore-agent nats leaf status
+# Check agent logs for leaf connection errors
+journalctl -u kscore-agent | grep -i "leaf\|remote"
+
+# Check hub server for leaf connections
+nats server report connections --filter-account=leafnodes
 
 # Check hub logs
 docker logs nats-hub 2>&1 | grep -i leaf
@@ -326,7 +329,7 @@ docker logs nats-hub 2>&1 | grep -i leaf
 nats-server -c /etc/nats/leaf.conf --debug
 
 # Verify credentials
-nats server check connection --creds /etc/kscore/leaf.creds
+nats server check connection --creds /etc/keystone-core/leaf.creds
 ```
 
 ### Gateway Issues
@@ -358,18 +361,21 @@ gateway:
 ### Debug Commands
 
 ```bash
-# Enable debug logging
-export KSCORE_NATS_DEBUG=true
-kscore-agent restart
+# Enable debug logging (restart agent with env var)
+sudo systemctl stop kscore-agent
+KSCORE_LOG_LEVEL=debug kscore-agent &
+# Or set in service file: Environment="KSCORE_LOG_LEVEL=debug"
 
-# Generate diagnostic report
-kscorectl debug nats diagnose > nats-diagnostic.json
+# View NATS server diagnostics
+nats server report jetstream
+nats server report connections
 
-# Export connection events
-kscorectl debug nats events --export json > events.json
+# Monitor subjects in real-time
+nats sub "kscore.prod.command.>" --count 10
 
-# Trace message flow
-kscorectl debug nats trace --subject "kscore.prod.command.*" --duration 5m
+# Export JetStream stream state
+nats stream info KSCORE_COMMANDS -j > stream-info.json
+nats consumer info KSCORE_COMMANDS -a -j > consumers.json
 ```
 
 ## Capacity Planning
@@ -490,7 +496,7 @@ done
 cp -r /etc/nats /backup/nats-config/
 
 # Backup agent credentials
-cp -r /etc/kscore/creds /backup/kscore-creds/
+cp -r /etc/keystone-core/creds /backup/kscore-creds/
 ```
 
 ### Recovery Procedures
@@ -572,7 +578,8 @@ When gateway partitions occur:
 
 2. **Check agent distribution**:
    ```bash
-   kscorectl agent list --group-by cluster
+   # List agents and check their labels/tags for cluster info
+   kscorectl agents list -o json | jq 'group_by(.tags.cluster)'
    ```
 
 3. **Wait for automatic recovery** (gateways reconnect)
@@ -585,8 +592,11 @@ When gateway partitions occur:
 
 5. **Verify message reconciliation**:
    ```bash
-   # Check for duplicate processing
-   kscorectl debug nats events --type duplicate --last 1h
+   # Check metrics for duplicate processing
+   curl -s http://localhost:8080/metrics | grep duplicates
+
+   # Check agent logs for duplicate warnings
+   journalctl -u kscore-agent --since "1 hour ago" | grep -i duplicate
    ```
 
 ## Maintenance
@@ -638,8 +648,15 @@ for server in nats-1 nats-2 nats-3; do
   sleep 30
 done
 
-# Update agents
-kscorectl agent update-certs --cert new-agent.crt --key new-agent.key
+# Update agent certificates (deploy new certs and restart agents)
+# Option 1: Use configuration management
+ansible-playbook -i inventory update-agent-certs.yml
+
+# Option 2: Manual update per agent
+for agent in $(kscorectl agents list -o json | jq -r '.[].hostname'); do
+  scp new-agent.crt new-agent.key $agent:/etc/keystone-core/certs/
+  ssh $agent "sudo systemctl restart kscore-agent"
+done
 ```
 
 ### Stream Maintenance

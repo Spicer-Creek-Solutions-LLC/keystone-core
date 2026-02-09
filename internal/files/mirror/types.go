@@ -8,14 +8,15 @@ import (
 	"time"
 )
 
-// MirrorState represents the health state of a mirror.
-type MirrorState string
+// State represents the health state of a mirror.
+type State string
 
+// StateUnknown constants define the possible states.
 const (
-	MirrorStateUnknown   MirrorState = "unknown"
-	MirrorStateHealthy   MirrorState = "healthy"
-	MirrorStateDegraded  MirrorState = "degraded"
-	MirrorStateUnhealthy MirrorState = "unhealthy"
+	StateUnknown   State = "unknown"
+	StateHealthy   State = "healthy"
+	StateDegraded  State = "degraded"
+	StateUnhealthy State = "unhealthy"
 )
 
 // ReadStrategy determines how reads are routed to mirrors.
@@ -109,8 +110,8 @@ type Location struct {
 	Country string `json:"country,omitempty" yaml:"country,omitempty"`
 }
 
-// MirrorGroupConfig configures a mirror group.
-type MirrorGroupConfig struct {
+// GroupConfig configures a mirror group.
+type GroupConfig struct {
 	// ID uniquely identifies this mirror group.
 	ID string `json:"id" yaml:"id"`
 
@@ -172,10 +173,10 @@ type LatencyProbeConfig struct {
 	SmoothingFactor float64 `json:"smoothing_factor" yaml:"smoothing_factor"`
 }
 
-// MirrorHealth tracks the health status of a mirror.
-type MirrorHealth struct {
+// Health tracks the health status of a mirror.
+type Health struct {
 	MirrorID         string        `json:"mirror_id"`
-	State            MirrorState   `json:"state"`
+	State            State         `json:"state"`
 	LastCheck        time.Time     `json:"last_check"`
 	LastSuccess      time.Time     `json:"last_success,omitempty"`
 	LastFailure      time.Time     `json:"last_failure,omitempty"`
@@ -185,8 +186,8 @@ type MirrorHealth struct {
 	AvgLatency       time.Duration `json:"avg_latency,omitempty"`
 }
 
-// MirrorStats contains statistics for a mirror.
-type MirrorStats struct {
+// Stats contains statistics for a mirror.
+type Stats struct {
 	MirrorID     string        `json:"mirror_id"`
 	ReadCount    int64         `json:"read_count"`
 	WriteCount   int64         `json:"write_count"`
@@ -199,17 +200,17 @@ type MirrorStats struct {
 	LastActivity time.Time     `json:"last_activity"`
 }
 
-// MirrorGroup represents a group of file servers acting as mirrors.
-type MirrorGroup struct {
-	config  *MirrorGroupConfig
+// Group represents a group of file servers acting as mirrors.
+type Group struct {
+	config  *GroupConfig
 	mirrors map[string]*Mirror
-	health  map[string]*MirrorHealth
-	stats   map[string]*MirrorStats
+	health  map[string]*Health
+	stats   map[string]*Stats
 	mu      sync.RWMutex
 }
 
-// NewMirrorGroup creates a new mirror group from configuration.
-func NewMirrorGroup(config *MirrorGroupConfig) (*MirrorGroup, error) {
+// NewGroup creates a new mirror group from configuration.
+func NewGroup(config *GroupConfig) (*Group, error) {
 	if config.ID == "" {
 		return nil, fmt.Errorf("mirror group ID is required")
 	}
@@ -285,19 +286,19 @@ func NewMirrorGroup(config *MirrorGroupConfig) (*MirrorGroup, error) {
 	}
 
 	// Initialize health and stats
-	health := make(map[string]*MirrorHealth)
-	stats := make(map[string]*MirrorStats)
+	health := make(map[string]*Health)
+	stats := make(map[string]*Stats)
 	for id := range mirrors {
-		health[id] = &MirrorHealth{
+		health[id] = &Health{
 			MirrorID: id,
-			State:    MirrorStateUnknown,
+			State:    StateUnknown,
 		}
-		stats[id] = &MirrorStats{
+		stats[id] = &Stats{
 			MirrorID: id,
 		}
 	}
 
-	return &MirrorGroup{
+	return &Group{
 		config:  config,
 		mirrors: mirrors,
 		health:  health,
@@ -306,22 +307,22 @@ func NewMirrorGroup(config *MirrorGroupConfig) (*MirrorGroup, error) {
 }
 
 // ID returns the mirror group ID.
-func (g *MirrorGroup) ID() string {
+func (g *Group) ID() string {
 	return g.config.ID
 }
 
 // Name returns the mirror group name.
-func (g *MirrorGroup) Name() string {
+func (g *Group) Name() string {
 	return g.config.Name
 }
 
 // Config returns the mirror group configuration.
-func (g *MirrorGroup) Config() *MirrorGroupConfig {
+func (g *Group) Config() *GroupConfig {
 	return g.config
 }
 
 // GetMirror returns a mirror by ID.
-func (g *MirrorGroup) GetMirror(id string) (*Mirror, bool) {
+func (g *Group) GetMirror(id string) (*Mirror, bool) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	m, ok := g.mirrors[id]
@@ -329,7 +330,7 @@ func (g *MirrorGroup) GetMirror(id string) (*Mirror, bool) {
 }
 
 // GetMirrors returns all mirrors in the group.
-func (g *MirrorGroup) GetMirrors() []*Mirror {
+func (g *Group) GetMirrors() []*Mirror {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	mirrors := make([]*Mirror, 0, len(g.mirrors))
@@ -340,7 +341,7 @@ func (g *MirrorGroup) GetMirrors() []*Mirror {
 }
 
 // GetHealthyMirrors returns all healthy mirrors.
-func (g *MirrorGroup) GetHealthyMirrors() []*Mirror {
+func (g *Group) GetHealthyMirrors() []*Mirror {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	mirrors := make([]*Mirror, 0)
@@ -349,7 +350,7 @@ func (g *MirrorGroup) GetHealthyMirrors() []*Mirror {
 			continue
 		}
 		h := g.health[id]
-		if h.State == MirrorStateHealthy || h.State == MirrorStateUnknown {
+		if h.State == StateHealthy || h.State == StateUnknown {
 			mirrors = append(mirrors, m)
 		}
 	}
@@ -357,7 +358,7 @@ func (g *MirrorGroup) GetHealthyMirrors() []*Mirror {
 }
 
 // GetHealth returns the health status of a mirror.
-func (g *MirrorGroup) GetHealth(mirrorID string) (*MirrorHealth, bool) {
+func (g *Group) GetHealth(mirrorID string) (*Health, bool) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	h, ok := g.health[mirrorID]
@@ -365,7 +366,7 @@ func (g *MirrorGroup) GetHealth(mirrorID string) (*MirrorHealth, bool) {
 }
 
 // UpdateHealth updates the health status of a mirror.
-func (g *MirrorGroup) UpdateHealth(mirrorID string, state MirrorState, latency time.Duration, err error) {
+func (g *Group) UpdateHealth(mirrorID string, state State, latency time.Duration, err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -380,13 +381,14 @@ func (g *MirrorGroup) UpdateHealth(mirrorID string, state MirrorState, latency t
 	// If explicit state is provided, use it
 	if state != "" {
 		h.State = state
-		if state == MirrorStateUnhealthy || state == MirrorStateDegraded {
+		switch state {
+		case StateUnhealthy, StateDegraded:
 			h.LastFailure = time.Now()
 			if err != nil {
 				h.LastError = err.Error()
 			}
 			h.ConsecutiveFails++
-		} else if state == MirrorStateHealthy {
+		case StateHealthy:
 			h.LastSuccess = time.Now()
 			h.LastError = ""
 			h.ConsecutiveFails = 0
@@ -397,6 +399,8 @@ func (g *MirrorGroup) UpdateHealth(mirrorID string, state MirrorState, latency t
 				alpha := g.config.LatencyProbe.SmoothingFactor
 				h.AvgLatency = time.Duration(float64(h.AvgLatency)*(1-alpha) + float64(latency)*alpha)
 			}
+		default:
+			// StateUnknown - no special handling
 		}
 		return
 	}
@@ -407,15 +411,15 @@ func (g *MirrorGroup) UpdateHealth(mirrorID string, state MirrorState, latency t
 		h.LastError = err.Error()
 		h.ConsecutiveFails++
 		if h.ConsecutiveFails >= g.config.HealthCheck.UnhealthyThreshold {
-			h.State = MirrorStateUnhealthy
-		} else if h.State == MirrorStateHealthy {
-			h.State = MirrorStateDegraded
+			h.State = StateUnhealthy
+		} else if h.State == StateHealthy {
+			h.State = StateDegraded
 		}
 	} else {
 		h.LastSuccess = time.Now()
 		h.LastError = ""
 		h.ConsecutiveFails = 0
-		h.State = MirrorStateHealthy
+		h.State = StateHealthy
 
 		// Update average latency with exponential moving average
 		if h.AvgLatency == 0 {
@@ -428,7 +432,7 @@ func (g *MirrorGroup) UpdateHealth(mirrorID string, state MirrorState, latency t
 }
 
 // GetStats returns the statistics for a mirror.
-func (g *MirrorGroup) GetStats(mirrorID string) (*MirrorStats, bool) {
+func (g *Group) GetStats(mirrorID string) (*Stats, bool) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	s, ok := g.stats[mirrorID]
@@ -436,7 +440,7 @@ func (g *MirrorGroup) GetStats(mirrorID string) (*MirrorStats, bool) {
 }
 
 // RecordRead records a read operation to a mirror.
-func (g *MirrorGroup) RecordRead(mirrorID string, bytes int64, latency time.Duration, err error) {
+func (g *Group) RecordRead(mirrorID string, bytes int64, latency time.Duration, err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -455,7 +459,7 @@ func (g *MirrorGroup) RecordRead(mirrorID string, bytes int64, latency time.Dura
 }
 
 // RecordWrite records a write operation to a mirror.
-func (g *MirrorGroup) RecordWrite(mirrorID string, bytes int64, latency time.Duration, err error) {
+func (g *Group) RecordWrite(mirrorID string, bytes int64, latency time.Duration, err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -474,7 +478,7 @@ func (g *MirrorGroup) RecordWrite(mirrorID string, bytes int64, latency time.Dur
 }
 
 // MatchesPath checks if this group handles the given path.
-func (g *MirrorGroup) MatchesPath(path string) bool {
+func (g *Group) MatchesPath(path string) bool {
 	if len(g.config.PathPrefixes) == 0 {
 		return true // Handle all paths
 	}
@@ -487,7 +491,7 @@ func (g *MirrorGroup) MatchesPath(path string) bool {
 }
 
 // MatchesNamespace checks if this group handles the given namespace.
-func (g *MirrorGroup) MatchesNamespace(namespace string) bool {
+func (g *Group) MatchesNamespace(namespace string) bool {
 	if len(g.config.Namespaces) == 0 {
 		return true // Handle all namespaces
 	}
@@ -500,17 +504,17 @@ func (g *MirrorGroup) MatchesNamespace(namespace string) bool {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (g *MirrorGroup) MarshalJSON() ([]byte, error) {
+func (g *Group) MarshalJSON() ([]byte, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
 	type groupJSON struct {
-		ID       string                   `json:"id"`
-		Name     string                   `json:"name"`
-		Config   *MirrorGroupConfig       `json:"config"`
-		Mirrors  map[string]*Mirror       `json:"mirrors"`
-		Health   map[string]*MirrorHealth `json:"health"`
-		Stats    map[string]*MirrorStats  `json:"stats"`
+		ID      string             `json:"id"`
+		Name    string             `json:"name"`
+		Config  *GroupConfig       `json:"config"`
+		Mirrors map[string]*Mirror `json:"mirrors"`
+		Health  map[string]*Health `json:"health"`
+		Stats   map[string]*Stats  `json:"stats"`
 	}
 
 	return json.Marshal(groupJSON{

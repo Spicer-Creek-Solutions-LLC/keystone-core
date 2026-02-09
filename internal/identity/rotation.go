@@ -87,6 +87,7 @@ func DefaultRotationConfig() *RotationConfig {
 // RotationState represents the current state of SVID rotation.
 type RotationState string
 
+// RotationState constants define the possible states.
 const (
 	RotationStateIdle        RotationState = "idle"
 	RotationStateRotating    RotationState = "rotating"
@@ -440,9 +441,7 @@ func (m *SVIDRotationManager) drainAndSwitch(ctx context.Context, newSVID *X509S
 		drainCtx, cancel := context.WithTimeout(ctx, m.config.ConnectionDrainTimeout)
 		defer cancel()
 
-		if err := m.waitForConnectionsDrained(drainCtx); err != nil {
-			// Log warning but continue - don't fail rotation due to drain timeout
-		}
+		_ = m.waitForConnectionsDrained(drainCtx) // best-effort drain, don't fail rotation on timeout
 	}
 
 	// Switch to new SVID
@@ -458,9 +457,7 @@ func (m *SVIDRotationManager) drainAndSwitch(ctx context.Context, newSVID *X509S
 
 	// Call post-rotation hook
 	if m.config.PostRotationHook != nil {
-		if err := m.config.PostRotationHook(ctx, oldSVID, newSVID); err != nil {
-			// Log warning but don't fail - rotation is complete
-		}
+		_ = m.config.PostRotationHook(ctx, oldSVID, newSVID) // best-effort hook, rotation is complete
 	}
 
 	// Notify callback
@@ -526,6 +523,7 @@ func (m *SVIDRotationManager) calculateRetryDelay(attempt int) time.Duration {
 
 	// Add jitter
 	if m.config.JitterFraction > 0 {
+		//nolint:gosec // G404: math/rand used for retry jitter timing, not security
 		jitter := time.Duration(float64(delay) * m.config.JitterFraction * (rand.Float64()*2 - 1)) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 		delay += jitter
 		if delay < 0 {
@@ -544,14 +542,15 @@ func (m *SVIDRotationManager) handleRotationFailure(err error, attempts int) {
 	m.metrics.LastFailureReason = err.Error()
 
 	// Check if we can use cached SVID during grace period
-	if m.cachedSVID != nil && !m.cachedSVID.Expired() {
+	switch {
+	case m.cachedSVID != nil && !m.cachedSVID.Expired():
 		m.metrics.UsingCachedSVID = true
 		m.setState(RotationStateGracePeriod)
-	} else if m.currentSVID != nil && time.Since(m.currentSVID.ExpiresAt) < m.config.GracePeriod {
+	case m.currentSVID != nil && time.Since(m.currentSVID.ExpiresAt) < m.config.GracePeriod:
 		// Use expired SVID during grace period
 		m.metrics.UsingCachedSVID = true
 		m.setState(RotationStateGracePeriod)
-	} else {
+	default:
 		m.setState(RotationStateFailed)
 	}
 	m.mu.Unlock()

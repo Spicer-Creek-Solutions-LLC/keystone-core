@@ -36,7 +36,7 @@ func TestDemoBootstrapScenario(t *testing.T) {
 				t.Fatalf("failed to copy agent binary: %v", err)
 			}
 
-			result := execBootstrap(t, ctx, env,
+			result := execBootstrap(ctx, t, env,
 				"--mode", "demo",
 				"--non-interactive",
 				"--dry-run",

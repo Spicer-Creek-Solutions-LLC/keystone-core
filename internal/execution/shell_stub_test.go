@@ -58,15 +58,15 @@ func TestPowerShellExecutor_DetectPowerShell_NonWindows(t *testing.T) {
 	}
 }
 
-func TestPowerShellExecutor_GetExecutionPolicy_NonWindows(t *testing.T) {
+func TestPowerShellExecutor_GetPolicy_NonWindows(t *testing.T) {
 	exec := NewPowerShellExecutor()
 	ctx := context.Background()
 
-	policy, err := exec.GetExecutionPolicy(ctx)
+	policy, err := exec.GetPolicy(ctx)
 	if err == nil {
 		t.Error("Expected error on non-Windows platform")
 	}
-	if policy != ExecutionPolicyUndefined {
+	if policy != PolicyUndefined {
 		t.Errorf("Expected Undefined policy on non-Windows, got %s", policy)
 	}
 }
@@ -180,22 +180,22 @@ func TestResult_Output_NonWindows(t *testing.T) {
 	}
 }
 
-func TestExecutionPolicy_Values_NonWindows(t *testing.T) {
+func TestPolicy_Values_NonWindows(t *testing.T) {
 	tests := []struct {
-		policy   ExecutionPolicy
+		policy   Policy
 		expected string
 	}{
-		{ExecutionPolicyRestricted, "Restricted"},
-		{ExecutionPolicyAllSigned, "AllSigned"},
-		{ExecutionPolicyRemoteSigned, "RemoteSigned"},
-		{ExecutionPolicyUnrestricted, "Unrestricted"},
-		{ExecutionPolicyBypass, "Bypass"},
-		{ExecutionPolicyUndefined, "Undefined"},
+		{PolicyRestricted, "Restricted"},
+		{PolicyAllSigned, "AllSigned"},
+		{PolicyRemoteSigned, "RemoteSigned"},
+		{PolicyUnrestricted, "Unrestricted"},
+		{PolicyBypass, "Bypass"},
+		{PolicyUndefined, "Undefined"},
 	}
 
 	for _, tt := range tests {
 		if string(tt.policy) != tt.expected {
-			t.Errorf("ExecutionPolicy string = %q, want %q", string(tt.policy), tt.expected)
+			t.Errorf("Policy string = %q, want %q", string(tt.policy), tt.expected)
 		}
 	}
 }

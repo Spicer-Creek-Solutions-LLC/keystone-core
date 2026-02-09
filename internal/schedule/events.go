@@ -59,7 +59,7 @@ func NewEventBridge(publisher events.EventPublisher, source string) *EventBridge
 }
 
 // PublishScheduleEvent publishes a schedule event to the main event system.
-func (b *EventBridge) PublishScheduleEvent(event *ScheduleEvent) error {
+func (b *EventBridge) PublishScheduleEvent(event *Event) error {
 	if b.publisher == nil {
 		return nil // No publisher configured, skip
 	}
@@ -146,18 +146,18 @@ func (b *EventBridge) PublishMaintenanceEvent(event *MaintenanceEvent) error {
 	return b.publisher.Publish(e)
 }
 
-// ScheduleManagerEventAdapter adapts ScheduleManager events to the event bridge.
-type ScheduleManagerEventAdapter struct {
+// ManagerEventAdapter adapts Manager events to the event bridge.
+type ManagerEventAdapter struct {
 	bridge *EventBridge
 }
 
-// NewScheduleManagerEventAdapter creates a new adapter.
-func NewScheduleManagerEventAdapter(bridge *EventBridge) *ScheduleManagerEventAdapter {
-	return &ScheduleManagerEventAdapter{bridge: bridge}
+// NewManagerEventAdapter creates a new adapter.
+func NewManagerEventAdapter(bridge *EventBridge) *ManagerEventAdapter {
+	return &ManagerEventAdapter{bridge: bridge}
 }
 
 // HandleEvent handles schedule manager events.
-func (a *ScheduleManagerEventAdapter) HandleEvent(event *ScheduleEvent) {
+func (a *ManagerEventAdapter) HandleEvent(event *Event) {
 	if a.bridge != nil {
 		_ = a.bridge.PublishScheduleEvent(event)
 	}
@@ -241,14 +241,14 @@ func generateEventID() string {
 // IntegrateWithEventSystem sets up event integration for schedule components.
 func IntegrateWithEventSystem(
 	publisher events.EventPublisher,
-	scheduleManager *ScheduleManager,
+	scheduleManager *Manager,
 	maintenanceManager *MaintenanceWindowManager,
 	executor *Executor,
 ) *EventBridge {
 	bridge := NewEventBridge(publisher, "/schedule")
 
 	if scheduleManager != nil {
-		adapter := NewScheduleManagerEventAdapter(bridge)
+		adapter := NewManagerEventAdapter(bridge)
 		scheduleManager.AddListener(adapter.HandleEvent)
 	}
 

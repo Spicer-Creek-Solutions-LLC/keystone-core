@@ -265,7 +265,7 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 
 4. **Verify NATS connectivity**:
    ```bash
-   nats-server -c /etc/kscore/nats.conf --test
+   nats-server -c /etc/keystone-core/nats.conf --test
    ```
 
 ### State application fails
@@ -363,7 +363,7 @@ Pre-built Grafana dashboards are available in `deploy/grafana/dashboards/`.
 
 ### How do I report bugs?
 
-Open an issue at [github.com/keystone-core/keystone-core/issues](https://github.com/keystone-core/keystone-core/issues) with:
+Open an issue at [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues) with:
 - Keystone Core version (`kscorectl version`)
 - Steps to reproduce
 - Expected vs actual behavior

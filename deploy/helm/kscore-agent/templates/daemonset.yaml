@@ -53,7 +53,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - "--config"
-            - "/etc/kscore/agent.yaml"
+            - "/etc/keystone-core/agent.yaml"
           env:
             - name: NODE_NAME
               valueFrom:
@@ -110,15 +110,15 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config
-              mountPath: /etc/kscore
+              mountPath: /etc/keystone-core
               readOnly: true
             - name: workdir
               mountPath: {{ .Values.execution.workDir | default "/tmp/kscore" }}
             {{- if .Values.state.enabled }}
             - name: state
-              mountPath: {{ .Values.state.stateDir | default "/var/lib/kscore/states" }}
+              mountPath: {{ .Values.state.stateDir | default "/var/lib/keystone-core/states" }}
             - name: cache
-              mountPath: {{ .Values.state.cacheDir | default "/var/cache/kscore" }}
+              mountPath: {{ .Values.state.cacheDir | default "/var/cache/keystone-core" }}
             {{- end }}
             {{- if and .Values.hostPaths.enabled .Values.hostPaths.root.enabled }}
             - name: host-root
@@ -132,7 +132,7 @@ spec:
             {{- end }}
             {{- if .Values.server.tls.enabled }}
             - name: tls
-              mountPath: /etc/kscore/tls
+              mountPath: /etc/keystone-core/tls
               readOnly: true
             {{- end }}
             {{- with .Values.extraVolumeMounts }}

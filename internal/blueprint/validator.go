@@ -35,8 +35,8 @@ func (r *ValidationResult) Error() error {
 		return nil
 	}
 	var msgs []string
-	for _, err := range r.Errors {
-		msgs = append(msgs, err.Error())
+	for i := range r.Errors {
+		msgs = append(msgs, r.Errors[i].Error())
 	}
 	return fmt.Errorf("blueprint validation failed:\n  - %s", strings.Join(msgs, "\n  - "))
 }
@@ -264,7 +264,8 @@ func (v *Validator) validateParameters(bp *Blueprint, result *ValidationResult) 
 
 // validateParameterSchemas recursively validates parameter schemas.
 func (v *Validator) validateParameterSchemas(prefix string, params map[string]ParameterSchema, bp *Blueprint, result *ValidationResult) {
-	for name, schema := range params {
+	for name := range params {
+		schema := params[name]
 		path := fmt.Sprintf("%s.%s", prefix, name)
 		v.validateParameterSchema(path, &schema, bp, result)
 	}
@@ -508,17 +509,17 @@ func isValidEmail(email string) bool {
 
 // Common SPDX license identifiers
 var spdxLicenses = map[string]bool{
-	"MIT":        true,
-	"Apache-2.0": true,
-	"GPL-3.0":    true,
+	"MIT":          true,
+	"Apache-2.0":   true,
+	"GPL-3.0":      true,
 	"BSD-3-Clause": true,
 	"BSD-2-Clause": true,
-	"ISC":        true,
-	"MPL-2.0":    true,
-	"LGPL-3.0":   true,
-	"AGPL-3.0":   true,
-	"Unlicense":  true,
-	"CC0-1.0":    true,
+	"ISC":          true,
+	"MPL-2.0":      true,
+	"LGPL-3.0":     true,
+	"AGPL-3.0":     true,
+	"Unlicense":    true,
+	"CC0-1.0":      true,
 }
 
 func isValidSPDXLicense(license string) bool {

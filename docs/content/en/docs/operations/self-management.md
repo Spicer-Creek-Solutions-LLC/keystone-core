@@ -50,11 +50,11 @@ nats:
   mode: embedded
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/jetstream
+    store_dir: /var/lib/keystone-core/jetstream
 
 database:
   type: sqlite
-  path: /var/lib/kscore/state.db
+  path: /var/lib/keystone-core/state.db
 
 certificates:
   generate: true
@@ -93,7 +93,7 @@ nats:
       - nats://10.0.1.12:6222
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/jetstream
+    store_dir: /var/lib/keystone-core/jetstream
     replicas: 3
 
 database:
@@ -142,7 +142,7 @@ kscorectl bootstrap seed --config seed.yaml --debug
 Create a backup configuration in your state file:
 
 ```yaml
-# /etc/kscore/states/backup.yaml
+# /etc/keystone-core/states/backup.yaml
 kscore_backup:
   daily_backup:
     state: configured
@@ -237,7 +237,7 @@ destination:
   host: backup.example.com
   port: 22
   user: backup
-  key_file: /etc/kscore/backup-key
+  key_file: /etc/keystone-core/backup-key
   path: /backups/keystone
 
 # Multiple destinations (replication)
@@ -276,7 +276,7 @@ kscorectl cluster-backup list --dest s3://keystone-backups/
 # Restore full backup
 kscorectl bootstrap restore \
   --backup s3://keystone-backups/backup-2024-01-15.tar.gz \
-  --decrypt-identity /etc/kscore/backup-key.txt
+  --decrypt-identity /etc/keystone-core/backup-key.txt
 
 # Restore specific components only
 kscorectl bootstrap restore \
@@ -535,8 +535,8 @@ kscore_server:
         listen: 0.0.0.0:8080
         tls:
           enabled: true
-          cert_file: /etc/kscore/server.crt
-          key_file: /etc/kscore/server.key
+          cert_file: /etc/keystone-core/server.crt
+          key_file: /etc/keystone-core/server.key
       nats:
         url: nats://localhost:4222
       database:
@@ -573,7 +573,7 @@ kscore_nats:
     mode: embedded
     jetstream:
       enabled: true
-      store_dir: /var/lib/kscore/jetstream
+      store_dir: /var/lib/keystone-core/jetstream
       max_memory: 1GB
       max_file: 10GB
     cluster:
@@ -693,9 +693,10 @@ kscorectl cluster remove ks-server-2
 # 2. Provision replacement node
 
 # 3. Join new node to cluster
+# Use the join token from initial bootstrap or existing cluster config
 kscorectl bootstrap import \
   --join https://ks-server-1:8080 \
-  --token $(kscorectl cluster token)
+  --token $CLUSTER_JOIN_TOKEN
 ```
 
 #### Complete Cluster Loss
@@ -743,7 +744,7 @@ kscorectl cluster health --verbose
 kscorectl agent list --status
 
 # Verify state integrity
-kscorectl state check /etc/kscore/states/*.yaml
+kscorectl state check /etc/keystone-core/states/*.yaml
 
 # Run integration tests
 kscorectl test integration --suite recovery
@@ -806,7 +807,7 @@ kscorectl test integration --suite recovery
 
 4. Distribute new certificates:
    ```bash
-   kscorectl state apply /etc/kscore/states/certificates.yaml
+   kscorectl state apply /etc/keystone-core/states/certificates.yaml
    ```
 
 ## Verification

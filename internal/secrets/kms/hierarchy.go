@@ -21,13 +21,14 @@ import (
 // KeyPurpose represents the purpose of a derived key.
 type KeyPurpose string
 
+// KeyPurposeCache constants define the key types.
 const (
-	KeyPurposeCache     KeyPurpose = "cache"     // Cache encryption key
-	KeyPurposeAudit     KeyPurpose = "audit"     // Audit log encryption key
-	KeyPurposeTransit   KeyPurpose = "transit"   // Transit encryption key
-	KeyPurposeBackup    KeyPurpose = "backup"    // Backup encryption key
-	KeyPurposeAgent     KeyPurpose = "agent"     // Agent communication key
-	KeyPurposeInternal  KeyPurpose = "internal"  // Internal service key
+	KeyPurposeCache    KeyPurpose = "cache"    // Cache encryption key
+	KeyPurposeAudit    KeyPurpose = "audit"    // Audit log encryption key
+	KeyPurposeTransit  KeyPurpose = "transit"  // Transit encryption key
+	KeyPurposeBackup   KeyPurpose = "backup"   // Backup encryption key
+	KeyPurposeAgent    KeyPurpose = "agent"    // Agent communication key
+	KeyPurposeInternal KeyPurpose = "internal" // Internal service key
 )
 
 // KeyHierarchyConfig configures the key hierarchy manager.
@@ -204,9 +205,9 @@ func (m *KeyHierarchyManager) GenerateDataKey(ctx context.Context, purpose KeyPu
 
 	// Generate data key using KMS
 	dataKey, err := m.provider.GenerateDataKey(ctx, &GenerateDataKeyRequest{
-		KeyID:         m.config.MasterKeyID,
-		KeySpec:       KeySpecAES256,
-		Context:       encContext,
+		KeyID:   m.config.MasterKeyID,
+		KeySpec: KeySpecAES256,
+		Context: encContext,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate data key: %w", err)
@@ -346,7 +347,7 @@ func (m *KeyHierarchyManager) DeriveKey(ctx context.Context, purpose KeyPurpose,
 }
 
 // ImportDataKey imports an existing wrapped data key.
-func (m *KeyHierarchyManager) ImportDataKey(ctx context.Context, purpose KeyPurpose, wrappedKey []byte, version int, context map[string]string) error {
+func (m *KeyHierarchyManager) ImportDataKey(ctx context.Context, purpose KeyPurpose, wrappedKey []byte, version int, keyContext map[string]string) error {
 	if m.closed.Load() {
 		return errors.New("manager is closed")
 	}
@@ -359,7 +360,7 @@ func (m *KeyHierarchyManager) ImportDataKey(ctx context.Context, purpose KeyPurp
 		Version:    version,
 		Ciphertext: wrappedKey,
 		CreatedAt:  time.Now(),
-		Context:    context,
+		Context:    keyContext,
 	}
 
 	return nil
@@ -390,7 +391,7 @@ func (m *KeyHierarchyManager) ListDataKeys() []DerivedKeyInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var keys []DerivedKeyInfo
+	keys := make([]DerivedKeyInfo, 0, len(m.derivedKeys))
 	for _, dk := range m.derivedKeys {
 		keys = append(keys, DerivedKeyInfo{
 			Purpose:   dk.Purpose,
@@ -465,9 +466,9 @@ func (m *KeyHierarchyManager) Stats() KeyHierarchyStats {
 
 // KeyHierarchyStats contains key hierarchy statistics.
 type KeyHierarchyStats struct {
-	DerivedKeyCount int                  `json:"derived_key_count"`
-	CachedKeyCount  int                  `json:"cached_key_count"`
-	KeysByPurpose   map[KeyPurpose]int   `json:"keys_by_purpose"`
+	DerivedKeyCount int                `json:"derived_key_count"`
+	CachedKeyCount  int                `json:"cached_key_count"`
+	KeysByPurpose   map[KeyPurpose]int `json:"keys_by_purpose"`
 }
 
 // =============================================================================
@@ -602,25 +603,25 @@ func (d *DerivedKey) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 4+2+len(purposeBytes)+4+len(d.Ciphertext)+8+8)
 	offset := 0
 
-	binary.BigEndian.PutUint32(buf[offset:], uint32(d.Version))
+	binary.BigEndian.PutUint32(buf[offset:], uint32(d.Version)) //nolint:gosec // G115: version is small
 	offset += 4
 
-	binary.BigEndian.PutUint16(buf[offset:], uint16(len(purposeBytes)))
+	binary.BigEndian.PutUint16(buf[offset:], uint16(len(purposeBytes))) //nolint:gosec // G115: purpose len
 	offset += 2
 
 	copy(buf[offset:], purposeBytes)
 	offset += len(purposeBytes)
 
-	binary.BigEndian.PutUint32(buf[offset:], uint32(len(d.Ciphertext)))
+	binary.BigEndian.PutUint32(buf[offset:], uint32(len(d.Ciphertext))) //nolint:gosec // G115: ciphertext len
 	offset += 4
 
 	copy(buf[offset:], d.Ciphertext)
 	offset += len(d.Ciphertext)
 
-	binary.BigEndian.PutUint64(buf[offset:], uint64(d.CreatedAt.Unix()))
+	binary.BigEndian.PutUint64(buf[offset:], uint64(d.CreatedAt.Unix())) //nolint:gosec // G115: Unix timestamp
 	offset += 8
 
-	binary.BigEndian.PutUint64(buf[offset:], uint64(d.ExpiresAt.Unix()))
+	binary.BigEndian.PutUint64(buf[offset:], uint64(d.ExpiresAt.Unix())) //nolint:gosec // G115: Unix timestamp
 
 	return buf, nil
 }
@@ -661,10 +662,10 @@ func (d *DerivedKey) UnmarshalBinary(data []byte) error {
 	if len(data) < offset+16 {
 		return errors.New("data too short for timestamps")
 	}
-	d.CreatedAt = time.Unix(int64(binary.BigEndian.Uint64(data[offset:])), 0)
+	d.CreatedAt = time.Unix(int64(binary.BigEndian.Uint64(data[offset:])), 0) //nolint:gosec // G115: Unix timestamp
 	offset += 8
 
-	expiresUnix := int64(binary.BigEndian.Uint64(data[offset:]))
+	expiresUnix := int64(binary.BigEndian.Uint64(data[offset:])) //nolint:gosec // G115: Unix timestamp
 	if expiresUnix > 0 {
 		d.ExpiresAt = time.Unix(expiresUnix, 0)
 	}

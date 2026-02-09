@@ -15,19 +15,19 @@ import (
 func TestNewFileCache(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  *CacheConfig
+		config  *Config
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: &CacheConfig{
+			config: &Config{
 				Path: t.TempDir(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing path",
-			config: &CacheConfig{
+			config: &Config{
 				MaxSize: 1000,
 			},
 			wantErr: true,
@@ -57,7 +57,7 @@ func TestNewFileCache(t *testing.T) {
 }
 
 func TestFileCache_PutGet(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour, // Don't run cleanup during test
 	})
@@ -70,7 +70,7 @@ func TestFileCache_PutGet(t *testing.T) {
 
 	// Test Put
 	content := []byte("Hello, Cache!")
-	entry := &CacheEntry{
+	entry := &Entry{
 		ContentType:   "text/plain",
 		SourceBackend: "test",
 		ETag:          "test-etag",
@@ -114,7 +114,7 @@ func TestFileCache_PutGet(t *testing.T) {
 }
 
 func TestFileCache_Exists(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -135,7 +135,7 @@ func TestFileCache_Exists(t *testing.T) {
 	}
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Test exists
 	exists, err = cache.Exists(ctx, "/test.txt")
@@ -148,7 +148,7 @@ func TestFileCache_Exists(t *testing.T) {
 }
 
 func TestFileCache_Delete(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -160,7 +160,7 @@ func TestFileCache_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Delete
 	err = cache.Delete(ctx, "/test.txt")
@@ -182,7 +182,7 @@ func TestFileCache_Delete(t *testing.T) {
 }
 
 func TestFileCache_GetEntry(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -203,7 +203,7 @@ func TestFileCache_GetEntry(t *testing.T) {
 	}
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{
 		ContentType: "text/plain",
 	})
 
@@ -213,7 +213,7 @@ func TestFileCache_GetEntry(t *testing.T) {
 		t.Fatalf("GetEntry failed: %v", err)
 	}
 	if entry == nil {
-		t.Error("expected entry, got nil")
+		t.Fatal("expected entry, got nil")
 	}
 	if entry.ContentType != "text/plain" {
 		t.Errorf("expected content type 'text/plain', got '%s'", entry.ContentType)
@@ -221,7 +221,7 @@ func TestFileCache_GetEntry(t *testing.T) {
 }
 
 func TestFileCache_Clear(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -233,8 +233,8 @@ func TestFileCache_Clear(t *testing.T) {
 	ctx := context.Background()
 
 	// Add files
-	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &CacheEntry{})
-	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
+	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &Entry{})
+	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &Entry{})
 
 	// Clear
 	err = cache.Clear(ctx)
@@ -251,7 +251,7 @@ func TestFileCache_Clear(t *testing.T) {
 }
 
 func TestFileCache_Stats(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -263,8 +263,8 @@ func TestFileCache_Stats(t *testing.T) {
 	ctx := context.Background()
 
 	// Add files
-	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &CacheEntry{})
-	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
+	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &Entry{})
+	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &Entry{})
 
 	// Get stats
 	stats, err := cache.Stats(ctx)
@@ -295,7 +295,7 @@ func TestFileCache_Stats(t *testing.T) {
 }
 
 func TestFileCache_Invalidate(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -307,9 +307,9 @@ func TestFileCache_Invalidate(t *testing.T) {
 	ctx := context.Background()
 
 	// Add files
-	cache.Put(ctx, "/configs/app.yaml", bytes.NewReader([]byte("test")), &CacheEntry{})
-	cache.Put(ctx, "/configs/db.yaml", bytes.NewReader([]byte("test")), &CacheEntry{})
-	cache.Put(ctx, "/scripts/run.sh", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/configs/app.yaml", bytes.NewReader([]byte("test")), &Entry{})
+	cache.Put(ctx, "/configs/db.yaml", bytes.NewReader([]byte("test")), &Entry{})
+	cache.Put(ctx, "/scripts/run.sh", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Invalidate by pattern
 	count, err := cache.Invalidate(ctx, "/configs/*")
@@ -332,7 +332,7 @@ func TestFileCache_Invalidate(t *testing.T) {
 }
 
 func TestFileCache_MaxAge(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		MaxAge:          50 * time.Millisecond,
 		CleanupInterval: time.Hour,
@@ -345,7 +345,7 @@ func TestFileCache_MaxAge(t *testing.T) {
 	ctx := context.Background()
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Should exist
 	exists, _ := cache.Exists(ctx, "/test.txt")
@@ -378,7 +378,7 @@ func TestFileCache_MaxAge(t *testing.T) {
 }
 
 func TestFileCache_MaxFiles(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		MaxFiles:        2,
 		EvictionPolicy:  EvictionFIFO,
@@ -392,21 +392,21 @@ func TestFileCache_MaxFiles(t *testing.T) {
 	ctx := context.Background()
 
 	// Add 3 files (exceeds limit)
-	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &CacheEntry{})
+	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &Entry{})
 	start := time.Now()
 	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
 		return time.Since(start) >= 10*time.Millisecond, nil
 	}); err != nil {
 		t.Fatalf("cache gap wait did not elapse: %v", err)
 	}
-	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
+	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &Entry{})
 	start = time.Now()
 	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
 		return time.Since(start) >= 10*time.Millisecond, nil
 	}); err != nil {
 		t.Fatalf("cache gap wait did not elapse: %v", err)
 	}
-	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &CacheEntry{})
+	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &Entry{})
 
 	// First file should be evicted (FIFO)
 	exists1, _ := cache.Exists(ctx, "/file1.txt")
@@ -420,7 +420,7 @@ func TestFileCache_MaxFiles(t *testing.T) {
 }
 
 func TestFileCache_MaxSize(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		MaxSize:         10, // 10 bytes
 		EvictionPolicy:  EvictionFIFO,
@@ -434,14 +434,14 @@ func TestFileCache_MaxSize(t *testing.T) {
 	ctx := context.Background()
 
 	// Add files (5 bytes each)
-	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("12345")), &CacheEntry{})
+	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("12345")), &Entry{})
 	start := time.Now()
 	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
 		return time.Since(start) >= 10*time.Millisecond, nil
 	}); err != nil {
 		t.Fatalf("cache gap wait did not elapse: %v", err)
 	}
-	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("67890")), &CacheEntry{})
+	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("67890")), &Entry{})
 	start = time.Now()
 	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
 		return time.Since(start) >= 10*time.Millisecond, nil
@@ -450,7 +450,7 @@ func TestFileCache_MaxSize(t *testing.T) {
 	}
 
 	// This should trigger eviction of file1
-	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("abcde")), &CacheEntry{})
+	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("abcde")), &Entry{})
 
 	// First file should be evicted
 	exists1, _ := cache.Exists(ctx, "/file1.txt")
@@ -464,7 +464,7 @@ func TestFileCache_MaxSize(t *testing.T) {
 }
 
 func TestFileCache_EvictionLRU(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		MaxFiles:        2,
 		EvictionPolicy:  EvictionLRU,
@@ -478,8 +478,8 @@ func TestFileCache_EvictionLRU(t *testing.T) {
 	ctx := context.Background()
 
 	// Add files
-	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &CacheEntry{})
-	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
+	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &Entry{})
+	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &Entry{})
 
 	// Access file1 to make it recently used
 	start := time.Now()
@@ -497,7 +497,7 @@ func TestFileCache_EvictionLRU(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("access gap wait did not elapse: %v", err)
 	}
-	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &CacheEntry{})
+	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &Entry{})
 
 	// File2 should be evicted, file1 should remain
 	exists1, _ := cache.Exists(ctx, "/file1.txt")
@@ -511,7 +511,7 @@ func TestFileCache_EvictionLRU(t *testing.T) {
 }
 
 func TestFileCache_FilePath(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -546,7 +546,7 @@ func TestFileCache_FilePath(t *testing.T) {
 }
 
 func TestFileCache_CacheMiss(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		CleanupInterval: time.Hour,
 	})
@@ -574,7 +574,7 @@ func TestFileCache_CacheMiss(t *testing.T) {
 }
 
 func TestFileCache_Cleanup(t *testing.T) {
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            t.TempDir(),
 		MaxAge:          50 * time.Millisecond,
 		CleanupInterval: time.Hour,
@@ -587,7 +587,7 @@ func TestFileCache_Cleanup(t *testing.T) {
 	ctx := context.Background()
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Wait for expiry
 	start := time.Now()
@@ -612,7 +612,7 @@ func TestFileCache_Cleanup(t *testing.T) {
 
 func TestFileCache_OrphanedEntry(t *testing.T) {
 	tempDir := t.TempDir()
-	cache, err := NewFileCache(&CacheConfig{
+	cache, err := NewFileCache(&Config{
 		Path:            tempDir,
 		CleanupInterval: time.Hour,
 	})
@@ -624,7 +624,7 @@ func TestFileCache_OrphanedEntry(t *testing.T) {
 	ctx := context.Background()
 
 	// Add file
-	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
+	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &Entry{})
 
 	// Get the file path and delete it directly (simulating corruption)
 	filePath := cache.filePath("/test.txt")

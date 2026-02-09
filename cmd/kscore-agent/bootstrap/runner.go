@@ -11,6 +11,7 @@ import (
 // PhaseName identifies a bootstrap phase.
 type PhaseName string
 
+// PhaseName constants define the bootstrap phases.
 const (
 	PhaseDetect     PhaseName = "detect"
 	PhaseConfigure  PhaseName = "configure"
@@ -48,7 +49,7 @@ type State struct {
 	Mode             DeploymentMode
 	Config           DeploymentConfig
 	System           *SystemInfo
-	BootstrapConfig  *BootstrapConfig
+	BootstrapConfig  *Config
 	InstallArtifacts *InstallArtifacts
 }
 
@@ -60,7 +61,7 @@ type Runner struct {
 	verbose         bool
 	jsonOutput      bool
 	mode            DeploymentMode
-	bootstrapConfig *BootstrapConfig
+	bootstrapConfig *Config
 }
 
 // NewRunner returns a runner with default phases.
@@ -104,7 +105,7 @@ func (r *Runner) SetMode(mode DeploymentMode) {
 }
 
 // SetBootstrapConfig sets the bootstrap configuration for validation.
-func (r *Runner) SetBootstrapConfig(cfg *BootstrapConfig) {
+func (r *Runner) SetBootstrapConfig(cfg *Config) {
 	r.bootstrapConfig = cfg
 }
 
@@ -191,15 +192,6 @@ func (r *Runner) rollback(ctx context.Context, state *State, completed []Phase) 
 		if err := phase.Rollback(ctx, state); err != nil {
 			fmt.Fprintf(state.Output, "rollback %s failed: %v\n", phase.Name, err)
 		}
-	}
-}
-
-func noopPhase(name string) PhaseFunc {
-	return func(ctx context.Context, state *State) error {
-		if state.DryRun || state.Verbose {
-			fmt.Fprintf(state.Output, "phase %s: not implemented yet\n", name)
-		}
-		return nil
 	}
 }
 

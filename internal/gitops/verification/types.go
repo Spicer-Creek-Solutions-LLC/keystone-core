@@ -1,40 +1,42 @@
+// Package verification provides deployment verification through HTTP, gRPC,
+// Kubernetes, Prometheus, and custom health checks.
 package verification
 
 import "time"
 
-// VerificationType represents the type of verification to perform
-type VerificationType string
+// Type represents the type of verification to perform
+type Type string
 
 const (
-	// VerificationTypeHTTP performs HTTP health checks
-	VerificationTypeHTTP VerificationType = "http_check"
+	// TypeHTTP performs HTTP health checks
+	TypeHTTP Type = "http_check"
 
-	// VerificationTypeGRPC performs gRPC health checks
-	VerificationTypeGRPC VerificationType = "grpc_check"
+	// TypeGRPC performs gRPC health checks
+	TypeGRPC Type = "grpc_check"
 
-	// VerificationTypeK8s checks Kubernetes resources
-	VerificationTypeK8s VerificationType = "k8s_check"
+	// TypeK8s checks Kubernetes resources
+	TypeK8s Type = "k8s_check"
 
-	// VerificationTypePrometheus queries Prometheus metrics
-	VerificationTypePrometheus VerificationType = "prometheus_query"
+	// TypePrometheus queries Prometheus metrics
+	TypePrometheus Type = "prometheus_query"
 
-	// VerificationTypeLogs analyzes logs
-	VerificationTypeLogs VerificationType = "logs_check"
+	// TypeLogs analyzes logs
+	TypeLogs Type = "logs_check"
 
-	// VerificationTypeCommand executes a command
-	VerificationTypeCommand VerificationType = "command"
+	// TypeCommand executes a command
+	TypeCommand Type = "command"
 
-	// VerificationTypeScript executes a custom script
-	VerificationTypeScript VerificationType = "script"
+	// TypeScript executes a custom script
+	TypeScript Type = "script"
 )
 
-// VerificationStep represents a single verification step
-type VerificationStep struct {
+// Step represents a single verification step
+type Step struct {
 	// Name of the step
 	Name string `json:"name"`
 
 	// Type of verification
-	Type VerificationType `json:"type"`
+	Type Type `json:"type"`
 
 	// Timeout for this step
 	Timeout time.Duration `json:"timeout,omitempty"`
@@ -52,8 +54,8 @@ type VerificationStep struct {
 	ContinueOnFailure bool `json:"continue_on_failure,omitempty"`
 }
 
-// VerificationWorkflow represents a complete verification workflow
-type VerificationWorkflow struct {
+// Workflow represents a complete verification workflow
+type Workflow struct {
 	// Name of the workflow
 	Name string `json:"name"`
 
@@ -61,7 +63,7 @@ type VerificationWorkflow struct {
 	Description string `json:"description,omitempty"`
 
 	// Steps to execute
-	Steps []*VerificationStep `json:"steps"`
+	Steps []*Step `json:"steps"`
 
 	// Parallel indicates if steps should run in parallel
 	Parallel bool `json:"parallel,omitempty"`
@@ -73,8 +75,8 @@ type VerificationWorkflow struct {
 	OnFailure []string `json:"on_failure,omitempty"`
 }
 
-// VerificationResult represents the result of a verification step
-type VerificationResult struct {
+// Result represents the result of a verification step
+type Result struct {
 	// StepName is the name of the step
 	StepName string `json:"step_name"`
 
@@ -109,7 +111,7 @@ type WorkflowResult struct {
 	Success bool `json:"success"`
 
 	// Steps contains individual step results
-	Steps []*VerificationResult `json:"steps"`
+	Steps []*Result `json:"steps"`
 
 	// Duration of entire workflow
 	Duration time.Duration `json:"duration"`
@@ -121,17 +123,17 @@ type WorkflowResult struct {
 	EndTime time.Time `json:"end_time"`
 
 	// Summary statistics
-	TotalSteps    int `json:"total_steps"`
-	PassedSteps   int `json:"passed_steps"`
-	FailedSteps   int `json:"failed_steps"`
-	SkippedSteps  int `json:"skipped_steps"`
+	TotalSteps   int `json:"total_steps"`
+	PassedSteps  int `json:"passed_steps"`
+	FailedSteps  int `json:"failed_steps"`
+	SkippedSteps int `json:"skipped_steps"`
 }
 
 // Verifier is the interface for verification modules
 type Verifier interface {
 	// Type returns the verification type this verifier handles
-	Type() VerificationType
+	Type() Type
 
 	// Verify executes the verification
-	Verify(step *VerificationStep) (*VerificationResult, error)
+	Verify(step *Step) (*Result, error)
 }

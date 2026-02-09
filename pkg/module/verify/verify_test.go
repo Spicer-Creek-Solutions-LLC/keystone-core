@@ -174,9 +174,9 @@ func TestModuleVerifier_Basic(t *testing.T) {
 
 	// Create verifier
 	opts := DefaultVerificationOptions()
-	opts.RequireSignature = false  // Skip signature for this test
-	opts.RequireSumDB = false      // Skip SumDB for this test
-	opts.RequireHashMatch = false  // Skip hash matching since we don't provide expected hash
+	opts.RequireSignature = false // Skip signature for this test
+	opts.RequireSumDB = false     // Skip SumDB for this test
+	opts.RequireHashMatch = false // Skip hash matching since we don't provide expected hash
 
 	verifier := NewModuleVerifier(opts)
 

@@ -418,7 +418,7 @@ func newMirrorsListCmd() *cobra.Command {
 				WritePolicy  string `json:"write_policy"`
 			}
 
-			var infos []GroupInfo
+			infos := make([]GroupInfo, 0, len(groups))
 			for _, g := range groups {
 				infos = append(infos, GroupInfo{
 					ID:           g.ID(),
@@ -543,8 +543,8 @@ func newMirrorsHealthCmd() *cobra.Command {
 				Latency  string `json:"latency"`
 			}
 
-			var entries []HealthEntry
 			allHealth := registry.GetAllHealth()
+			entries := make([]HealthEntry, 0, len(allHealth)*2) // Estimate 2 mirrors per group
 			for groupID, groupHealth := range allHealth {
 				for mirrorID, health := range groupHealth {
 					entries = append(entries, HealthEntry{

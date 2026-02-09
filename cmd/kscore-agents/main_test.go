@@ -208,17 +208,17 @@ func TestConfigStructure(t *testing.T) {
 
 func TestAgentDisplayStructure(t *testing.T) {
 	agent := AgentDisplay{
-		ID:           "test-001",
-		Hostname:     "test.example.com",
-		OS:           "linux",
-		Arch:         "amd64",
-		Status:       "online",
-		Version:      "1.0.0",
+		ID:            "test-001",
+		Hostname:      "test.example.com",
+		OS:            "linux",
+		Arch:          "amd64",
+		Status:        "online",
+		Version:       "1.0.0",
 		LastHeartbeat: time.Now().Format(time.RFC3339),
-		RegisteredAt: time.Now().Format(time.RFC3339),
-		Labels:       map[string]string{"env": "test"},
-		IPAddresses:  []string{"10.0.0.1"},
-		DualStack:    false,
+		RegisteredAt:  time.Now().Format(time.RFC3339),
+		Labels:        map[string]string{"env": "test"},
+		IPAddresses:   []string{"10.0.0.1"},
+		DualStack:     false,
 	}
 
 	if agent.ID != "test-001" {
@@ -336,7 +336,7 @@ func TestGenerateRandomToken(t *testing.T) {
 
 	// Token should only contain alphanumeric characters
 	for _, c := range token {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 			t.Errorf("token contains invalid character: %c", c)
 		}
 	}

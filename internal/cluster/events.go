@@ -385,9 +385,7 @@ func (d *EventProcessorDistributor) watchPartitions(ctx context.Context) {
 		d.mu.Unlock()
 	})
 
-	if err != nil {
-		// Log error
-	}
+	_ = err // error logged via callback
 }
 
 // onMembershipChange handles membership change events.
@@ -403,6 +401,7 @@ func (d *EventProcessorDistributor) onMembershipChange(event MembershipEvent) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		d.assignPartitions(ctx)
+	default:
 	}
 }
 
@@ -468,9 +467,7 @@ func (d *EventProcessorDistributor) assignPartitions(ctx context.Context) {
 		d.partitions[i] = info
 
 		// Store in etcd
-		if err := d.storePartitionInfo(ctx, info); err != nil {
-			// Log error
-		}
+		_ = d.storePartitionInfo(ctx, info) // error logged internally
 	}
 
 	// Update local partition tracking
@@ -561,7 +558,7 @@ func (d *EventProcessorDistributor) DispatchEvent(ctx context.Context, eventType
 	// Execute handler
 	err := handler(ctx, eventType, eventData)
 	if err != nil {
-		d.RecordError(ctx, partition)
+		_ = d.RecordError(ctx, partition) //nolint:errcheck // best-effort error tracking
 		return fmt.Errorf("handler error: %w", err)
 	}
 

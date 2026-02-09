@@ -250,7 +250,7 @@ func TestLeafConnection_LastError(t *testing.T) {
 	testErr := errors.New("connection failed")
 	conn.lastError.Store(testErr)
 
-	if conn.LastError() != testErr {
+	if !errors.Is(conn.LastError(), testErr) {
 		t.Errorf("LastError() = %v, want %v", conn.LastError(), testErr)
 	}
 }
@@ -1154,6 +1154,7 @@ func TestLeafNodeManager_StateChangeCallback(t *testing.T) {
 			foundConnected = true
 		case LeafConnectionStateDisconnected:
 			foundDisconnected = true
+		default:
 		}
 	}
 

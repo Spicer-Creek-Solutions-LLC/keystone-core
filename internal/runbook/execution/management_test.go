@@ -9,19 +9,19 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
 
-func TestExecutionManager_Track(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_Track(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	managed := manager.Track(execCtx)
 
 	if managed == nil {
@@ -56,19 +56,19 @@ func TestExecutionManager_Track(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_PauseResume(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_PauseResume(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	managed := manager.Track(execCtx)
 
@@ -118,15 +118,15 @@ func TestExecutionManager_PauseResume(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_PauseTerminal(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_PauseTerminal(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	_ = execCtx.Complete(context.Background())
 	manager.Track(execCtx)
@@ -138,15 +138,15 @@ func TestExecutionManager_PauseTerminal(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_WaitIfPaused(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_WaitIfPaused(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	manager.Track(execCtx)
 
@@ -178,15 +178,15 @@ func TestExecutionManager_WaitIfPaused(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_WaitIfPaused_Cancelled(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_WaitIfPaused_Cancelled(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	manager.Track(execCtx)
 
@@ -203,12 +203,12 @@ func TestExecutionManager_WaitIfPaused_Cancelled(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_SkipStep(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_SkipStep(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 				{Name: "step2", Type: "noop"},
@@ -216,7 +216,7 @@ func TestExecutionManager_SkipStep(t *testing.T) {
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	managed := manager.Track(execCtx)
 
@@ -245,19 +245,19 @@ func TestExecutionManager_SkipStep(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_RetryStep(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_RetryStep(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	managed := manager.Track(execCtx)
 
@@ -284,19 +284,19 @@ func TestExecutionManager_RetryStep(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_RetryStep_NotFailed(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_RetryStep_NotFailed(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	manager.Track(execCtx)
 
 	// Try to retry pending step
@@ -306,15 +306,15 @@ func TestExecutionManager_RetryStep_NotFailed(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_Cancel(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_Cancel(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	execCtx.SetCancel(cancel)
 	_ = execCtx.Start(ctx)
@@ -335,8 +335,8 @@ func TestExecutionManager_Cancel(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_CancelWithRollback(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_CancelWithRollback(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rollbackCalled := false
 	manager.RegisterRollbackHandler("test", RollbackFunc(func(ctx context.Context, step *runbook.Step, stepExec *runbook.StepExecution) error {
@@ -346,14 +346,14 @@ func TestExecutionManager_CancelWithRollback(t *testing.T) {
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "test"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	execCtx.SetCancel(cancel)
 	_ = execCtx.Start(ctx)
@@ -375,12 +375,12 @@ func TestExecutionManager_CancelWithRollback(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_Clone(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_Clone(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook", Version: "1.0"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
@@ -392,7 +392,7 @@ func TestExecutionManager_Clone(t *testing.T) {
 		"param2": 42,
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, inputs)
+	execCtx := NewContext("exec-1", rb, inputs)
 	managed := manager.Track(execCtx)
 
 	// Clone
@@ -429,8 +429,8 @@ func TestExecutionManager_Clone(t *testing.T) {
 	}
 }
 
-func TestExecutionManager_NotFound(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+func TestManager_NotFound(t *testing.T) {
+	manager := NewManager(nil, nil)
 
 	// All operations should return errors for non-existent execution
 	err := manager.Pause("nonexistent")
@@ -460,14 +460,14 @@ func TestExecutionManager_NotFound(t *testing.T) {
 }
 
 func TestManagedExecution_AddRollbackFn(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	execCtx.SetCancel(cancel)
 	_ = execCtx.Start(ctx)
@@ -494,18 +494,18 @@ func TestManagedExecution_AddRollbackFn(t *testing.T) {
 }
 
 func TestManagedExecution_ToManagedExecutionInfo(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: "noop"},
 			},
 		},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, map[string]interface{}{"key": "value"})
+	execCtx := NewContext("exec-1", rb, map[string]interface{}{"key": "value"})
 	_ = execCtx.Start(context.Background())
 	managed := manager.Track(execCtx)
 
@@ -531,14 +531,14 @@ func TestManagedExecution_ToManagedExecutionInfo(t *testing.T) {
 }
 
 func TestPauseCheckpoint(t *testing.T) {
-	manager := NewExecutionManager(nil, nil)
+	manager := NewManager(nil, nil)
 
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{Name: "test-runbook"},
-		Spec:     runbook.RunbookSpec{},
+		Spec:     runbook.Spec{},
 	}
 
-	execCtx := NewExecutionContext("exec-1", rb, nil)
+	execCtx := NewContext("exec-1", rb, nil)
 	_ = execCtx.Start(context.Background())
 	manager.Track(execCtx)
 

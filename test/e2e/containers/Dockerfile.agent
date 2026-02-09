@@ -31,14 +31,14 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata bash coreutils && \
     addgroup -g 1000 kscore && \
     adduser -u 1000 -G kscore -D kscore && \
-    mkdir -p /var/lib/kscore /etc/kscore && \
-    chown -R kscore:kscore /var/lib/kscore /etc/kscore
+    mkdir -p /var/lib/keystone-core /etc/keystone-core && \
+    chown -R kscore:kscore /var/lib/keystone-core /etc/keystone-core
 
 # Copy binary from builder
 COPY --from=builder /kscore-agent /usr/local/bin/kscore-agent
 
 # Copy default configuration
-COPY --chown=kscore:kscore test/e2e/containers/config/agent.yaml /etc/kscore/agent.yaml
+COPY --chown=kscore:kscore test/e2e/containers/config/agent.yaml /etc/keystone-core/agent.yaml
 
 USER kscore
 
@@ -47,4 +47,4 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
     CMD pgrep kscore-agent || exit 1
 
 ENTRYPOINT ["/usr/local/bin/kscore-agent"]
-CMD ["--config", "/etc/kscore/agent.yaml"]
+CMD ["--config", "/etc/keystone-core/agent.yaml"]

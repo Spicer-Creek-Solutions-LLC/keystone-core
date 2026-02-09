@@ -513,12 +513,12 @@ func TestParseFilterExpression_Errors(t *testing.T) {
 		expr        string
 		shouldError bool
 	}{
-		{"", true},                    // Empty expression
-		{"   ", true},                 // Whitespace only
-		{"type", true},                // Incomplete expression
-		{"type ==", true},             // Missing value
-		{"== value", true},            // Missing field
-		{"type unknown value", true},  // Invalid operator
+		{"", true},                   // Empty expression
+		{"   ", true},                // Whitespace only
+		{"type", true},               // Incomplete expression
+		{"type ==", true},            // Missing value
+		{"== value", true},           // Missing field
+		{"type unknown value", true}, // Invalid operator
 	}
 
 	for _, tt := range tests {
@@ -945,9 +945,9 @@ func TestFilterExpression_NestedDataFields(t *testing.T) {
 		Source: "/test",
 		Data: map[string]interface{}{
 			"results": map[string]interface{}{
-				"success":    true,
-				"exitCode":   0,
-				"outputs":    []interface{}{"line1", "line2"},
+				"success":  true,
+				"exitCode": 0,
+				"outputs":  []interface{}{"line1", "line2"},
 				"nested": map[string]interface{}{
 					"deep": "value",
 				},

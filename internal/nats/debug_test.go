@@ -264,7 +264,7 @@ func TestDiagnosticCLI_StatusCommand(t *testing.T) {
 	debugger := NewConnectionDebugger(debugConfig)
 
 	obsConfig := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(obsConfig)
+	collector := NewMetricsCollector(obsConfig)
 
 	// Record some events
 	debugger.RecordEvent(ConnectionEvent{
@@ -289,7 +289,7 @@ func TestDiagnosticCLI_DiagnoseCommand(t *testing.T) {
 	debugger := NewConnectionDebugger(debugConfig)
 
 	obsConfig := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(obsConfig)
+	collector := NewMetricsCollector(obsConfig)
 
 	cli := NewDiagnosticCLI(debugger, collector)
 	output := cli.DiagnoseCommand()
@@ -305,7 +305,7 @@ func TestDiagnosticCLI_TraceCommand(t *testing.T) {
 	debugger := NewConnectionDebugger(debugConfig)
 
 	obsConfig := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(obsConfig)
+	collector := NewMetricsCollector(obsConfig)
 
 	// Create a trace
 	debugger.StartTrace("trace-123", "msg-456", "cmd.execute", "agent-1", 1024)
@@ -329,7 +329,7 @@ func TestDiagnosticCLI_EventsCommand(t *testing.T) {
 	debugger := NewConnectionDebugger(debugConfig)
 
 	obsConfig := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(obsConfig)
+	collector := NewMetricsCollector(obsConfig)
 
 	endpoint := "nats://localhost:4222"
 	debugger.RecordEvent(ConnectionEvent{

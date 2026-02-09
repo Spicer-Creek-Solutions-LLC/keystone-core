@@ -44,6 +44,7 @@ func (p MessagePriority) String() string {
 // MessageType identifies the type of message being sent
 type MessageType string
 
+// MessageTypeAgentHeartbeat constants define the supported types.
 const (
 	// Agent message types
 	MessageTypeAgentRegister  MessageType = "agent.register"
@@ -292,9 +293,9 @@ func FromNATSMsg(msg *nats.Msg) (*Envelope, error) {
 
 // DeduplicationTracker tracks message IDs for deduplication
 type DeduplicationTracker struct {
-	seen     map[string]time.Time
-	window   time.Duration
-	maxSize  int
+	seen    map[string]time.Time
+	window  time.Duration
+	maxSize int
 }
 
 // NewDeduplicationTracker creates a new deduplication tracker

@@ -69,8 +69,8 @@ func (m *mockEventSubscriber) Close() error {
 
 func (m *mockEventSubscriber) SimulateEvent(event *Event) error {
 	m.mu.Lock()
-	handlers := make([]EventHandler, 0)
 	subject := "events." + string(event.Type)
+	handlers := make([]EventHandler, 0, len(m.handlers[subject])+len(m.handlers["events.security.*"]))
 	handlers = append(handlers, m.handlers[subject]...)
 	// Also check wildcard
 	handlers = append(handlers, m.handlers["events.security.*"]...)
@@ -84,29 +84,11 @@ func (m *mockEventSubscriber) SimulateEvent(event *Event) error {
 	return nil
 }
 
-func createTestAuditor(t *testing.T) (*audit.Auditor, *mockAuditLogger) {
-	t.Helper()
-
-	logger := &mockAuditLogger{}
-	config := audit.DefaultAuditConfig()
-	config.Level = audit.AuditLevelAll
-	config.Backend = "none" // We'll inject our mock
-
-	auditor, err := audit.NewAuditor("test-tool", config)
-	if err != nil {
-		t.Fatalf("Failed to create auditor: %v", err)
-	}
-
-	// Replace backend with mock (this is a simplified test approach)
-	// In real tests we'd use dependency injection
-	return auditor, logger
-}
-
 func TestNewEventAuditBridge(t *testing.T) {
 	mockLogger := &mockAuditLogger{}
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, err := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -144,7 +126,7 @@ func TestEventAuditBridge_MissingAuditor(t *testing.T) {
 func TestEventAuditBridge_MissingSubscriber(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 
 	_, err := NewEventAuditBridge(&EventAuditBridgeConfig{
 		Auditor: auditor,
@@ -157,7 +139,7 @@ func TestEventAuditBridge_MissingSubscriber(t *testing.T) {
 func TestEventAuditBridge_CustomMappings(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	customEvent := EventType("custom.security.event")
@@ -187,7 +169,7 @@ func TestEventAuditBridge_CustomMappings(t *testing.T) {
 func TestEventAuditBridge_Start(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -212,7 +194,7 @@ func TestEventAuditBridge_Start(t *testing.T) {
 func TestEventAuditBridge_StartTwice(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -230,7 +212,7 @@ func TestEventAuditBridge_StartTwice(t *testing.T) {
 func TestEventAuditBridge_Stop(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -253,7 +235,7 @@ func TestEventAuditBridge_Stop(t *testing.T) {
 func TestEventAuditBridge_HandleEvent(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -281,7 +263,7 @@ func TestEventAuditBridge_HandleEvent(t *testing.T) {
 func TestEventAuditBridge_SeverityFiltering(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -313,7 +295,7 @@ func TestEventAuditBridge_SeverityFiltering(t *testing.T) {
 func TestEventAuditBridge_AlwaysAudit(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -339,7 +321,7 @@ func TestEventAuditBridge_AlwaysAudit(t *testing.T) {
 func TestEventAuditBridge_CategoryFiltering(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -365,7 +347,7 @@ func TestEventAuditBridge_CategoryFiltering(t *testing.T) {
 func TestEventAuditBridge_ExcludeTypes(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -390,7 +372,7 @@ func TestEventAuditBridge_ExcludeTypes(t *testing.T) {
 func TestEventAuditBridge_AddRemoveMapping(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -422,7 +404,7 @@ func TestEventAuditBridge_AddRemoveMapping(t *testing.T) {
 func TestEventAuditBridge_GetStats(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -480,7 +462,7 @@ func TestSeverityRank(t *testing.T) {
 func TestEventToAuditEntry(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -529,7 +511,7 @@ func TestEventToAuditEntry(t *testing.T) {
 func TestSeverityToResult(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{
@@ -582,7 +564,7 @@ func TestDefaultSecurityMappings(t *testing.T) {
 func TestEventAuditBridgeIntegration(t *testing.T) {
 	config := audit.DefaultAuditConfig()
 	config.Backend = "none"
-	auditor, _ := audit.NewAuditor("test", config)
+	auditor, _ := audit.NewAuditor(context.Background(), "test", config)
 	subscriber := newMockEventSubscriber()
 
 	bridge, _ := NewEventAuditBridge(&EventAuditBridgeConfig{

@@ -271,13 +271,14 @@ func (m *Manager) checkBackend(ctx context.Context, health *BackendHealth) {
 		health.SuccessCount++
 
 		// Check recovery threshold
-		if health.Status == StatusUnhealthy {
+		switch health.Status {
+		case StatusUnhealthy:
 			health.ConsecutiveFailures = 0
 			health.Status = StatusDegraded
-		} else if health.Status == StatusDegraded {
+		case StatusDegraded:
 			health.ConsecutiveFailures = 0
 			health.Status = StatusHealthy
-		} else {
+		default:
 			health.ConsecutiveFailures = 0
 		}
 
@@ -312,22 +313,6 @@ func (m *Manager) selectPrimary() {
 	}
 
 	// No healthy backends - keep current primary
-}
-
-// getPrimaryBackend returns the current primary backend
-func (m *Manager) getPrimaryBackend() (*BackendHealth, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if len(m.backends) == 0 {
-		return nil, errors.New("no backends configured")
-	}
-
-	if m.primary >= len(m.backends) {
-		m.primary = 0
-	}
-
-	return m.backends[m.primary], nil
 }
 
 // getHealthyBackends returns all healthy backends
@@ -597,6 +582,8 @@ func (m *Manager) processQueuedOperation(ctx context.Context, op *QueuedOperatio
 		}
 	case OpDelete:
 		err = backends[0].Backend.Delete(ctx, op.Key)
+	default:
+		// OpGet is handled elsewhere
 	}
 
 	if err != nil {
@@ -801,11 +788,11 @@ func (s *Stats) RecordQueueExpired() {
 }
 
 // Snapshot returns a copy of current stats
-func (s *Stats) Snapshot() Stats {
+func (s *Stats) Snapshot() *Stats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot := Stats{
+	snapshot := &Stats{
 		TotalOperations:  s.TotalOperations,
 		SuccessfulOps:    s.SuccessfulOps,
 		FailedOps:        s.FailedOps,

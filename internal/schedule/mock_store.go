@@ -9,7 +9,7 @@ import (
 // MockStore is an in-memory implementation of Store for testing.
 type MockStore struct {
 	schedules          map[string]*Schedule
-	executions         map[string]*ScheduleExecution
+	executions         map[string]*Execution
 	maintenanceWindows map[string]*MaintenanceWindow
 	locks              map[string]*LockInfo
 	mu                 sync.RWMutex
@@ -20,7 +20,7 @@ type MockStore struct {
 func NewMockStore() *MockStore {
 	return &MockStore{
 		schedules:          make(map[string]*Schedule),
-		executions:         make(map[string]*ScheduleExecution),
+		executions:         make(map[string]*Execution),
 		maintenanceWindows: make(map[string]*MaintenanceWindow),
 		locks:              make(map[string]*LockInfo),
 	}
@@ -35,6 +35,7 @@ func (s *MockStore) checkState() error {
 
 // Schedule operations
 
+// CreateSchedule creates a new schedule.
 func (s *MockStore) CreateSchedule(ctx context.Context, schedule *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -48,11 +49,12 @@ func (s *MockStore) CreateSchedule(ctx context.Context, schedule *Schedule) erro
 	}
 
 	// Deep copy
-	copy := *schedule
-	s.schedules[schedule.ID] = &copy
+	copied := *schedule
+	s.schedules[schedule.ID] = &copied
 	return nil
 }
 
+// GetSchedule retrieves a schedule by ID.
 func (s *MockStore) GetSchedule(ctx context.Context, id string) (*Schedule, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -67,10 +69,11 @@ func (s *MockStore) GetSchedule(ctx context.Context, id string) (*Schedule, erro
 	}
 
 	// Return a copy
-	copy := *schedule
-	return &copy, nil
+	copied := *schedule
+	return &copied, nil
 }
 
+// UpdateSchedule updates an existing schedule.
 func (s *MockStore) UpdateSchedule(ctx context.Context, schedule *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -83,11 +86,12 @@ func (s *MockStore) UpdateSchedule(ctx context.Context, schedule *Schedule) erro
 		return ErrScheduleNotFound
 	}
 
-	copy := *schedule
-	s.schedules[schedule.ID] = &copy
+	copied := *schedule
+	s.schedules[schedule.ID] = &copied
 	return nil
 }
 
+// DeleteSchedule deletes a schedule.
 func (s *MockStore) DeleteSchedule(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -104,7 +108,8 @@ func (s *MockStore) DeleteSchedule(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *MockStore) ListSchedules(ctx context.Context, filter *ScheduleFilter) ([]*Schedule, error) {
+// ListSchedules lists schedules matching the given filter.
+func (s *MockStore) ListSchedules(ctx context.Context, filter *Filter) ([]*Schedule, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -117,14 +122,14 @@ func (s *MockStore) ListSchedules(ctx context.Context, filter *ScheduleFilter) (
 		if filter != nil && !s.matchesScheduleFilter(schedule, filter) {
 			continue
 		}
-		copy := *schedule
-		result = append(result, &copy)
+		copied := *schedule
+		result = append(result, &copied)
 	}
 
 	return result, nil
 }
 
-func (s *MockStore) matchesScheduleFilter(schedule *Schedule, filter *ScheduleFilter) bool {
+func (s *MockStore) matchesScheduleFilter(schedule *Schedule, filter *Filter) bool {
 	if len(filter.Status) > 0 {
 		matched := false
 		for _, status := range filter.Status {
@@ -154,14 +159,16 @@ func (s *MockStore) matchesScheduleFilter(schedule *Schedule, filter *ScheduleFi
 	return true
 }
 
-func (s *MockStore) WatchSchedules(ctx context.Context, handler ScheduleWatchHandler) error {
+// WatchSchedules watches for schedule changes.
+func (s *MockStore) WatchSchedules(ctx context.Context, handler WatchHandler) error {
 	// Mock implementation - just return nil
 	return nil
 }
 
 // Execution operations
 
-func (s *MockStore) CreateExecution(ctx context.Context, execution *ScheduleExecution) error {
+// CreateExecution creates a new execution record.
+func (s *MockStore) CreateExecution(ctx context.Context, execution *Execution) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -169,12 +176,13 @@ func (s *MockStore) CreateExecution(ctx context.Context, execution *ScheduleExec
 		return err
 	}
 
-	copy := *execution
-	s.executions[execution.ID] = &copy
+	copied := *execution
+	s.executions[execution.ID] = &copied
 	return nil
 }
 
-func (s *MockStore) GetExecution(ctx context.Context, id string) (*ScheduleExecution, error) {
+// GetExecution retrieves an execution by ID.
+func (s *MockStore) GetExecution(ctx context.Context, id string) (*Execution, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -187,11 +195,12 @@ func (s *MockStore) GetExecution(ctx context.Context, id string) (*ScheduleExecu
 		return nil, ErrExecutionNotFound
 	}
 
-	copy := *execution
-	return &copy, nil
+	copied := *execution
+	return &copied, nil
 }
 
-func (s *MockStore) UpdateExecution(ctx context.Context, execution *ScheduleExecution) error {
+// UpdateExecution updates an execution record.
+func (s *MockStore) UpdateExecution(ctx context.Context, execution *Execution) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -203,12 +212,13 @@ func (s *MockStore) UpdateExecution(ctx context.Context, execution *ScheduleExec
 		return ErrExecutionNotFound
 	}
 
-	copy := *execution
-	s.executions[execution.ID] = &copy
+	copied := *execution
+	s.executions[execution.ID] = &copied
 	return nil
 }
 
-func (s *MockStore) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*ScheduleExecution, error) {
+// ListExecutions lists executions matching the given filter.
+func (s *MockStore) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*Execution, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -216,7 +226,7 @@ func (s *MockStore) ListExecutions(ctx context.Context, filter *ExecutionFilter)
 		return nil, err
 	}
 
-	result := make([]*ScheduleExecution, 0, len(s.executions))
+	result := make([]*Execution, 0, len(s.executions))
 	for _, execution := range s.executions {
 		if filter != nil {
 			if filter.ScheduleID != "" && execution.ScheduleID != filter.ScheduleID {
@@ -235,13 +245,14 @@ func (s *MockStore) ListExecutions(ctx context.Context, filter *ExecutionFilter)
 				}
 			}
 		}
-		copy := *execution
-		result = append(result, &copy)
+		copied := *execution
+		result = append(result, &copied)
 	}
 
 	return result, nil
 }
 
+// DeleteOldExecutions deletes executions older than the retention period.
 func (s *MockStore) DeleteOldExecutions(ctx context.Context, scheduleID string, keepCount int) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -251,7 +262,7 @@ func (s *MockStore) DeleteOldExecutions(ctx context.Context, scheduleID string, 
 	}
 
 	// Count executions for this schedule
-	var executions []*ScheduleExecution
+	var executions []*Execution
 	for _, e := range s.executions {
 		if e.ScheduleID == scheduleID {
 			executions = append(executions, e)
@@ -278,6 +289,7 @@ func (s *MockStore) DeleteOldExecutions(ctx context.Context, scheduleID string, 
 
 // Maintenance window operations
 
+// CreateMaintenanceWindow creates a new maintenance window.
 func (s *MockStore) CreateMaintenanceWindow(ctx context.Context, window *MaintenanceWindow) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -290,11 +302,12 @@ func (s *MockStore) CreateMaintenanceWindow(ctx context.Context, window *Mainten
 		return ErrMaintenanceWindowExists
 	}
 
-	copy := *window
-	s.maintenanceWindows[window.ID] = &copy
+	copied := *window
+	s.maintenanceWindows[window.ID] = &copied
 	return nil
 }
 
+// GetMaintenanceWindow retrieves a maintenance window by ID.
 func (s *MockStore) GetMaintenanceWindow(ctx context.Context, id string) (*MaintenanceWindow, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -308,10 +321,11 @@ func (s *MockStore) GetMaintenanceWindow(ctx context.Context, id string) (*Maint
 		return nil, ErrMaintenanceWindowNotFound
 	}
 
-	copy := *window
-	return &copy, nil
+	copied := *window
+	return &copied, nil
 }
 
+// UpdateMaintenanceWindow updates a maintenance window.
 func (s *MockStore) UpdateMaintenanceWindow(ctx context.Context, window *MaintenanceWindow) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -324,11 +338,12 @@ func (s *MockStore) UpdateMaintenanceWindow(ctx context.Context, window *Mainten
 		return ErrMaintenanceWindowNotFound
 	}
 
-	copy := *window
-	s.maintenanceWindows[window.ID] = &copy
+	copied := *window
+	s.maintenanceWindows[window.ID] = &copied
 	return nil
 }
 
+// DeleteMaintenanceWindow deletes a maintenance window.
 func (s *MockStore) DeleteMaintenanceWindow(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -345,6 +360,7 @@ func (s *MockStore) DeleteMaintenanceWindow(ctx context.Context, id string) erro
 	return nil
 }
 
+// ListMaintenanceWindows lists maintenance windows matching the given filter.
 func (s *MockStore) ListMaintenanceWindows(ctx context.Context, filter *MaintenanceWindowFilter) ([]*MaintenanceWindow, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -358,8 +374,8 @@ func (s *MockStore) ListMaintenanceWindows(ctx context.Context, filter *Maintena
 		if filter != nil && !s.matchesWindowFilter(window, filter) {
 			continue
 		}
-		copy := *window
-		result = append(result, &copy)
+		copied := *window
+		result = append(result, &copied)
 	}
 
 	return result, nil
@@ -401,13 +417,15 @@ func (s *MockStore) matchesWindowFilter(window *MaintenanceWindow, filter *Maint
 	return true
 }
 
+// WatchMaintenanceWindows watches for maintenance window changes.
 func (s *MockStore) WatchMaintenanceWindows(ctx context.Context, handler MaintenanceWindowWatchHandler) error {
 	return nil
 }
 
 // Lock operations
 
-func (s *MockStore) AcquireLock(ctx context.Context, lockID string, holderID string) (bool, error) {
+// AcquireLock acquires a distributed lock.
+func (s *MockStore) AcquireLock(ctx context.Context, lockID, holderID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -427,7 +445,8 @@ func (s *MockStore) AcquireLock(ctx context.Context, lockID string, holderID str
 	return true, nil
 }
 
-func (s *MockStore) ReleaseLock(ctx context.Context, lockID string, holderID string) error {
+// ReleaseLock releases a distributed lock.
+func (s *MockStore) ReleaseLock(ctx context.Context, lockID, holderID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -448,7 +467,8 @@ func (s *MockStore) ReleaseLock(ctx context.Context, lockID string, holderID str
 	return nil
 }
 
-func (s *MockStore) IsLocked(ctx context.Context, lockID string) (bool, string, error) {
+// IsLocked checks if a lock is held.
+func (s *MockStore) IsLocked(ctx context.Context, lockID string) (locked bool, holder string, err error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -464,6 +484,7 @@ func (s *MockStore) IsLocked(ctx context.Context, lockID string) (bool, string, 
 	return true, lock.HolderID, nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (s *MockStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -480,7 +501,7 @@ func (s *MockStore) Reset() {
 	defer s.mu.Unlock()
 
 	s.schedules = make(map[string]*Schedule)
-	s.executions = make(map[string]*ScheduleExecution)
+	s.executions = make(map[string]*Execution)
 	s.maintenanceWindows = make(map[string]*MaintenanceWindow)
 	s.locks = make(map[string]*LockInfo)
 	s.closed = false

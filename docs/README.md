@@ -70,6 +70,21 @@ hugo --minify
 # Output will be in ../build/docs/
 ```
 
+## Documentation Checks
+
+Run Markdown linting and link checking in containers (no local tools required):
+
+```bash
+make docs-lint-container
+make docs-links-container
+make docs-check-container
+```
+
+If you need to override container images (e.g., restricted registries), set:
+```bash
+DOCS_NODE_IMAGE=... DOCS_LYCHEE_IMAGE=... make docs-check-container
+```
+
 ## Directory Structure
 
 ```

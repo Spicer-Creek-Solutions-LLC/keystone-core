@@ -20,11 +20,11 @@ func TestNewECRCredentialProvider(t *testing.T) {
 	}
 }
 
-func TestECRCredentialProvider_RegistryType(t *testing.T) {
+func TestECRCredentialProvider_Type(t *testing.T) {
 	provider := NewECRCredentialProvider("")
 
-	if provider.RegistryType() != RegistryTypeECR {
-		t.Errorf("RegistryType() = %v, want %v", provider.RegistryType(), RegistryTypeECR)
+	if provider.Type() != TypeECR {
+		t.Errorf("Type() = %v, want %v", provider.Type(), TypeECR)
 	}
 }
 

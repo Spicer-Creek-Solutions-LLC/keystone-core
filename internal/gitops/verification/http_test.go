@@ -8,8 +8,8 @@ import (
 
 func TestHTTPVerifierType(t *testing.T) {
 	verifier := NewHTTPVerifier()
-	if verifier.Type() != VerificationTypeHTTP {
-		t.Errorf("Type() = %v, want %v", verifier.Type(), VerificationTypeHTTP)
+	if verifier.Type() != TypeHTTP {
+		t.Errorf("Type() = %v, want %v", verifier.Type(), TypeHTTP)
 	}
 }
 
@@ -22,9 +22,9 @@ func TestHTTPVerifierSuccess(t *testing.T) {
 	defer server.Close()
 
 	verifier := NewHTTPVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "http-check",
-		Type: VerificationTypeHTTP,
+		Type: TypeHTTP,
 		Config: map[string]interface{}{
 			"url":             server.URL,
 			"expected_status": 200,
@@ -53,9 +53,9 @@ func TestHTTPVerifierWrongStatus(t *testing.T) {
 	defer server.Close()
 
 	verifier := NewHTTPVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "http-check",
-		Type: VerificationTypeHTTP,
+		Type: TypeHTTP,
 		Config: map[string]interface{}{
 			"url":             server.URL,
 			"expected_status": 200,
@@ -74,9 +74,9 @@ func TestHTTPVerifierWrongStatus(t *testing.T) {
 
 func TestHTTPVerifierMissingURL(t *testing.T) {
 	verifier := NewHTTPVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name:   "http-check",
-		Type:   VerificationTypeHTTP,
+		Type:   TypeHTTP,
 		Config: map[string]interface{}{},
 	}
 
@@ -101,9 +101,9 @@ func TestHTTPVerifierCustomMethod(t *testing.T) {
 	defer server.Close()
 
 	verifier := NewHTTPVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "http-post",
-		Type: VerificationTypeHTTP,
+		Type: TypeHTTP,
 		Config: map[string]interface{}{
 			"url":    server.URL,
 			"method": "POST",
@@ -131,9 +131,9 @@ func TestHTTPVerifierHeaders(t *testing.T) {
 	defer server.Close()
 
 	verifier := NewHTTPVerifier()
-	step := &VerificationStep{
+	step := &Step{
 		Name: "http-with-headers",
-		Type: VerificationTypeHTTP,
+		Type: TypeHTTP,
 		Config: map[string]interface{}{
 			"url": server.URL,
 			"headers": map[string]interface{}{

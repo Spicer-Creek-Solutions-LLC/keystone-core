@@ -102,7 +102,7 @@ func TestListCommandFlags(t *testing.T) {
 
 	outputFlag := listCmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on list command")
+		t.Fatal("expected --output flag on list command")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be 'table', got %s", outputFlag.DefValue)
@@ -151,7 +151,7 @@ func TestCheckCommandFlags(t *testing.T) {
 
 	actionFlag := checkCmd.Flags().Lookup("action")
 	if actionFlag == nil {
-		t.Error("expected --action flag on check command")
+		t.Fatal("expected --action flag on check command")
 	}
 	if actionFlag.DefValue != "check" {
 		t.Errorf("expected action default to be 'check', got %s", actionFlag.DefValue)
@@ -169,7 +169,7 @@ func TestCheckCommandFlags(t *testing.T) {
 
 	outputFlag := checkCmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on check command")
+		t.Fatal("expected --output flag on check command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)
@@ -185,7 +185,7 @@ func TestShowCommandFlags(t *testing.T) {
 
 	outputFlag := showCmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on show command")
+		t.Fatal("expected --output flag on show command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)
@@ -221,7 +221,7 @@ func TestAuditCommandFlags(t *testing.T) {
 
 	limitFlag := auditCmd.Flags().Lookup("limit")
 	if limitFlag == nil {
-		t.Error("expected --limit flag on audit command")
+		t.Fatal("expected --limit flag on audit command")
 	}
 	if limitFlag.DefValue != "100" {
 		t.Errorf("expected limit default to be '100', got %s", limitFlag.DefValue)
@@ -242,7 +242,7 @@ func TestReportCommandFlags(t *testing.T) {
 
 	daysFlag := reportCmd.Flags().Lookup("days")
 	if daysFlag == nil {
-		t.Error("expected --days flag on report command")
+		t.Fatal("expected --days flag on report command")
 	}
 	if daysFlag.DefValue != "7" {
 		t.Errorf("expected days default to be '7', got %s", daysFlag.DefValue)
@@ -250,7 +250,7 @@ func TestReportCommandFlags(t *testing.T) {
 
 	outputFlag := reportCmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on report command")
+		t.Fatal("expected --output flag on report command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)

@@ -395,7 +395,7 @@ compliance:
     format: json
     output:
       - type: file
-        path: /var/log/kscore/compliance/
+        path: /var/log/keystone-core/compliance/
         retention: 90d
       - type: webhook
         url: https://compliance-dashboard.example.com/api/reports

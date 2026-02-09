@@ -562,7 +562,7 @@ func (d *Deduplicator) SubjectCount() int {
 }
 
 // MarkSeen manually marks a message ID as seen
-func (d *Deduplicator) MarkSeen(subject string, msgID string) {
+func (d *Deduplicator) MarkSeen(subject, msgID string) {
 	now := time.Now()
 	expiresAt := now.Add(d.config.WindowDuration)
 

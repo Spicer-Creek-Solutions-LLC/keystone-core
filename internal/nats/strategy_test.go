@@ -534,7 +534,7 @@ func TestStrategySelector_StrategiesForScheme(t *testing.T) {
 func TestNewDirectStrategy_NilConfig(t *testing.T) {
 	s := NewDirectStrategy(nil)
 	if s == nil {
-		t.Error("NewDirectStrategy(nil) returned nil")
+		t.Fatal("NewDirectStrategy(nil) returned nil")
 	}
 	if s.config == nil {
 		t.Error("NewDirectStrategy(nil) should create default config")
@@ -544,7 +544,7 @@ func TestNewDirectStrategy_NilConfig(t *testing.T) {
 func TestNewTLSStrategy_NilConfig(t *testing.T) {
 	s := NewTLSStrategy(nil)
 	if s == nil {
-		t.Error("NewTLSStrategy(nil) returned nil")
+		t.Fatal("NewTLSStrategy(nil) returned nil")
 	}
 	if s.config == nil {
 		t.Error("NewTLSStrategy(nil) should create default config")
@@ -554,7 +554,7 @@ func TestNewTLSStrategy_NilConfig(t *testing.T) {
 func TestNewWebSocketStrategy_NilConfig(t *testing.T) {
 	s := NewWebSocketStrategy(nil)
 	if s == nil {
-		t.Error("NewWebSocketStrategy(nil) returned nil")
+		t.Fatal("NewWebSocketStrategy(nil) returned nil")
 	}
 	if s.config == nil {
 		t.Error("NewWebSocketStrategy(nil) should create default config")
@@ -564,7 +564,7 @@ func TestNewWebSocketStrategy_NilConfig(t *testing.T) {
 func TestNewLeafNodeStrategy_NilConfig(t *testing.T) {
 	s := NewLeafNodeStrategy(nil)
 	if s == nil {
-		t.Error("NewLeafNodeStrategy(nil) returned nil")
+		t.Fatal("NewLeafNodeStrategy(nil) returned nil")
 	}
 	if s.config == nil {
 		t.Error("NewLeafNodeStrategy(nil) should create default config")

@@ -120,7 +120,7 @@ func RequestWithTrace(ctx context.Context, nc *nats.Conn, subject string, data [
 
 	// Extract trace context from reply (if any)
 	if reply.Header != nil {
-		ctx = ExtractTraceContext(ctx, reply)
+		_ = ExtractTraceContext(ctx, reply)
 	}
 
 	return reply, nil
@@ -180,7 +180,7 @@ func JetStreamPublishWithTrace(ctx context.Context, js nats.JetStreamContext, su
 	if ack != nil {
 		SetAttributes(span,
 			StringAttr("nats.stream", ack.Stream),
-			Int64Attr("nats.sequence", int64(ack.Sequence)),
+			Int64Attr("nats.sequence", int64(ack.Sequence)), //nolint:gosec // G115: NATS seq num
 		)
 	}
 
@@ -194,6 +194,7 @@ func JetStreamSubscribeWithTrace(js nats.JetStreamContext, subject string, handl
 		meta, err := msg.Metadata()
 		if err == nil {
 			span := trace.SpanFromContext(ctx)
+			//nolint:gosec // G115: NATS sequence numbers are bounded
 			SetAttributes(span,
 				StringAttr(AttrNATSStream, meta.Stream),
 				StringAttr(AttrNATSConsumer, meta.Consumer),

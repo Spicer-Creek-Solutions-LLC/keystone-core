@@ -1,3 +1,5 @@
+// Package scenarios contains bootstrap test scenarios for validating agent
+// installation across different platforms and configurations.
 package scenarios
 
 import (
@@ -20,7 +22,7 @@ const (
 	defaultAgentRelPath = "build/bin"
 )
 
-func requireBootstrapEnv(t *testing.T) (string, *framework.Config, []framework.Platform, string) {
+func requireBootstrapEnv(t *testing.T) (root string, cfg *framework.Config, platforms []framework.Platform, agentBin string) {
 	t.Helper()
 
 	if os.Getenv(envBootstrapTests) != "1" {
@@ -31,22 +33,23 @@ func requireBootstrapEnv(t *testing.T) (string, *framework.Config, []framework.P
 		t.Skip("docker not available in PATH")
 	}
 
-	root, err := framework.RepoRoot()
+	var err error
+	root, err = framework.RepoRoot()
 	if err != nil {
 		t.Fatalf("failed to locate repo root: %v", err)
 	}
 
-	cfg, err := framework.LoadConfig(filepath.Join(root, "test", "bootstrap", "config.yaml"))
+	cfg, err = framework.LoadConfig(filepath.Join(root, "test", "bootstrap", "config.yaml"))
 	if err != nil {
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	platforms, err := cfg.EnabledPlatforms(os.Getenv(envPlatformFilter))
+	platforms, err = cfg.EnabledPlatforms(os.Getenv(envPlatformFilter))
 	if err != nil {
 		t.Fatalf("failed to select platforms: %v", err)
 	}
 
-	agentBin := resolveAgentBinary(root)
+	agentBin = resolveAgentBinary(root)
 	if agentBin == "" {
 		t.Skipf("kscore-agent binary not found (set %s or run make agent)", envAgentBinary)
 	}
@@ -92,15 +95,15 @@ func scenarioNodes(cfg *framework.Config, name string, fallback int) int {
 	return fallback
 }
 
-func execBootstrap(t *testing.T, ctx context.Context, env *framework.DockerEnv, args ...string) framework.ExecResult {
+func execBootstrap(ctx context.Context, t *testing.T, env *framework.DockerEnv, args ...string) framework.ExecResult {
 	t.Helper()
 	command := append([]string{"/usr/local/bin/kscore-agent", "bootstrap"}, args...)
 	return env.Exec(ctx, command...)
 }
 
-func ensureBlueprintDir(t *testing.T, ctx context.Context, env *framework.DockerEnv) {
+func ensureBlueprintDir(ctx context.Context, t *testing.T, env *framework.DockerEnv) {
 	t.Helper()
-	result := env.Exec(ctx, "sh", "-c", "mkdir -p /etc/kscore/blueprints")
+	result := env.Exec(ctx, "sh", "-c", "mkdir -p /etc/keystone-core/blueprints")
 	requireExecSuccess(t, result, "create blueprints dir")
 }
 

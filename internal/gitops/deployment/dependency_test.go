@@ -22,7 +22,7 @@ func TestDependencyType(t *testing.T) {
 }
 
 func TestDeploymentState(t *testing.T) {
-	states := []DeploymentState{
+	states := []State{
 		StateUnknown,
 		StatePending,
 		StateDeploying,
@@ -444,7 +444,7 @@ func (m *mockDeployer) Rollback(ctx context.Context, d *Deployment) error {
 	return nil
 }
 
-func (m *mockDeployer) CheckHealth(ctx context.Context, d *Deployment) (DeploymentState, error) {
+func (m *mockDeployer) CheckHealth(ctx context.Context, d *Deployment) (State, error) {
 	if m.deployed[d.ID] {
 		return StateHealthy, nil
 	}
@@ -608,8 +608,8 @@ func TestHealthCheck(t *testing.T) {
 		{
 			name: "exec",
 			hc: HealthCheck{
-				Type:    "exec",
-				Command: []string{"pg_isready", "-h", "localhost"},
+				Type:     "exec",
+				Command:  []string{"pg_isready", "-h", "localhost"},
 				Interval: 10 * time.Second,
 				Timeout:  10 * time.Second,
 				Retries:  3,
@@ -630,7 +630,7 @@ func TestGraphStats(t *testing.T) {
 	stats := &GraphStats{
 		TotalDeployments:    10,
 		TotalDependencies:   25,
-		ByState:             map[DeploymentState]int{StateHealthy: 8, StatePending: 2},
+		ByState:             map[State]int{StateHealthy: 8, StatePending: 2},
 		AverageDependencies: 2.5,
 		MaxDependencies:     5,
 		RootNodes:           3,

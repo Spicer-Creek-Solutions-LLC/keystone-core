@@ -179,16 +179,17 @@ func (b *SecretBroker) resolveBackend(path string) (SecretBackend, string, error
 
 	// Check routing rules first (already sorted by prefix length)
 	for _, rule := range b.routingRules {
-		if rule.Prefix != "" && strings.HasPrefix(path, rule.Prefix) {
-			backend, exists := b.backends[rule.Backend]
-			if !exists {
-				return nil, "", fmt.Errorf("%w: %s", ErrBackendNotFound, rule.Backend)
-			}
-			// Strip the prefix from the path for the backend
-			strippedPath := strings.TrimPrefix(path, rule.Prefix)
-			strippedPath = strings.TrimPrefix(strippedPath, "/")
-			return backend, strippedPath, nil
+		if rule.Prefix == "" || !strings.HasPrefix(path, rule.Prefix) {
+			continue
 		}
+		backend, exists := b.backends[rule.Backend]
+		if !exists {
+			return nil, "", fmt.Errorf("%w: %s", ErrBackendNotFound, rule.Backend)
+		}
+		// Strip the prefix from the path for the backend
+		strippedPath := strings.TrimPrefix(path, rule.Prefix)
+		strippedPath = strings.TrimPrefix(strippedPath, "/")
+		return backend, strippedPath, nil
 	}
 
 	// Try to extract backend from path (e.g., "vault/kv/myapp" -> backend="vault", path="kv/myapp")
@@ -342,10 +343,7 @@ func (b *SecretBroker) ReadDynamic(ctx context.Context, req *SecretRequest) (*Se
 	if secret.HasLease() && b.leaseManager != nil {
 		secret.Lease.SecretPath = req.Path
 		secret.Lease.Backend = backend.Type()
-		if trackErr := b.leaseManager.Track(ctx, secret.Lease); trackErr != nil {
-			// Log but don't fail - the secret was still retrieved
-			// The lease just won't be tracked for renewal
-		}
+		_ = b.leaseManager.Track(ctx, secret.Lease) // best-effort tracking, secret was still retrieved
 	}
 
 	// Cache dynamic secrets with shorter TTL based on lease
@@ -576,12 +574,13 @@ func (b *SecretBroker) logAccess(ctx context.Context, req *SecretRequest, secret
 		}
 	}
 
-	if err != nil {
+	switch {
+	case err != nil:
 		event.Error = err.Error()
 		event.Action = AuditActionReadFailed
-	} else if cacheHit {
+	case cacheHit:
 		event.Action = AuditActionCacheHit
-	} else {
+	default:
 		event.Action = AuditActionRead
 	}
 

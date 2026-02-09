@@ -324,8 +324,8 @@ func BenchmarkConsensusLatency(b *testing.B) {
 	}
 
 	type ConsensusNode struct {
-		id       int
-		acks     chan int
+		id        int
+		acks      chan int
 		proposals chan *Proposal
 	}
 

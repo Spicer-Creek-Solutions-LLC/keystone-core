@@ -8,7 +8,7 @@ nats:
   maxreconnects: 60
   reconnectwait: 2s
   jetstream:
-    storedir: "/var/lib/kscore/jetstream"
+    storedir: "/var/lib/keystone-core/jetstream"
 
 agent:
   # ID is overridden by KSCORE_AGENT_ID environment variable

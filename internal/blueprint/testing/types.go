@@ -238,6 +238,7 @@ const (
 // ComparisonOperator defines comparison operations.
 type ComparisonOperator string
 
+// OpEquals constants define the operators.
 const (
 	OpEquals      ComparisonOperator = "equals"
 	OpNotEquals   ComparisonOperator = "not_equals"
@@ -379,6 +380,7 @@ type MockConfig struct {
 // MockType defines the type of mock.
 type MockType string
 
+// MockTypeCommand constants define the supported types.
 const (
 	MockTypeCommand MockType = "command"
 	MockTypeFile    MockType = "file"

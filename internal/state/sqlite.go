@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // Allowed sort columns for each table (SQL injection prevention)
@@ -34,7 +35,7 @@ var allowedBatchJobSortColumns = map[string]bool{
 
 // validateSortOrder ensures only ASC or DESC is used (SQL injection prevention)
 func validateSortOrder(order string) string {
-	if strings.ToUpper(order) == "ASC" {
+	if strings.EqualFold(order, "ASC") {
 		return "ASC"
 	}
 	return "DESC"
@@ -63,7 +64,8 @@ func NewSQLiteStore(config *Config) (*SQLiteStore, error) {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: database directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
@@ -200,7 +202,7 @@ func (s *SQLiteStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_batch_agent_results_agent_id ON batch_agent_results(agent_id);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -580,7 +582,7 @@ func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*Batc
 		&job.SuccessfulAgents, &job.FailedAgents, &job.SuccessRate,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("batch job not found: %s", batchJobID)
 	}
 	if err != nil {

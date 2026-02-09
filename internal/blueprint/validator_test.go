@@ -105,9 +105,9 @@ func TestValidator_MissingMetadataName(t *testing.T) {
 
 func TestValidator_InvalidMetadataName(t *testing.T) {
 	testCases := []string{
-		"InvalidName",    // uppercase
-		"123-invalid",    // starts with number
-		"with spaces",    // contains spaces
+		"InvalidName",     // uppercase
+		"123-invalid",     // starts with number
+		"with spaces",     // contains spaces
 		"with_underscore", // contains underscore
 	}
 
@@ -483,8 +483,8 @@ func TestValidator_OutputValidation(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Outputs: map[string]Output{
-			"valid":  {Value: "{{ app_url }}", Description: "Valid output"},
-			"empty":  {Description: "Empty value"},
+			"valid": {Value: "{{ app_url }}", Description: "Valid output"},
+			"empty": {Description: "Empty value"},
 		},
 	}
 

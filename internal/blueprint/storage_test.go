@@ -2,6 +2,7 @@ package blueprint
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -257,7 +258,7 @@ func TestLocalStorage_ReadOnly(t *testing.T) {
 	}
 
 	err = storage.Put(ctx, bp)
-	if err != ErrStorageReadOnly {
+	if !errors.Is(err, ErrStorageReadOnly) {
 		t.Errorf("Put on read-only storage: got %v, want ErrStorageReadOnly", err)
 	}
 }
@@ -347,7 +348,7 @@ func TestLocalStorage_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err = storage.Get(ctx, "local/nonexistent", "")
-	if err != ErrBlueprintNotFound {
+	if !errors.Is(err, ErrBlueprintNotFound) {
 		t.Errorf("Get nonexistent: got %v, want ErrBlueprintNotFound", err)
 	}
 }

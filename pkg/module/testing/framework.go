@@ -201,6 +201,7 @@ type TestResult struct {
 // TestStatus represents the status of a test
 type TestStatus string
 
+// TestStatusPassed constants define the possible statuses.
 const (
 	TestStatusPassed  TestStatus = "passed"
 	TestStatusFailed  TestStatus = "failed"
@@ -294,16 +295,19 @@ type ConsoleReporter struct {
 	Verbose bool
 }
 
+// OnSuiteStart is called when a test suite starts.
 func (r *ConsoleReporter) OnSuiteStart(name string) {
 	fmt.Printf("Running test suite: %s\n", name)
 }
 
+// OnTestStart is called when a test starts.
 func (r *ConsoleReporter) OnTestStart(name string) {
 	if r.Verbose {
 		fmt.Printf("  Running: %s...\n", name)
 	}
 }
 
+// OnTestComplete is called when a test completes.
 func (r *ConsoleReporter) OnTestComplete(result *TestResult) {
 	switch result.Status {
 	case TestStatusPassed:
@@ -320,6 +324,7 @@ func (r *ConsoleReporter) OnTestComplete(result *TestResult) {
 	}
 }
 
+// OnSuiteComplete is called when a test suite completes.
 func (r *ConsoleReporter) OnSuiteComplete(result *TestSuiteResult) {
 	fmt.Printf("\nResults: %d passed, %d failed, %d skipped, %d errors (%v)\n",
 		result.Passed, result.Failed, result.Skipped, result.Errors, result.Duration)
@@ -335,32 +340,40 @@ type JUnitReporter struct {
 	OutputPath string
 }
 
+// OnSuiteStart is called when a test suite starts.
 func (r *JUnitReporter) OnSuiteStart(name string)          {}
+// OnTestStart is called when a test starts.
 func (r *JUnitReporter) OnTestStart(name string)           {}
+// OnTestComplete is called when a test completes.
 func (r *JUnitReporter) OnTestComplete(result *TestResult) {}
 
+// OnSuiteComplete is called when a test suite completes.
 func (r *JUnitReporter) OnSuiteComplete(result *TestSuiteResult) {
 	// Generate JUnit XML format for CI integration
 	xml := r.generateXML(result)
 	if r.OutputPath != "" {
-		os.WriteFile(r.OutputPath, []byte(xml), 0644)
+		//nolint:gosec,errcheck // G306: test reports need to be readable by CI systems; errcheck: best-effort write
+		_ = os.WriteFile(r.OutputPath, []byte(xml), 0o644)
 	}
 }
 
 func (r *JUnitReporter) generateXML(result *TestSuiteResult) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-	sb.WriteString(fmt.Sprintf(`<testsuite name="%s" tests="%d" failures="%d" errors="%d" skipped="%d" time="%.3f">`,
+	sb.WriteString(fmt.Sprintf(`<testsuite name=%q tests="%d" failures="%d" errors="%d" skipped="%d" time="%.3f">`,
 		result.Name, result.Total, result.Failed, result.Errors, result.Skipped, result.Duration.Seconds()))
 
 	for _, test := range result.Tests {
-		sb.WriteString(fmt.Sprintf(`<testcase name="%s" time="%.3f">`, test.Name, test.Duration.Seconds()))
-		if test.Status == TestStatusFailed {
-			sb.WriteString(fmt.Sprintf(`<failure message="%s"/>`, escapeXML(test.Error)))
-		} else if test.Status == TestStatusSkipped {
+		sb.WriteString(fmt.Sprintf(`<testcase name=%q time="%.3f">`, test.Name, test.Duration.Seconds()))
+		switch test.Status {
+		case TestStatusPassed:
+			// No additional XML element needed for passed tests
+		case TestStatusFailed:
+			sb.WriteString(fmt.Sprintf(`<failure message=%q/>`, escapeXML(test.Error)))
+		case TestStatusSkipped:
 			sb.WriteString(`<skipped/>`)
-		} else if test.Status == TestStatusError {
-			sb.WriteString(fmt.Sprintf(`<error message="%s"/>`, escapeXML(test.Error)))
+		case TestStatusError:
+			sb.WriteString(fmt.Sprintf(`<error message=%q/>`, escapeXML(test.Error)))
 		}
 		sb.WriteString(`</testcase>`)
 	}
@@ -382,14 +395,19 @@ type JSONReporter struct {
 	OutputPath string
 }
 
+// OnSuiteStart is called when a test suite starts.
 func (r *JSONReporter) OnSuiteStart(name string)          {}
+// OnTestStart is called when a test starts.
 func (r *JSONReporter) OnTestStart(name string)           {}
+// OnTestComplete is called when a test completes.
 func (r *JSONReporter) OnTestComplete(result *TestResult) {}
 
+// OnSuiteComplete is called when a test suite completes.
 func (r *JSONReporter) OnSuiteComplete(result *TestSuiteResult) {
 	data, _ := json.MarshalIndent(result, "", "  ")
 	if r.OutputPath != "" {
-		os.WriteFile(r.OutputPath, data, 0644)
+		//nolint:gosec,errcheck // G306: test reports need to be readable by CI systems; errcheck: best-effort write
+		_ = os.WriteFile(r.OutputPath, data, 0o644)
 	}
 }
 
@@ -409,7 +427,7 @@ func (f *Framework) GetMock(name string) (MockFunc, bool) {
 }
 
 // LoadFixture loads a test fixture
-func (f *Framework) LoadFixture(name string, path string) error {
+func (f *Framework) LoadFixture(name, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to load fixture %s: %w", name, err)
@@ -674,16 +692,17 @@ func (f *Framework) runTest(tc *TestCase) *TestResult {
 		tr.Error = fmt.Sprintf("test timed out after %v", timeout)
 	} else {
 		err := <-errCh
-		if t.skipped {
+		switch {
+		case t.skipped:
 			tr.Status = TestStatusSkipped
-		} else if t.failed || err != nil {
+		case t.failed || err != nil:
 			tr.Status = TestStatusFailed
 			if err != nil {
 				tr.Error = err.Error()
 			} else if len(t.errors) > 0 {
 				tr.Error = strings.Join(t.errors, "; ")
 			}
-		} else {
+		default:
 			tr.Status = TestStatusPassed
 		}
 	}
@@ -802,7 +821,7 @@ func (t *T) Fixture(name string) (interface{}, bool) {
 }
 
 // DiscoverTests discovers test files in a directory
-func DiscoverTests(dir string, pattern string) ([]string, error) {
+func DiscoverTests(dir, pattern string) ([]string, error) {
 	if pattern == "" {
 		pattern = "*_test.go"
 	}

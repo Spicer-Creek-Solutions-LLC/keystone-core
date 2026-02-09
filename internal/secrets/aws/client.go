@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -99,7 +98,6 @@ func DefaultClientConfig() *ClientConfig {
 
 // Client provides methods for interacting with AWS Secrets Manager.
 type Client struct {
-	mu     sync.RWMutex
 	config *ClientConfig
 
 	client *secretsmanager.Client
@@ -388,22 +386,22 @@ func (c *Client) DescribeSecret(ctx context.Context, secretID string) (*SecretMe
 	}
 
 	metadata := &SecretMetadata{
-		ARN:                    aws.ToString(result.ARN),
-		Name:                   aws.ToString(result.Name),
-		Description:            aws.ToString(result.Description),
-		KmsKeyId:               aws.ToString(result.KmsKeyId),
-		RotationEnabled:        aws.ToBool(result.RotationEnabled),
-		RotationLambdaARN:      aws.ToString(result.RotationLambdaARN),
-		LastRotatedDate:        aws.ToTime(result.LastRotatedDate),
-		LastChangedDate:        aws.ToTime(result.LastChangedDate),
-		LastAccessedDate:       aws.ToTime(result.LastAccessedDate),
-		DeletedDate:            aws.ToTime(result.DeletedDate),
-		NextRotationDate:       aws.ToTime(result.NextRotationDate),
-		Tags:                   make(map[string]string),
-		VersionIdsToStages:     make(map[string][]string),
-		OwningService:          aws.ToString(result.OwningService),
-		PrimaryRegion:          aws.ToString(result.PrimaryRegion),
-		CreatedDate:            aws.ToTime(result.CreatedDate),
+		ARN:                aws.ToString(result.ARN),
+		Name:               aws.ToString(result.Name),
+		Description:        aws.ToString(result.Description),
+		KmsKeyID:           aws.ToString(result.KmsKeyId),
+		RotationEnabled:    aws.ToBool(result.RotationEnabled),
+		RotationLambdaARN:  aws.ToString(result.RotationLambdaARN),
+		LastRotatedDate:    aws.ToTime(result.LastRotatedDate),
+		LastChangedDate:    aws.ToTime(result.LastChangedDate),
+		LastAccessedDate:   aws.ToTime(result.LastAccessedDate),
+		DeletedDate:        aws.ToTime(result.DeletedDate),
+		NextRotationDate:   aws.ToTime(result.NextRotationDate),
+		Tags:               make(map[string]string),
+		VersionIDsToStages: make(map[string][]string),
+		OwningService:      aws.ToString(result.OwningService),
+		PrimaryRegion:      aws.ToString(result.PrimaryRegion),
+		CreatedDate:        aws.ToTime(result.CreatedDate),
 	}
 
 	for _, tag := range result.Tags {
@@ -411,7 +409,7 @@ func (c *Client) DescribeSecret(ctx context.Context, secretID string) (*SecretMe
 	}
 
 	for versionID, stages := range result.VersionIdsToStages {
-		metadata.VersionIdsToStages[versionID] = stages
+		metadata.VersionIDsToStages[versionID] = stages
 	}
 
 	if result.RotationRules != nil {
@@ -428,7 +426,7 @@ func (c *Client) DescribeSecret(ctx context.Context, secretID string) (*SecretMe
 				Region:           aws.ToString(rs.Region),
 				Status:           string(rs.Status),
 				StatusMessage:    aws.ToString(rs.StatusMessage),
-				KmsKeyId:         aws.ToString(rs.KmsKeyId),
+				KmsKeyID:         aws.ToString(rs.KmsKeyId),
 				LastAccessedDate: aws.ToTime(rs.LastAccessedDate),
 			})
 		}
@@ -448,8 +446,8 @@ type SecretMetadata struct {
 	// Description is the secret's description.
 	Description string `json:"description,omitempty"`
 
-	// KmsKeyId is the KMS key used to encrypt the secret.
-	KmsKeyId string `json:"kms_key_id,omitempty"`
+	// KmsKeyID is the KMS key used to encrypt the secret.
+	KmsKeyID string `json:"kms_key_id,omitempty"`
 
 	// RotationEnabled indicates if automatic rotation is enabled.
 	RotationEnabled bool `json:"rotation_enabled"`
@@ -478,8 +476,8 @@ type SecretMetadata struct {
 	// Tags are the secret's tags.
 	Tags map[string]string `json:"tags,omitempty"`
 
-	// VersionIdsToStages maps version IDs to their staging labels.
-	VersionIdsToStages map[string][]string `json:"version_ids_to_stages,omitempty"`
+	// VersionIDsToStages maps version IDs to their staging labels.
+	VersionIDsToStages map[string][]string `json:"version_ids_to_stages,omitempty"`
 
 	// OwningService is the service that created the secret.
 	OwningService string `json:"owning_service,omitempty"`
@@ -517,8 +515,8 @@ type ReplicationStatus struct {
 	// StatusMessage contains additional status information.
 	StatusMessage string `json:"status_message,omitempty"`
 
-	// KmsKeyId is the KMS key used in the replica region.
-	KmsKeyId string `json:"kms_key_id,omitempty"`
+	// KmsKeyID is the KMS key used in the replica region.
+	KmsKeyID string `json:"kms_key_id,omitempty"`
 
 	// LastAccessedDate is when the replica was last accessed.
 	LastAccessedDate time.Time `json:"last_accessed_date,omitempty"`
@@ -541,7 +539,7 @@ func (c *Client) ListSecrets(ctx context.Context, opts ...ListSecretsOption) ([]
 		input.Filters = options.filters
 	}
 	if options.maxResults > 0 {
-		input.MaxResults = aws.Int32(int32(options.maxResults))
+		input.MaxResults = aws.Int32(int32(options.maxResults)) //nolint:gosec // G115: pagination size
 	}
 
 	var entries []*SecretListEntry
@@ -553,12 +551,13 @@ func (c *Client) ListSecrets(ctx context.Context, opts ...ListSecretsOption) ([]
 			return nil, translateError(err)
 		}
 
-		for _, secret := range page.SecretList {
+		for i := range page.SecretList {
+			secret := &page.SecretList[i]
 			entry := &SecretListEntry{
 				ARN:               aws.ToString(secret.ARN),
 				Name:              aws.ToString(secret.Name),
 				Description:       aws.ToString(secret.Description),
-				KmsKeyId:          aws.ToString(secret.KmsKeyId),
+				KmsKeyID:          aws.ToString(secret.KmsKeyId),
 				RotationEnabled:   aws.ToBool(secret.RotationEnabled),
 				RotationLambdaARN: aws.ToString(secret.RotationLambdaARN),
 				LastRotatedDate:   aws.ToTime(secret.LastRotatedDate),
@@ -630,9 +629,9 @@ func WithDescription(desc string) ListSecretsOption {
 }
 
 // WithMaxResults limits the number of results.
-func WithMaxResults(max int) ListSecretsOption {
+func WithMaxResults(maxVal int) ListSecretsOption {
 	return func(o *listSecretsOptions) {
-		o.maxResults = max
+		o.maxResults = maxVal
 	}
 }
 
@@ -647,8 +646,8 @@ type SecretListEntry struct {
 	// Description is the secret's description.
 	Description string `json:"description,omitempty"`
 
-	// KmsKeyId is the KMS key used to encrypt the secret.
-	KmsKeyId string `json:"kms_key_id,omitempty"`
+	// KmsKeyID is the KMS key used to encrypt the secret.
+	KmsKeyID string `json:"kms_key_id,omitempty"`
 
 	// RotationEnabled indicates if automatic rotation is enabled.
 	RotationEnabled bool `json:"rotation_enabled"`
@@ -682,7 +681,7 @@ func (c *Client) ListSecretVersions(ctx context.Context, secretID string) ([]*Se
 	}
 
 	input := &secretsmanager.ListSecretVersionIdsInput{
-		SecretId:         aws.String(secretID),
+		SecretId:          aws.String(secretID),
 		IncludeDeprecated: aws.Bool(true),
 	}
 
@@ -697,9 +696,9 @@ func (c *Client) ListSecretVersions(ctx context.Context, secretID string) ([]*Se
 
 		for _, v := range page.Versions {
 			versions = append(versions, &SecretVersionInfo{
-				VersionID:      aws.ToString(v.VersionId),
-				VersionStages:  v.VersionStages,
-				CreatedDate:    aws.ToTime(v.CreatedDate),
+				VersionID:        aws.ToString(v.VersionId),
+				VersionStages:    v.VersionStages,
+				CreatedDate:      aws.ToTime(v.CreatedDate),
 				LastAccessedDate: aws.ToTime(v.LastAccessedDate),
 			})
 		}

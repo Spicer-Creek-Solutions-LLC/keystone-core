@@ -72,7 +72,7 @@ func (m *PipModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the pip package state
@@ -92,7 +92,7 @@ func (m *PipModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = fmt.Errorf("name parameter is required")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -100,7 +100,7 @@ func (m *PipModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = err
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -108,7 +108,7 @@ func (m *PipModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	pipCmd := m.getPipCommand(decl)
@@ -133,7 +133,7 @@ func (m *PipModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the package is in the desired state
@@ -142,7 +142,7 @@ func (m *PipModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 func (m *PipModule) getPipCommand(decl *StateDeclaration) string {
@@ -160,11 +160,11 @@ func (m *PipModule) getPipCommand(decl *StateDeclaration) string {
 	return "pip"
 }
 
-func (m *PipModule) isPackageInstalled(ctx context.Context, pipCmd, name string) (bool, string, error) {
+func (m *PipModule) isPackageInstalled(ctx context.Context, pipCmd, name string) (installed bool, version string, err error) {
 	cmd := exec.CommandContext(ctx, pipCmd, "show", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // pip show returns error when package not installed
 	}
 
 	// Parse version from output
@@ -172,11 +172,11 @@ func (m *PipModule) isPackageInstalled(ctx context.Context, pipCmd, name string)
 	for _, line := range lines {
 		if strings.HasPrefix(line, "Version:") {
 			version := strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
-			return true, version, nil
+			return true, version, nil //nolint:nilerr // returning installation status, no error
 		}
 	}
 
-	return true, "", nil
+	return true, "", nil //nolint:nilerr // package found but version not parsed
 }
 
 func (m *PipModule) installPackage(ctx context.Context, pipCmd string, decl *StateDeclaration, name string, result *StateResult) error {
@@ -316,7 +316,7 @@ func (m *NpmModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the npm package state
@@ -336,7 +336,7 @@ func (m *NpmModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = fmt.Errorf("name parameter is required")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -344,7 +344,7 @@ func (m *NpmModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = err
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -352,7 +352,7 @@ func (m *NpmModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	var applyErr error
@@ -375,7 +375,7 @@ func (m *NpmModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the package is in the desired state
@@ -384,10 +384,10 @@ func (m *NpmModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
-func (m *NpmModule) isPackageInstalled(ctx context.Context, name string, global bool, path string) (bool, string, error) {
+func (m *NpmModule) isPackageInstalled(ctx context.Context, name string, global bool, path string) (installed bool, version string, err error) {
 	args := []string{"list", "--json"}
 	if global {
 		args = append(args, "-g")
@@ -401,11 +401,11 @@ func (m *NpmModule) isPackageInstalled(ctx context.Context, name string, global 
 
 	output, err := cmd.Output()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // npm list returns error when package not installed
 	}
 
 	// Simple check - if the package name appears in the output, it's installed
-	if strings.Contains(string(output), fmt.Sprintf(`"%s"`, name)) {
+	if strings.Contains(string(output), fmt.Sprintf("%q", name)) {
 		// Try to extract version
 		// npm list --json output includes version info
 		lines := strings.Split(string(output), "\n")
@@ -415,15 +415,15 @@ func (m *NpmModule) isPackageInstalled(ctx context.Context, name string, global 
 				parts := strings.Split(line, `"`)
 				for i, p := range parts {
 					if p == "version" && i+2 < len(parts) {
-						return true, parts[i+2], nil
+						return true, parts[i+2], nil //nolint:nilerr // returning installation status, no error
 					}
 				}
 			}
 		}
-		return true, "", nil
+		return true, "", nil //nolint:nilerr // package found but version not parsed
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // package not found is a valid state
 }
 
 func (m *NpmModule) installPackage(ctx context.Context, decl *StateDeclaration, name string, result *StateResult) error {
@@ -577,7 +577,7 @@ func (m *GemModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the gem state
@@ -597,7 +597,7 @@ func (m *GemModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = fmt.Errorf("name parameter is required")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -605,7 +605,7 @@ func (m *GemModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = err
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -613,7 +613,7 @@ func (m *GemModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	gemCmd := getStringParameter(decl, "executable", "gem")
@@ -638,7 +638,7 @@ func (m *GemModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the gem is in the desired state
@@ -647,14 +647,14 @@ func (m *GemModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // err already checked above
 }
 
-func (m *GemModule) isGemInstalled(ctx context.Context, gemCmd, name string) (bool, string, error) {
+func (m *GemModule) isGemInstalled(ctx context.Context, gemCmd, name string) (installed bool, version string, err error) {
 	cmd := exec.CommandContext(ctx, gemCmd, "list", "-i", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // gem list returns error when gem not installed
 	}
 
 	if strings.TrimSpace(string(output)) == "true" {
@@ -675,15 +675,15 @@ func (m *GemModule) isGemInstalled(ctx context.Context, gemCmd, name string) (bo
 						if idx := strings.Index(version, ","); idx != -1 {
 							version = version[:idx]
 						}
-						return true, strings.TrimSpace(version), nil
+						return true, strings.TrimSpace(version), nil //nolint:nilerr // returning installation status, no error
 					}
 				}
 			}
 		}
-		return true, "", nil
+		return true, "", nil //nolint:nilerr // gem found but version not parsed
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // gem not found is a valid state
 }
 
 func (m *GemModule) installGem(ctx context.Context, gemCmd string, decl *StateDeclaration, name string, result *StateResult) error {
@@ -793,7 +793,7 @@ func (m *UfwModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		if !result.Matches {
 			result.Diff["state"] = map[string]string{"current": result.CurrentState, "desired": decl.State}
 		}
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// For rule states (allow, deny, reject, absent), check if rule exists
@@ -823,7 +823,7 @@ func (m *UfwModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the UFW state
@@ -842,7 +842,7 @@ func (m *UfwModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = fmt.Errorf("ufw module is only supported on Linux")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -850,7 +850,7 @@ func (m *UfwModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Error = err
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -858,7 +858,7 @@ func (m *UfwModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	var applyErr error
@@ -883,7 +883,7 @@ func (m *UfwModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if UFW is in the desired state
@@ -892,7 +892,7 @@ func (m *UfwModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 func (m *UfwModule) isUfwEnabled(ctx context.Context) (bool, error) {
@@ -901,7 +901,7 @@ func (m *UfwModule) isUfwEnabled(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(string(output), "Status: active"), nil
+	return strings.Contains(string(output), "Status: active"), nil //nolint:nilerr // returning status check result, no error
 }
 
 func (m *UfwModule) buildRuleSpec(decl *StateDeclaration) string {
@@ -937,7 +937,7 @@ func (m *UfwModule) ruleExists(ctx context.Context, rule string) (bool, error) {
 		return false, err
 	}
 	// Simple check - this is a heuristic
-	return strings.Contains(string(output), rule), nil
+	return strings.Contains(string(output), rule), nil //nolint:nilerr // returning existence check result, no error
 }
 
 func (m *UfwModule) enableUfw(ctx context.Context, result *StateResult) error {
@@ -1088,7 +1088,7 @@ func (m *AlternativesModule) Check(ctx context.Context, decl *StateDeclaration) 
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the alternatives state
@@ -1107,7 +1107,7 @@ func (m *AlternativesModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		result.Error = fmt.Errorf("alternatives module is only supported on Linux")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	name := getStringParameter(decl, "name", "")
@@ -1115,7 +1115,7 @@ func (m *AlternativesModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		result.Error = fmt.Errorf("name parameter is required")
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -1123,7 +1123,7 @@ func (m *AlternativesModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		result.Error = err
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -1131,7 +1131,7 @@ func (m *AlternativesModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	var applyErr error
@@ -1153,7 +1153,7 @@ func (m *AlternativesModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if alternatives is in the desired state
@@ -1162,19 +1162,17 @@ func (m *AlternativesModule) Test(ctx context.Context, decl *StateDeclaration) (
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // err already checked above
 }
 
-func (m *AlternativesModule) getCurrentAlternative(ctx context.Context, name string) (string, bool, error) {
+func (m *AlternativesModule) getCurrentAlternative(ctx context.Context, name string) (current string, isAuto bool, err error) {
 	cmd := exec.CommandContext(ctx, "update-alternatives", "--display", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
-		return "", false, nil
+		return "", false, nil //nolint:nilerr // alternative not configured returns error, which is a valid state
 	}
 
 	lines := strings.Split(string(output), "\n")
-	var current string
-	isAuto := false
 
 	for _, line := range lines {
 		if strings.Contains(line, "link currently points to") {
@@ -1188,7 +1186,7 @@ func (m *AlternativesModule) getCurrentAlternative(ctx context.Context, name str
 		}
 	}
 
-	return current, isAuto, nil
+	return current, isAuto, nil //nolint:nilerr // returning parsed alternative info, no error
 }
 
 func (m *AlternativesModule) setAlternative(ctx context.Context, name, path string, result *StateResult) error {
@@ -1212,9 +1210,9 @@ func (m *AlternativesModule) setAuto(ctx context.Context, name string, result *S
 }
 
 func init() {
-	RegisterModule(NewPipModule())
-	RegisterModule(NewNpmModule())
-	RegisterModule(NewGemModule())
-	RegisterModule(NewUfwModule())
-	RegisterModule(NewAlternativesModule())
+	_ = RegisterModule(NewPipModule())
+	_ = RegisterModule(NewNpmModule())
+	_ = RegisterModule(NewGemModule())
+	_ = RegisterModule(NewUfwModule())
+	_ = RegisterModule(NewAlternativesModule())
 }

@@ -283,11 +283,11 @@ func RetryWithBackoff(ctx context.Context, maxAttempts int, initialDelay time.Du
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if err := f(); err == nil {
+		err := f()
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 
 		if err := wait.ForContext(ctx, delay); err != nil {
 			return err

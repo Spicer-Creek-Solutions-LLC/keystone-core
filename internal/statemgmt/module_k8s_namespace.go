@@ -74,7 +74,7 @@ func (m *K8sNamespaceModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	// Check labels if namespace exists and desired state is present
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		currentLabels := nsInfo.Labels
 		if currentLabels == nil {
 			currentLabels = make(map[string]string)
@@ -95,7 +95,7 @@ func (m *K8sNamespaceModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	// Check annotations if specified
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		currentAnnotations := nsInfo.Annotations
 		if currentAnnotations == nil {
 			currentAnnotations = make(map[string]string)

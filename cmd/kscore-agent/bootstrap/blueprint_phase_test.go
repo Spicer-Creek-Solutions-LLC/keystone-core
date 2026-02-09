@@ -15,7 +15,7 @@ func TestBlueprintPhaseLoadsBlueprints(t *testing.T) {
 	if err := os.MkdirAll(bpDir, 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
-	manifest := `apiVersion: blueprints.kscore.io/v1
+	manifest := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: demo
@@ -43,7 +43,7 @@ entrypoints:
 		Output:          buf,
 		Verbose:         true,
 		DryRun:          true,
-		BootstrapConfig: &BootstrapConfig{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/demo"}},
+		BootstrapConfig: &Config{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/demo"}},
 	}
 
 	if err := blueprintPhase(context.Background(), state); err != nil {
@@ -57,7 +57,7 @@ func TestBlueprintPhaseRunsHooksAndVerify(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(bpDir, "states", "hooks"), 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
-	manifest := `apiVersion: blueprints.kscore.io/v1
+	manifest := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: hooks
@@ -91,7 +91,7 @@ hooks:
 		Output:          buf,
 		Verbose:         true,
 		DryRun:          true,
-		BootstrapConfig: &BootstrapConfig{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/hooks"}},
+		BootstrapConfig: &Config{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/hooks"}},
 	}
 
 	if err := blueprintPhase(context.Background(), state); err != nil {
@@ -112,7 +112,7 @@ func TestBlueprintPhaseExportsStates(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(bpDir, "states"), 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
-	manifest := `apiVersion: blueprints.kscore.io/v1
+	manifest := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: export
@@ -137,7 +137,7 @@ entrypoints:
 		Output:          buf,
 		Verbose:         true,
 		DryRun:          true,
-		BootstrapConfig: &BootstrapConfig{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/export"}, ExportStatesDir: exportDir},
+		BootstrapConfig: &Config{BlueprintsDir: tmpDir, ApplyBlueprints: []string{"blueprints/community/export"}, ExportStatesDir: exportDir},
 	}
 
 	if err := blueprintPhase(context.Background(), state); err != nil {

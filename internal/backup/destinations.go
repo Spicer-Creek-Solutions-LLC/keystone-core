@@ -40,7 +40,8 @@ func (d *LocalDestination) Type() DestinationType {
 // Upload uploads a backup to the local filesystem
 func (d *LocalDestination) Upload(ctx context.Context, name string, r io.Reader, size int64) error {
 	// Create directory if needed
-	if err := os.MkdirAll(d.basePath, 0755); err != nil {
+	//nolint:gosec // G301: backup directory needs to be accessible by service user
+	if err := os.MkdirAll(d.basePath, 0o755); err != nil {
 		return fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
@@ -77,16 +78,16 @@ func (d *LocalDestination) Download(ctx context.Context, name string, w io.Write
 }
 
 // List lists all backups in the local directory
-func (d *LocalDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *LocalDestination) List(ctx context.Context) ([]Info, error) {
 	entries, err := os.ReadDir(d.basePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []BackupInfo{}, nil
+			return []Info{}, nil
 		}
 		return nil, fmt.Errorf("failed to read directory: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -97,7 +98,7 @@ func (d *LocalDestination) List(ctx context.Context) ([]BackupInfo, error) {
 			continue
 		}
 
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        entry.Name(),
 			Destination: filepath.Join(d.basePath, entry.Name()),
 			Size:        info.Size(),
@@ -198,7 +199,8 @@ func (d *S3Destination) Upload(ctx context.Context, name string, r io.Reader, si
 		args = append(args, "--profile", d.profile)
 	}
 
-	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: AWS CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("aws s3 cp failed: %w", err)
 	}
@@ -234,7 +236,8 @@ func (d *S3Destination) Download(ctx context.Context, name string, w io.Writer) 
 		args = append(args, "--profile", d.profile)
 	}
 
-	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: AWS CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("aws s3 cp failed: %w", err)
 	}
@@ -255,7 +258,7 @@ func (d *S3Destination) Download(ctx context.Context, name string, w io.Writer) 
 }
 
 // List lists all backups in S3
-func (d *S3Destination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *S3Destination) List(ctx context.Context) ([]Info, error) {
 	args := []string{
 		"s3api", "list-objects-v2",
 		"--bucket", d.bucket,
@@ -272,7 +275,8 @@ func (d *S3Destination) List(ctx context.Context) ([]BackupInfo, error) {
 		args = append(args, "--profile", d.profile)
 	}
 
-	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: AWS CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("aws s3api list-objects-v2 failed: %w", err)
@@ -289,13 +293,13 @@ func (d *S3Destination) List(ctx context.Context) ([]BackupInfo, error) {
 		return nil, fmt.Errorf("failed to parse S3 response: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	for _, obj := range result.Contents {
 		name := strings.TrimPrefix(obj.Key, d.prefix)
 		if name == "" {
 			continue
 		}
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        name,
 			Destination: fmt.Sprintf("s3://%s/%s", d.bucket, obj.Key),
 			Size:        obj.Size,
@@ -329,7 +333,8 @@ func (d *S3Destination) Delete(ctx context.Context, name string) error {
 		args = append(args, "--profile", d.profile)
 	}
 
-	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: AWS CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("aws s3 rm failed: %w", err)
 	}
@@ -357,11 +362,12 @@ func (d *S3Destination) Exists(ctx context.Context, name string) (bool, error) {
 		args = append(args, "--profile", d.profile)
 	}
 
-	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: AWS CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "aws", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	err := cmd.Run()
 	if err != nil {
 		// head-object returns error if object doesn't exist
-		return false, nil
+		return false, nil //nolint:nilerr // error means object not found, not a failure
 	}
 	return true, nil
 }
@@ -413,7 +419,8 @@ func (d *GCSDestination) Upload(ctx context.Context, name string, r io.Reader, s
 		fmt.Sprintf("gs://%s/%s", d.bucket, path),
 	}
 
-	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: gcloud CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud storage cp failed: %w", err)
 	}
@@ -440,7 +447,8 @@ func (d *GCSDestination) Download(ctx context.Context, name string, w io.Writer)
 		tmpFile.Name(),
 	}
 
-	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: gcloud CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud storage cp failed: %w", err)
 	}
@@ -461,19 +469,20 @@ func (d *GCSDestination) Download(ctx context.Context, name string, w io.Writer)
 }
 
 // List lists all backups in GCS
-func (d *GCSDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *GCSDestination) List(ctx context.Context) ([]Info, error) {
 	args := []string{
 		"storage", "ls", "-l",
 		fmt.Sprintf("gs://%s/%s", d.bucket, d.prefix),
 	}
 
-	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: gcloud CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("gcloud storage ls failed: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -501,7 +510,7 @@ func (d *GCSDestination) List(ctx context.Context) ([]BackupInfo, error) {
 			continue
 		}
 
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        name,
 			Destination: url,
 			Size:        size,
@@ -526,7 +535,8 @@ func (d *GCSDestination) Delete(ctx context.Context, name string) error {
 		fmt.Sprintf("gs://%s/%s", d.bucket, path),
 	}
 
-	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: gcloud CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gcloud storage rm failed: %w", err)
 	}
@@ -544,10 +554,11 @@ func (d *GCSDestination) Exists(ctx context.Context, name string) (bool, error) 
 		fmt.Sprintf("gs://%s/%s", d.bucket, path),
 	}
 
-	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: gcloud CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "gcloud", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	err := cmd.Run()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // error means object not found, not a failure
 	}
 	return true, nil
 }
@@ -604,7 +615,8 @@ func (d *AzureBlobDestination) Upload(ctx context.Context, name string, r io.Rea
 		"--overwrite",
 	}
 
-	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: Azure CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("az storage blob upload failed: %w", err)
 	}
@@ -633,7 +645,8 @@ func (d *AzureBlobDestination) Download(ctx context.Context, name string, w io.W
 		"--file", tmpFile.Name(),
 	}
 
-	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: Azure CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("az storage blob download failed: %w", err)
 	}
@@ -654,7 +667,7 @@ func (d *AzureBlobDestination) Download(ctx context.Context, name string, w io.W
 }
 
 // List lists all backups in Azure Blob Storage
-func (d *AzureBlobDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *AzureBlobDestination) List(ctx context.Context) ([]Info, error) {
 	args := []string{
 		"storage", "blob", "list",
 		"--account-name", d.accountName,
@@ -663,7 +676,8 @@ func (d *AzureBlobDestination) List(ctx context.Context) ([]BackupInfo, error) {
 		"--output", "json",
 	}
 
-	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: Azure CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("az storage blob list failed: %w", err)
@@ -680,7 +694,7 @@ func (d *AzureBlobDestination) List(ctx context.Context) ([]BackupInfo, error) {
 		return nil, fmt.Errorf("failed to parse Azure response: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	for _, blob := range blobs {
 		name := strings.TrimPrefix(blob.Name, d.prefix)
 		if name == "" {
@@ -689,7 +703,7 @@ func (d *AzureBlobDestination) List(ctx context.Context) ([]BackupInfo, error) {
 
 		t, _ := time.Parse(time.RFC1123, blob.Properties.LastModified)
 
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        name,
 			Destination: fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", d.accountName, d.containerName, blob.Name),
 			Size:        blob.Properties.ContentLength,
@@ -716,7 +730,8 @@ func (d *AzureBlobDestination) Delete(ctx context.Context, name string) error {
 		"--name", blobName,
 	}
 
-	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: Azure CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("az storage blob delete failed: %w", err)
 	}
@@ -737,17 +752,18 @@ func (d *AzureBlobDestination) Exists(ctx context.Context, name string) (bool, e
 		"--output", "json",
 	}
 
-	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: Azure CLI execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, "az", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // error means object not found, not a failure
 	}
 
 	var result struct {
 		Exists bool `json:"exists"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // parse failure treated as not found
 	}
 
 	return result.Exists, nil
@@ -805,7 +821,8 @@ func (d *SFTPDestination) Upload(ctx context.Context, name string, r io.Reader, 
 
 	args := d.buildSCPArgs(tmpFile.Name(), fmt.Sprintf("%s@%s:%s", d.user, d.host, remoteDest))
 
-	cmd := exec.CommandContext(ctx, "scp", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: scp execution is intentional for remote backup operations
+	cmd := exec.CommandContext(ctx, "scp", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("scp failed: %w", err)
 	}
@@ -828,7 +845,8 @@ func (d *SFTPDestination) Download(ctx context.Context, name string, w io.Writer
 
 	args := d.buildSCPArgs(fmt.Sprintf("%s@%s:%s", d.user, d.host, remoteSrc), tmpFile.Name())
 
-	cmd := exec.CommandContext(ctx, "scp", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: scp execution is intentional for remote backup operations
+	cmd := exec.CommandContext(ctx, "scp", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("scp failed: %w", err)
 	}
@@ -849,17 +867,18 @@ func (d *SFTPDestination) Download(ctx context.Context, name string, w io.Writer
 }
 
 // List lists all backups via SFTP
-func (d *SFTPDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *SFTPDestination) List(ctx context.Context) ([]Info, error) {
 	// Use ssh to list files
 	sshArgs := d.buildSSHArgs(fmt.Sprintf("ls -la %s", d.remotePath))
 
-	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: ssh execution is intentional for remote backup operations
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("ssh ls failed: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -883,7 +902,7 @@ func (d *SFTPDestination) List(ctx context.Context) ([]BackupInfo, error) {
 
 		name := parts[len(parts)-1]
 
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        name,
 			Destination: fmt.Sprintf("sftp://%s@%s:%d%s/%s", d.user, d.host, d.port, d.remotePath, name),
 			Size:        size,
@@ -898,7 +917,8 @@ func (d *SFTPDestination) Delete(ctx context.Context, name string) error {
 	remotePath := filepath.Join(d.remotePath, name)
 	sshArgs := d.buildSSHArgs(fmt.Sprintf("rm %s", remotePath))
 
-	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: ssh execution is intentional for remote backup operations
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("ssh rm failed: %w", err)
 	}
@@ -912,10 +932,11 @@ func (d *SFTPDestination) Exists(ctx context.Context, name string) (bool, error)
 	remotePath := filepath.Join(d.remotePath, name)
 	sshArgs := d.buildSSHArgs(fmt.Sprintf("test -f %s && echo exists", remotePath))
 
-	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: ssh execution is intentional for remote backup operations
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	output, err := cmd.Output()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // error means file not found, not a failure
 	}
 	return strings.TrimSpace(string(output)) == "exists", nil
 }
@@ -926,9 +947,7 @@ func (d *SFTPDestination) buildSCPArgs(src, dst string) []string {
 	if d.keyPath != "" {
 		args = append(args, "-i", d.keyPath)
 	}
-	args = append(args, "-o", "StrictHostKeyChecking=no")
-	args = append(args, "-o", "BatchMode=yes")
-	args = append(args, src, dst)
+	args = append(args, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", src, dst)
 	return args
 }
 
@@ -938,10 +957,7 @@ func (d *SFTPDestination) buildSSHArgs(command string) []string {
 	if d.keyPath != "" {
 		args = append(args, "-i", d.keyPath)
 	}
-	args = append(args, "-o", "StrictHostKeyChecking=no")
-	args = append(args, "-o", "BatchMode=yes")
-	args = append(args, fmt.Sprintf("%s@%s", d.user, d.host))
-	args = append(args, command)
+	args = append(args, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", fmt.Sprintf("%s@%s", d.user, d.host), command)
 	return args
 }
 
@@ -1018,7 +1034,7 @@ func (d *HTTPDestination) Upload(ctx context.Context, name string, r io.Reader, 
 func (d *HTTPDestination) Download(ctx context.Context, name string, w io.Writer) error {
 	url := fmt.Sprintf("%s/%s", d.baseURL, name)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -1047,8 +1063,8 @@ func (d *HTTPDestination) Download(ctx context.Context, name string, w io.Writer
 }
 
 // List lists backups (requires server support)
-func (d *HTTPDestination) List(ctx context.Context) ([]BackupInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", d.baseURL, nil)
+func (d *HTTPDestination) List(ctx context.Context) ([]Info, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", d.baseURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -1068,7 +1084,7 @@ func (d *HTTPDestination) List(ctx context.Context) ([]BackupInfo, error) {
 		return nil, fmt.Errorf("HTTP GET failed: %s", resp.Status)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	if err := json.NewDecoder(resp.Body).Decode(&backups); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -1080,7 +1096,7 @@ func (d *HTTPDestination) List(ctx context.Context) ([]BackupInfo, error) {
 func (d *HTTPDestination) Delete(ctx context.Context, name string) error {
 	url := fmt.Sprintf("%s/%s", d.baseURL, name)
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -1108,7 +1124,7 @@ func (d *HTTPDestination) Delete(ctx context.Context, name string) error {
 func (d *HTTPDestination) Exists(ctx context.Context, name string) (bool, error) {
 	url := fmt.Sprintf("%s/%s", d.baseURL, name)
 
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "HEAD", url, http.NoBody)
 	if err != nil {
 		return false, err
 	}
@@ -1138,9 +1154,7 @@ func NewRcloneDestination(config RcloneConfig, logger Logger) *RcloneDestination
 	if logger == nil {
 		logger = &noopLogger{}
 	}
-	if config.Streaming {
-		// Streaming is enabled by default for new configs
-	}
+	// Note: config.Streaming is enabled by default for new configs
 	return &RcloneDestination{
 		config: config,
 		logger: logger,
@@ -1190,7 +1204,8 @@ func (d *RcloneDestination) Upload(ctx context.Context, artifact string, reader 
 			args = append(args, "--size", fmt.Sprintf("%d", size))
 		}
 
-		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+		//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 		cmd.Stdin = reader
 
 		var stderr bytes.Buffer
@@ -1223,7 +1238,8 @@ func (d *RcloneDestination) Upload(ctx context.Context, artifact string, reader 
 	args := d.baseArgs()
 	args = append(args, "copyto", tmpPath, remotePath)
 
-	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -1246,7 +1262,8 @@ func (d *RcloneDestination) Download(ctx context.Context, artifact string, write
 		args := d.baseArgs()
 		args = append(args, "cat", remotePath)
 
-		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+		//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 		cmd.Stdout = writer
 
 		var stderr bytes.Buffer
@@ -1274,7 +1291,8 @@ func (d *RcloneDestination) Download(ctx context.Context, artifact string, write
 	args := d.baseArgs()
 	args = append(args, "copyto", remotePath, tmpPath)
 
-	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -1300,7 +1318,7 @@ func (d *RcloneDestination) Download(ctx context.Context, artifact string, write
 }
 
 // List lists available backups via rclone lsjson
-func (d *RcloneDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *RcloneDestination) List(ctx context.Context) ([]Info, error) {
 	remotePath := d.config.Remote + ":"
 	if d.config.Path != "" {
 		remotePath = fmt.Sprintf("%s:%s", d.config.Remote, d.config.Path)
@@ -1309,7 +1327,8 @@ func (d *RcloneDestination) List(ctx context.Context) ([]BackupInfo, error) {
 	args := d.baseArgs()
 	args = append(args, "lsjson", remotePath)
 
-	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1332,7 +1351,7 @@ func (d *RcloneDestination) List(ctx context.Context) ([]BackupInfo, error) {
 		return nil, fmt.Errorf("failed to parse rclone output: %w", err)
 	}
 
-	var backups []BackupInfo
+	var backups []Info
 	for _, item := range items {
 		if item.IsDir {
 			continue
@@ -1347,7 +1366,7 @@ func (d *RcloneDestination) List(ctx context.Context) ([]BackupInfo, error) {
 			continue
 		}
 
-		backups = append(backups, BackupInfo{
+		backups = append(backups, Info{
 			Name:        item.Name,
 			Size:        item.Size,
 			StartTime:   item.ModTime,
@@ -1370,7 +1389,8 @@ func (d *RcloneDestination) Delete(ctx context.Context, artifact string) error {
 	args := d.baseArgs()
 	args = append(args, "deletefile", remotePath)
 
-	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -1391,13 +1411,14 @@ func (d *RcloneDestination) Exists(ctx context.Context, artifact string) (bool, 
 	args := d.baseArgs()
 	args = append(args, "lsjson", remotePath)
 
-	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: rclone execution is intentional for cloud backup operations
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
 	if err := cmd.Run(); err != nil {
 		// File doesn't exist
-		return false, nil
+		return false, nil //nolint:nilerr // error means file not found, not a failure
 	}
 
 	// If lsjson returns something, file exists
@@ -1431,7 +1452,7 @@ func NewDestination(config *DestinationConfig, logger Logger) (Destination, erro
 
 	case DestinationTypeAzureBlob:
 		if config.Azure == nil || config.Azure.AccountName == "" || config.Azure.ContainerName == "" {
-			return nil, fmt.Errorf("Azure destination requires account and container configuration")
+			return nil, fmt.Errorf("azure destination requires account and container configuration")
 		}
 		return NewAzureBlobDestination(*config.Azure, logger), nil
 
@@ -1507,7 +1528,7 @@ func (d *MultiDestination) Download(ctx context.Context, name string, w io.Write
 }
 
 // List lists backups from the first available destination
-func (d *MultiDestination) List(ctx context.Context) ([]BackupInfo, error) {
+func (d *MultiDestination) List(ctx context.Context) ([]Info, error) {
 	for _, dest := range d.destinations {
 		if backups, err := dest.List(ctx); err == nil {
 			return backups, nil

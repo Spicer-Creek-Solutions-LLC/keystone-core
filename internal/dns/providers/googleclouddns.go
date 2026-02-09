@@ -56,6 +56,6 @@ func NewGoogleCloudDNSProvider(creds dns.ResolvedCredentials) (dns.Provider, err
 }
 
 func init() {
-	dns.RegisterProvider("gcp", NewGoogleCloudDNSProvider, GoogleCloudDNSCapabilities)
-	dns.RegisterProvider("googleclouddns", NewGoogleCloudDNSProvider, GoogleCloudDNSCapabilities)
+	_ = dns.RegisterProvider("gcp", NewGoogleCloudDNSProvider, GoogleCloudDNSCapabilities)            //nolint:errcheck // provider registration in init
+	_ = dns.RegisterProvider("googleclouddns", NewGoogleCloudDNSProvider, GoogleCloudDNSCapabilities) //nolint:errcheck // provider registration in init
 }

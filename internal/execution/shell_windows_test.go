@@ -95,22 +95,22 @@ func TestPowerShellExecutor_DetectPowerShell_Caching_Windows(t *testing.T) {
 	}
 }
 
-func TestPowerShellExecutor_GetExecutionPolicy_Windows(t *testing.T) {
+func TestPowerShellExecutor_GetPolicy_Windows(t *testing.T) {
 	exec := NewPowerShellExecutor()
 	ctx := context.Background()
 
-	policy, err := exec.GetExecutionPolicy(ctx)
+	policy, err := exec.GetPolicy(ctx)
 	if err != nil {
-		t.Skipf("GetExecutionPolicy failed: %v", err)
+		t.Skipf("GetPolicy failed: %v", err)
 	}
 
-	validPolicies := map[ExecutionPolicy]bool{
-		ExecutionPolicyRestricted:   true,
-		ExecutionPolicyAllSigned:    true,
-		ExecutionPolicyRemoteSigned: true,
-		ExecutionPolicyUnrestricted: true,
-		ExecutionPolicyBypass:       true,
-		ExecutionPolicyUndefined:    true,
+	validPolicies := map[Policy]bool{
+		PolicyRestricted:   true,
+		PolicyAllSigned:    true,
+		PolicyRemoteSigned: true,
+		PolicyUnrestricted: true,
+		PolicyBypass:       true,
+		PolicyUndefined:    true,
 	}
 
 	if !validPolicies[policy] {
@@ -398,14 +398,14 @@ func TestResult_Methods_Windows(t *testing.T) {
 	}
 }
 
-func TestExecutionPolicy_Values_Windows(t *testing.T) {
-	policies := []ExecutionPolicy{
-		ExecutionPolicyRestricted,
-		ExecutionPolicyAllSigned,
-		ExecutionPolicyRemoteSigned,
-		ExecutionPolicyUnrestricted,
-		ExecutionPolicyBypass,
-		ExecutionPolicyUndefined,
+func TestPolicy_Values_Windows(t *testing.T) {
+	policies := []Policy{
+		PolicyRestricted,
+		PolicyAllSigned,
+		PolicyRemoteSigned,
+		PolicyUnrestricted,
+		PolicyBypass,
+		PolicyUndefined,
 	}
 
 	for _, policy := range policies {

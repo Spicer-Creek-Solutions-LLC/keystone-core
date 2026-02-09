@@ -13,6 +13,7 @@ import (
 // HealthStatus represents the health status of a component.
 type HealthStatus string
 
+// HealthStatus constants define the possible statuses.
 const (
 	HealthStatusHealthy   HealthStatus = "healthy"
 	HealthStatusDegraded  HealthStatus = "degraded"
@@ -59,7 +60,7 @@ type HealthMonitor struct {
 	running bool
 
 	// onStatusChange is called when overall status changes
-	onStatusChange func(old, new HealthStatus)
+	onStatusChange func(oldStatus, newStatus HealthStatus)
 }
 
 // HealthMonitorConfig configures the health monitor.
@@ -103,7 +104,7 @@ func (m *HealthMonitor) RegisterChecker(checker HealthChecker) {
 }
 
 // SetStatusChangeCallback sets the callback for status changes.
-func (m *HealthMonitor) SetStatusChangeCallback(callback func(old, new HealthStatus)) {
+func (m *HealthMonitor) SetStatusChangeCallback(callback func(oldStatus, newStatus HealthStatus)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -232,6 +233,8 @@ func (m *HealthMonitor) overallStatusLocked() HealthStatus {
 			hasUnhealthy = true
 		case HealthStatusDegraded:
 			hasDegraded = true
+		default:
+			// HealthStatusHealthy, HealthStatusUnknown don't set flags
 		}
 	}
 
@@ -258,9 +261,9 @@ func (m *HealthMonitor) GetResults() map[string]*HealthCheck {
 
 // HealthResponse is the response for health endpoints.
 type HealthResponse struct {
-	Status    HealthStatus             `json:"status"`
-	Checks    map[string]*HealthCheck  `json:"checks,omitempty"`
-	Timestamp time.Time                `json:"timestamp"`
+	Status    HealthStatus            `json:"status"`
+	Checks    map[string]*HealthCheck `json:"checks,omitempty"`
+	Timestamp time.Time               `json:"timestamp"`
 }
 
 // HTTPHandler returns an HTTP handler for health endpoints.
@@ -299,11 +302,10 @@ func (m *HealthMonitor) HTTPHandler() http.Handler {
 		results := m.GetResults()
 
 		w.Header().Set("Content-Type", "application/json")
-		if status == HealthStatusHealthy {
+		switch status {
+		case HealthStatusHealthy, HealthStatusDegraded:
 			w.WriteHeader(http.StatusOK)
-		} else if status == HealthStatusDegraded {
-			w.WriteHeader(http.StatusOK)
-		} else {
+		default:
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
 
@@ -379,14 +381,15 @@ func (c *DeviceHealthChecker) Check(ctx context.Context) *HealthCheck {
 
 	percentage := float64(healthy) / float64(total) * 100
 
-	if healthy >= c.minHealthy && percentage >= c.minPercentage {
+	switch {
+	case healthy >= c.minHealthy && percentage >= c.minPercentage:
 		result.Status = HealthStatusHealthy
 		result.Message = fmt.Sprintf("%d/%d devices healthy (%.1f%%)", healthy, total, percentage)
-	} else if healthy > 0 {
+	case healthy > 0:
 		result.Status = HealthStatusDegraded
 		result.Message = fmt.Sprintf("Only %d/%d devices healthy (%.1f%%), minimum: %d or %.1f%%",
 			healthy, total, percentage, c.minHealthy, c.minPercentage)
-	} else {
+	default:
 		result.Status = HealthStatusUnhealthy
 		result.Message = "No healthy devices"
 	}
@@ -396,17 +399,17 @@ func (c *DeviceHealthChecker) Check(ctx context.Context) *HealthCheck {
 
 // ConnectionHealthChecker checks the health of protocol connections.
 type ConnectionHealthChecker struct {
-	name          string
-	getStats      func() ConnectionStats
-	maxFailRate   float64
-	maxLatencyMs  float64
+	name         string
+	getStats     func() ConnectionStats
+	maxFailRate  float64
+	maxLatencyMs float64
 }
 
 // ConnectionStats holds connection statistics.
 type ConnectionStats struct {
-	Total    int64
-	Active   int
-	Failed   int64
+	Total      int64
+	Active     int
+	Failed     int64
 	AvgLatency time.Duration
 }
 
@@ -451,13 +454,14 @@ func (c *ConnectionHealthChecker) Check(ctx context.Context) *HealthCheck {
 	failRate := float64(stats.Failed) / float64(stats.Total) * 100
 	latencyMs := float64(stats.AvgLatency.Milliseconds())
 
-	if failRate > c.maxFailRate {
+	switch {
+	case failRate > c.maxFailRate:
 		result.Status = HealthStatusUnhealthy
 		result.Message = fmt.Sprintf("High failure rate: %.2f%% (max: %.2f%%)", failRate, c.maxFailRate)
-	} else if latencyMs > c.maxLatencyMs {
+	case latencyMs > c.maxLatencyMs:
 		result.Status = HealthStatusDegraded
 		result.Message = fmt.Sprintf("High latency: %.2fms (max: %.2fms)", latencyMs, c.maxLatencyMs)
-	} else {
+	default:
 		result.Status = HealthStatusHealthy
 		result.Message = fmt.Sprintf("Active: %d, Fail rate: %.2f%%, Latency: %.2fms", stats.Active, failRate, latencyMs)
 	}

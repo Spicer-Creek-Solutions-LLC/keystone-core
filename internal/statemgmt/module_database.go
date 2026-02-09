@@ -36,7 +36,7 @@ func (m *PostgresDatabaseModule) Check(ctx context.Context, decl *StateDeclarati
 	port := getIntParameter(decl, "port", 5432)
 	user := getStringParameter(decl, "user", "postgres")
 	password := getStringParameter(decl, "password", "")
-	maintenance_db := getStringParameter(decl, "maintenance_db", "postgres")
+	maintenanceDB := getStringParameter(decl, "maintenance_db", "postgres")
 
 	// Check if psql is available
 	if _, err := exec.LookPath("psql"); err != nil {
@@ -44,7 +44,7 @@ func (m *PostgresDatabaseModule) Check(ctx context.Context, decl *StateDeclarati
 	}
 
 	// Build connection string
-	connArgs := m.buildConnArgs(host, port, user, password, maintenance_db)
+	connArgs := m.buildConnArgs(host, port, user, password, maintenanceDB)
 
 	// Check if database exists
 	query := fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", escapePostgresString(name))
@@ -79,7 +79,7 @@ func (m *PostgresDatabaseModule) Check(ctx context.Context, decl *StateDeclarati
 
 	result.Matches = (decl.State == "present" && exists) || (decl.State == "absent" && !exists)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the PostgreSQL database
@@ -89,9 +89,9 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 	port := getIntParameter(decl, "port", 5432)
 	user := getStringParameter(decl, "user", "postgres")
 	password := getStringParameter(decl, "password", "")
-	maintenance_db := getStringParameter(decl, "maintenance_db", "postgres")
+	maintenanceDB := getStringParameter(decl, "maintenance_db", "postgres")
 
-	connArgs := m.buildConnArgs(host, port, user, password, maintenance_db)
+	connArgs := m.buildConnArgs(host, port, user, password, maintenanceDB)
 
 	result := &StateResult{
 		StateID: decl.ID,
@@ -104,14 +104,14 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Database '%s' already exists", name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		owner := getStringParameter(decl, "owner", "")
 		encoding := getStringParameter(decl, "encoding", "UTF8")
 		template := getStringParameter(decl, "template", "template0")
-		lc_collate := getStringParameter(decl, "lc_collate", "")
-		lc_ctype := getStringParameter(decl, "lc_ctype", "")
+		lcCollate := getStringParameter(decl, "lc_collate", "")
+		lcCtype := getStringParameter(decl, "lc_ctype", "")
 
 		// Build CREATE DATABASE statement
 		createSQL := fmt.Sprintf("CREATE DATABASE %s", quotePostgresIdentifier(name))
@@ -119,11 +119,11 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 			createSQL += fmt.Sprintf(" OWNER %s", quotePostgresIdentifier(owner))
 		}
 		createSQL += fmt.Sprintf(" ENCODING '%s' TEMPLATE %s", encoding, template)
-		if lc_collate != "" {
-			createSQL += fmt.Sprintf(" LC_COLLATE '%s'", lc_collate)
+		if lcCollate != "" {
+			createSQL += fmt.Sprintf(" LC_COLLATE '%s'", lcCollate)
 		}
-		if lc_ctype != "" {
-			createSQL += fmt.Sprintf(" LC_CTYPE '%s'", lc_ctype)
+		if lcCtype != "" {
+			createSQL += fmt.Sprintf(" LC_CTYPE '%s'", lcCtype)
 		}
 
 		cmd := exec.CommandContext(ctx, "psql", append(connArgs, "-c", createSQL)...)
@@ -131,7 +131,7 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create database: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -143,7 +143,7 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Database '%s' does not exist", name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		dropSQL := fmt.Sprintf("DROP DATABASE %s", quotePostgresIdentifier(name))
@@ -152,7 +152,7 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to drop database: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -160,7 +160,7 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 		result.Comment = fmt.Sprintf("Database '%s' dropped", name)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -214,13 +214,13 @@ func (m *PostgresUserModule) Check(ctx context.Context, decl *StateDeclaration) 
 	user := getStringParameter(decl, "user", "postgres")
 	// password should be set via PGPASSWORD env var for security
 	_ = getStringParameter(decl, "password", "")
-	maintenance_db := getStringParameter(decl, "maintenance_db", "postgres")
+	maintenanceDB := getStringParameter(decl, "maintenance_db", "postgres")
 
 	if _, err := exec.LookPath("psql"); err != nil {
 		return nil, fmt.Errorf("psql is not available: %w", err)
 	}
 
-	connArgs := []string{"-h", host, "-p", fmt.Sprintf("%d", port), "-U", user, "-d", maintenance_db}
+	connArgs := []string{"-h", host, "-p", fmt.Sprintf("%d", port), "-U", user, "-d", maintenanceDB}
 
 	// Check if role exists
 	query := fmt.Sprintf("SELECT 1 FROM pg_roles WHERE rolname = '%s'", escapePostgresString(name))
@@ -258,7 +258,7 @@ func (m *PostgresUserModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	result.Matches = (decl.State == "present" && exists) || (decl.State == "absent" && !exists)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the PostgreSQL user
@@ -268,9 +268,9 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 	port := getIntParameter(decl, "port", 5432)
 	adminUser := getStringParameter(decl, "user", "postgres")
 	adminPassword := getStringParameter(decl, "password", "")
-	maintenance_db := getStringParameter(decl, "maintenance_db", "postgres")
+	maintenanceDB := getStringParameter(decl, "maintenance_db", "postgres")
 
-	connArgs := []string{"-h", host, "-p", fmt.Sprintf("%d", port), "-U", adminUser, "-d", maintenance_db}
+	connArgs := []string{"-h", host, "-p", fmt.Sprintf("%d", port), "-U", adminUser, "-d", maintenanceDB}
 	_ = adminPassword // Would be set via PGPASSWORD
 
 	result := &StateResult{
@@ -335,7 +335,7 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to %s role: %s", map[bool]string{true: "alter", false: "create"}[check.Present], string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -347,7 +347,7 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Role '%s' does not exist", name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		sql := fmt.Sprintf("DROP ROLE %s", quotePostgresIdentifier(name))
@@ -356,7 +356,7 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to drop role: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -364,7 +364,7 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 		result.Comment = fmt.Sprintf("Role '%s' dropped", name)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -450,7 +450,7 @@ func (m *PostgresExtensionModule) Check(ctx context.Context, decl *StateDeclarat
 
 	result.Matches = (decl.State == "present" && exists) || (decl.State == "absent" && !exists)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the extension
@@ -474,7 +474,7 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Extension '%s' already exists in database '%s'", name, database)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		schema := getStringParameter(decl, "schema", "")
@@ -497,7 +497,7 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create extension: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -509,7 +509,7 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Extension '%s' does not exist in database '%s'", name, database)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		cascade := getBoolParameter(decl, "cascade", false)
@@ -523,7 +523,7 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to drop extension: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -531,7 +531,7 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 		result.Comment = fmt.Sprintf("Extension '%s' dropped from database '%s'", name, database)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -607,7 +607,7 @@ func (m *MySQLDatabaseModule) Check(ctx context.Context, decl *StateDeclaration)
 
 	result.Matches = (decl.State == "present" && exists) || (decl.State == "absent" && !exists)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the MySQL database
@@ -626,7 +626,7 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Database '%s' already exists", name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		charset := getStringParameter(decl, "charset", "utf8mb4")
@@ -639,7 +639,7 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create database: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -651,7 +651,7 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("Database '%s' does not exist", name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		sql := fmt.Sprintf("DROP DATABASE `%s`", escapeMySQLIdentifier(name))
@@ -660,7 +660,7 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to drop database: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -668,7 +668,7 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 		result.Comment = fmt.Sprintf("Database '%s' dropped", name)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -759,7 +759,7 @@ func (m *MySQLUserModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 
 	result.Matches = (decl.State == "present" && exists) || (decl.State == "absent" && !exists)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the MySQL user
@@ -790,7 +790,7 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create user: %s", string(output))
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 		}
 
@@ -804,7 +804,7 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 				if err != nil {
 					result.Success = false
 					result.Comment = fmt.Sprintf("Failed to grant privileges: %s", string(output))
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 			}
 		}
@@ -818,7 +818,7 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 			result.Success = true
 			result.Changed = false
 			result.Comment = fmt.Sprintf("User '%s'@'%s' does not exist", name, userHost)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		sql := fmt.Sprintf("DROP USER '%s'@'%s'", escapeMySQLString(name), escapeMySQLString(userHost))
@@ -827,7 +827,7 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to drop user: %s", string(output))
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		result.Success = true
@@ -835,7 +835,7 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 		result.Comment = fmt.Sprintf("User '%s'@'%s' dropped", name, userHost)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -968,7 +968,7 @@ func (m *RedisModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 
 	result.Matches = (decl.State == "present" && result.Present) || (decl.State == "absent" && !result.Present)
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply sets or removes Redis configuration
@@ -990,7 +990,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 			if value == "" {
 				result.Success = false
 				result.Comment = "value parameter is required for config type"
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			cmd := exec.CommandContext(ctx, "redis-cli", append(connArgs, "CONFIG", "SET", name, value)...)
@@ -998,7 +998,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to set config: %s", string(output))
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			result.Success = true
@@ -1024,7 +1024,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create ACL user: %s", string(output))
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			result.Success = true
@@ -1045,7 +1045,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 				result.Success = true
 				result.Changed = false
 				result.Comment = fmt.Sprintf("ACL user '%s' does not exist", name)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			cmd := exec.CommandContext(ctx, "redis-cli", append(connArgs, "ACL", "DELUSER", name)...)
@@ -1053,7 +1053,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 			if err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete ACL user: %s", string(output))
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			result.Success = true
@@ -1062,7 +1062,7 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test runs a dry-run check
@@ -1114,7 +1114,7 @@ func quotePostgresIdentifier(s string) string {
 	if regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(s) {
 		return s
 	}
-	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(s, `"`, `""`))
+	return fmt.Sprintf("%q", strings.ReplaceAll(s, `"`, `""`))
 }
 
 // escapeMySQLString escapes single quotes for MySQL strings

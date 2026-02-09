@@ -70,17 +70,17 @@ type NATSMetricsConfig struct {
 // DefaultNATSMetricsConfig returns a default NATS metrics configuration.
 func DefaultNATSMetricsConfig() *NATSMetricsConfig {
 	return &NATSMetricsConfig{
-		URL:              "nats://localhost:4222",
-		Subject:          "kscore.metrics",
-		SubjectPerMetric: false,
+		URL:               "nats://localhost:4222",
+		Subject:           "kscore.metrics",
+		SubjectPerMetric:  false,
 		SubjectPerService: false,
-		PublishInterval:  10 * time.Second,
-		BufferSize:       10000,
-		ConnectTimeout:   5 * time.Second,
-		ReconnectWait:    1 * time.Second,
-		MaxReconnects:    -1,
-		IncludeLabels:    true,
-		IncludeTimestamp: true,
+		PublishInterval:   10 * time.Second,
+		BufferSize:        10000,
+		ConnectTimeout:    5 * time.Second,
+		ReconnectWait:     1 * time.Second,
+		MaxReconnects:     -1,
+		IncludeLabels:     true,
+		IncludeTimestamp:  true,
 	}
 }
 
@@ -92,11 +92,11 @@ type NATSMetricMessage struct {
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Value based on metric type
-	Value   float64 `json:"value,omitempty"`            // For counters and gauges
-	Count   uint64  `json:"count,omitempty"`            // For histograms/summaries
-	Sum     float64 `json:"sum,omitempty"`              // For histograms/summaries
-	Buckets []Bucket `json:"buckets,omitempty"`         // For histograms
-	Quantiles []Quantile `json:"quantiles,omitempty"`   // For summaries
+	Value     float64    `json:"value,omitempty"`     // For counters and gauges
+	Count     uint64     `json:"count,omitempty"`     // For histograms/summaries
+	Sum       float64    `json:"sum,omitempty"`       // For histograms/summaries
+	Buckets   []Bucket   `json:"buckets,omitempty"`   // For histograms
+	Quantiles []Quantile `json:"quantiles,omitempty"` // For summaries
 
 	// Metadata
 	Timestamp string `json:"timestamp,omitempty"`
@@ -126,11 +126,11 @@ type NATSMetricsBatch struct {
 
 // metricUpdate represents a single metric update to be buffered.
 type metricUpdate struct {
-	name      string
+	name       string
 	metricType MetricType
-	value     float64
-	labels    map[string]string
-	timestamp time.Time
+	value      float64
+	labels     map[string]string
+	timestamp  time.Time
 }
 
 // NATSCollector implements Collector with NATS transport.
@@ -511,8 +511,8 @@ func (c *NATSCollector) publishMetrics() {
 }
 
 // parseMetricKey parses a metric key into name and labels.
-func parseMetricKey(key string) (string, map[string]string) {
-	labels := make(map[string]string)
+func parseMetricKey(key string) (name string, labels map[string]string) {
+	labels = make(map[string]string)
 
 	// Find first semicolon
 	idx := 0
@@ -527,11 +527,11 @@ func parseMetricKey(key string) (string, map[string]string) {
 		return key, labels
 	}
 
-	name := key[:idx]
+	name = key[:idx]
 	labelPart := key[idx+1:]
 
 	// Parse label pairs
-	for len(labelPart) > 0 {
+	for labelPart != "" {
 		// Find next semicolon or end
 		nextSemi := len(labelPart)
 		for i, ch := range labelPart {
@@ -607,10 +607,10 @@ func (c *NATSCollector) buildSubject() string {
 }
 
 // Stats returns collector statistics.
-func (c *NATSCollector) Stats() (published, dropped int64, lastErr error, lastErrTime time.Time) {
+func (c *NATSCollector) Stats() (published, dropped int64, lastErrTime time.Time, lastErr error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.messagesPublished, c.messagesDropped, c.lastError, c.lastErrorTime
+	return c.messagesPublished, c.messagesDropped, c.lastErrorTime, c.lastError
 }
 
 // IsConnected returns whether NATS is connected.

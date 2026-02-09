@@ -59,10 +59,10 @@ func DefaultExponentialBackoff() *ExponentialBackoff {
 }
 
 // NewExponentialBackoff creates a new exponential backoff with custom settings
-func NewExponentialBackoff(initial, max time.Duration, multiplier float64, maxRetries int) *ExponentialBackoff {
+func NewExponentialBackoff(initial, maxVal time.Duration, multiplier float64, maxRetries int) *ExponentialBackoff {
 	return &ExponentialBackoff{
 		InitialInterval: initial,
-		MaxInterval:     max,
+		MaxInterval:     maxVal,
 		Multiplier:      multiplier,
 		MaxRetries:      maxRetries,
 		Jitter:          true,
@@ -83,7 +83,7 @@ func (eb *ExponentialBackoff) NextBackoff(attempt int) time.Duration {
 	// Calculate base interval: initial * multiplier^attempt
 	interval := float64(eb.InitialInterval) * math.Pow(eb.Multiplier, float64(attempt))
 
-	// Cap at max interval
+	// Cap at maxVal interval
 	if time.Duration(interval) > eb.MaxInterval {
 		interval = float64(eb.MaxInterval)
 	}
@@ -92,7 +92,8 @@ func (eb *ExponentialBackoff) NextBackoff(attempt int) time.Duration {
 	if eb.Jitter && eb.JitterFactor > 0 {
 		jitter := interval * eb.JitterFactor
 		// Random jitter between -jitter and +jitter
-		interval = interval + (rand.Float64()*2-1)*jitter // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
+		//nolint:gosec // G404: math/rand used for backoff jitter timing, not security
+		interval += (rand.Float64()*2-1) * jitter // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	}
 
 	return time.Duration(interval)
@@ -219,8 +220,8 @@ func IsRetryable(err error) bool {
 	return true
 }
 
-// RetryConfig configures retry behavior
-type RetryConfig struct {
+// Config configures retry behavior
+type Config struct {
 	Strategy Strategy
 	// OnRetry is called before each retry attempt
 	OnRetry func(attempt int, err error, nextBackoff time.Duration)
@@ -229,8 +230,8 @@ type RetryConfig struct {
 }
 
 // DefaultConfig returns a default retry configuration
-func DefaultConfig() *RetryConfig {
-	return &RetryConfig{
+func DefaultConfig() *Config {
+	return &Config{
 		Strategy:    DefaultExponentialBackoff(),
 		IsRetryable: IsRetryable,
 	}
@@ -238,11 +239,11 @@ func DefaultConfig() *RetryConfig {
 
 // Retrier executes operations with retry logic
 type Retrier struct {
-	config *RetryConfig
+	config *Config
 }
 
 // NewRetrier creates a new retrier
-func NewRetrier(config *RetryConfig) *Retrier {
+func NewRetrier(config *Config) *Retrier {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -407,7 +408,7 @@ func (c *CommandRetryConfig) ShouldRetryCommand(err error, exitCode int32, isTim
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsLower(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsLower(s, substr))
 }
 
 func containsLower(s, substr string) bool {
@@ -419,8 +420,8 @@ func containsLower(s, substr string) bool {
 	return false
 }
 
-// RetryStats tracks retry statistics
-type RetryStats struct {
+// Stats tracks retry statistics
+type Stats struct {
 	mu              sync.RWMutex
 	TotalAttempts   int64
 	TotalRetries    int64
@@ -429,22 +430,22 @@ type RetryStats struct {
 	RetriesByReason map[string]int64
 }
 
-// NewRetryStats creates a new retry stats tracker
-func NewRetryStats() *RetryStats {
-	return &RetryStats{
+// NewStats creates a new retry stats tracker
+func NewStats() *Stats {
+	return &Stats{
 		RetriesByReason: make(map[string]int64),
 	}
 }
 
 // RecordAttempt records an attempt
-func (s *RetryStats) RecordAttempt() {
+func (s *Stats) RecordAttempt() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.TotalAttempts++
 }
 
 // RecordRetry records a retry
-func (s *RetryStats) RecordRetry(reason string) {
+func (s *Stats) RecordRetry(reason string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.TotalRetries++
@@ -452,24 +453,24 @@ func (s *RetryStats) RecordRetry(reason string) {
 }
 
 // RecordSuccess records a success
-func (s *RetryStats) RecordSuccess() {
+func (s *Stats) RecordSuccess() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.TotalSuccesses++
 }
 
 // RecordFailure records a final failure
-func (s *RetryStats) RecordFailure() {
+func (s *Stats) RecordFailure() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.TotalFailures++
 }
 
 // Snapshot returns a copy of the current stats
-func (s *RetryStats) Snapshot() RetryStats {
+func (s *Stats) Snapshot() *Stats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	stats := RetryStats{
+	stats := &Stats{
 		TotalAttempts:   s.TotalAttempts,
 		TotalRetries:    s.TotalRetries,
 		TotalSuccesses:  s.TotalSuccesses,
@@ -483,7 +484,7 @@ func (s *RetryStats) Snapshot() RetryStats {
 }
 
 // String returns a string representation of the stats
-func (s *RetryStats) String() string {
+func (s *Stats) String() string {
 	snap := s.Snapshot()
 	return fmt.Sprintf("RetryStats{attempts=%d, retries=%d, successes=%d, failures=%d}",
 		snap.TotalAttempts, snap.TotalRetries, snap.TotalSuccesses, snap.TotalFailures)

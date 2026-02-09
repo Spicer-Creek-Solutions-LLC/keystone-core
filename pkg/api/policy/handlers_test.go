@@ -54,7 +54,7 @@ func TestEvaluateResponseStructure(t *testing.T) {
 				Duration:   "5ms",
 			},
 		},
-		Summary: &policy.PolicySummary{
+		Summary: &policy.Summary{
 			TotalPolicies:   1,
 			AllowedPolicies: 1,
 			DeniedPolicies:  0,

@@ -2,6 +2,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -126,7 +127,7 @@ func (m *BaseProxyModule) GetInt(params map[string]interface{}, key string) (int
 }
 
 // GetBool gets a boolean parameter.
-func (m *BaseProxyModule) GetBool(params map[string]interface{}, key string) (bool, bool) {
+func (m *BaseProxyModule) GetBool(params map[string]interface{}, key string) (value, ok bool) {
 	if v, ok := params[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b, true
@@ -222,19 +223,20 @@ func (m *SSHFileModule) ensureFile(ctx context.Context, mctx ModuleContext, path
 			return result, nil
 		}
 
-		if hasContent {
+		switch {
+		case hasContent:
 			// Create file with content
 			cmd := fmt.Sprintf("cat > %s << 'EOFKSCORE'\n%s\nEOFKSCORE", path, content)
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
 				return nil, fmt.Errorf("failed to create file: %w", err)
 			}
-		} else if hasSource {
+		case hasSource:
 			// Copy from source
 			cmd := fmt.Sprintf("cp %s %s", source, path)
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
 				return nil, fmt.Errorf("failed to copy file: %w", err)
 			}
-		} else {
+		default:
 			// Create empty file
 			cmd := fmt.Sprintf("touch %s", path)
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
@@ -502,12 +504,12 @@ func (m *SSHServiceModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 		if enabled && !isEnabled {
 			result.Changed = true
 			if !mctx.DryRun {
-				mctx.ExecuteCommand(ctx, fmt.Sprintf("systemctl enable %s 2>/dev/null", name))
+				_, _ = mctx.ExecuteCommand(ctx, fmt.Sprintf("systemctl enable %s 2>/dev/null", name)) //nolint:errcheck // best-effort enable
 			}
 		} else if !enabled && isEnabled {
 			result.Changed = true
 			if !mctx.DryRun {
-				mctx.ExecuteCommand(ctx, fmt.Sprintf("systemctl disable %s 2>/dev/null", name))
+				_, _ = mctx.ExecuteCommand(ctx, fmt.Sprintf("systemctl disable %s 2>/dev/null", name)) //nolint:errcheck // best-effort disable
 			}
 		}
 	}
@@ -916,7 +918,7 @@ func (m *HTTPConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 	}
 
 	var currentConfig map[string]interface{}
-	if err := json.Unmarshal([]byte(getResult.Stdout), &currentConfig); err != nil {
+	if err := json.Unmarshal(getResult.Stdout, &currentConfig); err != nil {
 		currentConfig = nil
 	}
 
@@ -928,7 +930,7 @@ func (m *HTTPConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 
 		// Check if config differs
 		currentJSON, _ := json.Marshal(currentConfig)
-		if string(currentJSON) != string(configJSON) {
+		if !bytes.Equal(currentJSON, configJSON) {
 			result.Changed = true
 			if mctx.DryRun {
 				result.Comment = fmt.Sprintf("Config at %s would be updated", path)

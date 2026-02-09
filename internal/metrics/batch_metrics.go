@@ -271,8 +271,8 @@ func (b *BatchMetricsAggregator) calculatePercentiles() (p50, p90, p95, p99 floa
 	return p50, p90, p95, p99
 }
 
-// calculateStats calculates average, min, max for execution times
-func (b *BatchMetricsAggregator) calculateStats() (avg, min, max float64) {
+// calculateStats calculates average, minVal, max for execution times
+func (b *BatchMetricsAggregator) calculateStats() (avg, minVal, maxVal float64) {
 	if len(b.executionTimes) == 0 {
 		return 0, 0, 0
 	}
@@ -292,14 +292,14 @@ func (b *BatchMetricsAggregator) calculateStats() (avg, min, max float64) {
 	}
 
 	avg = float64(sum.Milliseconds()) / float64(len(b.executionTimes))
-	min = float64(minDur.Milliseconds())
-	max = float64(maxDur.Milliseconds())
+	minVal = float64(minDur.Milliseconds())
+	maxVal = float64(maxDur.Milliseconds())
 
-	return avg, min, max
+	return avg, minVal, maxVal
 }
 
 // percentileIndex calculates the index for a given percentile
-func percentileIndex(n int, percentile int) int {
+func percentileIndex(n, percentile int) int {
 	if n == 0 {
 		return 0
 	}
@@ -331,13 +331,13 @@ func (b *BatchMetricsAggregator) Reset() {
 
 // Common error types for categorization
 const (
-	ErrorTypeTimeout     = "timeout"
-	ErrorTypeNetwork     = "network"
-	ErrorTypeAuth        = "auth"
-	ErrorTypePermission  = "permission"
-	ErrorTypeNotFound    = "not_found"
-	ErrorTypeCommand     = "command"
-	ErrorTypeInternal    = "internal"
+	ErrorTypeTimeout      = "timeout"
+	ErrorTypeNetwork      = "network"
+	ErrorTypeAuth         = "auth"
+	ErrorTypePermission   = "permission"
+	ErrorTypeNotFound     = "not_found"
+	ErrorTypeCommand      = "command"
+	ErrorTypeInternal     = "internal"
 	ErrorTypeAgentOffline = "agent_offline"
 )
 

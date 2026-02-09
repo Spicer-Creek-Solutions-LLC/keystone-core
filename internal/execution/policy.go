@@ -32,22 +32,22 @@ var (
 // permissiveWarnOnce ensures the permissive mode deprecation warning is only logged once
 var permissiveWarnOnce sync.Once
 
-// ExecutionMode defines the security mode for command execution
-type ExecutionMode string
+// Mode defines the security mode for command execution
+type Mode string
 
 const (
-	// ExecutionModeStrict only allows explicitly allowlisted commands
+	// ModeStrict only allows explicitly allowlisted commands
 	// This is the most secure mode but requires upfront configuration
-	ExecutionModeStrict ExecutionMode = "strict"
+	ModeStrict Mode = "strict"
 
-	// ExecutionModeNormal blocks known dangerous patterns but allows other commands
+	// ModeNormal blocks known dangerous patterns but allows other commands
 	// This provides reasonable security while being flexible
-	ExecutionModeNormal ExecutionMode = "normal"
+	ModeNormal Mode = "normal"
 
-	// ExecutionModePermissive only blocks the most dangerous patterns
+	// ModePermissive only blocks the most dangerous patterns
 	// WARNING: This mode provides minimal protection and should only be used
 	// in fully trusted environments
-	ExecutionModePermissive ExecutionMode = "permissive"
+	ModePermissive Mode = "permissive"
 )
 
 // CommandPolicy defines the security policy for command execution
@@ -55,7 +55,7 @@ type CommandPolicy struct {
 	mu sync.RWMutex
 
 	// Mode defines the security level
-	Mode ExecutionMode
+	Mode Mode
 
 	// AllowedCommands is the list of allowed commands (for strict mode)
 	// Commands are matched by their base name (e.g., "ls", "cat", "kubectl")
@@ -86,12 +86,12 @@ type CommandPolicy struct {
 // DefaultPolicy returns a secure default policy (normal mode)
 func DefaultPolicy() *CommandPolicy {
 	return &CommandPolicy{
-		Mode:                ExecutionModeNormal,
+		Mode:                ModeNormal,
 		AllowedCommands:     make(map[string]bool),
 		AllowedPatterns:     nil,
 		BlockedCommands:     defaultBlockedCommands(),
 		BlockedPatterns:     defaultBlockedPatterns(),
-		AllowShellExecution: true, // Allow but with validation
+		AllowShellExecution: true,  // Allow but with validation
 		MaxCommandLength:    65536, // 64KB max command length
 		AllowedEnvVars:      make(map[string]bool),
 	}
@@ -100,7 +100,7 @@ func DefaultPolicy() *CommandPolicy {
 // StrictPolicy returns a policy that only allows explicitly allowlisted commands
 func StrictPolicy(allowedCommands []string) *CommandPolicy {
 	policy := &CommandPolicy{
-		Mode:                ExecutionModeStrict,
+		Mode:                ModeStrict,
 		AllowedCommands:     make(map[string]bool),
 		AllowedPatterns:     nil,
 		BlockedCommands:     defaultBlockedCommands(),
@@ -121,13 +121,13 @@ func StrictPolicy(allowedCommands []string) *CommandPolicy {
 func defaultBlockedCommands() map[string]bool {
 	return map[string]bool{
 		// Destructive commands
-		"rm":      true,
-		"rmdir":   true,
-		"del":     true,
-		"format":  true,
-		"mkfs":    true,
-		"dd":      true,
-		"shred":   true,
+		"rm":     true,
+		"rmdir":  true,
+		"del":    true,
+		"format": true,
+		"mkfs":   true,
+		"dd":     true,
+		"shred":  true,
 
 		// Shell/interpreter spawning (bypass execution controls)
 		"bash":       true,
@@ -153,28 +153,28 @@ func defaultBlockedCommands() map[string]bool {
 		"nodejs":  true,
 
 		// Network tools that could exfiltrate or attack
-		"nc":       true,
-		"netcat":   true,
-		"ncat":     true,
-		"socat":    true,
-		"telnet":   true,
-		"nmap":     true,
-		"masscan":  true,
+		"nc":      true,
+		"netcat":  true,
+		"ncat":    true,
+		"socat":   true,
+		"telnet":  true,
+		"nmap":    true,
+		"masscan": true,
 
 		// Privilege escalation
-		"sudo":    true,
-		"su":      true,
-		"doas":    true,
-		"pkexec":  true,
-		"runas":   true,
+		"sudo":   true,
+		"su":     true,
+		"doas":   true,
+		"pkexec": true,
+		"runas":  true,
 
 		// System modification
-		"reboot":   true,
-		"shutdown": true,
-		"halt":     true,
-		"poweroff": true,
-		"init":     true,
-		"systemctl": true,  // Can stop critical services
+		"reboot":    true,
+		"shutdown":  true,
+		"halt":      true,
+		"poweroff":  true,
+		"init":      true,
+		"systemctl": true, // Can stop critical services
 	}
 }
 
@@ -182,42 +182,42 @@ func defaultBlockedCommands() map[string]bool {
 func defaultBlockedPatterns() []*regexp.Regexp {
 	patterns := []string{
 		// Shell metacharacters that enable command chaining/injection
-		`[;&|]`,                    // Command separators: ; & |
-		"`",                        // Backtick command substitution
-		`\$\(`,                     // $() command substitution
-		`\$\{`,                     // ${} parameter expansion (can be dangerous)
-		`>\s*/`,                    // Redirect to absolute path (overwrite system files)
-		`>>\s*/`,                   // Append to absolute path
-		`<\s*/etc/`,                // Read sensitive system files
+		`[;&|]`,     // Command separators: ; & |
+		"`",         // Backtick command substitution
+		`\$\(`,      // $() command substitution
+		`\$\{`,      // ${} parameter expansion (can be dangerous)
+		`>\s*/`,     // Redirect to absolute path (overwrite system files)
+		`>>\s*/`,    // Append to absolute path
+		`<\s*/etc/`, // Read sensitive system files
 		`\|\s*(bash|sh|zsh|python|perl|ruby|node)`, // Pipe to interpreter
 
 		// Path traversal
-		`\.\.\/`,                   // ../
-		`\.\.\\`,                   // ..\
+		`\.\.\/`, // ../
+		`\.\.\\`, // ..\
 
 		// Dangerous patterns
-		`/etc/passwd`,              // System files
+		`/etc/passwd`, // System files
 		`/etc/shadow`,
 		`/etc/sudoers`,
-		`~/.ssh/`,                  // SSH keys
-		`/root/`,                   // Root home
-		`\beval\b`,                 // eval command
-		`\bexec\b`,                 // exec command
-		`\bsource\b`,               // source command
-		`\.\s+/`,                   // . /path (source)
+		`~/.ssh/`,    // SSH keys
+		`/root/`,     // Root home
+		`\beval\b`,   // eval command
+		`\bexec\b`,   // exec command
+		`\bsource\b`, // source command
+		`\.\s+/`,     // . /path (source)
 
 		// Windows-specific dangerous patterns
-		`(?i)cmd\s*/c`,             // cmd /c
-		`(?i)powershell\s+-`,       // powershell -command etc
-		`(?i)\\windows\\system32`,  // System files
+		`(?i)cmd\s*/c`,            // cmd /c
+		`(?i)powershell\s+-`,      // powershell -command etc
+		`(?i)\\windows\\system32`, // System files
 
 		// Base64 encoded commands (often used in attacks)
-		`(?i)base64\s+-d`,          // base64 decode
+		`(?i)base64\s+-d`, // base64 decode
 		`(?i)base64\s+--decode`,
 
 		// Network exfiltration patterns
-		`(?i)curl\s+.*\s+-d`,       // curl with data (POST)
-		`(?i)wget\s+.*-O\s*-`,      // wget to stdout
+		`(?i)curl\s+.*\s+-d`,  // curl with data (POST)
+		`(?i)wget\s+.*-O\s*-`, // wget to stdout
 	}
 
 	compiled := make([]*regexp.Regexp, 0, len(patterns))
@@ -264,16 +264,16 @@ func (p *CommandPolicy) Validate(command string) error {
 
 	// Mode-specific validation
 	switch p.Mode {
-	case ExecutionModeStrict:
+	case ModeStrict:
 		return p.validateStrict(command, baseCommand)
-	case ExecutionModeNormal:
+	case ModeNormal:
 		return p.validateNormal(command, baseCommand)
-	case ExecutionModePermissive:
+	case ModePermissive:
 		// Already passed blocked checks, allow it
 		// DEPRECATED: Permissive mode provides minimal security and should not be used
 		permissiveWarnOnce.Do(func() {
-			log.Printf("DEPRECATED: ExecutionModePermissive provides minimal security protection and is deprecated. " +
-				"Use ExecutionModeNormal instead. Permissive mode will be removed in a future release.")
+			log.Printf("DEPRECATED: ModePermissive provides minimal security protection and is deprecated. " +
+				"Use ModeNormal instead. Permissive mode will be removed in a future release.")
 		})
 		return nil
 	default:
@@ -327,7 +327,7 @@ func (p *CommandPolicy) ValidateForShell(command string) error {
 	}
 
 	// In permissive mode, skip the dangerous pattern check
-	if mode == ExecutionModePermissive {
+	if mode == ModePermissive {
 		return nil
 	}
 
@@ -361,7 +361,7 @@ func (p *CommandPolicy) AddBlockedCommand(command string) {
 }
 
 // SetMode changes the execution mode
-func (p *CommandPolicy) SetMode(mode ExecutionMode) {
+func (p *CommandPolicy) SetMode(mode Mode) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.Mode = mode
@@ -430,20 +430,20 @@ func containsShellMetacharacters(command string) bool {
 // containsDangerousShellPatterns checks for patterns that are dangerous when executed via shell
 func containsDangerousShellPatterns(command string) bool {
 	dangerousPatterns := []string{
-		"&&",          // AND operator
-		"||",          // OR operator
-		"\n",          // Newline (command separator)
-		"\r",          // Carriage return
-		"$((",         // Arithmetic expansion
-		"$[",          // Arithmetic (old style)
-		"!$",          // History expansion
-		"!!",          // History repeat
-		"!-",          // History relative
-		"eval ",       // Eval command
-		"exec ",       // Exec command
-		"source ",     // Source command
-		". /",         // Dot source
-		". ./",        // Dot source relative
+		"&&",      // AND operator
+		"||",      // OR operator
+		"\n",      // Newline (command separator)
+		"\r",      // Carriage return
+		"$((",     // Arithmetic expansion
+		"$[",      // Arithmetic (old style)
+		"!$",      // History expansion
+		"!!",      // History repeat
+		"!-",      // History relative
+		"eval ",   // Eval command
+		"exec ",   // Exec command
+		"source ", // Source command
+		". /",     // Dot source
+		". ./",    // Dot source relative
 	}
 
 	for _, pattern := range dangerousPatterns {

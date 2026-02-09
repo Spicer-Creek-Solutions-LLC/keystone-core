@@ -91,7 +91,7 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		// If detection fails, try to parse as WebhookRequest
 		var req WebhookRequest
 		if jsonErr := json.Unmarshal(body, &req); jsonErr == nil && req.Type != "" {
-			webhookType = webhook.WebhookType(req.Type)
+			webhookType = webhook.Type(req.Type)
 			// Re-encode payload as body for handler
 			if req.Payload != nil {
 				body, _ = json.Marshal(req.Payload)

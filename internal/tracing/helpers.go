@@ -127,54 +127,54 @@ func WithSpanAsync(ctx context.Context, tracerName, spanName string, fn func(con
 
 // Tracer names for different Keystone Core components
 const (
-	TracerControlPlane  = "kscore.controlplane"
-	TracerAgent         = "kscore.agent"
-	TracerState         = "kscore.state"
-	TracerExecution     = "kscore.execution"
-	TracerEvents        = "kscore.events"
-	TracerPolicy        = "kscore.policy"
-	TracerGitOps        = "kscore.gitops"
-	TracerNATS          = "kscore.nats"
+	TracerControlPlane = "kscore.controlplane"
+	TracerAgent        = "kscore.agent"
+	TracerState        = "kscore.state"
+	TracerExecution    = "kscore.execution"
+	TracerEvents       = "kscore.events"
+	TracerPolicy       = "kscore.policy"
+	TracerGitOps       = "kscore.gitops"
+	TracerNATS         = "kscore.nats"
 )
 
 // Common span operation names
 const (
 	// Control Plane operations
-	SpanAPIRequest         = "api.request"
-	SpanAgentConnect       = "agent.connect"
-	SpanAgentDisconnect    = "agent.disconnect"
-	SpanAgentHeartbeat     = "agent.heartbeat"
-	SpanCommandDispatch    = "command.dispatch"
-	SpanCommandExecute     = "command.execute"
+	SpanAPIRequest      = "api.request"
+	SpanAgentConnect    = "agent.connect"
+	SpanAgentDisconnect = "agent.disconnect"
+	SpanAgentHeartbeat  = "agent.heartbeat"
+	SpanCommandDispatch = "command.dispatch"
+	SpanCommandExecute  = "command.execute"
 
 	// State management operations
-	SpanStateExecute       = "state.execute"
-	SpanStateApply         = "state.apply"
-	SpanStateCheck         = "state.check"
-	SpanStateDrift         = "state.drift"
-	SpanStateModule        = "state.module"
+	SpanStateExecute = "state.execute"
+	SpanStateApply   = "state.apply"
+	SpanStateCheck   = "state.check"
+	SpanStateDrift   = "state.drift"
+	SpanStateModule  = "state.module"
 
 	// Event operations
-	SpanEventPublish       = "event.publish"
-	SpanEventSubscribe     = "event.subscribe"
-	SpanEventProcess       = "event.process"
-	SpanReactorExecute     = "reactor.execute"
+	SpanEventPublish   = "event.publish"
+	SpanEventSubscribe = "event.subscribe"
+	SpanEventProcess   = "event.process"
+	SpanReactorExecute = "reactor.execute"
 
 	// Policy operations
-	SpanPolicyEvaluate     = "policy.evaluate"
-	SpanPolicyEnforce      = "policy.enforce"
-	SpanPolicyRemediate    = "policy.remediate"
+	SpanPolicyEvaluate  = "policy.evaluate"
+	SpanPolicyEnforce   = "policy.enforce"
+	SpanPolicyRemediate = "policy.remediate"
 
 	// GitOps operations
-	SpanGitOpsWebhook      = "gitops.webhook"
-	SpanGitOpsVerify       = "gitops.verify"
-	SpanGitOpsRollback     = "gitops.rollback"
-	SpanGitOpsSync         = "gitops.sync"
+	SpanGitOpsWebhook  = "gitops.webhook"
+	SpanGitOpsVerify   = "gitops.verify"
+	SpanGitOpsRollback = "gitops.rollback"
+	SpanGitOpsSync     = "gitops.sync"
 
 	// NATS operations
-	SpanNATSPublish        = "nats.publish"
-	SpanNATSSubscribe      = "nats.subscribe"
-	SpanNATSRequest        = "nats.request"
+	SpanNATSPublish   = "nats.publish"
+	SpanNATSSubscribe = "nats.subscribe"
+	SpanNATSRequest   = "nats.request"
 )
 
 // Helper functions for common operations

@@ -12,6 +12,9 @@ import (
 // CredentialType identifies the type of credential.
 type CredentialType string
 
+// Credential type constants define the supported types.
+//
+//nolint:gosec // G101: false positive - these are type identifiers, not hardcoded secrets
 const (
 	CredentialTypeSSHPassword CredentialType = "ssh_password"
 	CredentialTypeSSHKey      CredentialType = "ssh_key"
@@ -22,6 +25,7 @@ const (
 	CredentialTypeRESTBearer  CredentialType = "rest_bearer"
 	CredentialTypeRESTAPIKey  CredentialType = "rest_apikey"
 	CredentialTypeRESTOAuth2  CredentialType = "rest_oauth2"
+	CredentialTypeGNMI       CredentialType = "gnmi"
 )
 
 // String returns the string representation of the credential type.
@@ -36,7 +40,8 @@ func (c CredentialType) Valid() bool {
 		CredentialTypeSNMPv2c, CredentialTypeSNMPv3,
 		CredentialTypeWinRM,
 		CredentialTypeRESTBasic, CredentialTypeRESTBearer,
-		CredentialTypeRESTAPIKey, CredentialTypeRESTOAuth2:
+		CredentialTypeRESTAPIKey, CredentialTypeRESTOAuth2,
+		CredentialTypeGNMI:
 		return true
 	default:
 		return false
@@ -186,6 +191,7 @@ func (c *SNMPv2cCredential) Redact() Credential {
 // SNMPv3AuthProtocol defines SNMP v3 authentication protocols.
 type SNMPv3AuthProtocol string
 
+// SNMPv3Auth constants define the authentication types.
 const (
 	SNMPv3AuthNone   SNMPv3AuthProtocol = "none"
 	SNMPv3AuthMD5    SNMPv3AuthProtocol = "md5"
@@ -199,6 +205,7 @@ const (
 // SNMPv3PrivProtocol defines SNMP v3 privacy protocols.
 type SNMPv3PrivProtocol string
 
+// SNMPv3PrivNone constants define the SNMP settings.
 const (
 	SNMPv3PrivNone   SNMPv3PrivProtocol = "none"
 	SNMPv3PrivDES    SNMPv3PrivProtocol = "des"
@@ -210,6 +217,7 @@ const (
 // SNMPv3SecurityLevel defines SNMP v3 security levels.
 type SNMPv3SecurityLevel string
 
+// SNMPv3SecurityNoAuthNoPriv constants define the authentication types.
 const (
 	SNMPv3SecurityNoAuthNoPriv SNMPv3SecurityLevel = "noAuthNoPriv"
 	SNMPv3SecurityAuthNoPriv   SNMPv3SecurityLevel = "authNoPriv"
@@ -421,6 +429,33 @@ func (c *RESTOAuth2Credential) Redact() Credential {
 	return &redacted
 }
 
+// GNMICredential contains gNMI/gRPC credentials for TLS and metadata authentication.
+type GNMICredential struct {
+	BaseCredential
+	Username   string `json:"username,omitempty"`
+	Password   string `json:"password,omitempty"`
+	CACert     []byte `json:"ca_cert,omitempty"`
+	ClientCert []byte `json:"client_cert,omitempty"`
+	ClientKey  []byte `json:"client_key,omitempty"`
+	SkipVerify bool   `json:"skip_verify,omitempty"`
+}
+
+// Validate validates the credential.
+func (c *GNMICredential) Validate() error {
+	if c.CredentialID == "" {
+		return errors.New("credential ID is required")
+	}
+	return nil
+}
+
+// Redact returns a copy with sensitive fields redacted.
+func (c *GNMICredential) Redact() Credential {
+	redacted := *c
+	redacted.Password = "[REDACTED]"
+	redacted.ClientKey = []byte("[REDACTED]")
+	return &redacted
+}
+
 // NeedsRefresh returns true if the OAuth2 token needs to be refreshed.
 func (c *RESTOAuth2Credential) NeedsRefresh() bool {
 	if c.AccessToken == "" {
@@ -509,6 +544,8 @@ func ParseCredential(credType CredentialType, data []byte) (Credential, error) {
 		cred = &RESTAPIKeyCredential{}
 	case CredentialTypeRESTOAuth2:
 		cred = &RESTOAuth2Credential{}
+	case CredentialTypeGNMI:
+		cred = &GNMICredential{}
 	default:
 		return nil, ErrInvalidCredential
 	}

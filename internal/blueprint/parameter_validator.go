@@ -170,7 +170,8 @@ func (v *ParameterValidator) ValidateParameter(name string, schema ParameterSche
 	if schema.Type == "object" && schema.Properties != nil {
 		objVal, ok := value.(map[string]interface{})
 		if ok {
-			for propName, propSchema := range schema.Properties {
+			for propName := range schema.Properties {
+				propSchema := schema.Properties[propName]
 				propFullName := name + "." + propName
 				propValue := objVal[propName]
 				validated, err := v.ValidateParameter(propFullName, propSchema, propValue, sensitive || propSchema.Sensitive)
@@ -197,7 +198,8 @@ func (v *ParameterValidator) ValidateParameters(schemas map[string]ParameterSche
 	}
 
 	// Validate each schema
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		// Skip feature-gated parameters if feature not enabled
 		if schema.Feature != "" && !containsString(enabledFeatures, schema.Feature) {
 			continue
@@ -214,7 +216,8 @@ func (v *ParameterValidator) ValidateParameters(schemas map[string]ParameterSche
 	}
 
 	// Second pass: check required_if conditions
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		// Skip feature-gated parameters if feature not enabled
 		if schema.Feature != "" && !containsString(enabledFeatures, schema.Feature) {
 			continue
@@ -257,7 +260,7 @@ func (v *ParameterValidator) validateRequiredIf(name string, schema ParameterSch
 }
 
 // conditionMatches checks if all key-value pairs in a condition match the current values.
-func (v *ParameterValidator) conditionMatches(condition map[string]interface{}, values map[string]interface{}) bool {
+func (v *ParameterValidator) conditionMatches(condition, values map[string]interface{}) bool {
 	for paramName, expectedValue := range condition {
 		actualValue := values[paramName]
 
@@ -306,13 +309,12 @@ func (v *ParameterValidator) validateType(name, expectedType string, value inter
 			return fmt.Errorf("parameter %s: expected string, got %T", name, value)
 		}
 	case "integer":
-		switch value.(type) {
+		switch v := value.(type) {
 		case int, int32, int64:
 			// OK
 		case float64:
 			// Check if it's a whole number
-			f := value.(float64)
-			if f != float64(int64(f)) {
+			if v != float64(int64(v)) {
 				return fmt.Errorf("parameter %s: expected integer, got float", name)
 			}
 		default:
@@ -507,7 +509,7 @@ func (v *ParameterValidator) maskValue(value interface{}, sensitive bool) interf
 
 // validateHostname validates a hostname according to RFC 1123.
 func validateHostname(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("hostname cannot be empty")
 	}
 	if len(value) > 253 {
@@ -517,7 +519,7 @@ func validateHostname(value string) error {
 	// Split into labels
 	labels := strings.Split(value, ".")
 	for _, label := range labels {
-		if len(label) == 0 {
+		if label == "" {
 			return fmt.Errorf("hostname contains empty label")
 		}
 		if len(label) > 63 {
@@ -543,7 +545,7 @@ func validateHostname(value string) error {
 
 // validateDNSName validates a DNS name (less strict than hostname).
 func validateDNSName(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("DNS name cannot be empty")
 	}
 	if len(value) > 253 {

@@ -100,13 +100,14 @@ func (m *BondModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 			if numMode, ok := validBondModes[config.Mode]; ok {
 				desiredMode = numMode
 			}
-			if currentMode != desiredMode && currentMode != config.Mode {
+			switch {
+			case currentMode != desiredMode && currentMode != config.Mode:
 				result.Matches = false
 				result.Diff["mode"] = map[string]string{"current": currentMode, "desired": config.Mode}
-			} else if !stringSlicesEqualUnordered(config.Slaves, currentSlaves) {
+			case !stringSlicesEqualUnordered(config.Slaves, currentSlaves):
 				result.Matches = false
 				result.Diff["slaves"] = map[string]interface{}{"current": currentSlaves, "desired": config.Slaves}
-			} else {
+			default:
 				result.Matches = true
 			}
 		}
@@ -117,7 +118,7 @@ func (m *BondModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // stringSlicesEqualUnordered compares two string slices ignoring order
@@ -156,7 +157,7 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check platform support
@@ -165,7 +166,7 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Network bonding is not supported on macOS"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -175,7 +176,7 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -185,19 +186,19 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect network manager (Linux only)
 	var nm NetworkManager
 	if runtime.GOOS == "linux" {
-		nm, err = m.detectNetworkManager()
+		nm, err = m.detectNetworkManager(ctx)
 		if err != nil {
 			result.Error = err
 			result.Comment = fmt.Sprintf("Failed to detect network manager: %v", err)
 			result.EndTime = time.Now()
 			result.Duration = result.EndTime.Sub(startTime)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
@@ -205,11 +206,9 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	var applyErr error
 	switch decl.State {
 	case "present":
-		// If bond exists but with different config, delete first
+		// If bond exists but with different config, delete first - best-effort
 		if checkResult.Present && len(checkResult.Diff) > 0 {
-			if err := m.deleteBond(ctx, nm, config); err != nil {
-				// Continue anyway
-			}
+			_ = m.deleteBond(ctx, nm, config)
 		}
 		if runtime.GOOS == "windows" {
 			applyErr = m.createBondWindows(ctx, config, result)
@@ -241,7 +240,7 @@ func (m *BondModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the bond is in the desired state
@@ -316,9 +315,9 @@ func (m *BondModule) checkBondExists(ctx context.Context, config *BondConfig) (e
 }
 
 // checkBondExistsLinux checks bond existence on Linux
-func (m *BondModule) checkBondExistsLinux(ctx context.Context, config *BondConfig) (bool, string, []string, error) {
+func (m *BondModule) checkBondExistsLinux(ctx context.Context, config *BondConfig) (exists bool, mode string, slaves []string, err error) {
 	// Check if bond interface exists
-	bondingDir := filepath.Join("/sys/class/net", config.Name, "bonding")
+	bondingDir := filepath.Join("/sys", "class", "net", config.Name, "bonding")
 	if _, err := os.Stat(bondingDir); os.IsNotExist(err) {
 		return false, "", nil, nil
 	}
@@ -326,10 +325,9 @@ func (m *BondModule) checkBondExistsLinux(ctx context.Context, config *BondConfi
 	// Read mode
 	modeBytes, err := os.ReadFile(filepath.Join(bondingDir, "mode"))
 	if err != nil {
-		return false, "", nil, nil
+		return false, "", nil, nil //nolint:nilerr // missing file means not configured
 	}
 	modeParts := strings.Fields(string(modeBytes))
-	var mode string
 	if len(modeParts) >= 1 {
 		mode = modeParts[0]
 	}
@@ -337,26 +335,28 @@ func (m *BondModule) checkBondExistsLinux(ctx context.Context, config *BondConfi
 	// Read slaves
 	slavesBytes, err := os.ReadFile(filepath.Join(bondingDir, "slaves"))
 	if err != nil {
-		return true, mode, nil, nil
+		return true, mode, nil, nil //nolint:nilerr // missing file means no slaves
 	}
-	slaves := strings.Fields(string(slavesBytes))
+	slaves = strings.Fields(string(slavesBytes))
 
 	return true, mode, slaves, nil
 }
 
 // checkBondExistsWindows checks NIC Team existence on Windows
-func (m *BondModule) checkBondExistsWindows(ctx context.Context, config *BondConfig) (bool, string, []string, error) {
+func (m *BondModule) checkBondExistsWindows(ctx context.Context, config *BondConfig) (exists bool, mode string, members []string, err error) {
+	//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		fmt.Sprintf("Get-NetLbfoTeam -Name '%s' -ErrorAction SilentlyContinue | ConvertTo-Json", config.Name))
 	output, err := cmd.Output()
 	if err != nil || len(output) == 0 {
-		return false, "", nil, nil
+		return false, "", nil, nil //nolint:nilerr // team not found is not an error
 	}
 
 	// Parse output for team info
 	// Simplified - just check if team exists
 	if strings.Contains(string(output), config.Name) {
 		// Get team members
+		//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 		membersCmd := exec.CommandContext(ctx, "powershell", "-Command",
 			fmt.Sprintf("(Get-NetLbfoTeamMember -Team '%s' -ErrorAction SilentlyContinue).Name", config.Name))
 		membersOutput, _ := membersCmd.Output()
@@ -368,10 +368,11 @@ func (m *BondModule) checkBondExistsWindows(ctx context.Context, config *BondCon
 }
 
 // detectNetworkManager detects the available network manager on Linux
-func (m *BondModule) detectNetworkManager() (NetworkManager, error) {
+func (m *BondModule) detectNetworkManager(ctx context.Context) (NetworkManager, error) {
 	// Check for nmcli (NetworkManager)
 	if _, err := exec.LookPath("nmcli"); err == nil {
-		cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+		//nolint:gosec // G204: systemctl execution is intentional for network manager detection
+		cmd := exec.CommandContext(ctx, "systemctl", "is-active", "NetworkManager")
 		if err := cmd.Run(); err == nil {
 			return NMNetworkManager, nil
 		}
@@ -383,7 +384,8 @@ func (m *BondModule) detectNetworkManager() (NetworkManager, error) {
 	}
 
 	// Check for systemd-networkd
-	cmd := exec.Command("systemctl", "is-active", "systemd-networkd")
+	//nolint:gosec // G204: systemctl execution is intentional for network manager detection
+	cmd := exec.CommandContext(ctx, "systemctl", "is-active", "systemd-networkd")
 	if err := cmd.Run(); err == nil {
 		return NMSystemdNetworkd, nil
 	}
@@ -418,13 +420,16 @@ func (m *BondModule) deleteBond(ctx context.Context, nm NetworkManager, config *
 	case NMNetworkManager:
 		// Delete bond connection and slave connections
 		for _, slave := range config.Slaves {
+			//nolint:gosec // G204: nmcli execution is intentional for bond interface management
 			slaveDelCmd := exec.CommandContext(ctx, "nmcli", "connection", "delete", config.Name+"-slave-"+slave)
 			slaveDelCmd.Run()
 		}
+		//nolint:gosec // G204: nmcli execution is intentional for bond interface management
 		cmd := exec.CommandContext(ctx, "nmcli", "connection", "delete", config.Name)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			// Try to delete interface directly
+			//nolint:gosec // G204: ip command execution is intentional for bond interface management
 			delCmd := exec.CommandContext(ctx, "ip", "link", "delete", config.Name)
 			if _, delErr := delCmd.CombinedOutput(); delErr != nil {
 				return fmt.Errorf("failed to delete bond: %w (output: %s)", err, string(output))
@@ -432,10 +437,11 @@ func (m *BondModule) deleteBond(ctx context.Context, nm NetworkManager, config *
 		}
 		return nil
 	case NMNetplan:
-		netplanFile := filepath.Join("/etc/netplan", fmt.Sprintf("90-kscore-bond-%s.yaml", config.Name))
+		netplanFile := filepath.Join("/etc", "netplan", fmt.Sprintf("90-kscore-bond-%s.yaml", config.Name))
 		if err := os.Remove(netplanFile); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove netplan file: %w", err)
 		}
+		//nolint:gosec // G204: netplan execution is intentional for bond interface management
 		applyCmd := exec.CommandContext(ctx, "netplan", "apply")
 		if output, err := applyCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to apply netplan: %w (output: %s)", err, string(output))
@@ -452,16 +458,19 @@ func (m *BondModule) deleteBond(ctx context.Context, nm NetworkManager, config *
 			slaveFile := filepath.Join(networkDir, fmt.Sprintf("10-kscore-bond-%s-slave-%s.network", config.Name, slave))
 			os.Remove(slaveFile)
 		}
+		//nolint:gosec // G204: networkctl execution is intentional for bond interface management
 		reloadCmd := exec.CommandContext(ctx, "networkctl", "reload")
 		reloadCmd.Run()
 		return nil
 	default:
 		// Release slaves first
 		for _, slave := range config.Slaves {
+			//nolint:gosec // G204: ip command execution is intentional for bond interface management
 			releaseCmd := exec.CommandContext(ctx, "ip", "link", "set", slave, "nomaster")
 			releaseCmd.Run()
 		}
 		// Delete bond
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		cmd := exec.CommandContext(ctx, "ip", "link", "delete", config.Name)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to delete bond: %w (output: %s)", err, string(output))
@@ -504,8 +513,7 @@ func (m *BondModule) createBondNmcli(ctx context.Context, config *BondConfig, re
 
 	// Add IP configuration
 	if len(config.Addresses) > 0 {
-		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","))
-		args = append(args, "ipv4.method", "manual")
+		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","), "ipv4.method", "manual")
 	} else {
 		args = append(args, "ipv4.method", "disabled")
 	}
@@ -518,6 +526,7 @@ func (m *BondModule) createBondNmcli(ctx context.Context, config *BondConfig, re
 		args = append(args, "ipv4.dns", strings.Join(config.DNS, ","))
 	}
 
+	//nolint:gosec // G204: nmcli execution is intentional for bond interface management
 	cmd := exec.CommandContext(ctx, "nmcli", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -534,6 +543,7 @@ func (m *BondModule) createBondNmcli(ctx context.Context, config *BondConfig, re
 			"master", config.Name,
 			"slave-type", "bond",
 		}
+		//nolint:gosec // G204: nmcli execution is intentional for bond interface management
 		slaveCmd := exec.CommandContext(ctx, "nmcli", slaveArgs...)
 		if output, err := slaveCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to add slave %s: %w (output: %s)", slave, err, string(output))
@@ -541,6 +551,7 @@ func (m *BondModule) createBondNmcli(ctx context.Context, config *BondConfig, re
 	}
 
 	// Bring up the bond
+	//nolint:gosec // G204: nmcli execution is intentional for bond interface management
 	upCmd := exec.CommandContext(ctx, "nmcli", "connection", "up", config.Name)
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to activate bond: %w (output: %s)", err, string(output))
@@ -556,7 +567,8 @@ func (m *BondModule) createBondNetplan(ctx context.Context, config *BondConfig, 
 	netplanDir := "/etc/netplan"
 	netplanFile := filepath.Join(netplanDir, fmt.Sprintf("90-kscore-bond-%s.yaml", config.Name))
 
-	if err := os.MkdirAll(netplanDir, 0755); err != nil {
+	//nolint:gosec // G301: netplan directory needs system access
+	if err := os.MkdirAll(netplanDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create netplan directory: %w", err)
 	}
 
@@ -616,7 +628,7 @@ func (m *BondModule) createBondNetplan(ctx context.Context, config *BondConfig, 
 		content.WriteString("      nameservers:\n")
 		content.WriteString("        addresses:\n")
 		for _, dns := range config.DNS {
-			content.WriteString(fmt.Sprintf("          - \"%s\"\n", dns))
+			content.WriteString(fmt.Sprintf("          - %q\n", dns))
 		}
 	}
 
@@ -624,7 +636,7 @@ func (m *BondModule) createBondNetplan(ctx context.Context, config *BondConfig, 
 		content.WriteString(fmt.Sprintf("      mtu: %d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(netplanFile, content.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(netplanFile, content.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("failed to write netplan file: %w", err)
 	}
 
@@ -641,7 +653,8 @@ func (m *BondModule) createBondNetplan(ctx context.Context, config *BondConfig, 
 // createBondSystemdNetworkd creates a bond using systemd-networkd
 func (m *BondModule) createBondSystemdNetworkd(ctx context.Context, config *BondConfig, result *StateResult) error {
 	networkDir := "/etc/systemd/network"
-	if err := os.MkdirAll(networkDir, 0755); err != nil {
+	//nolint:gosec // G301: systemd network directory needs system access
+	if err := os.MkdirAll(networkDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create network directory: %w", err)
 	}
 
@@ -674,7 +687,8 @@ func (m *BondModule) createBondSystemdNetworkd(ctx context.Context, config *Bond
 		netdevContent.WriteString(fmt.Sprintf("DownDelaySec=%dms\n", config.DownDelay))
 	}
 
-	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: netdev files need to be readable by systemd-networkd
+	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write netdev file: %w", err)
 	}
 
@@ -703,7 +717,8 @@ func (m *BondModule) createBondSystemdNetworkd(ctx context.Context, config *Bond
 		networkContent.WriteString(fmt.Sprintf("MTUBytes=%d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: network files need to be readable by systemd-networkd
+	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write network file: %w", err)
 	}
 
@@ -717,7 +732,8 @@ func (m *BondModule) createBondSystemdNetworkd(ctx context.Context, config *Bond
 		slaveContent.WriteString("\n[Network]\n")
 		slaveContent.WriteString(fmt.Sprintf("Bond=%s\n", config.Name))
 
-		if err := os.WriteFile(slaveFile, slaveContent.Bytes(), 0644); err != nil {
+		//nolint:gosec // G306: network files need to be readable by systemd-networkd
+		if err := os.WriteFile(slaveFile, slaveContent.Bytes(), 0o644); err != nil {
 			return fmt.Errorf("failed to write slave network file: %w", err)
 		}
 	}
@@ -786,11 +802,13 @@ func (m *BondModule) createBondIfupdown(ctx context.Context, config *BondConfig,
 	}
 
 	newContent := string(content) + bondStanza.String()
-	if err := os.WriteFile(interfacesFile, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: interfaces file needs to be readable by ifupdown
+	if err := os.WriteFile(interfacesFile, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write interfaces file: %w", err)
 	}
 
 	// Bring up the bond
+	//nolint:gosec // G204: ifup execution is intentional for bond interface management
 	upCmd := exec.CommandContext(ctx, "ifup", config.Name)
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to bring up bond: %w (output: %s)", err, string(output))
@@ -804,10 +822,12 @@ func (m *BondModule) createBondIfupdown(ctx context.Context, config *BondConfig,
 // createBondRaw creates a bond using raw ip commands
 func (m *BondModule) createBondRaw(ctx context.Context, config *BondConfig, result *StateResult) error {
 	// Load bonding module
+	//nolint:gosec // G204: modprobe execution is intentional for kernel module loading
 	modprobeCmd := exec.CommandContext(ctx, "modprobe", "bonding")
 	modprobeCmd.Run()
 
 	// Create bond interface
+	//nolint:gosec // G204: ip command execution is intentional for bond interface management
 	cmd := exec.CommandContext(ctx, "ip", "link", "add", config.Name, "type", "bond",
 		"mode", config.Mode, "miimon", strconv.Itoa(config.MIIMon))
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -817,9 +837,11 @@ func (m *BondModule) createBondRaw(ctx context.Context, config *BondConfig, resu
 	// Add slaves
 	for _, slave := range config.Slaves {
 		// Bring down slave first
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		downCmd := exec.CommandContext(ctx, "ip", "link", "set", slave, "down")
 		downCmd.Run()
 		// Add to bond
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		slaveCmd := exec.CommandContext(ctx, "ip", "link", "set", slave, "master", config.Name)
 		if output, err := slaveCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to add slave %s: %w (output: %s)", slave, err, string(output))
@@ -828,29 +850,34 @@ func (m *BondModule) createBondRaw(ctx context.Context, config *BondConfig, resu
 
 	// Set MTU if specified
 	if config.MTU > 0 {
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		mtuCmd := exec.CommandContext(ctx, "ip", "link", "set", config.Name, "mtu", strconv.Itoa(config.MTU))
 		mtuCmd.Run()
 	}
 
 	// Add addresses
 	for _, addr := range config.Addresses {
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		addrCmd := exec.CommandContext(ctx, "ip", "addr", "add", addr, "dev", config.Name)
 		addrCmd.Run()
 	}
 
 	// Bring up bond and slaves
+	//nolint:gosec // G204: ip command execution is intentional for bond interface management
 	upCmd := exec.CommandContext(ctx, "ip", "link", "set", config.Name, "up")
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to bring up bond: %w (output: %s)", err, string(output))
 	}
 
 	for _, slave := range config.Slaves {
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		slaveUpCmd := exec.CommandContext(ctx, "ip", "link", "set", slave, "up")
 		slaveUpCmd.Run()
 	}
 
 	// Add default route if gateway specified
 	if config.Gateway != "" && len(config.Addresses) > 0 {
+		//nolint:gosec // G204: ip command execution is intentional for bond interface management
 		routeCmd := exec.CommandContext(ctx, "ip", "route", "add", "default", "via", config.Gateway, "dev", config.Name)
 		routeCmd.Run()
 	}
@@ -876,6 +903,7 @@ func (m *BondModule) createBondWindows(ctx context.Context, config *BondConfig, 
 
 	// Create NIC Team
 	slavesStr := "'" + strings.Join(config.Slaves, "','") + "'"
+	//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		fmt.Sprintf("New-NetLbfoTeam -Name '%s' -TeamMembers %s -TeamingMode %s -LoadBalancingAlgorithm %s -Confirm:$false",
 			config.Name, slavesStr, teamingMode, loadBalancing))
@@ -895,6 +923,7 @@ func (m *BondModule) createBondWindows(ctx context.Context, config *BondConfig, 
 			prefix = parts[1]
 		}
 
+		//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 		ipCmd := exec.CommandContext(ctx, "powershell", "-Command",
 			fmt.Sprintf("New-NetIPAddress -InterfaceAlias '%s' -IPAddress '%s' -PrefixLength %s",
 				config.Name, ip, prefix))
@@ -903,6 +932,7 @@ func (m *BondModule) createBondWindows(ctx context.Context, config *BondConfig, 
 		}
 
 		if config.Gateway != "" {
+			//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 			gwCmd := exec.CommandContext(ctx, "powershell", "-Command",
 				fmt.Sprintf("New-NetRoute -InterfaceAlias '%s' -DestinationPrefix '0.0.0.0/0' -NextHop '%s'",
 					config.Name, config.Gateway))
@@ -917,6 +947,7 @@ func (m *BondModule) createBondWindows(ctx context.Context, config *BondConfig, 
 
 // deleteBondWindows deletes a NIC Team on Windows
 func (m *BondModule) deleteBondWindows(ctx context.Context, config *BondConfig) error {
+	//nolint:gosec // G204: PowerShell execution is intentional for Windows NIC team management
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		fmt.Sprintf("Remove-NetLbfoTeam -Name '%s' -Confirm:$false", config.Name))
 	output, err := cmd.CombinedOutput()
@@ -927,5 +958,5 @@ func (m *BondModule) deleteBondWindows(ctx context.Context, config *BondConfig) 
 }
 
 func init() {
-	RegisterModule(NewBondModule())
+	_ = RegisterModule(NewBondModule()) //nolint:errcheck // module registration in init
 }

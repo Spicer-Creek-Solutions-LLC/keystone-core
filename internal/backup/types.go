@@ -8,47 +8,51 @@ import (
 	"time"
 )
 
-// BackupType identifies what kind of data is being backed up
-type BackupType string
+// Type identifies what kind of data is being backed up
+type Type string
 
+// Type constants define the kinds of data that can be backed up.
 const (
-	BackupTypeFull          BackupType = "full"           // Complete cluster backup
-	BackupTypeIncremental   BackupType = "incremental"    // Only changed data since last backup
-	BackupTypeDatabase      BackupType = "database"       // Database only (SQLite or PostgreSQL)
-	BackupTypeConfiguration BackupType = "configuration"  // Configuration files only
-	BackupTypeJetStream     BackupType = "jetstream"      // NATS JetStream data only
-	BackupTypeEtcd          BackupType = "etcd"           // etcd data only
-	BackupTypeSecrets       BackupType = "secrets"        // Secrets only
+	TypeFull          Type = "full"          // Complete cluster backup
+	TypeIncremental   Type = "incremental"   // Only changed data since last backup
+	TypeDatabase      Type = "database"      // Database only (SQLite or PostgreSQL)
+	TypeConfiguration Type = "configuration" // Configuration files only
+	TypeJetStream     Type = "jetstream"     // NATS JetStream data only
+	TypeEtcd          Type = "etcd"          // etcd data only
+	TypeSecrets       Type = "secrets"       // Secrets only
 )
 
-// BackupStatus represents the current state of a backup operation
-type BackupStatus string
+// Status represents the current state of a backup operation
+type Status string
 
+// Status constants define the states of a backup operation.
 const (
-	BackupStatusPending    BackupStatus = "pending"
-	BackupStatusRunning    BackupStatus = "running"
-	BackupStatusCompleted  BackupStatus = "completed"
-	BackupStatusFailed     BackupStatus = "failed"
-	BackupStatusCancelled  BackupStatus = "cancelled"
-	BackupStatusUploading  BackupStatus = "uploading"
-	BackupStatusVerifying  BackupStatus = "verifying"
+	StatusPending   Status = "pending"
+	StatusRunning   Status = "running"
+	StatusCompleted Status = "completed"
+	StatusFailed    Status = "failed"
+	StatusCancelled Status = "cancelled"
+	StatusUploading Status = "uploading"
+	StatusVerifying Status = "verifying"
 )
 
 // EncryptionType identifies the encryption method for backup data
 type EncryptionType string
 
+// EncryptionType constants define the encryption methods for backup data.
 const (
-	EncryptionTypeNone        EncryptionType = "none"
-	EncryptionTypeAge         EncryptionType = "age"          // age encryption (default)
-	EncryptionTypeAWSKMS      EncryptionType = "aws-kms"      // AWS Key Management Service
-	EncryptionTypeGCPKMS      EncryptionType = "gcp-kms"      // Google Cloud KMS
+	EncryptionTypeNone          EncryptionType = "none"
+	EncryptionTypeAge           EncryptionType = "age"            // age encryption (default)
+	EncryptionTypeAWSKMS        EncryptionType = "aws-kms"        // AWS Key Management Service
+	EncryptionTypeGCPKMS        EncryptionType = "gcp-kms"        // Google Cloud KMS
 	EncryptionTypeAzureKeyVault EncryptionType = "azure-keyvault" // Azure Key Vault
-	EncryptionTypeVaultTransit EncryptionType = "vault-transit"  // HashiCorp Vault Transit
+	EncryptionTypeVaultTransit  EncryptionType = "vault-transit"  // HashiCorp Vault Transit
 )
 
 // DestinationType identifies where backups are stored
 type DestinationType string
 
+// DestinationType constants define where backups are stored.
 const (
 	DestinationTypeLocal     DestinationType = "local"      // Local filesystem
 	DestinationTypeS3        DestinationType = "s3"         // AWS S3 or compatible
@@ -61,6 +65,7 @@ const (
 // CompressionType identifies the compression method for backup artifacts
 type CompressionType string
 
+// CompressionType constants define the compression methods for backup artifacts.
 const (
 	CompressionTypeNone  CompressionType = "none"
 	CompressionTypeGzip  CompressionType = "gzip"  // gzip compression (default)
@@ -73,23 +78,24 @@ const (
 // ComponentType identifies cluster components that can be backed up
 type ComponentType string
 
+// ComponentType constants define cluster components that can be backed up.
 const (
-	ComponentTypeServer     ComponentType = "server"
-	ComponentTypeAgent      ComponentType = "agent"
-	ComponentTypeNATS       ComponentType = "nats"
-	ComponentTypeDatabase   ComponentType = "database"
-	ComponentTypeEtcd       ComponentType = "etcd"
-	ComponentTypeCerts      ComponentType = "certs"
-	ComponentTypeConfig     ComponentType = "config"
+	ComponentTypeServer   ComponentType = "server"
+	ComponentTypeAgent    ComponentType = "agent"
+	ComponentTypeNATS     ComponentType = "nats"
+	ComponentTypeDatabase ComponentType = "database"
+	ComponentTypeEtcd     ComponentType = "etcd"
+	ComponentTypeCerts    ComponentType = "certs"
+	ComponentTypeConfig   ComponentType = "config"
 )
 
-// BackupConfig holds configuration for the backup system
-type BackupConfig struct {
+// Config holds configuration for the backup system
+type Config struct {
 	// Schedule in cron format (e.g., "0 2 * * *" for 2 AM daily)
 	Schedule string `yaml:"schedule" json:"schedule"`
 
 	// Type of backup to perform
-	Type BackupType `yaml:"type" json:"type"`
+	Type Type `yaml:"type" json:"type"`
 
 	// Encryption settings
 	Encryption EncryptionConfig `yaml:"encryption" json:"encryption"`
@@ -287,8 +293,8 @@ type RetentionConfig struct {
 	KeepYearly int `yaml:"keep_yearly" json:"keep_yearly"`
 }
 
-// BackupInfo represents metadata about a backup
-type BackupInfo struct {
+// Info represents metadata about a backup
+type Info struct {
 	// ID is the unique identifier for this backup
 	ID string `json:"id"`
 
@@ -296,10 +302,10 @@ type BackupInfo struct {
 	Name string `json:"name"`
 
 	// Type of backup
-	Type BackupType `json:"type"`
+	Type Type `json:"type"`
 
 	// Status of the backup
-	Status BackupStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime when the backup started
 	StartTime time.Time `json:"start_time"`
@@ -350,7 +356,7 @@ type ComponentBackupInfo struct {
 	Type ComponentType `json:"type"`
 
 	// Status of this component's backup
-	Status BackupStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// Size in bytes
 	Size int64 `json:"size"`
@@ -368,13 +374,13 @@ type ComponentBackupInfo struct {
 	ItemCount int64 `json:"item_count,omitempty"`
 }
 
-// BackupManifest is the manifest file included in each backup artifact
-type BackupManifest struct {
+// Manifest is the manifest file included in each backup artifact
+type Manifest struct {
 	// Version of the manifest format
 	ManifestVersion string `json:"manifest_version"`
 
 	// Backup information
-	Backup BackupInfo `json:"backup"`
+	Backup Info `json:"backup"`
 
 	// Files lists all files in the backup with their checksums
 	Files []ManifestFile `json:"files"`
@@ -410,8 +416,8 @@ type ManifestFile struct {
 	Encrypted bool `json:"encrypted,omitempty"`
 }
 
-// BackupProgress tracks the progress of a backup operation
-type BackupProgress struct {
+// Progress tracks the progress of a backup operation
+type Progress struct {
 	// Phase of the backup
 	Phase string `json:"phase"`
 
@@ -479,6 +485,7 @@ type RestoreConfig struct {
 // RestoreStatus represents the status of a restore operation
 type RestoreStatus string
 
+// RestoreStatus constants define the states of a restore operation.
 const (
 	RestoreStatusPending   RestoreStatus = "pending"
 	RestoreStatusRunning   RestoreStatus = "running"
@@ -553,8 +560,8 @@ type RestoreProgress struct {
 	Message             string        `json:"message"`
 }
 
-// BackupProgressCallback is called during backup to report progress
-type BackupProgressCallback func(*BackupProgress)
+// ProgressCallback is called during backup to report progress
+type ProgressCallback func(*Progress)
 
 // Exporter exports data from a specific component
 type Exporter interface {
@@ -616,7 +623,7 @@ type Destination interface {
 	Download(ctx context.Context, artifact string, writer io.Writer) error
 
 	// List lists available backups
-	List(ctx context.Context) ([]BackupInfo, error)
+	List(ctx context.Context) ([]Info, error)
 
 	// Delete deletes a backup artifact
 	Delete(ctx context.Context, artifact string) error
@@ -634,18 +641,18 @@ type Logger interface {
 }
 
 // DefaultBackupConfig returns a sensible default configuration
-func DefaultBackupConfig() *BackupConfig {
-	return &BackupConfig{
-		Type:        BackupTypeFull,
-		Compression: CompressionTypeGzip,
-		Timeout:     30 * time.Minute,
+func DefaultBackupConfig() *Config {
+	return &Config{
+		Type:                 TypeFull,
+		Compression:          CompressionTypeGzip,
+		Timeout:              30 * time.Minute,
 		MaxConcurrentExports: 4,
 		Encryption: EncryptionConfig{
 			Type: EncryptionTypeNone,
 		},
 		Destination: DestinationConfig{
 			Type: DestinationTypeLocal,
-			Path: "/var/lib/kscore/backups",
+			Path: "/var/lib/keystone-core/backups",
 		},
 		Retention: RetentionConfig{
 			MaxBackups:  10,

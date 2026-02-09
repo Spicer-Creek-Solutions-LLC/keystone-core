@@ -75,7 +75,7 @@ func Validate(tmpl *Template) error {
 }
 
 // validateMetadata validates template metadata.
-func validateMetadata(m *TemplateMetadata) ValidationErrors {
+func validateMetadata(m *Metadata) ValidationErrors {
 	var errs ValidationErrors
 
 	if m.Name == "" {
@@ -106,7 +106,7 @@ func validateMetadata(m *TemplateMetadata) ValidationErrors {
 }
 
 // validateSpec validates template spec.
-func validateSpec(s *TemplateSpec) ValidationErrors {
+func validateSpec(s *Spec) ValidationErrors {
 	var errs ValidationErrors
 
 	// Validate parameters
@@ -114,17 +114,18 @@ func validateSpec(s *TemplateSpec) ValidationErrors {
 	for i, param := range s.Parameters {
 		prefix := fmt.Sprintf("spec.parameters[%d]", i)
 
-		if param.Name == "" {
+		switch {
+		case param.Name == "":
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: "name is required",
 			})
-		} else if paramNames[param.Name] {
+		case paramNames[param.Name]:
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: fmt.Sprintf("duplicate parameter name %q", param.Name),
 			})
-		} else {
+		default:
 			paramNames[param.Name] = true
 		}
 
@@ -155,20 +156,22 @@ func validateSpec(s *TemplateSpec) ValidationErrors {
 	}
 
 	stepNames := make(map[string]bool)
-	for i, step := range s.Steps {
+	for i := range s.Steps {
+		step := &s.Steps[i]
 		prefix := fmt.Sprintf("spec.steps[%d]", i)
 
-		if step.Name == "" {
+		switch {
+		case step.Name == "":
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: "name is required",
 			})
-		} else if stepNames[step.Name] {
+		case stepNames[step.Name]:
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: fmt.Sprintf("duplicate step name %q", step.Name),
 			})
-		} else {
+		default:
 			stepNames[step.Name] = true
 		}
 
@@ -185,17 +188,18 @@ func validateSpec(s *TemplateSpec) ValidationErrors {
 	for i, output := range s.Outputs {
 		prefix := fmt.Sprintf("spec.outputs[%d]", i)
 
-		if output.Name == "" {
+		switch {
+		case output.Name == "":
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: "name is required",
 			})
-		} else if outputNames[output.Name] {
+		case outputNames[output.Name]:
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".name",
 				Message: fmt.Sprintf("duplicate output name %q", output.Name),
 			})
-		} else {
+		default:
 			outputNames[output.Name] = true
 		}
 
@@ -252,7 +256,7 @@ func validateParameterValidation(v *ParameterValidation, paramType, prefix strin
 
 // isValidTemplateName checks if a name is valid.
 func isValidTemplateName(name string) bool {
-	if len(name) == 0 {
+	if name == "" {
 		return false
 	}
 	if len(name) == 1 {
@@ -282,8 +286,8 @@ func isValidParameterType(t string) bool {
 	return validTypes[t]
 }
 
-// ValidateTemplateRef validates a template reference against a registry.
-func ValidateTemplateRef(ref *TemplateRef, registry *Registry) error {
+// ValidateRef validates a template reference against a registry.
+func ValidateRef(ref *Ref, registry *Registry) error {
 	if ref.Name == "" {
 		return &ValidationError{
 			Field:   "name",
@@ -343,7 +347,8 @@ func (v *Validator) ValidateRunbookWithTemplates(rb *runbook.Runbook) error {
 
 	// Validate template references in steps
 	// (Templates are referenced via "template" step type or config)
-	for i, step := range rb.Spec.Steps {
+	for i := range rb.Spec.Steps {
+		step := &rb.Spec.Steps[i]
 		if tmplName, ok := step.Config["template"].(string); ok {
 			tmplVersion := ""
 			if v, ok := step.Config["version"].(string); ok {

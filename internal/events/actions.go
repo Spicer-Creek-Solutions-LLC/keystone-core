@@ -37,14 +37,17 @@ func (a *LogAction) SetLogger(logger func(format string, args ...interface{})) *
 	return a
 }
 
+// Name returns the name.
 func (a *LogAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *LogAction) Type() string {
 	return "log"
 }
 
+// Execute executes the action.
 func (a *LogAction) Execute(ctx context.Context, event *Event) error {
 	// Build message with event data
 	msg := a.message
@@ -97,14 +100,17 @@ func (a *EventAction) SetDataTemplate(data map[string]interface{}) *EventAction 
 	return a
 }
 
+// Name returns the name.
 func (a *EventAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *EventAction) Type() string {
 	return "event"
 }
 
+// Execute executes the action.
 func (a *EventAction) Execute(ctx context.Context, event *Event) error {
 	if a.eventPublisher == nil {
 		return fmt.Errorf("event publisher not configured")
@@ -164,14 +170,17 @@ func (a *WebhookAction) SetTimeout(timeout time.Duration) *WebhookAction {
 	return a
 }
 
+// Name returns the name.
 func (a *WebhookAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *WebhookAction) Type() string {
 	return "webhook"
 }
 
+// Execute executes the action.
 func (a *WebhookAction) Execute(ctx context.Context, event *Event) error {
 	// Marshal event to JSON
 	data, err := json.Marshal(event)
@@ -238,30 +247,35 @@ func (a *CommandAction) SetTimeout(timeout time.Duration) *CommandAction {
 	return a
 }
 
+// Name returns the name.
 func (a *CommandAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *CommandAction) Type() string {
 	return "command"
 }
 
+// Execute executes the action.
 func (a *CommandAction) Execute(ctx context.Context, event *Event) error {
 	// Create context with timeout
 	cmdCtx, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
 
 	// Create command
+	//nolint:gosec // G204: command execution is intentional for event-driven actions
 	cmd := exec.CommandContext(cmdCtx, a.command, a.args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if a.env != nil {
 		cmd.Env = a.env
 	}
 
 	// Add event data as environment variables
-	cmd.Env = append(cmd.Env, fmt.Sprintf("EVENT_ID=%s", event.ID))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("EVENT_TYPE=%s", event.Type))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("EVENT_SOURCE=%s", event.Source))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("EVENT_SEVERITY=%s", event.Severity))
+	cmd.Env = append(cmd.Env,
+		fmt.Sprintf("EVENT_ID=%s", event.ID),
+		fmt.Sprintf("EVENT_TYPE=%s", event.Type),
+		fmt.Sprintf("EVENT_SOURCE=%s", event.Source),
+		fmt.Sprintf("EVENT_SEVERITY=%s", event.Severity))
 
 	// Execute
 	output, err := cmd.CombinedOutput()
@@ -295,14 +309,17 @@ func (a *StateApplyAction) SetCheckOnly(checkOnly bool) *StateApplyAction {
 	return a
 }
 
+// Name returns the name.
 func (a *StateApplyAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *StateApplyAction) Type() string {
 	return "state_apply"
 }
 
+// Execute executes the action.
 func (a *StateApplyAction) Execute(ctx context.Context, event *Event) error {
 	if a.applyFunc == nil {
 		return fmt.Errorf("state apply handler not configured")
@@ -327,14 +344,17 @@ func NewFunctionAction(name string, fn func(ctx context.Context, event *Event) e
 	}
 }
 
+// Name returns the name.
 func (a *FunctionAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *FunctionAction) Type() string {
 	return "function"
 }
 
+// Execute executes the action.
 func (a *FunctionAction) Execute(ctx context.Context, event *Event) error {
 	return a.fn(ctx, event)
 }
@@ -357,14 +377,17 @@ func NewConditionalAction(name string, condition FilterExpression, ifTrue, ifFal
 	}
 }
 
+// Name returns the name.
 func (a *ConditionalAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *ConditionalAction) Type() string {
 	return "conditional"
 }
 
+// Execute executes the action.
 func (a *ConditionalAction) Execute(ctx context.Context, event *Event) error {
 	if a.condition.Matches(event) {
 		if a.ifTrue != nil {
@@ -392,14 +415,17 @@ func NewSequenceAction(name string, actions ...Action) *SequenceAction {
 	}
 }
 
+// Name returns the name.
 func (a *SequenceAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *SequenceAction) Type() string {
 	return "sequence"
 }
 
+// Execute executes the action.
 func (a *SequenceAction) Execute(ctx context.Context, event *Event) error {
 	for _, action := range a.actions {
 		if err := action.Execute(ctx, event); err != nil {
@@ -430,14 +456,17 @@ func NewParallelAction(name string, actions ...Action) *ParallelAction {
 	}
 }
 
+// Name returns the name.
 func (a *ParallelAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *ParallelAction) Type() string {
 	return "parallel"
 }
 
+// Execute executes the action.
 func (a *ParallelAction) Execute(ctx context.Context, event *Event) error {
 	type result struct {
 		action Action
@@ -484,14 +513,17 @@ func NewDelayAction(name string, duration time.Duration) *DelayAction {
 	}
 }
 
+// Name returns the name.
 func (a *DelayAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *DelayAction) Type() string {
 	return "delay"
 }
 
+// Execute executes the action.
 func (a *DelayAction) Execute(ctx context.Context, event *Event) error {
 	return wait.ForContext(ctx, a.duration)
 }
@@ -519,21 +551,24 @@ func NewRetryAction(name string, action Action, maxRetries int) *RetryAction {
 }
 
 // SetBackoff configures backoff parameters
-func (a *RetryAction) SetBackoff(initial, max time.Duration, multiplier float64) *RetryAction {
+func (a *RetryAction) SetBackoff(initial, maxVal time.Duration, multiplier float64) *RetryAction {
 	a.initialBackoff = initial
-	a.maxBackoff = max
+	a.maxBackoff = maxVal
 	a.multiplier = multiplier
 	return a
 }
 
+// Name returns the name.
 func (a *RetryAction) Name() string {
 	return a.name
 }
 
+// Type returns the type.
 func (a *RetryAction) Type() string {
 	return "retry"
 }
 
+// Execute executes the action.
 func (a *RetryAction) Execute(ctx context.Context, event *Event) error {
 	backoff := a.initialBackoff
 	var lastErr error

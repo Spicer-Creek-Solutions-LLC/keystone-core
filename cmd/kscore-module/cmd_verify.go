@@ -109,13 +109,14 @@ func verifyExecute(cmd *cobra.Command, args []string) error {
 				results = append(results, verifyResult{"Signature", false, fmt.Sprintf("failed to read key: %v", err)})
 			} else {
 				valid, err := sigVerifier.VerifySignature(modulePath, sigFile, keyData)
-				if err != nil {
+				switch {
+				case err != nil:
 					fmt.Println("FAILED")
 					results = append(results, verifyResult{"Signature", false, err.Error()})
-				} else if !valid {
+				case !valid:
 					fmt.Println("INVALID")
 					results = append(results, verifyResult{"Signature", false, "signature verification failed"})
-				} else {
+				default:
 					fmt.Println("VALID")
 					results = append(results, verifyResult{"Signature", true, "valid"})
 				}

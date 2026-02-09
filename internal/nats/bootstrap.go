@@ -396,6 +396,7 @@ func (p *InMemoryBootstrapProvider) Validate(ctx context.Context, credential *Bo
 			if id, ok := p.tokens[credential.Token]; ok {
 				credentialID = id
 			}
+		default:
 		}
 		p.mu.RUnlock()
 	}
@@ -457,7 +458,7 @@ func (p *InMemoryBootstrapProvider) Validate(ctx context.Context, credential *Bo
 }
 
 // Revoke revokes a bootstrap credential
-func (p *InMemoryBootstrapProvider) Revoke(ctx context.Context, credentialID string, reason string) error {
+func (p *InMemoryBootstrapProvider) Revoke(ctx context.Context, credentialID, reason string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -475,7 +476,7 @@ func (p *InMemoryBootstrapProvider) Revoke(ctx context.Context, credentialID str
 }
 
 // RecordUse records that a credential was used by an agent
-func (p *InMemoryBootstrapProvider) RecordUse(ctx context.Context, credentialID string, agentID string) error {
+func (p *InMemoryBootstrapProvider) RecordUse(ctx context.Context, credentialID, agentID string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -633,13 +634,13 @@ type BootstrapAuditEvent struct {
 
 // BootstrapAuditEventType constants
 const (
-	BootstrapAuditEventGenerate   = "generate"
-	BootstrapAuditEventValidate   = "validate"
-	BootstrapAuditEventRevoke     = "revoke"
-	BootstrapAuditEventUse        = "use"
-	BootstrapAuditEventRegister   = "register"
-	BootstrapAuditEventExpire     = "expire"
-	BootstrapAuditEventCleanup    = "cleanup"
+	BootstrapAuditEventGenerate = "generate"
+	BootstrapAuditEventValidate = "validate"
+	BootstrapAuditEventRevoke   = "revoke"
+	BootstrapAuditEventUse      = "use"
+	BootstrapAuditEventRegister = "register"
+	BootstrapAuditEventExpire   = "expire"
+	BootstrapAuditEventCleanup  = "cleanup"
 )
 
 // BootstrapAuditLogger logs bootstrap audit events

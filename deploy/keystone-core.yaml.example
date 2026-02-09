@@ -51,7 +51,7 @@ storage:
 
   # SQLite settings
   sqlite:
-    path: "./data/kscore.db"
+    path: "./data/keystone-core.db"
     wal: true
     busytimeout: 5000  # milliseconds
 

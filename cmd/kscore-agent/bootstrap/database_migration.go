@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func runDatabaseMigration(ctx context.Context, cfg *BootstrapConfig, output io.Writer, verbose bool) error {
+func runDatabaseMigration(ctx context.Context, cfg *Config, output io.Writer, verbose bool) error {
 	if cfg == nil || cfg.MigrateFromSQLite == "" {
 		return nil
 	}

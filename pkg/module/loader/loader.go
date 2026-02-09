@@ -18,24 +18,18 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/module/verify"
 )
 
-// capabilityBuiltins creates and registers capability builtins with runtimes
-type capabilityBuiltins = runtime.CapabilityBuiltins
-
-// wasmHostFunctions creates and registers WASM host functions
-type wasmHostFunctions = runtime.WasmHostFunctions
-
 // DefaultModuleLoader is the default implementation of ModuleLoader
 type DefaultModuleLoader struct {
-	hashVerifier           verify.HashVerifier
-	signatureVerifier      verify.SignatureVerifier
-	sumDB                  verify.SumDB
-	trustPolicy            verify.TrustPolicy
-	policyEngine           *policy.ModulePolicyEngine
-	capabilityPolicyEval   *capabilities.PolicyEvaluator
-	lockManager            *capabilities.LockManager
-	capabilityRegistry     *capabilities.CapabilityRegistry
-	cache                  ModuleCache
-	eventHandler           func(*LoadEvent)
+	hashVerifier         verify.HashVerifier
+	signatureVerifier    verify.SignatureVerifier
+	sumDB                verify.SumDB
+	trustPolicy          verify.TrustPolicy
+	policyEngine         *policy.ModulePolicyEngine
+	capabilityPolicyEval *capabilities.PolicyEvaluator
+	lockManager          *capabilities.LockManager
+	capabilityRegistry   *capabilities.CapabilityRegistry
+	cache                ModuleCache
+	eventHandler         func(*LoadEvent)
 }
 
 // NewModuleLoader creates a new DefaultModuleLoader
@@ -76,7 +70,7 @@ func (l *DefaultModuleLoader) SetEventHandler(handler func(*LoadEvent)) {
 	l.eventHandler = handler
 }
 
-func (l *DefaultModuleLoader) emitEvent(eventType LoadEventType, modPath string, message string, err error) {
+func (l *DefaultModuleLoader) emitEvent(eventType LoadEventType, modPath, message string, err error) {
 	if l.eventHandler != nil {
 		l.eventHandler(&LoadEvent{
 			Type:      eventType,
@@ -291,13 +285,13 @@ func (l *DefaultModuleLoader) Load(modulePath string, options *LoadOptions) (*Lo
 			}
 		}
 
-		cap, err := l.createCapability(capName, mf, options.CapabilityBackends)
+		c, err := l.createCapability(capName, mf, options.CapabilityBackends)
 		if err != nil {
 			l.emitEvent(LoadEventFailed, modulePath, fmt.Sprintf("Failed to create capability %s", capName), err)
 			return nil, fmt.Errorf("failed to create capability %s: %w", capName, err)
 		}
 
-		if err := l.capabilityRegistry.Register(cap); err != nil {
+		if err := l.capabilityRegistry.Register(c); err != nil {
 			l.emitEvent(LoadEventFailed, modulePath, fmt.Sprintf("Failed to register capability %s", capName), err)
 			return nil, fmt.Errorf("failed to register capability %s: %w", capName, err)
 		}
@@ -388,10 +382,10 @@ func (l *DefaultModuleLoader) Execute(result *LoadResult, options *ExecuteOption
 	executeDuration := time.Since(startTime)
 
 	return &ExecuteResult{
-		Output:                 output,
-		Error:                  err,
-		ExecuteDuration:        executeDuration,
-		CapabilityInvocations:  make(map[string]int),
+		Output:                output,
+		Error:                 err,
+		ExecuteDuration:       executeDuration,
+		CapabilityInvocations: make(map[string]int),
 	}, nil
 }
 
@@ -402,7 +396,7 @@ func (l *DefaultModuleLoader) LoadAndExecute(modulePath string, loadOpts *LoadOp
 		return nil, err
 	}
 
-	defer l.Unload(loadResult)
+	defer func() { _ = l.Unload(loadResult) }() //nolint:errcheck // best-effort cleanup
 
 	return l.Execute(loadResult, execOpts)
 }
@@ -578,7 +572,7 @@ func parseMemoryLimit(limit string) uint64 {
 	var numStr string
 	var suffix string
 	for i, c := range limit {
-		if !((c >= '0' && c <= '9') || c == '.') {
+		if (c < '0' || c > '9') && c != '.' {
 			numStr = limit[:i]
 			suffix = strings.TrimSpace(limit[i:])
 			break
@@ -597,7 +591,7 @@ func parseMemoryLimit(limit string) uint64 {
 
 	// Apply multiplier based on suffix
 	suffix = strings.ToUpper(suffix)
-	var multiplier float64 = 1
+	var multiplier float64
 
 	switch suffix {
 	case "":

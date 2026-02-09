@@ -17,7 +17,7 @@ func TestManagedExecution_InitialState(t *testing.T) {
 
 	me := NewManagedExecution(req, 3, nil)
 
-	if me.State() != ExecutionStatePending {
+	if me.State() != StatePending {
 		t.Errorf("expected pending state, got %v", me.State())
 	}
 	if !me.IsPending() {
@@ -49,7 +49,7 @@ func TestManagedExecution_StartWorkflow(t *testing.T) {
 	if err := me.Start(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateRunning {
+	if me.State() != StateRunning {
 		t.Errorf("expected running state, got %v", me.State())
 	}
 	if !me.IsRunning() {
@@ -79,7 +79,7 @@ func TestManagedExecution_CompleteWorkflow(t *testing.T) {
 	if err := me.Complete(stdout, stderr, 0); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateCompleted {
+	if me.State() != StateCompleted {
 		t.Errorf("expected completed state, got %v", me.State())
 	}
 	if !me.IsCompleted() {
@@ -111,7 +111,7 @@ func TestManagedExecution_FailWorkflow(t *testing.T) {
 	if err := me.Fail(testErr); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateFailed {
+	if me.State() != StateFailed {
 		t.Errorf("expected failed state, got %v", me.State())
 	}
 	if !me.IsTerminal() {
@@ -139,7 +139,7 @@ func TestManagedExecution_TimeoutWorkflow(t *testing.T) {
 	if err := me.Timeout(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateTimeout {
+	if me.State() != StateTimeout {
 		t.Errorf("expected timeout state, got %v", me.State())
 	}
 	if !me.IsTerminal() {
@@ -170,7 +170,7 @@ func TestManagedExecution_CancelWorkflow(t *testing.T) {
 			if err := me.Cancel(); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-			if me.State() != ExecutionStateCancelled {
+			if me.State() != StateCancelled {
 				t.Errorf("expected cancelled state, got %v", me.State())
 			}
 			if !me.IsTerminal() {
@@ -201,7 +201,7 @@ func TestManagedExecution_RetryWorkflow(t *testing.T) {
 	if err := me.RequestRetry(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateRetrying {
+	if me.State() != StateRetrying {
 		t.Errorf("expected retrying state, got %v", me.State())
 	}
 	if !me.IsRetrying() {
@@ -212,7 +212,7 @@ func TestManagedExecution_RetryWorkflow(t *testing.T) {
 	if err := me.Retry(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateRunning {
+	if me.State() != StateRunning {
 		t.Errorf("expected running state, got %v", me.State())
 	}
 	if me.Attempt() != 2 {
@@ -252,7 +252,7 @@ func TestManagedExecution_MaxRetriesExceeded(t *testing.T) {
 	if err := me.FailMaxRetries(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if me.State() != ExecutionStateFailed {
+	if me.State() != StateFailed {
 		t.Errorf("expected failed state, got %v", me.State())
 	}
 	if !me.IsTerminal() {
@@ -278,7 +278,7 @@ func TestManagedExecution_InvalidTransitions(t *testing.T) {
 	}
 
 	// State should not have changed
-	if me.State() != ExecutionStatePending {
+	if me.State() != StatePending {
 		t.Errorf("state should not have changed, got %v", me.State())
 	}
 }
@@ -288,7 +288,7 @@ func TestManagedExecution_Callbacks(t *testing.T) {
 	var retryingCalls, retryCalls int
 	var lastRetryAttempt int
 
-	callbacks := &ExecutionCallbacks{
+	callbacks := &Callbacks{
 		OnStarted: func(commandID string) {
 			startedCalls++
 		},
@@ -439,7 +439,7 @@ func TestManagedExecution_NilCallbacks(t *testing.T) {
 	}
 
 	// Empty callbacks struct
-	callbacks := &ExecutionCallbacks{}
+	callbacks := &Callbacks{}
 
 	me := NewManagedExecution(req, 3, callbacks)
 
@@ -450,25 +450,25 @@ func TestManagedExecution_NilCallbacks(t *testing.T) {
 	me.Complete(nil, nil, 0)
 }
 
-func TestExecutionStateToString(t *testing.T) {
+func TestStateToString(t *testing.T) {
 	tests := []struct {
-		state   ExecutionState
+		state   State
 		display string
 	}{
-		{ExecutionStatePending, "Pending"},
-		{ExecutionStateRunning, "Running"},
-		{ExecutionStateRetrying, "Retrying"},
-		{ExecutionStateCompleted, "Completed"},
-		{ExecutionStateFailed, "Failed"},
-		{ExecutionStateCancelled, "Cancelled"},
-		{ExecutionStateTimeout, "Timeout"},
-		{ExecutionState("unknown"), "unknown"},
+		{StatePending, "Pending"},
+		{StateRunning, "Running"},
+		{StateRetrying, "Retrying"},
+		{StateCompleted, "Completed"},
+		{StateFailed, "Failed"},
+		{StateCancelled, "Cancelled"},
+		{StateTimeout, "Timeout"},
+		{State("unknown"), "unknown"},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.state), func(t *testing.T) {
-			if got := ExecutionStateToString(tt.state); got != tt.display {
-				t.Errorf("ExecutionStateToString(%v) = %v, want %v", tt.state, got, tt.display)
+			if got := StateToString(tt.state); got != tt.display {
+				t.Errorf("StateToString(%v) = %v, want %v", tt.state, got, tt.display)
 			}
 		})
 	}

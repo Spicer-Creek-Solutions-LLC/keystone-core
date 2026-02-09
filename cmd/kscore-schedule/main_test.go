@@ -380,21 +380,21 @@ func TestMaintenanceCreateOptionsStructure(t *testing.T) {
 
 func TestScheduleDisplayStructure(t *testing.T) {
 	s := scheduleDisplay{
-		ID:       "sched-001",
-		Name:     "daily-backup",
-		Type:     schedule.ScheduleTypeCommand,
-		Status:   schedule.ScheduleStatusActive,
-		Cron:     "0 2 * * *",
-		NextRun:  "02:00",
+		ID:      "sched-001",
+		Name:    "daily-backup",
+		Type:    schedule.TypeCommand,
+		Status:  schedule.StatusActive,
+		Cron:    "0 2 * * *",
+		NextRun: "02:00",
 	}
 
 	if s.ID != "sched-001" {
 		t.Errorf("ID = %v, want sched-001", s.ID)
 	}
-	if s.Type != schedule.ScheduleTypeCommand {
+	if s.Type != schedule.TypeCommand {
 		t.Errorf("Type = %v, want command", s.Type)
 	}
-	if s.Status != schedule.ScheduleStatusActive {
+	if s.Status != schedule.StatusActive {
 		t.Errorf("Status = %v, want active", s.Status)
 	}
 }
@@ -404,8 +404,8 @@ func TestScheduleDetailStructure(t *testing.T) {
 		ID:              "sched-001",
 		Name:            "daily-backup",
 		Description:     "Daily backup of databases",
-		Type:            schedule.ScheduleTypeCommand,
-		Status:          schedule.ScheduleStatusActive,
+		Type:            schedule.TypeCommand,
+		Status:          schedule.StatusActive,
 		Cron:            "0 2 * * *",
 		Timezone:        "UTC",
 		Priority:        10,

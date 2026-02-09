@@ -61,16 +61,11 @@ func (d *DockerDetector) Detect() (*Metadata, error) {
 		}
 	}
 
-	// Try to get more info from /.dockerenv (exists in Docker containers)
-	if _, err := os.Stat("/.dockerenv"); err == nil {
-		// Confirmed Docker container
-	}
+	// Note: /.dockerenv file exists in Docker containers (already detected via IsContainer)
 
 	// Try to parse docker-specific info from /proc/1/mountinfo
 	if mounts := d.getMountInfo(); len(mounts) > 0 {
-		for _, mount := range mounts {
-			metadata.Volumes = append(metadata.Volumes, mount)
-		}
+		metadata.Volumes = append(metadata.Volumes, mounts...)
 	}
 
 	return metadata, nil
@@ -106,7 +101,7 @@ func (d *DockerDetector) GetRuntime() Runtime {
 }
 
 // getContainerIDFromCgroup extracts container ID from cgroup file
-func (d *DockerDetector) getContainerIDFromCgroup() (string, string) {
+func (d *DockerDetector) getContainerIDFromCgroup() (containerID, cgroupPath string) {
 	content := readFile("/proc/self/cgroup")
 	if content == "" {
 		return "", ""
@@ -197,10 +192,10 @@ func (d *DockerDetector) getMountInfo() []VolumeMount {
 
 // parseDockerJSON parses Docker inspect JSON (if available via socket)
 // This is a placeholder for future enhancement
-func (d *DockerDetector) parseDockerJSON(containerID string) (*ContainerInfo, error) {
+func (d *DockerDetector) parseDockerJSON(containerID string) (*Info, error) {
 	// This would require Docker API client
 	// For now, return minimal info
-	return &ContainerInfo{
+	return &Info{
 		State: "running",
 	}, nil
 }

@@ -127,9 +127,9 @@ func TestRBACAuthorizer_AddBypassMethod(t *testing.T) {
 
 func TestParseMethodName(t *testing.T) {
 	tests := []struct {
-		fullMethod     string
+		fullMethod      string
 		expectedService string
-		expectedMethod string
+		expectedMethod  string
 	}{
 		{"/kscore.v1.ControlPlaneService/ListAgents", "kscore.v1.ControlPlaneService", "ListAgents"},
 		{"/package.Service/Method", "package.Service", "Method"},

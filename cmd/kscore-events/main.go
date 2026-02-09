@@ -1,3 +1,4 @@
+// Package main implements the kscore-events CLI for event management and querying.
 package main
 
 import (
@@ -133,6 +134,8 @@ Examples:
 	cmd.Flags().StringVar(&opts.Severity, "severity", "", "Filter by minimum severity (debug, info, warning, error, critical)")
 	cmd.Flags().StringVar(&opts.Since, "since", "", "Show events since (e.g., 1h, 24h, 7d)")
 	cmd.Flags().StringVar(&opts.Before, "before", "", "Show events before (e.g., 1h, 24h, 7d)")
+	cmd.Flags().StringVar(&opts.Before, "until", "", "Show events until (alias for --before)")
+	cmd.MarkFlagsMutuallyExclusive("before", "until")
 	cmd.Flags().StringVar(&opts.CorrelationID, "correlation-id", "", "Filter by correlation ID")
 	cmd.Flags().IntVar(&opts.Limit, "limit", 50, "Maximum number of events to show")
 	cmd.Flags().StringArrayVar(&opts.Tags, "tag", nil, "Filter by tag (key:value format, can be specified multiple times)")
@@ -254,7 +257,7 @@ func runQuery(cmd *cobra.Command, filter string, limit int) error {
 	table := &output.Table{
 		Headers: []string{"ID", "TYPE", "SOURCE", "SEVERITY", "TIMESTAMP"},
 	}
-	for _, event := range sampleEvents[:min(limit, len(sampleEvents))] {
+	for _, event := range sampleEvents[:minInt(limit, len(sampleEvents))] {
 		id := event.ID
 		if len(id) > 8 {
 			id = id[:8] + "..."
@@ -607,9 +610,17 @@ func runWatch(cmd *cobra.Command, opts *WatchOptions) error {
 
 	// Simulate 10 events
 	for i := 0; i < 10; i++ {
-		eventType := eventTypes[i%len(eventTypes)]
-		severity := severities[i%len(severities)]
-		source := sources[i%len(sources)]
+		typeIdx := i % len(eventTypes)
+		sevIdx := i % len(severities)
+		srcIdx := i % len(sources)
+
+		if typeIdx >= len(eventTypes) || sevIdx >= len(severities) || srcIdx >= len(sources) {
+			continue
+		}
+
+		eventType := eventTypes[typeIdx]
+		severity := severities[sevIdx]
+		source := sources[srcIdx]
 
 		// Apply type filter
 		if opts.Type != "" && !strings.HasPrefix(eventType, strings.TrimSuffix(opts.Type, "*")) {
@@ -944,7 +955,7 @@ func newDLQPurgeCmd() *cobra.Command {
 				fmt.Print("Are you sure you want to purge all events from the DLQ? [y/N]: ")
 				var confirm string
 				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 					fmt.Println("Cancelled")
 					return nil
 				}
@@ -1008,10 +1019,10 @@ func generateSampleEvents(count int) []EventDisplay {
 	return result
 }
 
-func filterEvents(events []EventDisplay, opts *ListOptions) []EventDisplay {
-	result := make([]EventDisplay, 0, len(events))
+func filterEvents(eventList []EventDisplay, opts *ListOptions) []EventDisplay {
+	result := make([]EventDisplay, 0, len(eventList))
 
-	for _, event := range events {
+	for _, event := range eventList {
 		// Filter by type
 		if opts.Type != "" && event.Type != opts.Type {
 			continue
@@ -1045,7 +1056,7 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

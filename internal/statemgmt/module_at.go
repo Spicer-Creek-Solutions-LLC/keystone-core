@@ -57,7 +57,7 @@ func (m *AtModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCh
 		return nil, err
 	}
 
-	exists, _ := m.jobExists(config)
+	exists, _ := m.jobExists(ctx, config)
 
 	switch decl.State {
 	case "present":
@@ -114,15 +114,13 @@ func (m *AtModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 
 	switch decl.State {
 	case "present":
-		// Remove existing job if it exists
-		if exists, jobID := m.jobExists(config); exists {
-			if err := m.removeJob(jobID); err != nil {
-				// Log but continue - we'll create a new job
-			}
+		// Remove existing job if it exists - best-effort, we'll create a new job regardless
+		if exists, jobID := m.jobExists(ctx, config); exists {
+			_ = m.removeJob(ctx, jobID)
 		}
 
 		// Create the job
-		jobID, err := m.createJob(config)
+		jobID, err := m.createJob(ctx, config)
 		if err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create at job: %v", err)
@@ -133,13 +131,13 @@ func (m *AtModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		result.Comment = fmt.Sprintf("At job '%s' created with ID %s", config.Name, jobID)
 
 	case "absent":
-		exists, jobID := m.jobExists(config)
+		exists, jobID := m.jobExists(ctx, config)
 		if !exists {
 			result.Comment = fmt.Sprintf("At job '%s' already absent", config.Name)
 			return result, nil
 		}
 
-		if err := m.removeJob(jobID); err != nil {
+		if err := m.removeJob(ctx, jobID); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to remove at job: %v", err)
 			return result, err
@@ -186,7 +184,7 @@ func (m *AtModule) parseConfig(decl *StateDeclaration) (*AtConfig, error) {
 
 	queue := getStringParameter(decl, "queue", "")
 	if queue != "" {
-		if len(queue) != 1 || !((queue[0] >= 'a' && queue[0] <= 'z') || (queue[0] >= 'A' && queue[0] <= 'Z')) {
+		if len(queue) != 1 || ((queue[0] < 'a' || queue[0] > 'z') && (queue[0] < 'A' || queue[0] > 'Z')) {
 			return nil, fmt.Errorf("queue must be a single letter (a-z or A-Z)")
 		}
 		config.Queue = queue
@@ -199,9 +197,9 @@ func (m *AtModule) parseConfig(decl *StateDeclaration) (*AtConfig, error) {
 }
 
 // jobExists checks if a job with the given name exists.
-func (m *AtModule) jobExists(config *AtConfig) (exists bool, jobID string) {
+func (m *AtModule) jobExists(ctx context.Context, config *AtConfig) (exists bool, jobID string) {
 	// List all at jobs
-	cmd := exec.Command("atq")
+	cmd := exec.CommandContext(ctx, "atq")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, ""
@@ -222,7 +220,7 @@ func (m *AtModule) jobExists(config *AtConfig) (exists bool, jobID string) {
 		id := fields[0]
 
 		// Get job content to check for our marker
-		content, err := m.getJobContent(id)
+		content, err := m.getJobContent(ctx, id)
 		if err != nil {
 			continue
 		}
@@ -238,8 +236,8 @@ func (m *AtModule) jobExists(config *AtConfig) (exists bool, jobID string) {
 }
 
 // getJobContent retrieves the content of an at job.
-func (m *AtModule) getJobContent(jobID string) (string, error) {
-	cmd := exec.Command("at", "-c", jobID)
+func (m *AtModule) getJobContent(ctx context.Context, jobID string) (string, error) {
+	cmd := exec.CommandContext(ctx, "at", "-c", jobID)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -248,7 +246,7 @@ func (m *AtModule) getJobContent(jobID string) (string, error) {
 }
 
 // createJob creates an at job.
-func (m *AtModule) createJob(config *AtConfig) (string, error) {
+func (m *AtModule) createJob(ctx context.Context, config *AtConfig) (string, error) {
 	// Build the time specification
 	timeSpec := config.Time
 	if config.Date != "" {
@@ -280,11 +278,12 @@ func (m *AtModule) createJob(config *AtConfig) (string, error) {
 	)
 
 	// Create the job
-	cmd := exec.Command("at", args...)
+	//nolint:gosec // G204: at command execution is intentional for job scheduling
+	cmd := exec.CommandContext(ctx, "at", args...)
 	cmd.Stdin = strings.NewReader(script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("at command failed: %v: %s", err, string(output))
+		return "", fmt.Errorf("at command failed: %w: %s", err, string(output))
 	}
 
 	// Parse job ID from output
@@ -301,11 +300,11 @@ func (m *AtModule) createJob(config *AtConfig) (string, error) {
 }
 
 // removeJob removes an at job.
-func (m *AtModule) removeJob(jobID string) error {
-	cmd := exec.Command("atrm", jobID)
+func (m *AtModule) removeJob(ctx context.Context, jobID string) error {
+	cmd := exec.CommandContext(ctx, "atrm", jobID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("atrm failed: %v: %s", err, string(output))
+		return fmt.Errorf("atrm failed: %w: %s", err, string(output))
 	}
 	return nil
 }

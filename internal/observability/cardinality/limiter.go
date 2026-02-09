@@ -103,8 +103,8 @@ type Metric struct {
 	totalCount int64
 }
 
-// CardinalityEvent represents a cardinality-related event.
-type CardinalityEvent struct {
+// Event represents a cardinality-related event.
+type Event struct {
 	Type       string
 	MetricName string
 	Labels     Labels
@@ -115,7 +115,7 @@ type CardinalityEvent struct {
 }
 
 // Listener is a function that receives cardinality events.
-type Listener func(*CardinalityEvent)
+type Listener func(*Event)
 
 // Limiter manages cardinality limits for metrics.
 type Limiter struct {
@@ -209,7 +209,7 @@ func (l *Limiter) recordSeries(metric *Metric, labels Labels) error {
 	if l.config.WarnThreshold > 0 {
 		ratio := float64(len(metric.Series)) / float64(metric.MaxSeries)
 		if ratio >= l.config.WarnThreshold {
-			l.emitEvent(&CardinalityEvent{
+			l.emitEvent(&Event{
 				Type:       "warning",
 				MetricName: metric.Name,
 				Timestamp:  time.Now(),
@@ -245,7 +245,7 @@ func (l *Limiter) handleLimitExceeded(metric *Metric, labels Labels, hash uint64
 		l.stats.mu.Lock()
 		l.stats.DroppedSeries++
 		l.stats.mu.Unlock()
-		l.emitEvent(&CardinalityEvent{
+		l.emitEvent(&Event{
 			Type:       "dropped",
 			MetricName: metric.Name,
 			Labels:     labels,
@@ -306,7 +306,7 @@ func (l *Limiter) evictOldest(metric *Metric, newLabels Labels, newHash uint64) 
 		l.stats.TotalSeries--
 		l.stats.mu.Unlock()
 
-		l.emitEvent(&CardinalityEvent{
+		l.emitEvent(&Event{
 			Type:       "evicted",
 			MetricName: metric.Name,
 			Labels:     oldest.Labels,
@@ -349,7 +349,7 @@ func (l *Limiter) evictLRU(metric *Metric, newLabels Labels, newHash uint64) err
 		l.stats.TotalSeries--
 		l.stats.mu.Unlock()
 
-		l.emitEvent(&CardinalityEvent{
+		l.emitEvent(&Event{
 			Type:       "evicted",
 			MetricName: metric.Name,
 			Labels:     lru.Labels,
@@ -456,10 +456,16 @@ func (l *Limiter) SetMetricLimit(metricName string, limit int) {
 }
 
 // Stats returns current statistics.
-func (l *Limiter) Stats() Stats {
+func (l *Limiter) Stats() *Stats {
 	l.stats.mu.RLock()
 	defer l.stats.mu.RUnlock()
-	return *l.stats
+	return &Stats{
+		TotalMetrics:  l.stats.TotalMetrics,
+		TotalSeries:   l.stats.TotalSeries,
+		DroppedSeries: l.stats.DroppedSeries,
+		Evictions:     l.stats.Evictions,
+		Aggregations:  l.stats.Aggregations,
+	}
 }
 
 // AddListener adds an event listener.
@@ -469,7 +475,7 @@ func (l *Limiter) AddListener(listener Listener) {
 	l.mu.Unlock()
 }
 
-func (l *Limiter) emitEvent(event *CardinalityEvent) {
+func (l *Limiter) emitEvent(event *Event) {
 	l.mu.RLock()
 	listeners := l.listeners
 	l.mu.RUnlock()
@@ -516,20 +522,21 @@ func (l *Limiter) cleanupMetric(metric *Metric, cutoff time.Time) {
 	defer metric.mu.Unlock()
 
 	for hash, series := range metric.Series {
-		if series.LastUsedAt.Before(cutoff) {
-			delete(metric.Series, hash)
-			l.stats.mu.Lock()
-			l.stats.TotalSeries--
-			l.stats.mu.Unlock()
-
-			l.emitEvent(&CardinalityEvent{
-				Type:       "expired",
-				MetricName: metric.Name,
-				Labels:     series.Labels,
-				Timestamp:  time.Now(),
-				Message:    "series expired due to TTL",
-			})
+		if !series.LastUsedAt.Before(cutoff) {
+			continue
 		}
+		delete(metric.Series, hash)
+		l.stats.mu.Lock()
+		l.stats.TotalSeries--
+		l.stats.mu.Unlock()
+
+		l.emitEvent(&Event{
+			Type:       "expired",
+			MetricName: metric.Name,
+			Labels:     series.Labels,
+			Timestamp:  time.Now(),
+			Message:    "series expired due to TTL",
+		})
 	}
 }
 
@@ -625,8 +632,8 @@ func (t *LabelCardinalityTracker) Reset() {
 	t.labelValues = make(map[string]map[string]struct{})
 }
 
-// CardinalityEstimator uses HyperLogLog for memory-efficient cardinality estimation.
-type CardinalityEstimator struct {
+// Estimator uses HyperLogLog for memory-efficient cardinality estimation.
+type Estimator struct {
 	registers []uint8
 	precision uint8
 	m         uint32 // number of registers
@@ -635,7 +642,7 @@ type CardinalityEstimator struct {
 
 // NewCardinalityEstimator creates a new cardinality estimator.
 // Precision should be between 4 and 16. Higher = more accurate but more memory.
-func NewCardinalityEstimator(precision uint8) *CardinalityEstimator {
+func NewCardinalityEstimator(precision uint8) *Estimator {
 	if precision < 4 {
 		precision = 4
 	}
@@ -644,7 +651,7 @@ func NewCardinalityEstimator(precision uint8) *CardinalityEstimator {
 	}
 
 	m := uint32(1) << precision
-	return &CardinalityEstimator{
+	return &Estimator{
 		registers: make([]uint8, m),
 		precision: precision,
 		m:         m,
@@ -652,7 +659,7 @@ func NewCardinalityEstimator(precision uint8) *CardinalityEstimator {
 }
 
 // Add adds an element to the estimator.
-func (e *CardinalityEstimator) Add(data []byte) {
+func (e *Estimator) Add(data []byte) {
 	// Use FNV-1a hash
 	h := fnv.New64a()
 	h.Write(data)
@@ -683,7 +690,7 @@ func (e *CardinalityEstimator) Add(data []byte) {
 }
 
 // Estimate returns the estimated cardinality.
-func (e *CardinalityEstimator) Estimate() uint64 {
+func (e *Estimator) Estimate() uint64 {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -725,7 +732,7 @@ func (e *CardinalityEstimator) Estimate() uint64 {
 }
 
 // Merge merges another estimator into this one.
-func (e *CardinalityEstimator) Merge(other *CardinalityEstimator) {
+func (e *Estimator) Merge(other *Estimator) {
 	if e.precision != other.precision {
 		return
 	}
@@ -743,7 +750,7 @@ func (e *CardinalityEstimator) Merge(other *CardinalityEstimator) {
 }
 
 // Reset clears the estimator.
-func (e *CardinalityEstimator) Reset() {
+func (e *Estimator) Reset() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for i := range e.registers {

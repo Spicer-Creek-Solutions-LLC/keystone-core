@@ -55,8 +55,8 @@ type AgentMetrics struct {
 	SeriesCount int
 }
 
-// MetricsStore stores metrics from multiple agents.
-type MetricsStore struct {
+// Store stores metrics from multiple agents.
+type Store struct {
 	agents map[string]*AgentMetrics
 	mu     sync.RWMutex
 	config StoreConfig
@@ -72,36 +72,36 @@ type MetricsStore struct {
 }
 
 // NewMetricsStore creates a new metrics store.
-func NewMetricsStore(config StoreConfig) *MetricsStore {
-	return &MetricsStore{
+func NewMetricsStore(config StoreConfig) *Store {
+	return &Store{
 		agents: make(map[string]*AgentMetrics),
 		config: config,
 	}
 }
 
 // SetOnAgentAdded sets the callback for when an agent is added.
-func (s *MetricsStore) SetOnAgentAdded(fn func(agentID string)) {
+func (s *Store) SetOnAgentAdded(fn func(agentID string)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onAgentAdded = fn
 }
 
 // SetOnAgentRemoved sets the callback for when an agent is removed.
-func (s *MetricsStore) SetOnAgentRemoved(fn func(agentID string)) {
+func (s *Store) SetOnAgentRemoved(fn func(agentID string)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onAgentRemoved = fn
 }
 
 // SetOnMetricsAdded sets the callback for when metrics are added.
-func (s *MetricsStore) SetOnMetricsAdded(fn func(agentID string, count int)) {
+func (s *Store) SetOnMetricsAdded(fn func(agentID string, count int)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onMetricsAdded = fn
 }
 
 // Store stores metrics for an agent.
-func (s *MetricsStore) Store(agentID string, labels map[string]string, families []*dto.MetricFamily) error {
+func (s *Store) Store(agentID string, labels map[string]string, families []*dto.MetricFamily) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -181,7 +181,7 @@ func (s *MetricsStore) Store(agentID string, labels map[string]string, families 
 }
 
 // Get returns metrics for an agent.
-func (s *MetricsStore) Get(agentID string) (*AgentMetrics, bool) {
+func (s *Store) Get(agentID string) (*AgentMetrics, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -193,7 +193,7 @@ func (s *MetricsStore) Get(agentID string) (*AgentMetrics, bool) {
 }
 
 // GetAll returns all agent metrics.
-func (s *MetricsStore) GetAll() map[string]*AgentMetrics {
+func (s *Store) GetAll() map[string]*AgentMetrics {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -206,7 +206,7 @@ func (s *MetricsStore) GetAll() map[string]*AgentMetrics {
 
 // GetAllFamilies returns all metric families across all agents.
 // It merges metrics from different agents, adding agent labels.
-func (s *MetricsStore) GetAllFamilies() []*dto.MetricFamily {
+func (s *Store) GetAllFamilies() []*dto.MetricFamily {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -231,7 +231,7 @@ func (s *MetricsStore) GetAllFamilies() []*dto.MetricFamily {
 }
 
 // mergeFamilyAcrossAgents merges a metric family across all agents.
-func (s *MetricsStore) mergeFamilyAcrossAgents(name string) *dto.MetricFamily {
+func (s *Store) mergeFamilyAcrossAgents(name string) *dto.MetricFamily {
 	var merged *dto.MetricFamily
 
 	for _, agent := range s.agents {
@@ -261,21 +261,19 @@ func (s *MetricsStore) mergeFamilyAcrossAgents(name string) *dto.MetricFamily {
 }
 
 // cloneMetricWithAgentLabels clones a metric and adds agent labels.
-func (s *MetricsStore) cloneMetricWithAgentLabels(m *dto.Metric, agent *AgentMetrics) *dto.Metric {
+func (s *Store) cloneMetricWithAgentLabels(m *dto.Metric, agent *AgentMetrics) *dto.Metric {
 	cloned := &dto.Metric{
-		Label:        make([]*dto.LabelPair, 0, len(m.Label)+len(agent.Labels)+1),
-		Gauge:        m.Gauge,
-		Counter:      m.Counter,
-		Summary:      m.Summary,
-		Untyped:      m.Untyped,
-		Histogram:    m.Histogram,
-		TimestampMs:  m.TimestampMs,
+		Label:       make([]*dto.LabelPair, 0, len(m.Label)+len(agent.Labels)+1),
+		Gauge:       m.Gauge,
+		Counter:     m.Counter,
+		Summary:     m.Summary,
+		Untyped:     m.Untyped,
+		Histogram:   m.Histogram,
+		TimestampMs: m.TimestampMs,
 	}
 
 	// Copy existing labels
-	for _, l := range m.Label {
-		cloned.Label = append(cloned.Label, l)
-	}
+	cloned.Label = append(cloned.Label, m.Label...)
 
 	// Add agent_id label
 	agentIDKey := "agent_id"
@@ -299,7 +297,7 @@ func (s *MetricsStore) cloneMetricWithAgentLabels(m *dto.Metric, agent *AgentMet
 }
 
 // Remove removes an agent from the store.
-func (s *MetricsStore) Remove(agentID string) {
+func (s *Store) Remove(agentID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -321,7 +319,7 @@ func (s *MetricsStore) Remove(agentID string) {
 }
 
 // RemoveStale removes agents that haven't been seen within maxAge.
-func (s *MetricsStore) RemoveStale() []string {
+func (s *Store) RemoveStale() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -348,27 +346,27 @@ func (s *MetricsStore) RemoveStale() []string {
 }
 
 // AgentCount returns the number of agents in the store.
-func (s *MetricsStore) AgentCount() int {
+func (s *Store) AgentCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.agents)
 }
 
 // SeriesCount returns the total number of metric series.
-func (s *MetricsStore) SeriesCount() int {
+func (s *Store) SeriesCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.totalSeries
 }
 
 // DroppedSeriesCount returns the number of dropped series.
-func (s *MetricsStore) DroppedSeriesCount() int {
+func (s *Store) DroppedSeriesCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.droppedSeries
 }
 
-// Stats returns store statistics.
+// StoreStats holds store statistics.
 type StoreStats struct {
 	AgentCount    int
 	TotalSeries   int
@@ -376,7 +374,7 @@ type StoreStats struct {
 }
 
 // Stats returns current store statistics.
-func (s *MetricsStore) Stats() StoreStats {
+func (s *Store) Stats() StoreStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return StoreStats{

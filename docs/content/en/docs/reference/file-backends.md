@@ -10,15 +10,21 @@ This page provides detailed configuration options for each file distribution sto
 
 ## Backend Configuration
 
-All backends are configured in the kscore-files configuration file:
+All backends are configured in the kscore-files configuration file as an array:
 
 ```yaml
-# /etc/kscore/files.yaml
-backend:
-  type: <backend-type>
-  <backend-type>:
-    # Backend-specific options
+# /etc/keystone-core/files.yaml
+backends:
+  - name: <backend-name>
+    type: <backend-type>
+    root_path: <path>
+    paths: []        # Optional: restrict to specific paths
+    read_only: false # Optional: make backend read-only
 ```
+
+> **Note**: The server expects a `backends` array, not a single `backend` object. Each backend requires a unique `name` and `type`.
+
+> **Current Support**: Only the `filesystem` backend type is fully wired in the kscore-files server. Cloud backends (S3, GCS, Azure) are implemented as library code but not yet exposed through the server configuration. See individual backend sections for future configuration reference.
 
 ## Compression System
 
@@ -102,25 +108,25 @@ Mirror groups support incremental sync based on metadata comparison (checksum, s
 Stores files on the local filesystem.
 
 ```yaml
-backend:
-  type: local
-  local:
-    root: /var/lib/kscore/files
-    temp_dir: /var/lib/kscore/tmp
-    create_dirs: true
-    dir_mode: "0755"
-    file_mode: "0644"
+backends:
+  - name: local-files
+    type: filesystem
+    root_path: /var/lib/keystone-core/files
+    paths: []
+    read_only: false
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `root` | string | Required | Root directory for file storage |
-| `temp_dir` | string | `<root>/.tmp` | Directory for temporary files |
-| `create_dirs` | bool | `true` | Create directories if they don't exist |
-| `dir_mode` | string | `"0755"` | Permission mode for directories |
-| `file_mode` | string | `"0644"` | Permission mode for files |
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `filesystem` |
+| `root_path` | string | Required | Root directory for file storage |
+| `paths` | []string | `[]` | Restrict access to specific paths (empty = all) |
+| `read_only` | bool | `false` | Make backend read-only |
+
+> **Note**: The backend type is `filesystem`, not `local`. Directories are created automatically.
 
 ## Amazon S3 Backend
 
@@ -248,7 +254,7 @@ backend:
   git:
     url: https://github.com/myorg/kscore-files.git
     branch: main
-    local_path: /var/lib/kscore/git-files
+    local_path: /var/lib/keystone-core/git-files
     sync_interval: 5m
     auto_commit: true
     commit_author: "Keystone Core <kscore@example.com>"
@@ -369,23 +375,22 @@ type Backend interface {
 }
 ```
 
-## Content-Addressed Storage
+## Storage Layout
 
-All backends use content-addressed storage internally:
-
-1. Files are hashed with SHA-256
-2. Stored at path: `<prefix>/<hash[0:2]>/<hash>`
-3. Metadata stored separately with original path mapping
-4. Deduplication automatic for identical content
+The filesystem backend stores files at their original paths relative to the root directory:
 
 ```
-/var/lib/kscore/files/
-├── ab/
-│   ├── ab3def4567890...  # Content file
-│   └── ab9876543210...   # Another content file
-└── cd/
-    └── cdef0123456...    # Content file
+/var/lib/keystone-core/files/
+├── configs/
+│   └── app.yaml
+├── scripts/
+│   └── deploy.sh
+└── artifacts/
+    └── v1.2.3/
+        └── binary
 ```
+
+Files are stored with their original names and directory structure. SHA-256 checksums are calculated for integrity verification but are not used for storage paths.
 
 ## See Also
 

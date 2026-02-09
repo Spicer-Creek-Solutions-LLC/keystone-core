@@ -822,7 +822,7 @@ server:
 ### Full Web UI Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 server:
   web_ui:
     enabled: true
@@ -925,6 +925,8 @@ server:
 ```
 
 ## CLI Commands
+
+> **Note**: The CLI commands described in this section are part of the planned future implementation. They are not yet available in the current release.
 
 ### User Management
 

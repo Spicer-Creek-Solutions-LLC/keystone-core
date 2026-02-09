@@ -99,7 +99,8 @@ func (b *BaseInstaller) fileExists(path string) bool {
 
 // ensureDir ensures a directory exists
 func (b *BaseInstaller) ensureDir(path string) error {
-	return os.MkdirAll(path, 0755)
+	//nolint:gosec // G301: installation directory needs to be accessible by service user
+	return os.MkdirAll(path, 0o755)
 }
 
 // writeFile writes content to a file
@@ -171,8 +172,8 @@ func NewServerInstaller() *ServerInstaller {
 			componentType: ComponentServer,
 			serviceName:   "kscore-server",
 			binaryName:    "kscore-server",
-			configDir:     "/etc/kscore",
-			dataDir:       "/var/lib/kscore",
+			configDir:     "/etc/keystone-core",
+			dataDir:       "/var/lib/keystone-core",
 		},
 	}
 }
@@ -258,7 +259,7 @@ func (s *ServerInstaller) installBinary(ctx context.Context, config ComponentCon
 	arch := runtime.GOARCH
 	osName := runtime.GOOS
 
-	url := fmt.Sprintf("https://releases.kscore.io/kscore-server/%s/%s_%s_%s",
+	url := fmt.Sprintf("https://releases.keystone-core.io/kscore-server/%s/%s_%s_%s",
 		version, s.binaryName, osName, arch)
 
 	// Download binary
@@ -270,7 +271,7 @@ func (s *ServerInstaller) installBinary(ctx context.Context, config ComponentCon
 	}
 
 	// Make executable
-	if err := os.Chmod(binPath, 0755); err != nil {
+	if err := os.Chmod(binPath, 0o755); err != nil { //nolint:gosec // G302: Binary must be executable by all users
 		return fmt.Errorf("failed to make binary executable: %w", err)
 	}
 
@@ -293,17 +294,17 @@ func (s *ServerInstaller) installContainer(ctx context.Context, config Component
 	image := fmt.Sprintf("ghcr.io/keystone-core/%s:%s", s.binaryName, version)
 
 	// Check for docker or podman
-	runtime := "docker"
+	containerRuntime := "docker"
 	if _, err := exec.LookPath("docker"); err != nil {
 		if _, err := exec.LookPath("podman"); err != nil {
 			return fmt.Errorf("neither docker nor podman found")
 		}
-		runtime = "podman"
+		containerRuntime = "podman"
 	}
 
 	// Pull image
 	s.log("info", "Pulling container image", "image", image)
-	if _, err := s.runCommand(ctx, runtime, "pull", image); err != nil {
+	if _, err := s.runCommand(ctx, containerRuntime, "pull", image); err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -311,7 +312,7 @@ func (s *ServerInstaller) installContainer(ctx context.Context, config Component
 }
 
 func (s *ServerInstaller) downloadFile(ctx context.Context, url, dest string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -340,13 +341,13 @@ func (s *ServerInstaller) downloadFile(ctx context.Context, url, dest string) er
 func (s *ServerInstaller) createSystemdService() error {
 	serviceContent := `[Unit]
 Description=Keystone Core Server
-Documentation=https://docs.kscore.io
+Documentation=https://docs.keystone-core.io
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
+ExecStart=/usr/local/bin/kscore-server --config /etc/keystone-core/server.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
@@ -356,7 +357,7 @@ LimitNPROC=4096
 [Install]
 WantedBy=multi-user.target
 `
-	return s.writeFile("/etc/systemd/system/kscore-server.service", []byte(serviceContent), 0644)
+	return s.writeFile("/etc/systemd/system/kscore-server.service", []byte(serviceContent), 0o644)
 }
 
 // Uninstall removes the kscore-server component
@@ -374,7 +375,7 @@ func (s *ServerInstaller) Uninstall(ctx context.Context) error {
 
 	// Reload systemd
 	if detectInitSystem() == "systemd" {
-		s.runCommand(ctx, "systemctl", "daemon-reload")
+		_, _ = s.runCommand(ctx, "systemctl", "daemon-reload") //nolint:errcheck // best-effort reload
 	}
 
 	return nil
@@ -400,7 +401,7 @@ func (s *ServerInstaller) Configure(ctx context.Context, config ComponentConfig)
 		for k, v := range config.Settings {
 			configContent += fmt.Sprintf("%s: %v\n", k, v)
 		}
-		if err := s.writeFile(configPath, []byte(configContent), 0644); err != nil {
+		if err := s.writeFile(configPath, []byte(configContent), 0o644); err != nil {
 			return fmt.Errorf("failed to write config: %w", err)
 		}
 	}
@@ -488,7 +489,11 @@ func (s *ServerInstaller) Status(ctx context.Context) (*ComponentStatus, error) 
 func (s *ServerInstaller) checkHealth(ctx context.Context) bool {
 	// Try to hit the health endpoint
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("http://localhost:8080/health/live")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8080/health/live", http.NoBody)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -522,8 +527,8 @@ func NewAgentInstaller() *AgentInstaller {
 			componentType: ComponentAgent,
 			serviceName:   "kscore-agent",
 			binaryName:    "kscore-agent",
-			configDir:     "/etc/kscore",
-			dataDir:       "/var/lib/kscore",
+			configDir:     "/etc/keystone-core",
+			dataDir:       "/var/lib/keystone-core",
 		},
 	}
 }
@@ -584,7 +589,7 @@ func (a *AgentInstaller) installBinary(ctx context.Context, config ComponentConf
 	arch := runtime.GOARCH
 	osName := runtime.GOOS
 
-	url := fmt.Sprintf("https://releases.kscore.io/kscore-agent/%s/%s_%s_%s",
+	url := fmt.Sprintf("https://releases.keystone-core.io/kscore-agent/%s/%s_%s_%s",
 		version, a.binaryName, osName, arch)
 
 	binPath := "/usr/local/bin/" + a.binaryName
@@ -592,7 +597,7 @@ func (a *AgentInstaller) installBinary(ctx context.Context, config ComponentConf
 		return fmt.Errorf("failed to download binary: %w", err)
 	}
 
-	if err := os.Chmod(binPath, 0755); err != nil {
+	if err := os.Chmod(binPath, 0o755); err != nil { //nolint:gosec // G302: Binary must be executable by all users
 		return fmt.Errorf("failed to make binary executable: %w", err)
 	}
 
@@ -606,7 +611,7 @@ func (a *AgentInstaller) installBinary(ctx context.Context, config ComponentConf
 }
 
 func (a *AgentInstaller) downloadFile(ctx context.Context, url, dest string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -635,13 +640,13 @@ func (a *AgentInstaller) downloadFile(ctx context.Context, url, dest string) err
 func (a *AgentInstaller) createSystemdService() error {
 	serviceContent := `[Unit]
 Description=Keystone Core Agent
-Documentation=https://docs.kscore.io
+Documentation=https://docs.keystone-core.io
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
+ExecStart=/usr/local/bin/kscore-agent --config /etc/keystone-core/agent.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
@@ -650,7 +655,7 @@ LimitNOFILE=65536
 [Install]
 WantedBy=multi-user.target
 `
-	return a.writeFile("/etc/systemd/system/kscore-agent.service", []byte(serviceContent), 0644)
+	return a.writeFile("/etc/systemd/system/kscore-agent.service", []byte(serviceContent), 0o644)
 }
 
 // Uninstall removes the kscore-agent component
@@ -660,7 +665,7 @@ func (a *AgentInstaller) Uninstall(ctx context.Context) error {
 	os.Remove("/usr/local/bin/" + a.binaryName)
 	os.Remove("/etc/systemd/system/kscore-agent.service")
 	if detectInitSystem() == "systemd" {
-		a.runCommand(ctx, "systemctl", "daemon-reload")
+		_, _ = a.runCommand(ctx, "systemctl", "daemon-reload") //nolint:errcheck // best-effort reload
 	}
 	return nil
 }
@@ -679,7 +684,7 @@ func (a *AgentInstaller) Configure(ctx context.Context, config ComponentConfig) 
 		for k, v := range config.Settings {
 			configContent += fmt.Sprintf("%s: %v\n", k, v)
 		}
-		if err := a.writeFile(configPath, []byte(configContent), 0644); err != nil {
+		if err := a.writeFile(configPath, []byte(configContent), 0o644); err != nil {
 			return fmt.Errorf("failed to write config: %w", err)
 		}
 	}
@@ -738,8 +743,7 @@ func (a *AgentInstaller) Status(ctx context.Context) (*ComponentStatus, error) {
 	}
 
 	initSystem := detectInitSystem()
-	switch initSystem {
-	case "systemd":
+	if initSystem == "systemd" {
 		output, err := a.runCommand(ctx, "systemctl", "is-active", a.serviceName)
 		status.Running = err == nil && strings.TrimSpace(output) == "active"
 	}
@@ -829,9 +833,10 @@ func (n *NATSInstaller) installBinary(ctx context.Context, config ComponentConfi
 
 	// NATS uses different naming convention
 	archName := arch
-	if arch == "amd64" {
+	switch arch {
+	case "amd64":
 		archName = "amd64"
-	} else if arch == "arm64" {
+	case "arm64":
 		archName = "arm64"
 	}
 
@@ -867,7 +872,8 @@ func (n *NATSInstaller) installBinary(ctx context.Context, config ComponentConfi
 		return fmt.Errorf("failed to read binary: %w", err)
 	}
 
-	if err := os.WriteFile(dstBin, data, 0755); err != nil {
+	//nolint:gosec // G306: binaries must be executable
+	if err := os.WriteFile(dstBin, data, 0o755); err != nil {
 		return fmt.Errorf("failed to install binary: %w", err)
 	}
 
@@ -881,7 +887,7 @@ func (n *NATSInstaller) installBinary(ctx context.Context, config ComponentConfi
 }
 
 func (n *NATSInstaller) downloadFile(ctx context.Context, url, dest string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -925,7 +931,7 @@ LimitNOFILE=800000
 [Install]
 WantedBy=multi-user.target
 `
-	return n.writeFile("/etc/systemd/system/nats-server.service", []byte(serviceContent), 0644)
+	return n.writeFile("/etc/systemd/system/nats-server.service", []byte(serviceContent), 0o644)
 }
 
 // Uninstall removes the NATS server component
@@ -935,7 +941,7 @@ func (n *NATSInstaller) Uninstall(ctx context.Context) error {
 	os.Remove("/usr/local/bin/nats-server")
 	os.Remove("/etc/systemd/system/nats-server.service")
 	if detectInitSystem() == "systemd" {
-		n.runCommand(ctx, "systemctl", "daemon-reload")
+		_, _ = n.runCommand(ctx, "systemctl", "daemon-reload") //nolint:errcheck // best-effort reload
 	}
 	return nil
 }
@@ -965,7 +971,7 @@ jetstream {
 `
 
 	configPath := filepath.Join(n.configDir, "nats.conf")
-	return n.writeFile(configPath, []byte(natsConfig), 0644)
+	return n.writeFile(configPath, []byte(natsConfig), 0o644)
 }
 
 // Start starts the NATS server service
@@ -1019,8 +1025,7 @@ func (n *NATSInstaller) Status(ctx context.Context) (*ComponentStatus, error) {
 	}
 
 	initSystem := detectInitSystem()
-	switch initSystem {
-	case "systemd":
+	if initSystem == "systemd" {
 		output, err := n.runCommand(ctx, "systemctl", "is-active", n.serviceName)
 		status.Running = err == nil && strings.TrimSpace(output) == "active"
 	}
@@ -1034,7 +1039,11 @@ func (n *NATSInstaller) Status(ctx context.Context) (*ComponentStatus, error) {
 
 func (n *NATSInstaller) checkHealth(ctx context.Context) bool {
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("http://localhost:8222/healthz")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8222/healthz", http.NoBody)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}

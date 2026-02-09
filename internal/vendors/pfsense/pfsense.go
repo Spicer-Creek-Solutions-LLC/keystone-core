@@ -99,7 +99,8 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	// Create HTTP client
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			MinVersion:         tls.VersionTLS12,
+			MinVersion: tls.VersionTLS12,
+			//nolint:gosec // G402: InsecureSkipVerify is user-controlled via config for devices with self-signed certs
 			InsecureSkipVerify: a.config.InsecureSkipVerify,
 		},
 	}

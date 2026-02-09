@@ -1,6 +1,7 @@
 package winrm
 
 import (
+	"context"
 	"testing"
 )
 
@@ -82,84 +83,84 @@ func TestFileManagerNotConnected(t *testing.T) {
 	manager := adapter.NewFileManager()
 
 	t.Run("FileExists", func(t *testing.T) {
-		_, err := manager.FileExists(nil, "C:\\test.txt")
+		_, err := manager.FileExists(context.Background(), "C:\\test.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("DirectoryExists", func(t *testing.T) {
-		_, err := manager.DirectoryExists(nil, "C:\\test")
+		_, err := manager.DirectoryExists(context.Background(), "C:\\test")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("CreateDirectory", func(t *testing.T) {
-		err := manager.CreateDirectory(nil, "C:\\test")
+		err := manager.CreateDirectory(context.Background(), "C:\\test")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("DeleteFile", func(t *testing.T) {
-		err := manager.DeleteFile(nil, "C:\\test.txt")
+		err := manager.DeleteFile(context.Background(), "C:\\test.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("DeleteDirectory", func(t *testing.T) {
-		err := manager.DeleteDirectory(nil, "C:\\test", false)
+		err := manager.DeleteDirectory(context.Background(), "C:\\test", false)
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("CopyFile", func(t *testing.T) {
-		err := manager.CopyFile(nil, "C:\\src.txt", "C:\\dst.txt")
+		err := manager.CopyFile(context.Background(), "C:\\src.txt", "C:\\dst.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("MoveFile", func(t *testing.T) {
-		err := manager.MoveFile(nil, "C:\\src.txt", "C:\\dst.txt")
+		err := manager.MoveFile(context.Background(), "C:\\src.txt", "C:\\dst.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("ListDirectory", func(t *testing.T) {
-		_, err := manager.ListDirectory(nil, "C:\\")
+		_, err := manager.ListDirectory(context.Background(), "C:\\")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("GetFileInfo", func(t *testing.T) {
-		_, err := manager.GetFileInfo(nil, "C:\\test.txt")
+		_, err := manager.GetFileInfo(context.Background(), "C:\\test.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("GetFileHash", func(t *testing.T) {
-		_, err := manager.GetFileHash(nil, "C:\\test.txt", "SHA256")
+		_, err := manager.GetFileHash(context.Background(), "C:\\test.txt", "SHA256")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("DownloadBytes", func(t *testing.T) {
-		_, err := manager.DownloadBytes(nil, "C:\\test.txt")
+		_, err := manager.DownloadBytes(context.Background(), "C:\\test.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
 	})
 
 	t.Run("UploadBytes", func(t *testing.T) {
-		err := manager.UploadBytes(nil, []byte("test"), "C:\\test.txt")
+		err := manager.UploadBytes(context.Background(), []byte("test"), "C:\\test.txt")
 		if err == nil {
 			t.Error("expected error when not connected")
 		}
@@ -171,7 +172,7 @@ func TestUploadFileLocalReadError(t *testing.T) {
 	manager := adapter.NewFileManager()
 
 	// Try to upload a non-existent local file
-	err := manager.UploadFile(nil, "/nonexistent/path/file.txt", "C:\\remote.txt")
+	err := manager.UploadFile(context.Background(), "/nonexistent/path/file.txt", "C:\\remote.txt")
 	if err == nil {
 		t.Error("expected error when local file doesn't exist")
 	}
@@ -205,11 +206,11 @@ func escapePath(path string) string {
 }
 
 // replaceAll is a test helper that mirrors strings.ReplaceAll
-func replaceAll(s, old, new string) string {
+func replaceAll(s, old, updated string) string {
 	result := ""
 	for i := 0; i < len(s); i++ {
 		if i+len(old) <= len(s) && s[i:i+len(old)] == old {
-			result += new
+			result += updated
 			i += len(old) - 1
 		} else {
 			result += string(s[i])
@@ -224,7 +225,7 @@ func TestDownloadFileMakesDirectory(t *testing.T) {
 
 	// This will fail at the DownloadBytes step (not connected),
 	// but we're verifying that the method signature is correct
-	err := manager.DownloadFile(nil, "C:\\remote.txt", "/tmp/test/nested/file.txt")
+	err := manager.DownloadFile(context.Background(), "C:\\remote.txt", "/tmp/test/nested/file.txt")
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -236,7 +237,7 @@ func TestGetFileHashDefaultAlgorithm(t *testing.T) {
 	manager := adapter.NewFileManager()
 
 	// Will fail because not connected, but verifies the method signature
-	_, err := manager.GetFileHash(nil, "C:\\test.txt", "")
+	_, err := manager.GetFileHash(context.Background(), "C:\\test.txt", "")
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -247,13 +248,13 @@ func TestDeleteDirectoryRecursive(t *testing.T) {
 	manager := adapter.NewFileManager()
 
 	// Test recursive delete
-	err := manager.DeleteDirectory(nil, "C:\\test", true)
+	err := manager.DeleteDirectory(context.Background(), "C:\\test", true)
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
 
 	// Test non-recursive delete
-	err = manager.DeleteDirectory(nil, "C:\\test", false)
+	err = manager.DeleteDirectory(context.Background(), "C:\\test", false)
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -265,14 +266,14 @@ func TestUploadBytesSmallVsLarge(t *testing.T) {
 
 	// Small file (under chunk size)
 	smallData := make([]byte, 1024) // 1KB
-	err := manager.UploadBytes(nil, smallData, "C:\\small.txt")
+	err := manager.UploadBytes(context.Background(), smallData, "C:\\small.txt")
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
 
 	// Large file (over chunk size)
 	largeData := make([]byte, 128*1024) // 128KB
-	err = manager.UploadBytes(nil, largeData, "C:\\large.txt")
+	err = manager.UploadBytes(context.Background(), largeData, "C:\\large.txt")
 	if err == nil {
 		t.Error("expected error when not connected")
 	}

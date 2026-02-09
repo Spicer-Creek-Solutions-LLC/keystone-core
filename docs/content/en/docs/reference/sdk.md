@@ -88,6 +88,8 @@ BenchmarkLogInfoStub-8       1000000000    0.1983 ns/op
 
 This section provides guidelines for developing Keystone Core API client SDKs in any programming language.
 
+> **Note**: Official client SDKs (Python, TypeScript, Java) are planned but not yet available. The examples below show recommended patterns for building custom client libraries. Use the gRPC proto files or OpenAPI specification to generate typed clients for your language.
+
 ### Overview
 
 Keystone Core exposes two APIs for programmatic access:
@@ -656,15 +658,17 @@ class AgentResource(BaseResource):
     def update_tags(
         self,
         agent_id: str,
-        add_tags: list = None,
-        remove_tags: list = None
+        tags: dict[str, str] = None
     ) -> Agent:
+        """Update agent tags.
+
+        Args:
+            agent_id: The agent identifier.
+            tags: Dictionary of tags to set. Set value to empty string to delete a tag.
+        """
         data = self.patch(
             f"/api/v1/agents/{agent_id}/tags",
-            data={
-                "add_tags": add_tags or [],
-                "remove_tags": remove_tags or []
-            }
+            data={"tags": tags or {}}
         )
         return Agent(**data)
 ```
@@ -875,6 +879,8 @@ def test_list_agents_live(live_client):
 
 ### SDK Distribution
 
+> **Note**: The package configurations below are examples showing how to package client SDKs for distribution. Official packages (`kscore` on PyPI, `@kscore/client` on npm, etc.) are planned but not yet published.
+
 #### Python (PyPI)
 
 ```toml
@@ -944,15 +950,14 @@ async = ["aiohttp>=3.8.0"]
 </project>
 ```
 
-### Reference Implementations
+### Reference Resources
 
-The official Go SDK serves as the reference implementation. Study these packages:
+Use these resources when building client SDKs:
 
-| Package | Purpose |
-|---------|---------|
-| `pkg/client` | HTTP client with authentication |
-| `pkg/api/v1` | API resource implementations |
-| `pkg/models` | Data model definitions |
-| `pkg/errors` | Error types and handling |
+| Resource | Path | Description |
+|----------|------|-------------|
+| Proto files | `api/proto/*.proto` | gRPC service definitions for code generation |
+| OpenAPI spec | `api/openapi/openapi-spec.yaml` | REST API specification for client generation |
+| gRPC stubs | `pkg/api/v1/` | Generated Go gRPC stubs (reference for other languages) |
 
-Proto files are available at `proto/` in the Keystone Core repository for generating typed clients in any language.
+> **Note**: Official client SDK packages (`pkg/client`, `pkg/models`, `pkg/errors`) are planned but not yet implemented. Use the proto files or OpenAPI specification to generate typed clients.

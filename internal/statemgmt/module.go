@@ -144,7 +144,7 @@ func getParameter(decl *StateDeclaration, key string, defaultValue interface{}) 
 }
 
 // getStringParameter gets a string parameter
-func getStringParameter(decl *StateDeclaration, key string, defaultValue string) string {
+func getStringParameter(decl *StateDeclaration, key, defaultValue string) string {
 	if val, ok := decl.Parameters[key]; ok {
 		if str, ok := val.(string); ok {
 			return str

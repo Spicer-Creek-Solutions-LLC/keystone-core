@@ -147,7 +147,7 @@ func (b *Backend) ReadDynamic(ctx context.Context, req *secrets.SecretRequest) (
 	}
 
 	// Check if the secret has expiration and mark it appropriately
-	if secret.ExpiresAt.IsZero() == false {
+	if !secret.ExpiresAt.IsZero() {
 		secret.Type = secrets.SecretTypeDynamic
 	}
 

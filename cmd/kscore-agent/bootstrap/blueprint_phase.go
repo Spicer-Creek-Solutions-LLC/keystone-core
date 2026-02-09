@@ -12,7 +12,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 )
 
-const defaultBlueprintsDir = "/etc/kscore/blueprints"
+const defaultBlueprintsDir = "/etc/keystone-core/blueprints"
 
 func blueprintPhase(ctx context.Context, state *State) error {
 	if state.BootstrapConfig == nil {
@@ -30,6 +30,7 @@ func blueprintPhase(ctx context.Context, state *State) error {
 	}
 	exportDir := strings.TrimSpace(cfg.ExportStatesDir)
 	if exportDir != "" {
+		//nolint:gosec // G301: export directory needs to be accessible by admin users
 		if err := os.MkdirAll(exportDir, 0o755); err != nil {
 			return fmt.Errorf("create export dir: %w", err)
 		}
@@ -117,10 +118,10 @@ func applyBlueprintStates(ctx context.Context, state *State, loader *blueprint.L
 
 	if hooks != nil {
 		if rollbackErr := runHookStates(ctx, state, loader, executor, result, tmpDir, hooks, "pre_rollback"); rollbackErr != nil {
-			return fmt.Errorf("blueprint %s failed: %v (pre-rollback error: %v)", blueprintName, applyErr, rollbackErr)
+			return fmt.Errorf("blueprint %s failed: %w (pre-rollback error: %w)", blueprintName, applyErr, rollbackErr)
 		}
 		if rollbackErr := runHookStates(ctx, state, loader, executor, result, tmpDir, hooks, "post_rollback"); rollbackErr != nil {
-			return fmt.Errorf("blueprint %s failed: %v (post-rollback error: %v)", blueprintName, applyErr, rollbackErr)
+			return fmt.Errorf("blueprint %s failed: %w (post-rollback error: %w)", blueprintName, applyErr, rollbackErr)
 		}
 	}
 
@@ -160,6 +161,7 @@ func applyStateFiles(ctx context.Context, state *State, loader *blueprint.Loader
 
 		filename := fmt.Sprintf("%s-%d-%s", result.Blueprint.Metadata.Name, idx, sanitizeStateFilename(stateFile))
 		statePath := filepath.Join(tmpDir, filename)
+		//nolint:gosec // G306: state files need to be readable by the state executor
 		if err := os.WriteFile(statePath, rendered, 0o644); err != nil {
 			return fmt.Errorf("write rendered state: %w", err)
 		}
@@ -207,6 +209,7 @@ func exportBlueprintStates(ctx context.Context, state *State, loader *blueprint.
 		}
 		filename := fmt.Sprintf("%s-%d-%s", result.Blueprint.Metadata.Name, idx, sanitizeStateFilename(stateFile))
 		statePath := filepath.Join(exportDir, filename)
+		//nolint:gosec // G306: exported state files need to be readable by operators
 		if err := os.WriteFile(statePath, rendered, 0o644); err != nil {
 			return fmt.Errorf("write rendered state: %w", err)
 		}

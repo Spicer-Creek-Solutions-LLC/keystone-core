@@ -1,3 +1,5 @@
+// Package argocd provides ArgoCD integration for GitOps deployment verification
+// and application status monitoring.
 package argocd
 
 import "time"

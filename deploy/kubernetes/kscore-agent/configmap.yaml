@@ -31,8 +31,8 @@ data:
 
     state:
       enabled: true
-      stateDir: "/var/lib/kscore/states"
-      cacheDir: "/var/cache/kscore"
+      stateDir: "/var/lib/keystone-core/states"
+      cacheDir: "/var/cache/keystone-core"
 
     logging:
       level: info

@@ -249,7 +249,7 @@ func TestNATSSpanExporterStats(t *testing.T) {
 		lastErrorTime: time.Time{},
 	}
 
-	exported, dropped, batches, lastErr, lastErrTime := exporter.Stats()
+	exported, dropped, batches, lastErrTime, lastErr := exporter.Stats()
 
 	if exported != 100 {
 		t.Errorf("Expected exported 100, got %d", exported)

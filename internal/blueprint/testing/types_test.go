@@ -430,8 +430,8 @@ func TestHTTPMock_Structure(t *testing.T) {
 func TestPackageMock_Structure(t *testing.T) {
 	pm := PackageMock{
 		Name:              "nginx",
-		Installed:        true,
-		Version:          "1.18.0",
+		Installed:         true,
+		Version:           "1.18.0",
 		AvailableVersions: []string{"1.18.0", "1.19.0"},
 	}
 

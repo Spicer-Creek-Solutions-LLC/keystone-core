@@ -7,12 +7,12 @@ states:
   metrics_config_dir:
     module: file
     state: directory
-    name: /etc/kscore/metrics
+    name: /etc/keystone-core/metrics
 
   metrics_config_file:
     module: file
     state: managed
-    name: /etc/kscore/metrics/prometheus.yaml
+    name: /etc/keystone-core/metrics/prometheus.yaml
     contents: |
       prometheus:
         retention: "{{ .retention }}"
@@ -53,7 +53,7 @@ states:
       [Service]
       Type=simple
       ExecStart=/usr/local/bin/prometheus \
-        --config.file=/etc/kscore/metrics/prometheus.yaml \
+        --config.file=/etc/keystone-core/metrics/prometheus.yaml \
         --storage.tsdb.path={{ .storage_path }} \
         --storage.tsdb.retention.time={{ .retention }} \
         --web.listen-address=0.0.0.0:{{ .prometheus_port }}

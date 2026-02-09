@@ -12,6 +12,7 @@
 package hardware
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -51,7 +52,7 @@ func execLookPath(name string) (string, error) {
 
 // execCommand runs a command and returns its output
 func execCommand(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(context.Background(), name, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -141,8 +142,8 @@ func (d *DefaultDetector) DetectCPU() (*CPUInfo, error) {
 
 		// Count physical CPUs
 		physicalIDs := make(map[string]bool)
-		for _, info := range infos {
-			physicalIDs[info.PhysicalID] = true
+		for i := range infos {
+			physicalIDs[infos[i].PhysicalID] = true
 		}
 		cpuInfo.Sockets = len(physicalIDs)
 
@@ -465,7 +466,7 @@ func parseLANInfo(output string, info *BMCInfo) {
 }
 
 // Global default detector instance
-var defaultDetector Detector = NewDetector()
+var defaultDetector = NewDetector()
 
 // Detect performs hardware detection using the default detector
 func Detect() (*Info, error) {

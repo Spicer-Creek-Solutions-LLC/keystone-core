@@ -483,7 +483,7 @@ func (s *RBACStore) GrantPermission(principalID string, perm Permission) error {
 }
 
 // RevokePermission revokes a direct permission from a principal
-func (s *RBACStore) RevokePermission(principalID string, resource, action string) error {
+func (s *RBACStore) RevokePermission(principalID, resource, action string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

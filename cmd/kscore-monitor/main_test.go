@@ -90,7 +90,7 @@ func TestRootCommandFlags(t *testing.T) {
 
 	controlPlaneFlag := cmd.Flags().Lookup("control-plane")
 	if controlPlaneFlag == nil {
-		t.Error("expected --control-plane flag to exist")
+		t.Fatal("expected --control-plane flag to exist")
 	}
 	if controlPlaneFlag.DefValue != "localhost:50051" {
 		t.Errorf("expected control-plane default to be 'localhost:50051', got %s", controlPlaneFlag.DefValue)
@@ -98,7 +98,7 @@ func TestRootCommandFlags(t *testing.T) {
 
 	natsFlag := cmd.Flags().Lookup("nats-url")
 	if natsFlag == nil {
-		t.Error("expected --nats-url flag to exist")
+		t.Fatal("expected --nats-url flag to exist")
 	}
 	if natsFlag.DefValue != "nats://localhost:4222" {
 		t.Errorf("expected nats-url default to be 'nats://localhost:4222', got %s", natsFlag.DefValue)
@@ -106,7 +106,7 @@ func TestRootCommandFlags(t *testing.T) {
 
 	themeFlag := cmd.Flags().Lookup("theme")
 	if themeFlag == nil {
-		t.Error("expected --theme flag to exist")
+		t.Fatal("expected --theme flag to exist")
 	}
 	if themeFlag.DefValue != "dark" {
 		t.Errorf("expected theme default to be 'dark', got %s", themeFlag.DefValue)
@@ -114,7 +114,7 @@ func TestRootCommandFlags(t *testing.T) {
 
 	refreshFlag := cmd.Flags().Lookup("refresh")
 	if refreshFlag == nil {
-		t.Error("expected --refresh flag to exist")
+		t.Fatal("expected --refresh flag to exist")
 	}
 	if refreshFlag.DefValue != "2" {
 		t.Errorf("expected refresh default to be '2', got %s", refreshFlag.DefValue)

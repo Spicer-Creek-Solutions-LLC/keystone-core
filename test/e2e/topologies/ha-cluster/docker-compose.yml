@@ -251,8 +251,8 @@ services:
       - "8080:8080"   # gRPC API (load balancer would go here in production)
       - "8081:8081"   # HTTP API / Health
     volumes:
-      - ./config/server-1.yaml:/etc/kscore/server.yaml:ro
-      - server-1-data:/var/lib/kscore
+      - ./config/server-1.yaml:/etc/keystone-core/server.yaml:ro
+      - server-1-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-1
@@ -278,8 +278,8 @@ services:
       - "8082:8080"   # gRPC API
       - "8083:8081"   # HTTP API
     volumes:
-      - ./config/server-2.yaml:/etc/kscore/server.yaml:ro
-      - server-2-data:/var/lib/kscore
+      - ./config/server-2.yaml:/etc/keystone-core/server.yaml:ro
+      - server-2-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-2
@@ -305,8 +305,8 @@ services:
       - "8084:8080"   # gRPC API
       - "8085:8081"   # HTTP API
     volumes:
-      - ./config/server-3.yaml:/etc/kscore/server.yaml:ro
-      - server-3-data:/var/lib/kscore
+      - ./config/server-3.yaml:/etc/keystone-core/server.yaml:ro
+      - server-3-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-3
@@ -335,7 +335,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-1
     networks:
@@ -351,7 +351,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-2
     networks:
@@ -367,7 +367,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-3
     networks:
@@ -383,7 +383,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-4
     networks:
@@ -399,7 +399,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-5
     networks:

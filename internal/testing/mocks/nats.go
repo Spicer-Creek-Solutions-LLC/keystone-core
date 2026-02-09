@@ -1,3 +1,5 @@
+// Package mocks provides configurable mock implementations for testing
+// including NATS, file storage, agent store, and policy components.
 package mocks
 
 import (
@@ -17,6 +19,7 @@ type NATSStatusProvider struct {
 	mu             sync.Mutex
 }
 
+// IsConnected returns whether the NATS connection is established.
 func (m *NATSStatusProvider) IsConnected() bool {
 	m.mu.Lock()
 	m.StatusCallHits++
@@ -24,6 +27,7 @@ func (m *NATSStatusProvider) IsConnected() bool {
 	return m.Connected
 }
 
+// ConnectedURLs returns the connected NATS server URLs.
 func (m *NATSStatusProvider) ConnectedURLs() []string {
 	m.mu.Lock()
 	m.StatusCallHits++
@@ -31,6 +35,7 @@ func (m *NATSStatusProvider) ConnectedURLs() []string {
 	return append([]string(nil), m.URLs...)
 }
 
+// JetStreamAvailable returns whether JetStream is available.
 func (m *NATSStatusProvider) JetStreamAvailable() bool {
 	m.mu.Lock()
 	m.StatusCallHits++
@@ -38,6 +43,7 @@ func (m *NATSStatusProvider) JetStreamAvailable() bool {
 	return m.JetStream
 }
 
+// LastPublishTime returns the time of the last publish.
 func (m *NATSStatusProvider) LastPublishTime() time.Time {
 	m.mu.Lock()
 	m.StatusCallHits++
@@ -45,6 +51,7 @@ func (m *NATSStatusProvider) LastPublishTime() time.Time {
 	return m.LastPublish
 }
 
+// LastSubscribeTime returns the time of the last subscribe.
 func (m *NATSStatusProvider) LastSubscribeTime() time.Time {
 	m.mu.Lock()
 	m.StatusCallHits++
@@ -69,6 +76,7 @@ type NATSController struct {
 	mu             sync.Mutex
 }
 
+// RestartEmbedded restarts the embedded NATS server.
 func (m *NATSController) RestartEmbedded(ctx context.Context) error {
 	_ = ctx
 	m.mu.Lock()
@@ -77,6 +85,7 @@ func (m *NATSController) RestartEmbedded(ctx context.Context) error {
 	return m.RestartErr
 }
 
+// Reconnect reconnects to NATS.
 func (m *NATSController) Reconnect(ctx context.Context) error {
 	_ = ctx
 	m.mu.Lock()
@@ -85,6 +94,7 @@ func (m *NATSController) Reconnect(ctx context.Context) error {
 	return m.ReconnectErr
 }
 
+// Drain drains the NATS connection.
 func (m *NATSController) Drain(ctx context.Context) error {
 	_ = ctx
 	m.mu.Lock()
@@ -93,6 +103,7 @@ func (m *NATSController) Drain(ctx context.Context) error {
 	return m.DrainErr
 }
 
+// Failover triggers a failover.
 func (m *NATSController) Failover(ctx context.Context, targetURLs []string) error {
 	_ = ctx
 	m.mu.Lock()
@@ -102,6 +113,7 @@ func (m *NATSController) Failover(ctx context.Context, targetURLs []string) erro
 	return m.FailoverErr
 }
 
+// IsEmbedded returns whether NATS is running in embedded mode.
 func (m *NATSController) IsEmbedded() bool {
 	return m.Embedded
 }

@@ -9,7 +9,7 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.Mode != OrderingModePerPartition {
+	if cfg.Mode != ModePerPartition {
 		t.Errorf("expected per_partition mode, got %s", cfg.Mode)
 	}
 	if cfg.WindowSize != 1 {
@@ -29,7 +29,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "valid config",
 			config: Config{
-				Mode:         OrderingModePerSubject,
+				Mode:         ModePerSubject,
 				WindowSize:   1,
 				AckTimeout:   time.Second,
 				PartitionKey: PartitionBySubject,
@@ -39,7 +39,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "missing partition key for per-partition mode",
 			config: Config{
-				Mode:       OrderingModePerPartition,
+				Mode:       ModePerPartition,
 				WindowSize: 1,
 				AckTimeout: time.Second,
 			},
@@ -48,7 +48,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "zero window size",
 			config: Config{
-				Mode:         OrderingModePerSubject,
+				Mode:         ModePerSubject,
 				WindowSize:   0,
 				AckTimeout:   time.Second,
 				PartitionKey: PartitionBySubject,
@@ -58,7 +58,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "negative ack timeout",
 			config: Config{
-				Mode:         OrderingModePerSubject,
+				Mode:         ModePerSubject,
 				WindowSize:   1,
 				AckTimeout:   -time.Second,
 				PartitionKey: PartitionBySubject,
@@ -68,7 +68,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "no ordering mode accepts nil partition key",
 			config: Config{
-				Mode:       OrderingModeNone,
+				Mode:       ModeNone,
 				WindowSize: 1,
 				AckTimeout: time.Second,
 			},
@@ -126,7 +126,7 @@ func TestPartitionKeyFunctions(t *testing.T) {
 func TestOrderedPublisher(t *testing.T) {
 	t.Run("create with valid config", func(t *testing.T) {
 		cfg := Config{
-			Mode:         OrderingModePerSubject,
+			Mode:         ModePerSubject,
 			PartitionKey: PartitionBySubject,
 			WindowSize:   1,
 			AckTimeout:   time.Second,
@@ -145,7 +145,7 @@ func TestOrderedPublisher(t *testing.T) {
 
 	t.Run("create with invalid config", func(t *testing.T) {
 		cfg := Config{
-			Mode:       OrderingModePerPartition,
+			Mode:       ModePerPartition,
 			WindowSize: 1,
 			AckTimeout: time.Second,
 			// Missing PartitionKey
@@ -159,7 +159,7 @@ func TestOrderedPublisher(t *testing.T) {
 
 	t.Run("publish without connection returns error", func(t *testing.T) {
 		cfg := Config{
-			Mode:         OrderingModeNone,
+			Mode:         ModeNone,
 			WindowSize:   1,
 			AckTimeout:   time.Second,
 			PartitionKey: PartitionBySubject,
@@ -180,7 +180,7 @@ func TestOrderedPublisher(t *testing.T) {
 
 	t.Run("close stops publisher", func(t *testing.T) {
 		cfg := Config{
-			Mode:         OrderingModePerSubject,
+			Mode:         ModePerSubject,
 			PartitionKey: PartitionBySubject,
 			WindowSize:   1,
 			AckTimeout:   time.Second,
@@ -204,7 +204,7 @@ func TestOrderedPublisher(t *testing.T) {
 
 func TestOrderedPublisherPartitioning(t *testing.T) {
 	cfg := Config{
-		Mode:         OrderingModePerPartition,
+		Mode:         ModePerPartition,
 		PartitionKey: PartitionByAgentID,
 		WindowSize:   10,
 		AckTimeout:   time.Second,
@@ -459,12 +459,12 @@ func TestOrderedMessage(t *testing.T) {
 	}
 }
 
-func TestOrderingModeConstants(t *testing.T) {
-	modes := []OrderingMode{
-		OrderingModeNone,
-		OrderingModePerSubject,
-		OrderingModePerPartition,
-		OrderingModeGlobal,
+func TestModeConstants(t *testing.T) {
+	modes := []Mode{
+		ModeNone,
+		ModePerSubject,
+		ModePerPartition,
+		ModeGlobal,
 	}
 
 	expected := []string{"none", "per_subject", "per_partition", "global"}
@@ -487,7 +487,7 @@ func TestReplayPolicyConstants(t *testing.T) {
 
 func TestPublisherStats(t *testing.T) {
 	cfg := Config{
-		Mode:         OrderingModePerSubject,
+		Mode:         ModePerSubject,
 		PartitionKey: PartitionBySubject,
 		WindowSize:   1,
 		AckTimeout:   time.Second,

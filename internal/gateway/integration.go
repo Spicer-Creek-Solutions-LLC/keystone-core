@@ -136,8 +136,8 @@ func marshalJSON(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// GatewayStatus represents the status of the telemetry gateway.
-type GatewayStatus struct {
+// Status represents the status of the telemetry gateway.
+type Status struct {
 	// Enabled indicates if the gateway is enabled
 	Enabled bool `json:"enabled"`
 
@@ -148,7 +148,7 @@ type GatewayStatus struct {
 	Endpoints []EndpointStatus `json:"endpoints"`
 
 	// Stats contains gateway statistics
-	Stats GatewayStats `json:"stats"`
+	Stats Stats `json:"stats"`
 }
 
 // EndpointStatus represents the status of an endpoint.
@@ -158,8 +158,8 @@ type EndpointStatus struct {
 	Healthy bool   `json:"healthy"`
 }
 
-// GatewayStats contains gateway statistics.
-type GatewayStats struct {
+// Stats contains gateway statistics.
+type Stats struct {
 	// Metrics stats
 	MetricsAgents   int   `json:"metrics_agents"`
 	MetricsSeries   int   `json:"metrics_series"`

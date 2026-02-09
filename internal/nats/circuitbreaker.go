@@ -236,6 +236,7 @@ func (cb *CircuitBreaker) Allow() error {
 	case CircuitStateHalfOpen:
 		// Allow limited requests in half-open
 		current := atomic.LoadInt32(&cb.halfOpenRequests)
+		//nolint:gosec // G115: HalfOpenMaxRequests is a small config value, fits in int32
 		if current >= int32(cb.config.HalfOpenMaxRequests) {
 			return ErrCircuitHalfOpen
 		}
@@ -300,6 +301,8 @@ func (cb *CircuitBreaker) recordSuccess() {
 		if atomic.LoadInt64(&cb.consecutiveSuccesses) >= int64(cb.config.SuccessThreshold) {
 			cb.transitionTo(CircuitStateClosed)
 		}
+
+	default:
 	}
 }
 
@@ -328,6 +331,8 @@ func (cb *CircuitBreaker) recordFailure() {
 	case CircuitStateHalfOpen:
 		atomic.AddInt32(&cb.halfOpenRequests, -1)
 		cb.transitionTo(CircuitStateOpen)
+
+	default:
 	}
 }
 
@@ -511,6 +516,8 @@ func NewCircuitBreakerManager(config *AdvancedCircuitBreakerConfig) *CircuitBrea
 			if from == CircuitStateHalfOpen && manager.onClose != nil {
 				manager.onClose(name)
 			}
+
+		default:
 		}
 	}
 

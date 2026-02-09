@@ -102,7 +102,7 @@ func (m *K8sStatefulSetModule) Check(ctx context.Context, decl *StateDeclaration
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(sts.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -114,7 +114,7 @@ func (m *K8sStatefulSetModule) Check(ctx context.Context, decl *StateDeclaration
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(sts.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{
@@ -167,16 +167,16 @@ func (m *K8sStatefulSetModule) Apply(ctx context.Context, decl *StateDeclaration
 	switch decl.State {
 	case "present":
 		spec := k8s.StatefulSetSpec{
-			Name:                name,
-			Replicas:            getInt32Parameter(decl, "replicas", 1),
-			Labels:              getLabels(decl),
-			Annotations:         getAnnotations(decl),
-			Image:               getStringParameter(decl, "image", ""),
-			ContainerPort:       getInt32Parameter(decl, "container_port", 0),
-			Selector:            getSelectorLabels(decl),
-			ServiceName:         getStringParameter(decl, "service_name", ""),
-			PodManagementPolicy: getStringParameter(decl, "pod_management_policy", "OrderedReady"),
-			UpdateStrategy:      getStringParameter(decl, "update_strategy", "RollingUpdate"),
+			Name:                 name,
+			Replicas:             getInt32Parameter(decl, "replicas", 1),
+			Labels:               getLabels(decl),
+			Annotations:          getAnnotations(decl),
+			Image:                getStringParameter(decl, "image", ""),
+			ContainerPort:        getInt32Parameter(decl, "container_port", 0),
+			Selector:             getSelectorLabels(decl),
+			ServiceName:          getStringParameter(decl, "service_name", ""),
+			PodManagementPolicy:  getStringParameter(decl, "pod_management_policy", "OrderedReady"),
+			UpdateStrategy:       getStringParameter(decl, "update_strategy", "RollingUpdate"),
 			VolumeClaimTemplates: getVolumeClaimTemplates(decl),
 		}
 

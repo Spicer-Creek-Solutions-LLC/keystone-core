@@ -8,17 +8,18 @@ import (
 
 // Common errors for signing operations.
 var (
-	ErrInvalidKey        = errors.New("invalid key")
-	ErrInvalidSignature  = errors.New("invalid signature")
-	ErrSignatureNotFound = errors.New("signature not found")
+	ErrInvalidKey         = errors.New("invalid key")
+	ErrInvalidSignature   = errors.New("invalid signature")
+	ErrSignatureNotFound  = errors.New("signature not found")
 	ErrVerificationFailed = errors.New("signature verification failed")
 	ErrUnsupportedKeyType = errors.New("unsupported key type")
-	ErrKeyEncrypted      = errors.New("key is encrypted but no password provided")
+	ErrKeyEncrypted       = errors.New("key is encrypted but no password provided")
 )
 
 // KeyType represents the type of cryptographic key.
 type KeyType string
 
+// KeyTypeECDSA constants define the supported types.
 const (
 	KeyTypeECDSA   KeyType = "ecdsa"
 	KeyTypeRSA     KeyType = "rsa"
@@ -45,6 +46,7 @@ const (
 // HashAlgorithm represents the hash algorithm used for signing.
 type HashAlgorithm string
 
+// HashSHA256 constants define the hash algorithms.
 const (
 	HashSHA256 HashAlgorithm = "sha256"
 	HashSHA384 HashAlgorithm = "sha384"

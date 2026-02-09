@@ -24,18 +24,18 @@ For development and small deployments, use the local filesystem backend:
 
 ```bash
 # Start file server with local backend
-kscore-files serve --config /etc/kscore/files.yaml
+kscore-files serve --config /etc/keystone-core/files.yaml
 ```
 
-**Configuration (`/etc/kscore/files.yaml`):**
+**Configuration (`/etc/keystone-core/files.yaml`):**
 
 ```yaml
 server:
   listen: :8081
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/server.crt
-    key_file: /etc/kscore/certs/server.key
+    cert_file: /etc/keystone-core/certs/server.crt
+    key_file: /etc/keystone-core/certs/server.key
 
 nats:
   url: nats://localhost:4222
@@ -43,8 +43,8 @@ nats:
 backend:
   type: local
   local:
-    root: /var/lib/kscore/files
-    temp_dir: /var/lib/kscore/tmp
+    root: /var/lib/keystone-core/files
+    temp_dir: /var/lib/keystone-core/tmp
 
 access_control:
   default_policy: deny
@@ -63,8 +63,8 @@ server:
   listen: :8081
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/server.crt
-    key_file: /etc/kscore/certs/server.key
+    cert_file: /etc/keystone-core/certs/server.crt
+    key_file: /etc/keystone-core/certs/server.key
 
 nats:
   urls:
@@ -135,9 +135,9 @@ spec:
               value: us-west-2
           volumeMounts:
             - name: config
-              mountPath: /etc/kscore
+              mountPath: /etc/keystone-core
             - name: tls
-              mountPath: /etc/kscore/certs
+              mountPath: /etc/keystone-core/certs
       volumes:
         - name: config
           configMap:
@@ -171,7 +171,7 @@ To migrate from one backend to another:
 kscore-files export --output /tmp/files-backup
 
 # 2. Update configuration with new backend
-vim /etc/kscore/files.yaml
+vim /etc/keystone-core/files.yaml
 
 # 3. Import files to new backend
 kscore-files import --input /tmp/files-backup
@@ -221,7 +221,7 @@ kscore-files backend gc
 Configure mirror groups for geographic distribution:
 
 ```yaml
-# /etc/kscore/files.yaml
+# /etc/keystone-core/files.yaml
 mirror_groups:
   - id: us-mirrors
     name: US Region Mirrors

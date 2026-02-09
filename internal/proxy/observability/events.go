@@ -10,6 +10,7 @@ import (
 // ProxyEventType is the type of proxy event.
 type ProxyEventType string
 
+// EventDeviceDisconnected constants define the events.
 const (
 	// Device events
 	EventDeviceConnected     ProxyEventType = "proxy.device.connected"
@@ -36,9 +37,9 @@ const (
 	EventDriftResolved       ProxyEventType = "proxy.drift.resolved"
 
 	// Discovery events
-	EventDiscoveryScanStarted   ProxyEventType = "proxy.discovery.scan_started"
-	EventDiscoveryScanCompleted ProxyEventType = "proxy.discovery.scan_completed"
-	EventDiscoveryDeviceFound   ProxyEventType = "proxy.discovery.device_found"
+	EventDiscoveryScanStarted    ProxyEventType = "proxy.discovery.scan_started"
+	EventDiscoveryScanCompleted  ProxyEventType = "proxy.discovery.scan_completed"
+	EventDiscoveryDeviceFound    ProxyEventType = "proxy.discovery.device_found"
 	EventDiscoveryDeviceApproved ProxyEventType = "proxy.discovery.device_approved"
 	EventDiscoveryDeviceRejected ProxyEventType = "proxy.discovery.device_rejected"
 
@@ -54,6 +55,7 @@ const (
 // ProxyEventSeverity is the severity of a proxy event.
 type ProxyEventSeverity string
 
+// SeverityDebug constants define the severity levels.
 const (
 	SeverityDebug    ProxyEventSeverity = "debug"
 	SeverityInfo     ProxyEventSeverity = "info"
@@ -363,7 +365,7 @@ func (l *ProxyLogger) CommandFailed(deviceID, protocol, correlationID string, er
 }
 
 // DriftDetected logs a drift detection event.
-func (l *ProxyLogger) DriftDetected(deviceID string, severity string, differences int) {
+func (l *ProxyLogger) DriftDetected(deviceID, severity string, differences int) {
 	l.emitter.Emit(NewProxyEvent(EventDriftDetected).
 		WithSeverity(getSeverityFromDrift(severity)).
 		WithSource(l.source).

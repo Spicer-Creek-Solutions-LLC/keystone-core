@@ -75,7 +75,7 @@ func (m *K8sConfigMapModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	// Check data
 	desiredData := getConfigMapData(decl)
-	if desiredData != nil && len(desiredData) > 0 {
+	if len(desiredData) > 0 {
 		if !reflect.DeepEqual(cm.Data, desiredData) {
 			result.Matches = false
 			result.Diff["data"] = map[string]interface{}{
@@ -87,7 +87,7 @@ func (m *K8sConfigMapModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(cm.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -99,7 +99,7 @@ func (m *K8sConfigMapModule) Check(ctx context.Context, decl *StateDeclaration) 
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(cm.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{

@@ -14,7 +14,7 @@ import (
 // Environment variables for test configuration
 const (
 	// KSCORE_REPO_URL sets the package repository URL (default: http://localhost:8080/repos)
-	// This must be reachable from the VM, e.g., http://${KSCORE_VM_HOST}:8080/repos
+	// This must be reachable from the VM, e.g., http://repo-host.example.internal:8080/repos
 	envRepoURL = "KSCORE_REPO_URL"
 )
 
@@ -49,22 +49,22 @@ func testDemoBootstrap(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 	defer cancel()
 
 	// Step 1: Detect OS and package manager
-	osInfo := detectOS(t, ctx, node)
+	osInfo := detectOS(ctx, t, node)
 	t.Logf("Detected OS: %s, package manager: %s", osInfo.name, osInfo.pkgManager)
 
 	// Step 2: Clean previous installation if configured
 	if cfg.SSH.CleanNodes {
-		cleanPreviousInstall(t, ctx, node, osInfo)
+		cleanPreviousInstall(ctx, t, node, osInfo)
 	}
 
 	// Step 3: Configure package repository
-	configureRepo(t, ctx, node, osInfo)
+	configureRepo(ctx, t, node, osInfo)
 
 	// Step 4: Install packages
-	installPackages(t, ctx, node, osInfo)
+	installPackages(ctx, t, node, osInfo)
 
 	// Step 5: Bootstrap in demo mode
-	bootstrapDemo(t, ctx, node)
+	bootstrapDemo(ctx, t, node)
 }
 
 // testDemoHealth verifies that services are healthy after bootstrap.
@@ -83,19 +83,19 @@ func testDemoHealth(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 	defer cancel()
 
 	// Check kscore-server service
-	checkServiceActive(t, ctx, node, "kscore-server")
+	checkServiceActive(ctx, t, node, "kscore-server")
 
 	// Check kscore-agent service
-	checkServiceActive(t, ctx, node, "kscore-agent")
+	checkServiceActive(ctx, t, node, "kscore-agent")
 
 	// Check embedded NATS is running
-	checkPortOpen(t, ctx, node, 4222, "NATS")
+	checkPortOpen(ctx, t, node, 4222, "NATS")
 
 	// Check HTTP health API port is listening
-	checkPortOpen(t, ctx, node, 8080, "HTTP API")
+	checkPortOpen(ctx, t, node, 8080, "HTTP API")
 
 	// Check gRPC API port is listening
-	checkPortOpen(t, ctx, node, 9090, "gRPC API")
+	checkPortOpen(ctx, t, node, 9090, "gRPC API")
 }
 
 // testDemoAPI verifies that API endpoints respond correctly.
@@ -114,8 +114,8 @@ func testDemoAPI(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 	defer cancel()
 
 	// Check HTTP health endpoints (runs on port 8080)
-	checkHTTPEndpoint(t, ctx, node, 8080, "/health/live", 200)
-	checkHTTPEndpoint(t, ctx, node, 8080, "/health/ready", 200)
+	checkHTTPEndpoint(ctx, t, node, 8080, "/health/live", 200)
+	checkHTTPEndpoint(ctx, t, node, 8080, "/health/ready", 200)
 }
 
 type osInfo struct {
@@ -124,7 +124,7 @@ type osInfo struct {
 	pkgManager string // apt, dnf, or zypper
 }
 
-func detectOS(t *testing.T, ctx context.Context, node *vm.Node) osInfo {
+func detectOS(ctx context.Context, t *testing.T, node *vm.Node) osInfo {
 	t.Helper()
 
 	result, err := node.Exec(ctx, "cat", "/etc/os-release")
@@ -207,18 +207,18 @@ func debianCodename(version string) string {
 	}
 }
 
-func cleanPreviousInstall(t *testing.T, ctx context.Context, node *vm.Node, info osInfo) {
+func cleanPreviousInstall(ctx context.Context, t *testing.T, node *vm.Node, info osInfo) {
 	t.Helper()
 	t.Log("Cleaning previous installation...")
 
 	// Stop services if running
 	_, _ = execShell(ctx, node, sudo(node, "systemctl stop kscore-server kscore-agent 2>/dev/null || true"))
 
-	// Remove packages
+	// Remove packages and clean cache
 	var removeCmd string
 	switch info.pkgManager {
 	case "apt":
-		removeCmd = "apt-get remove -y kscore-server kscore-agent kscore-cli 2>/dev/null || true"
+		removeCmd = "apt-get remove --purge -y kscore-server kscore-agent kscore-cli 2>/dev/null || true"
 	case "dnf":
 		removeCmd = "dnf remove -y kscore-server kscore-agent kscore-cli 2>/dev/null || true"
 	case "zypper":
@@ -229,11 +229,20 @@ func cleanPreviousInstall(t *testing.T, ctx context.Context, node *vm.Node, info
 		t.Logf("Warning: failed to remove previous packages: %v", err)
 	}
 
+	// Clean apt cache to force fresh download
+	if info.pkgManager == "apt" {
+		_, _ = execShell(ctx, node, sudo(node, "apt-get clean"))
+		// Clean all possible cached package variations
+		_, _ = execShell(ctx, node, sudo(node, "rm -rf /var/cache/apt/archives/kscore*.deb"))
+		// Also remove lists to force fresh metadata fetch
+		_, _ = execShell(ctx, node, sudo(node, "rm -rf /var/lib/apt/lists/*keystonecore*"))
+	}
+
 	// Clean state directories
-	_, _ = execShell(ctx, node, sudo(node, "rm -rf /var/lib/kscore /etc/kscore"))
+	_, _ = execShell(ctx, node, sudo(node, "rm -rf /var/lib/keystone-core /etc/keystone-core /var/lib/keystone-core /etc/keystone-core"))
 }
 
-func configureRepo(t *testing.T, ctx context.Context, node *vm.Node, info osInfo) {
+func configureRepo(ctx context.Context, t *testing.T, node *vm.Node, info osInfo) {
 	t.Helper()
 	t.Logf("Configuring %s repository...", info.pkgManager)
 
@@ -272,7 +281,7 @@ func configureRepo(t *testing.T, ctx context.Context, node *vm.Node, info osInfo
 
 		// Test if repo URL is reachable
 		testURL := fmt.Sprintf("%s/apt/dists/%s/Release", repoURL, distro)
-		result, err = execShell(ctx, node, fmt.Sprintf("curl -sI %s | head -1", testURL))
+		result, _ = execShell(ctx, node, fmt.Sprintf("curl -sI %s | head -1", testURL))
 		t.Logf("Repository connectivity test (%s): %s", testURL, strings.TrimSpace(result.Stdout))
 
 		result, err = execShell(ctx, node, sudo(node, "apt-get update 2>&1"))
@@ -311,9 +320,13 @@ gpgcheck=0
 	}
 }
 
-func installPackages(t *testing.T, ctx context.Context, node *vm.Node, info osInfo) {
+func installPackages(ctx context.Context, t *testing.T, node *vm.Node, info osInfo) {
 	t.Helper()
 	t.Log("Installing Keystone Core packages...")
+
+	// Check disk space first
+	df, _ := execShell(ctx, node, "df -h /usr /var")
+	t.Logf("Disk space:\n%s", df.Stdout)
 
 	var installCmd string
 	switch info.pkgManager {
@@ -328,14 +341,33 @@ func installPackages(t *testing.T, ctx context.Context, node *vm.Node, info osIn
 	}
 
 	result, err := execShell(ctx, node, sudo(node, installCmd))
+	t.Logf("Install output:\n%s", result.Stdout)
 	if err != nil {
 		t.Fatalf("failed to install packages: %v\nOutput: %s", err, result.Stdout)
+	}
+
+	// Verify package contents immediately after install
+	if info.pkgManager == "apt" {
+		// Check if binary exists on filesystem
+		lsBin, _ := execShell(ctx, node, "ls -la /usr/bin/kscore-server 2>&1 || echo 'FILE NOT FOUND'")
+		t.Logf("kscore-server binary on disk: %s", strings.TrimSpace(lsBin.Stdout))
+
+		// Check dpkg thinks it installed
+		verify, _ := execShell(ctx, node, "dpkg -L kscore-server 2>&1")
+		t.Logf("dpkg -L kscore-server:\n%s", verify.Stdout)
+
+		version, _ := execShell(ctx, node, "dpkg -s kscore-server | grep -E 'Version|Status'")
+		t.Logf("kscore-server status: %s", strings.TrimSpace(version.Stdout))
+
+		// Test if binary can execute by running version command
+		verTest, _ := execShell(ctx, node, "/usr/bin/kscore-server version 2>&1 || echo 'EXEC FAILED'")
+		t.Logf("kscore-server version test: %s", strings.TrimSpace(verTest.Stdout))
 	}
 
 	t.Log("Packages installed successfully")
 }
 
-func bootstrapDemo(t *testing.T, ctx context.Context, node *vm.Node) {
+func bootstrapDemo(ctx context.Context, t *testing.T, node *vm.Node) {
 	t.Helper()
 	t.Log("Running demo bootstrap...")
 
@@ -354,7 +386,7 @@ func bootstrapDemo(t *testing.T, ctx context.Context, node *vm.Node) {
 		t.Logf("kscore-server journal:\n%s", journal.Stdout)
 
 		// Get bootstrap diagnostics if available
-		diag, _ := execShell(ctx, node, "ls -t /var/log/kscore/kscore-bootstrap-diagnostics-*.log 2>/dev/null | head -1 | xargs cat 2>/dev/null || true")
+		diag, _ := execShell(ctx, node, "ls -t /var/log/keystone-core/kscore-bootstrap-diagnostics-*.log 2>/dev/null | head -1 | xargs cat 2>/dev/null || true")
 		if diag.Stdout != "" {
 			t.Logf("Bootstrap diagnostics:\n%s", diag.Stdout)
 		}
@@ -368,7 +400,7 @@ func bootstrapDemo(t *testing.T, ctx context.Context, node *vm.Node) {
 	time.Sleep(5 * time.Second)
 }
 
-func checkServiceActive(t *testing.T, ctx context.Context, node *vm.Node, service string) {
+func checkServiceActive(ctx context.Context, t *testing.T, node *vm.Node, service string) {
 	t.Helper()
 
 	result, err := node.Exec(ctx, "systemctl", "is-active", service)
@@ -381,7 +413,7 @@ func checkServiceActive(t *testing.T, ctx context.Context, node *vm.Node, servic
 	t.Logf("Service %s is active", service)
 }
 
-func checkPortOpen(t *testing.T, ctx context.Context, node *vm.Node, port int, name string) {
+func checkPortOpen(ctx context.Context, t *testing.T, node *vm.Node, port int, name string) {
 	t.Helper()
 
 	cmd := fmt.Sprintf("ss -tlnp | grep :%d || netstat -tlnp | grep :%d", port, port)
@@ -393,7 +425,7 @@ func checkPortOpen(t *testing.T, ctx context.Context, node *vm.Node, port int, n
 	t.Logf("Port %d (%s) is listening", port, name)
 }
 
-func checkHTTPEndpoint(t *testing.T, ctx context.Context, node *vm.Node, port int, path string, expectedStatus int) {
+func checkHTTPEndpoint(ctx context.Context, t *testing.T, node *vm.Node, port int, path string, expectedStatus int) {
 	t.Helper()
 
 	// Use curl to check HTTP endpoint

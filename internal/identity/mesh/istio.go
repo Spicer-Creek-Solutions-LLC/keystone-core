@@ -138,15 +138,15 @@ func (p *IstioProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, healthCancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, healthCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = healthCancel
 	p.mu.Unlock()
 	go p.healthCheckLoop(healthCtx)
 
-	// Start certificate refresh loop
-	refreshCtx, refreshCancel := context.WithCancel(context.Background())
+	// Start certificate refresh loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	refreshCtx, refreshCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.refreshCancel = refreshCancel
 	p.mu.Unlock()
@@ -343,13 +343,13 @@ func (p *IstioProvider) CreateAttestationEvidence(ctx context.Context) (*identit
 
 func (p *IstioProvider) detectEnvironment(ctx context.Context) error {
 	if !p.IsAvailable() {
-		return fmt.Errorf("Istio environment not detected")
+		return fmt.Errorf("istio environment not detected")
 	}
 
 	// Try to load certificates to detect trust domain
 	if err := p.loadCertificates(); err != nil {
 		// Non-fatal, we may be able to use SDS instead
-		return nil
+		return nil //nolint:nilerr // non-fatal: may use SDS instead
 	}
 
 	return nil
@@ -514,12 +514,12 @@ func (p *IstioProvider) checkForCertUpdates() {
 	p.mu.RUnlock()
 
 	if info.ModTime().After(modTime) {
-		p.loadCertificates()
+		_ = p.loadCertificates() //nolint:errcheck // best-effort cert reload
 	}
 }
 
-// Verify IstioProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*IstioProvider)(nil)
+// Verify IstioProvider implements Provider
+var _ identity.Provider = (*IstioProvider)(nil)
 
 // Helper functions
 

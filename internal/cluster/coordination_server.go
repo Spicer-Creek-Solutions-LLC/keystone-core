@@ -41,12 +41,12 @@ type CoordinationServer struct {
 	stateVersions  map[string]int64 // key: state type, value: version
 
 	// Metrics
-	heartbeatCount     int64
-	lastHeartbeatAt    time.Time
-	recoveryCount      int64
-	propagationCount   int64
-	propagationErrors  int64
-	metricsLock        sync.RWMutex
+	heartbeatCount    int64
+	lastHeartbeatAt   time.Time
+	recoveryCount     int64
+	propagationCount  int64
+	propagationErrors int64
+	metricsLock       sync.RWMutex
 
 	// Server start time for uptime calculation
 	startTime time.Time
@@ -160,6 +160,7 @@ func (s *CoordinationServer) ClusterHealth(ctx context.Context, req *pb.ClusterH
 		return nil, status.Error(codes.Internal, "failed to get cluster info")
 	}
 
+	//nolint:gosec // G115: cluster member counts are small (typically <100), fits in int32
 	resp := &pb.ClusterHealthResponse{
 		RequestId:      req.RequestId,
 		Status:         convertClusterStatus(info.Status),
@@ -182,6 +183,7 @@ func (s *CoordinationServer) ClusterHealth(ctx context.Context, req *pb.ClusterH
 				IsLeader:      m.IsLeader,
 				LastHeartbeat: timestamppb.New(m.LastHeartbeat),
 				Uptime:        durationpb.New(time.Since(m.JoinedAt)),
+				//nolint:gosec // G115: agent count per member is small, fits in int32
 				AgentCount:    int32(m.AgentCount),
 			}
 
@@ -199,7 +201,7 @@ func (s *CoordinationServer) ClusterHealth(ctx context.Context, req *pb.ClusterH
 		resp.NatsStatus = s.getNATSClusterStatus()
 	}
 
-	return resp, nil
+	return resp, nil //nolint:nilerr // gRPC: error in response
 }
 
 // GetLeader returns information about the current cluster leader.
@@ -211,7 +213,7 @@ func (s *CoordinationServer) GetLeader(ctx context.Context, req *pb.GetLeaderReq
 
 	if s.leader == nil {
 		resp.HasLeader = false
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	leaderID, err := s.leader.GetLeader(ctx)
@@ -221,7 +223,7 @@ func (s *CoordinationServer) GetLeader(ctx context.Context, req *pb.GetLeaderReq
 
 	if leaderID == "" {
 		resp.HasLeader = false
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	resp.HasLeader = true
@@ -234,7 +236,7 @@ func (s *CoordinationServer) GetLeader(ctx context.Context, req *pb.GetLeaderReq
 		resp.LeaderSince = timestamppb.New(leader.JoinedAt)
 	}
 
-	return resp, nil
+	return resp, nil //nolint:nilerr // gRPC: error in response
 }
 
 // NATSStatus returns the NATS connectivity status for this server.
@@ -248,7 +250,7 @@ func (s *CoordinationServer) NATSStatus(ctx context.Context, req *pb.NATSStatusR
 	if s.nats == nil {
 		resp.ConnectionStatus = pb.NATSConnectionStatus_NATS_CONNECTION_STATUS_DISCONNECTED
 		resp.Error = "NATS provider not configured"
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	if s.nats.IsConnected() {
@@ -274,7 +276,7 @@ func (s *CoordinationServer) NATSStatus(ctx context.Context, req *pb.NATSStatusR
 		resp.Error = "NATS not connected"
 	}
 
-	return resp, nil
+	return resp, nil //nolint:nilerr // gRPC: error in response
 }
 
 // RecoveryCoordinate coordinates NATS recovery actions across servers.
@@ -296,7 +298,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 		s.recoveryMu.Unlock()
 		resp.Accepted = true
 		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	// For other actions, check if we're already in a recovery operation
@@ -304,7 +306,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 		resp.Accepted = false
 		resp.State = currentState
 		resp.Error = "recovery already in progress"
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	// Process the recovery action
@@ -314,7 +316,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 			resp.Accepted = false
 			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
 			resp.Error = err.Error()
-			return resp, nil
+			return resp, nil //nolint:nilerr // gRPC: error in response
 		}
 		resp.Accepted = true
 		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
@@ -324,7 +326,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 			resp.Accepted = false
 			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
 			resp.Error = err.Error()
-			return resp, nil
+			return resp, nil //nolint:nilerr // gRPC: error in response
 		}
 		resp.Accepted = true
 		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
@@ -339,7 +341,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 			resp.Accepted = false
 			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
 			resp.Error = err.Error()
-			return resp, nil
+			return resp, nil //nolint:nilerr // gRPC: error in response
 		}
 		resp.Accepted = true
 		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
@@ -349,7 +351,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 			resp.Accepted = false
 			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
 			resp.Error = err.Error()
-			return resp, nil
+			return resp, nil //nolint:nilerr // gRPC: error in response
 		}
 		resp.Accepted = true
 		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
@@ -371,7 +373,7 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 	s.recoveryCount++
 	s.metricsLock.Unlock()
 
-	return resp, nil
+	return resp, nil //nolint:nilerr // gRPC: error in response
 }
 
 // executeRestartEmbedded restarts the embedded NATS server.
@@ -528,7 +530,7 @@ func (s *CoordinationServer) PropagateState(ctx context.Context, req *pb.Propaga
 		resp.Applied = false
 		resp.Error = "stale update: version too old"
 		resp.CurrentVersion = s.getCurrentVersion(req.UpdateType.String())
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	// Process the state update based on type
@@ -552,7 +554,7 @@ func (s *CoordinationServer) PropagateState(ctx context.Context, req *pb.Propaga
 	default:
 		resp.Applied = false
 		resp.Error = fmt.Sprintf("unknown state update type: %v", req.UpdateType)
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	// Update metrics
@@ -567,7 +569,7 @@ func (s *CoordinationServer) PropagateState(ctx context.Context, req *pb.Propaga
 		resp.Applied = false
 		resp.Error = err.Error()
 		resp.CurrentVersion = s.getCurrentVersion(req.UpdateType.String())
-		return resp, nil
+		return resp, nil //nolint:nilerr // gRPC: error in response
 	}
 
 	// Update version tracking
@@ -575,7 +577,7 @@ func (s *CoordinationServer) PropagateState(ctx context.Context, req *pb.Propaga
 
 	resp.Applied = true
 	resp.CurrentVersion = req.Version
-	return resp, nil
+	return resp, nil //nolint:nilerr // gRPC: error in response
 }
 
 // shouldApplyUpdate checks if an update should be applied based on version.
@@ -666,6 +668,7 @@ func (s *CoordinationServer) getNATSClusterStatus() *pb.NATSClusterStatus {
 	}
 
 	urls := s.nats.ConnectedURLs()
+	//nolint:gosec // G115: NATS server count is small (typically <10), fits in int32
 	natsStatus.ConnectedServers = int32(len(urls))
 
 	if s.nats.IsConnected() {
@@ -689,13 +692,13 @@ func (s *CoordinationServer) getNATSClusterStatus() *pb.NATSClusterStatus {
 
 // Helper functions to convert between internal and protobuf types
 
-func convertClusterStatus(s ClusterStatus) pb.ClusterHealthStatus {
+func convertClusterStatus(s Status) pb.ClusterHealthStatus {
 	switch s {
-	case ClusterStatusHealthy:
+	case StatusHealthy:
 		return pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_HEALTHY
-	case ClusterStatusDegraded:
+	case StatusDegraded:
 		return pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_DEGRADED
-	case ClusterStatusUnhealthy:
+	case StatusUnhealthy:
 		return pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_UNHEALTHY
 	default:
 		return pb.ClusterHealthStatus_CLUSTER_HEALTH_STATUS_UNKNOWN

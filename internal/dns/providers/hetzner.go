@@ -46,5 +46,5 @@ func NewHetznerProvider(creds dns.ResolvedCredentials) (dns.Provider, error) {
 }
 
 func init() {
-	dns.RegisterProvider("hetzner", NewHetznerProvider, HetznerCapabilities)
+	_ = dns.RegisterProvider("hetzner", NewHetznerProvider, HetznerCapabilities) //nolint:errcheck // provider registration in init
 }

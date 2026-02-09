@@ -1,6 +1,7 @@
 package files
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -175,7 +176,7 @@ func TestClientGetFileWithoutConnect(t *testing.T) {
 	defer c.Close()
 
 	// GetFile without Connect should fail
-	_, err = c.GetFile(nil, "/test/file.txt", nil)
+	_, err = c.GetFile(context.Background(), "/test/file.txt", nil)
 	if err == nil {
 		t.Error("GetFile() should fail without Connect")
 	}
@@ -194,7 +195,7 @@ func TestClientGetMetadataWithoutConnect(t *testing.T) {
 	defer c.Close()
 
 	// GetMetadata without Connect should fail
-	_, err = c.GetMetadata(nil, "/test/file.txt")
+	_, err = c.GetMetadata(context.Background(), "/test/file.txt")
 	if err == nil {
 		t.Error("GetMetadata() should fail without Connect")
 	}

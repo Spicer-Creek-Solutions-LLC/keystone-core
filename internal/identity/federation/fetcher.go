@@ -82,7 +82,7 @@ func NewHTTPBundleFetcher(config *BundleFetcherConfig) *HTTPBundleFetcher {
 }
 
 // Fetch retrieves a trust bundle from the given endpoint.
-func (f *HTTPBundleFetcher) Fetch(ctx context.Context, endpoint string, profile string) (*identity.TrustBundle, error) {
+func (f *HTTPBundleFetcher) Fetch(ctx context.Context, endpoint, profile string) (*identity.TrustBundle, error) {
 	switch profile {
 	case "https_web", "":
 		return f.fetchHTTPSWeb(ctx, endpoint)
@@ -97,7 +97,7 @@ func (f *HTTPBundleFetcher) Fetch(ctx context.Context, endpoint string, profile 
 
 // fetchHTTPSWeb fetches a trust bundle using standard HTTPS with web PKI.
 func (f *HTTPBundleFetcher) fetchHTTPSWeb(ctx context.Context, endpoint string) (*identity.TrustBundle, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -140,7 +140,7 @@ func (f *HTTPBundleFetcher) fetchHTTPSSPIFFE(ctx context.Context, endpoint strin
 // fetchSPIFFEBundleEndpoint fetches from a SPIFFE Federation Bundle Endpoint.
 // Implements the SPIFFE Federation API.
 func (f *HTTPBundleFetcher) fetchSPIFFEBundleEndpoint(ctx context.Context, endpoint string) (*identity.TrustBundle, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -309,7 +309,8 @@ func (f *HTTPBundleFetcher) parseSPIFFEBundleFormat(data []byte) (*identity.Trus
 	var certs []*x509.Certificate
 	var jwtAuthorities []identity.JWTAuthority
 
-	for _, key := range bundle.Keys {
+	for i := range bundle.Keys {
+		key := &bundle.Keys[i]
 		switch key.Use {
 		case "x509-svid":
 			// Parse X.509 certificates
@@ -358,13 +359,6 @@ func decodeBase64(s string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(s)
 }
 
-// min returns the smaller of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // Verify HTTPBundleFetcher implements BundleFetcher
 var _ BundleFetcher = (*HTTPBundleFetcher)(nil)

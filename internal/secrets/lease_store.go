@@ -108,14 +108,15 @@ func NewSQLiteLeaseStore(dsn string) (*SQLiteLeaseStore, error) {
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(time.Hour)
 
+	ctx := context.Background()
 	// Enable WAL mode for better concurrency
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
 	}
 
 	// Enable foreign keys
-	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
@@ -404,7 +405,7 @@ func (s *SQLiteLeaseStore) DeleteByFilter(ctx context.Context, filter *LeaseFilt
 	defer s.mu.Unlock()
 
 	where, args := s.buildWhereClause(filter)
-	query := "DELETE FROM leases" + where
+	query := "DELETE FROM leases" + where //nolint:gosec // G202: where clause built from validated fields with placeholders; args are bound separately
 
 	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -420,7 +421,7 @@ func (s *SQLiteLeaseStore) UpdateState(ctx context.Context, filter *LeaseFilter,
 	defer s.mu.Unlock()
 
 	where, args := s.buildWhereClause(filter)
-	query := "UPDATE leases SET state = ?" + where
+	query := "UPDATE leases SET state = ?" + where //nolint:gosec // G202: where clause built from validated fields with placeholders; args are bound separately
 	args = append([]interface{}{string(state)}, args...)
 
 	result, err := s.db.ExecContext(ctx, query, args...)
@@ -437,15 +438,16 @@ func (s *SQLiteLeaseStore) Close() error {
 }
 
 // buildListQuery builds a SELECT query from a filter.
-func (s *SQLiteLeaseStore) buildListQuery(filter *LeaseFilter) (string, []interface{}) {
-	query := `
+func (s *SQLiteLeaseStore) buildListQuery(filter *LeaseFilter) (query string, args []interface{}) {
+	query = `
 	SELECT id, secret_path, backend, state, ttl_seconds, max_ttl_seconds,
 		issued_at, expires_at, last_renewal, renewal_count,
 		renewable, revocable, agent_id, metadata
 	FROM leases
 	`
 
-	where, args := s.buildWhereClause(filter)
+	var where string
+	where, args = s.buildWhereClause(filter)
 	query += where
 
 	// Order by
@@ -470,13 +472,12 @@ func (s *SQLiteLeaseStore) buildListQuery(filter *LeaseFilter) (string, []interf
 }
 
 // buildWhereClause builds a WHERE clause from a filter.
-func (s *SQLiteLeaseStore) buildWhereClause(filter *LeaseFilter) (string, []interface{}) {
+func (s *SQLiteLeaseStore) buildWhereClause(filter *LeaseFilter) (clause string, args []interface{}) {
 	if filter == nil {
 		return "", nil
 	}
 
 	var conditions []string
-	var args []interface{}
 
 	if len(filter.IDs) > 0 {
 		placeholders := make([]string, len(filter.IDs))
@@ -778,6 +779,9 @@ func (s *SQLiteLeaseStore) GetLeaseEvents(ctx context.Context, leaseID string, l
 
 		event.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		events = append(events, &event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate lease events: %w", err)
 	}
 
 	return events, nil

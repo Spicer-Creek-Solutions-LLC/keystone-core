@@ -1466,8 +1466,8 @@ func TestGatewayHealthMonitor_Lifecycle(t *testing.T) {
 	defer manager.Stop()
 
 	healthConfig := &GatewayHealthConfig{
-		CheckInterval: 100 * time.Millisecond, // Fast for testing
-		Timeout:       50 * time.Millisecond,
+		CheckInterval:      100 * time.Millisecond, // Fast for testing
+		Timeout:            50 * time.Millisecond,
 		HealthyThreshold:   1,
 		UnhealthyThreshold: 1,
 		PingEnabled:        false,
@@ -2382,9 +2382,6 @@ func TestSupercluster_FailoverStateTransitions(t *testing.T) {
 		t.Errorf("initial state = %v, want Normal", fm.State())
 	}
 
-	// Track state transitions
-	var transitions []FailoverState
-
 	// Simulate state transitions by directly setting state (in real usage, this happens via health monitoring)
 	states := []FailoverState{
 		FailoverStateNormal,
@@ -2395,9 +2392,9 @@ func TestSupercluster_FailoverStateTransitions(t *testing.T) {
 		FailoverStateNormal,
 	}
 
-	for _, state := range states {
-		transitions = append(transitions, state)
-	}
+	// Track state transitions
+	transitions := make([]FailoverState, 0, len(states))
+	transitions = append(transitions, states...)
 
 	// Verify all states are valid
 	for _, state := range transitions {

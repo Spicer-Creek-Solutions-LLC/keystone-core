@@ -95,8 +95,8 @@ type ClusterCondition struct {
 	Message            string    `json:"message,omitempty"`
 }
 
-// FederationConfig configures the federation.
-type FederationConfig struct {
+// Config configures the federation.
+type Config struct {
 	ID               string        `json:"id"`
 	Name             string        `json:"name"`
 	HealthInterval   time.Duration `json:"healthInterval"`
@@ -114,9 +114,9 @@ type TLSConfig struct {
 	MinVersion string `json:"minVersion,omitempty"`
 }
 
-// DefaultFederationConfig returns a default federation configuration.
-func DefaultFederationConfig() *FederationConfig {
-	return &FederationConfig{
+// DefaultConfig returns a default federation configuration.
+func DefaultConfig() *Config {
+	return &Config{
 		HealthInterval:   30 * time.Second,
 		SyncInterval:     time.Minute,
 		HeartbeatTimeout: 2 * time.Minute,
@@ -135,21 +135,21 @@ type ClusterStore interface {
 
 // Federation manages a cluster federation.
 type Federation struct {
-	config     *FederationConfig
+	config     *Config
 	store      ClusterStore
 	localID    string
-	listeners  []FederationListener
+	listeners  []Listener
 	httpClient *http.Client
 	mu         sync.RWMutex
 	stopCh     chan struct{}
 	running    bool
 }
 
-// FederationListener is called when federation events occur.
-type FederationListener func(event *FederationEvent)
+// Listener is called when federation events occur.
+type Listener func(event *Event)
 
-// FederationEvent represents a federation event.
-type FederationEvent struct {
+// Event represents a federation event.
+type Event struct {
 	Type      string                 `json:"type"`
 	ClusterID string                 `json:"clusterId,omitempty"`
 	Timestamp time.Time              `json:"timestamp"`
@@ -159,9 +159,9 @@ type FederationEvent struct {
 }
 
 // NewFederation creates a new federation.
-func NewFederation(config *FederationConfig, store ClusterStore, localID string) *Federation {
+func NewFederation(config *Config, store ClusterStore, localID string) *Federation {
 	if config == nil {
-		config = DefaultFederationConfig()
+		config = DefaultConfig()
 	}
 
 	httpClient := &http.Client{
@@ -211,16 +211,16 @@ func parseTLSMinVersion(value string) uint16 {
 }
 
 // AddListener adds a federation event listener.
-func (f *Federation) AddListener(listener FederationListener) {
+func (f *Federation) AddListener(listener Listener) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.listeners = append(f.listeners, listener)
 }
 
 // emit sends an event to all listeners.
-func (f *Federation) emit(event *FederationEvent) {
+func (f *Federation) emit(event *Event) {
 	f.mu.RLock()
-	listeners := make([]FederationListener, len(f.listeners))
+	listeners := make([]Listener, len(f.listeners))
 	copy(listeners, f.listeners)
 	f.mu.RUnlock()
 
@@ -240,7 +240,7 @@ func (f *Federation) Start(ctx context.Context) error {
 	f.stopCh = make(chan struct{})
 	f.mu.Unlock()
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "federation_started",
 		Timestamp: time.Now(),
 		Message:   "Federation started",
@@ -266,7 +266,7 @@ func (f *Federation) Stop() {
 	f.running = false
 	f.mu.Unlock()
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "federation_stopped",
 		Timestamp: time.Now(),
 		Message:   "Federation stopped",
@@ -331,9 +331,9 @@ func (f *Federation) handleUnhealthyCluster(ctx context.Context, cluster *Cluste
 	if time.Since(cluster.LastSeenAt) > f.config.HeartbeatTimeout {
 		cluster.State = StateUnreachable
 		cluster.UpdatedAt = time.Now()
-		f.store.Save(ctx, cluster)
+		_ = f.store.Save(ctx, cluster) //nolint:errcheck // best-effort persistence
 
-		f.emit(&FederationEvent{
+		f.emit(&Event{
 			Type:      "cluster_unreachable",
 			ClusterID: cluster.ID,
 			Timestamp: time.Now(),
@@ -356,7 +356,7 @@ func (f *Federation) syncAllClusters(ctx context.Context) {
 		}
 
 		if err := f.SyncCluster(ctx, cluster.ID); err != nil {
-			f.emit(&FederationEvent{
+			f.emit(&Event{
 				Type:      "sync_failed",
 				ClusterID: cluster.ID,
 				Timestamp: time.Now(),
@@ -377,7 +377,7 @@ func (f *Federation) JoinCluster(ctx context.Context, cluster *Cluster) error {
 		return err
 	}
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "cluster_joining",
 		ClusterID: cluster.ID,
 		Timestamp: time.Now(),
@@ -388,7 +388,7 @@ func (f *Federation) JoinCluster(ctx context.Context, cluster *Cluster) error {
 	_, err := f.CheckClusterHealth(ctx, cluster.ID)
 	if err != nil {
 		cluster.State = StateUnreachable
-		f.store.Save(ctx, cluster)
+		_ = f.store.Save(ctx, cluster) //nolint:errcheck // best-effort persistence on error path
 		return fmt.Errorf("cluster unreachable: %w", err)
 	}
 
@@ -403,7 +403,7 @@ func (f *Federation) JoinCluster(ctx context.Context, cluster *Cluster) error {
 		return err
 	}
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "cluster_joined",
 		ClusterID: cluster.ID,
 		Timestamp: time.Now(),
@@ -427,7 +427,7 @@ func (f *Federation) LeaveCluster(ctx context.Context, clusterID string) error {
 		return err
 	}
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "cluster_leaving",
 		ClusterID: cluster.ID,
 		Timestamp: time.Now(),
@@ -442,7 +442,7 @@ func (f *Federation) LeaveCluster(ctx context.Context, clusterID string) error {
 		return err
 	}
 
-	f.emit(&FederationEvent{
+	f.emit(&Event{
 		Type:      "cluster_left",
 		ClusterID: cluster.ID,
 		Timestamp: time.Now(),
@@ -461,7 +461,7 @@ func (f *Federation) CheckClusterHealth(ctx context.Context, clusterID string) (
 
 	// Make health check request
 	healthURL := fmt.Sprintf("%s/health", cluster.Endpoint)
-	req, err := http.NewRequestWithContext(ctx, "GET", healthURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", healthURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func (f *Federation) CheckClusterHealth(ctx context.Context, clusterID string) (
 	// Update last seen
 	cluster.LastSeenAt = time.Now()
 	cluster.UpdatedAt = time.Now()
-	f.store.Save(ctx, cluster)
+	_ = f.store.Save(ctx, cluster) //nolint:errcheck // best-effort persistence
 
 	return health, nil
 }
@@ -515,7 +515,7 @@ func (f *Federation) SyncCluster(ctx context.Context, clusterID string) error {
 
 	// Make info request
 	infoURL := fmt.Sprintf("%s/info", cluster.Endpoint)
-	req, err := http.NewRequestWithContext(ctx, "GET", infoURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", infoURL, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -574,14 +574,14 @@ func (f *Federation) UpdateCluster(ctx context.Context, cluster *Cluster) error 
 	return f.store.Save(ctx, cluster)
 }
 
-// GetFederationStats returns statistics about the federation.
-func (f *Federation) GetFederationStats(ctx context.Context) (*FederationStats, error) {
+// GetStats returns statistics about the federation.
+func (f *Federation) GetStats(ctx context.Context) (*Stats, error) {
 	clusters, err := f.store.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	stats := &FederationStats{
+	stats := &Stats{
 		TotalClusters: len(clusters),
 		ByState:       make(map[ClusterState]int),
 		ByRole:        make(map[ClusterRole]int),
@@ -616,8 +616,8 @@ func (f *Federation) GetFederationStats(ctx context.Context) (*FederationStats, 
 	return stats, nil
 }
 
-// FederationStats contains statistics about the federation.
-type FederationStats struct {
+// Stats contains statistics about the federation.
+type Stats struct {
 	TotalClusters  int                  `json:"totalClusters"`
 	ActiveClusters int                  `json:"activeClusters"`
 	ByState        map[ClusterState]int `json:"byState"`
@@ -711,7 +711,7 @@ func (s *InMemoryClusterStore) Delete(_ context.Context, id string) error {
 }
 
 func copyCluster(c *Cluster) *Cluster {
-	copy := &Cluster{
+	copied := &Cluster{
 		ID:         c.ID,
 		Name:       c.Name,
 		Endpoint:   c.Endpoint,
@@ -728,11 +728,11 @@ func copyCluster(c *Cluster) *Cluster {
 
 	if c.JoinedAt != nil {
 		joinedAt := *c.JoinedAt
-		copy.JoinedAt = &joinedAt
+		copied.JoinedAt = &joinedAt
 	}
 
 	if c.Capacity != nil {
-		copy.Capacity = &ClusterCapacity{
+		copied.Capacity = &ClusterCapacity{
 			Nodes:        c.Capacity.Nodes,
 			CPUMillis:    c.Capacity.CPUMillis,
 			MemoryBytes:  c.Capacity.MemoryBytes,
@@ -743,20 +743,20 @@ func copyCluster(c *Cluster) *Cluster {
 	}
 
 	if c.Labels != nil {
-		copy.Labels = make(map[string]string)
+		copied.Labels = make(map[string]string)
 		for k, v := range c.Labels {
-			copy.Labels[k] = v
+			copied.Labels[k] = v
 		}
 	}
 
 	if c.Annotations != nil {
-		copy.Annotations = make(map[string]string)
+		copied.Annotations = make(map[string]string)
 		for k, v := range c.Annotations {
-			copy.Annotations[k] = v
+			copied.Annotations[k] = v
 		}
 	}
 
-	return copy
+	return copied
 }
 
 // PlacementPolicy defines how workloads are placed across clusters.

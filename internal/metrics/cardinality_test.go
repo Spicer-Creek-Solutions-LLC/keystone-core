@@ -150,8 +150,8 @@ func TestCardinalityLimiter_ProcessLabels_TruncateLongValues(t *testing.T) {
 
 func TestCardinalityLimiter_ProcessLabels_ExcludedMetric(t *testing.T) {
 	config := &CardinalityConfig{
-		MaxCardinality:  5,
-		ExcludedMetrics: []string{"excluded_metric"},
+		MaxCardinality:   5,
+		ExcludedMetrics:  []string{"excluded_metric"},
 		ReplacementValue: "__exceeded__",
 	}
 	limiter := NewCardinalityLimiter(config)
@@ -255,9 +255,9 @@ func TestCardinalityLimiter_ResetAll(t *testing.T) {
 
 func TestCardinalityLimiter_GenerateReport(t *testing.T) {
 	config := &CardinalityConfig{
-		MaxCardinality:   10,
-		CleanupInterval:  0,
-		ReplacementValue: "__exceeded__",
+		MaxCardinality:        10,
+		CleanupInterval:       0,
+		ReplacementValue:      "__exceeded__",
 		HighCardinalityLabels: []string{"user_id"},
 	}
 	limiter := NewCardinalityLimiter(config)
@@ -390,8 +390,8 @@ func TestCardinalityLimiter_HashLabelsConsistency(t *testing.T) {
 
 func TestCardinalityLimiter_HighCardinalityMetrics(t *testing.T) {
 	config := &CardinalityConfig{
-		MaxCardinality:  100,
-		CleanupInterval: 0,
+		MaxCardinality:   100,
+		CleanupInterval:  0,
 		ReplacementValue: "__exceeded__",
 	}
 	limiter := NewCardinalityLimiter(config)

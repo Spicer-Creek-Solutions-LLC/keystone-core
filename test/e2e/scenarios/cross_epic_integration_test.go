@@ -11,7 +11,6 @@ import (
 	"time"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/test/e2e/harness"
 )
 
 // =============================================================================
@@ -867,26 +866,4 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		}
 		t.Log("Batch with no matching targets handled correctly")
 	})
-}
-
-// assertEnvReady is a helper to verify the test environment is ready
-func assertEnvReady(t *testing.T, ctx context.Context) {
-	t.Helper()
-	if testEnv == nil {
-		t.Fatal("Test environment not initialized")
-	}
-
-	client := testEnv.Client()
-	if client == nil {
-		t.Fatal("gRPC client not available")
-	}
-
-	// Quick health check
-	err := harness.WaitForCondition(ctx, 10*time.Second, 500*time.Millisecond, func() (bool, error) {
-		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 1})
-		return err == nil && resp != nil, nil
-	})
-	if err != nil {
-		t.Fatalf("Test environment not ready: %v", err)
-	}
 }

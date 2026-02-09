@@ -136,6 +136,8 @@ func (cb *CircuitBreaker) RecordSuccess() {
 			cb.successes = 0
 			cb.halfOpenCount = 0
 		}
+	default:
+		// StateOpen - success recorded but state unchanged
 	}
 }
 
@@ -157,6 +159,8 @@ func (cb *CircuitBreaker) RecordFailure() {
 		cb.setState(StateOpen)
 		cb.successes = 0
 		cb.halfOpenCount = 0
+	default:
+		// StateOpen - already in failed state
 	}
 }
 
@@ -208,14 +212,14 @@ func (cb *CircuitBreaker) Stats() map[string]interface{} {
 	defer cb.mu.RUnlock()
 
 	return map[string]interface{}{
-		"state":               cb.state,
-		"failures":            cb.failures,
-		"successes":           cb.successes,
-		"last_failure":        cb.lastFailTime,
-		"half_open_count":     cb.halfOpenCount,
-		"failure_threshold":   cb.config.FailureThreshold,
-		"success_threshold":   cb.config.SuccessThreshold,
-		"timeout":             cb.config.Timeout,
+		"state":                  cb.state,
+		"failures":               cb.failures,
+		"successes":              cb.successes,
+		"last_failure":           cb.lastFailTime,
+		"half_open_count":        cb.halfOpenCount,
+		"failure_threshold":      cb.config.FailureThreshold,
+		"success_threshold":      cb.config.SuccessThreshold,
+		"timeout":                cb.config.Timeout,
 		"half_open_max_requests": cb.config.HalfOpenMaxRequests,
 	}
 }

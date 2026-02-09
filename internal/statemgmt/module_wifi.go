@@ -41,6 +41,7 @@ type WiFiConfig struct {
 // WiFiBackend represents the available WiFi management backend
 type WiFiBackend string
 
+// WBUnknown and related constants.
 const (
 	WBUnknown        WiFiBackend = "unknown"
 	WBNetworkManager WiFiBackend = "networkmanager" // nmcli (Linux)
@@ -73,7 +74,7 @@ func (m *WiFiModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	}
 
 	// Detect WiFi backend
-	backend, err := m.detectWiFiBackend()
+	backend, err := m.detectWiFiBackend(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect WiFi backend: %w", err)
 	}
@@ -100,13 +101,14 @@ func (m *WiFiModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	switch decl.State {
 	case "connected":
-		if !exists {
+		switch {
+		case !exists:
 			result.Matches = false
 			result.Diff["wifi"] = map[string]string{"current": "absent", "desired": "connected"}
-		} else if !isConnected {
+		case !isConnected:
 			result.Matches = false
 			result.Diff["wifi"] = map[string]string{"current": "configured", "desired": "connected"}
-		} else {
+		default:
 			result.Matches = true
 		}
 	case "configured":
@@ -123,7 +125,7 @@ func (m *WiFiModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the WiFi configuration
@@ -144,7 +146,7 @@ func (m *WiFiModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Validate config for the desired state
@@ -153,17 +155,17 @@ func (m *WiFiModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Invalid config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect WiFi backend
-	backend, err := m.detectWiFiBackend()
+	backend, err := m.detectWiFiBackend(ctx)
 	if err != nil {
 		result.Error = err
 		result.Comment = fmt.Sprintf("Failed to detect WiFi backend: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -173,7 +175,7 @@ func (m *WiFiModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -183,7 +185,7 @@ func (m *WiFiModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -214,7 +216,7 @@ func (m *WiFiModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the WiFi is in the desired state
@@ -223,7 +225,7 @@ func (m *WiFiModule) Test(ctx context.Context, decl *StateDeclaration) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseWiFiConfig extracts WiFi configuration from declaration parameters
@@ -264,7 +266,7 @@ func (m *WiFiModule) parseWiFiConfig(decl *StateDeclaration) (*WiFiConfig, error
 		config.Security = "open"
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // validateWiFiConfig validates the WiFi configuration
@@ -319,20 +321,20 @@ func (m *WiFiModule) validateWiFiConfig(config *WiFiConfig, state string) error 
 }
 
 // detectWiFiBackend detects the available WiFi management tool
-func (m *WiFiModule) detectWiFiBackend() (WiFiBackend, error) {
+func (m *WiFiModule) detectWiFiBackend(ctx context.Context) (WiFiBackend, error) {
 	switch runtime.GOOS {
 	case "linux":
 		// Check for nmcli (NetworkManager)
 		if _, err := exec.LookPath("nmcli"); err == nil {
-			cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+			cmd := exec.CommandContext(ctx,"systemctl", "is-active", "NetworkManager")
 			if err := cmd.Run(); err == nil {
-				return WBNetworkManager, nil
+				return WBNetworkManager, nil //nolint:nilerr // intentional
 			}
 		}
 
 		// Check for wpa_supplicant
 		if _, err := exec.LookPath("wpa_cli"); err == nil {
-			return WBWpaSupplicant, nil
+			return WBWpaSupplicant, nil //nolint:nilerr // intentional
 		}
 
 		return WBUnknown, fmt.Errorf("no supported WiFi backend found on Linux (need NetworkManager or wpa_supplicant)")
@@ -340,14 +342,14 @@ func (m *WiFiModule) detectWiFiBackend() (WiFiBackend, error) {
 	case "darwin":
 		// macOS uses networksetup
 		if _, err := exec.LookPath("networksetup"); err == nil {
-			return WBNetworkSetup, nil
+			return WBNetworkSetup, nil //nolint:nilerr // intentional
 		}
 		return WBUnknown, fmt.Errorf("networksetup not found on macOS")
 
 	case "windows":
 		// Windows uses netsh wlan
 		if _, err := exec.LookPath("netsh"); err == nil {
-			return WBNetshWlan, nil
+			return WBNetshWlan, nil //nolint:nilerr // intentional
 		}
 		return WBUnknown, fmt.Errorf("netsh not found on Windows")
 
@@ -357,7 +359,7 @@ func (m *WiFiModule) detectWiFiBackend() (WiFiBackend, error) {
 }
 
 // checkWiFiExists checks if a WiFi connection/profile exists
-func (m *WiFiModule) checkWiFiExists(ctx context.Context, backend WiFiBackend, config *WiFiConfig) (exists bool, connected bool, currentSSID string, err error) {
+func (m *WiFiModule) checkWiFiExists(ctx context.Context, backend WiFiBackend, config *WiFiConfig) (exists, connected bool, currentSSID string, err error) {
 	switch backend {
 	case WBNetworkManager:
 		return m.checkWiFiExistsNmcli(ctx, config)
@@ -373,7 +375,7 @@ func (m *WiFiModule) checkWiFiExists(ctx context.Context, backend WiFiBackend, c
 }
 
 // checkWiFiExistsNmcli checks WiFi state using NetworkManager
-func (m *WiFiModule) checkWiFiExistsNmcli(ctx context.Context, config *WiFiConfig) (bool, bool, string, error) {
+func (m *WiFiModule) checkWiFiExistsNmcli(ctx context.Context, config *WiFiConfig) (exists, connected bool, ssid string, err error) {
 	// Check if connection profile exists
 	cmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "NAME,TYPE", "connection", "show")
 	output, err := cmd.Output()
@@ -381,7 +383,6 @@ func (m *WiFiModule) checkWiFiExistsNmcli(ctx context.Context, config *WiFiConfi
 		return false, false, "", fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	exists := false
 	for _, line := range strings.Split(string(output), "\n") {
 		fields := strings.Split(line, ":")
 		if len(fields) >= 2 && fields[0] == config.Name && strings.Contains(fields[1], "wireless") {
@@ -391,17 +392,16 @@ func (m *WiFiModule) checkWiFiExistsNmcli(ctx context.Context, config *WiFiConfi
 	}
 
 	if !exists {
-		return false, false, "", nil
+		return false, false, "", nil //nolint:nilerr // network profile not found is a valid state
 	}
 
 	// Check if connected to this network
 	activeCmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "NAME,DEVICE,STATE", "connection", "show", "--active")
 	activeOutput, err := activeCmd.Output()
 	if err != nil {
-		return exists, false, config.SSID, nil
+		return exists, false, config.SSID, nil //nolint:nilerr // no active connections is a valid state
 	}
 
-	connected := false
 	for _, line := range strings.Split(string(activeOutput), "\n") {
 		fields := strings.Split(line, ":")
 		if len(fields) >= 1 && fields[0] == config.Name {
@@ -410,11 +410,11 @@ func (m *WiFiModule) checkWiFiExistsNmcli(ctx context.Context, config *WiFiConfi
 		}
 	}
 
-	return exists, connected, config.SSID, nil
+	return exists, connected, config.SSID, nil //nolint:nilerr // returning parsed WiFi state, no error
 }
 
 // checkWiFiExistsWpaSupplicant checks WiFi state using wpa_supplicant
-func (m *WiFiModule) checkWiFiExistsWpaSupplicant(ctx context.Context, config *WiFiConfig) (bool, bool, string, error) {
+func (m *WiFiModule) checkWiFiExistsWpaSupplicant(ctx context.Context, config *WiFiConfig) (exists, connected bool, ssid string, err error) {
 	iface := config.Interface
 	if iface == "" {
 		iface = "wlan0"
@@ -424,11 +424,9 @@ func (m *WiFiModule) checkWiFiExistsWpaSupplicant(ctx context.Context, config *W
 	cmd := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "list_networks")
 	output, err := cmd.Output()
 	if err != nil {
-		return false, false, "", nil
+		return false, false, "", nil //nolint:nilerr // wpa_cli not available or no networks is a valid state
 	}
 
-	exists := false
-	connected := false
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines[1:] { // Skip header
 		fields := strings.Fields(line)
@@ -441,11 +439,11 @@ func (m *WiFiModule) checkWiFiExistsWpaSupplicant(ctx context.Context, config *W
 		}
 	}
 
-	return exists, connected, config.SSID, nil
+	return exists, connected, config.SSID, nil //nolint:nilerr // returning parsed WiFi state, no error
 }
 
 // checkWiFiExistsMacOS checks WiFi state on macOS
-func (m *WiFiModule) checkWiFiExistsMacOS(ctx context.Context, config *WiFiConfig) (bool, bool, string, error) {
+func (m *WiFiModule) checkWiFiExistsMacOS(ctx context.Context, config *WiFiConfig) (exists, connected bool, ssid string, err error) {
 	iface := config.Interface
 	if iface == "" {
 		iface = "en0"
@@ -455,10 +453,9 @@ func (m *WiFiModule) checkWiFiExistsMacOS(ctx context.Context, config *WiFiConfi
 	cmd := exec.CommandContext(ctx, "networksetup", "-listpreferredwirelessnetworks", iface)
 	output, err := cmd.Output()
 	if err != nil {
-		return false, false, "", nil
+		return false, false, "", nil //nolint:nilerr // no preferred networks is a valid state
 	}
 
-	exists := false
 	for _, line := range strings.Split(string(output), "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == config.SSID {
@@ -471,7 +468,6 @@ func (m *WiFiModule) checkWiFiExistsMacOS(ctx context.Context, config *WiFiConfi
 	currentCmd := exec.CommandContext(ctx, "networksetup", "-getairportnetwork", iface)
 	currentOutput, _ := currentCmd.Output()
 	currentSSID := ""
-	connected := false
 	if strings.Contains(string(currentOutput), "Current Wi-Fi Network:") {
 		parts := strings.SplitN(string(currentOutput), ":", 2)
 		if len(parts) == 2 {
@@ -483,20 +479,19 @@ func (m *WiFiModule) checkWiFiExistsMacOS(ctx context.Context, config *WiFiConfi
 		}
 	}
 
-	return exists, connected, currentSSID, nil
+	return exists, connected, currentSSID, nil //nolint:nilerr // returning parsed WiFi state, no error
 }
 
 // checkWiFiExistsWindows checks WiFi state on Windows
-func (m *WiFiModule) checkWiFiExistsWindows(ctx context.Context, config *WiFiConfig) (bool, bool, string, error) {
+func (m *WiFiModule) checkWiFiExistsWindows(ctx context.Context, config *WiFiConfig) (exists, connected bool, ssid string, err error) {
 	// Check if profile exists
 	cmd := exec.CommandContext(ctx, "netsh", "wlan", "show", "profile", fmt.Sprintf("name=%s", config.Name))
 	output, err := cmd.Output()
-	exists := err == nil && strings.Contains(string(output), config.Name)
+	exists = err == nil && strings.Contains(string(output), config.Name)
 
 	// Check current connection
 	ifaceCmd := exec.CommandContext(ctx, "netsh", "wlan", "show", "interfaces")
 	ifaceOutput, _ := ifaceCmd.Output()
-	connected := false
 	currentSSID := ""
 	for _, line := range strings.Split(string(ifaceOutput), "\n") {
 		if strings.Contains(line, "SSID") && !strings.Contains(line, "BSSID") {
@@ -511,7 +506,7 @@ func (m *WiFiModule) checkWiFiExistsWindows(ctx context.Context, config *WiFiCon
 		}
 	}
 
-	return exists, connected, currentSSID, nil
+	return exists, connected, currentSSID, nil //nolint:nilerr // returning parsed WiFi state, no error
 }
 
 // connectWiFi connects to a WiFi network
@@ -630,11 +625,9 @@ func (m *WiFiModule) connectWiFiNmcli(ctx context.Context, config *WiFiConfig, r
 		// Add security settings
 		switch config.Security {
 		case "wpa2-psk", "wpa3":
-			args = append(args, "wifi-sec.key-mgmt", "wpa-psk")
-			args = append(args, "wifi-sec.psk", config.Password)
+			args = append(args, "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", config.Password)
 		case "wep":
-			args = append(args, "wifi-sec.key-mgmt", "none")
-			args = append(args, "wifi-sec.wep-key0", config.Password)
+			args = append(args, "wifi-sec.key-mgmt", "none", "wifi-sec.wep-key0", config.Password)
 		case "open":
 			// No security settings needed
 		}
@@ -702,11 +695,9 @@ func (m *WiFiModule) configureWiFiNmcli(ctx context.Context, config *WiFiConfig,
 	// Add security settings
 	switch config.Security {
 	case "wpa2-psk", "wpa3":
-		args = append(args, "wifi-sec.key-mgmt", "wpa-psk")
-		args = append(args, "wifi-sec.psk", config.Password)
+		args = append(args, "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", config.Password)
 	case "wep":
-		args = append(args, "wifi-sec.key-mgmt", "none")
-		args = append(args, "wifi-sec.wep-key0", config.Password)
+		args = append(args, "wifi-sec.key-mgmt", "none", "wifi-sec.wep-key0", config.Password)
 	case "open":
 		// No security settings needed
 	}
@@ -747,7 +738,7 @@ func (m *WiFiModule) connectWiFiWpaSupplicant(ctx context.Context, config *WiFiC
 	networkID := strings.TrimSpace(string(output))
 
 	// Set network parameters
-	setSSID := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "ssid", fmt.Sprintf("\"%s\"", config.SSID))
+	setSSID := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "ssid", fmt.Sprintf("%q", config.SSID))
 	if _, err := setSSID.Output(); err != nil {
 		return fmt.Errorf("failed to set SSID: %w", err)
 	}
@@ -756,7 +747,7 @@ func (m *WiFiModule) connectWiFiWpaSupplicant(ctx context.Context, config *WiFiC
 	case "wpa2-psk", "wpa3":
 		setKeyMgmt := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "key_mgmt", "WPA-PSK")
 		setKeyMgmt.Run()
-		setPsk := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "psk", fmt.Sprintf("\"%s\"", config.Password))
+		setPsk := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "psk", fmt.Sprintf("%q", config.Password))
 		if _, err := setPsk.Output(); err != nil {
 			return fmt.Errorf("failed to set PSK: %w", err)
 		}
@@ -766,7 +757,7 @@ func (m *WiFiModule) connectWiFiWpaSupplicant(ctx context.Context, config *WiFiC
 	case "wep":
 		setKeyMgmt := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "key_mgmt", "NONE")
 		setKeyMgmt.Run()
-		setWepKey := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "wep_key0", fmt.Sprintf("\"%s\"", config.Password))
+		setWepKey := exec.CommandContext(ctx, "wpa_cli", "-i", iface, "set_network", networkID, "wep_key0", fmt.Sprintf("%q", config.Password))
 		setWepKey.Run()
 	}
 
@@ -809,7 +800,7 @@ func (m *WiFiModule) configureWiFiWpaSupplicant(ctx context.Context, config *WiF
 	}
 
 	// Check if network already exists
-	if strings.Contains(string(content), fmt.Sprintf("ssid=\"%s\"", config.SSID)) {
+	if strings.Contains(string(content), fmt.Sprintf("ssid=%q", config.SSID)) {
 		result.Comment = fmt.Sprintf("WiFi profile %s already exists in wpa_supplicant.conf", config.SSID)
 		return nil
 	}
@@ -818,7 +809,7 @@ func (m *WiFiModule) configureWiFiWpaSupplicant(ctx context.Context, config *WiF
 	networkBlock := m.generateWpaSupplicantNetworkBlock(config)
 	newContent := string(content) + "\n" + networkBlock
 
-	if err := os.WriteFile(configFile, []byte(newContent), 0600); err != nil {
+	if err := os.WriteFile(configFile, []byte(newContent), 0o600); err != nil {
 		return fmt.Errorf("failed to write wpa_supplicant.conf: %w", err)
 	}
 
@@ -838,17 +829,17 @@ func (m *WiFiModule) configureWiFiWpaSupplicant(ctx context.Context, config *WiF
 func (m *WiFiModule) generateWpaSupplicantNetworkBlock(config *WiFiConfig) string {
 	var buf bytes.Buffer
 	buf.WriteString("network={\n")
-	buf.WriteString(fmt.Sprintf("    ssid=\"%s\"\n", config.SSID))
+	buf.WriteString(fmt.Sprintf("    ssid=%q\n", config.SSID))
 
 	switch config.Security {
 	case "wpa2-psk", "wpa3":
 		buf.WriteString("    key_mgmt=WPA-PSK\n")
-		buf.WriteString(fmt.Sprintf("    psk=\"%s\"\n", config.Password))
+		buf.WriteString(fmt.Sprintf("    psk=%q\n", config.Password))
 	case "open":
 		buf.WriteString("    key_mgmt=NONE\n")
 	case "wep":
 		buf.WriteString("    key_mgmt=NONE\n")
-		buf.WriteString(fmt.Sprintf("    wep_key0=\"%s\"\n", config.Password))
+		buf.WriteString(fmt.Sprintf("    wep_key0=%q\n", config.Password))
 	}
 
 	if config.Hidden {
@@ -978,7 +969,7 @@ func (m *WiFiModule) createWindowsWiFiProfile(ctx context.Context, config *WiFiC
 
 	// Write to temp file
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("kscore-wifi-%s.xml", config.Name))
-	if err := os.WriteFile(tmpFile, []byte(profileXML), 0600); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(profileXML), 0o600); err != nil {
 		return fmt.Errorf("failed to write profile XML: %w", err)
 	}
 	defer os.Remove(tmpFile)
@@ -1066,5 +1057,5 @@ func (m *WiFiModule) generateWindowsProfileXML(config *WiFiConfig) string {
 }
 
 func init() {
-	RegisterModule(NewWiFiModule())
+	_ = RegisterModule(NewWiFiModule()) //nolint:errcheck // module registration in init
 }

@@ -239,13 +239,13 @@ func (c *EmbeddedNATSConfig) Validate() error {
 }
 
 // GetAdvertiseAddress returns the address to advertise for discovery
-func (c *EmbeddedNATSConfig) GetAdvertiseAddress() string {
+func (c *EmbeddedNATSConfig) GetAdvertiseAddress(ctx context.Context) string {
 	host := c.AdvertiseHost
 	if host == "" {
 		host = c.Host
 		if host == "0.0.0.0" || host == "::" {
 			// Try to get local IP
-			if ip := getOutboundIP(); ip != "" {
+			if ip := getOutboundIP(ctx); ip != "" {
 				host = ip
 			} else {
 				host = "localhost"
@@ -302,14 +302,12 @@ type EmbeddedNATSServer struct {
 	onClientConn  func(clientID uint64, connected bool)
 
 	// Stats tracking
-	statsLock       sync.RWMutex
-	totalConns      int64
-	currentConns    int64
-	totalMsgs       int64
-	totalBytes      int64
-	startTime       time.Time
-	lastClientConn  time.Time
-	lastClientDisc  time.Time
+	statsLock        sync.RWMutex
+	totalConns       int64
+	currentConns     int64
+	startTime        time.Time
+	lastClientConn   time.Time
+	lastClientDisc   time.Time
 	connectedClients map[uint64]time.Time
 
 	mu sync.RWMutex
@@ -421,7 +419,7 @@ func (e *EmbeddedNATSServer) IsRunning() bool {
 }
 
 // GetClientURL returns the NATS URL for clients to connect to
-func (e *EmbeddedNATSServer) GetClientURL() string {
+func (e *EmbeddedNATSServer) GetClientURL(ctx context.Context) string {
 	e.mu.RLock()
 	ns := e.server
 	e.mu.RUnlock()
@@ -436,7 +434,7 @@ func (e *EmbeddedNATSServer) GetClientURL() string {
 		scheme = "tls"
 	}
 
-	return fmt.Sprintf("%s://%s", scheme, e.config.GetAdvertiseAddress())
+	return fmt.Sprintf("%s://%s", scheme, e.config.GetAdvertiseAddress(ctx))
 }
 
 // GetStats returns server statistics
@@ -456,13 +454,13 @@ func (e *EmbeddedNATSServer) GetStats() *EmbeddedNATSStats {
 	// Get NATS server stats
 	varz, err := ns.Varz(nil)
 	if err == nil {
-		stats.Connections = int(varz.Connections)
-		stats.TotalConnections = int64(varz.TotalConnections)
-		stats.InMsgs = int64(varz.InMsgs)
-		stats.OutMsgs = int64(varz.OutMsgs)
-		stats.InBytes = int64(varz.InBytes)
-		stats.OutBytes = int64(varz.OutBytes)
-		stats.SlowConsumers = int64(varz.SlowConsumers)
+		stats.Connections = varz.Connections
+		stats.TotalConnections = varz.TotalConnections
+		stats.InMsgs = varz.InMsgs
+		stats.OutMsgs = varz.OutMsgs
+		stats.InBytes = varz.InBytes
+		stats.OutBytes = varz.OutBytes
+		stats.SlowConsumers = varz.SlowConsumers
 		stats.Uptime = time.Since(e.startTime)
 	}
 
@@ -479,7 +477,7 @@ func (e *EmbeddedNATSServer) GetStats() *EmbeddedNATSStats {
 type EmbeddedNATSStats struct {
 	State                EmbeddedNATSState
 	Connections          int
-	TotalConnections     int64
+	TotalConnections     uint64
 	InMsgs               int64
 	OutMsgs              int64
 	InBytes              int64
@@ -493,16 +491,16 @@ type EmbeddedNATSStats struct {
 // buildServerOptions builds NATS server options from config
 func (e *EmbeddedNATSServer) buildServerOptions() (*server.Options, error) {
 	opts := &server.Options{
-		Host:           e.config.Host,
-		Port:           e.config.Port,
-		MaxConn:        e.config.MaxConnections,
-		MaxPayload:     e.config.MaxPayload,
-		MaxPending:     e.config.MaxPending,
-		WriteDeadline:  e.config.WriteDeadline,
-		NoLog:          true,
-		NoSigs:         true,
-		Debug:          e.config.Debug,
-		Trace:          e.config.Trace,
+		Host:          e.config.Host,
+		Port:          e.config.Port,
+		MaxConn:       e.config.MaxConnections,
+		MaxPayload:    e.config.MaxPayload,
+		MaxPending:    e.config.MaxPending,
+		WriteDeadline: e.config.WriteDeadline,
+		NoLog:         true,
+		NoSigs:        true,
+		Debug:         e.config.Debug,
+		Trace:         e.config.Trace,
 	}
 
 	// Set server name
@@ -664,6 +662,7 @@ func (e *EmbeddedNATSServer) configureLeafNodes(opts *server.Options) error {
 
 // setState updates the server state and calls callback
 func (e *EmbeddedNATSServer) setState(state EmbeddedNATSState) {
+	//nolint:gosec // G115: EmbeddedNATSState is a small enum (0-3), fits in int32
 	e.state.Store(int32(state))
 
 	e.mu.RLock()
@@ -711,8 +710,8 @@ func (e *EmbeddedNATSServer) recordClientDisconnect(clientID uint64) {
 }
 
 // getOutboundIP gets the preferred outbound IP of this machine
-func getOutboundIP() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+func getOutboundIP(ctx context.Context) string {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "udp", "8.8.8.8:80")
 	if err != nil {
 		return ""
 	}

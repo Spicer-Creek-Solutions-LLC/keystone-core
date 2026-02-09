@@ -322,7 +322,8 @@ func NewConnectionTester(timeout time.Duration, metadata *Metadata) *ConnectionT
 
 // TestPlaintext tests if a plaintext connection succeeds
 func (t *ConnectionTester) TestPlaintext(address string) (bool, error) {
-	conn, err := net.DialTimeout("tcp", address, t.timeout)
+	d := &net.Dialer{Timeout: t.timeout}
+	conn, err := d.DialContext(context.Background(), "tcp", address)
 	if err != nil {
 		return false, err
 	}
@@ -391,7 +392,7 @@ func (t *ConnectionTester) TestMTLS(address string) (*ConnectionResult, error) {
 
 	// Attempt TLS connection
 	dialer := &net.Dialer{Timeout: t.timeout}
-	conn, err := tls.DialWithDialer(dialer, "tcp", address, tlsConfig)
+	netConn, err := (&tls.Dialer{NetDialer: dialer, Config: tlsConfig}).DialContext(context.Background(), "tcp", address)
 	result.Duration = time.Since(start)
 
 	if err != nil {
@@ -399,12 +400,13 @@ func (t *ConnectionTester) TestMTLS(address string) (*ConnectionResult, error) {
 		result.Error = err
 		return result, nil
 	}
-	defer conn.Close()
+	defer netConn.Close()
 
 	result.Connected = true
 	result.TLSEnabled = true
 
 	// Extract connection state
+	conn := netConn.(*tls.Conn)
 	state := conn.ConnectionState()
 	result.TLSVersion = tlsVersionString(state.Version)
 	result.CipherSuite = tls.CipherSuiteName(state.CipherSuite)
@@ -1025,14 +1027,15 @@ func (v *PolicyVerifier) checkConnectionSecurity(policy *MTLSPolicy) PolicyCheck
 	case PolicyModeDisable:
 		// For DISABLE mode: plaintext should work
 		plaintextOK, err := tester.TestPlaintext(address)
-		if plaintextOK {
+		switch {
+		case plaintextOK:
 			check.Passed = true
 			check.Message = "DISABLE mode: plaintext connection available"
-		} else if err != nil {
+		case err != nil:
 			check.Passed = true
 			check.Severity = "warning"
 			check.Message = fmt.Sprintf("Service unreachable: %v", err)
-		} else {
+		default:
 			check.Passed = true
 			check.Message = "DISABLE mode: connection test completed"
 		}
@@ -1070,7 +1073,8 @@ func (v *PolicyVerifier) VerifyConnectionSecurity(ctx context.Context, address s
 	}
 
 	// Try plaintext connection
-	plaintextConn, err := net.DialTimeout("tcp", address, 5*time.Second)
+	d := &net.Dialer{Timeout: 5 * time.Second}
+	plaintextConn, err := d.DialContext(ctx, "tcp", address)
 	if err != nil {
 		// Connection failed
 		if expectedMode == PolicyModeStrict {
@@ -1101,7 +1105,7 @@ func (v *PolicyVerifier) VerifyConnectionSecurity(ctx context.Context, address s
 		minVersion = metadata.TLSConfig.MinVersion
 	}
 
-	tlsConn, err := tls.Dial("tcp", address, newTLSBaseConfig(host, minVersion))
+	netConn, err := (&tls.Dialer{Config: newTLSBaseConfig(host, minVersion)}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		// If we have metadata, try with custom CA
 		if metadata != nil && metadata.TLSConfig != nil && metadata.TLSConfig.CAFile != "" {
@@ -1112,9 +1116,9 @@ func (v *PolicyVerifier) VerifyConnectionSecurity(ctx context.Context, address s
 
 				tlsConfig := newTLSBaseConfig(host, minVersion)
 				tlsConfig.RootCAs = roots
-				tlsConn, err = tls.Dial("tcp", address, tlsConfig)
+				netConn, err = (&tls.Dialer{Config: tlsConfig}).DialContext(ctx, "tcp", address)
 				if err == nil {
-					defer tlsConn.Close()
+					defer netConn.Close()
 					check.Passed = true
 					check.Message = "TLS connection verified with custom CA"
 					return check, nil
@@ -1125,9 +1129,10 @@ func (v *PolicyVerifier) VerifyConnectionSecurity(ctx context.Context, address s
 		check.Message = fmt.Sprintf("TLS connection failed: %v", err)
 		return check, nil
 	}
-	defer tlsConn.Close()
+	defer netConn.Close()
 
 	// Verify connection state
+	tlsConn := netConn.(*tls.Conn)
 	state := tlsConn.ConnectionState()
 	if len(state.PeerCertificates) == 0 {
 		check.Passed = false

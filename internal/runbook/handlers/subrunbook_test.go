@@ -124,7 +124,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}
@@ -155,7 +155,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}
@@ -203,7 +203,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}
@@ -222,9 +222,9 @@ func TestSubRunbookHandler(t *testing.T) {
 		h := &SubRunbookHandler{
 			runbookLoader: loader,
 			runbookExecutor: &inputCapturingExecutor{
-				wrapped:   executor,
-				captured:  &capturedInputs,
-				original:  originalExecute,
+				wrapped:  executor,
+				captured: &capturedInputs,
+				original: originalExecute,
 			},
 		}
 
@@ -257,7 +257,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}
@@ -305,7 +305,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}
@@ -346,7 +346,7 @@ func TestSubRunbookHandler(t *testing.T) {
 			runbooks: map[string]*runbook.Runbook{
 				"child-runbook": {
 					Metadata: runbook.Metadata{Name: "child-runbook", Version: "1.0.0"},
-					Spec:     runbook.RunbookSpec{},
+					Spec:     runbook.Spec{},
 				},
 			},
 		}

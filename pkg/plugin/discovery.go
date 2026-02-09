@@ -154,7 +154,7 @@ func isExecutable(path string) bool {
 
 	// Check if it has execute permission (Unix-like systems)
 	// On Windows, any file with .exe extension is considered executable
-	if info.Mode().Perm()&0111 != 0 {
+	if info.Mode().Perm()&0o111 != 0 {
 		return true
 	}
 

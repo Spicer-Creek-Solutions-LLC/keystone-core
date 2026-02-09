@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -272,7 +273,7 @@ func TestInMemoryDeviceRegistry_Register(t *testing.T) {
 
 	// Try to register duplicate
 	err = registry.Register(ctx, device)
-	if err != ErrDeviceAlreadyExists {
+	if !errors.Is(err, ErrDeviceAlreadyExists) {
 		t.Errorf("Register() duplicate error = %v, want ErrDeviceAlreadyExists", err)
 	}
 }
@@ -300,13 +301,13 @@ func TestInMemoryDeviceRegistry_Unregister(t *testing.T) {
 
 	// Verify device is gone
 	_, err = registry.Get(ctx, device.ID)
-	if err != ErrDeviceNotFound {
+	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("Get() after unregister error = %v, want ErrDeviceNotFound", err)
 	}
 
 	// Try to unregister non-existent
 	err = registry.Unregister(ctx, "non-existent")
-	if err != ErrDeviceNotFound {
+	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("Unregister() non-existent error = %v, want ErrDeviceNotFound", err)
 	}
 }
@@ -403,7 +404,7 @@ func TestInMemoryDeviceRegistry_UpdateStatus(t *testing.T) {
 
 	// Update non-existent
 	err = registry.UpdateStatus(ctx, "non-existent", DeviceStatusOnline, "")
-	if err != ErrDeviceNotFound {
+	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("UpdateStatus() non-existent error = %v, want ErrDeviceNotFound", err)
 	}
 }
@@ -550,11 +551,11 @@ func TestProxySubjectBuilder(t *testing.T) {
 
 func TestParseDeviceSubject(t *testing.T) {
 	tests := []struct {
-		subject      string
-		wantProxy    string
-		wantDevice   string
-		wantOp       string
-		wantErr      bool
+		subject    string
+		wantProxy  string
+		wantDevice string
+		wantOp     string
+		wantErr    bool
 	}{
 		{"kscore.mycluster.proxy.proxy-dc1.switch-01.command", "proxy-dc1", "switch-01", "command", false},
 		{"kscore.mycluster.proxy.proxy-dc1.switch-01.result", "proxy-dc1", "switch-01", "result", false},

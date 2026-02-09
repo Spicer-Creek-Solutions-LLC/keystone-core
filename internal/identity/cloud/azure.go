@@ -70,19 +70,19 @@ type AzureProvider struct {
 	config *AzureConfig
 	client *http.Client
 
-	mu              sync.RWMutex
-	started         bool
-	status          identity.ProviderStatus
-	statusMessage   string
-	trustBundle     *identity.TrustBundle
-	subscriptionID  string
-	resourceGroup   string
-	tenantID        string
-	vmID            string
-	vmName          string
-	location        string
-	vmScaleSetName  string
-	ipv6Addresses   []string
+	mu             sync.RWMutex
+	started        bool
+	status         identity.ProviderStatus
+	statusMessage  string
+	trustBundle    *identity.TrustBundle
+	subscriptionID string
+	resourceGroup  string
+	tenantID       string
+	vmID           string
+	vmName         string
+	location       string
+	vmScaleSetName string
+	ipv6Addresses  []string
 
 	healthCheckCancel context.CancelFunc
 	lastHealthCheck   time.Time
@@ -96,24 +96,24 @@ type AzureInstanceMetadata struct {
 
 // AzureComputeMetadata contains compute-specific metadata.
 type AzureComputeMetadata struct {
-	AzEnvironment         string `json:"azEnvironment"`
-	Location              string `json:"location"`
-	Name                  string `json:"name"`
-	OSType                string `json:"osType"`
-	VMID                  string `json:"vmId"`
-	VMSize                string `json:"vmSize"`
-	SubscriptionID        string `json:"subscriptionId"`
-	ResourceGroupName     string `json:"resourceGroupName"`
-	ResourceID            string `json:"resourceId"`
-	VMScaleSetName        string `json:"vmScaleSetName"`
-	Zone                  string `json:"zone"`
-	Tags                  string `json:"tags"`
-	Version               string `json:"version"`
-	Publisher             string `json:"publisher"`
-	Offer                 string `json:"offer"`
-	SKU                   string `json:"sku"`
-	PlatformFaultDomain   string `json:"platformFaultDomain"`
-	PlatformUpdateDomain  string `json:"platformUpdateDomain"`
+	AzEnvironment        string `json:"azEnvironment"`
+	Location             string `json:"location"`
+	Name                 string `json:"name"`
+	OSType               string `json:"osType"`
+	VMID                 string `json:"vmId"`
+	VMSize               string `json:"vmSize"`
+	SubscriptionID       string `json:"subscriptionId"`
+	ResourceGroupName    string `json:"resourceGroupName"`
+	ResourceID           string `json:"resourceId"`
+	VMScaleSetName       string `json:"vmScaleSetName"`
+	Zone                 string `json:"zone"`
+	Tags                 string `json:"tags"`
+	Version              string `json:"version"`
+	Publisher            string `json:"publisher"`
+	Offer                string `json:"offer"`
+	SKU                  string `json:"sku"`
+	PlatformFaultDomain  string `json:"platformFaultDomain"`
+	PlatformUpdateDomain string `json:"platformUpdateDomain"`
 }
 
 // AzureNetworkMetadata contains network-specific metadata.
@@ -205,8 +205,8 @@ func (p *AzureProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, cancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = cancel
 	p.mu.Unlock()
@@ -309,7 +309,7 @@ func (p *AzureProvider) WatchTrustBundle(ctx context.Context) (<-chan *identity.
 // GetInstanceMetadata returns the Azure instance metadata.
 func (p *AzureProvider) GetInstanceMetadata(ctx context.Context) (*AzureInstanceMetadata, error) {
 	url := p.config.IMDSEndpoint + "/metadata/instance?api-version=2021-02-01"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func (p *AzureProvider) GetAccessToken(ctx context.Context, resource string) (*A
 		url += "&client_id=" + p.config.ClientID
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +462,7 @@ func (p *AzureProvider) detectEnvironment(ctx context.Context) error {
 	meta, err := p.GetInstanceMetadata(ctx)
 	if err != nil {
 		// May not be on Azure, check for managed identity
-		if p.IsManagedIdentityAvailable() {
+		if p.IsManagedIdentityAvailable() { //nolint:contextcheck // simple availability check
 			p.mu.Lock()
 			p.subscriptionID = p.config.SubscriptionID
 			p.resourceGroup = p.config.ResourceGroup
@@ -536,7 +536,7 @@ func (p *AzureProvider) performHealthCheck(ctx context.Context) {
 	p.lastHealthCheck = time.Now()
 
 	if err != nil {
-		if p.IsManagedIdentityAvailable() {
+		if p.IsManagedIdentityAvailable() { //nolint:contextcheck // simple availability check
 			p.status = identity.ProviderStatusDegraded
 			p.statusMessage = "IMDS unavailable, using managed identity"
 		} else {
@@ -550,5 +550,5 @@ func (p *AzureProvider) performHealthCheck(ctx context.Context) {
 	p.mu.Unlock()
 }
 
-// Verify AzureProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*AzureProvider)(nil)
+// Verify AzureProvider implements Provider
+var _ identity.Provider = (*AzureProvider)(nil)

@@ -131,8 +131,8 @@ Grafana dashboards are installed as ConfigMaps with label: grafana_dashboard=1
 ================================================================================
 
 Documentation:   https://keystonecore.io/docs
-GitHub:          https://github.com/keystone-core/keystone-core
-Issues:          https://github.com/keystone-core/keystone-core/issues
+GitHub:          https://github.com/shawnbutts/keystone-core
+Issues:          https://github.com/shawnbutts/keystone-core/issues
 
 To uninstall:
    helm uninstall {{ .Release.Name }}

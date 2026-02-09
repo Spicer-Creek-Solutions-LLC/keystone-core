@@ -88,9 +88,9 @@ func (t *ScheduleTrigger) ToSchedule() (*schedule.Schedule, error) {
 		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
 
-	status := schedule.ScheduleStatusActive
+	status := schedule.StatusActive
 	if !t.Enabled {
-		status = schedule.ScheduleStatusDisabled
+		status = schedule.StatusDisabled
 	}
 
 	return &schedule.Schedule{
@@ -111,7 +111,7 @@ func (t *ScheduleTrigger) ToSchedule() (*schedule.Schedule, error) {
 }
 
 // ScheduleTypeRunbook is the schedule type for runbook execution.
-const ScheduleTypeRunbook schedule.ScheduleType = "runbook"
+const ScheduleTypeRunbook schedule.Type = "runbook"
 
 // RunbookPayload is the payload for runbook schedule execution.
 type RunbookPayload struct {
@@ -133,14 +133,14 @@ type ScheduleHandler struct {
 
 // ScheduleExecution tracks a schedule-triggered execution.
 type ScheduleExecution struct {
-	ID           string    `json:"id"`
-	TriggerID    string    `json:"trigger_id"`
-	ScheduleID   string    `json:"schedule_id"`
-	ExecutionID  string    `json:"execution_id"`
-	StartedAt    time.Time `json:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at,omitempty"`
-	Status       string    `json:"status"`
-	Error        string    `json:"error,omitempty"`
+	ID          string     `json:"id"`
+	TriggerID   string     `json:"trigger_id"`
+	ScheduleID  string     `json:"schedule_id"`
+	ExecutionID string     `json:"execution_id"`
+	StartedAt   time.Time  `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	Status      string     `json:"status"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // ScheduleExecutionResult is the result of a schedule execution.
@@ -162,7 +162,7 @@ func NewScheduleHandler(repo RunbookRepository, executor RunbookExecutor, publis
 }
 
 // Type returns the schedule type this handler processes.
-func (h *ScheduleHandler) Type() schedule.ScheduleType {
+func (h *ScheduleHandler) Type() schedule.Type {
 	return ScheduleTypeRunbook
 }
 
@@ -187,7 +187,7 @@ func (h *ScheduleHandler) Validate(s *schedule.Schedule) error {
 }
 
 // Execute runs the scheduled runbook.
-func (h *ScheduleHandler) Execute(ctx context.Context, s *schedule.Schedule, exec *schedule.ScheduleExecution) error {
+func (h *ScheduleHandler) Execute(ctx context.Context, s *schedule.Schedule, exec *schedule.Execution) error {
 	var payload RunbookPayload
 	if err := json.Unmarshal(s.Payload, &payload); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
@@ -195,11 +195,11 @@ func (h *ScheduleHandler) Execute(ctx context.Context, s *schedule.Schedule, exe
 
 	// Track execution
 	schedExec := &ScheduleExecution{
-		ID:          uuid.New().String(),
-		TriggerID:   s.ID,
-		ScheduleID:  s.ID,
-		StartedAt:   time.Now(),
-		Status:      "running",
+		ID:         uuid.New().String(),
+		TriggerID:  s.ID,
+		ScheduleID: s.ID,
+		StartedAt:  time.Now(),
+		Status:     "running",
 	}
 
 	h.mu.Lock()
@@ -328,13 +328,13 @@ type ScheduleTriggerManager struct {
 	mu       sync.RWMutex
 	triggers map[string]*ScheduleTrigger
 
-	scheduleManager *schedule.ScheduleManager
+	scheduleManager *schedule.Manager
 	scheduleHandler *ScheduleHandler
 }
 
 // NewScheduleTriggerManager creates a new schedule trigger manager.
 func NewScheduleTriggerManager(
-	scheduleManager *schedule.ScheduleManager,
+	scheduleManager *schedule.Manager,
 	repository RunbookRepository,
 	executor RunbookExecutor,
 	publisher events.EventPublisher,

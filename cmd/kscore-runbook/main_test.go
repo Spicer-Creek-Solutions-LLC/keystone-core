@@ -105,7 +105,7 @@ func TestApprovalsCommand(t *testing.T) {
 		State:       approval.RequestStatePending,
 		Title:       "Test Approval",
 		Approvers:   []string{"user1"},
-		Mode:        approval.ApprovalModeAny,
+		Mode:        approval.ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -156,7 +156,7 @@ func TestApproveCommand(t *testing.T) {
 		State:       approval.RequestStatePending,
 		Title:       "Approve Test",
 		Approvers:   []string{currentUser}, // Use current user
-		Mode:        approval.ApprovalModeAny,
+		Mode:        approval.ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -202,7 +202,7 @@ func TestRejectCommand(t *testing.T) {
 		State:       approval.RequestStatePending,
 		Title:       "Reject Test",
 		Approvers:   []string{currentUser},
-		Mode:        approval.ApprovalModeAny,
+		Mode:        approval.ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -246,7 +246,7 @@ func TestDelegateCommand(t *testing.T) {
 		State:       approval.RequestStatePending,
 		Title:       "Delegate Test",
 		Approvers:   []string{"user1"},
-		Mode:        approval.ApprovalModeAny,
+		Mode:        approval.ModeAny,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -294,8 +294,8 @@ func TestInterventionsCommand(t *testing.T) {
 		ID:          "int-test-1",
 		ExecutionID: "exec-1",
 		StepName:    "prompt-step",
-		Type:        intervention.InterventionTypePrompt,
-		State:       intervention.InterventionStatePending,
+		Type:        intervention.TypePrompt,
+		State:       intervention.StatePending,
 		Title:       "Test Prompt",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -327,8 +327,8 @@ func TestRespondCommand_Confirm(t *testing.T) {
 		ID:          "int-confirm-1",
 		ExecutionID: "exec-1",
 		StepName:    "confirm-step",
-		Type:        intervention.InterventionTypeConfirm,
-		State:       intervention.InterventionStatePending,
+		Type:        intervention.TypeConfirm,
+		State:       intervention.StatePending,
 		Title:       "Confirm Test",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -350,8 +350,8 @@ func TestRespondCommand_Confirm(t *testing.T) {
 	updated, _ := storage.GetRequest(ctx, "int-confirm-1")
 	db.Close()
 
-	if updated.State != intervention.InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", updated.State, intervention.InterventionStateCompleted)
+	if updated.State != intervention.StateCompleted {
+		t.Errorf("State = %q, want %q", updated.State, intervention.StateCompleted)
 	}
 	if !updated.Response.Confirmed {
 		t.Error("expected Confirmed = true")
@@ -373,8 +373,8 @@ func TestRespondCommand_WithTextValues(t *testing.T) {
 		ID:          "int-prompt-1",
 		ExecutionID: "exec-1",
 		StepName:    "prompt-step",
-		Type:        intervention.InterventionTypePrompt,
-		State:       intervention.InterventionStatePending,
+		Type:        intervention.TypePrompt,
+		State:       intervention.StatePending,
 		Title:       "Prompt Test",
 		Prompts: []intervention.PromptField{
 			{Name: "version", Type: intervention.FieldTypeText},
@@ -489,13 +489,13 @@ func TestApprovalsCommand_FilterByState(t *testing.T) {
 	storage.SaveRequest(ctx, &approval.Request{
 		ID: "req-pending", ExecutionID: "exec-1", StepName: "step1",
 		State: approval.RequestStatePending, Title: "Pending",
-		Approvers: []string{"user1"}, Mode: approval.ApprovalModeAny,
+		Approvers: []string{"user1"}, Mode: approval.ModeAny,
 		CreatedAt: now, UpdatedAt: now,
 	})
 	storage.SaveRequest(ctx, &approval.Request{
 		ID: "req-approved", ExecutionID: "exec-2", StepName: "step1",
 		State: approval.RequestStateApproved, Title: "Approved",
-		Approvers: []string{"user1"}, Mode: approval.ApprovalModeAny,
+		Approvers: []string{"user1"}, Mode: approval.ModeAny,
 		CreatedAt: now, UpdatedAt: now,
 	})
 	db.Close()
@@ -522,12 +522,12 @@ func TestInterventionsCommand_FilterByExecution(t *testing.T) {
 
 	storage.SaveRequest(ctx, &intervention.Request{
 		ID: "int-1", ExecutionID: "exec-1", StepName: "step1",
-		Type: intervention.InterventionTypeConfirm, State: intervention.InterventionStatePending,
+		Type: intervention.TypeConfirm, State: intervention.StatePending,
 		Title: "Test 1", CreatedAt: now, UpdatedAt: now,
 	})
 	storage.SaveRequest(ctx, &intervention.Request{
 		ID: "int-2", ExecutionID: "exec-2", StepName: "step1",
-		Type: intervention.InterventionTypeConfirm, State: intervention.InterventionStatePending,
+		Type: intervention.TypeConfirm, State: intervention.StatePending,
 		Title: "Test 2", CreatedAt: now, UpdatedAt: now,
 	})
 	db.Close()

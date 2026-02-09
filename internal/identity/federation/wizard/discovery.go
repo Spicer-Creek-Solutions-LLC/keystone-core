@@ -208,7 +208,7 @@ func probeEndpoint(ctx context.Context, url string, opts *DiscoveryOptions) *End
 	}
 
 	// Make request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		info.Error = fmt.Sprintf("Failed to create request: %v", err)
 		return info

@@ -1,0 +1,21 @@
+{
+  "ietf-yang-library:modules-state": {
+    "module": [
+      {
+        "name": "ietf-interfaces",
+        "revision": "2018-02-20",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-interfaces"
+      },
+      {
+        "name": "ietf-ip",
+        "revision": "2018-02-22",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-ip"
+      },
+      {
+        "name": "ietf-system",
+        "revision": "2014-08-06",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-system"
+      }
+    ]
+  }
+}

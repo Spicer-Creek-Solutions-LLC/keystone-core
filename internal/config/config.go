@@ -11,6 +11,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -478,11 +479,7 @@ func (c *NATSConfig) validateLeafMode() error {
 	}
 
 	// Also validate embedded settings since leaf mode uses embedded server
-	if err := c.validateEmbeddedSettings(); err != nil {
-		return err
-	}
-
-	return nil
+	return c.validateEmbeddedSettings()
 }
 
 // validateEmbeddedMode validates configuration for embedded NATS mode.
@@ -501,11 +498,8 @@ func (c *NATSConfig) validateEmbeddedSettings() error {
 		}
 	}
 
-	// Warn about well-known ports
-	if c.Embedded.Port < 1024 && c.Embedded.Port != 0 {
-		// This is a warning, not an error - privileged ports require root
-		// We'll just validate the port is valid
-	}
+	// Note: Ports < 1024 are privileged and require root. We don't error here
+	// as the port is still valid, but the user should be aware of this.
 
 	// Validate max connections
 	if c.Embedded.MaxConnections < 0 {
@@ -818,9 +812,10 @@ const (
 	DefaultPolicyEnforcementMode = "enforce"
 
 	// Auth defaults - secure by default
-	DefaultAuthEnabled       = true
-	DefaultAuthType          = "apikey"
-	DefaultAPIKeyHeaderName  = "X-API-Key"
+	DefaultAuthEnabled = true
+	DefaultAuthType    = "apikey"
+	//nolint:gosec // G101: false positive - this is a header name, not a hardcoded secret
+	DefaultAPIKeyHeaderName = "X-API-Key"
 	DefaultAPIKeyMetadataKey = "x-api-key"
 	DefaultJWTRoleClaim      = "role"
 
@@ -913,16 +908,17 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	v.AutomaticEnv()
 
 	// Explicit bindings for commonly overridden settings
-	v.BindEnv("agent.id", "KSCORE_AGENT_ID")
+	_ = v.BindEnv("agent.id", "KSCORE_AGENT_ID")
 
 	// Logging environment variable bindings (T1.4: Epic 15)
-	v.BindEnv("logging.level", "KSCORE_LOG_LEVEL")
-	v.BindEnv("logging.format", "KSCORE_LOG_FORMAT")
-	v.BindEnv("logging.output", "KSCORE_LOG_OUTPUT")
+	_ = v.BindEnv("logging.level", "KSCORE_LOG_LEVEL")
+	_ = v.BindEnv("logging.format", "KSCORE_LOG_FORMAT")
+	_ = v.BindEnv("logging.output", "KSCORE_LOG_OUTPUT")
 
 	// Read config file (optional)
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
 	}

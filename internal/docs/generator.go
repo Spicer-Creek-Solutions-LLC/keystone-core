@@ -180,7 +180,7 @@ func (g *Generator) ParsePackage(dir string) (*ModuleInfo, error) {
 		}
 
 		// Build AST package
-		astPkg := &ast.Package{
+		astPkg := &ast.Package{ //nolint:staticcheck // SA1019: ast.Package is deprecated but requires major refactoring to use go/types
 			Name:  name,
 			Files: pkg.Files,
 		}
@@ -782,8 +782,8 @@ func extractKeywords(mod *ModuleInfo) []string {
 	keywords := make(map[string]bool)
 
 	// Add type names as keywords
-	for _, t := range mod.Types {
-		keywords[strings.ToLower(t.Name)] = true
+	for i := range mod.Types {
+		keywords[strings.ToLower(mod.Types[i].Name)] = true
 	}
 
 	// Add function names as keywords
@@ -931,7 +931,7 @@ func findGoPackages(rootDir string) ([]string, error) {
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // skip errors in walk to continue
 		}
 		// Check if path ends with .go
 		if strings.HasSuffix(path, ".go") {

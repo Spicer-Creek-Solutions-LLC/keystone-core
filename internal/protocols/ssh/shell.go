@@ -18,15 +18,15 @@ import (
 
 // Shell represents an interactive SSH shell session.
 type Shell struct {
-	session  *ssh.Session
-	stdin    io.WriteCloser
-	stdout   io.Reader
-	stderr   io.Reader
-	adapter  *Adapter
-	mu       sync.Mutex
-	closed   bool
-	prompt   string
-	timeout  time.Duration
+	session *ssh.Session
+	stdin   io.WriteCloser
+	stdout  io.Reader
+	stderr  io.Reader
+	adapter *Adapter
+	mu      sync.Mutex
+	closed  bool
+	prompt  string
+	timeout time.Duration
 }
 
 // ShellConfig configures an interactive shell.
@@ -309,7 +309,7 @@ func (s *Shell) readUntil(ctx context.Context, pattern string, timeout time.Dura
 }
 
 // readUntilExpect reads until one of the expected patterns is seen.
-func (s *Shell) readUntilExpect(ctx context.Context, expects []string, timeout time.Duration) (string, int, error) {
+func (s *Shell) readUntilExpect(ctx context.Context, expects []string, timeout time.Duration) (output string, matchIndex int, err error) {
 	var buf bytes.Buffer
 	readBuf := make([]byte, 4096)
 
@@ -392,7 +392,7 @@ func (s *Shell) readWithTimeout(ctx context.Context, timeout time.Duration) (str
 }
 
 // cleanOutput removes the echoed command and prompt from output.
-func (s *Shell) cleanOutput(output string, command string) string {
+func (s *Shell) cleanOutput(output, command string) string {
 	lines := strings.Split(output, "\n")
 	var cleaned []string
 
@@ -484,8 +484,8 @@ func (r *ShellResult) Success() bool {
 // NetworkDeviceShell provides specialized shell handling for network devices.
 type NetworkDeviceShell struct {
 	*Shell
-	vendor   string
-	prompts  []string
+	vendor    string
+	prompts   []string
 	enableCmd string
 }
 

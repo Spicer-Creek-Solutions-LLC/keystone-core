@@ -1,7 +1,7 @@
 # LAMP Stack Blueprint Integration Tests
 # These tests verify the blueprint deployed correctly
 
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: BlueprintTest
 metadata:
   name: lamp-stack-integration

@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-// DiscoveryAPI provides HTTP handlers for discovery operations.
-type DiscoveryAPI struct {
+// API provides HTTP handlers for discovery operations.
+type API struct {
 	discovery *Discovery
 }
 
-// NewDiscoveryAPI creates a new discovery API.
-func NewDiscoveryAPI(discovery *Discovery) *DiscoveryAPI {
-	return &DiscoveryAPI{
+// NewAPI creates a new discovery API.
+func NewAPI(discovery *Discovery) *API {
+	return &API{
 		discovery: discovery,
 	}
 }
 
 // RegisterRoutes registers the discovery API routes.
-func (api *DiscoveryAPI) RegisterRoutes(mux *http.ServeMux) {
+func (api *API) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/discovery/scan", api.handleScan)
 	mux.HandleFunc("/api/v1/discovery/devices", api.handleDevices)
 	mux.HandleFunc("/api/v1/discovery/devices/", api.handleDevice)
@@ -41,7 +41,7 @@ type ScanRequest struct {
 }
 
 // handleScan handles POST /api/v1/discovery/scan
-func (api *DiscoveryAPI) handleScan(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleScan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -59,7 +59,7 @@ func (api *DiscoveryAPI) handleScan(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDevices handles GET /api/v1/discovery/devices
-func (api *DiscoveryAPI) handleDevices(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleDevices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -73,7 +73,7 @@ func (api *DiscoveryAPI) handleDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDevice handles GET/DELETE /api/v1/discovery/devices/{id}
-func (api *DiscoveryAPI) handleDevice(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleDevice(w http.ResponseWriter, r *http.Request) {
 	// Extract device ID from path
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/discovery/devices/")
 	if path == "" {
@@ -105,7 +105,7 @@ func (api *DiscoveryAPI) handleDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlePending handles GET /api/v1/discovery/pending
-func (api *DiscoveryAPI) handlePending(w http.ResponseWriter, r *http.Request) {
+func (api *API) handlePending(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -119,7 +119,7 @@ func (api *DiscoveryAPI) handlePending(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleApproved handles GET /api/v1/discovery/approved
-func (api *DiscoveryAPI) handleApproved(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleApproved(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -140,7 +140,7 @@ type ApprovalRequest struct {
 }
 
 // handleApprove handles POST /api/v1/discovery/approve
-func (api *DiscoveryAPI) handleApprove(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleApprove(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -169,7 +169,7 @@ func (api *DiscoveryAPI) handleApprove(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleReject handles POST /api/v1/discovery/reject
-func (api *DiscoveryAPI) handleReject(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleReject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -198,7 +198,7 @@ func (api *DiscoveryAPI) handleReject(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleIgnore handles POST /api/v1/discovery/ignore
-func (api *DiscoveryAPI) handleIgnore(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleIgnore(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -227,7 +227,7 @@ func (api *DiscoveryAPI) handleIgnore(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleProfiles handles GET /api/v1/discovery/profiles
-func (api *DiscoveryAPI) handleProfiles(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleProfiles(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -241,21 +241,21 @@ func (api *DiscoveryAPI) handleProfiles(w http.ResponseWriter, r *http.Request) 
 }
 
 // writeJSON writes a JSON response.
-func (api *DiscoveryAPI) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+func (api *API) writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 
 // writeError writes an error response.
-func (api *DiscoveryAPI) writeError(w http.ResponseWriter, status int, message string) {
+func (api *API) writeError(w http.ResponseWriter, status int, message string) {
 	api.writeJSON(w, status, map[string]string{
 		"error": message,
 	})
 }
 
-// DiscoveryStats holds discovery statistics.
-type DiscoveryStats struct {
+// Stats holds discovery statistics.
+type Stats struct {
 	TotalDiscovered int       `json:"total_discovered"`
 	PendingCount    int       `json:"pending_count"`
 	ApprovedCount   int       `json:"approved_count"`
@@ -267,11 +267,11 @@ type DiscoveryStats struct {
 }
 
 // GetStats returns discovery statistics.
-func (d *Discovery) GetStats() DiscoveryStats {
+func (d *Discovery) GetStats() Stats {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	stats := DiscoveryStats{
+	stats := Stats{
 		TotalDiscovered: len(d.discovered),
 		ApprovedCount:   len(d.approved),
 		ScannerCount:    len(d.scanners),
@@ -286,6 +286,8 @@ func (d *Discovery) GetStats() DiscoveryStats {
 			stats.RejectedCount++
 		case StatusIgnored:
 			stats.IgnoredCount++
+		default:
+			// StatusApproved devices are counted separately
 		}
 	}
 
@@ -346,8 +348,8 @@ func (d *Discovery) AutoApproveMatching(profiles []string) *BulkApprovalResult {
 func (d *Discovery) ExportDiscovered() ([]byte, error) {
 	devices := d.GetDiscovered()
 	return json.MarshalIndent(map[string]interface{}{
-		"devices":    devices,
-		"count":      len(devices),
+		"devices":     devices,
+		"count":       len(devices),
 		"exported_at": time.Now(),
 	}, "", "  ")
 }

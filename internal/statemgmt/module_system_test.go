@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -40,7 +41,7 @@ func TestTimezoneModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -49,7 +50,7 @@ func TestTimezoneModule_Check_MissingName(t *testing.T) {
 func TestTimezoneModule_GetCurrentTimezone(t *testing.T) {
 	m := NewTimezoneModule()
 
-	tz, err := m.getCurrentTimezone()
+	tz, err := m.getCurrentTimezone(context.Background())
 	if err != nil {
 		// Not an error if timezone tools aren't available
 		t.Skipf("could not get current timezone: %v", err)
@@ -96,7 +97,7 @@ func TestLocaleModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestLocaleModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "not supported on Windows") {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestHostnameModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -173,7 +174,7 @@ func TestHostnameModule_Check_CurrentHostname(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestHostsModule_Check_MissingIP(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "ip parameter is required") {
 		t.Errorf("expected ip required error, got: %v", err)
 	}
@@ -232,7 +233,7 @@ func TestHostsModule_Check_MissingName(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "names or name parameter is required") {
 		t.Errorf("expected names required error, got: %v", err)
 	}
@@ -365,7 +366,7 @@ func TestSysctlModule_Check_NonLinux(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "only available on Linux") {
 		t.Errorf("expected Linux-only error, got: %v", err)
 	}
@@ -384,7 +385,7 @@ func TestSysctlModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -448,7 +449,7 @@ func TestKernelModuleModule_Check_NonLinux(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "only available on Linux") {
 		t.Errorf("expected Linux-only error, got: %v", err)
 	}
@@ -467,7 +468,7 @@ func TestKernelModuleModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}

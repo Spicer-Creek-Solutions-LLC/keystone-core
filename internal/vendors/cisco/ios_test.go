@@ -1,6 +1,7 @@
 package cisco
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -14,8 +15,8 @@ func TestDefaultIOSConfig(t *testing.T) {
 	if cfg.VendorConfig == nil {
 		t.Error("VendorConfig should not be nil")
 	}
-	if cfg.VendorConfig.Timeout != 60*time.Second {
-		t.Errorf("Timeout = %v, want 60s", cfg.VendorConfig.Timeout)
+	if cfg.Timeout != 60*time.Second {
+		t.Errorf("Timeout = %v, want 60s", cfg.Timeout)
 	}
 }
 
@@ -262,7 +263,7 @@ func TestIOSAdapterDisconnect(t *testing.T) {
 	adapter := NewIOSAdapter(nil)
 
 	// Disconnect on unconnected adapter should succeed
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -271,7 +272,7 @@ func TestIOSAdapterDisconnect(t *testing.T) {
 func TestIOSAdapterHealthCheckNotConnected(t *testing.T) {
 	adapter := NewIOSAdapter(nil)
 
-	result, err := adapter.HealthCheck(nil)
+	result, err := adapter.HealthCheck(context.Background())
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}
@@ -299,15 +300,15 @@ func TestIOSConfigStructure(t *testing.T) {
 	if cfg.Secret != "secret456" {
 		t.Errorf("Secret = %v", cfg.Secret)
 	}
-	if cfg.VendorConfig.EnablePassword != "enable123" {
-		t.Errorf("EnablePassword = %v", cfg.VendorConfig.EnablePassword)
+	if cfg.EnablePassword != "enable123" {
+		t.Errorf("EnablePassword = %v", cfg.EnablePassword)
 	}
 }
 
 func TestIOSAdapterRunCommandNilShell(t *testing.T) {
 	adapter := NewIOSAdapter(nil)
 
-	_, err := adapter.runCommand(nil, "show version")
+	_, err := adapter.runCommand(context.Background(), "show version")
 	if err == nil {
 		t.Error("expected error when shell is nil")
 	}

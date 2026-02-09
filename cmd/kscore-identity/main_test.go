@@ -380,7 +380,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check that global flags exist
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag to exist")
+		t.Fatal("expected --server flag to exist")
 	}
 	if serverFlag.DefValue != "localhost:9090" {
 		t.Errorf("expected server default to be localhost:9090, got %s", serverFlag.DefValue)
@@ -388,7 +388,7 @@ func TestGlobalFlags(t *testing.T) {
 
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag to exist")
+		t.Fatal("expected --output flag to exist")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be table, got %s", outputFlag.DefValue)

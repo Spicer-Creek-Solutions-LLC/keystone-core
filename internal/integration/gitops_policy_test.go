@@ -206,10 +206,13 @@ func TestIntegration_PolicyEvaluationEvents(t *testing.T) {
 	passes := 0
 	violations := 0
 	for _, e := range policyEvents {
-		if e.Type == events.EventTypePolicyPass {
+		switch e.Type {
+		case events.EventTypePolicyPass:
 			passes++
-		} else if e.Type == events.EventTypePolicyViolation {
+		case events.EventTypePolicyViolation:
 			violations++
+		default:
+			// Other event types not counted in this test
 		}
 	}
 
@@ -549,6 +552,8 @@ func TestIntegration_PromotionPipeline(t *testing.T) {
 			policies++
 		case events.EventType("gitops.promotion.approved"):
 			promotions++
+		default:
+			// Other event types not counted in this test
 		}
 	}
 

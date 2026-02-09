@@ -21,14 +21,14 @@ data:
         host: "0.0.0.0"
         port: 4222
         enableJetStream: true
-        storeDir: "/var/lib/kscore/nats"
+        storeDir: "/var/lib/keystone-core/nats"
         maxMemory: "1Gi"
 
     # Storage Configuration (SQLite for single-node)
     storage:
       backend: sqlite
       sqlite:
-        path: "/var/lib/kscore/kscore.db"
+        path: "/var/lib/keystone-core/keystone-core.db"
         wal: true
         busyTimeout: 5000
 

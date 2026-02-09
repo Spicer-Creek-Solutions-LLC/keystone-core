@@ -12,25 +12,25 @@ import (
 // Executor defines the interface for executing rollbacks
 type Executor interface {
 	// Type returns the rollback type this executor handles
-	Type() RollbackType
+	Type() Type
 
 	// Execute executes the rollback
-	Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error)
+	Execute(ctx context.Context, config *Config, request *Request) (*Result, error)
 
 	// GetPreviousRevision gets the previous revision for an application
-	GetPreviousRevision(ctx context.Context, config *RollbackConfig) (string, error)
+	GetPreviousRevision(ctx context.Context, config *Config) (string, error)
 
 	// GetLastKnownGood gets the last known good revision
-	GetLastKnownGood(ctx context.Context, config *RollbackConfig) (string, error)
+	GetLastKnownGood(ctx context.Context, config *Config) (string, error)
 }
 
 // Engine orchestrates rollback operations
 type Engine struct {
-	executors map[RollbackType]Executor
+	executors map[Type]Executor
 	mu        sync.RWMutex
 
 	// Store for rollback results
-	results   map[string]*RollbackResult
+	results   map[string]*Result
 	resultsMu sync.RWMutex
 
 	// Approval workflow
@@ -40,17 +40,17 @@ type Engine struct {
 // ApprovalWorkflow defines the interface for approval workflows
 type ApprovalWorkflow interface {
 	// RequestApproval requests approval for a rollback
-	RequestApproval(ctx context.Context, result *RollbackResult) error
+	RequestApproval(ctx context.Context, result *Result) error
 
 	// CheckApprovalStatus checks the approval status
-	CheckApprovalStatus(ctx context.Context, rollbackID string) (RollbackStatus, error)
+	CheckApprovalStatus(ctx context.Context, rollbackID string) (Status, error)
 }
 
 // NewEngine creates a new rollback engine
 func NewEngine() *Engine {
 	return &Engine{
-		executors: make(map[RollbackType]Executor),
-		results:   make(map[string]*RollbackResult),
+		executors: make(map[Type]Executor),
+		results:   make(map[string]*Result),
 	}
 }
 
@@ -67,7 +67,7 @@ func (e *Engine) SetApprovalWorkflow(workflow ApprovalWorkflow) {
 }
 
 // Execute executes a rollback
-func (e *Engine) Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error) {
+func (e *Engine) Execute(ctx context.Context, config *Config, request *Request) (*Result, error) {
 	// Get executor
 	e.mu.RLock()
 	executor, ok := e.executors[config.Type]
@@ -78,7 +78,7 @@ func (e *Engine) Execute(ctx context.Context, config *RollbackConfig, request *R
 	}
 
 	// Create rollback result
-	result := &RollbackResult{
+	result := &Result{
 		ID:        uuid.New().String(),
 		Config:    config,
 		Request:   request,
@@ -115,7 +115,7 @@ func (e *Engine) Execute(ctx context.Context, config *RollbackConfig, request *R
 }
 
 // executeRollback executes the actual rollback
-func (e *Engine) executeRollback(ctx context.Context, executor Executor, result *RollbackResult) (*RollbackResult, error) {
+func (e *Engine) executeRollback(ctx context.Context, executor Executor, result *Result) (*Result, error) {
 	result.Status = StatusInProgress
 	result.StartTime = time.Now()
 
@@ -223,21 +223,21 @@ func (e *Engine) ApproveRollback(ctx context.Context, req *ApprovalRequest) erro
 
 		_, err := e.executeRollback(ctx, executor, result)
 		return err
-	} else {
-		result.ApprovalInfo.Status = StatusRejected
-		result.ApprovalInfo.RejectedBy = req.ApprovedBy
-		result.ApprovalInfo.RejectedAt = time.Now()
-		result.ApprovalInfo.Reason = req.Reason
-		result.Status = StatusRejected
-		result.EndTime = time.Now()
-		result.Message = fmt.Sprintf("Rollback rejected by %s: %s", req.ApprovedBy, req.Reason)
 	}
+
+	result.ApprovalInfo.Status = StatusRejected
+	result.ApprovalInfo.RejectedBy = req.ApprovedBy
+	result.ApprovalInfo.RejectedAt = time.Now()
+	result.ApprovalInfo.Reason = req.Reason
+	result.Status = StatusRejected
+	result.EndTime = time.Now()
+	result.Message = fmt.Sprintf("Rollback rejected by %s: %s", req.ApprovedBy, req.Reason)
 
 	return nil
 }
 
 // GetRollback returns a rollback result by ID
-func (e *Engine) GetRollback(id string) (*RollbackResult, bool) {
+func (e *Engine) GetRollback(id string) (*Result, bool) {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 	result, ok := e.results[id]
@@ -245,11 +245,11 @@ func (e *Engine) GetRollback(id string) (*RollbackResult, bool) {
 }
 
 // ListRollbacks returns all rollback results
-func (e *Engine) ListRollbacks() []*RollbackResult {
+func (e *Engine) ListRollbacks() []*Result {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 
-	results := make([]*RollbackResult, 0, len(e.results))
+	results := make([]*Result, 0, len(e.results))
 	for _, result := range e.results {
 		results = append(results, result)
 	}
@@ -257,11 +257,11 @@ func (e *Engine) ListRollbacks() []*RollbackResult {
 }
 
 // ListPendingRollbacks returns rollbacks pending approval
-func (e *Engine) ListPendingRollbacks() []*RollbackResult {
+func (e *Engine) ListPendingRollbacks() []*Result {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 
-	var results []*RollbackResult
+	var results []*Result
 	for _, result := range e.results {
 		if result.Status == StatusPending {
 			results = append(results, result)

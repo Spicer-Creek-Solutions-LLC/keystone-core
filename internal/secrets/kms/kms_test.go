@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"errors"
 	"io"
 	"sync"
 	"testing"
@@ -363,7 +364,7 @@ func TestMockProvider_KeyNotFound(t *testing.T) {
 		Plaintext: []byte("test"),
 	})
 
-	if err != ErrKeyNotFound {
+	if !errors.Is(err, ErrKeyNotFound) {
 		t.Errorf("Expected ErrKeyNotFound, got %v", err)
 	}
 }
@@ -582,7 +583,7 @@ func TestEnvelopeEncryptor(t *testing.T) {
 // KMS Secret Cache Tests
 // =============================================================================
 
-func TestKMSSecretCache_PutGet(t *testing.T) {
+func TestSecretCache_PutGet(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -595,9 +596,9 @@ func TestKMSSecretCache_PutGet(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, nil)
+	cache, err := NewSecretCache(ctx, mgr, nil)
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -631,7 +632,7 @@ func TestKMSSecretCache_PutGet(t *testing.T) {
 	}
 }
 
-func TestKMSSecretCache_Expiration(t *testing.T) {
+func TestSecretCache_Expiration(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -644,12 +645,12 @@ func TestKMSSecretCache_Expiration(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, &KMSSecretCacheConfig{
+	cache, err := NewSecretCache(ctx, mgr, &SecretCacheConfig{
 		MaxEntries:      100,
 		CleanupInterval: 10 * time.Millisecond,
 	})
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -674,7 +675,7 @@ func TestKMSSecretCache_Expiration(t *testing.T) {
 	}
 }
 
-func TestKMSSecretCache_Delete(t *testing.T) {
+func TestSecretCache_Delete(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -687,9 +688,9 @@ func TestKMSSecretCache_Delete(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, nil)
+	cache, err := NewSecretCache(ctx, mgr, nil)
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -707,7 +708,7 @@ func TestKMSSecretCache_Delete(t *testing.T) {
 	}
 }
 
-func TestKMSSecretCache_DeleteByPrefix(t *testing.T) {
+func TestSecretCache_DeleteByPrefix(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -720,9 +721,9 @@ func TestKMSSecretCache_DeleteByPrefix(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, nil)
+	cache, err := NewSecretCache(ctx, mgr, nil)
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -753,7 +754,7 @@ func TestKMSSecretCache_DeleteByPrefix(t *testing.T) {
 	}
 }
 
-func TestKMSSecretCache_RotateKey(t *testing.T) {
+func TestSecretCache_RotateKey(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -766,9 +767,9 @@ func TestKMSSecretCache_RotateKey(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, nil)
+	cache, err := NewSecretCache(ctx, mgr, nil)
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -803,7 +804,7 @@ func TestKMSSecretCache_RotateKey(t *testing.T) {
 	}
 }
 
-func TestKMSSecretCache_Stats(t *testing.T) {
+func TestSecretCache_Stats(t *testing.T) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -816,9 +817,9 @@ func TestKMSSecretCache_Stats(t *testing.T) {
 	}
 	defer mgr.Stop()
 
-	cache, err := NewKMSSecretCache(ctx, mgr, nil)
+	cache, err := NewSecretCache(ctx, mgr, nil)
 	if err != nil {
-		t.Fatalf("NewKMSSecretCache failed: %v", err)
+		t.Fatalf("NewSecretCache failed: %v", err)
 	}
 	defer cache.Close()
 
@@ -1011,7 +1012,7 @@ func BenchmarkKeyHierarchy_DeriveKey(b *testing.B) {
 	}
 }
 
-func BenchmarkKMSSecretCache_Put(b *testing.B) {
+func BenchmarkSecretCache_Put(b *testing.B) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -1021,7 +1022,7 @@ func BenchmarkKMSSecretCache_Put(b *testing.B) {
 	})
 	defer mgr.Stop()
 
-	cache, _ := NewKMSSecretCache(ctx, mgr, nil)
+	cache, _ := NewSecretCache(ctx, mgr, nil)
 	defer cache.Close()
 
 	secret := &secrets.Secret{
@@ -1035,7 +1036,7 @@ func BenchmarkKMSSecretCache_Put(b *testing.B) {
 	}
 }
 
-func BenchmarkKMSSecretCache_Get(b *testing.B) {
+func BenchmarkSecretCache_Get(b *testing.B) {
 	ctx := context.Background()
 	provider := newMockProvider()
 	provider.addKey("master-key")
@@ -1045,7 +1046,7 @@ func BenchmarkKMSSecretCache_Get(b *testing.B) {
 	})
 	defer mgr.Stop()
 
-	cache, _ := NewKMSSecretCache(ctx, mgr, nil)
+	cache, _ := NewSecretCache(ctx, mgr, nil)
 	defer cache.Close()
 
 	secret := &secrets.Secret{

@@ -339,13 +339,13 @@ func TestModeListTitle(t *testing.T) {
 
 func TestWizardConfig(t *testing.T) {
 	config := WizardConfig{
-		Mode:         "demo",
-		ClusterName:  "test-cluster",
-		NodeRole:     "both",
-		NodeName:     "node-1",
-		Storage:      "sqlite",
-		NATSMode:     "embedded",
-		HAEnabled:    false,
+		Mode:          "demo",
+		ClusterName:   "test-cluster",
+		NodeRole:      "both",
+		NodeName:      "node-1",
+		Storage:       "sqlite",
+		NATSMode:      "embedded",
+		HAEnabled:     false,
 		GenerateCerts: true,
 	}
 

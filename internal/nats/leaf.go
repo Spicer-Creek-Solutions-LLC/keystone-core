@@ -236,7 +236,8 @@ func (c *LeafNodeConfig) Validate() error {
 		if len(c.Remotes) == 0 {
 			return errors.New("leaf/bridge role requires at least one remote")
 		}
-		for i, remote := range c.Remotes {
+		for i := range c.Remotes {
+			remote := &c.Remotes[i]
 			if len(remote.URLs) == 0 {
 				return fmt.Errorf("remote %d has no URLs", i)
 			}
@@ -365,10 +366,10 @@ type LeafNodeManager struct {
 	running atomic.Bool
 
 	// Callbacks
-	onStateChange    func(state LeafConnectionState)
-	onRemoteConnect  func(remote *LeafRemoteConfig)
+	onStateChange      func(state LeafConnectionState)
+	onRemoteConnect    func(remote *LeafRemoteConfig)
 	onRemoteDisconnect func(remote *LeafRemoteConfig, err error)
-	onMessage        func(subject string, data []byte, isFromRemote bool)
+	onMessage          func(subject string, data []byte, isFromRemote bool)
 
 	// Internal
 	mu     sync.RWMutex
@@ -393,8 +394,8 @@ func NewLeafNodeManager(config *LeafNodeConfig) (*LeafNodeManager, error) {
 	}
 
 	// Initialize leaf connections
-	for _, remote := range config.Remotes {
-		remoteCopy := remote
+	for i := range config.Remotes {
+		remoteCopy := config.Remotes[i]
 		manager.connections = append(manager.connections, &LeafConnection{
 			Remote: &remoteCopy,
 		})
@@ -708,8 +709,8 @@ func (m *LeafNodeManager) buildLeafServerOptions() (*server.Options, error) {
 	}
 
 	// Configure remote connections
-	for _, remote := range m.config.Remotes {
-		remoteOpts, err := m.buildRemoteOptions(&remote)
+	for i := range m.config.Remotes {
+		remoteOpts, err := m.buildRemoteOptions(&m.config.Remotes[i])
 		if err != nil {
 			return nil, fmt.Errorf("build remote options: %w", err)
 		}
@@ -728,8 +729,8 @@ func (m *LeafNodeManager) buildBridgeServerOptions() (*server.Options, error) {
 	}
 
 	// Add remote connections
-	for _, remote := range m.config.Remotes {
-		remoteOpts, err := m.buildRemoteOptions(&remote)
+	for i := range m.config.Remotes {
+		remoteOpts, err := m.buildRemoteOptions(&m.config.Remotes[i])
 		if err != nil {
 			return nil, fmt.Errorf("build remote options: %w", err)
 		}
@@ -887,6 +888,7 @@ func (m *LeafNodeManager) updateConnectionStates() {
 
 // setState updates the state and calls callback
 func (m *LeafNodeManager) setState(state LeafConnectionState) {
+	//nolint:gosec // G115: LeafConnectionState is a small enum (0-3), fits in int32
 	m.state.Store(int32(state))
 
 	m.mu.RLock()
@@ -941,10 +943,10 @@ func (m *LeafNodeManager) GetStats() *LeafNodeStats {
 	if ns != nil {
 		// Get server varz
 		if varz, err := ns.Varz(nil); err == nil {
-			stats.MessagesIn = int64(varz.InMsgs)
-			stats.MessagesOut = int64(varz.OutMsgs)
-			stats.BytesIn = int64(varz.InBytes)
-			stats.BytesOut = int64(varz.OutBytes)
+			stats.MessagesIn = varz.InMsgs
+			stats.MessagesOut = varz.OutMsgs
+			stats.BytesIn = varz.InBytes
+			stats.BytesOut = varz.OutBytes
 		}
 
 		// Get leafz

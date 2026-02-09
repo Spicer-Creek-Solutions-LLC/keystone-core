@@ -11,20 +11,20 @@ type Metrics struct {
 	mu sync.RWMutex
 
 	// Operation counts
-	getRecordsCalls    atomic.Int64
-	createRecordCalls  atomic.Int64
-	updateRecordCalls  atomic.Int64
-	deleteRecordCalls  atomic.Int64
+	getRecordsCalls   atomic.Int64
+	createRecordCalls atomic.Int64
+	updateRecordCalls atomic.Int64
+	deleteRecordCalls atomic.Int64
 
 	// Success/failure counts
-	getRecordsSuccess    atomic.Int64
-	getRecordsFailure    atomic.Int64
-	createRecordSuccess  atomic.Int64
-	createRecordFailure  atomic.Int64
-	updateRecordSuccess  atomic.Int64
-	updateRecordFailure  atomic.Int64
-	deleteRecordSuccess  atomic.Int64
-	deleteRecordFailure  atomic.Int64
+	getRecordsSuccess   atomic.Int64
+	getRecordsFailure   atomic.Int64
+	createRecordSuccess atomic.Int64
+	createRecordFailure atomic.Int64
+	updateRecordSuccess atomic.Int64
+	updateRecordFailure atomic.Int64
+	deleteRecordSuccess atomic.Int64
+	deleteRecordFailure atomic.Int64
 
 	// Sync operation counts
 	syncCalls   atomic.Int64
@@ -37,9 +37,9 @@ type Metrics struct {
 	recordsDeleted atomic.Int64
 
 	// Latency tracking
-	latencies     map[string][]time.Duration
-	latenciesMu   sync.RWMutex
-	maxLatencies  int
+	latencies    map[string][]time.Duration
+	latenciesMu  sync.RWMutex
+	maxLatencies int
 
 	// Provider-specific metrics
 	providerMetrics map[string]*ProviderMetrics
@@ -161,7 +161,7 @@ func (m *Metrics) recordProviderCall(provider string, duration time.Duration, er
 	}
 }
 
-// Snapshot returns a snapshot of current metrics.
+// MetricsSnapshot holds a snapshot of current metrics.
 type MetricsSnapshot struct {
 	// Operation counts
 	GetRecordsCalls   int64
@@ -202,11 +202,11 @@ type MetricsSnapshot struct {
 
 // ProviderMetricsSnapshot is a snapshot of provider metrics.
 type ProviderMetricsSnapshot struct {
-	Name           string
-	Calls          int64
-	Errors         int64
-	AvgLatencyMs   float64
-	ErrorRate      float64
+	Name         string
+	Calls        int64
+	Errors       int64
+	AvgLatencyMs float64
+	ErrorRate    float64
 }
 
 // Snapshot returns a snapshot of current metrics.

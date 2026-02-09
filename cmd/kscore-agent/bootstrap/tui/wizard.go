@@ -1,3 +1,5 @@
+// Package tui implements terminal user interface components for interactive
+// bootstrap configuration wizards.
 package tui
 
 import (
@@ -420,7 +422,7 @@ func newModel(initial WizardConfig) wizardModel {
 	}
 
 	natsCredsInput := textinput.New()
-	natsCredsInput.Placeholder = "/etc/kscore/nats.creds"
+	natsCredsInput.Placeholder = "/etc/keystone-core/nats.creds"
 	natsCredsInput.Prompt = "NATS creds file: "
 	if initial.NATSCredsFile != "" {
 		natsCredsInput.SetValue(initial.NATSCredsFile)
@@ -442,21 +444,21 @@ func newModel(initial WizardConfig) wizardModel {
 	}
 
 	tlsCertInput := textinput.New()
-	tlsCertInput.Placeholder = "/etc/kscore/tls.crt"
+	tlsCertInput.Placeholder = "/etc/keystone-core/tls.crt"
 	tlsCertInput.Prompt = "TLS cert file: "
 	if initial.TLSCertFile != "" {
 		tlsCertInput.SetValue(initial.TLSCertFile)
 	}
 
 	tlsKeyInput := textinput.New()
-	tlsKeyInput.Placeholder = "/etc/kscore/tls.key"
+	tlsKeyInput.Placeholder = "/etc/keystone-core/tls.key"
 	tlsKeyInput.Prompt = "TLS key file: "
 	if initial.TLSKeyFile != "" {
 		tlsKeyInput.SetValue(initial.TLSKeyFile)
 	}
 
 	tlsCAInput := textinput.New()
-	tlsCAInput.Placeholder = "/etc/kscore/ca.crt"
+	tlsCAInput.Placeholder = "/etc/keystone-core/ca.crt"
 	tlsCAInput.Prompt = "TLS CA file (optional): "
 	if initial.TLSCAFile != "" {
 		tlsCAInput.SetValue(initial.TLSCAFile)
@@ -471,7 +473,7 @@ func newModel(initial WizardConfig) wizardModel {
 	}
 
 	blueprintsDirInput := textinput.New()
-	blueprintsDirInput.Placeholder = "/etc/kscore/blueprints"
+	blueprintsDirInput.Placeholder = "/etc/keystone-core/blueprints"
 	blueprintsDirInput.Prompt = "Blueprints directory (optional): "
 	if initial.BlueprintsDir != "" {
 		blueprintsDirInput.SetValue(initial.BlueprintsDir)
@@ -613,11 +615,12 @@ func newModel(initial WizardConfig) wizardModel {
 		model.sslModeList.Select(0)
 	}
 
-	if initial.NATSCredsFile != "" {
+	switch {
+	case initial.NATSCredsFile != "":
 		model.natsAuthList.Select(1)
-	} else if initial.NATSUser != "" || initial.NATSPassword != "" {
+	case initial.NATSUser != "" || initial.NATSPassword != "":
 		model.natsAuthList.Select(2)
-	} else {
+	default:
 		model.natsAuthList.Select(0)
 	}
 
@@ -943,7 +946,7 @@ func (m wizardModel) advance() (tea.Model, tea.Cmd) {
 	switch m.step {
 	case stepMode:
 		if item, ok := m.modeList.SelectedItem().(modeItem); ok {
-			m.config.Mode = string(item.mode)
+			m.config.Mode = item.mode
 		}
 		m.step = stepClusterName
 		m.clusterInput.Focus()
@@ -1286,14 +1289,15 @@ func (m wizardModel) confirmView() string {
 	if len(m.config.NATSURLs) > 0 {
 		builder.WriteString(fmt.Sprintf("NATS URLs: %s\n", strings.Join(m.config.NATSURLs, ", ")))
 	}
-	if m.config.NATSCredsFile != "" {
+	switch {
+	case m.config.NATSCredsFile != "":
 		builder.WriteString(fmt.Sprintf("NATS creds file: %s\n", m.config.NATSCredsFile))
-	} else if m.config.NATSUser != "" || m.config.NATSPassword != "" {
+	case m.config.NATSUser != "" || m.config.NATSPassword != "":
 		builder.WriteString(fmt.Sprintf("NATS user: %s\n", m.config.NATSUser))
 		if m.config.NATSPassword != "" {
 			builder.WriteString("NATS password: provided\n")
 		}
-	} else if m.config.NATSMode == "external" || m.config.NATSMode == "cluster" {
+	case m.config.NATSMode == "external" || m.config.NATSMode == "cluster":
 		builder.WriteString("NATS auth: none\n")
 	}
 	builder.WriteString(fmt.Sprintf("Generate certs: %t\n", m.config.GenerateCerts))

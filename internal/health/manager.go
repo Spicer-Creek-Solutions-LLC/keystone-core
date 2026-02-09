@@ -1,3 +1,5 @@
+// Package health provides health check management including HTTP endpoints,
+// circuit breakers, and readiness/liveness probes.
 package health
 
 import (
@@ -121,7 +123,7 @@ func (m *Manager) runAllChecks(ctx context.Context) {
 	for result := range resultsCh {
 		// Find checker name by matching result timestamp
 		for name, checker := range m.checkers {
-			testResult := checker.Check(context.Background())
+			testResult := checker.Check(ctx)
 			if testResult.Timestamp.Sub(result.Timestamp).Abs() < time.Millisecond {
 				m.results[name] = result
 				break

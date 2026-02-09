@@ -112,11 +112,12 @@ func (m *AgentModule) Check(ctx context.Context, config interface{}) (*CheckResu
 	}
 
 	// Determine current state
-	if !result.Present {
+	switch {
+	case !result.Present:
 		result.CurrentState = StateUninstalled
-	} else if result.Running {
+	case result.Running:
 		result.CurrentState = StateRunning
-	} else {
+	default:
 		result.CurrentState = StateStopped
 	}
 
@@ -422,13 +423,13 @@ func (m *AgentModule) installViaBinary(ctx context.Context, cfg *AgentConfig, re
 	}
 
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(binaryPath, 0755); err != nil {
+		if err := os.Chmod(binaryPath, 0o755); err != nil { //nolint:gosec // G302: Binary must be executable by all users
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
 	}
 
 	if runtime.GOOS == "linux" && DetectInitSystem() == "systemd" {
-		if err := m.createSystemdService(cfg); err != nil {
+		if err := m.createSystemdService(cfg); err != nil { //nolint:contextcheck // createSystemdService doesn't take context
 			return fmt.Errorf("failed to create systemd service: %w", err)
 		}
 	}
@@ -641,7 +642,7 @@ func (m *AgentModule) configure(ctx context.Context, cfg *AgentConfig, result *A
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := WriteFile(configPath, data, 0640); err != nil {
+	if err := WriteFile(configPath, data, 0o640); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -738,7 +739,7 @@ func (m *AgentModule) isServiceRunning(ctx context.Context, initSystem string) (
 		output, err = RunCommand(ctx, "systemctl", "is-active", "kscore-agent")
 		return output == "active", err
 	case "launchd":
-		output, err = RunCommand(ctx, "launchctl", "list", "com.keystone.kscore-agent")
+		_, err = RunCommand(ctx, "launchctl", "list", "com.keystone.kscore-agent")
 		return err == nil, nil
 	case "openrc":
 		output, err = RunCommand(ctx, "rc-service", "kscore-agent", "status")
@@ -835,7 +836,7 @@ WantedBy=multi-user.target
 	}
 
 	servicePath := "/etc/systemd/system/kscore-agent.service"
-	if err := WriteFile(servicePath, []byte(buf.String()), 0644); err != nil {
+	if err := WriteFile(servicePath, []byte(buf.String()), 0o644); err != nil {
 		return err
 	}
 

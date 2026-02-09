@@ -17,16 +17,16 @@ func TestStepType_IsValid(t *testing.T) {
 		{"wait", StepTypeWait, true},
 		{"noop", StepTypeNoop, true},
 		{"fail", StepTypeFail, true},
-		{"if", StepTypeIf, true},               // Phase 2 - implemented
-		{"switch", StepTypeSwitch, true},       // Phase 2 - implemented
-		{"loop", StepTypeLoop, true},           // Phase 2 - implemented
-		{"parallel", StepTypeParallel, true},   // Phase 2 - implemented
-		{"runbook", StepTypeSubRunbook, true},  // Phase 2 - implemented
-		{"approval", StepTypeApproval, true},   // Phase 3 - implemented
-		{"state", StepTypeState, true},         // Phase 4 - implemented
-		{"deploy", StepTypeDeploy, true},       // Phase 4 - implemented
-		{"rollback", StepTypeRollback, true},   // Phase 4 - implemented
-		{"script", StepTypeScript, true},       // Phase 4 - implemented
+		{"if", StepTypeIf, true},              // Phase 2 - implemented
+		{"switch", StepTypeSwitch, true},      // Phase 2 - implemented
+		{"loop", StepTypeLoop, true},          // Phase 2 - implemented
+		{"parallel", StepTypeParallel, true},  // Phase 2 - implemented
+		{"runbook", StepTypeSubRunbook, true}, // Phase 2 - implemented
+		{"approval", StepTypeApproval, true},  // Phase 3 - implemented
+		{"state", StepTypeState, true},        // Phase 4 - implemented
+		{"deploy", StepTypeDeploy, true},      // Phase 4 - implemented
+		{"rollback", StepTypeRollback, true},  // Phase 4 - implemented
+		{"script", StepTypeScript, true},      // Phase 4 - implemented
 		{"invalid", StepType("invalid"), false},
 	}
 

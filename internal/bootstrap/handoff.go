@@ -12,14 +12,14 @@ import (
 
 // HandoffManager handles the transition from bootstrap to self-management
 type HandoffManager struct {
-	config          *SeedConfig
-	result          *BootstrapResult
-	logger          Logger
-	statusCallback  ProgressCallback
-	apiEndpoint     string
-	stateDir        string
-	verifyTimeout   time.Duration
-	verifyInterval  time.Duration
+	config         *SeedConfig
+	result         *Result
+	logger         Logger
+	statusCallback ProgressCallback
+	apiEndpoint    string
+	stateDir       string
+	verifyTimeout  time.Duration
+	verifyInterval time.Duration
 }
 
 // HandoffConfig holds configuration for the handoff process
@@ -44,13 +44,13 @@ type HandoffState struct {
 }
 
 // NewHandoffManager creates a new handoff manager
-func NewHandoffManager(config *SeedConfig, result *BootstrapResult, logger Logger) *HandoffManager {
+func NewHandoffManager(config *SeedConfig, result *Result, logger Logger) *HandoffManager {
 	return &HandoffManager{
 		config:         config,
 		result:         result,
 		logger:         logger,
 		apiEndpoint:    result.APIEndpoint,
-		stateDir:       "/var/lib/kscore/bootstrap",
+		stateDir:       "/var/lib/keystone-core/bootstrap",
 		verifyTimeout:  5 * time.Minute,
 		verifyInterval: 10 * time.Second,
 	}
@@ -81,7 +81,7 @@ func (h *HandoffManager) Handoff(ctx context.Context) error {
 	h.updateStatus(PhaseHandoff, "Verifying cluster health", 10)
 	if err := h.verifyClusterHealth(ctx); err != nil {
 		state.Error = err.Error()
-		h.saveState(state)
+		_ = h.saveState(state) //nolint:errcheck // best-effort state save
 		return fmt.Errorf("health verification failed: %w", err)
 	}
 	state.HealthVerified = true
@@ -93,7 +93,7 @@ func (h *HandoffManager) Handoff(ctx context.Context) error {
 		h.updateStatus(PhaseHandoff, "Applying initial states", 30)
 		if err := h.applyInitialStates(ctx); err != nil {
 			state.Error = err.Error()
-			h.saveState(state)
+			_ = h.saveState(state) //nolint:errcheck // best-effort state save
 			return fmt.Errorf("failed to apply initial states: %w", err)
 		}
 		state.StatesApplied = true
@@ -106,7 +106,7 @@ func (h *HandoffManager) Handoff(ctx context.Context) error {
 		h.updateStatus(PhaseHandoff, "Registering initial agents", 50)
 		if err := h.registerInitialAgents(ctx); err != nil {
 			state.Error = err.Error()
-			h.saveState(state)
+			_ = h.saveState(state) //nolint:errcheck // best-effort state save
 			return fmt.Errorf("failed to register agents: %w", err)
 		}
 		state.AgentsConnected = len(h.config.InitialAgents)
@@ -118,7 +118,7 @@ func (h *HandoffManager) Handoff(ctx context.Context) error {
 	h.updateStatus(PhaseHandoff, "Enabling self-management", 70)
 	if err := h.enableSelfManagement(ctx); err != nil {
 		state.Error = err.Error()
-		h.saveState(state)
+		_ = h.saveState(state) //nolint:errcheck // best-effort state save
 		return fmt.Errorf("failed to enable self-management: %w", err)
 	}
 	state.CompletedSteps = append(state.CompletedSteps, "enable_self_management")
@@ -135,7 +135,7 @@ func (h *HandoffManager) Handoff(ctx context.Context) error {
 
 	// Save final state
 	state.Phase = string(PhaseComplete)
-	h.saveState(state)
+	_ = h.saveState(state) //nolint:errcheck // best-effort state save
 
 	h.updateStatus(PhaseComplete, "Handoff complete", 100)
 	return nil
@@ -156,7 +156,7 @@ func (h *HandoffManager) verifyClusterHealth(ctx context.Context) error {
 				return fmt.Errorf("health check timeout after %v", h.verifyTimeout)
 			}
 
-			healthy, err := h.checkHealth()
+			healthy, err := h.checkHealth(ctx)
 			if err != nil {
 				h.logger.Debug("health check error", "error", err)
 				continue
@@ -170,7 +170,7 @@ func (h *HandoffManager) verifyClusterHealth(ctx context.Context) error {
 }
 
 // checkHealth performs a single health check against the API
-func (h *HandoffManager) checkHealth() (bool, error) {
+func (h *HandoffManager) checkHealth(ctx context.Context) (bool, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -181,14 +181,19 @@ func (h *HandoffManager) checkHealth() (bool, error) {
 		fmt.Sprintf("http://%s/health/ready", h.apiEndpoint),
 	}
 
-	for _, url := range endpoints {
-		resp, err := client.Get(url)
+	for _, endpoint := range endpoints {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
 
-		if resp.StatusCode == http.StatusOK {
+		ok := resp.StatusCode == http.StatusOK
+		resp.Body.Close()
+		if ok {
 			return true, nil
 		}
 	}
@@ -263,7 +268,7 @@ func (h *HandoffManager) applyStateFile(ctx context.Context, path string) error 
 	}
 
 	url := fmt.Sprintf("https://%s/api/v1/states/apply", h.apiEndpoint)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -320,7 +325,8 @@ func (h *HandoffManager) enableSelfManagement(ctx context.Context) error {
 
 	// Save state to disk
 	statePath := filepath.Join(h.stateDir, "self-management.json")
-	if err := os.MkdirAll(h.stateDir, 0755); err != nil {
+	//nolint:gosec // G301: state directory needs to be accessible by service user
+	if err := os.MkdirAll(h.stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -329,7 +335,8 @@ func (h *HandoffManager) enableSelfManagement(ctx context.Context) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	if err := os.WriteFile(statePath, data, 0644); err != nil {
+	//nolint:gosec // G306: state files need to be readable by the control plane
+	if err := os.WriteFile(statePath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
@@ -364,7 +371,7 @@ func (h *HandoffManager) cleanupBootstrap(ctx context.Context) error {
 	}
 
 	// Remove bootstrap-specific environment files
-	envFile := "/etc/kscore/bootstrap.env"
+	envFile := "/etc/keystone-core/bootstrap.env"
 	if _, err := os.Stat(envFile); err == nil {
 		if err := os.Remove(envFile); err != nil {
 			h.logger.Warn("failed to remove bootstrap env file", "file", envFile, "error", err)
@@ -377,7 +384,8 @@ func (h *HandoffManager) cleanupBootstrap(ctx context.Context) error {
 // saveState saves the handoff state to disk
 func (h *HandoffManager) saveState(state *HandoffState) error {
 	statePath := filepath.Join(h.stateDir, "handoff-state.json")
-	if err := os.MkdirAll(h.stateDir, 0755); err != nil {
+	//nolint:gosec // G301: state directory needs to be accessible by service user
+	if err := os.MkdirAll(h.stateDir, 0o755); err != nil {
 		return err
 	}
 
@@ -386,7 +394,8 @@ func (h *HandoffManager) saveState(state *HandoffState) error {
 		return err
 	}
 
-	return os.WriteFile(statePath, data, 0644)
+	//nolint:gosec // G306: handoff state needs to be readable for recovery
+	return os.WriteFile(statePath, data, 0o644)
 }
 
 // LoadHandoffState loads the handoff state from disk
@@ -406,9 +415,9 @@ func LoadHandoffState(stateDir string) (*HandoffState, error) {
 }
 
 // updateStatus updates the bootstrap status
-func (h *HandoffManager) updateStatus(phase BootstrapPhase, message string, progress int) {
+func (h *HandoffManager) updateStatus(phase Phase, message string, progress int) {
 	if h.statusCallback != nil {
-		h.statusCallback(&BootstrapStatus{
+		h.statusCallback(&Status{
 			Phase:       phase,
 			Message:     message,
 			Progress:    progress,
@@ -426,7 +435,7 @@ func (h *HandoffManager) VerifyHandoff(ctx context.Context) error {
 	}
 
 	// Verify cluster is healthy
-	healthy, err := h.checkHealth()
+	healthy, err := h.checkHealth(ctx)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}

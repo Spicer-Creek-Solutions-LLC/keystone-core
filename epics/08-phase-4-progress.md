@@ -64,7 +64,7 @@ File-based cache for offline operation:
 
 **Cache Operations**:
 ```go
-cache := NewFileCache("/var/lib/kscore/cache")
+cache := NewFileCache("/var/lib/keystone-core/cache")
 
 // Store entry
 entry := &CacheEntry{

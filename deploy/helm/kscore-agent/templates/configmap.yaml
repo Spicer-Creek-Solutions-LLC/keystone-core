@@ -17,11 +17,11 @@ data:
         enabled: true
         insecureSkipVerify: {{ .Values.server.tls.insecureSkipVerify }}
         {{- if .Values.server.tls.certSecretName }}
-        certFile: "/etc/kscore/tls/tls.crt"
-        keyFile: "/etc/kscore/tls/tls.key"
+        certFile: "/etc/keystone-core/tls/tls.crt"
+        keyFile: "/etc/keystone-core/tls/tls.key"
         {{- end }}
         {{- if .Values.server.tls.caSecretName }}
-        caFile: "/etc/kscore/tls/ca.crt"
+        caFile: "/etc/keystone-core/tls/ca.crt"
         {{- end }}
       {{- end }}
 
@@ -53,7 +53,7 @@ data:
         # Token is set via NATS_TOKEN environment variable
         {{- end }}
         {{- if .Values.nats.auth.credentialsSecretName }}
-        credentialsFile: "/etc/kscore/nats.creds"
+        credentialsFile: "/etc/keystone-core/nats.creds"
         {{- end }}
       {{- end }}
       {{- if .Values.nats.embedded.enabled }}

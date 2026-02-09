@@ -77,12 +77,12 @@ type Publisher struct {
 	publishCount int64 // atomic
 	throttler    *throttler
 	mu           sync.RWMutex
-	listeners    []BackpressureEventListener
+	listeners    []EventListener
 	publishFn    func(*Message) error
 }
 
-// BackpressureEvent represents a backpressure event.
-type BackpressureEvent struct {
+// Event represents a backpressure event.
+type Event struct {
 	Type         string    `json:"type"`
 	Pending      int64     `json:"pending"`
 	PendingBytes int64     `json:"pendingBytes"`
@@ -90,8 +90,8 @@ type BackpressureEvent struct {
 	Timestamp    time.Time `json:"timestamp"`
 }
 
-// BackpressureEventListener is called when backpressure events occur.
-type BackpressureEventListener func(*BackpressureEvent)
+// EventListener is called when backpressure events occur.
+type EventListener func(*Event)
 
 // NewPublisher creates a new backpressure-aware publisher.
 func NewPublisher(config *Config, publishFn func(*Message) error) *Publisher {
@@ -169,7 +169,7 @@ func (p *Publisher) publishDropping(ctx context.Context, msg *Message) error {
 
 		if pending >= p.config.MaxPending || pendingBytes+msgSize > p.config.MaxBytes {
 			atomic.AddInt64(&p.dropCount, 1)
-			p.emit(&BackpressureEvent{
+			p.emit(&Event{
 				Type:         "drop",
 				Pending:      pending,
 				PendingBytes: pendingBytes,
@@ -226,7 +226,7 @@ func (p *Publisher) checkPause() {
 	highWater := int64(float64(p.config.MaxPending) * p.config.HighWaterMark)
 
 	if pending >= highWater && atomic.CompareAndSwapInt32(&p.paused, 0, 1) {
-		p.emit(&BackpressureEvent{
+		p.emit(&Event{
 			Type:         "pause",
 			Pending:      pending,
 			PendingBytes: atomic.LoadInt64(&p.pendingBytes),
@@ -241,7 +241,7 @@ func (p *Publisher) checkResume() {
 	lowWater := int64(float64(p.config.MaxPending) * p.config.LowWaterMark)
 
 	if pending <= lowWater && atomic.CompareAndSwapInt32(&p.paused, 1, 0) {
-		p.emit(&BackpressureEvent{
+		p.emit(&Event{
 			Type:         "resume",
 			Pending:      pending,
 			PendingBytes: atomic.LoadInt64(&p.pendingBytes),
@@ -252,7 +252,7 @@ func (p *Publisher) checkResume() {
 }
 
 // AddListener adds an event listener.
-func (p *Publisher) AddListener(listener BackpressureEventListener) {
+func (p *Publisher) AddListener(listener EventListener) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.listeners = append(p.listeners, listener)
@@ -261,7 +261,7 @@ func (p *Publisher) AddListener(listener BackpressureEventListener) {
 // Pause pauses publishing.
 func (p *Publisher) Pause() {
 	if atomic.CompareAndSwapInt32(&p.paused, 0, 1) {
-		p.emit(&BackpressureEvent{
+		p.emit(&Event{
 			Type:         "pause",
 			Pending:      atomic.LoadInt64(&p.pending),
 			PendingBytes: atomic.LoadInt64(&p.pendingBytes),
@@ -274,7 +274,7 @@ func (p *Publisher) Pause() {
 // Resume resumes publishing.
 func (p *Publisher) Resume() {
 	if atomic.CompareAndSwapInt32(&p.paused, 1, 0) {
-		p.emit(&BackpressureEvent{
+		p.emit(&Event{
 			Type:         "resume",
 			Pending:      atomic.LoadInt64(&p.pending),
 			PendingBytes: atomic.LoadInt64(&p.pendingBytes),
@@ -309,7 +309,7 @@ type Stats struct {
 	Paused       bool  `json:"paused"`
 }
 
-func (p *Publisher) emit(event *BackpressureEvent) {
+func (p *Publisher) emit(event *Event) {
 	p.mu.RLock()
 	listeners := p.listeners
 	p.mu.RUnlock()
@@ -344,7 +344,6 @@ type throttler struct {
 	rate     int64
 	tokens   int64 // atomic
 	lastTick time.Time
-	mu       sync.Mutex
 	stopCh   chan struct{}
 }
 

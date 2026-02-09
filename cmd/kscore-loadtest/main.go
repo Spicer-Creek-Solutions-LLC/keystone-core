@@ -1,3 +1,4 @@
+// Package main implements the kscore-loadtest CLI for load testing the control plane.
 package main
 
 import (
@@ -10,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shawnbutts/keystone-core/internal/loadtest"
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/loadtest"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -161,7 +162,7 @@ func runScenario(cfg *loadtest.Config, scenario string) error {
 	}
 	defer harness.Stop()
 
-	result := &loadtest.LoadTestResult{
+	result := &loadtest.Result{
 		TestName:  scenario,
 		StartTime: time.Now(),
 		Config: loadtest.ResultConfig{
@@ -218,7 +219,7 @@ func runScenario(cfg *loadtest.Config, scenario string) error {
 	})
 }
 
-func runRegistration(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, result *loadtest.LoadTestResult) error {
+func runRegistration(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, result *loadtest.Result) error {
 	if verbose {
 		fmt.Println("Running registration test...")
 	}
@@ -239,7 +240,7 @@ func runRegistration(ctx context.Context, cfg *loadtest.Config, pool *loadtest.A
 	return nil
 }
 
-func runHeartbeat(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.LoadTestResult) error {
+func runHeartbeat(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.Result) error {
 	if verbose {
 		fmt.Println("Running heartbeat test...")
 	}
@@ -266,7 +267,7 @@ func runHeartbeat(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agen
 	return nil
 }
 
-func runCommands(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.LoadTestResult) error {
+func runCommands(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.Result) error {
 	if verbose {
 		fmt.Println("Running command test...")
 	}
@@ -296,7 +297,7 @@ func runCommands(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agent
 		ctx, commands, "echo", []string{"test"}, cfg.CommandTimeout, cfg.ConcurrentCommands)
 	cmdDuration := time.Since(cmdStart)
 
-	min, max, avg, p50, p95, p99 := latencyCollector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := latencyCollector.Calculate()
 
 	metrics := loadtest.Metrics{
 		TotalOps:          int64(success + failed),
@@ -304,8 +305,8 @@ func runCommands(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agent
 		FailedOps:         int64(failed),
 		OpsPerSecond:      float64(success+failed) / cmdDuration.Seconds(),
 		AvgLatency:        avg,
-		MinLatency:        min,
-		MaxLatency:        max,
+		MinLatency:        minVal,
+		MaxLatency:        maxVal,
 		P50Latency:        p50,
 		P95Latency:        p95,
 		P99Latency:        p99,
@@ -325,7 +326,7 @@ func runCommands(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agent
 	return nil
 }
 
-func runRampUp(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.LoadTestResult) error {
+func runRampUp(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.Result) error {
 	if verbose {
 		fmt.Println("Running ramp-up test...")
 	}
@@ -352,7 +353,7 @@ func runRampUp(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPo
 	return nil
 }
 
-func runSustained(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.LoadTestResult) error {
+func runSustained(ctx context.Context, cfg *loadtest.Config, pool *loadtest.AgentPool, harness *loadtest.TestHarness, result *loadtest.Result) error {
 	if verbose {
 		fmt.Println("Running sustained load test...")
 	}
@@ -385,6 +386,7 @@ func runSustained(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agen
 	defer ticker.Stop()
 
 	endTime := time.Now().Add(cfg.TestDuration)
+loop:
 	for time.Now().Before(endTime) {
 		select {
 		case <-ticker.C:
@@ -394,13 +396,13 @@ func runSustained(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agen
 			totalFailed += failed
 			latencyCollector.AddBatch(lc.Latencies())
 		case <-ctx.Done():
-			break
+			break loop
 		}
 	}
 	testDuration := time.Since(testStart)
 
 	cpMetrics := harness.ControlPlane().Metrics()
-	min, max, avg, p50, p95, p99 := latencyCollector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := latencyCollector.Calculate()
 
 	metrics := loadtest.Metrics{
 		TotalOps:           int64(totalSuccess + totalFailed),
@@ -408,8 +410,8 @@ func runSustained(ctx context.Context, cfg *loadtest.Config, pool *loadtest.Agen
 		FailedOps:          int64(totalFailed),
 		OpsPerSecond:       float64(totalSuccess+totalFailed) / testDuration.Seconds(),
 		AvgLatency:         avg,
-		MinLatency:         min,
-		MaxLatency:         max,
+		MinLatency:         minVal,
+		MaxLatency:         maxVal,
 		P50Latency:         p50,
 		P95Latency:         p95,
 		P99Latency:         p99,
@@ -495,7 +497,7 @@ func newVersionCmd() *cobra.Command {
 	}
 }
 
-func printResult(result *loadtest.LoadTestResult) {
+func printResult(result *loadtest.Result) {
 	fmt.Printf("Load Test Results\n")
 	fmt.Printf("=================\n\n")
 	fmt.Printf("Scenario:  %s\n", result.TestName)

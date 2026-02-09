@@ -397,4 +397,3 @@ func TestJobDistributor_GetActiveJobs(t *testing.T) {
 		t.Errorf("GetActiveJobCount() = %v, want 0", jd.GetActiveJobCount())
 	}
 }
-

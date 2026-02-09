@@ -336,7 +336,7 @@ Sources = [
 
 1. Verify SPIFFE ID:
    ```bash
-   kscorectl agents get <agent-id> -o json | jq '.metadata.mesh.identity'
+   kscorectl agents show <agent-id> -o json | jq '.metadata.mesh.identity'
    ```
 
 2. Check trust federation:

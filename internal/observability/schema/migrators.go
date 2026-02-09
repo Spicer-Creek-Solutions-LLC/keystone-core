@@ -201,30 +201,32 @@ func (m *auditMigratorV1ToV2) Migrate(data map[string]interface{}) (map[string]i
 	}
 
 	// Convert actor from string to object
-	if actor, ok := data["actor"].(string); ok {
+	switch actor := data["actor"].(type) {
+	case string:
 		result["actor"] = map[string]interface{}{
 			"id":         actor,
 			"type":       "user",
 			"name":       actor,
 			"ip_address": "",
 		}
-	} else if actorObj, ok := data["actor"].(map[string]interface{}); ok {
+	case map[string]interface{}:
 		// Already an object, ensure all fields exist
-		if _, ok := actorObj["ip_address"]; !ok {
-			actorObj["ip_address"] = ""
+		if _, ok := actor["ip_address"]; !ok {
+			actor["ip_address"] = ""
 		}
-		result["actor"] = actorObj
+		result["actor"] = actor
 	}
 
 	// Convert resource from string to object
-	if resource, ok := data["resource"].(string); ok {
+	switch resource := data["resource"].(type) {
+	case string:
 		result["resource"] = map[string]interface{}{
 			"id":   resource,
 			"type": "unknown",
 			"name": resource,
 		}
-	} else if resourceObj, ok := data["resource"].(map[string]interface{}); ok {
-		result["resource"] = resourceObj
+	case map[string]interface{}:
+		result["resource"] = resource
 	}
 
 	// Add new fields with defaults
@@ -318,98 +320,5 @@ func (m *eventMigratorV1ToV2) Describe() []string {
 		"Added subject field",
 		"Added datacontenttype field (default: application/json)",
 		"Added dataschema field for data schema URI",
-	}
-}
-
-// Reverse migrators (for downgrade support)
-
-// logMigratorV2ToV1 migrates log entries from V2 to V1
-type logMigratorV2ToV1 struct{}
-
-func (m *logMigratorV2ToV1) FromVersion() int { return 2 }
-func (m *logMigratorV2ToV1) ToVersion() int   { return 1 }
-
-func (m *logMigratorV2ToV1) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	// Copy fields, omitting V2-only fields
-	for k, v := range data {
-		switch k {
-		case "correlation_id", "metadata":
-			// Skip V2-only fields
-		default:
-			result[k] = v
-		}
-	}
-
-	return result, nil
-}
-
-func (m *logMigratorV2ToV1) Describe() []string {
-	return []string{
-		"Removed correlation_id field",
-		"Removed metadata block",
-	}
-}
-
-// traceMigratorV2ToV1 migrates trace spans from V2 to V1
-type traceMigratorV2ToV1 struct{}
-
-func (m *traceMigratorV2ToV1) FromVersion() int { return 2 }
-func (m *traceMigratorV2ToV1) ToVersion() int   { return 1 }
-
-func (m *traceMigratorV2ToV1) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	// Copy fields, transforming and omitting as needed
-	for k, v := range data {
-		switch k {
-		case "attributes":
-			// Rename back to tags
-			result["tags"] = v
-		case "end_time", "status", "events", "links":
-			// Skip V2-only fields
-		default:
-			result[k] = v
-		}
-	}
-
-	return result, nil
-}
-
-func (m *traceMigratorV2ToV1) Describe() []string {
-	return []string{
-		"Renamed attributes back to tags",
-		"Removed end_time, status, events, links fields",
-	}
-}
-
-// eventMigratorV2ToV1 migrates events from V2 to V1
-type eventMigratorV2ToV1 struct{}
-
-func (m *eventMigratorV2ToV1) FromVersion() int { return 2 }
-func (m *eventMigratorV2ToV1) ToVersion() int   { return 1 }
-
-func (m *eventMigratorV2ToV1) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	result["id"] = data["id"]
-	result["type"] = data["type"]
-	result["source"] = data["source"]
-	result["data"] = data["data"]
-
-	// Rename time back to timestamp
-	if t, ok := data["time"]; ok {
-		result["timestamp"] = t
-	}
-
-	return result, nil
-}
-
-func (m *eventMigratorV2ToV1) Describe() []string {
-	return []string{
-		"Removed specversion field",
-		"Renamed time back to timestamp",
-		"Removed subject, datacontenttype, dataschema fields",
 	}
 }

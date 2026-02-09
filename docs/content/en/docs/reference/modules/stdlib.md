@@ -8,7 +8,7 @@ weight: 10
 
 Package stdlib provides standard library modules for plugins.
 
-**Import:** `/home/sbutts/code/keystone-core/pkg/plugin/stdlib`
+**Import:** `github.com/shawnbutts/keystone-core/pkg/plugin/stdlib`
 
 ## Contents
 

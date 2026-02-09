@@ -13,6 +13,7 @@ import (
 // NotificationEvent represents a rotation notification event type.
 type NotificationEvent string
 
+// NotificationEvent constants define the events.
 const (
 	NotificationEventStart    NotificationEvent = "rotation_started"
 	NotificationEventProgress NotificationEvent = "rotation_progress"
@@ -24,6 +25,7 @@ const (
 // NotificationSeverity represents the severity level of a notification.
 type NotificationSeverity string
 
+// SeverityInfo constants define the severity levels.
 const (
 	SeverityInfo     NotificationSeverity = "info"
 	SeverityWarning  NotificationSeverity = "warning"
@@ -139,10 +141,10 @@ func (s *SlackNotifier) Notify(ctx context.Context, n *Notification) error {
 	emoji := s.getEmoji(n.Event)
 
 	attachment := SlackAttachment{
-		Color:     color,
-		Title:     fmt.Sprintf("%s Secret Rotation %s", emoji, n.Event),
-		Text:      n.Message,
-		Timestamp: n.Timestamp.Unix(),
+		Color:      color,
+		Title:      fmt.Sprintf("%s Secret Rotation %s", emoji, n.Event),
+		Text:       n.Message,
+		Timestamp:  n.Timestamp.Unix(),
 		MarkdownIn: []string{"text", "fields"},
 		Fields: []SlackField{
 			{Title: "Rotation ID", Value: n.RotationID, Short: true},
@@ -252,12 +254,12 @@ type PagerDutyNotifier struct {
 
 // PagerDutyEvent represents a PagerDuty Events API v2 event.
 type PagerDutyEvent struct {
-	RoutingKey  string            `json:"routing_key"`
-	EventAction string            `json:"event_action"`
-	DedupKey    string            `json:"dedup_key,omitempty"`
-	Payload     PagerDutyPayload  `json:"payload"`
-	Links       []PagerDutyLink   `json:"links,omitempty"`
-	Images      []PagerDutyImage  `json:"images,omitempty"`
+	RoutingKey  string           `json:"routing_key"`
+	EventAction string           `json:"event_action"`
+	DedupKey    string           `json:"dedup_key,omitempty"`
+	Payload     PagerDutyPayload `json:"payload"`
+	Links       []PagerDutyLink  `json:"links,omitempty"`
+	Images      []PagerDutyImage `json:"images,omitempty"`
 }
 
 // PagerDutyPayload represents the payload of a PagerDuty event.
@@ -449,6 +451,7 @@ func CreateNotification(rotation *ManagedRotation, event NotificationEvent, mess
 		severity = SeverityError
 	case NotificationEventRollback:
 		severity = SeverityWarning
+	default:
 	}
 
 	n := &Notification{

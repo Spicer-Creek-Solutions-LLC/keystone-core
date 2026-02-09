@@ -1,3 +1,4 @@
+// Package client provides a gRPC client wrapper for the control plane service.
 package client
 
 import (
@@ -29,8 +30,8 @@ func New(ctx context.Context, address string) (*Client, error) {
 	conn, err := grpc.NewClient(
 		address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second),
+		grpc.WithBlock(),                //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
+		grpc.WithTimeout(5*time.Second), //nolint:staticcheck // SA1019: grpc.WithTimeout is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to control plane: %w", err)
@@ -111,6 +112,7 @@ func (c *Client) ListAgents(ctx context.Context) (*AgentStats, error) {
 			stats.Offline++
 		case pb.AgentStatus_AGENT_STATUS_DEGRADED:
 			stats.Degraded++
+		default:
 		}
 	}
 
@@ -133,20 +135,21 @@ func (c *Client) GetAgent(ctx context.Context, agentID string) (*pb.AgentInfo, e
 
 // JobStats represents job execution statistics
 type JobStats struct {
-	TotalCommands    int
-	RunningCommands  int
+	TotalCommands     int
+	RunningCommands   int
 	CompletedCommands int
-	FailedCommands   int
-	TotalBatchJobs   int
-	RunningBatchJobs int
-	Commands         []*pb.CommandInfo
-	BatchJobs        []*pb.BatchJobInfo
-	Timestamp        time.Time
+	FailedCommands    int
+	TotalBatchJobs    int
+	RunningBatchJobs  int
+	Commands          []*pb.CommandInfo
+	BatchJobs         []*pb.BatchJobInfo
+	Timestamp         time.Time
 }
 
 // ListCommands retrieves command execution history
 func (c *Client) ListCommands(ctx context.Context, limit int) ([]*pb.CommandInfo, error) {
 	req := &pb.ListCommandsRequest{
+		//nolint:gosec // G115: limit is a small user-provided page size, fits in int32
 		PageSize: int32(limit),
 	}
 
@@ -191,6 +194,7 @@ func (c *Client) GetJobStats(ctx context.Context) (*JobStats, error) {
 			stats.CompletedCommands++
 		case pb.CommandStatus_COMMAND_STATUS_FAILED, pb.CommandStatus_COMMAND_STATUS_TIMEOUT:
 			stats.FailedCommands++
+		default:
 		}
 	}
 
@@ -235,19 +239,19 @@ func (c *Client) GetBatchJobStatus(ctx context.Context, batchJobID string) (*pb.
 
 // SystemStats represents system-wide statistics
 type SystemStats struct {
-	Uptime           time.Duration
-	Version          string
-	AgentCount       int
-	OnlineAgents     int
-	RunningJobs      int
-	CompletedJobs    int
-	FailedJobs       int
-	TotalCommands    int
-	EventRate        float64
-	APIRequestRate   float64
-	MemoryUsageMB    float64
-	GoroutineCount   int
-	Timestamp        time.Time
+	Uptime         time.Duration
+	Version        string
+	AgentCount     int
+	OnlineAgents   int
+	RunningJobs    int
+	CompletedJobs  int
+	FailedJobs     int
+	TotalCommands  int
+	EventRate      float64
+	APIRequestRate float64
+	MemoryUsageMB  float64
+	GoroutineCount int
+	Timestamp      time.Time
 }
 
 // serverStatusResponse represents the JSON response from /api/status
@@ -275,7 +279,7 @@ type serverStatusResponse struct {
 func (c *Client) fetchServerStatus(ctx context.Context) (*serverStatusResponse, error) {
 	url := c.httpAddress + "/api/status"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

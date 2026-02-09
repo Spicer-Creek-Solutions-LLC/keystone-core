@@ -50,7 +50,7 @@ file:
     contents: hello
 `
 
-	body := StateRequest{
+	body := Request{
 		Content: content,
 		DryRun:  false,
 	}
@@ -68,7 +68,7 @@ file:
 		t.Fatalf("Expected status 200, got %d", rec.Code)
 	}
 
-	var resp StateApplyResponse
+	var resp ApplyResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -98,7 +98,7 @@ git:
     state: present
 `
 
-	body := StateRequest{
+	body := Request{
 		Content: content,
 	}
 	payload, err := json.Marshal(body)
@@ -115,7 +115,7 @@ git:
 		t.Fatalf("Expected status 200, got %d", rec.Code)
 	}
 
-	var resp StateCheckResponse
+	var resp CheckResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -149,7 +149,7 @@ file:
     contents: new
 `
 
-	body := StateRequest{
+	body := Request{
 		Content: content,
 	}
 	payload, err := json.Marshal(body)
@@ -182,11 +182,11 @@ file:
 func TestLoadStateFile_Errors(t *testing.T) {
 	handler := NewHandler()
 
-	if _, err := handler.loadStateFile(StateRequest{}); err == nil {
+	if _, err := handler.loadStateFile(Request{}); err == nil {
 		t.Fatal("Expected error when no content or path is provided")
 	}
 
-	if _, err := handler.loadStateFile(StateRequest{Path: "does-not-exist.yaml"}); err == nil {
+	if _, err := handler.loadStateFile(Request{Path: "does-not-exist.yaml"}); err == nil {
 		t.Fatal("Expected error when path does not exist")
 	}
 }
@@ -199,7 +199,7 @@ file:
     state: present
     contents: hello
 `
-	stateFile, err := handler.loadStateFile(StateRequest{Content: content})
+	stateFile, err := handler.loadStateFile(Request{Content: content})
 	if err != nil {
 		t.Fatalf("loadStateFile failed: %v", err)
 	}

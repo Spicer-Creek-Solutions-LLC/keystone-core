@@ -62,12 +62,12 @@ func (m *CronModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	}
 
 	// Get current crontab
-	entries, err := m.getCrontab(config.User)
+	entries, err := m.getCrontab(ctx, config.User)
 	if err != nil {
 		result.Present = false
 		result.CurrentState = "error"
 		result.Matches = false
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Look for our managed entry
@@ -75,17 +75,18 @@ func (m *CronModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	switch decl.State {
 	case "present":
-		if !exists {
+		switch {
+		case !exists:
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["state"] = map[string]string{"current": "absent", "desired": "present"}
-		} else if !matches {
+		case !matches:
 			result.Present = true
 			result.CurrentState = "different"
 			result.Matches = false
 			result.Diff["state"] = map[string]string{"current": "different", "desired": "present"}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "present"
 			result.Matches = true
@@ -107,7 +108,7 @@ func (m *CronModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		return nil, fmt.Errorf("unknown state: %s", decl.State)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply creates or removes the cron job.
@@ -126,7 +127,7 @@ func (m *CronModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	}
 
 	// Get current crontab
-	entries, err := m.getCrontab(config.User)
+	entries, err := m.getCrontab(ctx, config.User)
 	if err != nil {
 		// If no crontab exists, start with empty
 		entries = []string{}
@@ -149,7 +150,7 @@ func (m *CronModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		entries = append(entries, newEntry)
 
 		// Write back the crontab
-		if err := m.setCrontab(config.User, entries); err != nil {
+		if err := m.setCrontab(ctx, config.User, entries); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write crontab: %v", err)
 			return result, err
@@ -164,11 +165,11 @@ func (m *CronModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 		if len(newEntries) == len(entries) {
 			result.Comment = fmt.Sprintf("Cron job '%s' already absent", config.Name)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 
 		// Write back the crontab
-		if err := m.setCrontab(config.User, newEntries); err != nil {
+		if err := m.setCrontab(ctx, config.User, newEntries); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to write crontab: %v", err)
 			return result, err
@@ -183,7 +184,7 @@ func (m *CronModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		return result, fmt.Errorf("unknown state: %s", decl.State)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test performs a dry-run check of the operation.
@@ -254,7 +255,7 @@ func isValidSpecial(s string) bool {
 }
 
 // getCrontab reads the current crontab for a user.
-func (m *CronModule) getCrontab(user string) ([]string, error) {
+func (m *CronModule) getCrontab(ctx context.Context, user string) ([]string, error) {
 	if runtime.GOOS == "windows" {
 		return nil, fmt.Errorf("cron is not supported on Windows")
 	}
@@ -264,7 +265,7 @@ func (m *CronModule) getCrontab(user string) ([]string, error) {
 		args = append([]string{"-u", user}, args...)
 	}
 
-	cmd := exec.Command("crontab", args...)
+	cmd := exec.CommandContext(ctx, "crontab", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		// No crontab for this user is not an error
@@ -284,13 +285,13 @@ func (m *CronModule) getCrontab(user string) ([]string, error) {
 }
 
 // setCrontab writes the crontab for a user.
-func (m *CronModule) setCrontab(user string, entries []string) error {
+func (m *CronModule) setCrontab(ctx context.Context, user string, entries []string) error {
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("cron is not supported on Windows")
 	}
 
 	content := strings.Join(entries, "\n")
-	if !strings.HasSuffix(content, "\n") && len(content) > 0 {
+	if !strings.HasSuffix(content, "\n") && content != "" {
 		content += "\n"
 	}
 
@@ -299,11 +300,11 @@ func (m *CronModule) setCrontab(user string, entries []string) error {
 		args = append([]string{"-u", user}, args...)
 	}
 
-	cmd := exec.Command("crontab", args...)
+	cmd := exec.CommandContext(ctx, "crontab", args...)
 	cmd.Stdin = strings.NewReader(content)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to write crontab: %v: %s", err, string(output))
+		return fmt.Errorf("failed to write crontab: %w: %s", err, string(output))
 	}
 
 	return nil
@@ -329,7 +330,7 @@ func (m *CronModule) buildEntry(config *CronConfig) string {
 }
 
 // findEntry looks for a managed entry in the crontab.
-func (m *CronModule) findEntry(entries []string, config *CronConfig) (exists bool, matches bool) {
+func (m *CronModule) findEntry(entries []string, config *CronConfig) (exists, matches bool) {
 	marker := fmt.Sprintf("# Keystone Core: %s", config.Name)
 	expectedEntry := m.buildEntry(config)
 

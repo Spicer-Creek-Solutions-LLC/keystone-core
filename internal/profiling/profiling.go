@@ -27,15 +27,16 @@ import (
 // ProfileType represents the type of profile to capture
 type ProfileType string
 
+// ProfileTypeCPU constants define the supported types.
 const (
-	ProfileTypeCPU        ProfileType = "cpu"
-	ProfileTypeHeap       ProfileType = "heap"
-	ProfileTypeGoroutine  ProfileType = "goroutine"
-	ProfileTypeMutex      ProfileType = "mutex"
-	ProfileTypeBlock      ProfileType = "block"
-	ProfileTypeThreads    ProfileType = "threadcreate"
-	ProfileTypeAllocs     ProfileType = "allocs"
-	ProfileTypeTrace      ProfileType = "trace"
+	ProfileTypeCPU       ProfileType = "cpu"
+	ProfileTypeHeap      ProfileType = "heap"
+	ProfileTypeGoroutine ProfileType = "goroutine"
+	ProfileTypeMutex     ProfileType = "mutex"
+	ProfileTypeBlock     ProfileType = "block"
+	ProfileTypeThreads   ProfileType = "threadcreate"
+	ProfileTypeAllocs    ProfileType = "allocs"
+	ProfileTypeTrace     ProfileType = "trace"
 )
 
 // ProfileConfig configures the profiling server
@@ -92,8 +93,12 @@ func NewServer(config *ProfileConfig) *Server {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	server := &http.Server{
-		Addr:    config.ListenAddr,
-		Handler: mux,
+		Addr:              config.ListenAddr,
+		Handler:           mux,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return &Server{

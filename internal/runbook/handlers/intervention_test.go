@@ -12,10 +12,10 @@ import (
 
 // mockInterventionManager implements InterventionManager for testing.
 type mockInterventionManager struct {
-	createRequest      func(ctx context.Context, config *intervention.Config, executionID, stepName string, metadata map[string]interface{}) (*intervention.Request, error)
-	waitForResponse    func(ctx context.Context, requestID string) (*intervention.Request, error)
-	getByExecution     func(ctx context.Context, executionID, stepName string) (*intervention.Request, error)
-	cancel             func(ctx context.Context, requestID string, reason string) (*intervention.Request, error)
+	createRequest   func(ctx context.Context, config *intervention.Config, executionID, stepName string, metadata map[string]interface{}) (*intervention.Request, error)
+	waitForResponse func(ctx context.Context, requestID string) (*intervention.Request, error)
+	getByExecution  func(ctx context.Context, executionID, stepName string) (*intervention.Request, error)
+	cancel          func(ctx context.Context, requestID string, reason string) (*intervention.Request, error)
 }
 
 func (m *mockInterventionManager) CreateRequest(ctx context.Context, config *intervention.Config, executionID, stepName string, metadata map[string]interface{}) (*intervention.Request, error) {
@@ -27,7 +27,7 @@ func (m *mockInterventionManager) CreateRequest(ctx context.Context, config *int
 		ExecutionID: executionID,
 		StepName:    stepName,
 		Type:        config.Type,
-		State:       intervention.InterventionStatePending,
+		State:       intervention.StatePending,
 		Title:       config.Title,
 	}, nil
 }
@@ -38,7 +38,7 @@ func (m *mockInterventionManager) WaitForResponse(ctx context.Context, requestID
 	}
 	return &intervention.Request{
 		ID:    requestID,
-		State: intervention.InterventionStateCompleted,
+		State: intervention.StateCompleted,
 		Response: &intervention.Response{
 			Operator:    "operator@example.com",
 			Confirmed:   true,
@@ -60,7 +60,7 @@ func (m *mockInterventionManager) Cancel(ctx context.Context, requestID string, 
 	}
 	return &intervention.Request{
 		ID:    requestID,
-		State: intervention.InterventionStateCancelled,
+		State: intervention.StateCancelled,
 	}, nil
 }
 
@@ -246,8 +246,8 @@ func TestInterventionHandler_Execute_Confirm_Success(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeConfirm,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypeConfirm,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "operator@example.com",
 					Confirmed:   true,
@@ -291,8 +291,8 @@ func TestInterventionHandler_Execute_Confirm_Declined(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeConfirm,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypeConfirm,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "operator@example.com",
 					Confirmed:   false,
@@ -332,8 +332,8 @@ func TestInterventionHandler_Execute_Prompt_Success(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypePrompt,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypePrompt,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator: "operator@example.com",
 					Values: map[string]interface{}{
@@ -393,8 +393,8 @@ func TestInterventionHandler_Execute_WaitManual_Success(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeWaitManual,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypeWaitManual,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "operator@example.com",
 					Confirmed:   true,
@@ -432,8 +432,8 @@ func TestInterventionHandler_Execute_Expired(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeConfirm,
-				State: intervention.InterventionStateExpired,
+				Type:  intervention.TypeConfirm,
+				State: intervention.StateExpired,
 			}, nil
 		},
 	}
@@ -468,8 +468,8 @@ func TestInterventionHandler_Execute_Cancelled(t *testing.T) {
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeConfirm,
-				State: intervention.InterventionStateCancelled,
+				Type:  intervention.TypeConfirm,
+				State: intervention.StateCancelled,
 			}, nil
 		},
 	}
@@ -586,7 +586,7 @@ func TestInterventionHandler_Execute_ContextCancelled(t *testing.T) {
 			cancelled = true
 			return &intervention.Request{
 				ID:    requestID,
-				State: intervention.InterventionStateCancelled,
+				State: intervention.StateCancelled,
 			}, nil
 		},
 	}
@@ -624,8 +624,8 @@ func TestInterventionHandler_Execute_ResumeExisting(t *testing.T) {
 				ID:          "existing-req",
 				ExecutionID: executionID,
 				StepName:    stepName,
-				Type:        intervention.InterventionTypeConfirm,
-				State:       intervention.InterventionStatePending,
+				Type:        intervention.TypeConfirm,
+				State:       intervention.StatePending,
 			}, nil
 		},
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
@@ -634,8 +634,8 @@ func TestInterventionHandler_Execute_ResumeExisting(t *testing.T) {
 			}
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypeConfirm,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypeConfirm,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "operator@example.com",
 					Confirmed:   true,
@@ -676,8 +676,8 @@ func TestInterventionHandler_Execute_AlreadyComplete(t *testing.T) {
 				ID:          "existing-req",
 				ExecutionID: executionID,
 				StepName:    stepName,
-				Type:        intervention.InterventionTypeConfirm,
-				State:       intervention.InterventionStateCompleted,
+				Type:        intervention.TypeConfirm,
+				State:       intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "operator@example.com",
 					Confirmed:   true,
@@ -721,17 +721,17 @@ func TestInterventionHandler_Execute_WithSelectOptions(t *testing.T) {
 			return &intervention.Request{
 				ID:    "req-123",
 				Type:  config.Type,
-				State: intervention.InterventionStatePending,
+				State: intervention.StatePending,
 			}, nil
 		},
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypePrompt,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypePrompt,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
-					Operator: "op",
-					Values:   map[string]interface{}{"region": "us-east-1"},
+					Operator:    "op",
+					Values:      map[string]interface{}{"region": "us-east-1"},
 					RespondedAt: time.Now(),
 				},
 			}, nil
@@ -787,14 +787,14 @@ func TestInterventionHandler_Execute_WithValidation(t *testing.T) {
 			return &intervention.Request{
 				ID:    "req-123",
 				Type:  config.Type,
-				State: intervention.InterventionStatePending,
+				State: intervention.StatePending,
 			}, nil
 		},
 		waitForResponse: func(ctx context.Context, requestID string) (*intervention.Request, error) {
 			return &intervention.Request{
 				ID:    requestID,
-				Type:  intervention.InterventionTypePrompt,
-				State: intervention.InterventionStateCompleted,
+				Type:  intervention.TypePrompt,
+				State: intervention.StateCompleted,
 				Response: &intervention.Response{
 					Operator:    "op",
 					Values:      map[string]interface{}{"count": float64(50)},

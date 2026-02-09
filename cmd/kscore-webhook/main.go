@@ -1,3 +1,4 @@
+// Package main implements the kscore-webhook CLI for webhook handler management.
 package main
 
 import (
@@ -636,7 +637,8 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("=", 100))
 		fmt.Fprintln(cmd.OutOrStdout())
 
-		for _, d := range deliveries {
+		for i := range deliveries {
+			d := &deliveries[i]
 			statusIcon := "✓"
 			if d.Status != "success" {
 				statusIcon = "✗"
@@ -658,7 +660,8 @@ func runHistory(cmd *cobra.Command, args []string) error {
 
 func buildDeliveryTable(deliveries []WebhookDelivery) *output.Table {
 	rows := make([][]string, 0, len(deliveries))
-	for _, d := range deliveries {
+	for i := range deliveries {
+		d := &deliveries[i]
 		rows = append(rows, []string{
 			d.Timestamp.Format("2006-01-02 15:04:05"),
 			d.Type,

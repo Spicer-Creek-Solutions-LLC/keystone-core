@@ -3,6 +3,7 @@ package stdlib
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -144,7 +145,7 @@ s2: 'single quotes'
 
 	t.Run("empty input", func(t *testing.T) {
 		_, err := mod.Parse([]byte{})
-		if err != ErrInvalidInput {
+		if !errors.Is(err, ErrInvalidInput) {
 			t.Errorf("Expected ErrInvalidInput, got %v", err)
 		}
 	})
@@ -373,7 +374,7 @@ func TestXMLModule_Parse(t *testing.T) {
 
 	t.Run("empty input", func(t *testing.T) {
 		_, err := mod.Parse([]byte{})
-		if err != ErrInvalidInput {
+		if !errors.Is(err, ErrInvalidInput) {
 			t.Errorf("Expected ErrInvalidInput, got %v", err)
 		}
 	})
@@ -508,7 +509,6 @@ func TestXMLModule_ParseFile(t *testing.T) {
 		t.Errorf("name = %s, want root", node.Name())
 	}
 }
-
 
 func TestMergeMaps(t *testing.T) {
 	dst := map[string]interface{}{
@@ -1149,4 +1149,3 @@ func TestXPathSearch_EdgeCases(t *testing.T) {
 		}
 	})
 }
-

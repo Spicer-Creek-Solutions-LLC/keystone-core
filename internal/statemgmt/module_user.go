@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"os/user"
@@ -35,11 +36,12 @@ func (m *UserModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	// Check if user exists
 	usr, err := user.Lookup(username)
 	if err != nil {
-		if _, ok := err.(user.UnknownUserError); ok {
+		var unknownUserErr user.UnknownUserError
+		if errors.As(err, &unknownUserErr) {
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = (decl.State == "absent")
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		return nil, fmt.Errorf("failed to lookup user: %w", err)
 	}
@@ -55,7 +57,7 @@ func (m *UserModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	if decl.State == "absent" {
 		result.Matches = false
 		result.Diff["state"] = map[string]string{"current": "present", "desired": "absent"}
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// For "present" state, check attributes
@@ -89,7 +91,7 @@ func (m *UserModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	// Check shell (requires additional lookup on Unix)
 	if desiredShell := getStringParameter(decl, "shell", ""); desiredShell != "" {
-		currentShell, err := m.getUserShell(username)
+		currentShell, err := m.getUserShell(ctx, username)
 		if err == nil && currentShell != desiredShell {
 			result.Matches = false
 			result.Diff["shell"] = map[string]string{"current": currentShell, "desired": desiredShell}
@@ -98,7 +100,7 @@ func (m *UserModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 
 	// Check groups
 	if desiredGroups := getStringSliceParameter(decl, "groups"); desiredGroups != nil {
-		currentGroups, err := m.getUserGroups(username)
+		currentGroups, err := m.getUserGroups(username) //nolint:contextcheck // getUserGroups doesn't take context
 		if err == nil {
 			if !stringSlicesEqual(currentGroups, desiredGroups) {
 				result.Matches = false
@@ -110,7 +112,7 @@ func (m *UserModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the user state
@@ -132,7 +134,7 @@ func (m *UserModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -142,7 +144,7 @@ func (m *UserModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -172,7 +174,7 @@ func (m *UserModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the user is in the desired state
@@ -181,7 +183,7 @@ func (m *UserModule) Test(ctx context.Context, decl *StateDeclaration) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // createUser creates a new user
@@ -189,7 +191,8 @@ func (m *UserModule) createUser(ctx context.Context, decl *StateDeclaration, res
 	username := decl.ID
 	args := []string{}
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		// Linux/FreeBSD: useradd
 		args = append(args, "useradd")
 
@@ -226,19 +229,19 @@ func (m *UserModule) createUser(ctx context.Context, decl *StateDeclaration, res
 		}
 
 		// Groups
-		if groups := getStringSliceParameter(decl, "groups"); groups != nil && len(groups) > 0 {
+		if groups := getStringSliceParameter(decl, "groups"); len(groups) > 0 {
 			args = append(args, "-G", strings.Join(groups, ","))
 		}
 
 		args = append(args, username)
 
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl (Directory Service command line)
 		return m.createUserDarwin(ctx, decl, result)
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net user
 		return m.createUserWindows(ctx, decl, result)
-	} else {
+	default:
 		return fmt.Errorf("user creation not supported on %s", runtime.GOOS)
 	}
 
@@ -319,7 +322,7 @@ func (m *UserModule) createUserDarwin(ctx context.Context, decl *StateDeclaratio
 	}
 
 	// Add to additional groups
-	if groups := getStringSliceParameter(decl, "groups"); groups != nil && len(groups) > 0 {
+	if groups := getStringSliceParameter(decl, "groups"); len(groups) > 0 {
 		for _, group := range groups {
 			if err := m.addUserToGroupDarwin(ctx, username, group); err != nil {
 				// Log but don't fail - group might not exist
@@ -339,7 +342,8 @@ func (m *UserModule) modifyUser(ctx context.Context, decl *StateDeclaration, res
 	username := decl.ID
 	args := []string{}
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		// Linux/FreeBSD: usermod
 		args = append(args, "usermod")
 
@@ -364,7 +368,7 @@ func (m *UserModule) modifyUser(ctx context.Context, decl *StateDeclaration, res
 		}
 
 		// Groups
-		if groups := getStringSliceParameter(decl, "groups"); groups != nil && len(groups) > 0 {
+		if groups := getStringSliceParameter(decl, "groups"); len(groups) > 0 {
 			args = append(args, "-G", strings.Join(groups, ","))
 		}
 
@@ -376,13 +380,13 @@ func (m *UserModule) modifyUser(ctx context.Context, decl *StateDeclaration, res
 
 		args = append(args, username)
 
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl
 		return m.modifyUserDarwin(ctx, decl, result)
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net user
 		return m.modifyUserWindows(ctx, decl, result)
-	} else {
+	default:
 		return fmt.Errorf("user modification not supported on %s", runtime.GOOS)
 	}
 
@@ -466,26 +470,27 @@ func (m *UserModule) modifyUserDarwin(ctx context.Context, decl *StateDeclaratio
 func (m *UserModule) deleteUser(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
 	username := decl.ID
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+	switch runtime.GOOS {
+	case "linux", "freebsd":
 		cmd := exec.CommandContext(ctx, "userdel", username) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to delete user: %w (output: %s)", err, string(output))
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use dscl to delete user
 		userPath := "/Users/" + username
 		if err := m.dsclDelete(ctx, userPath); err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		// Windows: use net user /delete
 		cmd := exec.CommandContext(ctx, "net", "user", username, "/delete") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to delete user: %w (output: %s)", err, string(output))
 		}
-	} else {
+	default:
 		return fmt.Errorf("user deletion not supported on %s", runtime.GOOS)
 	}
 
@@ -494,11 +499,11 @@ func (m *UserModule) deleteUser(ctx context.Context, decl *StateDeclaration, res
 }
 
 // getUserShell gets the user's shell
-func (m *UserModule) getUserShell(username string) (string, error) {
+func (m *UserModule) getUserShell(ctx context.Context, username string) (string, error) {
 	if runtime.GOOS == "darwin" {
 		// macOS: use dscl to get UserShell
 		userPath := "/Users/" + username
-		cmd := exec.Command("dscl", ".", "-read", userPath, "UserShell") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+		cmd := exec.CommandContext(ctx,"dscl", ".", "-read", userPath, "UserShell") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		output, err := cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to read UserShell: %w", err)
@@ -507,21 +512,21 @@ func (m *UserModule) getUserShell(username string) (string, error) {
 		outputStr := strings.TrimSpace(string(output))
 		parts := strings.SplitN(outputStr, ":", 2)
 		if len(parts) == 2 {
-			return strings.TrimSpace(parts[1]), nil
+			return strings.TrimSpace(parts[1]), nil //nolint:nilerr // intentional
 		}
 		return "", fmt.Errorf("failed to parse dscl output")
 	}
 
 	if runtime.GOOS == "windows" {
 		// Windows doesn't have a user shell concept
-		return "", nil
+		return "", nil //nolint:nilerr // intentional
 	}
 
 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	cmd := exec.Command("getent", "passwd", username) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(ctx,"getent", "passwd", username) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -530,7 +535,7 @@ func (m *UserModule) getUserShell(username string) (string, error) {
 	// Parse passwd entry: username:x:uid:gid:gecos:home:shell
 	parts := strings.Split(strings.TrimSpace(string(output)), ":")
 	if len(parts) >= 7 {
-		return parts[6], nil
+		return parts[6], nil //nolint:nilerr // intentional
 	}
 
 	return "", fmt.Errorf("failed to parse passwd entry")
@@ -542,7 +547,7 @@ func (m *UserModule) getUserGroups(username string) ([]string, error) {
 		return m.getUserGroupsWindows(context.Background(), username)
 	}
 
-	cmd := exec.Command("groups", username) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(context.Background(),"groups", username) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -555,7 +560,7 @@ func (m *UserModule) getUserGroups(username string) ([]string, error) {
 	if parts := strings.Split(outputStr, ":"); len(parts) >= 2 {
 		// Linux format with colon separator
 		groups := strings.Fields(parts[1])
-		return groups, nil
+		return groups, nil //nolint:nilerr // intentional
 	}
 
 	// macOS format - just space-separated group names
@@ -563,7 +568,7 @@ func (m *UserModule) getUserGroups(username string) ([]string, error) {
 	if len(groups) == 0 {
 		return nil, fmt.Errorf("no groups found for user %s", username)
 	}
-	return groups, nil
+	return groups, nil //nolint:nilerr // intentional
 }
 
 // stringSlicesEqual checks if two string slices are equal (ignoring order)
@@ -627,7 +632,7 @@ func (m *UserModule) dsclRead(ctx context.Context, path, property string) (strin
 	outputStr := strings.TrimSpace(string(output))
 	parts := strings.SplitN(outputStr, ":", 2)
 	if len(parts) == 2 {
-		return strings.TrimSpace(parts[1]), nil
+		return strings.TrimSpace(parts[1]), nil //nolint:nilerr // intentional
 	}
 	return "", fmt.Errorf("failed to parse dscl output: %s", outputStr)
 }
@@ -653,7 +658,7 @@ func (m *UserModule) findNextAvailableUID(ctx context.Context) (int, error) {
 		}
 	}
 
-	return maxUID + 1, nil
+	return maxUID + 1, nil //nolint:nilerr // intentional
 }
 
 // addUserToGroupDarwin adds a user to a group on macOS
@@ -692,17 +697,17 @@ func (m *UserModule) createUserWindows(ctx context.Context, decl *StateDeclarati
 
 	// Full name
 	if fullname := getStringParameter(decl, "fullname", ""); fullname != "" {
-		args = append(args, fmt.Sprintf("/fullname:\"%s\"", fullname))
+		args = append(args, fmt.Sprintf("/fullname:%q", fullname))
 	}
 
 	// Comment/description
 	if comment := getStringParameter(decl, "comment", ""); comment != "" {
-		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+		args = append(args, fmt.Sprintf("/comment:%q", comment))
 	}
 
 	// Home directory
 	if home := getStringParameter(decl, "home", ""); home != "" {
-		args = append(args, fmt.Sprintf("/homedir:\"%s\"", home))
+		args = append(args, fmt.Sprintf("/homedir:%q", home))
 	}
 
 	// Account active
@@ -722,7 +727,7 @@ func (m *UserModule) createUserWindows(ctx context.Context, decl *StateDeclarati
 	}
 
 	// Add to groups if specified
-	if groups := getStringSliceParameter(decl, "groups"); groups != nil && len(groups) > 0 {
+	if groups := getStringSliceParameter(decl, "groups"); len(groups) > 0 {
 		for _, group := range groups {
 			if err := m.addUserToGroupWindows(ctx, username, group); err != nil {
 				result.Comment = fmt.Sprintf("User %s created (warning: failed to add to group %s: %v)", username, group, err)
@@ -746,19 +751,19 @@ func (m *UserModule) modifyUserWindows(ctx context.Context, decl *StateDeclarati
 
 	// Full name
 	if fullname := getStringParameter(decl, "fullname", ""); fullname != "" {
-		args = append(args, fmt.Sprintf("/fullname:\"%s\"", fullname))
+		args = append(args, fmt.Sprintf("/fullname:%q", fullname))
 		modified = true
 	}
 
 	// Comment/description
 	if comment := getStringParameter(decl, "comment", ""); comment != "" {
-		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+		args = append(args, fmt.Sprintf("/comment:%q", comment))
 		modified = true
 	}
 
 	// Home directory
 	if home := getStringParameter(decl, "home", ""); home != "" {
-		args = append(args, fmt.Sprintf("/homedir:\"%s\"", home))
+		args = append(args, fmt.Sprintf("/homedir:%q", home))
 		modified = true
 	}
 
@@ -834,7 +839,7 @@ func (m *UserModule) getUserGroupsWindows(ctx context.Context, username string) 
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback: return empty list (user might have no groups)
-		return []string{}, nil
+		return []string{}, nil //nolint:nilerr // intentional
 	}
 
 	var groups []string
@@ -845,7 +850,7 @@ func (m *UserModule) getUserGroupsWindows(ctx context.Context, username string) 
 			groups = append(groups, line)
 		}
 	}
-	return groups, nil
+	return groups, nil //nolint:nilerr // intentional
 }
 
 // updateGroupMembershipWindows updates a user's group membership on Windows
@@ -877,7 +882,7 @@ func (m *UserModule) updateGroupMembershipWindows(ctx context.Context, username 
 
 	// Remove extra groups (except built-in "Users" group)
 	for _, group := range currentGroups {
-		if !desiredMap[strings.ToLower(group)] && strings.ToLower(group) != "users" {
+		if !desiredMap[strings.ToLower(group)] && !strings.EqualFold(group, "users") {
 			if err := m.removeUserFromGroupWindows(ctx, username, group); err != nil {
 				return err
 			}
@@ -888,5 +893,5 @@ func (m *UserModule) updateGroupMembershipWindows(ctx context.Context, username 
 }
 
 func init() {
-	RegisterModule(NewUserModule())
+	_ = RegisterModule(NewUserModule()) //nolint:errcheck // module registration in init
 }

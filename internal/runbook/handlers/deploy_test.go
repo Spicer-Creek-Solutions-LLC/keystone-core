@@ -12,14 +12,14 @@ import (
 
 // mockDeployOrchestrator implements DeployOrchestrator for testing.
 type mockDeployOrchestrator struct {
-	plans       map[string]*orchestration.OrchestrationPlan
-	executeFunc func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error)
-	rollbackFunc func(ctx context.Context, orchestrationID string) (*orchestration.OrchestrationResult, error)
+	plans        map[string]*orchestration.Plan
+	executeFunc  func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error)
+	rollbackFunc func(ctx context.Context, orchestrationID string) (*orchestration.Result, error)
 }
 
 func newMockDeployOrchestrator() *mockDeployOrchestrator {
 	return &mockDeployOrchestrator{
-		plans: map[string]*orchestration.OrchestrationPlan{
+		plans: map[string]*orchestration.Plan{
 			"production-deploy": {
 				Name:    "production-deploy",
 				Version: "v1",
@@ -32,11 +32,11 @@ func newMockDeployOrchestrator() *mockDeployOrchestrator {
 	}
 }
 
-func (m *mockDeployOrchestrator) Execute(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
+func (m *mockDeployOrchestrator) Execute(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
 	if m.executeFunc != nil {
 		return m.executeFunc(ctx, req)
 	}
-	return &orchestration.OrchestrationResult{
+	return &orchestration.Result{
 		ID:     "orch-123",
 		Plan:   m.plans[req.PlanName],
 		Status: orchestration.StatusCompleted,
@@ -52,16 +52,16 @@ func (m *mockDeployOrchestrator) Execute(ctx context.Context, req *orchestration
 	}, nil
 }
 
-func (m *mockDeployOrchestrator) GetPlan(name string) (*orchestration.OrchestrationPlan, bool) {
+func (m *mockDeployOrchestrator) GetPlan(name string) (*orchestration.Plan, bool) {
 	plan, ok := m.plans[name]
 	return plan, ok
 }
 
-func (m *mockDeployOrchestrator) Rollback(ctx context.Context, orchestrationID string) (*orchestration.OrchestrationResult, error) {
+func (m *mockDeployOrchestrator) Rollback(ctx context.Context, orchestrationID string) (*orchestration.Result, error) {
 	if m.rollbackFunc != nil {
 		return m.rollbackFunc(ctx, orchestrationID)
 	}
-	return &orchestration.OrchestrationResult{
+	return &orchestration.Result{
 		ID:     "rollback-123",
 		Status: orchestration.StatusCompleted,
 	}, nil
@@ -97,10 +97,10 @@ func TestDeployHandler_Validate(t *testing.T) {
 					"frontend": "v2.0.0",
 					"backend":  "v1.5.0",
 				},
-				"dry_run":            false,
-				"force":              false,
+				"dry_run":             false,
+				"force":               false,
 				"rollback_on_failure": true,
-				"timeout":            "30m",
+				"timeout":             "30m",
 			},
 			wantErr: false,
 		},
@@ -207,8 +207,8 @@ func TestDeployHandler_Execute(t *testing.T) {
 
 	t.Run("deployment failure", func(t *testing.T) {
 		orch := newMockDeployOrchestrator()
-		orch.executeFunc = func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
-			return &orchestration.OrchestrationResult{
+		orch.executeFunc = func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
+			return &orchestration.Result{
 				ID:           "orch-failed",
 				Status:       orchestration.StatusFailed,
 				FailedGroups: []string{"group-1"},
@@ -244,15 +244,15 @@ func TestDeployHandler_Execute(t *testing.T) {
 
 	t.Run("deployment failure with rollback", func(t *testing.T) {
 		orch := newMockDeployOrchestrator()
-		orch.executeFunc = func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
-			return &orchestration.OrchestrationResult{
+		orch.executeFunc = func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
+			return &orchestration.Result{
 				ID:           "orch-failed",
 				Status:       orchestration.StatusFailed,
 				FailedGroups: []string{"group-1"},
 			}, nil
 		}
-		orch.rollbackFunc = func(ctx context.Context, orchestrationID string) (*orchestration.OrchestrationResult, error) {
-			return &orchestration.OrchestrationResult{
+		orch.rollbackFunc = func(ctx context.Context, orchestrationID string) (*orchestration.Result, error) {
+			return &orchestration.Result{
 				ID:     "rollback-123",
 				Status: orchestration.StatusCompleted,
 			}, nil
@@ -310,11 +310,11 @@ func TestDeployHandler_Execute(t *testing.T) {
 	})
 
 	t.Run("with revisions", func(t *testing.T) {
-		var capturedRequest *orchestration.OrchestrationRequest
+		var capturedRequest *orchestration.Request
 		orch := newMockDeployOrchestrator()
-		orch.executeFunc = func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
+		orch.executeFunc = func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
 			capturedRequest = req
-			return &orchestration.OrchestrationResult{
+			return &orchestration.Result{
 				ID:     "orch-123",
 				Plan:   orch.plans[req.PlanName],
 				Status: orchestration.StatusCompleted,
@@ -350,11 +350,11 @@ func TestDeployHandler_Execute(t *testing.T) {
 	})
 
 	t.Run("with groups to skip", func(t *testing.T) {
-		var capturedRequest *orchestration.OrchestrationRequest
+		var capturedRequest *orchestration.Request
 		orch := newMockDeployOrchestrator()
-		orch.executeFunc = func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
+		orch.executeFunc = func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
 			capturedRequest = req
-			return &orchestration.OrchestrationResult{
+			return &orchestration.Result{
 				ID:     "orch-123",
 				Plan:   orch.plans[req.PlanName],
 				Status: orchestration.StatusCompleted,
@@ -384,7 +384,7 @@ func TestDeployHandler_Execute(t *testing.T) {
 
 	t.Run("context cancellation", func(t *testing.T) {
 		orch := newMockDeployOrchestrator()
-		orch.executeFunc = func(ctx context.Context, req *orchestration.OrchestrationRequest) (*orchestration.OrchestrationResult, error) {
+		orch.executeFunc = func(ctx context.Context, req *orchestration.Request) (*orchestration.Result, error) {
 			return nil, ctx.Err()
 		}
 		h := NewDeployHandler(orch)
@@ -490,7 +490,7 @@ func TestRollbackHandler_Execute(t *testing.T) {
 
 	t.Run("rollback failure", func(t *testing.T) {
 		orch := newMockDeployOrchestrator()
-		orch.rollbackFunc = func(ctx context.Context, orchestrationID string) (*orchestration.OrchestrationResult, error) {
+		orch.rollbackFunc = func(ctx context.Context, orchestrationID string) (*orchestration.Result, error) {
 			return nil, errors.New("rollback failed")
 		}
 		h := NewRollbackHandler(orch)

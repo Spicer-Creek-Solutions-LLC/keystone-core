@@ -21,7 +21,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		{Name: PhaseInstall},
 	}
 
-	cfg := &BootstrapConfig{NodeRole: "agent"}
+	cfg := &Config{NodeRole: "agent"}
 
 	err := txn.Begin(context.Background(), DeploymentModeDemo, cfg, phases)
 	if err != nil {
@@ -369,7 +369,7 @@ func TestTransactionManager_RestoreArtifacts(t *testing.T) {
 	artifacts := &InstallArtifacts{
 		PackageManager: "apt",
 		Packages:       []string{"kscore-server"},
-		CreatedFiles:   []string{"/etc/kscore/config.yaml"},
+		CreatedFiles:   []string{"/etc/keystone-core/config.yaml"},
 	}
 
 	txn.BeforePhase(context.Background(), 0, phases[0])

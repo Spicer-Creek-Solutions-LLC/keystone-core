@@ -387,6 +387,7 @@ hugo         # Build to docs/public/
 
 - **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
 - **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing (see `epics/future-advanced-state-orchestration.md`)
+- **Simplification** - Aggressive refactor to minimal required code (see `epics/future-simplification.md`)
 
 See `epics/` directory for detailed implementation plans.
 

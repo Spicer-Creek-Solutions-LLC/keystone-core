@@ -5,6 +5,9 @@ description: >
   Declarative configuration management with idempotent state modules and drift detection
 ---
 
+> **Implementation Note**: The `kscorectl state` CLI supports:
+> `apply`, `check`, `drift`, `test`, `diff`, `show`, `history`, `rollback`
+
 ## Overview
 
 Keystone Core's state management system enables you to describe your infrastructure's desired state declaratively. The system ensures your infrastructure matches that state through idempotent operations.
@@ -785,8 +788,11 @@ Fix:
 
 Debug:
 ```bash
-# Check template syntax
-kscorectl state render web.yaml --vars dev.yaml
+# Use check mode to validate templates without applying
+kscorectl state check web.yaml --vars dev.yaml
+
+# View the parsed state file
+kscorectl state show web.yaml
 ```
 
 Common issues:
@@ -1064,10 +1070,11 @@ resources:
 
 **Problem: DAG build is slow**
 ```bash
-# Analyze dependency graph
-kscorectl state graph large.yaml --output dot > graph.dot
-dot -Tpng graph.dot -o graph.png
-# Review for unnecessary complexity
+# Check state file for complexity
+kscorectl state show large.yaml
+
+# Review for unnecessary dependencies and complexity
+# Consider splitting large state files into smaller modules
 ```
 
 **Problem: Many resources failing in parallel**
@@ -1086,7 +1093,7 @@ This section provides actionable tuning recommendations to optimize state applic
 #### Server Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 
 # State processing settings
 state:
@@ -1155,7 +1162,7 @@ sqlite:
 #### Agent Resource Limits
 
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 
 # Resource limits for state execution
 execution:
@@ -1174,7 +1181,7 @@ execution:
 # Memory limits
 resources:
   memory_limit: 512MB           # Increase for large states
-  temp_dir: /var/tmp/kscore     # Fast local storage
+  temp_dir: /var/tmp/keystone-core     # Fast local storage
 
 # File module optimization
 file_module:
@@ -1300,7 +1307,7 @@ file_module:
 
   # Temporary file handling
   atomic_writes: true           # Use temp file + rename
-  temp_prefix: ".kscore-"
+  temp_prefix: ".keystone-core-"
 
   # Skip unchanged files quickly
   quick_check:
@@ -1329,7 +1336,7 @@ package_module:
   # Use local package cache
   local_cache:
     enabled: true
-    path: /var/cache/kscore/packages
+    path: /var/cache/keystone-core/packages
     max_size: 10GB
 ```
 
@@ -1353,16 +1360,6 @@ service_module:
 ```
 
 ### Template Performance
-
-#### Precompilation
-
-```bash
-# Precompile templates for faster rendering
-kscorectl state precompile states/ --output compiled/
-
-# Apply precompiled states (skips parsing/rendering)
-kscorectl state apply compiled/app.yaml --precompiled
-```
 
 #### Template Optimization Patterns
 
@@ -1507,45 +1504,6 @@ groups:
           summary: Agent module execution P95 exceeds 1 minute
 ```
 
-### Performance Testing
-
-#### Benchmarking Your Deployment
-
-```bash
-# Generate test state file
-kscorectl state generate-test \
-  --resources 1000 \
-  --complexity medium \
-  --output test-state.yaml
-
-# Run benchmark
-kscorectl state benchmark test-state.yaml \
-  --agents 100 \
-  --iterations 10 \
-  --output benchmark-results.json
-
-# Analyze results
-kscorectl state benchmark-report benchmark-results.json
-```
-
-#### Performance Baseline
-
-Establish baselines for your deployment:
-
-```bash
-# Capture baseline
-kscorectl state baseline capture \
-  --state production.yaml \
-  --agents "environment=prod" \
-  --output baseline.json
-
-# Compare against baseline
-kscorectl state baseline compare \
-  --baseline baseline.json \
-  --state production.yaml \
-  --threshold 20%  # Alert if >20% slower
-```
-
 ### Tuning Workflow
 
 1. **Measure Current Performance**
@@ -1572,7 +1530,7 @@ kscorectl state baseline compare \
 
 | Symptom | Likely Cause | Tuning Action |
 |---------|-------------|---------------|
-| Slow state parsing | Large files, complex YAML | Split files, precompile |
+| Slow state parsing | Large files, complex YAML | Split files, simplify structure |
 | Slow template render | Complex templates | Optimize templates, enable cache |
 | Slow DAG build | Complex dependencies | Simplify requisites, flatten graph |
 | Slow agent execution | Resource contention | Reduce parallelism per agent |
@@ -1583,7 +1541,7 @@ kscorectl state baseline compare \
 
 ## Next Steps
 
-- Learn about [Remote Execution](remote-execution/) for command-based operations
-- Understand [Events](events/) emitted during state changes
-- Explore [Reactors](reactors/) for automated drift remediation
-- See [Policy Enforcement](policy/) for compliance checks on state
+- Learn about [Remote Execution](/docs/concepts/remote-execution/) for command-based operations
+- Understand [Events](/docs/concepts/events/) emitted during state changes
+- Explore [Reactors](/docs/concepts/reactors/) for automated drift remediation
+- See [Policy Enforcement](/docs/concepts/policy/) for compliance checks on state

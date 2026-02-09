@@ -32,7 +32,7 @@ type SnapshotConfig struct {
 // DefaultSnapshotConfig returns default snapshot configuration.
 func DefaultSnapshotConfig() *SnapshotConfig {
 	return &SnapshotConfig{
-		StorePath:                "/var/lib/kscore/snapshots",
+		StorePath:                "/var/lib/keystone-core/snapshots",
 		MaxSnapshotsPerBlueprint: 10,
 		MaxTotalSnapshots:        100,
 		CompressSnapshots:        false,
@@ -158,7 +158,8 @@ func NewSnapshotManager(config *SnapshotConfig) (*SnapshotManager, error) {
 	}
 
 	// Ensure storage directory exists
-	if err := os.MkdirAll(config.StorePath, 0755); err != nil {
+	//nolint:gosec // G301: snapshot directory needs to be accessible by service user
+	if err := os.MkdirAll(config.StorePath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}
 
@@ -205,7 +206,8 @@ func (m *SnapshotManager) CreateSnapshot(agentID, blueprintName, blueprintVersio
 
 	// Save snapshot
 	path := m.snapshotPath(id)
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	//nolint:gosec // G306: snapshot files need to be readable for rollback operations
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write snapshot: %w", err)
 	}
 

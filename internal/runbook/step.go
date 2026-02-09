@@ -239,8 +239,9 @@ func (t StepType) IsValid() bool {
 		StepTypeState, StepTypeDeploy, StepTypeRollback,
 		StepTypeScript:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // IsValidExtended returns true if the step type is any recognized type.

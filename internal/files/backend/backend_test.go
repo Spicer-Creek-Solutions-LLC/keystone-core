@@ -4,18 +4,18 @@ import (
 	"testing"
 )
 
-func TestBackendTypes(t *testing.T) {
-	types := []BackendType{
-		BackendTypeFilesystem,
-		BackendTypeS3,
-		BackendTypeGCS,
-		BackendTypeAzure,
-		BackendTypeNATSObject,
-		BackendTypeGit,
-		BackendTypeHTTP,
+func TestTypes(t *testing.T) {
+	types := []Type{
+		TypeFilesystem,
+		TypeS3,
+		TypeGCS,
+		TypeAzure,
+		TypeNATSObject,
+		TypeGit,
+		TypeHTTP,
 	}
 
-	seen := make(map[BackendType]bool)
+	seen := make(map[Type]bool)
 	for _, bt := range types {
 		if seen[bt] {
 			t.Errorf("Duplicate backend type: %s", bt)
@@ -154,7 +154,7 @@ func TestIsNotFound(t *testing.T) {
 		},
 		{
 			name:     "wrapped not found",
-			err:      &BackendError{Op: "get", Err: errNotFound{}},
+			err:      &Error{Op: "get", Err: notFoundError{}},
 			expected: true,
 		},
 		{
@@ -174,20 +174,20 @@ func TestIsNotFound(t *testing.T) {
 	}
 }
 
-func TestBackendErrorError(t *testing.T) {
+func TestErrorError(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *BackendError
+		err      *Error
 		expected string
 	}{
 		{
 			name:     "with path",
-			err:      &BackendError{Backend: "filesystem", Op: "get", Path: "/test/file.txt", Err: errNotFound{}},
+			err:      &Error{Backend: "filesystem", Op: "get", Path: "/test/file.txt", Err: notFoundError{}},
 			expected: "filesystem: get /test/file.txt: file not found",
 		},
 		{
 			name:     "without path",
-			err:      &BackendError{Backend: "s3", Op: "list", Err: errAccessDenied{}},
+			err:      &Error{Backend: "s3", Op: "list", Err: accessDeniedError{}},
 			expected: "s3: list: access denied",
 		},
 	}
@@ -196,7 +196,7 @@ func TestBackendErrorError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.err.Error()
 			if result != tt.expected {
-				t.Errorf("BackendError.Error() = %q, want %q", result, tt.expected)
+				t.Errorf("Error.Error() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

@@ -11,55 +11,55 @@ type ProxyMetrics struct {
 	mu sync.RWMutex
 
 	// Device metrics
-	devicesTotal       int
-	devicesHealthy     int
-	devicesDegraded    int
-	devicesUnhealthy   int
-	devicesUnknown     int
-	devicesByProtocol  map[string]int
-	devicesByVendor    map[string]int
+	devicesTotal      int
+	devicesHealthy    int
+	devicesDegraded   int
+	devicesUnhealthy  int
+	devicesUnknown    int
+	devicesByProtocol map[string]int
+	devicesByVendor   map[string]int
 
 	// Connection metrics
-	connectionsTotal   int64
-	connectionsActive  int
-	connectionsFailed  int64
-	connectionLatency  *LatencyStats
+	connectionsTotal  int64
+	connectionsActive int
+	connectionsFailed int64
+	connectionLatency *LatencyStats
 
 	// Command metrics
-	commandsTotal      int64
-	commandsSucceeded  int64
-	commandsFailed     int64
-	commandLatency     *LatencyStats
+	commandsTotal     int64
+	commandsSucceeded int64
+	commandsFailed    int64
+	commandLatency    *LatencyStats
 
 	// State metrics
-	statesApplied      int64
-	statesSucceeded    int64
-	statesFailed       int64
-	statesChanged      int64
-	stateLatency       *LatencyStats
+	statesApplied   int64
+	statesSucceeded int64
+	statesFailed    int64
+	statesChanged   int64
+	stateLatency    *LatencyStats
 
 	// Drift metrics
-	driftChecks        int64
-	driftDetected      int64
-	driftSeverity      map[string]int64 // by severity level
+	driftChecks   int64
+	driftDetected int64
+	driftSeverity map[string]int64 // by severity level
 
 	// Discovery metrics
-	discoveryScans     int64
-	discoveredDevices  int64
-	approvedDevices    int64
-	rejectedDevices    int64
+	discoveryScans    int64
+	discoveredDevices int64
+	approvedDevices   int64
+	rejectedDevices   int64
 
 	// Protocol-specific metrics
-	sshCommands        int64
-	snmpRequests       int64
-	restRequests       int64
-	winrmCommands      int64
+	sshCommands   int64
+	snmpRequests  int64
+	restRequests  int64
+	winrmCommands int64
 
 	// Error tracking
-	errorsByType       map[string]int64
+	errorsByType map[string]int64
 
 	// Last update time
-	lastUpdate         time.Time
+	lastUpdate time.Time
 }
 
 // LatencyStats tracks latency statistics.
@@ -109,7 +109,7 @@ func (s *LatencyStats) Record(d time.Duration) {
 }
 
 // Stats returns latency statistics.
-func (s *LatencyStats) Stats() (count int64, avg, min, max time.Duration) {
+func (s *LatencyStats) Stats() (count int64, avg, minVal, maxVal time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -234,7 +234,7 @@ func (m *ProxyMetrics) RecordCommand(success bool, latency time.Duration, protoc
 }
 
 // RecordState records a state application.
-func (m *ProxyMetrics) RecordState(success bool, changed bool, latency time.Duration) {
+func (m *ProxyMetrics) RecordState(success, changed bool, latency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -288,18 +288,18 @@ func (m *ProxyMetrics) RecordError(errorType string) {
 // MetricsSnapshot is a point-in-time snapshot of metrics.
 type MetricsSnapshot struct {
 	// Device metrics
-	DevicesTotal       int            `json:"devices_total"`
-	DevicesHealthy     int            `json:"devices_healthy"`
-	DevicesDegraded    int            `json:"devices_degraded"`
-	DevicesUnhealthy   int            `json:"devices_unhealthy"`
-	DevicesUnknown     int            `json:"devices_unknown"`
-	DevicesByProtocol  map[string]int `json:"devices_by_protocol"`
-	DevicesByVendor    map[string]int `json:"devices_by_vendor"`
+	DevicesTotal      int            `json:"devices_total"`
+	DevicesHealthy    int            `json:"devices_healthy"`
+	DevicesDegraded   int            `json:"devices_degraded"`
+	DevicesUnhealthy  int            `json:"devices_unhealthy"`
+	DevicesUnknown    int            `json:"devices_unknown"`
+	DevicesByProtocol map[string]int `json:"devices_by_protocol"`
+	DevicesByVendor   map[string]int `json:"devices_by_vendor"`
 
 	// Connection metrics
-	ConnectionsTotal   int64 `json:"connections_total"`
-	ConnectionsActive  int   `json:"connections_active"`
-	ConnectionsFailed  int64 `json:"connections_failed"`
+	ConnectionsTotal     int64   `json:"connections_total"`
+	ConnectionsActive    int     `json:"connections_active"`
+	ConnectionsFailed    int64   `json:"connections_failed"`
 	ConnectionLatencyAvg float64 `json:"connection_latency_avg_ms"`
 
 	// Command metrics
@@ -310,35 +310,35 @@ type MetricsSnapshot struct {
 	CommandLatencyAvg  float64 `json:"command_latency_avg_ms"`
 
 	// State metrics
-	StatesApplied      int64   `json:"states_applied"`
-	StatesSucceeded    int64   `json:"states_succeeded"`
-	StatesFailed       int64   `json:"states_failed"`
-	StatesChanged      int64   `json:"states_changed"`
-	StateSuccessRate   float64 `json:"state_success_rate"`
-	StateLatencyAvg    float64 `json:"state_latency_avg_ms"`
+	StatesApplied    int64   `json:"states_applied"`
+	StatesSucceeded  int64   `json:"states_succeeded"`
+	StatesFailed     int64   `json:"states_failed"`
+	StatesChanged    int64   `json:"states_changed"`
+	StateSuccessRate float64 `json:"state_success_rate"`
+	StateLatencyAvg  float64 `json:"state_latency_avg_ms"`
 
 	// Drift metrics
-	DriftChecks        int64            `json:"drift_checks"`
-	DriftDetected      int64            `json:"drift_detected"`
-	DriftSeverity      map[string]int64 `json:"drift_severity"`
+	DriftChecks   int64            `json:"drift_checks"`
+	DriftDetected int64            `json:"drift_detected"`
+	DriftSeverity map[string]int64 `json:"drift_severity"`
 
 	// Discovery metrics
-	DiscoveryScans     int64 `json:"discovery_scans"`
-	DiscoveredDevices  int64 `json:"discovered_devices"`
-	ApprovedDevices    int64 `json:"approved_devices"`
-	RejectedDevices    int64 `json:"rejected_devices"`
+	DiscoveryScans    int64 `json:"discovery_scans"`
+	DiscoveredDevices int64 `json:"discovered_devices"`
+	ApprovedDevices   int64 `json:"approved_devices"`
+	RejectedDevices   int64 `json:"rejected_devices"`
 
 	// Protocol metrics
-	SSHCommands        int64 `json:"ssh_commands"`
-	SNMPRequests       int64 `json:"snmp_requests"`
-	RESTRequests       int64 `json:"rest_requests"`
-	WinRMCommands      int64 `json:"winrm_commands"`
+	SSHCommands   int64 `json:"ssh_commands"`
+	SNMPRequests  int64 `json:"snmp_requests"`
+	RESTRequests  int64 `json:"rest_requests"`
+	WinRMCommands int64 `json:"winrm_commands"`
 
 	// Errors
-	ErrorsByType       map[string]int64 `json:"errors_by_type"`
+	ErrorsByType map[string]int64 `json:"errors_by_type"`
 
 	// Timestamp
-	Timestamp          time.Time `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // Snapshot returns a point-in-time snapshot of metrics.
@@ -363,28 +363,28 @@ func (m *ProxyMetrics) Snapshot() *MetricsSnapshot {
 		CommandsSucceeded: m.commandsSucceeded,
 		CommandsFailed:    m.commandsFailed,
 
-		StatesApplied:     m.statesApplied,
-		StatesSucceeded:   m.statesSucceeded,
-		StatesFailed:      m.statesFailed,
-		StatesChanged:     m.statesChanged,
+		StatesApplied:   m.statesApplied,
+		StatesSucceeded: m.statesSucceeded,
+		StatesFailed:    m.statesFailed,
+		StatesChanged:   m.statesChanged,
 
-		DriftChecks:       m.driftChecks,
-		DriftDetected:     m.driftDetected,
-		DriftSeverity:     make(map[string]int64),
+		DriftChecks:   m.driftChecks,
+		DriftDetected: m.driftDetected,
+		DriftSeverity: make(map[string]int64),
 
 		DiscoveryScans:    m.discoveryScans,
 		DiscoveredDevices: m.discoveredDevices,
 		ApprovedDevices:   m.approvedDevices,
 		RejectedDevices:   m.rejectedDevices,
 
-		SSHCommands:       m.sshCommands,
-		SNMPRequests:      m.snmpRequests,
-		RESTRequests:      m.restRequests,
-		WinRMCommands:     m.winrmCommands,
+		SSHCommands:   m.sshCommands,
+		SNMPRequests:  m.snmpRequests,
+		RESTRequests:  m.restRequests,
+		WinRMCommands: m.winrmCommands,
 
-		ErrorsByType:      make(map[string]int64),
+		ErrorsByType: make(map[string]int64),
 
-		Timestamp:         time.Now(),
+		Timestamp: time.Now(),
 	}
 
 	// Copy maps

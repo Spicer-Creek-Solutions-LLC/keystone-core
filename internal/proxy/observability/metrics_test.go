@@ -250,8 +250,8 @@ func TestNewLatencyStats(t *testing.T) {
 		t.Fatal("NewLatencyStats returned nil")
 	}
 
-	count, avg, min, max := stats.Stats()
-	if count != 0 || avg != 0 || min != 0 || max != 0 {
+	count, avg, minVal, maxVal := stats.Stats()
+	if count != 0 || avg != 0 || minVal != 0 || maxVal != 0 {
 		t.Error("expected all stats to be 0 for new LatencyStats")
 	}
 }
@@ -263,18 +263,18 @@ func TestLatencyStats_Record(t *testing.T) {
 	stats.Record(200 * time.Millisecond)
 	stats.Record(150 * time.Millisecond)
 
-	count, avg, min, max := stats.Stats()
+	count, avg, minVal, maxVal := stats.Stats()
 
 	if count != 3 {
 		t.Errorf("expected count 3, got %d", count)
 	}
 
-	if min != 100*time.Millisecond {
-		t.Errorf("expected min 100ms, got %v", min)
+	if minVal != 100*time.Millisecond {
+		t.Errorf("expected min 100ms, got %v", minVal)
 	}
 
-	if max != 200*time.Millisecond {
-		t.Errorf("expected max 200ms, got %v", max)
+	if maxVal != 200*time.Millisecond {
+		t.Errorf("expected max 200ms, got %v", maxVal)
 	}
 
 	expectedAvg := 150 * time.Millisecond

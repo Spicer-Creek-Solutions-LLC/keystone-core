@@ -3,6 +3,7 @@ package encryption
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -207,7 +208,7 @@ func TestEncryptor_ExpiredKey(t *testing.T) {
 	encryptor := NewEncryptor(provider, AlgorithmAES256GCM)
 
 	_, err := encryptor.Encrypt(ctx, []byte("test"))
-	if err != ErrKeyExpired {
+	if !errors.Is(err, ErrKeyExpired) {
 		t.Errorf("Encrypt with expired key = %v, want ErrKeyExpired", err)
 	}
 }
@@ -220,10 +221,10 @@ func TestEncryptor_Events(t *testing.T) {
 
 	encryptor := NewEncryptor(provider, AlgorithmAES256GCM)
 
-	var events []*EncryptionEvent
+	var events []*Event
 	var mu sync.Mutex
 
-	encryptor.AddListener(func(event *EncryptionEvent) {
+	encryptor.AddListener(func(event *Event) {
 		mu.Lock()
 		events = append(events, event)
 		mu.Unlock()
@@ -313,7 +314,7 @@ func TestInMemoryKeyProvider(t *testing.T) {
 
 	t.Run("key not found", func(t *testing.T) {
 		_, err := provider.GetKey(ctx, "nonexistent")
-		if err != ErrKeyNotFound {
+		if !errors.Is(err, ErrKeyNotFound) {
 			t.Errorf("GetKey = %v, want ErrKeyNotFound", err)
 		}
 	})
@@ -465,7 +466,7 @@ func TestEncryptor_DecryptInvalidData(t *testing.T) {
 
 	// Decrypt should fail
 	_, err := encryptor.Decrypt(ctx, encrypted)
-	if err != ErrDecryptionFailed {
+	if !errors.Is(err, ErrDecryptionFailed) {
 		t.Errorf("Decrypt modified ciphertext = %v, want ErrDecryptionFailed", err)
 	}
 }

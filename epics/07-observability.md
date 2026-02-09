@@ -177,7 +177,7 @@ logging:
     - type: stdout
       format: json
     - type: file
-      path: /var/log/kscore/kscore.log
+      path: /var/log/keystone-core/kscore.log
       format: json
       rotation:
         max_size: 100MB

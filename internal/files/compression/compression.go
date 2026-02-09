@@ -497,11 +497,11 @@ func (s *Stats) RecordDecompression(compressedSize, originalSize int64) {
 }
 
 // Snapshot returns a copy of current stats
-func (s *Stats) Snapshot() Stats {
+func (s *Stats) Snapshot() *Stats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot := Stats{
+	snapshot := &Stats{
 		TotalCompressed:   s.TotalCompressed,
 		TotalDecompressed: s.TotalDecompressed,
 		BytesSaved:        s.BytesSaved,

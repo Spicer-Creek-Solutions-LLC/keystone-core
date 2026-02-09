@@ -35,7 +35,7 @@ server:
     listen: 0.0.0.0:4222
   state:
     driver: sqlite
-    path: /var/lib/kscore/state.db
+    path: /var/lib/keystone-core/state.db
 ```
 
 ```bash
@@ -70,8 +70,8 @@ services:
       - "8080:8080"
       - "4222:4222"
     volumes:
-      - ./keystone-core.yaml:/etc/kscore/config.yaml
-      - kscore-data:/var/lib/kscore
+      - ./keystone-core.yaml:/etc/keystone-core/config.yaml
+      - kscore-data:/var/lib/keystone-core
 
   agent:
     image: keystonecore/agent:latest
@@ -134,7 +134,7 @@ agent:
       - nats://kscore:$NATS_PASSWORD@nats:4222
     tls:
       enabled: true
-      ca: /etc/kscore/ca.crt
+      ca: /etc/keystone-core/ca.crt
 ```
 
 ## HA Cluster
@@ -392,13 +392,13 @@ agent:
       urls:
         - nats-leaf://edge-site-1:$EDGE1_PASSWORD@hub.example.com:7422
       tls:
-        ca: /etc/kscore/ca.crt
-        cert: /etc/kscore/edge.crt
-        key: /etc/kscore/edge.key
+        ca: /etc/keystone-core/ca.crt
+        cert: /etc/keystone-core/edge.crt
+        key: /etc/keystone-core/edge.key
 
     embedded:
       listen: 127.0.0.1:4222
-      store_dir: /var/lib/kscore/nats
+      store_dir: /var/lib/keystone-core/nats
 
     buffer:
       enabled: true
@@ -431,7 +431,7 @@ agent:
 
       # Persistence
       persistence: true      # Survive agent restarts
-      persist_dir: /var/lib/kscore/buffer
+      persist_dir: /var/lib/keystone-core/buffer
 
       # Overflow behavior
       overflow: drop_oldest  # drop_oldest, drop_newest, block

@@ -28,13 +28,13 @@ type CodeBlock struct {
 
 // ExtractionResult contains the results of extracting code blocks.
 type ExtractionResult struct {
-	TotalBlocks    int          `json:"total_blocks"`
-	ValidBlocks    int          `json:"valid_blocks"`
-	InvalidBlocks  int          `json:"invalid_blocks"`
-	SkippedBlocks  int          `json:"skipped_blocks"`
+	TotalBlocks    int            `json:"total_blocks"`
+	ValidBlocks    int            `json:"valid_blocks"`
+	InvalidBlocks  int            `json:"invalid_blocks"`
+	SkippedBlocks  int            `json:"skipped_blocks"`
 	ByLanguage     map[string]int `json:"by_language"`
-	Blocks         []CodeBlock  `json:"blocks"`
-	InvalidDetails []CodeBlock  `json:"invalid_details,omitempty"`
+	Blocks         []CodeBlock    `json:"blocks"`
+	InvalidDetails []CodeBlock    `json:"invalid_details,omitempty"`
 }
 
 func main() {
@@ -71,11 +71,12 @@ func main() {
 				validateCodeBlock(&block)
 			}
 
-			if block.Skipped {
+			switch {
+			case block.Skipped:
 				result.SkippedBlocks++
-			} else if block.Valid {
+			case block.Valid:
 				result.ValidBlocks++
-			} else {
+			default:
 				result.InvalidBlocks++
 				result.InvalidDetails = append(result.InvalidDetails, block)
 			}
@@ -101,7 +102,8 @@ func main() {
 	}
 
 	if *outputFile != "" {
-		err = os.WriteFile(*outputFile, output, 0644)
+		//nolint:gosec // G306: output files need to be readable by developers
+		err = os.WriteFile(*outputFile, output, 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
 			os.Exit(1)
@@ -400,21 +402,13 @@ func validateBash(block *CodeBlock) {
 
 	// Check for unclosed quotes
 	singleQuotes := strings.Count(content, "'") - strings.Count(content, "\\'")
-	if singleQuotes % 2 != 0 {
+	if singleQuotes%2 != 0 {
 		// Could be heredoc or intentional, skip
 		block.Skipped = true
 		block.SkipReason = "complex quoting"
 		return
 	}
 
-	// Check for obvious command issues
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		// Basic validation passed
-	}
 }
 
 func validateTOML(block *CodeBlock) {

@@ -6,30 +6,30 @@ import (
 	"time"
 )
 
-// InterventionState represents the current state of an intervention request.
-type InterventionState string
+// State represents the current state of an intervention request.
+type State string
 
 // Intervention state constants.
 const (
-	InterventionStatePending   InterventionState = "pending"
-	InterventionStateCompleted InterventionState = "completed"
-	InterventionStateExpired   InterventionState = "expired"
-	InterventionStateCancelled InterventionState = "cancelled"
+	StatePending   State = "pending"
+	StateCompleted State = "completed"
+	StateExpired   State = "expired"
+	StateCancelled State = "cancelled"
 )
 
-// InterventionType defines the type of intervention requested.
-type InterventionType string
+// Type defines the type of intervention requested.
+type Type string
 
 // Intervention type constants.
 const (
-	// InterventionTypePrompt requests operator input.
-	InterventionTypePrompt InterventionType = "prompt"
+	// TypePrompt requests operator input.
+	TypePrompt Type = "prompt"
 
-	// InterventionTypeWaitManual waits for manual confirmation to proceed.
-	InterventionTypeWaitManual InterventionType = "wait_manual"
+	// TypeWaitManual waits for manual confirmation to proceed.
+	TypeWaitManual Type = "wait_manual"
 
-	// InterventionTypeConfirm requests confirmation (yes/no) before proceeding.
-	InterventionTypeConfirm InterventionType = "confirm"
+	// TypeConfirm requests confirmation (yes/no) before proceeding.
+	TypeConfirm Type = "confirm"
 )
 
 // Request represents a manual intervention request.
@@ -44,10 +44,10 @@ type Request struct {
 	StepName string `json:"stepName"`
 
 	// Type is the type of intervention requested.
-	Type InterventionType `json:"type"`
+	Type Type `json:"type"`
 
 	// State is the current state of the request.
-	State InterventionState `json:"state"`
+	State State `json:"state"`
 
 	// Title is a brief description of what's being requested.
 	Title string `json:"title"`
@@ -161,26 +161,26 @@ type Response struct {
 }
 
 // IsTerminal returns true if the intervention state is terminal.
-func (s InterventionState) IsTerminal() bool {
-	return s == InterventionStateCompleted || s == InterventionStateExpired || s == InterventionStateCancelled
+func (s State) IsTerminal() bool {
+	return s == StateCompleted || s == StateExpired || s == StateCancelled
 }
 
 // String returns the string representation of the intervention state.
-func (s InterventionState) String() string {
+func (s State) String() string {
 	return string(s)
 }
 
 // IsValid returns true if the intervention type is valid.
-func (t InterventionType) IsValid() bool {
+func (t Type) IsValid() bool {
 	switch t {
-	case InterventionTypePrompt, InterventionTypeWaitManual, InterventionTypeConfirm:
+	case TypePrompt, TypeWaitManual, TypeConfirm:
 		return true
 	}
 	return false
 }
 
 // String returns the string representation of the intervention type.
-func (t InterventionType) String() string {
+func (t Type) String() string {
 	return string(t)
 }
 
@@ -210,7 +210,7 @@ func (r *Request) IsExpired() bool {
 // Config defines the configuration for an intervention step.
 type Config struct {
 	// Type is the type of intervention (prompt, wait_manual, confirm).
-	Type InterventionType `yaml:"type" json:"type"`
+	Type Type `yaml:"type" json:"type"`
 
 	// Title is the intervention request title.
 	Title string `yaml:"title" json:"title"`

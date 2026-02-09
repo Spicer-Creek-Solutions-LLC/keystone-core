@@ -102,25 +102,27 @@ func (e *ValidationError) DetailedMessage() string {
 	return sb.String()
 }
 
-// ValidationErrors collects multiple validation errors
-type ValidationErrors struct {
+// BlueprintValidationError collects multiple validation errors.
+//
+//nolint:revive // Cannot rename to ValidationError as there's already a ValidationError struct
+type BlueprintValidationError struct {
 	Errors []*ValidationError
 }
 
-// NewValidationErrors creates a new ValidationErrors collection
-func NewValidationErrors() *ValidationErrors {
-	return &ValidationErrors{
+// NewBlueprintValidationError creates a new BlueprintValidationError collection
+func NewBlueprintValidationError() *BlueprintValidationError {
+	return &BlueprintValidationError{
 		Errors: make([]*ValidationError, 0),
 	}
 }
 
 // Add adds a validation error
-func (v *ValidationErrors) Add(err *ValidationError) {
+func (v *BlueprintValidationError) Add(err *ValidationError) {
 	v.Errors = append(v.Errors, err)
 }
 
 // AddError adds an error with basic info
-func (v *ValidationErrors) AddError(param string, kind ValidationErrorKind, message string) *ValidationError {
+func (v *BlueprintValidationError) AddError(param string, kind ValidationErrorKind, message string) *ValidationError {
 	err := &ValidationError{
 		Parameter: param,
 		Kind:      kind,
@@ -131,17 +133,17 @@ func (v *ValidationErrors) AddError(param string, kind ValidationErrorKind, mess
 }
 
 // HasErrors returns true if there are any errors
-func (v *ValidationErrors) HasErrors() bool {
+func (v *BlueprintValidationError) HasErrors() bool {
 	return len(v.Errors) > 0
 }
 
 // Count returns the number of errors
-func (v *ValidationErrors) Count() int {
+func (v *BlueprintValidationError) Count() int {
 	return len(v.Errors)
 }
 
 // ByKind returns errors filtered by kind
-func (v *ValidationErrors) ByKind(kind ValidationErrorKind) []*ValidationError {
+func (v *BlueprintValidationError) ByKind(kind ValidationErrorKind) []*ValidationError {
 	var result []*ValidationError
 	for _, err := range v.Errors {
 		if err.Kind == kind {
@@ -152,7 +154,7 @@ func (v *ValidationErrors) ByKind(kind ValidationErrorKind) []*ValidationError {
 }
 
 // ByParameter returns errors filtered by parameter
-func (v *ValidationErrors) ByParameter(param string) []*ValidationError {
+func (v *BlueprintValidationError) ByParameter(param string) []*ValidationError {
 	var result []*ValidationError
 	for _, err := range v.Errors {
 		if err.Parameter == param || strings.HasPrefix(err.Parameter, param+".") {
@@ -163,7 +165,7 @@ func (v *ValidationErrors) ByParameter(param string) []*ValidationError {
 }
 
 // Error implements the error interface
-func (v *ValidationErrors) Error() string {
+func (v *BlueprintValidationError) Error() string {
 	if len(v.Errors) == 0 {
 		return "no validation errors"
 	}
@@ -174,7 +176,7 @@ func (v *ValidationErrors) Error() string {
 }
 
 // Format returns a formatted error summary
-func (v *ValidationErrors) Format() string {
+func (v *BlueprintValidationError) Format() string {
 	if len(v.Errors) == 0 {
 		return "No validation errors"
 	}
@@ -212,7 +214,7 @@ func (v *ValidationErrors) Format() string {
 }
 
 // FormatCompact returns a compact single-line summary
-func (v *ValidationErrors) FormatCompact() string {
+func (v *BlueprintValidationError) FormatCompact() string {
 	if len(v.Errors) == 0 {
 		return "OK"
 	}
@@ -365,7 +367,7 @@ func RequiredErrorWithDefault(param string, defaultValue interface{}) *Validatio
 }
 
 // TypeError creates an error for a type mismatch
-func TypeError(param string, expected, got string) *ValidationError {
+func TypeError(param, expected, got string) *ValidationError {
 	suggestion := ""
 	switch expected {
 	case "string":
@@ -428,22 +430,23 @@ func formatExamples(format string) []string {
 }
 
 // RangeError creates an error for a value outside allowed range
-func RangeError(param string, value, min, max interface{}) *ValidationError {
+func RangeError(param string, value, minVal, maxVal interface{}) *ValidationError {
 	builder := NewValidationError(param, ErrorKindConstraint).
 		Value(value)
 
-	if min != nil && max != nil {
-		builder.Messagef("Value %v is outside allowed range [%v, %v]", value, min, max).
-			Expected(fmt.Sprintf("between %v and %v", min, max)).
-			Suggestion(fmt.Sprintf("Use a value between %v and %v", min, max))
-	} else if min != nil {
-		builder.Messagef("Value %v is below minimum %v", value, min).
-			Expected(fmt.Sprintf("at least %v", min)).
-			Suggestion(fmt.Sprintf("Use a value of at least %v", min))
-	} else if max != nil {
-		builder.Messagef("Value %v exceeds maximum %v", value, max).
-			Expected(fmt.Sprintf("at most %v", max)).
-			Suggestion(fmt.Sprintf("Use a value of at most %v", max))
+	switch {
+	case minVal != nil && maxVal != nil:
+		builder.Messagef("Value %v is outside allowed range [%v, %v]", value, minVal, maxVal).
+			Expected(fmt.Sprintf("between %v and %v", minVal, maxVal)).
+			Suggestion(fmt.Sprintf("Use a value between %v and %v", minVal, maxVal))
+	case minVal != nil:
+		builder.Messagef("Value %v is below minimum %v", value, minVal).
+			Expected(fmt.Sprintf("at least %v", minVal)).
+			Suggestion(fmt.Sprintf("Use a value of at least %v", minVal))
+	case maxVal != nil:
+		builder.Messagef("Value %v exceeds maximum %v", value, maxVal).
+			Expected(fmt.Sprintf("at most %v", maxVal)).
+			Suggestion(fmt.Sprintf("Use a value of at most %v", maxVal))
 	}
 
 	return builder.Build()
@@ -454,15 +457,16 @@ func LengthError(param string, actualLen int, minLen, maxLen *int) *ValidationEr
 	builder := NewValidationError(param, ErrorKindConstraint).
 		Context("actual_length", actualLen)
 
-	if minLen != nil && maxLen != nil {
+	switch {
+	case minLen != nil && maxLen != nil:
 		builder.Messagef("Length %d is outside allowed range [%d, %d]", actualLen, *minLen, *maxLen).
 			Expected(fmt.Sprintf("between %d and %d characters", *minLen, *maxLen)).
 			Suggestion(fmt.Sprintf("Adjust length to between %d and %d", *minLen, *maxLen))
-	} else if minLen != nil {
+	case minLen != nil:
 		builder.Messagef("Length %d is below minimum of %d", actualLen, *minLen).
 			Expected(fmt.Sprintf("at least %d characters", *minLen)).
 			Suggestion(fmt.Sprintf("Provide at least %d characters", *minLen))
-	} else if maxLen != nil {
+	case maxLen != nil:
 		builder.Messagef("Length %d exceeds maximum of %d", actualLen, *maxLen).
 			Expected(fmt.Sprintf("at most %d characters", *maxLen)).
 			Suggestion(fmt.Sprintf("Reduce to at most %d characters", *maxLen))
@@ -542,26 +546,26 @@ func findSimilarStrings(target string, candidates []string, maxResults int) []st
 		distance int
 	}
 
-	var scored_candidates []scored
+	var scoredCandidates []scored
 	target = strings.ToLower(target)
 
 	for _, c := range candidates {
 		dist := levenshteinDistance(target, strings.ToLower(c))
 		// Only include if distance is reasonably small (less than half the length)
 		if dist <= len(target)/2+2 {
-			scored_candidates = append(scored_candidates, scored{c, dist})
+			scoredCandidates = append(scoredCandidates, scored{c, dist})
 		}
 	}
 
 	// Sort by distance
-	sort.Slice(scored_candidates, func(i, j int) bool {
-		return scored_candidates[i].distance < scored_candidates[j].distance
+	sort.Slice(scoredCandidates, func(i, j int) bool {
+		return scoredCandidates[i].distance < scoredCandidates[j].distance
 	})
 
 	// Return top results
 	result := make([]string, 0, maxResults)
-	for i := 0; i < len(scored_candidates) && i < maxResults; i++ {
-		result = append(result, scored_candidates[i].value)
+	for i := 0; i < len(scoredCandidates) && i < maxResults; i++ {
+		result = append(result, scoredCandidates[i].value)
 	}
 
 	return result
@@ -569,10 +573,10 @@ func findSimilarStrings(target string, candidates []string, maxResults int) []st
 
 // levenshteinDistance calculates the edit distance between two strings
 func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
+	if s1 == "" {
 		return len(s2)
 	}
-	if len(s2) == 0 {
+	if s2 == "" {
 		return len(s1)
 	}
 
@@ -604,15 +608,3 @@ func levenshteinDistance(s1, s2 string) int {
 	return matrix[len(s1)][len(s2)]
 }
 
-func min(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
-}

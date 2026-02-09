@@ -52,7 +52,7 @@ func (p *ACRCredentialProvider) GetCredential(ctx context.Context, registry stri
 	subscriptionID, _ := p.getSubscriptionID(ctx)
 
 	return &Credential{
-		Type:           RegistryTypeACR,
+		Type:           TypeACR,
 		Registry:       registry,
 		Username:       "00000000-0000-0000-0000-000000000000",
 		Password:       refreshToken,
@@ -71,9 +71,9 @@ func (p *ACRCredentialProvider) IsAvailable() bool {
 	return err == nil
 }
 
-// RegistryType returns the registry type this provider handles.
-func (p *ACRCredentialProvider) RegistryType() RegistryType {
-	return RegistryTypeACR
+// Type returns the registry type this provider handles.
+func (p *ACRCredentialProvider) Type() Type {
+	return TypeACR
 }
 
 // getAADToken retrieves an AAD access token for ACR from Azure managed identity.
@@ -86,7 +86,7 @@ func (p *ACRCredentialProvider) getAADToken(ctx context.Context, loginServer str
 		url.QueryEscape(resource),
 	)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", tokenURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", tokenURL, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -162,9 +162,9 @@ func (p *ACRCredentialProvider) exchangeAADTokenForACR(ctx context.Context, logi
 
 // getSubscriptionID retrieves the Azure subscription ID from instance metadata.
 func (p *ACRCredentialProvider) getSubscriptionID(ctx context.Context) (string, error) {
-	url := "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01"
+	metadataURL := "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", metadataURL, http.NoBody)
 	if err != nil {
 		return "", err
 	}

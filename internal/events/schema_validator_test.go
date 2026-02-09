@@ -661,14 +661,14 @@ func TestEventSchemaValidator_ValidateAndError(t *testing.T) {
 }
 
 func TestValidationResult_Summary(t *testing.T) {
-	result := &EventValidationResult{
+	result := &EventValidationError{
 		Valid: true,
 	}
 	if result.Summary() != "validation passed" {
 		t.Errorf("Expected 'validation passed', got '%s'", result.Summary())
 	}
 
-	result = &EventValidationResult{
+	result = &EventValidationError{
 		Valid: false,
 		Errors: []*ValidationError{
 			{Field: "id", Code: "id_required", Message: "event ID is required"},

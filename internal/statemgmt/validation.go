@@ -19,22 +19,22 @@ const (
 	ValidationLevelInfo ValidationLevel = "info"
 )
 
-// ValidationIssue represents a single validation issue
-type ValidationIssue struct {
-	Level   ValidationLevel
-	Code    string
-	Message string
-	Detail  string
-	StateID string
-	Module  string
-	Field   string
-	Line    int
-	Column  int
+// StateValidationError represents a single validation issue
+type StateValidationError struct {
+	Level      ValidationLevel
+	Code       string
+	Message    string
+	Detail     string
+	StateID    string
+	Module     string
+	Field      string
+	Line       int
+	Column     int
 	Suggestion string
 }
 
 // Error implements the error interface
-func (v *ValidationIssue) Error() string {
+func (v *StateValidationError) Error() string {
 	var parts []string
 
 	if v.StateID != "" {
@@ -43,8 +43,7 @@ func (v *ValidationIssue) Error() string {
 		parts = append(parts, fmt.Sprintf("[%s]", v.Module))
 	}
 
-	parts = append(parts, string(v.Level)+":")
-	parts = append(parts, v.Message)
+	parts = append(parts, string(v.Level)+":", v.Message)
 
 	if v.Field != "" {
 		parts = append(parts, fmt.Sprintf("(field: %s)", v.Field))
@@ -63,15 +62,15 @@ func (v *ValidationIssue) Error() string {
 
 // ValidationResult holds the result of state validation
 type ValidationResult struct {
-	Valid   bool
-	Issues  []*ValidationIssue
-	Errors  int
+	Valid    bool
+	Issues   []*StateValidationError
+	Errors   int
 	Warnings int
-	Infos   int
+	Infos    int
 }
 
 // AddIssue adds a validation issue
-func (r *ValidationResult) AddIssue(issue *ValidationIssue) {
+func (r *ValidationResult) AddIssue(issue *StateValidationError) {
 	r.Issues = append(r.Issues, issue)
 
 	switch issue.Level {
@@ -135,30 +134,31 @@ type Validator struct {
 
 // ModuleSchema defines the schema for a state module
 type ModuleSchema struct {
-	Name           string
-	Description    string
-	ValidStates    []string
-	RequiredFields []string
-	OptionalFields []string
-	FieldTypes     map[string]FieldType
+	Name            string
+	Description     string
+	ValidStates     []string
+	RequiredFields  []string
+	OptionalFields  []string
+	FieldTypes      map[string]FieldType
 	FieldValidators map[string]FieldValidator
 }
 
 // FieldType defines the expected type of a field
 type FieldType string
 
+// FieldTypeString constants define the supported types.
 const (
-	FieldTypeString  FieldType = "string"
-	FieldTypeBool    FieldType = "bool"
-	FieldTypeInt     FieldType = "int"
-	FieldTypeFloat   FieldType = "float"
-	FieldTypeList    FieldType = "list"
-	FieldTypeMap     FieldType = "map"
-	FieldTypeAny     FieldType = "any"
+	FieldTypeString FieldType = "string"
+	FieldTypeBool   FieldType = "bool"
+	FieldTypeInt    FieldType = "int"
+	FieldTypeFloat  FieldType = "float"
+	FieldTypeList   FieldType = "list"
+	FieldTypeMap    FieldType = "map"
+	FieldTypeAny    FieldType = "any"
 )
 
 // FieldValidator is a function that validates a field value
-type FieldValidator func(value interface{}) *ValidationIssue
+type FieldValidator func(value interface{}) *StateValidationError
 
 // NewValidator creates a new validator with default module schemas
 func NewValidator() *Validator {
@@ -342,15 +342,15 @@ func (v *Validator) Validate(stateFile *StateFile) *ValidationResult {
 		if stateIDs[module] == nil {
 			stateIDs[module] = make(map[string]bool)
 		}
-		for _, decl := range declarations {
-			stateIDs[module][decl.ID] = true
+		for i := range declarations {
+			stateIDs[module][declarations[i].ID] = true
 		}
 	}
 
 	// Validate each state declaration
 	for _, declarations := range stateFile.States {
-		for i, decl := range declarations {
-			v.validateStateDeclaration(&decl, i, stateIDs, result)
+		for i := range declarations {
+			v.validateStateDeclaration(&declarations[i], i, stateIDs, result)
 		}
 	}
 
@@ -364,7 +364,7 @@ func (v *Validator) Validate(stateFile *StateFile) *ValidationResult {
 func (v *Validator) validateMetadata(stateFile *StateFile, result *ValidationResult) {
 	// Check for empty state file
 	if len(stateFile.States) == 0 && len(stateFile.Includes) == 0 && len(stateFile.BlueprintIncludes) == 0 {
-		result.AddIssue(&ValidationIssue{
+		result.AddIssue(&StateValidationError{
 			Level:      ValidationLevelWarning,
 			Code:       "EMPTY_STATE_FILE",
 			Message:    "State file contains no states, includes, or blueprints",
@@ -375,11 +375,11 @@ func (v *Validator) validateMetadata(stateFile *StateFile, result *ValidationRes
 	// Check metadata version
 	if stateFile.Metadata.Version != "" {
 		if !isValidVersion(stateFile.Metadata.Version) {
-			result.AddIssue(&ValidationIssue{
-				Level:   ValidationLevelWarning,
-				Code:    "INVALID_VERSION",
-				Message: fmt.Sprintf("Invalid version format: %s", stateFile.Metadata.Version),
-				Field:   "metadata.version",
+			result.AddIssue(&StateValidationError{
+				Level:      ValidationLevelWarning,
+				Code:       "INVALID_VERSION",
+				Message:    fmt.Sprintf("Invalid version format: %s", stateFile.Metadata.Version),
+				Field:      "metadata.version",
 				Suggestion: "Use semantic versioning (e.g., 1.0.0)",
 			})
 		}
@@ -390,11 +390,11 @@ func (v *Validator) validateMetadata(stateFile *StateFile, result *ValidationRes
 func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, stateIDs map[string]map[string]bool, result *ValidationResult) {
 	// Check for empty ID
 	if decl.ID == "" {
-		result.AddIssue(&ValidationIssue{
-			Level:   ValidationLevelError,
-			Code:    "MISSING_STATE_ID",
-			Message: "State declaration missing ID",
-			Module:  decl.Module,
+		result.AddIssue(&StateValidationError{
+			Level:      ValidationLevelError,
+			Code:       "MISSING_STATE_ID",
+			Message:    "State declaration missing ID",
+			Module:     decl.Module,
 			Suggestion: "Add a unique identifier for this state",
 		})
 		return
@@ -407,21 +407,21 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 	schema, ok := v.KnownModules[decl.Module]
 	if !ok {
 		if v.StrictMode {
-			result.AddIssue(&ValidationIssue{
-				Level:   ValidationLevelError,
-				Code:    "UNKNOWN_MODULE",
-				Message: fmt.Sprintf("Unknown module type: %s", decl.Module),
-				StateID: decl.ID,
-				Module:  decl.Module,
+			result.AddIssue(&StateValidationError{
+				Level:      ValidationLevelError,
+				Code:       "UNKNOWN_MODULE",
+				Message:    fmt.Sprintf("Unknown module type: %s", decl.Module),
+				StateID:    decl.ID,
+				Module:     decl.Module,
 				Suggestion: fmt.Sprintf("Use one of: %s", strings.Join(knownModuleNames(v.KnownModules), ", ")),
 			})
 		} else {
-			result.AddIssue(&ValidationIssue{
-				Level:   ValidationLevelWarning,
-				Code:    "UNKNOWN_MODULE",
-				Message: fmt.Sprintf("Unknown module type: %s", decl.Module),
-				StateID: decl.ID,
-				Module:  decl.Module,
+			result.AddIssue(&StateValidationError{
+				Level:      ValidationLevelWarning,
+				Code:       "UNKNOWN_MODULE",
+				Message:    fmt.Sprintf("Unknown module type: %s", decl.Module),
+				StateID:    decl.ID,
+				Module:     decl.Module,
 				Suggestion: "This may be a custom module. Ensure it's registered.",
 			})
 		}
@@ -431,13 +431,13 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 
 	// Validate state value
 	if decl.State != "" && !containsStr(schema.ValidStates, decl.State) {
-		result.AddIssue(&ValidationIssue{
-			Level:   ValidationLevelError,
-			Code:    "INVALID_STATE",
-			Message: fmt.Sprintf("Invalid state '%s' for module %s", decl.State, decl.Module),
-			StateID: decl.ID,
-			Module:  decl.Module,
-			Field:   "state",
+		result.AddIssue(&StateValidationError{
+			Level:      ValidationLevelError,
+			Code:       "INVALID_STATE",
+			Message:    fmt.Sprintf("Invalid state '%s' for module %s", decl.State, decl.Module),
+			StateID:    decl.ID,
+			Module:     decl.Module,
+			Field:      "state",
 			Suggestion: fmt.Sprintf("Valid states: %s", strings.Join(schema.ValidStates, ", ")),
 		})
 	}
@@ -445,7 +445,7 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 	// Validate required fields
 	for _, field := range schema.RequiredFields {
 		if _, ok := decl.Parameters[field]; !ok {
-			result.AddIssue(&ValidationIssue{
+			result.AddIssue(&StateValidationError{
 				Level:   ValidationLevelError,
 				Code:    "MISSING_REQUIRED_FIELD",
 				Message: fmt.Sprintf("Missing required field '%s'", field),
@@ -457,12 +457,14 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 	}
 
 	// Validate field types
-	allValidFields := append(schema.RequiredFields, schema.OptionalFields...)
+	allValidFields := make([]string, 0, len(schema.RequiredFields)+len(schema.OptionalFields))
+	allValidFields = append(allValidFields, schema.RequiredFields...)
+	allValidFields = append(allValidFields, schema.OptionalFields...)
 	for field, value := range decl.Parameters {
 		// Check for unknown fields in strict mode
 		if !containsStr(allValidFields, field) {
 			if v.StrictMode {
-				result.AddIssue(&ValidationIssue{
+				result.AddIssue(&StateValidationError{
 					Level:   ValidationLevelError,
 					Code:    "UNKNOWN_FIELD",
 					Message: fmt.Sprintf("Unknown field '%s'", field),
@@ -471,7 +473,7 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 					Field:   field,
 				})
 			} else {
-				result.AddIssue(&ValidationIssue{
+				result.AddIssue(&StateValidationError{
 					Level:   ValidationLevelInfo,
 					Code:    "UNKNOWN_FIELD",
 					Message: fmt.Sprintf("Unknown field '%s' (may be module-specific)", field),
@@ -486,7 +488,7 @@ func (v *Validator) validateStateDeclaration(decl *StateDeclaration, index int, 
 		// Validate field type
 		if expectedType, ok := schema.FieldTypes[field]; ok {
 			if err := validateFieldType(field, value, expectedType); err != nil {
-				result.AddIssue(&ValidationIssue{
+				result.AddIssue(&StateValidationError{
 					Level:   ValidationLevelError,
 					Code:    "INVALID_FIELD_TYPE",
 					Message: err.Error(),
@@ -543,12 +545,12 @@ func (v *Validator) validateModuleConstraints(decl *StateDeclaration, schema *Mo
 		}
 
 		if count > 1 {
-			result.AddIssue(&ValidationIssue{
-				Level:   ValidationLevelError,
-				Code:    "MUTUALLY_EXCLUSIVE_FIELDS",
-				Message: "Only one of 'source', 'contents', or 'template' can be specified",
-				StateID: decl.ID,
-				Module:  decl.Module,
+			result.AddIssue(&StateValidationError{
+				Level:      ValidationLevelError,
+				Code:       "MUTUALLY_EXCLUSIVE_FIELDS",
+				Message:    "Only one of 'source', 'contents', or 'template' can be specified",
+				StateID:    decl.ID,
+				Module:     decl.Module,
 				Suggestion: "Remove all but one of these fields",
 			})
 		}
@@ -556,13 +558,13 @@ func (v *Validator) validateModuleConstraints(decl *StateDeclaration, schema *Mo
 		// Validate file mode format
 		if mode, ok := decl.Parameters["mode"].(string); ok {
 			if !isValidFileMode(mode) {
-				result.AddIssue(&ValidationIssue{
-					Level:   ValidationLevelError,
-					Code:    "INVALID_FILE_MODE",
-					Message: fmt.Sprintf("Invalid file mode: %s", mode),
-					StateID: decl.ID,
-					Module:  decl.Module,
-					Field:   "mode",
+				result.AddIssue(&StateValidationError{
+					Level:      ValidationLevelError,
+					Code:       "INVALID_FILE_MODE",
+					Message:    fmt.Sprintf("Invalid file mode: %s", mode),
+					StateID:    decl.ID,
+					Module:     decl.Module,
+					Field:      "mode",
 					Suggestion: "Use octal format like '0644' or '0755'",
 				})
 			}
@@ -571,7 +573,7 @@ func (v *Validator) validateModuleConstraints(decl *StateDeclaration, schema *Mo
 	case "service":
 		// Warn if reload and restart are both set
 		if decl.Parameters["reload"] == true && decl.Parameters["restart"] == true {
-			result.AddIssue(&ValidationIssue{
+			result.AddIssue(&StateValidationError{
 				Level:   ValidationLevelWarning,
 				Code:    "CONFLICTING_OPTIONS",
 				Message: "Both 'reload' and 'restart' are set; 'restart' will take precedence",
@@ -584,13 +586,13 @@ func (v *Validator) validateModuleConstraints(decl *StateDeclaration, schema *Mo
 		// Validate shell path
 		if shell, ok := decl.Parameters["shell"].(string); ok {
 			if !strings.HasPrefix(shell, "/") {
-				result.AddIssue(&ValidationIssue{
-					Level:   ValidationLevelWarning,
-					Code:    "RELATIVE_SHELL_PATH",
-					Message: "Shell path should be absolute",
-					StateID: decl.ID,
-					Module:  decl.Module,
-					Field:   "shell",
+				result.AddIssue(&StateValidationError{
+					Level:      ValidationLevelWarning,
+					Code:       "RELATIVE_SHELL_PATH",
+					Message:    "Shell path should be absolute",
+					StateID:    decl.ID,
+					Module:     decl.Module,
+					Field:      "shell",
 					Suggestion: "Use an absolute path like '/bin/bash'",
 				})
 			}
@@ -603,7 +605,7 @@ func (v *Validator) validateModuleConstraints(decl *StateDeclaration, schema *Mo
 		hasTag := decl.Parameters["tag"] != nil
 
 		if hasBranch && (hasRev || hasTag) {
-			result.AddIssue(&ValidationIssue{
+			result.AddIssue(&StateValidationError{
 				Level:   ValidationLevelWarning,
 				Code:    "CONFLICTING_GIT_OPTIONS",
 				Message: "Both 'branch' and 'rev'/'tag' are specified; 'rev'/'tag' will take precedence",
@@ -620,18 +622,18 @@ func (v *Validator) validateRequisites(decl *StateDeclaration, stateIDs map[stri
 		for _, ref := range refs {
 			if ids, ok := stateIDs[ref.Module]; ok {
 				if !ids[ref.ID] {
-					result.AddIssue(&ValidationIssue{
-						Level:   ValidationLevelError,
-						Code:    "INVALID_REQUISITE_REFERENCE",
-						Message: fmt.Sprintf("%s references non-existent state: %s.%s", reqType, ref.Module, ref.ID),
-						StateID: decl.ID,
-						Module:  decl.Module,
-						Field:   strings.ToLower(reqType),
+					result.AddIssue(&StateValidationError{
+						Level:      ValidationLevelError,
+						Code:       "INVALID_REQUISITE_REFERENCE",
+						Message:    fmt.Sprintf("%s references non-existent state: %s.%s", reqType, ref.Module, ref.ID),
+						StateID:    decl.ID,
+						Module:     decl.Module,
+						Field:      strings.ToLower(reqType),
 						Suggestion: "Check that the referenced state ID and module are correct",
 					})
 				}
 			} else {
-				result.AddIssue(&ValidationIssue{
+				result.AddIssue(&StateValidationError{
 					Level:   ValidationLevelWarning,
 					Code:    "UNKNOWN_REQUISITE_MODULE",
 					Message: fmt.Sprintf("%s references unknown module: %s", reqType, ref.Module),
@@ -658,7 +660,7 @@ func (v *Validator) validateRetryConfig(decl *StateDeclaration, result *Validati
 	retry := decl.Retry
 
 	if retry.Attempts < 0 {
-		result.AddIssue(&ValidationIssue{
+		result.AddIssue(&StateValidationError{
 			Level:   ValidationLevelError,
 			Code:    "INVALID_RETRY_ATTEMPTS",
 			Message: "Retry attempts must be non-negative",
@@ -669,7 +671,7 @@ func (v *Validator) validateRetryConfig(decl *StateDeclaration, result *Validati
 	}
 
 	if retry.Delay < 0 {
-		result.AddIssue(&ValidationIssue{
+		result.AddIssue(&StateValidationError{
 			Level:   ValidationLevelError,
 			Code:    "INVALID_RETRY_DELAY",
 			Message: "Retry delay must be non-negative",
@@ -680,7 +682,7 @@ func (v *Validator) validateRetryConfig(decl *StateDeclaration, result *Validati
 	}
 
 	if retry.BackoffMultiplier < 0 {
-		result.AddIssue(&ValidationIssue{
+		result.AddIssue(&StateValidationError{
 			Level:   ValidationLevelError,
 			Code:    "INVALID_BACKOFF_MULTIPLIER",
 			Message: "Backoff multiplier must be non-negative",
@@ -691,13 +693,13 @@ func (v *Validator) validateRetryConfig(decl *StateDeclaration, result *Validati
 	}
 
 	if retry.BackoffMultiplier > 0 && retry.BackoffMultiplier < 1 {
-		result.AddIssue(&ValidationIssue{
-			Level:   ValidationLevelWarning,
-			Code:    "LOW_BACKOFF_MULTIPLIER",
-			Message: "Backoff multiplier less than 1 will decrease delay over time",
-			StateID: decl.ID,
-			Module:  decl.Module,
-			Field:   "retry.backoff_multiplier",
+		result.AddIssue(&StateValidationError{
+			Level:      ValidationLevelWarning,
+			Code:       "LOW_BACKOFF_MULTIPLIER",
+			Message:    "Backoff multiplier less than 1 will decrease delay over time",
+			StateID:    decl.ID,
+			Module:     decl.Module,
+			Field:      "retry.backoff_multiplier",
 			Suggestion: "Use a multiplier >= 1 for exponential backoff",
 		})
 	}
@@ -712,7 +714,8 @@ func (v *Validator) validateDependencyGraph(stateFile *StateFile, result *Valida
 	}
 
 	for module, declarations := range stateFile.States {
-		for _, decl := range declarations {
+		for i := range declarations {
+			decl := &declarations[i]
 			key := stateKey(module, decl.ID)
 			if _, ok := graph[key]; !ok {
 				graph[key] = []string{}
@@ -741,11 +744,13 @@ func (v *Validator) validateDependencyGraph(stateFile *StateFile, result *Valida
 				}
 			}
 			if cycleStart >= 0 {
-				cycle := append(path[cycleStart:], node)
-				result.AddIssue(&ValidationIssue{
-					Level:   ValidationLevelError,
-					Code:    "CIRCULAR_DEPENDENCY",
-					Message: fmt.Sprintf("Circular dependency detected: %s", strings.Join(cycle, " -> ")),
+				cycle := make([]string, len(path[cycleStart:])+1)
+				copy(cycle, path[cycleStart:])
+				cycle[len(cycle)-1] = node
+				result.AddIssue(&StateValidationError{
+					Level:      ValidationLevelError,
+					Code:       "CIRCULAR_DEPENDENCY",
+					Message:    fmt.Sprintf("Circular dependency detected: %s", strings.Join(cycle, " -> ")),
 					Suggestion: "Remove one of the dependencies to break the cycle",
 				})
 			}
@@ -811,6 +816,8 @@ func validateFieldType(field string, value interface{}, expected FieldType) erro
 		if _, ok := value.(map[string]interface{}); !ok {
 			return fmt.Errorf("field '%s' must be a map, got %T", field, value)
 		}
+	default:
+		// FieldTypeAny accepts any value
 	}
 	return nil
 }
@@ -855,8 +862,7 @@ func ValidateBeforeApply(stateFile *StateFile) error {
 
 	if !result.Valid {
 		var errMsgs []string
-		errMsgs = append(errMsgs, result.Summary())
-		errMsgs = append(errMsgs, "")
+		errMsgs = append(errMsgs, result.Summary(), "")
 		for _, issue := range result.Issues {
 			if issue.Level == ValidationLevelError {
 				msg := fmt.Sprintf("  - %s", issue.Error())

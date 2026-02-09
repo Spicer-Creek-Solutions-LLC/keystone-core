@@ -226,9 +226,9 @@ func TestRateLimiter_Basic(t *testing.T) {
 		Enabled:        true,
 		GlobalLimit:    10, // 10 requests/second
 		GlobalBurst:    10,
-		PerClientLimit: 0,  // Disable per-client to test global only
+		PerClientLimit: 0, // Disable per-client to test global only
 		PerClientBurst: 0,
-		PerPathLimit:   0,  // Disable per-path
+		PerPathLimit:   0, // Disable per-path
 		PerPathBurst:   0,
 	}
 
@@ -452,8 +452,8 @@ func TestBrokerMetrics_Latency(t *testing.T) {
 	metrics := NewBrokerMetrics()
 
 	// Record various latencies
-	for _, d := range []time.Duration{10, 20, 30, 40, 50} {
-		metrics.RecordRequest("read", "", d*time.Millisecond, nil)
+	for _, d := range []int64{10, 20, 30, 40, 50} {
+		metrics.RecordRequest("read", "", time.Duration(d)*time.Millisecond, nil)
 	}
 
 	snapshot := metrics.Snapshot()

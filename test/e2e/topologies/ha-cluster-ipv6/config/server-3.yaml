@@ -15,7 +15,7 @@ nats:
   reconnectwait: 2s
   jetstream:
     enabled: true
-    storedir: "/var/lib/kscore/jetstream"
+    storedir: "/var/lib/keystone-core/jetstream"
 
 # Storage configuration - PostgreSQL with IPv6 address
 storage:

@@ -50,7 +50,7 @@ func NewIOSAdapter(config *IOSConfig) *IOSAdapter {
 
 	sshConfig := ssh.DefaultConfig()
 	sshConfig.ConnectionConfig = protocols.DefaultConnectionConfig()
-	sshConfig.ConnectionConfig.Timeout = config.Timeout
+	sshConfig.Timeout = config.Timeout
 
 	return &IOSAdapter{
 		BaseVendorAdapter: vendors.BaseVendorAdapter{
@@ -90,16 +90,14 @@ func (a *IOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, c
 	}
 	shell, err := a.sshAdapter.NewNetworkDeviceShell(ctx, shellConfig)
 	if err != nil {
-		a.sshAdapter.Disconnect(ctx)
+		_ = a.sshAdapter.Disconnect(ctx) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to create shell: %w", err)
 	}
 	a.shell = shell
 
-	// Disable paging if configured
+	// Disable paging if configured - best-effort, some devices may not support this
 	if a.Config.DisablePaging {
-		if _, err := a.runCommand(ctx, "terminal length 0"); err != nil {
-			// Non-fatal, some devices may not support this
-		}
+		_, _ = a.runCommand(ctx, "terminal length 0")
 	}
 
 	// Enter enable mode if needed
@@ -220,7 +218,7 @@ func (a *IOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 		if err := a.enterConfig(ctx); err != nil {
 			return err
 		}
-		defer a.exitConfig(ctx)
+		defer func() { _ = a.exitConfig(ctx) }() //nolint:errcheck // best-effort cleanup
 	}
 
 	// Execute each command
@@ -503,11 +501,12 @@ func (a *IOSAdapter) GetInterface(ctx context.Context, name string) (*vendors.In
 
 		// Parse admin/oper status
 		if strings.Contains(line, "line protocol") {
-			if strings.Contains(line, "administratively down") {
+			switch {
+			case strings.Contains(line, "administratively down"):
 				intf.AdminStatus = "down"
-			} else if strings.Contains(line, "is up") {
+			case strings.Contains(line, "is up"):
 				intf.AdminStatus = "up"
-			} else if strings.Contains(line, "is down") {
+			case strings.Contains(line, "is down"):
 				intf.AdminStatus = "down"
 			}
 
@@ -548,11 +547,12 @@ func (a *IOSAdapter) GetInterface(ctx context.Context, name string) (*vendors.In
 
 		// Parse duplex
 		if strings.Contains(line, "Duplex") {
-			if strings.Contains(strings.ToLower(line), "full") {
+			switch {
+			case strings.Contains(strings.ToLower(line), "full"):
 				intf.Duplex = "full"
-			} else if strings.Contains(strings.ToLower(line), "half") {
+			case strings.Contains(strings.ToLower(line), "half"):
 				intf.Duplex = "half"
-			} else {
+			default:
 				intf.Duplex = "auto"
 			}
 		}

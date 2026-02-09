@@ -32,16 +32,16 @@ type PowerShellVersion struct {
 	VersionText string
 }
 
-// ExecutionPolicy represents PowerShell execution policy
-type ExecutionPolicy string
+// Policy represents PowerShell execution policy
+type Policy string
 
 const (
-	ExecutionPolicyRestricted   ExecutionPolicy = "Restricted"
-	ExecutionPolicyAllSigned    ExecutionPolicy = "AllSigned"
-	ExecutionPolicyRemoteSigned ExecutionPolicy = "RemoteSigned"
-	ExecutionPolicyUnrestricted ExecutionPolicy = "Unrestricted"
-	ExecutionPolicyBypass       ExecutionPolicy = "Bypass"
-	ExecutionPolicyUndefined    ExecutionPolicy = "Undefined"
+	PolicyRestricted   Policy = "Restricted"
+	PolicyAllSigned    Policy = "AllSigned"
+	PolicyRemoteSigned Policy = "RemoteSigned"
+	PolicyUnrestricted Policy = "Unrestricted"
+	PolicyBypass       Policy = "Bypass"
+	PolicyUndefined    Policy = "Undefined"
 )
 
 // PowerShellExecutor provides enhanced PowerShell execution capabilities
@@ -49,7 +49,7 @@ type PowerShellExecutor struct {
 	// PreferCore prefers PowerShell Core (pwsh) over Windows PowerShell
 	PreferCore bool
 
-	// UseBypassPolicy uses -ExecutionPolicy Bypass for script execution
+	// UseBypassPolicy uses -Policy Bypass for script execution
 	UseBypassPolicy bool
 
 	// NoProfile skips loading PowerShell profiles for faster execution
@@ -167,21 +167,21 @@ func (e *PowerShellExecutor) getPowerShellVersion(path string) (*PowerShellVersi
 	return version, nil
 }
 
-// GetExecutionPolicy returns the current PowerShell execution policy
-func (e *PowerShellExecutor) GetExecutionPolicy(ctx context.Context) (ExecutionPolicy, error) {
+// GetPolicy returns the current PowerShell execution policy
+func (e *PowerShellExecutor) GetPolicy(ctx context.Context) (Policy, error) {
 	version, err := e.DetectPowerShell()
 	if err != nil {
-		return ExecutionPolicyUndefined, err
+		return PolicyUndefined, err
 	}
 
-	cmd := exec.CommandContext(ctx, version.Path, "-NoProfile", "-Command", "Get-ExecutionPolicy") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	cmd := exec.CommandContext(ctx, version.Path, "-NoProfile", "-Command", "Get-Policy") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
-		return ExecutionPolicyUndefined, err
+		return PolicyUndefined, err
 	}
 
 	policy := strings.TrimSpace(string(output))
-	return ExecutionPolicy(policy), nil
+	return Policy(policy), nil
 }
 
 // Execute runs a PowerShell command or script block
@@ -227,7 +227,7 @@ func (e *PowerShellExecutor) buildArgs(script string, isFile bool) []string {
 	}
 
 	if e.UseBypassPolicy {
-		args = append(args, "-ExecutionPolicy", "Bypass")
+		args = append(args, "-Policy", "Bypass")
 	}
 
 	// Set output encoding

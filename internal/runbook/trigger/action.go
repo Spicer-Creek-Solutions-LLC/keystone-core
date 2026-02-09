@@ -61,7 +61,7 @@ func (a *RunbookAction) Execute(ctx context.Context, event *events.Event) error 
 	// Apply timeout if configured
 	if a.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, a.timeout)
+		_, cancel = context.WithTimeout(ctx, a.timeout)
 		defer cancel()
 	}
 

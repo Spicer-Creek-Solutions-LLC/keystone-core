@@ -12,10 +12,13 @@ import (
 
 // Registry manages protocol adapter factories.
 type Registry struct {
-	mu        sync.RWMutex
-	adapters  map[ProtocolType]AdapterFactory
-	ftAdapters map[ProtocolType]FileTransferAdapterFactory
+	mu          sync.RWMutex
+	adapters    map[ProtocolType]AdapterFactory
+	ftAdapters  map[ProtocolType]FileTransferAdapterFactory
 	tunAdapters map[ProtocolType]TunnelAdapterFactory
+	ncAdapters   map[ProtocolType]NetconfAdapterFactory
+	rcAdapters   map[ProtocolType]RestconfAdapterFactory
+	gnmiAdapters map[ProtocolType]GNMIAdapterFactory
 }
 
 // NewRegistry creates a new adapter registry.
@@ -24,6 +27,9 @@ func NewRegistry() *Registry {
 		adapters:    make(map[ProtocolType]AdapterFactory),
 		ftAdapters:  make(map[ProtocolType]FileTransferAdapterFactory),
 		tunAdapters: make(map[ProtocolType]TunnelAdapterFactory),
+		ncAdapters:   make(map[ProtocolType]NetconfAdapterFactory),
+		rcAdapters:   make(map[ProtocolType]RestconfAdapterFactory),
+		gnmiAdapters: make(map[ProtocolType]GNMIAdapterFactory),
 	}
 }
 
@@ -46,6 +52,13 @@ func (r *Registry) RegisterTunnel(protocol ProtocolType, factory TunnelAdapterFa
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.tunAdapters[protocol] = factory
+}
+
+// RegisterNetconf registers a NETCONF adapter factory.
+func (r *Registry) RegisterNetconf(protocol ProtocolType, factory NetconfAdapterFactory) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ncAdapters[protocol] = factory
 }
 
 // Create creates a new adapter for the specified protocol.
@@ -123,6 +136,95 @@ func (r *Registry) HasTunnel(protocol ProtocolType) bool {
 	return ok
 }
 
+// CreateNetconf creates a new NETCONF adapter.
+func (r *Registry) CreateNetconf(protocol ProtocolType, config *ConnectionConfig) (NetconfAdapter, error) {
+	r.mu.RLock()
+	factory, ok := r.ncAdapters[protocol]
+	r.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("no NETCONF adapter registered for protocol: %s", protocol)
+	}
+
+	if config == nil {
+		config = DefaultConnectionConfig()
+	}
+
+	return factory(config)
+}
+
+// HasNetconf returns true if a NETCONF adapter is registered.
+func (r *Registry) HasNetconf(protocol ProtocolType) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.ncAdapters[protocol]
+	return ok
+}
+
+// RegisterRestconf registers a RESTCONF adapter factory.
+func (r *Registry) RegisterRestconf(protocol ProtocolType, factory RestconfAdapterFactory) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.rcAdapters[protocol] = factory
+}
+
+// CreateRestconf creates a new RESTCONF adapter.
+func (r *Registry) CreateRestconf(protocol ProtocolType, config *ConnectionConfig) (RestconfAdapter, error) {
+	r.mu.RLock()
+	factory, ok := r.rcAdapters[protocol]
+	r.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("no RESTCONF adapter registered for protocol: %s", protocol)
+	}
+
+	if config == nil {
+		config = DefaultConnectionConfig()
+	}
+
+	return factory(config)
+}
+
+// HasRestconf returns true if a RESTCONF adapter is registered.
+func (r *Registry) HasRestconf(protocol ProtocolType) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.rcAdapters[protocol]
+	return ok
+}
+
+// RegisterGNMI registers a gNMI adapter factory.
+func (r *Registry) RegisterGNMI(protocol ProtocolType, factory GNMIAdapterFactory) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.gnmiAdapters[protocol] = factory
+}
+
+// CreateGNMI creates a new gNMI adapter.
+func (r *Registry) CreateGNMI(protocol ProtocolType, config *ConnectionConfig) (GNMIAdapter, error) {
+	r.mu.RLock()
+	factory, ok := r.gnmiAdapters[protocol]
+	r.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("no gNMI adapter registered for protocol: %s", protocol)
+	}
+
+	if config == nil {
+		config = DefaultConnectionConfig()
+	}
+
+	return factory(config)
+}
+
+// HasGNMI returns true if a gNMI adapter is registered.
+func (r *Registry) HasGNMI(protocol ProtocolType) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.gnmiAdapters[protocol]
+	return ok
+}
+
 // ListProtocols returns all registered protocol types.
 func (r *Registry) ListProtocols() []ProtocolType {
 	r.mu.RLock()
@@ -142,6 +244,9 @@ func (r *Registry) Unregister(protocol ProtocolType) {
 	delete(r.adapters, protocol)
 	delete(r.ftAdapters, protocol)
 	delete(r.tunAdapters, protocol)
+	delete(r.ncAdapters, protocol)
+	delete(r.rcAdapters, protocol)
+	delete(r.gnmiAdapters, protocol)
 }
 
 // DefaultRegistry is the default global adapter registry.
@@ -162,6 +267,11 @@ func RegisterTunnel(protocol ProtocolType, factory TunnelAdapterFactory) {
 	DefaultRegistry.RegisterTunnel(protocol, factory)
 }
 
+// RegisterNetconf registers a NETCONF adapter in the default registry.
+func RegisterNetconf(protocol ProtocolType, factory NetconfAdapterFactory) {
+	DefaultRegistry.RegisterNetconf(protocol, factory)
+}
+
 // Create creates an adapter from the default registry.
 func Create(protocol ProtocolType, config *ConnectionConfig) (ProtocolAdapter, error) {
 	return DefaultRegistry.Create(protocol, config)
@@ -175,6 +285,31 @@ func CreateFileTransfer(protocol ProtocolType, config *ConnectionConfig) (FileTr
 // CreateTunnel creates a tunnel adapter from the default registry.
 func CreateTunnel(protocol ProtocolType, config *ConnectionConfig) (TunnelAdapter, error) {
 	return DefaultRegistry.CreateTunnel(protocol, config)
+}
+
+// CreateNetconf creates a NETCONF adapter from the default registry.
+func CreateNetconf(protocol ProtocolType, config *ConnectionConfig) (NetconfAdapter, error) {
+	return DefaultRegistry.CreateNetconf(protocol, config)
+}
+
+// RegisterRestconf registers a RESTCONF adapter in the default registry.
+func RegisterRestconf(protocol ProtocolType, factory RestconfAdapterFactory) {
+	DefaultRegistry.RegisterRestconf(protocol, factory)
+}
+
+// CreateRestconf creates a RESTCONF adapter from the default registry.
+func CreateRestconf(protocol ProtocolType, config *ConnectionConfig) (RestconfAdapter, error) {
+	return DefaultRegistry.CreateRestconf(protocol, config)
+}
+
+// RegisterGNMI registers a gNMI adapter in the default registry.
+func RegisterGNMI(protocol ProtocolType, factory GNMIAdapterFactory) {
+	DefaultRegistry.RegisterGNMI(protocol, factory)
+}
+
+// CreateGNMI creates a gNMI adapter from the default registry.
+func CreateGNMI(protocol ProtocolType, config *ConnectionConfig) (GNMIAdapter, error) {
+	return DefaultRegistry.CreateGNMI(protocol, config)
 }
 
 // AdapterPool manages a pool of connected adapters.

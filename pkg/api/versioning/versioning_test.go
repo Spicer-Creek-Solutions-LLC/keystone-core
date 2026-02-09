@@ -325,12 +325,12 @@ func TestHistory_Format(t *testing.T) {
 	sunsetAt := time.Now().Add(30 * 24 * time.Hour)
 
 	r.Register(&Version{
-		Name:        "v1",
-		Status:      StatusDeprecated,
-		ReleasedAt:  time.Now().Add(-90 * 24 * time.Hour),
-		Description: "Initial version",
+		Name:         "v1",
+		Status:       StatusDeprecated,
+		ReleasedAt:   time.Now().Add(-90 * 24 * time.Hour),
+		Description:  "Initial version",
 		DeprecatedAt: &deprecatedAt,
-		SunsetAt:    &sunsetAt,
+		SunsetAt:     &sunsetAt,
 		DeprecationNotice: &DeprecationNotice{
 			Reason:      "Superseded by v2",
 			Replacement: "v2",

@@ -70,8 +70,8 @@ kscorectl cluster election restart
 
 **Diagnosis:**
 ```bash
-# Check join token validity
-kscorectl cluster token --verify
+# Verify cluster connectivity (token validation happens during join)
+curl -k https://existing-node:8080/health/ready
 
 # Check network connectivity
 nc -zv existing-node 8080
@@ -84,8 +84,9 @@ openssl s_client -connect existing-node:8080 </dev/null
 
 **Resolution:**
 ```bash
-# Regenerate join token
-kscorectl cluster token --regenerate
+# Get join token from cluster configuration
+# Token regeneration requires updating cluster config and restarting control plane
+cat /etc/keystone-core/server.yaml | grep -A5 cluster
 
 # Check firewall
 sudo iptables -L -n | grep -E "8080|6222|2379"
@@ -150,7 +151,7 @@ nats-cli -s nats://server:4222 ping
 **Resolution:**
 ```bash
 # Check agent configuration
-cat /etc/kscore/agent.yaml
+cat /etc/keystone-core/agent.yaml
 
 # Verify server URL is correct
 # Verify credentials are valid
@@ -160,7 +161,7 @@ systemctl restart kscore-agent
 
 # If TLS issues:
 # Verify CA certificate is correct
-openssl verify -CAfile /etc/kscore/certs/ca.crt /etc/kscore/certs/agent.crt
+openssl verify -CAfile /etc/keystone-core/certs/ca.crt /etc/keystone-core/certs/agent.crt
 ```
 
 ### Agent Heartbeat Timeout
@@ -307,7 +308,7 @@ psql -h localhost -U keystone -d keystone -c "SELECT 1"
 sudo tail -100 /var/log/postgresql/postgresql-*.log
 
 # For SQLite:
-sqlite3 /var/lib/kscore/state.db "SELECT count(*) FROM agents"
+sqlite3 /var/lib/keystone-core/state.db "SELECT count(*) FROM agents"
 ```
 
 **Resolution:**
@@ -321,7 +322,7 @@ psql -c "SELECT count(*) FROM pg_stat_activity"
 
 # SQLite locked:
 # Check for long-running transactions
-lsof /var/lib/kscore/state.db
+lsof /var/lib/keystone-core/state.db
 ```
 
 ### Database Corruption
@@ -336,7 +337,7 @@ lsof /var/lib/kscore/state.db
 psql -c "VACUUM ANALYZE"
 
 # SQLite:
-sqlite3 /var/lib/kscore/state.db "PRAGMA integrity_check"
+sqlite3 /var/lib/keystone-core/state.db "PRAGMA integrity_check"
 ```
 
 **Resolution:**
@@ -348,8 +349,8 @@ kscore-bootstrap restore \
 
 # Or repair if possible:
 # SQLite:
-sqlite3 /var/lib/kscore/state.db ".recover" | sqlite3 /var/lib/kscore/state-new.db
-mv /var/lib/kscore/state-new.db /var/lib/kscore/state.db
+sqlite3 /var/lib/keystone-core/state.db ".recover" | sqlite3 /var/lib/keystone-core/state-new.db
+mv /var/lib/keystone-core/state-new.db /var/lib/keystone-core/state.db
 ```
 
 ---
@@ -364,8 +365,8 @@ mv /var/lib/kscore/state-new.db /var/lib/kscore/state.db
 
 **Diagnosis:**
 ```bash
-# Check state status
-kscorectl state status my-state
+# Check state with dry-run to see current status
+kscorectl state apply my-state.yaml --dry-run
 
 # Check agent logs on target
 ssh agent-node "journalctl -u kscore-agent -n 100"
@@ -518,6 +519,6 @@ kscorectl diagnostics collect \
 ## Getting Help
 
 - Documentation: https://docs.keystone.io
-- GitHub Issues: https://github.com/keystone-core/keystone-core/issues
+- GitHub Issues: https://github.com/shawnbutts/keystone-core/issues
 - Community Slack: https://keystone-community.slack.com
 - Enterprise Support: support@keystone.io

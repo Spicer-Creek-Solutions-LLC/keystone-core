@@ -1,6 +1,8 @@
+// Package main implements the kscore-agent daemon for managed nodes.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -234,7 +236,8 @@ func loadOrCreateConfig(path string) (*config.Config, error) {
 func saveConfig(path string, cfg *config.Config) error {
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: config directory needs to be accessible by admin users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -245,7 +248,8 @@ func saveConfig(path string, cfg *config.Config) error {
 	}
 
 	// Write file
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	//nolint:gosec // G306: agent config needs to be readable by the agent service
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -255,20 +259,21 @@ func saveConfig(path string, cfg *config.Config) error {
 func restartAgentService() error {
 	fmt.Println("\nRestarting agent service...")
 
+	ctx := context.Background()
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "linux":
-		cmd = exec.Command("systemctl", "restart", "kscore-agent")
+		cmd = exec.CommandContext(ctx, "systemctl", "restart", "kscore-agent")
 	case "darwin":
-		cmd = exec.Command("launchctl", "kickstart", "-k", "system/com.keystone.agent")
+		cmd = exec.CommandContext(ctx, "launchctl", "kickstart", "-k", "system/com.keystone.agent")
 	case "windows":
 		// Stop and start the service
-		stopCmd := exec.Command("sc.exe", "stop", "kscore-agent")
+		stopCmd := exec.CommandContext(ctx, "sc.exe", "stop", "kscore-agent")
 		if err := stopCmd.Run(); err != nil {
 			fmt.Printf("Warning: failed to stop service: %v\n", err)
 		}
-		cmd = exec.Command("sc.exe", "start", "kscore-agent")
+		cmd = exec.CommandContext(ctx, "sc.exe", "start", "kscore-agent")
 	default:
 		return fmt.Errorf("unsupported platform for service restart: %s", runtime.GOOS)
 	}

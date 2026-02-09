@@ -243,11 +243,11 @@ func (n *DefaultNotifier) NotifyApprovalExpired(ctx context.Context, req *Reques
 
 // templateData contains data for notification templates.
 type templateData struct {
-	Request      *Request
-	Response     *Response
-	ApproveURL   string
-	RejectURL    string
-	ViewURL      string
+	Request       *Request
+	Response      *Response
+	ApproveURL    string
+	RejectURL     string
+	ViewURL       string
 	TimeRemaining string
 }
 

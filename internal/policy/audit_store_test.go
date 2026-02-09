@@ -282,8 +282,8 @@ func TestAuditRedactionConfig_Redact(t *testing.T) {
 	}
 
 	entry := &AuditEntry{
-		ID:       "test-1",
-		User:     "administrator",
+		ID:   "test-1",
+		User: "administrator",
 		Metadata: map[string]interface{}{
 			"password":     "secret123",
 			"api_token":    "abc123",

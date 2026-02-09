@@ -26,7 +26,7 @@ func TestHTTPClient_ListVersions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestHTTPClient_ListVersions_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestHTTPClient_GetModuleInfo(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -114,7 +114,7 @@ entrypoint: main.star`
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestHTTPClient_DownloadModule(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	destPath := filepath.Join(tmpDir, "module.zip")
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestHTTPClient_PublishModule(t *testing.T) {
 		t.Fatalf("failed to write test module: %v", err)
 	}
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestHTTPClient_PublishModule_AlreadyExists(t *testing.T) {
 		t.Fatalf("failed to write test module: %v", err)
 	}
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestHTTPClient_DeleteModule(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultConfig(server.URL))
 	if err != nil {
 		t.Fatalf("NewHTTPClient failed: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestHTTPClient_Authentication_Bearer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := DefaultRegistryConfig(server.URL)
+	config := DefaultConfig(server.URL)
 	config.Auth = &AuthConfig{
 		Type:  AuthTypeBearer,
 		Token: "test-token-123",
@@ -338,7 +338,7 @@ func TestHTTPClient_Authentication_Basic(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := DefaultRegistryConfig(server.URL)
+	config := DefaultConfig(server.URL)
 	config.Auth = &AuthConfig{
 		Type:     AuthTypeBasic,
 		Username: "user",
@@ -387,7 +387,7 @@ func TestHTTPClient_RetryOnServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := DefaultRegistryConfig(server.URL)
+	config := DefaultConfig(server.URL)
 	config.RetryAttempts = 3
 	config.RetryDelay = 10 * time.Millisecond
 	client, err := NewHTTPClient(config)
@@ -433,7 +433,7 @@ func TestHTTPClient_RetryRespectsTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := DefaultRegistryConfig(server.URL)
+	config := DefaultConfig(server.URL)
 	config.RetryAttempts = 3
 	config.RetryDelay = time.Second
 	config.Timeout = 50 * time.Millisecond
@@ -465,17 +465,17 @@ func TestHTTPClient_RetryRespectsTimeout(t *testing.T) {
 func TestRegistryError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *RegistryError
+		err      *Error
 		expected string
 	}{
 		{
 			name:     "with code",
-			err:      &RegistryError{Code: "TEST_CODE", Message: "test message"},
+			err:      &Error{Code: "TEST_CODE", Message: "test message"},
 			expected: "TEST_CODE: test message",
 		},
 		{
 			name:     "without code",
-			err:      &RegistryError{Message: "test message"},
+			err:      &Error{Message: "test message"},
 			expected: "test message",
 		},
 	}
@@ -497,22 +497,22 @@ func TestIsNotFoundError(t *testing.T) {
 	}{
 		{
 			name:     "404 status",
-			err:      &RegistryError{StatusCode: 404},
+			err:      &Error{StatusCode: 404},
 			expected: true,
 		},
 		{
 			name:     "module not found code",
-			err:      &RegistryError{Code: ErrCodeModuleNotFound},
+			err:      &Error{Code: ErrCodeModuleNotFound},
 			expected: true,
 		},
 		{
 			name:     "version not found code",
-			err:      &RegistryError{Code: ErrCodeVersionNotFound},
+			err:      &Error{Code: ErrCodeVersionNotFound},
 			expected: true,
 		},
 		{
 			name:     "other error",
-			err:      &RegistryError{StatusCode: 500},
+			err:      &Error{StatusCode: 500},
 			expected: false,
 		},
 	}
@@ -534,27 +534,27 @@ func TestIsAuthError(t *testing.T) {
 	}{
 		{
 			name:     "401 status",
-			err:      &RegistryError{StatusCode: 401},
+			err:      &Error{StatusCode: 401},
 			expected: true,
 		},
 		{
 			name:     "403 status",
-			err:      &RegistryError{StatusCode: 403},
+			err:      &Error{StatusCode: 403},
 			expected: true,
 		},
 		{
 			name:     "unauthorized code",
-			err:      &RegistryError{Code: ErrCodeUnauthorized},
+			err:      &Error{Code: ErrCodeUnauthorized},
 			expected: true,
 		},
 		{
 			name:     "forbidden code",
-			err:      &RegistryError{Code: ErrCodeForbidden},
+			err:      &Error{Code: ErrCodeForbidden},
 			expected: true,
 		},
 		{
 			name:     "other error",
-			err:      &RegistryError{StatusCode: 500},
+			err:      &Error{StatusCode: 500},
 			expected: false,
 		},
 	}

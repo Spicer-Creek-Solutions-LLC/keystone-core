@@ -354,7 +354,7 @@ func (p *HTTPVersionProvider) GetAvailableVersions(ctx context.Context, componen
 		url += "?channel=" + channel
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -382,7 +382,7 @@ func (p *HTTPVersionProvider) GetAvailableVersions(ctx context.Context, componen
 func (p *HTTPVersionProvider) GetVersionInfo(ctx context.Context, component ComponentType, version string) (*VersionInfo, error) {
 	url := fmt.Sprintf("%s/versions/%s/%s", p.baseURL, component, version)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -413,7 +413,8 @@ func (p *HTTPVersionProvider) GetVersionInfo(ctx context.Context, component Comp
 // DownloadVersion downloads a specific version.
 func (p *HTTPVersionProvider) DownloadVersion(ctx context.Context, component ComponentType, version string) (string, error) {
 	// Ensure cache directory exists
-	if err := os.MkdirAll(p.cacheDir, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(p.cacheDir, 0o755); err != nil {
 		return "", fmt.Errorf("creating cache directory: %w", err)
 	}
 
@@ -426,7 +427,7 @@ func (p *HTTPVersionProvider) DownloadVersion(ctx context.Context, component Com
 
 	url := fmt.Sprintf("%s/downloads/%s/%s", p.baseURL, component, version)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("creating request: %w", err)
 	}
@@ -471,7 +472,7 @@ func (p *HTTPVersionProvider) DownloadVersion(ctx context.Context, component Com
 }
 
 // VerifyVersion verifies the integrity of a downloaded version.
-func (p *HTTPVersionProvider) VerifyVersion(ctx context.Context, component ComponentType, version string, path string) error {
+func (p *HTTPVersionProvider) VerifyVersion(ctx context.Context, component ComponentType, version, path string) error {
 	// Get version info for checksum
 	info, err := p.GetVersionInfo(ctx, component, version)
 	if err != nil {
@@ -604,7 +605,7 @@ func (p *LocalVersionProvider) DownloadVersion(ctx context.Context, component Co
 }
 
 // VerifyVersion verifies the integrity of a local version.
-func (p *LocalVersionProvider) VerifyVersion(ctx context.Context, component ComponentType, version string, path string) error {
+func (p *LocalVersionProvider) VerifyVersion(ctx context.Context, component ComponentType, version, path string) error {
 	info, err := p.GetVersionInfo(ctx, component, version)
 	if err != nil {
 		return err

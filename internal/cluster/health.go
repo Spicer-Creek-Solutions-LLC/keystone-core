@@ -19,6 +19,7 @@ const (
 // HealthStatus represents the health state of a member.
 type HealthStatus string
 
+// HealthStatus constants define the possible statuses.
 const (
 	HealthStatusHealthy   HealthStatus = "healthy"
 	HealthStatusDegraded  HealthStatus = "degraded"
@@ -29,6 +30,7 @@ const (
 // HealthCheckType identifies different health check types.
 type HealthCheckType string
 
+// HealthCheckHeartbeat and related constants.
 const (
 	HealthCheckHeartbeat   HealthCheckType = "heartbeat"
 	HealthCheckEtcd        HealthCheckType = "etcd"
@@ -75,6 +77,7 @@ type HealthEvent struct {
 // HealthEventType identifies different health events.
 type HealthEventType string
 
+// HealthEventMember constants define the events.
 const (
 	HealthEventMemberHealthy   HealthEventType = "member_healthy"
 	HealthEventMemberDegraded  HealthEventType = "member_degraded"
@@ -237,7 +240,7 @@ func (h *HealthMonitor) GetMemberHealth(memberID string) (*MemberHealth, error) 
 	health.mu.RLock()
 	defer health.mu.RUnlock()
 
-	copy := &MemberHealth{
+	copied := &MemberHealth{
 		MemberID:         health.MemberID,
 		Status:           health.Status,
 		LastHeartbeat:    health.LastHeartbeat,
@@ -249,15 +252,15 @@ func (h *HealthMonitor) GetMemberHealth(memberID string) (*MemberHealth, error) 
 	}
 
 	for k, v := range health.CheckResults {
-		copy.CheckResults[k] = v
+		copied.CheckResults[k] = v
 	}
 
 	if health.FailureDetectedAt != nil {
 		t := *health.FailureDetectedAt
-		copy.FailureDetectedAt = &t
+		copied.FailureDetectedAt = &t
 	}
 
-	return copy, nil
+	return copied, nil
 }
 
 // GetAllMemberHealth returns health status for all members.
@@ -422,6 +425,7 @@ func (h *HealthMonitor) onMembershipChange(event MembershipEvent) {
 
 	case MembershipEventLeft, MembershipEventFailed:
 		delete(h.members, event.Member.ID)
+	default:
 	}
 }
 
@@ -482,11 +486,13 @@ func (h *HealthMonitor) checkMemberHeartbeat(memberID string) {
 
 	oldStatus := health.Status
 
-	if timeSinceHeartbeat > heartbeatTimeout {
+	switch {
+	case timeSinceHeartbeat > heartbeatTimeout:
 		// Member has missed too many heartbeats
 		health.ConsecutiveFails++
 
-		if health.ConsecutiveFails >= defaultFailureThreshold {
+		switch {
+		case health.ConsecutiveFails >= defaultFailureThreshold:
 			if health.Status != HealthStatusUnhealthy {
 				health.Status = HealthStatusUnhealthy
 				now := time.Now()
@@ -502,7 +508,7 @@ func (h *HealthMonitor) checkMemberHeartbeat(memberID string) {
 					Timestamp: time.Now(),
 				})
 			}
-		} else if health.Status == HealthStatusHealthy {
+		case health.Status == HealthStatusHealthy:
 			health.Status = HealthStatusDegraded
 
 			go h.notifyObservers(HealthEvent{
@@ -514,7 +520,7 @@ func (h *HealthMonitor) checkMemberHeartbeat(memberID string) {
 				Timestamp: time.Now(),
 			})
 		}
-	} else if timeSinceHeartbeat > (heartbeatTimeout / 2) {
+	case timeSinceHeartbeat > (heartbeatTimeout / 2):
 		// Heartbeat is getting stale, mark as degraded
 		if health.Status == HealthStatusHealthy {
 			health.Status = HealthStatusDegraded
@@ -528,7 +534,7 @@ func (h *HealthMonitor) checkMemberHeartbeat(memberID string) {
 				Timestamp: time.Now(),
 			})
 		}
-	} else {
+	default:
 		// Heartbeat is healthy
 		if health.Status == HealthStatusUnknown || health.Status == HealthStatusDegraded {
 			health.Status = HealthStatusHealthy
@@ -629,6 +635,7 @@ func (h *HealthMonitor) calculateOverallStatus(results map[HealthCheckType]*Heal
 			unhealthyCount++
 		case HealthStatusDegraded:
 			degradedCount++
+		default:
 		}
 	}
 

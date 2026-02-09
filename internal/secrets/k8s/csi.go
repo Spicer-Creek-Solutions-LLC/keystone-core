@@ -17,9 +17,8 @@ type CSIDriver struct {
 	config *CSIDriverConfig
 	source injection.SecretSource
 
-	mu       sync.RWMutex
-	mounts   map[string]*MountInfo
-	running  bool
+	mu     sync.RWMutex
+	mounts map[string]*MountInfo
 }
 
 // CSIDriverConfig configures the CSI driver.
@@ -62,7 +61,7 @@ func DefaultCSIDriverConfig() *CSIDriverConfig {
 		DriverName:  "secrets.csi.keystone.io",
 		Endpoint:    "unix:///var/lib/kubelet/plugins/secrets.csi.keystone.io/csi.sock",
 		DataDir:     "/var/lib/keystone-csi",
-		DefaultMode: 0600,
+		DefaultMode: 0o600,
 	}
 }
 
@@ -136,7 +135,7 @@ func (d *CSIDriver) NodePublishVolume(ctx context.Context, volumeID, targetPath 
 	}
 
 	// Create target directory
-	if err := os.MkdirAll(targetPath, 0750); err != nil {
+	if err := os.MkdirAll(targetPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create target path: %w", err)
 	}
 
@@ -229,7 +228,7 @@ func (d *CSIDriver) ListVolumes(ctx context.Context) ([]*VolumeInfo, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	var volumes []*VolumeInfo
+	volumes := make([]*VolumeInfo, 0, len(d.mounts))
 	for id, mount := range d.mounts {
 		volumes = append(volumes, &VolumeInfo{
 			VolumeID:   id,
@@ -320,7 +319,7 @@ func (d *CSIDriver) writeSecret(ctx context.Context, targetPath string, mount Se
 	}
 
 	// Determine file mode
-	mode := os.FileMode(mount.Mode)
+	mode := os.FileMode(mount.Mode) //nolint:gosec // G115: file mode is 0-0777
 	if mode == 0 {
 		mode = d.config.DefaultMode
 	}

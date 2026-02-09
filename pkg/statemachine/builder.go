@@ -128,12 +128,12 @@ func (b *Builder[S, E]) OnTransition(callback TransitionCallback[S, E]) *Builder
 }
 
 // Permit is an alias for AddTransition, providing Salt/Stateless-style syntax.
-func (b *Builder[S, E]) Permit(event E, from S, to S) *Builder[S, E] {
+func (b *Builder[S, E]) Permit(event E, from, to S) *Builder[S, E] {
 	return b.AddTransition(from, event, to)
 }
 
 // PermitIf adds a transition with a guard condition.
-func (b *Builder[S, E]) PermitIf(event E, from S, to S, guard Guard[S, E]) *Builder[S, E] {
+func (b *Builder[S, E]) PermitIf(event E, from, to S, guard Guard[S, E]) *Builder[S, E] {
 	return b.AddTransition(from, event, to).WithGuard(guard)
 }
 

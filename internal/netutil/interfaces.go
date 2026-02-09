@@ -4,6 +4,7 @@
 package netutil
 
 import (
+	"context"
 	"net"
 	"sort"
 	"strings"
@@ -54,9 +55,7 @@ func (n *NetworkInfo) PreferredAddress(pref AddressFamilyPreference) string {
 			return n.PrimaryIPv4
 		}
 		return ""
-	case PreferIPv4:
-		fallthrough
-	default:
+	default: // includes PreferIPv4
 		if n.PrimaryIPv4 != "" {
 			return n.PrimaryIPv4
 		}
@@ -69,7 +68,7 @@ func (n *NetworkInfo) PreferredAddress(pref AddressFamilyPreference) string {
 
 // AllAddresses returns all available addresses (IPv4 and IPv6).
 func (n *NetworkInfo) AllAddresses() []string {
-	var all []string
+	all := make([]string, 0, len(n.IPv4Addresses)+len(n.IPv6Addresses))
 	all = append(all, n.IPv4Addresses...)
 	all = append(all, n.IPv6Addresses...)
 	return all
@@ -132,16 +131,17 @@ func GetNetworkInfo() (*NetworkInfo, error) {
 			}
 
 			// Handle IPv6
-			if ip.IsLoopback() {
+			switch {
+			case ip.IsLoopback():
 				info.LoopbackIPv6 = ipStr
-			} else if ip.IsLinkLocalUnicast() {
+			case ip.IsLinkLocalUnicast():
 				// Include zone ID for link-local addresses
 				if iface.Name != "" {
 					info.LinkLocalIPv6 = append(info.LinkLocalIPv6, ipStr+"%"+iface.Name)
 				} else {
 					info.LinkLocalIPv6 = append(info.LinkLocalIPv6, ipStr)
 				}
-			} else {
+			default:
 				info.IPv6Addresses = append(info.IPv6Addresses, ipStr)
 			}
 		}
@@ -331,13 +331,15 @@ func ResolveHostAddresses(host string) (*NetworkInfo, error) {
 	}
 
 	// Try to resolve the hostname
-	addrs, err := net.LookupIP(host)
+	resolver := &net.Resolver{}
+	ipAddrs, err := resolver.LookupIPAddr(context.Background(), host)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, addr := range addrs {
-		ipStr := addr.String()
+	for _, ipAddr := range ipAddrs {
+		ipStr := ipAddr.IP.String()
+		addr := ipAddr.IP
 		if addr.To4() != nil {
 			info.IPv4Addresses = append(info.IPv4Addresses, ipStr)
 		} else {

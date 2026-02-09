@@ -50,13 +50,13 @@ func TestCompressor_ShouldCompress(t *testing.T) {
 		contentType string
 		expected    bool
 	}{
-		{"small file", 100, "text/plain", false},           // Below MinSize
-		{"text file", 2000, "text/plain", true},            // Compressible type
-		{"json file", 5000, "application/json", true},      // Compressible type
-		{"jpeg image", 5000, "image/jpeg", false},          // Incompressible type
-		{"gzip file", 5000, "application/gzip", false},     // Already compressed
-		{"large text", 2000, "text/html", true},            // Compressible
-		{"unknown type", 2000, "", true},                   // Unknown defaults to compressible
+		{"small file", 100, "text/plain", false},       // Below MinSize
+		{"text file", 2000, "text/plain", true},        // Compressible type
+		{"json file", 5000, "application/json", true},  // Compressible type
+		{"jpeg image", 5000, "image/jpeg", false},      // Incompressible type
+		{"gzip file", 5000, "application/gzip", false}, // Already compressed
+		{"large text", 2000, "text/html", true},        // Compressible
+		{"unknown type", 2000, "", true},               // Unknown defaults to compressible
 	}
 
 	for _, tt := range tests {

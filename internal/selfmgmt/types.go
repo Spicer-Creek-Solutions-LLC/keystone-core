@@ -17,6 +17,7 @@ import (
 // ComponentType represents a Keystone Core component
 type ComponentType string
 
+// ComponentServer constants define the components.
 const (
 	ComponentServer   ComponentType = "server"
 	ComponentAgent    ComponentType = "agent"
@@ -28,6 +29,7 @@ const (
 // ComponentState represents the desired state of a component
 type ComponentState string
 
+// StateInstalled constants define the possible states.
 const (
 	StateInstalled   ComponentState = "installed"
 	StateUninstalled ComponentState = "uninstalled"
@@ -41,6 +43,7 @@ const (
 // InstallMethod represents how to install a component
 type InstallMethod string
 
+// InstallMethodPackage and related constants.
 const (
 	InstallMethodPackage InstallMethod = "package" // System package manager
 	InstallMethodBinary  InstallMethod = "binary"  // Direct binary download
@@ -70,8 +73,8 @@ func (l *noopLogger) Info(msg string, args ...interface{})  {}
 func (l *noopLogger) Warn(msg string, args ...interface{})  {}
 func (l *noopLogger) Error(msg string, args ...interface{}) {}
 
-// SelfMgmtModule is the interface for self-management modules
-type SelfMgmtModule interface {
+// Module is the interface for self-management modules
+type Module interface {
 	// Name returns the module name
 	Name() string
 
@@ -637,15 +640,15 @@ func GetDefaultConfigPath(component ComponentType) string {
 	default:
 		switch component {
 		case ComponentServer:
-			return "/etc/kscore/server.yaml"
+			return "/etc/keystone-core/server.yaml"
 		case ComponentAgent:
-			return "/etc/kscore/agent.yaml"
+			return "/etc/keystone-core/agent.yaml"
 		case ComponentNATS:
 			return "/etc/nats/nats-server.conf"
 		case ComponentDatabase:
-			return "/etc/kscore/database.yaml"
+			return "/etc/keystone-core/database.yaml"
 		case ComponentBackup:
-			return "/etc/kscore/backup.yaml"
+			return "/etc/keystone-core/backup.yaml"
 		}
 	}
 	return ""
@@ -668,7 +671,7 @@ func GetDefaultDataDir(component ComponentType) string {
 	default:
 		switch component {
 		case ComponentServer, ComponentAgent, ComponentDatabase, ComponentBackup:
-			return "/var/lib/kscore"
+			return "/var/lib/keystone-core"
 		case ComponentNATS:
 			return "/var/lib/nats"
 		}
@@ -686,7 +689,7 @@ func GetDefaultKscoreConfigPath() string {
 		}
 		return filepath.Join(programData, "kscore")
 	default:
-		return "/etc/kscore"
+		return "/etc/keystone-core"
 	}
 }
 
@@ -700,7 +703,7 @@ func GetDefaultKscoreDataDir() string {
 		}
 		return filepath.Join(programData, "kscore", "data")
 	default:
-		return "/var/lib/kscore"
+		return "/var/lib/keystone-core"
 	}
 }
 
@@ -719,6 +722,8 @@ func GetDefaultBinaryPath(component ComponentType) string {
 			return filepath.Join(programFiles, "kscore", "kscore-agent.exe")
 		case ComponentNATS:
 			return filepath.Join(programFiles, "nats", "nats-server.exe")
+		default:
+			// ComponentDatabase, ComponentBackup don't have standard binary paths
 		}
 	default:
 		switch component {
@@ -728,6 +733,8 @@ func GetDefaultBinaryPath(component ComponentType) string {
 			return "/usr/bin/kscore-agent"
 		case ComponentNATS:
 			return "/usr/bin/nats-server"
+		default:
+			// ComponentDatabase, ComponentBackup don't have standard binary paths
 		}
 	}
 	return ""
@@ -768,7 +775,7 @@ func EnsureDir(path string, perm os.FileMode) error {
 // WriteFile writes content to a file
 func WriteFile(path string, content []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
-	if err := EnsureDir(dir, 0755); err != nil {
+	if err := EnsureDir(dir, 0o755); err != nil {
 		return err
 	}
 	return os.WriteFile(path, content, perm)

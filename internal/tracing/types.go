@@ -172,32 +172,32 @@ const (
 	AttrAgentOS       = "kscore.agent.os"
 
 	// Command/Job attributes
-	AttrJobID        = "kscore.job.id"
-	AttrJobCommand   = "kscore.job.command"
-	AttrJobTarget    = "kscore.job.target"
-	AttrJobStatus    = "kscore.job.status"
-	AttrJobExitCode  = "kscore.job.exit_code"
-	AttrJobDuration  = "kscore.job.duration_ms"
+	AttrJobID       = "kscore.job.id"
+	AttrJobCommand  = "kscore.job.command"
+	AttrJobTarget   = "kscore.job.target"
+	AttrJobStatus   = "kscore.job.status"
+	AttrJobExitCode = "kscore.job.exit_code"
+	AttrJobDuration = "kscore.job.duration_ms"
 
 	// State management attributes
-	AttrStateID           = "kscore.state.id"
-	AttrStateResource     = "kscore.state.resource"
-	AttrStateModule       = "kscore.state.module"
-	AttrStateAction       = "kscore.state.action"
-	AttrStateChanged      = "kscore.state.changed"
-	AttrStateDrift        = "kscore.state.drift"
+	AttrStateID            = "kscore.state.id"
+	AttrStateResource      = "kscore.state.resource"
+	AttrStateModule        = "kscore.state.module"
+	AttrStateAction        = "kscore.state.action"
+	AttrStateChanged       = "kscore.state.changed"
+	AttrStateDrift         = "kscore.state.drift"
 	AttrStateDriftSeverity = "kscore.state.drift_severity"
 
 	// Event attributes
-	AttrEventType         = "kscore.event.type"
-	AttrEventSource       = "kscore.event.source"
-	AttrEventSeverity     = "kscore.event.severity"
+	AttrEventType          = "kscore.event.type"
+	AttrEventSource        = "kscore.event.source"
+	AttrEventSeverity      = "kscore.event.severity"
 	AttrEventCorrelationID = "kscore.event.correlation_id"
 
 	// Policy attributes
-	AttrPolicyID       = "kscore.policy.id"
-	AttrPolicyType     = "kscore.policy.type"
-	AttrPolicyResult   = "kscore.policy.result"
+	AttrPolicyID         = "kscore.policy.id"
+	AttrPolicyType       = "kscore.policy.type"
+	AttrPolicyResult     = "kscore.policy.result"
 	AttrPolicyViolations = "kscore.policy.violations"
 
 	// GitOps attributes
@@ -207,8 +207,8 @@ const (
 	AttrGitOpsStatus      = "kscore.gitops.status"
 
 	// NATS attributes
-	AttrNATSSubject = "kscore.nats.subject"
-	AttrNATSStream  = "kscore.nats.stream"
+	AttrNATSSubject  = "kscore.nats.subject"
+	AttrNATSStream   = "kscore.nats.stream"
 	AttrNATSConsumer = "kscore.nats.consumer"
 )
 

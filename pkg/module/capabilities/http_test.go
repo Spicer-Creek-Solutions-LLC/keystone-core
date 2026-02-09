@@ -124,7 +124,7 @@ func TestHTTPGetCapability_Validate(t *testing.T) {
 }
 
 func TestHTTPGetCapability_CheckDomain(t *testing.T) {
-	cap := &HTTPGetCapability{
+	testCap := &HTTPGetCapability{
 		AllowedDomains: []string{
 			"api.example.com",
 			"*.github.com",
@@ -171,7 +171,7 @@ func TestHTTPGetCapability_CheckDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := cap.CheckDomain(tt.domain)
+			err := testCap.CheckDomain(tt.domain)
 			if tt.expectError != nil {
 				if err == nil {
 					t.Errorf("expected error %v but got nil", tt.expectError)
@@ -205,7 +205,7 @@ func TestHTTPGetCapability_Get(t *testing.T) {
 	// Extract host from server URL (remove http://)
 	serverHost := strings.TrimPrefix(server.URL, "http://")
 
-	cap := &HTTPGetCapability{
+	testCap := &HTTPGetCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxRespSize:    DefaultMaxRespSize,
@@ -215,7 +215,7 @@ func TestHTTPGetCapability_Get(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test successful GET
-	resp, err := cap.Get(ctx, server.URL, map[string]string{
+	resp, err := testCap.Get(ctx, server.URL, map[string]string{
 		"X-Custom": "test",
 	})
 
@@ -243,7 +243,7 @@ func TestHTTPGetCapability_GetMaxSize(t *testing.T) {
 
 	serverHost := strings.TrimPrefix(server.URL, "http://")
 
-	cap := &HTTPGetCapability{
+	testCap := &HTTPGetCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxRespSize:    50, // Smaller than response
@@ -253,7 +253,7 @@ func TestHTTPGetCapability_GetMaxSize(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test GET with size limit
-	_, err := cap.Get(ctx, server.URL, nil)
+	_, err := testCap.Get(ctx, server.URL, nil)
 	if !errors.Is(err, ErrMaxSizeExceeded) {
 		t.Errorf("expected ErrMaxSizeExceeded, got %v", err)
 	}
@@ -269,7 +269,7 @@ func TestHTTPGetCapability_GetRateLimit(t *testing.T) {
 
 	serverHost := strings.TrimPrefix(server.URL, "http://")
 
-	cap := &HTTPGetCapability{
+	testCap := &HTTPGetCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxRespSize:    DefaultMaxRespSize,
@@ -282,19 +282,19 @@ func TestHTTPGetCapability_GetRateLimit(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// First request should succeed
-	_, err := cap.Get(ctx, server.URL, nil)
+	_, err := testCap.Get(ctx, server.URL, nil)
 	if err != nil {
 		t.Fatalf("first request failed: %v", err)
 	}
 
 	// Second request should succeed
-	_, err = cap.Get(ctx, server.URL, nil)
+	_, err = testCap.Get(ctx, server.URL, nil)
 	if err != nil {
 		t.Fatalf("second request failed: %v", err)
 	}
 
 	// Third request should fail due to rate limit
-	_, err = cap.Get(ctx, server.URL, nil)
+	_, err = testCap.Get(ctx, server.URL, nil)
 	if !errors.Is(err, ErrRateLimitExceeded) {
 		t.Errorf("expected ErrRateLimitExceeded, got %v", err)
 	}
@@ -414,7 +414,7 @@ func TestHTTPPostCapability_Post(t *testing.T) {
 
 	serverHost := strings.TrimPrefix(server.URL, "http://")
 
-	cap := &HTTPPostCapability{
+	testCap := &HTTPPostCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxReqSize:     1024,
@@ -425,7 +425,7 @@ func TestHTTPPostCapability_Post(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test successful POST
-	resp, err := cap.Post(ctx, server.URL, []byte(`{"test":"data"}`), map[string]string{
+	resp, err := testCap.Post(ctx, server.URL, []byte(`{"test":"data"}`), map[string]string{
 		"Content-Type": "application/json",
 	})
 
@@ -450,7 +450,7 @@ func TestHTTPPostCapability_PostMaxReqSize(t *testing.T) {
 
 	serverHost := strings.TrimPrefix(server.URL, "http://")
 
-	cap := &HTTPPostCapability{
+	testCap := &HTTPPostCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxReqSize:     10,
@@ -462,7 +462,7 @@ func TestHTTPPostCapability_PostMaxReqSize(t *testing.T) {
 
 	// Test POST with large body
 	largeBody := []byte(strings.Repeat("x", 100))
-	_, err := cap.Post(ctx, server.URL, largeBody, nil)
+	_, err := testCap.Post(ctx, server.URL, largeBody, nil)
 
 	if !errors.Is(err, ErrMaxSizeExceeded) {
 		t.Errorf("expected ErrMaxSizeExceeded, got %v", err)

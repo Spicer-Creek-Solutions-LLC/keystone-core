@@ -21,22 +21,22 @@ const (
 	DependencyTypeOptional DependencyType = "optional"
 )
 
-// DeploymentState represents the state of a deployment.
-type DeploymentState string
+// State represents the state of a deployment.
+type State string
 
 const (
 	// StateUnknown indicates unknown state.
-	StateUnknown DeploymentState = "unknown"
+	StateUnknown State = "unknown"
 	// StatePending indicates the deployment is pending.
-	StatePending DeploymentState = "pending"
+	StatePending State = "pending"
 	// StateDeploying indicates the deployment is in progress.
-	StateDeploying DeploymentState = "deploying"
+	StateDeploying State = "deploying"
 	// StateHealthy indicates the deployment is healthy.
-	StateHealthy DeploymentState = "healthy"
+	StateHealthy State = "healthy"
 	// StateDegraded indicates the deployment is degraded.
-	StateDegraded DeploymentState = "degraded"
+	StateDegraded State = "degraded"
 	// StateFailed indicates the deployment failed.
-	StateFailed DeploymentState = "failed"
+	StateFailed State = "failed"
 )
 
 // Deployment represents a deployment in the dependency graph.
@@ -45,7 +45,7 @@ type Deployment struct {
 	Name         string            `json:"name"`
 	Namespace    string            `json:"namespace"`
 	Version      string            `json:"version"`
-	State        DeploymentState   `json:"state"`
+	State        State   `json:"state"`
 	Dependencies []Dependency      `json:"dependencies,omitempty"`
 	Dependents   []string          `json:"dependents,omitempty"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
@@ -77,10 +77,10 @@ type HealthCheck struct {
 
 // Graph represents a deployment dependency graph.
 type Graph struct {
-	nodes     map[string]*Deployment
-	edges     map[string]map[string]*Dependency
+	nodes        map[string]*Deployment
+	edges        map[string]map[string]*Dependency
 	reverseEdges map[string]map[string]bool
-	mu        sync.RWMutex
+	mu           sync.RWMutex
 }
 
 // NewGraph creates a new dependency graph.
@@ -371,11 +371,9 @@ func (g *Graph) GetRollbackOrder() ([]*Deployment, error) {
 }
 
 // CanDeploy checks if a deployment can be deployed based on dependencies.
-func (g *Graph) CanDeploy(id string) (bool, []string) {
+func (g *Graph) CanDeploy(id string) (canDeploy bool, blocking []string) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-
-	var blocking []string
 
 	for targetID, dep := range g.edges[id] {
 		target, ok := g.nodes[targetID]
@@ -397,7 +395,7 @@ func (g *Graph) CanDeploy(id string) (bool, []string) {
 }
 
 // UpdateState updates the state of a deployment.
-func (g *Graph) UpdateState(id string, state DeploymentState) error {
+func (g *Graph) UpdateState(id string, state State) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -496,16 +494,16 @@ func (g *Graph) GetCriticalPath() []*Deployment {
 	return longestPath
 }
 
-// Stats returns statistics about the graph.
+// GraphStats holds statistics about the graph.
 type GraphStats struct {
-	TotalDeployments int            `json:"totalDeployments"`
-	TotalDependencies int           `json:"totalDependencies"`
-	ByState          map[DeploymentState]int `json:"byState"`
-	AverageDependencies float64     `json:"averageDependencies"`
-	MaxDependencies  int            `json:"maxDependencies"`
-	RootNodes        int            `json:"rootNodes"` // Nodes with no dependencies
-	LeafNodes        int            `json:"leafNodes"` // Nodes with no dependents
-	CriticalPathLen  int            `json:"criticalPathLength"`
+	TotalDeployments    int                     `json:"totalDeployments"`
+	TotalDependencies   int                     `json:"totalDependencies"`
+	ByState             map[State]int `json:"byState"`
+	AverageDependencies float64                 `json:"averageDependencies"`
+	MaxDependencies     int                     `json:"maxDependencies"`
+	RootNodes           int                     `json:"rootNodes"` // Nodes with no dependencies
+	LeafNodes           int                     `json:"leafNodes"` // Nodes with no dependents
+	CriticalPathLen     int                     `json:"criticalPathLength"`
 }
 
 // GetStats returns graph statistics.
@@ -515,7 +513,7 @@ func (g *Graph) GetStats() *GraphStats {
 
 	stats := &GraphStats{
 		TotalDeployments: len(g.nodes),
-		ByState:          make(map[DeploymentState]int),
+		ByState:          make(map[State]int),
 	}
 
 	totalDeps := 0
@@ -601,7 +599,7 @@ type Orchestrator struct {
 type Deployer interface {
 	Deploy(ctx context.Context, deployment *Deployment) error
 	Rollback(ctx context.Context, deployment *Deployment) error
-	CheckHealth(ctx context.Context, deployment *Deployment) (DeploymentState, error)
+	CheckHealth(ctx context.Context, deployment *Deployment) (State, error)
 }
 
 // OrchestratorListener is called when orchestration events occur.
@@ -680,10 +678,10 @@ func (o *Orchestrator) DeployAll(ctx context.Context) error {
 			Message:      fmt.Sprintf("Deploying %s", d.Name),
 		})
 
-		o.graph.UpdateState(d.ID, StateDeploying)
+		_ = o.graph.UpdateState(d.ID, StateDeploying)
 
 		if err := o.deployer.Deploy(ctx, d); err != nil {
-			o.graph.UpdateState(d.ID, StateFailed)
+			_ = o.graph.UpdateState(d.ID, StateFailed) //nolint:errcheck // best-effort state update
 			o.emit(&OrchestratorEvent{
 				Type:         "deploy_failed",
 				DeploymentID: d.ID,
@@ -694,7 +692,7 @@ func (o *Orchestrator) DeployAll(ctx context.Context) error {
 			return err
 		}
 
-		o.graph.UpdateState(d.ID, StateHealthy)
+		_ = o.graph.UpdateState(d.ID, StateHealthy)
 		o.emit(&OrchestratorEvent{
 			Type:         "deployed",
 			DeploymentID: d.ID,
@@ -744,7 +742,7 @@ func (o *Orchestrator) RollbackAll(ctx context.Context) error {
 			// Continue with other rollbacks
 		}
 
-		o.graph.UpdateState(d.ID, StatePending)
+		_ = o.graph.UpdateState(d.ID, StatePending)
 		o.emit(&OrchestratorEvent{
 			Type:         "rolled_back",
 			DeploymentID: d.ID,
@@ -798,10 +796,10 @@ func (o *Orchestrator) DeployParallel(ctx context.Context, maxConcurrency int) e
 				defer wg.Done()
 				defer func() { <-sem }()
 
-				o.graph.UpdateState(dep.ID, StateDeploying)
+				_ = o.graph.UpdateState(dep.ID, StateDeploying) //nolint:errcheck // best-effort state update
 
 				if err := o.deployer.Deploy(ctx, dep); err != nil {
-					o.graph.UpdateState(dep.ID, StateFailed)
+					_ = o.graph.UpdateState(dep.ID, StateFailed) //nolint:errcheck // best-effort state update
 					select {
 					case errCh <- err:
 					default:
@@ -809,7 +807,7 @@ func (o *Orchestrator) DeployParallel(ctx context.Context, maxConcurrency int) e
 					return
 				}
 
-				o.graph.UpdateState(dep.ID, StateHealthy)
+				_ = o.graph.UpdateState(dep.ID, StateHealthy) //nolint:errcheck // best-effort state update
 			}(d)
 		}
 
@@ -839,9 +837,9 @@ type GraphVisualization struct {
 
 // NodeViz represents a node in the visualization.
 type NodeViz struct {
-	ID       string          `json:"id"`
-	Label    string          `json:"label"`
-	State    DeploymentState `json:"state"`
+	ID       string            `json:"id"`
+	Label    string            `json:"label"`
+	State    State   `json:"state"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
@@ -903,8 +901,10 @@ func (g *Graph) ToDOT() string {
 			color = "lightcoral"
 		case StateDegraded:
 			color = "lightorange"
+		default:
+			// StateUnknown, StatePending use default white color
 		}
-		result += fmt.Sprintf("  \"%s\" [label=\"%s\\n%s\" style=filled fillcolor=%s];\n",
+		result += fmt.Sprintf("  %q [label=\"%s\\n%s\" style=filled fillcolor=%s];\n",
 			id, d.Name, d.State, color)
 	}
 
@@ -914,12 +914,15 @@ func (g *Graph) ToDOT() string {
 	for sourceID, targets := range g.edges {
 		for targetID, dep := range targets {
 			style := "solid"
-			if dep.Type == DependencyTypeSoft {
+			switch dep.Type {
+			case DependencyTypeSoft:
 				style = "dashed"
-			} else if dep.Type == DependencyTypeOptional {
+			case DependencyTypeOptional:
 				style = "dotted"
+			default:
+				// DependencyTypeHard uses default solid style
 			}
-			result += fmt.Sprintf("  \"%s\" -> \"%s\" [style=%s];\n", sourceID, targetID, style)
+			result += fmt.Sprintf("  %q -> %q [style=%s];\n", sourceID, targetID, style)
 		}
 	}
 

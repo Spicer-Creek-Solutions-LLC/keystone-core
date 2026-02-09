@@ -1,7 +1,7 @@
 # Monitoring Stack Blueprint
 # Deploys Prometheus, Grafana, Node Exporter, and Alertmanager for infrastructure monitoring
 
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: monitoring-stack
@@ -12,7 +12,7 @@ metadata:
     for alert routing.
   maintainers:
     - name: Keystone Core Team
-      email: team@kscore.io
+      email: team@keystone-core.io
   license: Apache-2.0
   keywords:
     - monitoring

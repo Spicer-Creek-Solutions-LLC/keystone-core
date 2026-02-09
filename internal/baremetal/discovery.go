@@ -54,98 +54,98 @@ const (
 
 // CPUInfo contains CPU hardware information.
 type CPUInfo struct {
-	Model       string   `json:"model"`
-	Vendor      string   `json:"vendor"`
-	Cores       int      `json:"cores"`
-	Threads     int      `json:"threads"`
-	Sockets     int      `json:"sockets"`
-	ClockMHz    float64  `json:"clock_mhz"`
-	CacheMB     float64  `json:"cache_mb"`
-	Features    []string `json:"features"`
-	Architecture string  `json:"architecture"`
+	Model        string   `json:"model"`
+	Vendor       string   `json:"vendor"`
+	Cores        int      `json:"cores"`
+	Threads      int      `json:"threads"`
+	Sockets      int      `json:"sockets"`
+	ClockMHz     float64  `json:"clock_mhz"`
+	CacheMB      float64  `json:"cache_mb"`
+	Features     []string `json:"features"`
+	Architecture string   `json:"architecture"`
 }
 
 // MemoryInfo contains memory hardware information.
 type MemoryInfo struct {
-	TotalMB     int64            `json:"total_mb"`
-	UsableMB    int64            `json:"usable_mb"`
-	Slots       int              `json:"slots"`
-	Type        string           `json:"type"` // DDR4, DDR5, etc.
-	SpeedMHz    int              `json:"speed_mhz"`
-	ECC         bool             `json:"ecc"`
-	DIMMs       []DIMMInfo       `json:"dimms,omitempty"`
+	TotalMB  int64      `json:"total_mb"`
+	UsableMB int64      `json:"usable_mb"`
+	Slots    int        `json:"slots"`
+	Type     string     `json:"type"` // DDR4, DDR5, etc.
+	SpeedMHz int        `json:"speed_mhz"`
+	ECC      bool       `json:"ecc"`
+	DIMMs    []DIMMInfo `json:"dimms,omitempty"`
 }
 
 // DIMMInfo contains information about individual DIMMs.
 type DIMMInfo struct {
-	Slot     string `json:"slot"`
-	SizeMB   int64  `json:"size_mb"`
-	Type     string `json:"type"`
-	SpeedMHz int    `json:"speed_mhz"`
+	Slot         string `json:"slot"`
+	SizeMB       int64  `json:"size_mb"`
+	Type         string `json:"type"`
+	SpeedMHz     int    `json:"speed_mhz"`
 	Manufacturer string `json:"manufacturer,omitempty"`
 	PartNumber   string `json:"part_number,omitempty"`
 }
 
 // StorageDevice represents a storage device.
 type StorageDevice struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"` // hdd, ssd, nvme
-	SizeMB     int64  `json:"size_mb"`
-	Model      string `json:"model"`
-	Serial     string `json:"serial,omitempty"`
-	Rotational bool   `json:"rotational"`
-	Transport  string `json:"transport"` // sata, sas, nvme, scsi
-	WWN        string `json:"wwn,omitempty"`
+	Name       string     `json:"name"`
+	Type       string     `json:"type"` // hdd, ssd, nvme
+	SizeMB     int64      `json:"size_mb"`
+	Model      string     `json:"model"`
+	Serial     string     `json:"serial,omitempty"`
+	Rotational bool       `json:"rotational"`
+	Transport  string     `json:"transport"` // sata, sas, nvme, scsi
+	WWN        string     `json:"wwn,omitempty"`
 	SMART      *SMARTInfo `json:"smart,omitempty"`
 }
 
 // SMARTInfo contains SMART health information.
 type SMARTInfo struct {
-	Healthy         bool   `json:"healthy"`
-	PowerOnHours    int64  `json:"power_on_hours"`
-	Temperature     int    `json:"temperature_celsius"`
-	WearPercentage  int    `json:"wear_percentage,omitempty"` // For SSDs
-	ReallocatedSectors int `json:"reallocated_sectors,omitempty"`
+	Healthy            bool  `json:"healthy"`
+	PowerOnHours       int64 `json:"power_on_hours"`
+	Temperature        int   `json:"temperature_celsius"`
+	WearPercentage     int   `json:"wear_percentage,omitempty"` // For SSDs
+	ReallocatedSectors int   `json:"reallocated_sectors,omitempty"`
 }
 
 // StorageInfo contains storage hardware information.
 type StorageInfo struct {
-	Devices     []StorageDevice `json:"devices"`
-	TotalSizeMB int64           `json:"total_size_mb"`
+	Devices     []StorageDevice     `json:"devices"`
+	TotalSizeMB int64               `json:"total_size_mb"`
 	Controllers []StorageController `json:"controllers,omitempty"`
 }
 
 // StorageController represents a storage controller.
 type StorageController struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"` // raid, hba, nvme
-	Model       string `json:"model"`
-	CacheSize   int64  `json:"cache_size_mb,omitempty"`
-	BBUPresent  bool   `json:"bbu_present,omitempty"`
+	Name       string `json:"name"`
+	Type       string `json:"type"` // raid, hba, nvme
+	Model      string `json:"model"`
+	CacheSize  int64  `json:"cache_size_mb,omitempty"`
+	BBUPresent bool   `json:"bbu_present,omitempty"`
 }
 
 // NetworkInterface represents a network interface.
 type NetworkInterface struct {
-	Name       string   `json:"name"`
-	MAC        string   `json:"mac"`
-	SpeedMbps  int      `json:"speed_mbps"`
-	MTU        int      `json:"mtu"`
-	Driver     string   `json:"driver,omitempty"`
-	PCI        string   `json:"pci_address,omitempty"`
-	IPs        []string `json:"ips,omitempty"`
-	State      string   `json:"state"` // up, down, unknown
-	Duplex     string   `json:"duplex,omitempty"`
-	SRIOVCapable bool   `json:"sriov_capable,omitempty"`
-	VFs         int     `json:"vfs,omitempty"` // Number of virtual functions
+	Name         string   `json:"name"`
+	MAC          string   `json:"mac"`
+	SpeedMbps    int      `json:"speed_mbps"`
+	MTU          int      `json:"mtu"`
+	Driver       string   `json:"driver,omitempty"`
+	PCI          string   `json:"pci_address,omitempty"`
+	IPs          []string `json:"ips,omitempty"`
+	State        string   `json:"state"` // up, down, unknown
+	Duplex       string   `json:"duplex,omitempty"`
+	SRIOVCapable bool     `json:"sriov_capable,omitempty"`
+	VFs          int      `json:"vfs,omitempty"` // Number of virtual functions
 }
 
 // NetworkInfo contains network hardware information.
 type NetworkInfo struct {
-	Interfaces  []NetworkInterface `json:"interfaces"`
-	Hostname    string             `json:"hostname,omitempty"`
-	FQDN        string             `json:"fqdn,omitempty"`
-	DefaultGateway string          `json:"default_gateway,omitempty"`
-	DNSServers  []string           `json:"dns_servers,omitempty"`
+	Interfaces     []NetworkInterface `json:"interfaces"`
+	Hostname       string             `json:"hostname,omitempty"`
+	FQDN           string             `json:"fqdn,omitempty"`
+	DefaultGateway string             `json:"default_gateway,omitempty"`
+	DNSServers     []string           `json:"dns_servers,omitempty"`
 }
 
 // BMCInfo contains Baseboard Management Controller information.
@@ -159,45 +159,45 @@ type BMCInfo struct {
 
 // GPUInfo contains GPU hardware information.
 type GPUInfo struct {
-	Model      string `json:"model"`
-	Vendor     string `json:"vendor"`
-	MemoryMB   int64  `json:"memory_mb"`
-	PCIAddress string `json:"pci_address"`
-	UUID       string `json:"uuid,omitempty"`
+	Model             string `json:"model"`
+	Vendor            string `json:"vendor"`
+	MemoryMB          int64  `json:"memory_mb"`
+	PCIAddress        string `json:"pci_address"`
+	UUID              string `json:"uuid,omitempty"`
 	ComputeCapability string `json:"compute_capability,omitempty"` // For NVIDIA
 }
 
 // HardwareInfo contains complete hardware information for a server.
 type HardwareInfo struct {
-	CPU       CPUInfo     `json:"cpu"`
-	Memory    MemoryInfo  `json:"memory"`
-	Storage   StorageInfo `json:"storage"`
-	Network   NetworkInfo `json:"network"`
-	BMC       *BMCInfo    `json:"bmc,omitempty"`
-	GPUs      []GPUInfo   `json:"gpus,omitempty"`
-	Vendor    string      `json:"vendor,omitempty"`
-	Model     string      `json:"model,omitempty"`
-	Serial    string      `json:"serial,omitempty"`
-	UUID      string      `json:"uuid,omitempty"`
-	BIOS      string      `json:"bios_version,omitempty"`
-	Firmware  map[string]string `json:"firmware,omitempty"`
+	CPU      CPUInfo           `json:"cpu"`
+	Memory   MemoryInfo        `json:"memory"`
+	Storage  StorageInfo       `json:"storage"`
+	Network  NetworkInfo       `json:"network"`
+	BMC      *BMCInfo          `json:"bmc,omitempty"`
+	GPUs     []GPUInfo         `json:"gpus,omitempty"`
+	Vendor   string            `json:"vendor,omitempty"`
+	Model    string            `json:"model,omitempty"`
+	Serial   string            `json:"serial,omitempty"`
+	UUID     string            `json:"uuid,omitempty"`
+	BIOS     string            `json:"bios_version,omitempty"`
+	Firmware map[string]string `json:"firmware,omitempty"`
 }
 
 // Server represents a discovered bare metal server.
 type Server struct {
-	ID            string          `json:"id"`
-	Name          string          `json:"name,omitempty"`
-	State         ServerState     `json:"state"`
-	Hardware      HardwareInfo    `json:"hardware"`
-	DiscoveredAt  time.Time       `json:"discovered_at"`
-	LastSeenAt    time.Time       `json:"last_seen_at"`
-	DiscoveryMethod DiscoveryMethod `json:"discovery_method"`
-	Location      *Location       `json:"location,omitempty"`
-	Labels        map[string]string `json:"labels,omitempty"`
-	Annotations   map[string]string `json:"annotations,omitempty"`
-	ProvisionedBy string          `json:"provisioned_by,omitempty"`
-	Cluster       string          `json:"cluster,omitempty"`
-	Pool          string          `json:"pool,omitempty"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name,omitempty"`
+	State           ServerState       `json:"state"`
+	Hardware        HardwareInfo      `json:"hardware"`
+	DiscoveredAt    time.Time         `json:"discovered_at"`
+	LastSeenAt      time.Time         `json:"last_seen_at"`
+	DiscoveryMethod DiscoveryMethod   `json:"discovery_method"`
+	Location        *Location         `json:"location,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
+	ProvisionedBy   string            `json:"provisioned_by,omitempty"`
+	Cluster         string            `json:"cluster,omitempty"`
+	Pool            string            `json:"pool,omitempty"`
 }
 
 // Location represents the physical location of a server.
@@ -246,8 +246,8 @@ type DiscoveryConfig struct {
 
 // DiscoveryCredentials contains credentials for discovery methods.
 type DiscoveryCredentials struct {
-	IPMI *IPMICredentials `json:"ipmi,omitempty"`
-	SSH  *SSHCredentials  `json:"ssh,omitempty"`
+	IPMI    *IPMICredentials    `json:"ipmi,omitempty"`
+	SSH     *SSHCredentials     `json:"ssh,omitempty"`
 	Redfish *RedfishCredentials `json:"redfish,omitempty"`
 }
 
@@ -259,9 +259,9 @@ type IPMICredentials struct {
 
 // SSHCredentials contains SSH authentication credentials.
 type SSHCredentials struct {
-	Username   string `json:"username"`
-	Password   string `json:"password,omitempty"`
-	PrivateKey string `json:"private_key,omitempty"`
+	Username       string `json:"username"`
+	Password       string `json:"password,omitempty"`
+	PrivateKey     string `json:"private_key,omitempty"`
 	PrivateKeyPath string `json:"private_key_path,omitempty"`
 }
 
@@ -273,10 +273,10 @@ type RedfishCredentials struct {
 
 // PXEConfig configures PXE boot discovery.
 type PXEConfig struct {
-	Interface   string `json:"interface"`
-	TFTPRoot    string `json:"tftp_root"`
-	BootImage   string `json:"boot_image"`
-	KernelArgs  string `json:"kernel_args,omitempty"`
+	Interface  string `json:"interface"`
+	TFTPRoot   string `json:"tftp_root"`
+	BootImage  string `json:"boot_image"`
+	KernelArgs string `json:"kernel_args,omitempty"`
 }
 
 // DHCPConfig configures DHCP snooping for discovery.
@@ -297,13 +297,13 @@ type DiscoveryEvent struct {
 
 // DiscoveryResult contains the result of a discovery operation.
 type DiscoveryResult struct {
-	ServersFound    int             `json:"servers_found"`
-	ServersUpdated  int             `json:"servers_updated"`
-	ServersLost     int             `json:"servers_lost"`
-	Errors          []string        `json:"errors,omitempty"`
-	Duration        time.Duration   `json:"duration"`
-	StartedAt       time.Time       `json:"started_at"`
-	CompletedAt     time.Time       `json:"completed_at"`
+	ServersFound   int           `json:"servers_found"`
+	ServersUpdated int           `json:"servers_updated"`
+	ServersLost    int           `json:"servers_lost"`
+	Errors         []string      `json:"errors,omitempty"`
+	Duration       time.Duration `json:"duration"`
+	StartedAt      time.Time     `json:"started_at"`
+	CompletedAt    time.Time     `json:"completed_at"`
 }
 
 // DiscoveryDriver is the interface for discovery method implementations.
@@ -341,15 +341,15 @@ type DiscoveryStore interface {
 
 // ServerFilter filters servers when listing.
 type ServerFilter struct {
-	States    []ServerState     `json:"states,omitempty"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	Pool      string            `json:"pool,omitempty"`
-	Cluster   string            `json:"cluster,omitempty"`
-	Location  *Location         `json:"location,omitempty"`
-	MinCPUCores int             `json:"min_cpu_cores,omitempty"`
-	MinMemoryMB int64           `json:"min_memory_mb,omitempty"`
-	MinStorageMB int64          `json:"min_storage_mb,omitempty"`
-	HasGPU    bool              `json:"has_gpu,omitempty"`
+	States       []ServerState     `json:"states,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Pool         string            `json:"pool,omitempty"`
+	Cluster      string            `json:"cluster,omitempty"`
+	Location     *Location         `json:"location,omitempty"`
+	MinCPUCores  int               `json:"min_cpu_cores,omitempty"`
+	MinMemoryMB  int64             `json:"min_memory_mb,omitempty"`
+	MinStorageMB int64             `json:"min_storage_mb,omitempty"`
+	HasGPU       bool              `json:"has_gpu,omitempty"`
 }
 
 // Engine is the main discovery engine.
@@ -824,9 +824,9 @@ func (s *InMemoryStore) Get(_ context.Context, id string) (*Server, error) {
 
 	// Return a copy
 	data, _ := json.Marshal(server)
-	var copy Server
-	_ = json.Unmarshal(data, &copy)
-	return &copy, nil
+	var copied Server
+	_ = json.Unmarshal(data, &copied)
+	return &copied, nil
 }
 
 // List lists servers matching the filter.
@@ -843,9 +843,9 @@ func (s *InMemoryStore) List(_ context.Context, filter *ServerFilter) ([]*Server
 
 		// Return a copy
 		data, _ := json.Marshal(server)
-		var copy Server
-		_ = json.Unmarshal(data, &copy)
-		result = append(result, &copy)
+		var copied Server
+		_ = json.Unmarshal(data, &copied)
+		result = append(result, &copied)
 	}
 
 	return result, nil
@@ -858,9 +858,9 @@ func (s *InMemoryStore) Save(_ context.Context, server *Server) error {
 
 	// Store a copy
 	data, _ := json.Marshal(server)
-	var copy Server
-	_ = json.Unmarshal(data, &copy)
-	s.servers[server.ID] = &copy
+	var copied Server
+	_ = json.Unmarshal(data, &copied)
+	s.servers[server.ID] = &copied
 
 	return nil
 }

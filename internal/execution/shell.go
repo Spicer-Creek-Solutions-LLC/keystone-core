@@ -87,23 +87,28 @@ func GetDefaultShell() (Shell, error) {
 // BashShell implements the Bash shell
 type BashShell struct{}
 
+// Name returns the name.
 func (s *BashShell) Name() string {
 	return "bash"
 }
 
+// Type returns the type.
 func (s *BashShell) Type() ShellType {
 	return ShellTypeBash
 }
 
-func (s *BashShell) Command(script string) (string, []string) {
+// Command returns a command that can help resolve the error.
+func (s *BashShell) Command(script string) (cmd string, args []string) {
 	return "bash", []string{"-c", script}
 }
 
+// IsAvailable returns whether the shell is available on the system.
 func (s *BashShell) IsAvailable() bool {
 	_, err := exec.LookPath("bash")
 	return err == nil
 }
 
+// EnvVarSeparator returns the separator used for environment variables.
 func (s *BashShell) EnvVarSeparator() string {
 	return ":"
 }
@@ -111,23 +116,28 @@ func (s *BashShell) EnvVarSeparator() string {
 // ShShell implements the POSIX shell
 type ShShell struct{}
 
+// Name returns the name.
 func (s *ShShell) Name() string {
 	return "sh"
 }
 
+// Type returns the type.
 func (s *ShShell) Type() ShellType {
 	return ShellTypeSh
 }
 
-func (s *ShShell) Command(script string) (string, []string) {
+// Command returns a command that can help resolve the error.
+func (s *ShShell) Command(script string) (cmd string, args []string) {
 	return "sh", []string{"-c", script}
 }
 
+// IsAvailable returns whether the shell is available on the system.
 func (s *ShShell) IsAvailable() bool {
 	_, err := exec.LookPath("sh")
 	return err == nil
 }
 
+// EnvVarSeparator returns the separator used for environment variables.
 func (s *ShShell) EnvVarSeparator() string {
 	return ":"
 }
@@ -135,20 +145,24 @@ func (s *ShShell) EnvVarSeparator() string {
 // PowershellShell implements PowerShell
 type PowershellShell struct{}
 
+// Name returns the name.
 func (s *PowershellShell) Name() string {
 	return "powershell"
 }
 
+// Type returns the type.
 func (s *PowershellShell) Type() ShellType {
 	return ShellTypePowershell
 }
 
-func (s *PowershellShell) Command(script string) (string, []string) {
+// Command returns a command that can help resolve the error.
+func (s *PowershellShell) Command(script string) (cmd string, args []string) {
 	// Use -Command for executing scripts
 	// -NoProfile speeds up execution by skipping profile loading
 	return "powershell", []string{"-NoProfile", "-Command", script}
 }
 
+// IsAvailable returns whether the shell is available on the system.
 func (s *PowershellShell) IsAvailable() bool {
 	// Try both "powershell" and "pwsh" (PowerShell Core)
 	_, err := exec.LookPath("powershell")
@@ -159,6 +173,7 @@ func (s *PowershellShell) IsAvailable() bool {
 	return err == nil
 }
 
+// EnvVarSeparator returns the separator used for environment variables.
 func (s *PowershellShell) EnvVarSeparator() string {
 	return ";"
 }
@@ -166,19 +181,23 @@ func (s *PowershellShell) EnvVarSeparator() string {
 // CmdShell implements Windows Command Prompt
 type CmdShell struct{}
 
+// Name returns the name.
 func (s *CmdShell) Name() string {
 	return "cmd"
 }
 
+// Type returns the type.
 func (s *CmdShell) Type() ShellType {
 	return ShellTypeCmd
 }
 
-func (s *CmdShell) Command(script string) (string, []string) {
+// Command returns a command that can help resolve the error.
+func (s *CmdShell) Command(script string) (cmd string, args []string) {
 	// /C executes the command and then terminates
 	return "cmd", []string{"/C", script}
 }
 
+// IsAvailable returns whether the shell is available on the system.
 func (s *CmdShell) IsAvailable() bool {
 	// cmd.exe is always available on Windows
 	if runtime.GOOS == "windows" {
@@ -188,6 +207,7 @@ func (s *CmdShell) IsAvailable() bool {
 	return err == nil
 }
 
+// EnvVarSeparator returns the separator used for environment variables.
 func (s *CmdShell) EnvVarSeparator() string {
 	return ";"
 }

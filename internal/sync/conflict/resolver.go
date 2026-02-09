@@ -12,9 +12,9 @@ import (
 
 // Errors returned by the conflict resolver.
 var (
-	ErrNoResolver       = errors.New("no resolver for conflict type")
-	ErrUnresolvable     = errors.New("conflict cannot be resolved automatically")
-	ErrMergeConflict    = errors.New("merge conflict detected")
+	ErrNoResolver    = errors.New("no resolver for conflict type")
+	ErrUnresolvable  = errors.New("conflict cannot be resolved automatically")
+	ErrMergeConflict = errors.New("merge conflict detected")
 )
 
 // Strategy defines how conflicts should be resolved.
@@ -195,10 +195,10 @@ type Manager struct {
 }
 
 // Listener receives conflict events.
-type Listener func(event *ConflictEvent)
+type Listener func(event *Event)
 
-// ConflictEvent represents a conflict-related event.
-type ConflictEvent struct {
+// Event represents a conflict-related event.
+type Event struct {
 	Type       string
 	Conflict   *Conflict
 	Resolution *Resolution
@@ -264,7 +264,7 @@ func (m *Manager) Detect(local, remote *Document) (*Conflict, error) {
 	m.conflicts[conflict.ID] = conflict
 	m.mu.Unlock()
 
-	m.emitEvent(&ConflictEvent{
+	m.emitEvent(&Event{
 		Type:      "conflict_detected",
 		Conflict:  conflict,
 		Timestamp: time.Now(),
@@ -322,7 +322,7 @@ func (m *Manager) ResolveWithStrategy(conflict *Conflict, strategy Strategy) (*R
 	delete(m.conflicts, conflict.ID)
 	m.mu.Unlock()
 
-	m.emitEvent(&ConflictEvent{
+	m.emitEvent(&Event{
 		Type:       "conflict_resolved",
 		Conflict:   conflict,
 		Resolution: resolution,
@@ -333,7 +333,7 @@ func (m *Manager) ResolveWithStrategy(conflict *Conflict, strategy Strategy) (*R
 }
 
 // ManualResolve manually resolves a conflict with a chosen document.
-func (m *Manager) ManualResolve(conflictID string, choice string) (*Resolution, error) {
+func (m *Manager) ManualResolve(conflictID, choice string) (*Resolution, error) {
 	m.mu.Lock()
 	conflict, exists := m.conflicts[conflictID]
 	if !exists {
@@ -378,7 +378,7 @@ func (m *Manager) ManualResolve(conflictID string, choice string) (*Resolution, 
 	delete(m.conflicts, conflictID)
 	m.mu.Unlock()
 
-	m.emitEvent(&ConflictEvent{
+	m.emitEvent(&Event{
 		Type:       "conflict_resolved",
 		Conflict:   conflict,
 		Resolution: resolution,
@@ -424,7 +424,7 @@ func (m *Manager) AddListener(listener Listener) {
 	m.mu.Unlock()
 }
 
-func (m *Manager) emitEvent(event *ConflictEvent) {
+func (m *Manager) emitEvent(event *Event) {
 	m.mu.RLock()
 	listeners := m.listeners
 	m.mu.RUnlock()
@@ -567,12 +567,6 @@ func mergeRecursive(local, remote map[string]interface{}) map[string]interface{}
 	return result
 }
 
-func max(a, b uint64) uint64 {
-	if a > b {
-		return a
-	}
-	return b
-}
 
 var idCounter uint64
 var idMu sync.Mutex
@@ -630,9 +624,7 @@ func joinLines(lines []string) []byte {
 	return buf.Bytes()
 }
 
-func threeWayMerge(base, local, remote []string) ([]string, []int) {
-	var result []string
-	var conflicts []int
+func threeWayMerge(base, local, remote []string) (result []string, conflicts []int) {
 
 	// Simple merge: if local and remote are same, use that
 	// If one matches base, use the other
@@ -661,16 +653,17 @@ func threeWayMerge(base, local, remote []string) ([]string, []int) {
 			remoteLine = remote[i]
 		}
 
-		if localLine == remoteLine {
+		switch {
+		case localLine == remoteLine:
 			// Both agree
 			result = append(result, localLine)
-		} else if localLine == baseLine {
+		case localLine == baseLine:
 			// Local unchanged, use remote
 			result = append(result, remoteLine)
-		} else if remoteLine == baseLine {
+		case remoteLine == baseLine:
 			// Remote unchanged, use local
 			result = append(result, localLine)
-		} else {
+		default:
 			// Conflict
 			conflicts = append(conflicts, i)
 			result = append(result, localLine) // Default to local

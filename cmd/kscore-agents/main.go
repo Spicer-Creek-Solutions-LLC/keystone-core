@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -35,18 +35,18 @@ type Config struct {
 
 // AgentDisplay represents an agent for display purposes
 type AgentDisplay struct {
-	ID           string            `json:"id" yaml:"id"`
-	Hostname     string            `json:"hostname" yaml:"hostname"`
-	OS           string            `json:"os" yaml:"os"`
-	Arch         string            `json:"arch" yaml:"arch"`
-	Status       string            `json:"status" yaml:"status"`
-	Version      string            `json:"version" yaml:"version"`
-	LastHeartbeat string           `json:"last_heartbeat" yaml:"last_heartbeat"`
-	RegisteredAt string            `json:"registered_at" yaml:"registered_at"`
-	Labels       map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
-	IPAddresses  []string          `json:"ip_addresses,omitempty" yaml:"ip_addresses,omitempty"`
-	DualStack    bool              `json:"dual_stack,omitempty" yaml:"dual_stack,omitempty"`
-	Metrics      *MetricsDisplay   `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+	ID            string            `json:"id" yaml:"id"`
+	Hostname      string            `json:"hostname" yaml:"hostname"`
+	OS            string            `json:"os" yaml:"os"`
+	Arch          string            `json:"arch" yaml:"arch"`
+	Status        string            `json:"status" yaml:"status"`
+	Version       string            `json:"version" yaml:"version"`
+	LastHeartbeat string            `json:"last_heartbeat" yaml:"last_heartbeat"`
+	RegisteredAt  string            `json:"registered_at" yaml:"registered_at"`
+	Labels        map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	IPAddresses   []string          `json:"ip_addresses,omitempty" yaml:"ip_addresses,omitempty"`
+	DualStack     bool              `json:"dual_stack,omitempty" yaml:"dual_stack,omitempty"`
+	Metrics       *MetricsDisplay   `json:"metrics,omitempty" yaml:"metrics,omitempty"`
 }
 
 // MetricsDisplay represents agent metrics for display
@@ -59,15 +59,15 @@ type MetricsDisplay struct {
 
 // TokenDisplay represents a join token for display
 type TokenDisplay struct {
-	ID        string    `json:"id" yaml:"id"`
-	Token     string    `json:"token,omitempty" yaml:"token,omitempty"`
-	TTL       string    `json:"ttl" yaml:"ttl"`
-	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
-	UsedCount int       `json:"used_count" yaml:"used_count"`
-	MaxUses   int       `json:"max_uses" yaml:"max_uses"`
+	ID        string            `json:"id" yaml:"id"`
+	Token     string            `json:"token,omitempty" yaml:"token,omitempty"`
+	TTL       string            `json:"ttl" yaml:"ttl"`
+	ExpiresAt time.Time         `json:"expires_at" yaml:"expires_at"`
+	UsedCount int               `json:"used_count" yaml:"used_count"`
+	MaxUses   int               `json:"max_uses" yaml:"max_uses"`
 	Labels    map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
-	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
-	CreatedBy string    `json:"created_by" yaml:"created_by"`
+	CreatedAt time.Time         `json:"created_at" yaml:"created_at"`
+	CreatedBy string            `json:"created_by" yaml:"created_by"`
 }
 
 func main() {
@@ -242,61 +242,61 @@ func runListAgents(ctx context.Context, cfg *Config, status, filter string, labe
 func outputSampleAgents(cfg *Config, edge, showCompat bool) error {
 	agents := []AgentDisplay{
 		{
-			ID:           "web-001",
-			Hostname:     "web-server-001.example.com",
-			OS:           "linux",
-			Arch:         "amd64",
-			Status:       "online",
-			Version:      "0.1.0",
+			ID:            "web-001",
+			Hostname:      "web-server-001.example.com",
+			OS:            "linux",
+			Arch:          "amd64",
+			Status:        "online",
+			Version:       "0.1.0",
 			LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
-			RegisteredAt: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-			Labels:       map[string]string{"role": "web", "env": "prod"},
-			IPAddresses:  []string{"10.0.1.10", "2001:db8::10"},
-			DualStack:    true,
+			RegisteredAt:  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+			Labels:        map[string]string{"role": "web", "env": "prod"},
+			IPAddresses:   []string{"10.0.1.10", "2001:db8::10"},
+			DualStack:     true,
 		},
 		{
-			ID:           "db-001",
-			Hostname:     "db-server-001.example.com",
-			OS:           "linux",
-			Arch:         "amd64",
-			Status:       "online",
-			Version:      "0.1.0",
+			ID:            "db-001",
+			Hostname:      "db-server-001.example.com",
+			OS:            "linux",
+			Arch:          "amd64",
+			Status:        "online",
+			Version:       "0.1.0",
 			LastHeartbeat: time.Now().Add(-15 * time.Second).Format(time.RFC3339),
-			RegisteredAt: time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
-			Labels:       map[string]string{"role": "database", "env": "prod"},
-			IPAddresses:  []string{"10.0.2.20"},
+			RegisteredAt:  time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
+			Labels:        map[string]string{"role": "database", "env": "prod"},
+			IPAddresses:   []string{"10.0.2.20"},
 		},
 		{
-			ID:           "edge-001",
-			Hostname:     "edge-device-001",
-			OS:           "linux",
-			Arch:         "arm64",
-			Status:       "degraded",
-			Version:      "0.0.9",
+			ID:            "edge-001",
+			Hostname:      "edge-device-001",
+			OS:            "linux",
+			Arch:          "arm64",
+			Status:        "degraded",
+			Version:       "0.0.9",
 			LastHeartbeat: time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
-			RegisteredAt: time.Now().Add(-7 * 24 * time.Hour).Format(time.RFC3339),
-			Labels:       map[string]string{"role": "edge", "location": "warehouse-a"},
-			IPAddresses:  []string{"192.168.1.100"},
+			RegisteredAt:  time.Now().Add(-7 * 24 * time.Hour).Format(time.RFC3339),
+			Labels:        map[string]string{"role": "edge", "location": "warehouse-a"},
+			IPAddresses:   []string{"192.168.1.100"},
 		},
 		{
-			ID:           "win-001",
-			Hostname:     "win-server-001",
-			OS:           "windows",
-			Arch:         "amd64",
-			Status:       "offline",
-			Version:      "0.1.0",
+			ID:            "win-001",
+			Hostname:      "win-server-001",
+			OS:            "windows",
+			Arch:          "amd64",
+			Status:        "offline",
+			Version:       "0.1.0",
 			LastHeartbeat: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-			RegisteredAt: time.Now().Add(-72 * time.Hour).Format(time.RFC3339),
-			Labels:       map[string]string{"role": "app", "env": "staging"},
-			IPAddresses:  []string{"10.0.3.30"},
+			RegisteredAt:  time.Now().Add(-72 * time.Hour).Format(time.RFC3339),
+			Labels:        map[string]string{"role": "app", "env": "staging"},
+			IPAddresses:   []string{"10.0.3.30"},
 		},
 	}
 
 	if edge {
 		filtered := make([]AgentDisplay, 0)
-		for _, a := range agents {
-			if a.Labels["role"] == "edge" {
-				filtered = append(filtered, a)
+		for i := range agents {
+			if agents[i].Labels["role"] == "edge" {
+				filtered = append(filtered, agents[i])
 			}
 		}
 		agents = filtered
@@ -326,7 +326,8 @@ func outputAgentsTable(agents []AgentDisplay) error {
 		Headers: []string{"ID", "HOSTNAME", "OS/ARCH", "STATUS", "VERSION", "LAST HEARTBEAT"},
 	}
 
-	for _, a := range agents {
+	for i := range agents {
+		a := &agents[i]
 		osArch := fmt.Sprintf("%s/%s", a.OS, a.Arch)
 		table.Rows = append(table.Rows, []string{
 			a.ID,
@@ -350,7 +351,8 @@ func outputAgentsWide(agents []AgentDisplay, showCompat bool) error {
 
 	table := &output.Table{Headers: headers}
 
-	for _, a := range agents {
+	for i := range agents {
+		a := &agents[i]
 		osArch := fmt.Sprintf("%s/%s", a.OS, a.Arch)
 		ips := strings.Join(a.IPAddresses, ",")
 		labels := formatLabels(a.Labels)
@@ -423,17 +425,17 @@ func runShowAgent(ctx context.Context, cfg *Config, agentID string) error {
 
 func outputSampleAgentDetail(cfg *Config, agentID string) error {
 	agent := AgentDisplay{
-		ID:           agentID,
-		Hostname:     agentID + ".example.com",
-		OS:           "linux",
-		Arch:         "amd64",
-		Status:       "online",
-		Version:      "0.1.0",
+		ID:            agentID,
+		Hostname:      agentID + ".example.com",
+		OS:            "linux",
+		Arch:          "amd64",
+		Status:        "online",
+		Version:       "0.1.0",
 		LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
-		RegisteredAt: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-		Labels:       map[string]string{"role": "web", "env": "prod", "dc": "us-east-1"},
-		IPAddresses:  []string{"10.0.1.10", "2001:db8::10"},
-		DualStack:    true,
+		RegisteredAt:  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+		Labels:        map[string]string{"role": "web", "env": "prod", "dc": "us-east-1"},
+		IPAddresses:   []string{"10.0.1.10", "2001:db8::10"},
+		DualStack:     true,
 		Metrics: &MetricsDisplay{
 			CPU:    25.5,
 			Memory: 45.2,
@@ -520,7 +522,7 @@ func runDeleteAgent(ctx context.Context, cfg *Config, agentID string, force bool
 		fmt.Printf("Are you sure you want to delete agent '%s'? [y/N]: ", agentID)
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 			fmt.Println("Aborted.")
 			return nil
 		}
@@ -615,9 +617,9 @@ initial registration with the control plane.`,
 
 func newTokenCreateCmd(cfg *Config) *cobra.Command {
 	var (
-		ttl      string
-		maxUses  int
-		labels   []string
+		ttl     string
+		maxUses int
+		labels  []string
 	)
 
 	cmd := &cobra.Command{
@@ -775,14 +777,15 @@ func runTokenList(ctx context.Context, cfg *Config, showExpired bool) error {
 		table := &output.Table{
 			Headers: []string{"ID", "TTL", "EXPIRES", "USES", "LABELS", "CREATED BY"},
 		}
-		for _, t := range tokens {
+		for i := range tokens {
+			t := &tokens[i]
 			uses := fmt.Sprintf("%d", t.UsedCount)
 			if t.MaxUses > 0 {
 				uses = fmt.Sprintf("%d/%d", t.UsedCount, t.MaxUses)
 			}
 			expires := t.ExpiresAt.Format(time.RFC3339)
 			if t.ExpiresAt.Before(time.Now()) {
-				expires = expires + " (expired)"
+				expires += " (expired)"
 			}
 			table.Rows = append(table.Rows, []string{
 				t.ID,
@@ -815,7 +818,7 @@ Examples:
 				fmt.Printf("Are you sure you want to revoke token '%s'? [y/N]: ", args[0])
 				var response string
 				fmt.Scanln(&response)
-				if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 					fmt.Println("Aborted.")
 					return nil
 				}
@@ -994,16 +997,16 @@ Examples:
 
 func runFleetStatus(ctx context.Context, cfg *Config) error {
 	status := struct {
-		Total     int `json:"total" yaml:"total"`
-		Online    int `json:"online" yaml:"online"`
-		Offline   int `json:"offline" yaml:"offline"`
-		Degraded  int `json:"degraded" yaml:"degraded"`
+		Total       int `json:"total" yaml:"total"`
+		Online      int `json:"online" yaml:"online"`
+		Offline     int `json:"offline" yaml:"offline"`
+		Degraded    int `json:"degraded" yaml:"degraded"`
 		Quarantined int `json:"quarantined" yaml:"quarantined"`
 	}{
-		Total:     42,
-		Online:    38,
-		Offline:   2,
-		Degraded:  2,
+		Total:       42,
+		Online:      38,
+		Offline:     2,
+		Degraded:    2,
 		Quarantined: 0,
 	}
 
@@ -1115,7 +1118,9 @@ func agentInfoToDisplay(a *pb.AgentInfo) AgentDisplay {
 		display.Arch = a.Metadata.Arch
 		display.Version = a.Metadata.AgentVersion
 		display.Labels = a.Metadata.Labels
-		display.IPAddresses = append(a.Metadata.Ipv4Addresses, a.Metadata.Ipv6Addresses...)
+		display.IPAddresses = make([]string, 0, len(a.Metadata.Ipv4Addresses)+len(a.Metadata.Ipv6Addresses))
+		display.IPAddresses = append(display.IPAddresses, a.Metadata.Ipv4Addresses...)
+		display.IPAddresses = append(display.IPAddresses, a.Metadata.Ipv6Addresses...)
 		display.DualStack = a.Metadata.IsDualStack
 	}
 

@@ -111,7 +111,8 @@ Examples:
 				}
 
 				rows := make([][]string, 0, len(namespaces))
-				for _, ns := range namespaces {
+				for i := range namespaces {
+					ns := &namespaces[i]
 					desc := ns.Description
 					if len(desc) > 25 {
 						desc = desc[:22] + "..."
@@ -263,7 +264,7 @@ Examples:
 				fmt.Printf("Delete namespace %s? [y/N]: ", name)
 				var confirm string
 				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 					fmt.Println("Cancelled")
 					return nil
 				}
@@ -446,7 +447,7 @@ func newNamespaceQuotaCmd() *cobra.Command {
 		maxSize     string
 		maxFiles    int64
 		maxFileSize string
-		clear       bool
+		clearQuota  bool
 		dryRun      bool
 	)
 
@@ -463,7 +464,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
-			if clear {
+			if clearQuota {
 				if dryRun {
 					fmt.Printf("Dry run: would clear quota for namespace %s\n", name)
 					return nil
@@ -542,7 +543,7 @@ Examples:
 	cmd.Flags().StringVar(&maxSize, "max-size", "", "Maximum total size")
 	cmd.Flags().Int64Var(&maxFiles, "max-files", 0, "Maximum number of files")
 	cmd.Flags().StringVar(&maxFileSize, "max-file-size", "", "Maximum file size")
-	cmd.Flags().BoolVar(&clear, "clear", false, "Clear all quotas")
+	cmd.Flags().BoolVar(&clearQuota, "clear", false, "Clear all quotas")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without updating quota")
 
 	return cmd

@@ -11,14 +11,14 @@ import (
 
 // Engine orchestrates verification workflows
 type Engine struct {
-	verifiers map[VerificationType]Verifier
+	verifiers map[Type]Verifier
 	mu        sync.RWMutex
 }
 
 // NewEngine creates a new verification engine
 func NewEngine() *Engine {
 	return &Engine{
-		verifiers: make(map[VerificationType]Verifier),
+		verifiers: make(map[Type]Verifier),
 	}
 }
 
@@ -30,7 +30,7 @@ func (e *Engine) RegisterVerifier(verifier Verifier) {
 }
 
 // Execute executes a verification workflow
-func (e *Engine) Execute(ctx context.Context, workflow *VerificationWorkflow) (*WorkflowResult, error) {
+func (e *Engine) Execute(ctx context.Context, workflow *Workflow) (*WorkflowResult, error) {
 	result := &WorkflowResult{
 		WorkflowName: workflow.Name,
 		StartTime:    time.Now(),
@@ -70,15 +70,15 @@ func (e *Engine) Execute(ctx context.Context, workflow *VerificationWorkflow) (*
 }
 
 // executeSequential executes steps one by one
-func (e *Engine) executeSequential(ctx context.Context, steps []*VerificationStep) []*VerificationResult {
-	results := make([]*VerificationResult, 0, len(steps))
+func (e *Engine) executeSequential(ctx context.Context, steps []*Step) []*Result {
+	results := make([]*Result, 0, len(steps))
 
 	for _, step := range steps {
 		// Check context cancellation
 		select {
 		case <-ctx.Done():
 			// Add skipped result for remaining steps
-			results = append(results, &VerificationResult{
+			results = append(results, &Result{
 				StepName:  step.Name,
 				Success:   false,
 				Message:   "Workflow cancelled",
@@ -95,7 +95,7 @@ func (e *Engine) executeSequential(ctx context.Context, steps []*VerificationSte
 		if !result.Success && !step.ContinueOnFailure {
 			// Mark remaining steps as skipped
 			for i := len(results); i < len(steps); i++ {
-				results = append(results, &VerificationResult{
+				results = append(results, &Result{
 					StepName:  steps[i].Name,
 					Success:   false,
 					Message:   "Skipped due to previous failure",
@@ -110,13 +110,13 @@ func (e *Engine) executeSequential(ctx context.Context, steps []*VerificationSte
 }
 
 // executeParallel executes steps concurrently
-func (e *Engine) executeParallel(ctx context.Context, steps []*VerificationStep) []*VerificationResult {
-	results := make([]*VerificationResult, len(steps))
+func (e *Engine) executeParallel(ctx context.Context, steps []*Step) []*Result {
+	results := make([]*Result, len(steps))
 	var wg sync.WaitGroup
 
 	for i, step := range steps {
 		wg.Add(1)
-		go func(idx int, s *VerificationStep) {
+		go func(idx int, s *Step) {
 			defer wg.Done()
 			results[idx] = e.executeStep(ctx, s)
 		}(i, step)
@@ -127,7 +127,7 @@ func (e *Engine) executeParallel(ctx context.Context, steps []*VerificationStep)
 }
 
 // executeStep executes a single verification step with retries
-func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *VerificationResult {
+func (e *Engine) executeStep(ctx context.Context, step *Step) *Result {
 	start := time.Now()
 
 	// Get verifier for this step type
@@ -136,7 +136,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 	e.mu.RUnlock()
 
 	if !ok {
-		return &VerificationResult{
+		return &Result{
 			StepName:  step.Name,
 			Success:   false,
 			Message:   fmt.Sprintf("No verifier registered for type: %s", step.Type),
@@ -146,7 +146,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 	}
 
 	// Execute with retries
-	var result *VerificationResult
+	var result *Result
 	var err error
 	attempts := 0
 	maxAttempts := step.Retries + 1
@@ -158,7 +158,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 		// Check context cancellation
 		select {
 		case <-ctx.Done():
-			return &VerificationResult{
+			return &Result{
 				StepName:  step.Name,
 				Success:   false,
 				Message:   "Step cancelled",
@@ -177,7 +177,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 		}
 
 		type verifyOutcome struct {
-			result *VerificationResult
+			result *Result
 			err    error
 		}
 		outcomeCh := make(chan verifyOutcome, 1)
@@ -188,7 +188,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 
 		select {
 		case <-stepCtx.Done():
-			result = &VerificationResult{
+			result = &Result{
 				StepName:  step.Name,
 				Success:   false,
 				Message:   "Step timed out",
@@ -220,7 +220,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 
 	// All retries failed
 	if result == nil {
-		result = &VerificationResult{
+		result = &Result{
 			StepName: step.Name,
 			Success:  false,
 			Message:  "Verification failed",
@@ -235,7 +235,7 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 }
 
 // GetVerifier returns a registered verifier by type
-func (e *Engine) GetVerifier(vtype VerificationType) (Verifier, bool) {
+func (e *Engine) GetVerifier(vtype Type) (Verifier, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	verifier, ok := e.verifiers[vtype]

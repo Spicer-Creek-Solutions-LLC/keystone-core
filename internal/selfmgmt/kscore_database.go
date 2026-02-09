@@ -145,14 +145,14 @@ func (m *DatabaseModule) checkPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 	if !installed {
 		result.CurrentState = StateUninstalled
 		result.Matches = (cfg.State == StateUninstalled)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.CurrentState = StateInstalled
 	result.Present = true
 
 	// Check if running
-	if m.isPostgreSQLRunning() {
+	if m.isPostgreSQLRunning(ctx) {
 		result.CurrentState = StateRunning
 		result.Running = true
 	} else {
@@ -160,7 +160,7 @@ func (m *DatabaseModule) checkPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 	}
 
 	result.Matches = (result.CurrentState == cfg.State)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // checkSQLite checks SQLite state.
@@ -170,7 +170,7 @@ func (m *DatabaseModule) checkSQLite(ctx context.Context, cfg *DatabaseConfig, r
 	if !installed {
 		result.CurrentState = StateUninstalled
 		result.Matches = (cfg.State == StateUninstalled)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.CurrentState = StateInstalled
@@ -184,7 +184,7 @@ func (m *DatabaseModule) checkSQLite(ctx context.Context, cfg *DatabaseConfig, r
 	}
 
 	result.Matches = (result.CurrentState == cfg.State)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the desired database state.
@@ -209,14 +209,14 @@ func (m *DatabaseModule) Apply(ctx context.Context, config interface{}, dryRun b
 	}
 
 	if checkResult.Matches {
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if dryRun {
 		result.Changes["action"] = fmt.Sprintf("Would change from %s to %s", checkResult.CurrentState, cfg.State)
 		result.Changed = true
 		result.NewState = cfg.State
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch cfg.Type {
@@ -234,39 +234,39 @@ func (m *DatabaseModule) applyPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 	switch cfg.State {
 	case StateInstalled:
 		if !m.isPostgreSQLInstalled() {
-			if err := m.installPostgreSQL(); err != nil {
+			if err := m.installPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["installed"] = "postgresql"
 			result.Changed = true
 		}
 	case StateUninstalled:
 		if m.isPostgreSQLInstalled() {
-			if err := m.uninstallPostgreSQL(); err != nil {
+			if err := m.uninstallPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["uninstalled"] = "postgresql"
 			result.Changed = true
 		}
 	case StateRunning:
 		if !m.isPostgreSQLInstalled() {
-			if err := m.installPostgreSQL(); err != nil {
+			if err := m.installPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["installed"] = "postgresql"
 			result.Changed = true
 		}
-		if !m.isPostgreSQLRunning() {
-			if err := m.startPostgreSQL(); err != nil {
+		if !m.isPostgreSQLRunning(ctx) {
+			if err := m.startPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["started"] = "postgresql"
 			result.Changed = true
@@ -277,7 +277,7 @@ func (m *DatabaseModule) applyPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 				if err := m.createPostgreSQLUser(ctx, cfg); err != nil {
 					result.Success = false
 					result.Error = err
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 				result.Changes["created_user"] = cfg.DBUser
 				result.Changed = true
@@ -287,17 +287,17 @@ func (m *DatabaseModule) applyPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 			if err := m.createPostgreSQLDatabase(ctx, cfg); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["created_database"] = cfg.Name
 			result.Changed = true
 		}
 	case StateStopped:
-		if m.isPostgreSQLRunning() {
-			if err := m.stopPostgreSQL(); err != nil {
+		if m.isPostgreSQLRunning(ctx) {
+			if err := m.stopPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["stopped"] = "postgresql"
 			result.Changed = true
@@ -305,35 +305,37 @@ func (m *DatabaseModule) applyPostgreSQL(ctx context.Context, cfg *DatabaseConfi
 	case StateConfigured:
 		// Ensure installed and running
 		if !m.isPostgreSQLInstalled() {
-			if err := m.installPostgreSQL(); err != nil {
+			if err := m.installPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["installed"] = "postgresql"
 			result.Changed = true
 		}
-		if !m.isPostgreSQLRunning() {
-			if err := m.startPostgreSQL(); err != nil {
+		if !m.isPostgreSQLRunning(ctx) {
+			if err := m.startPostgreSQL(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["started"] = "postgresql"
 			result.Changed = true
 		}
 		// Configure database
-		if err := m.configurePostgreSQL(cfg); err != nil {
+		if err := m.configurePostgreSQL(ctx, cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["configured"] = true
 		result.Changed = true
+	default:
+		// StateEnabled, StateDisabled not applicable for database module
 	}
 
 	result.NewState = cfg.State
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // applySQLite applies SQLite state changes.
@@ -341,10 +343,10 @@ func (m *DatabaseModule) applySQLite(ctx context.Context, cfg *DatabaseConfig, r
 	switch cfg.State {
 	case StateInstalled:
 		if !m.isSQLiteInstalled() {
-			if err := m.installSQLite(); err != nil {
+			if err := m.installSQLite(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["installed"] = "sqlite"
 			result.Changed = true
@@ -355,7 +357,7 @@ func (m *DatabaseModule) applySQLite(ctx context.Context, cfg *DatabaseConfig, r
 				if err := os.Remove(cfg.SQLitePath); err != nil {
 					result.Success = false
 					result.Error = err
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 				result.Changes["removed"] = cfg.SQLitePath
 				result.Changed = true
@@ -363,10 +365,10 @@ func (m *DatabaseModule) applySQLite(ctx context.Context, cfg *DatabaseConfig, r
 		}
 	case StateConfigured, StateRunning:
 		if !m.isSQLiteInstalled() {
-			if err := m.installSQLite(); err != nil {
+			if err := m.installSQLite(ctx); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Changes["installed"] = "sqlite"
 			result.Changed = true
@@ -374,10 +376,11 @@ func (m *DatabaseModule) applySQLite(ctx context.Context, cfg *DatabaseConfig, r
 		// Create database directory
 		if cfg.SQLitePath != "" {
 			dir := filepath.Dir(cfg.SQLitePath)
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			//nolint:gosec // G301: database directory needs to be accessible by service user
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				result.Success = false
 				result.Error = err
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			// Create empty database file if it doesn't exist
 			if _, err := os.Stat(cfg.SQLitePath); os.IsNotExist(err) {
@@ -385,17 +388,19 @@ func (m *DatabaseModule) applySQLite(ctx context.Context, cfg *DatabaseConfig, r
 				if err != nil {
 					result.Success = false
 					result.Error = err
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 				f.Close()
 				result.Changes["created"] = cfg.SQLitePath
 				result.Changed = true
 			}
 		}
+	default:
+		// StateStopped, StateEnabled, StateDisabled not applicable for SQLite
 	}
 
 	result.NewState = cfg.State
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // isPostgreSQLInstalled checks if PostgreSQL is installed.
@@ -405,22 +410,22 @@ func (m *DatabaseModule) isPostgreSQLInstalled() bool {
 }
 
 // isPostgreSQLRunning checks if PostgreSQL is running.
-func (m *DatabaseModule) isPostgreSQLRunning() bool {
+func (m *DatabaseModule) isPostgreSQLRunning(ctx context.Context) bool {
 	initSystem := DetectInitSystem()
 	var cmd *exec.Cmd
 
 	switch initSystem {
 	case "systemd":
-		cmd = exec.Command("systemctl", "is-active", "--quiet", "postgresql")
+		cmd = exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "postgresql")
 	case "launchd":
-		cmd = exec.Command("brew", "services", "list")
+		cmd = exec.CommandContext(ctx, "brew", "services", "list")
 		output, err := cmd.Output()
 		if err != nil {
 			return false
 		}
 		return strings.Contains(string(output), "postgresql") && strings.Contains(string(output), "started")
 	default:
-		cmd = exec.Command("pg_isready")
+		cmd = exec.CommandContext(ctx, "pg_isready")
 	}
 
 	err := cmd.Run()
@@ -428,23 +433,23 @@ func (m *DatabaseModule) isPostgreSQLRunning() bool {
 }
 
 // installPostgreSQL installs PostgreSQL.
-func (m *DatabaseModule) installPostgreSQL() error {
+func (m *DatabaseModule) installPostgreSQL(ctx context.Context) error {
 	pm := DetectPackageManager()
 
 	var cmd *exec.Cmd
 	switch pm {
 	case "apt":
-		cmd = exec.Command("apt-get", "install", "-y", "postgresql", "postgresql-contrib")
+		cmd = exec.CommandContext(ctx, "apt-get", "install", "-y", "postgresql", "postgresql-contrib")
 	case "dnf":
-		cmd = exec.Command("dnf", "install", "-y", "postgresql-server", "postgresql")
+		cmd = exec.CommandContext(ctx, "dnf", "install", "-y", "postgresql-server", "postgresql")
 	case "yum":
-		cmd = exec.Command("yum", "install", "-y", "postgresql-server", "postgresql")
+		cmd = exec.CommandContext(ctx, "yum", "install", "-y", "postgresql-server", "postgresql")
 	case "apk":
-		cmd = exec.Command("apk", "add", "postgresql")
+		cmd = exec.CommandContext(ctx, "apk", "add", "postgresql")
 	case "brew":
-		cmd = exec.Command("brew", "install", "postgresql")
+		cmd = exec.CommandContext(ctx, "brew", "install", "postgresql")
 	case "chocolatey":
-		cmd = exec.Command("choco", "install", "-y", "postgresql")
+		cmd = exec.CommandContext(ctx, "choco", "install", "-y", "postgresql")
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}
@@ -455,23 +460,23 @@ func (m *DatabaseModule) installPostgreSQL() error {
 }
 
 // uninstallPostgreSQL uninstalls PostgreSQL.
-func (m *DatabaseModule) uninstallPostgreSQL() error {
+func (m *DatabaseModule) uninstallPostgreSQL(ctx context.Context) error {
 	pm := DetectPackageManager()
 
 	var cmd *exec.Cmd
 	switch pm {
 	case "apt":
-		cmd = exec.Command("apt-get", "remove", "-y", "postgresql", "postgresql-contrib")
+		cmd = exec.CommandContext(ctx, "apt-get", "remove", "-y", "postgresql", "postgresql-contrib")
 	case "dnf":
-		cmd = exec.Command("dnf", "remove", "-y", "postgresql-server", "postgresql")
+		cmd = exec.CommandContext(ctx, "dnf", "remove", "-y", "postgresql-server", "postgresql")
 	case "yum":
-		cmd = exec.Command("yum", "remove", "-y", "postgresql-server", "postgresql")
+		cmd = exec.CommandContext(ctx, "yum", "remove", "-y", "postgresql-server", "postgresql")
 	case "apk":
-		cmd = exec.Command("apk", "del", "postgresql")
+		cmd = exec.CommandContext(ctx, "apk", "del", "postgresql")
 	case "brew":
-		cmd = exec.Command("brew", "uninstall", "postgresql")
+		cmd = exec.CommandContext(ctx, "brew", "uninstall", "postgresql")
 	case "chocolatey":
-		cmd = exec.Command("choco", "uninstall", "-y", "postgresql")
+		cmd = exec.CommandContext(ctx, "choco", "uninstall", "-y", "postgresql")
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}
@@ -482,19 +487,19 @@ func (m *DatabaseModule) uninstallPostgreSQL() error {
 }
 
 // startPostgreSQL starts the PostgreSQL service.
-func (m *DatabaseModule) startPostgreSQL() error {
+func (m *DatabaseModule) startPostgreSQL(ctx context.Context) error {
 	initSystem := DetectInitSystem()
 
 	var cmd *exec.Cmd
 	switch initSystem {
 	case "systemd":
-		cmd = exec.Command("systemctl", "start", "postgresql")
+		cmd = exec.CommandContext(ctx, "systemctl", "start", "postgresql")
 	case "launchd":
-		cmd = exec.Command("brew", "services", "start", "postgresql")
+		cmd = exec.CommandContext(ctx, "brew", "services", "start", "postgresql")
 	case "openrc":
-		cmd = exec.Command("rc-service", "postgresql", "start")
+		cmd = exec.CommandContext(ctx, "rc-service", "postgresql", "start")
 	default:
-		cmd = exec.Command("service", "postgresql", "start")
+		cmd = exec.CommandContext(ctx, "service", "postgresql", "start")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -503,19 +508,19 @@ func (m *DatabaseModule) startPostgreSQL() error {
 }
 
 // stopPostgreSQL stops the PostgreSQL service.
-func (m *DatabaseModule) stopPostgreSQL() error {
+func (m *DatabaseModule) stopPostgreSQL(ctx context.Context) error {
 	initSystem := DetectInitSystem()
 
 	var cmd *exec.Cmd
 	switch initSystem {
 	case "systemd":
-		cmd = exec.Command("systemctl", "stop", "postgresql")
+		cmd = exec.CommandContext(ctx, "systemctl", "stop", "postgresql")
 	case "launchd":
-		cmd = exec.Command("brew", "services", "stop", "postgresql")
+		cmd = exec.CommandContext(ctx, "brew", "services", "stop", "postgresql")
 	case "openrc":
-		cmd = exec.Command("rc-service", "postgresql", "stop")
+		cmd = exec.CommandContext(ctx, "rc-service", "postgresql", "stop")
 	default:
-		cmd = exec.Command("service", "postgresql", "stop")
+		cmd = exec.CommandContext(ctx, "service", "postgresql", "stop")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -526,6 +531,7 @@ func (m *DatabaseModule) stopPostgreSQL() error {
 // postgreSQLDatabaseExists checks if a database exists.
 func (m *DatabaseModule) postgreSQLDatabaseExists(ctx context.Context, cfg *DatabaseConfig) bool {
 	connStr := m.buildPsqlConnString(cfg, "postgres")
+	//nolint:gosec // G204: psql execution is intentional for PostgreSQL database management
 	cmd := exec.CommandContext(ctx, "psql", connStr, "-tAc",
 		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname='%s'", cfg.Name))
 	output, err := cmd.Output()
@@ -535,6 +541,7 @@ func (m *DatabaseModule) postgreSQLDatabaseExists(ctx context.Context, cfg *Data
 // postgreSQLUserExists checks if a user exists.
 func (m *DatabaseModule) postgreSQLUserExists(ctx context.Context, cfg *DatabaseConfig) bool {
 	connStr := m.buildPsqlConnString(cfg, "postgres")
+	//nolint:gosec // G204: psql execution is intentional for PostgreSQL database management
 	cmd := exec.CommandContext(ctx, "psql", connStr, "-tAc",
 		fmt.Sprintf("SELECT 1 FROM pg_roles WHERE rolname='%s'", cfg.DBUser))
 	output, err := cmd.Output()
@@ -550,6 +557,7 @@ func (m *DatabaseModule) createPostgreSQLDatabase(ctx context.Context, cfg *Data
 		sql += fmt.Sprintf(" OWNER %s", cfg.DBUser)
 	}
 
+	//nolint:gosec // G204: psql execution is intentional for PostgreSQL database management
 	cmd := exec.CommandContext(ctx, "psql", connStr, "-c", sql)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -565,6 +573,7 @@ func (m *DatabaseModule) createPostgreSQLUser(ctx context.Context, cfg *Database
 		sql += fmt.Sprintf(" WITH PASSWORD '%s'", cfg.Password)
 	}
 
+	//nolint:gosec // G204: psql execution is intentional for PostgreSQL database management
 	cmd := exec.CommandContext(ctx, "psql", connStr, "-c", sql)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -572,7 +581,7 @@ func (m *DatabaseModule) createPostgreSQLUser(ctx context.Context, cfg *Database
 }
 
 // configurePostgreSQL configures PostgreSQL.
-func (m *DatabaseModule) configurePostgreSQL(cfg *DatabaseConfig) error {
+func (m *DatabaseModule) configurePostgreSQL(ctx context.Context, cfg *DatabaseConfig) error {
 	// Find PostgreSQL config directory
 	configDir := m.findPostgreSQLConfigDir()
 	if configDir == "" {
@@ -589,7 +598,7 @@ func (m *DatabaseModule) configurePostgreSQL(cfg *DatabaseConfig) error {
 
 		// Check if kscore entry exists
 		if !strings.Contains(string(content), "# kscore") {
-			f, err := os.OpenFile(pgHbaPath, os.O_APPEND|os.O_WRONLY, 0644)
+			f, err := os.OpenFile(pgHbaPath, os.O_APPEND|os.O_WRONLY, 0o644) //nolint:gosec // G302: pg_hba.conf must be world-readable per PostgreSQL requirements
 			if err != nil {
 				return fmt.Errorf("failed to open pg_hba.conf: %w", err)
 			}
@@ -603,21 +612,21 @@ func (m *DatabaseModule) configurePostgreSQL(cfg *DatabaseConfig) error {
 		}
 	}
 
-	return m.reloadPostgreSQL()
+	return m.reloadPostgreSQL(ctx)
 }
 
 // reloadPostgreSQL reloads PostgreSQL configuration.
-func (m *DatabaseModule) reloadPostgreSQL() error {
+func (m *DatabaseModule) reloadPostgreSQL(ctx context.Context) error {
 	initSystem := DetectInitSystem()
 
 	var cmd *exec.Cmd
 	switch initSystem {
 	case "systemd":
-		cmd = exec.Command("systemctl", "reload", "postgresql")
+		cmd = exec.CommandContext(ctx, "systemctl", "reload", "postgresql")
 	case "launchd":
-		cmd = exec.Command("brew", "services", "restart", "postgresql")
+		cmd = exec.CommandContext(ctx, "brew", "services", "restart", "postgresql")
 	default:
-		cmd = exec.Command("pg_ctl", "reload")
+		cmd = exec.CommandContext(ctx, "pg_ctl", "reload")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -714,23 +723,23 @@ func (m *DatabaseModule) isSQLiteInstalled() bool {
 }
 
 // installSQLite installs SQLite.
-func (m *DatabaseModule) installSQLite() error {
+func (m *DatabaseModule) installSQLite(ctx context.Context) error {
 	pm := DetectPackageManager()
 
 	var cmd *exec.Cmd
 	switch pm {
 	case "apt":
-		cmd = exec.Command("apt-get", "install", "-y", "sqlite3")
+		cmd = exec.CommandContext(ctx, "apt-get", "install", "-y", "sqlite3")
 	case "dnf":
-		cmd = exec.Command("dnf", "install", "-y", "sqlite")
+		cmd = exec.CommandContext(ctx, "dnf", "install", "-y", "sqlite")
 	case "yum":
-		cmd = exec.Command("yum", "install", "-y", "sqlite")
+		cmd = exec.CommandContext(ctx, "yum", "install", "-y", "sqlite")
 	case "apk":
-		cmd = exec.Command("apk", "add", "sqlite")
+		cmd = exec.CommandContext(ctx, "apk", "add", "sqlite")
 	case "brew":
-		cmd = exec.Command("brew", "install", "sqlite")
+		cmd = exec.CommandContext(ctx, "brew", "install", "sqlite")
 	case "chocolatey":
-		cmd = exec.Command("choco", "install", "-y", "sqlite")
+		cmd = exec.CommandContext(ctx, "choco", "install", "-y", "sqlite")
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}

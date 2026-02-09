@@ -11,13 +11,13 @@ import (
 func TestNewExecutor(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 
 	tests := []struct {
 		name    string
 		config  *ExecutorConfig
 		store   Store
-		manager *ScheduleManager
+		manager *Manager
 		wantErr bool
 	}{
 		{
@@ -70,7 +70,7 @@ func TestNewExecutor(t *testing.T) {
 func TestExecutor_RegisterHandler(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{MemberID: "member-1"}
 
 	executor, err := NewExecutor(config, store, manager, nil)
@@ -79,7 +79,7 @@ func TestExecutor_RegisterHandler(t *testing.T) {
 	}
 
 	// Register handler
-	handler := &mockHandler{scheduleType: ScheduleTypeCommand}
+	handler := &mockHandler{scheduleType: TypeCommand}
 	if err := executor.RegisterHandler(handler); err != nil {
 		t.Errorf("RegisterHandler() error = %v", err)
 	}
@@ -95,7 +95,7 @@ func TestExecutor_RegisterHandler(t *testing.T) {
 	}
 
 	// Unregister
-	executor.UnregisterHandler(ScheduleTypeCommand)
+	executor.UnregisterHandler(TypeCommand)
 
 	// Register again should work
 	if err := executor.RegisterHandler(handler); err != nil {
@@ -106,7 +106,7 @@ func TestExecutor_RegisterHandler(t *testing.T) {
 func TestExecutor_StartStop(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{
 		MemberID:                 "member-1",
 		CheckInterval:            100 * time.Millisecond,
@@ -142,7 +142,7 @@ func TestExecutor_StartStop(t *testing.T) {
 func TestExecutor_ExecuteNow(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{MemberID: "member-1"}
 
 	executor, err := NewExecutor(config, store, manager, nil)
@@ -155,9 +155,9 @@ func TestExecutor_ExecuteNow(t *testing.T) {
 	// Create schedule
 	schedule := &Schedule{
 		Name: "test-schedule",
-		Type: ScheduleTypeCommand,
+		Type: TypeCommand,
 		Cron: "0 2 * * *",
-		Target: &ScheduleTarget{
+		Target: &Target{
 			All: true,
 		},
 	}
@@ -179,7 +179,7 @@ func TestExecutor_ExecuteNow(t *testing.T) {
 func TestExecutor_GetActiveExecutions(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{MemberID: "member-1"}
 
 	executor, err := NewExecutor(config, store, manager, nil)
@@ -197,7 +197,7 @@ func TestExecutor_GetActiveExecutions(t *testing.T) {
 func TestExecutor_AddListener(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{MemberID: "member-1"}
 
 	executor, err := NewExecutor(config, store, manager, nil)
@@ -230,7 +230,7 @@ func TestExecutor_AddListener(t *testing.T) {
 func TestExecutor_CalculateRetryDelay(t *testing.T) {
 	store := NewMockStore()
 	managerConfig := &ManagerConfig{MemberID: "member-1"}
-	manager, _ := NewScheduleManager(managerConfig, store)
+	manager, _ := NewManager(managerConfig, store)
 	config := &ExecutorConfig{MemberID: "member-1"}
 
 	executor, err := NewExecutor(config, store, manager, nil)
@@ -310,17 +310,17 @@ func TestExecutor_CalculateRetryDelay(t *testing.T) {
 
 // mockHandler implements Handler for testing
 type mockHandler struct {
-	scheduleType ScheduleType
+	scheduleType Type
 	executeErr   error
 	validateErr  error
 	executeCalls int
 }
 
-func (h *mockHandler) Type() ScheduleType {
+func (h *mockHandler) Type() Type {
 	return h.scheduleType
 }
 
-func (h *mockHandler) Execute(ctx context.Context, schedule *Schedule, execution *ScheduleExecution) error {
+func (h *mockHandler) Execute(ctx context.Context, schedule *Schedule, execution *Execution) error {
 	h.executeCalls++
 	if h.executeErr != nil {
 		return h.executeErr
@@ -380,13 +380,13 @@ func TestCommandHandler_Execute(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		executeFunc func(ctx context.Context, target *ScheduleTarget, payload *CommandPayload) (map[string]*AgentExecutionResult, error)
+		executeFunc func(ctx context.Context, target *Target, payload *CommandPayload) (map[string]*AgentExecutionResult, error)
 		payload     json.RawMessage
 		wantErr     bool
 	}{
 		{
 			name: "successful execution",
-			executeFunc: func(ctx context.Context, target *ScheduleTarget, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
+			executeFunc: func(ctx context.Context, target *Target, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
 				return map[string]*AgentExecutionResult{
 					"agent-1": {Status: ExecutionStatusCompleted},
 					"agent-2": {Status: ExecutionStatusCompleted},
@@ -397,7 +397,7 @@ func TestCommandHandler_Execute(t *testing.T) {
 		},
 		{
 			name: "partial failure",
-			executeFunc: func(ctx context.Context, target *ScheduleTarget, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
+			executeFunc: func(ctx context.Context, target *Target, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
 				return map[string]*AgentExecutionResult{
 					"agent-1": {Status: ExecutionStatusCompleted},
 					"agent-2": {Status: ExecutionStatusFailed},
@@ -414,7 +414,7 @@ func TestCommandHandler_Execute(t *testing.T) {
 		},
 		{
 			name: "execute error",
-			executeFunc: func(ctx context.Context, target *ScheduleTarget, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
+			executeFunc: func(ctx context.Context, target *Target, payload *CommandPayload) (map[string]*AgentExecutionResult, error) {
 				return nil, errors.New("execute failed")
 			},
 			payload: json.RawMessage(`{"command": "echo hello"}`),
@@ -427,9 +427,9 @@ func TestCommandHandler_Execute(t *testing.T) {
 			handler := &CommandHandler{ExecuteFunc: tt.executeFunc}
 			schedule := &Schedule{
 				Payload: tt.payload,
-				Target:  &ScheduleTarget{All: true},
+				Target:  &Target{All: true},
 			}
-			execution := &ScheduleExecution{}
+			execution := &Execution{}
 			err := handler.Execute(ctx, schedule, execution)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
@@ -489,13 +489,13 @@ func TestStateHandler_Execute(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		applyFunc func(ctx context.Context, target *ScheduleTarget, payload *StatePayload) (map[string]*AgentExecutionResult, error)
+		applyFunc func(ctx context.Context, target *Target, payload *StatePayload) (map[string]*AgentExecutionResult, error)
 		payload   json.RawMessage
 		wantErr   bool
 	}{
 		{
 			name: "successful execution",
-			applyFunc: func(ctx context.Context, target *ScheduleTarget, payload *StatePayload) (map[string]*AgentExecutionResult, error) {
+			applyFunc: func(ctx context.Context, target *Target, payload *StatePayload) (map[string]*AgentExecutionResult, error) {
 				return map[string]*AgentExecutionResult{
 					"agent-1": {Status: ExecutionStatusCompleted},
 				}, nil
@@ -516,9 +516,9 @@ func TestStateHandler_Execute(t *testing.T) {
 			handler := &StateHandler{ApplyFunc: tt.applyFunc}
 			schedule := &Schedule{
 				Payload: tt.payload,
-				Target:  &ScheduleTarget{All: true},
+				Target:  &Target{All: true},
 			}
-			execution := &ScheduleExecution{}
+			execution := &Execution{}
 			err := handler.Execute(ctx, schedule, execution)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
@@ -573,13 +573,13 @@ func TestBlueprintHandler_Execute(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		applyFunc func(ctx context.Context, target *ScheduleTarget, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error)
+		applyFunc func(ctx context.Context, target *Target, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error)
 		payload   json.RawMessage
 		wantErr   bool
 	}{
 		{
 			name: "successful execution",
-			applyFunc: func(ctx context.Context, target *ScheduleTarget, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error) {
+			applyFunc: func(ctx context.Context, target *Target, payload *BlueprintPayload) (map[string]*AgentExecutionResult, error) {
 				return map[string]*AgentExecutionResult{
 					"agent-1": {Status: ExecutionStatusCompleted},
 				}, nil
@@ -600,9 +600,9 @@ func TestBlueprintHandler_Execute(t *testing.T) {
 			handler := &BlueprintHandler{ApplyFunc: tt.applyFunc}
 			schedule := &Schedule{
 				Payload: tt.payload,
-				Target:  &ScheduleTarget{All: true},
+				Target:  &Target{All: true},
 			}
-			execution := &ScheduleExecution{}
+			execution := &Execution{}
 			err := handler.Execute(ctx, schedule, execution)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)

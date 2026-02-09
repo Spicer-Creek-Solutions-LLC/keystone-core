@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -173,7 +174,7 @@ func TestNATSBackend_BasicOperations(t *testing.T) {
 	config := &NATSConfig{
 		Config: Config{
 			Name: "test-nats",
-			Type: BackendTypeNATSObject,
+			Type: TypeNATSObject,
 		},
 		BucketName: "test-bucket",
 		URL:        "nats://localhost:4222",
@@ -193,8 +194,8 @@ func TestNATSBackend_BasicOperations(t *testing.T) {
 	if backend.Name() != "test-nats" {
 		t.Errorf("expected name 'test-nats', got '%s'", backend.Name())
 	}
-	if backend.Type() != BackendTypeNATSObject {
-		t.Errorf("expected type %s, got %s", BackendTypeNATSObject, backend.Type())
+	if backend.Type() != TypeNATSObject {
+		t.Errorf("expected type %s, got %s", TypeNATSObject, backend.Type())
 	}
 
 	// Test Put
@@ -284,13 +285,13 @@ func TestNATSBackend_NotFound(t *testing.T) {
 
 	// Test Get not found
 	_, err := backend.Get(ctx, "/nonexistent/file.txt", nil)
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 
 	// Test Stat not found
 	_, err = backend.Stat(ctx, "/nonexistent/file.txt")
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 

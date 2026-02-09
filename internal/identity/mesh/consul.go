@@ -117,9 +117,9 @@ type ConsulLeafCert struct {
 
 // ConsulCARoots contains the CA roots from Consul.
 type ConsulCARoots struct {
-	ActiveRootID string          `json:"ActiveRootID"`
-	TrustDomain  string          `json:"TrustDomain"`
-	Roots        []ConsulCARoot  `json:"Roots"`
+	ActiveRootID string         `json:"ActiveRootID"`
+	TrustDomain  string         `json:"TrustDomain"`
+	Roots        []ConsulCARoot `json:"Roots"`
 }
 
 // ConsulCARoot is a single CA root.
@@ -185,15 +185,15 @@ func (p *ConsulProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, healthCancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, healthCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = healthCancel
 	p.mu.Unlock()
 	go p.healthCheckLoop(healthCtx)
 
-	// Start certificate refresh loop
-	refreshCtx, refreshCancel := context.WithCancel(context.Background())
+	// Start certificate refresh loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	refreshCtx, refreshCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.refreshCancel = refreshCancel
 	p.mu.Unlock()
@@ -353,18 +353,17 @@ func (p *ConsulProvider) GetSPIFFEID() (identity.SPIFFEID, error) {
 
 // IsAvailable returns true if Consul Connect identity is available.
 func (p *ConsulProvider) IsAvailable() bool {
-	// Check for Consul agent
-	req, err := http.NewRequest("GET", p.config.HTTPAddr+"/v1/agent/self", nil)
+	// Check for Consul agent with a short timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", p.config.HTTPAddr+"/v1/agent/self", http.NoBody)
 	if err != nil {
 		return false
 	}
 	if p.config.Token != "" {
 		req.Header.Set("X-Consul-Token", p.config.Token)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -413,12 +412,12 @@ func (p *ConsulProvider) CreateAttestationEvidence(ctx context.Context) (*identi
 // Private methods
 
 func (p *ConsulProvider) detectEnvironment(ctx context.Context) error {
-	if !p.IsAvailable() {
-		return fmt.Errorf("Consul agent not available")
+	if !p.IsAvailable() { //nolint:contextcheck // simple availability check
+		return fmt.Errorf("consul agent not available")
 	}
 
 	// Get agent info
-	req, err := http.NewRequestWithContext(ctx, "GET", p.config.HTTPAddr+"/v1/agent/self", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", p.config.HTTPAddr+"/v1/agent/self", http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -515,7 +514,7 @@ func (p *ConsulProvider) fetchLeafCertificate(ctx context.Context) error {
 	}
 
 	url := fmt.Sprintf("%s/v1/agent/connect/ca/leaf/%s", p.config.HTTPAddr, serviceName)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -531,7 +530,7 @@ func (p *ConsulProvider) fetchLeafCertificate(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Consul returned status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("consul returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var leaf ConsulLeafCert
@@ -582,7 +581,7 @@ func (p *ConsulProvider) fetchLeafCertificate(ctx context.Context) error {
 }
 
 func (p *ConsulProvider) fetchCARoots(ctx context.Context) (*identity.TrustBundle, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", p.config.HTTPAddr+"/v1/agent/connect/ca/roots", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", p.config.HTTPAddr+"/v1/agent/connect/ca/roots", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +597,7 @@ func (p *ConsulProvider) fetchCARoots(ctx context.Context) (*identity.TrustBundl
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Consul returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("consul returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var roots ConsulCARoots
@@ -701,7 +700,7 @@ func (p *ConsulProvider) checkForCertUpdates(ctx context.Context) {
 		p.mu.RUnlock()
 
 		if info.ModTime().After(modTime) {
-			p.loadCertificatesFromFiles()
+			_ = p.loadCertificatesFromFiles() //nolint:errcheck // best-effort cert reload
 		}
 		return
 	}
@@ -712,9 +711,9 @@ func (p *ConsulProvider) checkForCertUpdates(ctx context.Context) {
 	p.mu.RUnlock()
 
 	if svid != nil && svid.ShouldRotate() {
-		p.fetchLeafCertificate(ctx)
+		_ = p.fetchLeafCertificate(ctx) //nolint:errcheck // best-effort cert rotation
 	}
 }
 
-// Verify ConsulProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*ConsulProvider)(nil)
+// Verify ConsulProvider implements Provider
+var _ identity.Provider = (*ConsulProvider)(nil)

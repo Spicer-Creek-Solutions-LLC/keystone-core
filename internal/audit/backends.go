@@ -15,10 +15,12 @@ import (
 // NoopAuditLogger is a no-op audit logger
 type NoopAuditLogger struct{}
 
+// Log is a no-op that always returns nil.
 func (n *NoopAuditLogger) Log(ctx context.Context, entry *AuditEntry) error {
 	return nil
 }
 
+// Close is a no-op that always returns nil.
 func (n *NoopAuditLogger) Close() error {
 	return nil
 }
@@ -80,7 +82,7 @@ const (
 )
 
 // NewSyslogAuditLogger creates a new syslog audit logger
-func NewSyslogAuditLogger(facility string) (*SyslogAuditLogger, error) {
+func NewSyslogAuditLogger(ctx context.Context, facility string) (*SyslogAuditLogger, error) {
 	// Determine facility code
 	facilityCode := syslogFacilityAuth
 	switch strings.ToLower(facility) {
@@ -95,7 +97,7 @@ func NewSyslogAuditLogger(facility string) (*SyslogAuditLogger, error) {
 	}
 
 	// Try to connect to syslog
-	conn, err := connectToSyslog()
+	conn, err := connectToSyslog(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +110,16 @@ func NewSyslogAuditLogger(facility string) (*SyslogAuditLogger, error) {
 }
 
 // connectToSyslog connects to the local syslog socket
-func connectToSyslog() (net.Conn, error) {
+func connectToSyslog(ctx context.Context) (net.Conn, error) {
 	// Try common syslog socket paths
 	paths := []string{
-		"/dev/log",           // Linux
-		"/var/run/syslog",    // macOS
-		"/var/run/log",       // Some BSD
+		"/dev/log",        // Linux
+		"/var/run/syslog", // macOS
+		"/var/run/log",    // Some BSD
 	}
 
 	for _, path := range paths {
-		conn, err := net.Dial("unix", path)
+		conn, err := (&net.Dialer{}).DialContext(ctx, "unix", path)
 		if err == nil {
 			return conn, nil
 		}
@@ -138,6 +140,7 @@ func (s *SyslogAuditLogger) Log(ctx context.Context, entry *AuditEntry) error {
 		severity = syslogSeverityError
 	case ResultTimeout:
 		severity = syslogSeverityWarning
+	default:
 	}
 
 	// Calculate priority
@@ -186,9 +189,9 @@ func (s *SyslogAuditLogger) Log(ctx context.Context, entry *AuditEntry) error {
 	if err != nil {
 		// Try to reconnect
 		s.conn.Close()
-		conn, connErr := connectToSyslog()
+		conn, connErr := connectToSyslog(ctx)
 		if connErr != nil {
-			return fmt.Errorf("syslog write failed and reconnect failed: %v (original: %v)", connErr, err)
+			return fmt.Errorf("syslog write failed and reconnect failed: %w (original: %w)", connErr, err)
 		}
 		s.conn = conn
 		_, err = s.conn.Write([]byte(syslogMsg))
@@ -215,9 +218,9 @@ type JournaldAuditLogger struct {
 }
 
 // NewJournaldAuditLogger creates a new journald audit logger
-func NewJournaldAuditLogger() (*JournaldAuditLogger, error) {
+func NewJournaldAuditLogger(ctx context.Context) (*JournaldAuditLogger, error) {
 	// Connect to journald socket
-	conn, err := net.Dial("unix", "/run/systemd/journal/socket")
+	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", "/run/systemd/journal/socket")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to journald: %w", err)
 	}
@@ -427,7 +430,7 @@ type FileAuditLogger struct {
 
 // NewFileAuditLogger creates a new file audit logger
 func NewFileAuditLogger(path string) (*FileAuditLogger, error) {
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +465,7 @@ func (f *FileAuditLogger) Close() error {
 	return nil
 }
 
-// WithTimeout wraps an audit logger with a timeout
+// TimeoutAuditLogger wraps an audit logger with a timeout.
 type TimeoutAuditLogger struct {
 	logger  AuditLogger
 	timeout time.Duration

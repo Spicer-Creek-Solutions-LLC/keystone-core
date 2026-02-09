@@ -56,7 +56,7 @@ kscore-server version
 
 **Configuration:**
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 api:
   listen: "0.0.0.0:8080"
 
@@ -66,12 +66,12 @@ nats:
     port: 4222
     jetstream:
       enabled: true
-      store_dir: /var/lib/kscore/jetstream
+      store_dir: /var/lib/keystone-core/jetstream
 
 storage:
   type: sqlite
   sqlite:
-    path: /var/lib/kscore/state.db
+    path: /var/lib/keystone-core/state.db
 
 logging:
   level: info
@@ -89,7 +89,7 @@ After=network.target
 Type=simple
 User=kscore
 Group=kscore
-ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
+ExecStart=/usr/local/bin/kscore-server --config /etc/keystone-core/server.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -101,8 +101,8 @@ WantedBy=multi-user.target
 ```bash
 # Create user and directories
 sudo useradd --system --no-create-home kscore
-sudo mkdir -p /var/lib/kscore /etc/kscore
-sudo chown kscore:kscore /var/lib/kscore
+sudo mkdir -p /var/lib/keystone-core /etc/keystone-core
+sudo chown kscore:kscore /var/lib/keystone-core
 
 # Start service
 sudo systemctl daemon-reload
@@ -277,7 +277,7 @@ pg_basebackup -h primary_host -D /var/lib/postgresql/14/main -U replicator -P --
 ### Control Plane Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 api:
   listen: "0.0.0.0:8080"
 
@@ -326,7 +326,7 @@ For smaller HA deployments (3-5 control plane nodes), you can use embedded etcd 
 
 **Embedded Mode Configuration:**
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 clustering:
   enabled: true
   etcd:
@@ -335,7 +335,7 @@ clustering:
       # Unique name for this node in the cluster
       name: server1
       # Directory for etcd data
-      data_dir: /var/lib/kscore/etcd
+      data_dir: /var/lib/keystone-core/etcd
       # Client listen address
       listen_client_urls: "http://0.0.0.0:2379"
       # Peer listen address
@@ -909,7 +909,7 @@ services:
       KSCORE_POSTGRES_USER: kscore
       KSCORE_POSTGRES_PASSWORD: password
     volumes:
-      - ./config:/etc/kscore
+      - ./config:/etc/keystone-core
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health/ready"]
       interval: 10s
@@ -1043,7 +1043,7 @@ nats:
 **3. Migrate JetStream data** (if needed):
 ```bash
 # Backup embedded JetStream
-nats-server --signal backup --jetstream /var/lib/kscore/jetstream
+nats-server --signal backup --jetstream /var/lib/keystone-core/jetstream
 
 # Restore to cluster
 nats stream restore --dir /backup/jetstream
@@ -1066,7 +1066,7 @@ kscorectl agent list
 **2. Export SQLite data:**
 ```bash
 kscorectl migrate export \
-  --source sqlite:///var/lib/kscore/state.db \
+  --source sqlite:///var/lib/keystone-core/state.db \
   --output /tmp/state-export.sql
 ```
 
@@ -1241,7 +1241,7 @@ SQLite is single-writer and file-based. Performance depends on disk speed and da
 storage:
   type: sqlite
   sqlite:
-    path: /var/lib/kscore/state.db
+    path: /var/lib/keystone-core/state.db
     # Performance tuning
     journal_mode: WAL          # Write-Ahead Logging (faster writes)
     busy_timeout: 5000ms       # Wait for locks instead of failing
@@ -1453,7 +1453,7 @@ iftop
 
 ## See Also
 
-- [Monitoring Guide](monitoring/) - Set up observability
-- [Maintenance Guide](maintenance/) - Backup and upgrade procedures
-- [Security Guide](security/) - Harden your deployment
+- [Monitoring Guide](/docs/operations/monitoring/) - Set up observability
+- [Maintenance Guide](/docs/operations/maintenance/) - Backup and upgrade procedures
+- [Security Guide](/docs/operations/security/) - Harden your deployment
 - [Configuration Reference](/docs/reference/configuration/) - All configuration options

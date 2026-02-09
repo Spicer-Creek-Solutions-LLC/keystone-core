@@ -157,10 +157,10 @@ func TestNATSAuditMessageWithExtra(t *testing.T) {
 
 func TestNATSAuditLoggerBuildSubject(t *testing.T) {
 	tests := []struct {
-		name             string
-		config           *NATSAuditConfig
-		entry            *AuditEntry
-		expectedSubject  string
+		name            string
+		config          *NATSAuditConfig
+		entry           *AuditEntry
+		expectedSubject string
 	}{
 		{
 			name: "base subject only",
@@ -313,7 +313,7 @@ func TestNATSAuditLoggerStats(t *testing.T) {
 		lastError:        nil,
 	}
 
-	published, dropped, lastErr, _ := logger.Stats()
+	published, dropped, _, lastErr := logger.Stats()
 
 	if published != 100 {
 		t.Errorf("expected published 100, got %d", published)

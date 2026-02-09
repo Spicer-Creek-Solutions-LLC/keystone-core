@@ -56,7 +56,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_Disabled(t *testing.T) {
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryNetwork,
 		RecoveryActions: []RecoveryAction{
 			{ID: "test", Type: RecoveryTypeAutomatic},
@@ -74,7 +74,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_NoActions(t *testing.T) {
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryNetwork,
 		RecoveryActions: []RecoveryAction{
 			{ID: "manual", Type: RecoveryTypeManual},
@@ -92,7 +92,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_WithAction(t *testing.T) {
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, true)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryNetwork,
 		RecoveryActions: []RecoveryAction{
 			{
@@ -123,7 +123,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_NoCommands(t *testing.T) {
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryTimeout,
 		RecoveryActions: []RecoveryAction{
 			{
@@ -153,7 +153,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_SkipsComments(t *testing.T) {
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryNetwork,
 		RecoveryActions: []RecoveryAction{
 			{
@@ -182,7 +182,7 @@ func TestRecoveryManager_AttemptAutomaticRecovery_SkipsPlaceholders(t *testing.T
 	output := &bytes.Buffer{}
 	mgr := NewRecoveryManager(cfg, output, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryDatabase,
 		RecoveryActions: []RecoveryAction{
 			{
@@ -212,7 +212,7 @@ func TestRecoveryManager_GenerateRecoveryScript_Disabled(t *testing.T) {
 	}
 	mgr := NewRecoveryManager(cfg, nil, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Category: ErrorCategoryNetwork,
 	}
 
@@ -235,7 +235,7 @@ func TestRecoveryManager_GenerateRecoveryScript(t *testing.T) {
 	}
 	mgr := NewRecoveryManager(cfg, nil, false)
 
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Message:  "test error",
 		Category: ErrorCategoryNetwork,
 		RecoveryActions: []RecoveryAction{

@@ -1,3 +1,4 @@
+// Package platforms provides platform-specific bootstrap test helpers.
 package platforms
 
 import (

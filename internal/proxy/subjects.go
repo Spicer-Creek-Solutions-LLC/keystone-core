@@ -38,99 +38,99 @@ const (
 	SubjectOpRefresh = "refresh"
 )
 
-// ProxySubjectBuilder builds NATS subjects for proxy operations.
-type ProxySubjectBuilder struct {
+// SubjectBuilder builds NATS subjects for proxy operations.
+type SubjectBuilder struct {
 	cluster string
 }
 
 // NewProxySubjectBuilder creates a new subject builder.
-func NewProxySubjectBuilder(cluster string) *ProxySubjectBuilder {
+func NewProxySubjectBuilder(cluster string) *SubjectBuilder {
 	if cluster == "" {
 		cluster = "default"
 	}
-	return &ProxySubjectBuilder{cluster: cluster}
+	return &SubjectBuilder{cluster: cluster}
 }
 
 // DeviceRegister returns the subject for device registration.
 // Format: kscore.{cluster}.proxy.device.register
-func (b *ProxySubjectBuilder) DeviceRegister() string {
+func (b *SubjectBuilder) DeviceRegister() string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, SubjectCategoryDevice, SubjectOpRegister)
 }
 
 // DeviceUnregister returns the subject for device unregistration.
 // Format: kscore.{cluster}.proxy.device.unregister
-func (b *ProxySubjectBuilder) DeviceUnregister() string {
+func (b *SubjectBuilder) DeviceUnregister() string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, SubjectCategoryDevice, SubjectOpUnregister)
 }
 
 // DeviceHeartbeat returns the subject for device heartbeat.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.heartbeat
-func (b *ProxySubjectBuilder) DeviceHeartbeat(proxyAgentID string) string {
+func (b *SubjectBuilder) DeviceHeartbeat(proxyAgentID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), SubjectOpHeartbeat)
 }
 
 // DeviceStatus returns the subject for device status updates.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.{deviceID}.status
-func (b *ProxySubjectBuilder) DeviceStatus(proxyAgentID, deviceID string) string {
+func (b *SubjectBuilder) DeviceStatus(proxyAgentID, deviceID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), sanitizeID(deviceID), SubjectOpStatus)
 }
 
 // DeviceCommand returns the subject for sending commands to a device.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.{deviceID}.command
-func (b *ProxySubjectBuilder) DeviceCommand(proxyAgentID, deviceID string) string {
+func (b *SubjectBuilder) DeviceCommand(proxyAgentID, deviceID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), sanitizeID(deviceID), SubjectOpCommand)
 }
 
 // DeviceResult returns the subject for command results from a device.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.{deviceID}.result
-func (b *ProxySubjectBuilder) DeviceResult(proxyAgentID, deviceID string) string {
+func (b *SubjectBuilder) DeviceResult(proxyAgentID, deviceID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), sanitizeID(deviceID), SubjectOpResult)
 }
 
 // DeviceHealth returns the subject for device health updates.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.{deviceID}.health
-func (b *ProxySubjectBuilder) DeviceHealth(proxyAgentID, deviceID string) string {
+func (b *SubjectBuilder) DeviceHealth(proxyAgentID, deviceID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), sanitizeID(deviceID), SubjectOpHealth)
 }
 
 // CredentialFetch returns the subject for fetching credentials.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.credential.fetch
-func (b *ProxySubjectBuilder) CredentialFetch(proxyAgentID string) string {
+func (b *SubjectBuilder) CredentialFetch(proxyAgentID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), SubjectCategoryCredential, SubjectOpFetch)
 }
 
 // CredentialRefresh returns the subject for refreshing credentials.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.credential.refresh
-func (b *ProxySubjectBuilder) CredentialRefresh(proxyAgentID string) string {
+func (b *SubjectBuilder) CredentialRefresh(proxyAgentID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID), SubjectCategoryCredential, SubjectOpRefresh)
 }
 
 // ProxyAgentWildcard returns a wildcard subject for all proxy agent operations.
 // Format: kscore.{cluster}.proxy.{proxyAgentID}.>
-func (b *ProxySubjectBuilder) ProxyAgentWildcard(proxyAgentID string) string {
+func (b *SubjectBuilder) ProxyAgentWildcard(proxyAgentID string) string {
 	return fmt.Sprintf("%s.%s.%s.%s.>",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, sanitizeID(proxyAgentID))
 }
 
-// AllDevicesWildcard returns a wildcard subject for all device operations.
+// AllDevicesCommandWildcard returns a wildcard subject for all device operations.
 // Format: kscore.{cluster}.proxy.*.*.command
-func (b *ProxySubjectBuilder) AllDevicesCommandWildcard() string {
+func (b *SubjectBuilder) AllDevicesCommandWildcard() string {
 	return fmt.Sprintf("%s.%s.%s.*.*.%s",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy, SubjectOpCommand)
 }
 
 // AllProxyAgentsWildcard returns a wildcard subject for all proxy agents.
 // Format: kscore.{cluster}.proxy.>
-func (b *ProxySubjectBuilder) AllProxyAgentsWildcard() string {
+func (b *SubjectBuilder) AllProxyAgentsWildcard() string {
 	return fmt.Sprintf("%s.%s.%s.>",
 		SubjectPrefix, b.cluster, SubjectCategoryProxy)
 }

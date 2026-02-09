@@ -536,9 +536,7 @@ func (ha *HAIdentityProvider) IssueX509SVID(ctx context.Context, req *X509SVIDRe
 		}
 		state.Checksum = ha.computeChecksum(state)
 
-		if err := ha.replicator.Replicate(ctx, state); err != nil {
-			// Log warning but don't fail SVID issuance
-		}
+		_ = ha.replicator.Replicate(ctx, state) // best-effort replication, don't fail SVID issuance
 	}
 
 	return svid, nil
@@ -574,13 +572,13 @@ func (ha *HAIdentityProvider) watchLeadership(ctx context.Context) {
 		case <-ha.stopCh:
 			return
 		case newLeader := <-leaderCh:
-			ha.handleLeaderChange(newLeader)
+			ha.handleLeaderChange(ctx, newLeader)
 		}
 	}
 }
 
 // handleLeaderChange handles a leadership change.
-func (ha *HAIdentityProvider) handleLeaderChange(newLeaderID string) {
+func (ha *HAIdentityProvider) handleLeaderChange(ctx context.Context, newLeaderID string) {
 	ha.mu.Lock()
 	oldLeader := ha.state.LeaderID
 	ha.state.LeaderID = newLeaderID
@@ -612,9 +610,9 @@ func (ha *HAIdentityProvider) handleLeaderChange(newLeaderID string) {
 	// If we became leader, sync state from previous leader
 	if newRole == HARoleLeader && oldRole != HARoleLeader {
 		if ha.replicator != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			if state, err := ha.replicator.Sync(ctx); err == nil {
+			if state, err := ha.replicator.Sync(syncCtx); err == nil {
 				ha.applyReplicatedState(state)
 			}
 		}
@@ -648,10 +646,8 @@ func (ha *HAIdentityProvider) replicationLoop(ctx context.Context) {
 
 // replicateToFollowers replicates state to followers.
 func (ha *HAIdentityProvider) replicateToFollowers(ctx context.Context) {
-	state := ha.buildReplicatedState()
-	if err := ha.replicator.Replicate(ctx, state); err != nil {
-		// Log error
-	}
+	state := ha.buildReplicatedState(ctx)
+	_ = ha.replicator.Replicate(ctx, state) // best-effort replication
 }
 
 // syncFromLeader syncs state from the leader.
@@ -665,7 +661,7 @@ func (ha *HAIdentityProvider) syncFromLeader(ctx context.Context) {
 }
 
 // buildReplicatedState builds the current state for replication.
-func (ha *HAIdentityProvider) buildReplicatedState() *ReplicatedState {
+func (ha *HAIdentityProvider) buildReplicatedState(ctx context.Context) *ReplicatedState {
 	ha.mu.RLock()
 	defer ha.mu.RUnlock()
 
@@ -675,7 +671,7 @@ func (ha *HAIdentityProvider) buildReplicatedState() *ReplicatedState {
 	}
 
 	// Get trust bundle
-	if bundle, err := ha.provider.GetTrustBundle(context.Background()); err == nil {
+	if bundle, err := ha.provider.GetTrustBundle(ctx); err == nil {
 		state.TrustBundle = &TrustBundleState{
 			TrustDomain:    bundle.TrustDomain,
 			SequenceNumber: bundle.SequenceNumber,
@@ -759,6 +755,7 @@ func (ha *HAIdentityProvider) setRole(role HARole) {
 // getNextVersion returns the next state version.
 func (ha *HAIdentityProvider) getNextVersion() uint64 {
 	// In production, this would use a distributed counter
+	//nolint:gosec // G115: UnixNano is positive and fits in uint64 until year 2262
 	return uint64(time.Now().UnixNano())
 }
 
@@ -780,9 +777,6 @@ type TrustBundleSynchronizer struct {
 
 	// Local bundle cache
 	localBundle *TrustBundle
-
-	// Bundle version from leader
-	leaderVersion uint64
 
 	// Callbacks
 	onBundleUpdate func(bundle *TrustBundle)

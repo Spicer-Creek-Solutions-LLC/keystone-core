@@ -66,7 +66,7 @@ func TestAgentLifecycle_OnlineStatus(t *testing.T) {
 
 	for _, agentID := range agents {
 		t.Run(agentID, func(t *testing.T) {
-			testEnv.AssertAgentOnline(t, ctx, agentID)
+			testEnv.AssertAgentOnline(ctx, t, agentID)
 		})
 	}
 }
@@ -403,11 +403,11 @@ func TestAgentLifecycle_AllAgentsOnline(t *testing.T) {
 	defer cancel()
 
 	// Use assertion helper to verify all agents are online
-	testEnv.AssertAgentCount(t, ctx, 3)
+	testEnv.AssertAgentCount(ctx, t, 3)
 
 	// Verify each agent is online
 	for _, agentID := range []string{"agent-web-1", "agent-web-2", "agent-db-1"} {
-		testEnv.AssertAgentOnline(t, ctx, agentID)
+		testEnv.AssertAgentOnline(ctx, t, agentID)
 	}
 }
 

@@ -14,5 +14,5 @@ tests:
       - type: state_applied
         target: proxy_agents_config_file
       - type: file_contains
-        target: /etc/kscore/proxy-agents.yaml
+        target: /etc/keystone-core/proxy-agents.yaml
         pattern: "credential_backend: \"file\""

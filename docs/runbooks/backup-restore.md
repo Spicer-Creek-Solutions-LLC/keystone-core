@@ -389,7 +389,7 @@ backup:
     # Authentication options
     auth:
       # Option 1: Service account (file)
-      credentials_file: /etc/kscore/gcs-credentials.json
+      credentials_file: /etc/keystone-core/gcs-credentials.json
 
       # Option 2: Workload Identity (GKE)
       use_workload_identity: true
@@ -419,12 +419,12 @@ backup:
     auth:
       username: backup-user
       # Option 1: SSH key (recommended)
-      private_key_file: /etc/kscore/backup-ssh-key
+      private_key_file: /etc/keystone-core/backup-ssh-key
       # Option 2: Password (not recommended)
       password: ${SFTP_PASSWORD}
 
     # Known hosts verification
-    known_hosts_file: /etc/kscore/known_hosts
+    known_hosts_file: /etc/keystone-core/known_hosts
     # Or disable verification (not recommended for production)
     # skip_host_verification: true
 
@@ -521,7 +521,7 @@ backup:
       - security@example.com
 
     # GPG home directory (if non-default)
-    gnupg_home: /etc/kscore/gnupg
+    gnupg_home: /etc/keystone-core/gnupg
 
     # Signing key (optional)
     sign: true
@@ -605,7 +605,7 @@ backup:
     cloudhsm:
       cluster_id: cluster-abc123
       key_label: keystone-backup-key
-      credentials_file: /etc/kscore/cloudhsm-credentials.json
+      credentials_file: /etc/keystone-core/cloudhsm-credentials.json
 ```
 
 ### Encryption Key Management Best Practices

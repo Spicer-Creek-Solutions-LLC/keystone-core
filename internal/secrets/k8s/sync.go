@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -41,14 +42,14 @@ type KubernetesClient interface {
 	DeleteSecret(ctx context.Context, namespace, name string) error
 
 	// GetSecret gets a Kubernetes secret.
-	GetSecret(ctx context.Context, namespace, name string) (*K8sSecret, error)
+	GetSecret(ctx context.Context, namespace, name string) (*Secret, error)
 
 	// ListSecrets lists Kubernetes secrets with a label selector.
-	ListSecrets(ctx context.Context, namespace string, labelSelector map[string]string) ([]*K8sSecret, error)
+	ListSecrets(ctx context.Context, namespace string, labelSelector map[string]string) ([]*Secret, error)
 }
 
-// K8sSecret represents a Kubernetes secret.
-type K8sSecret struct {
+// Secret represents a Kubernetes secret.
+type Secret struct {
 	Name        string
 	Namespace   string
 	Data        map[string][]byte
@@ -292,12 +293,12 @@ func (s *SecretSync) syncSecret(ctx context.Context, spec SyncSecretSpec, namesp
 	return nil
 }
 
-func (s *SecretSync) dataChanged(existing, new map[string][]byte) bool {
-	if len(existing) != len(new) {
+func (s *SecretSync) dataChanged(existing, updated map[string][]byte) bool {
+	if len(existing) != len(updated) {
 		return true
 	}
-	for k, v := range new {
-		if ev, ok := existing[k]; !ok || string(ev) != string(v) {
+	for k, v := range updated {
+		if ev, ok := existing[k]; !ok || !bytes.Equal(ev, v) {
 			return true
 		}
 	}
@@ -347,13 +348,13 @@ func (s *SecretSync) deleteOrphans(ctx context.Context, synced map[string]bool) 
 // MockKubernetesClient is a mock implementation for testing.
 type MockKubernetesClient struct {
 	mu      sync.RWMutex
-	secrets map[string]*K8sSecret
+	secrets map[string]*Secret
 }
 
 // NewMockKubernetesClient creates a new mock client.
 func NewMockKubernetesClient() *MockKubernetesClient {
 	return &MockKubernetesClient{
-		secrets: make(map[string]*K8sSecret),
+		secrets: make(map[string]*Secret),
 	}
 }
 
@@ -361,6 +362,7 @@ func (m *MockKubernetesClient) key(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
+// CreateSecret creates a Kubernetes secret.
 func (m *MockKubernetesClient) CreateSecret(ctx context.Context, namespace, name string, data map[string][]byte, secretType string, labels, annotations map[string]string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -370,7 +372,7 @@ func (m *MockKubernetesClient) CreateSecret(ctx context.Context, namespace, name
 		return fmt.Errorf("secret already exists: %s", key)
 	}
 
-	m.secrets[key] = &K8sSecret{
+	m.secrets[key] = &Secret{
 		Name:        name,
 		Namespace:   namespace,
 		Data:        data,
@@ -381,6 +383,7 @@ func (m *MockKubernetesClient) CreateSecret(ctx context.Context, namespace, name
 	return nil
 }
 
+// UpdateSecret updates a Kubernetes secret.
 func (m *MockKubernetesClient) UpdateSecret(ctx context.Context, namespace, name string, data map[string][]byte, labels, annotations map[string]string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -397,6 +400,7 @@ func (m *MockKubernetesClient) UpdateSecret(ctx context.Context, namespace, name
 	return nil
 }
 
+// DeleteSecret deletes a Kubernetes secret.
 func (m *MockKubernetesClient) DeleteSecret(ctx context.Context, namespace, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -410,7 +414,8 @@ func (m *MockKubernetesClient) DeleteSecret(ctx context.Context, namespace, name
 	return nil
 }
 
-func (m *MockKubernetesClient) GetSecret(ctx context.Context, namespace, name string) (*K8sSecret, error) {
+// GetSecret retrieves a Kubernetes secret.
+func (m *MockKubernetesClient) GetSecret(ctx context.Context, namespace, name string) (*Secret, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -421,11 +426,12 @@ func (m *MockKubernetesClient) GetSecret(ctx context.Context, namespace, name st
 	return nil, nil
 }
 
-func (m *MockKubernetesClient) ListSecrets(ctx context.Context, namespace string, labelSelector map[string]string) ([]*K8sSecret, error) {
+// ListSecrets lists Kubernetes secrets.
+func (m *MockKubernetesClient) ListSecrets(ctx context.Context, namespace string, labelSelector map[string]string) ([]*Secret, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*K8sSecret
+	var result []*Secret
 	for _, secret := range m.secrets {
 		if namespace != "" && secret.Namespace != namespace {
 			continue

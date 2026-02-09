@@ -11,13 +11,13 @@ import (
 
 func TestSNMPVersionString(t *testing.T) {
 	tests := []struct {
-		version SNMPVersion
+		version Version
 		want    string
 	}{
 		{SNMPv1, "1"},
 		{SNMPv2c, "2c"},
 		{SNMPv3, "3"},
-		{SNMPVersion(99), "unknown"},
+		{Version(99), "unknown"},
 	}
 
 	for _, tt := range tests {

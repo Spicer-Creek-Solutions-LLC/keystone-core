@@ -258,7 +258,8 @@ func (b *Bundler) CreateBundle(blueprintPath string, config *BundleConfig) (*Bun
 
 	// Copy blueprints to bundle
 	blueprintsDir := filepath.Join(tempDir, "blueprints")
-	if err := os.MkdirAll(blueprintsDir, 0755); err != nil {
+	//nolint:gosec // G301: bundle directory needs to be accessible by service user
+	if err := os.MkdirAll(blueprintsDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create blueprints directory: %w", err)
 	}
 
@@ -302,7 +303,8 @@ func (b *Bundler) CreateBundle(blueprintPath string, config *BundleConfig) (*Bun
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
 	}
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+	//nolint:gosec // G306: bundle manifest needs to be readable for extraction
+	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write manifest: %w", err)
 	}
 
@@ -329,7 +331,7 @@ func (b *Bundler) resolveDependencies(bp *Blueprint) ([]*ResolvedDependency, err
 	}
 
 	// Collect all dependency references
-	var depRefs []string
+	depRefs := make([]string, 0, len(bp.Dependencies.Requires)+len(bp.Dependencies.RequiresBefore))
 	depRefs = append(depRefs, bp.Dependencies.Requires...)
 	depRefs = append(depRefs, bp.Dependencies.RequiresBefore...)
 
@@ -392,7 +394,7 @@ func (b *Bundler) loadDependency(dep *ResolvedDependency) (*Blueprint, string, e
 }
 
 // bundleBlueprint copies a blueprint to the bundle directory
-func (b *Bundler) bundleBlueprint(bp *Blueprint, sourcePath string, destDir string) (*BundledBlueprint, error) {
+func (b *Bundler) bundleBlueprint(bp *Blueprint, sourcePath, destDir string) (*BundledBlueprint, error) {
 	// Determine source directory
 	sourceDir := sourcePath
 	info, err := os.Stat(sourcePath)
@@ -405,7 +407,8 @@ func (b *Bundler) bundleBlueprint(bp *Blueprint, sourcePath string, destDir stri
 
 	// Create destination path
 	destPath := filepath.Join(destDir, bp.Metadata.Name, bp.Metadata.Version)
-	if err := os.MkdirAll(destPath, 0755); err != nil {
+	//nolint:gosec // G301: blueprint directory needs to be accessible by service user
+	if err := os.MkdirAll(destPath, 0o755); err != nil {
 		return nil, err
 	}
 
@@ -681,19 +684,22 @@ func (bi *BundleInstaller) extractTar(r io.Reader, destDir string) error {
 			return err
 		}
 
-		// Prevent path traversal
-		target := filepath.Join(destDir, header.Name)
-		if !strings.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) {
+		// Prevent path traversal (G305)
+		cleanDest := filepath.Clean(destDir)
+		target := filepath.Clean(filepath.Join(destDir, header.Name)) //nolint:gosec // G305: path validated by HasPrefix check below
+		if !strings.HasPrefix(target, cleanDest+string(os.PathSeparator)) && target != cleanDest {
 			return fmt.Errorf("invalid tar entry: %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0755); err != nil {
+			//nolint:gosec // G301: extracted directory needs to be accessible by service user
+			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			//nolint:gosec // G301: parent directory needs to be accessible by service user
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
 			outFile, err := os.Create(target)
@@ -705,6 +711,7 @@ func (bi *BundleInstaller) extractTar(r io.Reader, destDir string) error {
 				return err
 			}
 			outFile.Close()
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
 				return err
 			}
@@ -818,7 +825,8 @@ func (bi *BundleInstaller) copyDirectory(src, dst string) error {
 		}
 		defer srcFile.Close()
 
-		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		//nolint:gosec // G301: parent directory needs to be accessible by service user
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return err
 		}
 

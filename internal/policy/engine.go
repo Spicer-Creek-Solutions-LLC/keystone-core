@@ -1,3 +1,5 @@
+// Package policy provides policy enforcement through OPA, CEL, and built-in
+// evaluators for compliance and access control decisions.
 package policy
 
 import (
@@ -9,8 +11,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/tracing"
 )
 
-// PolicyEngine coordinates policy evaluation across different evaluators
-type PolicyEngine struct {
+// Engine coordinates policy evaluation across different evaluators
+type Engine struct {
 	registry         *Registry
 	opaEvaluator     *OPAEvaluator
 	celEvaluator     *CELEvaluator
@@ -18,9 +20,9 @@ type PolicyEngine struct {
 	mu               sync.RWMutex
 }
 
-// NewPolicyEngine creates a new policy engine
-func NewPolicyEngine(registry *Registry) *PolicyEngine {
-	return &PolicyEngine{
+// NewEngine creates a new policy engine
+func NewEngine(registry *Registry) *Engine {
+	return &Engine{
 		registry:         registry,
 		opaEvaluator:     NewOPAEvaluator(),
 		celEvaluator:     NewCELEvaluator(),
@@ -29,7 +31,7 @@ func NewPolicyEngine(registry *Registry) *PolicyEngine {
 }
 
 // Evaluate evaluates a single policy against input
-func (e *PolicyEngine) Evaluate(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
+func (e *Engine) Evaluate(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
 	// Start tracing span
 	ctx, span := tracing.StartPolicySpan(ctx, tracing.SpanPolicyEvaluate,
 		tracing.StringAttr(tracing.AttrPolicyID, policyID),
@@ -94,7 +96,7 @@ func (e *PolicyEngine) Evaluate(ctx context.Context, policyID string, input *Eva
 }
 
 // EvaluatePolicySet evaluates all policies in a policy set
-func (e *PolicyEngine) EvaluatePolicySet(ctx context.Context, setID string, input *EvaluationInput) (*PolicyResult, error) {
+func (e *Engine) EvaluatePolicySet(ctx context.Context, setID string, input *EvaluationInput) (*PolicyResult, error) {
 	// Start tracing span
 	ctx, span := tracing.StartPolicySpan(ctx, "policy.set.evaluate",
 		tracing.StringAttr("policy.set_id", setID),
@@ -185,7 +187,7 @@ func (e *PolicyEngine) EvaluatePolicySet(ctx context.Context, setID string, inpu
 }
 
 // EvaluateForResource evaluates all policies bound to a resource type
-func (e *PolicyEngine) EvaluateForResource(ctx context.Context, resourceType string, input *EvaluationInput) (*PolicyResult, error) {
+func (e *Engine) EvaluateForResource(ctx context.Context, resourceType string, input *EvaluationInput) (*PolicyResult, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -274,7 +276,7 @@ func (e *PolicyEngine) EvaluateForResource(ctx context.Context, resourceType str
 }
 
 // EvaluateBatch evaluates multiple inputs against a policy
-func (e *PolicyEngine) EvaluateBatch(ctx context.Context, policyID string, inputs []*EvaluationInput) ([]*EvaluationResult, error) {
+func (e *Engine) EvaluateBatch(ctx context.Context, policyID string, inputs []*EvaluationInput) ([]*EvaluationResult, error) {
 	results := make([]*EvaluationResult, len(inputs))
 
 	for i, input := range inputs {
@@ -289,7 +291,7 @@ func (e *PolicyEngine) EvaluateBatch(ctx context.Context, policyID string, input
 }
 
 // EvaluateBatchParallel evaluates multiple inputs in parallel
-func (e *PolicyEngine) EvaluateBatchParallel(ctx context.Context, policyID string, inputs []*EvaluationInput) ([]*EvaluationResult, error) {
+func (e *Engine) EvaluateBatchParallel(ctx context.Context, policyID string, inputs []*EvaluationInput) ([]*EvaluationResult, error) {
 	results := make([]*EvaluationResult, len(inputs))
 	errChan := make(chan error, len(inputs))
 	var wg sync.WaitGroup
@@ -319,7 +321,7 @@ func (e *PolicyEngine) EvaluateBatchParallel(ctx context.Context, policyID strin
 }
 
 // ValidatePolicy validates a policy without storing it
-func (e *PolicyEngine) ValidatePolicy(ctx context.Context, policy *Policy) error {
+func (e *Engine) ValidatePolicy(ctx context.Context, policy *Policy) error {
 	// Basic validation
 	if policy.ID == "" {
 		return fmt.Errorf("policy ID is required")
@@ -345,7 +347,7 @@ func (e *PolicyEngine) ValidatePolicy(ctx context.Context, policy *Policy) error
 }
 
 // evaluatePolicy evaluates a policy using the appropriate evaluator
-func (e *PolicyEngine) evaluatePolicy(ctx context.Context, policy *Policy, input *EvaluationInput) (*EvaluationResult, error) {
+func (e *Engine) evaluatePolicy(ctx context.Context, policy *Policy, input *EvaluationInput) (*EvaluationResult, error) {
 	switch policy.Type {
 	case PolicyTypeOPA:
 		return e.opaEvaluator.Evaluate(ctx, policy, input)
@@ -359,17 +361,17 @@ func (e *PolicyEngine) evaluatePolicy(ctx context.Context, policy *Policy, input
 }
 
 // evaluateBuiltinPolicy evaluates built-in policies
-func (e *PolicyEngine) evaluateBuiltinPolicy(ctx context.Context, policy *Policy, input *EvaluationInput) (*EvaluationResult, error) {
+func (e *Engine) evaluateBuiltinPolicy(ctx context.Context, policy *Policy, input *EvaluationInput) (*EvaluationResult, error) {
 	return e.builtinEvaluator.Evaluate(ctx, policy, input)
 }
 
 // ListBuiltinPolicies returns a list of available built-in policy names
-func (e *PolicyEngine) ListBuiltinPolicies() []BuiltinPolicyName {
+func (e *Engine) ListBuiltinPolicies() []BuiltinPolicyName {
 	return e.builtinEvaluator.ListBuiltinPolicies()
 }
 
 // aggregateResults aggregates multiple evaluation results
-func (e *PolicyEngine) aggregateResults(id string, results []*EvaluationResult, mode EnforcementMode) *PolicyResult {
+func (e *Engine) aggregateResults(id string, results []*EvaluationResult, mode EnforcementMode) *PolicyResult {
 	summary := &PolicySummary{
 		TotalPolicies:        len(results),
 		AllowedPolicies:      0,
@@ -400,7 +402,7 @@ func (e *PolicyEngine) aggregateResults(id string, results []*EvaluationResult, 
 		}
 	}
 
-	policyResult := &PolicyResult{
+	policyResult := &Result{
 		Allowed:       allowed,
 		Results:       results,
 		Summary:       summary,
@@ -410,3 +412,9 @@ func (e *PolicyEngine) aggregateResults(id string, results []*EvaluationResult, 
 
 	return policyResult
 }
+
+// PolicyEngine is deprecated: Use Engine instead.
+type PolicyEngine = Engine //nolint:revive // Deprecated alias for backward compatibility
+
+// NewPolicyEngine is deprecated: Use NewEngine instead.
+var NewPolicyEngine = NewEngine

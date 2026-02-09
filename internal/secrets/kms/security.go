@@ -150,7 +150,7 @@ func NewLogMasker() *LogMasker {
 	}
 
 	for _, p := range DefaultMaskPatterns() {
-		lm.AddPattern(p.Pattern, p.Replacement)
+		_ = lm.AddPattern(p.Pattern, p.Replacement) //nolint:errcheck // default patterns are valid
 	}
 
 	return lm
@@ -279,24 +279,25 @@ func (sl *SecureLogger) Debug(msg string, attrs ...slog.Attr) {
 
 // AuditEvent represents a security audit event.
 type AuditEvent struct {
-	Timestamp   time.Time         `json:"timestamp"`
-	EventType   AuditEventType    `json:"event_type"`
-	Action      string            `json:"action"`
-	Resource    string            `json:"resource"`
-	ResourceID  string            `json:"resource_id,omitempty"`
-	Principal   string            `json:"principal,omitempty"`
-	SourceIP    string            `json:"source_ip,omitempty"`
-	UserAgent   string            `json:"user_agent,omitempty"`
-	Success     bool              `json:"success"`
-	ErrorCode   string            `json:"error_code,omitempty"`
-	ErrorMsg    string            `json:"error_message,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	RequestID   string            `json:"request_id,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+	EventType  AuditEventType    `json:"event_type"`
+	Action     string            `json:"action"`
+	Resource   string            `json:"resource"`
+	ResourceID string            `json:"resource_id,omitempty"`
+	Principal  string            `json:"principal,omitempty"`
+	SourceIP   string            `json:"source_ip,omitempty"`
+	UserAgent  string            `json:"user_agent,omitempty"`
+	Success    bool              `json:"success"`
+	ErrorCode  string            `json:"error_code,omitempty"`
+	ErrorMsg   string            `json:"error_message,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+	RequestID  string            `json:"request_id,omitempty"`
 }
 
 // AuditEventType categorizes audit events.
 type AuditEventType string
 
+// AuditEventTypeSecretAccess constants define the supported types.
 const (
 	AuditEventTypeSecretAccess   AuditEventType = "secret_access"
 	AuditEventTypeSecretCreate   AuditEventType = "secret_create"
@@ -314,7 +315,6 @@ const (
 type AuditLogger struct {
 	handler  AuditHandler
 	masker   *LogMasker
-	mu       sync.RWMutex
 	buffer   []AuditEvent
 	bufferMu sync.Mutex
 }
@@ -361,7 +361,7 @@ func (al *AuditLogger) Log(ctx context.Context, event *AuditEvent) error {
 
 // LogSecretAccess logs a secret access event.
 func (al *AuditLogger) LogSecretAccess(ctx context.Context, secretID, principal, action string, success bool, errMsg string) {
-	al.Log(ctx, &AuditEvent{
+	_ = al.Log(ctx, &AuditEvent{ //nolint:errcheck // best-effort audit logging
 		EventType:  AuditEventTypeSecretAccess,
 		Action:     action,
 		Resource:   "secret",
@@ -374,7 +374,7 @@ func (al *AuditLogger) LogSecretAccess(ctx context.Context, secretID, principal,
 
 // LogKeyOperation logs a key operation event.
 func (al *AuditLogger) LogKeyOperation(ctx context.Context, keyID, principal, operation string, success bool, errMsg string) {
-	al.Log(ctx, &AuditEvent{
+	_ = al.Log(ctx, &AuditEvent{ //nolint:errcheck // best-effort audit logging
 		EventType:  AuditEventTypeKeyOperation,
 		Action:     operation,
 		Resource:   "key",
@@ -406,18 +406,19 @@ func (al *AuditLogger) GetRecentEvents(limit int) []AuditEvent {
 
 // SecurityAuditResult contains the results of a security audit.
 type SecurityAuditResult struct {
-	Timestamp       time.Time            `json:"timestamp"`
-	Component       string               `json:"component"`
-	Status          AuditStatus          `json:"status"`
-	Findings        []SecurityFinding    `json:"findings"`
-	Recommendations []string             `json:"recommendations"`
-	Score           int                  `json:"score"`
-	MaxScore        int                  `json:"max_score"`
+	Timestamp       time.Time         `json:"timestamp"`
+	Component       string            `json:"component"`
+	Status          AuditStatus       `json:"status"`
+	Findings        []SecurityFinding `json:"findings"`
+	Recommendations []string          `json:"recommendations"`
+	Score           int               `json:"score"`
+	MaxScore        int               `json:"max_score"`
 }
 
 // AuditStatus indicates the overall audit status.
 type AuditStatus string
 
+// AuditStatusPass constants define the possible statuses.
 const (
 	AuditStatusPass     AuditStatus = "pass"
 	AuditStatusWarn     AuditStatus = "warning"
@@ -427,18 +428,19 @@ const (
 
 // SecurityFinding represents a security finding.
 type SecurityFinding struct {
-	ID          string           `json:"id"`
-	Severity    FindingSeverity  `json:"severity"`
-	Category    string           `json:"category"`
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Location    string           `json:"location,omitempty"`
-	Remediation string           `json:"remediation,omitempty"`
+	ID          string          `json:"id"`
+	Severity    FindingSeverity `json:"severity"`
+	Category    string          `json:"category"`
+	Title       string          `json:"title"`
+	Description string          `json:"description"`
+	Location    string          `json:"location,omitempty"`
+	Remediation string          `json:"remediation,omitempty"`
 }
 
 // FindingSeverity indicates the severity of a finding.
 type FindingSeverity string
 
+// SeverityInfo constants define the severity levels.
 const (
 	SeverityInfo     FindingSeverity = "info"
 	SeverityLow      FindingSeverity = "low"
@@ -503,6 +505,7 @@ func (sa *SecurityAuditor) RunAudit(ctx context.Context, component string) *Secu
 				if worstSeverity == SeverityInfo {
 					worstSeverity = SeverityLow
 				}
+			default:
 			}
 		}
 	}
@@ -512,12 +515,12 @@ func (sa *SecurityAuditor) RunAudit(ctx context.Context, component string) *Secu
 	}
 	result.Score = score
 
-	switch {
-	case worstSeverity == SeverityCritical:
+	switch worstSeverity {
+	case SeverityCritical:
 		result.Status = AuditStatusCritical
-	case worstSeverity == SeverityHigh:
+	case SeverityHigh:
 		result.Status = AuditStatusFail
-	case worstSeverity == SeverityMedium:
+	case SeverityMedium:
 		result.Status = AuditStatusWarn
 	default:
 		result.Status = AuditStatusPass
@@ -603,7 +606,7 @@ func NewSecureString(value string) *SecureString {
 
 // String returns the masked representation.
 func (ss *SecureString) String() string {
-	if ss.masked || len(ss.value) == 0 {
+	if ss.masked || ss.value == "" {
 		return "***SECURE***"
 	}
 	return MaskSecretID(ss.value)

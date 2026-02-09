@@ -201,11 +201,8 @@ func (c *HybridModeConfig) Validate() error {
 		}
 	}
 
-	if c.ManualRole == ConnectionRoleClient || c.SelectionMode != RoleSelectionManual {
-		if len(c.ExternalNATSURLs) == 0 && !c.FallbackToHost {
-			// OK if we can fallback to host
-		}
-	}
+	// Note: When in client mode or auto-selection mode, empty ExternalNATSURLs
+	// is acceptable if FallbackToHost is enabled
 
 	if c.ReachabilityCheckTimeout <= 0 {
 		c.ReachabilityCheckTimeout = 5 * time.Second
@@ -271,10 +268,10 @@ type HybridModeManager struct {
 	clientConn     *nats.Conn
 
 	// Callbacks
-	onStateChange      func(state HybridModeState)
-	onRoleChange       func(role ConnectionRole)
-	onConnectionReady  func(role ConnectionRole, conn *nats.Conn)
-	onConnectionLost   func(role ConnectionRole, err error)
+	onStateChange     func(state HybridModeState)
+	onRoleChange      func(role ConnectionRole)
+	onConnectionReady func(role ConnectionRole, conn *nats.Conn)
+	onConnectionLost  func(role ConnectionRole, err error)
 
 	// Internal state
 	mu     sync.RWMutex
@@ -339,7 +336,7 @@ func (m *HybridModeManager) Start(ctx context.Context) error {
 	m.setState(HybridModeStateDetermining)
 
 	// Determine role
-	role, err := m.determineRole()
+	role, err := m.determineRole(m.ctx) //nolint:contextcheck // m.ctx is derived from ctx on line 336
 	if err != nil {
 		m.setState(HybridModeStateFailed)
 		return fmt.Errorf("failed to determine role: %w", err)
@@ -361,7 +358,7 @@ func (m *HybridModeManager) Start(ctx context.Context) error {
 
 	// Start background monitoring
 	m.wg.Add(1)
-	go m.monitorLoop()
+	go m.monitorLoop(m.ctx) //nolint:contextcheck // m.ctx is derived from ctx on line 336
 
 	return nil
 }
@@ -434,7 +431,7 @@ func (m *HybridModeManager) IsActive() bool {
 }
 
 // determineRole determines the best connection role
-func (m *HybridModeManager) determineRole() (ConnectionRole, error) {
+func (m *HybridModeManager) determineRole(ctx context.Context) (ConnectionRole, error) {
 	switch m.config.SelectionMode {
 	case RoleSelectionManual:
 		return m.config.ManualRole, nil
@@ -454,17 +451,16 @@ func (m *HybridModeManager) determineRole() (ConnectionRole, error) {
 		}
 		return ConnectionRoleUndetermined, errors.New("cannot connect or host")
 
-	case RoleSelectionAuto:
-		fallthrough
-	default:
-		return m.autoSelectRole()
+	default: // includes RoleSelectionAuto
+		return m.autoSelectRole(ctx)
 	}
 }
 
 // autoSelectRole automatically selects the best role
-func (m *HybridModeManager) autoSelectRole() (ConnectionRole, error) {
+func (m *HybridModeManager) autoSelectRole(ctx context.Context) (ConnectionRole, error) {
 	// Check network reachability
-	reachability := m.checkReachability()
+	reachability := m.checkReachability(ctx)
+	//nolint:gosec // G115: NetworkReachability is a small enum (0-3), fits in int32
 	m.reachability.Store(int32(reachability))
 
 	// If directly reachable and hosting is configured, prefer hosting
@@ -522,16 +518,16 @@ func (m *HybridModeManager) canConnect() bool {
 }
 
 // checkReachability checks the network reachability
-func (m *HybridModeManager) checkReachability() NetworkReachability {
+func (m *HybridModeManager) checkReachability(ctx context.Context) NetworkReachability {
 	// Check if we have a public IP
 	publicIP := ""
 	if m.config.AdvertiserConfig != nil {
 		adv, _ := NewEndpointAdvertiser(m.config.AdvertiserConfig)
 		if adv != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), m.config.ReachabilityCheckTimeout)
+			timeoutCtx, cancel := context.WithTimeout(ctx, m.config.ReachabilityCheckTimeout)
 			defer cancel()
 			for _, service := range m.config.AdvertiserConfig.PublicIPServices {
-				ip, err := fetchPublicIP(ctx, service)
+				ip, err := fetchPublicIP(timeoutCtx, service)
 				if err == nil {
 					publicIP = ip
 					break
@@ -551,7 +547,7 @@ func (m *HybridModeManager) checkReachability() NetworkReachability {
 	// If we have a public IP but it doesn't match local, we're behind NAT
 	if publicIP != "" {
 		// Try to check if port is reachable (simplified check)
-		if m.isPortReachable() {
+		if m.isPortReachable(ctx) {
 			return NetworkReachabilityNAT
 		}
 		return NetworkReachabilityRestricted
@@ -562,14 +558,14 @@ func (m *HybridModeManager) checkReachability() NetworkReachability {
 }
 
 // isPortReachable checks if our port is reachable from outside
-func (m *HybridModeManager) isPortReachable() bool {
+func (m *HybridModeManager) isPortReachable(ctx context.Context) bool {
 	if m.config.EmbeddedConfig == nil {
 		return false
 	}
 
 	// Try to bind to the port to see if it's available
 	port := m.config.EmbeddedConfig.Port
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return false
 	}
@@ -598,17 +594,18 @@ func (m *HybridModeManager) startInRole(role ConnectionRole) error {
 func (m *HybridModeManager) startAsClient() error {
 	m.setState(HybridModeStateConnecting)
 
-	opts := []nats.Option{
+	opts := make([]nats.Option, 0, 5+len(m.config.NATSOptions))
+	opts = append(opts,
 		nats.Name(fmt.Sprintf("kscore-agent-%s", m.config.AgentID)),
 		nats.MaxReconnects(-1),
-		nats.ReconnectWait(2 * time.Second),
+		nats.ReconnectWait(2*time.Second),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
 			m.notifyConnectionLost(ConnectionRoleClient, err)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			m.notifyConnectionReady(ConnectionRoleClient, nc)
 		}),
-	}
+	)
 
 	// Add any configured options
 	opts = append(opts, m.config.NATSOptions...)
@@ -686,7 +683,7 @@ func (m *HybridModeManager) startAsHost(mode EmbeddedNATSMode) error {
 	}
 
 	// Connect locally as a client to the embedded server
-	url := server.GetClientURL()
+	url := server.GetClientURL(m.ctx)
 	if url == "" {
 		return errors.New("embedded server not providing client URL")
 	}
@@ -742,12 +739,13 @@ func (m *HybridModeManager) tryFallback(failedRole ConnectionRole, err error) bo
 				return true
 			}
 		}
+	default:
 	}
 	return false
 }
 
 // monitorLoop monitors the connection and role
-func (m *HybridModeManager) monitorLoop() {
+func (m *HybridModeManager) monitorLoop(ctx context.Context) {
 	defer m.wg.Done()
 
 	ticker := time.NewTicker(m.config.ReachabilityCheckInterval)
@@ -757,14 +755,15 @@ func (m *HybridModeManager) monitorLoop() {
 		select {
 		case <-ticker.C:
 			// Periodically re-check reachability
-			reachability := m.checkReachability()
+			reachability := m.checkReachability(ctx)
 			oldReach := m.Reachability()
 			if reachability != oldReach {
+				//nolint:gosec // G115: NetworkReachability is a small enum (0-3), fits in int32
 				m.reachability.Store(int32(reachability))
 				// Could trigger role change here if needed
 			}
 
-		case <-m.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -772,6 +771,7 @@ func (m *HybridModeManager) monitorLoop() {
 
 // setState updates the state and calls callback
 func (m *HybridModeManager) setState(state HybridModeState) {
+	//nolint:gosec // G115: HybridModeState is a small enum (0-4), fits in int32
 	m.state.Store(int32(state))
 
 	m.mu.RLock()
@@ -785,6 +785,7 @@ func (m *HybridModeManager) setState(state HybridModeState) {
 
 // setRole updates the role and calls callback
 func (m *HybridModeManager) setRole(role ConnectionRole) {
+	//nolint:gosec // G115: ConnectionRole is a small enum (0-3), fits in int32
 	m.role.Store(int32(role))
 
 	m.mu.RLock()

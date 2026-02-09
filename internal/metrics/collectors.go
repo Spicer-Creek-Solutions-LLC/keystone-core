@@ -5,61 +5,61 @@ import "time"
 // Keystone Core metric names as constants
 const (
 	// Control Plane Metrics
-	MetricAPIRequestsTotal           = "kscore_api_requests_total"
-	MetricAPIRequestDuration         = "kscore_api_request_duration_seconds"
-	MetricAgentsConnected            = "kscore_agents_connected"
-	MetricAgentsDisconnected         = "kscore_agents_disconnected_total"
-	MetricCommandExecutionsTotal     = "kscore_command_executions_total"
-	MetricCommandExecutionDuration   = "kscore_command_execution_duration_seconds"
-	MetricStateApplicationsTotal     = "kscore_state_applications_total"
-	MetricStateApplicationDuration   = "kscore_state_application_duration_seconds"
-	MetricPolicyEvaluationsTotal     = "kscore_policy_evaluations_total"
-	MetricEventsPublishedTotal       = "kscore_events_published_total"
-	MetricEventsProcessedTotal       = "kscore_events_processed_total"
+	MetricAPIRequestsTotal         = "kscore_api_requests_total"
+	MetricAPIRequestDuration       = "kscore_api_request_duration_seconds"
+	MetricAgentsConnected          = "kscore_agents_connected"
+	MetricAgentsDisconnected       = "kscore_agents_disconnected_total"
+	MetricCommandExecutionsTotal   = "kscore_command_executions_total"
+	MetricCommandExecutionDuration = "kscore_command_execution_duration_seconds"
+	MetricStateApplicationsTotal   = "kscore_state_applications_total"
+	MetricStateApplicationDuration = "kscore_state_application_duration_seconds"
+	MetricPolicyEvaluationsTotal   = "kscore_policy_evaluations_total"
+	MetricEventsPublishedTotal     = "kscore_events_published_total"
+	MetricEventsProcessedTotal     = "kscore_events_processed_total"
 
 	// Agent Metrics
-	MetricAgentHeartbeat             = "kscore_agent_heartbeat_seconds"
-	MetricAgentCPUUsage              = "kscore_agent_cpu_usage_percent"
-	MetricAgentMemoryUsage           = "kscore_agent_memory_usage_bytes"
-	MetricAgentDiskUsage             = "kscore_agent_disk_usage_bytes"
-	MetricAgentCommandsExecuted      = "kscore_agent_commands_executed_total"
-	MetricAgentStatesApplied         = "kscore_agent_states_applied_total"
+	MetricAgentHeartbeat        = "kscore_agent_heartbeat_seconds"
+	MetricAgentCPUUsage         = "kscore_agent_cpu_usage_percent"
+	MetricAgentMemoryUsage      = "kscore_agent_memory_usage_bytes"
+	MetricAgentDiskUsage        = "kscore_agent_disk_usage_bytes"
+	MetricAgentCommandsExecuted = "kscore_agent_commands_executed_total"
+	MetricAgentStatesApplied    = "kscore_agent_states_applied_total"
 
 	// State Management Metrics
-	MetricStateResourcesTotal        = "kscore_state_resources_total"
-	MetricStateDriftDetected         = "kscore_state_drift_detected_total"
-	MetricStateChangesApplied        = "kscore_state_changes_applied_total"
+	MetricStateResourcesTotal = "kscore_state_resources_total"
+	MetricStateDriftDetected  = "kscore_state_drift_detected_total"
+	MetricStateChangesApplied = "kscore_state_changes_applied_total"
 
 	// GitOps Metrics
-	MetricGitOpsWebhooksReceived     = "kscore_gitops_webhooks_received_total"
-	MetricGitOpsDeploymentsVerified  = "kscore_gitops_deployments_verified_total"
-	MetricGitOpsRollbacksTriggered   = "kscore_gitops_rollbacks_triggered_total"
+	MetricGitOpsWebhooksReceived    = "kscore_gitops_webhooks_received_total"
+	MetricGitOpsDeploymentsVerified = "kscore_gitops_deployments_verified_total"
+	MetricGitOpsRollbacksTriggered  = "kscore_gitops_rollbacks_triggered_total"
 
 	// Policy Metrics
-	MetricPolicyViolationsTotal      = "kscore_policy_violations_total"
-	MetricPolicyRemediationsTotal    = "kscore_policy_remediations_total"
-	MetricComplianceScore            = "kscore_compliance_score"
+	MetricPolicyViolationsTotal   = "kscore_policy_violations_total"
+	MetricPolicyRemediationsTotal = "kscore_policy_remediations_total"
+	MetricComplianceScore         = "kscore_compliance_score"
 
 	// Network/IPv6 Metrics
-	MetricListenersActive            = "kscore_listeners_active"
-	MetricConnectionsTotal           = "kscore_connections_total"
-	MetricConnectionsActive          = "kscore_connections_active"
-	MetricAgentsByIPVersion          = "kscore_agents_by_ip_version"
+	MetricListenersActive   = "kscore_listeners_active"
+	MetricConnectionsTotal  = "kscore_connections_total"
+	MetricConnectionsActive = "kscore_connections_active"
+	MetricAgentsByIPVersion = "kscore_agents_by_ip_version"
 
 	// Cluster Metrics
-	MetricClusterMembersTotal        = "kscore_cluster_members_total"
-	MetricClusterMembersHealthy      = "kscore_cluster_members_healthy"
-	MetricClusterHasQuorum           = "kscore_cluster_has_quorum"
-	MetricClusterLeaderChangesTotal  = "kscore_cluster_leader_changes_total"
+	MetricClusterMembersTotal           = "kscore_cluster_members_total"
+	MetricClusterMembersHealthy         = "kscore_cluster_members_healthy"
+	MetricClusterHasQuorum              = "kscore_cluster_has_quorum"
+	MetricClusterLeaderChangesTotal     = "kscore_cluster_leader_changes_total"
 	MetricClusterLeaderElectionDuration = "kscore_cluster_leader_election_duration_seconds"
-	MetricClusterRebalanceTotal      = "kscore_cluster_rebalance_total"
-	MetricClusterRebalanceDuration   = "kscore_cluster_rebalance_duration_seconds"
-	MetricClusterAgentsMoved         = "kscore_cluster_agents_moved_total"
-	MetricClusterHeartbeatLatency    = "kscore_cluster_heartbeat_latency_seconds"
-	MetricClusterEtcdOperationsTotal = "kscore_cluster_etcd_operations_total"
-	MetricClusterEtcdOperationDuration = "kscore_cluster_etcd_operation_duration_seconds"
-	MetricClusterMemberStatus        = "kscore_cluster_member_status"
-	MetricClusterIsLeader            = "kscore_cluster_is_leader"
+	MetricClusterRebalanceTotal         = "kscore_cluster_rebalance_total"
+	MetricClusterRebalanceDuration      = "kscore_cluster_rebalance_duration_seconds"
+	MetricClusterAgentsMoved            = "kscore_cluster_agents_moved_total"
+	MetricClusterHeartbeatLatency       = "kscore_cluster_heartbeat_latency_seconds"
+	MetricClusterEtcdOperationsTotal    = "kscore_cluster_etcd_operations_total"
+	MetricClusterEtcdOperationDuration  = "kscore_cluster_etcd_operation_duration_seconds"
+	MetricClusterMemberStatus           = "kscore_cluster_member_status"
+	MetricClusterIsLeader               = "kscore_cluster_is_leader"
 )
 
 // InitializeStandardMetrics registers all standard Keystone Core metrics
@@ -73,10 +73,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"method", "endpoint", "status"},
 		},
 		{
-			Name:   MetricAPIRequestDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "API request duration in seconds",
-			Labels: []string{"method", "endpoint"},
+			Name:    MetricAPIRequestDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "API request duration in seconds",
+			Labels:  []string{"method", "endpoint"},
 			Buckets: DefaultBuckets,
 		},
 		{
@@ -98,10 +98,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"status"},
 		},
 		{
-			Name:   MetricCommandExecutionDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "Command execution duration in seconds",
-			Labels: []string{"status"},
+			Name:    MetricCommandExecutionDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "Command execution duration in seconds",
+			Labels:  []string{"status"},
 			Buckets: DefaultBuckets,
 		},
 		{
@@ -111,10 +111,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"status"},
 		},
 		{
-			Name:   MetricStateApplicationDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "State application duration in seconds",
-			Labels: []string{"status"},
+			Name:    MetricStateApplicationDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "State application duration in seconds",
+			Labels:  []string{"status"},
 			Buckets: DefaultBuckets,
 		},
 		{
@@ -286,10 +286,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"reason"},
 		},
 		{
-			Name:   MetricClusterLeaderElectionDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "Leader election duration in seconds",
-			Labels: []string{},
+			Name:    MetricClusterLeaderElectionDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "Leader election duration in seconds",
+			Labels:  []string{},
 			Buckets: DefaultBuckets,
 		},
 		{
@@ -299,10 +299,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"reason"},
 		},
 		{
-			Name:   MetricClusterRebalanceDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "Rebalance operation duration in seconds",
-			Labels: []string{},
+			Name:    MetricClusterRebalanceDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "Rebalance operation duration in seconds",
+			Labels:  []string{},
 			Buckets: DefaultBuckets,
 		},
 		{
@@ -312,10 +312,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{},
 		},
 		{
-			Name:   MetricClusterHeartbeatLatency,
-			Type:   MetricTypeSummary,
-			Help:   "Heartbeat latency in seconds",
-			Labels: []string{"member_id"},
+			Name:       MetricClusterHeartbeatLatency,
+			Type:       MetricTypeSummary,
+			Help:       "Heartbeat latency in seconds",
+			Labels:     []string{"member_id"},
 			Objectives: DefaultObjectives,
 		},
 		{
@@ -325,10 +325,10 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Labels: []string{"operation", "status"},
 		},
 		{
-			Name:   MetricClusterEtcdOperationDuration,
-			Type:   MetricTypeHistogram,
-			Help:   "etcd operation duration in seconds",
-			Labels: []string{"operation"},
+			Name:    MetricClusterEtcdOperationDuration,
+			Type:    MetricTypeHistogram,
+			Help:    "etcd operation duration in seconds",
+			Labels:  []string{"operation"},
 			Buckets: DefaultBuckets,
 		},
 		{

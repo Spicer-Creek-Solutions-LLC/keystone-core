@@ -12,6 +12,7 @@ import (
 // DatabaseType represents a supported database type.
 type DatabaseType string
 
+// DatabaseTypePostgreSQL constants define the supported types.
 const (
 	DatabaseTypePostgreSQL DatabaseType = "postgresql"
 	DatabaseTypeMySQL      DatabaseType = "mysql"

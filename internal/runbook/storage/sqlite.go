@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
@@ -24,14 +25,15 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	ctx := context.Background()
 	// Enable WAL mode for better concurrency
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
 
 	// Enable foreign keys
-	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
@@ -87,7 +89,7 @@ func (s *SQLiteStorage) initSchema() error {
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_step_executions_name ON runbook_step_executions(execution_id, step_name);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -165,7 +167,7 @@ func (s *SQLiteStorage) GetExecution(ctx context.Context, id string) (*runbook.E
 		&exec.Error,
 		&exec.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -412,7 +414,7 @@ func (s *SQLiteStorage) scanStepExecution(ctx context.Context, query string, arg
 		&step.RetryCount,
 		&durationNs,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

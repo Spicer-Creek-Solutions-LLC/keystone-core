@@ -10,7 +10,7 @@ func TestBootstrapConfigLoadWrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "bootstrap.yaml")
 
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Mode:                   "demo",
 		ClusterName:            "keystone",
 		NodeRole:               "agent",
@@ -37,22 +37,22 @@ func TestBootstrapConfigLoadWrite(t *testing.T) {
 		PostgresSSLMode:        "prefer",
 		NATSURLs:               []string{"nats://nats1:4222", "nats://nats2:4222"},
 		GenerateCerts:          true,
-		TLSCertFile:            "/etc/kscore/tls.crt",
-		TLSKeyFile:             "/etc/kscore/tls.key",
-		TLSCAFile:              "/etc/kscore/ca.crt",
-		TLSCSRFile:             "/etc/kscore/tls/kscore.csr",
+		TLSCertFile:            "/etc/keystone-core/tls.crt",
+		TLSKeyFile:             "/etc/keystone-core/tls.key",
+		TLSCAFile:              "/etc/keystone-core/ca.crt",
+		TLSCSRFile:             "/etc/keystone-core/tls/kscore.csr",
 		TLSRenewalCommand:      "/usr/local/bin/renew-tls",
-		TLSRenewalScriptPath:   "/etc/kscore/tls/renew.sh",
-		NATSCredsFile:          "/etc/kscore/nats.creds",
+		TLSRenewalScriptPath:   "/etc/keystone-core/tls/renew.sh",
+		NATSCredsFile:          "/etc/keystone-core/nats.creds",
 		NATSUser:               "nats-user",
 		NATSPassword:           "nats-pass",
 		PackageChannel:         "stable",
 		PackageVersion:         "1.2.3",
-		MigrateFromSQLite:      "/var/lib/kscore/kscore.db",
+		MigrateFromSQLite:      "/var/lib/keystone-core/keystone-core.db",
 		MigrateBatchSize:       250,
 		MigrateContinueOnError: true,
 		MigrateSkipExisting:    true,
-		BlueprintsDir:          "/etc/kscore/blueprints",
+		BlueprintsDir:          "/etc/keystone-core/blueprints",
 		ApplyBlueprints:        []string{"blueprints/demo", "blueprints/metrics@1.0.0"},
 		BlueprintParams: map[string]map[string]interface{}{
 			"blueprints/demo": {
@@ -233,7 +233,7 @@ func TestWriteBootstrapConfigPermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "bootstrap.yaml")
 
-	cfg := &BootstrapConfig{Mode: "demo"}
+	cfg := &Config{Mode: "demo"}
 	if err := WriteBootstrapConfig(path, cfg); err != nil {
 		t.Fatalf("WriteBootstrapConfig failed: %v", err)
 	}

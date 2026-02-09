@@ -8,22 +8,22 @@ import (
 	"time"
 )
 
-// MemoryStorage provides an in-memory implementation of AuditStorage.
+// MemoryStorage provides an in-memory implementation of Storage.
 // Useful for testing and development.
 type MemoryStorage struct {
 	mu     sync.RWMutex
-	events []*AuditEvent
+	events []*Event
 }
 
 // NewMemoryStorage creates a new in-memory audit storage.
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		events: make([]*AuditEvent, 0),
+		events: make([]*Event, 0),
 	}
 }
 
 // Store saves an audit event.
-func (s *MemoryStorage) Store(ctx context.Context, event *AuditEvent) error {
+func (s *MemoryStorage) Store(ctx context.Context, event *Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -47,11 +47,11 @@ func (s *MemoryStorage) Store(ctx context.Context, event *AuditEvent) error {
 }
 
 // Query searches for audit events matching criteria.
-func (s *MemoryStorage) Query(ctx context.Context, query *AuditQuery) ([]*AuditEvent, error) {
+func (s *MemoryStorage) Query(ctx context.Context, query *Query) ([]*Event, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var results []*AuditEvent
+	var results []*Event
 
 	for _, event := range s.events {
 		if s.matches(event, query) {
@@ -83,7 +83,7 @@ func (s *MemoryStorage) Query(ctx context.Context, query *AuditQuery) ([]*AuditE
 	// Apply offset and limit
 	if query.Offset > 0 {
 		if query.Offset >= len(results) {
-			return []*AuditEvent{}, nil
+			return []*Event{}, nil
 		}
 		results = results[query.Offset:]
 	}
@@ -96,8 +96,8 @@ func (s *MemoryStorage) Query(ctx context.Context, query *AuditQuery) ([]*AuditE
 }
 
 // GetByExecutionID retrieves all events for an execution.
-func (s *MemoryStorage) GetByExecutionID(ctx context.Context, executionID string) ([]*AuditEvent, error) {
-	return s.Query(ctx, &AuditQuery{
+func (s *MemoryStorage) GetByExecutionID(ctx context.Context, executionID string) ([]*Event, error) {
+	return s.Query(ctx, &Query{
 		ExecutionID: executionID,
 		OrderBy:     "timestamp",
 	})
@@ -108,7 +108,7 @@ func (s *MemoryStorage) Delete(ctx context.Context, before time.Time) (int64, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var kept []*AuditEvent
+	var kept []*Event
 	var deleted int64
 
 	for _, event := range s.events {
@@ -124,7 +124,7 @@ func (s *MemoryStorage) Delete(ctx context.Context, before time.Time) (int64, er
 }
 
 // Count returns the number of events matching criteria.
-func (s *MemoryStorage) Count(ctx context.Context, query *AuditQuery) (int64, error) {
+func (s *MemoryStorage) Count(ctx context.Context, query *Query) (int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -139,7 +139,7 @@ func (s *MemoryStorage) Count(ctx context.Context, query *AuditQuery) (int64, er
 }
 
 // matches checks if an event matches a query.
-func (s *MemoryStorage) matches(event *AuditEvent, query *AuditQuery) bool {
+func (s *MemoryStorage) matches(event *Event, query *Query) bool {
 	if query == nil {
 		return true
 	}
@@ -185,11 +185,11 @@ func (s *MemoryStorage) matches(event *AuditEvent, query *AuditQuery) bool {
 }
 
 // All returns all stored events.
-func (s *MemoryStorage) All() []*AuditEvent {
+func (s *MemoryStorage) All() []*Event {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := make([]*AuditEvent, len(s.events))
+	result := make([]*Event, len(s.events))
 	copy(result, s.events)
 	return result
 }
@@ -203,16 +203,16 @@ func (s *MemoryStorage) Clear() {
 
 // ExecutionHistoryView provides a structured view of an execution's audit trail.
 type ExecutionHistoryView struct {
-	ExecutionID    string               `json:"execution_id"`
-	RunbookName    string               `json:"runbook_name"`
-	RunbookVersion string               `json:"runbook_version,omitempty"`
-	StartedAt      *time.Time           `json:"started_at,omitempty"`
-	CompletedAt    *time.Time           `json:"completed_at,omitempty"`
-	Duration       time.Duration        `json:"duration,omitempty"`
-	Status         string               `json:"status"`
-	Actor          string               `json:"actor,omitempty"`
-	Steps          []StepHistoryView    `json:"steps"`
-	Events         []*AuditEvent        `json:"events"`
+	ExecutionID    string            `json:"execution_id"`
+	RunbookName    string            `json:"runbook_name"`
+	RunbookVersion string            `json:"runbook_version,omitempty"`
+	StartedAt      *time.Time        `json:"started_at,omitempty"`
+	CompletedAt    *time.Time        `json:"completed_at,omitempty"`
+	Duration       time.Duration     `json:"duration,omitempty"`
+	Status         string            `json:"status"`
+	Actor          string            `json:"actor,omitempty"`
+	Steps          []StepHistoryView `json:"steps"`
+	Events         []*Event     `json:"events"`
 }
 
 // StepHistoryView provides a view of a step's audit trail.
@@ -227,7 +227,7 @@ type StepHistoryView struct {
 }
 
 // BuildExecutionHistoryView creates a structured view from audit events.
-func BuildExecutionHistoryView(events []*AuditEvent) *ExecutionHistoryView {
+func BuildExecutionHistoryView(events []*Event) *ExecutionHistoryView {
 	if len(events) == 0 {
 		return nil
 	}
@@ -304,6 +304,8 @@ func BuildExecutionHistoryView(events []*AuditEvent) *ExecutionHistoryView {
 			if step, ok := stepViews[event.StepName]; ok {
 				step.RetryCount++
 			}
+
+		default:
 		}
 	}
 
@@ -327,18 +329,18 @@ func BuildExecutionHistoryView(events []*AuditEvent) *ExecutionHistoryView {
 }
 
 // SearchExecutions searches for executions matching criteria.
-func SearchExecutions(ctx context.Context, storage AuditStorage, query *AuditQuery) ([]ExecutionHistoryView, error) {
+func SearchExecutions(ctx context.Context, storage Storage, query *Query) ([]ExecutionHistoryView, error) {
 	// Get execution start events
-	searchQuery := &AuditQuery{
-		Types:      []EventType{EventExecutionStarted},
+	searchQuery := &Query{
+		Types:       []EventType{EventExecutionStarted},
 		RunbookName: query.RunbookName,
-		Actor:      query.Actor,
-		StartTime:  query.StartTime,
-		EndTime:    query.EndTime,
-		Limit:      query.Limit,
-		Offset:     query.Offset,
-		OrderBy:    "timestamp",
-		OrderDesc:  query.OrderDesc,
+		Actor:       query.Actor,
+		StartTime:   query.StartTime,
+		EndTime:     query.EndTime,
+		Limit:       query.Limit,
+		Offset:      query.Offset,
+		OrderBy:     "timestamp",
+		OrderDesc:   query.OrderDesc,
 	}
 
 	startEvents, err := storage.Query(ctx, searchQuery)

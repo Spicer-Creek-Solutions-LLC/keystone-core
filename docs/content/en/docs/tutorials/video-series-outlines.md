@@ -222,21 +222,23 @@ This document contains detailed outlines for a video tutorial series covering Ke
 2. **Create Your First State** (4 min)
    ```yaml
    # hello-world.yaml
-   ensure_motd:
-     file.managed:
-       - name: /tmp/keystone-hello.txt
-       - contents: |
-           Hello from Keystone Core!
-           Managed at: {{ grains['timestamp'] }}
-       - user: root
-       - group: root
-       - mode: '0644'
+   file:
+     ensure_motd:
+       state: present
+       name: /tmp/keystone-hello.txt
+       contents: |
+         Hello from Keystone Core!
+         Managed at: {{ .facts.timestamp }}
+       owner: root
+       group: root
+       mode: '0644'
 
-   ensure_packages:
-     pkg.installed:
-       - names:
-           - curl
-           - jq
+   package:
+     ensure_packages:
+       state: installed
+       names:
+         - curl
+         - jq
    ```
 
 3. **Understanding State Structure** (2 min)

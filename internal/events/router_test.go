@@ -288,7 +288,7 @@ func TestRouter_StopOnMatch(t *testing.T) {
 		})
 	}
 
-	addRule("first", true)  // Should stop after this
+	addRule("first", true) // Should stop after this
 	addRule("second", false)
 	addRule("third", false)
 

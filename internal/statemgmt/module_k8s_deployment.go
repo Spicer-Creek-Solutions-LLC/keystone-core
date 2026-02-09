@@ -87,7 +87,7 @@ func (m *K8sDeploymentModule) Check(ctx context.Context, decl *StateDeclaration)
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(deployment.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -99,7 +99,7 @@ func (m *K8sDeploymentModule) Check(ctx context.Context, decl *StateDeclaration)
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(deployment.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{
@@ -244,13 +244,13 @@ func getInt32Parameter(decl *StateDeclaration, key string, defaultValue int32) i
 	if val, ok := decl.Parameters[key]; ok {
 		switch v := val.(type) {
 		case int:
-			return int32(v)
+			return int32(v) //nolint:gosec // G115: k8s params are small ints
 		case int32:
 			return v
 		case int64:
-			return int32(v)
+			return int32(v) //nolint:gosec // G115: k8s params are small ints
 		case float64:
-			return int32(v)
+			return int32(v) //nolint:gosec // G115: k8s params are small ints
 		}
 	}
 	return defaultValue

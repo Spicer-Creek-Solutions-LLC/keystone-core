@@ -405,7 +405,7 @@ Emitted when configuration drift detected.
 
 ## GitOps Webhook Events
 
-GitOps webhook events are dynamic and follow a consistent naming pattern based on the webhook source. These events are emitted when webhook payloads are parsed in `pkg/gitops/webhook/`.
+GitOps webhook events are dynamic and follow a consistent naming pattern based on the webhook source. These events are emitted when webhook payloads are parsed in `internal/gitops/webhook/`.
 
 **Event Type Patterns**:
 - `gitops.argocd.<event_type>`: Event type from ArgoCD payload (`type`) or operation phase
@@ -930,16 +930,16 @@ data.metadata.cpu_count < 4
 
 ```bash
 # List events with filter
-kscorectl event list --type agent.connect
+kscorectl events list --type agent.connect
 
 # Query with expression
-kscorectl event query "type == 'job.fail' and severity == 'error'"
+kscorectl events query "type == 'job.fail' and severity == 'error'"
 
 # Time range
-kscorectl event list --since 1h --until now
+kscorectl events list --since 1h --before 30m
 
-# Severity filter
-kscorectl event list --severity warning,error,critical
+# Severity filter (minimum severity - shows warning and above)
+kscorectl events list --severity warning
 ```
 
 ### API
@@ -985,7 +985,7 @@ publisher.Publish(event)
 ### From CLI
 
 ```bash
-kscorectl event emit \
+kscorectl events emit \
   --type user.custom \
   --source "maintenance-script" \
   --severity info \

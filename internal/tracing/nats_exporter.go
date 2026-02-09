@@ -103,9 +103,9 @@ type NATSSpan struct {
 	Links []NATSSpanLink `json:"links,omitempty"`
 
 	// Resource info
-	Service  string `json:"service,omitempty"`
-	Host     string `json:"host,omitempty"`
-	Version  string `json:"version,omitempty"`
+	Service string `json:"service,omitempty"`
+	Host    string `json:"host,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // NATSSpanEvent represents a span event.
@@ -360,10 +360,10 @@ func (e *NATSSpanExporter) buildSubject() string {
 }
 
 // Stats returns exporter statistics.
-func (e *NATSSpanExporter) Stats() (exported, dropped, batches int64, lastErr error, lastErrTime time.Time) {
+func (e *NATSSpanExporter) Stats() (exported, dropped, batches int64, lastErrTime time.Time, lastErr error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.spansExported, e.spansDropped, e.batchesSent, e.lastError, e.lastErrorTime
+	return e.spansExported, e.spansDropped, e.batchesSent, e.lastErrorTime, e.lastError
 }
 
 // IsConnected returns whether NATS is connected.

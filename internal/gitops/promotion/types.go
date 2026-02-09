@@ -1,19 +1,21 @@
+// Package promotion provides deployment promotion pipelines for managing
+// staged rollouts across environments with configurable strategies.
 package promotion
 
 import "time"
 
-// PromotionStrategy defines the deployment strategy
-type PromotionStrategy string
+// Strategy defines the deployment strategy
+type Strategy string
 
 const (
 	// StrategyBlueGreen blue/green deployment
-	StrategyBlueGreen PromotionStrategy = "blue_green"
+	StrategyBlueGreen Strategy = "blue_green"
 	// StrategyCanary canary deployment with gradual rollout
-	StrategyCanary PromotionStrategy = "canary"
+	StrategyCanary Strategy = "canary"
 	// StrategyRolling rolling update
-	StrategyRolling PromotionStrategy = "rolling"
+	StrategyRolling Strategy = "rolling"
 	// StrategyImmediate immediate full deployment
-	StrategyImmediate PromotionStrategy = "immediate"
+	StrategyImmediate Strategy = "immediate"
 )
 
 // Environment represents a deployment environment
@@ -68,13 +70,14 @@ type Pipeline struct {
 	Environments []*Environment `json:"environments"`
 
 	// Strategy for promotions
-	Strategy PromotionStrategy `json:"strategy"`
+	Strategy Strategy `json:"strategy"`
 
 	// CanarySteps for canary deployments
 	CanarySteps []CanaryStep `json:"canary_steps,omitempty"`
 
-	// RollbackOnFailure automatically rollback on failure
-	// Deprecated: Use Remediation.Enabled with Strategy=RemediationRollback instead
+	// RollbackOnFailure automatically rollback on failure.
+	//
+	// Deprecated: Use Remediation.Enabled with Strategy=RemediationRollback instead.
 	RollbackOnFailure bool `json:"rollback_on_failure"`
 
 	// Timeout for each stage
@@ -112,8 +115,8 @@ type CanaryStep struct {
 	SkipVerification bool `json:"skip_verification,omitempty"`
 }
 
-// PromotionRequest represents a request to promote
-type PromotionRequest struct {
+// Request represents a request to promote
+type Request struct {
 	// Pipeline name
 	Pipeline string
 
@@ -139,34 +142,34 @@ type PromotionRequest struct {
 	Force bool
 }
 
-// PromotionStatus represents the status of a promotion
-type PromotionStatus string
+// Status represents the status of a promotion
+type Status string
 
 const (
 	// StatusPending promotion pending approval
-	StatusPending PromotionStatus = "pending"
+	StatusPending Status = "pending"
 	// StatusApproved promotion approved
-	StatusApproved PromotionStatus = "approved"
+	StatusApproved Status = "approved"
 	// StatusRejected promotion rejected
-	StatusRejected PromotionStatus = "rejected"
+	StatusRejected Status = "rejected"
 	// StatusInProgress promotion in progress
-	StatusInProgress PromotionStatus = "in_progress"
+	StatusInProgress Status = "in_progress"
 	// StatusVerifying running verification
-	StatusVerifying PromotionStatus = "verifying"
+	StatusVerifying Status = "verifying"
 	// StatusRollingOut rolling out changes
-	StatusRollingOut PromotionStatus = "rolling_out"
+	StatusRollingOut Status = "rolling_out"
 	// StatusCompleted promotion completed
-	StatusCompleted PromotionStatus = "completed"
+	StatusCompleted Status = "completed"
 	// StatusFailed promotion failed
-	StatusFailed PromotionStatus = "failed"
+	StatusFailed Status = "failed"
 	// StatusRollingBack rolling back
-	StatusRollingBack PromotionStatus = "rolling_back"
+	StatusRollingBack Status = "rolling_back"
 	// StatusRolledBack rolled back
-	StatusRolledBack PromotionStatus = "rolled_back"
+	StatusRolledBack Status = "rolled_back"
 )
 
-// PromotionResult represents the result of a promotion
-type PromotionResult struct {
+// Result represents the result of a promotion
+type Result struct {
 	// ID of the promotion
 	ID string `json:"id"`
 
@@ -174,10 +177,10 @@ type PromotionResult struct {
 	Pipeline *Pipeline `json:"pipeline"`
 
 	// Request details
-	Request *PromotionRequest `json:"request"`
+	Request *Request `json:"request"`
 
 	// Status of the promotion
-	Status PromotionStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// CurrentStage in the promotion
 	CurrentStage int `json:"current_stage"`
@@ -210,7 +213,7 @@ type StageResult struct {
 	Environment string `json:"environment"`
 
 	// Status of this stage
-	Status PromotionStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime of stage
 	StartTime time.Time `json:"start_time"`
@@ -264,7 +267,7 @@ type ApprovalInfo struct {
 	Required bool `json:"required"`
 
 	// Status of approval
-	Status PromotionStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// ApprovedBy user who approved
 	ApprovedBy string `json:"approved_by,omitempty"`

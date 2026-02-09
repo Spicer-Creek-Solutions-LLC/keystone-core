@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/rego" //nolint:staticcheck // SA1019: rego package is deprecated but supported for lifetime of OPA v1.x; migration to v1 package requires significant refactoring
 )
 
 // OPAEvaluator evaluates OPA/Rego policies
@@ -34,8 +34,11 @@ func (e *OPAEvaluator) Evaluate(ctx context.Context, policy *Policy, input *Eval
 	}
 
 	// Create Rego query
+	// Create a new slice to avoid modifying the original options
 	pkgName := getPackageName(policy)
-	options := append(e.options,
+	options := make([]func(*rego.Rego), len(e.options), len(e.options)+3)
+	copy(options, e.options)
+	options = append(options,
 		rego.Query("data."+pkgName+".allow"),
 		rego.Module(policy.ID+".rego", policy.Policy),
 		rego.Input(input),
@@ -62,13 +65,14 @@ func (e *OPAEvaluator) Evaluate(ctx context.Context, policy *Policy, input *Eval
 	}
 
 	// Check results
-	if len(rs) == 0 {
+	switch {
+	case len(rs) == 0:
 		result.Allowed = false
 		result.Message = "Policy returned no results"
-	} else if len(rs[0].Expressions) == 0 {
+	case len(rs[0].Expressions) == 0:
 		result.Allowed = false
 		result.Message = "Policy returned no expressions"
-	} else {
+	default:
 		// Get allow decision
 		allowed, ok := rs[0].Expressions[0].Value.(bool)
 		if !ok {
@@ -144,8 +148,11 @@ func (e *OPAEvaluator) EvaluateWithDeny(ctx context.Context, policy *Policy, inp
 	}
 
 	// Create Rego query for both allow and deny
+	// Create a new slice to avoid modifying the original options
 	pkgName := getPackageName(policy)
-	options := append(e.options,
+	options := make([]func(*rego.Rego), len(e.options), len(e.options)+3)
+	copy(options, e.options)
+	options = append(options,
 		rego.Query(fmt.Sprintf("allow = data.%s.allow; deny = data.%s.deny; violations = data.%s.violations", pkgName, pkgName, pkgName)),
 		rego.Module(policy.ID+".rego", policy.Policy),
 		rego.Input(input),
@@ -216,22 +223,24 @@ func (e *OPAEvaluator) parseViolationsFromData(data interface{}, policy *Policy)
 	switch v := data.(type) {
 	case []interface{}:
 		for _, item := range v {
-			if violationMap, ok := item.(map[string]interface{}); ok {
-				violation := Violation{
-					Rule:     policy.ID,
-					Severity: policy.Severity,
-				}
-				if msg, ok := violationMap["message"].(string); ok {
-					violation.Message = msg
-				}
-				if path, ok := violationMap["path"].(string); ok {
-					violation.Path = path
-				}
-				if remediation, ok := violationMap["remediation"].(string); ok {
-					violation.Remediation = remediation
-				}
-				violations = append(violations, violation)
+			violationMap, ok := item.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			violation := Violation{
+				Rule:     policy.ID,
+				Severity: policy.Severity,
+			}
+			if msg, ok := violationMap["message"].(string); ok {
+				violation.Message = msg
+			}
+			if path, ok := violationMap["path"].(string); ok {
+				violation.Path = path
+			}
+			if remediation, ok := violationMap["remediation"].(string); ok {
+				violation.Remediation = remediation
+			}
+			violations = append(violations, violation)
 		}
 	case map[string]interface{}:
 		// Single violation as map
@@ -257,7 +266,7 @@ func getPackageName(policy *Policy) string {
 	startIdx := 0
 	for i := range policy.Policy {
 		if i+len(packagePrefix) <= len(policy.Policy) &&
-		   policy.Policy[i:i+len(packagePrefix)] == packagePrefix {
+			policy.Policy[i:i+len(packagePrefix)] == packagePrefix {
 			startIdx = i + len(packagePrefix)
 			break
 		}

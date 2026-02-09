@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/events"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/tracing"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -112,7 +112,7 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 	}
 
 	// Validate agent exists and is online
-	agent, err := cd.connMgr.GetAgent(req.AgentId)
+	agent, err := cd.connMgr.GetAgent(req.AgentId) //nolint:contextcheck // GetAgent API doesn't take context
 	if err != nil {
 		tracing.RecordError(span, err)
 		return nil, fmt.Errorf("agent not found: %w", err)
@@ -184,7 +184,7 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 	tracing.AddEvent(span, "command_sent_to_agent")
 
 	// Update status to running
-	cd.store.UpdateCommandStatus(ctx, req.CommandId, pb.CommandStatus_COMMAND_STATUS_RUNNING)
+	_ = cd.store.UpdateCommandStatus(ctx, req.CommandId, pb.CommandStatus_COMMAND_STATUS_RUNNING) //nolint:errcheck // best-effort status update
 	tracing.RecordSuccess(span, "command dispatched successfully")
 
 	// Emit job.start event
@@ -261,10 +261,12 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 
 		// Update database
 		status := pb.CommandStatus_COMMAND_STATUS_COMPLETED
-		if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED {
+		switch resp.Type {
+		case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED:
 			status = pb.CommandStatus_COMMAND_STATUS_FAILED
-		} else if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_TIMEOUT {
+		case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_TIMEOUT:
 			status = pb.CommandStatus_COMMAND_STATUS_TIMEOUT
+		default:
 		}
 
 		tracing.SetAttributes(span,
@@ -275,10 +277,12 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 		// Collect all output
 		var stdout, stderr string
 		for _, r := range exec.Results {
-			if r.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_STDOUT {
+			switch r.Type {
+			case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_STDOUT:
 				stdout += string(r.Data)
-			} else if r.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_STDERR {
+			case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_STDERR:
 				stderr += string(r.Data)
+			default:
 			}
 		}
 
@@ -329,14 +333,16 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 			})
 
 			// Record error for failed/timeout commands
-			if status == pb.CommandStatus_COMMAND_STATUS_FAILED {
+			switch status {
+			case pb.CommandStatus_COMMAND_STATUS_FAILED:
 				if resp.Error != "" {
 					tracing.RecordErrorWithMessage(span, fmt.Errorf("command failed"), resp.Error)
 				} else {
 					tracing.RecordErrorWithMessage(span, fmt.Errorf("command failed"), fmt.Sprintf("exit code %d", resp.ExitCode))
 				}
-			} else if status == pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
+			case pb.CommandStatus_COMMAND_STATUS_TIMEOUT:
 				tracing.RecordErrorWithMessage(span, fmt.Errorf("command timeout"), "command exceeded timeout")
+			default:
 			}
 		}
 

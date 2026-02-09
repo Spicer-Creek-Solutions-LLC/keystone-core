@@ -316,7 +316,7 @@ func (p *DefaultConstraintParser) Parse(constraint string) (VersionConstraint, e
 	// Parse version
 	version, err := ParseVersion(versionStr)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidConstraint, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConstraint, err)
 	}
 
 	return NewConstraint(operator, version), nil

@@ -109,26 +109,31 @@ var (
 func main() {
 	flag.Parse()
 
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	if flag.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: moddoc [flags] <package-path>")
 		flag.PrintDefaults()
-		os.Exit(1)
+		return fmt.Errorf("package path required")
 	}
 
 	pkgPath := flag.Arg(0)
 
 	pkgDoc, err := parsePackage(pkgPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing package: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("parsing package: %w", err)
 	}
 
 	var out io.Writer = os.Stdout
 	if *outputFile != "" {
 		f, err := os.Create(*outputFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("creating output file: %w", err)
 		}
 		defer f.Close()
 		out = f
@@ -139,18 +144,17 @@ func main() {
 		enc := json.NewEncoder(out)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(pkgDoc); err != nil {
-			fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("encoding JSON: %w", err)
 		}
 	case "markdown":
 		if err := writeMarkdown(out, pkgDoc); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing markdown: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("writing markdown: %w", err)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown format: %s\n", *outputFormat)
-		os.Exit(1)
+		return fmt.Errorf("unknown format: %s", *outputFormat)
 	}
+
+	return nil
 }
 
 func parsePackage(pkgPath string) (*PackageDoc, error) {
@@ -169,7 +173,7 @@ func parsePackage(pkgPath string) (*PackageDoc, error) {
 	}
 
 	// Get the first (and usually only) package
-	var pkg *ast.Package
+	var pkg *ast.Package //nolint:staticcheck // SA1019: ast.Package is deprecated but requires major refactoring to use go/types
 	for _, p := range pkgs {
 		pkg = p
 		break
@@ -286,7 +290,7 @@ func parsePackage(pkgPath string) (*PackageDoc, error) {
 }
 
 func extractFields(st *ast.StructType, fset *token.FileSet) []FieldDoc {
-	var fields []FieldDoc
+	fields := make([]FieldDoc, 0, len(st.Fields.List))
 	for _, f := range st.Fields.List {
 		for _, name := range f.Names {
 			fieldDoc := FieldDoc{
@@ -483,7 +487,8 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 	// Table of contents
 	if len(pkg.Modules) > 0 {
 		fmt.Fprint(w, "## Contents\n\n")
-		for _, mod := range pkg.Modules {
+		for i := range pkg.Modules {
+			mod := &pkg.Modules[i]
 			anchor := strings.ToLower(strings.ReplaceAll(mod.Name, " ", "-"))
 			fmt.Fprintf(w, "- [%s](#%s)\n", mod.Name, anchor)
 		}
@@ -517,7 +522,8 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 	}
 
 	// Modules
-	for _, mod := range pkg.Modules {
+	for i := range pkg.Modules {
+		mod := &pkg.Modules[i]
 		fmt.Fprintf(w, "## %s\n\n", mod.Name)
 
 		if mod.Doc != "" {
@@ -530,8 +536,8 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 			fmt.Fprintln(w, "| Field | Type | Description |")
 			fmt.Fprintln(w, "|-------|------|-------------|")
 			for _, f := range mod.Fields {
-				doc := strings.ReplaceAll(f.Doc, "\n", " ")
-				fmt.Fprintf(w, "| `%s` | `%s` | %s |\n", f.Name, f.Type, doc)
+				fieldDoc := strings.ReplaceAll(f.Doc, "\n", " ")
+				fmt.Fprintf(w, "| `%s` | `%s` | %s |\n", f.Name, f.Type, fieldDoc)
 			}
 			fmt.Fprintln(w)
 		}

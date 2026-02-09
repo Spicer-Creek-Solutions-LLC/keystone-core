@@ -46,7 +46,7 @@ The simplest backend, storing files on the local disk:
 backend:
   type: local
   local:
-    root: /var/lib/kscore/files
+    root: /var/lib/keystone-core/files
 ```
 
 ### Amazon S3
@@ -101,7 +101,7 @@ backend:
   git:
     url: https://github.com/myorg/kscorectl files.git
     branch: main
-    local_path: /var/lib/kscore/git-files
+    local_path: /var/lib/keystone-core/git-files
     # Auth: token, ssh-key, or ssh-agent
     auth:
       type: token
@@ -142,13 +142,13 @@ Files are organized into namespaces for access control:
 # Create a namespace
 kscorectl files namespace create prod-configs --description "Production configs"
 
-# Set ACLs
-kscorectl files namespace acl add prod-configs \
-  --principal role:ops \
-  --permission read,write
+# Set access controls
+kscorectl files namespace access prod-configs \
+  --allow-user role:ops \
+  --read-write
 
 # List files in namespace
-kscorectl files ls prod-configs/
+kscorectl files list prod-configs/
 ```
 
 ### Namespace Permissions
@@ -204,10 +204,10 @@ Mirrors automatically synchronize:
 
 ```bash
 # View sync status
-kscorectl files mirrors sync-status --group us-mirrors
+kscorectl files mirrors sync-status us-mirrors
 
 # Trigger manual sync
-kscorectl files mirrors sync --group us-mirrors
+kscorectl files mirrors sync us-mirrors
 
 # View sync history
 kscorectl files mirrors history --group us-mirrors
@@ -235,7 +235,7 @@ Edge agents can cache files locally:
 files:
   cache:
     enabled: true
-    path: /var/cache/kscore/files
+    path: /var/cache/keystone-core/files
     max_size: 10GB
     ttl: 24h
     offline_mode: true  # Serve from cache when disconnected
@@ -260,16 +260,16 @@ kscorectl files put local-file.txt namespace/path/file.txt
 kscorectl files get namespace/path/file.txt local-file.txt
 
 # List files
-kscorectl files ls namespace/
+kscorectl files list namespace/
 
 # Delete a file
-kscorectl files rm namespace/path/file.txt
+kscorectl files delete namespace/path/file.txt
 
 # Get file metadata
-kscorectl files stat namespace/path/file.txt
+kscorectl files info namespace/path/file.txt
 
-# Get file hash
-kscorectl files hash namespace/path/file.txt
+# Get file hash (included in info output)
+kscorectl files info namespace/path/file.txt
 ```
 
 ### Mirror Management
@@ -285,20 +285,20 @@ kscorectl files mirrors show <group-id>
 kscorectl files mirrors health --group <group-id>
 
 # Trigger failover
-kscorectl files mirrors failover <group-id> --from <mirror-id>
+kscorectl files mirrors failover <group-id> --to <mirror-id>
 ```
 
 ### Server Administration
 
 ```bash
 # Start file server
-kscorectl files serve --config /etc/kscore/files.yaml
+kscorectl files serve --config /etc/keystone-core/files.yaml
 
-# Check backend status
-kscorectl files backend status
+# Check backend health
+kscorectl files backend health
 
-# Run garbage collection
-kscorectl files backend gc
+# Check specific backend status
+kscorectl files backend status <backend-name>
 ```
 
 ## State Module Integration
@@ -397,10 +397,10 @@ Alerting rules are provided at `deploy/grafana/alerts/file-mirrors-alerts.yml`:
 
 ```bash
 # Check sync status
-kscorectl files mirrors sync-status --group <group>
+kscorectl files mirrors sync-status <group>
 
-# Force resync
-kscorectl files mirrors sync --group <group> --force
+# Trigger resync
+kscorectl files mirrors sync <group>
 ```
 
 ### High Latency
@@ -410,7 +410,7 @@ kscorectl files mirrors sync --group <group> --force
 kscorectl files mirrors latency --group <group>
 
 # Verify network connectivity to mirrors
-kscorectl files mirrors health --group <group> --verbose
+kscorectl files mirrors health --group <group>
 ```
 
 ### Conflict Resolution
@@ -419,8 +419,8 @@ kscorectl files mirrors health --group <group> --verbose
 # List all conflicts
 kscorectl files mirrors conflicts
 
-# View conflict details
-kscorectl files mirrors conflicts --id <conflict-id>
+# Resolve a specific conflict
+kscorectl files mirrors resolve-conflict <conflict-id>
 
 # Auto-resolve using source version
 kscorectl files mirrors resolve-conflict <id> --strategy source

@@ -74,8 +74,8 @@ type EvaluationSample struct {
 	Error string `json:"error,omitempty"`
 }
 
-// PolicyStats contains aggregated statistics for a policy
-type PolicyStats struct {
+// Stats contains aggregated statistics for a policy
+type Stats struct {
 	// PolicyID being tracked
 	PolicyID string `json:"policy_id"`
 
@@ -131,15 +131,15 @@ type PolicyStats struct {
 	FirstEvaluatedAt time.Time `json:"first_evaluated_at"`
 }
 
-// PolicyProfiler profiles policy evaluations
-type PolicyProfiler struct {
+// Profiler profiles policy evaluations
+type Profiler struct {
 	config *ProfilingConfig
 
 	// samples per policy
 	samples map[string][]*EvaluationSample
 
 	// aggregated stats per policy
-	stats map[string]*PolicyStats
+	stats map[string]*Stats
 
 	// slow evaluations
 	slowSamples []*EvaluationSample
@@ -150,22 +150,22 @@ type PolicyProfiler struct {
 	sampleCounter uint64
 }
 
-// NewPolicyProfiler creates a new policy profiler
-func NewPolicyProfiler(config *ProfilingConfig) *PolicyProfiler {
+// NewProfiler creates a new policy profiler
+func NewProfiler(config *ProfilingConfig) *Profiler {
 	if config == nil {
 		config = DefaultProfilingConfig()
 	}
 
-	return &PolicyProfiler{
+	return &Profiler{
 		config:      config,
 		samples:     make(map[string][]*EvaluationSample),
-		stats:       make(map[string]*PolicyStats),
+		stats:       make(map[string]*Stats),
 		slowSamples: make([]*EvaluationSample, 0),
 	}
 }
 
 // RecordEvaluation records an evaluation sample
-func (p *PolicyProfiler) RecordEvaluation(sample *EvaluationSample) {
+func (p *Profiler) RecordEvaluation(sample *EvaluationSample) {
 	if !p.config.Enabled {
 		return
 	}
@@ -211,17 +211,17 @@ func (p *PolicyProfiler) RecordEvaluation(sample *EvaluationSample) {
 }
 
 // updateStatsOnly updates stats without storing the sample
-func (p *PolicyProfiler) updateStatsOnly(sample *EvaluationSample) {
+func (p *Profiler) updateStatsOnly(sample *EvaluationSample) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.updateStats(sample)
 }
 
 // updateStats updates aggregated statistics (caller must hold lock)
-func (p *PolicyProfiler) updateStats(sample *EvaluationSample) {
+func (p *Profiler) updateStats(sample *EvaluationSample) {
 	stats, ok := p.stats[sample.PolicyID]
 	if !ok {
-		stats = &PolicyStats{
+		stats = &Stats{
 			PolicyID:         sample.PolicyID,
 			PolicyType:       sample.PolicyType,
 			MinDuration:      sample.Duration,
@@ -262,7 +262,7 @@ func (p *PolicyProfiler) updateStats(sample *EvaluationSample) {
 }
 
 // GetStats returns stats for a specific policy
-func (p *PolicyProfiler) GetStats(policyID string) *PolicyStats {
+func (p *Profiler) GetStats(policyID string) *Stats {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -283,11 +283,11 @@ func (p *PolicyProfiler) GetStats(policyID string) *PolicyStats {
 }
 
 // GetAllStats returns stats for all policies
-func (p *PolicyProfiler) GetAllStats() []*PolicyStats {
+func (p *Profiler) GetAllStats() []*Stats {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	result := make([]*PolicyStats, 0, len(p.stats))
+	result := make([]*Stats, 0, len(p.stats))
 	for policyID, stats := range p.stats {
 		// Calculate percentiles
 		samples := p.samples[policyID]
@@ -308,7 +308,7 @@ func (p *PolicyProfiler) GetAllStats() []*PolicyStats {
 }
 
 // GetSamples returns samples for a specific policy
-func (p *PolicyProfiler) GetSamples(policyID string) []*EvaluationSample {
+func (p *Profiler) GetSamples(policyID string) []*EvaluationSample {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -323,7 +323,7 @@ func (p *PolicyProfiler) GetSamples(policyID string) []*EvaluationSample {
 }
 
 // GetSlowSamples returns slow evaluation samples
-func (p *PolicyProfiler) GetSlowSamples() []*EvaluationSample {
+func (p *Profiler) GetSlowSamples() []*EvaluationSample {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -333,7 +333,7 @@ func (p *PolicyProfiler) GetSlowSamples() []*EvaluationSample {
 }
 
 // GetTopSlowest returns the top N slowest policies by average duration
-func (p *PolicyProfiler) GetTopSlowest(n int) []*PolicyStats {
+func (p *Profiler) GetTopSlowest(n int) []*Stats {
 	stats := p.GetAllStats()
 
 	sort.Slice(stats, func(i, j int) bool {
@@ -347,7 +347,7 @@ func (p *PolicyProfiler) GetTopSlowest(n int) []*PolicyStats {
 }
 
 // GetTopMostUsed returns the top N most frequently evaluated policies
-func (p *PolicyProfiler) GetTopMostUsed(n int) []*PolicyStats {
+func (p *Profiler) GetTopMostUsed(n int) []*Stats {
 	stats := p.GetAllStats()
 
 	// Already sorted by evaluation count
@@ -358,11 +358,11 @@ func (p *PolicyProfiler) GetTopMostUsed(n int) []*PolicyStats {
 }
 
 // GetTopErrorRate returns policies with highest error rates
-func (p *PolicyProfiler) GetTopErrorRate(n int) []*PolicyStats {
+func (p *Profiler) GetTopErrorRate(n int) []*Stats {
 	stats := p.GetAllStats()
 
 	// Filter out policies with 0 errors
-	withErrors := make([]*PolicyStats, 0)
+	withErrors := make([]*Stats, 0)
 	for _, s := range stats {
 		if s.ErrorCount > 0 {
 			withErrors = append(withErrors, s)
@@ -382,7 +382,7 @@ func (p *PolicyProfiler) GetTopErrorRate(n int) []*PolicyStats {
 }
 
 // calculatePercentile calculates the percentile duration from samples
-func (p *PolicyProfiler) calculatePercentile(samples []*EvaluationSample, percentile float64) time.Duration {
+func (p *Profiler) calculatePercentile(samples []*EvaluationSample, percentile float64) time.Duration {
 	if len(samples) == 0 {
 		return 0
 	}
@@ -402,18 +402,18 @@ func (p *PolicyProfiler) calculatePercentile(samples []*EvaluationSample, percen
 }
 
 // Reset resets all profiling data
-func (p *PolicyProfiler) Reset() {
+func (p *Profiler) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.samples = make(map[string][]*EvaluationSample)
-	p.stats = make(map[string]*PolicyStats)
+	p.stats = make(map[string]*Stats)
 	p.slowSamples = make([]*EvaluationSample, 0)
 	p.sampleCounter = 0
 }
 
 // ResetPolicy resets profiling data for a specific policy
-func (p *PolicyProfiler) ResetPolicy(policyID string) {
+func (p *Profiler) ResetPolicy(policyID string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -445,13 +445,13 @@ type ProfilingReport struct {
 	SlowPercentage float64 `json:"slow_percentage"`
 
 	// TopSlowest policies
-	TopSlowest []*PolicyStats `json:"top_slowest,omitempty"`
+	TopSlowest []*Stats `json:"top_slowest,omitempty"`
 
 	// TopMostUsed policies
-	TopMostUsed []*PolicyStats `json:"top_most_used,omitempty"`
+	TopMostUsed []*Stats `json:"top_most_used,omitempty"`
 
 	// TopErrorRate policies
-	TopErrorRate []*PolicyStats `json:"top_error_rate,omitempty"`
+	TopErrorRate []*Stats `json:"top_error_rate,omitempty"`
 
 	// ByType evaluation counts by policy type
 	ByType map[PolicyType]int64 `json:"by_type"`
@@ -461,7 +461,7 @@ type ProfilingReport struct {
 }
 
 // GenerateReport generates a profiling report
-func (p *PolicyProfiler) GenerateReport(topN int) *ProfilingReport {
+func (p *Profiler) GenerateReport(topN int) *ProfilingReport {
 	if topN <= 0 {
 		topN = 5
 	}
@@ -517,24 +517,24 @@ func (p *PolicyProfiler) GenerateReport(topN int) *ProfilingReport {
 	return report
 }
 
-// ProfiledPolicyEngine wraps a PolicyEngine with profiling
-type ProfiledPolicyEngine struct {
-	engine   *PolicyEngine
-	profiler *PolicyProfiler
+// ProfiledEngine wraps an Engine with profiling
+type ProfiledEngine struct {
+	engine   *Engine
+	profiler *Profiler
 	registry *Registry
 }
 
-// NewProfiledPolicyEngine creates a profiled policy engine
-func NewProfiledPolicyEngine(engine *PolicyEngine, registry *Registry, config *ProfilingConfig) *ProfiledPolicyEngine {
-	return &ProfiledPolicyEngine{
+// NewProfiledEngine creates a profiled policy engine
+func NewProfiledEngine(engine *Engine, registry *Registry, config *ProfilingConfig) *ProfiledEngine {
+	return &ProfiledEngine{
 		engine:   engine,
-		profiler: NewPolicyProfiler(config),
+		profiler: NewProfiler(config),
 		registry: registry,
 	}
 }
 
 // Evaluate evaluates a policy and profiles the execution
-func (e *ProfiledPolicyEngine) Evaluate(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
+func (e *ProfiledEngine) Evaluate(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
 	start := time.Now()
 
 	result, err := e.engine.Evaluate(ctx, policyID, input)
@@ -569,25 +569,25 @@ func (e *ProfiledPolicyEngine) Evaluate(ctx context.Context, policyID string, in
 }
 
 // GetProfiler returns the profiler instance
-func (e *ProfiledPolicyEngine) GetProfiler() *PolicyProfiler {
+func (e *ProfiledEngine) GetProfiler() *Profiler {
 	return e.profiler
 }
 
 // GetEngine returns the underlying engine
-func (e *ProfiledPolicyEngine) GetEngine() *PolicyEngine {
+func (e *ProfiledEngine) GetEngine() *Engine {
 	return e.engine
 }
 
 // EvaluationTimer helps measure evaluation time
 type EvaluationTimer struct {
 	policyID   string
-	policyType PolicyType
+	policyType Type
 	startTime  time.Time
-	profiler   *PolicyProfiler
+	profiler   *Profiler
 }
 
 // StartTimer starts an evaluation timer
-func (p *PolicyProfiler) StartTimer(policyID string, policyType PolicyType) *EvaluationTimer {
+func (p *Profiler) StartTimer(policyID string, policyType Type) *EvaluationTimer {
 	return &EvaluationTimer{
 		policyID:   policyID,
 		policyType: policyType,
@@ -617,3 +617,21 @@ func (t *EvaluationTimer) Stop(allowed bool, violationCount int, err error) time
 
 	return duration
 }
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyStats is deprecated: Use Stats instead.
+	PolicyStats = Stats
+	// PolicyProfiler is deprecated: Use Profiler instead.
+	PolicyProfiler = Profiler
+	// ProfiledPolicyEngine is deprecated: Use ProfiledEngine instead.
+	ProfiledPolicyEngine = ProfiledEngine
+)
+
+// NewPolicyProfiler is deprecated: Use NewProfiler instead.
+var NewPolicyProfiler = NewProfiler
+
+// NewProfiledPolicyEngine is deprecated: Use NewProfiledEngine instead.
+var NewProfiledPolicyEngine = NewProfiledEngine

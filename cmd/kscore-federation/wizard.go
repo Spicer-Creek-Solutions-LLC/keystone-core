@@ -74,7 +74,7 @@ func runWizard(cmd *cobra.Command, args []string) error {
 
 func runInteractiveWizard(cmd *cobra.Command) error {
 	// Build initial config from flags (if any provided)
-	initial := &wizard.WizardConfig{
+	initial := &wizard.Config{
 		TrustDomain:     wizardDomain,
 		BundleEndpoint:  wizardEndpoint,
 		RefreshInterval: wizardRefresh,
@@ -82,9 +82,9 @@ func runInteractiveWizard(cmd *cobra.Command) error {
 	}
 
 	if wizardType == "unidirectional" {
-		initial.FederationType = federation.FederationTypeUnidirectional
+		initial.FederationType = federation.TypeUnidirectional
 	} else {
-		initial.FederationType = federation.FederationTypeBidirectional
+		initial.FederationType = federation.TypeBidirectional
 	}
 
 	// Run the interactive wizard
@@ -169,12 +169,12 @@ func runNonInteractiveWizard(cmd *cobra.Command) error {
 	policy.RequireMTLS = wizardMTLS
 
 	// Build federation type
-	var fedType federation.FederationType
+	var fedType federation.Type
 	switch wizardType {
 	case "bidirectional":
-		fedType = federation.FederationTypeBidirectional
+		fedType = federation.TypeBidirectional
 	case "unidirectional":
-		fedType = federation.FederationTypeUnidirectional
+		fedType = federation.TypeUnidirectional
 	default:
 		return fmt.Errorf("unknown federation type: %s (available: bidirectional, unidirectional)", wizardType)
 	}
@@ -183,7 +183,7 @@ func runNonInteractiveWizard(cmd *cobra.Command) error {
 	domain := &federation.FederatedDomain{
 		TrustDomain:           wizardDomain,
 		Type:                  fedType,
-		State:                 federation.FederationStatePending,
+		State:                 federation.StatePending,
 		BundleEndpoint:        wizardEndpoint,
 		BundleEndpointProfile: "https_web",
 		Policy:                policy,
@@ -207,7 +207,7 @@ func runNonInteractiveWizard(cmd *cobra.Command) error {
 	fmt.Fprintln(cmd.OutOrStdout())
 
 	if wizardAutoActivate {
-		domain.State = federation.FederationStateActive
+		domain.State = federation.StateActive
 		fmt.Fprintln(cmd.OutOrStdout(), "Federation activated successfully.")
 	} else {
 		fmt.Fprintln(cmd.OutOrStdout(), "To activate this federation, run:")

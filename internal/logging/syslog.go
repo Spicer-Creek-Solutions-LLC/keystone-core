@@ -3,6 +3,7 @@
 package logging
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -14,9 +15,10 @@ import (
 	"time"
 )
 
-// Syslog severity levels (RFC 5424)
+// SyslogSeverity defines syslog severity levels (RFC 5424).
 type SyslogSeverity int
 
+// SeverityEmergency constants define the severity levels.
 const (
 	SeverityEmergency SyslogSeverity = iota // System is unusable
 	SeverityAlert                           // Action must be taken immediately
@@ -28,9 +30,10 @@ const (
 	SeverityDebug                           // Debug-level messages
 )
 
-// Syslog facility codes (RFC 5424)
+// SyslogFacility defines syslog facility codes (RFC 5424).
 type SyslogFacility int
 
+// FacilityKern and related constants.
 const (
 	FacilityKern     SyslogFacility = iota // Kernel messages
 	FacilityUser                           // User-level messages
@@ -241,25 +244,27 @@ func (s *SyslogOutput) connect() error {
 	network := s.config.Network
 	address := s.config.Address
 
+	dialer := &net.Dialer{Timeout: s.config.DialTimeout}
+	ctx := context.Background()
 	switch network {
 	case "unix":
 		// Try common Unix socket paths
 		if address == "" {
 			for _, path := range []string{"/dev/log", "/var/run/syslog", "/var/run/log"} {
-				conn, err = net.DialTimeout("unix", path, s.config.DialTimeout)
+				conn, err = dialer.DialContext(ctx, "unix", path)
 				if err == nil {
 					break
 				}
 			}
 		} else {
-			conn, err = net.DialTimeout("unix", address, s.config.DialTimeout)
+			conn, err = dialer.DialContext(ctx, "unix", address)
 		}
 
 	case "udp":
-		conn, err = net.DialTimeout("udp", address, s.config.DialTimeout)
+		conn, err = dialer.DialContext(ctx, "udp", address)
 
 	case "tcp":
-		conn, err = net.DialTimeout("tcp", address, s.config.DialTimeout)
+		conn, err = dialer.DialContext(ctx, "tcp", address)
 
 	case "tcp+tls":
 		tlsConfig, tlsErr := s.buildTLSConfig()
@@ -267,7 +272,7 @@ func (s *SyslogOutput) connect() error {
 			return tlsErr
 		}
 		dialer := &net.Dialer{Timeout: s.config.DialTimeout}
-		conn, err = tls.DialWithDialer(dialer, "tcp", address, tlsConfig)
+		conn, err = (&tls.Dialer{NetDialer: dialer, Config: tlsConfig}).DialContext(context.Background(), "tcp", address)
 
 	default:
 		return fmt.Errorf("unsupported syslog network: %s", network)
@@ -368,7 +373,7 @@ func (s *SyslogOutput) Write(data []byte) error {
 
 		// Set write deadline
 		if s.config.WriteTimeout > 0 {
-			s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)) //nolint:errcheck // best-effort deadline
 		}
 
 		_, err := s.conn.Write(data)
@@ -507,27 +512,27 @@ func (f *SyslogFormatter) buildStructuredData(entry *Entry) string {
 
 	// Add logger name
 	if entry.Logger != "" {
-		parts = append(parts, fmt.Sprintf("logger=\"%s\"", escapeSDValue(entry.Logger)))
+		parts = append(parts, fmt.Sprintf("logger=%q", escapeSDValue(entry.Logger)))
 	}
 
 	// Add level
-	parts = append(parts, fmt.Sprintf("level=\"%s\"", entry.Level.String()))
+	parts = append(parts, fmt.Sprintf("level=%q", entry.Level.String()))
 
 	// Add fields
 	for k, v := range entry.Fields {
-		parts = append(parts, fmt.Sprintf("%s=\"%s\"", escapeSDKey(k), escapeSDValue(fmt.Sprintf("%v", v))))
+		parts = append(parts, fmt.Sprintf("%s=%q", escapeSDKey(k), escapeSDValue(fmt.Sprintf("%v", v))))
 	}
 
 	// Add metadata if present
 	if entry.Metadata != nil {
 		if entry.Metadata.Host != "" {
-			parts = append(parts, fmt.Sprintf("host=\"%s\"", escapeSDValue(entry.Metadata.Host)))
+			parts = append(parts, fmt.Sprintf("host=%q", escapeSDValue(entry.Metadata.Host)))
 		}
 		if entry.Metadata.Service != "" {
-			parts = append(parts, fmt.Sprintf("service=\"%s\"", escapeSDValue(entry.Metadata.Service)))
+			parts = append(parts, fmt.Sprintf("service=%q", escapeSDValue(entry.Metadata.Service)))
 		}
 		if entry.Metadata.Version != "" {
-			parts = append(parts, fmt.Sprintf("version=\"%s\"", escapeSDValue(entry.Metadata.Version)))
+			parts = append(parts, fmt.Sprintf("version=%q", escapeSDValue(entry.Metadata.Version)))
 		}
 	}
 

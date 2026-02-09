@@ -117,7 +117,7 @@ func TestFSReadCapability_Validate(t *testing.T) {
 func TestFSReadCapability_CheckPath(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSReadCapability{
+	readCap := &FSReadCapability{
 		AllowedPaths: []string{
 			filepath.Join(tmpDir, "*"),
 			filepath.Join(tmpDir, "subdir", "**"),
@@ -157,7 +157,7 @@ func TestFSReadCapability_CheckPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := cap.CheckPath(tt.path)
+			err := readCap.CheckPath(tt.path)
 			if tt.expectError != nil {
 				if err == nil {
 					t.Errorf("expected error %v but got nil", tt.expectError)
@@ -181,7 +181,7 @@ func TestFSReadCapability_ReadFile(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	cap := &FSReadCapability{
+	readCap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -189,7 +189,7 @@ func TestFSReadCapability_ReadFile(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test successful read
-	data, err := cap.ReadFile(ctx, testFile)
+	data, err := readCap.ReadFile(ctx, testFile)
 	if err != nil {
 		t.Fatalf("failed to read file: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestFSReadCapability_ReadFileMaxSize(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	cap := &FSReadCapability{
+	readCap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  10, // Smaller than file size - allowed for testing size limits
 	}
@@ -217,7 +217,7 @@ func TestFSReadCapability_ReadFileMaxSize(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test read with size limit
-	_, err := cap.ReadFile(ctx, testFile)
+	_, err := readCap.ReadFile(ctx, testFile)
 	if !errors.Is(err, ErrMaxSizeExceeded) {
 		t.Errorf("expected ErrMaxSizeExceeded, got %v", err)
 	}
@@ -233,7 +233,7 @@ func TestFSReadCapability_OpenFile(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	cap := &FSReadCapability{
+	readCap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -241,7 +241,7 @@ func TestFSReadCapability_OpenFile(t *testing.T) {
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
 	// Test successful open
-	file, err := cap.OpenFile(ctx, testFile)
+	file, err := readCap.OpenFile(ctx, testFile)
 	if err != nil {
 		t.Fatalf("failed to open file: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestFSWriteCapability_Validate(t *testing.T) {
 func TestFSWriteCapability_WriteFile(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -336,7 +336,7 @@ func TestFSWriteCapability_WriteFile(t *testing.T) {
 	testData := []byte("test output")
 
 	// Test successful write
-	err := cap.WriteFile(ctx, testFile, testData, 0644)
+	err := writeCap.WriteFile(ctx, testFile, testData, 0644)
 	if err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestFSWriteCapability_WriteFile(t *testing.T) {
 func TestFSWriteCapability_WriteFileMaxSize(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  10,
 	}
@@ -366,7 +366,7 @@ func TestFSWriteCapability_WriteFileMaxSize(t *testing.T) {
 	testData := []byte("this is a longer test data string")
 
 	// Test write with size limit
-	err := cap.WriteFile(ctx, testFile, testData, 0644)
+	err := writeCap.WriteFile(ctx, testFile, testData, 0644)
 	if !errors.Is(err, ErrMaxSizeExceeded) {
 		t.Errorf("expected ErrMaxSizeExceeded, got %v", err)
 	}
@@ -375,7 +375,7 @@ func TestFSWriteCapability_WriteFileMaxSize(t *testing.T) {
 func TestFSWriteCapability_AppendFile(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -386,13 +386,13 @@ func TestFSWriteCapability_AppendFile(t *testing.T) {
 
 	// Write initial data
 	initialData := []byte("initial\n")
-	if err := cap.WriteFile(ctx, testFile, initialData, 0644); err != nil {
+	if err := writeCap.WriteFile(ctx, testFile, initialData, 0644); err != nil {
 		t.Fatalf("failed to write initial data: %v", err)
 	}
 
 	// Append more data
 	appendData := []byte("appended\n")
-	if err := cap.AppendFile(ctx, testFile, appendData, 0644); err != nil {
+	if err := writeCap.AppendFile(ctx, testFile, appendData, 0644); err != nil {
 		t.Fatalf("failed to append data: %v", err)
 	}
 
@@ -411,7 +411,7 @@ func TestFSWriteCapability_AppendFile(t *testing.T) {
 func TestFSWriteCapability_DeleteFile(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -426,7 +426,7 @@ func TestFSWriteCapability_DeleteFile(t *testing.T) {
 	}
 
 	// Delete file
-	if err := cap.DeleteFile(ctx, testFile); err != nil {
+	if err := writeCap.DeleteFile(ctx, testFile); err != nil {
 		t.Fatalf("failed to delete file: %v", err)
 	}
 
@@ -439,7 +439,7 @@ func TestFSWriteCapability_DeleteFile(t *testing.T) {
 func TestFSWriteCapability_Mkdir(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -449,7 +449,7 @@ func TestFSWriteCapability_Mkdir(t *testing.T) {
 	testDir := filepath.Join(tmpDir, "newdir")
 
 	// Create directory
-	if err := cap.Mkdir(ctx, testDir, 0755); err != nil {
+	if err := writeCap.Mkdir(ctx, testDir, 0755); err != nil {
 		t.Fatalf("failed to create directory: %v", err)
 	}
 
@@ -467,7 +467,7 @@ func TestFSWriteCapability_Mkdir(t *testing.T) {
 func TestFSWriteCapability_MkdirAll(t *testing.T) {
 	tmpDir := resolveTempDir(t.TempDir())
 
-	cap := &FSWriteCapability{
+	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "**")},
 		MaxFileSize:  DefaultMaxFileSize,
 	}
@@ -477,7 +477,7 @@ func TestFSWriteCapability_MkdirAll(t *testing.T) {
 	testDir := filepath.Join(tmpDir, "a", "b", "c")
 
 	// Create nested directories
-	if err := cap.MkdirAll(ctx, testDir, 0755); err != nil {
+	if err := writeCap.MkdirAll(ctx, testDir, 0755); err != nil {
 		t.Fatalf("failed to create directories: %v", err)
 	}
 

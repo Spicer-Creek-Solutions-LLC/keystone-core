@@ -11,32 +11,32 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/identity"
 )
 
-// FederationState represents the state of a federation relationship.
-type FederationState string
+// State represents the state of a federation relationship.
+type State string
 
 const (
-	// FederationStatePending means the federation is awaiting approval.
-	FederationStatePending FederationState = "pending"
-	// FederationStateActive means the federation is active and working.
-	FederationStateActive FederationState = "active"
-	// FederationStateSuspended means the federation is temporarily suspended.
-	FederationStateSuspended FederationState = "suspended"
-	// FederationStateRevoked means the federation has been permanently revoked.
-	FederationStateRevoked FederationState = "revoked"
-	// FederationStateExpired means the federation has expired.
-	FederationStateExpired FederationState = "expired"
+	// StatePending means the federation is awaiting approval.
+	StatePending State = "pending"
+	// StateActive means the federation is active and working.
+	StateActive State = "active"
+	// StateSuspended means the federation is temporarily suspended.
+	StateSuspended State = "suspended"
+	// StateRevoked means the federation has been permanently revoked.
+	StateRevoked State = "revoked"
+	// StateExpired means the federation has expired.
+	StateExpired State = "expired"
 )
 
-// FederationType represents the type of federation relationship.
-type FederationType string
+// Type represents the type of federation relationship.
+type Type string
 
 const (
-	// FederationTypeBidirectional means both domains trust each other.
-	FederationTypeBidirectional FederationType = "bidirectional"
-	// FederationTypeUnidirectional means only one domain trusts the other.
-	FederationTypeUnidirectional FederationType = "unidirectional"
-	// FederationTypeTransitive means trust can be inherited through chains.
-	FederationTypeTransitive FederationType = "transitive"
+	// TypeBidirectional means both domains trust each other.
+	TypeBidirectional Type = "bidirectional"
+	// TypeUnidirectional means only one domain trusts the other.
+	TypeUnidirectional Type = "unidirectional"
+	// TypeTransitive means trust can be inherited through chains.
+	TypeTransitive Type = "transitive"
 )
 
 // TrustPolicy defines access control for federated trust domains.
@@ -82,10 +82,10 @@ type FederatedDomain struct {
 	TrustDomain string
 
 	// Type is the federation type.
-	Type FederationType
+	Type Type
 
 	// State is the current federation state.
-	State FederationState
+	State State
 
 	// TrustBundle is the trust bundle for this domain.
 	TrustBundle *identity.TrustBundle
@@ -132,11 +132,11 @@ func (d *FederatedDomain) IsExpired() bool {
 
 // IsActive returns true if the federation is active and not expired.
 func (d *FederatedDomain) IsActive() bool {
-	return d.State == FederationStateActive && !d.IsExpired()
+	return d.State == StateActive && !d.IsExpired()
 }
 
-// FederationManager manages trust federation between domains.
-type FederationManager interface {
+// Manager manages trust federation between domains.
+type Manager interface {
 	// AddFederatedDomain adds a new federated trust domain.
 	AddFederatedDomain(ctx context.Context, domain *FederatedDomain) error
 
@@ -183,7 +183,7 @@ type ValidationResult struct {
 	IsFederated bool
 
 	// FederationType is the type of federation (if federated).
-	FederationType FederationType
+	FederationType Type
 
 	// MatchedPolicy is the policy that allowed/denied the SVID.
 	MatchedPolicy string
@@ -207,8 +207,8 @@ type BundleFetcher interface {
 	Fetch(ctx context.Context, endpoint string, profile string) (*identity.TrustBundle, error)
 }
 
-// FederationStore persists federation state.
-type FederationStore interface {
+// Store persists federation state.
+type Store interface {
 	// Save saves a federated domain.
 	Save(ctx context.Context, domain *FederatedDomain) error
 
@@ -222,10 +222,10 @@ type FederationStore interface {
 	List(ctx context.Context) ([]*FederatedDomain, error)
 }
 
-// FederationEvent represents a federation-related event.
-type FederationEvent struct {
+// Event represents a federation-related event.
+type Event struct {
 	// Type is the event type.
-	Type FederationEventType
+	Type EventType
 
 	// TrustDomain is the affected trust domain.
 	TrustDomain string
@@ -237,33 +237,33 @@ type FederationEvent struct {
 	Details map[string]string
 }
 
-// FederationEventType is the type of federation event.
-type FederationEventType string
+// EventType is the type of federation event.
+type EventType string
 
 const (
-	// FederationEventAdded means a domain was added.
-	FederationEventAdded FederationEventType = "added"
-	// FederationEventRemoved means a domain was removed.
-	FederationEventRemoved FederationEventType = "removed"
-	// FederationEventUpdated means a domain was updated.
-	FederationEventUpdated FederationEventType = "updated"
-	// FederationEventRefreshed means a trust bundle was refreshed.
-	FederationEventRefreshed FederationEventType = "refreshed"
-	// FederationEventExpired means a federation expired.
-	FederationEventExpired FederationEventType = "expired"
-	// FederationEventSuspended means a federation was suspended.
-	FederationEventSuspended FederationEventType = "suspended"
-	// FederationEventReactivated means a federation was reactivated.
-	FederationEventReactivated FederationEventType = "reactivated"
-	// FederationEventValidationFailed means SVID validation failed.
-	FederationEventValidationFailed FederationEventType = "validation_failed"
+	// EventAdded means a domain was added.
+	EventAdded EventType = "added"
+	// EventRemoved means a domain was removed.
+	EventRemoved EventType = "removed"
+	// EventUpdated means a domain was updated.
+	EventUpdated EventType = "updated"
+	// EventRefreshed means a trust bundle was refreshed.
+	EventRefreshed EventType = "refreshed"
+	// EventExpired means a federation expired.
+	EventExpired EventType = "expired"
+	// EventSuspended means a federation was suspended.
+	EventSuspended EventType = "suspended"
+	// EventReactivated means a federation was reactivated.
+	EventReactivated EventType = "reactivated"
+	// EventValidationFailed means SVID validation failed.
+	EventValidationFailed EventType = "validation_failed"
 )
 
-// FederationEventCallback is called when federation events occur.
-type FederationEventCallback func(event *FederationEvent)
+// EventCallback is called when federation events occur.
+type EventCallback func(event *Event)
 
-// FederationConfig configures the federation manager.
-type FederationConfig struct {
+// Config configures the federation manager.
+type Config struct {
 	// LocalTrustDomain is this server's trust domain.
 	LocalTrustDomain string
 
@@ -285,13 +285,13 @@ type FederationConfig struct {
 	DefaultPolicy *TrustPolicy
 
 	// Store is the persistence store for federation state.
-	Store FederationStore
+	Store Store
 
 	// BundleFetcher is used to fetch remote trust bundles.
 	BundleFetcher BundleFetcher
 
 	// EventCallback is called when federation events occur.
-	EventCallback FederationEventCallback
+	EventCallback EventCallback
 
 	// RequireApproval requires manual approval for new federations.
 	RequireApproval bool
@@ -300,9 +300,9 @@ type FederationConfig struct {
 	AuditLog bool
 }
 
-// DefaultFederationConfig returns a FederationConfig with default values.
-func DefaultFederationConfig(trustDomain string) *FederationConfig {
-	return &FederationConfig{
+// DefaultConfig returns a Config with default values.
+func DefaultConfig(trustDomain string) *Config {
+	return &Config{
 		LocalTrustDomain:       trustDomain,
 		DefaultRefreshInterval: 5 * time.Minute,
 		MaxFederatedDomains:    100,

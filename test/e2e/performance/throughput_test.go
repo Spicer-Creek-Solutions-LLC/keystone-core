@@ -13,6 +13,7 @@ package performance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -94,8 +95,8 @@ func TestMain(m *testing.M) {
 
 	// Cleanup
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	_ = testEnv.Stop(ctx)
+	cancel()
 
 	os.Exit(code)
 }
@@ -160,7 +161,7 @@ func (c *LatencyCollector) Add(d time.Duration) {
 }
 
 // Calculate calculates latency statistics
-func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Duration) {
+func (c *LatencyCollector) Calculate() (minVal, maxVal, avg, p50, p95, p99 time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -173,8 +174,8 @@ func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Durati
 	copy(sorted, c.latencies)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
-	min = sorted[0]
-	max = sorted[len(sorted)-1]
+	minVal = sorted[0]
+	maxVal = sorted[len(sorted)-1]
 
 	var sum time.Duration
 	for _, l := range sorted {
@@ -187,7 +188,7 @@ func (c *LatencyCollector) Calculate() (min, max, avg, p50, p95, p99 time.Durati
 	if len(sorted) > 100 {
 		p99 = sorted[len(sorted)*99/100]
 	} else {
-		p99 = max
+		p99 = maxVal
 	}
 
 	return
@@ -227,7 +228,7 @@ func TestThroughput_SequentialCommands(t *testing.T) {
 	duration := time.Since(start)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	opsPerSec := float64(numCommands) / duration.Seconds()
 	errorRate := float64(failCount) / float64(numCommands) * 100
 
@@ -239,8 +240,8 @@ func TestThroughput_SequentialCommands(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  opsPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -254,7 +255,7 @@ func TestThroughput_SequentialCommands(t *testing.T) {
 	t.Logf("  Successful: %d, Failed: %d", successCount, failCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSec)
-	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 	t.Logf("  Error rate: %.2f%%", errorRate)
 
@@ -309,7 +310,7 @@ func TestThroughput_ParallelCommands(t *testing.T) {
 	duration := time.Since(start)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	opsPerSec := float64(totalCommands) / duration.Seconds()
 	errorRate := float64(failCount) / float64(totalCommands) * 100
 
@@ -321,8 +322,8 @@ func TestThroughput_ParallelCommands(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  opsPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -336,7 +337,7 @@ func TestThroughput_ParallelCommands(t *testing.T) {
 	t.Logf("  Successful: %d, Failed: %d", successCount, failCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSec)
-	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 	t.Logf("  Error rate: %.2f%%", errorRate)
 
@@ -379,7 +380,7 @@ func TestThroughput_BatchCommands(t *testing.T) {
 		var summary *pb.BatchSummary
 		for {
 			resp, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -402,7 +403,7 @@ func TestThroughput_BatchCommands(t *testing.T) {
 	duration := time.Since(start)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	batchesPerSec := float64(numBatches) / duration.Seconds()
 	agentsPerSec := float64(totalAgents) / duration.Seconds()
 
@@ -413,8 +414,8 @@ func TestThroughput_BatchCommands(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  batchesPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -429,7 +430,7 @@ func TestThroughput_BatchCommands(t *testing.T) {
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Batch throughput: %.2f batches/sec", batchesPerSec)
 	t.Logf("  Agent throughput: %.2f agents/sec", agentsPerSec)
-	t.Logf("  Batch latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Batch latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Batch latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 
 	// Save result
@@ -459,10 +460,11 @@ func TestThroughput_SustainedLoad(t *testing.T) {
 	ticker := time.NewTicker(100 * time.Millisecond) // 10 ops/sec target
 	defer ticker.Stop()
 
+sustainedLoop:
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
-			break
+			break sustainedLoop
 		case <-ticker.C:
 			cmdStart := time.Now()
 			result, err := testEnv.ExecuteCommandAndWait(ctx, agentID, "echo", "sustained")
@@ -481,7 +483,7 @@ func TestThroughput_SustainedLoad(t *testing.T) {
 	totalOps := int(successCount + failCount)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	opsPerSec := float64(totalOps) / duration.Seconds()
 	errorRate := float64(failCount) / float64(totalOps) * 100
 
@@ -493,8 +495,8 @@ func TestThroughput_SustainedLoad(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  opsPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -508,7 +510,7 @@ func TestThroughput_SustainedLoad(t *testing.T) {
 	t.Logf("  Successful: %d, Failed: %d", successCount, failCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSec)
-	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 	t.Logf("  Error rate: %.2f%%", errorRate)
 
@@ -555,7 +557,7 @@ func TestThroughput_ListAgents(t *testing.T) {
 	duration := time.Since(start)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	opsPerSec := float64(numRequests) / duration.Seconds()
 
 	result := ThroughputResult{
@@ -566,8 +568,8 @@ func TestThroughput_ListAgents(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  opsPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -580,7 +582,7 @@ func TestThroughput_ListAgents(t *testing.T) {
 	t.Logf("  Successful: %d, Failed: %d", successCount, failCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSec)
-	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 
 	// Save result
@@ -618,7 +620,7 @@ func TestThroughput_GetAgent(t *testing.T) {
 	duration := time.Since(start)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := collector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := collector.Calculate()
 	opsPerSec := float64(numRequests) / duration.Seconds()
 
 	result := ThroughputResult{
@@ -629,8 +631,8 @@ func TestThroughput_GetAgent(t *testing.T) {
 		Duration:      duration,
 		OpsPerSecond:  opsPerSec,
 		AvgLatency:    avg,
-		MinLatency:    min,
-		MaxLatency:    max,
+		MinLatency:    minVal,
+		MaxLatency:    maxVal,
 		P50Latency:    p50,
 		P95Latency:    p95,
 		P99Latency:    p99,
@@ -643,7 +645,7 @@ func TestThroughput_GetAgent(t *testing.T) {
 	t.Logf("  Successful: %d, Failed: %d", successCount, failCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSec)
-	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, min, max)
+	t.Logf("  Latency - Avg: %v, Min: %v, Max: %v", avg, minVal, maxVal)
 	t.Logf("  Latency - P50: %v, P95: %v, P99: %v", p50, p95, p99)
 
 	// Save result

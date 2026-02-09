@@ -79,7 +79,7 @@ func (e *Executor) Execute(opts ExecuteOptions) error {
 }
 
 // ExecuteWithOutput runs the plugin and captures output
-func (e *Executor) ExecuteWithOutput(ctx context.Context, args ...string) (stdout, stderr string, err error) {
+func (e *Executor) ExecuteWithOutput(ctx context.Context, args ...string) (stdout, stderr string, err error) { //nolint:contextcheck // intentional: fallback for nil ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}

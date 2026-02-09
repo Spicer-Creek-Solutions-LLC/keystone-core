@@ -168,7 +168,8 @@ type CacheEntry struct {
 
 // NewLocalFileCache creates a new local file cache.
 func NewLocalFileCache(cacheDir string) (*LocalFileCache, error) {
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -331,7 +332,7 @@ func (r *FileSourceResolver) Resolve(ctx context.Context, sourceURL string) (str
 			if r.verifyChecksums && source.GetChecksum() != "" {
 				if entry.Checksum != source.GetChecksum() {
 					// Checksum mismatch - remove cached file and re-download.
-					r.cache.Remove(cacheKey)
+					_ = r.cache.Remove(cacheKey) //nolint:errcheck // best-effort cache invalidation
 				} else {
 					return entry.Path, nil
 				}
@@ -385,7 +386,7 @@ func (r *FileSourceResolver) Resolve(ctx context.Context, sourceURL string) (str
 }
 
 // VerifyChecksum verifies the checksum of a local file.
-func VerifyChecksum(path string, expected string) error {
+func VerifyChecksum(path, expected string) error {
 	if expected == "" {
 		return nil
 	}

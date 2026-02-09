@@ -108,7 +108,7 @@ func (l *InMemoryLogsQuerier) Query(ctx context.Context, query *LogsQuery) (*Log
 // This is a simple implementation - a real implementation would use LogQL
 func containsQuery(entry LogEntry, query string) bool {
 	// Check if query is in the line
-	if len(entry.Line) > 0 && contains(entry.Line, query) {
+	if entry.Line != "" && contains(entry.Line, query) {
 		return true
 	}
 
@@ -128,7 +128,7 @@ func contains(s, substr string) bool {
 }
 
 func findSubstring(s, substr string) bool {
-	if len(substr) == 0 {
+	if substr == "" {
 		return true
 	}
 	if len(s) < len(substr) {
@@ -268,7 +268,7 @@ func (l *LokiQuerier) Query(ctx context.Context, query *LogsQuery) (*LogsResult,
 	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -377,7 +377,7 @@ func (l *LokiQuerier) Labels(ctx context.Context, start, end time.Time) ([]strin
 
 	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -426,7 +426,7 @@ func (l *LokiQuerier) LabelValues(ctx context.Context, label string, start, end 
 
 	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

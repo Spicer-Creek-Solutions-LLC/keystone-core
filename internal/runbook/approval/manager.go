@@ -189,7 +189,7 @@ func (m *Manager) CreateRequest(ctx context.Context, config *Config, executionID
 }
 
 // Respond records an approval decision.
-func (m *Manager) Respond(ctx context.Context, requestID string, approver string, decision Decision, comment string) (*Request, error) {
+func (m *Manager) Respond(ctx context.Context, requestID, approver string, decision Decision, comment string) (*Request, error) {
 	req, err := m.storage.GetRequest(ctx, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("get request: %w", err)
@@ -276,7 +276,7 @@ func (m *Manager) evaluateState(req *Request) RequestState {
 	rejections := req.RejectionCount()
 
 	switch req.Mode {
-	case ApprovalModeAny:
+	case ModeAny:
 		// Any single approval is enough
 		if approvals >= 1 {
 			return RequestStateApproved
@@ -286,7 +286,7 @@ func (m *Manager) evaluateState(req *Request) RequestState {
 			return RequestStateRejected
 		}
 
-	case ApprovalModeAll:
+	case ModeAll:
 		// Any rejection rejects the whole request
 		if rejections > 0 {
 			return RequestStateRejected
@@ -296,7 +296,7 @@ func (m *Manager) evaluateState(req *Request) RequestState {
 			return RequestStateApproved
 		}
 
-	case ApprovalModeCount:
+	case ModeCount:
 		// Check if we have enough approvals
 		if approvals >= req.RequiredCount {
 			return RequestStateApproved
@@ -312,7 +312,7 @@ func (m *Manager) evaluateState(req *Request) RequestState {
 }
 
 // Cancel cancels a pending approval request.
-func (m *Manager) Cancel(ctx context.Context, requestID string, reason string) (*Request, error) {
+func (m *Manager) Cancel(ctx context.Context, requestID, reason string) (*Request, error) {
 	req, err := m.storage.GetRequest(ctx, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("get request: %w", err)
@@ -445,28 +445,29 @@ func (m *Manager) CheckExpired(ctx context.Context) (int, error) {
 
 	expired := 0
 	for _, req := range requests {
-		if req.IsExpired() {
-			now := time.Now()
-			req.State = RequestStateExpired
-			req.UpdatedAt = now
-			req.CompletedAt = &now
-
-			if err := m.storage.SaveRequest(ctx, req); err != nil {
-				continue
-			}
-
-			m.notifyWaiters(req)
-
-			if m.notifier != nil {
-				_ = m.notifier.NotifyApprovalExpired(ctx, req, nil)
-			}
-
-			if m.publisher != nil {
-				_ = m.publisher.PublishApprovalCompleted(ctx, req)
-			}
-
-			expired++
+		if !req.IsExpired() {
+			continue
 		}
+		now := time.Now()
+		req.State = RequestStateExpired
+		req.UpdatedAt = now
+		req.CompletedAt = &now
+
+		if err := m.storage.SaveRequest(ctx, req); err != nil {
+			continue
+		}
+
+		m.notifyWaiters(req)
+
+		if m.notifier != nil {
+			_ = m.notifier.NotifyApprovalExpired(ctx, req, nil)
+		}
+
+		if m.publisher != nil {
+			_ = m.publisher.PublishApprovalCompleted(ctx, req)
+		}
+
+		expired++
 	}
 
 	return expired, nil

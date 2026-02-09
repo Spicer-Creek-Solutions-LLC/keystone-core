@@ -384,11 +384,11 @@ type Baseline struct {
 // DefaultBaseline returns default performance baseline
 func DefaultBaseline() *Baseline {
 	return &Baseline{
-		MinOpsPerSecond:      1.0,    // At least 1 op/sec
-		MaxP99LatencyMs:      5000,   // Max 5 second P99
-		MaxErrorRate:         5.0,    // Max 5% error rate
-		MinHeartbeatSuccess:  95.0,   // At least 95% heartbeat success
-		MaxRegistrationTimeS: 60.0,   // Max 60 seconds registration
+		MinOpsPerSecond:      1.0,  // At least 1 op/sec
+		MaxP99LatencyMs:      5000, // Max 5 second P99
+		MaxErrorRate:         5.0,  // Max 5% error rate
+		MinHeartbeatSuccess:  95.0, // At least 95% heartbeat success
+		MaxRegistrationTimeS: 60.0, // Max 60 seconds registration
 	}
 }
 

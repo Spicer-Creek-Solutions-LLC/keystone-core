@@ -7,12 +7,11 @@ import (
 
 var (
 	// Colors
-	colorPrimary   = lipgloss.Color("39")  // Light blue
-	colorSuccess   = lipgloss.Color("82")  // Green
-	colorWarning   = lipgloss.Color("214") // Orange
-	colorError     = lipgloss.Color("196") // Red
-	colorMuted     = lipgloss.Color("240") // Gray
-	colorHighlight = lipgloss.Color("212") // Pink
+	colorPrimary = lipgloss.Color("39")  // Light blue
+	colorSuccess = lipgloss.Color("82")  // Green
+	colorWarning = lipgloss.Color("214") // Orange
+	colorError   = lipgloss.Color("196") // Red
+	colorMuted   = lipgloss.Color("240") // Gray
 
 	// Title styles
 	titleStyle = lipgloss.NewStyle().
@@ -33,9 +32,6 @@ var (
 			Foreground(colorPrimary)
 
 	// Input styles
-	promptStyle = lipgloss.NewStyle().
-			Foreground(colorPrimary)
-
 	inputHintStyle = lipgloss.NewStyle().
 			Foreground(colorMuted).
 			Italic(true)
@@ -56,17 +52,6 @@ var (
 			BorderForeground(colorPrimary).
 			Padding(1, 2)
 
-	// Table styles
-	tableHeaderStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(colorPrimary).
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderBottom(true).
-				BorderForeground(colorMuted)
-
-	tableCellStyle = lipgloss.NewStyle().
-			Padding(0, 1)
-
 	// Help text
 	helpStyle = lipgloss.NewStyle().
 			Foreground(colorMuted).
@@ -79,7 +64,6 @@ var (
 	// Check/cross marks
 	checkMark = successStyle.Render("✓")
 	crossMark = errorStyle.Render("✗")
-	bullet    = lipgloss.NewStyle().Foreground(colorMuted).Render("•")
 )
 
 // formatHeader formats a header with step indicator.

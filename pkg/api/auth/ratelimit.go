@@ -47,8 +47,8 @@ func DefaultRateLimitConfig() RateLimitConfig {
 	}
 }
 
-// AuthRateLimiter tracks failed authentication attempts and implements lockout
-type AuthRateLimiter struct {
+// RateLimiter tracks failed authentication attempts and implements lockout
+type RateLimiter struct {
 	mu       sync.RWMutex
 	config   RateLimitConfig
 	failures map[string]*failureRecord
@@ -57,14 +57,14 @@ type AuthRateLimiter struct {
 
 // failureRecord tracks failures for a specific client
 type failureRecord struct {
-	count      int
-	firstSeen  time.Time
-	lastSeen   time.Time
+	count       int
+	firstSeen   time.Time
+	lastSeen    time.Time
 	lockedUntil time.Time
 }
 
-// NewAuthRateLimiter creates a new rate limiter with the given config
-func NewAuthRateLimiter(config RateLimitConfig) *AuthRateLimiter {
+// NewRateLimiter creates a new rate limiter with the given config
+func NewRateLimiter(config RateLimitConfig) *RateLimiter {
 	if config.MaxFailures <= 0 {
 		config.MaxFailures = 5
 	}
@@ -75,7 +75,7 @@ func NewAuthRateLimiter(config RateLimitConfig) *AuthRateLimiter {
 		config.CleanupInterval = 5 * time.Minute
 	}
 
-	rl := &AuthRateLimiter{
+	rl := &RateLimiter{
 		config:   config,
 		failures: make(map[string]*failureRecord),
 		stopCh:   make(chan struct{}),
@@ -88,12 +88,12 @@ func NewAuthRateLimiter(config RateLimitConfig) *AuthRateLimiter {
 }
 
 // Stop stops the rate limiter cleanup goroutine
-func (rl *AuthRateLimiter) Stop() {
+func (rl *RateLimiter) Stop() {
 	close(rl.stopCh)
 }
 
 // cleanup periodically removes expired entries
-func (rl *AuthRateLimiter) cleanup() {
+func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(rl.config.CleanupInterval)
 	defer ticker.Stop()
 
@@ -108,7 +108,7 @@ func (rl *AuthRateLimiter) cleanup() {
 }
 
 // cleanupExpired removes records that are past their lockout period
-func (rl *AuthRateLimiter) cleanupExpired() {
+func (rl *RateLimiter) cleanupExpired() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -122,7 +122,7 @@ func (rl *AuthRateLimiter) cleanupExpired() {
 }
 
 // IsAllowed checks if a client is allowed to attempt authentication
-func (rl *AuthRateLimiter) IsAllowed(clientID string) bool {
+func (rl *RateLimiter) IsAllowed(clientID string) bool {
 	if !rl.config.Enabled {
 		return true
 	}
@@ -144,7 +144,7 @@ func (rl *AuthRateLimiter) IsAllowed(clientID string) bool {
 }
 
 // RecordFailure records a failed authentication attempt
-func (rl *AuthRateLimiter) RecordFailure(clientID string) {
+func (rl *RateLimiter) RecordFailure(clientID string) {
 	if !rl.config.Enabled {
 		return
 	}
@@ -171,7 +171,7 @@ func (rl *AuthRateLimiter) RecordFailure(clientID string) {
 }
 
 // RecordSuccess resets the failure count for a client (successful auth)
-func (rl *AuthRateLimiter) RecordSuccess(clientID string) {
+func (rl *RateLimiter) RecordSuccess(clientID string) {
 	if !rl.config.Enabled {
 		return
 	}
@@ -184,7 +184,7 @@ func (rl *AuthRateLimiter) RecordSuccess(clientID string) {
 
 // GetLockoutRemaining returns how long until the lockout expires
 // Returns 0 if not locked out
-func (rl *AuthRateLimiter) GetLockoutRemaining(clientID string) time.Duration {
+func (rl *RateLimiter) GetLockoutRemaining(clientID string) time.Duration {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 
@@ -201,7 +201,7 @@ func (rl *AuthRateLimiter) GetLockoutRemaining(clientID string) time.Duration {
 }
 
 // GetFailureCount returns the current failure count for a client
-func (rl *AuthRateLimiter) GetFailureCount(clientID string) int {
+func (rl *RateLimiter) GetFailureCount(clientID string) int {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 
@@ -213,21 +213,21 @@ func (rl *AuthRateLimiter) GetFailureCount(clientID string) int {
 }
 
 // Reset clears all rate limit records (useful for testing)
-func (rl *AuthRateLimiter) Reset() {
+func (rl *RateLimiter) Reset() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	rl.failures = make(map[string]*failureRecord)
 }
 
-// Stats returns rate limiter statistics
+// RateLimiterStats holds rate limiter statistics.
 type RateLimiterStats struct {
-	TrackedClients  int
-	LockedClients   int
-	TotalFailures   int
+	TrackedClients int
+	LockedClients  int
+	TotalFailures  int
 }
 
 // Stats returns current rate limiter statistics
-func (rl *AuthRateLimiter) Stats() RateLimiterStats {
+func (rl *RateLimiter) Stats() RateLimiterStats {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 
@@ -275,7 +275,7 @@ func ClientIDFromContext(ctx context.Context) string {
 }
 
 // CheckRateLimit is a helper that checks rate limit and returns appropriate error
-func (rl *AuthRateLimiter) CheckRateLimit(ctx context.Context) error {
+func (rl *RateLimiter) CheckRateLimit(ctx context.Context) error {
 	if !rl.config.Enabled {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (rl *AuthRateLimiter) CheckRateLimit(ctx context.Context) error {
 }
 
 // WrapAuthError wraps an authentication error and records the failure
-func (rl *AuthRateLimiter) WrapAuthError(ctx context.Context, err error) error {
+func (rl *RateLimiter) WrapAuthError(ctx context.Context, err error) error {
 	if err == nil {
 		// Success - clear failures
 		if rl.config.Enabled {

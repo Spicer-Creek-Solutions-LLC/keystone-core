@@ -472,13 +472,13 @@ func (h *Handler) listInterventions(w http.ResponseWriter, r *http.Request) {
 	// Parse filters
 	opts := intervention.ListOptions{}
 	if state := query.Get("state"); state != "" {
-		opts.State = intervention.InterventionState(state)
+		opts.State = intervention.State(state)
 	}
 	if execID := query.Get("execution_id"); execID != "" {
 		opts.ExecutionID = execID
 	}
 	if intType := query.Get("type"); intType != "" {
-		opts.Type = intervention.InterventionType(intType)
+		opts.Type = intervention.Type(intType)
 	}
 
 	// Parse pagination

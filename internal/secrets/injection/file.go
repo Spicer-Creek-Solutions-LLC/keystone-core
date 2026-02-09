@@ -39,7 +39,7 @@ func NewFileInjector(config *FileInjectionConfig, source SecretSource, notify *N
 
 	// Set defaults
 	if config.DefaultMode == 0 {
-		config.DefaultMode = 0600
+		config.DefaultMode = 0o600
 	}
 	if config.RefreshInterval <= 0 {
 		config.RefreshInterval = 30 * time.Second
@@ -54,8 +54,8 @@ func NewFileInjector(config *FileInjectionConfig, source SecretSource, notify *N
 }
 
 // Inject performs the file injection.
-func (f *FileInjector) Inject(ctx context.Context) ([]InjectionResult, error) {
-	results := make([]InjectionResult, 0, len(f.config.Files))
+func (f *FileInjector) Inject(ctx context.Context) ([]Result, error) {
+	results := make([]Result, 0, len(f.config.Files))
 
 	for _, rule := range f.config.Files {
 		result := f.injectFile(ctx, rule)
@@ -84,9 +84,9 @@ func (f *FileInjector) Inject(ctx context.Context) ([]InjectionResult, error) {
 	return results, nil
 }
 
-func (f *FileInjector) injectFile(ctx context.Context, rule FileRule) InjectionResult {
-	result := InjectionResult{
-		Type:      InjectionTypeFile,
+func (f *FileInjector) injectFile(ctx context.Context, rule FileRule) Result {
+	result := Result{
+		Type:      TypeFile,
 		Target:    rule.FilePath,
 		Timestamp: time.Now(),
 	}
@@ -153,7 +153,8 @@ func (f *FileInjector) injectFile(ctx context.Context, rule FileRule) InjectionR
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(rule.FilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: secret file directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		result.Error = fmt.Errorf("failed to create directory %s: %w", dir, err)
 		return result
 	}

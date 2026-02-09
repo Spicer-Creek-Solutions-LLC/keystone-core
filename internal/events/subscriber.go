@@ -12,11 +12,11 @@ import (
 
 // JetStreamSubscriber implements EventSubscriber using NATS JetStream
 type JetStreamSubscriber struct {
-	js               nats.JetStreamContext
-	subscriptions    map[string]*nats.Subscription  // ID -> NATS subscription
-	wrapperSubs      map[string]*Subscription        // ID -> wrapper subscription
-	mu               sync.RWMutex
-	closed           bool
+	js            nats.JetStreamContext
+	subscriptions map[string]*nats.Subscription // ID -> NATS subscription
+	wrapperSubs   map[string]*Subscription      // ID -> wrapper subscription
+	mu            sync.RWMutex
+	closed        bool
 }
 
 // NewJetStreamSubscriber creates a new JetStream-based event subscriber
@@ -43,7 +43,7 @@ func (s *JetStreamSubscriber) Subscribe(subject string, handler EventHandler) (*
 }
 
 // SubscribeQueue subscribes with queue group (load-balanced across multiple subscribers)
-func (s *JetStreamSubscriber) SubscribeQueue(subject string, queue string, handler EventHandler) (*Subscription, error) {
+func (s *JetStreamSubscriber) SubscribeQueue(subject, queue string, handler EventHandler) (*Subscription, error) {
 	if queue == "" {
 		return nil, fmt.Errorf("queue name is required for queue subscriptions")
 	}
@@ -51,7 +51,7 @@ func (s *JetStreamSubscriber) SubscribeQueue(subject string, queue string, handl
 }
 
 // subscribe is the internal subscription method
-func (s *JetStreamSubscriber) subscribe(subject string, queue string, handler EventHandler) (*Subscription, error) {
+func (s *JetStreamSubscriber) subscribe(subject, queue string, handler EventHandler) (*Subscription, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (s *JetStreamSubscriber) subscribe(subject string, queue string, handler Ev
 		if err := json.Unmarshal(msg.Data, &event); err != nil {
 			// Log error but don't fail - ack the message to prevent redelivery
 			fmt.Printf("Failed to unmarshal event from %s: %v\n", msg.Subject, err)
-			msg.Ack()
+			_ = msg.Ack() //nolint:errcheck // best-effort ack
 			return
 		}
 
@@ -88,12 +88,12 @@ func (s *JetStreamSubscriber) subscribe(subject string, queue string, handler Ev
 		if err := handler(&event); err != nil {
 			// Handler failed - don't ack, message will be redelivered
 			fmt.Printf("Event handler failed for %s: %v\n", event.ID, err)
-			msg.Nak()
+			_ = msg.Nak() //nolint:errcheck // best-effort nak
 			return
 		}
 
 		// Handler succeeded - ack the message
-		msg.Ack()
+		_ = msg.Ack() //nolint:errcheck // best-effort ack
 	}
 
 	// Subscribe using JetStream
@@ -176,7 +176,7 @@ func (s *JetStreamSubscriber) SubscribeWithFilter(subject string, filter *EventF
 }
 
 // SubscribeQueueWithFilter subscribes with queue group and filter
-func (s *JetStreamSubscriber) SubscribeQueueWithFilter(subject string, queue string, filter *EventFilter, handler EventHandler) (*Subscription, error) {
+func (s *JetStreamSubscriber) SubscribeQueueWithFilter(subject, queue string, filter *EventFilter, handler EventHandler) (*Subscription, error) {
 	// Wrap handler with filter
 	filteredHandler := func(event *Event) error {
 		if filter != nil && !filter.Matches(event) {

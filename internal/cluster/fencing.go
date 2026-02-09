@@ -21,6 +21,7 @@ const (
 // FencingMode determines how fencing operates.
 type FencingMode string
 
+// FencingMode constants define the available modes.
 const (
 	FencingModeStrict   FencingMode = "strict"    // Block all operations when fenced
 	FencingModeReadOnly FencingMode = "read_only" // Allow reads, block writes
@@ -30,6 +31,7 @@ const (
 // FenceStatus represents the current fencing status.
 type FenceStatus string
 
+// FenceStatus constants define the possible statuses.
 const (
 	FenceStatusActive     FenceStatus = "active"     // Operating normally
 	FenceStatusWarning    FenceStatus = "warning"    // Approaching fence conditions
@@ -40,6 +42,7 @@ const (
 // FenceReason indicates why fencing was triggered.
 type FenceReason string
 
+// FenceReason constants define the reasons.
 const (
 	FenceReasonNone        FenceReason = "none"
 	FenceReasonLeaseLost   FenceReason = "lease_lost"
@@ -64,6 +67,7 @@ type FenceEvent struct {
 // FenceEventType identifies fencing event types.
 type FenceEventType string
 
+// FenceEventFenced constants define the events.
 const (
 	FenceEventFenced    FenceEventType = "fenced"
 	FenceEventUnfenced  FenceEventType = "unfenced"

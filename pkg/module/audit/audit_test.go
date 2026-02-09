@@ -61,10 +61,10 @@ func TestAuditor_CompareSnapshots_NoChanges(t *testing.T) {
 	old := NewAPISnapshot("test", "1.0.0")
 	old.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
 
-	new := NewAPISnapshot("test", "1.0.1")
-	new.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
+	updated := NewAPISnapshot("test", "1.0.1")
+	updated.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 0 {
 		t.Errorf("Expected no changes, got %d", len(result.Changes))
@@ -80,11 +80,11 @@ func TestAuditor_CompareSnapshots_Added(t *testing.T) {
 	old := NewAPISnapshot("test", "1.0.0")
 	old.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
 
-	new := NewAPISnapshot("test", "1.1.0")
-	new.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
-	new.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
+	updated := NewAPISnapshot("test", "1.1.0")
+	updated.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
+	updated.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 1 {
 		t.Errorf("Expected 1 change, got %d", len(result.Changes))
@@ -110,10 +110,10 @@ func TestAuditor_CompareSnapshots_Removed(t *testing.T) {
 	old.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
 	old.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
 
-	new := NewAPISnapshot("test", "2.0.0")
-	new.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
+	updated := NewAPISnapshot("test", "2.0.0")
+	updated.Add(&APIElement{Name: "Func1", Kind: "function", Exported: true})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 1 {
 		t.Errorf("Expected 1 change, got %d", len(result.Changes))
@@ -143,15 +143,15 @@ func TestAuditor_CompareSnapshots_SignatureChanged(t *testing.T) {
 		Exported:  true,
 	})
 
-	new := NewAPISnapshot("test", "2.0.0")
-	new.Add(&APIElement{
+	updated := NewAPISnapshot("test", "2.0.0")
+	updated.Add(&APIElement{
 		Name:      "Func1",
 		Kind:      "function",
 		Signature: "(a int, b string) error",
 		Exported:  true,
 	})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 1 {
 		t.Errorf("Expected 1 change, got %d", len(result.Changes))
@@ -178,15 +178,15 @@ func TestAuditor_CompareSnapshots_Deprecated(t *testing.T) {
 		Deprecated: false,
 	})
 
-	new := NewAPISnapshot("test", "1.0.1")
-	new.Add(&APIElement{
+	updated := NewAPISnapshot("test", "1.0.1")
+	updated.Add(&APIElement{
 		Name:       "Func1",
 		Kind:       "function",
 		Exported:   true,
 		Deprecated: true,
 	})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 1 {
 		t.Errorf("Expected 1 change, got %d", len(result.Changes))
@@ -209,10 +209,10 @@ func TestAuditor_CompareSnapshots_IgnorePrivate(t *testing.T) {
 	old := NewAPISnapshot("test", "1.0.0")
 	old.Add(&APIElement{Name: "privateFunc", Kind: "function", Exported: false})
 
-	new := NewAPISnapshot("test", "1.0.1")
+	updated := NewAPISnapshot("test", "1.0.1")
 	// Private function removed
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 0 {
 		t.Errorf("Expected no changes when ignoring private, got %d", len(result.Changes))
@@ -231,15 +231,15 @@ func TestAuditor_CompareSnapshots_StrictMode(t *testing.T) {
 		Doc:      "Old documentation",
 	})
 
-	new := NewAPISnapshot("test", "1.0.1")
-	new.Add(&APIElement{
+	updated := NewAPISnapshot("test", "1.0.1")
+	updated.Add(&APIElement{
 		Name:     "Func1",
 		Kind:     "function",
 		Exported: true,
 		Doc:      "Updated documentation",
 	})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if len(result.Changes) != 1 {
 		t.Errorf("Expected 1 change in strict mode, got %d", len(result.Changes))
@@ -328,8 +328,8 @@ func privateFunc() {}
 	}
 }
 
-func TestAuditResult_Format(t *testing.T) {
-	result := &AuditResult{
+func TestResult_Format(t *testing.T) {
+	result := &Result{
 		Module:     "test-module",
 		OldVersion: "1.0.0",
 		NewVersion: "2.0.0",
@@ -391,8 +391,8 @@ func TestAuditResult_Format(t *testing.T) {
 	}
 }
 
-func TestAuditResult_Format_NoChanges(t *testing.T) {
-	result := &AuditResult{
+func TestResult_Format_NoChanges(t *testing.T) {
+	result := &Result{
 		Module:     "test-module",
 		OldVersion: "1.0.0",
 		NewVersion: "1.0.1",
@@ -407,7 +407,7 @@ func TestAuditResult_Format_NoChanges(t *testing.T) {
 	}
 }
 
-func TestAuditResult_SuggestedVersion(t *testing.T) {
+func TestResult_SuggestedVersion(t *testing.T) {
 	tests := []struct {
 		breaking int
 		minor    int
@@ -423,7 +423,7 @@ func TestAuditResult_SuggestedVersion(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := &AuditResult{
+		result := &Result{
 			BreakingCount: tt.breaking,
 			MinorCount:    tt.minor,
 			PatchCount:    tt.patch,
@@ -484,13 +484,13 @@ func TestCompareSnapshots_MultipleChanges(t *testing.T) {
 	old.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
 	old.Add(&APIElement{Name: "Func3", Kind: "function", Exported: true, Signature: "(a int)"})
 
-	new := NewAPISnapshot("test", "2.0.0")
+	updated := NewAPISnapshot("test", "2.0.0")
 	// Func1 removed
-	new.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
-	new.Add(&APIElement{Name: "Func3", Kind: "function", Exported: true, Signature: "(a int, b string)"})
-	new.Add(&APIElement{Name: "Func4", Kind: "function", Exported: true})
+	updated.Add(&APIElement{Name: "Func2", Kind: "function", Exported: true})
+	updated.Add(&APIElement{Name: "Func3", Kind: "function", Exported: true, Signature: "(a int, b string)"})
+	updated.Add(&APIElement{Name: "Func4", Kind: "function", Exported: true})
 
-	result := a.CompareSnapshots(old, new)
+	result := a.CompareSnapshots(old, updated)
 
 	if result.BreakingCount != 2 {
 		t.Errorf("BreakingCount = %d, want 2 (1 removed + 1 signature change)", result.BreakingCount)

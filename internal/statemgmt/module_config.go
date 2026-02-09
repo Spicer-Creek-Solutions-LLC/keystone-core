@@ -41,7 +41,7 @@ func (m *LogrotateModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 		return nil, fmt.Errorf("logrotate: name parameter is required")
 	}
 
-	configPath := filepath.Join("/etc/logrotate.d", name)
+	configPath := filepath.Join("/etc", "logrotate.d", name)
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -117,7 +117,7 @@ func (m *LogrotateModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		return result, err
 	}
 
-	configPath := filepath.Join("/etc/logrotate.d", name)
+	configPath := filepath.Join("/etc", "logrotate.d", name)
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -151,7 +151,8 @@ func (m *LogrotateModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		return result, nil
 	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: logrotate config files need to be readable by logrotate
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		result.Comment = fmt.Sprintf("failed to write logrotate config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
@@ -198,9 +199,7 @@ func (m *LogrotateModule) buildLogrotateConfig(decl *StateDeclaration) string {
 	minsize := getStringParameter(decl, "minsize", "")
 
 	var lines []string
-	lines = append(lines, path+" {")
-	lines = append(lines, fmt.Sprintf("    %s", frequency))
-	lines = append(lines, fmt.Sprintf("    rotate %d", rotate))
+	lines = append(lines, path+" {", fmt.Sprintf("    %s", frequency), fmt.Sprintf("    rotate %d", rotate))
 
 	if compress {
 		lines = append(lines, "    compress")
@@ -233,14 +232,10 @@ func (m *LogrotateModule) buildLogrotateConfig(decl *StateDeclaration) string {
 		lines = append(lines, fmt.Sprintf("    minsize %s", minsize))
 	}
 	if prerotate != "" {
-		lines = append(lines, "    prerotate")
-		lines = append(lines, "        "+prerotate)
-		lines = append(lines, "    endscript")
+		lines = append(lines, "    prerotate", "        "+prerotate, "    endscript")
 	}
 	if postrotate != "" {
-		lines = append(lines, "    postrotate")
-		lines = append(lines, "        "+postrotate)
-		lines = append(lines, "    endscript")
+		lines = append(lines, "    postrotate", "        "+postrotate, "    endscript")
 	}
 	lines = append(lines, "}")
 
@@ -275,7 +270,7 @@ func (m *SudoersModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		return nil, fmt.Errorf("sudoers: name parameter is required")
 	}
 
-	configPath := filepath.Join("/etc/sudoers.d", name)
+	configPath := filepath.Join("/etc", "sudoers.d", name)
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -354,7 +349,7 @@ func (m *SudoersModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		return result, err
 	}
 
-	configPath := filepath.Join("/etc/sudoers.d", name)
+	configPath := filepath.Join("/etc", "sudoers.d", name)
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -411,6 +406,7 @@ func (m *SudoersModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 	// Validate with visudo -cf
 	validate := getBoolParameter(decl, "validate", true)
 	if validate {
+		//nolint:gosec // G204: visudo execution is intentional for sudoers validation
 		cmd := exec.CommandContext(ctx, "visudo", "-cf", tempPath)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			result.Comment = fmt.Sprintf("sudoers syntax validation failed: %v - %s", err, string(output))
@@ -420,8 +416,9 @@ func (m *SudoersModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		}
 	}
 
-	// Move to final location with secure permissions (0440)
-	if err := os.WriteFile(configPath, []byte(content), 0440); err != nil {
+	// Move to final location with secure permissions (0o440)
+	//nolint:gosec // G306: sudoers files use 0o440 permissions (root read-only + group read)
+	if err := os.WriteFile(configPath, []byte(content), 0o440); err != nil {
 		result.Comment = fmt.Sprintf("failed to write sudoers config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
@@ -515,7 +512,7 @@ func (m *LimitsModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 		return nil, fmt.Errorf("limits: name parameter is required")
 	}
 
-	configPath := filepath.Join("/etc/security/limits.d", name+".conf")
+	configPath := filepath.Join("/etc", "security", "limits.d", name+".conf")
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -584,7 +581,7 @@ func (m *LimitsModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		return result, err
 	}
 
-	configPath := filepath.Join("/etc/security/limits.d", name+".conf")
+	configPath := filepath.Join("/etc", "security", "limits.d", name+".conf")
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -619,14 +616,16 @@ func (m *LimitsModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll("/etc/security/limits.d", 0755); err != nil {
+	//nolint:gosec // G301: limits.d directory needs system access
+	if err := os.MkdirAll("/etc/security/limits.d", 0o755); err != nil {
 		result.Comment = fmt.Sprintf("failed to create limits.d directory: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
 		return result, err
 	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: limits.d config files need to be readable by PAM
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		result.Comment = fmt.Sprintf("failed to write limits config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
@@ -677,26 +676,28 @@ func (m *LimitsModule) buildLimitsContent(decl *StateDeclaration) string {
 	if limits, ok := decl.Parameters["limits"]; ok {
 		if limitsList, ok := limits.([]interface{}); ok {
 			for _, l := range limitsList {
-				if lm, ok := l.(map[string]interface{}); ok {
-					d := domain
-					if v, ok := lm["domain"].(string); ok {
-						d = v
-					}
-					t := limitType
-					if v, ok := lm["type"].(string); ok {
-						t = v
-					}
-					i := ""
-					if v, ok := lm["item"].(string); ok {
-						i = v
-					}
-					val := ""
-					if v, ok := lm["value"].(string); ok {
-						val = v
-					}
-					if i != "" && val != "" {
-						lines = append(lines, fmt.Sprintf("%s %s %s %s", d, t, i, val))
-					}
+				lm, ok := l.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				d := domain
+				if v, ok := lm["domain"].(string); ok {
+					d = v
+				}
+				t := limitType
+				if v, ok := lm["type"].(string); ok {
+					t = v
+				}
+				i := ""
+				if v, ok := lm["item"].(string); ok {
+					i = v
+				}
+				val := ""
+				if v, ok := lm["value"].(string); ok {
+					val = v
+				}
+				if i != "" && val != "" {
+					lines = append(lines, fmt.Sprintf("%s %s %s %s", d, t, i, val))
 				}
 			}
 		}
@@ -822,6 +823,7 @@ func (m *ModprobeModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 			if params != "" {
 				args = append(args, strings.Fields(params)...)
 			}
+			//nolint:gosec // G204: modprobe execution is intentional for kernel module management
 			cmd := exec.CommandContext(ctx, "modprobe", args...)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				result.Comment = fmt.Sprintf("failed to load module %s: %v - %s", name, err, string(output))
@@ -850,6 +852,7 @@ func (m *ModprobeModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 	case "absent":
 		loaded, _ := m.isModuleLoaded(name)
 		if loaded {
+			//nolint:gosec // G204: modprobe execution is intentional for kernel module management
 			cmd := exec.CommandContext(ctx, "modprobe", "-r", name)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				result.Comment = fmt.Sprintf("failed to unload module %s: %v - %s", name, err, string(output))
@@ -864,6 +867,7 @@ func (m *ModprobeModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		// First, unload if loaded
 		loaded, _ := m.isModuleLoaded(name)
 		if loaded {
+			//nolint:gosec // G204: modprobe execution is intentional for kernel module management
 			cmd := exec.CommandContext(ctx, "modprobe", "-r", name)
 			if _, err := cmd.CombinedOutput(); err != nil {
 				// Module might be in use, just warn
@@ -876,9 +880,10 @@ func (m *ModprobeModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		// Add to blacklist
 		blacklisted := m.isModuleBlacklisted(name)
 		if !blacklisted {
-			blacklistPath := filepath.Join("/etc/modprobe.d", name+"-blacklist.conf")
+			blacklistPath := filepath.Join("/etc", "modprobe.d", name+"-blacklist.conf")
 			content := fmt.Sprintf("# Managed by Keystone Core\nblacklist %s\ninstall %s /bin/true\n", name, name)
-			if err := os.WriteFile(blacklistPath, []byte(content), 0644); err != nil {
+			//nolint:gosec // G306: modprobe.d config files need to be readable by the kernel
+			if err := os.WriteFile(blacklistPath, []byte(content), 0o644); err != nil {
 				result.Comment = fmt.Sprintf("failed to blacklist module: %v", err)
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
@@ -925,7 +930,7 @@ func (m *ModprobeModule) isModuleLoaded(name string) (bool, error) {
 }
 
 func (m *ModprobeModule) isModuleBlacklisted(name string) bool {
-	blacklistPath := filepath.Join("/etc/modprobe.d", name+"-blacklist.conf")
+	blacklistPath := filepath.Join("/etc", "modprobe.d", name+"-blacklist.conf")
 	if _, err := os.Stat(blacklistPath); err == nil {
 		return true
 	}
@@ -953,19 +958,21 @@ func (m *ModprobeModule) isModuleBlacklisted(name string) bool {
 
 func (m *ModprobeModule) ensureModulesPersist(name string) (bool, error) {
 	// Add to /etc/modules-load.d/
-	persistPath := filepath.Join("/etc/modules-load.d", name+".conf")
+	persistPath := filepath.Join("/etc", "modules-load.d", name+".conf")
 
 	if _, err := os.Stat(persistPath); err == nil {
 		// Already exists
 		return false, nil
 	}
 
-	if err := os.MkdirAll("/etc/modules-load.d", 0755); err != nil {
+	//nolint:gosec // G301: modules-load.d directory needs system access
+	if err := os.MkdirAll("/etc/modules-load.d", 0o755); err != nil {
 		return false, err
 	}
 
 	content := fmt.Sprintf("# Managed by Keystone Core\n%s\n", name)
-	if err := os.WriteFile(persistPath, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: modules-load.d config files need to be readable by systemd
+	if err := os.WriteFile(persistPath, []byte(content), 0o644); err != nil {
 		return false, err
 	}
 
@@ -1000,7 +1007,7 @@ func (m *SyslogModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 		return nil, fmt.Errorf("syslog: name parameter is required")
 	}
 
-	configPath := filepath.Join("/etc/rsyslog.d", name+".conf")
+	configPath := filepath.Join("/etc", "rsyslog.d", name+".conf")
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -1069,7 +1076,7 @@ func (m *SyslogModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		return result, err
 	}
 
-	configPath := filepath.Join("/etc/rsyslog.d", name+".conf")
+	configPath := filepath.Join("/etc", "rsyslog.d", name+".conf")
 	state := decl.State
 	if state == "" {
 		state = "present"
@@ -1110,14 +1117,16 @@ func (m *SyslogModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll("/etc/rsyslog.d", 0755); err != nil {
+	//nolint:gosec // G301: rsyslog.d directory needs system access
+	if err := os.MkdirAll("/etc/rsyslog.d", 0o755); err != nil {
 		result.Comment = fmt.Sprintf("failed to create rsyslog.d directory: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
 		return result, err
 	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	//nolint:gosec // G306: rsyslog config files need to be readable by rsyslog
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		result.Comment = fmt.Sprintf("failed to write syslog config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
@@ -1178,23 +1187,25 @@ func (m *SyslogModule) buildSyslogContent(decl *StateDeclaration) string {
 	if rules, ok := decl.Parameters["rules"]; ok {
 		if rulesList, ok := rules.([]interface{}); ok {
 			for _, r := range rulesList {
-				if rm, ok := r.(map[string]interface{}); ok {
-					f := facility
-					if v, ok := rm["facility"].(string); ok {
-						f = v
-					}
-					p := priority
-					if v, ok := rm["priority"].(string); ok {
-						p = v
-					}
-					d := ""
-					if v, ok := rm["destination"].(string); ok {
-						d = v
-					}
-					if d != "" {
-						selector := fmt.Sprintf("%s.%s", f, p)
-						lines = append(lines, fmt.Sprintf("%s\t%s", selector, d))
-					}
+				rm, ok := r.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				f := facility
+				if v, ok := rm["facility"].(string); ok {
+					f = v
+				}
+				p := priority
+				if v, ok := rm["priority"].(string); ok {
+					p = v
+				}
+				d := ""
+				if v, ok := rm["destination"].(string); ok {
+					d = v
+				}
+				if d != "" {
+					selector := fmt.Sprintf("%s.%s", f, p)
+					lines = append(lines, fmt.Sprintf("%s\t%s", selector, d))
 				}
 			}
 		}
@@ -1295,16 +1306,17 @@ func (m *LineinfileModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	switch state {
 	case "present":
-		if !found {
+		switch {
+		case !found:
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["line"] = map[string]string{"current": "absent", "desired": "present"}
-		} else if line != "" && matchIdx >= 0 && lines[matchIdx] != line {
+		case line != "" && matchIdx >= 0 && lines[matchIdx] != line:
 			// Line found by regexp but doesn't match desired line
 			result.CurrentState = "different"
 			result.Matches = false
 			result.Diff["line"] = map[string]string{"current": lines[matchIdx], "desired": line}
-		} else {
+		default:
 			result.CurrentState = "present"
 			result.Matches = true
 		}
@@ -1360,15 +1372,16 @@ func (m *LineinfileModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 	if err != nil {
 		if os.IsNotExist(err) {
 			fileExists = false
-			if state == "present" && create {
+			switch {
+			case state == "present" && create:
 				lines = []string{}
-			} else if state == "present" {
+			case state == "present":
 				err := fmt.Errorf("file does not exist and create=false: %s", path)
 				result.Comment = err.Error()
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
 				return result, err
-			} else {
+			default:
 				// absent state, file doesn't exist - nothing to do
 				result.Success = true
 				result.EndTime = time.Now()
@@ -1479,7 +1492,8 @@ func (m *LineinfileModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 		// Backup if requested
 		if backup && fileExists {
 			backupPath := path + ".bak"
-			if err := os.WriteFile(backupPath, content, 0644); err != nil {
+			//nolint:gosec // G306: backup files use same permissions as original
+			if err := os.WriteFile(backupPath, content, 0o644); err != nil {
 				result.Comment = fmt.Sprintf("warning: failed to create backup: %v", err)
 			}
 		}
@@ -1487,7 +1501,7 @@ func (m *LineinfileModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 		// Write file
 		newContent := strings.Join(lines, "\n") + "\n"
 		modeStr := getStringParameter(decl, "mode", "")
-		fileMode := os.FileMode(0644)
+		fileMode := os.FileMode(0o644)
 		if modeStr != "" {
 			if modeInt, err := strconv.ParseUint(modeStr, 8, 32); err == nil {
 				fileMode = os.FileMode(modeInt)
@@ -1501,7 +1515,8 @@ func (m *LineinfileModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 		// Ensure parent directory exists if creating
 		if !fileExists {
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			//nolint:gosec // G301: config file parent directory needs system access
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				result.Comment = fmt.Sprintf("failed to create directory: %v", err)
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
@@ -1605,15 +1620,16 @@ func (m *IniFileModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 	if sectionMap, ok := ini[section]; ok {
 		if currentValue, ok := sectionMap[option]; ok {
 			result.Metadata["current_value"] = currentValue
-			if state == "present" && currentValue != value {
+			switch {
+			case state == "present" && currentValue != value:
 				result.CurrentState = "different"
 				result.Matches = false
 				result.Diff["value"] = map[string]string{"current": currentValue, "desired": value}
-			} else if state == "absent" {
+			case state == "absent":
 				result.CurrentState = "present"
 				result.Matches = false
 				result.Diff["option"] = map[string]string{"current": "present", "desired": "absent"}
-			} else {
+			default:
 				result.CurrentState = "present"
 				result.Matches = true
 			}
@@ -1678,15 +1694,16 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 	if err != nil {
 		if os.IsNotExist(err) {
 			fileExists = false
-			if state == "present" && create {
+			switch {
+			case state == "present" && create:
 				content = []byte{}
-			} else if state == "present" {
+			case state == "present":
 				err := fmt.Errorf("file does not exist and create=false: %s", path)
 				result.Comment = err.Error()
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
 				return result, err
-			} else {
+			default:
 				result.Success = true
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
@@ -1700,6 +1717,7 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		}
 	}
 
+	_ = fileExists // Prevent unused variable warning
 	lines := strings.Split(string(content), "\n")
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
@@ -1730,13 +1748,14 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 			if key == option {
 				optionFound = true
-				if state == "present" {
+				switch state {
+				case "present":
 					newLine := fmt.Sprintf("%s = %s", option, value)
 					if lines[i] != newLine {
 						lines[i] = newLine
 						modified = true
 					}
-				} else if state == "absent" {
+				case "absent":
 					lines = append(lines[:i], lines[i+1:]...)
 					modified = true
 				}
@@ -1753,8 +1772,7 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 			if len(lines) > 0 && lines[len(lines)-1] != "" {
 				lines = append(lines, "")
 			}
-			lines = append(lines, fmt.Sprintf("[%s]", section))
-			lines = append(lines, newLine)
+			lines = append(lines, fmt.Sprintf("[%s]", section), newLine)
 			modified = true
 		} else {
 			// Find end of section and add option
@@ -1789,7 +1807,8 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		// Backup if requested
 		if backup && fileExists {
 			backupPath := path + ".bak"
-			if err := os.WriteFile(backupPath, content, 0644); err != nil {
+			//nolint:gosec // G306: backup files use same permissions as original
+			if err := os.WriteFile(backupPath, content, 0o644); err != nil {
 				result.Comment = fmt.Sprintf("warning: failed to create backup: %v", err)
 			}
 		}
@@ -1797,7 +1816,7 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		// Write file
 		newContent := strings.Join(lines, "\n") + "\n"
 		modeStr := getStringParameter(decl, "mode", "")
-		fileMode := os.FileMode(0644)
+		fileMode := os.FileMode(0o644)
 		if modeStr != "" {
 			if modeInt, err := strconv.ParseUint(modeStr, 8, 32); err == nil {
 				fileMode = os.FileMode(modeInt)
@@ -1810,7 +1829,8 @@ func (m *IniFileModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 		// Ensure parent directory exists
 		if !fileExists {
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			//nolint:gosec // G301: config file parent directory needs system access
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				result.Comment = fmt.Sprintf("failed to create directory: %v", err)
 				result.EndTime = time.Now()
 				result.Duration = result.EndTime.Sub(startTime)
@@ -2046,7 +2066,8 @@ func (m *ArchiveModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		}
 
 		// Create destination directory
-		if err := os.MkdirAll(dest, 0755); err != nil {
+		//nolint:gosec // G301: extraction destination directory needs to be accessible
+		if err := os.MkdirAll(dest, 0o755); err != nil {
 			result.Comment = fmt.Sprintf("failed to create destination directory: %v", err)
 			result.EndTime = time.Now()
 			result.Duration = result.EndTime.Sub(startTime)
@@ -2056,6 +2077,7 @@ func (m *ArchiveModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		// Extract archive
 		var cmd *exec.Cmd
 
+		//nolint:gosec // G204: tar/unzip execution is intentional for archive extraction
 		switch format {
 		case "tar.gz", "tgz":
 			cmd = exec.CommandContext(ctx, "tar", "-xzf", src, "-C", dest)
@@ -2108,6 +2130,7 @@ func (m *ArchiveModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		// Create archive
 		var cmd *exec.Cmd
 
+		//nolint:gosec // G204: tar/zip execution is intentional for archive creation
 		switch format {
 		case "tar.gz", "tgz":
 			cmd = exec.CommandContext(ctx, "tar", "-czf", dest, "-C", filepath.Dir(src), filepath.Base(src))
@@ -2219,12 +2242,12 @@ func (m *ArchiveModule) detectFormat(filename string) string {
 // =============================================================================
 
 func init() {
-	RegisterModule(NewLogrotateModule())
-	RegisterModule(NewSudoersModule())
-	RegisterModule(NewLimitsModule())
-	RegisterModule(NewModprobeModule())
-	RegisterModule(NewSyslogModule())
-	RegisterModule(NewLineinfileModule())
-	RegisterModule(NewIniFileModule())
-	RegisterModule(NewArchiveModule())
+	_ = RegisterModule(NewLogrotateModule())
+	_ = RegisterModule(NewSudoersModule())
+	_ = RegisterModule(NewLimitsModule())
+	_ = RegisterModule(NewModprobeModule())
+	_ = RegisterModule(NewSyslogModule())
+	_ = RegisterModule(NewLineinfileModule())
+	_ = RegisterModule(NewIniFileModule())
+	_ = RegisterModule(NewArchiveModule())
 }

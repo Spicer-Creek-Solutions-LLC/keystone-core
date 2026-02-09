@@ -16,6 +16,8 @@ import (
 )
 
 // AuditLevel controls what gets audited
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditLevel string
 
 const (
@@ -28,8 +30,11 @@ const (
 )
 
 // AuditAction represents the type of action being audited
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditAction string
 
+// AuditAction constants define the types of actions that can be audited.
 const (
 	ActionCommandExecuted  AuditAction = "command_executed"
 	ActionStateApplied     AuditAction = "state_applied"
@@ -52,8 +57,11 @@ const (
 )
 
 // AuditResult represents the outcome of an action
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditResult string
 
+// AuditResult constants define the possible outcomes of an audited action.
 const (
 	ResultSuccess AuditResult = "success"
 	ResultFailure AuditResult = "failure"
@@ -62,6 +70,8 @@ const (
 )
 
 // AuditEntry represents a single audit log entry
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditEntry struct {
 	// Timestamp is when the action occurred
 	Timestamp time.Time `json:"timestamp"`
@@ -119,6 +129,8 @@ type AuditEntry struct {
 }
 
 // AuditLogger is the interface for audit logging backends
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditLogger interface {
 	// Log writes an audit entry
 	Log(ctx context.Context, entry *AuditEntry) error
@@ -128,6 +140,8 @@ type AuditLogger interface {
 }
 
 // AuditConfig contains audit logging configuration
+//
+//nolint:revive // stuttering is intentional to avoid conflict with logger.go types
 type AuditConfig struct {
 	// Level controls what gets logged
 	Level AuditLevel
@@ -164,7 +178,7 @@ type Auditor struct {
 }
 
 // NewAuditor creates a new auditor for a CLI tool
-func NewAuditor(tool string, config *AuditConfig) (*Auditor, error) {
+func NewAuditor(ctx context.Context, tool string, config *AuditConfig) (*Auditor, error) {
 	if config == nil {
 		config = DefaultAuditConfig()
 	}
@@ -178,7 +192,7 @@ func NewAuditor(tool string, config *AuditConfig) (*Auditor, error) {
 	}
 
 	// Select backend
-	backend, err := createBackend(config)
+	backend, err := createBackend(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -191,17 +205,17 @@ func NewAuditor(tool string, config *AuditConfig) (*Auditor, error) {
 }
 
 // createBackend creates the appropriate audit backend
-func createBackend(config *AuditConfig) (AuditLogger, error) {
+func createBackend(ctx context.Context, config *AuditConfig) (AuditLogger, error) {
 	switch config.Backend {
 	case "syslog":
-		return NewSyslogAuditLogger(config.Facility)
+		return NewSyslogAuditLogger(ctx, config.Facility)
 	case "journald":
-		return NewJournaldAuditLogger()
+		return NewJournaldAuditLogger(ctx)
 	case "stderr":
 		return NewStderrAuditLogger(), nil
 	case "auto", "":
 		// Auto-detect based on platform
-		return autoSelectBackend(config)
+		return autoSelectBackend(ctx, config)
 	case "none":
 		return &NoopAuditLogger{}, nil
 	default:
@@ -210,18 +224,18 @@ func createBackend(config *AuditConfig) (AuditLogger, error) {
 }
 
 // autoSelectBackend selects the best backend for the current platform
-func autoSelectBackend(config *AuditConfig) (AuditLogger, error) {
+func autoSelectBackend(ctx context.Context, config *AuditConfig) (AuditLogger, error) {
 	switch runtime.GOOS {
 	case "linux":
 		// Try journald first, fall back to syslog
-		backend, err := NewJournaldAuditLogger()
+		backend, err := NewJournaldAuditLogger(ctx)
 		if err == nil {
 			return backend, nil
 		}
-		return NewSyslogAuditLogger(config.Facility)
+		return NewSyslogAuditLogger(ctx, config.Facility)
 	case "darwin":
 		// macOS: use syslog (ASL compatible)
-		return NewSyslogAuditLogger(config.Facility)
+		return NewSyslogAuditLogger(ctx, config.Facility)
 	case "windows":
 		// Windows: use stderr (Event Log would require cgo)
 		return NewStderrAuditLogger(), nil
@@ -361,8 +375,8 @@ var (
 )
 
 // Init initializes the global auditor
-func Init(tool string, config *AuditConfig) error {
-	auditor, err := NewAuditor(tool, config)
+func Init(ctx context.Context, tool string, config *AuditConfig) error {
+	auditor, err := NewAuditor(ctx, tool, config)
 	if err != nil {
 		return err
 	}

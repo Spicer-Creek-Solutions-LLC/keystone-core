@@ -163,9 +163,9 @@ var defaultSecurityMappings = map[EventType]*SecurityEventMapping{
 
 // EventAuditBridge bridges the event system to the audit log
 type EventAuditBridge struct {
-	auditor     *audit.Auditor
-	subscriber  EventSubscriber
-	mappings    map[EventType]*SecurityEventMapping
+	auditor       *audit.Auditor
+	subscriber    EventSubscriber
+	mappings      map[EventType]*SecurityEventMapping
 	subscriptions []*Subscription
 
 	// Filters
@@ -292,7 +292,7 @@ func (b *EventAuditBridge) Stop() error {
 func (b *EventAuditBridge) cleanupSubscriptions() {
 	for _, sub := range b.subscriptions {
 		if sub != nil && sub.unsubscribe != nil {
-			sub.unsubscribe()
+			_ = sub.unsubscribe() //nolint:errcheck // best-effort cleanup
 		}
 	}
 	b.subscriptions = nil
@@ -374,7 +374,7 @@ func (b *EventAuditBridge) eventToAuditEntry(event *Event, mapping *SecurityEven
 }
 
 // copySecurityRelevantData copies security-relevant fields from event data
-func (b *EventAuditBridge) copySecurityRelevantData(data map[string]interface{}, extra map[string]interface{}) {
+func (b *EventAuditBridge) copySecurityRelevantData(data, extra map[string]interface{}) {
 	// Fields that are security-relevant and safe to copy
 	securityFields := []string{
 		"user", "username", "user_id",
@@ -509,15 +509,15 @@ func (b *EventAuditBridge) GetMappings() map[EventType]*SecurityEventMapping {
 	return result
 }
 
-// Stats returns statistics about the event-audit bridge
+// EventAuditBridgeStats holds statistics about the event-audit bridge.
 type EventAuditBridgeStats struct {
-	Running            bool                                  `json:"running"`
-	SubscriptionCount  int                                   `json:"subscription_count"`
-	MappingCount       int                                   `json:"mapping_count"`
-	IncludeCategories  []SecurityEventCategory               `json:"include_categories,omitempty"`
-	ExcludeTypes       []EventType                           `json:"exclude_types,omitempty"`
-	MinSeverity        Severity                              `json:"min_severity,omitempty"`
-	CategoryCounts     map[SecurityEventCategory]int         `json:"category_counts"`
+	Running           bool                          `json:"running"`
+	SubscriptionCount int                           `json:"subscription_count"`
+	MappingCount      int                           `json:"mapping_count"`
+	IncludeCategories []SecurityEventCategory       `json:"include_categories,omitempty"`
+	ExcludeTypes      []EventType                   `json:"exclude_types,omitempty"`
+	MinSeverity       Severity                      `json:"min_severity,omitempty"`
+	CategoryCounts    map[SecurityEventCategory]int `json:"category_counts"`
 }
 
 // GetStats returns current statistics

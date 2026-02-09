@@ -13,51 +13,52 @@ import (
 	"time"
 )
 
-// PKCS#11 mechanism types (subset of common mechanisms).
+// PKCS11Mechanism represents PKCS#11 mechanism types (subset of common mechanisms).
 type PKCS11Mechanism uint32
 
+// CkmRSAPKCS constants define the PKCS#11 mechanisms.
 const (
-	CKM_RSA_PKCS           PKCS11Mechanism = 0x00000001
-	CKM_RSA_PKCS_KEY_PAIR_GEN PKCS11Mechanism = 0x00000000
-	CKM_RSA_PKCS_OAEP      PKCS11Mechanism = 0x00000009
-	CKM_AES_KEY_GEN        PKCS11Mechanism = 0x00001080
-	CKM_AES_CBC            PKCS11Mechanism = 0x00001082
-	CKM_AES_CBC_PAD        PKCS11Mechanism = 0x00001085
-	CKM_AES_GCM            PKCS11Mechanism = 0x00001087
-	CKM_AES_KEY_WRAP       PKCS11Mechanism = 0x00002109
-	CKM_AES_KEY_WRAP_PAD   PKCS11Mechanism = 0x0000210A
-	CKM_SHA256             PKCS11Mechanism = 0x00000250
-	CKM_SHA384             PKCS11Mechanism = 0x00000260
-	CKM_SHA512             PKCS11Mechanism = 0x00000270
-	CKM_SHA256_RSA_PKCS    PKCS11Mechanism = 0x00000040
-	CKM_SHA384_RSA_PKCS    PKCS11Mechanism = 0x00000041
-	CKM_SHA512_RSA_PKCS    PKCS11Mechanism = 0x00000042
-	CKM_ECDSA              PKCS11Mechanism = 0x00001041
-	CKM_ECDSA_SHA256       PKCS11Mechanism = 0x00001043
-	CKM_ECDSA_SHA384       PKCS11Mechanism = 0x00001044
+	CkmRSAPKCS           PKCS11Mechanism = 0x00000001
+	CkmRSAPKCSKeyPairGen PKCS11Mechanism = 0x00000000
+	CkmRSAPKCSOAEP       PKCS11Mechanism = 0x00000009
+	CkmAESKeyGen         PKCS11Mechanism = 0x00001080
+	CkmAESCBC            PKCS11Mechanism = 0x00001082
+	CkmAESCBCPad         PKCS11Mechanism = 0x00001085
+	CkmAESGCM            PKCS11Mechanism = 0x00001087
+	CkmAESKeyWrap        PKCS11Mechanism = 0x00002109
+	CkmAESKeyWrapPad     PKCS11Mechanism = 0x0000210A
+	CkmSHA256            PKCS11Mechanism = 0x00000250
+	CkmSHA384            PKCS11Mechanism = 0x00000260
+	CkmSHA512            PKCS11Mechanism = 0x00000270
+	CkmSHA256RSAPKCS     PKCS11Mechanism = 0x00000040
+	CkmSHA384RSAPKCS     PKCS11Mechanism = 0x00000041
+	CkmSHA512RSAPKCS     PKCS11Mechanism = 0x00000042
+	CkmECDSA             PKCS11Mechanism = 0x00001041
+	CkmECDSASHA256       PKCS11Mechanism = 0x00001043
+	CkmECDSASHA384       PKCS11Mechanism = 0x00001044
 )
 
 // String returns the mechanism name.
 func (m PKCS11Mechanism) String() string {
 	names := map[PKCS11Mechanism]string{
-		CKM_RSA_PKCS:              "CKM_RSA_PKCS",
-		CKM_RSA_PKCS_KEY_PAIR_GEN: "CKM_RSA_PKCS_KEY_PAIR_GEN",
-		CKM_RSA_PKCS_OAEP:         "CKM_RSA_PKCS_OAEP",
-		CKM_AES_KEY_GEN:           "CKM_AES_KEY_GEN",
-		CKM_AES_CBC:               "CKM_AES_CBC",
-		CKM_AES_CBC_PAD:           "CKM_AES_CBC_PAD",
-		CKM_AES_GCM:               "CKM_AES_GCM",
-		CKM_AES_KEY_WRAP:          "CKM_AES_KEY_WRAP",
-		CKM_AES_KEY_WRAP_PAD:      "CKM_AES_KEY_WRAP_PAD",
-		CKM_SHA256:                "CKM_SHA256",
-		CKM_SHA384:                "CKM_SHA384",
-		CKM_SHA512:                "CKM_SHA512",
-		CKM_SHA256_RSA_PKCS:       "CKM_SHA256_RSA_PKCS",
-		CKM_SHA384_RSA_PKCS:       "CKM_SHA384_RSA_PKCS",
-		CKM_SHA512_RSA_PKCS:       "CKM_SHA512_RSA_PKCS",
-		CKM_ECDSA:                 "CKM_ECDSA",
-		CKM_ECDSA_SHA256:          "CKM_ECDSA_SHA256",
-		CKM_ECDSA_SHA384:          "CKM_ECDSA_SHA384",
+		CkmRSAPKCS:           "CKM_RSA_PKCS",
+		CkmRSAPKCSKeyPairGen: "CKM_RSA_PKCS_KEY_PAIR_GEN",
+		CkmRSAPKCSOAEP:       "CKM_RSA_PKCS_OAEP",
+		CkmAESKeyGen:         "CKM_AES_KEY_GEN",
+		CkmAESCBC:            "CKM_AES_CBC",
+		CkmAESCBCPad:         "CKM_AES_CBC_PAD",
+		CkmAESGCM:            "CKM_AES_GCM",
+		CkmAESKeyWrap:        "CKM_AES_KEY_WRAP",
+		CkmAESKeyWrapPad:     "CKM_AES_KEY_WRAP_PAD",
+		CkmSHA256:            "CKM_SHA256",
+		CkmSHA384:            "CKM_SHA384",
+		CkmSHA512:            "CKM_SHA512",
+		CkmSHA256RSAPKCS:     "CKM_SHA256_RSA_PKCS",
+		CkmSHA384RSAPKCS:     "CKM_SHA384_RSA_PKCS",
+		CkmSHA512RSAPKCS:     "CKM_SHA512_RSA_PKCS",
+		CkmECDSA:             "CKM_ECDSA",
+		CkmECDSASHA256:       "CKM_ECDSA_SHA256",
+		CkmECDSASHA384:       "CKM_ECDSA_SHA384",
 	}
 	if name, ok := names[m]; ok {
 		return name
@@ -65,133 +66,138 @@ func (m PKCS11Mechanism) String() string {
 	return fmt.Sprintf("CKM_UNKNOWN_0x%08X", uint32(m))
 }
 
-// PKCS#11 object classes.
+// PKCS11ObjectClass represents PKCS#11 object classes.
 type PKCS11ObjectClass uint32
 
+// CkoData constants define the PKCS#11 object classes.
 const (
-	CKO_DATA             PKCS11ObjectClass = 0x00000000
-	CKO_CERTIFICATE      PKCS11ObjectClass = 0x00000001
-	CKO_PUBLIC_KEY       PKCS11ObjectClass = 0x00000002
-	CKO_PRIVATE_KEY      PKCS11ObjectClass = 0x00000003
-	CKO_SECRET_KEY       PKCS11ObjectClass = 0x00000004
-	CKO_HW_FEATURE       PKCS11ObjectClass = 0x00000005
-	CKO_DOMAIN_PARAMETERS PKCS11ObjectClass = 0x00000006
+	CkoData             PKCS11ObjectClass = 0x00000000
+	CkoCertificate      PKCS11ObjectClass = 0x00000001
+	CkoPublicKey        PKCS11ObjectClass = 0x00000002
+	CkoPrivateKey       PKCS11ObjectClass = 0x00000003
+	CkoSecretKey        PKCS11ObjectClass = 0x00000004
+	CkoHWFeature        PKCS11ObjectClass = 0x00000005
+	CkoDomainParameters PKCS11ObjectClass = 0x00000006
 )
 
-// PKCS#11 key types.
+// PKCS11KeyType represents PKCS#11 key types.
 type PKCS11KeyType uint32
 
+// CkkRSA constants define the PKCS#11 key types.
 const (
-	CKK_RSA            PKCS11KeyType = 0x00000000
-	CKK_DSA            PKCS11KeyType = 0x00000001
-	CKK_DH             PKCS11KeyType = 0x00000002
-	CKK_EC             PKCS11KeyType = 0x00000003
-	CKK_GENERIC_SECRET PKCS11KeyType = 0x00000010
-	CKK_AES            PKCS11KeyType = 0x0000001F
+	CkkRSA           PKCS11KeyType = 0x00000000
+	CkkDSA           PKCS11KeyType = 0x00000001
+	CkkDH            PKCS11KeyType = 0x00000002
+	CkkEC            PKCS11KeyType = 0x00000003
+	CkkGenericSecret PKCS11KeyType = 0x00000010
+	CkkAES           PKCS11KeyType = 0x0000001F
 )
 
-// PKCS#11 user types.
+// PKCS11UserType represents PKCS#11 user types.
 type PKCS11UserType uint32
 
+// CkuSO constants define the PKCS#11 user types.
 const (
-	CKU_SO              PKCS11UserType = 0
-	CKU_USER            PKCS11UserType = 1
-	CKU_CONTEXT_SPECIFIC PKCS11UserType = 2
+	CkuSO              PKCS11UserType = 0
+	CkuUser            PKCS11UserType = 1
+	CkuContextSpecific PKCS11UserType = 2
 )
 
-// PKCS#11 session flags.
+// PKCS11SessionFlags represents PKCS#11 session flags.
 type PKCS11SessionFlags uint32
 
+// CkfRWSession constants define the PKCS#11 session flags.
 const (
-	CKF_RW_SESSION    PKCS11SessionFlags = 0x00000002
-	CKF_SERIAL_SESSION PKCS11SessionFlags = 0x00000004
+	CkfRWSession     PKCS11SessionFlags = 0x00000002
+	CkfSerialSession PKCS11SessionFlags = 0x00000004
 )
 
-// PKCS#11 return values.
-type PKCS11ReturnValue uint32
+// PKCS11ReturnError represents PKCS#11 return values.
+type PKCS11ReturnError uint32
 
+// ErrCkrOK constants define the PKCS#11 return codes.
 const (
-	CKR_OK                            PKCS11ReturnValue = 0x00000000
-	CKR_CANCEL                        PKCS11ReturnValue = 0x00000001
-	CKR_HOST_MEMORY                   PKCS11ReturnValue = 0x00000002
-	CKR_SLOT_ID_INVALID               PKCS11ReturnValue = 0x00000003
-	CKR_GENERAL_ERROR                 PKCS11ReturnValue = 0x00000005
-	CKR_FUNCTION_FAILED               PKCS11ReturnValue = 0x00000006
-	CKR_DEVICE_ERROR                  PKCS11ReturnValue = 0x00000030
-	CKR_DEVICE_MEMORY                 PKCS11ReturnValue = 0x00000031
-	CKR_DEVICE_REMOVED                PKCS11ReturnValue = 0x00000032
-	CKR_KEY_HANDLE_INVALID            PKCS11ReturnValue = 0x00000060
-	CKR_KEY_SIZE_RANGE                PKCS11ReturnValue = 0x00000062
-	CKR_KEY_TYPE_INCONSISTENT         PKCS11ReturnValue = 0x00000063
-	CKR_KEY_NOT_WRAPPABLE             PKCS11ReturnValue = 0x00000069
-	CKR_KEY_UNEXTRACTABLE             PKCS11ReturnValue = 0x0000006A
-	CKR_MECHANISM_INVALID             PKCS11ReturnValue = 0x00000070
-	CKR_MECHANISM_PARAM_INVALID       PKCS11ReturnValue = 0x00000071
-	CKR_OPERATION_ACTIVE              PKCS11ReturnValue = 0x00000090
-	CKR_OPERATION_NOT_INITIALIZED     PKCS11ReturnValue = 0x00000091
-	CKR_PIN_INCORRECT                 PKCS11ReturnValue = 0x000000A0
-	CKR_PIN_LOCKED                    PKCS11ReturnValue = 0x000000A4
-	CKR_SESSION_CLOSED                PKCS11ReturnValue = 0x000000B0
-	CKR_SESSION_COUNT                 PKCS11ReturnValue = 0x000000B1
-	CKR_SESSION_HANDLE_INVALID        PKCS11ReturnValue = 0x000000B3
-	CKR_SESSION_READ_ONLY             PKCS11ReturnValue = 0x000000B5
-	CKR_TOKEN_NOT_PRESENT             PKCS11ReturnValue = 0x000000E0
-	CKR_TOKEN_NOT_RECOGNIZED          PKCS11ReturnValue = 0x000000E1
-	CKR_USER_ALREADY_LOGGED_IN        PKCS11ReturnValue = 0x00000100
-	CKR_USER_NOT_LOGGED_IN            PKCS11ReturnValue = 0x00000101
-	CKR_USER_PIN_NOT_INITIALIZED      PKCS11ReturnValue = 0x00000102
-	CKR_WRAPPED_KEY_INVALID           PKCS11ReturnValue = 0x00000110
-	CKR_WRAPPED_KEY_LEN_RANGE         PKCS11ReturnValue = 0x00000112
-	CKR_WRAPPING_KEY_HANDLE_INVALID   PKCS11ReturnValue = 0x00000113
-	CKR_WRAPPING_KEY_SIZE_RANGE       PKCS11ReturnValue = 0x00000114
-	CKR_WRAPPING_KEY_TYPE_INCONSISTENT PKCS11ReturnValue = 0x00000115
-	CKR_RANDOM_SEED_NOT_SUPPORTED     PKCS11ReturnValue = 0x00000120
-	CKR_BUFFER_TOO_SMALL              PKCS11ReturnValue = 0x00000150
-	CKR_CRYPTOKI_NOT_INITIALIZED      PKCS11ReturnValue = 0x00000190
-	CKR_CRYPTOKI_ALREADY_INITIALIZED  PKCS11ReturnValue = 0x00000191
+	ErrCkrOK                           PKCS11ReturnError = 0x00000000
+	ErrCkrCancel                       PKCS11ReturnError = 0x00000001
+	ErrCkrHostMemory                   PKCS11ReturnError = 0x00000002
+	ErrCkrSlotIDInvalid                PKCS11ReturnError = 0x00000003
+	ErrCkrGeneralError                 PKCS11ReturnError = 0x00000005
+	ErrCkrFunctionFailed               PKCS11ReturnError = 0x00000006
+	ErrCkrDeviceError                  PKCS11ReturnError = 0x00000030
+	ErrCkrDeviceMemory                 PKCS11ReturnError = 0x00000031
+	ErrCkrDeviceRemoved                PKCS11ReturnError = 0x00000032
+	ErrCkrKeyHandleInvalid             PKCS11ReturnError = 0x00000060
+	ErrCkrKeySizeRange                 PKCS11ReturnError = 0x00000062
+	ErrCkrKeyTypeInconsistent          PKCS11ReturnError = 0x00000063
+	ErrCkrKeyNotWrappable              PKCS11ReturnError = 0x00000069
+	ErrCkrKeyUnextractable             PKCS11ReturnError = 0x0000006A
+	ErrCkrMechanismInvalid             PKCS11ReturnError = 0x00000070
+	ErrCkrMechanismParamInvalid        PKCS11ReturnError = 0x00000071
+	ErrCkrOperationActive              PKCS11ReturnError = 0x00000090
+	ErrCkrOperationNotInitialized      PKCS11ReturnError = 0x00000091
+	ErrCkrPINIncorrect                 PKCS11ReturnError = 0x000000A0
+	ErrCkrPINLocked                    PKCS11ReturnError = 0x000000A4
+	ErrCkrSessionClosed                PKCS11ReturnError = 0x000000B0
+	ErrCkrSessionCount                 PKCS11ReturnError = 0x000000B1
+	ErrCkrSessionHandleInvalid         PKCS11ReturnError = 0x000000B3
+	ErrCkrSessionReadOnly              PKCS11ReturnError = 0x000000B5
+	ErrCkrTokenNotPresent              PKCS11ReturnError = 0x000000E0
+	ErrCkrTokenNotRecognized           PKCS11ReturnError = 0x000000E1
+	ErrCkrUserAlreadyLoggedIn          PKCS11ReturnError = 0x00000100
+	ErrCkrUserNotLoggedIn              PKCS11ReturnError = 0x00000101
+	ErrCkrUserPINNotInitialized        PKCS11ReturnError = 0x00000102
+	ErrCkrWrappedKeyInvalid            PKCS11ReturnError = 0x00000110
+	ErrCkrWrappedKeyLenRange           PKCS11ReturnError = 0x00000112
+	ErrCkrWrappingKeyHandleInvalid     PKCS11ReturnError = 0x00000113
+	ErrCkrWrappingKeySizeRange         PKCS11ReturnError = 0x00000114
+	ErrCkrWrappingKeyTypeInconsistent  PKCS11ReturnError = 0x00000115
+	ErrCkrRandomSeedNotSupported       PKCS11ReturnError = 0x00000120
+	ErrCkrBufferTooSmall               PKCS11ReturnError = 0x00000150
+	ErrCkrCryptokiNotInitialized       PKCS11ReturnError = 0x00000190
+	ErrCkrCryptokiAlreadyInitialized   PKCS11ReturnError = 0x00000191
 )
 
 // Error returns the error message for the return value.
-func (r PKCS11ReturnValue) Error() string {
-	messages := map[PKCS11ReturnValue]string{
-		CKR_OK:                            "operation successful",
-		CKR_CANCEL:                        "operation cancelled",
-		CKR_HOST_MEMORY:                   "host memory allocation failed",
-		CKR_SLOT_ID_INVALID:               "invalid slot ID",
-		CKR_GENERAL_ERROR:                 "general error",
-		CKR_FUNCTION_FAILED:               "function failed",
-		CKR_DEVICE_ERROR:                  "device error",
-		CKR_DEVICE_MEMORY:                 "device memory error",
-		CKR_DEVICE_REMOVED:                "device removed",
-		CKR_KEY_HANDLE_INVALID:            "invalid key handle",
-		CKR_KEY_SIZE_RANGE:                "key size out of range",
-		CKR_KEY_TYPE_INCONSISTENT:         "inconsistent key type",
-		CKR_KEY_NOT_WRAPPABLE:             "key not wrappable",
-		CKR_KEY_UNEXTRACTABLE:             "key unextractable",
-		CKR_MECHANISM_INVALID:             "invalid mechanism",
-		CKR_MECHANISM_PARAM_INVALID:       "invalid mechanism parameters",
-		CKR_OPERATION_ACTIVE:              "operation already active",
-		CKR_OPERATION_NOT_INITIALIZED:     "operation not initialized",
-		CKR_PIN_INCORRECT:                 "incorrect PIN",
-		CKR_PIN_LOCKED:                    "PIN locked",
-		CKR_SESSION_CLOSED:                "session closed",
-		CKR_SESSION_COUNT:                 "session count exceeded",
-		CKR_SESSION_HANDLE_INVALID:        "invalid session handle",
-		CKR_SESSION_READ_ONLY:             "session is read-only",
-		CKR_TOKEN_NOT_PRESENT:             "token not present",
-		CKR_TOKEN_NOT_RECOGNIZED:          "token not recognized",
-		CKR_USER_ALREADY_LOGGED_IN:        "user already logged in",
-		CKR_USER_NOT_LOGGED_IN:            "user not logged in",
-		CKR_USER_PIN_NOT_INITIALIZED:      "user PIN not initialized",
-		CKR_WRAPPED_KEY_INVALID:           "invalid wrapped key",
-		CKR_WRAPPED_KEY_LEN_RANGE:         "wrapped key length out of range",
-		CKR_WRAPPING_KEY_HANDLE_INVALID:   "invalid wrapping key handle",
-		CKR_WRAPPING_KEY_SIZE_RANGE:       "wrapping key size out of range",
-		CKR_WRAPPING_KEY_TYPE_INCONSISTENT: "inconsistent wrapping key type",
-		CKR_RANDOM_SEED_NOT_SUPPORTED:     "random seed not supported",
-		CKR_BUFFER_TOO_SMALL:              "buffer too small",
-		CKR_CRYPTOKI_NOT_INITIALIZED:      "cryptoki not initialized",
-		CKR_CRYPTOKI_ALREADY_INITIALIZED:  "cryptoki already initialized",
+func (r PKCS11ReturnError) Error() string {
+	messages := map[PKCS11ReturnError]string{
+		ErrCkrOK:                          "operation successful",
+		ErrCkrCancel:                      "operation cancelled",
+		ErrCkrHostMemory:                  "host memory allocation failed",
+		ErrCkrSlotIDInvalid:               "invalid slot ID",
+		ErrCkrGeneralError:                "general error",
+		ErrCkrFunctionFailed:              "function failed",
+		ErrCkrDeviceError:                 "device error",
+		ErrCkrDeviceMemory:                "device memory error",
+		ErrCkrDeviceRemoved:               "device removed",
+		ErrCkrKeyHandleInvalid:            "invalid key handle",
+		ErrCkrKeySizeRange:                "key size out of range",
+		ErrCkrKeyTypeInconsistent:         "inconsistent key type",
+		ErrCkrKeyNotWrappable:             "key not wrappable",
+		ErrCkrKeyUnextractable:            "key unextractable",
+		ErrCkrMechanismInvalid:            "invalid mechanism",
+		ErrCkrMechanismParamInvalid:       "invalid mechanism parameters",
+		ErrCkrOperationActive:             "operation already active",
+		ErrCkrOperationNotInitialized:     "operation not initialized",
+		ErrCkrPINIncorrect:                "incorrect PIN",
+		ErrCkrPINLocked:                   "PIN locked",
+		ErrCkrSessionClosed:               "session closed",
+		ErrCkrSessionCount:                "session count exceeded",
+		ErrCkrSessionHandleInvalid:        "invalid session handle",
+		ErrCkrSessionReadOnly:             "session is read-only",
+		ErrCkrTokenNotPresent:             "token not present",
+		ErrCkrTokenNotRecognized:          "token not recognized",
+		ErrCkrUserAlreadyLoggedIn:         "user already logged in",
+		ErrCkrUserNotLoggedIn:             "user not logged in",
+		ErrCkrUserPINNotInitialized:       "user PIN not initialized",
+		ErrCkrWrappedKeyInvalid:           "invalid wrapped key",
+		ErrCkrWrappedKeyLenRange:          "wrapped key length out of range",
+		ErrCkrWrappingKeyHandleInvalid:    "invalid wrapping key handle",
+		ErrCkrWrappingKeySizeRange:        "wrapping key size out of range",
+		ErrCkrWrappingKeyTypeInconsistent: "inconsistent wrapping key type",
+		ErrCkrRandomSeedNotSupported:      "random seed not supported",
+		ErrCkrBufferTooSmall:              "buffer too small",
+		ErrCkrCryptokiNotInitialized:      "cryptoki not initialized",
+		ErrCkrCryptokiAlreadyInitialized:  "cryptoki already initialized",
 	}
 	if msg, ok := messages[r]; ok {
 		return fmt.Sprintf("PKCS#11 error: %s (0x%08X)", msg, uint32(r))
@@ -201,7 +207,7 @@ func (r PKCS11ReturnValue) Error() string {
 
 // PKCS11Error wraps a PKCS#11 return value as a Go error.
 type PKCS11Error struct {
-	Code PKCS11ReturnValue
+	Code PKCS11ReturnError
 }
 
 func (e *PKCS11Error) Error() string {
@@ -209,8 +215,8 @@ func (e *PKCS11Error) Error() string {
 }
 
 // NewPKCS11Error creates a new PKCS#11 error.
-func NewPKCS11Error(code PKCS11ReturnValue) error {
-	if code == CKR_OK {
+func NewPKCS11Error(code PKCS11ReturnError) error {
+	if code == ErrCkrOK {
 		return nil
 	}
 	return &PKCS11Error{Code: code}
@@ -251,7 +257,7 @@ type TokenInfo struct {
 
 // MechanismInfo contains information about a PKCS#11 mechanism.
 type MechanismInfo struct {
-	Mechanism PKCS11Mechanism `json:"mechanism"`
+	Mechanism  PKCS11Mechanism `json:"mechanism"`
 	MinKeySize uint32          `json:"min_key_size"`
 	MaxKeySize uint32          `json:"max_key_size"`
 	Flags      uint32          `json:"flags"`
@@ -276,29 +282,29 @@ type Session struct {
 
 // IsReadWrite returns true if the session is read-write.
 func (s *Session) IsReadWrite() bool {
-	return s.Flags&uint32(CKF_RW_SESSION) != 0
+	return s.Flags&uint32(CkfRWSession) != 0
 }
 
 // KeyObject represents a key stored in the HSM.
 type KeyObject struct {
-	Handle     ObjectHandle      `json:"handle"`
-	Class      PKCS11ObjectClass `json:"class"`
-	KeyType    PKCS11KeyType     `json:"key_type"`
-	Label      string            `json:"label"`
-	ID         []byte            `json:"id"`
-	Modulus    []byte            `json:"modulus,omitempty"`
-	ModulusBits uint32           `json:"modulus_bits,omitempty"`
-	Extractable bool             `json:"extractable"`
-	Sensitive   bool             `json:"sensitive"`
-	Token       bool             `json:"token"`
-	Private     bool             `json:"private"`
-	Encrypt     bool             `json:"encrypt"`
-	Decrypt     bool             `json:"decrypt"`
-	Sign        bool             `json:"sign"`
-	Verify      bool             `json:"verify"`
-	Wrap        bool             `json:"wrap"`
-	Unwrap      bool             `json:"unwrap"`
-	Derive      bool             `json:"derive"`
+	Handle      ObjectHandle      `json:"handle"`
+	Class       PKCS11ObjectClass `json:"class"`
+	KeyType     PKCS11KeyType     `json:"key_type"`
+	Label       string            `json:"label"`
+	ID          []byte            `json:"id"`
+	Modulus     []byte            `json:"modulus,omitempty"`
+	ModulusBits uint32            `json:"modulus_bits,omitempty"`
+	Extractable bool              `json:"extractable"`
+	Sensitive   bool              `json:"sensitive"`
+	Token       bool              `json:"token"`
+	Private     bool              `json:"private"`
+	Encrypt     bool              `json:"encrypt"`
+	Decrypt     bool              `json:"decrypt"`
+	Sign        bool              `json:"sign"`
+	Verify      bool              `json:"verify"`
+	Wrap        bool              `json:"wrap"`
+	Unwrap      bool              `json:"unwrap"`
+	Derive      bool              `json:"derive"`
 }
 
 // PKCS11Config contains configuration for PKCS#11 HSM provider.
@@ -449,15 +455,15 @@ type PKCS11Provider struct {
 	tokenInfo  *TokenInfo
 	mechanisms map[PKCS11Mechanism]*MechanismInfo
 
-	mu           sync.RWMutex
-	sessions     []*Session
-	sessionPool  chan *Session
-	loggedIn     bool
-	initialized  bool
-	closed       bool
+	mu          sync.RWMutex
+	sessions    []*Session
+	sessionPool chan *Session
+	loggedIn    bool
+	initialized bool
+	closed      bool
 
-	keyCache     map[string]ObjectHandle
-	keyCacheMu   sync.RWMutex
+	keyCache   map[string]ObjectHandle
+	keyCacheMu sync.RWMutex
 }
 
 // NewPKCS11Provider creates a new PKCS#11 provider.
@@ -590,18 +596,18 @@ func (p *PKCS11Provider) getSession(ctx context.Context) (*Session, error) {
 		}
 	}
 
-	session, err := p.iface.OpenSession(ctx, p.config.SlotID, CKF_RW_SESSION|CKF_SERIAL_SESSION)
+	session, err := p.iface.OpenSession(ctx, p.config.SlotID, CkfRWSession|CkfSerialSession)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open session: %w", err)
 	}
 
 	if p.config.PIN != "" && !p.loggedIn {
-		if err := p.iface.Login(ctx, session.Handle, CKU_USER, p.config.PIN); err != nil {
+		if err := p.iface.Login(ctx, session.Handle, CkuUser, p.config.PIN); err != nil {
 			var pkcs11Err *PKCS11Error
-			if errors.As(err, &pkcs11Err) && pkcs11Err.Code == CKR_USER_ALREADY_LOGGED_IN {
+			if errors.As(err, &pkcs11Err) && pkcs11Err.Code == ErrCkrUserAlreadyLoggedIn {
 				p.loggedIn = true
 			} else {
-				p.iface.CloseSession(ctx, session.Handle)
+				_ = p.iface.CloseSession(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 				return nil, fmt.Errorf("failed to login: %w", err)
 			}
 		} else {
@@ -636,7 +642,7 @@ func (p *PKCS11Provider) findKey(ctx context.Context, session *Session, keyID st
 	if err := p.iface.FindObjectsInit(ctx, session.Handle, template); err != nil {
 		return 0, err
 	}
-	defer p.iface.FindObjectsFinal(ctx, session.Handle)
+	defer func() { _ = p.iface.FindObjectsFinal(ctx, session.Handle) }() //nolint:errcheck // best-effort cleanup
 
 	handles, err := p.iface.FindObjects(ctx, session.Handle, 1)
 	if err != nil {
@@ -651,7 +657,7 @@ func (p *PKCS11Provider) findKey(ctx context.Context, session *Session, keyID st
 			if err := p.iface.FindObjectsInit(ctx, session.Handle, template); err != nil {
 				return 0, err
 			}
-			defer p.iface.FindObjectsFinal(ctx, session.Handle)
+			defer func() { _ = p.iface.FindObjectsFinal(ctx, session.Handle) }() //nolint:errcheck // best-effort cleanup
 			handles, err = p.iface.FindObjects(ctx, session.Handle, 1)
 			if err != nil {
 				return 0, err
@@ -704,10 +710,10 @@ func (p *PKCS11Provider) GetKeyMetadata(ctx context.Context, keyID string) (*Key
 	}
 	if keyType, ok := attrs["CKA_KEY_TYPE"].(PKCS11KeyType); ok {
 		switch keyType {
-		case CKK_AES:
+		case CkkAES:
 			meta.KeyType = KeyTypeSymmetric
 			meta.KeySpec = KeySpecAES256
-		case CKK_RSA:
+		case CkkRSA:
 			meta.KeyType = KeyTypeAsymmetric
 			if bits, ok := attrs["CKA_MODULUS_BITS"].(uint32); ok {
 				if bits >= 4096 {
@@ -716,9 +722,10 @@ func (p *PKCS11Provider) GetKeyMetadata(ctx context.Context, keyID string) (*Key
 					meta.KeySpec = KeySpecRSA2048
 				}
 			}
-		case CKK_EC:
+		case CkkEC:
 			meta.KeyType = KeyTypeAsymmetric
 			meta.KeySpec = KeySpecECCNISTP256
+		default:
 		}
 	}
 
@@ -749,10 +756,10 @@ func (p *PKCS11Provider) Encrypt(ctx context.Context, req *EncryptRequest) (*Enc
 		return nil, err
 	}
 
-	mechanism := CKM_AES_GCM
-	if _, ok := p.mechanisms[CKM_AES_GCM]; !ok {
-		if _, ok := p.mechanisms[CKM_AES_CBC_PAD]; ok {
-			mechanism = CKM_AES_CBC_PAD
+	mechanism := CkmAESGCM
+	if _, ok := p.mechanisms[CkmAESGCM]; !ok {
+		if _, ok := p.mechanisms[CkmAESCBCPad]; ok {
+			mechanism = CkmAESCBCPad
 		}
 	}
 
@@ -780,10 +787,10 @@ func (p *PKCS11Provider) Decrypt(ctx context.Context, req *DecryptRequest) (*Dec
 		return nil, err
 	}
 
-	mechanism := CKM_AES_GCM
-	if _, ok := p.mechanisms[CKM_AES_GCM]; !ok {
-		if _, ok := p.mechanisms[CKM_AES_CBC_PAD]; ok {
-			mechanism = CKM_AES_CBC_PAD
+	mechanism := CkmAESGCM
+	if _, ok := p.mechanisms[CkmAESGCM]; !ok {
+		if _, ok := p.mechanisms[CkmAESCBCPad]; ok {
+			mechanism = CkmAESCBCPad
 		}
 	}
 
@@ -821,10 +828,10 @@ func (p *PKCS11Provider) GenerateDataKey(ctx context.Context, req *GenerateDataK
 		return nil, err
 	}
 
-	mechanism := CKM_AES_KEY_WRAP
-	if _, ok := p.mechanisms[CKM_AES_KEY_WRAP]; !ok {
-		if _, ok := p.mechanisms[CKM_AES_GCM]; ok {
-			mechanism = CKM_AES_GCM
+	mechanism := CkmAESKeyWrap
+	if _, ok := p.mechanisms[CkmAESKeyWrap]; !ok {
+		if _, ok := p.mechanisms[CkmAESGCM]; ok {
+			mechanism = CkmAESGCM
 		}
 	}
 
@@ -863,9 +870,9 @@ func (p *PKCS11Provider) WrapKey(ctx context.Context, req *WrapKeyRequest) (*Wra
 		return nil, err
 	}
 
-	mechanism := CKM_AES_KEY_WRAP_PAD
-	if _, ok := p.mechanisms[CKM_AES_KEY_WRAP_PAD]; !ok {
-		mechanism = CKM_AES_GCM
+	mechanism := CkmAESKeyWrapPad
+	if _, ok := p.mechanisms[CkmAESKeyWrapPad]; !ok {
+		mechanism = CkmAESGCM
 	}
 
 	wrapped, err := p.iface.Encrypt(ctx, session.Handle, mechanism, handle, req.KeyToWrap)
@@ -892,9 +899,9 @@ func (p *PKCS11Provider) UnwrapKey(ctx context.Context, req *UnwrapKeyRequest) (
 		return nil, err
 	}
 
-	mechanism := CKM_AES_KEY_WRAP_PAD
-	if _, ok := p.mechanisms[CKM_AES_KEY_WRAP_PAD]; !ok {
-		mechanism = CKM_AES_GCM
+	mechanism := CkmAESKeyWrapPad
+	if _, ok := p.mechanisms[CkmAESKeyWrapPad]; !ok {
+		mechanism = CkmAESGCM
 	}
 
 	plaintext, err := p.iface.Decrypt(ctx, session.Handle, mechanism, handle, req.WrappedKey)
@@ -922,22 +929,22 @@ func (p *PKCS11Provider) Close() error {
 	close(p.sessionPool)
 	for session := range p.sessionPool {
 		if p.loggedIn {
-			p.iface.Logout(ctx, session.Handle)
+			_ = p.iface.Logout(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 		}
-		p.iface.CloseSession(ctx, session.Handle)
+		_ = p.iface.CloseSession(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 	}
 
 	for _, session := range p.sessions {
 		if p.loggedIn {
-			p.iface.Logout(ctx, session.Handle)
+			_ = p.iface.Logout(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 		}
-		p.iface.CloseSession(ctx, session.Handle)
+		_ = p.iface.CloseSession(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 	}
 	p.sessions = nil
 	p.loggedIn = false
 
 	if p.initialized {
-		p.iface.Finalize(ctx)
+		_ = p.iface.Finalize(ctx) //nolint:errcheck // best-effort cleanup
 		p.initialized = false
 	}
 
@@ -957,18 +964,18 @@ func (p *PKCS11Provider) Sign(ctx context.Context, req *SignRequest) (*SignRespo
 		return nil, err
 	}
 
-	mechanism := CKM_SHA256_RSA_PKCS
+	mechanism := CkmSHA256RSAPKCS
 	switch req.Algorithm {
 	case "RSASSA_PKCS1_V1_5_SHA_256":
-		mechanism = CKM_SHA256_RSA_PKCS
+		mechanism = CkmSHA256RSAPKCS
 	case "RSASSA_PKCS1_V1_5_SHA_384":
-		mechanism = CKM_SHA384_RSA_PKCS
+		mechanism = CkmSHA384RSAPKCS
 	case "RSASSA_PKCS1_V1_5_SHA_512":
-		mechanism = CKM_SHA512_RSA_PKCS
+		mechanism = CkmSHA512RSAPKCS
 	case "ECDSA_SHA_256":
-		mechanism = CKM_ECDSA_SHA256
+		mechanism = CkmECDSASHA256
 	case "ECDSA_SHA_384":
-		mechanism = CKM_ECDSA_SHA384
+		mechanism = CkmECDSASHA384
 	}
 
 	signature, err := p.iface.Sign(ctx, session.Handle, mechanism, handle, req.Message)
@@ -996,18 +1003,18 @@ func (p *PKCS11Provider) Verify(ctx context.Context, req *VerifyRequest) (*Verif
 		return nil, err
 	}
 
-	mechanism := CKM_SHA256_RSA_PKCS
+	mechanism := CkmSHA256RSAPKCS
 	switch req.Algorithm {
 	case "RSASSA_PKCS1_V1_5_SHA_256":
-		mechanism = CKM_SHA256_RSA_PKCS
+		mechanism = CkmSHA256RSAPKCS
 	case "RSASSA_PKCS1_V1_5_SHA_384":
-		mechanism = CKM_SHA384_RSA_PKCS
+		mechanism = CkmSHA384RSAPKCS
 	case "RSASSA_PKCS1_V1_5_SHA_512":
-		mechanism = CKM_SHA512_RSA_PKCS
+		mechanism = CkmSHA512RSAPKCS
 	case "ECDSA_SHA_256":
-		mechanism = CKM_ECDSA_SHA256
+		mechanism = CkmECDSASHA256
 	case "ECDSA_SHA_384":
-		mechanism = CKM_ECDSA_SHA384
+		mechanism = CkmECDSASHA384
 	}
 
 	valid, err := p.iface.Verify(ctx, session.Handle, mechanism, handle, req.Message, req.Signature)

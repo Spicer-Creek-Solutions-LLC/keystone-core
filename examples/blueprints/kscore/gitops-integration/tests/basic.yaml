@@ -14,5 +14,5 @@ tests:
       - type: state_applied
         target: gitops_config_file
       - type: file_contains
-        target: /etc/kscore/gitops.yaml
+        target: /etc/keystone-core/gitops.yaml
         pattern: "argocd_enabled: true"

@@ -99,8 +99,8 @@ type RecoveryAction struct {
 	ExpectedOutcome string `json:"expected_outcome,omitempty"`
 }
 
-// BootstrapError is a rich error type with classification and recovery info.
-type BootstrapError struct {
+// Error is a rich error type with classification and recovery info.
+type Error struct {
 	// Original is the underlying error.
 	Original error
 
@@ -133,7 +133,7 @@ type BootstrapError struct {
 }
 
 // Error implements the error interface.
-func (e *BootstrapError) Error() string {
+func (e *Error) Error() string {
 	if e.Message != "" {
 		return e.Message
 	}
@@ -144,12 +144,12 @@ func (e *BootstrapError) Error() string {
 }
 
 // Unwrap returns the underlying error.
-func (e *BootstrapError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.Original
 }
 
 // IsRetryable returns true if the error might succeed on retry.
-func (e *BootstrapError) IsRetryable() bool {
+func (e *Error) IsRetryable() bool {
 	switch e.Category {
 	case ErrorCategoryNetwork, ErrorCategoryTimeout, ErrorCategoryService:
 		return true
@@ -159,9 +159,9 @@ func (e *BootstrapError) IsRetryable() bool {
 }
 
 // HasAutomaticRecovery returns true if any automatic recovery action exists.
-func (e *BootstrapError) HasAutomaticRecovery() bool {
-	for _, action := range e.RecoveryActions {
-		if action.Type == RecoveryTypeAutomatic {
+func (e *Error) HasAutomaticRecovery() bool {
+	for i := range e.RecoveryActions {
+		if e.RecoveryActions[i].Type == RecoveryTypeAutomatic {
 			return true
 		}
 	}
@@ -169,31 +169,31 @@ func (e *BootstrapError) HasAutomaticRecovery() bool {
 }
 
 // GetAutomaticRecoveryActions returns only automatic recovery actions.
-func (e *BootstrapError) GetAutomaticRecoveryActions() []RecoveryAction {
+func (e *Error) GetAutomaticRecoveryActions() []RecoveryAction {
 	var actions []RecoveryAction
-	for _, action := range e.RecoveryActions {
-		if action.Type == RecoveryTypeAutomatic {
-			actions = append(actions, action)
+	for i := range e.RecoveryActions {
+		if e.RecoveryActions[i].Type == RecoveryTypeAutomatic {
+			actions = append(actions, e.RecoveryActions[i])
 		}
 	}
 	return actions
 }
 
 // ClassifyError analyzes an error and returns a classified BootstrapError.
-func ClassifyError(err error, phase PhaseName) *BootstrapError {
+func ClassifyError(err error, phase PhaseName) *Error {
 	if err == nil {
 		return nil
 	}
 
 	// Check if already a BootstrapError
-	var bErr *BootstrapError
+	var bErr *Error
 	if errors.As(err, &bErr) {
 		bErr.Phase = phase
 		return bErr
 	}
 
 	msg := strings.ToLower(err.Error())
-	classified := &BootstrapError{
+	classified := &Error{
 		Original: err,
 		Phase:    phase,
 		Message:  err.Error(),
@@ -314,14 +314,14 @@ func permissionRecoveryActions() []RecoveryAction {
 			ExpectedOutcome: "Bootstrap runs with sufficient permissions",
 		},
 		{
-			ID:              "check-file-permissions",
-			Description:     "Check and fix file permissions",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-file-permissions",
+			Description: "Check and fix file permissions",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
-				"ls -la /etc/kscore/",
-				"ls -la /var/lib/kscore/",
-				"sudo chown -R root:root /etc/kscore/",
+				"ls -la /etc/keystone-core/",
+				"ls -la /var/lib/keystone-core/",
+				"sudo chown -R root:root /etc/keystone-core/",
 			},
 			ExpectedOutcome: "Files have correct ownership and permissions",
 		},
@@ -331,10 +331,10 @@ func permissionRecoveryActions() []RecoveryAction {
 func networkRecoveryActions(err error) []RecoveryAction {
 	actions := []RecoveryAction{
 		{
-			ID:              "check-connectivity",
-			Description:     "Verify network connectivity",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-connectivity",
+			Description: "Verify network connectivity",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"ping -c 3 8.8.8.8",
 				"curl -v https://api.keystone.io/health",
@@ -342,10 +342,10 @@ func networkRecoveryActions(err error) []RecoveryAction {
 			ExpectedOutcome: "Network connectivity is confirmed",
 		},
 		{
-			ID:              "check-firewall",
-			Description:     "Check firewall rules",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-firewall",
+			Description: "Check firewall rules",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"sudo iptables -L -n",
 				"sudo firewall-cmd --list-all",
@@ -353,10 +353,10 @@ func networkRecoveryActions(err error) []RecoveryAction {
 			ExpectedOutcome: "Required ports are open",
 		},
 		{
-			ID:              "check-dns",
-			Description:     "Verify DNS resolution",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-dns",
+			Description: "Verify DNS resolution",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"cat /etc/resolv.conf",
 				"nslookup api.keystone.io",
@@ -392,10 +392,10 @@ func timeoutRecoveryActions() []RecoveryAction {
 			ExpectedOutcome: "Operation completes successfully",
 		},
 		{
-			ID:              "check-system-load",
-			Description:     "Check system load and resource usage",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-system-load",
+			Description: "Check system load and resource usage",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"uptime",
 				"top -bn1 | head -20",
@@ -418,10 +418,10 @@ func timeoutRecoveryActions() []RecoveryAction {
 func diskSpaceRecoveryActions() []RecoveryAction {
 	return []RecoveryAction{
 		{
-			ID:              "check-disk-usage",
-			Description:     "Identify disk space usage",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-disk-usage",
+			Description: "Identify disk space usage",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"df -h",
 				"du -sh /var/log/* | sort -h | tail -20",
@@ -430,10 +430,10 @@ func diskSpaceRecoveryActions() []RecoveryAction {
 			ExpectedOutcome: "Large files/directories identified",
 		},
 		{
-			ID:              "clean-package-cache",
-			Description:     "Clean package manager cache",
-			Type:            RecoveryTypeInteractive,
-			Risk:            RiskLow,
+			ID:          "clean-package-cache",
+			Description: "Clean package manager cache",
+			Type:        RecoveryTypeInteractive,
+			Risk:        RiskLow,
 			Commands: []string{
 				"sudo apt-get clean",
 				"sudo dnf clean all",
@@ -443,10 +443,10 @@ func diskSpaceRecoveryActions() []RecoveryAction {
 			ExpectedOutcome: "Cache space freed",
 		},
 		{
-			ID:              "clean-old-logs",
-			Description:     "Rotate and clean old logs",
-			Type:            RecoveryTypeInteractive,
-			Risk:            RiskMedium,
+			ID:          "clean-old-logs",
+			Description: "Rotate and clean old logs",
+			Type:        RecoveryTypeInteractive,
+			Risk:        RiskMedium,
 			Commands: []string{
 				"sudo journalctl --vacuum-time=7d",
 				"sudo find /var/log -name '*.gz' -mtime +30 -delete",
@@ -460,10 +460,10 @@ func diskSpaceRecoveryActions() []RecoveryAction {
 func memoryRecoveryActions() []RecoveryAction {
 	return []RecoveryAction{
 		{
-			ID:              "check-memory-usage",
-			Description:     "Check current memory usage",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-memory-usage",
+			Description: "Check current memory usage",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"free -h",
 				"ps aux --sort=-%mem | head -20",
@@ -497,10 +497,10 @@ func databaseRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "authentication") || strings.Contains(msg, "password") {
 		actions = append(actions, RecoveryAction{
-			ID:              "verify-db-credentials",
-			Description:     "Verify database credentials",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "verify-db-credentials",
+			Description: "Verify database credentials",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"echo 'Check KSCORE_POSTGRES_PASSWORD environment variable'",
 				"echo 'Verify --postgres-password flag value'",
@@ -528,13 +528,13 @@ func tlsRecoveryActions(err error) []RecoveryAction {
 	msg := strings.ToLower(err.Error())
 	actions := []RecoveryAction{
 		{
-			ID:              "verify-cert-files",
-			Description:     "Verify certificate files exist and are readable",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "verify-cert-files",
+			Description: "Verify certificate files exist and are readable",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
-				"ls -la /etc/kscore/tls/",
-				"openssl x509 -in /etc/kscore/tls/server.crt -text -noout | head -20",
+				"ls -la /etc/keystone-core/tls/",
+				"openssl x509 -in /etc/keystone-core/tls/server.crt -text -noout | head -20",
 			},
 			ExpectedOutcome: "Certificate files are valid",
 		},
@@ -542,10 +542,10 @@ func tlsRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "expired") {
 		actions = append(actions, RecoveryAction{
-			ID:              "renew-certificates",
-			Description:     "Renew expired certificates",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskMedium,
+			ID:          "renew-certificates",
+			Description: "Renew expired certificates",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskMedium,
 			Commands: []string{
 				"kscore-agent bootstrap --generate-certs [your-options]",
 				"# Or renew with your CA",
@@ -556,13 +556,13 @@ func tlsRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "self signed") || strings.Contains(msg, "unknown authority") {
 		actions = append(actions, RecoveryAction{
-			ID:              "configure-ca",
-			Description:     "Configure CA trust",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "configure-ca",
+			Description: "Configure CA trust",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"# Copy CA cert to trust store",
-				"sudo cp /etc/kscore/tls/ca.crt /usr/local/share/ca-certificates/",
+				"sudo cp /etc/keystone-core/tls/ca.crt /usr/local/share/ca-certificates/",
 				"sudo update-ca-certificates",
 			},
 			ExpectedOutcome: "CA is trusted by the system",
@@ -576,10 +576,10 @@ func packageRecoveryActions(err error) []RecoveryAction {
 	msg := strings.ToLower(err.Error())
 	actions := []RecoveryAction{
 		{
-			ID:              "update-package-lists",
-			Description:     "Update package manager lists",
-			Type:            RecoveryTypeAutomatic,
-			Risk:            RiskLow,
+			ID:          "update-package-lists",
+			Description: "Update package manager lists",
+			Type:        RecoveryTypeAutomatic,
+			Risk:        RiskLow,
 			Commands: []string{
 				"sudo apt-get update",
 				"sudo dnf check-update",
@@ -591,10 +591,10 @@ func packageRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "not found") || strings.Contains(msg, "unable to locate") {
 		actions = append(actions, RecoveryAction{
-			ID:              "add-repository",
-			Description:     "Add Keystone package repository",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "add-repository",
+			Description: "Add Keystone package repository",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"# For Debian/Ubuntu:",
 				"curl -fsSL https://packages.keystone.io/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/keystone.gpg",
@@ -607,10 +607,10 @@ func packageRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "lock") || strings.Contains(msg, "dpkg") {
 		actions = append(actions, RecoveryAction{
-			ID:              "fix-package-lock",
-			Description:     "Fix package manager lock",
-			Type:            RecoveryTypeInteractive,
-			Risk:            RiskMedium,
+			ID:          "fix-package-lock",
+			Description: "Fix package manager lock",
+			Type:        RecoveryTypeInteractive,
+			Risk:        RiskMedium,
 			Commands: []string{
 				"sudo rm -f /var/lib/dpkg/lock-frontend",
 				"sudo rm -f /var/lib/dpkg/lock",
@@ -628,10 +628,10 @@ func serviceRecoveryActions(err error) []RecoveryAction {
 	msg := strings.ToLower(err.Error())
 	actions := []RecoveryAction{
 		{
-			ID:              "check-service-status",
-			Description:     "Check service status and logs",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-service-status",
+			Description: "Check service status and logs",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"sudo systemctl status kscore-server",
 				"sudo systemctl status kscore-agent",
@@ -644,10 +644,10 @@ func serviceRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "failed to start") || strings.Contains(msg, "activating") {
 		actions = append(actions, RecoveryAction{
-			ID:              "restart-service",
-			Description:     "Restart the service",
-			Type:            RecoveryTypeAutomatic,
-			Risk:            RiskLow,
+			ID:          "restart-service",
+			Description: "Restart the service",
+			Type:        RecoveryTypeAutomatic,
+			Risk:        RiskLow,
 			Commands: []string{
 				"sudo systemctl daemon-reload",
 				"sudo systemctl restart kscore-server",
@@ -659,10 +659,10 @@ func serviceRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "dependency") {
 		actions = append(actions, RecoveryAction{
-			ID:              "check-dependencies",
-			Description:     "Check service dependencies",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "check-dependencies",
+			Description: "Check service dependencies",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"systemctl list-dependencies kscore-server",
 				"systemctl list-dependencies kscore-agent",
@@ -677,26 +677,26 @@ func serviceRecoveryActions(err error) []RecoveryAction {
 func filesystemRecoveryActions(err error) []RecoveryAction {
 	return []RecoveryAction{
 		{
-			ID:              "create-directories",
-			Description:     "Create required directories",
-			Type:            RecoveryTypeAutomatic,
-			Risk:            RiskLow,
+			ID:          "create-directories",
+			Description: "Create required directories",
+			Type:        RecoveryTypeAutomatic,
+			Risk:        RiskLow,
 			Commands: []string{
-				"sudo mkdir -p /etc/kscore",
-				"sudo mkdir -p /var/lib/kscore",
-				"sudo mkdir -p /var/log/kscore",
+				"sudo mkdir -p /etc/keystone-core",
+				"sudo mkdir -p /var/lib/keystone-core",
+				"sudo mkdir -p /var/log/keystone-core",
 			},
 			ExpectedOutcome: "Required directories exist",
 		},
 		{
-			ID:              "fix-permissions",
-			Description:     "Fix directory permissions",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "fix-permissions",
+			Description: "Fix directory permissions",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
-				"sudo chown -R root:root /etc/kscore",
-				"sudo chmod 755 /etc/kscore",
-				"sudo chmod 750 /var/lib/kscore",
+				"sudo chown -R root:root /etc/keystone-core",
+				"sudo chmod 755 /etc/keystone-core",
+				"sudo chmod 750 /var/lib/keystone-core",
 			},
 			ExpectedOutcome: "Directories have correct permissions",
 		},
@@ -718,10 +718,10 @@ func configRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "postgres") {
 		actions = append(actions, RecoveryAction{
-			ID:              "set-postgres-config",
-			Description:     "Set PostgreSQL configuration",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "set-postgres-config",
+			Description: "Set PostgreSQL configuration",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"export KSCORE_POSTGRES_HOST=<host>",
 				"export KSCORE_POSTGRES_USER=<user>",
@@ -734,10 +734,10 @@ func configRecoveryActions(err error) []RecoveryAction {
 
 	if strings.Contains(msg, "nats") {
 		actions = append(actions, RecoveryAction{
-			ID:              "set-nats-config",
-			Description:     "Set NATS configuration",
-			Type:            RecoveryTypeManual,
-			Risk:            RiskLow,
+			ID:          "set-nats-config",
+			Description: "Set NATS configuration",
+			Type:        RecoveryTypeManual,
+			Risk:        RiskLow,
 			Commands: []string{
 				"# For external NATS:",
 				"export KSCORE_NATS_URLS=nats://nats-1:4222,nats://nats-2:4222",
@@ -760,7 +760,8 @@ func FormatRecoveryActions(actions []RecoveryAction, verbose bool) string {
 	var builder strings.Builder
 	builder.WriteString("Recovery Actions:\n")
 
-	for i, action := range actions {
+	for i := range actions {
+		action := &actions[i]
 		builder.WriteString(fmt.Sprintf("\n%d. %s\n", i+1, action.Description))
 		builder.WriteString(fmt.Sprintf("   Type: %s | Risk: %s\n", action.Type, action.Risk))
 

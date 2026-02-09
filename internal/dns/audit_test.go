@@ -3,41 +3,15 @@ package dns
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/audit"
 )
 
-// mockAuditLogger is a mock audit logger for testing.
-type mockAuditLogger struct {
-	mu      sync.Mutex
-	entries []*audit.AuditEntry
-}
-
-func (m *mockAuditLogger) Log(_ context.Context, entry *audit.AuditEntry) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.entries = append(m.entries, entry)
-	return nil
-}
-
-func (m *mockAuditLogger) Close() error {
-	return nil
-}
-
-func (m *mockAuditLogger) getEntries() []*audit.AuditEntry {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	result := make([]*audit.AuditEntry, len(m.entries))
-	copy(result, m.entries)
-	return result
-}
-
 func TestAuditLogger_LogRecordCreated(t *testing.T) {
 	// Create audit logger with noop config (to avoid syslog connection)
-	auditor, err := audit.NewAuditor("dns-test", &audit.AuditConfig{
+	auditor, err := audit.NewAuditor(context.Background(), "dns-test", &audit.AuditConfig{
 		Level:   audit.AuditLevelAll,
 		Backend: "stderr",
 	})
@@ -70,7 +44,7 @@ func TestAuditLogger_LogRecordCreated(t *testing.T) {
 }
 
 func TestAuditLogger_LogRecordUpdated(t *testing.T) {
-	auditor, err := audit.NewAuditor("dns-test", &audit.AuditConfig{
+	auditor, err := audit.NewAuditor(context.Background(), "dns-test", &audit.AuditConfig{
 		Level:   audit.AuditLevelAll,
 		Backend: "stderr",
 	})
@@ -109,7 +83,7 @@ func TestAuditLogger_LogRecordUpdated(t *testing.T) {
 }
 
 func TestAuditLogger_LogRecordDeleted(t *testing.T) {
-	auditor, err := audit.NewAuditor("dns-test", &audit.AuditConfig{
+	auditor, err := audit.NewAuditor(context.Background(), "dns-test", &audit.AuditConfig{
 		Level:   audit.AuditLevelAll,
 		Backend: "stderr",
 	})
@@ -134,7 +108,7 @@ func TestAuditLogger_LogRecordDeleted(t *testing.T) {
 }
 
 func TestAuditLogger_LogSyncCompleted(t *testing.T) {
-	auditor, err := audit.NewAuditor("dns-test", &audit.AuditConfig{
+	auditor, err := audit.NewAuditor(context.Background(), "dns-test", &audit.AuditConfig{
 		Level:   audit.AuditLevelAll,
 		Backend: "stderr",
 	})
@@ -206,14 +180,14 @@ func TestNewAuditLogger(t *testing.T) {
 	origConfig := audit.DefaultAuditConfig()
 	origConfig.Backend = "stderr"
 
-	logger, err := NewAuditLogger("example.com")
+	logger, err := NewAuditLogger(context.Background(), "example.com")
 	if err != nil {
 		// On some platforms this might fail, which is acceptable
 		t.Skipf("NewAuditLogger() failed (platform-specific): %v", err)
 	}
 
 	if logger == nil {
-		t.Error("NewAuditLogger() returned nil")
+		t.Fatal("NewAuditLogger() returned nil")
 	}
 
 	if logger.zone != "example.com" {

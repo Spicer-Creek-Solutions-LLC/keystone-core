@@ -69,9 +69,11 @@ func (f *JSONFormatter) Format(entry *Entry) ([]byte, error) {
 		return nil, err
 	}
 
-	// Add newline
-	data = append(data, '\n')
-	return data, nil
+	// Add newline - preallocate with capacity for newline
+	result := make([]byte, 0, len(data)+1)
+	result = append(result, data...)
+	result = append(result, '\n')
+	return result, nil
 }
 
 // LogfmtFormatter formats log entries as logfmt (key=value pairs)

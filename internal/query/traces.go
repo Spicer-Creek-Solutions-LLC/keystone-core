@@ -108,8 +108,8 @@ func matchesQuery(trace *TraceResult, query *TracesQuery) bool {
 	// Check operation filter
 	if query.Operation != "" {
 		operationMatches := false
-		for _, span := range trace.Spans {
-			if span.OperationName == query.Operation {
+		for i := range trace.Spans {
+			if trace.Spans[i].OperationName == query.Operation {
 				operationMatches = true
 				break
 			}
@@ -122,8 +122,8 @@ func matchesQuery(trace *TraceResult, query *TracesQuery) bool {
 	// Check tags filter
 	if len(query.Tags) > 0 {
 		tagsMatch := false
-		for _, span := range trace.Spans {
-			if matchesTags(span.Tags, query.Tags) {
+		for i := range trace.Spans {
+			if matchesTags(trace.Spans[i].Tags, query.Tags) {
 				tagsMatch = true
 				break
 			}
@@ -176,9 +176,10 @@ func getTraceStartTime(trace *TraceResult) time.Time {
 	}
 
 	earliest := trace.Spans[0].StartTime
-	for _, span := range trace.Spans[1:] {
-		if span.StartTime.Before(earliest) {
-			earliest = span.StartTime
+	spans := trace.Spans[1:]
+	for i := range spans {
+		if spans[i].StartTime.Before(earliest) {
+			earliest = spans[i].StartTime
 		}
 	}
 	return earliest
@@ -193,8 +194,8 @@ func getTraceDuration(trace *TraceResult) time.Duration {
 	start := getTraceStartTime(trace)
 	var end time.Time
 
-	for _, span := range trace.Spans {
-		spanEnd := span.StartTime.Add(span.Duration)
+	for i := range trace.Spans {
+		spanEnd := trace.Spans[i].StartTime.Add(trace.Spans[i].Duration)
 		if spanEnd.After(end) {
 			end = spanEnd
 		}
@@ -369,7 +370,7 @@ func (j *JaegerQuerier) Query(ctx context.Context, query *TracesQuery) (*TracesR
 	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -434,7 +435,7 @@ func (j *JaegerQuerier) GetTrace(ctx context.Context, traceID string) (*TraceRes
 	endpoint := fmt.Sprintf("%s/api/traces/%s", baseURL, url.PathEscape(traceID))
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -482,7 +483,7 @@ func (j *JaegerQuerier) GetTrace(ctx context.Context, traceID string) (*TraceRes
 func (j *JaegerQuerier) GetServices(ctx context.Context) ([]string, error) {
 	endpoint := fmt.Sprintf("%s/api/services", j.config.Address)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -526,7 +527,7 @@ func (j *JaegerQuerier) GetServices(ctx context.Context) ([]string, error) {
 func (j *JaegerQuerier) GetOperations(ctx context.Context, service string) ([]string, error) {
 	endpoint := fmt.Sprintf("%s/api/services/%s/operations", j.config.Address, url.PathEscape(service))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -570,7 +571,8 @@ func (j *JaegerQuerier) GetOperations(ctx context.Context, service string) ([]st
 func convertJaegerTrace(jt *jaegerTrace) TraceResult {
 	// Convert spans
 	spans := make([]Span, len(jt.Spans))
-	for i, js := range jt.Spans {
+	for i := range jt.Spans {
+		js := &jt.Spans[i]
 		spans[i] = Span{
 			TraceID:       js.TraceID,
 			SpanID:        js.SpanID,
@@ -605,11 +607,7 @@ func convertJaegerTrace(jt *jaegerTrace) TraceResult {
 func convertJaegerRefs(refs []jaegerSpanRef) []SpanRef {
 	result := make([]SpanRef, len(refs))
 	for i, ref := range refs {
-		result[i] = SpanRef{
-			RefType: ref.RefType,
-			TraceID: ref.TraceID,
-			SpanID:  ref.SpanID,
-		}
+		result[i] = SpanRef(ref)
 	}
 	return result
 }

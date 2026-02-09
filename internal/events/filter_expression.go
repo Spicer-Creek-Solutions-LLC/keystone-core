@@ -18,6 +18,7 @@ type FilterExpression interface {
 // ComparisonOp represents comparison operators
 type ComparisonOp string
 
+// OpEqual constants define the operators.
 const (
 	OpEqual              ComparisonOp = "=="
 	OpNotEqual           ComparisonOp = "!="
@@ -33,6 +34,7 @@ const (
 // LogicalOp represents logical operators
 type LogicalOp string
 
+// OpAnd constants define the operators.
 const (
 	OpAnd LogicalOp = "AND"
 	OpOr  LogicalOp = "OR"
@@ -66,6 +68,7 @@ type ComparisonExpr struct {
 	Value    interface{}
 }
 
+// Matches tests whether the expression matches the given event.
 func (e *ComparisonExpr) Matches(event *Event) bool {
 	fieldValue := e.getFieldValue(event)
 
@@ -183,9 +186,9 @@ func (e *ComparisonExpr) compareEqual(a, b interface{}) bool {
 	}
 
 	// For timestamp comparison
-	if aTs, ok := a.(TimestampValue); ok {
-		if bTs, ok := b.(TimestampValue); ok {
-			return aTs.Time.Equal(bTs.Time)
+	if aTS, ok := a.(TimestampValue); ok {
+		if bTS, ok := b.(TimestampValue); ok {
+			return aTS.Time.Equal(bTS.Time)
 		}
 	}
 
@@ -205,12 +208,12 @@ func (e *ComparisonExpr) compareEqual(a, b interface{}) bool {
 // compareGreater checks if a > b (or >= if orEqual is true)
 func (e *ComparisonExpr) compareGreater(a, b interface{}, orEqual bool) bool {
 	// For timestamp comparison
-	if aTs, ok := a.(TimestampValue); ok {
-		if bTs, ok := b.(TimestampValue); ok {
+	if aTS, ok := a.(TimestampValue); ok {
+		if bTS, ok := b.(TimestampValue); ok {
 			if orEqual {
-				return !aTs.Time.Before(bTs.Time)
+				return !aTS.Time.Before(bTS.Time)
 			}
-			return aTs.Time.After(bTs.Time)
+			return aTS.Time.After(bTS.Time)
 		}
 	}
 
@@ -247,12 +250,12 @@ func (e *ComparisonExpr) compareGreater(a, b interface{}, orEqual bool) bool {
 // compareLess checks if a < b (or <= if orEqual is true)
 func (e *ComparisonExpr) compareLess(a, b interface{}, orEqual bool) bool {
 	// For timestamp comparison
-	if aTs, ok := a.(TimestampValue); ok {
-		if bTs, ok := b.(TimestampValue); ok {
+	if aTS, ok := a.(TimestampValue); ok {
+		if bTS, ok := b.(TimestampValue); ok {
 			if orEqual {
-				return !aTs.Time.After(bTs.Time)
+				return !aTS.Time.After(bTS.Time)
 			}
-			return aTs.Time.Before(bTs.Time)
+			return aTS.Time.Before(bTS.Time)
 		}
 	}
 
@@ -304,12 +307,11 @@ func (e *ComparisonExpr) compareSeverity(a, b Severity, orEqual, greater bool) b
 			return aLevel >= bLevel
 		}
 		return aLevel > bLevel
-	} else {
-		if orEqual {
-			return aLevel <= bLevel
-		}
-		return aLevel < bLevel
 	}
+	if orEqual {
+		return aLevel <= bLevel
+	}
+	return aLevel < bLevel
 }
 
 // toNumber converts interface{} to float64
@@ -369,6 +371,7 @@ type LogicalExpr struct {
 	Right    FilterExpression // nil for NOT
 }
 
+// Matches tests whether the expression matches the given event.
 func (e *LogicalExpr) Matches(event *Event) bool {
 	switch e.Operator {
 	case OpAnd:
@@ -474,11 +477,12 @@ func parseLogical(expr string) FilterExpression {
 func findLogicalOp(expr, op string) int {
 	depth := 0
 	for i := 0; i < len(expr)-len(op)+1; i++ {
-		if expr[i] == '(' {
+		switch {
+		case expr[i] == '(':
 			depth++
-		} else if expr[i] == ')' {
+		case expr[i] == ')':
 			depth--
-		} else if depth == 0 && strings.HasPrefix(expr[i:], op) {
+		case depth == 0 && strings.HasPrefix(expr[i:], op):
 			return i
 		}
 	}
@@ -501,7 +505,7 @@ func parseComparison(expr string) (*ComparisonExpr, error) {
 			// Parse function calls
 			value, err := parseValue(valueStr)
 			if err != nil {
-				return nil, fmt.Errorf("invalid value in expression: %v", err)
+				return nil, fmt.Errorf("invalid value in expression: %w", err)
 			}
 
 			return &ComparisonExpr{
@@ -525,7 +529,7 @@ func parseValue(s string) (interface{}, error) {
 		inner = strings.Trim(inner, "\"'")
 		t, err := time.Parse(time.RFC3339, inner)
 		if err != nil {
-			return nil, fmt.Errorf("invalid timestamp format: %v", err)
+			return nil, fmt.Errorf("invalid timestamp format: %w", err)
 		}
 		return TimestampValue{Time: t}, nil
 	}
@@ -536,7 +540,7 @@ func parseValue(s string) (interface{}, error) {
 		inner = strings.Trim(inner, "\"'")
 		d, err := time.ParseDuration(inner)
 		if err != nil {
-			return nil, fmt.Errorf("invalid duration format: %v", err)
+			return nil, fmt.Errorf("invalid duration format: %w", err)
 		}
 		return DurationValue{Duration: d}, nil
 	}

@@ -75,18 +75,18 @@ type AWSProvider struct {
 	config *AWSConfig
 	client *http.Client
 
-	mu              sync.RWMutex
-	started         bool
-	status          identity.ProviderStatus
-	statusMessage   string
-	trustBundle     *identity.TrustBundle
-	instanceID      string
-	accountID       string
-	region          string
+	mu               sync.RWMutex
+	started          bool
+	status           identity.ProviderStatus
+	statusMessage    string
+	trustBundle      *identity.TrustBundle
+	instanceID       string
+	accountID        string
+	region           string
 	availabilityZone string
 	ipv6Addresses    []string
-	imdsToken       string
-	imdsTokenExpiry time.Time
+	imdsToken        string
+	imdsTokenExpiry  time.Time
 
 	healthCheckCancel context.CancelFunc
 	lastHealthCheck   time.Time
@@ -159,8 +159,8 @@ func (p *AWSProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, cancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = cancel
 	p.mu.Unlock()
@@ -264,7 +264,7 @@ func (p *AWSProvider) GetInstanceIdentity(ctx context.Context) (*AWSInstanceIden
 
 	// Get instance identity document
 	docURL := p.config.IMDSEndpoint + "/latest/dynamic/instance-identity/document"
-	req, err := http.NewRequestWithContext(ctx, "GET", docURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", docURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -286,12 +286,12 @@ func (p *AWSProvider) GetInstanceIdentity(ctx context.Context) (*AWSInstanceIden
 		return nil, fmt.Errorf("IMDS returned status %d", resp.StatusCode)
 	}
 
-	var identity AWSInstanceIdentity
-	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
+	var instanceIdentity AWSInstanceIdentity
+	if err := json.NewDecoder(resp.Body).Decode(&instanceIdentity); err != nil {
 		return nil, fmt.Errorf("failed to decode instance identity: %w", err)
 	}
 
-	return &identity, nil
+	return &instanceIdentity, nil
 }
 
 // GetSignedInstanceIdentity returns the signed instance identity document.
@@ -465,7 +465,7 @@ func (p *AWSProvider) ensureIMDSToken(ctx context.Context) error {
 
 	// Get new token
 	tokenURL := p.config.IMDSEndpoint + "/latest/api/token"
-	req, err := http.NewRequestWithContext(ctx, "PUT", tokenURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "PUT", tokenURL, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -496,7 +496,7 @@ func (p *AWSProvider) ensureIMDSToken(ctx context.Context) error {
 
 func (p *AWSProvider) getIMDSValue(ctx context.Context, path, token string) (string, error) {
 	url := p.config.IMDSEndpoint + path
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -574,8 +574,8 @@ func (p *AWSProvider) performHealthCheck(ctx context.Context) {
 	p.mu.Unlock()
 }
 
-// Verify AWSProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*AWSProvider)(nil)
+// Verify AWSProvider implements Provider
+var _ identity.Provider = (*AWSProvider)(nil)
 
 // VerifyAWSSignature verifies an AWS instance identity document signature.
 func VerifyAWSSignature(doc *AWSInstanceIdentityDocument, awsCerts []*x509.Certificate) error {

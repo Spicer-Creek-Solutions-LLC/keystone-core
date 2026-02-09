@@ -2,32 +2,47 @@ package policy
 
 import "time"
 
-// PolicyType represents the type of policy language
-type PolicyType string
+// Type represents the type of policy language
+type Type string
 
 const (
-	// PolicyTypeOPA uses Open Policy Agent (Rego)
-	PolicyTypeOPA PolicyType = "opa"
-	// PolicyTypeCEL uses Common Expression Language
-	PolicyTypeCEL PolicyType = "cel"
-	// PolicyTypeBuiltin uses built-in policy rules
-	PolicyTypeBuiltin PolicyType = "builtin"
+	// TypeOPA uses Open Policy Agent (Rego)
+	TypeOPA Type = "opa"
+	// TypeCEL uses Common Expression Language
+	TypeCEL Type = "cel"
+	// TypeBuiltin uses built-in policy rules
+	TypeBuiltin Type = "builtin"
 )
 
-// PolicyCategory represents the category of policy
-type PolicyCategory string
+// PolicyType is deprecated: Use Type instead.
+type PolicyType = Type //nolint:revive // Deprecated alias for backward compatibility
+
+// PolicyTypeOPA is deprecated: Use TypeOPA instead.
+const PolicyTypeOPA = TypeOPA
+
+// PolicyTypeCEL is deprecated: Use TypeCEL instead.
+const PolicyTypeCEL = TypeCEL
+
+// PolicyTypeBuiltin is deprecated: Use TypeBuiltin instead.
+const PolicyTypeBuiltin = TypeBuiltin
+
+// Category represents the category of policy
+type Category string
+
+// PolicyCategory is deprecated: Use Category instead.
+type PolicyCategory = Category //nolint:revive // Deprecated alias for backward compatibility
 
 const (
 	// CategorySecurity security-related policies
-	CategorySecurity PolicyCategory = "security"
+	CategorySecurity Category = "security"
 	// CategoryCompliance compliance-related policies
-	CategoryCompliance PolicyCategory = "compliance"
+	CategoryCompliance Category = "compliance"
 	// CategoryOperational operational policies
-	CategoryOperational PolicyCategory = "operational"
+	CategoryOperational Category = "operational"
 	// CategoryCost cost-related policies
-	CategoryCost PolicyCategory = "cost"
+	CategoryCost Category = "cost"
 	// CategoryCustom custom policies
-	CategoryCustom PolicyCategory = "custom"
+	CategoryCustom Category = "custom"
 )
 
 // Severity represents policy violation severity
@@ -170,8 +185,8 @@ type Violation struct {
 	Remediation string `json:"remediation,omitempty"`
 }
 
-// PolicySet represents a collection of policies
-type PolicySet struct {
+// Set represents a collection of policies
+type Set struct {
 	// ID of the policy set
 	ID string `json:"id"`
 
@@ -197,8 +212,8 @@ type PolicySet struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// PolicyResult combines multiple evaluation results
-type PolicyResult struct {
+// Result combines multiple evaluation results
+type Result struct {
 	// Allowed indicates overall result
 	Allowed bool `json:"allowed"`
 
@@ -206,7 +221,7 @@ type PolicyResult struct {
 	Results []*EvaluationResult `json:"results"`
 
 	// Summary statistics
-	Summary *PolicySummary `json:"summary"`
+	Summary *Summary `json:"summary"`
 
 	// TotalDuration for all evaluations
 	TotalDuration time.Duration `json:"total_duration"`
@@ -215,8 +230,8 @@ type PolicyResult struct {
 	EvaluatedAt time.Time `json:"evaluated_at"`
 }
 
-// PolicySummary provides summary statistics
-type PolicySummary struct {
+// Summary provides summary statistics
+type Summary struct {
 	// TotalPolicies evaluated
 	TotalPolicies int `json:"total_policies"`
 
@@ -233,8 +248,8 @@ type PolicySummary struct {
 	ViolationsBySeverity map[Severity]int `json:"violations_by_severity"`
 }
 
-// PolicyBinding binds policies to resources
-type PolicyBinding struct {
+// Binding binds policies to resources
+type Binding struct {
 	// ID of the binding
 	ID string `json:"id"`
 
@@ -260,3 +275,17 @@ type PolicyBinding struct {
 	// UpdatedAt timestamp
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicySet is deprecated: Use Set instead.
+	PolicySet = Set
+	// PolicyResult is deprecated: Use Result instead.
+	PolicyResult = Result
+	// PolicySummary is deprecated: Use Summary instead.
+	PolicySummary = Summary
+	// PolicyBinding is deprecated: Use Binding instead.
+	PolicyBinding = Binding
+)

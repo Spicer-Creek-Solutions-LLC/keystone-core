@@ -1,6 +1,7 @@
 package blueprint
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -55,7 +56,8 @@ func NewMirrorServer(config *MirrorConfig) (*MirrorServer, error) {
 	}
 
 	// Ensure storage directory exists
-	if err := os.MkdirAll(config.StorageDir, 0755); err != nil {
+	//nolint:gosec // G301: storage directory needs to be accessible by service user
+	if err := os.MkdirAll(config.StorageDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -313,20 +315,22 @@ func (m *MirrorServer) handlePutBlueprint(w http.ResponseWriter, r *http.Request
 	}
 
 	bpDir := filepath.Join(m.config.StorageDir, parts[0], parts[1], version)
-	if err := os.MkdirAll(bpDir, 0755); err != nil {
+	//nolint:gosec // G301: blueprint directory needs to be accessible by service user
+	if err := os.MkdirAll(bpDir, 0o755); err != nil {
 		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 		return
 	}
 
 	// Write blueprint
 	bpPath := filepath.Join(bpDir, "blueprint.yaml")
-	if err := os.WriteFile(bpPath, body, 0644); err != nil {
+	//nolint:gosec // G306: blueprint files need to be readable by the registry
+	if err := os.WriteFile(bpPath, body, 0o644); err != nil {
 		http.Error(w, "Failed to write blueprint", http.StatusInternalServerError)
 		return
 	}
 
 	// Rebuild index
-	m.rebuildIndex()
+	_ = m.rebuildIndex() //nolint:errcheck // best-effort index rebuild
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -439,7 +443,8 @@ func (m *MirrorServer) handlePutBundle(w http.ResponseWriter, r *http.Request, n
 
 	// Create bundle directory
 	bundleDir := filepath.Join(m.config.StorageDir, "bundles", parts[0], parts[1])
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+	//nolint:gosec // G301: bundle directory needs to be accessible by service user
+	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
 		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 		return
 	}
@@ -519,8 +524,12 @@ func NewMirrorClient(baseURL string) *MirrorClient {
 }
 
 // ListBlueprints returns all blueprints in the mirror
-func (c *MirrorClient) ListBlueprints() ([]BlueprintInfo, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/v1/blueprints")
+func (c *MirrorClient) ListBlueprints() ([]Info, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.baseURL+"/v1/blueprints", http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list blueprints: %w", err)
 	}
@@ -530,7 +539,7 @@ func (c *MirrorClient) ListBlueprints() ([]BlueprintInfo, error) {
 		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
 	}
 
-	var blueprints []BlueprintInfo
+	var blueprints []Info
 	if err := json.NewDecoder(resp.Body).Decode(&blueprints); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -545,7 +554,11 @@ func (c *MirrorClient) GetVersions(name string) ([]string, error) {
 		return nil, fmt.Errorf("invalid blueprint name: %s", name)
 	}
 
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/v1/blueprints/%s/%s", c.baseURL, parts[0], parts[1]))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf("%s/v1/blueprints/%s/%s", c.baseURL, parts[0], parts[1]), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get versions: %w", err)
 	}
@@ -575,8 +588,12 @@ func (c *MirrorClient) GetBlueprint(name, version string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid blueprint name: %s", name)
 	}
 
-	url := fmt.Sprintf("%s/v1/blueprints/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
-	resp, err := c.httpClient.Get(url)
+	reqURL := fmt.Sprintf("%s/v1/blueprints/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blueprint: %w", err)
 	}
@@ -599,8 +616,12 @@ func (c *MirrorClient) DownloadBundle(name, version, destPath string) error {
 		return fmt.Errorf("invalid blueprint name: %s", name)
 	}
 
-	url := fmt.Sprintf("%s/v1/bundles/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
-	resp, err := c.httpClient.Get(url)
+	reqURL := fmt.Sprintf("%s/v1/bundles/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download bundle: %w", err)
 	}
@@ -641,7 +662,7 @@ func (c *MirrorClient) UploadBundle(bundlePath, name, version string) error {
 	defer file.Close()
 
 	url := fmt.Sprintf("%s/v1/bundles/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
-	req, err := http.NewRequest(http.MethodPut, url, file)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, url, file)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -669,7 +690,7 @@ func (c *MirrorClient) UploadBlueprint(content []byte, name, version string) err
 	}
 
 	url := fmt.Sprintf("%s/v1/blueprints/%s/%s/%s", c.baseURL, parts[0], parts[1], version)
-	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(content)))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, url, strings.NewReader(string(content)))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -727,7 +748,8 @@ func (s *MirrorSyncer) SyncAll() (*SyncResult, error) {
 
 	// Build dest index
 	destIndex := make(map[string]map[string]bool)
-	for _, bp := range destBlueprints {
+	for i := range destBlueprints {
+		bp := &destBlueprints[i]
 		destIndex[bp.Name] = make(map[string]bool)
 		for _, v := range bp.AvailableVersions {
 			destIndex[bp.Name][v] = true
@@ -735,7 +757,8 @@ func (s *MirrorSyncer) SyncAll() (*SyncResult, error) {
 	}
 
 	// Sync each blueprint
-	for _, bp := range blueprints {
+	for i := range blueprints {
+		bp := &blueprints[i]
 		for _, version := range bp.AvailableVersions {
 			// Skip if already exists
 			if destIndex[bp.Name] != nil && destIndex[bp.Name][version] {
@@ -831,7 +854,8 @@ func (c *MirrorClient) ExportToDirectory(destDir string) error {
 	}
 
 	// Download each blueprint
-	for _, bp := range blueprints {
+	for i := range blueprints {
+		bp := &blueprints[i]
 		for _, version := range bp.AvailableVersions {
 			content, err := c.GetBlueprint(bp.Name, version)
 			if err != nil {
@@ -845,13 +869,15 @@ func (c *MirrorClient) ExportToDirectory(destDir string) error {
 			}
 
 			bpDir := filepath.Join(destDir, parts[0], parts[1], version)
-			if err := os.MkdirAll(bpDir, 0755); err != nil {
+			//nolint:gosec // G301: blueprint directory needs to be accessible by service user
+			if err := os.MkdirAll(bpDir, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
 			// Write blueprint
 			bpPath := filepath.Join(bpDir, "blueprint.yaml")
-			if err := os.WriteFile(bpPath, content, 0644); err != nil {
+			//nolint:gosec // G306: blueprint files need to be readable by the registry
+			if err := os.WriteFile(bpPath, content, 0o644); err != nil {
 				return fmt.Errorf("failed to write blueprint: %w", err)
 			}
 		}

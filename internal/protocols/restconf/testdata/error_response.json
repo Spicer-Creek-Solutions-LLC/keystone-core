@@ -1,0 +1,12 @@
+{
+  "ietf-restconf:errors": {
+    "error": [
+      {
+        "error-type": "protocol",
+        "error-tag": "invalid-value",
+        "error-message": "Invalid input data",
+        "error-path": "/ietf-interfaces:interfaces/interface=eth99"
+      }
+    ]
+  }
+}

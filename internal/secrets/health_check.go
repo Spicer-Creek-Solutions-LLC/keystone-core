@@ -88,7 +88,7 @@ func (h *HTTPHealthChecker) Check(ctx context.Context, target *RotationTarget, c
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -191,6 +191,7 @@ func (e *ExecHealthChecker) Check(ctx context.Context, target *RotationTarget, c
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	//nolint:gosec // G204: shell command execution is intentional for custom health checks
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

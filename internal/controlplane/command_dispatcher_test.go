@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 func setupTestCommandDispatcher(t *testing.T) (*CommandDispatcher, *ConnectionManager, func()) {
@@ -126,7 +126,7 @@ func TestCommandDispatcher_ExecuteCommand(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := dispatcher.GetCommand(ctx, req.CommandId)
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		cmd = loaded
 		return true, nil
@@ -328,7 +328,7 @@ func TestCommandDispatcher_HandleCommandResponse_Completed(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := dispatcher.GetCommand(ctx, "cmd-complete-1")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_COMPLETED {
 			return false, nil
@@ -403,7 +403,7 @@ func TestCommandDispatcher_HandleCommandResponse_Failed(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := dispatcher.GetCommand(ctx, "cmd-failed-1")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_FAILED {
 			return false, nil
@@ -472,7 +472,7 @@ func TestCommandDispatcher_HandleCommandResponse_Timeout(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		loaded, err := dispatcher.GetCommand(ctx, "cmd-timeout-1")
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
 			return false, nil
@@ -585,7 +585,7 @@ func TestCommandDispatcher_ListCommands(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		commands, err := dispatcher.ListCommands(ctx, nil)
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		return len(commands) == 3, nil
 	}); err != nil {

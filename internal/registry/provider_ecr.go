@@ -75,7 +75,7 @@ func (p *ECRCredentialProvider) GetCredential(ctx context.Context, registry stri
 	}
 
 	return &Credential{
-		Type:      RegistryTypeECR,
+		Type:      TypeECR,
 		Registry:  registry,
 		Username:  parts[0], // "AWS"
 		Password:  parts[1], // The actual token
@@ -94,9 +94,9 @@ func (p *ECRCredentialProvider) IsAvailable() bool {
 	return err == nil
 }
 
-// RegistryType returns the registry type this provider handles.
-func (p *ECRCredentialProvider) RegistryType() RegistryType {
-	return RegistryTypeECR
+// Type returns the registry type this provider handles.
+func (p *ECRCredentialProvider) Type() Type {
+	return TypeECR
 }
 
 // awsCredentials holds AWS credentials from instance metadata.
@@ -156,7 +156,7 @@ func (p *ECRCredentialProvider) getAWSCredentials(ctx context.Context) (*awsCred
 }
 
 func (p *ECRCredentialProvider) getIMDSv2Token(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "PUT", "http://169.254.169.254/latest/api/token", nil)
+	req, err := http.NewRequestWithContext(ctx, "PUT", "http://169.254.169.254/latest/api/token", http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +177,7 @@ func (p *ECRCredentialProvider) getIMDSv2Token(ctx context.Context) (string, err
 }
 
 func (p *ECRCredentialProvider) getMetadata(ctx context.Context, token, path string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://169.254.169.254/latest/meta-data"+path, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://169.254.169.254/latest/meta-data"+path, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -272,12 +272,12 @@ func (p *ECRCredentialProvider) signRequest(req *http.Request, body []byte, regi
 	canonicalQueryString := ""
 	if req.URL.RawQuery != "" {
 		params := req.URL.Query()
-		var keys []string
+		keys := make([]string, 0, len(params))
 		for k := range params {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		var pairs []string
+		pairs := make([]string, 0, len(params))
 		for _, k := range keys {
 			for _, v := range params[k] {
 				pairs = append(pairs, url.QueryEscape(k)+"="+url.QueryEscape(v))

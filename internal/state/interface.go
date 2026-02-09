@@ -82,12 +82,12 @@ type AgentRecord struct {
 
 // AgentFilter defines filter criteria for listing agents
 type AgentFilter struct {
-	Status     *pb.AgentStatus
-	Labels     map[string]string
-	Limit      int
-	Offset     int
-	SortBy     string
-	SortOrder  string // "asc" or "desc"
+	Status    *pb.AgentStatus
+	Labels    map[string]string
+	Limit     int
+	Offset    int
+	SortBy    string
+	SortOrder string // "asc" or "desc"
 }
 
 // CommandRecord represents a command execution in the database

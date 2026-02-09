@@ -19,6 +19,7 @@ import (
 // SyncState represents the state of sync engine.
 type SyncState string
 
+// SyncState constants define the possible states.
 const (
 	SyncStateIdle    SyncState = "idle"
 	SyncStateSyncing SyncState = "syncing"
@@ -28,6 +29,7 @@ const (
 // SyncStatus represents the status of a sync operation.
 type SyncStatus string
 
+// SyncStatus constants define the possible statuses.
 const (
 	SyncStatusPending    SyncStatus = "pending"
 	SyncStatusInProgress SyncStatus = "in_progress"
@@ -39,6 +41,7 @@ const (
 // SyncAction represents the action to take for a file during sync.
 type SyncAction string
 
+// SyncActionCopy constants define the actions.
 const (
 	SyncActionCopy     SyncAction = "copy"
 	SyncActionDelete   SyncAction = "delete"
@@ -49,6 +52,7 @@ const (
 // ConflictStrategy defines how to resolve sync conflicts.
 type ConflictStrategy string
 
+// ConflictStrategyNewestWins constants define the strategies.
 const (
 	ConflictStrategyNewestWins  ConflictStrategy = "newest-wins"
 	ConflictStrategyLargestWins ConflictStrategy = "largest-wins"
@@ -207,8 +211,8 @@ type GroupSyncStatus struct {
 	ConflictCount    int           `json:"conflict_count"`
 }
 
-// MirrorBackend represents a backend that can be synced.
-type MirrorBackend interface {
+// Backend represents a backend that can be synced.
+type Backend interface {
 	// ListFiles returns all files matching the path prefix
 	ListFiles(ctx context.Context, prefix string) ([]SyncFile, error)
 
@@ -233,7 +237,7 @@ type SyncEngine struct {
 	registry *Registry
 
 	// Backend lookup
-	backends map[string]MirrorBackend
+	backends map[string]Backend
 
 	// State management
 	state      SyncState
@@ -272,7 +276,7 @@ func NewSyncEngine(registry *Registry, config *SyncConfig) *SyncEngine {
 	return &SyncEngine{
 		config:     config,
 		registry:   registry,
-		backends:   make(map[string]MirrorBackend),
+		backends:   make(map[string]Backend),
 		state:      SyncStateIdle,
 		groupState: make(map[string]*GroupSyncStatus),
 		queue:      make([]*SyncOperation, 0),
@@ -285,7 +289,7 @@ func NewSyncEngine(registry *Registry, config *SyncConfig) *SyncEngine {
 }
 
 // RegisterBackend registers a backend for a mirror.
-func (e *SyncEngine) RegisterBackend(mirrorID string, backend MirrorBackend) {
+func (e *SyncEngine) RegisterBackend(mirrorID string, backend Backend) {
 	e.backends[mirrorID] = backend
 }
 
@@ -371,7 +375,7 @@ func (e *SyncEngine) runWorker() {
 func (e *SyncEngine) scheduleAllGroups() {
 	groups := e.registry.List()
 	for _, group := range groups {
-		e.ScheduleSync(group.ID(), "", 0)
+		_ = e.ScheduleSync(group.ID(), "", 0) //nolint:errcheck // best-effort batch scheduling
 	}
 }
 
@@ -379,7 +383,7 @@ func (e *SyncEngine) scheduleAllGroups() {
 func (e *SyncEngine) ScheduleSync(groupID, pathPrefix string, priority int) error {
 	group, ok := e.registry.Get(groupID)
 	if !ok {
-		return ErrMirrorGroupNotFound
+		return ErrGroupNotFound
 	}
 
 	// Get primary and secondary mirrors
@@ -421,7 +425,7 @@ func (e *SyncEngine) ScheduleSync(groupID, pathPrefix string, priority int) erro
 func (e *SyncEngine) TriggerSync(groupID, sourceMirror, targetMirror string, priority int) (*SyncOperation, error) {
 	group, ok := e.registry.Get(groupID)
 	if !ok {
-		return nil, ErrMirrorGroupNotFound
+		return nil, ErrGroupNotFound
 	}
 	_ = group // Validate group exists
 
@@ -629,7 +633,7 @@ func (e *SyncEngine) executeSync(op *SyncOperation) {
 }
 
 // detectChanges compares source and target to find differences.
-func (e *SyncEngine) detectChanges(ctx context.Context, source, target MirrorBackend, prefix string) ([]SyncFile, error) {
+func (e *SyncEngine) detectChanges(ctx context.Context, source, target Backend, prefix string) ([]SyncFile, error) {
 	sourceFiles, err := source.ListFiles(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("listing source files: %w", err)
@@ -671,12 +675,8 @@ func (e *SyncEngine) detectChanges(ctx context.Context, source, target MirrorBac
 				// Source is newer - copy
 				sf.Action = SyncActionCopy
 				changes = append(changes, sf)
-			} else if tf.ModifiedTime.After(sf.ModifiedTime) {
-				// Target is newer - conflict
-				sf.Action = SyncActionConflict
-				changes = append(changes, sf)
 			} else {
-				// Same time but different checksum - conflict
+				// Target is newer or same time but different checksum - conflict
 				sf.Action = SyncActionConflict
 				changes = append(changes, sf)
 			}
@@ -767,7 +767,7 @@ func (e *SyncEngine) sortFilesByPriority(files []SyncFile) {
 }
 
 // syncFile syncs a single file.
-func (e *SyncEngine) syncFile(ctx context.Context, op *SyncOperation, file SyncFile, source, target MirrorBackend) error {
+func (e *SyncEngine) syncFile(ctx context.Context, op *SyncOperation, file SyncFile, source, target Backend) error {
 	switch file.Action {
 	case SyncActionCopy:
 		reader, err := source.GetFile(ctx, file.Path)
@@ -797,13 +797,16 @@ func (e *SyncEngine) syncFile(ctx context.Context, op *SyncOperation, file SyncF
 
 	case SyncActionConflict:
 		return e.resolveConflict(ctx, op, file, source, target)
+
+	default:
+		// SyncActionSkip - no operation needed
 	}
 
 	return nil
 }
 
 // handleConflict records a conflict for manual resolution.
-func (e *SyncEngine) handleConflict(op *SyncOperation, file SyncFile, source, target MirrorBackend) {
+func (e *SyncEngine) handleConflict(op *SyncOperation, file SyncFile, source, target Backend) {
 	ctx := context.Background()
 
 	sourceInfo, _ := source.GetFileInfo(ctx, file.Path)
@@ -839,7 +842,7 @@ func (e *SyncEngine) handleConflict(op *SyncOperation, file SyncFile, source, ta
 }
 
 // resolveConflict applies the configured conflict resolution strategy.
-func (e *SyncEngine) resolveConflict(ctx context.Context, op *SyncOperation, file SyncFile, source, target MirrorBackend) error {
+func (e *SyncEngine) resolveConflict(ctx context.Context, op *SyncOperation, file SyncFile, source, target Backend) error {
 	sourceInfo, err := source.GetFileInfo(ctx, file.Path)
 	if err != nil {
 		return err
@@ -865,7 +868,7 @@ func (e *SyncEngine) resolveConflict(ctx context.Context, op *SyncOperation, fil
 
 	case ConflictStrategyManual:
 		// Record conflict for manual resolution
-		e.handleConflict(op, file, source, target)
+		e.handleConflict(op, file, source, target) //nolint:contextcheck // handleConflict doesn't take context
 		return fmt.Errorf("conflict requires manual resolution")
 	}
 
@@ -1000,7 +1003,7 @@ func (e *SyncEngine) GetConflicts() []*Conflict {
 }
 
 // ResolveConflict manually resolves a conflict.
-func (e *SyncEngine) ResolveConflict(conflictID string, resolution string, resolvedBy string) error {
+func (e *SyncEngine) ResolveConflict(conflictID, resolution, resolvedBy string) error {
 	e.conflictsMu.Lock()
 	defer e.conflictsMu.Unlock()
 

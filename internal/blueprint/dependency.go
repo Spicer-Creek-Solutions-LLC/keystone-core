@@ -30,8 +30,8 @@ func (d DependencyType) String() string {
 	}
 }
 
-// BlueprintDependency represents a dependency on another blueprint.
-type BlueprintDependency struct {
+// Dependency represents a dependency on another blueprint.
+type Dependency struct {
 	// Blueprint is the reference (e.g., "blueprints/community/ssl-certificates@^2.0")
 	Blueprint string
 
@@ -45,8 +45,8 @@ type BlueprintDependency struct {
 	Namespace string
 }
 
-// BlueprintInstance represents a blueprint with a specific namespace for multi-instance support.
-type BlueprintInstance struct {
+// Instance represents a blueprint with a specific namespace for multi-instance support.
+type Instance struct {
 	// Blueprint is the resolved blueprint
 	Blueprint *Blueprint
 
@@ -64,14 +64,14 @@ type BlueprintInstance struct {
 	EnabledStates []string
 
 	// Dependencies are the resolved dependencies
-	Dependencies []*BlueprintDependency
+	Dependencies []*Dependency
 
 	// EntryPoint is the selected entry point (default or named)
 	EntryPoint string
 }
 
 // InstanceID returns a unique identifier for this instance.
-func (i *BlueprintInstance) InstanceID() string {
+func (i *Instance) InstanceID() string {
 	if i.Namespace != "" {
 		return fmt.Sprintf("%s:%s@%s", i.Blueprint.Metadata.Name, i.Namespace, i.Blueprint.Metadata.Version)
 	}
@@ -79,7 +79,7 @@ func (i *BlueprintInstance) InstanceID() string {
 }
 
 // FullName returns the blueprint name with namespace prefix if applicable.
-func (i *BlueprintInstance) FullName() string {
+func (i *Instance) FullName() string {
 	if i.Namespace != "" {
 		return fmt.Sprintf("%s:%s", i.Namespace, i.Blueprint.Metadata.Name)
 	}
@@ -88,7 +88,7 @@ func (i *BlueprintInstance) FullName() string {
 
 // IsStateEnabled returns true if the given state file is conditionally enabled.
 // If no features enable states, this returns false (base states are always included).
-func (i *BlueprintInstance) IsStateEnabled(statePath string) bool {
+func (i *Instance) IsStateEnabled(statePath string) bool {
 	for _, s := range i.EnabledStates {
 		if s == statePath {
 			return true
@@ -98,7 +98,7 @@ func (i *BlueprintInstance) IsStateEnabled(statePath string) bool {
 }
 
 // GetEnabledStates returns a copy of the enabled state files.
-func (i *BlueprintInstance) GetEnabledStates() []string {
+func (i *Instance) GetEnabledStates() []string {
 	if len(i.EnabledStates) == 0 {
 		return nil
 	}
@@ -110,7 +110,7 @@ func (i *BlueprintInstance) GetEnabledStates() []string {
 // DependencyNode represents a node in the dependency graph.
 type DependencyNode struct {
 	// Instance is the blueprint instance
-	Instance *BlueprintInstance
+	Instance *Instance
 
 	// HardDependencies are blueprints that must complete before this one
 	HardDependencies []string
@@ -121,10 +121,10 @@ type DependencyNode struct {
 
 // DependencyGraph manages blueprint dependencies and execution ordering.
 type DependencyGraph struct {
-	nodes      map[string]*DependencyNode
-	edges      map[string][]string // hard edges: dependency -> dependents
-	softEdges  map[string][]string // soft edges for reference
-	mu         sync.RWMutex
+	nodes     map[string]*DependencyNode
+	edges     map[string][]string // hard edges: dependency -> dependents
+	softEdges map[string][]string // soft edges for reference
+	mu        sync.RWMutex
 }
 
 // NewDependencyGraph creates a new dependency graph.
@@ -137,7 +137,7 @@ func NewDependencyGraph() *DependencyGraph {
 }
 
 // AddInstance adds a blueprint instance to the graph.
-func (g *DependencyGraph) AddInstance(instance *BlueprintInstance) error {
+func (g *DependencyGraph) AddInstance(instance *Instance) error {
 	if instance == nil {
 		return fmt.Errorf("instance cannot be nil")
 	}
@@ -215,7 +215,7 @@ func (g *DependencyGraph) GetAllNodes() []*DependencyNode {
 
 // HasCycle detects if the graph has a cycle in hard dependencies.
 // Returns true if a cycle exists, along with the cycle path.
-func (g *DependencyGraph) HasCycle() (bool, []string) {
+func (g *DependencyGraph) HasCycle() (hasCycle bool, cyclePath []string) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -236,7 +236,7 @@ func (g *DependencyGraph) HasCycle() (bool, []string) {
 }
 
 // dfs performs depth-first search to detect cycles.
-func (g *DependencyGraph) dfs(instanceID string, visited, recStack map[string]bool, parent map[string]string) (bool, []string) {
+func (g *DependencyGraph) dfs(instanceID string, visited, recStack map[string]bool, parent map[string]string) (hasCycle bool, cyclePath []string) {
 	visited[instanceID] = true
 	recStack[instanceID] = true
 
@@ -271,7 +271,7 @@ type ExecutionLevel struct {
 	Level int
 
 	// Instances are the blueprint instances at this level
-	Instances []*BlueprintInstance
+	Instances []*Instance
 
 	// CanRunConcurrently indicates all instances at this level can run in parallel
 	CanRunConcurrently bool
@@ -306,7 +306,7 @@ func (g *DependencyGraph) GetExecutionOrder() ([]*ExecutionLevel, error) {
 
 	for len(processed) < len(g.nodes) {
 		// Find all nodes with in-degree 0
-		currentLevel := make([]*BlueprintInstance, 0)
+		currentLevel := make([]*Instance, 0)
 
 		for instanceID, degree := range inDegree {
 			if degree == 0 && !processed[instanceID] {
@@ -429,13 +429,15 @@ type DependencyResolver struct {
 	graph *DependencyGraph
 
 	// instances tracks resolved instances by ID
-	instances map[string]*BlueprintInstance
+	instances map[string]*Instance
 
 	// mu protects concurrent access
 	mu sync.Mutex
 }
 
 // BlueprintLoader loads blueprints by reference.
+//
+//nolint:revive // Cannot rename to Loader as there's already a Loader struct in this package
 type BlueprintLoader interface {
 	// Load loads a blueprint by reference (e.g., "blueprints/community/ssl-certificates@^2.0")
 	Load(reference string) (*Blueprint, error)
@@ -446,14 +448,14 @@ func NewDependencyResolver(loader BlueprintLoader) *DependencyResolver {
 	return &DependencyResolver{
 		loader:    loader,
 		graph:     NewDependencyGraph(),
-		instances: make(map[string]*BlueprintInstance),
+		instances: make(map[string]*Instance),
 	}
 }
 
 // ResolutionResult contains the result of dependency resolution.
 type ResolutionResult struct {
 	// Instances are all resolved blueprint instances
-	Instances []*BlueprintInstance
+	Instances []*Instance
 
 	// ExecutionLevels are the execution order levels
 	ExecutionLevels []*ExecutionLevel
@@ -463,16 +465,16 @@ type ResolutionResult struct {
 }
 
 // Resolve resolves all blueprint dependencies from a list of includes.
-func (r *DependencyResolver) Resolve(includes []BlueprintInclude) (*ResolutionResult, error) {
+func (r *DependencyResolver) Resolve(includes []Include) (*ResolutionResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// Reset state
 	r.graph.Clear()
-	r.instances = make(map[string]*BlueprintInstance)
+	r.instances = make(map[string]*Instance)
 
 	result := &ResolutionResult{
-		Instances: make([]*BlueprintInstance, 0),
+		Instances: make([]*Instance, 0),
 		Errors:    make([]error, 0),
 	}
 
@@ -512,7 +514,7 @@ func (r *DependencyResolver) Resolve(includes []BlueprintInclude) (*ResolutionRe
 	}
 
 	// Update instances from graph order
-	result.Instances = make([]*BlueprintInstance, 0)
+	result.Instances = make([]*Instance, 0)
 	for _, level := range result.ExecutionLevels {
 		result.Instances = append(result.Instances, level.Instances...)
 	}
@@ -521,7 +523,7 @@ func (r *DependencyResolver) Resolve(includes []BlueprintInclude) (*ResolutionRe
 }
 
 // resolveInclude resolves a single blueprint include.
-func (r *DependencyResolver) resolveInclude(include BlueprintInclude) (*BlueprintInstance, error) {
+func (r *DependencyResolver) resolveInclude(include Include) (*Instance, error) {
 	// Build full reference
 	ref := include.Blueprint
 	if include.Version != "" {
@@ -535,12 +537,12 @@ func (r *DependencyResolver) resolveInclude(include BlueprintInclude) (*Blueprin
 	}
 
 	// Create instance
-	instance := &BlueprintInstance{
+	instance := &Instance{
 		Blueprint:       bp,
 		Namespace:       include.As,
 		Parameters:      include.Parameters,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies:    make([]*BlueprintDependency, 0),
+		Dependencies:    make([]*Dependency, 0),
 		EntryPoint:      include.Entrypoint,
 	}
 
@@ -561,7 +563,7 @@ func (r *DependencyResolver) resolveInclude(include BlueprintInclude) (*Blueprin
 }
 
 // evaluateFeatures evaluates feature flags for an instance.
-func (r *DependencyResolver) evaluateFeatures(instance *BlueprintInstance, userFeatures map[string]bool) error {
+func (r *DependencyResolver) evaluateFeatures(instance *Instance, userFeatures map[string]bool) error {
 	bp := instance.Blueprint
 
 	// Start with default feature values
@@ -584,7 +586,7 @@ func (r *DependencyResolver) evaluateFeatures(instance *BlueprintInstance, userF
 }
 
 // computeEnabledStates computes which state files are enabled based on feature flags.
-func (r *DependencyResolver) computeEnabledStates(instance *BlueprintInstance) []string {
+func (r *DependencyResolver) computeEnabledStates(instance *Instance) []string {
 	bp := instance.Blueprint
 	enabledStates := make(map[string]bool)
 
@@ -615,14 +617,14 @@ func (r *DependencyResolver) computeEnabledStates(instance *BlueprintInstance) [
 }
 
 // extractDependencies extracts dependencies from a blueprint.
-func (r *DependencyResolver) extractDependencies(instance *BlueprintInstance) error {
+func (r *DependencyResolver) extractDependencies(instance *Instance) error {
 	bp := instance.Blueprint
 
 	// Handle nil Dependencies (blueprint has no dependencies)
 	if bp.Dependencies != nil {
 		// Extract from dependencies.requires (soft)
 		for _, req := range bp.Dependencies.Requires {
-			instance.Dependencies = append(instance.Dependencies, &BlueprintDependency{
+			instance.Dependencies = append(instance.Dependencies, &Dependency{
 				Blueprint: req,
 				Type:      DependencyTypeSoft,
 			})
@@ -630,7 +632,7 @@ func (r *DependencyResolver) extractDependencies(instance *BlueprintInstance) er
 
 		// Extract from dependencies.requires_before (hard)
 		for _, req := range bp.Dependencies.RequiresBefore {
-			instance.Dependencies = append(instance.Dependencies, &BlueprintDependency{
+			instance.Dependencies = append(instance.Dependencies, &Dependency{
 				Blueprint: req,
 				Type:      DependencyTypeHard,
 			})
@@ -658,7 +660,7 @@ func (r *DependencyResolver) extractDependencies(instance *BlueprintInstance) er
 				}
 			}
 			if !found {
-				instance.Dependencies = append(instance.Dependencies, &BlueprintDependency{
+				instance.Dependencies = append(instance.Dependencies, &Dependency{
 					Blueprint: req,
 					Type:      DependencyTypeSoft, // Feature dependencies are soft by default
 				})
@@ -670,7 +672,7 @@ func (r *DependencyResolver) extractDependencies(instance *BlueprintInstance) er
 }
 
 // resolveTransitiveDependencies resolves transitive dependencies for an instance.
-func (r *DependencyResolver) resolveTransitiveDependencies(instance *BlueprintInstance) error {
+func (r *DependencyResolver) resolveTransitiveDependencies(instance *Instance) error {
 	for _, dep := range instance.Dependencies {
 		// Load dependency blueprint
 		bp, err := r.loader.Load(dep.Blueprint)
@@ -681,12 +683,12 @@ func (r *DependencyResolver) resolveTransitiveDependencies(instance *BlueprintIn
 		dep.Resolved = bp
 
 		// Create instance for dependency if not already resolved
-		depInstance := &BlueprintInstance{
+		depInstance := &Instance{
 			Blueprint:       bp,
 			Namespace:       dep.Namespace,
 			Parameters:      make(map[string]interface{}),
 			EnabledFeatures: make(map[string]bool),
-			Dependencies:    make([]*BlueprintDependency, 0),
+			Dependencies:    make([]*Dependency, 0),
 		}
 
 		depID := depInstance.InstanceID()

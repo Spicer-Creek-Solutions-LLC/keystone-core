@@ -229,6 +229,7 @@ func (cb *SMCircuitBreaker) RecordSuccess() {
 		if cb.successCount >= cb.config.SuccessThreshold {
 			cb.machine.Fire(SMCBEventProbeSuccess)
 		}
+	default:
 	}
 }
 
@@ -244,6 +245,7 @@ func (cb *SMCircuitBreaker) RecordFailure() {
 		}
 	case SMCBStateHalfOpen:
 		cb.machine.Fire(SMCBEventProbeFailed)
+	default:
 	}
 }
 

@@ -41,17 +41,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 // VerificationResponse represents a verification result in API responses.
 type VerificationResponse struct {
-	ID           string                              `json:"id"`
-	WorkflowName string                              `json:"workflow_name"`
-	Success      bool                                `json:"success"`
-	Steps        []VerificationStepResponse          `json:"steps"`
-	TotalSteps   int                                 `json:"total_steps"`
-	PassedSteps  int                                 `json:"passed_steps"`
-	FailedSteps  int                                 `json:"failed_steps"`
-	SkippedSteps int                                 `json:"skipped_steps"`
-	Duration     string                              `json:"duration"`
-	StartTime    time.Time                           `json:"start_time"`
-	EndTime      time.Time                           `json:"end_time"`
+	ID           string                     `json:"id"`
+	WorkflowName string                     `json:"workflow_name"`
+	Success      bool                       `json:"success"`
+	Steps        []VerificationStepResponse `json:"steps"`
+	TotalSteps   int                        `json:"total_steps"`
+	PassedSteps  int                        `json:"passed_steps"`
+	FailedSteps  int                        `json:"failed_steps"`
+	SkippedSteps int                        `json:"skipped_steps"`
+	Duration     string                     `json:"duration"`
+	StartTime    time.Time                  `json:"start_time"`
+	EndTime      time.Time                  `json:"end_time"`
 }
 
 // VerificationStepResponse represents a single step result.
@@ -273,17 +273,17 @@ func (h *Handler) handleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert request type to RollbackType
-	rollbackType := rollback.RollbackType(req.Type)
+	// Convert request type to Type
+	rollbackType := rollback.Type(req.Type)
 
 	// Default strategy
 	strategy := rollback.StrategyPreviousRevision
 	if req.Strategy != "" {
-		strategy = rollback.RollbackStrategy(req.Strategy)
+		strategy = rollback.Strategy(req.Strategy)
 	}
 
 	// Build rollback config
-	config := &rollback.RollbackConfig{
+	config := &rollback.Config{
 		Name:            req.Application + "-rollback",
 		Type:            rollbackType,
 		Strategy:        strategy,
@@ -295,7 +295,7 @@ func (h *Handler) handleRollback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build rollback request
-	rollbackReq := &rollback.RollbackRequest{
+	rollbackReq := &rollback.Request{
 		ConfigName:       config.Name,
 		Reason:           req.Reason,
 		RequestedBy:      req.RequestedBy,
@@ -505,7 +505,7 @@ func convertWorkflowResult(id string, result *verification.WorkflowResult) Verif
 	}
 }
 
-func convertRollbackResult(result *rollback.RollbackResult) RollbackResponse {
+func convertRollbackResult(result *rollback.Result) RollbackResponse {
 	resp := RollbackResponse{
 		ID:               result.ID,
 		Application:      result.Config.Application,

@@ -78,11 +78,9 @@ func (h *Handler) StatusHandler() http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 
-		// Return 503 if unhealthy
+		// Return 503 if unhealthy, 200 otherwise (including degraded - still serving)
 		if response.Status == StatusUnhealthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
-		} else if response.Status == StatusDegraded {
-			w.WriteHeader(http.StatusOK) // Still serving but with warnings
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}

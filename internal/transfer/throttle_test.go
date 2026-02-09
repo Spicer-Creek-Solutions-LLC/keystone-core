@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -103,7 +104,7 @@ func TestThrottler_WaitN_Context(t *testing.T) {
 	defer cancel()
 
 	err := throttler.WaitN(ctx, 100)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("WaitN = %v, want context.DeadlineExceeded", err)
 	}
 }
@@ -178,7 +179,7 @@ func TestThrottler_Stop(t *testing.T) {
 	// Wait for goroutine
 	wg.Wait()
 
-	if waitErr != ErrThrottlerStopped {
+	if !errors.Is(waitErr, ErrThrottlerStopped) {
 		t.Errorf("WaitN after stop = %v, want ErrThrottlerStopped", waitErr)
 	}
 }
@@ -248,7 +249,7 @@ func TestThrottledWriter(t *testing.T) {
 }
 
 func TestTransferStats_BytesPerSecond(t *testing.T) {
-	stats := &TransferStats{
+	stats := &Stats{
 		StartTime:        time.Now().Add(-time.Second),
 		BytesTransferred: 1000,
 	}
@@ -437,7 +438,7 @@ func TestLimitedCopy_Context(t *testing.T) {
 	defer cancel()
 
 	_, err := LimitedCopy(ctx, &dst, src, 3000, throttler)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("LimitedCopy = %v, want context.DeadlineExceeded", err)
 	}
 }
@@ -459,7 +460,7 @@ func TestProgressReader(t *testing.T) {
 	buf := make([]byte, 100)
 	for {
 		_, err := pr.Read(buf)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -537,7 +538,7 @@ func TestThrottledReader_EOF(t *testing.T) {
 	}
 
 	n, err = tr.Read(buf)
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Errorf("Second read = %v, want io.EOF", err)
 	}
 	if n != 0 {

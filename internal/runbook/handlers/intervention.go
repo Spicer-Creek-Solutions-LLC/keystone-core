@@ -35,19 +35,19 @@ type InterventionManager interface {
 //
 // For prompt type:
 //   - prompts: List of input field definitions
-//     - name: Field identifier (required)
-//     - label: Display label (optional)
-//     - type: Field type (text, number, boolean, select, multiselect, textarea, password)
-//     - required: Whether field is required (default: false)
-//     - default: Default value
-//     - options: For select/multiselect, list of {value, label} options
-//     - validation: Validation rules {pattern, min, max}
+//   - name: Field identifier (required)
+//   - label: Display label (optional)
+//   - type: Field type (text, number, boolean, select, multiselect, textarea, password)
+//   - required: Whether field is required (default: false)
+//   - default: Default value
+//   - options: For select/multiselect, list of {value, label} options
+//   - validation: Validation rules {pattern, minVal, max}
 //
 // For confirm type:
 //   - confirmMessage: Message displayed for confirmation (optional)
 type InterventionHandler struct {
-	manager      InterventionManager
-	handlerType  runbook.StepType
+	manager     InterventionManager
+	handlerType runbook.StepType
 }
 
 // NewPromptHandler creates a new prompt step handler.
@@ -92,6 +92,7 @@ func (h *InterventionHandler) Validate(step *runbook.Step) error {
 	case runbook.StepTypeConfirm, runbook.StepTypeWaitManual:
 		// No additional required fields
 		return nil
+	default:
 	}
 
 	return nil
@@ -207,9 +208,9 @@ func (h *InterventionHandler) Execute(ctx context.Context, step *runbook.Step, v
 		if ctx.Err() != nil {
 			// Try to cancel the pending request using a background context
 			// since the original context is already cancelled
-			cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //nolint:contextcheck // intentional: original ctx is cancelled, need new context for cleanup
 			defer cancel()
-			_, cancelErr := h.manager.Cancel(cancelCtx, requestID, "execution cancelled")
+			_, cancelErr := h.manager.Cancel(cancelCtx, requestID, "execution cancelled") //nolint:contextcheck // intentional: using cleanup context
 			if cancelErr != nil {
 				_ = cancelErr
 			}
@@ -243,11 +244,12 @@ func (h *InterventionHandler) buildConfig(step *runbook.Step, varCtx VariableCon
 	// Set intervention type based on step type
 	switch step.Type {
 	case runbook.StepTypePrompt:
-		ic.Type = intervention.InterventionTypePrompt
+		ic.Type = intervention.TypePrompt
 	case runbook.StepTypeWaitManual:
-		ic.Type = intervention.InterventionTypeWaitManual
+		ic.Type = intervention.TypeWaitManual
 	case runbook.StepTypeConfirm:
-		ic.Type = intervention.InterventionTypeConfirm
+		ic.Type = intervention.TypeConfirm
+	default:
 	}
 
 	// Title (required)
@@ -377,11 +379,11 @@ func (h *InterventionHandler) buildPromptField(config map[string]interface{}, va
 		if pattern, ok := validation["pattern"].(string); ok {
 			field.Validation.Pattern = pattern
 		}
-		if min, ok := validation["min"].(float64); ok {
-			field.Validation.Min = &min
+		if minVal, ok := validation["min"].(float64); ok {
+			field.Validation.Min = &minVal
 		}
-		if max, ok := validation["max"].(float64); ok {
-			field.Validation.Max = &max
+		if maxVal, ok := validation["max"].(float64); ok {
+			field.Validation.Max = &maxVal
 		}
 	}
 
@@ -418,25 +420,25 @@ func (h *InterventionHandler) buildResult(req *intervention.Request, startTime t
 	var success bool
 
 	switch req.State {
-	case intervention.InterventionStateCompleted:
+	case intervention.StateCompleted:
 		success = true
 		switch req.Type {
-		case intervention.InterventionTypeConfirm:
+		case intervention.TypeConfirm:
 			if req.Response != nil && req.Response.Confirmed {
 				message = fmt.Sprintf("confirmed by %s", req.Response.Operator)
 			} else {
 				message = fmt.Sprintf("declined by %s", req.Response.Operator)
 				success = false
 			}
-		case intervention.InterventionTypeWaitManual:
+		case intervention.TypeWaitManual:
 			message = fmt.Sprintf("acknowledged by %s", req.Response.Operator)
-		case intervention.InterventionTypePrompt:
+		case intervention.TypePrompt:
 			message = fmt.Sprintf("input provided by %s", req.Response.Operator)
 		}
-	case intervention.InterventionStateExpired:
+	case intervention.StateExpired:
 		success = false
 		message = "intervention request expired"
-	case intervention.InterventionStateCancelled:
+	case intervention.StateCancelled:
 		success = false
 		message = "intervention request cancelled"
 	default:

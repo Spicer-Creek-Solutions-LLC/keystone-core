@@ -85,7 +85,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check server flag
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag")
+		t.Fatal("expected --server flag")
 	}
 	if serverFlag.DefValue != "localhost:9090" {
 		t.Errorf("expected server default to be 'localhost:9090', got %s", serverFlag.DefValue)
@@ -94,7 +94,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check format flag
 	formatFlag := cmd.PersistentFlags().Lookup("format")
 	if formatFlag == nil {
-		t.Error("expected --format flag")
+		t.Fatal("expected --format flag")
 	}
 	if formatFlag.DefValue != "table" {
 		t.Errorf("expected format default to be 'table', got %s", formatFlag.DefValue)
@@ -138,7 +138,7 @@ func TestLogCommandFlags(t *testing.T) {
 
 	limitFlag := logCmd.Flags().Lookup("limit")
 	if limitFlag == nil {
-		t.Error("expected --limit flag on log command")
+		t.Fatal("expected --limit flag on log command")
 	}
 	if limitFlag.DefValue != "100" {
 		t.Errorf("expected limit default to be '100', got %s", limitFlag.DefValue)
@@ -164,7 +164,7 @@ func TestReportCommandFlags(t *testing.T) {
 
 	daysFlag := reportCmd.Flags().Lookup("days")
 	if daysFlag == nil {
-		t.Error("expected --days flag on report command")
+		t.Fatal("expected --days flag on report command")
 	}
 	if daysFlag.DefValue != "7" {
 		t.Errorf("expected days default to be '7', got %s", daysFlag.DefValue)
@@ -190,7 +190,7 @@ func TestExportCommandFlags(t *testing.T) {
 
 	daysFlag := exportCmd.Flags().Lookup("days")
 	if daysFlag == nil {
-		t.Error("expected --days flag on export command")
+		t.Fatal("expected --days flag on export command")
 	}
 	if daysFlag.DefValue != "30" {
 		t.Errorf("expected days default to be '30', got %s", daysFlag.DefValue)
@@ -203,7 +203,7 @@ func TestExportCommandFlags(t *testing.T) {
 
 	exportFormatFlag := exportCmd.Flags().Lookup("export-format")
 	if exportFormatFlag == nil {
-		t.Error("expected --export-format flag on export command")
+		t.Fatal("expected --export-format flag on export command")
 	}
 	if exportFormatFlag.DefValue != "json" {
 		t.Errorf("expected export-format default to be 'json', got %s", exportFormatFlag.DefValue)
@@ -219,7 +219,7 @@ func TestStatsCommandFlags(t *testing.T) {
 
 	daysFlag := statsCmd.Flags().Lookup("days")
 	if daysFlag == nil {
-		t.Error("expected --days flag on stats command")
+		t.Fatal("expected --days flag on stats command")
 	}
 	if daysFlag.DefValue != "7" {
 		t.Errorf("expected days default to be '7', got %s", daysFlag.DefValue)

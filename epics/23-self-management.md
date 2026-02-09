@@ -182,7 +182,7 @@ kscore_server:
 
   config:
     file.managed:
-      - name: /etc/kscore/server.yaml
+      - name: /etc/keystone-core/server.yaml
       - source: kscore://configs/server.yaml
       - template: true
       - require:
@@ -446,8 +446,8 @@ kscore_server:
       - api:
           listen: ":8080"
           tls:
-            cert_file: /etc/kscore/tls/server.crt
-            key_file: /etc/kscore/tls/server.key
+            cert_file: /etc/keystone-core/tls/server.crt
+            key_file: /etc/keystone-core/tls/server.key
 
   service:
     kscore_server.running:
@@ -549,12 +549,12 @@ kscore_backup:
 ### Bootstrap Configuration
 
 ```yaml
-# /etc/kscore/bootstrap.yaml
+# /etc/keystone-core/bootstrap.yaml
 bootstrap:
   mode: seed  # seed, restore, import
 
   seed:
-    config_file: /etc/kscore/seed-config.yaml
+    config_file: /etc/keystone-core/seed-config.yaml
 
   restore:
     backup_file: /path/to/backup.tar.gz
@@ -562,7 +562,7 @@ bootstrap:
 
   import:
     discover: true
-    output_dir: /etc/kscore/imported/
+    output_dir: /etc/keystone-core/imported/
 
   # Post-bootstrap actions
   post_bootstrap:
@@ -574,7 +574,7 @@ bootstrap:
 ### Backup Configuration
 
 ```yaml
-# /etc/kscore/backup.yaml
+# /etc/keystone-core/backup.yaml
 backup:
   # Schedule (cron format)
   schedule: "0 */4 * * *"  # Every 4 hours
@@ -638,7 +638,7 @@ backup:
 ### Upgrade Configuration
 
 ```yaml
-# /etc/kscore/upgrade.yaml
+# /etc/keystone-core/upgrade.yaml
 upgrade:
   # Strategy
   strategy: rolling  # rolling, blue-green, canary
@@ -977,7 +977,7 @@ gitops/kscore/
 ```bash
 kscore-bootstrap --seed config.yaml
 kscore-bootstrap --restore backup.tar.gz --key key.txt
-kscore-bootstrap --import --output /etc/kscore/imported/
+kscore-bootstrap --import --output /etc/keystone-core/imported/
 ```
 
 **T7.2: Backup CLI**

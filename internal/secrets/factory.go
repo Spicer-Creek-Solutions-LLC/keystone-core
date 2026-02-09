@@ -219,8 +219,8 @@ type GCPAuthConfig struct {
 	ImpersonateServiceAccount string `json:"impersonate_service_account,omitempty" yaml:"impersonate_service_account,omitempty"`
 }
 
-// SecretsConfig is the top-level secrets configuration.
-type SecretsConfig struct {
+// Config is the top-level secrets configuration.
+type Config struct {
 	// DefaultBackend is the default backend name.
 	DefaultBackend string `json:"default_backend,omitempty" yaml:"default_backend,omitempty"`
 
@@ -376,7 +376,7 @@ func (f *BackendFactory) createGCPBackend(ctx context.Context, name string, conf
 type BrokerBuilder struct {
 	factory       *BackendFactory
 	healthMonitor *HealthMonitor
-	config        *SecretsConfig
+	config        *Config
 }
 
 // NewBrokerBuilder creates a new broker builder.
@@ -387,7 +387,7 @@ func NewBrokerBuilder() *BrokerBuilder {
 }
 
 // WithConfig sets the secrets configuration.
-func (bb *BrokerBuilder) WithConfig(config *SecretsConfig) *BrokerBuilder {
+func (bb *BrokerBuilder) WithConfig(config *Config) *BrokerBuilder {
 	bb.config = config
 	return bb
 }
@@ -407,7 +407,7 @@ func (bb *BrokerBuilder) WithHealthMonitor(hm *HealthMonitor) *BrokerBuilder {
 // Build builds the secret broker.
 func (bb *BrokerBuilder) Build(ctx context.Context) (*SecretBroker, error) {
 	if bb.config == nil {
-		bb.config = &SecretsConfig{}
+		bb.config = &Config{}
 	}
 
 	// Create broker config
@@ -455,7 +455,7 @@ func (bb *BrokerBuilder) Build(ctx context.Context) (*SecretBroker, error) {
 }
 
 // ValidateConfig validates the secrets configuration.
-func ValidateConfig(config *SecretsConfig) error {
+func ValidateConfig(config *Config) error {
 	if config == nil {
 		return nil
 	}

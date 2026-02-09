@@ -14,8 +14,8 @@ type AuditLogger struct {
 }
 
 // NewAuditLogger creates a new DNS audit logger.
-func NewAuditLogger(zone string) (*AuditLogger, error) {
-	auditor, err := audit.NewAuditor("dns", nil)
+func NewAuditLogger(ctx context.Context, zone string) (*AuditLogger, error) {
+	auditor, err := audit.NewAuditor(ctx, "dns", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +179,8 @@ func (l *AuditLogger) Close() error {
 var DefaultAuditLogger *AuditLogger
 
 // InitDefaultAuditLogger initializes the default DNS audit logger.
-func InitDefaultAuditLogger(zone string) error {
-	logger, err := NewAuditLogger(zone)
+func InitDefaultAuditLogger(ctx context.Context, zone string) error {
+	logger, err := NewAuditLogger(ctx, zone)
 	if err != nil {
 		return err
 	}

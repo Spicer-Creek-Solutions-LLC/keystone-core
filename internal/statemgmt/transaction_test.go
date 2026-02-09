@@ -91,7 +91,7 @@ func TestTransactionManager_Commit(t *testing.T) {
 	txn, _ := tm.Begin(ctx)
 
 	// Record a successful operation
-	tm.RecordOperation(&TransactionOperation{
+	tm.RecordOperation(ctx, &TransactionOperation{
 		ID:      "op1",
 		Success: true,
 	}, nil)
@@ -120,7 +120,7 @@ func TestTransactionManager_CommitWithFailedOperation(t *testing.T) {
 	tm.Begin(ctx)
 
 	// Record a failed operation
-	tm.RecordOperation(&TransactionOperation{
+	tm.RecordOperation(ctx, &TransactionOperation{
 		ID:      "op1",
 		Success: false,
 		Error:   errors.New("operation failed"),
@@ -152,7 +152,7 @@ func TestTransactionManager_Rollback(t *testing.T) {
 	txn, _ := tm.Begin(ctx)
 
 	rollbackExecuted := false
-	tm.RecordOperation(&TransactionOperation{
+	tm.RecordOperation(ctx, &TransactionOperation{
 		ID:      "op1",
 		Success: true,
 	}, func(ctx context.Context) error {
@@ -188,15 +188,15 @@ func TestTransactionManager_RollbackInReverseOrder(t *testing.T) {
 
 	tm.Begin(ctx)
 
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
 		order = append(order, 1)
 		return nil
 	})
-	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error {
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error {
 		order = append(order, 2)
 		return nil
 	})
-	tm.RecordOperation(&TransactionOperation{ID: "op3", Success: true}, func(ctx context.Context) error {
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op3", Success: true}, func(ctx context.Context) error {
 		order = append(order, 3)
 		return nil
 	})
@@ -227,7 +227,7 @@ func TestTransactionManager_RollbackWithRetry(t *testing.T) {
 	tm.Begin(ctx)
 
 	// Rollback that fails twice then succeeds
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
 		atomic.AddInt32(&attempts, 1)
 		if atomic.LoadInt32(&attempts) < 3 {
 			return errors.New("temporary failure")
@@ -261,7 +261,7 @@ func TestTransactionManager_RollbackWithRetry_ContextCancel(t *testing.T) {
 	}
 
 	rollbackCalls := 0
-	err = tm.RecordOperation(&TransactionOperation{
+	err = tm.RecordOperation(ctx, &TransactionOperation{
 		ID:      "op-1",
 		Type:    OperationTypeUpdate,
 		Success: false,
@@ -300,14 +300,14 @@ func TestTransactionManager_RecordOperation(t *testing.T) {
 	ctx := context.Background()
 
 	// Record without transaction should fail
-	err := tm.RecordOperation(&TransactionOperation{ID: "op1"}, nil)
+	err := tm.RecordOperation(ctx, &TransactionOperation{ID: "op1"}, nil)
 	if err == nil {
 		t.Error("expected error for record without transaction")
 	}
 
 	tm.Begin(ctx)
 
-	err = tm.RecordOperation(&TransactionOperation{
+	err = tm.RecordOperation(ctx, &TransactionOperation{
 		ID:      "op1",
 		Type:    OperationTypeCreate,
 		StateID: "/etc/nginx/nginx.conf",
@@ -350,8 +350,8 @@ func TestTransactionManager_Savepoint(t *testing.T) {
 	}
 
 	// Add some operations
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error { return nil })
-	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error { return nil })
 
 	// Create another savepoint
 	sp2, err := tm.CreateSavepoint("sp2")
@@ -364,7 +364,7 @@ func TestTransactionManager_Savepoint(t *testing.T) {
 	}
 
 	// Add more operations
-	tm.RecordOperation(&TransactionOperation{ID: "op3", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op3", Success: true}, func(ctx context.Context) error { return nil })
 
 	// Rollback to sp2 should only affect op3
 	err = tm.RollbackToSavepoint(ctx, sp2)
@@ -400,9 +400,9 @@ func TestTransaction_GetResult(t *testing.T) {
 
 	txn, _ := tm.Begin(ctx)
 
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
-	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, nil)
-	tm.RecordOperation(&TransactionOperation{ID: "op3", Success: false, Error: errors.New("failed")}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op2", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op3", Success: false, Error: errors.New("failed")}, nil)
 
 	result := txn.GetResult()
 
@@ -662,7 +662,7 @@ func TestTransactionManager_OnCommitCallback(t *testing.T) {
 	ctx := context.Background()
 
 	tm.Begin(ctx)
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, nil)
 	tm.Commit(ctx)
 
 	if !commitCalled {
@@ -989,8 +989,8 @@ func TestTransaction_GetResult_AfterRollback(t *testing.T) {
 
 	txn, _ := tm.Begin(ctx)
 
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error { return nil })
-	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error { return nil })
 
 	tm.Rollback(ctx, errors.New("test rollback"))
 
@@ -1028,7 +1028,7 @@ func TestTransactionManager_RollbackToSavepoint_InvalidIndex(t *testing.T) {
 	ctx := context.Background()
 
 	tm.Begin(ctx)
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, nil)
 
 	// Savepoint with index beyond operations count
 	savepoint := &Savepoint{ID: "sp1", Index: 10}
@@ -1051,7 +1051,7 @@ func TestTransactionManager_RollbackToSavepoint_WithRollbackError(t *testing.T) 
 	sp1, _ := tm.CreateSavepoint("sp1")
 
 	// Add operation with failing rollback
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
 		return errors.New("rollback failed")
 	})
 
@@ -1182,8 +1182,8 @@ func TestTransactionConfig_Callbacks(t *testing.T) {
 
 	// Test OnOperationComplete
 	tm.Begin(ctx)
-	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
-	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op1", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op2", Success: true}, nil)
 
 	if opCompleteCalled != 2 {
 		t.Errorf("expected OnOperationComplete called 2 times, got %d", opCompleteCalled)
@@ -1198,7 +1198,7 @@ func TestTransactionConfig_Callbacks(t *testing.T) {
 	// Start new transaction for rollback test
 	commitCalled = false
 	tm.Begin(ctx)
-	tm.RecordOperation(&TransactionOperation{ID: "op3", Success: true}, nil)
+	tm.RecordOperation(ctx, &TransactionOperation{ID: "op3", Success: true}, nil)
 
 	// Test OnRollback
 	tm.Rollback(ctx, errors.New("test"))

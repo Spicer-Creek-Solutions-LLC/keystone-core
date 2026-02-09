@@ -260,8 +260,8 @@ services:
       - "127.0.0.1:8080:8080"   # gRPC API
       - "127.0.0.1:8081:8081"   # HTTP API / Health
     volumes:
-      - ./config/server-1.yaml:/etc/kscore/server.yaml:ro
-      - server-1-data:/var/lib/kscore
+      - ./config/server-1.yaml:/etc/keystone-core/server.yaml:ro
+      - server-1-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-1
@@ -289,8 +289,8 @@ services:
       - "127.0.0.1:8082:8080"   # gRPC API
       - "127.0.0.1:8083:8081"   # HTTP API
     volumes:
-      - ./config/server-2.yaml:/etc/kscore/server.yaml:ro
-      - server-2-data:/var/lib/kscore
+      - ./config/server-2.yaml:/etc/keystone-core/server.yaml:ro
+      - server-2-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-2
@@ -318,8 +318,8 @@ services:
       - "127.0.0.1:8084:8080"   # gRPC API
       - "127.0.0.1:8085:8081"   # HTTP API
     volumes:
-      - ./config/server-3.yaml:/etc/kscore/server.yaml:ro
-      - server-3-data:/var/lib/kscore
+      - ./config/server-3.yaml:/etc/keystone-core/server.yaml:ro
+      - server-3-data:/var/lib/keystone-core
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-3
@@ -350,7 +350,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-ha-ipv6-1
       - KSCORE_ADDRESS_FAMILY=ipv6_only
@@ -368,7 +368,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-ha-ipv6-2
       - KSCORE_ADDRESS_FAMILY=ipv6_only
@@ -386,7 +386,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-ha-ipv6-3
       - KSCORE_ADDRESS_FAMILY=ipv6_only
@@ -404,7 +404,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-ha-ipv6-4
       - KSCORE_ADDRESS_FAMILY=ipv6_only
@@ -422,7 +422,7 @@ services:
       server-1:
         condition: service_healthy
     volumes:
-      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_AGENT_ID=agent-ha-ipv6-5
       - KSCORE_ADDRESS_FAMILY=ipv6_only

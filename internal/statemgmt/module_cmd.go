@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -171,17 +172,13 @@ func (m *CmdModule) executeCommand(ctx context.Context, decl *StateDeclaration, 
 	// Create command
 	var cmd *exec.Cmd
 
-	// Check if stateful (returns state codes)
+	// Check if stateful (returns state codes).
+	// For stateful commands, we expect the command to output
+	// "changed=yes" or "changed=no" and optionally "comment=..."
 	stateful := getBoolParameter(decl, "stateful", false)
 
-	if stateful {
-		// For stateful commands, we expect the command to output
-		// "changed=yes" or "changed=no" and optionally "comment=..."
-		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
-	} else {
-		// Regular command execution
-		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
-	}
+	//nolint:gosec // G204: shell command execution is intentional for state management commands
+	cmd = exec.CommandContext(ctx, shell, "-c", cmdStr) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	cmd.Env = env
 	if cwd != "" {
@@ -194,7 +191,8 @@ func (m *CmdModule) executeCommand(ctx context.Context, decl *StateDeclaration, 
 
 	if err != nil {
 		// Check if it's an exit error
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.Changes["exit_code"] = exitErr.ExitCode()
 			result.Changes["output"] = outputStr
 			return fmt.Errorf("command exited with code %d: %s", exitErr.ExitCode(), outputStr)
@@ -228,5 +226,5 @@ func (m *CmdModule) executeCommand(ctx context.Context, decl *StateDeclaration, 
 }
 
 func init() {
-	RegisterModule(NewCmdModule())
+	_ = RegisterModule(NewCmdModule()) //nolint:errcheck // module registration in init
 }

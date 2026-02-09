@@ -131,8 +131,8 @@ func TestParseTags(t *testing.T) {
 			expected: map[string]string{},
 		},
 		{
-			name:     "malformed entry",
-			input:    "invalid,env=prod",
+			name:  "malformed entry",
+			input: "invalid,env=prod",
 			expected: map[string]string{
 				"env": "prod",
 			},

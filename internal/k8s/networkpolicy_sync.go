@@ -258,7 +258,7 @@ func (s *NetworkPolicySynchronizer) SyncNow(ctx context.Context) (*NetworkPolicy
 
 // syncNamespace syncs policies from a specific namespace.
 func (s *NetworkPolicySynchronizer) syncNamespace(ctx context.Context, namespace string, result *NetworkPolicySyncResult, current map[string]*NetworkPolicy) error {
-	policies, err := s.client.ListNetworkPolicies(namespace, s.config.LabelSelector)
+	policies, err := s.client.ListNetworkPolicies(ctx, namespace, s.config.LabelSelector)
 	if err != nil {
 		syncErr := NetworkPolicySyncError{
 			Namespace: namespace,

@@ -322,7 +322,7 @@ func TestBundleVerifier(t *testing.T) {
 	t.Run("NewBundleVerifier", func(t *testing.T) {
 		verifier := NewBundleVerifier()
 		if verifier == nil {
-			t.Error("expected non-nil verifier")
+			t.Fatal("expected non-nil verifier")
 		}
 		if verifier.HashAlgorithm != HashSHA256 {
 			t.Errorf("default hash = %v, want %v", verifier.HashAlgorithm, HashSHA256)

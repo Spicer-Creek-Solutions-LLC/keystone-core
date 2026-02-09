@@ -86,32 +86,32 @@ type GCSGetOptions struct {
 
 // GCSPutOptions are options for PutObject.
 type GCSPutOptions struct {
-	ContentType   string
-	StorageClass  string
-	KMSKeyName    string
-	Metadata      map[string]string
-	CacheControl  string
+	ContentType     string
+	StorageClass    string
+	KMSKeyName      string
+	Metadata        map[string]string
+	CacheControl    string
 	ContentEncoding string
 }
 
 // GCSObject is the result of GetObject.
 type GCSObject struct {
-	Body        io.ReadCloser
-	ContentType string
-	Size        int64
-	Generation  int64
+	Body           io.ReadCloser
+	ContentType    string
+	Size           int64
+	Generation     int64
 	Metageneration int64
-	Updated     time.Time
-	MD5         []byte
-	CRC32C      uint32
-	Metadata    map[string]string
+	Updated        time.Time
+	MD5            []byte
+	CRC32C         uint32
+	Metadata       map[string]string
 }
 
 // GCSPutResult is the result of PutObject.
 type GCSPutResult struct {
-	Generation int64
+	Generation     int64
 	Metageneration int64
-	MD5 []byte
+	MD5            []byte
 }
 
 // GCSObjectAttrs is the result of GetObjectAttrs.
@@ -177,8 +177,8 @@ func (b *GCSBackend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *GCSBackend) Type() BackendType {
-	return BackendTypeGCS
+func (b *GCSBackend) Type() Type {
+	return TypeGCS
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -193,7 +193,7 @@ func (b *GCSBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "get", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
+		return nil, &Error{Op: "get", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	object := b.fullObject(filePath)
@@ -214,7 +214,7 @@ func (b *GCSBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 			if isGCSNotFound(err) {
 				return nil, ErrNotFound
 			}
-			return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+			return nil, &Error{Op: "get", Path: filePath, Err: err}
 		}
 		// Check if SHA256 matches
 		if sha, ok := attrs.Metadata["sha256"]; ok && sha == opts.IfNoneMatch {
@@ -227,7 +227,7 @@ func (b *GCSBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 		if isGCSNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+		return nil, &Error{Op: "get", Path: filePath, Err: err}
 	}
 
 	checksum := ""
@@ -255,7 +255,7 @@ func (b *GCSBackend) Get(ctx context.Context, filePath string, opts *GetOptions)
 // Put uploads a file to GCS.
 func (b *GCSBackend) Put(ctx context.Context, filePath string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
 	if b.config.ReadOnly {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: ErrReadOnly}
+		return nil, &Error{Op: "put", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -263,7 +263,7 @@ func (b *GCSBackend) Put(ctx context.Context, filePath string, reader io.Reader,
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	object := b.fullObject(filePath)
@@ -271,7 +271,7 @@ func (b *GCSBackend) Put(ctx context.Context, filePath string, reader io.Reader,
 	// Read content to calculate checksum
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
 	}
 
 	// Calculate SHA256
@@ -296,7 +296,7 @@ func (b *GCSBackend) Put(ctx context.Context, filePath string, reader io.Reader,
 
 	result, err := client.PutObject(ctx, b.config.Bucket, object, bytes.NewReader(content), gcsOpts)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: err}
+		return nil, &Error{Op: "put", Path: filePath, Err: err}
 	}
 
 	return &PutResult{
@@ -309,7 +309,7 @@ func (b *GCSBackend) Put(ctx context.Context, filePath string, reader io.Reader,
 // Delete removes a file from GCS.
 func (b *GCSBackend) Delete(ctx context.Context, filePath string) error {
 	if b.config.ReadOnly {
-		return &BackendError{Op: "delete", Path: filePath, Err: ErrReadOnly}
+		return &Error{Op: "delete", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -317,7 +317,7 @@ func (b *GCSBackend) Delete(ctx context.Context, filePath string) error {
 	b.mu.RUnlock()
 
 	if client == nil {
-		return &BackendError{Op: "delete", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
+		return &Error{Op: "delete", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	object := b.fullObject(filePath)
@@ -326,7 +326,7 @@ func (b *GCSBackend) Delete(ctx context.Context, filePath string) error {
 		if isGCSNotFound(err) {
 			return nil // Idempotent delete
 		}
-		return &BackendError{Op: "delete", Path: filePath, Err: err}
+		return &Error{Op: "delete", Path: filePath, Err: err}
 	}
 
 	return nil
@@ -339,7 +339,7 @@ func (b *GCSBackend) Exists(ctx context.Context, filePath string) (bool, error) 
 	b.mu.RUnlock()
 
 	if client == nil {
-		return false, &BackendError{Op: "exists", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
+		return false, &Error{Op: "exists", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	object := b.fullObject(filePath)
@@ -349,7 +349,7 @@ func (b *GCSBackend) Exists(ctx context.Context, filePath string) (bool, error) 
 		if isGCSNotFound(err) {
 			return false, nil
 		}
-		return false, &BackendError{Op: "exists", Path: filePath, Err: err}
+		return false, &Error{Op: "exists", Path: filePath, Err: err}
 	}
 
 	return true, nil
@@ -362,7 +362,7 @@ func (b *GCSBackend) Stat(ctx context.Context, filePath string) (*FileInfo, erro
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
+		return nil, &Error{Op: "stat", Path: filePath, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	object := b.fullObject(filePath)
@@ -372,7 +372,7 @@ func (b *GCSBackend) Stat(ctx context.Context, filePath string) (*FileInfo, erro
 		if isGCSNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: err}
+		return nil, &Error{Op: "stat", Path: filePath, Err: err}
 	}
 
 	checksum := ""
@@ -401,7 +401,7 @@ func (b *GCSBackend) List(ctx context.Context, prefix string, opts *ListOptions)
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: fmt.Errorf("gcs client not configured")}
+		return nil, &Error{Op: "list", Path: prefix, Err: fmt.Errorf("gcs client not configured")}
 	}
 
 	fullPrefix := b.fullObject(prefix)
@@ -426,7 +426,7 @@ func (b *GCSBackend) List(ctx context.Context, prefix string, opts *ListOptions)
 
 		result, err := client.ListObjects(ctx, b.config.Bucket, gcsOpts)
 		if err != nil {
-			return nil, &BackendError{Op: "list", Path: prefix, Err: err}
+			return nil, &Error{Op: "list", Path: prefix, Err: err}
 		}
 
 		for _, obj := range result.Objects {
@@ -467,7 +467,7 @@ func (b *GCSBackend) List(ctx context.Context, prefix string, opts *ListOptions)
 	}
 
 	return &ListResult{
-		Files:    files,
+		Files:     files,
 		Truncated: false,
 	}, nil
 }

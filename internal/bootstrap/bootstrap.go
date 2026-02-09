@@ -16,8 +16,8 @@ import (
 // DefaultBootstrapper is the default implementation of the Bootstrapper interface
 type DefaultBootstrapper struct {
 	config         *SeedConfig
-	options        BootstrapOptions
-	status         *BootstrapStatus
+	options        Options
+	status         *Status
 	registry       *InstallerRegistry
 	formation      *ClusterFormation
 	handoff        *HandoffManager
@@ -27,14 +27,14 @@ type DefaultBootstrapper struct {
 }
 
 // NewBootstrapper creates a new bootstrapper with the given options
-func NewBootstrapper(opts BootstrapOptions, logger Logger) (*DefaultBootstrapper, error) {
+func NewBootstrapper(opts Options, logger Logger) (*DefaultBootstrapper, error) {
 	if logger == nil {
 		logger = &noopLogger{}
 	}
 
 	b := &DefaultBootstrapper{
 		options: opts,
-		status: &BootstrapStatus{
+		status: &Status{
 			Phase:   PhaseInitializing,
 			Message: "Initializing bootstrap",
 		},
@@ -50,11 +50,11 @@ func (b *DefaultBootstrapper) SetProgressCallback(cb ProgressCallback) {
 }
 
 // Bootstrap performs the full bootstrap process
-func (b *DefaultBootstrapper) Bootstrap(ctx context.Context, opts BootstrapOptions) (*BootstrapResult, error) {
+func (b *DefaultBootstrapper) Bootstrap(ctx context.Context, opts Options) (*Result, error) {
 	b.startTime = time.Now()
 	b.options = opts
 
-	result := &BootstrapResult{
+	result := &Result{
 		Success: false,
 	}
 
@@ -193,7 +193,7 @@ func (b *DefaultBootstrapper) Bootstrap(ctx context.Context, opts BootstrapOptio
 }
 
 // Status returns the current bootstrap status
-func (b *DefaultBootstrapper) Status() *BootstrapStatus {
+func (b *DefaultBootstrapper) Status() *Status {
 	return b.status
 }
 
@@ -249,9 +249,9 @@ func (b *DefaultBootstrapper) Cleanup(ctx context.Context) error {
 
 	// Clean up directories
 	cleanupDirs := []string{
-		"/etc/kscore",
-		"/var/lib/kscore",
-		"/var/log/kscore",
+		"/etc/keystone-core",
+		"/var/lib/keystone-core",
+		"/var/log/keystone-core",
 	}
 
 	if b.options.Force {
@@ -337,8 +337,8 @@ func (b *DefaultBootstrapper) installServer(ctx context.Context) error {
 	componentConfig := ComponentConfig{
 		Type:       ComponentServer,
 		Version:    "latest", // Would be specific version in real implementation
-		ConfigPath: "/etc/kscore/server.yaml",
-		DataDir:    "/var/lib/kscore",
+		ConfigPath: "/etc/keystone-core/server.yaml",
+		DataDir:    "/var/lib/keystone-core",
 	}
 
 	return installer.Install(ctx, componentConfig)
@@ -353,17 +353,17 @@ func (b *DefaultBootstrapper) configureServer(ctx context.Context) error {
 
 	componentConfig := ComponentConfig{
 		Type:       ComponentServer,
-		ConfigPath: "/etc/kscore/server.yaml",
-		DataDir:    "/var/lib/kscore",
+		ConfigPath: "/etc/keystone-core/server.yaml",
+		DataDir:    "/var/lib/keystone-core",
 		Settings: map[string]any{
-			"cluster_name":    b.config.Cluster.Name,
-			"api_listen":      b.config.ControlPlane.API.Listen,
-			"nats_mode":       b.config.NATS.Mode,
-			"database_type":   b.config.Database.Type,
-			"database_path":   b.config.Database.Path,
-			"etcd_mode":       b.config.Etcd.Mode,
-			"tls_enabled":     b.config.ControlPlane.API.TLS.Enabled,
-			"tls_auto":        b.config.ControlPlane.API.TLS.AutoGenerate,
+			"cluster_name":  b.config.Cluster.Name,
+			"api_listen":    b.config.ControlPlane.API.Listen,
+			"nats_mode":     b.config.NATS.Mode,
+			"database_type": b.config.Database.Type,
+			"database_path": b.config.Database.Path,
+			"etcd_mode":     b.config.Etcd.Mode,
+			"tls_enabled":   b.config.ControlPlane.API.TLS.Enabled,
+			"tls_auto":      b.config.ControlPlane.API.TLS.AutoGenerate,
 		},
 	}
 
@@ -424,7 +424,7 @@ func (b *DefaultBootstrapper) getAPIEndpoint() string {
 // getCAFingerprint returns the CA certificate fingerprint
 func (b *DefaultBootstrapper) getCAFingerprint() string {
 	// In real implementation, compute SHA256 fingerprint of CA cert
-	caPath := filepath.Join("/etc/kscore/certs", "ca.crt")
+	caPath := filepath.Join("/etc", "keystone-core", "certs", "ca.crt")
 	if _, err := os.Stat(caPath); err != nil {
 		return "auto-generated"
 	}
@@ -457,8 +457,8 @@ func (b *DefaultBootstrapper) getComponentStatuses(ctx context.Context) []Compon
 }
 
 // updateStatus updates the bootstrap status and calls the callback
-func (b *DefaultBootstrapper) updateStatus(phase BootstrapPhase, message string, progress int) {
-	b.status = &BootstrapStatus{
+func (b *DefaultBootstrapper) updateStatus(phase Phase, message string, progress int) {
+	b.status = &Status{
 		Phase:       phase,
 		Message:     message,
 		Progress:    progress,
@@ -489,8 +489,8 @@ func (l *noopLogger) Warn(msg string, args ...any)  {}
 func (l *noopLogger) Error(msg string, args ...any) {}
 
 // RunBootstrap is a convenience function to run a bootstrap with default settings
-func RunBootstrap(ctx context.Context, configPath string, verbose bool) (*BootstrapResult, error) {
-	opts := BootstrapOptions{
+func RunBootstrap(ctx context.Context, configPath string, verbose bool) (*Result, error) {
+	opts := Options{
 		Mode:           BootstrapModeSeed,
 		SeedConfigPath: configPath,
 		Verbose:        verbose,

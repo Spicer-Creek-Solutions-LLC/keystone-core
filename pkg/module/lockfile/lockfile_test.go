@@ -1,6 +1,7 @@
 package lockfile
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -253,8 +254,9 @@ func TestLoadNotFound(t *testing.T) {
 		t.Fatal("Expected error for nonexistent file")
 	}
 
-	if _, ok := err.(*LockFileNotFoundError); !ok {
-		t.Errorf("Expected LockFileNotFoundError, got %T", err)
+	var notFoundErr *NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Errorf("Expected NotFoundError, got %T", err)
 	}
 }
 
@@ -264,12 +266,12 @@ func TestDiff(t *testing.T) {
 	old.AddModule("changed/module", &LockedModule{Version: "1.0.0", Hash: "sha256:old12345678901234567890123456789012345678901234567890123456"})
 	old.AddModule("removed/module", &LockedModule{Version: "1.0.0", Hash: "sha256:removed12345678901234567890123456789012345678901234567890"})
 
-	new := New()
-	new.AddModule("unchanged/module", &LockedModule{Version: "1.0.0", Hash: "sha256:unchanged1234567890123456789012345678901234567890123456789012"})
-	new.AddModule("changed/module", &LockedModule{Version: "2.0.0", Hash: "sha256:new12345678901234567890123456789012345678901234567890123456"})
-	new.AddModule("added/module", &LockedModule{Version: "1.0.0", Hash: "sha256:added12345678901234567890123456789012345678901234567890123"})
+	updated := New()
+	updated.AddModule("unchanged/module", &LockedModule{Version: "1.0.0", Hash: "sha256:unchanged1234567890123456789012345678901234567890123456789012"})
+	updated.AddModule("changed/module", &LockedModule{Version: "2.0.0", Hash: "sha256:new12345678901234567890123456789012345678901234567890123456"})
+	updated.AddModule("added/module", &LockedModule{Version: "1.0.0", Hash: "sha256:added12345678901234567890123456789012345678901234567890123"})
 
-	diff := old.Diff(new)
+	diff := old.Diff(updated)
 
 	if len(diff.Added) != 1 {
 		t.Errorf("Added count = %d, want 1", len(diff.Added))
@@ -492,7 +494,8 @@ modules: {}
 		t.Fatal("Expected error for unsupported version")
 	}
 
-	if _, ok := err.(*UnsupportedSchemaError); !ok {
+	var schemaErr *UnsupportedSchemaError
+	if !errors.As(err, &schemaErr) {
 		t.Errorf("Expected UnsupportedSchemaError, got %T", err)
 	}
 }
@@ -592,7 +595,7 @@ func TestMarshal(t *testing.T) {
 }
 
 func TestDiffSummary(t *testing.T) {
-	diff := &LockFileDiff{
+	diff := &Diff{
 		Added:     map[string]*LockedModule{"a": {}},
 		Removed:   map[string]*LockedModule{"b": {}},
 		Changed:   map[string]*ModuleChange{"c": {}},
@@ -605,7 +608,7 @@ func TestDiffSummary(t *testing.T) {
 	}
 
 	// Empty diff
-	emptyDiff := &LockFileDiff{
+	emptyDiff := &Diff{
 		Added:     map[string]*LockedModule{},
 		Removed:   map[string]*LockedModule{},
 		Changed:   map[string]*ModuleChange{},
@@ -645,8 +648,8 @@ func TestModuleChange_GetUpdateType(t *testing.T) {
 		{"patch downgrade", "1.0.5", "1.0.4", UpdateTypeDowngrade},
 
 		// Edge cases - verify numeric comparison not string
-		{"1.9 to 1.10", "1.9.0", "1.10.0", UpdateTypeMinor},   // String comparison would fail
-		{"2.0 to 10.0", "2.0.0", "10.0.0", UpdateTypeMajor},   // String comparison would fail
+		{"1.9 to 1.10", "1.9.0", "1.10.0", UpdateTypeMinor}, // String comparison would fail
+		{"2.0 to 10.0", "2.0.0", "10.0.0", UpdateTypeMajor}, // String comparison would fail
 
 		// Same version
 		{"no change", "1.0.0", "1.0.0", UpdateTypeUnknown},

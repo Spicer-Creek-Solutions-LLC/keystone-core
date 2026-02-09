@@ -32,14 +32,16 @@ func DefaultTemplate(name string) *ModuleTemplate {
 func (t *ModuleTemplate) Generate(outputDir string) error {
 	// Create module directory
 	moduleDir := filepath.Join(outputDir, t.Name)
-	if err := os.MkdirAll(moduleDir, 0755); err != nil {
+	//nolint:gosec // G301: module directory needs to be accessible by users
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create module directory: %w", err)
 	}
 
 	// Create subdirectories
 	dirs := []string{"states", "tests"}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(filepath.Join(moduleDir, dir), 0755); err != nil {
+		//nolint:gosec // G301: module subdirectory needs to be accessible by users
+		if err := os.MkdirAll(filepath.Join(moduleDir, dir), 0o755); err != nil {
 			return fmt.Errorf("failed to create %s directory: %w", dir, err)
 		}
 	}
@@ -64,11 +66,7 @@ func (t *ModuleTemplate) Generate(outputDir string) error {
 
 	// Generate README
 	readmePath := filepath.Join(moduleDir, "README.md")
-	if err := t.generateReadme(readmePath); err != nil {
-		return err
-	}
-
-	return nil
+	return t.generateReadme(readmePath)
 }
 
 func (t *ModuleTemplate) generateManifest(path string) error {
@@ -108,7 +106,8 @@ metadata:
 		content += fmt.Sprintf("  author: %s\n", t.Author)
 	}
 
-	return os.WriteFile(path, []byte(content), 0644)
+	//nolint:gosec // G306: module manifests need to be readable by module resolver
+	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 func (t *ModuleTemplate) generateMainFile(path string) error {
@@ -128,7 +127,8 @@ def main():
     return {"status": "success", "message": "Module executed successfully"}
 `, t.Name, t.Description)
 
-	return os.WriteFile(path, []byte(content), 0644)
+	//nolint:gosec // G306: Starlark source files need to be readable by module loader
+	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 func (t *ModuleTemplate) generateTestFile(path string) error {
@@ -155,7 +155,8 @@ def test_main():
     assert.true("message" in result)
 `
 
-	return os.WriteFile(path, []byte(content), 0644)
+	//nolint:gosec // G306: test files need to be readable by test framework
+	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 func (t *ModuleTemplate) generateReadme(path string) error {
@@ -196,5 +197,6 @@ kscorectl module build
 MIT
 `, t.Name, t.Description, t.Name, t.Name)
 
-	return os.WriteFile(path, []byte(content), 0644)
+	//nolint:gosec // G306: README files need to be readable by users
+	return os.WriteFile(path, []byte(content), 0o644)
 }

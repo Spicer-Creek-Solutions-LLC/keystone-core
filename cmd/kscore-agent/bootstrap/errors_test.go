@@ -11,8 +11,8 @@ func TestClassifyError_Permission(t *testing.T) {
 		errMsg  string
 		wantCat ErrorCategory
 	}{
-		{"permission denied", "open /etc/kscore: permission denied", ErrorCategoryPermission},
-		{"access denied", "access denied to /var/lib/kscore", ErrorCategoryPermission},
+		{"permission denied", "open /etc/keystone-core: permission denied", ErrorCategoryPermission},
+		{"access denied", "access denied to /var/lib/keystone-core", ErrorCategoryPermission},
 		{"operation not permitted", "operation not permitted: bind to port 443", ErrorCategoryPermission},
 		{"eacces", "write file: eacces", ErrorCategoryPermission},
 	}
@@ -112,12 +112,12 @@ func TestClassifyError_TLS(t *testing.T) {
 
 func TestClassifyError_Resource(t *testing.T) {
 	tests := []struct {
-		name     string
-		errMsg   string
-		wantCat  ErrorCategory
-		wantSev  ErrorSeverity
+		name    string
+		errMsg  string
+		wantCat ErrorCategory
+		wantSev ErrorSeverity
 	}{
-		{"no space left", "write /var/lib/kscore/data: no space left on device", ErrorCategoryResource, SeverityCritical},
+		{"no space left", "write /var/lib/keystone-core/data: no space left on device", ErrorCategoryResource, SeverityCritical},
 		{"disk full", "disk full: cannot write", ErrorCategoryResource, SeverityCritical},
 		{"out of memory", "out of memory", ErrorCategoryResource, SeverityCritical},
 	}
@@ -251,7 +251,7 @@ func TestClassifyError_NilError(t *testing.T) {
 }
 
 func TestClassifyError_AlreadyBootstrapError(t *testing.T) {
-	original := &BootstrapError{
+	original := &Error{
 		Category: ErrorCategoryDatabase,
 		Severity: SeverityCritical,
 		Message:  "original error",
@@ -269,7 +269,7 @@ func TestClassifyError_AlreadyBootstrapError(t *testing.T) {
 }
 
 func TestBootstrapError_Error(t *testing.T) {
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Message: "test error message",
 	}
 
@@ -278,7 +278,7 @@ func TestBootstrapError_Error(t *testing.T) {
 	}
 
 	// Test with no message but original error
-	bErr2 := &BootstrapError{
+	bErr2 := &Error{
 		Original: errors.New("original error"),
 	}
 
@@ -287,7 +287,7 @@ func TestBootstrapError_Error(t *testing.T) {
 	}
 
 	// Test with neither
-	bErr3 := &BootstrapError{}
+	bErr3 := &Error{}
 	if bErr3.Error() != "bootstrap error" {
 		t.Errorf("Error() = %v, want 'bootstrap error'", bErr3.Error())
 	}
@@ -295,11 +295,11 @@ func TestBootstrapError_Error(t *testing.T) {
 
 func TestBootstrapError_Unwrap(t *testing.T) {
 	original := errors.New("original error")
-	bErr := &BootstrapError{
+	bErr := &Error{
 		Original: original,
 	}
 
-	if bErr.Unwrap() != original {
+	if !errors.Is(bErr.Unwrap(), original) {
 		t.Error("Unwrap() should return original error")
 	}
 }
@@ -320,14 +320,14 @@ func TestBootstrapError_IsRetryable(t *testing.T) {
 	}
 
 	for _, cat := range retryableCategories {
-		bErr := &BootstrapError{Category: cat}
+		bErr := &Error{Category: cat}
 		if !bErr.IsRetryable() {
 			t.Errorf("Category %v should be retryable", cat)
 		}
 	}
 
 	for _, cat := range nonRetryableCategories {
-		bErr := &BootstrapError{Category: cat}
+		bErr := &Error{Category: cat}
 		if bErr.IsRetryable() {
 			t.Errorf("Category %v should not be retryable", cat)
 		}
@@ -335,7 +335,7 @@ func TestBootstrapError_IsRetryable(t *testing.T) {
 }
 
 func TestBootstrapError_HasAutomaticRecovery(t *testing.T) {
-	bErr := &BootstrapError{
+	bErr := &Error{
 		RecoveryActions: []RecoveryAction{
 			{Type: RecoveryTypeManual},
 			{Type: RecoveryTypeInteractive},
@@ -353,7 +353,7 @@ func TestBootstrapError_HasAutomaticRecovery(t *testing.T) {
 }
 
 func TestBootstrapError_GetAutomaticRecoveryActions(t *testing.T) {
-	bErr := &BootstrapError{
+	bErr := &Error{
 		RecoveryActions: []RecoveryAction{
 			{ID: "manual-1", Type: RecoveryTypeManual},
 			{ID: "auto-1", Type: RecoveryTypeAutomatic},

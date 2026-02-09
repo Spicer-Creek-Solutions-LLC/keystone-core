@@ -72,14 +72,13 @@ func main() {
 		Level:   audit.AuditLevel(auditLevel),
 		Backend: auditOutput,
 	}
-	if err := audit.Init("kscore-state", auditConfig); err != nil {
+	if err := audit.Init(context.Background(), "kscore-state", auditConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize audit logging: %v\n", err)
 	}
 	defer audit.Close()
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
 	}
 }
 
@@ -407,12 +406,12 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 	// Exit with error if drift detected
 	if report.Summary.OverallSeverity != statemgmt.DriftNone {
 		auditEntry.Extra = map[string]interface{}{
-			"severity":    string(report.Summary.OverallSeverity),
-			"total":       report.Summary.Total,
-			"no_drift":    report.Summary.NoDrift,
-			"low_drift":   report.Summary.LowDrift,
+			"severity":     string(report.Summary.OverallSeverity),
+			"total":        report.Summary.Total,
+			"no_drift":     report.Summary.NoDrift,
+			"low_drift":    report.Summary.LowDrift,
 			"medium_drift": report.Summary.MediumDrift,
-			"high_drift":  report.Summary.HighDrift,
+			"high_drift":   report.Summary.HighDrift,
 		}
 		logAudit(audit.ResultFailure, 1, fmt.Errorf("drift detected: %s severity", report.Summary.OverallSeverity))
 		os.Exit(1)
@@ -420,12 +419,12 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 
 	// Log success - no drift
 	auditEntry.Extra = map[string]interface{}{
-		"severity":    string(report.Summary.OverallSeverity),
-		"total":       report.Summary.Total,
-		"no_drift":    report.Summary.NoDrift,
-		"low_drift":   report.Summary.LowDrift,
+		"severity":     string(report.Summary.OverallSeverity),
+		"total":        report.Summary.Total,
+		"no_drift":     report.Summary.NoDrift,
+		"low_drift":    report.Summary.LowDrift,
 		"medium_drift": report.Summary.MediumDrift,
-		"high_drift":  report.Summary.HighDrift,
+		"high_drift":   report.Summary.HighDrift,
 	}
 	logAudit(audit.ResultSuccess, 0, nil)
 
@@ -467,7 +466,7 @@ func printRunResults(run *statemgmt.StateRun, dryRun bool) {
 			fmt.Printf("  Error: %v\n", result.Error)
 		}
 
-		if result.Changes != nil && len(result.Changes) > 0 {
+		if len(result.Changes) > 0 {
 			fmt.Println("  Changes:")
 			for key, value := range result.Changes {
 				fmt.Printf("    %s: %v\n", key, value)
@@ -568,9 +567,9 @@ func printStatePreview(stateFile *statemgmt.StateFile, vars *statemgmt.Vars, fac
 func printStatesInDeclarationOrder(stateFile *statemgmt.StateFile) {
 	i := 1
 	for module, declarations := range stateFile.States {
-		for _, decl := range declarations {
-			decl.Module = module
-			printStateDeclaration(i, &decl)
+		for j := range declarations {
+			declarations[j].Module = module
+			printStateDeclaration(i, &declarations[j])
 			i++
 		}
 	}

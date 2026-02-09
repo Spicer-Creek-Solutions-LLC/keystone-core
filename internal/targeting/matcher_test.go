@@ -339,10 +339,10 @@ func TestAgentToMetadata(t *testing.T) {
 		"platform_version": "5.15.0",
 		"agent_version":    "1.0.0",
 		"ip":               "192.168.1.10,10.0.0.10",
-		"role":             "test",        // Direct label access
-		"env":              "dev",         // Direct label access
-		"labels.role":      "test",        // Explicit namespace
-		"labels.env":       "dev",         // Explicit namespace
+		"role":             "test", // Direct label access
+		"env":              "dev",  // Direct label access
+		"labels.role":      "test", // Explicit namespace
+		"labels.env":       "dev",  // Explicit namespace
 	}
 
 	for key, want := range expected {

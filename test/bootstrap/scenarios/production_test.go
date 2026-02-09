@@ -36,7 +36,7 @@ func TestProductionBootstrapSingleNodeDryRun(t *testing.T) {
 				t.Fatalf("failed to copy agent binary: %v", err)
 			}
 
-			result := execBootstrap(t, ctx, env,
+			result := execBootstrap(ctx, t, env,
 				"--mode", "production",
 				"--cluster-name", "test-cluster",
 				"--node-role", "control-plane",
@@ -83,7 +83,7 @@ func TestProductionBootstrapJoinDryRun(t *testing.T) {
 				t.Fatalf("failed to copy agent binary: %v", err)
 			}
 
-			result := execBootstrap(t, ctx, env,
+			result := execBootstrap(ctx, t, env,
 				"--mode", "production",
 				"--cluster-name", "test-cluster",
 				"--node-role", "agent",

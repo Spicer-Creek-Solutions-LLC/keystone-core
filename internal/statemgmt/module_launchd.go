@@ -95,26 +95,27 @@ func (m *LaunchdModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		return nil, err
 	}
 
-	exists, loaded := m.jobExists(config)
+	exists, loaded := m.jobExists(ctx, config)
 
 	switch decl.State {
 	case "present":
-		if !exists {
+		switch {
+		case !exists:
 			result.Present = false
 			result.CurrentState = "absent"
 			result.Matches = false
 			result.Diff["state"] = map[string]string{"current": "absent", "desired": "present"}
-		} else if !loaded && !config.Disabled {
+		case !loaded && !config.Disabled:
 			result.Present = true
 			result.CurrentState = "unloaded"
 			result.Matches = false
 			result.Diff["loaded"] = map[string]string{"current": "unloaded", "desired": "loaded"}
-		} else if !m.jobMatches(config) {
+		case !m.jobMatches(config):
 			result.Present = true
 			result.CurrentState = "different"
 			result.Matches = false
 			result.Diff["config"] = map[string]string{"current": "different", "desired": "matching"}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "present"
 			result.Matches = true
@@ -162,12 +163,10 @@ func (m *LaunchdModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 	switch decl.State {
 	case "present":
-		// Unload existing job if it exists
-		exists, loaded := m.jobExists(config)
+		// Unload existing job if it exists - best-effort, job might not be loaded
+		exists, loaded := m.jobExists(ctx, config)
 		if exists && loaded {
-			if err := m.unloadJob(config); err != nil {
-				// Ignore errors, job might not be loaded
-			}
+			_ = m.unloadJob(ctx, config)
 		}
 
 		// Create the plist file
@@ -179,7 +178,7 @@ func (m *LaunchdModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 		// Load the job (unless disabled)
 		if !config.Disabled {
-			if err := m.loadJob(config); err != nil {
+			if err := m.loadJob(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to load job: %v", err)
 				return result, err
@@ -190,7 +189,7 @@ func (m *LaunchdModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Job '%s' created and loaded", config.Label)
 
 	case "absent":
-		exists, loaded := m.jobExists(config)
+		exists, loaded := m.jobExists(ctx, config)
 		if !exists {
 			result.Comment = fmt.Sprintf("Job '%s' already absent", config.Label)
 			return result, nil
@@ -198,7 +197,7 @@ func (m *LaunchdModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 		// Unload if loaded
 		if loaded {
-			if err := m.unloadJob(config); err != nil {
+			if err := m.unloadJob(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to unload job: %v", err)
 				return result, err
@@ -314,20 +313,20 @@ func (m *LaunchdModule) getPlistPath(config *LaunchdConfig) string {
 
 	if config.UserAgent {
 		home := os.Getenv("HOME")
-		return filepath.Join(home, "Library/LaunchAgents", filename)
+		return filepath.Join(home, "Library", "LaunchAgents", filename)
 	}
-	return filepath.Join("/Library/LaunchDaemons", filename)
+	return filepath.Join("/Library", "LaunchDaemons", filename)
 }
 
 // jobExists checks if the job plist exists and is loaded.
-func (m *LaunchdModule) jobExists(config *LaunchdConfig) (exists bool, loaded bool) {
+func (m *LaunchdModule) jobExists(ctx context.Context, config *LaunchdConfig) (exists, loaded bool) {
 	plistPath := m.getPlistPath(config)
 	if _, err := os.Stat(plistPath); os.IsNotExist(err) {
 		return false, false
 	}
 
 	// Check if loaded
-	cmd := exec.Command("launchctl", "list", config.Label)
+	cmd := exec.CommandContext(ctx, "launchctl", "list", config.Label)
 	if err := cmd.Run(); err != nil {
 		return true, false
 	}
@@ -527,13 +526,15 @@ func (m *LaunchdModule) createPlist(config *LaunchdConfig) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(plistPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %v", err)
+	//nolint:gosec // G301: launchd plist directory needs system access
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	content := m.generatePlist(config)
-	if err := os.WriteFile(plistPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write plist: %v", err)
+	//nolint:gosec // G306: launchd plist files need to be readable by launchd
+	if err := os.WriteFile(plistPath, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("failed to write plist: %w", err)
 	}
 
 	return nil
@@ -543,27 +544,27 @@ func (m *LaunchdModule) createPlist(config *LaunchdConfig) error {
 func (m *LaunchdModule) removePlist(config *LaunchdConfig) error {
 	plistPath := m.getPlistPath(config)
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove plist: %v", err)
+		return fmt.Errorf("failed to remove plist: %w", err)
 	}
 	return nil
 }
 
 // loadJob loads the launchd job.
-func (m *LaunchdModule) loadJob(config *LaunchdConfig) error {
+func (m *LaunchdModule) loadJob(ctx context.Context, config *LaunchdConfig) error {
 	plistPath := m.getPlistPath(config)
-	cmd := exec.Command("launchctl", "load", "-w", plistPath)
+	cmd := exec.CommandContext(ctx, "launchctl", "load", "-w", plistPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl load failed: %v: %s", err, string(output))
+		return fmt.Errorf("launchctl load failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // unloadJob unloads the launchd job.
-func (m *LaunchdModule) unloadJob(config *LaunchdConfig) error {
+func (m *LaunchdModule) unloadJob(ctx context.Context, config *LaunchdConfig) error {
 	plistPath := m.getPlistPath(config)
-	cmd := exec.Command("launchctl", "unload", "-w", plistPath)
+	cmd := exec.CommandContext(ctx, "launchctl", "unload", "-w", plistPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl unload failed: %v: %s", err, string(output))
+		return fmt.Errorf("launchctl unload failed: %w: %s", err, string(output))
 	}
 	return nil
 }

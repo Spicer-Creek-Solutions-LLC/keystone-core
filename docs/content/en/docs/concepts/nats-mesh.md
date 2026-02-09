@@ -92,9 +92,9 @@ agent:
     urls:
       - tls://nats.example.com:4222
     tls:
-      cert: /etc/kscore/agent.crt
-      key: /etc/kscore/agent.key
-      ca: /etc/kscore/ca.crt
+      cert: /etc/keystone-core/agent.crt
+      key: /etc/keystone-core/agent.key
+      ca: /etc/keystone-core/ca.crt
 ```
 
 ### WebSocket
@@ -297,9 +297,9 @@ agent:
     hub:
       urls:
         - nats-leaf://hub.example.com:7422
-      credentials: /etc/kscore/leaf.creds
+      credentials: /etc/keystone-core/leaf.creds
     embedded:
-      store_dir: /var/lib/kscore/nats
+      store_dir: /var/lib/keystone-core/nats
     buffer:
       enabled: true
       max_size: 100MB
@@ -319,9 +319,9 @@ server:
     leaf:
       listen: 0.0.0.0:7422
       tls:
-        cert: /etc/kscore/leaf-server.crt
-        key: /etc/kscore/leaf-server.key
-        ca: /etc/kscore/ca.crt
+        cert: /etc/keystone-core/leaf-server.crt
+        key: /etc/keystone-core/leaf-server.key
+        ca: /etc/keystone-core/ca.crt
 ```
 
 ### Buffering During Disconnection
@@ -408,8 +408,8 @@ server:
       listen: 0.0.0.0:443
       path: /nats
       tls:
-        cert: /etc/kscore/server.crt
-        key: /etc/kscore/server.key
+        cert: /etc/keystone-core/server.crt
+        key: /etc/keystone-core/server.key
       compression: true
       cors:
         allowed_origins:
@@ -628,9 +628,9 @@ sequenceDiagram
 server:
   nats:
     tls:
-      cert: /etc/kscore/server.crt
-      key: /etc/kscore/server.key
-      ca: /etc/kscore/ca.crt
+      cert: /etc/keystone-core/server.crt
+      key: /etc/keystone-core/server.key
+      ca: /etc/keystone-core/ca.crt
       verify: true              # Require client certificates
       cipher_suites:
         - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
@@ -673,27 +673,32 @@ The NATS mesh exposes comprehensive Prometheus metrics:
 ### Connection Issues
 
 ```bash
-# Check NATS connectivity
-kscore-agent nats ping
+# Check NATS connectivity using nats CLI
+nats server ping nats://nats.example.com:4222
 
-# Show connection status
-kscore-agent nats status
+# Check agent status (includes NATS connection info)
+kscorectl agents show <agent-id>
 
-# Test specific endpoint
-kscore-agent nats test nats://nats.example.com:4222
+# Test TCP connectivity
+nc -zv nats.example.com 4222
+
+# Check agent logs for connection issues
+journalctl -u kscore-agent | grep -i "nats\|connect"
 ```
 
 ### Debugging
 
 ```bash
 # Enable debug logging
-export KSCORE_NATS_DEBUG=true
+sudo systemctl stop kscore-agent
+KSCORE_LOG_LEVEL=debug kscore-agent &
 
-# Show message traces
-kscorectl debug nats traces
+# Monitor NATS subjects
+nats sub "kscore.>" --count 10
 
-# Show connection timeline
-kscorectl debug nats timeline
+# View NATS server connections and stats
+nats server report connections
+nats server report jetstream
 ```
 
 ### Common Issues

@@ -9,13 +9,14 @@ import (
 
 // PolicyEvaluator is a mock for access.PolicyEvaluator.
 type PolicyEvaluator struct {
-	Result   *access.AccessResult
+	Result   *access.Result
 	Err      error
-	Requests []*access.AccessRequest
+	Requests []*access.Request
 	mu       sync.Mutex
 }
 
-func (m *PolicyEvaluator) Evaluate(ctx context.Context, req *access.AccessRequest) (*access.AccessResult, error) {
+// Evaluate evaluates the policy against the input.
+func (m *PolicyEvaluator) Evaluate(ctx context.Context, req *access.Request) (*access.Result, error) {
 	_ = ctx
 	m.mu.Lock()
 	m.Requests = append(m.Requests, req)
@@ -27,5 +28,5 @@ func (m *PolicyEvaluator) Evaluate(ctx context.Context, req *access.AccessReques
 	if m.Result != nil {
 		return m.Result, nil
 	}
-	return &access.AccessResult{Allowed: true}, nil
+	return &access.Result{Allowed: true}, nil
 }

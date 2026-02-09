@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -171,7 +172,7 @@ func TestGitBackend_BasicOperations(t *testing.T) {
 	config := &GitConfig{
 		Config: Config{
 			Name: "test-git",
-			Type: BackendTypeGit,
+			Type: TypeGit,
 		},
 		URL:       "https://github.com/example/repo.git",
 		LocalPath: "/tmp/repo",
@@ -193,8 +194,8 @@ func TestGitBackend_BasicOperations(t *testing.T) {
 	if backend.Name() != "test-git" {
 		t.Errorf("expected name 'test-git', got '%s'", backend.Name())
 	}
-	if backend.Type() != BackendTypeGit {
-		t.Errorf("expected type %s, got %s", BackendTypeGit, backend.Type())
+	if backend.Type() != TypeGit {
+		t.Errorf("expected type %s, got %s", TypeGit, backend.Type())
 	}
 
 	// Test Get
@@ -276,13 +277,13 @@ func TestGitBackend_NotFound(t *testing.T) {
 
 	// Test Get not found
 	_, err := backend.Get(ctx, "/nonexistent.txt", nil)
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 
 	// Test Stat not found
 	_, err = backend.Stat(ctx, "/nonexistent.txt")
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 

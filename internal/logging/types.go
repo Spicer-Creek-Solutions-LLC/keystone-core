@@ -127,35 +127,42 @@ func Fields(kvPairs ...interface{}) []Field {
 	return fields
 }
 
-// Common field constructors
+// String creates a string field.
 func String(key, value string) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Int creates an integer field.
 func Int(key string, value int) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Int64 creates an int64 field.
 func Int64(key string, value int64) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Float64 creates a float64 field.
 func Float64(key string, value float64) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Bool creates a boolean field.
 func Bool(key string, value bool) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Duration creates a duration field.
 func Duration(key string, value time.Duration) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Time creates a time field.
 func Time(key string, value time.Time) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Error creates an error field.
 func Error(err error) Field {
 	if err == nil {
 		return Field{Key: "error", Value: nil}
@@ -163,6 +170,7 @@ func Error(err error) Field {
 	return Field{Key: "error", Value: err.Error()}
 }
 
+// Any creates a field with any value type.
 func Any(key string, value interface{}) Field {
 	return Field{Key: key, Value: value}
 }

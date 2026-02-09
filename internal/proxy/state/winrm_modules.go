@@ -76,7 +76,8 @@ func (m *WinRMFileModule) ensureFile(ctx context.Context, mctx ModuleContext, pa
 			return result, nil
 		}
 
-		if hasContent {
+		switch {
+		case hasContent:
 			// Create file with content using PowerShell
 			// Escape single quotes in content
 			escapedContent := strings.ReplaceAll(content, "'", "''")
@@ -84,13 +85,13 @@ func (m *WinRMFileModule) ensureFile(ctx context.Context, mctx ModuleContext, pa
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
 				return nil, fmt.Errorf("failed to create file: %w", err)
 			}
-		} else if hasSource {
+		case hasSource:
 			// Copy from source
 			cmd := fmt.Sprintf("Copy-Item -Path '%s' -Destination '%s'", source, path)
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
 				return nil, fmt.Errorf("failed to copy file: %w", err)
 			}
-		} else {
+		default:
 			// Create empty file
 			cmd := fmt.Sprintf("New-Item -Path '%s' -ItemType File -Force", path)
 			if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
@@ -353,7 +354,7 @@ func (m *WinRMRegistryModule) Execute(ctx context.Context, mctx ModuleContext) (
 						result.Comment = fmt.Sprintf("Registry value %s\\%s would be set", path, name)
 					} else {
 						// Ensure key exists
-						mctx.ExecuteCommand(ctx, fmt.Sprintf("New-Item -Path '%s' -Force | Out-Null", path))
+						_, _ = mctx.ExecuteCommand(ctx, fmt.Sprintf("New-Item -Path '%s' -Force | Out-Null", path)) //nolint:errcheck // best-effort create key
 
 						// Set value
 						cmd := fmt.Sprintf("Set-ItemProperty -Path '%s' -Name '%s' -Value '%v' -Type %s",
@@ -481,7 +482,7 @@ func (m *WinRMPackageModule) Execute(ctx context.Context, mctx ModuleContext) (*
 	}
 }
 
-func (m *WinRMPackageModule) executeChocolatey(ctx context.Context, mctx ModuleContext, name string, state string, result *ModuleResult) (*ModuleResult, error) {
+func (m *WinRMPackageModule) executeChocolatey(ctx context.Context, mctx ModuleContext, name, state string, result *ModuleResult) (*ModuleResult, error) {
 	// Check if package is installed
 	checkResult, _ := mctx.ExecuteCommand(ctx, fmt.Sprintf("choco list --local-only %s --exact --limit-output", name))
 	isInstalled := strings.TrimSpace(string(checkResult.Stdout)) != ""
@@ -535,7 +536,7 @@ func (m *WinRMPackageModule) executeChocolatey(ctx context.Context, mctx ModuleC
 	return result, nil
 }
 
-func (m *WinRMPackageModule) executeWinget(ctx context.Context, mctx ModuleContext, name string, state string, result *ModuleResult) (*ModuleResult, error) {
+func (m *WinRMPackageModule) executeWinget(ctx context.Context, mctx ModuleContext, name, state string, result *ModuleResult) (*ModuleResult, error) {
 	// Check if package is installed
 	checkResult, _ := mctx.ExecuteCommand(ctx, fmt.Sprintf("winget list --id %s --exact", name))
 	isInstalled := !strings.Contains(string(checkResult.Stdout), "No installed package")
@@ -577,7 +578,7 @@ func (m *WinRMPackageModule) executeWinget(ctx context.Context, mctx ModuleConte
 	return result, nil
 }
 
-func (m *WinRMPackageModule) executeMSI(ctx context.Context, mctx ModuleContext, name string, state string, result *ModuleResult) (*ModuleResult, error) {
+func (m *WinRMPackageModule) executeMSI(ctx context.Context, mctx ModuleContext, name, state string, result *ModuleResult) (*ModuleResult, error) {
 	source, hasSource := m.GetString(mctx.Parameters, "source")
 	productID, hasProductID := m.GetString(mctx.Parameters, "product_id")
 
@@ -595,7 +596,7 @@ func (m *WinRMPackageModule) executeMSI(ctx context.Context, mctx ModuleContext,
 			if args == "" {
 				args = "/qn /norestart"
 			}
-			cmd := fmt.Sprintf("Start-Process msiexec.exe -ArgumentList '/i \"%s\" %s' -Wait -NoNewWindow", source, args)
+			cmd := fmt.Sprintf("Start-Process msiexec.exe -ArgumentList '/i %q %s' -Wait -NoNewWindow", source, args)
 			_, err := mctx.ExecuteCommand(ctx, cmd)
 			if err != nil {
 				return nil, fmt.Errorf("failed to install MSI: %w", err)

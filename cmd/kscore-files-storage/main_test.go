@@ -86,7 +86,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check nats-url flag
 	natsURLFlag := cmd.PersistentFlags().Lookup("nats-url")
 	if natsURLFlag == nil {
-		t.Error("expected --nats-url flag")
+		t.Fatal("expected --nats-url flag")
 	}
 	if natsURLFlag.DefValue != "nats://localhost:4222" {
 		t.Errorf("expected nats-url default to be 'nats://localhost:4222', got %s", natsURLFlag.DefValue)
@@ -101,7 +101,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check output flag
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag")
+		t.Fatal("expected --output flag")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be 'table', got %s", outputFlag.DefValue)

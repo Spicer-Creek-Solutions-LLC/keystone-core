@@ -92,7 +92,8 @@ func (d *DefaultsLoader) LoadDefaultsFromReader(reader io.Reader) (map[string]in
 
 // extractSchemaDefaults extracts default values from parameter schemas.
 func (d *DefaultsLoader) extractSchemaDefaults(prefix string, schemas map[string]ParameterSchema, result map[string]interface{}) {
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		key := name
 		if prefix != "" {
 			key = prefix + "." + name
@@ -292,17 +293,18 @@ func parseLSBRelease(content string) (family, version string) {
 func parseRedhatRelease(content string) (family, version string) {
 	content = strings.ToLower(strings.TrimSpace(content))
 
-	if strings.Contains(content, "centos") {
+	switch {
+	case strings.Contains(content, "centos"):
 		family = "rhel"
-	} else if strings.Contains(content, "red hat") {
+	case strings.Contains(content, "red hat"):
 		family = "rhel"
-	} else if strings.Contains(content, "fedora") {
+	case strings.Contains(content, "fedora"):
 		family = "fedora"
 	}
 
 	// Extract version number
 	for _, word := range strings.Fields(content) {
-		if len(word) > 0 && word[0] >= '0' && word[0] <= '9' {
+		if word != "" && word[0] >= '0' && word[0] <= '9' {
 			version = extractMajorVersion(word)
 			break
 		}

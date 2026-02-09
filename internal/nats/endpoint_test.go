@@ -722,11 +722,11 @@ func TestEndpoint_HasCredentials(t *testing.T) {
 
 func TestEndpointList_FilterByAddressFamily(t *testing.T) {
 	list := EndpointList{
-		{Host: "nats1.example.com", Port: 4222},   // hostname (treated as IPv4)
-		{Host: "192.168.1.1", Port: 4222},         // IPv4
-		{Host: "::1", Port: 4222},                 // IPv6
-		{Host: "2001:db8::1", Port: 4222},         // IPv6
-		{Host: "10.0.0.1", Port: 4222},            // IPv4
+		{Host: "nats1.example.com", Port: 4222}, // hostname (treated as IPv4)
+		{Host: "192.168.1.1", Port: 4222},       // IPv4
+		{Host: "::1", Port: 4222},               // IPv6
+		{Host: "2001:db8::1", Port: 4222},       // IPv6
+		{Host: "10.0.0.1", Port: 4222},          // IPv4
 	}
 
 	t.Run("filter IPv4", func(t *testing.T) {
@@ -895,9 +895,9 @@ func TestEndpointList_IsDualStack(t *testing.T) {
 func TestEndpointList_OrderByAddressFamilyPreference(t *testing.T) {
 	list := EndpointList{
 		{Host: "192.168.1.1", Port: 4222, Priority: 0}, // IPv4, priority 0
-		{Host: "::1", Port: 4222, Priority: 1},          // IPv6, priority 1
-		{Host: "10.0.0.1", Port: 4222, Priority: 2},     // IPv4, priority 2
-		{Host: "2001:db8::1", Port: 4222, Priority: 3},  // IPv6, priority 3
+		{Host: "::1", Port: 4222, Priority: 1},         // IPv6, priority 1
+		{Host: "10.0.0.1", Port: 4222, Priority: 2},    // IPv4, priority 2
+		{Host: "2001:db8::1", Port: 4222, Priority: 3}, // IPv6, priority 3
 	}
 
 	t.Run("prefer IPv4", func(t *testing.T) {

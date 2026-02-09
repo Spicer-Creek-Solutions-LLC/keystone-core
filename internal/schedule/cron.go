@@ -27,7 +27,7 @@ func NewCronParser() *CronParser {
 func (p *CronParser) Parse(expr string) (cron.Schedule, error) {
 	schedule, err := p.parser.Parse(expr)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidCron, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidCron, err)
 	}
 	return schedule, nil
 }
@@ -201,23 +201,25 @@ func CalculateNextRun(s *Schedule, lastRun *time.Time, cronParser *CronParser) (
 	var nextTime *time.Time
 	var err error
 
-	if s.Cron != "" {
+	switch {
+	case s.Cron != "":
 		// Cron-based scheduling
-		if s.Window != nil {
+		switch {
+		case s.Window != nil:
 			nextTime, err = cronParser.NextTimeInWindow(s.Cron, after, s.Window, 1000)
-		} else if s.Timezone != "" {
+		case s.Timezone != "":
 			nextTime, err = cronParser.NextTimeInTimezone(s.Cron, after, s.Timezone)
-		} else {
+		default:
 			nextTime, err = cronParser.NextTime(s.Cron, after)
 		}
 		if err != nil {
 			return nil, err
 		}
-	} else if s.Interval > 0 {
+	case s.Interval > 0:
 		// Interval-based scheduling
 		next := IntervalToNextTime(lastRun, s.Interval)
 		nextTime = &next
-	} else {
+	default:
 		return nil, ErrInvalidSchedule
 	}
 

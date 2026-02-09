@@ -2,6 +2,7 @@ package backpressure
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -84,7 +85,7 @@ func TestPublisher_Drop(t *testing.T) {
 				Subject: "test",
 				Data:    []byte("data"),
 			})
-			if err == ErrQueueFull {
+			if errors.Is(err, ErrQueueFull) {
 				atomic.AddInt32(&dropped, 1)
 			}
 		}()
@@ -211,7 +212,7 @@ func TestPublisher_PauseResume(t *testing.T) {
 
 	// Publish should fail
 	err := publisher.Publish(ctx, &Message{Subject: "test", Data: []byte("data")})
-	if err != ErrPublisherPaused {
+	if !errors.Is(err, ErrPublisherPaused) {
 		t.Errorf("Publish while paused = %v, want ErrPublisherPaused", err)
 	}
 
@@ -234,14 +235,14 @@ func TestPublisher_Events(t *testing.T) {
 	config.HighWaterMark = 0.5
 	config.LowWaterMark = 0.2
 
-	var events []*BackpressureEvent
+	var events []*Event
 	var mu sync.Mutex
 
 	publisher := NewPublisher(config, func(msg *Message) error {
 		return nil
 	})
 
-	publisher.AddListener(func(event *BackpressureEvent) {
+	publisher.AddListener(func(event *Event) {
 		mu.Lock()
 		events = append(events, event)
 		mu.Unlock()
@@ -331,7 +332,7 @@ func TestFlowController_WindowFull(t *testing.T) {
 
 	// Next acquire should timeout
 	err := fc.AcquireSlot(ctx)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("AcquireSlot on full window = %v, want DeadlineExceeded", err)
 	}
 }
@@ -434,7 +435,7 @@ func TestSemaphore_Context(t *testing.T) {
 	defer cancel()
 
 	err := sem.Acquire(ctx)
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Acquire = %v, want DeadlineExceeded", err)
 	}
 }
@@ -489,22 +490,21 @@ func TestPublisher_ByteLimit(t *testing.T) {
 	// Try to publish large message that exceeds byte limit
 	largeData := make([]byte, 200)
 
+	// First message might succeed if pending is 0
+	_ = publisher.Publish(ctx, &Message{
+		Subject: "test",
+		Data:    largeData,
+	})
+
+	// But second should fail
 	err := publisher.Publish(ctx, &Message{
 		Subject: "test",
 		Data:    largeData,
 	})
 
-	// First message might succeed if pending is 0
-	// But second should fail
-	err = publisher.Publish(ctx, &Message{
-		Subject: "test",
-		Data:    largeData,
-	})
-
-	if err != ErrQueueFull {
-		// It's possible both succeeded if they completed fast enough
-		// Just verify no panic occurred
-	}
+	// Note: It's possible both succeeded if they completed fast enough.
+	// Both ErrQueueFull and nil are acceptable outcomes - we just verify no panic.
+	_ = err
 }
 
 func TestFlowController_ConcurrentAcquire(t *testing.T) {

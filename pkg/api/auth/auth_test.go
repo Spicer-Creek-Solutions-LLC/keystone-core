@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,10 +11,10 @@ import (
 
 func TestRoleHierarchy(t *testing.T) {
 	tests := []struct {
-		name         string
+		name          string
 		principalRole Role
-		requiredRole Role
-		shouldPass   bool
+		requiredRole  Role
+		shouldPass    bool
 	}{
 		{"admin can do admin", RoleAdmin, RoleAdmin, true},
 		{"admin can do operator", RoleAdmin, RoleOperator, true},
@@ -74,13 +75,13 @@ func TestAPIKeyAuthenticator_Basic(t *testing.T) {
 
 	// Test invalid key
 	_, err = auth.Authenticate(ctx, "wrong-key")
-	if err != ErrInvalidCredentials {
+	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Authenticate(wrong-key) error = %v, want ErrInvalidCredentials", err)
 	}
 
 	// Test empty key
 	_, err = auth.Authenticate(ctx, "")
-	if err != ErrNoCredentials {
+	if !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("Authenticate('') error = %v, want ErrNoCredentials", err)
 	}
 }
@@ -103,7 +104,7 @@ func TestAPIKeyAuthenticator_DisabledKey(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, "disabled-key-that-is-at-least-32-chars")
-	if err != ErrDisabledKey {
+	if !errors.Is(err, ErrDisabledKey) {
 		t.Errorf("Authenticate(disabled-key) error = %v, want ErrDisabledKey", err)
 	}
 }
@@ -128,7 +129,7 @@ func TestAPIKeyAuthenticator_ExpiredKey(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, "expired-key-that-is-at-least-32-chars!")
-	if err != ErrExpiredCredentials {
+	if !errors.Is(err, ErrExpiredCredentials) {
 		t.Errorf("Authenticate(expired-key) error = %v, want ErrExpiredCredentials", err)
 	}
 }
@@ -178,7 +179,7 @@ func TestAPIKeyAuthenticator_AddRemoveKey(t *testing.T) {
 
 	// Initially no keys
 	_, err = auth.Authenticate(ctx, "new-key-that-is-at-least-32-characters")
-	if err != ErrInvalidCredentials {
+	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Authenticate() before add error = %v, want ErrInvalidCredentials", err)
 	}
 
@@ -206,7 +207,7 @@ func TestAPIKeyAuthenticator_AddRemoveKey(t *testing.T) {
 
 	// Should fail again
 	_, err = auth.Authenticate(ctx, "new-key-that-is-at-least-32-characters")
-	if err != ErrInvalidCredentials {
+	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Authenticate() after remove error = %v, want ErrInvalidCredentials", err)
 	}
 }
@@ -242,7 +243,7 @@ func TestAPIKeyAuthenticator_DisableKey(t *testing.T) {
 
 	// Should fail now
 	_, err = auth.Authenticate(ctx, "key-to-disable-at-least-32-characters!")
-	if err != ErrDisabledKey {
+	if !errors.Is(err, ErrDisabledKey) {
 		t.Errorf("Authenticate() after disable error = %v, want ErrDisabledKey", err)
 	}
 }

@@ -130,8 +130,8 @@ func (p *Provider) Start(ctx context.Context) error {
 		p.mu.Unlock()
 	}
 
-	// Start health check loop
-	healthCtx, cancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = cancel
 	p.mu.Unlock()
@@ -306,6 +306,8 @@ func (p *Provider) onClientStateChange(oldState, newState ClientState) {
 	case ClientStateClosed:
 		p.status = identity.ProviderStatusUnknown
 		p.statusMessage = "client closed"
+	default:
+		// ClientStateConnecting - transitional state, no status update
 	}
 }
 
@@ -361,5 +363,5 @@ func (p *Provider) performHealthCheck(ctx context.Context) {
 	p.mu.Unlock()
 }
 
-// Verify Provider implements IdentityProvider
-var _ identity.IdentityProvider = (*Provider)(nil)
+// Verify Provider implements identity.Provider
+var _ identity.Provider = (*Provider)(nil)

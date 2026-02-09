@@ -131,13 +131,14 @@ func (v *NetworkPolicyVerifier) Verify(ctx context.Context, policy *NetworkPolic
 	result.Duration = time.Since(start)
 
 	// Overall pass/fail based on critical failures
-	if failedCritical {
+	switch {
+	case failedCritical:
 		result.Passed = false
 		result.Message = fmt.Sprintf("Verification failed: %s", strings.Join(messages, "; "))
-	} else if len(messages) > 0 {
+	case len(messages) > 0:
 		result.Passed = true // Warnings only
 		result.Message = fmt.Sprintf("Verification passed with warnings: %s", strings.Join(messages, "; "))
-	} else {
+	default:
 		result.Passed = true
 		result.Message = "All verification checks passed"
 	}
@@ -164,7 +165,7 @@ func checkPolicyExists(ctx context.Context, policy *NetworkPolicy, client *Clien
 		return check, nil
 	}
 
-	_, err := client.GetNetworkPolicy(policy.Namespace, policy.Name)
+	_, err := client.GetNetworkPolicy(ctx, policy.Namespace, policy.Name)
 	if err != nil {
 		check.Passed = false
 		check.Message = fmt.Sprintf("Policy not found in cluster: %v", err)
@@ -192,12 +193,6 @@ func checkSelectorValid(ctx context.Context, policy *NetworkPolicy, client *Clie
 			"matches_all": true,
 		}
 		return check, nil
-	}
-
-	// Build label selector string for validation
-	var selectors []string
-	for k, v := range policy.Spec.PodSelector.MatchLabels {
-		selectors = append(selectors, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	check.Passed = true

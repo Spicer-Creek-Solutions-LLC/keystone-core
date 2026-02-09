@@ -46,18 +46,18 @@ func (s ConnectionState) String() string {
 
 // EndpointState tracks the health state of an endpoint
 type EndpointState struct {
-	Endpoint       *Endpoint
-	State          ConnectionState
-	LastConnected  time.Time
-	LastError      error
-	LastErrorTime  time.Time
-	ConnectCount   int64
-	FailureCount   int64
-	SuccessCount   int64
-	TotalLatency   time.Duration
-	CircuitOpen    bool
-	CircuitOpenAt  time.Time
-	NextRetryAt    time.Time
+	Endpoint      *Endpoint
+	State         ConnectionState
+	LastConnected time.Time
+	LastError     error
+	LastErrorTime time.Time
+	ConnectCount  int64
+	FailureCount  int64
+	SuccessCount  int64
+	TotalLatency  time.Duration
+	CircuitOpen   bool
+	CircuitOpenAt time.Time
+	NextRetryAt   time.Time
 }
 
 // AverageLatency returns the average connection latency
@@ -196,16 +196,16 @@ func DefaultConnectionManagerConfig() *ConnectionManagerConfig {
 
 // PooledConnectionManager manages connections to multiple NATS endpoints
 type PooledConnectionManager struct {
-	config           *ConnectionManagerConfig
-	selector         *StrategySelector
-	endpoints        []*EndpointState
-	activeConn       *nats.Conn
-	activeEndpoint   *Endpoint
-	mu               sync.RWMutex
-	ctx              context.Context
-	cancel           context.CancelFunc
-	healthCheckStop  chan struct{}
-	closed           bool
+	config          *ConnectionManagerConfig
+	selector        *StrategySelector
+	endpoints       []*EndpointState
+	activeConn      *nats.Conn
+	activeEndpoint  *Endpoint
+	mu              sync.RWMutex
+	ctx             context.Context
+	cancel          context.CancelFunc
+	healthCheckStop chan struct{}
+	closed          bool
 }
 
 // NewPooledConnectionManager creates a new connection manager
@@ -312,6 +312,7 @@ func (m *PooledConnectionManager) getOrderedEndpoints() []*EndpointState {
 			}
 		}
 		ordered = filtered
+	default:
 	}
 
 	// Determine if IPv6 is preferred

@@ -234,7 +234,8 @@ func (p *Publisher) validateBlueprint(bp *blueprint.Blueprint, dir string) error
 	}
 
 	// Validate parameter schemas
-	for name, param := range bp.Parameters {
+	for name := range bp.Parameters {
+		param := bp.Parameters[name]
 		if param.Type == "" {
 			return fmt.Errorf("parameter %q missing type", name)
 		}
@@ -247,9 +248,8 @@ func (p *Publisher) validateBlueprint(bp *blueprint.Blueprint, dir string) error
 }
 
 // buildArchive creates a tar.gz archive of the blueprint directory.
-func (p *Publisher) buildArchive(dir string) ([]byte, []string, error) {
+func (p *Publisher) buildArchive(dir string) (archive []byte, files []string, err error) {
 	var buf bytes.Buffer
-	var files []string
 
 	// Create gzip writer
 	gw, err := gzip.NewWriterLevel(&buf, p.config.Compression)
@@ -520,25 +520,29 @@ func ExtractBlueprint(archive []byte, destDir string) error {
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		// Sanitize path to prevent path traversal
-		targetPath := filepath.Join(destDir, header.Name)
-		if !strings.HasPrefix(targetPath, filepath.Clean(destDir)+string(os.PathSeparator)) {
+		// Sanitize path to prevent path traversal (G305)
+		cleanDest := filepath.Clean(destDir)
+		targetPath := filepath.Clean(filepath.Join(destDir, header.Name)) //nolint:gosec // G305: path validated by HasPrefix check below
+		if !strings.HasPrefix(targetPath, cleanDest+string(os.PathSeparator)) && targetPath != cleanDest {
 			return fmt.Errorf("invalid path in archive: %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			if err := os.MkdirAll(targetPath, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
 		case tar.TypeReg:
 			// Create parent directory
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			//nolint:gosec // G301: parent directory needs to be accessible by service user
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
 			// Create file
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)

@@ -1,3 +1,4 @@
+// Package main implements the kscore-exec CLI for remote command execution on agents.
 package main
 
 import (
@@ -102,7 +103,7 @@ func main() {
 		Level:   audit.AuditLevel("all"),
 		Backend: "auto",
 	}
-	if err := audit.Init("kscore-exec", auditConfig); err != nil {
+	if err := audit.Init(context.Background(), "kscore-exec", auditConfig); err != nil {
 		// Don't fail if audit logging can't be initialized, just warn
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize audit logging: %v\n", err)
 	}
@@ -110,7 +111,6 @@ func main() {
 
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
 	}
 }
 
@@ -133,9 +133,9 @@ func createClient(cfg *Config) (pb.ControlPlaneServiceClient, *grpc.ClientConn, 
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	dialOpts = append(dialOpts, grpc.WithBlock())
+	dialOpts = append(dialOpts, grpc.WithBlock()) //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 
-	conn, err := grpc.DialContext(ctx, cfg.ServerAddr, dialOpts...)
+	conn, err := grpc.DialContext(ctx, cfg.ServerAddr, dialOpts...) //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to server: %w", err)
 	}
@@ -445,6 +445,7 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 			err := fmt.Errorf("batch execution failed: %s", resp.Error)
 			logAudit(audit.ResultFailure, 1, err)
 			return err
+		default:
 		}
 	}
 
@@ -473,15 +474,16 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 		}
 	}
 
-	// Exit with error if batch failed
+	// Return error if batch failed
 	if summary != nil && summary.Failed > 0 {
 		auditEntry.AgentsMatched = int(summary.Total)
 		auditEntry.Extra = map[string]interface{}{
 			"successful": summary.Successful,
 			"failed":     summary.Failed,
 		}
-		logAudit(audit.ResultFailure, 1, fmt.Errorf("%d agents failed", summary.Failed))
-		os.Exit(1)
+		err := fmt.Errorf("%d agents failed", summary.Failed)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Log success
@@ -549,6 +551,7 @@ func runDryRun(cmd *cobra.Command, client pb.ControlPlaneServiceClient, cfg *Con
 			onlineCount++
 		case pb.AgentStatus_AGENT_STATUS_OFFLINE:
 			offlineCount++
+		default:
 		}
 	}
 
@@ -581,6 +584,7 @@ func runDryRun(cmd *cobra.Command, client pb.ControlPlaneServiceClient, cfg *Con
 			status = "ONLINE"
 		case pb.AgentStatus_AGENT_STATUS_OFFLINE:
 			status = "OFFLINE"
+		default:
 		}
 
 		osInfo := "N/A"
@@ -1021,7 +1025,7 @@ func cancelExecute(cmd *cobra.Command, args []string, cfg *Config, force bool) e
 		fmt.Printf("Cancel job '%s'? [y/N]: ", jobID)
 		var confirm string
 		fmt.Scanln(&confirm)
-		if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+		if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 			fmt.Println("Cancelled")
 			return nil
 		}
@@ -1299,11 +1303,12 @@ func outputExecute(cmd *cobra.Command, args []string, cfg *Config, opts *OutputO
 			status, result.AgentId, result.ExitCode, result.DurationMs)
 		fmt.Println(strings.Repeat("-", 60))
 
-		if result.Error != "" {
+		switch {
+		case result.Error != "":
 			fmt.Printf("[ERROR] %s\n", result.Error)
-		} else if result.Success {
+		case result.Success:
 			fmt.Println("Command completed successfully")
-		} else {
+		default:
 			fmt.Printf("Command failed with exit code: %d\n", result.ExitCode)
 		}
 
@@ -1522,15 +1527,16 @@ func scriptExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ScriptO
 		}
 		if interpreter == "" {
 			// Default to bash for shell scripts
-			if strings.HasSuffix(scriptFile, ".sh") {
+			switch {
+			case strings.HasSuffix(scriptFile, ".sh"):
 				interpreter = "/bin/bash"
-			} else if strings.HasSuffix(scriptFile, ".py") {
+			case strings.HasSuffix(scriptFile, ".py"):
 				interpreter = "python3"
-			} else if strings.HasSuffix(scriptFile, ".rb") {
+			case strings.HasSuffix(scriptFile, ".rb"):
 				interpreter = "ruby"
-			} else if strings.HasSuffix(scriptFile, ".pl") {
+			case strings.HasSuffix(scriptFile, ".pl"):
 				interpreter = "perl"
-			} else {
+			default:
 				interpreter = "/bin/sh"
 			}
 		}
@@ -1626,6 +1632,7 @@ func scriptExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ScriptO
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_FAILED:
 			fmt.Printf("\nScript execution failed: %s\n", resp.Error)
 			return fmt.Errorf("script execution failed: %s", resp.Error)
+		default:
 		}
 	}
 
@@ -1638,9 +1645,9 @@ func scriptExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ScriptO
 		fmt.Printf("Success Rate:      %.1f%%\n", summary.SuccessRate)
 		fmt.Printf("Duration:          %dms\n", summary.DurationMs)
 
-		// Exit with error if any failed
+		// Return error if any failed
 		if summary.Failed > 0 {
-			os.Exit(1)
+			return fmt.Errorf("%d agents failed", summary.Failed)
 		}
 	}
 

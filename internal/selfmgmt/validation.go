@@ -54,10 +54,10 @@ func (v *StateValidator) ValidateNATSURL(urlStr string) error {
 	}
 
 	validSchemes := map[string]bool{
-		"nats":  true,
-		"tls":   true,
-		"ws":    true,
-		"wss":   true,
+		"nats":     true,
+		"tls":      true,
+		"ws":       true,
+		"wss":      true,
 		"nats+ws":  true,
 		"nats+wss": true,
 	}
@@ -159,7 +159,7 @@ func (v *StateValidator) ValidatePathWritable(path string) error {
 	}
 
 	// Try to create a test file
-	testFile := filepath.Join(dir, ".kscore-test-write")
+	testFile := filepath.Join(dir, ".keystone-core-test-write")
 	f, err := os.Create(testFile)
 	if err != nil {
 		return fmt.Errorf("directory is not writable: %s", dir)
@@ -195,7 +195,7 @@ func (v *StateValidator) ValidateCronSchedule(schedule string) error {
 }
 
 // validateCronField validates a single cron field.
-func (v *StateValidator) validateCronField(field, name string, min, max int) error {
+func (v *StateValidator) validateCronField(field, name string, minVal, maxVal int) error {
 	if field == "*" {
 		return nil
 	}
@@ -229,8 +229,8 @@ func (v *StateValidator) validateCronField(field, name string, min, max int) err
 			if err != nil {
 				return fmt.Errorf("invalid %s range end: %s", name, rangeParts[1])
 			}
-			if start < min || start > max || end < min || end > max {
-				return fmt.Errorf("invalid %s range: values must be between %d and %d", name, min, max)
+			if start < minVal || start > maxVal || end < minVal || end > maxVal {
+				return fmt.Errorf("invalid %s range: values must be between %d and %d", name, minVal, maxVal)
 			}
 			if start > end {
 				return fmt.Errorf("invalid %s range: start must be <= end", name)
@@ -243,8 +243,8 @@ func (v *StateValidator) validateCronField(field, name string, min, max int) err
 		if err != nil {
 			return fmt.Errorf("invalid %s value: %s", name, part)
 		}
-		if val < min || val > max {
-			return fmt.Errorf("invalid %s value: must be between %d and %d", name, min, max)
+		if val < minVal || val > maxVal {
+			return fmt.Errorf("invalid %s value: must be between %d and %d", name, minVal, maxVal)
 		}
 	}
 
@@ -397,13 +397,13 @@ func (v *StateValidator) ValidatePostgreSQLConfig(cfg *PostgreSQLConfig) Validat
 	}
 
 	validSSLModes := map[string]bool{
-		"":             true,
-		"disable":      true,
-		"allow":        true,
-		"prefer":       true,
-		"require":      true,
-		"verify-ca":    true,
-		"verify-full":  true,
+		"":            true,
+		"disable":     true,
+		"allow":       true,
+		"prefer":      true,
+		"require":     true,
+		"verify-ca":   true,
+		"verify-full": true,
 	}
 
 	if !validSSLModes[cfg.SSLMode] {

@@ -6,13 +6,13 @@ import (
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		input    string
-		wantErr  bool
-		major    int
-		minor    int
-		patch    int
-		prerel   string
-		build    string
+		input   string
+		wantErr bool
+		major   int
+		minor   int
+		patch   int
+		prerel  string
+		build   string
 	}{
 		{"1.0.0", false, 1, 0, 0, "", ""},
 		{"1.2.3", false, 1, 2, 3, "", ""},

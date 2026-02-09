@@ -8,7 +8,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// PromotionEvent represents events that trigger promotion state transitions.
+// Event represents events that trigger promotion state transitions.
 //
 // State diagram:
 //
@@ -38,39 +38,39 @@ import (
 //	Rejected --> [*]
 //
 // ```
-type PromotionEvent string
+type Event string
 
 const (
 	// EventRequireApproval transitions to waiting for approval
-	EventRequireApproval PromotionEvent = "require_approval"
+	EventRequireApproval Event = "require_approval"
 	// EventApprove approves a pending promotion
-	EventApprove PromotionEvent = "approve"
+	EventApprove Event = "approve"
 	// EventReject rejects a pending promotion
-	EventReject PromotionEvent = "reject"
+	EventReject Event = "reject"
 	// EventStartPromotion starts the promotion process
-	EventStartPromotion PromotionEvent = "start_promotion"
+	EventStartPromotion Event = "start_promotion"
 	// EventBeginVerification begins the verification phase
-	EventBeginVerification PromotionEvent = "begin_verification"
+	EventBeginVerification Event = "begin_verification"
 	// EventVerificationPassed indicates verification succeeded
-	EventVerificationPassed PromotionEvent = "verification_passed"
+	EventVerificationPassed Event = "verification_passed"
 	// EventVerificationFailed indicates verification failed
-	EventVerificationFailed PromotionEvent = "verification_failed"
+	EventVerificationFailed Event = "verification_failed"
 	// EventBeginRollout begins the rollout phase
-	EventBeginRollout PromotionEvent = "begin_rollout"
+	EventBeginRollout Event = "begin_rollout"
 	// EventComplete marks the promotion as completed
-	EventComplete PromotionEvent = "complete"
+	EventComplete Event = "complete"
 	// EventFail marks the promotion as failed
-	EventFail PromotionEvent = "fail"
+	EventFail Event = "fail"
 	// EventInitiateRollback starts the rollback process
-	EventInitiateRollback PromotionEvent = "initiate_rollback"
+	EventInitiateRollback Event = "initiate_rollback"
 	// EventRollbackComplete marks rollback as complete
-	EventRollbackComplete PromotionEvent = "rollback_complete"
+	EventRollbackComplete Event = "rollback_complete"
 	// EventRollbackFailed marks rollback as failed
-	EventRollbackFailed PromotionEvent = "rollback_failed"
+	EventRollbackFailed Event = "rollback_failed"
 )
 
-// PromotionStateMachineCallbacks holds callbacks for promotion state transitions.
-type PromotionStateMachineCallbacks struct {
+// StateMachineCallbacks holds callbacks for promotion state transitions.
+type StateMachineCallbacks struct {
 	// OnApprovalRequired is called when promotion requires approval
 	OnApprovalRequired func(promotionID string)
 	// OnApproved is called when promotion is approved
@@ -93,14 +93,14 @@ type PromotionStateMachineCallbacks struct {
 	OnRolledBack func(promotionID string)
 }
 
-// ManagedPromotion wraps PromotionResult with a state machine.
+// ManagedPromotion wraps Result with a state machine.
 type ManagedPromotion struct {
-	Result  *PromotionResult
-	machine *statemachine.Machine[PromotionStatus, PromotionEvent]
+	Result  *Result
+	machine *statemachine.Machine[Status, Event]
 
 	// Tracking
 	promotionID string
-	callbacks   *PromotionStateMachineCallbacks
+	callbacks   *StateMachineCallbacks
 
 	// Approval info
 	approvedBy string
@@ -110,14 +110,14 @@ type ManagedPromotion struct {
 }
 
 // NewManagedPromotion creates a new managed promotion with state machine.
-func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachineCallbacks) *ManagedPromotion {
+func NewManagedPromotion(result *Result, callbacks *StateMachineCallbacks) *ManagedPromotion {
 	mp := &ManagedPromotion{
 		Result:      result,
 		promotionID: result.ID,
 		callbacks:   callbacks,
 	}
 
-	mp.machine = statemachine.New[PromotionStatus, PromotionEvent](StatusPending).
+	mp.machine = statemachine.New[Status, Event](StatusPending).
 		WithName("promotion-"+result.ID).
 		WithHistory(30).
 		// From Pending
@@ -147,7 +147,7 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 		AddTransition(StatusRollingBack, EventRollbackComplete, StatusRolledBack).
 		AddTransition(StatusRollingBack, EventRollbackFailed, StatusFailed).
 		// Callbacks
-		OnEnter(StatusInProgress, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusInProgress, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusInProgress
 			if mp.Result.StartTime.IsZero() {
 				mp.Result.StartTime = time.Now()
@@ -156,7 +156,7 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 				mp.callbacks.OnStarted(mp.promotionID)
 			}
 		}).
-		OnEnter(StatusApproved, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusApproved, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusApproved
 			if mp.Result.ApprovalInfo != nil {
 				mp.Result.ApprovalInfo.Status = StatusApproved
@@ -167,7 +167,7 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 				mp.callbacks.OnApproved(mp.promotionID, mp.approvedBy)
 			}
 		}).
-		OnEnter(StatusRejected, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusRejected, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusRejected
 			mp.Result.EndTime = time.Now()
 			mp.Result.Duration = mp.Result.EndTime.Sub(mp.Result.StartTime)
@@ -182,19 +182,19 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 				mp.callbacks.OnRejected(mp.promotionID, mp.rejectedBy, mp.reason)
 			}
 		}).
-		OnEnter(StatusVerifying, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusVerifying, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusVerifying
 			if mp.callbacks != nil && mp.callbacks.OnVerifying != nil {
 				mp.callbacks.OnVerifying(mp.promotionID)
 			}
 		}).
-		OnEnter(StatusRollingOut, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusRollingOut, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusRollingOut
 			if mp.callbacks != nil && mp.callbacks.OnRollingOut != nil {
 				mp.callbacks.OnRollingOut(mp.promotionID)
 			}
 		}).
-		OnEnter(StatusCompleted, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusCompleted, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusCompleted
 			mp.Result.EndTime = time.Now()
 			if !mp.Result.StartTime.IsZero() {
@@ -204,7 +204,7 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 				mp.callbacks.OnCompleted(mp.promotionID)
 			}
 		}).
-		OnEnter(StatusFailed, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusFailed, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusFailed
 			mp.Result.EndTime = time.Now()
 			if !mp.Result.StartTime.IsZero() {
@@ -215,13 +215,13 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 				mp.callbacks.OnFailed(mp.promotionID, mp.lastError)
 			}
 		}).
-		OnEnter(StatusRollingBack, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusRollingBack, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusRollingBack
 			if mp.callbacks != nil && mp.callbacks.OnRollbackStarted != nil {
 				mp.callbacks.OnRollbackStarted(mp.promotionID)
 			}
 		}).
-		OnEnter(StatusRolledBack, func(ctx context.Context, state, from PromotionStatus) {
+		OnEnter(StatusRolledBack, func(ctx context.Context, state, from Status) {
 			mp.Result.Status = StatusRolledBack
 			mp.Result.EndTime = time.Now()
 			if !mp.Result.StartTime.IsZero() {
@@ -237,7 +237,7 @@ func NewManagedPromotion(result *PromotionResult, callbacks *PromotionStateMachi
 }
 
 // Status returns the current promotion status.
-func (mp *ManagedPromotion) Status() PromotionStatus {
+func (mp *ManagedPromotion) Status() Status {
 	return mp.machine.State()
 }
 
@@ -368,17 +368,17 @@ func (mp *ManagedPromotion) IsApproved() bool {
 }
 
 // History returns the state transition history.
-func (mp *ManagedPromotion) History() *statemachine.History[PromotionStatus, PromotionEvent] {
+func (mp *ManagedPromotion) History() *statemachine.History[Status, Event] {
 	return mp.machine.History()
 }
 
 // AvailableEvents returns events that can be fired from the current state.
-func (mp *ManagedPromotion) AvailableEvents() []PromotionEvent {
+func (mp *ManagedPromotion) AvailableEvents() []Event {
 	return mp.machine.AvailableEvents()
 }
 
-// PromotionStatusToString returns a human-readable name for the status.
-func PromotionStatusToString(status PromotionStatus) string {
+// StatusToString returns a human-readable name for the status.
+func StatusToString(status Status) string {
 	switch status {
 	case StatusPending:
 		return "Pending"

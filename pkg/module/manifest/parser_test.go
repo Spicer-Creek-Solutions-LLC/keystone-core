@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -163,10 +164,10 @@ func TestParseFile_NotFound(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	manifest := &Manifest{
-		Name:       "test/module",
-		Version:    "1.0.0",
-		Type:       "starlark",
-		Entrypoint: "main.star",
+		Name:         "test/module",
+		Version:      "1.0.0",
+		Type:         "starlark",
+		Entrypoint:   "main.star",
 		Capabilities: []string{"fs.read"},
 		Dependencies: map[string]string{
 			"std/files": "^1.0.0",
@@ -282,7 +283,7 @@ modules:
     hash: sha256:abc123
 `
 	_, err := ParseLockFile([]byte(lockYAML))
-	if err != ErrInvalidSchemaVersion {
+	if !errors.Is(err, ErrInvalidSchemaVersion) {
 		t.Errorf("expected ErrInvalidSchemaVersion, got %v", err)
 	}
 }

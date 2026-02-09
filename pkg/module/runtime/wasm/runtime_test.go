@@ -24,20 +24,20 @@ var addModuleWasm = []byte{
 	0x01, 0x00, 0x00, 0x00, // WASM version 1
 	// Type section (section id 1)
 	0x01, 0x07, // section id, section size
-	0x01,                   // 1 type
-	0x60,                   // func type
-	0x02, 0x7f, 0x7f,       // 2 params, both i32
-	0x01, 0x7f,             // 1 result, i32
+	0x01,             // 1 type
+	0x60,             // func type
+	0x02, 0x7f, 0x7f, // 2 params, both i32
+	0x01, 0x7f, // 1 result, i32
 	// Function section (section id 3)
 	0x03, 0x02, // section id, section size
-	0x01,       // 1 function
-	0x00,       // function 0 has type index 0
+	0x01, // 1 function
+	0x00, // function 0 has type index 0
 	// Export section (section id 7)
 	0x07, 0x07, // section id, section size
-	0x01,                         // 1 export
-	0x03, 0x61, 0x64, 0x64,       // "add"
-	0x00,                         // export kind: func
-	0x00,                         // func index 0
+	0x01,                   // 1 export
+	0x03, 0x61, 0x64, 0x64, // "add"
+	0x00, // export kind: func
+	0x00, // func index 0
 	// Code section (section id 10)
 	0x0a, 0x09, // section id, section size
 	0x01,       // 1 function body
@@ -45,8 +45,8 @@ var addModuleWasm = []byte{
 	0x00,       // 0 locals
 	0x20, 0x00, // local.get 0
 	0x20, 0x01, // local.get 1
-	0x6a,       // i32.add
-	0x0b,       // end
+	0x6a, // i32.add
+	0x0b, // end
 }
 
 // memoryModule: A module with memory export
@@ -64,10 +64,10 @@ var memoryModuleWasm = []byte{
 	0x00, 0x01, // min 1 page, no max
 	// Export section (section id 7)
 	0x07, 0x0a, // section id, section size
-	0x01,                                           // 1 export
-	0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79,       // "memory"
-	0x02,                                           // export kind: memory
-	0x00,                                           // memory index 0
+	0x01,                                     // 1 export
+	0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, // "memory"
+	0x02, // export kind: memory
+	0x00, // memory index 0
 }
 
 // loopModule: A module with a loop function for testing timeouts
@@ -86,27 +86,27 @@ var loopModuleWasm = []byte{
 	0x01, 0x00, 0x00, 0x00, // version 1
 	// Type section
 	0x01, 0x06, // section id, size
-	0x01,             // 1 type
-	0x60,             // func type
-	0x01, 0x7f,       // 1 param i32
-	0x01, 0x7f,       // 1 result i32
+	0x01,       // 1 type
+	0x60,       // func type
+	0x01, 0x7f, // 1 param i32
+	0x01, 0x7f, // 1 result i32
 	// Function section
 	0x03, 0x02, // section id, size
-	0x01,       // 1 function
-	0x00,       // type index 0
+	0x01, // 1 function
+	0x00, // type index 0
 	// Export section
 	0x07, 0x08, // section id, size
-	0x01,                               // 1 export
-	0x04, 0x6c, 0x6f, 0x6f, 0x70,       // "loop"
-	0x00,                               // func
-	0x00,                               // index 0
+	0x01,                         // 1 export
+	0x04, 0x6c, 0x6f, 0x6f, 0x70, // "loop"
+	0x00, // func
+	0x00, // index 0
 	// Code section - simple loop that just returns the input
 	0x0a, 0x06, // section id, size
 	0x01,       // 1 function body
 	0x04,       // body size
 	0x00,       // 0 locals
 	0x20, 0x00, // local.get 0
-	0x0b,       // end
+	0x0b, // end
 }
 
 func TestNewRuntime(t *testing.T) {
@@ -289,7 +289,7 @@ func TestFuelExhaustion(t *testing.T) {
 	// Note: wazero doesn't have native fuel metering like wasmtime
 	// We use context timeout instead for execution limits
 	cfg := DefaultConfig()
-	cfg.Limits.FuelLimit = 10                         // Very low limit (simulated)
+	cfg.Limits.FuelLimit = 10                          // Very low limit (simulated)
 	cfg.Limits.MaxExecutionTime = 1 * time.Millisecond // Very short timeout
 
 	rt, err := NewRuntime(cfg)

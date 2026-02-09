@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func TestJWTAuthenticator_NewWithoutKey(t *testing.T) {
 	cfg := config.JWTAuthConfig{}
 
 	_, err := NewJWTAuthenticator(cfg)
-	if err != ErrNoSigningKey {
+	if !errors.Is(err, ErrNoSigningKey) {
 		t.Errorf("Expected ErrNoSigningKey, got %v", err)
 	}
 }
@@ -121,7 +122,7 @@ func TestJWTAuthenticator_AuthenticateExpired(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, token)
-	if err != ErrTokenExpired {
+	if !errors.Is(err, ErrTokenExpired) {
 		t.Errorf("Expected ErrTokenExpired, got %v", err)
 	}
 }
@@ -153,7 +154,7 @@ func TestJWTAuthenticator_AuthenticateInvalidSignature(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, token)
-	if err != ErrInvalidSignature {
+	if !errors.Is(err, ErrInvalidSignature) {
 		t.Errorf("Expected ErrInvalidSignature, got %v", err)
 	}
 }
@@ -187,7 +188,7 @@ func TestJWTAuthenticator_ValidateIssuer(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, token)
-	if err != ErrInvalidIssuer {
+	if !errors.Is(err, ErrInvalidIssuer) {
 		t.Errorf("Expected ErrInvalidIssuer, got %v", err)
 	}
 
@@ -236,7 +237,7 @@ func TestJWTAuthenticator_ValidateAudience(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, token)
-	if err != ErrInvalidAudience {
+	if !errors.Is(err, ErrInvalidAudience) {
 		t.Errorf("Expected ErrInvalidAudience, got %v", err)
 	}
 
@@ -354,7 +355,7 @@ func TestJWTAuthenticator_EmptyCredentials(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, "")
-	if err != ErrNoCredentials {
+	if !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("Expected ErrNoCredentials, got %v", err)
 	}
 }
@@ -371,7 +372,7 @@ func TestJWTAuthenticator_MalformedToken(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = auth.Authenticate(ctx, "not.a.valid.jwt.token")
-	if err != ErrInvalidToken {
+	if !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("Expected ErrInvalidToken, got %v", err)
 	}
 }
@@ -524,12 +525,12 @@ func TestJWTAuthenticator_SubjectFallback(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		subject        string
-		email          string
-		userName       string
-		expectedID     string
-		expectedName   string
+		name         string
+		subject      string
+		email        string
+		userName     string
+		expectedID   string
+		expectedName string
 	}{
 		{
 			name:         "subject only",

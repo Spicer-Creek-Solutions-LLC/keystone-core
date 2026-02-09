@@ -346,10 +346,7 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 	if s.config.APIKey != "" {
 		apiKey := r.Header.Get("X-API-Key")
 		if apiKey == "" {
-			apiKey = r.Header.Get("Authorization")
-			if strings.HasPrefix(apiKey, "Bearer ") {
-				apiKey = strings.TrimPrefix(apiKey, "Bearer ")
-			}
+			apiKey = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		}
 		if apiKey != s.config.APIKey {
 			s.writeError(w, http.StatusUnauthorized, registry.ErrCodeUnauthorized, "Invalid API key")
@@ -421,7 +418,8 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 	}
 
 	// Create directory
-	if err := os.MkdirAll(versionDir, 0755); err != nil {
+	//nolint:gosec // G301: registry directory needs to be accessible by service user
+	if err := os.MkdirAll(versionDir, 0o755); err != nil {
 		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 			fmt.Sprintf("Failed to create directory: %v", err))
 		return
@@ -473,7 +471,8 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 
 	// Write manifest
 	manifestPath := filepath.Join(versionDir, "module.yaml")
-	if err := os.WriteFile(manifestPath, []byte(manifestData), 0644); err != nil {
+	//nolint:gosec // G306: module manifest needs to be readable by the registry
+	if err := os.WriteFile(manifestPath, []byte(manifestData), 0o644); err != nil {
 		os.RemoveAll(versionDir)
 		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 			fmt.Sprintf("Failed to write manifest: %v", err))
@@ -483,7 +482,8 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 	// Write signature if provided
 	if signature != "" {
 		sigPath := filepath.Join(versionDir, "module.sig")
-		if err := os.WriteFile(sigPath, []byte(signature), 0644); err != nil {
+		//nolint:gosec // G306: signature files need to be readable for verification
+		if err := os.WriteFile(sigPath, []byte(signature), 0o644); err != nil {
 			os.RemoveAll(versionDir)
 			s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 				fmt.Sprintf("Failed to write signature: %v", err))
@@ -507,7 +507,8 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 
 	infoPath := filepath.Join(versionDir, "module.info")
 	infoData, _ := json.MarshalIndent(stored, "", "  ")
-	if err := os.WriteFile(infoPath, infoData, 0644); err != nil {
+	//nolint:gosec // G306: module info needs to be readable by the registry
+	if err := os.WriteFile(infoPath, infoData, 0o644); err != nil {
 		os.RemoveAll(versionDir)
 		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 			fmt.Sprintf("Failed to write info: %v", err))
@@ -549,10 +550,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request, moduleName
 	if s.config.APIKey != "" {
 		apiKey := r.Header.Get("X-API-Key")
 		if apiKey == "" {
-			apiKey = r.Header.Get("Authorization")
-			if strings.HasPrefix(apiKey, "Bearer ") {
-				apiKey = strings.TrimPrefix(apiKey, "Bearer ")
-			}
+			apiKey = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		}
 		if apiKey != s.config.APIKey {
 			s.writeError(w, http.StatusUnauthorized, registry.ErrCodeUnauthorized, "Invalid API key")
@@ -692,7 +690,8 @@ func runServer(config Config) error {
 	}
 
 	// Create data directory
-	if err := os.MkdirAll(config.DataDir, 0755); err != nil {
+	//nolint:gosec // G301: data directory needs to be accessible by service user
+	if err := os.MkdirAll(config.DataDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -700,11 +699,12 @@ func runServer(config Config) error {
 
 	log.Printf("Starting kscore-registry on %s", config.ListenAddr)
 	log.Printf("  Data directory: %s", config.DataDir)
-	if config.ReadOnly {
+	switch {
+	case config.ReadOnly:
 		log.Printf("  Mode: read-only")
-	} else if config.APIKey != "" {
+	case config.APIKey != "":
 		log.Printf("  Mode: authenticated write (API key required)")
-	} else {
+	default:
 		log.Printf("  Mode: open write (no authentication)")
 	}
 

@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 )
@@ -39,7 +40,7 @@ func TestDockerContainerModule_Check_MissingName(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -58,7 +59,7 @@ func TestDockerContainerModule_Check_MissingImage(t *testing.T) {
 
 	// This will fail at Check if Docker is available but image is missing
 	// If Docker is not available, it will fail with docker not available error
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected error for missing image parameter")
 	}
@@ -77,7 +78,7 @@ func TestDockerContainerModule_Check_AbsentNoImage(t *testing.T) {
 
 	// For absent state, image is not required
 	// Check will fail if docker is not available, which is expected
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err != nil && err.Error() != "docker is not available: exec: \"docker\": executable file not found in $PATH" {
 		// If it's any error other than docker not available, that's fine for this test
 		// The point is that we don't get "image parameter is required" error
@@ -114,7 +115,7 @@ func TestDockerImageModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestDockerNetworkModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -180,7 +181,7 @@ func TestDockerVolumeModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestPodmanContainerModule_Check_MissingName(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -232,7 +233,7 @@ func TestPodmanContainerModule_Check_MissingImage(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil {
 		t.Error("expected error for missing image parameter")
 	}
@@ -265,7 +266,7 @@ func TestPodmanImageModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -298,7 +299,7 @@ func TestPodmanNetworkModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -331,7 +332,7 @@ func TestPodmanVolumeModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -342,7 +343,8 @@ func TestPodmanVolumeModule_Check_MissingName(t *testing.T) {
 // ============================================================================
 
 func TestDetectContainerRuntime(t *testing.T) {
-	runtime := DetectContainerRuntime()
+	ctx := context.Background()
+	runtime := DetectContainerRuntime(ctx)
 
 	// The result depends on what's installed on the test machine
 	// Just verify it returns a valid enum value
@@ -355,20 +357,22 @@ func TestDetectContainerRuntime(t *testing.T) {
 }
 
 func TestGetContainerRuntimeVersion_Unknown(t *testing.T) {
-	_, err := GetContainerRuntimeVersion(ContainerRuntimeUnknown)
+	ctx := context.Background()
+	_, err := GetContainerRuntimeVersion(ctx, ContainerRuntimeUnknown)
 	if err == nil {
 		t.Error("expected error for unknown runtime")
 	}
 }
 
 func TestGetContainerRuntimeVersion_Docker(t *testing.T) {
+	ctx := context.Background()
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		t.Skip("docker is not available")
 	}
 
-	version, err := GetContainerRuntimeVersion(ContainerRuntimeDocker)
+	version, err := GetContainerRuntimeVersion(ctx, ContainerRuntimeDocker)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -378,13 +382,14 @@ func TestGetContainerRuntimeVersion_Docker(t *testing.T) {
 }
 
 func TestGetContainerRuntimeVersion_Podman(t *testing.T) {
+	ctx := context.Background()
 	// Check if podman is available
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		t.Skip("podman is not available")
 	}
 
-	version, err := GetContainerRuntimeVersion(ContainerRuntimePodman)
+	version, err := GetContainerRuntimeVersion(ctx, ContainerRuntimePodman)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -466,7 +471,7 @@ func TestGetDriverOpts_Empty(t *testing.T) {
 
 func TestDockerContainerModule_Integration(t *testing.T) {
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(context.Background(),"docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		t.Skip("docker is not available")
 	}
@@ -483,7 +488,7 @@ func TestDockerContainerModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -498,7 +503,7 @@ func TestDockerContainerModule_Integration(t *testing.T) {
 
 func TestDockerImageModule_Integration(t *testing.T) {
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(context.Background(),"docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		t.Skip("docker is not available")
 	}
@@ -516,7 +521,7 @@ func TestDockerImageModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -529,7 +534,7 @@ func TestDockerImageModule_Integration(t *testing.T) {
 
 func TestPodmanContainerModule_Integration(t *testing.T) {
 	// Check if podman is available
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(context.Background(),"podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		t.Skip("podman is not available")
 	}
@@ -546,7 +551,7 @@ func TestPodmanContainerModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}

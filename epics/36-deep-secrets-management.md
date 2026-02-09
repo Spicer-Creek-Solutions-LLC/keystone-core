@@ -747,7 +747,7 @@ Hardware Security Modules (HSM) and Key Management Services (KMS) provide:
 ### Backend Configuration
 
 ```yaml
-# /etc/kscore/secrets.yaml
+# /etc/keystone-core/secrets.yaml
 secrets:
   # Default backend for unqualified paths
   default_backend: vault
@@ -771,10 +771,10 @@ secrets:
         role: keystone-core
         # Alternative: AppRole
         # method: approle
-        # role_id_file: /etc/kscore/vault-role-id
-        # secret_id_file: /etc/kscore/vault-secret-id
+        # role_id_file: /etc/keystone-core/vault-role-id
+        # secret_id_file: /etc/keystone-core/vault-secret-id
       tls:
-        ca_cert: /etc/kscore/certs/vault-ca.pem
+        ca_cert: /etc/keystone-core/certs/vault-ca.pem
         skip_verify: false
       lease_renewal:
         strategy: eager  # eager, lazy, on_demand
@@ -799,7 +799,7 @@ secrets:
         # method: service_principal
         # tenant_id: ${AZURE_TENANT_ID}
         # client_id: ${AZURE_CLIENT_ID}
-        # client_secret_file: /etc/kscore/azure-client-secret
+        # client_secret_file: /etc/keystone-core/azure-client-secret
 
     # GCP Secret Manager
     gcp:
@@ -809,7 +809,7 @@ secrets:
         method: workload_identity
         # Alternative: service account key
         # method: service_account
-        # key_file: /etc/kscore/gcp-sa-key.json
+        # key_file: /etc/keystone-core/gcp-sa-key.json
 
   # HSM/KMS for master key protection
   master_key:
@@ -926,7 +926,7 @@ agent:
       type: memory  # memory or encrypted_disk
       max_entries: 1000
       # For encrypted_disk:
-      # path: /var/lib/kscore/secret-cache
+      # path: /var/lib/keystone-core/secret-cache
       # encryption_key_source: tpm  # tpm, file, or derived
 
     injection:
@@ -950,7 +950,7 @@ agent:
 
       # Template rendering (like consul-template)
       templates:
-        - source: /etc/kscore/templates/db-config.tpl
+        - source: /etc/keystone-core/templates/db-config.tpl
           destination: /etc/myapp/database.yml
           mode: 0400
           notify:
@@ -960,7 +960,7 @@ agent:
 ### Secret Injection Template Example
 
 ```yaml
-# /etc/kscore/templates/db-config.tpl
+# /etc/keystone-core/templates/db-config.tpl
 database:
   host: {{ secret "vault/kv/myapp/db" "host" }}
   port: {{ secret "vault/kv/myapp/db" "port" | default "5432" }}
@@ -1023,7 +1023,7 @@ secrets:
 ### Policy for Secret Access (OPA)
 
 ```rego
-# /etc/kscore/policies/secrets.rego
+# /etc/keystone-core/policies/secrets.rego
 package keystone.secrets
 
 # Allow agents to access secrets for their role
@@ -1101,8 +1101,8 @@ kscorectl secrets rotate database_credentials --strategy canary --batch-size 1
 kscorectl secrets rotate database_credentials --rollback
 
 # Secret templates
-kscorectl secrets template render /etc/kscore/templates/db-config.tpl
-kscorectl secrets template validate /etc/kscore/templates/*.tpl
+kscorectl secrets template render /etc/keystone-core/templates/db-config.tpl
+kscorectl secrets template validate /etc/keystone-core/templates/*.tpl
 ```
 
 ### Diagnostic Commands

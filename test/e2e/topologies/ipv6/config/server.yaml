@@ -18,12 +18,12 @@ nats:
     host: "::"
     port: 4222
     enablejetstream: true
-    storedir: "/var/lib/kscore/nats"
+    storedir: "/var/lib/keystone-core/nats"
     maxmemory: 268435456  # 256MB for testing
     maxconnections: 100
   jetstream:
     enabled: true
-    storedir: "/var/lib/kscore/jetstream"
+    storedir: "/var/lib/keystone-core/jetstream"
     maxstorage: 1073741824  # 1GB for testing
   maxreconnects: 10
   reconnectwait: 1s
@@ -32,7 +32,7 @@ nats:
 storage:
   backend: sqlite
   sqlite:
-    path: "/var/lib/kscore/kscore.db"
+    path: "/var/lib/keystone-core/keystone-core.db"
     wal: true
     busytimeout: 5000
 

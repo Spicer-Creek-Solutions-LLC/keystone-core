@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -81,7 +82,7 @@ func TestSQLiteLeaseStore(t *testing.T) {
 
 		ctx := context.Background()
 		_, err := store.Get(ctx, "nonexistent")
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -126,7 +127,7 @@ func TestSQLiteLeaseStore(t *testing.T) {
 		lease := createTestLease("nonexistent", "vault/secret/test")
 
 		err := store.Update(ctx, lease)
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -146,7 +147,7 @@ func TestSQLiteLeaseStore(t *testing.T) {
 
 		// Verify deletion
 		_, err = store.Get(ctx, lease.ID)
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -157,7 +158,7 @@ func TestSQLiteLeaseStore(t *testing.T) {
 
 		ctx := context.Background()
 		err := store.Delete(ctx, "nonexistent")
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -567,7 +568,7 @@ func TestPersistentLeaseManager(t *testing.T) {
 
 		ctx := context.Background()
 		_, err := mgr.Get(ctx, "nonexistent")
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -790,7 +791,7 @@ func TestPersistentLeaseManager(t *testing.T) {
 
 		// Verify removal
 		_, err = mgr.Get(ctx, lease.ID)
-		if err != ErrLeaseNotFound {
+		if !errors.Is(err, ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -898,7 +899,7 @@ func TestPersistentLeaseManager(t *testing.T) {
 		_ = mgr.Track(ctx, lease)
 
 		_, err := mgr.Renew(ctx, lease.ID, time.Hour)
-		if err != ErrLeaseNotRenewable {
+		if !errors.Is(err, ErrLeaseNotRenewable) {
 			t.Errorf("expected ErrLeaseNotRenewable, got %v", err)
 		}
 	})
@@ -917,7 +918,7 @@ func TestPersistentLeaseManager(t *testing.T) {
 		_ = mgr.Track(ctx, lease)
 
 		_, err := mgr.Renew(ctx, lease.ID, time.Hour)
-		if err != ErrLeaseExpired {
+		if !errors.Is(err, ErrLeaseExpired) {
 			t.Errorf("expected ErrLeaseExpired, got %v", err)
 		}
 	})
@@ -1095,9 +1096,9 @@ type renewableMockBackend struct {
 	renewError error
 }
 
-func (m *renewableMockBackend) Type() BackendType                     { return BackendTypeVault }
-func (m *renewableMockBackend) Name() string                          { return "vault" }
-func (m *renewableMockBackend) Healthy(ctx context.Context) bool      { return true }
+func (m *renewableMockBackend) Type() BackendType                { return BackendTypeVault }
+func (m *renewableMockBackend) Name() string                     { return "vault" }
+func (m *renewableMockBackend) Healthy(ctx context.Context) bool { return true }
 func (m *renewableMockBackend) List(ctx context.Context, prefix string) ([]string, error) {
 	return nil, nil
 }
@@ -1600,7 +1601,7 @@ func TestContextCancellation(t *testing.T) {
 
 	// Operations should fail gracefully
 	_, err := store.List(ctx, nil)
-	if err == nil || err == sql.ErrNoRows {
+	if err == nil || errors.Is(err, sql.ErrNoRows) {
 		// Either context error or no error is acceptable depending on timing
 		t.Log("List returned without context error")
 	}

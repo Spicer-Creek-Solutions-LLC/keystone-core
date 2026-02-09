@@ -110,7 +110,7 @@ func TestFileInjectorBasic(t *testing.T) {
 	})
 
 	config := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		BasePath:        dir,
 		DefaultMode:     0600,
 		AtomicWrite:     true,
@@ -170,7 +170,7 @@ func TestFileInjectorAtomicWrite(t *testing.T) {
 	})
 
 	config := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		AtomicWrite:     true,
 		Files: []FileRule{
 			{
@@ -220,7 +220,7 @@ func TestFileInjectorBinaryData(t *testing.T) {
 	}
 
 	config := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Files: []FileRule{
 			{
 				SecretPath: "binary/data",
@@ -260,7 +260,7 @@ func TestFileInjectorMissingSecret(t *testing.T) {
 	source := newMockSecretSource()
 
 	config := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Files: []FileRule{
 			{
 				SecretPath: "missing/secret",
@@ -295,7 +295,7 @@ func TestFileInjectorSubdirectory(t *testing.T) {
 	source.AddSecret("test/secret", map[string]interface{}{"data": "value"})
 
 	config := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Files: []FileRule{
 			{
 				SecretPath: "test/secret",
@@ -347,12 +347,12 @@ func TestEnvInjectorCreate(t *testing.T) {
 func TestEnvInjectorBasic(t *testing.T) {
 	source := newMockSecretSource()
 	source.AddSecret("app/config", map[string]interface{}{
-		"api_key":     "key123",
-		"api_secret":  "secret456",
+		"api_key":    "key123",
+		"api_secret": "secret456",
 	})
 
 	config := &EnvInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Prefix:          "MYAPP_",
 		Uppercase:       true,
 		Secrets: []EnvRule{
@@ -432,7 +432,7 @@ func TestEnvInjectorClear(t *testing.T) {
 	source.AddSecret("test/env", map[string]interface{}{"value": "test"})
 
 	config := &EnvInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Secrets: []EnvRule{
 			{
 				SecretPath: "test/env",
@@ -563,7 +563,7 @@ func TestTemplateInjectorBasic(t *testing.T) {
 	}
 
 	config := &TemplateInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Templates: []TemplateRule{
 			{
 				Source:      templatePath,
@@ -627,7 +627,7 @@ default: {{ secret "test/data" "missing" | default "fallback" }}
 	}
 
 	config := &TemplateInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Templates: []TemplateRule{
 			{
 				Source:      templatePath,
@@ -680,7 +680,7 @@ func TestTemplateInjectorCustomDelimiters(t *testing.T) {
 	}
 
 	config := &TemplateInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Templates: []TemplateRule{
 			{
 				Source:      templatePath,
@@ -731,7 +731,7 @@ func TestTemplateInjectorChangeDetection(t *testing.T) {
 	destPath := filepath.Join(dir, "detect.txt")
 
 	config := &TemplateInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Templates: []TemplateRule{
 			{
 				Source:      templatePath,
@@ -901,7 +901,7 @@ api:
 
 	// 1. File injection for certificates
 	fileConfig := &FileInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		AtomicWrite:     true,
 		Files: []FileRule{
 			{
@@ -937,7 +937,7 @@ api:
 
 	// 2. Environment injection for API keys
 	envConfig := &EnvInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Prefix:          "APP_",
 		Uppercase:       true,
 		Secrets: []EnvRule{
@@ -969,7 +969,7 @@ api:
 
 	// 3. Template injection for config
 	templateConfig := &TemplateInjectionConfig{
-		InjectionConfig: InjectionConfig{Enabled: true},
+		Config: Config{Enabled: true},
 		Templates: []TemplateRule{
 			{
 				Source:      templatePath,

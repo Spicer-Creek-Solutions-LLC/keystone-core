@@ -1,3 +1,5 @@
+// Package resolver provides module dependency resolution using minimal version
+// selection with caching and conflict resolution strategies.
 package resolver
 
 import (
@@ -329,7 +331,7 @@ func (r *ModuleResolver) generateLockFile(root ModuleReference, resolved []*Depe
 
 // buildGraphFromLockFile builds a dependency graph from a lock file
 func (r *ModuleResolver) buildGraphFromLockFile(lockFile *manifest.LockFile) ([]*DependencyNode, error) {
-	nodes := []*DependencyNode{}
+	nodes := make([]*DependencyNode, 0, len(lockFile.Modules))
 
 	// Create nodes for all locked modules
 	for name, locked := range lockFile.Modules {

@@ -88,6 +88,7 @@ func DefaultHSMClusterConfig() *HSMClusterConfig {
 //	    CircuitOpen --> Healthy: success
 type HSMNodeState int
 
+// HSMNodeState constants define the possible states.
 const (
 	HSMNodeStateHealthy HSMNodeState = iota
 	HSMNodeStateDegraded
@@ -269,7 +270,7 @@ func (n *HSMNode) RecordSuccess(latency time.Duration) {
 	n.latencySum += latency
 	n.latencyCount++
 	if n.latencyCount > 0 {
-		n.avgLatency = n.latencySum / time.Duration(n.latencyCount)
+		n.avgLatency = n.latencySum / time.Duration(n.latencyCount) //nolint:gosec // G115: count is positive
 	}
 	n.mu.Unlock()
 
@@ -357,9 +358,9 @@ type HSMCluster struct {
 	config *HSMClusterConfig
 	nodes  []*HSMNode
 
-	mu           sync.RWMutex
+	mu            sync.RWMutex
 	roundRobinIdx uint64
-	totalWeights int
+	totalWeights  int
 
 	stopCh  chan struct{}
 	stopped bool
@@ -420,7 +421,7 @@ func (c *HSMCluster) SelectNode(ctx context.Context) (*HSMNode, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	available := c.availableNodes()
+	available := c.availableNodes() //nolint:contextcheck // availableNodes internally calls state machine
 	if len(available) == 0 {
 		return nil, errors.New("no available HSM nodes")
 	}
@@ -460,6 +461,7 @@ func (c *HSMCluster) selectRoundRobin(nodes []*HSMNode) *HSMNode {
 
 // selectRandom selects a random node.
 func (c *HSMCluster) selectRandom(nodes []*HSMNode) *HSMNode {
+	//nolint:gosec // G404: math/rand used for load balancing distribution, not security
 	return nodes[rand.IntN(len(nodes))]
 }
 
@@ -486,6 +488,7 @@ func (c *HSMCluster) selectWeighted(nodes []*HSMNode) *HSMNode {
 		totalWeight += node.Weight
 	}
 
+	//nolint:gosec // G404: math/rand used for weighted load balancing, not security
 	r := rand.IntN(totalWeight)
 	for _, node := range nodes {
 		r -= node.Weight
@@ -542,11 +545,11 @@ func (c *HSMCluster) Execute(ctx context.Context, fn func(Provider) error) error
 		latency := time.Since(startTime)
 
 		if err == nil {
-			node.RecordSuccess(latency)
+			node.RecordSuccess(latency) //nolint:contextcheck // state machine Fire doesn't take context
 			return nil
 		}
 
-		node.RecordFailure(c.config.FailoverThreshold, c.config.CircuitBreakerTimeout)
+		node.RecordFailure(c.config.FailoverThreshold, c.config.CircuitBreakerTimeout) //nolint:contextcheck // state machine Fire doesn't take context
 		lastErr = err
 
 		select {

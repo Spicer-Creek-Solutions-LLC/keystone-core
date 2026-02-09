@@ -626,6 +626,7 @@ func (b *MessageBuffer) Dequeue() *BufferedMessage {
 
 // setState updates the buffer state
 func (b *MessageBuffer) setState(state MessageBufferState) {
+	//nolint:gosec // G115: MessageBufferState is a small enum (0-3), fits in int32
 	b.state.Store(int32(state))
 }
 
@@ -817,7 +818,7 @@ func NewLeafBufferManager(leafConfig *LeafNodeConfig, bufferConfig *BufferConfig
 	// Set up auto-flush on reconnect
 	manager.SetRemoteConnectCallback(func(remote *LeafRemoteConfig) {
 		if lbm.autoFlush && lbm.buffer.Len() > 0 {
-			go lbm.flushBuffer()
+			go func() { _ = lbm.flushBuffer() }() //nolint:errcheck // best-effort async flush
 		}
 	})
 

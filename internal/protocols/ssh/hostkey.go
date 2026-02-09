@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -170,12 +171,9 @@ func (v *HostKeyVerifier) Verify(hostname string, remote net.Addr, key ssh.Publi
 			v.OnNewKey(normalizedHost, key)
 		}
 
-		// Persist if configured
+		// Persist if configured - best-effort, key is still learned in memory
 		if v.StoreLearnedKeys {
-			if err := v.persistKey(normalizedHost, key); err != nil {
-				// Log but don't fail - the key is still learned in memory
-				// This allows operation to continue even if we can't write to disk
-			}
+			_ = v.persistKey(normalizedHost, key)
 		}
 
 		return nil
@@ -243,7 +241,7 @@ func (v *HostKeyVerifier) persistKey(hostname string, key ssh.PublicKey) error {
 			return err
 		}
 		sshDir := filepath.Join(home, ".ssh")
-		if err := os.MkdirAll(sshDir, 0700); err != nil {
+		if err := os.MkdirAll(sshDir, 0o700); err != nil {
 			return err
 		}
 		path = filepath.Join(sshDir, "known_hosts")
@@ -251,7 +249,7 @@ func (v *HostKeyVerifier) persistKey(hostname string, key ssh.PublicKey) error {
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -259,7 +257,7 @@ func (v *HostKeyVerifier) persistKey(hostname string, key ssh.PublicKey) error {
 	line := formatKnownHostsLine(hostname, key)
 
 	// Append to file
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -398,17 +396,14 @@ func isKeyMismatch(err error) bool {
 	return false
 }
 
-// errorAs is a helper for errors.As to avoid import cycle issues.
+// errorAs is a helper for errors.As.
 func errorAs(err error, target interface{}) bool {
 	if err == nil {
 		return false
 	}
-	// Simple type assertion since we know the type
-	if keyErr, ok := err.(*knownhosts.KeyError); ok {
-		if t, ok := target.(**knownhosts.KeyError); ok {
-			*t = keyErr
-			return true
-		}
+	// Use standard errors.As for proper error unwrapping
+	if t, ok := target.(**knownhosts.KeyError); ok {
+		return errors.As(err, t)
 	}
 	return false
 }
@@ -460,6 +455,7 @@ func DefaultHostKeyVerifier() *HostKeyVerifier {
 
 // InsecureIgnoreHostKey returns a callback that accepts any host key.
 // This is INSECURE and should only be used for testing.
+//
 // Deprecated: Use NewHostKeyVerifier with HostKeyCheckNo mode instead.
 func InsecureIgnoreHostKey() ssh.HostKeyCallback {
 	if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
@@ -467,5 +463,6 @@ func InsecureIgnoreHostKey() ssh.HostKeyCallback {
 			return fmt.Errorf("insecure host key verification blocked; set KSCORE_ALLOW_INSECURE_TLS=1 for development/testing only")
 		}
 	}
+	//nolint:gosec // G106: InsecureIgnoreHostKey is gated by KSCORE_ALLOW_INSECURE_TLS env var for development/testing only
 	return ssh.InsecureIgnoreHostKey() // nosemgrep: go.lang.security.audit.crypto.insecure_ssh.avoid-ssh-insecure-ignore-host-key -- gated by KSCORE_ALLOW_INSECURE_TLS
 }

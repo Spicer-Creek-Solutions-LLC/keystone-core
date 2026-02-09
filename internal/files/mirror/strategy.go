@@ -12,13 +12,13 @@ import (
 // ReadRouter selects mirrors for read operations.
 type ReadRouter interface {
 	// SelectForRead returns mirrors in order of preference for reading.
-	SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror
+	SelectForRead(group *Group, agentLocation *Location) []*Mirror
 }
 
 // WriteRouter selects mirrors for write operations.
 type WriteRouter interface {
 	// SelectForWrite returns mirrors for writing based on policy.
-	SelectForWrite(group *MirrorGroup) ([]*Mirror, error)
+	SelectForWrite(group *Group) ([]*Mirror, error)
 }
 
 // NearestRouter routes to the mirror with lowest latency.
@@ -50,7 +50,7 @@ func (r *NearestRouter) GetLatency(mirrorID string) (time.Duration, bool) {
 }
 
 // SelectForRead returns mirrors sorted by latency (lowest first).
-func (r *NearestRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *NearestRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -91,7 +91,7 @@ func NewRoundRobinRouter() *RoundRobinRouter {
 }
 
 // SelectForRead returns mirrors in round-robin order, respecting weights.
-func (r *RoundRobinRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *RoundRobinRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -111,6 +111,7 @@ func (r *RoundRobinRouter) SelectForRead(group *MirrorGroup, agentLocation *Loca
 
 	// Get next index
 	idx := atomic.AddUint64(&r.counter, 1) - 1
+	//nolint:gosec // G115: modulo result is bounded by len(weighted), fits in int
 	startIdx := int(idx % uint64(len(weighted)))
 
 	// Build result starting from this index
@@ -137,7 +138,7 @@ func NewFailoverRouter() *FailoverRouter {
 }
 
 // SelectForRead returns mirrors sorted by priority (lowest first).
-func (r *FailoverRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *FailoverRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -211,7 +212,7 @@ func (r *FastestRouter) GetAvgResponseTime(mirrorID string) (time.Duration, bool
 }
 
 // SelectForRead returns mirrors sorted by average response time.
-func (r *FastestRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *FastestRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -267,12 +268,13 @@ type RandomRouter struct {
 // NewRandomRouter creates a new random router.
 func NewRandomRouter() *RandomRouter {
 	return &RandomRouter{
+		//nolint:gosec // G404: math/rand used for load distribution shuffling, not security
 		rng: rand.New(rand.NewSource(time.Now().UnixNano())), // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- non-crypto randomness for load distribution
 	}
 }
 
 // SelectForRead returns mirrors in random order.
-func (r *RandomRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *RandomRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -306,7 +308,7 @@ func NewCompositeRouter(primary ReadRouter, fallbacks ...ReadRouter) *CompositeR
 }
 
 // SelectForRead tries primary router, then fallbacks if empty.
-func (r *CompositeRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *CompositeRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := r.primary.SelectForRead(group, agentLocation)
 	if len(mirrors) > 0 {
 		return mirrors
@@ -347,7 +349,7 @@ func NewAllWriteRouter() *AllWriteRouter {
 }
 
 // SelectForWrite returns all writable mirrors.
-func (r *AllWriteRouter) SelectForWrite(group *MirrorGroup) ([]*Mirror, error) {
+func (r *AllWriteRouter) SelectForWrite(group *Group) ([]*Mirror, error) {
 	mirrors := group.GetHealthyMirrors()
 	result := make([]*Mirror, 0)
 	for _, m := range mirrors {
@@ -372,7 +374,7 @@ func NewQuorumWriteRouter(quorumSize int) *QuorumWriteRouter {
 }
 
 // SelectForWrite returns enough mirrors to reach quorum.
-func (r *QuorumWriteRouter) SelectForWrite(group *MirrorGroup) ([]*Mirror, error) {
+func (r *QuorumWriteRouter) SelectForWrite(group *Group) ([]*Mirror, error) {
 	mirrors := group.GetHealthyMirrors()
 	result := make([]*Mirror, 0)
 
@@ -403,7 +405,7 @@ func NewPrimaryOnlyWriteRouter() *PrimaryOnlyWriteRouter {
 }
 
 // SelectForWrite returns only the primary (lowest priority) mirror.
-func (r *PrimaryOnlyWriteRouter) SelectForWrite(group *MirrorGroup) ([]*Mirror, error) {
+func (r *PrimaryOnlyWriteRouter) SelectForWrite(group *Group) ([]*Mirror, error) {
 	mirrors := group.GetHealthyMirrors()
 	var primary *Mirror
 
@@ -431,7 +433,7 @@ func NewPrimarySecondaryWriteRouter() *PrimarySecondaryWriteRouter {
 }
 
 // SelectForWrite returns primary and one secondary mirror.
-func (r *PrimarySecondaryWriteRouter) SelectForWrite(group *MirrorGroup) ([]*Mirror, error) {
+func (r *PrimarySecondaryWriteRouter) SelectForWrite(group *Group) ([]*Mirror, error) {
 	mirrors := group.GetHealthyMirrors()
 
 	// Sort by priority

@@ -4,33 +4,34 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
 
-func TestRegistryType(t *testing.T) {
+func TestType(t *testing.T) {
 	tests := []struct {
 		registry string
-		expected RegistryType
+		expected Type
 	}{
-		{"docker.io", RegistryTypeDocker},
-		{"index.docker.io", RegistryTypeDocker},
-		{"123456789.dkr.ecr.us-east-1.amazonaws.com", RegistryTypeECR},
-		{"gcr.io", RegistryTypeGCR},
-		{"us-docker.pkg.dev", RegistryTypeGCR},
-		{"myregistry.azurecr.io", RegistryTypeACR},
-		{"ghcr.io", RegistryTypeGitHub},
-		{"quay.io", RegistryTypeQuay},
-		{"my-private-registry.example.com", RegistryTypeGeneric},
+		{"docker.io", TypeDocker},
+		{"index.docker.io", TypeDocker},
+		{"123456789.dkr.ecr.us-east-1.amazonaws.com", TypeECR},
+		{"gcr.io", TypeGCR},
+		{"us-docker.pkg.dev", TypeGCR},
+		{"myregistry.azurecr.io", TypeACR},
+		{"ghcr.io", TypeGitHub},
+		{"quay.io", TypeQuay},
+		{"my-private-registry.example.com", TypeGeneric},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.registry, func(t *testing.T) {
-			got := DetectRegistryType(tt.registry)
+			got := DetectType(tt.registry)
 			if got != tt.expected {
-				t.Errorf("DetectRegistryType(%s) = %v, want %v", tt.registry, got, tt.expected)
+				t.Errorf("DetectType(%s) = %v, want %v", tt.registry, got, tt.expected)
 			}
 		})
 	}
@@ -86,7 +87,7 @@ func TestAuthManager_Authenticate(t *testing.T) {
 
 	t.Run("ecr auth", func(t *testing.T) {
 		cred := &Credential{
-			Type:      RegistryTypeECR,
+			Type:      TypeECR,
 			Registry:  "123456789.dkr.ecr.us-east-1.amazonaws.com",
 			Region:    "us-east-1",
 			AccountID: "123456789",
@@ -97,8 +98,8 @@ func TestAuthManager_Authenticate(t *testing.T) {
 			t.Fatalf("Authenticate failed: %v", err)
 		}
 
-		if result.Type != RegistryTypeECR {
-			t.Errorf("Type = %v, want %v", result.Type, RegistryTypeECR)
+		if result.Type != TypeECR {
+			t.Errorf("Type = %v, want %v", result.Type, TypeECR)
 		}
 	})
 
@@ -109,7 +110,7 @@ func TestAuthManager_Authenticate(t *testing.T) {
 		}
 
 		_, err := am.Authenticate(context.Background(), cred)
-		if err != ErrUnsupportedRegistry {
+		if !errors.Is(err, ErrUnsupportedRegistry) {
 			t.Errorf("Expected ErrUnsupportedRegistry, got %v", err)
 		}
 	})
@@ -121,7 +122,7 @@ func TestAuthManager_GetCredential(t *testing.T) {
 
 	// Cache a credential
 	cred := &Credential{
-		Type:      RegistryTypeDocker,
+		Type:      TypeDocker,
 		Registry:  "docker.io",
 		Username:  "testuser",
 		Password:  "testpass",
@@ -197,7 +198,7 @@ func TestAuthManager_ExportDockerConfig(t *testing.T) {
 	// Add credentials
 	am.mu.Lock()
 	am.credentials["docker.io"] = &Credential{
-		Type:     RegistryTypeDocker,
+		Type:     TypeDocker,
 		Registry: "docker.io",
 		Username: "user",
 		Password: "pass",
@@ -224,7 +225,7 @@ func TestAuthManager_Events(t *testing.T) {
 	})
 
 	cred := &Credential{
-		Type:     RegistryTypeDocker,
+		Type:     TypeDocker,
 		Registry: "docker.io",
 		Username: "testuser",
 		Password: "testpass",
@@ -262,8 +263,8 @@ func TestDockerAuthenticator(t *testing.T) {
 	auth := NewDockerAuthenticator(http.DefaultClient)
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeDocker {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeDocker)
+		if auth.Type() != TypeDocker {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeDocker)
 		}
 	})
 
@@ -290,14 +291,14 @@ func TestECRAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeECR {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeECR)
+		if auth.Type() != TypeECR {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeECR)
 		}
 	})
 
 	t.Run("authenticate without region", func(t *testing.T) {
 		cred := &Credential{
-			Type: RegistryTypeECR,
+			Type: TypeECR,
 		}
 		_, err := auth.Authenticate(ctx, cred)
 		if err == nil {
@@ -307,7 +308,7 @@ func TestECRAuthenticator(t *testing.T) {
 
 	t.Run("authenticate with region", func(t *testing.T) {
 		cred := &Credential{
-			Type:      RegistryTypeECR,
+			Type:      TypeECR,
 			Region:    "us-east-1",
 			AccountID: "123456789",
 		}
@@ -341,14 +342,14 @@ func TestGCRAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeGCR {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeGCR)
+		if auth.Type() != TypeGCR {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeGCR)
 		}
 	})
 
 	t.Run("authenticate without token", func(t *testing.T) {
 		cred := &Credential{
-			Type: RegistryTypeGCR,
+			Type: TypeGCR,
 		}
 		_, err := auth.Authenticate(ctx, cred)
 		if err == nil {
@@ -358,7 +359,7 @@ func TestGCRAuthenticator(t *testing.T) {
 
 	t.Run("authenticate with token", func(t *testing.T) {
 		cred := &Credential{
-			Type:  RegistryTypeGCR,
+			Type:  TypeGCR,
 			Token: "gcr-token",
 		}
 		result, err := auth.Authenticate(ctx, cred)
@@ -376,14 +377,14 @@ func TestACRAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeACR {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeACR)
+		if auth.Type() != TypeACR {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeACR)
 		}
 	})
 
 	t.Run("authenticate without credentials", func(t *testing.T) {
 		cred := &Credential{
-			Type: RegistryTypeACR,
+			Type: TypeACR,
 		}
 		_, err := auth.Authenticate(ctx, cred)
 		if err == nil {
@@ -393,7 +394,7 @@ func TestACRAuthenticator(t *testing.T) {
 
 	t.Run("authenticate with token", func(t *testing.T) {
 		cred := &Credential{
-			Type:     RegistryTypeACR,
+			Type:     TypeACR,
 			Registry: "myregistry.azurecr.io",
 			Token:    "acr-token",
 		}
@@ -412,14 +413,14 @@ func TestGitHubAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeGitHub {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeGitHub)
+		if auth.Type() != TypeGitHub {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeGitHub)
 		}
 	})
 
 	t.Run("authenticate without token", func(t *testing.T) {
 		cred := &Credential{
-			Type: RegistryTypeGitHub,
+			Type: TypeGitHub,
 		}
 		_, err := auth.Authenticate(ctx, cred)
 		if err == nil {
@@ -429,7 +430,7 @@ func TestGitHubAuthenticator(t *testing.T) {
 
 	t.Run("authenticate with token", func(t *testing.T) {
 		cred := &Credential{
-			Type:  RegistryTypeGitHub,
+			Type:  TypeGitHub,
 			Token: "ghp_xxxxxxxxxxxx",
 		}
 		result, err := auth.Authenticate(ctx, cred)
@@ -447,14 +448,14 @@ func TestQuayAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeQuay {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeQuay)
+		if auth.Type() != TypeQuay {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeQuay)
 		}
 	})
 
 	t.Run("authenticate without credentials", func(t *testing.T) {
 		cred := &Credential{
-			Type: RegistryTypeQuay,
+			Type: TypeQuay,
 		}
 		_, err := auth.Authenticate(ctx, cred)
 		if err == nil {
@@ -464,7 +465,7 @@ func TestQuayAuthenticator(t *testing.T) {
 
 	t.Run("authenticate with credentials", func(t *testing.T) {
 		cred := &Credential{
-			Type:     RegistryTypeQuay,
+			Type:     TypeQuay,
 			Username: "quay+robot",
 			Password: "robot-token",
 		}
@@ -483,8 +484,8 @@ func TestGenericAuthenticator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("type", func(t *testing.T) {
-		if auth.Type() != RegistryTypeGeneric {
-			t.Errorf("Type() = %v, want %v", auth.Type(), RegistryTypeGeneric)
+		if auth.Type() != TypeGeneric {
+			t.Errorf("Type() = %v, want %v", auth.Type(), TypeGeneric)
 		}
 	})
 
@@ -509,7 +510,7 @@ func TestInMemoryCredentialStore(t *testing.T) {
 	ctx := context.Background()
 
 	cred := &Credential{
-		Type:     RegistryTypeDocker,
+		Type:     TypeDocker,
 		Registry: "docker.io",
 		Username: "user",
 		Password: "pass",
@@ -562,10 +563,10 @@ func TestInMemoryCredentialStore(t *testing.T) {
 
 func TestParseBearerChallenge(t *testing.T) {
 	tests := []struct {
-		header string
-		realm  string
+		header  string
+		realm   string
 		service string
-		scope  string
+		scope   string
 	}{
 		{
 			header:  `Bearer realm="https://auth.example.com/token",service="registry",scope="repository:myimage:pull"`,
@@ -621,7 +622,7 @@ func TestGenericAuthenticator_BearerAuth(t *testing.T) {
 	ctx := context.Background()
 
 	cred := &Credential{
-		Type:     RegistryTypeGeneric,
+		Type:     TypeGeneric,
 		Registry: registryServer.URL,
 		Username: "user",
 		Password: "pass",

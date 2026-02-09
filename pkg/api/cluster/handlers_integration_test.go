@@ -90,7 +90,11 @@ func TestClusterStatusAndMembersIntegration(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/api/v1/cluster/status")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/cluster/status", nil)
+	if err != nil {
+		t.Fatalf("create /cluster/status request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /cluster/status error = %v", err)
 	}
@@ -99,7 +103,11 @@ func TestClusterStatusAndMembersIntegration(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp, err = http.Get(server.URL + "/api/v1/cluster/members")
+	req, err = http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/cluster/members", nil)
+	if err != nil {
+		t.Fatalf("create /cluster/members request: %v", err)
+	}
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /cluster/members error = %v", err)
 	}
@@ -121,7 +129,7 @@ func TestClusterStatusAndMembersIntegration(t *testing.T) {
 func freePort(t *testing.T) int {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to get free port: %v", err)
 	}

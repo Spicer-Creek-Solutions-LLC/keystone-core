@@ -40,7 +40,7 @@ func TestPublisher_Build(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create manifest
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint
@@ -131,7 +131,7 @@ func TestPublisher_Build_MissingStates(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create valid manifest but no states directory
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint
@@ -153,7 +153,7 @@ func TestPublisher_Build_ExcludePatterns(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create manifest
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint
@@ -209,7 +209,7 @@ func TestPublisher_Build_SkipValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create manifest with invalid parameter type
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint
@@ -252,7 +252,7 @@ func TestExtractBlueprint(t *testing.T) {
 	// Create a source blueprint directory
 	srcDir := t.TempDir()
 
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint
@@ -341,8 +341,8 @@ func TestIsValidVersion(t *testing.T) {
 		{"0.1.0", true},
 		{"10.20.30", true},
 		{"1.0.0-alpha", true},
-		{"1.0.0-rc1", true},       // Simple prerelease without dots
-		{"1.0.0-rc.1", false},     // Our simple validator doesn't handle dots in prerelease
+		{"1.0.0-rc1", true},   // Simple prerelease without dots
+		{"1.0.0-rc.1", false}, // Our simple validator doesn't handle dots in prerelease
 		{"1.0.0+build", true},
 		{"1", false},
 		{"1.0.0.0", false},
@@ -452,7 +452,7 @@ func createTestBlueprint(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 
-	manifestContent := `apiVersion: blueprints.kscore.io/v1
+	manifestContent := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint

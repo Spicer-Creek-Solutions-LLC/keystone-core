@@ -32,8 +32,8 @@ func TestSQLiteStorage_SaveAndGet(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "confirm-step",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Confirm deployment",
 		Description: "Please confirm to proceed",
 		Timeout:     time.Hour,
@@ -97,8 +97,8 @@ func TestSQLiteStorage_SaveWithPrompts(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "prompt-step",
-		Type:        InterventionTypePrompt,
-		State:       InterventionStatePending,
+		Type:        TypePrompt,
+		State:       StatePending,
 		Title:       "Enter values",
 		Prompts: []PromptField{
 			{
@@ -182,8 +182,8 @@ func TestSQLiteStorage_SaveWithResponse(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "confirm-step",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStateCompleted,
+		Type:        TypeConfirm,
+		State:       StateCompleted,
 		Title:       "Confirm",
 		Response: &Response{
 			Operator:    "operator@example.com",
@@ -234,8 +234,8 @@ func TestSQLiteStorage_SaveWithPromptValues(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "prompt-step",
-		Type:        InterventionTypePrompt,
-		State:       InterventionStateCompleted,
+		Type:        TypePrompt,
+		State:       StateCompleted,
 		Title:       "Values",
 		Response: &Response{
 			Operator: "op",
@@ -282,8 +282,8 @@ func TestSQLiteStorage_GetByExecution(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "step1",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Test",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -340,8 +340,8 @@ func TestSQLiteStorage_Update(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "step1",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Test",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -350,7 +350,7 @@ func TestSQLiteStorage_Update(t *testing.T) {
 
 	// Update
 	completedAt := now.Add(time.Minute)
-	req.State = InterventionStateCompleted
+	req.State = StateCompleted
 	req.UpdatedAt = completedAt
 	req.CompletedAt = &completedAt
 	req.Response = &Response{
@@ -361,8 +361,8 @@ func TestSQLiteStorage_Update(t *testing.T) {
 	storage.SaveRequest(context.Background(), req)
 
 	loaded, _ := storage.GetRequest(context.Background(), "req-123")
-	if loaded.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", loaded.State, InterventionStateCompleted)
+	if loaded.State != StateCompleted {
+		t.Errorf("State = %q, want %q", loaded.State, StateCompleted)
 	}
 	if loaded.Response == nil {
 		t.Error("expected Response to be set")
@@ -380,13 +380,13 @@ func TestSQLiteStorage_ListRequests(t *testing.T) {
 
 	// Create test requests
 	for i := 0; i < 5; i++ {
-		state := InterventionStatePending
+		state := StatePending
 		if i%2 == 0 {
-			state = InterventionStateCompleted
+			state = StateCompleted
 		}
-		reqType := InterventionTypeConfirm
+		reqType := TypeConfirm
 		if i > 2 {
-			reqType = InterventionTypePrompt
+			reqType = TypePrompt
 		}
 		execID := "exec-1"
 		if i >= 3 {
@@ -421,13 +421,13 @@ func TestSQLiteStorage_ListRequests(t *testing.T) {
 	}
 
 	// Filter by state
-	requests, _ = storage.ListRequests(context.Background(), ListOptions{State: InterventionStatePending})
+	requests, _ = storage.ListRequests(context.Background(), ListOptions{State: StatePending})
 	if len(requests) != 2 {
 		t.Errorf("len(requests) filtered by state = %d, want 2", len(requests))
 	}
 
 	// Filter by type
-	requests, _ = storage.ListRequests(context.Background(), ListOptions{Type: InterventionTypePrompt})
+	requests, _ = storage.ListRequests(context.Background(), ListOptions{Type: TypePrompt})
 	if len(requests) != 2 {
 		t.Errorf("len(requests) filtered by type = %d, want 2", len(requests))
 	}
@@ -464,8 +464,8 @@ func TestSQLiteStorage_Delete(t *testing.T) {
 		ID:          "req-123",
 		ExecutionID: "exec-456",
 		StepName:    "step1",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Test",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -498,8 +498,8 @@ func TestSQLiteStorage_UniqueConstraint(t *testing.T) {
 		ID:          "req-1",
 		ExecutionID: "exec-1",
 		StepName:    "step1",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Test 1",
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -513,8 +513,8 @@ func TestSQLiteStorage_UniqueConstraint(t *testing.T) {
 		ID:          "req-2",
 		ExecutionID: "exec-1",
 		StepName:    "step1",
-		Type:        InterventionTypeConfirm,
-		State:       InterventionStatePending,
+		Type:        TypeConfirm,
+		State:       StatePending,
 		Title:       "Test 2",
 		CreatedAt:   now,
 		UpdatedAt:   now,

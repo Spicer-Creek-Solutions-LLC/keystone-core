@@ -520,7 +520,8 @@ func TestNewServiceRegistryDiscoverer(t *testing.T) {
 
 func TestServiceRegistryDiscoverer_Discover(t *testing.T) {
 	// Skip if Consul is not running locally
-	conn, err := net.DialTimeout("tcp", "localhost:8500", 100*time.Millisecond)
+	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
+	conn, err := dialer.DialContext(context.Background(), "tcp", "localhost:8500")
 	if err != nil {
 		t.Skip("Skipping: Consul not available at localhost:8500")
 	}
@@ -810,7 +811,7 @@ func TestDiscoveryManager_GetBestEndpoint(t *testing.T) {
 
 func TestDiscoveryManager_HealthCheck(t *testing.T) {
 	// Start a test server
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to start test server: %v", err)
 	}
@@ -959,7 +960,7 @@ func TestAutoConfigurator_Configure(t *testing.T) {
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
 		result3, err := ac.Configure(ctx)
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // polling: error means not ready yet
 		}
 		return result3.DiscoveredAt != result.DiscoveredAt, nil
 	}); err != nil {

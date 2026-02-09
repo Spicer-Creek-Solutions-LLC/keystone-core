@@ -890,9 +890,10 @@ func (e *BuiltinEvaluator) evaluateMaxConcurrent(ctx context.Context, configData
 	currentCount := 0
 	if input.Context != nil {
 		if count, ok := input.Context["concurrent_count"]; ok {
-			if c, ok := count.(int); ok {
+			switch c := count.(type) {
+			case int:
 				currentCount = c
-			} else if c, ok := count.(float64); ok {
+			case float64:
 				currentCount = int(c)
 			}
 		}

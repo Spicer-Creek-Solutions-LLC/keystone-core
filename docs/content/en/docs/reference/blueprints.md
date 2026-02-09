@@ -46,7 +46,7 @@ The blueprint manifest defines metadata, parameters, dependencies, and entry poi
 ### Complete Structure
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -70,23 +70,26 @@ metadata:
 compatibility:
   kscore: ">=1.5.0"
   modules:
-    std/files: ">=1.0.0"
+    - "std/files@>=1.0.0"
   platforms:
     - os: linux
       family: debian
       versions: ["20.04", "22.04"]
-      arch: ["amd64", "arm64"]
+      arch: amd64
+    - os: linux
+      family: debian
+      versions: ["20.04", "22.04"]
+      arch: arm64
     - os: linux
       family: rhel
       versions: ["8", "9"]
+      arch: amd64
 
 dependencies:
   requires:
-    - name: vendor/common
-      version: ">=1.0.0"
+    - "vendor/common@>=1.0.0"
   requires_before:
-    - name: vendor/base-config
-      version: "^2.0.0"
+    - "vendor/base-config@^2.0.0"
 
 features:
   ssl:
@@ -162,7 +165,7 @@ hooks:
 | Field | Type | Description |
 |-------|------|-------------|
 | `kscore` | string | Keystone Core version constraint |
-| `modules` | map | Required modules with version constraints |
+| `modules` | array | Required modules with version constraints (format: `"module@version"`) |
 | `platforms` | array | Supported platform configurations |
 
 **Platform Configuration:**
@@ -172,8 +175,10 @@ platforms:
   - os: linux           # Operating system
     family: debian      # OS family
     versions: ["22.04"] # Specific versions
-    arch: ["amd64"]     # CPU architectures
+    arch: amd64         # CPU architecture (single value)
 ```
+
+**Note:** To support multiple architectures, add separate platform entries for each arch.
 
 ### Parameter Schema
 
@@ -295,10 +300,8 @@ parameters:
 ```yaml
 dependencies:
   requires:
-    - name: vendor/logging
-      version: ">=1.0.0"
-    - name: vendor/monitoring
-      version: "^2.0.0"
+    - "vendor/logging@>=1.0.0"
+    - "vendor/monitoring@^2.0.0"
 ```
 
 **Hard Dependencies (sequential execution):**
@@ -306,8 +309,7 @@ dependencies:
 ```yaml
 dependencies:
   requires_before:
-    - name: vendor/base-config
-      version: ">=1.0.0"
+    - "vendor/base-config@>=1.0.0"
 ```
 
 **Version Constraint Syntax:**
@@ -657,7 +659,7 @@ myorg-nginx-stack/
 Edit `blueprint.yaml` to define your parameters with proper validation:
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -1407,7 +1409,7 @@ Prepare for release:
 sed -i 's/version: "1.0.0"/version: "1.1.0"/' blueprint.yaml
 
 # Sign the blueprint
-kscorectl blueprint sign ./myorg-nginx-stack --key ~/.kscore/signing.key
+kscorectl blueprint sign ./myorg-nginx-stack --key ~/.keystone-core/signing.key
 
 # Publish to registry
 kscorectl blueprint publish ./myorg-nginx-stack
@@ -1723,14 +1725,14 @@ kscorectl blueprint bundle install nginx-bundle.tar.gz --verify --key cosign.pub
 
 ```yaml
 # mirror-config.yaml
-storage_dir: /var/lib/kscore/blueprints
+storage_dir: /var/lib/keystone-core/blueprints
 listen_addr: ":8080"
-upstream_url: https://registry.kscore.io
+upstream_url: https://registry.keystone-core.io
 sync_interval: 1h
 allow_push: true
 require_signatures: true
 trusted_keys:
-  - /etc/kscore/keys/trusted.pub
+  - /etc/keystone-core/keys/trusted.pub
 ```
 
 ### Running Mirror Server

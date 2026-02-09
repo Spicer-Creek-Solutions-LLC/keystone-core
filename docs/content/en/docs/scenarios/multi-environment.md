@@ -5,6 +5,13 @@ description: >
   Manage dev, staging, and production with safe promotion workflows
 ---
 
+> **Note**: This scenario document describes a conceptual multi-environment workflow.
+> Many of the CLI commands shown (e.g., `kscorectl environment`, `kscorectl promote`,
+> `kscorectl approve`) are planned but not yet implemented. The workflows can currently
+> be achieved through a combination of shell scripts, event reactors, and the
+> GitOps integration (`kscorectl gitops`). See the [GitOps Workflow](../gitops-workflow/)
+> scenario for currently available promotion capabilities.
+
 ## Overview
 
 This scenario implements a multi-environment workflow:
@@ -127,72 +134,46 @@ metadata:
   name: webapp
   version: "1.5.0"
 
-# Environment-specific overrides
-environments:
-  dev:
-    parameters:
-      replicas: 1
-      resources:
-        memory: 512Mi
-        cpu: 0.5
-      logging_level: debug
-      feature_flags:
-        new_checkout: true
-        beta_features: true
+# Variables with environment-specific defaults loaded from vars/
+variables:
+  replicas: 1
+  memory: 512Mi
+  cpu: "0.5"
+  logging_level: info
+  feature_flags:
+    new_checkout: false
+    beta_features: false
 
-  staging:
-    parameters:
-      replicas: 1
-      resources:
-        memory: 1Gi
-        cpu: 1
-      logging_level: info
-      feature_flags:
-        new_checkout: true
-        beta_features: false
-
-  production:
-    parameters:
-      replicas: 3
-      resources:
-        memory: 2Gi
-        cpu: 2
-      logging_level: warn
-      feature_flags:
-        new_checkout: false  # Disabled until verified in staging
-        beta_features: false
-
-states:
+file:
   webapp_config:
-    module: file
     state: present
-    path: /opt/webapp/config.yaml
+    name: /opt/webapp/config.yaml
     contents: |
-      environment: {{ .environment }}
-      replicas: {{ .parameters.replicas }}
+      environment: {{ .facts.environment }}
+      replicas: {{ .vars.replicas }}
       resources:
-        memory: {{ .parameters.resources.memory }}
-        cpu: {{ .parameters.resources.cpu }}
+        memory: {{ .vars.memory }}
+        cpu: {{ .vars.cpu }}
       logging:
-        level: {{ .parameters.logging_level }}
+        level: {{ .vars.logging_level }}
       features:
-        {{ range $key, $value := .parameters.feature_flags }}
+        {{ range $key, $value := .vars.feature_flags }}
         {{ $key }}: {{ $value }}
         {{ end }}
 
+container:
   webapp_deploy:
-    module: container
     state: running
     name: webapp
-    image: myregistry.example.com/webapp:{{ .metadata.version }}
-    replicas: {{ .parameters.replicas }}
+    image: "myregistry.example.com/webapp:{{ .metadata.version }}"
+    replicas: "{{ .vars.replicas }}"
     resources:
       limits:
-        memory: {{ .parameters.resources.memory }}
-        cpu: {{ .parameters.resources.cpu }}
+        memory: "{{ .vars.memory }}"
+        cpu: "{{ .vars.cpu }}"
     env:
       - name: ENVIRONMENT
-        value: {{ .environment }}
+        value: "{{ .facts.environment }}"
 ```
 
 ### Step 3: Promotion Workflow

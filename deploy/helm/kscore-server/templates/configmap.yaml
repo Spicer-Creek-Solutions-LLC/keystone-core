@@ -67,9 +67,9 @@ data:
     tls:
       enabled: {{ .Values.tls.enabled }}
       {{- if .Values.tls.enabled }}
-      certfile: /etc/kscore/tls/tls.crt
-      keyfile: /etc/kscore/tls/tls.key
-      cafile: /etc/kscore/tls/ca.crt
+      certfile: /etc/keystone-core/tls/tls.crt
+      keyfile: /etc/keystone-core/tls/tls.key
+      cafile: /etc/keystone-core/tls/ca.crt
       {{- end }}
 
     auth:

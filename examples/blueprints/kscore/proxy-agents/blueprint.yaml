@@ -1,4 +1,4 @@
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: proxy-agents
@@ -6,7 +6,7 @@ metadata:
   description: Proxy agents blueprint for unmanaged device integrations.
   maintainers:
     - name: Keystone Core Team
-      email: team@kscore.io
+      email: team@keystone-core.io
   license: Apache-2.0
   keywords:
     - proxy

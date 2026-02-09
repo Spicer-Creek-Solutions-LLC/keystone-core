@@ -23,13 +23,13 @@ import (
 
 // HTTPClient implements PublishableRegistry using HTTP
 type HTTPClient struct {
-	config     *RegistryConfig
+	config     *Config
 	httpClient *http.Client
 	hasher     verify.HashVerifier
 }
 
 // NewHTTPClient creates a new HTTP registry client
-func NewHTTPClient(config *RegistryConfig) (*HTTPClient, error) {
+func NewHTTPClient(config *Config) (*HTTPClient, error) {
 	transport := &http.Transport{}
 
 	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
@@ -75,7 +75,7 @@ func (c *HTTPClient) ListVersions(moduleName string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, &RegistryError{
+		return nil, &Error{
 			StatusCode: 404,
 			Code:       ErrCodeModuleNotFound,
 			Message:    fmt.Sprintf("module not found: %s", moduleName),
@@ -119,7 +119,7 @@ func (c *HTTPClient) GetModuleInfo(moduleName, version string) (*resolver.Module
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, &RegistryError{
+		return nil, &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("version not found: %s@%s", moduleName, version),
@@ -153,7 +153,7 @@ func (c *HTTPClient) GetModuleManifest(moduleName, version string) (*manifest.Ma
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, &RegistryError{
+		return nil, &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("version not found: %s@%s", moduleName, version),
@@ -192,7 +192,7 @@ func (c *HTTPClient) DownloadModule(moduleName, version, destPath string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &RegistryError{
+		return &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("version not found: %s@%s", moduleName, version),
@@ -204,7 +204,8 @@ func (c *HTTPClient) DownloadModule(moduleName, version, destPath string) error 
 	}
 
 	// Create destination directory
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	//nolint:gosec // G301: module directory needs to be accessible by service user
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -328,7 +329,7 @@ func (c *HTTPClient) PublishModule(req *PublishRequest) (*PublishResult, error) 
 
 	// Handle errors
 	if resp.StatusCode == http.StatusConflict {
-		return nil, &RegistryError{
+		return nil, &Error{
 			StatusCode: 409,
 			Code:       ErrCodeVersionExists,
 			Message:    fmt.Sprintf("version already exists: %s@%s", req.Manifest.Name, req.Manifest.Version),
@@ -383,7 +384,7 @@ func (c *HTTPClient) DeleteModule(moduleName, version string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &RegistryError{
+		return &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("version not found: %s@%s", moduleName, version),
@@ -417,6 +418,7 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, url string, headers 
 				header = "Authorization"
 			}
 			req.Header.Set(header, c.config.Auth.Token)
+		default:
 		}
 	}
 
@@ -519,7 +521,7 @@ func (c *HTTPClient) parseError(resp *http.Response) error {
 		if msg == "" {
 			msg = string(body)
 		}
-		return &RegistryError{
+		return &Error{
 			StatusCode: resp.StatusCode,
 			Code:       errResp.Code,
 			Message:    msg,
@@ -527,7 +529,7 @@ func (c *HTTPClient) parseError(resp *http.Response) error {
 	}
 
 	// Fall back to plain text
-	return &RegistryError{
+	return &Error{
 		StatusCode: resp.StatusCode,
 		Message:    strings.TrimSpace(string(body)),
 	}

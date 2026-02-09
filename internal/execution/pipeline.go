@@ -115,14 +115,13 @@ func (pe *PipelineExecutor) Execute(ctx context.Context, pipeline *Pipeline, han
 
 	// Apply global timeout
 	var cancel context.CancelFunc
-	pipelineCtx := ctx
+	var pipelineCtx context.Context
 	if pipeline.GlobalTimeout > 0 {
 		pipelineCtx, cancel = context.WithTimeout(ctx, pipeline.GlobalTimeout)
-		defer cancel()
 	} else {
 		pipelineCtx, cancel = context.WithCancel(ctx)
-		defer cancel()
 	}
+	defer cancel()
 
 	// Track running pipeline
 	pe.mu.Lock()
@@ -179,9 +178,9 @@ func (pe *PipelineExecutor) Execute(ctx context.Context, pipeline *Pipeline, han
 		// Check for failure
 		if stageResult.Error != nil || stageResult.ExitCode != 0 {
 			result.Success = false
-			failOnError := stage.FailOnError || (stage.FailOnError == false && i == 0) // Default true for first stage
+			failOnError := stage.FailOnError || (!stage.FailOnError && i == 0) // Default true for first stage
 			if stopOnError && failOnError {
-				result.Error = fmt.Errorf("pipeline failed at stage %d (%s): %v", i, stage.ID, stageResult.Error)
+				result.Error = fmt.Errorf("pipeline failed at stage %d (%s): %w", i, stage.ID, stageResult.Error)
 				// Mark remaining stages as skipped
 				for j := i + 1; j < len(pipeline.Stages); j++ {
 					result.StageResults[j] = &StageResult{
@@ -312,6 +311,7 @@ func (pe *PipelineExecutor) executeWithInput(ctx context.Context, req *ExecuteRe
 	}
 
 	// Use exec.CommandContext with stdin // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: pipeline command execution is intentional for infrastructure management
 	execCmd := exec.CommandContext(cmdCtx, cmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	execCmd.Stdin = bytes.NewReader(input)
 	execCmd.Stdout = &stdoutBuf
@@ -594,6 +594,7 @@ func (pe *PipelineExecutor) CreateStreamingPipeline(ctx context.Context, pipelin
 				args = s.Args
 			}
 
+			//nolint:gosec // G204: pipeline stage command execution is intentional for infrastructure management
 			execCmd := exec.CommandContext(ctx, cmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 			// Set up input

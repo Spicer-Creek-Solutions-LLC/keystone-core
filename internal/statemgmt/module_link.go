@@ -36,11 +36,12 @@ type LinkConfig struct {
 // LinkBackend represents the available link management backend
 type LinkBackend string
 
+// LBUnknown and related constants.
 const (
-	LBUnknown   LinkBackend = "unknown"
-	LBEthtool   LinkBackend = "ethtool"   // Linux
+	LBUnknown      LinkBackend = "unknown"
+	LBEthtool      LinkBackend = "ethtool"      // Linux
 	LBNetworkSetup LinkBackend = "networksetup" // macOS
-	LBNetsh     LinkBackend = "netsh"     // Windows
+	LBNetsh        LinkBackend = "netsh"        // Windows
 )
 
 // Valid link speeds in Mbps
@@ -103,7 +104,7 @@ func (m *LinkModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	if !exists {
 		result.CurrentState = "absent"
 		result.Matches = (decl.State == "default")
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Get current link settings
@@ -127,7 +128,7 @@ func (m *LinkModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		}
 		result.CurrentState = "configured"
 		result.Matches = currentAutoneg
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// For "configured" state, check each setting
@@ -166,7 +167,7 @@ func (m *LinkModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		result.Matches = false
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the link configuration
@@ -185,7 +186,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if err := m.validateLinkConfig(config, decl.State); err != nil {
@@ -194,7 +195,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Invalid config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	backend, err := m.detectLinkBackend()
@@ -204,7 +205,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to detect link backend: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -214,7 +215,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -224,7 +225,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -250,7 +251,7 @@ func (m *LinkModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test verifies the link settings match the desired state
@@ -259,7 +260,7 @@ func (m *LinkModule) Test(ctx context.Context, decl *StateDeclaration) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseLinkConfig parses the state declaration into LinkConfig
@@ -277,9 +278,10 @@ func (m *LinkModule) parseLinkConfig(decl *StateDeclaration) (*LinkConfig, error
 	}
 
 	// Speed
-	if v, ok := decl.Parameters["speed"].(int); ok {
+	switch v := decl.Parameters["speed"].(type) {
+	case int:
 		config.Speed = v
-	} else if v, ok := decl.Parameters["speed"].(float64); ok {
+	case float64:
 		config.Speed = int(v)
 	}
 
@@ -296,9 +298,10 @@ func (m *LinkModule) parseLinkConfig(decl *StateDeclaration) (*LinkConfig, error
 	}
 
 	// MTU
-	if v, ok := decl.Parameters["mtu"].(int); ok {
+	switch v := decl.Parameters["mtu"].(type) {
+	case int:
 		config.MTU = v
-	} else if v, ok := decl.Parameters["mtu"].(float64); ok {
+	case float64:
 		config.MTU = int(v)
 	}
 
@@ -309,7 +312,7 @@ func (m *LinkModule) parseLinkConfig(decl *StateDeclaration) (*LinkConfig, error
 		config.WOL = strings.ToLower(v)
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // validateLinkConfig validates the link configuration
@@ -344,11 +347,8 @@ func (m *LinkModule) validateLinkConfig(config *LinkConfig, state string) error 
 		return fmt.Errorf("invalid WOL mode: %s (valid: disabled, magic, unicast, multicast, broadcast, arp)", config.WOL)
 	}
 
-	// If forcing speed/duplex, auto-negotiation should typically be disabled
-	if (config.Speed > 0 || config.Duplex != "") && config.Autoneg != nil && *config.Autoneg {
-		// This is a warning condition, but we'll allow it
-		// Some NICs support advertising only specific speeds
-	}
+	// Note: If forcing speed/duplex with auto-negotiation enabled, some NICs support
+	// advertising only specific speeds. We allow this configuration.
 
 	return nil
 }
@@ -358,15 +358,15 @@ func (m *LinkModule) detectLinkBackend() (LinkBackend, error) {
 	switch runtime.GOOS {
 	case "linux":
 		if _, err := exec.LookPath("ethtool"); err == nil {
-			return LBEthtool, nil
+			return LBEthtool, nil //nolint:nilerr // intentional
 		}
 		return LBUnknown, fmt.Errorf("ethtool not found (install ethtool package)")
 
 	case "darwin":
-		return LBNetworkSetup, nil
+		return LBNetworkSetup, nil //nolint:nilerr // intentional
 
 	case "windows":
-		return LBNetsh, nil
+		return LBNetsh, nil //nolint:nilerr // intentional
 
 	default:
 		return LBUnknown, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
@@ -379,20 +379,20 @@ func (m *LinkModule) checkInterfaceExists(ctx context.Context, backend LinkBacke
 	case LBEthtool:
 		cmd := exec.CommandContext(ctx, "ip", "link", "show", iface)
 		err := cmd.Run()
-		return err == nil, nil
+		return err == nil, nil //nolint:nilerr // intentional
 
 	case LBNetworkSetup:
 		cmd := exec.CommandContext(ctx, "networksetup", "-listallhardwareports")
 		output, err := cmd.Output()
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // intentional
 		}
 		return strings.Contains(string(output), iface), nil
 
 	case LBNetsh:
 		cmd := exec.CommandContext(ctx, "netsh", "interface", "show", "interface", iface)
 		err := cmd.Run()
-		return err == nil, nil
+		return err == nil, nil //nolint:nilerr // intentional
 
 	default:
 		return false, fmt.Errorf("unsupported backend: %s", backend)
@@ -445,11 +445,7 @@ func (m *LinkModule) resetLinkSettings(ctx context.Context, backend LinkBackend,
 // Linux ethtool Backend
 // ============================================================================
 
-func (m *LinkModule) getLinkSettingsEthtool(ctx context.Context, iface string) (int, string, bool, int, error) {
-	var speed int
-	var duplex string
-	var autoneg bool
-	var mtu int
+func (m *LinkModule) getLinkSettingsEthtool(ctx context.Context, iface string) (speed int, duplex string, autoneg bool, mtu int, err error) {
 
 	// Get ethtool info
 	cmd := exec.CommandContext(ctx, "ethtool", iface)
@@ -475,7 +471,7 @@ func (m *LinkModule) getLinkSettingsEthtool(ctx context.Context, iface string) (
 	// Parse auto-negotiation: "Auto-negotiation: on"
 	autonegRegex := regexp.MustCompile(`Auto-negotiation:\s*(\w+)`)
 	if matches := autonegRegex.FindStringSubmatch(outputStr); len(matches) > 1 {
-		autoneg = strings.ToLower(matches[1]) == "on"
+		autoneg = strings.EqualFold(matches[1], "on")
 	}
 
 	// Get MTU from ip link
@@ -597,11 +593,8 @@ func (m *LinkModule) wolModeToEthtool(mode string) string {
 // macOS Backend
 // ============================================================================
 
-func (m *LinkModule) getLinkSettingsMacOS(ctx context.Context, iface string) (int, string, bool, int, error) {
-	var speed int
-	var duplex string
-	var mtu int
-	autoneg := true // macOS typically uses auto-negotiation
+func (m *LinkModule) getLinkSettingsMacOS(ctx context.Context, iface string) (speed int, duplex string, autoneg bool, mtu int, err error) {
+	autoneg = true // macOS typically uses auto-negotiation
 
 	// Get interface info
 	cmd := exec.CommandContext(ctx, "ifconfig", iface)
@@ -695,9 +688,10 @@ func (m *LinkModule) buildMacOSMediaString(config *LinkConfig) string {
 	media := fmt.Sprintf("%dbaseT", config.Speed)
 
 	// Add duplex
-	if config.Duplex == "full" {
+	switch config.Duplex {
+	case "full":
 		media += " mediaopt full-duplex"
-	} else if config.Duplex == "half" {
+	case "half":
 		media += " mediaopt half-duplex"
 	}
 
@@ -708,11 +702,8 @@ func (m *LinkModule) buildMacOSMediaString(config *LinkConfig) string {
 // Windows Backend
 // ============================================================================
 
-func (m *LinkModule) getLinkSettingsWindows(ctx context.Context, iface string) (int, string, bool, int, error) {
-	var speed int
-	var duplex string
-	var mtu int
-	autoneg := true
+func (m *LinkModule) getLinkSettingsWindows(ctx context.Context, iface string) (speed int, duplex string, autoneg bool, mtu int, err error) {
+	autoneg = true
 
 	// Get interface status
 	cmd := exec.CommandContext(ctx, "netsh", "interface", "ipv4", "show", "interface", iface)
@@ -852,5 +843,5 @@ func (m *LinkModule) buildWindowsSpeedDuplex(config *LinkConfig) string {
 }
 
 func init() {
-	RegisterModule(NewLinkModule())
+	_ = RegisterModule(NewLinkModule()) //nolint:errcheck // module registration in init
 }

@@ -45,8 +45,8 @@ func NewClusterFormation(config *SeedConfig, registry *InstallerRegistry, logger
 		config:   config,
 		registry: registry,
 		logger:   logger,
-		certDir:  "/etc/kscore/certs",
-		dataDir:  "/var/lib/kscore",
+		certDir:  "/etc/keystone-core/certs",
+		dataDir:  "/var/lib/keystone-core",
 		status: &ClusterFormationStatus{
 			Phase:        "initializing",
 			TotalNodes:   len(config.ControlPlane.Nodes),
@@ -100,7 +100,7 @@ func (cf *ClusterFormation) generateCertificates(ctx context.Context) error {
 
 	cf.logger.Info("Generating cluster certificates")
 
-	if err := os.MkdirAll(cf.certDir, 0700); err != nil {
+	if err := os.MkdirAll(cf.certDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create cert directory: %w", err)
 	}
 
@@ -197,8 +197,7 @@ func (cf *ClusterFormation) generateServerCert(caKey *rsa.PrivateKey, caCert *x5
 
 	// Add cluster domain
 	if cf.config.Cluster.Domain != "" {
-		dnsNames = append(dnsNames, cf.config.Cluster.Domain)
-		dnsNames = append(dnsNames, "*."+cf.config.Cluster.Domain)
+		dnsNames = append(dnsNames, cf.config.Cluster.Domain, "*."+cf.config.Cluster.Domain)
 	}
 
 	// Create certificate template
@@ -242,7 +241,8 @@ func (cf *ClusterFormation) saveCertAndKey(certPath, keyPath string, cert *x509.
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
 	})
-	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
+	//nolint:gosec // G306: certificates need to be readable for TLS verification
+	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
 		return err
 	}
 
@@ -251,7 +251,7 @@ func (cf *ClusterFormation) saveCertAndKey(certPath, keyPath string, cert *x509.
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	return os.WriteFile(keyPath, keyPEM, 0600)
+	return os.WriteFile(keyPath, keyPEM, 0o600)
 }
 
 // formSingleNodeCluster handles single-node cluster formation
@@ -633,9 +633,7 @@ func GetCAFingerprint(certPath string) (string, error) {
 
 	// Use the raw public key info for fingerprint
 	fingerprint := make([]byte, 32)
-	for i, b := range cert.RawSubjectPublicKeyInfo[:32] {
-		fingerprint[i] = b
-	}
+	copy(fingerprint, cert.RawSubjectPublicKeyInfo[:32])
 
 	return hex.EncodeToString(fingerprint), nil
 }

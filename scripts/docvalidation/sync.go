@@ -65,7 +65,8 @@ func RunSyncCheck(rootDir string, verbose bool) {
 	// Write report
 	writeReport := formatSyncReport(report)
 	outputPath := "./scripts/docvalidation/sync-report.md"
-	if err := os.WriteFile(outputPath, []byte(writeReport), 0644); err != nil {
+	//nolint:gosec // G306: sync reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(writeReport), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return
 	}
@@ -312,7 +313,7 @@ func significantlyDifferent(a, b string) bool {
 	hashB := fmt.Sprintf("%x", sha256.Sum256([]byte(b)))
 
 	// If lengths differ by more than 50%, consider different
-	if len(a) > 0 && len(b) > 0 {
+	if a != "" && b != "" {
 		ratio := float64(len(a)) / float64(len(b))
 		if ratio < 0.5 || ratio > 2.0 {
 			return true
@@ -374,7 +375,7 @@ func formatSyncReport(report *SyncReport) string {
 		len(report.FeatureListDrift) + len(report.VersionMismatches)
 
 	sb.WriteString("## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("| Category | Issues |\n"))
+	sb.WriteString("| Category | Issues |\n")
 	sb.WriteString("|----------|--------|\n")
 	sb.WriteString(fmt.Sprintf("| README vs Docs | %d |\n", len(report.ReadmeVsDocsIssues)))
 	sb.WriteString(fmt.Sprintf("| CLAUDE.md vs Docs | %d |\n", len(report.ClaudeMdVsDocsIssues)))

@@ -1,3 +1,5 @@
+// Package vm provides VM lifecycle management and SSH access for
+// bootstrap validation tests on virtual machines.
 package vm
 
 import (
@@ -155,8 +157,9 @@ func dialSSH(node *Node) (*ssh.Client, error) {
 	}
 
 	config := &ssh.ClientConfig{
-		User:            node.User,
-		Auth:            auths,
+		User: node.User,
+		Auth: auths,
+		//nolint:gosec // G106: InsecureIgnoreHostKey is acceptable for ephemeral test VMs with unknown host keys
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}

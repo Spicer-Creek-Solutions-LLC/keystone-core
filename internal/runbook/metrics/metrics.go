@@ -1,3 +1,4 @@
+// Package metrics provides metrics collection for runbook executions.
 package metrics
 
 import (
@@ -13,11 +14,11 @@ type Collector struct {
 	mu sync.RWMutex
 
 	// Execution counts
-	totalExecutions   int64
-	activeExecutions  int64
-	completedCount    int64
-	failedCount       int64
-	cancelledCount    int64
+	totalExecutions  int64
+	activeExecutions int64
+	completedCount   int64
+	failedCount      int64
+	cancelledCount   int64
 
 	// Timing metrics
 	executionDurations []time.Duration
@@ -240,18 +241,18 @@ func (c *Collector) recordLatencyBucket(duration time.Duration) {
 
 // Summary returns a summary of collected metrics.
 type Summary struct {
-	TotalExecutions   int64
-	ActiveExecutions  int64
-	CompletedCount    int64
-	FailedCount       int64
-	CancelledCount    int64
-	SuccessRate       float64
+	TotalExecutions  int64
+	ActiveExecutions int64
+	CompletedCount   int64
+	FailedCount      int64
+	CancelledCount   int64
+	SuccessRate      float64
 
-	TotalSteps     int64
-	CompletedSteps int64
-	FailedSteps    int64
-	SkippedSteps   int64
-	RetriedSteps   int64
+	TotalSteps      int64
+	CompletedSteps  int64
+	FailedSteps     int64
+	SkippedSteps    int64
+	RetriedSteps    int64
 	StepSuccessRate float64
 
 	AverageExecutionDuration time.Duration

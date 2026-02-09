@@ -12,7 +12,7 @@ func Parse(data []byte) (*Manifest, error) {
 	var manifest Manifest
 
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidYAML, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidYAML, err)
 	}
 
 	// Parse capabilities from raw YAML (supports both list and map formats)
@@ -42,7 +42,7 @@ func ParseLockFile(data []byte) (*LockFile, error) {
 	var lockfile LockFile
 
 	if err := yaml.Unmarshal(data, &lockfile); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidYAML, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidYAML, err)
 	}
 
 	if lockfile.SchemaVersion != 1 {
@@ -94,7 +94,8 @@ func WriteFile(filename string, manifest *Manifest) error {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	//nolint:gosec // G306: module manifests need to be readable by module resolver
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
@@ -108,7 +109,8 @@ func WriteLockFile(filename string, lockfile *LockFile) error {
 		return fmt.Errorf("failed to marshal lockfile: %w", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	//nolint:gosec // G306: lock files need to be readable by module resolver
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write lockfile: %w", err)
 	}
 

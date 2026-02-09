@@ -67,14 +67,13 @@ type GCPProvider struct {
 	status               identity.ProviderStatus
 	statusMessage        string
 	trustBundle          *identity.TrustBundle
-	projectID            string
-	projectNumber        string
-	zone                 string
-	instanceID           string
-	instanceName         string
-	serviceAccountEmail  string
-	serviceAccountScopes []string
-	ipv6Addresses        []string
+	projectID           string
+	projectNumber       string
+	zone                string
+	instanceID          string
+	instanceName        string
+	serviceAccountEmail string
+	ipv6Addresses       []string
 
 	healthCheckCancel context.CancelFunc
 	lastHealthCheck   time.Time
@@ -138,8 +137,8 @@ func (p *GCPProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, cancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = cancel
 	p.mu.Unlock()
@@ -436,7 +435,7 @@ func (p *GCPProvider) detectEnvironment(ctx context.Context) error {
 
 func (p *GCPProvider) getMetadataValue(ctx context.Context, path string) (string, error) {
 	url := p.config.MetadataEndpoint + path
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -498,5 +497,5 @@ func (p *GCPProvider) performHealthCheck(ctx context.Context) {
 	p.mu.Unlock()
 }
 
-// Verify GCPProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*GCPProvider)(nil)
+// Verify GCPProvider implements Provider
+var _ identity.Provider = (*GCPProvider)(nil)

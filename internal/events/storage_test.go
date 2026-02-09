@@ -211,10 +211,10 @@ func TestEventStore_Query_ByTimeRange(t *testing.T) {
 	past := now.Add(-2 * time.Hour)
 	future := now.Add(2 * time.Hour)
 
-	events := []*Event{
-		NewEvent(EventTypeAgentConnect).Source("/test").Build(),
-	}
-	events[0].Time = past
+	events := make([]*Event, 0, 3)
+	event1 := NewEvent(EventTypeAgentConnect).Source("/test").Build()
+	event1.Time = past
+	events = append(events, event1)
 
 	event2 := NewEvent(EventTypeJobStart).Source("/test").Build()
 	event2.Time = now
@@ -329,10 +329,10 @@ func TestEventStore_Query_Sorting(t *testing.T) {
 
 	// Store events with different times
 	now := time.Now()
-	events := []*Event{
-		NewEvent(EventTypeAgentConnect).Source("/test").Build(),
-	}
-	events[0].Time = now.Add(-2 * time.Hour)
+	events := make([]*Event, 0, 3)
+	event1 := NewEvent(EventTypeAgentConnect).Source("/test").Build()
+	event1.Time = now.Add(-2 * time.Hour)
+	events = append(events, event1)
 
 	event2 := NewEvent(EventTypeJobStart).Source("/test").Build()
 	event2.Time = now.Add(-1 * time.Hour)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestManagedExecution_InitialState(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -33,7 +33,7 @@ func TestManagedExecution_InitialState(t *testing.T) {
 }
 
 func TestManagedExecution_ApprovalWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -71,7 +71,7 @@ func TestManagedExecution_ApprovalWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_NoApprovalWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -89,7 +89,7 @@ func TestManagedExecution_NoApprovalWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_RejectionWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -119,7 +119,7 @@ func TestManagedExecution_RejectionWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_CompleteWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -148,7 +148,7 @@ func TestManagedExecution_CompleteWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_FailWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -178,7 +178,7 @@ func TestManagedExecution_FailWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_TimeoutWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -215,7 +215,7 @@ func TestManagedExecution_CancelWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exec := &ScheduleExecution{
+			exec := &Execution{
 				ID:         "test-exec-1",
 				ScheduleID: "test-schedule-1",
 				Status:     ExecutionStatusPending,
@@ -241,7 +241,7 @@ func TestManagedExecution_CancelWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_SkipWorkflow(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -262,7 +262,7 @@ func TestManagedExecution_SkipWorkflow(t *testing.T) {
 }
 
 func TestManagedExecution_InvalidTransitions(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -303,7 +303,7 @@ func TestManagedExecution_Callbacks(t *testing.T) {
 		},
 	}
 
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -325,7 +325,7 @@ func TestManagedExecution_Callbacks(t *testing.T) {
 }
 
 func TestManagedExecution_History(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -349,7 +349,7 @@ func TestManagedExecution_History(t *testing.T) {
 }
 
 func TestManagedExecution_AvailableEvents(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -373,7 +373,7 @@ func TestManagedExecution_AvailableEvents(t *testing.T) {
 }
 
 func TestManagedExecution_Duration(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,
@@ -398,7 +398,7 @@ func TestManagedExecution_Duration(t *testing.T) {
 }
 
 func TestManagedExecution_NilCallbacks(t *testing.T) {
-	exec := &ScheduleExecution{
+	exec := &Execution{
 		ID:         "test-exec-1",
 		ScheduleID: "test-schedule-1",
 		Status:     ExecutionStatusPending,

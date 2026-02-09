@@ -46,10 +46,10 @@ func TestDependencyGraph_AddInstance(t *testing.T) {
 	bp := &Blueprint{
 		Metadata: Metadata{Name: "test-bp", Version: "1.0.0"},
 	}
-	instance := &BlueprintInstance{
+	instance := &Instance{
 		Blueprint:       bp,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies:    make([]*BlueprintDependency, 0),
+		Dependencies:    make([]*Dependency, 0),
 	}
 
 	err := g.AddInstance(instance)
@@ -80,7 +80,7 @@ func TestDependencyGraph_AddInstance_Nil(t *testing.T) {
 		t.Error("AddInstance(nil) should return error")
 	}
 
-	instance := &BlueprintInstance{Blueprint: nil}
+	instance := &Instance{Blueprint: nil}
 	err = g.AddInstance(instance)
 	if err == nil {
 		t.Error("AddInstance with nil Blueprint should return error")
@@ -107,10 +107,10 @@ func TestDependencyGraph_GetAllNodes(t *testing.T) {
 		bp := &Blueprint{
 			Metadata: Metadata{Name: fmt.Sprintf("bp-%d", i), Version: "1.0.0"},
 		}
-		instance := &BlueprintInstance{
+		instance := &Instance{
 			Blueprint:       bp,
 			EnabledFeatures: make(map[string]bool),
-			Dependencies:    make([]*BlueprintDependency, 0),
+			Dependencies:    make([]*Dependency, 0),
 		}
 		_ = g.AddInstance(instance)
 	}
@@ -136,18 +136,18 @@ func TestDependencyGraph_HasCycle_NoCycle(t *testing.T) {
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 
-	instC := &BlueprintInstance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instB := &BlueprintInstance{
+	instC := &Instance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instB := &Instance{
 		Blueprint:       bpB,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "C@1.0.0", Type: DependencyTypeHard, Resolved: bpC},
 		},
 	}
-	instA := &BlueprintInstance{
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeHard, Resolved: bpB},
 		},
 	}
@@ -173,18 +173,18 @@ func TestDependencyGraph_GetExecutionOrder_Simple(t *testing.T) {
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 
-	instC := &BlueprintInstance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instB := &BlueprintInstance{
+	instC := &Instance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instB := &Instance{
 		Blueprint:       bpB,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "C@1.0.0", Type: DependencyTypeHard, Resolved: bpC},
 		},
 	}
-	instA := &BlueprintInstance{
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeHard, Resolved: bpB},
 		},
 	}
@@ -227,12 +227,12 @@ func TestDependencyGraph_GetExecutionOrder_Parallel(t *testing.T) {
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 	bpC := &Blueprint{Metadata: Metadata{Name: "C", Version: "1.0.0"}}
 
-	instB := &BlueprintInstance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instC := &BlueprintInstance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instA := &BlueprintInstance{
+	instB := &Instance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instC := &Instance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeSoft, Resolved: bpB},
 			{Blueprint: "C@1.0.0", Type: DependencyTypeSoft, Resolved: bpC},
 		},
@@ -257,7 +257,7 @@ func TestDependencyGraph_Clear(t *testing.T) {
 	g := NewDependencyGraph()
 
 	bp := &Blueprint{Metadata: Metadata{Name: "test", Version: "1.0.0"}}
-	instance := &BlueprintInstance{Blueprint: bp, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
+	instance := &Instance{Blueprint: bp, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
 	_ = g.AddInstance(instance)
 
 	g.Clear()
@@ -273,11 +273,11 @@ func TestDependencyGraph_GetHardDependencies(t *testing.T) {
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 
-	instB := &BlueprintInstance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instA := &BlueprintInstance{
+	instB := &Instance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeHard, Resolved: bpB},
 		},
 	}
@@ -310,11 +310,11 @@ func TestDependencyGraph_GetSoftDependencies(t *testing.T) {
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 
-	instB := &BlueprintInstance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instA := &BlueprintInstance{
+	instB := &Instance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeSoft, Resolved: bpB},
 		},
 	}
@@ -338,11 +338,11 @@ func TestDependencyGraph_GetDependents(t *testing.T) {
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 
-	instB := &BlueprintInstance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instA := &BlueprintInstance{
+	instB := &Instance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Blueprint: "B@1.0.0", Type: DependencyTypeHard, Resolved: bpB},
 		},
 	}
@@ -363,22 +363,22 @@ func TestDependencyGraph_GetDependents(t *testing.T) {
 	}
 }
 
-func TestBlueprintInstance_InstanceID(t *testing.T) {
+func TestInstance_InstanceID(t *testing.T) {
 	tests := []struct {
-		name      string
-		instance  BlueprintInstance
+		name         string
+		instance     Instance
 		wantContains string
 	}{
 		{
 			name: "without namespace",
-			instance: BlueprintInstance{
+			instance: Instance{
 				Blueprint: &Blueprint{Metadata: Metadata{Name: "myapp", Version: "1.0.0"}},
 			},
 			wantContains: "myapp@1.0.0",
 		},
 		{
 			name: "with namespace",
-			instance: BlueprintInstance{
+			instance: Instance{
 				Blueprint: &Blueprint{Metadata: Metadata{Name: "myapp", Version: "1.0.0"}},
 				Namespace: "prod",
 			},
@@ -406,22 +406,22 @@ func TestBlueprintInstance_InstanceID(t *testing.T) {
 	}
 }
 
-func TestBlueprintInstance_FullName(t *testing.T) {
+func TestInstance_FullName(t *testing.T) {
 	tests := []struct {
 		name     string
-		instance BlueprintInstance
+		instance Instance
 		want     string
 	}{
 		{
 			name: "without namespace",
-			instance: BlueprintInstance{
+			instance: Instance{
 				Blueprint: &Blueprint{Metadata: Metadata{Name: "myapp", Version: "1.0.0"}},
 			},
 			want: "myapp",
 		},
 		{
 			name: "with namespace",
-			instance: BlueprintInstance{
+			instance: Instance{
 				Blueprint: &Blueprint{Metadata: Metadata{Name: "myapp", Version: "1.0.0"}},
 				Namespace: "prod",
 			},
@@ -441,7 +441,7 @@ func TestBlueprintInstance_FullName(t *testing.T) {
 func TestExecutionLevel_CanRunConcurrently(t *testing.T) {
 	level := &ExecutionLevel{
 		Level:              0,
-		Instances:          []*BlueprintInstance{},
+		Instances:          []*Instance{},
 		CanRunConcurrently: true,
 	}
 
@@ -470,7 +470,7 @@ func TestNewDependencyResolver(t *testing.T) {
 
 func TestResolutionResult(t *testing.T) {
 	result := &ResolutionResult{
-		Instances:       []*BlueprintInstance{{Blueprint: &Blueprint{Metadata: Metadata{Name: "test", Version: "1.0.0"}}}},
+		Instances:       []*Instance{{Blueprint: &Blueprint{Metadata: Metadata{Name: "test", Version: "1.0.0"}}}},
 		ExecutionLevels: []*ExecutionLevel{{Level: 0, CanRunConcurrently: true}},
 		Errors:          []error{},
 	}
@@ -514,7 +514,7 @@ func TestDependencyResolver_Resolve_Simple(t *testing.T) {
 
 	resolver := NewDependencyResolver(loader)
 
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{
 			Blueprint: "blueprints/test/app",
 			Version:   "1.0.0",
@@ -550,7 +550,7 @@ func TestDependencyResolver_Resolve_WithNamespace(t *testing.T) {
 	resolver := NewDependencyResolver(loader)
 
 	// Include same blueprint twice with different namespaces
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{
 			Blueprint: "blueprints/test/db",
 			Version:   "1.0.0",
@@ -596,7 +596,7 @@ func TestDependencyResolver_Resolve_BlueprintNotFound(t *testing.T) {
 
 	resolver := NewDependencyResolver(loader)
 
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{
 			Blueprint: "blueprints/nonexistent/app",
 			Version:   "1.0.0",
@@ -621,24 +621,24 @@ func TestDependencyGraph_HasCycle_WithCycle(t *testing.T) {
 	bpB := &Blueprint{Metadata: Metadata{Name: "B", Version: "1.0.0"}}
 	bpC := &Blueprint{Metadata: Metadata{Name: "C", Version: "1.0.0"}}
 
-	instA := &BlueprintInstance{
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Type: DependencyTypeHard, Resolved: bpC}, // A depends on C
 		},
 	}
-	instB := &BlueprintInstance{
+	instB := &Instance{
 		Blueprint:       bpB,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Type: DependencyTypeHard, Resolved: bpA}, // B depends on A
 		},
 	}
-	instC := &BlueprintInstance{
+	instC := &Instance{
 		Blueprint:       bpC,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Type: DependencyTypeHard, Resolved: bpB}, // C depends on B (creates cycle)
 		},
 	}
@@ -663,10 +663,10 @@ func TestDependencyGraph_HasCycle_SelfReference(t *testing.T) {
 	// Create self-reference: A depends on A
 	bpA := &Blueprint{Metadata: Metadata{Name: "A", Version: "1.0.0"}}
 
-	instA := &BlueprintInstance{
+	instA := &Instance{
 		Blueprint:       bpA,
 		EnabledFeatures: make(map[string]bool),
-		Dependencies: []*BlueprintDependency{
+		Dependencies: []*Dependency{
 			{Type: DependencyTypeHard, Resolved: bpA}, // A depends on itself
 		},
 	}
@@ -717,7 +717,7 @@ func TestDependencyResolver_Resolve_WithDependencies(t *testing.T) {
 
 	resolver := NewDependencyResolver(loader)
 
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{Blueprint: "blueprints/test/app", Version: "1.0.0"},
 	}
 
@@ -774,7 +774,7 @@ func TestDependencyResolver_Resolve_WithFeatures(t *testing.T) {
 	resolver := NewDependencyResolver(loader)
 
 	// Include with caching feature enabled
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{
 			Blueprint: "blueprints/test/app",
 			Version:   "1.0.0",
@@ -820,7 +820,7 @@ func TestDependencyResolver_Resolve_CircularDependency(t *testing.T) {
 
 	resolver := NewDependencyResolver(loader)
 
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{Blueprint: "blueprints/test/A", Version: "1.0.0"},
 	}
 
@@ -877,7 +877,7 @@ func TestDependencyResolver_ConditionalStateInclusion(t *testing.T) {
 	resolver := NewDependencyResolver(loader)
 
 	// Test with default features (only monitoring enabled)
-	includes := []BlueprintInclude{
+	includes := []Include{
 		{
 			Blueprint: "blueprints/test/app",
 			Version:   "1.0.0",
@@ -918,7 +918,7 @@ func TestDependencyResolver_ConditionalStateInclusion(t *testing.T) {
 
 	// Test with debugging enabled
 	resolver2 := NewDependencyResolver(loader)
-	includes2 := []BlueprintInclude{
+	includes2 := []Include{
 		{
 			Blueprint: "blueprints/test/app",
 			Version:   "1.0.0",
@@ -949,8 +949,8 @@ func TestDependencyResolver_ConditionalStateInclusion(t *testing.T) {
 	t.Logf("Enabled states with debugging: %v", inst2.GetEnabledStates())
 }
 
-func TestBlueprintInstance_GetEnabledStates(t *testing.T) {
-	inst := &BlueprintInstance{
+func TestInstance_GetEnabledStates(t *testing.T) {
+	inst := &Instance{
 		Blueprint:       &Blueprint{Metadata: Metadata{Name: "test", Version: "1.0.0"}},
 		EnabledFeatures: make(map[string]bool),
 		EnabledStates:   []string{"states/a.yaml", "states/b.yaml"},
@@ -968,7 +968,7 @@ func TestBlueprintInstance_GetEnabledStates(t *testing.T) {
 	}
 
 	// Test with empty states
-	inst2 := &BlueprintInstance{
+	inst2 := &Instance{
 		Blueprint:       &Blueprint{Metadata: Metadata{Name: "test", Version: "1.0.0"}},
 		EnabledFeatures: make(map[string]bool),
 		EnabledStates:   nil,
@@ -999,21 +999,21 @@ func TestDependencyGraph_ComplexGraph(t *testing.T) {
 	bpE := &Blueprint{Metadata: Metadata{Name: "E", Version: "1.0.0"}}
 	bpF := &Blueprint{Metadata: Metadata{Name: "F", Version: "1.0.0"}}
 
-	instA := &BlueprintInstance{Blueprint: bpA, EnabledFeatures: make(map[string]bool), Dependencies: make([]*BlueprintDependency, 0)}
-	instB := &BlueprintInstance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: []*BlueprintDependency{
+	instA := &Instance{Blueprint: bpA, EnabledFeatures: make(map[string]bool), Dependencies: make([]*Dependency, 0)}
+	instB := &Instance{Blueprint: bpB, EnabledFeatures: make(map[string]bool), Dependencies: []*Dependency{
 		{Type: DependencyTypeHard, Resolved: bpA},
 	}}
-	instC := &BlueprintInstance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: []*BlueprintDependency{
+	instC := &Instance{Blueprint: bpC, EnabledFeatures: make(map[string]bool), Dependencies: []*Dependency{
 		{Type: DependencyTypeHard, Resolved: bpA},
 	}}
-	instD := &BlueprintInstance{Blueprint: bpD, EnabledFeatures: make(map[string]bool), Dependencies: []*BlueprintDependency{
+	instD := &Instance{Blueprint: bpD, EnabledFeatures: make(map[string]bool), Dependencies: []*Dependency{
 		{Type: DependencyTypeHard, Resolved: bpB},
 		{Type: DependencyTypeHard, Resolved: bpC},
 	}}
-	instE := &BlueprintInstance{Blueprint: bpE, EnabledFeatures: make(map[string]bool), Dependencies: []*BlueprintDependency{
+	instE := &Instance{Blueprint: bpE, EnabledFeatures: make(map[string]bool), Dependencies: []*Dependency{
 		{Type: DependencyTypeHard, Resolved: bpC},
 	}}
-	instF := &BlueprintInstance{Blueprint: bpF, EnabledFeatures: make(map[string]bool), Dependencies: []*BlueprintDependency{
+	instF := &Instance{Blueprint: bpF, EnabledFeatures: make(map[string]bool), Dependencies: []*Dependency{
 		{Type: DependencyTypeHard, Resolved: bpD},
 		{Type: DependencyTypeHard, Resolved: bpE},
 	}}

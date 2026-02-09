@@ -113,7 +113,7 @@ func NewHACluster(cfg *HAClusterConfig) (*HAClusterEnvironment, error) {
 			}
 
 			if root := os.Getenv("KSCORE_ROOT"); root != "" {
-				candidates = append(candidates, filepath.Join(root, "test/e2e/topologies/ha-cluster/docker-compose.yml"))
+				candidates = append(candidates, filepath.Join(root, "test", "e2e", "topologies", "ha-cluster", "docker-compose.yml"))
 			}
 
 			for _, c := range candidates {
@@ -162,13 +162,17 @@ func (e *HAClusterEnvironment) Start(ctx context.Context, cfg *HAClusterConfig) 
 
 		// Always clean up first
 		fmt.Print("Cleaning up any existing containers...")
-		downArgs := append(args, "down", "-v", "--remove-orphans")
+		downArgs := make([]string, len(args), len(args)+3)
+		copy(downArgs, args)
+		downArgs = append(downArgs, "down", "-v", "--remove-orphans")
 		_ = e.runCompose(ctx, downArgs...)
 		fmt.Println(" done")
 
 		if cfg.BuildImages {
 			fmt.Print("Building container images (this may take a while)...")
-			buildArgs := append(args, "build", "-q")
+			buildArgs := make([]string, len(args), len(args)+2)
+			copy(buildArgs, args)
+			buildArgs = append(buildArgs, "build", "-q")
 			if err := e.runCompose(ctx, buildArgs...); err != nil {
 				fmt.Println(" FAILED")
 				return fmt.Errorf("failed to build images: %w", err)
@@ -178,7 +182,9 @@ func (e *HAClusterEnvironment) Start(ctx context.Context, cfg *HAClusterConfig) 
 
 		// Start containers
 		fmt.Print("Starting HA cluster containers...")
-		upArgs := append(args, "up", "-d", "--wait")
+		upArgs := make([]string, len(args), len(args)+3)
+		copy(upArgs, args)
+		upArgs = append(upArgs, "up", "-d", "--wait")
 		if err := e.runCompose(ctx, upArgs...); err != nil {
 			fmt.Println(" FAILED")
 			return fmt.Errorf("failed to start containers: %w", err)
@@ -205,9 +211,9 @@ func (e *HAClusterEnvironment) Start(ctx context.Context, cfg *HAClusterConfig) 
 	// Establish gRPC connections to all servers
 	fmt.Print("Establishing gRPC connections...")
 	for i, server := range e.Servers {
-		conn, err := grpc.DialContext(ctx, server.GRPCAddr,
+		conn, err := grpc.DialContext(ctx, server.GRPCAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
+			grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 		)
 		if err != nil {
 			fmt.Println(" FAILED")
@@ -457,6 +463,7 @@ func executeCommandAndWaitWithClient(ctx context.Context, client pb.ControlPlane
 			result.ExitCode = resp.ExitCode
 		case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED:
 			result.ExitCode = resp.ExitCode
+		default:
 		}
 	}
 
@@ -498,11 +505,11 @@ func (e *HAClusterEnvironment) runComposeWithOutput(ctx context.Context, showOut
 		return cmd.Run()
 	}
 
-	output, err := cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fall back to docker-compose (legacy)
 		cmd = exec.CommandContext(ctx, "docker-compose", args...)
-		output, err = cmd.CombinedOutput()
+		output, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "docker-compose failed:\n%s\n", output)
 			return err
@@ -535,7 +542,7 @@ func (e *HAClusterEnvironment) waitForServerHealthy(ctx context.Context, httpAdd
 
 // checkServerHealth checks if a server is healthy
 func (e *HAClusterEnvironment) checkServerHealth(ctx context.Context, httpAddr string) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", httpAddr+"/health/live", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", httpAddr+"/health/live", http.NoBody)
 	if err != nil {
 		return err
 	}

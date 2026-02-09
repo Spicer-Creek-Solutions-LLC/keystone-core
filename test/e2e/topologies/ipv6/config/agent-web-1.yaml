@@ -6,7 +6,7 @@ nats:
   maxreconnects: 30
   reconnectwait: 2s
   jetstream:
-    storedir: "/var/lib/kscore/jetstream"
+    storedir: "/var/lib/keystone-core/jetstream"
 
 agent:
   id: "agent-ipv6-web-1"

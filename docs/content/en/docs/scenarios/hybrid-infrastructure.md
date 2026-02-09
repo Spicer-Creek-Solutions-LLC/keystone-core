@@ -61,7 +61,7 @@ resources:
         region: "{{ .each.value }}"
       user_data: |
         #!/bin/bash
-        curl -fsSL https://get.kscore.io | bash -s -- \
+        curl -fsSL https://get.keystone-core.io | bash -s -- \
           --control-plane {{ .pillar.control_plane_url }} \
           --token {{ .pillar.bootstrap_token }}
 
@@ -117,93 +117,92 @@ metadata:
 # Provider-specific implementations
 provider_overrides:
   aws:
-    nginx_install:
-      module: package
-      state: installed
-      name: nginx
-      provider: amazon-linux
+    package:
+      nginx_install:
+        state: installed
+        name: nginx
+        provider: amazon-linux
 
   gcp:
-    nginx_install:
-      module: package
-      state: installed
-      name: nginx
-      provider: apt
+    package:
+      nginx_install:
+        state: installed
+        name: nginx
+        provider: apt
 
   azure:
-    nginx_install:
-      module: package
-      state: installed
-      name: nginx
-      provider: apt
+    package:
+      nginx_install:
+        state: installed
+        name: nginx
+        provider: apt
 
   vmware:
-    nginx_install:
-      module: package
-      state: installed
-      name: nginx
-      provider: yum
+    package:
+      nginx_install:
+        state: installed
+        name: nginx
+        provider: yum
 
 # Common configuration
-states:
+file:
   nginx_config:
-    module: file
     state: present
-    path: /etc/nginx/nginx.conf
+    name: /etc/nginx/nginx.conf
     template: nginx.conf.tmpl
     vars:
       worker_processes: auto
       upstream_servers: "{{ .pillar.upstream_servers }}"
 
+service:
   nginx_service:
-    module: service
     state: running
     name: nginx
-    enable: true
+    enabled: true
     require:
-      - nginx_install
-      - nginx_config
+      - package: nginx_install
+      - file: nginx_config
 ```
 
 ### Unified Targeting
 
 ```bash
 # Target by cloud provider
-kscorectl exec "provider:aws" --cmd "uptime"
-kscorectl exec "provider:gcp" --cmd "uptime"
+kscorectl exec run "provider:aws" -- uptime
+kscorectl exec run "provider:gcp" -- uptime
 
 # Target by region across providers
-kscorectl exec "region:us-east*" --cmd "hostname"
+kscorectl exec run "region:us-east*" -- hostname
 
 # Target Kubernetes workloads
-kscorectl exec "kubernetes:true and namespace:production" --cmd "kubectl get pods"
+kscorectl exec run "kubernetes:true and namespace:production" -- kubectl get pods
 
 # Target on-premises only
-kscorectl exec "datacenter:dc1 or datacenter:dc2" --cmd "dmidecode -s system-product-name"
+kscorectl exec run "datacenter:dc1 or datacenter:dc2" -- dmidecode -s system-product-name
 
 # Combined targeting
-kscorectl exec "(provider:aws and region:us-east-1) or datacenter:dc1" --cmd "date"
+kscorectl exec run "(provider:aws and region:us-east-1) or datacenter:dc1" -- date
 ```
 
 ### Cross-Provider Load Balancing
 
 ```yaml
 # states/hybrid/global-lb.yaml
-global_load_balancer:
-  module: dns
-  state: present
-  type: weighted
-  name: app.example.com
-  records:
-    - target: alb-us-east-1.amazonaws.com
-      weight: 40
-      health_check: https://app-us-east-1.example.com/health
-    - target: us-central1-lb.example.com
-      weight: 30
-      health_check: https://app-us-central1.example.com/health
-    - target: dc1-vip.internal.example.com
-      weight: 30
-      health_check: https://app-dc1.example.com/health
+dns:
+  global_load_balancer:
+    state: present
+    type: weighted
+    name: app.example.com
+    records:
+      - target: alb-us-east-1.amazonaws.com
+        weight: 40
+        health_check: https://app-us-east-1.example.com/health
+      - target: us-central1-lb.example.com
+        weight: 30
+        health_check: https://app-us-central1.example.com/health
+      - target: dc1-vip.internal.example.com
+        weight: 30
+        health_check: https://app-dc1.example.com/health
 ```
 
 ## Verification
@@ -230,11 +229,11 @@ kscorectl connectivity test --from "provider:aws" --to "provider:gcp"
 
 ```bash
 # Check AWS metadata service
-kscorectl exec "provider:aws" --cmd "curl -s http://169.254.169.254/latest/meta-data/"
+kscorectl exec run "provider:aws" -- curl -s http://169.254.169.254/latest/meta-data/
 
 # Check GCP metadata
-kscorectl exec "provider:gcp" --cmd "curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/"
+kscorectl exec run "provider:gcp" -- curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/
 
 # Check on-prem connectivity
-kscorectl exec "datacenter:dc1" --cmd "traceroute control-plane.example.com"
+kscorectl exec run "datacenter:dc1" -- traceroute control-plane.example.com
 ```

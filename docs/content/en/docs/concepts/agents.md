@@ -282,7 +282,7 @@ Hardware metadata is available via agent registration and the control plane API:
 
 ```bash
 # Query agent hardware info
-kscorectl agents get agent-123 --format json | jq '.metadata.hardware'
+kscorectl agents show agent-123 -o json | jq '.metadata.hardware'
 
 # Target agents by hardware characteristics
 kscorectl exec run "memory.total > 64GB and cpu.vendor == 'AuthenticAMD'" -- uptime
@@ -302,12 +302,12 @@ kscorectl agents list --filter "disk.used_percent > 90"
 # Control Plane Connection
 control_plane:
   url: "nats://control-plane.example.com:4222"
-  credentials: /etc/kscore/agent.creds  # Optional NATS auth
+  credentials: /etc/keystone-core/agent.creds  # Optional NATS auth
   tls:
     enabled: false
-    ca_file: /etc/kscore/ca.crt
-    cert_file: /etc/kscore/agent.crt
-    key_file: /etc/kscore/agent.key
+    ca_file: /etc/keystone-core/ca.crt
+    cert_file: /etc/keystone-core/agent.crt
+    key_file: /etc/keystone-core/agent.key
 
 # Agent Identity
 agent:
@@ -329,12 +329,12 @@ heartbeat:
 logging:
   level: "info"               # debug, info, warn, error
   format: "json"              # json, logfmt, text
-  file: "/var/log/kscore/agent.log"
+  file: "/var/log/keystone-core/agent.log"
 
 # Local Cache (for edge/offline mode)
 cache:
   enabled: false
-  directory: "/var/lib/kscore/cache"
+  directory: "/var/lib/keystone-core/cache"
   max_size: "1GB"
 ```
 
@@ -350,7 +350,7 @@ execution:
 
 # State Management
 state:
-  modules_dir: "/var/lib/kscore/modules"
+  modules_dir: "/var/lib/keystone-core/modules"
   cache_enabled: true
   dry_run: false
 
@@ -388,7 +388,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
+ExecStart=/usr/local/bin/kscore-agent --config /etc/keystone-core/agent.yaml
 Restart=on-failure
 RestartSec=5s
 User=kscore
@@ -399,7 +399,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/kscore /var/log/kscore
+ReadWritePaths=/var/lib/keystone-core /var/log/keystone-core
 
 [Install]
 WantedBy=multi-user.target
@@ -571,7 +571,7 @@ offline:
 
 cache:
   enabled: true
-  directory: "/var/lib/kscore/cache"
+  directory: "/var/lib/keystone-core/cache"
   max_size: "1GB"
 ```
 
@@ -753,9 +753,10 @@ Agents support health checks:
 **Problem**: Agent process fails to start
 
 Check:
-- Config file validation: `kscorectl config validate --config agent.yaml`
+- Validate YAML syntax: `python3 -c "import yaml; yaml.safe_load(open('agent.yaml'))"`
 - Permissions: Agent user has access to config file and directories
 - Dependencies: NATS URL is accessible
+- Check agent logs: `journalctl -u kscore-agent -f`
 
 ### Agent Won't Connect
 
@@ -767,9 +768,9 @@ Check:
 - TLS certificates valid (if using TLS)
 - NATS credentials correct (if using auth)
 
-Debug:
+Debug (set log level in config or via environment):
 ```bash
-kscore-agent --config agent.yaml --log-level debug
+KSCORE_LOG_LEVEL=debug kscore-agent --config agent.yaml
 ```
 
 ### High CPU Usage
@@ -832,6 +833,6 @@ offline:
 
 ## Next Steps
 
-- Understand the [Message Bus](message-bus/) that agents connect to
-- Learn about [Remote Execution](remote-execution/) for command dispatch
-- Explore [State Management](state-management/) for configuration
+- Understand the [Message Bus](/docs/concepts/message-bus/) that agents connect to
+- Learn about [Remote Execution](/docs/concepts/remote-execution/) for command dispatch
+- Explore [State Management](/docs/concepts/state-management/) for configuration

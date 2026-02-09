@@ -43,7 +43,7 @@ func (m *YAMLModule) Parse(data []byte) (interface{}, error) {
 
 	result, err := parseYAML(data, m.MaxDepth)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrParseError, err)
+		return nil, fmt.Errorf("%w: %w", ErrParseError, err)
 	}
 
 	return result, nil
@@ -137,7 +137,7 @@ func parseYAMLLines(lines []string, startIndent, maxDepth, depth int) (interface
 	i := 0
 	for i < len(lines) {
 		line := lines[i]
-		if len(strings.TrimSpace(line)) == 0 || strings.HasPrefix(strings.TrimSpace(line), "#") {
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			i++
 			continue
 		}
@@ -155,14 +155,15 @@ func parseYAMLLines(lines []string, startIndent, maxDepth, depth int) (interface
 			itemValue := strings.TrimPrefix(trimmed, "- ")
 			itemValue = strings.TrimSpace(itemValue)
 
-			if strings.Contains(itemValue, ": ") {
+			switch {
+			case strings.Contains(itemValue, ": "):
 				// Inline map in list
 				parts := strings.SplitN(itemValue, ": ", 2)
 				item := map[string]interface{}{
 					parts[0]: parseValue(parts[1]),
 				}
 				listItems = append(listItems, item)
-			} else if itemValue == "" {
+			case itemValue == "":
 				// Nested structure
 				subLines := collectBlock(lines[i+1:], indent+2)
 				subValue, err := parseYAMLLines(subLines, indent+2, maxDepth, depth+1)
@@ -171,7 +172,7 @@ func parseYAMLLines(lines []string, startIndent, maxDepth, depth int) (interface
 				}
 				listItems = append(listItems, subValue)
 				i += len(subLines)
-			} else {
+			default:
 				listItems = append(listItems, parseValue(itemValue))
 			}
 			i++
@@ -179,8 +180,7 @@ func parseYAMLLines(lines []string, startIndent, maxDepth, depth int) (interface
 		}
 
 		// Check for key: value
-		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ":") {
-			colonIdx := strings.Index(trimmed, ":")
+		if colonIdx := strings.Index(trimmed, ":"); colonIdx != -1 {
 			key := trimmed[:colonIdx]
 			value := ""
 			if colonIdx < len(trimmed)-1 {
@@ -225,7 +225,7 @@ func parseYAMLLines(lines []string, startIndent, maxDepth, depth int) (interface
 func collectBlock(lines []string, minIndent int) []string {
 	var result []string
 	for _, line := range lines {
-		if len(strings.TrimSpace(line)) == 0 {
+		if strings.TrimSpace(line) == "" {
 			result = append(result, line)
 			continue
 		}
@@ -241,12 +241,13 @@ func collectBlock(lines []string, minIndent int) []string {
 func countIndent(line string) int {
 	count := 0
 	for _, c := range line {
-		if c == ' ' {
+		switch c {
+		case ' ':
 			count++
-		} else if c == '\t' {
+		case '\t':
 			count += 2
-		} else {
-			break
+		default:
+			return count
 		}
 	}
 	return count
@@ -333,10 +334,10 @@ func writeYAML(w io.Writer, v interface{}, level, indent int) error {
 					}
 					first = false
 					fmt.Fprintf(w, "%s: ", k)
-					writeYAML(w, v, level+2, indent)
+					_ = writeYAML(w, v, level+2, indent) //nolint:errcheck // recursive call
 				}
 			} else {
-				writeYAML(w, item, level+1, indent)
+				_ = writeYAML(w, item, level+1, indent) //nolint:errcheck // recursive call
 			}
 		}
 	case map[string]interface{}:
@@ -349,12 +350,12 @@ func writeYAML(w io.Writer, v interface{}, level, indent int) error {
 			fmt.Fprintf(w, "%s%s: ", prefix, k)
 			if m, ok := v.(map[string]interface{}); ok && len(m) > 0 {
 				fmt.Fprintf(w, "\n")
-				writeYAML(w, m, level+1, indent)
+				_ = writeYAML(w, m, level+1, indent) //nolint:errcheck // recursive call
 			} else if s, ok := v.([]interface{}); ok && len(s) > 0 {
 				fmt.Fprintf(w, "\n")
-				writeYAML(w, s, level+1, indent)
+				_ = writeYAML(w, s, level+1, indent) //nolint:errcheck // recursive call
 			} else {
-				writeYAML(w, v, level, indent)
+				_ = writeYAML(w, v, level, indent) //nolint:errcheck // recursive call
 			}
 		}
 	default:
@@ -402,11 +403,11 @@ func NewXMLModule() *XMLModule {
 
 // XMLNode represents an XML node.
 type XMLNode struct {
-	XMLName    xml.Name
-	Attrs      []xml.Attr `xml:",any,attr"`
-	Content    string     `xml:",chardata"`
-	Children   []*XMLNode `xml:",any"`
-	parent     *XMLNode
+	XMLName  xml.Name
+	Attrs    []xml.Attr `xml:",any,attr"`
+	Content  string     `xml:",chardata"`
+	Children []*XMLNode `xml:",any"`
+	parent   *XMLNode
 }
 
 // Name returns the element name.
@@ -463,7 +464,7 @@ func (m *XMLModule) Parse(data []byte) (*XMLNode, error) {
 
 	var root XMLNode
 	if err := xml.Unmarshal(data, &root); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrParseError, err)
+		return nil, fmt.Errorf("%w: %w", ErrParseError, err)
 	}
 
 	// Set parent references
@@ -472,7 +473,7 @@ func (m *XMLModule) Parse(data []byte) (*XMLNode, error) {
 	return &root, nil
 }
 
-func setParents(node *XMLNode, parent *XMLNode) {
+func setParents(node, parent *XMLNode) {
 	node.parent = parent
 	for _, child := range node.Children {
 		setParents(child, node)
@@ -548,7 +549,8 @@ func (m *XMLModule) FromMap(name string, data map[string]interface{}) *XMLNode {
 	}
 
 	for key, value := range data {
-		if key == "@attrs" {
+		switch key {
+		case "@attrs":
 			if attrs, ok := value.(map[string]string); ok {
 				for k, v := range attrs {
 					node.Attrs = append(node.Attrs, xml.Attr{
@@ -557,11 +559,11 @@ func (m *XMLModule) FromMap(name string, data map[string]interface{}) *XMLNode {
 					})
 				}
 			}
-		} else if key == "#text" {
+		case "#text":
 			if text, ok := value.(string); ok {
 				node.Content = text
 			}
-		} else {
+		default:
 			switch v := value.(type) {
 			case map[string]interface{}:
 				child := m.FromMap(key, v)
@@ -606,9 +608,9 @@ func xpathSearch(nodes []*XMLNode, parts []string) []*XMLNode {
 		} else if strings.HasPrefix(part, "@") {
 			// Attribute access - not returning nodes
 			continue
-		} else if strings.Contains(part, "[") {
+		} else if idx := strings.Index(part, "["); idx != -1 {
 			// Predicate
-			name := part[:strings.Index(part, "[")]
+			name := part[:idx]
 			for _, child := range node.Children {
 				if child.XMLName.Local == name {
 					matches = append(matches, child)

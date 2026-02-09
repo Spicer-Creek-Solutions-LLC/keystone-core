@@ -387,32 +387,33 @@ func (e *Enforcer) monitor(ctx context.Context) {
 			runtime.ReadMemStats(&m)
 
 			// Update memory usage from runtime (this is a simplification)
+			//nolint:gosec // G115: memory stats are bounded by system memory
 			atomic.StoreInt64(&e.usage.memory, int64(m.Alloc))
 
 			for {
 				peak := atomic.LoadInt64(&e.usage.peakMemory)
-				if int64(m.Alloc) <= peak {
+				if int64(m.Alloc) <= peak { //nolint:gosec // G115: memory bounded
 					break
 				}
-				if atomic.CompareAndSwapInt64(&e.usage.peakMemory, peak, int64(m.Alloc)) {
+				if atomic.CompareAndSwapInt64(&e.usage.peakMemory, peak, int64(m.Alloc)) { //nolint:gosec // G115: memory bounded
 					break
 				}
 			}
 
 			// Check memory limit
-			if e.limits.Memory > 0 && int64(m.Alloc) > e.limits.Memory {
+			if e.limits.Memory > 0 && int64(m.Alloc) > e.limits.Memory { //nolint:gosec // G115: memory bounded
 				e.setViolated(ErrMemoryExceeded)
 				e.emit(&LimitEvent{
 					Type:      "exceeded",
 					Limit:     "memory",
-					Current:   int64(m.Alloc),
+					Current:   int64(m.Alloc), //nolint:gosec // G115: memory bounded
 					Maximum:   e.limits.Memory,
 					Timestamp: time.Now(),
 				})
 			}
 
 			// Estimate CPU time
-			currentCPUTime := int64(m.TotalAlloc) // Rough proxy for CPU work
+			currentCPUTime := int64(m.TotalAlloc) //nolint:gosec // G115: rough proxy for CPU work
 			if lastCPUTime > 0 {
 				cpuDelta := currentCPUTime - lastCPUTime
 				atomic.AddInt64(&e.usage.cpuTime, cpuDelta/1000) // Scale down
@@ -501,7 +502,6 @@ type Pool struct {
 	name      string
 	total     int64
 	available int64 // atomic
-	mu        sync.Mutex
 }
 
 // NewPool creates a new resource pool.
@@ -524,10 +524,6 @@ func (p *Pool) Acquire(ctx context.Context, amount int64) error {
 			continue
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		}
 		if err := wait.ForContext(ctx, time.Millisecond); err != nil {
 			return err
 		}

@@ -216,7 +216,8 @@ func (r *ParameterResolver) AddSchemaDefaults(schemas map[string]ParameterSchema
 }
 
 func (r *ParameterResolver) extractSchemaDefaultsRecursive(prefix string, schemas map[string]ParameterSchema, layer *ParameterLayer) {
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		fullName := name
 		if prefix != "" {
 			fullName = prefix + "." + name
@@ -546,7 +547,8 @@ func (c *InheritanceChain) ResolveParameters(userParams map[string]interface{}) 
 	// c.blueprints is ordered [parent, ..., child], so iterating forward
 	// means child values will override parent values in the merged map
 	for _, bp := range c.blueprints {
-		for name, schema := range bp.Parameters {
+		for name := range bp.Parameters {
+			schema := bp.Parameters[name]
 			allSchemas[name] = schema
 			// Extract defaults, child overwrites parent
 			if schema.Default != nil {
@@ -576,49 +578,6 @@ func (c *InheritanceChain) GetProvenance() map[string]ParameterValue {
 	return c.resolver.GetProvenance()
 }
 
-// extractDefaultsFromBlueprint extracts non-nil defaults from a blueprint's parameters.
-func extractDefaultsFromBlueprint(bp *Blueprint) map[string]interface{} {
-	result := make(map[string]interface{})
-	extractDefaultsRecursive("", bp.Parameters, result)
-	return result
-}
-
-func extractDefaultsRecursive(prefix string, schemas map[string]ParameterSchema, result map[string]interface{}) {
-	for name, schema := range schemas {
-		fullName := name
-		if prefix != "" {
-			fullName = prefix + "." + name
-		}
-
-		if schema.Default != nil {
-			setNestedValueForDefaults(result, fullName, schema.Default)
-		}
-
-		if schema.Type == "object" && schema.Properties != nil {
-			extractDefaultsRecursive(fullName, schema.Properties, result)
-		}
-	}
-}
-
-func setNestedValueForDefaults(m map[string]interface{}, key string, value interface{}) {
-	parts := strings.Split(key, ".")
-	current := m
-
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			current[part] = value
-			return
-		}
-
-		next, ok := current[part].(map[string]interface{})
-		if !ok {
-			next = make(map[string]interface{})
-			current[part] = next
-		}
-		current = next
-	}
-}
-
 // ValidateInheritance checks that a blueprint's inheritance is valid.
 func ValidateInheritance(bp *Blueprint, parents []*Blueprint) error {
 	// Check for circular inheritance
@@ -634,7 +593,8 @@ func ValidateInheritance(bp *Blueprint, parents []*Blueprint) error {
 
 	// Validate parameter compatibility
 	for _, parent := range parents {
-		for name, childSchema := range bp.Parameters {
+		for name := range bp.Parameters {
+			childSchema := bp.Parameters[name]
 			if parentSchema, ok := parent.Parameters[name]; ok {
 				// Parameter exists in both - check compatibility
 				if err := validateSchemaCompatibility(name, parentSchema, childSchema); err != nil {

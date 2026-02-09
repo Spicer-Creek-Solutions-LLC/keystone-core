@@ -167,10 +167,10 @@ func TestContext_ResolveMap(t *testing.T) {
 	ctx := NewContext("exec-123", "test-runbook", "1.0.0", inputs)
 
 	m := map[string]interface{}{
-		"host":    "{{ .inputs.target }}",
-		"port":    "{{ .inputs.port }}",
-		"static":  "value",
-		"number":  42,
+		"host":   "{{ .inputs.target }}",
+		"port":   "{{ .inputs.port }}",
+		"static": "value",
+		"number": 42,
 		"nested": map[string]interface{}{
 			"inner": "{{ .inputs.target }}",
 		},

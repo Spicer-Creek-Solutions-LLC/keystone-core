@@ -28,7 +28,7 @@ func TestLoad_Registration(t *testing.T) {
 	}
 	defer harness.Stop()
 
-	result := &LoadTestResult{
+	result := &Result{
 		TestName:  "registration",
 		StartTime: time.Now(),
 		Config: ResultConfig{
@@ -101,7 +101,7 @@ func TestLoad_Heartbeat(t *testing.T) {
 	}
 	defer harness.Stop()
 
-	result := &LoadTestResult{
+	result := &Result{
 		TestName:  "heartbeat",
 		StartTime: time.Now(),
 		Config: ResultConfig{
@@ -182,7 +182,7 @@ func TestLoad_Commands(t *testing.T) {
 	}
 	defer harness.Stop()
 
-	result := &LoadTestResult{
+	result := &Result{
 		TestName:  "commands",
 		StartTime: time.Now(),
 		Config: ResultConfig{
@@ -218,9 +218,7 @@ func TestLoad_Commands(t *testing.T) {
 	// Build command list - each agent gets CommandsPerAgent commands
 	var commands []string
 	for i := 0; i < cfg.CommandsPerAgent; i++ {
-		for _, id := range agentIDs {
-			commands = append(commands, id)
-		}
+		commands = append(commands, agentIDs...)
 	}
 
 	// Execute commands
@@ -231,7 +229,7 @@ func TestLoad_Commands(t *testing.T) {
 	cmdDuration := time.Since(cmdStart)
 
 	// Calculate metrics
-	min, max, avg, p50, p95, p99 := latencyCollector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := latencyCollector.Calculate()
 	opsPerSecond := float64(success+failed) / cmdDuration.Seconds()
 
 	metrics := Metrics{
@@ -240,8 +238,8 @@ func TestLoad_Commands(t *testing.T) {
 		FailedOps:         int64(failed),
 		OpsPerSecond:      opsPerSecond,
 		AvgLatency:        avg,
-		MinLatency:        min,
-		MaxLatency:        max,
+		MinLatency:        minVal,
+		MaxLatency:        maxVal,
 		P50Latency:        p50,
 		P95Latency:        p95,
 		P99Latency:        p99,
@@ -271,8 +269,8 @@ func TestLoad_Commands(t *testing.T) {
 	t.Logf("  Duration: %v", cmdDuration)
 	t.Logf("  Throughput: %.2f ops/sec", opsPerSecond)
 	t.Logf("  Avg latency: %v", avg)
-	t.Logf("  Min latency: %v", min)
-	t.Logf("  Max latency: %v", max)
+	t.Logf("  Min latency: %v", minVal)
+	t.Logf("  Max latency: %v", maxVal)
 	t.Logf("  P50 latency: %v", p50)
 	t.Logf("  P95 latency: %v", p95)
 	t.Logf("  P99 latency: %v", p99)
@@ -303,7 +301,7 @@ func TestLoad_RampUp(t *testing.T) {
 	}
 	defer harness.Stop()
 
-	result := &LoadTestResult{
+	result := &Result{
 		TestName:  "ramp_up",
 		StartTime: time.Now(),
 		Config: ResultConfig{
@@ -336,7 +334,6 @@ func TestLoad_RampUp(t *testing.T) {
 	}()
 
 	// Monitor registration progress
-	var checkpoints []int
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
@@ -350,7 +347,6 @@ monitoring:
 			break monitoring
 		case <-ticker.C:
 			count := harness.ControlPlane().RegisteredAgentCount()
-			checkpoints = append(checkpoints, count)
 			t.Logf("  Progress: %d/%d agents (%.1f%%)", count, cfg.AgentCount, float64(count)/float64(cfg.AgentCount)*100)
 		case <-ctx.Done():
 			break monitoring
@@ -403,7 +399,7 @@ func TestLoad_Sustained(t *testing.T) {
 	}
 	defer harness.Stop()
 
-	result := &LoadTestResult{
+	result := &Result{
 		TestName:  "sustained",
 		StartTime: time.Now(),
 		Config: ResultConfig{
@@ -451,6 +447,7 @@ func TestLoad_Sustained(t *testing.T) {
 	defer ticker.Stop()
 
 	endTime := time.Now().Add(cfg.TestDuration)
+cmdLoop:
 	for time.Now().Before(endTime) {
 		select {
 		case <-ticker.C:
@@ -464,14 +461,14 @@ func TestLoad_Sustained(t *testing.T) {
 			latencyCollector.AddBatch(lc.latencies)
 			lc.mu.Unlock()
 		case <-ctx.Done():
-			break
+			break cmdLoop
 		}
 	}
 	testDuration := time.Since(testStart)
 
 	// Collect final metrics
 	cpMetrics := harness.ControlPlane().Metrics()
-	min, max, avg, p50, p95, p99 := latencyCollector.Calculate()
+	minVal, maxVal, avg, p50, p95, p99 := latencyCollector.Calculate()
 
 	metrics := Metrics{
 		TotalOps:           int64(totalSuccess + totalFailed),
@@ -479,8 +476,8 @@ func TestLoad_Sustained(t *testing.T) {
 		FailedOps:          int64(totalFailed),
 		OpsPerSecond:       float64(totalSuccess+totalFailed) / testDuration.Seconds(),
 		AvgLatency:         avg,
-		MinLatency:         min,
-		MaxLatency:         max,
+		MinLatency:         minVal,
+		MaxLatency:         maxVal,
 		P50Latency:         p50,
 		P95Latency:         p95,
 		P99Latency:         p99,

@@ -150,7 +150,7 @@ ssh ks-server-compromised "
 scp ks-server-compromised:/tmp/memory.dump.gz /secure/incident-$(date +%Y%m%d)/
 
 # Capture container state (if containerized)
-kubectl exec -n kscore kscore-server-0 -- tar czf - /var/lib/kscore > /secure/incident-$(date +%Y%m%d)/container-data.tar.gz
+kubectl exec -n kscore kscore-server-0 -- tar czf - /var/lib/keystone-core > /secure/incident-$(date +%Y%m%d)/container-data.tar.gz
 ```
 
 ### Phase 3: Investigation (1-4 hours)
@@ -282,11 +282,11 @@ kscorectl secrets rotate-keys
 # 2. Join to cluster
 kscorectl cluster join \
   --server https://ks-server-1:8080 \
-  --token $(kscorectl cluster token)
+  --token "$CLUSTER_JOIN_TOKEN"  # From cluster config or bootstrap
 
 # For compromised agents
 # 1. Reinstall agent from trusted source
-curl -sSL https://install.kscore.io | sudo bash
+curl -sSL https://install.keystone-core.io | sudo bash
 
 # 2. Re-register with new identity
 kscore-agent register \

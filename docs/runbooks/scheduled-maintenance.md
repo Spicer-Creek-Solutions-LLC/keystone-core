@@ -138,8 +138,8 @@ kscorectl cluster health --verbose
 # Check queued operations processed
 kscorectl maintenance queue --status
 
-# Verify scheduled jobs resumed
-kscorectl jobs list --scheduled
+# Verify scheduled operations resumed (check schedule plugin)
+kscorectl schedule list
 ```
 
 ## Verification Checklist
@@ -208,7 +208,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
   until ssh $node "echo 'ready'"; do sleep 10; done
 
   # Uncordon node
-  kscorectl cluster uncordon $node
+  kscorectl cluster undrain $node
 
   # Wait for healthy
   sleep 30
@@ -226,7 +226,7 @@ See [certificate-rotation.md](certificate-rotation.md)
 # Check disk usage
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node ==="
-  ssh $node "df -h /var/lib/kscore"
+  ssh $node "df -h /var/lib/keystone-core"
 done
 
 # Clean old data if needed

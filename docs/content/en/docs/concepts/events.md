@@ -186,12 +186,13 @@ flowchart TD
 
 ### From Code
 
-Publish events from Go code:
+> **Note**: The events package is internal (`internal/events`). For external integrations,
+> use the CLI or HTTP API shown below.
+
+Internal code uses the fluent builder API:
 
 ```go
-import "github.com/shawnbutts/keystone-core/pkg/events"
-
-// Create event using the fluent builder API
+// Internal usage only (internal/events)
 event := events.NewEvent(events.EventTypeJobComplete).
     Source("control-plane").
     Severity(events.SeverityInfo).
@@ -213,7 +214,7 @@ publisher.Publish(event)
 Emit custom events:
 
 ```bash
-kscorectl event emit \
+kscorectl events emit \
   --type user.custom \
   --source "maintenance-script" \
   --severity info \
@@ -363,19 +364,19 @@ CREATE TABLE events (
 **CLI**:
 ```bash
 # List recent events
-kscorectl event list
+kscorectl events list
 
 # Filter by type
-kscorectl event list --type agent.connect
+kscorectl events list --type agent.connect
 
 # Filter by time range
-kscorectl event list --since 1h --until now
+kscorectl events list --since 1h --until now
 
 # Filter by severity
-kscorectl event list --severity warning,error,critical
+kscorectl events list --severity warning,error,critical
 
 # Query with expression
-kscorectl event query "type == 'job.fail' and severity == 'error'"
+kscorectl events query "type == 'job.fail' and severity == 'error'"
 ```
 
 **API**:
@@ -570,13 +571,13 @@ Replay historical events for testing or recovery using the CLI:
 
 ```bash
 # Replay events from last hour
-kscorectl event replay --since 1h --until now
+kscorectl events replay --since 1h --until now
 
 # Replay specific event types
-kscorectl event replay --type state.change --since 24h
+kscorectl events replay --type state.change --since 24h
 
 # Replay to a different target
-kscorectl event replay --since 1h --target webhook:https://example.com/events
+kscorectl events replay --since 1h --target webhook:https://example.com/events
 ```
 
 **Use Cases**:
@@ -820,11 +821,11 @@ func handleEvent(event *events.Event) error {
 ### Debugging Ordering Issues
 
 ```bash
-# Check event sequence numbers
-kscorectl event list --show-sequence --source web-01
+# Check event sequence numbers via NATS
+nats stream info KSCORE_EVENTS --json | jq '.state.messages'
 
-# Check for out-of-order delivery
-kscorectl event analyze --check-order --since 1h
+# List recent events from a source
+kscorectl events list --source web-01 --limit 100
 
 # View consumer lag
 nats consumer info KSCORE_EVENTS processor
@@ -1251,8 +1252,8 @@ curl http://control-plane:8080/metrics | grep events_published
 # Check NATS JetStream
 nats stream info KSCORE_EVENTS
 
-# Check subscriber status
-kscorectl event subscribers
+# Check consumer status
+nats consumer info KSCORE_EVENTS processor
 ```
 
 ### High Event Lag
@@ -1275,19 +1276,23 @@ Fix:
 
 Fix:
 ```bash
-# Check storage usage
-kscorectl event storage-stats
+# Check storage usage via metrics
+curl http://control-plane:8080/metrics | grep events_storage
 
-# Apply retention policy manually
-kscorectl event prune --older-than 30d
+# Check JetStream storage
+nats stream info KSCORE_EVENTS
 
-# Archive to cold storage
-kscorectl event archive --since 90d --output s3://bucket/events/
+# Retention is managed automatically via server configuration
+# To manually purge old events from JetStream:
+nats stream purge KSCORE_EVENTS --keep 1000000
+
+# For database storage, use retention policy configuration
+# or manual SQL cleanup if using PostgreSQL
 ```
 
 ## Next Steps
 
-- Learn about [Reactors](reactors/) that respond to events
-- Understand [Control Plane](control-plane/) event engine
-- Explore [Message Bus](message-bus/) JetStream integration
-- See [Observability](observability/) for event metrics
+- Learn about [Reactors](/docs/concepts/reactors/) that respond to events
+- Understand [Control Plane](/docs/concepts/control-plane/) event engine
+- Explore [Message Bus](/docs/concepts/message-bus/) JetStream integration
+- See [Observability](/docs/concepts/observability/) for event metrics

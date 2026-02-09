@@ -151,7 +151,7 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create registry client
-	config := registry.DefaultRegistryConfig(registryURL)
+	config := registry.DefaultConfig(registryURL)
 	config.Auth = auth
 	client, err := registry.NewHTTPClient(config)
 	if err != nil {
@@ -178,7 +178,7 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("version %s already exists (use --force to overwrite)", m.Version)
 		}
 		if registry.IsAuthError(err) {
-			return fmt.Errorf("authentication failed: %v", err)
+			return fmt.Errorf("authentication failed: %w", err)
 		}
 		return fmt.Errorf("publish failed: %w", err)
 	}
@@ -224,20 +224,21 @@ func extractManifestFromZip(zipPath string) (*manifest.Manifest, error) {
 
 	// Look for module.yaml
 	for _, file := range zipReader.File {
-		if filepath.Base(file.Name) == "module.yaml" {
-			rc, err := file.Open()
-			if err != nil {
-				return nil, fmt.Errorf("failed to open module.yaml: %w", err)
-			}
-			defer rc.Close()
-
-			data, err := io.ReadAll(rc)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read module.yaml: %w", err)
-			}
-
-			return manifest.Parse(data)
+		if filepath.Base(file.Name) != "module.yaml" {
+			continue
 		}
+		rc, err := file.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open module.yaml: %w", err)
+		}
+
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read module.yaml: %w", err)
+		}
+
+		return manifest.Parse(data)
 	}
 
 	return nil, fmt.Errorf("module.yaml not found in ZIP")

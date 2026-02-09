@@ -17,15 +17,15 @@ import (
 
 // Standard JWT errors
 var (
-	ErrInvalidToken      = errors.New("invalid token")
-	ErrTokenExpired      = errors.New("token expired")
-	ErrInvalidIssuer     = errors.New("invalid issuer")
-	ErrInvalidAudience   = errors.New("invalid audience")
-	ErrInvalidSignature  = errors.New("invalid signature")
-	ErrUnsupportedAlg    = errors.New("unsupported signing algorithm")
-	ErrMissingRoleClaim  = errors.New("missing role claim")
-	ErrInvalidRoleClaim  = errors.New("invalid role claim")
-	ErrNoSigningKey      = errors.New("no signing key configured")
+	ErrInvalidToken     = errors.New("invalid token")
+	ErrTokenExpired     = errors.New("token expired")
+	ErrInvalidIssuer    = errors.New("invalid issuer")
+	ErrInvalidAudience  = errors.New("invalid audience")
+	ErrInvalidSignature = errors.New("invalid signature")
+	ErrUnsupportedAlg   = errors.New("unsupported signing algorithm")
+	ErrMissingRoleClaim = errors.New("missing role claim")
+	ErrInvalidRoleClaim = errors.New("invalid role claim")
+	ErrNoSigningKey     = errors.New("no signing key configured")
 )
 
 // JWTClaims represents the expected JWT claims structure
@@ -66,10 +66,11 @@ func NewJWTAuthenticator(cfg config.JWTAuthConfig) (*JWTAuthenticator, error) {
 	}
 
 	// Configure signing key
-	if cfg.Secret != "" {
+	switch {
+	case cfg.Secret != "":
 		// HMAC secret
 		auth.hmacSecret = []byte(cfg.Secret)
-	} else if cfg.PublicKeyFile != "" {
+	case cfg.PublicKeyFile != "":
 		// Load public key from file
 		keyData, err := os.ReadFile(cfg.PublicKeyFile)
 		if err != nil {
@@ -88,7 +89,7 @@ func NewJWTAuthenticator(cfg config.JWTAuthConfig) (*JWTAuthenticator, error) {
 			}
 			auth.ecdsaPublicKey = ecdsaKey
 		}
-	} else {
+	default:
 		return nil, ErrNoSigningKey
 	}
 
@@ -156,13 +157,15 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credentials string)
 
 	// Build subject ID
 	subjectID := "jwt:"
-	if sub, err := claims.GetSubject(); err == nil && sub != "" {
+	sub, subErr := claims.GetSubject()
+	switch {
+	case subErr == nil && sub != "":
 		subjectID += sub
-	} else if claims.Email != "" {
+	case claims.Email != "":
 		subjectID += claims.Email
-	} else if claims.Name != "" {
+	case claims.Name != "":
 		subjectID += claims.Name
-	} else {
+	default:
 		subjectID += "unknown"
 	}
 
@@ -288,7 +291,7 @@ func (a *JWTAuthenticator) mapJWTError(err error) error {
 		return ErrInvalidSignature
 	}
 
-	return fmt.Errorf("%w: %v", ErrInvalidToken, err)
+	return fmt.Errorf("%w: %w", ErrInvalidToken, err)
 }
 
 // GenerateToken creates a new JWT token (useful for testing and token issuance)

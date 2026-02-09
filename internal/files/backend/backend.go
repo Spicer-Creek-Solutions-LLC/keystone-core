@@ -3,6 +3,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 )
@@ -13,7 +14,7 @@ type Backend interface {
 	Name() string
 
 	// Type returns the backend type (filesystem, s3, gcs, azure, nats, git, http).
-	Type() BackendType
+	Type() Type
 
 	// BaseConfig returns the base configuration for path matching and priority.
 	BaseConfig() *Config
@@ -44,17 +45,18 @@ type Backend interface {
 	Close() error
 }
 
-// BackendType identifies the type of storage backend.
-type BackendType string
+// Type identifies the type of storage backend.
+type Type string
 
+// TypeFilesystem constants define the supported types.
 const (
-	BackendTypeFilesystem  BackendType = "filesystem"
-	BackendTypeS3          BackendType = "s3"
-	BackendTypeGCS         BackendType = "gcs"
-	BackendTypeAzure       BackendType = "azure"
-	BackendTypeNATSObject  BackendType = "nats-object-store"
-	BackendTypeGit         BackendType = "git"
-	BackendTypeHTTP        BackendType = "http"
+	TypeFilesystem Type = "filesystem"
+	TypeS3         Type = "s3"
+	TypeGCS        Type = "gcs"
+	TypeAzure      Type = "azure"
+	TypeNATSObject Type = "nats-object-store"
+	TypeGit        Type = "git"
+	TypeHTTP       Type = "http"
 )
 
 // GetOptions specifies options for Get operations.
@@ -201,7 +203,7 @@ type Config struct {
 	Name string `yaml:"name"`
 
 	// Type of backend.
-	Type BackendType `yaml:"type"`
+	Type Type `yaml:"type"`
 
 	// Priority for backend selection (lower = higher priority).
 	Priority int `yaml:"priority"`
@@ -233,17 +235,17 @@ func matchGlob(pattern, path string) bool {
 }
 
 func matchGlobRecursive(pattern, path string) bool {
-	for len(pattern) > 0 {
+	for pattern != "" {
 		switch pattern[0] {
 		case '*':
 			if len(pattern) > 1 && pattern[1] == '*' {
 				// ** matches any path
 				pattern = pattern[2:]
-				if len(pattern) == 0 {
+				if pattern == "" {
 					return true
 				}
 				// Skip optional /
-				if len(pattern) > 0 && pattern[0] == '/' {
+				if pattern != "" && pattern[0] == '/' {
 					pattern = pattern[1:]
 				}
 				// Try matching at each position
@@ -256,7 +258,7 @@ func matchGlobRecursive(pattern, path string) bool {
 			}
 			// * matches any non-/ characters
 			pattern = pattern[1:]
-			if len(pattern) == 0 {
+			if pattern == "" {
 				// * at end matches rest if no /
 				for _, c := range path {
 					if c == '/' {
@@ -276,65 +278,67 @@ func matchGlobRecursive(pattern, path string) bool {
 			}
 			return false
 		default:
-			if len(path) == 0 || pattern[0] != path[0] {
+			if path == "" || pattern[0] != path[0] {
 				return false
 			}
 			pattern = pattern[1:]
 			path = path[1:]
 		}
 	}
-	return len(path) == 0
+	return path == ""
 }
 
 // Error types for backend operations.
-type BackendError struct {
+type Error struct {
 	Backend string
 	Op      string
 	Path    string
 	Err     error
 }
 
-func (e *BackendError) Error() string {
+func (e *Error) Error() string {
 	if e.Path != "" {
 		return e.Backend + ": " + e.Op + " " + e.Path + ": " + e.Err.Error()
 	}
 	return e.Backend + ": " + e.Op + ": " + e.Err.Error()
 }
 
-func (e *BackendError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.Err
 }
 
 // Common errors.
 var (
-	ErrNotFound     = &BackendError{Op: "get", Err: errNotFound{}}
-	ErrAccessDenied = &BackendError{Op: "access", Err: errAccessDenied{}}
-	ErrReadOnly     = &BackendError{Op: "write", Err: errReadOnly{}}
+	ErrNotFound     = &Error{Op: "get", Err: notFoundError{}}
+	ErrAccessDenied = &Error{Op: "access", Err: accessDeniedError{}}
+	ErrReadOnly     = &Error{Op: "write", Err: readOnlyError{}}
 )
 
-type errNotFound struct{}
+type notFoundError struct{}
 
-func (errNotFound) Error() string { return "file not found" }
+func (notFoundError) Error() string { return "file not found" }
 
-type errAccessDenied struct{}
+type accessDeniedError struct{}
 
-func (errAccessDenied) Error() string { return "access denied" }
+func (accessDeniedError) Error() string { return "access denied" }
 
-type errReadOnly struct{}
+type readOnlyError struct{}
 
-func (errReadOnly) Error() string { return "backend is read-only" }
+func (readOnlyError) Error() string { return "backend is read-only" }
 
 // IsNotFound checks if an error is a not found error.
 func IsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	if _, ok := err.(*errNotFound); ok {
+	var nfe *notFoundError
+	if errors.As(err, &nfe) {
 		return true
 	}
-	if be, ok := err.(*BackendError); ok {
-		_, ok := be.Err.(errNotFound)
-		return ok
+	var be *Error
+	if errors.As(err, &be) {
+		var innerNfe notFoundError
+		return errors.As(be.Err, &innerNfe)
 	}
 	return false
 }

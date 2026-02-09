@@ -1,6 +1,7 @@
 package winrm
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -374,7 +375,7 @@ func TestScriptRunnerNotConnected(t *testing.T) {
 	adapter := NewAdapter(nil)
 	runner := adapter.NewScriptRunner()
 
-	_, err := runner.RunScript(nil, "Get-Process")
+	_, err := runner.RunScript(context.Background(), "Get-Process")
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -398,7 +399,7 @@ func TestAdapterNewServiceManager(t *testing.T) {
 func TestAdapterNewShellNotConnected(t *testing.T) {
 	adapter := NewAdapter(nil)
 
-	_, err := adapter.NewShell(nil, ShellPowerShell)
+	_, err := adapter.NewShell(context.Background(), ShellPowerShell)
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -413,7 +414,7 @@ func TestShellClosed(t *testing.T) {
 		closed: true,
 	}
 
-	_, err := shell.Execute(nil, "Get-Process")
+	_, err := shell.Execute(context.Background(), "Get-Process")
 	if err == nil {
 		t.Error("expected error when shell is closed")
 	}

@@ -1,4 +1,4 @@
-# Epic 35: Network Protocol Expansion
+# Epic 42: Network Protocol Expansion
 
 ## Overview
 

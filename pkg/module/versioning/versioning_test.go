@@ -404,11 +404,11 @@ func TestPolicyChecker_CustomRules(t *testing.T) {
 	policy := DefaultPolicy()
 	policy.CustomRules = []PolicyRule{
 		{
-			Name:          "block-old-major",
-			ModulePattern: "*",
+			Name:           "block-old-major",
+			ModulePattern:  "*",
 			VersionPattern: "0.*",
-			Action:        PolicyActionDeny,
-			Message:       "v0.x versions are not allowed",
+			Action:         PolicyActionDeny,
+			Message:        "v0.x versions are not allowed",
 		},
 		{
 			Name:           "warn-beta",

@@ -28,6 +28,7 @@ type TransactionLogEntry struct {
 // TransactionOperation represents the type of migration operation
 type TransactionOperation string
 
+// OpMigrateRecord constants define the operators.
 const (
 	OpMigrateRecord    TransactionOperation = "migrate"
 	OpValidateRecord   TransactionOperation = "validate"
@@ -42,11 +43,12 @@ const (
 // TransactionStatus represents the status of a transaction entry
 type TransactionStatus string
 
+// StatusSuccess constants define the possible statuses.
 const (
-	StatusSuccess   TransactionStatus = "success"
-	StatusFailure   TransactionStatus = "failure"
-	StatusPending   TransactionStatus = "pending"
-	StatusSkipped   TransactionStatus = "skipped"
+	StatusSuccess    TransactionStatus = "success"
+	StatusFailure    TransactionStatus = "failure"
+	StatusPending    TransactionStatus = "pending"
+	StatusSkipped    TransactionStatus = "skipped"
 	StatusRolledBack TransactionStatus = "rolled_back"
 )
 
@@ -103,15 +105,15 @@ type TransactionLog struct {
 
 // TransactionLogStats tracks statistics for the transaction log
 type TransactionLogStats struct {
-	TotalEntries     int64
-	SuccessCount     int64
-	FailureCount     int64
-	SkippedCount     int64
-	LastEntryTime    time.Time
-	FirstEntryTime   time.Time
-	BytesWritten     int64
-	FlushCount       int64
-	mu               sync.Mutex
+	TotalEntries   int64
+	SuccessCount   int64
+	FailureCount   int64
+	SkippedCount   int64
+	LastEntryTime  time.Time
+	FirstEntryTime time.Time
+	BytesWritten   int64
+	FlushCount     int64
+	mu             sync.Mutex
 }
 
 // NewTransactionLog creates a new transaction log
@@ -123,13 +125,14 @@ func NewTransactionLog(config *TransactionLogConfig) (*TransactionLog, error) {
 	// Ensure directory exists
 	dir := filepath.Dir(config.LogPath)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: log directory needs to be accessible by service user
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create log directory: %w", err)
 		}
 	}
 
 	// Open log file
-	file, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644) //nolint:gosec // G302: Log files are typically world-readable for debugging
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log: %w", err)
 	}
@@ -221,6 +224,8 @@ func (tl *TransactionLog) updateStats(entry *TransactionLogEntry) {
 		tl.stats.FailureCount++
 	case StatusSkipped:
 		tl.stats.SkippedCount++
+	default:
+		// StatusPending, StatusRolledBack don't update counts
 	}
 }
 
@@ -285,11 +290,11 @@ func (tl *TransactionLog) LogMigrationEnd(migrationID string, success bool, stat
 		Status:    status,
 		Duration:  stats.Duration,
 		Metadata: map[string]interface{}{
-			"agents_migrated":  stats.AgentsMigrated,
-			"commands_migrated": stats.CommandsMigrated,
-			"batch_jobs_migrated": stats.BatchJobsMigrated,
+			"agents_migrated":        stats.AgentsMigrated,
+			"commands_migrated":      stats.CommandsMigrated,
+			"batch_jobs_migrated":    stats.BatchJobsMigrated,
 			"batch_results_migrated": stats.BatchAgentResultsMigrated,
-			"error_count": len(stats.Errors),
+			"error_count":            len(stats.Errors),
 		},
 	})
 }
@@ -313,7 +318,7 @@ func (tl *TransactionLog) LogRecordMigration(table, recordID string, status Tran
 }
 
 // LogCheckpoint logs a checkpoint for recovery
-func (tl *TransactionLog) LogCheckpoint(table string, lastRecordID string, processedCount, totalCount int) error {
+func (tl *TransactionLog) LogCheckpoint(table, lastRecordID string, processedCount, totalCount int) error {
 	return tl.LogEntry(&TransactionLogEntry{
 		Timestamp:  time.Now(),
 		Table:      table,
@@ -448,8 +453,8 @@ func GetFailedRecords(entries []*TransactionLogEntry) []*TransactionLogEntry {
 // LoggingMigrator wraps a Migrator with transaction logging
 type LoggingMigrator struct {
 	*Migrator
-	txLog         *TransactionLog
-	migrationID   string
+	txLog              *TransactionLog
+	migrationID        string
 	checkpointInterval int
 }
 
@@ -461,9 +466,9 @@ func NewLoggingMigrator(source, target Store, opts *MigrationOptions, txLogConfi
 	}
 
 	return &LoggingMigrator{
-		Migrator:          NewMigrator(source, target, opts),
-		txLog:             txLog,
-		migrationID:       fmt.Sprintf("migration-%d", time.Now().UnixNano()),
+		Migrator:           NewMigrator(source, target, opts),
+		txLog:              txLog,
+		migrationID:        fmt.Sprintf("migration-%d", time.Now().UnixNano()),
 		checkpointInterval: 100,
 	}, nil
 }
@@ -486,7 +491,7 @@ func (lm *LoggingMigrator) Migrate(ctx context.Context) (*MigrationStats, error)
 
 		// Log checkpoint at intervals
 		if current > 0 && current%lm.checkpointInterval == 0 {
-			lm.txLog.LogCheckpoint(table, fmt.Sprintf("record-%d", current), current, total)
+			_ = lm.txLog.LogCheckpoint(table, fmt.Sprintf("record-%d", current), current, total) //nolint:errcheck // best-effort checkpoint
 		}
 	}
 
@@ -562,6 +567,8 @@ func AnalyzeForRecovery(logPath string) (*RecoveryInfo, error) {
 			if entry.Status == StatusFailure {
 				info.FailedRecords = append(info.FailedRecords, entry)
 			}
+		default:
+			// OpValidateRecord, OpSkipRecord, OpRollbackStart, OpRollbackComplete handled implicitly
 		}
 
 		// Track completed tables (100% progress in checkpoint)

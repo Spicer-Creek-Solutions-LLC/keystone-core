@@ -47,7 +47,7 @@ func NewFilesystemBackend(config *FilesystemConfig) (*FilesystemBackend, error) 
 		if os.IsNotExist(err) && config.CreateDirs {
 			mode := config.DirMode
 			if mode == 0 {
-				mode = 0755
+				mode = 0o755
 			}
 			if err := os.MkdirAll(config.Root, mode); err != nil {
 				return nil, fmt.Errorf("filesystem backend: failed to create root: %w", err)
@@ -61,10 +61,10 @@ func NewFilesystemBackend(config *FilesystemConfig) (*FilesystemBackend, error) 
 
 	// Set defaults
 	if config.FileMode == 0 {
-		config.FileMode = 0644
+		config.FileMode = 0o644
 	}
 	if config.DirMode == 0 {
-		config.DirMode = 0755
+		config.DirMode = 0o755
 	}
 
 	return &FilesystemBackend{config: config}, nil
@@ -76,8 +76,8 @@ func (b *FilesystemBackend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *FilesystemBackend) Type() BackendType {
-	return BackendTypeFilesystem
+func (b *FilesystemBackend) Type() Type {
+	return TypeFilesystem
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -100,31 +100,31 @@ func (b *FilesystemBackend) Get(ctx context.Context, path string, opts *GetOptio
 	file, err := os.Open(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &BackendError{Backend: b.config.Name, Op: "get", Path: path, Err: errNotFound{}}
+			return nil, &Error{Backend: b.config.Name, Op: "get", Path: path, Err: notFoundError{}}
 		}
 		if os.IsPermission(err) {
-			return nil, &BackendError{Backend: b.config.Name, Op: "get", Path: path, Err: errAccessDenied{}}
+			return nil, &Error{Backend: b.config.Name, Op: "get", Path: path, Err: accessDeniedError{}}
 		}
-		return nil, &BackendError{Backend: b.config.Name, Op: "get", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "get", Path: path, Err: err}
 	}
 
 	// Get file info
 	info, err := file.Stat()
 	if err != nil {
 		file.Close()
-		return nil, &BackendError{Backend: b.config.Name, Op: "stat", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "stat", Path: path, Err: err}
 	}
 
 	if info.IsDir() {
 		file.Close()
-		return nil, &BackendError{Backend: b.config.Name, Op: "get", Path: path, Err: fmt.Errorf("path is a directory")}
+		return nil, &Error{Backend: b.config.Name, Op: "get", Path: path, Err: fmt.Errorf("path is a directory")}
 	}
 
 	// Calculate checksum
 	checksum, err := calculateFileChecksum(file)
 	if err != nil {
 		file.Close()
-		return nil, &BackendError{Backend: b.config.Name, Op: "checksum", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "checksum", Path: path, Err: err}
 	}
 
 	// Check conditional GET
@@ -146,7 +146,7 @@ func (b *FilesystemBackend) Get(ctx context.Context, path string, opts *GetOptio
 	// Reset file position after checksum calculation
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		file.Close()
-		return nil, &BackendError{Backend: b.config.Name, Op: "seek", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "seek", Path: path, Err: err}
 	}
 
 	// Handle range request
@@ -162,12 +162,12 @@ func (b *FilesystemBackend) Get(ctx context.Context, path string, opts *GetOptio
 
 		if start < 0 || start >= size {
 			file.Close()
-			return nil, &BackendError{Backend: b.config.Name, Op: "get", Path: path, Err: fmt.Errorf("invalid range start")}
+			return nil, &Error{Backend: b.config.Name, Op: "get", Path: path, Err: fmt.Errorf("invalid range start")}
 		}
 
 		if _, err := file.Seek(start, io.SeekStart); err != nil {
 			file.Close()
-			return nil, &BackendError{Backend: b.config.Name, Op: "seek", Path: path, Err: err}
+			return nil, &Error{Backend: b.config.Name, Op: "seek", Path: path, Err: err}
 		}
 
 		reader = &limitedReadCloser{
@@ -193,7 +193,7 @@ func (b *FilesystemBackend) Get(ctx context.Context, path string, opts *GetOptio
 // Put stores a file in the filesystem.
 func (b *FilesystemBackend) Put(ctx context.Context, path string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
 	if b.config.ReadOnly {
-		return nil, &BackendError{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("backend is read-only")}
+		return nil, &Error{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("backend is read-only")}
 	}
 
 	fullPath := b.fullPath(path)
@@ -208,7 +208,7 @@ func (b *FilesystemBackend) Put(ctx context.Context, path string, reader io.Read
 	// Check if file exists and overwrite is not allowed
 	if opts != nil && !opts.Overwrite {
 		if _, err := os.Stat(fullPath); err == nil {
-			return nil, &BackendError{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("file already exists")}
+			return nil, &Error{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("file already exists")}
 		}
 	}
 
@@ -216,14 +216,14 @@ func (b *FilesystemBackend) Put(ctx context.Context, path string, reader io.Read
 	dir := filepath.Dir(fullPath)
 	if b.config.CreateDirs {
 		if err := os.MkdirAll(dir, b.config.DirMode); err != nil {
-			return nil, &BackendError{Backend: b.config.Name, Op: "mkdir", Path: dir, Err: err}
+			return nil, &Error{Backend: b.config.Name, Op: "mkdir", Path: dir, Err: err}
 		}
 	}
 
 	// Create temporary file in same directory for atomic write
-	tmpFile, err := os.CreateTemp(dir, ".kscore-upload-*")
+	tmpFile, err := os.CreateTemp(dir, ".keystone-core-upload-*")
 	if err != nil {
-		return nil, &BackendError{Backend: b.config.Name, Op: "create", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "create", Path: path, Err: err}
 	}
 	tmpPath := tmpFile.Name()
 	defer func() {
@@ -238,29 +238,29 @@ func (b *FilesystemBackend) Put(ctx context.Context, path string, reader io.Read
 	hash := sha256.New()
 	written, err := io.Copy(io.MultiWriter(tmpFile, hash), reader)
 	if err != nil {
-		return nil, &BackendError{Backend: b.config.Name, Op: "write", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "write", Path: path, Err: err}
 	}
 
 	checksum := hex.EncodeToString(hash.Sum(nil))
 
 	// Verify checksum if provided
 	if opts != nil && opts.Checksum != "" && opts.Checksum != checksum {
-		return nil, &BackendError{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("checksum mismatch: expected %s, got %s", opts.Checksum, checksum)}
+		return nil, &Error{Backend: b.config.Name, Op: "put", Path: path, Err: fmt.Errorf("checksum mismatch: expected %s, got %s", opts.Checksum, checksum)}
 	}
 
 	// Close temp file before rename
 	if err := tmpFile.Close(); err != nil {
-		return nil, &BackendError{Backend: b.config.Name, Op: "close", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "close", Path: path, Err: err}
 	}
 
 	// Set file permissions
 	if err := os.Chmod(tmpPath, b.config.FileMode); err != nil {
-		return nil, &BackendError{Backend: b.config.Name, Op: "chmod", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "chmod", Path: path, Err: err}
 	}
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, fullPath); err != nil {
-		return nil, &BackendError{Backend: b.config.Name, Op: "rename", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "rename", Path: path, Err: err}
 	}
 
 	// Clear tmpFile so deferred cleanup doesn't try to delete
@@ -276,7 +276,7 @@ func (b *FilesystemBackend) Put(ctx context.Context, path string, reader io.Read
 // Delete removes a file from the filesystem.
 func (b *FilesystemBackend) Delete(ctx context.Context, path string) error {
 	if b.config.ReadOnly {
-		return &BackendError{Backend: b.config.Name, Op: "delete", Path: path, Err: fmt.Errorf("backend is read-only")}
+		return &Error{Backend: b.config.Name, Op: "delete", Path: path, Err: fmt.Errorf("backend is read-only")}
 	}
 
 	fullPath := b.fullPath(path)
@@ -291,9 +291,9 @@ func (b *FilesystemBackend) Delete(ctx context.Context, path string) error {
 	err := os.Remove(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &BackendError{Backend: b.config.Name, Op: "delete", Path: path, Err: errNotFound{}}
+			return &Error{Backend: b.config.Name, Op: "delete", Path: path, Err: notFoundError{}}
 		}
-		return &BackendError{Backend: b.config.Name, Op: "delete", Path: path, Err: err}
+		return &Error{Backend: b.config.Name, Op: "delete", Path: path, Err: err}
 	}
 
 	return nil
@@ -314,7 +314,7 @@ func (b *FilesystemBackend) Exists(ctx context.Context, path string) (bool, erro
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, &BackendError{Backend: b.config.Name, Op: "exists", Path: path, Err: err}
+		return false, &Error{Backend: b.config.Name, Op: "exists", Path: path, Err: err}
 	}
 	return true, nil
 }
@@ -332,9 +332,9 @@ func (b *FilesystemBackend) Stat(ctx context.Context, path string) (*FileInfo, e
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &BackendError{Backend: b.config.Name, Op: "stat", Path: path, Err: errNotFound{}}
+			return nil, &Error{Backend: b.config.Name, Op: "stat", Path: path, Err: notFoundError{}}
 		}
-		return nil, &BackendError{Backend: b.config.Name, Op: "stat", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "stat", Path: path, Err: err}
 	}
 
 	var checksum string
@@ -392,7 +392,7 @@ func (b *FilesystemBackend) List(ctx context.Context, path string, opts *ListOpt
 		if os.IsNotExist(err) {
 			return &ListResult{Files: []FileInfo{}}, nil
 		}
-		return nil, &BackendError{Backend: b.config.Name, Op: "list", Path: path, Err: err}
+		return nil, &Error{Backend: b.config.Name, Op: "list", Path: path, Err: err}
 	}
 
 	var files []FileInfo
@@ -465,7 +465,7 @@ func (b *FilesystemBackend) List(ctx context.Context, path string, opts *ListOpt
 func (b *FilesystemBackend) walkDir(ctx context.Context, fsPath, logicalPath, pattern string, opts *ListOptions, files *[]FileInfo) error {
 	entries, err := os.ReadDir(fsPath)
 	if err != nil {
-		return &BackendError{Backend: b.config.Name, Op: "list", Path: logicalPath, Err: err}
+		return &Error{Backend: b.config.Name, Op: "list", Path: logicalPath, Err: err}
 	}
 
 	for _, entry := range entries {
@@ -552,7 +552,7 @@ func (b *FilesystemBackend) Health(ctx context.Context) error {
 	// Check root directory is accessible
 	_, err := os.Stat(b.config.Root)
 	if err != nil {
-		return &BackendError{Backend: b.config.Name, Op: "health", Err: err}
+		return &Error{Backend: b.config.Name, Op: "health", Err: err}
 	}
 
 	return nil
@@ -566,7 +566,7 @@ func (b *FilesystemBackend) Close() error {
 // fullPath converts a logical path to a filesystem path.
 func (b *FilesystemBackend) fullPath(path string) string {
 	// Remove leading slash and join with root
-	if len(path) > 0 && path[0] == '/' {
+	if path != "" && path[0] == '/' {
 		path = path[1:]
 	}
 	return filepath.Join(b.config.Root, path)

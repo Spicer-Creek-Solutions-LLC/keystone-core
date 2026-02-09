@@ -586,7 +586,7 @@ func TestCalculateSimilarity(t *testing.T) {
 		expected float64
 	}{
 		{"hello", "hello", 1.0},
-		{"", "", 1.0},         // Two empty strings are identical
+		{"", "", 1.0}, // Two empty strings are identical
 		{"hello", "", 0.0},
 		{"", "hello", 0.0},
 		{"hello", "hella", 0.8}, // 4/5 match

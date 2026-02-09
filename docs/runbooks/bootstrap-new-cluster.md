@@ -78,10 +78,10 @@ Best for: Global enterprises with geo-distributed infrastructure.
 
 ```bash
 # Download the installer
-curl -sSL https://install.kscore.io | sudo bash
+curl -sSL https://install.keystone-core.io | sudo bash
 
 # Or download manually
-curl -LO https://releases.kscore.io/latest/kscore-bootstrap-linux-amd64.tar.gz
+curl -LO https://releases.keystone-core.io/latest/kscore-bootstrap-linux-amd64.tar.gz
 tar -xzf kscore-bootstrap-linux-amd64.tar.gz
 sudo mv kscore-bootstrap /usr/local/bin/
 sudo chmod +x /usr/local/bin/kscore-bootstrap
@@ -95,7 +95,7 @@ kscore-bootstrap version
 ```bash
 # Create minimal seed configuration
 cat > /tmp/seed.yaml << 'EOF'
-apiVersion: bootstrap.kscore.io/v1
+apiVersion: bootstrap.keystone-core.io/v1
 kind: SeedConfiguration
 
 metadata:
@@ -119,14 +119,14 @@ server:
 database:
   type: sqlite
   sqlite:
-    path: /var/lib/kscore/keystone.db
+    path: /var/lib/keystone-core/keystone.db
     cache_size: -64000  # 64MB
 
 nats:
   embedded: true
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/jetstream
+    store_dir: /var/lib/keystone-core/jetstream
     max_memory: 1GB
     max_file: 10GB
 
@@ -185,7 +185,7 @@ On each node (ks-server-1, ks-server-2, ks-server-3):
 
 ```bash
 # Install kscore-bootstrap
-curl -sSL https://install.kscore.io | sudo bash
+curl -sSL https://install.keystone-core.io | sudo bash
 
 # Verify installation
 kscore-bootstrap version
@@ -235,7 +235,7 @@ EOF
 
 ```bash
 cat > /tmp/seed-ha.yaml << 'EOF'
-apiVersion: bootstrap.kscore.io/v1
+apiVersion: bootstrap.keystone-core.io/v1
 kind: SeedConfiguration
 
 metadata:
@@ -303,7 +303,7 @@ nats:
     name: kscore-nats
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/jetstream
+    store_dir: /var/lib/keystone-core/jetstream
     max_memory: 4GB
     max_file: 100GB
     replicas: 3
@@ -364,8 +364,9 @@ sudo kscore-bootstrap seed \
   --config /tmp/seed-ha.yaml \
   --node ks-server-1
 
-# Get join token for other nodes
-JOIN_TOKEN=$(kscorectl cluster token --ttl 1h)
+# Get join token from bootstrap output or cluster configuration
+# The token is generated during initial cluster seed and stored in cluster config
+JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # Set from bootstrap output or config file
 echo "Join token: $JOIN_TOKEN"
 ```
 
@@ -510,7 +511,7 @@ kscore-bootstrap seed \
 
 ```bash
 # Add Keystone Core Helm repo
-helm repo add kscore https://charts.kscore.io
+helm repo add kscore https://charts.keystone-core.io
 helm repo update
 
 # Create namespace
@@ -584,11 +585,11 @@ kubectl get svc -n kscore-system
 
 ```bash
 # Install operator
-kubectl apply -f https://releases.kscore.io/operator/latest/install.yaml
+kubectl apply -f https://releases.keystone-core.io/operator/latest/install.yaml
 
 # Create KSCoreCluster resource
 cat << 'EOF' | kubectl apply -f -
-apiVersion: kscore.io/v1
+apiVersion: keystone-core.io/v1
 kind: KSCoreCluster
 metadata:
   name: production
@@ -622,7 +623,7 @@ kubectl get kscorecluster production -n kscore-system -w
 ### Complete Seed Configuration Schema
 
 ```yaml
-apiVersion: bootstrap.kscore.io/v1
+apiVersion: bootstrap.keystone-core.io/v1
 kind: SeedConfiguration
 
 metadata:
@@ -812,8 +813,8 @@ security:
 - [ ] Cluster healthy: `kscorectl cluster health`
 - [ ] Leader elected: `kscorectl cluster leader`
 - [ ] NATS cluster formed: `nats server report`
-- [ ] Database connected: `kscorectl debug db-status`
-- [ ] Quorum established: `kscorectl cluster quorum`
+- [ ] Database connected: `curl -s http://localhost:8080/health/ready` (checks DB connectivity)
+- [ ] Quorum established: `kscorectl cluster status` (check has_quorum field)
 - [ ] Failover works: Stop leader, verify new leader elected
 - [ ] API accessible via LB: `curl -k https://lb.example.com:8080/health/ready`
 
@@ -838,8 +839,8 @@ sudo systemctl stop kscore-server || true
 sudo systemctl stop nats-server || true
 
 # Clean up data directories
-sudo rm -rf /var/lib/kscore/*
-sudo rm -rf /etc/kscore/certs/*
+sudo rm -rf /var/lib/keystone-core/*
+sudo rm -rf /etc/keystone-core/certs/*
 
 # Remove systemd units
 sudo rm -f /etc/systemd/system/kscore-server.service
@@ -861,16 +862,16 @@ sudo journalctl -u kscore-server -n 200 --no-pager
 sudo systemctl stop kscore-server
 
 # Backup current state
-sudo cp -r /var/lib/kscore /var/lib/kscore.bak
-sudo cp -r /etc/kscore /etc/kscore.bak
+sudo cp -r /var/lib/keystone-core /var/lib/keystone-core.bak
+sudo cp -r /etc/keystone-core /etc/keystone-core.bak
 
 # Download previous version
-curl -LO https://releases.kscore.io/v1.4.0/kscore-server-linux-amd64
+curl -LO https://releases.keystone-core.io/v1.4.0/kscore-server-linux-amd64
 sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 sudo chmod +x /usr/local/bin/kscore-server
 
 # Restore previous configuration if needed
-# sudo cp -r /backup/kscore-config/* /etc/kscore/
+# sudo cp -r /backup/kscore-config/* /etc/keystone-core/
 
 # Start service
 sudo systemctl start kscore-server
@@ -951,10 +952,10 @@ df -h
 
 ```bash
 # Check for existing certificates
-ls -la /etc/kscore/certs/
+ls -la /etc/keystone-core/certs/
 
 # Remove stale certificates
-sudo rm -rf /etc/kscore/certs/*
+sudo rm -rf /etc/keystone-core/certs/*
 
 # Check openssl is available
 openssl version
@@ -963,7 +964,7 @@ openssl version
 sudo kscore-bootstrap cert-gen \
   --ca-cn "Keystone Core CA" \
   --server-cn "$(hostname -f)" \
-  --output /etc/kscore/certs/
+  --output /etc/keystone-core/certs/
 ```
 
 ### NATS Cluster Formation Issues
@@ -1013,8 +1014,11 @@ etcdctl member add unhealthy-node --peer-urls=https://10.0.1.12:2380
 # Test PostgreSQL connectivity
 psql -h postgres.internal -U kscore -d kscore -c "SELECT 1"
 
-# Check connection pool status
-kscorectl debug db-status
+# Check health endpoint (includes database status)
+curl -s http://localhost:8080/health/ready
+
+# Check server logs for database connection info
+journalctl -u kscore-server | grep -i "database\|postgres\|sqlite"
 
 # Check for connection limits
 psql -h postgres.internal -U postgres -c "SELECT * FROM pg_stat_activity WHERE datname = 'kscore'"
@@ -1030,8 +1034,8 @@ dig postgres.internal
 ### Node Join Failures
 
 ```bash
-# Check join token validity
-kscorectl cluster token verify "$JOIN_TOKEN"
+# Verify cluster is accessible (token validation happens during join)
+curl -k https://ks-server-1:8080/health/ready
 
 # Check network connectivity to existing nodes
 curl -k https://ks-server-1:8080/health/ready
@@ -1057,7 +1061,7 @@ sudo kscore-bootstrap join \
 ### Control Plane Optimization
 
 ```yaml
-# /etc/kscore/server.yaml additions for high load
+# /etc/keystone-core/server.yaml additions for high load
 server:
   workers: 32                    # Match CPU cores
   max_connections: 100000

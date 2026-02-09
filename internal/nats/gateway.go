@@ -783,7 +783,12 @@ func (m *GatewayManager) ConfigureNATSServer(opts *server.Options) error {
 
 // BuildGatewayURLs builds gateway URLs from the configuration
 func (m *GatewayManager) BuildGatewayURLs() []string {
-	var urls []string
+	// Count total URLs first
+	total := 0
+	for _, gw := range m.config.Gateways {
+		total += len(gw.URLs)
+	}
+	urls := make([]string, 0, total)
 
 	for _, gw := range m.config.Gateways {
 		urls = append(urls, gw.URLs...)
@@ -1898,6 +1903,8 @@ func (m *FailoverManager) checkAndTriggerFailover() {
 				m.triggerFailback()
 			}
 		}
+
+	default:
 	}
 }
 

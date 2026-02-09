@@ -154,8 +154,8 @@ kscorectl cluster health
 #### Step 3.4: Join Additional Nodes
 
 ```bash
-# Get join token
-JOIN_TOKEN=$(kscorectl cluster token)
+# Get join token from cluster config or bootstrap output
+JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # Set from config file
 
 # On each additional node
 ssh dr-server-2
@@ -213,7 +213,7 @@ kscorectl agent list --status | grep offline
 # If agents can't reach new control plane via DNS,
 # update agent configurations
 # On each agent node:
-sed -i 's/old-server/new-server/g' /etc/kscore/agent.yaml
+sed -i 's/old-server/new-server/g' /etc/keystone-core/agent.yaml
 systemctl restart kscore-agent
 ```
 
@@ -228,8 +228,8 @@ kscorectl cluster health --verbose
 # Verify all agents connected
 kscorectl agent list --status
 
-# Verify state data
-kscorectl state list
+# Verify state data by checking a known state file
+kscorectl state check /path/to/known-state.yaml
 ```
 
 #### Step 5.2: Run Integration Tests
@@ -245,11 +245,11 @@ kscore-test integration --suite recovery
 #### Step 5.3: Verify Critical Functionality
 
 ```bash
-# Test remote execution
-kscorectl exec "hostname" --target "role=webserver" --limit 1
+# Test remote execution (on a single agent)
+kscorectl exec run "role:webserver" -- hostname
 
 # Test state application
-kscorectl state check /etc/kscore/states/test.yaml
+kscorectl state check /etc/keystone-core/states/test.yaml
 
 # Test event system
 kscorectl events list --limit 10
@@ -368,7 +368,7 @@ Split-Brain State:
 # Check for multiple leaders
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node ==="
-  ssh $node "kscorectl cluster leader --local 2>/dev/null || echo 'unreachable'"
+  ssh $node "kscorectl cluster leader 2>/dev/null || echo 'unreachable'"
 done
 
 # Check etcd cluster state
@@ -474,13 +474,13 @@ Criteria for selecting authoritative partition (in order):
 # Check which partition has quorum
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node quorum status ==="
-  ssh $node "kscorectl cluster health --json | jq '.has_quorum'" 2>/dev/null || echo "unreachable"
+  ssh $node "kscorectl cluster status -o json | jq '.has_quorum'" 2>/dev/null || echo "unreachable"
 done
 
-# Check data timestamps (last write time)
+# Check data timestamps (last write time via database file mtime)
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node last write ==="
-  ssh $node "kscorectl debug db last-write 2>/dev/null" || echo "unreachable"
+  ssh $node "stat /var/lib/keystone-core/keystone-core.db 2>/dev/null | grep Modify" || echo "unreachable"
 done
 
 # Check agent counts
@@ -558,7 +558,7 @@ ssh ks-server-3 "systemctl stop etcd"
 ssh ks-server-3 "
   # Backup local data before reset
   tar czf /backup/split-brain-data-$(date +%Y%m%d-%H%M%S).tar.gz \
-    /var/lib/kscore \
+    /var/lib/keystone-core \
     /var/lib/etcd
 "
 ```
@@ -573,7 +573,7 @@ ssh ks-server-3 "
 
   # Clear local data
   rm -rf /var/lib/etcd/*
-  rm -rf /var/lib/kscore/state/*
+  rm -rf /var/lib/keystone-core/state/*
 "
 ```
 
@@ -581,15 +581,15 @@ ssh ks-server-3 "
 
 ```bash
 # On authoritative cluster, add member back
-kscorectl cluster member add ks-server-3 --peer-urls https://ks-server-3:2380
+kscorectl cluster add ks-server-3
 
-# Get join configuration
-JOIN_CONFIG=$(kscorectl cluster join-config --for ks-server-3)
+# Prepare join configuration on the rejoining node
+# The node will use cluster join command with appropriate token
 
 # On rejoining node
 ssh ks-server-3 "
   # Write join configuration
-  echo '$JOIN_CONFIG' > /etc/kscore/join.yaml
+  echo '$JOIN_CONFIG' > /etc/keystone-core/join.yaml
 
   # Start etcd in join mode
   systemctl start etcd
@@ -610,7 +610,7 @@ kscorectl cluster members
 
 # Verify all nodes see same leader
 for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "$node leader: $(ssh $node 'kscorectl cluster leader --local')"
+  echo "$node leader: $(ssh $node 'kscorectl cluster leader')"
 done
 
 # Verify quorum
@@ -625,30 +625,29 @@ etcdctl endpoint status --cluster -w table
 ##### Step 4.1: Identify Data Conflicts
 
 ```bash
-# Compare data across time periods
-kscorectl debug db diff \
-  --from "2024-01-15T10:00:00Z" \
-  --to "2024-01-15T12:00:00Z" \
-  --output conflicts.json
+# Export agent list from authoritative partition
+kscorectl agents list -o json > authoritative-agents.json
 
-# Review conflicting operations
-cat conflicts.json | jq '.conflicts[] | {type, id, operation}'
+# Compare with backup from non-authoritative partition (if available)
+# Check for agents that exist in backup but not in authoritative
+jq -r '.[].id' authoritative-agents.json | sort > auth-ids.txt
+jq -r '.[].id' backup-agents.json | sort > backup-ids.txt
+comm -13 auth-ids.txt backup-ids.txt > missing-agents.txt
 ```
 
 ##### Step 4.2: Manual Conflict Resolution
 
 ```bash
-# For each conflict, decide authoritative version
-# Example: Agent state conflicts
+# For split-brain scenarios, data reconciliation must be done manually:
+# 1. Identify the authoritative partition (usually the one with more recent data
+#    or the one that was accessible to more agents)
+# 2. Restore from the authoritative partition's backup
+# 3. Review logs from the non-authoritative partition for any critical operations
+#    that need to be replayed manually
 
-# View conflict details
-kscorectl debug conflict show conflict-123
-
-# Resolve by keeping authoritative version
-kscorectl debug conflict resolve conflict-123 --keep authoritative
-
-# Or resolve by merging (if possible)
-kscorectl debug conflict resolve conflict-123 --merge
+# Check server logs for operations during split-brain window
+journalctl -u kscore-server --since "2024-01-15 10:00" --until "2024-01-15 12:00" \
+  | grep -E "state apply|exec run|agent register"
 ```
 
 ##### Step 4.3: Replay Lost Operations
@@ -656,21 +655,28 @@ kscorectl debug conflict resolve conflict-123 --merge
 If the non-authoritative partition accepted commands that need to be preserved:
 
 ```bash
-# Export commands from backup of non-authoritative partition
+# Extract backup from non-authoritative partition
 tar xzf /backup/split-brain-data-xxx.tar.gz -C /tmp/split-data
-kscorectl debug db export-commands \
-  --from /tmp/split-data/var/lib/kscore/state \
-  --output /tmp/lost-commands.json
 
-# Review and replay approved commands
-kscorectl debug replay-commands \
-  --input /tmp/lost-commands.json \
-  --dry-run
+# Review logs from non-authoritative partition for operations to replay
+# State applies during the split-brain window:
+grep "state apply" /tmp/split-data/var/log/keystone-core/*.log
 
-# If satisfied, replay for real
-kscorectl debug replay-commands \
-  --input /tmp/lost-commands.json
+# Manual replay: re-apply any critical state files
+# Review each state file and apply if appropriate
+for state_file in /tmp/split-data/states/*.yaml; do
+  echo "Review: $state_file"
+  cat "$state_file"
+  # After review, apply with:
+  # kscorectl state apply "$state_file" --dry-run
+done
+
+# For exec commands, review and re-run manually as needed
+grep "exec run" /tmp/split-data/var/log/keystone-core/*.log
 ```
+
+> **Note**: Automated command replay is not currently implemented. Operations
+> from the non-authoritative partition must be reviewed and replayed manually.
 
 #### Phase 5: Agent Recovery (10-30 minutes)
 

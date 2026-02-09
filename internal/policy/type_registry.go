@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// PolicyTypeHandler defines the interface for custom policy type handlers
-type PolicyTypeHandler interface {
+// TypeHandler defines the interface for custom policy type handlers
+type TypeHandler interface {
 	// Type returns the policy type this handler supports
-	Type() PolicyType
+	Type() Type
 
 	// Name returns a human-readable name for this policy type
 	Name() string
@@ -25,50 +25,51 @@ type PolicyTypeHandler interface {
 	Validate(policy *Policy) error
 
 	// SupportedFeatures returns the features this handler supports
-	SupportedFeatures() []PolicyFeature
+	SupportedFeatures() []Feature
 }
 
-// PolicyFeature represents a feature supported by a policy type
-type PolicyFeature string
+// Feature represents a feature supported by a policy type
+type Feature string
 
+// FeatureDryRun and related constants.
 const (
-	FeatureDryRun        PolicyFeature = "dry_run"
-	FeatureExplainMode   PolicyFeature = "explain_mode"
-	FeatureTemplating    PolicyFeature = "templating"
-	FeatureInheritance   PolicyFeature = "inheritance"
-	FeatureCustomActions PolicyFeature = "custom_actions"
-	FeatureMetrics       PolicyFeature = "metrics"
-	FeatureDebug         PolicyFeature = "debug"
+	FeatureDryRun        Feature = "dry_run"
+	FeatureExplainMode   Feature = "explain_mode"
+	FeatureTemplating    Feature = "templating"
+	FeatureInheritance   Feature = "inheritance"
+	FeatureCustomActions Feature = "custom_actions"
+	FeatureMetrics       Feature = "metrics"
+	FeatureDebug         Feature = "debug"
 )
 
 // TypeRegistry manages custom policy type registrations
 type TypeRegistry struct {
-	handlers map[PolicyType]PolicyTypeHandler
+	handlers map[PolicyType]TypeHandler
 	metadata map[PolicyType]*TypeMetadata
 	mu       sync.RWMutex
 
 	// Callbacks
-	onRegister   []func(PolicyType, PolicyTypeHandler)
+	onRegister   []func(PolicyType, TypeHandler)
 	onUnregister []func(PolicyType)
 }
 
 // TypeMetadata contains metadata about a registered policy type
 type TypeMetadata struct {
-	Type           PolicyType
-	Name           string
-	Description    string
-	Version        string
-	Author         string
-	Features       []PolicyFeature
-	RegisteredAt   int64
+	Type            PolicyType
+	Name            string
+	Description     string
+	Version         string
+	Author          string
+	Features        []Feature
+	RegisteredAt    int64
 	EvaluationCount int64
-	ErrorCount     int64
+	ErrorCount      int64
 }
 
 // NewTypeRegistry creates a new type registry
 func NewTypeRegistry() *TypeRegistry {
 	tr := &TypeRegistry{
-		handlers: make(map[PolicyType]PolicyTypeHandler),
+		handlers: make(map[PolicyType]TypeHandler),
 		metadata: make(map[PolicyType]*TypeMetadata),
 	}
 
@@ -81,17 +82,17 @@ func NewTypeRegistry() *TypeRegistry {
 // registerBuiltins registers the built-in policy type handlers
 func (tr *TypeRegistry) registerBuiltins() {
 	// OPA handler
-	tr.Register(&OPAHandler{})
+	_ = tr.Register(&OPAHandler{}) //nolint:errcheck // builtin handlers are valid
 
 	// CEL handler
-	tr.Register(&CELHandler{})
+	_ = tr.Register(&CELHandler{}) //nolint:errcheck // builtin handlers are valid
 
 	// Builtin handler
-	tr.Register(&BuiltinHandler{})
+	_ = tr.Register(&BuiltinHandler{}) //nolint:errcheck // builtin handlers are valid
 }
 
 // Register registers a custom policy type handler
-func (tr *TypeRegistry) Register(handler PolicyTypeHandler) error {
+func (tr *TypeRegistry) Register(handler TypeHandler) error {
 	if handler == nil {
 		return fmt.Errorf("handler cannot be nil")
 	}
@@ -152,7 +153,7 @@ func (tr *TypeRegistry) Unregister(policyType PolicyType) error {
 }
 
 // Get returns the handler for a policy type
-func (tr *TypeRegistry) Get(policyType PolicyType) (PolicyTypeHandler, bool) {
+func (tr *TypeRegistry) Get(policyType PolicyType) (TypeHandler, bool) {
 	tr.mu.RLock()
 	defer tr.mu.RUnlock()
 	handler, ok := tr.handlers[policyType]
@@ -192,7 +193,7 @@ func (tr *TypeRegistry) ListMetadata() []*TypeMetadata {
 }
 
 // HasFeature checks if a policy type supports a feature
-func (tr *TypeRegistry) HasFeature(policyType PolicyType, feature PolicyFeature) bool {
+func (tr *TypeRegistry) HasFeature(policyType Type, feature Feature) bool {
 	tr.mu.RLock()
 	defer tr.mu.RUnlock()
 
@@ -241,7 +242,7 @@ func (tr *TypeRegistry) Validate(policy *Policy) error {
 }
 
 // OnRegister adds a callback for when a type is registered
-func (tr *TypeRegistry) OnRegister(callback func(PolicyType, PolicyTypeHandler)) {
+func (tr *TypeRegistry) OnRegister(callback func(PolicyType, TypeHandler)) {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 	tr.onRegister = append(tr.onRegister, callback)
@@ -257,16 +258,21 @@ func (tr *TypeRegistry) OnUnregister(callback func(PolicyType)) {
 // OPAHandler handles OPA/Rego policy evaluation
 type OPAHandler struct{}
 
-func (h *OPAHandler) Type() PolicyType { return PolicyTypeOPA }
+// Type returns the type.
+func (h *OPAHandler) Type() Type { return TypeOPA }
+// Name returns the name.
 func (h *OPAHandler) Name() string     { return "Open Policy Agent (OPA)" }
+// Description returns a description of the handler.
 func (h *OPAHandler) Description() string {
 	return "Evaluate policies using OPA/Rego policy language"
 }
 
-func (h *OPAHandler) SupportedFeatures() []PolicyFeature {
-	return []PolicyFeature{FeatureDryRun, FeatureExplainMode, FeatureDebug}
+// SupportedFeatures returns the features supported by the handler.
+func (h *OPAHandler) SupportedFeatures() []Feature {
+	return []Feature{FeatureDryRun, FeatureExplainMode, FeatureDebug}
 }
 
+// Evaluate evaluates the policy against the input.
 func (h *OPAHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
 	// Delegate to the OPA compiler in engine.go
 	result := &EvaluationResult{
@@ -276,30 +282,34 @@ func (h *OPAHandler) Evaluate(ctx context.Context, policy *Policy, input interfa
 	return result, nil
 }
 
+// Validate validates the policy definition.
 func (h *OPAHandler) Validate(policy *Policy) error {
 	if policy.Policy == "" {
 		return fmt.Errorf("OPA policy code is required")
 	}
-	// Check for package declaration
-	if len(policy.Policy) < 7 || policy.Policy[:7] != "package" {
-		// Simple check - actual OPA validation is more complex
-	}
+	// Note: Simple package declaration check - actual OPA validation is more complex
+	// and happens during evaluation. We don't fail here for flexibility.
 	return nil
 }
 
 // CELHandler handles CEL policy evaluation
 type CELHandler struct{}
 
-func (h *CELHandler) Type() PolicyType { return PolicyTypeCEL }
+// Type returns the type.
+func (h *CELHandler) Type() Type { return TypeCEL }
+// Name returns the name.
 func (h *CELHandler) Name() string     { return "Common Expression Language (CEL)" }
+// Description returns a description of the handler.
 func (h *CELHandler) Description() string {
 	return "Evaluate policies using Google's Common Expression Language"
 }
 
-func (h *CELHandler) SupportedFeatures() []PolicyFeature {
-	return []PolicyFeature{FeatureDryRun, FeatureTemplating}
+// SupportedFeatures returns the features supported by the handler.
+func (h *CELHandler) SupportedFeatures() []Feature {
+	return []Feature{FeatureDryRun, FeatureTemplating}
 }
 
+// Evaluate evaluates the policy against the input.
 func (h *CELHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
 	// Delegate to CEL evaluator in engine.go
 	result := &EvaluationResult{
@@ -309,6 +319,7 @@ func (h *CELHandler) Evaluate(ctx context.Context, policy *Policy, input interfa
 	return result, nil
 }
 
+// Validate validates the policy definition.
 func (h *CELHandler) Validate(policy *Policy) error {
 	if policy.Policy == "" {
 		return fmt.Errorf("CEL expression is required")
@@ -319,16 +330,21 @@ func (h *CELHandler) Validate(policy *Policy) error {
 // BuiltinHandler handles built-in policy types
 type BuiltinHandler struct{}
 
-func (h *BuiltinHandler) Type() PolicyType { return PolicyTypeBuiltin }
+// Type returns the type.
+func (h *BuiltinHandler) Type() Type { return TypeBuiltin }
+// Name returns the name.
 func (h *BuiltinHandler) Name() string     { return "Built-in Policies" }
+// Description returns a description of the handler.
 func (h *BuiltinHandler) Description() string {
 	return "Pre-defined policy types for common use cases"
 }
 
-func (h *BuiltinHandler) SupportedFeatures() []PolicyFeature {
-	return []PolicyFeature{FeatureDryRun, FeatureMetrics}
+// SupportedFeatures returns the features supported by the handler.
+func (h *BuiltinHandler) SupportedFeatures() []Feature {
+	return []Feature{FeatureDryRun, FeatureMetrics}
 }
 
+// Evaluate evaluates the policy against the input.
 func (h *BuiltinHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
 	// Delegate to builtin evaluator in engine.go
 	result := &EvaluationResult{
@@ -338,6 +354,7 @@ func (h *BuiltinHandler) Evaluate(ctx context.Context, policy *Policy, input int
 	return result, nil
 }
 
+// Validate validates the policy definition.
 func (h *BuiltinHandler) Validate(policy *Policy) error {
 	if policy.Policy == "" {
 		return fmt.Errorf("builtin policy name is required")
@@ -347,12 +364,12 @@ func (h *BuiltinHandler) Validate(policy *Policy) error {
 
 // CustomHandler is a base type for implementing custom policy handlers
 type CustomHandler struct {
-	typeValue       PolicyType
-	nameValue       string
+	typeValue        PolicyType
+	nameValue        string
 	descriptionValue string
-	features        []PolicyFeature
-	evaluateFunc    func(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error)
-	validateFunc    func(policy *Policy) error
+	features         []Feature
+	evaluateFunc     func(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error)
+	validateFunc     func(policy *Policy) error
 }
 
 // NewCustomHandler creates a new custom handler
@@ -372,16 +389,21 @@ type CustomHandlerOptions struct {
 	Type         PolicyType
 	Name         string
 	Description  string
-	Features     []PolicyFeature
+	Features     []Feature
 	EvaluateFunc func(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error)
 	ValidateFunc func(policy *Policy) error
 }
 
-func (h *CustomHandler) Type() PolicyType        { return h.typeValue }
-func (h *CustomHandler) Name() string            { return h.nameValue }
-func (h *CustomHandler) Description() string     { return h.descriptionValue }
-func (h *CustomHandler) SupportedFeatures() []PolicyFeature { return h.features }
+// Type returns the type.
+func (h *CustomHandler) Type() Type                         { return h.typeValue }
+// Name returns the name.
+func (h *CustomHandler) Name() string                       { return h.nameValue }
+// Description returns a description of the handler.
+func (h *CustomHandler) Description() string                { return h.descriptionValue }
+// SupportedFeatures returns the features supported by the handler.
+func (h *CustomHandler) SupportedFeatures() []Feature { return h.features }
 
+// Evaluate evaluates the policy against the input.
 func (h *CustomHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
 	if h.evaluateFunc == nil {
 		return nil, fmt.Errorf("evaluate function not implemented")
@@ -389,6 +411,7 @@ func (h *CustomHandler) Evaluate(ctx context.Context, policy *Policy, input inte
 	return h.evaluateFunc(ctx, policy, input)
 }
 
+// Validate validates the policy definition.
 func (h *CustomHandler) Validate(policy *Policy) error {
 	if h.validateFunc == nil {
 		return nil // No validation by default
@@ -484,10 +507,20 @@ type PluginConfig struct {
 	Name         string
 	Type         string
 	Description  string
-	Features     []PolicyFeature
+	Features     []Feature
 	EvaluateFunc func(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error)
 	ValidateFunc func(policy *Policy) error
 }
 
 // DefaultTypeRegistry is the global type registry
 var DefaultTypeRegistry = NewTypeRegistry()
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyTypeHandler is deprecated: Use TypeHandler instead.
+	PolicyTypeHandler = TypeHandler
+	// PolicyFeature is deprecated: Use Feature instead.
+	PolicyFeature = Feature
+)

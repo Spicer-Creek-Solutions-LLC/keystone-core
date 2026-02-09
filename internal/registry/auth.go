@@ -16,47 +16,47 @@ import (
 
 // Common errors.
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrTokenExpired       = errors.New("token expired")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrTokenExpired        = errors.New("token expired")
 	ErrUnsupportedRegistry = errors.New("unsupported registry type")
-	ErrAuthFailed         = errors.New("authentication failed")
+	ErrAuthFailed          = errors.New("authentication failed")
 )
 
-// RegistryType represents the type of container registry.
-type RegistryType string
+// Type represents the type of container registry.
+type Type string
 
 const (
-	// RegistryTypeDocker represents Docker Hub.
-	RegistryTypeDocker RegistryType = "docker"
-	// RegistryTypeECR represents AWS Elastic Container Registry.
-	RegistryTypeECR RegistryType = "ecr"
-	// RegistryTypeGCR represents Google Container Registry.
-	RegistryTypeGCR RegistryType = "gcr"
-	// RegistryTypeACR represents Azure Container Registry.
-	RegistryTypeACR RegistryType = "acr"
-	// RegistryTypeGitHub represents GitHub Container Registry.
-	RegistryTypeGitHub RegistryType = "ghcr"
-	// RegistryTypeQuay represents Quay.io registry.
-	RegistryTypeQuay RegistryType = "quay"
-	// RegistryTypeGeneric represents a generic OCI registry.
-	RegistryTypeGeneric RegistryType = "generic"
+	// TypeDocker represents Docker Hub.
+	TypeDocker Type = "docker"
+	// TypeECR represents AWS Elastic Container Registry.
+	TypeECR Type = "ecr"
+	// TypeGCR represents Google Container Registry.
+	TypeGCR Type = "gcr"
+	// TypeACR represents Azure Container Registry.
+	TypeACR Type = "acr"
+	// TypeGitHub represents GitHub Container Registry.
+	TypeGitHub Type = "ghcr"
+	// TypeQuay represents Quay.io registry.
+	TypeQuay Type = "quay"
+	// TypeGeneric represents a generic OCI registry.
+	TypeGeneric Type = "generic"
 )
 
 // Credential represents registry authentication credentials.
 type Credential struct {
-	Type        RegistryType `json:"type"`
-	Registry    string       `json:"registry"`
-	Username    string       `json:"username,omitempty"`
-	Password    string       `json:"password,omitempty"`
-	Token       string       `json:"token,omitempty"`
-	RefreshToken string      `json:"refreshToken,omitempty"`
-	ExpiresAt   time.Time    `json:"expiresAt,omitempty"`
+	Type         Type `json:"type"`
+	Registry     string       `json:"registry"`
+	Username     string       `json:"username,omitempty"`
+	Password     string       `json:"password,omitempty"`
+	Token        string       `json:"token,omitempty"`
+	RefreshToken string       `json:"refreshToken,omitempty"`
+	ExpiresAt    time.Time    `json:"expiresAt,omitempty"`
 
 	// Cloud provider specific
-	Region      string `json:"region,omitempty"`       // AWS ECR region
-	AccountID   string `json:"accountId,omitempty"`    // AWS account ID
-	ProjectID   string `json:"projectId,omitempty"`    // GCP project ID
-	TenantID    string `json:"tenantId,omitempty"`     // Azure tenant ID
+	Region         string `json:"region,omitempty"`         // AWS ECR region
+	AccountID      string `json:"accountId,omitempty"`      // AWS account ID
+	ProjectID      string `json:"projectId,omitempty"`      // GCP project ID
+	TenantID       string `json:"tenantId,omitempty"`       // Azure tenant ID
 	SubscriptionID string `json:"subscriptionId,omitempty"` // Azure subscription
 }
 
@@ -104,12 +104,12 @@ type Authenticator interface {
 	// Refresh refreshes an expired credential.
 	Refresh(ctx context.Context, cred *Credential) (*Credential, error)
 	// Type returns the registry type this authenticator handles.
-	Type() RegistryType
+	Type() Type
 }
 
 // AuthManager manages registry authentication.
 type AuthManager struct {
-	authenticators map[RegistryType]Authenticator
+	authenticators map[Type]Authenticator
 	credentials    map[string]*Credential
 	httpClient     *http.Client
 	mu             sync.RWMutex
@@ -118,12 +118,12 @@ type AuthManager struct {
 
 // AuthEvent represents an authentication event.
 type AuthEvent struct {
-	Type       string       `json:"type"`
-	Registry   string       `json:"registry"`
-	RegistryType RegistryType `json:"registryType"`
-	Success    bool         `json:"success"`
-	Error      string       `json:"error,omitempty"`
-	Timestamp  time.Time    `json:"timestamp"`
+	Type         string    `json:"type"`
+	Registry     string    `json:"registry"`
+	RegistryType Type      `json:"registryType"`
+	Success      bool      `json:"success"`
+	Error        string    `json:"error,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
 }
 
 // AuthEventListener is called when authentication events occur.
@@ -132,7 +132,7 @@ type AuthEventListener func(*AuthEvent)
 // NewAuthManager creates a new authentication manager.
 func NewAuthManager() *AuthManager {
 	am := &AuthManager{
-		authenticators: make(map[RegistryType]Authenticator),
+		authenticators: make(map[Type]Authenticator),
 		credentials:    make(map[string]*Credential),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -290,7 +290,7 @@ func (am *AuthManager) GetAuthConfig(ctx context.Context, registry string) (*Aut
 func (am *AuthManager) LoadDockerConfig(ctx context.Context, config *DockerConfig) error {
 	for registry, authConfig := range config.Auths {
 		cred := &Credential{
-			Type:     DetectRegistryType(registry),
+			Type:     DetectType(registry),
 			Registry: registry,
 		}
 
@@ -357,30 +357,30 @@ func (am *AuthManager) emit(event *AuthEvent) {
 	}
 }
 
-// DetectRegistryType detects the registry type from a registry URL.
-func DetectRegistryType(registry string) RegistryType {
+// DetectType detects the registry type from a registry URL.
+func DetectType(registry string) Type {
 	registry = strings.ToLower(registry)
 
 	if strings.Contains(registry, "docker.io") || registry == "docker.io" || registry == "index.docker.io" {
-		return RegistryTypeDocker
+		return TypeDocker
 	}
 	if strings.Contains(registry, ".dkr.ecr.") && strings.Contains(registry, ".amazonaws.com") {
-		return RegistryTypeECR
+		return TypeECR
 	}
 	if strings.Contains(registry, "gcr.io") || strings.Contains(registry, "pkg.dev") {
-		return RegistryTypeGCR
+		return TypeGCR
 	}
 	if strings.Contains(registry, ".azurecr.io") {
-		return RegistryTypeACR
+		return TypeACR
 	}
 	if strings.Contains(registry, "ghcr.io") {
-		return RegistryTypeGitHub
+		return TypeGitHub
 	}
 	if strings.Contains(registry, "quay.io") {
-		return RegistryTypeQuay
+		return TypeQuay
 	}
 
-	return RegistryTypeGeneric
+	return TypeGeneric
 }
 
 // DockerAuthenticator handles Docker Hub authentication.
@@ -394,15 +394,15 @@ func NewDockerAuthenticator(client *http.Client) *DockerAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *DockerAuthenticator) Type() RegistryType {
-	return RegistryTypeDocker
+func (a *DockerAuthenticator) Type() Type {
+	return TypeDocker
 }
 
 // Authenticate authenticates with Docker Hub.
 func (a *DockerAuthenticator) Authenticate(ctx context.Context, cred *Credential) (*Credential, error) {
 	authURL := "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/alpine:pull"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", authURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", authURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -466,8 +466,8 @@ func NewECRAuthenticator(client *http.Client) *ECRAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *ECRAuthenticator) Type() RegistryType {
-	return RegistryTypeECR
+func (a *ECRAuthenticator) Type() Type {
+	return TypeECR
 }
 
 // Authenticate authenticates with AWS ECR.
@@ -518,8 +518,8 @@ func NewGCRAuthenticator(client *http.Client) *GCRAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *GCRAuthenticator) Type() RegistryType {
-	return RegistryTypeGCR
+func (a *GCRAuthenticator) Type() Type {
+	return TypeGCR
 }
 
 // Authenticate authenticates with GCR.
@@ -570,8 +570,8 @@ func NewACRAuthenticator(client *http.Client) *ACRAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *ACRAuthenticator) Type() RegistryType {
-	return RegistryTypeACR
+func (a *ACRAuthenticator) Type() Type {
+	return TypeACR
 }
 
 // Authenticate authenticates with ACR.
@@ -628,8 +628,8 @@ func NewGitHubAuthenticator(client *http.Client) *GitHubAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *GitHubAuthenticator) Type() RegistryType {
-	return RegistryTypeGitHub
+func (a *GitHubAuthenticator) Type() Type {
+	return TypeGitHub
 }
 
 // Authenticate authenticates with GitHub Container Registry.
@@ -683,15 +683,15 @@ func NewQuayAuthenticator(client *http.Client) *QuayAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *QuayAuthenticator) Type() RegistryType {
-	return RegistryTypeQuay
+func (a *QuayAuthenticator) Type() Type {
+	return TypeQuay
 }
 
 // Authenticate authenticates with Quay.io.
 func (a *QuayAuthenticator) Authenticate(ctx context.Context, cred *Credential) (*Credential, error) {
 	// Quay uses robot accounts or encrypted passwords
 	if cred.Token == "" && (cred.Username == "" || cred.Password == "") {
-		return nil, errors.New("Quay requires token or username/password")
+		return nil, errors.New("quay requires token or username/password")
 	}
 
 	result := *cred
@@ -732,8 +732,8 @@ func NewGenericAuthenticator(client *http.Client) *GenericAuthenticator {
 }
 
 // Type returns the registry type.
-func (a *GenericAuthenticator) Type() RegistryType {
-	return RegistryTypeGeneric
+func (a *GenericAuthenticator) Type() Type {
+	return TypeGeneric
 }
 
 // Authenticate authenticates with a generic OCI registry.
@@ -746,7 +746,7 @@ func (a *GenericAuthenticator) Authenticate(ctx context.Context, cred *Credentia
 
 	// Check if the registry supports token authentication
 	pingURL := registryURL + "/v2/"
-	req, err := http.NewRequestWithContext(ctx, "GET", pingURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", pingURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -793,7 +793,7 @@ func (a *GenericAuthenticator) handleBearerAuth(ctx context.Context, cred *Crede
 	}
 	tokenURL.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", tokenURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", tokenURL.String(), http.NoBody)
 	if err != nil {
 		return nil, err
 	}

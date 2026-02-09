@@ -4,6 +4,7 @@ package topology
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -290,7 +291,7 @@ func TestHACluster_MultiMember(t *testing.T) {
 			var output strings.Builder
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
@@ -409,7 +410,7 @@ func TestHACluster_Reconnection(t *testing.T) {
 	var exitCode int32
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -635,7 +636,7 @@ func TestHACluster_ContinuousOperation(t *testing.T) {
 			var summary *pb.BatchSummary
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
@@ -689,7 +690,7 @@ func TestHACluster_WorkDistribution(t *testing.T) {
 		var summary *pb.BatchSummary
 		for {
 			resp, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

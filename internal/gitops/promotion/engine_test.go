@@ -8,29 +8,29 @@ import (
 
 // MockDeployer for testing
 type MockDeployer struct {
-	deployErr        error
-	currentRevision  string
-	setWeightErr     error
-	deployCalls      int
-	setWeightCalls   int
-	lastWeight       int
+	deployErr       error
+	currentRevision string
+	setWeightErr    error
+	deployCalls     int
+	setWeightCalls  int
+	lastWeight      int
 }
 
 // MockRemediator for testing automatic remediation
 type MockRemediator struct {
-	rollbackErr         error
-	scaleDownErr        error
-	shiftTrafficErr     error
-	executeWorkflowErr  error
-	rollbackCalls       int
-	scaleDownCalls      int
-	shiftTrafficCalls   int
-	workflowCalls       int
-	lastTargetRevision  string
-	lastReplicas        int
-	lastTrafficWeight   int
-	lastWorkflow        string
-	collectDiagnostics  bool
+	rollbackErr        error
+	scaleDownErr       error
+	shiftTrafficErr    error
+	executeWorkflowErr error
+	rollbackCalls      int
+	scaleDownCalls     int
+	shiftTrafficCalls  int
+	workflowCalls      int
+	lastTargetRevision string
+	lastReplicas       int
+	lastTrafficWeight  int
+	lastWorkflow       string
+	collectDiagnostics bool
 }
 
 func (m *MockRemediator) Rollback(ctx context.Context, env *Environment, toRevision string) error {
@@ -194,7 +194,7 @@ func TestEnginePromoteImmediate(t *testing.T) {
 		t.Fatalf("RegisterPipeline failed: %v", err)
 	}
 
-	req := &PromotionRequest{
+	req := &Request{
 		Pipeline:      "test-pipeline",
 		ToEnvironment: "dev",
 		Revision:      "abc123",
@@ -244,7 +244,7 @@ func TestEnginePromoteWithApproval(t *testing.T) {
 		t.Fatalf("RegisterPipeline failed: %v", err)
 	}
 
-	req := &PromotionRequest{
+	req := &Request{
 		Pipeline:      "test-pipeline",
 		ToEnvironment: "prod",
 		Revision:      "abc123",
@@ -298,7 +298,7 @@ func TestEngineApprovePromotion(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result, err := engine.Promote(ctx, &PromotionRequest{
+	result, err := engine.Promote(ctx, &Request{
 		Pipeline:      "test-pipeline",
 		ToEnvironment: "prod",
 		Revision:      "abc123",
@@ -363,7 +363,7 @@ func TestEngineRejectPromotion(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result, err := engine.Promote(ctx, &PromotionRequest{
+	result, err := engine.Promote(ctx, &Request{
 		Pipeline:      "test-pipeline",
 		ToEnvironment: "prod",
 		Revision:      "abc123",
@@ -430,7 +430,7 @@ func TestEngineCanaryDeployment(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result, err := engine.Promote(ctx, &PromotionRequest{
+	result, err := engine.Promote(ctx, &Request{
 		Pipeline:      "test-pipeline",
 		ToEnvironment: "prod",
 		Revision:      "abc123",
@@ -487,7 +487,7 @@ func TestEngineListPromotions(t *testing.T) {
 
 	// Create multiple promotions
 	for i := 0; i < 3; i++ {
-		_, err := engine.Promote(ctx, &PromotionRequest{
+		_, err := engine.Promote(ctx, &Request{
 			Pipeline:      "test-pipeline",
 			ToEnvironment: "dev",
 			Revision:      "abc123",
@@ -534,7 +534,7 @@ func TestEngineListPendingPromotions(t *testing.T) {
 	ctx := context.Background()
 
 	// Create pending promotion
-	_, err := engine.Promote(ctx, &PromotionRequest{
+	_, err := engine.Promote(ctx, &Request{
 		Pipeline:      "approval-pipeline",
 		ToEnvironment: "prod",
 		Revision:      "abc123",
@@ -545,7 +545,7 @@ func TestEngineListPendingPromotions(t *testing.T) {
 	}
 
 	// Create completed promotion
-	_, err = engine.Promote(ctx, &PromotionRequest{
+	_, err = engine.Promote(ctx, &Request{
 		Pipeline:      "immediate-pipeline",
 		ToEnvironment: "dev",
 		Revision:      "abc123",
@@ -589,7 +589,7 @@ func TestEngineConfigurableThresholds(t *testing.T) {
 		Environments: []*Environment{
 			{Name: "dev"},
 			{
-				Name:       "staging",
+				Name: "staging",
 				Thresholds: &ThresholdConfig{
 					Name: "staging-config",
 					Thresholds: []Threshold{
@@ -615,11 +615,11 @@ func TestEngineConfigurableThresholds(t *testing.T) {
 
 	// Test getEffectiveThresholds for different environments
 	tests := []struct {
-		envName       string
-		expectPreset  bool
-		presetName    string
-		expectCustom  bool
-		expectPolicy  FailurePolicy
+		envName      string
+		expectPreset bool
+		presetName   string
+		expectCustom bool
+		expectPolicy FailurePolicy
 	}{
 		{
 			envName:      "dev",
@@ -895,11 +895,11 @@ func TestEngineRemediationConfig(t *testing.T) {
 			{
 				Name: "staging",
 				Remediation: &RemediationConfig{
-					Enabled:             true,
-					Strategy:            RemediationScaleDown,
-					MaxAttempts:         2,
-					RetryDelay:          5 * time.Second,
-					NotifyOnRemediation: true,
+					Enabled:              true,
+					Strategy:             RemediationScaleDown,
+					MaxAttempts:          2,
+					RetryDelay:           5 * time.Second,
+					NotifyOnRemediation:  true,
 					NotificationChannels: []string{"slack"},
 				},
 			},

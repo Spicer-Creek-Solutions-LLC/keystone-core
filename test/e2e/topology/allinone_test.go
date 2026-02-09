@@ -4,6 +4,7 @@ package topology
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -82,8 +83,8 @@ func TestMain(m *testing.M) {
 
 	// Cleanup
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	_ = testEnv.Stop(ctx)
+	cancel()
 
 	os.Exit(code)
 }
@@ -235,7 +236,7 @@ func TestAllInOne_BatchCommand(t *testing.T) {
 	var responses []*pb.BatchExecuteCommandResponse
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -301,7 +302,7 @@ func TestAllInOne_TargetedBatchCommand(t *testing.T) {
 	var summary *pb.BatchSummary
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

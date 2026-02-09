@@ -37,8 +37,8 @@ func DefaultSubscriberConfig() SubscriberConfig {
 	}
 }
 
-// LogsMessage represents a logs message from an agent.
-type LogsMessage struct {
+// Message represents a logs message from an agent.
+type Message struct {
 	// AgentID is the source agent
 	AgentID string `json:"agent_id"`
 
@@ -71,7 +71,7 @@ type LogEntryMessage struct {
 type Subscriber struct {
 	nc     *nats.Conn
 	js     nats.JetStreamContext
-	store  *LogsStore
+	store  *Store
 	config SubscriberConfig
 
 	sub    *nats.Subscription
@@ -94,7 +94,7 @@ type Subscriber struct {
 }
 
 // NewSubscriber creates a new logs subscriber.
-func NewSubscriber(nc *nats.Conn, store *LogsStore, config SubscriberConfig) *Subscriber {
+func NewSubscriber(nc *nats.Conn, store *Store, config SubscriberConfig) *Subscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		nc:     nc,
@@ -196,7 +196,7 @@ func (s *Subscriber) handleMessage(msg *nats.Msg) {
 	s.mu.Unlock()
 
 	// Parse the message
-	var logsMsg LogsMessage
+	var logsMsg Message
 	if err := json.Unmarshal(msg.Data, &logsMsg); err != nil {
 		s.recordError(fmt.Errorf("failed to parse logs message: %w", err))
 		s.nak(msg)

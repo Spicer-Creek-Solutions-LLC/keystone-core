@@ -601,11 +601,13 @@ func (fps *FilePolicyStore) Save(policy *CapabilityPolicy) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(fps.path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: policy directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create policy directory: %w", err)
 	}
 
-	if err := os.WriteFile(fps.path, data, 0644); err != nil {
+	//nolint:gosec // G306: policy files need to be readable by policy engine
+	if err := os.WriteFile(fps.path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write policy file: %w", err)
 	}
 

@@ -47,7 +47,7 @@ type RollbackOperation struct {
 	UpgradeID       string                        `json:"upgrade_id"`
 	Reason          string                        `json:"reason"`
 	Automatic       bool                          `json:"automatic"`
-	Status          UpgradeStatus                 `json:"status"`
+	Status          Status                        `json:"status"`
 	FromVersion     Version                       `json:"from_version"`
 	ToVersion       Version                       `json:"to_version"`
 	StartTime       time.Time                     `json:"start_time"`
@@ -62,7 +62,7 @@ type RollbackOperation struct {
 type RollbackNodeState struct {
 	NodeID      string        `json:"node_id"`
 	Component   ComponentType `json:"component"`
-	Status      UpgradeStatus `json:"status"`
+	Status      Status        `json:"status"`
 	FromVersion Version       `json:"from_version"`
 	ToVersion   Version       `json:"to_version"`
 	StartTime   time.Time     `json:"start_time"`
@@ -78,7 +78,7 @@ type RollbackError struct {
 }
 
 // RollbackUpgrade performs a rollback for an upgrade.
-func (m *RollbackManager) RollbackUpgrade(ctx context.Context, upgradeState *UpgradeState, reason string, automatic bool) (*RollbackOperation, error) {
+func (m *RollbackManager) RollbackUpgrade(ctx context.Context, upgradeState *State, reason string, automatic bool) (*RollbackOperation, error) {
 	m.mu.Lock()
 	if _, exists := m.activeRollbacks[upgradeState.ID]; exists {
 		m.mu.Unlock()
@@ -144,7 +144,7 @@ func (m *RollbackManager) RollbackUpgrade(ctx context.Context, upgradeState *Upg
 }
 
 // executeRollback performs the actual rollback.
-func (m *RollbackManager) executeRollback(ctx context.Context, op *RollbackOperation, upgradeState *UpgradeState) error {
+func (m *RollbackManager) executeRollback(ctx context.Context, op *RollbackOperation, upgradeState *State) error {
 	// Set timeout if configured
 	if m.config.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -291,10 +291,6 @@ func (m *RollbackManager) waitForHealth(ctx context.Context, nodeID string) bool
 			return true
 		}
 
-		select {
-		case <-ctx.Done():
-			return false
-		}
 		if err := wait.ForContext(ctx, 5*time.Second); err != nil {
 			return false
 		}
@@ -304,7 +300,7 @@ func (m *RollbackManager) waitForHealth(ctx context.Context, nodeID string) bool
 }
 
 // getNodesInReverseOrder returns nodes in reverse upgrade order.
-func (m *RollbackManager) getNodesInReverseOrder(upgradeState *UpgradeState) []string {
+func (m *RollbackManager) getNodesInReverseOrder(upgradeState *State) []string {
 	// Collect nodes with their completion times
 	type nodeTime struct {
 		id   string
@@ -379,7 +375,7 @@ type RollbackDecision struct {
 }
 
 // EvaluateRollbackNeed evaluates whether a rollback is needed.
-func (m *RollbackManager) EvaluateRollbackNeed(ctx context.Context, upgradeState *UpgradeState) *RollbackDecision {
+func (m *RollbackManager) EvaluateRollbackNeed(ctx context.Context, upgradeState *State) *RollbackDecision {
 	decision := &RollbackDecision{
 		ShouldRollback: false,
 		Reasons:        make([]string, 0),
@@ -409,13 +405,8 @@ func (m *RollbackManager) EvaluateRollbackNeed(ctx context.Context, upgradeState
 		}
 	}
 
-	// Check if upgrade is stuck
-	if upgradeState.Status == StatusInProgress {
-		// Check for progress - simplified check
-		if upgradeState.Progress > 0 && upgradeState.Progress < 100 {
-			// Could check if progress has stalled
-		}
-	}
+	// Note: Could add stall detection here by tracking if progress hasn't changed
+	// over time. For now, we rely on other health indicators.
 
 	// Check health of upgraded nodes
 	unhealthyCount := 0
@@ -457,7 +448,7 @@ type RollbackPlan struct {
 }
 
 // PlanRollback creates a rollback plan without executing it.
-func (m *RollbackManager) PlanRollback(ctx context.Context, upgradeState *UpgradeState) (*RollbackPlan, error) {
+func (m *RollbackManager) PlanRollback(ctx context.Context, upgradeState *State) (*RollbackPlan, error) {
 	plan := &RollbackPlan{
 		UpgradeID:       upgradeState.ID,
 		NodesToRollback: make([]string, 0),

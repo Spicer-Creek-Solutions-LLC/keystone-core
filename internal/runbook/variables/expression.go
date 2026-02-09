@@ -323,7 +323,7 @@ func ternary(trueVal, falseVal, condition interface{}) interface{} {
 }
 
 // inCollection returns true if item is in the collection.
-func inCollection(item interface{}, collection interface{}) bool {
+func inCollection(item, collection interface{}) bool {
 	itemStr := fmt.Sprintf("%v", item)
 
 	switch col := collection.(type) {
@@ -352,6 +352,7 @@ func inCollection(item interface{}, collection interface{}) bool {
 // CompareResult represents the result of a comparison.
 type CompareResult int
 
+// CompareLess and related constants.
 const (
 	CompareLess    CompareResult = -1
 	CompareEqual   CompareResult = 0
@@ -421,15 +422,15 @@ func ValidateExpression(expr string) error {
 
 	_, err := template.New("validate").
 		Funcs(template.FuncMap{
-			"eq": func(a, b interface{}) bool { return true },
-			"ne": func(a, b interface{}) bool { return true },
-			"lt": func(a, b interface{}) bool { return true },
-			"le": func(a, b interface{}) bool { return true },
-			"gt": func(a, b interface{}) bool { return true },
-			"ge": func(a, b interface{}) bool { return true },
-			"and": func(args ...interface{}) bool { return true },
-			"or":  func(args ...interface{}) bool { return true },
-			"not": func(v interface{}) bool { return true },
+			"eq":         func(a, b interface{}) bool { return true },
+			"ne":         func(a, b interface{}) bool { return true },
+			"lt":         func(a, b interface{}) bool { return true },
+			"le":         func(a, b interface{}) bool { return true },
+			"gt":         func(a, b interface{}) bool { return true },
+			"ge":         func(a, b interface{}) bool { return true },
+			"and":        func(args ...interface{}) bool { return true },
+			"or":         func(args ...interface{}) bool { return true },
+			"not":        func(v interface{}) bool { return true },
 			"contains":   func(a, b string) bool { return true },
 			"startsWith": func(a, b string) bool { return true },
 			"endsWith":   func(a, b string) bool { return true },

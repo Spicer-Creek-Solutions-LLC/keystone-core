@@ -28,7 +28,7 @@ Single-node demo deployment with embedded NATS + SQLite for evaluation and devel
 | `admin_password` | string | (required) | Admin user password |
 | `api_port` | integer | 8080 | API server port |
 | `metrics_port` | integer | 9090 | Metrics endpoint port |
-| `data_dir` | string | /var/lib/kscore | Data directory |
+| `data_dir` | string | /var/lib/keystone-core | Data directory |
 | `log_level` | string | info | Log level (debug, info, warn, error) |
 
 **Features:**
@@ -59,8 +59,8 @@ include:
 # Bootstrap demo environment
 kscore-agent bootstrap \
   --apply-blueprint kscore/demo \
-  --param admin_password=demo-password \
-  --param log_level=debug
+  --blueprint-param kscore/demo:admin_password=demo-password \
+  --blueprint-param kscore/demo:log_level=debug
 ```
 
 ---
@@ -118,7 +118,7 @@ include:
         - nats://nats-1.internal:4222
         - nats://nats-2.internal:4222
         - nats://nats-3.internal:4222
-      nats_creds_file: /etc/kscore/nats.creds
+      nats_creds_file: /etc/keystone-core/nats.creds
       tls_mode: auto
     features:
       etcd_clustering: true
@@ -424,6 +424,8 @@ Complete monitoring stack with Prometheus, Grafana, Alertmanager, and exporters.
 | `pushgateway` | false | Push gateway for batch jobs |
 | `loki` | false | Log aggregation |
 | `tempo` | false | Distributed tracing |
+| `default_dashboards` | true | Install default Grafana dashboards |
+| `default_alerts` | true | Install default Prometheus alert rules |
 
 **Usage:**
 
@@ -806,7 +808,7 @@ File distribution backend for large file management.
 | `s3_secret_key` | string | | S3 secret key (sensitive) |
 | `cache_enabled` | boolean | true | Enable local caching |
 | `cache_size` | string | 10GB | Cache size |
-| `cache_path` | string | /var/cache/kscore/files | Cache path |
+| `cache_path` | string | /var/cache/keystone-core/files | Cache path |
 | `checksum_algorithm` | string | sha256 | Checksum algorithm |
 | `max_file_size` | string | 1GB | Maximum file size |
 | `compression_enabled` | boolean | true | Enable compression |
@@ -907,7 +909,7 @@ include:
 **Example CRD Usage:**
 
 ```yaml
-apiVersion: kscore.io/v1
+apiVersion: keystone-core.io/v1
 kind: KSCoreCluster
 metadata:
   name: production-cluster
@@ -943,7 +945,7 @@ Lightweight edge node configuration for constrained environments.
 | `heartbeat_interval` | string | 60s | Heartbeat interval |
 | `state_sync_interval` | string | 5m | State sync interval |
 | `offline_mode` | boolean | true | Support offline operation |
-| `offline_state_cache` | string | /var/lib/kscore/cache | Offline state cache path |
+| `offline_state_cache` | string | /var/lib/keystone-core/cache | Offline state cache path |
 | `bandwidth_limit` | string | | Bandwidth limit (e.g., 1mbps) |
 | `resource_limits_cpu` | string | 100m | CPU limit |
 | `resource_limits_memory` | string | 128Mi | Memory limit |
@@ -992,22 +994,22 @@ Community-contributed blueprints are available from third-party registries.
 
 | Blueprint | Description | Registry |
 |-----------|-------------|----------|
-| `community/wordpress` | WordPress deployment with MySQL | community.kscore.io |
-| `community/elasticsearch` | Elasticsearch cluster | community.kscore.io |
-| `community/redis-cluster` | Redis cluster with Sentinel | community.kscore.io |
-| `community/kafka` | Apache Kafka cluster | community.kscore.io |
-| `community/vault` | HashiCorp Vault deployment | community.kscore.io |
-| `community/consul` | HashiCorp Consul cluster | community.kscore.io |
-| `community/traefik` | Traefik ingress controller | community.kscore.io |
-| `community/cert-manager` | Certificate management | community.kscore.io |
-| `community/minio` | MinIO object storage | community.kscore.io |
-| `community/gitlab-runner` | GitLab CI runner | community.kscore.io |
+| `community/wordpress` | WordPress deployment with MySQL | community.keystone-core.io |
+| `community/elasticsearch` | Elasticsearch cluster | community.keystone-core.io |
+| `community/redis-cluster` | Redis cluster with Sentinel | community.keystone-core.io |
+| `community/kafka` | Apache Kafka cluster | community.keystone-core.io |
+| `community/vault` | HashiCorp Vault deployment | community.keystone-core.io |
+| `community/consul` | HashiCorp Consul cluster | community.keystone-core.io |
+| `community/traefik` | Traefik ingress controller | community.keystone-core.io |
+| `community/cert-manager` | Certificate management | community.keystone-core.io |
+| `community/minio` | MinIO object storage | community.keystone-core.io |
+| `community/gitlab-runner` | GitLab CI runner | community.keystone-core.io |
 
 ### Using Community Blueprints
 
 ```bash
 # Add community registry
-kscorectl blueprint registry add community https://community.kscore.io
+kscorectl blueprint registry add community https://community.keystone-core.io
 
 # Search community blueprints
 kscorectl blueprint search wordpress --registry community

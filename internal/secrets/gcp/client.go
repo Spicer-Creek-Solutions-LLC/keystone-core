@@ -148,11 +148,12 @@ func buildClientOptions(cfg *ClientConfig) ([]option.ClientOption, error) {
 		// Use application default credentials (no additional options needed)
 
 	case AuthMethodServiceAccount:
-		if len(cfg.ServiceAccountKeyJSON) > 0 {
-			opts = append(opts, option.WithCredentialsJSON(cfg.ServiceAccountKeyJSON))
-		} else if cfg.ServiceAccountKeyFile != "" {
-			opts = append(opts, option.WithCredentialsFile(cfg.ServiceAccountKeyFile))
-		} else {
+		switch {
+		case len(cfg.ServiceAccountKeyJSON) > 0:
+			opts = append(opts, option.WithCredentialsJSON(cfg.ServiceAccountKeyJSON)) //nolint:staticcheck // SA1019: option.WithCredentialsJSON is deprecated but requires using impersonate package for migration
+		case cfg.ServiceAccountKeyFile != "":
+			opts = append(opts, option.WithCredentialsFile(cfg.ServiceAccountKeyFile)) //nolint:staticcheck // SA1019: option.WithCredentialsFile is deprecated but requires using impersonate package for migration
+		default:
 			return nil, errors.New("service_account_key_file or service_account_key_json is required for service account authentication")
 		}
 
@@ -164,7 +165,7 @@ func buildClientOptions(cfg *ClientConfig) ([]option.ClientOption, error) {
 		if cfg.ImpersonateServiceAccount == "" {
 			return nil, errors.New("impersonate_service_account is required for impersonation authentication")
 		}
-		opts = append(opts, option.ImpersonateCredentials(cfg.ImpersonateServiceAccount, cfg.ImpersonateDelegates...))
+		opts = append(opts, option.ImpersonateCredentials(cfg.ImpersonateServiceAccount, cfg.ImpersonateDelegates...)) //nolint:staticcheck // SA1019: option.ImpersonateCredentials is deprecated but requires using impersonate package for migration
 
 	default:
 		return nil, fmt.Errorf("unsupported auth method: %s", cfg.AuthMethod)
@@ -479,7 +480,7 @@ func (c *Client) ListSecrets(ctx context.Context, opts ...ListSecretsOption) ([]
 
 	req := &secretmanagerpb.ListSecretsRequest{
 		Parent:   c.buildParent(),
-		PageSize: int32(options.pageSize),
+		PageSize: int32(options.pageSize), //nolint:gosec // G115: pagination size
 		Filter:   options.filter,
 	}
 
@@ -539,7 +540,7 @@ func (c *Client) ListSecretVersions(ctx context.Context, name string, opts ...Li
 
 	req := &secretmanagerpb.ListSecretVersionsRequest{
 		Parent:   secretName,
-		PageSize: int32(options.pageSize),
+		PageSize: int32(options.pageSize), //nolint:gosec // G115: pagination size
 		Filter:   options.filter,
 	}
 
@@ -670,9 +671,9 @@ func extractSecretShortName(name string) string {
 
 func secretMetadataFromProto(s *secretmanagerpb.Secret) *SecretMetadata {
 	meta := &SecretMetadata{
-		Name:       s.Name,
-		Labels:     s.Labels,
-		Etag:       s.Etag,
+		Name:        s.Name,
+		Labels:      s.Labels,
+		Etag:        s.Etag,
 		Annotations: s.Annotations,
 	}
 
@@ -742,10 +743,10 @@ func secretMetadataFromProto(s *secretmanagerpb.Secret) *SecretMetadata {
 
 func secretVersionInfoFromProto(v *secretmanagerpb.SecretVersion) *SecretVersionInfo {
 	info := &SecretVersionInfo{
-		Name:    v.Name,
-		Version: extractVersionFromName(v.Name),
-		State:   SecretVersionState(v.State.String()),
-		Etag:    v.Etag,
+		Name:                           v.Name,
+		Version:                        extractVersionFromName(v.Name),
+		State:                          SecretVersionState(v.State.String()),
+		Etag:                           v.Etag,
 		ClientSpecifiedPayloadChecksum: v.ClientSpecifiedPayloadChecksum,
 	}
 
@@ -798,6 +799,7 @@ func translateError(err error) error {
 		return fmt.Errorf("%w: %s", secrets.ErrInvalidPath, st.Message())
 	case codes.FailedPrecondition:
 		return fmt.Errorf("operation failed: %s", st.Message())
+	default:
 	}
 
 	return err

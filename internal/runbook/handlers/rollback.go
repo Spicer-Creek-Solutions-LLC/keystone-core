@@ -121,7 +121,7 @@ func (h *RollbackHandler) getTimeout(config map[string]interface{}) time.Duratio
 }
 
 // buildResult builds a step result from a rollback result.
-func (h *RollbackHandler) buildResult(result *orchestration.OrchestrationResult, orchestrationID string, startTime time.Time) *runbook.StepResult {
+func (h *RollbackHandler) buildResult(result *orchestration.Result, orchestrationID string, startTime time.Time) *runbook.StepResult {
 	outputs := map[string]interface{}{
 		"original_orchestration_id": orchestrationID,
 	}
@@ -146,11 +146,12 @@ func (h *RollbackHandler) buildResult(result *orchestration.OrchestrationResult,
 	success := result != nil && result.Status == orchestration.StatusCompleted
 	var message string
 
-	if success {
+	switch {
+	case success:
 		message = fmt.Sprintf("rollback completed successfully for orchestration %s", orchestrationID)
-	} else if result != nil {
+	case result != nil:
 		message = fmt.Sprintf("rollback %s for orchestration %s", result.Status, orchestrationID)
-	} else {
+	default:
 		message = "rollback completed with unknown status"
 	}
 
@@ -165,8 +166,8 @@ func (h *RollbackHandler) buildResult(result *orchestration.OrchestrationResult,
 // buildErrorResult builds an error result.
 func (h *RollbackHandler) buildErrorResult(orchestrationID string, err error, startTime time.Time) *runbook.StepResult {
 	return &runbook.StepResult{
-		Success: false,
-		Message: fmt.Sprintf("rollback failed for orchestration %s: %v", orchestrationID, err),
+		Success:  false,
+		Message:  fmt.Sprintf("rollback failed for orchestration %s: %v", orchestrationID, err),
 		Duration: time.Since(startTime),
 		Outputs: map[string]interface{}{
 			"original_orchestration_id": orchestrationID,

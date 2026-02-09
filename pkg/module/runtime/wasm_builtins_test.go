@@ -65,11 +65,11 @@ func TestWasmHostFunctionsWithRegistry(t *testing.T) {
 	}
 
 	// Verify capability can be retrieved from registry
-	cap, err := registry.Get("fs.read")
+	capability, err := registry.Get("fs.read")
 	if err != nil {
 		t.Errorf("failed to get capability: %v", err)
 	}
-	if cap == nil {
+	if capability == nil {
 		t.Error("capability should not be nil")
 	}
 }
@@ -87,9 +87,9 @@ func TestWasmHostFunctionsMultipleCapabilities(t *testing.T) {
 		capabilities.NewKVCapability(ctx, "test-namespace", nil),
 	}
 
-	for _, cap := range caps {
-		if err := registry.Register(cap); err != nil {
-			t.Fatalf("failed to register %s: %v", cap.Name(), err)
+	for _, capability := range caps {
+		if err := registry.Register(capability); err != nil {
+			t.Fatalf("failed to register %s: %v", capability.Name(), err)
 		}
 	}
 
@@ -100,11 +100,11 @@ func TestWasmHostFunctionsMultipleCapabilities(t *testing.T) {
 
 	// Verify each capability is retrievable
 	for _, c := range caps {
-		cap, err := whf.registry.Get(c.Name())
+		capability, err := whf.registry.Get(c.Name())
 		if err != nil {
 			t.Errorf("failed to get %s: %v", c.Name(), err)
 		}
-		if cap == nil {
+		if capability == nil {
 			t.Errorf("%s capability should not be nil", c.Name())
 		}
 	}
@@ -156,32 +156,32 @@ func TestWasmHostFunctionsCapabilityTypeAssertions(t *testing.T) {
 	whf := NewWasmHostFunctions(registry)
 
 	// Verify type assertions work correctly
-	if cap, err := whf.registry.Get("fs.read"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.FSReadCapability); !ok {
+	if capability, err := whf.registry.Get("fs.read"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.FSReadCapability); !ok {
 			t.Error("fs.read should be *FSReadCapability")
 		}
 	}
 
-	if cap, err := whf.registry.Get("fs.write"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.FSWriteCapability); !ok {
+	if capability, err := whf.registry.Get("fs.write"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.FSWriteCapability); !ok {
 			t.Error("fs.write should be *FSWriteCapability")
 		}
 	}
 
-	if cap, err := whf.registry.Get("log"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.LogCapability); !ok {
+	if capability, err := whf.registry.Get("log"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.LogCapability); !ok {
 			t.Error("log should be *LogCapability")
 		}
 	}
 
-	if cap, err := whf.registry.Get("time"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.TimeCapability); !ok {
+	if capability, err := whf.registry.Get("time"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.TimeCapability); !ok {
 			t.Error("time should be *TimeCapability")
 		}
 	}
 
-	if cap, err := whf.registry.Get("kv"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.KVCapability); !ok {
+	if capability, err := whf.registry.Get("kv"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.KVCapability); !ok {
 			t.Error("kv should be *KVCapability")
 		}
 	}
@@ -224,9 +224,9 @@ func TestWasmHostFunctionsRegistryIntegration(t *testing.T) {
 		capabilities.NewKVCapability(ctx, "test-namespace", nil),
 	}
 
-	for _, cap := range caps {
-		if err := registry.Register(cap); err != nil {
-			t.Fatalf("failed to register %s: %v", cap.Name(), err)
+	for _, capability := range caps {
+		if err := registry.Register(capability); err != nil {
+			t.Fatalf("failed to register %s: %v", capability.Name(), err)
 		}
 	}
 
@@ -234,11 +234,11 @@ func TestWasmHostFunctionsRegistryIntegration(t *testing.T) {
 
 	// Verify all capabilities are accessible
 	for _, c := range caps {
-		cap, err := whf.registry.Get(c.Name())
+		capability, err := whf.registry.Get(c.Name())
 		if err != nil {
 			t.Errorf("Get(%s) failed: %v", c.Name(), err)
 		}
-		if cap == nil {
+		if capability == nil {
 			t.Errorf("Get(%s) returned nil", c.Name())
 		}
 	}

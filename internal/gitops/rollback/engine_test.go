@@ -8,20 +8,20 @@ import (
 
 // MockExecutor for testing
 type MockExecutor struct {
-	rollbackType      RollbackType
-	executeErr        error
-	executeResult     *RollbackResult
-	previousRevision  string
-	lastKnownGood     string
-	getPrevErr        error
-	getLastGoodErr    error
+	rollbackType     Type
+	executeErr       error
+	executeResult    *Result
+	previousRevision string
+	lastKnownGood    string
+	getPrevErr       error
+	getLastGoodErr   error
 }
 
-func (m *MockExecutor) Type() RollbackType {
+func (m *MockExecutor) Type() Type {
 	return m.rollbackType
 }
 
-func (m *MockExecutor) Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error) {
+func (m *MockExecutor) Execute(ctx context.Context, config *Config, request *Request) (*Result, error) {
 	if m.executeErr != nil {
 		return nil, m.executeErr
 	}
@@ -38,13 +38,13 @@ func (m *MockExecutor) Execute(ctx context.Context, config *RollbackConfig, requ
 		revision = "def456" // Default fallback
 	}
 
-	return &RollbackResult{
+	return &Result{
 		PreviousRevision: "abc123",
 		CurrentRevision:  revision,
 	}, nil
 }
 
-func (m *MockExecutor) GetPreviousRevision(ctx context.Context, config *RollbackConfig) (string, error) {
+func (m *MockExecutor) GetPreviousRevision(ctx context.Context, config *Config) (string, error) {
 	if m.getPrevErr != nil {
 		return "", m.getPrevErr
 	}
@@ -54,7 +54,7 @@ func (m *MockExecutor) GetPreviousRevision(ctx context.Context, config *Rollback
 	return "prev123", nil
 }
 
-func (m *MockExecutor) GetLastKnownGood(ctx context.Context, config *RollbackConfig) (string, error) {
+func (m *MockExecutor) GetLastKnownGood(ctx context.Context, config *Config) (string, error) {
 	if m.getLastGoodErr != nil {
 		return "", m.getLastGoodErr
 	}
@@ -66,12 +66,12 @@ func (m *MockExecutor) GetLastKnownGood(ctx context.Context, config *RollbackCon
 
 func TestEngineRegisterExecutor(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 
 	engine.RegisterExecutor(executor)
 
 	engine.mu.RLock()
-	registered, ok := engine.executors[RollbackTypeArgoCD]
+	registered, ok := engine.executors[TypeArgoCD]
 	engine.mu.RUnlock()
 
 	if !ok {
@@ -85,12 +85,12 @@ func TestEngineRegisterExecutor(t *testing.T) {
 
 func TestEngineExecuteImmediate(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -98,7 +98,7 @@ func TestEngineExecuteImmediate(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test rollback",
 		RequestedBy: "test-user",
@@ -121,12 +121,12 @@ func TestEngineExecuteImmediate(t *testing.T) {
 
 func TestEngineExecuteWithApproval(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerManual,
 		Application:     "test-app",
@@ -135,7 +135,7 @@ func TestEngineExecuteWithApproval(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test rollback",
 		RequestedBy: "test-user",
@@ -162,12 +162,12 @@ func TestEngineExecuteWithApproval(t *testing.T) {
 
 func TestEngineApproveRollback(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerManual,
 		Application:     "test-app",
@@ -175,7 +175,7 @@ func TestEngineApproveRollback(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test rollback",
 		RequestedBy: "test-user",
@@ -217,12 +217,12 @@ func TestEngineApproveRollback(t *testing.T) {
 
 func TestEngineRejectRollback(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerManual,
 		Application:     "test-app",
@@ -230,7 +230,7 @@ func TestEngineRejectRollback(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test rollback",
 		RequestedBy: "test-user",
@@ -272,12 +272,12 @@ func TestEngineRejectRollback(t *testing.T) {
 
 func TestEngineListRollbacks(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -289,7 +289,7 @@ func TestEngineListRollbacks(t *testing.T) {
 
 	// Execute multiple rollbacks
 	for i := 0; i < 3; i++ {
-		request := &RollbackRequest{
+		request := &Request{
 			ConfigName:  "test-rollback",
 			Reason:      "Test rollback",
 			RequestedBy: "test-user",
@@ -309,15 +309,15 @@ func TestEngineListRollbacks(t *testing.T) {
 
 func TestEngineListPendingRollbacks(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
 	ctx := context.Background()
 
 	// Create pending rollback
-	pendingConfig := &RollbackConfig{
+	pendingConfig := &Config{
 		Name:            "pending-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerManual,
 		Application:     "test-app",
@@ -325,7 +325,7 @@ func TestEngineListPendingRollbacks(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	_, err := engine.Execute(ctx, pendingConfig, &RollbackRequest{
+	_, err := engine.Execute(ctx, pendingConfig, &Request{
 		ConfigName:  "pending-rollback",
 		Reason:      "Test",
 		RequestedBy: "user",
@@ -335,9 +335,9 @@ func TestEngineListPendingRollbacks(t *testing.T) {
 	}
 
 	// Create completed rollback
-	completedConfig := &RollbackConfig{
+	completedConfig := &Config{
 		Name:            "completed-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -345,7 +345,7 @@ func TestEngineListPendingRollbacks(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	_, err = engine.Execute(ctx, completedConfig, &RollbackRequest{
+	_, err = engine.Execute(ctx, completedConfig, &Request{
 		ConfigName:  "completed-rollback",
 		Reason:      "Test",
 		RequestedBy: "user",
@@ -368,14 +368,14 @@ func TestEngineListPendingRollbacks(t *testing.T) {
 func TestEngineStrategyPrevious(t *testing.T) {
 	engine := NewEngine()
 	executor := &MockExecutor{
-		rollbackType:     RollbackTypeArgoCD,
+		rollbackType:     TypeArgoCD,
 		previousRevision: "prev123",
 	}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyPreviousRevision,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -383,7 +383,7 @@ func TestEngineStrategyPrevious(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test",
 		RequestedBy: "user",
@@ -403,14 +403,14 @@ func TestEngineStrategyPrevious(t *testing.T) {
 func TestEngineStrategyLastKnownGood(t *testing.T) {
 	engine := NewEngine()
 	executor := &MockExecutor{
-		rollbackType:  RollbackTypeArgoCD,
+		rollbackType:  TypeArgoCD,
 		lastKnownGood: "good123",
 	}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategyLastKnownGood,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -418,7 +418,7 @@ func TestEngineStrategyLastKnownGood(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test",
 		RequestedBy: "user",
@@ -437,12 +437,12 @@ func TestEngineStrategyLastKnownGood(t *testing.T) {
 
 func TestEngineStrategySpecific(t *testing.T) {
 	engine := NewEngine()
-	executor := &MockExecutor{rollbackType: RollbackTypeArgoCD}
+	executor := &MockExecutor{rollbackType: TypeArgoCD}
 	engine.RegisterExecutor(executor)
 
-	config := &RollbackConfig{
+	config := &Config{
 		Name:            "test-rollback",
-		Type:            RollbackTypeArgoCD,
+		Type:            TypeArgoCD,
 		Strategy:        StrategySpecificRevision,
 		Trigger:         TriggerAutomatic,
 		Application:     "test-app",
@@ -451,7 +451,7 @@ func TestEngineStrategySpecific(t *testing.T) {
 		Timeout:         30 * time.Second,
 	}
 
-	request := &RollbackRequest{
+	request := &Request{
 		ConfigName:  "test-rollback",
 		Reason:      "Test",
 		RequestedBy: "user",

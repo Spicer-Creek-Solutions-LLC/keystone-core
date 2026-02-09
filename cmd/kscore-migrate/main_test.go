@@ -118,7 +118,7 @@ func TestRunCommandFlags(t *testing.T) {
 
 	batchSizeFlag := runCmd.Flags().Lookup("batch-size")
 	if batchSizeFlag == nil {
-		t.Error("expected --batch-size flag on run command")
+		t.Fatal("expected --batch-size flag on run command")
 	}
 	if batchSizeFlag.DefValue != "100" {
 		t.Errorf("expected batch-size default to be '100', got %s", batchSizeFlag.DefValue)
@@ -131,7 +131,7 @@ func TestRunCommandFlags(t *testing.T) {
 
 	skipExistingFlag := runCmd.Flags().Lookup("skip-existing")
 	if skipExistingFlag == nil {
-		t.Error("expected --skip-existing flag on run command")
+		t.Fatal("expected --skip-existing flag on run command")
 	}
 	if skipExistingFlag.DefValue != "true" {
 		t.Errorf("expected skip-existing default to be 'true', got %s", skipExistingFlag.DefValue)

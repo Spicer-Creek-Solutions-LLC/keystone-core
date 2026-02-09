@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	resolveLockFile      string
-	resolveUpdate        bool
-	resolveAllowPre      bool
-	resolveTimeout       time.Duration
-	resolveCacheDir      string
-	resolveOffline       bool
+	resolveLockFile string
+	resolveUpdate   bool
+	resolveAllowPre bool
+	resolveTimeout  time.Duration
+	resolveCacheDir string
+	resolveOffline  bool
 )
 
 var resolveCmd = &cobra.Command{
@@ -206,7 +206,7 @@ func (c *mockRegistryClient) isEmpty() bool {
 
 func (c *mockRegistryClient) ListVersions(name string) ([]string, error) {
 	if versions, ok := c.modules[name]; ok {
-		var result []string
+		result := make([]string, 0, len(versions))
 		for v := range versions {
 			result = append(result, v)
 		}

@@ -197,8 +197,8 @@ Examples:
 		// Create federation domain
 		fedDomain := &federation.FederatedDomain{
 			TrustDomain:     trustDomain,
-			Type:            federation.FederationType(fedType),
-			State:           federation.FederationStatePending,
+			Type:            federation.Type(fedType),
+			State:           federation.StatePending,
 			BundleEndpoint:  fedBundleEndpoint,
 			RefreshInterval: fedRefreshInterval,
 			CreatedAt:       time.Now(),

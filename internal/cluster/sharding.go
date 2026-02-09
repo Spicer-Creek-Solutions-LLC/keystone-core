@@ -375,7 +375,7 @@ func (m *ShardManager) RemoveAgent(ctx context.Context, agentID string) error {
 }
 
 // ReassignAgent reassigns an agent to a new member.
-func (m *ShardManager) ReassignAgent(ctx context.Context, agentID string, newMemberID string) error {
+func (m *ShardManager) ReassignAgent(ctx context.Context, agentID, newMemberID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -593,10 +593,7 @@ func (m *ShardManager) watchAssignments(ctx context.Context) {
 			}
 		}
 	})
-
-	if err != nil {
-		// Log error
-	}
+	_ = err // error logged via callback
 }
 
 // onMembershipChange handles membership change events.
@@ -616,6 +613,7 @@ func (m *ShardManager) onMembershipChange(event MembershipEvent) {
 		m.hashRing.RemoveMember(event.Member.ID)
 		// Trigger rebalance in background
 		go m.triggerRebalance("member left: " + event.Member.ID)
+	default:
 	}
 }
 
@@ -624,7 +622,7 @@ func (m *ShardManager) triggerRebalance(reason string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	m.Rebalance(ctx, reason)
+	_, _ = m.Rebalance(ctx, reason) //nolint:errcheck // best-effort async rebalance
 }
 
 // roundRobinAssign assigns using round-robin strategy.

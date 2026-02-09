@@ -98,6 +98,7 @@ func DefaultConfig() *Config {
 }
 
 func shouldSample(rate float64) bool {
+	//nolint:gosec // G404: math/rand used for probabilistic sampling, not security
 	return rand.Float64() < rate // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- sampling does not require crypto randomness
 }
 

@@ -12,8 +12,8 @@ import (
 
 // mockAuthenticator is a test authenticator
 type mockAuthenticator struct {
-	name        string
-	authFunc    func(ctx context.Context, credentials string) (*Principal, error)
+	name     string
+	authFunc func(ctx context.Context, credentials string) (*Principal, error)
 }
 
 func (m *mockAuthenticator) Name() string {

@@ -8,46 +8,47 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// BootstrapEvent represents events that can occur during bootstrap
-type BootstrapEvent string
+// Event represents events that can occur during bootstrap
+type Event string
 
+// Event constants define events that can occur during bootstrap.
 const (
-	BootstrapEventStart            BootstrapEvent = "start"
-	BootstrapEventValidated        BootstrapEvent = "validated"
-	BootstrapEventDepsInstalled    BootstrapEvent = "deps_installed"
-	BootstrapEventServerInstalled  BootstrapEvent = "server_installed"
-	BootstrapEventServerConfigured BootstrapEvent = "server_configured"
-	BootstrapEventServerStarted    BootstrapEvent = "server_started"
-	BootstrapEventClusterFormed    BootstrapEvent = "cluster_formed"
-	BootstrapEventAgentsInstalled  BootstrapEvent = "agents_installed"
-	BootstrapEventStatesApplied    BootstrapEvent = "states_applied"
-	BootstrapEventVerified         BootstrapEvent = "verified"
-	BootstrapEventHandoffComplete  BootstrapEvent = "handoff_complete"
-	BootstrapEventFail             BootstrapEvent = "fail"
-	BootstrapEventSkipAgents       BootstrapEvent = "skip_agents"
-	BootstrapEventSkipStates       BootstrapEvent = "skip_states"
-	BootstrapEventSkipVerification BootstrapEvent = "skip_verification"
-	BootstrapEventRollback         BootstrapEvent = "rollback"
+	BootstrapEventStart            Event = "start"
+	BootstrapEventValidated        Event = "validated"
+	BootstrapEventDepsInstalled    Event = "deps_installed"
+	BootstrapEventServerInstalled  Event = "server_installed"
+	BootstrapEventServerConfigured Event = "server_configured"
+	BootstrapEventServerStarted    Event = "server_started"
+	BootstrapEventClusterFormed    Event = "cluster_formed"
+	BootstrapEventAgentsInstalled  Event = "agents_installed"
+	BootstrapEventStatesApplied    Event = "states_applied"
+	BootstrapEventVerified         Event = "verified"
+	BootstrapEventHandoffComplete  Event = "handoff_complete"
+	BootstrapEventFail             Event = "fail"
+	BootstrapEventSkipAgents       Event = "skip_agents"
+	BootstrapEventSkipStates       Event = "skip_states"
+	BootstrapEventSkipVerification Event = "skip_verification"
+	BootstrapEventRollback         Event = "rollback"
 )
 
-// BootstrapCallbacks defines callbacks for bootstrap state transitions
-type BootstrapCallbacks struct {
-	OnPhaseStarted   func(phase BootstrapPhase)
-	OnPhaseCompleted func(phase BootstrapPhase)
-	OnFailed         func(phase BootstrapPhase, err error)
-	OnProgress       func(phase BootstrapPhase, progress int, message string)
+// Callbacks defines callbacks for bootstrap state transitions
+type Callbacks struct {
+	OnPhaseStarted   func(phase Phase)
+	OnPhaseCompleted func(phase Phase)
+	OnFailed         func(phase Phase, err error)
+	OnProgress       func(phase Phase, progress int, message string)
 	OnCleanupStarted func()
-	OnComplete       func(result *BootstrapResult)
+	OnComplete       func(result *Result)
 }
 
 // ManagedBootstrap wraps a bootstrap operation with explicit state machine
 type ManagedBootstrap struct {
-	Status    *BootstrapStatus
-	Result    *BootstrapResult
-	machine   *statemachine.Machine[BootstrapPhase, BootstrapEvent]
-	callbacks *BootstrapCallbacks
+	Status    *Status
+	Result    *Result
+	machine   *statemachine.Machine[Phase, Event]
+	callbacks *Callbacks
 
-	mode        BootstrapMode
+	mode        Mode
 	clusterName string
 	progress    int
 	message     string
@@ -58,13 +59,13 @@ type ManagedBootstrap struct {
 }
 
 // NewManagedBootstrap creates a new managed bootstrap operation
-func NewManagedBootstrap(mode BootstrapMode, clusterName string, callbacks *BootstrapCallbacks) *ManagedBootstrap {
+func NewManagedBootstrap(mode Mode, clusterName string, callbacks *Callbacks) *ManagedBootstrap {
 	mb := &ManagedBootstrap{
-		Status: &BootstrapStatus{
+		Status: &Status{
 			Phase:   PhaseInitializing,
 			Message: "Initializing bootstrap",
 		},
-		Result: &BootstrapResult{
+		Result: &Result{
 			Success: false,
 		},
 		callbacks:   callbacks,
@@ -79,55 +80,55 @@ func NewManagedBootstrap(mode BootstrapMode, clusterName string, callbacks *Boot
 }
 
 // buildStateMachine creates the bootstrap state machine
-func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[BootstrapPhase, BootstrapEvent] {
-	builder := statemachine.New[BootstrapPhase, BootstrapEvent](PhaseInitializing).
+func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[Phase, Event] {
+	builder := statemachine.New[Phase, Event](PhaseInitializing).
 		WithHistory(20)
 
 	// Initializing -> Validating
 	builder.AddTransition(PhaseInitializing, BootstrapEventStart, PhaseValidating).
-		OnEnter(PhaseValidating, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseValidating, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseValidating)
 		})
 
 	// Validating -> InstallingDeps
 	builder.AddTransition(PhaseValidating, BootstrapEventValidated, PhaseInstallingDeps).
-		OnEnter(PhaseInstallingDeps, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseInstallingDeps, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseInstallingDeps)
 		})
 
 	// InstallingDeps -> InstallingServer
 	builder.AddTransition(PhaseInstallingDeps, BootstrapEventDepsInstalled, PhaseInstallingServer).
-		OnEnter(PhaseInstallingServer, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseInstallingServer, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseInstallingServer)
 		})
 
 	// InstallingServer -> ConfiguringServer
 	builder.AddTransition(PhaseInstallingServer, BootstrapEventServerInstalled, PhaseConfiguringServer).
-		OnEnter(PhaseConfiguringServer, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseConfiguringServer, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseConfiguringServer)
 		})
 
 	// ConfiguringServer -> StartingServer
 	builder.AddTransition(PhaseConfiguringServer, BootstrapEventServerConfigured, PhaseStartingServer).
-		OnEnter(PhaseStartingServer, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseStartingServer, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseStartingServer)
 		})
 
 	// StartingServer -> FormingCluster
 	builder.AddTransition(PhaseStartingServer, BootstrapEventServerStarted, PhaseFormingCluster).
-		OnEnter(PhaseFormingCluster, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseFormingCluster, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseFormingCluster)
 		})
 
 	// FormingCluster -> InstallingAgents
 	builder.AddTransition(PhaseFormingCluster, BootstrapEventClusterFormed, PhaseInstallingAgents).
-		OnEnter(PhaseInstallingAgents, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseInstallingAgents, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseInstallingAgents)
 		})
 
 	// FormingCluster -> ApplyingStates (skip agents)
 	builder.AddTransition(PhaseFormingCluster, BootstrapEventSkipAgents, PhaseApplyingStates).
-		OnEnter(PhaseApplyingStates, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseApplyingStates, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseApplyingStates)
 		})
 
@@ -136,13 +137,13 @@ func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[BootstrapP
 
 	// ApplyingStates -> Verifying
 	builder.AddTransition(PhaseApplyingStates, BootstrapEventStatesApplied, PhaseVerifying).
-		OnEnter(PhaseVerifying, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseVerifying, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseVerifying)
 		})
 
 	// ApplyingStates -> Handoff (skip verification)
 	builder.AddTransition(PhaseApplyingStates, BootstrapEventSkipVerification, PhaseHandoff).
-		OnEnter(PhaseHandoff, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseHandoff, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onPhaseEnter(PhaseHandoff)
 		})
 
@@ -151,12 +152,12 @@ func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[BootstrapP
 
 	// Handoff -> Complete
 	builder.AddTransition(PhaseHandoff, BootstrapEventHandoffComplete, PhaseComplete).
-		OnEnter(PhaseComplete, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+		OnEnter(PhaseComplete, func(_ context.Context, _ Phase, _ Phase) {
 			mb.onComplete()
 		})
 
 	// Fail transitions from any non-terminal state
-	failablePhases := []BootstrapPhase{
+	failablePhases := []Phase{
 		PhaseInitializing, PhaseValidating, PhaseInstallingDeps, PhaseInstallingServer,
 		PhaseConfiguringServer, PhaseStartingServer, PhaseFormingCluster,
 		PhaseInstallingAgents, PhaseApplyingStates, PhaseVerifying, PhaseHandoff,
@@ -166,7 +167,7 @@ func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[BootstrapP
 		builder.AddTransition(phase, BootstrapEventFail, PhaseFailed)
 	}
 
-	builder.OnEnter(PhaseFailed, func(_ context.Context, _ BootstrapPhase, _ BootstrapPhase) {
+	builder.OnEnter(PhaseFailed, func(_ context.Context, _ Phase, _ Phase) {
 		mb.onFailed()
 	})
 
@@ -174,7 +175,7 @@ func (mb *ManagedBootstrap) buildStateMachine() *statemachine.Machine[BootstrapP
 }
 
 // onPhaseEnter is called when entering a new phase
-func (mb *ManagedBootstrap) onPhaseEnter(phase BootstrapPhase) {
+func (mb *ManagedBootstrap) onPhaseEnter(phase Phase) {
 	mb.phaseStart = time.Now()
 	mb.Status.Phase = phase
 	mb.Status.CurrentStep = string(phase)
@@ -221,7 +222,7 @@ func (mb *ManagedBootstrap) onFailed() {
 }
 
 // phaseProgress returns the progress percentage for a phase
-func phaseProgress(phase BootstrapPhase) int {
+func phaseProgress(phase Phase) int {
 	switch phase {
 	case PhaseInitializing:
 		return 0
@@ -365,7 +366,7 @@ func (mb *ManagedBootstrap) Fail(err error) error {
 }
 
 // SetResult sets the bootstrap result
-func (mb *ManagedBootstrap) SetResult(result *BootstrapResult) {
+func (mb *ManagedBootstrap) SetResult(result *Result) {
 	mb.Result = result
 }
 
@@ -382,7 +383,7 @@ func (mb *ManagedBootstrap) UpdateProgress(progress int, message string) {
 }
 
 // Phase returns the current bootstrap phase
-func (mb *ManagedBootstrap) Phase() BootstrapPhase {
+func (mb *ManagedBootstrap) Phase() Phase {
 	return mb.machine.State()
 }
 
@@ -431,22 +432,22 @@ func (mb *ManagedBootstrap) Error() error {
 }
 
 // History returns the state transition history
-func (mb *ManagedBootstrap) History() *statemachine.History[BootstrapPhase, BootstrapEvent] {
+func (mb *ManagedBootstrap) History() *statemachine.History[Phase, Event] {
 	return mb.machine.History()
 }
 
 // AvailableEvents returns events valid for the current state
-func (mb *ManagedBootstrap) AvailableEvents() []BootstrapEvent {
+func (mb *ManagedBootstrap) AvailableEvents() []Event {
 	return mb.machine.AvailableEvents()
 }
 
 // CanTransition checks if an event is valid for current state
-func (mb *ManagedBootstrap) CanTransition(event BootstrapEvent) bool {
+func (mb *ManagedBootstrap) CanTransition(event Event) bool {
 	return mb.machine.CanFire(event)
 }
 
-// PhaseToString converts a BootstrapPhase to a display string
-func PhaseToString(phase BootstrapPhase) string {
+// PhaseToString converts a Phase to a display string
+func PhaseToString(phase Phase) string {
 	switch phase {
 	case PhaseInitializing:
 		return "Initializing"
@@ -513,7 +514,7 @@ func (mb *ManagedBootstrap) StateDiagram() string {
 }
 
 // RunFullBootstrapWorkflow executes a complete bootstrap workflow with state machine management
-func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPhase func(BootstrapPhase) error) error {
+func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts Options, doPhase func(Phase) error) error {
 	// Start
 	if err := mb.Start(); err != nil {
 		return fmt.Errorf("failed to start: %w", err)
@@ -521,7 +522,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Validating
 	if err := doPhase(PhaseValidating); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkValidated(); err != nil {
@@ -530,7 +531,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Installing dependencies
 	if err := doPhase(PhaseInstallingDeps); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkDepsInstalled(); err != nil {
@@ -539,7 +540,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Installing server
 	if err := doPhase(PhaseInstallingServer); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkServerInstalled(); err != nil {
@@ -548,7 +549,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Configuring server
 	if err := doPhase(PhaseConfiguringServer); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkServerConfigured(); err != nil {
@@ -557,7 +558,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Starting server
 	if err := doPhase(PhaseStartingServer); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkServerStarted(); err != nil {
@@ -566,7 +567,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Forming cluster
 	if err := doPhase(PhaseFormingCluster); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkClusterFormed(); err != nil {
@@ -575,7 +576,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Installing agents
 	if err := doPhase(PhaseInstallingAgents); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 	if err := mb.MarkAgentsInstalled(); err != nil {
@@ -584,7 +585,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Applying states
 	if err := doPhase(PhaseApplyingStates); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
 
@@ -594,7 +595,7 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 			return err
 		}
 		if err := doPhase(PhaseVerifying); err != nil {
-			mb.Fail(err)
+			_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 			return err
 		}
 		if err := mb.MarkVerified(); err != nil {
@@ -609,12 +610,8 @@ func RunFullBootstrapWorkflow(mb *ManagedBootstrap, opts BootstrapOptions, doPha
 
 	// Handoff
 	if err := doPhase(PhaseHandoff); err != nil {
-		mb.Fail(err)
+		_ = mb.Fail(err) //nolint:errcheck // best-effort state transition
 		return err
 	}
-	if err := mb.MarkHandoffComplete(); err != nil {
-		return err
-	}
-
-	return nil
+	return mb.MarkHandoffComplete()
 }

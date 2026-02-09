@@ -354,12 +354,12 @@ func TestParameterValidator_StringConstraints(t *testing.T) {
 func TestParameterValidator_NumericConstraints(t *testing.T) {
 	v := NewParameterValidator()
 
-	min := 1.0
-	max := 100.0
+	minVal := 1.0
+	maxVal := 100.0
 	schema := ParameterSchema{
 		Type:    "number",
-		Minimum: &min,
-		Maximum: &max,
+		Minimum: &minVal,
+		Maximum: &maxVal,
 	}
 
 	tests := []struct {

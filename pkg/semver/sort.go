@@ -88,11 +88,11 @@ func LatestMatching(versions []Version, constraint Constraint) Version {
 	return Latest(matching)
 }
 
-// Range returns all versions between min and max (inclusive).
-func Range(versions []Version, min, max Version) []Version {
+// Range returns all versions between min and maxVal (inclusive).
+func Range(versions []Version, minVal, maxVal Version) []Version {
 	var result []Version
 	for _, v := range versions {
-		if v.Compare(min) >= 0 && v.Compare(max) <= 0 {
+		if v.Compare(minVal) >= 0 && v.Compare(maxVal) <= 0 {
 			result = append(result, v)
 		}
 	}

@@ -13,9 +13,9 @@ import (
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // TestHarness provides the infrastructure for load tests.
@@ -332,7 +332,7 @@ func (cp *SimulatedControlPlane) SendCommand(ctx context.Context, agentID, comma
 }
 
 // BroadcastCommand sends a command to multiple agents concurrently.
-func (cp *SimulatedControlPlane) BroadcastCommand(ctx context.Context, agentIDs []string, command string, args []string, timeout time.Duration, concurrency int) (int, int, *LatencyCollector) {
+func (cp *SimulatedControlPlane) BroadcastCommand(ctx context.Context, agentIDs []string, command string, args []string, timeout time.Duration, concurrency int) (successCount, failCount int, latencies *LatencyCollector) {
 	if concurrency <= 0 {
 		concurrency = 50
 	}
@@ -345,7 +345,7 @@ func (cp *SimulatedControlPlane) BroadcastCommand(ctx context.Context, agentIDs 
 	for _, agentID := range agentIDs {
 		select {
 		case <-ctx.Done():
-			break
+			goto done
 		case sem <- struct{}{}:
 		}
 
@@ -367,6 +367,7 @@ func (cp *SimulatedControlPlane) BroadcastCommand(ctx context.Context, agentIDs 
 		}(agentID)
 	}
 
+done:
 	wg.Wait()
 	return int(success), int(failed), collector
 }

@@ -1,3 +1,5 @@
+// Package flux provides Flux CD integration for GitOps deployment verification
+// and resource status monitoring.
 package flux
 
 import "time"
@@ -24,10 +26,11 @@ func DefaultConfig() *Config {
 // ResourceKind represents the type of Flux resource
 type ResourceKind string
 
+// KindKustomization constants define the error kinds.
 const (
-	KindKustomization ResourceKind = "Kustomization"
-	KindHelmRelease   ResourceKind = "HelmRelease"
-	KindGitRepository ResourceKind = "GitRepository"
+	KindKustomization  ResourceKind = "Kustomization"
+	KindHelmRelease    ResourceKind = "HelmRelease"
+	KindGitRepository  ResourceKind = "GitRepository"
 	KindHelmRepository ResourceKind = "HelmRepository"
 )
 

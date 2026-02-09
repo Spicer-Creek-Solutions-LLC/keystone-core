@@ -129,7 +129,7 @@ func TestOrchestrator_RegisterVerifier(t *testing.T) {
 func TestOrchestrator_RegisterPlan(t *testing.T) {
 	orch := NewOrchestrator()
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "test-plan",
 		Groups: []*DeploymentGroup{
 			{
@@ -160,7 +160,7 @@ func TestOrchestrator_RegisterPlan_Errors(t *testing.T) {
 	orch := NewOrchestrator()
 
 	// Missing name
-	err := orch.RegisterPlan(&OrchestrationPlan{
+	err := orch.RegisterPlan(&Plan{
 		Groups: []*DeploymentGroup{
 			{Name: "g1", Repositories: []*Repository{{Name: "r1"}}},
 		},
@@ -170,7 +170,7 @@ func TestOrchestrator_RegisterPlan_Errors(t *testing.T) {
 	}
 
 	// No groups
-	err = orch.RegisterPlan(&OrchestrationPlan{
+	err = orch.RegisterPlan(&Plan{
 		Name:   "test",
 		Groups: []*DeploymentGroup{},
 	})
@@ -179,7 +179,7 @@ func TestOrchestrator_RegisterPlan_Errors(t *testing.T) {
 	}
 
 	// Empty group
-	err = orch.RegisterPlan(&OrchestrationPlan{
+	err = orch.RegisterPlan(&Plan{
 		Name: "test",
 		Groups: []*DeploymentGroup{
 			{Name: "g1", Repositories: []*Repository{}},
@@ -190,7 +190,7 @@ func TestOrchestrator_RegisterPlan_Errors(t *testing.T) {
 	}
 
 	// Duplicate group names
-	err = orch.RegisterPlan(&OrchestrationPlan{
+	err = orch.RegisterPlan(&Plan{
 		Name: "test",
 		Groups: []*DeploymentGroup{
 			{Name: "g1", Repositories: []*Repository{{Name: "r1"}}},
@@ -206,7 +206,7 @@ func TestOrchestrator_CircularDependency(t *testing.T) {
 	orch := NewOrchestrator()
 
 	// Create circular dependency: g1 -> g2 -> g3 -> g1
-	err := orch.RegisterPlan(&OrchestrationPlan{
+	err := orch.RegisterPlan(&Plan{
 		Name: "test",
 		Groups: []*DeploymentGroup{
 			{Name: "g1", Dependencies: []string{"g3"}, Repositories: []*Repository{{Name: "r1"}}},
@@ -223,7 +223,7 @@ func TestOrchestrator_Execute_Simple(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "simple",
 		Groups: []*DeploymentGroup{
 			{
@@ -237,7 +237,7 @@ func TestOrchestrator_Execute_Simple(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, err := orch.Execute(ctx, &OrchestrationRequest{
+	result, err := orch.Execute(ctx, &Request{
 		PlanName:    "simple",
 		RequestedBy: "user1",
 		Reason:      "Test deployment",
@@ -259,7 +259,7 @@ func TestOrchestrator_Execute_WithDependencies(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "with-deps",
 		Groups: []*DeploymentGroup{
 			{
@@ -287,7 +287,7 @@ func TestOrchestrator_Execute_WithDependencies(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, err := orch.Execute(ctx, &OrchestrationRequest{
+	result, err := orch.Execute(ctx, &Request{
 		PlanName:    "with-deps",
 		RequestedBy: "user1",
 	})
@@ -340,7 +340,7 @@ func TestOrchestrator_Execute_Parallel(t *testing.T) {
 		},
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "parallel",
 		Groups: []*DeploymentGroup{
 			{
@@ -357,7 +357,7 @@ func TestOrchestrator_Execute_Parallel(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "parallel",
 	})
 
@@ -384,7 +384,7 @@ func TestOrchestrator_Execute_StopOnFailure(t *testing.T) {
 		},
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "stop-on-fail",
 		Groups: []*DeploymentGroup{
 			{
@@ -405,7 +405,7 @@ func TestOrchestrator_Execute_StopOnFailure(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "stop-on-fail",
 	})
 
@@ -428,7 +428,7 @@ func TestOrchestrator_Execute_DryRun(t *testing.T) {
 		},
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "dry-run",
 		Groups: []*DeploymentGroup{
 			{
@@ -442,7 +442,7 @@ func TestOrchestrator_Execute_DryRun(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "dry-run",
 		DryRun:   true,
 	})
@@ -459,7 +459,7 @@ func TestOrchestrator_Execute_WithApproval(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name:            "needs-approval",
 		RequireApproval: true,
 		Groups: []*DeploymentGroup{
@@ -474,7 +474,7 @@ func TestOrchestrator_Execute_WithApproval(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "needs-approval",
 	})
 
@@ -493,7 +493,7 @@ func TestOrchestrator_Execute_ForceBypassApproval(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name:            "needs-approval",
 		RequireApproval: true,
 		Groups: []*DeploymentGroup{
@@ -508,7 +508,7 @@ func TestOrchestrator_Execute_ForceBypassApproval(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "needs-approval",
 		Force:    true,
 	})
@@ -529,7 +529,7 @@ func TestOrchestrator_Execute_SkipGroups(t *testing.T) {
 		},
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "skip-groups",
 		Groups: []*DeploymentGroup{
 			{
@@ -549,7 +549,7 @@ func TestOrchestrator_Execute_SkipGroups(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName:     "skip-groups",
 		GroupsToSkip: []string{"group1"},
 	})
@@ -581,11 +581,11 @@ func TestOrchestrator_Callbacks(t *testing.T) {
 		groupCompleted = true
 	})
 
-	orch.OnComplete(func(result *OrchestrationResult) {
+	orch.OnComplete(func(result *Result) {
 		orchestrationCompleted = true
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "callbacks",
 		Groups: []*DeploymentGroup{
 			{
@@ -599,7 +599,7 @@ func TestOrchestrator_Callbacks(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	orch.Execute(ctx, &OrchestrationRequest{
+	orch.Execute(ctx, &Request{
 		PlanName: "callbacks",
 	})
 
@@ -624,7 +624,7 @@ func TestOrchestrator_GetOrchestration(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "test",
 		Groups: []*DeploymentGroup{
 			{
@@ -638,7 +638,7 @@ func TestOrchestrator_GetOrchestration(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "test",
 	})
 
@@ -655,7 +655,7 @@ func TestOrchestrator_ListOrchestrations(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "test",
 		Groups: []*DeploymentGroup{
 			{
@@ -669,8 +669,8 @@ func TestOrchestrator_ListOrchestrations(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	orch.Execute(ctx, &OrchestrationRequest{PlanName: "test"})
-	orch.Execute(ctx, &OrchestrationRequest{PlanName: "test"})
+	orch.Execute(ctx, &Request{PlanName: "test"})
+	orch.Execute(ctx, &Request{PlanName: "test"})
 
 	results := orch.ListOrchestrations()
 	if len(results) != 2 {
@@ -682,7 +682,7 @@ func TestOrchestrator_CancelOrchestration(t *testing.T) {
 	orch := NewOrchestrator()
 	orch.RegisterDeployer(&mockDeployer{})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name:            "cancel-test",
 		RequireApproval: true,
 		Groups: []*DeploymentGroup{
@@ -697,7 +697,7 @@ func TestOrchestrator_CancelOrchestration(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "cancel-test",
 	})
 
@@ -717,7 +717,7 @@ func TestOrchestrator_WithVerification(t *testing.T) {
 	orch.RegisterDeployer(&mockDeployer{})
 	orch.RegisterVerifier(&mockVerifier{verifierType: "http"})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "with-verify",
 		Groups: []*DeploymentGroup{
 			{
@@ -736,7 +736,7 @@ func TestOrchestrator_WithVerification(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "with-verify",
 	})
 
@@ -761,7 +761,7 @@ func TestOrchestrator_VerificationFailure(t *testing.T) {
 		},
 	})
 
-	plan := &OrchestrationPlan{
+	plan := &Plan{
 		Name: "verify-fail",
 		Groups: []*DeploymentGroup{
 			{
@@ -778,7 +778,7 @@ func TestOrchestrator_VerificationFailure(t *testing.T) {
 	orch.RegisterPlan(plan)
 
 	ctx := context.Background()
-	result, _ := orch.Execute(ctx, &OrchestrationRequest{
+	result, _ := orch.Execute(ctx, &Request{
 		PlanName: "verify-fail",
 	})
 
@@ -833,8 +833,8 @@ func TestDeploymentGroup_Fields(t *testing.T) {
 	}
 }
 
-func TestOrchestrationStatus_Values(t *testing.T) {
-	statuses := []OrchestrationStatus{
+func TestStatus_Values(t *testing.T) {
+	statuses := []Status{
 		StatusPending,
 		StatusApproved,
 		StatusInProgress,

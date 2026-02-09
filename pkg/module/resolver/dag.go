@@ -103,7 +103,7 @@ func (g *DefaultDependencyGraph) GetAllNodes() []*DependencyNode {
 
 // HasCycle detects if the graph has a cycle using DFS
 // Returns true if a cycle exists, along with the cycle path
-func (g *DefaultDependencyGraph) HasCycle() (bool, []string) {
+func (g *DefaultDependencyGraph) HasCycle() (hasCycle bool, cyclePath []string) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -124,7 +124,7 @@ func (g *DefaultDependencyGraph) HasCycle() (bool, []string) {
 }
 
 // dfs performs depth-first search to detect cycles
-func (g *DefaultDependencyGraph) dfs(moduleName string, visited, recStack map[string]bool, parent map[string]string) (bool, []string) {
+func (g *DefaultDependencyGraph) dfs(moduleName string, visited, recStack map[string]bool, parent map[string]string) (hasCycle bool, cyclePath []string) {
 	visited[moduleName] = true
 	recStack[moduleName] = true
 

@@ -29,23 +29,22 @@ Additional providers can be added via the libdns ecosystem. See [Adding Custom P
 ### Basic Structure
 
 ```yaml
-states:
-  dns_records:
-    - name: manage-zone-records
-      provider: cloudflare
-      zone: example.com
-      credentials:
-        secret_ref: secret://dns/cloudflare
-      state: present   # or: synced, absent
-      records:
-        - type: A
-          name: www
-          value: 203.0.113.10
-          ttl: 300
-        - type: CNAME
-          name: api
-          value: api.internal.example.com.
-          ttl: 600
+dns:
+  manage_zone_records:
+    provider: cloudflare
+    zone: example.com
+    credentials:
+      secret_ref: secret://dns/cloudflare
+    state: present   # or: synced, absent
+    records:
+      - type: A
+        name: www
+        value: 203.0.113.10
+        ttl: 300
+      - type: CNAME
+        name: api
+        value: api.internal.example.com.
+        ttl: 600
 ```
 
 ### States
@@ -170,133 +169,129 @@ Environment variable: `HETZNER_DNS_API_TOKEN`
 
 ```yaml
 # web-records.yaml
-states:
-  dns_records:
-    - name: web-endpoints
-      provider: cloudflare
-      zone: example.com
-      credentials:
-        secret_ref: secret://dns/cloudflare
-      state: present
-      records:
-        # Primary web server
-        - type: A
-          name: www
-          value: 203.0.113.10
-          ttl: 300
-        # Root domain
-        - type: A
-          name: "@"
-          value: 203.0.113.10
-          ttl: 300
-        # API endpoint
-        - type: CNAME
-          name: api
-          value: api-lb.internal.example.com.
-          ttl: 600
+dns:
+  web_endpoints:
+    provider: cloudflare
+    zone: example.com
+    credentials:
+      secret_ref: secret://dns/cloudflare
+    state: present
+    records:
+      # Primary web server
+      - type: A
+        name: www
+        value: 203.0.113.10
+        ttl: 300
+      # Root domain
+      - type: A
+        name: "@"
+        value: 203.0.113.10
+        ttl: 300
+      # API endpoint
+      - type: CNAME
+        name: api
+        value: api-lb.internal.example.com.
+        ttl: 600
 ```
 
 ### Multi-Provider Setup
 
 ```yaml
 # multi-provider.yaml
-states:
-  dns_records:
-    # Primary zone on Cloudflare
-    - name: primary-zone
-      provider: cloudflare
-      zone: example.com
-      credentials:
-        secret_ref: secret://dns/cloudflare
-      state: synced
-      records:
-        - type: A
-          name: www
-          value: 203.0.113.10
-          ttl: 300
+dns:
+  # Primary zone on Cloudflare
+  primary_zone:
+    provider: cloudflare
+    zone: example.com
+    credentials:
+      secret_ref: secret://dns/cloudflare
+    state: synced
+    records:
+      - type: A
+        name: www
+        value: 203.0.113.10
+        ttl: 300
 
-    # Secondary zone on Route53
-    - name: internal-zone
-      provider: route53
-      zone: internal.example.com
-      credentials:
-        secret_ref: secret://dns/route53
-      state: present
-      records:
-        - type: A
-          name: db
-          value: 10.0.1.50
-          ttl: 60
+  # Secondary zone on Route53
+  internal_zone:
+    provider: route53
+    zone: internal.example.com
+    credentials:
+      secret_ref: secret://dns/route53
+    state: present
+    records:
+      - type: A
+        name: db
+        value: 10.0.1.50
+        ttl: 60
 ```
 
 ### Mail Records
 
 ```yaml
-states:
-  dns_records:
-    - name: mail-records
-      provider: cloudflare
-      zone: example.com
-      credentials:
-        secret_ref: secret://dns/cloudflare
-      state: present
-      records:
-        # MX records with priority
-        - type: MX
-          name: "@"
-          value: mx1.mail.example.com.
-          priority: 10
-          ttl: 3600
-        - type: MX
-          name: "@"
-          value: mx2.mail.example.com.
-          priority: 20
-          ttl: 3600
-        # SPF record
-        - type: TXT
-          name: "@"
-          value: "v=spf1 include:_spf.google.com ~all"
-          ttl: 3600
-        # DKIM record
-        - type: TXT
-          name: "google._domainkey"
-          value: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGS..."
-          ttl: 3600
-        # DMARC record
-        - type: TXT
-          name: "_dmarc"
-          value: "v=DMARC1; p=reject; rua=mailto:dmarc@example.com"
-          ttl: 3600
+dns:
+  mail_records:
+    provider: cloudflare
+    zone: example.com
+    credentials:
+      secret_ref: secret://dns/cloudflare
+    state: present
+    records:
+      # MX records with priority
+      - type: MX
+        name: "@"
+        value: mx1.mail.example.com.
+        priority: 10
+        ttl: 3600
+      - type: MX
+        name: "@"
+        value: mx2.mail.example.com.
+        priority: 20
+        ttl: 3600
+      # SPF record
+      - type: TXT
+        name: "@"
+        value: "v=spf1 include:_spf.google.com ~all"
+        ttl: 3600
+      # DKIM record
+      - type: TXT
+        name: "google._domainkey"
+        value: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGS..."
+        ttl: 3600
+      # DMARC record
+      - type: TXT
+        name: "_dmarc"
+        value: "v=DMARC1; p=reject; rua=mailto:dmarc@example.com"
+        ttl: 3600
 ```
 
 ### Service Discovery with SRV Records
 
 ```yaml
-states:
-  dns_records:
-    - name: service-discovery
-      provider: route53
-      zone: internal.example.com
-      credentials:
-        secret_ref: secret://dns/route53
-      state: present
-      records:
-        # SIP service
-        - type: SRV
-          name: "_sip._tcp"
-          value: sip.example.com.
-          priority: 10
-          weight: 60
-          port: 5060
-          ttl: 300
-        # LDAP service
-        - type: SRV
-          name: "_ldap._tcp"
-          value: ldap.example.com.
-          priority: 0
-          weight: 100
-          port: 389
-          ttl: 300
+dns:
+  service_discovery:
+    provider: route53
+    zone: internal.example.com
+    credentials:
+      secret_ref: secret://dns/route53
+    state: present
+    records:
+      # SIP service
+      - type: SRV
+        name: "_sip._tcp"
+        value: sip.example.com.
+        priority: 10
+        weight: 60
+        port: 5060
+        ttl: 300
+      # LDAP service
+      - type: SRV
+        name: "_ldap._tcp"
+        value: ldap.example.com.
+        priority: 0
+        weight: 100
+        port: 389
+        ttl: 300
 ```
 
 ## CLI Operations

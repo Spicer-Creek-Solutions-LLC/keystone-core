@@ -312,7 +312,7 @@ func TestInstallerRegistry(t *testing.T) {
 // TestBootstrapper tests the bootstrapper
 func TestBootstrapper(t *testing.T) {
 	t.Run("NewBootstrapper", func(t *testing.T) {
-		opts := BootstrapOptions{
+		opts := Options{
 			Mode: BootstrapModeSeed,
 		}
 		b, err := NewBootstrapper(opts, nil)
@@ -325,7 +325,7 @@ func TestBootstrapper(t *testing.T) {
 	})
 
 	t.Run("DryRun", func(t *testing.T) {
-		opts := BootstrapOptions{
+		opts := Options{
 			Mode:   BootstrapModeSeed,
 			DryRun: true,
 		}
@@ -344,7 +344,7 @@ func TestBootstrapper(t *testing.T) {
 	})
 
 	t.Run("Status", func(t *testing.T) {
-		opts := BootstrapOptions{}
+		opts := Options{}
 		b, _ := NewBootstrapper(opts, nil)
 		status := b.Status()
 		if status == nil {
@@ -385,7 +385,7 @@ func TestClusterFormation(t *testing.T) {
 func TestHandoffManager(t *testing.T) {
 	t.Run("NewHandoffManager", func(t *testing.T) {
 		config := DefaultSeedConfig()
-		result := &BootstrapResult{
+		result := &Result{
 			APIEndpoint: "localhost:8080",
 		}
 		hm := NewHandoffManager(config, result, nil)
@@ -400,7 +400,7 @@ func TestLoadAndSaveHandoffState(t *testing.T) {
 	tempDir := t.TempDir()
 
 	config := DefaultSeedConfig()
-	result := &BootstrapResult{
+	result := &Result{
 		APIEndpoint: "localhost:8080",
 	}
 	hm := NewHandoffManager(config, result, nil)
@@ -458,7 +458,7 @@ control_plane:
 
 // TestBootstrapPhases tests bootstrap phase constants
 func TestBootstrapPhases(t *testing.T) {
-	phases := []BootstrapPhase{
+	phases := []Phase{
 		PhaseInitializing,
 		PhaseValidating,
 		PhaseInstallingDeps,
@@ -483,7 +483,7 @@ func TestBootstrapPhases(t *testing.T) {
 
 // TestBootstrapModes tests bootstrap mode constants
 func TestBootstrapModes(t *testing.T) {
-	modes := []BootstrapMode{
+	modes := []Mode{
 		BootstrapModeSeed,
 		BootstrapModeRestore,
 		BootstrapModeImport,

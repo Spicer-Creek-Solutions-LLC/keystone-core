@@ -7,6 +7,8 @@ description: >
 
 The Visualization API provides infrastructure topology visualization through HTTP and WebSocket endpoints. It enables dashboards and UIs to display agent relationships, hierarchical views, and real-time status updates.
 
+> **Note:** The Visualization API is an internal package (`internal/visualization`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. For external integrations, use the HTTP and WebSocket endpoints directly.
+
 ## Overview
 
 The Visualization API offers:
@@ -44,7 +46,7 @@ flowchart TB
 ### Creating a Server
 
 ```go
-import "github.com/keystone-core/pkg/visualization"
+import "github.com/shawnbutts/keystone-core/internal/visualization"
 
 // Create with default configuration
 config := visualization.DefaultConfig()

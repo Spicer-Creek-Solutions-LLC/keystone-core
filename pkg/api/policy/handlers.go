@@ -13,12 +13,12 @@ import (
 // Handler provides HTTP handlers for policy API endpoints.
 type Handler struct {
 	engine   *policy.PolicyEngine
-	auditor  *policy.PolicyAuditor
+	auditor  *policy.Auditor
 	reporter *policy.ComplianceReporter
 }
 
 // NewHandler creates a new policy API handler.
-func NewHandler(engine *policy.PolicyEngine, auditor *policy.PolicyAuditor, reporter *policy.ComplianceReporter) *Handler {
+func NewHandler(engine *policy.PolicyEngine, auditor *policy.Auditor, reporter *policy.ComplianceReporter) *Handler {
 	return &Handler{
 		engine:   engine,
 		auditor:  auditor,
@@ -59,11 +59,11 @@ type EvaluateRequest struct {
 
 // EvaluateResponse represents the response for POST /api/v1/policies/evaluate
 type EvaluateResponse struct {
-	Allowed         bool                        `json:"allowed"`
-	Results         []EvaluationResultResponse  `json:"results,omitempty"`
-	Summary         *policy.PolicySummary       `json:"summary,omitempty"`
-	TotalDuration   string                      `json:"total_duration"`
-	EvaluatedAt     time.Time                   `json:"evaluated_at"`
+	Allowed       bool                       `json:"allowed"`
+	Results       []EvaluationResultResponse `json:"results,omitempty"`
+	Summary       *policy.Summary            `json:"summary,omitempty"`
+	TotalDuration string                     `json:"total_duration"`
+	EvaluatedAt   time.Time                  `json:"evaluated_at"`
 }
 
 // EvaluationResultResponse represents a single policy evaluation result
@@ -80,11 +80,11 @@ type EvaluationResultResponse struct {
 
 // ViolationsResponse represents the response for GET /api/v1/policies/violations
 type ViolationsResponse struct {
-	Violations  []ViolationEntry      `json:"violations"`
-	Summary     *policy.AuditSummary  `json:"summary"`
-	Total       int                   `json:"total"`
-	Limit       int                   `json:"limit"`
-	RetrievedAt time.Time             `json:"retrieved_at"`
+	Violations  []ViolationEntry     `json:"violations"`
+	Summary     *policy.AuditSummary `json:"summary"`
+	Total       int                  `json:"total"`
+	Limit       int                  `json:"limit"`
+	RetrievedAt time.Time            `json:"retrieved_at"`
 }
 
 // ViolationEntry represents a violation from audit
@@ -109,11 +109,11 @@ type ComplianceResponse struct {
 
 // ComplianceReportResponse is a JSON-friendly compliance report
 type ComplianceReportResponse struct {
-	TotalPolicies     int                         `json:"total_policies"`
-	CompliantPolicies int                         `json:"compliant_policies"`
-	ComplianceRate    float64                     `json:"compliance_rate"`
-	TopViolations     []ViolationSummaryResponse  `json:"top_violations,omitempty"`
-	SeverityBreakdown map[string]int              `json:"severity_breakdown"`
+	TotalPolicies     int                        `json:"total_policies"`
+	CompliantPolicies int                        `json:"compliant_policies"`
+	ComplianceRate    float64                    `json:"compliance_rate"`
+	TopViolations     []ViolationSummaryResponse `json:"top_violations,omitempty"`
+	SeverityBreakdown map[string]int             `json:"severity_breakdown"`
 }
 
 // ViolationSummaryResponse is a JSON-friendly violation summary
@@ -166,7 +166,8 @@ func (h *Handler) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	var resp EvaluateResponse
 
 	// Evaluate based on request type
-	if req.PolicyID != "" {
+	switch {
+	case req.PolicyID != "":
 		// Single policy evaluation
 		result, err := h.engine.Evaluate(ctx, req.PolicyID, input)
 		if err != nil {
@@ -180,7 +181,7 @@ func (h *Handler) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 			TotalDuration: result.Duration.String(),
 			EvaluatedAt:   result.EvaluatedAt,
 		}
-	} else if req.PolicySetID != "" {
+	case req.PolicySetID != "":
 		// Policy set evaluation
 		result, err := h.engine.EvaluatePolicySet(ctx, req.PolicySetID, input)
 		if err != nil {
@@ -189,7 +190,7 @@ func (h *Handler) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp = buildEvaluateResponse(result)
-	} else {
+	default:
 		// Resource-based evaluation
 		result, err := h.engine.EvaluateForResource(ctx, req.ResourceType, input)
 		if err != nil {
@@ -260,7 +261,8 @@ func (h *Handler) handleViolations(w http.ResponseWriter, r *http.Request) {
 
 	// Convert to response format
 	violations := make([]ViolationEntry, 0, len(entries))
-	for _, entry := range entries {
+	for i := range entries {
+		entry := &entries[i]
 		if len(entry.Violations) > 0 { // Only include entries with actual violations
 			violations = append(violations, ViolationEntry{
 				ID:              entry.ID,
@@ -356,7 +358,7 @@ func (h *Handler) handleCompliance(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 
-func buildEvaluateResponse(result *policy.PolicyResult) EvaluateResponse {
+func buildEvaluateResponse(result *policy.Result) EvaluateResponse {
 	results := make([]EvaluationResultResponse, 0, len(result.Results))
 	for _, r := range result.Results {
 		results = append(results, convertEvaluationResult(r))

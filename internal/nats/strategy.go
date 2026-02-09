@@ -108,25 +108,27 @@ func NewDirectStrategy(config *StrategyConfig) *DirectStrategy {
 	return &DirectStrategy{config: config}
 }
 
+// Name returns the name.
 func (s *DirectStrategy) Name() string {
 	return "direct"
 }
 
+// SupportsEndpoint returns whether the strategy supports the given endpoint.
 func (s *DirectStrategy) SupportsEndpoint(endpoint *Endpoint) bool {
 	return endpoint.Scheme == SchemeNATS
 }
 
+// ConfigureOptions configures connection options for the strategy.
 func (s *DirectStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfig) ([]nats.Option, error) {
-	opts := []nats.Option{
-		nats.Name(fmt.Sprintf("kscore-client-%s", endpoint.Host)),
-	}
-
 	// Add authentication options
 	authOpts := s.configureAuth(endpoint, config)
-	opts = append(opts, authOpts...)
 
 	// Add connection options
 	connOpts := s.configureConnection(config)
+
+	opts := make([]nats.Option, 0, 1+len(authOpts)+len(connOpts))
+	opts = append(opts, nats.Name(fmt.Sprintf("kscore-client-%s", endpoint.Host)))
+	opts = append(opts, authOpts...)
 	opts = append(opts, connOpts...)
 
 	return opts, nil
@@ -182,6 +184,7 @@ func (s *DirectStrategy) configureConnection(config *EndpointConfig) []nats.Opti
 	return opts
 }
 
+// Priority returns the strategy priority.
 func (s *DirectStrategy) Priority() int {
 	return 100 // Lower priority than TLS
 }
@@ -199,14 +202,17 @@ func NewTLSStrategy(config *StrategyConfig) *TLSStrategy {
 	return &TLSStrategy{config: config}
 }
 
+// Name returns the name.
 func (s *TLSStrategy) Name() string {
 	return "tls"
 }
 
+// SupportsEndpoint returns whether the strategy supports the given endpoint.
 func (s *TLSStrategy) SupportsEndpoint(endpoint *Endpoint) bool {
 	return endpoint.Scheme == SchemeTLS
 }
 
+// ConfigureOptions configures connection options for the strategy.
 func (s *TLSStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfig) ([]nats.Option, error) {
 	// Start with direct strategy options
 	direct := NewDirectStrategy(s.config)
@@ -293,6 +299,7 @@ func (s *TLSStrategy) buildTLSConfig(config *EndpointConfig) (*tls.Config, error
 	return tlsConfig, nil
 }
 
+// Priority returns the strategy priority.
 func (s *TLSStrategy) Priority() int {
 	return 50 // Preferred over direct
 }
@@ -310,14 +317,17 @@ func NewWebSocketStrategy(config *StrategyConfig) *WebSocketStrategy {
 	return &WebSocketStrategy{config: config}
 }
 
+// Name returns the name.
 func (s *WebSocketStrategy) Name() string {
 	return "websocket"
 }
 
+// SupportsEndpoint returns whether the strategy supports the given endpoint.
 func (s *WebSocketStrategy) SupportsEndpoint(endpoint *Endpoint) bool {
 	return endpoint.Scheme == SchemeWS || endpoint.Scheme == SchemeWSS
 }
 
+// ConfigureOptions configures connection options for the strategy.
 func (s *WebSocketStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfig) ([]nats.Option, error) {
 	// Start with direct strategy options for auth and connection settings
 	direct := NewDirectStrategy(s.config)
@@ -352,6 +362,7 @@ func (s *WebSocketStrategy) ConfigureOptions(endpoint *Endpoint, config *Endpoin
 	return opts, nil
 }
 
+// Priority returns the strategy priority.
 func (s *WebSocketStrategy) Priority() int {
 	return 200 // Lower priority - use when TCP not available
 }
@@ -369,16 +380,19 @@ func NewLeafNodeStrategy(config *StrategyConfig) *LeafNodeStrategy {
 	return &LeafNodeStrategy{config: config}
 }
 
+// Name returns the name.
 func (s *LeafNodeStrategy) Name() string {
 	return "leafnode"
 }
 
+// SupportsEndpoint returns whether the strategy supports the given endpoint.
 func (s *LeafNodeStrategy) SupportsEndpoint(endpoint *Endpoint) bool {
 	// Leaf node strategy is selected based on configuration, not URL scheme
 	// It uses standard nats:// or tls:// schemes
 	return s.config.LeafNode != nil && s.config.LeafNode.RemoteURL != ""
 }
 
+// ConfigureOptions configures connection options for the strategy.
 func (s *LeafNodeStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfig) ([]nats.Option, error) {
 	leafConfig := s.config.LeafNode
 	if leafConfig == nil {
@@ -408,6 +422,7 @@ func (s *LeafNodeStrategy) ConfigureOptions(endpoint *Endpoint, config *Endpoint
 	return opts, nil
 }
 
+// Priority returns the strategy priority.
 func (s *LeafNodeStrategy) Priority() int {
 	return 300 // Lowest priority - special case
 }

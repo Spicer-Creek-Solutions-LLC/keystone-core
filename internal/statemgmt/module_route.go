@@ -65,13 +65,14 @@ func (m *RouteModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 			result.Diff["route"] = map[string]string{"current": "absent", "desired": "present"}
 		} else {
 			// Check if gateway matches
-			if config.Gateway != "" && config.Gateway != currentGateway {
+			switch {
+			case config.Gateway != "" && config.Gateway != currentGateway:
 				result.Matches = false
 				result.Diff["gateway"] = map[string]string{"current": currentGateway, "desired": config.Gateway}
-			} else if config.Interface != "" && config.Interface != currentInterface {
+			case config.Interface != "" && config.Interface != currentInterface:
 				result.Matches = false
 				result.Diff["interface"] = map[string]string{"current": currentInterface, "desired": config.Interface}
-			} else {
+			default:
 				result.Matches = true
 			}
 		}
@@ -82,7 +83,7 @@ func (m *RouteModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the route configuration
@@ -103,7 +104,7 @@ func (m *RouteModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -113,7 +114,7 @@ func (m *RouteModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -123,18 +124,16 @@ func (m *RouteModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
 	var applyErr error
 	switch decl.State {
 	case "present":
-		// If route exists but with different config, delete first
+		// If route exists but with different config, delete first - best-effort
 		if checkResult.Present && len(checkResult.Diff) > 0 {
-			if err := m.deleteRoute(ctx, config); err != nil {
-				// Continue anyway, addRoute might succeed
-			}
+			_ = m.deleteRoute(ctx, config)
 		}
 		applyErr = m.addRoute(ctx, config, result)
 	case "absent":
@@ -158,7 +157,7 @@ func (m *RouteModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the route is in the desired state
@@ -167,7 +166,7 @@ func (m *RouteModule) Test(ctx context.Context, decl *StateDeclaration) (bool, e
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseRouteConfig extracts route configuration from declaration parameters
@@ -201,11 +200,11 @@ func (m *RouteModule) parseRouteConfig(decl *StateDeclaration) (*RouteConfig, er
 		return nil, fmt.Errorf("must specify gateway or interface")
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // checkRouteExists checks if a route exists
-func (m *RouteModule) checkRouteExists(ctx context.Context, config *RouteConfig) (bool, string, string, error) {
+func (m *RouteModule) checkRouteExists(ctx context.Context, config *RouteConfig) (exists bool, gateway, iface string, err error) {
 	switch runtime.GOOS {
 	case "linux":
 		return m.checkRouteExistsLinux(ctx, config)
@@ -219,7 +218,7 @@ func (m *RouteModule) checkRouteExists(ctx context.Context, config *RouteConfig)
 }
 
 // checkRouteExistsLinux checks route on Linux
-func (m *RouteModule) checkRouteExistsLinux(ctx context.Context, config *RouteConfig) (bool, string, string, error) {
+func (m *RouteModule) checkRouteExistsLinux(ctx context.Context, config *RouteConfig) (exists bool, gateway, iface string, err error) {
 	args := []string{"route", "show"}
 	if config.Table != "" {
 		args = append(args, "table", config.Table)
@@ -229,16 +228,15 @@ func (m *RouteModule) checkRouteExistsLinux(ctx context.Context, config *RouteCo
 	cmd := exec.CommandContext(ctx, "ip", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return false, "", "", nil // Route doesn't exist
+		return false, "", "", nil //nolint:nilerr // error means route doesn't exist
 	}
 
 	outputStr := strings.TrimSpace(string(output))
 	if outputStr == "" {
-		return false, "", "", nil
+		return false, "", "", nil //nolint:nilerr // empty output means route doesn't exist
 	}
 
 	// Parse output: 10.0.0.0/8 via 192.168.1.1 dev eth0
-	var gateway, iface string
 	fields := strings.Fields(outputStr)
 	for i, f := range fields {
 		if f == "via" && i+1 < len(fields) {
@@ -249,11 +247,11 @@ func (m *RouteModule) checkRouteExistsLinux(ctx context.Context, config *RouteCo
 		}
 	}
 
-	return true, gateway, iface, nil
+	return true, gateway, iface, nil //nolint:nilerr // returning parsed route info, no error
 }
 
 // checkRouteExistsDarwin checks route on macOS
-func (m *RouteModule) checkRouteExistsDarwin(ctx context.Context, config *RouteConfig) (bool, string, string, error) {
+func (m *RouteModule) checkRouteExistsDarwin(ctx context.Context, config *RouteConfig) (exists bool, gateway, iface string, err error) {
 	// Convert destination to format netstat expects
 	dest := config.Destination
 	if dest == "0.0.0.0/0" {
@@ -275,15 +273,15 @@ func (m *RouteModule) checkRouteExistsDarwin(ctx context.Context, config *RouteC
 
 		// Match destination
 		if fields[0] == dest || fields[0] == config.Destination {
-			return true, fields[1], fields[3], nil
+			return true, fields[1], fields[3], nil //nolint:nilerr // returning parsed route info, no error
 		}
 	}
 
-	return false, "", "", nil
+	return false, "", "", nil //nolint:nilerr // route not found is a valid state
 }
 
 // checkRouteExistsWindows checks route on Windows
-func (m *RouteModule) checkRouteExistsWindows(ctx context.Context, config *RouteConfig) (bool, string, string, error) {
+func (m *RouteModule) checkRouteExistsWindows(ctx context.Context, config *RouteConfig) (exists bool, gateway, iface string, err error) {
 	cmd := exec.CommandContext(ctx, "route", "print")
 	output, err := cmd.Output()
 	if err != nil {
@@ -309,11 +307,11 @@ func (m *RouteModule) checkRouteExistsWindows(ctx context.Context, config *Route
 		// Match destination and netmask
 		if (fields[0] == dest || fields[0] == "0.0.0.0" && dest == "0.0.0.0") &&
 			(fields[1] == mask || dest == "0.0.0.0") {
-			return true, fields[2], fields[3], nil
+			return true, fields[2], fields[3], nil //nolint:nilerr // returning parsed route info, no error
 		}
 	}
 
-	return false, "", "", nil
+	return false, "", "", nil //nolint:nilerr // route not found is a valid state
 }
 
 // addRoute adds a route
@@ -368,12 +366,13 @@ func (m *RouteModule) addRouteDarwin(ctx context.Context, config *RouteConfig, r
 	args := []string{"-n", "add"}
 
 	// Handle CIDR notation
-	if strings.Contains(dest, "/") && dest != "default" {
+	switch {
+	case strings.Contains(dest, "/") && dest != "default":
 		parts := strings.SplitN(dest, "/", 2)
 		args = append(args, "-net", parts[0], "-netmask", cidrToNetmask(parts[1]))
-	} else if dest == "default" {
+	case dest == "default":
 		args = append(args, "default")
-	} else {
+	default:
 		args = append(args, "-host", dest)
 	}
 
@@ -464,12 +463,13 @@ func (m *RouteModule) deleteRouteDarwin(ctx context.Context, config *RouteConfig
 
 	args := []string{"-n", "delete"}
 
-	if strings.Contains(dest, "/") && dest != "default" {
+	switch {
+	case strings.Contains(dest, "/") && dest != "default":
 		parts := strings.SplitN(dest, "/", 2)
 		args = append(args, "-net", parts[0], "-netmask", cidrToNetmask(parts[1]))
-	} else if dest == "default" {
+	case dest == "default":
 		args = append(args, "default")
-	} else {
+	default:
 		args = append(args, "-host", dest)
 	}
 
@@ -504,5 +504,5 @@ func (m *RouteModule) deleteRouteWindows(ctx context.Context, config *RouteConfi
 }
 
 func init() {
-	RegisterModule(NewRouteModule())
+	_ = RegisterModule(NewRouteModule()) //nolint:errcheck // module registration in init
 }

@@ -302,7 +302,7 @@ func TestPoll(t *testing.T) {
 		err := Poll(ctx, 10*time.Millisecond, func() (bool, error) {
 			return false, expectedErr
 		})
-		if err != expectedErr {
+		if !errors.Is(err, expectedErr) {
 			t.Errorf("expected %v, got %v", expectedErr, err)
 		}
 	})

@@ -1,3 +1,4 @@
+// Package main implements the kscore-cluster CLI for cluster management operations.
 package main
 
 import (
@@ -46,7 +47,7 @@ func (c *ClusterClient) Close() error {
 
 // GetStatus retrieves the cluster status.
 func (c *ClusterClient) GetStatus(ctx context.Context) (*ClusterStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/status", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/status", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (c *ClusterClient) GetStatus(ctx context.Context) (*ClusterStatus, error) {
 
 // GetMembers retrieves the list of cluster members.
 func (c *ClusterClient) GetMembers(ctx context.Context) ([]MemberStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/members", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/members", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (c *ClusterClient) GetMembers(ctx context.Context) ([]MemberStatus, error) 
 
 // GetLeader retrieves information about the current leader.
 func (c *ClusterClient) GetLeader(ctx context.Context) (*MemberStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/leader", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/leader", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (c *ClusterClient) GetLeader(ctx context.Context) (*MemberStatus, error) {
 
 // AddMember adds a new member to the cluster.
 func (c *ClusterClient) AddMember(ctx context.Context, address string) (string, error) {
-	body := fmt.Sprintf(`{"address": "%s"}`, address)
+	body := fmt.Sprintf(`{"address": %q}`, address)
 	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/members",
 		strings.NewReader(body))
 	if err != nil {
@@ -165,7 +166,7 @@ func (c *ClusterClient) RemoveMember(ctx context.Context, memberID string, force
 		url += "?force=true"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -186,7 +187,7 @@ func (c *ClusterClient) RemoveMember(ctx context.Context, memberID string, force
 
 // TransferLeader transfers leadership to the specified member.
 func (c *ClusterClient) TransferLeader(ctx context.Context, targetID string) error {
-	body := fmt.Sprintf(`{"target_id": "%s"}`, targetID)
+	body := fmt.Sprintf(`{"target_id": %q}`, targetID)
 	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/leader/transfer",
 		strings.NewReader(body))
 	if err != nil {
@@ -215,7 +216,7 @@ func (c *ClusterClient) Rebalance(ctx context.Context, reason string) (*Rebalanc
 		url += "?reason=" + reason
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +242,7 @@ func (c *ClusterClient) Rebalance(ctx context.Context, reason string) (*Rebalanc
 
 // Backup creates a backup of the cluster state.
 func (c *ClusterClient) Backup(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/backup", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/backup", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +286,7 @@ func (c *ClusterClient) Restore(ctx context.Context, data []byte) error {
 
 // GetHealth retrieves detailed cluster health information.
 func (c *ClusterClient) GetHealth(ctx context.Context) (*HealthReport, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +312,7 @@ func (c *ClusterClient) GetHealth(ctx context.Context) (*HealthReport, error) {
 
 // GetShards retrieves the shard assignments for agents.
 func (c *ClusterClient) GetShards(ctx context.Context) (*ShardReport, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/shards", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/shards", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +338,7 @@ func (c *ClusterClient) GetShards(ctx context.Context) (*ShardReport, error) {
 
 // JoinCluster joins this node to an existing cluster.
 func (c *ClusterClient) JoinCluster(ctx context.Context, clusterAddr string) error {
-	body := fmt.Sprintf(`{"cluster_address": "%s"}`, clusterAddr)
+	body := fmt.Sprintf(`{"cluster_address": %q}`, clusterAddr)
 	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/join",
 		strings.NewReader(body))
 	if err != nil {
@@ -366,7 +367,7 @@ func (c *ClusterClient) LeaveCluster(ctx context.Context, force bool) error {
 		url += "?force=true"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -388,7 +389,7 @@ func (c *ClusterClient) LeaveCluster(ctx context.Context, force bool) error {
 // DrainMember drains agents from a cluster member.
 func (c *ClusterClient) DrainMember(ctx context.Context, memberID string) error {
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("%s/members/%s/drain", c.baseURL, memberID), nil)
+		fmt.Sprintf("%s/members/%s/drain", c.baseURL, memberID), http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -410,7 +411,7 @@ func (c *ClusterClient) DrainMember(ctx context.Context, memberID string) error 
 // UndrainMember allows agents to be assigned to a cluster member again.
 func (c *ClusterClient) UndrainMember(ctx context.Context, memberID string) error {
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("%s/members/%s/undrain", c.baseURL, memberID), nil)
+		fmt.Sprintf("%s/members/%s/undrain", c.baseURL, memberID), http.NoBody)
 	if err != nil {
 		return err
 	}

@@ -64,12 +64,12 @@ func TestSecurityEnforcer_ValidateCommand(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "relative path with traversal in working dir",
-			config:  DefaultSecurityConfig(),
-			command: "ls",
-			args:    []string{"-la"},
+			name:       "relative path with traversal in working dir",
+			config:     DefaultSecurityConfig(),
+			command:    "ls",
+			args:       []string{"-la"},
 			workingDir: "../../../etc",
-			wantErr: true,
+			wantErr:    true,
 		},
 		{
 			name: "argument too long",

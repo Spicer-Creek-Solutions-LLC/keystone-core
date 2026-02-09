@@ -215,7 +215,7 @@ func TestPolicyMigrator_Migrate_MultiStep(t *testing.T) {
 
 	// Verify policy has V3 enhancements
 	p, _ := registry.GetPolicy("test-policy")
-	if p.Tags == nil || len(p.Tags) == 0 {
+	if len(p.Tags) == 0 {
 		t.Error("Expected tags to be set for V3")
 	}
 

@@ -143,6 +143,7 @@ func (t *WebhookTrigger) Validate() error {
 			if t.Authentication.Token == "" {
 				return &ValidationError{Field: "authentication.token", Message: "credentials required for basic auth"}
 			}
+		default:
 		}
 	}
 
@@ -161,11 +162,11 @@ type WebhookRequest struct {
 
 // WebhookResponse represents a webhook response.
 type WebhookResponse struct {
-	StatusCode int                    `json:"status_code"`
-	Message    string                 `json:"message"`
-	ExecutionID string                `json:"execution_id,omitempty"`
-	Error      string                 `json:"error,omitempty"`
-	Data       map[string]interface{} `json:"data,omitempty"`
+	StatusCode  int                    `json:"status_code"`
+	Message     string                 `json:"message"`
+	ExecutionID string                 `json:"execution_id,omitempty"`
+	Error       string                 `json:"error,omitempty"`
+	Data        map[string]interface{} `json:"data,omitempty"`
 }
 
 // WebhookTriggerManager manages webhook-based triggers.
@@ -599,10 +600,10 @@ func (m *WebhookTriggerManager) executeRunbook(ctx context.Context, trigger *Web
 
 	if exec.State == runbook.ExecutionStateFailed {
 		return &WebhookResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    "runbook failed",
+			StatusCode:  http.StatusInternalServerError,
+			Message:     "runbook failed",
 			ExecutionID: exec.ID,
-			Error:      exec.Error,
+			Error:       exec.Error,
 		}
 	}
 

@@ -292,6 +292,7 @@ func (m *InMemoryLeaseManager) Stats(ctx context.Context) (*LeaseStats, error) {
 			stats.ExpiredLeases++
 		case LeaseStateRevoked:
 			stats.RevokedLeases++
+		default:
 		}
 
 		stats.LeasesByBackend[lease.Backend]++
@@ -311,7 +312,7 @@ func (m *InMemoryLeaseManager) Start(ctx context.Context) error {
 	m.mu.Unlock()
 
 	m.wg.Add(1)
-	go m.renewalLoop()
+	go m.renewalLoop() //nolint:contextcheck // background loop uses internal context
 
 	return nil
 }
@@ -367,21 +368,6 @@ func (m *InMemoryLeaseManager) renewExpiring() {
 		ctx, cancel := context.WithTimeout(m.ctx, 30*time.Second)
 		_, _ = m.Renew(ctx, lease.ID, lease.TTL)
 		cancel()
-	}
-}
-
-// cleanupExpired removes expired and revoked leases.
-func (m *InMemoryLeaseManager) cleanupExpired() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for id, lease := range m.leases {
-		if lease.State == LeaseStateExpired || lease.State == LeaseStateRevoked {
-			delete(m.leases, id)
-		} else if lease.IsExpired() {
-			lease.State = LeaseStateExpired
-			m.logLeaseEvent(context.Background(), lease, AuditActionLeaseExpire, nil)
-		}
 	}
 }
 

@@ -1,3 +1,5 @@
+// Package manifest provides module manifest parsing and validation for
+// module metadata, capabilities, and dependency declarations.
 package manifest
 
 import (
@@ -10,17 +12,17 @@ import (
 
 // Manifest represents a module's metadata
 type Manifest struct {
-	Name         string            `yaml:"name"`
-	Version      string            `yaml:"version"`
-	Type         string            `yaml:"type"`
-	Entrypoint   string            `yaml:"entrypoint"`
-	Capabilities []string          `yaml:"-"` // Populated from CapabilitiesRaw
+	Name               string                       `yaml:"name"`
+	Version            string                       `yaml:"version"`
+	Type               string                       `yaml:"type"`
+	Entrypoint         string                       `yaml:"entrypoint"`
+	Capabilities       []string                     `yaml:"-"` // Populated from CapabilitiesRaw
 	CapabilitiesConfig map[string]*CapabilityConfig `yaml:"-"` // Detailed config per capability
-	Limits       Limits            `yaml:"limits"`
-	Dependencies map[string]string `yaml:"dependencies,omitempty"`
-	Description  string            `yaml:"description,omitempty"`
-	Author       string            `yaml:"author,omitempty"`
-	License      string            `yaml:"license,omitempty"`
+	Limits             Limits                       `yaml:"limits"`
+	Dependencies       map[string]string            `yaml:"dependencies,omitempty"`
+	Description        string                       `yaml:"description,omitempty"`
+	Author             string                       `yaml:"author,omitempty"`
+	License            string                       `yaml:"license,omitempty"`
 
 	// CapabilitiesRaw stores the raw YAML for flexible parsing
 	CapabilitiesRaw yaml.Node `yaml:"capabilities"`
@@ -285,7 +287,8 @@ func (m *Manifest) SaveManifest(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize manifest: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	//nolint:gosec // G306: module manifests need to be readable by module resolver
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 	return nil

@@ -1,3 +1,4 @@
+// Package main implements the kscore-proxy CLI for managing proxy agents and unmanaged devices.
 package main
 
 import (
@@ -56,34 +57,34 @@ type ProxyCredential struct {
 
 // DiscoveredDevice represents a discovered device
 type DiscoveredDevice struct {
-	ID           string    `json:"id" yaml:"id"`
-	Address      string    `json:"address" yaml:"address"`
-	Hostname     string    `json:"hostname,omitempty" yaml:"hostname,omitempty"`
-	Vendor       string    `json:"vendor" yaml:"vendor"`
-	Model        string    `json:"model,omitempty" yaml:"model,omitempty"`
-	Profile      string    `json:"profile" yaml:"profile"`
-	Status       string    `json:"status" yaml:"status"` // pending, approved, rejected, ignored
-	DiscoveredAt time.Time `json:"discovered_at" yaml:"discovered_at"`
-	DiscoveryMethod string `json:"discovery_method" yaml:"discovery_method"`
+	ID              string    `json:"id" yaml:"id"`
+	Address         string    `json:"address" yaml:"address"`
+	Hostname        string    `json:"hostname,omitempty" yaml:"hostname,omitempty"`
+	Vendor          string    `json:"vendor" yaml:"vendor"`
+	Model           string    `json:"model,omitempty" yaml:"model,omitempty"`
+	Profile         string    `json:"profile" yaml:"profile"`
+	Status          string    `json:"status" yaml:"status"` // pending, approved, rejected, ignored
+	DiscoveredAt    time.Time `json:"discovered_at" yaml:"discovered_at"`
+	DiscoveryMethod string    `json:"discovery_method" yaml:"discovery_method"`
 }
 
 // DriftResult represents drift detection result
 type DriftResult struct {
-	DeviceID    string       `json:"device_id" yaml:"device_id"`
-	DeviceName  string       `json:"device_name" yaml:"device_name"`
-	HasDrift    bool         `json:"has_drift" yaml:"has_drift"`
-	DriftCount  int          `json:"drift_count" yaml:"drift_count"`
-	Severity    string       `json:"severity" yaml:"severity"`
-	Items       []DriftItem  `json:"items" yaml:"items"`
-	CheckedAt   time.Time    `json:"checked_at" yaml:"checked_at"`
+	DeviceID   string      `json:"device_id" yaml:"device_id"`
+	DeviceName string      `json:"device_name" yaml:"device_name"`
+	HasDrift   bool        `json:"has_drift" yaml:"has_drift"`
+	DriftCount int         `json:"drift_count" yaml:"drift_count"`
+	Severity   string      `json:"severity" yaml:"severity"`
+	Items      []DriftItem `json:"items" yaml:"items"`
+	CheckedAt  time.Time   `json:"checked_at" yaml:"checked_at"`
 }
 
 // DriftItem represents a single drift item
 type DriftItem struct {
-	Path      string `json:"path" yaml:"path"`
-	Expected  string `json:"expected" yaml:"expected"`
-	Actual    string `json:"actual" yaml:"actual"`
-	Severity  string `json:"severity" yaml:"severity"`
+	Path     string `json:"path" yaml:"path"`
+	Expected string `json:"expected" yaml:"expected"`
+	Actual   string `json:"actual" yaml:"actual"`
+	Severity string `json:"severity" yaml:"severity"`
 }
 
 func newRootCmd() *cobra.Command {
@@ -162,7 +163,7 @@ func runStatus() error {
 			"unhealthy": 1,
 		},
 		"credentials": map[string]interface{}{
-			"total":   12,
+			"total":    12,
 			"expiring": 2,
 		},
 		"discovery": map[string]interface{}{
@@ -311,20 +312,20 @@ func runDeviceList(proxy, vendor, deviceType, status string) error {
 
 	// Filter devices
 	filtered := []ProxyDevice{}
-	for _, d := range devices {
-		if proxy != "" && d.ProxyAgent != proxy {
+	for i := range devices {
+		if proxy != "" && devices[i].ProxyAgent != proxy {
 			continue
 		}
-		if vendor != "" && d.Vendor != vendor {
+		if vendor != "" && devices[i].Vendor != vendor {
 			continue
 		}
-		if deviceType != "" && d.DeviceType != deviceType {
+		if deviceType != "" && devices[i].DeviceType != deviceType {
 			continue
 		}
-		if status != "" && d.Health != status {
+		if status != "" && devices[i].Health != status {
 			continue
 		}
-		filtered = append(filtered, d)
+		filtered = append(filtered, devices[i])
 	}
 
 	if outputFormat == "json" {
@@ -347,7 +348,8 @@ func runDeviceList(proxy, vendor, deviceType, status string) error {
 		Headers: []string{"ID", "NAME", "ADDRESS", "VENDOR", "TYPE", "PROTOCOL", "HEALTH", "PROXY"},
 	}
 
-	for _, d := range filtered {
+	for i := range filtered {
+		d := &filtered[i]
 		table.Rows = append(table.Rows, []string{
 			d.ID,
 			d.Name,
@@ -592,7 +594,7 @@ func runDeviceRemove(deviceID string, force bool) error {
 		fmt.Printf("Remove device %s? [y/N]: ", deviceID)
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" {
+		if !strings.EqualFold(response, "y") {
 			fmt.Println("Aborted")
 			return nil
 		}
@@ -703,9 +705,10 @@ func runDeviceHealthAll() error {
 		Headers: []string{"DEVICE", "HEALTH", "LATENCY", "LAST CHECK", "ISSUES"},
 	}
 
-	table.Rows = append(table.Rows, []string{"core-router-01", "healthy", "45ms", "30s ago", "0"})
-	table.Rows = append(table.Rows, []string{"access-switch-01", "healthy", "52ms", "45s ago", "0"})
-	table.Rows = append(table.Rows, []string{"edge-firewall-01", "degraded", "250ms", "2m ago", "1"})
+	table.Rows = append(table.Rows,
+		[]string{"core-router-01", "healthy", "45ms", "30s ago", "0"},
+		[]string{"access-switch-01", "healthy", "52ms", "45s ago", "0"},
+		[]string{"edge-firewall-01", "degraded", "250ms", "2m ago", "1"})
 
 	output.WriteTable(os.Stdout, table)
 
@@ -954,7 +957,8 @@ func runCredentialList() error {
 		Headers: []string{"ID", "NAME", "TYPE", "USERNAME", "PROTOCOL", "BACKEND"},
 	}
 
-	for _, c := range credentials {
+	for i := range credentials {
+		c := &credentials[i]
 		table.Rows = append(table.Rows, []string{
 			c.ID,
 			c.Name,
@@ -1103,7 +1107,7 @@ func runCredentialDelete(name string, force bool) error {
 		fmt.Printf("Delete credential %s? This cannot be undone. [y/N]: ", name)
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" {
+		if !strings.EqualFold(response, "y") {
 			fmt.Println("Aborted")
 			return nil
 		}
@@ -1250,9 +1254,10 @@ func runDiscoverScan(network string, networks []string, debug bool) error {
 		Headers: []string{"ADDRESS", "HOSTNAME", "VENDOR", "MODEL", "PROFILE"},
 	}
 
-	table.Rows = append(table.Rows, []string{"192.168.1.1", "router-01", "cisco", "ISR4321", "cisco_ios"})
-	table.Rows = append(table.Rows, []string{"192.168.1.10", "switch-01", "cisco", "C3850", "cisco_ios"})
-	table.Rows = append(table.Rows, []string{"192.168.1.254", "firewall-01", "pfsense", "SG-3100", "pfsense"})
+	table.Rows = append(table.Rows,
+		[]string{"192.168.1.1", "router-01", "cisco", "ISR4321", "cisco_ios"},
+		[]string{"192.168.1.10", "switch-01", "cisco", "C3850", "cisco_ios"},
+		[]string{"192.168.1.254", "firewall-01", "pfsense", "SG-3100", "pfsense"})
 
 	output.WriteTable(os.Stdout, table)
 
@@ -1285,11 +1290,11 @@ func runDiscoverList(status string) error {
 	}
 
 	filtered := []DiscoveredDevice{}
-	for _, d := range devices {
-		if status != "" && d.Status != status {
+	for i := range devices {
+		if status != "" && devices[i].Status != status {
 			continue
 		}
-		filtered = append(filtered, d)
+		filtered = append(filtered, devices[i])
 	}
 
 	if outputFormat == "json" {
@@ -1302,7 +1307,8 @@ func runDiscoverList(status string) error {
 		Headers: []string{"ID", "ADDRESS", "HOSTNAME", "VENDOR", "PROFILE", "STATUS", "DISCOVERED"},
 	}
 
-	for _, d := range filtered {
+	for i := range filtered {
+		d := &filtered[i]
 		table.Rows = append(table.Rows, []string{
 			d.ID,
 			d.Address,
@@ -1628,9 +1634,10 @@ func runDriftCheckAll() error {
 		Headers: []string{"DEVICE", "DRIFT", "COUNT", "SEVERITY", "CHECKED"},
 	}
 
-	table.Rows = append(table.Rows, []string{"core-router-01", "yes", "2", "medium", time.Now().Format("15:04:05")})
-	table.Rows = append(table.Rows, []string{"access-switch-01", "no", "0", "-", time.Now().Format("15:04:05")})
-	table.Rows = append(table.Rows, []string{"edge-firewall-01", "yes", "1", "low", time.Now().Format("15:04:05")})
+	table.Rows = append(table.Rows,
+		[]string{"core-router-01", "yes", "2", "medium", time.Now().Format("15:04:05")},
+		[]string{"access-switch-01", "no", "0", "-", time.Now().Format("15:04:05")},
+		[]string{"edge-firewall-01", "yes", "1", "low", time.Now().Format("15:04:05")})
 
 	output.WriteTable(os.Stdout, table)
 

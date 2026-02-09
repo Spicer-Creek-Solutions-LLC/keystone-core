@@ -395,7 +395,7 @@ func (r *InMemoryDeviceRegistry) Clear(ctx context.Context) error {
 	return nil
 }
 
-// Stats returns statistics about registered devices.
+// RegistryStats holds statistics about registered devices.
 type RegistryStats struct {
 	TotalDevices    int
 	OnlineDevices   int

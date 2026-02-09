@@ -1,3 +1,5 @@
+// Package bootstrap provides agent bootstrap functionality for initializing
+// and configuring Keystone Core agents on managed nodes.
 package bootstrap
 
 import (
@@ -252,7 +254,7 @@ This command is the entry point for Epic 27's single-binary bootstrap.`,
 				return err
 			}
 
-			cfg := &BootstrapConfig{
+			cfg := &Config{
 				Mode:                   string(mode),
 				ClusterName:            opts.ClusterName,
 				NodeRole:               opts.NodeRole,
@@ -371,7 +373,7 @@ This command is the entry point for Epic 27's single-binary bootstrap.`,
 				if err != nil {
 					return err
 				}
-				cfg = &BootstrapConfig{
+				cfg = &Config{
 					Mode:                   selected.Mode,
 					ClusterName:            selected.ClusterName,
 					NodeRole:               selected.NodeRole,
@@ -797,11 +799,12 @@ func applyOptionDefaults(opts *Options, mode DeploymentMode) {
 	}
 
 	if opts.NodeRole == "" {
-		if opts.JoinEndpoint != "" {
+		switch {
+		case opts.JoinEndpoint != "":
 			opts.NodeRole = "agent"
-		} else if mode == DeploymentModeDemo {
+		case mode == DeploymentModeDemo:
 			opts.NodeRole = "both"
-		} else {
+		default:
 			opts.NodeRole = "control-plane"
 		}
 	}

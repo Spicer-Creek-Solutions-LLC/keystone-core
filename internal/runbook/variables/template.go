@@ -41,12 +41,12 @@ func NewTemplateEngine(ctx *Context) *TemplateEngine {
 		"join":       strings.Join,
 
 		// Type conversion
-		"toString":  toString,
-		"toInt":     toInt,
-		"toFloat":   toFloat,
-		"toBool":    toBool,
-		"toJSON":    toJSON,
-		"fromJSON":  fromJSON,
+		"toString": toString,
+		"toInt":    toInt,
+		"toFloat":  toFloat,
+		"toBool":   toBool,
+		"toJSON":   toJSON,
+		"fromJSON": fromJSON,
 
 		// Comparison
 		"eq": reflect.DeepEqual,
@@ -57,7 +57,7 @@ func NewTemplateEngine(ctx *Context) *TemplateEngine {
 		"ge": ge,
 
 		// Default value
-		"default": defaultValue,
+		"default":  defaultValue,
 		"coalesce": coalesce,
 
 		// Collections
@@ -419,8 +419,7 @@ func b64encode(b []byte) string {
 			padding++
 		}
 
-		result = append(result, base64Chars[(n>>18)&0x3f])
-		result = append(result, base64Chars[(n>>12)&0x3f])
+		result = append(result, base64Chars[(n>>18)&0x3f], base64Chars[(n>>12)&0x3f])
 		if padding < 2 {
 			result = append(result, base64Chars[(n>>6)&0x3f])
 		} else {
@@ -441,7 +440,7 @@ func b64decode(s string) ([]byte, error) {
 	const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 	charMap := make(map[byte]uint32)
 	for i, c := range []byte(base64Chars) {
-		charMap[c] = uint32(i)
+		charMap[c] = uint32(i) //nolint:gosec // G115: i is 0-63 for base64 chars
 	}
 
 	// Remove padding

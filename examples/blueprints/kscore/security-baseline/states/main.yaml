@@ -10,6 +10,6 @@ states:
   security_baseline_marker:
     module: file
     state: managed
-    name: /etc/kscore/security-baseline.enabled
+    name: /etc/keystone-core/security-baseline.enabled
     contents: "Keystone Core security baseline applied."
     mode: "0644"

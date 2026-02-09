@@ -208,9 +208,8 @@ func (m *HardwareProfileMatcher) matchesCriteria(server *Server, criteria *Hardw
 
 // containsIgnoreCase checks if slice contains value (case-insensitive).
 func containsIgnoreCase(slice []string, value string) bool {
-	valueLower := strings.ToLower(value)
 	for _, s := range slice {
-		if strings.ToLower(s) == valueLower {
+		if strings.EqualFold(s, value) {
 			return true
 		}
 	}
@@ -253,8 +252,8 @@ func hasRAIDController(controllers []StorageController) bool {
 
 // hasNetworkSpeed checks if any interface meets minimum speed.
 func hasNetworkSpeed(interfaces []NetworkInterface, minSpeed int) bool {
-	for _, iface := range interfaces {
-		if iface.SpeedMbps >= minSpeed {
+	for i := range interfaces {
+		if interfaces[i].SpeedMbps >= minSpeed {
 			return true
 		}
 	}
@@ -263,8 +262,8 @@ func hasNetworkSpeed(interfaces []NetworkInterface, minSpeed int) bool {
 
 // hasSRIOVCapable checks if any interface supports SR-IOV.
 func hasSRIOVCapable(interfaces []NetworkInterface) bool {
-	for _, iface := range interfaces {
-		if iface.SRIOVCapable {
+	for i := range interfaces {
+		if interfaces[i].SRIOVCapable {
 			return true
 		}
 	}
@@ -318,8 +317,8 @@ func DefaultHardwareProfiles() []*HardwareProfile {
 			Description: "High-performance compute nodes",
 			Priority:    150,
 			Criteria: HardwareProfileCriteria{
-				MinCPUCores: 64,
-				MinMemoryMB: 262144, // 256 GB
+				MinCPUCores:  64,
+				MinMemoryMB:  262144, // 256 GB
 				StorageTypes: []string{"nvme"},
 			},
 			Labels: map[string]string{

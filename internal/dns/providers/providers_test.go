@@ -24,9 +24,7 @@ func (m *mockLibdnsProvider) GetRecords(ctx context.Context, zone string) ([]lib
 }
 
 func (m *mockLibdnsProvider) AppendRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
-	for i := range recs {
-		m.records = append(m.records, recs[i])
-	}
+	m.records = append(m.records, recs...)
 	return recs, nil
 }
 

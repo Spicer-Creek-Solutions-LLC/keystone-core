@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // AuditStore defines the interface for persistent policy audit storage
@@ -276,7 +276,7 @@ func (s *SQLitePolicyAuditStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_policy_audit_created_at ON policy_audit(created_at);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 

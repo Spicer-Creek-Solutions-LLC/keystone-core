@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -70,7 +71,7 @@ func NewSQLiteTokenStore(config *SQLiteTokenStoreConfig) (*SQLiteTokenStore, err
 	}
 
 	// Verify connection
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(context.Background()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -110,7 +111,7 @@ func (s *SQLiteTokenStore) initSchema() error {
 		CREATE INDEX IF NOT EXISTS idx_join_tokens_agent_id ON join_tokens(agent_id);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -146,7 +147,7 @@ func (s *SQLiteTokenStore) Create(ctx context.Context, token *JoinToken) error {
 	err = s.db.QueryRowContext(ctx, "SELECT 1 FROM join_tokens WHERE token_hash = ?", tokenHash).Scan(&exists)
 	if err == nil {
 		return fmt.Errorf("token already exists")
-	} else if err != sql.ErrNoRows {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("failed to check for existing token: %w", err)
 	}
 

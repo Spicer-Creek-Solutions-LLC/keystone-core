@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // G505: HMAC-SHA1 required by DNSMadeEasy API authentication protocol
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -94,11 +94,6 @@ type dmeRecordsResponse struct {
 type dmeDomain struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
-}
-
-// dmeDomainsResponse represents the DNSMadeEasy domains list response.
-type dmeDomainsResponse struct {
-	Data []dmeDomain `json:"data"`
 }
 
 // GetRecords retrieves all DNS records for a zone.
@@ -312,6 +307,8 @@ func (p *DNSMadeEasyProvider) toRecord(r dmeRecord) dns.Record {
 		record.Priority = r.Priority
 		record.Weight = r.Weight
 		record.Port = r.Port
+	default:
+		// Other record types don't have additional fields
 	}
 
 	return record
@@ -334,6 +331,8 @@ func (p *DNSMadeEasyProvider) fromRecord(r dns.Record) dmeRecord {
 		dmeRec.Priority = r.Priority
 		dmeRec.Weight = r.Weight
 		dmeRec.Port = r.Port
+	default:
+		// Other record types don't require additional field mapping
 	}
 
 	return dmeRec
@@ -343,5 +342,5 @@ func (p *DNSMadeEasyProvider) fromRecord(r dns.Record) dmeRecord {
 var _ dns.Provider = (*DNSMadeEasyProvider)(nil)
 
 func init() {
-	dns.RegisterProvider("dnsmadeeasy", NewDNSMadeEasyProvider, DNSMadeEasyCapabilities)
+	_ = dns.RegisterProvider("dnsmadeeasy", NewDNSMadeEasyProvider, DNSMadeEasyCapabilities) //nolint:errcheck // provider registration in init
 }

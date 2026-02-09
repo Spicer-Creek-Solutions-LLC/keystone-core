@@ -82,6 +82,7 @@ func TestGroupModule_CheckGroupNotExists(t *testing.T) {
 
 func TestGroupModule_GetGroupMembers(t *testing.T) {
 	module := NewGroupModule()
+	ctx := context.Background()
 
 	// Get members for wheel/root group (exists on all Unix-like systems)
 	var groupName string
@@ -91,7 +92,7 @@ func TestGroupModule_GetGroupMembers(t *testing.T) {
 		groupName = "root"
 	}
 
-	members, err := module.getGroupMembers(groupName)
+	members, err := module.getGroupMembers(ctx, groupName)
 	if err != nil {
 		t.Fatalf("getGroupMembers failed: %v", err)
 	}
@@ -129,9 +130,10 @@ func TestGroupModule_GetGroupMembersDarwin(t *testing.T) {
 	}
 
 	module := NewGroupModule()
+	ctx := context.Background()
 
 	// Get members for wheel group (system group with members)
-	members, err := module.getGroupMembersDarwin("wheel")
+	members, err := module.getGroupMembersDarwin(ctx, "wheel")
 	if err != nil {
 		t.Fatalf("getGroupMembersDarwin failed: %v", err)
 	}

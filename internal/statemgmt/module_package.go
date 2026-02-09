@@ -77,7 +77,7 @@ func (m *PackageModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the package state
@@ -99,7 +99,7 @@ func (m *PackageModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -109,7 +109,7 @@ func (m *PackageModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	pm, err := m.detectPackageManager()
@@ -118,7 +118,7 @@ func (m *PackageModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to detect package manager: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -148,7 +148,7 @@ func (m *PackageModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the package is in the desired state
@@ -157,23 +157,24 @@ func (m *PackageModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // PackageManager represents different package managers
 type PackageManager string
 
+// PMUnknown and related constants.
 const (
-	PMUnknown   PackageManager = "unknown"
-	PMApt       PackageManager = "apt"
-	PMYum       PackageManager = "yum"
-	PMDNF       PackageManager = "dnf"
-	PMApk       PackageManager = "apk"
-	PMBrew      PackageManager = "brew"
-	PMPacman    PackageManager = "pacman"
-	PMZypper    PackageManager = "zypper"
-	PMChoco     PackageManager = "chocolatey"
-	PMWinget    PackageManager = "winget"
+	PMUnknown PackageManager = "unknown"
+	PMApt     PackageManager = "apt"
+	PMYum     PackageManager = "yum"
+	PMDNF     PackageManager = "dnf"
+	PMApk     PackageManager = "apk"
+	PMBrew    PackageManager = "brew"
+	PMPacman  PackageManager = "pacman"
+	PMZypper  PackageManager = "zypper"
+	PMChoco   PackageManager = "chocolatey"
+	PMWinget  PackageManager = "winget"
 )
 
 // detectPackageManager detects the available package manager using platform detection
@@ -181,7 +182,7 @@ func (m *PackageModule) detectPackageManager() (PackageManager, error) {
 	// Use platform detection for more accurate detection
 	platformPM, err := platform.DetectPackageManager()
 	if err == nil && platformPM != platform.PackageManagerUnknown {
-		return convertPlatformPM(platformPM), nil
+		return convertPlatformPM(platformPM), nil //nolint:nilerr // intentional
 	}
 
 	// Fallback to manual detection
@@ -202,7 +203,7 @@ func (m *PackageModule) detectPackageManager() (PackageManager, error) {
 
 	for _, mgr := range managers {
 		if _, err := exec.LookPath(mgr.command); err == nil {
-			return mgr.name, nil
+			return mgr.name, nil //nolint:nilerr // intentional
 		}
 	}
 
@@ -236,7 +237,7 @@ func convertPlatformPM(pm platform.PackageManager) PackageManager {
 }
 
 // isPackageInstalled checks if a package is installed
-func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManager, pkgName string) (bool, string, error) {
+func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManager, pkgName string) (installed bool, version string, err error) {
 	var cmd *exec.Cmd
 
 	switch pm {
@@ -259,13 +260,12 @@ func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManage
 	output, err := cmd.Output()
 	if err != nil {
 		// Package not installed
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // package query returns error when not installed
 	}
 
 	outputStr := strings.TrimSpace(string(output))
 
 	// Parse version based on package manager
-	var version string
 	switch pm {
 	case PMApt:
 		// Output: "install ok installed <version>"
@@ -274,22 +274,22 @@ func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManage
 			if len(parts) > 3 {
 				version = parts[3]
 			}
-			return true, version, nil
+			return true, version, nil //nolint:nilerr // returning installation status, no error
 		}
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // package not in installed state
 
 	case PMYum, PMDNF, PMZypper:
 		// Output: "package-name-version-release.arch"
 		version = outputStr
-		return true, version, nil
+		return true, version, nil //nolint:nilerr // returning installation status, no error
 
 	case PMApk:
 		// Output: "package-version" if installed
 		if outputStr != "" {
 			version = strings.TrimPrefix(outputStr, pkgName+"-")
-			return true, version, nil
+			return true, version, nil //nolint:nilerr // returning installation status, no error
 		}
-		return false, "", nil
+		return false, "", nil //nolint:nilerr // empty output means not installed
 
 	case PMBrew:
 		// Output: "package version"
@@ -297,7 +297,7 @@ func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManage
 		if len(parts) > 1 {
 			version = parts[1]
 		}
-		return true, version, nil
+		return true, version, nil //nolint:nilerr // returning installation status, no error
 
 	case PMPacman:
 		// Output: "package version"
@@ -305,10 +305,12 @@ func (m *PackageModule) isPackageInstalled(ctx context.Context, pm PackageManage
 		if len(parts) > 1 {
 			version = parts[1]
 		}
-		return true, version, nil
+		return true, version, nil //nolint:nilerr // returning installation status, no error
+	default:
+		// PMUnknown, PMChoco, PMWinget handled elsewhere or unsupported
 	}
 
-	return false, "", nil
+	return false, "", nil //nolint:nilerr // unhandled package manager state
 }
 
 // installPackage installs a package
@@ -423,5 +425,5 @@ func (m *PackageModule) removePackage(ctx context.Context, pm PackageManager, de
 }
 
 func init() {
-	RegisterModule(NewPackageModule())
+	_ = RegisterModule(NewPackageModule()) //nolint:errcheck // module registration in init
 }

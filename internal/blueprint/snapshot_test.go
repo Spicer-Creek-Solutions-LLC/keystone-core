@@ -13,8 +13,8 @@ import (
 func TestDefaultSnapshotConfig(t *testing.T) {
 	config := DefaultSnapshotConfig()
 
-	if config.StorePath != "/var/lib/kscore/snapshots" {
-		t.Errorf("Expected StorePath /var/lib/kscore/snapshots, got %s", config.StorePath)
+	if config.StorePath != "/var/lib/keystone-core/snapshots" {
+		t.Errorf("Expected StorePath /var/lib/keystone-core/snapshots, got %s", config.StorePath)
 	}
 	if config.MaxSnapshotsPerBlueprint != 10 {
 		t.Errorf("Expected MaxSnapshotsPerBlueprint 10, got %d", config.MaxSnapshotsPerBlueprint)
@@ -47,7 +47,7 @@ func TestNewSnapshotManager(t *testing.T) {
 }
 
 func TestNewSnapshotManager_NilConfig(t *testing.T) {
-	// This will fail because /var/lib/kscore/snapshots likely doesn't exist
+	// This will fail because /var/lib/keystone-core/snapshots likely doesn't exist
 	// and we can't create it without permissions
 	_, err := NewSnapshotManager(nil)
 	// Just verify it doesn't panic - error is expected if dir doesn't exist

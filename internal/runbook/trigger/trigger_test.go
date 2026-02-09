@@ -32,7 +32,7 @@ func (m *mockRunbookRepository) GetRunbook(name, version string) (*runbook.Runbo
 }
 
 func (m *mockRunbookRepository) ListRunbooks() ([]*runbook.Runbook, error) {
-	var result []*runbook.Runbook
+	result := make([]*runbook.Runbook, 0, len(m.runbooks))
 	for _, rb := range m.runbooks {
 		result = append(result, rb)
 	}
@@ -221,7 +221,7 @@ func TestTrigger_Validate(t *testing.T) {
 				Name:       "Test Trigger",
 				RunbookRef: RunbookRef{Name: "test-runbook"},
 				Filter:     "type == \"test.event\"",
-				Conditions: &TriggerConditions{
+				Conditions: &Conditions{
 					Throttle: -1 * time.Second,
 				},
 			},
@@ -234,7 +234,7 @@ func TestTrigger_Validate(t *testing.T) {
 				Name:       "Test Trigger",
 				RunbookRef: RunbookRef{Name: "test-runbook"},
 				Filter:     "type == \"test.event\"",
-				Conditions: &TriggerConditions{
+				Conditions: &Conditions{
 					RateLimit: &RateLimitConfig{
 						MaxExecutions: 0,
 						Window:        time.Minute,
@@ -355,7 +355,7 @@ func TestRegistry_ProcessEvent(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop},
 			},
@@ -423,7 +423,7 @@ func TestRegistry_Throttle(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -440,7 +440,7 @@ func TestRegistry_Throttle(t *testing.T) {
 		RunbookRef: RunbookRef{Name: "test-runbook"},
 		Filter:     "type == \"test.event\"",
 		Enabled:    true,
-		Conditions: &TriggerConditions{
+		Conditions: &Conditions{
 			Throttle: 100 * time.Millisecond,
 		},
 	}
@@ -489,7 +489,7 @@ func TestRegistry_MaxConcurrent(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -521,7 +521,7 @@ func TestRegistry_MaxConcurrent(t *testing.T) {
 		RunbookRef: RunbookRef{Name: "test-runbook"},
 		Filter:     "type == \"test.event\"",
 		Enabled:    true,
-		Conditions: &TriggerConditions{
+		Conditions: &Conditions{
 			MaxConcurrent: 2,
 		},
 	}
@@ -664,7 +664,7 @@ func TestRunbookAction(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "remediation"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Inputs: []runbook.InputDef{
 				{Name: "host", Type: "string", Required: true},
 			},
@@ -726,7 +726,7 @@ func TestRegistry_InputMappings(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -789,7 +789,7 @@ func TestRegistry_Priority(t *testing.T) {
 			APIVersion: "runbook.keystone.io/v1",
 			Kind:       "Runbook",
 			Metadata:   runbook.Metadata{Name: name},
-			Spec: runbook.RunbookSpec{
+			Spec: runbook.Spec{
 				Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 			},
 		})
@@ -813,19 +813,19 @@ func TestRegistry_Priority(t *testing.T) {
 	registry.Register(&Trigger{
 		ID: "trigger-low", Name: "Low Priority",
 		RunbookRef: RunbookRef{Name: "runbook-a"},
-		Filter: "type == \"test.event\"", Enabled: true,
+		Filter:     "type == \"test.event\"", Enabled: true,
 		Priority: 10,
 	})
 	registry.Register(&Trigger{
 		ID: "trigger-high", Name: "High Priority",
 		RunbookRef: RunbookRef{Name: "runbook-b"},
-		Filter: "type == \"test.event\"", Enabled: true,
+		Filter:     "type == \"test.event\"", Enabled: true,
 		Priority: 100,
 	})
 	registry.Register(&Trigger{
 		ID: "trigger-medium", Name: "Medium Priority",
 		RunbookRef: RunbookRef{Name: "runbook-c"},
-		Filter: "type == \"test.event\"", Enabled: true,
+		Filter:     "type == \"test.event\"", Enabled: true,
 		Priority: 50,
 	})
 
@@ -874,7 +874,7 @@ func TestRegistry_TimeWindow(t *testing.T) {
 		RunbookRef: RunbookRef{Name: "test-runbook"},
 		Filter:     "type == \"test.event\"",
 		Enabled:    true,
-		Conditions: &TriggerConditions{
+		Conditions: &Conditions{
 			TimeWindow: &TimeWindowConfig{
 				Start: "00:00",
 				End:   "23:59",
@@ -901,7 +901,7 @@ func TestRegistry_Close(t *testing.T) {
 		RunbookRef: RunbookRef{Name: "test-runbook"},
 		Filter:     "type == \"test.event\"",
 		Enabled:    true,
-		Conditions: &TriggerConditions{
+		Conditions: &Conditions{
 			Debounce: time.Hour, // Long debounce
 		},
 	}
@@ -929,7 +929,7 @@ func TestEventProcessor(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})

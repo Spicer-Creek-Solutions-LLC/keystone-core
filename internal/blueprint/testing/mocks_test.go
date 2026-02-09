@@ -50,7 +50,7 @@ func TestMockRegistry_RegisterCommand(t *testing.T) {
 	// Verify mock is retrievable
 	retrieved := registry.GetCommandMock("echo hello")
 	if retrieved == nil {
-		t.Error("GetCommandMock returned nil for matching command")
+		t.Fatal("GetCommandMock returned nil for matching command")
 	}
 	if retrieved.Stdout != "hello world" {
 		t.Errorf("Stdout = %q, want %q", retrieved.Stdout, "hello world")
@@ -412,8 +412,8 @@ func TestMockBuilder_ApplyMocks_Package(t *testing.T) {
 			Type: "package",
 			Package: &PackageMock{
 				Name:              "nginx",
-				Installed:        true,
-				Version:          "1.18.0",
+				Installed:         true,
+				Version:           "1.18.0",
 				AvailableVersions: []string{"1.18.0", "1.19.0"},
 			},
 		},

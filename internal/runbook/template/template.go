@@ -17,14 +17,14 @@ type Template struct {
 	Kind string `yaml:"kind" json:"kind"`
 
 	// Metadata contains template metadata
-	Metadata TemplateMetadata `yaml:"metadata" json:"metadata"`
+	Metadata Metadata `yaml:"metadata" json:"metadata"`
 
 	// Spec contains the template specification
-	Spec TemplateSpec `yaml:"spec" json:"spec"`
+	Spec Spec `yaml:"spec" json:"spec"`
 }
 
-// TemplateMetadata contains metadata about the template.
-type TemplateMetadata struct {
+// Metadata contains metadata about the template.
+type Metadata struct {
 	// Name is the unique template name
 	Name string `yaml:"name" json:"name"`
 
@@ -41,20 +41,20 @@ type TemplateMetadata struct {
 	Annotations map[string]string `yaml:"annotations,omitempty" json:"annotations,omitempty"`
 }
 
-// TemplateSpec contains the template specification.
-type TemplateSpec struct {
+// Spec contains the template specification.
+type Spec struct {
 	// Parameters defines the template parameters
-	Parameters []TemplateParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	Parameters []Parameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 
 	// Steps is the list of steps in the template
 	Steps []runbook.Step `yaml:"steps" json:"steps"`
 
 	// Outputs defines which step outputs to expose
-	Outputs []TemplateOutput `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Outputs []Output `yaml:"outputs,omitempty" json:"outputs,omitempty"`
 }
 
-// TemplateParameter defines a parameter for the template.
-type TemplateParameter struct {
+// Parameter defines a parameter for the template.
+type Parameter struct {
 	// Name is the parameter name
 	Name string `yaml:"name" json:"name"`
 
@@ -89,8 +89,8 @@ type ParameterValidation struct {
 	Enum []interface{} `yaml:"enum,omitempty" json:"enum,omitempty"`
 }
 
-// TemplateOutput defines an output from the template.
-type TemplateOutput struct {
+// Output defines an output from the template.
+type Output struct {
 	// Name is the output name
 	Name string `yaml:"name" json:"name"`
 
@@ -101,8 +101,8 @@ type TemplateOutput struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// TemplateRef is a reference to a template used in a runbook.
-type TemplateRef struct {
+// Ref is a reference to a template used in a runbook.
+type Ref struct {
 	// Name is the template name
 	Name string `yaml:"name" json:"name"`
 
@@ -197,7 +197,12 @@ func (r *Registry) List() []*Template {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var result []*Template
+	// Count total templates first
+	total := 0
+	for _, versions := range r.templates {
+		total += len(versions)
+	}
+	result := make([]*Template, 0, total)
 	for _, versions := range r.templates {
 		for _, tmpl := range versions {
 			result = append(result, tmpl)

@@ -1,3 +1,4 @@
+// Package main implements kscorectl, the main CLI dispatcher for Keystone Core.
 package main
 
 import (
@@ -12,13 +13,18 @@ import (
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/config"
-	"github.com/spf13/cobra"
 	"github.com/shawnbutts/keystone-core/pkg/plugin"
 	"github.com/shawnbutts/keystone-core/pkg/version"
+	"github.com/spf13/cobra"
 )
 
 var (
-	serverAddr string
+	serverAddr   string
+	configFile   string
+	outputFormat string
+	verboseMode  bool
+	quietMode    bool
+	timeout      time.Duration
 )
 
 func main() {
@@ -38,6 +44,12 @@ implemented as separate binaries (kscore-*).`,
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file path (defaults to standard search paths)")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "format", "o", "table", "Output format (table, json, yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&verboseMode, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&quietMode, "quiet", "q", false, "Enable quiet mode (suppress non-essential output)")
+	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 30*time.Second, "Request timeout duration")
+	rootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet")
 
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newVersionCmd())
@@ -122,12 +134,12 @@ Use --verbose to print detailed version information in JSON format.`,
 			if verboseFlag {
 				// Verbose output in JSON format
 				verboseInfo := map[string]string{
-					"version":    info.Version,
-					"gitCommit":  info.GitCommit,
-					"buildDate":  info.BuildDate,
-					"goVersion":  runtime.Version(),
-					"platform":   fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
-					"compiler":   runtime.Compiler,
+					"version":   info.Version,
+					"gitCommit": info.GitCommit,
+					"buildDate": info.BuildDate,
+					"goVersion": runtime.Version(),
+					"platform":  fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+					"compiler":  runtime.Compiler,
 				}
 				output, _ := json.MarshalIndent(verboseInfo, "", "  ")
 				fmt.Fprintln(cmd.OutOrStdout(), string(output))
@@ -263,7 +275,7 @@ func runHealth(fullCheck bool) error {
 		url += "/status"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -350,7 +362,7 @@ func runAPIKeyCreate(name, role, expiresIn string) error {
 	defer cancel()
 
 	url := fmt.Sprintf("%s://%s/api/v1/api-keys", getAPIScheme(serverAddr), serverAddr)
-	body := fmt.Sprintf(`{"name": "%s", "role": "%s", "expires_in": "%s"}`, name, role, expiresIn)
+	body := fmt.Sprintf(`{"name": %q, "role": %q, "expires_in": %q}`, name, role, expiresIn)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
@@ -418,7 +430,7 @@ func runAPIKeyList(outputFormat string) error {
 
 	url := fmt.Sprintf("%s://%s/api/v1/api-keys", getAPIScheme(serverAddr), serverAddr)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -491,7 +503,7 @@ func runAPIKeyRevoke(id string) error {
 
 	url := fmt.Sprintf("%s://%s/api/v1/api-keys/%s", getAPIScheme(serverAddr), serverAddr, id)
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -585,7 +597,7 @@ func runMaintenanceEnable(reason, duration string, force bool) error {
 		fmt.Print("Enable maintenance mode? This will queue new commands. [y/N]: ")
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 			fmt.Println("Aborted.")
 			return nil
 		}
@@ -595,7 +607,7 @@ func runMaintenanceEnable(reason, duration string, force bool) error {
 	defer cancel()
 
 	url := fmt.Sprintf("%s://%s/api/v1/maintenance/enable", getAPIScheme(serverAddr), serverAddr)
-	body := fmt.Sprintf(`{"reason": "%s", "duration": "%s"}`, reason, duration)
+	body := fmt.Sprintf(`{"reason": %q, "duration": %q}`, reason, duration)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
@@ -664,7 +676,7 @@ func runMaintenanceDisable(force bool) error {
 
 	url := fmt.Sprintf("%s://%s/api/v1/maintenance/disable", getAPIScheme(serverAddr), serverAddr)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -719,7 +731,7 @@ func runMaintenanceStatus(outputFormat string) error {
 
 	url := fmt.Sprintf("%s://%s/api/v1/maintenance/status", getAPIScheme(serverAddr), serverAddr)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -818,7 +830,7 @@ func runMaintenanceQueue(showStatus bool) error {
 		url += "/status"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -907,7 +919,7 @@ func runMaintenanceCleanup(olderThan string, dryRun bool) error {
 		url += "&dry_run=true"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -962,16 +974,16 @@ func runMaintenanceCleanup(olderThan string, dryRun bool) error {
 
 // BenchmarkResult represents the result of a benchmark run
 type BenchmarkResult struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description,omitempty"`
-	StartTime   time.Time          `json:"start_time"`
-	EndTime     time.Time          `json:"end_time"`
-	Duration    string             `json:"duration"`
-	Iterations  int                `json:"iterations"`
-	Parallel    int                `json:"parallel"`
-	Metrics     BenchmarkMetrics   `json:"metrics"`
-	Status      string             `json:"status"`
-	Error       string             `json:"error,omitempty"`
+	Name        string           `json:"name"`
+	Description string           `json:"description,omitempty"`
+	StartTime   time.Time        `json:"start_time"`
+	EndTime     time.Time        `json:"end_time"`
+	Duration    string           `json:"duration"`
+	Iterations  int              `json:"iterations"`
+	Parallel    int              `json:"parallel"`
+	Metrics     BenchmarkMetrics `json:"metrics"`
+	Status      string           `json:"status"`
+	Error       string           `json:"error,omitempty"`
 }
 
 // BenchmarkMetrics contains benchmark performance metrics
@@ -990,12 +1002,12 @@ type BenchmarkMetrics struct {
 
 // BenchmarkReport represents a complete benchmark report
 type BenchmarkReport struct {
-	Version    string             `json:"version"`
-	Timestamp  time.Time          `json:"timestamp"`
-	Duration   string             `json:"duration"`
-	Server     string             `json:"server"`
-	Results    []BenchmarkResult  `json:"results"`
-	Summary    BenchmarkSummary   `json:"summary"`
+	Version   string            `json:"version"`
+	Timestamp time.Time         `json:"timestamp"`
+	Duration  string            `json:"duration"`
+	Server    string            `json:"server"`
+	Results   []BenchmarkResult `json:"results"`
+	Summary   BenchmarkSummary  `json:"summary"`
 }
 
 // BenchmarkSummary provides overall benchmark summary
@@ -1199,7 +1211,8 @@ func runBenchmarkReport(outputFormat string) error {
 	fmt.Printf("Duration:  %s\n", report.Duration)
 	fmt.Println()
 
-	for _, result := range report.Results {
+	for i := range report.Results {
+		result := &report.Results[i]
 		fmt.Printf("Benchmark: %s\n", result.Name)
 		fmt.Printf("  Status:       %s\n", result.Status)
 		fmt.Printf("  Iterations:   %d\n", result.Iterations)
@@ -1265,7 +1278,7 @@ func runBenchmarkAll(parallel, iterations int, outputFormat string) error {
 	fmt.Println()
 
 	benchmarks := []string{"agent-registration", "command-execution", "state-apply"}
-	results := []BenchmarkResult{}
+	results := make([]BenchmarkResult, 0, len(benchmarks))
 
 	for i, name := range benchmarks {
 		fmt.Printf("[%d/%d] Running %s benchmark...\n", i+1, len(benchmarks), name)
@@ -1637,24 +1650,24 @@ func runBenchmarkCompare(baselineFile, resultsFile, threshold, outputFormat stri
 
 	// Sample comparison results
 	type ComparisonResult struct {
-		Benchmark    string  `json:"benchmark"`
-		BaselineOps  float64 `json:"baseline_ops_per_sec"`
-		ResultOps    float64 `json:"result_ops_per_sec"`
-		Change       float64 `json:"change_percent"`
-		Status       string  `json:"status"` // improved, regression, unchanged
-		Threshold    bool    `json:"exceeds_threshold"`
+		Benchmark   string  `json:"benchmark"`
+		BaselineOps float64 `json:"baseline_ops_per_sec"`
+		ResultOps   float64 `json:"result_ops_per_sec"`
+		Change      float64 `json:"change_percent"`
+		Status      string  `json:"status"` // improved, regression, unchanged
+		Threshold   bool    `json:"exceeds_threshold"`
 	}
 
 	type ComparisonReport struct {
-		Baseline     string             `json:"baseline_file"`
-		Results      string             `json:"results_file"`
-		Threshold    string             `json:"threshold"`
-		Timestamp    time.Time          `json:"timestamp"`
-		Comparisons  []ComparisonResult `json:"comparisons"`
-		Summary      struct {
-			Improved    int `json:"improved"`
-			Regression  int `json:"regression"`
-			Unchanged   int `json:"unchanged"`
+		Baseline    string             `json:"baseline_file"`
+		Results     string             `json:"results_file"`
+		Threshold   string             `json:"threshold"`
+		Timestamp   time.Time          `json:"timestamp"`
+		Comparisons []ComparisonResult `json:"comparisons"`
+		Summary     struct {
+			Improved    int  `json:"improved"`
+			Regression  int  `json:"regression"`
+			Unchanged   int  `json:"unchanged"`
 			PassedCheck bool `json:"passed_check"`
 		} `json:"summary"`
 	}

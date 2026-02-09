@@ -15,15 +15,16 @@ import (
 // ComplianceFramework represents a compliance framework (e.g., CIS, SOC2, NIST)
 type ComplianceFramework string
 
+// FrameworkCIS and related constants.
 const (
-	FrameworkCIS     ComplianceFramework = "CIS"
-	FrameworkSOC2    ComplianceFramework = "SOC2"
-	FrameworkNIST    ComplianceFramework = "NIST-800-53"
-	FrameworkHIPAA   ComplianceFramework = "HIPAA"
-	FrameworkPCIDSS  ComplianceFramework = "PCI-DSS"
-	FrameworkGDPR    ComplianceFramework = "GDPR"
+	FrameworkCIS      ComplianceFramework = "CIS"
+	FrameworkSOC2     ComplianceFramework = "SOC2"
+	FrameworkNIST     ComplianceFramework = "NIST-800-53"
+	FrameworkHIPAA    ComplianceFramework = "HIPAA"
+	FrameworkPCIDSS   ComplianceFramework = "PCI-DSS"
+	FrameworkGDPR     ComplianceFramework = "GDPR"
 	FrameworkISO27001 ComplianceFramework = "ISO-27001"
-	FrameworkCustom  ComplianceFramework = "CUSTOM"
+	FrameworkCustom   ComplianceFramework = "CUSTOM"
 )
 
 // ComplianceControl represents a control within a framework
@@ -57,7 +58,7 @@ type ComplianceControl struct {
 type ControlMapping struct {
 	mu       sync.RWMutex
 	controls map[string]*ComplianceControl // control ID -> control
-	policies map[string][]string            // policy ID -> control IDs
+	policies map[string][]string           // policy ID -> control IDs
 }
 
 // NewControlMapping creates a new control mapping
@@ -156,11 +157,11 @@ type ResourceAuditTrail struct {
 
 // ResourceComplianceStatus summarizes compliance for a resource
 type ResourceComplianceStatus struct {
-	IsCompliant       bool    `json:"is_compliant"`
-	TotalEvaluations  int     `json:"total_evaluations"`
-	PassedEvaluations int     `json:"passed_evaluations"`
-	FailedEvaluations int     `json:"failed_evaluations"`
-	ComplianceRate    float64 `json:"compliance_rate"`
+	IsCompliant       bool     `json:"is_compliant"`
+	TotalEvaluations  int      `json:"total_evaluations"`
+	PassedEvaluations int      `json:"passed_evaluations"`
+	FailedEvaluations int      `json:"failed_evaluations"`
+	ComplianceRate    float64  `json:"compliance_rate"`
 	HighestSeverity   Severity `json:"highest_severity"`
 }
 
@@ -200,11 +201,11 @@ type ResourceEvaluation struct {
 // DetailedComplianceReport extends ComplianceReport with resource-level details
 type DetailedComplianceReport struct {
 	// Basic report info
-	ID           string        `json:"id"`
-	GeneratedAt  time.Time     `json:"generated_at"`
-	GeneratedBy  string        `json:"generated_by,omitempty"`
-	Period       ReportPeriod  `json:"period"`
-	Framework    ComplianceFramework `json:"framework,omitempty"`
+	ID          string              `json:"id"`
+	GeneratedAt time.Time           `json:"generated_at"`
+	GeneratedBy string              `json:"generated_by,omitempty"`
+	Period      ReportPeriod        `json:"period"`
+	Framework   ComplianceFramework `json:"framework,omitempty"`
 
 	// Summary statistics
 	Summary *ComplianceSummary `json:"summary"`
@@ -230,29 +231,29 @@ type DetailedComplianceReport struct {
 
 // ComplianceSummary provides high-level compliance metrics
 type ComplianceSummary struct {
-	TotalResources       int                `json:"total_resources"`
-	CompliantResources   int                `json:"compliant_resources"`
-	NonCompliantResources int               `json:"non_compliant_resources"`
-	ResourceComplianceRate float64          `json:"resource_compliance_rate"`
+	TotalResources         int     `json:"total_resources"`
+	CompliantResources     int     `json:"compliant_resources"`
+	NonCompliantResources  int     `json:"non_compliant_resources"`
+	ResourceComplianceRate float64 `json:"resource_compliance_rate"`
 
-	TotalPolicies        int                `json:"total_policies"`
-	CompliantPolicies    int                `json:"compliant_policies"`
-	ViolatingPolicies    int                `json:"violating_policies"`
-	PolicyComplianceRate float64            `json:"policy_compliance_rate"`
+	TotalPolicies        int     `json:"total_policies"`
+	CompliantPolicies    int     `json:"compliant_policies"`
+	ViolatingPolicies    int     `json:"violating_policies"`
+	PolicyComplianceRate float64 `json:"policy_compliance_rate"`
 
-	TotalEvaluations     int                `json:"total_evaluations"`
-	PassedEvaluations    int                `json:"passed_evaluations"`
-	FailedEvaluations    int                `json:"failed_evaluations"`
-	EvaluationPassRate   float64            `json:"evaluation_pass_rate"`
+	TotalEvaluations   int     `json:"total_evaluations"`
+	PassedEvaluations  int     `json:"passed_evaluations"`
+	FailedEvaluations  int     `json:"failed_evaluations"`
+	EvaluationPassRate float64 `json:"evaluation_pass_rate"`
 
-	TotalViolations      int                `json:"total_violations"`
-	ViolationsBySeverity map[Severity]int   `json:"violations_by_severity"`
-	ViolationsByCategory map[string]int     `json:"violations_by_category,omitempty"`
+	TotalViolations      int              `json:"total_violations"`
+	ViolationsBySeverity map[Severity]int `json:"violations_by_severity"`
+	ViolationsByCategory map[string]int   `json:"violations_by_category,omitempty"`
 
-	TotalControls        int                `json:"total_controls,omitempty"`
-	PassingControls      int                `json:"passing_controls,omitempty"`
-	FailingControls      int                `json:"failing_controls,omitempty"`
-	ControlPassRate      float64            `json:"control_pass_rate,omitempty"`
+	TotalControls   int     `json:"total_controls,omitempty"`
+	PassingControls int     `json:"passing_controls,omitempty"`
+	FailingControls int     `json:"failing_controls,omitempty"`
+	ControlPassRate float64 `json:"control_pass_rate,omitempty"`
 
 	AverageEvaluationDuration time.Duration `json:"average_evaluation_duration"`
 }
@@ -271,6 +272,7 @@ type ControlResult struct {
 // ControlStatus represents the status of a compliance control
 type ControlStatus string
 
+// ControlStatusPass constants define the possible statuses.
 const (
 	ControlStatusPass        ControlStatus = "PASS"
 	ControlStatusFail        ControlStatus = "FAIL"
@@ -280,19 +282,19 @@ const (
 
 // DetailedPolicySummary extends policy summary with more details
 type DetailedPolicySummary struct {
-	PolicyID           string                   `json:"policy_id"`
-	PolicyName         string                   `json:"policy_name"`
-	PolicyType         PolicyType               `json:"policy_type"`
-	Severity           Severity                 `json:"severity"`
-	TotalEvaluations   int                      `json:"total_evaluations"`
-	PassedEvaluations  int                      `json:"passed_evaluations"`
-	FailedEvaluations  int                      `json:"failed_evaluations"`
-	PassRate           float64                  `json:"pass_rate"`
-	TotalViolations    int                      `json:"total_violations"`
-	ViolationsBySeverity map[Severity]int       `json:"violations_by_severity"`
-	AffectedResources  []string                 `json:"affected_resources"`
-	MappedControls     []string                 `json:"mapped_controls,omitempty"`
-	LastEvaluated      time.Time                `json:"last_evaluated"`
+	PolicyID             string           `json:"policy_id"`
+	PolicyName           string           `json:"policy_name"`
+	PolicyType           PolicyType       `json:"policy_type"`
+	Severity             Severity         `json:"severity"`
+	TotalEvaluations     int              `json:"total_evaluations"`
+	PassedEvaluations    int              `json:"passed_evaluations"`
+	FailedEvaluations    int              `json:"failed_evaluations"`
+	PassRate             float64          `json:"pass_rate"`
+	TotalViolations      int              `json:"total_violations"`
+	ViolationsBySeverity map[Severity]int `json:"violations_by_severity"`
+	AffectedResources    []string         `json:"affected_resources"`
+	MappedControls       []string         `json:"mapped_controls,omitempty"`
+	LastEvaluated        time.Time        `json:"last_evaluated"`
 }
 
 // DetailedViolation extends violation info for reports
@@ -314,6 +316,7 @@ type DetailedViolation struct {
 // ReportFormat specifies the output format for compliance reports
 type ReportFormat string
 
+// ReportFormatJSON constants define the output formats.
 const (
 	ReportFormatJSON     ReportFormat = "json"
 	ReportFormatCSV      ReportFormat = "csv"
@@ -670,7 +673,7 @@ func (g *ComplianceReportGenerator) generateResourceTrails(entries []*AuditEntry
 		}
 
 		// Create resource key from type and ID
-		resourceID := ""
+		var resourceID string
 		if id, ok := entry.Metadata["resource_id"].(string); ok {
 			resourceID = id
 		} else {
@@ -817,13 +820,14 @@ func (g *ComplianceReportGenerator) generateControlResults(entries []*AuditEntry
 		}
 
 		// Determine status
-		if result.TotalTests == 0 {
+		switch {
+		case result.TotalTests == 0:
 			result.Status = ControlStatusNotAssessed
-		} else if result.FailedTests == 0 {
+		case result.FailedTests == 0:
 			result.Status = ControlStatusPass
-		} else if result.PassedTests == 0 {
+		case result.PassedTests == 0:
 			result.Status = ControlStatusFail
-		} else {
+		default:
 			result.Status = ControlStatusPartial
 		}
 
@@ -1268,7 +1272,7 @@ func LoadBuiltinControlMappings(mapping *ControlMapping) {
 	}
 
 	for _, c := range cisControls {
-		mapping.AddControl(c)
+		_ = mapping.AddControl(c) //nolint:errcheck // control registration in init
 	}
 
 	// SOC2 Controls (example subset)
@@ -1300,7 +1304,7 @@ func LoadBuiltinControlMappings(mapping *ControlMapping) {
 	}
 
 	for _, c := range soc2Controls {
-		mapping.AddControl(c)
+		_ = mapping.AddControl(c) //nolint:errcheck // control registration in init
 	}
 
 	// NIST 800-53 Controls (example subset)
@@ -1332,6 +1336,6 @@ func LoadBuiltinControlMappings(mapping *ControlMapping) {
 	}
 
 	for _, c := range nistControls {
-		mapping.AddControl(c)
+		_ = mapping.AddControl(c) //nolint:errcheck // control registration in init
 	}
 }

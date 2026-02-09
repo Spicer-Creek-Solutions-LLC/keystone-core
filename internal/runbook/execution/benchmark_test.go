@@ -22,7 +22,7 @@ func BenchmarkExecutorSingleStep(b *testing.B) {
 			Name:      "benchmark-single",
 			Namespace: "test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Description: "Single step benchmark",
 			Steps: []runbook.Step{
 				{
@@ -70,7 +70,7 @@ func BenchmarkExecutorMultipleSteps(b *testing.B) {
 					Name:      "benchmark-multi",
 					Namespace: "test",
 				},
-				Spec: runbook.RunbookSpec{
+				Spec: runbook.Spec{
 					Description: "Multi-step benchmark",
 					Steps:       steps,
 				},
@@ -107,7 +107,7 @@ func BenchmarkExecutorWithDependencies(b *testing.B) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "benchmark-deps", Namespace: "test"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Description: "Dependency benchmark",
 			Steps:       steps,
 		},
@@ -168,7 +168,7 @@ func BenchmarkConcurrentExecutions(b *testing.B) {
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "Runbook",
 				Metadata:   runbook.Metadata{Name: "benchmark-concurrent", Namespace: "test"},
-				Spec: runbook.RunbookSpec{
+				Spec: runbook.Spec{
 					Description: "Concurrent benchmark",
 					Steps: []runbook.Step{
 						{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
@@ -212,7 +212,7 @@ func BenchmarkVariableResolution(b *testing.B) {
 			"timeout": 30,
 		},
 	}
-	execCtx := NewExecutionContext("exec-123", rb, inputs)
+	execCtx := NewContext("exec-123", rb, inputs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -230,7 +230,7 @@ func BenchmarkConditionEvaluation(b *testing.B) {
 		"enabled":     true,
 		"count":       42,
 	}
-	execCtx := NewExecutionContext("exec-123", rb, inputs)
+	execCtx := NewContext("exec-123", rb, inputs)
 
 	conditions := []string{
 		"{{ eq .inputs.environment \"production\" }}",
@@ -257,7 +257,7 @@ func BenchmarkExecutorWithStorage(b *testing.B) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "benchmark-storage", Namespace: "test"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Description: "Storage benchmark",
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
@@ -325,7 +325,7 @@ func TestConcurrentExecution100(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "concurrent-test", Namespace: "test"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Description: "Concurrent execution test",
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},

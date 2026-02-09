@@ -75,6 +75,7 @@ const (
 // Severity levels for events
 type Severity string
 
+// SeverityDebug constants define the severity levels.
 const (
 	SeverityDebug    Severity = "debug"
 	SeverityInfo     Severity = "info"
@@ -360,7 +361,8 @@ func randString(n int) string {
 	if _, err := rand.Read(randBytes); err != nil {
 		// Fallback to time-based if crypto/rand fails
 		var seed uint64
-		binary.Read(rand.Reader, binary.LittleEndian, &seed)
+		_ = binary.Read(rand.Reader, binary.LittleEndian, &seed) //nolint:errcheck // fallback seed
+		//nolint:gosec // G115: len(letters) is a small constant (62), fits in uint64
 		for i := range b {
 			b[i] = letters[(seed+uint64(i))%uint64(len(letters))]
 		}

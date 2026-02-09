@@ -759,12 +759,12 @@ spec:
 ### Runbook Engine Configuration
 
 ```yaml
-# /etc/kscore/runbook.yaml
+# /etc/keystone-core/runbook.yaml
 runbook:
   # Storage for runbook definitions
   storage:
     type: filesystem  # filesystem, database, git
-    path: /etc/kscore/runbooks
+    path: /etc/keystone-core/runbooks
     # Git storage option:
     # type: git
     # repo: https://github.com/org/runbooks.git
@@ -816,14 +816,14 @@ runbook:
   # Template library
   templates:
     paths:
-      - /etc/kscore/runbook-templates
+      - /etc/keystone-core/runbook-templates
       - /opt/kscore/builtin-templates
 ```
 
 ### Event-Driven Trigger Configuration
 
 ```yaml
-# /etc/kscore/runbook-triggers.yaml
+# /etc/keystone-core/runbook-triggers.yaml
 triggers:
   - name: auto-remediate-disk-full
     event:

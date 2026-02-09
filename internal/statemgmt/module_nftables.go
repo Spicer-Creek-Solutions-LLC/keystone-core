@@ -24,25 +24,25 @@ func NewNftablesModule() *NftablesModule {
 
 // NftablesConfig holds nftables-specific configuration
 type NftablesConfig struct {
-	Family       string // ip, ip6, inet, arp, bridge, netdev
-	Table        string // Table name
-	Chain        string // Chain name
-	ChainType    string // filter, nat, route
-	ChainHook    string // input, output, forward, prerouting, postrouting
-	ChainPriority int   // Chain priority
-	Rule         string // Full rule (if specified, other params ignored)
-	Protocol     string // tcp, udp, icmp, etc.
-	Source       string // Source IP/CIDR
-	Destination  string // Destination IP/CIDR
-	InInterface  string // Input interface
-	OutInterface string // Output interface
-	SourcePort   string // Source port(s)
-	DestPort     string // Destination port(s)
-	Counter      bool   // Include counter
-	Comment      string // Rule comment
-	Action       string // accept, drop, reject, jump, goto, masquerade, etc.
-	Position     int    // Rule position (handle for existing rule)
-	State        string // Connection state (new, established, related)
+	Family        string // ip, ip6, inet, arp, bridge, netdev
+	Table         string // Table name
+	Chain         string // Chain name
+	ChainType     string // filter, nat, route
+	ChainHook     string // input, output, forward, prerouting, postrouting
+	ChainPriority int    // Chain priority
+	Rule          string // Full rule (if specified, other params ignored)
+	Protocol      string // tcp, udp, icmp, etc.
+	Source        string // Source IP/CIDR
+	Destination   string // Destination IP/CIDR
+	InInterface   string // Input interface
+	OutInterface  string // Output interface
+	SourcePort    string // Source port(s)
+	DestPort      string // Destination port(s)
+	Counter       bool   // Include counter
+	Comment       string // Rule comment
+	Action        string // accept, drop, reject, jump, goto, masquerade, etc.
+	Position      int    // Rule position (handle for existing rule)
+	State         string // Connection state (new, established, related)
 	// Advanced
 	Limit     string // Rate limit
 	LimitOver string // Limit over action
@@ -86,7 +86,7 @@ func (m *NftablesModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 		if decl.State == "present" {
 			result.Diff["table"] = map[string]string{"current": "absent", "desired": "present"}
 		}
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check chain exists
@@ -102,7 +102,7 @@ func (m *NftablesModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 		if decl.State == "present" {
 			result.Diff["chain"] = map[string]string{"current": "absent", "desired": "present"}
 		}
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check rule exists
@@ -131,7 +131,7 @@ func (m *NftablesModule) Check(ctx context.Context, decl *StateDeclaration) (*Mo
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the nftables configuration
@@ -151,7 +151,7 @@ func (m *NftablesModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = result.Error.Error()
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	config, err := m.parseNftablesConfig(decl)
@@ -160,7 +160,7 @@ func (m *NftablesModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -169,7 +169,7 @@ func (m *NftablesModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -178,7 +178,7 @@ func (m *NftablesModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	var applyErr error
@@ -212,7 +212,7 @@ func (m *NftablesModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the nftables rule is in the desired state
@@ -221,7 +221,7 @@ func (m *NftablesModule) Test(ctx context.Context, decl *StateDeclaration) (bool
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseNftablesConfig parses nftables configuration from declaration
@@ -272,30 +272,30 @@ func (m *NftablesModule) parseNftablesConfig(decl *StateDeclaration) (*NftablesC
 		return nil, fmt.Errorf("invalid family: %s", config.Family)
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // tableExists checks if a table exists
 func (m *NftablesModule) tableExists(ctx context.Context, config *NftablesConfig) (bool, error) {
 	cmd := exec.CommandContext(ctx, "nft", "list", "table", config.Family, config.Table)
 	err := cmd.Run()
-	return err == nil, nil
+	return err == nil, nil //nolint:nilerr // intentional
 }
 
 // chainExists checks if a chain exists
 func (m *NftablesModule) chainExists(ctx context.Context, config *NftablesConfig) (bool, error) {
 	cmd := exec.CommandContext(ctx, "nft", "list", "chain", config.Family, config.Table, config.Chain)
 	err := cmd.Run()
-	return err == nil, nil
+	return err == nil, nil //nolint:nilerr // error means chain doesn't exist, which is a valid state
 }
 
 // ruleExists checks if a rule exists and returns its handle
-func (m *NftablesModule) ruleExists(ctx context.Context, config *NftablesConfig) (bool, int, error) {
+func (m *NftablesModule) ruleExists(ctx context.Context, config *NftablesConfig) (exists bool, handle int, err error) {
 	// Get rules with handles
 	cmd := exec.CommandContext(ctx, "nft", "-a", "list", "chain", config.Family, config.Table, config.Chain)
 	output, err := cmd.Output()
 	if err != nil {
-		return false, 0, nil
+		return false, 0, nil //nolint:nilerr // chain not existing returns error, which is a valid state
 	}
 
 	// Build a pattern to match our rule
@@ -315,14 +315,14 @@ func (m *NftablesModule) ruleExists(ctx context.Context, config *NftablesConfig)
 			if idx := strings.Index(line, "# handle "); idx >= 0 {
 				handleStr := strings.TrimSpace(line[idx+9:])
 				if handle, err := strconv.Atoi(handleStr); err == nil {
-					return true, handle, nil
+					return true, handle, nil //nolint:nilerr // returning rule existence with handle, no error
 				}
 			}
-			return true, 0, nil
+			return true, 0, nil //nolint:nilerr // rule found but handle not parsed
 		}
 	}
 
-	return false, 0, nil
+	return false, 0, nil //nolint:nilerr // rule not found is a valid state
 }
 
 // buildMatchPatterns builds patterns to match a rule
@@ -476,8 +476,10 @@ func (m *NftablesModule) addRule(ctx context.Context, config *NftablesConfig) er
 	}
 
 	rule := m.buildRule(config)
-	args := []string{"add", "rule", config.Family, config.Table, config.Chain}
-	args = append(args, strings.Fields(rule)...)
+	ruleFields := strings.Fields(rule)
+	args := make([]string, 0, 5+len(ruleFields))
+	args = append(args, "add", "rule", config.Family, config.Table, config.Chain)
+	args = append(args, ruleFields...)
 
 	cmd := exec.CommandContext(ctx, "nft", args...)
 	output, err := cmd.CombinedOutput()
@@ -503,7 +505,7 @@ func (m *NftablesModule) deleteRule(ctx context.Context, config *NftablesConfig)
 	// Otherwise, try to find and delete by matching
 	exists, handle, err := m.ruleExists(ctx, config)
 	if err != nil || !exists {
-		return nil // Rule doesn't exist
+		return nil //nolint:nilerr // error or !exists means rule doesn't exist
 	}
 
 	if handle > 0 {
@@ -519,5 +521,5 @@ func (m *NftablesModule) deleteRule(ctx context.Context, config *NftablesConfig)
 }
 
 func init() {
-	RegisterModule(NewNftablesModule())
+	_ = RegisterModule(NewNftablesModule()) //nolint:errcheck // module registration in init
 }

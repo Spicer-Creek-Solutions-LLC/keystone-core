@@ -67,21 +67,21 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
-// OrderingMode defines the message ordering strategy
-type OrderingMode string
+// Mode defines the message ordering strategy
+type Mode string
 
 const (
-	// OrderingModeNone provides no ordering guarantees (highest throughput)
-	OrderingModeNone OrderingMode = "none"
+	// ModeNone provides no ordering guarantees (highest throughput)
+	ModeNone Mode = "none"
 
-	// OrderingModePerSubject orders messages within the same subject
-	OrderingModePerSubject OrderingMode = "per_subject"
+	// ModePerSubject orders messages within the same subject
+	ModePerSubject Mode = "per_subject"
 
-	// OrderingModePerPartition orders messages with the same partition key
-	OrderingModePerPartition OrderingMode = "per_partition"
+	// ModePerPartition orders messages with the same partition key
+	ModePerPartition Mode = "per_partition"
 
-	// OrderingModeGlobal provides global ordering (lowest throughput)
-	OrderingModeGlobal OrderingMode = "global"
+	// ModeGlobal provides global ordering (lowest throughput)
+	ModeGlobal Mode = "global"
 )
 
 // PartitionKeyFunc generates a partition key from message metadata
@@ -114,7 +114,7 @@ var (
 // Config configures ordered publishing
 type Config struct {
 	// Mode is the ordering mode
-	Mode OrderingMode
+	Mode Mode
 
 	// PartitionKey is the function to extract partition keys
 	PartitionKey PartitionKeyFunc
@@ -139,7 +139,7 @@ type Config struct {
 // DefaultConfig returns default ordering configuration
 func DefaultConfig() Config {
 	return Config{
-		Mode:         OrderingModePerPartition,
+		Mode:         ModePerPartition,
 		PartitionKey: PartitionByAgentID,
 		WindowSize:   1, // Strict ordering by default
 		AckTimeout:   5 * time.Second,
@@ -150,7 +150,7 @@ func DefaultConfig() Config {
 
 // Validate validates the configuration
 func (c Config) Validate() error {
-	if c.Mode == OrderingModePerPartition && c.PartitionKey == nil {
+	if c.Mode == ModePerPartition && c.PartitionKey == nil {
 		return errors.New("partition key function required for per-partition ordering")
 	}
 	if c.WindowSize < 1 {
@@ -245,7 +245,7 @@ func NewOrderedPublisher(conn *nats.Conn, config Config) (*OrderedPublisher, err
 	}
 
 	// Setup JetStream if ordering is required
-	if config.Mode != OrderingModeNone && config.Stream != "" && conn != nil {
+	if config.Mode != ModeNone && config.Stream != "" && conn != nil {
 		js, err := conn.JetStream()
 		if err != nil {
 			cancel()
@@ -274,7 +274,7 @@ func (p *OrderedPublisher) Publish(ctx context.Context, subject string, data []b
 	state := p.getOrCreatePartition(partitionKey)
 
 	// Wait for window slot if needed
-	if p.config.Mode != OrderingModeNone {
+	if p.config.Mode != ModeNone {
 		if err := p.waitForWindow(ctx, state); err != nil {
 			return err
 		}
@@ -323,7 +323,7 @@ func (p *OrderedPublisher) Publish(ctx context.Context, subject string, data []b
 	}
 
 	p.stats.TotalPublished.Add(1)
-	if p.config.Mode != OrderingModeNone {
+	if p.config.Mode != ModeNone {
 		p.stats.TotalOrdered.Add(1)
 	}
 
@@ -449,8 +449,8 @@ func (p *OrderedPublisher) doPublish(ctx context.Context, msg *OrderedMessage) e
 }
 
 // GetStats returns publisher statistics
-func (p *OrderedPublisher) GetStats() PublisherStats {
-	return p.stats
+func (p *OrderedPublisher) GetStats() *PublisherStats {
+	return &p.stats
 }
 
 // Close closes the publisher
@@ -725,12 +725,12 @@ func (c *OrderedConsumer) processMessage(natsMsg *nats.Msg) {
 	if err != nil {
 		c.stats.TotalFailed.Add(1)
 		// NAK for redelivery
-		natsMsg.Nak()
+		_ = natsMsg.Nak() //nolint:errcheck // best-effort NAK
 		return
 	}
 
 	c.stats.TotalProcessed.Add(1)
-	natsMsg.Ack()
+	_ = natsMsg.Ack() //nolint:errcheck // best-effort ACK
 }
 
 func (c *OrderedConsumer) validateSequence(msg *OrderedMessage) {
@@ -759,8 +759,8 @@ func (c *OrderedConsumer) validateSequence(msg *OrderedMessage) {
 }
 
 // GetStats returns consumer statistics
-func (c *OrderedConsumer) GetStats() ConsumerStats {
-	return c.stats
+func (c *OrderedConsumer) GetStats() *ConsumerStats {
+	return &c.stats
 }
 
 // Stop stops the consumer

@@ -162,7 +162,7 @@ func TestRecoveryIntegration_RecoveryScriptGeneration(t *testing.T) {
 	mgr := NewRecoveryManager(recoveryConfig, nil, false)
 
 	// Test with permission error
-	err := errors.New("permission denied: cannot write to /etc/kscore")
+	err := errors.New("permission denied: cannot write to /etc/keystone-core")
 	bErr := ClassifyError(err, PhaseInstall)
 
 	path, err := mgr.GenerateRecoveryScript(bErr)
@@ -541,7 +541,7 @@ func TestRecoveryIntegration_RollbackWithArtifacts(t *testing.T) {
 				// Simulate installing packages and creating files
 				state.InstallArtifacts = &InstallArtifacts{
 					Packages:     []string{"kscore-server", "kscore-agent"},
-					CreatedFiles: []string{"/etc/kscore/config.yaml", "/var/lib/kscore/data.db"},
+					CreatedFiles: []string{"/etc/keystone-core/config.yaml", "/var/lib/keystone-core/data.db"},
 				}
 				return nil
 			},

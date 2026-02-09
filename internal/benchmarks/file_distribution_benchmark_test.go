@@ -29,10 +29,10 @@ type FileBenchmarkConfig struct {
 func DefaultFileBenchmarkConfig() *FileBenchmarkConfig {
 	return &FileBenchmarkConfig{
 		FileSizes: []int64{
-			1024,           // 1 KB
-			64 * 1024,      // 64 KB
-			1024 * 1024,    // 1 MB
-			10 * 1024 * 1024, // 10 MB
+			1024,              // 1 KB
+			64 * 1024,         // 64 KB
+			1024 * 1024,       // 1 MB
+			10 * 1024 * 1024,  // 10 MB
 			100 * 1024 * 1024, // 100 MB
 		},
 		ConcurrentDownloads: 10,
@@ -230,8 +230,8 @@ func BenchmarkFileDecompress(b *testing.B) {
 // BenchmarkFileCopy benchmarks copying files
 func BenchmarkFileCopy(b *testing.B) {
 	sizes := []int64{
-		1024 * 1024,      // 1 MB
-		10 * 1024 * 1024, // 10 MB
+		1024 * 1024,       // 1 MB
+		10 * 1024 * 1024,  // 10 MB
 		100 * 1024 * 1024, // 100 MB
 	}
 
@@ -323,9 +323,9 @@ func BenchmarkConcurrentFileRead(b *testing.B) {
 // BenchmarkChunkedTransfer benchmarks chunked file transfer
 func BenchmarkChunkedTransfer(b *testing.B) {
 	chunkSizes := []int{
-		4 * 1024,   // 4 KB
-		64 * 1024,  // 64 KB
-		256 * 1024, // 256 KB
+		4 * 1024,    // 4 KB
+		64 * 1024,   // 64 KB
+		256 * 1024,  // 256 KB
 		1024 * 1024, // 1 MB
 	}
 

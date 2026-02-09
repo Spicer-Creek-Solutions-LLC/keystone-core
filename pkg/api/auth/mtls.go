@@ -19,12 +19,12 @@ import (
 
 // mTLS-specific errors
 var (
-	ErrNoPeerInfo          = errors.New("no peer info in context")
-	ErrNoTLSInfo           = errors.New("no TLS info in peer")
-	ErrNoClientCert        = errors.New("no client certificate provided")
-	ErrCertNotVerified     = errors.New("client certificate not verified")
-	ErrNoMatchingCertRole  = errors.New("no role mapping for certificate")
-	ErrInvalidCertPattern  = errors.New("invalid certificate pattern")
+	ErrNoPeerInfo         = errors.New("no peer info in context")
+	ErrNoTLSInfo          = errors.New("no TLS info in peer")
+	ErrNoClientCert       = errors.New("no client certificate provided")
+	ErrCertNotVerified    = errors.New("client certificate not verified")
+	ErrNoMatchingCertRole = errors.New("no role mapping for certificate")
+	ErrInvalidCertPattern = errors.New("invalid certificate pattern")
 )
 
 // MTLSAuthenticator authenticates using client TLS certificates
@@ -78,8 +78,8 @@ func (a *MTLSAuthenticator) Name() string {
 }
 
 // Authenticate validates mTLS credentials from context
-// For mTLS, the credentials parameter is ignored - we extract from TLS peer info
-func (a *MTLSAuthenticator) Authenticate(ctx context.Context, credentials string) (*Principal, error) {
+// For mTLS, the credential parameter is ignored - we extract from TLS peer info
+func (a *MTLSAuthenticator) Authenticate(ctx context.Context, credential string) (*Principal, error) {
 	return a.AuthenticateFromContext(ctx)
 }
 
@@ -187,7 +187,8 @@ func (a *MTLSAuthenticator) determineRole(cert *x509.Certificate) (Role, error) 
 	defer a.mu.RUnlock()
 
 	// Collect all identities to check
-	identities := []string{cert.Subject.CommonName}
+	identities := make([]string, 0, 1+len(cert.DNSNames)+len(cert.EmailAddresses)+len(cert.URIs))
+	identities = append(identities, cert.Subject.CommonName)
 	identities = append(identities, cert.DNSNames...)
 	identities = append(identities, cert.EmailAddresses...)
 
@@ -219,7 +220,7 @@ func (a *MTLSAuthenticator) determineRole(cert *x509.Certificate) (Role, error) 
 }
 
 // AddCertRole adds a certificate pattern to role mapping at runtime
-func (a *MTLSAuthenticator) AddCertRole(pattern string, roleStr string) error {
+func (a *MTLSAuthenticator) AddCertRole(pattern, roleStr string) error {
 	role, err := parseRole(roleStr)
 	if err != nil {
 		return err

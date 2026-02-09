@@ -113,7 +113,7 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - ✅ Release checklist created (docs/content/en/docs/community/release-checklist.md)
 - ✅ Announcement copy drafted (docs/content/en/docs/community/announcement-0.1.0.md)
 
-### Phase 5: VM Bootstrap Validation (IN PROGRESS)
+### Phase 5: VM Bootstrap Validation (COMPLETE)
 - ✅ Single-node demo test config template (`test/bootstrap/vm/single-node-demo.yaml`)
 - ✅ Single-node demo test scenarios (`test/bootstrap/vm/scenarios/demo_single_node_test.go`)
   - `testDemoBootstrap`: Installs packages and runs bootstrap
@@ -121,8 +121,20 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
   - `testDemoAPI`: Verifies API endpoints respond
 - ✅ Makefile targets: `test-vm`, `test-vm-demo`, `test-vm-smoke`, `repo-server`
 - ✅ Support for Ubuntu, Debian, Rocky/RHEL, openSUSE via SSH provider
-- ⏳ Pending: Execute tests on actual VMs and document findings
-- ⏳ Pending: Multi-node cluster test execution (using config.yaml template)
+- ✅ Multi-node cluster test config (`test/bootstrap/vm/multi-node-cluster.yaml`)
+- ✅ Multi-node cluster test scenarios (`test/bootstrap/vm/scenarios/multi_node_cluster_test.go`)
+  - `testClusterBootstrap`: Bootstraps control-plane and agent nodes
+  - `testClusterHealth`: Verifies services on all nodes
+  - `testAgentRegistration`: Verifies agent registered with control-plane
+- ✅ Bootstrap fixes for multi-node deployment:
+  - NATS directory ownership (kscore user)
+  - Server config field names (httplisten/grpclisten)
+  - Verify phase retry logic for server startup
+  - Skip cluster membership check for single-node setups
+  - Skip storage/postgres validation for agent-only nodes
+  - NATS URL resolution for agent join flow
+  - Disable JetStream/auth for external mode agents
+- ✅ Tests executed successfully on Ubuntu 24.04 VMs (kscp1 + ksagent1)
 
 ## Definition of Done
 
@@ -130,5 +142,5 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - [x] Version references normalized to 0.1.0
 - [x] Repository generation utility complete
 - [x] Documentation audit complete
-- [ ] VM bootstrap validation complete
+- [x] VM bootstrap validation complete
 - [ ] Release checklist approved

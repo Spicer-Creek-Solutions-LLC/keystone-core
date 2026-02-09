@@ -39,8 +39,8 @@ const (
 	EventTriggerFired       EventType = "trigger.fired"
 )
 
-// AuditEvent represents a single audit event.
-type AuditEvent struct {
+// Event represents a single audit event.
+type Event struct {
 	// ID is the unique event identifier.
 	ID string `json:"id"`
 
@@ -81,43 +81,43 @@ type AuditEvent struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-// AuditLogger provides audit logging functionality.
-type AuditLogger struct {
+// Logger provides audit logging functionality.
+type Logger struct {
 	mu sync.RWMutex
 
 	// Storage backend
-	storage AuditStorage
+	storage Storage
 
 	// Secret masker
 	masker *SecretMasker
 
 	// Event hooks
-	onEvent []func(event *AuditEvent)
+	onEvent []func(event *Event)
 
 	// Actor resolver
 	actorResolver func(ctx context.Context) string
 }
 
-// AuditStorage defines the interface for audit event persistence.
-type AuditStorage interface {
+// Storage defines the interface for audit event persistence.
+type Storage interface {
 	// Store saves an audit event.
-	Store(ctx context.Context, event *AuditEvent) error
+	Store(ctx context.Context, event *Event) error
 
 	// Query searches for audit events matching criteria.
-	Query(ctx context.Context, query *AuditQuery) ([]*AuditEvent, error)
+	Query(ctx context.Context, query *Query) ([]*Event, error)
 
 	// GetByExecutionID retrieves all events for an execution.
-	GetByExecutionID(ctx context.Context, executionID string) ([]*AuditEvent, error)
+	GetByExecutionID(ctx context.Context, executionID string) ([]*Event, error)
 
 	// Delete removes events older than the given time.
 	Delete(ctx context.Context, before time.Time) (int64, error)
 
 	// Count returns the number of events matching criteria.
-	Count(ctx context.Context, query *AuditQuery) (int64, error)
+	Count(ctx context.Context, query *Query) (int64, error)
 }
 
-// AuditQuery defines search criteria for audit events.
-type AuditQuery struct {
+// Query defines search criteria for audit events.
+type Query struct {
 	// ExecutionID filters by execution.
 	ExecutionID string `json:"execution_id,omitempty"`
 
@@ -152,33 +152,33 @@ type AuditQuery struct {
 	OrderDesc bool `json:"order_desc,omitempty"`
 }
 
-// AuditLoggerOption configures an AuditLogger.
-type AuditLoggerOption func(*AuditLogger)
+// LoggerOption configures a Logger.
+type LoggerOption func(*Logger)
 
-// WithAuditStorage sets the storage backend.
-func WithAuditStorage(storage AuditStorage) AuditLoggerOption {
-	return func(l *AuditLogger) {
+// WithStorage sets the storage backend.
+func WithStorage(storage Storage) LoggerOption {
+	return func(l *Logger) {
 		l.storage = storage
 	}
 }
 
 // WithSecretMasker sets the secret masker.
-func WithSecretMasker(masker *SecretMasker) AuditLoggerOption {
-	return func(l *AuditLogger) {
+func WithSecretMasker(masker *SecretMasker) LoggerOption {
+	return func(l *Logger) {
 		l.masker = masker
 	}
 }
 
 // WithActorResolver sets the actor resolver function.
-func WithActorResolver(resolver func(ctx context.Context) string) AuditLoggerOption {
-	return func(l *AuditLogger) {
+func WithActorResolver(resolver func(ctx context.Context) string) LoggerOption {
+	return func(l *Logger) {
 		l.actorResolver = resolver
 	}
 }
 
-// NewAuditLogger creates a new audit logger.
-func NewAuditLogger(opts ...AuditLoggerOption) *AuditLogger {
-	l := &AuditLogger{
+// NewLogger creates a new audit logger.
+func NewLogger(opts ...LoggerOption) *Logger {
+	l := &Logger{
 		masker: NewSecretMasker(),
 	}
 
@@ -190,14 +190,14 @@ func NewAuditLogger(opts ...AuditLoggerOption) *AuditLogger {
 }
 
 // OnEvent registers a callback for audit events.
-func (l *AuditLogger) OnEvent(callback func(event *AuditEvent)) {
+func (l *Logger) OnEvent(callback func(event *Event)) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.onEvent = append(l.onEvent, callback)
 }
 
 // Log records an audit event.
-func (l *AuditLogger) Log(ctx context.Context, event *AuditEvent) error {
+func (l *Logger) Log(ctx context.Context, event *Event) error {
 	// Set defaults
 	if event.ID == "" {
 		event.ID = generateEventID()
@@ -236,8 +236,8 @@ func (l *AuditLogger) Log(ctx context.Context, event *AuditEvent) error {
 }
 
 // LogExecutionStart logs an execution start event.
-func (l *AuditLogger) LogExecutionStart(ctx context.Context, exec *runbook.Execution) error {
-	return l.Log(ctx, &AuditEvent{
+func (l *Logger) LogExecutionStart(ctx context.Context, exec *runbook.Execution) error {
+	return l.Log(ctx, &Event{
 		Type:           EventExecutionStarted,
 		ExecutionID:    exec.ID,
 		RunbookName:    exec.RunbookName,
@@ -250,13 +250,13 @@ func (l *AuditLogger) LogExecutionStart(ctx context.Context, exec *runbook.Execu
 }
 
 // LogExecutionComplete logs an execution completion event.
-func (l *AuditLogger) LogExecutionComplete(ctx context.Context, exec *runbook.Execution) error {
+func (l *Logger) LogExecutionComplete(ctx context.Context, exec *runbook.Execution) error {
 	var duration time.Duration
 	if exec.StartedAt != nil && exec.CompletedAt != nil {
 		duration = exec.CompletedAt.Sub(*exec.StartedAt)
 	}
 
-	return l.Log(ctx, &AuditEvent{
+	return l.Log(ctx, &Event{
 		Type:           EventExecutionCompleted,
 		ExecutionID:    exec.ID,
 		RunbookName:    exec.RunbookName,
@@ -271,13 +271,13 @@ func (l *AuditLogger) LogExecutionComplete(ctx context.Context, exec *runbook.Ex
 }
 
 // LogExecutionFailed logs an execution failure event.
-func (l *AuditLogger) LogExecutionFailed(ctx context.Context, exec *runbook.Execution) error {
+func (l *Logger) LogExecutionFailed(ctx context.Context, exec *runbook.Execution) error {
 	var duration time.Duration
 	if exec.StartedAt != nil && exec.CompletedAt != nil {
 		duration = exec.CompletedAt.Sub(*exec.StartedAt)
 	}
 
-	return l.Log(ctx, &AuditEvent{
+	return l.Log(ctx, &Event{
 		Type:           EventExecutionFailed,
 		ExecutionID:    exec.ID,
 		RunbookName:    exec.RunbookName,
@@ -289,8 +289,8 @@ func (l *AuditLogger) LogExecutionFailed(ctx context.Context, exec *runbook.Exec
 }
 
 // LogStepStart logs a step start event.
-func (l *AuditLogger) LogStepStart(ctx context.Context, executionID, runbookName, stepName string) error {
-	return l.Log(ctx, &AuditEvent{
+func (l *Logger) LogStepStart(ctx context.Context, executionID, runbookName, stepName string) error {
+	return l.Log(ctx, &Event{
 		Type:        EventStepStarted,
 		ExecutionID: executionID,
 		RunbookName: runbookName,
@@ -300,8 +300,8 @@ func (l *AuditLogger) LogStepStart(ctx context.Context, executionID, runbookName
 }
 
 // LogStepComplete logs a step completion event.
-func (l *AuditLogger) LogStepComplete(ctx context.Context, executionID, runbookName string, step *runbook.StepExecution) error {
-	return l.Log(ctx, &AuditEvent{
+func (l *Logger) LogStepComplete(ctx context.Context, executionID, runbookName string, step *runbook.StepExecution) error {
+	return l.Log(ctx, &Event{
 		Type:        EventStepCompleted,
 		ExecutionID: executionID,
 		RunbookName: runbookName,
@@ -316,8 +316,8 @@ func (l *AuditLogger) LogStepComplete(ctx context.Context, executionID, runbookN
 }
 
 // LogStepFailed logs a step failure event.
-func (l *AuditLogger) LogStepFailed(ctx context.Context, executionID, runbookName string, step *runbook.StepExecution) error {
-	return l.Log(ctx, &AuditEvent{
+func (l *Logger) LogStepFailed(ctx context.Context, executionID, runbookName string, step *runbook.StepExecution) error {
+	return l.Log(ctx, &Event{
 		Type:        EventStepFailed,
 		ExecutionID: executionID,
 		RunbookName: runbookName,
@@ -332,7 +332,7 @@ func (l *AuditLogger) LogStepFailed(ctx context.Context, executionID, runbookNam
 }
 
 // Query searches for audit events.
-func (l *AuditLogger) Query(ctx context.Context, query *AuditQuery) ([]*AuditEvent, error) {
+func (l *Logger) Query(ctx context.Context, query *Query) ([]*Event, error) {
 	if l.storage == nil {
 		return nil, fmt.Errorf("no storage configured")
 	}
@@ -340,7 +340,7 @@ func (l *AuditLogger) Query(ctx context.Context, query *AuditQuery) ([]*AuditEve
 }
 
 // GetExecutionHistory retrieves the complete audit trail for an execution.
-func (l *AuditLogger) GetExecutionHistory(ctx context.Context, executionID string) ([]*AuditEvent, error) {
+func (l *Logger) GetExecutionHistory(ctx context.Context, executionID string) ([]*Event, error) {
 	if l.storage == nil {
 		return nil, fmt.Errorf("no storage configured")
 	}
@@ -480,7 +480,7 @@ func (m *SecretMasker) VerifyMasking(s string) []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var found []string
+	found := make([]string, 0, len(m.patterns))
 	for _, pattern := range m.patterns {
 		matches := pattern.FindAllString(s, -1)
 		found = append(found, matches...)
@@ -518,12 +518,12 @@ func (p *RetentionPolicy) GetRetention(eventType EventType, runbookName string) 
 
 // RetentionManager manages audit log retention.
 type RetentionManager struct {
-	storage AuditStorage
+	storage Storage
 	policy  *RetentionPolicy
 }
 
 // NewRetentionManager creates a new retention manager.
-func NewRetentionManager(storage AuditStorage, policy *RetentionPolicy) *RetentionManager {
+func NewRetentionManager(storage Storage, policy *RetentionPolicy) *RetentionManager {
 	return &RetentionManager{
 		storage: storage,
 		policy:  policy,
@@ -562,23 +562,23 @@ type ReportPeriod struct {
 
 // ReportSummary contains high-level metrics.
 type ReportSummary struct {
-	TotalExecutions     int64         `json:"total_executions"`
-	SuccessfulExecutions int64        `json:"successful_executions"`
-	FailedExecutions    int64         `json:"failed_executions"`
-	CancelledExecutions int64         `json:"cancelled_executions"`
-	TotalSteps          int64         `json:"total_steps"`
-	FailedSteps         int64         `json:"failed_steps"`
+	TotalExecutions      int64         `json:"total_executions"`
+	SuccessfulExecutions int64         `json:"successful_executions"`
+	FailedExecutions     int64         `json:"failed_executions"`
+	CancelledExecutions  int64         `json:"cancelled_executions"`
+	TotalSteps           int64         `json:"total_steps"`
+	FailedSteps          int64         `json:"failed_steps"`
 	AverageExecutionTime time.Duration `json:"average_execution_time"`
-	ApprovalRequests    int64         `json:"approval_requests"`
-	SecretAccesses      int64         `json:"secret_accesses"`
+	ApprovalRequests     int64         `json:"approval_requests"`
+	SecretAccesses       int64         `json:"secret_accesses"`
 }
 
 // ExecutionSummary contains metrics for a specific runbook.
 type ExecutionSummary struct {
-	RunbookName         string        `json:"runbook_name"`
-	TotalExecutions     int64         `json:"total_executions"`
-	SuccessfulExecutions int64        `json:"successful_executions"`
-	FailedExecutions    int64         `json:"failed_executions"`
+	RunbookName          string        `json:"runbook_name"`
+	TotalExecutions      int64         `json:"total_executions"`
+	SuccessfulExecutions int64         `json:"successful_executions"`
+	FailedExecutions     int64         `json:"failed_executions"`
 	AverageExecutionTime time.Duration `json:"average_execution_time"`
 }
 
@@ -593,12 +593,12 @@ type ComplianceViolation struct {
 
 // ComplianceReporter generates compliance reports.
 type ComplianceReporter struct {
-	storage AuditStorage
+	storage Storage
 	masker  *SecretMasker
 }
 
 // NewComplianceReporter creates a new compliance reporter.
-func NewComplianceReporter(storage AuditStorage, masker *SecretMasker) *ComplianceReporter {
+func NewComplianceReporter(storage Storage, masker *SecretMasker) *ComplianceReporter {
 	return &ComplianceReporter{
 		storage: storage,
 		masker:  masker,
@@ -607,7 +607,7 @@ func NewComplianceReporter(storage AuditStorage, masker *SecretMasker) *Complian
 
 // GenerateReport creates a compliance report for the given period.
 func (r *ComplianceReporter) GenerateReport(ctx context.Context, start, end time.Time) (*ComplianceReport, error) {
-	query := &AuditQuery{
+	query := &Query{
 		StartTime: &start,
 		EndTime:   &end,
 	}
@@ -627,9 +627,9 @@ func (r *ComplianceReporter) GenerateReport(ctx context.Context, start, end time
 
 	// Calculate summary
 	var (
-		totalDuration      time.Duration
-		executionCount     int64
-		runbookStats       = make(map[string]*ExecutionSummary)
+		totalDuration  time.Duration
+		executionCount int64
+		runbookStats   = make(map[string]*ExecutionSummary)
 	)
 
 	for _, event := range events {
@@ -675,6 +675,8 @@ func (r *ComplianceReporter) GenerateReport(ctx context.Context, start, end time
 
 		case EventSecretAccessed:
 			report.Summary.SecretAccesses++
+
+		default:
 		}
 	}
 
@@ -693,7 +695,7 @@ func (r *ComplianceReporter) GenerateReport(ctx context.Context, start, end time
 	return report, nil
 }
 
-func (r *ComplianceReporter) checkViolations(events []*AuditEvent) []ComplianceViolation {
+func (r *ComplianceReporter) checkViolations(events []*Event) []ComplianceViolation {
 	var violations []ComplianceViolation
 
 	for _, event := range events {

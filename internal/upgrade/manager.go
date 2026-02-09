@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -25,57 +26,53 @@ var (
 	ErrRollbackFailed = errors.New("rollback failed")
 )
 
-// DefaultUpgradeManager is the default implementation of UpgradeManager.
-type DefaultUpgradeManager struct {
+// DefaultManager is the default implementation of Manager.
+type DefaultManager struct {
 	versionProvider  VersionProvider
 	versionChecker   *VersionChecker
 	nodeManager      NodeManager
 	logger           Logger
 	progressCallback ProgressCallback
 
-	// Strategy implementations
-	rollingStrategy *RollingStrategy
-	canaryStrategy  *CanaryStrategy
-
 	// State
 	mu            sync.RWMutex
-	currentState  *UpgradeState
+	currentState  *State
 	upgradeCancel context.CancelFunc
-	history       []*UpgradeState
+	history       []*State
 	maxHistory    int
 }
 
-// NewDefaultUpgradeManager creates a new upgrade manager.
-func NewDefaultUpgradeManager(
+// NewDefaultManager creates a new upgrade manager.
+func NewDefaultManager(
 	versionProvider VersionProvider,
 	nodeManager NodeManager,
 	logger Logger,
-) *DefaultUpgradeManager {
+) *DefaultManager {
 	if logger == nil {
 		logger = &noopLogger{}
 	}
-	return &DefaultUpgradeManager{
+	return &DefaultManager{
 		versionProvider: versionProvider,
 		versionChecker:  NewVersionChecker(logger),
 		nodeManager:     nodeManager,
 		logger:          logger,
 		maxHistory:      100,
-		history:         make([]*UpgradeState, 0),
+		history:         make([]*State, 0),
 	}
 }
 
 // SetProgressCallback sets the progress callback.
-func (m *DefaultUpgradeManager) SetProgressCallback(cb ProgressCallback) {
+func (m *DefaultManager) SetProgressCallback(cb ProgressCallback) {
 	m.progressCallback = cb
 }
 
 // SetVersionChecker sets the version checker.
-func (m *DefaultUpgradeManager) SetVersionChecker(checker *VersionChecker) {
+func (m *DefaultManager) SetVersionChecker(checker *VersionChecker) {
 	m.versionChecker = checker
 }
 
 // CheckUpgrade checks if an upgrade is available and compatible.
-func (m *DefaultUpgradeManager) CheckUpgrade(ctx context.Context, targetVersion string) (*UpgradeCheck, error) {
+func (m *DefaultManager) CheckUpgrade(ctx context.Context, targetVersion string) (*Check, error) {
 	m.logger.Info("Checking upgrade compatibility", "target", targetVersion)
 
 	// Parse target version
@@ -90,7 +87,7 @@ func (m *DefaultUpgradeManager) CheckUpgrade(ctx context.Context, targetVersion 
 		return nil, fmt.Errorf("getting current version: %w", err)
 	}
 
-	check := &UpgradeCheck{
+	check := &Check{
 		CurrentVersion: fromVersion,
 		TargetVersion:  toVersion,
 		Compatible:     true,
@@ -130,7 +127,7 @@ func (m *DefaultUpgradeManager) CheckUpgrade(ctx context.Context, targetVersion 
 }
 
 // PlanUpgrade creates an upgrade plan without executing it.
-func (m *DefaultUpgradeManager) PlanUpgrade(ctx context.Context, config *UpgradeConfig) (*UpgradePlan, error) {
+func (m *DefaultManager) PlanUpgrade(ctx context.Context, config *Config) (*Plan, error) {
 	m.logger.Info("Planning upgrade", "target", config.TargetVersion, "strategy", config.Strategy)
 
 	// Validate configuration
@@ -148,7 +145,7 @@ func (m *DefaultUpgradeManager) PlanUpgrade(ctx context.Context, config *Upgrade
 		return nil, fmt.Errorf("upgrade not compatible: %v", check.Blockers)
 	}
 
-	plan := &UpgradePlan{
+	plan := &Plan{
 		ID:        uuid.New().String(),
 		Config:    config,
 		Check:     check,
@@ -192,7 +189,7 @@ func (m *DefaultUpgradeManager) PlanUpgrade(ctx context.Context, config *Upgrade
 }
 
 // StartUpgrade begins an upgrade operation.
-func (m *DefaultUpgradeManager) StartUpgrade(ctx context.Context, config *UpgradeConfig) (*UpgradeState, error) {
+func (m *DefaultManager) StartUpgrade(ctx context.Context, config *Config) (*State, error) {
 	m.mu.Lock()
 	if m.currentState != nil && m.currentState.Status == StatusInProgress {
 		m.mu.Unlock()
@@ -213,7 +210,7 @@ func (m *DefaultUpgradeManager) StartUpgrade(ctx context.Context, config *Upgrad
 	}
 
 	// Create upgrade state
-	state := &UpgradeState{
+	state := &State{
 		ID:          uuid.New().String(),
 		Phase:       PhasePending,
 		Status:      StatusPending,
@@ -245,7 +242,7 @@ func (m *DefaultUpgradeManager) StartUpgrade(ctx context.Context, config *Upgrad
 }
 
 // runUpgrade executes the upgrade process.
-func (m *DefaultUpgradeManager) runUpgrade(ctx context.Context, state *UpgradeState) {
+func (m *DefaultManager) runUpgrade(ctx context.Context, state *State) {
 	defer func() {
 		m.mu.Lock()
 		m.addToHistory(state)
@@ -255,7 +252,7 @@ func (m *DefaultUpgradeManager) runUpgrade(ctx context.Context, state *UpgradeSt
 	}()
 
 	// Update state helper
-	updateState := func(phase UpgradePhase, status UpgradeStatus, msg string, progress int) {
+	updateState := func(phase Phase, status Status, msg string, progress int) {
 		m.mu.Lock()
 		state.Phase = phase
 		state.Status = status
@@ -344,14 +341,14 @@ func (m *DefaultUpgradeManager) runUpgrade(ctx context.Context, state *UpgradeSt
 }
 
 // handleUpgradeError handles an error during upgrade.
-func (m *DefaultUpgradeManager) handleUpgradeError(state *UpgradeState, phase UpgradePhase, err error, recoverable bool) {
+func (m *DefaultManager) handleUpgradeError(state *State, phase Phase, err error, recoverable bool) {
 	now := time.Now()
 	m.mu.Lock()
 	state.Phase = PhaseFailed
 	state.Status = StatusFailed
 	state.Message = err.Error()
 	state.EndTime = &now
-	state.Errors = append(state.Errors, UpgradeError{
+	state.Errors = append(state.Errors, Error{
 		Time:        now,
 		Phase:       phase,
 		Message:     err.Error(),
@@ -364,7 +361,7 @@ func (m *DefaultUpgradeManager) handleUpgradeError(state *UpgradeState, phase Up
 }
 
 // validatePrerequisites validates upgrade prerequisites.
-func (m *DefaultUpgradeManager) validatePrerequisites(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) validatePrerequisites(ctx context.Context, state *State) error {
 	// Check version compatibility
 	check, err := m.CheckUpgrade(ctx, state.Config.TargetVersion)
 	if err != nil {
@@ -387,7 +384,8 @@ func (m *DefaultUpgradeManager) validatePrerequisites(ctx context.Context, state
 			return fmt.Errorf("getting %s nodes: %w", comp, err)
 		}
 
-		for _, node := range nodes {
+		for i := range nodes {
+			node := &nodes[i]
 			health, err := m.nodeManager.GetNodeHealth(ctx, node.ID)
 			if err != nil {
 				return fmt.Errorf("checking health of node %s: %w", node.ID, err)
@@ -403,7 +401,7 @@ func (m *DefaultUpgradeManager) validatePrerequisites(ctx context.Context, state
 }
 
 // prepareUpgrade prepares for the upgrade.
-func (m *DefaultUpgradeManager) prepareUpgrade(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) prepareUpgrade(ctx context.Context, state *State) error {
 	// Download new version
 	_, err := m.versionProvider.DownloadVersion(ctx, ComponentServer, state.Config.TargetVersion)
 	if err != nil {
@@ -416,7 +414,7 @@ func (m *DefaultUpgradeManager) prepareUpgrade(ctx context.Context, state *Upgra
 }
 
 // executeRollingUpgrade executes a rolling upgrade.
-func (m *DefaultUpgradeManager) executeRollingUpgrade(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) executeRollingUpgrade(ctx context.Context, state *State) error {
 	config := state.Config.Rolling
 	if config == nil {
 		config = DefaultRollingConfig()
@@ -441,7 +439,8 @@ func (m *DefaultUpgradeManager) executeRollingUpgrade(ctx context.Context, state
 		sortedNodes := m.sortNodesForUpgrade(nodes, config.Order)
 		totalNodes += len(sortedNodes)
 
-		for _, node := range sortedNodes {
+		for j := range sortedNodes {
+			node := &sortedNodes[j]
 			select {
 			case <-ctx.Done():
 				return ErrUpgradeCancelled
@@ -517,7 +516,7 @@ func (m *DefaultUpgradeManager) executeRollingUpgrade(ctx context.Context, state
 }
 
 // executeCanaryUpgrade executes a canary upgrade.
-func (m *DefaultUpgradeManager) executeCanaryUpgrade(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) executeCanaryUpgrade(ctx context.Context, state *State) error {
 	config := state.Config.Canary
 	if config == nil {
 		config = DefaultCanaryConfig()
@@ -564,7 +563,7 @@ func (m *DefaultUpgradeManager) executeCanaryUpgrade(ctx context.Context, state 
 }
 
 // executeInPlaceUpgrade executes an in-place upgrade (with downtime).
-func (m *DefaultUpgradeManager) executeInPlaceUpgrade(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) executeInPlaceUpgrade(ctx context.Context, state *State) error {
 	components := state.Config.Components
 	if len(components) == 0 {
 		components = []ComponentType{ComponentServer, ComponentAgent}
@@ -577,21 +576,21 @@ func (m *DefaultUpgradeManager) executeInPlaceUpgrade(ctx context.Context, state
 		}
 
 		// Stop all, upgrade all, start all
-		for _, node := range nodes {
-			if err := m.nodeManager.DrainNode(ctx, node.ID, 30*time.Second); err != nil {
-				m.logger.Warn("Failed to drain node", "id", node.ID, "error", err)
+		for j := range nodes {
+			if err := m.nodeManager.DrainNode(ctx, nodes[j].ID, 30*time.Second); err != nil {
+				m.logger.Warn("Failed to drain node", "id", nodes[j].ID, "error", err)
 			}
 		}
 
-		for _, node := range nodes {
-			if err := m.nodeManager.UpgradeNode(ctx, node.ID, state.Config.TargetVersion); err != nil {
-				return fmt.Errorf("upgrading node %s: %w", node.ID, err)
+		for j := range nodes {
+			if err := m.nodeManager.UpgradeNode(ctx, nodes[j].ID, state.Config.TargetVersion); err != nil {
+				return fmt.Errorf("upgrading node %s: %w", nodes[j].ID, err)
 			}
 		}
 
-		for _, node := range nodes {
-			if err := m.nodeManager.UncordonNode(ctx, node.ID); err != nil {
-				m.logger.Warn("Failed to uncordon node", "id", node.ID, "error", err)
+		for j := range nodes {
+			if err := m.nodeManager.UncordonNode(ctx, nodes[j].ID); err != nil {
+				m.logger.Warn("Failed to uncordon node", "id", nodes[j].ID, "error", err)
 			}
 		}
 	}
@@ -600,7 +599,7 @@ func (m *DefaultUpgradeManager) executeInPlaceUpgrade(ctx context.Context, state
 }
 
 // executeRollback rolls back an upgrade.
-func (m *DefaultUpgradeManager) executeRollback(ctx context.Context, state *UpgradeState, reason string) error {
+func (m *DefaultManager) executeRollback(ctx context.Context, state *State, reason string) error {
 	m.logger.Info("Executing rollback", "upgrade_id", state.ID, "reason", reason)
 
 	state.RollbackState = &RollbackState{
@@ -641,7 +640,7 @@ func (m *DefaultUpgradeManager) executeRollback(ctx context.Context, state *Upgr
 }
 
 // verifyUpgrade verifies the upgrade was successful.
-func (m *DefaultUpgradeManager) verifyUpgrade(ctx context.Context, state *UpgradeState) error {
+func (m *DefaultManager) verifyUpgrade(ctx context.Context, state *State) error {
 	// Verify all nodes are healthy and running correct version
 	for nodeID, nodeState := range state.NodeStates {
 		if nodeState.Status != StatusCompleted {
@@ -672,7 +671,7 @@ func (m *DefaultUpgradeManager) verifyUpgrade(ctx context.Context, state *Upgrad
 }
 
 // GetUpgradeStatus returns the current upgrade status.
-func (m *DefaultUpgradeManager) GetUpgradeStatus(ctx context.Context, upgradeID string) (*UpgradeState, error) {
+func (m *DefaultManager) GetUpgradeStatus(ctx context.Context, upgradeID string) (*State, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -690,7 +689,7 @@ func (m *DefaultUpgradeManager) GetUpgradeStatus(ctx context.Context, upgradeID 
 }
 
 // CancelUpgrade cancels an in-progress upgrade.
-func (m *DefaultUpgradeManager) CancelUpgrade(ctx context.Context, upgradeID string) error {
+func (m *DefaultManager) CancelUpgrade(ctx context.Context, upgradeID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -706,7 +705,7 @@ func (m *DefaultUpgradeManager) CancelUpgrade(ctx context.Context, upgradeID str
 }
 
 // Rollback rolls back to the previous version.
-func (m *DefaultUpgradeManager) Rollback(ctx context.Context, upgradeID string) (*RollbackState, error) {
+func (m *DefaultManager) Rollback(ctx context.Context, upgradeID string) (*RollbackState, error) {
 	m.mu.Lock()
 	state := m.currentState
 	if state == nil || state.ID != upgradeID {
@@ -732,7 +731,7 @@ func (m *DefaultUpgradeManager) Rollback(ctx context.Context, upgradeID string) 
 }
 
 // GetUpgradeHistory returns upgrade history.
-func (m *DefaultUpgradeManager) GetUpgradeHistory(ctx context.Context, limit int) ([]*UpgradeState, error) {
+func (m *DefaultManager) GetUpgradeHistory(ctx context.Context, limit int) ([]*State, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -741,7 +740,7 @@ func (m *DefaultUpgradeManager) GetUpgradeHistory(ctx context.Context, limit int
 	}
 
 	// Return most recent first
-	result := make([]*UpgradeState, limit)
+	result := make([]*State, limit)
 	for i := 0; i < limit; i++ {
 		result[i] = m.history[len(m.history)-1-i]
 	}
@@ -750,12 +749,12 @@ func (m *DefaultUpgradeManager) GetUpgradeHistory(ctx context.Context, limit int
 }
 
 // GetAvailableVersions returns available versions.
-func (m *DefaultUpgradeManager) GetAvailableVersions(ctx context.Context, channel string) ([]VersionInfo, error) {
+func (m *DefaultManager) GetAvailableVersions(ctx context.Context, channel string) ([]VersionInfo, error) {
 	return m.versionProvider.GetAvailableVersions(ctx, ComponentServer, channel)
 }
 
 // validateConfig validates the upgrade configuration.
-func (m *DefaultUpgradeManager) validateConfig(config *UpgradeConfig) error {
+func (m *DefaultManager) validateConfig(config *Config) error {
 	if config.TargetVersion == "" {
 		return errors.New("target_version is required")
 	}
@@ -779,8 +778,8 @@ func (m *DefaultUpgradeManager) validateConfig(config *UpgradeConfig) error {
 }
 
 // buildRollingSteps builds steps for a rolling upgrade.
-func (m *DefaultUpgradeManager) buildRollingSteps(ctx context.Context, config *UpgradeConfig) ([]UpgradeStep, error) {
-	var steps []UpgradeStep
+func (m *DefaultManager) buildRollingSteps(ctx context.Context, config *Config) ([]Step, error) {
+	var steps []Step
 	order := 1
 
 	components := config.Components
@@ -801,8 +800,9 @@ func (m *DefaultUpgradeManager) buildRollingSteps(ctx context.Context, config *U
 
 		sortedNodes := m.sortNodesForUpgrade(nodes, rollingConfig.Order)
 
-		for _, node := range sortedNodes {
-			steps = append(steps, UpgradeStep{
+		for j := range sortedNodes {
+			node := &sortedNodes[j]
+			steps = append(steps, Step{
 				Order:             order,
 				Name:              fmt.Sprintf("Upgrade %s %s", comp, node.ID),
 				Description:       fmt.Sprintf("Upgrade %s on node %s", comp, node.ID),
@@ -819,18 +819,18 @@ func (m *DefaultUpgradeManager) buildRollingSteps(ctx context.Context, config *U
 }
 
 // buildCanarySteps builds steps for a canary upgrade.
-func (m *DefaultUpgradeManager) buildCanarySteps(ctx context.Context, config *UpgradeConfig) ([]UpgradeStep, error) {
+func (m *DefaultManager) buildCanarySteps(ctx context.Context, config *Config) ([]Step, error) {
 	canaryConfig := config.Canary
 	if canaryConfig == nil {
 		canaryConfig = DefaultCanaryConfig()
 	}
 
-	var steps []UpgradeStep
+	var steps []Step
 	order := 1
 	percentage := canaryConfig.InitialPercentage
 
 	for percentage <= 100 {
-		steps = append(steps, UpgradeStep{
+		steps = append(steps, Step{
 			Order:             order,
 			Name:              fmt.Sprintf("Canary %d%%", percentage),
 			Description:       fmt.Sprintf("Route %d%% of traffic to new version", percentage),
@@ -845,8 +845,8 @@ func (m *DefaultUpgradeManager) buildCanarySteps(ctx context.Context, config *Up
 }
 
 // buildInPlaceSteps builds steps for an in-place upgrade.
-func (m *DefaultUpgradeManager) buildInPlaceSteps(ctx context.Context, config *UpgradeConfig) ([]UpgradeStep, error) {
-	return []UpgradeStep{
+func (m *DefaultManager) buildInPlaceSteps(ctx context.Context, config *Config) ([]Step, error) {
+	return []Step{
 		{
 			Order:             1,
 			Name:              "Stop services",
@@ -872,26 +872,28 @@ func (m *DefaultUpgradeManager) buildInPlaceSteps(ctx context.Context, config *U
 }
 
 // sortNodesForUpgrade sorts nodes based on upgrade order preference.
-func (m *DefaultUpgradeManager) sortNodesForUpgrade(nodes []NodeInfo, order string) []NodeInfo {
+func (m *DefaultManager) sortNodesForUpgrade(nodes []NodeInfo, order string) []NodeInfo {
 	// Simple implementation - in production would do actual sorting
-	sorted := make([]NodeInfo, len(nodes))
-	copy(sorted, nodes)
+	sorted := slices.Clone(nodes)
 
 	switch order {
 	case "leader_last":
 		// Move leader to end
-		for i, node := range sorted {
-			if node.IsLeader {
-				sorted = append(sorted[:i], sorted[i+1:]...)
+		for i := range sorted {
+			if sorted[i].IsLeader {
+				node := sorted[i]
+				sorted = slices.Delete(sorted, i, i+1)
 				sorted = append(sorted, node)
 				break
 			}
 		}
 	case "leader_first":
 		// Move leader to front
-		for i, node := range sorted {
-			if node.IsLeader {
-				sorted = append([]NodeInfo{node}, append(sorted[:i], sorted[i+1:]...)...)
+		for i := range sorted {
+			if sorted[i].IsLeader {
+				node := sorted[i]
+				sorted = slices.Delete(sorted, i, i+1)
+				sorted = slices.Insert(sorted, 0, node)
 				break
 			}
 		}
@@ -901,7 +903,7 @@ func (m *DefaultUpgradeManager) sortNodesForUpgrade(nodes []NodeInfo, order stri
 }
 
 // waitForNodeHealth waits for a node to become healthy.
-func (m *DefaultUpgradeManager) waitForNodeHealth(ctx context.Context, nodeID string, timeout, interval time.Duration) (bool, error) {
+func (m *DefaultManager) waitForNodeHealth(ctx context.Context, nodeID string, timeout, interval time.Duration) (bool, error) {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -927,7 +929,7 @@ func (m *DefaultUpgradeManager) waitForNodeHealth(ctx context.Context, nodeID st
 }
 
 // updateNodeState updates the state of a node.
-func (m *DefaultUpgradeManager) updateNodeState(state *UpgradeState, nodeID string, status UpgradeStatus, health HealthStatus, errMsg string) {
+func (m *DefaultManager) updateNodeState(state *State, nodeID string, status Status, health HealthStatus, errMsg string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -943,14 +945,14 @@ func (m *DefaultUpgradeManager) updateNodeState(state *UpgradeState, nodeID stri
 }
 
 // notifyProgress calls the progress callback if set.
-func (m *DefaultUpgradeManager) notifyProgress(state *UpgradeState) {
+func (m *DefaultManager) notifyProgress(state *State) {
 	if m.progressCallback != nil {
 		m.progressCallback(state)
 	}
 }
 
 // addToHistory adds a completed upgrade to history.
-func (m *DefaultUpgradeManager) addToHistory(state *UpgradeState) {
+func (m *DefaultManager) addToHistory(state *State) {
 	m.history = append(m.history, state)
 
 	// Trim history if too long

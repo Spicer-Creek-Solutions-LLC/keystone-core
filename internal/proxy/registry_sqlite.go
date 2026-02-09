@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // SQLiteDeviceRegistryConfig configures the SQLite device registry.
@@ -69,7 +70,8 @@ func NewSQLiteDeviceRegistry(config *SQLiteDeviceRegistryConfig) (*SQLiteDeviceR
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: database directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
@@ -145,7 +147,7 @@ func (r *SQLiteDeviceRegistry) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_proxied_devices_protocol ON proxied_devices(protocol);
 	`
 
-	_, err := r.db.Exec(schema)
+	_, err := r.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -299,7 +301,7 @@ func (r *SQLiteDeviceRegistry) Get(ctx context.Context, deviceID string) (*Proxi
 	`, deviceID)
 
 	device, err := r.scanDevice(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrDeviceNotFound
 	}
 	if err != nil {
@@ -608,7 +610,7 @@ func (r *SQLiteDeviceRegistry) UpdateStatus(ctx context.Context, deviceID string
 	// Get old status for notification
 	var oldStatus string
 	err := r.db.QueryRowContext(ctx, "SELECT status FROM proxied_devices WHERE id = ?", deviceID).Scan(&oldStatus)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDeviceNotFound
 	}
 	if err != nil {
@@ -630,7 +632,7 @@ func (r *SQLiteDeviceRegistry) UpdateStatus(ctx context.Context, deviceID string
 	if lastSeenUpdate != "" {
 		setClauses = append(setClauses, "last_seen = ?")
 	}
-	query := "UPDATE proxied_devices SET " + strings.Join(setClauses, ", ") + " WHERE id = ?" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- setClauses built from fixed column map with bound args
+	query := "UPDATE proxied_devices SET " + strings.Join(setClauses, ", ") + " WHERE id = ?" //nolint:gosec // G202: setClauses built from fixed column literals; args are bound separately
 
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {

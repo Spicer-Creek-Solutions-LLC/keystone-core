@@ -117,20 +117,21 @@ func NewExecutor(config *ExecutorConfig) (*Executor, error) {
 	}, nil
 }
 
-// ExpandBlueprintIncludes expands blueprint includes in a state file into
+// ExpandIncludes expands blueprint includes in a state file into
 // state declarations that can be executed by the state executor.
-func (e *Executor) ExpandBlueprintIncludes(ctx context.Context, stateFile *BlueprintStateFile) (*BlueprintStateFile, error) {
+func (e *Executor) ExpandIncludes(ctx context.Context, stateFile *StateFile) (*StateFile, error) {
 	if len(stateFile.BlueprintIncludes) == 0 {
 		return stateFile, nil
 	}
 
 	// Create a new state file with expanded states
-	expanded := &BlueprintStateFile{
-		Path:      stateFile.Path,
-		Includes:  stateFile.Includes,
-		Variables: make(map[string]interface{}),
-		States:    make(map[string][]BlueprintStateDeclaration),
-		Metadata:  stateFile.Metadata,
+	expanded := &StateFile{
+		Path:              stateFile.Path,
+		Includes:          stateFile.Includes,
+		BlueprintIncludes: stateFile.BlueprintIncludes,
+		Variables:         make(map[string]interface{}),
+		States:            make(map[string][]StateDeclaration),
+		Metadata:          stateFile.Metadata,
 		// Don't copy BlueprintIncludes - we're expanding them
 	}
 
@@ -146,7 +147,7 @@ func (e *Executor) ExpandBlueprintIncludes(ctx context.Context, stateFile *Bluep
 
 	// Process each blueprint include
 	for _, include := range stateFile.BlueprintIncludes {
-		states, appliedBP, err := e.expandBlueprintInclude(ctx, &include)
+		states, appliedBP, err := e.expandInclude(ctx, &include)
 		if err != nil {
 			return nil, fmt.Errorf("failed to expand blueprint %s: %w", include.Blueprint, err)
 		}
@@ -175,8 +176,8 @@ func (e *Executor) ExpandBlueprintIncludes(ctx context.Context, stateFile *Bluep
 	return expanded, nil
 }
 
-// expandBlueprintInclude expands a single blueprint include.
-func (e *Executor) expandBlueprintInclude(ctx context.Context, include *BlueprintInclude) (map[string][]BlueprintStateDeclaration, *AppliedBlueprint, error) {
+// expandInclude expands a single blueprint include.
+func (e *Executor) expandInclude(ctx context.Context, include *Include) (map[string][]StateDeclaration, *AppliedBlueprint, error) {
 	// Build load config from include
 	loadConfig := &LoadConfig{
 		Name:    include.Blueprint,
@@ -221,7 +222,7 @@ func (e *Executor) expandBlueprintInclude(ctx context.Context, include *Blueprin
 	}
 
 	// Render and parse each state file
-	allStates := make(map[string][]BlueprintStateDeclaration)
+	allStates := make(map[string][]StateDeclaration)
 	totalStateCount := 0
 
 	for _, stateFile := range stateFiles {
@@ -258,13 +259,13 @@ func (e *Executor) expandBlueprintInclude(ctx context.Context, include *Blueprin
 }
 
 // parseRenderedState parses rendered YAML into state declarations.
-func (e *Executor) parseRenderedState(rendered []byte) (map[string][]BlueprintStateDeclaration, error) {
+func (e *Executor) parseRenderedState(rendered []byte) (map[string][]StateDeclaration, error) {
 	var rawState map[string]interface{}
 	if err := yaml.Unmarshal(rendered, &rawState); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	states := make(map[string][]BlueprintStateDeclaration)
+	states := make(map[string][]StateDeclaration)
 
 	// Skip metadata, include, and variables - these are handled separately
 	for module, declarations := range rawState {
@@ -287,7 +288,7 @@ func (e *Executor) parseRenderedState(rendered []byte) (map[string][]BlueprintSt
 				continue
 			}
 
-			decl := BlueprintStateDeclaration{
+			decl := StateDeclaration{
 				ID:         stateID,
 				Module:     module,
 				Parameters: make(map[string]interface{}),
@@ -380,8 +381,8 @@ func getDefaultState(module string) string {
 	return "present"
 }
 
-func parseRequisites(params map[string]interface{}) BlueprintRequisites {
-	reqs := BlueprintRequisites{}
+func parseRequisites(params map[string]interface{}) Requisites {
+	reqs := Requisites{}
 
 	if require, ok := params["require"].([]interface{}); ok {
 		reqs.Require = parseStateReferences(require)
@@ -426,8 +427,8 @@ func parseRequisites(params map[string]interface{}) BlueprintRequisites {
 	return reqs
 }
 
-func parseStateReferences(refs []interface{}) []BlueprintStateReference {
-	var result []BlueprintStateReference
+func parseStateReferences(refs []interface{}) []StateReference {
+	var result []StateReference
 
 	for _, ref := range refs {
 		refMap, ok := ref.(map[string]interface{})
@@ -437,7 +438,7 @@ func parseStateReferences(refs []interface{}) []BlueprintStateReference {
 
 		for module, id := range refMap {
 			if idStr, ok := id.(string); ok {
-				result = append(result, BlueprintStateReference{
+				result = append(result, StateReference{
 					Module: module,
 					ID:     idStr,
 				})

@@ -181,8 +181,8 @@ func TestWiFiModule_ParseConfig(t *testing.T) {
 				State:  "configured",
 				Module: "wifi",
 				Parameters: map[string]interface{}{
-					"ssid":        "NoAutoNet",
-					"security":    "open",
+					"ssid":         "NoAutoNet",
+					"security":     "open",
 					"auto_connect": false,
 				},
 			},

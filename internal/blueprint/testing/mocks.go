@@ -376,6 +376,7 @@ func (b *MockBuilder) ApplyMocks(ctx context.Context, mocks []MockConfig) error 
 				Enabled: mock.Service.Enabled,
 			}
 			b.registry.RegisterService(mock.Service.Name, handler)
+		default:
 		}
 	}
 

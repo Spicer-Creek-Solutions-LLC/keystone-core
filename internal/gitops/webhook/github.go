@@ -12,7 +12,7 @@ import (
 type GitHubHandler struct{}
 
 // Type returns the webhook type
-func (h *GitHubHandler) Type() WebhookType {
+func (h *GitHubHandler) Type() Type {
 	return WebhookTypeGitHub
 }
 
@@ -52,9 +52,9 @@ type GitHubWebhookPayload struct {
 		UpdatedAt  time.Time `json:"updated_at"`
 	} `json:"workflow_run"`
 	// Push specific
-	Ref    string `json:"ref"`
-	After  string `json:"after"`
-	Before string `json:"before"`
+	Ref     string `json:"ref"`
+	After   string `json:"after"`
+	Before  string `json:"before"`
 	Commits []struct {
 		ID      string `json:"id"`
 		Message string `json:"message"`
@@ -66,7 +66,7 @@ type GitHubWebhookPayload struct {
 }
 
 // Parse parses a GitHub webhook payload
-func (h *GitHubHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, error) {
+func (h *GitHubHandler) Parse(r *http.Request, body []byte) (*Event, error) {
 	var payload GitHubWebhookPayload
 	if err := ParseJSON(body, &payload); err != nil {
 		return nil, fmt.Errorf("failed to parse GitHub webhook: %w", err)
@@ -103,7 +103,7 @@ func (h *GitHubHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, erro
 		revision = payload.After
 	}
 
-	event := &WebhookEvent{
+	event := &Event{
 		ID:          uuid.New().String(),
 		Type:        WebhookTypeGitHub,
 		EventType:   eventType,
@@ -114,15 +114,15 @@ func (h *GitHubHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, erro
 		Revision:    revision,
 		Status:      status,
 		Data: map[string]interface{}{
-			"action":          payload.Action,
-			"repository":      payload.Repository.FullName,
-			"repository_url":  payload.Repository.HTMLURL,
-			"sender":          payload.Sender.Login,
-			"deployment":      payload.Deployment,
+			"action":            payload.Action,
+			"repository":        payload.Repository.FullName,
+			"repository_url":    payload.Repository.HTMLURL,
+			"sender":            payload.Sender.Login,
+			"deployment":        payload.Deployment,
 			"deployment_status": payload.DeploymentStatus,
-			"workflow_run":    payload.WorkflowRun,
-			"ref":             payload.Ref,
-			"commits":         payload.Commits,
+			"workflow_run":      payload.WorkflowRun,
+			"ref":               payload.Ref,
+			"commits":           payload.Commits,
 		},
 	}
 

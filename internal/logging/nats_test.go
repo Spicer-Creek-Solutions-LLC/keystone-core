@@ -421,7 +421,7 @@ func TestNATSOutputStats(t *testing.T) {
 		lastErrorTime:   time.Time{},
 	}
 
-	sent, dropped, lastErr, lastErrTime := output.Stats()
+	sent, dropped, lastErrTime, lastErr := output.Stats()
 
 	if sent != 100 {
 		t.Errorf("Expected sent 100, got %d", sent)
@@ -574,22 +574,22 @@ func TestNATSOutputConfigValidation(t *testing.T) {
 		{
 			name: "valid config",
 			config: &NATSOutputConfig{
-				URL:       "nats://localhost:4222",
-				Subject:   "logs",
-				Async:     true,
+				URL:     "nats://localhost:4222",
+				Subject: "logs",
+				Async:   true,
 			},
 			valid: true,
 		},
 		{
 			name: "with all auth options",
 			config: &NATSOutputConfig{
-				URL:       "nats://localhost:4222",
-				Subject:   "logs",
-				Token:     "secret-token",
-				User:      "admin",
-				Password:  "password",
-				NKeyFile:  "/path/to/nkey",
-				CredFile:  "/path/to/creds",
+				URL:      "nats://localhost:4222",
+				Subject:  "logs",
+				Token:    "secret-token",
+				User:     "admin",
+				Password: "password",
+				NKeyFile: "/path/to/nkey",
+				CredFile: "/path/to/creds",
 			},
 			valid: true,
 		},

@@ -10,24 +10,24 @@ type RequestState string
 
 // Request state constants.
 const (
-	RequestStatePending  RequestState = "pending"
-	RequestStateApproved RequestState = "approved"
-	RequestStateRejected RequestState = "rejected"
-	RequestStateExpired  RequestState = "expired"
+	RequestStatePending   RequestState = "pending"
+	RequestStateApproved  RequestState = "approved"
+	RequestStateRejected  RequestState = "rejected"
+	RequestStateExpired   RequestState = "expired"
 	RequestStateCancelled RequestState = "cancelled"
 )
 
-// ApprovalMode defines how multiple approvers are handled.
-type ApprovalMode string
+// Mode defines how multiple approvers are handled.
+type Mode string
 
 // Approval mode constants.
 const (
-	// ApprovalModeAny requires any one approver to approve.
-	ApprovalModeAny ApprovalMode = "any"
-	// ApprovalModeAll requires all approvers to approve.
-	ApprovalModeAll ApprovalMode = "all"
-	// ApprovalModeCount requires a specific number of approvals.
-	ApprovalModeCount ApprovalMode = "count"
+	// ModeAny requires any one approver to approve.
+	ModeAny Mode = "any"
+	// ModeAll requires all approvers to approve.
+	ModeAll Mode = "all"
+	// ModeCount requires a specific number of approvals.
+	ModeCount Mode = "count"
 )
 
 // Request represents an approval request for a runbook step.
@@ -54,9 +54,9 @@ type Request struct {
 	Approvers []string `json:"approvers"`
 
 	// Mode specifies how multiple approvers are handled.
-	Mode ApprovalMode `json:"mode"`
+	Mode Mode `json:"mode"`
 
-	// RequiredCount is the number of approvals needed (for ApprovalModeCount).
+	// RequiredCount is the number of approvals needed (for ModeCount).
 	RequiredCount int `json:"requiredCount,omitempty"`
 
 	// Responses contains the approval decisions made so far.
@@ -117,16 +117,16 @@ func (s RequestState) String() string {
 }
 
 // IsValid returns true if the approval mode is valid.
-func (m ApprovalMode) IsValid() bool {
+func (m Mode) IsValid() bool {
 	switch m {
-	case ApprovalModeAny, ApprovalModeAll, ApprovalModeCount:
+	case ModeAny, ModeAll, ModeCount:
 		return true
 	}
 	return false
 }
 
 // String returns the string representation of the approval mode.
-func (m ApprovalMode) String() string {
+func (m Mode) String() string {
 	return string(m)
 }
 
@@ -193,7 +193,7 @@ type Config struct {
 
 	// Mode specifies how multiple approvers are handled.
 	// Valid values: any, all, count. Default: any.
-	Mode ApprovalMode `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Mode Mode `yaml:"mode,omitempty" json:"mode,omitempty"`
 
 	// RequiredCount is the number of approvals needed (for mode=count).
 	RequiredCount int `yaml:"requiredCount,omitempty" json:"requiredCount,omitempty"`
@@ -218,9 +218,9 @@ type Config struct {
 }
 
 // GetMode returns the approval mode, defaulting to "any".
-func (c *Config) GetMode() ApprovalMode {
+func (c *Config) GetMode() Mode {
 	if c.Mode == "" {
-		return ApprovalModeAny
+		return ModeAny
 	}
 	return c.Mode
 }
@@ -228,11 +228,11 @@ func (c *Config) GetMode() ApprovalMode {
 // GetRequiredCount returns the required approval count based on mode.
 func (c *Config) GetRequiredCount() int {
 	switch c.GetMode() {
-	case ApprovalModeAny:
+	case ModeAny:
 		return 1
-	case ApprovalModeAll:
+	case ModeAll:
 		return len(c.Approvers)
-	case ApprovalModeCount:
+	case ModeCount:
 		if c.RequiredCount > 0 {
 			return c.RequiredCount
 		}

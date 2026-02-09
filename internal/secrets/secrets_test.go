@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -9,23 +10,23 @@ import (
 
 // Ensure interfaces are implemented correctly.
 var (
-	_ SecretBackend       = (*mockBackend)(nil)
-	_ SecretCache         = (*EncryptedSecretCache)(nil)
-	_ SecretCache         = (*InMemorySecretCache)(nil)
-	_ LeaseManager        = (*InMemoryLeaseManager)(nil)
-	_ SecretAuditLogger   = (*InMemorySecretAuditLogger)(nil)
-	_ SecretAuditLogger   = (*NoopSecretAuditLogger)(nil)
-	_ SecretAuditLogger   = (*MultiSecretAuditLogger)(nil)
-	_ SecretAuditLogger   = (*ChannelSecretAuditLogger)(nil)
+	_ SecretBackend     = (*mockBackend)(nil)
+	_ SecretCache       = (*EncryptedSecretCache)(nil)
+	_ SecretCache       = (*InMemorySecretCache)(nil)
+	_ LeaseManager      = (*InMemoryLeaseManager)(nil)
+	_ SecretAuditLogger = (*InMemorySecretAuditLogger)(nil)
+	_ SecretAuditLogger = (*NoopSecretAuditLogger)(nil)
+	_ SecretAuditLogger = (*MultiSecretAuditLogger)(nil)
+	_ SecretAuditLogger = (*ChannelSecretAuditLogger)(nil)
 )
 
 // mockBackend is a mock implementation of SecretBackend for testing.
 type mockBackend struct {
-	name     string
+	name        string
 	backendType BackendType
-	healthy  bool
-	secrets  map[string]*Secret
-	leases   map[string]*Lease
+	healthy     bool
+	secrets     map[string]*Secret
+	leases      map[string]*Lease
 }
 
 func newMockBackend(name string, backendType BackendType) *mockBackend {
@@ -38,8 +39,8 @@ func newMockBackend(name string, backendType BackendType) *mockBackend {
 	}
 }
 
-func (m *mockBackend) Type() BackendType { return m.backendType }
-func (m *mockBackend) Name() string      { return m.name }
+func (m *mockBackend) Type() BackendType                { return m.backendType }
+func (m *mockBackend) Name() string                     { return m.name }
 func (m *mockBackend) Healthy(ctx context.Context) bool { return m.healthy }
 
 func (m *mockBackend) Read(ctx context.Context, req *SecretRequest) (*Secret, error) {
@@ -72,7 +73,7 @@ func (m *mockBackend) ReadDynamic(ctx context.Context, req *SecretRequest) (*Sec
 }
 
 func (m *mockBackend) List(ctx context.Context, prefix string) ([]string, error) {
-	var paths []string
+	paths := make([]string, 0, len(m.secrets))
 	for path := range m.secrets {
 		paths = append(paths, path)
 	}
@@ -340,7 +341,7 @@ func TestSecretBroker_UnregisterBackend(t *testing.T) {
 
 	// Test unregistering non-existent
 	err = broker.UnregisterBackend("nonexistent")
-	if err != ErrBackendNotFound {
+	if !errors.Is(err, ErrBackendNotFound) {
 		t.Errorf("expected ErrBackendNotFound, got %v", err)
 	}
 }
@@ -375,13 +376,13 @@ func TestSecretBroker_Read(t *testing.T) {
 
 	// Test reading non-existent secret
 	_, err = broker.Read(ctx, &SecretRequest{Path: "vault/kv/nonexistent"})
-	if err != ErrSecretNotFound {
+	if !errors.Is(err, ErrSecretNotFound) {
 		t.Errorf("expected ErrSecretNotFound, got %v", err)
 	}
 
 	// Test invalid path
 	_, err = broker.Read(ctx, &SecretRequest{Path: ""})
-	if err != ErrInvalidPath {
+	if !errors.Is(err, ErrInvalidPath) {
 		t.Errorf("expected ErrInvalidPath, got %v", err)
 	}
 }
@@ -808,7 +809,7 @@ func TestInMemoryLeaseManager_Revoke(t *testing.T) {
 
 	// Test revoke non-existent
 	err = manager.Revoke(ctx, "nonexistent")
-	if err != ErrLeaseNotFound {
+	if !errors.Is(err, ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 }
@@ -1303,7 +1304,7 @@ func TestSecretBroker_GetBackend(t *testing.T) {
 
 	// Test getting non-existent backend
 	_, err = broker.GetBackend("nonexistent")
-	if err != ErrBackendNotFound {
+	if !errors.Is(err, ErrBackendNotFound) {
 		t.Errorf("expected ErrBackendNotFound, got %v", err)
 	}
 }
@@ -1477,7 +1478,7 @@ func TestInMemoryLeaseManager_Remove(t *testing.T) {
 	}
 
 	_, err = manager.Get(ctx, "to-remove")
-	if err != ErrLeaseNotFound {
+	if !errors.Is(err, ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 }
@@ -1530,7 +1531,7 @@ func TestInMemoryLeaseManager_GetNonExistent(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := manager.Get(ctx, "nonexistent")
-	if err != ErrLeaseNotFound {
+	if !errors.Is(err, ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 }
@@ -1789,7 +1790,7 @@ func TestSecretBroker_RenewLease(t *testing.T) {
 
 	// Test renewing non-existent lease
 	_, err = broker.RenewLease(context.Background(), "nonexistent", time.Hour)
-	if err != ErrLeaseNotFound {
+	if !errors.Is(err, ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 }
@@ -1877,16 +1878,16 @@ func TestInMemoryLeaseManager_RenewNonRenewable(t *testing.T) {
 
 	// Add non-renewable lease
 	lease := &Lease{
-		ID:         "non-renewable",
-		Backend:    BackendTypeVault,
-		ExpiresAt:  time.Now().Add(time.Hour),
-		Renewable:  false,
+		ID:        "non-renewable",
+		Backend:   BackendTypeVault,
+		ExpiresAt: time.Now().Add(time.Hour),
+		Renewable: false,
 	}
 	_ = manager.Track(ctx, lease)
 
 	// Attempt to renew
 	_, err := manager.Renew(ctx, "non-renewable", time.Hour)
-	if err != ErrLeaseNotRenewable {
+	if !errors.Is(err, ErrLeaseNotRenewable) {
 		t.Errorf("expected ErrLeaseNotRenewable, got %v", err)
 	}
 }
@@ -1906,7 +1907,7 @@ func TestInMemoryLeaseManager_RenewExpired(t *testing.T) {
 
 	// Attempt to renew
 	_, err := manager.Renew(ctx, "expired-lease", time.Hour)
-	if err != ErrLeaseExpired {
+	if !errors.Is(err, ErrLeaseExpired) {
 		t.Errorf("expected ErrLeaseExpired, got %v", err)
 	}
 }
@@ -2010,7 +2011,7 @@ func TestChannelSecretAuditLogger_ContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	err := logger.LogSecretAccess(ctx, &SecretAccessEvent{SecretPath: "second"})
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		// Could be nil if dropped, or canceled
 		if err != nil {
 			t.Logf("got error: %v", err)

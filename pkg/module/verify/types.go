@@ -3,6 +3,7 @@ package verify
 // HashAlgorithm represents a cryptographic hash algorithm
 type HashAlgorithm string
 
+// SHA256 and related constants.
 const (
 	SHA256 HashAlgorithm = "sha256"
 	SHA512 HashAlgorithm = "sha512"
@@ -11,6 +12,7 @@ const (
 // SignatureFormat represents a signature format
 type SignatureFormat string
 
+// SignatureFormatPKCS1 constants define the output formats.
 const (
 	SignatureFormatPKCS1 SignatureFormat = "pkcs1"
 	SignatureFormatPSS   SignatureFormat = "pss"
@@ -65,15 +67,15 @@ func DefaultVerificationOptions() *VerificationOptions {
 
 // VerificationResult contains verification results
 type VerificationResult struct {
-	ContentHash     string
-	Verified        bool
-	HashValid       bool
-	SignatureValid  bool
-	TrustedKey      bool
-	SumDBVerified   bool
-	SignerIdentity  string
-	Errors          []error
-	Warnings        []string
+	ContentHash    string
+	Verified       bool
+	HashValid      bool
+	SignatureValid bool
+	TrustedKey     bool
+	SumDBVerified  bool
+	SignerIdentity string
+	Errors         []error
+	Warnings       []string
 }
 
 // AddError adds an error to the result

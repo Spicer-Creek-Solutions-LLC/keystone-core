@@ -40,12 +40,12 @@ func (m *DockerContainerModule) Check(ctx context.Context, decl *StateDeclaratio
 	}
 
 	// Check if docker is available
-	if err := m.checkDockerAvailable(); err != nil {
+	if err := m.checkDockerAvailable(ctx); err != nil {
 		return nil, err
 	}
 
 	// Get container info
-	info, exists := m.getContainerInfo(name)
+	info, exists := m.getContainerInfo(ctx, name)
 
 	result := &ModuleCheckResult{
 		Present:  exists,
@@ -104,11 +104,11 @@ func (m *DockerContainerModule) Apply(ctx context.Context, decl *StateDeclaratio
 
 	switch decl.State {
 	case "running":
-		return m.ensureRunning(name, image, decl)
+		return m.ensureRunning(ctx, name, image, decl)
 	case "stopped":
-		return m.ensureStopped(name, image, decl)
+		return m.ensureStopped(ctx, name, image, decl)
 	case "absent":
-		return m.ensureAbsent(name, decl)
+		return m.ensureAbsent(ctx, name, decl)
 	}
 
 	return &StateResult{
@@ -140,16 +140,16 @@ func (m *DockerContainerModule) Test(ctx context.Context, decl *StateDeclaration
 	}, nil
 }
 
-func (m *DockerContainerModule) checkDockerAvailable() error {
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+func (m *DockerContainerModule) checkDockerAvailable(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("docker is not available: %w", err)
 	}
 	return nil
 }
 
-func (m *DockerContainerModule) getContainerInfo(name string) (map[string]interface{}, bool) {
-	cmd := exec.Command("docker", "inspect", "--type", "container", name)
+func (m *DockerContainerModule) getContainerInfo(ctx context.Context, name string) (map[string]interface{}, bool) {
+	cmd := exec.CommandContext(ctx, "docker", "inspect", "--type", "container", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, false
@@ -175,9 +175,9 @@ func (m *DockerContainerModule) getContainerInfo(name string) (map[string]interf
 	return info, true
 }
 
-func (m *DockerContainerModule) ensureRunning(name, image string, decl *StateDeclaration) (*StateResult, error) {
+func (m *DockerContainerModule) ensureRunning(ctx context.Context, name, image string, decl *StateDeclaration) (*StateResult, error) {
 	// Check if container exists
-	info, exists := m.getContainerInfo(name)
+	info, exists := m.getContainerInfo(ctx, name)
 
 	if exists {
 		// Container exists, check if running
@@ -193,7 +193,7 @@ func (m *DockerContainerModule) ensureRunning(name, image string, decl *StateDec
 		}
 
 		// Start the container
-		cmd := exec.Command("docker", "start", name)
+		cmd := exec.CommandContext(ctx, "docker", "start", name)
 		if err := cmd.Run(); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
@@ -254,7 +254,7 @@ func (m *DockerContainerModule) ensureRunning(name, image string, decl *StateDec
 		args = append(args, strings.Fields(command)...)
 	}
 
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return &StateResult{
@@ -274,13 +274,13 @@ func (m *DockerContainerModule) ensureRunning(name, image string, decl *StateDec
 	}, nil
 }
 
-func (m *DockerContainerModule) ensureStopped(name, image string, decl *StateDeclaration) (*StateResult, error) {
-	info, exists := m.getContainerInfo(name)
+func (m *DockerContainerModule) ensureStopped(ctx context.Context, name, image string, decl *StateDeclaration) (*StateResult, error) {
+	info, exists := m.getContainerInfo(ctx, name)
 
 	if !exists {
 		// Create container but don't start it
 		args := []string{"create", "--name", name, image}
-		cmd := exec.Command("docker", args...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
 		if err := cmd.Run(); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
@@ -311,7 +311,7 @@ func (m *DockerContainerModule) ensureStopped(name, image string, decl *StateDec
 	}
 
 	// Stop the container
-	cmd := exec.Command("docker", "stop", name)
+	cmd := exec.CommandContext(ctx, "docker", "stop", name)
 	if err := cmd.Run(); err != nil {
 		return &StateResult{
 			StateID: decl.ID,
@@ -330,8 +330,8 @@ func (m *DockerContainerModule) ensureStopped(name, image string, decl *StateDec
 	}, nil
 }
 
-func (m *DockerContainerModule) ensureAbsent(name string, decl *StateDeclaration) (*StateResult, error) {
-	_, exists := m.getContainerInfo(name)
+func (m *DockerContainerModule) ensureAbsent(ctx context.Context, name string, decl *StateDeclaration) (*StateResult, error) {
+	_, exists := m.getContainerInfo(ctx, name)
 
 	if !exists {
 		return &StateResult{
@@ -351,7 +351,7 @@ func (m *DockerContainerModule) ensureAbsent(name string, decl *StateDeclaration
 	}
 	args = append(args, name)
 
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	if err := cmd.Run(); err != nil {
 		return &StateResult{
 			StateID: decl.ID,
@@ -409,13 +409,13 @@ func (m *DockerImageModule) Check(ctx context.Context, decl *StateDeclaration) (
 	fullName := fmt.Sprintf("%s:%s", name, tag)
 
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("docker is not available: %w", err)
 	}
 
 	// Check if image exists
-	cmd = exec.Command("docker", "image", "inspect", fullName)
+	cmd = exec.CommandContext(ctx, "docker", "image", "inspect", fullName)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -476,11 +476,11 @@ func (m *DockerImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 		if authMethod != "" {
 			// Use authenticated pull
-			puller := NewImagePuller(nil)
+			puller := NewImagePuller(nil) //nolint:contextcheck // NewImagePuller constructor doesn't take context
 			output, pullErr = puller.PullImage(ctx, fullName, authMethod)
 		} else {
 			// Standard pull without auth
-			cmd := exec.Command("docker", "pull", fullName)
+			cmd := exec.CommandContext(ctx, "docker", "pull", fullName)
 			outputBytes, err := cmd.CombinedOutput()
 			output = string(outputBytes)
 			pullErr = err
@@ -511,7 +511,7 @@ func (m *DockerImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 		}
 		args = append(args, fullName)
 
-		cmd := exec.Command("docker", args...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -588,13 +588,13 @@ func (m *DockerNetworkModule) Check(ctx context.Context, decl *StateDeclaration)
 	}
 
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("docker is not available: %w", err)
 	}
 
 	// Check if network exists
-	cmd = exec.Command("docker", "network", "inspect", name)
+	cmd = exec.CommandContext(ctx, "docker", "network", "inspect", name)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -664,7 +664,7 @@ func (m *DockerNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 
 		args = append(args, name)
 
-		cmd := exec.Command("docker", args...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -684,7 +684,7 @@ func (m *DockerNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 		}, nil
 
 	case "absent":
-		cmd := exec.Command("docker", "network", "rm", name)
+		cmd := exec.CommandContext(ctx, "docker", "network", "rm", name)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -758,13 +758,13 @@ func (m *DockerVolumeModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Check if docker is available
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("docker is not available: %w", err)
 	}
 
 	// Check if volume exists
-	cmd = exec.Command("docker", "volume", "inspect", name)
+	cmd = exec.CommandContext(ctx, "docker", "volume", "inspect", name)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -830,7 +830,7 @@ func (m *DockerVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 		args = append(args, name)
 
-		cmd := exec.Command("docker", args...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -857,7 +857,7 @@ func (m *DockerVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 		args = append(args, name)
 
-		cmd := exec.Command("docker", args...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -949,13 +949,13 @@ func (m *PodmanContainerModule) Check(ctx context.Context, decl *StateDeclaratio
 	}
 
 	// Check if podman is available
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("podman is not available: %w", err)
 	}
 
 	// Get container info
-	info, exists := m.getContainerInfo(name)
+	info, exists := m.getContainerInfo(ctx, name)
 
 	result := &ModuleCheckResult{
 		Present:  exists,
@@ -987,8 +987,8 @@ func (m *PodmanContainerModule) Check(ctx context.Context, decl *StateDeclaratio
 	return result, nil
 }
 
-func (m *PodmanContainerModule) getContainerInfo(name string) (map[string]interface{}, bool) {
-	cmd := exec.Command("podman", "inspect", "--type", "container", name)
+func (m *PodmanContainerModule) getContainerInfo(ctx context.Context, name string) (map[string]interface{}, bool) {
+	cmd := exec.CommandContext(ctx, "podman", "inspect", "--type", "container", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, false
@@ -1041,11 +1041,11 @@ func (m *PodmanContainerModule) Apply(ctx context.Context, decl *StateDeclaratio
 
 	switch decl.State {
 	case "running":
-		return m.ensureRunning(name, image, decl)
+		return m.ensureRunning(ctx, name, image, decl)
 	case "stopped":
-		return m.ensureStopped(name, image, decl)
+		return m.ensureStopped(ctx, name, image, decl)
 	case "absent":
-		return m.ensureAbsent(name, decl)
+		return m.ensureAbsent(ctx, name, decl)
 	}
 
 	return &StateResult{
@@ -1056,8 +1056,8 @@ func (m *PodmanContainerModule) Apply(ctx context.Context, decl *StateDeclaratio
 	}, nil
 }
 
-func (m *PodmanContainerModule) ensureRunning(name, image string, decl *StateDeclaration) (*StateResult, error) {
-	info, exists := m.getContainerInfo(name)
+func (m *PodmanContainerModule) ensureRunning(ctx context.Context, name, image string, decl *StateDeclaration) (*StateResult, error) {
+	info, exists := m.getContainerInfo(ctx, name)
 
 	if exists {
 		state := info["State"].(string)
@@ -1072,7 +1072,7 @@ func (m *PodmanContainerModule) ensureRunning(name, image string, decl *StateDec
 		}
 
 		// Start the container
-		cmd := exec.Command("podman", "start", name)
+		cmd := exec.CommandContext(ctx, "podman", "start", name)
 		if err := cmd.Run(); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
@@ -1127,7 +1127,7 @@ func (m *PodmanContainerModule) ensureRunning(name, image string, decl *StateDec
 
 	args = append(args, image)
 
-	cmd := exec.Command("podman", args...)
+	cmd := exec.CommandContext(ctx, "podman", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return &StateResult{
@@ -1147,13 +1147,13 @@ func (m *PodmanContainerModule) ensureRunning(name, image string, decl *StateDec
 	}, nil
 }
 
-func (m *PodmanContainerModule) ensureStopped(name, image string, decl *StateDeclaration) (*StateResult, error) {
-	info, exists := m.getContainerInfo(name)
+func (m *PodmanContainerModule) ensureStopped(ctx context.Context, name, image string, decl *StateDeclaration) (*StateResult, error) {
+	info, exists := m.getContainerInfo(ctx, name)
 
 	if !exists {
 		// Create container but don't start it
 		args := []string{"create", "--name", name, image}
-		cmd := exec.Command("podman", args...)
+		cmd := exec.CommandContext(ctx, "podman", args...)
 		if err := cmd.Run(); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
@@ -1184,7 +1184,7 @@ func (m *PodmanContainerModule) ensureStopped(name, image string, decl *StateDec
 	}
 
 	// Stop the container
-	cmd := exec.Command("podman", "stop", name)
+	cmd := exec.CommandContext(ctx, "podman", "stop", name)
 	if err := cmd.Run(); err != nil {
 		return &StateResult{
 			StateID: decl.ID,
@@ -1203,8 +1203,8 @@ func (m *PodmanContainerModule) ensureStopped(name, image string, decl *StateDec
 	}, nil
 }
 
-func (m *PodmanContainerModule) ensureAbsent(name string, decl *StateDeclaration) (*StateResult, error) {
-	_, exists := m.getContainerInfo(name)
+func (m *PodmanContainerModule) ensureAbsent(ctx context.Context, name string, decl *StateDeclaration) (*StateResult, error) {
+	_, exists := m.getContainerInfo(ctx, name)
 
 	if !exists {
 		return &StateResult{
@@ -1223,7 +1223,7 @@ func (m *PodmanContainerModule) ensureAbsent(name string, decl *StateDeclaration
 	}
 	args = append(args, name)
 
-	cmd := exec.Command("podman", args...)
+	cmd := exec.CommandContext(ctx, "podman", args...)
 	if err := cmd.Run(); err != nil {
 		return &StateResult{
 			StateID: decl.ID,
@@ -1289,12 +1289,12 @@ func (m *PodmanImageModule) Check(ctx context.Context, decl *StateDeclaration) (
 	tag := getStringParameter(decl, "tag", "latest")
 	fullName := fmt.Sprintf("%s:%s", name, tag)
 
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("podman is not available: %w", err)
 	}
 
-	cmd = exec.Command("podman", "image", "inspect", fullName)
+	cmd = exec.CommandContext(ctx, "podman", "image", "inspect", fullName)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -1355,11 +1355,11 @@ func (m *PodmanImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 		if authMethod != "" {
 			// Use authenticated pull
-			puller := NewPodmanPuller(nil)
+			puller := NewPodmanPuller(nil) //nolint:contextcheck // NewPodmanPuller constructor doesn't take context
 			output, pullErr = puller.PullImage(ctx, fullName, authMethod)
 		} else {
 			// Standard pull without auth
-			cmd := exec.Command("podman", "pull", fullName)
+			cmd := exec.CommandContext(ctx, "podman", "pull", fullName)
 			outputBytes, err := cmd.CombinedOutput()
 			output = string(outputBytes)
 			pullErr = err
@@ -1390,7 +1390,7 @@ func (m *PodmanImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 		}
 		args = append(args, fullName)
 
-		cmd := exec.Command("podman", args...)
+		cmd := exec.CommandContext(ctx, "podman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -1466,12 +1466,12 @@ func (m *PodmanNetworkModule) Check(ctx context.Context, decl *StateDeclaration)
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("podman is not available: %w", err)
 	}
 
-	cmd = exec.Command("podman", "network", "inspect", name)
+	cmd = exec.CommandContext(ctx, "podman", "network", "inspect", name)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -1538,7 +1538,7 @@ func (m *PodmanNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 
 		args = append(args, name)
 
-		cmd := exec.Command("podman", args...)
+		cmd := exec.CommandContext(ctx, "podman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -1558,7 +1558,7 @@ func (m *PodmanNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 		}, nil
 
 	case "absent":
-		cmd := exec.Command("podman", "network", "rm", name)
+		cmd := exec.CommandContext(ctx, "podman", "network", "rm", name)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -1631,12 +1631,12 @@ func (m *PodmanVolumeModule) Check(ctx context.Context, decl *StateDeclaration) 
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
-	cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("podman is not available: %w", err)
 	}
 
-	cmd = exec.Command("podman", "volume", "inspect", name)
+	cmd = exec.CommandContext(ctx, "podman", "volume", "inspect", name)
 	exists := cmd.Run() == nil
 
 	result := &ModuleCheckResult{
@@ -1702,7 +1702,7 @@ func (m *PodmanVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 		args = append(args, name)
 
-		cmd := exec.Command("podman", args...)
+		cmd := exec.CommandContext(ctx, "podman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -1729,7 +1729,7 @@ func (m *PodmanVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 		}
 		args = append(args, name)
 
-		cmd := exec.Command("podman", args...)
+		cmd := exec.CommandContext(ctx, "podman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return &StateResult{
@@ -1786,6 +1786,7 @@ func (m *PodmanVolumeModule) Test(ctx context.Context, decl *StateDeclaration) (
 // ContainerRuntime represents the container runtime type.
 type ContainerRuntime string
 
+// ContainerRuntimeDocker and related constants.
 const (
 	ContainerRuntimeDocker  ContainerRuntime = "docker"
 	ContainerRuntimePodman  ContainerRuntime = "podman"
@@ -1793,15 +1794,15 @@ const (
 )
 
 // DetectContainerRuntime detects which container runtime is available.
-func DetectContainerRuntime() ContainerRuntime {
+func DetectContainerRuntime(ctx context.Context) ContainerRuntime {
 	// Check for docker first
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 	if err := cmd.Run(); err == nil {
 		return ContainerRuntimeDocker
 	}
 
 	// Check for podman
-	cmd = exec.Command("podman", "version", "--format", "{{.Version}}")
+	cmd = exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 	if err := cmd.Run(); err == nil {
 		return ContainerRuntimePodman
 	}
@@ -1810,17 +1811,17 @@ func DetectContainerRuntime() ContainerRuntime {
 }
 
 // GetContainerRuntimeVersion returns the version of the detected runtime.
-func GetContainerRuntimeVersion(runtime ContainerRuntime) (string, error) {
-	switch runtime {
+func GetContainerRuntimeVersion(ctx context.Context, rt ContainerRuntime) (string, error) {
+	switch rt {
 	case ContainerRuntimeDocker:
-		cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+		cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
 		output, err := cmd.Output()
 		if err != nil {
 			return "", err
 		}
 		return strings.TrimSpace(string(output)), nil
 	case ContainerRuntimePodman:
-		cmd := exec.Command("podman", "version", "--format", "{{.Version}}")
+		cmd := exec.CommandContext(ctx, "podman", "version", "--format", "{{.Version}}")
 		output, err := cmd.Output()
 		if err != nil {
 			return "", err
@@ -1832,7 +1833,7 @@ func GetContainerRuntimeVersion(runtime ContainerRuntime) (string, error) {
 }
 
 // ListContainers lists all containers for the given runtime.
-func ListContainers(runtime ContainerRuntime, all bool) ([]map[string]string, error) {
+func ListContainers(ctx context.Context, rt ContainerRuntime, all bool) ([]map[string]string, error) {
 	var cmd *exec.Cmd
 
 	args := []string{"ps", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"}
@@ -1840,11 +1841,11 @@ func ListContainers(runtime ContainerRuntime, all bool) ([]map[string]string, er
 		args = append([]string{"ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"}, args[3:]...)
 	}
 
-	switch runtime {
+	switch rt {
 	case ContainerRuntimeDocker:
-		cmd = exec.Command("docker", args...)
+		cmd = exec.CommandContext(ctx, "docker", args...)
 	case ContainerRuntimePodman:
-		cmd = exec.Command("podman", args...)
+		cmd = exec.CommandContext(ctx, "podman", args...)
 	default:
 		return nil, fmt.Errorf("unknown container runtime")
 	}

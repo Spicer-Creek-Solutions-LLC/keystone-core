@@ -41,7 +41,7 @@ func NewImagePuller(config *RegistryAuthConfig) *ImagePuller {
 }
 
 // PullImage pulls a container image with authentication if needed.
-func (p *ImagePuller) PullImage(ctx context.Context, image string, authMethod string) (string, error) {
+func (p *ImagePuller) PullImage(ctx context.Context, image, authMethod string) (string, error) {
 	switch authMethod {
 	case "", "none":
 		return p.pullWithoutAuth(ctx, image)
@@ -123,7 +123,7 @@ func (p *ImagePuller) pullWithTempConfig(ctx context.Context, image string, conf
 
 	// Write config.json
 	configPath := filepath.Join(tempDir, "config.json")
-	if err := os.WriteFile(configPath, configJSON, 0600); err != nil {
+	if err := os.WriteFile(configPath, configJSON, 0o600); err != nil {
 		return "", fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func NewPodmanPuller(config *RegistryAuthConfig) *PodmanPuller {
 }
 
 // PullImage pulls a container image with Podman.
-func (p *PodmanPuller) PullImage(ctx context.Context, image string, authMethod string) (string, error) {
+func (p *PodmanPuller) PullImage(ctx context.Context, image, authMethod string) (string, error) {
 	switch authMethod {
 	case "", "none":
 		return p.pullWithoutAuth(ctx, image)
@@ -297,7 +297,7 @@ func formatAuths(v interface{}) string {
 		if !ok {
 			continue
 		}
-		parts = append(parts, fmt.Sprintf(`"%s":{"username":"%s","password":"%s"}`,
+		parts = append(parts, fmt.Sprintf(`%q:{"username":%q,"password":%q}`,
 			registry, authMap["username"], authMap["password"]))
 	}
 	return strings.Join(parts, ",")

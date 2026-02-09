@@ -8,40 +8,41 @@ import (
 	"time"
 )
 
-// BootstrapMode defines how the bootstrap process operates
-type BootstrapMode string
+// Mode defines how the bootstrap process operates
+type Mode string
 
 const (
 	// BootstrapModeSeed creates a new cluster from seed configuration
-	BootstrapModeSeed BootstrapMode = "seed"
+	BootstrapModeSeed Mode = "seed"
 	// BootstrapModeRestore restores from a backup artifact
-	BootstrapModeRestore BootstrapMode = "restore"
+	BootstrapModeRestore Mode = "restore"
 	// BootstrapModeImport imports an existing installation
-	BootstrapModeImport BootstrapMode = "import"
+	BootstrapModeImport Mode = "import"
 )
 
-// BootstrapPhase represents the current phase of bootstrap
-type BootstrapPhase string
+// Phase represents the current phase of bootstrap
+type Phase string
 
+// Phase constants define the phases of the bootstrap process.
 const (
-	PhaseInitializing      BootstrapPhase = "initializing"
-	PhaseValidating        BootstrapPhase = "validating"
-	PhaseInstallingDeps    BootstrapPhase = "installing_dependencies"
-	PhaseInstallingServer  BootstrapPhase = "installing_server"
-	PhaseConfiguringServer BootstrapPhase = "configuring_server"
-	PhaseStartingServer    BootstrapPhase = "starting_server"
-	PhaseFormingCluster    BootstrapPhase = "forming_cluster"
-	PhaseInstallingAgents  BootstrapPhase = "installing_agents"
-	PhaseApplyingStates    BootstrapPhase = "applying_states"
-	PhaseVerifying         BootstrapPhase = "verifying"
-	PhaseHandoff           BootstrapPhase = "handoff"
-	PhaseComplete          BootstrapPhase = "complete"
-	PhaseFailed            BootstrapPhase = "failed"
+	PhaseInitializing      Phase = "initializing"
+	PhaseValidating        Phase = "validating"
+	PhaseInstallingDeps    Phase = "installing_dependencies"
+	PhaseInstallingServer  Phase = "installing_server"
+	PhaseConfiguringServer Phase = "configuring_server"
+	PhaseStartingServer    Phase = "starting_server"
+	PhaseFormingCluster    Phase = "forming_cluster"
+	PhaseInstallingAgents  Phase = "installing_agents"
+	PhaseApplyingStates    Phase = "applying_states"
+	PhaseVerifying         Phase = "verifying"
+	PhaseHandoff           Phase = "handoff"
+	PhaseComplete          Phase = "complete"
+	PhaseFailed            Phase = "failed"
 )
 
-// BootstrapStatus represents the status of a bootstrap operation
-type BootstrapStatus struct {
-	Phase       BootstrapPhase `json:"phase"`
+// Status represents the status of a bootstrap operation
+type Status struct {
+	Phase       Phase `json:"phase"`
 	Message     string         `json:"message"`
 	Progress    int            `json:"progress"` // 0-100
 	StartTime   time.Time      `json:"start_time"`
@@ -52,6 +53,7 @@ type BootstrapStatus struct {
 // ComponentType identifies a Keystone Core component
 type ComponentType string
 
+// ComponentType constants define the Keystone Core components.
 const (
 	ComponentServer   ComponentType = "server"
 	ComponentAgent    ComponentType = "agent"
@@ -73,9 +75,10 @@ type ComponentStatus struct {
 // InstallerType defines how a component should be installed
 type InstallerType string
 
+// InstallerType constants define how components should be installed.
 const (
-	InstallerPackage  InstallerType = "package"  // apt, yum, etc.
-	InstallerBinary   InstallerType = "binary"   // Direct binary download
+	InstallerPackage   InstallerType = "package"   // apt, yum, etc.
+	InstallerBinary    InstallerType = "binary"    // Direct binary download
 	InstallerContainer InstallerType = "container" // Docker/Podman
 )
 
@@ -99,17 +102,18 @@ type ComponentInstaller interface {
 
 // ComponentConfig holds configuration for installing a component
 type ComponentConfig struct {
-	Type         ComponentType         `yaml:"type" json:"type"`
-	Version      string                `yaml:"version" json:"version"`
-	InstallerType InstallerType        `yaml:"installer_type" json:"installer_type"`
-	ConfigPath   string                `yaml:"config_path" json:"config_path"`
-	DataDir      string                `yaml:"data_dir" json:"data_dir"`
-	Settings     map[string]any        `yaml:"settings" json:"settings"`
+	Type          ComponentType  `yaml:"type" json:"type"`
+	Version       string         `yaml:"version" json:"version"`
+	InstallerType InstallerType  `yaml:"installer_type" json:"installer_type"`
+	ConfigPath    string         `yaml:"config_path" json:"config_path"`
+	DataDir       string         `yaml:"data_dir" json:"data_dir"`
+	Settings      map[string]any `yaml:"settings" json:"settings"`
 }
 
 // NodeRole defines the role of a node in the cluster
 type NodeRole string
 
+// NodeRole constants define the roles of nodes in the cluster.
 const (
 	NodeRoleLeader   NodeRole = "leader"
 	NodeRoleFollower NodeRole = "follower"
@@ -129,6 +133,7 @@ type NodeConfig struct {
 // NATSMode defines how NATS should be deployed
 type NATSMode string
 
+// NATSMode constants define how NATS should be deployed.
 const (
 	NATSModeEmbedded   NATSMode = "embedded"
 	NATSModeStandalone NATSMode = "standalone"
@@ -137,19 +142,20 @@ const (
 
 // NATSConfig holds NATS-specific configuration
 type NATSConfig struct {
-	Mode         NATSMode `yaml:"mode" json:"mode"`
-	Nodes        []string `yaml:"nodes" json:"nodes"`
-	JetStream    bool     `yaml:"jetstream" json:"jetstream"`
-	StoreDir     string   `yaml:"store_dir" json:"store_dir"`
-	MaxMemory    string   `yaml:"max_memory" json:"max_memory"`
-	MaxFile      string   `yaml:"max_file" json:"max_file"`
-	ClusterName  string   `yaml:"cluster_name" json:"cluster_name"`
-	ClusterPort  int      `yaml:"cluster_port" json:"cluster_port"`
+	Mode        NATSMode `yaml:"mode" json:"mode"`
+	Nodes       []string `yaml:"nodes" json:"nodes"`
+	JetStream   bool     `yaml:"jetstream" json:"jetstream"`
+	StoreDir    string   `yaml:"store_dir" json:"store_dir"`
+	MaxMemory   string   `yaml:"max_memory" json:"max_memory"`
+	MaxFile     string   `yaml:"max_file" json:"max_file"`
+	ClusterName string   `yaml:"cluster_name" json:"cluster_name"`
+	ClusterPort int      `yaml:"cluster_port" json:"cluster_port"`
 }
 
 // DatabaseType defines the database backend
 type DatabaseType string
 
+// DatabaseType constants define the supported database backends.
 const (
 	DatabaseTypeSQLite     DatabaseType = "sqlite"
 	DatabaseTypePostgreSQL DatabaseType = "postgresql"
@@ -170,6 +176,7 @@ type DatabaseConfig struct {
 // EtcdMode defines how etcd should be deployed
 type EtcdMode string
 
+// EtcdMode constants define how etcd should be deployed.
 const (
 	EtcdModeEmbedded EtcdMode = "embedded"
 	EtcdModeExternal EtcdMode = "external"
@@ -187,11 +194,11 @@ type EtcdConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	CertFile   string `yaml:"cert_file" json:"cert_file"`
-	KeyFile    string `yaml:"key_file" json:"key_file"`
-	CAFile     string `yaml:"ca_file" json:"ca_file"`
-	AutoGenerate bool `yaml:"auto_generate" json:"auto_generate"`
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
+	CertFile     string `yaml:"cert_file" json:"cert_file"`
+	KeyFile      string `yaml:"key_file" json:"key_file"`
+	CAFile       string `yaml:"ca_file" json:"ca_file"`
+	AutoGenerate bool   `yaml:"auto_generate" json:"auto_generate"`
 }
 
 // APIConfig holds API server configuration
@@ -240,21 +247,21 @@ type PostBootstrapConfig struct {
 	StatesPath     string `yaml:"states_path" json:"states_path"`
 }
 
-// BootstrapOptions configures how bootstrap should run
-type BootstrapOptions struct {
-	Mode            BootstrapMode `yaml:"mode" json:"mode"`
-	SeedConfigPath  string        `yaml:"seed_config_path" json:"seed_config_path"`
-	BackupPath      string        `yaml:"backup_path" json:"backup_path"`
-	DecryptionKey   string        `yaml:"decryption_key" json:"decryption_key"`
-	OutputDir       string        `yaml:"output_dir" json:"output_dir"`
-	DryRun          bool          `yaml:"dry_run" json:"dry_run"`
-	Verbose         bool          `yaml:"verbose" json:"verbose"`
-	SkipVerification bool         `yaml:"skip_verification" json:"skip_verification"`
-	Force           bool          `yaml:"force" json:"force"`
+// Options configures how bootstrap should run
+type Options struct {
+	Mode             Mode `yaml:"mode" json:"mode"`
+	SeedConfigPath   string        `yaml:"seed_config_path" json:"seed_config_path"`
+	BackupPath       string        `yaml:"backup_path" json:"backup_path"`
+	DecryptionKey    string        `yaml:"decryption_key" json:"decryption_key"`
+	OutputDir        string        `yaml:"output_dir" json:"output_dir"`
+	DryRun           bool          `yaml:"dry_run" json:"dry_run"`
+	Verbose          bool          `yaml:"verbose" json:"verbose"`
+	SkipVerification bool          `yaml:"skip_verification" json:"skip_verification"`
+	Force            bool          `yaml:"force" json:"force"`
 }
 
-// BootstrapResult holds the result of a bootstrap operation
-type BootstrapResult struct {
+// Result holds the result of a bootstrap operation
+type Result struct {
 	Success       bool              `json:"success"`
 	ClusterID     string            `json:"cluster_id"`
 	APIEndpoint   string            `json:"api_endpoint"`
@@ -268,9 +275,9 @@ type BootstrapResult struct {
 // Bootstrapper defines the interface for bootstrap operations
 type Bootstrapper interface {
 	// Bootstrap performs the full bootstrap process
-	Bootstrap(ctx context.Context, opts BootstrapOptions) (*BootstrapResult, error)
+	Bootstrap(ctx context.Context, opts Options) (*Result, error)
 	// Status returns the current bootstrap status
-	Status() *BootstrapStatus
+	Status() *Status
 	// Verify verifies the bootstrap result
 	Verify(ctx context.Context) error
 	// Cleanup removes partial bootstrap artifacts on failure
@@ -278,7 +285,7 @@ type Bootstrapper interface {
 }
 
 // ProgressCallback is called to report bootstrap progress
-type ProgressCallback func(status *BootstrapStatus)
+type ProgressCallback func(status *Status)
 
 // Logger defines the interface for bootstrap logging
 type Logger interface {

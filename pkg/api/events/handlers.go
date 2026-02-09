@@ -250,12 +250,9 @@ func (h *Handler) createEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store event
+	// Store event - best-effort, event was already published and will be stored via event bus
 	ctx := r.Context()
-	if err := h.store.Store(ctx, event); err != nil {
-		// Log but don't fail - event was published
-		// The event should eventually be stored via the event bus
-	}
+	_ = h.store.Store(ctx, event)
 
 	resp := convertEvent(event)
 	writeJSON(w, http.StatusCreated, resp)

@@ -13,14 +13,14 @@ import (
 )
 
 // APIVersion is the current blueprint API version.
-const APIVersion = "blueprints.kscore.io/v1"
+const APIVersion = "blueprints.keystone-core.io/v1"
 
 // Kind is the resource kind for blueprints.
 const Kind = "Blueprint"
 
 // Blueprint represents a complete blueprint manifest.
 type Blueprint struct {
-	// APIVersion specifies the blueprint API version (e.g., "blueprints.kscore.io/v1")
+	// APIVersion specifies the blueprint API version (e.g., "blueprints.keystone-core.io/v1")
 	APIVersion string `yaml:"apiVersion" json:"apiVersion"`
 
 	// Kind is always "Blueprint"
@@ -257,8 +257,8 @@ type Hooks struct {
 	PostRollback []string `yaml:"post_rollback,omitempty" json:"post_rollback,omitempty"`
 }
 
-// BlueprintReference represents a reference to a blueprint with version constraint.
-type BlueprintReference struct {
+// Reference represents a reference to a blueprint with version constraint.
+type Reference struct {
 	// Name is the blueprint name (e.g., "blueprints/community/web-app-stack")
 	Name string `yaml:"blueprint" json:"blueprint"`
 
@@ -390,7 +390,8 @@ func (b *Blueprint) RequiredParameters() []string {
 
 // collectRequired recursively collects required parameter names.
 func collectRequired(prefix string, params map[string]ParameterSchema, required *[]string) {
-	for name, schema := range params {
+	for name := range params {
+		schema := params[name]
 		fullName := name
 		if prefix != "" {
 			fullName = prefix + "." + name
@@ -416,7 +417,8 @@ func (b *Blueprint) SensitiveParameters() []string {
 
 // collectSensitive recursively collects sensitive parameter names.
 func collectSensitive(prefix string, params map[string]ParameterSchema, sensitive *[]string) {
-	for name, schema := range params {
+	for name := range params {
+		schema := params[name]
 		fullName := name
 		if prefix != "" {
 			fullName = prefix + "." + name

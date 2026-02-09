@@ -1,3 +1,4 @@
+// Package cluster provides HTTP handlers for cluster management API endpoints.
 package cluster
 
 import (
@@ -20,7 +21,7 @@ type Handler struct {
 	health      *cluster.HealthMonitor
 	config      *cluster.Config
 	shardStore  *cluster.ShardStore
-	configStore *cluster.ClusterConfigStore
+	configStore *cluster.ConfigStore
 }
 
 // NewHandler creates a new cluster API handler.
@@ -46,7 +47,7 @@ func (h *Handler) SetShardStore(store *cluster.ShardStore) {
 }
 
 // SetConfigStore sets the config store for backup/restore operations.
-func (h *Handler) SetConfigStore(store *cluster.ClusterConfigStore) {
+func (h *Handler) SetConfigStore(store *cluster.ConfigStore) {
 	h.configStore = store
 }
 
@@ -62,8 +63,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/cluster/restore", h.handleRestore)
 }
 
-// ClusterStatusResponse represents the cluster status API response.
-type ClusterStatusResponse struct {
+// StatusResponse represents the cluster status API response.
+type StatusResponse struct {
 	Healthy     bool                   `json:"healthy"`
 	MemberCount int                    `json:"member_count"`
 	QuorumSize  int                    `json:"quorum_size"`
@@ -101,7 +102,7 @@ func (h *Handler) handleStatus(w http.ResponseWriter, r *http.Request) {
 	healthy := h.membership.HasQuorum() && h.health.HasQuorum()
 
 	// Build response
-	resp := ClusterStatusResponse{
+	resp := StatusResponse{
 		Healthy:     healthy,
 		MemberCount: len(members),
 		QuorumSize:  h.config.QuorumSize,
@@ -467,13 +468,13 @@ func (h *Handler) handleRestore(w http.ResponseWriter, r *http.Request) {
 type BackupData struct {
 	Version   string            `json:"version"`
 	Timestamp time.Time         `json:"timestamp"`
-	Cluster   ClusterBackup     `json:"cluster"`
+	Cluster   Backup            `json:"cluster"`
 	Shards    []ShardBackup     `json:"shards,omitempty"`
 	Config    map[string]string `json:"config,omitempty"`
 }
 
-// ClusterBackup contains cluster membership information.
-type ClusterBackup struct {
+// Backup contains cluster membership information.
+type Backup struct {
 	Name       string                 `json:"name"`
 	QuorumSize int                    `json:"quorum_size"`
 	Members    []MemberStatusResponse `json:"members"`
@@ -562,27 +563,6 @@ func (h *Handler) createBackup(ctx context.Context) ([]byte, error) {
 	}
 
 	return json.MarshalIndent(backup, "", "  ")
-}
-
-func (h *Handler) restoreBackup(ctx context.Context, data []byte) error {
-	var backup BackupData
-	if err := json.Unmarshal(data, &backup); err != nil {
-		return fmt.Errorf("invalid backup format: %w", err)
-	}
-
-	// Validate backup
-	if err := h.validateBackup(&backup); err != nil {
-		return err
-	}
-
-	// Parse restore options from backup metadata or use defaults
-	options := RestoreOptions{
-		RestoreShards: true,
-		RestoreConfig: true,
-		Force:         false,
-	}
-
-	return h.performRestore(ctx, &backup, &options)
 }
 
 // validateBackup validates the backup data structure.
@@ -687,81 +667,6 @@ func (h *Handler) performRestore(ctx context.Context, backup *BackupData, option
 	}
 
 	return nil
-}
-
-// handleRestoreWithOptions handles POST /api/v1/cluster/restore with options.
-func (h *Handler) handleRestoreWithOptions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse multipart form for file upload with options
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		// Fall back to regular body parsing
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "Failed to read request body")
-			return
-		}
-
-		ctx := r.Context()
-		if err := h.restoreBackup(ctx, data); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		writeJSON(w, http.StatusOK, RestoreResult{
-			Success: true,
-			Message: "Cluster state restored successfully",
-		})
-		return
-	}
-
-	// Handle multipart form with file and options
-	file, _, err := r.FormFile("backup")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Missing backup file")
-		return
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Failed to read backup file")
-		return
-	}
-
-	// Parse options from form
-	options := RestoreOptions{
-		RestoreShards: r.FormValue("restore_shards") != "false",
-		RestoreConfig: r.FormValue("restore_config") != "false",
-		Force:         r.FormValue("force") == "true",
-	}
-
-	var backup BackupData
-	if err := json.Unmarshal(data, &backup); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid backup format: "+err.Error())
-		return
-	}
-
-	if err := h.validateBackup(&backup); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	ctx := r.Context()
-	if err := h.performRestore(ctx, &backup, &options); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	writeJSON(w, http.StatusOK, RestoreResult{
-		Success:        true,
-		Message:        "Cluster state restored successfully",
-		ShardsRestored: len(backup.Shards),
-		ConfigRestored: len(backup.Config),
-	})
 }
 
 // Helper functions

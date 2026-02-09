@@ -2,6 +2,7 @@
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
        docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
        docs-validate-drift docs-validate-sync docs-validate-all \
+       docs-lint-container docs-links-container docs-check-container \
        release release-snapshot release-dry-run lint sdk-verify \
        security security-secrets security-vulns security-sast security-licenses security-sbom security-fuzz \
        security-report security-install-tools \
@@ -144,6 +145,9 @@ help:
 	@echo "  docs-validate-drift      - Detect documentation drift from implementation"
 	@echo "  docs-validate-sync       - Check documentation sync across files"
 	@echo "  docs-validate-all        - Run all validation checks (verbose)"
+	@echo "  docs-lint-container      - Run markdown linting in a container"
+	@echo "  docs-links-container     - Run link checking in a container"
+	@echo "  docs-check-container     - Run lint + link checks in containers"
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
@@ -432,6 +436,8 @@ docs-all-book: docs docs-pdf-book
 # Automatically detects docker or podman
 CONTAINER_ENGINE := $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
 DOCS_IMAGE := kscore-docs
+DOCS_NODE_IMAGE := docker.io/node:20-bookworm
+DOCS_LYCHEE_IMAGE := lycheeverse/lychee:latest
 
 docs-container-build:
 	@echo "Building documentation container image..."
@@ -548,6 +554,48 @@ docs-validate: docs-validate-build
 	@echo "Reports generated:"
 	@ls -la scripts/docvalidation/*-report.md 2>/dev/null || echo "  (no reports)"
 	@ls -la docs-inventory.md 2>/dev/null || echo "  (no inventory)"
+
+docs-lint-container:
+	@echo "Running markdown lint (containerized)..."
+	@if [ -z "$(CONTAINER_ENGINE)" ]; then \
+		echo "Error: docker or podman is required for docs-lint-container"; \
+		exit 1; \
+	fi
+	@$(CONTAINER_ENGINE) run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace \
+		$(DOCS_NODE_IMAGE) \
+		bash -c "npx -y markdownlint-cli2 -c .markdownlint-cli2.yaml \"docs/**/*.md\""
+
+docs-links-container: docs-container-build
+	@echo "Running link check (containerized)..."
+	@if [ -z "$(CONTAINER_ENGINE)" ]; then \
+		echo "Error: docker or podman is required for docs-links-container"; \
+		exit 1; \
+	fi
+	@echo "Building Hugo site for link checking..."
+	@mkdir -p build/docs
+	@$(CONTAINER_ENGINE) run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace/docs \
+		$(DOCS_IMAGE) \
+		bash -c "hugo --quiet"
+	@echo "Checking links in rendered site..."
+	@$(CONTAINER_ENGINE) run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace \
+		$(DOCS_LYCHEE_IMAGE) \
+		--config .lychee.toml \
+		--no-progress \
+		--root-dir /workspace/build/docs \
+		--scheme https \
+		--scheme http \
+		--scheme mailto \
+		--scheme file \
+		build/docs
+
+docs-check-container: docs-lint-container docs-links-container
+	@echo "Containerized doc checks complete."
 
 # =============================================================================
 # Linting
@@ -1007,7 +1055,7 @@ e2e-ha-ipv6: e2e-build
 #   3. KSCORE_VM_CONFIG pointing to a config file (optional, defaults to test/bootstrap/vm/config.yaml)
 #
 # For single-node demo testing:
-#   1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM details
+#   1. Export KSCORE_VM_DEMO_HOST and edit test/bootstrap/vm/single-node-demo.yaml credentials
 #   2. Run: make test-vm-demo
 
 .PHONY: test-vm test-vm-demo test-vm-smoke repo-server
@@ -1021,14 +1069,15 @@ test-vm-demo:
 	@echo "Running single-node demo VM bootstrap test..."
 	@echo ""
 	@echo "Prerequisites:"
-	@echo "  1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM IP/credentials"
+	@echo "  1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM credentials"
+	@echo "  1a. Export KSCORE_VM_DEMO_HOST to your VM hostname/IP"
 	@echo "  2. Ensure your VM is accessible via SSH"
 	@echo "  3. Start a local repo server: make repo-server (in another terminal)"
-	@echo "  4. Set KSCORE_REPO_URL to your host IP (e.g., http://${KSCORE_VM_HOST}:8080/repos)"
+	@echo "  4. Set KSCORE_REPO_URL to your repo host (e.g., http://repo-host.example.internal:8080/repos)"
 	@echo ""
 	@if [ -z "$$KSCORE_REPO_URL" ]; then \
 		echo "WARNING: KSCORE_REPO_URL not set. The VM must be able to reach your repo server."; \
-		echo "Example: KSCORE_REPO_URL=http://${KSCORE_VM_HOST}:8080/repos make test-vm-demo"; \
+		echo "Example: KSCORE_REPO_URL=http://repo-host.example.internal:8080/repos make test-vm-demo"; \
 		echo ""; \
 	fi
 	KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/single-node-demo.yaml \

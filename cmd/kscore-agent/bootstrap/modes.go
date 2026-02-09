@@ -9,6 +9,7 @@ import (
 // DeploymentMode defines the bootstrap deployment mode.
 type DeploymentMode string
 
+// DeploymentMode constants define the available bootstrap deployment modes.
 const (
 	DeploymentModeDemo       DeploymentMode = "demo"
 	DeploymentModeProduction DeploymentMode = "production"
@@ -33,9 +34,9 @@ type modeRequirement struct {
 }
 
 var defaultInstallPaths = []string{
-	"/etc/kscore/server.yaml",
-	"/etc/kscore/agent.yaml",
-	"/var/lib/kscore",
+	"/etc/keystone-core/server.yaml",
+	"/etc/keystone-core/agent.yaml",
+	"/var/lib/keystone-core",
 }
 
 var defaultDeploymentConfigs = map[DeploymentMode]DeploymentConfig{

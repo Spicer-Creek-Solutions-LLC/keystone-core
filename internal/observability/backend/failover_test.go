@@ -130,7 +130,7 @@ func TestManager_QueueFull(t *testing.T) {
 	var queueFullCount int
 	for i := 0; i < 20; i++ {
 		err := manager.Write(ctx, []byte("data"))
-		if err == ErrQueueFull {
+		if errors.Is(err, ErrQueueFull) {
 			queueFullCount++
 		}
 	}
@@ -440,18 +440,18 @@ func TestManager_Close(t *testing.T) {
 	// Write after close should fail
 	ctx := context.Background()
 	err = manager.Write(ctx, []byte("data"))
-	if err != ErrBackendClosed {
+	if !errors.Is(err, ErrBackendClosed) {
 		t.Errorf("Write after close = %v, want ErrBackendClosed", err)
 	}
 
 	err = manager.WriteSync(ctx, []byte("data"))
-	if err != ErrBackendClosed {
+	if !errors.Is(err, ErrBackendClosed) {
 		t.Errorf("WriteSync after close = %v, want ErrBackendClosed", err)
 	}
 
 	// Double close
 	err = manager.Close()
-	if err != ErrBackendClosed {
+	if !errors.Is(err, ErrBackendClosed) {
 		t.Errorf("Double close = %v, want ErrBackendClosed", err)
 	}
 }
@@ -470,7 +470,7 @@ func TestManager_NoHealthyBackend(t *testing.T) {
 
 	ctx := context.Background()
 	err := manager.WriteSync(ctx, []byte("data"))
-	if err != ErrNoHealthyBackend {
+	if !errors.Is(err, ErrNoHealthyBackend) {
 		t.Errorf("Write to unhealthy backend = %v, want ErrNoHealthyBackend", err)
 	}
 }

@@ -1042,13 +1042,13 @@ func (m *MockK8sClient) CreateHPA(namespace string, spec k8s.HPASpec) error {
 			Status:            k8s.StatusRunning,
 			CreationTimestamp: time.Now(),
 		},
-		MinReplicas:           spec.MinReplicas,
-		MaxReplicas:           spec.MaxReplicas,
-		CurrentReplicas:       spec.MinReplicas,
-		DesiredReplicas:       spec.MinReplicas,
-		TargetKind:            spec.TargetKind,
-		TargetName:            spec.TargetName,
-		TargetCPUUtilization:  spec.TargetCPUUtilization,
+		MinReplicas:          spec.MinReplicas,
+		MaxReplicas:          spec.MaxReplicas,
+		CurrentReplicas:      spec.MinReplicas,
+		DesiredReplicas:      spec.MinReplicas,
+		TargetKind:           spec.TargetKind,
+		TargetName:           spec.TargetName,
+		TargetCPUUtilization: spec.TargetCPUUtilization,
 	}
 	return nil
 }

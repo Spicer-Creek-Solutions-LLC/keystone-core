@@ -204,12 +204,12 @@ func (c *Client) GetPod(namespace, name string) (*ResourceInfo, error) {
 		Status:            podStatusToResourceStatus(pod.Status.Phase),
 		CreationTimestamp: pod.CreationTimestamp.Time,
 		Metadata: map[string]interface{}{
-			"uid":         string(pod.UID),
-			"nodeName":    pod.Spec.NodeName,
-			"podIP":       pod.Status.PodIP,
-			"hostIP":      pod.Status.HostIP,
-			"phase":       string(pod.Status.Phase),
-			"containers":  len(pod.Spec.Containers),
+			"uid":          string(pod.UID),
+			"nodeName":     pod.Spec.NodeName,
+			"podIP":        pod.Status.PodIP,
+			"hostIP":       pod.Status.HostIP,
+			"phase":        string(pod.Status.Phase),
+			"containers":   len(pod.Spec.Containers),
 			"restartCount": getTotalRestartCount(pod),
 		},
 	}, nil
@@ -234,7 +234,8 @@ func (c *Client) ListPods(selector PodSelector) ([]ResourceInfo, error) {
 
 	// Filter by specific names if provided
 	pods := make([]ResourceInfo, 0, len(podList.Items))
-	for _, pod := range podList.Items {
+	for i := range podList.Items {
+		pod := &podList.Items[i]
 		if len(selector.Names) > 0 {
 			found := false
 			for _, name := range selector.Names {
@@ -261,7 +262,7 @@ func (c *Client) ListPods(selector PodSelector) ([]ResourceInfo, error) {
 				"podIP":        pod.Status.PodIP,
 				"phase":        string(pod.Status.Phase),
 				"containers":   len(pod.Spec.Containers),
-				"restartCount": getTotalRestartCount(&pod),
+				"restartCount": getTotalRestartCount(pod),
 			},
 		})
 	}
@@ -448,8 +449,8 @@ func podStatusToResourceStatus(phase corev1.PodPhase) ResourceStatus {
 
 func getTotalRestartCount(pod *corev1.Pod) int32 {
 	var total int32
-	for _, status := range pod.Status.ContainerStatuses {
-		total += status.RestartCount
+	for i := range pod.Status.ContainerStatuses {
+		total += pod.Status.ContainerStatuses[i].RestartCount
 	}
 	return total
 }
@@ -492,11 +493,12 @@ func (c *Client) ListNamespaces() ([]NamespaceInfo, error) {
 	}
 
 	namespaces := make([]NamespaceInfo, 0, len(nsList.Items))
-	for _, ns := range nsList.Items {
+	for i := range nsList.Items {
+		ns := &nsList.Items[i]
 		// Convert FinalizerName to string
 		finalizers := make([]string, len(ns.Spec.Finalizers))
-		for i, f := range ns.Spec.Finalizers {
-			finalizers[i] = string(f)
+		for j, f := range ns.Spec.Finalizers {
+			finalizers[j] = string(f)
 		}
 
 		namespaces = append(namespaces, NamespaceInfo{
@@ -594,10 +596,10 @@ func namespacePhaseToStatus(phase corev1.NamespacePhase) ResourceStatus {
 func (c *Client) CreateDeployment(namespace string, spec DeploymentSpec) error {
 	// Build selector - use provided selector or fall back to labels
 	selector := spec.Selector
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		selector = spec.Labels
 	}
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		// Default selector
 		selector = map[string]string{"app": spec.Name}
 	}
@@ -1390,10 +1392,10 @@ func (c *Client) GetStatefulSet(namespace, name string) (*StatefulSetInfo, error
 func (c *Client) CreateStatefulSet(namespace string, spec StatefulSetSpec) error {
 	// Build selector - use provided selector or fall back to labels
 	selector := spec.Selector
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		selector = spec.Labels
 	}
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		// Default selector
 		selector = map[string]string{"app": spec.Name}
 	}
@@ -1639,10 +1641,10 @@ func (c *Client) GetDaemonSet(namespace, name string) (*DaemonSetInfo, error) {
 // CreateDaemonSet creates a new daemonset
 func (c *Client) CreateDaemonSet(namespace string, spec DaemonSetSpec) error {
 	selector := spec.Selector
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		selector = spec.Labels
 	}
-	if selector == nil || len(selector) == 0 {
+	if len(selector) == 0 {
 		selector = map[string]string{"app": spec.Name}
 	}
 
@@ -1763,11 +1765,12 @@ func (c *Client) GetJob(namespace, name string) (*JobInfo, error) {
 	}
 
 	status := StatusUnknown
-	if job.Status.Succeeded > 0 {
+	switch {
+	case job.Status.Succeeded > 0:
 		status = StatusRunning // Completed successfully
-	} else if job.Status.Failed > 0 {
+	case job.Status.Failed > 0:
 		status = StatusFailed
-	} else if job.Status.Active > 0 {
+	case job.Status.Active > 0:
 		status = StatusPending // Running
 	}
 
@@ -1906,6 +1909,7 @@ func (c *Client) GetCronJob(namespace, name string) (*CronJobInfo, error) {
 		},
 		Schedule:          cj.Spec.Schedule,
 		ConcurrencyPolicy: string(cj.Spec.ConcurrencyPolicy),
+		//nolint:gosec // G115: number of active jobs is small, fits in int32
 		ActiveJobs:        int32(len(cj.Status.Active)),
 	}
 
@@ -2450,8 +2454,8 @@ func (c *Client) StreamExecOutput(opts PodExecOptions, stdout, stderr io.Writer)
 }
 
 // GetNetworkPolicy retrieves a NetworkPolicy from Kubernetes
-func (c *Client) GetNetworkPolicy(namespace, name string) (*NetworkPolicy, error) {
-	np, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetNetworkPolicy(ctx context.Context, namespace, name string) (*NetworkPolicy, error) {
+	np, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get network policy: %w", err)
 	}
@@ -2459,7 +2463,7 @@ func (c *Client) GetNetworkPolicy(namespace, name string) (*NetworkPolicy, error
 }
 
 // ListNetworkPolicies lists NetworkPolicies in a namespace
-func (c *Client) ListNetworkPolicies(namespace string, labelSelector string) ([]*NetworkPolicy, error) {
+func (c *Client) ListNetworkPolicies(ctx context.Context, namespace, labelSelector string) ([]*NetworkPolicy, error) {
 	listOpts := metav1.ListOptions{}
 	if labelSelector != "" {
 		listOpts.LabelSelector = labelSelector
@@ -2469,9 +2473,9 @@ func (c *Client) ListNetworkPolicies(namespace string, labelSelector string) ([]
 	var err error
 
 	if namespace == "" {
-		npList, err = c.clientset.NetworkingV1().NetworkPolicies(corev1.NamespaceAll).List(context.Background(), listOpts)
+		npList, err = c.clientset.NetworkingV1().NetworkPolicies(corev1.NamespaceAll).List(ctx, listOpts)
 	} else {
-		npList, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).List(context.Background(), listOpts)
+		npList, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).List(ctx, listOpts)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to list network policies: %w", err)
@@ -2485,13 +2489,13 @@ func (c *Client) ListNetworkPolicies(namespace string, labelSelector string) ([]
 }
 
 // CreateNetworkPolicy creates a NetworkPolicy in Kubernetes
-func (c *Client) CreateNetworkPolicy(namespace string, policy *NetworkPolicy) error {
+func (c *Client) CreateNetworkPolicy(ctx context.Context, namespace string, policy *NetworkPolicy) error {
 	if policy.Namespace == "" {
 		policy.Namespace = namespace
 	}
 
 	k8sPolicy := ToK8sNetworkPolicy(policy)
-	_, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Create(context.Background(), k8sPolicy, metav1.CreateOptions{})
+	_, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Create(ctx, k8sPolicy, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create network policy: %w", err)
 	}
@@ -2499,13 +2503,13 @@ func (c *Client) CreateNetworkPolicy(namespace string, policy *NetworkPolicy) er
 }
 
 // UpdateNetworkPolicy updates a NetworkPolicy in Kubernetes
-func (c *Client) UpdateNetworkPolicy(namespace string, policy *NetworkPolicy) error {
+func (c *Client) UpdateNetworkPolicy(ctx context.Context, namespace string, policy *NetworkPolicy) error {
 	if policy.Namespace == "" {
 		policy.Namespace = namespace
 	}
 
 	// Get the existing policy to preserve resourceVersion
-	existing, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(context.Background(), policy.Name, metav1.GetOptions{})
+	existing, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(ctx, policy.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing network policy: %w", err)
 	}
@@ -2513,7 +2517,7 @@ func (c *Client) UpdateNetworkPolicy(namespace string, policy *NetworkPolicy) er
 	k8sPolicy := ToK8sNetworkPolicy(policy)
 	k8sPolicy.ResourceVersion = existing.ResourceVersion
 
-	_, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).Update(context.Background(), k8sPolicy, metav1.UpdateOptions{})
+	_, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).Update(ctx, k8sPolicy, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update network policy: %w", err)
 	}
@@ -2521,8 +2525,8 @@ func (c *Client) UpdateNetworkPolicy(namespace string, policy *NetworkPolicy) er
 }
 
 // DeleteNetworkPolicy deletes a NetworkPolicy from Kubernetes
-func (c *Client) DeleteNetworkPolicy(namespace, name string) error {
-	err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteNetworkPolicy(ctx context.Context, namespace, name string) error {
+	err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete network policy: %w", err)
 	}
@@ -2530,7 +2534,7 @@ func (c *Client) DeleteNetworkPolicy(namespace, name string) error {
 }
 
 // WatchNetworkPolicies watches for NetworkPolicy changes
-func (c *Client) WatchNetworkPolicies(namespace string, labelSelector string) (<-chan NetworkPolicyWatchEvent, error) {
+func (c *Client) WatchNetworkPolicies(ctx context.Context, namespace, labelSelector string) (<-chan NetworkPolicyWatchEvent, error) {
 	listOpts := metav1.ListOptions{
 		Watch: true,
 	}
@@ -2543,7 +2547,7 @@ func (c *Client) WatchNetworkPolicies(namespace string, labelSelector string) (<
 		ns = corev1.NamespaceAll
 	}
 
-	watcher, err := c.clientset.NetworkingV1().NetworkPolicies(ns).Watch(context.Background(), listOpts)
+	watcher, err := c.clientset.NetworkingV1().NetworkPolicies(ns).Watch(ctx, listOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to watch network policies: %w", err)
 	}

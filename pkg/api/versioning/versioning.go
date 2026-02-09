@@ -84,6 +84,7 @@ type ChangeEntry struct {
 // ChangeType categorizes changelog entries
 type ChangeType string
 
+// ChangeTypeAdded constants define the supported types.
 const (
 	ChangeTypeAdded      ChangeType = "added"
 	ChangeTypeChanged    ChangeType = "changed"
@@ -362,8 +363,8 @@ func (r *Registry) VersionHistory() *History {
 	versions := r.List()
 
 	history := &History{
-		Versions:   versions,
-		Current:    r.current,
+		Versions:    versions,
+		Current:     r.current,
 		GeneratedAt: time.Now(),
 	}
 
@@ -378,6 +379,7 @@ func (r *Registry) VersionHistory() *History {
 			history.DeprecatedCount++
 		case StatusRetired:
 			history.RetiredCount++
+		default:
 		}
 	}
 

@@ -9,11 +9,11 @@ import (
 
 // mockNotifier implements Notifier for testing.
 type mockNotifier struct {
-	mu               sync.Mutex
-	requestCalls     []*Request
-	decisionCalls    []decisionCall
-	reminderCalls    []*Request
-	expiredCalls     []*Request
+	mu            sync.Mutex
+	requestCalls  []*Request
+	decisionCalls []decisionCall
+	reminderCalls []*Request
+	expiredCalls  []*Request
 }
 
 type decisionCall struct {
@@ -84,7 +84,7 @@ func TestReminderScheduler_ProcessReminders(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now.Add(-20 * time.Millisecond), // Created 20ms ago
 		UpdatedAt:   now,
 		Metadata: map[string]interface{}{
@@ -127,7 +127,7 @@ func TestReminderScheduler_ProcessEscalations(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now.Add(-time.Hour), // Created 1 hour ago
 		UpdatedAt:   now,
 		Metadata: map[string]interface{}{
@@ -186,7 +186,7 @@ func TestReminderScheduler_NoEscalationIfNotConfigured(t *testing.T) {
 		State:       RequestStatePending,
 		Title:       "Test",
 		Approvers:   []string{"user1"},
-		Mode:        ApprovalModeAny,
+		Mode:        ModeAny,
 		CreatedAt:   now.Add(-time.Hour),
 		UpdatedAt:   now,
 	}

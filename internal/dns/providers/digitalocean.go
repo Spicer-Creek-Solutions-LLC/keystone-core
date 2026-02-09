@@ -45,5 +45,5 @@ func NewDigitalOceanProvider(creds dns.ResolvedCredentials) (dns.Provider, error
 }
 
 func init() {
-	dns.RegisterProvider("digitalocean", NewDigitalOceanProvider, DigitalOceanCapabilities)
+	_ = dns.RegisterProvider("digitalocean", NewDigitalOceanProvider, DigitalOceanCapabilities) //nolint:errcheck // provider registration in init
 }

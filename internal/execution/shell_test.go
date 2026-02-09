@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"context"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -244,7 +245,7 @@ func TestShellExecution(t *testing.T) {
 			}
 
 			cmd, args := shell.Command(tt.script)
-			execCmd := exec.Command(cmd, args...)
+			execCmd := exec.CommandContext(context.Background(), cmd, args...)
 			output, err := execCmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("Command execution failed: %v, output: %s", err, output)
@@ -296,7 +297,7 @@ func TestShellVariableExpansion(t *testing.T) {
 			}
 
 			cmd, args := shell.Command(tt.script)
-			execCmd := exec.Command(cmd, args...)
+			execCmd := exec.CommandContext(context.Background(), cmd, args...)
 			output, err := execCmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("Command execution failed: %v", err)
@@ -327,7 +328,7 @@ func TestShellErrorHandling(t *testing.T) {
 
 	// Run a command that should fail
 	cmd, args := shell.Command("exit 1")
-	execCmd := exec.Command(cmd, args...)
+	execCmd := exec.CommandContext(context.Background(), cmd, args...)
 	err = execCmd.Run()
 
 	if err == nil {
@@ -368,39 +369,39 @@ func TestAllShellTypes(t *testing.T) {
 // TestShellCommandFormat tests command formatting for all shells
 func TestShellCommandFormat(t *testing.T) {
 	tests := []struct {
-		name       string
-		shell      Shell
-		script     string
-		wantCmd    string
-		wantArgs   []string
+		name     string
+		shell    Shell
+		script   string
+		wantCmd  string
+		wantArgs []string
 	}{
 		{
-			name:       "bash",
-			shell:      &BashShell{},
-			script:     "ls -la",
-			wantCmd:    "bash",
-			wantArgs:   []string{"-c", "ls -la"},
+			name:     "bash",
+			shell:    &BashShell{},
+			script:   "ls -la",
+			wantCmd:  "bash",
+			wantArgs: []string{"-c", "ls -la"},
 		},
 		{
-			name:       "sh",
-			shell:      &ShShell{},
-			script:     "pwd",
-			wantCmd:    "sh",
-			wantArgs:   []string{"-c", "pwd"},
+			name:     "sh",
+			shell:    &ShShell{},
+			script:   "pwd",
+			wantCmd:  "sh",
+			wantArgs: []string{"-c", "pwd"},
 		},
 		{
-			name:       "powershell",
-			shell:      &PowershellShell{},
-			script:     "Get-ChildItem",
-			wantCmd:    "powershell",
-			wantArgs:   []string{"-NoProfile", "-Command", "Get-ChildItem"},
+			name:     "powershell",
+			shell:    &PowershellShell{},
+			script:   "Get-ChildItem",
+			wantCmd:  "powershell",
+			wantArgs: []string{"-NoProfile", "-Command", "Get-ChildItem"},
 		},
 		{
-			name:       "cmd",
-			shell:      &CmdShell{},
-			script:     "dir",
-			wantCmd:    "cmd",
-			wantArgs:   []string{"/C", "dir"},
+			name:     "cmd",
+			shell:    &CmdShell{},
+			script:   "dir",
+			wantCmd:  "cmd",
+			wantArgs: []string{"/C", "dir"},
 		},
 	}
 
@@ -426,9 +427,9 @@ func TestShellCommandFormat(t *testing.T) {
 // TestEnvVarSeparators tests environment variable separators
 func TestEnvVarSeparators(t *testing.T) {
 	tests := []struct {
-		name      string
-		shell     Shell
-		wantSep   string
+		name    string
+		shell   Shell
+		wantSep string
 	}{
 		{"bash", &BashShell{}, ":"},
 		{"sh", &ShShell{}, ":"},

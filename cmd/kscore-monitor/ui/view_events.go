@@ -269,7 +269,7 @@ func (m *EventsModel) matchesFilter(event *events.Event, filter string) bool {
 
 // updateViewport updates the viewport content
 func (m *EventsModel) updateViewport() {
-	var lines []string
+	lines := make([]string, 0, len(m.filteredEvents))
 
 	for _, event := range m.filteredEvents {
 		lines = append(lines, formatEventDetailed(event))
@@ -319,7 +319,7 @@ func formatEventDetailed(e *events.Event) string {
 
 	// Add tags if present
 	if len(e.Tags) > 0 {
-		var tags []string
+		tags := make([]string, 0, len(e.Tags))
 		for k, v := range e.Tags {
 			tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 		}

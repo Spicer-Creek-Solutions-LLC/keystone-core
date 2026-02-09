@@ -14,5 +14,5 @@ tests:
       - type: state_applied
         target: identity_federation_config
       - type: file_contains
-        target: /etc/kscore/identity-federation.yaml
+        target: /etc/keystone-core/identity-federation.yaml
         pattern: "local_domain: \"kscore.local\""

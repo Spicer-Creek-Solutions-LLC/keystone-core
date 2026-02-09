@@ -343,10 +343,10 @@ Keystone Core follows the same "simple → production" philosophy for security a
 security:
   mode: manual
   manual:
-    ca_cert: /etc/kscore/ca.pem
-    ca_key: /etc/kscore/ca-key.pem
-    server_cert: /etc/kscore/server.pem
-    server_key: /etc/kscore/server-key.pem
+    ca_cert: /etc/keystone-core/ca.pem
+    ca_key: /etc/keystone-core/ca-key.pem
+    server_cert: /etc/keystone-core/server.pem
+    server_key: /etc/keystone-core/server-key.pem
     cert_validity: 8760h  # 1 year
 ```
 

@@ -3,7 +3,7 @@ package bootstrap
 import "testing"
 
 func TestValidateBootstrapConfig(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		NodeRole:    "both",
@@ -17,12 +17,12 @@ func TestValidateBootstrapConfig(t *testing.T) {
 }
 
 func TestValidateBootstrapConfigErrors(t *testing.T) {
-	cfg := &BootstrapConfig{}
+	cfg := &Config{}
 	if err := validateBootstrapConfig(cfg); err == nil {
 		t.Fatal("expected error for missing required fields")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		NodeRole:    "invalid",
@@ -31,7 +31,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for invalid node role")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		Storage:     "mysql",
@@ -40,7 +40,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for invalid storage backend")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		NATSMode:    "invalid",
@@ -50,7 +50,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 	}
 
 	// Postgres validation applies to control-plane and both roles
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "production",
 		ClusterName: "keystone",
 		NodeRole:    "control-plane",
@@ -60,7 +60,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for incomplete postgres config")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:             "production",
 		ClusterName:      "keystone",
 		NodeRole:         "control-plane",
@@ -76,7 +76,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 	}
 
 	// Agent-only nodes don't need postgres config even with postgres storage set
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "production",
 		ClusterName: "keystone",
 		NodeRole:    "agent",
@@ -88,7 +88,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatalf("expected agent with postgres storage to pass validation: %v", err)
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "production",
 		ClusterName: "keystone",
 		NATSMode:    "external",
@@ -97,7 +97,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing nats urls")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "production",
 		ClusterName: "keystone",
 		NATSMode:    "leaf",
@@ -106,7 +106,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing nats urls in leaf mode")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:          "demo",
 		ClusterName:   "keystone",
 		NATSCredsFile: "/tmp/nats.creds",
@@ -117,7 +117,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for mixed nats auth methods")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		NATSUser:    "user",
@@ -126,7 +126,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing nats password")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:            "demo",
 		ClusterName:     "keystone",
 		ApplyBlueprints: []string{"blueprints/demo"},
@@ -135,7 +135,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing blueprints dir")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		BlueprintParams: map[string]map[string]interface{}{
@@ -148,7 +148,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing blueprints dir with params")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "production",
 		ClusterName: "keystone",
 		TLSCertFile: "/tmp/cert.pem",
@@ -157,7 +157,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for missing tls key")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:          "production",
 		ClusterName:   "keystone",
 		GenerateCerts: true,
@@ -167,7 +167,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for csr file with generated certs")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		Join:        "https://example.com",
@@ -176,7 +176,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for join endpoint without token")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:        "demo",
 		ClusterName: "keystone",
 		NodeLabels: map[string]string{
@@ -187,7 +187,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for invalid node labels")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:            "demo",
 		ClusterName:     "keystone",
 		ExportStatesDir: "/tmp/export",
@@ -196,11 +196,11 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for export states without blueprints")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		Mode:              "demo",
 		ClusterName:       "keystone",
 		Storage:           "sqlite",
-		MigrateFromSQLite: "/tmp/kscore.db",
+		MigrateFromSQLite: "/tmp/keystone-core.db",
 	}
 	if err := validateBootstrapConfig(cfg); err == nil {
 		t.Fatal("expected error for migrate with non-postgres storage")

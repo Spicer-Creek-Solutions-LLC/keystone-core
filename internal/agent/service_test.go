@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"errors"
 	"runtime"
 	"testing"
 )
@@ -28,7 +29,7 @@ func TestRunAsService(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		// On non-Windows, should return ErrNotWindows
 		err := RunAsService(nil)
-		if err != ErrNotWindows {
+		if !errors.Is(err, ErrNotWindows) {
 			t.Errorf("expected ErrNotWindows, got %v", err)
 		}
 	}
@@ -80,7 +81,7 @@ func TestServiceInstallerInstallOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.Install()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -92,7 +93,7 @@ func TestServiceInstallerUninstallOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.Uninstall()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -104,7 +105,7 @@ func TestServiceInstallerStartOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.Start()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -116,7 +117,7 @@ func TestServiceInstallerStopOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.Stop()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -128,7 +129,7 @@ func TestServiceInstallerRestartOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.Restart()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }
@@ -140,7 +141,7 @@ func TestServiceInstallerStatusOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	status, err := installer.Status()
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 	if status != nil {
@@ -155,7 +156,7 @@ func TestServiceInstallerUpdateConfigOnNonWindows(t *testing.T) {
 
 	installer := NewServiceInstaller(nil)
 	err := installer.UpdateConfig(&ServiceConfig{})
-	if err != ErrNotWindows {
+	if !errors.Is(err, ErrNotWindows) {
 		t.Errorf("expected ErrNotWindows on non-Windows, got %v", err)
 	}
 }

@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -111,7 +112,7 @@ func TestFunctionEnricher_Error(t *testing.T) {
 	event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 
 	err := enricher.Enrich(context.Background(), event)
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("Expected error %v, got %v", expectedErr, err)
 	}
 }
@@ -334,7 +335,7 @@ func TestEnrichmentPipeline_ErrorHandler(t *testing.T) {
 	if erroredEvent != event {
 		t.Error("Expected errored event to match")
 	}
-	if errorReceived != expectedErr {
+	if !errors.Is(errorReceived, expectedErr) {
 		t.Errorf("Expected error %v, got %v", expectedErr, errorReceived)
 	}
 }

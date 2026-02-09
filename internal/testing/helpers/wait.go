@@ -1,3 +1,4 @@
+// Package helpers provides test utilities including wait conditions and port allocation.
 package helpers
 
 import (
@@ -25,7 +26,7 @@ func WaitForTimeout(timeout, interval time.Duration, condition func() (bool, err
 func FreePort(t *testing.T) int {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to get free port: %v", err)
 	}
@@ -42,8 +43,10 @@ func FreePorts(t *testing.T, n int) []int {
 	listeners := make([]net.Listener, n)
 
 	// Acquire all ports first to avoid getting the same port twice
+	lc := &net.ListenConfig{}
+	ctx := context.Background()
 	for i := 0; i < n; i++ {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 		if err != nil {
 			// Clean up already acquired listeners
 			for j := 0; j < i; j++ {

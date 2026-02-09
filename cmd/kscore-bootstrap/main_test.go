@@ -130,10 +130,10 @@ func TestSeedCommandFlags(t *testing.T) {
 
 	outputDirFlag := cmd.Flags().Lookup("output-dir")
 	if outputDirFlag == nil {
-		t.Error("expected --output-dir flag on seed command")
+		t.Fatal("expected --output-dir flag on seed command")
 	}
-	if outputDirFlag.DefValue != "/var/lib/kscore" {
-		t.Errorf("expected output-dir default to be '/var/lib/kscore', got %s", outputDirFlag.DefValue)
+	if outputDirFlag.DefValue != "/var/lib/keystone-core" {
+		t.Errorf("expected output-dir default to be '/var/lib/keystone-core', got %s", outputDirFlag.DefValue)
 	}
 
 	verboseFlag := cmd.Flags().Lookup("verbose")
@@ -206,7 +206,7 @@ func TestValidateCommandArgs(t *testing.T) {
 
 	outputFlag := cmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on validate command")
+		t.Fatal("expected --output flag on validate command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)

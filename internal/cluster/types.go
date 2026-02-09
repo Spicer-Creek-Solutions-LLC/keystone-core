@@ -66,25 +66,25 @@ func (s MemberStatus) IsHealthy() bool {
 	return s == MemberStatusHealthy || s == MemberStatusDegraded
 }
 
-// ClusterStatus represents the overall cluster health status.
-type ClusterStatus string
+// Status represents the overall cluster health status.
+type Status string
 
 const (
-	// ClusterStatusHealthy indicates the cluster is healthy with quorum.
-	ClusterStatusHealthy ClusterStatus = "healthy"
+	// StatusHealthy indicates the cluster is healthy with quorum.
+	StatusHealthy Status = "healthy"
 
-	// ClusterStatusDegraded indicates the cluster has quorum but some members are unhealthy.
-	ClusterStatusDegraded ClusterStatus = "degraded"
+	// StatusDegraded indicates the cluster has quorum but some members are unhealthy.
+	StatusDegraded Status = "degraded"
 
-	// ClusterStatusUnhealthy indicates the cluster has lost quorum.
-	ClusterStatusUnhealthy ClusterStatus = "unhealthy"
+	// StatusUnhealthy indicates the cluster has lost quorum.
+	StatusUnhealthy Status = "unhealthy"
 
-	// ClusterStatusForming indicates the cluster is still forming.
-	ClusterStatusForming ClusterStatus = "forming"
+	// StatusForming indicates the cluster is still forming.
+	StatusForming Status = "forming"
 )
 
-// String returns the string representation of ClusterStatus.
-func (s ClusterStatus) String() string {
+// String returns the string representation of Status.
+func (s Status) String() string {
 	return string(s)
 }
 
@@ -166,13 +166,13 @@ func (m *Member) Clone() *Member {
 	return &clone
 }
 
-// ClusterInfo represents the current cluster state.
-type ClusterInfo struct {
+// Info represents the current cluster state.
+type Info struct {
 	// Name is the cluster name.
 	Name string `json:"name"`
 
 	// Status is the overall cluster status.
-	Status ClusterStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// LeaderID is the ID of the current leader.
 	LeaderID string `json:"leader_id"`
@@ -327,8 +327,8 @@ type MemberRegistry interface {
 	RemoveObserver(observer MembershipObserver)
 }
 
-// ClusterState stores cluster state in etcd.
-type ClusterState interface {
+// State stores cluster state in etcd.
+type State interface {
 	// Get retrieves a value by key.
 	Get(ctx context.Context, key string) ([]byte, error)
 

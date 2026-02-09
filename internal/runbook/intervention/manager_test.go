@@ -2,6 +2,7 @@ package intervention
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -71,8 +72,8 @@ func (s *mockStorage) DeleteRequest(ctx context.Context, id string) error {
 
 // mockNotifier implements Notifier for testing.
 type mockNotifier struct {
-	mu           sync.Mutex
-	requestCalls []*Request
+	mu            sync.Mutex
+	requestCalls  []*Request
 	responseCalls []struct {
 		req      *Request
 		channels []string
@@ -111,7 +112,7 @@ func TestManager_CreateRequest_Confirm(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:        InterventionTypeConfirm,
+		Type:        TypeConfirm,
 		Title:       "Confirm deployment",
 		Description: "Please confirm to proceed with deployment",
 		Timeout:     "1h",
@@ -131,11 +132,11 @@ func TestManager_CreateRequest_Confirm(t *testing.T) {
 	if req.StepName != "deploy" {
 		t.Errorf("StepName = %q, want %q", req.StepName, "deploy")
 	}
-	if req.Type != InterventionTypeConfirm {
-		t.Errorf("Type = %q, want %q", req.Type, InterventionTypeConfirm)
+	if req.Type != TypeConfirm {
+		t.Errorf("Type = %q, want %q", req.Type, TypeConfirm)
 	}
-	if req.State != InterventionStatePending {
-		t.Errorf("State = %q, want %q", req.State, InterventionStatePending)
+	if req.State != StatePending {
+		t.Errorf("State = %q, want %q", req.State, StatePending)
 	}
 	if req.Timeout != time.Hour {
 		t.Errorf("Timeout = %v, want %v", req.Timeout, time.Hour)
@@ -150,7 +151,7 @@ func TestManager_CreateRequest_Prompt(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypePrompt,
+		Type:  TypePrompt,
 		Title: "Enter configuration",
 		Prompts: []PromptField{
 			{
@@ -173,8 +174,8 @@ func TestManager_CreateRequest_Prompt(t *testing.T) {
 		t.Fatalf("CreateRequest: %v", err)
 	}
 
-	if req.Type != InterventionTypePrompt {
-		t.Errorf("Type = %q, want %q", req.Type, InterventionTypePrompt)
+	if req.Type != TypePrompt {
+		t.Errorf("Type = %q, want %q", req.Type, TypePrompt)
 	}
 	if len(req.Prompts) != 2 {
 		t.Errorf("len(Prompts) = %d, want 2", len(req.Prompts))
@@ -206,7 +207,7 @@ func TestManager_CreateRequest_PromptValidation(t *testing.T) {
 		{
 			name: "prompt without fields",
 			config: &Config{
-				Type:    InterventionTypePrompt,
+				Type:    TypePrompt,
 				Title:   "Test",
 				Prompts: []PromptField{},
 			},
@@ -215,7 +216,7 @@ func TestManager_CreateRequest_PromptValidation(t *testing.T) {
 		{
 			name: "prompt field without name",
 			config: &Config{
-				Type:  InterventionTypePrompt,
+				Type:  TypePrompt,
 				Title: "Test",
 				Prompts: []PromptField{
 					{Label: "Test", Type: FieldTypeText},
@@ -226,7 +227,7 @@ func TestManager_CreateRequest_PromptValidation(t *testing.T) {
 		{
 			name: "prompt field with invalid type",
 			config: &Config{
-				Type:  InterventionTypePrompt,
+				Type:  TypePrompt,
 				Title: "Test",
 				Prompts: []PromptField{
 					{Name: "test", Type: "invalid"},
@@ -251,7 +252,7 @@ func TestManager_CreateRequest_WaitManual(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:        InterventionTypeWaitManual,
+		Type:        TypeWaitManual,
 		Title:       "Manual verification",
 		Description: "Please verify the deployment and acknowledge",
 	}
@@ -261,8 +262,8 @@ func TestManager_CreateRequest_WaitManual(t *testing.T) {
 		t.Fatalf("CreateRequest: %v", err)
 	}
 
-	if req.Type != InterventionTypeWaitManual {
-		t.Errorf("Type = %q, want %q", req.Type, InterventionTypeWaitManual)
+	if req.Type != TypeWaitManual {
+		t.Errorf("Type = %q, want %q", req.Type, TypeWaitManual)
 	}
 }
 
@@ -272,7 +273,7 @@ func TestManager_CreateRequest_WithNotifier(t *testing.T) {
 	manager := NewManager(storage, WithNotifier(notifier))
 
 	config := &Config{
-		Type:           InterventionTypeConfirm,
+		Type:           TypeConfirm,
 		Title:          "Test",
 		NotifyChannels: []string{"slack"},
 	}
@@ -292,7 +293,7 @@ func TestManager_Respond_Confirm(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Confirm action",
 	}
 
@@ -304,8 +305,8 @@ func TestManager_Respond_Confirm(t *testing.T) {
 		t.Fatalf("Respond: %v", err)
 	}
 
-	if updated.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", updated.State, InterventionStateCompleted)
+	if updated.State != StateCompleted {
+		t.Errorf("State = %q, want %q", updated.State, StateCompleted)
 	}
 	if updated.Response == nil {
 		t.Fatal("expected Response to be set")
@@ -328,14 +329,14 @@ func TestManager_Respond_Prompt(t *testing.T) {
 	storage := newMockStorage()
 	manager := NewManager(storage)
 
-	min := float64(1)
-	max := float64(100)
+	minVal := float64(1)
+	maxVal := float64(100)
 	config := &Config{
-		Type:  InterventionTypePrompt,
+		Type:  TypePrompt,
 		Title: "Enter values",
 		Prompts: []PromptField{
 			{Name: "version", Type: FieldTypeText, Required: true},
-			{Name: "replicas", Type: FieldTypeNumber, Validation: &FieldValidation{Min: &min, Max: &max}},
+			{Name: "replicas", Type: FieldTypeNumber, Validation: &FieldValidation{Min: &minVal, Max: &maxVal}},
 		},
 	}
 
@@ -351,8 +352,8 @@ func TestManager_Respond_Prompt(t *testing.T) {
 		t.Fatalf("Respond: %v", err)
 	}
 
-	if updated.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", updated.State, InterventionStateCompleted)
+	if updated.State != StateCompleted {
+		t.Errorf("State = %q, want %q", updated.State, StateCompleted)
 	}
 	if updated.Response.Values["version"] != "1.0.0" {
 		t.Errorf("Values[version] = %v, want %q", updated.Response.Values["version"], "1.0.0")
@@ -363,15 +364,15 @@ func TestManager_Respond_PromptValidation(t *testing.T) {
 	storage := newMockStorage()
 	manager := NewManager(storage)
 
-	min := float64(1)
-	max := float64(10)
+	minVal := float64(1)
+	maxVal := float64(10)
 	minLen := float64(3)
 	config := &Config{
-		Type:  InterventionTypePrompt,
+		Type:  TypePrompt,
 		Title: "Test",
 		Prompts: []PromptField{
 			{Name: "required_field", Type: FieldTypeText, Required: true},
-			{Name: "number_field", Type: FieldTypeNumber, Validation: &FieldValidation{Min: &min, Max: &max}},
+			{Name: "number_field", Type: FieldTypeNumber, Validation: &FieldValidation{Min: &minVal, Max: &maxVal}},
 			{Name: "text_field", Type: FieldTypeText, Validation: &FieldValidation{Min: &minLen, Pattern: "^[a-z]+$"}},
 			{Name: "bool_field", Type: FieldTypeBoolean},
 			{Name: "select_field", Type: FieldTypeSelect, Options: []Option{{Value: "a"}, {Value: "b"}}},
@@ -430,7 +431,7 @@ func TestManager_Respond_PromptValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset request state for each test
-			req.State = InterventionStatePending
+			req.State = StatePending
 			req.Response = nil
 			req.CompletedAt = nil
 			storage.SaveRequest(context.Background(), req)
@@ -448,7 +449,7 @@ func TestManager_Respond_MultiSelect(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypePrompt,
+		Type:  TypePrompt,
 		Title: "Test",
 		Prompts: []PromptField{
 			{
@@ -473,12 +474,12 @@ func TestManager_Respond_MultiSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Respond: %v", err)
 	}
-	if updated.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", updated.State, InterventionStateCompleted)
+	if updated.State != StateCompleted {
+		t.Errorf("State = %q, want %q", updated.State, StateCompleted)
 	}
 
 	// Invalid multi-select value
-	req.State = InterventionStatePending
+	req.State = StatePending
 	req.Response = nil
 	storage.SaveRequest(context.Background(), req)
 
@@ -506,7 +507,7 @@ func TestManager_Respond_NotPending(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -526,7 +527,7 @@ func TestManager_Respond_Expired(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:    InterventionTypeConfirm,
+		Type:    TypeConfirm,
 		Title:   "Test",
 		Timeout: "1ns", // Effectively already expired
 	}
@@ -542,8 +543,8 @@ func TestManager_Respond_Expired(t *testing.T) {
 
 	// Verify request was marked expired
 	updated, _ := storage.GetRequest(context.Background(), req.ID)
-	if updated.State != InterventionStateExpired {
-		t.Errorf("State = %q, want %q", updated.State, InterventionStateExpired)
+	if updated.State != StateExpired {
+		t.Errorf("State = %q, want %q", updated.State, StateExpired)
 	}
 }
 
@@ -552,7 +553,7 @@ func TestManager_Cancel(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -562,8 +563,8 @@ func TestManager_Cancel(t *testing.T) {
 		t.Fatalf("Cancel: %v", err)
 	}
 
-	if cancelled.State != InterventionStateCancelled {
-		t.Errorf("State = %q, want %q", cancelled.State, InterventionStateCancelled)
+	if cancelled.State != StateCancelled {
+		t.Errorf("State = %q, want %q", cancelled.State, StateCancelled)
 	}
 	if cancelled.Metadata["cancel_reason"] != "No longer needed" {
 		t.Errorf("cancel_reason = %v, want %q", cancelled.Metadata["cancel_reason"], "No longer needed")
@@ -578,7 +579,7 @@ func TestManager_Cancel_NotPending(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -595,7 +596,7 @@ func TestManager_WaitForResponse(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -610,8 +611,8 @@ func TestManager_WaitForResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForResponse: %v", err)
 	}
-	if result.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", result.State, InterventionStateCompleted)
+	if result.State != StateCompleted {
+		t.Errorf("State = %q, want %q", result.State, StateCompleted)
 	}
 }
 
@@ -620,7 +621,7 @@ func TestManager_WaitForResponse_AlreadyComplete(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -630,8 +631,8 @@ func TestManager_WaitForResponse_AlreadyComplete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForResponse: %v", err)
 	}
-	if result.State != InterventionStateCompleted {
-		t.Errorf("State = %q, want %q", result.State, InterventionStateCompleted)
+	if result.State != StateCompleted {
+		t.Errorf("State = %q, want %q", result.State, StateCompleted)
 	}
 }
 
@@ -640,7 +641,7 @@ func TestManager_WaitForResponse_ContextCancelled(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -652,7 +653,7 @@ func TestManager_WaitForResponse_ContextCancelled(t *testing.T) {
 	}()
 
 	_, err := manager.WaitForResponse(ctx, req.ID)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error = %v, want %v", err, context.Canceled)
 	}
 }
@@ -662,7 +663,7 @@ func TestManager_WaitForResponse_ManagerStopped(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -684,7 +685,7 @@ func TestManager_CheckExpired(t *testing.T) {
 
 	// Create an expired request
 	config := &Config{
-		Type:    InterventionTypeConfirm,
+		Type:    TypeConfirm,
 		Title:   "Test",
 		Timeout: "1ns",
 	}
@@ -692,7 +693,7 @@ func TestManager_CheckExpired(t *testing.T) {
 
 	// Create a non-expired request
 	config2 := &Config{
-		Type:    InterventionTypeConfirm,
+		Type:    TypeConfirm,
 		Title:   "Test 2",
 		Timeout: "1h",
 	}
@@ -714,7 +715,7 @@ func TestManager_GetRequest(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	created, _ := manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -733,7 +734,7 @@ func TestManager_GetRequestByExecution(t *testing.T) {
 	manager := NewManager(storage)
 
 	config := &Config{
-		Type:  InterventionTypeConfirm,
+		Type:  TypeConfirm,
 		Title: "Test",
 	}
 	manager.CreateRequest(context.Background(), config, "exec-1", "step1", nil)
@@ -757,7 +758,7 @@ func TestManager_ListRequests(t *testing.T) {
 	// Create multiple requests
 	for i := 0; i < 3; i++ {
 		config := &Config{
-			Type:  InterventionTypeConfirm,
+			Type:  TypeConfirm,
 			Title: "Test",
 		}
 		manager.CreateRequest(context.Background(), config, "exec-1", "step"+string(rune('0'+i)), nil)
@@ -774,13 +775,13 @@ func TestManager_ListRequests(t *testing.T) {
 
 func TestInterventionState_IsTerminal(t *testing.T) {
 	tests := []struct {
-		state    InterventionState
+		state    State
 		terminal bool
 	}{
-		{InterventionStatePending, false},
-		{InterventionStateCompleted, true},
-		{InterventionStateExpired, true},
-		{InterventionStateCancelled, true},
+		{StatePending, false},
+		{StateCompleted, true},
+		{StateExpired, true},
+		{StateCancelled, true},
 	}
 
 	for _, tt := range tests {
@@ -794,12 +795,12 @@ func TestInterventionState_IsTerminal(t *testing.T) {
 
 func TestInterventionType_IsValid(t *testing.T) {
 	tests := []struct {
-		typ   InterventionType
+		typ   Type
 		valid bool
 	}{
-		{InterventionTypePrompt, true},
-		{InterventionTypeWaitManual, true},
-		{InterventionTypeConfirm, true},
+		{TypePrompt, true},
+		{TypeWaitManual, true},
+		{TypeConfirm, true},
 		{"invalid", false},
 		{"", false},
 	}

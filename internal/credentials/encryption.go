@@ -127,9 +127,9 @@ func (kp *X25519KeyPair) ComputeSharedSecret(peerPublicKey [32]byte) ([32]byte, 
 
 // X25519Encryptor uses X25519 key exchange for secure credential transport.
 type X25519Encryptor struct {
-	localKeyPair *X25519KeyPair
+	localKeyPair  *X25519KeyPair
 	peerPublicKey [32]byte
-	sharedKey    []byte
+	sharedKey     []byte
 }
 
 // NewX25519Encryptor creates a new X25519-based encryptor.
@@ -219,12 +219,12 @@ func (ce *CredentialEncryptor) GetPublicKey() [32]byte {
 func (ce *CredentialEncryptor) EncryptForPeer(credType CredentialType, data []byte, peerPublicKey [32]byte) (*EncryptedCredentialEnvelope, error) {
 	encryptor, err := NewX25519Encryptor(ce.localKeyPair, peerPublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrKeyExchangeFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrKeyExchangeFailed, err)
 	}
 
 	encrypted, err := encryptor.Encrypt(data)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrEncryptionFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrEncryptionFailed, err)
 	}
 
 	return &EncryptedCredentialEnvelope{
@@ -238,12 +238,12 @@ func (ce *CredentialEncryptor) EncryptForPeer(credType CredentialType, data []by
 func (ce *CredentialEncryptor) DecryptFromPeer(envelope *EncryptedCredentialEnvelope) ([]byte, error) {
 	encryptor, err := NewX25519Encryptor(ce.localKeyPair, envelope.SenderPublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrKeyExchangeFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrKeyExchangeFailed, err)
 	}
 
 	decrypted, err := encryptor.Decrypt(envelope.EncryptedData)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrDecryptionFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrDecryptionFailed, err)
 	}
 
 	return decrypted, nil

@@ -658,30 +658,3 @@ func TestStoredModule_JSON(t *testing.T) {
 		t.Errorf("Tags count = %d, want 2", len(decoded.Tags))
 	}
 }
-
-// Test helper to create a request with body (uses valid ZIP)
-func createPublishRequest(t *testing.T, path string, moduleContent, manifestContent string) (*http.Request, string) {
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile("module", "module.zip")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := part.Write(createTestZip(moduleContent)); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := writer.WriteField("manifest", manifestContent); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	req := httptest.NewRequest("POST", path, body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	return req, writer.FormDataContentType()
-}

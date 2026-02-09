@@ -16,6 +16,7 @@ var ErrRateLimited = errors.New("rate limited")
 // Priority represents the priority of a transfer.
 type Priority int
 
+// PriorityLow constants define the priority levels.
 const (
 	PriorityLow      Priority = 0
 	PriorityNormal   Priority = 1

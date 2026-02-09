@@ -441,7 +441,7 @@ func fetchPublicIP(ctx context.Context, serviceURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL, http.NoBody)
 	if err != nil {
 		return "", err
 	}

@@ -11,22 +11,22 @@ import (
 	"time"
 )
 
-// BackupManager orchestrates backup operations
-type BackupManager struct {
-	config           *BackupConfig
+// Manager orchestrates backup operations
+type Manager struct {
+	config           *Config
 	exporters        map[ComponentType]Exporter
 	destination      Destination
 	encryptor        Encryptor
 	logger           Logger
-	progressCallback BackupProgressCallback
+	progressCallback ProgressCallback
 
-	mu              sync.RWMutex
-	currentBackup   *BackupInfo
-	backupHistory   []BackupInfo
+	mu            sync.RWMutex
+	currentBackup *Info
+	backupHistory []Info
 }
 
 // NewBackupManager creates a new backup manager
-func NewBackupManager(config *BackupConfig, logger Logger) (*BackupManager, error) {
+func NewBackupManager(config *Config, logger Logger) (*Manager, error) {
 	if config == nil {
 		config = DefaultBackupConfig()
 	}
@@ -35,48 +35,48 @@ func NewBackupManager(config *BackupConfig, logger Logger) (*BackupManager, erro
 		logger = &noopLogger{}
 	}
 
-	bm := &BackupManager{
+	bm := &Manager{
 		config:        config,
 		exporters:     make(map[ComponentType]Exporter),
 		logger:        logger,
-		backupHistory: make([]BackupInfo, 0),
+		backupHistory: make([]Info, 0),
 	}
 
 	return bm, nil
 }
 
 // SetDestination sets the backup destination
-func (bm *BackupManager) SetDestination(dest Destination) {
+func (bm *Manager) SetDestination(dest Destination) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	bm.destination = dest
 }
 
 // SetEncryptor sets the encryptor for backup encryption
-func (bm *BackupManager) SetEncryptor(enc Encryptor) {
+func (bm *Manager) SetEncryptor(enc Encryptor) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	bm.encryptor = enc
 }
 
 // RegisterExporter registers an exporter for a component type
-func (bm *BackupManager) RegisterExporter(exporter Exporter) {
+func (bm *Manager) RegisterExporter(exporter Exporter) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	bm.exporters[exporter.Component()] = exporter
 }
 
 // SetProgressCallback sets the callback for progress updates
-func (bm *BackupManager) SetProgressCallback(cb BackupProgressCallback) {
+func (bm *Manager) SetProgressCallback(cb ProgressCallback) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	bm.progressCallback = cb
 }
 
 // Backup performs a backup operation
-func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
+func (bm *Manager) Backup(ctx context.Context) (*Info, error) {
 	bm.mu.Lock()
-	if bm.currentBackup != nil && bm.currentBackup.Status == BackupStatusRunning {
+	if bm.currentBackup != nil && bm.currentBackup.Status == StatusRunning {
 		bm.mu.Unlock()
 		return nil, fmt.Errorf("backup already in progress")
 	}
@@ -89,16 +89,16 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 	}
 	backupName := fmt.Sprintf("kscore-backup-%s", time.Now().Format("20060102-150405"))
 
-	info := &BackupInfo{
-		ID:          backupID,
-		Name:        backupName,
-		Type:        bm.config.Type,
-		Status:      BackupStatusRunning,
-		StartTime:   time.Now(),
-		Encrypted:   bm.config.Encryption.Type != EncryptionTypeNone,
+	info := &Info{
+		ID:             backupID,
+		Name:           backupName,
+		Type:           bm.config.Type,
+		Status:         StatusRunning,
+		StartTime:      time.Now(),
+		Encrypted:      bm.config.Encryption.Type != EncryptionTypeNone,
 		EncryptionType: bm.config.Encryption.Type,
-		Components:  make([]ComponentBackupInfo, 0),
-		Metadata:    make(map[string]string),
+		Components:     make([]ComponentBackupInfo, 0),
+		Metadata:       make(map[string]string),
 	}
 	bm.currentBackup = info
 	bm.mu.Unlock()
@@ -138,7 +138,7 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 			bm.logger.Error("failed to export component", "component", component, "error", err)
 			compInfo = ComponentBackupInfo{
 				Type:   component,
-				Status: BackupStatusFailed,
+				Status: StatusFailed,
 				Error:  err.Error(),
 			}
 		}
@@ -160,7 +160,7 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 	}
 
 	// Create manifest
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
 		Backup:          *info,
 		Files:           make([]ManifestFile, 0),
@@ -229,7 +229,8 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 	} else {
 		// Local backup - move to destination path
 		destPath := filepath.Join(bm.config.Destination.Path, filepath.Base(artifactPath))
-		if err := os.MkdirAll(bm.config.Destination.Path, 0755); err != nil {
+		//nolint:gosec // G301: backup destination directory needs to be accessible by service user
+		if err := os.MkdirAll(bm.config.Destination.Path, 0o755); err != nil {
 			return bm.failBackup(info, fmt.Errorf("failed to create destination directory: %w", err))
 		}
 		if err := copyFile(artifactPath, destPath); err != nil {
@@ -239,7 +240,7 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 	}
 
 	// Mark as completed
-	info.Status = BackupStatusCompleted
+	info.Status = StatusCompleted
 	info.EndTime = time.Now()
 	info.Duration = info.EndTime.Sub(info.StartTime)
 
@@ -261,12 +262,12 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 }
 
 // exportComponent exports a single component
-func (bm *BackupManager) exportComponent(ctx context.Context, component ComponentType, tmpDir string) (ComponentBackupInfo, error) {
+func (bm *Manager) exportComponent(ctx context.Context, component ComponentType, tmpDir string) (ComponentBackupInfo, error) {
 	startTime := time.Now()
 
 	info := ComponentBackupInfo{
 		Type:   component,
-		Status: BackupStatusRunning,
+		Status: StatusRunning,
 	}
 
 	bm.mu.RLock()
@@ -276,15 +277,16 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 	if !ok {
 		// No exporter registered - skip this component
 		bm.logger.Warn("no exporter registered for component", "component", component)
-		info.Status = BackupStatusCompleted
+		info.Status = StatusCompleted
 		info.Duration = time.Since(startTime)
 		return info, nil
 	}
 
 	// Create component directory
 	componentDir := filepath.Join(tmpDir, string(component))
-	if err := os.MkdirAll(componentDir, 0755); err != nil {
-		info.Status = BackupStatusFailed
+	//nolint:gosec // G301: component directory needs to be accessible for backup operations
+	if err := os.MkdirAll(componentDir, 0o755); err != nil {
+		info.Status = StatusFailed
 		info.Error = err.Error()
 		info.Duration = time.Since(startTime)
 		return info, err
@@ -294,7 +296,7 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 	outputPath := filepath.Join(componentDir, "data")
 	file, err := os.Create(outputPath)
 	if err != nil {
-		info.Status = BackupStatusFailed
+		info.Status = StatusFailed
 		info.Error = err.Error()
 		info.Duration = time.Since(startTime)
 		return info, err
@@ -303,7 +305,7 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 
 	// Export data
 	if err := exporter.Export(ctx, file); err != nil {
-		info.Status = BackupStatusFailed
+		info.Status = StatusFailed
 		info.Error = err.Error()
 		info.Duration = time.Since(startTime)
 		return info, err
@@ -312,7 +314,7 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 	// Get file info
 	fileInfo, err := file.Stat()
 	if err != nil {
-		info.Status = BackupStatusFailed
+		info.Status = StatusFailed
 		info.Error = err.Error()
 		info.Duration = time.Since(startTime)
 		return info, err
@@ -322,13 +324,13 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 	file.Seek(0, 0)
 	checksum, err := calculateFileChecksum(outputPath)
 	if err != nil {
-		info.Status = BackupStatusFailed
+		info.Status = StatusFailed
 		info.Error = err.Error()
 		info.Duration = time.Since(startTime)
 		return info, err
 	}
 
-	info.Status = BackupStatusCompleted
+	info.Status = StatusCompleted
 	info.Size = fileInfo.Size()
 	info.Checksum = checksum
 	info.Duration = time.Since(startTime)
@@ -342,8 +344,8 @@ func (bm *BackupManager) exportComponent(ctx context.Context, component Componen
 }
 
 // failBackup marks a backup as failed
-func (bm *BackupManager) failBackup(info *BackupInfo, err error) (*BackupInfo, error) {
-	info.Status = BackupStatusFailed
+func (bm *Manager) failBackup(info *Info, err error) (*Info, error) {
+	info.Status = StatusFailed
 	info.EndTime = time.Now()
 	info.Duration = info.EndTime.Sub(info.StartTime)
 	info.Error = err.Error()
@@ -358,13 +360,13 @@ func (bm *BackupManager) failBackup(info *BackupInfo, err error) (*BackupInfo, e
 }
 
 // updateProgress sends a progress update
-func (bm *BackupManager) updateProgress(phase string, component ComponentType, total, completed int, bytes int64, percent int, message string) {
+func (bm *Manager) updateProgress(phase string, component ComponentType, total, completed int, bytes int64, percent int, message string) {
 	bm.mu.RLock()
 	cb := bm.progressCallback
 	bm.mu.RUnlock()
 
 	if cb != nil {
-		progress := &BackupProgress{
+		progress := &Progress{
 			Phase:               phase,
 			CurrentComponent:    component,
 			TotalComponents:     total,
@@ -378,29 +380,29 @@ func (bm *BackupManager) updateProgress(phase string, component ComponentType, t
 }
 
 // CurrentBackup returns the currently running backup, if any
-func (bm *BackupManager) CurrentBackup() *BackupInfo {
+func (bm *Manager) CurrentBackup() *Info {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
 	return bm.currentBackup
 }
 
 // BackupHistory returns the history of completed backups
-func (bm *BackupManager) BackupHistory() []BackupInfo {
+func (bm *Manager) BackupHistory() []Info {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
-	result := make([]BackupInfo, len(bm.backupHistory))
+	result := make([]Info, len(bm.backupHistory))
 	copy(result, bm.backupHistory)
 	return result
 }
 
 // GetBackup retrieves a specific backup by ID
-func (bm *BackupManager) GetBackup(id string) (*BackupInfo, error) {
+func (bm *Manager) GetBackup(id string) (*Info, error) {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
 
-	for _, info := range bm.backupHistory {
-		if info.ID == id {
-			return &info, nil
+	for i := range bm.backupHistory {
+		if bm.backupHistory[i].ID == id {
+			return &bm.backupHistory[i], nil
 		}
 	}
 
@@ -408,7 +410,7 @@ func (bm *BackupManager) GetBackup(id string) (*BackupInfo, error) {
 }
 
 // ListBackups lists all backups from the destination
-func (bm *BackupManager) ListBackups(ctx context.Context) ([]BackupInfo, error) {
+func (bm *Manager) ListBackups(ctx context.Context) ([]Info, error) {
 	if bm.destination == nil {
 		// Return local history
 		return bm.BackupHistory(), nil
@@ -418,7 +420,7 @@ func (bm *BackupManager) ListBackups(ctx context.Context) ([]BackupInfo, error) 
 }
 
 // DeleteBackup deletes a backup
-func (bm *BackupManager) DeleteBackup(ctx context.Context, id string) error {
+func (bm *Manager) DeleteBackup(ctx context.Context, id string) error {
 	if bm.destination == nil {
 		return fmt.Errorf("no destination configured")
 	}
@@ -437,8 +439,8 @@ func (bm *BackupManager) DeleteBackup(ctx context.Context, id string) error {
 	// Remove from history
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	for i, info := range bm.backupHistory {
-		if info.ID == id {
+	for i := range bm.backupHistory {
+		if bm.backupHistory[i].ID == id {
 			bm.backupHistory = append(bm.backupHistory[:i], bm.backupHistory[i+1:]...)
 			break
 		}

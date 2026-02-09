@@ -63,6 +63,7 @@ func (h *ExternalCredentialHelper) Get(ctx context.Context, serverURL string) (*
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
+	//nolint:gosec // G204: credential helper execution is intentional for registry authentication
 	cmd := exec.CommandContext(ctx, h.binaryName(), "get") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = strings.NewReader(serverURL)
 
@@ -76,7 +77,7 @@ func (h *ExternalCredentialHelper) Get(ctx context.Context, serverURL string) (*
 			strings.Contains(stdout.String(), "credentials not found") {
 			return nil, fmt.Errorf("credentials not found for %s", serverURL)
 		}
-		return nil, fmt.Errorf("credential helper %s failed: %v - %s", h.binaryName(), err, stderr.String())
+		return nil, fmt.Errorf("credential helper %s failed: %w - %s", h.binaryName(), err, stderr.String())
 	}
 
 	var resp credentialHelperResponse
@@ -85,7 +86,7 @@ func (h *ExternalCredentialHelper) Get(ctx context.Context, serverURL string) (*
 	}
 
 	return &Credential{
-		Type:     DetectRegistryType(serverURL),
+		Type:     DetectType(serverURL),
 		Registry: serverURL,
 		Username: resp.Username,
 		Password: resp.Secret,
@@ -108,6 +109,7 @@ func (h *ExternalCredentialHelper) Store(ctx context.Context, cred *Credential) 
 		return err
 	}
 
+	//nolint:gosec // G204: credential helper execution is intentional for registry authentication
 	cmd := exec.CommandContext(ctx, h.binaryName(), "store") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = bytes.NewReader(inputJSON)
 
@@ -115,7 +117,7 @@ func (h *ExternalCredentialHelper) Store(ctx context.Context, cred *Credential) 
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("credential helper %s store failed: %v - %s", h.binaryName(), err, stderr.String())
+		return fmt.Errorf("credential helper %s store failed: %w - %s", h.binaryName(), err, stderr.String())
 	}
 
 	return nil
@@ -126,6 +128,7 @@ func (h *ExternalCredentialHelper) Erase(ctx context.Context, serverURL string) 
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
+	//nolint:gosec // G204: credential helper execution is intentional for registry authentication
 	cmd := exec.CommandContext(ctx, h.binaryName(), "erase") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = strings.NewReader(serverURL)
 
@@ -133,7 +136,7 @@ func (h *ExternalCredentialHelper) Erase(ctx context.Context, serverURL string) 
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("credential helper %s erase failed: %v - %s", h.binaryName(), err, stderr.String())
+		return fmt.Errorf("credential helper %s erase failed: %w - %s", h.binaryName(), err, stderr.String())
 	}
 
 	return nil
@@ -144,6 +147,7 @@ func (h *ExternalCredentialHelper) List(ctx context.Context) (map[string]string,
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
+	//nolint:gosec // G204: credential helper execution is intentional for registry authentication
 	cmd := exec.CommandContext(ctx, h.binaryName(), "list") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	var stdout, stderr bytes.Buffer
@@ -151,7 +155,7 @@ func (h *ExternalCredentialHelper) List(ctx context.Context) (map[string]string,
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("credential helper %s list failed: %v - %s", h.binaryName(), err, stderr.String())
+		return nil, fmt.Errorf("credential helper %s list failed: %w - %s", h.binaryName(), err, stderr.String())
 	}
 
 	var result map[string]string

@@ -87,7 +87,7 @@ func (m *K8sIngressModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check rules
 	desiredRules := getIngressRules(decl)
-	if desiredRules != nil && len(desiredRules) > 0 {
+	if len(desiredRules) > 0 {
 		if !compareIngressRules(ingress.Rules, desiredRules) {
 			result.Matches = false
 			result.Diff["rules"] = map[string]interface{}{
@@ -99,7 +99,7 @@ func (m *K8sIngressModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check TLS
 	desiredTLS := getIngressTLS(decl)
-	if desiredTLS != nil && len(desiredTLS) > 0 {
+	if len(desiredTLS) > 0 {
 		if !compareIngressTLS(ingress.TLS, desiredTLS) {
 			result.Matches = false
 			result.Diff["tls"] = map[string]interface{}{
@@ -127,7 +127,7 @@ func (m *K8sIngressModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(ingress.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -139,7 +139,7 @@ func (m *K8sIngressModule) Check(ctx context.Context, decl *StateDeclaration) (*
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(ingress.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{
@@ -337,10 +337,11 @@ func getIngressRules(decl *StateDeclaration) []k8s.IngressRule {
 					if svc, ok := backend["service"].(string); ok {
 						path.Backend.ServiceName = svc
 					}
-					if port, ok := backend["port"].(int); ok {
-						path.Backend.ServicePort = int32(port)
-					} else if port, ok := backend["port"].(float64); ok {
-						path.Backend.ServicePort = int32(port)
+					switch port := backend["port"].(type) {
+					case int:
+						path.Backend.ServicePort = int32(port) //nolint:gosec // G115: port is 1-65535
+					case float64:
+						path.Backend.ServicePort = int32(port) //nolint:gosec // G115: port is 1-65535
 					}
 				}
 				paths = append(paths, path)
@@ -419,10 +420,11 @@ func getIngressDefaultBackend(decl *StateDeclaration) *k8s.IngressBackend {
 		backend.ServiceName = service
 	}
 
-	if port, ok := backendMap["port"].(int); ok {
-		backend.ServicePort = int32(port)
-	} else if port, ok := backendMap["port"].(float64); ok {
-		backend.ServicePort = int32(port)
+	switch port := backendMap["port"].(type) {
+	case int:
+		backend.ServicePort = int32(port) //nolint:gosec // G115: port is 1-65535
+	case float64:
+		backend.ServicePort = int32(port) //nolint:gosec // G115: port is 1-65535
 	}
 
 	if backend.ServiceName == "" {

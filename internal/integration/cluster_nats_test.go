@@ -119,6 +119,8 @@ func TestIntegration_ClusterEventsEmission(t *testing.T) {
 			leaderElected++
 		case events.EventType("cluster.quorum.gained"):
 			quorumGained++
+		default:
+			// Other event types not counted in this test
 		}
 	}
 
@@ -548,6 +550,8 @@ func TestIntegration_ClusterFailover(t *testing.T) {
 			}
 		case events.EventType("cluster.stabilized"):
 			hasStabilized = true
+		default:
+			// Other event types not checked in this test
 		}
 	}
 
@@ -644,23 +648,25 @@ func TestIntegration_MultiRegionCluster(t *testing.T) {
 
 	// Count event types
 	registrations := 0
-	gateways_connected := 0
+	gatewaysConnected := 0
 
 	for _, e := range regionEvents {
 		switch e.Type {
 		case events.EventType("cluster.region.registered"):
 			registrations++
 		case events.EventType("cluster.gateway.connected"):
-			gateways_connected++
+			gatewaysConnected++
+		default:
+			// Other event types not counted in this test
 		}
 	}
 
 	if registrations != 3 {
 		t.Errorf("Expected 3 region registrations, got %d", registrations)
 	}
-	if gateways_connected != 3 {
-		t.Errorf("Expected 3 gateway connections, got %d", gateways_connected)
+	if gatewaysConnected != 3 {
+		t.Errorf("Expected 3 gateway connections, got %d", gatewaysConnected)
 	}
 
-	t.Logf("Multi-region cluster: %d registrations, %d gateway connections", registrations, gateways_connected)
+	t.Logf("Multi-region cluster: %d registrations, %d gateway connections", registrations, gatewaysConnected)
 }

@@ -28,6 +28,42 @@ const (
 	VendorOPNsense VendorType = "opnsense"
 	// VendorVyOS is VyOS.
 	VendorVyOS VendorType = "vyos"
+	// VendorHPProCurve is HP ProCurve.
+	VendorHPProCurve VendorType = "hp_procurve"
+	// VendorHPArubaOS is HP ArubaOS (wireless controllers).
+	VendorHPArubaOS VendorType = "hp_arubaos"
+	// VendorHPAOSCX is Aruba AOS-CX (modern switches).
+	VendorHPAOSCX VendorType = "hp_aoscx"
+	// VendorDellOS10 is Dell OS10.
+	VendorDellOS10 VendorType = "dell_os10"
+	// VendorDellOS9 is Dell OS9 / FTOS (legacy Force10).
+	VendorDellOS9 VendorType = "dell_os9"
+	// VendorDellPowerSwitch is Dell PowerSwitch (N-series).
+	VendorDellPowerSwitch VendorType = "dell_powerswitch"
+	// VendorFortiOS is Fortinet FortiOS.
+	VendorFortiOS VendorType = "fortinet_fortios"
+	// VendorPANOS is Palo Alto PAN-OS.
+	VendorPANOS VendorType = "paloalto_panos"
+	// VendorF5BigIP is F5 BIG-IP.
+	VendorF5BigIP VendorType = "f5_bigip"
+	// VendorCheckpointGaia is Check Point Gaia.
+	VendorCheckpointGaia VendorType = "checkpoint_gaia"
+	// VendorMikroTikRouterOS is MikroTik RouterOS.
+	VendorMikroTikRouterOS VendorType = "mikrotik_routeros"
+	// VendorUbiquitiEdgeOS is Ubiquiti EdgeOS.
+	VendorUbiquitiEdgeOS VendorType = "ubiquiti_edgeos"
+	// VendorExtremeEXOS is Extreme Networks EXOS.
+	VendorExtremeEXOS VendorType = "extreme_exos"
+	// VendorNokiaSROS is Nokia SR OS.
+	VendorNokiaSROS VendorType = "nokia_sros"
+	// VendorHuaweiVRP is Huawei VRP.
+	VendorHuaweiVRP VendorType = "huawei_vrp"
+	// VendorMellanoxOnyx is Mellanox/NVIDIA Onyx.
+	VendorMellanoxOnyx VendorType = "mellanox_onyx"
+	// VendorAlliedTelesisAW is Allied Telesis AlliedWare Plus.
+	VendorAlliedTelesisAW VendorType = "alliedtelesis_awplus"
+	// VendorCienaSAOS is Ciena SAOS.
+	VendorCienaSAOS VendorType = "ciena_saos"
 )
 
 // VendorAdapter extends ProtocolAdapter with vendor-specific capabilities.

@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewDiscovery(t *testing.T) {
-	config := DefaultDiscoveryConfig()
+	config := DefaultConfig()
 	d := NewDiscovery(config)
 
 	if d == nil {
@@ -29,7 +29,7 @@ func TestNewDiscovery(t *testing.T) {
 }
 
 func TestDefaultDiscoveryConfig(t *testing.T) {
-	config := DefaultDiscoveryConfig()
+	config := DefaultConfig()
 
 	if config.ScanInterval != 1*time.Hour {
 		t.Errorf("expected ScanInterval 1h, got %v", config.ScanInterval)
@@ -61,7 +61,7 @@ func TestDefaultDiscoveryConfig(t *testing.T) {
 }
 
 func TestDiscovery_RegisterScanner(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	scanner := NewSSHScanner(22, 5*time.Second, 10)
 	d.RegisterScanner(scanner)
@@ -76,7 +76,7 @@ func TestDiscovery_RegisterScanner(t *testing.T) {
 }
 
 func TestDiscovery_RegisterMatcher(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	matcher := NewPatternMatcher()
 	d.RegisterMatcher(matcher)
@@ -87,7 +87,7 @@ func TestDiscovery_RegisterMatcher(t *testing.T) {
 }
 
 func TestDiscovery_ApproveRejectIgnore(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	// Add a discovered device
 	device := &DiscoveredDevice{
@@ -142,12 +142,12 @@ func TestDiscovery_ApproveRejectIgnore(t *testing.T) {
 }
 
 func TestDiscovery_Remove(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	device := &DiscoveredDevice{
-		ID:       "test-device-1",
-		Address:  "192.168.1.1",
-		Status:   StatusPending,
+		ID:      "test-device-1",
+		Address: "192.168.1.1",
+		Status:  StatusPending,
 	}
 	d.discovered["test-device-1"] = device
 	d.approved["test-device-1"] = device
@@ -167,7 +167,7 @@ func TestDiscovery_Remove(t *testing.T) {
 }
 
 func TestDiscovery_GetDiscovered(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	d.discovered["device-1"] = &DiscoveredDevice{ID: "device-1"}
 	d.discovered["device-2"] = &DiscoveredDevice{ID: "device-2"}
@@ -179,7 +179,7 @@ func TestDiscovery_GetDiscovered(t *testing.T) {
 }
 
 func TestDiscovery_GetPending(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	d.discovered["device-1"] = &DiscoveredDevice{ID: "device-1", Status: StatusPending}
 	d.discovered["device-2"] = &DiscoveredDevice{ID: "device-2", Status: StatusApproved}
@@ -192,7 +192,7 @@ func TestDiscovery_GetPending(t *testing.T) {
 }
 
 func TestDiscovery_GetApproved(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	d.approved["device-1"] = &DiscoveredDevice{ID: "device-1", Status: StatusApproved}
 	d.approved["device-2"] = &DiscoveredDevice{ID: "device-2", Status: StatusApproved}
@@ -204,7 +204,7 @@ func TestDiscovery_GetApproved(t *testing.T) {
 }
 
 func TestDiscovery_expandNetworks(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	// Test single IP
 	targets, err := d.expandNetworks([]string{"192.168.1.1"})
@@ -232,7 +232,7 @@ func TestDiscovery_expandNetworks(t *testing.T) {
 }
 
 func TestDiscovery_filterExcluded(t *testing.T) {
-	config := DefaultDiscoveryConfig()
+	config := DefaultConfig()
 	config.ExcludeHosts = []string{"192.168.1.1", "192.168.1.5"}
 	d := NewDiscovery(config)
 
@@ -252,7 +252,7 @@ func TestDiscovery_filterExcluded(t *testing.T) {
 }
 
 func TestDiscovery_ErrorCases(t *testing.T) {
-	d := NewDiscovery(DefaultDiscoveryConfig())
+	d := NewDiscovery(DefaultConfig())
 
 	// Test approving non-existent device
 	err := d.Approve("non-existent")
@@ -309,7 +309,7 @@ func (m *mockScanner) Scan(ctx context.Context, targets []string) ([]*Discovered
 }
 
 func TestDiscovery_Scan(t *testing.T) {
-	config := DefaultDiscoveryConfig()
+	config := DefaultConfig()
 	config.Networks = []string{"192.168.1.1"}
 	d := NewDiscovery(config)
 

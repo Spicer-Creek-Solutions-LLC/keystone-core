@@ -26,7 +26,8 @@ func NewModuleCache(config CacheConfig) (*ModuleCache, error) {
 
 	// Create cache directory if it doesn't exist
 	if !config.Readonly {
-		if err := os.MkdirAll(config.Dir, 0755); err != nil {
+		//nolint:gosec // G301: cache directory needs to be accessible by service user
+		if err := os.MkdirAll(config.Dir, 0o755); err != nil {
 			return nil, &CacheError{
 				Operation: "create",
 				Path:      config.Dir,
@@ -102,7 +103,8 @@ func (c *ModuleCache) Put(module ModuleReference, sourcePath string, verified bo
 	destPath := filepath.Join(destDir, hash)
 
 	// Create directory
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return nil, &CacheError{
 			Operation: "put",
 			Module:    module.Name,
@@ -352,7 +354,8 @@ func (c *ModuleCache) saveIndex() error {
 		}
 	}
 
-	if err := os.WriteFile(indexPath, data, 0644); err != nil {
+	//nolint:gosec // G306: cache index needs to be readable by module resolver
+	if err := os.WriteFile(indexPath, data, 0o644); err != nil {
 		return &CacheError{
 			Operation: "save",
 			Path:      indexPath,
@@ -381,5 +384,6 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	return os.WriteFile(dst, data, 0644)
+	//nolint:gosec // G306: cached module files need to be readable by module loader
+	return os.WriteFile(dst, data, 0o644)
 }

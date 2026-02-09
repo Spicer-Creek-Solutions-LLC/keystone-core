@@ -16,6 +16,7 @@ import (
 // View represents the different views in the TUI
 type View int
 
+// View constants define the available TUI views.
 const (
 	ViewDashboard View = iota
 	ViewAgents
@@ -67,11 +68,17 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 		return nil, fmt.Errorf("failed to connect to control plane: %w", err)
 	}
 
+	// Determine initial view (config uses 1-8, View type uses 0-7)
+	initialView := ViewDashboard
+	if cfg.InitialView >= 1 && cfg.InitialView <= 8 {
+		initialView = View(cfg.InitialView - 1)
+	}
+
 	model := &Model{
 		ctx:         ctx,
 		config:      cfg,
 		client:      cli,
-		currentView: ViewDashboard,
+		currentView: initialView,
 	}
 
 	// Initialize view models
@@ -113,8 +120,32 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.EnterAltScreen,
 		tickCmd(m.config.RefreshInterval),
-		m.dashboard.Init(),
+		m.initCurrentView(),
 	)
+}
+
+// initCurrentView returns the Init command for the current view
+func (m *Model) initCurrentView() tea.Cmd {
+	switch m.currentView {
+	case ViewDashboard:
+		return m.dashboard.Init()
+	case ViewAgents:
+		return m.agents.Init()
+	case ViewEvents:
+		return m.events.Init()
+	case ViewStateDrift:
+		return m.stateDrift.Init()
+	case ViewPolicyViolations:
+		return m.policyViolations.Init()
+	case ViewJobs:
+		return m.jobs.Init()
+	case ViewLogs:
+		return m.logs.Init()
+	case ViewMetrics:
+		return m.metrics.Init()
+	default:
+		return m.dashboard.Init()
+	}
 }
 
 // Update handles messages and updates the model (Bubble Tea lifecycle)
@@ -176,9 +207,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		m.lastRefresh = time.Time(msg)
-		cmds = append(cmds, tickCmd(m.config.RefreshInterval))
-		// Trigger refresh for current view
-		cmds = append(cmds, m.refreshCurrentView())
+		cmds = append(cmds, tickCmd(m.config.RefreshInterval), m.refreshCurrentView())
 		return m, tea.Batch(cmds...)
 
 	case errMsg:
@@ -285,7 +314,7 @@ func (m *Model) renderHeader() string {
 		"8:Metrics",
 	}
 
-	var items []string
+	items := make([]string, 0, len(views))
 	for i, view := range views {
 		style := lipgloss.NewStyle().Padding(0, 1)
 		if View(i) == m.currentView {
@@ -385,8 +414,6 @@ func (m *Model) refreshCurrentView() tea.Cmd {
 
 // propagateSizeToViews sends window size to all view models
 func propagateSizeToViews(m *Model, msg tea.WindowSizeMsg) []tea.Cmd {
-	var cmds []tea.Cmd
-
 	views := []interface {
 		Update(tea.Msg) (interface{}, tea.Cmd)
 	}{
@@ -400,6 +427,7 @@ func propagateSizeToViews(m *Model, msg tea.WindowSizeMsg) []tea.Cmd {
 		m.metrics,
 	}
 
+	cmds := make([]tea.Cmd, 0, len(views))
 	for _, view := range views {
 		_, cmd := view.Update(msg)
 		cmds = append(cmds, cmd)

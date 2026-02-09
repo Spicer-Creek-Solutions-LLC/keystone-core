@@ -116,12 +116,13 @@ func (i *InitContainer) Run(ctx context.Context) error {
 func (i *InitContainer) initializeInjector() error {
 	// Build file injection rules
 	var fileRules []injection.FileRule
-	for _, secret := range i.config.Secrets {
+	for j := range i.config.Secrets {
+		secret := &i.config.Secrets[j]
 		if secret.Type == SecretTypeFile || secret.Type == "" {
 			rule := injection.FileRule{
 				SecretPath: secret.SecretPath,
 				SecretKey:  secret.SecretKey,
-				FilePath:   i.resolveFilePath(secret),
+				FilePath:   i.resolveFilePath(*secret),
 			}
 			if secret.FileMode != "" {
 				mode, err := parseFileMode(secret.FileMode)
@@ -136,9 +137,9 @@ func (i *InitContainer) initializeInjector() error {
 
 	if len(fileRules) > 0 {
 		fileConfig := &injection.FileInjectionConfig{
-			InjectionConfig: injection.InjectionConfig{Enabled: true},
+			Config: injection.Config{Enabled: true},
 			BasePath:        i.config.SecretVolumePath,
-			DefaultMode:     0600,
+			DefaultMode:     0o600,
 			AtomicWrite:     true,
 			Files:           fileRules,
 		}

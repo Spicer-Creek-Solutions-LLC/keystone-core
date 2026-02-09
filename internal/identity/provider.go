@@ -125,7 +125,7 @@ func (p *EmbeddedProvider) Start(ctx context.Context) error {
 
 	// Start background tasks
 	p.wg.Add(1)
-	go p.runBackgroundTasks()
+	go p.runBackgroundTasks() //nolint:contextcheck // background loop uses internal context
 
 	p.started = true
 	p.setStatus(ProviderStatusHealthy)
@@ -193,7 +193,7 @@ func (p *EmbeddedProvider) Info(ctx context.Context) ProviderInfo {
 			"join_token",
 		},
 		Metadata: map[string]string{
-			"key_type":        p.config.CA.KeyType,
+			"key_type":         p.config.CA.KeyType,
 			"svid_default_ttl": p.config.SVID.DefaultTTL.String(),
 		},
 	}

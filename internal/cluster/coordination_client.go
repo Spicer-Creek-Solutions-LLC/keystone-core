@@ -206,7 +206,7 @@ func (c *CoordinationClient) dial(address string) (*grpc.ClientConn, error) {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	return grpc.DialContext(ctx, address, opts...)
+	return grpc.DialContext(ctx, address, opts...) //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 }
 
 // ClusterHealth queries cluster health from a specific peer.
@@ -435,7 +435,7 @@ func (c *CoordinationClient) Heartbeat(ctx context.Context, memberID string) (*p
 }
 
 // HeartbeatAll sends heartbeats to all peers.
-func (c *CoordinationClient) HeartbeatAll(ctx context.Context) (map[string]*pb.ServerHeartbeatResponse, map[string]error) {
+func (c *CoordinationClient) HeartbeatAll(ctx context.Context) (results map[string]*pb.ServerHeartbeatResponse, errors map[string]error) {
 	c.mu.RLock()
 	peers := make([]*peerConnection, 0, len(c.peers))
 	for _, p := range c.peers {
@@ -443,8 +443,8 @@ func (c *CoordinationClient) HeartbeatAll(ctx context.Context) (map[string]*pb.S
 	}
 	c.mu.RUnlock()
 
-	results := make(map[string]*pb.ServerHeartbeatResponse)
-	errors := make(map[string]error)
+	results = make(map[string]*pb.ServerHeartbeatResponse)
+	errors = make(map[string]error)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -491,7 +491,7 @@ func (c *CoordinationClient) PropagateState(ctx context.Context, memberID string
 }
 
 // PropagateStateAll propagates state changes to all peers.
-func (c *CoordinationClient) PropagateStateAll(ctx context.Context, updateType pb.StateUpdateType, data []byte, version int64) (map[string]*pb.PropagateStateResponse, map[string]error) {
+func (c *CoordinationClient) PropagateStateAll(ctx context.Context, updateType pb.StateUpdateType, data []byte, version int64) (results map[string]*pb.PropagateStateResponse, errors map[string]error) {
 	c.mu.RLock()
 	peers := make([]*peerConnection, 0, len(c.peers))
 	for _, p := range c.peers {
@@ -499,8 +499,8 @@ func (c *CoordinationClient) PropagateStateAll(ctx context.Context, updateType p
 	}
 	c.mu.RUnlock()
 
-	results := make(map[string]*pb.PropagateStateResponse)
-	errors := make(map[string]error)
+	results = make(map[string]*pb.PropagateStateResponse)
+	errors = make(map[string]error)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 

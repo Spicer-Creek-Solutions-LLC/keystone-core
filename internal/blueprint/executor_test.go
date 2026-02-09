@@ -55,19 +55,19 @@ func TestDefaultExecutorConfig(t *testing.T) {
 	}
 }
 
-func TestExpandBlueprintIncludes_NoBlueprintIncludes(t *testing.T) {
+func TestExpandIncludes_NoBlueprintIncludes(t *testing.T) {
 	exec, err := NewExecutor(nil)
 	if err != nil {
 		t.Fatalf("Failed to create executor: %v", err)
 	}
 
-	stateFile := &BlueprintStateFile{
+	stateFile := &StateFile{
 		Path:              "/test/state.yaml",
 		BlueprintIncludes: nil,
 		Variables: map[string]interface{}{
 			"foo": "bar",
 		},
-		States: map[string][]BlueprintStateDeclaration{
+		States: map[string][]StateDeclaration{
 			"file": {
 				{
 					ID:     "test_file",
@@ -79,9 +79,9 @@ func TestExpandBlueprintIncludes_NoBlueprintIncludes(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	expanded, err := exec.ExpandBlueprintIncludes(ctx, stateFile)
+	expanded, err := exec.ExpandIncludes(ctx, stateFile)
 	if err != nil {
-		t.Fatalf("ExpandBlueprintIncludes() error = %v", err)
+		t.Fatalf("ExpandIncludes() error = %v", err)
 	}
 
 	// Should return the same state file when no blueprint includes

@@ -87,15 +87,15 @@ type Client struct {
 	namespace  string
 
 	// Health status
-	healthy     atomic.Bool
-	sealed      atomic.Bool
+	healthy         atomic.Bool
+	sealed          atomic.Bool
 	lastHealthCheck time.Time
 
 	// Token renewal
-	tokenExpiry   time.Time
+	tokenExpiry    time.Time
 	tokenRenewable bool
-	renewCancel   context.CancelFunc
-	renewWg       sync.WaitGroup
+	renewCancel    context.CancelFunc
+	renewWg        sync.WaitGroup
 
 	// Authenticator for token management
 	auth Authenticator
@@ -362,7 +362,7 @@ func (c *Client) renewToken(ctx context.Context) error {
 
 // Health checks the health of the Vault server.
 func (c *Client) Health(ctx context.Context) (*HealthResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.Address+"/v1/sys/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.Address+"/v1/sys/health", http.NoBody)
 	if err != nil {
 		return nil, err
 	}

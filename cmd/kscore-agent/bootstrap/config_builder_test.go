@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuildServerConfigPostgres(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Storage:          "postgres",
 		PostgresHost:     "db.example.com",
 		PostgresPort:     5432,
@@ -17,9 +17,9 @@ func TestBuildServerConfigPostgres(t *testing.T) {
 		PostgresSSLMode:  "require",
 		NATSMode:         "external",
 		NATSURLs:         []string{"nats://nats1:4222", "nats://nats2:4222"},
-		NATSCredsFile:    "/etc/kscore/nats.creds",
-		TLSCertFile:      "/etc/kscore/tls.crt",
-		TLSKeyFile:       "/etc/kscore/tls.key",
+		NATSCredsFile:    "/etc/keystone-core/nats.creds",
+		TLSCertFile:      "/etc/keystone-core/tls.crt",
+		TLSKeyFile:       "/etc/keystone-core/tls.key",
 	}
 
 	data, err := buildServerConfig(cfg)
@@ -41,7 +41,7 @@ func TestBuildServerConfigPostgres(t *testing.T) {
 	if nats["mode"] != "external" {
 		t.Fatalf("expected external nats mode, got %v", nats["mode"])
 	}
-	if nats["credential"] != "/etc/kscore/nats.creds" {
+	if nats["credential"] != "/etc/keystone-core/nats.creds" {
 		t.Fatalf("expected creds file, got %v", nats["credential"])
 	}
 
@@ -51,7 +51,7 @@ func TestBuildServerConfigPostgres(t *testing.T) {
 }
 
 func TestBuildAgentConfigDefaultURL(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NATSMode:   "embedded",
 		NodeName:   "node-1",
 		NodeLabels: map[string]string{"role": "agent"},
@@ -86,7 +86,7 @@ func TestBuildAgentConfigDefaultURL(t *testing.T) {
 }
 
 func TestBuildNATSLeafConfig(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NATSMode: "leaf",
 		NATSURLs: []string{"nats://parent:4222"},
 	}
@@ -113,7 +113,7 @@ func TestBuildNATSLeafConfig(t *testing.T) {
 }
 
 func TestBuildServerConfigPreservesExportStates(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Storage:         "sqlite",
 		ExportStatesDir: "/tmp/exported",
 	}

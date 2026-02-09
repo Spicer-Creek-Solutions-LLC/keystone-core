@@ -1,9 +1,8 @@
 package servicemesh
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -16,14 +15,14 @@ const (
 	linkerdProxyAdminURL  = "http://localhost:4191"
 
 	// Linkerd proxy environment variables
-	linkerdProxyVersionEnv      = "LINKERD2_PROXY_VERSION"
-	linkerdProxyNamespaceEnv    = "LINKERD2_PROXY_NAMESPACE"
-	linkerdProxyPodEnv          = "LINKERD2_PROXY_POD"
-	linkerdProxyServiceEnv      = "LINKERD2_PROXY_SERVICE"
-	linkerdProxyControlURLEnv   = "LINKERD2_PROXY_CONTROL_URL"
-	linkerdProxyIdentityDirEnv  = "LINKERD2_PROXY_IDENTITY_DIR"
-	linkerdProxyTrustDomainEnv  = "LINKERD2_PROXY_IDENTITY_TRUST_DOMAIN"
-	linkerdProxyLogLevelEnv     = "LINKERD2_PROXY_LOG"
+	linkerdProxyVersionEnv     = "LINKERD2_PROXY_VERSION"
+	linkerdProxyNamespaceEnv   = "LINKERD2_PROXY_NAMESPACE"
+	linkerdProxyPodEnv         = "LINKERD2_PROXY_POD"
+	linkerdProxyServiceEnv     = "LINKERD2_PROXY_SERVICE"
+	linkerdProxyControlURLEnv  = "LINKERD2_PROXY_CONTROL_URL"
+	linkerdProxyIdentityDirEnv = "LINKERD2_PROXY_IDENTITY_DIR"
+	linkerdProxyTrustDomainEnv = "LINKERD2_PROXY_IDENTITY_TRUST_DOMAIN"
+	linkerdProxyLogLevelEnv    = "LINKERD2_PROXY_LOG"
 )
 
 // LinkerdDetector detects Linkerd service mesh
@@ -101,11 +100,14 @@ func (d *LinkerdDetector) Detect() (*Metadata, error) {
 // IsServiceMesh checks if running in Linkerd service mesh
 func (d *LinkerdDetector) IsServiceMesh() bool {
 	// Check for Linkerd proxy admin endpoint
-	resp, err := d.httpClient.Get(linkerdProxyAdminURL + "/metrics")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, linkerdProxyAdminURL+"/metrics", http.NoBody)
 	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			return true
+		resp, err := d.httpClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
 		}
 	}
 
@@ -129,40 +131,14 @@ func (d *LinkerdDetector) GetMeshType() MeshType {
 	return MeshTypeLinkerd
 }
 
-// getProxyInfo gets Linkerd proxy info from admin API
-func (d *LinkerdDetector) getProxyInfo() (*linkerdProxyInfo, error) {
-	resp, err := d.httpClient.Get(linkerdProxyAdminURL + "/proxy-log-level")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("proxy-log-level request failed: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var info linkerdProxyInfo
-	if err := json.Unmarshal(body, &info); err != nil {
-		// If JSON parsing fails, it might be plain text log level
-		info.LogLevel = string(body)
-	}
-
-	return &info, nil
-}
-
 // getProxyConfig returns the proxy configuration
 func (d *LinkerdDetector) getProxyConfig() *ProxyConfig {
 	return &ProxyConfig{
 		AdminPort:    4191,
-		InboundPort:  4143,  // Linkerd inbound proxy port
-		OutboundPort: 4140,  // Linkerd outbound proxy port
-		MetricsPort:  4191,  // Same as admin port
-		HealthPort:   4191,  // Same as admin port
+		InboundPort:  4143, // Linkerd inbound proxy port
+		OutboundPort: 4140, // Linkerd outbound proxy port
+		MetricsPort:  4191, // Same as admin port
+		HealthPort:   4191, // Same as admin port
 		StatsPath:    "/metrics",
 		ReadyPath:    "/ready",
 		LivePath:     "/live",
@@ -207,10 +183,4 @@ func (d *LinkerdDetector) getTLSConfig() (*TLSConfig, error) {
 	}
 
 	return config, nil
-}
-
-// Helper types
-
-type linkerdProxyInfo struct {
-	LogLevel string `json:"level"`
 }

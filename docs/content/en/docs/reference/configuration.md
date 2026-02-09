@@ -10,9 +10,16 @@ description: >
 Keystone Core components are configured using YAML files. This reference documents all configuration options.
 
 **Configuration Files**:
-- Control Plane: `/etc/kscore/server.yaml`
-- Agent: `/etc/kscore/agent.yaml`
-- CLI: `~/.kscore/config.yaml`
+- Control Plane: `/etc/keystone-core/server.yaml`
+- Agent: `/etc/keystone-core/agent.yaml`
+- CLI: `~/.keystone-core/config.yaml`
+
+**Note**: When running without `--config`, binaries search for `keystone-core.yaml` in `/etc/keystone-core/`, `~/.keystone-core/`, and the current directory. The package-installed systemd services explicitly pass the config file path.
+
+**Why `/etc/keystone-core` instead of `/etc/keystone-core`?**
+- Clearer and less ambiguous for operators and in multi-product environments.
+- Aligns with the full product/package name and systemd unit naming.
+- Reduces support friction by keeping docs and paths consistent.
 
 ## Control Plane Configuration
 
@@ -21,35 +28,44 @@ Complete configuration reference for `kscore-server`.
 ### Basic Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 
 # API Server
+# Note: api.listen and api.grpc_listen are convenience aliases for server.httplisten
+# and server.grpclisten. Similarly, api.cors.* and api.rate_limit.* are aliases for
+# the top-level cors.* and ratelimit.* settings.
 api:
   listen: "0.0.0.0:8080"           # HTTP API listen address
   grpc_listen: "0.0.0.0:9090"       # gRPC API listen address
-  listen_addrs: []                  # Optional multi-address binding
-                                    # Example: ["[::]:8080", "0.0.0.0:8080"]
-  address_family: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
-  allow_insecure_non_loopback: false # Allow non-loopback listen without TLS (dev only)
-  tls:
-    enabled: false                  # Enable TLS
-    cert_file: ""                   # TLS certificate file
-    key_file: ""                    # TLS key file
-    ca_file: ""                     # CA certificate for client auth
-    min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   cors:
     enabled: true                   # Enable CORS
-    allowed_origins: ["*"]          # Allowed origins
-    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
-    allow_credentials: false
-    max_age: 86400                  # Preflight cache max age (seconds)
+    allowedorigins: ["*"]           # Allowed origins
+    allowedmethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowedheaders: ["Content-Type", "Authorization", "X-API-Key"]
+    allowcredentials: false
+    maxage: 86400                   # Preflight cache max age (seconds)
   rate_limit:
     enabled: true                   # Enable rate limiting
-    requests_per_minute: 100        # Requests per minute per key
+    requestsperminute: 100          # Requests per minute per key
     burst: 20                       # Burst capacity
-    key_extractor: "ip"             # ip, apikey, header
-    header_name: "X-API-Key"        # Header to use when key_extractor: header
+    keyextractor: "ip"              # ip, apikey, header
+    headername: "X-API-Key"         # Header to use when keyextractor: header
+
+# Server settings (advanced)
+# These settings are NOT available under api.* and must use the server.* prefix
+server:
+  listenaddrs: []                   # Optional multi-address binding
+                                    # Example: ["[::]:8080", "0.0.0.0:8080"]
+  addressfamily: "prefer_ipv4"      # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+  allowinsecurenonloopback: false   # Allow non-loopback listen without TLS (dev only)
+
+# TLS Configuration (applies to API server)
+tls:
+  enabled: false                    # Enable TLS
+  cert_file: ""                     # TLS certificate file
+  key_file: ""                      # TLS key file
+  ca_file: ""                       # CA certificate for client auth
+  min_version: "1.3"                # Minimum TLS version (1.2 or 1.3)
 
 # NATS Configuration
 nats:
@@ -71,20 +87,20 @@ nats:
     min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   jetstream:
     enabled: true                   # Enable JetStream
-    store_dir: "/var/lib/kscore/nats"
+    storedir: "/var/lib/keystone-core/nats"
     max_memory: "1GB"               # Max memory for streams
     max_file: "10GB"                # Max file storage
     max_storage: "10GB"             # Max total storage (bytes)
   embedded:
     listen: "0.0.0.0:4222"           # Combined host:port (overrides host/port)
-    address_family: "prefer_ipv4"    # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+    addressfamily: "prefer_ipv4"    # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
     leaf_node_urls: []               # Parent leaf URLs when mode: leaf
 
 # State Storage
 storage:
-  type: "sqlite"                    # sqlite, postgresql
+  backend: "sqlite"                 # sqlite, postgresql
   sqlite:
-    path: "/var/lib/kscore/kscore.db"
+    path: "/var/lib/keystone-core/keystone-core.db"
     wal: true                        # Enable WAL mode
     # Note: SQLite doesn't use traditional connection pooling.
     # max_connections controls the serialized access queue size
@@ -120,19 +136,19 @@ logging:
     app_name: "kscore-server"       # Application name
     tls:                            # TLS settings for tcp+tls
       enabled: false
-      ca_cert: ""
+      cacert: ""
       cert: ""
       key: ""
-      skip_verify: false
-      min_version: "1.3"            # Minimum TLS version (1.2 or 1.3)
+      skipverify: false
+      minversion: "1.3"             # Minimum TLS version (1.2 or 1.3)
 
 # Metrics
 metrics:
   enabled: true
   listen: ":8080"                   # Metrics endpoint (usually same as API)
   path: "/metrics"                  # Metrics path
-  include_go_metrics: true
-  include_process_metrics: true
+  includegometrics: true
+  includeprocessmetrics: true
 
 # Tracing
 tracing:
@@ -150,8 +166,8 @@ tracing:
 # Health Checks
 health:
   enabled: true
-  startup_grace_period: "30s"      # Grace period on startup
-  check_interval: "10s"             # Health check interval
+  startupgraceperiod: "30s"        # Grace period on startup
+  checkinterval: "10s"              # Health check interval
   checks:
     nats:
       enabled: true
@@ -161,7 +177,7 @@ health:
       timeout: "5s"
     agents:
       enabled: true
-      min_healthy: 0.8              # 80% of agents must be healthy
+      minhealthy: 0.8               # 80% of agents must be healthy
 ```
 
 ### Agent Management
@@ -272,7 +288,7 @@ gitops:
         branch: "main"
         auth:
           type: "ssh"
-          ssh_key_path: "/etc/kscore/id_rsa"
+          ssh_key_path: "/etc/keystone-core/id_rsa"
         paths:
           states: "states/"
           reactors: "reactors/"
@@ -287,9 +303,9 @@ webhook:
   enabled: false
   port: 8082
   path: "/webhooks"
-  auth_type: "none"                 # none, hmac, bearer
-  hmac_secret: ""
-  bearer_token: ""
+  authtype: "none"                  # none, hmac, bearer
+  hmacsecret: ""
+  bearertoken: ""
   handlers: ["argocd", "flux", "github", "gitlab"]
 ```
 
@@ -305,7 +321,7 @@ security:
         key: "<your-api-key>"
         permissions: ["*"]
     mtls:
-      ca_file: "/etc/kscore/ca.crt"
+      ca_file: "/etc/keystone-core/ca.crt"
       verify_client: true
 
   authorization:
@@ -313,7 +329,7 @@ security:
     default_deny: true
     rbac:
       enabled: true
-      policy_file: "/etc/kscore/rbac.yaml"
+      policy_file: "/etc/keystone-core/rbac.yaml"
 ```
 
 ### API Authentication (Control Plane)
@@ -323,11 +339,11 @@ auth:
   enabled: true
   type: "apikey"                    # apikey, jwt, mtls, multi
   bypass_methods:
-    - "/kscore.v1.ControlPlaneService/HealthCheck"
+    - "/keystone.core.v1.ControlPlaneService/GetServerStatus"
 
   apikey:
-    header_name: "X-API-Key"
-    metadata_key: "x-api-key"
+    headername: "X-API-Key"
+    metadatakey: "x-api-key"
     keys:
       "<your-api-key>":
         name: "admin"
@@ -336,15 +352,15 @@ auth:
         expires_at: ""              # RFC3339 timestamp
 
   jwt:
-    secret: ""                      # HS256 secret (or use public_key_file)
-    public_key_file: ""             # RS256/ES256 public key
+    secret: ""                      # HS256 secret (or use publickeyfile)
+    publickeyfile: ""               # RS256/ES256 public key
     issuer: ""
     audience: ""
-    role_claim: "role"
+    roleclaim: "role"
 
   mtls:
-    require_client_cert: true
-    cert_roles:
+    requireclientcert: true
+    certroles:
       "*.admin.example.com": "admin"
 ```
 
@@ -507,7 +523,7 @@ identity:
 Configuration reference for `kscore-telemetry-gateway`.
 
 ```yaml
-# /etc/kscore/gateway.yaml
+# /etc/keystone-core/gateway.yaml
 
 # NATS connection
 nats:
@@ -626,13 +642,13 @@ Configuration reference for `kscore-registry`.
 `kscore-registry` is configured via CLI flags and environment variables. The following YAML mirrors `deploy/config/registry.yaml` used by deployment tooling (the server does not read this file directly).
 
 ```yaml
-# /etc/kscore/registry.yaml
+# /etc/keystone-core/registry.yaml
 
 server:
   listen_address: "0.0.0.0:8081"
 
 storage:
-  data_dir: "/var/lib/kscore/registry"
+  data_dir: "/var/lib/keystone-core/registry"
   max_upload_size: 104857600          # 100MB
 
 auth:
@@ -671,6 +687,7 @@ Flag mapping:
 Notes:
 - `auth.enabled` is deployment metadata only; the server enables write auth when `api_key` is provided.
 - `auth.api_key_file` is not supported by `kscore-registry` flags (use `KSCORE_REGISTRY_API_KEY`).
+- `logging.*` and `telemetry.*` are deployment reference only; `kscore-registry` does not expose these as CLI flags.
 
 Environment override:
 
@@ -683,7 +700,7 @@ KSCORE_REGISTRY_API_KEY="your-secret-api-key"
 Configuration reference for `kscore-files`.
 
 ```yaml
-# /etc/kscore/files.yaml
+# /etc/keystone-core/files.yaml
 
 # Server settings
 server:
@@ -704,8 +721,8 @@ backend:
   type: "local"                       # local, s3, gcs, azure, git, nats
 
   local:
-    root: "/var/lib/kscore/files"
-    temp_dir: "/var/lib/kscore/tmp"
+    root: "/var/lib/keystone-core/files"
+    temp_dir: "/var/lib/keystone-core/tmp"
     create_dirs: true
     dir_mode: "0755"
     file_mode: "0644"
@@ -737,7 +754,7 @@ backend:
   git:
     url: ""
     branch: "main"
-    local_path: "/var/lib/kscore/git-files"
+    local_path: "/var/lib/keystone-core/git-files"
     sync_interval: "5m"
     auto_commit: true
     commit_author: "Keystone Core <kscore@example.com>"
@@ -789,7 +806,7 @@ mirror_groups:
 # Caching
 cache:
   enabled: true
-  path: "/var/cache/kscore/files"
+  path: "/var/cache/keystone-core/files"
   max_size: "10GB"
   ttl: "24h"
   cleanup_interval: "1h"
@@ -800,7 +817,7 @@ cache:
 Configuration reference for proxy agents that manage devices via SSH, SNMP, REST, or WinRM.
 
 ```yaml
-# /etc/kscore/proxy-agent.yaml
+# /etc/keystone-core/proxy-agent.yaml
 
 # Proxy agent identity
 agent:
@@ -876,14 +893,14 @@ credentials:
     path: "secret/kscore/devices"
     tls:
       enabled: true
-      ca_file: "/etc/kscore/vault-ca.crt"
+      ca_file: "/etc/keystone-core/vault-ca.crt"
 
   kubernetes:
     namespace: "kscore"
     label_selector: "app=kscore-creds"
 
   file:
-    path: "/etc/kscore/credentials.enc"
+    path: "/etc/keystone-core/credentials.enc"
     encryption_key: "${CREDS_KEY}"
 ```
 
@@ -958,19 +975,19 @@ Complete configuration reference for `kscore-agent`.
 ### Basic Configuration
 
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 
 # NATS Configuration
 # The agent requires explicit NATS mode configuration for security
 nats:
   mode: "external"                  # external, embedded, leaf (REQUIRED)
   url: "nats://control-plane:4222"  # External NATS URL (when mode: external)
-  credentials: "/etc/kscore/agent.creds"
+  credentials: "/etc/keystone-core/agent.creds"
   tls:
     enabled: false
-    ca_file: "/etc/kscore/ca.crt"
-    cert_file: "/etc/kscore/agent.crt"
-    key_file: "/etc/kscore/agent.key"
+    ca_file: "/etc/keystone-core/ca.crt"
+    cert_file: "/etc/keystone-core/agent.crt"
+    key_file: "/etc/keystone-core/agent.key"
 
   # Embedded NATS settings (when mode: embedded or leaf)
   # Security: TLS and authentication are REQUIRED when binding to non-localhost
@@ -983,9 +1000,9 @@ nats:
 
     # TLS configuration (REQUIRED for non-localhost binding)
     tls:
-      cert_file: "/etc/kscore/nats-server.crt"
-      key_file: "/etc/kscore/nats-server.key"
-      ca_file: "/etc/kscore/ca.crt"
+      cert_file: "/etc/keystone-core/nats-server.crt"
+      key_file: "/etc/keystone-core/nats-server.key"
+      ca_file: "/etc/keystone-core/ca.crt"
       verify: true                  # Verify client certificates
 
     # Authentication (REQUIRED for non-localhost binding)
@@ -997,7 +1014,7 @@ nats:
     # Leaf node configuration (when mode: leaf)
     leaf_remotes:
       - urls: ["nats://upstream:4222"]
-        credentials: "/etc/kscore/leaf.creds"
+        credentials: "/etc/keystone-core/leaf.creds"
 
   # Connection settings
   max_reconnects: -1                # Unlimited reconnects
@@ -1007,7 +1024,7 @@ nats:
   max_ping_out: 2
 
   # Network settings
-  address_family: "any"             # any, ipv4, ipv6 (default: any)
+  addressfamily: "any"             # any, ipv4, ipv6 (default: any)
                                     # Controls address resolution preference
 
 # Agent Identity
@@ -1016,7 +1033,7 @@ agent:
   datacenter: "us-east-1"
   environment: "production"
   role: "web"
-  address_family: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+  addressfamily: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
   advertise_addrs: []               # Optional static advertise addresses
   labels:
     tier: "frontend"
@@ -1040,7 +1057,7 @@ logging:
   level: "info"
   format: "json"
   output: "stdout"
-  file: "/var/log/kscore/agent.log"
+  file: "/var/log/keystone-core/agent.log"
 
 # Execution Settings
 execution:
@@ -1057,9 +1074,9 @@ execution:
 
 # State Management
 state:
-  modules_dir: "/var/lib/kscore/modules"
+  modules_dir: "/var/lib/keystone-core/modules"
   cache_enabled: true
-  cache_dir: "/var/cache/kscore"
+  cache_dir: "/var/cache/keystone-core"
   dry_run: false
 
 # Security
@@ -1115,7 +1132,7 @@ offline:
 # Cache
 cache:
   enabled: false
-  directory: "/var/lib/kscore/cache"
+  directory: "/var/lib/keystone-core/cache"
   max_size: "1GB"
 ```
 
@@ -1148,10 +1165,12 @@ monitoring:
 
 ## CLI Configuration
 
+> **Note**: CLI configuration file support is planned but not yet implemented. Currently, use command-line flags or environment variables to configure `kscorectl`. The configuration format below shows the planned structure.
+
 Client configuration for `kscorectl`.
 
 ```yaml
-# ~/.kscore/config.yaml
+# ~/.keystone-core/config.yaml
 
 # Control plane connection
 server: "http://control-plane.example.com:8080"
@@ -1160,9 +1179,9 @@ api_key: "<your-api-key>"
 # TLS configuration
 tls:
   enabled: false
-  ca_cert: "/etc/kscore/ca.crt"
-  client_cert: "/etc/kscore/client.crt"
-  client_key: "/etc/kscore/client.key"
+  ca_cert: "/etc/keystone-core/ca.crt"
+  client_cert: "/etc/keystone-core/client.crt"
+  client_key: "/etc/keystone-core/client.key"
   skip_verify: false
 
 # Output preferences
@@ -1352,7 +1371,7 @@ api:
 nats:
   mode: embedded
 storage:
-  type: sqlite
+  backend: sqlite
   sqlite:
     path: "./dev.db"
 logging:
@@ -1366,19 +1385,19 @@ logging:
 # server.yaml (production)
 api:
   listen: "0.0.0.0:8080"
-  tls:
-    enabled: true
-    cert_file: "/etc/kscore/server.crt"
-    key_file: "/etc/kscore/server.key"
+tls:
+  enabled: true
+  cert_file: "/etc/keystone-core/server.crt"
+  key_file: "/etc/keystone-core/server.key"
 nats:
   mode: external
   urls:
     - "nats://nats1:4222"
     - "nats://nats2:4222"
     - "nats://nats3:4222"
-  credentials: "/etc/kscore/nats.creds"
+  credentials: "/etc/keystone-core/nats.creds"
 storage:
-  type: postgresql
+  backend: postgresql
   postgresql:
     host: "postgres-cluster"
     port: 5432
@@ -1387,7 +1406,7 @@ logging:
   level: info
   format: json
   output: file
-  file: "/var/log/kscore/server.log"
+  file: "/var/log/keystone-core/server.log"
 ```
 
 ### High Availability
@@ -1404,9 +1423,9 @@ nats:
     - "nats://nats2.dc2:4222"
   tls:
     enabled: true
-    ca_file: "/etc/kscore/nats-ca.crt"
+    ca_file: "/etc/keystone-core/nats-ca.crt"
 storage:
-  type: postgresql
+  backend: postgresql
   postgresql:
     host: "postgres-ha.cluster.local"
     port: 5432
@@ -1435,9 +1454,6 @@ KSCORE_LOG_FORMAT="json"
 ```bash
 KSCORE_CONTROL_PLANE_URL="nats://control-plane:4222"
 KSCORE_AGENT_ID="custom-agent-01"
-KSCORE_AGENT_DATACENTER="us-east-1"
-KSCORE_AGENT_ENVIRONMENT="production"
-KSCORE_AGENT_ROLE="web"
 KSCORE_LOG_LEVEL="info"
 ```
 
@@ -1448,6 +1464,135 @@ KSCORE_SERVER="http://control-plane:8080"
 KSCORE_API_KEY="<your-api-key>"
 KSCORE_OUTPUT_FORMAT="json"
 KSCORE_NO_COLOR="true"
+```
+
+### Bootstrap Environment Variables
+
+The agent bootstrap process supports extensive environment variable configuration for automated deployments:
+
+#### Core Bootstrap Settings
+
+```bash
+# Bootstrap mode: standalone, cluster, join, migrate
+KSCORE_BOOTSTRAP_MODE="cluster"
+
+# Cluster identification
+KSCORE_CLUSTER_NAME="production-cluster"
+KSCORE_NODE_NAME="node-01"
+KSCORE_NODE_ROLE="control"  # control, agent, or both
+
+# Network configuration
+KSCORE_BIND_ADDRESS="0.0.0.0"
+KSCORE_ADVERTISE_ADDRESS="10.0.0.1"
+```
+
+#### Cluster Join Settings
+
+```bash
+# Join an existing cluster
+KSCORE_JOIN_ENDPOINT="https://control-plane:8080"
+KSCORE_JOIN_TOKEN="<bootstrap-token>"
+```
+
+#### Storage Backend
+
+```bash
+# Storage backend: sqlite, postgresql
+KSCORE_STORAGE_BACKEND="postgresql"
+
+# PostgreSQL connection
+KSCORE_POSTGRES_HOST="postgres.example.com"
+KSCORE_POSTGRES_PORT="5432"
+KSCORE_POSTGRES_USER="keystone"
+KSCORE_POSTGRES_PASSWORD="<password>"
+KSCORE_POSTGRES_DATABASE="keystone_core"
+KSCORE_POSTGRES_SSL_MODE="require"
+```
+
+#### NATS Configuration
+
+```bash
+# NATS mode: embedded, external, leaf
+KSCORE_NATS_MODE="external"
+KSCORE_NATS_URLS="nats://nats-1:4222,nats://nats-2:4222"
+KSCORE_NATS_CREDS_FILE="/etc/keystone-core/nats.creds"
+KSCORE_NATS_USER="keystone"
+KSCORE_NATS_PASSWORD="<password>"
+```
+
+#### TLS Configuration
+
+```bash
+# Generate self-signed certificates (development only)
+KSCORE_GENERATE_CERTS="true"
+
+# Use existing certificates
+KSCORE_TLS_CERT="/etc/keystone-core/tls/cert.pem"
+KSCORE_TLS_KEY="/etc/keystone-core/tls/key.pem"
+KSCORE_TLS_CA="/etc/keystone-core/tls/ca.pem"
+KSCORE_TLS_CLIENT_CERT="/etc/keystone-core/tls/client-cert.pem"
+KSCORE_TLS_CLIENT_KEY="/etc/keystone-core/tls/client-key.pem"
+KSCORE_TLS_MIN_VERSION="1.3"
+```
+
+#### Node Labels
+
+```bash
+# Labels for targeting (key=value pairs, comma-separated)
+KSCORE_NODE_LABELS="environment=production,datacenter=us-east-1,role=webserver"
+```
+
+#### Package Installation
+
+```bash
+# Package channel: stable, beta, nightly
+KSCORE_PACKAGE_CHANNEL="stable"
+
+# Specific version to install
+KSCORE_PACKAGE_VERSION="0.1.0"
+```
+
+#### Migration Settings
+
+```bash
+# Migrate from another system
+KSCORE_MIGRATE_FROM="salt"
+KSCORE_MIGRATE_CONFIG="/etc/salt/minion"
+KSCORE_MIGRATE_STATE_DIR="/srv/salt"
+KSCORE_MIGRATE_PILLAR_DIR="/srv/pillar"
+```
+
+#### Blueprint Application
+
+```bash
+# Blueprints directory to apply on bootstrap
+KSCORE_BLUEPRINTS_DIR="/etc/keystone-core/blueprints"
+
+# Apply specific blueprints (comma-separated)
+KSCORE_APPLY_BLUEPRINTS="kscore/production-cluster,kscore/monitoring-stack"
+
+# Blueprint parameters (JSON format)
+KSCORE_BLUEPRINT_PARAMS='{"cluster_name":"prod","node_count":3}'
+
+# Blueprint features to enable (comma-separated)
+KSCORE_BLUEPRINT_FEATURES="tls,monitoring,backup"
+
+# Blueprint entrypoints (comma-separated)
+KSCORE_BLUEPRINT_ENTRYPOINTS="infra,services"
+```
+
+#### State Export
+
+```bash
+# Export generated states to directory
+KSCORE_EXPORT_STATES_DIR="/var/lib/keystone-core/generated-states"
+```
+
+#### Non-Interactive Mode
+
+```bash
+# Run bootstrap without prompts (for automation)
+KSCORE_BOOTSTRAP_NON_INTERACTIVE="true"
 ```
 
 ## Configuration Validation

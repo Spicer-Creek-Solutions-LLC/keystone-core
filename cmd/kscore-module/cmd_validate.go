@@ -235,17 +235,19 @@ func isValidSemver(version string) bool {
 	// Basic semver validation: X.Y.Z with optional prerelease
 	// For full validation, use the resolver package
 	parts := 0
+loop:
 	for _, c := range version {
-		if c == '.' {
+		switch {
+		case c == '.':
 			parts++
-		} else if c >= '0' && c <= '9' {
+		case c >= '0' && c <= '9':
 			continue
-		} else if c == '-' || c == '+' {
-			// Prerelease or build metadata
-			break
-		} else if c >= 'a' && c <= 'z' {
+		case c == '-' || c == '+':
+			// Prerelease or build metadata - stop counting parts
+			break loop
+		case c >= 'a' && c <= 'z':
 			continue
-		} else {
+		default:
 			return false
 		}
 	}

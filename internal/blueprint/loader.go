@@ -11,6 +11,8 @@ import (
 	"strings"
 	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render YAML/text configs, not HTML responses
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -197,7 +199,8 @@ func (l *Loader) resolveParameters(bp *Blueprint, userParams map[string]interfac
 
 // applyDefaults recursively applies default values.
 func (l *Loader) applyDefaults(prefix string, schemas map[string]ParameterSchema, result map[string]interface{}, enabledFeatures []string) {
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		// Skip feature-gated parameters if feature not enabled
 		if schema.Feature != "" && !containsString(enabledFeatures, schema.Feature) {
 			continue
@@ -230,7 +233,8 @@ func (l *Loader) validateParameters(bp *Blueprint, params map[string]interface{}
 
 // validateParameterValues recursively validates parameter values.
 func (l *Loader) validateParameterValues(prefix string, schemas map[string]ParameterSchema, values map[string]interface{}, enabledFeatures []string) error {
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		fullName := name
 		if prefix != "" {
 			fullName = prefix + "." + name
@@ -417,14 +421,14 @@ func (l *Loader) LoadStateWithBlueprint(ctx context.Context, stateData []byte) (
 // StateWithBlueprints represents a state file that can include blueprints.
 type StateWithBlueprints struct {
 	// Include lists blueprints and other files to include
-	Include []BlueprintInclude `yaml:"include,omitempty"`
+	Include []Include `yaml:"include,omitempty"`
 
 	// States contains the state declarations
 	States map[string]interface{} `yaml:"states,omitempty"`
 }
 
-// BlueprintInclude represents a blueprint include directive.
-type BlueprintInclude struct {
+// Include represents a blueprint include directive.
+type Include struct {
 	// Blueprint is the blueprint reference (e.g., "blueprints/community/web-app-stack")
 	Blueprint string `yaml:"blueprint,omitempty"`
 
@@ -452,12 +456,12 @@ type BlueprintInclude struct {
 }
 
 // IsBlueprint returns true if this is a blueprint include.
-func (i *BlueprintInclude) IsBlueprint() bool {
+func (i *Include) IsBlueprint() bool {
 	return i.Blueprint != ""
 }
 
 // ToLoadConfig converts the include to a LoadConfig.
-func (i *BlueprintInclude) ToLoadConfig() *LoadConfig {
+func (i *Include) ToLoadConfig() *LoadConfig {
 	// Merge Params into Parameters (Parameters takes precedence)
 	params := i.GetParameters()
 
@@ -474,7 +478,7 @@ func (i *BlueprintInclude) ToLoadConfig() *LoadConfig {
 
 // GetParameters returns the merged parameters from both Parameters and Params fields.
 // The Parameters field takes precedence over Params.
-func (i *BlueprintInclude) GetParameters() map[string]interface{} {
+func (i *Include) GetParameters() map[string]interface{} {
 	if len(i.Params) == 0 {
 		return i.Parameters
 	}
@@ -615,7 +619,7 @@ func templateFuncs() template.FuncMap {
 		},
 		"upper": strings.ToUpper,
 		"lower": strings.ToLower,
-		"title": strings.Title,
+		"title": cases.Title(language.English).String,
 		"trim":  strings.TrimSpace,
 		"join": func(sep string, items []string) string {
 			return strings.Join(items, sep)
@@ -624,8 +628,8 @@ func templateFuncs() template.FuncMap {
 			return strings.Split(s, sep)
 		},
 		"contains": strings.Contains,
-		"replace": func(old, new, s string) string {
-			return strings.ReplaceAll(s, old, new)
+		"replace": func(old, replacement, s string) string {
+			return strings.ReplaceAll(s, old, replacement)
 		},
 		"indent": func(spaces int, s string) string {
 			pad := strings.Repeat(" ", spaces)

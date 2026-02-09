@@ -16,7 +16,7 @@ import (
 // Run with:
 //
 //	KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/multi-node-cluster.yaml \
-//	  KSCORE_REPO_URL=http://${KSCORE_VM_HOST}:8080/repos \
+//	  KSCORE_REPO_URL=http://repo-host.example.internal:8080/repos \
 //	  go test -v ./test/bootstrap/vm/scenarios -run TestMultiNodeCluster
 func TestMultiNodeCluster(t *testing.T) {
 	vm.RunVMTests(t, "", []func(*testing.T, vm.Provider, *vm.Config){
@@ -62,30 +62,30 @@ func testClusterBootstrap(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 
 	// Step 1: Bootstrap control-plane first
 	t.Logf("Bootstrapping control-plane node %s (%s)", cpNode.Name, cpNode.Host)
-	bootstrapControlPlane(t, ctx, cpNode, cfg)
+	bootstrapControlPlane(ctx, t, cpNode, cfg)
 
 	// Step 2: Bootstrap agent with join to control-plane
 	t.Logf("Bootstrapping agent node %s (%s) to join %s", agentNode.Name, agentNode.Host, cpNode.Host)
-	bootstrapAgent(t, ctx, agentNode, cpNode, cfg)
+	bootstrapAgent(ctx, t, agentNode, cpNode, cfg)
 }
 
-func bootstrapControlPlane(t *testing.T, ctx context.Context, node *vm.Node, cfg *vm.Config) {
+func bootstrapControlPlane(ctx context.Context, t *testing.T, node *vm.Node, cfg *vm.Config) {
 	t.Helper()
 
 	// Detect OS
-	osInfo := detectOS(t, ctx, node)
+	osInfo := detectOS(ctx, t, node)
 	t.Logf("Detected OS: %s, package manager: %s", osInfo.name, osInfo.pkgManager)
 
 	// Clean previous installation if configured
 	if cfg.SSH.CleanNodes {
-		cleanPreviousInstall(t, ctx, node, osInfo)
+		cleanPreviousInstall(ctx, t, node, osInfo)
 	}
 
 	// Configure package repository
-	configureRepo(t, ctx, node, osInfo)
+	configureRepo(ctx, t, node, osInfo)
 
 	// Install packages
-	installPackages(t, ctx, node, osInfo)
+	installPackages(ctx, t, node, osInfo)
 
 	// Pre-test: check permissions on keystone-core directories
 	t.Log("Pre-test: checking directory permissions...")
@@ -146,7 +146,7 @@ auth:
 		// Also check config file
 		cfgFile, _ := execShell(ctx, node, sudo(node, "cat /etc/keystone-core/server.yaml 2>&1 || true"))
 		t.Logf("Server config file:\n%s", cfgFile.Stdout)
-		captureBootstrapDiagnostics(t, ctx, node)
+		captureBootstrapDiagnostics(ctx, t, node)
 		t.Fatalf("control-plane bootstrap failed: %v", err)
 	}
 	t.Logf("Bootstrap output:\n%s", result.Stdout)
@@ -155,23 +155,23 @@ auth:
 	time.Sleep(5 * time.Second)
 }
 
-func bootstrapAgent(t *testing.T, ctx context.Context, agentNode, cpNode *vm.Node, cfg *vm.Config) {
+func bootstrapAgent(ctx context.Context, t *testing.T, agentNode, cpNode *vm.Node, cfg *vm.Config) {
 	t.Helper()
 
 	// Detect OS
-	osInfo := detectOS(t, ctx, agentNode)
+	osInfo := detectOS(ctx, t, agentNode)
 	t.Logf("Detected OS: %s, package manager: %s", osInfo.name, osInfo.pkgManager)
 
 	// Clean previous installation if configured
 	if cfg.SSH.CleanNodes {
-		cleanPreviousInstall(t, ctx, agentNode, osInfo)
+		cleanPreviousInstall(ctx, t, agentNode, osInfo)
 	}
 
 	// Configure package repository
-	configureRepo(t, ctx, agentNode, osInfo)
+	configureRepo(ctx, t, agentNode, osInfo)
 
 	// Install packages
-	installPackages(t, ctx, agentNode, osInfo)
+	installPackages(ctx, t, agentNode, osInfo)
 
 	// Bootstrap as agent joining control-plane
 	// The agent needs to know the NATS URL of the control-plane
@@ -183,7 +183,7 @@ func bootstrapAgent(t *testing.T, ctx context.Context, agentNode, cpNode *vm.Nod
 	result, err := execShell(ctx, agentNode, bootstrapCmd)
 	if err != nil {
 		t.Logf("Bootstrap output:\n%s", result.Stdout)
-		captureBootstrapDiagnostics(t, ctx, agentNode)
+		captureBootstrapDiagnostics(ctx, t, agentNode)
 		t.Fatalf("agent bootstrap failed: %v", err)
 	}
 	t.Logf("Bootstrap output:\n%s", result.Stdout)
@@ -192,7 +192,7 @@ func bootstrapAgent(t *testing.T, ctx context.Context, agentNode, cpNode *vm.Nod
 	time.Sleep(5 * time.Second)
 }
 
-func captureBootstrapDiagnostics(t *testing.T, ctx context.Context, node *vm.Node) {
+func captureBootstrapDiagnostics(ctx context.Context, t *testing.T, node *vm.Node) {
 	t.Helper()
 
 	// Get service status
@@ -267,7 +267,7 @@ func captureBootstrapDiagnostics(t *testing.T, ctx context.Context, node *vm.Nod
 	}
 
 	// Check bootstrap diagnostics file
-	diagFile, _ := execShell(ctx, node, sudo(node, "ls -t /var/log/kscore/kscore-bootstrap-diagnostics-*.log 2>/dev/null | head -1"))
+	diagFile, _ := execShell(ctx, node, sudo(node, "ls -t /var/log/keystone-core/kscore-bootstrap-diagnostics-*.log 2>/dev/null | head -1"))
 	if diagFile.Stdout != "" {
 		diagPath := strings.TrimSpace(diagFile.Stdout)
 		diag, _ := execShell(ctx, node, sudo(node, fmt.Sprintf("cat %s 2>&1 || true", diagPath)))
@@ -291,20 +291,20 @@ func testClusterHealth(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 		switch node.Role {
 		case "control-plane":
 			// Control-plane runs server only
-			checkServiceActive(t, ctx, node, "kscore-server")
-			checkPortOpen(t, ctx, node, 4222, "NATS")
-			checkPortOpen(t, ctx, node, 8080, "HTTP API")
-			checkPortOpen(t, ctx, node, 9090, "gRPC API")
+			checkServiceActive(ctx, t, node, "kscore-server")
+			checkPortOpen(ctx, t, node, 4222, "NATS")
+			checkPortOpen(ctx, t, node, 8080, "HTTP API")
+			checkPortOpen(ctx, t, node, 9090, "gRPC API")
 		case "both":
 			// Both runs server and agent
-			checkServiceActive(t, ctx, node, "kscore-server")
-			checkServiceActive(t, ctx, node, "kscore-agent")
-			checkPortOpen(t, ctx, node, 4222, "NATS")
-			checkPortOpen(t, ctx, node, 8080, "HTTP API")
-			checkPortOpen(t, ctx, node, 9090, "gRPC API")
+			checkServiceActive(ctx, t, node, "kscore-server")
+			checkServiceActive(ctx, t, node, "kscore-agent")
+			checkPortOpen(ctx, t, node, 4222, "NATS")
+			checkPortOpen(ctx, t, node, 8080, "HTTP API")
+			checkPortOpen(ctx, t, node, 9090, "gRPC API")
 		case "agent":
 			// Agent-only node
-			checkServiceActive(t, ctx, node, "kscore-agent")
+			checkServiceActive(ctx, t, node, "kscore-agent")
 		}
 	}
 }

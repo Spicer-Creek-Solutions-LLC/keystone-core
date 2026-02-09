@@ -88,7 +88,7 @@ auth:
 auth:
   type: jwt
   jwt:
-    public_key_file: /etc/kscore/jwt-public.pem  # RSA or ECDSA public key
+    public_key_file: /etc/keystone-core/jwt-public.pem  # RSA or ECDSA public key
     issuer: "https://auth.example.com"
     audience: "kscore-api"
     role_claim: "role"
@@ -109,20 +109,19 @@ auth:
 }
 ```
 
-**Generate Token:**
+**Generate API Key:**
 ```bash
-# Create user token
-kscorectl auth login --username admin --password $ADMIN_PASSWORD
+# Create an API key for CLI authentication
+kscorectl api-key create --name "admin-cli" --role admin --expires-in 30d
 
-# Token stored in ~/.kscore/token
+# The returned key can be used via:
+# - X-API-Key header in API requests
+# - KSCORE_API_KEY environment variable
 ```
 
-**Token Refresh:**
-```bash
-# Tokens auto-refresh when within 1 hour of expiry
-# Manual refresh:
-kscorectl auth refresh
-```
+> **Note:** Interactive CLI login (`auth login`) is not implemented. Use API keys for
+> programmatic access or configure an external identity provider (Auth0, Okta, Keycloak)
+> for user authentication via JWT.
 
 **Using JWT with External Identity Providers:**
 ```yaml
@@ -130,10 +129,10 @@ kscorectl auth refresh
 auth:
   type: jwt
   jwt:
-    public_key_file: /etc/kscore/idp-public.pem  # From your IdP
+    public_key_file: /etc/keystone-core/idp-public.pem  # From your IdP
     issuer: "https://your-tenant.auth0.com/"
     audience: "kscore-api"
-    role_claim: "https://kscore.io/role"  # Custom claim namespace
+    role_claim: "https://keystone-core.io/role"  # Custom claim namespace
 ```
 
 ### Certificate-Based Authentication (mTLS)
@@ -209,9 +208,9 @@ auth:
 api:
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/server-cert.pem
-    key_file: /etc/kscore/certs/server-key.pem
-    ca_file: /etc/kscore/certs/ca.pem
+    cert_file: /etc/keystone-core/certs/server-cert.pem
+    key_file: /etc/keystone-core/certs/server-key.pem
+    ca_file: /etc/keystone-core/certs/ca.pem
     client_auth: require
 ```
 
@@ -235,13 +234,13 @@ Patterns are matched in specificity order (most specific first):
 
 **Client Configuration:**
 ```yaml
-# ~/.kscore/config.yaml
+# ~/.keystone-core/config.yaml
 api:
   url: "https://control-plane:8080"
   tls:
-    cert_file: ~/.kscore/certs/client-cert.pem
-    key_file: ~/.kscore/certs/client-key.pem
-    ca_file: ~/.kscore/certs/ca.pem
+    cert_file: ~/.keystone-core/certs/client-cert.pem
+    key_file: ~/.keystone-core/certs/client-key.pem
+    ca_file: ~/.keystone-core/certs/ca.pem
 ```
 
 **Certificate Metadata:**
@@ -301,7 +300,7 @@ accounts {
 nats:
   url: "nats://nats-server:4222"
   credentials:
-    file: /etc/kscore/nats.creds
+    file: /etc/keystone-core/nats.creds
 ```
 
 ## TLS Configuration
@@ -348,8 +347,8 @@ api:
   listen: "0.0.0.0:8443"  # HTTPS port
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/server.crt
-    key_file: /etc/kscore/certs/server.key
+    cert_file: /etc/keystone-core/certs/server.crt
+    key_file: /etc/keystone-core/certs/server.key
     min_version: "TLS1.3"
     cipher_suites:
       - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
@@ -394,9 +393,9 @@ tls {
 nats:
   url: "tls://nats-server:4222"
   tls:
-    ca_file: /etc/kscore/certs/nats-ca.crt
-    cert_file: /etc/kscore/certs/agent-cert.crt
-    key_file: /etc/kscore/certs/agent-key.key
+    ca_file: /etc/keystone-core/certs/nats-ca.crt
+    cert_file: /etc/keystone-core/certs/agent-cert.crt
+    key_file: /etc/keystone-core/certs/agent-key.key
     verify_server: true
 ```
 
@@ -425,9 +424,9 @@ storage:
   postgresql:
     host: "postgres-server"
     sslmode: "require"  # or "verify-ca" or "verify-full"
-    sslcert: "/etc/kscore/certs/client.crt"
-    sslkey: "/etc/kscore/certs/client.key"
-    sslrootcert: "/etc/kscore/certs/ca.crt"
+    sslcert: "/etc/keystone-core/certs/client.crt"
+    sslkey: "/etc/keystone-core/certs/client.key"
+    sslrootcert: "/etc/keystone-core/certs/ca.crt"
 ```
 
 ## Webhook Security
@@ -587,8 +586,8 @@ webhooks:
   addr: ":8443"                # HTTPS port
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/webhook.crt
-    key_file: /etc/kscore/certs/webhook.key
+    cert_file: /etc/keystone-core/certs/webhook.crt
+    key_file: /etc/keystone-core/certs/webhook.key
     min_version: "TLS1.3"
 ```
 
@@ -645,10 +644,11 @@ webhooks:
 
 **Query webhook audit logs:**
 ```bash
-kscorectl audit query \
-  --type "gitops.webhook.*" \
-  --since 24h \
-  --result failed
+# Use kscore-audit log with jq filtering
+kscore-audit log --output json | jq 'select(.event_type | startswith("gitops.webhook")) | select(.result == "failed")'
+
+# Or filter the audit log file directly
+cat /var/log/keystone-core/audit.log | jq 'select(.event_type | startswith("gitops.webhook"))'
 ```
 
 ### Monitoring and Alerting
@@ -703,8 +703,8 @@ webhooks:
   path: "/github/webhooks"
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/webhook.crt
-    key_file: /etc/kscore/certs/webhook.key
+    cert_file: /etc/keystone-core/certs/webhook.crt
+    key_file: /etc/keystone-core/certs/webhook.key
   auth:
     type: hmac
     secret: "${GITHUB_WEBHOOK_SECRET}"
@@ -735,8 +735,8 @@ webhooks:
 # Check webhook stats
 curl -s https://kscore.example.com/stats | jq '.webhooks'
 
-# Check recent webhook events
-kscorectl audit query --type "gitops.github.*" --since 1h
+# Check recent webhook events in audit log
+kscore-audit log --output json | jq 'select(.event_type | startswith("gitops.github"))'
 ```
 
 ## RBAC (Role-Based Access Control)
@@ -786,8 +786,17 @@ Define fine-grained access control policies.
 ```
 
 **Assign Role to User:**
-```bash
-kscorectl rbac assign --user alice --role deployment-manager
+
+> **Note**: Role assignments are configured through policy files and JWT claims, not CLI commands.
+> Map users to roles in your identity provider (IdP) or via mTLS certificate role mappings.
+
+```yaml
+# In server.yaml, map certificates to roles
+auth:
+  type: mtls
+  mtls:
+    cert_roles:
+      "alice.example.com": deployment-manager
 ```
 
 ### Policy-Based Access Control
@@ -833,15 +842,20 @@ kscorectl policy create rbac --file rbac.rego --enforce
 
 ### Audit RBAC Changes
 
+> **Note**: Roles are defined in policy files and server configuration, not a CLI database.
+
 ```bash
-# List all roles
-kscorectl rbac list-roles
+# Review role definitions in your policy files
+cat /etc/keystone-core/roles.yaml
 
-# List role assignments
-kscorectl rbac list-assignments
+# Review mTLS role mappings in server config
+grep -A 20 'cert_roles:' /etc/keystone-core/server.yaml
 
-# View audit log
-kscorectl policy audit --category rbac --since 24h
+# View policy evaluation audit log (shows access decisions)
+kscorectl policy audit --denied --limit 100
+
+# Or use kscore-audit for general audit logs
+kscore-audit log --output json | jq 'select(.event_type | contains("rbac"))'
 ```
 
 ## Security Hardening
@@ -882,16 +896,16 @@ sudo systemctl disable cups
 **File System Permissions:**
 ```bash
 # Restrict config files
-sudo chmod 600 /etc/kscore/server.yaml
-sudo chown kscore:kscore /etc/kscore/server.yaml
+sudo chmod 600 /etc/keystone-core/server.yaml
+sudo chown kscore:kscore /etc/keystone-core/server.yaml
 
 # Restrict private keys
-sudo chmod 400 /etc/kscore/certs/*.key
-sudo chown kscore:kscore /etc/kscore/certs/*.key
+sudo chmod 400 /etc/keystone-core/certs/*.key
+sudo chown kscore:kscore /etc/keystone-core/certs/*.key
 
 # Restrict database files
-sudo chmod 700 /var/lib/kscore
-sudo chown kscore:kscore /var/lib/kscore
+sudo chmod 700 /var/lib/keystone-core
+sudo chown kscore:kscore /var/lib/keystone-core
 ```
 
 **SELinux/AppArmor:**
@@ -918,7 +932,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/kscore
+ReadWritePaths=/var/lib/keystone-core
 ```
 
 **API Rate Limiting:**
@@ -1004,7 +1018,7 @@ secrets:
   backend: vault
   vault:
     address: https://vault.example.com
-    token_file: /etc/kscore/vault-token
+    token_file: /etc/keystone-core/vault-token
 
 # Never store secrets in config files
 database:
@@ -1053,7 +1067,7 @@ Track all security-relevant events.
 # server.yaml
 audit:
   enabled: true
-  log_file: /var/log/kscore/audit.log
+  log_file: /var/log/keystone-core/audit.log
   log_level: info
   events:
     - authentication
@@ -1086,13 +1100,13 @@ audit:
 **With jq:**
 ```bash
 # All failed operations
-cat /var/log/kscore/audit.log | jq 'select(.result == "failed")'
+cat /var/log/keystone-core/audit.log | jq 'select(.result == "failed")'
 
 # All actions by user
-cat /var/log/kscore/audit.log | jq 'select(.user == "alice")'
+cat /var/log/keystone-core/audit.log | jq 'select(.user == "alice")'
 
 # State applications in last hour
-cat /var/log/kscore/audit.log | \
+cat /var/log/keystone-core/audit.log | \
   jq 'select(.event_type == "state.apply" and .timestamp > "2024-01-15T09:00:00Z")'
 ```
 
@@ -1123,7 +1137,7 @@ audit:
 **Off-site Archival:**
 ```bash
 # Daily export to S3
-aws s3 cp /var/log/kscore/audit.log \
+aws s3 cp /var/log/keystone-core/audit.log \
   s3://compliance-logs/kscore/audit-$(date +%Y-%m-%d).log
 
 # Compress and encrypt
@@ -1142,7 +1156,7 @@ policy:
   audit:
     # Use persistent SQLite storage (recommended for production)
     store: sqlite
-    path: /var/lib/kscore/policy-audit.db
+    path: /var/lib/keystone-core/policy-audit.db
 
     # Retention policy
     retention:
@@ -1202,17 +1216,17 @@ policy:
 
 **Query Policy Audit:**
 ```bash
-# List policy evaluations
-kscorectl policy audit list --limit 100
+# List policy evaluations (most recent 100)
+kscorectl policy audit --limit 100
 
-# Filter by policy
-kscorectl policy audit list --policy-id require-labels
+# Filter by policy ID
+kscorectl policy audit --policy require-labels
 
-# Filter by result
-kscorectl policy audit list --denied --since 24h
+# Show only denied evaluations
+kscorectl policy audit --denied
 
-# Get summary
-kscorectl policy audit summary --since 7d
+# Output as JSON for further processing
+kscorectl policy audit --output json | jq 'group_by(.policy_id) | map({policy: .[0].policy_id, count: length})'
 ```
 
 **Retention Policy Options:**
@@ -1307,15 +1321,22 @@ storage:
 ### GDPR Compliance
 
 **Data Subject Rights:**
+
+> **Note**: User management is handled by your external identity provider (IdP).
+> Keystone Core does not store user accounts directly.
+
 ```bash
-# Right to access
-kscorectl audit query --user alice --output json > alice-data.json
+# Right to access - query audit logs for user activity
+kscore-audit log --output json | jq 'select(.user == "alice")' > alice-audit-data.json
 
-# Right to erasure ("right to be forgotten")
-kscorectl user delete alice --purge-data
+# Right to erasure - remove user from your IdP and revoke API keys
+# 1. Delete user in IdP (Auth0, Okta, Keycloak, etc.)
+# 2. Revoke any API keys issued to the user
+kscorectl api-key list | grep alice
+kscorectl api-key revoke <key-id>
 
-# Data portability
-kscorectl export --user alice --format json
+# Data portability - export audit trail
+kscore-audit export --format json --output alice-export.json
 ```
 
 **Data Retention:**
@@ -1363,9 +1384,12 @@ vault kv put secret/kscore/api-keys monitoring="sk_monitoring_key"
 # Update secret in Vault
 vault kv put secret/kscore/database password="new-secure-password"
 
-# Keystone Core auto-reloads secrets every 5 minutes
-# Or trigger immediate reload
-kscorectl secrets reload
+# Keystone Core auto-reloads secrets periodically (configurable interval)
+# To force immediate reload, restart the service
+sudo systemctl restart kscore-server
+
+# Or use rolling restart for zero-downtime (if clustered)
+kscorectl cluster rolling-restart --component server
 ```
 
 ### Kubernetes Secrets
@@ -1520,9 +1544,9 @@ nats:
     host: "0.0.0.0"                 # External access
     port: 4222
     tls:                            # REQUIRED for non-localhost
-      cert_file: "/etc/kscore/nats.crt"
-      key_file: "/etc/kscore/nats.key"
-      ca_file: "/etc/kscore/ca.crt"
+      cert_file: "/etc/keystone-core/nats.crt"
+      key_file: "/etc/keystone-core/nats.key"
+      ca_file: "/etc/keystone-core/ca.crt"
       verify: true
     auth:                           # REQUIRED for non-localhost
       token: "${NATS_TOKEN}"
@@ -1575,7 +1599,7 @@ Modules run in isolated execution environments:
 Create a capability policy to restrict module permissions:
 
 ```yaml
-# /etc/kscore/capability-policy.yaml
+# /etc/keystone-core/capability-policy.yaml
 schema_version: 1
 
 defaults:
@@ -1613,41 +1637,52 @@ modules:
 
 ### Locking Module Capabilities
 
-Prevent capability escalation across module updates:
+Prevent capability escalation across module updates by using capability policies:
 
-```bash
-# Lock a module's capabilities
-kscorectl module lock my-org/production-module \
-  --reason "Production deployment - capabilities frozen"
+> **Note**: Module capability locking is enforced via policy configuration, not CLI commands.
 
-# View lock status
-kscorectl module lock show my-org/production-module
+```yaml
+# /etc/keystone-core/capability-policy.yaml
+modules:
+  my-org/production-module:
+    # Lock capabilities to current version
+    lock_capabilities: true
+    locked_version: "1.2.3"
+    locked_reason: "Production deployment - capabilities frozen"
 
-# Unlock (requires admin role)
-kscorectl module unlock my-org/production-module
+    # Explicitly allow only these capabilities
+    allowed_capabilities:
+      - fs.read
+      - http.get
+    denied_capabilities:
+      - exec
+      - fs.write
 ```
 
 When a locked module is updated:
-- New capabilities are **blocked**
+- New capabilities are **blocked** by policy
 - Removed capabilities are **allowed**
 - More restrictive configurations are **allowed**
 
 ### Module Security Audit
 
 ```bash
-# List all modules and their capabilities
-kscorectl module list --show-capabilities
+# List installed modules
+kscorectl module list
 
-# Show capability policy evaluation for a module
-kscorectl module capabilities show my-org/web-deployer
+# Show module manifest (includes declared capabilities)
+kscorectl module show my-org/web-deployer
 
-# Export capability grants for compliance review
-kscorectl module capabilities export --format csv > capabilities-report.csv
+# Review capability policy configuration
+cat /etc/keystone-core/capability-policy.yaml
+
+# Export module list for compliance review
+kscorectl module list --output json > modules-report.json
 ```
 
 ### Module Security Checklist
 
-- [ ] Capability policy deployed (`/etc/kscore/capability-policy.yaml`)
+- [ ] Capability policy deployed (`/etc/keystone-core/capability-policy.yaml`)
 - [ ] `exec` capability denied by default
 - [ ] Third-party modules have explicit policy entries
 - [ ] Production modules are capability-locked
@@ -1694,19 +1729,24 @@ For complete module security documentation, see [Module System & Security](/docs
 **Incident Response Plan:**
 ```bash
 # 1. Isolate compromised node
-kscorectl agent quarantine web-05
+kscorectl agents quarantine web-05
 
 # 2. Collect forensic data
-kscorectl exec run "tar -czf /tmp/forensics.tar.gz /var/log /etc" --target "web-05"
+kscorectl exec run "web-05" -- tar -czf /tmp/forensics.tar.gz /var/log /etc
 
-# 3. Revoke credentials
-kscorectl api-key revoke-all --user compromised-user
+# 3. Revoke credentials - list and revoke API keys individually
+kscorectl api-key list
+kscorectl api-key revoke <key-id-1>
+kscorectl api-key revoke <key-id-2>
 
-# 4. Force password reset
-kscorectl user reset-password --all
+# 4. Force password reset - handled by your identity provider
+# Use your IdP's admin console (Auth0, Okta, Keycloak) to:
+# - Force password reset for affected users
+# - Revoke active sessions
 
 # 5. Review audit logs
-kscorectl audit query --since "incident-start-time" --severity critical
+kscore-audit log --output json | jq 'select(.timestamp > "2024-01-15T00:00:00Z")'
+kscore-audit report --since 24h
 ```
 
 ## Security Tools
@@ -1735,7 +1775,7 @@ tail -f /var/ossec/logs/alerts/alerts.log
 **Secrets Detection:**
 ```bash
 # Scan git repo for accidentally committed secrets
-trufflehog filesystem /etc/kscore
+trufflehog filesystem /etc/keystone-core
 ```
 
 ## Vulnerability Management
@@ -1842,8 +1882,8 @@ When govulncheck reports a vulnerability:
 ## See Also
 
 - [Threat Model](/docs/concepts/threat-model/) - Security threat model and STRIDE analysis
-- [Deployment Guide](deployment/) - Secure deployment patterns
-- [Monitoring Guide](monitoring/) - Security monitoring
-- [Maintenance Guide](maintenance/) - Secure backup procedures
-- [Troubleshooting Guide](troubleshooting/) - Security issue resolution
+- [Deployment Guide](/docs/operations/deployment/) - Secure deployment patterns
+- [Monitoring Guide](/docs/operations/monitoring/) - Security monitoring
+- [Maintenance Guide](/docs/operations/maintenance/) - Secure backup procedures
+- [Troubleshooting Guide](/docs/operations/troubleshooting/) - Security issue resolution
 - [Policy Concepts](/docs/concepts/policy/) - Policy enforcement

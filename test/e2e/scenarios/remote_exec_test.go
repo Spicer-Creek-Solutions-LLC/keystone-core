@@ -3,6 +3,7 @@ package scenarios
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -106,9 +107,9 @@ func TestRemoteExec_NonZeroExit(t *testing.T) {
 	agentID := "agent-web-1"
 
 	testCases := []struct {
-		name         string
-		exitCode     int
-		args         []string
+		name     string
+		exitCode int
+		args     []string
 	}{
 		{"exit 1", 1, []string{"-c", "exit 1"}},
 		{"exit 42", 42, []string{"-c", "exit 42"}},
@@ -234,7 +235,7 @@ func TestRemoteExec_GlobTargeting(t *testing.T) {
 
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
@@ -301,7 +302,7 @@ func TestRemoteExec_BatchParallelExecution(t *testing.T) {
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -315,6 +316,7 @@ func TestRemoteExec_BatchParallelExecution(t *testing.T) {
 			agentStarts = append(agentStarts, time.Now())
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_AGENT_COMPLETE:
 			agentEnds = append(agentEnds, time.Now())
+		default:
 		}
 	}
 
@@ -373,7 +375,7 @@ func TestRemoteExec_BatchSequentialExecution(t *testing.T) {
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -496,7 +498,7 @@ func TestRemoteExec_ShellExpansion(t *testing.T) {
 		command  string
 		contains string
 	}{
-		{"variable expansion", "echo $HOME", "/"}, // HOME should contain /
+		{"variable expansion", "echo $HOME", "/"},        // HOME should contain /
 		{"command substitution", "echo $(hostname)", ""}, // Just verify it runs
 		{"arithmetic", "echo $((1+1))", "2"},
 		{"glob expansion", "echo /etc/pass*", "passwd"},

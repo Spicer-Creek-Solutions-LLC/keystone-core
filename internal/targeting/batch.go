@@ -31,10 +31,9 @@ type BatchResult struct {
 
 // BatchExecution represents a batch command execution across multiple agents
 type BatchExecution struct {
-	commandID string
-	command   string
-	args      []string
-	env       map[string]string
+	command    string
+	args       []string
+	env        map[string]string
 	workingDir string
 	user       string
 	timeout    int32
@@ -59,9 +58,9 @@ type CommandDispatcher interface {
 
 // BatchExecutor executes commands across multiple agents in parallel
 type BatchExecutor struct {
-	dispatcher   CommandDispatcher
-	connManager  ConnectionManager
-	concurrency  int
+	dispatcher     CommandDispatcher
+	connManager    ConnectionManager
+	concurrency    int
 	defaultTimeout int32
 }
 
@@ -76,7 +75,7 @@ func NewBatchExecutor(dispatcher CommandDispatcher, connManager ConnectionManage
 	return &BatchExecutor{
 		dispatcher:     dispatcher,
 		connManager:    connManager,
-		concurrency:    10, // Default to 10 parallel executions
+		concurrency:    10,  // Default to 10 parallel executions
 		defaultTimeout: 300, // Default 5 minute timeout
 	}
 }
@@ -256,6 +255,8 @@ func (batch *BatchExecution) executeOnAgent(ctx context.Context, agent *AgentInf
 			pb.CommandResponseType_COMMAND_RESPONSE_TYPE_TIMEOUT:
 			result.Success = false
 			result.ExitCode = response.ExitCode
+		default:
+			// COMMAND_RESPONSE_TYPE_UNSPECIFIED handled implicitly
 			result.Error = fmt.Errorf("%s", response.Error)
 			result.EndTime = time.Now()
 			result.Duration = result.EndTime.Sub(result.StartTime)

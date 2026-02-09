@@ -35,16 +35,16 @@ func createCapabilityContext(moduleName, moduleVersion string) *capabilities.Cap
 // Uses safe type assertions to handle stub capabilities gracefully
 func (cb *CapabilityBuiltins) RegisterStarlarkBuiltins(rt *starlark.Runtime) error {
 	// Register fs.read capability
-	if cap, err := cb.registry.Get("fs.read"); err == nil && cap != nil {
-		if fsCap, ok := cap.(*capabilities.FSReadCapability); ok {
+	if c, err := cb.registry.Get("fs.read"); err == nil && c != nil {
+		if fsCap, ok := c.(*capabilities.FSReadCapability); ok {
 			rt.RegisterCapability("fs_read", cb.createFSReadBuiltin(fsCap))
 			rt.RegisterCapability("fs_exists", cb.createFSExistsBuiltin(fsCap))
 		}
 	}
 
 	// Register fs.write capability
-	if cap, err := cb.registry.Get("fs.write"); err == nil && cap != nil {
-		if fsCap, ok := cap.(*capabilities.FSWriteCapability); ok {
+	if c, err := cb.registry.Get("fs.write"); err == nil && c != nil {
+		if fsCap, ok := c.(*capabilities.FSWriteCapability); ok {
 			rt.RegisterCapability("fs_write", cb.createFSWriteBuiltin(fsCap))
 			rt.RegisterCapability("fs_delete", cb.createFSDeleteBuiltin(fsCap))
 			rt.RegisterCapability("fs_mkdir", cb.createFSMkdirBuiltin(fsCap))
@@ -52,36 +52,36 @@ func (cb *CapabilityBuiltins) RegisterStarlarkBuiltins(rt *starlark.Runtime) err
 	}
 
 	// Register exec capability
-	if cap, err := cb.registry.Get("exec"); err == nil && cap != nil {
-		if execCap, ok := cap.(*capabilities.ExecCapability); ok {
+	if c, err := cb.registry.Get("exec"); err == nil && c != nil {
+		if execCap, ok := c.(*capabilities.ExecCapability); ok {
 			rt.RegisterCapability("exec", cb.createExecBuiltin(execCap))
 		}
 	}
 
 	// Register http.get capability
-	if cap, err := cb.registry.Get("http.get"); err == nil && cap != nil {
-		if httpCap, ok := cap.(*capabilities.HTTPGetCapability); ok {
+	if c, err := cb.registry.Get("http.get"); err == nil && c != nil {
+		if httpCap, ok := c.(*capabilities.HTTPGetCapability); ok {
 			rt.RegisterCapability("http_get", cb.createHTTPGetBuiltin(httpCap))
 		}
 	}
 
 	// Register http.post capability
-	if cap, err := cb.registry.Get("http.post"); err == nil && cap != nil {
-		if httpCap, ok := cap.(*capabilities.HTTPPostCapability); ok {
+	if c, err := cb.registry.Get("http.post"); err == nil && c != nil {
+		if httpCap, ok := c.(*capabilities.HTTPPostCapability); ok {
 			rt.RegisterCapability("http_post", cb.createHTTPPostBuiltin(httpCap))
 		}
 	}
 
 	// Register log capability
-	if cap, err := cb.registry.Get("log"); err == nil && cap != nil {
-		if logCap, ok := cap.(*capabilities.LogCapability); ok {
+	if c, err := cb.registry.Get("log"); err == nil && c != nil {
+		if logCap, ok := c.(*capabilities.LogCapability); ok {
 			rt.RegisterCapability("log", cb.createLogBuiltin(logCap))
 		}
 	}
 
 	// Register kv capability
-	if cap, err := cb.registry.Get("kv"); err == nil && cap != nil {
-		if kvCap, ok := cap.(*capabilities.KVCapability); ok {
+	if c, err := cb.registry.Get("kv"); err == nil && c != nil {
+		if kvCap, ok := c.(*capabilities.KVCapability); ok {
 			rt.RegisterCapability("kv_get", cb.createKVGetBuiltin(kvCap))
 			rt.RegisterCapability("kv_set", cb.createKVSetBuiltin(kvCap))
 			rt.RegisterCapability("kv_delete", cb.createKVDeleteBuiltin(kvCap))
@@ -89,22 +89,22 @@ func (cb *CapabilityBuiltins) RegisterStarlarkBuiltins(rt *starlark.Runtime) err
 	}
 
 	// Register secrets.read capability
-	if cap, err := cb.registry.Get("secrets.read"); err == nil && cap != nil {
-		if secretsCap, ok := cap.(*capabilities.SecretsReadCapability); ok {
+	if c, err := cb.registry.Get("secrets.read"); err == nil && c != nil {
+		if secretsCap, ok := c.(*capabilities.SecretsReadCapability); ok {
 			rt.RegisterCapability("secret_get", cb.createSecretGetBuiltin(secretsCap))
 		}
 	}
 
 	// Register secrets.write capability
-	if cap, err := cb.registry.Get("secrets.write"); err == nil && cap != nil {
-		if secretsCap, ok := cap.(*capabilities.SecretsWriteCapability); ok {
+	if c, err := cb.registry.Get("secrets.write"); err == nil && c != nil {
+		if secretsCap, ok := c.(*capabilities.SecretsWriteCapability); ok {
 			rt.RegisterCapability("secret_set", cb.createSecretSetBuiltin(secretsCap))
 		}
 	}
 
 	// Register time capability
-	if cap, err := cb.registry.Get("time"); err == nil && cap != nil {
-		if timeCap, ok := cap.(*capabilities.TimeCapability); ok {
+	if c, err := cb.registry.Get("time"); err == nil && c != nil {
+		if timeCap, ok := c.(*capabilities.TimeCapability); ok {
 			rt.RegisterCapability("time_now", cb.createTimeNowBuiltin(timeCap))
 		}
 	}
@@ -114,7 +114,7 @@ func (cb *CapabilityBuiltins) RegisterStarlarkBuiltins(rt *starlark.Runtime) err
 
 // ---- Filesystem Builtins ----
 
-func (cb *CapabilityBuiltins) createFSReadBuiltin(cap *capabilities.FSReadCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createFSReadBuiltin(c *capabilities.FSReadCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "path", &path); err != nil {
@@ -122,16 +122,16 @@ func (cb *CapabilityBuiltins) createFSReadBuiltin(cap *capabilities.FSReadCapabi
 		}
 
 		ctx := createCapabilityContext("", "")
-		data, err := cap.ReadFile(ctx, path)
+		data, err := c.ReadFile(ctx, path)
 		if err != nil {
 			return nil, fmt.Errorf("fs_read: %w", err)
 		}
 
-		return starlarklib.String(string(data)), nil
+		return starlarklib.String(string(data)), nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createFSExistsBuiltin(cap *capabilities.FSReadCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createFSExistsBuiltin(c *capabilities.FSReadCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "path", &path); err != nil {
@@ -140,16 +140,16 @@ func (cb *CapabilityBuiltins) createFSExistsBuiltin(cap *capabilities.FSReadCapa
 
 		ctx := createCapabilityContext("", "")
 		// Try to open the file to check existence
-		f, err := cap.OpenFile(ctx, path)
+		f, err := c.OpenFile(ctx, path)
 		if err != nil {
-			return starlarklib.False, nil
+			return starlarklib.False, nil //nolint:nilerr // file not found is valid result, not an error
 		}
 		f.Close()
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createFSWriteBuiltin(cap *capabilities.FSWriteCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createFSWriteBuiltin(c *capabilities.FSWriteCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		var content string
@@ -158,15 +158,15 @@ func (cb *CapabilityBuiltins) createFSWriteBuiltin(cap *capabilities.FSWriteCapa
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.WriteFile(ctx, path, []byte(content), 0644); err != nil {
+		if err := c.WriteFile(ctx, path, []byte(content), 0o644); err != nil {
 			return nil, fmt.Errorf("fs_write: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createFSDeleteBuiltin(cap *capabilities.FSWriteCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createFSDeleteBuiltin(c *capabilities.FSWriteCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "path", &path); err != nil {
@@ -174,15 +174,15 @@ func (cb *CapabilityBuiltins) createFSDeleteBuiltin(cap *capabilities.FSWriteCap
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.DeleteFile(ctx, path); err != nil {
+		if err := c.DeleteFile(ctx, path); err != nil {
 			return nil, fmt.Errorf("fs_delete: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createFSMkdirBuiltin(cap *capabilities.FSWriteCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createFSMkdirBuiltin(c *capabilities.FSWriteCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "path", &path); err != nil {
@@ -190,17 +190,17 @@ func (cb *CapabilityBuiltins) createFSMkdirBuiltin(cap *capabilities.FSWriteCapa
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.MkdirAll(ctx, path, os.ModePerm); err != nil {
+		if err := c.MkdirAll(ctx, path, os.ModePerm); err != nil {
 			return nil, fmt.Errorf("fs_mkdir: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- Exec Builtin ----
 
-func (cb *CapabilityBuiltins) createExecBuiltin(cap *capabilities.ExecCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createExecBuiltin(c *capabilities.ExecCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var command string
 		var cmdArgs *starlarklib.List
@@ -219,24 +219,24 @@ func (cb *CapabilityBuiltins) createExecBuiltin(cap *capabilities.ExecCapability
 		}
 
 		ctx := createCapabilityContext("", "")
-		result, err := cap.Exec(ctx, command, goArgs...)
+		result, err := c.Exec(ctx, command, goArgs...)
 		if err != nil {
 			return nil, fmt.Errorf("exec: %w", err)
 		}
 
 		// Return a dict with stdout, stderr, exit_code
 		resultDict := starlarklib.NewDict(3)
-		resultDict.SetKey(starlarklib.String("stdout"), starlarklib.String(result.Stdout))
-		resultDict.SetKey(starlarklib.String("stderr"), starlarklib.String(result.Stderr))
-		resultDict.SetKey(starlarklib.String("exit_code"), starlarklib.MakeInt(result.ExitCode))
+		_ = resultDict.SetKey(starlarklib.String("stdout"), starlarklib.String(result.Stdout))        //nolint:errcheck // SetKey doesn't fail for string keys
+		_ = resultDict.SetKey(starlarklib.String("stderr"), starlarklib.String(result.Stderr))        //nolint:errcheck // SetKey doesn't fail for string keys
+		_ = resultDict.SetKey(starlarklib.String("exit_code"), starlarklib.MakeInt(result.ExitCode)) //nolint:errcheck // SetKey doesn't fail for string keys
 
-		return resultDict, nil
+		return resultDict, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- HTTP Builtins ----
 
-func (cb *CapabilityBuiltins) createHTTPGetBuiltin(cap *capabilities.HTTPGetCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createHTTPGetBuiltin(c *capabilities.HTTPGetCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var url string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "url", &url); err != nil {
@@ -244,65 +244,65 @@ func (cb *CapabilityBuiltins) createHTTPGetBuiltin(cap *capabilities.HTTPGetCapa
 		}
 
 		ctx := createCapabilityContext("", "")
-		resp, err := cap.Get(ctx, url, nil)
+		resp, err := c.Get(ctx, url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("http_get: %w", err)
 		}
 
 		// Return a dict with status_code, body, headers
 		result := starlarklib.NewDict(3)
-		result.SetKey(starlarklib.String("status_code"), starlarklib.MakeInt(resp.StatusCode))
-		result.SetKey(starlarklib.String("body"), starlarklib.String(string(resp.Body)))
+		_ = result.SetKey(starlarklib.String("status_code"), starlarklib.MakeInt(resp.StatusCode)) //nolint:errcheck // SetKey doesn't fail for string keys
+		_ = result.SetKey(starlarklib.String("body"), starlarklib.String(string(resp.Body)))       //nolint:errcheck // SetKey doesn't fail for string keys
 
 		headers := starlarklib.NewDict(len(resp.Headers))
 		for k, vals := range resp.Headers {
 			// HTTP headers can have multiple values, join with comma
 			if len(vals) > 0 {
-				headers.SetKey(starlarklib.String(k), starlarklib.String(vals[0]))
+				_ = headers.SetKey(starlarklib.String(k), starlarklib.String(vals[0])) //nolint:errcheck // SetKey doesn't fail for string keys
 			}
 		}
-		result.SetKey(starlarklib.String("headers"), headers)
+		_ = result.SetKey(starlarklib.String("headers"), headers) //nolint:errcheck // SetKey doesn't fail for string keys
 
-		return result, nil
+		return result, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createHTTPPostBuiltin(cap *capabilities.HTTPPostCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createHTTPPostBuiltin(c *capabilities.HTTPPostCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var url string
 		var body string
-		var contentType string = "application/json"
+		var contentType = "application/json"
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "url", &url, "body", &body, "content_type?", &contentType); err != nil {
 			return nil, err
 		}
 
 		ctx := createCapabilityContext("", "")
 		headers := map[string]string{"Content-Type": contentType}
-		resp, err := cap.Post(ctx, url, []byte(body), headers)
+		resp, err := c.Post(ctx, url, []byte(body), headers)
 		if err != nil {
 			return nil, fmt.Errorf("http_post: %w", err)
 		}
 
 		// Return a dict with status_code, body, headers
 		result := starlarklib.NewDict(3)
-		result.SetKey(starlarklib.String("status_code"), starlarklib.MakeInt(resp.StatusCode))
-		result.SetKey(starlarklib.String("body"), starlarklib.String(string(resp.Body)))
+		_ = result.SetKey(starlarklib.String("status_code"), starlarklib.MakeInt(resp.StatusCode)) //nolint:errcheck // SetKey doesn't fail for string keys
+		_ = result.SetKey(starlarklib.String("body"), starlarklib.String(string(resp.Body)))       //nolint:errcheck // SetKey doesn't fail for string keys
 
 		respHeaders := starlarklib.NewDict(len(resp.Headers))
 		for k, vals := range resp.Headers {
 			if len(vals) > 0 {
-				respHeaders.SetKey(starlarklib.String(k), starlarklib.String(vals[0]))
+				_ = respHeaders.SetKey(starlarklib.String(k), starlarklib.String(vals[0])) //nolint:errcheck // SetKey doesn't fail for string keys
 			}
 		}
-		result.SetKey(starlarklib.String("headers"), respHeaders)
+		_ = result.SetKey(starlarklib.String("headers"), respHeaders) //nolint:errcheck // SetKey doesn't fail for string keys
 
-		return result, nil
+		return result, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- Log Builtin ----
 
-func (cb *CapabilityBuiltins) createLogBuiltin(cap *capabilities.LogCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createLogBuiltin(c *capabilities.LogCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var level string
 		var message string
@@ -311,17 +311,17 @@ func (cb *CapabilityBuiltins) createLogBuiltin(cap *capabilities.LogCapability) 
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.Log(ctx, level, message, nil); err != nil {
+		if err := c.Log(ctx, level, message, nil); err != nil {
 			return nil, fmt.Errorf("log: %w", err)
 		}
 
-		return starlarklib.None, nil
+		return starlarklib.None, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- KV Builtins ----
 
-func (cb *CapabilityBuiltins) createKVGetBuiltin(cap *capabilities.KVCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createKVGetBuiltin(c *capabilities.KVCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var key string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "key", &key); err != nil {
@@ -329,17 +329,17 @@ func (cb *CapabilityBuiltins) createKVGetBuiltin(cap *capabilities.KVCapability)
 		}
 
 		ctx := createCapabilityContext("", "")
-		value, err := cap.Get(ctx, key)
+		value, err := c.Get(ctx, key)
 		if err != nil {
 			// Key not found returns None
-			return starlarklib.None, nil
+			return starlarklib.None, nil //nolint:nilerr // key not found is valid result, not an error
 		}
 
-		return starlarklib.String(value), nil
+		return starlarklib.String(value), nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createKVSetBuiltin(cap *capabilities.KVCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createKVSetBuiltin(c *capabilities.KVCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var key string
 		var value string
@@ -348,15 +348,15 @@ func (cb *CapabilityBuiltins) createKVSetBuiltin(cap *capabilities.KVCapability)
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.Set(ctx, key, value); err != nil {
+		if err := c.Set(ctx, key, value); err != nil {
 			return nil, fmt.Errorf("kv_set: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createKVDeleteBuiltin(cap *capabilities.KVCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createKVDeleteBuiltin(c *capabilities.KVCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var key string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "key", &key); err != nil {
@@ -364,17 +364,17 @@ func (cb *CapabilityBuiltins) createKVDeleteBuiltin(cap *capabilities.KVCapabili
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.Delete(ctx, key); err != nil {
+		if err := c.Delete(ctx, key); err != nil {
 			return nil, fmt.Errorf("kv_delete: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- Secrets Builtins ----
 
-func (cb *CapabilityBuiltins) createSecretGetBuiltin(cap *capabilities.SecretsReadCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createSecretGetBuiltin(c *capabilities.SecretsReadCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		if err := starlarklib.UnpackArgs(fn.Name(), args, kwargs, "path", &path); err != nil {
@@ -382,16 +382,16 @@ func (cb *CapabilityBuiltins) createSecretGetBuiltin(cap *capabilities.SecretsRe
 		}
 
 		ctx := createCapabilityContext("", "")
-		value, err := cap.ReadSecret(ctx, path)
+		value, err := c.ReadSecret(ctx, path)
 		if err != nil {
 			return nil, fmt.Errorf("secret_get: %w", err)
 		}
 
-		return starlarklib.String(value), nil
+		return starlarklib.String(value), nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
-func (cb *CapabilityBuiltins) createSecretSetBuiltin(cap *capabilities.SecretsWriteCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createSecretSetBuiltin(c *capabilities.SecretsWriteCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		var path string
 		var value string
@@ -400,20 +400,20 @@ func (cb *CapabilityBuiltins) createSecretSetBuiltin(cap *capabilities.SecretsWr
 		}
 
 		ctx := createCapabilityContext("", "")
-		if err := cap.WriteSecret(ctx, path, value); err != nil {
+		if err := c.WriteSecret(ctx, path, value); err != nil {
 			return nil, fmt.Errorf("secret_set: %w", err)
 		}
 
-		return starlarklib.True, nil
+		return starlarklib.True, nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }
 
 // ---- Time Builtin ----
 
-func (cb *CapabilityBuiltins) createTimeNowBuiltin(cap *capabilities.TimeCapability) starlark.CapabilityFunc {
+func (cb *CapabilityBuiltins) createTimeNowBuiltin(c *capabilities.TimeCapability) starlark.CapabilityFunc {
 	return func(thread *starlarklib.Thread, fn *starlarklib.Builtin, args starlarklib.Tuple, kwargs []starlarklib.Tuple) (starlarklib.Value, error) {
 		ctx := createCapabilityContext("", "")
-		t := cap.Now(ctx)
-		return starlarklib.MakeInt64(t.Unix()), nil
+		t := c.Now(ctx)
+		return starlarklib.MakeInt64(t.Unix()), nil //nolint:nilerr // returning Starlark value with nil error is correct
 	}
 }

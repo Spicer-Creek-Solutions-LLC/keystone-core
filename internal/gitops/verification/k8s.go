@@ -44,13 +44,13 @@ func NewK8sVerifier(kubeconfig string) (*K8sVerifier, error) {
 }
 
 // Type returns the verification type
-func (v *K8sVerifier) Type() VerificationType {
-	return VerificationTypeK8s
+func (v *K8sVerifier) Type() Type {
+	return TypeK8s
 }
 
 // Verify checks a Kubernetes resource
-func (v *K8sVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
-	result := &VerificationResult{
+func (v *K8sVerifier) Verify(step *Step) (*Result, error) {
+	result := &Result{
 		StepName:  step.Name,
 		Timestamp: time.Now(),
 		Data:      make(map[string]interface{}),
@@ -185,7 +185,7 @@ func kindToGVR(kind string) schema.GroupVersionResource {
 }
 
 // checkK8sCondition checks if a resource meets the specified condition
-func checkK8sCondition(obj *unstructured.Unstructured, condition string, config map[string]interface{}) (bool, string) {
+func checkK8sCondition(obj *unstructured.Unstructured, condition string, config map[string]interface{}) (met bool, message string) {
 	switch condition {
 	case "available":
 		return checkAvailableCondition(obj, config)
@@ -199,7 +199,7 @@ func checkK8sCondition(obj *unstructured.Unstructured, condition string, config 
 }
 
 // checkAvailableCondition checks if a deployment/statefulset is available
-func checkAvailableCondition(obj *unstructured.Unstructured, config map[string]interface{}) (bool, string) {
+func checkAvailableCondition(obj *unstructured.Unstructured, config map[string]interface{}) (available bool, message string) {
 	// Check replicas for deployments/statefulsets
 	status, found, err := unstructured.NestedMap(obj.Object, "status")
 	if err != nil || !found {
@@ -218,9 +218,10 @@ func checkAvailableCondition(obj *unstructured.Unstructured, config map[string]i
 
 	// Check if expected replicas are specified in config
 	expectedReplicas := replicas
-	if r, ok := config["replicas"].(int); ok {
+	switch r := config["replicas"].(type) {
+	case int:
 		expectedReplicas = int64(r)
-	} else if r, ok := config["replicas"].(float64); ok {
+	case float64:
 		expectedReplicas = int64(r)
 	}
 
@@ -232,7 +233,7 @@ func checkAvailableCondition(obj *unstructured.Unstructured, config map[string]i
 }
 
 // checkReadyCondition checks if a resource is ready
-func checkReadyCondition(obj *unstructured.Unstructured, config map[string]interface{}) (bool, string) {
+func checkReadyCondition(obj *unstructured.Unstructured, config map[string]interface{}) (ready bool, message string) {
 	conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
 	if err != nil || !found {
 		return false, "No conditions found"

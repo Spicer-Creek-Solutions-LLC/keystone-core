@@ -18,6 +18,7 @@ type LeaseCallback func(ctx context.Context, lease *TrackedLease, event LeaseEve
 // LeaseEvent represents a lease lifecycle event.
 type LeaseEvent string
 
+// LeaseEventTracked constants define the events.
 const (
 	LeaseEventTracked    LeaseEvent = "tracked"
 	LeaseEventRenewed    LeaseEvent = "renewed"
@@ -586,6 +587,7 @@ func (t *LeaseTracker) Stats(ctx context.Context) *LeaseTrackerStats {
 			stats.ExpiredLeases++
 		case secrets.LeaseStateRevoked:
 			stats.RevokedLeases++
+		default:
 		}
 
 		if lease.Engine != "" {
@@ -625,8 +627,8 @@ func (t *LeaseTracker) Start(ctx context.Context) error {
 	t.mu.Unlock()
 
 	t.wg.Add(2)
-	go t.renewalLoop()
-	go t.cleanupLoop()
+	go t.renewalLoop()  //nolint:contextcheck // background loop uses internal context
+	go t.cleanupLoop()  //nolint:contextcheck // background loop uses internal context
 
 	return nil
 }
@@ -788,7 +790,7 @@ func (t *LeaseTracker) copyLease(lease *TrackedLease) *TrackedLease {
 	}
 
 	leaseCopy := *lease.Lease
-	copy := &TrackedLease{
+	copied := &TrackedLease{
 		Lease:            &leaseCopy,
 		Role:             lease.Role,
 		Engine:           lease.Engine,
@@ -802,8 +804,8 @@ func (t *LeaseTracker) copyLease(lease *TrackedLease) *TrackedLease {
 	}
 
 	for k, v := range lease.Tags {
-		copy.Tags[k] = v
+		copied.Tags[k] = v
 	}
 
-	return copy
+	return copied
 }

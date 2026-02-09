@@ -42,11 +42,14 @@ free -h
 df -h
 
 # Check connection counts
-kscorectl debug connections
 ss -s
+nats server report connections 2>/dev/null || echo "NATS CLI not available"
+
+# Check agent count
+kscorectl agents list -o json | jq length
 
 # Check database size
-du -sh /var/lib/kscore/
+du -sh /var/lib/keystone-core/
 ```
 
 #### Step 2: Resize Instance
@@ -71,7 +74,7 @@ kscorectl cluster health
 #### Step 3: Update Configuration
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 server:
   workers: 16  # Increase with CPU cores
   max_connections: 10000
@@ -107,17 +110,17 @@ terraform apply -var="node_count=4"
 
 ```bash
 # On new node
-curl -sSL https://install.kscore.io | sudo bash
+curl -sSL https://install.keystone-core.io | sudo bash
 
 # Copy configuration from existing node
-scp ks-server-1:/etc/kscore/server.yaml /etc/kscore/
+scp ks-server-1:/etc/keystone-core/server.yaml /etc/keystone-core/
 ```
 
 #### Step 3: Join Cluster
 
 ```bash
-# Get join token from existing cluster
-JOIN_TOKEN=$(kscorectl cluster token --ttl 1h)
+# Get join token from cluster config or bootstrap output
+JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # From /etc/keystone-core/server.yaml
 
 # Join new node to cluster
 kscorectl cluster join \
@@ -157,17 +160,17 @@ EOF
 
 # 3. Run migration
 kscore-migrate run \
-  --source sqlite:///var/lib/kscore/keystone.db \
+  --source sqlite:///var/lib/keystone-core/keystone.db \
   --target postgres://kscore:password@postgres.example.com/kscore \
   --dry-run
 
 # If dry-run succeeds:
 kscore-migrate run \
-  --source sqlite:///var/lib/kscore/keystone.db \
+  --source sqlite:///var/lib/keystone-core/keystone.db \
   --target postgres://kscore:password@postgres.example.com/kscore
 
 # 4. Update configuration
-cat >> /etc/kscore/server.yaml << EOF
+cat >> /etc/keystone-core/server.yaml << EOF
 database:
   type: postgres
   postgres:
@@ -197,7 +200,7 @@ SELECT pg_reload_conf();
 EOF
 
 # Update Keystone to use read replicas
-cat >> /etc/kscore/server.yaml << EOF
+cat >> /etc/keystone-core/server.yaml << EOF
 database:
   postgres:
     primary: postgres-primary.example.com
@@ -282,7 +285,7 @@ Practical limit: 50% of theoretical = ~50,000 agents
 
 ```yaml
 # High-scale configuration
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 
 server:
   workers: 32
@@ -318,10 +321,10 @@ kscore-bootstrap init \
 kscorectl federation add \
   --cluster us-west \
   --endpoint https://us-west.kscore.example.com:8080 \
-  --token $(kscore-us-west cluster token)
+  --token "$US_WEST_FEDERATION_TOKEN"  # From us-west cluster config
 
 # 3. Configure agent routing
-cat >> /etc/kscore/server.yaml << EOF
+cat >> /etc/keystone-core/server.yaml << EOF
 federation:
   enabled: true
   clusters:
@@ -373,10 +376,10 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # 2. Restore SQLite backup
-cp /backup/keystone.db /var/lib/kscore/keystone.db
+cp /backup/keystone.db /var/lib/keystone-core/keystone.db
 
 # 3. Revert configuration
-sed -i 's/type: postgres/type: sqlite/' /etc/kscore/server.yaml
+sed -i 's/type: postgres/type: sqlite/' /etc/keystone-core/server.yaml
 
 # 4. Start services
 for node in ks-server-1 ks-server-2 ks-server-3; do

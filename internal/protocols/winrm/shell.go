@@ -80,7 +80,7 @@ func (s *Shell) Execute(ctx context.Context, command string) (*ShellResult, erro
 	}
 
 	// Execute command
-	cmd, err := s.shell.Execute(execCommand)
+	cmd, err := s.shell.ExecuteWithContext(ctx, execCommand)
 	if err != nil {
 		result.Error = err.Error()
 		result.EndTime = time.Now()
@@ -207,7 +207,7 @@ func (r *ScriptRunner) RunScriptWithParams(ctx context.Context, script string, p
 // RunScriptFile executes a PowerShell script from a local file path on the remote machine.
 func (r *ScriptRunner) RunScriptFile(ctx context.Context, remotePath string, params map[string]string) (*ScriptResult, error) {
 	// Build parameter arguments
-	var args []string
+	args := make([]string, 0, len(params))
 	for k, v := range params {
 		escapedValue := strings.ReplaceAll(v, "'", "''")
 		args = append(args, fmt.Sprintf("-%s '%s'", k, escapedValue))
@@ -302,7 +302,7 @@ func (b *CommandBuilder) Build() string {
 	return result.String()
 }
 
-// SystemInfo retrieves system information from the remote Windows machine.
+// GetSystemInfo retrieves system information from the remote Windows machine.
 func (a *Adapter) GetSystemInfo(ctx context.Context) (*WindowsSystemInfo, error) {
 	script := `
 $os = Get-WmiObject Win32_OperatingSystem
@@ -436,7 +436,7 @@ func (m *ServiceManager) RestartService(ctx context.Context, name string) error 
 }
 
 // SetServiceStartType sets the start type of a Windows service.
-func (m *ServiceManager) SetServiceStartType(ctx context.Context, name string, startType string) error {
+func (m *ServiceManager) SetServiceStartType(ctx context.Context, name, startType string) error {
 	script := fmt.Sprintf(`Set-Service -Name '%s' -StartupType '%s'`, name, startType)
 
 	_, stderr, exitCode, err := m.adapter.RunPowerShell(ctx, script)

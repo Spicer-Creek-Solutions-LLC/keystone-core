@@ -340,7 +340,7 @@ func TestResolver_ResolveHost_Caching(t *testing.T) {
 // Integration test - requires network
 func TestResolver_Connect_Localhost(t *testing.T) {
 	// Start a test server
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to start test server: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestResolver_Connect_Localhost(t *testing.T) {
 	defer conn.Close()
 
 	if ep == nil {
-		t.Error("Endpoint should not be nil")
+		t.Fatal("Endpoint should not be nil")
 	}
 	if ep.Protocol != ProtocolIPv4 {
 		t.Errorf("Protocol = %s, want ipv4", ep.Protocol)

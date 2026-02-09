@@ -45,16 +45,16 @@ func TestBootstrapBlueprintCatalogDryRun(t *testing.T) {
 				if err := env.CopyFile(ctx, agentBin, "/usr/local/bin/kscore-agent"); err != nil {
 					t.Fatalf("failed to copy agent binary: %v", err)
 				}
-				ensureBlueprintDir(t, ctx, env)
+				ensureBlueprintDir(ctx, t, env)
 				blueprintsDir := filepath.Join(root, "examples", "blueprints", "kscore")
-				if err := env.CopyDir(ctx, blueprintsDir, "/etc/kscore/blueprints"); err != nil {
+				if err := env.CopyDir(ctx, blueprintsDir, "/etc/keystone-core/blueprints"); err != nil {
 					t.Fatalf("failed to copy blueprints: %v", err)
 				}
 
-				result := execBootstrap(t, ctx, env,
+				result := execBootstrap(ctx, t, env,
 					"--mode", "demo",
 					"--apply-blueprint", blueprint,
-					"--blueprints-dir", "/etc/kscore/blueprints",
+					"--blueprints-dir", "/etc/keystone-core/blueprints",
 					"--non-interactive",
 					"--dry-run",
 				)

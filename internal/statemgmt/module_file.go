@@ -103,11 +103,9 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		result.Matches = info.IsDir()
 		if !info.IsDir() {
 			result.Diff["type"] = map[string]string{"current": "file", "desired": "directory"}
-		} else {
+		} else if !m.checkAttributes(normalizedPath, decl, info, result) {
 			// Check mode, owner, group
-			if !m.checkAttributes(normalizedPath, decl, info, result) {
-				result.Matches = false
-			}
+			result.Matches = false
 		}
 
 	case "symlink":
@@ -142,8 +140,8 @@ func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info o
 	if modeStr := getStringParameter(decl, "mode", ""); modeStr != "" {
 		desiredMode, err := strconv.ParseUint(modeStr, 8, 32)
 		if err == nil {
-			currentMode := uint32(info.Mode().Perm())
-			if currentMode != uint32(desiredMode) {
+			currentMode := uint64(info.Mode().Perm())
+			if currentMode != desiredMode {
 				matches = false
 				result.Diff["mode"] = map[string]string{
 					"current": fmt.Sprintf("%04o", currentMode),
@@ -201,8 +199,10 @@ func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info o
 			case SourceTypeTemplate:
 				// Note: template comparison requires context, skipped in Check
 				// Template files are always considered as potentially changed
-				result.Diff["contents"] = "template source - requires apply to verify"
 				matches = false
+				result.Diff["contents"] = "template source - requires apply to verify"
+			default:
+				// SourceTypeHTTP, SourceTypeInline handled elsewhere
 			}
 		}
 	}
@@ -306,7 +306,8 @@ func (m *FileModule) applyPresent(ctx context.Context, path string, decl *StateD
 	// Create parent directories if needed
 	if getBoolParameter(decl, "makedirs", false) {
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: parent directory needs to be accessible for file management
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create parent directories: %w", err)
 		}
 	}
@@ -358,14 +359,16 @@ func (m *FileModule) applyPresent(ctx context.Context, path string, decl *StateD
 			}
 		}
 
-		if err := os.WriteFile(path, content, 0644); err != nil {
+		//nolint:gosec // G306: file permissions set explicitly via mode parameter
+		if err := os.WriteFile(path, content, 0o644); err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}
 		result.Comment = "File created/updated"
 	} else {
 		// Just create empty file if it doesn't exist
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.WriteFile(path, []byte{}, 0644); err != nil {
+			//nolint:gosec // G306: file permissions set explicitly via mode parameter
+			if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
 			result.Comment = "Empty file created"
@@ -389,7 +392,7 @@ func (m *FileModule) applyPresent(ctx context.Context, path string, decl *StateD
 // applyDirectory creates a directory
 func (m *FileModule) applyDirectory(path string, decl *StateDeclaration, result *StateResult) error {
 	// Get desired mode
-	mode := os.FileMode(0755)
+	mode := os.FileMode(0o755)
 	if modeStr := getStringParameter(decl, "mode", ""); modeStr != "" {
 		modeInt, err := strconv.ParseUint(modeStr, 8, 32)
 		if err != nil {
@@ -471,5 +474,5 @@ func (m *FileModule) hashString(s string) string {
 }
 
 func init() {
-	RegisterModule(NewFileModule())
+	_ = RegisterModule(NewFileModule()) //nolint:errcheck // module registration in init
 }

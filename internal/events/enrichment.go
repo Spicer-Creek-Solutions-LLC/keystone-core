@@ -117,10 +117,12 @@ func NewContextEnricher(name string, keys ...interface{}) *ContextEnricher {
 	}
 }
 
+// Name returns the name.
 func (e *ContextEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *ContextEnricher) Enrich(ctx context.Context, event *Event) error {
 	if ctx == nil {
 		return nil
@@ -149,10 +151,12 @@ func NewTagEnricher(name string, tags map[string]string) *TagEnricher {
 	}
 }
 
+// Name returns the name.
 func (e *TagEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *TagEnricher) Enrich(ctx context.Context, event *Event) error {
 	for key, value := range e.tags {
 		event.Tags[key] = value
@@ -174,10 +178,12 @@ func NewDataEnricher(name string, data map[string]interface{}) *DataEnricher {
 	}
 }
 
+// Name returns the name.
 func (e *DataEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *DataEnricher) Enrich(ctx context.Context, event *Event) error {
 	for key, value := range e.data {
 		event.Data[key] = value
@@ -199,10 +205,12 @@ func NewFunctionEnricher(name string, enrichFn func(ctx context.Context, event *
 	}
 }
 
+// Name returns the name.
 func (e *FunctionEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *FunctionEnricher) Enrich(ctx context.Context, event *Event) error {
 	return e.enrichFn(ctx, event)
 }
@@ -223,10 +231,12 @@ func NewConditionalEnricher(name string, filter FilterExpression, enricher Enric
 	}
 }
 
+// Name returns the name.
 func (e *ConditionalEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *ConditionalEnricher) Enrich(ctx context.Context, event *Event) error {
 	if e.filter.Matches(event) {
 		return e.enricher.Enrich(ctx, event)
@@ -249,10 +259,12 @@ func NewTimestampEnricher(name string, fields ...string) *TimestampEnricher {
 	}
 }
 
+// Name returns the name.
 func (e *TimestampEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *TimestampEnricher) Enrich(ctx context.Context, event *Event) error {
 	for _, field := range e.fields {
 		event.Data[field] = event.Time
@@ -282,10 +294,12 @@ func (e *HostnameEnricher) SetField(field string) *HostnameEnricher {
 	return e
 }
 
+// Name returns the name.
 func (e *HostnameEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *HostnameEnricher) Enrich(ctx context.Context, event *Event) error {
 	event.Data[e.field] = e.hostname
 	return nil
@@ -313,10 +327,12 @@ func (e *SequenceNumberEnricher) SetField(field string) *SequenceNumberEnricher 
 	return e
 }
 
+// Name returns the name.
 func (e *SequenceNumberEnricher) Name() string {
 	return e.name
 }
 
+// Enrich enriches the event.
 func (e *SequenceNumberEnricher) Enrich(ctx context.Context, event *Event) error {
 	e.mu.Lock()
 	e.sequence++
@@ -360,6 +376,7 @@ func (p *EnrichedPublisher) SetContext(ctx context.Context) {
 	p.ctx = ctx
 }
 
+// Publish publishes an event.
 func (p *EnrichedPublisher) Publish(event *Event) error {
 	// Enrich event
 	if err := p.pipeline.Enrich(p.ctx, event); err != nil {
@@ -370,6 +387,7 @@ func (p *EnrichedPublisher) Publish(event *Event) error {
 	return p.publisher.Publish(event)
 }
 
+// PublishAsync publishes an event asynchronously.
 func (p *EnrichedPublisher) PublishAsync(event *Event) error {
 	// Enrich event
 	if err := p.pipeline.Enrich(p.ctx, event); err != nil {
@@ -380,6 +398,7 @@ func (p *EnrichedPublisher) PublishAsync(event *Event) error {
 	return p.publisher.PublishAsync(event)
 }
 
+// Close closes the resource and releases any associated resources.
 func (p *EnrichedPublisher) Close() error {
 	return p.publisher.Close()
 }

@@ -14,5 +14,5 @@ tests:
       - type: state_applied
         target: file_distribution_config_file
       - type: file_contains
-        target: /etc/kscore/file-distribution.yaml
+        target: /etc/keystone-core/file-distribution.yaml
         pattern: "s3_bucket: \"keystone-artifacts\""

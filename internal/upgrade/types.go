@@ -9,54 +9,57 @@ import (
 	"time"
 )
 
-// UpgradeStrategy defines the upgrade approach.
-type UpgradeStrategy string
+// Strategy defines the upgrade approach.
+type Strategy string
 
 const (
 	// StrategyRolling updates one node at a time with health checks.
-	StrategyRolling UpgradeStrategy = "rolling"
+	StrategyRolling Strategy = "rolling"
 
 	// StrategyBlueGreen deploys a new cluster and switches traffic.
-	StrategyBlueGreen UpgradeStrategy = "blue-green"
+	StrategyBlueGreen Strategy = "blue-green"
 
 	// StrategyCanary gradually shifts traffic to new version.
-	StrategyCanary UpgradeStrategy = "canary"
+	StrategyCanary Strategy = "canary"
 
 	// StrategyInPlace stops, upgrades, and starts (has downtime).
-	StrategyInPlace UpgradeStrategy = "in-place"
+	StrategyInPlace Strategy = "in-place"
 )
 
-// UpgradePhase represents the current phase of an upgrade.
-type UpgradePhase string
+// Phase represents the current phase of an upgrade.
+type Phase string
 
+// PhaseIdle constants define the phases.
 const (
-	PhaseIdle        UpgradePhase = "idle"
-	PhasePending     UpgradePhase = "pending"
-	PhaseValidating  UpgradePhase = "validating"
-	PhasePreparing   UpgradePhase = "preparing"
-	PhaseUpgrading   UpgradePhase = "upgrading"
-	PhaseVerifying   UpgradePhase = "verifying"
-	PhaseCompleted   UpgradePhase = "completed"
-	PhaseFailed      UpgradePhase = "failed"
-	PhaseRollingBack UpgradePhase = "rolling_back"
-	PhaseRolledBack  UpgradePhase = "rolled_back"
+	PhaseIdle        Phase = "idle"
+	PhasePending     Phase = "pending"
+	PhaseValidating  Phase = "validating"
+	PhasePreparing   Phase = "preparing"
+	PhaseUpgrading   Phase = "upgrading"
+	PhaseVerifying   Phase = "verifying"
+	PhaseCompleted   Phase = "completed"
+	PhaseFailed      Phase = "failed"
+	PhaseRollingBack Phase = "rolling_back"
+	PhaseRolledBack  Phase = "rolled_back"
 )
 
-// UpgradeStatus represents the overall status of an upgrade.
-type UpgradeStatus string
+// Status represents the overall status of an upgrade.
+type Status string
 
+// StatusPending constants define the possible statuses.
 const (
-	StatusPending    UpgradeStatus = "pending"
-	StatusInProgress UpgradeStatus = "in_progress"
-	StatusCompleted  UpgradeStatus = "completed"
-	StatusFailed     UpgradeStatus = "failed"
-	StatusRolledBack UpgradeStatus = "rolled_back"
-	StatusCancelled  UpgradeStatus = "cancelled"
+	StatusPending    Status = "pending"
+	StatusInProgress Status = "in_progress"
+	StatusCompleted  Status = "completed"
+	StatusFailed     Status = "failed"
+	StatusRolledBack Status = "rolled_back"
+	StatusCancelled  Status = "cancelled"
 )
 
 // ComponentType identifies what is being upgraded.
 type ComponentType string
 
+// ComponentServer constants define the components.
 const (
 	ComponentServer   ComponentType = "server"
 	ComponentAgent    ComponentType = "agent"
@@ -68,6 +71,7 @@ const (
 // HealthStatus represents the health of a component.
 type HealthStatus string
 
+// HealthUnknown and related constants.
 const (
 	HealthUnknown   HealthStatus = "unknown"
 	HealthHealthy   HealthStatus = "healthy"
@@ -176,13 +180,13 @@ type VersionInfo struct {
 	Signature    string    `json:"signature,omitempty" yaml:"signature,omitempty"` // Cosign signature
 }
 
-// UpgradeConfig defines the upgrade configuration.
-type UpgradeConfig struct {
+// Config defines the upgrade configuration.
+type Config struct {
 	// Target version to upgrade to.
 	TargetVersion string `json:"target_version" yaml:"target_version"`
 
 	// Strategy to use for the upgrade.
-	Strategy UpgradeStrategy `json:"strategy" yaml:"strategy"`
+	Strategy Strategy `json:"strategy" yaml:"strategy"`
 
 	// DryRun performs validation without making changes.
 	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
@@ -329,19 +333,19 @@ type RollbackConfig struct {
 	Timeout time.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
-// UpgradeState represents the current state of an upgrade operation.
-type UpgradeState struct {
+// State represents the current state of an upgrade operation.
+type State struct {
 	// ID is a unique identifier for this upgrade.
 	ID string `json:"id" yaml:"id"`
 
 	// Phase is the current upgrade phase.
-	Phase UpgradePhase `json:"phase" yaml:"phase"`
+	Phase Phase `json:"phase" yaml:"phase"`
 
 	// Status is the overall status.
-	Status UpgradeStatus `json:"status" yaml:"status"`
+	Status Status `json:"status" yaml:"status"`
 
 	// Config is the upgrade configuration.
-	Config *UpgradeConfig `json:"config" yaml:"config"`
+	Config *Config `json:"config" yaml:"config"`
 
 	// FromVersion is the version being upgraded from.
 	FromVersion Version `json:"from_version" yaml:"from_version"`
@@ -365,7 +369,7 @@ type UpgradeState struct {
 	NodeStates map[string]*NodeUpgradeState `json:"node_states,omitempty" yaml:"node_states,omitempty"`
 
 	// Errors contains any errors that occurred.
-	Errors []UpgradeError `json:"errors,omitempty" yaml:"errors,omitempty"`
+	Errors []Error `json:"errors,omitempty" yaml:"errors,omitempty"`
 
 	// RollbackState contains rollback information if rollback occurred.
 	RollbackState *RollbackState `json:"rollback_state,omitempty" yaml:"rollback_state,omitempty"`
@@ -380,7 +384,7 @@ type NodeUpgradeState struct {
 	Component ComponentType `json:"component" yaml:"component"`
 
 	// Status of this node's upgrade.
-	Status UpgradeStatus `json:"status" yaml:"status"`
+	Status Status `json:"status" yaml:"status"`
 
 	// FromVersion on this node.
 	FromVersion Version `json:"from_version" yaml:"from_version"`
@@ -401,13 +405,13 @@ type NodeUpgradeState struct {
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
-// UpgradeError represents an error during upgrade.
-type UpgradeError struct {
+// Error represents an error during upgrade.
+type Error struct {
 	// Time when the error occurred.
 	Time time.Time `json:"time" yaml:"time"`
 
 	// Phase during which the error occurred.
-	Phase UpgradePhase `json:"phase" yaml:"phase"`
+	Phase Phase `json:"phase" yaml:"phase"`
 
 	// NodeID where the error occurred (if applicable).
 	NodeID string `json:"node_id,omitempty" yaml:"node_id,omitempty"`
@@ -434,19 +438,19 @@ type RollbackState struct {
 	EndTime *time.Time `json:"end_time,omitempty" yaml:"end_time,omitempty"`
 
 	// Status of the rollback.
-	Status UpgradeStatus `json:"status" yaml:"status"`
+	Status Status `json:"status" yaml:"status"`
 
 	// Error if rollback failed.
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
-// UpgradeResult contains the result of an upgrade operation.
-type UpgradeResult struct {
+// Result contains the result of an upgrade operation.
+type Result struct {
 	// Success indicates if the upgrade completed successfully.
 	Success bool `json:"success" yaml:"success"`
 
 	// State is the final upgrade state.
-	State *UpgradeState `json:"state" yaml:"state"`
+	State *State `json:"state" yaml:"state"`
 
 	// Duration of the upgrade.
 	Duration time.Duration `json:"duration" yaml:"duration"`
@@ -485,19 +489,19 @@ type AgentBatchConfig struct {
 	Priority []string `json:"priority,omitempty" yaml:"priority,omitempty"`
 }
 
-// UpgradeManager is the interface for upgrade orchestration.
-type UpgradeManager interface {
+// Manager is the interface for upgrade orchestration.
+type Manager interface {
 	// CheckUpgrade checks if an upgrade is available and compatible.
-	CheckUpgrade(ctx context.Context, targetVersion string) (*UpgradeCheck, error)
+	CheckUpgrade(ctx context.Context, targetVersion string) (*Check, error)
 
 	// PlanUpgrade creates an upgrade plan without executing it.
-	PlanUpgrade(ctx context.Context, config *UpgradeConfig) (*UpgradePlan, error)
+	PlanUpgrade(ctx context.Context, config *Config) (*Plan, error)
 
 	// StartUpgrade begins an upgrade operation.
-	StartUpgrade(ctx context.Context, config *UpgradeConfig) (*UpgradeState, error)
+	StartUpgrade(ctx context.Context, config *Config) (*State, error)
 
 	// GetUpgradeStatus returns the current upgrade status.
-	GetUpgradeStatus(ctx context.Context, upgradeID string) (*UpgradeState, error)
+	GetUpgradeStatus(ctx context.Context, upgradeID string) (*State, error)
 
 	// CancelUpgrade cancels an in-progress upgrade.
 	CancelUpgrade(ctx context.Context, upgradeID string) error
@@ -506,14 +510,14 @@ type UpgradeManager interface {
 	Rollback(ctx context.Context, upgradeID string) (*RollbackState, error)
 
 	// GetUpgradeHistory returns upgrade history.
-	GetUpgradeHistory(ctx context.Context, limit int) ([]*UpgradeState, error)
+	GetUpgradeHistory(ctx context.Context, limit int) ([]*State, error)
 
 	// GetAvailableVersions returns available versions.
 	GetAvailableVersions(ctx context.Context, channel string) ([]VersionInfo, error)
 }
 
-// UpgradeCheck contains the result of checking upgrade compatibility.
-type UpgradeCheck struct {
+// Check contains the result of checking upgrade compatibility.
+type Check struct {
 	// Compatible indicates if the upgrade is compatible.
 	Compatible bool `json:"compatible" yaml:"compatible"`
 
@@ -539,19 +543,19 @@ type UpgradeCheck struct {
 	EstimatedDuration time.Duration `json:"estimated_duration" yaml:"estimated_duration"`
 }
 
-// UpgradePlan contains the planned upgrade steps.
-type UpgradePlan struct {
+// Plan contains the planned upgrade steps.
+type Plan struct {
 	// ID is a unique identifier for this plan.
 	ID string `json:"id" yaml:"id"`
 
 	// Config is the upgrade configuration.
-	Config *UpgradeConfig `json:"config" yaml:"config"`
+	Config *Config `json:"config" yaml:"config"`
 
 	// Check is the upgrade compatibility check.
-	Check *UpgradeCheck `json:"check" yaml:"check"`
+	Check *Check `json:"check" yaml:"check"`
 
 	// Steps are the planned upgrade steps.
-	Steps []UpgradeStep `json:"steps" yaml:"steps"`
+	Steps []Step `json:"steps" yaml:"steps"`
 
 	// TotalNodes is the total number of nodes to upgrade.
 	TotalNodes int `json:"total_nodes" yaml:"total_nodes"`
@@ -563,8 +567,8 @@ type UpgradePlan struct {
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
 
-// UpgradeStep represents a single step in an upgrade.
-type UpgradeStep struct {
+// Step represents a single step in an upgrade.
+type Step struct {
 	// Order is the execution order of this step.
 	Order int `json:"order" yaml:"order"`
 
@@ -662,7 +666,7 @@ type Logger interface {
 }
 
 // ProgressCallback is called to report upgrade progress.
-type ProgressCallback func(state *UpgradeState)
+type ProgressCallback func(state *State)
 
 // DefaultRollingConfig returns default rolling upgrade configuration.
 func DefaultRollingConfig() *RollingConfig {

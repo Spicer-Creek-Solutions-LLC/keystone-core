@@ -38,35 +38,36 @@ func DefaultManagerConfig() *ManagerConfig {
 	}
 }
 
-// ScheduleManager manages schedule CRUD operations and lifecycle.
-type ScheduleManager struct {
+// Manager manages schedule CRUD operations and lifecycle.
+type Manager struct {
 	config     *ManagerConfig
 	store      Store
 	cronParser *CronParser
-	listeners  []ScheduleEventListener
+	listeners  []EventListener
 	mu         sync.RWMutex
 	closed     bool
 }
 
-// ScheduleEventListener receives schedule events.
-type ScheduleEventListener func(event *ScheduleEvent)
+// EventListener receives schedule events.
+type EventListener func(event *Event)
 
-// ScheduleEventType represents schedule event types.
-type ScheduleEventType string
+// EventType represents schedule event types.
+type EventType string
 
+// EventCreated constants define the events.
 const (
-	ScheduleEventCreated   ScheduleEventType = "schedule.created"
-	ScheduleEventUpdated   ScheduleEventType = "schedule.updated"
-	ScheduleEventDeleted   ScheduleEventType = "schedule.deleted"
-	ScheduleEventPaused    ScheduleEventType = "schedule.paused"
-	ScheduleEventResumed   ScheduleEventType = "schedule.resumed"
-	ScheduleEventTriggered ScheduleEventType = "schedule.triggered"
-	ScheduleEventCompleted ScheduleEventType = "schedule.completed"
-	ScheduleEventFailed    ScheduleEventType = "schedule.failed"
+	EventCreated   EventType = "schedule.created"
+	EventUpdated   EventType = "schedule.updated"
+	EventDeleted   EventType = "schedule.deleted"
+	EventPaused    EventType = "schedule.paused"
+	EventResumed   EventType = "schedule.resumed"
+	EventTriggered EventType = "schedule.triggered"
+	EventCompleted EventType = "schedule.completed"
+	EventFailed    EventType = "schedule.failed"
 )
 
-// NewScheduleManager creates a new schedule manager.
-func NewScheduleManager(config *ManagerConfig, store Store) (*ScheduleManager, error) {
+// NewManager creates a new schedule manager.
+func NewManager(config *ManagerConfig, store Store) (*Manager, error) {
 	if config == nil {
 		config = DefaultManagerConfig()
 	}
@@ -77,16 +78,16 @@ func NewScheduleManager(config *ManagerConfig, store Store) (*ScheduleManager, e
 		return nil, fmt.Errorf("member ID is required")
 	}
 
-	return &ScheduleManager{
+	return &Manager{
 		config:     config,
 		store:      store,
 		cronParser: NewCronParser(),
-		listeners:  make([]ScheduleEventListener, 0),
+		listeners:  make([]EventListener, 0),
 	}, nil
 }
 
 // Create creates a new schedule.
-func (m *ScheduleManager) Create(ctx context.Context, schedule *Schedule) error {
+func (m *Manager) Create(ctx context.Context, schedule *Schedule) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -111,7 +112,7 @@ func (m *ScheduleManager) Create(ctx context.Context, schedule *Schedule) error 
 	// Set defaults
 	now := time.Now().UTC()
 	if schedule.Status == "" {
-		schedule.Status = ScheduleStatusActive
+		schedule.Status = StatusActive
 	}
 	if schedule.Timeout == 0 {
 		schedule.Timeout = m.config.DefaultTimeout
@@ -136,8 +137,8 @@ func (m *ScheduleManager) Create(ctx context.Context, schedule *Schedule) error 
 	}
 
 	// Emit event
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventCreated),
+	m.emitEvent(&Event{
+		Type:       string(EventCreated),
 		ScheduleID: schedule.ID,
 		Schedule:   schedule,
 		Timestamp:  now,
@@ -148,7 +149,7 @@ func (m *ScheduleManager) Create(ctx context.Context, schedule *Schedule) error 
 }
 
 // Get retrieves a schedule by ID.
-func (m *ScheduleManager) Get(ctx context.Context, id string) (*Schedule, error) {
+func (m *Manager) Get(ctx context.Context, id string) (*Schedule, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -160,7 +161,7 @@ func (m *ScheduleManager) Get(ctx context.Context, id string) (*Schedule, error)
 }
 
 // Update updates an existing schedule.
-func (m *ScheduleManager) Update(ctx context.Context, schedule *Schedule) error {
+func (m *Manager) Update(ctx context.Context, schedule *Schedule) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -204,8 +205,8 @@ func (m *ScheduleManager) Update(ctx context.Context, schedule *Schedule) error 
 	}
 
 	// Emit event
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventUpdated),
+	m.emitEvent(&Event{
+		Type:       string(EventUpdated),
 		ScheduleID: schedule.ID,
 		Schedule:   schedule,
 		Timestamp:  now,
@@ -216,7 +217,7 @@ func (m *ScheduleManager) Update(ctx context.Context, schedule *Schedule) error 
 }
 
 // Delete deletes a schedule.
-func (m *ScheduleManager) Delete(ctx context.Context, id string) error {
+func (m *Manager) Delete(ctx context.Context, id string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -236,8 +237,8 @@ func (m *ScheduleManager) Delete(ctx context.Context, id string) error {
 	}
 
 	// Emit event
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventDeleted),
+	m.emitEvent(&Event{
+		Type:       string(EventDeleted),
 		ScheduleID: id,
 		Schedule:   schedule,
 		Timestamp:  time.Now().UTC(),
@@ -247,7 +248,7 @@ func (m *ScheduleManager) Delete(ctx context.Context, id string) error {
 }
 
 // List lists schedules matching the filter.
-func (m *ScheduleManager) List(ctx context.Context, filter *ScheduleFilter) ([]*Schedule, error) {
+func (m *Manager) List(ctx context.Context, filter *Filter) ([]*Schedule, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -259,7 +260,7 @@ func (m *ScheduleManager) List(ctx context.Context, filter *ScheduleFilter) ([]*
 }
 
 // Pause pauses a schedule.
-func (m *ScheduleManager) Pause(ctx context.Context, id string, by string) error {
+func (m *Manager) Pause(ctx context.Context, id, by string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -272,11 +273,11 @@ func (m *ScheduleManager) Pause(ctx context.Context, id string, by string) error
 		return err
 	}
 
-	if schedule.Status == ScheduleStatusDisabled {
+	if schedule.Status == StatusDisabled {
 		return ErrScheduleDisabled
 	}
 
-	schedule.Status = ScheduleStatusPaused
+	schedule.Status = StatusPaused
 	schedule.UpdatedAt = time.Now().UTC()
 	schedule.UpdatedBy = by
 
@@ -284,8 +285,8 @@ func (m *ScheduleManager) Pause(ctx context.Context, id string, by string) error
 		return err
 	}
 
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventPaused),
+	m.emitEvent(&Event{
+		Type:       string(EventPaused),
 		ScheduleID: id,
 		Schedule:   schedule,
 		Timestamp:  schedule.UpdatedAt,
@@ -296,7 +297,7 @@ func (m *ScheduleManager) Pause(ctx context.Context, id string, by string) error
 }
 
 // Resume resumes a paused schedule.
-func (m *ScheduleManager) Resume(ctx context.Context, id string, by string) error {
+func (m *Manager) Resume(ctx context.Context, id, by string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -309,11 +310,11 @@ func (m *ScheduleManager) Resume(ctx context.Context, id string, by string) erro
 		return err
 	}
 
-	if schedule.Status == ScheduleStatusDisabled {
+	if schedule.Status == StatusDisabled {
 		return ErrScheduleDisabled
 	}
 
-	schedule.Status = ScheduleStatusActive
+	schedule.Status = StatusActive
 	schedule.UpdatedAt = time.Now().UTC()
 	schedule.UpdatedBy = by
 
@@ -328,8 +329,8 @@ func (m *ScheduleManager) Resume(ctx context.Context, id string, by string) erro
 		return err
 	}
 
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventResumed),
+	m.emitEvent(&Event{
+		Type:       string(EventResumed),
 		ScheduleID: id,
 		Schedule:   schedule,
 		Timestamp:  schedule.UpdatedAt,
@@ -340,7 +341,7 @@ func (m *ScheduleManager) Resume(ctx context.Context, id string, by string) erro
 }
 
 // Disable disables a schedule.
-func (m *ScheduleManager) Disable(ctx context.Context, id string, by string) error {
+func (m *Manager) Disable(ctx context.Context, id, by string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -353,7 +354,7 @@ func (m *ScheduleManager) Disable(ctx context.Context, id string, by string) err
 		return err
 	}
 
-	schedule.Status = ScheduleStatusDisabled
+	schedule.Status = StatusDisabled
 	schedule.NextRun = nil // No more runs
 	schedule.UpdatedAt = time.Now().UTC()
 	schedule.UpdatedBy = by
@@ -362,8 +363,8 @@ func (m *ScheduleManager) Disable(ctx context.Context, id string, by string) err
 		return err
 	}
 
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventUpdated),
+	m.emitEvent(&Event{
+		Type:       string(EventUpdated),
 		ScheduleID: id,
 		Schedule:   schedule,
 		Timestamp:  schedule.UpdatedAt,
@@ -375,7 +376,7 @@ func (m *ScheduleManager) Disable(ctx context.Context, id string, by string) err
 }
 
 // Enable enables a disabled schedule.
-func (m *ScheduleManager) Enable(ctx context.Context, id string, by string) error {
+func (m *Manager) Enable(ctx context.Context, id, by string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -388,7 +389,7 @@ func (m *ScheduleManager) Enable(ctx context.Context, id string, by string) erro
 		return err
 	}
 
-	schedule.Status = ScheduleStatusActive
+	schedule.Status = StatusActive
 	schedule.UpdatedAt = time.Now().UTC()
 	schedule.UpdatedBy = by
 
@@ -403,8 +404,8 @@ func (m *ScheduleManager) Enable(ctx context.Context, id string, by string) erro
 		return err
 	}
 
-	m.emitEvent(&ScheduleEvent{
-		Type:       string(ScheduleEventUpdated),
+	m.emitEvent(&Event{
+		Type:       string(EventUpdated),
 		ScheduleID: id,
 		Schedule:   schedule,
 		Timestamp:  schedule.UpdatedAt,
@@ -416,7 +417,7 @@ func (m *ScheduleManager) Enable(ctx context.Context, id string, by string) erro
 }
 
 // TriggerNow triggers a schedule for immediate execution.
-func (m *ScheduleManager) TriggerNow(ctx context.Context, id string, triggeredBy string) (*ScheduleExecution, error) {
+func (m *Manager) TriggerNow(ctx context.Context, id, triggeredBy string) (*Execution, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -429,13 +430,13 @@ func (m *ScheduleManager) TriggerNow(ctx context.Context, id string, triggeredBy
 		return nil, err
 	}
 
-	if schedule.Status == ScheduleStatusDisabled {
+	if schedule.Status == StatusDisabled {
 		return nil, ErrScheduleDisabled
 	}
 
 	// Create execution record
 	now := time.Now().UTC()
-	execution := &ScheduleExecution{
+	execution := &Execution{
 		ID:            uuid.New().String(),
 		ScheduleID:    id,
 		ScheduleName:  schedule.Name,
@@ -457,8 +458,8 @@ func (m *ScheduleManager) TriggerNow(ctx context.Context, id string, triggeredBy
 		return nil, fmt.Errorf("failed to create execution: %w", err)
 	}
 
-	m.emitEvent(&ScheduleEvent{
-		Type:        string(ScheduleEventTriggered),
+	m.emitEvent(&Event{
+		Type:        string(EventTriggered),
 		ScheduleID:  id,
 		Schedule:    schedule,
 		ExecutionID: execution.ID,
@@ -471,7 +472,7 @@ func (m *ScheduleManager) TriggerNow(ctx context.Context, id string, triggeredBy
 }
 
 // GetNextRun returns the next scheduled run time.
-func (m *ScheduleManager) GetNextRun(ctx context.Context, id string) (*time.Time, error) {
+func (m *Manager) GetNextRun(ctx context.Context, id string) (*time.Time, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -484,7 +485,7 @@ func (m *ScheduleManager) GetNextRun(ctx context.Context, id string) (*time.Time
 		return nil, err
 	}
 
-	if schedule.Status != ScheduleStatusActive {
+	if schedule.Status != StatusActive {
 		return nil, nil
 	}
 
@@ -492,7 +493,7 @@ func (m *ScheduleManager) GetNextRun(ctx context.Context, id string) (*time.Time
 }
 
 // GetStats returns schedule statistics.
-func (m *ScheduleManager) GetStats(ctx context.Context) (*ScheduleStats, error) {
+func (m *Manager) GetStats(ctx context.Context) (*Stats, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -505,9 +506,9 @@ func (m *ScheduleManager) GetStats(ctx context.Context) (*ScheduleStats, error) 
 		return nil, err
 	}
 
-	stats := &ScheduleStats{
-		ByType:   make(map[ScheduleType]int),
-		ByStatus: make(map[ScheduleStatus]int),
+	stats := &Stats{
+		ByType:   make(map[Type]int),
+		ByStatus: make(map[Status]int),
 	}
 
 	now := time.Now().UTC()
@@ -519,12 +520,14 @@ func (m *ScheduleManager) GetStats(ctx context.Context) (*ScheduleStats, error) 
 		stats.ByStatus[s.Status]++
 
 		switch s.Status {
-		case ScheduleStatusActive:
+		case StatusActive:
 			stats.ActiveSchedules++
-		case ScheduleStatusPaused:
+		case StatusPaused:
 			stats.PausedSchedules++
-		case ScheduleStatusDisabled:
+		case StatusDisabled:
 			stats.DisabledSchedules++
+		default:
+			// ScheduleStatusExpired counted via ByStatus map
 		}
 
 		stats.TotalExecutions += s.RunCount
@@ -545,7 +548,7 @@ func (m *ScheduleManager) GetStats(ctx context.Context) (*ScheduleStats, error) 
 }
 
 // ApproveExecution approves a pending execution.
-func (m *ScheduleManager) ApproveExecution(ctx context.Context, executionID string, approvedBy string) error {
+func (m *Manager) ApproveExecution(ctx context.Context, executionID, approvedBy string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -571,7 +574,7 @@ func (m *ScheduleManager) ApproveExecution(ctx context.Context, executionID stri
 }
 
 // RejectExecution rejects a pending execution.
-func (m *ScheduleManager) RejectExecution(ctx context.Context, executionID string, rejectedBy string, reason string) error {
+func (m *Manager) RejectExecution(ctx context.Context, executionID, rejectedBy, reason string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -598,7 +601,7 @@ func (m *ScheduleManager) RejectExecution(ctx context.Context, executionID strin
 }
 
 // GetExecution retrieves an execution by ID.
-func (m *ScheduleManager) GetExecution(ctx context.Context, id string) (*ScheduleExecution, error) {
+func (m *Manager) GetExecution(ctx context.Context, id string) (*Execution, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -610,7 +613,7 @@ func (m *ScheduleManager) GetExecution(ctx context.Context, id string) (*Schedul
 }
 
 // ListExecutions lists executions matching the filter.
-func (m *ScheduleManager) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*ScheduleExecution, error) {
+func (m *Manager) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*Execution, error) {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -622,7 +625,7 @@ func (m *ScheduleManager) ListExecutions(ctx context.Context, filter *ExecutionF
 }
 
 // RecordExecutionResult records the result of an execution.
-func (m *ScheduleManager) RecordExecutionResult(ctx context.Context, execution *ScheduleExecution) error {
+func (m *Manager) RecordExecutionResult(ctx context.Context, execution *Execution) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -645,10 +648,13 @@ func (m *ScheduleManager) RecordExecutionResult(ctx context.Context, execution *
 	schedule.LastRun = &now
 	schedule.RunCount++
 
-	if execution.Status == ExecutionStatusCompleted {
+	switch execution.Status {
+	case ExecutionStatusCompleted:
 		schedule.SuccessCount++
-	} else if execution.Status == ExecutionStatusFailed {
+	case ExecutionStatusFailed:
 		schedule.FailureCount++
+	default:
+		// Other statuses don't update success/failure counts
 	}
 
 	// Calculate next run
@@ -664,12 +670,12 @@ func (m *ScheduleManager) RecordExecutionResult(ctx context.Context, execution *
 	}
 
 	// Emit completion event
-	eventType := string(ScheduleEventCompleted)
+	eventType := string(EventCompleted)
 	if execution.Status == ExecutionStatusFailed {
-		eventType = string(ScheduleEventFailed)
+		eventType = string(EventFailed)
 	}
 
-	m.emitEvent(&ScheduleEvent{
+	m.emitEvent(&Event{
 		Type:        eventType,
 		ScheduleID:  execution.ScheduleID,
 		Schedule:    schedule,
@@ -686,14 +692,14 @@ func (m *ScheduleManager) RecordExecutionResult(ctx context.Context, execution *
 }
 
 // AddListener adds an event listener.
-func (m *ScheduleManager) AddListener(listener ScheduleEventListener) {
+func (m *Manager) AddListener(listener EventListener) {
 	m.mu.Lock()
 	m.listeners = append(m.listeners, listener)
 	m.mu.Unlock()
 }
 
 // Close closes the manager.
-func (m *ScheduleManager) Close() error {
+func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -706,7 +712,7 @@ func (m *ScheduleManager) Close() error {
 }
 
 // validate validates a schedule.
-func (m *ScheduleManager) validate(schedule *Schedule) error {
+func (m *Manager) validate(schedule *Schedule) error {
 	if schedule.Name == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidSchedule)
 	}
@@ -717,7 +723,7 @@ func (m *ScheduleManager) validate(schedule *Schedule) error {
 
 	// Validate type
 	switch schedule.Type {
-	case ScheduleTypeCommand, ScheduleTypeState, ScheduleTypeBlueprint, ScheduleTypeReactor, ScheduleTypeCustom:
+	case TypeCommand, TypeState, TypeBlueprint, TypeReactor, TypeCustom:
 		// Valid types
 	default:
 		return fmt.Errorf("%w: invalid type %q", ErrInvalidSchedule, schedule.Type)
@@ -774,7 +780,7 @@ func (m *ScheduleManager) validate(schedule *Schedule) error {
 }
 
 // emitEvent emits an event to all listeners.
-func (m *ScheduleManager) emitEvent(event *ScheduleEvent) {
+func (m *Manager) emitEvent(event *Event) {
 	m.mu.RLock()
 	listeners := m.listeners
 	m.mu.RUnlock()

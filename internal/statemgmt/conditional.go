@@ -29,6 +29,7 @@ type ConditionNode struct {
 // ConditionType represents the type of condition node
 type ConditionType int
 
+// ConditionTypeValue constants define the supported types.
 const (
 	ConditionTypeValue ConditionType = iota
 	ConditionTypeField
@@ -183,22 +184,24 @@ func parseExpression(expr string) (*ConditionNode, error) {
 	// Check for comparison operators (order matters - longer/compound operators first)
 	operators := []string{"==", "!=", ">=", "<=", ">", "<", "=~", "!~", "not in", "in", "contains", "startswith", "endswith"}
 	for _, op := range operators {
-		if idx := findComparisonOperator(expr, op); idx != -1 {
-			left, err := parseExpression(expr[:idx])
-			if err != nil {
-				return nil, err
-			}
-			right, err := parseExpression(expr[idx+len(op):])
-			if err != nil {
-				return nil, err
-			}
-			return &ConditionNode{
-				Type:     ConditionTypeComparison,
-				Operator: op,
-				Left:     left,
-				Right:    right,
-			}, nil
+		idx := findComparisonOperator(expr, op)
+		if idx == -1 {
+			continue
 		}
+		left, err := parseExpression(expr[:idx])
+		if err != nil {
+			return nil, err
+		}
+		right, err := parseExpression(expr[idx+len(op):])
+		if err != nil {
+			return nil, err
+		}
+		return &ConditionNode{
+			Type:     ConditionTypeComparison,
+			Operator: op,
+			Left:     left,
+			Right:    right,
+		}, nil
 	}
 
 	// It's a value/field reference
@@ -799,7 +802,7 @@ type ConditionalStateDeclaration struct {
 }
 
 // ShouldExecute checks if the state should execute based on its conditions
-func (csd *ConditionalStateDeclaration) ShouldExecute(ctx *ConditionContext) (bool, string, error) {
+func (csd *ConditionalStateDeclaration) ShouldExecute(ctx *ConditionContext) (shouldExecute bool, reason string, err error) {
 	evaluator := NewConditionEvaluator()
 
 	// Check When conditions (all must be true)
@@ -861,7 +864,8 @@ func FilterStates(states []ConditionalStateDeclaration, ctx *ConditionContext) (
 	var executed []StateDeclaration
 	var skipped []SkippedState
 
-	for _, state := range states {
+	for i := range states {
+		state := &states[i]
 		shouldExec, reason, err := state.ShouldExecute(ctx)
 		if err != nil {
 			skipped = append(skipped, SkippedState{

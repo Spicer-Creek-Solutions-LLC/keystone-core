@@ -74,42 +74,42 @@ func (s *StateStore) CompareAndSwap(ctx context.Context, key string, expected, v
 	return s.etcd.CompareAndSwap(ctx, stateKeyPrefix+key, expected, value)
 }
 
-// ClusterConfigStore provides cluster configuration storage.
-type ClusterConfigStore struct {
+// ConfigStore provides cluster configuration storage.
+type ConfigStore struct {
 	etcd *EtcdClient
 }
 
-// NewClusterConfigStore creates a new cluster config store.
-func NewClusterConfigStore(etcd *EtcdClient) (*ClusterConfigStore, error) {
+// NewConfigStore creates a new cluster config store.
+func NewConfigStore(etcd *EtcdClient) (*ConfigStore, error) {
 	if etcd == nil {
 		return nil, fmt.Errorf("etcd client is required")
 	}
 
-	return &ClusterConfigStore{etcd: etcd}, nil
+	return &ConfigStore{etcd: etcd}, nil
 }
 
 // GetConfig retrieves a configuration value.
-func (s *ClusterConfigStore) GetConfig(ctx context.Context, key string) ([]byte, error) {
+func (s *ConfigStore) GetConfig(ctx context.Context, key string) ([]byte, error) {
 	return s.etcd.Get(ctx, configKeyPrefix+key)
 }
 
 // SetConfig stores a configuration value.
-func (s *ClusterConfigStore) SetConfig(ctx context.Context, key string, value []byte) error {
+func (s *ConfigStore) SetConfig(ctx context.Context, key string, value []byte) error {
 	return s.etcd.Put(ctx, configKeyPrefix+key, value, 0)
 }
 
 // DeleteConfig removes a configuration value.
-func (s *ClusterConfigStore) DeleteConfig(ctx context.Context, key string) error {
+func (s *ConfigStore) DeleteConfig(ctx context.Context, key string) error {
 	return s.etcd.Delete(ctx, configKeyPrefix+key)
 }
 
 // ListConfigs returns all configuration keys with a given prefix.
-func (s *ClusterConfigStore) ListConfigs(ctx context.Context, prefix string) (map[string][]byte, error) {
+func (s *ConfigStore) ListConfigs(ctx context.Context, prefix string) (map[string][]byte, error) {
 	return s.etcd.List(ctx, configKeyPrefix+prefix)
 }
 
 // WatchConfig watches for configuration changes.
-func (s *ClusterConfigStore) WatchConfig(ctx context.Context, prefix string, handler func(key string, value []byte, deleted bool)) error {
+func (s *ConfigStore) WatchConfig(ctx context.Context, prefix string, handler func(key string, value []byte, deleted bool)) error {
 	return s.etcd.Watch(ctx, configKeyPrefix+prefix, handler)
 }
 
@@ -244,11 +244,10 @@ func (s *ShardStore) CompareAndSwapAssignment(ctx context.Context, assignment *S
 
 // DistributedLock provides distributed locking using etcd.
 type DistributedLock struct {
-	etcd    *EtcdClient
-	key     string
-	leaseID int64
-	mu      sync.Mutex
-	locked  bool
+	etcd   *EtcdClient
+	key    string
+	mu     sync.Mutex
+	locked bool
 }
 
 // NewDistributedLock creates a new distributed lock.
@@ -346,7 +345,7 @@ func NewCoordinationStore(etcd *EtcdClient) (*CoordinationStore, error) {
 }
 
 // Barrier waits for all members to reach a barrier point.
-func (s *CoordinationStore) Barrier(ctx context.Context, name string, memberID string, memberCount int) error {
+func (s *CoordinationStore) Barrier(ctx context.Context, name, memberID string, memberCount int) error {
 	barrierKey := coordinationPrefix + "barriers/" + name + "/" + memberID
 
 	// Register at the barrier
@@ -365,10 +364,6 @@ func (s *CoordinationStore) Barrier(ctx context.Context, name string, memberID s
 			return nil
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		}
 		if err := wait.ForContext(ctx, 100*time.Millisecond); err != nil {
 			return err
 		}
@@ -376,7 +371,7 @@ func (s *CoordinationStore) Barrier(ctx context.Context, name string, memberID s
 }
 
 // Elect elects a coordinator for a given task.
-func (s *CoordinationStore) Elect(ctx context.Context, name string, memberID string) (bool, error) {
+func (s *CoordinationStore) Elect(ctx context.Context, name, memberID string) (bool, error) {
 	electionKey := coordinationPrefix + "elections/" + name
 
 	success, err := s.etcd.CompareAndSwap(ctx, electionKey, nil, []byte(memberID))
@@ -404,7 +399,7 @@ func (s *CoordinationStore) GetElected(ctx context.Context, name string) (string
 }
 
 // Resign gives up the coordinator role.
-func (s *CoordinationStore) Resign(ctx context.Context, name string, memberID string) error {
+func (s *CoordinationStore) Resign(ctx context.Context, name, memberID string) error {
 	electionKey := coordinationPrefix + "elections/" + name
 
 	// Only delete if we are the current leader

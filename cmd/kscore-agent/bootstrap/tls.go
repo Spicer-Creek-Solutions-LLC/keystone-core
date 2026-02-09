@@ -14,24 +14,27 @@ import (
 )
 
 const (
-	defaultTLSCertPath          = "/etc/kscore/tls/kscore.crt"
-	defaultTLSKeyPath           = "/etc/kscore/tls/kscore.key"
-	defaultTLSCAPath            = "/etc/kscore/tls/ca.crt"
-	defaultTLSCSRPath           = "/etc/kscore/tls/kscore.csr"
-	defaultTLSRenewalScriptPath = "/etc/kscore/tls/renew.sh"
+	defaultTLSCertPath          = "/etc/keystone-core/tls/kscore.crt"
+	defaultTLSKeyPath           = "/etc/keystone-core/tls/kscore.key"
+	defaultTLSCAPath            = "/etc/keystone-core/tls/ca.crt"
+	defaultTLSCSRPath           = "/etc/keystone-core/tls/kscore.csr"
+	defaultTLSRenewalScriptPath = "/etc/keystone-core/tls/renew.sh"
 )
 
+// TLSBundle contains the generated TLS certificate, key, and CA in PEM format.
 type TLSBundle struct {
 	CertPEM []byte
 	KeyPEM  []byte
 	CAPEM   []byte
 }
 
+// CSRBundle contains a certificate signing request and private key in PEM format.
 type CSRBundle struct {
 	CSRPEM []byte
 	KeyPEM []byte
 }
 
+// GenerateTLSBundle creates a self-signed TLS certificate bundle for the given hosts.
 func GenerateTLSBundle(hosts []string) (TLSBundle, error) {
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -85,6 +88,7 @@ func GenerateTLSBundle(hosts []string) (TLSBundle, error) {
 	}, nil
 }
 
+// GenerateCSRBundle creates a certificate signing request for the given hosts.
 func GenerateCSRBundle(hosts []string) (CSRBundle, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -144,7 +148,7 @@ func addHostsToCSR(template *x509.CertificateRequest, hosts []string) {
 	}
 }
 
-func resolveTLSPaths(cfg *BootstrapConfig) (certPath, keyPath, caPath string) {
+func resolveTLSPaths(cfg *Config) (certPath, keyPath, caPath string) {
 	certPath = cfg.TLSCertFile
 	keyPath = cfg.TLSKeyFile
 	caPath = cfg.TLSCAFile
@@ -164,21 +168,21 @@ func resolveTLSPaths(cfg *BootstrapConfig) (certPath, keyPath, caPath string) {
 	return certPath, keyPath, caPath
 }
 
-func resolveTLSCSRPath(cfg *BootstrapConfig) string {
+func resolveTLSCSRPath(cfg *Config) string {
 	if cfg.TLSCSRFile != "" {
 		return cfg.TLSCSRFile
 	}
 	return defaultTLSCSRPath
 }
 
-func resolveTLSRenewalScriptPath(cfg *BootstrapConfig) string {
+func resolveTLSRenewalScriptPath(cfg *Config) string {
 	if cfg.TLSRenewalScriptPath != "" {
 		return cfg.TLSRenewalScriptPath
 	}
 	return defaultTLSRenewalScriptPath
 }
 
-func ensureTLSCSRFiles(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]string, error) {
+func ensureTLSCSRFiles(cfg *Config, output io.Writer, verbose bool) ([]string, error) {
 	csrPath := resolveTLSCSRPath(cfg)
 	keyPath := cfg.TLSKeyFile
 	if keyPath == "" {
@@ -215,7 +219,7 @@ func ensureTLSCSRFiles(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]
 	return []string{csrPath, keyPath}, nil
 }
 
-func ensureTLSRenewalScript(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]string, error) {
+func ensureTLSRenewalScript(cfg *Config, output io.Writer, verbose bool) ([]string, error) {
 	if cfg.TLSRenewalCommand == "" {
 		return nil, nil
 	}
@@ -237,7 +241,7 @@ func ensureTLSRenewalScript(cfg *BootstrapConfig, output io.Writer, verbose bool
 	return []string{scriptPath}, nil
 }
 
-func collectTLSHosts(cfg *BootstrapConfig) []string {
+func collectTLSHosts(cfg *Config) []string {
 	hosts := []string{"localhost", "127.0.0.1", "::1"}
 	if cfg.BindAddress != "" {
 		hosts = append(hosts, cfg.BindAddress)

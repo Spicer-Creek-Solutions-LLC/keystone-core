@@ -11,10 +11,10 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
 
-// ExecutionManager provides management operations for runbook executions.
+// Manager provides management operations for runbook executions.
 // It supports pause/resume, step retry, step skip, cancellation with rollback,
 // and execution cloning.
-type ExecutionManager struct {
+type Manager struct {
 	mu sync.RWMutex
 
 	// Active executions tracked by ID
@@ -30,9 +30,9 @@ type ExecutionManager struct {
 	rollbackHandlers map[runbook.StepType]RollbackHandler
 }
 
-// ManagedExecution extends ExecutionContext with management state.
+// ManagedExecution extends Context with management state.
 type ManagedExecution struct {
-	*ExecutionContext
+	*Context
 
 	// Management state
 	paused     bool
@@ -72,9 +72,9 @@ func (f RollbackFunc) Rollback(ctx context.Context, step *runbook.Step, stepExec
 	return f(ctx, step, stepExec)
 }
 
-// NewExecutionManager creates a new execution manager.
-func NewExecutionManager(executor *Executor, storage Storage) *ExecutionManager {
-	return &ExecutionManager{
+// NewManager creates a new execution manager.
+func NewManager(executor *Executor, storage Storage) *Manager {
+	return &Manager{
 		executions:       make(map[string]*ManagedExecution),
 		storage:          storage,
 		executor:         executor,
@@ -83,19 +83,19 @@ func NewExecutionManager(executor *Executor, storage Storage) *ExecutionManager 
 }
 
 // RegisterRollbackHandler registers a rollback handler for a step type.
-func (m *ExecutionManager) RegisterRollbackHandler(stepType runbook.StepType, handler RollbackHandler) {
+func (m *Manager) RegisterRollbackHandler(stepType runbook.StepType, handler RollbackHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.rollbackHandlers[stepType] = handler
 }
 
 // Track starts tracking an execution for management.
-func (m *ExecutionManager) Track(execCtx *ExecutionContext) *ManagedExecution {
+func (m *Manager) Track(execCtx *Context) *ManagedExecution {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	managed := &ManagedExecution{
-		ExecutionContext: execCtx,
+		Context: execCtx,
 		pauseCh:          make(chan struct{}),
 		resumeCh:         make(chan struct{}),
 		skippedSteps:     make(map[string]bool),
@@ -107,14 +107,14 @@ func (m *ExecutionManager) Track(execCtx *ExecutionContext) *ManagedExecution {
 }
 
 // Untrack stops tracking an execution.
-func (m *ExecutionManager) Untrack(executionID string) {
+func (m *Manager) Untrack(executionID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.executions, executionID)
 }
 
 // Get retrieves a managed execution by ID.
-func (m *ExecutionManager) Get(executionID string) (*ManagedExecution, bool) {
+func (m *Manager) Get(executionID string) (*ManagedExecution, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	exec, ok := m.executions[executionID]
@@ -122,7 +122,7 @@ func (m *ExecutionManager) Get(executionID string) (*ManagedExecution, bool) {
 }
 
 // List returns all managed executions.
-func (m *ExecutionManager) List() []*ManagedExecution {
+func (m *Manager) List() []*ManagedExecution {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -134,7 +134,7 @@ func (m *ExecutionManager) List() []*ManagedExecution {
 }
 
 // Pause pauses a running execution.
-func (m *ExecutionManager) Pause(executionID string) error {
+func (m *Manager) Pause(executionID string) error {
 	m.mu.Lock()
 	exec, ok := m.executions[executionID]
 	m.mu.Unlock()
@@ -165,7 +165,7 @@ func (m *ExecutionManager) Pause(executionID string) error {
 }
 
 // Resume resumes a paused execution.
-func (m *ExecutionManager) Resume(executionID string) error {
+func (m *Manager) Resume(executionID string) error {
 	m.mu.Lock()
 	exec, ok := m.executions[executionID]
 	m.mu.Unlock()
@@ -197,7 +197,7 @@ func (m *ExecutionManager) Resume(executionID string) error {
 }
 
 // IsPaused returns true if the execution is paused.
-func (m *ExecutionManager) IsPaused(executionID string) bool {
+func (m *Manager) IsPaused(executionID string) bool {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -211,7 +211,7 @@ func (m *ExecutionManager) IsPaused(executionID string) bool {
 
 // WaitIfPaused blocks until the execution is resumed or context is cancelled.
 // Returns true if resumed, false if context was cancelled.
-func (m *ExecutionManager) WaitIfPaused(ctx context.Context, executionID string) bool {
+func (m *Manager) WaitIfPaused(ctx context.Context, executionID string) bool {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -229,7 +229,7 @@ func (m *ExecutionManager) WaitIfPaused(ctx context.Context, executionID string)
 }
 
 // RetryStep retries a failed step.
-func (m *ExecutionManager) RetryStep(ctx context.Context, executionID, stepName string) error {
+func (m *Manager) RetryStep(ctx context.Context, executionID, stepName string) error {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -261,7 +261,7 @@ func (m *ExecutionManager) RetryStep(ctx context.Context, executionID, stepName 
 	// Re-execute the step
 	step := stepCtx.Step()
 	if m.executor != nil {
-		err := m.executor.executeStep(ctx, step, stepCtx, exec.ExecutionContext)
+		err := m.executor.executeStep(ctx, step, stepCtx, exec.Context)
 		if err != nil {
 			return fmt.Errorf("retry failed: %w", err)
 		}
@@ -276,7 +276,7 @@ func (m *ExecutionManager) RetryStep(ctx context.Context, executionID, stepName 
 }
 
 // SkipStep marks a pending step as skipped.
-func (m *ExecutionManager) SkipStep(ctx context.Context, executionID, stepName string) error {
+func (m *Manager) SkipStep(ctx context.Context, executionID, stepName string) error {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -310,7 +310,7 @@ func (m *ExecutionManager) SkipStep(ctx context.Context, executionID, stepName s
 }
 
 // Cancel cancels a running execution.
-func (m *ExecutionManager) Cancel(ctx context.Context, executionID string) error {
+func (m *Manager) Cancel(ctx context.Context, executionID string) error {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -325,7 +325,7 @@ func (m *ExecutionManager) Cancel(ctx context.Context, executionID string) error
 
 	// If paused, resume first to allow cancellation
 	if exec.paused {
-		_ = m.Resume(executionID)
+		_ = m.Resume(executionID) //nolint:contextcheck // Resume API doesn't take context
 	}
 
 	exec.Cancel()
@@ -334,7 +334,7 @@ func (m *ExecutionManager) Cancel(ctx context.Context, executionID string) error
 }
 
 // CancelWithRollback cancels a running execution and rolls back completed steps.
-func (m *ExecutionManager) CancelWithRollback(ctx context.Context, executionID string) error {
+func (m *Manager) CancelWithRollback(ctx context.Context, executionID string) error {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -388,7 +388,7 @@ func (m *ExecutionManager) CancelWithRollback(ctx context.Context, executionID s
 }
 
 // Clone creates a new execution with the same inputs as an existing one.
-func (m *ExecutionManager) Clone(ctx context.Context, executionID string) (*ManagedExecution, error) {
+func (m *Manager) Clone(ctx context.Context, executionID string) (*ManagedExecution, error) {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
 	m.mu.RUnlock()
@@ -405,9 +405,9 @@ func (m *ExecutionManager) Clone(ctx context.Context, executionID string) (*Mana
 			newID := uuid.New().String()
 
 			// We need the original runbook to clone - this is a limitation
-			return nil, fmt.Errorf("cannot clone execution from storage without runbook reference")
 			_ = storedExec
 			_ = newID
+			return nil, fmt.Errorf("cannot clone execution from storage without runbook reference")
 		}
 		return nil, fmt.Errorf("execution %s not found", executionID)
 	}
@@ -416,7 +416,7 @@ func (m *ExecutionManager) Clone(ctx context.Context, executionID string) (*Mana
 }
 
 // CloneExecution creates a new execution from an existing managed execution.
-func (m *ExecutionManager) CloneExecution(ctx context.Context, exec *ManagedExecution) (*ManagedExecution, error) {
+func (m *Manager) CloneExecution(ctx context.Context, exec *ManagedExecution) (*ManagedExecution, error) {
 	// Get inputs from original execution
 	inputs := exec.Inputs()
 
@@ -425,11 +425,11 @@ func (m *ExecutionManager) CloneExecution(ctx context.Context, exec *ManagedExec
 
 	// We need to get the runbook to create a proper clone
 	// For now, create a new context that copies the structure
-	newExecCtx := &ExecutionContext{
+	newExecCtx := &Context{
 		executionID:    newID,
 		runbookName:    exec.RunbookName(),
 		runbookVersion: exec.RunbookVersion(),
-		machine:        NewExecutionMachine(),
+		machine:        NewMachine(),
 		createdAt:      time.Now(),
 		inputs:         inputs,
 		steps:          make(map[string]*StepContext),
@@ -443,7 +443,7 @@ func (m *ExecutionManager) CloneExecution(ctx context.Context, exec *ManagedExec
 	exec.mu.RUnlock()
 
 	managed := &ManagedExecution{
-		ExecutionContext: newExecCtx,
+		Context: newExecCtx,
 		pauseCh:          make(chan struct{}),
 		resumeCh:         make(chan struct{}),
 		skippedSteps:     make(map[string]bool),
@@ -525,14 +525,14 @@ type ManagedExecutionInfo struct {
 	RetriedSteps map[string]int     `json:"retried_steps,omitempty"`
 }
 
-// ExecutionHistory tracks execution history for an execution.
-type ExecutionHistory struct {
-	ExecutionID string                `json:"execution_id"`
-	Events      []ExecutionHistoryEvent `json:"events"`
+// History tracks execution history for an execution.
+type History struct {
+	ExecutionID string         `json:"execution_id"`
+	Events      []HistoryEvent `json:"events"`
 }
 
-// ExecutionHistoryEvent represents a historical event.
-type ExecutionHistoryEvent struct {
+// HistoryEvent represents a historical event.
+type HistoryEvent struct {
 	Timestamp time.Time   `json:"timestamp"`
 	Type      string      `json:"type"`
 	Details   interface{} `json:"details,omitempty"`
@@ -540,12 +540,12 @@ type ExecutionHistoryEvent struct {
 
 // PauseCheckpoint allows the executor to check for pauses during execution.
 type PauseCheckpoint struct {
-	manager     *ExecutionManager
+	manager     *Manager
 	executionID string
 }
 
 // NewPauseCheckpoint creates a new pause checkpoint.
-func NewPauseCheckpoint(manager *ExecutionManager, executionID string) *PauseCheckpoint {
+func NewPauseCheckpoint(manager *Manager, executionID string) *PauseCheckpoint {
 	return &PauseCheckpoint{
 		manager:     manager,
 		executionID: executionID,

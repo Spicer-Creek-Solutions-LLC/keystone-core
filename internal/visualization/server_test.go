@@ -46,7 +46,7 @@ func TestNewServer(t *testing.T) {
 
 func TestServerStartStop(t *testing.T) {
 	provider := &MockAgentProvider{}
-	config := &VisualizationConfig{
+	config := &Config{
 		ListenAddr:      "localhost:18080",
 		EnableWebSocket: false,
 	}
@@ -61,9 +61,15 @@ func TestServerStartStop(t *testing.T) {
 	// Test that server is running
 	var resp *http.Response
 	if err := helpers.WaitForTimeout(2*time.Second, 50*time.Millisecond, func() (bool, error) {
-		var reqErr error
-		resp, reqErr = http.Get("http://localhost:18080/api/agents")
+		req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:18080/api/agents", nil)
 		if reqErr != nil {
+			return false, reqErr
+		}
+		resp, reqErr = http.DefaultClient.Do(req) //nolint:bodyclose // closed after loop
+		if reqErr != nil {
+			if resp != nil {
+				resp.Body.Close()
+			}
 			return false, nil
 		}
 		return true, nil

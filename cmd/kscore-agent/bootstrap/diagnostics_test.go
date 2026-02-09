@@ -7,7 +7,7 @@ import (
 )
 
 func TestRenderConfigSummaryRedactsSecrets(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Mode:             "production",
 		ClusterName:      "alpha",
 		NodeRole:         "control-plane",
@@ -38,7 +38,7 @@ func TestRenderConfigSummaryRedactsSecrets(t *testing.T) {
 }
 
 func TestDiagnosticHints(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Storage:  "postgres",
 		NATSMode: "external",
 	}

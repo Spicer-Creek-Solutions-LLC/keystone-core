@@ -10,6 +10,7 @@ import (
 // LogLevel represents a log level.
 type LogLevel int
 
+// LevelDebug constants define the severity levels.
 const (
 	LevelDebug LogLevel = iota
 	LevelInfo
@@ -103,8 +104,8 @@ func DefaultStoreConfig() StoreConfig {
 	}
 }
 
-// LogsStore stores log entries from multiple agents.
-type LogsStore struct {
+// Store stores log entries from multiple agents.
+type Store struct {
 	entries []LogEntry
 	mu      sync.RWMutex
 	config  StoreConfig
@@ -123,8 +124,8 @@ type LogsStore struct {
 }
 
 // NewLogsStore creates a new logs store.
-func NewLogsStore(config StoreConfig) *LogsStore {
-	s := &LogsStore{
+func NewLogsStore(config StoreConfig) *Store {
+	s := &Store{
 		entries: make([]LogEntry, 0, config.MaxEntries),
 		config:  config,
 	}
@@ -149,14 +150,14 @@ func NewLogsStore(config StoreConfig) *LogsStore {
 }
 
 // SetOnEntryAdded sets the callback for when an entry is added.
-func (s *LogsStore) SetOnEntryAdded(fn func(entry *LogEntry)) {
+func (s *Store) SetOnEntryAdded(fn func(entry *LogEntry)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onEntryAdded = fn
 }
 
 // Store stores a log entry.
-func (s *LogsStore) Store(entry LogEntry) bool {
+func (s *Store) Store(entry LogEntry) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -194,7 +195,7 @@ func (s *LogsStore) Store(entry LogEntry) bool {
 }
 
 // StoreBatch stores multiple log entries.
-func (s *LogsStore) StoreBatch(entries []LogEntry) int {
+func (s *Store) StoreBatch(entries []LogEntry) int {
 	stored := 0
 	for _, entry := range entries {
 		if s.Store(entry) {
@@ -204,7 +205,7 @@ func (s *LogsStore) StoreBatch(entries []LogEntry) int {
 	return stored
 }
 
-// Query queries log entries.
+// LogQuery defines query parameters for log entries.
 type LogQuery struct {
 	// AgentID filters by agent
 	AgentID string
@@ -232,7 +233,7 @@ type LogQuery struct {
 }
 
 // Query returns log entries matching the query.
-func (s *LogsStore) Query(q LogQuery) []LogEntry {
+func (s *Store) Query(q LogQuery) []LogEntry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -286,7 +287,7 @@ func (s *LogsStore) Query(q LogQuery) []LogEntry {
 }
 
 // GetRecent returns the most recent entries.
-func (s *LogsStore) GetRecent(limit int) []LogEntry {
+func (s *Store) GetRecent(limit int) []LogEntry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -308,7 +309,7 @@ func (s *LogsStore) GetRecent(limit int) []LogEntry {
 
 // GetPending returns entries that haven't been pushed yet.
 // Used by Loki pusher to get entries for pushing.
-func (s *LogsStore) GetPending(lastID string, limit int) []LogEntry {
+func (s *Store) GetPending(lastID string, limit int) []LogEntry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -333,7 +334,7 @@ func (s *LogsStore) GetPending(lastID string, limit int) []LogEntry {
 }
 
 // Cleanup removes old entries.
-func (s *LogsStore) Cleanup() int {
+func (s *Store) Cleanup() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -362,24 +363,24 @@ func (s *LogsStore) Cleanup() int {
 }
 
 // Clear removes all entries.
-func (s *LogsStore) Clear() {
+func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entries = s.entries[:0]
 }
 
-// LogsStoreStats holds store statistics.
-type LogsStoreStats struct {
+// StoreStats holds store statistics.
+type StoreStats struct {
 	EntryCount      int
 	EntriesReceived int64
 	EntriesDropped  int64
 }
 
 // Stats returns store statistics.
-func (s *LogsStore) Stats() LogsStoreStats {
+func (s *Store) Stats() StoreStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return LogsStoreStats{
+	return StoreStats{
 		EntryCount:      len(s.entries),
 		EntriesReceived: s.entriesReceived,
 		EntriesDropped:  s.entriesDropped,

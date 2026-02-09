@@ -26,7 +26,7 @@ func TestNewFilesystemBackend(t *testing.T) {
 			config: &FilesystemConfig{
 				Config: Config{
 					Name: "test",
-					Type: BackendTypeFilesystem,
+					Type: TypeFilesystem,
 				},
 				Root: tmpDir,
 			},
@@ -37,7 +37,7 @@ func TestNewFilesystemBackend(t *testing.T) {
 			config: &FilesystemConfig{
 				Config: Config{
 					Name: "test",
-					Type: BackendTypeFilesystem,
+					Type: TypeFilesystem,
 				},
 			},
 			wantErr: true,
@@ -47,7 +47,7 @@ func TestNewFilesystemBackend(t *testing.T) {
 			config: &FilesystemConfig{
 				Config: Config{
 					Name: "test",
-					Type: BackendTypeFilesystem,
+					Type: TypeFilesystem,
 				},
 				Root:       filepath.Join(tmpDir, "new-dir"),
 				CreateDirs: true,
@@ -67,8 +67,8 @@ func TestNewFilesystemBackend(t *testing.T) {
 				if b.Name() != tt.config.Name {
 					t.Errorf("Name() = %v, want %v", b.Name(), tt.config.Name)
 				}
-				if b.Type() != BackendTypeFilesystem {
-					t.Errorf("Type() = %v, want %v", b.Type(), BackendTypeFilesystem)
+				if b.Type() != TypeFilesystem {
+					t.Errorf("Type() = %v, want %v", b.Type(), TypeFilesystem)
 				}
 				b.Close()
 			}
@@ -86,7 +86,7 @@ func TestFilesystemBackendPutGet(t *testing.T) {
 	b, err := NewFilesystemBackend(&FilesystemConfig{
 		Config: Config{
 			Name: "test",
-			Type: BackendTypeFilesystem,
+			Type: TypeFilesystem,
 		},
 		Root:       tmpDir,
 		CreateDirs: true,
@@ -434,8 +434,8 @@ func TestFilesystemBackendHealth(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	b, err := NewFilesystemBackend(&FilesystemConfig{
-		Config:   Config{Name: "test"},
-		Root: tmpDir,
+		Config: Config{Name: "test"},
+		Root:   tmpDir,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -48,7 +49,7 @@ func CreateListeners(cfg *ListenerConfig) ([]*ListenerResult, error) {
 		// The address format tells Go which protocol to use
 		network := "tcp"
 
-		listener, err := net.Listen(network, listenAddr)
+		listener, err := (&net.ListenConfig{}).Listen(context.Background(), network, listenAddr)
 		if err != nil {
 			// Close any already created listeners
 			for _, r := range results {
@@ -250,9 +251,7 @@ func SelectPreferredAddress(addresses []string, pref netutil.AddressFamilyPrefer
 			return ipv6
 		}
 		return ipv4
-	case netutil.PreferIPv4:
-		fallthrough
-	default:
+	default: // includes netutil.PreferIPv4
 		if ipv4 != "" {
 			return ipv4
 		}

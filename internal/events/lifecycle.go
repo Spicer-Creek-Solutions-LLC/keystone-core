@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // LifecycleState represents the state of an event in its lifecycle
@@ -302,7 +303,7 @@ func NewSQLiteLifecycleTracker(config *LifecycleTrackerConfig) (*SQLiteLifecycle
 
 // initLifecycleSchema creates the lifecycle tables
 func initLifecycleSchema(db *sql.DB) error {
-	_, err := db.Exec(`
+	_, err := db.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS event_lifecycles (
 			event_id TEXT PRIMARY KEY,
 			event_type TEXT NOT NULL,
@@ -370,11 +371,12 @@ func (t *SQLiteLifecycleTracker) Track(ctx context.Context, transition *Lifecycl
 		transition.EventID,
 	).Scan(&currentState, &createdAt)
 
-	if err == sql.ErrNoRows {
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		exists = false
-	} else if err != nil {
+	case err != nil:
 		return fmt.Errorf("failed to check existing lifecycle: %w", err)
-	} else {
+	default:
 		exists = true
 		transition.FromState = LifecycleState(currentState)
 		transition.Duration = transition.Timestamp.Sub(createdAt)
@@ -414,7 +416,7 @@ func (t *SQLiteLifecycleTracker) Track(ctx context.Context, transition *Lifecycl
 			}
 		}
 
-		query := "UPDATE event_lifecycles SET " + strings.Join(setClauses, ", ") + " WHERE event_id = ?"
+		query := "UPDATE event_lifecycles SET " + strings.Join(setClauses, ", ") + " WHERE event_id = ?" //nolint:gosec // G202: setClauses built from fixed column literals; args are bound separately
 		args = append(args, transition.EventID)
 		_, err = tx.ExecContext(ctx, query, args...)
 	} else {
@@ -464,7 +466,7 @@ func (t *SQLiteLifecycleTracker) Get(ctx context.Context, eventID string) (*Even
 		&lastError, &metadataJSON,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("lifecycle not found for event: %s", eventID)
 	}
 	if err != nil {
@@ -518,6 +520,9 @@ func (t *SQLiteLifecycleTracker) Get(ctx context.Context, eventID string) (*Even
 
 		lifecycle.Transitions = append(lifecycle.Transitions, &trans)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate transitions: %w", err)
+	}
 
 	return &lifecycle, nil
 }
@@ -561,6 +566,7 @@ func (t *SQLiteLifecycleTracker) Query(ctx context.Context, query *LifecycleQuer
 	orderClause += " LIMIT ? OFFSET ?"
 
 	// Query lifecycles
+	//nolint:gosec // G202: whereClause and orderClause built from validated fields with placeholders; args are bound separately
 	selectQuery := `
 		SELECT event_id, event_type, current_state, created_at, updated_at, processing_attempts, last_error
 		FROM event_lifecycles` + whereClause + orderClause
@@ -588,6 +594,9 @@ func (t *SQLiteLifecycleTracker) Query(ctx context.Context, query *LifecycleQuer
 
 		lifecycles = append(lifecycles, &lc)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate lifecycles: %w", err)
+	}
 
 	return &LifecycleQueryResult{
 		Lifecycles: lifecycles,
@@ -598,9 +607,8 @@ func (t *SQLiteLifecycleTracker) Query(ctx context.Context, query *LifecycleQuer
 }
 
 // buildWhereClause builds the WHERE clause for queries
-func (t *SQLiteLifecycleTracker) buildWhereClause(query *LifecycleQuery) (string, []interface{}) {
+func (t *SQLiteLifecycleTracker) buildWhereClause(query *LifecycleQuery) (clause string, args []interface{}) {
 	var conditions []string
-	var args []interface{}
 
 	if len(query.EventIDs) > 0 {
 		placeholders := make([]string, len(query.EventIDs))
@@ -669,23 +677,29 @@ func (t *SQLiteLifecycleTracker) GetMetrics(ctx context.Context) (*LifecycleMetr
 
 	// By state
 	rows, _ := t.db.QueryContext(ctx, "SELECT current_state, COUNT(*) FROM event_lifecycles GROUP BY current_state")
-	for rows.Next() {
-		var state LifecycleState
-		var count int64
-		rows.Scan(&state, &count)
-		metrics.ByState[state] = count
-	}
-	rows.Close()
+	func() {
+		defer rows.Close()
+		for rows.Next() {
+			var state LifecycleState
+			var count int64
+			rows.Scan(&state, &count)
+			metrics.ByState[state] = count
+		}
+		_ = rows.Err() // Ignore error in metrics context
+	}()
 
 	// By type
 	rows, _ = t.db.QueryContext(ctx, "SELECT event_type, COUNT(*) FROM event_lifecycles WHERE event_type != '' GROUP BY event_type")
-	for rows.Next() {
-		var eventType EventType
-		var count int64
-		rows.Scan(&eventType, &count)
-		metrics.ByType[eventType] = count
-	}
-	rows.Close()
+	func() {
+		defer rows.Close()
+		for rows.Next() {
+			var eventType EventType
+			var count int64
+			rows.Scan(&eventType, &count)
+			metrics.ByType[eventType] = count
+		}
+		_ = rows.Err() // Ignore error in metrics context
+	}()
 
 	// Processing times for processed events
 	var avgDuration float64
@@ -776,7 +790,7 @@ func (t *SQLiteLifecycleTracker) cleanupLoop() {
 		case <-t.ctx.Done():
 			return
 		case <-ticker.C:
-			t.Cleanup(t.ctx, t.config.RetentionPeriod)
+			_, _ = t.Cleanup(t.ctx, t.config.RetentionPeriod) //nolint:errcheck // best-effort periodic cleanup
 		}
 	}
 }
@@ -834,7 +848,7 @@ func (m *LifecycleMiddleware) TrackRouted(ctx context.Context, eventID string, h
 }
 
 // TrackProcessing tracks an event starting processing
-func (m *LifecycleMiddleware) TrackProcessing(ctx context.Context, eventID string, handler string) error {
+func (m *LifecycleMiddleware) TrackProcessing(ctx context.Context, eventID, handler string) error {
 	return m.tracker.Track(ctx, &LifecycleTransition{
 		EventID:   eventID,
 		ToState:   LifecycleStateProcessing,
@@ -872,7 +886,7 @@ func (m *LifecycleMiddleware) TrackFailed(ctx context.Context, eventID string, e
 }
 
 // TrackArchived tracks an event being archived
-func (m *LifecycleMiddleware) TrackArchived(ctx context.Context, eventID string, destination string) error {
+func (m *LifecycleMiddleware) TrackArchived(ctx context.Context, eventID, destination string) error {
 	return m.tracker.Track(ctx, &LifecycleTransition{
 		EventID:   eventID,
 		ToState:   LifecycleStateArchived,

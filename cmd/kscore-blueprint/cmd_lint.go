@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/shawnbutts/keystone-core/internal/blueprint"
 )
@@ -74,16 +76,23 @@ func lintExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse blueprint.yaml: %w", err)
 	}
 
-	var issues []LintIssue
+	// Run linters - collect results
+	docIssues := lintDocumentation(bp, path)
+	secIssues := lintSecurity(bp)
+	nameIssues := lintNaming(bp)
+	verIssues := lintVersions(bp)
+	testIssues := lintTesting(path)
+	licIssues := lintLicense(bp, path)
+	paramIssues := lintParameters(bp)
 
-	// Run linters
-	issues = append(issues, lintDocumentation(bp, path)...)
-	issues = append(issues, lintSecurity(bp)...)
-	issues = append(issues, lintNaming(bp)...)
-	issues = append(issues, lintVersions(bp)...)
-	issues = append(issues, lintTesting(path)...)
-	issues = append(issues, lintLicense(bp, path)...)
-	issues = append(issues, lintParameters(bp)...)
+	issues := make([]LintIssue, 0, len(docIssues)+len(secIssues)+len(nameIssues)+len(verIssues)+len(testIssues)+len(licIssues)+len(paramIssues))
+	issues = append(issues, docIssues...)
+	issues = append(issues, secIssues...)
+	issues = append(issues, nameIssues...)
+	issues = append(issues, verIssues...)
+	issues = append(issues, testIssues...)
+	issues = append(issues, licIssues...)
+	issues = append(issues, paramIssues...)
 
 	// Group by category
 	categories := map[string][]LintIssue{}
@@ -96,8 +105,9 @@ func lintExecute(cmd *cobra.Command, args []string) error {
 	warningCount := 0
 	infoCount := 0
 
+	titleCaser := cases.Title(language.English)
 	for category, catIssues := range categories {
-		fmt.Printf("%s:\n", strings.Title(category))
+		fmt.Printf("%s:\n", titleCaser.String(category))
 		for _, issue := range catIssues {
 			var icon string
 			switch issue.Level {
@@ -168,8 +178,8 @@ func lintDocumentation(bp *blueprint.Blueprint, basePath string) []LintIssue {
 	}
 
 	// Check parameter descriptions
-	for name, param := range bp.Parameters {
-		if param.Description == "" {
+	for name := range bp.Parameters {
+		if bp.Parameters[name].Description == "" {
 			issues = append(issues, LintIssue{
 				Level:    "warning",
 				Category: "documentation",
@@ -200,7 +210,8 @@ func lintSecurity(bp *blueprint.Blueprint) []LintIssue {
 	// Check for sensitive parameters
 	sensitiveWords := []string{"password", "secret", "key", "token", "credential", "api_key", "apikey"}
 
-	for name, param := range bp.Parameters {
+	for name := range bp.Parameters {
+		param := bp.Parameters[name]
 		nameLower := strings.ToLower(name)
 		for _, word := range sensitiveWords {
 			if strings.Contains(nameLower, word) && !param.Sensitive {
@@ -244,7 +255,7 @@ func lintNaming(bp *blueprint.Blueprint) []LintIssue {
 	} else {
 		// Check for valid characters
 		for _, r := range bp.Metadata.Name {
-			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '_' {
 				issues = append(issues, LintIssue{
 					Level:    "error",
 					Category: "naming",
@@ -377,7 +388,8 @@ func lintLicense(bp *blueprint.Blueprint, basePath string) []LintIssue {
 func lintParameters(bp *blueprint.Blueprint) []LintIssue {
 	var issues []LintIssue
 
-	for name, param := range bp.Parameters {
+	for name := range bp.Parameters {
+		param := bp.Parameters[name]
 		// Check for defaults on required parameters
 		if param.Required && param.Default != nil {
 			issues = append(issues, LintIssue{

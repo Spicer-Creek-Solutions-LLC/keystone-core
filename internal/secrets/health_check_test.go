@@ -183,7 +183,7 @@ func TestTCPHealthChecker(t *testing.T) {
 
 	t.Run("HealthyEndpoint", func(t *testing.T) {
 		// Start a TCP listener
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatalf("failed to start listener: %v", err)
 		}

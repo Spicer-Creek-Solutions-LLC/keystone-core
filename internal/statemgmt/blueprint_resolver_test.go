@@ -89,7 +89,7 @@ func TestBlueprintResolver_Resolve_WithBlueprint(t *testing.T) {
 
 	// Create blueprint.yaml
 	bpManifest := `
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: web-stack
@@ -188,7 +188,7 @@ func TestBlueprintResolver_Resolve_WithNamespace(t *testing.T) {
 
 	// Create blueprint.yaml
 	bpManifest := `
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: simple

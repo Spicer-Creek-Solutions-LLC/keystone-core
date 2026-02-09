@@ -24,7 +24,8 @@ type ServicePlan struct {
 	Commands   []CommandPlan
 }
 
-func BuildServicePlan(cfg *BootstrapConfig, initSystem string) (ServicePlan, error) {
+// BuildServicePlan creates a service configuration plan based on the bootstrap config and init system.
+func BuildServicePlan(cfg *Config, initSystem string) (ServicePlan, error) {
 	if cfg == nil {
 		return ServicePlan{}, fmt.Errorf("bootstrap config is required")
 	}
@@ -76,7 +77,7 @@ func BuildServicePlan(cfg *BootstrapConfig, initSystem string) (ServicePlan, err
 	return plan, nil
 }
 
-func addServerServicePlan(cfg *BootstrapConfig, plan *ServicePlan) error {
+func addServerServicePlan(cfg *Config, plan *ServicePlan) error {
 	serverConfig, err := buildServerConfig(cfg)
 	if err != nil {
 		return err
@@ -89,7 +90,7 @@ func addServerServicePlan(cfg *BootstrapConfig, plan *ServicePlan) error {
 	return nil
 }
 
-func addAgentServicePlan(cfg *BootstrapConfig, plan *ServicePlan) error {
+func addAgentServicePlan(cfg *Config, plan *ServicePlan) error {
 	agentConfig, err := buildAgentConfig(cfg)
 	if err != nil {
 		return err

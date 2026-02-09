@@ -38,8 +38,8 @@ func TestRotationStrategy(t *testing.T) {
 
 func TestCAInfo_RemainingValidity(t *testing.T) {
 	tests := []struct {
-		name       string
-		notAfter   time.Time
+		name        string
+		notAfter    time.Time
 		wantExpired bool
 	}{
 		{
@@ -685,16 +685,16 @@ func TestRotationEvent(t *testing.T) {
 func TestRotationSchedule(t *testing.T) {
 	now := time.Now()
 	schedule := &RotationSchedule{
-		ID:          "sched-1",
-		CAID:        "ca-1",
-		PolicyName:  "default",
-		ScheduledAt: now,
-		Status:      StatusCompleted,
-		ApprovedBy:  "admin",
-		ApprovedAt:  &now,
-		StartedAt:   &now,
-		CompletedAt: &now,
-		NewCAID:     "ca-2",
+		ID:           "sched-1",
+		CAID:         "ca-1",
+		PolicyName:   "default",
+		ScheduledAt:  now,
+		Status:       StatusCompleted,
+		ApprovedBy:   "admin",
+		ApprovedAt:   &now,
+		StartedAt:    &now,
+		CompletedAt:  &now,
+		NewCAID:      "ca-2",
 		RollbackCAID: "ca-1",
 	}
 

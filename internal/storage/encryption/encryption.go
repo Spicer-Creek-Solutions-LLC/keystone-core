@@ -98,12 +98,12 @@ type EncryptedData struct {
 type Encryptor struct {
 	keyProvider KeyProvider
 	algorithm   Algorithm
-	listeners   []EncryptionEventListener
+	listeners   []EventListener
 	mu          sync.RWMutex
 }
 
-// EncryptionEvent represents an encryption event.
-type EncryptionEvent struct {
+// Event represents an encryption event.
+type Event struct {
 	Type      string    `json:"type"`
 	KeyID     string    `json:"keyId"`
 	Algorithm Algorithm `json:"algorithm"`
@@ -113,8 +113,8 @@ type EncryptionEvent struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// EncryptionEventListener is called when encryption events occur.
-type EncryptionEventListener func(*EncryptionEvent)
+// EventListener is called when encryption events occur.
+type EventListener func(*Event)
 
 // NewEncryptor creates a new encryptor.
 func NewEncryptor(keyProvider KeyProvider, algorithm Algorithm) *Encryptor {
@@ -128,7 +128,7 @@ func NewEncryptor(keyProvider KeyProvider, algorithm Algorithm) *Encryptor {
 }
 
 // AddListener adds an event listener.
-func (e *Encryptor) AddListener(listener EncryptionEventListener) {
+func (e *Encryptor) AddListener(listener EventListener) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.listeners = append(e.listeners, listener)
@@ -143,7 +143,7 @@ func (e *Encryptor) Encrypt(ctx context.Context, plaintext []byte) (*EncryptedDa
 func (e *Encryptor) EncryptWithAAD(ctx context.Context, plaintext, aad []byte) (*EncryptedData, error) {
 	key, err := e.keyProvider.GetCurrentKey(ctx, KeyTypeData)
 	if err != nil {
-		e.emit(&EncryptionEvent{
+		e.emit(&Event{
 			Type:      "encrypt",
 			Algorithm: e.algorithm,
 			Success:   false,
@@ -168,7 +168,7 @@ func (e *Encryptor) EncryptWithAAD(ctx context.Context, plaintext, aad []byte) (
 	}
 
 	if err != nil {
-		e.emit(&EncryptionEvent{
+		e.emit(&Event{
 			Type:      "encrypt",
 			KeyID:     key.ID,
 			Algorithm: e.algorithm,
@@ -180,7 +180,7 @@ func (e *Encryptor) EncryptWithAAD(ctx context.Context, plaintext, aad []byte) (
 		return nil, err
 	}
 
-	e.emit(&EncryptionEvent{
+	e.emit(&Event{
 		Type:      "encrypt",
 		KeyID:     key.ID,
 		Algorithm: e.algorithm,
@@ -196,7 +196,7 @@ func (e *Encryptor) EncryptWithAAD(ctx context.Context, plaintext, aad []byte) (
 func (e *Encryptor) Decrypt(ctx context.Context, data *EncryptedData) ([]byte, error) {
 	key, err := e.keyProvider.GetKey(ctx, data.KeyID)
 	if err != nil {
-		e.emit(&EncryptionEvent{
+		e.emit(&Event{
 			Type:      "decrypt",
 			KeyID:     data.KeyID,
 			Algorithm: data.Algorithm,
@@ -218,7 +218,7 @@ func (e *Encryptor) Decrypt(ctx context.Context, data *EncryptedData) ([]byte, e
 	}
 
 	if err != nil {
-		e.emit(&EncryptionEvent{
+		e.emit(&Event{
 			Type:      "decrypt",
 			KeyID:     data.KeyID,
 			Algorithm: data.Algorithm,
@@ -229,7 +229,7 @@ func (e *Encryptor) Decrypt(ctx context.Context, data *EncryptedData) ([]byte, e
 		return nil, err
 	}
 
-	e.emit(&EncryptionEvent{
+	e.emit(&Event{
 		Type:      "decrypt",
 		KeyID:     data.KeyID,
 		Algorithm: data.Algorithm,
@@ -251,7 +251,7 @@ func (e *Encryptor) ReEncrypt(ctx context.Context, data *EncryptedData) (*Encryp
 	return e.EncryptWithAAD(ctx, plaintext, data.AAD)
 }
 
-func (e *Encryptor) emit(event *EncryptionEvent) {
+func (e *Encryptor) emit(event *Event) {
 	e.mu.RLock()
 	listeners := e.listeners
 	e.mu.RUnlock()
@@ -511,7 +511,10 @@ func (p *DerivedKeyProvider) DeriveKey(ctx context.Context, keyType KeyType, inf
 	defer p.mu.Unlock()
 
 	// Derive key material using PBKDF2
-	derivedSalt := append(p.salt, []byte(info)...)
+	infoBytes := []byte(info)
+	derivedSalt := make([]byte, len(p.salt)+len(infoBytes))
+	copy(derivedSalt, p.salt)
+	copy(derivedSalt[len(p.salt):], infoBytes)
 	material := pbkdf2.Key(p.masterSecret, derivedSalt, p.iterations, 32, sha256.New)
 
 	// Find previous key version

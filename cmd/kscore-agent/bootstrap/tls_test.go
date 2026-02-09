@@ -19,7 +19,7 @@ func TestGenerateTLSBundle(t *testing.T) {
 }
 
 func TestResolveTLSPaths(t *testing.T) {
-	cfg := &BootstrapConfig{GenerateCerts: true}
+	cfg := &Config{GenerateCerts: true}
 	cert, key, ca := resolveTLSPaths(cfg)
 	if cert != defaultTLSCertPath || key != defaultTLSKeyPath || ca != defaultTLSCAPath {
 		t.Fatal("expected default tls paths when generating certs")

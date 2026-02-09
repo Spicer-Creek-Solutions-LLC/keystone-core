@@ -150,6 +150,7 @@ type Incident struct {
 // IncidentStatus represents incident status.
 type IncidentStatus string
 
+// IncidentStatusTriggered constants define the possible statuses.
 const (
 	IncidentStatusTriggered    IncidentStatus = "triggered"
 	IncidentStatusAcknowledged IncidentStatus = "acknowledged"
@@ -159,6 +160,7 @@ const (
 // IncidentSeverity represents incident severity.
 type IncidentSeverity string
 
+// IncidentSeverity constants define the severity levels.
 const (
 	IncidentSeverityCritical IncidentSeverity = "critical"
 	IncidentSeverityHigh     IncidentSeverity = "high"
@@ -275,14 +277,14 @@ type pagerDutyMessage struct {
 }
 
 type pagerDutyIncident struct {
-	ID          string            `json:"id"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Status      string            `json:"status"`
-	Urgency     string            `json:"urgency"`
-	HTMLURL     string            `json:"html_url"`
-	CreatedAt   time.Time         `json:"created_at"`
-	Service     pagerDutyService  `json:"service"`
+	ID          string           `json:"id"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	Status      string           `json:"status"`
+	Urgency     string           `json:"urgency"`
+	HTMLURL     string           `json:"html_url"`
+	CreatedAt   time.Time        `json:"created_at"`
+	Service     pagerDutyService `json:"service"`
 }
 
 type pagerDutyService struct {
@@ -401,7 +403,7 @@ func (c *PagerDutyClient) AddNote(ctx context.Context, incidentID, note string) 
 // GetIncident retrieves a PagerDuty incident.
 func (c *PagerDutyClient) GetIncident(ctx context.Context, incidentID string) (*Incident, error) {
 	url := fmt.Sprintf("%s/incidents/%s", c.baseURL, incidentID)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -564,7 +566,7 @@ func (c *OpsgenieClient) AcknowledgeIncident(ctx context.Context, alertID string
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Opsgenie API error: %s - %s", resp.Status, string(respBody))
+		return fmt.Errorf("opsgenie API error: %s - %s", resp.Status, string(respBody))
 	}
 
 	return nil
@@ -589,7 +591,7 @@ func (c *OpsgenieClient) ResolveIncident(ctx context.Context, alertID string) er
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Opsgenie API error: %s - %s", resp.Status, string(respBody))
+		return fmt.Errorf("opsgenie API error: %s - %s", resp.Status, string(respBody))
 	}
 
 	return nil
@@ -623,7 +625,7 @@ func (c *OpsgenieClient) AddNote(ctx context.Context, alertID, note string) erro
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Opsgenie API error: %s - %s", resp.Status, string(respBody))
+		return fmt.Errorf("opsgenie API error: %s - %s", resp.Status, string(respBody))
 	}
 
 	return nil
@@ -632,7 +634,7 @@ func (c *OpsgenieClient) AddNote(ctx context.Context, alertID, note string) erro
 // GetIncident retrieves an Opsgenie alert.
 func (c *OpsgenieClient) GetIncident(ctx context.Context, alertID string) (*Incident, error) {
 	url := fmt.Sprintf("%s/alerts/%s", c.baseURL, alertID)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -647,7 +649,7 @@ func (c *OpsgenieClient) GetIncident(ctx context.Context, alertID string) (*Inci
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Opsgenie API error: %s - %s", resp.Status, string(respBody))
+		return nil, fmt.Errorf("opsgenie API error: %s - %s", resp.Status, string(respBody))
 	}
 
 	var result struct {
@@ -674,10 +676,10 @@ type ITSMTriggerManager struct {
 	mu       sync.RWMutex
 	triggers map[string]*ITSMTrigger
 
-	clients     map[ITSMType]ITSMClient
-	repository  RunbookRepository
-	executor    RunbookExecutor
-	publisher   events.EventPublisher
+	clients    map[ITSMType]ITSMClient
+	repository RunbookRepository
+	executor   RunbookExecutor
+	publisher  events.EventPublisher
 
 	// Incident tracking
 	incidentLinks map[string]string // incident ID -> execution ID
@@ -905,9 +907,9 @@ func (m *ITSMTriggerManager) executeTrigger(ctx context.Context, trigger *ITSMTr
 			Source: "/runbook/itsm/" + trigger.ID,
 			Time:   time.Now(),
 			Data: map[string]interface{}{
-				"trigger_id":    trigger.ID,
-				"trigger_name":  trigger.Name,
-				"incident_id":   incident.ExternalID,
+				"trigger_id":     trigger.ID,
+				"trigger_name":   trigger.Name,
+				"incident_id":    incident.ExternalID,
 				"incident_title": incident.Title,
 			},
 		})

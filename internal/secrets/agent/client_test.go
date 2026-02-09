@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -930,7 +931,7 @@ func TestClientStateMachine_CannotConnectWhenClosed(t *testing.T) {
 
 	client.Close()
 
-	err = client.Connect(nil)
+	err = client.Connect(context.Background())
 	if err == nil {
 		t.Error("expected error when connecting closed client")
 	}
@@ -983,8 +984,8 @@ func TestClientStateMachine_StateChangeCallback(t *testing.T) {
 	}
 
 	callbackCalled := make(chan bool, 1)
-	client.SetStateChangeCallback(func(old, new ClientState) {
-		if old == ClientStateDisconnected && new == ClientStateClosed {
+	client.SetStateChangeCallback(func(old, updated ClientState) {
+		if old == ClientStateDisconnected && updated == ClientStateClosed {
 			callbackCalled <- true
 		}
 	})

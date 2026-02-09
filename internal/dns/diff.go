@@ -9,6 +9,7 @@ import (
 // ChangeType represents the type of change to a DNS record.
 type ChangeType string
 
+// ChangeType constants define the supported types.
 const (
 	ChangeTypeCreate ChangeType = "create"
 	ChangeTypeUpdate ChangeType = "update"

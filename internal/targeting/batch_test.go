@@ -34,7 +34,6 @@ type mockCommandDispatcher struct {
 
 type mockExecution struct {
 	agentID  string
-	command  string
 	exitCode int32
 	output   string
 	err      error

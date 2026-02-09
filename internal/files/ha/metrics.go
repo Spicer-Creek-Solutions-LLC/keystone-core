@@ -12,12 +12,12 @@ import (
 // MetricsCollector collects metrics for the file distribution system.
 type MetricsCollector struct {
 	// Transfer metrics
-	transfersTotal    int64
-	transfersActive   int64
-	transfersFailed   int64
-	bytesTransferred  int64
-	bytesUploaded     int64
-	bytesDownloaded   int64
+	transfersTotal   int64
+	transfersActive  int64
+	transfersFailed  int64
+	bytesTransferred int64
+	bytesUploaded    int64
+	bytesDownloaded  int64
 
 	// Cache metrics
 	cacheHits      int64
@@ -27,11 +27,11 @@ type MetricsCollector struct {
 	cacheEvictions int64
 
 	// Backend metrics
-	backendRequests      map[string]int64
-	backendErrors        map[string]int64
-	backendLatencySum    map[string]int64
-	backendLatencyCount  map[string]int64
-	backendMu            sync.RWMutex
+	backendRequests     map[string]int64
+	backendErrors       map[string]int64
+	backendLatencySum   map[string]int64
+	backendLatencyCount map[string]int64
+	backendMu           sync.RWMutex
 
 	// Rate limiting metrics
 	rateLimitedRequests int64
@@ -192,11 +192,11 @@ func (mc *MetricsCollector) GetMetrics() map[string]interface{} {
 		"instance_id": mc.instanceID,
 		"hostname":    mc.hostname,
 		"transfers": map[string]int64{
-			"total":    atomic.LoadInt64(&mc.transfersTotal),
-			"active":   atomic.LoadInt64(&mc.transfersActive),
-			"failed":   atomic.LoadInt64(&mc.transfersFailed),
-			"bytes":    atomic.LoadInt64(&mc.bytesTransferred),
-			"uploaded": atomic.LoadInt64(&mc.bytesUploaded),
+			"total":      atomic.LoadInt64(&mc.transfersTotal),
+			"active":     atomic.LoadInt64(&mc.transfersActive),
+			"failed":     atomic.LoadInt64(&mc.transfersFailed),
+			"bytes":      atomic.LoadInt64(&mc.bytesTransferred),
+			"uploaded":   atomic.LoadInt64(&mc.bytesUploaded),
 			"downloaded": atomic.LoadInt64(&mc.bytesDownloaded),
 		},
 		"cache": map[string]int64{
@@ -206,10 +206,10 @@ func (mc *MetricsCollector) GetMetrics() map[string]interface{} {
 			"entries":   atomic.LoadInt64(&mc.cacheEntries),
 			"evictions": atomic.LoadInt64(&mc.cacheEvictions),
 		},
-		"backends":          backends,
-		"rate_limited":      atomic.LoadInt64(&mc.rateLimitedRequests),
-		"queued":            atomic.LoadInt64(&mc.queuedTransfers),
-		"latency_buckets":   latencyBuckets,
+		"backends":        backends,
+		"rate_limited":    atomic.LoadInt64(&mc.rateLimitedRequests),
+		"queued":          atomic.LoadInt64(&mc.queuedTransfers),
+		"latency_buckets": latencyBuckets,
 	}
 }
 
@@ -235,7 +235,7 @@ func (pe *PrometheusExporter) Export() string {
 	var sb strings.Builder
 
 	mc := pe.collector
-	labels := fmt.Sprintf(`instance="%s",hostname="%s"`, mc.instanceID, mc.hostname)
+	labels := fmt.Sprintf(`instance=%q,hostname=%q`, mc.instanceID, mc.hostname)
 
 	// Transfer metrics
 	sb.WriteString(fmt.Sprintf("# HELP %s_transfers_total Total number of file transfers\n", pe.prefix))
@@ -298,13 +298,13 @@ func (pe *PrometheusExporter) Export() string {
 	sb.WriteString(fmt.Sprintf("# HELP %s_backend_requests_total Total backend requests\n", pe.prefix))
 	sb.WriteString(fmt.Sprintf("# TYPE %s_backend_requests_total counter\n", pe.prefix))
 	for backend, requests := range mc.backendRequests {
-		sb.WriteString(fmt.Sprintf("%s_backend_requests_total{%s,backend=\"%s\"} %d\n", pe.prefix, labels, backend, requests))
+		sb.WriteString(fmt.Sprintf("%s_backend_requests_total{%s,backend=%q} %d\n", pe.prefix, labels, backend, requests))
 	}
 
 	sb.WriteString(fmt.Sprintf("# HELP %s_backend_errors_total Total backend errors\n", pe.prefix))
 	sb.WriteString(fmt.Sprintf("# TYPE %s_backend_errors_total counter\n", pe.prefix))
 	for backend, errors := range mc.backendErrors {
-		sb.WriteString(fmt.Sprintf("%s_backend_errors_total{%s,backend=\"%s\"} %d\n", pe.prefix, labels, backend, errors))
+		sb.WriteString(fmt.Sprintf("%s_backend_errors_total{%s,backend=%q} %d\n", pe.prefix, labels, backend, errors))
 	}
 
 	sb.WriteString(fmt.Sprintf("# HELP %s_backend_latency_avg_seconds Average backend latency\n", pe.prefix))
@@ -313,7 +313,7 @@ func (pe *PrometheusExporter) Export() string {
 		count := mc.backendLatencyCount[backend]
 		if count > 0 {
 			avgSeconds := float64(sum) / float64(count) / 1e9
-			sb.WriteString(fmt.Sprintf("%s_backend_latency_avg_seconds{%s,backend=\"%s\"} %.6f\n", pe.prefix, labels, backend, avgSeconds))
+			sb.WriteString(fmt.Sprintf("%s_backend_latency_avg_seconds{%s,backend=%q} %.6f\n", pe.prefix, labels, backend, avgSeconds))
 		}
 	}
 	mc.backendMu.RUnlock()
@@ -338,7 +338,7 @@ func (pe *PrometheusExporter) Export() string {
 	}
 	for _, b := range buckets {
 		cumulative += mc.transferLatencyBuckets[b.key]
-		sb.WriteString(fmt.Sprintf("%s_transfer_latency_seconds_bucket{%s,le=\"%s\"} %d\n", pe.prefix, labels, b.bound, cumulative))
+		sb.WriteString(fmt.Sprintf("%s_transfer_latency_seconds_bucket{%s,le=%q} %d\n", pe.prefix, labels, b.bound, cumulative))
 	}
 	sb.WriteString(fmt.Sprintf("%s_transfer_latency_seconds_count{%s} %d\n", pe.prefix, labels, atomic.LoadInt64(&mc.transfersTotal)))
 	mc.latencyMu.Unlock()

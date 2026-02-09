@@ -12,6 +12,7 @@ import (
 // DeviceType identifies the type of proxied device.
 type DeviceType string
 
+// DeviceTypeLinux constants define the supported types.
 const (
 	DeviceTypeLinux    DeviceType = "linux"
 	DeviceTypeWindows  DeviceType = "windows"
@@ -44,11 +45,16 @@ func (d DeviceType) Valid() bool {
 // ProtocolType identifies the communication protocol.
 type ProtocolType string
 
+// ProtocolSSH and related constants.
 const (
-	ProtocolSSH   ProtocolType = "ssh"
-	ProtocolSNMP  ProtocolType = "snmp"
-	ProtocolREST  ProtocolType = "rest"
-	ProtocolWinRM ProtocolType = "winrm"
+	ProtocolSSH      ProtocolType = "ssh"
+	ProtocolSNMP     ProtocolType = "snmp"
+	ProtocolREST     ProtocolType = "rest"
+	ProtocolWinRM    ProtocolType = "winrm"
+	ProtocolNETCONF  ProtocolType = "netconf"
+	ProtocolRESTCONF ProtocolType = "restconf"
+	ProtocolTelnet   ProtocolType = "telnet"
+	ProtocolGNMI     ProtocolType = "gnmi"
 )
 
 // String returns the string representation of the protocol type.
@@ -59,7 +65,7 @@ func (p ProtocolType) String() string {
 // Valid returns true if the protocol type is valid.
 func (p ProtocolType) Valid() bool {
 	switch p {
-	case ProtocolSSH, ProtocolSNMP, ProtocolREST, ProtocolWinRM:
+	case ProtocolSSH, ProtocolSNMP, ProtocolREST, ProtocolWinRM, ProtocolNETCONF, ProtocolRESTCONF, ProtocolTelnet, ProtocolGNMI:
 		return true
 	default:
 		return false
@@ -69,6 +75,7 @@ func (p ProtocolType) Valid() bool {
 // DeviceStatus represents the current status of a proxied device.
 type DeviceStatus string
 
+// DeviceStatus constants define the possible statuses.
 const (
 	DeviceStatusUnknown     DeviceStatus = "unknown"
 	DeviceStatusOnline      DeviceStatus = "online"
@@ -417,19 +424,20 @@ type ProxiedExecutor interface {
 // OutputHandler is called with streaming output from command execution.
 type OutputHandler func(deviceID string, isStderr bool, data []byte)
 
-// ProxyAgentState represents the state of a proxy agent.
-type ProxyAgentState string
+// AgentState represents the state of a proxy agent.
+type AgentState string
 
+// ProxyAgentStateStopped constants define the possible states.
 const (
-	ProxyAgentStateStopped   ProxyAgentState = "stopped"
-	ProxyAgentStateStarting  ProxyAgentState = "starting"
-	ProxyAgentStateRunning   ProxyAgentState = "running"
-	ProxyAgentStateStopping  ProxyAgentState = "stopping"
-	ProxyAgentStateDegraded  ProxyAgentState = "degraded"
+	ProxyAgentStateStopped  AgentState = "stopped"
+	ProxyAgentStateStarting AgentState = "starting"
+	ProxyAgentStateRunning  AgentState = "running"
+	ProxyAgentStateStopping AgentState = "stopping"
+	ProxyAgentStateDegraded AgentState = "degraded"
 )
 
-// ProxyAgentStats contains statistics about a proxy agent.
-type ProxyAgentStats struct {
+// AgentStats contains statistics about a proxy agent.
+type AgentStats struct {
 	// DevicesTotal is the total number of registered devices.
 	DevicesTotal int
 
@@ -461,8 +469,8 @@ type ProxyAgentStats struct {
 	Uptime time.Duration
 }
 
-// ProxyAgentManager manages the proxy agent lifecycle.
-type ProxyAgentManager interface {
+// AgentManager manages the proxy agent lifecycle.
+type AgentManager interface {
 	// Start starts the proxy agent.
 	Start(ctx context.Context) error
 
@@ -470,10 +478,10 @@ type ProxyAgentManager interface {
 	Stop(ctx context.Context) error
 
 	// State returns the current state.
-	State() ProxyAgentState
+	State() AgentState
 
 	// Stats returns current statistics.
-	Stats() *ProxyAgentStats
+	Stats() *AgentStats
 
 	// Registry returns the device registry.
 	Registry() DeviceRegistry

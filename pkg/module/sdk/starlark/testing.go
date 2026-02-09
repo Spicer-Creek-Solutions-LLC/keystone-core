@@ -54,7 +54,7 @@ func (r *TestRunner) RunTestFile(path string) (*TestSuite, error) {
 	env["assert"] = assertModule()
 
 	// Load the test file
-	globals, err := starlark.ExecFile(r.thread, path, nil, env)
+	globals, err := starlark.ExecFile(r.thread, path, nil, env) //nolint:staticcheck // SA1019: starlark.ExecFile is deprecated but requires API migration to starlark.ExecFileOptions
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test file: %w", err)
 	}
@@ -119,11 +119,11 @@ func assertModule() *starlarkstruct.Module {
 	return &starlarkstruct.Module{
 		Name: "assert",
 		Members: starlark.StringDict{
-			"eq":      starlark.NewBuiltin("assert.eq", assertEq),
-			"ne":      starlark.NewBuiltin("assert.ne", assertNe),
-			"true":    starlark.NewBuiltin("assert.true", assertTrue),
-			"false":   starlark.NewBuiltin("assert.false", assertFalse),
-			"fail":    starlark.NewBuiltin("assert.fail", assertFail),
+			"eq":       starlark.NewBuiltin("assert.eq", assertEq),
+			"ne":       starlark.NewBuiltin("assert.ne", assertNe),
+			"true":     starlark.NewBuiltin("assert.true", assertTrue),
+			"false":    starlark.NewBuiltin("assert.false", assertFalse),
+			"fail":     starlark.NewBuiltin("assert.fail", assertFail),
 			"contains": starlark.NewBuiltin("assert.contains", assertContains),
 		},
 	}

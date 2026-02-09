@@ -42,21 +42,21 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/mirrors/conflicts/", h.handleConflictResolve)
 }
 
-// MirrorGroupResponse is the API response for a mirror group.
-type MirrorGroupResponse struct {
-	ID           string                   `json:"id"`
-	Name         string                   `json:"name"`
-	Description  string                   `json:"description,omitempty"`
-	ReadStrategy ReadStrategy             `json:"read_strategy"`
-	WritePolicy  WritePolicy              `json:"write_policy"`
-	QuorumSize   int                      `json:"quorum_size,omitempty"`
-	Mirrors      []*MirrorResponse        `json:"mirrors"`
-	PathPrefixes []string                 `json:"path_prefixes,omitempty"`
-	Namespaces   []string                 `json:"namespaces,omitempty"`
+// GroupResponse is the API response for a mirror group.
+type GroupResponse struct {
+	ID           string      `json:"id"`
+	Name         string      `json:"name"`
+	Description  string      `json:"description,omitempty"`
+	ReadStrategy ReadStrategy `json:"read_strategy"`
+	WritePolicy  WritePolicy  `json:"write_policy"`
+	QuorumSize   int          `json:"quorum_size,omitempty"`
+	Mirrors      []*Response  `json:"mirrors"`
+	PathPrefixes []string     `json:"path_prefixes,omitempty"`
+	Namespaces   []string     `json:"namespaces,omitempty"`
 }
 
-// MirrorResponse is the API response for a mirror.
-type MirrorResponse struct {
+// Response is the API response for a mirror.
+type Response struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name,omitempty"`
 	ClusterID string          `json:"cluster_id"`
@@ -71,7 +71,7 @@ type MirrorResponse struct {
 
 // HealthResponse is the API response for mirror health.
 type HealthResponse struct {
-	State            MirrorState `json:"state"`
+	State            State `json:"state"`
 	LastCheck        *time.Time  `json:"last_check,omitempty"`
 	LastError        string      `json:"last_error,omitempty"`
 	ConsecutiveFails int         `json:"consecutive_fails"`
@@ -133,7 +133,7 @@ func (h *APIHandler) handleMirrors(w http.ResponseWriter, r *http.Request) {
 
 	groups := h.registry.List()
 
-	response := make([]*MirrorGroupResponse, 0, len(groups))
+	response := make([]*GroupResponse, 0, len(groups))
 	for _, g := range groups {
 		response = append(response, h.mirrorGroupToResponse(g))
 	}
@@ -436,7 +436,7 @@ func (h *APIHandler) handleConflictResolve(w http.ResponseWriter, r *http.Reques
 		resolvedBy = "api"
 	}
 
-	if err := h.syncEngine.ResolveConflict(conflictID, req.Resolution, resolvedBy); err != nil {
+	if err := h.syncEngine.ResolveConflict(conflictID, req.Resolution, resolvedBy); err != nil { //nolint:contextcheck // ResolveConflict API doesn't take context
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -444,11 +444,11 @@ func (h *APIHandler) handleConflictResolve(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// mirrorGroupToResponse converts a MirrorGroup to API response.
-func (h *APIHandler) mirrorGroupToResponse(g *MirrorGroup) *MirrorGroupResponse {
+// mirrorGroupToResponse converts a Group to API response.
+func (h *APIHandler) mirrorGroupToResponse(g *Group) *GroupResponse {
 	config := g.Config()
 
-	response := &MirrorGroupResponse{
+	response := &GroupResponse{
 		ID:           config.ID,
 		Name:         config.Name,
 		Description:  config.Description,
@@ -457,11 +457,11 @@ func (h *APIHandler) mirrorGroupToResponse(g *MirrorGroup) *MirrorGroupResponse 
 		QuorumSize:   config.QuorumSize,
 		PathPrefixes: config.PathPrefixes,
 		Namespaces:   config.Namespaces,
-		Mirrors:      make([]*MirrorResponse, 0, len(config.Mirrors)),
+		Mirrors:      make([]*Response, 0, len(config.Mirrors)),
 	}
 
 	for _, m := range g.GetMirrors() {
-		mr := &MirrorResponse{
+		mr := &Response{
 			ID:        m.ID,
 			Name:      m.Name,
 			ClusterID: m.ClusterID,
@@ -483,8 +483,8 @@ func (h *APIHandler) mirrorGroupToResponse(g *MirrorGroup) *MirrorGroupResponse 
 	return response
 }
 
-// healthToResponse converts MirrorHealth to API response.
-func healthToResponse(h *MirrorHealth) *HealthResponse {
+// healthToResponse converts Health to API response.
+func healthToResponse(h *Health) *HealthResponse {
 	if h == nil {
 		return nil
 	}

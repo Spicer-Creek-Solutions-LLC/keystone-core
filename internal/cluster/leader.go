@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -106,9 +107,7 @@ func (l *LeaderElector) Stop(ctx context.Context) error {
 
 	// Resign if we are the leader
 	if l.IsLeader() {
-		if err := l.Resign(ctx); err != nil {
-			// Log but don't fail
-		}
+		_ = l.Resign(ctx) // best-effort resign on shutdown
 	}
 
 	// Close the session
@@ -217,7 +216,7 @@ func (l *LeaderElector) GetLeader(ctx context.Context) (string, error) {
 	resp, err := election.Leader(ctx)
 	if err != nil {
 		// Check if there's no leader
-		if err == concurrency.ErrElectionNoLeader {
+		if errors.Is(err, concurrency.ErrElectionNoLeader) {
 			return "", nil
 		}
 		return "", fmt.Errorf("failed to get leader: %w", err)

@@ -90,8 +90,8 @@ type AzureClient interface {
 
 // AzureGetOptions are options for GetBlob.
 type AzureGetOptions struct {
-	Offset int64
-	Count  int64
+	Offset      int64
+	Count       int64
 	IfNoneMatch string
 }
 
@@ -104,12 +104,12 @@ type AzurePutOptions struct {
 
 // AzureBlob is the result of GetBlob.
 type AzureBlob struct {
-	Body            io.ReadCloser
-	ContentType     string
-	ContentLength   int64
-	ETag            string
-	LastModified    time.Time
-	Metadata        map[string]string
+	Body          io.ReadCloser
+	ContentType   string
+	ContentLength int64
+	ETag          string
+	LastModified  time.Time
+	Metadata      map[string]string
 }
 
 // AzurePutResult is the result of PutBlob.
@@ -180,8 +180,8 @@ func (b *AzureBackend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *AzureBackend) Type() BackendType {
-	return BackendTypeAzure
+func (b *AzureBackend) Type() Type {
+	return TypeAzure
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -196,7 +196,7 @@ func (b *AzureBackend) Get(ctx context.Context, filePath string, opts *GetOption
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "get", Path: filePath, Err: fmt.Errorf("azure client not configured")}
+		return nil, &Error{Op: "get", Path: filePath, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	blob := b.fullBlob(filePath)
@@ -220,7 +220,7 @@ func (b *AzureBackend) Get(ctx context.Context, filePath string, opts *GetOption
 		if isAzureNotModified(err) {
 			return &GetResult{NotModified: true}, nil
 		}
-		return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+		return nil, &Error{Op: "get", Path: filePath, Err: err}
 	}
 
 	checksum := ""
@@ -248,7 +248,7 @@ func (b *AzureBackend) Get(ctx context.Context, filePath string, opts *GetOption
 // Put uploads a file to Azure Blob Storage.
 func (b *AzureBackend) Put(ctx context.Context, filePath string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
 	if b.config.ReadOnly {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: ErrReadOnly}
+		return nil, &Error{Op: "put", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -256,7 +256,7 @@ func (b *AzureBackend) Put(ctx context.Context, filePath string, reader io.Reade
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("azure client not configured")}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	blob := b.fullBlob(filePath)
@@ -264,7 +264,7 @@ func (b *AzureBackend) Put(ctx context.Context, filePath string, reader io.Reade
 	// Read content to calculate checksum
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
 	}
 
 	// Calculate SHA256
@@ -288,7 +288,7 @@ func (b *AzureBackend) Put(ctx context.Context, filePath string, reader io.Reade
 
 	result, err := client.PutBlob(ctx, b.config.Container, blob, bytes.NewReader(content), azureOpts)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: err}
+		return nil, &Error{Op: "put", Path: filePath, Err: err}
 	}
 
 	return &PutResult{
@@ -301,7 +301,7 @@ func (b *AzureBackend) Put(ctx context.Context, filePath string, reader io.Reade
 // Delete removes a file from Azure Blob Storage.
 func (b *AzureBackend) Delete(ctx context.Context, filePath string) error {
 	if b.config.ReadOnly {
-		return &BackendError{Op: "delete", Path: filePath, Err: ErrReadOnly}
+		return &Error{Op: "delete", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -309,7 +309,7 @@ func (b *AzureBackend) Delete(ctx context.Context, filePath string) error {
 	b.mu.RUnlock()
 
 	if client == nil {
-		return &BackendError{Op: "delete", Path: filePath, Err: fmt.Errorf("azure client not configured")}
+		return &Error{Op: "delete", Path: filePath, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	blob := b.fullBlob(filePath)
@@ -318,7 +318,7 @@ func (b *AzureBackend) Delete(ctx context.Context, filePath string) error {
 		if isAzureNotFound(err) {
 			return nil // Idempotent delete
 		}
-		return &BackendError{Op: "delete", Path: filePath, Err: err}
+		return &Error{Op: "delete", Path: filePath, Err: err}
 	}
 
 	return nil
@@ -331,7 +331,7 @@ func (b *AzureBackend) Exists(ctx context.Context, filePath string) (bool, error
 	b.mu.RUnlock()
 
 	if client == nil {
-		return false, &BackendError{Op: "exists", Path: filePath, Err: fmt.Errorf("azure client not configured")}
+		return false, &Error{Op: "exists", Path: filePath, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	blob := b.fullBlob(filePath)
@@ -341,7 +341,7 @@ func (b *AzureBackend) Exists(ctx context.Context, filePath string) (bool, error
 		if isAzureNotFound(err) {
 			return false, nil
 		}
-		return false, &BackendError{Op: "exists", Path: filePath, Err: err}
+		return false, &Error{Op: "exists", Path: filePath, Err: err}
 	}
 
 	return true, nil
@@ -354,7 +354,7 @@ func (b *AzureBackend) Stat(ctx context.Context, filePath string) (*FileInfo, er
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: fmt.Errorf("azure client not configured")}
+		return nil, &Error{Op: "stat", Path: filePath, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	blob := b.fullBlob(filePath)
@@ -364,7 +364,7 @@ func (b *AzureBackend) Stat(ctx context.Context, filePath string) (*FileInfo, er
 		if isAzureNotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: err}
+		return nil, &Error{Op: "stat", Path: filePath, Err: err}
 	}
 
 	checksum := ""
@@ -393,7 +393,7 @@ func (b *AzureBackend) List(ctx context.Context, prefix string, opts *ListOption
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: fmt.Errorf("azure client not configured")}
+		return nil, &Error{Op: "list", Path: prefix, Err: fmt.Errorf("azure client not configured")}
 	}
 
 	fullPrefix := b.fullBlob(prefix)
@@ -418,7 +418,7 @@ func (b *AzureBackend) List(ctx context.Context, prefix string, opts *ListOption
 
 		result, err := client.ListBlobs(ctx, b.config.Container, azureOpts)
 		if err != nil {
-			return nil, &BackendError{Op: "list", Path: prefix, Err: err}
+			return nil, &Error{Op: "list", Path: prefix, Err: err}
 		}
 
 		for _, blob := range result.Blobs {
@@ -467,7 +467,7 @@ func (b *AzureBackend) List(ctx context.Context, prefix string, opts *ListOption
 	}
 
 	return &ListResult{
-		Files:    files,
+		Files:     files,
 		Truncated: false,
 	}, nil
 }

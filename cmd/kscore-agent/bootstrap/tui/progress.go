@@ -104,11 +104,12 @@ func (m progressModel) View() string {
 	var builder strings.Builder
 	builder.WriteString("Bootstrap progress\n\n")
 	if m.done {
-		if m.err != nil && m.err != context.Canceled {
+		switch {
+		case m.err != nil && !errors.Is(m.err, context.Canceled):
 			builder.WriteString(fmt.Sprintf("Status: failed (%v)\n", m.err))
-		} else if m.err == context.Canceled {
+		case errors.Is(m.err, context.Canceled):
 			builder.WriteString("Status: canceled\n")
-		} else {
+		default:
 			builder.WriteString("Status: complete\n")
 		}
 	} else {

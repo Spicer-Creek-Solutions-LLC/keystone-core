@@ -276,7 +276,7 @@ func TestManagedHybridMode_ConnectionLost(t *testing.T) {
 	if mhm.State() != HybridModeStateDetermining {
 		t.Errorf("expected determining state after connection lost, got %v", mhm.State())
 	}
-	if mhm.Error() != lostErr {
+	if !errors.Is(mhm.Error(), lostErr) {
 		t.Errorf("expected error to be stored")
 	}
 }
@@ -321,7 +321,7 @@ func TestManagedHybridMode_Failure(t *testing.T) {
 			if !mhm.IsFailed() {
 				t.Error("expected IsFailed() to be true")
 			}
-			if mhm.Error() != testErr {
+			if !errors.Is(mhm.Error(), testErr) {
 				t.Errorf("expected error to be stored")
 			}
 		})

@@ -57,23 +57,24 @@ func applyBlueprintOverrides(opts *Options) error {
 	return nil
 }
 
-func parseBlueprintParamSpec(spec string) (string, string, interface{}, error) {
+func parseBlueprintParamSpec(spec string) (ref, key string, value interface{}, err error) {
 	ref, rest, err := splitBlueprintSpec(spec)
 	if err != nil {
 		return "", "", nil, err
 	}
-	key, value, err := splitKeyValue(rest)
+	var valueStr string
+	key, valueStr, err = splitKeyValue(rest)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("invalid blueprint param %q: %w", spec, err)
 	}
 	var parsed interface{}
-	if err := yaml.Unmarshal([]byte(value), &parsed); err != nil {
-		return "", "", nil, fmt.Errorf("invalid blueprint param value %q: %w", value, err)
+	if err = yaml.Unmarshal([]byte(valueStr), &parsed); err != nil {
+		return "", "", nil, fmt.Errorf("invalid blueprint param value %q: %w", valueStr, err)
 	}
 	return ref, key, parsed, nil
 }
 
-func parseBlueprintFeatureSpec(spec string) (string, string, bool, error) {
+func parseBlueprintFeatureSpec(spec string) (ref, key string, enabled bool, err error) {
 	ref, rest, err := splitBlueprintSpec(spec)
 	if err != nil {
 		return "", "", false, err
@@ -89,7 +90,7 @@ func parseBlueprintFeatureSpec(spec string) (string, string, bool, error) {
 	return ref, key, parsed, nil
 }
 
-func parseBlueprintEntrypointSpec(spec string) (string, string, error) {
+func parseBlueprintEntrypointSpec(spec string) (ref, entrypoint string, err error) {
 	ref, rest, err := splitBlueprintSpec(spec)
 	if err != nil {
 		return "", "", err
@@ -100,24 +101,24 @@ func parseBlueprintEntrypointSpec(spec string) (string, string, error) {
 	return ref, strings.TrimSpace(rest), nil
 }
 
-func splitBlueprintSpec(spec string) (string, string, error) {
+func splitBlueprintSpec(spec string) (ref, rest string, err error) {
 	parts := strings.SplitN(spec, ":", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid blueprint override %q: expected blueprint:setting", spec)
 	}
-	ref := strings.TrimSpace(parts[0])
+	ref = strings.TrimSpace(parts[0])
 	if ref == "" {
 		return "", "", fmt.Errorf("invalid blueprint override %q: empty blueprint reference", spec)
 	}
 	return normalizeBlueprintKey(ref), parts[1], nil
 }
 
-func splitKeyValue(value string) (string, string, error) {
+func splitKeyValue(value string) (key, val string, err error) {
 	parts := strings.SplitN(value, "=", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("expected key=value")
 	}
-	key := strings.TrimSpace(parts[0])
+	key = strings.TrimSpace(parts[0])
 	if key == "" {
 		return "", "", fmt.Errorf("empty key")
 	}

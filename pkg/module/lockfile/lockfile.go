@@ -30,7 +30,7 @@ type LockFile struct {
 	SchemaVersion int `yaml:"schema_version" json:"schema_version"`
 
 	// Metadata contains lock file metadata
-	Metadata *LockFileMetadata `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	Metadata *Metadata `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 
 	// Modules contains locked module versions
 	Modules map[string]*LockedModule `yaml:"modules" json:"modules"`
@@ -39,8 +39,8 @@ type LockFile struct {
 	Checksums *ChecksumBlock `yaml:"checksums,omitempty" json:"checksums,omitempty"`
 }
 
-// LockFileMetadata contains metadata about the lock file
-type LockFileMetadata struct {
+// Metadata contains metadata about the lock file
+type Metadata struct {
 	// GeneratedAt is when the lock file was created/updated
 	GeneratedAt time.Time `yaml:"generated_at" json:"generated_at"`
 
@@ -130,7 +130,7 @@ type ChecksumBlock struct {
 func New() *LockFile {
 	return &LockFile{
 		SchemaVersion: CurrentSchemaVersion,
-		Metadata: &LockFileMetadata{
+		Metadata: &Metadata{
 			GeneratedAt: time.Now(),
 		},
 		Modules: make(map[string]*LockedModule),
@@ -146,7 +146,7 @@ func Load(path string) (*LockFile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, &LockFileNotFoundError{Path: path}
+			return nil, &NotFoundError{Path: path}
 		}
 		return nil, fmt.Errorf("failed to read lock file: %w", err)
 	}
@@ -185,7 +185,7 @@ func Parse(data []byte) (*LockFile, error) {
 func (lf *LockFile) Save(path string) error {
 	// Update metadata
 	if lf.Metadata == nil {
-		lf.Metadata = &LockFileMetadata{}
+		lf.Metadata = &Metadata{}
 	}
 	lf.Metadata.GeneratedAt = time.Now()
 
@@ -204,11 +204,13 @@ func (lf *LockFile) Save(path string) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: lockfile directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	//nolint:gosec // G306: lock files need to be readable by module resolver
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write lock file: %w", err)
 	}
 
@@ -417,8 +419,8 @@ func (lf *LockFile) Migrate() (*MigrationResult, error) {
 }
 
 // Diff returns the differences between two lock files
-func (lf *LockFile) Diff(other *LockFile) *LockFileDiff {
-	diff := &LockFileDiff{
+func (lf *LockFile) Diff(other *LockFile) *Diff {
+	diff := &Diff{
 		Added:     make(map[string]*LockedModule),
 		Removed:   make(map[string]*LockedModule),
 		Changed:   make(map[string]*ModuleChange),
@@ -428,16 +430,17 @@ func (lf *LockFile) Diff(other *LockFile) *LockFileDiff {
 	// Find added and changed modules
 	for name, module := range other.Modules {
 		existing, ok := lf.Modules[name]
-		if !ok {
+		switch {
+		case !ok:
 			diff.Added[name] = module
-		} else if existing.Version != module.Version || existing.Hash != module.Hash {
+		case existing.Version != module.Version || existing.Hash != module.Hash:
 			diff.Changed[name] = &ModuleChange{
 				OldVersion: existing.Version,
 				NewVersion: module.Version,
 				OldHash:    existing.Hash,
 				NewHash:    module.Hash,
 			}
-		} else {
+		default:
 			diff.Unchanged = append(diff.Unchanged, name)
 		}
 	}
@@ -467,7 +470,7 @@ func isValidHash(hash string) bool {
 		}
 		// Verify all characters are hex
 		for _, c := range hexPart {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 				return false
 			}
 		}

@@ -130,7 +130,7 @@ func DeprecateSubcommand(parent *cobra.Command, subcommandName string, info *Inf
 
 // AddAlias creates a deprecated alias command that calls the new command.
 // This is useful for providing backward compatibility when a command is moved.
-func AddAlias(parent *cobra.Command, oldName string, newCmdPath string, info *Info) *cobra.Command {
+func AddAlias(parent *cobra.Command, oldName, newCmdPath string, info *Info) *cobra.Command {
 	alias := &cobra.Command{
 		Use:    oldName,
 		Short:  fmt.Sprintf("(Deprecated) Use '%s' instead", newCmdPath),
@@ -241,12 +241,12 @@ func GetDeprecationInfo(cmd *cobra.Command) *Info {
 
 // CheckRemovalDate returns true if the removal date has passed or is approaching.
 // This can be used to escalate warnings or fail commands near removal.
-func CheckRemovalDate(removalDate time.Time) (bool, int) {
+func CheckRemovalDate(removalDate time.Time) (approaching bool, daysUntil int) {
 	if removalDate.IsZero() {
 		return false, -1
 	}
 
-	daysUntil := int(time.Until(removalDate).Hours() / 24)
+	daysUntil = int(time.Until(removalDate).Hours() / 24)
 	return daysUntil <= 30, daysUntil
 }
 
@@ -258,11 +258,12 @@ func WarnIfApproachingRemoval(removalDate time.Time) {
 	}
 
 	var msg string
-	if days < 0 {
+	switch {
+	case days < 0:
 		msg = "  URGENT: This command's removal date has PASSED!\n"
-	} else if days == 0 {
+	case days == 0:
 		msg = "  URGENT: This command will be removed TODAY!\n"
-	} else {
+	default:
 		msg = fmt.Sprintf("  URGENT: This command will be removed in %d days!\n", days)
 	}
 

@@ -31,29 +31,30 @@ type MetricLabels struct {
 // ConnectionMetricType defines the type of connection metric
 type ConnectionMetricType string
 
+// MetricConnectionsTotal and related constants.
 const (
-	MetricConnectionsTotal       ConnectionMetricType = "connections_total"
-	MetricConnectionLatency      ConnectionMetricType = "connection_latency_seconds"
-	MetricConnectionErrors       ConnectionMetricType = "connection_errors_total"
-	MetricMessagesTotal          ConnectionMetricType = "messages_total"
-	MetricMessageBytes           ConnectionMetricType = "message_bytes_total"
-	MetricBufferSize             ConnectionMetricType = "buffer_size"
-	MetricBufferOverflow         ConnectionMetricType = "buffer_overflow_total"
-	MetricReconnections          ConnectionMetricType = "reconnections_total"
-	MetricFailovers              ConnectionMetricType = "failovers_total"
-	MetricLeafNodes              ConnectionMetricType = "leaf_nodes_total"
-	MetricGatewayConnections     ConnectionMetricType = "gateway_connections_total"
-	MetricGatewayLatency         ConnectionMetricType = "gateway_latency_seconds"
-	MetricCircuitBreakerState    ConnectionMetricType = "circuit_breaker_state"
-	MetricDegradationMode        ConnectionMetricType = "degradation_mode"
-	MetricDeliveryPending        ConnectionMetricType = "delivery_pending"
-	MetricDeliveryAcked          ConnectionMetricType = "delivery_acked_total"
-	MetricDeliveryFailed         ConnectionMetricType = "delivery_failed_total"
-	MetricDuplicatesDetected     ConnectionMetricType = "duplicates_detected_total"
-	MetricBootstrapRequests      ConnectionMetricType = "bootstrap_requests_total"
-	MetricCredentialsIssued      ConnectionMetricType = "credentials_issued_total"
-	MetricCoordinationRPCs       ConnectionMetricType = "coordination_rpcs_total"
-	MetricCoordinationLatency    ConnectionMetricType = "coordination_latency_seconds"
+	MetricConnectionsTotal    ConnectionMetricType = "connections_total"
+	MetricConnectionLatency   ConnectionMetricType = "connection_latency_seconds"
+	MetricConnectionErrors    ConnectionMetricType = "connection_errors_total"
+	MetricMessagesTotal       ConnectionMetricType = "messages_total"
+	MetricMessageBytes        ConnectionMetricType = "message_bytes_total"
+	MetricBufferSize          ConnectionMetricType = "buffer_size"
+	MetricBufferOverflow      ConnectionMetricType = "buffer_overflow_total"
+	MetricReconnections       ConnectionMetricType = "reconnections_total"
+	MetricFailovers           ConnectionMetricType = "failovers_total"
+	MetricLeafNodes           ConnectionMetricType = "leaf_nodes_total"
+	MetricGatewayConnections  ConnectionMetricType = "gateway_connections_total"
+	MetricGatewayLatency      ConnectionMetricType = "gateway_latency_seconds"
+	MetricCircuitBreakerState ConnectionMetricType = "circuit_breaker_state"
+	MetricDegradationMode     ConnectionMetricType = "degradation_mode"
+	MetricDeliveryPending     ConnectionMetricType = "delivery_pending"
+	MetricDeliveryAcked       ConnectionMetricType = "delivery_acked_total"
+	MetricDeliveryFailed      ConnectionMetricType = "delivery_failed_total"
+	MetricDuplicatesDetected  ConnectionMetricType = "duplicates_detected_total"
+	MetricBootstrapRequests   ConnectionMetricType = "bootstrap_requests_total"
+	MetricCredentialsIssued   ConnectionMetricType = "credentials_issued_total"
+	MetricCoordinationRPCs    ConnectionMetricType = "coordination_rpcs_total"
+	MetricCoordinationLatency ConnectionMetricType = "coordination_latency_seconds"
 )
 
 // MetricValue represents a metric value with labels
@@ -104,19 +105,19 @@ func DefaultObservabilityConfig() *ObservabilityConfig {
 	}
 }
 
-// NATSMetricsCollector collects NATS mesh metrics
-type NATSMetricsCollector struct {
+// MetricsCollector collects NATS mesh metrics
+type MetricsCollector struct {
 	config *ObservabilityConfig
 
 	// Connection metrics
-	connectionsTotal   map[string]*atomic.Int64 // endpoint:strategy:status -> count
-	connectionLatency  map[string]*LatencyHistogram
-	connectionErrors   map[string]*atomic.Int64 // endpoint:error -> count
-	reconnections      map[string]*atomic.Int64 // endpoint -> count
-	failovers          map[string]*atomic.Int64 // from:to -> count
+	connectionsTotal  map[string]*atomic.Int64 // endpoint:strategy:status -> count
+	connectionLatency map[string]*LatencyHistogram
+	connectionErrors  map[string]*atomic.Int64 // endpoint:error -> count
+	reconnections     map[string]*atomic.Int64 // endpoint -> count
+	failovers         map[string]*atomic.Int64 // from:to -> count
 
 	// Message metrics
-	messagesTotal    map[string]*atomic.Int64 // direction:subject_prefix -> count
+	messagesTotal     map[string]*atomic.Int64 // direction:subject_prefix -> count
 	messageBytesTotal map[string]*atomic.Int64 // direction -> bytes
 
 	// Buffer metrics
@@ -124,9 +125,9 @@ type NATSMetricsCollector struct {
 	bufferOverflow *atomic.Int64
 
 	// Topology metrics
-	leafNodesTotal       map[string]*atomic.Int64 // hub -> count
-	gatewayConnections   map[string]*atomic.Int64 // local:remote -> count
-	gatewayLatency       map[string]*LatencyHistogram
+	leafNodesTotal     map[string]*atomic.Int64 // hub -> count
+	gatewayConnections map[string]*atomic.Int64 // local:remote -> count
+	gatewayLatency     map[string]*LatencyHistogram
 
 	// Reliability metrics
 	circuitBreakerStates map[string]CircuitState
@@ -137,25 +138,25 @@ type NATSMetricsCollector struct {
 	duplicatesDetected   *atomic.Int64
 
 	// Bootstrap metrics
-	bootstrapRequests   map[string]*atomic.Int64 // status -> count
-	credentialsIssued   map[string]*atomic.Int64 // type -> count
+	bootstrapRequests map[string]*atomic.Int64 // status -> count
+	credentialsIssued map[string]*atomic.Int64 // type -> count
 
 	// Coordination metrics
-	coordinationRPCs     map[string]*atomic.Int64 // method:status -> count
-	coordinationLatency  map[string]*LatencyHistogram
+	coordinationRPCs    map[string]*atomic.Int64 // method:status -> count
+	coordinationLatency map[string]*LatencyHistogram
 
 	mu sync.RWMutex
 }
 
 // LatencyHistogram tracks latency distribution
 type LatencyHistogram struct {
-	buckets   []float64
-	counts    []int64
-	sum       float64
-	count     int64
-	min       float64
-	max       float64
-	mu        sync.Mutex
+	buckets []float64
+	counts  []int64
+	sum     float64
+	count   int64
+	min     float64
+	max     float64
+	mu      sync.Mutex
 }
 
 // NewLatencyHistogram creates a new histogram
@@ -245,13 +246,13 @@ type LatencyStats struct {
 	P99   float64
 }
 
-// NewNATSMetricsCollector creates a new metrics collector
-func NewNATSMetricsCollector(config *ObservabilityConfig) *NATSMetricsCollector {
+// NewMetricsCollector creates a new metrics collector
+func NewMetricsCollector(config *ObservabilityConfig) *MetricsCollector {
 	if config == nil {
 		config = DefaultObservabilityConfig()
 	}
 
-	return &NATSMetricsCollector{
+	return &MetricsCollector{
 		config:               config,
 		connectionsTotal:     make(map[string]*atomic.Int64),
 		connectionLatency:    make(map[string]*LatencyHistogram),
@@ -279,7 +280,7 @@ func NewNATSMetricsCollector(config *ObservabilityConfig) *NATSMetricsCollector 
 }
 
 // RecordConnection records a connection event
-func (c *NATSMetricsCollector) RecordConnection(endpoint, strategy, status string) {
+func (c *MetricsCollector) RecordConnection(endpoint, strategy, status string) {
 	key := endpoint + ":" + strategy + ":" + status
 	c.mu.Lock()
 	counter, exists := c.connectionsTotal[key]
@@ -292,7 +293,7 @@ func (c *NATSMetricsCollector) RecordConnection(endpoint, strategy, status strin
 }
 
 // RecordConnectionLatency records connection latency
-func (c *NATSMetricsCollector) RecordConnectionLatency(endpoint string, latency time.Duration) {
+func (c *MetricsCollector) RecordConnectionLatency(endpoint string, latency time.Duration) {
 	c.mu.Lock()
 	hist, exists := c.connectionLatency[endpoint]
 	if !exists {
@@ -304,7 +305,7 @@ func (c *NATSMetricsCollector) RecordConnectionLatency(endpoint string, latency 
 }
 
 // RecordConnectionError records a connection error
-func (c *NATSMetricsCollector) RecordConnectionError(endpoint, errorType string) {
+func (c *MetricsCollector) RecordConnectionError(endpoint, errorType string) {
 	key := endpoint + ":" + errorType
 	c.mu.Lock()
 	counter, exists := c.connectionErrors[key]
@@ -317,7 +318,7 @@ func (c *NATSMetricsCollector) RecordConnectionError(endpoint, errorType string)
 }
 
 // RecordReconnection records a reconnection event
-func (c *NATSMetricsCollector) RecordReconnection(endpoint string) {
+func (c *MetricsCollector) RecordReconnection(endpoint string) {
 	c.mu.Lock()
 	counter, exists := c.reconnections[endpoint]
 	if !exists {
@@ -329,7 +330,7 @@ func (c *NATSMetricsCollector) RecordReconnection(endpoint string) {
 }
 
 // RecordFailover records a failover event
-func (c *NATSMetricsCollector) RecordFailover(from, to string) {
+func (c *MetricsCollector) RecordFailover(from, to string) {
 	key := from + ":" + to
 	c.mu.Lock()
 	counter, exists := c.failovers[key]
@@ -342,7 +343,7 @@ func (c *NATSMetricsCollector) RecordFailover(from, to string) {
 }
 
 // RecordMessage records a message event
-func (c *NATSMetricsCollector) RecordMessage(direction, subjectPrefix string, bytes int64) {
+func (c *MetricsCollector) RecordMessage(direction, subjectPrefix string, bytes int64) {
 	key := direction + ":" + subjectPrefix
 	c.mu.Lock()
 	counter, exists := c.messagesTotal[key]
@@ -361,7 +362,7 @@ func (c *NATSMetricsCollector) RecordMessage(direction, subjectPrefix string, by
 }
 
 // RecordBufferSize records buffer size
-func (c *NATSMetricsCollector) RecordBufferSize(bufferType string, size int64) {
+func (c *MetricsCollector) RecordBufferSize(bufferType string, size int64) {
 	c.mu.Lock()
 	counter, exists := c.bufferSize[bufferType]
 	if !exists {
@@ -373,12 +374,12 @@ func (c *NATSMetricsCollector) RecordBufferSize(bufferType string, size int64) {
 }
 
 // RecordBufferOverflow records a buffer overflow event
-func (c *NATSMetricsCollector) RecordBufferOverflow() {
+func (c *MetricsCollector) RecordBufferOverflow() {
 	c.bufferOverflow.Add(1)
 }
 
 // RecordLeafNode records a leaf node connection
-func (c *NATSMetricsCollector) RecordLeafNode(hub string, delta int64) {
+func (c *MetricsCollector) RecordLeafNode(hub string, delta int64) {
 	c.mu.Lock()
 	counter, exists := c.leafNodesTotal[hub]
 	if !exists {
@@ -390,7 +391,7 @@ func (c *NATSMetricsCollector) RecordLeafNode(hub string, delta int64) {
 }
 
 // RecordGatewayConnection records a gateway connection
-func (c *NATSMetricsCollector) RecordGatewayConnection(localCluster, remoteCluster string, delta int64) {
+func (c *MetricsCollector) RecordGatewayConnection(localCluster, remoteCluster string, delta int64) {
 	key := localCluster + ":" + remoteCluster
 	c.mu.Lock()
 	counter, exists := c.gatewayConnections[key]
@@ -403,7 +404,7 @@ func (c *NATSMetricsCollector) RecordGatewayConnection(localCluster, remoteClust
 }
 
 // RecordGatewayLatency records gateway latency
-func (c *NATSMetricsCollector) RecordGatewayLatency(localCluster, remoteCluster string, latency time.Duration) {
+func (c *MetricsCollector) RecordGatewayLatency(localCluster, remoteCluster string, latency time.Duration) {
 	key := localCluster + ":" + remoteCluster
 	c.mu.Lock()
 	hist, exists := c.gatewayLatency[key]
@@ -416,41 +417,41 @@ func (c *NATSMetricsCollector) RecordGatewayLatency(localCluster, remoteCluster 
 }
 
 // RecordCircuitBreakerState records circuit breaker state
-func (c *NATSMetricsCollector) RecordCircuitBreakerState(name string, state CircuitState) {
+func (c *MetricsCollector) RecordCircuitBreakerState(name string, state CircuitState) {
 	c.mu.Lock()
 	c.circuitBreakerStates[name] = state
 	c.mu.Unlock()
 }
 
 // RecordDegradationMode records degradation mode
-func (c *NATSMetricsCollector) RecordDegradationMode(component string, mode DegradationMode) {
+func (c *MetricsCollector) RecordDegradationMode(component string, mode DegradationMode) {
 	c.mu.Lock()
 	c.degradationModes[component] = mode
 	c.mu.Unlock()
 }
 
 // RecordDeliveryPending records pending delivery count
-func (c *NATSMetricsCollector) RecordDeliveryPending(count int64) {
+func (c *MetricsCollector) RecordDeliveryPending(count int64) {
 	c.deliveryPending.Store(count)
 }
 
 // RecordDeliveryAcked records a delivery acknowledgment
-func (c *NATSMetricsCollector) RecordDeliveryAcked() {
+func (c *MetricsCollector) RecordDeliveryAcked() {
 	c.deliveryAcked.Add(1)
 }
 
 // RecordDeliveryFailed records a delivery failure
-func (c *NATSMetricsCollector) RecordDeliveryFailed() {
+func (c *MetricsCollector) RecordDeliveryFailed() {
 	c.deliveryFailed.Add(1)
 }
 
 // RecordDuplicateDetected records a duplicate detection
-func (c *NATSMetricsCollector) RecordDuplicateDetected() {
+func (c *MetricsCollector) RecordDuplicateDetected() {
 	c.duplicatesDetected.Add(1)
 }
 
 // RecordBootstrapRequest records a bootstrap request
-func (c *NATSMetricsCollector) RecordBootstrapRequest(status string) {
+func (c *MetricsCollector) RecordBootstrapRequest(status string) {
 	c.mu.Lock()
 	counter, exists := c.bootstrapRequests[status]
 	if !exists {
@@ -462,7 +463,7 @@ func (c *NATSMetricsCollector) RecordBootstrapRequest(status string) {
 }
 
 // RecordCredentialIssued records a credential issuance
-func (c *NATSMetricsCollector) RecordCredentialIssued(credType string) {
+func (c *MetricsCollector) RecordCredentialIssued(credType string) {
 	c.mu.Lock()
 	counter, exists := c.credentialsIssued[credType]
 	if !exists {
@@ -474,7 +475,7 @@ func (c *NATSMetricsCollector) RecordCredentialIssued(credType string) {
 }
 
 // RecordCoordinationRPC records a coordination RPC
-func (c *NATSMetricsCollector) RecordCoordinationRPC(method, status string) {
+func (c *MetricsCollector) RecordCoordinationRPC(method, status string) {
 	key := method + ":" + status
 	c.mu.Lock()
 	counter, exists := c.coordinationRPCs[key]
@@ -487,7 +488,7 @@ func (c *NATSMetricsCollector) RecordCoordinationRPC(method, status string) {
 }
 
 // RecordCoordinationLatency records coordination RPC latency
-func (c *NATSMetricsCollector) RecordCoordinationLatency(method string, latency time.Duration) {
+func (c *MetricsCollector) RecordCoordinationLatency(method string, latency time.Duration) {
 	c.mu.Lock()
 	hist, exists := c.coordinationLatency[method]
 	if !exists {
@@ -514,7 +515,7 @@ type ObservabilityStats struct {
 	TotalBytesReceived    int64
 
 	// Buffer stats
-	BufferSizes       map[string]int64
+	BufferSizes         map[string]int64
 	TotalBufferOverflow int64
 
 	// Topology stats
@@ -540,7 +541,7 @@ type ObservabilityStats struct {
 }
 
 // GetStats returns all observability statistics
-func (c *NATSMetricsCollector) GetStats() ObservabilityStats {
+func (c *MetricsCollector) GetStats() ObservabilityStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -584,9 +585,10 @@ func (c *NATSMetricsCollector) GetStats() ObservabilityStats {
 		}
 	}
 	for direction, counter := range c.messageBytesTotal {
-		if direction == "sent" {
+		switch direction {
+		case "sent":
 			stats.TotalBytesSent = counter.Load()
-		} else if direction == "received" {
+		case "received":
 			stats.TotalBytesReceived = counter.Load()
 		}
 	}
@@ -641,12 +643,12 @@ func (c *NATSMetricsCollector) GetStats() ObservabilityStats {
 
 // PrometheusExporter exports metrics in Prometheus format
 type PrometheusExporter struct {
-	collector *NATSMetricsCollector
+	collector *MetricsCollector
 	prefix    string
 }
 
 // NewPrometheusExporter creates a new Prometheus exporter
-func NewPrometheusExporter(collector *NATSMetricsCollector) *PrometheusExporter {
+func NewPrometheusExporter(collector *MetricsCollector) *PrometheusExporter {
 	prefix := "kscore_nats"
 	if collector.config != nil && collector.config.MetricsPrefix != "" {
 		prefix = collector.config.MetricsPrefix
@@ -802,8 +804,4 @@ func splitKey(key string) []string {
 
 func formatInt64(v int64) string {
 	return fmt.Sprintf("%d", v)
-}
-
-func formatFloat64(v float64) string {
-	return fmt.Sprintf("%.6f", v)
 }

@@ -7,7 +7,7 @@ description: >
 
 # Release Notes
 
-This page contains release notes for Keystone Core. For detailed changelog entries, see the [CHANGELOG](https://github.com/keystone-core/keystone-core/blob/main/CHANGELOG.md).
+This page contains release notes for Keystone Core. For detailed changelog entries, see the [CHANGELOG](https://github.com/shawnbutts/keystone-core/blob/main/CHANGELOG.md).
 
 ## Version 0.1.0 (2026-01-28)
 
@@ -178,16 +178,16 @@ This is the initial release. For future upgrades:
 curl -fsSL https://get.keystone-core.io | sh
 
 # Bootstrap a control plane
-kscorectl bootstrap init --mode embedded
+kscorectl bootstrap seed --mode embedded
 
 # Join an agent
 kscore-agent join --server https://control-plane:8443
 
 # Apply your first state
-kscorectl state apply -f my-state.yaml
+kscorectl state apply my-state.yaml
 ```
 
-See the [Quick Start Guide](/docs/getting-started/quickstart/) for detailed instructions.
+See the [Quick Start Guide](/docs/getting-started/quick-start/) for detailed instructions.
 
 ### Documentation
 

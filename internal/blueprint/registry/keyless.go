@@ -22,8 +22,8 @@ import (
 
 // Default Sigstore endpoints
 const (
-	DefaultFulcioURL = "https://fulcio.sigstore.dev"
-	DefaultRekorURL  = "https://rekor.sigstore.dev"
+	DefaultFulcioURL  = "https://fulcio.sigstore.dev"
+	DefaultRekorURL   = "https://rekor.sigstore.dev"
 	DefaultOIDCIssuer = "https://oauth2.sigstore.dev/auth"
 )
 
@@ -289,13 +289,13 @@ func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey
 
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
-		return "", "", "", fmt.Errorf("Fulcio request failed: %w", err)
+		return "", "", "", fmt.Errorf("fulcio request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return "", "", "", fmt.Errorf("Fulcio returned status %d: %s", resp.StatusCode, string(body))
+		return "", "", "", fmt.Errorf("fulcio returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var fulcioResp FulcioResponse
@@ -306,7 +306,7 @@ func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey
 	if fulcioResp.SignedCertificateEmbeddedSct == nil ||
 		fulcioResp.SignedCertificateEmbeddedSct.Chain == nil ||
 		len(fulcioResp.SignedCertificateEmbeddedSct.Chain.Certificates) == 0 {
-		return "", "", "", fmt.Errorf("Fulcio response missing certificate")
+		return "", "", "", fmt.Errorf("fulcio response missing certificate")
 	}
 
 	certs := fulcioResp.SignedCertificateEmbeddedSct.Chain.Certificates
@@ -366,13 +366,13 @@ func (s *KeylessSigner) recordInRekor(ctx context.Context, data, signature []byt
 
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("Rekor request failed: %w", err)
+		return nil, fmt.Errorf("rekor request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Rekor returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("rekor returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response - Rekor returns a map with UUID as key
@@ -383,21 +383,23 @@ func (s *KeylessSigner) recordInRekor(ctx context.Context, data, signature []byt
 
 	// Extract entry from response
 	for uuid, entryData := range rekorResp {
-		if entry, ok := entryData.(map[string]interface{}); ok {
-			result := &RekorEntry{UUID: uuid}
-
-			if logIndex, ok := entry["logIndex"].(float64); ok {
-				result.LogIndex = int64(logIndex)
-			}
-			if integratedTime, ok := entry["integratedTime"].(float64); ok {
-				result.IntegratedTime = int64(integratedTime)
-			}
-			if logID, ok := entry["logID"].(string); ok {
-				result.LogID = logID
-			}
-
-			return result, nil
+		entry, ok := entryData.(map[string]interface{})
+		if !ok {
+			continue
 		}
+		result := &RekorEntry{UUID: uuid}
+
+		if logIndex, ok := entry["logIndex"].(float64); ok {
+			result.LogIndex = int64(logIndex)
+		}
+		if integratedTime, ok := entry["integratedTime"].(float64); ok {
+			result.IntegratedTime = int64(integratedTime)
+		}
+		if logID, ok := entry["logID"].(string); ok {
+			result.LogID = logID
+		}
+
+		return result, nil
 	}
 
 	return nil, fmt.Errorf("unexpected Rekor response format")
@@ -420,7 +422,7 @@ func (s *KeylessSigner) SignBlueprint(ctx context.Context, archivePath string) (
 }
 
 // VerifyKeylessSignature verifies a keyless signature.
-func VerifyKeylessSignature(ctx context.Context, data []byte, signature string, certPEM string) (*VerificationResult, error) {
+func VerifyKeylessSignature(ctx context.Context, data []byte, signature, certPEM string) (*VerificationResult, error) {
 	result := &VerificationResult{
 		Valid:     false,
 		Timestamp: time.Now().UTC(),

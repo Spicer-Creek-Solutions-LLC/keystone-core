@@ -85,6 +85,7 @@ Counts are derived from repository-wide `*_test.go` scans (e.g., `rg -o "^func\\
 ### Future Considerations
 
 - **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
+- **Simplification** - Aggressive refactor to minimize code and surface area
 
 | Category | Description |
 |----------|-------------|

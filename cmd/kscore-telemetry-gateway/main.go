@@ -52,7 +52,7 @@ Examples:
   kscore-telemetry-gateway serve
 
   # Start with custom config file
-  kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
+  kscore-telemetry-gateway serve --config /etc/keystone-core/gateway.yaml
 
   # Override specific settings
   kscore-telemetry-gateway serve --listen 0.0.0.0:9091 --nats-url nats://localhost:4222`,
@@ -100,7 +100,7 @@ Examples:
   kscore-telemetry-gateway serve
 
   # Start with config file
-  kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
+  kscore-telemetry-gateway serve --config /etc/keystone-core/gateway.yaml
 
   # Start with overrides
   kscore-telemetry-gateway serve --listen :9091 --nats-url nats://nats:4222`,

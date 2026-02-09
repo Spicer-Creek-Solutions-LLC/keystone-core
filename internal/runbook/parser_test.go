@@ -310,7 +310,7 @@ func TestToYAML(t *testing.T) {
 			Name:    "yaml-test",
 			Version: "1.0.0",
 		},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Description: "Test runbook",
 			Steps: []Step{
 				{

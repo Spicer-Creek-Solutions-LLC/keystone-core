@@ -53,19 +53,19 @@ nginx:
 **Keystone Core**:
 ```yaml
 # states/nginx.yaml
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
-  version: "1.24.*"
+package:
+  nginx_package:
+    state: installed
+    name: nginx
+    version: "1.24.*"
 
-nginx_service:
-  module: service
-  state: running
-  name: nginx
-  enabled: true
-  require:
-    - nginx_package
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    enabled: true
+    require:
+      - package: nginx_package
 ```
 
 #### File Management
@@ -91,21 +91,21 @@ nginx_service:
 **Keystone Core**:
 ```yaml
 # states/nginx-config.yaml
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  source: kscore://nginx/files/nginx.conf
-  owner: root
-  group: root
-  mode: "0644"
-  template: true
-  vars:
-    worker_processes: "{{ .vars.nginx.workers }}"
-  require:
-    - nginx_package
-  watch_in:
-    - nginx_service
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    source: kscore://nginx/files/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    template: true
+    vars:
+      worker_processes: "{{ .vars.nginx.workers }}"
+    require:
+      - package: nginx_package
+    watch_in:
+      - service: nginx_service
 ```
 
 #### User Management
@@ -127,16 +127,16 @@ nginx_config:
 **Keystone Core**:
 ```yaml
 # states/users.yaml
+user:
 {{ range $name, $data := .vars.users }}
-user_{{ $name }}:
-  module: user
-  state: present
-  name: {{ $name }}
-  uid: {{ $data.uid }}
-  gid: {{ $data.gid }}
-  home: {{ $data.home }}
-  shell: {{ $data.shell }}
-  groups: {{ $data.groups | toJson }}
+  user_{{ $name }}:
+    state: present
+    name: {{ $name }}
+    uid: {{ $data.uid }}
+    gid: {{ $data.gid }}
+    home: {{ $data.home }}
+    shell: {{ $data.shell }}
+    groups: {{ $data.groups | toJson }}
 {{ end }}
 ```
 
@@ -177,39 +177,27 @@ Salt grains are automatically available as Keystone facts:
 
 ### Migration Script
 
+> **Note**: Automated conversion tools (`migrate convert-salt`, `migrate convert-pillar`)
+> are planned but not yet implemented. Currently, state files must be converted manually
+> using the translation examples above as a guide.
+
 ```bash
 #!/bin/bash
 # salt-to-keystone-migrate.sh
+# Manual conversion workflow
 
-# Convert Salt state files to Keystone format
-for sls in /srv/salt/**/*.sls; do
-  yaml_file=$(echo "$sls" | sed 's|/srv/salt|states|; s|.sls$|.yaml|')
-  mkdir -p $(dirname "$yaml_file")
+# 1. Create directory structure
+mkdir -p states vars
 
-  echo "Converting $sls -> $yaml_file"
+# 2. For each Salt state file, manually translate to Keystone format
+# Use the translation examples above as a guide
+# Example: /srv/salt/nginx/init.sls -> states/nginx.yaml
 
-  # Use migration tool
-  kscorectl migrate convert-salt \
-    --input "$sls" \
-    --output "$yaml_file" \
-    --pillar-dir /srv/pillar
+# 3. Convert pillars to variables files manually
+# Salt pillar YAML is mostly compatible, but update Jinja to Go templates
 
-done
-
-# Convert pillars to variables
-for pillar in /srv/pillar/**/*.sls; do
-  vars_file=$(echo "$pillar" | sed 's|/srv/pillar|vars|; s|.sls$|.yaml|')
-  mkdir -p $(dirname "$vars_file")
-
-  echo "Converting pillar $pillar -> $vars_file"
-
-  kscorectl migrate convert-pillar \
-    --input "$pillar" \
-    --output "$vars_file"
-done
-
-# Validate converted states
-kscorectl state validate states/
+# 4. Validate converted states
+kscorectl state check states/
 ```
 
 ### Migration Checklist
@@ -272,18 +260,18 @@ Ansible uses playbooks and roles; Keystone Core uses state files and modules. Bo
 **Keystone Core**:
 ```yaml
 # states/nginx.yaml
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
+package:
+  nginx_package:
+    state: installed
+    name: nginx
 
-nginx_service:
-  module: service
-  state: running
-  name: nginx
-  enabled: true
-  watch:
-    - nginx_package
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    enabled: true
+    watch:
+      - package: nginx_package
 ```
 
 #### Template Files
@@ -302,17 +290,17 @@ nginx_service:
 
 **Keystone Core**:
 ```yaml
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  source: kscore://nginx/templates/nginx.conf
-  template: true
-  owner: root
-  group: root
-  mode: "0644"
-  watch_in:
-    - nginx_reload
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    source: kscore://nginx/templates/nginx.conf
+    template: true
+    owner: root
+    group: root
+    mode: "0644"
+    watch_in:
+      - cmd: nginx_reload
 ```
 
 #### Conditionals
@@ -335,24 +323,23 @@ nginx_config:
 **Keystone Core**:
 ```yaml
 # Keystone automatically uses correct package manager
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
+package:
+  nginx_package:
+    state: installed
+    name: nginx
 
 # Or use explicit conditionals
+package:
 {{ if eq .facts.os_family "debian" }}
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
-  pkg_manager: apt
+  nginx_package:
+    state: installed
+    name: nginx
+    pkg_manager: apt
 {{ else if eq .facts.os_family "redhat" }}
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
-  pkg_manager: yum
+  nginx_package:
+    state: installed
+    name: nginx
+    pkg_manager: yum
 {{ end }}
 ```
 
@@ -370,12 +357,12 @@ nginx_package:
 
 **Keystone Core**:
 ```yaml
+user:
 {{ range .vars.users }}
-user_{{ .name }}:
-  module: user
-  state: present
-  name: {{ .name }}
-  uid: {{ .uid }}
+  user_{{ .name }}:
+    state: present
+    name: {{ .name }}
+    uid: {{ .uid }}
 {{ end }}
 ```
 
@@ -404,27 +391,27 @@ user_{{ .name }}:
 
 **Keystone Core**:
 ```yaml
-app_config:
-  module: file
-  state: present
-  path: /etc/app/config.conf
-  source: kscore://app/templates/app.conf
-  template: true
-  watch_in:
-    - app_restart
-    - cache_clear
+file:
+  app_config:
+    state: present
+    name: /etc/app/config.conf
+    source: kscore://app/templates/app.conf
+    template: true
+    watch_in:
+      - service: app_restart
+      - cmd: cache_clear
 
-app_restart:
-  module: service
-  state: restarted
-  name: myapp
+service:
+  app_restart:
+    state: restarted
+    name: myapp
 
-cache_clear:
-  module: cmd
-  state: wait
-  command: /usr/bin/clear-cache
-  watch:
-    - app_config
+cmd:
+  cache_clear:
+    state: wait
+    command: /usr/bin/clear-cache
+    watch:
+      - file: app_config
 ```
 
 ### Inventory to Targeting
@@ -479,28 +466,30 @@ nginx:
 
 ### Migration Script
 
+> **Note**: Automated conversion tools (`migrate convert-ansible`, `migrate convert-inventory`)
+> are planned but not yet implemented. Currently, playbooks and roles must be converted manually
+> using the translation examples above as a guide.
+
 ```bash
 #!/bin/bash
 # ansible-to-keystone-migrate.sh
+# Manual conversion workflow
 
-# Convert Ansible roles to Keystone states
-for role in roles/*/; do
-  role_name=$(basename "$role")
-  echo "Converting role: $role_name"
+# 1. Create directory structure
+mkdir -p states vars
 
-  kscorectl migrate convert-ansible \
-    --role "$role" \
-    --output "states/$role_name.yaml" \
-    --vars-output "vars/$role_name.yaml"
-done
+# 2. For each Ansible role, manually translate tasks to Keystone format
+# Use the translation examples above as a guide
+# Example: roles/nginx/tasks/main.yml -> states/nginx.yaml
 
-# Convert inventory to targeting metadata
-kscorectl migrate convert-inventory \
-  --input inventory/hosts \
-  --output agent-tags.yaml
+# 3. Convert group_vars/host_vars to variables files
+# Ansible YAML variables are mostly compatible with Keystone vars
 
-# Validate
-kscorectl state validate states/
+# 4. Map inventory groups to agent tags for targeting
+# Example: [webservers] -> role=webserver tag
+
+# 5. Validate converted states
+kscorectl state check states/
 ```
 
 ### Migration Checklist
@@ -573,31 +562,31 @@ class nginx {
 **Keystone Core**:
 ```yaml
 # states/nginx.yaml
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
+package:
+  nginx_package:
+    state: installed
+    name: nginx
 
-nginx_service:
-  module: service
-  state: running
-  name: nginx
-  enabled: true
-  require:
-    - nginx_package
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    enabled: true
+    require:
+      - package: nginx_package
 
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  source: kscore://nginx/files/nginx.conf
-  owner: root
-  group: root
-  mode: "0644"
-  require:
-    - nginx_package
-  watch_in:
-    - nginx_service
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    source: kscore://nginx/files/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    require:
+      - package: nginx_package
+    watch_in:
+      - service: nginx_service
 ```
 
 #### Variables and Templates
@@ -622,16 +611,16 @@ class nginx::config (
 **Keystone Core**:
 ```yaml
 # states/nginx-config.yaml
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  template: true
-  contents: |
-    worker_processes {{ default 4 .vars.nginx.worker_processes }};
-    events {
-      worker_connections {{ default 1024 .vars.nginx.worker_connections }};
-    }
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    template: true
+    contents: |
+      worker_processes {{ default 4 .vars.nginx.worker_processes }};
+      events {
+        worker_connections {{ default 1024 .vars.nginx.worker_connections }};
+      }
 ```
 
 #### Defined Types (Loops)
@@ -669,26 +658,25 @@ nginx::vhost { 'api.example.com':
 **Keystone Core**:
 ```yaml
 # states/nginx-vhosts.yaml
+file:
 {{ range .vars.vhosts }}
-vhost_{{ .name | replace "." "_" }}_available:
-  module: file
-  state: present
-  path: /etc/nginx/sites-available/{{ .name }}.conf
-  template: true
-  contents: |
-    server {
-      listen {{ default 80 .port }};
-      server_name {{ .name }};
-      # ... rest of config
-    }
+  vhost_{{ .name | replace "." "_" }}_available:
+    state: present
+    name: /etc/nginx/sites-available/{{ .name }}.conf
+    template: true
+    contents: |
+      server {
+        listen {{ default 80 .port }};
+        server_name {{ .name }};
+        # ... rest of config
+      }
 
-vhost_{{ .name | replace "." "_" }}_enabled:
-  module: file
-  state: symlink
-  path: /etc/nginx/sites-enabled/{{ .name }}.conf
-  target: /etc/nginx/sites-available/{{ .name }}.conf
-  require:
-    - vhost_{{ .name | replace "." "_" }}_available
+  vhost_{{ .name | replace "." "_" }}_enabled:
+    state: symlink
+    name: /etc/nginx/sites-enabled/{{ .name }}.conf
+    target: /etc/nginx/sites-available/{{ .name }}.conf
+    require:
+      - file: vhost_{{ .name | replace "." "_" }}_available
 {{ end }}
 
 # vars/nginx.yaml
@@ -720,16 +708,15 @@ case $facts['os']['family'] {
 
 **Keystone Core**:
 ```yaml
+package:
 {{ if eq .facts.os_family "debian" }}
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
+  nginx_package:
+    state: installed
+    name: nginx
 {{ else if eq .facts.os_family "redhat" }}
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
+  nginx_package:
+    state: installed
+    name: nginx
 {{ else }}
 # Keystone will fail if no matching condition
 {{ fail "Unsupported OS family" }}
@@ -775,33 +762,31 @@ kscorectl state apply nginx.yaml \
 
 ### Migration Script
 
+> **Note**: Automated conversion tools (`migrate convert-puppet`, `migrate convert-hiera`,
+> `migrate convert-node-definitions`) are planned but not yet implemented. Currently, Puppet
+> manifests must be converted manually using the translation examples above as a guide.
+
 ```bash
 #!/bin/bash
 # puppet-to-keystone-migrate.sh
+# Manual conversion workflow
 
-# Convert Puppet modules to Keystone states
-for module in /etc/puppetlabs/code/modules/*/; do
-  mod_name=$(basename "$module")
-  echo "Converting module: $mod_name"
+# 1. Create directory structure
+mkdir -p states vars
 
-  kscorectl migrate convert-puppet \
-    --module "$module" \
-    --output "states/$mod_name/" \
-    --hiera-dir /etc/puppetlabs/code/data
-done
+# 2. For each Puppet module, manually translate manifests to Keystone format
+# Use the translation examples above as a guide
+# Example: modules/nginx/manifests/init.pp -> states/nginx.yaml
 
-# Convert Hiera data
-kscorectl migrate convert-hiera \
-  --input /etc/puppetlabs/code/data \
-  --output vars/
+# 3. Convert Hiera data to variables files
+# Hiera YAML is mostly compatible, but flatten the namespace
+# Example: nginx::worker_processes -> nginx.worker_processes
 
-# Generate node-to-agent mapping
-kscorectl migrate convert-node-definitions \
-  --input /etc/puppetlabs/code/manifests/site.pp \
-  --output agent-classification.yaml
+# 4. Map node definitions to agent tags for targeting
+# Example: node 'web*.example.com' -> hostname pattern or role tag
 
-# Validate
-kscorectl state validate states/
+# 5. Validate converted states
+kscorectl state check states/
 ```
 
 ### Migration Checklist
@@ -831,7 +816,7 @@ During migration, you can run both systems:
 kscorectl state check nginx.yaml --target "role=web"
 
 # Compare with current state (managed by Salt/Ansible/Puppet)
-diff <(kscorectl state show nginx.yaml --rendered) \
+diff <(kscorectl state show nginx.yaml) \
      <(salt 'web*' state.show_lowstate nginx)
 ```
 

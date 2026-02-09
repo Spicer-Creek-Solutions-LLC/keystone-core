@@ -85,7 +85,7 @@ func (m *K8sSecretModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 
 	// Check data - compare combined data from Data and StringData
 	desiredData := getSecretData(decl)
-	if desiredData != nil && len(desiredData) > 0 {
+	if len(desiredData) > 0 {
 		if !compareSecretData(secret.Data, desiredData) {
 			result.Matches = false
 			result.Diff["data"] = map[string]interface{}{
@@ -97,7 +97,7 @@ func (m *K8sSecretModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 
 	// Check labels
 	desiredLabels := getLabels(decl)
-	if desiredLabels != nil && len(desiredLabels) > 0 {
+	if len(desiredLabels) > 0 {
 		if !compareLabels(secret.Labels, desiredLabels) {
 			result.Matches = false
 			result.Diff["labels"] = map[string]interface{}{
@@ -109,7 +109,7 @@ func (m *K8sSecretModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 
 	// Check annotations
 	desiredAnnotations := getAnnotations(decl)
-	if desiredAnnotations != nil && len(desiredAnnotations) > 0 {
+	if len(desiredAnnotations) > 0 {
 		if !compareAnnotations(secret.Annotations, desiredAnnotations) {
 			result.Matches = false
 			result.Diff["annotations"] = map[string]interface{}{

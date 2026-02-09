@@ -40,7 +40,7 @@ services:
       - "8082:8082"   # Webhook receiver
       - "4222:4222"   # NATS (for agents to connect)
     volumes:
-      - server-data:/var/lib/kscore
+      - server-data:/var/lib/keystone-core
     environment:
       # Use info level by default; set KSCORE_LOG_LEVEL=debug for debugging
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
@@ -73,7 +73,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-web-1.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-web-1.yaml:/etc/keystone-core/agent.yaml:ro
     logging: *default-logging
     <<: *default-resources
     networks:
@@ -88,7 +88,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-web-2.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-web-2.yaml:/etc/keystone-core/agent.yaml:ro
     logging: *default-logging
     <<: *default-resources
     networks:
@@ -103,7 +103,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-db-1.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-db-1.yaml:/etc/keystone-core/agent.yaml:ro
     logging: *default-logging
     <<: *default-resources
     networks:

@@ -35,8 +35,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/state/drift", h.handleDrift)
 }
 
-// StateRequest represents the request body for state operations.
-type StateRequest struct {
+// Request represents the request body for state operations.
+type Request struct {
 	// State file content (YAML)
 	Content string `json:"content,omitempty"`
 
@@ -53,19 +53,19 @@ type StateRequest struct {
 	Targets []string `json:"targets,omitempty"`
 }
 
-// StateApplyResponse represents the response for POST /api/v1/state/apply.
-type StateApplyResponse struct {
-	RunID     string        `json:"run_id"`
-	Status    string        `json:"status"`
-	Summary   *StateSummary `json:"summary"`
-	Results   []StateResult `json:"results"`
-	StartedAt time.Time     `json:"started_at"`
-	Duration  string        `json:"duration"`
-	DryRun    bool          `json:"dry_run"`
+// ApplyResponse represents the response for POST /api/v1/state/apply.
+type ApplyResponse struct {
+	RunID     string    `json:"run_id"`
+	Status    string    `json:"status"`
+	Summary   *Summary  `json:"summary"`
+	Results   []Result  `json:"results"`
+	StartedAt time.Time `json:"started_at"`
+	Duration  string    `json:"duration"`
+	DryRun    bool      `json:"dry_run"`
 }
 
-// StateSummary provides summary statistics for a state run.
-type StateSummary struct {
+// Summary provides summary statistics for a state run.
+type Summary struct {
 	Total     int `json:"total"`
 	Succeeded int `json:"succeeded"`
 	Failed    int `json:"failed"`
@@ -74,8 +74,8 @@ type StateSummary struct {
 	Skipped   int `json:"skipped"`
 }
 
-// StateResult represents the result of a single state application.
-type StateResult struct {
+// Result represents the result of a single state application.
+type Result struct {
 	ID       string `json:"id"`
 	Module   string `json:"module"`
 	Status   string `json:"status"`
@@ -85,8 +85,8 @@ type StateResult struct {
 	Duration string `json:"duration,omitempty"`
 }
 
-// StateCheckResponse represents the response for POST /api/v1/state/check.
-type StateCheckResponse struct {
+// CheckResponse represents the response for POST /api/v1/state/check.
+type CheckResponse struct {
 	Valid    bool              `json:"valid"`
 	Errors   []ValidationError `json:"errors,omitempty"`
 	Warnings []ValidationError `json:"warnings,omitempty"`
@@ -147,7 +147,7 @@ func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req StateRequest
+	var req Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
@@ -172,7 +172,7 @@ func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build response
-	resp := StateApplyResponse{
+	resp := ApplyResponse{
 		RunID:     run.RunID,
 		Status:    stateRunStatusToString(run),
 		Summary:   convertSummary(run.Summary),
@@ -192,7 +192,7 @@ func (h *Handler) handleCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req StateRequest
+	var req Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
@@ -228,15 +228,17 @@ func (h *Handler) handleCheck(w http.ResponseWriter, r *http.Request) {
 			Message: issue.Message,
 			Line:    issue.Line,
 		}
-		if issue.Level == statemgmt.ValidationLevelError {
+		switch issue.Level {
+		case statemgmt.ValidationLevelError:
 			errors = append(errors, ve)
-		} else if issue.Level == statemgmt.ValidationLevelWarning {
+		case statemgmt.ValidationLevelWarning:
 			warnings = append(warnings, ve)
+		default:
 		}
 	}
 
 	// Build response
-	resp := StateCheckResponse{
+	resp := CheckResponse{
 		Valid:    result.Valid,
 		Errors:   errors,
 		Warnings: warnings,
@@ -254,7 +256,7 @@ func (h *Handler) handleDrift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req StateRequest
+	var req Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
@@ -289,7 +291,7 @@ func (h *Handler) handleDrift(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 
-func (h *Handler) loadStateFile(req StateRequest) (*statemgmt.StateFile, error) {
+func (h *Handler) loadStateFile(req Request) (*statemgmt.StateFile, error) {
 	parser := statemgmt.NewParser(".")
 
 	if req.Content != "" {
@@ -327,11 +329,11 @@ func stateRunStatusToString(run *statemgmt.StateRun) string {
 	return "success"
 }
 
-func convertSummary(s *statemgmt.RunSummary) *StateSummary {
+func convertSummary(s *statemgmt.RunSummary) *Summary {
 	if s == nil {
 		return nil
 	}
-	return &StateSummary{
+	return &Summary{
 		Total:     s.Total,
 		Succeeded: s.Succeeded,
 		Failed:    s.Failed,
@@ -341,8 +343,8 @@ func convertSummary(s *statemgmt.RunSummary) *StateSummary {
 	}
 }
 
-func convertResults(results []*statemgmt.StateResult) []StateResult {
-	out := make([]StateResult, 0, len(results))
+func convertResults(results []*statemgmt.StateResult) []Result {
+	out := make([]Result, 0, len(results))
 	for _, r := range results {
 		errStr := ""
 		if r.Error != nil {
@@ -352,7 +354,7 @@ func convertResults(results []*statemgmt.StateResult) []StateResult {
 		if !r.Success {
 			status = "failed"
 		}
-		out = append(out, StateResult{
+		out = append(out, Result{
 			ID:       r.StateID,
 			Module:   r.Module,
 			Status:   status,

@@ -1,3 +1,4 @@
+// Package main implements the kscore-runbook CLI for runbook execution and management.
 package main
 
 import (
@@ -111,10 +112,10 @@ func main() {
 // ============================================================================
 
 var (
-	approvalsMine      bool
-	approvalsState     string
-	approvalsExecID    string
-	approvalsLimit     int
+	approvalsMine   bool
+	approvalsState  string
+	approvalsExecID string
+	approvalsLimit  int
 )
 
 func newApprovalsCmd() *cobra.Command {
@@ -446,7 +447,7 @@ func runInterventions(cmd *cobra.Command, args []string) error {
 	}
 
 	if interventionsState != "" {
-		opts.State = intervention.InterventionState(interventionsState)
+		opts.State = intervention.State(interventionsState)
 	}
 
 	requests, err := storage.ListRequests(ctx, opts)

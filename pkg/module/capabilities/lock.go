@@ -212,11 +212,13 @@ func (s *FileLockStore) saveLocks(locks map[string]*CapabilityLock) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(s.path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: lock directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create lock directory: %w", err)
 	}
 
-	if err := os.WriteFile(s.path, data, 0644); err != nil {
+	//nolint:gosec // G306: lock files need to be readable by module resolver
+	if err := os.WriteFile(s.path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write lock file: %w", err)
 	}
 
@@ -415,11 +417,12 @@ func (lm *LockManager) CheckUpdate(moduleName string, newCapabilities []string, 
 		}
 	}
 
-	if !result.Allowed {
+	switch {
+	case !result.Allowed:
 		result.Reason = fmt.Sprintf("module is locked: new capabilities [%v] not allowed", result.BlockedCaps)
-	} else if len(result.RemovedCaps) > 0 {
+	case len(result.RemovedCaps) > 0:
 		result.Reason = fmt.Sprintf("module is locked: capabilities [%v] were removed (allowed)", result.RemovedCaps)
-	} else {
+	default:
 		result.Reason = "module is locked: no capability changes"
 	}
 

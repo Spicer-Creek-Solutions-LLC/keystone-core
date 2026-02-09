@@ -1,3 +1,5 @@
+// Package policy provides module policy validation for trust levels,
+// capability grants, and execution permissions.
 package policy
 
 import "time"
@@ -5,6 +7,7 @@ import "time"
 // TrustLevel represents the trust level of a module
 type TrustLevel string
 
+// TrustLevel constants define the severity levels.
 const (
 	TrustLevelUnknown   TrustLevel = "unknown"
 	TrustLevelUntrusted TrustLevel = "untrusted"
@@ -21,6 +24,7 @@ const (
 // ActionType represents the action to take when a policy rule matches
 type ActionType string
 
+// ActionAllow constants define the actions.
 const (
 	ActionAllow  ActionType = "allow"
 	ActionDeny   ActionType = "deny"
@@ -83,18 +87,18 @@ type ModulePolicyEngine struct {
 	EnforcementMode  interface{} // policypkg.EnforcementMode
 }
 
-// PolicyCondition represents a condition that must be met for a rule to apply
-type PolicyCondition struct {
-	ModuleNamePattern    string
-	MinTrustLevel        TrustLevel
-	MaxTrustLevel        TrustLevel
-	Environments         []string
-	RequiredCapabilities []string
+// Condition represents a condition that must be met for a rule to apply
+type Condition struct {
+	ModuleNamePattern     string
+	MinTrustLevel         TrustLevel
+	MaxTrustLevel         TrustLevel
+	Environments          []string
+	RequiredCapabilities  []string
 	ForbiddenCapabilities []string
 }
 
-// PolicyAction represents the action to take when a rule matches
-type PolicyAction struct {
+// Action represents the action to take when a rule matches
+type Action struct {
 	Type              ActionType
 	Block             bool
 	BlockReason       string
@@ -102,6 +106,16 @@ type PolicyAction struct {
 	AllowCapabilities []string
 	DenyCapabilities  []string
 }
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyCondition is deprecated: Use Condition instead.
+	PolicyCondition = Condition
+	// PolicyAction is deprecated: Use Action instead.
+	PolicyAction = Action
+)
 
 // ModulePolicyRule represents a policy rule
 type ModulePolicyRule struct {

@@ -372,8 +372,10 @@ func (m *IptablesModule) buildRuleArgs(config *IptablesConfig) []string {
 
 // checkRuleExists checks if a rule exists
 func (m *IptablesModule) checkRuleExists(ctx context.Context, config *IptablesConfig) (bool, error) {
-	args := []string{"-w", strconv.Itoa(config.Wait), "-t", config.Table, "-C", config.Chain}
-	args = append(args, m.buildRuleArgs(config)...)
+	ruleArgs := m.buildRuleArgs(config)
+	args := make([]string, 0, 6+len(ruleArgs))
+	args = append(args, "-w", strconv.Itoa(config.Wait), "-t", config.Table, "-C", config.Chain)
+	args = append(args, ruleArgs...)
 
 	cmd := exec.CommandContext(ctx, "iptables", args...)
 	err := cmd.Run()
@@ -440,8 +442,10 @@ func (m *IptablesModule) addRule(ctx context.Context, config *IptablesConfig) er
 
 // deleteRule deletes an iptables rule
 func (m *IptablesModule) deleteRule(ctx context.Context, config *IptablesConfig) error {
-	args := []string{"-w", strconv.Itoa(config.Wait), "-t", config.Table, "-D", config.Chain}
-	args = append(args, m.buildRuleArgs(config)...)
+	ruleArgs := m.buildRuleArgs(config)
+	args := make([]string, 0, 6+len(ruleArgs))
+	args = append(args, "-w", strconv.Itoa(config.Wait), "-t", config.Table, "-D", config.Chain)
+	args = append(args, ruleArgs...)
 
 	cmd := exec.CommandContext(ctx, "iptables", args...)
 	output, err := cmd.CombinedOutput()
@@ -476,5 +480,5 @@ func (m *IptablesModule) setPolicy(ctx context.Context, config *IptablesConfig) 
 }
 
 func init() {
-	RegisterModule(NewIptablesModule())
+	_ = RegisterModule(NewIptablesModule()) //nolint:errcheck // module registration in init
 }

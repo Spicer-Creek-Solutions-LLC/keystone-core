@@ -8,6 +8,16 @@ description: "Configuration guides for HashiCorp Vault, AWS Secrets Manager, Azu
 
 This guide covers the setup and configuration of each supported secret backend. Choose the backend that best fits your infrastructure and security requirements.
 
+> **Implementation Note**: The `backends:` YAML configuration blocks shown in this document
+> represent conceptual integration patterns for reference. Currently, backend authentication
+> is handled through:
+> - **Environment variables** (e.g., `VAULT_ADDR`, `VAULT_TOKEN`, `AWS_REGION`)
+> - **Backend-native configuration** (Vault agent, AWS IAM roles, Azure managed identity, GCP workload identity)
+> - **State file secret references** using `{{ secret "path" }}` syntax
+>
+> Keystone Core's secrets CLI (`kscore-secrets`) focuses on rotation orchestration, scheduling,
+> and policies. Direct secret retrieval uses the backend's native tools or environment injection.
+
 ## HashiCorp Vault
 
 HashiCorp Vault is a full-featured secret management platform supporting dynamic secrets, encryption-as-a-service, and extensive audit capabilities.
@@ -140,9 +150,13 @@ backends:
 # Write secret
 vault kv put secret/myapp/config username="app" password="secret"
 
-# Read via Keystone
-kscorectl secrets get kv/data/myapp/config
+# Read secret (use Vault CLI directly)
+vault kv get secret/myapp/config
 ```
+
+> **Note**: Keystone Core's secrets CLI (`kscore-secrets`) focuses on rotation orchestration,
+> scheduling, and policies. Direct secret retrieval is handled by the backend (e.g., Vault CLI)
+> or through environment variable injection in state files.
 
 #### Database Secrets Engine
 

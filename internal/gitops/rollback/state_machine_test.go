@@ -8,7 +8,7 @@ import (
 )
 
 func TestManagedRollback_InitialState(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -29,7 +29,7 @@ func TestManagedRollback_InitialState(t *testing.T) {
 }
 
 func TestManagedRollback_ApprovalWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -68,7 +68,7 @@ func TestManagedRollback_ApprovalWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_DirectStartWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -87,7 +87,7 @@ func TestManagedRollback_DirectStartWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_RejectionWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -115,7 +115,7 @@ func TestManagedRollback_RejectionWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_CompleteWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -148,7 +148,7 @@ func TestManagedRollback_CompleteWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_FailWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -176,7 +176,7 @@ func TestManagedRollback_FailWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_VerificationWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -213,7 +213,7 @@ func TestManagedRollback_VerificationWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_VerificationFailedWorkflow(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -240,7 +240,7 @@ func TestManagedRollback_VerificationFailedWorkflow(t *testing.T) {
 }
 
 func TestManagedRollback_InvalidTransitions(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -265,7 +265,7 @@ func TestManagedRollback_Callbacks(t *testing.T) {
 	var approvedCalls, rejectedCalls, startedCalls, completedCalls, failedCalls int
 	var lastApprovedBy, lastRejectedBy string
 
-	callbacks := &RollbackCallbacks{
+	callbacks := &Callbacks{
 		OnApproved: func(rollbackID, approvedBy string) {
 			approvedCalls++
 			lastApprovedBy = approvedBy
@@ -285,7 +285,7 @@ func TestManagedRollback_Callbacks(t *testing.T) {
 		},
 	}
 
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -310,7 +310,7 @@ func TestManagedRollback_Callbacks(t *testing.T) {
 	}
 
 	// Test rejection callback
-	result2 := &RollbackResult{ID: "test-rollback-2"}
+	result2 := &Result{ID: "test-rollback-2"}
 	mr2 := NewManagedRollback(result2, callbacks)
 	mr2.Reject("security", "reason")
 	if rejectedCalls != 1 || lastRejectedBy != "security" {
@@ -319,7 +319,7 @@ func TestManagedRollback_Callbacks(t *testing.T) {
 }
 
 func TestManagedRollback_History(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -343,7 +343,7 @@ func TestManagedRollback_History(t *testing.T) {
 }
 
 func TestManagedRollback_AvailableEvents(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -373,12 +373,12 @@ func TestManagedRollback_AvailableEvents(t *testing.T) {
 }
 
 func TestManagedRollback_NilCallbacks(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
 	// Empty callbacks struct
-	callbacks := &RollbackCallbacks{}
+	callbacks := &Callbacks{}
 
 	mr := NewManagedRollback(result, callbacks)
 
@@ -390,9 +390,9 @@ func TestManagedRollback_NilCallbacks(t *testing.T) {
 	mr.VerifyPass(nil)
 }
 
-func TestRollbackStatusToString(t *testing.T) {
+func TestStatusToString(t *testing.T) {
 	tests := []struct {
-		status  RollbackStatus
+		status  Status
 		display string
 	}{
 		{StatusPending, "Pending"},
@@ -404,20 +404,20 @@ func TestRollbackStatusToString(t *testing.T) {
 		{StatusVerifying, "Verifying"},
 		{StatusVerified, "Verified"},
 		{StatusVerificationFailed, "Verification Failed"},
-		{RollbackStatus("unknown"), "unknown"},
+		{Status("unknown"), "unknown"},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.status), func(t *testing.T) {
-			if got := RollbackStatusToString(tt.status); got != tt.display {
-				t.Errorf("RollbackStatusToString(%v) = %v, want %v", tt.status, got, tt.display)
+			if got := StatusToString(tt.status); got != tt.display {
+				t.Errorf("StatusToString(%v) = %v, want %v", tt.status, got, tt.display)
 			}
 		})
 	}
 }
 
 func TestManagedRollback_FullWorkflowWithApproval(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID: "test-rollback-1",
 	}
 
@@ -454,7 +454,7 @@ func TestManagedRollback_FullWorkflowWithApproval(t *testing.T) {
 }
 
 func TestManagedRollback_StatusSync(t *testing.T) {
-	result := &RollbackResult{
+	result := &Result{
 		ID:     "test-rollback-1",
 		Status: StatusPending,
 	}

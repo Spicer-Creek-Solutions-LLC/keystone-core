@@ -7,7 +7,7 @@ import (
 
 func TestEnsureSQLiteDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "kscore.db")
+	path := filepath.Join(tmpDir, "keystone-core.db")
 	created, err := ensureSQLiteDatabase(path)
 	if err != nil {
 		t.Fatalf("ensureSQLiteDatabase returned error: %v", err)

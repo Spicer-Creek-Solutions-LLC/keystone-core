@@ -74,7 +74,7 @@ agent:
 Deploy the control plane exclusively on IPv6:
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 api:
   grpc:
     listen: "[::]:8080"
@@ -120,7 +120,7 @@ state:
 Bind to both IPv4 and IPv6 for maximum compatibility:
 
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 api:
   grpc:
     listen:
@@ -159,7 +159,7 @@ cluster:
 Configure agents to connect via IPv6:
 
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 agent:
   address_family: ipv6_only
 
@@ -174,7 +174,7 @@ nats:
 Agents with fallback between address families:
 
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 agent:
   address_family: prefer_ipv6
 
@@ -224,8 +224,8 @@ nats:
     listen: "[::]:8443"
     tls:
       enabled: true
-      cert_file: /etc/kscore/tls/server.crt
-      key_file: /etc/kscore/tls/server.key
+      cert_file: /etc/keystone-core/tls/server.crt
+      key_file: /etc/keystone-core/tls/server.key
 ```
 
 ### etcd
@@ -237,7 +237,7 @@ cluster:
   etcd:
     mode: embedded
     embedded:
-      data_dir: /var/lib/kscore/etcd
+      data_dir: /var/lib/keystone-core/etcd
       listen_address: "::"
       advertise_address: "2001:db8::1"
       client_port: 2379
@@ -257,9 +257,9 @@ cluster:
       - "https://[2001:db8::3]:2379"
     tls:
       enabled: true
-      cert_file: /etc/kscore/tls/etcd-client.crt
-      key_file: /etc/kscore/tls/etcd-client.key
-      ca_file: /etc/kscore/tls/etcd-ca.crt
+      cert_file: /etc/keystone-core/tls/etcd-client.crt
+      key_file: /etc/keystone-core/tls/etcd-client.key
+      ca_file: /etc/keystone-core/tls/etcd-ca.crt
 ```
 
 ### PostgreSQL
@@ -276,7 +276,7 @@ state:
     user: kscore
     password: "${KSCORE_DB_PASSWORD}"
     sslmode: require
-    sslrootcert: /etc/kscore/tls/pg-ca.crt
+    sslrootcert: /etc/keystone-core/tls/pg-ca.crt
 ```
 
 #### Using DSN
@@ -338,7 +338,7 @@ agent:
 ### Three-Node HA Cluster
 
 ```yaml
-# Node 1: /etc/kscore/server.yaml
+# Node 1: /etc/keystone-core/server.yaml
 cluster:
   enabled: true
   member_id: "node-1"
@@ -506,7 +506,7 @@ ping6 2001:db8::1
 nats-cli -s nats://[2001:db8::1]:4222 pub test "hello"
 
 # Check agent IPv6 addresses
-kscorectl agent list -o wide
+kscorectl agents list -o wide
 
 # View control plane IPv6 bindings
 kscorectl cluster status
@@ -685,7 +685,7 @@ az network nsg rule create \
 
 4. **Verify connectivity** on both families:
    ```bash
-   kscorectl agent list -o wide
+   kscorectl agents list -o wide
    ```
 
 ### Dual-Stack to IPv6-Only
@@ -737,7 +737,7 @@ ping6 2001:db8::1
 nc -6 -zv 2001:db8::1 4222
 
 # 3. Check agent configuration
-grep -r "address_family\|nats" /etc/kscore/agent.yaml
+grep -r "address_family\|nats" /etc/keystone-core/agent.yaml
 
 # 4. Check local firewall
 ip6tables -L -n
@@ -767,7 +767,7 @@ nc -6 -zv 2001:db8::2 2380
 ETCDCTL_API=3 etcdctl --endpoints=http://[::1]:2379 member list
 
 # 4. Check initial cluster configuration
-grep initial_cluster /etc/kscore/server.yaml
+grep initial_cluster /etc/keystone-core/server.yaml
 ```
 
 **Solutions:**

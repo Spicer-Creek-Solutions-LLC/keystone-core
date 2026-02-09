@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // DeadLetterEntry represents a failed reactor execution stored in the dead letter queue
@@ -291,7 +291,7 @@ func NewSQLiteDeadLetterQueue(config *DeadLetterConfig) (*SQLiteDeadLetterQueue,
 
 // initDeadLetterSchema creates the dead letter queue table
 func initDeadLetterSchema(db *sql.DB) error {
-	_, err := db.Exec(`
+	_, err := db.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS dead_letter_entries (
 			id TEXT PRIMARY KEY,
 			reactor_id TEXT NOT NULL,
@@ -428,6 +428,7 @@ func (dlq *SQLiteDeadLetterQueue) Query(ctx context.Context, query *DeadLetterQu
 	orderClause += " LIMIT ? OFFSET ?"
 
 	// Query entries
+	//nolint:gosec // G202: whereClause and orderClause built from validated fields with placeholders; args are bound separately
 	selectQuery := `
 		SELECT id, reactor_id, reactor_name, event_json, action_index, action_name,
 			error, retry_count, max_retries, created_at, last_retry_at, next_retry_at,
@@ -459,9 +460,8 @@ func (dlq *SQLiteDeadLetterQueue) Query(ctx context.Context, query *DeadLetterQu
 }
 
 // buildWhereClause builds the WHERE clause for queries
-func (dlq *SQLiteDeadLetterQueue) buildWhereClause(query *DeadLetterQuery) (string, []interface{}) {
+func (dlq *SQLiteDeadLetterQueue) buildWhereClause(query *DeadLetterQuery) (clause string, args []interface{}) {
 	var conditions []string
-	var args []interface{}
 
 	if len(query.ReactorIDs) > 0 {
 		placeholders := make([]string, len(query.ReactorIDs))
@@ -533,6 +533,8 @@ func (dlq *SQLiteDeadLetterQueue) UpdateStatus(ctx context.Context, id string, s
 		atomic.AddUint64(&dlq.resolvedCount, 1)
 	case DeadLetterStatusDiscarded:
 		atomic.AddUint64(&dlq.discardedCount, 1)
+	default:
+		// Other statuses don't update counters
 	}
 
 	return nil
@@ -705,6 +707,7 @@ func (dlq *SQLiteDeadLetterQueue) checkAlertThreshold(ctx context.Context) {
 		rows.Scan(&rf.ReactorID, &rf.ReactorName, &rf.Count)
 		topReactors = append(topReactors, rf)
 	}
+	_ = rows.Err() // Ignore error in monitoring context
 
 	// Trigger alert
 	alert := &DeadLetterAlert{
@@ -758,16 +761,16 @@ func (dlq *SQLiteDeadLetterQueue) processRetries() {
 
 	for _, entry := range result.Entries {
 		// Mark as retrying
-		dlq.UpdateStatus(ctx, entry.ID, DeadLetterStatusRetrying)
+		_ = dlq.UpdateStatus(ctx, entry.ID, DeadLetterStatusRetrying) //nolint:errcheck // best-effort status update
 
 		// Attempt retry
 		err := dlq.retryHandler.Retry(ctx, entry)
 		if err != nil {
 			// Increment retry count (will set status back to pending or failed)
-			dlq.IncrementRetry(ctx, entry.ID)
+			_ = dlq.IncrementRetry(ctx, entry.ID) //nolint:errcheck // best-effort retry count
 		} else {
 			// Mark as resolved
-			dlq.UpdateStatus(ctx, entry.ID, DeadLetterStatusResolved)
+			_ = dlq.UpdateStatus(ctx, entry.ID, DeadLetterStatusResolved) //nolint:errcheck // best-effort status update
 		}
 	}
 }

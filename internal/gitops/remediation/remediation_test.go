@@ -9,19 +9,19 @@ import (
 
 // mockHandler for testing
 type mockHandler struct {
-	handlerType   RemediationType
-	executeFunc   func(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error)
-	validateFunc  func(action *RemediationAction) error
+	handlerType   Type
+	executeFunc   func(ctx context.Context, action *Action, event *Event) (*ActionResult, error)
+	validateFunc  func(action *Action) error
 	executeCalls  int
 	validateCalls int
 	mu            sync.Mutex
 }
 
-func (h *mockHandler) Type() RemediationType {
+func (h *mockHandler) Type() Type {
 	return h.handlerType
 }
 
-func (h *mockHandler) Execute(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error) {
+func (h *mockHandler) Execute(ctx context.Context, action *Action, event *Event) (*ActionResult, error) {
 	h.mu.Lock()
 	h.executeCalls++
 	h.mu.Unlock()
@@ -36,7 +36,7 @@ func (h *mockHandler) Execute(ctx context.Context, action *RemediationAction, ev
 	}, nil
 }
 
-func (h *mockHandler) Validate(action *RemediationAction) error {
+func (h *mockHandler) Validate(action *Action) error {
 	h.mu.Lock()
 	h.validateCalls++
 	h.mu.Unlock()
@@ -61,7 +61,7 @@ type mockNotifier struct {
 	mu sync.Mutex
 }
 
-func (n *mockNotifier) Notify(ctx context.Context, channels []string, message string, event *RemediationEvent) error {
+func (n *mockNotifier) Notify(ctx context.Context, channels []string, message string, event *Event) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.notifications = append(n.notifications, struct {
@@ -89,7 +89,7 @@ type mockApprovalStore struct {
 	approver string
 }
 
-func (s *mockApprovalStore) RequestApproval(ctx context.Context, event *RemediationEvent, approvers []string) (string, error) {
+func (s *mockApprovalStore) RequestApproval(ctx context.Context, event *Event, approvers []string) (string, error) {
 	return "approval-123", nil
 }
 
@@ -103,32 +103,32 @@ func (s *mockApprovalStore) WaitForApproval(ctx context.Context, requestID strin
 
 // mockEventListener for testing
 type mockEventListener struct {
-	started   []*RemediationEvent
-	completed []*RemediationEvent
+	started   []*Event
+	completed []*Event
 	actions   []struct {
-		event  *RemediationEvent
+		event  *Event
 		result *ActionResult
 	}
 	mu sync.Mutex
 }
 
-func (l *mockEventListener) OnRemediationStarted(event *RemediationEvent) {
+func (l *mockEventListener) OnRemediationStarted(event *Event) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.started = append(l.started, event)
 }
 
-func (l *mockEventListener) OnRemediationCompleted(event *RemediationEvent) {
+func (l *mockEventListener) OnRemediationCompleted(event *Event) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.completed = append(l.completed, event)
 }
 
-func (l *mockEventListener) OnActionCompleted(event *RemediationEvent, result *ActionResult) {
+func (l *mockEventListener) OnActionCompleted(event *Event, result *ActionResult) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.actions = append(l.actions, struct {
-		event  *RemediationEvent
+		event  *Event
 		result *ActionResult
 	}{event, result})
 }
@@ -148,7 +148,7 @@ func TestNewEngine(t *testing.T) {
 
 func TestEngine_RegisterHandler(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 
 	engine.RegisterHandler(handler)
 
@@ -160,17 +160,17 @@ func TestEngine_RegisterHandler(t *testing.T) {
 
 func TestEngine_RegisterPolicy(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		MaxAttempts:    3,
 		CooldownPeriod: 5 * time.Minute,
@@ -196,25 +196,25 @@ func TestEngine_RegisterPolicy_Validation(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		policy  *RemediationPolicy
+		policy  *Policy
 		wantErr bool
 	}{
 		{
 			name:    "empty name",
-			policy:  &RemediationPolicy{},
+			policy:  &Policy{},
 			wantErr: true,
 		},
 		{
 			name:    "no actions",
-			policy:  &RemediationPolicy{Name: "test"},
+			policy:  &Policy{Name: "test"},
 			wantErr: true,
 		},
 		{
 			name: "no handler for action type",
-			policy: &RemediationPolicy{
+			policy: &Policy{
 				Name: "test",
-				Actions: []RemediationAction{
-					{Name: "rollback", Type: RemediationTypeRollback},
+				Actions: []Action{
+					{Name: "rollback", Type: TypeRollback},
 				},
 			},
 			wantErr: true,
@@ -233,18 +233,18 @@ func TestEngine_RegisterPolicy_Validation(t *testing.T) {
 
 func TestEngine_Trigger(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:        "test-policy",
 		Enabled:     true,
 		Environment: "production",
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		MaxAttempts:    3,
 		CooldownPeriod: 1 * time.Second,
@@ -284,18 +284,18 @@ func TestEngine_Trigger(t *testing.T) {
 
 func TestEngine_Trigger_NoMatchingPolicy(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:        "test-policy",
 		Enabled:     true,
 		Environment: "production",
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 	}
 	_ = engine.RegisterPolicy(policy)
@@ -320,17 +320,17 @@ func TestEngine_Trigger_NoMatchingPolicy(t *testing.T) {
 
 func TestEngine_Cooldown(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		CooldownPeriod: 1 * time.Hour, // Long cooldown
 	}
@@ -366,8 +366,8 @@ func TestEngine_Cooldown(t *testing.T) {
 func TestEngine_MaxAttempts(t *testing.T) {
 	engine := NewEngine()
 	handler := &mockHandler{
-		handlerType: RemediationTypeRollback,
-		executeFunc: func(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error) {
+		handlerType: TypeRollback,
+		executeFunc: func(ctx context.Context, action *Action, event *Event) (*ActionResult, error) {
 			return &ActionResult{
 				Name:   action.Name,
 				Type:   action.Type,
@@ -381,14 +381,14 @@ func TestEngine_MaxAttempts(t *testing.T) {
 	notifier := &mockNotifier{}
 	engine.SetNotifier(notifier)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		MaxAttempts:    2,
 		CooldownPeriod: 1 * time.Millisecond, // Short cooldown for test
@@ -427,17 +427,17 @@ func TestEngine_MaxAttempts(t *testing.T) {
 
 func TestEngine_DryRun(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		DryRun: true,
 	}
@@ -469,20 +469,20 @@ func TestEngine_DryRun(t *testing.T) {
 
 func TestEngine_EventListener(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
 	listener := &mockEventListener{}
 	engine.AddEventListener(listener)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 	}
 	_ = engine.RegisterPolicy(policy)
@@ -512,21 +512,21 @@ func TestEngine_EventListener(t *testing.T) {
 
 func TestEngine_ApprovalRequired(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
 	// Approval denied
 	approvalStore := &mockApprovalStore{approved: false}
 	engine.SetApprovalStore(approvalStore)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		RequireApproval: true,
 		Approvers:       []string{"admin"},
@@ -549,21 +549,21 @@ func TestEngine_ApprovalRequired(t *testing.T) {
 
 func TestEngine_ApprovalGranted(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
 	// Approval granted
 	approvalStore := &mockApprovalStore{approved: true, approver: "admin"}
 	engine.SetApprovalStore(approvalStore)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		RequireApproval: true,
 		Approvers:       []string{"admin"},
@@ -590,20 +590,20 @@ func TestEngine_ApprovalGranted(t *testing.T) {
 func TestEngine_MultipleActions(t *testing.T) {
 	engine := NewEngine()
 
-	rollbackHandler := &mockHandler{handlerType: RemediationTypeRollback}
-	alertHandler := &mockHandler{handlerType: RemediationTypeAlert}
+	rollbackHandler := &mockHandler{handlerType: TypeRollback}
+	alertHandler := &mockHandler{handlerType: TypeAlert}
 	engine.RegisterHandler(rollbackHandler)
 	engine.RegisterHandler(alertHandler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "alert", Type: RemediationTypeAlert, Priority: 100},
-			{Name: "rollback", Type: RemediationTypeRollback, Priority: 50},
+		Actions: []Action{
+			{Name: "alert", Type: TypeAlert, Priority: 100},
+			{Name: "rollback", Type: TypeRollback, Priority: 50},
 		},
 	}
 	_ = engine.RegisterPolicy(policy)
@@ -632,8 +632,8 @@ func TestEngine_ContinueOnFailure(t *testing.T) {
 	engine := NewEngine()
 
 	failingHandler := &mockHandler{
-		handlerType: RemediationTypeAlert,
-		executeFunc: func(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error) {
+		handlerType: TypeAlert,
+		executeFunc: func(ctx context.Context, action *Action, event *Event) (*ActionResult, error) {
 			return &ActionResult{
 				Name:   action.Name,
 				Type:   action.Type,
@@ -642,19 +642,19 @@ func TestEngine_ContinueOnFailure(t *testing.T) {
 			}, nil
 		},
 	}
-	rollbackHandler := &mockHandler{handlerType: RemediationTypeRollback}
+	rollbackHandler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(failingHandler)
 	engine.RegisterHandler(rollbackHandler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "alert", Type: RemediationTypeAlert, ContinueOnFailure: true},
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "alert", Type: TypeAlert, ContinueOnFailure: true},
+			{Name: "rollback", Type: TypeRollback},
 		},
 	}
 	_ = engine.RegisterPolicy(policy)
@@ -688,8 +688,8 @@ func TestEngine_StopOnFailure(t *testing.T) {
 	engine := NewEngine()
 
 	failingHandler := &mockHandler{
-		handlerType: RemediationTypeAlert,
-		executeFunc: func(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error) {
+		handlerType: TypeAlert,
+		executeFunc: func(ctx context.Context, action *Action, event *Event) (*ActionResult, error) {
 			return &ActionResult{
 				Name:   action.Name,
 				Type:   action.Type,
@@ -698,19 +698,19 @@ func TestEngine_StopOnFailure(t *testing.T) {
 			}, nil
 		},
 	}
-	rollbackHandler := &mockHandler{handlerType: RemediationTypeRollback}
+	rollbackHandler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(failingHandler)
 	engine.RegisterHandler(rollbackHandler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "alert", Type: RemediationTypeAlert, ContinueOnFailure: false},
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "alert", Type: TypeAlert, ContinueOnFailure: false},
+			{Name: "rollback", Type: TypeRollback},
 		},
 	}
 	_ = engine.RegisterPolicy(policy)
@@ -737,17 +737,17 @@ func TestEngine_StopOnFailure(t *testing.T) {
 
 func TestEngine_GetEvents(t *testing.T) {
 	engine := NewEngine()
-	handler := &mockHandler{handlerType: RemediationTypeRollback}
+	handler := &mockHandler{handlerType: TypeRollback}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		CooldownPeriod: 1 * time.Millisecond,
 	}
@@ -793,8 +793,8 @@ func TestEngine_GetEvents(t *testing.T) {
 func TestEngine_ResetAttempts(t *testing.T) {
 	engine := NewEngine()
 	handler := &mockHandler{
-		handlerType: RemediationTypeRollback,
-		executeFunc: func(ctx context.Context, action *RemediationAction, event *RemediationEvent) (*ActionResult, error) {
+		handlerType: TypeRollback,
+		executeFunc: func(ctx context.Context, action *Action, event *Event) (*ActionResult, error) {
 			return &ActionResult{
 				Name:   action.Name,
 				Type:   action.Type,
@@ -805,14 +805,14 @@ func TestEngine_ResetAttempts(t *testing.T) {
 	}
 	engine.RegisterHandler(handler)
 
-	policy := &RemediationPolicy{
+	policy := &Policy{
 		Name:    "test-policy",
 		Enabled: true,
-		Triggers: []RemediationTrigger{
+		Triggers: []Trigger{
 			{Type: TriggerVerificationFailure, Condition: ConditionAny},
 		},
-		Actions: []RemediationAction{
-			{Name: "rollback", Type: RemediationTypeRollback},
+		Actions: []Action{
+			{Name: "rollback", Type: TypeRollback},
 		},
 		MaxAttempts:    2,
 		CooldownPeriod: 1 * time.Millisecond,
@@ -871,16 +871,16 @@ func TestGetDefaultPolicy(t *testing.T) {
 	}
 }
 
-func TestRemediationTypes(t *testing.T) {
-	types := []RemediationType{
-		RemediationTypeRollback,
-		RemediationTypeRestart,
-		RemediationTypeScale,
-		RemediationTypeRunbook,
-		RemediationTypeScript,
-		RemediationTypeWebhook,
-		RemediationTypeAlert,
-		RemediationTypeCustom,
+func TestTypes(t *testing.T) {
+	types := []Type{
+		TypeRollback,
+		TypeRestart,
+		TypeScale,
+		TypeRunbook,
+		TypeScript,
+		TypeWebhook,
+		TypeAlert,
+		TypeCustom,
 	}
 
 	for _, rt := range types {

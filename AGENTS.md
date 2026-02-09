@@ -4,6 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚠️ CRITICAL: TODO Approval Workflow ⚠️
+
+**STOP** before fixing any TODO.md item. You MUST:
+1. Present a plan to the user
+2. **WAIT for explicit "yes" or approval**
+3. Only then implement the fix
+
+This applies ALWAYS - including after session resumption or context summarization.
+**Never batch-fix TODOs without per-item approval.**
+
+---
+
 ## Commit Message AI Attribution
 
 - Use the DCO-required AI disclosure in commit messages.
@@ -20,6 +32,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `README.md` - Project overview
   - `docs/content/en/docs/executive-summary/_index.md` - Executive summary
   - Other related documentation files as appropriate
+
+### TODO Workflow
+
+**IMPORTANT**: When working on items from `TODO.md`, always follow this workflow:
+
+1. **Review** the TODO item and related code/documentation
+2. **Present a plan** describing what changes will be made
+3. **Wait for user approval** before making any changes
+4. **Implement** the approved changes
+5. **Commit and push** the changes
+
+Do NOT proceed with TODO fixes without explicit user approval of the plan. This applies even when resuming from a previous session or continuing through multiple TODOs.
 
 ### Documentation Requirements
 
@@ -94,6 +118,51 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 42 Phase 1 COMPLETE**: NETCONF Protocol Adapter (RFC 6241):
+  - Core adapter: types, RPC encoding, SSH transport, session management, operations, capabilities, filters
+  - Full RFC 6241 operation set with NETCONF 1.0/1.1 framing
+  - Extended `NetconfAdapter` interface, YANG model metadata, subtree/XPath filters
+  - 90 unit tests passing, documentation at `docs/content/en/docs/reference/netconf.md`
+- **Epic 42 Phase 2 COMPLETE**: RESTCONF Protocol Adapter (RFC 8040):
+  - Core adapter: types, error parsing, root path discovery, operations, SSE streams, adapter lifecycle
+  - Full RFC 8040 data operations (GET/POST/PUT/PATCH/DELETE), RPC invocation, query parameters
+  - SSE notification stream subscriptions, well-known root path discovery (RFC 6415)
+  - Extended `RestconfAdapter` interface with typed methods beyond generic `Execute()`
+  - Composes with REST adapter's `rest.Client` and `rest.Authenticator` infrastructure
+  - Registered in protocol adapter registry (both ProtocolAdapter and RestconfAdapter factories)
+  - 78 unit tests passing (92.3% coverage), documentation at `docs/content/en/docs/reference/restconf.md`
+- **Epic 42 Phase 3 COMPLETE**: Telnet Protocol Adapter (RFC 854/855):
+  - IAC negotiation state machine: WILL/WONT/DO/DONT, sub-negotiation (TermType, WindowSize)
+  - Security enforcer: IP allowlisting (CIDR), deprecation warnings, audit logging, session time limits
+  - Session management: expect-style I/O, prompt-based login, CR+LF line endings, IAC stripping
+  - Adapter lifecycle: Connect/Execute/Disconnect/HealthCheck, factory registration, SSHPasswordCredential reuse
+  - 56 unit tests passing (85.6% coverage), documentation at `docs/content/en/docs/reference/telnet.md`
+- **Epic 42 Phase 5 COMPLETE**: P0 Vendor Drivers (9 new network device platforms):
+  - HP/Aruba: ProCurve (`hp_procurve`), ArubaOS (`hp_arubaos`), AOS-CX (`hp_aoscx`) — SSH adapters with vendor-specific CLI patterns
+  - Dell: OS10 (`dell_os10`), OS9/FTOS (`dell_os9`), PowerSwitch (`dell_powerswitch`) — SSH adapters for modern and legacy Dell platforms
+  - Security vendors: FortiOS (`fortinet_fortios`) with config/edit/set/next/end CLI, PAN-OS (`paloalto_panos`) with transactional commits, F5 BIG-IP (`f5_bigip`) with tmsh shell
+  - 9 VendorType constants, 9 state config modules, factory auto-registration for all drivers
+  - 16 total vendor drivers now supported (up from 7)
+  - 125+ unit tests across all new vendor packages, documentation at `docs/content/en/docs/reference/vendor-drivers.md`
+- **Epic 42 Phase 4 COMPLETE**: gNMI Protocol Adapter (gRPC Network Management Interface):
+  - Core adapter: Connect/Execute/Disconnect/HealthCheck, Config, factory registration, init()
+  - Full gNMI RPC support: Capabilities, Get, Set, Subscribe with channel-based streaming
+  - mTLS + per-RPC metadata authentication via dedicated GNMICredential type
+  - OpenConfig path parsing with key selectors, origin prefixes, proto path round-trips
+  - Subscription modes: ONCE, STREAM, POLL; stream sub-modes: TARGET_DEFINED, ON_CHANGE, SAMPLE
+  - Execute command parser for scripting: capabilities, get, set (update/replace/delete), subscribe
+  - gNOI stubs (Reboot, Ping, Traceroute) for future openconfig/gnoi dependency
+- **Epic 42 Phase 6 COMPLETE**: P1/P2 Vendor Drivers (9 new network device platforms):
+  - P1: Check Point Gaia (clish), MikroTik RouterOS (path-based CLI), Ubiquiti EdgeOS (Vyatta), Extreme EXOS (direct commands)
+  - P2: Nokia SR OS (TiMOS/classic CLI), Huawei VRP (system-view/display), Mellanox/NVIDIA Onyx (IOS-like), Allied Telesis AlliedWare Plus (IOS-like), Ciena SAOS (noun-first commands)
+  - 9 VendorType constants, 9 vendor adapters with full test suites, 9 state modules, 9 discovery profiles
+  - Total vendor drivers: 25 (up from 16)
+  - 44 unit tests passing with race detector, documentation at `docs/content/en/docs/reference/gnmi.md`
+- **Epic 42 Phase 7 COMPLETE**: Credential Rotation Framework:
+  - T7.1: Core rotation engine with state machine (Pending → Validating → Generating → Applying → Verifying → Storing → Cleanup → Completed), rollback on failure
+  - T7.2: Protocol providers — SSH (password/key), SNMP (v2c/v3), REST (basic/bearer/apikey/oauth2), Certificate (gNMI TLS)
+  - T7.3: Policy engine with age-based evaluation, cron scheduling via secrets.ParseCron, automatic rotation of due credentials
+  - Package: `internal/credentials/rotation/` with 16 files, 165+ tests passing with race detector
 - **Epic 100 IN PROGRESS**: 0.1.0 Release Readiness:
   - Phase 1 (Registry + Signing): COMPLETE - Official blueprint validation tests, signing infrastructure verified
   - Phase 2 (Version Normalization): COMPLETE - All 14 kscore/* blueprints at 0.1.0, docs updated
@@ -236,6 +305,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 39-state-machine-refactoring.md   # State machine pattern refactoring
     ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
     ├── 41-dns-provider-management.md    # DNS record management via provider APIs
+    ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
@@ -300,6 +370,7 @@ Implementation order:
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
 41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, DNSMadeEasy, Hetzner DNS
+42. **Epic 42** (Network Protocol Expansion) - IN PROGRESS - Phases 1-7 COMPLETE: NETCONF, RESTCONF, Telnet, gNMI adapters + 25 vendor drivers + credential rotation framework
 
 ### In Progress
 
@@ -320,6 +391,7 @@ Implementation order:
 - **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS
 - **Network Discovery & Topology** - Automatic scanning, L2/L3 mapping
 - **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing - See `epics/future-advanced-state-orchestration.md`
+- **Simplification** - Aggressive refactor to minimal required code - See `epics/future-simplification.md`
 - **Terraform Provider** - Terraform provider for Keystone Core resources
 - **ITSM Integration** - ServiceNow integration, change requests, CMDB sync
 

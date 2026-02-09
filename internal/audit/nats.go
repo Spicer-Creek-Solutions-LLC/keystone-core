@@ -78,23 +78,23 @@ func DefaultNATSAuditConfig() *NATSAuditConfig {
 // NATSAuditMessage is the JSON structure sent over NATS.
 type NATSAuditMessage struct {
 	// Core audit fields
-	Timestamp     string      `json:"timestamp"`
-	AuditType     string      `json:"audit_type"`
-	User          string      `json:"user"`
-	UID           int         `json:"uid"`
-	TTY           string      `json:"tty,omitempty"`
-	PID           int         `json:"pid"`
-	Tool          string      `json:"tool"`
-	Command       string      `json:"command"`
-	Args          []string    `json:"args,omitempty"`
-	Target        string      `json:"target,omitempty"`
-	AgentsMatched int         `json:"agents_matched,omitempty"`
-	Result        string      `json:"result"`
-	ExitCode      int         `json:"exit_code"`
-	DurationMS    int64       `json:"duration_ms"`
-	CorrelationID string      `json:"correlation_id"`
-	Error         string      `json:"error,omitempty"`
-	RemoteAddr    string      `json:"remote_addr,omitempty"`
+	Timestamp     string   `json:"timestamp"`
+	AuditType     string   `json:"audit_type"`
+	User          string   `json:"user"`
+	UID           int      `json:"uid"`
+	TTY           string   `json:"tty,omitempty"`
+	PID           int      `json:"pid"`
+	Tool          string   `json:"tool"`
+	Command       string   `json:"command"`
+	Args          []string `json:"args,omitempty"`
+	Target        string   `json:"target,omitempty"`
+	AgentsMatched int      `json:"agents_matched,omitempty"`
+	Result        string   `json:"result"`
+	ExitCode      int      `json:"exit_code"`
+	DurationMS    int64    `json:"duration_ms"`
+	CorrelationID string   `json:"correlation_id"`
+	Error         string   `json:"error,omitempty"`
+	RemoteAddr    string   `json:"remote_addr,omitempty"`
 
 	// Service metadata
 	Service  string `json:"service,omitempty"`
@@ -335,10 +335,10 @@ func (n *NATSAuditLogger) buildSubject(entry *AuditEntry) string {
 }
 
 // Stats returns logger statistics.
-func (n *NATSAuditLogger) Stats() (published, dropped int64, lastErr error, lastErrTime time.Time) {
+func (n *NATSAuditLogger) Stats() (published, dropped int64, lastErrTime time.Time, lastErr error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return n.entriesPublished, n.entriesDropped, n.lastError, n.lastErrorTime
+	return n.entriesPublished, n.entriesDropped, n.lastErrorTime, n.lastError
 }
 
 // IsConnected returns whether NATS is connected.
@@ -488,9 +488,9 @@ func (a *NATSAuditAggregator) FilterByUser(user string) []NATSAuditMessage {
 	defer a.mu.Unlock()
 
 	var result []NATSAuditMessage
-	for _, msg := range a.messages {
-		if msg.User == user {
-			result = append(result, msg)
+	for i := range a.messages {
+		if a.messages[i].User == user {
+			result = append(result, a.messages[i])
 		}
 	}
 	return result
@@ -502,9 +502,9 @@ func (a *NATSAuditAggregator) FilterByAction(action AuditAction) []NATSAuditMess
 	defer a.mu.Unlock()
 
 	var result []NATSAuditMessage
-	for _, msg := range a.messages {
-		if msg.AuditType == string(action) {
-			result = append(result, msg)
+	for i := range a.messages {
+		if a.messages[i].AuditType == string(action) {
+			result = append(result, a.messages[i])
 		}
 	}
 	return result
@@ -516,9 +516,9 @@ func (a *NATSAuditAggregator) FilterByResult(result AuditResult) []NATSAuditMess
 	defer a.mu.Unlock()
 
 	var results []NATSAuditMessage
-	for _, msg := range a.messages {
-		if msg.Result == string(result) {
-			results = append(results, msg)
+	for i := range a.messages {
+		if a.messages[i].Result == string(result) {
+			results = append(results, a.messages[i])
 		}
 	}
 	return results
@@ -530,9 +530,9 @@ func (a *NATSAuditAggregator) FilterByTool(tool string) []NATSAuditMessage {
 	defer a.mu.Unlock()
 
 	var result []NATSAuditMessage
-	for _, msg := range a.messages {
-		if msg.Tool == tool {
-			result = append(result, msg)
+	for i := range a.messages {
+		if a.messages[i].Tool == tool {
+			result = append(result, a.messages[i])
 		}
 	}
 	return result
@@ -544,13 +544,13 @@ func (a *NATSAuditAggregator) FilterByTimeRange(start, end time.Time) []NATSAudi
 	defer a.mu.Unlock()
 
 	var result []NATSAuditMessage
-	for _, msg := range a.messages {
-		ts, err := time.Parse(time.RFC3339Nano, msg.Timestamp)
+	for i := range a.messages {
+		ts, err := time.Parse(time.RFC3339Nano, a.messages[i].Timestamp)
 		if err != nil {
 			continue
 		}
 		if (ts.Equal(start) || ts.After(start)) && (ts.Equal(end) || ts.Before(end)) {
-			result = append(result, msg)
+			result = append(result, a.messages[i])
 		}
 	}
 	return result
@@ -572,19 +572,19 @@ func (a *NATSAuditAggregator) Count() int {
 	return len(a.messages)
 }
 
-// Summary returns a summary of aggregated messages.
+// NATSAuditSummary returns a summary of aggregated messages.
 type NATSAuditSummary struct {
-	TotalCount     int            `json:"total_count"`
-	SuccessCount   int            `json:"success_count"`
-	FailureCount   int            `json:"failure_count"`
-	DeniedCount    int            `json:"denied_count"`
-	TimeoutCount   int            `json:"timeout_count"`
-	CountByAction  map[string]int `json:"count_by_action"`
-	CountByTool    map[string]int `json:"count_by_tool"`
-	CountByUser    map[string]int `json:"count_by_user"`
-	UniqueUsers    int            `json:"unique_users"`
-	OldestEntry    string         `json:"oldest_entry,omitempty"`
-	NewestEntry    string         `json:"newest_entry,omitempty"`
+	TotalCount    int            `json:"total_count"`
+	SuccessCount  int            `json:"success_count"`
+	FailureCount  int            `json:"failure_count"`
+	DeniedCount   int            `json:"denied_count"`
+	TimeoutCount  int            `json:"timeout_count"`
+	CountByAction map[string]int `json:"count_by_action"`
+	CountByTool   map[string]int `json:"count_by_tool"`
+	CountByUser   map[string]int `json:"count_by_user"`
+	UniqueUsers   int            `json:"unique_users"`
+	OldestEntry   string         `json:"oldest_entry,omitempty"`
+	NewestEntry   string         `json:"newest_entry,omitempty"`
 }
 
 // Summary returns a summary of aggregated messages.
@@ -601,7 +601,8 @@ func (a *NATSAuditAggregator) Summary() *NATSAuditSummary {
 
 	users := make(map[string]struct{})
 
-	for i, msg := range a.messages {
+	for i := range a.messages {
+		msg := &a.messages[i]
 		// Count by result
 		switch msg.Result {
 		case string(ResultSuccess):

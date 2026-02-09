@@ -135,7 +135,8 @@ func comparePrerelease(a, b string) int {
 		numA, errA := strconv.Atoi(partA)
 		numB, errB := strconv.Atoi(partB)
 
-		if errA == nil && errB == nil {
+		switch {
+		case errA == nil && errB == nil:
 			// Both are numbers
 			if numA != numB {
 				if numA < numB {
@@ -143,13 +144,13 @@ func comparePrerelease(a, b string) int {
 				}
 				return 1
 			}
-		} else if errA == nil {
+		case errA == nil:
 			// A is numeric, B is alphanumeric - numeric < alphanumeric
 			return -1
-		} else if errB == nil {
+		case errB == nil:
 			// A is alphanumeric, B is numeric - alphanumeric > numeric
 			return 1
-		} else {
+		default:
 			// Both are alphanumeric
 			if partA < partB {
 				return -1
@@ -174,6 +175,7 @@ func comparePrerelease(a, b string) int {
 // ConstraintOperator represents a version constraint operator.
 type ConstraintOperator string
 
+// OpEqual constants define the operators.
 const (
 	OpEqual          ConstraintOperator = "="
 	OpNotEqual       ConstraintOperator = "!="
@@ -181,9 +183,9 @@ const (
 	OpGreaterOrEqual ConstraintOperator = ">="
 	OpLess           ConstraintOperator = "<"
 	OpLessOrEqual    ConstraintOperator = "<="
-	OpCaret          ConstraintOperator = "^"  // Compatible with (same major)
-	OpTilde          ConstraintOperator = "~"  // Patch-level changes
-	OpWildcard       ConstraintOperator = "*"  // Any version
+	OpCaret          ConstraintOperator = "^" // Compatible with (same major)
+	OpTilde          ConstraintOperator = "~" // Patch-level changes
+	OpWildcard       ConstraintOperator = "*" // Any version
 )
 
 // Constraint represents a version constraint.
@@ -204,7 +206,7 @@ func ParseConstraint(s string) (*Constraint, error) {
 	}
 
 	// Handle special cases
-	if s == "*" || strings.ToLower(s) == "latest" {
+	if s == "*" || strings.EqualFold(s, "latest") {
 		return &Constraint{
 			Operator: OpWildcard,
 			Raw:      s,
@@ -274,9 +276,9 @@ func (c *Constraint) Matches(v *Version) bool {
 			return false
 		}
 		return v.Major == c.Version.Major && v.Minor == c.Version.Minor
+	default:
+		return false
 	}
-
-	return false
 }
 
 // String returns the string representation of the constraint.
@@ -360,16 +362,16 @@ func (cs *ConstraintSet) String() string {
 
 // VersionResolver resolves version constraints against available versions.
 type VersionResolver struct {
-	client RegistryClient
+	client Client
 }
 
 // NewVersionResolver creates a new VersionResolver.
-func NewVersionResolver(client RegistryClient) *VersionResolver {
+func NewVersionResolver(client Client) *VersionResolver {
 	return &VersionResolver{client: client}
 }
 
 // ResolveVersion resolves a version constraint to the best matching version.
-func (r *VersionResolver) ResolveVersion(blueprintName string, constraint string) (string, error) {
+func (r *VersionResolver) ResolveVersion(blueprintName, constraint string) (string, error) {
 	// Parse constraint
 	cs, err := ParseConstraintSet(constraint)
 	if err != nil {
@@ -429,7 +431,7 @@ func (r *VersionResolver) selectBestVersion(versions []string, cs *ConstraintSet
 }
 
 // GetMatchingVersions returns all versions matching the constraint.
-func (r *VersionResolver) GetMatchingVersions(blueprintName string, constraint string) ([]string, error) {
+func (r *VersionResolver) GetMatchingVersions(blueprintName, constraint string) ([]string, error) {
 	cs, err := ParseConstraintSet(constraint)
 	if err != nil {
 		return nil, fmt.Errorf("invalid constraint: %w", err)

@@ -30,12 +30,12 @@ func NewArtifactBuilder(sourceDir string, logger Logger) (*ArtifactBuilder, erro
 }
 
 // Build creates a backup artifact from the source directory
-func (b *ArtifactBuilder) Build(ctx context.Context, outputPath string, manifest *BackupManifest, compression CompressionType) error {
+func (b *ArtifactBuilder) Build(ctx context.Context, outputPath string, manifest *Manifest, compression CompressionType) error {
 	return b.BuildWithConfig(ctx, outputPath, manifest, CompressionConfig{Type: compression})
 }
 
 // BuildWithConfig creates a backup artifact with advanced compression settings
-func (b *ArtifactBuilder) BuildWithConfig(ctx context.Context, outputPath string, manifest *BackupManifest, compressionCfg CompressionConfig) error {
+func (b *ArtifactBuilder) BuildWithConfig(ctx context.Context, outputPath string, manifest *Manifest, compressionCfg CompressionConfig) error {
 	// Create output file
 	outFile, err := os.Create(outputPath)
 	if err != nil {
@@ -146,7 +146,7 @@ func (b *ArtifactBuilder) BuildWithConfig(ctx context.Context, outputPath string
 	manifestHeader := &tar.Header{
 		Name:    "manifest.json",
 		Size:    int64(len(manifestData)),
-		Mode:    0644,
+		Mode:    0o644,
 		ModTime: time.Now(),
 	}
 	if err := tarWriter.WriteHeader(manifestHeader); err != nil {
@@ -241,7 +241,7 @@ func (r *ArtifactReader) openTarReader(ctx context.Context) (*tar.Reader, func()
 }
 
 // ReadManifest reads the manifest from a backup artifact
-func (r *ArtifactReader) ReadManifest(ctx context.Context) (*BackupManifest, error) {
+func (r *ArtifactReader) ReadManifest(ctx context.Context) (*Manifest, error) {
 	tarReader, cleanup, err := r.openTarReader(ctx)
 	if err != nil {
 		return nil, err
@@ -265,7 +265,7 @@ func (r *ArtifactReader) ReadManifest(ctx context.Context) (*BackupManifest, err
 		}
 
 		if header.Name == "manifest.json" {
-			var manifest BackupManifest
+			var manifest Manifest
 			if err := json.NewDecoder(tarReader).Decode(&manifest); err != nil {
 				return nil, fmt.Errorf("failed to decode manifest: %w", err)
 			}
@@ -283,7 +283,8 @@ func (r *ArtifactReader) Extract(ctx context.Context, destDir string) error {
 	defer cleanup()
 
 	// Create destination directory
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	//nolint:gosec // G301: destination directory needs to be accessible by service user
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -303,25 +304,28 @@ func (r *ArtifactReader) Extract(ctx context.Context, destDir string) error {
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		// Construct target path (prevent path traversal)
-		target := filepath.Join(destDir, header.Name)
+		// Construct target path (prevent path traversal - G305)
+		target := filepath.Clean(filepath.Join(destDir, header.Name)) //nolint:gosec // G305: path validated by isSubPath check below
 		if !isSubPath(destDir, target) {
 			return fmt.Errorf("illegal path in archive: %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
 		case tar.TypeReg:
 			// Create parent directory
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			//nolint:gosec // G301: parent directory needs to be accessible by service user
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
 			// Create file
+			//nolint:gosec // G115: tar header.Mode is a Unix permission mode, fits in uint32
 			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)

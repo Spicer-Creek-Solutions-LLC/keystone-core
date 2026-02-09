@@ -11,10 +11,10 @@ import (
 
 // Errors returned by the DR scheduler.
 var (
-	ErrDrillInProgress   = errors.New("drill already in progress")
-	ErrDrillNotFound     = errors.New("drill not found")
-	ErrSchedulerStopped  = errors.New("scheduler stopped")
-	ErrInvalidSchedule   = errors.New("invalid schedule")
+	ErrDrillInProgress  = errors.New("drill already in progress")
+	ErrDrillNotFound    = errors.New("drill not found")
+	ErrSchedulerStopped = errors.New("scheduler stopped")
+	ErrInvalidSchedule  = errors.New("invalid schedule")
 )
 
 // DrillType represents the type of disaster recovery drill.
@@ -38,13 +38,14 @@ const (
 // DrillStatus represents the status of a drill.
 type DrillStatus string
 
+// StatusScheduled constants define the possible statuses.
 const (
-	StatusScheduled  DrillStatus = "scheduled"
-	StatusRunning    DrillStatus = "running"
-	StatusCompleted  DrillStatus = "completed"
-	StatusFailed     DrillStatus = "failed"
-	StatusCancelled  DrillStatus = "cancelled"
-	StatusSkipped    DrillStatus = "skipped"
+	StatusScheduled DrillStatus = "scheduled"
+	StatusRunning   DrillStatus = "running"
+	StatusCompleted DrillStatus = "completed"
+	StatusFailed    DrillStatus = "failed"
+	StatusCancelled DrillStatus = "cancelled"
+	StatusSkipped   DrillStatus = "skipped"
 )
 
 // Schedule defines when drills should run.
@@ -206,16 +207,16 @@ func DefaultSchedulerConfig() *SchedulerConfig {
 
 // Scheduler manages DR drill scheduling and execution.
 type Scheduler struct {
-	config     *SchedulerConfig
-	schedules  map[string]*Schedule
-	drills     map[string]*Drill
-	executors  map[DrillType]Executor
-	listeners  []Listener
-	running    map[string]bool
-	lastRun    map[string]time.Time
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
-	mu         sync.RWMutex
+	config    *SchedulerConfig
+	schedules map[string]*Schedule
+	drills    map[string]*Drill
+	executors map[DrillType]Executor
+	listeners []Listener
+	running   map[string]bool
+	lastRun   map[string]time.Time
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
+	mu        sync.RWMutex
 }
 
 // NewScheduler creates a new DR scheduler.
@@ -418,7 +419,7 @@ func (s *Scheduler) triggerDrill(scheduleID string, schedule *Schedule) {
 			config.Timeout = s.config.DefaultTimeout
 		}
 
-		s.ExecuteDrill(context.Background(), config)
+		_, _ = s.ExecuteDrill(context.Background(), config) //nolint:errcheck // async drill execution
 	}()
 }
 
@@ -496,7 +497,7 @@ func (s *Scheduler) ExecuteDrill(ctx context.Context, config *DrillConfig) (*Dri
 		}
 
 		// Cleanup
-		executor.Cleanup(ctx, drill)
+		_ = executor.Cleanup(ctx, drill) //nolint:errcheck // best-effort cleanup
 
 		return drill, err
 	}
@@ -518,7 +519,7 @@ func (s *Scheduler) ExecuteDrill(ctx context.Context, config *DrillConfig) (*Dri
 	}
 
 	// Cleanup
-	executor.Cleanup(ctx, drill)
+	_ = executor.Cleanup(ctx, drill) //nolint:errcheck // best-effort cleanup
 
 	return drill, nil
 }

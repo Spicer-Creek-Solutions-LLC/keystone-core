@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -262,7 +263,7 @@ func TestInMemoryBootstrapProvider_Validate(t *testing.T) {
 			if result.Valid != tt.wantValid {
 				t.Errorf("Validate() valid = %v, want %v", result.Valid, tt.wantValid)
 			}
-			if tt.wantErr != nil && result.Error != tt.wantErr {
+			if tt.wantErr != nil && !errors.Is(result.Error, tt.wantErr) {
 				t.Errorf("Validate() error = %v, want %v", result.Error, tt.wantErr)
 			}
 		})
@@ -295,7 +296,7 @@ func TestInMemoryBootstrapProvider_Validate_Revoked(t *testing.T) {
 	if result.Valid {
 		t.Error("Validate() should return invalid for revoked credential")
 	}
-	if result.Error != ErrBootstrapRevoked {
+	if !errors.Is(result.Error, ErrBootstrapRevoked) {
 		t.Errorf("Validate() error = %v, want ErrBootstrapRevoked", result.Error)
 	}
 }
@@ -336,7 +337,7 @@ func TestInMemoryBootstrapProvider_Validate_MaxUses(t *testing.T) {
 	if result.Valid {
 		t.Error("Validate() should fail after max uses exceeded")
 	}
-	if result.Error != ErrBootstrapAlreadyUsed {
+	if !errors.Is(result.Error, ErrBootstrapAlreadyUsed) {
 		t.Errorf("Validate() error = %v, want ErrBootstrapAlreadyUsed", result.Error)
 	}
 }
@@ -380,7 +381,7 @@ func TestInMemoryBootstrapProvider_Revoke_NotFound(t *testing.T) {
 	provider := NewInMemoryBootstrapProvider("test-issuer")
 
 	err := provider.Revoke(ctx, "non-existent-id", "reason")
-	if err != ErrBootstrapNotFound {
+	if !errors.Is(err, ErrBootstrapNotFound) {
 		t.Errorf("Revoke() error = %v, want ErrBootstrapNotFound", err)
 	}
 }
@@ -424,7 +425,7 @@ func TestInMemoryBootstrapProvider_RecordUse_NotFound(t *testing.T) {
 	provider := NewInMemoryBootstrapProvider("test-issuer")
 
 	err := provider.RecordUse(ctx, "non-existent-id", "agent-1")
-	if err != ErrBootstrapNotFound {
+	if !errors.Is(err, ErrBootstrapNotFound) {
 		t.Errorf("RecordUse() error = %v, want ErrBootstrapNotFound", err)
 	}
 }
@@ -471,7 +472,7 @@ func TestInMemoryBootstrapProvider_GetStatus_NotFound(t *testing.T) {
 	provider := NewInMemoryBootstrapProvider("test-issuer")
 
 	_, err := provider.GetStatus(ctx, "non-existent-id")
-	if err != ErrBootstrapNotFound {
+	if !errors.Is(err, ErrBootstrapNotFound) {
 		t.Errorf("GetStatus() error = %v, want ErrBootstrapNotFound", err)
 	}
 }

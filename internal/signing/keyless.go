@@ -3,7 +3,6 @@ package signing
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -154,7 +153,7 @@ func (s *KeylessSigner) PublicKey() ([]byte, error) {
 }
 
 // getCertificateFromFulcio obtains a signing certificate from Fulcio.
-func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey *ecdsa.PrivateKey) ([]byte, [][]byte, string, error) {
+func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey *ecdsa.PrivateKey) (cert []byte, chain [][]byte, identity string, err error) {
 	// Create the public key bytes
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
@@ -209,7 +208,7 @@ func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, nil, "", fmt.Errorf("Fulcio request failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, nil, "", fmt.Errorf("fulcio request failed (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	// Parse the certificate chain
@@ -217,9 +216,8 @@ func (s *KeylessSigner) getCertificateFromFulcio(ctx context.Context, privateKey
 }
 
 // parseCertificateChain parses a PEM certificate chain.
-func (s *KeylessSigner) parseCertificateChain(pemData []byte) ([]byte, [][]byte, string, error) {
+func (s *KeylessSigner) parseCertificateChain(pemData []byte) (cert []byte, chain [][]byte, identity string, err error) {
 	var certs [][]byte
-	var identity string
 	rest := pemData
 
 	for {
@@ -249,7 +247,6 @@ func (s *KeylessSigner) parseCertificateChain(pemData []byte) ([]byte, [][]byte,
 
 	// First cert is the signing certificate, rest are the chain
 	signingCert := certs[0]
-	var chain [][]byte
 	if len(certs) > 1 {
 		chain = certs[1:]
 	}
@@ -258,7 +255,7 @@ func (s *KeylessSigner) parseCertificateChain(pemData []byte) ([]byte, [][]byte,
 }
 
 // createBundle creates a signature bundle for keyless signatures.
-func (s *KeylessSigner) createBundle(signature, certPEM []byte, hash []byte) *SignatureBundle {
+func (s *KeylessSigner) createBundle(signature, certPEM, hash []byte) *SignatureBundle {
 	return &SignatureBundle{
 		MediaType:   "application/vnd.kscore.signature.v1+json",
 		PayloadType: "application/vnd.kscore.payload.v1+json",
@@ -400,12 +397,4 @@ func GetSigner(config interface{}) (Signer, error) {
 	default:
 		return nil, fmt.Errorf("unsupported signer config type: %T", config)
 	}
-}
-
-// helper function to convert crypto.PrivateKey to crypto.Signer
-func asSigner(key crypto.PrivateKey) crypto.Signer {
-	if signer, ok := key.(crypto.Signer); ok {
-		return signer
-	}
-	return nil
 }

@@ -20,13 +20,13 @@ func NewArgoCDExecutor(client *argocd.Client) *ArgoCDExecutor {
 }
 
 // Type returns the rollback type
-func (e *ArgoCDExecutor) Type() RollbackType {
-	return RollbackTypeArgoCD
+func (e *ArgoCDExecutor) Type() Type {
+	return TypeArgoCD
 }
 
 // Execute executes an ArgoCD rollback
-func (e *ArgoCDExecutor) Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error) {
-	result := &RollbackResult{
+func (e *ArgoCDExecutor) Execute(ctx context.Context, config *Config, request *Request) (*Result, error) {
+	result := &Result{
 		Config:  config,
 		Request: request,
 	}
@@ -60,7 +60,7 @@ func (e *ArgoCDExecutor) Execute(ctx context.Context, config *RollbackConfig, re
 }
 
 // GetPreviousRevision gets the previous revision for an ArgoCD application
-func (e *ArgoCDExecutor) GetPreviousRevision(ctx context.Context, config *RollbackConfig) (string, error) {
+func (e *ArgoCDExecutor) GetPreviousRevision(ctx context.Context, config *Config) (string, error) {
 	// Get deployment history from ArgoCD
 	history, err := e.client.GetApplicationHistory(ctx, config.Application, config.Namespace)
 	if err != nil {
@@ -81,7 +81,7 @@ func (e *ArgoCDExecutor) GetPreviousRevision(ctx context.Context, config *Rollba
 }
 
 // GetLastKnownGood gets the last known good revision for an ArgoCD application
-func (e *ArgoCDExecutor) GetLastKnownGood(ctx context.Context, config *RollbackConfig) (string, error) {
+func (e *ArgoCDExecutor) GetLastKnownGood(ctx context.Context, config *Config) (string, error) {
 	// First check if the current revision is healthy
 	status, err := e.client.GetApplicationStatus(ctx, config.Application, config.Namespace)
 	if err != nil {

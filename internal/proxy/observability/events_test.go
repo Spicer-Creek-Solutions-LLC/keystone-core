@@ -277,7 +277,7 @@ func TestProxyEventBuilder_Chaining(t *testing.T) {
 		WithProtocol("ssh").
 		WithCorrelationID("corr-1").
 		WithMessage("Command completed").
-		WithDuration(100 * time.Millisecond).
+		WithDuration(100*time.Millisecond).
 		WithData("exit_code", 0).
 		Build()
 

@@ -73,7 +73,7 @@ func searchExecute(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Searching %s...\n\n", registryURL)
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 30 * time.Second,
 	})
@@ -100,13 +100,11 @@ func searchExecute(cmd *cobra.Command, args []string) error {
 	// Apply client-side filters (category, verified)
 	filtered := results.Blueprints
 	if searchCategory != "" || searchVerified {
-		var filteredResults []*registry.BlueprintInfo
-		for _, bp := range filtered {
-			// We can't filter by category or verified from BlueprintInfo
-			// as it doesn't have these fields - would need to use GetIndex
-			// For now, skip client-side filtering and note the limitation
-			filteredResults = append(filteredResults, bp)
-		}
+		filteredResults := make([]*registry.BlueprintInfo, 0, len(filtered))
+		// We can't filter by category or verified from BlueprintInfo
+		// as it doesn't have these fields - would need to use GetIndex
+		// For now, skip client-side filtering and note the limitation
+		filteredResults = append(filteredResults, filtered...)
 		filtered = filteredResults
 	}
 
@@ -119,7 +117,7 @@ func searchExecute(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Found %d blueprints (showing %d-%d):\n\n",
 		results.Total,
 		searchOffset+1,
-		min(searchOffset+len(filtered), results.Total))
+		minInt(searchOffset+len(filtered), results.Total))
 
 	for _, bp := range filtered {
 		printBlueprintInfo(bp)
@@ -201,7 +199,7 @@ func infoExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 30 * time.Second,
 	})
@@ -315,7 +313,7 @@ func versionsExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 30 * time.Second,
 	})
@@ -383,7 +381,7 @@ func getDefaultRegistry() string {
 	return "https://blueprints.keystone-core.io"
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

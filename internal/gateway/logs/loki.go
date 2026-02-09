@@ -71,7 +71,7 @@ func DefaultLokiConfig() LokiConfig {
 type LokiPusher struct {
 	config LokiConfig
 	client *http.Client
-	store  *LogsStore
+	store  *Store
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -92,7 +92,7 @@ type LokiPusher struct {
 }
 
 // NewLokiPusher creates a new Loki pusher.
-func NewLokiPusher(store *LogsStore, config LokiConfig) *LokiPusher {
+func NewLokiPusher(store *Store, config LokiConfig) *LokiPusher {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &LokiPusher{
 		config: config,
@@ -108,7 +108,7 @@ func NewLokiPusher(store *LogsStore, config LokiConfig) *LokiPusher {
 // Start starts the Loki pusher.
 func (p *LokiPusher) Start() error {
 	if p.config.URL == "" {
-		return fmt.Errorf("Loki URL is required")
+		return fmt.Errorf("loki URL is required")
 	}
 
 	p.wg.Add(1)
@@ -330,7 +330,7 @@ func (p *LokiPusher) doPush(data []byte) error {
 
 	if resp.StatusCode/100 != 2 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("Loki push failed with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("loki push failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil

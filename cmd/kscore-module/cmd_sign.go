@@ -101,7 +101,8 @@ func signExecute(cmd *cobra.Command, args []string) error {
 	var privateKeyPEM []byte
 	var publicKeyPEM []byte
 
-	if signGenKey != "" {
+	switch {
+	case signGenKey != "":
 		// Generate new key pair
 		fmt.Printf("Generating %s key pair...\n", strings.ToUpper(signGenKey))
 
@@ -127,23 +128,24 @@ func signExecute(cmd *cobra.Command, args []string) error {
 		}
 
 		// Write private key (restrictive permissions)
-		if err := os.WriteFile(privateKeyPath, privateKeyPEM, 0600); err != nil {
+		if err := os.WriteFile(privateKeyPath, privateKeyPEM, 0o600); err != nil {
 			return fmt.Errorf("failed to write private key: %w", err)
 		}
 		fmt.Printf("Private key: %s (keep secret!)\n", privateKeyPath)
 
 		// Write public key
-		if err := os.WriteFile(publicKeyPath, publicKeyPEM, 0644); err != nil {
+		//nolint:gosec // G306: public key needs to be readable for signature verification
+		if err := os.WriteFile(publicKeyPath, publicKeyPEM, 0o644); err != nil {
 			return fmt.Errorf("failed to write public key: %w", err)
 		}
 		fmt.Printf("Public key:  %s (share for verification)\n", publicKeyPath)
-	} else if signPrivateKey != "" {
+	case signPrivateKey != "":
 		// Read existing private key
 		privateKeyPEM, err = os.ReadFile(signPrivateKey)
 		if err != nil {
 			return fmt.Errorf("failed to read private key: %w", err)
 		}
-	} else {
+	default:
 		return fmt.Errorf("private key required: use --key <file> or --generate-key <type>")
 	}
 

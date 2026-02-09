@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Register PostgreSQL driver
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
@@ -563,7 +564,7 @@ func (s *PostgreSQLStore) GetBatchJob(ctx context.Context, batchJobID string) (*
 		&job.SuccessfulAgents, &job.FailedAgents, &job.SuccessRate,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("batch job not found: %s", batchJobID)
 	}
 	if err != nil {

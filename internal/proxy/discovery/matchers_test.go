@@ -284,7 +284,7 @@ func TestDeviceProfile_Fields(t *testing.T) {
 		SysDescrPatterns:     []string{`Test.*`},
 		BannerPatterns:       []string{`SSH-2.0-Test.*`},
 		DeviceTypes:          []DeviceType{DeviceTypeRouter},
-		Protocols:            []DiscoveryProtocol{ProtocolSSH},
+		Protocols:            []Protocol{ProtocolSSH},
 		Ports:                []int{22},
 		Priority:             100,
 		SuggestedCredentials: []string{"ssh"},

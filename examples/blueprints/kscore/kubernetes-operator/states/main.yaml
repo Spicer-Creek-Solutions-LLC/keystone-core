@@ -7,12 +7,12 @@ states:
   kubernetes-operator_blueprint_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /var/lib/keystone-core/blueprints
 
   kubernetes-operator_blueprint_placeholder:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/kubernetes-operator.txt
+    name: /var/lib/keystone-core/blueprints/kubernetes-operator.txt
     contents: "Placeholder for kscore/kubernetes-operator blueprint."
     require:
       - kubernetes-operator_blueprint_dir

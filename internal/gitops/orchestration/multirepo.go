@@ -1,3 +1,4 @@
+// Package orchestration provides multi-repository deployment coordination for GitOps.
 package orchestration
 
 import (
@@ -107,8 +108,8 @@ type VerificationConfig struct {
 	RetryDelay time.Duration `json:"retry_delay"`
 }
 
-// OrchestrationPlan defines the complete multi-repo deployment plan
-type OrchestrationPlan struct {
+// Plan defines the complete multi-repo deployment plan
+type Plan struct {
 	// Name of the orchestration plan
 	Name string `json:"name"`
 
@@ -158,31 +159,32 @@ type NotificationConfig struct {
 	Channels []string `json:"channels,omitempty"`
 }
 
-// OrchestrationStatus represents the status of an orchestration
-type OrchestrationStatus string
+// Status represents the status of an orchestration
+type Status string
 
+// StatusPending constants define the possible statuses.
 const (
-	StatusPending      OrchestrationStatus = "pending"
-	StatusApproved     OrchestrationStatus = "approved"
-	StatusInProgress   OrchestrationStatus = "in_progress"
-	StatusCompleted    OrchestrationStatus = "completed"
-	StatusFailed       OrchestrationStatus = "failed"
-	StatusRollingBack  OrchestrationStatus = "rolling_back"
-	StatusRolledBack   OrchestrationStatus = "rolled_back"
-	StatusCancelled    OrchestrationStatus = "cancelled"
-	StatusPartialFail  OrchestrationStatus = "partial_failure"
+	StatusPending     Status = "pending"
+	StatusApproved    Status = "approved"
+	StatusInProgress  Status = "in_progress"
+	StatusCompleted   Status = "completed"
+	StatusFailed      Status = "failed"
+	StatusRollingBack Status = "rolling_back"
+	StatusRolledBack  Status = "rolled_back"
+	StatusCancelled   Status = "cancelled"
+	StatusPartialFail Status = "partial_failure"
 )
 
-// OrchestrationResult represents the result of an orchestration
-type OrchestrationResult struct {
+// Result represents the result of an orchestration
+type Result struct {
 	// ID of the orchestration
 	ID string `json:"id"`
 
 	// Plan being executed
-	Plan *OrchestrationPlan `json:"plan"`
+	Plan *Plan `json:"plan"`
 
 	// Status of the orchestration
-	Status OrchestrationStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime of orchestration
 	StartTime time.Time `json:"start_time"`
@@ -209,7 +211,7 @@ type OrchestrationResult struct {
 	Error string `json:"error,omitempty"`
 
 	// ApprovalInfo for manual approval
-	ApprovalInfo *OrchestrationApproval `json:"approval_info,omitempty"`
+	ApprovalInfo *Approval `json:"approval_info,omitempty"`
 
 	// RequestedBy who started the orchestration
 	RequestedBy string `json:"requested_by"`
@@ -218,8 +220,8 @@ type OrchestrationResult struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// OrchestrationApproval contains approval information
-type OrchestrationApproval struct {
+// Approval contains approval information
+type Approval struct {
 	Required   bool      `json:"required"`
 	Status     string    `json:"status"`
 	ApprovedBy string    `json:"approved_by,omitempty"`
@@ -233,7 +235,7 @@ type GroupResult struct {
 	GroupName string `json:"group_name"`
 
 	// Status of the group deployment
-	Status OrchestrationStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime of group deployment
 	StartTime time.Time `json:"start_time"`
@@ -269,7 +271,7 @@ type RepoResult struct {
 	PreviousRevision string `json:"previous_revision,omitempty"`
 
 	// Status of the deployment
-	Status OrchestrationStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// StartTime of deployment
 	StartTime time.Time `json:"start_time"`
@@ -319,8 +321,8 @@ type Verifier interface {
 	Type() string
 }
 
-// OrchestrationRequest represents a request to start orchestration
-type OrchestrationRequest struct {
+// Request represents a request to start orchestration
+type Request struct {
 	// PlanName to execute
 	PlanName string `json:"plan_name"`
 
@@ -345,17 +347,17 @@ type OrchestrationRequest struct {
 
 // Orchestrator coordinates multi-repo deployments
 type Orchestrator struct {
-	deployers   map[string]Deployer
-	verifiers   map[string]Verifier
-	plans       map[string]*OrchestrationPlan
-	results     map[string]*OrchestrationResult
-	mu          sync.RWMutex
-	resultsMu   sync.RWMutex
+	deployers map[string]Deployer
+	verifiers map[string]Verifier
+	plans     map[string]*Plan
+	results   map[string]*Result
+	mu        sync.RWMutex
+	resultsMu sync.RWMutex
 
 	// Callbacks
 	onGroupStart    []func(orchestrationID, groupName string)
 	onGroupComplete []func(orchestrationID, groupName string, result *GroupResult)
-	onComplete      []func(result *OrchestrationResult)
+	onComplete      []func(result *Result)
 
 	// Counter for IDs
 	counter int64
@@ -366,11 +368,11 @@ func NewOrchestrator() *Orchestrator {
 	return &Orchestrator{
 		deployers:       make(map[string]Deployer),
 		verifiers:       make(map[string]Verifier),
-		plans:           make(map[string]*OrchestrationPlan),
-		results:         make(map[string]*OrchestrationResult),
+		plans:           make(map[string]*Plan),
+		results:         make(map[string]*Result),
 		onGroupStart:    make([]func(string, string), 0),
 		onGroupComplete: make([]func(string, string, *GroupResult), 0),
-		onComplete:      make([]func(*OrchestrationResult), 0),
+		onComplete:      make([]func(*Result), 0),
 	}
 }
 
@@ -389,7 +391,7 @@ func (o *Orchestrator) RegisterVerifier(verifier Verifier) {
 }
 
 // RegisterPlan registers an orchestration plan
-func (o *Orchestrator) RegisterPlan(plan *OrchestrationPlan) error {
+func (o *Orchestrator) RegisterPlan(plan *Plan) error {
 	if plan.Name == "" {
 		return fmt.Errorf("plan name is required")
 	}
@@ -406,7 +408,7 @@ func (o *Orchestrator) RegisterPlan(plan *OrchestrationPlan) error {
 }
 
 // GetPlan retrieves a plan by name
-func (o *Orchestrator) GetPlan(name string) (*OrchestrationPlan, bool) {
+func (o *Orchestrator) GetPlan(name string) (*Plan, bool) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	plan, ok := o.plans[name]
@@ -414,7 +416,7 @@ func (o *Orchestrator) GetPlan(name string) (*OrchestrationPlan, bool) {
 }
 
 // validatePlan validates an orchestration plan
-func (o *Orchestrator) validatePlan(plan *OrchestrationPlan) error {
+func (o *Orchestrator) validatePlan(plan *Plan) error {
 	if len(plan.Groups) == 0 {
 		return fmt.Errorf("plan must have at least one group")
 	}
@@ -452,15 +454,11 @@ func (o *Orchestrator) validatePlan(plan *OrchestrationPlan) error {
 	}
 
 	// Check for circular dependencies
-	if err := o.checkCircularDependencies(plan); err != nil {
-		return err
-	}
-
-	return nil
+	return o.checkCircularDependencies(plan)
 }
 
 // checkCircularDependencies detects circular dependencies in the plan
-func (o *Orchestrator) checkCircularDependencies(plan *OrchestrationPlan) error {
+func (o *Orchestrator) checkCircularDependencies(plan *Plan) error {
 	// Build dependency graph
 	deps := make(map[string][]string)
 	for _, group := range plan.Groups {
@@ -516,14 +514,14 @@ func (o *Orchestrator) OnGroupComplete(callback func(orchestrationID, groupName 
 }
 
 // OnComplete registers a callback for when orchestration completes
-func (o *Orchestrator) OnComplete(callback func(result *OrchestrationResult)) {
+func (o *Orchestrator) OnComplete(callback func(result *Result)) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.onComplete = append(o.onComplete, callback)
 }
 
 // Execute executes an orchestration plan
-func (o *Orchestrator) Execute(ctx context.Context, req *OrchestrationRequest) (*OrchestrationResult, error) {
+func (o *Orchestrator) Execute(ctx context.Context, req *Request) (*Result, error) {
 	o.mu.RLock()
 	plan, ok := o.plans[req.PlanName]
 	o.mu.RUnlock()
@@ -534,7 +532,7 @@ func (o *Orchestrator) Execute(ctx context.Context, req *OrchestrationRequest) (
 
 	// Create result
 	o.counter++
-	result := &OrchestrationResult{
+	result := &Result{
 		ID:             fmt.Sprintf("orch-%d-%d", time.Now().UnixNano(), o.counter),
 		Plan:           plan,
 		Status:         StatusPending,
@@ -552,7 +550,7 @@ func (o *Orchestrator) Execute(ctx context.Context, req *OrchestrationRequest) (
 
 	// Check approval
 	if plan.RequireApproval && !req.Force {
-		result.ApprovalInfo = &OrchestrationApproval{
+		result.ApprovalInfo = &Approval{
 			Required: true,
 			Status:   "pending",
 		}
@@ -564,7 +562,7 @@ func (o *Orchestrator) Execute(ctx context.Context, req *OrchestrationRequest) (
 }
 
 // executeOrchestration executes the orchestration
-func (o *Orchestrator) executeOrchestration(ctx context.Context, plan *OrchestrationPlan, req *OrchestrationRequest, result *OrchestrationResult) (*OrchestrationResult, error) {
+func (o *Orchestrator) executeOrchestration(ctx context.Context, plan *Plan, req *Request, result *Result) (*Result, error) {
 	result.Status = StatusInProgress
 
 	// Set up timeout
@@ -847,7 +845,7 @@ func (o *Orchestrator) executeRepo(ctx context.Context, repo *Repository, revisi
 }
 
 // rollbackCompletedGroups rolls back all completed groups
-func (o *Orchestrator) rollbackCompletedGroups(ctx context.Context, plan *OrchestrationPlan, completed map[string]bool, revisions map[string]string) {
+func (o *Orchestrator) rollbackCompletedGroups(ctx context.Context, plan *Plan, completed map[string]bool, revisions map[string]string) {
 	// Rollback in reverse order
 	for i := len(plan.Groups) - 1; i >= 0; i-- {
 		group := plan.Groups[i]
@@ -874,7 +872,7 @@ func (o *Orchestrator) rollbackCompletedGroups(ctx context.Context, plan *Orches
 }
 
 // topologicalSort returns groups in dependency order
-func (o *Orchestrator) topologicalSort(plan *OrchestrationPlan) ([]string, error) {
+func (o *Orchestrator) topologicalSort(plan *Plan) ([]string, error) {
 	// Build dependency graph
 	deps := make(map[string][]string)
 	inDegree := make(map[string]int)
@@ -885,7 +883,9 @@ func (o *Orchestrator) topologicalSort(plan *OrchestrationPlan) ([]string, error
 			inDegree[group.Name] = 0
 		}
 		for _, dep := range group.Dependencies {
-			inDegree[dep] = inDegree[dep] // Ensure exists
+			if _, ok := inDegree[dep]; !ok {
+				inDegree[dep] = 0 // Ensure exists
+			}
 		}
 	}
 
@@ -953,7 +953,7 @@ func (o *Orchestrator) topologicalSort(plan *OrchestrationPlan) ([]string, error
 }
 
 // GetOrchestration retrieves an orchestration result
-func (o *Orchestrator) GetOrchestration(id string) (*OrchestrationResult, bool) {
+func (o *Orchestrator) GetOrchestration(id string) (*Result, bool) {
 	o.resultsMu.RLock()
 	defer o.resultsMu.RUnlock()
 	result, ok := o.results[id]
@@ -961,11 +961,11 @@ func (o *Orchestrator) GetOrchestration(id string) (*OrchestrationResult, bool) 
 }
 
 // ListOrchestrations returns all orchestration results
-func (o *Orchestrator) ListOrchestrations() []*OrchestrationResult {
+func (o *Orchestrator) ListOrchestrations() []*Result {
 	o.resultsMu.RLock()
 	defer o.resultsMu.RUnlock()
 
-	results := make([]*OrchestrationResult, 0, len(o.results))
+	results := make([]*Result, 0, len(o.results))
 	for _, r := range o.results {
 		results = append(results, r)
 	}
@@ -1001,7 +1001,7 @@ func (o *Orchestrator) CancelOrchestration(id string) error {
 }
 
 // ApproveOrchestration approves a pending orchestration
-func (o *Orchestrator) ApproveOrchestration(ctx context.Context, id string, approver string, reason string) error {
+func (o *Orchestrator) ApproveOrchestration(ctx context.Context, id, approver, reason string) error {
 	o.resultsMu.Lock()
 	result, ok := o.results[id]
 	o.resultsMu.Unlock()
@@ -1026,14 +1026,14 @@ func (o *Orchestrator) ApproveOrchestration(ctx context.Context, id string, appr
 
 	// Execute
 	go func() {
-		req := &OrchestrationRequest{
+		req := &Request{
 			PlanName:    result.Plan.Name,
 			Revisions:   make(map[string]string),
 			RequestedBy: result.RequestedBy,
 			Reason:      result.Reason,
 			Force:       true,
 		}
-		o.executeOrchestration(ctx, result.Plan, req, result)
+		_, _ = o.executeOrchestration(ctx, result.Plan, req, result) //nolint:errcheck // async execution
 	}()
 
 	return nil

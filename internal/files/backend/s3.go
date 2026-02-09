@@ -128,8 +128,8 @@ type S3ObjectInfo struct {
 
 // S3ListOptions are options for ListObjects.
 type S3ListOptions struct {
-	Delimiter        string
-	MaxKeys          int32
+	Delimiter         string
+	MaxKeys           int32
 	ContinuationToken string
 }
 
@@ -177,8 +177,8 @@ func (b *S3Backend) Name() string {
 }
 
 // Type returns the backend type.
-func (b *S3Backend) Type() BackendType {
-	return BackendTypeS3
+func (b *S3Backend) Type() Type {
+	return TypeS3
 }
 
 // BaseConfig returns the base configuration for path matching and priority.
@@ -193,7 +193,7 @@ func (b *S3Backend) Get(ctx context.Context, filePath string, opts *GetOptions) 
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "get", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
+		return nil, &Error{Op: "get", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	key := b.fullKey(filePath)
@@ -213,7 +213,7 @@ func (b *S3Backend) Get(ctx context.Context, filePath string, opts *GetOptions) 
 		if isS3NotModified(err) {
 			return &GetResult{NotModified: true}, nil
 		}
-		return nil, &BackendError{Op: "get", Path: filePath, Err: err}
+		return nil, &Error{Op: "get", Path: filePath, Err: err}
 	}
 
 	// Parse checksum from ETag (S3 ETags for single-part uploads are MD5, but we store SHA256 in metadata)
@@ -242,7 +242,7 @@ func (b *S3Backend) Get(ctx context.Context, filePath string, opts *GetOptions) 
 // Put uploads a file to S3.
 func (b *S3Backend) Put(ctx context.Context, filePath string, reader io.Reader, opts *PutOptions) (*PutResult, error) {
 	if b.config.ReadOnly {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: ErrReadOnly}
+		return nil, &Error{Op: "put", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -250,7 +250,7 @@ func (b *S3Backend) Put(ctx context.Context, filePath string, reader io.Reader, 
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	key := b.fullKey(filePath)
@@ -258,7 +258,7 @@ func (b *S3Backend) Put(ctx context.Context, filePath string, reader io.Reader, 
 	// Read content to calculate checksum
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
+		return nil, &Error{Op: "put", Path: filePath, Err: fmt.Errorf("read content: %w", err)}
 	}
 
 	// Calculate SHA256
@@ -284,7 +284,7 @@ func (b *S3Backend) Put(ctx context.Context, filePath string, reader io.Reader, 
 
 	result, err := client.PutObject(ctx, b.config.Bucket, key, bytes.NewReader(content), s3Opts)
 	if err != nil {
-		return nil, &BackendError{Op: "put", Path: filePath, Err: err}
+		return nil, &Error{Op: "put", Path: filePath, Err: err}
 	}
 
 	return &PutResult{
@@ -297,7 +297,7 @@ func (b *S3Backend) Put(ctx context.Context, filePath string, reader io.Reader, 
 // Delete removes a file from S3.
 func (b *S3Backend) Delete(ctx context.Context, filePath string) error {
 	if b.config.ReadOnly {
-		return &BackendError{Op: "delete", Path: filePath, Err: ErrReadOnly}
+		return &Error{Op: "delete", Path: filePath, Err: ErrReadOnly}
 	}
 
 	b.mu.RLock()
@@ -305,7 +305,7 @@ func (b *S3Backend) Delete(ctx context.Context, filePath string) error {
 	b.mu.RUnlock()
 
 	if client == nil {
-		return &BackendError{Op: "delete", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
+		return &Error{Op: "delete", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	key := b.fullKey(filePath)
@@ -314,7 +314,7 @@ func (b *S3Backend) Delete(ctx context.Context, filePath string) error {
 		if isS3NotFound(err) {
 			return nil // Idempotent delete
 		}
-		return &BackendError{Op: "delete", Path: filePath, Err: err}
+		return &Error{Op: "delete", Path: filePath, Err: err}
 	}
 
 	return nil
@@ -327,7 +327,7 @@ func (b *S3Backend) Exists(ctx context.Context, filePath string) (bool, error) {
 	b.mu.RUnlock()
 
 	if client == nil {
-		return false, &BackendError{Op: "exists", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
+		return false, &Error{Op: "exists", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	key := b.fullKey(filePath)
@@ -337,7 +337,7 @@ func (b *S3Backend) Exists(ctx context.Context, filePath string) (bool, error) {
 		if isS3NotFound(err) {
 			return false, nil
 		}
-		return false, &BackendError{Op: "exists", Path: filePath, Err: err}
+		return false, &Error{Op: "exists", Path: filePath, Err: err}
 	}
 
 	return true, nil
@@ -350,7 +350,7 @@ func (b *S3Backend) Stat(ctx context.Context, filePath string) (*FileInfo, error
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
+		return nil, &Error{Op: "stat", Path: filePath, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	key := b.fullKey(filePath)
@@ -360,7 +360,7 @@ func (b *S3Backend) Stat(ctx context.Context, filePath string) (*FileInfo, error
 		if isS3NotFound(err) {
 			return nil, ErrNotFound
 		}
-		return nil, &BackendError{Op: "stat", Path: filePath, Err: err}
+		return nil, &Error{Op: "stat", Path: filePath, Err: err}
 	}
 
 	checksum := ""
@@ -389,7 +389,7 @@ func (b *S3Backend) List(ctx context.Context, prefix string, opts *ListOptions) 
 	b.mu.RUnlock()
 
 	if client == nil {
-		return nil, &BackendError{Op: "list", Path: prefix, Err: fmt.Errorf("s3 client not configured")}
+		return nil, &Error{Op: "list", Path: prefix, Err: fmt.Errorf("s3 client not configured")}
 	}
 
 	fullPrefix := b.fullKey(prefix)
@@ -413,7 +413,7 @@ func (b *S3Backend) List(ctx context.Context, prefix string, opts *ListOptions) 
 
 		result, err := client.ListObjects(ctx, b.config.Bucket, fullPrefix, s3Opts)
 		if err != nil {
-			return nil, &BackendError{Op: "list", Path: prefix, Err: err}
+			return nil, &Error{Op: "list", Path: prefix, Err: err}
 		}
 
 		for _, obj := range result.Contents {
@@ -454,7 +454,7 @@ func (b *S3Backend) List(ctx context.Context, prefix string, opts *ListOptions) 
 	}
 
 	return &ListResult{
-		Files:    files,
+		Files:     files,
 		Truncated: false, // We paginate through all results
 	}, nil
 }

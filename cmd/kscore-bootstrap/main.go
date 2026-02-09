@@ -37,6 +37,14 @@ var (
 	timeout          time.Duration
 	auditLevel       string
 	auditOutput      string
+
+	// Seed-specific flags
+	clusterName string
+	trustDomain string
+	natsMode    string
+
+	// Restore-specific flags
+	transform string
 )
 
 func main() {
@@ -84,12 +92,16 @@ If no config file is specified, uses default single-node configuration.
 Example:
   kscore-bootstrap seed
   kscore-bootstrap seed seed-config.yaml
-  kscore-bootstrap seed --dry-run seed-config.yaml`,
+  kscore-bootstrap seed --dry-run seed-config.yaml
+  kscore-bootstrap seed --cluster-name prod-cluster --trust-domain example.com`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runSeed,
 	}
 
 	addCommonFlags(cmd)
+	cmd.Flags().StringVar(&clusterName, "cluster-name", "", "Name of the cluster (overrides config file)")
+	cmd.Flags().StringVar(&trustDomain, "trust-domain", "", "SPIFFE trust domain (overrides config file)")
+	cmd.Flags().StringVar(&natsMode, "nats-mode", "embedded", "NATS deployment mode (embedded, external, hybrid)")
 	return cmd
 }
 
@@ -103,13 +115,15 @@ The backup file should be a .tar.gz archive created by the backup system.
 
 Example:
   kscore-bootstrap restore backup-2024-01-15.tar.gz
-  kscore-bootstrap restore --decryption-key @key.txt encrypted-backup.tar.gz.enc`,
+  kscore-bootstrap restore --decryption-key @key.txt encrypted-backup.tar.gz.enc
+  kscore-bootstrap restore --transform "s/old-cluster/new-cluster/" backup.tar.gz`,
 		Args: cobra.ExactArgs(1),
 		RunE: runRestore,
 	}
 
 	addCommonFlags(cmd)
 	cmd.Flags().StringVar(&decryptionKey, "decryption-key", "", "Decryption key for encrypted backups (use @file to read from file)")
+	cmd.Flags().StringVar(&transform, "transform", "", "Sed-style transform to apply to paths during restore")
 	return cmd
 }
 
@@ -123,7 +137,7 @@ This discovers existing components and brings them under management.
 
 Example:
   kscore-bootstrap import
-  kscore-bootstrap import --config /etc/kscore/server.yaml`,
+  kscore-bootstrap import --config /etc/keystone-core/server.yaml`,
 		RunE: runImport,
 	}
 
@@ -195,7 +209,7 @@ func versionCmd() *cobra.Command {
 
 func addCommonFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to seed configuration file")
-	cmd.Flags().StringVarP(&outputDir, "output-dir", "o", "/var/lib/kscore", "Output directory for generated files")
+	cmd.Flags().StringVarP(&outputDir, "output-dir", "o", "/var/lib/keystone-core", "Output directory for generated files")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate configuration without making changes")
 	cmd.Flags().BoolVar(&skipVerification, "skip-verification", false, "Skip post-bootstrap verification")
@@ -216,7 +230,7 @@ func runSeed(cmd *cobra.Command, args []string) error {
 		defer timeoutCancel()
 	}
 
-	opts := bootstrap.BootstrapOptions{
+	opts := bootstrap.Options{
 		Mode:             bootstrap.BootstrapModeSeed,
 		SeedConfigPath:   configPath,
 		OutputDir:        outputDir,
@@ -232,7 +246,7 @@ func runSeed(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create bootstrapper: %w", err)
 	}
 
-	bootstrapper.SetProgressCallback(func(status *bootstrap.BootstrapStatus) {
+	bootstrapper.SetProgressCallback(func(status *bootstrap.Status) {
 		if verbose || status.Phase == bootstrap.PhaseFailed {
 			fmt.Printf("[%s] %s (%d%%)\n", status.Phase, status.Message, status.Progress)
 		}
@@ -266,7 +280,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	// Handle decryption key from file
 	key := decryptionKey
-	if len(key) > 0 && key[0] == '@' {
+	if key != "" && key[0] == '@' {
 		data, err := os.ReadFile(key[1:])
 		if err != nil {
 			return fmt.Errorf("failed to read decryption key: %w", err)
@@ -274,7 +288,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		key = string(data)
 	}
 
-	opts := bootstrap.BootstrapOptions{
+	opts := bootstrap.Options{
 		Mode:             bootstrap.BootstrapModeRestore,
 		BackupPath:       backupPath,
 		DecryptionKey:    key,
@@ -306,7 +320,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	ctx, cancel := contextWithSignal()
 	defer cancel()
 
-	opts := bootstrap.BootstrapOptions{
+	opts := bootstrap.Options{
 		Mode:             bootstrap.BootstrapModeImport,
 		SeedConfigPath:   configPath,
 		OutputDir:        outputDir,
@@ -428,7 +442,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	stateDir := "/var/lib/kscore/bootstrap"
+	stateDir := "/var/lib/keystone-core/bootstrap"
 
 	state, err := bootstrap.LoadHandoffState(stateDir)
 	if err != nil {
@@ -507,7 +521,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	ctx, cancel := contextWithSignal()
 	defer cancel()
 
-	opts := bootstrap.BootstrapOptions{
+	opts := bootstrap.Options{
 		Force: force,
 	}
 
@@ -530,7 +544,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printResult(result *bootstrap.BootstrapResult) {
+func printResult(result *bootstrap.Result) {
 	fmt.Println()
 	if result.Success {
 		fmt.Println("Bootstrap completed successfully!")

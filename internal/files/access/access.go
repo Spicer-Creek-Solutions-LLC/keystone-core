@@ -15,23 +15,25 @@ import (
 // Permission represents a file operation permission.
 type Permission string
 
+// PermissionRead constants define the permissions.
 const (
-	PermissionRead    Permission = "read"
-	PermissionWrite   Permission = "write"
-	PermissionDelete  Permission = "delete"
-	PermissionList    Permission = "list"
-	PermissionAdmin   Permission = "admin"
+	PermissionRead   Permission = "read"
+	PermissionWrite  Permission = "write"
+	PermissionDelete Permission = "delete"
+	PermissionList   Permission = "list"
+	PermissionAdmin  Permission = "admin"
 )
 
 // Action represents a file operation for access control.
 type Action string
 
+// ActionGet constants define the actions.
 const (
-	ActionGet      Action = "get"
-	ActionPut      Action = "put"
-	ActionDelete   Action = "delete"
-	ActionList     Action = "list"
-	ActionStat     Action = "stat"
+	ActionGet    Action = "get"
+	ActionPut    Action = "put"
+	ActionDelete Action = "delete"
+	ActionList   Action = "list"
+	ActionStat   Action = "stat"
 )
 
 // ActionToPermission maps actions to required permissions.
@@ -79,8 +81,8 @@ func (i *Identity) HasRole(role string) bool {
 	return false
 }
 
-// AccessRequest represents a file access request.
-type AccessRequest struct {
+// Request represents a file access request.
+type Request struct {
 	// Identity is the authenticated identity making the request.
 	Identity *Identity
 
@@ -98,12 +100,12 @@ type AccessRequest struct {
 }
 
 // FullPath returns the full path including namespace.
-func (r *AccessRequest) FullPath() string {
+func (r *Request) FullPath() string {
 	return "/" + r.Namespace + r.Path
 }
 
-// AccessResult represents the result of an access check.
-type AccessResult struct {
+// Result represents the result of an access check.
+type Result struct {
 	// Allowed indicates if access is granted.
 	Allowed bool
 
@@ -191,7 +193,7 @@ func (e *ACLEntry) Compile() error {
 }
 
 // Matches returns true if this entry matches the request.
-func (e *ACLEntry) Matches(req *AccessRequest) bool {
+func (e *ACLEntry) Matches(req *Request) bool {
 	// Check identity pattern
 	if e.compiledIdentity != nil && !e.compiledIdentity.MatchString(req.Identity.ID) {
 		return false
@@ -287,7 +289,7 @@ func (a *ACL) RemoveEntry(id string) bool {
 }
 
 // Evaluate evaluates the ACL for a request.
-func (a *ACL) Evaluate(req *AccessRequest) *AccessResult {
+func (a *ACL) Evaluate(req *Request) *Result {
 	start := time.Now()
 
 	a.mu.RLock()
@@ -295,7 +297,7 @@ func (a *ACL) Evaluate(req *AccessRequest) *AccessResult {
 
 	for _, entry := range a.entries {
 		if entry.Matches(req) {
-			return &AccessResult{
+			return &Result{
 				Allowed:     entry.Effect == "allow",
 				Reason:      entry.Description,
 				MatchedRule: entry.ID,
@@ -305,7 +307,7 @@ func (a *ACL) Evaluate(req *AccessRequest) *AccessResult {
 	}
 
 	// Default deny
-	return &AccessResult{
+	return &Result{
 		Allowed:     false,
 		Reason:      "no matching ACL entry",
 		MatchedRule: "",
@@ -354,17 +356,17 @@ type NamespaceConfig struct {
 
 // Authorizer performs access control checks.
 type Authorizer struct {
-	acl              *ACL
-	namespaces       map[string]*NamespaceConfig
-	policyEvaluator  PolicyEvaluator
-	defaultDeny      bool
-	mu               sync.RWMutex
+	acl             *ACL
+	namespaces      map[string]*NamespaceConfig
+	policyEvaluator PolicyEvaluator
+	defaultDeny     bool
+	mu              sync.RWMutex
 }
 
 // PolicyEvaluator is an interface for external policy evaluation (OPA/CEL).
 type PolicyEvaluator interface {
 	// Evaluate evaluates a policy for the given request.
-	Evaluate(ctx context.Context, req *AccessRequest) (*AccessResult, error)
+	Evaluate(ctx context.Context, req *Request) (*Result, error)
 }
 
 // AuthorizerConfig configures the authorizer.
@@ -415,12 +417,12 @@ func (a *Authorizer) GetNamespaceConfig(name string) *NamespaceConfig {
 }
 
 // Authorize checks if a request is authorized.
-func (a *Authorizer) Authorize(ctx context.Context, req *AccessRequest) (*AccessResult, error) {
+func (a *Authorizer) Authorize(ctx context.Context, req *Request) (*Result, error) {
 	start := time.Now()
 
 	// Validate identity
 	if req.Identity == nil {
-		return &AccessResult{
+		return &Result{
 			Allowed:  false,
 			Reason:   "no identity provided",
 			Duration: time.Since(start),
@@ -428,7 +430,7 @@ func (a *Authorizer) Authorize(ctx context.Context, req *AccessRequest) (*Access
 	}
 
 	if req.Identity.IsExpired() {
-		return &AccessResult{
+		return &Result{
 			Allowed:  false,
 			Reason:   "identity has expired",
 			Duration: time.Since(start),
@@ -467,7 +469,7 @@ func (a *Authorizer) Authorize(ctx context.Context, req *AccessRequest) (*Access
 	}
 
 	// Default decision
-	return &AccessResult{
+	return &Result{
 		Allowed:  !a.defaultDeny,
 		Reason:   "default policy",
 		Duration: time.Since(start),
@@ -475,10 +477,10 @@ func (a *Authorizer) Authorize(ctx context.Context, req *AccessRequest) (*Access
 }
 
 // checkNamespaceConfig checks namespace-specific access rules.
-func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRequest) *AccessResult {
+func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *Request) *Result {
 	// Check authentication requirement
 	if config.RequireAuthentication && req.Identity.ID == "" {
-		return &AccessResult{
+		return &Result{
 			Allowed: false,
 			Reason:  "namespace requires authentication",
 		}
@@ -494,7 +496,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 			}
 		}
 		if !allowed {
-			return &AccessResult{
+			return &Result{
 				Allowed: false,
 				Reason:  "identity type not allowed for namespace",
 			}
@@ -511,7 +513,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 			}
 		}
 		if !hasRole {
-			return &AccessResult{
+			return &Result{
 				Allowed: false,
 				Reason:  "no matching role for namespace",
 			}
@@ -520,7 +522,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 
 	// Check read-only
 	if config.ReadOnly && (req.Action == ActionPut || req.Action == ActionDelete) {
-		return &AccessResult{
+		return &Result{
 			Allowed: false,
 			Reason:  "namespace is read-only",
 		}
@@ -533,7 +535,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 		// Check denied extensions
 		for _, denied := range config.DeniedExtensions {
 			if strings.EqualFold(ext, denied) {
-				return &AccessResult{
+				return &Result{
 					Allowed: false,
 					Reason:  "file extension is denied",
 				}
@@ -550,7 +552,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 				}
 			}
 			if !allowed {
-				return &AccessResult{
+				return &Result{
 					Allowed: false,
 					Reason:  "file extension not allowed",
 				}
@@ -558,7 +560,7 @@ func (a *Authorizer) checkNamespaceConfig(config *NamespaceConfig, req *AccessRe
 		}
 	}
 
-	return &AccessResult{Allowed: true}
+	return &Result{Allowed: true}
 }
 
 // RequestSigner signs file requests.
@@ -574,7 +576,7 @@ func NewRequestSigner(secret string) *RequestSigner {
 }
 
 // Sign signs a request and returns the signature.
-func (s *RequestSigner) Sign(req *AccessRequest) string {
+func (s *RequestSigner) Sign(req *Request) string {
 	data := fmt.Sprintf("%s:%s:%s:%s", req.Identity.ID, req.Namespace, req.Path, req.Action)
 	hash := sha256.New()
 	hash.Write([]byte(data))
@@ -583,7 +585,7 @@ func (s *RequestSigner) Sign(req *AccessRequest) string {
 }
 
 // Verify verifies a request signature.
-func (s *RequestSigner) Verify(req *AccessRequest, signature string) bool {
+func (s *RequestSigner) Verify(req *Request, signature string) bool {
 	expected := s.Sign(req)
 	return signature == expected
 }

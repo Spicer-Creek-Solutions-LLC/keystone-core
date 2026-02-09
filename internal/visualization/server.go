@@ -24,7 +24,7 @@ type AgentProvider interface {
 
 // Server provides the visualization HTTP/WebSocket server
 type Server struct {
-	config    *VisualizationConfig
+	config    *Config
 	provider  AgentProvider
 	server    *http.Server
 	upgrader  websocket.Upgrader
@@ -35,7 +35,7 @@ type Server struct {
 }
 
 // NewServer creates a new visualization server
-func NewServer(config *VisualizationConfig, provider AgentProvider) *Server {
+func NewServer(config *Config, provider AgentProvider) *Server {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -79,8 +79,12 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	s.server = &http.Server{
-		Addr:    s.config.ListenAddr,
-		Handler: mux,
+		Addr:              s.config.ListenAddr,
+		Handler:           mux,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
@@ -213,7 +217,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Send initial topology
 	agents := s.provider.GetAgents()
 	topology := buildTopology(agents)
-	conn.WriteJSON(map[string]interface{}{
+	_ = conn.WriteJSON(map[string]interface{}{ //nolint:errcheck // best-effort initial message
 		"type": "initial",
 		"data": topology,
 	})
@@ -428,6 +432,8 @@ func updateStats(node *TopologyNode, status AgentStatus) {
 		node.Stats.Degraded++
 	case AgentStatusOffline:
 		node.Stats.Offline++
+	default:
+		// AgentStatusUnknown not counted in individual categories
 	}
 }
 
@@ -447,18 +453,22 @@ func updateNodeStatus(node *TopologyNode) AgentStatus {
 	for _, child := range node.Children {
 		childStatus := updateNodeStatus(child)
 
-		if childStatus == AgentStatusOffline {
+		switch childStatus {
+		case AgentStatusOffline:
 			hasOffline = true
-		} else if childStatus == AgentStatusDegraded {
+		case AgentStatusDegraded:
 			hasDegraded = true
+		default:
+			// AgentStatusHealthy, AgentStatusUnknown don't set flags
 		}
 	}
 
-	if hasOffline {
+	switch {
+	case hasOffline:
 		node.Status = AgentStatusDegraded
-	} else if hasDegraded {
+	case hasDegraded:
 		node.Status = AgentStatusDegraded
-	} else {
+	default:
 		node.Status = AgentStatusHealthy
 	}
 

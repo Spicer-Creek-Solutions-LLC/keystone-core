@@ -2,6 +2,7 @@ package testing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -138,13 +139,13 @@ func (r *Runner) RunSuite(ctx context.Context, suite *TestSuite) *TestSuiteResul
 	}
 
 	// Run tests
-	for _, test := range suite.Tests {
+	for i := range suite.Tests {
 		// Check for cancellation
 		if ctx.Err() != nil {
 			break
 		}
 
-		testResult := r.RunTest(ctx, &test, suite)
+		testResult := r.RunTest(ctx, &suite.Tests[i], suite)
 		result.Tests = append(result.Tests, *testResult)
 
 		// Stop on failure if configured
@@ -213,15 +214,16 @@ func (r *Runner) RunTest(ctx context.Context, test *TestCase, suite *TestSuite) 
 
 	if err != nil {
 		// Check if we expected failure
-		if test.ExpectFailure {
+		switch {
+		case test.ExpectFailure:
 			result.Pass()
-		} else if test.ExpectError != "" {
+		case test.ExpectError != "":
 			if matchesErrorPattern(err.Error(), test.ExpectError) {
 				result.Pass()
 			} else {
 				result.Fail(fmt.Sprintf("expected error %q but got %q", test.ExpectError, err.Error()))
 			}
-		} else {
+		default:
 			result.SetError(err.Error())
 		}
 	} else {
@@ -232,8 +234,8 @@ func (r *Runner) RunTest(ctx context.Context, test *TestCase, suite *TestSuite) 
 		}
 
 		// Run assertions
-		for _, assertion := range test.Assertions {
-			assertResult := r.evaluateAssertion(ctx, &assertion, execResult, test)
+		for j := range test.Assertions {
+			assertResult := r.evaluateAssertion(ctx, &test.Assertions[j], execResult, test)
 			result.AssertionResults = append(result.AssertionResults, assertResult)
 
 			if r.config.EventHandler != nil {
@@ -893,12 +895,14 @@ func (r *Runner) runCommand(ctx context.Context, cmdConfig *CommandAssertion) Co
 		args[1] = cmdConfig.Command + " " + strings.Join(cmdConfig.Args, " ")
 	}
 
+	//nolint:gosec // G204: shell command execution is intentional for blueprint testing
 	cmd := exec.CommandContext(ctx, shell, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = -1
@@ -1109,11 +1113,13 @@ func (r *Runner) runTeardown(ctx context.Context, teardown *TestTeardown) *Setup
 
 func (r *Runner) createTestFile(f *TestFile) error {
 	if f.IsDir {
-		return os.MkdirAll(f.Path, 0755)
+		//nolint:gosec // G301: test directory needs to be accessible for test execution
+		return os.MkdirAll(f.Path, 0o755)
 	}
 
 	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(f.Path), 0755); err != nil {
+	//nolint:gosec // G301: parent directory needs to be accessible for test execution
+	if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 		return err
 	}
 
@@ -1123,10 +1129,12 @@ func (r *Runner) createTestFile(f *TestFile) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(f.Path, content, 0644)
+		//nolint:gosec // G306: test fixture files need to be readable by the test runner
+		return os.WriteFile(f.Path, content, 0o644)
 	}
 
-	return os.WriteFile(f.Path, []byte(f.Content), 0644)
+	//nolint:gosec // G306: test fixture files need to be readable by the test runner
+	return os.WriteFile(f.Path, []byte(f.Content), 0o644)
 }
 
 func (r *Runner) runSetupCommand(ctx context.Context, cmd *TestCommand) CommandResult {
@@ -1140,11 +1148,13 @@ func (r *Runner) runSetupCommand(ctx context.Context, cmd *TestCommand) CommandR
 	}
 
 	args := []string{"-c", cmd.Command}
+	//nolint:gosec // G204: shell command execution is intentional for blueprint testing
 	c := exec.CommandContext(ctx, shell, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	output, err := c.CombinedOutput()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = -1

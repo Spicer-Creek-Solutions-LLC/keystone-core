@@ -416,9 +416,9 @@ func TestLaunchdModule_ParseConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "missing program (uses ID as label)",
-			id:     "com.example.test",
-			params: map[string]interface{}{},
+			name:    "missing program (uses ID as label)",
+			id:      "com.example.test",
+			params:  map[string]interface{}{},
 			wantErr: true,
 			errMsg:  "either program or program_arguments is required",
 		},

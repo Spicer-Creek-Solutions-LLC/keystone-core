@@ -79,9 +79,9 @@ func DefaultThalesLunaConfig() *ThalesLunaConfig {
 
 // ThalesLunaProvider implements the Provider interface for Thales Luna HSM.
 type ThalesLunaProvider struct {
-	config      *ThalesLunaConfig
-	pkcs11      *PKCS11Provider
-	kmipClient  *KMIPClient
+	config     *ThalesLunaConfig
+	pkcs11     *PKCS11Provider
+	kmipClient *KMIPClient
 
 	mu          sync.RWMutex
 	initialized bool
@@ -94,10 +94,10 @@ func NewThalesLunaProvider(ctx context.Context, config *ThalesLunaConfig) (*Thal
 		config = DefaultThalesLunaConfig()
 	}
 	if config.Hostname == "" {
-		return nil, errors.New("Luna HSM hostname is required")
+		return nil, errors.New("luna HSM hostname is required")
 	}
 	if config.Partition == "" {
-		return nil, errors.New("Luna HSM partition is required")
+		return nil, errors.New("luna HSM partition is required")
 	}
 
 	p := &ThalesLunaProvider{
@@ -285,6 +285,7 @@ func (l *lunaCMInterface) Finalize(ctx context.Context) error {
 
 // runLunaCM executes a lunacm command.
 func (l *lunaCMInterface) runLunaCM(ctx context.Context, args ...string) (string, error) {
+	//nolint:gosec // G204: lunacm execution is intentional for Thales Luna HSM management
 	cmd := exec.CommandContext(ctx, l.config.LunaCMPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -378,15 +379,15 @@ func (l *lunaCMInterface) GetTokenInfo(ctx context.Context, slotID uint32) (*Tok
 // GetMechanismList returns the list of mechanisms supported by a slot.
 func (l *lunaCMInterface) GetMechanismList(ctx context.Context, slotID uint32) ([]PKCS11Mechanism, error) {
 	return []PKCS11Mechanism{
-		CKM_RSA_PKCS,
-		CKM_RSA_PKCS_OAEP,
-		CKM_AES_KEY_GEN,
-		CKM_AES_CBC,
-		CKM_AES_CBC_PAD,
-		CKM_AES_GCM,
-		CKM_AES_KEY_WRAP,
-		CKM_SHA256_RSA_PKCS,
-		CKM_ECDSA_SHA256,
+		CkmRSAPKCS,
+		CkmRSAPKCSOAEP,
+		CkmAESKeyGen,
+		CkmAESCBC,
+		CkmAESCBCPad,
+		CkmAESGCM,
+		CkmAESKeyWrap,
+		CkmSHA256RSAPKCS,
+		CkmECDSASHA256,
 	}, nil
 }
 
@@ -397,15 +398,16 @@ func (l *lunaCMInterface) GetMechanismInfo(ctx context.Context, slotID uint32, m
 	}
 
 	switch mechanism {
-	case CKM_AES_KEY_GEN, CKM_AES_CBC, CKM_AES_CBC_PAD, CKM_AES_GCM, CKM_AES_KEY_WRAP:
+	case CkmAESKeyGen, CkmAESCBC, CkmAESCBCPad, CkmAESGCM, CkmAESKeyWrap:
 		info.MinKeySize = 128
 		info.MaxKeySize = 256
-	case CKM_RSA_PKCS, CKM_RSA_PKCS_OAEP, CKM_SHA256_RSA_PKCS:
+	case CkmRSAPKCS, CkmRSAPKCSOAEP, CkmSHA256RSAPKCS:
 		info.MinKeySize = 2048
 		info.MaxKeySize = 4096
-	case CKM_ECDSA_SHA256:
+	case CkmECDSASHA256:
 		info.MinKeySize = 256
 		info.MaxKeySize = 384
+	default:
 	}
 
 	return info, nil
@@ -464,7 +466,7 @@ func (l *lunaCMInterface) Login(ctx context.Context, session SessionHandle, user
 	_, err := l.runLunaCM(ctx, "role", "login", "-name", "crypto_officer", "-password", pin)
 	if err != nil {
 		if strings.Contains(err.Error(), "already logged in") {
-			return NewPKCS11Error(CKR_USER_ALREADY_LOGGED_IN)
+			return NewPKCS11Error(ErrCkrUserAlreadyLoggedIn)
 		}
 		return fmt.Errorf("login failed: %w", err)
 	}
@@ -494,7 +496,7 @@ func (l *lunaCMInterface) GenerateKey(ctx context.Context, session SessionHandle
 		return 0, err
 	}
 
-	return ObjectHandle(time.Now().UnixNano() & 0xFFFFFFFF), nil
+	return ObjectHandle(time.Now().UnixNano() & 0xFFFFFFFF), nil //nolint:gosec // G115: masked to 32-bit
 }
 
 // GenerateKeyPair generates an asymmetric key pair.
@@ -506,7 +508,7 @@ func (l *lunaCMInterface) GenerateKeyPair(ctx context.Context, session SessionHa
 
 	keyType := "rsa"
 	size := 2048
-	if mechanism == CKM_ECDSA || mechanism == CKM_ECDSA_SHA256 {
+	if mechanism == CkmECDSA || mechanism == CkmECDSASHA256 {
 		keyType = "ec"
 		size = 256
 	}
@@ -520,6 +522,7 @@ func (l *lunaCMInterface) GenerateKeyPair(ctx context.Context, session SessionHa
 	}
 
 	now := time.Now().UnixNano()
+	//nolint:gosec // G115: masked to 32-bit
 	return ObjectHandle(now & 0xFFFFFFFF), ObjectHandle((now + 1) & 0xFFFFFFFF), nil
 }
 
@@ -551,7 +554,7 @@ func (l *lunaCMInterface) FindObjects(ctx context.Context, session SessionHandle
 		}
 	}
 
-	if uint32(len(handles)) > maxObjects {
+	if uint32(len(handles)) > maxObjects { //nolint:gosec // G115: bounded by maxObjects
 		handles = handles[:maxObjects]
 	}
 	return handles, nil
@@ -572,19 +575,20 @@ func (l *lunaCMInterface) GetAttributeValue(ctx context.Context, session Session
 	attrs := make(map[string]interface{})
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Label:") {
+		switch {
+		case strings.HasPrefix(line, "Label:"):
 			attrs["CKA_LABEL"] = strings.TrimSpace(strings.TrimPrefix(line, "Label:"))
-		} else if strings.HasPrefix(line, "Key Type:") {
+		case strings.HasPrefix(line, "Key Type:"):
 			typeStr := strings.TrimSpace(strings.TrimPrefix(line, "Key Type:"))
 			switch strings.ToLower(typeStr) {
 			case "aes":
-				attrs["CKA_KEY_TYPE"] = CKK_AES
+				attrs["CKA_KEY_TYPE"] = CkkAES
 			case "rsa":
-				attrs["CKA_KEY_TYPE"] = CKK_RSA
+				attrs["CKA_KEY_TYPE"] = CkkRSA
 			case "ec", "ecdsa":
-				attrs["CKA_KEY_TYPE"] = CKK_EC
+				attrs["CKA_KEY_TYPE"] = CkkEC
 			}
-		} else if strings.HasPrefix(line, "Key Size:") {
+		case strings.HasPrefix(line, "Key Size:"):
 			sizeStr := strings.TrimSpace(strings.TrimPrefix(line, "Key Size:"))
 			sizeStr = strings.TrimSuffix(sizeStr, " bits")
 			if size, err := strconv.ParseUint(sizeStr, 10, 32); err == nil {
@@ -698,7 +702,7 @@ func (l *lunaCMInterface) UnwrapKey(ctx context.Context, session SessionHandle, 
 		}
 	}
 
-	return ObjectHandle(time.Now().UnixNano() & 0xFFFFFFFF), nil
+	return ObjectHandle(time.Now().UnixNano() & 0xFFFFFFFF), nil //nolint:gosec // G115: masked to 32-bit
 }
 
 // GenerateRandom generates random bytes.
@@ -753,28 +757,28 @@ func newKMIPClient(ctx context.Context, config *ThalesLunaConfig) (*KMIPClient, 
 
 // KMIP message tags (simplified subset).
 const (
-	kmipTagRequestMessage     uint32 = 0x420078
-	kmipTagResponseMessage    uint32 = 0x42007B
-	kmipTagRequestHeader      uint32 = 0x420077
-	kmipTagResponseHeader     uint32 = 0x42007A
-	kmipTagProtocolVersion    uint32 = 0x420069
+	kmipTagRequestMessage       uint32 = 0x420078
+	kmipTagResponseMessage      uint32 = 0x42007B
+	kmipTagRequestHeader        uint32 = 0x420077
+	kmipTagResponseHeader       uint32 = 0x42007A
+	kmipTagProtocolVersion      uint32 = 0x420069
 	kmipTagProtocolVersionMajor uint32 = 0x42006A
 	kmipTagProtocolVersionMinor uint32 = 0x42006B
-	kmipTagBatchItem          uint32 = 0x42000F
-	kmipTagOperation          uint32 = 0x42005C
-	kmipTagResultStatus       uint32 = 0x42007F
-	kmipTagUniqueID           uint32 = 0x420094
-	kmipTagData               uint32 = 0x4200C2
+	kmipTagBatchItem            uint32 = 0x42000F
+	kmipTagOperation            uint32 = 0x42005C
+	kmipTagResultStatus         uint32 = 0x42007F
+	kmipTagUniqueID             uint32 = 0x420094
+	kmipTagData                 uint32 = 0x4200C2
 )
 
 // KMIP operations.
 const (
-	kmipOpCreate    uint32 = 0x00000001
-	kmipOpGet       uint32 = 0x0000000A
-	kmipOpEncrypt   uint32 = 0x0000001F
-	kmipOpDecrypt   uint32 = 0x00000020
-	kmipOpSign      uint32 = 0x00000021
-	kmipOpVerify    uint32 = 0x00000024
+	kmipOpCreate  uint32 = 0x00000001
+	kmipOpGet     uint32 = 0x0000000A
+	kmipOpEncrypt uint32 = 0x0000001F
+	kmipOpDecrypt uint32 = 0x00000020
+	kmipOpSign    uint32 = 0x00000021
+	kmipOpVerify  uint32 = 0x00000024
 )
 
 // Healthy checks if the KMIP client is healthy.
@@ -792,11 +796,7 @@ func (c *KMIPClient) Healthy(ctx context.Context) bool {
 
 	one := make([]byte, 1)
 	_, err := c.conn.Read(one)
-	if err == io.EOF {
-		return false
-	}
-
-	return true
+	return !errors.Is(err, io.EOF)
 }
 
 // sendRequest sends a KMIP request and receives the response.
@@ -809,8 +809,8 @@ func (c *KMIPClient) sendRequest(ctx context.Context, operation uint32, uniqueID
 	request := c.buildRequest(operation, uniqueID, data)
 
 	if deadline, ok := ctx.Deadline(); ok {
-		c.conn.SetWriteDeadline(deadline)
-		c.conn.SetReadDeadline(deadline)
+		_ = c.conn.SetWriteDeadline(deadline)  //nolint:errcheck // best-effort deadline
+		_ = c.conn.SetReadDeadline(deadline)   //nolint:errcheck // best-effort deadline
 	}
 
 	if _, err := c.conn.Write(request); err != nil {
@@ -851,7 +851,7 @@ func (c *KMIPClient) buildRequest(operation uint32, uniqueID string, data []byte
 	binary.Write(buf, binary.BigEndian, uint32(4))
 	binary.Write(buf, binary.BigEndian, uint32(4))
 
-	headerLen := uint32(buf.Len() - headerStart - 4)
+	headerLen := uint32(buf.Len() - headerStart - 4) //nolint:gosec // G115: KMIP header len
 	headerBytes := buf.Bytes()
 	binary.BigEndian.PutUint32(headerBytes[headerStart:], headerLen)
 
@@ -868,7 +868,7 @@ func (c *KMIPClient) buildRequest(operation uint32, uniqueID string, data []byte
 	if uniqueID != "" {
 		binary.Write(buf, binary.BigEndian, kmipTagUniqueID)
 		binary.Write(buf, binary.BigEndian, uint8(0x07))
-		binary.Write(buf, binary.BigEndian, uint32(len(uniqueID)))
+		binary.Write(buf, binary.BigEndian, uint32(len(uniqueID))) //nolint:gosec // G115: KMIP ID len
 		buf.WriteString(uniqueID)
 		for len(uniqueID)%8 != 0 {
 			buf.WriteByte(0)
@@ -879,7 +879,7 @@ func (c *KMIPClient) buildRequest(operation uint32, uniqueID string, data []byte
 	if len(data) > 0 {
 		binary.Write(buf, binary.BigEndian, kmipTagData)
 		binary.Write(buf, binary.BigEndian, uint8(0x08))
-		binary.Write(buf, binary.BigEndian, uint32(len(data)))
+		binary.Write(buf, binary.BigEndian, uint32(len(data))) //nolint:gosec // G115: KMIP data len
 		buf.Write(data)
 		for len(data)%8 != 0 {
 			buf.WriteByte(0)
@@ -887,11 +887,11 @@ func (c *KMIPClient) buildRequest(operation uint32, uniqueID string, data []byte
 		}
 	}
 
-	batchLen := uint32(buf.Len() - batchStart - 4)
+	batchLen := uint32(buf.Len() - batchStart - 4) //nolint:gosec // G115: KMIP batch len
 	batchBytes := buf.Bytes()
 	binary.BigEndian.PutUint32(batchBytes[batchStart:], batchLen)
 
-	totalLen := uint32(buf.Len() - 8)
+	totalLen := uint32(buf.Len() - 8) //nolint:gosec // G115: KMIP total len
 	binary.BigEndian.PutUint32(buf.Bytes()[4:], totalLen)
 
 	return buf.Bytes()

@@ -370,8 +370,8 @@ func TestSVIDRotationManager_StateTransitions(t *testing.T) {
 
 	// Track state changes
 	var states []RotationState
-	manager.OnStateChanged(func(old, new RotationState) {
-		states = append(states, new)
+	manager.OnStateChanged(func(old, updated RotationState) {
+		states = append(states, updated)
 	})
 
 	// Initial state
@@ -796,36 +796,6 @@ type mockConnection struct {
 func (m *mockConnection) Close() error {
 	m.closed = true
 	return nil
-}
-
-func createTestCertificate(t *testing.T, validity time.Duration) *x509.Certificate {
-	t.Helper()
-
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("Failed to generate key: %v", err)
-	}
-
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "Test CA"},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(validity),
-		KeyUsage:     x509.KeyUsageCertSign,
-		IsCA:         true,
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
-	if err != nil {
-		t.Fatalf("Failed to create certificate: %v", err)
-	}
-
-	cert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		t.Fatalf("Failed to parse certificate: %v", err)
-	}
-
-	return cert
 }
 
 // ====== Integration Tests ======

@@ -14,30 +14,32 @@ import (
 // TransitKeyType represents the type of transit key.
 type TransitKeyType string
 
+// TransitKeyTypeAES128GCM96 constants define the supported types.
 const (
-	TransitKeyTypeAES128GCM96    TransitKeyType = "aes128-gcm96"
-	TransitKeyTypeAES256GCM96    TransitKeyType = "aes256-gcm96"
-	TransitKeyTypeCHACHA20       TransitKeyType = "chacha20-poly1305"
-	TransitKeyTypeED25519        TransitKeyType = "ed25519"
-	TransitKeyTypeECDSAP256      TransitKeyType = "ecdsa-p256"
-	TransitKeyTypeECDSAP384      TransitKeyType = "ecdsa-p384"
-	TransitKeyTypeECDSAP521      TransitKeyType = "ecdsa-p521"
-	TransitKeyTypeRSA2048        TransitKeyType = "rsa-2048"
-	TransitKeyTypeRSA3072        TransitKeyType = "rsa-3072"
-	TransitKeyTypeRSA4096        TransitKeyType = "rsa-4096"
-	TransitKeyTypeHMAC           TransitKeyType = "hmac"
-	TransitKeyTypeManagedKey     TransitKeyType = "managed_key"
+	TransitKeyTypeAES128GCM96 TransitKeyType = "aes128-gcm96"
+	TransitKeyTypeAES256GCM96 TransitKeyType = "aes256-gcm96"
+	TransitKeyTypeCHACHA20    TransitKeyType = "chacha20-poly1305"
+	TransitKeyTypeED25519     TransitKeyType = "ed25519"
+	TransitKeyTypeECDSAP256   TransitKeyType = "ecdsa-p256"
+	TransitKeyTypeECDSAP384   TransitKeyType = "ecdsa-p384"
+	TransitKeyTypeECDSAP521   TransitKeyType = "ecdsa-p521"
+	TransitKeyTypeRSA2048     TransitKeyType = "rsa-2048"
+	TransitKeyTypeRSA3072     TransitKeyType = "rsa-3072"
+	TransitKeyTypeRSA4096     TransitKeyType = "rsa-4096"
+	TransitKeyTypeHMAC        TransitKeyType = "hmac"
+	TransitKeyTypeManagedKey  TransitKeyType = "managed_key"
 )
 
 // TransitHashAlgorithm represents hash algorithms for transit operations.
 type TransitHashAlgorithm string
 
+// TransitHashSHA1 constants define the hash algorithms.
 const (
-	TransitHashSHA1   TransitHashAlgorithm = "sha1"
-	TransitHashSHA224 TransitHashAlgorithm = "sha2-224"
-	TransitHashSHA256 TransitHashAlgorithm = "sha2-256"
-	TransitHashSHA384 TransitHashAlgorithm = "sha2-384"
-	TransitHashSHA512 TransitHashAlgorithm = "sha2-512"
+	TransitHashSHA1    TransitHashAlgorithm = "sha1"
+	TransitHashSHA224  TransitHashAlgorithm = "sha2-224"
+	TransitHashSHA256  TransitHashAlgorithm = "sha2-256"
+	TransitHashSHA384  TransitHashAlgorithm = "sha2-384"
+	TransitHashSHA512  TransitHashAlgorithm = "sha2-512"
 	TransitHashSHA3224 TransitHashAlgorithm = "sha3-224"
 	TransitHashSHA3256 TransitHashAlgorithm = "sha3-256"
 	TransitHashSHA3384 TransitHashAlgorithm = "sha3-384"
@@ -47,9 +49,10 @@ const (
 // TransitSignatureAlgorithm represents signature algorithms.
 type TransitSignatureAlgorithm string
 
+// TransitSigPSS and related constants.
 const (
-	TransitSigPSS    TransitSignatureAlgorithm = "pss"
-	TransitSigPKCS1  TransitSignatureAlgorithm = "pkcs1v15"
+	TransitSigPSS   TransitSignatureAlgorithm = "pss"
+	TransitSigPKCS1 TransitSignatureAlgorithm = "pkcs1v15"
 )
 
 // TransitConfig configures a transit secret engine mount.
@@ -385,7 +388,7 @@ func (t *TransitEngine) Decrypt(ctx context.Context, req *DecryptRequest) (*Decr
 }
 
 // Rewrap re-encrypts ciphertext with the latest key version.
-func (t *TransitEngine) Rewrap(ctx context.Context, keyName, ciphertext string, context []byte) (*EncryptResponse, error) {
+func (t *TransitEngine) Rewrap(ctx context.Context, keyName, ciphertext string, keyContext []byte) (*EncryptResponse, error) {
 	if keyName == "" {
 		return nil, fmt.Errorf("key name is required")
 	}
@@ -399,8 +402,8 @@ func (t *TransitEngine) Rewrap(ctx context.Context, keyName, ciphertext string, 
 		"ciphertext": ciphertext,
 	}
 
-	if len(context) > 0 {
-		data["context"] = base64.StdEncoding.EncodeToString(context)
+	if len(keyContext) > 0 {
+		data["context"] = base64.StdEncoding.EncodeToString(keyContext)
 	}
 
 	resp, err := t.client.Write(ctx, path, data)
@@ -730,7 +733,7 @@ func (t *TransitEngine) GenerateRandomBytes(ctx context.Context, byteCount int, 
 }
 
 // GenerateDataKey generates a data encryption key.
-func (t *TransitEngine) GenerateDataKey(ctx context.Context, keyName string, bits int, context []byte) (plaintext, ciphertext []byte, err error) {
+func (t *TransitEngine) GenerateDataKey(ctx context.Context, keyName string, bits int, keyContext []byte) (plaintext, ciphertext []byte, err error) {
 	if keyName == "" {
 		return nil, nil, fmt.Errorf("key name is required")
 	}
@@ -741,8 +744,8 @@ func (t *TransitEngine) GenerateDataKey(ctx context.Context, keyName string, bit
 	if bits > 0 {
 		data["bits"] = bits
 	}
-	if len(context) > 0 {
-		data["context"] = base64.StdEncoding.EncodeToString(context)
+	if len(keyContext) > 0 {
+		data["context"] = base64.StdEncoding.EncodeToString(keyContext)
 	}
 
 	resp, err := t.client.Write(ctx, path, data)
@@ -767,7 +770,7 @@ func (t *TransitEngine) GenerateDataKey(ctx context.Context, keyName string, bit
 }
 
 // GenerateWrappedDataKey generates a wrapped data key (ciphertext only).
-func (t *TransitEngine) GenerateWrappedDataKey(ctx context.Context, keyName string, bits int, context []byte) ([]byte, error) {
+func (t *TransitEngine) GenerateWrappedDataKey(ctx context.Context, keyName string, bits int, keyContext []byte) ([]byte, error) {
 	if keyName == "" {
 		return nil, fmt.Errorf("key name is required")
 	}
@@ -778,8 +781,8 @@ func (t *TransitEngine) GenerateWrappedDataKey(ctx context.Context, keyName stri
 	if bits > 0 {
 		data["bits"] = bits
 	}
-	if len(context) > 0 {
-		data["context"] = base64.StdEncoding.EncodeToString(context)
+	if len(keyContext) > 0 {
+		data["context"] = base64.StdEncoding.EncodeToString(keyContext)
 	}
 
 	resp, err := t.client.Write(ctx, path, data)

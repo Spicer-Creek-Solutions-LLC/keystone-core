@@ -134,7 +134,8 @@ Examples:
 					return nil
 				}
 				rows := make([][]string, 0, len(caches))
-				for _, cache := range caches {
+				for i := range caches {
+					cache := &caches[i]
 					rows = append(rows, []string{
 						cache.Name,
 						cache.Type,
@@ -150,7 +151,8 @@ Examples:
 				}
 				return output.WriteTable(os.Stdout, table)
 			case output.FormatText:
-				for _, cache := range caches {
+				for i := range caches {
+					cache := &caches[i]
 					fmt.Printf("Cache: %s\n", cache.Name)
 					fmt.Printf("Type: %s\n", cache.Type)
 					fmt.Printf("Enabled: %v\n", cache.Enabled)
@@ -235,7 +237,7 @@ Examples:
 				fmt.Print(msg)
 				var confirm string
 				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 					fmt.Println("Cancelled")
 					return nil
 				}
@@ -393,7 +395,8 @@ Examples:
 				}
 
 				rows := make([][]string, 0, len(entries))
-				for _, entry := range entries {
+				for i := range entries {
+					entry := &entries[i]
 					rows = append(rows, []string{
 						formatSize(entry.Size),
 						fmt.Sprintf("%d", entry.AccessCount),
@@ -453,7 +456,7 @@ Examples:
 				fmt.Printf("Evict %s from cache? [y/N]: ", path)
 				var confirm string
 				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 					fmt.Println("Cancelled")
 					return nil
 				}

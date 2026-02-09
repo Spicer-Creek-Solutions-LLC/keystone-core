@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // SQLiteStorage implements Storage using SQLite.
@@ -53,7 +53,7 @@ func (s *SQLiteStorage) initSchema() error {
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_intervention_requests_exec_step ON runbook_intervention_requests(execution_id, step_name);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -242,8 +242,8 @@ func (s *SQLiteStorage) scanRequest(ctx context.Context, query string, args ...i
 		return nil, fmt.Errorf("scan request: %w", err)
 	}
 
-	req.Type = InterventionType(reqType)
-	req.State = InterventionState(state)
+	req.Type = Type(reqType)
+	req.State = State(state)
 	req.Timeout = time.Duration(timeoutNs)
 
 	if expiresAt.Valid {
@@ -306,8 +306,8 @@ func (s *SQLiteStorage) scanRequestRow(row scanner) (*Request, error) {
 		return nil, fmt.Errorf("scan request: %w", err)
 	}
 
-	req.Type = InterventionType(reqType)
-	req.State = InterventionState(state)
+	req.Type = Type(reqType)
+	req.State = State(state)
 	req.Timeout = time.Duration(timeoutNs)
 
 	if expiresAt.Valid {

@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -29,9 +30,9 @@ func TestAPIQueryMetricsNotConfigured(t *testing.T) {
 		t.Error("Expected error when metrics querier not configured")
 	}
 
-	errResp, ok := err.(*ErrorResponse)
-	if !ok {
-		t.Error("Expected ErrorResponse")
+	var errResp *ResponseError
+	if !errors.As(err, &errResp) {
+		t.Error("Expected ResponseError")
 	}
 
 	if errResp.Code != "METRICS_UNAVAILABLE" {
@@ -56,9 +57,9 @@ func TestAPIQueryLogsNotConfigured(t *testing.T) {
 		t.Error("Expected error when logs querier not configured")
 	}
 
-	errResp, ok := err.(*ErrorResponse)
-	if !ok {
-		t.Error("Expected ErrorResponse")
+	var errResp *ResponseError
+	if !errors.As(err, &errResp) {
+		t.Error("Expected ResponseError")
 	}
 
 	if errResp.Code != "LOGS_UNAVAILABLE" {
@@ -79,9 +80,9 @@ func TestAPIQueryTracesNotConfigured(t *testing.T) {
 		t.Error("Expected error when traces querier not configured")
 	}
 
-	errResp, ok := err.(*ErrorResponse)
-	if !ok {
-		t.Error("Expected ErrorResponse")
+	var errResp *ResponseError
+	if !errors.As(err, &errResp) {
+		t.Error("Expected ResponseError")
 	}
 
 	if errResp.Code != "TRACES_UNAVAILABLE" {
@@ -99,9 +100,9 @@ func TestAPIGetTraceNotConfigured(t *testing.T) {
 		t.Error("Expected error when traces querier not configured")
 	}
 
-	errResp, ok := err.(*ErrorResponse)
-	if !ok {
-		t.Error("Expected ErrorResponse")
+	var errResp *ResponseError
+	if !errors.As(err, &errResp) {
+		t.Error("Expected ResponseError")
 	}
 
 	if errResp.Code != "TRACES_UNAVAILABLE" {
@@ -242,10 +243,10 @@ func TestAPIGetTraceNotFound(t *testing.T) {
 	}
 }
 
-// Tests for QueryType constants
+// Tests for Type constants
 func TestQueryTypeValues(t *testing.T) {
 	tests := []struct {
-		queryType QueryType
+		queryType Type
 		expected  string
 	}{
 		{QueryTypeMetrics, "metrics"},
@@ -558,9 +559,9 @@ func TestTracesResult(t *testing.T) {
 	}
 }
 
-// Tests for ErrorResponse struct
-func TestErrorResponse(t *testing.T) {
-	er := &ErrorResponse{
+// Tests for ResponseError struct
+func TestQueryResponseError(t *testing.T) {
+	er := &ResponseError{
 		Message: "something went wrong",
 		Code:    "INTERNAL_ERROR",
 	}

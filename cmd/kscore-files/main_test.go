@@ -86,7 +86,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check nats-url flag
 	natsURLFlag := cmd.PersistentFlags().Lookup("nats-url")
 	if natsURLFlag == nil {
-		t.Error("expected --nats-url flag")
+		t.Fatal("expected --nats-url flag")
 	}
 	if natsURLFlag.DefValue != "nats://localhost:4222" {
 		t.Errorf("expected nats-url default to be 'nats://localhost:4222', got %s", natsURLFlag.DefValue)
@@ -256,7 +256,7 @@ func TestBackendConfig(t *testing.T) {
 	config := BackendConfig{
 		Name:     "local",
 		Type:     "filesystem",
-		RootPath: "/var/lib/kscore/files",
+		RootPath: "/var/lib/keystone-core/files",
 		Paths:    []string{"/data"},
 		ReadOnly: false,
 	}

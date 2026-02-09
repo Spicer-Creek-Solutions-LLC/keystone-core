@@ -5,6 +5,12 @@ description: >
   Build reactive automation using events, reactors, and automated responses
 ---
 
+> **Note**: This scenario document describes a conceptual event-driven automation workflow.
+> Many of the CLI commands shown (e.g., `kscorectl reactor`, `kscorectl events watch --filter`,
+> `kscorectl compliance scan`) are planned but not yet implemented. The event system and
+> reactor configurations shown are functional, but the CLI management commands are still
+> in development. Use `kscorectl events emit/list/show` for basic event operations.
+
 ## Overview
 
 This scenario demonstrates event-driven infrastructure automation:

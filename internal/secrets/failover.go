@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -185,8 +186,6 @@ type CircuitBreaker struct {
 
 	// callbacks for state change notifications
 	callbacks *CircuitBreakerCallbacks
-
-	mu sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker.
@@ -350,6 +349,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 			// Try to transition to closed via state machine
 			_ = cb.machine.Fire(CircuitEventSuccess)
 		}
+	default:
 	}
 }
 
@@ -369,6 +369,7 @@ func (cb *CircuitBreaker) RecordFailure() {
 	case CircuitStateHalfOpen:
 		// Any failure in half-open goes back to open
 		_ = cb.machine.Fire(CircuitEventFailure)
+	default:
 	}
 }
 
@@ -449,7 +450,7 @@ type HealthMonitorConfig struct {
 func DefaultHealthMonitorConfig() *HealthMonitorConfig {
 	return &HealthMonitorConfig{
 		CheckInterval:      30 * time.Second,
-		Timeout:           5 * time.Second,
+		Timeout:            5 * time.Second,
 		HealthyThreshold:   2,
 		UnhealthyThreshold: 3,
 		CircuitBreaker:     DefaultCircuitBreakerConfig(),
@@ -972,7 +973,7 @@ func (bg *BackendGroup) SelectBackend(ctx context.Context) (SecretBackend, strin
 				break
 			}
 
-			if bg.healthMonitor != nil && !bg.healthMonitor.AllowRequest(name) {
+			if bg.healthMonitor != nil && !bg.healthMonitor.AllowRequest(name) { //nolint:contextcheck // AllowRequest uses internal state machine that doesn't need context
 				continue
 			}
 
@@ -1053,7 +1054,7 @@ func (bg *BackendGroup) ExecuteWithFailover(ctx context.Context, op func(backend
 			break
 		}
 
-		if bg.healthMonitor != nil && !bg.healthMonitor.AllowRequest(name) {
+		if bg.healthMonitor != nil && !bg.healthMonitor.AllowRequest(name) { //nolint:contextcheck // AllowRequest uses internal state machine that doesn't need context
 			continue
 		}
 
@@ -1065,7 +1066,7 @@ func (bg *BackendGroup) ExecuteWithFailover(ctx context.Context, op func(backend
 		err := op(backend)
 		if err == nil {
 			if bg.healthMonitor != nil {
-				bg.healthMonitor.RecordSuccess(name)
+				bg.healthMonitor.RecordSuccess(name) //nolint:contextcheck // RecordSuccess updates internal state, doesn't need context
 			}
 			return nil
 		}
@@ -1074,7 +1075,7 @@ func (bg *BackendGroup) ExecuteWithFailover(ctx context.Context, op func(backend
 		attempts++
 
 		if bg.healthMonitor != nil {
-			bg.healthMonitor.RecordFailure(name, err)
+			bg.healthMonitor.RecordFailure(name, err) //nolint:contextcheck // RecordFailure updates internal state, doesn't need context
 		}
 
 		// Don't retry for non-retryable errors
@@ -1104,19 +1105,18 @@ func isRetryableError(err error) bool {
 	}
 
 	// Non-retryable errors
-	switch err {
-	case ErrSecretNotFound, ErrAccessDenied, ErrInvalidPath, ErrLeaseNotFound:
+	if errors.Is(err, ErrSecretNotFound) || errors.Is(err, ErrAccessDenied) ||
+		errors.Is(err, ErrInvalidPath) || errors.Is(err, ErrLeaseNotFound) {
 		return false
 	}
 
 	// Retryable errors
-	switch err {
-	case ErrBackendUnavailable:
+	if errors.Is(err, ErrBackendUnavailable) {
 		return true
 	}
 
 	// Check for context errors
-	if err == context.DeadlineExceeded || err == context.Canceled {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return false
 	}
 

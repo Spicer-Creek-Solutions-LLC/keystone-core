@@ -206,10 +206,10 @@ func TestPolicyManager_Validate(t *testing.T) {
 	manager := NewPolicyManager(store)
 
 	tests := []struct {
-		name        string
-		policy      *NetworkPolicy
-		wantValid   bool
-		wantErrors  int
+		name         string
+		policy       *NetworkPolicy
+		wantValid    bool
+		wantErrors   int
 		wantWarnings int
 	}{
 		{
@@ -331,9 +331,9 @@ func TestPolicyManager_Diff(t *testing.T) {
 
 	// Desired state
 	desired := []*NetworkPolicy{
-		{Name: "policy-1", Namespace: "default", Spec: NetworkPolicySpec{PodSelector: LabelSelector{MatchLabels: map[string]string{"a": "1"}}}}, // unchanged
+		{Name: "policy-1", Namespace: "default", Spec: NetworkPolicySpec{PodSelector: LabelSelector{MatchLabels: map[string]string{"a": "1"}}}},       // unchanged
 		{Name: "policy-2", Namespace: "default", Spec: NetworkPolicySpec{PodSelector: LabelSelector{MatchLabels: map[string]string{"b": "changed"}}}}, // changed
-		{Name: "policy-4", Namespace: "default", Spec: NetworkPolicySpec{PodSelector: LabelSelector{MatchLabels: map[string]string{"d": "4"}}}}, // new
+		{Name: "policy-4", Namespace: "default", Spec: NetworkPolicySpec{PodSelector: LabelSelector{MatchLabels: map[string]string{"d": "4"}}}},       // new
 		// policy-3 is removed
 	}
 

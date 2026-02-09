@@ -128,20 +128,20 @@ Common issues and solutions:
 
 ### Debug Logging
 
-Enable debug logging for more information:
+Enable debug logging for more information using the environment variable:
 
 ```bash
 # Server
-kscore-server --log-level=debug
+KSCORE_LOG_LEVEL=debug kscore-server
 
 # Agent
-kscore-agent --log-level=debug
+KSCORE_LOG_LEVEL=debug kscore-agent
 
 # CLI tools
-kscorectl --log-level=debug exec run ...
+KSCORE_LOG_LEVEL=debug kscorectl exec run ...
 ```
 
-Environment variable:
+Or set globally:
 ```bash
 export KSCORE_LOG_LEVEL=debug
 ```
@@ -242,8 +242,8 @@ See our [Security Policy](https://github.com/shawnbutts/keystone-core/security/p
 4. Review firewall rules (port 4222 for NATS, 8080 for HTTP)
 
 ```bash
-# Debug agent connection
-kscore-agent --server-url=nats://server:4222 --log-level=debug
+# Debug agent connection (set server URL in config file, enable debug logging)
+KSCORE_LOG_LEVEL=debug kscore-agent --config /etc/keystone-core/agent.yaml
 
 # Check server connectivity
 nc -zv server 4222
@@ -255,7 +255,7 @@ nc -zv server 4222
 
 **Solutions**:
 1. Validate state file syntax: `kscorectl state check <file>`
-2. Check module availability: `kscorectl state list-modules`
+2. Check module dependencies: `kscorectl module tree`
 3. Verify agent connectivity
 4. Review dependency graph for cycles
 
@@ -282,7 +282,8 @@ kscorectl state apply --dry-run mystate.yaml
 curl http://localhost:8080/api/v1/events/stats
 
 # Apply retention policy
-kscorectl events retention --max-age=7d --apply
+kscorectl events retention set --max-age 7d
+kscorectl events retention apply
 ```
 
 ### Health Checks

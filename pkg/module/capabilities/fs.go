@@ -37,17 +37,17 @@ func (c *FSReadCapability) Validate() error {
 	// Validate glob patterns and check for dangerous patterns
 	for _, pattern := range c.AllowedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
-			return fmt.Errorf("%w: invalid allowed path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+			return fmt.Errorf("%w: invalid allowed path pattern %s: %w", ErrInvalidConfiguration, pattern, err)
 		}
 		// Check for overly broad patterns
 		if err := validatePathPatternSecurity(pattern); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+			return fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
 		}
 	}
 
 	for _, pattern := range c.DeniedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
-			return fmt.Errorf("%w: invalid denied path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+			return fmt.Errorf("%w: invalid denied path pattern %s: %w", ErrInvalidConfiguration, pattern, err)
 		}
 	}
 
@@ -69,21 +69,14 @@ func (c *FSReadCapability) CheckPath(path string) error {
 	// Clean the path and resolve symlinks to prevent escape attacks
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidPath, err)
+		return fmt.Errorf("%w: %w", ErrInvalidPath, err)
 	}
 
 	// Resolve symlinks to get the real path - prevents symlink escape attacks
-	// If the file doesn't exist yet, we can still validate the cleaned path
+	// If the file doesn't exist yet or we get another error, use the cleaned path
 	realPath, err := filepath.EvalSymlinks(cleanPath)
 	if err != nil {
-		// If file doesn't exist, that's ok for path checking
-		// But if it's another error, we should still use cleanPath
-		if !os.IsNotExist(err) {
-			// For other errors (e.g., permission denied), use the cleaned path
-			realPath = cleanPath
-		} else {
-			realPath = cleanPath
-		}
+		realPath = cleanPath
 	}
 
 	// Check denied paths first (against both cleaned and real paths)
@@ -186,17 +179,17 @@ func (c *FSWriteCapability) Validate() error {
 	// Validate glob patterns and check for dangerous patterns
 	for _, pattern := range c.AllowedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
-			return fmt.Errorf("%w: invalid allowed path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+			return fmt.Errorf("%w: invalid allowed path pattern %s: %w", ErrInvalidConfiguration, pattern, err)
 		}
 		// Check for overly broad patterns
 		if err := validatePathPatternSecurity(pattern); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+			return fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
 		}
 	}
 
 	for _, pattern := range c.DeniedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
-			return fmt.Errorf("%w: invalid denied path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+			return fmt.Errorf("%w: invalid denied path pattern %s: %w", ErrInvalidConfiguration, pattern, err)
 		}
 	}
 
@@ -218,7 +211,7 @@ func (c *FSWriteCapability) CheckPath(path string) error {
 	// Clean the path and resolve symlinks to prevent escape attacks
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidPath, err)
+		return fmt.Errorf("%w: %w", ErrInvalidPath, err)
 	}
 
 	// For write operations, we need to check the parent directory if file doesn't exist
@@ -232,7 +225,7 @@ func (c *FSWriteCapability) CheckPath(path string) error {
 		}
 	} else if !os.IsNotExist(err) {
 		// Error other than "file not found"
-		return fmt.Errorf("%w: cannot stat path: %v", ErrInvalidPath, err)
+		return fmt.Errorf("%w: cannot stat path: %w", ErrInvalidPath, err)
 	} else {
 		// File doesn't exist, check parent directory for symlinks
 		parentDir := filepath.Dir(cleanPath)
@@ -293,7 +286,8 @@ func (c *FSWriteCapability) WriteFile(ctx *CapabilityContext, path string, data 
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: parent directory needs to be accessible for module operations
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -313,7 +307,8 @@ func (c *FSWriteCapability) CreateFile(ctx *CapabilityContext, path string, perm
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: parent directory needs to be accessible for module operations
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -350,7 +345,8 @@ func (c *FSWriteCapability) AppendFile(ctx *CapabilityContext, path string, data
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: parent directory needs to be accessible for module operations
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -450,7 +446,8 @@ func (c *FSWriteCapability) CopyFile(ctx *CapabilityContext, readCap *FSReadCapa
 
 	// Ensure destination directory exists
 	dstDir := filepath.Dir(dst)
-	if err := os.MkdirAll(dstDir, 0755); err != nil {
+	//nolint:gosec // G301: destination directory needs to be accessible for module operations
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -510,35 +507,35 @@ func matchesRecursiveParts(pattern, path []string) bool {
 
 // Dangerous path patterns that should be blocked
 var dangerousPathPatterns = []string{
-	"/",          // Root filesystem
-	"/*",         // Everything in root
-	"/**",        // All files recursively from root
-	"/etc",       // System configuration
-	"/etc/*",     // All system config files
-	"/etc/**",    // All system config recursively
-	"/var",       // Variable data
-	"/var/*",     // All variable data
-	"/var/**",    // All variable data recursively
-	"/usr",       // User programs
-	"/usr/*",     // All user programs
-	"/usr/**",    // All user programs recursively
-	"/bin",       // Essential binaries
-	"/bin/*",     // All essential binaries
-	"/sbin",      // System binaries
-	"/sbin/*",    // All system binaries
-	"/root",      // Root home
-	"/root/*",    // All root files
-	"/root/**",   // All root files recursively
-	"/home",      // All user homes
-	"/home/*",    // All user home directories
-	"/home/**",   // All user files recursively
-	"C:\\",       // Windows root
-	"C:\\*",      // Windows root all
-	"C:\\**",     // Windows all files
-	"C:\\Windows",          // Windows system
-	"C:\\Windows\\*",       // Windows system files
-	"C:\\Windows\\**",      // Windows system recursively
-	"C:\\Windows\\System32", // Windows system32
+	"/",                         // Root filesystem
+	"/*",                        // Everything in root
+	"/**",                       // All files recursively from root
+	"/etc",                      // System configuration
+	"/etc/*",                    // All system config files
+	"/etc/**",                   // All system config recursively
+	"/var",                      // Variable data
+	"/var/*",                    // All variable data
+	"/var/**",                   // All variable data recursively
+	"/usr",                      // User programs
+	"/usr/*",                    // All user programs
+	"/usr/**",                   // All user programs recursively
+	"/bin",                      // Essential binaries
+	"/bin/*",                    // All essential binaries
+	"/sbin",                     // System binaries
+	"/sbin/*",                   // All system binaries
+	"/root",                     // Root home
+	"/root/*",                   // All root files
+	"/root/**",                  // All root files recursively
+	"/home",                     // All user homes
+	"/home/*",                   // All user home directories
+	"/home/**",                  // All user files recursively
+	"C:\\",                      // Windows root
+	"C:\\*",                     // Windows root all
+	"C:\\**",                    // Windows all files
+	"C:\\Windows",               // Windows system
+	"C:\\Windows\\*",            // Windows system files
+	"C:\\Windows\\**",           // Windows system recursively
+	"C:\\Windows\\System32",     // Windows system32
 	"C:\\Windows\\System32\\*",  // All system32 files
 	"C:\\Windows\\System32\\**", // System32 recursively
 }

@@ -1,3 +1,4 @@
+// Package config provides configuration management for the TUI monitor.
 package config
 
 import (
@@ -19,6 +20,7 @@ type Config struct {
 	Theme           string `yaml:"theme"`
 	RefreshInterval int    `yaml:"refresh_interval"` // seconds
 	NoColor         bool   `yaml:"no_color"`
+	InitialView     int    `yaml:"initial_view"` // 1-8, 0 means default (dashboard)
 
 	// View settings
 	EventBufferSize int  `yaml:"event_buffer_size"`
@@ -42,6 +44,7 @@ func Default() *Config {
 		Theme:           "dark",
 		RefreshInterval: 2,
 		NoColor:         false,
+		InitialView:     0,
 		EventBufferSize: 1000,
 		LogBufferSize:   1000,
 		AutoScroll:      true,
@@ -93,7 +96,8 @@ func (c *Config) Save(path string) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: config directory needs to be accessible by admin users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -102,7 +106,8 @@ func (c *Config) Save(path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	//nolint:gosec // G306: config file needs to be readable by the user
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

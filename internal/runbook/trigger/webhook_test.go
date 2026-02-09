@@ -490,7 +490,7 @@ func TestWebhookTriggerManager_Execute(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "deploy"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -557,7 +557,7 @@ func TestWebhookTriggerManager_HTTPHandler(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "test-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})

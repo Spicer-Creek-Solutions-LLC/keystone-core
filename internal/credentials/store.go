@@ -4,6 +4,7 @@ package credentials
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,7 +62,7 @@ func (s *InMemoryCredentialStore) Get(ctx context.Context, id string) (Credentia
 // Store stores a credential.
 func (s *InMemoryCredentialStore) Store(ctx context.Context, cred Credential) error {
 	if err := cred.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidCredential, err)
+		return fmt.Errorf("%w: %w", ErrInvalidCredential, err)
 	}
 
 	s.mu.Lock()
@@ -130,7 +131,7 @@ func NewFileCredentialStore(config *FileStoreConfig) (*FileCredentialStore, erro
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(config.BasePath, 0700); err != nil {
+	if err := os.MkdirAll(config.BasePath, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create credential directory: %w", err)
 	}
 
@@ -172,7 +173,7 @@ func (s *FileCredentialStore) Get(ctx context.Context, id string) (Credential, e
 	if s.encryptor != nil {
 		data, err = s.encryptor.Decrypt(data)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrDecryptionFailed, err)
+			return nil, fmt.Errorf("%w: %w", ErrDecryptionFailed, err)
 		}
 	}
 
@@ -198,7 +199,7 @@ func (s *FileCredentialStore) Get(ctx context.Context, id string) (Credential, e
 // Store stores a credential.
 func (s *FileCredentialStore) Store(ctx context.Context, cred Credential) error {
 	if err := cred.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidCredential, err)
+		return fmt.Errorf("%w: %w", ErrInvalidCredential, err)
 	}
 
 	s.mu.Lock()
@@ -225,13 +226,13 @@ func (s *FileCredentialStore) Store(ctx context.Context, cred Credential) error 
 	if s.encryptor != nil {
 		data, err = s.encryptor.Encrypt(data)
 		if err != nil {
-			return fmt.Errorf("%w: %v", ErrEncryptionFailed, err)
+			return fmt.Errorf("%w: %w", ErrEncryptionFailed, err)
 		}
 	}
 
 	// Write to file
 	path := s.credentialPath(cred.ID())
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write credential file: %w", err)
 	}
 
@@ -320,7 +321,7 @@ func (s *CompositeCredentialStore) Get(ctx context.Context, id string) (Credenti
 		if err == nil {
 			return cred, nil
 		}
-		if err != ErrCredentialNotFound {
+		if !errors.Is(err, ErrCredentialNotFound) {
 			return nil, err
 		}
 	}
@@ -339,7 +340,7 @@ func (s *CompositeCredentialStore) Store(ctx context.Context, cred Credential) e
 func (s *CompositeCredentialStore) Delete(ctx context.Context, id string) error {
 	var lastErr error
 	for _, store := range s.stores {
-		if err := store.Delete(ctx, id); err != nil && err != ErrCredentialNotFound {
+		if err := store.Delete(ctx, id); err != nil && !errors.Is(err, ErrCredentialNotFound) {
 			lastErr = err
 		}
 	}

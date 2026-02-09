@@ -84,19 +84,19 @@ type ReportPeriod struct {
 
 // ComplianceSummary provides an overview of compliance status.
 type ComplianceSummary struct {
-	TotalRequirements     int     `json:"total_requirements"`
-	Compliant             int     `json:"compliant"`
-	NonCompliant          int     `json:"non_compliant"`
-	PartiallyCompliant    int     `json:"partially_compliant"`
-	NotApplicable         int     `json:"not_applicable"`
-	Unknown               int     `json:"unknown"`
-	OverallScore          float64 `json:"overall_score"` // 0-100
-	CriticalIssues        int     `json:"critical_issues"`
-	HighIssues            int     `json:"high_issues"`
-	MediumIssues          int     `json:"medium_issues"`
-	LowIssues             int     `json:"low_issues"`
-	CompliancePercentage  float64 `json:"compliance_percentage"`
-	RiskLevel             string  `json:"risk_level"` // critical, high, medium, low
+	TotalRequirements    int     `json:"total_requirements"`
+	Compliant            int     `json:"compliant"`
+	NonCompliant         int     `json:"non_compliant"`
+	PartiallyCompliant   int     `json:"partially_compliant"`
+	NotApplicable        int     `json:"not_applicable"`
+	Unknown              int     `json:"unknown"`
+	OverallScore         float64 `json:"overall_score"` // 0-100
+	CriticalIssues       int     `json:"critical_issues"`
+	HighIssues           int     `json:"high_issues"`
+	MediumIssues         int     `json:"medium_issues"`
+	LowIssues            int     `json:"low_issues"`
+	CompliancePercentage float64 `json:"compliance_percentage"`
+	RiskLevel            string  `json:"risk_level"` // critical, high, medium, low
 }
 
 // KeyInventoryItem represents a key in the inventory.
@@ -117,47 +117,47 @@ type KeyInventoryItem struct {
 
 // AccessAuditSummary provides access statistics.
 type AccessAuditSummary struct {
-	TotalAccesses        int64                `json:"total_accesses"`
-	UniqueSecrets        int                  `json:"unique_secrets"`
-	UniquePrincipals     int                  `json:"unique_principals"`
-	EncryptOperations    int64                `json:"encrypt_operations"`
-	DecryptOperations    int64                `json:"decrypt_operations"`
-	SignOperations       int64                `json:"sign_operations"`
-	VerifyOperations     int64                `json:"verify_operations"`
-	FailedAttempts       int64                `json:"failed_attempts"`
-	UnauthorizedAttempts int64                `json:"unauthorized_attempts"`
-	AnomaliesDetected    int                  `json:"anomalies_detected"`
-	TopAccessors         []AccessorStats      `json:"top_accessors"`
-	TopSecrets           []SecretAccessStats  `json:"top_secrets"`
-	AccessByHour         map[int]int64        `json:"access_by_hour"`
-	AccessByDay          map[string]int64     `json:"access_by_day"`
+	TotalAccesses        int64               `json:"total_accesses"`
+	UniqueSecrets        int                 `json:"unique_secrets"`
+	UniquePrincipals     int                 `json:"unique_principals"`
+	EncryptOperations    int64               `json:"encrypt_operations"`
+	DecryptOperations    int64               `json:"decrypt_operations"`
+	SignOperations       int64               `json:"sign_operations"`
+	VerifyOperations     int64               `json:"verify_operations"`
+	FailedAttempts       int64               `json:"failed_attempts"`
+	UnauthorizedAttempts int64               `json:"unauthorized_attempts"`
+	AnomaliesDetected    int                 `json:"anomalies_detected"`
+	TopAccessors         []AccessorStats     `json:"top_accessors"`
+	TopSecrets           []SecretAccessStats `json:"top_secrets"`
+	AccessByHour         map[int]int64       `json:"access_by_hour"`
+	AccessByDay          map[string]int64    `json:"access_by_day"`
 }
 
 // AccessorStats represents access statistics for a principal.
 type AccessorStats struct {
-	Principal    string `json:"principal"`
-	AccessCount  int64  `json:"access_count"`
+	Principal    string    `json:"principal"`
+	AccessCount  int64     `json:"access_count"`
 	LastAccess   time.Time `json:"last_access"`
-	FailureCount int64  `json:"failure_count"`
+	FailureCount int64     `json:"failure_count"`
 }
 
 // SecretAccessStats represents access statistics for a secret.
 type SecretAccessStats struct {
-	SecretPath  string `json:"secret_path"`
-	AccessCount int64  `json:"access_count"`
+	SecretPath  string    `json:"secret_path"`
+	AccessCount int64     `json:"access_count"`
 	LastAccess  time.Time `json:"last_access"`
 }
 
 // RotationSummary provides key rotation statistics.
 type RotationSummary struct {
-	TotalKeys           int                  `json:"total_keys"`
-	KeysRotatedInPeriod int                  `json:"keys_rotated_in_period"`
-	KeysPendingRotation int                  `json:"keys_pending_rotation"`
-	KeysOverdue         int                  `json:"keys_overdue"`
-	AverageRotationAge  time.Duration        `json:"average_rotation_age"`
-	MaxRotationAge      time.Duration        `json:"max_rotation_age"`
-	RotationPolicy      RotationPolicy       `json:"rotation_policy"`
-	RotationHistory     []RotationEvent      `json:"rotation_history,omitempty"`
+	TotalKeys           int             `json:"total_keys"`
+	KeysRotatedInPeriod int             `json:"keys_rotated_in_period"`
+	KeysPendingRotation int             `json:"keys_pending_rotation"`
+	KeysOverdue         int             `json:"keys_overdue"`
+	AverageRotationAge  time.Duration   `json:"average_rotation_age"`
+	MaxRotationAge      time.Duration   `json:"max_rotation_age"`
+	RotationPolicy      RotationPolicy  `json:"rotation_policy"`
+	RotationHistory     []RotationEvent `json:"rotation_history,omitempty"`
 }
 
 // RotationPolicy describes the key rotation policy.
@@ -468,15 +468,16 @@ func (r *ComplianceReporter) checkAccessControl(req ComplianceRequirement, perio
 		unauthorizedCount += entry.failureCount
 	}
 
-	if unauthorizedCount == 0 {
+	switch {
+	case unauthorizedCount == 0:
 		result.Status = StatusCompliant
 		result.Details = "No unauthorized access attempts detected"
 		result.Evidence = append(result.Evidence, "Zero failed access attempts in audit log")
-	} else if unauthorizedCount < 10 {
+	case unauthorizedCount < 10:
 		result.Status = StatusPartiallyCompliant
 		result.Details = fmt.Sprintf("%d unauthorized access attempts detected", unauthorizedCount)
 		result.Evidence = append(result.Evidence, fmt.Sprintf("Failed attempts: %d", unauthorizedCount))
-	} else {
+	default:
 		result.Status = StatusNonCompliant
 		result.Details = fmt.Sprintf("High number of unauthorized access attempts: %d", unauthorizedCount)
 		result.Evidence = append(result.Evidence, fmt.Sprintf("Failed attempts: %d (threshold: 10)", unauthorizedCount))
@@ -498,17 +499,18 @@ func (r *ComplianceReporter) checkCryptographicControls(req ComplianceRequiremen
 		}
 	}
 
-	if weakKeys == 0 && strongKeys > 0 {
+	switch {
+	case weakKeys == 0 && strongKeys > 0:
 		result.Status = StatusCompliant
 		result.Details = fmt.Sprintf("All %d keys meet minimum size requirement (%d bits)", strongKeys, r.config.MinKeySize)
 		result.Evidence = append(result.Evidence, fmt.Sprintf("Minimum key size: %d bits", r.config.MinKeySize))
-	} else if weakKeys > 0 && strongKeys > 0 {
+	case weakKeys > 0 && strongKeys > 0:
 		result.Status = StatusPartiallyCompliant
 		result.Details = fmt.Sprintf("%d of %d keys are below minimum size requirement", weakKeys, weakKeys+strongKeys)
-	} else if weakKeys > 0 {
+	case weakKeys > 0:
 		result.Status = StatusNonCompliant
 		result.Details = fmt.Sprintf("All %d keys are below minimum size requirement", weakKeys)
-	} else {
+	default:
 		result.Status = StatusNotApplicable
 		result.Details = "No keys registered"
 	}
@@ -527,16 +529,18 @@ func (r *ComplianceReporter) checkKeyManagement(req ComplianceRequirement, perio
 			continue
 		}
 
-		if key.NextRotation != nil {
-			if key.NextRotation.Before(now) {
+		switch {
+		case key.NextRotation != nil:
+			switch {
+			case key.NextRotation.Before(now):
 				overdueKeys++
 				result.Evidence = append(result.Evidence, fmt.Sprintf("Overdue: %s (due: %s)", key.KeyID, key.NextRotation.Format(time.RFC3339)))
-			} else if key.NextRotation.Before(now.Add(30 * 24 * time.Hour)) {
+			case key.NextRotation.Before(now.Add(30 * 24 * time.Hour)):
 				pendingKeys++
-			} else {
+			default:
 				compliantKeys++
 			}
-		} else if key.LastRotated != nil {
+		case key.LastRotated != nil:
 			age := now.Sub(*key.LastRotated)
 			if age > r.config.RotationMaxAge {
 				overdueKeys++
@@ -548,16 +552,17 @@ func (r *ComplianceReporter) checkKeyManagement(req ComplianceRequirement, perio
 	}
 
 	total := overdueKeys + pendingKeys + compliantKeys
-	if total == 0 {
+	switch {
+	case total == 0:
 		result.Status = StatusNotApplicable
 		result.Details = "No active keys to evaluate"
-	} else if overdueKeys == 0 {
+	case overdueKeys == 0:
 		result.Status = StatusCompliant
 		result.Details = fmt.Sprintf("All %d keys are within rotation policy", total)
 		if pendingKeys > 0 {
 			result.Evidence = append(result.Evidence, fmt.Sprintf("%d keys pending rotation in next 30 days", pendingKeys))
 		}
-	} else {
+	default:
 		result.Status = StatusNonCompliant
 		result.Details = fmt.Sprintf("%d of %d keys are overdue for rotation", overdueKeys, total)
 	}
@@ -647,13 +652,13 @@ func (r *ComplianceReporter) checkSecurityControls(req ComplianceRequirement, pe
 	// Check key algorithms
 	var approved, unapproved int
 	approvedAlgorithms := map[string]bool{
-		"aes-256-gcm":  true,
-		"aes-128-gcm":  true,
-		"rsa-4096":     true,
-		"rsa-2048":     true,
-		"ecdsa-p256":   true,
-		"ecdsa-p384":   true,
-		"ed25519":      true,
+		"aes-256-gcm": true,
+		"aes-128-gcm": true,
+		"rsa-4096":    true,
+		"rsa-2048":    true,
+		"ecdsa-p256":  true,
+		"ecdsa-p384":  true,
+		"ed25519":     true,
 	}
 
 	for _, key := range r.keyInventory {
@@ -665,13 +670,14 @@ func (r *ComplianceReporter) checkSecurityControls(req ComplianceRequirement, pe
 		}
 	}
 
-	if unapproved == 0 && approved > 0 {
+	switch {
+	case unapproved == 0 && approved > 0:
 		result.Status = StatusCompliant
 		result.Details = fmt.Sprintf("All %d keys use approved algorithms", approved)
-	} else if unapproved > 0 {
+	case unapproved > 0:
 		result.Status = StatusNonCompliant
 		result.Details = fmt.Sprintf("%d keys use unapproved algorithms", unapproved)
-	} else {
+	default:
 		result.Status = StatusNotApplicable
 		result.Details = "No keys to evaluate"
 	}
@@ -706,14 +712,15 @@ func (r *ComplianceReporter) checkNonRepudiation(req ComplianceRequirement, peri
 	result := ComplianceCheckResult{Evidence: make([]string, 0)}
 
 	// Check if audit logging captures who performed actions
-	if r.auditLogger != nil && len(r.accessStats) > 0 {
+	switch {
+	case r.auditLogger != nil && len(r.accessStats) > 0:
 		result.Status = StatusCompliant
 		result.Details = "Audit logging captures principal identity for all operations"
 		result.Evidence = append(result.Evidence, "All access events include principal ID")
-	} else if r.auditLogger != nil {
+	case r.auditLogger != nil:
 		result.Status = StatusPartiallyCompliant
 		result.Details = "Audit logging is enabled but no events recorded"
-	} else {
+	default:
 		result.Status = StatusNonCompliant
 		result.Details = "Audit logging is not configured"
 	}
@@ -775,7 +782,8 @@ func (r *ComplianceReporter) calculateSummary(results []ComplianceCheckResult) C
 		TotalRequirements: len(results),
 	}
 
-	for _, result := range results {
+	for i := range results {
+		result := &results[i]
 		switch result.Status {
 		case StatusCompliant:
 			summary.Compliant++
@@ -809,13 +817,14 @@ func (r *ComplianceReporter) calculateSummary(results []ComplianceCheckResult) C
 	}
 
 	// Determine risk level
-	if summary.CriticalIssues > 0 {
+	switch {
+	case summary.CriticalIssues > 0:
 		summary.RiskLevel = "critical"
-	} else if summary.HighIssues > 0 {
+	case summary.HighIssues > 0:
 		summary.RiskLevel = "high"
-	} else if summary.MediumIssues > 0 || summary.NonCompliant > 0 {
+	case summary.MediumIssues > 0 || summary.NonCompliant > 0:
 		summary.RiskLevel = "medium"
-	} else {
+	default:
 		summary.RiskLevel = "low"
 	}
 
@@ -988,9 +997,9 @@ func (r *ComplianceReport) ExportJSON() ([]byte, error) {
 // GetNonCompliantItems returns all non-compliant check results.
 func (r *ComplianceReport) GetNonCompliantItems() []ComplianceCheckResult {
 	var items []ComplianceCheckResult
-	for _, result := range r.Results {
-		if result.Status == StatusNonCompliant {
-			items = append(items, result)
+	for i := range r.Results {
+		if r.Results[i].Status == StatusNonCompliant {
+			items = append(items, r.Results[i])
 		}
 	}
 	return items
@@ -999,9 +1008,9 @@ func (r *ComplianceReport) GetNonCompliantItems() []ComplianceCheckResult {
 // GetCriticalIssues returns all critical severity non-compliant items.
 func (r *ComplianceReport) GetCriticalIssues() []ComplianceCheckResult {
 	var items []ComplianceCheckResult
-	for _, result := range r.Results {
-		if result.Status == StatusNonCompliant && result.Requirement.Severity == "critical" {
-			items = append(items, result)
+	for i := range r.Results {
+		if r.Results[i].Status == StatusNonCompliant && r.Results[i].Requirement.Severity == "critical" {
+			items = append(items, r.Results[i])
 		}
 	}
 	return items

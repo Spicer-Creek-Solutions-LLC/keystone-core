@@ -14,6 +14,7 @@ import (
 // BackendType identifies the type of secret backend.
 type BackendType string
 
+// BackendTypeVault constants define the supported types.
 const (
 	BackendTypeVault BackendType = "vault"
 	BackendTypeAWS   BackendType = "aws_secrets_manager"
@@ -39,14 +40,15 @@ func (b BackendType) Valid() bool {
 // SecretType identifies the type of secret.
 type SecretType string
 
+// SecretTypeStatic constants define the supported types.
 const (
-	SecretTypeStatic    SecretType = "static"    // Static secret (KV store)
-	SecretTypeDynamic   SecretType = "dynamic"   // Dynamic secret (generated on demand)
-	SecretTypePKI       SecretType = "pki"       // PKI certificate
-	SecretTypeTransit   SecretType = "transit"   // Transit encryption key
-	SecretTypeDatabase  SecretType = "database"  // Database credentials
-	SecretTypeCloudIAM  SecretType = "cloud_iam" // Cloud IAM credentials
-	SecretTypeSSH       SecretType = "ssh"       // SSH certificate
+	SecretTypeStatic     SecretType = "static"     // Static secret (KV store)
+	SecretTypeDynamic    SecretType = "dynamic"    // Dynamic secret (generated on demand)
+	SecretTypePKI        SecretType = "pki"        // PKI certificate
+	SecretTypeTransit    SecretType = "transit"    // Transit encryption key
+	SecretTypeDatabase   SecretType = "database"   // Database credentials
+	SecretTypeCloudIAM   SecretType = "cloud_iam"  // Cloud IAM credentials
+	SecretTypeSSH        SecretType = "ssh"        // SSH certificate
 	SecretTypeKubernetes SecretType = "kubernetes" // Kubernetes service account
 )
 
@@ -139,6 +141,7 @@ func (s *Secret) HasLease() bool {
 // LeaseState represents the state of a lease.
 type LeaseState string
 
+// LeaseState constants define the possible states.
 const (
 	LeaseStatePending  LeaseState = "pending"
 	LeaseStateActive   LeaseState = "active"
@@ -223,6 +226,7 @@ func (l *Lease) NeedsRenewal(threshold float64) bool {
 // RenewalStrategy defines how leases should be renewed.
 type RenewalStrategy string
 
+// RenewalStrategyEager constants define the strategies.
 const (
 	RenewalStrategyEager    RenewalStrategy = "eager"     // Renew at 50% of TTL
 	RenewalStrategyLazy     RenewalStrategy = "lazy"      // Renew at 90% of TTL
@@ -429,6 +433,7 @@ func (s *CacheStats) HitRate() float64 {
 // TransitOperation represents a transit encryption operation type.
 type TransitOperation string
 
+// TransitOperationEncrypt constants define the operators.
 const (
 	TransitOperationEncrypt TransitOperation = "encrypt"
 	TransitOperationDecrypt TransitOperation = "decrypt"
@@ -532,6 +537,7 @@ type TransitBackend interface {
 // RotationStrategy defines how secrets should be rotated.
 type RotationStrategy string
 
+// RotationStrategyBlueGreen constants define the strategies.
 const (
 	RotationStrategyBlueGreen RotationStrategy = "blue_green" // Generate new, switch atomically
 	RotationStrategyRolling   RotationStrategy = "rolling"    // Update consumers one-by-one
@@ -542,6 +548,7 @@ const (
 // RotationState represents the state of a rotation operation.
 type RotationState string
 
+// RotationState constants define the possible states.
 const (
 	RotationStatePending    RotationState = "pending"
 	RotationStateInProgress RotationState = "in_progress"

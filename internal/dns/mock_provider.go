@@ -161,7 +161,7 @@ var _ Provider = (*MockProvider)(nil)
 // RegisterMockProvider registers a mock provider factory with the given registry.
 func RegisterMockProvider(registry *Registry, name string) *MockProvider {
 	mock := NewMockProvider()
-	registry.Register(name, func(creds ResolvedCredentials) (Provider, error) {
+	_ = registry.Register(name, func(creds ResolvedCredentials) (Provider, error) { //nolint:errcheck // registration in init
 		return mock, nil
 	}, mock.Capabilities())
 	return mock

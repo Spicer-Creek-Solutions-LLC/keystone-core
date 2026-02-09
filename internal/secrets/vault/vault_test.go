@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -394,7 +395,7 @@ func TestClientErrorResponses(t *testing.T) {
 
 			ctx := context.Background()
 			_, err = client.Read(ctx, "secret/test")
-			if err != tt.wantErr {
+			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Read() error = %v, want %v", err, tt.wantErr)
 			}
 		})
@@ -1262,7 +1263,7 @@ func TestBackendRegisterEngine(t *testing.T) {
 	// Verify the engine was registered
 	engine := backend.getEngine("custom-kv")
 	if engine == nil {
-		t.Error("expected engine to be registered")
+		t.Fatal("expected engine to be registered")
 	}
 	if engine.Version != 1 {
 		t.Errorf("expected version 1, got %d", engine.Version)
@@ -1863,7 +1864,7 @@ func TestLeaseTrackerRenewNotRenewable(t *testing.T) {
 	_ = tracker.Track(ctx, lease)
 
 	_, err := tracker.Renew(ctx, "test-lease-123", time.Hour)
-	if err != secrets.ErrLeaseNotRenewable {
+	if !errors.Is(err, secrets.ErrLeaseNotRenewable) {
 		t.Errorf("expected ErrLeaseNotRenewable, got %v", err)
 	}
 }
@@ -2009,7 +2010,7 @@ func TestLeaseTrackerRemove(t *testing.T) {
 
 	// Verify it's gone
 	_, err = tracker.Get(ctx, "test-lease")
-	if err != secrets.ErrLeaseNotFound {
+	if !errors.Is(err, secrets.ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 
@@ -2371,14 +2372,14 @@ func TestPKIEngineRoles(t *testing.T) {
 
 	// Create role
 	err = engine.CreateRole(ctx, "web-server", &PKIRole{
-		TTL:              24 * time.Hour,
-		MaxTTL:           720 * time.Hour,
-		AllowedDomains:   []string{"example.com"},
-		AllowSubdomains:  true,
-		AllowLocalhost:   true,
-		ServerFlag:       true,
-		KeyType:          "rsa",
-		KeyBits:          4096,
+		TTL:             24 * time.Hour,
+		MaxTTL:          720 * time.Hour,
+		AllowedDomains:  []string{"example.com"},
+		AllowSubdomains: true,
+		AllowLocalhost:  true,
+		ServerFlag:      true,
+		KeyType:         "rsa",
+		KeyBits:         4096,
 	})
 	if err != nil {
 		t.Fatalf("CreateRole failed: %v", err)

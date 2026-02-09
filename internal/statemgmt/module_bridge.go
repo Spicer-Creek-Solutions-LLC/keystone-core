@@ -74,13 +74,14 @@ func (m *BridgeModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 			result.Diff["bridge"] = map[string]string{"current": "absent", "desired": "present"}
 		} else {
 			// Check if ports match
-			if !stringSlicesEqualUnordered(config.Ports, currentPorts) {
+			switch {
+			case !stringSlicesEqualUnordered(config.Ports, currentPorts):
 				result.Matches = false
 				result.Diff["ports"] = map[string]interface{}{"current": currentPorts, "desired": config.Ports}
-			} else if config.STP != stpEnabled {
+			case config.STP != stpEnabled:
 				result.Matches = false
 				result.Diff["stp"] = map[string]bool{"current": stpEnabled, "desired": config.STP}
-			} else {
+			default:
 				result.Matches = true
 			}
 		}
@@ -91,7 +92,7 @@ func (m *BridgeModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the bridge configuration
@@ -112,7 +113,7 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check platform support
@@ -121,7 +122,7 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		result.Comment = "Network bridging is not natively supported on macOS"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -131,7 +132,7 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -141,19 +142,19 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect network manager (Linux only)
 	var nm NetworkManager
 	if runtime.GOOS == "linux" {
-		nm, err = m.detectNetworkManager()
+		nm, err = m.detectNetworkManager(ctx)
 		if err != nil {
 			result.Error = err
 			result.Comment = fmt.Sprintf("Failed to detect network manager: %v", err)
 			result.EndTime = time.Now()
 			result.Duration = result.EndTime.Sub(startTime)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
@@ -161,11 +162,9 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	var applyErr error
 	switch decl.State {
 	case "present":
-		// If bridge exists but with different config, delete first
+		// If bridge exists but with different config, delete first - best-effort
 		if checkResult.Present && len(checkResult.Diff) > 0 {
-			if err := m.deleteBridge(ctx, nm, config); err != nil {
-				// Continue anyway
-			}
+			_ = m.deleteBridge(ctx, nm, config)
 		}
 		if runtime.GOOS == "windows" {
 			applyErr = m.createBridgeWindows(ctx, config, result)
@@ -197,7 +196,7 @@ func (m *BridgeModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the bridge is in the desired state
@@ -273,25 +272,24 @@ func (m *BridgeModule) checkBridgeExists(ctx context.Context, config *BridgeConf
 }
 
 // checkBridgeExistsLinux checks bridge existence on Linux
-func (m *BridgeModule) checkBridgeExistsLinux(ctx context.Context, config *BridgeConfig) (bool, []string, bool, error) {
+func (m *BridgeModule) checkBridgeExistsLinux(ctx context.Context, config *BridgeConfig) (exists bool, ports []string, stp bool, err error) {
 	// Check if bridge interface exists
-	bridgeDir := filepath.Join("/sys/class/net", config.Name, "bridge")
+	bridgeDir := filepath.Join("/sys", "class", "net", config.Name, "bridge")
 	if _, err := os.Stat(bridgeDir); os.IsNotExist(err) {
 		return false, nil, false, nil
 	}
 
 	// Read STP state
 	stpBytes, _ := os.ReadFile(filepath.Join(bridgeDir, "stp_state"))
-	stp := strings.TrimSpace(string(stpBytes)) == "1"
+	stp = strings.TrimSpace(string(stpBytes)) == "1"
 
 	// Read bridge ports from brif directory
-	brifDir := filepath.Join("/sys/class/net", config.Name, "brif")
+	brifDir := filepath.Join("/sys", "class", "net", config.Name, "brif")
 	entries, err := os.ReadDir(brifDir)
 	if err != nil {
-		return true, nil, stp, nil
+		return true, nil, stp, nil //nolint:nilerr // missing dir means no ports
 	}
 
-	var ports []string
 	for _, entry := range entries {
 		ports = append(ports, entry.Name())
 	}
@@ -300,12 +298,13 @@ func (m *BridgeModule) checkBridgeExistsLinux(ctx context.Context, config *Bridg
 }
 
 // checkBridgeExistsWindows checks for Hyper-V switch on Windows
-func (m *BridgeModule) checkBridgeExistsWindows(ctx context.Context, config *BridgeConfig) (bool, []string, bool, error) {
+func (m *BridgeModule) checkBridgeExistsWindows(ctx context.Context, config *BridgeConfig) (exists bool, ports []string, stp bool, err error) {
+	//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		fmt.Sprintf("Get-VMSwitch -Name '%s' -ErrorAction SilentlyContinue | ConvertTo-Json", config.Name))
 	output, err := cmd.Output()
 	if err != nil || len(output) == 0 {
-		return false, nil, false, nil
+		return false, nil, false, nil //nolint:nilerr // switch not found is not an error
 	}
 
 	if strings.Contains(string(output), config.Name) {
@@ -316,10 +315,11 @@ func (m *BridgeModule) checkBridgeExistsWindows(ctx context.Context, config *Bri
 }
 
 // detectNetworkManager detects the available network manager on Linux
-func (m *BridgeModule) detectNetworkManager() (NetworkManager, error) {
+func (m *BridgeModule) detectNetworkManager(ctx context.Context) (NetworkManager, error) {
 	// Check for nmcli (NetworkManager)
 	if _, err := exec.LookPath("nmcli"); err == nil {
-		cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+		//nolint:gosec // G204: systemctl execution is intentional for network manager detection
+		cmd := exec.CommandContext(ctx, "systemctl", "is-active", "NetworkManager")
 		if err := cmd.Run(); err == nil {
 			return NMNetworkManager, nil
 		}
@@ -331,7 +331,8 @@ func (m *BridgeModule) detectNetworkManager() (NetworkManager, error) {
 	}
 
 	// Check for systemd-networkd
-	cmd := exec.Command("systemctl", "is-active", "systemd-networkd")
+	//nolint:gosec // G204: systemctl execution is intentional for network manager detection
+	cmd := exec.CommandContext(ctx, "systemctl", "is-active", "systemd-networkd")
 	if err := cmd.Run(); err == nil {
 		return NMSystemdNetworkd, nil
 	}
@@ -366,12 +367,15 @@ func (m *BridgeModule) deleteBridge(ctx context.Context, nm NetworkManager, conf
 	case NMNetworkManager:
 		// Delete port connections and bridge connection
 		for _, port := range config.Ports {
+			//nolint:gosec // G204: nmcli execution is intentional for bridge interface management
 			portDelCmd := exec.CommandContext(ctx, "nmcli", "connection", "delete", config.Name+"-port-"+port)
 			portDelCmd.Run()
 		}
+		//nolint:gosec // G204: nmcli execution is intentional for bridge interface management
 		cmd := exec.CommandContext(ctx, "nmcli", "connection", "delete", config.Name)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
+			//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 			delCmd := exec.CommandContext(ctx, "ip", "link", "delete", config.Name)
 			if _, delErr := delCmd.CombinedOutput(); delErr != nil {
 				return fmt.Errorf("failed to delete bridge: %w (output: %s)", err, string(output))
@@ -379,10 +383,11 @@ func (m *BridgeModule) deleteBridge(ctx context.Context, nm NetworkManager, conf
 		}
 		return nil
 	case NMNetplan:
-		netplanFile := filepath.Join("/etc/netplan", fmt.Sprintf("90-kscore-bridge-%s.yaml", config.Name))
+		netplanFile := filepath.Join("/etc", "netplan", fmt.Sprintf("90-kscore-bridge-%s.yaml", config.Name))
 		if err := os.Remove(netplanFile); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove netplan file: %w", err)
 		}
+		//nolint:gosec // G204: netplan execution is intentional for bridge interface management
 		applyCmd := exec.CommandContext(ctx, "netplan", "apply")
 		if output, err := applyCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to apply netplan: %w (output: %s)", err, string(output))
@@ -398,15 +403,18 @@ func (m *BridgeModule) deleteBridge(ctx context.Context, nm NetworkManager, conf
 			portFile := filepath.Join(networkDir, fmt.Sprintf("10-kscore-bridge-%s-port-%s.network", config.Name, port))
 			os.Remove(portFile)
 		}
+		//nolint:gosec // G204: networkctl execution is intentional for bridge interface management
 		reloadCmd := exec.CommandContext(ctx, "networkctl", "reload")
 		reloadCmd.Run()
 		return nil
 	default:
 		// Release ports first
 		for _, port := range config.Ports {
+			//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 			releaseCmd := exec.CommandContext(ctx, "ip", "link", "set", port, "nomaster")
 			releaseCmd.Run()
 		}
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		cmd := exec.CommandContext(ctx, "ip", "link", "delete", config.Name)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to delete bridge: %w (output: %s)", err, string(output))
@@ -431,15 +439,15 @@ func (m *BridgeModule) createBridgeNmcli(ctx context.Context, config *BridgeConf
 	} else {
 		args = append(args, "bridge.stp", "no")
 	}
-	args = append(args, "bridge.forward-delay", strconv.Itoa(config.ForwardDelay))
-	args = append(args, "bridge.hello-time", strconv.Itoa(config.HelloTime))
-	args = append(args, "bridge.max-age", strconv.Itoa(config.MaxAge))
-	args = append(args, "bridge.ageing-time", strconv.Itoa(config.AgeingTime))
+	args = append(args,
+		"bridge.forward-delay", strconv.Itoa(config.ForwardDelay),
+		"bridge.hello-time", strconv.Itoa(config.HelloTime),
+		"bridge.max-age", strconv.Itoa(config.MaxAge),
+		"bridge.ageing-time", strconv.Itoa(config.AgeingTime))
 
 	// Add IP configuration
 	if len(config.Addresses) > 0 {
-		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","))
-		args = append(args, "ipv4.method", "manual")
+		args = append(args, "ipv4.addresses", strings.Join(config.Addresses, ","), "ipv4.method", "manual")
 	} else {
 		args = append(args, "ipv4.method", "disabled")
 	}
@@ -452,6 +460,7 @@ func (m *BridgeModule) createBridgeNmcli(ctx context.Context, config *BridgeConf
 		args = append(args, "ipv4.dns", strings.Join(config.DNS, ","))
 	}
 
+	//nolint:gosec // G204: nmcli execution is intentional for bridge interface management
 	cmd := exec.CommandContext(ctx, "nmcli", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -467,6 +476,7 @@ func (m *BridgeModule) createBridgeNmcli(ctx context.Context, config *BridgeConf
 			"ifname", port,
 			"master", config.Name,
 		}
+		//nolint:gosec // G204: nmcli execution is intentional for bridge interface management
 		portCmd := exec.CommandContext(ctx, "nmcli", portArgs...)
 		if output, err := portCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to add port %s: %w (output: %s)", port, err, string(output))
@@ -474,6 +484,7 @@ func (m *BridgeModule) createBridgeNmcli(ctx context.Context, config *BridgeConf
 	}
 
 	// Bring up the bridge
+	//nolint:gosec // G204: nmcli execution is intentional for bridge interface management
 	upCmd := exec.CommandContext(ctx, "nmcli", "connection", "up", config.Name)
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to activate bridge: %w (output: %s)", err, string(output))
@@ -489,7 +500,8 @@ func (m *BridgeModule) createBridgeNetplan(ctx context.Context, config *BridgeCo
 	netplanDir := "/etc/netplan"
 	netplanFile := filepath.Join(netplanDir, fmt.Sprintf("90-kscore-bridge-%s.yaml", config.Name))
 
-	if err := os.MkdirAll(netplanDir, 0755); err != nil {
+	//nolint:gosec // G301: netplan directory needs system access
+	if err := os.MkdirAll(netplanDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create netplan directory: %w", err)
 	}
 
@@ -546,7 +558,7 @@ func (m *BridgeModule) createBridgeNetplan(ctx context.Context, config *BridgeCo
 		content.WriteString("      nameservers:\n")
 		content.WriteString("        addresses:\n")
 		for _, dns := range config.DNS {
-			content.WriteString(fmt.Sprintf("          - \"%s\"\n", dns))
+			content.WriteString(fmt.Sprintf("          - %q\n", dns))
 		}
 	}
 
@@ -554,7 +566,7 @@ func (m *BridgeModule) createBridgeNetplan(ctx context.Context, config *BridgeCo
 		content.WriteString(fmt.Sprintf("      mtu: %d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(netplanFile, content.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(netplanFile, content.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("failed to write netplan file: %w", err)
 	}
 
@@ -571,7 +583,8 @@ func (m *BridgeModule) createBridgeNetplan(ctx context.Context, config *BridgeCo
 // createBridgeSystemdNetworkd creates a bridge using systemd-networkd
 func (m *BridgeModule) createBridgeSystemdNetworkd(ctx context.Context, config *BridgeConfig, result *StateResult) error {
 	networkDir := "/etc/systemd/network"
-	if err := os.MkdirAll(networkDir, 0755); err != nil {
+	//nolint:gosec // G301: systemd network directory needs system access
+	if err := os.MkdirAll(networkDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create network directory: %w", err)
 	}
 
@@ -593,7 +606,8 @@ func (m *BridgeModule) createBridgeSystemdNetworkd(ctx context.Context, config *
 	netdevContent.WriteString(fmt.Sprintf("MaxAgeSec=%d\n", config.MaxAge))
 	netdevContent.WriteString(fmt.Sprintf("AgeingTimeSec=%d\n", config.AgeingTime))
 
-	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: netdev files need to be readable by systemd-networkd
+	if err := os.WriteFile(netdevFile, netdevContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write netdev file: %w", err)
 	}
 
@@ -622,7 +636,8 @@ func (m *BridgeModule) createBridgeSystemdNetworkd(ctx context.Context, config *
 		networkContent.WriteString(fmt.Sprintf("MTUBytes=%d\n", config.MTU))
 	}
 
-	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: network files need to be readable by systemd-networkd
+	if err := os.WriteFile(networkFile, networkContent.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write network file: %w", err)
 	}
 
@@ -636,7 +651,8 @@ func (m *BridgeModule) createBridgeSystemdNetworkd(ctx context.Context, config *
 		portContent.WriteString("\n[Network]\n")
 		portContent.WriteString(fmt.Sprintf("Bridge=%s\n", config.Name))
 
-		if err := os.WriteFile(portFile, portContent.Bytes(), 0644); err != nil {
+		//nolint:gosec // G306: network files need to be readable by systemd-networkd
+		if err := os.WriteFile(portFile, portContent.Bytes(), 0o644); err != nil {
 			return fmt.Errorf("failed to write port network file: %w", err)
 		}
 	}
@@ -710,11 +726,13 @@ func (m *BridgeModule) createBridgeIfupdown(ctx context.Context, config *BridgeC
 	}
 
 	newContent := string(content) + bridgeStanza.String()
-	if err := os.WriteFile(interfacesFile, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: interfaces file needs to be readable by ifupdown
+	if err := os.WriteFile(interfacesFile, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write interfaces file: %w", err)
 	}
 
 	// Bring up the bridge
+	//nolint:gosec // G204: ifup execution is intentional for bridge interface management
 	upCmd := exec.CommandContext(ctx, "ifup", config.Name)
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to bring up bridge: %w (output: %s)", err, string(output))
@@ -728,6 +746,7 @@ func (m *BridgeModule) createBridgeIfupdown(ctx context.Context, config *BridgeC
 // createBridgeRaw creates a bridge using raw ip commands
 func (m *BridgeModule) createBridgeRaw(ctx context.Context, config *BridgeConfig, result *StateResult) error {
 	// Create bridge interface
+	//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 	cmd := exec.CommandContext(ctx, "ip", "link", "add", config.Name, "type", "bridge")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to create bridge: %w (output: %s)", err, string(output))
@@ -738,37 +757,44 @@ func (m *BridgeModule) createBridgeRaw(ctx context.Context, config *BridgeConfig
 	if config.STP {
 		stpVal = "1"
 	}
+	//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 	stpCmd := exec.CommandContext(ctx, "ip", "link", "set", config.Name, "type", "bridge", "stp_state", stpVal)
 	stpCmd.Run()
 
 	// Add ports
 	for _, port := range config.Ports {
 		// Bring down port first
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		downCmd := exec.CommandContext(ctx, "ip", "link", "set", port, "down")
 		downCmd.Run()
 		// Add to bridge
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		portCmd := exec.CommandContext(ctx, "ip", "link", "set", port, "master", config.Name)
 		if output, err := portCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to add port %s: %w (output: %s)", port, err, string(output))
 		}
 		// Bring port back up
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		upPortCmd := exec.CommandContext(ctx, "ip", "link", "set", port, "up")
 		upPortCmd.Run()
 	}
 
 	// Set MTU if specified
 	if config.MTU > 0 {
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		mtuCmd := exec.CommandContext(ctx, "ip", "link", "set", config.Name, "mtu", strconv.Itoa(config.MTU))
 		mtuCmd.Run()
 	}
 
 	// Add addresses
 	for _, addr := range config.Addresses {
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		addrCmd := exec.CommandContext(ctx, "ip", "addr", "add", addr, "dev", config.Name)
 		addrCmd.Run()
 	}
 
 	// Bring up bridge
+	//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 	upCmd := exec.CommandContext(ctx, "ip", "link", "set", config.Name, "up")
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to bring up bridge: %w (output: %s)", err, string(output))
@@ -776,6 +802,7 @@ func (m *BridgeModule) createBridgeRaw(ctx context.Context, config *BridgeConfig
 
 	// Add default route if gateway specified
 	if config.Gateway != "" && len(config.Addresses) > 0 {
+		//nolint:gosec // G204: ip command execution is intentional for bridge interface management
 		routeCmd := exec.CommandContext(ctx, "ip", "route", "add", "default", "via", config.Gateway, "dev", config.Name)
 		routeCmd.Run()
 	}
@@ -791,10 +818,12 @@ func (m *BridgeModule) createBridgeWindows(ctx context.Context, config *BridgeCo
 	// Note: This requires Hyper-V to be installed
 	var cmd *exec.Cmd
 	if len(config.Ports) > 0 {
+		//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 		cmd = exec.CommandContext(ctx, "powershell", "-Command",
 			fmt.Sprintf("New-VMSwitch -Name '%s' -NetAdapterName '%s' -AllowManagementOS $true",
 				config.Name, config.Ports[0]))
 	} else {
+		//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 		cmd = exec.CommandContext(ctx, "powershell", "-Command",
 			fmt.Sprintf("New-VMSwitch -Name '%s' -SwitchType Internal",
 				config.Name))
@@ -818,12 +847,14 @@ func (m *BridgeModule) createBridgeWindows(ctx context.Context, config *BridgeCo
 			prefix = parts[1]
 		}
 
+		//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 		ipCmd := exec.CommandContext(ctx, "powershell", "-Command",
 			fmt.Sprintf("New-NetIPAddress -InterfaceAlias '%s' -IPAddress '%s' -PrefixLength %s",
 				adapterName, ip, prefix))
 		ipCmd.Run()
 
 		if config.Gateway != "" {
+			//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 			gwCmd := exec.CommandContext(ctx, "powershell", "-Command",
 				fmt.Sprintf("New-NetRoute -InterfaceAlias '%s' -DestinationPrefix '0.0.0.0/0' -NextHop '%s'",
 					adapterName, config.Gateway))
@@ -837,6 +868,7 @@ func (m *BridgeModule) createBridgeWindows(ctx context.Context, config *BridgeCo
 
 // deleteBridgeWindows deletes a Hyper-V switch on Windows
 func (m *BridgeModule) deleteBridgeWindows(ctx context.Context, config *BridgeConfig) error {
+	//nolint:gosec // G204: PowerShell execution is intentional for Windows bridge management
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		fmt.Sprintf("Remove-VMSwitch -Name '%s' -Force", config.Name))
 	output, err := cmd.CombinedOutput()
@@ -847,5 +879,5 @@ func (m *BridgeModule) deleteBridgeWindows(ctx context.Context, config *BridgeCo
 }
 
 func init() {
-	RegisterModule(NewBridgeModule())
+	_ = RegisterModule(NewBridgeModule()) //nolint:errcheck // module registration in init
 }

@@ -12,11 +12,11 @@ import (
 type FileRequest struct {
 	RequestID string            `json:"request_id"`
 	Path      string            `json:"path"`
-	Version   string            `json:"version,omitempty"`   // "latest", semver, or tag
-	Checksum  string            `json:"checksum,omitempty"`  // Skip if matches (conditional GET)
-	Range     *ByteRange        `json:"range,omitempty"`     // For resume
+	Version   string            `json:"version,omitempty"`    // "latest", semver, or tag
+	Checksum  string            `json:"checksum,omitempty"`   // Skip if matches (conditional GET)
+	Range     *ByteRange        `json:"range,omitempty"`      // For resume
 	ChunkSize int               `json:"chunk_size,omitempty"` // Override default
-	Priority  int               `json:"priority,omitempty"`  // 0=normal, 1=high, 2=critical
+	Priority  int               `json:"priority,omitempty"`   // 0=normal, 1=high, 2=critical
 	AgentID   string            `json:"agent_id"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
 }
@@ -33,7 +33,7 @@ type FileMetadata struct {
 	Path         string            `json:"path"`
 	Version      string            `json:"version"`
 	Size         int64             `json:"size"`
-	Checksum     string            `json:"checksum"`      // SHA-256
+	Checksum     string            `json:"checksum"` // SHA-256
 	ContentType  string            `json:"content_type"`
 	ModifiedTime time.Time         `json:"modified_time"`
 	ChunkCount   int               `json:"chunk_count"`
@@ -63,6 +63,7 @@ type FileAck struct {
 // AckStatus represents the acknowledgment status.
 type AckStatus string
 
+// AckStatus constants define the possible statuses.
 const (
 	AckStatusComplete AckStatus = "complete"
 	AckStatusPartial  AckStatus = "partial"
@@ -81,6 +82,7 @@ type FileError struct {
 // FileErrorCode represents error types.
 type FileErrorCode string
 
+// ErrCodeNotFound and related constants.
 const (
 	ErrCodeNotFound       FileErrorCode = "not_found"
 	ErrCodeAccessDenied   FileErrorCode = "access_denied"
@@ -133,11 +135,11 @@ type FileListRequest struct {
 
 // FileListResponse contains a list of files.
 type FileListResponse struct {
-	RequestID  string         `json:"request_id"`
-	Path       string         `json:"path"`
-	Files      []FileInfo     `json:"files"`
-	TotalCount int            `json:"total_count"`
-	Truncated  bool           `json:"truncated"`
+	RequestID  string     `json:"request_id"`
+	Path       string     `json:"path"`
+	Files      []FileInfo `json:"files"`
+	TotalCount int        `json:"total_count"`
+	Truncated  bool       `json:"truncated"`
 }
 
 // FileInfo contains basic file information for listings.
@@ -199,6 +201,7 @@ type FileChangeEvent struct {
 // FileAction represents the type of file change.
 type FileAction string
 
+// FileActionCreated constants define the actions.
 const (
 	FileActionCreated FileAction = "created"
 	FileActionUpdated FileAction = "updated"
@@ -207,7 +210,7 @@ const (
 
 // CacheInvalidation requests cache invalidation.
 type CacheInvalidation struct {
-	Paths     []string `json:"paths"`      // Paths or patterns to invalidate
+	Paths     []string `json:"paths"` // Paths or patterns to invalidate
 	Recursive bool     `json:"recursive"`
 	Reason    string   `json:"reason,omitempty"`
 }
@@ -243,12 +246,12 @@ const (
 
 // NATS subject patterns for file operations.
 const (
-	SubjectFileRequest     = "kscore.%s.files.request.%s"     // cluster, namespace
-	SubjectFileMetadata    = "kscore.%s.files.metadata.%s"    // cluster, namespace
-	SubjectFileUpload      = "kscore.%s.files.upload.%s"      // cluster, namespace
-	SubjectFileNotify      = "kscore.%s.files.notify.%s"      // cluster, namespace
+	SubjectFileRequest     = "kscore.%s.files.request.%s"  // cluster, namespace
+	SubjectFileMetadata    = "kscore.%s.files.metadata.%s" // cluster, namespace
+	SubjectFileUpload      = "kscore.%s.files.upload.%s"   // cluster, namespace
+	SubjectFileNotify      = "kscore.%s.files.notify.%s"   // cluster, namespace
 	SubjectCacheInvalidate = "kscore.%s.files.cache.invalidate"
-	SubjectFileAdmin       = "kscore.%s.files.admin.%s"       // cluster, operation
+	SubjectFileAdmin       = "kscore.%s.files.admin.%s" // cluster, operation
 )
 
 // MarshalJSON implements custom JSON marshaling for FileChunk.
@@ -265,7 +268,7 @@ func (c *FileChunk) MarshalJSON() ([]byte, error) {
 // NamespaceFromPath extracts the namespace from a file path.
 // For example, "/packages/nginx/1.24.deb" returns "packages".
 func NamespaceFromPath(path string) string {
-	if len(path) == 0 {
+	if path == "" {
 		return ""
 	}
 	// Remove leading slash

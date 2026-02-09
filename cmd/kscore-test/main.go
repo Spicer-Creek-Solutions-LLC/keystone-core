@@ -1,3 +1,4 @@
+// Package main implements the kscore-test CLI for running module and integration tests.
 package main
 
 import (
@@ -88,30 +89,30 @@ Usage via kscorectl:
 
 // TestResult represents a test execution result
 type TestResult struct {
-	ID         string            `json:"id" yaml:"id"`
-	Suite      string            `json:"suite" yaml:"suite"`
-	Type       string            `json:"type" yaml:"type"`
-	Status     string            `json:"status" yaml:"status"`
-	Target     string            `json:"target,omitempty" yaml:"target,omitempty"`
-	Total      int               `json:"total" yaml:"total"`
-	Passed     int               `json:"passed" yaml:"passed"`
-	Failed     int               `json:"failed" yaml:"failed"`
-	Skipped    int               `json:"skipped" yaml:"skipped"`
-	Duration   string            `json:"duration" yaml:"duration"`
-	StartedAt  string            `json:"started_at" yaml:"started_at"`
-	CompletedAt string           `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
-	Tests      []TestCase        `json:"tests,omitempty" yaml:"tests,omitempty"`
-	Failures   []TestFailure     `json:"failures,omitempty" yaml:"failures,omitempty"`
-	Labels     map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	ID          string            `json:"id" yaml:"id"`
+	Suite       string            `json:"suite" yaml:"suite"`
+	Type        string            `json:"type" yaml:"type"`
+	Status      string            `json:"status" yaml:"status"`
+	Target      string            `json:"target,omitempty" yaml:"target,omitempty"`
+	Total       int               `json:"total" yaml:"total"`
+	Passed      int               `json:"passed" yaml:"passed"`
+	Failed      int               `json:"failed" yaml:"failed"`
+	Skipped     int               `json:"skipped" yaml:"skipped"`
+	Duration    string            `json:"duration" yaml:"duration"`
+	StartedAt   string            `json:"started_at" yaml:"started_at"`
+	CompletedAt string            `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
+	Tests       []TestCase        `json:"tests,omitempty" yaml:"tests,omitempty"`
+	Failures    []TestFailure     `json:"failures,omitempty" yaml:"failures,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 // TestCase represents an individual test case
 type TestCase struct {
-	Name       string `json:"name" yaml:"name"`
-	Status     string `json:"status" yaml:"status"`
-	Duration   string `json:"duration" yaml:"duration"`
-	Message    string `json:"message,omitempty" yaml:"message,omitempty"`
-	Error      string `json:"error,omitempty" yaml:"error,omitempty"`
+	Name     string `json:"name" yaml:"name"`
+	Status   string `json:"status" yaml:"status"`
+	Duration string `json:"duration" yaml:"duration"`
+	Message  string `json:"message,omitempty" yaml:"message,omitempty"`
+	Error    string `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
 // TestFailure represents a test failure
@@ -211,10 +212,10 @@ func runSmoke(cfg *Config, target, timeout string, tags []string) error {
 
 func newIntegrationCmd(cfg *Config) *cobra.Command {
 	var (
-		suite   string
-		target  string
-		timeout string
-		tags    []string
+		suite    string
+		target   string
+		timeout  string
+		tags     []string
 		parallel int
 	)
 
@@ -343,7 +344,7 @@ func runIntegration(cfg *Config, suite, target, timeout string, tags []string, p
 		}
 	}
 
-	duration := time.Duration(total * 3) * time.Second
+	duration := time.Duration(total*3) * time.Second
 
 	result := TestResult{
 		ID:          fmt.Sprintf("integration-%s", time.Now().Format("20060102-150405")),
@@ -593,9 +594,9 @@ func runList(cfg *Config, testType string, tags []string) error {
 	// Filter by type
 	if testType != "" {
 		var filtered []TestSuite
-		for _, s := range suites {
-			if s.Type == testType {
-				filtered = append(filtered, s)
+		for i := range suites {
+			if suites[i].Type == testType {
+				filtered = append(filtered, suites[i])
 			}
 		}
 		suites = filtered
@@ -611,7 +612,8 @@ func runList(cfg *Config, testType string, tags []string) error {
 			Headers: []string{"NAME", "TYPE", "TESTS", "TIMEOUT", "LAST RUN", "STATUS", "DESCRIPTION"},
 		}
 
-		for _, s := range suites {
+		for i := range suites {
+			s := &suites[i]
 			statusIcon := "✓"
 			if s.LastStatus == "failed" {
 				statusIcon = "✗"
@@ -673,7 +675,7 @@ func runShow(cfg *Config, testID string) error {
 			{Name: "basic/batch_execution", Status: "passed", Duration: "5.5s"},
 		},
 		Labels: map[string]string{
-			"environment": "staging",
+			"environment":  "staging",
 			"triggered_by": "ci",
 		},
 	}
@@ -786,9 +788,9 @@ func runHistory(cfg *Config, suite string, limit int, status string) error {
 	// Filter by suite
 	if suite != "" {
 		var filtered []TestResult
-		for _, r := range history {
-			if r.Suite == suite {
-				filtered = append(filtered, r)
+		for i := range history {
+			if history[i].Suite == suite {
+				filtered = append(filtered, history[i])
 			}
 		}
 		history = filtered
@@ -797,9 +799,9 @@ func runHistory(cfg *Config, suite string, limit int, status string) error {
 	// Filter by status
 	if status != "" {
 		var filtered []TestResult
-		for _, r := range history {
-			if r.Status == status {
-				filtered = append(filtered, r)
+		for i := range history {
+			if history[i].Status == status {
+				filtered = append(filtered, history[i])
 			}
 		}
 		history = filtered
@@ -820,7 +822,8 @@ func runHistory(cfg *Config, suite string, limit int, status string) error {
 			Headers: []string{"ID", "SUITE", "TYPE", "STATUS", "TOTAL", "PASSED", "FAILED", "DURATION", "STARTED"},
 		}
 
-		for _, r := range history {
+		for i := range history {
+			r := &history[i]
 			statusIcon := "✓"
 			if r.Status == "failed" {
 				statusIcon = "✗"
@@ -852,10 +855,126 @@ func newSuiteCmd(cfg *Config) *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		newSuiteListCmd(cfg),
 		newSuiteShowCmd(cfg),
 		newSuiteCreateCmd(cfg),
 		newSuiteDeleteCmd(cfg),
 	)
+
+	return cmd
+}
+
+func newSuiteListCmd(cfg *Config) *cobra.Command {
+	var (
+		suiteType string
+		tags      []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List test suites",
+		Long:  `List all test suites with optional filtering by type or tags.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Sample suites for demonstration
+			suites := []TestSuite{
+				{
+					Name:        "core-agent",
+					Description: "Core agent functionality tests",
+					Type:        "integration",
+					Tests:       12,
+					Tags:        []string{"core", "agent"},
+					Timeout:     "15m",
+					LastRun:     "2024-01-15T09:00:00Z",
+					LastStatus:  "passed",
+				},
+				{
+					Name:        "state-management",
+					Description: "State management and drift detection tests",
+					Type:        "integration",
+					Tests:       8,
+					Tags:        []string{"core", "state"},
+					Timeout:     "20m",
+					LastRun:     "2024-01-15T08:30:00Z",
+					LastStatus:  "passed",
+				},
+				{
+					Name:        "smoke-tests",
+					Description: "Basic smoke tests for quick validation",
+					Type:        "smoke",
+					Tests:       5,
+					Tags:        []string{"smoke", "quick"},
+					Timeout:     "5m",
+					LastRun:     "2024-01-15T10:00:00Z",
+					LastStatus:  "passed",
+				},
+				{
+					Name:        "e2e-cluster",
+					Description: "End-to-end cluster functionality tests",
+					Type:        "e2e",
+					Tests:       15,
+					Tags:        []string{"e2e", "cluster"},
+					Timeout:     "45m",
+					LastRun:     "2024-01-14T22:00:00Z",
+					LastStatus:  "failed",
+				},
+			}
+
+			// Apply filters
+			filtered := make([]TestSuite, 0, len(suites))
+			for i := range suites {
+				s := &suites[i]
+				if suiteType != "" && s.Type != suiteType {
+					continue
+				}
+				if len(tags) > 0 {
+					hasAllTags := true
+					for _, tag := range tags {
+						found := false
+						for _, st := range s.Tags {
+							if st == tag {
+								found = true
+								break
+							}
+						}
+						if !found {
+							hasAllTags = false
+							break
+						}
+					}
+					if !hasAllTags {
+						continue
+					}
+				}
+				filtered = append(filtered, suites[i])
+			}
+
+			if len(filtered) == 0 {
+				fmt.Println("No test suites found matching criteria")
+				return nil
+			}
+
+			return outputResult(cfg.OutputFormat, filtered, func() {
+				table := &output.Table{
+					Headers: []string{"NAME", "TYPE", "TESTS", "LAST STATUS", "LAST RUN"},
+				}
+				for i := range filtered {
+					s := &filtered[i]
+					table.Rows = append(table.Rows, []string{
+						s.Name,
+						s.Type,
+						fmt.Sprintf("%d", s.Tests),
+						s.LastStatus,
+						s.LastRun,
+					})
+				}
+				output.WriteTable(os.Stdout, table)
+				fmt.Printf("\nTotal: %d test suites\n", len(filtered))
+			})
+		},
+	}
+
+	cmd.Flags().StringVarP(&suiteType, "type", "t", "", "Filter by suite type (smoke, integration, e2e)")
+	cmd.Flags().StringSliceVar(&tags, "tags", nil, "Filter by tags")
 
 	return cmd
 }
@@ -989,9 +1108,10 @@ func printTestResult(result TestResult, verbose bool) {
 		fmt.Printf("Tests:\n")
 		for _, t := range result.Tests {
 			icon := "✓"
-			if t.Status == "failed" {
+			switch t.Status {
+			case "failed":
 				icon = "✗"
-			} else if t.Status == "skipped" {
+			case "skipped":
 				icon = "○"
 			}
 			fmt.Printf("  %s %-40s %s\n", icon, t.Name, t.Duration)

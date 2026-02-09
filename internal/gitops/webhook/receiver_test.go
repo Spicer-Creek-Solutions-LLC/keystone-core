@@ -16,22 +16,22 @@ import (
 // MockEventProcessor for testing
 type MockEventProcessor struct {
 	mu           sync.Mutex
-	events       []*WebhookEvent
+	events       []*Event
 	processError error
 }
 
-func (m *MockEventProcessor) ProcessEvent(ctx context.Context, event *WebhookEvent) error {
+func (m *MockEventProcessor) ProcessEvent(ctx context.Context, event *Event) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.events = append(m.events, event)
 	return m.processError
 }
 
-func (m *MockEventProcessor) GetEvents() []*WebhookEvent {
+func (m *MockEventProcessor) GetEvents() []*Event {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// Return a copy of the slice
-	events := make([]*WebhookEvent, len(m.events))
+	events := make([]*Event, len(m.events))
 	copy(events, m.events)
 	return events
 }
@@ -44,7 +44,7 @@ func (m *MockEventProcessor) EventCount() int {
 
 func TestReceiverArgoCD(t *testing.T) {
 	processor := &MockEventProcessor{}
-	config := &WebhookConfig{
+	config := &Config{
 		Enabled:  true,
 		Addr:     ":8080",
 		Path:     "/webhooks",
@@ -263,7 +263,7 @@ func TestReceiverStats(t *testing.T) {
 
 func TestReceiverAuthentication(t *testing.T) {
 	processor := &MockEventProcessor{}
-	config := &WebhookConfig{
+	config := &Config{
 		Enabled: true,
 		Addr:    ":8080",
 		Path:    "/webhooks",

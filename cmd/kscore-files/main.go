@@ -238,7 +238,7 @@ func createBackend(bc BackendConfig) (backend.Backend, error) {
 		return backend.NewFilesystemBackend(&backend.FilesystemConfig{
 			Config: backend.Config{
 				Name:     bc.Name,
-				Type:     backend.BackendTypeFilesystem,
+				Type:     backend.TypeFilesystem,
 				Paths:    bc.Paths,
 				ReadOnly: bc.ReadOnly,
 			},

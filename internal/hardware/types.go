@@ -55,17 +55,17 @@ type DiskInfo struct {
 
 // NetworkInfo represents network interface information
 type NetworkInfo struct {
-	Name         string
-	HardwareAddr string // MAC address
-	MTU          int
-	Flags        []string // up, broadcast, multicast, etc.
-	Addresses    []string // IP addresses
-	Speed        int64    // Mbps
-	Duplex       string   // full, half, unknown
-	Driver       string
-	DriverVersion string
+	Name            string
+	HardwareAddr    string // MAC address
+	MTU             int
+	Flags           []string // up, broadcast, multicast, etc.
+	Addresses       []string // IP addresses
+	Speed           int64    // Mbps
+	Duplex          string   // full, half, unknown
+	Driver          string
+	DriverVersion   string
 	FirmwareVersion string
-	PCIAddress   string
+	PCIAddress      string
 }
 
 // SystemInfo represents system/motherboard information

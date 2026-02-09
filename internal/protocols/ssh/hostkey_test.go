@@ -3,6 +3,7 @@ package ssh
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -82,10 +83,7 @@ func TestHostKeyVerifier_StrictMode_UnknownHost(t *testing.T) {
 	}
 
 	var unknownErr *UnknownHostError
-	if ue, ok := err.(*UnknownHostError); ok {
-		unknownErr = ue
-	}
-	if unknownErr == nil {
+	if !errors.As(err, &unknownErr) {
 		t.Errorf("Expected UnknownHostError, got %T", err)
 	}
 }
@@ -126,10 +124,7 @@ func TestHostKeyVerifier_TOFU_LearnKey(t *testing.T) {
 	}
 
 	var mismatchErr *HostKeyMismatchError
-	if me, ok := err.(*HostKeyMismatchError); ok {
-		mismatchErr = me
-	}
-	if mismatchErr == nil {
+	if !errors.As(err, &mismatchErr) {
 		t.Errorf("Expected HostKeyMismatchError, got %T", err)
 	}
 }

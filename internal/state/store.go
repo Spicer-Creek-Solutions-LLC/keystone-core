@@ -1,3 +1,5 @@
+// Package state provides persistent state storage backends including SQLite
+// and PostgreSQL with migration support.
 package state
 
 import (

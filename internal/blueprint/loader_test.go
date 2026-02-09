@@ -124,7 +124,7 @@ func TestLoader_LoadFromPath(t *testing.T) {
 
 	// Write blueprint.yaml
 	manifest := `
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-bp
@@ -283,14 +283,14 @@ func TestLoader_ParameterResolution(t *testing.T) {
 func TestLoader_ParameterValidation(t *testing.T) {
 	minLen := 3
 	maxLen := 10
-	min := float64(1)
-	max := float64(100)
+	minVal := float64(1)
+	maxVal := float64(100)
 
 	bp := &Blueprint{
 		Parameters: map[string]ParameterSchema{
 			"required_param": {Type: "string", Required: true},
 			"string_param":   {Type: "string", Pattern: "^[a-z]+$", MinLength: &minLen, MaxLength: &maxLen},
-			"int_param":      {Type: "integer", Minimum: &min, Maximum: &max},
+			"int_param":      {Type: "integer", Minimum: &minVal, Maximum: &maxVal},
 			"enum_param":     {Type: "string", Enum: []interface{}{"a", "b", "c"}},
 		},
 	}
@@ -667,8 +667,8 @@ states:
 	}
 }
 
-func TestBlueprintInclude_ToLoadConfig(t *testing.T) {
-	include := BlueprintInclude{
+func TestInclude_ToLoadConfig(t *testing.T) {
+	include := Include{
 		Blueprint:  "blueprints/test/my-bp",
 		Version:    "1.2.3",
 		As:         "instance",
@@ -871,7 +871,7 @@ func (m *mockStorage) Get(ctx context.Context, name string, version string) (*Bl
 	return nil, ErrBlueprintNotFound
 }
 
-func (m *mockStorage) List(ctx context.Context, filter *ListFilter) ([]*BlueprintInfo, error) {
+func (m *mockStorage) List(ctx context.Context, filter *ListFilter) ([]*Info, error) {
 	return nil, nil
 }
 
@@ -888,15 +888,15 @@ func (m *mockStorage) Close() error {
 	return nil
 }
 
-func TestBlueprintInclude_GetParameters(t *testing.T) {
+func TestInclude_GetParameters(t *testing.T) {
 	tests := []struct {
 		name       string
-		include    BlueprintInclude
+		include    Include
 		wantParams map[string]interface{}
 	}{
 		{
 			name: "parameters only",
-			include: BlueprintInclude{
+			include: Include{
 				Parameters: map[string]interface{}{
 					"domain": "example.com",
 					"port":   443,
@@ -909,7 +909,7 @@ func TestBlueprintInclude_GetParameters(t *testing.T) {
 		},
 		{
 			name: "params only (alias)",
-			include: BlueprintInclude{
+			include: Include{
 				Params: map[string]interface{}{
 					"domain": "example.com",
 					"port":   443,
@@ -922,7 +922,7 @@ func TestBlueprintInclude_GetParameters(t *testing.T) {
 		},
 		{
 			name: "both params and parameters - parameters takes precedence",
-			include: BlueprintInclude{
+			include: Include{
 				Parameters: map[string]interface{}{
 					"domain": "override.com",
 				},
@@ -938,7 +938,7 @@ func TestBlueprintInclude_GetParameters(t *testing.T) {
 		},
 		{
 			name:       "neither params nor parameters",
-			include:    BlueprintInclude{},
+			include:    Include{},
 			wantParams: nil,
 		},
 	}
@@ -959,8 +959,8 @@ func TestBlueprintInclude_GetParameters(t *testing.T) {
 	}
 }
 
-func TestBlueprintInclude_ToLoadConfig_UsesParams(t *testing.T) {
-	include := BlueprintInclude{
+func TestInclude_ToLoadConfig_UsesParams(t *testing.T) {
+	include := Include{
 		Blueprint: "community/web-stack",
 		Version:   "1.0.0",
 		Params: map[string]interface{}{

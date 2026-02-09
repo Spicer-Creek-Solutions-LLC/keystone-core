@@ -47,7 +47,7 @@ func NewAPI(metrics MetricsQuerier, logs LogsQuerier, traces TracesQuerier) *API
 // QueryMetrics executes a metrics query
 func (a *API) QueryMetrics(ctx context.Context, query *MetricsQuery) (*MetricsResult, error) {
 	if a.metrics == nil {
-		return nil, &ErrorResponse{Message: "metrics querier not configured", Code: "METRICS_UNAVAILABLE"}
+		return nil, &ResponseError{Message: "metrics querier not configured", Code: "METRICS_UNAVAILABLE"}
 	}
 
 	if query.Range != nil {
@@ -59,7 +59,7 @@ func (a *API) QueryMetrics(ctx context.Context, query *MetricsQuery) (*MetricsRe
 // QueryLogs executes a logs query
 func (a *API) QueryLogs(ctx context.Context, query *LogsQuery) (*LogsResult, error) {
 	if a.logs == nil {
-		return nil, &ErrorResponse{Message: "logs querier not configured", Code: "LOGS_UNAVAILABLE"}
+		return nil, &ResponseError{Message: "logs querier not configured", Code: "LOGS_UNAVAILABLE"}
 	}
 
 	return a.logs.Query(ctx, query)
@@ -68,7 +68,7 @@ func (a *API) QueryLogs(ctx context.Context, query *LogsQuery) (*LogsResult, err
 // QueryTraces executes a traces query
 func (a *API) QueryTraces(ctx context.Context, query *TracesQuery) (*TracesResult, error) {
 	if a.traces == nil {
-		return nil, &ErrorResponse{Message: "traces querier not configured", Code: "TRACES_UNAVAILABLE"}
+		return nil, &ResponseError{Message: "traces querier not configured", Code: "TRACES_UNAVAILABLE"}
 	}
 
 	return a.traces.Query(ctx, query)
@@ -77,13 +77,13 @@ func (a *API) QueryTraces(ctx context.Context, query *TracesQuery) (*TracesResul
 // GetTrace retrieves a specific trace by ID
 func (a *API) GetTrace(ctx context.Context, traceID string) (*TraceResult, error) {
 	if a.traces == nil {
-		return nil, &ErrorResponse{Message: "traces querier not configured", Code: "TRACES_UNAVAILABLE"}
+		return nil, &ResponseError{Message: "traces querier not configured", Code: "TRACES_UNAVAILABLE"}
 	}
 
 	return a.traces.GetTrace(ctx, traceID)
 }
 
-// Error implements the error interface for ErrorResponse
-func (e *ErrorResponse) Error() string {
+// Error implements the error interface for ResponseError
+func (e *ResponseError) Error() string {
 	return e.Message
 }

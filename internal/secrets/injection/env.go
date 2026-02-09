@@ -44,8 +44,8 @@ func NewEnvInjector(config *EnvInjectionConfig, source SecretSource) (*EnvInject
 }
 
 // Inject performs the environment variable injection.
-func (e *EnvInjector) Inject(ctx context.Context) ([]InjectionResult, error) {
-	results := make([]InjectionResult, 0, len(e.config.Secrets))
+func (e *EnvInjector) Inject(ctx context.Context) ([]Result, error) {
+	results := make([]Result, 0, len(e.config.Secrets))
 
 	for _, rule := range e.config.Secrets {
 		result := e.injectEnv(ctx, rule)
@@ -61,9 +61,9 @@ func (e *EnvInjector) Inject(ctx context.Context) ([]InjectionResult, error) {
 	return results, nil
 }
 
-func (e *EnvInjector) injectEnv(ctx context.Context, rule EnvRule) InjectionResult {
-	result := InjectionResult{
-		Type:      InjectionTypeEnv,
+func (e *EnvInjector) injectEnv(ctx context.Context, rule EnvRule) Result {
+	result := Result{
+		Type:      TypeEnv,
 		Target:    rule.EnvVar,
 		Timestamp: time.Now(),
 	}
@@ -129,11 +129,12 @@ func (e *EnvInjector) injectEnv(ctx context.Context, rule EnvRule) InjectionResu
 func sanitizeEnvVar(name string) string {
 	var result strings.Builder
 	for i, r := range name {
-		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r == '_' {
+		switch {
+		case r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r == '_':
 			result.WriteRune(r)
-		} else if r >= '0' && r <= '9' && i > 0 {
+		case r >= '0' && r <= '9' && i > 0:
 			result.WriteRune(r)
-		} else {
+		default:
 			result.WriteRune('_')
 		}
 	}
@@ -233,7 +234,7 @@ func (e *EnvInjector) Clear() {
 	defer e.mu.Unlock()
 
 	for envVar := range e.injectedVars {
-		os.Unsetenv(envVar)
+		_ = os.Unsetenv(envVar) //nolint:errcheck // best-effort cleanup
 	}
 	e.injectedVars = make(map[string]string)
 }
@@ -280,8 +281,8 @@ func (b *ProcessEnvBuilder) WithCleanEnv() *ProcessEnvBuilder {
 
 // Build builds the environment for a process.
 func (b *ProcessEnvBuilder) Build(ctx context.Context) ([]string, error) {
-	env := make([]string, len(b.baseEnv))
-	copy(env, b.baseEnv)
+	env := make([]string, 0, len(b.baseEnv)+len(b.config.Secrets))
+	env = append(env, b.baseEnv...)
 
 	// Track existing vars for deduplication
 	existing := make(map[string]int) // var name -> index in env

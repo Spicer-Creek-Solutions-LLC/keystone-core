@@ -127,6 +127,7 @@ func (d *DockerEnv) Start(ctx context.Context) error {
 	}
 
 	if d.ArtifactsDir != "" {
+		//nolint:gosec // G301: test artifacts directory needs to be accessible by users
 		if err := os.MkdirAll(d.ArtifactsDir, 0o755); err != nil {
 			return fmt.Errorf("create artifacts dir: %w", err)
 		}

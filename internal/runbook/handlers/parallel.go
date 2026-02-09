@@ -81,9 +81,10 @@ func (h *ParallelHandler) Execute(ctx context.Context, step *runbook.Step, varCt
 
 	// Get maxParallel
 	maxParallel := 0
-	if v, ok := step.Config["maxParallel"].(int); ok {
+	switch v := step.Config["maxParallel"].(type) {
+	case int:
 		maxParallel = v
-	} else if v, ok := step.Config["maxParallel"].(float64); ok {
+	case float64:
 		maxParallel = int(v)
 	}
 
@@ -114,7 +115,8 @@ func (h *ParallelHandler) Execute(ctx context.Context, step *runbook.Step, varCt
 	}
 
 	var wg sync.WaitGroup
-	for i, pStep := range parallelSteps {
+	for i := range parallelSteps {
+		pStep := &parallelSteps[i]
 		// Check for cancellation
 		select {
 		case <-execCtx.Done():
@@ -168,7 +170,7 @@ func (h *ParallelHandler) Execute(ctx context.Context, step *runbook.Step, varCt
 				}
 			}
 			mu.Unlock()
-		}(i, pStep)
+		}(i, *pStep)
 	}
 
 	wg.Wait()

@@ -63,11 +63,11 @@ func TestBreakingChangeDetector_MajorVersion(t *testing.T) {
 	old := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.0.0"},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "2.0.0"},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for major version bump")
@@ -93,11 +93,11 @@ func TestBreakingChangeDetector_NoMajorVersion(t *testing.T) {
 	old := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.0.0"},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	for _, change := range report.Changes {
 		if change.Type == BreakingMajorVersion {
@@ -116,14 +116,14 @@ func TestBreakingChangeDetector_ParameterRemoved(t *testing.T) {
 			"kept":      {Type: "string"},
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Parameters: map[string]ParameterSchema{
 			"kept": {Type: "string"},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for parameter removal")
@@ -152,14 +152,14 @@ func TestBreakingChangeDetector_ParameterTypeChanged(t *testing.T) {
 			"param": {Type: "string"},
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Parameters: map[string]ParameterSchema{
 			"param": {Type: "integer"},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for parameter type change")
@@ -188,14 +188,14 @@ func TestBreakingChangeDetector_ParameterBecameRequired(t *testing.T) {
 			"param": {Type: "string", Required: false},
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Parameters: map[string]ParameterSchema{
 			"param": {Type: "string", Required: true},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for parameter becoming required")
@@ -219,14 +219,14 @@ func TestBreakingChangeDetector_NewRequiredParameter(t *testing.T) {
 		Metadata:   Metadata{Name: "test", Version: "1.0.0"},
 		Parameters: map[string]ParameterSchema{},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Parameters: map[string]ParameterSchema{
 			"new_param": {Type: "string", Required: true},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for new required parameter")
@@ -253,14 +253,14 @@ func TestBreakingChangeDetector_FeatureRemoved(t *testing.T) {
 			"feature2": {Description: "Feature 2"},
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Features: map[string]Feature{
 			"feature2": {Description: "Feature 2"},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for feature removal")
@@ -289,14 +289,14 @@ func TestBreakingChangeDetector_DependencyRemoved(t *testing.T) {
 			Requires: []string{"dep1", "dep2"},
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Dependencies: &Dependencies{
 			Requires: []string{"dep2"},
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for dependency removal")
@@ -323,14 +323,14 @@ func TestBreakingChangeDetector_EntrypointRemoved(t *testing.T) {
 			"setup":   "states/setup.yaml",
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Entrypoints: map[string]string{
 			"default": "states/main.yaml",
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for entrypoint removal")
@@ -360,14 +360,14 @@ func TestBreakingChangeDetector_StateFileRemoved(t *testing.T) {
 			"setup":   "states/setup.yaml",
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Entrypoints: map[string]string{
 			"default": "states/new_main.yaml",
 		},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if !report.HasBreakingChanges {
 		t.Error("Expected breaking changes for state file removal")
@@ -420,13 +420,13 @@ func TestBreakingChangeDetector_HighestSeverity(t *testing.T) {
 			"setup": "states/setup.yaml",
 		},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata:    Metadata{Name: "test", Version: "2.0.0"},
 		Parameters:  map[string]ParameterSchema{},
 		Entrypoints: map[string]string{},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if report.HighestSeverity != SeverityHigh {
 		t.Errorf("Expected highest severity to be high, got %s", report.HighestSeverity)
@@ -464,11 +464,11 @@ func TestGenerateMigrationGuide_WithChanges(t *testing.T) {
 		RequiresAcknowledgment: true,
 		Changes: []BreakingChange{
 			{
-				Type:         BreakingMajorVersion,
-				Severity:     SeverityHigh,
-				Description:  "Major version upgrade",
-				Migration:    "Review changelog",
-				AutoFixable:  false,
+				Type:        BreakingMajorVersion,
+				Severity:    SeverityHigh,
+				Description: "Major version upgrade",
+				Migration:   "Review changelog",
+				AutoFixable: false,
 			},
 			{
 				Type:         BreakingParameterRemoved,
@@ -525,7 +525,7 @@ func TestBreakingChangeDetector_NilDependencies(t *testing.T) {
 		Metadata: Metadata{Name: "test", Version: "1.0.0"},
 		// Dependencies is nil
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.1.0"},
 		Dependencies: &Dependencies{
 			Requires: []string{"new-dep"},
@@ -533,7 +533,7 @@ func TestBreakingChangeDetector_NilDependencies(t *testing.T) {
 	}
 
 	// Should not panic
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 	if report == nil {
 		t.Fatal("Report should not be nil")
 	}
@@ -545,11 +545,11 @@ func TestBreakingChangeDetector_EmptyBlueprints(t *testing.T) {
 	old := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.0.0"},
 	}
-	new := &Blueprint{
+	updated := &Blueprint{
 		Metadata: Metadata{Name: "test", Version: "1.0.1"},
 	}
 
-	report := detector.Detect(old, new)
+	report := detector.Detect(old, updated)
 
 	if report.HasBreakingChanges {
 		t.Error("No breaking changes expected for empty blueprints")

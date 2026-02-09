@@ -2,6 +2,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"testing"
@@ -232,22 +233,22 @@ func TestMockProvider_Errors(t *testing.T) {
 	provider.DeleteErr = testErr
 
 	_, err := provider.GetRecords(ctx, "example.com")
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Error("GetRecords() should return configured error")
 	}
 
 	_, err = provider.CreateRecord(ctx, "example.com", Record{})
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Error("CreateRecord() should return configured error")
 	}
 
 	_, err = provider.UpdateRecord(ctx, "example.com", Record{ID: "rec1"})
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Error("UpdateRecord() should return configured error")
 	}
 
 	err = provider.DeleteRecord(ctx, "example.com", Record{ID: "rec1"})
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Error("DeleteRecord() should return configured error")
 	}
 }

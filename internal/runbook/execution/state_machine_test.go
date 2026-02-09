@@ -7,11 +7,11 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook"
 )
 
-func TestExecutionMachine_Transitions(t *testing.T) {
+func TestMachine_Transitions(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("pending to running", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
 		if m.State() != runbook.ExecutionStatePending {
 			t.Errorf("initial state = %v, want %v", m.State(), runbook.ExecutionStatePending)
@@ -27,7 +27,7 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 
 	t.Run("running to completed", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 		_ = m.Start(ctx)
 
 		if err := m.Complete(ctx); err != nil {
@@ -44,7 +44,7 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 
 	t.Run("running to failed", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 		_ = m.Start(ctx)
 
 		if err := m.Fail(ctx); err != nil {
@@ -57,7 +57,7 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 
 	t.Run("pending to cancelled", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
 		if err := m.Cancel(ctx); err != nil {
 			t.Errorf("Cancel() error = %v", err)
@@ -69,7 +69,7 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 
 	t.Run("running to cancelled", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 		_ = m.Start(ctx)
 
 		if err := m.Cancel(ctx); err != nil {
@@ -82,7 +82,7 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 
 	t.Run("invalid transition", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
 		// Cannot complete from pending
 		if err := m.Complete(ctx); err == nil {
@@ -91,45 +91,45 @@ func TestExecutionMachine_Transitions(t *testing.T) {
 	})
 }
 
-func TestExecutionMachine_Helpers(t *testing.T) {
+func TestMachine_Helpers(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("CanStart", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
-		if !m.CanStart() {
+		if !m.CanStart() { //nolint:contextcheck // test: CanStart uses state machine CanFire
 			t.Error("CanStart() = false, want true")
 		}
 
 		_ = m.Start(ctx)
 
-		if m.CanStart() {
+		if m.CanStart() { //nolint:contextcheck // test: CanStart uses state machine CanFire
 			t.Error("CanStart() after Start() = true, want false")
 		}
 	})
 
 	t.Run("CanCancel", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
-		if !m.CanCancel() {
+		if !m.CanCancel() { //nolint:contextcheck // test: CanCancel uses state machine CanFire
 			t.Error("CanCancel() = false, want true")
 		}
 
 		_ = m.Start(ctx)
 
-		if !m.CanCancel() {
+		if !m.CanCancel() { //nolint:contextcheck // test: CanCancel uses state machine CanFire
 			t.Error("CanCancel() when running = false, want true")
 		}
 
 		_ = m.Complete(ctx)
 
-		if m.CanCancel() {
+		if m.CanCancel() { //nolint:contextcheck // test: CanCancel uses state machine CanFire
 			t.Error("CanCancel() when completed = true, want false")
 		}
 	})
 
 	t.Run("IsPending", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
 		if !m.IsPending() {
 			t.Error("IsPending() = false, want true")
@@ -143,7 +143,7 @@ func TestExecutionMachine_Helpers(t *testing.T) {
 	})
 
 	t.Run("IsRunning", func(t *testing.T) {
-		m := NewExecutionMachine()
+		m := NewMachine()
 
 		if m.IsRunning() {
 			t.Error("IsRunning() when pending = true, want false")
@@ -157,21 +157,21 @@ func TestExecutionMachine_Helpers(t *testing.T) {
 	})
 }
 
-func TestExecutionMachine_WithCallbacks(t *testing.T) {
+func TestMachine_WithCallbacks(t *testing.T) {
 	ctx := context.Background()
 
 	var callbackCalled bool
 	var lastFrom, lastTo runbook.ExecutionState
-	var lastEvent ExecutionEvent
+	var lastEvent Event
 
-	callback := func(ctx context.Context, from, to runbook.ExecutionState, event ExecutionEvent) {
+	callback := func(ctx context.Context, from, to runbook.ExecutionState, event Event) {
 		callbackCalled = true
 		lastFrom = from
 		lastTo = to
 		lastEvent = event
 	}
 
-	m := NewExecutionMachineWithCallbacks(callback)
+	m := NewMachineWithCallbacks(callback)
 	_ = m.Start(ctx)
 
 	if !callbackCalled {
@@ -259,21 +259,21 @@ func TestStepMachine_Helpers(t *testing.T) {
 	t.Run("CanStart and CanSkip", func(t *testing.T) {
 		m := NewStepMachine("test")
 
-		if !m.CanStart() {
+		if !m.CanStart() { //nolint:contextcheck // test: CanStart uses state machine CanFire
 			t.Error("CanStart() = false, want true")
 		}
 
-		if !m.CanSkip() {
+		if !m.CanSkip() { //nolint:contextcheck // test: CanSkip uses state machine CanFire
 			t.Error("CanSkip() = false, want true")
 		}
 
 		_ = m.Start(ctx)
 
-		if m.CanStart() {
+		if m.CanStart() { //nolint:contextcheck // test: CanStart uses state machine CanFire
 			t.Error("CanStart() when running = true, want false")
 		}
 
-		if m.CanSkip() {
+		if m.CanSkip() { //nolint:contextcheck // test: CanSkip uses state machine CanFire
 			t.Error("CanSkip() when running = true, want false")
 		}
 	})

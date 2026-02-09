@@ -63,10 +63,10 @@ type LRUSVIDCache struct {
 	metrics CacheMetrics
 
 	// LRU cache implementation
-	cache    map[string]*list.Element
-	lru      *list.List
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
+	cache  map[string]*list.Element
+	lru    *list.List
+	stopCh chan struct{}
+	wg     sync.WaitGroup
 }
 
 // cacheEntry is an entry in the cache.
@@ -317,9 +317,9 @@ type BatchSVIDIssuer struct {
 	mu       sync.Mutex
 
 	// Pending requests
-	pending    []*batchRequest
-	pendingCh  chan struct{}
-	processCh  chan struct{}
+	pending   []*batchRequest
+	pendingCh chan struct{}
+	processCh chan struct{}
 
 	// Metrics
 	batchesProcessed int64
@@ -527,9 +527,9 @@ type PooledConnection struct {
 
 // ConnectionPool manages a pool of connections.
 type ConnectionPool struct {
-	config  *ConnectionPoolConfig
-	mu      sync.Mutex
-	cond    *sync.Cond
+	config *ConnectionPoolConfig
+	mu     sync.Mutex
+	cond   *sync.Cond
 
 	// Pool of connections
 	connections []*PooledConnection
@@ -542,11 +542,11 @@ type ConnectionPool struct {
 	healthCheck func(interface{}) bool
 
 	// Metrics
-	created    int64
-	destroyed  int64
-	reused     int64
-	waits      int64
-	waitTime   time.Duration
+	created   int64
+	destroyed int64
+	reused    int64
+	waits     int64
+	waitTime  time.Duration
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -607,13 +607,14 @@ func (p *ConnectionPool) Get(ctx context.Context) (interface{}, error) {
 	for {
 		// Try to find an available connection
 		for _, pc := range p.connections {
-			if !pc.inUse {
-				pc.inUse = true
-				pc.lastUsed = time.Now()
-				p.available--
-				p.reused++
-				return pc.conn, nil
+			if pc.inUse {
+				continue
 			}
+			pc.inUse = true
+			pc.lastUsed = time.Now()
+			p.available--
+			p.reused++
+			return pc.conn, nil
 		}
 
 		// No available connections - check if we can create one
@@ -667,13 +668,14 @@ func (p *ConnectionPool) Put(conn interface{}) {
 	defer p.mu.Unlock()
 
 	for _, pc := range p.connections {
-		if pc.conn == conn {
-			pc.inUse = false
-			pc.lastUsed = time.Now()
-			p.available++
-			p.cond.Signal()
-			return
+		if pc.conn != conn {
+			continue
 		}
+		pc.inUse = false
+		pc.lastUsed = time.Now()
+		p.available++
+		p.cond.Signal()
+		return
 	}
 }
 
@@ -827,10 +829,3 @@ func generateConnectionID() string {
 	return hex.EncodeToString(hash[:8])
 }
 
-// max returns the maximum of two int64 values.
-func max(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}

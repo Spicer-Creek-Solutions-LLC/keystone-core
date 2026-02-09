@@ -12,7 +12,7 @@ This report compares the configuration reference documentation (`docs/content/en
 ```yaml
 logging:
   output: "stdout"                  # stdout, file
-  file: "/var/log/kscore/server.log"
+  file: "/var/log/keystone-core/server.log"
 ```
 
 **Implementation (`pkg/config/config.go` line 52-54):**

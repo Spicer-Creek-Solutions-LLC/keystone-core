@@ -66,7 +66,7 @@ func (s *EmbeddedEtcdServer) Start(ctx context.Context) error {
 	}
 	s.dataDir = dataDir
 
-	if err := os.MkdirAll(dataDir, 0700); err != nil {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 

@@ -1,3 +1,4 @@
+// Package starlark provides a sandboxed Starlark runtime for module execution.
 package starlark
 
 import (
@@ -106,7 +107,7 @@ func (rt *Runtime) LoadFile(filename string) (starlark.StringDict, error) {
 	}
 
 	// Execute the file
-	globals, err := starlark.ExecFile(rt.thread, filename, nil, rt.predeclared)
+	globals, err := starlark.ExecFile(rt.thread, filename, nil, rt.predeclared) //nolint:staticcheck // SA1019: starlark.ExecFile is deprecated but requires API migration to starlark.ExecFileOptions
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute %s: %w", filename, err)
 	}
@@ -128,7 +129,7 @@ func (rt *Runtime) LoadSource(filename, source string) (starlark.StringDict, err
 	}
 
 	// Execute the source
-	globals, err := starlark.ExecFile(rt.thread, filename, []byte(source), rt.predeclared)
+	globals, err := starlark.ExecFile(rt.thread, filename, []byte(source), rt.predeclared) //nolint:staticcheck // SA1019: starlark.ExecFile is deprecated but requires API migration to starlark.ExecFileOptions
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute source: %w", err)
 	}
@@ -326,11 +327,13 @@ type RuntimeOptions struct {
 	MaxSteps uint64
 }
 
-// StarlarkRuntime is an alias for Runtime to implement the runtime.Runtime interface
+// StarlarkRuntime is deprecated: Use Runtime instead.
+//
+//nolint:revive,staticcheck // kept for backward compatibility
 type StarlarkRuntime = Runtime
 
 // NewStarlarkRuntime creates a new Starlark runtime for the module loader
-func NewStarlarkRuntime(opts *RuntimeOptions) *StarlarkRuntime {
+func NewStarlarkRuntime(opts *RuntimeOptions) *Runtime {
 	if opts == nil {
 		opts = &RuntimeOptions{
 			MaxExecutionTime: 30 * time.Second,

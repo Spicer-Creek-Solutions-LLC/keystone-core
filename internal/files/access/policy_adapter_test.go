@@ -109,12 +109,12 @@ func TestPolicyEngineAdapter_Evaluate(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		req         *AccessRequest
+		req         *Request
 		wantAllowed bool
 	}{
 		{
 			name: "allow read",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:   "user1",
 					Type: "user",
@@ -127,7 +127,7 @@ func TestPolicyEngineAdapter_Evaluate(t *testing.T) {
 		},
 		{
 			name: "allow list",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:   "user1",
 					Type: "user",
@@ -140,7 +140,7 @@ func TestPolicyEngineAdapter_Evaluate(t *testing.T) {
 		},
 		{
 			name: "deny write",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:   "user1",
 					Type: "user",
@@ -153,7 +153,7 @@ func TestPolicyEngineAdapter_Evaluate(t *testing.T) {
 		},
 		{
 			name: "deny delete",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:   "user1",
 					Type: "user",
@@ -204,7 +204,7 @@ func TestPolicyEngineAdapter_EvaluateForResource(t *testing.T) {
 	}
 
 	// Bind policy to file resource type
-	binding := &policy.PolicyBinding{
+	binding := &policy.Binding{
 		ID:           "file-binding",
 		PolicyID:     "file-namespace-check",
 		ResourceType: "file",
@@ -227,7 +227,7 @@ func TestPolicyEngineAdapter_EvaluateForResource(t *testing.T) {
 	ctx := context.Background()
 
 	// Test allowed namespace
-	allowedReq := &AccessRequest{
+	allowedReq := &Request{
 		Identity: &Identity{
 			ID:   "user1",
 			Type: "user",
@@ -245,7 +245,7 @@ func TestPolicyEngineAdapter_EvaluateForResource(t *testing.T) {
 	}
 
 	// Test denied namespace
-	deniedReq := &AccessRequest{
+	deniedReq := &Request{
 		Identity: &Identity{
 			ID:   "user1",
 			Type: "user",
@@ -274,7 +274,7 @@ func TestBuildEvaluationInput(t *testing.T) {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
-	req := &AccessRequest{
+	req := &Request{
 		Identity: &Identity{
 			ID:         "spiffe://example.com/agent/1",
 			Type:       "agent",
@@ -398,7 +398,7 @@ func TestPolicyEngineAdapter_NoPolicies(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	req := &AccessRequest{
+	req := &Request{
 		Identity: &Identity{
 			ID:   "user1",
 			Type: "user",

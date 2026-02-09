@@ -59,7 +59,7 @@ services:
     tmpfs:
       - /tmp
     volumes:
-      - ./config.yaml:/etc/kscore/config.yaml:ro
+      - ./config.yaml:/etc/keystone-core/config.yaml:ro
     depends_on:
       nats:
         condition: service_healthy

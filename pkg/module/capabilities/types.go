@@ -89,11 +89,11 @@ type ValidatableCapability interface {
 }
 
 // Register registers a capability
-func (r *CapabilityRegistry) Register(cap Capability) error {
-	if cap == nil {
+func (r *CapabilityRegistry) Register(c Capability) error {
+	if c == nil {
 		return ErrNilCapability
 	}
-	name := cap.Name()
+	name := c.Name()
 	if name == "" {
 		return ErrEmptyCapabilityName
 	}
@@ -101,12 +101,12 @@ func (r *CapabilityRegistry) Register(cap Capability) error {
 		return fmt.Errorf("%w: %s", ErrCapabilityAlreadyRegistered, name)
 	}
 	// Validate capability if it implements ValidatableCapability
-	if validatable, ok := cap.(ValidatableCapability); ok {
+	if validatable, ok := c.(ValidatableCapability); ok {
 		if err := validatable.Validate(); err != nil {
 			return fmt.Errorf("capability validation failed: %w", err)
 		}
 	}
-	r.capabilities[name] = cap
+	r.capabilities[name] = c
 	return nil
 }
 
@@ -118,11 +118,11 @@ func (r *CapabilityRegistry) Has(name string) bool {
 
 // Get retrieves a registered capability
 func (r *CapabilityRegistry) Get(name string) (Capability, error) {
-	cap, exists := r.capabilities[name]
+	c, exists := r.capabilities[name]
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrCapabilityNotFound, name)
 	}
-	return cap, nil
+	return c, nil
 }
 
 // List returns all registered capability names
@@ -177,7 +177,7 @@ type InvokableCapability interface {
 func (i *CapabilityInvoker) Invoke(ctx *CapabilityContext, name string, fn func(Capability) (interface{}, error)) (interface{}, error) {
 	startTime := time.Now()
 
-	cap, err := i.registry.Get(name)
+	c, err := i.registry.Get(name)
 	if err != nil {
 		// Log failed lookup attempt
 		if i.auditor != nil {
@@ -196,7 +196,7 @@ func (i *CapabilityInvoker) Invoke(ctx *CapabilityContext, name string, fn func(
 		return nil, err
 	}
 
-	result, invokeErr := fn(cap)
+	result, invokeErr := fn(c)
 	duration := time.Since(startTime)
 
 	// Log audit entry
@@ -285,7 +285,7 @@ func (k *InMemoryKVStore) Delete(key string) error {
 func (k *InMemoryKVStore) List(prefix string) ([]string, error) {
 	keys := make([]string, 0)
 	for key := range k.Data {
-		if len(prefix) == 0 || len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+		if prefix == "" || len(key) >= len(prefix) && key[:len(prefix)] == prefix {
 			keys = append(keys, key)
 		}
 	}

@@ -64,13 +64,13 @@ func DefaultManagerConfig() *ManagerConfig {
 	}
 }
 
-// Manager implements ProxyAgentManager for coordinating proxy operations.
+// Manager implements AgentManager for coordinating proxy operations.
 type Manager struct {
 	config   *ManagerConfig
 	registry DeviceRegistry
 	executor ProxiedExecutor
 
-	state     atomic.Value // ProxyAgentState
+	state     atomic.Value // AgentState
 	startTime time.Time
 
 	// Statistics
@@ -142,7 +142,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	m.startMu.Lock()
 	defer m.startMu.Unlock()
 
-	currentState := m.state.Load().(ProxyAgentState)
+	currentState := m.state.Load().(AgentState)
 	if currentState == ProxyAgentStateRunning {
 		return nil
 	}
@@ -183,7 +183,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	m.startMu.Lock()
 	defer m.startMu.Unlock()
 
-	currentState := m.state.Load().(ProxyAgentState)
+	currentState := m.state.Load().(AgentState)
 	if currentState == ProxyAgentStateStopped {
 		return nil
 	}
@@ -226,15 +226,15 @@ func (m *Manager) Stop(ctx context.Context) error {
 }
 
 // State returns the current state.
-func (m *Manager) State() ProxyAgentState {
-	return m.state.Load().(ProxyAgentState)
+func (m *Manager) State() AgentState {
+	return m.state.Load().(AgentState)
 }
 
 // Stats returns current statistics.
-func (m *Manager) Stats() *ProxyAgentStats {
+func (m *Manager) Stats() *AgentStats {
 	registryStats, _ := m.registry.GetStats(context.Background())
 
-	stats := &ProxyAgentStats{
+	stats := &AgentStats{
 		DevicesTotal:      registryStats.TotalDevices,
 		DevicesOnline:     registryStats.OnlineDevices,
 		DevicesOffline:    registryStats.OfflineDevices,
@@ -265,7 +265,7 @@ func (m *Manager) Executor() ProxiedExecutor {
 
 // RefreshDevice triggers an immediate health check for a device.
 func (m *Manager) RefreshDevice(ctx context.Context, deviceID string) error {
-	if m.state.Load().(ProxyAgentState) != ProxyAgentStateRunning {
+	if m.state.Load().(AgentState) != ProxyAgentStateRunning {
 		return ErrProxyAgentNotRunning
 	}
 
@@ -290,7 +290,7 @@ func (m *Manager) RefreshDevice(ctx context.Context, deviceID string) error {
 
 // ReloadConfig reloads the proxy agent configuration.
 func (m *Manager) ReloadConfig(ctx context.Context) error {
-	if m.state.Load().(ProxyAgentState) != ProxyAgentStateRunning {
+	if m.state.Load().(AgentState) != ProxyAgentStateRunning {
 		return ErrProxyAgentNotRunning
 	}
 
@@ -304,7 +304,7 @@ func (m *Manager) ReloadConfig(ctx context.Context) error {
 
 // ExecuteCommand executes a command on a proxied device.
 func (m *Manager) ExecuteCommand(ctx context.Context, req *ProxiedExecuteRequest) (*ProxiedExecuteResult, error) {
-	if m.state.Load().(ProxyAgentState) != ProxyAgentStateRunning {
+	if m.state.Load().(AgentState) != ProxyAgentStateRunning {
 		return nil, ErrProxyAgentNotRunning
 	}
 
@@ -341,7 +341,7 @@ func (m *Manager) ExecuteCommand(ctx context.Context, req *ProxiedExecuteRequest
 
 // ExecuteCommandWithOutput executes a command with streaming output.
 func (m *Manager) ExecuteCommandWithOutput(ctx context.Context, req *ProxiedExecuteRequest, handler OutputHandler) (*ProxiedExecuteResult, error) {
-	if m.state.Load().(ProxyAgentState) != ProxyAgentStateRunning {
+	if m.state.Load().(AgentState) != ProxyAgentStateRunning {
 		return nil, ErrProxyAgentNotRunning
 	}
 
@@ -387,8 +387,8 @@ func (m *Manager) RegisterDevice(ctx context.Context, device *ProxiedDevice) err
 	}
 
 	// Perform initial health check if running
-	if m.state.Load().(ProxyAgentState) == ProxyAgentStateRunning && m.executor != nil {
-		go func() {
+	if m.state.Load().(AgentState) == ProxyAgentStateRunning && m.executor != nil {
+		go func() { //nolint:contextcheck // async health check uses fresh context
 			checkCtx, cancel := context.WithTimeout(context.Background(), m.config.HealthCheckTimeout)
 			defer cancel()
 			_ = m.RefreshDevice(checkCtx, device.ID)
@@ -439,5 +439,5 @@ func (m *Manager) onDeviceStale(deviceID string) {
 	_ = m.registry.UpdateStatus(ctx, deviceID, DeviceStatusUnreachable, "device is stale")
 }
 
-// Ensure Manager implements ProxyAgentManager.
-var _ ProxyAgentManager = (*Manager)(nil)
+// Ensure Manager implements AgentManager.
+var _ AgentManager = (*Manager)(nil)

@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-Keystone Core includes 94 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+Keystone Core includes 93 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
 
 **Core Modules**:
 - [file](#file-module) - Manage files and directories
@@ -241,62 +241,62 @@ Manage files, directories, and symlinks.
 #### File with Contents
 
 ```yaml
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  owner: root
-  group: root
-  mode: "0644"
-  contents: |
-    worker_processes 4;
-    events {
-      worker_connections 1024;
-    }
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    contents: |
+      worker_processes 4;
+      events {
+        worker_connections 1024;
+      }
 ```
 
 #### File from Source
 
 ```yaml
-app_config:
-  module: file
-  state: present
-  path: /etc/app/config.yaml
-  source: file:///etc/templates/app-config.yaml
-  mode: "0600"
-  backup: true
+file:
+  app_config:
+    state: present
+    name: /etc/app/config.yaml
+    source: file:///etc/templates/app-config.yaml
+    mode: "0600"
+    backup: true
 ```
 
 #### Directory
 
 ```yaml
-log_directory:
-  module: file
-  state: directory
-  path: /var/log/myapp
-  owner: myapp
-  group: myapp
-  mode: "0755"
-  makedirs: true
+file:
+  log_directory:
+    state: directory
+    name: /var/log/myapp
+    owner: myapp
+    group: myapp
+    mode: "0755"
+    makedirs: true
 ```
 
 #### Symlink
 
 ```yaml
-app_symlink:
-  module: file
-  state: symlink
-  path: /usr/local/bin/myapp
-  target: /opt/myapp/bin/myapp
+file:
+  app_symlink:
+    state: symlink
+    name: /usr/local/bin/myapp
+    target: /opt/myapp/bin/myapp
 ```
 
 #### Remove File
 
 ```yaml
-old_config:
-  module: file
-  state: absent
-  path: /etc/old-config.conf
+file:
+  old_config:
+    state: absent
+    name: /etc/old-config.conf
 ```
 
 ### Return Values
@@ -369,59 +369,59 @@ Manage software packages across platforms.
 #### Install Package
 
 ```yaml
-nginx:
-  module: package
-  state: installed
-  name: nginx
+package:
+  nginx:
+    state: installed
+    name: nginx
 ```
 
 #### Install Specific Version
 
 ```yaml
-docker:
-  module: package
-  state: installed
-  name: docker-ce
-  version: "20.10.*"
-  update_cache: true
+package:
+  docker:
+    state: installed
+    name: docker-ce
+    version: "20.10.*"
+    update_cache: true
 ```
 
 #### Install Latest
 
 ```yaml
-kubectl:
-  module: package
-  state: latest
-  name: kubectl
+package:
+  kubectl:
+    state: latest
+    name: kubectl
 ```
 
 #### Remove Package
 
 ```yaml
-apache2:
-  module: package
-  state: removed
-  name: apache2
+package:
+  apache2:
+    state: removed
+    name: apache2
 ```
 
 #### Purge Package
 
 ```yaml
-old_app:
-  module: package
-  state: purged
-  name: old-app
+package:
+  old_app:
+    state: purged
+    name: old-app
 ```
 
 #### Custom Repository
 
 ```yaml
-nginx_mainline:
-  module: package
-  state: installed
-  name: nginx
-  repo: ppa:nginx/development
-  update_cache: true
+package:
+  nginx_mainline:
+    state: installed
+    name: nginx
+    repo: ppa:nginx/development
+    update_cache: true
 ```
 
 ### Return Values
@@ -746,51 +746,51 @@ Note: States can be combined (e.g., running + enabled)
 #### Start and Enable Service
 
 ```yaml
-nginx:
-  module: service
-  state: running
-  name: nginx
-  enabled: true
+service:
+  nginx:
+    state: running
+    name: nginx
+    enabled: true
 ```
 
 #### Stop and Disable Service
 
 ```yaml
-apache2:
-  module: service
-  state: stopped
-  name: apache2
-  enabled: false
+service:
+  apache2:
+    state: stopped
+    name: apache2
+    enabled: false
 ```
 
 #### Reload on Config Change
 
 ```yaml
-nginx_service:
-  module: service
-  state: running
-  name: nginx
-  reload: true
-  watch:
-    - nginx_config
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    reload: true
+    watch:
+      - file: nginx_config
 ```
 
 #### Just Enable (Don't Start)
 
 ```yaml
-backup_service:
-  module: service
-  name: backup
-  enabled: true
+service:
+  backup_service:
+    name: backup
+    enabled: true
 ```
 
 #### Mask Service
 
 ```yaml
-unwanted_service:
-  module: service
-  name: unwanted
-  mask: true
+service:
+  unwanted_service:
+    name: unwanted
+    mask: true
 ```
 
 ### Return Values
@@ -863,39 +863,39 @@ Manage user accounts.
 #### Create User
 
 ```yaml
-myapp:
-  module: user
-  state: present
-  name: myapp
-  uid: 1001
-  gid: 1001
-  home: /home/myapp
-  shell: /bin/bash
-  groups:
-    - docker
-  comment: "Application User"
+user:
+  myapp:
+    state: present
+    name: myapp
+    uid: 1001
+    gid: 1001
+    home: /home/myapp
+    shell: /bin/bash
+    groups:
+      - docker
+    comment: "Application User"
 ```
 
 #### System User
 
 ```yaml
-nginx:
-  module: user
-  state: present
-  name: nginx
-  system: true
-  shell: /usr/sbin/nologin
-  create_home: false
+user:
+  nginx:
+    state: present
+    name: nginx
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
 ```
 
 #### Remove User
 
 ```yaml
-old_user:
-  module: user
-  state: absent
-  name: old_user
-  remove_home: true
+user:
+  old_user:
+    state: absent
+    name: old_user
+    remove_home: true
 ```
 
 ### Return Values
@@ -944,42 +944,42 @@ Manage groups.
 #### Create Group
 
 ```yaml
-developers:
-  module: group
-  state: present
-  name: developers
-  gid: 2000
+group:
+  developers:
+    state: present
+    name: developers
+    gid: 2000
 ```
 
 #### Group with Members
 
 ```yaml
-docker:
-  module: group
-  state: present
-  name: docker
-  members:
-    - alice
-    - bob
+group:
+  docker:
+    state: present
+    name: docker
+    members:
+      - alice
+      - bob
 ```
 
 #### System Group
 
 ```yaml
-app_group:
-  module: group
-  state: present
-  name: myapp
-  system: true
+group:
+  app_group:
+    state: present
+    name: myapp
+    system: true
 ```
 
 #### Remove Group
 
 ```yaml
-old_group:
-  module: group
-  state: absent
-  name: old_group
+group:
+  old_group:
+    state: absent
+    name: old_group
 ```
 
 ### Return Values
@@ -1049,55 +1049,55 @@ Execute commands.
 #### Simple Command
 
 ```yaml
-reload_app:
-  module: cmd
-  state: run
-  command: systemctl reload myapp
+cmd:
+  reload_app:
+    state: run
+    command: systemctl reload myapp
 ```
 
 #### Command with Environment
 
 ```yaml
-database_migration:
-  module: cmd
-  state: run
-  command: /usr/local/bin/migrate up
-  cwd: /opt/myapp
-  env:
-    DATABASE_URL: postgres://localhost/myapp
-  timeout: 5m
+cmd:
+  database_migration:
+    state: run
+    command: /usr/local/bin/migrate up
+    cwd: /opt/myapp
+    env:
+      DATABASE_URL: postgres://localhost/myapp
+    timeout: 5m
 ```
 
 #### Conditional Execution
 
 ```yaml
-initialize_db:
-  module: cmd
-  state: run
-  command: /opt/myapp/init-db.sh
-  unless: test -f /var/lib/myapp/initialized
+cmd:
+  initialize_db:
+    state: run
+    command: /opt/myapp/init-db.sh
+    unless: test -f /var/lib/myapp/initialized
 ```
 
 #### Wait State (Run on Change)
 
 ```yaml
-reload_nginx:
-  module: cmd
-  state: wait
-  command: systemctl reload nginx
-  watch:
-    - nginx_config
+cmd:
+  reload_nginx:
+    state: wait
+    command: systemctl reload nginx
+    watch:
+      - file: nginx_config
 ```
 
 #### Run as User
 
 ```yaml
-app_task:
-  module: cmd
-  state: run
-  command: /opt/myapp/task.sh
-  runas: myapp
-  cwd: /opt/myapp
+cmd:
+  app_task:
+    state: run
+    command: /opt/myapp/task.sh
+    runas: myapp
+    cwd: /opt/myapp
 ```
 
 ### Return Values
@@ -5467,53 +5467,53 @@ Linux only. Uses the system crontab or per-user crontabs.
 **Daily backup at 2 AM**:
 
 ```yaml
-daily_backup:
-  module: cron
-  state: present
-  command: /usr/local/bin/backup.sh
-  minute: "0"
-  hour: "2"
+cron:
+  daily_backup:
+    state: present
+    command: /usr/local/bin/backup.sh
+    minute: "0"
+    hour: "2"
 ```
 
 **Every 15 minutes**:
 
 ```yaml
-check_queue:
-  module: cron
-  state: present
-  command: /usr/local/bin/process_queue.sh
-  minute: "*/15"
+cron:
+  check_queue:
+    state: present
+    command: /usr/local/bin/process_queue.sh
+    minute: "*/15"
 ```
 
 **Weekly cleanup on Sundays**:
 
 ```yaml
-weekly_cleanup:
-  module: cron
-  state: present
-  command: /usr/local/bin/cleanup.sh
-  special: "@weekly"
+cron:
+  weekly_cleanup:
+    state: present
+    command: /usr/local/bin/cleanup.sh
+    special: "@weekly"
 ```
 
 **Run on boot**:
 
 ```yaml
-startup_script:
-  module: cron
-  state: present
-  command: /usr/local/bin/on_boot.sh
-  special: "@reboot"
+cron:
+  startup_script:
+    state: present
+    command: /usr/local/bin/on_boot.sh
+    special: "@reboot"
 ```
 
 **As specific user**:
 
 ```yaml
-user_job:
-  module: cron
-  state: present
-  command: php /var/www/artisan schedule:run
-  minute: "*"
-  user: www-data
+cron:
+  user_job:
+    state: present
+    command: php /var/www/artisan schedule:run
+    minute: "*"
+    user: www-data
 ```
 
 ## Systemd_Timer Module
@@ -11437,7 +11437,7 @@ kscorectl module build ./myorg-my-custom-module
 
 # Sign with your key
 kscorectl module sign \
-  --key ~/.kscore/signing-key.pem \
+  --key ~/.keystone-core/signing-key.pem \
   ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip
 ```
 

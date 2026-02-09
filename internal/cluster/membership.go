@@ -219,9 +219,7 @@ func (m *MembershipManager) deregister(ctx context.Context) error {
 
 	key := memberKeyPrefix + member.ID
 	// Put without lease so other members see the leaving status
-	if err := m.etcd.Put(ctx, key, data, 5*time.Second); err != nil {
-		// Log but don't fail - the lease will expire anyway
-	}
+	_ = m.etcd.Put(ctx, key, data, 5*time.Second) // best-effort, lease will expire anyway
 
 	// Revoke the session to immediately remove the member
 	if err := m.etcd.RevokeSession(ctx); err != nil {
@@ -330,9 +328,7 @@ func (m *MembershipManager) heartbeatLoop(ctx context.Context) {
 			close(m.doneChan)
 			return
 		case <-ticker.C:
-			if err := m.heartbeat(ctx); err != nil {
-				// Log error but continue
-			}
+			_ = m.heartbeat(ctx) // best-effort heartbeat, continue on error
 		}
 	}
 }
@@ -392,7 +388,8 @@ func (m *MembershipManager) checkMemberHealth() {
 		}
 
 		// Check if member is stale
-		if now.Sub(member.LastHeartbeat) > timeout {
+		switch {
+		case now.Sub(member.LastHeartbeat) > timeout:
 			if member.Status == MemberStatusHealthy {
 				member.Status = MemberStatusUnhealthy
 				m.notifyObserversLocked(MembershipEvent{
@@ -402,7 +399,7 @@ func (m *MembershipManager) checkMemberHealth() {
 					Reason:    "heartbeat timeout",
 				})
 			}
-		} else if now.Sub(member.LastHeartbeat) > timeout/2 {
+		case now.Sub(member.LastHeartbeat) > timeout/2:
 			if member.Status == MemberStatusHealthy {
 				member.Status = MemberStatusDegraded
 				m.notifyObserversLocked(MembershipEvent{
@@ -412,7 +409,7 @@ func (m *MembershipManager) checkMemberHealth() {
 					Reason:    "delayed heartbeat",
 				})
 			}
-		} else if member.Status == MemberStatusDegraded || member.Status == MemberStatusUnhealthy {
+		case member.Status == MemberStatusDegraded || member.Status == MemberStatusUnhealthy:
 			member.Status = MemberStatusHealthy
 			m.notifyObserversLocked(MembershipEvent{
 				Type:      MembershipEventRecovered,
@@ -604,7 +601,7 @@ func (m *MembershipManager) notifyObserversLocked(event MembershipEvent) {
 }
 
 // GetClusterInfo returns the current cluster information.
-func (m *MembershipManager) GetClusterInfo() *ClusterInfo {
+func (m *MembershipManager) GetClusterInfo() *Info {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -630,14 +627,14 @@ func (m *MembershipManager) GetClusterInfo() *ClusterInfo {
 
 	hasQuorum := memberCount > 0 && healthyCount >= quorumSize
 
-	status := ClusterStatusHealthy
+	status := StatusHealthy
 	if memberCount == 0 || healthyCount < quorumSize {
-		status = ClusterStatusUnhealthy
+		status = StatusUnhealthy
 	} else if healthyCount < memberCount {
-		status = ClusterStatusDegraded
+		status = StatusDegraded
 	}
 
-	return &ClusterInfo{
+	return &Info{
 		Name:         m.config.ClusterName,
 		Status:       status,
 		LeaderID:     leaderID,

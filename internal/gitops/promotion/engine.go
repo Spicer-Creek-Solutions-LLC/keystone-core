@@ -52,7 +52,7 @@ type Engine struct {
 	remediator         Remediator
 	notifier           Notifier
 	pipelines          map[string]*Pipeline
-	results            map[string]*PromotionResult
+	results            map[string]*Result
 	thresholdRegistry  *ThresholdRegistry
 	thresholdEvaluator *ThresholdEvaluator
 	mu                 sync.RWMutex
@@ -95,7 +95,7 @@ func NewEngine(deployer Deployer, opts ...EngineOption) *Engine {
 	e := &Engine{
 		deployer:          deployer,
 		pipelines:         make(map[string]*Pipeline),
-		results:           make(map[string]*PromotionResult),
+		results:           make(map[string]*Result),
 		thresholdRegistry: NewThresholdRegistry(),
 	}
 
@@ -214,7 +214,7 @@ func (e *Engine) GetPipeline(name string) (*Pipeline, bool) {
 }
 
 // Promote executes a promotion
-func (e *Engine) Promote(ctx context.Context, req *PromotionRequest) (*PromotionResult, error) {
+func (e *Engine) Promote(ctx context.Context, req *Request) (*Result, error) {
 	// Get pipeline
 	pipeline, ok := e.GetPipeline(req.Pipeline)
 	if !ok {
@@ -236,7 +236,7 @@ func (e *Engine) Promote(ctx context.Context, req *PromotionRequest) (*Promotion
 	}
 
 	// Create result
-	result := &PromotionResult{
+	result := &Result{
 		ID:       uuid.New().String(),
 		Pipeline: pipeline,
 		Request:  req,
@@ -263,7 +263,7 @@ func (e *Engine) Promote(ctx context.Context, req *PromotionRequest) (*Promotion
 }
 
 // executePromotion executes the actual promotion
-func (e *Engine) executePromotion(ctx context.Context, result *PromotionResult, pipeline *Pipeline, targetIdx int) (*PromotionResult, error) {
+func (e *Engine) executePromotion(ctx context.Context, result *Result, pipeline *Pipeline, targetIdx int) (*Result, error) {
 	result.Status = StatusInProgress
 	result.StartTime = time.Now()
 
@@ -315,7 +315,7 @@ func (e *Engine) executePromotion(ctx context.Context, result *PromotionResult, 
 }
 
 // promoteToEnvironment promotes to a single environment
-func (e *Engine) promoteToEnvironment(ctx context.Context, result *PromotionResult, pipeline *Pipeline, env *Environment) (*StageResult, error) {
+func (e *Engine) promoteToEnvironment(ctx context.Context, result *Result, pipeline *Pipeline, env *Environment) (*StageResult, error) {
 	stage := &StageResult{
 		Environment: env.Name,
 		Status:      StatusInProgress,
@@ -527,21 +527,21 @@ func (e *Engine) ApprovePromotion(ctx context.Context, req *ApprovalRequest) err
 		// Execute the promotion
 		_, err := e.executePromotion(ctx, result, result.Pipeline, targetIdx)
 		return err
-	} else {
-		result.ApprovalInfo.Status = StatusRejected
-		result.ApprovalInfo.RejectedBy = req.ApprovedBy
-		result.ApprovalInfo.RejectedAt = time.Now()
-		result.ApprovalInfo.Reason = req.Reason
-		result.Status = StatusRejected
-		result.EndTime = time.Now()
-		result.Message = fmt.Sprintf("Promotion rejected by %s: %s", req.ApprovedBy, req.Reason)
 	}
+
+	result.ApprovalInfo.Status = StatusRejected
+	result.ApprovalInfo.RejectedBy = req.ApprovedBy
+	result.ApprovalInfo.RejectedAt = time.Now()
+	result.ApprovalInfo.Reason = req.Reason
+	result.Status = StatusRejected
+	result.EndTime = time.Now()
+	result.Message = fmt.Sprintf("Promotion rejected by %s: %s", req.ApprovedBy, req.Reason)
 
 	return nil
 }
 
 // GetPromotion returns a promotion by ID
-func (e *Engine) GetPromotion(id string) (*PromotionResult, bool) {
+func (e *Engine) GetPromotion(id string) (*Result, bool) {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 	result, ok := e.results[id]
@@ -549,11 +549,11 @@ func (e *Engine) GetPromotion(id string) (*PromotionResult, bool) {
 }
 
 // ListPromotions returns all promotions
-func (e *Engine) ListPromotions() []*PromotionResult {
+func (e *Engine) ListPromotions() []*Result {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 
-	results := make([]*PromotionResult, 0, len(e.results))
+	results := make([]*Result, 0, len(e.results))
 	for _, result := range e.results {
 		results = append(results, result)
 	}
@@ -561,11 +561,11 @@ func (e *Engine) ListPromotions() []*PromotionResult {
 }
 
 // ListPendingPromotions returns promotions pending approval
-func (e *Engine) ListPendingPromotions() []*PromotionResult {
+func (e *Engine) ListPendingPromotions() []*Result {
 	e.resultsMu.RLock()
 	defer e.resultsMu.RUnlock()
 
-	var results []*PromotionResult
+	var results []*Result
 	for _, result := range e.results {
 		if result.Status == StatusPending {
 			results = append(results, result)
@@ -659,14 +659,16 @@ func (e *Engine) executeRemediation(ctx context.Context, pipeline *Pipeline, env
 
 		// Create timeout context for this attempt
 		attemptCtx := ctx
+		var cancel context.CancelFunc
 		if config.TimeoutPerAttempt > 0 {
-			var cancel context.CancelFunc
 			attemptCtx, cancel = context.WithTimeout(ctx, config.TimeoutPerAttempt)
-			defer cancel()
 		}
 
 		// Execute based on strategy
 		err := e.executeRemediationStrategy(attemptCtx, config.Strategy, pipeline, env, previousRevision, &attemptResult)
+		if cancel != nil {
+			cancel()
+		}
 
 		attemptResult.EndTime = time.Now()
 
@@ -748,7 +750,7 @@ func (e *Engine) executeRemediationStrategy(ctx context.Context, strategy Remedi
 }
 
 // handleVerificationFailure handles a verification failure and triggers remediation if configured
-func (e *Engine) handleVerificationFailure(ctx context.Context, pipeline *Pipeline, env *Environment, evalResult *EvaluationResult, failedStep int, failedWeight int, previousRevision string, stage *StageResult) error {
+func (e *Engine) handleVerificationFailure(ctx context.Context, pipeline *Pipeline, env *Environment, evalResult *EvaluationResult, failedStep, failedWeight int, previousRevision string, stage *StageResult) error {
 	// Determine action based on failure policy
 	thresholdConfig := e.getEffectiveThresholds(pipeline, env)
 	failurePolicy := FailurePolicyAbort
@@ -773,7 +775,7 @@ func (e *Engine) handleVerificationFailure(ctx context.Context, pipeline *Pipeli
 		if remResult.Status == RemediationStatusSucceeded {
 			return fmt.Errorf("threshold verification failed, automatic rollback completed: %s", evalResult.Message)
 		}
-		return fmt.Errorf("threshold verification failed and remediation failed: %s (remediation error: %v)", evalResult.Message, remResult.Error)
+		return fmt.Errorf("threshold verification failed and remediation failed: %s (remediation error: %w)", evalResult.Message, remResult.Error)
 
 	case FailurePolicyPause:
 		// Pause and wait for manual intervention
@@ -798,9 +800,7 @@ func (e *Engine) handleVerificationFailure(ctx context.Context, pipeline *Pipeli
 		}
 		return nil // No error, continue deployment
 
-	case FailurePolicyAbort:
-		fallthrough
-	default:
+	default: // includes FailurePolicyAbort
 		// Abort without remediation
 		return fmt.Errorf("threshold verification failed: %s", evalResult.Message)
 	}

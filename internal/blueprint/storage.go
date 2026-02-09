@@ -28,7 +28,7 @@ type Storage interface {
 	Get(ctx context.Context, name string, version string) (*Blueprint, error)
 
 	// List returns all blueprints matching the optional filter.
-	List(ctx context.Context, filter *ListFilter) ([]*BlueprintInfo, error)
+	List(ctx context.Context, filter *ListFilter) ([]*Info, error)
 
 	// Versions returns all available versions for a blueprint.
 	Versions(ctx context.Context, name string) ([]string, error)
@@ -80,8 +80,8 @@ type ListFilter struct {
 	Offset int
 }
 
-// BlueprintInfo contains summary information about a blueprint.
-type BlueprintInfo struct {
+// Info contains summary information about a blueprint.
+type Info struct {
 	// Name is the full blueprint name (e.g., "blueprints/community/web-app-stack")
 	Name string
 
@@ -210,7 +210,7 @@ func NewMultiStorage(storages ...Storage) *MultiStorage {
 }
 
 // Get retrieves a blueprint, trying each storage in order.
-func (m *MultiStorage) Get(ctx context.Context, name string, version string) (*Blueprint, error) {
+func (m *MultiStorage) Get(ctx context.Context, name, version string) (*Blueprint, error) {
 	var lastErr error
 	for _, s := range m.storages {
 		bp, err := s.Get(ctx, name, version)
@@ -228,9 +228,9 @@ func (m *MultiStorage) Get(ctx context.Context, name string, version string) (*B
 }
 
 // List combines results from all storages.
-func (m *MultiStorage) List(ctx context.Context, filter *ListFilter) ([]*BlueprintInfo, error) {
+func (m *MultiStorage) List(ctx context.Context, filter *ListFilter) ([]*Info, error) {
 	seen := make(map[string]bool)
-	var result []*BlueprintInfo
+	var result []*Info
 
 	for _, s := range m.storages {
 		infos, err := s.List(ctx, filter)
@@ -274,7 +274,7 @@ func (m *MultiStorage) Versions(ctx context.Context, name string) ([]string, err
 }
 
 // Exists checks if a blueprint exists in any storage.
-func (m *MultiStorage) Exists(ctx context.Context, name string, version string) (bool, error) {
+func (m *MultiStorage) Exists(ctx context.Context, name, version string) (bool, error) {
 	for _, s := range m.storages {
 		exists, err := s.Exists(ctx, name, version)
 		if err != nil {

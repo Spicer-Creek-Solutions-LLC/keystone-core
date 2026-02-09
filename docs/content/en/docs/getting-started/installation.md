@@ -126,10 +126,9 @@ make install PREFIX=$HOME/.local
 Build individual components:
 
 ```bash
-make build-server   # Build kscore-server
-make build-agent    # Build kscore-agent
-make build-cli      # Build kscorectl
-make build-plugins  # Build all plugins
+make server   # Build kscore-server
+make agent    # Build kscore-agent
+make cli      # Build kscorectl and all CLI plugins
 ```
 
 ### Method 4: Package Managers
@@ -137,8 +136,8 @@ make build-plugins  # Build all plugins
 #### Homebrew (macOS/Linux)
 
 ```bash
-brew tap kscore/tap
-brew install kscore
+brew tap keystonecore/tap
+brew install keystone-core
 ```
 
 #### APT (Debian/Ubuntu)
@@ -228,7 +227,7 @@ kubectl apply -f https://github.com/shawnbutts/keystone-core/releases/latest/dow
 
 ### Control Plane Configuration
 
-Create `/etc/kscore/server.yaml`:
+Create `/etc/keystone-core/server.yaml`:
 
 ```yaml
 # Minimal configuration (uses embedded NATS and SQLite)
@@ -241,7 +240,7 @@ api:
 
 storage:
   type: sqlite
-  path: /var/lib/kscore/state.db
+  path: /var/lib/keystone-core/state.db
 ```
 
 Advanced configuration (external NATS, PostgreSQL):
@@ -253,14 +252,14 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/kscore/nats.creds
+  credentials: /etc/keystone-core/nats.creds
 
 api:
   listen: "0.0.0.0:8080"
   tls:
     enabled: true
-    cert_file: /etc/kscore/tls/server.crt
-    key_file: /etc/kscore/tls/server.key
+    cert_file: /etc/keystone-core/tls/server.crt
+    key_file: /etc/keystone-core/tls/server.key
 
 storage:
   type: postgresql
@@ -269,7 +268,7 @@ storage:
 
 ### Agent Configuration
 
-Create `/etc/kscore/agent.yaml`:
+Create `/etc/keystone-core/agent.yaml`:
 
 ```yaml
 control_plane:
@@ -291,7 +290,7 @@ agent:
 
 ```bash
 # Foreground (for testing)
-kscore-server --config /etc/kscore/server.yaml
+kscore-server --config /etc/keystone-core/server.yaml
 
 # Background (systemd)
 sudo systemctl start kscore-server
@@ -305,7 +304,7 @@ docker-compose up -d control-plane
 
 ```bash
 # Foreground
-kscore-agent --config /etc/kscore/agent.yaml
+kscore-agent --config /etc/keystone-core/agent.yaml
 
 # Background (systemd)
 sudo systemctl start kscore-agent
@@ -330,7 +329,7 @@ After=network.target
 Type=simple
 User=kscore
 Group=kscore
-ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
+ExecStart=/usr/local/bin/kscore-server --config /etc/keystone-core/server.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -349,7 +348,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
+ExecStart=/usr/local/bin/kscore-agent --config /etc/keystone-core/agent.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -415,7 +414,7 @@ journalctl -u kscore-server -n 50
 # - NATS connection failed (external NATS not reachable)
 
 # Validate configuration
-kscorectl config validate --config /etc/kscore/server.yaml
+kscorectl config validate --config /etc/keystone-core/server.yaml
 ```
 
 ### Agent Won't Connect

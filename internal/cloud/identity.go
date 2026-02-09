@@ -137,7 +137,7 @@ func (p *AWSIdentityProvider) GetAccessToken(ctx context.Context, scope string) 
 }
 
 func (p *AWSIdentityProvider) getIMDSv2Token(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "PUT", awsMetadataToken, nil)
+	req, err := http.NewRequestWithContext(ctx, "PUT", awsMetadataToken, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +158,7 @@ func (p *AWSIdentityProvider) getIMDSv2Token(ctx context.Context) (string, error
 }
 
 func (p *AWSIdentityProvider) getMetadata(ctx context.Context, token, path string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", awsMetadataBaseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", awsMetadataBaseURL+path, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -239,7 +239,7 @@ func (p *GCPIdentityProvider) GetAccessToken(ctx context.Context, audience strin
 		url = gcpMetadataBaseURL + "/instance/service-accounts/default/identity?audience=" + audience
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -279,7 +279,7 @@ func (p *GCPIdentityProvider) GetAccessToken(ctx context.Context, audience strin
 }
 
 func (p *GCPIdentityProvider) getMetadata(ctx context.Context, path string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", gcpMetadataBaseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", gcpMetadataBaseURL+path, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -349,7 +349,7 @@ func (p *AzureIdentityProvider) GetAccessToken(ctx context.Context, resource str
 	url := fmt.Sprintf("%s/identity/oauth2/token?api-version=2018-02-01&resource=%s",
 		azureMetadataBaseURL, resource)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -367,12 +367,12 @@ func (p *AzureIdentityProvider) GetAccessToken(ctx context.Context, resource str
 	}
 
 	var tokenResp struct {
-		AccessToken  string `json:"access_token"`
-		ExpiresIn    string `json:"expires_in"`
-		ExpiresOn    string `json:"expires_on"`
-		Resource     string `json:"resource"`
-		TokenType    string `json:"token_type"`
-		ClientID     string `json:"client_id"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   string `json:"expires_in"`
+		ExpiresOn   string `json:"expires_on"`
+		Resource    string `json:"resource"`
+		TokenType   string `json:"token_type"`
+		ClientID    string `json:"client_id"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
@@ -399,7 +399,7 @@ type azureVMMetadataSimple struct {
 func (p *AzureIdentityProvider) getInstanceMetadata(ctx context.Context) (*azureVMMetadataSimple, error) {
 	url := azureMetadataBaseURL + "/instance/compute?api-version=" + azureMetadataVersion
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -482,7 +482,7 @@ func NewAWSAttestationProvider(timeout time.Duration) *AWSAttestationProvider {
 // GetAttestation retrieves AWS instance identity document
 func (p *AWSAttestationProvider) GetAttestation(ctx context.Context, nonce string) (*AttestationInfo, error) {
 	// Get IMDSv2 token
-	tokenReq, err := http.NewRequestWithContext(ctx, "PUT", awsMetadataToken, nil)
+	tokenReq, err := http.NewRequestWithContext(ctx, "PUT", awsMetadataToken, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,7 @@ func (p *AWSAttestationProvider) GetAttestation(ctx context.Context, nonce strin
 	token, _ := io.ReadAll(tokenResp.Body)
 
 	// Get identity document
-	docReq, err := http.NewRequestWithContext(ctx, "GET", awsDynamicURL, nil)
+	docReq, err := http.NewRequestWithContext(ctx, "GET", awsDynamicURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +516,7 @@ func (p *AWSAttestationProvider) GetAttestation(ctx context.Context, nonce strin
 
 	// Get PKCS7 signature
 	pkcs7Req, err := http.NewRequestWithContext(ctx, "GET",
-		"http://169.254.169.254/latest/dynamic/instance-identity/pkcs7", nil)
+		"http://169.254.169.254/latest/dynamic/instance-identity/pkcs7", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +532,7 @@ func (p *AWSAttestationProvider) GetAttestation(ctx context.Context, nonce strin
 
 	// Get RSA2048 signature
 	sigReq, err := http.NewRequestWithContext(ctx, "GET",
-		"http://169.254.169.254/latest/dynamic/instance-identity/rsa2048", nil)
+		"http://169.254.169.254/latest/dynamic/instance-identity/rsa2048", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +577,7 @@ func (p *GCPAttestationProvider) GetAttestation(ctx context.Context, audience st
 
 	url := gcpMetadataBaseURL + "/instance/service-accounts/default/identity?audience=" + audience + "&format=full"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -628,7 +628,7 @@ func (p *AzureAttestationProvider) GetAttestation(ctx context.Context, resource 
 	url := fmt.Sprintf("%s/identity/oauth2/token?api-version=2018-02-01&resource=%s",
 		azureMetadataBaseURL, resource)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}

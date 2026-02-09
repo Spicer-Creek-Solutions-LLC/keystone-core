@@ -1,3 +1,4 @@
+// Package main implements the kscore-blueprint-publish CLI for publishing blueprints to registries.
 package main
 
 import (
@@ -74,7 +75,8 @@ func docsExecute(cmd *cobra.Command, args []string) error {
 
 	// Create output directory
 	outputDir := filepath.Join(path, docsOutputDir)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	//nolint:gosec // G301: documentation directory needs to be accessible by users
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -228,8 +230,6 @@ func generateJSONDocs(bp *blueprint.Blueprint, outputDir string) error {
 }
 
 func formatParametersForJSON(params map[string]blueprint.ParameterSchema) []map[string]interface{} {
-	var result []map[string]interface{}
-
 	// Sort parameter names for consistent output
 	names := make([]string, 0, len(params))
 	for name := range params {
@@ -237,6 +237,7 @@ func formatParametersForJSON(params map[string]blueprint.ParameterSchema) []map[
 	}
 	sort.Strings(names)
 
+	result := make([]map[string]interface{}, 0, len(names))
 	for _, name := range names {
 		param := params[name]
 		p := map[string]interface{}{
@@ -330,11 +331,11 @@ func writeJSONValue(f *os.File, data interface{}, indent int) error {
 			f.WriteString("false")
 		}
 	case int, int64, float64:
-		f.WriteString(fmt.Sprintf("%v", v))
+		fmt.Fprintf(f, "%v", v)
 	case nil:
 		f.WriteString("null")
 	default:
-		f.WriteString(fmt.Sprintf("\"%v\"", v))
+		fmt.Fprintf(f, "\"%v\"", v)
 	}
 	return nil
 }

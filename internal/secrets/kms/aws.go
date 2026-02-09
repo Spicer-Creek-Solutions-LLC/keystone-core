@@ -203,6 +203,7 @@ func (p *AWSProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyMet
 	case types.KeySpecEccNistP384:
 		meta.KeySpec = KeySpecECCNISTP384
 		meta.KeyType = KeyTypeAsymmetric
+	default:
 	}
 
 	// Map key usage
@@ -211,6 +212,7 @@ func (p *AWSProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyMet
 		meta.KeyUsage = KeyUsageEncryptDecrypt
 	case types.KeyUsageTypeSignVerify:
 		meta.KeyUsage = KeyUsageSignVerify
+	default:
 	}
 
 	// Get key aliases
@@ -617,7 +619,7 @@ func translateAWSError(err error) error {
 	case strings.Contains(errMsg, "InvalidGrantTokenException"):
 		return ErrAccessDenied
 	default:
-		return fmt.Errorf("%w: %v", ErrProviderUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrProviderUnavailable, err)
 	}
 }
 

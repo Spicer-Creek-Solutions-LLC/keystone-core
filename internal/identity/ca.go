@@ -108,7 +108,7 @@ func (m *CAManager) Initialize(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	// Ensure storage directory exists
-	if err := os.MkdirAll(m.config.StoragePath, 0700); err != nil {
+	if err := os.MkdirAll(m.config.StoragePath, 0o700); err != nil {
 		return fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -327,7 +327,8 @@ func (m *CAManager) saveCA(rootCert *x509.Certificate, rootKey crypto.PrivateKey
 
 	// Save root CA certificate
 	rootCertPEM := encodeCertificatePEM(rootCert)
-	if err := os.WriteFile(rootCertPath, rootCertPEM, 0644); err != nil {
+	//nolint:gosec // G306: CA certificates need to be readable for TLS verification
+	if err := os.WriteFile(rootCertPath, rootCertPEM, 0o644); err != nil {
 		return err
 	}
 
@@ -336,13 +337,14 @@ func (m *CAManager) saveCA(rootCert *x509.Certificate, rootKey crypto.PrivateKey
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(rootKeyPath, rootKeyPEM, 0600); err != nil {
+	if err := os.WriteFile(rootKeyPath, rootKeyPEM, 0o600); err != nil {
 		return err
 	}
 
 	// Save signing CA certificate
 	signingCertPEM := encodeCertificatePEM(signingCert)
-	if err := os.WriteFile(signingCertPath, signingCertPEM, 0644); err != nil {
+	//nolint:gosec // G306: CA certificates need to be readable for TLS verification
+	if err := os.WriteFile(signingCertPath, signingCertPEM, 0o644); err != nil {
 		return err
 	}
 
@@ -351,11 +353,7 @@ func (m *CAManager) saveCA(rootCert *x509.Certificate, rootKey crypto.PrivateKey
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(signingKeyPath, signingKeyPEM, 0600); err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(signingKeyPath, signingKeyPEM, 0o600)
 }
 
 // Info returns information about the CA.
@@ -419,7 +417,8 @@ func (m *CAManager) RotateSigningCA(ctx context.Context) error {
 	signingKeyPath := filepath.Join(m.config.StoragePath, "signing-ca.key")
 
 	signingCertPEM := encodeCertificatePEM(signingCert)
-	if err := os.WriteFile(signingCertPath, signingCertPEM, 0644); err != nil {
+	//nolint:gosec // G306: CA certificates need to be readable for TLS verification
+	if err := os.WriteFile(signingCertPath, signingCertPEM, 0o644); err != nil {
 		return err
 	}
 
@@ -427,7 +426,7 @@ func (m *CAManager) RotateSigningCA(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(signingKeyPath, signingKeyPEM, 0600); err != nil {
+	if err := os.WriteFile(signingKeyPath, signingKeyPEM, 0o600); err != nil {
 		return err
 	}
 

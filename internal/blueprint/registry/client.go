@@ -21,17 +21,17 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
-// HTTPClient implements RegistryClient using HTTP with Go-mod style endpoints.
+// HTTPClient implements Client using HTTP with Go-mod style endpoints.
 type HTTPClient struct {
-	config     *RegistryConfig
+	config     *Config
 	httpClient *http.Client
 	auth       *AuthConfig
 }
 
 // NewHTTPClient creates a new HTTP registry client.
-func NewHTTPClient(config *RegistryConfig) (*HTTPClient, error) {
+func NewHTTPClient(config *Config) (*HTTPClient, error) {
 	if config == nil {
-		config = DefaultRegistryConfig()
+		config = DefaultConfig()
 	}
 
 	if config.URL == "" {
@@ -569,12 +569,13 @@ func (c *HTTPClient) doRequest(method, endpoint string, body io.Reader, headers 
 		var bodyReader io.Reader
 		if body != nil {
 			// Read body into buffer for retry
-			if buf, ok := body.(*bytes.Buffer); ok {
-				bodyReader = bytes.NewReader(buf.Bytes())
-			} else if reader, ok := body.(*bytes.Reader); ok {
-				reader.Seek(0, io.SeekStart)
-				bodyReader = reader
-			} else {
+			switch b := body.(type) {
+			case *bytes.Buffer:
+				bodyReader = bytes.NewReader(b.Bytes())
+			case *bytes.Reader:
+				b.Seek(0, io.SeekStart)
+				bodyReader = b
+			default:
 				bodyReader = body
 			}
 		}
@@ -642,6 +643,7 @@ func (c *HTTPClient) setAuth(req *http.Request) {
 			header = "X-API-Key"
 		}
 		req.Header.Set(header, c.auth.Token)
+	default:
 	}
 }
 
@@ -652,7 +654,7 @@ func (c *HTTPClient) checkResponse(resp *http.Response) error {
 	}
 
 	// Try to parse error response
-	var regErr RegistryError
+	var regErr Error
 	if err := json.NewDecoder(resp.Body).Decode(&regErr); err == nil {
 		regErr.StatusCode = resp.StatusCode
 		return &regErr

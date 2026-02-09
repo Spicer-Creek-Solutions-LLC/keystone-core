@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,7 +16,7 @@ import (
 type LinkCheckResult struct {
 	Source     string `json:"source"`
 	Link       string `json:"link"`
-	Type       string `json:"type"` // internal, external, anchor
+	Type       string `json:"type"`   // internal, external, anchor
 	Status     string `json:"status"` // ok, broken, timeout, skipped
 	StatusCode int    `json:"status_code,omitempty"`
 	Error      string `json:"error,omitempty"`
@@ -23,19 +24,19 @@ type LinkCheckResult struct {
 
 // LinkChecker checks links in documentation
 type LinkChecker struct {
-	rootDir     string
-	docsDir     string
-	results     []LinkCheckResult
-	mu          sync.Mutex
-	client      *http.Client
+	rootDir       string
+	docsDir       string
+	results       []LinkCheckResult
+	mu            sync.Mutex
+	client        *http.Client
 	checkExternal bool
 }
 
 // NewLinkChecker creates a new link checker
 func NewLinkChecker(rootDir string, checkExternal bool) *LinkChecker {
 	return &LinkChecker{
-		rootDir:     rootDir,
-		docsDir:     filepath.Join(rootDir, "docs", "content", "en", "docs"),
+		rootDir:       rootDir,
+		docsDir:       filepath.Join(rootDir, "docs", "content", "en", "docs"),
 		checkExternal: checkExternal,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -56,12 +57,12 @@ func (lc *LinkChecker) CheckAll(verbose bool) []LinkCheckResult {
 
 	filepath.Walk(lc.docsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // continue walk on read error
 		}
 
 		relPath, _ := filepath.Rel(lc.docsDir, path)
@@ -127,7 +128,13 @@ func (lc *LinkChecker) checkLink(source, link string) LinkCheckResult {
 }
 
 func (lc *LinkChecker) checkExternalLink(result LinkCheckResult) LinkCheckResult {
-	resp, err := lc.client.Head(result.Link)
+	req, err := http.NewRequestWithContext(context.Background(), "HEAD", result.Link, http.NoBody)
+	if err != nil {
+		result.Status = "broken"
+		result.Error = err.Error()
+		return result
+	}
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		result.Status = "broken"
 		result.Error = err.Error()
@@ -160,16 +167,17 @@ func (lc *LinkChecker) checkInternalLink(source string, result LinkCheckResult) 
 
 	var targetPath string
 
-	if strings.HasPrefix(link, "/docs/") {
+	switch {
+	case strings.HasPrefix(link, "/docs/"):
 		// Hugo-style absolute URL: /docs/concepts/ -> docs/content/en/docs/concepts/
 		// Strip /docs/ prefix and resolve from docsDir
 		hugoPath := strings.TrimPrefix(link, "/docs/")
 		hugoPath = strings.TrimSuffix(hugoPath, "/")
 		targetPath = filepath.Join(lc.docsDir, hugoPath)
-	} else if strings.HasPrefix(link, "/") {
+	case strings.HasPrefix(link, "/"):
 		// Other absolute paths - check from root
 		targetPath = filepath.Join(lc.rootDir, link)
-	} else {
+	default:
 		// Relative paths in Hugo: a file like concepts/gitops.md has URL /docs/concepts/gitops/
 		// So relative links are from that "directory", meaning we treat the source file as a directory
 		// For concepts/gitops.md with link ../events/, we want concepts/events/ not concepts/../events/

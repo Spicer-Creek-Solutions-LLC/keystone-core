@@ -12,7 +12,7 @@ func TestConfigurePhaseVerbose(t *testing.T) {
 	state := &State{
 		Output:  buf,
 		Verbose: true,
-		BootstrapConfig: &BootstrapConfig{
+		BootstrapConfig: &Config{
 			Mode:        "demo",
 			ClusterName: "keystone",
 			NodeRole:    "both",

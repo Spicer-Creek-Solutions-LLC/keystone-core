@@ -238,7 +238,8 @@ func (c *Config) Validate() error {
 
 	// Validate devices
 	deviceIDs := make(map[string]bool)
-	for i, device := range c.Devices {
+	for i := range c.Devices {
+		device := &c.Devices[i]
 		if device.ID == "" {
 			return fmt.Errorf("devices[%d].id is required", i)
 		}
@@ -290,7 +291,8 @@ func (c *Config) ToManagerConfig() *ManagerConfig {
 func (c *Config) ToProxiedDevices() []*ProxiedDevice {
 	devices := make([]*ProxiedDevice, 0, len(c.Devices))
 
-	for _, dc := range c.Devices {
+	for i := range c.Devices {
+		dc := &c.Devices[i]
 		device := &ProxiedDevice{
 			ID:            dc.ID,
 			ProxyAgentID:  c.Agent.ID,

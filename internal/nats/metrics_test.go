@@ -372,8 +372,8 @@ func TestEndpointMetrics_RecordError(t *testing.T) {
 		t.Errorf("ErrorCount = %d, want 1", em.ErrorCount.Load())
 	}
 
-	err, errTime := em.GetLastError()
-	if err != testErr {
+	errTime, err := em.GetLastError()
+	if !errors.Is(err, testErr) {
 		t.Error("LastError mismatch")
 	}
 	if errTime.IsZero() {
@@ -492,15 +492,15 @@ func (m *mockConnectionProvider) ActiveEndpoint() *Endpoint {
 	return m.endpoint
 }
 
-func TestNewNATSStatsCollector(t *testing.T) {
+func TestNewStatsCollector(t *testing.T) {
 	metrics := NewConnectionMetrics()
 	provider := &mockConnectionProvider{
 		endpoint: &Endpoint{Host: "localhost", Port: 4222},
 	}
 
-	collector := NewNATSStatsCollector(metrics, provider, "localhost:4222")
+	collector := NewStatsCollector(metrics, provider, "localhost:4222")
 	if collector == nil {
-		t.Fatal("NewNATSStatsCollector returned nil")
+		t.Fatal("NewStatsCollector returned nil")
 	}
 }
 
@@ -508,7 +508,7 @@ func TestNATSStatsCollector_Collect_NoConnection(t *testing.T) {
 	metrics := NewConnectionMetrics()
 	provider := &mockConnectionProvider{} // nil connection
 
-	collector := NewNATSStatsCollector(metrics, provider, "localhost:4222")
+	collector := NewStatsCollector(metrics, provider, "localhost:4222")
 
 	// Should not panic with nil connection
 	collector.Collect()
@@ -518,10 +518,10 @@ func TestNATSStatsCollector_Reset(t *testing.T) {
 	metrics := NewConnectionMetrics()
 	provider := &mockConnectionProvider{}
 
-	collector := NewNATSStatsCollector(metrics, provider, "localhost:4222")
+	collector := NewStatsCollector(metrics, provider, "localhost:4222")
 
 	// Set some last stats
-	collector.lastStats = NATSStats{
+	collector.lastStats = Stats{
 		InMsgs:  100,
 		OutMsgs: 200,
 	}

@@ -1,3 +1,4 @@
+// Package main implements the kscore-cluster-backup CLI for cluster backup and restore operations.
 package main
 
 import (
@@ -144,7 +145,7 @@ Examples:
 	return cmd
 }
 
-func runBackup(outputPath string, compress bool, encrypt bool, description string) error {
+func runBackup(outputPath string, compress, encrypt bool, description string) error {
 	fmt.Println("Creating cluster backup...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -165,7 +166,7 @@ func runBackup(outputPath string, compress bool, encrypt bool, description strin
 		return nil
 	}
 
-	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write backup file: %w", err)
 	}
 
@@ -216,7 +217,7 @@ Examples:
 	return cmd
 }
 
-func runRestore(inputPath string, force bool, dryRun bool) error {
+func runRestore(inputPath string, force, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("Dry run: would restore cluster state from %s\n", inputPath)
 		// In a real implementation, we'd parse and validate the backup here
@@ -228,7 +229,7 @@ func runRestore(inputPath string, force bool, dryRun bool) error {
 		fmt.Print("WARNING: This will overwrite the current cluster state. Continue? [y/N]: ")
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" {
+		if !strings.EqualFold(response, "y") {
 			fmt.Println("Restore cancelled")
 			return nil
 		}
@@ -512,7 +513,7 @@ func (c *BackupClient) Close() error {
 
 // Backup creates a backup of the cluster state.
 func (c *BackupClient) Backup(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/backup", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/backup", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -572,15 +573,15 @@ func getAPIScheme(addr string) string {
 	return "https"
 }
 
-func formatBytes(bytes int64) string {
+func formatBytes(b int64) string {
 	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
 	}
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	for n := b / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }

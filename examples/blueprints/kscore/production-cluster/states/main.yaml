@@ -7,12 +7,12 @@ states:
   production-cluster_blueprint_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /var/lib/keystone-core/blueprints
 
   production-cluster_blueprint_placeholder:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/production-cluster.txt
+    name: /var/lib/keystone-core/blueprints/production-cluster.txt
     contents: "Placeholder for kscore/production-cluster blueprint."
     require:
       - production-cluster_blueprint_dir

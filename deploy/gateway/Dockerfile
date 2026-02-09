@@ -30,7 +30,7 @@ USER kscore
 COPY --from=builder /kscore-telemetry-gateway /usr/local/bin/
 
 # Copy example config
-COPY --from=builder /app/deploy/gateway/config.yaml.example /etc/kscore/config.yaml.example
+COPY --from=builder /app/deploy/gateway/config.yaml.example /etc/keystone-core/config.yaml.example
 
 # Expose default port
 EXPOSE 8080
@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 # Run the gateway
 ENTRYPOINT ["kscore-telemetry-gateway"]
-CMD ["--config", "/etc/kscore/config.yaml"]
+CMD ["--config", "/etc/keystone-core/config.yaml"]

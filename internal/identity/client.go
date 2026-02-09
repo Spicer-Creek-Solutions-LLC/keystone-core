@@ -156,7 +156,7 @@ func (c *AgentIdentityClient) Connect(ctx context.Context) error {
 
 	// Start background rotation
 	c.wg.Add(1)
-	go c.runRotation()
+	go c.runRotation() //nolint:contextcheck // background loop uses internal context
 
 	c.connected = true
 	return nil
@@ -406,31 +406,19 @@ func (c *AgentIdentityClient) notifyRotationCallbacks(oldSVID, newSVID *X509SVID
 	}
 }
 
-// notifyBundleCallbacks notifies all bundle update callbacks.
-func (c *AgentIdentityClient) notifyBundleCallbacks(bundle *TrustBundle) {
-	c.callbackMu.Lock()
-	callbacks := make([]TrustBundleUpdateCallback, len(c.bundleCallbacks))
-	copy(callbacks, c.bundleCallbacks)
-	c.callbackMu.Unlock()
-
-	for _, cb := range callbacks {
-		cb(bundle)
-	}
-}
-
-// IdentityAwareTLSConfig creates a TLS config that automatically refreshes
+// AwareTLSConfig creates a TLS config that automatically refreshes
 // with the latest SVID and trust bundle.
-type IdentityAwareTLSConfig struct {
+type AwareTLSConfig struct {
 	client *AgentIdentityClient
 }
 
-// NewIdentityAwareTLSConfig creates a new identity-aware TLS config.
-func NewIdentityAwareTLSConfig(client *AgentIdentityClient) *IdentityAwareTLSConfig {
-	return &IdentityAwareTLSConfig{client: client}
+// NewAwareTLSConfig creates a new identity-aware TLS config.
+func NewAwareTLSConfig(client *AgentIdentityClient) *AwareTLSConfig {
+	return &AwareTLSConfig{client: client}
 }
 
 // GetClientConfig returns a TLS config for client connections.
-func (c *IdentityAwareTLSConfig) GetClientConfig() *tls.Config {
+func (c *AwareTLSConfig) GetClientConfig() *tls.Config {
 	baseConfig := c.client.GetTLSConfig()
 	if baseConfig == nil {
 		return nil
@@ -451,7 +439,7 @@ func (c *IdentityAwareTLSConfig) GetClientConfig() *tls.Config {
 }
 
 // GetServerConfig returns a TLS config for server connections.
-func (c *IdentityAwareTLSConfig) GetServerConfig() *tls.Config {
+func (c *AwareTLSConfig) GetServerConfig() *tls.Config {
 	baseConfig := c.client.GetTLSConfig()
 	if baseConfig == nil {
 		return nil

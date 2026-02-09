@@ -56,14 +56,11 @@ func NewRoute53Provider(creds dns.ResolvedCredentials) (dns.Provider, error) {
 		Region:          region,
 	}
 
-	// Set max retries if specified
-	if maxRetries := creds.Extra["max_retries"]; maxRetries != "" {
-		// Provider handles this internally
-	}
+	// Note: max_retries from creds.Extra is handled internally by the provider
 
 	return NewLibdnsAdapter(provider, Route53Capabilities), nil
 }
 
 func init() {
-	dns.RegisterProvider("route53", NewRoute53Provider, Route53Capabilities)
+	_ = dns.RegisterProvider("route53", NewRoute53Provider, Route53Capabilities) //nolint:errcheck // provider registration in init
 }

@@ -443,18 +443,18 @@ func TestNewWizardModel(t *testing.T) {
 	if model.config.RefreshInterval != 5*time.Minute {
 		t.Errorf("default RefreshInterval = %v, want %v", model.config.RefreshInterval, 5*time.Minute)
 	}
-	if model.config.FederationType != federation.FederationTypeBidirectional {
-		t.Errorf("default FederationType = %v, want %v", model.config.FederationType, federation.FederationTypeBidirectional)
+	if model.config.FederationType != federation.TypeBidirectional {
+		t.Errorf("default FederationType = %v, want %v", model.config.FederationType, federation.TypeBidirectional)
 	}
 }
 
 func TestWizardConfigResult(t *testing.T) {
 	model := New()
-	model.config = &WizardConfig{
+	model.config = &Config{
 		TrustDomain:     "partner.example.org",
 		BundleEndpoint:  "https://partner.example.org/.well-known/spiffe-bundle",
 		EndpointProfile: "https_web",
-		FederationType:  federation.FederationTypeBidirectional,
+		FederationType:  federation.TypeBidirectional,
 		RefreshInterval: 5 * time.Minute,
 		RequireMTLS:     true,
 		Policy: &federation.TrustPolicy{
@@ -478,8 +478,8 @@ func TestWizardConfigResult(t *testing.T) {
 	if result.Domain.TrustDomain != "partner.example.org" {
 		t.Errorf("Domain.TrustDomain = %q, want %q", result.Domain.TrustDomain, "partner.example.org")
 	}
-	if result.Domain.State != federation.FederationStatePending {
-		t.Errorf("Domain.State = %q, want %q", result.Domain.State, federation.FederationStatePending)
+	if result.Domain.State != federation.StatePending {
+		t.Errorf("Domain.State = %q, want %q", result.Domain.State, federation.StatePending)
 	}
 }
 

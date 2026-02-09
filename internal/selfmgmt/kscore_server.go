@@ -107,11 +107,12 @@ func (m *ServerModule) Check(ctx context.Context, config interface{}) (*CheckRes
 	result.Metadata["config_path"] = configPath
 
 	// Determine current state
-	if !result.Present {
+	switch {
+	case !result.Present:
 		result.CurrentState = StateUninstalled
-	} else if result.Running {
+	case result.Running:
 		result.CurrentState = StateRunning
-	} else {
+	default:
 		result.CurrentState = StateStopped
 	}
 
@@ -436,14 +437,14 @@ func (m *ServerModule) installViaBinary(ctx context.Context, cfg *ServerConfig, 
 
 	// Make executable
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(binaryPath, 0755); err != nil {
+		if err := os.Chmod(binaryPath, 0o755); err != nil { //nolint:gosec // G302: Binary must be executable by all users
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
 	}
 
 	// Create systemd service file if on Linux
 	if runtime.GOOS == "linux" && DetectInitSystem() == "systemd" {
-		if err := m.createSystemdService(cfg); err != nil {
+		if err := m.createSystemdService(cfg); err != nil { //nolint:contextcheck // createSystemdService doesn't take context
 			return fmt.Errorf("failed to create systemd service: %w", err)
 		}
 	}
@@ -663,7 +664,7 @@ func (m *ServerModule) configure(ctx context.Context, cfg *ServerConfig, result 
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := WriteFile(configPath, data, 0640); err != nil {
+	if err := WriteFile(configPath, data, 0o640); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -782,7 +783,7 @@ func (m *ServerModule) isServiceRunning(ctx context.Context, initSystem string) 
 		output, err = RunCommand(ctx, "systemctl", "is-active", "kscore-server")
 		return output == "active", err
 	case "launchd":
-		output, err = RunCommand(ctx, "launchctl", "list", "com.keystone.kscore-server")
+		_, err = RunCommand(ctx, "launchctl", "list", "com.keystone.kscore-server")
 		return err == nil, nil
 	case "openrc":
 		output, err = RunCommand(ctx, "rc-service", "kscore-server", "status")
@@ -877,7 +878,7 @@ WantedBy=multi-user.target
 
 	logDir := cfg.LogDir
 	if logDir == "" {
-		logDir = "/var/log/kscore"
+		logDir = "/var/log/keystone-core"
 	}
 
 	var buf strings.Builder
@@ -894,7 +895,7 @@ WantedBy=multi-user.target
 	}
 
 	servicePath := "/etc/systemd/system/kscore-server.service"
-	if err := WriteFile(servicePath, []byte(buf.String()), 0644); err != nil {
+	if err := WriteFile(servicePath, []byte(buf.String()), 0o644); err != nil {
 		return err
 	}
 

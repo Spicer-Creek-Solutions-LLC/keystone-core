@@ -57,5 +57,5 @@ func (m *WinServiceModule) Test(ctx context.Context, decl *StateDeclaration) (bo
 }
 
 func init() {
-	RegisterModule(NewWinServiceModule())
+	_ = RegisterModule(NewWinServiceModule()) //nolint:errcheck // module registration in init
 }

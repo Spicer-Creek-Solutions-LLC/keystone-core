@@ -1,6 +1,8 @@
+// Package main implements the kscore-state CLI for declarative state management.
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,9 +12,11 @@ import (
 
 // TestCLIIntegration tests the end-to-end CLI workflow
 func TestCLIIntegration(t *testing.T) {
+	ctx := context.Background()
+
 	// Build the CLI binary
 	binPath := filepath.Join(t.TempDir(), "kscore-state")
-	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", binPath, ".")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, output)
 	}
@@ -38,7 +42,7 @@ file:
 
 	// Test 1: Check command (dry-run)
 	t.Run("check_command", func(t *testing.T) {
-		cmd := exec.Command(binPath, "check", stateFile)
+		cmd := exec.CommandContext(ctx, binPath, "check", stateFile)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("Check command failed: %v\n%s", err, output)
@@ -61,7 +65,7 @@ file:
 
 	// Test 2: Apply command
 	t.Run("apply_command", func(t *testing.T) {
-		cmd := exec.Command(binPath, "apply", stateFile)
+		cmd := exec.CommandContext(ctx, binPath, "apply", stateFile)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("Apply command failed: %v\n%s", err, output)
@@ -89,7 +93,7 @@ file:
 
 	// Test 3: Drift command (no drift)
 	t.Run("drift_no_drift", func(t *testing.T) {
-		cmd := exec.Command(binPath, "drift", stateFile)
+		cmd := exec.CommandContext(ctx, binPath, "drift", stateFile)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("Drift command failed: %v\n%s", err, output)
@@ -112,7 +116,7 @@ file:
 			t.Fatalf("Failed to modify file: %v", err)
 		}
 
-		cmd := exec.Command(binPath, "drift", stateFile)
+		cmd := exec.CommandContext(ctx, binPath, "drift", stateFile)
 		output, err := cmd.CombinedOutput()
 		// Exit code should be 1 when drift is detected
 		if err == nil {
@@ -132,13 +136,13 @@ file:
 	// Test 5: Apply idempotency
 	t.Run("apply_idempotent", func(t *testing.T) {
 		// First apply
-		cmd1 := exec.Command(binPath, "apply", stateFile)
+		cmd1 := exec.CommandContext(ctx, binPath, "apply", stateFile)
 		if output, err := cmd1.CombinedOutput(); err != nil {
 			t.Fatalf("First apply failed: %v\n%s", err, output)
 		}
 
 		// Second apply (should be idempotent)
-		cmd2 := exec.Command(binPath, "apply", stateFile)
+		cmd2 := exec.CommandContext(ctx, binPath, "apply", stateFile)
 		output, err := cmd2.CombinedOutput()
 		if err != nil {
 			t.Fatalf("Second apply failed: %v\n%s", err, output)
@@ -153,14 +157,16 @@ file:
 
 // TestCLIVersion tests the version command
 func TestCLIVersion(t *testing.T) {
+	ctx := context.Background()
+
 	// Build the CLI binary
 	binPath := filepath.Join(t.TempDir(), "kscore-state")
-	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", binPath, ".")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, output)
 	}
 
-	cmd := exec.Command(binPath, "version")
+	cmd := exec.CommandContext(ctx, binPath, "version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Version command failed: %v\n%s", err, output)

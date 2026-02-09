@@ -732,8 +732,8 @@ api:
   listen: "0.0.0.0:8443"
   tls:
     enabled: true
-    cert_file: /etc/kscore/certs/server.crt
-    key_file: /etc/kscore/certs/server.key
+    cert_file: /etc/keystone-core/certs/server.crt
+    key_file: /etc/keystone-core/certs/server.key
     min_version: "TLS1.3"
 
   rate_limiting:
@@ -757,7 +757,7 @@ auth:
 
 audit:
   enabled: true
-  log_file: /var/log/kscore/audit.log
+  log_file: /var/log/keystone-core/audit.log
   retention:
     max_age: "365d"
 ```
@@ -775,7 +775,7 @@ identity:
 nats:
   url: "tls://nats.cluster.local:4222"
   tls:
-    ca_file: /etc/kscore/certs/ca.crt
+    ca_file: /etc/keystone-core/certs/ca.crt
     verify_server: true
 
 execution:
@@ -836,10 +836,10 @@ auth:
   type: jwt
   jwt:
     # Get public key from your IdP
-    public_key_file: /etc/kscore/jwt-public.pem
+    public_key_file: /etc/keystone-core/jwt-public.pem
     issuer: "https://your-idp.example.com/"
     audience: "kscore-api"
-    role_claim: "https://kscore.io/role"
+    role_claim: "https://keystone-core.io/role"
 ```
 
 ### 4.3 Defense-in-Depth Implementation
@@ -888,7 +888,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/kscore /var/log/kscore
+ReadWritePaths=/var/lib/keystone-core /var/log/keystone-core
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 ```
 
@@ -931,15 +931,15 @@ groups:
 ```bash
 # Review failed authentication attempts
 jq 'select(.event_type == "authentication" and .result == "failed")' \
-    /var/log/kscore/audit.log
+    /var/log/keystone-core/audit.log
 
 # Review privilege escalation attempts
 jq 'select(.event_type == "authorization" and .result == "denied")' \
-    /var/log/kscore/audit.log
+    /var/log/keystone-core/audit.log
 
 # Review sensitive operations
 jq 'select(.action | test("delete|destroy|wipe"))' \
-    /var/log/kscore/audit.log
+    /var/log/keystone-core/audit.log
 ```
 
 ### Exercise: Security Assessment
@@ -958,19 +958,19 @@ Perform a security assessment of a Keystone Core deployment:
 2. **Authentication Review**
    ```bash
    # Check authentication configuration
-   kscorectl config show | grep -A 10 "auth:"
+   cat /etc/keystone-core/server.yaml | grep -A 10 "auth:"
 
    # Verify certificate expiration
-   openssl x509 -in /etc/kscore/certs/server.crt -noout -dates
+   openssl x509 -in /etc/keystone-core/certs/server.crt -noout -dates
    ```
 
 3. **Authorization Review**
    ```bash
-   # List roles and permissions
-   kscorectl rbac list-roles --show-permissions
+   # Review RBAC configuration
+   cat /etc/keystone-core/rbac.yaml
 
-   # Audit recent access
-   kscorectl audit query --since 24h --type authorization
+   # Review recent audit logs for authorization events
+   kscore-audit log --since 24h | jq 'select(.type == "authorization")'
    ```
 
 ---
@@ -1004,15 +1004,16 @@ After completing this module, you will be able to:
 
 ```bash
 # Check for indicators of compromise
-# Unusual login patterns
-kscorectl audit query --type authentication --result failed --since 1h
+# Unusual login patterns - review audit logs for failed authentication
+kscore-audit log --since 1h | \
+    jq 'select(.type == "authentication" and .result == "failed")'
 
 # Unexpected command execution
-kscorectl audit query --type exec.run --since 1h | \
-    jq 'select(.user != "expected-user")'
+kscore-audit log --since 1h | \
+    jq 'select(.type == "exec.run" and .user != "expected-user")'
 
 # Unauthorized policy changes
-kscorectl audit query --type policy.update --since 24h
+kscore-audit log --since 24h | jq 'select(.type == "policy.update")'
 ```
 
 **Phase 2: Containment**
@@ -1021,24 +1022,27 @@ kscorectl audit query --type policy.update --since 24h
 # Immediate containment actions
 
 # 1. Quarantine compromised agent
-kscorectl agent quarantine AGENT_ID --reason "Security incident"
+kscorectl agents quarantine AGENT_ID --reason "Security incident"
 
-# 2. Revoke compromised credentials
-kscorectl api-key revoke KEY_ID
-kscorectl auth revoke-session USER_ID --all
+# 2. Revoke compromised API keys
+kscorectl api-key list                 # Find keys to revoke
+kscorectl api-key revoke KEY_ID        # Revoke each compromised key
 
 # 3. Block suspicious IP
 sudo ufw deny from SUSPICIOUS_IP
 
 # 4. Disable compromised account
-kscorectl user disable USER_ID
+# User and session management is handled by your identity provider (Auth0, Okta, etc.)
 ```
 
 **Phase 3: Eradication**
 
 ```bash
 # 1. Rotate all potentially compromised credentials
-kscorectl api-key rotate --all-for-user COMPROMISED_USER
+# Revoke existing keys and create new ones
+kscorectl api-key list                 # Identify keys for the user
+kscorectl api-key revoke KEY_ID        # Revoke each compromised key
+kscorectl api-key create --name "new-key" --role admin --expires-in 30d
 
 # 2. Update vulnerable components
 apt update && apt upgrade keystone-core
@@ -1047,23 +1051,29 @@ apt update && apt upgrade keystone-core
 # Check for unauthorized cron jobs, services, SSH keys
 
 # 4. Reset agent enrollment if needed
-kscorectl agent re-enroll AGENT_ID --new-token
+# Delete and re-register the agent with a new token
+kscorectl agents delete AGENT_ID
+kscorectl agents token create --name "re-enrollment" --ttl 1h
+# Re-run agent bootstrap on the target system with new token
 ```
 
 **Phase 4: Recovery**
 
 ```bash
 # 1. Restore from known-good backup
-kscorectl backup restore BACKUP_ID --verify
+kscore-backup verify BACKUP_ID         # Verify backup integrity first
+kscore-backup restore BACKUP_ID        # Restore the backup
 
 # 2. Verify system integrity
-kscorectl health check --full
+kscorectl health check
 
 # 3. Re-enable services
-kscorectl agent unquarantine AGENT_ID
+kscorectl agents unquarantine AGENT_ID
 
 # 4. Monitor for recurrence
-kscorectl audit watch --type security --alert
+# Set up log monitoring with your observability stack
+# Review audit logs periodically:
+kscore-audit log --since 1h | jq 'select(.severity == "warning" or .severity == "error")'
 ```
 
 **Phase 5: Post-Incident Review**
@@ -1090,14 +1100,13 @@ steps:
 
   - name: Identify key usage
     command: |
-      kscorectl audit query \
-        --api-key KEY_ID \
-        --since COMPROMISE_TIME
+      kscore-audit log --since COMPROMISE_TIME | \
+        jq 'select(.api_key_id == "KEY_ID")'
 
   - name: Review affected resources
     command: |
-      kscorectl audit query --api-key KEY_ID \
-        --type "state.apply,exec.run"
+      kscore-audit log | jq 'select(.api_key_id == "KEY_ID" and
+        (.type == "state.apply" or .type == "exec.run"))'
 
   - name: Issue new key to legitimate user
     command: |
@@ -1111,7 +1120,7 @@ steps:
 
 post_incident:
   - Review key management practices
-  - Consider implementing key rotation
+  - Consider implementing key rotation policy
   - Add detection for key misuse
 ```
 
@@ -1124,32 +1133,31 @@ response_time: 15 minutes
 
 steps:
   - name: Quarantine agent
-    command: kscorectl agent quarantine AGENT_ID
+    command: kscorectl agents quarantine AGENT_ID
 
-  - name: Capture forensic data
+  - name: Capture forensic data (before quarantine takes effect)
     command: |
-      kscorectl exec run \
-        "tar -czf /tmp/forensics-$(date +%Y%m%d).tar.gz /var/log /etc/kscore" \
-        --target AGENT_ID --immediate
+      kscorectl exec run AGENT_ID -- \
+        tar -czf /tmp/forensics-$(date +%Y%m%d).tar.gz /var/log /etc/keystone-core
 
-  - name: Revoke agent credentials
-    command: kscorectl agent revoke-credentials AGENT_ID
+  - name: Delete agent to revoke credentials
+    command: kscorectl agents delete AGENT_ID
+    note: This revokes all agent credentials; re-enrollment required after remediation
 
   - name: Review lateral movement
     command: |
-      kscorectl audit query \
-        --agent AGENT_ID \
-        --type "exec.run,state.apply" \
-        --since 7d
+      kscore-audit log --since 7d | \
+        jq 'select(.agent_id == "AGENT_ID" and
+          (.type == "exec.run" or .type == "state.apply"))'
 
-  - name: Check for persistence
+  - name: Check for persistence (via SSH to isolated system)
     command: |
       # SSH keys
-      kscorectl exec run "cat /root/.ssh/authorized_keys" --target AGENT_ID
+      ssh admin@AGENT_HOST "cat /root/.ssh/authorized_keys"
       # Cron jobs
-      kscorectl exec run "crontab -l" --target AGENT_ID
+      ssh admin@AGENT_HOST "crontab -l"
       # Services
-      kscorectl exec run "systemctl list-units --type=service" --target AGENT_ID
+      ssh admin@AGENT_HOST "systemctl list-units --type=service"
 ```
 
 ### Exercise: Tabletop Exercise
@@ -1282,20 +1290,20 @@ flowchart TB
 
 ```bash
 # Generate compliance report
-kscorectl compliance report --framework soc2 --output compliance-report.pdf
+kscore-policy compliance --framework soc2 --output compliance-report.json
 
 # Export audit logs for review period
-kscorectl audit export \
+kscore-audit export \
     --since 2024-01-01 \
     --until 2024-12-31 \
     --format csv \
     --output audit-logs-2024.csv
 
-# List access control configuration
-kscorectl rbac export --format json > rbac-config.json
+# Document access control configuration
+cp /etc/keystone-core/rbac.yaml rbac-config.yaml
 
 # Document current security configuration
-kscorectl config show --include-defaults > security-config.yaml
+cp /etc/keystone-core/server.yaml security-config.yaml
 ```
 
 ---
@@ -1426,8 +1434,8 @@ Training completion is tracked in the security training portal. Managers can vie
 
 - [Security Guide](/docs/operations/security/) - Operational security configuration
 - [Threat Model](/docs/concepts/threat-model/) - Security threats and mitigations
-- [Security Incident Runbook](https://github.com/keystone-core/keystone-core/blob/main/docs/runbooks/security-incident.md) - Incident response procedures
-- [RFC Process](https://github.com/keystone-core/keystone-core/blob/main/docs/project/RFC.md) - Design and security decision documentation
+- [Security Incident Runbook](https://github.com/shawnbutts/keystone-core/blob/main/docs/runbooks/security-incident.md) - Incident response procedures
+- [RFC Process](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/RFC.md) - Design and security decision documentation
 
 ### External Resources
 

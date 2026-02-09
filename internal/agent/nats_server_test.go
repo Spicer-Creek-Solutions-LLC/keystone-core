@@ -275,7 +275,7 @@ func TestEmbeddedNATSConfig_GetAdvertiseAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.config.GetAdvertiseAddress()
+			got := tt.config.GetAdvertiseAddress(context.Background())
 			if got != tt.expected {
 				t.Errorf("GetAdvertiseAddress() = %v, want %v", got, tt.expected)
 			}
@@ -349,7 +349,7 @@ func TestEmbeddedNATSServer_DisabledMode(t *testing.T) {
 	}
 
 	// GetClientURL should be empty
-	if url := server.GetClientURL(); url != "" {
+	if url := server.GetClientURL(context.Background()); url != "" {
 		t.Errorf("GetClientURL() = %v, want empty for disabled mode", url)
 	}
 
@@ -396,7 +396,7 @@ func TestEmbeddedNATSServer_StandaloneMode(t *testing.T) {
 	}
 
 	// Verify GetClientURL
-	url := server.GetClientURL()
+	url := server.GetClientURL(ctx)
 	if url == "" {
 		t.Error("GetClientURL() = empty, expected URL")
 	}
@@ -407,7 +407,7 @@ func TestEmbeddedNATSServer_StandaloneMode(t *testing.T) {
 	// Get stats
 	stats := server.GetStats()
 	if stats == nil {
-		t.Error("GetStats() = nil")
+		t.Fatal("GetStats() = nil")
 	}
 	if stats.State != EmbeddedNATSStateRunning {
 		t.Errorf("stats.State = %v, want running", stats.State)
@@ -673,7 +673,7 @@ func TestEmbeddedNATSStats(t *testing.T) {
 
 func TestGetOutboundIP(t *testing.T) {
 	// This function tries to get the outbound IP
-	ip := getOutboundIP()
+	ip := getOutboundIP(context.Background())
 	// It may return empty if there's no network, which is fine
 	// Just ensure it doesn't panic
 	t.Logf("getOutboundIP() = %v", ip)

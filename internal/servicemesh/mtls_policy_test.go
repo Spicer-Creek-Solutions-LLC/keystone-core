@@ -617,7 +617,7 @@ func TestConnectionTester_TestPlaintext(t *testing.T) {
 	}
 
 	// Test connection to non-existent host (should fail)
-	connected, err = tester.TestPlaintext("nonexistent.invalid:80")
+	connected, _ = tester.TestPlaintext("nonexistent.invalid:80")
 	if connected {
 		t.Error("Expected connection to fail for non-existent host")
 	}

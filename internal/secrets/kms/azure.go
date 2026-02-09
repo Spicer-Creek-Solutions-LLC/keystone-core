@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -89,7 +90,7 @@ func NewAzureProvider(ctx context.Context, cfg *AzureConfig) (*AzureProvider, er
 	clientOpts := &azkeys.ClientOptions{
 		ClientOptions: policy.ClientOptions{
 			Retry: policy.RetryOptions{
-				MaxRetries: int32(cfg.MaxRetries),
+				MaxRetries: int32(cfg.MaxRetries), //nolint:gosec // G115: small retry count
 			},
 		},
 	}
@@ -198,6 +199,7 @@ func (p *AzureProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyM
 					meta.KeySpec = KeySpecECCNISTP256
 				case azkeys.CurveNameP384:
 					meta.KeySpec = KeySpecECCNISTP384
+				default:
 				}
 			}
 		case azkeys.KeyTypeOct, azkeys.KeyTypeOctHSM:
@@ -217,6 +219,7 @@ func (p *AzureProvider) GetKeyMetadata(ctx context.Context, keyID string) (*KeyM
 					meta.KeyUsage = KeyUsageEncryptDecrypt
 				case azkeys.KeyOperationSign, azkeys.KeyOperationVerify:
 					meta.KeyUsage = KeyUsageSignVerify
+				default:
 				}
 			}
 		}
@@ -271,7 +274,7 @@ func (p *AzureProvider) Encrypt(ctx context.Context, req *EncryptRequest) (*Encr
 	}
 
 	// Combine IV, authentication tag, and ciphertext for storage
-	ciphertext := append(append(iv, result.AuthenticationTag...), result.Result...)
+	ciphertext := slices.Concat(iv, result.AuthenticationTag, result.Result)
 
 	return &EncryptResponse{
 		Ciphertext: ciphertext,
@@ -584,7 +587,7 @@ func extractVersionFromKID(kid azkeys.ID) string {
 
 // encodeContext encodes encryption context as AAD bytes.
 func encodeContext(ctx map[string]string) []byte {
-	var parts []string
+	parts := make([]string, 0, len(ctx))
 	for k, v := range ctx {
 		parts = append(parts, k+"="+v)
 	}
@@ -639,7 +642,7 @@ func translateAzureError(err error) error {
 	case strings.Contains(errMsg, "InvalidParameter"):
 		return ErrInvalidCiphertext
 	default:
-		return fmt.Errorf("%w: %v", ErrProviderUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrProviderUnavailable, err)
 	}
 }
 
@@ -650,7 +653,7 @@ func (p *AzureProvider) GenerateRandomBytes(ctx context.Context, count int) ([]b
 	}
 
 	result, err := p.client.GetRandomBytes(ctx, azkeys.GetRandomBytesParameters{
-		Count: int32Ptr(int32(count)),
+		Count: int32Ptr(int32(count)), //nolint:gosec // G115: byte count for random gen
 	}, nil)
 	if err != nil {
 		return nil, translateAzureError(err)
@@ -659,7 +662,7 @@ func (p *AzureProvider) GenerateRandomBytes(ctx context.Context, count int) ([]b
 	// Decode base64 result
 	decoded, err := base64.RawURLEncoding.DecodeString(string(result.Value))
 	if err != nil {
-		return result.Value, nil // Return raw if decoding fails
+		return result.Value, nil //nolint:nilerr // return raw if decoding fails
 	}
 
 	return decoded, nil

@@ -40,8 +40,8 @@ type AuthConfig struct {
 	Header string `json:"header,omitempty" yaml:"header,omitempty"`
 }
 
-// RegistryConfig holds configuration for a blueprint registry client.
-type RegistryConfig struct {
+// Config holds configuration for a blueprint registry client.
+type Config struct {
 	// URL is the registry base URL.
 	URL string `json:"url" yaml:"url"`
 
@@ -64,9 +64,9 @@ type RegistryConfig struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
-// DefaultRegistryConfig returns a RegistryConfig with default values.
-func DefaultRegistryConfig() *RegistryConfig {
-	return &RegistryConfig{
+// DefaultConfig returns a Config with default values.
+func DefaultConfig() *Config {
+	return &Config{
 		Timeout:       30 * time.Second,
 		RetryAttempts: 3,
 		RetryDelay:    1 * time.Second,
@@ -115,7 +115,7 @@ type VersionInfo struct {
 	// Published is the publication timestamp.
 	Published time.Time `json:"published"`
 
-	// Deprecated indicates if this version is deprecated.
+	// IsDeprecated indicates if this version is deprecated.
 	Deprecated bool `json:"deprecated,omitempty"`
 
 	// DeprecationMessage explains why the version is deprecated.
@@ -277,7 +277,7 @@ type IndexEntry struct {
 	// Verified indicates if the blueprint is verified.
 	Verified bool `json:"verified,omitempty"`
 
-	// Deprecated indicates if the blueprint is deprecated.
+	// IsDeprecated indicates if the blueprint is deprecated.
 	Deprecated bool `json:"deprecated,omitempty"`
 
 	// DeprecationMessage explains why it's deprecated.
@@ -308,8 +308,8 @@ type IndexEntry struct {
 	SignerIdentity string `json:"signer_identity,omitempty"`
 }
 
-// RegistryClient defines the interface for blueprint registry operations.
-type RegistryClient interface {
+// Client defines the interface for blueprint registry operations.
+type Client interface {
 	// ListVersions returns all available versions for a blueprint.
 	ListVersions(name string) ([]string, error)
 
@@ -326,9 +326,9 @@ type RegistryClient interface {
 	GetManifest(name, version string) (*blueprint.Blueprint, error)
 }
 
-// PublishableRegistry extends RegistryClient with publishing capabilities.
+// PublishableRegistry extends Client with publishing capabilities.
 type PublishableRegistry interface {
-	RegistryClient
+	Client
 
 	// PublishBlueprint publishes a new blueprint version.
 	PublishBlueprint(req *PublishRequest) (*PublishResult, error)
@@ -346,9 +346,9 @@ type PublishableRegistry interface {
 	SetAuth(auth *AuthConfig)
 }
 
-// SearchableRegistry extends RegistryClient with search capabilities.
+// SearchableRegistry extends Client with search capabilities.
 type SearchableRegistry interface {
-	RegistryClient
+	Client
 
 	// Search searches for blueprints matching the query.
 	Search(query *SearchQuery) (*SearchResult, error)
@@ -402,8 +402,8 @@ var (
 	ErrRegistryUnavailable = errors.New("registry unavailable")
 )
 
-// RegistryError represents an error from the registry.
-type RegistryError struct {
+// Error represents an error from the registry.
+type Error struct {
 	// StatusCode is the HTTP status code.
 	StatusCode int `json:"status_code"`
 
@@ -418,7 +418,7 @@ type RegistryError struct {
 }
 
 // Error implements the error interface.
-func (e *RegistryError) Error() string {
+func (e *Error) Error() string {
 	if e.Message != "" {
 		return e.Message
 	}
@@ -426,21 +426,21 @@ func (e *RegistryError) Error() string {
 }
 
 // IsNotFound returns true if the error indicates a not found condition.
-func (e *RegistryError) IsNotFound() bool {
+func (e *Error) IsNotFound() bool {
 	return e.StatusCode == 404 || e.Code == "not_found"
 }
 
 // IsUnauthorized returns true if the error indicates an authorization failure.
-func (e *RegistryError) IsUnauthorized() bool {
+func (e *Error) IsUnauthorized() bool {
 	return e.StatusCode == 401 || e.Code == "unauthorized"
 }
 
 // IsForbidden returns true if the error indicates a forbidden operation.
-func (e *RegistryError) IsForbidden() bool {
+func (e *Error) IsForbidden() bool {
 	return e.StatusCode == 403 || e.Code == "forbidden"
 }
 
 // IsConflict returns true if the error indicates a conflict (version exists).
-func (e *RegistryError) IsConflict() bool {
+func (e *Error) IsConflict() bool {
 	return e.StatusCode == 409 || e.Code == "conflict"
 }

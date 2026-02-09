@@ -37,16 +37,16 @@ type ProgressReporter struct {
 
 // TableProgress tracks progress for a single table
 type TableProgress struct {
-	Name           string
-	TotalRecords   int
+	Name             string
+	TotalRecords     int
 	ProcessedRecords int
-	SkippedRecords int
-	FailedRecords  int
-	StartTime      time.Time
-	EndTime        time.Time
-	Status         TableStatus
-	CurrentRate    float64 // records per second
-	rateWindow     []ratePoint
+	SkippedRecords   int
+	FailedRecords    int
+	StartTime        time.Time
+	EndTime          time.Time
+	Status           TableStatus
+	CurrentRate      float64 // records per second
+	rateWindow       []ratePoint
 }
 
 type ratePoint struct {
@@ -57,6 +57,7 @@ type ratePoint struct {
 // TableStatus represents the status of a table migration
 type TableStatus string
 
+// TableStatus constants define the possible statuses.
 const (
 	TableStatusPending    TableStatus = "pending"
 	TableStatusInProgress TableStatus = "in_progress"
@@ -67,6 +68,7 @@ const (
 // ProgressFormat defines how progress is displayed
 type ProgressFormat string
 
+// FormatText constants define the output formats.
 const (
 	FormatText     ProgressFormat = "text"
 	FormatJSON     ProgressFormat = "json"
@@ -76,30 +78,30 @@ const (
 
 // ProgressSnapshot represents a point-in-time view of migration progress
 type ProgressSnapshot struct {
-	Timestamp        time.Time
-	Elapsed          time.Duration
+	Timestamp          time.Time
+	Elapsed            time.Duration
 	EstimatedRemaining time.Duration
-	OverallPercent   float64
-	Tables           map[string]*TableSnapshot
-	CurrentTable     string
-	RecordsPerSecond float64
-	TotalProcessed   int
-	TotalRecords     int
-	TotalSkipped     int
-	TotalFailed      int
+	OverallPercent     float64
+	Tables             map[string]*TableSnapshot
+	CurrentTable       string
+	RecordsPerSecond   float64
+	TotalProcessed     int
+	TotalRecords       int
+	TotalSkipped       int
+	TotalFailed        int
 }
 
 // TableSnapshot represents a point-in-time view of table progress
 type TableSnapshot struct {
-	Name       string
-	Status     TableStatus
-	Percent    float64
-	Processed  int
-	Total      int
-	Skipped    int
-	Failed     int
-	Elapsed    time.Duration
-	Rate       float64
+	Name      string
+	Status    TableStatus
+	Percent   float64
+	Processed int
+	Total     int
+	Skipped   int
+	Failed    int
+	Elapsed   time.Duration
+	Rate      float64
 }
 
 // ProgressReporterConfig configures the progress reporter

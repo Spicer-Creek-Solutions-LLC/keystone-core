@@ -1,6 +1,7 @@
 package gcp
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -393,7 +394,7 @@ func TestTranslateError(t *testing.T) {
 				}
 				return
 			}
-			if result != tt.expected {
+			if !errors.Is(result, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
 		})
@@ -675,13 +676,13 @@ func TestLeaseOperationsNotSupported(t *testing.T) {
 	if lease != nil {
 		t.Error("expected nil lease")
 	}
-	if err != secrets.ErrLeaseNotFound {
+	if !errors.Is(err, secrets.ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 
 	// Test RevokeLease returns not found
 	err = b.RevokeLease(t.Context(), "test-lease")
-	if err != secrets.ErrLeaseNotFound {
+	if !errors.Is(err, secrets.ErrLeaseNotFound) {
 		t.Errorf("expected ErrLeaseNotFound, got %v", err)
 	}
 }

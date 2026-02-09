@@ -100,9 +100,9 @@ execution:
 state:
   enabled: true
   # Directory for state files
-  stateDir: "/var/lib/kscore/states"
+  stateDir: "/var/lib/keystone-core/states"
   # Cache directory
-  cacheDir: "/var/cache/kscore"
+  cacheDir: "/var/cache/keystone-core"
 
 # -----------------------------------------------------------------------------
 # Logging Configuration

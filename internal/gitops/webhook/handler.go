@@ -9,21 +9,21 @@ import (
 // Handler processes webhook payloads
 type Handler interface {
 	// Type returns the webhook type this handler supports
-	Type() WebhookType
+	Type() Type
 
-	// Parse parses the webhook payload into a WebhookEvent
-	Parse(r *http.Request, body []byte) (*WebhookEvent, error)
+	// Parse parses the webhook payload into a Event
+	Parse(r *http.Request, body []byte) (*Event, error)
 }
 
 // HandlerRegistry manages webhook handlers
 type HandlerRegistry struct {
-	handlers map[WebhookType]Handler
+	handlers map[Type]Handler
 }
 
 // NewHandlerRegistry creates a new handler registry
 func NewHandlerRegistry() *HandlerRegistry {
 	return &HandlerRegistry{
-		handlers: make(map[WebhookType]Handler),
+		handlers: make(map[Type]Handler),
 	}
 }
 
@@ -33,13 +33,13 @@ func (r *HandlerRegistry) Register(handler Handler) {
 }
 
 // Get retrieves a handler by type
-func (r *HandlerRegistry) Get(webhookType WebhookType) (Handler, bool) {
+func (r *HandlerRegistry) Get(webhookType Type) (Handler, bool) {
 	handler, ok := r.handlers[webhookType]
 	return handler, ok
 }
 
 // DetectType attempts to detect the webhook type from the request
-func (r *HandlerRegistry) DetectType(req *http.Request) (WebhookType, error) {
+func (r *HandlerRegistry) DetectType(req *http.Request) (Type, error) {
 	// Check User-Agent header
 	userAgent := req.Header.Get("User-Agent")
 
@@ -86,10 +86,10 @@ func ParseJSON(body []byte, v interface{}) error {
 }
 
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 &&
+	return s != "" && substr != "" &&
 		(s == substr || len(s) >= len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-		findSubstring(s, substr)))
+			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+				findSubstring(s, substr)))
 }
 
 func findSubstring(s, substr string) bool {

@@ -1,3 +1,5 @@
+// Package framework provides the bootstrap testing framework with Docker
+// container management, assertions, and test configuration.
 package framework
 
 import (

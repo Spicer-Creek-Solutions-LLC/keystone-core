@@ -167,7 +167,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 		// Kerberos - note: requires proper Kerberos setup on the system
 		// This is a simplified example - full Kerberos support would need
 		// additional libraries like gokrb5
-		return fmt.Errorf("Kerberos authentication not yet implemented")
+		return fmt.Errorf("kerberos authentication not yet implemented")
 	}
 
 	// Create client
@@ -282,7 +282,7 @@ func (a *Adapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*
 }
 
 // runPowerShell executes a PowerShell command.
-func (a *Adapter) runPowerShell(ctx context.Context, client *winrm.Client, command string, stdin io.Reader) (string, string, int, error) {
+func (a *Adapter) runPowerShell(ctx context.Context, client *winrm.Client, command string, stdin io.Reader) (stdout, stderr string, exitCode int, err error) {
 	// Use RunPSWithContext which handles PowerShell encoding
 	if stdin != nil {
 		// Read stdin to string
@@ -296,7 +296,7 @@ func (a *Adapter) runPowerShell(ctx context.Context, client *winrm.Client, comma
 }
 
 // runCmd executes a CMD command.
-func (a *Adapter) runCmd(ctx context.Context, client *winrm.Client, command string, stdin io.Reader) (string, string, int, error) {
+func (a *Adapter) runCmd(ctx context.Context, client *winrm.Client, command string, stdin io.Reader) (stdout, stderr string, exitCode int, err error) {
 	cmdCommand := fmt.Sprintf("cmd.exe /c %s", command)
 	if stdin != nil {
 		// Read stdin to string
@@ -345,7 +345,7 @@ func utf16EncodePair(r rune) (r1, r2 rune) {
 }
 
 // RunPowerShell executes a PowerShell command and returns the result.
-func (a *Adapter) RunPowerShell(ctx context.Context, command string) (string, string, int, error) {
+func (a *Adapter) RunPowerShell(ctx context.Context, command string) (stdout, stderr string, exitCode int, err error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -359,7 +359,7 @@ func (a *Adapter) RunPowerShell(ctx context.Context, command string) (string, st
 }
 
 // RunCmd executes a CMD command and returns the result.
-func (a *Adapter) RunCmd(ctx context.Context, command string) (string, string, int, error) {
+func (a *Adapter) RunCmd(ctx context.Context, command string) (stdout, stderr string, exitCode int, err error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected

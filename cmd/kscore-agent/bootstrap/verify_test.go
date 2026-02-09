@@ -6,7 +6,7 @@ import (
 )
 
 func TestRenderCompletionReport(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		ClusterName:     "keystone",
 		NodeRole:        "both",
 		Storage:         "sqlite",
@@ -68,7 +68,7 @@ func TestResolveDialHost(t *testing.T) {
 }
 
 func TestResolveNATSAddresses(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NATSMode: "external",
 		NATSURLs: []string{"nats://nats1:4223", "nats://nats2"},
 	}
@@ -86,7 +86,7 @@ func TestResolveNATSAddresses(t *testing.T) {
 		t.Fatalf("unexpected address: %s", addresses[1])
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		NATSMode: "embedded",
 	}
 	addresses, err = resolveNATSAddresses(cfg)
@@ -121,7 +121,7 @@ func TestParseNATSURL(t *testing.T) {
 }
 
 func TestResolvePostgresAddress(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		Storage:      "postgres",
 		PostgresHost: "db.example.com",
 		PostgresPort: 5432,
@@ -145,14 +145,14 @@ func TestResolvePostgresAddress(t *testing.T) {
 }
 
 func TestShouldCheckClusterMembership(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NodeRole: "agent",
 	}
 	if shouldCheckClusterMembership(cfg) {
 		t.Fatal("expected agent-only to skip membership checks")
 	}
 
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		NodeRole:  "control-plane",
 		HAEnabled: true,
 	}
@@ -162,7 +162,7 @@ func TestShouldCheckClusterMembership(t *testing.T) {
 
 	// Single control-plane with NATS cluster mode (initial bootstrap) should NOT check
 	// membership - there's no cluster yet to verify against
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		NodeRole: "control-plane",
 		NATSMode: "cluster",
 	}
@@ -171,7 +171,7 @@ func TestShouldCheckClusterMembership(t *testing.T) {
 	}
 
 	// Control-plane joining existing cluster should check membership
-	cfg = &BootstrapConfig{
+	cfg = &Config{
 		NodeRole: "control-plane",
 		NATSMode: "cluster",
 		Join:     "https://existing-cluster:8080",

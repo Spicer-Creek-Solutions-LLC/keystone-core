@@ -75,9 +75,9 @@ func TestAgentListResponseStructure(t *testing.T) {
 func TestTagsUpdateRequestStructure(t *testing.T) {
 	req := TagsUpdateRequest{
 		Tags: map[string]string{
-			"env":     "staging",
-			"remove":  "", // empty value to remove
-			"newkey":  "newvalue",
+			"env":    "staging",
+			"remove": "", // empty value to remove
+			"newkey": "newvalue",
 		},
 	}
 

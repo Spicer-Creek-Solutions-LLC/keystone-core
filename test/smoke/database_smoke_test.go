@@ -294,11 +294,12 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 		pgFn     func(db *sql.DB) error
 	}
 
+	ctx := context.Background()
 	tests := []testCase{
 		{
 			name: "json_operations",
 			sqliteFn: func(db *sql.DB) error {
-				_, err := db.Exec(`
+				_, err := db.ExecContext(ctx, `
 					CREATE TABLE IF NOT EXISTS json_test (
 						id INTEGER PRIMARY KEY,
 						data TEXT
@@ -307,11 +308,11 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				_, err = db.Exec(`INSERT INTO json_test (data) VALUES ('{"test": true}')`)
+				_, err = db.ExecContext(ctx, `INSERT INTO json_test (data) VALUES ('{"test": true}')`)
 				return err
 			},
 			pgFn: func(db *sql.DB) error {
-				_, err := db.Exec(`
+				_, err := db.ExecContext(ctx, `
 					CREATE TABLE IF NOT EXISTS json_test (
 						id SERIAL PRIMARY KEY,
 						data JSONB
@@ -320,14 +321,14 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				_, err = db.Exec(`INSERT INTO json_test (data) VALUES ('{"test": true}')`)
+				_, err = db.ExecContext(ctx, `INSERT INTO json_test (data) VALUES ('{"test": true}')`)
 				return err
 			},
 		},
 		{
 			name: "timestamp_operations",
 			sqliteFn: func(db *sql.DB) error {
-				_, err := db.Exec(`
+				_, err := db.ExecContext(ctx, `
 					CREATE TABLE IF NOT EXISTS ts_test (
 						id INTEGER PRIMARY KEY,
 						ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -336,15 +337,15 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				_, err = db.Exec(`INSERT INTO ts_test (id) VALUES (1)`)
+				_, err = db.ExecContext(ctx, `INSERT INTO ts_test (id) VALUES (1)`)
 				if err != nil {
 					return err
 				}
 				var ts string
-				return db.QueryRow(`SELECT ts FROM ts_test WHERE id = 1`).Scan(&ts)
+				return db.QueryRowContext(ctx, `SELECT ts FROM ts_test WHERE id = 1`).Scan(&ts)
 			},
 			pgFn: func(db *sql.DB) error {
-				_, err := db.Exec(`
+				_, err := db.ExecContext(ctx, `
 					CREATE TABLE IF NOT EXISTS ts_test (
 						id SERIAL PRIMARY KEY,
 						ts TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -353,12 +354,12 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				_, err = db.Exec(`INSERT INTO ts_test DEFAULT VALUES`)
+				_, err = db.ExecContext(ctx, `INSERT INTO ts_test DEFAULT VALUES`)
 				if err != nil {
 					return err
 				}
 				var ts time.Time
-				return db.QueryRow(`SELECT ts FROM ts_test ORDER BY id DESC LIMIT 1`).Scan(&ts)
+				return db.QueryRowContext(ctx, `SELECT ts FROM ts_test ORDER BY id DESC LIMIT 1`).Scan(&ts)
 			},
 		},
 	}
@@ -399,7 +400,7 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 		}
 		defer db.Close()
 
-		if err := db.Ping(); err != nil {
+		if err := db.PingContext(ctx); err != nil {
 			t.Skipf("PostgreSQL not available: %v", err)
 		}
 
@@ -412,8 +413,8 @@ func TestDatabaseBackendCompatibility(t *testing.T) {
 		}
 
 		// Cleanup
-		db.Exec(`DROP TABLE IF EXISTS json_test`)
-		db.Exec(`DROP TABLE IF EXISTS ts_test`)
+		db.ExecContext(ctx, `DROP TABLE IF EXISTS json_test`)
+		db.ExecContext(ctx, `DROP TABLE IF EXISTS ts_test`)
 	})
 }
 
@@ -433,7 +434,8 @@ func BenchmarkSQLiteInsert(b *testing.B) {
 
 	db.SetMaxOpenConns(1)
 
-	_, err = db.Exec(`
+	ctx := context.Background()
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE bench_test (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -446,7 +448,7 @@ func BenchmarkSQLiteInsert(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err = db.Exec(`INSERT INTO bench_test (name, data) VALUES (?, ?)`,
+		_, err = db.ExecContext(ctx, `INSERT INTO bench_test (name, data) VALUES (?, ?)`,
 			fmt.Sprintf("entry-%d", i), "benchmark data")
 		if err != nil {
 			b.Fatalf("Insert failed: %v", err)
@@ -470,7 +472,8 @@ func BenchmarkSQLiteQuery(b *testing.B) {
 
 	db.SetMaxOpenConns(1)
 
-	_, err = db.Exec(`
+	ctx := context.Background()
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE bench_test (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -483,14 +486,14 @@ func BenchmarkSQLiteQuery(b *testing.B) {
 
 	// Insert test data
 	for i := 0; i < 1000; i++ {
-		_, _ = db.Exec(`INSERT INTO bench_test (name, data) VALUES (?, ?)`,
+		_, _ = db.ExecContext(ctx, `INSERT INTO bench_test (name, data) VALUES (?, ?)`,
 			fmt.Sprintf("entry-%d", i), "benchmark data")
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var name, data string
-		err = db.QueryRow(`SELECT name, data FROM bench_test WHERE id = ?`, (i%1000)+1).Scan(&name, &data)
+		err = db.QueryRowContext(ctx, `SELECT name, data FROM bench_test WHERE id = ?`, (i%1000)+1).Scan(&name, &data)
 		if err != nil {
 			b.Fatalf("Query failed: %v", err)
 		}

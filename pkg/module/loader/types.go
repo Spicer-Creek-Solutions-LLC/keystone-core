@@ -151,17 +151,18 @@ type LoadEvent struct {
 // LoadEventType represents different stages of module loading
 type LoadEventType string
 
+// LoadEvent constants define the events.
 const (
-	LoadEventStart                  LoadEventType = "load_start"
-	LoadEventManifestParsed         LoadEventType = "manifest_parsed"
-	LoadEventVerifying              LoadEventType = "verifying"
-	LoadEventVerified               LoadEventType = "verified"
-	LoadEventPolicyCheck            LoadEventType = "policy_check"
-	LoadEventPolicyApproved         LoadEventType = "policy_approved"
-	LoadEventCapabilityPolicyCheck  LoadEventType = "capability_policy_check"
-	LoadEventCapabilityLockCheck    LoadEventType = "capability_lock_check"
-	LoadEventRuntimeInit            LoadEventType = "runtime_init"
-	LoadEventCapabilities           LoadEventType = "capabilities_registered"
-	LoadEventComplete               LoadEventType = "load_complete"
-	LoadEventFailed                 LoadEventType = "load_failed"
+	LoadEventStart                 LoadEventType = "load_start"
+	LoadEventManifestParsed        LoadEventType = "manifest_parsed"
+	LoadEventVerifying             LoadEventType = "verifying"
+	LoadEventVerified              LoadEventType = "verified"
+	LoadEventPolicyCheck           LoadEventType = "policy_check"
+	LoadEventPolicyApproved        LoadEventType = "policy_approved"
+	LoadEventCapabilityPolicyCheck LoadEventType = "capability_policy_check"
+	LoadEventCapabilityLockCheck   LoadEventType = "capability_lock_check"
+	LoadEventRuntimeInit           LoadEventType = "runtime_init"
+	LoadEventCapabilities          LoadEventType = "capabilities_registered"
+	LoadEventComplete              LoadEventType = "load_complete"
+	LoadEventFailed                LoadEventType = "load_failed"
 )

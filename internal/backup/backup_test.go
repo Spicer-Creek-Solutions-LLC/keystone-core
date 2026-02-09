@@ -14,8 +14,8 @@ import (
 func TestBackupConfig(t *testing.T) {
 	config := DefaultBackupConfig()
 
-	if config.Type != BackupTypeFull {
-		t.Errorf("expected default type %s, got %s", BackupTypeFull, config.Type)
+	if config.Type != TypeFull {
+		t.Errorf("expected default type %s, got %s", TypeFull, config.Type)
 	}
 	if config.Compression != CompressionTypeGzip {
 		t.Errorf("expected default compression %s, got %s", CompressionTypeGzip, config.Compression)
@@ -88,9 +88,9 @@ func TestArtifactBuilder_Build(t *testing.T) {
 	}
 
 	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
-		Backup: BackupInfo{
+		Backup: Info{
 			ID:   "test-backup",
 			Name: "test",
 		},
@@ -126,9 +126,9 @@ func TestArtifactReader_ReadManifest(t *testing.T) {
 	// Build artifact
 	builder, _ := NewArtifactBuilder(tmpDir, nil)
 	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
-		Backup: BackupInfo{
+		Backup: Info{
 			ID:   "test-backup",
 			Name: "test",
 		},
@@ -162,9 +162,9 @@ func TestArtifactReader_Extract(t *testing.T) {
 	// Build artifact
 	builder, _ := NewArtifactBuilder(tmpDir, nil)
 	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
-		Backup:          BackupInfo{ID: "test"},
+		Backup:          Info{ID: "test"},
 		CreatedAt:       time.Now(),
 	}
 	builder.Build(ctx, outputPath, manifest, CompressionTypeGzip)
@@ -201,9 +201,9 @@ func TestArtifactReader_VerifyIntegrity(t *testing.T) {
 	// Build artifact
 	builder, _ := NewArtifactBuilder(tmpDir, nil)
 	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
-		Backup:          BackupInfo{ID: "test"},
+		Backup:          Info{ID: "test"},
 		CreatedAt:       time.Now(),
 	}
 	builder.Build(ctx, outputPath, manifest, CompressionTypeGzip)
@@ -574,15 +574,15 @@ func TestMultiDestination(t *testing.T) {
 	}
 }
 
-func TestBackupTypes(t *testing.T) {
+func TestTypes(t *testing.T) {
 	tests := []struct {
-		backupType BackupType
+		backupType Type
 		expected   string
 	}{
-		{BackupTypeFull, "full"},
-		{BackupTypeIncremental, "incremental"},
-		{BackupTypeDatabase, "database"},
-		{BackupTypeConfiguration, "configuration"},
+		{TypeFull, "full"},
+		{TypeIncremental, "incremental"},
+		{TypeDatabase, "database"},
+		{TypeConfiguration, "configuration"},
 	}
 
 	for _, tt := range tests {
@@ -658,8 +658,8 @@ type testExporter struct {
 	component ComponentType
 }
 
-func (e *testExporter) Name() string              { return "test" }
-func (e *testExporter) Component() ComponentType  { return e.component }
+func (e *testExporter) Name() string             { return "test" }
+func (e *testExporter) Component() ComponentType { return e.component }
 func (e *testExporter) Export(ctx context.Context, w io.Writer) error {
 	_, err := w.Write([]byte("test data"))
 	return err
@@ -1187,9 +1187,9 @@ func TestArtifactBuilder_BuildWithConfig(t *testing.T) {
 	}
 
 	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
-	manifest := &BackupManifest{
+	manifest := &Manifest{
 		ManifestVersion: ManifestVersion,
-		Backup: BackupInfo{
+		Backup: Info{
 			ID:   "test-backup",
 			Name: "test",
 		},

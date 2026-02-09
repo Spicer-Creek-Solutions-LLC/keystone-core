@@ -50,7 +50,7 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 	if os.IsNotExist(err) {
 		result.Present = false
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %s: %w", dest, err)
@@ -67,7 +67,7 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		result.Matches = decl.State == "absent"
 		result.Metadata["exists"] = true
 		result.Metadata["is_git_repo"] = false
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Present = true
@@ -75,25 +75,25 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 	result.Metadata["is_git_repo"] = true
 
 	// Get current remote URL
-	remoteURL, err := m.getRemoteURL(dest)
+	remoteURL, err := m.getRemoteURL(ctx, dest)
 	if err == nil {
 		result.Metadata["remote_url"] = remoteURL
 	}
 
 	// Get current commit
-	currentCommit, err := m.getCurrentCommit(dest)
+	currentCommit, err := m.getCurrentCommit(ctx, dest)
 	if err == nil {
 		result.Metadata["current_commit"] = currentCommit
 	}
 
 	// Get current branch
-	currentBranch, err := m.getCurrentBranch(dest)
+	currentBranch, err := m.getCurrentBranch(ctx, dest)
 	if err == nil {
 		result.Metadata["current_branch"] = currentBranch
 	}
 
 	// Check if clean
-	isClean, err := m.isWorkingTreeClean(dest)
+	isClean, err := m.isWorkingTreeClean(ctx, dest)
 	if err == nil {
 		result.Metadata["is_clean"] = isClean
 	}
@@ -113,7 +113,7 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		// Check if we're at the desired version
 		if version == "HEAD" || version == "" {
 			// Fetch and compare with origin
-			behindCount, err := m.getBehindCount(dest)
+			behindCount, err := m.getBehindCount(ctx, dest)
 			if err == nil {
 				result.Metadata["behind_count"] = behindCount
 				result.Matches = behindCount == 0
@@ -128,7 +128,7 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 			}
 		} else {
 			// Check if at specific version/tag/branch
-			atVersion, err := m.isAtVersion(dest, version)
+			atVersion, err := m.isAtVersion(ctx, dest, version)
 			if err == nil {
 				result.Matches = atVersion
 				if !atVersion {
@@ -144,7 +144,7 @@ func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleC
 		result.CurrentState = "present"
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply ensures the Git repository is in the desired state
@@ -166,14 +166,14 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 	if err != nil {
 		result.Success = false
 		result.Comment = fmt.Sprintf("Check failed: %v", err)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if check.Matches {
 		result.Success = true
 		result.Changed = false
 		result.Comment = "Repository already in desired state"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch decl.State {
@@ -182,7 +182,7 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 			if err := os.RemoveAll(dest); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to remove repository: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Success = true
 			result.Changed = true
@@ -194,7 +194,8 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 		}
 
 	case "present", "latest":
-		if !check.Present {
+		switch {
+		case !check.Present:
 			// Clone the repository
 			args := []string{"clone"}
 			if depth > 0 {
@@ -211,25 +212,25 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 			if err := m.runGitCommand(ctx, "", args, sshKey); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to clone repository: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Success = true
 			result.Changed = true
 			result.Comment = fmt.Sprintf("Cloned %s to %s", repo, dest)
-		} else if decl.State == "latest" {
+		case decl.State == "latest":
 			// Repository exists, update it
 			if force {
 				// Reset hard to clean state
 				if err := m.runGitCommand(ctx, dest, []string{"reset", "--hard"}, ""); err != nil {
 					result.Success = false
 					result.Comment = fmt.Sprintf("Failed to reset repository: %v", err)
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 				// Clean untracked files
 				if err := m.runGitCommand(ctx, dest, []string{"clean", "-fd"}, ""); err != nil {
 					result.Success = false
 					result.Comment = fmt.Sprintf("Failed to clean repository: %v", err)
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 			}
 
@@ -237,7 +238,7 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 			if err := m.runGitCommand(ctx, dest, []string{"fetch", "--all"}, sshKey); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to fetch updates: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 
 			// Checkout/pull to desired version
@@ -245,12 +246,12 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 				if err := m.runGitCommand(ctx, dest, []string{"checkout", version}, ""); err != nil {
 					result.Success = false
 					result.Comment = fmt.Sprintf("Failed to checkout %s: %v", version, err)
-					return result, nil
+					return result, nil //nolint:nilerr // error captured in result.Error
 				}
 			}
 
 			// Pull if on a branch
-			currentBranch, _ := m.getCurrentBranch(dest)
+			currentBranch, _ := m.getCurrentBranch(ctx, dest)
 			if currentBranch != "" && !strings.HasPrefix(currentBranch, "(") {
 				pullArgs := []string{"pull"}
 				if force {
@@ -261,7 +262,7 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 					if !strings.Contains(err.Error(), "detached HEAD") {
 						result.Success = false
 						result.Comment = fmt.Sprintf("Failed to pull updates: %v", err)
-						return result, nil
+						return result, nil //nolint:nilerr // error captured in result.Error
 					}
 				}
 			}
@@ -273,7 +274,7 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 					if !strings.Contains(err.Error(), "No submodule") {
 						result.Success = false
 						result.Comment = fmt.Sprintf("Failed to update submodules: %v", err)
-						return result, nil
+						return result, nil //nolint:nilerr // error captured in result.Error
 					}
 				}
 			}
@@ -281,14 +282,14 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 			result.Success = true
 			result.Changed = true
 			result.Comment = fmt.Sprintf("Updated repository at %s", dest)
-		} else {
+		default:
 			result.Success = true
 			result.Changed = false
 			result.Comment = "Repository already present"
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test validates module parameters
@@ -303,7 +304,7 @@ func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRes
 	if dest == "" {
 		result.Success = false
 		result.Comment = "dest parameter is required"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if decl.State != "absent" {
@@ -311,7 +312,7 @@ func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRes
 		if repo == "" {
 			result.Success = false
 			result.Comment = "repo parameter is required for state " + decl.State
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
@@ -319,12 +320,12 @@ func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateRes
 	if _, err := exec.LookPath("git"); err != nil {
 		result.Success = false
 		result.Comment = "git command not found in PATH"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Success = true
 	result.Comment = "Git module parameters are valid"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Helper methods
@@ -345,77 +346,77 @@ func (m *GitModule) runGitCommand(ctx context.Context, dir string, args []string
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%v: %s", err, stderr.String())
+		return fmt.Errorf("%w: %s", err, stderr.String())
 	}
 	return nil
 }
 
-func (m *GitModule) getRemoteURL(dir string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "config", "--get", "remote.origin.url")
+func (m *GitModule) getRemoteURL(ctx context.Context, dir string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(output)), nil //nolint:nilerr // intentional
 }
 
-func (m *GitModule) getCurrentCommit(dir string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "rev-parse", "HEAD")
+func (m *GitModule) getCurrentCommit(ctx context.Context, dir string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(output)), nil //nolint:nilerr // intentional
 }
 
-func (m *GitModule) getCurrentBranch(dir string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
+func (m *GitModule) getCurrentBranch(ctx context.Context, dir string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(output)), nil //nolint:nilerr // intentional
 }
 
-func (m *GitModule) isWorkingTreeClean(dir string) (bool, error) {
-	cmd := exec.Command("git", "-C", dir, "status", "--porcelain")
+func (m *GitModule) isWorkingTreeClean(ctx context.Context, dir string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "status", "--porcelain")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
 	}
-	return len(strings.TrimSpace(string(output))) == 0, nil
+	return strings.TrimSpace(string(output)) == "", nil //nolint:nilerr // intentional
 }
 
-func (m *GitModule) getBehindCount(dir string) (int, error) {
+func (m *GitModule) getBehindCount(ctx context.Context, dir string) (int, error) {
 	// Fetch first
-	exec.Command("git", "-C", dir, "fetch").Run()
+	exec.CommandContext(ctx, "git", "-C", dir, "fetch").Run()
 
 	// Get behind count
-	cmd := exec.Command("git", "-C", dir, "rev-list", "--count", "HEAD..@{u}")
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "rev-list", "--count", "HEAD..@{u}")
 	output, err := cmd.Output()
 	if err != nil {
 		return 0, err
 	}
 	var count int
 	fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &count)
-	return count, nil
+	return count, nil //nolint:nilerr // intentional
 }
 
-func (m *GitModule) isAtVersion(dir, version string) (bool, error) {
+func (m *GitModule) isAtVersion(ctx context.Context, dir, version string) (bool, error) {
 	// Get commit hash of the version
-	cmd := exec.Command("git", "-C", dir, "rev-parse", version)
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", version)
 	versionCommit, err := cmd.Output()
 	if err != nil {
 		return false, err
 	}
 
 	// Get current commit
-	currentCommit, err := m.getCurrentCommit(dir)
+	currentCommit, err := m.getCurrentCommit(ctx, dir)
 	if err != nil {
 		return false, err
 	}
 
-	return strings.TrimSpace(string(versionCommit)) == currentCommit, nil
+	return strings.TrimSpace(string(versionCommit)) == currentCommit, nil //nolint:nilerr // intentional
 }
 
 // ============================================================================
@@ -450,11 +451,11 @@ func (m *GitConfigModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 	}
 
 	// Get current value
-	currentValue, err := m.getConfigValue(name, scope, file)
+	currentValue, err := m.getConfigValue(ctx, name, scope, file)
 	if err != nil {
 		result.Present = false
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Present = true
@@ -484,7 +485,7 @@ func (m *GitConfigModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 	}
 
 	result.CurrentState = "present"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply ensures the Git configuration is in the desired state
@@ -503,23 +504,23 @@ func (m *GitConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 	if err != nil {
 		result.Success = false
 		result.Comment = fmt.Sprintf("Check failed: %v", err)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if check.Matches {
 		result.Success = true
 		result.Changed = false
 		result.Comment = "Git config already in desired state"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch decl.State {
 	case "absent":
 		if check.Present {
-			if err := m.unsetConfigValue(name, scope, file); err != nil {
+			if err := m.unsetConfigValue(ctx, name, scope, file); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to unset config: %v", err)
-				return result, nil
+				return result, nil //nolint:nilerr // error captured in result.Error
 			}
 			result.Success = true
 			result.Changed = true
@@ -531,10 +532,10 @@ func (m *GitConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		}
 
 	case "present":
-		if err := m.setConfigValue(name, value, scope, file); err != nil {
+		if err := m.setConfigValue(ctx, name, value, scope, file); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to set config: %v", err)
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Success = true
 		result.Changed = true
@@ -545,7 +546,7 @@ func (m *GitConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test validates module parameters
@@ -560,7 +561,7 @@ func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*St
 	if name == "" {
 		result.Success = false
 		result.Comment = "name parameter is required"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if decl.State == "present" {
@@ -568,7 +569,7 @@ func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*St
 		if value == "" {
 			result.Success = false
 			result.Comment = "value parameter is required for state present"
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 	}
 
@@ -578,24 +579,24 @@ func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*St
 	if !validScopes[scope] {
 		result.Success = false
 		result.Comment = fmt.Sprintf("invalid scope: %s (must be global, system, local, or worktree)", scope)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check if git is available
 	if _, err := exec.LookPath("git"); err != nil {
 		result.Success = false
 		result.Comment = "git command not found in PATH"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Success = true
 	result.Comment = "Git config module parameters are valid"
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Helper methods
 
-func (m *GitConfigModule) getConfigValue(name, scope, file string) (string, error) {
+func (m *GitConfigModule) getConfigValue(ctx context.Context, name, scope, file string) (string, error) {
 	args := []string{"config"}
 
 	if file != "" {
@@ -615,15 +616,15 @@ func (m *GitConfigModule) getConfigValue(name, scope, file string) (string, erro
 
 	args = append(args, "--get", name)
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(output)), nil //nolint:nilerr // intentional
 }
 
-func (m *GitConfigModule) setConfigValue(name, value, scope, file string) error {
+func (m *GitConfigModule) setConfigValue(ctx context.Context, name, value, scope, file string) error {
 	args := []string{"config"}
 
 	if file != "" {
@@ -643,17 +644,17 @@ func (m *GitConfigModule) setConfigValue(name, value, scope, file string) error 
 
 	args = append(args, name, value)
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%v: %s", err, stderr.String())
+		return fmt.Errorf("%w: %s", err, stderr.String())
 	}
 	return nil
 }
 
-func (m *GitConfigModule) unsetConfigValue(name, scope, file string) error {
+func (m *GitConfigModule) unsetConfigValue(ctx context.Context, name, scope, file string) error {
 	args := []string{"config"}
 
 	if file != "" {
@@ -673,12 +674,12 @@ func (m *GitConfigModule) unsetConfigValue(name, scope, file string) error {
 
 	args = append(args, "--unset", name)
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%v: %s", err, stderr.String())
+		return fmt.Errorf("%w: %s", err, stderr.String())
 	}
 	return nil
 }

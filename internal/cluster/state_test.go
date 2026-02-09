@@ -27,19 +27,19 @@ func TestNewStateStore(t *testing.T) {
 	})
 }
 
-func TestNewClusterConfigStore(t *testing.T) {
+func TestNewConfigStore(t *testing.T) {
 	t.Run("valid etcd client", func(t *testing.T) {
 		config := DefaultEtcdConfig()
 		etcdClient, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
-		store, err := NewClusterConfigStore(etcdClient)
+		store, err := NewConfigStore(etcdClient)
 		require.NoError(t, err)
 		assert.NotNil(t, store)
 	})
 
 	t.Run("nil etcd client", func(t *testing.T) {
-		store, err := NewClusterConfigStore(nil)
+		store, err := NewConfigStore(nil)
 		assert.Error(t, err)
 		assert.Nil(t, store)
 	})
@@ -202,12 +202,12 @@ func TestStateStore_NotConnected(t *testing.T) {
 	})
 }
 
-func TestClusterConfigStore_NotConnected(t *testing.T) {
+func TestConfigStore_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
 	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
-	store, err := NewClusterConfigStore(etcdClient)
+	store, err := NewConfigStore(etcdClient)
 	require.NoError(t, err)
 
 	ctx := context.Background()

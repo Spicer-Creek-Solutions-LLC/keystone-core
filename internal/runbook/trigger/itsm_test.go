@@ -396,7 +396,7 @@ func TestITSMTriggerManager_HandleWebhook(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "remediate-incident"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "fix", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -481,7 +481,7 @@ func TestITSMTriggerManager_ServiceFilter(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "remediate"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "fix", Type: runbook.StepTypeNoop}},
 		},
 	})
@@ -562,7 +562,7 @@ func TestITSMTriggerManager_SeverityFilter(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "critical-handler"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "fix", Type: runbook.StepTypeNoop}},
 		},
 	})

@@ -1,6 +1,7 @@
 package juniper
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -14,11 +15,11 @@ func TestDefaultJUNOSConfig(t *testing.T) {
 	if cfg.VendorConfig == nil {
 		t.Error("VendorConfig should not be nil")
 	}
-	if cfg.VendorConfig.EnablePrompt != ">" {
-		t.Errorf("EnablePrompt = %v, want '>'", cfg.VendorConfig.EnablePrompt)
+	if cfg.EnablePrompt != ">" {
+		t.Errorf("EnablePrompt = %v, want '>'", cfg.EnablePrompt)
 	}
-	if cfg.VendorConfig.ConfigPrompt != "#" {
-		t.Errorf("ConfigPrompt = %v, want '#'", cfg.VendorConfig.ConfigPrompt)
+	if cfg.ConfigPrompt != "#" {
+		t.Errorf("ConfigPrompt = %v, want '#'", cfg.ConfigPrompt)
 	}
 	if cfg.UseXML != false {
 		t.Error("UseXML should be false by default")
@@ -223,7 +224,7 @@ func TestNewJUNOSAdapterFactory(t *testing.T) {
 func TestJUNOSAdapterDisconnect(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -232,7 +233,7 @@ func TestJUNOSAdapterDisconnect(t *testing.T) {
 func TestJUNOSAdapterHealthCheckNotConnected(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 
-	result, err := adapter.HealthCheck(nil)
+	result, err := adapter.HealthCheck(context.Background())
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}
@@ -259,15 +260,15 @@ func TestJUNOSConfigStructure(t *testing.T) {
 	if !cfg.UseXML {
 		t.Error("UseXML should be true")
 	}
-	if cfg.VendorConfig.Timeout != 90*time.Second {
-		t.Errorf("Timeout = %v", cfg.VendorConfig.Timeout)
+	if cfg.Timeout != 90*time.Second {
+		t.Errorf("Timeout = %v", cfg.Timeout)
 	}
 }
 
 func TestJUNOSAdapterRunCommandNilShell(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 
-	_, err := adapter.runCommand(nil, "show version")
+	_, err := adapter.runCommand(context.Background(), "show version")
 	if err == nil {
 		t.Error("expected error when shell is nil")
 	}
@@ -280,7 +281,7 @@ func TestJUNOSExitConfigNotInConfig(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 	adapter.inConfig = false
 
-	err := adapter.exitConfig(nil)
+	err := adapter.exitConfig(context.Background())
 	if err != nil {
 		t.Errorf("exitConfig() error = %v", err)
 	}
@@ -290,7 +291,7 @@ func TestJUNOSCommitNotInConfig(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 	adapter.inConfig = false
 
-	err := adapter.Commit(nil)
+	err := adapter.Commit(context.Background())
 	if err == nil {
 		t.Error("expected error when not in config mode")
 	}
@@ -300,7 +301,7 @@ func TestJUNOSCommitConfirmNotInConfig(t *testing.T) {
 	adapter := NewJUNOSAdapter(nil)
 	adapter.inConfig = false
 
-	err := adapter.CommitConfirm(nil, 5)
+	err := adapter.CommitConfirm(context.Background(), 5)
 	if err == nil {
 		t.Error("expected error when not in config mode")
 	}

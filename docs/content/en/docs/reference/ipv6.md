@@ -48,8 +48,8 @@ api:
     # TLS with IPv6
     tls:
       enabled: true
-      cert_file: /etc/kscore/tls/server.crt
-      key_file: /etc/kscore/tls/server.key
+      cert_file: /etc/keystone-core/tls/server.crt
+      key_file: /etc/keystone-core/tls/server.key
 
   rest:
     listen: "[::]:8081"
@@ -133,7 +133,7 @@ cluster:
     mode: embedded
     embedded:
       # Data directory
-      data_dir: /var/lib/kscore/etcd
+      data_dir: /var/lib/keystone-core/etcd
 
       # Listen on all IPv6 interfaces
       listen_address: "::"
@@ -164,9 +164,9 @@ cluster:
 
     tls:
       enabled: true
-      cert_file: /etc/kscore/tls/etcd-client.crt
-      key_file: /etc/kscore/tls/etcd-client.key
-      ca_file: /etc/kscore/tls/etcd-ca.crt
+      cert_file: /etc/keystone-core/tls/etcd-client.crt
+      key_file: /etc/keystone-core/tls/etcd-client.key
+      ca_file: /etc/keystone-core/tls/etcd-ca.crt
 ```
 
 ### PostgreSQL IPv6 Configuration
@@ -191,9 +191,9 @@ state:
 
     # SSL/TLS
     sslmode: require           # disable, allow, prefer, require, verify-ca, verify-full
-    sslrootcert: /etc/kscore/tls/pg-ca.crt
-    sslcert: /etc/kscore/tls/pg-client.crt
-    sslkey: /etc/kscore/tls/pg-client.key
+    sslrootcert: /etc/keystone-core/tls/pg-ca.crt
+    sslcert: /etc/keystone-core/tls/pg-client.crt
+    sslkey: /etc/keystone-core/tls/pg-client.key
 
     # Timeouts
     connect_timeout: 10
@@ -335,35 +335,35 @@ Example agent metadata:
 
 ## Targeting Expression Reference
 
-### IPv6 Selectors
+### IP Address Selector
+
+The `ip:` selector matches any of an agent's IP addresses (both IPv4 and IPv6):
 
 | Selector | Example | Description |
 |----------|---------|-------------|
-| `ipv6:` | `ipv6:2001:db8::5` | Exact IPv6 match |
-| `ipv6:*` | `ipv6:2001:db8::*` | Glob pattern |
-| `ipv6_cidr:` | `ipv6_cidr:2001:db8::/32` | CIDR prefix match |
-| `has_ipv6` | `has_ipv6:true` | Has any IPv6 address |
+| `ip:` | `ip:2001:db8::5` | Exact IP match (IPv4 or IPv6) |
+| `ip:*` | `ip:2001:db8::*` | Glob pattern match |
+| `ip:*` | `ip:10.0.1.*` | IPv4 glob pattern |
+
+> **Note**: CIDR notation is not directly supported. Use glob patterns for prefix matching.
 
 ### Examples
 
 ```bash
 # Target specific IPv6 address
-kscorectl exec run --target 'ipv6:2001:db8::5' -- hostname
+kscorectl exec run --target 'ip:2001:db8::5' -- hostname
 
-# Target all agents in IPv6 prefix
-kscorectl exec run --target 'ipv6_cidr:2001:db8::/32' -- uptime
+# Target IPv6 with glob pattern (prefix matching)
+kscorectl exec run --target 'ip:2001:db8:85a3::*' -- date
 
-# Target IPv6 with glob pattern
-kscorectl exec run --target 'ipv6:2001:db8:85a3::*' -- date
+# Combine IP with other selectors
+kscorectl exec run --target 'ip:2001:db8::* AND role:webserver' -- nginx -t
 
-# Target agents with any IPv6 address
-kscorectl exec run --target 'has_ipv6:true' -- ip -6 addr
+# Target by both IPv4 and IPv6 patterns
+kscorectl exec run --target 'ip:10.0.1.* OR ip:2001:db8::*' -- hostname
 
-# Combine IPv6 with other selectors
-kscorectl exec run --target 'ipv6_cidr:2001:db8::/32 AND role:webserver' -- nginx -t
-
-# Target by both IPv4 and IPv6
-kscorectl exec run --target 'ipv4:10.0.1.* OR ipv6:2001:db8::*' -- hostname
+# Target specific IPv4 address
+kscorectl exec run --target 'ip:192.168.1.100' -- uptime
 ```
 
 ## Metrics Reference

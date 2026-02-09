@@ -56,5 +56,5 @@ func (m *WinFirewallModule) Test(ctx context.Context, decl *StateDeclaration) (b
 }
 
 func init() {
-	RegisterModule(NewWinFirewallModule())
+	_ = RegisterModule(NewWinFirewallModule()) //nolint:errcheck // module registration in init
 }

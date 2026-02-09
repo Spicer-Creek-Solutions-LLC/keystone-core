@@ -68,13 +68,15 @@ func (s *DefaultSigner) SignToFile(modulePath, outputPath string, privateKeyPEM 
 
 	// Create output directory if needed
 	if dir := filepath.Dir(outputPath); dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: signature output directory needs to be accessible by service user
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}
 
 	// Write signature to file
-	if err := os.WriteFile(outputPath, signature, 0644); err != nil {
+	//nolint:gosec // G306: signature files need to be readable for verification
+	if err := os.WriteFile(outputPath, signature, 0o644); err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
 

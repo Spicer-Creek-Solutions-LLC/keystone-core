@@ -31,7 +31,7 @@ func DefaultStateResolverConfig() *StateResolverConfig {
 	return &StateResolverConfig{
 		LocalBlueprintPaths: []string{
 			"./blueprints",
-			"/etc/kscore/blueprints",
+			"/etc/keystone-core/blueprints",
 		},
 		CachePath:   "~/.kscore/blueprint-cache",
 		AllowRemote: true,
@@ -82,9 +82,9 @@ func NewStateResolver(config *StateResolverConfig) (*StateResolver, error) {
 
 // ResolveStateFile resolves all blueprint includes in a state file,
 // returning an expanded state file with all blueprints inlined.
-func (r *StateResolver) ResolveStateFile(ctx context.Context, stateFile *BlueprintStateFile) (*BlueprintStateFile, error) {
+func (r *StateResolver) ResolveStateFile(ctx context.Context, stateFile *StateFile) (*StateFile, error) {
 	// Use the executor to expand blueprint includes
-	expanded, err := r.executor.ExpandBlueprintIncludes(ctx, stateFile)
+	expanded, err := r.executor.ExpandIncludes(ctx, stateFile)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +92,8 @@ func (r *StateResolver) ResolveStateFile(ctx context.Context, stateFile *Bluepri
 }
 
 // ResolveStateFiles resolves multiple state files, expanding all blueprint includes.
-func (r *StateResolver) ResolveStateFiles(ctx context.Context, stateFiles []*BlueprintStateFile) ([]*BlueprintStateFile, error) {
-	var result []*BlueprintStateFile
+func (r *StateResolver) ResolveStateFiles(ctx context.Context, stateFiles []*StateFile) ([]*StateFile, error) {
+	var result []*StateFile
 
 	for _, sf := range stateFiles {
 		resolved, err := r.ResolveStateFile(ctx, sf)
@@ -108,7 +108,7 @@ func (r *StateResolver) ResolveStateFiles(ctx context.Context, stateFiles []*Blu
 
 // ParseAndResolve combines parsing and blueprint resolution into one step.
 // It parses the state file and resolves any blueprint includes.
-func (r *StateResolver) ParseAndResolve(ctx context.Context, path string) (*BlueprintStateFile, error) {
+func (r *StateResolver) ParseAndResolve(ctx context.Context, path string) (*StateFile, error) {
 	stateFile, err := r.ParseStateFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
@@ -117,8 +117,8 @@ func (r *StateResolver) ParseAndResolve(ctx context.Context, path string) (*Blue
 	return r.ResolveStateFile(ctx, stateFile)
 }
 
-// ParseStateFile parses a YAML state file into a BlueprintStateFile.
-func (r *StateResolver) ParseStateFile(path string) (*BlueprintStateFile, error) {
+// ParseStateFile parses a YAML state file into a StateFile.
+func (r *StateResolver) ParseStateFile(path string) (*StateFile, error) {
 	data, err := readFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read state file: %w", err)
@@ -128,15 +128,15 @@ func (r *StateResolver) ParseStateFile(path string) (*BlueprintStateFile, error)
 }
 
 // parseStateFileBytes parses state file content from bytes.
-func (r *StateResolver) parseStateFileBytes(data []byte, path string) (*BlueprintStateFile, error) {
+func (r *StateResolver) parseStateFileBytes(data []byte, path string) (*StateFile, error) {
 	var rawState map[string]interface{}
 	if err := yaml.Unmarshal(data, &rawState); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	stateFile := &BlueprintStateFile{
+	stateFile := &StateFile{
 		Path:      path,
-		States:    make(map[string][]BlueprintStateDeclaration),
+		States:    make(map[string][]StateDeclaration),
 		Variables: make(map[string]interface{}),
 	}
 
@@ -154,7 +154,7 @@ func (r *StateResolver) parseStateFileBytes(data []byte, path string) (*Blueprin
 				stateFile.Includes = append(stateFile.Includes, v)
 			case map[string]interface{}:
 				if blueprintRef, ok := v["blueprint"].(string); ok {
-					bpInclude := parseBlueprintIncludeMap(blueprintRef, v)
+					bpInclude := parseIncludeMap(blueprintRef, v)
 					stateFile.BlueprintIncludes = append(stateFile.BlueprintIncludes, bpInclude)
 				} else if fileRef, ok := v["file"].(string); ok {
 					stateFile.Includes = append(stateFile.Includes, fileRef)
@@ -187,7 +187,7 @@ func (r *StateResolver) parseStateFileBytes(data []byte, path string) (*Blueprin
 				continue
 			}
 
-			decl := BlueprintStateDeclaration{
+			decl := StateDeclaration{
 				ID:         stateID,
 				Module:     module,
 				Parameters: make(map[string]interface{}),
@@ -263,9 +263,9 @@ func parseMetadata(metadata map[string]interface{}) *BlueprintMetadata {
 	return m
 }
 
-// parseBlueprintIncludeMap parses a blueprint include from a map.
-func parseBlueprintIncludeMap(blueprintRef string, data map[string]interface{}) BlueprintInclude {
-	include := BlueprintInclude{
+// parseIncludeMap parses a blueprint include from a map.
+func parseIncludeMap(blueprintRef string, data map[string]interface{}) Include {
+	include := Include{
 		Blueprint: blueprintRef,
 	}
 
@@ -311,8 +311,8 @@ var readFileContents = func(path string) ([]byte, error) {
 }
 
 // LoadAndResolve loads multiple state files and resolves all includes.
-func (r *StateResolver) LoadAndResolve(ctx context.Context, paths []string) ([]*BlueprintStateFile, error) {
-	var stateFiles []*BlueprintStateFile
+func (r *StateResolver) LoadAndResolve(ctx context.Context, paths []string) ([]*StateFile, error) {
+	var stateFiles []*StateFile
 
 	for _, path := range paths {
 		resolved, err := r.ParseAndResolve(ctx, path)
@@ -341,7 +341,7 @@ func (r *StateResolver) GetLoader() *Loader {
 }
 
 // ValidateBlueprints validates that all referenced blueprints exist and can be loaded.
-func (r *StateResolver) ValidateBlueprints(ctx context.Context, stateFile *BlueprintStateFile) []error {
+func (r *StateResolver) ValidateBlueprints(ctx context.Context, stateFile *StateFile) []error {
 	var errors []error
 
 	for _, include := range stateFile.BlueprintIncludes {

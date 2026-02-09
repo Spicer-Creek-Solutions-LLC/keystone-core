@@ -197,11 +197,11 @@ type ThrottledReader struct {
 	reader    io.Reader
 	throttler *Throttler
 	ctx       context.Context
-	stats     *TransferStats
+	stats     *Stats
 }
 
-// TransferStats contains transfer statistics.
-type TransferStats struct {
+// Stats contains transfer statistics.
+type Stats struct {
 	BytesTransferred int64     `json:"bytesTransferred"`
 	StartTime        time.Time `json:"startTime"`
 	LastActivity     time.Time `json:"lastActivity"`
@@ -209,7 +209,7 @@ type TransferStats struct {
 }
 
 // BytesPerSecond returns the current transfer rate.
-func (s *TransferStats) BytesPerSecond() float64 {
+func (s *Stats) BytesPerSecond() float64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -226,7 +226,7 @@ func NewThrottledReader(ctx context.Context, reader io.Reader, throttler *Thrott
 		reader:    reader,
 		throttler: throttler,
 		ctx:       ctx,
-		stats: &TransferStats{
+		stats: &Stats{
 			StartTime: time.Now(),
 		},
 	}
@@ -261,10 +261,14 @@ func (r *ThrottledReader) Read(p []byte) (n int, err error) {
 }
 
 // Stats returns the transfer statistics.
-func (r *ThrottledReader) Stats() TransferStats {
+func (r *ThrottledReader) Stats() *Stats {
 	r.stats.mu.RLock()
 	defer r.stats.mu.RUnlock()
-	return *r.stats
+	return &Stats{
+		BytesTransferred: r.stats.BytesTransferred,
+		StartTime:        r.stats.StartTime,
+		LastActivity:     r.stats.LastActivity,
+	}
 }
 
 // ThrottledWriter wraps an io.Writer with bandwidth throttling.
@@ -272,7 +276,7 @@ type ThrottledWriter struct {
 	writer    io.Writer
 	throttler *Throttler
 	ctx       context.Context
-	stats     *TransferStats
+	stats     *Stats
 }
 
 // NewThrottledWriter creates a new throttled writer.
@@ -281,7 +285,7 @@ func NewThrottledWriter(ctx context.Context, writer io.Writer, throttler *Thrott
 		writer:    writer,
 		throttler: throttler,
 		ctx:       ctx,
-		stats: &TransferStats{
+		stats: &Stats{
 			StartTime: time.Now(),
 		},
 	}
@@ -324,10 +328,14 @@ func (w *ThrottledWriter) Write(p []byte) (n int, err error) {
 }
 
 // Stats returns the transfer statistics.
-func (w *ThrottledWriter) Stats() TransferStats {
+func (w *ThrottledWriter) Stats() *Stats {
 	w.stats.mu.RLock()
 	defer w.stats.mu.RUnlock()
-	return *w.stats
+	return &Stats{
+		BytesTransferred: w.stats.BytesTransferred,
+		StartTime:        w.stats.StartTime,
+		LastActivity:     w.stats.LastActivity,
+	}
 }
 
 // BandwidthPool manages shared bandwidth across multiple transfers.
@@ -342,7 +350,6 @@ type BandwidthPool struct {
 type pooledTransfer struct {
 	id       string
 	priority int
-	bytes    int64 // atomic
 }
 
 // NewBandwidthPool creates a new bandwidth pool.
@@ -414,9 +421,7 @@ type AdaptiveThrottler struct {
 	minRate        int64
 	maxRate        int64
 	currentRate    int64 // atomic
-	lastAdjust     time.Time
 	adjustInterval time.Duration
-	mu             sync.RWMutex
 	metrics        *AdaptiveMetrics
 }
 

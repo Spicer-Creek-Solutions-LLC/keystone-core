@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -238,7 +239,7 @@ func (c *Client) GetFile(ctx context.Context, path string, opts *GetFileOptions)
 
 	// Cache the result
 	if c.cache != nil && result.Downloaded {
-		c.cache.Put(path, result.Version, result.Checksum, result.LocalPath, result.Size)
+		_ = c.cache.Put(path, result.Version, result.Checksum, result.LocalPath, result.Size) //nolint:errcheck // best-effort cache
 	}
 
 	return result, nil
@@ -281,7 +282,7 @@ func (c *Client) requestFile(ctx context.Context, namespace string, req *FileReq
 	metaCtx, cancel := context.WithTimeout(ctx, c.config.RequestTimeout)
 	defer cancel()
 
-	msg, err := c.receiveWithContext(sub, metaCtx)
+	msg, err := c.receiveWithContext(metaCtx, sub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to receive metadata: %w", err)
 	}
@@ -368,7 +369,7 @@ func (c *Client) receiveChunks(ctx context.Context, sub *nats.Subscription, meta
 	for i := 0; i < metadata.ChunkCount; i++ {
 		chunkCtx, cancel := context.WithTimeout(ctx, c.config.ChunkTimeout)
 
-		msg, err := c.receiveWithContext(sub, chunkCtx)
+		msg, err := c.receiveWithContext(chunkCtx, sub)
 		cancel()
 
 		if err != nil {
@@ -418,7 +419,7 @@ func (c *Client) receiveChunks(ctx context.Context, sub *nats.Subscription, meta
 }
 
 // receiveWithContext receives a message with context cancellation.
-func (c *Client) receiveWithContext(sub *nats.Subscription, ctx context.Context) (*nats.Msg, error) {
+func (c *Client) receiveWithContext(ctx context.Context, sub *nats.Subscription) (*nats.Msg, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		// No deadline set, use a long timeout
@@ -551,7 +552,8 @@ func NewFileCache(config *CacheConfig) (*FileCache, error) {
 		return nil, fmt.Errorf("cache directory is required")
 	}
 
-	if err := os.MkdirAll(config.Dir, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(config.Dir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -805,7 +807,8 @@ func (c *Client) ListFiles(ctx context.Context, path string, opts *ListFilesOpti
 
 	// Convert FileInfo to FileEntry
 	entries := make([]*FileEntry, len(resp.Files))
-	for i, fi := range resp.Files {
+	for i := range resp.Files {
+		fi := &resp.Files[i]
 		entries[i] = &FileEntry{
 			Path:     fi.Path,
 			Name:     fi.Name,
@@ -969,7 +972,7 @@ func (c *Client) PutFile(ctx context.Context, path string, reader io.Reader, siz
 
 	for {
 		n, err := reader.Read(buf)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("failed to read data: %w", err)
 		}
 
@@ -987,7 +990,7 @@ func (c *Client) PutFile(ctx context.Context, path string, reader io.Reader, siz
 			TotalCount: resp.ChunkCount,
 			Data:       buf[:n],
 			Checksum:   chunkChecksum,
-			Final:      err == io.EOF || chunkIndex == resp.ChunkCount-1,
+			Final:      errors.Is(err, io.EOF) || chunkIndex == resp.ChunkCount-1,
 		}
 
 		chunkData, err := json.Marshal(chunk)

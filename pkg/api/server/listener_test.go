@@ -318,11 +318,11 @@ func TestCreateListenersError(t *testing.T) {
 
 func TestCreateDualStackListeners(t *testing.T) {
 	tests := []struct {
-		name           string
-		family         netutil.AddressFamilyPreference
-		expectedCount  int
-		expectedIPv4   bool
-		expectedIPv6   bool
+		name          string
+		family        netutil.AddressFamilyPreference
+		expectedCount int
+		expectedIPv4  bool
+		expectedIPv6  bool
 	}{
 		{
 			name:          "IPv4 only",

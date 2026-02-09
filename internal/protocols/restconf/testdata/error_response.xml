@@ -1,0 +1,8 @@
+<errors xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf">
+  <error>
+    <error-type>application</error-type>
+    <error-tag>data-missing</error-tag>
+    <error-message>Request could not be completed because the relevant data model content does not exist</error-message>
+    <error-path>/ietf-interfaces:interfaces/interface=eth99</error-path>
+  </error>
+</errors>

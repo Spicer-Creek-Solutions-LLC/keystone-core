@@ -21,8 +21,8 @@ type CloudCredentialProvider interface {
 	GetCredential(ctx context.Context, registry string) (*Credential, error)
 	// IsAvailable checks if this provider is available (e.g., running on the cloud).
 	IsAvailable() bool
-	// RegistryType returns the registry type this provider handles.
-	RegistryType() RegistryType
+	// Type returns the registry type this provider handles.
+	Type() Type
 	// MatchesRegistry checks if this provider can handle the given registry.
 	MatchesRegistry(registry string) bool
 }
@@ -230,7 +230,7 @@ func (r *CredentialResolver) Resolve(ctx context.Context, registry string) (*Cre
 // ResolveWithK8sSecret retrieves credentials from a Kubernetes secret.
 func (r *CredentialResolver) ResolveWithK8sSecret(ctx context.Context, registry, namespace, secretName string) (*Credential, error) {
 	if r.k8sProvider == nil {
-		return nil, fmt.Errorf("Kubernetes provider not configured")
+		return nil, fmt.Errorf("kubernetes provider not configured")
 	}
 
 	return r.k8sProvider.GetForRegistry(ctx, namespace, secretName, registry)
@@ -402,7 +402,7 @@ func (r *CredentialResolver) Stats() *ResolverStats {
 	var providers []string
 	for _, p := range r.cloudProviders {
 		if p.IsAvailable() {
-			providers = append(providers, string(p.RegistryType()))
+			providers = append(providers, string(p.Type()))
 		}
 	}
 

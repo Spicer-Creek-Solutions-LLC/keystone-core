@@ -78,7 +78,7 @@ func TestCrashRecovery_PartialPhaseCompletion(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create checkpoint with partial state (simulates crash mid-phase)
-	checkpoint := &BootstrapCheckpoint{
+	checkpoint := &Checkpoint{
 		ID:        "test-id",
 		Version:   "1.0.0",
 		Status:    CheckpointStatusInProgress,
@@ -129,7 +129,7 @@ func TestCrashRecovery_CheckpointPersistenceAcrossRestart(t *testing.T) {
 		{Name: PhaseInstall},
 	}
 
-	err := mgr1.Initialize(DeploymentModeDemo, &BootstrapConfig{Mode: "demo"}, phases)
+	err := mgr1.Initialize(DeploymentModeDemo, &Config{Mode: "demo"}, phases)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestCrashRecovery_CheckpointVersionMismatch(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create checkpoint with different version
-	checkpoint := &BootstrapCheckpoint{
+	checkpoint := &Checkpoint{
 		ID:        "test-id",
 		Version:   "99.0.0", // Future version
 		Status:    CheckpointStatusInProgress,

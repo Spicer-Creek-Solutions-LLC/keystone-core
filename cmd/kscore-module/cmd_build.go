@@ -1,3 +1,4 @@
+// Package main implements the kscore-module CLI for module management operations.
 package main
 
 import (

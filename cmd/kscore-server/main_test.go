@@ -89,7 +89,7 @@ func TestConfigFlag(t *testing.T) {
 	// Check config flag
 	configFlag := cmd.PersistentFlags().Lookup("config")
 	if configFlag == nil {
-		t.Error("expected --config flag")
+		t.Fatal("expected --config flag")
 	}
 	if configFlag.DefValue != "" {
 		t.Errorf("expected config default to be empty, got %s", configFlag.DefValue)

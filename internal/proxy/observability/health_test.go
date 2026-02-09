@@ -181,10 +181,10 @@ func TestHealthMonitor_StatusChangeCallback(t *testing.T) {
 	callbackCalled := false
 	var oldStatus, newStatus HealthStatus
 
-	m.SetStatusChangeCallback(func(old, new HealthStatus) {
+	m.SetStatusChangeCallback(func(old, updated HealthStatus) {
 		callbackCalled = true
 		oldStatus = old
-		newStatus = new
+		newStatus = updated
 	})
 
 	// Initially unknown status
@@ -424,7 +424,7 @@ func TestNewFunctionHealthChecker(t *testing.T) {
 func TestHealthCheck_Duration(t *testing.T) {
 	checker := NewFunctionHealthChecker("slow", func(ctx context.Context) (HealthStatus, string, map[string]string) {
 		start := time.Now()
-		_ = helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		_ = helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) { //nolint:contextcheck // test: helper doesn't take context
 			return time.Since(start) >= 50*time.Millisecond, nil
 		})
 		return HealthStatusHealthy, "Done", nil

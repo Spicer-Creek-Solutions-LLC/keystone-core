@@ -105,11 +105,12 @@ func (m *NATSModule) Check(ctx context.Context, config interface{}) (*CheckResul
 	result.Metadata["config_path"] = configPath
 
 	// Determine current state
-	if !result.Present {
+	switch {
+	case !result.Present:
 		result.CurrentState = StateUninstalled
-	} else if result.Running {
+	case result.Running:
 		result.CurrentState = StateRunning
-	} else {
+	default:
 		result.CurrentState = StateStopped
 	}
 
@@ -401,9 +402,10 @@ func (m *NATSModule) installViaBinary(ctx context.Context, cfg *NATSConfig, resu
 
 	// NATS uses different naming convention
 	archName := arch
-	if arch == "amd64" {
+	switch arch {
+	case "amd64":
 		archName = "amd64"
-	} else if arch == "arm64" {
+	case "arm64":
 		archName = "arm64"
 	}
 
@@ -448,7 +450,7 @@ func (m *NATSModule) installViaBinary(ctx context.Context, cfg *NATSConfig, resu
 	}
 
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(binaryPath, 0755); err != nil {
+		if err := os.Chmod(binaryPath, 0o755); err != nil { //nolint:gosec // G302: Binary must be executable by all users
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
 	}
@@ -459,7 +461,7 @@ func (m *NATSModule) installViaBinary(ctx context.Context, cfg *NATSConfig, resu
 
 	// Create service file
 	if runtime.GOOS == "linux" && DetectInitSystem() == "systemd" {
-		if err := m.createSystemdService(cfg); err != nil {
+		if err := m.createSystemdService(cfg); err != nil { //nolint:contextcheck // createSystemdService doesn't take context
 			return fmt.Errorf("failed to create systemd service: %w", err)
 		}
 	}
@@ -673,7 +675,7 @@ func (m *NATSModule) configure(ctx context.Context, cfg *NATSConfig, result *App
 
 	configContent := m.buildConfig(cfg)
 
-	if err := WriteFile(configPath, []byte(configContent), 0640); err != nil {
+	if err := WriteFile(configPath, []byte(configContent), 0o640); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -825,7 +827,7 @@ func (m *NATSModule) isServiceRunning(ctx context.Context, initSystem string) (b
 		output, err = RunCommand(ctx, "systemctl", "is-active", "nats-server")
 		return output == "active", err
 	case "launchd":
-		output, err = RunCommand(ctx, "launchctl", "list", "io.nats.nats-server")
+		_, err = RunCommand(ctx, "launchctl", "list", "io.nats.nats-server")
 		return err == nil, nil
 	case "openrc":
 		output, err = RunCommand(ctx, "rc-service", "nats-server", "status")
@@ -938,7 +940,7 @@ WantedBy=multi-user.target
 	}
 
 	servicePath := "/etc/systemd/system/nats-server.service"
-	if err := WriteFile(servicePath, []byte(buf.String()), 0644); err != nil {
+	if err := WriteFile(servicePath, []byte(buf.String()), 0o644); err != nil {
 		return err
 	}
 

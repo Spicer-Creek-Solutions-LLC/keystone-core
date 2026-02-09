@@ -21,5 +21,5 @@ tests:
       - type: state_applied
         target: enterprise_config_file
       - type: file_contains
-        target: /etc/kscore/kscore.yaml
+        target: /etc/keystone-core/keystone-core.yaml
         pattern: "cluster:\n        name: \"keystone-ent\""

@@ -76,9 +76,9 @@ type ExecutionCallbacks struct {
 	OnSkipped func(execID, reason string)
 }
 
-// ManagedExecution wraps ScheduleExecution with a state machine.
+// ManagedExecution wraps Execution with a state machine.
 type ManagedExecution struct {
-	Execution *ScheduleExecution
+	Execution *Execution
 	machine   *statemachine.Machine[ExecutionStatus, ExecutionEvent]
 
 	// Tracking
@@ -91,7 +91,7 @@ type ManagedExecution struct {
 }
 
 // NewManagedExecution creates a new managed execution with state machine.
-func NewManagedExecution(exec *ScheduleExecution, callbacks *ExecutionCallbacks) *ManagedExecution {
+func NewManagedExecution(exec *Execution, callbacks *ExecutionCallbacks) *ManagedExecution {
 	me := &ManagedExecution{
 		Execution: exec,
 		execID:    exec.ID,

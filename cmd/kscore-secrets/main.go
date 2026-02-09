@@ -1,3 +1,4 @@
+// Package main implements the kscore-secrets CLI for secrets management operations.
 package main
 
 import (
@@ -440,6 +441,7 @@ func printRotationStatus(status *rotationStatus) {
 		stateIcon = "❌"
 	case secrets.RotationStateRolledBack:
 		stateIcon = "⏪"
+	default:
 	}
 
 	fmt.Printf("%s Rotation %s: %s\n", stateIcon, status.ID, status.State)
@@ -1028,31 +1030,31 @@ func newPolicyDeleteCmd() *cobra.Command {
 // =============================================================================
 
 type rotationDisplay struct {
-	ID             string                  `json:"id" yaml:"id"`
-	SecretPath     string                  `json:"secret_path" yaml:"secret_path"`
+	ID             string                   `json:"id" yaml:"id"`
+	SecretPath     string                   `json:"secret_path" yaml:"secret_path"`
 	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State          secrets.RotationState   `json:"state" yaml:"state"`
-	TotalTargets   int                     `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets int                     `json:"updated_targets" yaml:"updated_targets"`
-	StartedAt      string                  `json:"started_at" yaml:"started_at"`
+	State          secrets.RotationState    `json:"state" yaml:"state"`
+	TotalTargets   int                      `json:"total_targets" yaml:"total_targets"`
+	UpdatedTargets int                      `json:"updated_targets" yaml:"updated_targets"`
+	StartedAt      string                   `json:"started_at" yaml:"started_at"`
 }
 
 type rotationDetail struct {
-	ID              string                  `json:"id" yaml:"id"`
-	SecretPath      string                  `json:"secret_path" yaml:"secret_path"`
+	ID              string                   `json:"id" yaml:"id"`
+	SecretPath      string                   `json:"secret_path" yaml:"secret_path"`
 	Strategy        secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State           secrets.RotationState   `json:"state" yaml:"state"`
-	TotalTargets    int                     `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets  int                     `json:"updated_targets" yaml:"updated_targets"`
-	FailedTargets   int                     `json:"failed_targets" yaml:"failed_targets"`
-	Percentage      int                     `json:"percentage" yaml:"percentage"`
-	StartedAt       string                  `json:"started_at" yaml:"started_at"`
-	BatchSize       int                     `json:"batch_size" yaml:"batch_size"`
-	BatchDelay      string                  `json:"batch_delay" yaml:"batch_delay"`
-	HealthCheckType string                  `json:"health_check_type,omitempty" yaml:"health_check_type,omitempty"`
-	HealthCheckURL  string                  `json:"health_check_url,omitempty" yaml:"health_check_url,omitempty"`
-	CreatedBy       string                  `json:"created_by" yaml:"created_by"`
-	Labels          map[string]string       `json:"labels,omitempty" yaml:"labels,omitempty"`
+	State           secrets.RotationState    `json:"state" yaml:"state"`
+	TotalTargets    int                      `json:"total_targets" yaml:"total_targets"`
+	UpdatedTargets  int                      `json:"updated_targets" yaml:"updated_targets"`
+	FailedTargets   int                      `json:"failed_targets" yaml:"failed_targets"`
+	Percentage      int                      `json:"percentage" yaml:"percentage"`
+	StartedAt       string                   `json:"started_at" yaml:"started_at"`
+	BatchSize       int                      `json:"batch_size" yaml:"batch_size"`
+	BatchDelay      string                   `json:"batch_delay" yaml:"batch_delay"`
+	HealthCheckType string                   `json:"health_check_type,omitempty" yaml:"health_check_type,omitempty"`
+	HealthCheckURL  string                   `json:"health_check_url,omitempty" yaml:"health_check_url,omitempty"`
+	CreatedBy       string                   `json:"created_by" yaml:"created_by"`
+	Labels          map[string]string        `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 type rotationStatus struct {
@@ -1069,59 +1071,59 @@ type rotationStatus struct {
 }
 
 type rotationHistory struct {
-	ID             string                  `json:"id" yaml:"id"`
-	SecretPath     string                  `json:"secret_path" yaml:"secret_path"`
+	ID             string                   `json:"id" yaml:"id"`
+	SecretPath     string                   `json:"secret_path" yaml:"secret_path"`
 	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State          secrets.RotationState   `json:"state" yaml:"state"`
-	TotalTargets   int                     `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets int                     `json:"updated_targets" yaml:"updated_targets"`
-	FailedTargets  int                     `json:"failed_targets" yaml:"failed_targets"`
-	StartedAt      string                  `json:"started_at" yaml:"started_at"`
-	Duration       string                  `json:"duration" yaml:"duration"`
+	State          secrets.RotationState    `json:"state" yaml:"state"`
+	TotalTargets   int                      `json:"total_targets" yaml:"total_targets"`
+	UpdatedTargets int                      `json:"updated_targets" yaml:"updated_targets"`
+	FailedTargets  int                      `json:"failed_targets" yaml:"failed_targets"`
+	StartedAt      string                   `json:"started_at" yaml:"started_at"`
+	Duration       string                   `json:"duration" yaml:"duration"`
 }
 
 type scheduleDisplay struct {
-	ID         string                  `json:"id" yaml:"id"`
-	SecretPath string                  `json:"secret_path" yaml:"secret_path"`
-	Schedule   string                  `json:"schedule" yaml:"schedule"`
+	ID         string                   `json:"id" yaml:"id"`
+	SecretPath string                   `json:"secret_path" yaml:"secret_path"`
+	Schedule   string                   `json:"schedule" yaml:"schedule"`
 	Strategy   secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled    bool                    `json:"enabled" yaml:"enabled"`
-	NextRun    string                  `json:"next_run" yaml:"next_run"`
+	Enabled    bool                     `json:"enabled" yaml:"enabled"`
+	NextRun    string                   `json:"next_run" yaml:"next_run"`
 }
 
 type scheduleDetail struct {
-	ID         string                  `json:"id" yaml:"id"`
-	SecretPath string                  `json:"secret_path" yaml:"secret_path"`
-	Schedule   string                  `json:"schedule" yaml:"schedule"`
+	ID         string                   `json:"id" yaml:"id"`
+	SecretPath string                   `json:"secret_path" yaml:"secret_path"`
+	Schedule   string                   `json:"schedule" yaml:"schedule"`
 	Strategy   secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled    bool                    `json:"enabled" yaml:"enabled"`
-	NextRun    string                  `json:"next_run" yaml:"next_run"`
-	LastRun    string                  `json:"last_run" yaml:"last_run"`
-	RunCount   int                     `json:"run_count" yaml:"run_count"`
-	CreatedBy  string                  `json:"created_by" yaml:"created_by"`
-	CreatedAt  string                  `json:"created_at" yaml:"created_at"`
+	Enabled    bool                     `json:"enabled" yaml:"enabled"`
+	NextRun    string                   `json:"next_run" yaml:"next_run"`
+	LastRun    string                   `json:"last_run" yaml:"last_run"`
+	RunCount   int                      `json:"run_count" yaml:"run_count"`
+	CreatedBy  string                   `json:"created_by" yaml:"created_by"`
+	CreatedAt  string                   `json:"created_at" yaml:"created_at"`
 }
 
 type policyDisplay struct {
-	ID            string                  `json:"id" yaml:"id"`
-	Name          string                  `json:"name" yaml:"name"`
-	SecretPattern string                  `json:"secret_pattern" yaml:"secret_pattern"`
-	MaxAge        string                  `json:"max_age" yaml:"max_age"`
+	ID            string                   `json:"id" yaml:"id"`
+	Name          string                   `json:"name" yaml:"name"`
+	SecretPattern string                   `json:"secret_pattern" yaml:"secret_pattern"`
+	MaxAge        string                   `json:"max_age" yaml:"max_age"`
 	Strategy      secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled       bool                    `json:"enabled" yaml:"enabled"`
+	Enabled       bool                     `json:"enabled" yaml:"enabled"`
 }
 
 type policyDetail struct {
-	ID             string                  `json:"id" yaml:"id"`
-	Name           string                  `json:"name" yaml:"name"`
-	SecretPattern  string                  `json:"secret_pattern" yaml:"secret_pattern"`
-	MaxAge         string                  `json:"max_age" yaml:"max_age"`
+	ID             string                   `json:"id" yaml:"id"`
+	Name           string                   `json:"name" yaml:"name"`
+	SecretPattern  string                   `json:"secret_pattern" yaml:"secret_pattern"`
+	MaxAge         string                   `json:"max_age" yaml:"max_age"`
 	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	BatchSize      int                     `json:"batch_size" yaml:"batch_size"`
-	HealthRequired bool                    `json:"health_required" yaml:"health_required"`
-	Enabled        bool                    `json:"enabled" yaml:"enabled"`
-	CreatedBy      string                  `json:"created_by" yaml:"created_by"`
-	CreatedAt      string                  `json:"created_at" yaml:"created_at"`
+	BatchSize      int                      `json:"batch_size" yaml:"batch_size"`
+	HealthRequired bool                     `json:"health_required" yaml:"health_required"`
+	Enabled        bool                     `json:"enabled" yaml:"enabled"`
+	CreatedBy      string                   `json:"created_by" yaml:"created_by"`
+	CreatedAt      string                   `json:"created_at" yaml:"created_at"`
 }
 
 // =============================================================================
@@ -1284,7 +1286,7 @@ func randomID(length int) string {
 	result := make([]byte, length)
 	for i := range result {
 		result[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(1)
+		time.Sleep(1 * time.Nanosecond)
 	}
 	return string(result)
 }

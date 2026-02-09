@@ -22,6 +22,7 @@ const (
 // RecoveryPhase represents the current phase of recovery.
 type RecoveryPhase string
 
+// RecoveryPhase constants define the phases.
 const (
 	RecoveryPhaseIdle       RecoveryPhase = "idle"
 	RecoveryPhaseStarting   RecoveryPhase = "starting"
@@ -37,6 +38,7 @@ const (
 // RecoveryReason indicates why recovery was needed.
 type RecoveryReason string
 
+// RecoveryReasonRestart constants define the reasons.
 const (
 	RecoveryReasonRestart        RecoveryReason = "restart"
 	RecoveryReasonCrash          RecoveryReason = "crash"
@@ -69,6 +71,7 @@ type RecoveryEvent struct {
 // RecoveryEventType identifies recovery event types.
 type RecoveryEventType string
 
+// RecoveryEventStarted constants define the events.
 const (
 	RecoveryEventStarted       RecoveryEventType = "recovery_started"
 	RecoveryEventConnected     RecoveryEventType = "etcd_connected"
@@ -322,7 +325,7 @@ func (r *RecoveryManager) Recover(ctx context.Context, reason RecoveryReason) er
 	}
 
 	// Complete
-	r.completeRecovery()
+	r.completeRecovery(ctx)
 
 	return nil
 }
@@ -437,7 +440,7 @@ func (r *RecoveryManager) verifyConsistency(ctx context.Context) error {
 	}
 
 	// Cleanup test key
-	r.etcd.Delete(verifyCtx, testKey)
+	_ = r.etcd.Delete(verifyCtx, testKey) //nolint:errcheck // best-effort cleanup
 
 	return nil
 }
@@ -571,7 +574,7 @@ func (r *RecoveryManager) failRecovery(err error) error {
 }
 
 // completeRecovery marks recovery as complete.
-func (r *RecoveryManager) completeRecovery() {
+func (r *RecoveryManager) completeRecovery(ctx context.Context) {
 	r.mu.Lock()
 	r.status.Phase = RecoveryPhaseCompleted
 	r.status.Progress = 1.0
@@ -592,11 +595,11 @@ func (r *RecoveryManager) completeRecovery() {
 	})
 
 	// Clear saved state after successful recovery
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	deleteCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	key := fmt.Sprintf("/cluster/recovery/%s", r.localID)
-	r.etcd.Delete(ctx, key)
+	_ = r.etcd.Delete(deleteCtx, key) //nolint:errcheck // best-effort cleanup
 }
 
 // notifyObservers notifies all recovery observers.
@@ -648,9 +651,7 @@ func (r *RecoveryManager) PeriodicStateSave(ctx context.Context, interval time.D
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := r.SaveState(ctx); err != nil {
-				// Log error but continue
-			}
+			_ = r.SaveState(ctx) // best-effort save, continue on error
 		}
 	}
 }

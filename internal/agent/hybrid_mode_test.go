@@ -428,7 +428,7 @@ func TestHybridModeManager_ManualClientRole(t *testing.T) {
 	}
 
 	// Test determineRole without actually connecting
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -451,7 +451,7 @@ func TestHybridModeManager_ManualHostRole(t *testing.T) {
 		t.Fatalf("failed to create manager: %v", err)
 	}
 
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -474,7 +474,7 @@ func TestHybridModeManager_PreferHost(t *testing.T) {
 		t.Fatalf("failed to create manager: %v", err)
 	}
 
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -498,7 +498,7 @@ func TestHybridModeManager_PreferClient(t *testing.T) {
 		t.Fatalf("failed to create manager: %v", err)
 	}
 
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -523,7 +523,7 @@ func TestHybridModeManager_PreferClientFallbackToHost(t *testing.T) {
 		t.Fatalf("failed to create manager: %v", err)
 	}
 
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -722,7 +722,7 @@ func TestHybridModeManager_StartWithLeafMode(t *testing.T) {
 		t.Fatalf("failed to create manager: %v", err)
 	}
 
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -744,7 +744,7 @@ func TestHybridModeManager_FallbackToClient(t *testing.T) {
 	}
 
 	// Should select client since can't host
-	role, err := manager.determineRole()
+	role, err := manager.determineRole(context.Background())
 	if err != nil {
 		t.Errorf("determineRole() error = %v", err)
 	}
@@ -764,7 +764,7 @@ func TestHybridModeManager_NoOptionsAvailable(t *testing.T) {
 	}
 
 	// Should fail since no options available
-	_, err = manager.determineRole()
+	_, err = manager.determineRole(context.Background())
 	if err == nil {
 		t.Error("determineRole() should error when no options available")
 	}

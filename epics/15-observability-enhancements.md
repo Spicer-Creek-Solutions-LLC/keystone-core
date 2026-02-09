@@ -664,7 +664,7 @@ Administration:
 ### Service Logging (kscore-server, kscore-agent)
 
 ```yaml
-# /etc/kscore/kscore-server.yaml
+# /etc/keystone-core/kscore-server.yaml
 logging:
   # Log level: debug, info, warn, error
   level: info
@@ -712,7 +712,7 @@ logging:
 ### CLI Audit Logging
 
 ```yaml
-# ~/.kscore/cli.yaml (or /etc/kscore/cli.yaml)
+# ~/.kscore/cli.yaml (or /etc/keystone-core/cli.yaml)
 audit:
   # Audit level: all, errors, none
   level: all

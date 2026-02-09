@@ -43,7 +43,7 @@ func TestDefaultNotifier_NotifyApprovalRequest_Slack(t *testing.T) {
 		Title:         "Deploy to Production",
 		Description:   "Please review the deployment",
 		Approvers:     []string{"admin@example.com", "ops-team"},
-		Mode:          ApprovalModeAny,
+		Mode:          ModeAny,
 		RequiredCount: 1,
 		ExpiresAt:     &expiresAt,
 		Metadata: map[string]interface{}{

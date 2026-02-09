@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -26,15 +27,24 @@ func TestStatusEndpointIntegration(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/health/live")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/health/live", nil)
+	if err != nil {
+		t.Fatalf("create /health/live request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /health/live error = %v", err)
 	}
+	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("/health/live status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	resp, err = http.Get(server.URL + "/api/status")
+	req, err = http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/status", nil)
+	if err != nil {
+		t.Fatalf("create /api/status request: %v", err)
+	}
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /api/status error = %v", err)
 	}

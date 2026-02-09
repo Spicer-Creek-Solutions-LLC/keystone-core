@@ -86,17 +86,31 @@ spec:
 
 ### Executing a Runbook
 
+> **Note**: Runbook execution commands (`execute`, `status`, `list-executions`) are planned
+> but not yet implemented. Currently, runbooks are executed via the control plane API or
+> through event/schedule triggers. The `kscore-runbook` CLI currently supports approval
+> and intervention management only.
+
 ```bash
-# Execute a runbook
-kscorectl runbook execute restart-service \
-  --input service_name=nginx \
-  --input target=web-servers
+# Planned: Execute a runbook
+# kscorectl runbook execute restart-service \
+#   --input service_name=nginx \
+#   --input target=web-servers
 
-# View execution status
-kscorectl runbook status exec-12345
+# Planned: View execution status
+# kscorectl runbook status exec-12345
 
-# List recent executions
-kscorectl runbook list-executions --runbook restart-service
+# Planned: List recent executions
+# kscorectl runbook list-executions --runbook restart-service
+
+# Currently available: Manage approval requests
+kscorectl runbook approvals              # List pending approvals
+kscorectl runbook approve <request-id>   # Approve a request
+kscorectl runbook reject <request-id>    # Reject a request
+
+# Currently available: Manage intervention requests
+kscorectl runbook interventions          # List pending interventions
+kscorectl runbook respond <request-id>   # Respond to an intervention
 ```
 
 ## Runbook Structure
@@ -622,21 +636,27 @@ spec:
 
 ## Audit and Compliance
 
-All runbook executions are fully audited:
+All runbook executions are fully audited. Audit data is stored in the control plane database and can be queried via the general audit system.
+
+> **Note**: Runbook-specific audit commands (`runbook audit list`, `runbook audit report`)
+> are planned but not yet implemented. Use the general audit system to query runbook events.
 
 ```bash
-# View execution history
-kscorectl runbook audit list \
-  --runbook restart-service \
-  --start 2024-01-01 \
-  --end 2024-01-31
+# Query runbook audit events via general audit log
+kscore-audit log --since 30d | jq 'select(.type | startswith("runbook."))'
 
-# Export compliance report
-kscorectl runbook audit report \
-  --format pdf \
-  --start 2024-01-01 \
-  --end 2024-01-31 \
-  > compliance-report.pdf
+# Planned: View execution history
+# kscorectl runbook audit list \
+#   --runbook restart-service \
+#   --start 2024-01-01 \
+#   --end 2024-01-31
+
+# Planned: Export compliance report
+# kscorectl runbook audit report \
+#   --format pdf \
+#   --start 2024-01-01 \
+#   --end 2024-01-31 \
+#   > compliance-report.pdf
 ```
 
 ### Audit Events
@@ -676,20 +696,26 @@ kscorectl runbook audit report \
 
 ### Testing
 
-```bash
-# Dry-run mode validates without executing
-kscorectl runbook execute my-runbook \
-  --input env=staging \
-  --dry-run
+> **Note**: Runbook testing commands are planned but not yet implemented.
+> Validate runbook YAML syntax using standard YAML validators.
 
-# Test with mock handlers
-kscorectl runbook test my-runbook \
-  --mock-file test-mocks.yaml
+```bash
+# Planned: Dry-run mode validates without executing
+# kscorectl runbook execute my-runbook \
+#   --input env=staging \
+#   --dry-run
+
+# Planned: Test with mock handlers
+# kscorectl runbook test my-runbook \
+#   --mock-file test-mocks.yaml
+
+# Current: Validate YAML syntax
+yamllint runbooks/my-runbook.yaml
 ```
 
 ## Examples
 
-See the [Runbook Examples](../operations/runbook-examples/) directory for complete examples:
+See the [Runbook Examples](/docs/operations/runbook-examples/) directory for complete examples:
 
 - Database maintenance runbooks
 - Kubernetes deployment pipelines

@@ -26,7 +26,7 @@ func (e *Expander) Expand(rb *runbook.Runbook) (*runbook.Runbook, error) {
 		APIVersion: rb.APIVersion,
 		Kind:       rb.Kind,
 		Metadata:   rb.Metadata,
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Description: rb.Spec.Description,
 			Inputs:      rb.Spec.Inputs,
 			Timeout:     rb.Spec.Timeout,
@@ -50,7 +50,8 @@ func (e *Expander) Expand(rb *runbook.Runbook) (*runbook.Runbook, error) {
 func (e *Expander) expandSteps(steps []runbook.Step, prefix string) ([]runbook.Step, error) {
 	var expanded []runbook.Step
 
-	for i, step := range steps {
+	for i := range steps {
+		step := &steps[i]
 		// Check if this step uses a template
 		tmplName, hasTemplate := step.Config["template"].(string)
 		if hasTemplate {
@@ -90,8 +91,9 @@ func (e *Expander) expandSteps(steps []runbook.Step, prefix string) ([]runbook.S
 
 			// Expand template steps with parameter substitution
 			stepPrefix := fmt.Sprintf("%s%s_", prefix, step.Name)
-			for j, tmplStep := range tmpl.Spec.Steps {
-				expandedStep := e.substituteParameters(tmplStep, params, stepPrefix)
+			for j := range tmpl.Spec.Steps {
+				tmplStep := &tmpl.Spec.Steps[j]
+				expandedStep := e.substituteParameters(*tmplStep, params, stepPrefix)
 
 				// Prefix step name to avoid collisions
 				expandedStep.Name = fmt.Sprintf("%s%s", stepPrefix, tmplStep.Name)
@@ -114,7 +116,7 @@ func (e *Expander) expandSteps(steps []runbook.Step, prefix string) ([]runbook.S
 			}
 		} else {
 			// Regular step - check for nested step lists (parallel, loop, etc.)
-			expandedStep := step
+			expandedStep := *step
 
 			// Expand nested steps in parallel/loop configurations
 			if nestedSteps, ok := step.Config["steps"]; ok {
@@ -180,7 +182,7 @@ func substituteString(s string, params map[string]interface{}) string {
 }
 
 // substituteConfig replaces parameter placeholders in config.
-func substituteConfig(config map[string]interface{}, params map[string]interface{}) map[string]interface{} {
+func substituteConfig(config, params map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range config {
 		result[k] = substituteValue(v, params)
@@ -248,7 +250,8 @@ func mapToStep(m map[string]interface{}) (*runbook.Step, error) {
 // stepsToInterface converts steps to interface slice for config.
 func stepsToInterface(steps []runbook.Step) []interface{} {
 	result := make([]interface{}, len(steps))
-	for i, step := range steps {
+	for i := range steps {
+		step := &steps[i]
 		result[i] = map[string]interface{}{
 			"name":      step.Name,
 			"type":      string(step.Type),

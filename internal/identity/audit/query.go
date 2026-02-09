@@ -13,14 +13,15 @@ import (
 
 // Errors returned by the audit query system.
 var (
-	ErrEventNotFound   = errors.New("event not found")
-	ErrInvalidQuery    = errors.New("invalid query")
-	ErrStoreClosed     = errors.New("store closed")
+	ErrEventNotFound = errors.New("event not found")
+	ErrInvalidQuery  = errors.New("invalid query")
+	ErrStoreClosed   = errors.New("store closed")
 )
 
 // EventType represents the type of identity event.
 type EventType string
 
+// EventTypeLogin constants define the supported types.
 const (
 	EventTypeLogin          EventType = "login"
 	EventTypeLogout         EventType = "logout"
@@ -113,6 +114,7 @@ type Source struct {
 // Result represents the outcome of an action.
 type Result string
 
+// ResultSuccess and related constants.
 const (
 	ResultSuccess Result = "success"
 	ResultFailure Result = "failure"
@@ -558,6 +560,8 @@ func (a *Analyzer) LoginActivity(ctx context.Context, userID string, since time.
 			}
 		case EventTypeLogout:
 			report.Logouts++
+		default:
+			// Other event types not relevant for login activity
 		}
 
 		if event.Source != nil {
@@ -703,6 +707,8 @@ func (a *Analyzer) SessionReport(ctx context.Context, sessionID string) (*Sessio
 			report.SessionCreated = true
 		case EventTypeSessionExpired:
 			report.SessionExpired = true
+		default:
+			// Other event types not relevant for session activity
 		}
 	}
 
@@ -726,7 +732,7 @@ type SessionActivityReport struct {
 }
 
 // Summary generates a summary of audit events.
-func (a *Analyzer) Summary(ctx context.Context, since time.Time) (*AuditSummary, error) {
+func (a *Analyzer) Summary(ctx context.Context, since time.Time) (*Summary, error) {
 	query := &Query{
 		StartTime: since,
 	}
@@ -736,7 +742,7 @@ func (a *Analyzer) Summary(ctx context.Context, since time.Time) (*AuditSummary,
 		return nil, err
 	}
 
-	summary := &AuditSummary{
+	summary := &Summary{
 		Since:       since,
 		TotalEvents: result.Total,
 		ByType:      make(map[EventType]int),
@@ -757,8 +763,8 @@ func (a *Analyzer) Summary(ctx context.Context, since time.Time) (*AuditSummary,
 	return summary, nil
 }
 
-// AuditSummary contains a summary of audit events.
-type AuditSummary struct {
+// Summary contains a summary of audit events.
+type Summary struct {
 	Since        time.Time
 	TotalEvents  int
 	ByType       map[EventType]int

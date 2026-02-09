@@ -89,7 +89,7 @@ func (c *Client) GetApplicationStatus(ctx context.Context, name, namespace strin
 		}
 	}
 
-	if app.Status.Conditions != nil && len(app.Status.Conditions) > 0 {
+	if len(app.Status.Conditions) > 0 {
 		status.Message = app.Status.Conditions[0].Message
 	}
 
@@ -206,7 +206,8 @@ func (c *Client) List(ctx context.Context, namespace string) ([]*ApplicationStat
 
 	// Convert to status list
 	statuses := make([]*ApplicationStatus, len(appList.Items))
-	for i, app := range appList.Items {
+	for i := range appList.Items {
+		app := &appList.Items[i]
 		statuses[i] = &ApplicationStatus{
 			Name:           app.Name,
 			Namespace:      app.Namespace,
@@ -252,12 +253,13 @@ func (c *Client) GetApplicationHistory(ctx context.Context, name, namespace stri
 	}
 
 	// Extract history
-	if app.Status.History == nil || len(app.Status.History) == 0 {
+	if len(app.Status.History) == 0 {
 		return nil, nil
 	}
 
 	history := make(RevisionHistory, len(app.Status.History))
-	for i, entry := range app.Status.History {
+	for i := range app.Status.History {
+		entry := &app.Status.History[i]
 		historyEntry := &RevisionHistoryEntry{
 			Revision:        entry.Revision,
 			ID:              entry.ID,

@@ -40,6 +40,12 @@ type MemberStatus struct {
 
 // newStatusCommand creates the 'status' command
 func newStatusCommand() *cobra.Command {
+	var (
+		watch  bool
+		filter string
+		format string
+	)
+
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show cluster status and health",
@@ -49,9 +55,23 @@ Shows:
   - Overall cluster health
   - Member count and quorum status
   - Current leader
-  - Individual member status`,
-		RunE: runStatus,
+  - Individual member status
+
+Examples:
+  kscorectl cluster status
+  kscorectl cluster status --watch
+  kscorectl cluster status --format json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "" {
+				outputFormat = format
+			}
+			return runStatus(cmd, args)
+		},
 	}
+
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Watch for status changes")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter expression for members")
+	cmd.Flags().StringVar(&format, "format", "", "Output format (overrides global --output)")
 
 	return cmd
 }
@@ -122,7 +142,8 @@ func runMembers(showDetails bool) error {
 
 		if showDetails {
 			fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER\tVERSION\tAGENTS\tJOBS\tLAST SEEN")
-			for _, m := range members {
+			for i := range members {
+				m := &members[i]
 				leader := ""
 				if m.IsLeader {
 					leader = "*"
@@ -133,7 +154,8 @@ func runMembers(showDetails bool) error {
 			}
 		} else {
 			fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER")
-			for _, m := range members {
+			for i := range members {
+				m := &members[i]
 				leader := ""
 				if m.IsLeader {
 					leader = "*"
@@ -253,7 +275,7 @@ Use --force to remove an unresponsive member.`,
 	return cmd
 }
 
-func runRemove(memberID string, force bool, dryRun bool) error {
+func runRemove(memberID string, force, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("Dry run: would remove member %s (force=%t)\n", memberID, force)
 		return nil
@@ -377,7 +399,11 @@ func runRebalance(reason string, dryRun bool) error {
 
 // newBackupCommand creates the 'backup' command
 func newBackupCommand() *cobra.Command {
-	var outputPath string
+	var (
+		outputPath string
+		shardsOnly bool
+		configOnly bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "backup",
@@ -388,19 +414,34 @@ This creates a snapshot of:
   - Cluster configuration
   - Member information
   - Shard assignments
-  - etcd data`,
+  - etcd data
+
+Examples:
+  kscorectl cluster backup --output backup.tar.gz
+  kscorectl cluster backup --shards-only --output shards.json
+  kscorectl cluster backup --config-only --output config.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBackup(outputPath)
+			return runBackup(outputPath, shardsOnly, configOnly)
 		},
 	}
 
 	cmd.Flags().StringVarP(&outputPath, "output", "f", "", "Output file path (default: stdout)")
+	cmd.Flags().BoolVar(&shardsOnly, "shards-only", false, "Backup only shard assignments")
+	cmd.Flags().BoolVar(&configOnly, "config-only", false, "Backup only cluster configuration")
+	cmd.MarkFlagsMutuallyExclusive("shards-only", "config-only")
 
 	return cmd
 }
 
-func runBackup(outputPath string) error {
-	fmt.Println("Creating cluster backup...")
+func runBackup(outputPath string, shardsOnly, configOnly bool) error {
+	backupType := "full"
+	if shardsOnly {
+		backupType = "shards"
+	} else if configOnly {
+		backupType = "config"
+	}
+	fmt.Printf("Creating cluster backup (%s)...\n", backupType)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -420,7 +461,7 @@ func runBackup(outputPath string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write backup file: %w", err)
 	}
 
@@ -454,7 +495,7 @@ func newRestoreCommand() *cobra.Command {
 	return cmd
 }
 
-func runRestore(inputPath string, force bool, dryRun bool) error {
+func runRestore(inputPath string, force, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("Dry run: would restore cluster state from %s\n", inputPath)
 		return nil
@@ -464,7 +505,7 @@ func runRestore(inputPath string, force bool, dryRun bool) error {
 		fmt.Print("WARNING: This will overwrite the current cluster state. Continue? [y/N]: ")
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" {
+		if !strings.EqualFold(response, "y") {
 			fmt.Println("Restore cancelled")
 			return nil
 		}
@@ -523,7 +564,8 @@ func outputTable(v interface{}) error {
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "MEMBER\tSTATUS\tLEADER\tAGENTS\tJOBS")
-		for _, m := range val.Members {
+		for i := range val.Members {
+			m := &val.Members[i]
 			leader := ""
 			if m.IsLeader {
 				leader = "*"
@@ -572,8 +614,8 @@ func formatDuration(d time.Duration) string {
 
 func countHealthy(members []MemberStatus) int {
 	count := 0
-	for _, m := range members {
-		if m.Status == "healthy" {
+	for i := range members {
+		if members[i].Status == "healthy" {
 			count++
 		}
 	}
@@ -593,20 +635,20 @@ type RebalanceResult struct {
 
 // HealthReport represents detailed cluster health information
 type HealthReport struct {
-	Healthy            bool             `json:"healthy" yaml:"healthy"`
-	Status             string           `json:"status" yaml:"status"`
-	QuorumEstablished  bool             `json:"quorum_established" yaml:"quorum_established"`
-	LeaderElected      bool             `json:"leader_elected" yaml:"leader_elected"`
-	LeaderID           string           `json:"leader_id" yaml:"leader_id"`
-	EtcdConnected      bool             `json:"etcd_connected" yaml:"etcd_connected"`
-	NATSConnected      bool             `json:"nats_connected" yaml:"nats_connected"`
-	AllAgentsAssigned  bool             `json:"all_agents_assigned" yaml:"all_agents_assigned"`
-	MembersTotal       int              `json:"members_total" yaml:"members_total"`
-	MembersHealthy     int              `json:"members_healthy" yaml:"members_healthy"`
-	AgentsTotal        int              `json:"agents_total" yaml:"agents_total"`
-	AgentDistribution  map[string]int   `json:"agent_distribution" yaml:"agent_distribution"`
-	Checks             []HealthCheck    `json:"checks" yaml:"checks"`
-	UpdatedAt          time.Time        `json:"updated_at" yaml:"updated_at"`
+	Healthy           bool           `json:"healthy" yaml:"healthy"`
+	Status            string         `json:"status" yaml:"status"`
+	QuorumEstablished bool           `json:"quorum_established" yaml:"quorum_established"`
+	LeaderElected     bool           `json:"leader_elected" yaml:"leader_elected"`
+	LeaderID          string         `json:"leader_id" yaml:"leader_id"`
+	EtcdConnected     bool           `json:"etcd_connected" yaml:"etcd_connected"`
+	NATSConnected     bool           `json:"nats_connected" yaml:"nats_connected"`
+	AllAgentsAssigned bool           `json:"all_agents_assigned" yaml:"all_agents_assigned"`
+	MembersTotal      int            `json:"members_total" yaml:"members_total"`
+	MembersHealthy    int            `json:"members_healthy" yaml:"members_healthy"`
+	AgentsTotal       int            `json:"agents_total" yaml:"agents_total"`
+	AgentDistribution map[string]int `json:"agent_distribution" yaml:"agent_distribution"`
+	Checks            []HealthCheck  `json:"checks" yaml:"checks"`
+	UpdatedAt         time.Time      `json:"updated_at" yaml:"updated_at"`
 }
 
 // HealthCheck represents a single health check result
@@ -618,10 +660,10 @@ type HealthCheck struct {
 
 // ShardReport represents shard assignment information
 type ShardReport struct {
-	TotalShards   int                `json:"total_shards" yaml:"total_shards"`
-	TotalAgents   int                `json:"total_agents" yaml:"total_agents"`
-	Assignments   []ShardAssignment  `json:"assignments" yaml:"assignments"`
-	UpdatedAt     time.Time          `json:"updated_at" yaml:"updated_at"`
+	TotalShards int               `json:"total_shards" yaml:"total_shards"`
+	TotalAgents int               `json:"total_agents" yaml:"total_agents"`
+	Assignments []ShardAssignment `json:"assignments" yaml:"assignments"`
+	UpdatedAt   time.Time         `json:"updated_at" yaml:"updated_at"`
 }
 
 // ShardAssignment represents the assignment of agents to a member
@@ -862,7 +904,7 @@ Use --force to leave immediately without graceful agent migration.`,
 	return cmd
 }
 
-func runLeave(force bool, dryRun bool) error {
+func runLeave(force, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("Dry run: would leave cluster (force=%t)\n", force)
 		return nil

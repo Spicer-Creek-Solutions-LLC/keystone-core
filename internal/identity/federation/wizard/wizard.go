@@ -16,11 +16,12 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/identity/federation"
 )
 
-// WizardStep represents a step in the wizard.
-type WizardStep int
+// Step represents a step in the wizard.
+type Step int
 
+// StepTrustDomain and related constants.
 const (
-	StepTrustDomain WizardStep = iota
+	StepTrustDomain Step = iota
 	StepEndpointChoice
 	StepEndpointDiscovery
 	StepEndpointManual
@@ -36,8 +37,8 @@ const (
 	StepDone
 )
 
-// WizardConfig holds the configuration collected by the wizard.
-type WizardConfig struct {
+// Config holds the configuration collected by the wizard.
+type Config struct {
 	// TrustDomain is the partner trust domain.
 	TrustDomain string
 
@@ -48,7 +49,7 @@ type WizardConfig struct {
 	EndpointProfile string
 
 	// FederationType is the type of federation.
-	FederationType federation.FederationType
+	FederationType federation.Type
 
 	// Policy is the trust policy configuration.
 	Policy *federation.TrustPolicy
@@ -66,10 +67,10 @@ type WizardConfig struct {
 	DiscoveryResult *EndpointDiscoveryResult
 }
 
-// WizardResult contains the result of running the wizard.
-type WizardResult struct {
+// Result contains the result of running the wizard.
+type Result struct {
 	// Config is the collected configuration.
-	Config *WizardConfig
+	Config *Config
 
 	// Domain is the constructed FederatedDomain ready for use.
 	Domain *federation.FederatedDomain
@@ -96,15 +97,15 @@ func (i listItem) FilterValue() string { return i.title }
 type Model struct {
 	width  int
 	height int
-	step   WizardStep
+	step   Step
 
 	// Input components
-	trustDomainInput    textinput.Model
-	endpointInput       textinput.Model
+	trustDomainInput     textinput.Model
+	endpointInput        textinput.Model
 	refreshIntervalInput textinput.Model
-	allowedPathsInput   textinput.Model
-	deniedPathsInput    textinput.Model
-	testSpiffeIDInput   textinput.Model
+	allowedPathsInput    textinput.Model
+	deniedPathsInput     textinput.Model
+	testSpiffeIDInput    textinput.Model
 
 	// List components
 	endpointChoiceList list.Model
@@ -116,13 +117,13 @@ type Model struct {
 	spinner spinner.Model
 
 	// State
-	config         *WizardConfig
-	discoveryResult *EndpointDiscoveryResult
+	config            *Config
+	discoveryResult   *EndpointDiscoveryResult
 	policyTestResults []PolicyTestResult
-	isDiscovering  bool
-	done           bool
-	cancelled      bool
-	err            error
+	isDiscovering     bool
+	done              bool
+	cancelled         bool
+	err               error
 }
 
 // New creates a new wizard model.
@@ -186,12 +187,12 @@ func New() *Model {
 		listItem{
 			title:       "Bidirectional (recommended)",
 			description: "Both domains trust each other's identities",
-			value:       string(federation.FederationTypeBidirectional),
+			value:       string(federation.TypeBidirectional),
 		},
 		listItem{
 			title:       "Unidirectional",
 			description: "Only we trust them (they don't need to trust us)",
-			value:       string(federation.FederationTypeUnidirectional),
+			value:       string(federation.TypeUnidirectional),
 		},
 	}
 	federationTypeList := list.New(fedTypeItems, list.NewDefaultDelegate(), 0, 0)
@@ -200,7 +201,7 @@ func New() *Model {
 	federationTypeList.DisableQuitKeybindings()
 
 	// Policy template list
-	var policyItems []list.Item
+	policyItems := make([]list.Item, 0, len(PolicyTemplates))
 	for _, tmpl := range PolicyTemplates {
 		title := tmpl.DisplayName
 		if tmpl.Recommended {
@@ -253,9 +254,9 @@ func New() *Model {
 		policyTemplateList:   policyTemplateList,
 		mtlsList:             mtlsList,
 		spinner:              s,
-		config: &WizardConfig{
+		config: &Config{
 			RefreshInterval: 5 * time.Minute,
-			FederationType:  federation.FederationTypeBidirectional,
+			FederationType:  federation.TypeBidirectional,
 		},
 		policyTestResults: make([]PolicyTestResult, 0),
 	}
@@ -363,6 +364,8 @@ func (m *Model) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mtlsList, cmd = m.mtlsList.Update(msg)
 	case StepPolicyTest:
 		m.testSpiffeIDInput, cmd = m.testSpiffeIDInput.Update(msg)
+	default:
+		// StepEndpointDiscovery, StepConfirm, StepExecuting, StepDone - no input components
 	}
 
 	return m, cmd
@@ -412,7 +415,7 @@ func (m *Model) advance() (tea.Model, tea.Cmd) {
 
 	case StepFederationType:
 		if item, ok := m.federationTypeList.SelectedItem().(listItem); ok {
-			m.config.FederationType = federation.FederationType(item.value)
+			m.config.FederationType = federation.Type(item.value)
 		}
 		m.step = StepPolicyTemplate
 		return m, nil
@@ -471,7 +474,7 @@ func (m *Model) advance() (tea.Model, tea.Cmd) {
 		}
 		duration, err := time.ParseDuration(value)
 		if err != nil {
-			m.err = fmt.Errorf("invalid duration: %v", err)
+			m.err = fmt.Errorf("invalid duration: %w", err)
 			return m, nil
 		}
 		m.err = nil
@@ -537,6 +540,8 @@ func (m *Model) back() (tea.Model, tea.Cmd) {
 		m.policyTestResults = nil
 	case StepConfirm:
 		m.step = StepRequireMTLS
+	default:
+		// StepTrustDomain, StepExecuting, StepDone - no back navigation
 	}
 
 	return m, nil
@@ -604,6 +609,8 @@ func (m *Model) View() string {
 		b.WriteString(m.viewPolicyTest())
 	case StepConfirm:
 		b.WriteString(m.viewConfirm())
+	default:
+		// StepExecuting, StepDone - no view content
 	}
 
 	// Error message
@@ -764,8 +771,8 @@ func (m *Model) viewConfirm() string {
 }
 
 // Result returns the wizard result.
-func (m *Model) Result() *WizardResult {
-	result := &WizardResult{
+func (m *Model) Result() *Result {
+	result := &Result{
 		Config:    m.config,
 		Cancelled: m.cancelled,
 		Error:     m.err,
@@ -775,7 +782,7 @@ func (m *Model) Result() *WizardResult {
 		result.Domain = &federation.FederatedDomain{
 			TrustDomain:           m.config.TrustDomain,
 			Type:                  m.config.FederationType,
-			State:                 federation.FederationStatePending,
+			State:                 federation.StatePending,
 			BundleEndpoint:        m.config.BundleEndpoint,
 			BundleEndpointProfile: m.config.EndpointProfile,
 			Policy:                m.config.Policy,
@@ -788,7 +795,7 @@ func (m *Model) Result() *WizardResult {
 }
 
 // Run launches the wizard and returns the result.
-func Run() (*WizardResult, error) {
+func Run() (*Result, error) {
 	model := New()
 	program := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -806,7 +813,7 @@ func Run() (*WizardResult, error) {
 }
 
 // RunWithConfig launches the wizard with initial configuration.
-func RunWithConfig(initial *WizardConfig) (*WizardResult, error) {
+func RunWithConfig(initial *Config) (*Result, error) {
 	model := New()
 	if initial != nil {
 		model.config = initial

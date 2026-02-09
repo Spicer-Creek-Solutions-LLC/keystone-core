@@ -56,18 +56,18 @@ func NewValidator() *Validator {
 
 // Validate checks a runbook for validity and returns any validation errors.
 func (v *Validator) Validate(rb *Runbook) error {
-	var errs ValidationErrors
+	// Validate metadata and spec
+	metaErrs := v.validateMetadata(&rb.Metadata)
+	specErrs := v.validateSpec(&rb.Spec)
 
-	// Validate metadata
-	errs = append(errs, v.validateMetadata(&rb.Metadata)...)
-
-	// Validate spec
-	errs = append(errs, v.validateSpec(&rb.Spec)...)
-
-	if len(errs) > 0 {
-		return errs
+	if len(metaErrs) == 0 && len(specErrs) == 0 {
+		return nil
 	}
-	return nil
+
+	errs := make(ValidationErrors, 0, len(metaErrs)+len(specErrs))
+	errs = append(errs, metaErrs...)
+	errs = append(errs, specErrs...)
+	return errs
 }
 
 // validateMetadata validates the runbook metadata.
@@ -90,7 +90,7 @@ func (v *Validator) validateMetadata(m *Metadata) ValidationErrors {
 }
 
 // validateSpec validates the runbook spec.
-func (v *Validator) validateSpec(spec *RunbookSpec) ValidationErrors {
+func (v *Validator) validateSpec(spec *Spec) ValidationErrors {
 	var errs ValidationErrors
 
 	// Validate inputs
@@ -117,8 +117,9 @@ func (v *Validator) validateSpec(spec *RunbookSpec) ValidationErrors {
 	}
 
 	stepNames := make(map[string]bool)
-	for i, step := range spec.Steps {
-		stepErrs := v.validateStep(&step, i, "spec.steps")
+	for i := range spec.Steps {
+		step := &spec.Steps[i]
+		stepErrs := v.validateStep(step, i, "spec.steps")
 		errs = append(errs, stepErrs...)
 
 		if stepNames[step.Name] {
@@ -134,14 +135,14 @@ func (v *Validator) validateSpec(spec *RunbookSpec) ValidationErrors {
 	errs = append(errs, v.validateStepDependencies(spec.Steps, stepNames, "spec.steps")...)
 
 	// Validate onSuccess steps
-	for i, step := range spec.OnSuccess {
-		stepErrs := v.validateStep(&step, i, "spec.onSuccess")
+	for i := range spec.OnSuccess {
+		stepErrs := v.validateStep(&spec.OnSuccess[i], i, "spec.onSuccess")
 		errs = append(errs, stepErrs...)
 	}
 
 	// Validate onFailure steps
-	for i, step := range spec.OnFailure {
-		stepErrs := v.validateStep(&step, i, "spec.onFailure")
+	for i := range spec.OnFailure {
+		stepErrs := v.validateStep(&spec.OnFailure[i], i, "spec.onFailure")
 		errs = append(errs, stepErrs...)
 	}
 
@@ -456,6 +457,7 @@ func (v *Validator) validateOutput(output *OutputDef, index int, prefix string) 
 				Message: "path (JSON key) is required for json parser",
 			})
 		}
+	default:
 	}
 
 	return errs
@@ -502,8 +504,9 @@ func (v *Validator) validateStepConfig(step *Step, prefix string) ValidationErro
 		errs = append(errs, v.validateRollbackConfig(step.Config, prefix)...)
 	case StepTypeScript:
 		errs = append(errs, v.validateScriptConfig(step.Config, prefix)...)
-	case StepTypeNoop:
-		// No config required for noop
+	case StepTypeNoop, StepTypeQuery:
+		// No config required for noop or query
+	default:
 	}
 
 	return errs
@@ -835,17 +838,18 @@ func (v *Validator) validatePromptConfig(config map[string]interface{}, prefix s
 		})
 	} else {
 		promptList, ok := prompts.([]interface{})
-		if !ok {
+		switch {
+		case !ok:
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".config.prompts",
 				Message: "prompts must be a list",
 			})
-		} else if len(promptList) == 0 {
+		case len(promptList) == 0:
 			errs = append(errs, &ValidationError{
 				Field:   prefix + ".config.prompts",
 				Message: "prompts list cannot be empty",
 			})
-		} else {
+		default:
 			// Validate each prompt field
 			validFieldTypes := map[string]bool{
 				"text": true, "number": true, "boolean": true,
@@ -1134,7 +1138,8 @@ func (v *Validator) validateStepDependencies(steps []Step, stepNames map[string]
 	var errs ValidationErrors
 
 	// Check that all dependencies exist
-	for i, step := range steps {
+	for i := range steps {
+		step := &steps[i]
 		for _, dep := range step.DependsOn {
 			if !stepNames[dep] {
 				errs = append(errs, &ValidationError{
@@ -1167,8 +1172,8 @@ func (v *Validator) validateStepDependencies(steps []Step, stepNames map[string]
 func detectCycle(steps []Step) []string {
 	// Build adjacency list
 	deps := make(map[string][]string)
-	for _, step := range steps {
-		deps[step.Name] = step.DependsOn
+	for i := range steps {
+		deps[steps[i].Name] = steps[i].DependsOn
 	}
 
 	// Track visited and recursion stack
@@ -1209,9 +1214,9 @@ func detectCycle(steps []Step) []string {
 		return nil
 	}
 
-	for _, step := range steps {
-		if !visited[step.Name] {
-			if cycle := dfs(step.Name); cycle != nil {
+	for i := range steps {
+		if !visited[steps[i].Name] {
+			if cycle := dfs(steps[i].Name); cycle != nil {
 				return cycle
 			}
 		}
@@ -1222,7 +1227,7 @@ func detectCycle(steps []Step) []string {
 
 // isValidName checks if a name is valid (lowercase alphanumeric with hyphens).
 func isValidName(name string) bool {
-	if len(name) == 0 {
+	if name == "" {
 		return false
 	}
 	if len(name) == 1 {
@@ -1234,7 +1239,7 @@ func isValidName(name string) bool {
 
 // isValidIdentifier checks if a name is a valid identifier (alphanumeric with underscores).
 func isValidIdentifier(name string) bool {
-	if len(name) == 0 {
+	if name == "" {
 		return false
 	}
 	matched, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, name)

@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -165,28 +166,28 @@ func (r *SuiteResult) Summary() string {
 		r.TotalDuration.Seconds())
 }
 
-// PolicyTester provides policy testing capabilities
-type PolicyTester struct {
-	engine   *PolicyEngine
+// Tester provides policy testing capabilities
+type Tester struct {
+	engine   *Engine
 	registry *Registry
 	verbose  bool
 }
 
-// NewPolicyTester creates a new policy tester
-func NewPolicyTester(engine *PolicyEngine, registry *Registry) *PolicyTester {
-	return &PolicyTester{
+// NewTester creates a new policy tester
+func NewTester(engine *Engine, registry *Registry) *Tester {
+	return &Tester{
 		engine:   engine,
 		registry: registry,
 	}
 }
 
 // SetVerbose enables verbose output
-func (t *PolicyTester) SetVerbose(verbose bool) {
+func (t *Tester) SetVerbose(verbose bool) {
 	t.verbose = verbose
 }
 
 // RunTestCase runs a single test case against a policy
-func (t *PolicyTester) RunTestCase(ctx context.Context, policy *Policy, tc *TestCase) *TestResult {
+func (t *Tester) RunTestCase(ctx context.Context, policy *Policy, tc *TestCase) *TestResult {
 	result := &TestResult{
 		TestCase: tc,
 		Failures: make([]string, 0),
@@ -243,7 +244,7 @@ func (t *PolicyTester) RunTestCase(ctx context.Context, policy *Policy, tc *Test
 }
 
 // compareResults compares expected and actual results
-func (t *PolicyTester) compareResults(expected *ExpectedOutcome, actual *EvaluationResult, result *TestResult) {
+func (t *Tester) compareResults(expected *ExpectedOutcome, actual *EvaluationResult, result *TestResult) {
 	// Check allowed
 	if actual.Allowed != expected.Allowed {
 		result.Failures = append(result.Failures,
@@ -325,11 +326,11 @@ func compareValues(expected, actual interface{}) bool {
 	// Convert to JSON and compare
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
-	return string(expectedJSON) == string(actualJSON)
+	return bytes.Equal(expectedJSON, actualJSON)
 }
 
 // RunTestSuite runs a complete test suite
-func (t *PolicyTester) RunTestSuite(ctx context.Context, suite *TestSuite) *SuiteResult {
+func (t *Tester) RunTestSuite(ctx context.Context, suite *TestSuite) *SuiteResult {
 	result := &SuiteResult{
 		Suite:     suite,
 		Results:   make([]*TestResult, 0),
@@ -340,9 +341,10 @@ func (t *PolicyTester) RunTestSuite(ctx context.Context, suite *TestSuite) *Suit
 	var policy *Policy
 	var ok bool
 
-	if suite.Policy != nil {
+	switch {
+	case suite.Policy != nil:
 		policy = suite.Policy
-	} else if suite.PolicyID != "" && t.registry != nil {
+	case suite.PolicyID != "" && t.registry != nil:
 		policy, ok = t.registry.GetPolicy(suite.PolicyID)
 		if !ok {
 			// Create a single failed result for the suite
@@ -355,7 +357,7 @@ func (t *PolicyTester) RunTestSuite(ctx context.Context, suite *TestSuite) *Suit
 			result.TotalDuration = result.FinishedAt.Sub(result.StartedAt)
 			return result
 		}
-	} else {
+	default:
 		result.Results = append(result.Results, &TestResult{
 			TestCase: &TestCase{Name: "suite_setup"},
 			Error:    "no policy specified for test suite",
@@ -385,13 +387,14 @@ func (t *PolicyTester) RunTestSuite(ctx context.Context, suite *TestSuite) *Suit
 		testResult := t.RunTestCase(ctx, policy, tc)
 		result.Results = append(result.Results, testResult)
 
-		if testResult.Skipped {
+		switch {
+		case testResult.Skipped:
 			result.Skipped++
-		} else if testResult.Error != "" {
+		case testResult.Error != "":
 			result.Errored++
-		} else if testResult.Passed {
+		case testResult.Passed:
 			result.Passed++
-		} else {
+		default:
 			result.Failed++
 		}
 	}
@@ -403,7 +406,7 @@ func (t *PolicyTester) RunTestSuite(ctx context.Context, suite *TestSuite) *Suit
 }
 
 // ValidatePolicy validates a policy without executing it
-func (t *PolicyTester) ValidatePolicy(ctx context.Context, policy *Policy) *PolicyValidationResult {
+func (t *Tester) ValidatePolicy(ctx context.Context, policy *Policy) *ValidationResult {
 	result := &PolicyValidationResult{
 		PolicyID: policy.ID,
 		Valid:    true,
@@ -467,18 +470,19 @@ func (t *PolicyTester) ValidatePolicy(ctx context.Context, policy *Policy) *Poli
 }
 
 // validateOPAPolicy validates OPA/Rego policy syntax
-func (t *PolicyTester) validateOPAPolicy(policy *Policy, result *PolicyValidationResult) {
+func (t *Tester) validateOPAPolicy(policy *Policy, result *ValidationResult) {
 	// Basic Rego syntax checks
 	if !strings.Contains(policy.Policy, "package") {
 		result.Errors = append(result.Errors, "OPA policy must contain a package declaration")
 	}
 
 	// Check for common issues
-	if strings.Contains(policy.Policy, "allow") || strings.Contains(policy.Policy, "deny") {
+	switch {
+	case strings.Contains(policy.Policy, "allow") || strings.Contains(policy.Policy, "deny"):
 		// Good - has standard allow/deny rules
-	} else if strings.Contains(policy.Policy, "violation") {
+	case strings.Contains(policy.Policy, "violation"):
 		// Good - has violation rule
-	} else {
+	default:
 		result.Warnings = append(result.Warnings, "OPA policy should define 'allow', 'deny', or 'violation' rules")
 	}
 
@@ -491,9 +495,9 @@ func (t *PolicyTester) validateOPAPolicy(policy *Policy, result *PolicyValidatio
 }
 
 // validateCELPolicy validates CEL policy syntax
-func (t *PolicyTester) validateCELPolicy(policy *Policy, result *PolicyValidationResult) {
+func (t *Tester) validateCELPolicy(policy *Policy, result *ValidationResult) {
 	// Basic CEL syntax checks
-	if len(strings.TrimSpace(policy.Policy)) == 0 {
+	if strings.TrimSpace(policy.Policy) == "" {
 		result.Errors = append(result.Errors, "CEL policy expression is empty")
 		return
 	}
@@ -512,7 +516,7 @@ func (t *PolicyTester) validateCELPolicy(policy *Policy, result *PolicyValidatio
 }
 
 // validateBuiltinPolicy validates builtin policy configuration
-func (t *PolicyTester) validateBuiltinPolicy(policy *Policy, result *PolicyValidationResult) {
+func (t *Tester) validateBuiltinPolicy(policy *Policy, result *ValidationResult) {
 	// Parse as JSON to validate structure
 	var config map[string]interface{}
 	if err := json.Unmarshal([]byte(policy.Policy), &config); err != nil {
@@ -541,8 +545,8 @@ func (t *PolicyTester) validateBuiltinPolicy(policy *Policy, result *PolicyValid
 	}
 }
 
-// PolicyValidationResult contains the result of policy validation
-type PolicyValidationResult struct {
+// ValidationResult contains the result of policy validation
+type ValidationResult struct {
 	// PolicyID that was validated
 	PolicyID string `json:"policy_id"`
 
@@ -557,7 +561,7 @@ type PolicyValidationResult struct {
 }
 
 // Summary returns a human-readable summary
-func (r *PolicyValidationResult) Summary() string {
+func (r *ValidationResult) Summary() string {
 	if r.Valid {
 		if len(r.Warnings) > 0 {
 			return fmt.Sprintf("valid with %d warning(s)", len(r.Warnings))
@@ -621,29 +625,29 @@ func (r *TestReporter) formatTestResult(sb *strings.Builder, result *TestResult)
 		status = "FAIL"
 	}
 
-	sb.WriteString(fmt.Sprintf("[%s] %s (%.3fs)\n", status, result.TestCase.Name, result.Duration.Seconds()))
+	fmt.Fprintf(sb, "[%s] %s (%.3fs)\n", status, result.TestCase.Name, result.Duration.Seconds())
 
 	if r.verbose || !result.Passed {
 		if result.TestCase.Description != "" {
-			sb.WriteString(fmt.Sprintf("  Description: %s\n", result.TestCase.Description))
+			fmt.Fprintf(sb, "  Description: %s\n", result.TestCase.Description)
 		}
 
 		if result.Skipped && result.TestCase.SkipReason != "" {
-			sb.WriteString(fmt.Sprintf("  Skip reason: %s\n", result.TestCase.SkipReason))
+			fmt.Fprintf(sb, "  Skip reason: %s\n", result.TestCase.SkipReason)
 		}
 
 		if result.Error != "" {
-			sb.WriteString(fmt.Sprintf("  Error: %s\n", result.Error))
+			fmt.Fprintf(sb, "  Error: %s\n", result.Error)
 		}
 
 		for _, failure := range result.Failures {
-			sb.WriteString(fmt.Sprintf("  Failure: %s\n", failure))
+			fmt.Fprintf(sb, "  Failure: %s\n", failure)
 		}
 	}
 }
 
 // FormatValidationResult formats a validation result for output
-func (r *TestReporter) FormatValidationResult(result *PolicyValidationResult) string {
+func (r *TestReporter) FormatValidationResult(result *ValidationResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("\n=== Policy Validation: %s ===\n", result.PolicyID))
@@ -683,3 +687,16 @@ func LoadTestCaseFromJSON(data []byte) (*TestCase, error) {
 	}
 	return &tc, nil
 }
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyTester is deprecated: Use Tester instead.
+	PolicyTester = Tester
+	// PolicyValidationResult is deprecated: Use ValidationResult instead.
+	PolicyValidationResult = ValidationResult
+)
+
+// NewPolicyTester is deprecated: Use NewTester instead.
+var NewPolicyTester = NewTester

@@ -163,7 +163,7 @@ func TestGenerateBlueprints(t *testing.T) {
 		t.Fatalf("create blueprints dir: %v", err)
 	}
 
-	manifest := `apiVersion: blueprints.kscore.io/v1
+	manifest := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-blueprint

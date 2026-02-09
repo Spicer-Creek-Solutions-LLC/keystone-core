@@ -416,8 +416,8 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 
 				// Track max concurrent
 				for {
-					max := atomic.LoadInt32(&maxActive)
-					if current <= max || atomic.CompareAndSwapInt32(&maxActive, max, current) {
+					maxVal := atomic.LoadInt32(&maxActive)
+					if current <= maxVal || atomic.CompareAndSwapInt32(&maxActive, maxVal, current) {
 						break
 					}
 				}
@@ -456,9 +456,9 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 		}
 	}
 
-	max := atomic.LoadInt32(&maxActive)
-	if max > 2 {
-		t.Errorf("Expected max concurrent <= 2, got %d", max)
+	maxVal := atomic.LoadInt32(&maxActive)
+	if maxVal > 2 {
+		t.Errorf("Expected max concurrent <= 2, got %d", maxVal)
 	}
 }
 

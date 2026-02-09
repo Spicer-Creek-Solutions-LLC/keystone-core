@@ -44,11 +44,11 @@ func CorrelationIDFromContext(ctx context.Context) (string, bool) {
 }
 
 // EnsureCorrelationID ensures a context has a correlation ID, generating one if needed
-func EnsureCorrelationID(ctx context.Context) (context.Context, string) {
-	if id, ok := CorrelationIDFromContext(ctx); ok {
-		return ctx, id
+func EnsureCorrelationID(ctx context.Context) (newCtx context.Context, id string) {
+	if existingID, ok := CorrelationIDFromContext(ctx); ok {
+		return ctx, existingID
 	}
 
-	id := GenerateCorrelationID()
+	id = GenerateCorrelationID()
 	return ContextWithCorrelationID(ctx, id), id
 }

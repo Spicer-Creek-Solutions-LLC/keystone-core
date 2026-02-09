@@ -76,8 +76,8 @@ func validateExecute(cmd *cobra.Command, args []string) error {
 	if len(result.Errors) > 0 {
 		hasErrors = true
 		fmt.Println("Errors:")
-		for _, e := range result.Errors {
-			fmt.Printf("  ✗ %s\n", e)
+		for i := range result.Errors {
+			fmt.Printf("  ✗ %s\n", result.Errors[i])
 		}
 		fmt.Println()
 	}
@@ -85,8 +85,8 @@ func validateExecute(cmd *cobra.Command, args []string) error {
 	if len(result.Warnings) > 0 {
 		hasWarnings = true
 		fmt.Println("Warnings:")
-		for _, w := range result.Warnings {
-			fmt.Printf("  ⚠ %s\n", w)
+		for i := range result.Warnings {
+			fmt.Printf("  ⚠ %s\n", result.Warnings[i])
 		}
 		fmt.Println()
 	}

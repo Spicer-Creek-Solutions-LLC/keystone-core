@@ -56,5 +56,5 @@ func (m *WinFeatureModule) Test(ctx context.Context, decl *StateDeclaration) (bo
 }
 
 func init() {
-	RegisterModule(NewWinFeatureModule())
+	_ = RegisterModule(NewWinFeatureModule()) //nolint:errcheck // module registration in init
 }

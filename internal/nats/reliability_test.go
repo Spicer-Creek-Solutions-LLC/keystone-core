@@ -836,7 +836,7 @@ func TestReliabilityIntegration_CircuitBreakerWithDegradation(t *testing.T) {
 			return nil
 		})
 
-		if err == ErrCircuitOpen {
+		if errors.Is(err, ErrCircuitOpen) {
 			dm.RecordFailure()
 		} else if err != nil {
 			dm.RecordFailure()

@@ -234,7 +234,7 @@ func (r *DependencyResolver) dfsCycle(node string, visited, recStack map[string]
 					break
 				}
 			}
-			cycle := make([]string, 0)
+			cycle := make([]string, 0, len(path)-cycleStart+1)
 			cycle = append(cycle, path[cycleStart:]...)
 			cycle = append(cycle, dep)
 			return cycle

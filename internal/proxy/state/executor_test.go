@@ -78,10 +78,10 @@ func (m *fakeModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResu
 }
 
 type captureEmitter struct {
-	events []StateEvent
+	events []Event
 }
 
-func (c *captureEmitter) Emit(event StateEvent) {
+func (c *captureEmitter) Emit(event Event) {
 	c.events = append(c.events, event)
 }
 

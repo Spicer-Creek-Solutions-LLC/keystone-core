@@ -223,7 +223,7 @@ func TestMembershipManager_GetClusterInfo(t *testing.T) {
 	info := manager.GetClusterInfo()
 	assert.NotNil(t, info)
 	assert.Equal(t, "test-cluster", info.Name)
-	assert.Equal(t, ClusterStatusUnhealthy, info.Status) // No quorum
+	assert.Equal(t, StatusUnhealthy, info.Status) // No quorum
 	assert.Empty(t, info.LeaderID)
 	assert.Empty(t, info.Members)
 	assert.Equal(t, 0, info.MemberCount)
@@ -298,10 +298,10 @@ func TestMembershipManager_StopWithoutStart(t *testing.T) {
 
 func TestMembershipManager_QuorumCalculation(t *testing.T) {
 	tests := []struct {
-		name            string
-		healthyCount    int
-		memberCount     int
-		configuredQuorum int
+		name              string
+		healthyCount      int
+		memberCount       int
+		configuredQuorum  int
 		expectedHasQuorum bool
 	}{
 		{"empty cluster", 0, 0, 0, false},
@@ -966,7 +966,7 @@ func TestMember_IPv6Addresses(t *testing.T) {
 		assert.Equal(t, 3, info.HealthyCount)
 		assert.Equal(t, "member-3", info.LeaderID)
 		assert.True(t, info.HasQuorum)
-		assert.Equal(t, ClusterStatusHealthy, info.Status)
+		assert.Equal(t, StatusHealthy, info.Status)
 
 		// Verify members have correct IPv6 addresses
 		for _, m := range info.Members {

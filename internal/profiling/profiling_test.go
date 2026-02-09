@@ -66,9 +66,15 @@ func TestServerStartStop(t *testing.T) {
 	// Test that pprof endpoint is accessible
 	var resp *http.Response
 	if err := helpers.WaitForTimeout(2*time.Second, 50*time.Millisecond, func() (bool, error) {
-		var reqErr error
-		resp, reqErr = http.Get("http://localhost:16061/debug/pprof/")
+		req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:16061/debug/pprof/", nil)
 		if reqErr != nil {
+			return false, reqErr
+		}
+		resp, reqErr = http.DefaultClient.Do(req) //nolint:bodyclose // closed after loop
+		if reqErr != nil {
+			if resp != nil {
+				resp.Body.Close()
+			}
 			return false, nil
 		}
 		return true, nil

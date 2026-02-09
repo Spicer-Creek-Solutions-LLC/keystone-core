@@ -61,22 +61,22 @@ type metricCardinality struct {
 
 // CardinalityLimiter limits metric cardinality
 type CardinalityLimiter struct {
-	config      *CardinalityConfig
-	metrics     map[string]*metricCardinality
-	mu          sync.RWMutex
-	stopCh      chan struct{}
-	stats       *CardinalityStats
+	config         *CardinalityConfig
+	metrics        map[string]*metricCardinality
+	mu             sync.RWMutex
+	stopCh         chan struct{}
+	stats          *CardinalityStats
 	statsCollector Collector
 }
 
 // CardinalityStats holds statistics about cardinality limiting
 type CardinalityStats struct {
-	TotalMetrics           int                `json:"total_metrics"`
-	TotalLabelCombinations int64              `json:"total_label_combinations"`
-	ExceededMetrics        int                `json:"exceeded_metrics"`
-	DroppedLabels          int64              `json:"dropped_labels"`
-	MetricCardinalities    map[string]int     `json:"metric_cardinalities"`
-	HighCardinalityMetrics []string           `json:"high_cardinality_metrics"`
+	TotalMetrics           int            `json:"total_metrics"`
+	TotalLabelCombinations int64          `json:"total_label_combinations"`
+	ExceededMetrics        int            `json:"exceeded_metrics"`
+	DroppedLabels          int64          `json:"dropped_labels"`
+	MetricCardinalities    map[string]int `json:"metric_cardinalities"`
+	HighCardinalityMetrics []string       `json:"high_cardinality_metrics"`
 	mu                     sync.RWMutex
 }
 
@@ -493,12 +493,12 @@ func (c *CardinalityLimitingCollector) Stop() {
 
 // CardinalityReport generates a human-readable cardinality report
 type CardinalityReport struct {
-	GeneratedAt            time.Time            `json:"generated_at"`
-	Config                 *CardinalityConfig   `json:"config"`
-	Stats                  *CardinalityStats    `json:"stats"`
-	TopMetrics             []MetricCardinality  `json:"top_metrics"`
-	ExceededMetrics        []MetricExceedInfo   `json:"exceeded_metrics"`
-	Recommendations        []string             `json:"recommendations"`
+	GeneratedAt     time.Time           `json:"generated_at"`
+	Config          *CardinalityConfig  `json:"config"`
+	Stats           *CardinalityStats   `json:"stats"`
+	TopMetrics      []MetricCardinality `json:"top_metrics"`
+	ExceededMetrics []MetricExceedInfo  `json:"exceeded_metrics"`
+	Recommendations []string            `json:"recommendations"`
 }
 
 // MetricCardinality holds cardinality info for a single metric

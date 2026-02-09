@@ -624,7 +624,7 @@ func TestDot1xModule_MapPhase2Method(t *testing.T) {
 		{"chap", "CHAP"},
 		{"md5", "MD5"},
 		{"gtc", "GTC"},
-		{"", "MSCHAPV2"},      // default
+		{"", "MSCHAPV2"},        // default
 		{"unknown", "MSCHAPV2"}, // default for unknown
 	}
 

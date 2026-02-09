@@ -3,6 +3,7 @@ package wasm
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -131,17 +132,14 @@ func (b *Builder) buildGo() (*BuildResult, error) {
 		args = append(args, "-tags", strings.Join(b.config.Tags, ","))
 	}
 
-	// Add output
-	args = append(args, "-o", b.config.OutputPath)
-
-	// Add source
-	args = append(args, b.config.SourcePath)
+	// Add output and source
+	args = append(args, "-o", b.config.OutputPath, b.config.SourcePath)
 
 	// Setup environment
 	env := b.buildEnv()
 
 	// Execute build
-	cmd := exec.Command("go", args...)
+	cmd := exec.CommandContext(context.Background(), "go", args...)
 	cmd.Env = env
 
 	var stdout, stderr bytes.Buffer
@@ -185,14 +183,11 @@ func (b *Builder) buildTinyGo() (*BuildResult, error) {
 		args = append(args, "-tags", strings.Join(b.config.Tags, ","))
 	}
 
-	// Add output
-	args = append(args, "-o", b.config.OutputPath)
-
-	// Add source
-	args = append(args, b.config.SourcePath)
+	// Add output and source
+	args = append(args, "-o", b.config.OutputPath, b.config.SourcePath)
 
 	// Execute build
-	cmd := exec.Command("tinygo", args...)
+	cmd := exec.CommandContext(context.Background(), "tinygo", args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -224,8 +219,7 @@ func (b *Builder) buildEnv() []string {
 	env := os.Environ()
 
 	// Set GOOS and GOARCH
-	env = append(env, fmt.Sprintf("GOOS=%s", b.config.GOOS))
-	env = append(env, fmt.Sprintf("GOARCH=%s", b.config.GOARCH))
+	env = append(env, fmt.Sprintf("GOOS=%s", b.config.GOOS), fmt.Sprintf("GOARCH=%s", b.config.GOARCH))
 
 	// Add custom environment
 	for k, v := range b.config.Env {
@@ -280,25 +274,25 @@ func (r *BuildResult) SizeString() string {
 func (b *Builder) Optimize() error {
 	// Check if wasm-opt is available
 	if _, err := exec.LookPath("wasm-opt"); err != nil {
-		return nil // wasm-opt not available, skip
+		return nil //nolint:nilerr // wasm-opt not available is acceptable, optimization is optional
 	}
 
-	// Build arguments based on optimization level
-	var args []string
+	// Build arguments based on optimization level (1 opt flag + 3 output args = 4)
+	args := make([]string, 0, 4)
 	switch b.config.OptLevel {
 	case OptSize:
-		args = []string{"-Os"}
+		args = append(args, "-Os")
 	case OptAggressive:
-		args = []string{"-Oz"}
+		args = append(args, "-Oz")
 	default:
-		args = []string{"-O2"}
+		args = append(args, "-O2")
 	}
 
 	// Add output file (in-place)
 	args = append(args, b.config.OutputPath, "-o", b.config.OutputPath)
 
 	// Execute wasm-opt
-	cmd := exec.Command("wasm-opt", args...)
+	cmd := exec.CommandContext(context.Background(), "wasm-opt", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -313,10 +307,10 @@ func (b *Builder) Optimize() error {
 func (b *Builder) Strip() error {
 	// Check if wasm-strip is available
 	if _, err := exec.LookPath("wasm-strip"); err != nil {
-		return nil // wasm-strip not available, skip
+		return nil //nolint:nilerr // wasm-strip not available is acceptable, stripping is optional
 	}
 
-	cmd := exec.Command("wasm-strip", b.config.OutputPath)
+	cmd := exec.CommandContext(context.Background(), "wasm-strip", b.config.OutputPath)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -364,7 +358,7 @@ func (b *Builder) BuildAndOptimize() (*BuildResult, error) {
 			formatBytes(initialSize), formatBytes(result.Size), reduction)
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // returning valid result with nil error is correct
 }
 
 // RecommendedFlags returns recommended build flags for WASM optimization
@@ -394,13 +388,13 @@ func RecommendedTags() []string {
 // EstimateSizeReduction returns estimated size reduction for each optimization
 func EstimateSizeReduction() map[string]string {
 	return map[string]string{
-		"-s -w ldflags":         "10-20% reduction",
-		"-trimpath":             "5-10% reduction",
-		"TinyGo compiler":       "50-80% reduction vs Go",
-		"wasm-opt -Os":          "5-15% additional reduction",
-		"wasm-opt -Oz":          "10-20% additional reduction",
-		"wasm-strip":            "1-5% additional reduction",
-		"purego build tag":      "Varies by dependencies",
+		"-s -w ldflags":    "10-20% reduction",
+		"-trimpath":        "5-10% reduction",
+		"TinyGo compiler":  "50-80% reduction vs Go",
+		"wasm-opt -Os":     "5-15% additional reduction",
+		"wasm-opt -Oz":     "10-20% additional reduction",
+		"wasm-strip":       "1-5% additional reduction",
+		"purego build tag": "Varies by dependencies",
 	}
 }
 
@@ -433,7 +427,7 @@ func GetWASMSize(path string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return info.Size(), nil
+	return info.Size(), nil //nolint:nilerr // returning size with nil error is correct
 }
 
 // CompareBuilds compares two WASM build results
@@ -444,11 +438,12 @@ func CompareBuilds(a, b *BuildResult) string {
 	sb.WriteString(fmt.Sprintf("Build B (%s): %s\n", b.Compiler, b.SizeString()))
 
 	diff := b.Size - a.Size
-	if diff > 0 {
+	switch {
+	case diff > 0:
 		sb.WriteString(fmt.Sprintf("Build A is %s smaller\n", formatBytes(diff)))
-	} else if diff < 0 {
+	case diff < 0:
 		sb.WriteString(fmt.Sprintf("Build B is %s smaller\n", formatBytes(-diff)))
-	} else {
+	default:
 		sb.WriteString("Builds are the same size\n")
 	}
 
@@ -557,7 +552,7 @@ clean:
 .PHONY: validate
 validate:
 	@if [ -f $(WASM_FILE) ]; then \
-		head -c 4 $(WASM_FILE) | xxd | grep -q "0061 736d" && echo "Valid WASM file" || echo "Invalid WASM file"; \
+		head -c 4 $(WASM_FILE) | xxd | grep -q "0o061 736d" && echo "Valid WASM file" || echo "Invalid WASM file"; \
 	else \
 		echo "$(WASM_FILE) not found"; \
 	fi
@@ -578,7 +573,8 @@ compare:
 func GenerateBuildScript(outputDir, moduleName string) error {
 	// Create Makefile
 	makefilePath := filepath.Join(outputDir, "Makefile")
-	if err := os.WriteFile(makefilePath, []byte(Makefile(moduleName)), 0644); err != nil {
+	//nolint:gosec // G306: build scripts need to be readable by build tools
+	if err := os.WriteFile(makefilePath, []byte(Makefile(moduleName)), 0o644); err != nil {
 		return fmt.Errorf("failed to write Makefile: %w", err)
 	}
 

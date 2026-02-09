@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -27,7 +28,7 @@ type BrokerMetrics struct {
 	cacheMisses int64
 
 	// Latency tracking
-	mu            sync.RWMutex
+	mu             sync.RWMutex
 	latencyBuckets map[string]*latencyBucket
 
 	// Backend metrics
@@ -56,10 +57,10 @@ type BackendMetrics struct {
 	RequestsSuccessful int64
 	RequestsFailed     int64
 
-	AvgLatencyMs   float64
-	P50LatencyMs   float64
-	P95LatencyMs   float64
-	P99LatencyMs   float64
+	AvgLatencyMs float64
+	P50LatencyMs float64
+	P95LatencyMs float64
+	P99LatencyMs float64
 
 	LastSuccessTime time.Time
 	LastErrorTime   time.Time
@@ -72,12 +73,12 @@ type BackendMetrics struct {
 
 // latencyBucket tracks latency measurements.
 type latencyBucket struct {
-	mu       sync.Mutex
-	count    int64
-	sum      float64
-	min      float64
-	max      float64
-	samples  []float64
+	mu         sync.Mutex
+	count      int64
+	sum        float64
+	min        float64
+	max        float64
+	samples    []float64
 	maxSamples int
 }
 
@@ -92,7 +93,7 @@ func NewBrokerMetrics() *BrokerMetrics {
 }
 
 // RecordRequest records a secret request.
-func (m *BrokerMetrics) RecordRequest(operation string, backend string, duration time.Duration, err error) {
+func (m *BrokerMetrics) RecordRequest(operation, backend string, duration time.Duration, err error) {
 	atomic.AddInt64(&m.requestsTotal, 1)
 
 	// Track operation type
@@ -309,15 +310,15 @@ func classifyError(err error) string {
 	}
 
 	switch {
-	case err == ErrSecretNotFound:
+	case errors.Is(err, ErrSecretNotFound):
 		return "not_found"
-	case err == ErrBackendNotFound:
+	case errors.Is(err, ErrBackendNotFound):
 		return "backend_not_found"
-	case err == ErrBackendUnavailable:
+	case errors.Is(err, ErrBackendUnavailable):
 		return "backend_unavailable"
-	case err == ErrAccessDenied:
+	case errors.Is(err, ErrAccessDenied):
 		return "access_denied"
-	case err == ErrLeaseExpired:
+	case errors.Is(err, ErrLeaseExpired):
 		return "lease_expired"
 	case IsRateLimitError(err):
 		return "rate_limited"
@@ -550,7 +551,7 @@ func (e *PrometheusExporter) formatGauge(name, help string, value float64) strin
 }
 
 func (e *PrometheusExporter) formatGaugeLabels(name, help string, value float64, labelName, labelValue string) string {
-	return fmt.Sprintf("# HELP %s_%s %s\n# TYPE %s_%s gauge\n%s_%s{%s=\"%s\"} %.6f\n",
+	return fmt.Sprintf("# HELP %s_%s %s\n# TYPE %s_%s gauge\n%s_%s{%s=%q} %.6f\n",
 		e.prefix, name, help, e.prefix, name, e.prefix, name, labelName, labelValue, value)
 }
 

@@ -1,6 +1,7 @@
 package pfsense
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -114,7 +115,7 @@ func TestAdapterDisconnect(t *testing.T) {
 	adapter.token = "test-token"
 	adapter.Connected = true
 
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -258,7 +259,7 @@ func TestSaveConfig(t *testing.T) {
 	adapter := NewAdapter(nil)
 
 	// SaveConfig is a no-op for pfSense
-	err := adapter.SaveConfig(nil)
+	err := adapter.SaveConfig(context.Background())
 	if err != nil {
 		t.Errorf("SaveConfig() error = %v", err)
 	}
@@ -268,7 +269,7 @@ func TestServiceControl(t *testing.T) {
 	adapter := NewAdapter(nil)
 
 	// Test invalid action
-	err := adapter.ServiceControl(nil, "dhcpd", "invalid")
+	err := adapter.ServiceControl(context.Background(), "dhcpd", "invalid")
 	if err == nil {
 		t.Error("expected error for invalid action")
 	}

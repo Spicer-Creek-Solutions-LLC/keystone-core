@@ -1,3 +1,5 @@
+// Package targeting provides agent targeting with expression parsing and
+// matching for remote execution and state management operations.
 package targeting
 
 import (
@@ -101,8 +103,8 @@ func agentToMetadata(agent *AgentInfo) map[string]string {
 		//   - "labels.role:webserver" (explicit label namespace)
 		// Both forms work for backward compatibility and flexibility
 		for k, v := range agent.Metadata.Labels {
-			metadata[k] = v              // Direct access (e.g., role:web)
-			metadata["labels."+k] = v    // Explicit namespace (e.g., labels.role:web)
+			metadata[k] = v           // Direct access (e.g., role:web)
+			metadata["labels."+k] = v // Explicit namespace (e.g., labels.role:web)
 		}
 	}
 

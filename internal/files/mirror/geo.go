@@ -48,7 +48,7 @@ func (r *GeoRouter) AddOverride(rule OverrideRule) {
 }
 
 // SelectForRead returns mirrors sorted by geographic distance.
-func (r *GeoRouter) SelectForRead(group *MirrorGroup, agentLocation *Location) []*Mirror {
+func (r *GeoRouter) SelectForRead(group *Group, agentLocation *Location) []*Mirror {
 	mirrors := group.GetHealthyMirrors()
 	if len(mirrors) == 0 {
 		return nil
@@ -193,7 +193,7 @@ func stringToFloat(s string, out *float64) (bool, error) {
 	var val float64
 	var neg bool
 	var decimal bool
-	var decimalPlace float64 = 10.0
+	var decimalPlace = 10.0
 
 	for i, c := range s {
 		if c == '-' && i == 0 {
@@ -306,7 +306,7 @@ func formatFloat(f float64) string {
 			fracPart /= 10
 		}
 		// Trim trailing zeros
-		for len(fracStr) > 0 && fracStr[len(fracStr)-1] == '0' {
+		for fracStr != "" && fracStr[len(fracStr)-1] == '0' {
 			fracStr = fracStr[:len(fracStr)-1]
 		}
 		result += fracStr

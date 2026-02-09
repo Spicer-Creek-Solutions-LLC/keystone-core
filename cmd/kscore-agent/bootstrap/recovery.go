@@ -40,7 +40,7 @@ func DefaultRecoveryConfig() RecoveryConfig {
 		AutoRecoveryDelay:       5 * time.Second,
 		EnablePreflightChecks:   true,
 		GenerateRecoveryScript:  true,
-		RecoveryScriptPath:      "/var/lib/kscore/bootstrap/recovery.sh",
+		RecoveryScriptPath:      "/var/lib/keystone-core/bootstrap/recovery.sh",
 	}
 }
 
@@ -79,7 +79,7 @@ type RecoveryResult struct {
 }
 
 // AttemptAutomaticRecovery tries automatic recovery actions for an error.
-func (m *RecoveryManager) AttemptAutomaticRecovery(ctx context.Context, bErr *BootstrapError) []RecoveryResult {
+func (m *RecoveryManager) AttemptAutomaticRecovery(ctx context.Context, bErr *Error) []RecoveryResult {
 	if !m.config.EnableAutoRecovery {
 		return nil
 	}
@@ -90,12 +90,13 @@ func (m *RecoveryManager) AttemptAutomaticRecovery(ctx context.Context, bErr *Bo
 	}
 
 	var results []RecoveryResult
-	for _, action := range actions {
+	for i := range actions {
+		action := &actions[i]
 		if m.verbose {
 			fmt.Fprintf(m.output, "attempting automatic recovery: %s\n", action.Description)
 		}
 
-		result := m.executeRecoveryAction(ctx, action)
+		result := m.executeRecoveryAction(ctx, *action)
 		results = append(results, result)
 
 		if result.Success {
@@ -103,10 +104,8 @@ func (m *RecoveryManager) AttemptAutomaticRecovery(ctx context.Context, bErr *Bo
 				fmt.Fprintf(m.output, "recovery action '%s' succeeded\n", action.ID)
 			}
 			break // Stop on first success
-		} else {
-			if m.verbose {
-				fmt.Fprintf(m.output, "recovery action '%s' failed: %s\n", action.ID, result.Message)
-			}
+		} else if m.verbose {
+			fmt.Fprintf(m.output, "recovery action '%s' failed: %s\n", action.ID, result.Message)
 		}
 	}
 
@@ -180,7 +179,7 @@ func (m *RecoveryManager) runCommand(ctx context.Context, cmdStr string) (string
 }
 
 // GenerateRecoveryScript creates a shell script with recovery commands.
-func (m *RecoveryManager) GenerateRecoveryScript(bErr *BootstrapError) (string, error) {
+func (m *RecoveryManager) GenerateRecoveryScript(bErr *Error) (string, error) {
 	if !m.config.GenerateRecoveryScript {
 		return "", nil
 	}
@@ -198,7 +197,8 @@ func (m *RecoveryManager) GenerateRecoveryScript(bErr *BootstrapError) (string, 
 	script.WriteString(fmt.Sprintf("echo 'Error Category: %s'\n", bErr.Category))
 	script.WriteString("echo ''\n\n")
 
-	for i, action := range bErr.RecoveryActions {
+	for i := range bErr.RecoveryActions {
+		action := &bErr.RecoveryActions[i]
 		script.WriteString(fmt.Sprintf("# Recovery Action %d: %s\n", i+1, action.Description))
 		script.WriteString(fmt.Sprintf("# Risk: %s\n", action.Risk))
 
@@ -246,10 +246,12 @@ func (m *RecoveryManager) GenerateRecoveryScript(bErr *BootstrapError) (string, 
 
 	// Write script to file
 	path := m.config.RecoveryScriptPath
+	//nolint:gosec // G301: recovery script directory needs to be accessible by admin users
 	if err := os.MkdirAll(strings.TrimSuffix(path, "/recovery.sh"), 0o755); err != nil {
 		return "", fmt.Errorf("create recovery script directory: %w", err)
 	}
 
+	//nolint:gosec // G306: recovery script must be executable
 	if err := os.WriteFile(path, []byte(script.String()), 0o755); err != nil {
 		return "", fmt.Errorf("write recovery script: %w", err)
 	}
@@ -307,141 +309,135 @@ func NewPreflightChecker(output io.Writer, verbose bool) *PreflightChecker {
 
 // registerDefaultChecks adds the default preflight checks.
 func (c *PreflightChecker) registerDefaultChecks() {
-	// Root/sudo check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "root-privileges",
-		Description: "Check for root or sudo privileges",
-		Required:    true,
-		Check: func(ctx context.Context, state *State) error {
-			if os.Geteuid() != 0 {
-				return fmt.Errorf("bootstrap requires root privileges (run with sudo)")
-			}
-			return nil
-		},
-	})
-
-	// Disk space check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "disk-space",
-		Description: "Check for adequate disk space",
-		Required:    true,
-		Check: func(ctx context.Context, state *State) error {
-			if state == nil || state.System == nil {
-				return nil // Can't check without system info
-			}
-			if state.System.Resources.DiskFreeGB < 5 {
-				return fmt.Errorf("insufficient disk space: %dGB free, need at least 5GB",
-					state.System.Resources.DiskFreeGB)
-			}
-			return nil
-		},
-	})
-
-	// Memory check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "memory",
-		Description: "Check for adequate memory",
-		Required:    false, // Warning only
-		Check: func(ctx context.Context, state *State) error {
-			if state == nil || state.System == nil {
-				return nil
-			}
-			if state.System.Resources.MemoryTotalMB < 1024 {
-				return fmt.Errorf("low memory: %dMB total, recommend at least 1024MB",
-					state.System.Resources.MemoryTotalMB)
-			}
-			return nil
-		},
-	})
-
-	// Package manager check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "package-manager",
-		Description: "Check package manager availability",
-		Phase:       PhaseInstall,
-		Required:    true,
-		Check: func(ctx context.Context, state *State) error {
-			if state == nil || state.System == nil || state.System.Platform == nil {
-				return fmt.Errorf("system detection incomplete")
-			}
-			pm := state.System.Platform.PackageManager
-			if pm == "" || pm == "unknown" {
-				return fmt.Errorf("no supported package manager detected")
-			}
-			return nil
-		},
-	})
-
-	// Network connectivity check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "network-connectivity",
-		Description: "Check basic network connectivity",
-		Phase:       PhaseInstall,
-		Required:    false, // Warning only - might work offline
-		Check: func(ctx context.Context, state *State) error {
-			// Try to resolve a well-known domain
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-
-			cmd := exec.CommandContext(ctx, "getent", "hosts", "packages.keystone.io")
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("cannot resolve packages.keystone.io - check network connectivity")
-			}
-			return nil
-		},
-	})
-
-	// Systemd check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "init-system",
-		Description: "Check init system compatibility",
-		Phase:       PhaseInstall,
-		Required:    true,
-		Check: func(ctx context.Context, state *State) error {
-			if state == nil || state.System == nil || state.System.Platform == nil {
-				return nil
-			}
-			initSys := state.System.Platform.InitSystem
-			if initSys != "systemd" && initSys != "openrc" {
-				return fmt.Errorf("unsupported init system: %s (need systemd or openrc)", initSys)
-			}
-			return nil
-		},
-	})
-
-	// Existing install check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "existing-install",
-		Description: "Check for existing installation",
-		Required:    false, // Warning only
-		Check: func(ctx context.Context, state *State) error {
-			if state == nil || state.System == nil {
-				return nil
-			}
-			if state.System.ExistingInstall {
-				return fmt.Errorf("existing Keystone installation detected - backup before proceeding")
-			}
-			return nil
-		},
-	})
-
-	// Directory writability check
-	c.checks = append(c.checks, PreflightCheck{
-		Name:        "directory-access",
-		Description: "Check directory write access",
-		Required:    true,
-		Check: func(ctx context.Context, state *State) error {
-			dirs := []string{"/etc", "/var/lib", "/var/log"}
-			for _, dir := range dirs {
-				testFile := dir + "/.kscore-preflight-test"
-				if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
-					return fmt.Errorf("cannot write to %s: %v", dir, err)
+	c.checks = append(c.checks,
+		// Root/sudo check
+		PreflightCheck{
+			Name:        "root-privileges",
+			Description: "Check for root or sudo privileges",
+			Required:    true,
+			Check: func(ctx context.Context, state *State) error {
+				if os.Geteuid() != 0 {
+					return fmt.Errorf("bootstrap requires root privileges (run with sudo)")
 				}
-				os.Remove(testFile)
-			}
-			return nil
+				return nil
+			},
 		},
-	})
+		// Disk space check
+		PreflightCheck{
+			Name:        "disk-space",
+			Description: "Check for adequate disk space",
+			Required:    true,
+			Check: func(ctx context.Context, state *State) error {
+				if state == nil || state.System == nil {
+					return nil // Can't check without system info
+				}
+				if state.System.Resources.DiskFreeGB < 5 {
+					return fmt.Errorf("insufficient disk space: %dGB free, need at least 5GB",
+						state.System.Resources.DiskFreeGB)
+				}
+				return nil
+			},
+		},
+		// Memory check
+		PreflightCheck{
+			Name:        "memory",
+			Description: "Check for adequate memory",
+			Required:    false, // Warning only
+			Check: func(ctx context.Context, state *State) error {
+				if state == nil || state.System == nil {
+					return nil
+				}
+				if state.System.Resources.MemoryTotalMB < 1024 {
+					return fmt.Errorf("low memory: %dMB total, recommend at least 1024MB",
+						state.System.Resources.MemoryTotalMB)
+				}
+				return nil
+			},
+		},
+		// Package manager check
+		PreflightCheck{
+			Name:        "package-manager",
+			Description: "Check package manager availability",
+			Phase:       PhaseInstall,
+			Required:    true,
+			Check: func(ctx context.Context, state *State) error {
+				if state == nil || state.System == nil || state.System.Platform == nil {
+					return fmt.Errorf("system detection incomplete")
+				}
+				pm := state.System.Platform.PackageManager
+				if pm == "" || pm == "unknown" {
+					return fmt.Errorf("no supported package manager detected")
+				}
+				return nil
+			},
+		},
+		// Network connectivity check
+		PreflightCheck{
+			Name:        "network-connectivity",
+			Description: "Check basic network connectivity",
+			Phase:       PhaseInstall,
+			Required:    false, // Warning only - might work offline
+			Check: func(ctx context.Context, state *State) error {
+				// Try to resolve a well-known domain
+				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+
+				cmd := exec.CommandContext(ctx, "getent", "hosts", "packages.keystone.io")
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("cannot resolve packages.keystone.io - check network connectivity")
+				}
+				return nil
+			},
+		},
+		// Systemd check
+		PreflightCheck{
+			Name:        "init-system",
+			Description: "Check init system compatibility",
+			Phase:       PhaseInstall,
+			Required:    true,
+			Check: func(ctx context.Context, state *State) error {
+				if state == nil || state.System == nil || state.System.Platform == nil {
+					return nil
+				}
+				initSys := state.System.Platform.InitSystem
+				if initSys != "systemd" && initSys != "openrc" {
+					return fmt.Errorf("unsupported init system: %s (need systemd or openrc)", initSys)
+				}
+				return nil
+			},
+		},
+		// Existing install check
+		PreflightCheck{
+			Name:        "existing-install",
+			Description: "Check for existing installation",
+			Required:    false, // Warning only
+			Check: func(ctx context.Context, state *State) error {
+				if state == nil || state.System == nil {
+					return nil
+				}
+				if state.System.ExistingInstall {
+					return fmt.Errorf("existing Keystone installation detected - backup before proceeding")
+				}
+				return nil
+			},
+		},
+		// Directory writability check
+		PreflightCheck{
+			Name:        "directory-access",
+			Description: "Check directory write access",
+			Required:    true,
+			Check: func(ctx context.Context, state *State) error {
+				dirs := []string{"/etc", "/var/lib", "/var/log"}
+				for _, dir := range dirs {
+					testFile := dir + "/.kscore-preflight-test"
+					if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
+						return fmt.Errorf("cannot write to %s: %w", dir, err)
+					}
+					os.Remove(testFile)
+				}
+				return nil
+			},
+		})
 }
 
 // AddCheck adds a custom preflight check.

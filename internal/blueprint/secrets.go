@@ -365,8 +365,8 @@ func (r *InMemorySecretResolver) Exists(path string) (bool, error) {
 // Secret paths are converted to environment variable names:
 // "database/password" -> "KSCORE_SECRET_DATABASE_PASSWORD"
 type EnvironmentSecretResolver struct {
-	prefix string                 // Environment variable prefix (default: "KSCORE_SECRET")
-	getter func(string) string    // Function to get env vars (defaults to os.Getenv)
+	prefix string              // Environment variable prefix (default: "KSCORE_SECRET")
+	getter func(string) string // Function to get env vars (defaults to os.Getenv)
 }
 
 // NewEnvironmentSecretResolver creates a new environment variable resolver.

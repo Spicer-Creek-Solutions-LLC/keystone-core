@@ -30,7 +30,7 @@ type Registry struct {
 	rateLimiter *RateLimiter
 
 	// Metrics
-	metrics *TriggerMetrics
+	metrics *Metrics
 
 	// Callbacks
 	onTriggerActivation func(trigger *Trigger, event *events.Event)
@@ -95,8 +95,8 @@ func NewRegistry(opts ...RegistryOption) *Registry {
 		states:      make(map[string]*triggerState),
 		dedup:       NewDeduplicator(),
 		rateLimiter: NewRateLimiter(),
-		metrics: &TriggerMetrics{
-			ByTrigger: make(map[string]*TriggerStats),
+		metrics: &Metrics{
+			ByTrigger: make(map[string]*Stats),
 		},
 	}
 
@@ -141,7 +141,7 @@ func (r *Registry) Register(trigger *Trigger) error {
 		r.metrics.EnabledTriggers++
 	}
 
-	r.metrics.ByTrigger[trigger.ID] = &TriggerStats{
+	r.metrics.ByTrigger[trigger.ID] = &Stats{
 		TriggerID: trigger.ID,
 	}
 
@@ -323,7 +323,7 @@ func (r *Registry) processTrigger(ctx context.Context, trigger *Trigger, event *
 }
 
 // shouldSkip checks if execution should be skipped.
-func (r *Registry) shouldSkip(trigger *Trigger, state *triggerState, event *events.Event) (bool, string) {
+func (r *Registry) shouldSkip(trigger *Trigger, state *triggerState, event *events.Event) (skip bool, reason string) {
 	if trigger.Conditions == nil {
 		return false, ""
 	}
@@ -646,12 +646,12 @@ func (r *Registry) recordSkip(trigger *Trigger, state *triggerState, reason stri
 }
 
 // GetMetrics returns current trigger metrics.
-func (r *Registry) GetMetrics() *TriggerMetrics {
+func (r *Registry) GetMetrics() *Metrics {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	// Deep copy metrics
-	metrics := &TriggerMetrics{
+	metrics := &Metrics{
 		TotalTriggers:        r.metrics.TotalTriggers,
 		EnabledTriggers:      r.metrics.EnabledTriggers,
 		TotalActivations:     r.metrics.TotalActivations,
@@ -659,11 +659,11 @@ func (r *Registry) GetMetrics() *TriggerMetrics {
 		FailedExecutions:     r.metrics.FailedExecutions,
 		SkippedExecutions:    r.metrics.SkippedExecutions,
 		AverageLatencyMs:     r.metrics.AverageLatencyMs,
-		ByTrigger:            make(map[string]*TriggerStats),
+		ByTrigger:            make(map[string]*Stats),
 	}
 
 	for id, stats := range r.metrics.ByTrigger {
-		metrics.ByTrigger[id] = &TriggerStats{
+		metrics.ByTrigger[id] = &Stats{
 			TriggerID:      stats.TriggerID,
 			Activations:    stats.Activations,
 			Successes:      stats.Successes,

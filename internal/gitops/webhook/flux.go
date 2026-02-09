@@ -12,7 +12,7 @@ import (
 type FluxHandler struct{}
 
 // Type returns the webhook type
-func (h *FluxHandler) Type() WebhookType {
+func (h *FluxHandler) Type() Type {
 	return WebhookTypeFlux
 }
 
@@ -24,17 +24,17 @@ type FluxWebhookPayload struct {
 		Namespace  string `json:"namespace"`
 		APIVersion string `json:"apiVersion"`
 	} `json:"involvedObject"`
-	Severity  string    `json:"severity"`
-	Timestamp time.Time `json:"timestamp"`
-	Message   string    `json:"message"`
-	Reason    string    `json:"reason"`
-	Metadata  map[string]string `json:"metadata"`
-	ReportingController string `json:"reportingController"`
-	ReportingInstance   string `json:"reportingInstance"`
+	Severity            string            `json:"severity"`
+	Timestamp           time.Time         `json:"timestamp"`
+	Message             string            `json:"message"`
+	Reason              string            `json:"reason"`
+	Metadata            map[string]string `json:"metadata"`
+	ReportingController string            `json:"reportingController"`
+	ReportingInstance   string            `json:"reportingInstance"`
 }
 
 // Parse parses a Flux webhook payload
-func (h *FluxHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, error) {
+func (h *FluxHandler) Parse(r *http.Request, body []byte) (*Event, error) {
 	var payload FluxWebhookPayload
 	if err := ParseJSON(body, &payload); err != nil {
 		return nil, fmt.Errorf("failed to parse Flux webhook: %w", err)
@@ -52,7 +52,7 @@ func (h *FluxHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, error)
 		revision = payload.Metadata["revision"]
 	}
 
-	event := &WebhookEvent{
+	event := &Event{
 		ID:          uuid.New().String(),
 		Type:        WebhookTypeFlux,
 		EventType:   eventType,

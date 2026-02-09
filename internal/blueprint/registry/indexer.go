@@ -269,17 +269,17 @@ func (i *Indexer) Search(query string) []*IndexEntry {
 		name  string
 		score int
 	}
-	scored_results := make([]scored, 0, len(matches))
+	scoredResults := make([]scored, 0, len(matches))
 	for name, count := range matches {
-		scored_results = append(scored_results, scored{name, count})
+		scoredResults = append(scoredResults, scored{name, count})
 	}
-	sort.Slice(scored_results, func(a, b int) bool {
-		return scored_results[a].score > scored_results[b].score
+	sort.Slice(scoredResults, func(a, b int) bool {
+		return scoredResults[a].score > scoredResults[b].score
 	})
 
 	// Build result list
-	results := make([]*IndexEntry, 0, len(scored_results))
-	for _, sr := range scored_results {
+	results := make([]*IndexEntry, 0, len(scoredResults))
+	for _, sr := range scoredResults {
 		if entry, ok := i.entries[sr.name]; ok {
 			results = append(results, entry)
 		}
@@ -536,7 +536,8 @@ func (i *Indexer) Save(path string) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: index directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -558,7 +559,8 @@ func (i *Indexer) Save(path string) error {
 
 	// Write to temp file first
 	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, jsonData, 0644); err != nil {
+	//nolint:gosec // G306: index files need to be readable by registry clients
+	if err := os.WriteFile(tmpPath, jsonData, 0o644); err != nil {
 		return fmt.Errorf("failed to write index: %w", err)
 	}
 
@@ -658,7 +660,7 @@ func (i *Indexer) DecrementStars(name string) error {
 }
 
 // MarkDeprecated marks a blueprint as deprecated.
-func (i *Indexer) MarkDeprecated(name string, message string) error {
+func (i *Indexer) MarkDeprecated(name, message string) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -675,7 +677,7 @@ func (i *Indexer) MarkDeprecated(name string, message string) error {
 }
 
 // MarkVerified marks a blueprint as verified.
-func (i *Indexer) MarkVerified(name string, signerIdentity string) error {
+func (i *Indexer) MarkVerified(name, signerIdentity string) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -693,7 +695,7 @@ func (i *Indexer) MarkVerified(name string, signerIdentity string) error {
 }
 
 // AddVersion adds a new version to a blueprint.
-func (i *Indexer) AddVersion(name string, version string) error {
+func (i *Indexer) AddVersion(name, version string) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 

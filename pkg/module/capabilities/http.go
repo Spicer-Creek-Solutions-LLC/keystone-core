@@ -55,7 +55,7 @@ func (c *HTTPGetCapability) Validate() error {
 	// Validate domain patterns for security
 	for _, domain := range c.AllowedDomains {
 		if err := validateDomainPatternSecurity(domain); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+			return fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
 		}
 	}
 
@@ -79,7 +79,7 @@ func (c *HTTPGetCapability) Validate() error {
 			ErrInvalidConfiguration)
 	}
 	if err := c.RateLimit.Validate(); err != nil {
-		return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
+		return fmt.Errorf("%w: invalid rate limit: %w", ErrInvalidConfiguration, err)
 	}
 
 	return nil
@@ -142,7 +142,7 @@ func (c *HTTPGetCapability) Get(ctx *CapabilityContext, urlStr string, headers m
 	}
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx.Context, "GET", urlStr, nil)
+	req, err := http.NewRequestWithContext(ctx.Context, "GET", urlStr, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -203,7 +203,7 @@ func (c *HTTPPostCapability) Validate() error {
 	// Validate domain patterns for security
 	for _, domain := range c.AllowedDomains {
 		if err := validateDomainPatternSecurity(domain); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+			return fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
 		}
 	}
 
@@ -237,7 +237,7 @@ func (c *HTTPPostCapability) Validate() error {
 			ErrInvalidConfiguration)
 	}
 	if err := c.RateLimit.Validate(); err != nil {
-		return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
+		return fmt.Errorf("%w: invalid rate limit: %w", ErrInvalidConfiguration, err)
 	}
 
 	return nil
@@ -419,27 +419,27 @@ func matchesDomain(pattern, domain string) bool {
 
 // Dangerous domain patterns that should be blocked
 var dangerousDomainPatterns = []string{
-	"*",            // All domains
-	"*.*",          // All domains with extension
-	"*.*.*",        // All subdomains
-	"*.com",        // All .com domains
-	"*.net",        // All .net domains
-	"*.org",        // All .org domains
-	"*.io",         // All .io domains
-	"*.dev",        // All .dev domains
-	"*.edu",        // All .edu domains
-	"*.gov",        // All .gov domains
-	"*.mil",        // All .mil domains
-	"localhost",    // Localhost (internal services)
-	"*.localhost",  // Localhost subdomains
-	"127.0.0.1",    // Loopback IP
-	"0.0.0.0",      // All interfaces
-	"*.internal",   // Internal domains
-	"*.local",      // Local network domains
-	"*.intranet",   // Intranet domains
-	"10.*.*.*",     // Private IP range
-	"172.16.*.*",   // Private IP range
-	"192.168.*.*",  // Private IP range
+	"*",           // All domains
+	"*.*",         // All domains with extension
+	"*.*.*",       // All subdomains
+	"*.com",       // All .com domains
+	"*.net",       // All .net domains
+	"*.org",       // All .org domains
+	"*.io",        // All .io domains
+	"*.dev",       // All .dev domains
+	"*.edu",       // All .edu domains
+	"*.gov",       // All .gov domains
+	"*.mil",       // All .mil domains
+	"localhost",   // Localhost (internal services)
+	"*.localhost", // Localhost subdomains
+	"127.0.0.1",   // Loopback IP
+	"0.0.0.0",     // All interfaces
+	"*.internal",  // Internal domains
+	"*.local",     // Local network domains
+	"*.intranet",  // Intranet domains
+	"10.*.*.*",    // Private IP range
+	"172.16.*.*",  // Private IP range
+	"192.168.*.*", // Private IP range
 }
 
 // validateDomainPatternSecurity checks if a domain pattern is overly broad or dangerous

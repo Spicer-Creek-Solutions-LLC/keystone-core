@@ -36,21 +36,20 @@ First, create a state file that defines your desired configuration:
 metadata:
   description: Web server configuration baseline
 
-states:
-  file:
-    - id: /etc/nginx/nginx.conf
-      state: present
-      parameters:
-        source: files/nginx.conf
-        owner: root
-        group: root
-        mode: "0644"
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    source: files/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
 
-  service:
-    - id: nginx
-      state: running
-      parameters:
-        enabled: true
+service:
+  nginx_service:
+    state: running
+    name: nginx
+    enabled: true
 ```
 
 Apply this state to establish the baseline:
@@ -136,7 +135,7 @@ drift_detection:
 Apply the configuration:
 
 ```bash
-kscorectl apply drift-config.yaml
+kscorectl state apply drift-config.yaml
 ```
 
 ## Step 5: Set Up Drift Alerts
@@ -185,7 +184,7 @@ reactors:
 Apply the reactor:
 
 ```bash
-kscorectl apply drift-reactor.yaml
+kscorectl state apply drift-reactor.yaml
 ```
 
 ## Step 6: Configure Auto-Remediation (Optional)
@@ -229,7 +228,7 @@ View historical drift data:
 
 ```bash
 # Show recent drift events
-kscorectl events list --type state.drift --last 24h
+kscorectl events list --type state.drift --since 24h
 
 # Show a drift report
 kscorectl state drift webserver-config.yaml
@@ -244,16 +243,16 @@ Customize which changes are considered critical:
 
 ```yaml
 # In your state file
-states:
-  file:
-    - id: /etc/nginx/nginx.conf
-      state: present
-      drift_detection:
-        enabled: true
-        severity_overrides:
-          mode: critical      # Permission changes are critical
-          owner: critical     # Ownership changes are critical
-          contents: high      # Content changes are high
+file:
+  nginx_config:
+    state: present
+    name: /etc/nginx/nginx.conf
+    drift_detection:
+      enabled: true
+      severity_overrides:
+        mode: critical      # Permission changes are critical
+        owner: critical     # Ownership changes are critical
+        contents: high      # Content changes are high
 ```
 
 Default severity levels:

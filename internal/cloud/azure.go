@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,6 +75,7 @@ func (d *AzureDetector) Detect() (*Metadata, error) {
 		if err := d.collectVMMetadata(metadata); err != nil {
 			return nil, fmt.Errorf("failed to collect VM metadata: %w", err)
 		}
+	default:
 	}
 
 	return metadata, nil
@@ -139,7 +141,8 @@ func (d *AzureDetector) isContainerInstances() bool {
 
 // isAzureVM checks if running on Azure VM
 func (d *AzureDetector) isAzureVM() bool {
-	req, err := http.NewRequest("GET", azureMetadataBaseURL+"/instance?api-version="+azureMetadataVersion, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- Azure IMDS uses link-local HTTP
+	// Use context.Background() since this is a simple detection call with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", azureMetadataBaseURL+"/instance?api-version="+azureMetadataVersion, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- Azure IMDS uses link-local HTTP
 	if err != nil {
 		return false
 	}
@@ -267,7 +270,8 @@ func (d *AzureDetector) collectAzureFunctionsMetadata(metadata *Metadata) error 
 
 // getInstanceMetadata gets Azure instance metadata
 func (d *AzureDetector) getInstanceMetadata() (*azureInstanceMetadata, error) {
-	req, err := http.NewRequest("GET", azureMetadataBaseURL+"/instance?api-version="+azureMetadataVersion, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- Azure IMDS uses link-local HTTP
+	// Use context.Background() since this is called from detection/collection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", azureMetadataBaseURL+"/instance?api-version="+azureMetadataVersion, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- Azure IMDS uses link-local HTTP
 	if err != nil {
 		return nil, err
 	}

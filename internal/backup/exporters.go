@@ -133,7 +133,8 @@ func (i *SQLiteImporter) Import(ctx context.Context, r io.Reader) error {
 	}
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(i.dbPath), 0755); err != nil {
+	//nolint:gosec // G301: database directory needs to be accessible by service user
+	if err := os.MkdirAll(filepath.Dir(i.dbPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -240,6 +241,7 @@ func (e *PostgreSQLExporter) Export(ctx context.Context, w io.Writer) error {
 		"--no-password",
 	}
 
+	//nolint:gosec // G204: pg_dump execution is intentional for database backup
 	cmd := exec.CommandContext(ctx, "pg_dump", args...)
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
@@ -340,13 +342,14 @@ func (i *PostgreSQLImporter) Import(ctx context.Context, r io.Reader) error {
 		"-p", fmt.Sprintf("%d", i.port),
 		"-U", i.user,
 		"-d", i.database,
-		"--clean",      // Drop objects before recreating
-		"--if-exists",  // Don't error if objects don't exist
-		"--no-owner",   // Don't set ownership
+		"--clean",     // Drop objects before recreating
+		"--if-exists", // Don't error if objects don't exist
+		"--no-owner",  // Don't set ownership
 		"--no-password",
 		tmpFile.Name(),
 	}
 
+	//nolint:gosec // G204: pg_restore execution is intentional for database restore
 	cmd := exec.CommandContext(ctx, "pg_restore", args...)
 	cmd.Stderr = os.Stderr
 
@@ -447,6 +450,7 @@ func (e *EtcdExporter) Export(ctx context.Context, w io.Writer) error {
 		args = append(args, "--cacert="+e.caFile)
 	}
 
+	//nolint:gosec // G204: etcdctl execution is intentional for etcd backup
 	cmd := exec.CommandContext(ctx, "etcdctl", args...)
 	cmd.Stderr = os.Stderr
 
@@ -530,6 +534,7 @@ func (i *EtcdImporter) Import(ctx context.Context, r io.Reader) error {
 		"--data-dir=" + i.dataDir,
 	}
 
+	//nolint:gosec // G204: etcdctl execution is intentional for etcd restore
 	cmd := exec.CommandContext(ctx, "etcdctl", args...)
 	cmd.Stderr = os.Stderr
 
@@ -552,9 +557,9 @@ func (i *EtcdImporter) Verify(ctx context.Context) error {
 
 // JetStreamExporter exports NATS JetStream data
 type JetStreamExporter struct {
-	natsURL  string
-	dataDir  string
-	logger   Logger
+	natsURL string
+	dataDir string
+	logger  Logger
 }
 
 // NewJetStreamExporter creates a new JetStream exporter
@@ -596,6 +601,7 @@ func (e *JetStreamExporter) Export(ctx context.Context, w io.Writer) error {
 	}
 
 	// Use tar to create archive
+	//nolint:gosec // G204: tar execution is intentional for JetStream backup
 	cmd := exec.CommandContext(ctx, "tar", "-cf", "-", "-C", e.dataDir, "jetstream")
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
@@ -644,6 +650,7 @@ func (i *JetStreamImporter) Component() ComponentType {
 // Import imports JetStream data
 func (i *JetStreamImporter) Import(ctx context.Context, r io.Reader) error {
 	// Extract tar archive to data directory
+	//nolint:gosec // G204: tar execution is intentional for JetStream restore
 	cmd := exec.CommandContext(ctx, "tar", "-xf", "-", "-C", i.dataDir)
 	cmd.Stdin = r
 	cmd.Stderr = os.Stderr
@@ -700,6 +707,7 @@ func (e *ConfigExporter) Export(ctx context.Context, w io.Writer) error {
 	}
 
 	// Use tar to create archive
+	//nolint:gosec // G204: tar execution is intentional for config backup operations
 	cmd := exec.CommandContext(ctx, "tar", "-cf", "-", "-C", filepath.Dir(e.configDir), filepath.Base(e.configDir))
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
@@ -747,11 +755,13 @@ func (i *ConfigImporter) Component() ComponentType {
 // Import imports configuration files
 func (i *ConfigImporter) Import(ctx context.Context, r io.Reader) error {
 	// Create config directory
-	if err := os.MkdirAll(filepath.Dir(i.configDir), 0755); err != nil {
+	//nolint:gosec // G301: config directory needs to be accessible by service user
+	if err := os.MkdirAll(filepath.Dir(i.configDir), 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	// Extract tar archive
+	//nolint:gosec // G204: tar execution is intentional for config restore operations
 	cmd := exec.CommandContext(ctx, "tar", "-xf", "-", "-C", filepath.Dir(i.configDir))
 	cmd.Stdin = r
 	cmd.Stderr = os.Stderr
@@ -807,6 +817,7 @@ func (e *CertsExporter) Export(ctx context.Context, w io.Writer) error {
 	}
 
 	// Use tar to create archive
+	//nolint:gosec // G204: tar execution is intentional for certificate backup operations
 	cmd := exec.CommandContext(ctx, "tar", "-cf", "-", "-C", filepath.Dir(e.certsDir), filepath.Base(e.certsDir))
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
@@ -854,11 +865,13 @@ func (i *CertsImporter) Component() ComponentType {
 // Import imports certificate files
 func (i *CertsImporter) Import(ctx context.Context, r io.Reader) error {
 	// Create certs directory
-	if err := os.MkdirAll(filepath.Dir(i.certsDir), 0755); err != nil {
+	//nolint:gosec // G301: certs directory needs to be accessible by service user
+	if err := os.MkdirAll(filepath.Dir(i.certsDir), 0o755); err != nil {
 		return fmt.Errorf("failed to create certs directory: %w", err)
 	}
 
 	// Extract tar archive
+	//nolint:gosec // G204: tar execution is intentional for certificate restore operations
 	cmd := exec.CommandContext(ctx, "tar", "-xf", "-", "-C", filepath.Dir(i.certsDir))
 	cmd.Stdin = r
 	cmd.Stderr = os.Stderr

@@ -105,7 +105,8 @@ func NewRetryer(config *RetryConfig) *Retryer {
 
 	return &Retryer{
 		config: config,
-		rng:    rand.New(rand.NewSource(time.Now().UnixNano())),
+		//nolint:gosec // G404: math/rand used for retry jitter timing, not security
+		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

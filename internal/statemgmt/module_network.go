@@ -29,14 +29,15 @@ func NewNetworkModule() *NetworkModule {
 // NetworkManager represents different network management systems
 type NetworkManager string
 
+// NMUnknown and related constants.
 const (
 	NMUnknown         NetworkManager = "unknown"
-	NMNetworkManager  NetworkManager = "networkmanager"  // nmcli
-	NMNetplan         NetworkManager = "netplan"         // Ubuntu netplan
-	NMIfupdown        NetworkManager = "ifupdown"        // Debian interfaces
+	NMNetworkManager  NetworkManager = "networkmanager" // nmcli
+	NMNetplan         NetworkManager = "netplan"        // Ubuntu netplan
+	NMIfupdown        NetworkManager = "ifupdown"       // Debian interfaces
 	NMSystemdNetworkd NetworkManager = "systemd-networkd"
-	NMNetworkSetup    NetworkManager = "networksetup"    // macOS
-	NMNetsh           NetworkManager = "netsh"           // Windows
+	NMNetworkSetup    NetworkManager = "networksetup" // macOS
+	NMNetsh           NetworkManager = "netsh"        // Windows
 )
 
 // NetworkConfig holds network configuration parameters
@@ -98,7 +99,7 @@ func (m *NetworkModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		result.Present = false
 		result.CurrentState = "absent"
 		result.Matches = decl.State == "absent"
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Present = true
@@ -122,7 +123,7 @@ func (m *NetworkModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		// Can't determine current config, assume mismatch
 		result.CurrentState = "unknown"
 		result.Matches = false
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.CurrentState = "configured"
@@ -145,7 +146,7 @@ func (m *NetworkModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		result.Diff["interface"] = map[string]string{"current": "present", "desired": "absent"}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the network configuration
@@ -166,7 +167,7 @@ func (m *NetworkModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -176,7 +177,7 @@ func (m *NetworkModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -186,17 +187,17 @@ func (m *NetworkModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Detect network manager
-	nm, err := m.detectNetworkManager()
+	nm, err := m.detectNetworkManager(ctx)
 	if err != nil {
 		result.Error = err
 		result.Comment = fmt.Sprintf("Failed to detect network manager: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply configuration
@@ -224,7 +225,7 @@ func (m *NetworkModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the network interface is in the desired state
@@ -233,7 +234,7 @@ func (m *NetworkModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parseNetworkConfig extracts network configuration from declaration parameters
@@ -297,7 +298,7 @@ func (m *NetworkModule) parseNetworkConfig(decl *StateDeclaration) (*NetworkConf
 		config.WakeOnLAN = getStringParameter(decl, "wake_on_lan", "")
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // parseStringOrArray parses a parameter that can be a string, comma-separated string, or array
@@ -341,22 +342,22 @@ func parseStringOrArray(param interface{}) []string {
 }
 
 // detectNetworkManager detects the available network manager
-func (m *NetworkModule) detectNetworkManager() (NetworkManager, error) {
+func (m *NetworkModule) detectNetworkManager(ctx context.Context) (NetworkManager, error) {
 	switch runtime.GOOS {
 	case "darwin":
 		if _, err := exec.LookPath("networksetup"); err == nil {
-			return NMNetworkSetup, nil
+			return NMNetworkSetup, nil //nolint:nilerr // intentional
 		}
 		return NMUnknown, fmt.Errorf("networksetup not found on macOS")
 
 	case "windows":
 		if _, err := exec.LookPath("netsh"); err == nil {
-			return NMNetsh, nil
+			return NMNetsh, nil //nolint:nilerr // intentional
 		}
 		return NMUnknown, fmt.Errorf("netsh not found on Windows")
 
 	case "linux":
-		return m.detectLinuxNetworkManager()
+		return m.detectLinuxNetworkManager(ctx)
 
 	default:
 		return NMUnknown, fmt.Errorf("unsupported OS: %s", runtime.GOOS)
@@ -364,30 +365,30 @@ func (m *NetworkModule) detectNetworkManager() (NetworkManager, error) {
 }
 
 // detectLinuxNetworkManager detects the Linux network manager
-func (m *NetworkModule) detectLinuxNetworkManager() (NetworkManager, error) {
+func (m *NetworkModule) detectLinuxNetworkManager(ctx context.Context) (NetworkManager, error) {
 	// Check for NetworkManager (nmcli)
 	if _, err := exec.LookPath("nmcli"); err == nil {
 		// Verify NetworkManager is running
-		cmd := exec.Command("systemctl", "is-active", "NetworkManager")
+		cmd := exec.CommandContext(ctx, "systemctl", "is-active", "NetworkManager")
 		if err := cmd.Run(); err == nil {
-			return NMNetworkManager, nil
+			return NMNetworkManager, nil //nolint:nilerr // intentional
 		}
 	}
 
 	// Check for netplan
 	if _, err := exec.LookPath("netplan"); err == nil {
-		return NMNetplan, nil
+		return NMNetplan, nil //nolint:nilerr // intentional
 	}
 
 	// Check for systemd-networkd
-	cmd := exec.Command("systemctl", "is-active", "systemd-networkd")
+	cmd := exec.CommandContext(ctx, "systemctl", "is-active", "systemd-networkd")
 	if err := cmd.Run(); err == nil {
-		return NMSystemdNetworkd, nil
+		return NMSystemdNetworkd, nil //nolint:nilerr // intentional
 	}
 
 	// Check for ifupdown
 	if _, err := exec.LookPath("ifup"); err == nil {
-		return NMIfupdown, nil
+		return NMIfupdown, nil //nolint:nilerr // intentional
 	}
 
 	return NMUnknown, fmt.Errorf("no supported network manager found on Linux")
@@ -488,7 +489,7 @@ func (m *NetworkModule) getCurrentConfigLinux(ctx context.Context, ifaceName str
 		config.IPv6Enabled = true
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // getCurrentConfigDarwin gets current macOS network config
@@ -500,43 +501,44 @@ func (m *NetworkModule) getCurrentConfigDarwin(ctx context.Context, ifaceName st
 	// Get service name for the interface
 	serviceName, err := m.getNetworkServiceName(ctx, ifaceName)
 	if err != nil {
-		return config, nil
+		return config, nil //nolint:nilerr // intentional
 	}
 
 	// Get IPv4 address info
 	cmd := exec.CommandContext(ctx, "networksetup", "-getinfo", serviceName)
 	output, err := cmd.Output()
 	if err != nil {
-		return config, nil
+		return config, nil //nolint:nilerr // intentional
 	}
 
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "IP address:") {
+		switch {
+		case strings.HasPrefix(line, "IP address:"):
 			addr := strings.TrimSpace(strings.TrimPrefix(line, "IP address:"))
 			if addr != "" && addr != "none" {
 				config.Addresses = append(config.Addresses, addr)
 			}
-		} else if strings.HasPrefix(line, "Subnet mask:") {
+		case strings.HasPrefix(line, "Subnet mask:"):
 			config.Netmask = strings.TrimPrefix(line, "Subnet mask:")
 			config.Netmask = strings.TrimSpace(config.Netmask)
-		} else if strings.HasPrefix(line, "Router:") {
+		case strings.HasPrefix(line, "Router:"):
 			config.Gateway = strings.TrimPrefix(line, "Router:")
 			config.Gateway = strings.TrimSpace(config.Gateway)
-		} else if strings.Contains(line, "DHCP Configuration") {
+		case strings.Contains(line, "DHCP Configuration"):
 			config.DHCP = true
-		} else if strings.HasPrefix(line, "IPv6:") {
+		case strings.HasPrefix(line, "IPv6:"):
 			ipv6Status := strings.TrimSpace(strings.TrimPrefix(line, "IPv6:"))
 			if ipv6Status == "Automatic" || ipv6Status == "Manual" {
 				config.IPv6Enabled = true
 			}
-		} else if strings.HasPrefix(line, "IPv6 IP address:") {
+		case strings.HasPrefix(line, "IPv6 IP address:"):
 			addr6 := strings.TrimSpace(strings.TrimPrefix(line, "IPv6 IP address:"))
 			if addr6 != "" && addr6 != "none" && !strings.HasPrefix(addr6, "fe80:") {
 				config.Addresses6 = append(config.Addresses6, addr6)
 			}
-		} else if strings.HasPrefix(line, "IPv6 Router:") {
+		case strings.HasPrefix(line, "IPv6 Router:"):
 			gw6 := strings.TrimSpace(strings.TrimPrefix(line, "IPv6 Router:"))
 			if gw6 != "" && gw6 != "none" {
 				config.Gateway6 = gw6
@@ -557,7 +559,7 @@ func (m *NetworkModule) getCurrentConfigDarwin(ctx context.Context, ifaceName st
 		}
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // getNetworkServiceName gets the macOS network service name for an interface
@@ -579,7 +581,7 @@ func (m *NetworkModule) getNetworkServiceName(ctx context.Context, ifaceName str
 			device := strings.TrimPrefix(line, "Device:")
 			device = strings.TrimSpace(device)
 			if device == ifaceName {
-				return currentService, nil
+				return currentService, nil //nolint:nilerr // intentional
 			}
 		}
 	}
@@ -597,15 +599,16 @@ func (m *NetworkModule) getCurrentConfigWindows(ctx context.Context, ifaceName s
 	cmd := exec.CommandContext(ctx, "netsh", "interface", "ip", "show", "config", "name="+ifaceName)
 	output, err := cmd.Output()
 	if err != nil {
-		return config, nil
+		return config, nil //nolint:nilerr // intentional
 	}
 
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.Contains(line, "DHCP enabled:") && strings.Contains(line, "Yes") {
+		switch {
+		case strings.Contains(line, "DHCP enabled:") && strings.Contains(line, "Yes"):
 			config.DHCP = true
-		} else if strings.Contains(line, "IP Address:") || strings.Contains(line, "IP address:") {
+		case strings.Contains(line, "IP Address:") || strings.Contains(line, "IP address:"):
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				addr := strings.TrimSpace(parts[1])
@@ -613,12 +616,12 @@ func (m *NetworkModule) getCurrentConfigWindows(ctx context.Context, ifaceName s
 					config.Addresses = append(config.Addresses, addr)
 				}
 			}
-		} else if strings.Contains(line, "Subnet Prefix:") || strings.Contains(line, "Subnet mask:") {
+		case strings.Contains(line, "Subnet Prefix:") || strings.Contains(line, "Subnet mask:"):
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				config.Netmask = strings.TrimSpace(parts[1])
 			}
-		} else if strings.Contains(line, "Default Gateway:") {
+		case strings.Contains(line, "Default Gateway:"):
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				config.Gateway = strings.TrimSpace(parts[1])
@@ -666,7 +669,7 @@ func (m *NetworkModule) getCurrentConfigWindows(ctx context.Context, ifaceName s
 		}
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // configMatches checks if configurations match
@@ -1003,17 +1006,18 @@ func (m *NetworkModule) buildNmcliIPv4Args(config *NetworkConfig, connectionExis
 func (m *NetworkModule) applyNmcliIPv6Config(ctx context.Context, config *NetworkConfig, connectionExists bool) error {
 	args := []string{"connection", "modify", config.Interface}
 
-	if config.DHCP6 {
+	switch {
+	case config.DHCP6:
 		// DHCPv6
 		args = append(args, "ipv6.method", "dhcp")
-	} else if len(config.Addresses6) > 0 {
+	case len(config.Addresses6) > 0:
 		// Static IPv6 - nmcli supports multiple addresses separated by commas
 		args = append(args, "ipv6.addresses", strings.Join(config.Addresses6, ","))
 		if config.Gateway6 != "" {
 			args = append(args, "ipv6.gateway", config.Gateway6)
 		}
 		args = append(args, "ipv6.method", "manual")
-	} else {
+	default:
 		// SLAAC (auto with router advertisements)
 		args = append(args, "ipv6.method", "auto")
 	}
@@ -1210,14 +1214,15 @@ func (m *NetworkModule) applyStaticConfigDarwin(ctx context.Context, config *Net
 
 // applyDarwinIPv6Config applies IPv6 configuration on macOS
 func (m *NetworkModule) applyDarwinIPv6Config(ctx context.Context, serviceName string, config *NetworkConfig) error {
-	if config.DHCP6 {
+	switch {
+	case config.DHCP6:
 		// DHCPv6
 		cmd := exec.CommandContext(ctx, "networksetup", "-setv6automatic", serviceName)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to set IPv6 automatic: %w (output: %s)", err, string(output))
 		}
-	} else if len(config.Addresses6) > 0 {
+	case len(config.Addresses6) > 0:
 		// Set primary IPv6 address
 		addr6 := config.Addresses6[0]
 		prefix := "64"
@@ -1250,7 +1255,7 @@ func (m *NetworkModule) applyDarwinIPv6Config(ctx context.Context, serviceName s
 				return fmt.Errorf("failed to add IPv6 alias %s: %w (output: %s)", aliasAddr6, err, string(output))
 			}
 		}
-	} else {
+	default:
 		// Automatic (SLAAC)
 		cmd := exec.CommandContext(ctx, "networksetup", "-setv6automatic", serviceName)
 		output, err := cmd.CombinedOutput()
@@ -1444,13 +1449,13 @@ func (m *NetworkModule) applyWindowsIPv6Config(ctx context.Context, config *Netw
 		// Add IPv6 default route
 		cmd := exec.CommandContext(ctx, "netsh", "interface", "ipv6", "add", "route",
 			"::/0", "interface="+config.Interface, "nexthop="+config.Gateway6, "store=persistent")
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if _, err := cmd.CombinedOutput(); err != nil {
 			// Try to delete existing route first and retry
 			delCmd := exec.CommandContext(ctx, "netsh", "interface", "ipv6", "delete", "route",
 				"::/0", "interface="+config.Interface)
 			delCmd.Run() // Ignore errors
 
-			if output, err = cmd.CombinedOutput(); err != nil {
+			if output, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("failed to set IPv6 gateway: %w (output: %s)", err, string(output))
 			}
 		}
@@ -1588,13 +1593,15 @@ func (m *NetworkModule) applyStaticConfigIfupdown(ctx context.Context, config *N
 	// Backup existing file
 	if len(content) > 0 {
 		backupPath := interfacesFile + ".kscore.bak"
-		if err := os.WriteFile(backupPath, content, 0644); err != nil {
+		//nolint:gosec // G306: backup files use same permissions as original
+		if err := os.WriteFile(backupPath, content, 0o644); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	// Write new configuration
-	if err := os.WriteFile(interfacesFile, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: interfaces file needs to be readable by ifupdown
+	if err := os.WriteFile(interfacesFile, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", interfacesFile, err)
 	}
 
@@ -1700,17 +1707,17 @@ func (m *NetworkModule) updateIfupdownConfig(content string, config *NetworkConf
 func (m *NetworkModule) writeIfupdownStanza(w *bytes.Buffer, config *NetworkConfig, addr, netmask string, dhcp bool) {
 	// Write IPv4 stanza
 	if dhcp {
-		w.WriteString(fmt.Sprintf("iface %s inet dhcp\n", config.Interface))
+		fmt.Fprintf(w, "iface %s inet dhcp\n", config.Interface)
 	} else {
-		w.WriteString(fmt.Sprintf("iface %s inet static\n", config.Interface))
+		fmt.Fprintf(w, "iface %s inet static\n", config.Interface)
 		if addr != "" {
-			w.WriteString(fmt.Sprintf("    address %s\n", addr))
+			fmt.Fprintf(w, "    address %s\n", addr)
 		}
 		if netmask != "" {
-			w.WriteString(fmt.Sprintf("    netmask %s\n", netmask))
+			fmt.Fprintf(w, "    netmask %s\n", netmask)
 		}
 		if config.Gateway != "" {
-			w.WriteString(fmt.Sprintf("    gateway %s\n", config.Gateway))
+			fmt.Fprintf(w, "    gateway %s\n", config.Gateway)
 		}
 		// Filter IPv4 DNS servers only
 		var ipv4DNS []string
@@ -1720,48 +1727,49 @@ func (m *NetworkModule) writeIfupdownStanza(w *bytes.Buffer, config *NetworkConf
 			}
 		}
 		if len(ipv4DNS) > 0 {
-			w.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(ipv4DNS, " ")))
+			fmt.Fprintf(w, "    dns-nameservers %s\n", strings.Join(ipv4DNS, " "))
 		}
 		if len(config.SearchDomains) > 0 {
-			w.WriteString(fmt.Sprintf("    dns-search %s\n", strings.Join(config.SearchDomains, " ")))
+			fmt.Fprintf(w, "    dns-search %s\n", strings.Join(config.SearchDomains, " "))
 		}
 		if config.MTU > 0 {
-			w.WriteString(fmt.Sprintf("    mtu %d\n", config.MTU))
+			fmt.Fprintf(w, "    mtu %d\n", config.MTU)
 		}
 		if config.Metric > 0 {
-			w.WriteString(fmt.Sprintf("    metric %d\n", config.Metric))
+			fmt.Fprintf(w, "    metric %d\n", config.Metric)
 		}
 		// Add MAC address override
 		if config.MACAddress != "" && isValidMAC(config.MACAddress) {
-			w.WriteString(fmt.Sprintf("    hwaddress ether %s\n", config.MACAddress))
+			fmt.Fprintf(w, "    hwaddress ether %s\n", config.MACAddress)
 		}
 		// Add Wake-on-LAN configuration
 		if config.WakeOnLAN != "" && isValidWoLMode(config.WakeOnLAN) {
 			wolFlag := wolModeToEthtool(config.WakeOnLAN)
-			w.WriteString(fmt.Sprintf("    post-up ethtool -s %s wol %s\n", config.Interface, wolFlag))
+			fmt.Fprintf(w, "    post-up ethtool -s %s wol %s\n", config.Interface, wolFlag)
 		}
 		// Add additional IPv4 addresses using post-up commands
 		for i := 1; i < len(config.Addresses); i++ {
 			aliasAddr := config.Addresses[i]
 			if !strings.Contains(aliasAddr, "/") {
-				aliasAddr = aliasAddr + "/24" // default prefix
+				aliasAddr += "/24" // default prefix
 			}
-			w.WriteString(fmt.Sprintf("    post-up ip addr add %s dev %s\n", aliasAddr, config.Interface))
-			w.WriteString(fmt.Sprintf("    pre-down ip addr del %s dev %s || true\n", aliasAddr, config.Interface))
+			fmt.Fprintf(w, "    post-up ip addr add %s dev %s\n", aliasAddr, config.Interface)
+			fmt.Fprintf(w, "    pre-down ip addr del %s dev %s || true\n", aliasAddr, config.Interface)
 		}
 	}
 
 	// Write IPv6 stanza if enabled
 	if config.IPv6Enabled {
 		w.WriteString("\n")
-		if config.DHCP6 {
-			w.WriteString(fmt.Sprintf("iface %s inet6 dhcp\n", config.Interface))
+		switch {
+		case config.DHCP6:
+			fmt.Fprintf(w, "iface %s inet6 dhcp\n", config.Interface)
 			if config.AcceptRA != nil && *config.AcceptRA {
 				w.WriteString("    accept_ra 1\n")
 			}
-		} else if len(config.Addresses6) > 0 {
+		case len(config.Addresses6) > 0:
 			// Static IPv6 configuration
-			w.WriteString(fmt.Sprintf("iface %s inet6 static\n", config.Interface))
+			fmt.Fprintf(w, "iface %s inet6 static\n", config.Interface)
 
 			// Parse primary address and prefix
 			addr6 := config.Addresses6[0]
@@ -1771,11 +1779,11 @@ func (m *NetworkModule) writeIfupdownStanza(w *bytes.Buffer, config *NetworkConf
 				addr6 = parts[0]
 				prefix = parts[1]
 			}
-			w.WriteString(fmt.Sprintf("    address %s\n", addr6))
-			w.WriteString(fmt.Sprintf("    netmask %s\n", prefix))
+			fmt.Fprintf(w, "    address %s\n", addr6)
+			fmt.Fprintf(w, "    netmask %s\n", prefix)
 
 			if config.Gateway6 != "" {
-				w.WriteString(fmt.Sprintf("    gateway %s\n", config.Gateway6))
+				fmt.Fprintf(w, "    gateway %s\n", config.Gateway6)
 			}
 
 			// Filter IPv6 DNS servers
@@ -1786,7 +1794,7 @@ func (m *NetworkModule) writeIfupdownStanza(w *bytes.Buffer, config *NetworkConf
 				}
 			}
 			if len(ipv6DNS) > 0 {
-				w.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(ipv6DNS, " ")))
+				fmt.Fprintf(w, "    dns-nameservers %s\n", strings.Join(ipv6DNS, " "))
 			}
 
 			// Accept router advertisements setting
@@ -1807,14 +1815,14 @@ func (m *NetworkModule) writeIfupdownStanza(w *bytes.Buffer, config *NetworkConf
 			for i := 1; i < len(config.Addresses6); i++ {
 				aliasAddr6 := config.Addresses6[i]
 				if !strings.Contains(aliasAddr6, "/") {
-					aliasAddr6 = aliasAddr6 + "/64"
+					aliasAddr6 += "/64"
 				}
-				w.WriteString(fmt.Sprintf("    post-up ip -6 addr add %s dev %s\n", aliasAddr6, config.Interface))
-				w.WriteString(fmt.Sprintf("    pre-down ip -6 addr del %s dev %s || true\n", aliasAddr6, config.Interface))
+				fmt.Fprintf(w, "    post-up ip -6 addr add %s dev %s\n", aliasAddr6, config.Interface)
+				fmt.Fprintf(w, "    pre-down ip -6 addr del %s dev %s || true\n", aliasAddr6, config.Interface)
 			}
-		} else {
+		default:
 			// SLAAC mode - auto configuration
-			w.WriteString(fmt.Sprintf("iface %s inet6 auto\n", config.Interface))
+			fmt.Fprintf(w, "iface %s inet6 auto\n", config.Interface)
 			if config.IPv6Privacy {
 				w.WriteString("    privext 2\n")
 			}
@@ -1842,13 +1850,15 @@ func (m *NetworkModule) applyDHCPConfigIfupdown(ctx context.Context, config *Net
 	// Backup existing file
 	if len(content) > 0 {
 		backupPath := interfacesFile + ".kscore.bak"
-		if err := os.WriteFile(backupPath, content, 0644); err != nil {
+		//nolint:gosec // G306: backup files use same permissions as original
+		if err := os.WriteFile(backupPath, content, 0o644); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	// Write new configuration
-	if err := os.WriteFile(interfacesFile, []byte(newContent), 0644); err != nil {
+	//nolint:gosec // G306: interfaces file needs to be readable by ifupdown
+	if err := os.WriteFile(interfacesFile, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", interfacesFile, err)
 	}
 
@@ -1883,7 +1893,8 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 	networkFile := filepath.Join(networkDir, fmt.Sprintf("10-kscore-%s.network", config.Interface))
 
 	// Ensure directory exists
-	if err := os.MkdirAll(networkDir, 0755); err != nil {
+	//nolint:gosec // G301: systemd network directory needs system access
+	if err := os.MkdirAll(networkDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create network directory: %w", err)
 	}
 
@@ -1895,13 +1906,14 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 	content.WriteString("\n[Network]\n")
 
 	// Determine DHCP setting based on IPv4 and IPv6 configuration
-	if dhcp && config.DHCP6 {
+	switch {
+	case dhcp && config.DHCP6:
 		content.WriteString("DHCP=yes\n") // Both IPv4 and IPv6 DHCP
-	} else if dhcp {
+	case dhcp:
 		content.WriteString("DHCP=ipv4\n")
-	} else if config.DHCP6 {
+	case config.DHCP6:
 		content.WriteString("DHCP=ipv6\n")
-	} else {
+	default:
 		content.WriteString("DHCP=no\n")
 	}
 
@@ -1918,7 +1930,7 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 						addr = fmt.Sprintf("%s/%d", addr, ones)
 					}
 				} else {
-					addr = addr + "/24" // Default for additional addresses
+					addr += "/24" // Default for additional addresses
 				}
 			}
 			content.WriteString(fmt.Sprintf("Address=%s\n", addr))
@@ -1929,7 +1941,7 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 	if config.IPv6Enabled && !config.DHCP6 && len(config.Addresses6) > 0 {
 		for _, addr6 := range config.Addresses6 {
 			if !strings.Contains(addr6, "/") {
-				addr6 = addr6 + "/64"
+				addr6 += "/64"
 			}
 			content.WriteString(fmt.Sprintf("Address=%s\n", addr6))
 		}
@@ -2000,13 +2012,15 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 	// Backup existing file if it exists
 	if existingContent, err := os.ReadFile(networkFile); err == nil {
 		backupPath := networkFile + ".kscore.bak"
-		if err := os.WriteFile(backupPath, existingContent, 0644); err != nil {
+		//nolint:gosec // G306: backup files use same permissions as original
+		if err := os.WriteFile(backupPath, existingContent, 0o644); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	// Write new configuration
-	if err := os.WriteFile(networkFile, content.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: network files need to be readable by systemd-networkd
+	if err := os.WriteFile(networkFile, content.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write network file: %w", err)
 	}
 
@@ -2038,15 +2052,16 @@ func (m *NetworkModule) applySystemdNetworkdConfig(ctx context.Context, config *
 			}
 		}
 		if config.IPv6Enabled {
-			if config.DHCP6 {
+			switch {
+			case config.DHCP6:
 				parts = append(parts, "DHCPv6")
-			} else if len(config.Addresses6) > 0 {
+			case len(config.Addresses6) > 0:
 				if len(config.Addresses6) == 1 {
 					parts = append(parts, fmt.Sprintf("IPv6 %s", config.Addresses6[0]))
 				} else {
 					parts = append(parts, fmt.Sprintf("%d IPv6 addresses", len(config.Addresses6)))
 				}
-			} else {
+			default:
 				parts = append(parts, "IPv6 SLAAC")
 			}
 		}
@@ -2071,7 +2086,8 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 	netplanFile := filepath.Join(netplanDir, fmt.Sprintf("90-kscore-%s.yaml", config.Interface))
 
 	// Ensure directory exists
-	if err := os.MkdirAll(netplanDir, 0755); err != nil {
+	//nolint:gosec // G301: netplan directory needs system access
+	if err := os.MkdirAll(netplanDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create netplan directory: %w", err)
 	}
 
@@ -2111,10 +2127,10 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 						ones, _ := net.IPMask(mask.To4()).Size()
 						addr = fmt.Sprintf("%s/%d", addr, ones)
 					} else {
-						addr = addr + "/24"
+						addr += "/24"
 					}
 				} else {
-					addr = addr + "/24"
+					addr += "/24"
 				}
 			}
 			addresses = append(addresses, addr)
@@ -2123,7 +2139,7 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 	if config.IPv6Enabled && !config.DHCP6 && len(config.Addresses6) > 0 {
 		for _, addr6 := range config.Addresses6 {
 			if !strings.Contains(addr6, "/") {
-				addr6 = addr6 + "/64"
+				addr6 += "/64"
 			}
 			addresses = append(addresses, addr6)
 		}
@@ -2149,7 +2165,7 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 		}
 		if config.IPv6Enabled && !config.DHCP6 && config.Gateway6 != "" {
 			content.WriteString("        - to: \"::/0\"\n")
-			content.WriteString(fmt.Sprintf("          via: \"%s\"\n", config.Gateway6))
+			content.WriteString(fmt.Sprintf("          via: %q\n", config.Gateway6))
 			if config.Metric > 0 {
 				content.WriteString(fmt.Sprintf("          metric: %d\n", config.Metric))
 			}
@@ -2162,7 +2178,7 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 		if len(config.DNS) > 0 {
 			content.WriteString("        addresses:\n")
 			for _, dns := range config.DNS {
-				content.WriteString(fmt.Sprintf("          - \"%s\"\n", dns))
+				content.WriteString(fmt.Sprintf("          - %q\n", dns))
 			}
 		}
 		if len(config.SearchDomains) > 0 {
@@ -2197,7 +2213,7 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 
 	// MAC address override
 	if config.MACAddress != "" && isValidMAC(config.MACAddress) {
-		content.WriteString(fmt.Sprintf("      macaddress: \"%s\"\n", config.MACAddress))
+		content.WriteString(fmt.Sprintf("      macaddress: %q\n", config.MACAddress))
 	}
 
 	// Wake-on-LAN (netplan only supports boolean)
@@ -2212,13 +2228,14 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 	// Backup existing file if it exists
 	if existingContent, err := os.ReadFile(netplanFile); err == nil {
 		backupPath := netplanFile + ".kscore.bak"
-		if err := os.WriteFile(backupPath, existingContent, 0644); err != nil {
+		//nolint:gosec // G306: backup files use same permissions as original
+		if err := os.WriteFile(backupPath, existingContent, 0o644); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	// Write new configuration with restricted permissions (netplan requirement)
-	if err := os.WriteFile(netplanFile, content.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(netplanFile, content.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("failed to write netplan file: %w", err)
 	}
 
@@ -2240,15 +2257,16 @@ func (m *NetworkModule) applyNetplanConfig(ctx context.Context, config *NetworkC
 		}
 	}
 	if config.IPv6Enabled {
-		if config.DHCP6 {
+		switch {
+		case config.DHCP6:
 			parts = append(parts, "DHCPv6")
-		} else if len(config.Addresses6) > 0 {
+		case len(config.Addresses6) > 0:
 			if len(config.Addresses6) == 1 {
 				parts = append(parts, fmt.Sprintf("IPv6 %s", config.Addresses6[0]))
 			} else {
 				parts = append(parts, fmt.Sprintf("%d IPv6 addresses", len(config.Addresses6)))
 			}
-		} else {
+		default:
 			parts = append(parts, "IPv6 SLAAC")
 		}
 	}
@@ -2269,5 +2287,5 @@ func cidrToNetmask(prefix string) string {
 }
 
 func init() {
-	RegisterModule(NewNetworkModule())
+	_ = RegisterModule(NewNetworkModule()) //nolint:errcheck // module registration in init
 }

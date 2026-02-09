@@ -17,7 +17,7 @@ type Runbook struct {
 	APIVersion string      `yaml:"apiVersion" json:"apiVersion"`
 	Kind       string      `yaml:"kind" json:"kind"`
 	Metadata   Metadata    `yaml:"metadata" json:"metadata"`
-	Spec       RunbookSpec `yaml:"spec" json:"spec"`
+	Spec       Spec `yaml:"spec" json:"spec"`
 }
 
 // Metadata contains runbook identification and annotation information.
@@ -30,8 +30,8 @@ type Metadata struct {
 	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// RunbookSpec defines the runbook's behavior and structure.
-type RunbookSpec struct {
+// Spec defines the runbook's behavior and structure.
+type Spec struct {
 	// Description provides a human-readable summary of the runbook's purpose.
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 

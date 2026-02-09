@@ -31,7 +31,7 @@ func New(ctx context.Context, natsURL string, program *tea.Program) (*Subscriber
 	// Connect to NATS
 	nc, err := nats.Connect(natsURL,
 		nats.Name("kscore-monitor"),
-		nats.MaxReconnects(-1),  // Infinite reconnects
+		nats.MaxReconnects(-1),   // Infinite reconnects
 		nats.ReconnectWait(1000), // 1 second between reconnects
 	)
 	if err != nil {

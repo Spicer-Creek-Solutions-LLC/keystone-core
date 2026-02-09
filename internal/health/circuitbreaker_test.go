@@ -91,7 +91,7 @@ func TestCircuitBreakerOpenState(t *testing.T) {
 
 	// Requests should be rejected
 	err := cb.Allow()
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("Expected ErrCircuitOpen, got %v", err)
 	}
 }
@@ -244,7 +244,7 @@ func TestCircuitBreakerExecuteFailure(t *testing.T) {
 	}
 
 	err := cb.Execute(ctx, fn)
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Errorf("Expected error %v, got %v", testErr, err)
 	}
 

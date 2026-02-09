@@ -73,12 +73,14 @@ const (
 // Protocol identifies the protocol being debugged
 type Protocol string
 
+// ProtocolSSH and related constants.
 const (
 	ProtocolSSH    Protocol = "ssh"
 	ProtocolSNMP   Protocol = "snmp"
 	ProtocolREST   Protocol = "rest"
 	ProtocolWinRM  Protocol = "winrm"
 	ProtocolTelnet Protocol = "telnet"
+	ProtocolGNMI   Protocol = "gnmi"
 	ProtocolAPI    Protocol = "api"
 )
 
@@ -130,6 +132,7 @@ type Event struct {
 // EventType categorizes debug events
 type EventType string
 
+// EventTypeConnect constants define the supported types.
 const (
 	EventTypeConnect      EventType = "connect"
 	EventTypeDisconnect   EventType = "disconnect"
@@ -164,6 +167,7 @@ type Logger struct {
 // Format specifies the output format
 type Format string
 
+// FormatText constants define the output formats.
 const (
 	FormatText Format = "text"
 	FormatJSON Format = "json"
@@ -179,6 +183,7 @@ type Option func(*Logger)
 // WithLevel sets the debug level
 func WithLevel(level Level) Option {
 	return func(l *Logger) {
+		//nolint:gosec // G115: Level is a small enum (0-3), fits in int32
 		l.level.Store(int32(level))
 	}
 }
@@ -205,9 +210,9 @@ func WithRedactor(r *Redactor) Option {
 }
 
 // WithMaxEvents sets the maximum events to retain
-func WithMaxEvents(max int) Option {
+func WithMaxEvents(maxVal int) Option {
 	return func(l *Logger) {
-		l.maxEvents = max
+		l.maxEvents = maxVal
 	}
 }
 
@@ -263,6 +268,7 @@ func (l *Logger) Level() Level {
 
 // SetLevel sets the debug level
 func (l *Logger) SetLevel(level Level) {
+	//nolint:gosec // G115: Level is a small enum (0-3), fits in int32
 	l.level.Store(int32(level))
 }
 
@@ -354,9 +360,10 @@ func (l *Logger) formatText(event *Event) string {
 	sb.WriteString(fmt.Sprintf("[%s:%s] ", event.Protocol, event.DeviceID))
 
 	// Direction arrow
-	if event.Direction == DirectionSend {
+	switch event.Direction {
+	case DirectionSend:
 		sb.WriteString(">>> ")
-	} else if event.Direction == DirectionRecv {
+	case DirectionRecv:
 		sb.WriteString("<<< ")
 	}
 
@@ -577,7 +584,7 @@ func (l *Logger) Info(message string) {
 
 // Trace logs raw protocol data at trace level
 func (l *Logger) Trace(direction Direction, data []byte) {
-	msg := "Protocol data"
+	var msg string
 	if direction == DirectionSend {
 		msg = "Sending raw data"
 	} else {
@@ -626,14 +633,14 @@ func NewRedactor() *Redactor {
 	r := &Redactor{}
 
 	// Add default sensitive patterns
-	r.AddPattern(`(?i)password\s*[:=]\s*\S+`, "password=***REDACTED***", "passwords")
-	r.AddPattern(`(?i)secret\s*[:=]\s*\S+`, "secret=***REDACTED***", "secrets")
-	r.AddPattern(`(?i)token\s*[:=]\s*\S+`, "token=***REDACTED***", "tokens")
-	r.AddPattern(`(?i)api[_-]?key\s*[:=]\s*\S+`, "api_key=***REDACTED***", "API keys")
-	r.AddPattern(`(?i)authorization:\s*\S+`, "Authorization: ***REDACTED***", "auth headers")
-	r.AddPattern(`(?i)bearer\s+\S+`, "Bearer ***REDACTED***", "bearer tokens")
-	r.AddPattern(`(?i)private[_-]?key`, "***PRIVATE_KEY***", "private keys")
-	r.AddPattern(`(?i)community\s*[:=]\s*\S+`, "community=***REDACTED***", "SNMP community")
+	_ = r.AddPattern(`(?i)password\s*[:=]\s*\S+`, "password=***REDACTED***", "passwords")           //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)secret\s*[:=]\s*\S+`, "secret=***REDACTED***", "secrets")                 //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)token\s*[:=]\s*\S+`, "token=***REDACTED***", "tokens")                    //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)api[_-]?key\s*[:=]\s*\S+`, "api_key=***REDACTED***", "API keys")          //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)authorization:\s*\S+`, "Authorization: ***REDACTED***", "auth headers")  //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)bearer\s+\S+`, "Bearer ***REDACTED***", "bearer tokens")                  //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)private[_-]?key`, "***PRIVATE_KEY***", "private keys")                    //nolint:errcheck // valid regex patterns
+	_ = r.AddPattern(`(?i)community\s*[:=]\s*\S+`, "community=***REDACTED***", "SNMP community")    //nolint:errcheck // valid regex patterns
 
 	return r
 }
@@ -790,6 +797,8 @@ func (s *SessionLogger) Summary() *SessionSummary {
 			summary.BytesSent += e.DataLen
 		case EventTypeReceive:
 			summary.BytesReceived += e.DataLen
+		default:
+			// Other event types not counted in summary
 		}
 	}
 

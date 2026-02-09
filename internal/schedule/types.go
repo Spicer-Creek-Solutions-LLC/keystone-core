@@ -6,42 +6,41 @@ import (
 	"time"
 )
 
-
-// ScheduleType identifies the type of scheduled operation.
-type ScheduleType string
+// Type identifies the type of scheduled operation.
+type Type string
 
 const (
-	// ScheduleTypeCommand executes a remote command on targeted agents.
-	ScheduleTypeCommand ScheduleType = "command"
+	// TypeCommand executes a remote command on targeted agents.
+	TypeCommand Type = "command"
 
-	// ScheduleTypeState applies a state declaration.
-	ScheduleTypeState ScheduleType = "state"
+	// TypeState applies a state declaration.
+	TypeState Type = "state"
 
-	// ScheduleTypeBlueprint applies a blueprint.
-	ScheduleTypeBlueprint ScheduleType = "blueprint"
+	// TypeBlueprint applies a blueprint.
+	TypeBlueprint Type = "blueprint"
 
-	// ScheduleTypeReactor triggers a reactor action.
-	ScheduleTypeReactor ScheduleType = "reactor"
+	// TypeReactor triggers a reactor action.
+	TypeReactor Type = "reactor"
 
-	// ScheduleTypeCustom executes a custom handler.
-	ScheduleTypeCustom ScheduleType = "custom"
+	// TypeCustom executes a custom handler.
+	TypeCustom Type = "custom"
 )
 
-// ScheduleStatus represents the status of a schedule.
-type ScheduleStatus string
+// Status represents the status of a schedule.
+type Status string
 
 const (
-	// ScheduleStatusActive indicates the schedule is active and will run.
-	ScheduleStatusActive ScheduleStatus = "active"
+	// StatusActive indicates the schedule is active and will run.
+	StatusActive Status = "active"
 
-	// ScheduleStatusPaused indicates the schedule is temporarily paused.
-	ScheduleStatusPaused ScheduleStatus = "paused"
+	// StatusPaused indicates the schedule is temporarily paused.
+	StatusPaused Status = "paused"
 
-	// ScheduleStatusDisabled indicates the schedule is disabled.
-	ScheduleStatusDisabled ScheduleStatus = "disabled"
+	// StatusDisabled indicates the schedule is disabled.
+	StatusDisabled Status = "disabled"
 
-	// ScheduleStatusExpired indicates the schedule has passed its end date.
-	ScheduleStatusExpired ScheduleStatus = "expired"
+	// StatusExpired indicates the schedule has passed its end date.
+	StatusExpired Status = "expired"
 )
 
 // Schedule defines a scheduled operation.
@@ -56,7 +55,7 @@ type Schedule struct {
 	Description string `json:"description,omitempty"`
 
 	// Type is the operation type.
-	Type ScheduleType `json:"type"`
+	Type Type `json:"type"`
 
 	// Cron is the cron expression (5 or 6 fields).
 	// If empty, uses Interval for frequency-based scheduling.
@@ -72,13 +71,13 @@ type Schedule struct {
 	Window *TimeWindow `json:"window,omitempty"`
 
 	// Target defines which agents to target.
-	Target *ScheduleTarget `json:"target"`
+	Target *Target `json:"target"`
 
 	// Payload contains operation-specific data.
 	Payload json.RawMessage `json:"payload,omitempty"`
 
 	// Status is the current schedule status.
-	Status ScheduleStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// Priority determines execution order (higher = more important).
 	Priority int `json:"priority"`
@@ -161,8 +160,8 @@ type TimeWindow struct {
 	IncludeOnlyDates []string `json:"include_only_dates,omitempty"`
 }
 
-// ScheduleTarget defines which agents to target.
-type ScheduleTarget struct {
+// Target defines which agents to target.
+type Target struct {
 	// AgentIDs targets specific agents.
 	AgentIDs []string `json:"agent_ids,omitempty"`
 
@@ -261,8 +260,8 @@ const (
 	TriggerTypeMaintenance TriggerType = "maintenance"
 )
 
-// ScheduleExecution represents a single execution of a schedule.
-type ScheduleExecution struct {
+// Execution represents a single execution of a schedule.
+type Execution struct {
 	// ID is the unique execution identifier.
 	ID string `json:"id"`
 
@@ -372,13 +371,13 @@ type AgentExecutionResult struct {
 	Changes map[string]interface{} `json:"changes,omitempty"`
 }
 
-// ScheduleFilter filters schedules for listing.
-type ScheduleFilter struct {
+// Filter filters schedules for listing.
+type Filter struct {
 	// Status filters by schedule status.
-	Status []ScheduleStatus `json:"status,omitempty"`
+	Status []Status `json:"status,omitempty"`
 
 	// Type filters by schedule type.
-	Type []ScheduleType `json:"type,omitempty"`
+	Type []Type `json:"type,omitempty"`
 
 	// Labels filters by labels (all must match).
 	Labels map[string]string `json:"labels,omitempty"`
@@ -429,8 +428,8 @@ type ExecutionFilter struct {
 	Offset int `json:"offset,omitempty"`
 }
 
-// ScheduleStats holds schedule statistics.
-type ScheduleStats struct {
+// Stats holds schedule statistics.
+type Stats struct {
 	// TotalSchedules is the total number of schedules.
 	TotalSchedules int `json:"total_schedules"`
 
@@ -444,10 +443,10 @@ type ScheduleStats struct {
 	DisabledSchedules int `json:"disabled_schedules"`
 
 	// ByType shows count by schedule type.
-	ByType map[ScheduleType]int `json:"by_type"`
+	ByType map[Type]int `json:"by_type"`
 
 	// ByStatus shows count by status.
-	ByStatus map[ScheduleStatus]int `json:"by_status"`
+	ByStatus map[Status]int `json:"by_status"`
 
 	// TotalExecutions is the total execution count.
 	TotalExecutions int64 `json:"total_executions"`
@@ -524,4 +523,3 @@ type ReactorPayload struct {
 	// EventData is the event data to pass.
 	EventData map[string]interface{} `json:"event_data,omitempty"`
 }
-

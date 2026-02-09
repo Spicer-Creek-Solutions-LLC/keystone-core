@@ -10,20 +10,20 @@ import (
 // Spec: https://github.com/cloudevents/spec/blob/v1.0/spec.md
 type CloudEvent struct {
 	// REQUIRED attributes
-	ID              string    `json:"id"`
-	Source          string    `json:"source"`
-	SpecVersion     string    `json:"specversion"`
-	Type            string    `json:"type"`
+	ID          string `json:"id"`
+	Source      string `json:"source"`
+	SpecVersion string `json:"specversion"`
+	Type        string `json:"type"`
 
 	// OPTIONAL attributes
-	DataContentType string                 `json:"datacontenttype,omitempty"`
-	DataSchema      string                 `json:"dataschema,omitempty"`
-	Subject         string                 `json:"subject,omitempty"`
-	Time            *time.Time             `json:"time,omitempty"`
-	Data            interface{}            `json:"data,omitempty"`
+	DataContentType string      `json:"datacontenttype,omitempty"`
+	DataSchema      string      `json:"dataschema,omitempty"`
+	Subject         string      `json:"subject,omitempty"`
+	Time            *time.Time  `json:"time,omitempty"`
+	Data            interface{} `json:"data,omitempty"`
 
 	// Extension attributes (custom fields)
-	Extensions      map[string]interface{} `json:"-"`
+	Extensions map[string]interface{} `json:"-"`
 }
 
 // MarshalJSON implements custom JSON marshaling to include extensions
@@ -212,6 +212,7 @@ func (p *CloudEventPublisher) SetFormatter(formatter func(*Event) (*CloudEvent, 
 	p.formatter = formatter
 }
 
+// Publish publishes an event.
 func (p *CloudEventPublisher) Publish(event *Event) error {
 	_, err := p.formatter(event)
 	if err != nil {
@@ -223,6 +224,7 @@ func (p *CloudEventPublisher) Publish(event *Event) error {
 	return p.publisher.Publish(event)
 }
 
+// PublishAsync publishes an event asynchronously.
 func (p *CloudEventPublisher) PublishAsync(event *Event) error {
 	_, err := p.formatter(event)
 	if err != nil {
@@ -233,6 +235,7 @@ func (p *CloudEventPublisher) PublishAsync(event *Event) error {
 	return p.publisher.PublishAsync(event)
 }
 
+// Close closes the resource and releases any associated resources.
 func (p *CloudEventPublisher) Close() error {
 	return p.publisher.Close()
 }
@@ -269,7 +272,7 @@ func (s *CloudEventSubscriber) Subscribe(subject string, handler EventHandler) (
 }
 
 // SubscribeQueue subscribes to events with a queue group
-func (s *CloudEventSubscriber) SubscribeQueue(subject string, queue string, handler EventHandler) (*Subscription, error) {
+func (s *CloudEventSubscriber) SubscribeQueue(subject, queue string, handler EventHandler) (*Subscription, error) {
 	wrappedHandler := func(event *Event) error {
 		return handler(event)
 	}
@@ -277,6 +280,7 @@ func (s *CloudEventSubscriber) SubscribeQueue(subject string, queue string, hand
 	return s.subscriber.SubscribeQueue(subject, queue, wrappedHandler)
 }
 
+// Close closes the resource and releases any associated resources.
 func (s *CloudEventSubscriber) Close() error {
 	return s.subscriber.Close()
 }

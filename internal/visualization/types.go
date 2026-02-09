@@ -17,11 +17,12 @@ import (
 // AgentStatus represents the status of an agent
 type AgentStatus string
 
+// AgentStatus constants define the possible statuses.
 const (
-	AgentStatusHealthy   AgentStatus = "healthy"
-	AgentStatusDegraded  AgentStatus = "degraded"
-	AgentStatusOffline   AgentStatus = "offline"
-	AgentStatusUnknown   AgentStatus = "unknown"
+	AgentStatusHealthy  AgentStatus = "healthy"
+	AgentStatusDegraded AgentStatus = "degraded"
+	AgentStatusOffline  AgentStatus = "offline"
+	AgentStatusUnknown  AgentStatus = "unknown"
 )
 
 // Agent represents an agent in the visualization
@@ -171,8 +172,8 @@ type FilterOptions struct {
 	Tags []string `json:"tags,omitempty"`
 }
 
-// VisualizationConfig configures the visualization server
-type VisualizationConfig struct {
+// Config configures the visualization server
+type Config struct {
 	// ListenAddr is the address to listen on
 	ListenAddr string
 
@@ -184,8 +185,8 @@ type VisualizationConfig struct {
 }
 
 // DefaultConfig returns a default visualization configuration
-func DefaultConfig() *VisualizationConfig {
-	return &VisualizationConfig{
+func DefaultConfig() *Config {
+	return &Config{
 		ListenAddr:      "localhost:8080",
 		EnableWebSocket: true,
 		UpdateInterval:  5 * time.Second,

@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,7 +45,7 @@ func TestNginxSiteModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -65,7 +66,7 @@ func TestNginxSiteModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_site module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -86,11 +87,12 @@ func TestNginxSiteModule_GetPaths(t *testing.T) {
 	}
 
 	// Check platform-specific paths
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		if paths.configDir != "/usr/local/etc/nginx" {
 			t.Errorf("unexpected macOS configDir: %s", paths.configDir)
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		if paths.configDir != "/etc/nginx" {
 			t.Errorf("unexpected Linux configDir: %s", paths.configDir)
 		}
@@ -165,7 +167,7 @@ func TestNginxConfigModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -187,7 +189,7 @@ func TestNginxConfigModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_config module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -224,7 +226,7 @@ func TestApacheSiteModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -245,7 +247,7 @@ func TestApacheSiteModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "apache_site module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -272,11 +274,12 @@ func TestApacheSiteModule_GetPaths(t *testing.T) {
 	}
 
 	// Check platform-specific paths
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		if paths.configDir != "/usr/local/etc/httpd" {
 			t.Errorf("unexpected macOS configDir: %s", paths.configDir)
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		if paths.configDir != "/etc/apache2" {
 			t.Errorf("unexpected Linux configDir: %s", paths.configDir)
 		}
@@ -314,7 +317,7 @@ func TestApacheModuleModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -335,7 +338,7 @@ func TestApacheModuleModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "apache_module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -351,7 +354,7 @@ func TestNginxSiteModule_Integration(t *testing.T) {
 	}
 
 	// Check if nginx is available
-	cmd := exec.Command("nginx", "-v")
+	cmd := exec.CommandContext(context.Background(),"nginx", "-v")
 	if err := cmd.Run(); err != nil {
 		t.Skip("nginx is not available")
 	}
@@ -368,7 +371,7 @@ func TestNginxSiteModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -387,9 +390,9 @@ func TestApacheSiteModule_Integration(t *testing.T) {
 	}
 
 	// Check if apache is available
-	cmd := exec.Command("apachectl", "-v")
+	cmd := exec.CommandContext(context.Background(),"apachectl", "-v")
 	if err := cmd.Run(); err != nil {
-		cmd = exec.Command("apache2ctl", "-v")
+		cmd = exec.CommandContext(context.Background(),"apache2ctl", "-v")
 		if err := cmd.Run(); err != nil {
 			t.Skip("apache is not available")
 		}
@@ -407,7 +410,7 @@ func TestApacheSiteModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -426,9 +429,9 @@ func TestApacheModuleModule_Integration(t *testing.T) {
 	}
 
 	// Check if apache is available
-	cmd := exec.Command("apachectl", "-v")
+	cmd := exec.CommandContext(context.Background(),"apachectl", "-v")
 	if err := cmd.Run(); err != nil {
-		cmd = exec.Command("apache2ctl", "-v")
+		cmd = exec.CommandContext(context.Background(),"apache2ctl", "-v")
 		if err := cmd.Run(); err != nil {
 			t.Skip("apache is not available")
 		}
@@ -446,7 +449,7 @@ func TestApacheModuleModule_Integration(t *testing.T) {
 		},
 	}
 
-	result, err := m.Check(nil, decl)
+	result, err := m.Check(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -491,7 +494,7 @@ func TestNginxUpstreamModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -513,7 +516,7 @@ func TestNginxUpstreamModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_upstream module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -525,7 +528,7 @@ func TestNginxUpstreamModule_Apply_Present(t *testing.T) {
 	}
 
 	// Check if nginx is available for config validation
-	cmd := exec.Command("nginx", "-v")
+	cmd := exec.CommandContext(context.Background(),"nginx", "-v")
 	if err := cmd.Run(); err != nil {
 		t.Skip("nginx is not available for config validation")
 	}
@@ -554,7 +557,7 @@ func TestNginxUpstreamModule_Apply_Present(t *testing.T) {
 		},
 	}
 
-	result, err := m.Apply(nil, decl)
+	result, err := m.Apply(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Apply failed: %v", err)
 	}
@@ -672,7 +675,7 @@ func TestNginxProxyModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -694,7 +697,7 @@ func TestNginxProxyModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_proxy module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -715,7 +718,7 @@ func TestNginxProxyModule_Apply_MissingBackend(t *testing.T) {
 		},
 	}
 
-	_, err := m.Apply(nil, decl)
+	_, err := m.Apply(context.Background(), decl)
 	if err == nil || err.Error() != "backend parameter is required for present state" {
 		t.Errorf("expected backend required error, got: %v", err)
 	}
@@ -756,9 +759,9 @@ func TestNginxProxyModule_BuildConfig(t *testing.T) {
 			name: "custom_headers",
 			decl: &StateDeclaration{
 				Parameters: map[string]interface{}{
-					"name":           "api",
-					"backend":        "http://127.0.0.1:8080",
-					"proxy_headers":  true,
+					"name":            "api",
+					"backend":         "http://127.0.0.1:8080",
+					"proxy_headers":   true,
 					"connect_timeout": "30s",
 				},
 			},
@@ -810,7 +813,7 @@ func TestNginxSSLModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -833,7 +836,7 @@ func TestNginxSSLModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_ssl module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -854,7 +857,7 @@ func TestNginxSSLModule_Apply_MissingCertificate(t *testing.T) {
 		},
 	}
 
-	_, err := m.Apply(nil, decl)
+	_, err := m.Apply(context.Background(), decl)
 	if err == nil || !containsSubstring(err.Error(), "certificate") {
 		t.Errorf("expected certificate required error, got: %v", err)
 	}
@@ -972,7 +975,7 @@ func TestNginxLocationModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -994,7 +997,7 @@ func TestNginxLocationModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_location module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -1015,7 +1018,7 @@ func TestNginxLocationModule_Apply_MissingPath(t *testing.T) {
 		},
 	}
 
-	_, err := m.Apply(nil, decl)
+	_, err := m.Apply(context.Background(), decl)
 	if err == nil || err.Error() != "path parameter is required for present state" {
 		t.Errorf("expected path required error, got: %v", err)
 	}
@@ -1136,7 +1139,7 @@ func TestNginxRateLimitModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "name parameter is required" {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -1159,7 +1162,7 @@ func TestNginxRateLimitModule_Check_Windows(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || err.Error() != "nginx_rate_limit module is not supported on Windows" {
 		t.Errorf("expected Windows not supported error, got: %v", err)
 	}
@@ -1180,7 +1183,7 @@ func TestNginxRateLimitModule_Apply_MissingZone(t *testing.T) {
 		},
 	}
 
-	_, err := m.Apply(nil, decl)
+	_, err := m.Apply(context.Background(), decl)
 	if err == nil || !containsSubstring(err.Error(), "rate") {
 		t.Errorf("expected rate required error, got: %v", err)
 	}
@@ -1231,10 +1234,10 @@ func TestNginxRateLimitModule_BuildConfig(t *testing.T) {
 			name: "connection_limit",
 			decl: &StateDeclaration{
 				Parameters: map[string]interface{}{
-					"zone":        "api",
-					"rate":        "10r/s",
-					"conn_zone":   "conn",
-					"conn_limit":  10,
+					"zone":       "api",
+					"rate":       "10r/s",
+					"conn_zone":  "conn",
+					"conn_limit": 10,
 				},
 			},
 			contains: []string{"limit_conn_zone", "limit_conn conn 10"},

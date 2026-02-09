@@ -15,7 +15,7 @@ import (
 func newPermissiveExecutor() *Executor {
 	// Create a policy with no restrictions for testing executor functionality
 	policy := &CommandPolicy{
-		Mode:                ExecutionModePermissive,
+		Mode:                ModePermissive,
 		AllowedCommands:     make(map[string]bool),
 		AllowedPatterns:     nil,
 		BlockedCommands:     make(map[string]bool), // No blocked commands
@@ -433,7 +433,7 @@ func TestExecutor_CancelCommand_ForceKill(t *testing.T) {
 	}
 
 	policy := DefaultPolicy()
-	policy.Mode = ExecutionModePermissive
+	policy.Mode = ModePermissive
 	e := NewExecutor(&ExecutorOptions{
 		KillTimeout: 10 * time.Millisecond,
 		Policy:      policy,
@@ -669,7 +669,7 @@ func TestExecutor_StrictPolicyBlocksUnknownCommands(t *testing.T) {
 	}
 
 	// Unknown command should be blocked
-	result, err = e.Execute(ctx, &ExecuteRequest{
+	_, err = e.Execute(ctx, &ExecuteRequest{
 		CommandID: "strict-blocked",
 		Command:   "date", // Not in allowlist
 	}, nil)
@@ -687,7 +687,7 @@ func TestExecutor_PolicyGetterSetter(t *testing.T) {
 
 	// Default policy should be normal mode
 	policy := e.GetPolicy()
-	if policy.Mode != ExecutionModeNormal {
+	if policy.Mode != ModeNormal {
 		t.Errorf("Default policy mode = %v, want normal", policy.Mode)
 	}
 
@@ -696,7 +696,7 @@ func TestExecutor_PolicyGetterSetter(t *testing.T) {
 	e.SetPolicy(strictPolicy)
 
 	policy = e.GetPolicy()
-	if policy.Mode != ExecutionModeStrict {
+	if policy.Mode != ModeStrict {
 		t.Errorf("After SetPolicy mode = %v, want strict", policy.Mode)
 	}
 }

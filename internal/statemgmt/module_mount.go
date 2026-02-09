@@ -73,23 +73,24 @@ func (m *MountModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		return nil, err
 	}
 
-	isMounted := m.isMounted(config.Path)
+	isMounted := m.isMounted(ctx, config.Path)
 	inFstab := m.isInFstab(config)
 
 	switch decl.State {
 	case "mounted":
 		// mounted: must be currently mounted AND in fstab (if persist)
-		if !isMounted {
+		switch {
+		case !isMounted:
 			result.Present = false
 			result.CurrentState = "unmounted"
 			result.Matches = false
 			result.Diff["mounted"] = map[string]interface{}{"current": false, "desired": true}
-		} else if config.Persist && !inFstab {
+		case config.Persist && !inFstab:
 			result.Present = true
 			result.CurrentState = "mounted (not persistent)"
 			result.Matches = false
 			result.Diff["persistent"] = map[string]interface{}{"current": false, "desired": true}
-		} else {
+		default:
 			result.Present = true
 			result.CurrentState = "mounted"
 			result.Matches = true
@@ -125,11 +126,12 @@ func (m *MountModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		// absent: not in fstab AND not mounted
 		if inFstab || isMounted {
 			result.Present = true
-			if isMounted && inFstab {
+			switch {
+			case isMounted && inFstab:
 				result.CurrentState = "mounted and in fstab"
-			} else if isMounted {
+			case isMounted:
 				result.CurrentState = "mounted"
-			} else {
+			default:
 				result.CurrentState = "in fstab"
 			}
 			result.Matches = false
@@ -165,14 +167,14 @@ func (m *MountModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		return result, err
 	}
 
-	isMounted := m.isMounted(config.Path)
+	isMounted := m.isMounted(ctx, config.Path)
 	inFstab := m.isInFstab(config)
 
 	switch decl.State {
 	case "mounted":
 		// Ensure mount point directory exists
 		if config.CreatePath {
-			if err := m.ensureMountPoint(config); err != nil {
+			if err := m.ensureMountPoint(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create mount point: %v", err)
 				return result, err
@@ -191,7 +193,7 @@ func (m *MountModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 		// Mount if not already mounted
 		if !isMounted {
-			if err := m.mount(config); err != nil {
+			if err := m.mount(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to mount: %v", err)
 				return result, err
@@ -204,7 +206,7 @@ func (m *MountModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 	case "unmounted":
 		// Unmount if mounted
 		if isMounted {
-			if err := m.unmount(config.Path); err != nil {
+			if err := m.unmount(ctx, config.Path); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to unmount: %v", err)
 				return result, err
@@ -230,7 +232,7 @@ func (m *MountModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 	case "absent":
 		// Unmount if mounted
 		if isMounted {
-			if err := m.unmount(config.Path); err != nil {
+			if err := m.unmount(ctx, config.Path); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to unmount: %v", err)
 				return result, err
@@ -275,7 +277,7 @@ func (m *MountModule) parseConfig(decl *StateDeclaration) (*MountConfig, error) 
 		Pass:       0,
 		Persist:    true,
 		CreatePath: true,
-		Mode:       "0755",
+		Mode:       "0o755",
 	}
 
 	config.Device = getStringParameter(decl, "device", "")
@@ -294,22 +296,19 @@ func (m *MountModule) parseConfig(decl *StateDeclaration) (*MountConfig, error) 
 	config.FSType = getStringParameter(decl, "fstype", "")
 	// FSType can be auto-detected on mount, so not strictly required
 
-	// Parse options
-	if opts, ok := decl.Parameters["opts"].([]interface{}); ok {
+	// Parse options - check "opts" key first, then "options" key
+	optsVal := decl.Parameters["opts"]
+	if optsVal == nil {
+		optsVal = decl.Parameters["options"]
+	}
+	switch opts := optsVal.(type) {
+	case []interface{}:
 		for _, o := range opts {
 			if s, ok := o.(string); ok {
 				config.Options = append(config.Options, s)
 			}
 		}
-	} else if opts, ok := decl.Parameters["opts"].(string); ok {
-		config.Options = strings.Split(opts, ",")
-	} else if opts, ok := decl.Parameters["options"].([]interface{}); ok {
-		for _, o := range opts {
-			if s, ok := o.(string); ok {
-				config.Options = append(config.Options, s)
-			}
-		}
-	} else if opts, ok := decl.Parameters["options"].(string); ok {
+	case string:
 		config.Options = strings.Split(opts, ",")
 	}
 
@@ -319,18 +318,18 @@ func (m *MountModule) parseConfig(decl *StateDeclaration) (*MountConfig, error) 
 	config.CreatePath = getBoolParameter(decl, "create_path", true)
 	config.Owner = getStringParameter(decl, "owner", "")
 	config.Group = getStringParameter(decl, "group", "")
-	config.Mode = getStringParameter(decl, "mode", "0755")
+	config.Mode = getStringParameter(decl, "mode", "0o755")
 
 	return config, nil
 }
 
 // isMounted checks if a path is currently mounted.
-func (m *MountModule) isMounted(path string) bool {
+func (m *MountModule) isMounted(ctx context.Context, path string) bool {
 	switch runtime.GOOS {
 	case "linux":
 		return m.isMountedLinux(path)
 	case "darwin":
-		return m.isMountedDarwin(path)
+		return m.isMountedDarwin(ctx, path)
 	case "windows":
 		return m.isMountedWindows(path)
 	default:
@@ -361,8 +360,8 @@ func (m *MountModule) isMountedLinux(path string) bool {
 }
 
 // isMountedDarwin uses mount command to check.
-func (m *MountModule) isMountedDarwin(path string) bool {
-	cmd := exec.Command("mount")
+func (m *MountModule) isMountedDarwin(ctx context.Context, path string) bool {
+	cmd := exec.CommandContext(ctx, "mount")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -486,19 +485,19 @@ func (m *MountModule) parseFstab(path string) ([]FstabEntry, error) {
 }
 
 // mount mounts the filesystem.
-func (m *MountModule) mount(config *MountConfig) error {
+func (m *MountModule) mount(ctx context.Context, config *MountConfig) error {
 	switch runtime.GOOS {
 	case "linux", "darwin":
-		return m.mountUnix(config)
+		return m.mountUnix(ctx, config)
 	case "windows":
-		return m.mountWindows(config)
+		return m.mountWindows(ctx, config)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 }
 
 // mountUnix mounts using the mount command.
-func (m *MountModule) mountUnix(config *MountConfig) error {
+func (m *MountModule) mountUnix(ctx context.Context, config *MountConfig) error {
 	args := []string{}
 
 	if config.FSType != "" {
@@ -511,23 +510,23 @@ func (m *MountModule) mountUnix(config *MountConfig) error {
 
 	args = append(args, config.Device, config.Path)
 
-	cmd := exec.Command("mount", args...)
+	cmd := exec.CommandContext(ctx, "mount", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mount failed: %v: %s", err, string(output))
+		return fmt.Errorf("mount failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // mountWindows mounts a network share or disk.
-func (m *MountModule) mountWindows(config *MountConfig) error {
+func (m *MountModule) mountWindows(ctx context.Context, config *MountConfig) error {
 	// For network shares, use net use
 	if strings.HasPrefix(config.Device, "\\\\") {
 		args := []string{"use", config.Path, config.Device}
-		cmd := exec.Command("net", args...)
+		cmd := exec.CommandContext(ctx, "net", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("net use failed: %v: %s", err, string(output))
+			return fmt.Errorf("net use failed: %w: %s", err, string(output))
 		}
 		return nil
 	}
@@ -537,35 +536,35 @@ func (m *MountModule) mountWindows(config *MountConfig) error {
 }
 
 // unmount unmounts the filesystem.
-func (m *MountModule) unmount(path string) error {
+func (m *MountModule) unmount(ctx context.Context, path string) error {
 	switch runtime.GOOS {
 	case "linux":
-		cmd := exec.Command("umount", path)
+		cmd := exec.CommandContext(ctx, "umount", path)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("umount failed: %v: %s", err, string(output))
+			return fmt.Errorf("umount failed: %w: %s", err, string(output))
 		}
 		return nil
 
 	case "darwin":
-		cmd := exec.Command("diskutil", "unmount", path)
-		output, err := cmd.CombinedOutput()
+		cmd := exec.CommandContext(ctx, "diskutil", "unmount", path)
+		_, err := cmd.CombinedOutput()
 		if err != nil {
 			// Fallback to umount
-			cmd = exec.Command("umount", path)
-			output, err = cmd.CombinedOutput()
+			cmd = exec.CommandContext(ctx, "umount", path)
+			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("unmount failed: %v: %s", err, string(output))
+				return fmt.Errorf("unmount failed: %w: %s", err, string(output))
 			}
 		}
 		return nil
 
 	case "windows":
 		// For network shares, use net use /delete
-		cmd := exec.Command("net", "use", path, "/delete")
+		cmd := exec.CommandContext(ctx, "net", "use", path, "/delete")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("net use /delete failed: %v: %s", err, string(output))
+			return fmt.Errorf("net use /delete failed: %w: %s", err, string(output))
 		}
 		return nil
 
@@ -575,7 +574,7 @@ func (m *MountModule) unmount(path string) error {
 }
 
 // ensureMountPoint creates the mount point directory.
-func (m *MountModule) ensureMountPoint(config *MountConfig) error {
+func (m *MountModule) ensureMountPoint(ctx context.Context, config *MountConfig) error {
 	info, err := os.Stat(config.Path)
 	if err == nil {
 		if !info.IsDir() {
@@ -589,11 +588,11 @@ func (m *MountModule) ensureMountPoint(config *MountConfig) error {
 	}
 
 	// Parse mode
-	var mode os.FileMode = 0755
+	var mode os.FileMode = 0o755
 	if config.Mode != "" {
 		var modeInt int
 		fmt.Sscanf(config.Mode, "%o", &modeInt)
-		mode = os.FileMode(modeInt)
+		mode = os.FileMode(modeInt) //nolint:gosec // G115: file mode is 0-0777
 	}
 
 	if err := os.MkdirAll(config.Path, mode); err != nil {
@@ -612,9 +611,9 @@ func (m *MountModule) ensureMountPoint(config *MountConfig) error {
 		}
 		if ownership != "" {
 			args = append(args, ownership, config.Path)
-			cmd := exec.Command("chown", args...)
+			cmd := exec.CommandContext(ctx, "chown", args...)
 			if output, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("chown failed: %v: %s", err, string(output))
+				return fmt.Errorf("chown failed: %w: %s", err, string(output))
 			}
 		}
 	}
@@ -666,7 +665,7 @@ func (m *MountModule) addToFstabUnix(config *MountConfig) error {
 	)
 
 	// Append to file
-	f, err := os.OpenFile(fstabPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(fstabPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) //nolint:gosec // G302: /etc/fstab must be world-readable for mount operations
 	if err != nil {
 		return err
 	}
@@ -758,7 +757,8 @@ func (m *MountModule) removeFromFstabUnix(mountPath string) error {
 	}
 
 	// Write back
-	return os.WriteFile(fstabPath, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: fstab needs to be readable by mount commands
+	return os.WriteFile(fstabPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 // GetFstabEntry retrieves the fstab entry for a mount point.
@@ -779,12 +779,12 @@ func (m *MountModule) GetFstabEntry(path string) (*FstabEntry, error) {
 }
 
 // GetMountInfo returns information about a mounted filesystem.
-func (m *MountModule) GetMountInfo(path string) (device, fstype, options string, err error) {
+func (m *MountModule) GetMountInfo(ctx context.Context, path string) (device, fstype, options string, err error) {
 	switch runtime.GOOS {
 	case "linux":
 		return m.getMountInfoLinux(path)
 	case "darwin":
-		return m.getMountInfoDarwin(path)
+		return m.getMountInfoDarwin(ctx, path)
 	default:
 		return "", "", "", fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -814,8 +814,8 @@ func (m *MountModule) getMountInfoLinux(path string) (device, fstype, options st
 }
 
 // getMountInfoDarwin reads mount info using mount command.
-func (m *MountModule) getMountInfoDarwin(path string) (device, fstype, options string, err error) {
-	cmd := exec.Command("mount")
+func (m *MountModule) getMountInfoDarwin(ctx context.Context, path string) (device, fstype, options string, err error) {
+	cmd := exec.CommandContext(ctx, "mount")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", "", "", err

@@ -81,27 +81,27 @@ type Store interface {
 	DeleteSchedule(ctx context.Context, id string) error
 
 	// ListSchedules lists schedules matching the filter.
-	ListSchedules(ctx context.Context, filter *ScheduleFilter) ([]*Schedule, error)
+	ListSchedules(ctx context.Context, filter *Filter) ([]*Schedule, error)
 
 	// WatchSchedules watches for schedule changes.
 	// The handler is called for each change event.
-	WatchSchedules(ctx context.Context, handler ScheduleWatchHandler) error
+	WatchSchedules(ctx context.Context, handler WatchHandler) error
 
 	// Execution operations
 
 	// CreateExecution creates a new execution record.
-	CreateExecution(ctx context.Context, execution *ScheduleExecution) error
+	CreateExecution(ctx context.Context, execution *Execution) error
 
 	// GetExecution retrieves an execution by ID.
 	// Returns ErrExecutionNotFound if the execution does not exist.
-	GetExecution(ctx context.Context, id string) (*ScheduleExecution, error)
+	GetExecution(ctx context.Context, id string) (*Execution, error)
 
 	// UpdateExecution updates an existing execution.
 	// Returns ErrExecutionNotFound if the execution does not exist.
-	UpdateExecution(ctx context.Context, execution *ScheduleExecution) error
+	UpdateExecution(ctx context.Context, execution *Execution) error
 
 	// ListExecutions lists executions matching the filter.
-	ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*ScheduleExecution, error)
+	ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*Execution, error)
 
 	// DeleteOldExecutions deletes executions older than the specified count per schedule.
 	// Keeps the most recent 'keepCount' executions per schedule.
@@ -164,8 +164,8 @@ const (
 	WatchEventDeleted WatchEventType = "deleted"
 )
 
-// ScheduleWatchEvent represents a schedule change event.
-type ScheduleWatchEvent struct {
+// WatchEvent represents a schedule change event.
+type WatchEvent struct {
 	// Type is the event type.
 	Type WatchEventType
 
@@ -176,8 +176,8 @@ type ScheduleWatchEvent struct {
 	ScheduleID string
 }
 
-// ScheduleWatchHandler handles schedule watch events.
-type ScheduleWatchHandler func(event *ScheduleWatchEvent)
+// WatchHandler handles schedule watch events.
+type WatchHandler func(event *WatchEvent)
 
 // MaintenanceWindowWatchEvent represents a maintenance window change event.
 type MaintenanceWindowWatchEvent struct {

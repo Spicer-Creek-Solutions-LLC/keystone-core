@@ -658,4 +658,3 @@ func TestParameterResolver_MultipleLayers(t *testing.T) {
 		t.Errorf("timeout = %v, want 120", result["timeout"])
 	}
 }
-

@@ -1,3 +1,5 @@
+// Package github provides GitHub API integration for pull request management
+// and GitOps automation workflows.
 package github
 
 // Config represents GitHub client configuration

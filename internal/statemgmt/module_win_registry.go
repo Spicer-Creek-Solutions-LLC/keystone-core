@@ -46,13 +46,13 @@ var rootKeys = map[string]registry.Key{
 
 // Registry value type constants
 const (
-	RegNone      = registry.NONE
-	RegSZ        = registry.SZ
-	RegExpandSZ  = registry.EXPAND_SZ
-	RegBinary    = registry.BINARY
-	RegDWORD     = registry.DWORD
-	RegQWORD     = registry.QWORD
-	RegMultiSZ   = registry.MULTI_SZ
+	RegNone     = registry.NONE
+	RegSZ       = registry.SZ
+	RegExpandSZ = registry.EXPAND_SZ
+	RegBinary   = registry.BINARY
+	RegDWORD    = registry.DWORD
+	RegQWORD    = registry.QWORD
+	RegMultiSZ  = registry.MULTI_SZ
 )
 
 // Check checks the current state of a Windows registry key/value

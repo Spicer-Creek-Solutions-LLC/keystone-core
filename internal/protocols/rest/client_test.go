@@ -297,7 +297,10 @@ func TestClientRetry_ContextCancelDuringDelay(t *testing.T) {
 
 	req, _ := client.NewRequest(ctx, "GET", "/test", nil)
 	start := time.Now()
-	_, err := client.Do(req)
+	resp, err := client.Do(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
 
 	if err == nil {
 		t.Fatal("expected error from context timeout")
@@ -377,7 +380,10 @@ func TestClientContextCancel(t *testing.T) {
 	cancel() // Cancel immediately
 
 	req, _ := client.NewRequest(ctx, "GET", "/test", nil)
-	_, err := client.Do(req)
+	resp, err := client.Do(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
 		t.Error("expected error from cancelled context")
 	}
@@ -449,7 +455,10 @@ func TestClientMaxRedirects(t *testing.T) {
 	})
 
 	req, _ := client.NewRequest(context.Background(), "GET", "/start", nil)
-	_, err := client.Do(req)
+	resp, err := client.Do(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
 		t.Error("expected error from too many redirects")
 	}
@@ -680,7 +689,10 @@ func TestClientNetworkError(t *testing.T) {
 	})
 
 	req, _ := client.NewRequest(context.Background(), "GET", "/test", nil)
-	_, err := client.Do(req)
+	resp, err := client.Do(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
 		t.Error("expected error from network failure")
 	}

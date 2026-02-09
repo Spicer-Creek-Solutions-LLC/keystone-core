@@ -422,10 +422,10 @@ func TestConsulProvider_Info(t *testing.T) {
 	defer server.Close()
 
 	config := &ConsulConfig{
-		TrustDomain:  "consul.local",
-		HTTPAddr:     server.URL,
-		ServiceName:  "test-service",
-		Datacenter:   "dc1",
+		TrustDomain: "consul.local",
+		HTTPAddr:    server.URL,
+		ServiceName: "test-service",
+		Datacenter:  "dc1",
 	}
 
 	provider, _ := NewConsulProvider(config)

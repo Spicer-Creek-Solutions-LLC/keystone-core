@@ -79,11 +79,11 @@ func TestCapabilityBuiltinsWithRegistry(t *testing.T) {
 	}
 
 	// Verify capability can be retrieved from registry
-	cap, err := registry.Get("fs.read")
+	capability, err := registry.Get("fs.read")
 	if err != nil {
 		t.Errorf("failed to get capability: %v", err)
 	}
-	if cap == nil {
+	if capability == nil {
 		t.Error("capability should not be nil")
 	}
 }
@@ -130,9 +130,9 @@ func TestCapabilityRegistryIntegration(t *testing.T) {
 		capabilities.NewTimeCapability(ctx),
 	}
 
-	for _, cap := range caps {
-		if err := registry.Register(cap); err != nil {
-			t.Fatalf("failed to register %s: %v", cap.Name(), err)
+	for _, capability := range caps {
+		if err := registry.Register(capability); err != nil {
+			t.Fatalf("failed to register %s: %v", capability.Name(), err)
 		}
 	}
 
@@ -140,11 +140,11 @@ func TestCapabilityRegistryIntegration(t *testing.T) {
 
 	// Verify each capability is retrievable
 	for _, c := range caps {
-		cap, err := cb.registry.Get(c.Name())
+		capability, err := cb.registry.Get(c.Name())
 		if err != nil {
 			t.Errorf("failed to get %s: %v", c.Name(), err)
 		}
-		if cap == nil {
+		if capability == nil {
 			t.Errorf("%s capability should not be nil", c.Name())
 		}
 	}
@@ -209,20 +209,20 @@ func TestCapabilityBuiltinsTypeAssertions(t *testing.T) {
 	cb := NewCapabilityBuiltins(registry)
 
 	// Verify type assertions work correctly
-	if cap, err := cb.registry.Get("fs.read"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.FSReadCapability); !ok {
+	if capability, err := cb.registry.Get("fs.read"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.FSReadCapability); !ok {
 			t.Error("fs.read should be *FSReadCapability")
 		}
 	}
 
-	if cap, err := cb.registry.Get("log"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.LogCapability); !ok {
+	if capability, err := cb.registry.Get("log"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.LogCapability); !ok {
 			t.Error("log should be *LogCapability")
 		}
 	}
 
-	if cap, err := cb.registry.Get("time"); err == nil && cap != nil {
-		if _, ok := cap.(*capabilities.TimeCapability); !ok {
+	if capability, err := cb.registry.Get("time"); err == nil && capability != nil {
+		if _, ok := capability.(*capabilities.TimeCapability); !ok {
 			t.Error("time should be *TimeCapability")
 		}
 	}

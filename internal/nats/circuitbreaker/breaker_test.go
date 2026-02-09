@@ -98,7 +98,7 @@ func TestBreaker_TransitionToOpen(t *testing.T) {
 
 	// Should be rejected
 	err := breaker.Allow()
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("Allow() = %v, want ErrCircuitOpen", err)
 	}
 }
@@ -230,7 +230,7 @@ func TestBreaker_HalfOpenMaxRequests(t *testing.T) {
 
 	// 3rd request should fail
 	err := breaker.Allow()
-	if err != ErrTooManyRequests {
+	if !errors.Is(err, ErrTooManyRequests) {
 		t.Errorf("Allow() = %v, want ErrTooManyRequests", err)
 	}
 }
@@ -259,7 +259,7 @@ func TestBreaker_Execute(t *testing.T) {
 	err = breaker.Execute(func() error {
 		return testErr
 	})
-	if err != testErr {
+	if !errors.Is(err, testErr) {
 		t.Errorf("Execute() with failure = %v, want %v", err, testErr)
 	}
 
@@ -286,7 +286,7 @@ func TestBreaker_ExecuteWithContext(t *testing.T) {
 	err = breaker.ExecuteWithContext(ctx, func(ctx context.Context) error {
 		return context.DeadlineExceeded
 	})
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("ExecuteWithContext() = %v, want DeadlineExceeded", err)
 	}
 
@@ -598,7 +598,7 @@ func TestNATSBreaker(t *testing.T) {
 
 	// Should be open now
 	err = nb.AllowPublish("test.subject")
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("AllowPublish() = %v, want ErrCircuitOpen", err)
 	}
 
@@ -654,7 +654,7 @@ func TestBreaker_CircuitOpenError(t *testing.T) {
 		return nil
 	})
 
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("Execute() = %v, want ErrCircuitOpen", err)
 	}
 

@@ -10,11 +10,11 @@ func TestRegistry_Register(t *testing.T) {
 	r := NewRegistry()
 
 	tmpl := &Template{
-		Metadata: TemplateMetadata{
+		Metadata: Metadata{
 			Name:    "test-template",
 			Version: "1.0.0",
 		},
-		Spec: TemplateSpec{
+		Spec: Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop},
 			},
@@ -35,7 +35,7 @@ func TestRegistry_Register(t *testing.T) {
 
 	t.Run("missing name", func(t *testing.T) {
 		badTmpl := &Template{
-			Metadata: TemplateMetadata{Version: "1.0.0"},
+			Metadata: Metadata{Version: "1.0.0"},
 		}
 		if err := r.Register(badTmpl); err == nil {
 			t.Error("Expected error for missing name")
@@ -44,7 +44,7 @@ func TestRegistry_Register(t *testing.T) {
 
 	t.Run("missing version", func(t *testing.T) {
 		badTmpl := &Template{
-			Metadata: TemplateMetadata{Name: "no-version"},
+			Metadata: Metadata{Name: "no-version"},
 		}
 		if err := r.Register(badTmpl); err == nil {
 			t.Error("Expected error for missing version")
@@ -56,20 +56,20 @@ func TestRegistry_Get(t *testing.T) {
 	r := NewRegistry()
 
 	v1 := &Template{
-		Metadata: TemplateMetadata{
+		Metadata: Metadata{
 			Name:    "test-template",
 			Version: "1.0.0",
 		},
-		Spec: TemplateSpec{
+		Spec: Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	}
 	v2 := &Template{
-		Metadata: TemplateMetadata{
+		Metadata: Metadata{
 			Name:    "test-template",
 			Version: "2.0.0",
 		},
-		Spec: TemplateSpec{
+		Spec: Spec{
 			Steps: []runbook.Step{{Name: "step2", Type: runbook.StepTypeNoop}},
 		},
 	}
@@ -109,12 +109,12 @@ func TestRegistry_List(t *testing.T) {
 	r := NewRegistry()
 
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "tmpl1", Version: "1.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "tmpl1", Version: "1.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "tmpl2", Version: "1.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "tmpl2", Version: "1.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 
 	templates := r.List()
@@ -127,12 +127,12 @@ func TestRegistry_ListVersions(t *testing.T) {
 	r := NewRegistry()
 
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "test", Version: "1.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "test", Version: "1.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "test", Version: "2.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "test", Version: "2.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 
 	versions := r.ListVersions("test")
@@ -151,12 +151,12 @@ func TestRegistry_Delete(t *testing.T) {
 	r := NewRegistry()
 
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "test", Version: "1.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "test", Version: "1.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 	r.Register(&Template{
-		Metadata: TemplateMetadata{Name: "test", Version: "2.0.0"},
-		Spec:     TemplateSpec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
+		Metadata: Metadata{Name: "test", Version: "2.0.0"},
+		Spec:     Spec{Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}}},
 	})
 
 	t.Run("delete specific version", func(t *testing.T) {
@@ -194,11 +194,11 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test-template",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{
 						{Name: "step1", Type: runbook.StepTypeNoop},
 					},
@@ -210,11 +210,11 @@ func TestValidator_Validate(t *testing.T) {
 			name: "missing apiVersion",
 			tmpl: &Template{
 				Kind: "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}},
 				},
 			},
@@ -225,11 +225,11 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "WrongKind",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}},
 				},
 			},
@@ -240,10 +240,10 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}},
 				},
 			},
@@ -254,11 +254,11 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "invalid",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{{Name: "s1", Type: runbook.StepTypeNoop}},
 				},
 			},
@@ -269,11 +269,11 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{},
 				},
 			},
@@ -284,11 +284,11 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
+				Spec: Spec{
 					Steps: []runbook.Step{
 						{Name: "step1", Type: runbook.StepTypeNoop},
 						{Name: "step1", Type: runbook.StepTypeNoop},
@@ -302,12 +302,12 @@ func TestValidator_Validate(t *testing.T) {
 			tmpl: &Template{
 				APIVersion: "runbook.keystone.io/v1",
 				Kind:       "StepTemplate",
-				Metadata: TemplateMetadata{
+				Metadata: Metadata{
 					Name:    "test",
 					Version: "1.0.0",
 				},
-				Spec: TemplateSpec{
-					Parameters: []TemplateParameter{
+				Spec: Spec{
+					Parameters: []Parameter{
 						{Name: "param1", Type: "string"},
 						{Name: "param1", Type: "int"},
 					},
@@ -382,12 +382,12 @@ func TestExpander_Expand(t *testing.T) {
 
 	// Register a simple template
 	tmpl := &Template{
-		Metadata: TemplateMetadata{
+		Metadata: Metadata{
 			Name:    "notify-deploy",
 			Version: "1.0.0",
 		},
-		Spec: TemplateSpec{
-			Parameters: []TemplateParameter{
+		Spec: Spec{
+			Parameters: []Parameter{
 				{Name: "environment", Type: "string", Required: true},
 				{Name: "channel", Type: "string", Default: "ops"},
 			},
@@ -421,7 +421,7 @@ func TestExpander_Expand(t *testing.T) {
 			APIVersion: "runbook.keystone.io/v1",
 			Kind:       "Runbook",
 			Metadata:   runbook.Metadata{Name: "test-runbook"},
-			Spec: runbook.RunbookSpec{
+			Spec: runbook.Spec{
 				Steps: []runbook.Step{
 					{
 						Name: "deploy-notifications",
@@ -460,7 +460,7 @@ func TestExpander_Expand(t *testing.T) {
 
 	t.Run("missing required parameter", func(t *testing.T) {
 		rb := &runbook.Runbook{
-			Spec: runbook.RunbookSpec{
+			Spec: runbook.Spec{
 				Steps: []runbook.Step{
 					{
 						Name: "deploy",
@@ -482,7 +482,7 @@ func TestExpander_Expand(t *testing.T) {
 
 	t.Run("template not found", func(t *testing.T) {
 		rb := &runbook.Runbook{
-			Spec: runbook.RunbookSpec{
+			Spec: runbook.Spec{
 				Steps: []runbook.Step{
 					{
 						Name: "unknown",

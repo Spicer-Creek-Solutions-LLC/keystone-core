@@ -270,7 +270,7 @@ func (c *EtcdClient) CreateSession(ctx context.Context, ttl int) (*concurrency.S
 	}
 
 	c.session = session
-	c.leaseID = clientv3.LeaseID(session.Lease())
+	c.leaseID = session.Lease()
 	return session, nil
 }
 
@@ -678,7 +678,7 @@ type Transaction struct {
 }
 
 // If adds a comparison to the transaction.
-func (t *Transaction) If(key string, cmp string, value string) *Transaction {
+func (t *Transaction) If(key, cmp, value string) *Transaction {
 	fullKey := t.client.fullKey(key)
 	var c clientv3.Cmp
 	switch cmp {

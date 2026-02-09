@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,9 +54,13 @@ func (c *HTTPSumDBClient) Lookup(moduleName, version string) (string, error) {
 	lookupURL := c.baseURL + lookupPath
 
 	// Make HTTP request
-	resp, err := c.httpClient.Get(lookupURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, lookupURL, http.NoBody)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrSumDBUnavailable, err)
+		return "", fmt.Errorf("%w: %w", ErrSumDBUnavailable, err)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrSumDBUnavailable, err)
 	}
 	defer resp.Body.Close()
 
@@ -153,9 +158,14 @@ func (c *HTTPSumDBClient) Submit(moduleName, version, hash string) error {
 	}
 
 	// Make HTTP POST request
-	resp, err := c.httpClient.Post(submitURL, "application/json", strings.NewReader(string(jsonData)))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", submitURL, strings.NewReader(string(jsonData)))
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrSumDBUnavailable, err)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrSumDBUnavailable, err)
 	}
 	defer resp.Body.Close()
 

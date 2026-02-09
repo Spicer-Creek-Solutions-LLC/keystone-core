@@ -386,6 +386,7 @@ func TestAgent_HandleCommandRequest(t *testing.T) {
 			case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED:
 				t.Errorf("Command failed: %s", resp.Error)
 				completionReceived = true
+			default:
 			}
 
 		case <-timeout:
@@ -964,14 +965,16 @@ func TestAgent_HandleCommandRequest_CommandFailure(t *testing.T) {
 	for !completionReceived {
 		select {
 		case resp := <-responseChan:
-			if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_COMPLETED {
+			switch resp.Type {
+			case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_COMPLETED:
 				completionReceived = true
 				// Exit code should be non-zero for 'false' command
 				if resp.ExitCode == 0 {
 					t.Error("Expected non-zero exit code for 'false' command")
 				}
-			} else if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED {
+			case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED:
 				completionReceived = true
+			default:
 			}
 
 		case <-timeout:

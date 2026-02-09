@@ -453,12 +453,12 @@ func TestTemplateRenderer_StringFunctions(t *testing.T) {
 	renderer := NewTemplateRenderer()
 	ctx := &TemplateContext{
 		Vars: map[string]interface{}{
-			"text":      "  hello world  ",
-			"csv":       "a,b,c",
-			"name":      "world",
-			"message":   "hello world",
-			"filename":  "config.yaml",
-			"prefix":    "pre_value",
+			"text":     "  hello world  ",
+			"csv":      "a,b,c",
+			"name":     "world",
+			"message":  "hello world",
+			"filename": "config.yaml",
+			"prefix":   "pre_value",
 		},
 		Facts: map[string]interface{}{},
 	}
@@ -497,11 +497,11 @@ func TestTemplateRenderer_TernaryFunction(t *testing.T) {
 	renderer := NewTemplateRenderer()
 
 	tests := []struct {
-		name       string
-		condition  bool
-		trueVal    string
-		falseVal   string
-		expected   string
+		name      string
+		condition bool
+		trueVal   string
+		falseVal  string
+		expected  string
 	}{
 		{"condition_true", true, "yes", "no", "yes"},
 		{"condition_false", false, "yes", "no", "no"},

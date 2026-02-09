@@ -91,7 +91,7 @@ func (m *ServiceModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the service state
@@ -113,7 +113,7 @@ func (m *ServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -123,7 +123,7 @@ func (m *ServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	sm, err := m.detectServiceManager()
@@ -132,7 +132,7 @@ func (m *ServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to detect service manager: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -162,7 +162,7 @@ func (m *ServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the service is in the desired state
@@ -171,12 +171,13 @@ func (m *ServiceModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // ServiceManager represents different service managers
 type ServiceManager string
 
+// SMUnknown and related constants.
 const (
 	SMUnknown        ServiceManager = "unknown"
 	SMSystemd        ServiceManager = "systemd"
@@ -192,42 +193,42 @@ func (m *ServiceModule) detectServiceManager() (ServiceManager, error) {
 	// Use platform detection for accurate init system detection
 	initSys, err := platform.DetectInitSystem()
 	if err == nil && initSys != platform.InitUnknown {
-		return convertPlatformInitSystem(initSys), nil
+		return convertPlatformInitSystem(initSys), nil //nolint:nilerr // intentional
 	}
 
 	// Fallback to manual detection
 	// Check for systemd
 	if _, err := exec.LookPath("systemctl"); err == nil {
-		return SMSystemd, nil
+		return SMSystemd, nil //nolint:nilerr // intentional
 	}
 
 	// Check for launchd (macOS)
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("launchctl"); err == nil {
-			return SMLaunchd, nil
+			return SMLaunchd, nil //nolint:nilerr // intentional
 		}
 	}
 
 	// Check for Windows Service Manager
 	if runtime.GOOS == "windows" {
 		if _, err := exec.LookPath("sc.exe"); err == nil {
-			return SMWindowsService, nil
+			return SMWindowsService, nil //nolint:nilerr // intentional
 		}
 	}
 
 	// Check for OpenRC
 	if _, err := exec.LookPath("rc-service"); err == nil {
-		return SMOpenRC, nil
+		return SMOpenRC, nil //nolint:nilerr // intentional
 	}
 
 	// Check for upstart
 	if _, err := exec.LookPath("initctl"); err == nil {
-		return SMUpstart, nil
+		return SMUpstart, nil //nolint:nilerr // intentional
 	}
 
 	// Fallback to init.d
 	if _, err := exec.LookPath("service"); err == nil {
-		return SMInitD, nil
+		return SMInitD, nil //nolint:nilerr // intentional
 	}
 
 	return SMUnknown, fmt.Errorf("no supported service manager found on %s", runtime.GOOS)
@@ -277,7 +278,7 @@ func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager,
 	output, err := cmd.Output()
 	if err != nil {
 		// Service is not running
-		return false, nil
+		return false, nil //nolint:nilerr // intentional
 	}
 
 	outputStr := strings.TrimSpace(string(output))
@@ -285,10 +286,10 @@ func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager,
 	// Parse output based on service manager
 	switch sm {
 	case SMSystemd:
-		return outputStr == "active", nil
+		return outputStr == "active", nil //nolint:nilerr // intentional
 	case SMLaunchd:
 		// If launchctl list succeeds, service is loaded
-		return true, nil
+		return true, nil //nolint:nilerr // intentional
 	case SMOpenRC, SMInitD:
 		// Check for "running" or "active" in output
 		return strings.Contains(strings.ToLower(outputStr), "running") ||
@@ -298,9 +299,11 @@ func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager,
 	case SMWindowsService:
 		// Windows: check for "RUNNING" in output
 		return strings.Contains(outputStr, "RUNNING"), nil
+	default:
+		// SMUnknown falls through to return false
 	}
 
-	return false, nil
+	return false, nil //nolint:nilerr // intentional
 }
 
 // isServiceEnabled checks if a service is enabled
@@ -321,23 +324,25 @@ func (m *ServiceModule) isServiceEnabled(ctx context.Context, sm ServiceManager,
 
 	output, err := cmd.Output()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // intentional
 	}
 
 	outputStr := strings.TrimSpace(string(output))
 
 	switch sm {
 	case SMSystemd:
-		return outputStr == "enabled", nil
+		return outputStr == "enabled", nil //nolint:nilerr // intentional
 	case SMOpenRC:
 		// Check if service is in the output
 		return strings.Contains(outputStr, serviceName), nil
 	case SMWindowsService:
 		// Windows: check for AUTO_START
 		return strings.Contains(outputStr, "AUTO_START"), nil
+	default:
+		// SMUnknown, SMInitD, SMLaunchd, SMUpstart handled by error case above
 	}
 
-	return false, nil
+	return false, nil //nolint:nilerr // intentional
 }
 
 // startService starts a service
@@ -462,5 +467,5 @@ func (m *ServiceModule) disableService(ctx context.Context, sm ServiceManager, d
 }
 
 func init() {
-	RegisterModule(NewServiceModule())
+	_ = RegisterModule(NewServiceModule()) //nolint:errcheck // module registration in init
 }

@@ -10,9 +10,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 	"github.com/shawnbutts/keystone-core/internal/testing/mocks"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 type integrationLeaderElection struct {
@@ -86,7 +86,7 @@ func TestCoordinationServiceIntegration(t *testing.T) {
 	grpcServer := grpc.NewServer()
 	server.Register(grpcServer)
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
@@ -102,9 +102,9 @@ func TestCoordinationServiceIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, listener.Addr().String(),
+	conn, err := grpc.DialContext(ctx, listener.Addr().String(), //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		t.Fatalf("failed to dial gRPC: %v", err)

@@ -29,7 +29,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
   contact:
     name: Keystone Core Team
-    url: https://github.com/keystone-core/keystone-core
+    url: https://github.com/shawnbutts/keystone-core
 
 servers:
   - url: http://localhost:9090

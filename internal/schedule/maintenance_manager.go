@@ -48,6 +48,7 @@ type MaintenanceEventListener func(event *MaintenanceEvent)
 // MaintenanceEventType represents maintenance event types.
 type MaintenanceEventType string
 
+// MaintenanceEventCreated constants define the events.
 const (
 	MaintenanceEventCreated   MaintenanceEventType = "maintenance.created"
 	MaintenanceEventUpdated   MaintenanceEventType = "maintenance.updated"
@@ -264,7 +265,7 @@ func (m *MaintenanceWindowManager) List(ctx context.Context, filter *Maintenance
 }
 
 // Approve approves a pending maintenance window.
-func (m *MaintenanceWindowManager) Approve(ctx context.Context, id string, approvedBy string) error {
+func (m *MaintenanceWindowManager) Approve(ctx context.Context, id, approvedBy string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -378,7 +379,7 @@ func (m *MaintenanceWindowManager) End(ctx context.Context, id string) error {
 }
 
 // Cancel cancels a maintenance window.
-func (m *MaintenanceWindowManager) Cancel(ctx context.Context, id string, cancelledBy string, reason string) error {
+func (m *MaintenanceWindowManager) Cancel(ctx context.Context, id, cancelledBy, reason string) error {
 	m.mu.RLock()
 	if m.closed {
 		m.mu.RUnlock()
@@ -651,6 +652,8 @@ func (m *MaintenanceWindowManager) GetStats(ctx context.Context) (*MaintenanceSt
 			}
 		case MaintenanceWindowStatusCancelled:
 			stats.CancelledWindows++
+		default:
+			// MaintenanceWindowStatusPendingApproval, MaintenanceWindowStatusExpired counted via ByStatus map
 		}
 
 		// Check if upcoming in 24h

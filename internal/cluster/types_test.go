@@ -124,16 +124,16 @@ func TestMembershipEvent(t *testing.T) {
 	assert.Equal(t, "new member", event.Reason)
 }
 
-func TestClusterInfo(t *testing.T) {
+func TestInfo(t *testing.T) {
 	members := []*Member{
 		{ID: "m1", Status: MemberStatusHealthy, IsLeader: true},
 		{ID: "m2", Status: MemberStatusHealthy},
 		{ID: "m3", Status: MemberStatusDegraded},
 	}
 
-	info := &ClusterInfo{
+	info := &Info{
 		Name:         "test-cluster",
-		Status:       ClusterStatusHealthy,
+		Status:       StatusHealthy,
 		LeaderID:     "m1",
 		Members:      members,
 		MemberCount:  3,
@@ -145,7 +145,7 @@ func TestClusterInfo(t *testing.T) {
 	}
 
 	assert.Equal(t, "test-cluster", info.Name)
-	assert.Equal(t, ClusterStatusHealthy, info.Status)
+	assert.Equal(t, StatusHealthy, info.Status)
 	assert.Equal(t, "m1", info.LeaderID)
 	assert.Len(t, info.Members, 3)
 	assert.Equal(t, 3, info.MemberCount)
@@ -242,15 +242,15 @@ func TestMemberStatus_IsHealthy(t *testing.T) {
 	}
 }
 
-func TestClusterStatus_String(t *testing.T) {
+func TestStatus_String(t *testing.T) {
 	tests := []struct {
-		status   ClusterStatus
+		status   Status
 		expected string
 	}{
-		{ClusterStatusHealthy, "healthy"},
-		{ClusterStatusDegraded, "degraded"},
-		{ClusterStatusUnhealthy, "unhealthy"},
-		{ClusterStatusForming, "forming"},
+		{StatusHealthy, "healthy"},
+		{StatusDegraded, "degraded"},
+		{StatusUnhealthy, "unhealthy"},
+		{StatusForming, "forming"},
 	}
 
 	for _, tt := range tests {
@@ -324,7 +324,7 @@ func TestMemberClone_EmptyMetadata(t *testing.T) {
 	assert.Len(t, clone.Metadata, 0)
 }
 
-func TestClusterInfo_AllFields(t *testing.T) {
+func TestInfo_AllFields(t *testing.T) {
 	now := time.Now().UTC()
 	members := []*Member{
 		{ID: "m1", Status: MemberStatusHealthy, IsLeader: true},
@@ -333,9 +333,9 @@ func TestClusterInfo_AllFields(t *testing.T) {
 		{ID: "m4", Status: MemberStatusUnhealthy},
 	}
 
-	info := &ClusterInfo{
+	info := &Info{
 		Name:         "production-cluster",
-		Status:       ClusterStatusDegraded,
+		Status:       StatusDegraded,
 		LeaderID:     "m1",
 		Members:      members,
 		MemberCount:  4,
@@ -347,7 +347,7 @@ func TestClusterInfo_AllFields(t *testing.T) {
 	}
 
 	assert.Equal(t, "production-cluster", info.Name)
-	assert.Equal(t, ClusterStatusDegraded, info.Status)
+	assert.Equal(t, StatusDegraded, info.Status)
 	assert.Equal(t, "m1", info.LeaderID)
 	assert.Len(t, info.Members, 4)
 	assert.Equal(t, 4, info.MemberCount)
@@ -504,10 +504,10 @@ func TestMembershipEventType_Values(t *testing.T) {
 	}
 }
 
-func TestClusterInfo_NoQuorum(t *testing.T) {
-	info := &ClusterInfo{
+func TestInfo_NoQuorum(t *testing.T) {
+	info := &Info{
 		Name:         "small-cluster",
-		Status:       ClusterStatusUnhealthy,
+		Status:       StatusUnhealthy,
 		LeaderID:     "",
 		Members:      []*Member{{ID: "m1", Status: MemberStatusUnhealthy}},
 		MemberCount:  3,
@@ -518,7 +518,7 @@ func TestClusterInfo_NoQuorum(t *testing.T) {
 
 	assert.False(t, info.HasQuorum)
 	assert.Empty(t, info.LeaderID)
-	assert.Equal(t, ClusterStatusUnhealthy, info.Status)
+	assert.Equal(t, StatusUnhealthy, info.Status)
 }
 
 func TestMemberClone_ModifyOriginal(t *testing.T) {
@@ -548,12 +548,12 @@ func TestMemberStatusConstants(t *testing.T) {
 	assert.Equal(t, MemberStatus("leaving"), MemberStatusLeaving)
 }
 
-func TestClusterStatusConstants(t *testing.T) {
+func TestStatusConstants(t *testing.T) {
 	// Verify the constants have expected values
-	assert.Equal(t, ClusterStatus("healthy"), ClusterStatusHealthy)
-	assert.Equal(t, ClusterStatus("degraded"), ClusterStatusDegraded)
-	assert.Equal(t, ClusterStatus("unhealthy"), ClusterStatusUnhealthy)
-	assert.Equal(t, ClusterStatus("forming"), ClusterStatusForming)
+	assert.Equal(t, Status("healthy"), StatusHealthy)
+	assert.Equal(t, Status("degraded"), StatusDegraded)
+	assert.Equal(t, Status("unhealthy"), StatusUnhealthy)
+	assert.Equal(t, Status("forming"), StatusForming)
 }
 
 func TestEtcdModeConstants(t *testing.T) {

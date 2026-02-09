@@ -3,7 +3,7 @@ package bootstrap
 import "testing"
 
 func TestBuildServicePlanSystemdBoth(t *testing.T) {
-	cfg := &BootstrapConfig{
+	cfg := &Config{
 		NodeRole: "both",
 		NATSMode: "embedded",
 		Storage:  "sqlite",

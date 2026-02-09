@@ -227,8 +227,8 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ContainerInfo is additional container information
-type ContainerInfo struct {
+// Info is additional container information
+type Info struct {
 	// State is the container state (created, running, paused, stopped, etc.)
 	State string
 

@@ -154,7 +154,7 @@ func TestRateLimitConfig(t *testing.T) {
 	config := &ServerConfig{
 		ClusterID: "test-cluster",
 		RateLimit: &RateLimitConfig{
-			PerAgent:            10 << 20, // 10 MB/s
+			PerAgent:            10 << 20,  // 10 MB/s
 			Global:              100 << 20, // 100 MB/s
 			ConcurrentTransfers: 50,
 		},

@@ -82,7 +82,7 @@ func (m *FileManager) uploadLargeFile(ctx context.Context, data []byte, remotePa
 	clearScript := fmt.Sprintf(`
 if (Test-Path '%s') { Remove-Item '%s' -Force }
 `, tempPath, tempPath)
-	m.adapter.RunPowerShell(ctx, clearScript)
+	_, _, _, _ = m.adapter.RunPowerShell(ctx, clearScript) //nolint:errcheck // best-effort cleanup
 
 	// Upload in chunks
 	for i := 0; i < len(data); i += m.ChunkSize {
@@ -147,11 +147,13 @@ func (m *FileManager) DownloadFile(ctx context.Context, remotePath, localPath st
 
 	// Create parent directory if needed
 	dir := filepath.Dir(localPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: local directory needs to be accessible by users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	return os.WriteFile(localPath, data, 0644)
+	//nolint:gosec // G306: downloaded files need standard read permissions
+	return os.WriteFile(localPath, data, 0o644)
 }
 
 // DownloadBytes downloads a remote file as bytes.
@@ -423,7 +425,7 @@ $item = Get-Item '%s'
 }
 
 // GetFileHash gets the hash of a remote file.
-func (m *FileManager) GetFileHash(ctx context.Context, remotePath string, algorithm string) (string, error) {
+func (m *FileManager) GetFileHash(ctx context.Context, remotePath, algorithm string) (string, error) {
 	if algorithm == "" {
 		algorithm = "SHA256"
 	}

@@ -2,6 +2,7 @@ package vendors
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -18,6 +19,24 @@ func TestVendorTypeConstants(t *testing.T) {
 		{VendorPfSense, "pfsense"},
 		{VendorOPNsense, "opnsense"},
 		{VendorVyOS, "vyos"},
+		{VendorHPProCurve, "hp_procurve"},
+		{VendorHPArubaOS, "hp_arubaos"},
+		{VendorHPAOSCX, "hp_aoscx"},
+		{VendorDellOS10, "dell_os10"},
+		{VendorDellOS9, "dell_os9"},
+		{VendorDellPowerSwitch, "dell_powerswitch"},
+		{VendorFortiOS, "fortinet_fortios"},
+		{VendorPANOS, "paloalto_panos"},
+		{VendorF5BigIP, "f5_bigip"},
+		{VendorCheckpointGaia, "checkpoint_gaia"},
+		{VendorMikroTikRouterOS, "mikrotik_routeros"},
+		{VendorUbiquitiEdgeOS, "ubiquiti_edgeos"},
+		{VendorExtremeEXOS, "extreme_exos"},
+		{VendorNokiaSROS, "nokia_sros"},
+		{VendorHuaweiVRP, "huawei_vrp"},
+		{VendorMellanoxOnyx, "mellanox_onyx"},
+		{VendorAlliedTelesisAW, "alliedtelesis_awplus"},
+		{VendorCienaSAOS, "ciena_saos"},
 	}
 
 	for _, tt := range tests {
@@ -245,8 +264,8 @@ func TestVendorRegistryCreate(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for unregistered vendor")
 		}
-		vendorErr, ok := err.(*VendorNotFoundError)
-		if !ok {
+		var vendorErr *VendorNotFoundError
+		if !errors.As(err, &vendorErr) {
 			t.Errorf("expected VendorNotFoundError, got %T", err)
 		} else if vendorErr.Vendor != VendorCiscoIOS {
 			t.Errorf("Vendor = %v, want %v", vendorErr.Vendor, VendorCiscoIOS)

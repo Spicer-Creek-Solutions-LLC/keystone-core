@@ -44,6 +44,7 @@ const (
 // EndpointStatus represents the health status of an endpoint
 type EndpointStatus string
 
+// StatusUnknown constants define the possible statuses.
 const (
 	StatusUnknown   EndpointStatus = "unknown"
 	StatusHealthy   EndpointStatus = "healthy"
@@ -409,6 +410,7 @@ func (r *Resolver) connectRoundRobin(ctx context.Context, endpoints []*Endpoint)
 	}
 
 	// Get starting index
+	//nolint:gosec // G115: modulo result is bounded by n (number of endpoints), fits in int
 	start := int(atomic.AddUint64(&r.rrCounter, 1) % uint64(n))
 
 	// Try endpoints starting from round-robin position
@@ -520,7 +522,12 @@ func (r *Resolver) recordFailure(ep *Endpoint) {
 // HealthCheck performs health checks on all cached endpoints
 func (r *Resolver) HealthCheck(ctx context.Context) {
 	r.mu.RLock()
-	allEndpoints := make([]*Endpoint, 0)
+	// Count total endpoints first
+	total := 0
+	for _, eps := range r.endpoints {
+		total += len(eps)
+	}
+	allEndpoints := make([]*Endpoint, 0, total)
 	for _, eps := range r.endpoints {
 		allEndpoints = append(allEndpoints, eps...)
 	}
@@ -633,7 +640,8 @@ func ParseAddress(addr string) (Protocol, error) {
 // IsIPv6Available checks if IPv6 connectivity is available
 func IsIPv6Available() bool {
 	// Try to connect to a well-known IPv6 address
-	conn, err := net.DialTimeout("tcp6", "[2001:4860:4860::8888]:53", 2*time.Second)
+	d := &net.Dialer{Timeout: 2 * time.Second}
+	conn, err := d.DialContext(context.Background(), "tcp6", "[2001:4860:4860::8888]:53")
 	if err != nil {
 		return false
 	}
@@ -644,7 +652,8 @@ func IsIPv6Available() bool {
 // IsIPv4Available checks if IPv4 connectivity is available
 func IsIPv4Available() bool {
 	// Try to connect to a well-known IPv4 address
-	conn, err := net.DialTimeout("tcp4", "8.8.8.8:53", 2*time.Second)
+	d := &net.Dialer{Timeout: 2 * time.Second}
+	conn, err := d.DialContext(context.Background(), "tcp4", "8.8.8.8:53")
 	if err != nil {
 		return false
 	}

@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register pure-Go SQLite driver
 )
 
 // SQLiteEventStore implements EventStore using SQLite
@@ -83,7 +84,7 @@ func (s *SQLiteEventStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	return err
 }
 
@@ -318,6 +319,7 @@ func (s *SQLiteEventStore) Query(ctx context.Context, query *EventQuery) (*Event
 	}
 
 	// Get events
+	//nolint:gosec // G202: sortBy validated against allowlist; whereClause built with placeholders; args are bound separately
 	dataQuery := `
 		SELECT id, type, source, severity, correlation_id, subject, time, tags, data
 		FROM events
@@ -453,7 +455,7 @@ func (s *SQLiteEventStore) DeleteBatch(ctx context.Context, ids []string) error 
 		args[i] = id
 	}
 
-	query := "DELETE FROM events WHERE id IN (" + strings.Join(placeholders, ",") + ")" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- placeholders are generated for bound args only
+	query := "DELETE FROM events WHERE id IN (" + strings.Join(placeholders, ",") + ")" //nolint:gosec // G202: placeholders are generated for bound args only
 	_, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete events: %w", err)
@@ -530,7 +532,7 @@ func (s *SQLiteEventStore) ApplyRetention(ctx context.Context, policy *Retention
 				args[i] = sev
 			}
 
-			query := "DELETE FROM events WHERE severity IN (" + strings.Join(placeholders, ",") + ")" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- placeholders are generated for bound args only
+			query := "DELETE FROM events WHERE severity IN (" + strings.Join(placeholders, ",") + ")" //nolint:gosec // G202: placeholders are generated for bound args only
 			result, err := s.db.ExecContext(ctx, query, args...)
 			if err != nil {
 				return totalDeleted, fmt.Errorf("failed to delete low severity events: %w", err)
@@ -574,6 +576,9 @@ func (s *SQLiteEventStore) GetMetrics(ctx context.Context) (*StorageMetrics, err
 		}
 		metrics.EventsByType[eventType] = count
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate event types: %w", err)
+	}
 
 	// Events by severity
 	rows, err = s.db.QueryContext(ctx, "SELECT severity, COUNT(*) FROM events GROUP BY severity")
@@ -590,11 +595,14 @@ func (s *SQLiteEventStore) GetMetrics(ctx context.Context) (*StorageMetrics, err
 		}
 		metrics.EventsBySeverity[severity] = count
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate severities: %w", err)
+	}
 
 	// Oldest and newest events
 	var oldestUnix, newestUnix int64
 	err = s.db.QueryRowContext(ctx, "SELECT MIN(time), MAX(time) FROM events").Scan(&oldestUnix, &newestUnix)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to get time range: %w", err)
 	}
 
@@ -627,7 +635,7 @@ func (s *SQLiteEventStore) startAutoRetention() {
 			select {
 			case <-ticker.C:
 				if s.config.DefaultRetentionPolicy != nil {
-					s.ApplyRetention(ctx, s.config.DefaultRetentionPolicy)
+					_, _ = s.ApplyRetention(ctx, s.config.DefaultRetentionPolicy) //nolint:errcheck // best-effort periodic retention
 				}
 			case <-ctx.Done():
 				return

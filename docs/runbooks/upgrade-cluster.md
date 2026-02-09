@@ -56,8 +56,8 @@ kscorectl cluster health --verbose
 TOTAL_AGENTS=$(kscorectl agent list --status | grep -c online)
 echo "Total agents online: $TOTAL_AGENTS"
 
-# Verify no pending state applications
-kscorectl state list --pending
+# Verify no recent state failures (check logs)
+journalctl -u kscore-server --since "1 hour ago" | grep -i "state apply\|failed" | tail -10
 
 # Record baseline metrics
 curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[5m]) > /tmp/baseline-errors.txt
@@ -295,8 +295,8 @@ kscorectl upgrade resume --force
 # Check what's failing
 kscorectl cluster health --verbose
 
-# Check specific node
-kscorectl cluster health --node ks-server-1
+# Check specific node via SSH
+ssh ks-server-1 "kscorectl cluster health"
 
 # Override health check (emergency only)
 kscorectl upgrade resume --skip-health-check

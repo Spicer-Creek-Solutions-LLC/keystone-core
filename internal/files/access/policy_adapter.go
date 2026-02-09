@@ -64,31 +64,32 @@ func NewPolicyEngineAdapter(config *PolicyEngineAdapterConfig) (*PolicyEngineAda
 
 // Evaluate evaluates the policy engine for a file access request.
 // This implements the PolicyEvaluator interface for file access control.
-func (a *PolicyEngineAdapter) Evaluate(ctx context.Context, req *AccessRequest) (*AccessResult, error) {
+func (a *PolicyEngineAdapter) Evaluate(ctx context.Context, req *Request) (*Result, error) {
 	start := time.Now()
 
 	// Build evaluation input from access request
 	input := a.buildEvaluationInput(req)
 
 	// Evaluate based on configuration
-	var policyResult *policy.PolicyResult
+	var policyResult *policy.Result
 	var singleResult *policy.EvaluationResult
 	var err error
 
-	if a.policyID != "" {
+	switch {
+	case a.policyID != "":
 		// Evaluate a single specific policy
 		singleResult, err = a.engine.Evaluate(ctx, a.policyID, input)
 		if err != nil {
 			return nil, fmt.Errorf("policy evaluation failed: %w", err)
 		}
 		policyResult = a.singleResultToPolicyResult(singleResult)
-	} else if a.policySetID != "" {
+	case a.policySetID != "":
 		// Evaluate a policy set
 		policyResult, err = a.engine.EvaluatePolicySet(ctx, a.policySetID, input)
 		if err != nil {
 			return nil, fmt.Errorf("policy set evaluation failed: %w", err)
 		}
-	} else {
+	default:
 		// Evaluate all policies bound to the resource type
 		policyResult, err = a.engine.EvaluateForResource(ctx, a.resourceType, input)
 		if err != nil {
@@ -101,7 +102,7 @@ func (a *PolicyEngineAdapter) Evaluate(ctx context.Context, req *AccessRequest) 
 }
 
 // buildEvaluationInput builds a policy evaluation input from an access request.
-func (a *PolicyEngineAdapter) buildEvaluationInput(req *AccessRequest) *policy.EvaluationInput {
+func (a *PolicyEngineAdapter) buildEvaluationInput(req *Request) *policy.EvaluationInput {
 	// Build resource representation
 	resource := map[string]interface{}{
 		"namespace": req.Namespace,
@@ -125,14 +126,14 @@ func (a *PolicyEngineAdapter) buildEvaluationInput(req *AccessRequest) *policy.E
 	}
 
 	// Build context
-	context := make(map[string]interface{})
-	context["namespace"] = req.Namespace
-	context["path"] = req.Path
-	context["action"] = string(req.Action)
+	policyContext := make(map[string]interface{})
+	policyContext["namespace"] = req.Namespace
+	policyContext["path"] = req.Path
+	policyContext["action"] = string(req.Action)
 
 	if req.Identity != nil {
-		context["identity_type"] = req.Identity.Type
-		context["roles"] = req.Identity.Roles
+		policyContext["identity_type"] = req.Identity.Type
+		policyContext["roles"] = req.Identity.Roles
 	}
 
 	// Get user from identity
@@ -145,14 +146,14 @@ func (a *PolicyEngineAdapter) buildEvaluationInput(req *AccessRequest) *policy.E
 		Resource:  resource,
 		Action:    string(req.Action),
 		User:      user,
-		Context:   context,
+		Context:   policyContext,
 		Timestamp: time.Now(),
 	}
 }
 
 // policyResultToAccessResult converts a policy result to an access result.
-func (a *PolicyEngineAdapter) policyResultToAccessResult(pr *policy.PolicyResult, duration time.Duration) *AccessResult {
-	result := &AccessResult{
+func (a *PolicyEngineAdapter) policyResultToAccessResult(pr *policy.Result, duration time.Duration) *Result {
+	result := &Result{
 		Allowed:  pr.Allowed,
 		Duration: duration,
 	}
@@ -179,9 +180,9 @@ func (a *PolicyEngineAdapter) policyResultToAccessResult(pr *policy.PolicyResult
 	return result
 }
 
-// singleResultToPolicyResult wraps a single evaluation result in a PolicyResult.
-func (a *PolicyEngineAdapter) singleResultToPolicyResult(er *policy.EvaluationResult) *policy.PolicyResult {
-	summary := &policy.PolicySummary{
+// singleResultToPolicyResult wraps a single evaluation result in a Result.
+func (a *PolicyEngineAdapter) singleResultToPolicyResult(er *policy.EvaluationResult) *policy.Result {
+	summary := &policy.Summary{
 		TotalPolicies:        1,
 		AllowedPolicies:      0,
 		DeniedPolicies:       0,
@@ -199,7 +200,7 @@ func (a *PolicyEngineAdapter) singleResultToPolicyResult(er *policy.EvaluationRe
 		summary.ViolationsBySeverity[v.Severity]++
 	}
 
-	return &policy.PolicyResult{
+	return &policy.Result{
 		Allowed:       er.Allowed,
 		Results:       []*policy.EvaluationResult{er},
 		Summary:       summary,
@@ -210,7 +211,7 @@ func (a *PolicyEngineAdapter) singleResultToPolicyResult(er *policy.EvaluationRe
 
 // FileAccessPolicy creates a simple CEL policy for file access control.
 // This is a helper function to create common file access policies.
-func FileAccessPolicy(id, name string, celExpression string, severity policy.Severity) *policy.Policy {
+func FileAccessPolicy(id, name, celExpression string, severity policy.Severity) *policy.Policy {
 	return &policy.Policy{
 		ID:              id,
 		Name:            name,

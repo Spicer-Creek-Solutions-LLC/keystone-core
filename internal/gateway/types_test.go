@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -25,8 +26,8 @@ func TestDefaultConfigWarnsAboutLogsOutput(t *testing.T) {
 		return
 	}
 
-	errs, ok := err.(ValidationErrors)
-	if !ok {
+	var errs ValidationErrors
+	if !errors.As(err, &errs) {
 		t.Fatalf("expected ValidationErrors, got %T", err)
 	}
 
@@ -88,8 +89,8 @@ func TestConfigValidate_RequiredFields(t *testing.T) {
 				t.Fatal("expected validation error")
 			}
 
-			errs, ok := err.(ValidationErrors)
-			if !ok {
+			var errs ValidationErrors
+			if !errors.As(err, &errs) {
 				t.Fatalf("expected ValidationErrors, got %T", err)
 			}
 
@@ -133,7 +134,8 @@ func TestConfigValidate_InvalidNATSURL(t *testing.T) {
 
 			// Check specifically for NATS URL errors
 			hasNATSErr := false
-			if errs, ok := err.(ValidationErrors); ok {
+			var errs ValidationErrors
+			if errors.As(err, &errs) {
 				for _, e := range errs {
 					if e.Field == "nats.urls[0]" {
 						hasNATSErr = true
@@ -200,7 +202,8 @@ func TestConfigValidate_TLSConfig(t *testing.T) {
 			if tt.wantField == "" {
 				if err != nil {
 					// Check if error is from TLS config
-					if errs, ok := err.(ValidationErrors); ok {
+					var errs ValidationErrors
+			if errors.As(err, &errs) {
 						for _, e := range errs {
 							if e.Field == "nats.tls.key_file" || e.Field == "nats.tls.cert_file" {
 								t.Errorf("unexpected TLS error: %v", e)
@@ -212,8 +215,8 @@ func TestConfigValidate_TLSConfig(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected validation error")
 				}
-				errs, ok := err.(ValidationErrors)
-				if !ok {
+				var errs ValidationErrors
+				if !errors.As(err, &errs) {
 					t.Fatalf("expected ValidationErrors, got %T", err)
 				}
 				found := false
@@ -307,7 +310,8 @@ func TestConfigValidate_AuthConfig(t *testing.T) {
 
 			if tt.wantField == "" {
 				// Check no auth errors
-				if errs, ok := err.(ValidationErrors); ok {
+				var errs ValidationErrors
+			if errors.As(err, &errs) {
 					for _, e := range errs {
 						if e.Field == "metrics.remote_write.auth.username" ||
 							e.Field == "metrics.remote_write.auth.password" ||
@@ -321,8 +325,8 @@ func TestConfigValidate_AuthConfig(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected validation error")
 				}
-				errs, ok := err.(ValidationErrors)
-				if !ok {
+				var errs ValidationErrors
+				if !errors.As(err, &errs) {
 					t.Fatalf("expected ValidationErrors, got %T", err)
 				}
 				found := false
@@ -352,7 +356,8 @@ func TestConfigValidate_LogLevel(t *testing.T) {
 			cfg.Logs.Loki.URL = "http://localhost:3100"
 
 			err := cfg.Validate()
-			if errs, ok := err.(ValidationErrors); ok {
+			var errs ValidationErrors
+			if errors.As(err, &errs) {
 				for _, e := range errs {
 					if e.Field == "logs.min_level" {
 						t.Errorf("unexpected error for valid level %q: %v", level, e)
@@ -375,8 +380,8 @@ func TestConfigValidate_LogLevel(t *testing.T) {
 				return
 			}
 
-			errs, ok := err.(ValidationErrors)
-			if !ok {
+			var errs ValidationErrors
+			if !errors.As(err, &errs) {
 				return
 			}
 			found := false
@@ -413,7 +418,8 @@ func TestConfigValidate_SamplingRate(t *testing.T) {
 
 			err := cfg.Validate()
 			hasRateErr := false
-			if errs, ok := err.(ValidationErrors); ok {
+			var errs ValidationErrors
+			if errors.As(err, &errs) {
 				for _, e := range errs {
 					if e.Field == "traces.sampling.rate" {
 						hasRateErr = true
@@ -441,7 +447,8 @@ func TestConfigValidate_OTLPProtocol(t *testing.T) {
 			cfg.Traces.OTLP.Protocol = proto
 
 			err := cfg.Validate()
-			if errs, ok := err.(ValidationErrors); ok {
+			var errs ValidationErrors
+			if errors.As(err, &errs) {
 				for _, e := range errs {
 					if e.Field == "traces.otlp.protocol" {
 						t.Errorf("unexpected error for valid protocol %q: %v", proto, e)
@@ -464,8 +471,8 @@ func TestConfigValidate_OTLPProtocol(t *testing.T) {
 				return
 			}
 
-			errs, ok := err.(ValidationErrors)
-			if !ok {
+			var errs ValidationErrors
+			if !errors.As(err, &errs) {
 				return
 			}
 			found := false
@@ -530,7 +537,8 @@ func TestConfigValidate_LeaderElection(t *testing.T) {
 			err := cfg.Validate()
 
 			if !tt.wantErr {
-				if errs, ok := err.(ValidationErrors); ok {
+				var errs ValidationErrors
+			if errors.As(err, &errs) {
 					for _, e := range errs {
 						if e.Field == "ha.leader_election.lease_duration" ||
 							e.Field == "ha.leader_election.renew_deadline" {
@@ -542,8 +550,8 @@ func TestConfigValidate_LeaderElection(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected validation error")
 				}
-				errs, ok := err.(ValidationErrors)
-				if !ok {
+				var errs ValidationErrors
+				if !errors.As(err, &errs) {
 					t.Fatalf("expected ValidationErrors, got %T", err)
 				}
 				found := false
@@ -572,8 +580,8 @@ func TestConfigValidate_NoTelemetryEnabled(t *testing.T) {
 		t.Fatal("expected validation error when no telemetry is enabled")
 	}
 
-	errs, ok := err.(ValidationErrors)
-	if !ok {
+	var errs ValidationErrors
+	if !errors.As(err, &errs) {
 		t.Fatalf("expected ValidationErrors, got %T", err)
 	}
 

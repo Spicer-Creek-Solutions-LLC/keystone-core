@@ -26,14 +26,14 @@ func NewModulePolicyEngine(policyEngine *policypkg.PolicyEngine, config *Capabil
 // DefaultCapabilityPolicyConfig returns the default capability configuration
 func DefaultCapabilityPolicyConfig() *CapabilityPolicyConfig {
 	return &CapabilityPolicyConfig{
-		AllowByDefault: false,
+		AllowByDefault:      false,
 		BlockedCapabilities: []string{
 			// Never allow these by default
 		},
 		RequireApprovalCapabilities: []string{
-			"exec",           // Command execution
-			"http.post",      // Outbound HTTP POST
-			"secrets.write",  // Secret modification
+			"exec",          // Command execution
+			"http.post",     // Outbound HTTP POST
+			"secrets.write", // Secret modification
 		},
 		TrustLevelRequirements: map[string]TrustLevel{
 			"exec":          TrustLevelVerified,
@@ -315,6 +315,7 @@ func (e *ModulePolicyEngine) applyRuleAction(rule *ModulePolicyRule, result *Mod
 				result.DeniedCapabilities = append(result.DeniedCapabilities, cap)
 			}
 		}
+	default:
 	}
 
 	if action.Block {
@@ -330,12 +331,12 @@ func (e *ModulePolicyEngine) applyRuleAction(rule *ModulePolicyRule, result *Mod
 // meetsMinimumTrust checks if actual trust level meets minimum requirement
 func meetsMinimumTrust(actual, minimum TrustLevel) bool {
 	trustOrder := map[TrustLevel]int{
-		TrustLevelUnknown:    0,
-		TrustLevelUntrusted:  1,
-		TrustLevelCommunity:  2,
-		TrustLevelVerified:   3,
-		TrustLevelInternal:   4,
-		TrustLevelSystem:     5,
+		TrustLevelUnknown:   0,
+		TrustLevelUntrusted: 1,
+		TrustLevelCommunity: 2,
+		TrustLevelVerified:  3,
+		TrustLevelInternal:  4,
+		TrustLevelSystem:    5,
 	}
 
 	actualLevel := trustOrder[actual]
@@ -347,12 +348,12 @@ func meetsMinimumTrust(actual, minimum TrustLevel) bool {
 // meetsMaximumTrust checks if actual trust level is at or below maximum
 func meetsMaximumTrust(actual, maximum TrustLevel) bool {
 	trustOrder := map[TrustLevel]int{
-		TrustLevelUnknown:    0,
-		TrustLevelUntrusted:  1,
-		TrustLevelCommunity:  2,
-		TrustLevelVerified:   3,
-		TrustLevelInternal:   4,
-		TrustLevelSystem:     5,
+		TrustLevelUnknown:   0,
+		TrustLevelUntrusted: 1,
+		TrustLevelCommunity: 2,
+		TrustLevelVerified:  3,
+		TrustLevelInternal:  4,
+		TrustLevelSystem:    5,
 	}
 
 	actualLevel := trustOrder[actual]

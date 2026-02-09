@@ -23,18 +23,18 @@ type Server struct {
 	nc     *nats.Conn
 
 	// Metrics components
-	metricsStore      *metrics.MetricsStore
+	metricsStore      *metrics.Store
 	metricsSubscriber *metrics.Subscriber
 	metricsHandler    *metrics.Handler
 	remoteWriter      *metrics.RemoteWriter
 
 	// Logs components
-	logsStore      *logs.LogsStore
+	logsStore      *logs.Store
 	logsSubscriber *logs.Subscriber
 	lokiPusher     *logs.LokiPusher
 
 	// Traces components
-	tracesStore      *traces.TracesStore
+	tracesStore      *traces.Store
 	tracesSubscriber *traces.Subscriber
 	otlpExporter     *traces.OTLPExporter
 
@@ -165,10 +165,7 @@ func (s *Server) connectNATS() error {
 		}),
 	}
 
-	// Add TLS if configured
-	if s.config.NATS.TLS.Enabled {
-		// TLS configuration would be added here
-	}
+	// TODO: Add TLS configuration when s.config.NATS.TLS.Enabled is true
 
 	// Add credentials if configured
 	if s.config.NATS.CredentialsFile != "" {
@@ -244,12 +241,13 @@ func (s *Server) initMetrics() error {
 		}
 
 		// Configure auth
-		if s.config.Metrics.RemoteWrite.Auth.Type == "basic" {
+		switch s.config.Metrics.RemoteWrite.Auth.Type {
+		case "basic":
 			rwConfig.BasicAuth = &metrics.BasicAuth{
 				Username: s.config.Metrics.RemoteWrite.Auth.Username,
 				Password: s.config.Metrics.RemoteWrite.Auth.Password,
 			}
-		} else if s.config.Metrics.RemoteWrite.Auth.Type == "bearer" {
+		case "bearer":
 			rwConfig.BearerToken = s.config.Metrics.RemoteWrite.Auth.Token
 		}
 
@@ -267,9 +265,9 @@ func (s *Server) initMetrics() error {
 func (s *Server) initLogs() error {
 	// Create logs store
 	storeConfig := logs.StoreConfig{
-		MaxEntries:    100000,
-		MaxAge:        1 * time.Hour,
-		MinLevel:      s.config.Logs.MinLevel,
+		MaxEntries:     100000,
+		MaxAge:         1 * time.Hour,
+		MinLevel:       s.config.Logs.MinLevel,
 		IncludeSources: s.config.Logs.Sources.Include,
 		ExcludeSources: s.config.Logs.Sources.Exclude,
 	}
@@ -365,16 +363,9 @@ func (s *Server) startHTTP() error {
 	})
 	mux.HandleFunc(s.config.Server.ReadyPath, func(w http.ResponseWriter, r *http.Request) {
 		// Check if we have active subscriptions
-		ready := true
-		if s.config.Metrics.Enabled && s.metricsSubscriber == nil {
-			ready = false
-		}
-		if s.config.Logs.Enabled && s.logsSubscriber == nil {
-			ready = false
-		}
-		if s.config.Traces.Enabled && s.tracesSubscriber == nil {
-			ready = false
-		}
+		ready := (!s.config.Metrics.Enabled || s.metricsSubscriber != nil) &&
+			(!s.config.Logs.Enabled || s.logsSubscriber != nil) &&
+			(!s.config.Traces.Enabled || s.tracesSubscriber != nil)
 		if ready {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ready"))
@@ -441,8 +432,8 @@ func (s *Server) cleanupLoop() {
 	}
 }
 
-// Stats returns gateway statistics.
-type Stats struct {
+// ServerStats contains gateway server statistics.
+type ServerStats struct {
 	Metrics *MetricsStats
 	Logs    *LogsStats
 	Traces  *TracesStats
@@ -471,8 +462,8 @@ type TracesStats struct {
 }
 
 // Stats returns current gateway statistics.
-func (s *Server) Stats() Stats {
-	stats := Stats{}
+func (s *Server) Stats() ServerStats {
+	stats := ServerStats{}
 
 	if s.metricsStore != nil && s.metricsSubscriber != nil {
 		storeStats := s.metricsStore.Stats()

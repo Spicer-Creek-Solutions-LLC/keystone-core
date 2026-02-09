@@ -32,27 +32,27 @@ type EventID uint32
 
 const (
 	// Informational events (1xxx)
-	EventIDAgentStarted     EventID = 1001
-	EventIDAgentStopped     EventID = 1002
-	EventIDAgentConnected   EventID = 1003
-	EventIDAgentRegistered  EventID = 1004
-	EventIDCommandExecuted  EventID = 1005
-	EventIDStateApplied     EventID = 1006
-	EventIDHeartbeatSent    EventID = 1007
-	EventIDConfigLoaded     EventID = 1008
-	EventIDServiceStarted   EventID = 1009
-	EventIDServiceStopped   EventID = 1010
-	EventIDGenericInfo      EventID = 1099
+	EventIDAgentStarted    EventID = 1001
+	EventIDAgentStopped    EventID = 1002
+	EventIDAgentConnected  EventID = 1003
+	EventIDAgentRegistered EventID = 1004
+	EventIDCommandExecuted EventID = 1005
+	EventIDStateApplied    EventID = 1006
+	EventIDHeartbeatSent   EventID = 1007
+	EventIDConfigLoaded    EventID = 1008
+	EventIDServiceStarted  EventID = 1009
+	EventIDServiceStopped  EventID = 1010
+	EventIDGenericInfo     EventID = 1099
 
 	// Warning events (2xxx)
-	EventIDConnectionRetry      EventID = 2001
-	EventIDHeartbeatMissed      EventID = 2002
-	EventIDCommandTimeout       EventID = 2003
-	EventIDConfigWarning        EventID = 2004
-	EventIDResourceLow          EventID = 2005
-	EventIDStateChangeDetected  EventID = 2006
-	EventIDPolicyViolationWarn  EventID = 2007
-	EventIDGenericWarning       EventID = 2099
+	EventIDConnectionRetry     EventID = 2001
+	EventIDHeartbeatMissed     EventID = 2002
+	EventIDCommandTimeout      EventID = 2003
+	EventIDConfigWarning       EventID = 2004
+	EventIDResourceLow         EventID = 2005
+	EventIDStateChangeDetected EventID = 2006
+	EventIDPolicyViolationWarn EventID = 2007
+	EventIDGenericWarning      EventID = 2099
 
 	// Error events (3xxx)
 	EventIDConnectionFailed    EventID = 3001
@@ -66,11 +66,11 @@ const (
 	EventIDGenericError        EventID = 3099
 
 	// Security/audit events (4xxx)
-	EventIDAuthSuccess       EventID = 4001
-	EventIDAuthFailure       EventID = 4002
-	EventIDPolicyViolation   EventID = 4003
-	EventIDAuditLog          EventID = 4004
-	EventIDSecurityGeneric   EventID = 4099
+	EventIDAuthSuccess     EventID = 4001
+	EventIDAuthFailure     EventID = 4002
+	EventIDPolicyViolation EventID = 4003
+	EventIDAuditLog        EventID = 4004
+	EventIDSecurityGeneric EventID = 4099
 )
 
 // EventLogConfig contains configuration for Windows Event Log output

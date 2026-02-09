@@ -294,8 +294,8 @@ log_level: info
 
 	// User provides some values
 	userParams := map[string]interface{}{
-		"port":     3000,
-		"custom":   "value",
+		"port":   3000,
+		"custom": "value",
 	}
 
 	result, err := loader.ApplyPlatformDefaults(bp, userParams)

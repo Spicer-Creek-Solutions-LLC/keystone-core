@@ -697,7 +697,7 @@ func TestWebhookMutate(t *testing.T) {
 			Metadata: PodMetadata{
 				Name: "test-pod",
 				Annotations: map[string]string{
-					AnnotationInject: "true",
+					AnnotationInject:  "true",
 					AnnotationSecrets: `[{"name":"db","secret_path":"secrets/db"}]`,
 				},
 			},

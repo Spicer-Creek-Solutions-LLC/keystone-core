@@ -34,9 +34,9 @@ func TestNewEventBasedBootstrapAuditLogger(t *testing.T) {
 	publisher := &mockEventPublisher{}
 
 	tests := []struct {
-		name     string
-		source   string
-		wantSrc  string
+		name    string
+		source  string
+		wantSrc string
 	}{
 		{
 			name:    "with custom source",
@@ -67,10 +67,10 @@ func TestEventBasedBootstrapAuditLogger_Log(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name      string
-		event     BootstrapAuditEvent
-		wantType  events.EventType
-		wantTags  []string
+		name     string
+		event    BootstrapAuditEvent
+		wantType events.EventType
+		wantTags []string
 	}{
 		{
 			name: "successful registration",

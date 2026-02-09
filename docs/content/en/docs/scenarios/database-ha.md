@@ -61,11 +61,10 @@ parameters:
     type: integer
     default: 200
 
-states:
-  # Primary configuration
+# Primary configuration
+postgresql:
   pg_primary:
     target: "hostname:{{ .parameters.primary_host }}"
-    module: postgresql
     role: primary
     version: "{{ .parameters.pg_version }}"
     config:
@@ -81,7 +80,6 @@ states:
   pg_standby:
     for_each: "{{ .parameters.standby_hosts }}"
     target: "hostname:{{ .each.value }}"
-    module: postgresql
     role: standby
     version: "{{ .parameters.pg_version }}"
     primary_conninfo: "host={{ .parameters.primary_host }} port=5432"
@@ -89,10 +87,10 @@ states:
       hot_standby: "on"
       max_standby_streaming_delay: "30s"
 
-  # PgBouncer connection pooler
-  pgbouncer:
+# PgBouncer connection pooler
+pgbouncer:
+  pgbouncer_config:
     target: "role:pgbouncer"
-    module: pgbouncer
     config:
       databases:
         "*": "host={{ .parameters.primary_host }} port=5432"
@@ -100,10 +98,10 @@ states:
       max_client_conn: 1000
       default_pool_size: 20
 
-  # Patroni for automatic failover
-  patroni:
+# Patroni for automatic failover
+patroni:
+  patroni_config:
     target: "role:postgresql"
-    module: patroni
     cluster_name: "{{ .parameters.cluster_name }}"
     etcd_hosts: "{{ .pillar.etcd_hosts }}"
     config:
@@ -125,12 +123,12 @@ kscorectl blueprint apply postgresql-ha \
   --target "role:postgresql"
 
 # Verify replication
-kscorectl exec "role:postgresql and role:primary" --cmd \
-  "sudo -u postgres psql -c 'SELECT client_addr, state, sync_state FROM pg_stat_replication;'"
+kscorectl exec run "role:postgresql and role:primary" -- \
+  sudo -u postgres psql -c 'SELECT client_addr, state, sync_state FROM pg_stat_replication;'
 
 # Test failover
-kscorectl exec "role:postgresql and role:primary" --cmd \
-  "patronictl switchover --master db-01 --candidate db-02"
+kscorectl exec run "role:postgresql and role:primary" -- \
+  patronictl switchover --master db-01 --candidate db-02
 ```
 
 ## MySQL HA Cluster
@@ -154,21 +152,20 @@ parameters:
     type: array
     required: true
 
-states:
+package:
   mysql_install:
     for_each: "{{ .parameters.nodes }}"
     target: "hostname:{{ .each.value }}"
-    module: package
     state: installed
     name: mysql-server
     version: "{{ .parameters.mysql_version }}.*"
 
+file:
   mysql_config:
     for_each: "{{ .parameters.nodes }}"
     target: "hostname:{{ .each.value }}"
-    module: file
     state: present
-    path: /etc/mysql/mysql.conf.d/group-replication.cnf
+    name: /etc/mysql/mysql.conf.d/group-replication.cnf
     contents: |
       [mysqld]
       server_id={{ .each.index | add 1 }}
@@ -185,104 +182,103 @@ states:
       group_replication_bootstrap_group=OFF
       group_replication_single_primary_mode=ON
 
+service:
   mysql_service:
     for_each: "{{ .parameters.nodes }}"
     target: "hostname:{{ .each.value }}"
-    module: service
     state: running
     name: mysql
-    enable: true
+    enabled: true
     watch:
-      - mysql_config
+      - file: mysql_config
 ```
 
 ## Backup Configuration
 
 ```yaml
 # states/database/backup.yaml
-pg_backup_script:
-  module: file
-  state: present
-  path: /opt/scripts/pg-backup.sh
-  mode: "0755"
-  contents: |
-    #!/bin/bash
-    set -euo pipefail
+file:
+  pg_backup_script:
+    state: present
+    name: /opt/scripts/pg-backup.sh
+    mode: "0755"
+    contents: |
+      #!/bin/bash
+      set -euo pipefail
 
-    BACKUP_DIR="/var/backups/postgresql"
-    S3_BUCKET="{{ .pillar.backup_bucket }}"
-    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      BACKUP_DIR="/var/backups/postgresql"
+      S3_BUCKET="{{ .pillar.backup_bucket }}"
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
-    # Base backup
-    pg_basebackup -D ${BACKUP_DIR}/base-${TIMESTAMP} \
-      -Ft -z -Xs -P \
-      -U replicator
+      # Base backup
+      pg_basebackup -D ${BACKUP_DIR}/base-${TIMESTAMP} \
+        -Ft -z -Xs -P \
+        -U replicator
 
-    # Upload to S3
-    aws s3 cp ${BACKUP_DIR}/base-${TIMESTAMP} \
-      s3://${S3_BUCKET}/postgresql/base-${TIMESTAMP}/ \
-      --recursive --sse aws:kms
+      # Upload to S3
+      aws s3 cp ${BACKUP_DIR}/base-${TIMESTAMP} \
+        s3://${S3_BUCKET}/postgresql/base-${TIMESTAMP}/ \
+        --recursive --sse aws:kms
 
-    # WAL archiving handled separately via archive_command
+      # WAL archiving handled separately via archive_command
 
-pg_wal_archive:
-  module: file
-  state: present
-  path: /opt/scripts/wal-archive.sh
-  mode: "0755"
-  contents: |
-    #!/bin/bash
-    aws s3 cp $1 s3://{{ .pillar.backup_bucket }}/postgresql/wal/$2 --sse aws:kms
+  pg_wal_archive:
+    state: present
+    name: /opt/scripts/wal-archive.sh
+    mode: "0755"
+    contents: |
+      #!/bin/bash
+      aws s3 cp $1 s3://{{ .pillar.backup_bucket }}/postgresql/wal/$2 --sse aws:kms
 ```
 
 ## Monitoring & Alerting
 
 ```yaml
 # Prometheus alerts for database clusters
-prometheus_db_alerts:
-  module: file
-  state: present
-  path: /etc/prometheus/rules/database.yml
-  contents: |
-    groups:
-      - name: postgresql
-        rules:
-          - alert: PostgreSQLReplicationLag
-            expr: pg_replication_lag_seconds > 30
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: "Replication lag on {{ $labels.instance }}"
+file:
+  prometheus_db_alerts:
+    state: present
+    name: /etc/prometheus/rules/database.yml
+    contents: |
+      groups:
+        - name: postgresql
+          rules:
+            - alert: PostgreSQLReplicationLag
+              expr: pg_replication_lag_seconds > 30
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Replication lag on {{ $labels.instance }}"
 
-          - alert: PostgreSQLDown
-            expr: pg_up == 0
-            for: 1m
-            labels:
-              severity: critical
-            annotations:
-              summary: "PostgreSQL down on {{ $labels.instance }}"
+            - alert: PostgreSQLDown
+              expr: pg_up == 0
+              for: 1m
+              labels:
+                severity: critical
+              annotations:
+                summary: "PostgreSQL down on {{ $labels.instance }}"
 
-          - alert: PostgreSQLConnectionsHigh
-            expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: "High connection usage on {{ $labels.instance }}"
+            - alert: PostgreSQLConnectionsHigh
+              expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "High connection usage on {{ $labels.instance }}"
 ```
 
 ## Verification
 
 ```bash
 # Check cluster health
-kscorectl exec "role:postgresql" --cmd "patronictl list"
+kscorectl exec run "role:postgresql" -- patronictl list
 
 # Check replication status
-kscorectl exec "hostname:db-01" --cmd \
-  "sudo -u postgres psql -c 'SELECT * FROM pg_stat_replication;'"
+kscorectl exec run "hostname:db-01" -- \
+  sudo -u postgres psql -c 'SELECT * FROM pg_stat_replication;'
 
 # Test failover
-kscorectl exec "role:postgresql" --cmd \
-  "patronictl switchover --master db-01 --candidate db-02 --force"
+kscorectl exec run "role:postgresql" -- \
+  patronictl switchover --master db-01 --candidate db-02 --force
 ```

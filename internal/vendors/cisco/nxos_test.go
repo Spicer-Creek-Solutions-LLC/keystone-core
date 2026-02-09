@@ -1,6 +1,7 @@
 package cisco
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -217,7 +218,7 @@ func TestNXOSAdapterDisconnect(t *testing.T) {
 	adapter := NewNXOSAdapter(nil)
 
 	// Disconnect on unconnected adapter should succeed
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -226,7 +227,7 @@ func TestNXOSAdapterDisconnect(t *testing.T) {
 func TestNXOSAdapterHealthCheckNotConnected(t *testing.T) {
 	adapter := NewNXOSAdapter(nil)
 
-	result, err := adapter.HealthCheck(nil)
+	result, err := adapter.HealthCheck(context.Background())
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}
@@ -253,15 +254,15 @@ func TestNXOSConfigStructure(t *testing.T) {
 	if !cfg.UseJSON {
 		t.Error("UseJSON should be true")
 	}
-	if cfg.VendorConfig.Timeout != 90*time.Second {
-		t.Errorf("Timeout = %v", cfg.VendorConfig.Timeout)
+	if cfg.Timeout != 90*time.Second {
+		t.Errorf("Timeout = %v", cfg.Timeout)
 	}
 }
 
 func TestNXOSAdapterRunCommandNilShell(t *testing.T) {
 	adapter := NewNXOSAdapter(nil)
 
-	_, err := adapter.runCommand(nil, "show version")
+	_, err := adapter.runCommand(context.Background(), "show version")
 	if err == nil {
 		t.Error("expected error when shell is nil")
 	}
@@ -275,7 +276,7 @@ func TestNXOSExitConfigNotInConfig(t *testing.T) {
 	adapter.inConfig = false
 
 	// Should succeed when not in config mode
-	err := adapter.exitConfig(nil)
+	err := adapter.exitConfig(context.Background())
 	if err != nil {
 		t.Errorf("exitConfig() error = %v", err)
 	}

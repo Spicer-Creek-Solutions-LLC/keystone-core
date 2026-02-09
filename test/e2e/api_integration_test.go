@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 func TestControlPlaneGRPC_AgentLifecycle(t *testing.T) {
@@ -36,7 +36,7 @@ func TestControlPlaneGRPC_AgentLifecycle(t *testing.T) {
 	apiServer := server.NewControlPlaneServer(env.connMgr, env.cmdDispatcher, env.batchDispatcher, nil)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("failed to create listener: %v", err)
 	}
@@ -52,9 +52,9 @@ func TestControlPlaneGRPC_AgentLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, grpcAddr,
+	conn, err := grpc.DialContext(ctx, grpcAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		t.Fatalf("failed to dial gRPC: %v", err)

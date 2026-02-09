@@ -1,3 +1,5 @@
+// Package ui implements the terminal user interface views for the monitoring
+// dashboard including agents, events, jobs, and metrics displays.
 package ui
 
 import (
@@ -20,22 +22,22 @@ type DashboardModel struct {
 	height int
 
 	// Dashboard data
-	uptime            string
-	version           string
-	apiRequestRate    float64
-	eventProcessRate  float64
-	memoryUsage       float64
-	goroutineCount    int
-	agentsConnected   int
-	agentsTotal       int
-	jobsRunning       int
-	jobsCompleted     int
-	jobsFailed        int
-	stateResources    int
-	stateDriftCount   int
-	policyViolations  int
-	complianceScore   float64
-	recentEvents      []*events.Event
+	uptime           string
+	version          string
+	apiRequestRate   float64
+	eventProcessRate float64
+	memoryUsage      float64
+	goroutineCount   int
+	agentsConnected  int
+	agentsTotal      int
+	jobsRunning      int
+	jobsCompleted    int
+	jobsFailed       int
+	stateResources   int
+	stateDriftCount  int
+	policyViolations int
+	complianceScore  float64
+	recentEvents     []*events.Event
 
 	// Loading state
 	loading bool
@@ -172,7 +174,7 @@ func (m *DashboardModel) View() string {
 		titleStyle.Render("State"),
 		fmt.Sprintf("Resources: %d", m.stateResources),
 		fmt.Sprintf("Drift Detected: %d", m.stateDriftCount),
-		fmt.Sprintf("Last Check: n/a"),
+		"Last Check: n/a",
 	)
 	stateBox := boxStyle.Render(stateContent)
 

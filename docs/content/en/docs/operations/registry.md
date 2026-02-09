@@ -35,7 +35,7 @@ Suitable for development, testing, and small organizations (<100 users).
 docker run -d \
   --name kscore-registry \
   -p 8090:8090 \
-  -v /var/lib/kscore/modules:/data \
+  -v /var/lib/keystone-core/modules:/data \
   -e KSCORE_REGISTRY_API_KEY="${REGISTRY_API_KEY}" \
   keystonecore/kscore-registry:latest
 ```
@@ -43,7 +43,7 @@ docker run -d \
 **Binary**:
 ```bash
 kscore-registry \
-  --data /var/lib/kscore/modules \
+  --data /var/lib/keystone-core/modules \
   --listen :8090 \
   --api-key "${REGISTRY_API_KEY}"
 ```
@@ -60,7 +60,7 @@ Type=simple
 User=kscore
 Group=kscore
 ExecStart=/usr/local/bin/kscore-registry \
-  --data /var/lib/kscore/modules \
+  --data /var/lib/keystone-core/modules \
   --listen :8090
 Environment=KSCORE_REGISTRY_API_KEY=your-secret-key
 Restart=always
@@ -414,7 +414,7 @@ REGIONS=(
   "ap-southeast-1:s3://kscore-registry-ap-southeast-1"
 )
 
-SOURCE_DIR="/var/lib/kscore/modules"
+SOURCE_DIR="/var/lib/keystone-core/modules"
 
 for region_bucket in "${REGIONS[@]}"; do
   region="${region_bucket%%:*}"
@@ -683,7 +683,7 @@ Key metrics to monitor:
 # backup-registry.sh
 
 BACKUP_DIR="/backups/kscore-registry"
-DATA_DIR="/var/lib/kscore/modules"
+DATA_DIR="/var/lib/keystone-core/modules"
 DATE=$(date +%Y%m%d-%H%M%S)
 
 # Create backup
@@ -704,7 +704,7 @@ find "${BACKUP_DIR}" -name "registry-*.tar.gz" -mtime +30 -delete
 # restore-registry.sh
 
 BACKUP_FILE="$1"
-DATA_DIR="/var/lib/kscore/modules"
+DATA_DIR="/var/lib/keystone-core/modules"
 
 # Stop registry
 systemctl stop kscore-registry
@@ -743,11 +743,11 @@ systemctl start kscore-registry
 **Registry won't start**:
 ```bash
 # Check data directory permissions
-ls -la /var/lib/kscore/modules
+ls -la /var/lib/keystone-core/modules
 
 # Fix permissions
-chown -R kscore:kscore /var/lib/kscore/modules
-chmod 755 /var/lib/kscore/modules
+chown -R kscore:kscore /var/lib/keystone-core/modules
+chmod 755 /var/lib/keystone-core/modules
 ```
 
 **Publish fails with 403**:
@@ -762,10 +762,10 @@ chmod 755 /var/lib/kscore/modules
 **Disk space issues**:
 ```bash
 # Find large modules
-du -sh /var/lib/kscore/modules/*/*/* | sort -rh | head -20
+du -sh /var/lib/keystone-core/modules/*/*/* | sort -rh | head -20
 
 # Clean old versions (keep last 3)
-find /var/lib/kscore/modules -type d -name "[0-9]*" | \
+find /var/lib/keystone-core/modules -type d -name "[0-9]*" | \
   while read dir; do
     parent=$(dirname "$dir")
     ls -1v "$parent" | head -n -3 | \
@@ -775,7 +775,7 @@ find /var/lib/kscore/modules -type d -name "[0-9]*" | \
 
 ## See Also
 
-- [CLI Reference: kscore-registry](../reference/cli/#kscore-registry-module-registry-server)
-- [CLI Reference: kscore-module](../reference/cli/#kscore-module-module-management)
-- [Deployment Guide](deployment/)
-- [Security Guide](security/)
+- [CLI Reference: kscore-registry](/docs/reference/cli/#kscore-registry-module-registry-server)
+- [CLI Reference: kscore-module](/docs/reference/cli/#kscore-module-module-management)
+- [Deployment Guide](/docs/operations/deployment/)
+- [Security Guide](/docs/operations/security/)

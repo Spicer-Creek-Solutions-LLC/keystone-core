@@ -483,5 +483,5 @@ func (m *DNSModule) getProvider(config *dnsConfig) (dns.Provider, error) {
 }
 
 func init() {
-	RegisterModule(NewDNSModule())
+	_ = RegisterModule(NewDNSModule()) //nolint:errcheck // module registration in init
 }

@@ -1,3 +1,4 @@
+// Package main implements the kscore-schedule CLI for schedule and maintenance window management.
 package main
 
 import (
@@ -214,8 +215,8 @@ func runScheduleShow(cmd *cobra.Command, id string) error {
 		ID:          id,
 		Name:        "daily-backup",
 		Description: "Daily backup of all databases",
-		Type:        schedule.ScheduleTypeCommand,
-		Status:      schedule.ScheduleStatusActive,
+		Type:        schedule.TypeCommand,
+		Status:      schedule.StatusActive,
 		Cron:        "0 2 * * *",
 		Timezone:    "UTC",
 		Priority:    10,
@@ -817,11 +818,12 @@ func newMaintenanceExtendCmd() *cobra.Command {
 		Short: "Extend a maintenance window",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if newEndTime != "" {
+			switch {
+			case newEndTime != "":
 				fmt.Printf("Extended maintenance window %s to %s\n", args[0], newEndTime)
-			} else if duration != "" {
+			case duration != "":
 				fmt.Printf("Extended maintenance window %s by %s\n", args[0], duration)
-			} else {
+			default:
 				return fmt.Errorf("either --end or --duration is required")
 			}
 			return nil
@@ -963,8 +965,8 @@ func newMaintenanceDeleteCmd() *cobra.Command {
 type scheduleDisplay struct {
 	ID       string                  `json:"id" yaml:"id"`
 	Name     string                  `json:"name" yaml:"name"`
-	Type     schedule.ScheduleType   `json:"type" yaml:"type"`
-	Status   schedule.ScheduleStatus `json:"status" yaml:"status"`
+	Type     schedule.Type   `json:"type" yaml:"type"`
+	Status   schedule.Status `json:"status" yaml:"status"`
 	Cron     string                  `json:"cron,omitempty" yaml:"cron,omitempty"`
 	Interval string                  `json:"interval,omitempty" yaml:"interval,omitempty"`
 	NextRun  string                  `json:"next_run,omitempty" yaml:"next_run,omitempty"`
@@ -974,8 +976,8 @@ type scheduleDetail struct {
 	ID              string                  `json:"id" yaml:"id"`
 	Name            string                  `json:"name" yaml:"name"`
 	Description     string                  `json:"description" yaml:"description"`
-	Type            schedule.ScheduleType   `json:"type" yaml:"type"`
-	Status          schedule.ScheduleStatus `json:"status" yaml:"status"`
+	Type            schedule.Type   `json:"type" yaml:"type"`
+	Status          schedule.Status `json:"status" yaml:"status"`
 	Cron            string                  `json:"cron,omitempty" yaml:"cron,omitempty"`
 	Interval        string                  `json:"interval,omitempty" yaml:"interval,omitempty"`
 	Timezone        string                  `json:"timezone" yaml:"timezone"`
@@ -1011,14 +1013,14 @@ type executionDisplay struct {
 }
 
 type windowDisplay struct {
-	ID         string                             `json:"id" yaml:"id"`
-	Name       string                             `json:"name" yaml:"name"`
-	Type       schedule.MaintenanceWindowType     `json:"type" yaml:"type"`
-	Status     schedule.MaintenanceWindowStatus   `json:"status" yaml:"status"`
-	StartTime  string                             `json:"start_time" yaml:"start_time"`
-	EndTime    string                             `json:"end_time" yaml:"end_time"`
-	ScopeAll   bool                               `json:"scope_all" yaml:"scope_all"`
-	AgentCount int                                `json:"agent_count" yaml:"agent_count"`
+	ID         string                           `json:"id" yaml:"id"`
+	Name       string                           `json:"name" yaml:"name"`
+	Type       schedule.MaintenanceWindowType   `json:"type" yaml:"type"`
+	Status     schedule.MaintenanceWindowStatus `json:"status" yaml:"status"`
+	StartTime  string                           `json:"start_time" yaml:"start_time"`
+	EndTime    string                           `json:"end_time" yaml:"end_time"`
+	ScopeAll   bool                             `json:"scope_all" yaml:"scope_all"`
+	AgentCount int                              `json:"agent_count" yaml:"agent_count"`
 }
 
 type windowDetail struct {
@@ -1060,24 +1062,24 @@ func generateSampleSchedules() []*scheduleDisplay {
 		{
 			ID:      "sched-001",
 			Name:    "daily-backup",
-			Type:    schedule.ScheduleTypeCommand,
-			Status:  schedule.ScheduleStatusActive,
+			Type:    schedule.TypeCommand,
+			Status:  schedule.StatusActive,
 			Cron:    "0 2 * * *",
 			NextRun: time.Now().Add(12 * time.Hour).Format("15:04"),
 		},
 		{
 			ID:       "sched-002",
 			Name:     "hourly-sync",
-			Type:     schedule.ScheduleTypeState,
-			Status:   schedule.ScheduleStatusActive,
+			Type:     schedule.TypeState,
+			Status:   schedule.StatusActive,
 			Interval: "1h",
 			NextRun:  time.Now().Add(45 * time.Minute).Format("15:04"),
 		},
 		{
 			ID:      "sched-003",
 			Name:    "weekly-patching",
-			Type:    schedule.ScheduleTypeBlueprint,
-			Status:  schedule.ScheduleStatusPaused,
+			Type:    schedule.TypeBlueprint,
+			Status:  schedule.StatusPaused,
 			Cron:    "0 3 * * 0",
 			NextRun: "",
 		},
@@ -1168,7 +1170,7 @@ func randomID(length int) string {
 	result := make([]byte, length)
 	for i := range result {
 		result[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(1)
+		time.Sleep(1 * time.Nanosecond)
 	}
 	return string(result)
 }

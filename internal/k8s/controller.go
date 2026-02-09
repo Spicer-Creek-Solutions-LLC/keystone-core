@@ -22,7 +22,7 @@ type Controller interface {
 type RemoteExecutionController struct {
 	client      *Client
 	config      OperatorConfig
-	queue       workqueue.RateLimitingInterface
+	queue       workqueue.RateLimitingInterface //nolint:staticcheck // SA1019: workqueue.RateLimitingInterface is deprecated but requires k8s API migration
 	stopCh      chan struct{}
 	wg          sync.WaitGroup
 	reconciling sync.Map
@@ -33,7 +33,7 @@ func NewRemoteExecutionController(client *Client, config OperatorConfig) *Remote
 	return &RemoteExecutionController{
 		client: client,
 		config: config,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
 		stopCh: make(chan struct{}),
 	}
 }
@@ -138,7 +138,7 @@ func (c *RemoteExecutionController) reconcile(ctx context.Context, key string) e
 type StateConfigController struct {
 	client      *Client
 	config      OperatorConfig
-	queue       workqueue.RateLimitingInterface
+	queue       workqueue.RateLimitingInterface //nolint:staticcheck // SA1019: workqueue.RateLimitingInterface is deprecated but requires k8s API migration
 	stopCh      chan struct{}
 	wg          sync.WaitGroup
 	reconciling sync.Map
@@ -149,7 +149,7 @@ func NewStateConfigController(client *Client, config OperatorConfig) *StateConfi
 	return &StateConfigController{
 		client: client,
 		config: config,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
 		stopCh: make(chan struct{}),
 	}
 }
@@ -304,7 +304,7 @@ func (c *RemoteExecutionController) ExecuteRemoteExecution(ctx context.Context, 
 	exec.Status.StartTime = &now
 
 	// List matching pods
-	pods, err := c.client.ListPods(exec.Spec.Target)
+	pods, err := c.client.ListPods(exec.Spec.Target) //nolint:contextcheck // ListPods API doesn't take context
 	if err != nil {
 		exec.Status.Phase = "Failed"
 		exec.Status.Message = fmt.Sprintf("Failed to list pods: %v", err)
@@ -329,7 +329,7 @@ func (c *RemoteExecutionController) ExecuteRemoteExecution(ctx context.Context, 
 			Timeout:   exec.Spec.Timeout.Duration,
 		}
 
-		result, err := c.client.ExecInPod(opts)
+		result, err := c.client.ExecInPod(opts) //nolint:contextcheck // ExecInPod API doesn't take context
 
 		podResult := PodExecutionResult{
 			PodName:   pod.Name,

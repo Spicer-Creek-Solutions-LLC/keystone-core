@@ -31,7 +31,7 @@ type PluginConfigSpec struct {
 }
 
 // NewPluginHandler creates a plugin handler from a plugin path.
-func NewPluginHandler(name string, path string, stepType runbook.StepType) *PluginHandler {
+func NewPluginHandler(name, path string, stepType runbook.StepType) *PluginHandler {
 	return &PluginHandler{
 		name:     name,
 		path:     path,
@@ -60,6 +60,7 @@ func (h *PluginHandler) Validate(step *runbook.Step) error {
 // Execute executes the plugin with the step configuration.
 func (h *PluginHandler) Execute(ctx context.Context, step *runbook.Step, varCtx VariableContext) (*runbook.StepResult, error) {
 	// Build command with step config as JSON environment variable
+	//nolint:gosec // G204: plugin execution is intentional for runbook automation
 	cmd := exec.CommandContext(ctx, h.path, "execute")
 
 	// Pass step configuration through environment
@@ -76,10 +77,11 @@ func (h *PluginHandler) Execute(ctx context.Context, step *runbook.Step, varCtx 
 	}
 
 	// Add execution context
-	cmd.Env = append(cmd.Env, fmt.Sprintf("RUNBOOK_EXECUTION_ID=%s", varCtx.ExecutionID()))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("RUNBOOK_NAME=%s", varCtx.RunbookName()))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("RUNBOOK_STEP_NAME=%s", step.Name))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("RUNBOOK_STEP_TYPE=%s", step.Type))
+	cmd.Env = append(cmd.Env,
+		fmt.Sprintf("RUNBOOK_EXECUTION_ID=%s", varCtx.ExecutionID()),
+		fmt.Sprintf("RUNBOOK_NAME=%s", varCtx.RunbookName()),
+		fmt.Sprintf("RUNBOOK_STEP_NAME=%s", step.Name),
+		fmt.Sprintf("RUNBOOK_STEP_TYPE=%s", step.Type))
 
 	// Capture output
 	var stdout, stderr strings.Builder
@@ -188,7 +190,7 @@ func (r *PluginRegistry) DiscoverPlugins() error {
 			}
 
 			// Check executable permission on Unix
-			if info.Mode()&0111 == 0 {
+			if info.Mode()&0o111 == 0 {
 				continue
 			}
 

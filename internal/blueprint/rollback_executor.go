@@ -72,7 +72,7 @@ type RollbackResult struct {
 	Errors []string `json:"errors,omitempty"`
 
 	// ExpandedStates contains the parsed state declarations.
-	ExpandedStates map[string][]BlueprintStateDeclaration `json:"expanded_states,omitempty"`
+	ExpandedStates map[string][]StateDeclaration `json:"expanded_states,omitempty"`
 
 	// RenderedContent is the raw rendered state file content (for dry-run).
 	RenderedContent []byte `json:"-"`
@@ -290,11 +290,12 @@ func (r *RollbackExecutor) ExecuteStateRestore(ctx context.Context, snapshot *Sn
 	capture := snapshot.StateCapture
 
 	// Generate restore states from the snapshot
-	states := make(map[string][]BlueprintStateDeclaration)
+	states := make(map[string][]StateDeclaration)
 
 	// Generate file states
-	for _, file := range capture.Files {
-		decl := BlueprintStateDeclaration{
+	for i := range capture.Files {
+		file := &capture.Files[i]
+		decl := StateDeclaration{
 			ID:     fmt.Sprintf("restore_%s", sanitizeID(file.Path)),
 			Module: "file",
 			Parameters: map[string]interface{}{
@@ -329,7 +330,7 @@ func (r *RollbackExecutor) ExecuteStateRestore(ctx context.Context, snapshot *Sn
 
 	// Generate package states
 	for _, pkg := range capture.Packages {
-		decl := BlueprintStateDeclaration{
+		decl := StateDeclaration{
 			ID:     fmt.Sprintf("restore_pkg_%s", sanitizeID(pkg.Name)),
 			Module: "package",
 			Parameters: map[string]interface{}{
@@ -352,7 +353,7 @@ func (r *RollbackExecutor) ExecuteStateRestore(ctx context.Context, snapshot *Sn
 
 	// Generate service states
 	for _, svc := range capture.Services {
-		decl := BlueprintStateDeclaration{
+		decl := StateDeclaration{
 			ID:     fmt.Sprintf("restore_svc_%s", sanitizeID(svc.Name)),
 			Module: "service",
 			Parameters: map[string]interface{}{
@@ -373,7 +374,7 @@ func (r *RollbackExecutor) ExecuteStateRestore(ctx context.Context, snapshot *Sn
 
 	// Generate user states
 	for _, user := range capture.Users {
-		decl := BlueprintStateDeclaration{
+		decl := StateDeclaration{
 			ID:     fmt.Sprintf("restore_user_%s", sanitizeID(user.Name)),
 			Module: "user",
 			Parameters: map[string]interface{}{
@@ -408,7 +409,7 @@ func (r *RollbackExecutor) ExecuteStateRestore(ctx context.Context, snapshot *Sn
 
 	// Generate group states
 	for _, group := range capture.Groups {
-		decl := BlueprintStateDeclaration{
+		decl := StateDeclaration{
 			ID:     fmt.Sprintf("restore_group_%s", sanitizeID(group.Name)),
 			Module: "group",
 			Parameters: map[string]interface{}{

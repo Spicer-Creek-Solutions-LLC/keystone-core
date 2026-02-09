@@ -35,8 +35,11 @@ func (e *CELEvaluator) Evaluate(ctx context.Context, policy *Policy, input *Eval
 	}
 
 	// Create CEL environment with standard declarations
-	envOptions := append(e.envOptions,
-		cel.Declarations(
+	// Create a new slice to avoid modifying the original envOptions
+	envOptions := make([]cel.EnvOption, len(e.envOptions), len(e.envOptions)+1)
+	copy(envOptions, e.envOptions)
+	envOptions = append(envOptions,
+		cel.Declarations( //nolint:staticcheck // SA1019: cel.Declarations is deprecated but requires CEL API migration to cel.Variable
 			decls.NewVar("input", decls.NewMapType(decls.String, decls.Dyn)),
 			decls.NewVar("resource", decls.Dyn),
 			decls.NewVar("action", decls.String),
@@ -131,8 +134,11 @@ func (e *CELEvaluator) EvaluateWithDetails(ctx context.Context, policy *Policy, 
 	}
 
 	// Create CEL environment with extended declarations
-	envOptions := append(e.envOptions,
-		cel.Declarations(
+	// Create a new slice to avoid modifying the original envOptions
+	envOptions := make([]cel.EnvOption, len(e.envOptions), len(e.envOptions)+1)
+	copy(envOptions, e.envOptions)
+	envOptions = append(envOptions,
+		cel.Declarations( //nolint:staticcheck // SA1019: cel.Declarations is deprecated but requires CEL API migration to cel.Variable
 			decls.NewVar("input", decls.NewMapType(decls.String, decls.Dyn)),
 			decls.NewVar("resource", decls.Dyn),
 			decls.NewVar("action", decls.String),
@@ -239,8 +245,11 @@ func (e *CELEvaluator) extractViolationsFromDetails(details *cel.EvalDetails, po
 
 // ValidatePolicy validates CEL policy syntax
 func (e *CELEvaluator) ValidatePolicy(ctx context.Context, policyCode string) error {
-	envOptions := append(e.envOptions,
-		cel.Declarations(
+	// Create a new slice to avoid modifying the original envOptions
+	envOptions := make([]cel.EnvOption, len(e.envOptions), len(e.envOptions)+1)
+	copy(envOptions, e.envOptions)
+	envOptions = append(envOptions,
+		cel.Declarations( //nolint:staticcheck // SA1019: cel.Declarations is deprecated but requires CEL API migration to cel.Variable
 			decls.NewVar("input", decls.NewMapType(decls.String, decls.Dyn)),
 			decls.NewVar("resource", decls.Dyn),
 			decls.NewVar("action", decls.String),
@@ -261,4 +270,3 @@ func (e *CELEvaluator) ValidatePolicy(ctx context.Context, policyCode string) er
 
 	return nil
 }
-

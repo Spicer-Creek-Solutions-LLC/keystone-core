@@ -2,6 +2,7 @@ package approval
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -25,9 +26,7 @@ func (s *mockStorage) SaveRequest(ctx context.Context, req *Request) error {
 	// Make a copy to avoid mutation
 	reqCopy := *req
 	reqCopy.Responses = make([]Response, len(req.Responses))
-	for i, r := range req.Responses {
-		reqCopy.Responses[i] = r
-	}
+	copy(reqCopy.Responses, req.Responses)
 	s.requests[req.ID] = &reqCopy
 	return nil
 }
@@ -85,7 +84,7 @@ func TestManager_CreateRequest(t *testing.T) {
 	config := &Config{
 		Title:     "Deploy to production",
 		Approvers: []string{"admin@example.com", "ops-team"},
-		Mode:      ApprovalModeAny,
+		Mode:      ModeAny,
 		Timeout:   "1h",
 	}
 
@@ -112,8 +111,8 @@ func TestManager_CreateRequest(t *testing.T) {
 	if len(req.Approvers) != 2 {
 		t.Errorf("Approvers count = %d, want 2", len(req.Approvers))
 	}
-	if req.Mode != ApprovalModeAny {
-		t.Errorf("Mode = %q, want %q", req.Mode, ApprovalModeAny)
+	if req.Mode != ModeAny {
+		t.Errorf("Mode = %q, want %q", req.Mode, ModeAny)
 	}
 	if req.RequiredCount != 1 {
 		t.Errorf("RequiredCount = %d, want 1", req.RequiredCount)
@@ -149,7 +148,7 @@ func TestManager_CreateRequest_Validation(t *testing.T) {
 		config := &Config{
 			Title:     "Test",
 			Approvers: []string{"user1"},
-			Mode:      ApprovalMode("invalid"),
+			Mode:      Mode("invalid"),
 		}
 		_, err := manager.CreateRequest(context.Background(), config, "exec-123", "step", nil)
 		if err == nil {
@@ -165,7 +164,7 @@ func TestManager_Respond_AnyMode(t *testing.T) {
 	config := &Config{
 		Title:     "Test approval",
 		Approvers: []string{"user1", "user2"},
-		Mode:      ApprovalModeAny,
+		Mode:      ModeAny,
 	}
 
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-123", "step1", nil)
@@ -194,7 +193,7 @@ func TestManager_Respond_AllMode(t *testing.T) {
 	config := &Config{
 		Title:     "Test approval",
 		Approvers: []string{"user1", "user2"},
-		Mode:      ApprovalModeAll,
+		Mode:      ModeAll,
 	}
 
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-123", "step1", nil)
@@ -225,7 +224,7 @@ func TestManager_Respond_AllMode_Rejection(t *testing.T) {
 	config := &Config{
 		Title:     "Test approval",
 		Approvers: []string{"user1", "user2"},
-		Mode:      ApprovalModeAll,
+		Mode:      ModeAll,
 	}
 
 	req, _ := manager.CreateRequest(context.Background(), config, "exec-123", "step1", nil)
@@ -248,7 +247,7 @@ func TestManager_Respond_CountMode(t *testing.T) {
 	config := &Config{
 		Title:         "Test approval",
 		Approvers:     []string{"user1", "user2", "user3"},
-		Mode:          ApprovalModeCount,
+		Mode:          ModeCount,
 		RequiredCount: 2,
 	}
 
@@ -306,7 +305,7 @@ func TestManager_Respond_Errors(t *testing.T) {
 		config2 := &Config{
 			Title:     "Another",
 			Approvers: []string{"user1", "user2"},
-			Mode:      ApprovalModeAll,
+			Mode:      ModeAll,
 		}
 		req2, _ := manager.CreateRequest(context.Background(), config2, "exec-124", "step1", nil)
 		_, _ = manager.Respond(context.Background(), req2.ID, "user1", DecisionApproved, "")
@@ -506,7 +505,7 @@ func TestManager_WaitForApproval_ContextCancelled(t *testing.T) {
 
 	select {
 	case <-done:
-		if waitErr != context.Canceled {
+		if !errors.Is(waitErr, context.Canceled) {
 			t.Errorf("expected context.Canceled error, got %v", waitErr)
 		}
 	case <-time.After(time.Second):

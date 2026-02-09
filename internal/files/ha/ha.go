@@ -13,6 +13,7 @@ import (
 // InstanceState represents the state of a file server instance.
 type InstanceState string
 
+// InstanceStateStarting constants define the possible states.
 const (
 	InstanceStateStarting  InstanceState = "starting"
 	InstanceStateReady     InstanceState = "ready"
@@ -163,7 +164,7 @@ func (m *InstanceManager) Start(ctx context.Context) error {
 	m.info.LastHeartbeat = time.Now()
 
 	// Start health reporting goroutine.
-	go m.healthReportLoop()
+	go m.healthReportLoop() //nolint:contextcheck // background loop uses internal context
 
 	return nil
 }

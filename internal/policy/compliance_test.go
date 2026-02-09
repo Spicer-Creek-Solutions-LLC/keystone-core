@@ -330,13 +330,13 @@ func TestComplianceReportGenerator_GenerateReport_WithFramework(t *testing.T) {
 	now := time.Now()
 
 	entry := &AuditEntry{
-		ID:           "entry-1",
-		Timestamp:    now.Add(-1 * time.Hour),
-		PolicyID:     "policy-1",
-		PolicyName:   "Test Policy",
-		Allowed:      true,
-		Duration:     10 * time.Millisecond,
-		Metadata:     map[string]interface{}{},
+		ID:         "entry-1",
+		Timestamp:  now.Add(-1 * time.Hour),
+		PolicyID:   "policy-1",
+		PolicyName: "Test Policy",
+		Allowed:    true,
+		Duration:   10 * time.Millisecond,
+		Metadata:   map[string]interface{}{},
 	}
 	store.Store(ctx, entry)
 

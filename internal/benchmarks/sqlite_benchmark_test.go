@@ -60,8 +60,9 @@ func setupTestDB(b *testing.B) (*sql.DB, func()) {
 		"PRAGMA temp_store=MEMORY",
 	}
 
+	ctx := context.Background()
 	for _, pragma := range pragmas {
-		if _, err := db.Exec(pragma); err != nil {
+		if _, err := db.ExecContext(ctx, pragma); err != nil {
 			db.Close()
 			os.RemoveAll(tmpDir)
 			b.Fatalf("Failed to execute %s: %v", pragma, err)
@@ -69,7 +70,7 @@ func setupTestDB(b *testing.B) (*sql.DB, func()) {
 	}
 
 	// Create test table
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS agents (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -99,7 +100,8 @@ func BenchmarkSQLiteInsert(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
-	stmt, err := db.Prepare(`
+	ctx := context.Background()
+	stmt, err := db.PrepareContext(ctx, `
 		INSERT INTO agents (id, name, status, labels, last_seen, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`)
@@ -113,7 +115,7 @@ func BenchmarkSQLiteInsert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := fmt.Sprintf("agent-%d", i)
-		_, err := stmt.Exec(id, "Agent "+id, "online", `{"env":"prod"}`, now, now, now)
+		_, err := stmt.ExecContext(ctx, id, "Agent "+id, "online", `{"env":"prod"}`, now, now, now)
 		if err != nil {
 			b.Fatalf("Insert failed: %v", err)
 		}
@@ -130,16 +132,17 @@ func BenchmarkSQLiteBatchInsert(b *testing.B) {
 			db, cleanup := setupTestDB(b)
 			defer cleanup()
 
+			ctx := context.Background()
 			now := time.Now().Unix()
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				tx, err := db.Begin()
+				tx, err := db.BeginTx(ctx, nil)
 				if err != nil {
 					b.Fatalf("Failed to begin transaction: %v", err)
 				}
 
-				stmt, err := tx.Prepare(`
+				stmt, err := tx.PrepareContext(ctx, `
 					INSERT INTO agents (id, name, status, labels, last_seen, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?)
 				`)
@@ -147,18 +150,16 @@ func BenchmarkSQLiteBatchInsert(b *testing.B) {
 					tx.Rollback()
 					b.Fatalf("Failed to prepare: %v", err)
 				}
+				defer stmt.Close()
 
 				for j := 0; j < batchSize; j++ {
 					id := fmt.Sprintf("agent-%d-%d", i, j)
-					_, err := stmt.Exec(id, "Agent", "online", `{}`, now, now, now)
+					_, err := stmt.ExecContext(ctx, id, "Agent", "online", `{}`, now, now, now)
 					if err != nil {
-						stmt.Close()
 						tx.Rollback()
 						b.Fatalf("Insert failed: %v", err)
 					}
 				}
-
-				stmt.Close()
 				if err := tx.Commit(); err != nil {
 					b.Fatalf("Commit failed: %v", err)
 				}
@@ -174,11 +175,12 @@ func BenchmarkSQLiteSelect(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
+	ctx := context.Background()
 	// Insert test data
 	now := time.Now().Unix()
 	for i := 0; i < 1000; i++ {
 		id := fmt.Sprintf("agent-%d", i)
-		_, err := db.Exec(`
+		_, err := db.ExecContext(ctx, `
 			INSERT INTO agents (id, name, status, labels, last_seen, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, id, "Agent "+id, "online", `{"env":"prod"}`, now, now, now)
@@ -187,7 +189,7 @@ func BenchmarkSQLiteSelect(b *testing.B) {
 		}
 	}
 
-	stmt, err := db.Prepare("SELECT id, name, status, labels, last_seen FROM agents WHERE id = ?")
+	stmt, err := db.PrepareContext(ctx, "SELECT id, name, status, labels, last_seen FROM agents WHERE id = ?")
 	if err != nil {
 		b.Fatalf("Failed to prepare: %v", err)
 	}
@@ -199,7 +201,7 @@ func BenchmarkSQLiteSelect(b *testing.B) {
 		var name, status, labels string
 		var lastSeen int64
 		var agentID string
-		err := stmt.QueryRow(id).Scan(&agentID, &name, &status, &labels, &lastSeen)
+		err := stmt.QueryRowContext(ctx, id).Scan(&agentID, &name, &status, &labels, &lastSeen)
 		if err != nil {
 			b.Fatalf("Select failed: %v", err)
 		}
@@ -212,8 +214,9 @@ func BenchmarkSQLiteRangeSelect(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
+	ctx := context.Background()
 	// Create index
-	_, err := db.Exec("CREATE INDEX idx_status ON agents(status)")
+	_, err := db.ExecContext(ctx, "CREATE INDEX idx_status ON agents(status)")
 	if err != nil {
 		b.Fatalf("Failed to create index: %v", err)
 	}
@@ -226,7 +229,7 @@ func BenchmarkSQLiteRangeSelect(b *testing.B) {
 		if i%10 == 0 {
 			status = "offline"
 		}
-		_, err := db.Exec(`
+		_, err := db.ExecContext(ctx, `
 			INSERT INTO agents (id, name, status, labels, last_seen, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, id, "Agent "+id, status, `{}`, now, now, now)
@@ -237,17 +240,20 @@ func BenchmarkSQLiteRangeSelect(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rows, err := db.Query("SELECT id, name FROM agents WHERE status = ? LIMIT 100", "online")
+		rows, err := db.QueryContext(ctx, "SELECT id, name FROM agents WHERE status = ? LIMIT 100", "online")
 		if err != nil {
 			b.Fatalf("Query failed: %v", err)
 		}
+		defer rows.Close()
 		count := 0
 		for rows.Next() {
 			var id, name string
 			rows.Scan(&id, &name)
 			count++
 		}
-		rows.Close()
+		if err := rows.Err(); err != nil {
+			b.Fatalf("rows iteration error: %v", err)
+		}
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "queries/sec")
 }
@@ -257,11 +263,12 @@ func BenchmarkSQLiteUpdate(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
+	ctx := context.Background()
 	// Insert test data
 	now := time.Now().Unix()
 	for i := 0; i < 1000; i++ {
 		id := fmt.Sprintf("agent-%d", i)
-		_, err := db.Exec(`
+		_, err := db.ExecContext(ctx, `
 			INSERT INTO agents (id, name, status, labels, last_seen, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, id, "Agent "+id, "online", `{}`, now, now, now)
@@ -270,7 +277,7 @@ func BenchmarkSQLiteUpdate(b *testing.B) {
 		}
 	}
 
-	stmt, err := db.Prepare("UPDATE agents SET last_seen = ?, updated_at = ? WHERE id = ?")
+	stmt, err := db.PrepareContext(ctx, "UPDATE agents SET last_seen = ?, updated_at = ? WHERE id = ?")
 	if err != nil {
 		b.Fatalf("Failed to prepare: %v", err)
 	}
@@ -280,7 +287,7 @@ func BenchmarkSQLiteUpdate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := fmt.Sprintf("agent-%d", i%1000)
 		newTime := time.Now().Unix()
-		_, err := stmt.Exec(newTime, newTime, id)
+		_, err := stmt.ExecContext(ctx, newTime, newTime, id)
 		if err != nil {
 			b.Fatalf("Update failed: %v", err)
 		}
@@ -301,9 +308,10 @@ func BenchmarkSQLiteConcurrent(b *testing.B) {
 
 			// Insert initial data
 			now := time.Now().Unix()
+			bgCtx := context.Background()
 			for i := 0; i < 1000; i++ {
 				id := fmt.Sprintf("agent-%d", i)
-				db.Exec(`INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				db.ExecContext(bgCtx, `INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					id, "Agent", "online", `{}`, now, now, now)
 			}
 
@@ -327,9 +335,9 @@ func BenchmarkSQLiteConcurrent(b *testing.B) {
 						// Mixed workload: 70% reads, 30% writes
 						id := fmt.Sprintf("agent-%d", (workerID*opsPerWorker+i)%1000)
 						if i%10 < 7 {
-							db.QueryRow("SELECT name FROM agents WHERE id = ?", id)
+							db.QueryRowContext(ctx, "SELECT name FROM agents WHERE id = ?", id)
 						} else {
-							db.Exec("UPDATE agents SET last_seen = ? WHERE id = ?", time.Now().Unix(), id)
+							db.ExecContext(ctx, "UPDATE agents SET last_seen = ? WHERE id = ?", time.Now().Unix(), id)
 						}
 					}
 				}(w)
@@ -346,13 +354,14 @@ func BenchmarkSQLiteTransaction(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
+	ctx := context.Background()
 	now := time.Now().Unix()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tx, _ := db.Begin()
+		tx, _ := db.BeginTx(ctx, nil)
 		id := fmt.Sprintf("agent-%d", i)
-		tx.Exec(`INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		tx.ExecContext(ctx, `INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			id, "Agent", "online", `{}`, now, now, now)
 		tx.Commit()
 	}
@@ -364,16 +373,17 @@ func BenchmarkSQLiteWALCheckpoint(b *testing.B) {
 	db, cleanup := setupTestDB(b)
 	defer cleanup()
 
+	ctx := context.Background()
 	// Insert data to grow WAL
 	now := time.Now().Unix()
 	for i := 0; i < 10000; i++ {
-		db.Exec(`INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		db.ExecContext(ctx, `INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			fmt.Sprintf("agent-%d", i), "Agent", "online", `{}`, now, now, now)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+		db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "checkpoints/sec")
 }

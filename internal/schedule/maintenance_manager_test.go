@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -261,7 +262,7 @@ func TestMaintenanceWindowManager_Delete(t *testing.T) {
 
 	// Verify deletion
 	_, err = manager.Get(ctx, window.ID)
-	if err != ErrMaintenanceWindowNotFound {
+	if !errors.Is(err, ErrMaintenanceWindowNotFound) {
 		t.Errorf("Get() error = %v, want ErrMaintenanceWindowNotFound", err)
 	}
 }
@@ -298,7 +299,7 @@ func TestMaintenanceWindowManager_DeleteActiveWindow(t *testing.T) {
 	}
 
 	// Try to delete active window - should fail
-	if err := manager.Delete(ctx, window.ID); err != ErrMaintenanceActive {
+	if err := manager.Delete(ctx, window.ID); !errors.Is(err, ErrMaintenanceActive) {
 		t.Errorf("Delete() error = %v, want ErrMaintenanceActive", err)
 	}
 }
@@ -898,7 +899,7 @@ func TestMaintenanceWindowManager_Close(t *testing.T) {
 		EndTime:   now.Add(2 * time.Hour),
 		Scope:     &MaintenanceScope{All: true},
 	}
-	if err := manager.Create(ctx, window); err != ErrStoreClosed {
+	if err := manager.Create(ctx, window); !errors.Is(err, ErrStoreClosed) {
 		t.Errorf("Create() after close should return ErrStoreClosed, got %v", err)
 	}
 }

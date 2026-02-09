@@ -437,15 +437,15 @@ func TestMatchesPattern(t *testing.T) {
 	}
 
 	inputs := map[string]string{
-		"exact":          "exact",
-		"anything":       "anything",
-		"prefix_match":   "prefix_something",
-		"no_prefix":      "not_prefix",
-		"match_suffix":   "end_with_suffix",
-		"no_suffix":      "suffix_not_at_end",
-		"contains_middle": "has_middle_inside",
-		"no_middle":      "no_mid_here",
-		"complex_match":  "test_my_case",
+		"exact":            "exact",
+		"anything":         "anything",
+		"prefix_match":     "prefix_something",
+		"no_prefix":        "not_prefix",
+		"match_suffix":     "end_with_suffix",
+		"no_suffix":        "suffix_not_at_end",
+		"contains_middle":  "has_middle_inside",
+		"no_middle":        "no_mid_here",
+		"complex_match":    "test_my_case",
 		"complex_no_match": "testno_case_at_end",
 	}
 

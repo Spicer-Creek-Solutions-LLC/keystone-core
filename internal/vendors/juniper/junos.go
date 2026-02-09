@@ -55,7 +55,7 @@ func NewJUNOSAdapter(config *JUNOSConfig) *JUNOSAdapter {
 
 	sshConfig := ssh.DefaultConfig()
 	sshConfig.ConnectionConfig = protocols.DefaultConnectionConfig()
-	sshConfig.ConnectionConfig.Timeout = config.Timeout
+	sshConfig.Timeout = config.Timeout
 
 	return &JUNOSAdapter{
 		BaseVendorAdapter: vendors.BaseVendorAdapter{
@@ -96,19 +96,15 @@ func (a *JUNOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice,
 	}
 	shell, err := a.sshAdapter.NewNetworkDeviceShell(ctx, shellConfig)
 	if err != nil {
-		a.sshAdapter.Disconnect(ctx)
+		_ = a.sshAdapter.Disconnect(ctx) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to create shell: %w", err)
 	}
 	a.shell = shell
 
-	// Disable paging
+	// Disable paging - best-effort, non-fatal if unsupported
 	if a.Config.DisablePaging {
-		if _, err := a.runCommand(ctx, "set cli screen-length 0"); err != nil {
-			// Non-fatal
-		}
-		if _, err := a.runCommand(ctx, "set cli screen-width 0"); err != nil {
-			// Non-fatal
-		}
+		_, _ = a.runCommand(ctx, "set cli screen-length 0")
+		_, _ = a.runCommand(ctx, "set cli screen-width 0")
 	}
 
 	a.Connected = true
@@ -231,8 +227,8 @@ func (a *JUNOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 	for _, cmd := range commands {
 		if _, err := a.runCommand(ctx, cmd); err != nil {
 			// Rollback on error
-			a.runCommand(ctx, "rollback 0")
-			a.exitConfig(ctx)
+			_, _ = a.runCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
+			_ = a.exitConfig(ctx)                  //nolint:errcheck // best-effort cleanup
 			return fmt.Errorf("command failed '%s': %w", cmd, err)
 		}
 	}
@@ -401,7 +397,7 @@ func (a *JUNOSAdapter) exitConfig(ctx context.Context) error {
 
 	if _, err := a.runCommand(ctx, "exit configuration-mode"); err != nil {
 		// Try alternative
-		a.runCommand(ctx, "exit")
+		_, _ = a.runCommand(ctx, "exit") //nolint:errcheck // best-effort alternative
 	}
 
 	a.inConfig = false

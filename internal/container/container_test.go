@@ -375,7 +375,7 @@ func TestMetadata(t *testing.T) {
 }
 
 func TestContainerInfo(t *testing.T) {
-	info := ContainerInfo{
+	info := Info{
 		State:        "running",
 		Status:       "Up 2 hours",
 		RestartCount: 3,
@@ -727,7 +727,7 @@ func TestDockerDetector_parseDockerJSON(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if info == nil {
-		t.Fatal("expected non-nil ContainerInfo")
+		t.Fatal("expected non-nil Info")
 	}
 	if info.State != "running" {
 		t.Errorf("expected state 'running', got '%s'", info.State)
@@ -955,7 +955,7 @@ func TestHealthStatus_Unhealthy(t *testing.T) {
 }
 
 func TestContainerInfo_OOMKilled(t *testing.T) {
-	info := ContainerInfo{
+	info := Info{
 		State:        "exited",
 		Status:       "Exited (137)",
 		RestartCount: 1,
@@ -975,7 +975,7 @@ func TestContainerInfo_OOMKilled(t *testing.T) {
 }
 
 func TestContainerInfo_NilResources(t *testing.T) {
-	info := ContainerInfo{
+	info := Info{
 		State:     "running",
 		Resources: nil,
 	}
@@ -986,7 +986,7 @@ func TestContainerInfo_NilResources(t *testing.T) {
 }
 
 func TestContainerInfo_NilHealthCheck(t *testing.T) {
-	info := ContainerInfo{
+	info := Info{
 		State:       "running",
 		HealthCheck: nil,
 	}

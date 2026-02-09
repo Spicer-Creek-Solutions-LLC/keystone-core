@@ -449,12 +449,12 @@ type CronField struct {
 }
 
 // ParseCronField parses a single cron field.
-func ParseCronField(field string, min, max int) (*CronField, error) {
-	cf := &CronField{min: min, max: max}
+func ParseCronField(field string, minVal, maxVal int) (*CronField, error) {
+	cf := &CronField{min: minVal, max: maxVal}
 
 	// Handle wildcard
 	if field == "*" {
-		for i := min; i <= max; i++ {
+		for i := minVal; i <= maxVal; i++ {
 			cf.values = append(cf.values, i)
 		}
 		return cf, nil
@@ -469,9 +469,10 @@ func ParseCronField(field string, min, max int) (*CronField, error) {
 		}
 
 		var start, end int
-		if parts[0] == "*" {
-			start, end = min, max
-		} else if strings.Contains(parts[0], "-") {
+		switch {
+		case parts[0] == "*":
+			start, end = minVal, maxVal
+		case strings.Contains(parts[0], "-"):
 			rangeParts := strings.SplitN(parts[0], "-", 2)
 			start, err = strconv.Atoi(rangeParts[0])
 			if err != nil {
@@ -481,7 +482,7 @@ func ParseCronField(field string, min, max int) (*CronField, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid range end: %s", rangeParts[1])
 			}
-		} else {
+		default:
 			return nil, fmt.Errorf("invalid step expression: %s", field)
 		}
 
@@ -502,7 +503,7 @@ func ParseCronField(field string, min, max int) (*CronField, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid range end: %s", parts[1])
 		}
-		if start > end || start < min || end > max {
+		if start > end || start < minVal || end > maxVal {
 			return nil, fmt.Errorf("invalid range: %d-%d", start, end)
 		}
 		for i := start; i <= end; i++ {
@@ -519,7 +520,7 @@ func ParseCronField(field string, min, max int) (*CronField, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid list value: %s", p)
 			}
-			if val < min || val > max {
+			if val < minVal || val > maxVal {
 				return nil, fmt.Errorf("value out of range: %d", val)
 			}
 			cf.values = append(cf.values, val)
@@ -532,7 +533,7 @@ func ParseCronField(field string, min, max int) (*CronField, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid value: %s", field)
 	}
-	if val < min || val > max {
+	if val < minVal || val > maxVal {
 		return nil, fmt.Errorf("value out of range: %d", val)
 	}
 	cf.values = append(cf.values, val)

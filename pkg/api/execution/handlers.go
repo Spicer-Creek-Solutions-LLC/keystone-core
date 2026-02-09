@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	"github.com/shawnbutts/keystone-core/internal/state"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // Handler provides HTTP handlers for execution API endpoints.
@@ -156,11 +156,11 @@ func (h *Handler) handleExec(w http.ResponseWriter, r *http.Request) {
 
 	results := make(map[string]Result)
 	var jobID string
-	var overallStatus string = "pending"
+	var overallStatus = "pending"
 
 	for _, target := range targets {
 		// Verify target agent exists
-		agent, err := h.connMgr.GetAgent(target)
+		agent, err := h.connMgr.GetAgent(target) //nolint:contextcheck // GetAgent API doesn't take context
 		if err != nil {
 			results[target] = Result{
 				AgentID: target,
@@ -220,7 +220,7 @@ func (h *Handler) handleExec(w http.ResponseWriter, r *http.Request) {
 
 			// Collect all responses - aggregate stdout/stderr
 			var stdout, stderr strings.Builder
-			var finalStatus string = "running"
+			var finalStatus = "running"
 			var exitCode int32
 			var errMsg string
 			var completedAt time.Time
@@ -252,6 +252,7 @@ func (h *Handler) handleExec(w http.ResponseWriter, r *http.Request) {
 					if resp.Timestamp != nil {
 						completedAt = resp.Timestamp.AsTime()
 					}
+				default:
 				}
 			}
 
@@ -265,9 +266,10 @@ func (h *Handler) handleExec(w http.ResponseWriter, r *http.Request) {
 				CompletedAt: completedAt,
 			}
 
-			if finalStatus == "success" {
+			switch finalStatus {
+			case "success":
 				overallStatus = "completed"
-			} else if finalStatus == "failed" || finalStatus == "timeout" {
+			case "failed", "timeout":
 				overallStatus = "failed"
 			}
 		}

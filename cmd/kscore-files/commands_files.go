@@ -133,10 +133,10 @@ Examples:
 // newFilesGetCmd creates the get command.
 func newFilesGetCmd() *cobra.Command {
 	var (
-		namespace string
-		version   string
-		checksum  string
-		output    string
+		namespace  string
+		version    string
+		checksum   string
+		outputPath string
 	)
 
 	cmd := &cobra.Command{
@@ -182,7 +182,7 @@ Examples:
 			}
 
 			// Determine output path
-			destPath := output
+			destPath := outputPath
 			if destPath == "" {
 				destPath = filepath.Base(path)
 			}
@@ -196,7 +196,8 @@ Examples:
 
 			// Create destination directory if needed
 			if dir := filepath.Dir(destPath); dir != "." {
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				//nolint:gosec // G301: destination directory needs to be accessible by users
+				if err := os.MkdirAll(dir, 0o755); err != nil {
 					return fmt.Errorf("failed to create directory: %w", err)
 				}
 			}
@@ -224,7 +225,7 @@ Examples:
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace")
 	cmd.Flags().StringVarP(&version, "version", "V", "", "File version")
 	cmd.Flags().StringVar(&checksum, "checksum", "", "Expected checksum")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file path")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path")
 
 	return cmd
 }
@@ -345,7 +346,7 @@ Examples:
 				fmt.Printf("Delete %s? [y/N]: ", path)
 				var confirm string
 				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
 					fmt.Println("Cancelled")
 					return nil
 				}
@@ -471,10 +472,10 @@ Examples:
 // newFilesSyncCmd creates the sync command.
 func newFilesSyncCmd() *cobra.Command {
 	var (
-		namespace string
-		delete    bool
-		dryRun    bool
-		checksum  bool
+		namespace   string
+		deleteExtra bool
+		dryRun      bool
+		checksum    bool
 	)
 
 	cmd := &cobra.Command{
@@ -505,16 +506,16 @@ Examples:
 			isUpload := srcErr == nil && srcInfo.IsDir()
 
 			if isUpload {
-				return syncUpload(ctx, client, source, dest, namespace, delete, dryRun, checksum)
+				return syncUpload(ctx, client, source, dest, namespace, deleteExtra, dryRun, checksum)
 			}
 
 			// Download sync
-			return syncDownload(ctx, client, source, dest, namespace, delete, dryRun, checksum)
+			return syncDownload(ctx, client, source, dest, namespace, deleteExtra, dryRun, checksum)
 		},
 	}
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace")
-	cmd.Flags().BoolVar(&delete, "delete", false, "Delete extraneous files from destination")
+	cmd.Flags().BoolVar(&deleteExtra, "delete", false, "Delete extraneous files from destination")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done")
 	cmd.Flags().BoolVarP(&checksum, "checksum", "c", false, "Skip files based on checksum")
 
@@ -841,7 +842,8 @@ func syncDownload(ctx context.Context, client *files.Client, source, dest, names
 		localPath := filepath.Join(dest, filepath.FromSlash(path))
 
 		// Create parent directory
-		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		//nolint:gosec // G301: destination directory needs to be accessible by users
+		if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 

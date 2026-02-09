@@ -26,15 +26,15 @@ const (
 
 // ServiceNow states for change requests.
 const (
-	SNChangeStateNew         = -5
-	SNChangeStateAssess      = -4
-	SNChangeStateAuthorize   = -3
-	SNChangeStateScheduled   = -2
-	SNChangeStateImplement   = -1
-	SNChangeStateReview      = 0
-	SNChangeStateClosed      = 3
-	SNChangeStateCancelled   = 4
-	SNChangeStateInProgress  = 2
+	SNChangeStateNew        = -5
+	SNChangeStateAssess     = -4
+	SNChangeStateAuthorize  = -3
+	SNChangeStateScheduled  = -2
+	SNChangeStateImplement  = -1
+	SNChangeStateReview     = 0
+	SNChangeStateClosed     = 3
+	SNChangeStateCancelled  = 4
+	SNChangeStateInProgress = 2
 )
 
 // ServiceNow approval states.
@@ -47,15 +47,15 @@ const (
 
 // ServiceNowClient implements ITSM integration with ServiceNow.
 type ServiceNowClient struct {
-	instanceURL string
-	username    string
-	password    string
-	httpClient  *http.Client
-	clientID    string // For OAuth
+	instanceURL  string
+	username     string
+	password     string
+	httpClient   *http.Client
+	clientID     string // For OAuth
 	clientSecret string // For OAuth
-	accessToken string
-	tokenExpiry time.Time
-	mu          sync.Mutex
+	accessToken  string
+	tokenExpiry  time.Time
+	mu           sync.Mutex
 }
 
 // ServiceNowConfig holds configuration for ServiceNow client.
@@ -205,25 +205,25 @@ func (c *ServiceNowClient) getOAuthToken(ctx context.Context) (string, error) {
 
 // ChangeRequest represents a ServiceNow change request.
 type ChangeRequest struct {
-	SysID            string    `json:"sys_id,omitempty"`
-	Number           string    `json:"number,omitempty"`
-	ShortDescription string    `json:"short_description,omitempty"`
-	Description      string    `json:"description,omitempty"`
-	State            int       `json:"state,omitempty"`
-	Category         string    `json:"category,omitempty"`
-	Priority         int       `json:"priority,omitempty"`
-	Risk             int       `json:"risk,omitempty"`
-	Impact           int       `json:"impact,omitempty"`
-	AssignedTo       string    `json:"assigned_to,omitempty"`
-	AssignmentGroup  string    `json:"assignment_group,omitempty"`
-	RequestedBy      string    `json:"requested_by,omitempty"`
-	StartDate        string    `json:"start_date,omitempty"`
-	EndDate          string    `json:"end_date,omitempty"`
-	WorkNotes        string    `json:"work_notes,omitempty"`
-	CloseCode        string    `json:"close_code,omitempty"`
-	CloseNotes       string    `json:"close_notes,omitempty"`
-	CIRef            string    `json:"cmdb_ci,omitempty"`
-	Type             string    `json:"type,omitempty"` // standard, normal, emergency
+	SysID               string `json:"sys_id,omitempty"`
+	Number              string `json:"number,omitempty"`
+	ShortDescription    string `json:"short_description,omitempty"`
+	Description         string `json:"description,omitempty"`
+	State               int    `json:"state,omitempty"`
+	Category            string `json:"category,omitempty"`
+	Priority            int    `json:"priority,omitempty"`
+	Risk                int    `json:"risk,omitempty"`
+	Impact              int    `json:"impact,omitempty"`
+	AssignedTo          string `json:"assigned_to,omitempty"`
+	AssignmentGroup     string `json:"assignment_group,omitempty"`
+	RequestedBy         string `json:"requested_by,omitempty"`
+	StartDate           string `json:"start_date,omitempty"`
+	EndDate             string `json:"end_date,omitempty"`
+	WorkNotes           string `json:"work_notes,omitempty"`
+	CloseCode           string `json:"close_code,omitempty"`
+	CloseNotes          string `json:"close_notes,omitempty"`
+	CIRef               string `json:"cmdb_ci,omitempty"`
+	Type                string `json:"type,omitempty"` // standard, normal, emergency
 	JustificationReason string `json:"justification,omitempty"`
 	ImplementationPlan  string `json:"implementation_plan,omitempty"`
 	BackoutPlan         string `json:"backout_plan,omitempty"`
@@ -340,7 +340,7 @@ func (c *ServiceNowClient) AddWorkNote(ctx context.Context, sysID, note string) 
 }
 
 // CloseChangeRequest closes a change request with the given code and notes.
-func (c *ServiceNowClient) CloseChangeRequest(ctx context.Context, sysID string, closeCode string, closeNotes string) error {
+func (c *ServiceNowClient) CloseChangeRequest(ctx context.Context, sysID, closeCode, closeNotes string) error {
 	updates := &ChangeRequest{
 		State:      SNChangeStateClosed,
 		CloseCode:  closeCode,
@@ -361,15 +361,15 @@ func (c *ServiceNowClient) SetChangeState(ctx context.Context, sysID string, sta
 
 // CMDBConfigurationItem represents a CMDB CI record.
 type CMDBConfigurationItem struct {
-	SysID           string `json:"sys_id,omitempty"`
-	Name            string `json:"name,omitempty"`
-	SysClassName    string `json:"sys_class_name,omitempty"`
-	OperationalStatus int  `json:"operational_status,omitempty"`
-	InstallStatus   int    `json:"install_status,omitempty"`
-	Environment     string `json:"environment,omitempty"`
-	Comments        string `json:"comments,omitempty"`
-	ShortDescription string `json:"short_description,omitempty"`
-	Attributes      map[string]interface{} `json:"attributes,omitempty"`
+	SysID             string                 `json:"sys_id,omitempty"`
+	Name              string                 `json:"name,omitempty"`
+	SysClassName      string                 `json:"sys_class_name,omitempty"`
+	OperationalStatus int                    `json:"operational_status,omitempty"`
+	InstallStatus     int                    `json:"install_status,omitempty"`
+	Environment       string                 `json:"environment,omitempty"`
+	Comments          string                 `json:"comments,omitempty"`
+	ShortDescription  string                 `json:"short_description,omitempty"`
+	Attributes        map[string]interface{} `json:"attributes,omitempty"`
 }
 
 // GetCMDBCI retrieves a configuration item by sys_id or name.
@@ -563,7 +563,7 @@ func (c *ServiceNowClient) ParseWebhook(body []byte) (*Incident, error) {
 		OpenedAt         string `json:"opened_at"`
 		ClosedAt         string `json:"closed_at"`
 		ResolvedAt       string `json:"resolved_at"`
-		Action           string `json:"action"` // insert, update, delete
+		Action           string `json:"action"`     // insert, update, delete
 		TableName        string `json:"table_name"` // incident, change_request
 	}
 
@@ -626,9 +626,9 @@ func (c *ServiceNowClient) AcknowledgeIncident(ctx context.Context, incidentID s
 // ResolveIncident resolves an incident.
 func (c *ServiceNowClient) ResolveIncident(ctx context.Context, incidentID string) error {
 	updates := map[string]interface{}{
-		"state":             6, // Resolved
-		"close_code":        "Solved (Permanently)",
-		"close_notes":       "Resolved by Keystone runbook automation",
+		"state":       6, // Resolved
+		"close_code":  "Solved (Permanently)",
+		"close_notes": "Resolved by Keystone runbook automation",
 	}
 
 	resp, err := c.doRequest(ctx, http.MethodPatch, "/api/now/table/incident/"+incidentID, updates)
@@ -862,15 +862,15 @@ type ServiceNowTriggerManager struct {
 
 // ServiceNowExecution tracks a ServiceNow-triggered execution.
 type ServiceNowExecution struct {
-	ID               string    `json:"id"`
-	TriggerID        string    `json:"trigger_id"`
-	IncidentID       string    `json:"incident_id,omitempty"`
-	ChangeRequestID  string    `json:"change_request_id,omitempty"`
-	ExecutionID      string    `json:"execution_id,omitempty"`
-	StartedAt        time.Time `json:"started_at"`
-	CompletedAt      *time.Time `json:"completed_at,omitempty"`
-	Status           string    `json:"status"`
-	Error            string    `json:"error,omitempty"`
+	ID              string     `json:"id"`
+	TriggerID       string     `json:"trigger_id"`
+	IncidentID      string     `json:"incident_id,omitempty"`
+	ChangeRequestID string     `json:"change_request_id,omitempty"`
+	ExecutionID     string     `json:"execution_id,omitempty"`
+	StartedAt       time.Time  `json:"started_at"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
+	Status          string     `json:"status"`
+	Error           string     `json:"error,omitempty"`
 }
 
 // NewServiceNowTriggerManager creates a new ServiceNow trigger manager.

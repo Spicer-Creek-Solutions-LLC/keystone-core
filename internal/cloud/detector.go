@@ -1,3 +1,5 @@
+// Package cloud provides cloud provider detection and metadata retrieval
+// for AWS, GCP, and Azure environments.
 package cloud
 
 import (

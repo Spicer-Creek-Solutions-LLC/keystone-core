@@ -257,12 +257,12 @@ func snapshotInfoExecute(cmd *cobra.Command, args []string) error {
 		fmt.Printf("State Capture:\n")
 		if len(snapshot.StateCapture.Files) > 0 {
 			fmt.Printf("  Files: %d\n", len(snapshot.StateCapture.Files))
-			for i, f := range snapshot.StateCapture.Files {
+			for i := range snapshot.StateCapture.Files {
 				if i >= 5 {
 					fmt.Printf("    ... and %d more\n", len(snapshot.StateCapture.Files)-5)
 					break
 				}
-				fmt.Printf("    - %s\n", f.Path)
+				fmt.Printf("    - %s\n", snapshot.StateCapture.Files[i].Path)
 			}
 		}
 		if len(snapshot.StateCapture.Packages) > 0 {

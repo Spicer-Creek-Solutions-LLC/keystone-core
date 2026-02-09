@@ -650,8 +650,8 @@ func createPeerAuthenticationUnstructured(name, namespace, mode, service string)
 			"apiVersion": "security.istio.io/v1",
 			"kind":       "PeerAuthentication",
 			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
+				"name":              name,
+				"namespace":         namespace,
 				"creationTimestamp": metav1.Now().Format(time.RFC3339),
 			},
 			"spec": map[string]interface{}{
@@ -680,8 +680,8 @@ func createAuthorizationPolicyUnstructured(name, namespace, action string) *unst
 			"apiVersion": "security.istio.io/v1",
 			"kind":       "AuthorizationPolicy",
 			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
+				"name":              name,
+				"namespace":         namespace,
 				"creationTimestamp": metav1.Now().Format(time.RFC3339),
 			},
 			"spec": map[string]interface{}{

@@ -11,12 +11,12 @@ import (
 
 // AnomalyDetector detects unusual secret access patterns.
 type AnomalyDetector struct {
-	config         *AnomalyConfig
-	accessHistory  map[string]*AccessHistory
-	alerts         []AnomalyAlert
-	alertHandlers  []AnomalyAlertHandler
-	mu             sync.RWMutex
-	alertMu        sync.Mutex
+	config        *AnomalyConfig
+	accessHistory map[string]*AccessHistory
+	alerts        []AnomalyAlert
+	alertHandlers []AnomalyAlertHandler
+	mu            sync.RWMutex
+	alertMu       sync.Mutex
 }
 
 // AnomalyConfig contains configuration for anomaly detection.
@@ -78,17 +78,17 @@ func DefaultAnomalyConfig() *AnomalyConfig {
 
 // AccessHistory tracks access patterns for a principal.
 type AccessHistory struct {
-	Principal       string                 `json:"principal"`
-	TotalAccesses   int64                  `json:"total_accesses"`
-	SuccessCount    int64                  `json:"success_count"`
-	FailureCount    int64                  `json:"failure_count"`
-	LastAccess      time.Time              `json:"last_access"`
-	AccessTimes     []time.Time            `json:"-"`
-	SecretsAccessed map[string]int         `json:"secrets_accessed"`
-	SourceIPs       map[string]int         `json:"source_ips"`
-	KnownSources    map[string]bool        `json:"-"`
-	HourlyPattern   [24]int                `json:"hourly_pattern"`
-	Baseline        *AccessBaseline        `json:"baseline,omitempty"`
+	Principal       string          `json:"principal"`
+	TotalAccesses   int64           `json:"total_accesses"`
+	SuccessCount    int64           `json:"success_count"`
+	FailureCount    int64           `json:"failure_count"`
+	LastAccess      time.Time       `json:"last_access"`
+	AccessTimes     []time.Time     `json:"-"`
+	SecretsAccessed map[string]int  `json:"secrets_accessed"`
+	SourceIPs       map[string]int  `json:"source_ips"`
+	KnownSources    map[string]bool `json:"-"`
+	HourlyPattern   [24]int         `json:"hourly_pattern"`
+	Baseline        *AccessBaseline `json:"baseline,omitempty"`
 }
 
 // AccessBaseline contains baseline statistics for normal behavior.
@@ -103,36 +103,38 @@ type AccessBaseline struct {
 
 // AnomalyAlert represents a detected anomaly.
 type AnomalyAlert struct {
-	ID          string       `json:"id"`
-	Timestamp   time.Time    `json:"timestamp"`
-	Type        AnomalyType  `json:"type"`
-	Severity    AlertSeverity `json:"severity"`
-	Principal   string       `json:"principal"`
-	ResourceID  string       `json:"resource_id,omitempty"`
-	SourceIP    string       `json:"source_ip,omitempty"`
-	Description string       `json:"description"`
-	Details     map[string]interface{} `json:"details,omitempty"`
-	Acknowledged bool         `json:"acknowledged"`
+	ID           string                 `json:"id"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Type         AnomalyType            `json:"type"`
+	Severity     AlertSeverity          `json:"severity"`
+	Principal    string                 `json:"principal"`
+	ResourceID   string                 `json:"resource_id,omitempty"`
+	SourceIP     string                 `json:"source_ip,omitempty"`
+	Description  string                 `json:"description"`
+	Details      map[string]interface{} `json:"details,omitempty"`
+	Acknowledged bool                   `json:"acknowledged"`
 }
 
 // AnomalyType categorizes anomaly types.
 type AnomalyType string
 
+// AnomalyTypeExcessiveAccess constants define the supported types.
 const (
-	AnomalyTypeExcessiveAccess    AnomalyType = "excessive_access"
-	AnomalyTypeBurstAccess        AnomalyType = "burst_access"
-	AnomalyTypeEnumeration        AnomalyType = "enumeration"
-	AnomalyTypeOffHoursAccess     AnomalyType = "off_hours_access"
-	AnomalyTypeUnusualSource      AnomalyType = "unusual_source"
-	AnomalyTypeExcessiveFailures  AnomalyType = "excessive_failures"
-	AnomalyTypeFirstTimeAccess    AnomalyType = "first_time_access"
-	AnomalyTypeSensitiveAccess    AnomalyType = "sensitive_access"
-	AnomalyTypePatternDeviation   AnomalyType = "pattern_deviation"
+	AnomalyTypeExcessiveAccess   AnomalyType = "excessive_access"
+	AnomalyTypeBurstAccess       AnomalyType = "burst_access"
+	AnomalyTypeEnumeration       AnomalyType = "enumeration"
+	AnomalyTypeOffHoursAccess    AnomalyType = "off_hours_access"
+	AnomalyTypeUnusualSource     AnomalyType = "unusual_source"
+	AnomalyTypeExcessiveFailures AnomalyType = "excessive_failures"
+	AnomalyTypeFirstTimeAccess   AnomalyType = "first_time_access"
+	AnomalyTypeSensitiveAccess   AnomalyType = "sensitive_access"
+	AnomalyTypePatternDeviation  AnomalyType = "pattern_deviation"
 )
 
 // AlertSeverity indicates alert severity.
 type AlertSeverity string
 
+// AlertSeverity constants define the severity levels.
 const (
 	AlertSeverityLow      AlertSeverity = "low"
 	AlertSeverityMedium   AlertSeverity = "medium"
@@ -216,13 +218,13 @@ func (ad *AnomalyDetector) RecordAccess(ctx context.Context, access *SecretAcces
 
 // SecretAccess represents a secret access event for anomaly detection.
 type SecretAccess struct {
-	Principal  string    `json:"principal"`
-	SecretID   string    `json:"secret_id"`
-	Action     string    `json:"action"`
-	SourceIP   string    `json:"source_ip"`
-	Success    bool      `json:"success"`
-	Timestamp  time.Time `json:"timestamp"`
-	Sensitive  bool      `json:"sensitive"`
+	Principal string    `json:"principal"`
+	SecretID  string    `json:"secret_id"`
+	Action    string    `json:"action"`
+	SourceIP  string    `json:"source_ip"`
+	Success   bool      `json:"success"`
+	Timestamp time.Time `json:"timestamp"`
+	Sensitive bool      `json:"sensitive"`
 }
 
 // getOrCreateHistory gets or creates access history for a principal.
@@ -387,7 +389,7 @@ func (ad *AnomalyDetector) checkOffHoursAccess(history *AccessHistory, access *S
 	now := time.Now().UTC()
 	hour := now.Hour()
 
-	isOffHours := false
+	var isOffHours bool
 	if ad.config.OffHoursStart > ad.config.OffHoursEnd {
 		// Spans midnight (e.g., 22:00 to 06:00)
 		isOffHours = hour >= ad.config.OffHoursStart || hour < ad.config.OffHoursEnd
@@ -522,7 +524,7 @@ func (ad *AnomalyDetector) fireAlert(ctx context.Context, alert *AnomalyAlert) {
 	ad.alertMu.Unlock()
 
 	for _, handler := range ad.alertHandlers {
-		go handler(ctx, alert)
+		go func(h func(context.Context, *AnomalyAlert) error) { _ = h(ctx, alert) }(handler) //nolint:errcheck // best-effort async alert
 	}
 }
 
@@ -551,9 +553,9 @@ func (ad *AnomalyDetector) GetAlertsByType(alertType AnomalyType) []AnomalyAlert
 	defer ad.alertMu.Unlock()
 
 	var result []AnomalyAlert
-	for _, alert := range ad.alerts {
-		if alert.Type == alertType {
-			result = append(result, alert)
+	for i := range ad.alerts {
+		if ad.alerts[i].Type == alertType {
+			result = append(result, ad.alerts[i])
 		}
 	}
 	return result
@@ -573,9 +575,9 @@ func (ad *AnomalyDetector) GetAlertsBySeverity(minSeverity AlertSeverity) []Anom
 
 	minLevel := severityOrder[minSeverity]
 	var result []AnomalyAlert
-	for _, alert := range ad.alerts {
-		if severityOrder[alert.Severity] >= minLevel {
-			result = append(result, alert)
+	for i := range ad.alerts {
+		if severityOrder[ad.alerts[i].Severity] >= minLevel {
+			result = append(result, ad.alerts[i])
 		}
 	}
 	return result
@@ -706,9 +708,9 @@ func (ad *AnomalyDetector) cleanup() {
 	// Clean up old alerts
 	ad.alertMu.Lock()
 	var newAlerts []AnomalyAlert
-	for _, alert := range ad.alerts {
-		if alert.Timestamp.After(cutoff) {
-			newAlerts = append(newAlerts, alert)
+	for i := range ad.alerts {
+		if ad.alerts[i].Timestamp.After(cutoff) {
+			newAlerts = append(newAlerts, ad.alerts[i])
 		}
 	}
 	ad.alerts = newAlerts
@@ -724,16 +726,16 @@ func (ad *AnomalyDetector) Stats() AnomalyStats {
 	defer ad.alertMu.Unlock()
 
 	stats := AnomalyStats{
-		TotalPrincipals: len(ad.accessHistory),
-		TotalAlerts:     len(ad.alerts),
-		AlertsByType:    make(map[AnomalyType]int),
+		TotalPrincipals:  len(ad.accessHistory),
+		TotalAlerts:      len(ad.alerts),
+		AlertsByType:     make(map[AnomalyType]int),
 		AlertsBySeverity: make(map[AlertSeverity]int),
 	}
 
-	for _, alert := range ad.alerts {
-		stats.AlertsByType[alert.Type]++
-		stats.AlertsBySeverity[alert.Severity]++
-		if !alert.Acknowledged {
+	for i := range ad.alerts {
+		stats.AlertsByType[ad.alerts[i].Type]++
+		stats.AlertsBySeverity[ad.alerts[i].Severity]++
+		if !ad.alerts[i].Acknowledged {
 			stats.UnacknowledgedAlerts++
 		}
 	}
@@ -743,9 +745,9 @@ func (ad *AnomalyDetector) Stats() AnomalyStats {
 
 // AnomalyStats contains anomaly detection statistics.
 type AnomalyStats struct {
-	TotalPrincipals      int                     `json:"total_principals"`
-	TotalAlerts          int                     `json:"total_alerts"`
-	UnacknowledgedAlerts int                     `json:"unacknowledged_alerts"`
-	AlertsByType         map[AnomalyType]int     `json:"alerts_by_type"`
-	AlertsBySeverity     map[AlertSeverity]int   `json:"alerts_by_severity"`
+	TotalPrincipals      int                   `json:"total_principals"`
+	TotalAlerts          int                   `json:"total_alerts"`
+	UnacknowledgedAlerts int                   `json:"unacknowledged_alerts"`
+	AlertsByType         map[AnomalyType]int   `json:"alerts_by_type"`
+	AlertsBySeverity     map[AlertSeverity]int `json:"alerts_by_severity"`
 }

@@ -58,7 +58,7 @@ func TestAtomicRunner_Setters(t *testing.T) {
 		t.Error("SetMode did not set mode")
 	}
 
-	cfg := &BootstrapConfig{Mode: "demo"}
+	cfg := &Config{Mode: "demo"}
 	runner.SetBootstrapConfig(cfg)
 	if runner.bootstrapConfig != cfg {
 		t.Error("SetBootstrapConfig did not set config")

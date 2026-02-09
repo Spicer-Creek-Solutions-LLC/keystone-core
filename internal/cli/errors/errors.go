@@ -1,10 +1,12 @@
-package errors
+// Package errors provides structured error types for CLI commands.
+package errors //nolint:revive // Package name intentionally shadows stdlib for CLI error handling
 
 import "fmt"
 
 // Kind represents a category of CLI error.
 type Kind string
 
+// KindInvalidArgument constants define the error kinds.
 const (
 	KindInvalidArgument Kind = "invalid_argument"
 	KindNotFound        Kind = "not_found"

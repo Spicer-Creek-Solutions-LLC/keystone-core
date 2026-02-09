@@ -88,7 +88,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check server flag
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag")
+		t.Fatal("expected --server flag")
 	}
 	if serverFlag.DefValue != "localhost:9090" {
 		t.Errorf("expected server default to be 'localhost:9090', got %s", serverFlag.DefValue)
@@ -97,7 +97,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check output flag
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag")
+		t.Fatal("expected --output flag")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be 'table', got %s", outputFlag.DefValue)
@@ -144,7 +144,7 @@ func TestAddCommandFlags(t *testing.T) {
 
 	typeFlag := addCmd.Flags().Lookup("type")
 	if typeFlag == nil {
-		t.Error("expected --type flag on add command")
+		t.Fatal("expected --type flag on add command")
 	}
 	if typeFlag.DefValue != "bidirectional" {
 		t.Errorf("expected type default to be 'bidirectional', got %s", typeFlag.DefValue)
@@ -222,7 +222,7 @@ func TestBundleExportFlags(t *testing.T) {
 	// bundleExportCmd is a package-level var
 	formatFlag := bundleExportCmd.Flags().Lookup("format")
 	if formatFlag == nil {
-		t.Error("expected --format flag on bundle export command")
+		t.Fatal("expected --format flag on bundle export command")
 	}
 	if formatFlag.DefValue != "pem" {
 		t.Errorf("expected format default to be 'pem', got %s", formatFlag.DefValue)

@@ -148,14 +148,14 @@ WHERE NOT blocked_locks.granted;
 **SQLite**:
 ```bash
 # Check database size and fragmentation
-sqlite3 /var/lib/kscore/keystone.db "
+sqlite3 /var/lib/keystone-core/keystone.db "
 SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();
 SELECT freelist_count * page_size as fragmented FROM pragma_freelist_count(), pragma_page_size();
 "
 
 # Check for long-running queries
 # (requires query logging enabled)
-grep "duration" /var/log/kscore/query.log | awk '$NF > 1000' | tail -20
+grep "duration" /var/log/keystone-core/query.log | awk '$NF > 1000' | tail -20
 ```
 
 #### Step 2.3: NATS Analysis
@@ -269,10 +269,10 @@ AND state = 'active';
 "
 
 # SQLite: Vacuum
-sqlite3 /var/lib/kscore/keystone.db "VACUUM;"
+sqlite3 /var/lib/keystone-core/keystone.db "VACUUM;"
 
 # SQLite: Optimize
-sqlite3 /var/lib/kscore/keystone.db "PRAGMA optimize;"
+sqlite3 /var/lib/keystone-core/keystone.db "PRAGMA optimize;"
 ```
 
 #### Remediation: NATS Backlog
@@ -341,7 +341,7 @@ If remediation causes issues:
 
 ```bash
 # Restore previous configuration
-cp /etc/kscore/server.yaml.bak /etc/kscore/server.yaml
+cp /etc/keystone-core/server.yaml.bak /etc/keystone-core/server.yaml
 systemctl restart kscore-server
 
 # If database changes caused issues

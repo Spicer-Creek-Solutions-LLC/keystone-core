@@ -192,10 +192,10 @@ func TestPromiscModule_GetPromiscStateLinux_Parsing(t *testing.T) {
 	// but we can test the string parsing logic
 
 	tests := []struct {
-		name          string
-		output        string
-		wantPromisc   bool
-		wantAllmulti  bool
+		name         string
+		output       string
+		wantPromisc  bool
+		wantAllmulti bool
 	}{
 		{
 			name:         "no flags",

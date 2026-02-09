@@ -15,10 +15,10 @@ import (
 
 const (
 	// Key prefixes for schedule storage.
-	scheduleKeyPrefix           = "/schedules/"
-	executionKeyPrefix          = "/schedule_executions/"
-	maintenanceWindowKeyPrefix  = "/maintenance_windows/"
-	scheduleLockKeyPrefix       = "/schedule_locks/"
+	scheduleKeyPrefix          = "/schedules/"
+	executionKeyPrefix         = "/schedule_executions/"
+	maintenanceWindowKeyPrefix = "/maintenance_windows/"
+	scheduleLockKeyPrefix      = "/schedule_locks/"
 )
 
 // EtcdStore implements the Store interface using etcd.
@@ -177,7 +177,7 @@ func (s *EtcdStore) DeleteSchedule(ctx context.Context, id string) error {
 }
 
 // ListSchedules lists schedules matching the filter.
-func (s *EtcdStore) ListSchedules(ctx context.Context, filter *ScheduleFilter) ([]*Schedule, error) {
+func (s *EtcdStore) ListSchedules(ctx context.Context, filter *Filter) ([]*Schedule, error) {
 	if err := s.checkState(); err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (s *EtcdStore) ListSchedules(ctx context.Context, filter *ScheduleFilter) (
 }
 
 // matchesScheduleFilter checks if a schedule matches the filter criteria.
-func (s *EtcdStore) matchesScheduleFilter(schedule *Schedule, filter *ScheduleFilter) bool {
+func (s *EtcdStore) matchesScheduleFilter(schedule *Schedule, filter *Filter) bool {
 	// Filter by status
 	if len(filter.Status) > 0 {
 		matched := false
@@ -283,13 +283,13 @@ func (s *EtcdStore) matchesScheduleFilter(schedule *Schedule, filter *ScheduleFi
 }
 
 // WatchSchedules watches for schedule changes.
-func (s *EtcdStore) WatchSchedules(ctx context.Context, handler ScheduleWatchHandler) error {
+func (s *EtcdStore) WatchSchedules(ctx context.Context, handler WatchHandler) error {
 	if err := s.checkState(); err != nil {
 		return err
 	}
 
 	return s.etcd.Watch(ctx, scheduleKeyPrefix, func(key string, value []byte, deleted bool) {
-		event := &ScheduleWatchEvent{
+		event := &WatchEvent{
 			ScheduleID: extractID(key, scheduleKeyPrefix),
 		}
 
@@ -315,7 +315,7 @@ func (s *EtcdStore) WatchSchedules(ctx context.Context, handler ScheduleWatchHan
 // Execution operations
 
 // CreateExecution creates a new execution record.
-func (s *EtcdStore) CreateExecution(ctx context.Context, execution *ScheduleExecution) error {
+func (s *EtcdStore) CreateExecution(ctx context.Context, execution *Execution) error {
 	if err := s.checkState(); err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func (s *EtcdStore) CreateExecution(ctx context.Context, execution *ScheduleExec
 }
 
 // GetExecution retrieves an execution by ID.
-func (s *EtcdStore) GetExecution(ctx context.Context, id string) (*ScheduleExecution, error) {
+func (s *EtcdStore) GetExecution(ctx context.Context, id string) (*Execution, error) {
 	if err := s.checkState(); err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (s *EtcdStore) GetExecution(ctx context.Context, id string) (*ScheduleExecu
 	}
 
 	for _, value := range data {
-		var execution ScheduleExecution
+		var execution Execution
 		if err := json.Unmarshal(value, &execution); err != nil {
 			continue
 		}
@@ -367,7 +367,7 @@ func (s *EtcdStore) GetExecution(ctx context.Context, id string) (*ScheduleExecu
 }
 
 // UpdateExecution updates an existing execution.
-func (s *EtcdStore) UpdateExecution(ctx context.Context, execution *ScheduleExecution) error {
+func (s *EtcdStore) UpdateExecution(ctx context.Context, execution *Execution) error {
 	if err := s.checkState(); err != nil {
 		return err
 	}
@@ -402,7 +402,7 @@ func (s *EtcdStore) UpdateExecution(ctx context.Context, execution *ScheduleExec
 }
 
 // ListExecutions lists executions matching the filter.
-func (s *EtcdStore) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*ScheduleExecution, error) {
+func (s *EtcdStore) ListExecutions(ctx context.Context, filter *ExecutionFilter) ([]*Execution, error) {
 	if err := s.checkState(); err != nil {
 		return nil, err
 	}
@@ -418,9 +418,9 @@ func (s *EtcdStore) ListExecutions(ctx context.Context, filter *ExecutionFilter)
 		return nil, fmt.Errorf("failed to list executions: %w", err)
 	}
 
-	executions := make([]*ScheduleExecution, 0, len(data))
+	executions := make([]*Execution, 0, len(data))
 	for _, value := range data {
-		var execution ScheduleExecution
+		var execution Execution
 		if err := json.Unmarshal(value, &execution); err != nil {
 			continue // Skip invalid entries
 		}
@@ -443,7 +443,7 @@ func (s *EtcdStore) ListExecutions(ctx context.Context, filter *ExecutionFilter)
 		if filter.Offset > 0 && filter.Offset < len(executions) {
 			executions = executions[filter.Offset:]
 		} else if filter.Offset >= len(executions) {
-			return []*ScheduleExecution{}, nil
+			return []*Execution{}, nil
 		}
 
 		if filter.Limit > 0 && filter.Limit < len(executions) {
@@ -455,7 +455,7 @@ func (s *EtcdStore) ListExecutions(ctx context.Context, filter *ExecutionFilter)
 }
 
 // matchesExecutionFilter checks if an execution matches the filter criteria.
-func (s *EtcdStore) matchesExecutionFilter(execution *ScheduleExecution, filter *ExecutionFilter) bool {
+func (s *EtcdStore) matchesExecutionFilter(execution *Execution, filter *ExecutionFilter) bool {
 	// Filter by schedule ID (already handled in prefix if set)
 	if filter.ScheduleID != "" && execution.ScheduleID != filter.ScheduleID {
 		return false
@@ -520,11 +520,11 @@ func (s *EtcdStore) DeleteOldExecutions(ctx context.Context, scheduleID string, 
 	// Parse all executions
 	type keyedExecution struct {
 		key       string
-		execution *ScheduleExecution
+		execution *Execution
 	}
 	executions := make([]keyedExecution, 0, len(data))
 	for key, value := range data {
-		var execution ScheduleExecution
+		var execution Execution
 		if err := json.Unmarshal(value, &execution); err != nil {
 			continue
 		}
@@ -832,7 +832,7 @@ func (s *EtcdStore) WatchMaintenanceWindows(ctx context.Context, handler Mainten
 // Lock operations
 
 // AcquireLock attempts to acquire a distributed lock.
-func (s *EtcdStore) AcquireLock(ctx context.Context, lockID string, holderID string) (bool, error) {
+func (s *EtcdStore) AcquireLock(ctx context.Context, lockID, holderID string) (bool, error) {
 	if err := s.checkState(); err != nil {
 		return false, err
 	}
@@ -861,7 +861,7 @@ func (s *EtcdStore) AcquireLock(ctx context.Context, lockID string, holderID str
 }
 
 // ReleaseLock releases a distributed lock.
-func (s *EtcdStore) ReleaseLock(ctx context.Context, lockID string, holderID string) error {
+func (s *EtcdStore) ReleaseLock(ctx context.Context, lockID, holderID string) error {
 	if err := s.checkState(); err != nil {
 		return err
 	}
@@ -896,7 +896,7 @@ func (s *EtcdStore) ReleaseLock(ctx context.Context, lockID string, holderID str
 }
 
 // IsLocked checks if a lock is currently held.
-func (s *EtcdStore) IsLocked(ctx context.Context, lockID string) (bool, string, error) {
+func (s *EtcdStore) IsLocked(ctx context.Context, lockID string) (locked bool, holder string, err error) {
 	if err := s.checkState(); err != nil {
 		return false, "", err
 	}

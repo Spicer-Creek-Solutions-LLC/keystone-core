@@ -435,7 +435,7 @@ func TestManagedEndpoint_RecordFailure(t *testing.T) {
 	if me.FailureCount != 1 {
 		t.Errorf("expected failure count 1, got %d", me.FailureCount)
 	}
-	if me.LastError != testErr {
+	if !errors.Is(me.LastError, testErr) {
 		t.Error("last error should be set")
 	}
 	if me.LastErrorTime.IsZero() {

@@ -90,7 +90,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check server flag
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag")
+		t.Fatal("expected --server flag")
 	}
 	if serverFlag.DefValue != "localhost:9090" {
 		t.Errorf("expected server default to be 'localhost:9090', got %s", serverFlag.DefValue)
@@ -99,7 +99,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check output flag
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag")
+		t.Fatal("expected --output flag")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be 'table', got %s", outputFlag.DefValue)
@@ -197,7 +197,7 @@ func TestRebalanceCommandFlags(t *testing.T) {
 
 	reasonFlag := rebalanceCmd.Flags().Lookup("reason")
 	if reasonFlag == nil {
-		t.Error("expected --reason flag on rebalance command")
+		t.Fatal("expected --reason flag on rebalance command")
 	}
 	if reasonFlag.DefValue != "CLI request" {
 		t.Errorf("expected reason default to be 'CLI request', got %s", reasonFlag.DefValue)
@@ -434,9 +434,9 @@ func parseTestDuration(s string) (d time.Duration) {
 		fmt.Sscanf(s, "%ds", &sec)
 		d = time.Duration(sec) * time.Second
 	case strings.HasSuffix(s, "m"):
-		var min int
-		fmt.Sscanf(s, "%dm", &min)
-		d = time.Duration(min) * time.Minute
+		var minutes int
+		fmt.Sscanf(s, "%dm", &minutes)
+		d = time.Duration(minutes) * time.Minute
 	case strings.HasSuffix(s, "h"):
 		var hr int
 		fmt.Sscanf(s, "%dh", &hr)

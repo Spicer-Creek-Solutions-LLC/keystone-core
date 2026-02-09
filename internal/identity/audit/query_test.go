@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -53,7 +54,7 @@ func TestMemoryStore_Get(t *testing.T) {
 
 	// Get non-existing
 	_, err = store.Get(ctx, "nonexistent")
-	if err != ErrEventNotFound {
+	if !errors.Is(err, ErrEventNotFound) {
 		t.Errorf("Get non-existing = %v, want ErrEventNotFound", err)
 	}
 }
@@ -438,12 +439,12 @@ func TestMemoryStore_Close(t *testing.T) {
 	ctx := context.Background()
 
 	_, err = store.Get(ctx, "1")
-	if err != ErrStoreClosed {
+	if !errors.Is(err, ErrStoreClosed) {
 		t.Errorf("Get after close = %v, want ErrStoreClosed", err)
 	}
 
 	err = store.Store(ctx, &Event{ID: "1"})
-	if err != ErrStoreClosed {
+	if !errors.Is(err, ErrStoreClosed) {
 		t.Errorf("Store after close = %v, want ErrStoreClosed", err)
 	}
 }

@@ -329,8 +329,8 @@ type MaintenanceEvent struct {
 	Data map[string]interface{} `json:"data,omitempty"`
 }
 
-// ScheduleEvent represents a schedule-related event.
-type ScheduleEvent struct {
+// Event represents a schedule-related event.
+type Event struct {
 	// Type is the event type.
 	Type string `json:"type"`
 

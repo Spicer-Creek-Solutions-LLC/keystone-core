@@ -13,5 +13,5 @@ tests:
       - type: state_applied
         target: metrics_config_file
       - type: file_contains
-        target: /etc/kscore/metrics/prometheus.yaml
+        target: /etc/keystone-core/metrics/prometheus.yaml
         pattern: "retention: \"7d\""

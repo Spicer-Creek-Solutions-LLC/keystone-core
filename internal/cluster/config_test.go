@@ -548,12 +548,12 @@ func TestMemberStatus(t *testing.T) {
 	}
 }
 
-func TestClusterStatus(t *testing.T) {
-	tests := []ClusterStatus{
-		ClusterStatusHealthy,
-		ClusterStatusDegraded,
-		ClusterStatusUnhealthy,
-		ClusterStatusForming,
+func TestStatus(t *testing.T) {
+	tests := []Status{
+		StatusHealthy,
+		StatusDegraded,
+		StatusUnhealthy,
+		StatusForming,
 	}
 
 	for _, status := range tests {

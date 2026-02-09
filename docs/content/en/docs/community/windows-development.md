@@ -220,7 +220,7 @@ $env:KSCORE_LOG_LEVEL = 'debug'
 
 ```powershell
 # Install as service (requires admin)
-.\build\bin\kscore-agent.exe install
+.\build\bin\kscore-agent.exe service-install
 
 # Start service
 Start-Service KeystoneCoreAgent
@@ -230,7 +230,7 @@ Get-EventLog -LogName Application -Source KeystoneCore -Newest 20
 
 # Stop and remove service
 Stop-Service KeystoneCoreAgent
-.\build\bin\kscore-agent.exe uninstall
+.\build\bin\kscore-agent.exe service-uninstall
 ```
 
 ## Common Issues

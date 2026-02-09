@@ -8,7 +8,7 @@ import (
 )
 
 func TestManagedPromotion_InitialState(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -30,7 +30,7 @@ func TestManagedPromotion_InitialState(t *testing.T) {
 }
 
 func TestManagedPromotion_BasicWorkflow(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -77,7 +77,7 @@ func TestManagedPromotion_BasicWorkflow(t *testing.T) {
 }
 
 func TestManagedPromotion_ApprovalWorkflow(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -119,7 +119,7 @@ func TestManagedPromotion_ApprovalWorkflow(t *testing.T) {
 }
 
 func TestManagedPromotion_Rejection(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:           "test-promotion-1",
 		Status:       StatusPending,
 		ApprovalInfo: &ApprovalInfo{Required: true},
@@ -146,7 +146,7 @@ func TestManagedPromotion_Rejection(t *testing.T) {
 }
 
 func TestManagedPromotion_VerificationFailure(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -170,7 +170,7 @@ func TestManagedPromotion_VerificationFailure(t *testing.T) {
 }
 
 func TestManagedPromotion_RollbackWorkflow(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -209,7 +209,7 @@ func TestManagedPromotion_RollbackWorkflow(t *testing.T) {
 }
 
 func TestManagedPromotion_RollbackFromFailed(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -237,7 +237,7 @@ func TestManagedPromotion_RollbackFromFailed(t *testing.T) {
 }
 
 func TestManagedPromotion_RollbackFailed(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -259,7 +259,7 @@ func TestManagedPromotion_RollbackFailed(t *testing.T) {
 }
 
 func TestManagedPromotion_InvalidTransitions(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -286,7 +286,7 @@ func TestManagedPromotion_Callbacks(t *testing.T) {
 	var lastStartedID, lastCompletedID string
 	var lastFailedError error
 
-	callbacks := &PromotionStateMachineCallbacks{
+	callbacks := &StateMachineCallbacks{
 		OnStarted: func(promotionID string) {
 			startedCalls++
 			lastStartedID = promotionID
@@ -301,7 +301,7 @@ func TestManagedPromotion_Callbacks(t *testing.T) {
 		},
 	}
 
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -321,7 +321,7 @@ func TestManagedPromotion_Callbacks(t *testing.T) {
 	}
 
 	// Test failure callback
-	result2 := &PromotionResult{
+	result2 := &Result{
 		ID:     "test-promotion-2",
 		Status: StatusPending,
 	}
@@ -329,13 +329,13 @@ func TestManagedPromotion_Callbacks(t *testing.T) {
 	mp2.StartPromotion()
 	testErr := errors.New("test error")
 	mp2.Fail(testErr)
-	if failedCalls != 1 || lastFailedError != testErr {
+	if failedCalls != 1 || !errors.Is(lastFailedError, testErr) {
 		t.Errorf("expected OnFailed called once with error, got %d calls", failedCalls)
 	}
 }
 
 func TestManagedPromotion_History(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -359,7 +359,7 @@ func TestManagedPromotion_History(t *testing.T) {
 }
 
 func TestManagedPromotion_AvailableEvents(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -382,7 +382,7 @@ func TestManagedPromotion_AvailableEvents(t *testing.T) {
 }
 
 func TestManagedPromotion_DirectComplete(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -400,7 +400,7 @@ func TestManagedPromotion_DirectComplete(t *testing.T) {
 }
 
 func TestManagedPromotion_CanChecks(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -434,9 +434,9 @@ func TestManagedPromotion_CanChecks(t *testing.T) {
 	}
 }
 
-func TestPromotionStatusToString(t *testing.T) {
+func TestStatusToString(t *testing.T) {
 	tests := []struct {
-		status  PromotionStatus
+		status  Status
 		display string
 	}{
 		{StatusPending, "Pending"},
@@ -449,20 +449,20 @@ func TestPromotionStatusToString(t *testing.T) {
 		{StatusFailed, "Failed"},
 		{StatusRollingBack, "Rolling Back"},
 		{StatusRolledBack, "Rolled Back"},
-		{PromotionStatus("unknown"), "unknown"},
+		{Status("unknown"), "unknown"},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.status), func(t *testing.T) {
-			if got := PromotionStatusToString(tt.status); got != tt.display {
-				t.Errorf("PromotionStatusToString(%v) = %v, want %v", tt.status, got, tt.display)
+			if got := StatusToString(tt.status); got != tt.display {
+				t.Errorf("StatusToString(%v) = %v, want %v", tt.status, got, tt.display)
 			}
 		})
 	}
 }
 
 func TestManagedPromotion_Duration(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
@@ -486,13 +486,13 @@ func TestManagedPromotion_Duration(t *testing.T) {
 }
 
 func TestManagedPromotion_NilCallbacks(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}
 
 	// Empty callbacks struct
-	callbacks := &PromotionStateMachineCallbacks{}
+	callbacks := &StateMachineCallbacks{}
 
 	mp := NewManagedPromotion(result, callbacks)
 
@@ -504,7 +504,7 @@ func TestManagedPromotion_NilCallbacks(t *testing.T) {
 }
 
 func TestManagedPromotion_VerifyCompleteFromVerifying(t *testing.T) {
-	result := &PromotionResult{
+	result := &Result{
 		ID:     "test-promotion-1",
 		Status: StatusPending,
 	}

@@ -10,9 +10,9 @@ import (
 
 func TestAuditLogger_Log(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
-	event := &AuditEvent{
+	event := &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-1",
 		RunbookName: "test-runbook",
@@ -39,14 +39,14 @@ func TestAuditLogger_Log(t *testing.T) {
 }
 
 func TestAuditLogger_OnEvent(t *testing.T) {
-	logger := NewAuditLogger()
+	logger := NewLogger()
 
-	var receivedEvent *AuditEvent
-	logger.OnEvent(func(event *AuditEvent) {
+	var receivedEvent *Event
+	logger.OnEvent(func(event *Event) {
 		receivedEvent = event
 	})
 
-	event := &AuditEvent{
+	event := &Event{
 		Type:        EventStepCompleted,
 		ExecutionID: "exec-1",
 	}
@@ -63,14 +63,14 @@ func TestAuditLogger_OnEvent(t *testing.T) {
 
 func TestAuditLogger_ActorResolver(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(
-		WithAuditStorage(storage),
+	logger := NewLogger(
+		WithStorage(storage),
 		WithActorResolver(func(ctx context.Context) string {
 			return "test-user"
 		}),
 	)
 
-	event := &AuditEvent{
+	event := &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-1",
 	}
@@ -85,7 +85,7 @@ func TestAuditLogger_ActorResolver(t *testing.T) {
 
 func TestAuditLogger_LogExecutionStart(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
 	exec := &runbook.Execution{
 		ID:             "exec-1",
@@ -116,7 +116,7 @@ func TestAuditLogger_LogExecutionStart(t *testing.T) {
 
 func TestAuditLogger_LogExecutionComplete(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
 	startTime := time.Now()
 	endTime := startTime.Add(5 * time.Second)
@@ -154,7 +154,7 @@ func TestAuditLogger_LogExecutionComplete(t *testing.T) {
 
 func TestAuditLogger_LogExecutionFailed(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
 	exec := &runbook.Execution{
 		ID:          "exec-1",
@@ -178,18 +178,18 @@ func TestAuditLogger_LogExecutionFailed(t *testing.T) {
 
 func TestAuditLogger_Query(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
 	// Add some events
 	for i := 0; i < 5; i++ {
-		_ = logger.Log(context.Background(), &AuditEvent{
+		_ = logger.Log(context.Background(), &Event{
 			Type:        EventExecutionStarted,
 			ExecutionID: "exec-1",
 			RunbookName: "runbook-a",
 		})
 	}
 	for i := 0; i < 3; i++ {
-		_ = logger.Log(context.Background(), &AuditEvent{
+		_ = logger.Log(context.Background(), &Event{
 			Type:        EventExecutionStarted,
 			ExecutionID: "exec-2",
 			RunbookName: "runbook-b",
@@ -197,7 +197,7 @@ func TestAuditLogger_Query(t *testing.T) {
 	}
 
 	// Query by execution ID
-	results, err := logger.Query(context.Background(), &AuditQuery{
+	results, err := logger.Query(context.Background(), &Query{
 		ExecutionID: "exec-1",
 	})
 	if err != nil {
@@ -208,7 +208,7 @@ func TestAuditLogger_Query(t *testing.T) {
 	}
 
 	// Query by runbook name
-	results, err = logger.Query(context.Background(), &AuditQuery{
+	results, err = logger.Query(context.Background(), &Query{
 		RunbookName: "runbook-b",
 	})
 	if err != nil {
@@ -219,7 +219,7 @@ func TestAuditLogger_Query(t *testing.T) {
 	}
 
 	// Query with limit
-	results, err = logger.Query(context.Background(), &AuditQuery{
+	results, err = logger.Query(context.Background(), &Query{
 		Limit: 2,
 	})
 	if err != nil {
@@ -232,30 +232,30 @@ func TestAuditLogger_Query(t *testing.T) {
 
 func TestAuditLogger_GetExecutionHistory(t *testing.T) {
 	storage := NewMemoryStorage()
-	logger := NewAuditLogger(WithAuditStorage(storage))
+	logger := NewLogger(WithStorage(storage))
 
 	// Log events for one execution
-	_ = logger.Log(context.Background(), &AuditEvent{
+	_ = logger.Log(context.Background(), &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-1",
 	})
-	_ = logger.Log(context.Background(), &AuditEvent{
+	_ = logger.Log(context.Background(), &Event{
 		Type:        EventStepStarted,
 		ExecutionID: "exec-1",
 		StepName:    "step1",
 	})
-	_ = logger.Log(context.Background(), &AuditEvent{
+	_ = logger.Log(context.Background(), &Event{
 		Type:        EventStepCompleted,
 		ExecutionID: "exec-1",
 		StepName:    "step1",
 	})
-	_ = logger.Log(context.Background(), &AuditEvent{
+	_ = logger.Log(context.Background(), &Event{
 		Type:        EventExecutionCompleted,
 		ExecutionID: "exec-1",
 	})
 
 	// Log events for another execution
-	_ = logger.Log(context.Background(), &AuditEvent{
+	_ = logger.Log(context.Background(), &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-2",
 	})
@@ -384,12 +384,12 @@ func TestSecretMasker_AddPattern(t *testing.T) {
 func TestAuditLogger_SecretMasking(t *testing.T) {
 	storage := NewMemoryStorage()
 	masker := NewSecretMasker()
-	logger := NewAuditLogger(
-		WithAuditStorage(storage),
+	logger := NewLogger(
+		WithStorage(storage),
 		WithSecretMasker(masker),
 	)
 
-	event := &AuditEvent{
+	event := &Event{
 		Type:        EventInputProvided,
 		ExecutionID: "exec-1",
 		Details: map[string]interface{}{
@@ -444,13 +444,13 @@ func TestRetentionManager_Cleanup(t *testing.T) {
 
 	// Add old event
 	oldTime := time.Now().Add(-48 * time.Hour)
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		ID:        "old-event",
 		Timestamp: oldTime,
 	})
 
 	// Add recent event
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		ID:        "recent-event",
 		Timestamp: time.Now(),
 	})
@@ -482,26 +482,26 @@ func TestComplianceReporter_GenerateReport(t *testing.T) {
 	start := now.Add(-24 * time.Hour)
 
 	// Add various events
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-1",
 		RunbookName: "runbook-a",
 		Timestamp:   now.Add(-1 * time.Hour),
 	})
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventExecutionCompleted,
 		ExecutionID: "exec-1",
 		RunbookName: "runbook-a",
 		Timestamp:   now,
 		Duration:    5 * time.Minute,
 	})
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventExecutionStarted,
 		ExecutionID: "exec-2",
 		RunbookName: "runbook-b",
 		Timestamp:   now.Add(-30 * time.Minute),
 	})
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventExecutionFailed,
 		ExecutionID: "exec-2",
 		RunbookName: "runbook-b",
@@ -509,12 +509,12 @@ func TestComplianceReporter_GenerateReport(t *testing.T) {
 		Duration:    10 * time.Minute,
 		Error:       "test error",
 	})
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventStepStarted,
 		ExecutionID: "exec-1",
 		Timestamp:   now.Add(-50 * time.Minute),
 	})
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventStepFailed,
 		ExecutionID: "exec-2",
 		Timestamp:   now.Add(-20 * time.Minute),
@@ -554,7 +554,7 @@ func TestComplianceReporter_ViolationDetection(t *testing.T) {
 	now := time.Now()
 
 	// Add event with potential unmasked secret
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventInputProvided,
 		ExecutionID: "exec-1",
 		Timestamp:   now,
@@ -564,7 +564,7 @@ func TestComplianceReporter_ViolationDetection(t *testing.T) {
 	})
 
 	// Add failed execution without error message
-	_ = storage.Store(context.Background(), &AuditEvent{
+	_ = storage.Store(context.Background(), &Event{
 		Type:        EventExecutionFailed,
 		ExecutionID: "exec-2",
 		Timestamp:   now,
@@ -598,7 +598,7 @@ func TestMemoryStorage_Query_Ordering(t *testing.T) {
 
 	// Add events with different timestamps
 	for i := 0; i < 5; i++ {
-		_ = storage.Store(context.Background(), &AuditEvent{
+		_ = storage.Store(context.Background(), &Event{
 			ID:        string(rune('a' + i)),
 			Timestamp: time.Now().Add(time.Duration(i) * time.Minute),
 			Type:      EventExecutionStarted,
@@ -606,7 +606,7 @@ func TestMemoryStorage_Query_Ordering(t *testing.T) {
 	}
 
 	// Query with descending order
-	results, _ := storage.Query(context.Background(), &AuditQuery{
+	results, _ := storage.Query(context.Background(), &Query{
 		OrderBy:   "timestamp",
 		OrderDesc: true,
 	})
@@ -625,14 +625,14 @@ func TestMemoryStorage_Query_OffsetLimit(t *testing.T) {
 	storage := NewMemoryStorage()
 
 	for i := 0; i < 10; i++ {
-		_ = storage.Store(context.Background(), &AuditEvent{
+		_ = storage.Store(context.Background(), &Event{
 			ID:   string(rune('a' + i)),
 			Type: EventExecutionStarted,
 		})
 	}
 
 	// Query with offset and limit
-	results, _ := storage.Query(context.Background(), &AuditQuery{
+	results, _ := storage.Query(context.Background(), &Query{
 		Offset: 3,
 		Limit:  4,
 	})
@@ -648,7 +648,7 @@ func TestMemoryStorage_Query_OffsetLimit(t *testing.T) {
 
 func TestBuildExecutionHistoryView(t *testing.T) {
 	now := time.Now()
-	events := []*AuditEvent{
+	events := []*Event{
 		{
 			Type:           EventExecutionStarted,
 			ExecutionID:    "exec-1",

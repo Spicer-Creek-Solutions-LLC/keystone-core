@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"errors"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
@@ -42,6 +43,7 @@ type AuthConfig struct {
 // AuthType represents the authentication type
 type AuthType string
 
+// AuthType constants define the supported types.
 const (
 	AuthTypeNone   AuthType = "none"
 	AuthTypeBasic  AuthType = "basic"
@@ -100,8 +102,8 @@ type PublishResult struct {
 	SumDBRecorded bool
 }
 
-// RegistryConfig holds registry connection configuration
-type RegistryConfig struct {
+// Config holds registry connection configuration
+type Config struct {
 	// URL is the base URL of the registry
 	URL string
 
@@ -124,9 +126,9 @@ type RegistryConfig struct {
 	SumDBURL string
 }
 
-// DefaultRegistryConfig returns a configuration with sensible defaults
-func DefaultRegistryConfig(url string) *RegistryConfig {
-	return &RegistryConfig{
+// DefaultConfig returns a configuration with sensible defaults
+func DefaultConfig(url string) *Config {
+	return &Config{
 		URL:           url,
 		Timeout:       30 * time.Second,
 		RetryAttempts: 3,
@@ -134,8 +136,8 @@ func DefaultRegistryConfig(url string) *RegistryConfig {
 	}
 }
 
-// RegistryError represents an error from the registry
-type RegistryError struct {
+// Error represents an error from the registry
+type Error struct {
 	// StatusCode is the HTTP status code
 	StatusCode int
 
@@ -147,7 +149,7 @@ type RegistryError struct {
 }
 
 // Error implements the error interface
-func (e *RegistryError) Error() string {
+func (e *Error) Error() string {
 	if e.Code != "" {
 		return e.Code + ": " + e.Message
 	}
@@ -156,21 +158,22 @@ func (e *RegistryError) Error() string {
 
 // Common registry error codes
 const (
-	ErrCodeModuleNotFound    = "MODULE_NOT_FOUND"
-	ErrCodeVersionNotFound   = "VERSION_NOT_FOUND"
-	ErrCodeVersionExists     = "VERSION_EXISTS"
-	ErrCodeUnauthorized      = "UNAUTHORIZED"
-	ErrCodeForbidden         = "FORBIDDEN"
-	ErrCodeInvalidModule     = "INVALID_MODULE"
-	ErrCodeInvalidSignature  = "INVALID_SIGNATURE"
-	ErrCodeQuotaExceeded     = "QUOTA_EXCEEDED"
-	ErrCodeRateLimited       = "RATE_LIMITED"
-	ErrCodeServerError       = "SERVER_ERROR"
+	ErrCodeModuleNotFound   = "MODULE_NOT_FOUND"
+	ErrCodeVersionNotFound  = "VERSION_NOT_FOUND"
+	ErrCodeVersionExists    = "VERSION_EXISTS"
+	ErrCodeUnauthorized     = "UNAUTHORIZED"
+	ErrCodeForbidden        = "FORBIDDEN"
+	ErrCodeInvalidModule    = "INVALID_MODULE"
+	ErrCodeInvalidSignature = "INVALID_SIGNATURE"
+	ErrCodeQuotaExceeded    = "QUOTA_EXCEEDED"
+	ErrCodeRateLimited      = "RATE_LIMITED"
+	ErrCodeServerError      = "SERVER_ERROR"
 )
 
 // IsNotFoundError returns true if the error is a not found error
 func IsNotFoundError(err error) bool {
-	if regErr, ok := err.(*RegistryError); ok {
+	var regErr *Error
+	if errors.As(err, &regErr) {
 		return regErr.StatusCode == 404 ||
 			regErr.Code == ErrCodeModuleNotFound ||
 			regErr.Code == ErrCodeVersionNotFound
@@ -180,7 +183,8 @@ func IsNotFoundError(err error) bool {
 
 // IsVersionExistsError returns true if the error indicates the version already exists
 func IsVersionExistsError(err error) bool {
-	if regErr, ok := err.(*RegistryError); ok {
+	var regErr *Error
+	if errors.As(err, &regErr) {
 		return regErr.Code == ErrCodeVersionExists
 	}
 	return false
@@ -188,7 +192,8 @@ func IsVersionExistsError(err error) bool {
 
 // IsAuthError returns true if the error is an authentication error
 func IsAuthError(err error) bool {
-	if regErr, ok := err.(*RegistryError); ok {
+	var regErr *Error
+	if errors.As(err, &regErr) {
 		return regErr.StatusCode == 401 ||
 			regErr.StatusCode == 403 ||
 			regErr.Code == ErrCodeUnauthorized ||

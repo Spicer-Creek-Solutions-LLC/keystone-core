@@ -453,22 +453,22 @@ func TestAverageDuration(t *testing.T) {
 
 func TestCalculatePercentile(t *testing.T) {
 	tests := []struct {
-		name      string
-		durations []time.Duration
+		name       string
+		durations  []time.Duration
 		percentile int
-		expected  time.Duration
+		expected   time.Duration
 	}{
 		{
-			name:      "empty",
-			durations: []time.Duration{},
+			name:       "empty",
+			durations:  []time.Duration{},
 			percentile: 50,
-			expected:  0,
+			expected:   0,
 		},
 		{
-			name:      "single value",
-			durations: []time.Duration{100 * time.Millisecond},
+			name:       "single value",
+			durations:  []time.Duration{100 * time.Millisecond},
 			percentile: 50,
-			expected:  100 * time.Millisecond,
+			expected:   100 * time.Millisecond,
 		},
 		{
 			name: "median of 5",
@@ -480,7 +480,7 @@ func TestCalculatePercentile(t *testing.T) {
 				50 * time.Millisecond,
 			},
 			percentile: 50,
-			expected:  30 * time.Millisecond,
+			expected:   30 * time.Millisecond,
 		},
 	}
 

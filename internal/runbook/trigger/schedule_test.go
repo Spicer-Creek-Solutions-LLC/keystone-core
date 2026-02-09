@@ -133,15 +133,15 @@ func TestScheduleTrigger_ToSchedule(t *testing.T) {
 	if sched.Type != ScheduleTypeRunbook {
 		t.Errorf("Type = %v, want %v", sched.Type, ScheduleTypeRunbook)
 	}
-	if sched.Status != schedule.ScheduleStatusActive {
-		t.Errorf("Status = %v, want %v", sched.Status, schedule.ScheduleStatusActive)
+	if sched.Status != schedule.StatusActive {
+		t.Errorf("Status = %v, want %v", sched.Status, schedule.StatusActive)
 	}
 
 	// Check disabled trigger creates disabled schedule
 	trigger.Enabled = false
 	sched, _ = trigger.ToSchedule()
-	if sched.Status != schedule.ScheduleStatusDisabled {
-		t.Errorf("Status = %v, want %v for disabled trigger", sched.Status, schedule.ScheduleStatusDisabled)
+	if sched.Status != schedule.StatusDisabled {
+		t.Errorf("Status = %v, want %v for disabled trigger", sched.Status, schedule.StatusDisabled)
 	}
 }
 
@@ -154,7 +154,7 @@ func TestScheduleHandler_Execute(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "deploy-app"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "deploy", Type: runbook.StepTypeNoop},
 			},
@@ -171,7 +171,7 @@ func TestScheduleHandler_Execute(t *testing.T) {
 		Payload: []byte(`{"runbook_name":"deploy-app","inputs":{"env":"prod"}}`),
 	}
 
-	exec := &schedule.ScheduleExecution{
+	exec := &schedule.Execution{
 		ID:         "exec-1",
 		ScheduleID: sched.ID,
 	}
@@ -209,7 +209,7 @@ func TestScheduleHandler_ValidatePayload(t *testing.T) {
 		APIVersion: "runbook.keystone.io/v1",
 		Kind:       "Runbook",
 		Metadata:   runbook.Metadata{Name: "existing-runbook"},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{{Name: "step1", Type: runbook.StepTypeNoop}},
 		},
 	})

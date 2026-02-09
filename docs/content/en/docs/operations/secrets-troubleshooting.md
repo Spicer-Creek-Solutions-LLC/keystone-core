@@ -8,40 +8,54 @@ description: "Diagnose and resolve common issues with secrets management, backen
 
 This guide helps diagnose and resolve common issues with Keystone Core's secrets management system.
 
+> **Implementation Note**: Many diagnostic commands shown in this guide represent planned CLI features.
+> Currently, troubleshooting primarily uses:
+> - **Backend-native tools** (Vault CLI, AWS CLI, etc.) for direct diagnostics
+> - **Log files** at `/var/log/keystone/` for server and agent issues
+> - **`kscorectl secrets rotate`** for rotation orchestration
+> - **Standard system tools** (curl, systemctl, journalctl) for service health
+
 ## Diagnostic Commands
 
 ### Health Check
 
 ```bash
-# Overall secrets system health
-kscorectl secrets health
+# Check Keystone server health
+curl -s http://localhost:8080/health | jq
 
-# Backend-specific health
-kscorectl secrets health --backend vault
-kscorectl secrets health --backend aws
+# Check Vault backend health
+vault status
+curl -s https://vault.example.com:8200/v1/sys/health | jq
+
+# Check AWS backend connectivity
+aws sts get-caller-identity
 ```
 
 ### Debug Mode
 
 ```bash
-# Enable debug logging
-kscorectl secrets --debug get database/creds/app
+# Enable debug logging for kscore-server
+export KSCORE_LOG_LEVEL=debug
+systemctl restart kscore-server
 
-# Verbose output
-kscorectl secrets -v get database/creds/app
+# View debug logs
+journalctl -u kscore-server -f
+
+# Test secret retrieval directly from backend
+vault kv get -format=json secret/database/creds/app
 ```
 
 ### Status Commands
 
 ```bash
-# Lease status
-kscorectl secrets lease list --status active
+# Check rotation status
+kscorectl secrets rotate list
 
-# Rotation status
-kscorectl secrets rotation list --status in_progress
+# Check Vault lease status directly
+vault list sys/leases/lookup/database/creds/
 
-# Backend status
-kscorectl secrets backend status --all
+# Check server metrics
+curl -s http://localhost:8080/metrics | grep secrets
 ```
 
 ## Connection Issues
@@ -55,14 +69,14 @@ kscorectl secrets backend status --all
 
 **Diagnosis:**
 ```bash
-# Test network connectivity
-kscorectl secrets backend test vault
+# Test network connectivity to Vault
+curl -k -s https://vault.example.com:8200/v1/sys/health | jq
 
 # Check TLS configuration
-kscorectl secrets backend test vault --show-tls
+openssl s_client -connect vault.example.com:8200 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -dates
 
-# Verbose connection test
-kscorectl secrets backend test vault -v
+# Test Vault authentication
+vault token lookup
 ```
 
 **Common Causes and Solutions:**
@@ -147,8 +161,8 @@ openssl verify -CAfile /etc/ssl/certs/vault-ca.pem /path/to/cert.pem
 # Check token validity (Vault)
 vault token lookup
 
-# Test authentication
-kscorectl secrets auth test --backend vault
+# Test authentication with a simple read
+vault kv get secret/test
 ```
 
 **Solutions:**
@@ -160,8 +174,9 @@ vault token renew
 # Generate new token
 vault token create -policy=keystone-secrets
 
-# Update configuration
-kscorectl secrets backend update vault --token "new-token"
+# Update token in environment and restart server
+export VAULT_TOKEN="new-token"
+systemctl restart kscore-server
 ```
 
 ### AppRole Authentication Failures
@@ -186,9 +201,9 @@ vault write auth/approle/role/keystone/secret-id-accessor/lookup \
 # Generate new secret ID
 vault write -f auth/approle/role/keystone/secret-id
 
-# Update configuration
-kscorectl secrets backend update vault \
-  --secret-id "new-secret-id"
+# Update secret ID in environment and restart
+export VAULT_SECRET_ID="new-secret-id"
+systemctl restart kscore-server
 ```
 
 ### Kubernetes Authentication Failures
@@ -271,19 +286,24 @@ gcloud secrets list --project my-project
 
 **Diagnosis:**
 ```bash
-# List expired leases
-kscorectl secrets lease list --status expired
+# List leases in Vault
+vault list sys/leases/lookup/database/creds/
 
 # Check specific lease
-kscorectl secrets lease show lease-abc123
+vault lease lookup <lease-id>
 ```
 
 **Solutions:**
 ```bash
-# Request new credentials
-kscorectl secrets get database/creds/app --force-refresh
+# Request new credentials directly from Vault
+vault read database/creds/app
 
-# Configure eager renewal
+# Or trigger a rotation to get fresh credentials
+kscorectl secrets rotate start --path database/creds/app
+
+# Configure eager renewal in config
+```
+```yaml
 secrets:
   lease_management:
     strategy: eager
@@ -299,24 +319,20 @@ secrets:
 
 **Diagnosis:**
 ```bash
-# Check renewal logs
-kscorectl secrets lease logs lease-abc123
+# Check server logs for renewal failures
+journalctl -u kscore-server | grep -i "lease"
 
-# View lease details
-kscorectl secrets lease show lease-abc123 --verbose
+# View lease details in Vault
+vault lease lookup <lease-id>
 ```
 
 **Solutions:**
 ```bash
-# Manually renew lease
-kscorectl secrets lease renew lease-abc123
+# Manually renew lease using Vault CLI
+vault lease renew <lease-id>
 
-# Configure retry settings
-secrets:
-  lease_management:
-    renewal_retries: 3
-    renewal_retry_delay: 5s
-    grace_period: 5m
+# Or request new credentials
+vault read database/creds/app
 ```
 
 ### Too Many Leases
@@ -328,25 +344,20 @@ secrets:
 
 **Diagnosis:**
 ```bash
-# Count leases by backend
-kscorectl secrets lease count --group-by backend
+# Count leases in Vault
+vault list -format=json sys/leases/lookup/database/creds/ | jq 'length'
 
-# Find stale leases
-kscorectl secrets lease list --idle-since 24h
+# View lease quotas
+vault read sys/quotas/lease-count/global
 ```
 
 **Solutions:**
 ```bash
-# Revoke stale leases
-kscorectl secrets lease revoke --idle-since 24h
+# Revoke all leases for a path (use with caution)
+vault lease revoke -prefix database/creds/app
 
-# Configure cleanup
-secrets:
-  lease_management:
-    cleanup:
-      enabled: true
-      interval: 1h
-      max_idle: 24h
+# Or revoke specific leases
+vault lease revoke <lease-id>
 ```
 
 ## Rotation Issues
@@ -361,26 +372,23 @@ secrets:
 **Diagnosis:**
 ```bash
 # Check rotation status
-kscorectl secrets rotation status rotation-abc123
+kscorectl secrets rotate list
 
-# View rotation logs
-kscorectl secrets rotation logs rotation-abc123
+# View server logs for rotation details
+journalctl -u kscore-server | grep -i "rotation"
 
-# Check agent status
-kscorectl secrets rotation agents rotation-abc123
+# Check agent connectivity
+kscorectl agents list
 ```
 
 **Solutions:**
 ```bash
-# Resume stuck rotation
-kscorectl secrets rotation resume rotation-abc123
+# Cancel stuck rotation and restart
+kscorectl secrets rotate cancel <rotation-id>
+kscorectl secrets rotate start --path database/creds/app
 
-# Cancel and restart
-kscorectl secrets rotation cancel rotation-abc123
-kscorectl secrets rotation start --path database/creds/app
-
-# Force completion (use with caution)
-kscorectl secrets rotation complete rotation-abc123 --force
+# Check Vault for credential state
+vault read database/creds/app
 ```
 
 ### Verification Failures
@@ -392,27 +400,20 @@ kscorectl secrets rotation complete rotation-abc123 --force
 
 **Diagnosis:**
 ```bash
-# Check verification logs
-kscorectl secrets rotation logs rotation-abc123 --phase verification
+# Check server logs for verification failures
+journalctl -u kscore-server | grep -i "verification"
 
-# Test verification manually
-kscorectl secrets rotation verify-test \
-  --path database/creds/app \
-  --agent agent-1
+# Test database connectivity manually
+psql -h db.example.com -U app -c "SELECT 1"
 ```
 
 **Solutions:**
 ```bash
-# Increase verification timeout
-rotation:
-  verification:
-    timeout: 60s
-    retries: 5
+# Check that health check endpoints work
+curl -s http://app.example.com/health/database
 
-# Skip verification (not recommended)
-kscorectl secrets rotation start \
-  --path database/creds/app \
-  --skip-verification
+# Skip verification during rotation (not recommended for production)
+kscorectl secrets rotate start --path database/creds/app --skip-verification
 ```
 
 ### Rollback Issues
@@ -424,24 +425,23 @@ kscorectl secrets rotation start \
 
 **Diagnosis:**
 ```bash
-# Check rollback status
-kscorectl secrets rotation rollback-status rotation-abc123
+# Check rotation logs
+journalctl -u kscore-server | grep -i "rollback"
 
-# View credential history
-kscorectl secrets history --path database/creds/app
+# Verify current credential state in Vault
+vault read database/creds/app
 ```
 
 **Solutions:**
 ```bash
-# Manual rollback
-kscorectl secrets restore \
-  --path database/creds/app \
-  --version 1
+# Request new credentials from Vault
+vault read database/creds/app
 
-# Force agent refresh
-kscorectl agents refresh \
-  --target "environment=production" \
-  --secrets database/creds/app
+# Restart agents to pick up new credentials
+systemctl restart kscore-agent
+
+# Or restart specific agent via exec
+kscorectl exec run "name:web-server" -- systemctl restart myapp
 ```
 
 ## Cache Issues
@@ -455,23 +455,23 @@ kscorectl agents refresh \
 
 **Diagnosis:**
 ```bash
-# Check cache statistics
-kscorectl secrets cache stats
+# Check server metrics for cache stats
+curl -s http://localhost:8080/metrics | grep cache
 
-# View cached entries
-kscorectl secrets cache list --path "database/*"
+# Check agent logs for cache behavior
+journalctl -u kscore-agent | grep -i "cache"
 ```
 
 **Solutions:**
 ```bash
-# Clear specific cache entry
-kscorectl secrets cache clear --path database/creds/app
+# Restart the agent to clear in-memory cache
+systemctl restart kscore-agent
 
-# Clear all cache
-kscorectl secrets cache clear --all
+# Read directly from Vault bypassing any cache
+vault read database/creds/app
 
-# Disable cache temporarily
-kscorectl secrets get database/creds/app --no-cache
+# Trigger rotation to refresh credentials
+kscorectl secrets rotate start --path database/creds/app
 ```
 
 ### Cache Memory Issues
@@ -506,14 +506,14 @@ secrets:
 
 **Diagnosis:**
 ```bash
-# Measure latency
-kscorectl secrets get database/creds/app --timing
+# Measure Vault latency directly
+time vault read database/creds/app
 
-# Check backend latency
-kscorectl secrets backend latency --backend vault
+# Check Vault server status
+vault status
 
-# View metrics
-kscorectl secrets metrics --period 1h
+# View Keystone metrics
+curl -s http://localhost:8080/metrics | grep secrets
 ```
 
 **Solutions:**
@@ -577,26 +577,26 @@ secrets:
 
 **Diagnosis:**
 ```bash
-# Check agent secret status
-kscorectl agents secrets status agent-1
+# Check agent status
+kscorectl agents show <agent-id>
 
-# View agent logs
-kscorectl agents logs agent-1 --filter secrets
+# View agent logs on the agent host
+journalctl -u kscore-agent | grep -i "secret"
 
 # Test agent connectivity
-kscorectl agents ping agent-1
+kscorectl exec run "name:<agent-name>" -- echo "connected"
 ```
 
 **Solutions:**
 ```bash
-# Force secret refresh
-kscorectl agents refresh agent-1 --secrets
+# Restart agent to refresh secrets
+ssh <agent-host> "systemctl restart kscore-agent"
 
-# Check agent configuration
-kscorectl agents config show agent-1
+# Check agent configuration on the host
+ssh <agent-host> "cat /etc/keystone-core/agent.yaml"
 
-# Restart agent secret sync
-kscorectl agents restart agent-1 --component secrets
+# Verify environment variables are set
+kscorectl exec run "name:<agent-name>" -- env | grep -E "(DB_|API_)"
 ```
 
 ### Secret Injection Failures
@@ -608,11 +608,11 @@ kscorectl agents restart agent-1 --component secrets
 
 **Diagnosis:**
 ```bash
-# Check injection status
-kscorectl secrets injection status --agent agent-1
+# Check agent logs for injection errors
+journalctl -u kscore-agent | grep -i "inject"
 
-# View injection logs
-kscorectl secrets injection logs --agent agent-1
+# Verify file permissions on secret destination
+ls -la /etc/secrets/
 ```
 
 **Solutions:**
@@ -658,14 +658,14 @@ workload:
 ### Error Log Analysis
 
 ```bash
-# Search for specific errors
-kscorectl logs search --component secrets --error "SECRETS_001"
+# Search for specific errors in server logs
+journalctl -u kscore-server | grep "SECRETS_001"
 
-# Get error context
-kscorectl logs context --error-id err_abc123
+# Search with context
+journalctl -u kscore-server | grep -B5 -A5 "SECRETS_001"
 
-# Export errors for analysis
-kscorectl logs export --component secrets --since 24h --format json
+# Export logs for analysis
+journalctl -u kscore-server --since "24 hours ago" -o json > secrets-logs.json
 ```
 
 ## Getting Help
@@ -675,12 +675,15 @@ kscorectl logs export --component secrets --since 24h --format json
 Collect debug information for support:
 
 ```bash
-# Generate support bundle
-kscorectl support bundle \
-  --component secrets \
-  --include-logs \
-  --include-config \
-  --output secrets-debug.tar.gz
+# Generate support bundle manually
+mkdir -p /tmp/secrets-debug
+journalctl -u kscore-server --since "24 hours ago" > /tmp/secrets-debug/server.log
+journalctl -u kscore-agent --since "24 hours ago" > /tmp/secrets-debug/agent.log
+cp /etc/keystone-core/server.yaml /tmp/secrets-debug/  # Review for secrets before sharing
+curl -s http://localhost:8080/metrics > /tmp/secrets-debug/metrics.txt
+tar -czf secrets-debug.tar.gz -C /tmp secrets-debug
+
+# IMPORTANT: Review the bundle for sensitive data before sharing
 ```
 
 ### Log Locations

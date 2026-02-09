@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
 // LeaseTransitionEvent represents events that trigger lease state transitions.
@@ -45,41 +43,6 @@ const (
 	LeaseTransitionEventRevoke LeaseTransitionEvent = "revoke"
 )
 
-// leaseStateMachine is a shared state machine for validating lease transitions.
-var leaseStateMachine = buildLeaseStateMachine()
-
-// buildLeaseStateMachine creates a state machine for validating lease transitions.
-func buildLeaseStateMachine() *statemachine.Machine[LeaseState, LeaseTransitionEvent] {
-	builder := statemachine.New[LeaseState, LeaseTransitionEvent](LeaseStatePending).
-		WithName("lease-validator")
-
-	// Pending -> Active (on activate)
-	builder.AddTransition(LeaseStatePending, LeaseTransitionEventActivate, LeaseStateActive)
-
-	// Active -> Renewing (on renew_start)
-	builder.AddTransition(LeaseStateActive, LeaseTransitionEventRenewStart, LeaseStateRenewing)
-
-	// Renewing -> Active (on renew_success or renew_failed)
-	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRenewSuccess, LeaseStateActive)
-	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRenewFailed, LeaseStateActive)
-
-	// Active/Renewing -> Expired (on expire)
-	builder.AddTransition(LeaseStateActive, LeaseTransitionEventExpire, LeaseStateExpired)
-	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventExpire, LeaseStateExpired)
-
-	// Active/Renewing -> Revoked (on revoke)
-	builder.AddTransition(LeaseStateActive, LeaseTransitionEventRevoke, LeaseStateRevoked)
-	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRevoke, LeaseStateRevoked)
-
-	// Ignore events on terminal states
-	builder.Ignore(LeaseStateExpired, LeaseTransitionEventExpire)
-	builder.Ignore(LeaseStateExpired, LeaseTransitionEventRevoke)
-	builder.Ignore(LeaseStateRevoked, LeaseTransitionEventRevoke)
-	builder.Ignore(LeaseStateRevoked, LeaseTransitionEventExpire)
-
-	return builder.MustBuild()
-}
-
 // CanTransitionLease checks if a lease can transition from its current state via an event.
 func CanTransitionLease(from LeaseState, event LeaseTransitionEvent) bool {
 	// Use the NextLeaseState function to check if a transition is valid
@@ -94,6 +57,7 @@ func CanTransitionLease(from LeaseState, event LeaseTransitionEvent) bool {
 		switch event {
 		case LeaseTransitionEventExpire, LeaseTransitionEventRevoke:
 			return true
+		default:
 		}
 	}
 
@@ -581,8 +545,8 @@ func (m *PersistentLeaseManager) Start(ctx context.Context) error {
 	m.mu.Unlock()
 
 	m.wg.Add(2)
-	go m.renewalLoop()
-	go m.cleanupLoop()
+	go m.renewalLoop()   //nolint:contextcheck // background loop uses internal context
+	go m.cleanupLoop()   //nolint:contextcheck // background loop uses internal context
 
 	return nil
 }

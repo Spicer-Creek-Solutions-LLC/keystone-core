@@ -1,3 +1,5 @@
+// Package rollback provides deployment rollback capabilities with approval
+// workflows and audit logging for GitOps deployments.
 package rollback
 
 import (
@@ -83,10 +85,10 @@ type AuditEntry struct {
 	Details *AuditDetails `json:"details,omitempty"`
 
 	// PreviousStatus is the status before this event
-	PreviousStatus RollbackStatus `json:"previous_status,omitempty"`
+	PreviousStatus Status `json:"previous_status,omitempty"`
 
 	// NewStatus is the status after this event
-	NewStatus RollbackStatus `json:"new_status,omitempty"`
+	NewStatus Status `json:"new_status,omitempty"`
 
 	// Metadata contains additional arbitrary data
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
@@ -95,6 +97,7 @@ type AuditEntry struct {
 // ActorType identifies the type of actor that triggered an event
 type ActorType string
 
+// ActorTypeUser constants define the supported types.
 const (
 	ActorTypeUser    ActorType = "user"
 	ActorTypeSystem  ActorType = "system"
@@ -117,7 +120,7 @@ type AuditDetails struct {
 	ToRevision string `json:"to_revision,omitempty"`
 
 	// Strategy used
-	Strategy RollbackStrategy `json:"strategy,omitempty"`
+	Strategy Strategy `json:"strategy,omitempty"`
 
 	// Duration of the operation
 	Duration time.Duration `json:"duration,omitempty"`
@@ -143,10 +146,10 @@ type AuditDetails struct {
 
 // ApprovalRecord represents an approval/rejection in the chain
 type ApprovalRecord struct {
-	Approver  string         `json:"approver"`
-	Decision  string         `json:"decision"` // "approved" or "rejected"
-	Timestamp time.Time      `json:"timestamp"`
-	Reason    string         `json:"reason,omitempty"`
+	Approver  string            `json:"approver"`
+	Decision  string            `json:"decision"` // "approved" or "rejected"
+	Timestamp time.Time         `json:"timestamp"`
+	Reason    string            `json:"reason,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
@@ -160,13 +163,13 @@ type AffectedResource struct {
 
 // VerificationResults contains verification outcome details
 type VerificationResults struct {
-	Passed        bool              `json:"passed"`
-	TotalChecks   int               `json:"total_checks"`
-	PassedChecks  int               `json:"passed_checks"`
-	FailedChecks  int               `json:"failed_checks"`
-	SkippedChecks int               `json:"skipped_checks"`
-	CheckResults  []CheckResult     `json:"check_results,omitempty"`
-	Duration      time.Duration     `json:"duration"`
+	Passed        bool          `json:"passed"`
+	TotalChecks   int           `json:"total_checks"`
+	PassedChecks  int           `json:"passed_checks"`
+	FailedChecks  int           `json:"failed_checks"`
+	SkippedChecks int           `json:"skipped_checks"`
+	CheckResults  []CheckResult `json:"check_results,omitempty"`
+	Duration      time.Duration `json:"duration"`
 }
 
 // CheckResult represents a single verification check result
@@ -178,19 +181,19 @@ type CheckResult struct {
 
 // GitDetails contains git-specific rollback details
 type GitDetails struct {
-	Repository string   `json:"repository"`
-	Branch     string   `json:"branch"`
-	CommitHash string   `json:"commit_hash"`
-	Author     string   `json:"author,omitempty"`
-	Message    string   `json:"message,omitempty"`
+	Repository   string   `json:"repository"`
+	Branch       string   `json:"branch"`
+	CommitHash   string   `json:"commit_hash"`
+	Author       string   `json:"author,omitempty"`
+	Message      string   `json:"message,omitempty"`
 	FilesChanged []string `json:"files_changed,omitempty"`
 }
 
 // AuditTrail manages the complete audit history for rollbacks
 type AuditTrail struct {
 	// entries indexed by rollback ID
-	entries   map[string][]*AuditEntry
-	mu        sync.RWMutex
+	entries map[string][]*AuditEntry
+	mu      sync.RWMutex
 
 	// Global entry list indexed by entry ID
 	entryIndex map[string]*AuditEntry
@@ -262,7 +265,7 @@ func (a *AuditTrail) Record(entry *AuditEntry) error {
 }
 
 // RecordEvent is a convenience method to record an event with minimal parameters
-func (a *AuditTrail) RecordEvent(rollbackID string, eventType AuditEventType, actor string, reason string) error {
+func (a *AuditTrail) RecordEvent(rollbackID string, eventType AuditEventType, actor, reason string) error {
 	return a.Record(&AuditEntry{
 		RollbackID: rollbackID,
 		EventType:  eventType,
@@ -274,7 +277,7 @@ func (a *AuditTrail) RecordEvent(rollbackID string, eventType AuditEventType, ac
 }
 
 // RecordStatusChange records a status change event
-func (a *AuditTrail) RecordStatusChange(rollbackID string, eventType AuditEventType, actor string, previousStatus, newStatus RollbackStatus, reason string) error {
+func (a *AuditTrail) RecordStatusChange(rollbackID string, eventType AuditEventType, actor string, previousStatus, newStatus Status, reason string) error {
 	return a.Record(&AuditEntry{
 		RollbackID:     rollbackID,
 		EventType:      eventType,
@@ -441,10 +444,10 @@ func (a *AuditTrail) matchesFilter(entry *AuditEntry, filter *AuditFilter) bool 
 }
 
 // GetTimeline returns a complete timeline for a rollback
-func (a *AuditTrail) GetTimeline(rollbackID string) *RollbackTimeline {
+func (a *AuditTrail) GetTimeline(rollbackID string) *Timeline {
 	entries := a.GetEntriesForRollback(rollbackID)
 
-	timeline := &RollbackTimeline{
+	timeline := &Timeline{
 		RollbackID: rollbackID,
 		Events:     make([]*TimelineEvent, 0, len(entries)),
 	}
@@ -494,7 +497,7 @@ func (a *AuditTrail) describeEvent(entry *AuditEntry) string {
 		}
 		return fmt.Sprintf("Rollback requested by %s", entry.Actor)
 	case AuditEventApprovalRequested:
-		return fmt.Sprintf("Approval requested from designated approvers")
+		return "Approval requested from designated approvers"
 	case AuditEventApproved:
 		if entry.Reason != "" {
 			return fmt.Sprintf("Approved by %s: %s", entry.Actor, entry.Reason)
@@ -543,37 +546,37 @@ func (a *AuditTrail) describeEvent(entry *AuditEntry) string {
 	}
 }
 
-// RollbackTimeline represents the complete timeline of a rollback
-type RollbackTimeline struct {
-	RollbackID    string            `json:"rollback_id"`
-	StartTime     time.Time         `json:"start_time"`
-	EndTime       time.Time         `json:"end_time"`
-	TotalDuration time.Duration     `json:"total_duration"`
-	FinalStatus   RollbackStatus    `json:"final_status"`
-	Events        []*TimelineEvent  `json:"events"`
+// Timeline represents the complete timeline of a rollback
+type Timeline struct {
+	RollbackID    string           `json:"rollback_id"`
+	StartTime     time.Time        `json:"start_time"`
+	EndTime       time.Time        `json:"end_time"`
+	TotalDuration time.Duration    `json:"total_duration"`
+	FinalStatus   Status           `json:"final_status"`
+	Events        []*TimelineEvent `json:"events"`
 }
 
 // TimelineEvent represents an event in the timeline
 type TimelineEvent struct {
-	Timestamp   time.Time       `json:"timestamp"`
-	EventType   AuditEventType  `json:"event_type"`
-	Actor       string          `json:"actor,omitempty"`
-	Description string          `json:"description"`
-	Status      RollbackStatus  `json:"status,omitempty"`
+	Timestamp   time.Time      `json:"timestamp"`
+	EventType   AuditEventType `json:"event_type"`
+	Actor       string         `json:"actor,omitempty"`
+	Description string         `json:"description"`
+	Status      Status         `json:"status,omitempty"`
 }
 
 // AuditSummary provides a summary of audit activity
 type AuditSummary struct {
-	TotalRollbacks        int                     `json:"total_rollbacks"`
-	ByStatus              map[RollbackStatus]int  `json:"by_status"`
-	ByEventType           map[AuditEventType]int  `json:"by_event_type"`
-	ByActor               map[string]int          `json:"by_actor"`
-	ByApplication         map[string]int          `json:"by_application"`
-	AverageApprovalTime   time.Duration           `json:"average_approval_time"`
-	AverageRollbackTime   time.Duration           `json:"average_rollback_time"`
-	RecentActivity        []*AuditEntry           `json:"recent_activity"`
-	PeriodStart           time.Time               `json:"period_start"`
-	PeriodEnd             time.Time               `json:"period_end"`
+	TotalRollbacks      int                    `json:"total_rollbacks"`
+	ByStatus            map[Status]int         `json:"by_status"`
+	ByEventType         map[AuditEventType]int `json:"by_event_type"`
+	ByActor             map[string]int         `json:"by_actor"`
+	ByApplication       map[string]int         `json:"by_application"`
+	AverageApprovalTime time.Duration          `json:"average_approval_time"`
+	AverageRollbackTime time.Duration          `json:"average_rollback_time"`
+	RecentActivity      []*AuditEntry          `json:"recent_activity"`
+	PeriodStart         time.Time              `json:"period_start"`
+	PeriodEnd           time.Time              `json:"period_end"`
 }
 
 // GetSummary returns a summary of audit activity
@@ -584,7 +587,7 @@ func (a *AuditTrail) GetSummary(ctx context.Context, startTime, endTime time.Tim
 	})
 
 	summary := &AuditSummary{
-		ByStatus:      make(map[RollbackStatus]int),
+		ByStatus:      make(map[Status]int),
 		ByEventType:   make(map[AuditEventType]int),
 		ByActor:       make(map[string]int),
 		ByApplication: make(map[string]int),
@@ -630,6 +633,8 @@ func (a *AuditTrail) GetSummary(ctx context.Context, startTime, endTime time.Tim
 			if startTime, ok := rollbackStart[entry.RollbackID]; ok {
 				rollbackTimes = append(rollbackTimes, entry.Timestamp.Sub(startTime))
 			}
+		default:
+			// Other event types don't contribute to timing statistics
 		}
 	}
 
@@ -688,9 +693,9 @@ func (e *AuditingEngine) GetAuditTrail() *AuditTrail {
 }
 
 // Execute executes a rollback with audit trail
-func (e *AuditingEngine) Execute(ctx context.Context, config *RollbackConfig, request *RollbackRequest) (*RollbackResult, error) {
+func (e *AuditingEngine) Execute(ctx context.Context, config *Config, request *Request) (*Result, error) {
 	// Record request
-	e.auditTrail.Record(&AuditEntry{
+	_ = e.auditTrail.Record(&AuditEntry{
 		EventType: AuditEventRollbackRequested,
 		Actor:     request.RequestedBy,
 		ActorType: ActorTypeUser,
@@ -716,11 +721,11 @@ func (e *AuditingEngine) Execute(ctx context.Context, config *RollbackConfig, re
 
 		// Record appropriate event based on result
 		if result.ApprovalInfo != nil && result.ApprovalInfo.Required {
-			e.auditTrail.RecordEvent(result.ID, AuditEventApprovalRequested, "system", "Approval required per configuration")
+			_ = e.auditTrail.RecordEvent(result.ID, AuditEventApprovalRequested, "system", "Approval required per configuration") //nolint:errcheck // best-effort audit
 		}
 
 		if result.Status == StatusFailed && err != nil {
-			e.auditTrail.Record(&AuditEntry{
+			_ = e.auditTrail.Record(&AuditEntry{ //nolint:errcheck // best-effort audit
 				RollbackID: result.ID,
 				EventType:  AuditEventFailed,
 				Actor:      "system",
@@ -731,7 +736,7 @@ func (e *AuditingEngine) Execute(ctx context.Context, config *RollbackConfig, re
 				},
 			})
 		} else if result.Status == StatusCompleted || result.Status == StatusVerified {
-			e.auditTrail.Record(&AuditEntry{
+			_ = e.auditTrail.Record(&AuditEntry{ //nolint:errcheck // best-effort audit
 				RollbackID: result.ID,
 				EventType:  AuditEventCompleted,
 				Actor:      "system",
@@ -753,7 +758,7 @@ func (e *AuditingEngine) Execute(ctx context.Context, config *RollbackConfig, re
 
 // ApproveRollback approves a rollback with audit trail
 func (e *AuditingEngine) ApproveRollback(ctx context.Context, req *ApprovalRequest) error {
-	result, ok := e.Engine.GetRollback(req.RollbackID)
+	result, ok := e.GetRollback(req.RollbackID)
 	if ok {
 		previousStatus := result.Status
 		err := e.Engine.ApproveRollback(ctx, req)
@@ -763,7 +768,7 @@ func (e *AuditingEngine) ApproveRollback(ctx context.Context, req *ApprovalReque
 			eventType = AuditEventRejected
 		}
 
-		e.auditTrail.RecordStatusChange(
+		_ = e.auditTrail.RecordStatusChange(
 			req.RollbackID,
 			eventType,
 			req.ApprovedBy,

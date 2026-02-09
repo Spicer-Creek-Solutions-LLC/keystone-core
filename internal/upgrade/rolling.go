@@ -3,6 +3,7 @@ package upgrade
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -40,7 +41,7 @@ func NewRollingStrategy(nodeManager NodeManager, logger Logger, config *RollingC
 }
 
 // Execute executes the rolling upgrade.
-func (s *RollingStrategy) Execute(ctx context.Context, state *UpgradeState, progressFn func(*UpgradeState)) error {
+func (s *RollingStrategy) Execute(ctx context.Context, state *State, progressFn func(*State)) error {
 	components := state.Config.Components
 	if len(components) == 0 {
 		components = []ComponentType{ComponentServer, ComponentAgent}
@@ -77,10 +78,10 @@ func (s *RollingStrategy) Execute(ctx context.Context, state *UpgradeState, prog
 // upgradeComponent upgrades all nodes of a component type.
 func (s *RollingStrategy) upgradeComponent(
 	ctx context.Context,
-	state *UpgradeState,
+	state *State,
 	component ComponentType,
 	totalNodes int,
-	progressFn func(*UpgradeState),
+	progressFn func(*State),
 ) error {
 	nodes, err := s.nodeManager.GetNodes(ctx, component)
 	if err != nil {
@@ -114,8 +115,9 @@ func (s *RollingStrategy) upgradeComponent(
 		)
 
 		// Upgrade batch
-		for _, node := range batch {
-			if err := s.upgradeNode(ctx, state, node, progressFn); err != nil {
+		for j := range batch {
+			node := &batch[j]
+			if err := s.upgradeNode(ctx, state, *node, progressFn); err != nil {
 				s.failedNodes++
 				// Check if we should continue or abort
 				if s.failedNodes >= s.config.MaxUnavailable {
@@ -155,9 +157,9 @@ func (s *RollingStrategy) upgradeComponent(
 // upgradeNode upgrades a single node.
 func (s *RollingStrategy) upgradeNode(
 	ctx context.Context,
-	state *UpgradeState,
+	state *State,
 	node NodeInfo,
-	progressFn func(*UpgradeState),
+	progressFn func(*State),
 ) error {
 	s.logger.Info("Upgrading node", "id", node.ID, "component", node.Component)
 
@@ -258,23 +260,20 @@ func (s *RollingStrategy) waitForHealth(ctx context.Context, nodeID string) (boo
 		}
 
 		health, err := s.nodeManager.GetNodeHealth(ctx, nodeID)
-		if err != nil {
+		switch {
+		case err != nil:
 			s.logger.Debug("Health check error", "node", nodeID, "error", err)
 			successCount = 0
-		} else if health == HealthHealthy {
+		case health == HealthHealthy:
 			successCount++
 			if successCount >= requiredSuccesses {
 				return true, nil
 			}
-		} else {
+		default:
 			s.logger.Debug("Node not healthy yet", "node", nodeID, "health", health)
 			successCount = 0
 		}
 
-		select {
-		case <-ctx.Done():
-			return false, ctx.Err()
-		}
 		if err := wait.ForContext(ctx, s.config.HealthCheckInterval); err != nil {
 			return false, err
 		}
@@ -293,27 +292,27 @@ func (s *RollingStrategy) sortNodes(nodes []NodeInfo) []NodeInfo {
 		// Move leaders to the end
 		nonLeaders := make([]NodeInfo, 0)
 		leaders := make([]NodeInfo, 0)
-		for _, node := range sorted {
-			if node.IsLeader {
-				leaders = append(leaders, node)
+		for i := range sorted {
+			if sorted[i].IsLeader {
+				leaders = append(leaders, sorted[i])
 			} else {
-				nonLeaders = append(nonLeaders, node)
+				nonLeaders = append(nonLeaders, sorted[i])
 			}
 		}
-		sorted = append(nonLeaders, leaders...)
+		sorted = slices.Concat(nonLeaders, leaders)
 
 	case "leader_first":
 		// Move leaders to the front
 		leaders := make([]NodeInfo, 0)
 		nonLeaders := make([]NodeInfo, 0)
-		for _, node := range sorted {
-			if node.IsLeader {
-				leaders = append(leaders, node)
+		for i := range sorted {
+			if sorted[i].IsLeader {
+				leaders = append(leaders, sorted[i])
 			} else {
-				nonLeaders = append(nonLeaders, node)
+				nonLeaders = append(nonLeaders, sorted[i])
 			}
 		}
-		sorted = append(leaders, nonLeaders...)
+		sorted = slices.Concat(leaders, nonLeaders)
 
 	case "any":
 		// Keep original order
@@ -390,7 +389,7 @@ func NewCanaryStrategy(nodeManager NodeManager, logger Logger, config *CanaryCon
 }
 
 // Execute executes the canary upgrade.
-func (s *CanaryStrategy) Execute(ctx context.Context, state *UpgradeState, progressFn func(*UpgradeState)) error {
+func (s *CanaryStrategy) Execute(ctx context.Context, state *State, progressFn func(*State)) error {
 	if s.initErr != nil {
 		return s.initErr
 	}
@@ -488,7 +487,7 @@ func (s *CanaryStrategy) Execute(ctx context.Context, state *UpgradeState, progr
 }
 
 // upgradeNode upgrades a single node during canary.
-func (s *CanaryStrategy) upgradeNode(ctx context.Context, state *UpgradeState, node NodeInfo) error {
+func (s *CanaryStrategy) upgradeNode(ctx context.Context, state *State, node NodeInfo) error {
 	nodeState := &NodeUpgradeState{
 		NodeID:      node.ID,
 		Component:   node.Component,
@@ -547,7 +546,7 @@ func (s *CanaryStrategy) upgradeNode(ctx context.Context, state *UpgradeState, n
 }
 
 // monitorCanary monitors canary metrics during the interval.
-func (s *CanaryStrategy) monitorCanary(ctx context.Context, state *UpgradeState) error {
+func (s *CanaryStrategy) monitorCanary(ctx context.Context, state *State) error {
 	timer := time.NewTimer(s.config.Interval)
 	defer timer.Stop()
 

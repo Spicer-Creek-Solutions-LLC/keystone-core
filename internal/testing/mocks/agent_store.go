@@ -24,6 +24,7 @@ func NewAgentStore() *AgentStore {
 	}
 }
 
+// ListAgents lists all registered agents.
 func (s *AgentStore) ListAgents(ctx context.Context, filter *controlplane.AgentFilter) ([]controlplane.StoredAgent, error) {
 	_ = ctx
 	if s.ListErr != nil {
@@ -34,14 +35,15 @@ func (s *AgentStore) ListAgents(ctx context.Context, filter *controlplane.AgentF
 	defer s.mu.RUnlock()
 
 	var result []controlplane.StoredAgent
-	for _, agent := range s.agents {
-		if filter == nil || filter.Status == "" || strings.EqualFold(agent.Status, filter.Status) {
-			result = append(result, agent)
+	for i := range s.agents {
+		if filter == nil || filter.Status == "" || strings.EqualFold(s.agents[i].Status, filter.Status) {
+			result = append(result, s.agents[i])
 		}
 	}
 	return result, nil
 }
 
+// GetAgent retrieves an agent by ID.
 func (s *AgentStore) GetAgent(ctx context.Context, agentID string) (*controlplane.StoredAgent, error) {
 	_ = ctx
 	if s.GetErr != nil {
@@ -59,6 +61,7 @@ func (s *AgentStore) GetAgent(ctx context.Context, agentID string) (*controlplan
 	return &clone, nil
 }
 
+// SaveAgent saves an agent record.
 func (s *AgentStore) SaveAgent(ctx context.Context, agent *controlplane.StoredAgent) error {
 	_ = ctx
 	if s.SaveErr != nil {

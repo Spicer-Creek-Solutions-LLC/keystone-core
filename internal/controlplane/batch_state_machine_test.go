@@ -285,7 +285,7 @@ func TestManagedBatchJob_Callbacks(t *testing.T) {
 	mbj2.Start()
 	testErr := errors.New("test error")
 	mbj2.Fail(testErr)
-	if failedCalls != 1 || lastFailedError != testErr {
+	if failedCalls != 1 || !errors.Is(lastFailedError, testErr) {
 		t.Errorf("expected OnFailed called once with error, got %d calls", failedCalls)
 	}
 

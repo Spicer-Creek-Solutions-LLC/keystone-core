@@ -56,10 +56,10 @@ func DefaultCustomMetricConfig() *CustomMetricConfig {
 			NamespaceModule,
 		},
 		ReservedPrefixes: []string{
-			"kscore_",      // Internal metrics
-			"go_",          // Go runtime metrics
-			"process_",     // Process metrics
-			"promhttp_",    // Prometheus HTTP metrics
+			"kscore_",   // Internal metrics
+			"go_",       // Go runtime metrics
+			"process_",  // Process metrics
+			"promhttp_", // Prometheus HTTP metrics
 		},
 	}
 }
@@ -577,11 +577,11 @@ func ExportCustomMetricsToJSON(metrics []*CustomMetric) ([]byte, error) {
 	// Convert to exportable format (map[float64]float64 isn't JSON-serializable)
 	type exportableObjectives map[string]float64
 	type exportableDefinition struct {
-		Name       string              `json:"name"`
-		Type       MetricType          `json:"type"`
-		Help       string              `json:"help"`
-		Labels     []string            `json:"labels,omitempty"`
-		Buckets    []float64           `json:"buckets,omitempty"`
+		Name       string               `json:"name"`
+		Type       MetricType           `json:"type"`
+		Help       string               `json:"help"`
+		Labels     []string             `json:"labels,omitempty"`
+		Buckets    []float64            `json:"buckets,omitempty"`
 		Objectives exportableObjectives `json:"objectives,omitempty"`
 	}
 	type exportableMetric struct {

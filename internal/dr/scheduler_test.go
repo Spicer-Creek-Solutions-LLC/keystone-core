@@ -55,7 +55,7 @@ func TestScheduler_AddSchedule_Invalid(t *testing.T) {
 	}
 
 	err := scheduler.AddSchedule("test", schedule)
-	if err != ErrInvalidSchedule {
+	if !errors.Is(err, ErrInvalidSchedule) {
 		t.Errorf("Expected ErrInvalidSchedule, got %v", err)
 	}
 }
@@ -182,7 +182,7 @@ func TestScheduler_ExecuteDrill_Failure(t *testing.T) {
 	}
 
 	drill, err := scheduler.ExecuteDrill(context.Background(), config)
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("Expected error %v, got %v", expectedErr, err)
 	}
 
@@ -345,7 +345,7 @@ func TestScheduler_CancelDrill_NotFound(t *testing.T) {
 	scheduler := NewScheduler(nil)
 
 	err := scheduler.CancelDrill("nonexistent")
-	if err != ErrDrillNotFound {
+	if !errors.Is(err, ErrDrillNotFound) {
 		t.Errorf("Expected ErrDrillNotFound, got %v", err)
 	}
 }
@@ -573,9 +573,9 @@ func TestScheduler_MaxConcurrent(t *testing.T) {
 			defer atomic.AddInt64(&runningCount, -1)
 
 			for {
-				max := atomic.LoadInt64(&maxRunning)
-				if current > max {
-					if atomic.CompareAndSwapInt64(&maxRunning, max, current) {
+				maxVal := atomic.LoadInt64(&maxRunning)
+				if current > maxVal {
+					if atomic.CompareAndSwapInt64(&maxRunning, maxVal, current) {
 						break
 					}
 				} else {

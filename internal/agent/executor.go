@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sync"
@@ -63,7 +64,8 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 	}
 
 	// Create the command
-	cmd := exec.CommandContext(cmdCtx, req.Command, req.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	//nolint:gosec // G204: command execution is intentional for remote execution system
+	cmd := exec.CommandContext(cmdCtx, req.Command, req.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 
 	// Set working directory
 	if req.WorkingDir != "" {
@@ -103,8 +105,7 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 				if cmd.Env == nil {
 					cmd.Env = []string{}
 				}
-				cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", userSwitch.HomeDir))
-				cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", userSwitch.Username))
+				cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", userSwitch.HomeDir), fmt.Sprintf("USER=%s", userSwitch.Username))
 			}
 		}
 	}
@@ -137,7 +138,8 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 
 	// Get exit code
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.Error = err

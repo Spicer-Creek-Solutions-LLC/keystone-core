@@ -2,57 +2,57 @@ package rollback
 
 import "time"
 
-// RollbackType represents the type of rollback operation
-type RollbackType string
+// Type represents the type of rollback operation
+type Type string
 
 const (
-	// RollbackTypeArgoCD rollback via ArgoCD
-	RollbackTypeArgoCD RollbackType = "argocd"
-	// RollbackTypeFlux rollback via Flux
-	RollbackTypeFlux RollbackType = "flux"
-	// RollbackTypeGit rollback via Git revert/reset
-	RollbackTypeGit RollbackType = "git"
-	// RollbackTypeManual manual rollback requiring approval
-	RollbackTypeManual RollbackType = "manual"
+	// TypeArgoCD rollback via ArgoCD
+	TypeArgoCD Type = "argocd"
+	// TypeFlux rollback via Flux
+	TypeFlux Type = "flux"
+	// TypeGit rollback via Git revert/reset
+	TypeGit Type = "git"
+	// TypeManual manual rollback requiring approval
+	TypeManual Type = "manual"
 )
 
-// RollbackStrategy defines how the rollback should be performed
-type RollbackStrategy string
+// Strategy defines how the rollback should be performed
+type Strategy string
 
 const (
 	// StrategyPreviousRevision rollback to the immediately previous revision
-	StrategyPreviousRevision RollbackStrategy = "previous"
+	StrategyPreviousRevision Strategy = "previous"
 	// StrategySpecificRevision rollback to a specific revision
-	StrategySpecificRevision RollbackStrategy = "specific"
+	StrategySpecificRevision Strategy = "specific"
 	// StrategyLastKnownGood rollback to the last known good revision
-	StrategyLastKnownGood RollbackStrategy = "last_known_good"
+	StrategyLastKnownGood Strategy = "last_known_good"
 )
 
-// RollbackTrigger defines when a rollback should be triggered
-type RollbackTrigger string
+// Trigger defines when a rollback should be triggered
+type Trigger string
 
 const (
 	// TriggerManual manual trigger (requires approval)
-	TriggerManual RollbackTrigger = "manual"
+	TriggerManual Trigger = "manual"
 	// TriggerAutomatic automatic trigger on failure
-	TriggerAutomatic RollbackTrigger = "automatic"
+	TriggerAutomatic Trigger = "automatic"
 	// TriggerScheduled scheduled trigger
-	TriggerScheduled RollbackTrigger = "scheduled"
+	TriggerScheduled Trigger = "scheduled"
 )
 
-// RollbackConfig defines the configuration for a rollback operation
-type RollbackConfig struct {
+// Config defines the configuration for a rollback operation
+type Config struct {
 	// Name of the rollback configuration
 	Name string `json:"name"`
 
 	// Type of rollback
-	Type RollbackType `json:"type"`
+	Type Type `json:"type"`
 
 	// Strategy for rollback
-	Strategy RollbackStrategy `json:"strategy"`
+	Strategy Strategy `json:"strategy"`
 
 	// Trigger for rollback
-	Trigger RollbackTrigger `json:"trigger"`
+	Trigger Trigger `json:"trigger"`
 
 	// Application or resource name
 	Application string `json:"application"`
@@ -82,8 +82,8 @@ type RollbackConfig struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-// RollbackRequest represents a request to perform a rollback
-type RollbackRequest struct {
+// Request represents a request to perform a rollback
+type Request struct {
 	// ConfigName is the name of the rollback configuration to use
 	ConfigName string
 
@@ -100,43 +100,43 @@ type RollbackRequest struct {
 	SkipVerification bool
 }
 
-// RollbackStatus represents the status of a rollback operation
-type RollbackStatus string
+// Status represents the status of a rollback operation
+type Status string
 
 const (
 	// StatusPending rollback is pending approval
-	StatusPending RollbackStatus = "pending"
+	StatusPending Status = "pending"
 	// StatusApproved rollback has been approved
-	StatusApproved RollbackStatus = "approved"
+	StatusApproved Status = "approved"
 	// StatusRejected rollback has been rejected
-	StatusRejected RollbackStatus = "rejected"
+	StatusRejected Status = "rejected"
 	// StatusInProgress rollback is in progress
-	StatusInProgress RollbackStatus = "in_progress"
+	StatusInProgress Status = "in_progress"
 	// StatusCompleted rollback completed successfully
-	StatusCompleted RollbackStatus = "completed"
+	StatusCompleted Status = "completed"
 	// StatusFailed rollback failed
-	StatusFailed RollbackStatus = "failed"
+	StatusFailed Status = "failed"
 	// StatusVerifying verification in progress
-	StatusVerifying RollbackStatus = "verifying"
+	StatusVerifying Status = "verifying"
 	// StatusVerified verification passed
-	StatusVerified RollbackStatus = "verified"
+	StatusVerified Status = "verified"
 	// StatusVerificationFailed verification failed
-	StatusVerificationFailed RollbackStatus = "verification_failed"
+	StatusVerificationFailed Status = "verification_failed"
 )
 
-// RollbackResult represents the result of a rollback operation
-type RollbackResult struct {
+// Result represents the result of a rollback operation
+type Result struct {
 	// ID is the unique identifier for this rollback
 	ID string `json:"id"`
 
 	// Config is the rollback configuration used
-	Config *RollbackConfig `json:"config"`
+	Config *Config `json:"config"`
 
 	// Request is the original request
-	Request *RollbackRequest `json:"request"`
+	Request *Request `json:"request"`
 
 	// Status of the rollback
-	Status RollbackStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// PreviousRevision before rollback
 	PreviousRevision string `json:"previous_revision"`
@@ -172,7 +172,7 @@ type ApprovalInfo struct {
 	Required bool `json:"required"`
 
 	// Status of the approval
-	Status RollbackStatus `json:"status"`
+	Status Status `json:"status"`
 
 	// ApprovedBy is the user who approved
 	ApprovedBy string `json:"approved_by,omitempty"`

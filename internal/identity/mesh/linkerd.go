@@ -71,16 +71,16 @@ func DefaultLinkerdConfig() *LinkerdConfig {
 type LinkerdProvider struct {
 	config *LinkerdConfig
 
-	mu            sync.RWMutex
-	started       bool
-	status        identity.ProviderStatus
-	statusMessage string
-	trustDomain   string
-	trustBundle   *identity.TrustBundle
-	currentSVID   *identity.X509SVID
-	spiffeID      identity.SPIFFEID
-	namespace     string
-	podName       string
+	mu             sync.RWMutex
+	started        bool
+	status         identity.ProviderStatus
+	statusMessage  string
+	trustDomain    string
+	trustBundle    *identity.TrustBundle
+	currentSVID    *identity.X509SVID
+	spiffeID       identity.SPIFFEID
+	namespace      string
+	podName        string
 	serviceAccount string
 
 	healthCheckCancel context.CancelFunc
@@ -147,15 +147,15 @@ func (p *LinkerdProvider) Start(ctx context.Context) error {
 	p.statusMessage = ""
 	p.mu.Unlock()
 
-	// Start health check loop
-	healthCtx, healthCancel := context.WithCancel(context.Background())
+	// Start health check loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	healthCtx, healthCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.healthCheckCancel = healthCancel
 	p.mu.Unlock()
 	go p.healthCheckLoop(healthCtx)
 
-	// Start certificate refresh loop
-	refreshCtx, refreshCancel := context.WithCancel(context.Background())
+	// Start certificate refresh loop - use WithoutCancel so it's not tied to Start()'s ctx lifecycle
+	refreshCtx, refreshCancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.mu.Lock()
 	p.refreshCancel = refreshCancel
 	p.mu.Unlock()
@@ -365,7 +365,7 @@ func (p *LinkerdProvider) CreateAttestationEvidence(ctx context.Context) (*ident
 
 func (p *LinkerdProvider) detectEnvironment(ctx context.Context) error {
 	if !p.IsAvailable() {
-		return fmt.Errorf("Linkerd environment not detected")
+		return fmt.Errorf("linkerd environment not detected")
 	}
 
 	// Try to detect namespace from environment
@@ -386,7 +386,7 @@ func (p *LinkerdProvider) detectEnvironment(ctx context.Context) error {
 
 	// Try to load certificates to detect trust domain
 	if err := p.loadCertificates(); err != nil {
-		return nil // Non-fatal
+		return nil //nolint:nilerr // non-fatal: certs may not exist yet
 	}
 
 	return nil
@@ -607,7 +607,7 @@ func (p *LinkerdProvider) checkForCertUpdates() {
 	p.mu.RUnlock()
 
 	if info.ModTime().After(modTime) {
-		p.loadCertificates()
+		_ = p.loadCertificates() //nolint:errcheck // best-effort cert reload
 	}
 }
 
@@ -624,8 +624,8 @@ func (p *LinkerdProvider) GetLinkerdIdentityInfo() LinkerdIdentityInfo {
 	}
 }
 
-// Verify LinkerdProvider implements IdentityProvider
-var _ identity.IdentityProvider = (*LinkerdProvider)(nil)
+// Verify LinkerdProvider implements Provider
+var _ identity.Provider = (*LinkerdProvider)(nil)
 
 // LinkerdDestinationClient is a client for Linkerd's destination API.
 type LinkerdDestinationClient struct {

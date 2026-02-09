@@ -59,10 +59,10 @@ type AgentConnection struct {
 	conn *nats.Conn
 
 	// State tracking
-	state          atomic.Int32
+	state           atomic.Int32
 	connectAttempts atomic.Int64
-	lastConnected  atomic.Value // time.Time
-	lastError      atomic.Value // error
+	lastConnected   atomic.Value // time.Time
+	lastError       atomic.Value // error
 
 	mu sync.RWMutex
 }
@@ -315,7 +315,7 @@ func (c *AgentConnector) DisconnectFromAgent(agentID string) error {
 func (c *AgentConnector) handleEndpointChange(agentID string, adv *agent.EndpointAdvertisement) {
 	if adv == nil {
 		// Agent unregistered, disconnect
-		c.DisconnectFromAgent(agentID)
+		_ = c.DisconnectFromAgent(agentID) //nolint:errcheck // best-effort disconnect
 		return
 	}
 
@@ -366,7 +366,8 @@ func (c *AgentConnector) connectToAgent(adv *agent.EndpointAdvertisement) {
 	natsURL := adv.GetURL()
 
 	// Build connection options
-	opts := []nats.Option{
+	opts := make([]nats.Option, 0, 9+len(c.config.NATSOptions))
+	opts = append(opts,
 		nats.Timeout(c.config.ConnectTimeout),
 		nats.PingInterval(c.config.PingInterval),
 		nats.MaxPingsOutstanding(c.config.MaxPingsOut),
@@ -400,7 +401,7 @@ func (c *AgentConnector) connectToAgent(adv *agent.EndpointAdvertisement) {
 		nats.ClosedHandler(func(conn *nats.Conn) {
 			agentConn.state.Store(int32(AgentConnectionStateDisconnected))
 		}),
-	}
+	)
 
 	// Add user-provided options
 	opts = append(opts, c.config.NATSOptions...)
@@ -510,12 +511,12 @@ func (c *AgentConnector) cleanupStaleConnections() {
 
 	// Remove stale connections
 	for _, agentID := range staleAgents {
-		c.DisconnectFromAgent(agentID)
+		_ = c.DisconnectFromAgent(agentID) //nolint:errcheck // best-effort cleanup
 	}
 }
 
 // PublishToAgent publishes a message to a specific agent's NATS
-func (c *AgentConnector) PublishToAgent(agentID string, subject string, data []byte) error {
+func (c *AgentConnector) PublishToAgent(agentID, subject string, data []byte) error {
 	conn := c.GetConnection(agentID)
 	if conn == nil {
 		return fmt.Errorf("no connection to agent %s", agentID)
@@ -530,7 +531,7 @@ func (c *AgentConnector) PublishToAgent(agentID string, subject string, data []b
 }
 
 // RequestToAgent sends a request to a specific agent and waits for response
-func (c *AgentConnector) RequestToAgent(agentID string, subject string, data []byte, timeout time.Duration) (*nats.Msg, error) {
+func (c *AgentConnector) RequestToAgent(agentID, subject string, data []byte, timeout time.Duration) (*nats.Msg, error) {
 	conn := c.GetConnection(agentID)
 	if conn == nil {
 		return nil, fmt.Errorf("no connection to agent %s", agentID)
@@ -545,7 +546,7 @@ func (c *AgentConnector) RequestToAgent(agentID string, subject string, data []b
 }
 
 // SubscribeOnAgent subscribes to a subject on a specific agent's NATS
-func (c *AgentConnector) SubscribeOnAgent(agentID string, subject string, handler nats.MsgHandler) (*nats.Subscription, error) {
+func (c *AgentConnector) SubscribeOnAgent(agentID, subject string, handler nats.MsgHandler) (*nats.Subscription, error) {
 	conn := c.GetConnection(agentID)
 	if conn == nil {
 		return nil, fmt.Errorf("no connection to agent %s", agentID)

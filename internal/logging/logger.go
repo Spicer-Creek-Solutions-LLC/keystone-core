@@ -19,10 +19,7 @@ type StructuredLogger struct {
 }
 
 // samplingState tracks sampling state
-type samplingState struct {
-	counter uint64
-	mu      sync.Mutex
-}
+type samplingState struct{}
 
 // NewLogger creates a new structured logger
 func NewLogger(config Config) *StructuredLogger {
@@ -283,7 +280,7 @@ func Warn(msg string, fields ...Field) {
 	Default().Warn(msg, fields...)
 }
 
-// Error logs an error-level message using the default logger
+// ErrorLog logs an error-level message using the default logger.
 func ErrorLog(msg string, fields ...Field) {
 	Default().Error(msg, fields...)
 }

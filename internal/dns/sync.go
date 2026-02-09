@@ -186,9 +186,9 @@ func FilterOperations(ops []Operation, actions ...ChangeType) []Operation {
 	}
 
 	filtered := make([]Operation, 0)
-	for _, op := range ops {
-		if actionSet[op.Action] {
-			filtered = append(filtered, op)
+	for i := range ops {
+		if actionSet[ops[i].Action] {
+			filtered = append(filtered, ops[i])
 		}
 	}
 	return filtered

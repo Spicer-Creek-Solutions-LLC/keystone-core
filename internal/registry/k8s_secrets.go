@@ -132,7 +132,7 @@ func (p *K8sSecretCredentialProvider) parseAuths(auths map[string]dockerConfigEn
 
 	for registry, entry := range auths {
 		cred := &Credential{
-			Type:     DetectRegistryType(registry),
+			Type:     DetectType(registry),
 			Registry: registry,
 		}
 

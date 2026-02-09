@@ -2,6 +2,7 @@ package registry
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -68,7 +69,8 @@ func (c *OCIClient) repoName(moduleName string) string {
 // Ping checks if the registry is accessible
 func (c *OCIClient) Ping() error {
 	url := fmt.Sprintf("%s/v2/", c.baseURL())
-	req, err := http.NewRequest("GET", url, nil)
+	// Use context.Background() since Ping has no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -83,7 +85,7 @@ func (c *OCIClient) Ping() error {
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		// Handle WWW-Authenticate challenge if needed
-		return &RegistryError{
+		return &Error{
 			StatusCode: resp.StatusCode,
 			Code:       ErrCodeUnauthorized,
 			Message:    "authentication required",
@@ -91,7 +93,7 @@ func (c *OCIClient) Ping() error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return &RegistryError{
+		return &Error{
 			StatusCode: resp.StatusCode,
 			Code:       ErrCodeServerError,
 			Message:    fmt.Sprintf("registry returned status %d", resp.StatusCode),
@@ -106,7 +108,8 @@ func (c *OCIClient) ListTags(moduleName string) ([]string, error) {
 	repo := c.repoName(moduleName)
 	url := fmt.Sprintf("%s/v2/%s/tags/list", c.baseURL(), repo)
 
-	req, err := http.NewRequest("GET", url, nil)
+	// Use context.Background() since ListTags has no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -120,7 +123,7 @@ func (c *OCIClient) ListTags(moduleName string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, &RegistryError{
+		return nil, &Error{
 			StatusCode: 404,
 			Code:       ErrCodeModuleNotFound,
 			Message:    fmt.Sprintf("module not found: %s", moduleName),
@@ -305,7 +308,8 @@ func (c *OCIClient) Pull(moduleName, version, destDir string) (*OCIPullResult, e
 	}
 
 	// Create destination directory
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	//nolint:gosec // G301: module directory needs to be accessible by service user
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -366,7 +370,8 @@ func (c *OCIClient) Delete(moduleName, version string) error {
 
 	// Delete manifest by digest
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", c.baseURL(), repo, digest)
-	req, err := http.NewRequest("DELETE", url, nil)
+	// Use context.Background() since Delete has no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -380,7 +385,7 @@ func (c *OCIClient) Delete(moduleName, version string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &RegistryError{
+		return &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("version not found: %s@%s", moduleName, version),
@@ -405,7 +410,8 @@ func (c *OCIClient) GetManifest(moduleName, reference string) (*OCIManifest, err
 func (c *OCIClient) getManifestWithDigest(repo, reference string) (*OCIManifest, string, error) {
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", c.baseURL(), repo, reference)
 
-	req, err := http.NewRequest("GET", url, nil)
+	// Use context.Background() since this is called from methods with no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, http.NoBody)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -420,7 +426,7 @@ func (c *OCIClient) getManifestWithDigest(repo, reference string) (*OCIManifest,
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, "", &RegistryError{
+		return nil, "", &Error{
 			StatusCode: 404,
 			Code:       ErrCodeVersionNotFound,
 			Message:    fmt.Sprintf("reference not found: %s", reference),
@@ -475,7 +481,7 @@ func (c *OCIClient) uploadBlob(repo, digest string, data []byte) error {
 		uploadURL += "?digest=" + digest
 	}
 
-	req, err := http.NewRequest("PUT", uploadURL, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(context.Background(), "PUT", uploadURL, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -501,7 +507,8 @@ func (c *OCIClient) uploadBlob(repo, digest string, data []byte) error {
 func (c *OCIClient) blobExists(repo, digest string) (bool, error) {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", c.baseURL(), repo, digest)
 
-	req, err := http.NewRequest("HEAD", url, nil)
+	// Use context.Background() since this is called from methods with no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "HEAD", url, http.NoBody)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -521,7 +528,8 @@ func (c *OCIClient) blobExists(repo, digest string) (bool, error) {
 func (c *OCIClient) startUpload(repo string) (string, error) {
 	url := fmt.Sprintf("%s/v2/%s/blobs/uploads/", c.baseURL(), repo)
 
-	req, err := http.NewRequest("POST", url, nil)
+	// Use context.Background() since this is called from methods with no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -555,7 +563,8 @@ func (c *OCIClient) startUpload(repo string) (string, error) {
 func (c *OCIClient) downloadBlob(repo, digest, destPath string) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", c.baseURL(), repo, digest)
 
-	req, err := http.NewRequest("GET", url, nil)
+	// Use context.Background() since this is called from methods with no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -589,7 +598,7 @@ func (c *OCIClient) downloadBlob(repo, digest, destPath string) error {
 func (c *OCIClient) pushManifest(repo, reference string, manifestJSON []byte) (string, error) {
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", c.baseURL(), repo, reference)
 
-	req, err := http.NewRequest("PUT", url, bytes.NewReader(manifestJSON))
+	req, err := http.NewRequestWithContext(context.Background(), "PUT", url, bytes.NewReader(manifestJSON))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -638,6 +647,7 @@ func (c *OCIClient) addAuth(req *http.Request) {
 			header = "Authorization"
 		}
 		req.Header.Set(header, c.config.Auth.Token)
+	default:
 	}
 }
 
@@ -654,14 +664,14 @@ func (c *OCIClient) parseError(resp *http.Response) error {
 		} `json:"errors"`
 	}
 	if err := json.Unmarshal(body, &ociErr); err == nil && len(ociErr.Errors) > 0 {
-		return &RegistryError{
+		return &Error{
 			StatusCode: resp.StatusCode,
 			Code:       ociErr.Errors[0].Code,
 			Message:    ociErr.Errors[0].Message,
 		}
 	}
 
-	return &RegistryError{
+	return &Error{
 		StatusCode: resp.StatusCode,
 		Message:    strings.TrimSpace(string(body)),
 	}

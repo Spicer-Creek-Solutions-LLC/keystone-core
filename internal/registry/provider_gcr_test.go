@@ -19,11 +19,11 @@ func TestNewGCRCredentialProvider(t *testing.T) {
 	}
 }
 
-func TestGCRCredentialProvider_RegistryType(t *testing.T) {
+func TestGCRCredentialProvider_Type(t *testing.T) {
 	provider := NewGCRCredentialProvider()
 
-	if provider.RegistryType() != RegistryTypeGCR {
-		t.Errorf("RegistryType() = %v, want %v", provider.RegistryType(), RegistryTypeGCR)
+	if provider.Type() != TypeGCR {
+		t.Errorf("Type() = %v, want %v", provider.Type(), TypeGCR)
 	}
 }
 
@@ -106,8 +106,8 @@ func TestGCRArtifactRegistryCredentialProvider(t *testing.T) {
 	if provider == nil {
 		t.Fatal("Expected provider to be non-nil")
 	}
-	if provider.RegistryType() != RegistryTypeGCR {
-		t.Errorf("RegistryType() = %v, want %v", provider.RegistryType(), RegistryTypeGCR)
+	if provider.Type() != TypeGCR {
+		t.Errorf("Type() = %v, want %v", provider.Type(), TypeGCR)
 	}
 }
 
@@ -142,7 +142,7 @@ func TestGCRCredentialProvider_GetCredential(t *testing.T) {
 func TestGCRCredential_Format(t *testing.T) {
 	// Test that GCR credentials use the correct format
 	cred := &Credential{
-		Type:      RegistryTypeGCR,
+		Type:      TypeGCR,
 		Registry:  "gcr.io",
 		Username:  "_token",
 		Password:  "test-access-token",

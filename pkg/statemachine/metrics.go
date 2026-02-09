@@ -22,6 +22,7 @@ type MachineMetricsSnapshot struct {
 	CallbackPanics        int64
 }
 
+// Snapshot returns a snapshot of the current metrics.
 func (m *MachineMetrics) Snapshot() MachineMetricsSnapshot {
 	if m == nil {
 		return MachineMetricsSnapshot{}

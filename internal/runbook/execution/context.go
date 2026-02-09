@@ -9,9 +9,9 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/runbook/variables"
 )
 
-// ExecutionContext manages the state and data for a runbook execution.
+// Context manages the state and data for a runbook execution.
 // It provides thread-safe access to inputs, step outputs, and execution metadata.
-type ExecutionContext struct {
+type Context struct {
 	mu sync.RWMutex
 
 	// Execution identity
@@ -20,7 +20,7 @@ type ExecutionContext struct {
 	runbookVersion string
 
 	// State machine
-	machine *ExecutionMachine
+	machine *Machine
 
 	// Timing
 	startedAt   *time.Time
@@ -65,12 +65,12 @@ type StepContext struct {
 	errorMessage string
 }
 
-// NewExecutionContext creates a new execution context for a runbook.
-func NewExecutionContext(
+// NewContext creates a new execution context for a runbook.
+func NewContext(
 	executionID string,
 	rb *runbook.Runbook,
 	inputs map[string]interface{},
-) *ExecutionContext {
+) *Context {
 	now := time.Now()
 
 	// Copy inputs
@@ -79,11 +79,11 @@ func NewExecutionContext(
 		inputsCopy[k] = v
 	}
 
-	ctx := &ExecutionContext{
+	ctx := &Context{
 		executionID:    executionID,
 		runbookName:    rb.Metadata.Name,
 		runbookVersion: rb.Metadata.Version,
-		machine:        NewExecutionMachine(),
+		machine:        NewMachine(),
 		createdAt:      now,
 		inputs:         inputsCopy,
 		steps:          make(map[string]*StepContext),
@@ -111,53 +111,53 @@ func NewStepContext(step *runbook.Step) *StepContext {
 }
 
 // ExecutionID returns the execution ID.
-func (c *ExecutionContext) ExecutionID() string {
+func (c *Context) ExecutionID() string {
 	return c.executionID
 }
 
 // RunbookName returns the runbook name.
-func (c *ExecutionContext) RunbookName() string {
+func (c *Context) RunbookName() string {
 	return c.runbookName
 }
 
 // RunbookVersion returns the runbook version.
-func (c *ExecutionContext) RunbookVersion() string {
+func (c *Context) RunbookVersion() string {
 	return c.runbookVersion
 }
 
 // State returns the current execution state.
-func (c *ExecutionContext) State() runbook.ExecutionState {
+func (c *Context) State() runbook.ExecutionState {
 	return c.machine.State()
 }
 
 // CreatedAt returns when the execution was created.
-func (c *ExecutionContext) CreatedAt() time.Time {
+func (c *Context) CreatedAt() time.Time {
 	return c.createdAt
 }
 
 // StartedAt returns when the execution started (nil if not started).
-func (c *ExecutionContext) StartedAt() *time.Time {
+func (c *Context) StartedAt() *time.Time {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.startedAt
 }
 
 // CompletedAt returns when the execution completed (nil if not completed).
-func (c *ExecutionContext) CompletedAt() *time.Time {
+func (c *Context) CompletedAt() *time.Time {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.completedAt
 }
 
-// Error returns the error message if execution failed.
-func (c *ExecutionContext) Error() string {
+// ErrorMessage returns the error message if execution failed.
+func (c *Context) ErrorMessage() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.errorMessage
 }
 
 // Inputs returns a copy of the execution inputs.
-func (c *ExecutionContext) Inputs() map[string]interface{} {
+func (c *Context) Inputs() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -169,7 +169,7 @@ func (c *ExecutionContext) Inputs() map[string]interface{} {
 }
 
 // GetInput returns an input value by name.
-func (c *ExecutionContext) GetInput(name string) (interface{}, bool) {
+func (c *Context) GetInput(name string) (interface{}, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -178,14 +178,14 @@ func (c *ExecutionContext) GetInput(name string) (interface{}, bool) {
 }
 
 // SetCancel sets the cancellation function for this execution.
-func (c *ExecutionContext) SetCancel(cancel context.CancelFunc) {
+func (c *Context) SetCancel(cancel context.CancelFunc) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cancel = cancel
 }
 
 // Cancel cancels the execution.
-func (c *ExecutionContext) Cancel() {
+func (c *Context) Cancel() {
 	c.mu.Lock()
 	cancel := c.cancel
 	c.mu.Unlock()
@@ -196,7 +196,7 @@ func (c *ExecutionContext) Cancel() {
 }
 
 // Start marks the execution as started.
-func (c *ExecutionContext) Start(ctx context.Context) error {
+func (c *Context) Start(ctx context.Context) error {
 	if err := c.machine.Start(ctx); err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *ExecutionContext) Start(ctx context.Context) error {
 }
 
 // Complete marks the execution as completed successfully.
-func (c *ExecutionContext) Complete(ctx context.Context) error {
+func (c *Context) Complete(ctx context.Context) error {
 	if err := c.machine.Complete(ctx); err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (c *ExecutionContext) Complete(ctx context.Context) error {
 }
 
 // Fail marks the execution as failed.
-func (c *ExecutionContext) Fail(ctx context.Context, errorMsg string) error {
+func (c *Context) Fail(ctx context.Context, errorMsg string) error {
 	if err := c.machine.Fail(ctx); err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func (c *ExecutionContext) Fail(ctx context.Context, errorMsg string) error {
 }
 
 // CancelExecution marks the execution as cancelled.
-func (c *ExecutionContext) CancelExecution(ctx context.Context) error {
+func (c *Context) CancelExecution(ctx context.Context) error {
 	if err := c.machine.Cancel(ctx); err != nil {
 		return err
 	}
@@ -254,12 +254,12 @@ func (c *ExecutionContext) CancelExecution(ctx context.Context) error {
 }
 
 // IsTerminal returns true if the execution is in a terminal state.
-func (c *ExecutionContext) IsTerminal() bool {
+func (c *Context) IsTerminal() bool {
 	return c.machine.IsTerminal()
 }
 
 // GetStep returns the step context for the given step name.
-func (c *ExecutionContext) GetStep(name string) (*StepContext, bool) {
+func (c *Context) GetStep(name string) (*StepContext, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -268,7 +268,7 @@ func (c *ExecutionContext) GetStep(name string) (*StepContext, bool) {
 }
 
 // GetStepOutput returns an output value from a completed step.
-func (c *ExecutionContext) GetStepOutput(stepName, outputName string) (interface{}, bool) {
+func (c *Context) GetStepOutput(stepName, outputName string) (interface{}, bool) {
 	c.mu.RLock()
 	step, ok := c.steps[stepName]
 	c.mu.RUnlock()
@@ -281,28 +281,28 @@ func (c *ExecutionContext) GetStepOutput(stepName, outputName string) (interface
 }
 
 // Resolve resolves a template string against the current variable context.
-func (c *ExecutionContext) Resolve(template string) (string, error) {
+func (c *Context) Resolve(template string) (string, error) {
 	// Sync step outputs to variable context before resolving
 	c.syncStepOutputs()
 	return c.varContext.Resolve(template)
 }
 
 // ResolveValue resolves a template and returns the typed value.
-func (c *ExecutionContext) ResolveValue(template string) (interface{}, error) {
+func (c *Context) ResolveValue(template string) (interface{}, error) {
 	// Sync step outputs to variable context before resolving
 	c.syncStepOutputs()
 	return c.varContext.ResolveValue(template)
 }
 
 // EvaluateCondition evaluates a condition expression and returns a boolean.
-func (c *ExecutionContext) EvaluateCondition(expr string) (bool, error) {
+func (c *Context) EvaluateCondition(expr string) (bool, error) {
 	// Sync step outputs to variable context before evaluating
 	c.syncStepOutputs()
 	return c.varContext.EvaluateCondition(expr)
 }
 
 // syncStepOutputs synchronizes step outputs to the variable context.
-func (c *ExecutionContext) syncStepOutputs() {
+func (c *Context) syncStepOutputs() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -315,7 +315,7 @@ func (c *ExecutionContext) syncStepOutputs() {
 }
 
 // AllStepsCompleted returns true if all steps have reached a terminal state.
-func (c *ExecutionContext) AllStepsCompleted() bool {
+func (c *Context) AllStepsCompleted() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -328,7 +328,7 @@ func (c *ExecutionContext) AllStepsCompleted() bool {
 }
 
 // AnyStepFailed returns true if any step has failed.
-func (c *ExecutionContext) AnyStepFailed() bool {
+func (c *Context) AnyStepFailed() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -341,7 +341,7 @@ func (c *ExecutionContext) AnyStepFailed() bool {
 }
 
 // ToExecution converts the context to an Execution record.
-func (c *ExecutionContext) ToExecution() *runbook.Execution {
+func (c *Context) ToExecution() *runbook.Execution {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -403,8 +403,8 @@ func (s *StepContext) CompletedAt() *time.Time {
 	return s.completedAt
 }
 
-// Error returns the error message if step failed.
-func (s *StepContext) Error() string {
+// ErrorMessage returns the error message if step failed.
+func (s *StepContext) ErrorMessage() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.errorMessage

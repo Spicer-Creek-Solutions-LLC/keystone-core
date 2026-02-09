@@ -12,7 +12,7 @@ import (
 type GitLabHandler struct{}
 
 // Type returns the webhook type
-func (h *GitLabHandler) Type() WebhookType {
+func (h *GitLabHandler) Type() Type {
 	return WebhookTypeGitLab
 }
 
@@ -32,13 +32,13 @@ type GitLabWebhookPayload struct {
 		Email    string `json:"email"`
 	} `json:"user"`
 	// Deployment specific
-	Status            string    `json:"status"`
-	Environment       string    `json:"environment"`
-	EnvironmentTier   string    `json:"environment_tier"`
-	Ref               string    `json:"ref"`
-	SHA               string    `json:"sha"`
-	Deployment        int64     `json:"deployment_id"`
-	CreatedAt         time.Time `json:"created_at"`
+	Status          string    `json:"status"`
+	Environment     string    `json:"environment"`
+	EnvironmentTier string    `json:"environment_tier"`
+	Ref             string    `json:"ref"`
+	SHA             string    `json:"sha"`
+	Deployment      int64     `json:"deployment_id"`
+	CreatedAt       time.Time `json:"created_at"`
 	// Pipeline specific
 	ObjectAttributes struct {
 		ID         int64     `json:"id"`
@@ -52,10 +52,10 @@ type GitLabWebhookPayload struct {
 	Before  string `json:"before"`
 	After   string `json:"after"`
 	Commits []struct {
-		ID      string    `json:"id"`
-		Message string    `json:"message"`
+		ID        string    `json:"id"`
+		Message   string    `json:"message"`
 		Timestamp time.Time `json:"timestamp"`
-		Author  struct {
+		Author    struct {
 			Name  string `json:"name"`
 			Email string `json:"email"`
 		} `json:"author"`
@@ -63,7 +63,7 @@ type GitLabWebhookPayload struct {
 }
 
 // Parse parses a GitLab webhook payload
-func (h *GitLabHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, error) {
+func (h *GitLabHandler) Parse(r *http.Request, body []byte) (*Event, error) {
 	var payload GitLabWebhookPayload
 	if err := ParseJSON(body, &payload); err != nil {
 		return nil, fmt.Errorf("failed to parse GitLab webhook: %w", err)
@@ -93,7 +93,7 @@ func (h *GitLabHandler) Parse(r *http.Request, body []byte) (*WebhookEvent, erro
 		status = "pushed"
 	}
 
-	event := &WebhookEvent{
+	event := &Event{
 		ID:          uuid.New().String(),
 		Type:        WebhookTypeGitLab,
 		EventType:   eventType,

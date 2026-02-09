@@ -21,12 +21,12 @@ var (
 	desDeprecationOnce sync.Once
 )
 
-// SNMPVersion represents the SNMP protocol version.
-type SNMPVersion int
+// Version represents the SNMP protocol version.
+type Version int
 
 const (
 	// SNMPv1 is SNMP version 1.
-	SNMPv1 SNMPVersion = iota
+	SNMPv1 Version = iota
 	// SNMPv2c is SNMP version 2c.
 	SNMPv2c
 	// SNMPv3 is SNMP version 3.
@@ -34,7 +34,7 @@ const (
 )
 
 // String returns the string representation of the SNMP version.
-func (v SNMPVersion) String() string {
+func (v Version) String() string {
 	switch v {
 	case SNMPv1:
 		return "1"
@@ -56,7 +56,7 @@ type Config struct {
 	Port int `json:"port,omitempty"`
 
 	// Version is the SNMP version (default v2c).
-	Version SNMPVersion `json:"version,omitempty"`
+	Version Version `json:"version,omitempty"`
 
 	// Retries is the number of retries for SNMP operations.
 	Retries int `json:"retries,omitempty"`
@@ -138,6 +138,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	}
 
 	// Create SNMP client
+	//nolint:gosec // G115: port is a valid port number (1-65535), fits in uint16
 	client := &gosnmp.GoSNMP{
 		Target:         device.Address,
 		Port:           uint16(port),
@@ -453,7 +454,7 @@ func (a *Adapter) Metrics() *protocols.AdapterMetrics {
 }
 
 // Get performs an SNMP GET operation.
-func (a *Adapter) Get(ctx context.Context, oids []string) ([]SNMPVariable, error) {
+func (a *Adapter) Get(ctx context.Context, oids []string) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -472,7 +473,7 @@ func (a *Adapter) Get(ctx context.Context, oids []string) ([]SNMPVariable, error
 }
 
 // GetNext performs an SNMP GETNEXT operation.
-func (a *Adapter) GetNext(ctx context.Context, oids []string) ([]SNMPVariable, error) {
+func (a *Adapter) GetNext(ctx context.Context, oids []string) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -491,7 +492,7 @@ func (a *Adapter) GetNext(ctx context.Context, oids []string) ([]SNMPVariable, e
 }
 
 // Set performs an SNMP SET operation.
-func (a *Adapter) Set(ctx context.Context, pdus []SNMPVariable) error {
+func (a *Adapter) Set(ctx context.Context, pdus []Variable) error {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -515,7 +516,7 @@ func (a *Adapter) Set(ctx context.Context, pdus []SNMPVariable) error {
 }
 
 // Walk performs an SNMP WALK operation.
-func (a *Adapter) Walk(ctx context.Context, rootOid string) ([]SNMPVariable, error) {
+func (a *Adapter) Walk(ctx context.Context, rootOid string) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -525,9 +526,9 @@ func (a *Adapter) Walk(ctx context.Context, rootOid string) ([]SNMPVariable, err
 		return nil, fmt.Errorf("not connected")
 	}
 
-	var results []SNMPVariable
+	var results []Variable
 	err := client.Walk(rootOid, func(pdu gosnmp.SnmpPDU) error {
-		results = append(results, SNMPVariable{
+		results = append(results, Variable{
 			OID:   pdu.Name,
 			Type:  pdu.Type,
 			Value: pdu.Value,
@@ -539,7 +540,7 @@ func (a *Adapter) Walk(ctx context.Context, rootOid string) ([]SNMPVariable, err
 }
 
 // BulkWalk performs an SNMP GETBULK WALK operation (v2c/v3 only).
-func (a *Adapter) BulkWalk(ctx context.Context, rootOid string) ([]SNMPVariable, error) {
+func (a *Adapter) BulkWalk(ctx context.Context, rootOid string) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -554,9 +555,9 @@ func (a *Adapter) BulkWalk(ctx context.Context, rootOid string) ([]SNMPVariable,
 		return a.Walk(ctx, rootOid)
 	}
 
-	var results []SNMPVariable
+	var results []Variable
 	err := client.BulkWalk(rootOid, func(pdu gosnmp.SnmpPDU) error {
-		results = append(results, SNMPVariable{
+		results = append(results, Variable{
 			OID:   pdu.Name,
 			Type:  pdu.Type,
 			Value: pdu.Value,
@@ -567,18 +568,18 @@ func (a *Adapter) BulkWalk(ctx context.Context, rootOid string) ([]SNMPVariable,
 	return results, err
 }
 
-// SNMPVariable represents an SNMP variable binding.
-type SNMPVariable struct {
+// Variable represents an SNMP variable binding.
+type Variable struct {
 	OID   string
 	Type  gosnmp.Asn1BER
 	Value interface{}
 }
 
 // convertVariables converts gosnmp PDUs to SNMPVariables.
-func convertVariables(pdus []gosnmp.SnmpPDU) []SNMPVariable {
-	vars := make([]SNMPVariable, len(pdus))
+func convertVariables(pdus []gosnmp.SnmpPDU) []Variable {
+	vars := make([]Variable, len(pdus))
 	for i, pdu := range pdus {
-		vars[i] = SNMPVariable{
+		vars[i] = Variable{
 			OID:   pdu.Name,
 			Type:  pdu.Type,
 			Value: pdu.Value,

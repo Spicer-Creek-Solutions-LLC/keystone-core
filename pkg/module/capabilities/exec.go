@@ -3,6 +3,7 @@ package capabilities
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -89,11 +90,13 @@ func (c *ExecCapability) Exec(capCtx *CapabilityContext, command string, args ..
 
 	// Get exit code
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		switch {
+		case errors.As(err, &exitErr):
 			result.ExitCode = exitErr.ExitCode()
-		} else if ctx.Err() == context.DeadlineExceeded {
+		case errors.Is(ctx.Err(), context.DeadlineExceeded):
 			return nil, fmt.Errorf("%w: command execution exceeded timeout %v", ErrTimeout, c.TimeoutMax)
-		} else {
+		default:
 			return nil, fmt.Errorf("failed to execute command: %w", err)
 		}
 	} else {
@@ -104,7 +107,7 @@ func (c *ExecCapability) Exec(capCtx *CapabilityContext, command string, args ..
 }
 
 // ExecWithInput executes a command with stdin input
-func (c *ExecCapability) ExecWithInput(capCtx *CapabilityContext, input string, command string, args ...string) (*ExecResult, error) {
+func (c *ExecCapability) ExecWithInput(capCtx *CapabilityContext, input, command string, args ...string) (*ExecResult, error) {
 	// Check if command is allowed
 	if err := c.CheckCommand(command); err != nil {
 		return nil, err
@@ -144,11 +147,13 @@ func (c *ExecCapability) ExecWithInput(capCtx *CapabilityContext, input string, 
 
 	// Get exit code
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		switch {
+		case errors.As(err, &exitErr):
 			result.ExitCode = exitErr.ExitCode()
-		} else if ctx.Err() == context.DeadlineExceeded {
+		case errors.Is(ctx.Err(), context.DeadlineExceeded):
 			return nil, fmt.Errorf("%w: command execution exceeded timeout %v", ErrTimeout, c.TimeoutMax)
-		} else {
+		default:
 			return nil, fmt.Errorf("failed to execute command: %w", err)
 		}
 	} else {

@@ -34,10 +34,10 @@ type ListOptions struct {
 	ExecutionID string
 
 	// State filters by request state.
-	State InterventionState
+	State State
 
 	// Type filters by intervention type.
-	Type InterventionType
+	Type Type
 
 	// Since filters to requests created after this time.
 	Since *time.Time
@@ -108,7 +108,7 @@ func (m *Manager) CreateRequest(ctx context.Context, config *Config, executionID
 	}
 
 	// Validate prompts for prompt-type interventions
-	if config.Type == InterventionTypePrompt {
+	if config.Type == TypePrompt {
 		if len(config.Prompts) == 0 {
 			return nil, fmt.Errorf("at least one prompt field is required for prompt interventions")
 		}
@@ -128,7 +128,7 @@ func (m *Manager) CreateRequest(ctx context.Context, config *Config, executionID
 		ExecutionID: executionID,
 		StepName:    stepName,
 		Type:        config.Type,
-		State:       InterventionStatePending,
+		State:       StatePending,
 		Title:       config.Title,
 		Description: config.Description,
 		Prompts:     config.Prompts,
@@ -168,7 +168,7 @@ func (m *Manager) CreateRequest(ctx context.Context, config *Config, executionID
 }
 
 // Respond records an operator's response to an intervention request.
-func (m *Manager) Respond(ctx context.Context, requestID string, operator string, values map[string]interface{}, confirmed bool, comment string) (*Request, error) {
+func (m *Manager) Respond(ctx context.Context, requestID, operator string, values map[string]interface{}, confirmed bool, comment string) (*Request, error) {
 	req, err := m.storage.GetRequest(ctx, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("get request: %w", err)
@@ -178,13 +178,13 @@ func (m *Manager) Respond(ctx context.Context, requestID string, operator string
 	}
 
 	// Check if request is still pending
-	if req.State != InterventionStatePending {
+	if req.State != StatePending {
 		return nil, fmt.Errorf("request is not pending (state: %s)", req.State)
 	}
 
 	// Check if request has expired
 	if req.IsExpired() {
-		req.State = InterventionStateExpired
+		req.State = StateExpired
 		now := time.Now()
 		req.CompletedAt = &now
 		req.UpdatedAt = now
@@ -208,7 +208,7 @@ func (m *Manager) Respond(ctx context.Context, requestID string, operator string
 		Comment:     comment,
 		RespondedAt: now,
 	}
-	req.State = InterventionStateCompleted
+	req.State = StateCompleted
 	req.UpdatedAt = now
 	req.CompletedAt = &now
 
@@ -226,12 +226,12 @@ func (m *Manager) Respond(ctx context.Context, requestID string, operator string
 // validateResponse validates the response values against the request configuration.
 func (m *Manager) validateResponse(req *Request, values map[string]interface{}, confirmed bool) error {
 	switch req.Type {
-	case InterventionTypePrompt:
+	case TypePrompt:
 		return m.validatePromptResponse(req.Prompts, values)
-	case InterventionTypeConfirm:
+	case TypeConfirm:
 		// Confirm type doesn't need validation - confirmed is a boolean
 		return nil
-	case InterventionTypeWaitManual:
+	case TypeWaitManual:
 		// Wait manual just needs acknowledgment
 		return nil
 	}
@@ -333,7 +333,7 @@ func (m *Manager) isValidOption(value interface{}, options []Option) bool {
 }
 
 // Cancel cancels a pending intervention request.
-func (m *Manager) Cancel(ctx context.Context, requestID string, reason string) (*Request, error) {
+func (m *Manager) Cancel(ctx context.Context, requestID, reason string) (*Request, error) {
 	req, err := m.storage.GetRequest(ctx, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("get request: %w", err)
@@ -342,12 +342,12 @@ func (m *Manager) Cancel(ctx context.Context, requestID string, reason string) (
 		return nil, fmt.Errorf("request not found: %s", requestID)
 	}
 
-	if req.State != InterventionStatePending {
+	if req.State != StatePending {
 		return nil, fmt.Errorf("request is not pending (state: %s)", req.State)
 	}
 
 	now := time.Now()
-	req.State = InterventionStateCancelled
+	req.State = StateCancelled
 	req.UpdatedAt = now
 	req.CompletedAt = &now
 	if reason != "" {
@@ -447,7 +447,7 @@ func (m *Manager) notifyWaiters(req *Request) {
 // CheckExpired checks for and marks expired requests.
 func (m *Manager) CheckExpired(ctx context.Context) (int, error) {
 	requests, err := m.storage.ListRequests(ctx, ListOptions{
-		State: InterventionStatePending,
+		State: StatePending,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("list pending requests: %w", err)
@@ -455,19 +455,20 @@ func (m *Manager) CheckExpired(ctx context.Context) (int, error) {
 
 	expired := 0
 	for _, req := range requests {
-		if req.IsExpired() {
-			now := time.Now()
-			req.State = InterventionStateExpired
-			req.UpdatedAt = now
-			req.CompletedAt = &now
-
-			if err := m.storage.SaveRequest(ctx, req); err != nil {
-				continue
-			}
-
-			m.notifyWaiters(req)
-			expired++
+		if !req.IsExpired() {
+			continue
 		}
+		now := time.Now()
+		req.State = StateExpired
+		req.UpdatedAt = now
+		req.CompletedAt = &now
+
+		if err := m.storage.SaveRequest(ctx, req); err != nil {
+			continue
+		}
+
+		m.notifyWaiters(req)
+		expired++
 	}
 
 	return expired, nil

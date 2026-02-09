@@ -1,3 +1,4 @@
+// Package main implements the kscore-monitor TUI for real-time system monitoring.
 package main
 
 import (
@@ -18,10 +19,12 @@ import (
 type Options struct {
 	ConfigFile   string
 	ControlPlane string
+	Server       string // alias for ControlPlane
 	NATSURL      string
 	Theme        string
 	Refresh      int
 	NoColor      bool
+	View         int
 	cfg          *config.Config
 }
 
@@ -72,10 +75,12 @@ Press 'q' to quit, '?' for help.`,
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 	rootCmd.Flags().StringVar(&opts.ControlPlane, "control-plane", "localhost:50051", "Control plane gRPC address")
+	rootCmd.Flags().StringVar(&opts.Server, "server", "", "Control plane server URL (alias for --control-plane)")
 	rootCmd.Flags().StringVar(&opts.NATSURL, "nats-url", "nats://localhost:4222", "NATS server URL")
 	rootCmd.Flags().StringVar(&opts.Theme, "theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
 	rootCmd.Flags().IntVar(&opts.Refresh, "refresh", 2, "Refresh interval in seconds")
 	rootCmd.Flags().BoolVar(&opts.NoColor, "no-color", false, "Disable colors")
+	rootCmd.Flags().IntVar(&opts.View, "view", 0, "Initial view (1-8): 1=Dashboard, 2=Agents, 3=Events, 4=Drift, 5=Policy, 6=Jobs, 7=Logs, 8=Metrics")
 
 	rootCmd.AddCommand(newVersionCmd())
 
@@ -102,7 +107,10 @@ func initConfig(cmd *cobra.Command, opts *Options) error {
 	}
 
 	// Override with command-line flags
-	if cmd.Flags().Changed("control-plane") {
+	// --server is an alias for --control-plane; --server takes precedence if both specified
+	if cmd.Flags().Changed("server") {
+		opts.cfg.ControlPlane = opts.Server
+	} else if cmd.Flags().Changed("control-plane") {
 		opts.cfg.ControlPlane = opts.ControlPlane
 	}
 	if cmd.Flags().Changed("nats-url") {
@@ -116,6 +124,13 @@ func initConfig(cmd *cobra.Command, opts *Options) error {
 	}
 	if cmd.Flags().Changed("no-color") {
 		opts.cfg.NoColor = opts.NoColor
+	}
+	if cmd.Flags().Changed("view") {
+		if opts.View >= 1 && opts.View <= 8 {
+			opts.cfg.InitialView = opts.View
+		} else if opts.View != 0 {
+			return fmt.Errorf("--view must be between 1 and 8")
+		}
 	}
 	return nil
 }

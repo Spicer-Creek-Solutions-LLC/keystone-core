@@ -3,7 +3,7 @@ package repogen
 import (
 	"archive/zip"
 	"compress/gzip"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // G501: MD5 required by APT repository format for package checksums
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -42,7 +42,8 @@ func (g *Generator) GenerateAll() error {
 	fmt.Printf("Output directory: %s\n\n", g.config.OutputDir)
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(g.config.OutputDir, 0755); err != nil {
+	//nolint:gosec // G301: repository output directory needs to be accessible by users
+	if err := os.MkdirAll(g.config.OutputDir, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
@@ -110,10 +111,12 @@ func (g *Generator) GenerateDNF() error {
 			packagesDir := filepath.Join(distDir, "Packages")
 			repodataDir := filepath.Join(distDir, "repodata")
 
-			if err := os.MkdirAll(packagesDir, 0755); err != nil {
+			//nolint:gosec // G301: repository directory needs to be accessible by users
+			if err := os.MkdirAll(packagesDir, 0o755); err != nil {
 				return fmt.Errorf("create packages dir: %w", err)
 			}
-			if err := os.MkdirAll(repodataDir, 0755); err != nil {
+			//nolint:gosec // G301: repository directory needs to be accessible by users
+			if err := os.MkdirAll(repodataDir, 0o755); err != nil {
 				return fmt.Errorf("create repodata dir: %w", err)
 			}
 
@@ -145,7 +148,8 @@ gpgkey=https://packages.keystonecore.io/gpg/keystone-core.asc
 `, dist, arch, dist, arch, boolToInt(g.config.SignPackages))
 
 			repoFilePath := filepath.Join(distDir, "keystonecore.repo")
-			if err := os.WriteFile(repoFilePath, []byte(repoFile), 0644); err != nil {
+			//nolint:gosec // G306: repo files need to be readable by package managers
+			if err := os.WriteFile(repoFilePath, []byte(repoFile), 0o644); err != nil {
 				return fmt.Errorf("write repo file: %w", err)
 			}
 
@@ -181,7 +185,8 @@ gpgkey=https://packages.keystonecore.io/gpg/keystone-core.asc
 ## Version: %s
 `, dist, arch, dist[2:], dist, arch, formatPackageList(copiedPackages), g.config.Version)
 
-			if err := os.WriteFile(filepath.Join(distDir, "README.md"), []byte(readme), 0644); err != nil {
+			//nolint:gosec // G306: README needs to be readable
+			if err := os.WriteFile(filepath.Join(distDir, "README.md"), []byte(readme), 0o644); err != nil {
 				return fmt.Errorf("write README: %w", err)
 			}
 		}
@@ -203,7 +208,8 @@ func (g *Generator) generateRepodata(distDir, packagesDir, repodataDir string) e
 	// Generate primary.xml with package information
 	primaryXML := g.generatePrimaryXML(rpms)
 	primaryPath := filepath.Join(repodataDir, "primary.xml")
-	if err := os.WriteFile(primaryPath, []byte(primaryXML), 0644); err != nil {
+	//nolint:gosec // G306: repo metadata needs to be readable by package managers
+	if err := os.WriteFile(primaryPath, []byte(primaryXML), 0o644); err != nil {
 		return fmt.Errorf("write primary.xml: %w", err)
 	}
 
@@ -243,7 +249,8 @@ func (g *Generator) generateRepodata(distDir, packagesDir, repodataDir string) e
 `, time.Now().Unix(), primaryGzChecksum, primaryChecksum, time.Now().Unix(),
 		primaryGzInfo.Size(), primaryInfo.Size())
 
-	if err := os.WriteFile(filepath.Join(repodataDir, "repomd.xml"), []byte(repomdXML), 0644); err != nil {
+	//nolint:gosec // G306: repo metadata needs to be readable by package managers
+	if err := os.WriteFile(filepath.Join(repodataDir, "repomd.xml"), []byte(repomdXML), 0o644); err != nil {
 		return fmt.Errorf("write repomd.xml: %w", err)
 	}
 
@@ -311,7 +318,8 @@ func (g *Generator) GenerateAPT() error {
 
 	// Create pool directory and copy all DEBs there
 	poolDir := filepath.Join(aptDir, "pool", "main", "k", "keystonecore")
-	if err := os.MkdirAll(poolDir, 0755); err != nil {
+	//nolint:gosec // G301: repository directory needs to be accessible by users
+	if err := os.MkdirAll(poolDir, 0o755); err != nil {
 		return fmt.Errorf("create pool dir: %w", err)
 	}
 
@@ -339,7 +347,8 @@ func (g *Generator) GenerateAPT() error {
 
 	for _, dist := range aptConfig.Distributions {
 		distReleaseDir := filepath.Join(aptDir, "dists", dist)
-		if err := os.MkdirAll(distReleaseDir, 0755); err != nil {
+		//nolint:gosec // G301: repository directory needs to be accessible by users
+		if err := os.MkdirAll(distReleaseDir, 0o755); err != nil {
 			return fmt.Errorf("create dist dir: %w", err)
 		}
 
@@ -349,14 +358,16 @@ func (g *Generator) GenerateAPT() error {
 			for _, arch := range aptConfig.Architectures {
 				// Create dist directory structure
 				distDir := filepath.Join(aptDir, "dists", dist, component, fmt.Sprintf("binary-%s", arch))
-				if err := os.MkdirAll(distDir, 0755); err != nil {
+				//nolint:gosec // G301: repository directory needs to be accessible by users
+				if err := os.MkdirAll(distDir, 0o755); err != nil {
 					return fmt.Errorf("create dist dir: %w", err)
 				}
 
 				// Generate Packages file from actual DEBs
 				packagesContent := g.generateAPTPackagesFromPool(poolDir, arch, archMap)
 				packagesPath := filepath.Join(distDir, "Packages")
-				if err := os.WriteFile(packagesPath, []byte(packagesContent), 0644); err != nil {
+				//nolint:gosec // G306: APT metadata needs to be readable by package managers
+				if err := os.WriteFile(packagesPath, []byte(packagesContent), 0o644); err != nil {
 					return fmt.Errorf("write Packages: %w", err)
 				}
 
@@ -379,8 +390,6 @@ func (g *Generator) GenerateAPT() error {
 				archHashes = append(archHashes,
 					fmt.Sprintf(" %s %d %s/Packages", packagesMD5, packagesInfo.Size(), relPath),
 					fmt.Sprintf(" %s %d %s/Packages.gz", packagesGzMD5, packagesGzInfo.Size(), relPath),
-				)
-				archHashes = append(archHashes,
 					fmt.Sprintf(" %s %d %s/Packages", packagesSHA256, packagesInfo.Size(), relPath),
 					fmt.Sprintf(" %s %d %s/Packages.gz", packagesGzSHA256, packagesGzInfo.Size(), relPath),
 				)
@@ -389,7 +398,8 @@ func (g *Generator) GenerateAPT() error {
 
 		// Generate Release file for distribution
 		releaseContent := g.generateAPTReleaseWithHashes(dist, aptConfig, archHashes)
-		if err := os.WriteFile(filepath.Join(distReleaseDir, "Release"), []byte(releaseContent), 0644); err != nil {
+		//nolint:gosec // G306: APT Release file needs to be readable by package managers
+		if err := os.WriteFile(filepath.Join(distReleaseDir, "Release"), []byte(releaseContent), 0o644); err != nil {
 			return fmt.Errorf("write Release: %w", err)
 		}
 	}
@@ -410,7 +420,8 @@ deb https://packages.keystonecore.io/apt noble main
 # Debian 13 (Trixie)
 # deb https://packages.keystonecore.io/apt trixie main
 `
-	if err := os.WriteFile(filepath.Join(aptDir, "keystonecore.list"), []byte(sourcesList), 0644); err != nil {
+	//nolint:gosec // G306: sources.list needs to be readable
+	if err := os.WriteFile(filepath.Join(aptDir, "keystonecore.list"), []byte(sourcesList), 0o644); err != nil {
 		return fmt.Errorf("write sources.list: %w", err)
 	}
 
@@ -453,7 +464,8 @@ deb https://packages.keystonecore.io/apt noble main
 ## Version: %s
 `, formatPackageList(copiedDebs), g.config.Version)
 
-	if err := os.WriteFile(filepath.Join(aptDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(aptDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -562,7 +574,8 @@ func (g *Generator) GenerateWindows() error {
 
 	for _, arch := range winConfig.Architectures {
 		archDir := filepath.Join(winDir, arch)
-		if err := os.MkdirAll(archDir, 0755); err != nil {
+		//nolint:gosec // G301: repository directory needs to be accessible by users
+		if err := os.MkdirAll(archDir, 0o755); err != nil {
 			return fmt.Errorf("create arch dir: %w", err)
 		}
 
@@ -610,13 +623,15 @@ func (g *Generator) GenerateWindows() error {
 			return fmt.Errorf("marshal manifest: %w", err)
 		}
 
-		if err := os.WriteFile(filepath.Join(archDir, "manifest.json"), manifestJSON, 0644); err != nil {
+		//nolint:gosec // G306: manifest needs to be readable by installers
+		if err := os.WriteFile(filepath.Join(archDir, "manifest.json"), manifestJSON, 0o644); err != nil {
 			return fmt.Errorf("write manifest: %w", err)
 		}
 
 		// Generate install.ps1 script
 		installScript := g.generateWindowsInstallScript(arch)
-		if err := os.WriteFile(filepath.Join(archDir, "install.ps1"), []byte(installScript), 0644); err != nil {
+		//nolint:gosec // G306: install scripts need to be readable by users
+		if err := os.WriteFile(filepath.Join(archDir, "install.ps1"), []byte(installScript), 0o644); err != nil {
 			return fmt.Errorf("write install script: %w", err)
 		}
 	}
@@ -652,7 +667,8 @@ func (g *Generator) GenerateWindows() error {
 ## Version: %s
 `, g.config.Version)
 
-	if err := os.WriteFile(filepath.Join(winDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(winDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -674,7 +690,9 @@ func (g *Generator) GenerateMacOS() error {
 		return fmt.Errorf("find macOS zip files: %w", err)
 	}
 
-	allFiles := append(tarFiles, zipFiles...)
+	allFiles := make([]string, 0, len(tarFiles)+len(zipFiles))
+	allFiles = append(allFiles, tarFiles...)
+	allFiles = append(allFiles, zipFiles...)
 
 	if len(allFiles) == 0 {
 		fmt.Printf("  Warning: No macOS archives found in %s\n", g.config.DistDir)
@@ -689,7 +707,8 @@ func (g *Generator) GenerateMacOS() error {
 
 	for _, arch := range []string{"x64", "arm64"} {
 		archDir := filepath.Join(macDir, arch)
-		if err := os.MkdirAll(archDir, 0755); err != nil {
+		//nolint:gosec // G301: repository directory needs to be accessible by users
+		if err := os.MkdirAll(archDir, 0o755); err != nil {
 			return fmt.Errorf("create arch dir: %w", err)
 		}
 
@@ -737,13 +756,15 @@ func (g *Generator) GenerateMacOS() error {
 			return fmt.Errorf("marshal manifest: %w", err)
 		}
 
-		if err := os.WriteFile(filepath.Join(archDir, "manifest.json"), manifestJSON, 0644); err != nil {
+		//nolint:gosec // G306: manifest needs to be readable by installers
+		if err := os.WriteFile(filepath.Join(archDir, "manifest.json"), manifestJSON, 0o644); err != nil {
 			return fmt.Errorf("write manifest: %w", err)
 		}
 
 		// Generate install.sh script
 		installScript := g.generateMacOSInstallScript(arch)
-		if err := os.WriteFile(filepath.Join(archDir, "install.sh"), []byte(installScript), 0755); err != nil {
+		//nolint:gosec // G306: install scripts must be executable
+		if err := os.WriteFile(filepath.Join(archDir, "install.sh"), []byte(installScript), 0o755); err != nil {
 			return fmt.Errorf("write install script: %w", err)
 		}
 	}
@@ -784,7 +805,8 @@ func (g *Generator) GenerateMacOS() error {
 ## Version: %s
 `, g.config.Version)
 
-	if err := os.WriteFile(filepath.Join(macDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(macDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -845,11 +867,13 @@ func (g *Generator) GenerateBlueprints() error {
 		return fmt.Errorf("marshal index: %w", err)
 	}
 
-	if err := os.MkdirAll(blueprintsDir, 0755); err != nil {
+	//nolint:gosec // G301: repository directory needs to be accessible by users
+	if err := os.MkdirAll(blueprintsDir, 0o755); err != nil {
 		return fmt.Errorf("create blueprints dir: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(blueprintsDir, "index.json"), indexJSON, 0644); err != nil {
+	//nolint:gosec // G306: index file needs to be readable by clients
+	if err := os.WriteFile(filepath.Join(blueprintsDir, "index.json"), indexJSON, 0o644); err != nil {
 		return fmt.Errorf("write index: %w", err)
 	}
 
@@ -882,7 +906,8 @@ func (g *Generator) GenerateBlueprints() error {
 ## Generated: %s
 `, len(blueprintsList), time.Now().UTC().Format(time.RFC3339))
 
-	if err := os.WriteFile(filepath.Join(blueprintsDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(blueprintsDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -894,7 +919,8 @@ func (g *Generator) GenerateModules() error {
 	modulesDir := filepath.Join(g.config.OutputDir, "modules")
 
 	// Create directory
-	if err := os.MkdirAll(modulesDir, 0755); err != nil {
+	//nolint:gosec // G301: repository directory needs to be accessible by users
+	if err := os.MkdirAll(modulesDir, 0o755); err != nil {
 		return fmt.Errorf("create modules dir: %w", err)
 	}
 
@@ -911,7 +937,8 @@ func (g *Generator) GenerateModules() error {
 		return fmt.Errorf("marshal index: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(modulesDir, "index.json"), indexJSON, 0644); err != nil {
+	//nolint:gosec // G306: index file needs to be readable by clients
+	if err := os.WriteFile(filepath.Join(modulesDir, "index.json"), indexJSON, 0o644); err != nil {
 		return fmt.Errorf("write index: %w", err)
 	}
 
@@ -941,7 +968,8 @@ func (g *Generator) GenerateModules() error {
 - GET /{vendor}/{name}/@v/{version}.zip - Module archive
 `
 
-	if err := os.WriteFile(filepath.Join(modulesDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(modulesDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -973,7 +1001,8 @@ func (g *Generator) generateMasterIndex() error {
 		return fmt.Errorf("marshal index: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(g.config.OutputDir, "index.json"), indexJSON, 0644); err != nil {
+	//nolint:gosec // G306: index file needs to be readable by clients
+	if err := os.WriteFile(filepath.Join(g.config.OutputDir, "index.json"), indexJSON, 0o644); err != nil {
 		return fmt.Errorf("write index: %w", err)
 	}
 
@@ -1036,7 +1065,8 @@ Upload contents to S3 bucket with static website hosting enabled.
 ## Version: %s
 `, g.config.Version, time.Now().UTC().Format(time.RFC3339), g.config.Version)
 
-	if err := os.WriteFile(filepath.Join(g.config.OutputDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable
+	if err := os.WriteFile(filepath.Join(g.config.OutputDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 
@@ -1117,6 +1147,7 @@ func sha256sum(path string) (string, error) {
 }
 
 // md5sum calculates the MD5 checksum of a file.
+// MD5 is required by the APT repository format for package metadata.
 func md5sum(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -1124,7 +1155,7 @@ func md5sum(path string) (string, error) {
 	}
 	defer f.Close()
 
-	h := md5.New()
+	h := md5.New() //nolint:gosec // G401: MD5 required by APT repository format
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
@@ -1174,7 +1205,7 @@ func extractDEBArch(filename string) string {
 func extractWindowsArch(filename string) string {
 	base := filepath.Base(filename)
 	// Use regex to extract arch from windows_arch pattern
-	re := regexp.MustCompile(`_windows_([^_\.]+)`)
+	re := regexp.MustCompile(`_windows_([^_.]+)`)
 	matches := re.FindStringSubmatch(base)
 	if len(matches) >= 2 {
 		return matches[1]
@@ -1185,7 +1216,7 @@ func extractWindowsArch(filename string) string {
 func extractMacOSArch(filename string) string {
 	base := filepath.Base(filename)
 	// Use regex to extract arch from darwin_arch pattern
-	re := regexp.MustCompile(`_darwin_([^_\.]+)`)
+	re := regexp.MustCompile(`_darwin_([^_.]+)`)
 	matches := re.FindStringSubmatch(base)
 	if len(matches) >= 2 {
 		return matches[1]
@@ -1229,15 +1260,16 @@ func parseRPMFilename(filename string) (name, version, release, arch string) {
 
 	// Find version-release (last two dash-separated components)
 	dashParts := strings.Split(nameVerRel, "-")
-	if len(dashParts) >= 3 {
+	switch {
+	case len(dashParts) >= 3:
 		release = dashParts[len(dashParts)-1]
 		version = dashParts[len(dashParts)-2]
 		name = strings.Join(dashParts[:len(dashParts)-2], "-")
-	} else if len(dashParts) == 2 {
+	case len(dashParts) == 2:
 		version = dashParts[1]
 		release = "1"
 		name = dashParts[0]
-	} else {
+	default:
 		name = nameVerRel
 		version = "0"
 		release = "1"
@@ -1430,13 +1462,15 @@ func (g *Generator) processBlueprintDir(path, name string) (*BlueprintEntry, err
 func (g *Generator) generateBlueprintRegistryEntry(baseDir string, bp *BlueprintEntry) error {
 	// Create Go-mod style directory: kscore/{name}/@v/
 	bpDir := filepath.Join(baseDir, bp.Vendor, bp.Name, "@v")
-	if err := os.MkdirAll(bpDir, 0755); err != nil {
+	//nolint:gosec // G301: repository directory needs to be accessible by users
+	if err := os.MkdirAll(bpDir, 0o755); err != nil {
 		return fmt.Errorf("create blueprint dir: %w", err)
 	}
 
 	// Generate list file
 	listContent := bp.Version + "\n"
-	if err := os.WriteFile(filepath.Join(bpDir, "list"), []byte(listContent), 0644); err != nil {
+	//nolint:gosec // G306: version list needs to be readable by clients
+	if err := os.WriteFile(filepath.Join(bpDir, "list"), []byte(listContent), 0o644); err != nil {
 		return fmt.Errorf("write list: %w", err)
 	}
 
@@ -1446,7 +1480,8 @@ func (g *Generator) generateBlueprintRegistryEntry(baseDir string, bp *Blueprint
 		"Time":    time.Now().UTC().Format(time.RFC3339),
 	}
 	infoJSON, _ := json.MarshalIndent(info, "", "  ")
-	if err := os.WriteFile(filepath.Join(bpDir, bp.Version+".info"), infoJSON, 0644); err != nil {
+	//nolint:gosec // G306: version info needs to be readable by clients
+	if err := os.WriteFile(filepath.Join(bpDir, bp.Version+".info"), infoJSON, 0o644); err != nil {
 		return fmt.Errorf("write info: %w", err)
 	}
 
@@ -1457,7 +1492,8 @@ func (g *Generator) generateBlueprintRegistryEntry(baseDir string, bp *Blueprint
 	}
 	if manifestData, err := os.ReadFile(manifestPath); err == nil {
 		modPath := filepath.Join(bpDir, bp.Version+".mod")
-		if err := os.WriteFile(modPath, manifestData, 0644); err != nil {
+		//nolint:gosec // G306: module manifest needs to be readable by clients
+		if err := os.WriteFile(modPath, manifestData, 0o644); err != nil {
 			return fmt.Errorf("write mod file: %w", err)
 		}
 	}
@@ -1472,7 +1508,8 @@ func (g *Generator) generateBlueprintRegistryEntry(baseDir string, bp *Blueprint
 	if checksum, err := sha256sum(zipPath); err == nil {
 		bp.Checksum = checksum
 		checksumPath := filepath.Join(bpDir, bp.Version+".zip.sha256")
-		if err := os.WriteFile(checksumPath, []byte(checksum+"  "+bp.Version+".zip\n"), 0644); err != nil {
+		//nolint:gosec // G306: checksum files need to be readable for verification
+		if err := os.WriteFile(checksumPath, []byte(checksum+"  "+bp.Version+".zip\n"), 0o644); err != nil {
 			return fmt.Errorf("write checksum: %w", err)
 		}
 	}
@@ -1537,7 +1574,8 @@ func (g *Generator) createBlueprintZip(srcDir, destZip, prefix string) error {
 }
 
 func (g *Generator) generateEmptyBlueprintRegistry(dir string) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: repository directory needs to be accessible by users
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create dir: %w", err)
 	}
 
@@ -1549,7 +1587,8 @@ func (g *Generator) generateEmptyBlueprintRegistry(dir string) error {
 	}
 
 	indexJSON, _ := json.MarshalIndent(index, "", "  ")
-	return os.WriteFile(filepath.Join(dir, "index.json"), indexJSON, 0644)
+	//nolint:gosec // G306: index file needs to be readable by clients
+	return os.WriteFile(filepath.Join(dir, "index.json"), indexJSON, 0o644)
 }
 
 // String helpers to avoid importing strings package

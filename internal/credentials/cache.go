@@ -28,9 +28,9 @@ func DefaultCacheConfig() *CacheConfig {
 
 // cacheEntry represents a cached credential.
 type cacheEntry struct {
-	credential Credential
-	expiresAt  time.Time
-	accessTime time.Time
+	credential  Credential
+	expiresAt   time.Time
+	accessTime  time.Time
 	accessCount int64
 }
 
@@ -41,10 +41,10 @@ func (e *cacheEntry) isExpired() bool {
 
 // CredentialCache provides TTL-based caching for credentials.
 type CredentialCache struct {
-	mu       sync.RWMutex
-	config   *CacheConfig
-	entries  map[string]*cacheEntry
-	backend  CredentialStore
+	mu      sync.RWMutex
+	config  *CacheConfig
+	entries map[string]*cacheEntry
+	backend CredentialStore
 
 	// For cleanup goroutine
 	ctx    context.Context

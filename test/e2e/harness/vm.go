@@ -37,8 +37,8 @@ func LoadVMConfig(configPath string) (*vm.Config, error) {
 }
 
 // ConfigFromVM builds a test harness config from a VM inventory.
-func ConfigFromVM(configPath string) (*Config, *vm.Config, error) {
-	vmCfg, err := LoadVMConfig(configPath)
+func ConfigFromVM(configPath string) (cfg *Config, vmCfg *vm.Config, err error) {
+	vmCfg, err = LoadVMConfig(configPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -52,7 +52,7 @@ func ConfigFromVM(configPath string) (*Config, *vm.Config, error) {
 	})
 	cp := cpNodes[0]
 
-	cfg := DefaultConfig()
+	cfg = DefaultConfig()
 	cfg.Mode = "vm"
 	cfg.ComposeFile = ""
 	cfg.BuildImages = false

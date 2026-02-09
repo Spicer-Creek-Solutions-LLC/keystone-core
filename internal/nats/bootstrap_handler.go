@@ -42,7 +42,7 @@ type RegistrationCallback func(ctx context.Context, agentID string, labels map[s
 // It subscribes to bootstrap registration subjects, validates credentials,
 // and issues permanent credentials to agents.
 type BootstrapRegistrationHandler struct {
-	config           *BootstrapHandlerConfig
+	config             *BootstrapHandlerConfig
 	credentialProvider BootstrapCredentialProvider
 	credentialIssuer   CredentialIssuer
 	identityVerifiers  []IdentityVerifier

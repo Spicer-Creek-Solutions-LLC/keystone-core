@@ -81,9 +81,9 @@ func DefaultSecurityConfig() *SecurityConfig {
 			RequireSignature: false,
 		},
 		CommandFilter: CommandFilterConfig{
-			Mode:          "blocklist", // Blocklist mode for backwards compatibility
-			AllowBuiltins: true,
-			MaxArgLength:  65536, // 64KB max per argument
+			Mode:              "blocklist", // Blocklist mode for backwards compatibility
+			AllowBuiltins:     true,
+			MaxArgLength:      65536, // 64KB max per argument
 			BlockEnvOverrides: true,
 			BlockedEnvVars: []string{
 				"LD_PRELOAD",
@@ -95,10 +95,10 @@ func DefaultSecurityConfig() *SecurityConfig {
 				"NODE_PATH",
 			},
 			BlockedPatterns: []string{
-				`;\s*rm\s+-rf\s+/`,     // Dangerous rm commands
-				`>\s*/dev/sd[a-z]`,     // Writing to block devices
-				`mkfs\.`,               // Filesystem creation
-				`dd\s+.*of=/dev/`,      // dd to devices
+				`;\s*rm\s+-rf\s+/`, // Dangerous rm commands
+				`>\s*/dev/sd[a-z]`, // Writing to block devices
+				`mkfs\.`,           // Filesystem creation
+				`dd\s+.*of=/dev/`,  // dd to devices
 			},
 		},
 	}
@@ -164,7 +164,7 @@ func NewSecurityEnforcer(config *SecurityConfig) (*SecurityEnforcer, error) {
 }
 
 // AuthorizeCommand checks if a command is authorized to execute
-func (se *SecurityEnforcer) AuthorizeCommand(principal, command string, signature string) error {
+func (se *SecurityEnforcer) AuthorizeCommand(principal, command, signature string) error {
 	se.mu.RLock()
 	defer se.mu.RUnlock()
 

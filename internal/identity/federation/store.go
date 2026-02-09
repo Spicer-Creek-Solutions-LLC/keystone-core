@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// InMemoryStore is an in-memory implementation of FederationStore.
+// InMemoryStore is an in-memory implementation of Store.
 type InMemoryStore struct {
 	mu      sync.RWMutex
 	domains map[string]*FederatedDomain
@@ -33,8 +33,8 @@ func (s *InMemoryStore) Save(ctx context.Context, domain *FederatedDomain) error
 	defer s.mu.Unlock()
 
 	// Deep copy to avoid external modifications
-	copy := *domain
-	s.domains[domain.TrustDomain] = &copy
+	copied := *domain
+	s.domains[domain.TrustDomain] = &copied
 
 	return nil
 }
@@ -50,8 +50,8 @@ func (s *InMemoryStore) Load(ctx context.Context, trustDomain string) (*Federate
 	}
 
 	// Return a copy
-	copy := *domain
-	return &copy, nil
+	copied := *domain
+	return &copied, nil
 }
 
 // Delete deletes a federated domain.
@@ -74,8 +74,8 @@ func (s *InMemoryStore) List(ctx context.Context) ([]*FederatedDomain, error) {
 
 	domains := make([]*FederatedDomain, 0, len(s.domains))
 	for _, domain := range s.domains {
-		copy := *domain
-		domains = append(domains, &copy)
+		copied := *domain
+		domains = append(domains, &copied)
 	}
 
 	return domains, nil
@@ -95,5 +95,5 @@ func (s *InMemoryStore) Count() int {
 	return len(s.domains)
 }
 
-// Verify InMemoryStore implements FederationStore
-var _ FederationStore = (*InMemoryStore)(nil)
+// Verify InMemoryStore implements Store
+var _ Store = (*InMemoryStore)(nil)

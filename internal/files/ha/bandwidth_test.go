@@ -3,6 +3,7 @@ package ha
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -255,7 +256,7 @@ func TestRateLimitedReader(t *testing.T) {
 
 	buf := make([]byte, 100)
 	n, err := rlr.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		t.Fatalf("Read() error: %v", err)
 	}
 
@@ -315,7 +316,7 @@ func TestRateLimitedReader_ContextCancellation(t *testing.T) {
 
 	buf := make([]byte, 100)
 	_, err := rlr.Read(buf)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled error, got %v", err)
 	}
 }
@@ -331,7 +332,7 @@ func TestRateLimitedWriter_ContextCancellation(t *testing.T) {
 
 	data := []byte("Hello, World!")
 	_, err := rlw.Write(data)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled error, got %v", err)
 	}
 }
@@ -353,7 +354,7 @@ func TestBandwidthManager_GlobalRateLimit(t *testing.T) {
 
 	// Should fail to acquire more immediately (bucket empty).
 	err = bm.AcquireBytes(ctx, "agent-1", 1000)
-	if err != ErrRateLimited {
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("expected ErrRateLimited, got %v", err)
 	}
 
@@ -385,7 +386,7 @@ func TestBandwidthManager_PerAgentRateLimit(t *testing.T) {
 
 	// Agent 1 should fail to acquire more (its bucket empty).
 	err = bm.AcquireBytes(ctx, "agent-1", 1000)
-	if err != ErrRateLimited {
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("expected ErrRateLimited for agent-1, got %v", err)
 	}
 }
@@ -436,7 +437,7 @@ func TestRateLimitedReader_NilBandwidthManager(t *testing.T) {
 
 	buf := make([]byte, 100)
 	n, err := rlr.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		t.Fatalf("Read() error: %v", err)
 	}
 
@@ -524,7 +525,7 @@ func TestBandwidthManager_QueueOverflow(t *testing.T) {
 	defer cancel()
 
 	_, err := bm.AcquireTransfer(ctx2, "agent-overflow", PriorityLow)
-	if err != ErrRateLimited && err != context.DeadlineExceeded {
+	if !errors.Is(err, ErrRateLimited) && !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("expected ErrRateLimited or DeadlineExceeded, got %v", err)
 	}
 

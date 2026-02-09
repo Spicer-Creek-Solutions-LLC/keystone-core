@@ -7,6 +7,8 @@ description: >
 
 The Query API provides a unified interface for querying observability data from various backends. It supports metrics (Prometheus), logs (Loki), and traces (Jaeger) through a consistent API.
 
+> **Note:** The Query API is an internal package (`internal/query`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. For external integrations, use the gRPC or REST API endpoints instead.
+
 ## Overview
 
 The Query API abstracts away the differences between various observability backends, providing:
@@ -37,7 +39,7 @@ The `PrometheusQuerier` executes PromQL queries against Prometheus.
 #### Configuration
 
 ```go
-import "github.com/keystone-core/pkg/query"
+import "github.com/shawnbutts/keystone-core/internal/query"
 
 // Create a Prometheus querier
 querier, err := query.NewPrometheusQuerier("http://prometheus:9090")

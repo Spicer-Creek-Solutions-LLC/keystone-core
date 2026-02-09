@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,7 +55,7 @@ func TestSQLiteDeviceRegistry_CRUD(t *testing.T) {
 
 	// Test duplicate registration
 	err = registry.Register(ctx, device)
-	if err != ErrDeviceAlreadyExists {
+	if !errors.Is(err, ErrDeviceAlreadyExists) {
 		t.Errorf("expected ErrDeviceAlreadyExists, got %v", err)
 	}
 
@@ -72,7 +73,7 @@ func TestSQLiteDeviceRegistry_CRUD(t *testing.T) {
 
 	// Test Get non-existent
 	_, err = registry.Get(ctx, "non-existent")
-	if err != ErrDeviceNotFound {
+	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("expected ErrDeviceNotFound, got %v", err)
 	}
 
@@ -134,7 +135,7 @@ func TestSQLiteDeviceRegistry_CRUD(t *testing.T) {
 
 	// Test Unregister non-existent
 	err = registry.Unregister(ctx, "non-existent")
-	if err != ErrDeviceNotFound {
+	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("expected ErrDeviceNotFound, got %v", err)
 	}
 }
@@ -524,10 +525,10 @@ func TestSQLiteDeviceRegistry_Observer(t *testing.T) {
 	unregistered := make(chan string, 1)
 
 	observer := &testObserver{
-		onRegistered:     func(d *ProxiedDevice) { registered <- d },
-		onUpdated:        func(d *ProxiedDevice) { updated <- d },
-		onStatusChanged:  func(id string, _, _ DeviceStatus) { statusChanged <- id },
-		onUnregistered:   func(id string) { unregistered <- id },
+		onRegistered:    func(d *ProxiedDevice) { registered <- d },
+		onUpdated:       func(d *ProxiedDevice) { updated <- d },
+		onStatusChanged: func(id string, _, _ DeviceStatus) { statusChanged <- id },
+		onUnregistered:  func(id string) { unregistered <- id },
 	}
 
 	registry.AddObserver(observer)

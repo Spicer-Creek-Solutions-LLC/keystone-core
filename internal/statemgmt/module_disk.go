@@ -108,7 +108,7 @@ func (m *DiskModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		return nil, err
 	}
 
-	partInfo := m.getPartitionInfo(config.Device, config.PartitionNumber)
+	partInfo := m.getPartitionInfo(ctx, config.Device, config.PartitionNumber)
 	exists := partInfo != nil
 
 	result.Metadata["exists"] = exists
@@ -171,20 +171,20 @@ func (m *DiskModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		return result, err
 	}
 
-	partInfo := m.getPartitionInfo(config.Device, config.PartitionNumber)
+	partInfo := m.getPartitionInfo(ctx, config.Device, config.PartitionNumber)
 	exists := partInfo != nil
 
 	switch decl.State {
 	case "present":
 		if !exists {
 			// Ensure partition table exists
-			if err := m.ensurePartitionTable(config); err != nil {
+			if err := m.ensurePartitionTable(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create partition table: %v", err)
 				return result, err
 			}
 
-			if err := m.createPartition(config); err != nil {
+			if err := m.createPartition(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create partition: %v", err)
 				return result, err
@@ -194,7 +194,7 @@ func (m *DiskModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 		// Set flags if specified
 		if len(config.Flags) > 0 {
-			if err := m.setPartitionFlags(config); err != nil {
+			if err := m.setPartitionFlags(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to set partition flags: %v", err)
 				return result, err
@@ -206,13 +206,13 @@ func (m *DiskModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "formatted":
 		if !exists {
 			// Create partition first
-			if err := m.ensurePartitionTable(config); err != nil {
+			if err := m.ensurePartitionTable(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create partition table: %v", err)
 				return result, err
 			}
 
-			if err := m.createPartition(config); err != nil {
+			if err := m.createPartition(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create partition: %v", err)
 				return result, err
@@ -223,7 +223,7 @@ func (m *DiskModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		// Create filesystem
 		if config.FSType != "" {
 			partDevice := fmt.Sprintf("%s%d", config.Device, config.PartitionNumber)
-			if err := m.createFilesystem(partDevice, config.FSType, config.Label); err != nil {
+			if err := m.createFilesystem(ctx, partDevice, config.FSType, config.Label); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create filesystem: %v", err)
 				return result, err
@@ -235,7 +235,7 @@ func (m *DiskModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 
 	case "absent":
 		if exists {
-			if err := m.deletePartition(config.Device, config.PartitionNumber); err != nil {
+			if err := m.deletePartition(ctx, config.Device, config.PartitionNumber); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete partition: %v", err)
 				return result, err
@@ -298,8 +298,8 @@ func (m *DiskModule) parseConfig(decl *StateDeclaration) (*DiskConfig, error) {
 }
 
 // getPartitionInfo retrieves partition information.
-func (m *DiskModule) getPartitionInfo(device string, number int) *PartitionInfo {
-	cmd := exec.Command("parted", "-m", "-s", device, "unit", "B", "print")
+func (m *DiskModule) getPartitionInfo(ctx context.Context, device string, number int) *PartitionInfo {
+	cmd := exec.CommandContext(ctx, "parted", "-m", "-s", device, "unit", "B", "print")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -343,9 +343,9 @@ func (m *DiskModule) getPartitionInfo(device string, number int) *PartitionInfo 
 }
 
 // ensurePartitionTable creates a partition table if needed.
-func (m *DiskModule) ensurePartitionTable(config *DiskConfig) error {
+func (m *DiskModule) ensurePartitionTable(ctx context.Context, config *DiskConfig) error {
 	// Check if partition table exists
-	cmd := exec.Command("parted", "-s", config.Device, "print")
+	cmd := exec.CommandContext(ctx, "parted", "-s", config.Device, "print")
 	if cmd.Run() == nil {
 		return nil
 	}
@@ -356,23 +356,20 @@ func (m *DiskModule) ensurePartitionTable(config *DiskConfig) error {
 		label = "gpt"
 	}
 
-	cmd = exec.Command("parted", "-s", config.Device, "mklabel", label)
+	cmd = exec.CommandContext(ctx, "parted", "-s", config.Device, "mklabel", label)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mklabel failed: %v: %s", err, string(output))
+		return fmt.Errorf("mklabel failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // createPartition creates a partition.
-func (m *DiskModule) createPartition(config *DiskConfig) error {
+func (m *DiskModule) createPartition(ctx context.Context, config *DiskConfig) error {
 	args := []string{"-s", "-a", "optimal", config.Device}
 
-	// Set unit
-	args = append(args, "unit", config.Unit)
-
-	// Create partition command
-	args = append(args, "mkpart")
+	// Set unit and create partition command
+	args = append(args, "unit", config.Unit, "mkpart")
 
 	// For GPT, we need a name (use label or default)
 	name := config.Label
@@ -389,49 +386,50 @@ func (m *DiskModule) createPartition(config *DiskConfig) error {
 	// Start and end
 	args = append(args, config.Start)
 
-	if config.End != "" {
+	switch {
+	case config.End != "":
 		args = append(args, config.End)
-	} else if config.Size != "" {
+	case config.Size != "":
 		// parted doesn't directly support size, need to calculate end
 		// For simplicity, just use the size as end (parted handles this)
 		args = append(args, config.Size)
-	} else {
+	default:
 		args = append(args, "100%")
 	}
 
-	cmd := exec.Command("parted", args...)
+	cmd := exec.CommandContext(ctx, "parted", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mkpart failed: %v: %s", err, string(output))
+		return fmt.Errorf("mkpart failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // deletePartition deletes a partition.
-func (m *DiskModule) deletePartition(device string, number int) error {
-	cmd := exec.Command("parted", "-s", device, "rm", strconv.Itoa(number))
+func (m *DiskModule) deletePartition(ctx context.Context, device string, number int) error {
+	cmd := exec.CommandContext(ctx, "parted", "-s", device, "rm", strconv.Itoa(number))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("rm partition failed: %v: %s", err, string(output))
+		return fmt.Errorf("rm partition failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // setPartitionFlags sets partition flags.
-func (m *DiskModule) setPartitionFlags(config *DiskConfig) error {
+func (m *DiskModule) setPartitionFlags(ctx context.Context, config *DiskConfig) error {
 	for _, flag := range config.Flags {
-		cmd := exec.Command("parted", "-s", config.Device, "set",
+		cmd := exec.CommandContext(ctx, "parted", "-s", config.Device, "set",
 			strconv.Itoa(config.PartitionNumber), flag, "on")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("set flag %s failed: %v: %s", flag, err, string(output))
+			return fmt.Errorf("set flag %s failed: %w: %s", flag, err, string(output))
 		}
 	}
 	return nil
 }
 
 // createFilesystem creates a filesystem on a device.
-func (m *DiskModule) createFilesystem(device, fstype, label string) error {
+func (m *DiskModule) createFilesystem(ctx context.Context, device, fstype, label string) error {
 	var cmd *exec.Cmd
 
 	switch fstype {
@@ -441,7 +439,7 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-L", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkfs.ext4", args...)
+		cmd = exec.CommandContext(ctx, "mkfs.ext4", args...)
 
 	case "ext3":
 		args := []string{"-F"}
@@ -449,7 +447,7 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-L", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkfs.ext3", args...)
+		cmd = exec.CommandContext(ctx, "mkfs.ext3", args...)
 
 	case "xfs":
 		args := []string{"-f"}
@@ -457,7 +455,7 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-L", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkfs.xfs", args...)
+		cmd = exec.CommandContext(ctx, "mkfs.xfs", args...)
 
 	case "btrfs":
 		args := []string{"-f"}
@@ -465,7 +463,7 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-L", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkfs.btrfs", args...)
+		cmd = exec.CommandContext(ctx, "mkfs.btrfs", args...)
 
 	case "vfat", "fat32":
 		args := []string{"-F", "32"}
@@ -473,7 +471,7 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-n", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkfs.vfat", args...)
+		cmd = exec.CommandContext(ctx, "mkfs.vfat", args...)
 
 	case "swap":
 		args := []string{}
@@ -481,17 +479,17 @@ func (m *DiskModule) createFilesystem(device, fstype, label string) error {
 			args = append(args, "-L", label)
 		}
 		args = append(args, device)
-		cmd = exec.Command("mkswap", args...)
+		cmd = exec.CommandContext(ctx, "mkswap", args...)
 
 	default:
-		args := []string{"-t", fstype}
-		args = append(args, device)
-		cmd = exec.Command("mkfs", args...)
+		args := make([]string, 0, 3)
+		args = append(args, "-t", fstype, device)
+		cmd = exec.CommandContext(ctx, "mkfs", args...)
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mkfs failed: %v: %s", err, string(output))
+		return fmt.Errorf("mkfs failed: %w: %s", err, string(output))
 	}
 	return nil
 }
@@ -514,7 +512,7 @@ func (m *FilesystemModule) Check(ctx context.Context, decl *StateDeclaration) (*
 		return nil, err
 	}
 
-	currentFS := m.getFilesystemType(config.Device)
+	currentFS := m.getFilesystemType(ctx, config.Device)
 	hasFS := currentFS != ""
 
 	result.Metadata["current_fstype"] = currentFS
@@ -576,13 +574,13 @@ func (m *FilesystemModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 		return result, err
 	}
 
-	currentFS := m.getFilesystemType(config.Device)
+	currentFS := m.getFilesystemType(ctx, config.Device)
 	hasFS := currentFS != ""
 
 	switch decl.State {
 	case "present":
 		if !hasFS || config.Force || (config.FSType != "" && currentFS != config.FSType) {
-			if err := m.createFS(config); err != nil {
+			if err := m.createFS(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create filesystem: %v", err)
 				return result, err
@@ -593,7 +591,7 @@ func (m *FilesystemModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 	case "absent":
 		if hasFS {
-			if err := m.wipeFS(config.Device); err != nil {
+			if err := m.wipeFS(ctx, config.Device); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to wipe filesystem: %v", err)
 				return result, err
@@ -654,8 +652,8 @@ func (m *FilesystemModule) parseConfig(decl *StateDeclaration) (*FilesystemConfi
 }
 
 // getFilesystemType returns the filesystem type of a device.
-func (m *FilesystemModule) getFilesystemType(device string) string {
-	cmd := exec.Command("blkid", "-o", "value", "-s", "TYPE", device)
+func (m *FilesystemModule) getFilesystemType(ctx context.Context, device string) string {
+	cmd := exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "TYPE", device)
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -664,14 +662,15 @@ func (m *FilesystemModule) getFilesystemType(device string) string {
 }
 
 // createFS creates a filesystem.
-func (m *FilesystemModule) createFS(config *FilesystemConfig) error {
-	var args []string
+func (m *FilesystemModule) createFS(ctx context.Context, config *FilesystemConfig) error {
+	// Preallocate with capacity for base args + optional label/UUID + device
+	args := make([]string, 0, len(config.Options)+5)
 	var cmdName string
 
 	switch config.FSType {
 	case "ext4":
 		cmdName = "mkfs.ext4"
-		args = []string{"-F"}
+		args = append(args, "-F")
 		if config.Label != "" {
 			args = append(args, "-L", config.Label)
 		}
@@ -722,20 +721,20 @@ func (m *FilesystemModule) createFS(config *FilesystemConfig) error {
 	args = append(args, config.Options...)
 	args = append(args, config.Device)
 
-	cmd := exec.Command(cmdName, args...)
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mkfs failed: %v: %s", err, string(output))
+		return fmt.Errorf("mkfs failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // wipeFS wipes the filesystem signature from a device.
-func (m *FilesystemModule) wipeFS(device string) error {
-	cmd := exec.Command("wipefs", "-a", device)
+func (m *FilesystemModule) wipeFS(ctx context.Context, device string) error {
+	cmd := exec.CommandContext(ctx, "wipefs", "-a", device)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("wipefs failed: %v: %s", err, string(output))
+		return fmt.Errorf("wipefs failed: %w: %s", err, string(output))
 	}
 	return nil
 }

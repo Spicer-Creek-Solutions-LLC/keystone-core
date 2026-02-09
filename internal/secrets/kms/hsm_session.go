@@ -69,6 +69,7 @@ func DefaultHSMSessionConfig() *HSMSessionConfig {
 //	    Closed --> [*]
 type HSMSessionState int
 
+// HSMSessionState constants define the possible states.
 const (
 	HSMSessionStateIdle HSMSessionState = iota
 	HSMSessionStateActive
@@ -185,7 +186,7 @@ func (s *HSMPooledSession) Release() {
 
 // Invalidate marks the session as invalid.
 func (s *HSMPooledSession) Invalidate() {
-	_ = s.machine.Fire(HSMSessionEventError)
+	_ = s.machine.Fire(HSMSessionEventError) //nolint:contextcheck // state machine Fire doesn't take context
 }
 
 // SessionState returns the current state from the state machine.
@@ -222,11 +223,11 @@ type HSMSessionPool struct {
 type HSMSessionStats struct {
 	mu sync.RWMutex
 
-	TotalCreated      uint64        `json:"total_created"`
-	TotalClosed       uint64        `json:"total_closed"`
-	TotalAcquired     uint64        `json:"total_acquired"`
-	TotalReleased     uint64        `json:"total_released"`
-	TotalErrors       uint64        `json:"total_errors"`
+	TotalCreated       uint64        `json:"total_created"`
+	TotalClosed        uint64        `json:"total_closed"`
+	TotalAcquired      uint64        `json:"total_acquired"`
+	TotalReleased      uint64        `json:"total_released"`
+	TotalErrors        uint64        `json:"total_errors"`
 	AverageAcquireTime time.Duration `json:"average_acquire_time"`
 
 	CurrentActive int `json:"current_active"`
@@ -264,12 +265,12 @@ func NewHSMSessionPool(ctx context.Context, config *HSMSessionConfig, iface PKCS
 
 	for i := 0; i < config.MinSessions; i++ {
 		if _, err := pool.createSession(ctx); err != nil {
-			pool.Close()
+			pool.Close() //nolint:contextcheck // Close API doesn't take context
 			return nil, fmt.Errorf("failed to create initial session: %w", err)
 		}
 	}
 
-	go pool.maintenanceLoop()
+	go pool.maintenanceLoop() //nolint:contextcheck // background loop uses internal context
 
 	return pool, nil
 }
@@ -310,7 +311,7 @@ func (p *HSMSessionPool) tryAcquire(ctx context.Context) (*HSMPooledSession, err
 	for e := p.sessions.Front(); e != nil; e = e.Next() {
 		session := e.Value.(*HSMPooledSession)
 		if session.State == HSMSessionStateIdle && session.IsValid() {
-			if err := session.machine.Fire(HSMSessionEventAcquire); err == nil {
+			if err := session.machine.Fire(HSMSessionEventAcquire); err == nil { //nolint:contextcheck // state machine Fire doesn't take context
 				atomic.AddInt32(&p.activeCount, 1)
 				return session, nil
 			}
@@ -322,7 +323,7 @@ func (p *HSMSessionPool) tryAcquire(ctx context.Context) (*HSMPooledSession, err
 		if err != nil {
 			return nil, err
 		}
-		if err := session.machine.Fire(HSMSessionEventAcquire); err != nil {
+		if err := session.machine.Fire(HSMSessionEventAcquire); err != nil { //nolint:contextcheck // state machine Fire doesn't take context
 			return nil, fmt.Errorf("failed to acquire new session: %w", err)
 		}
 		atomic.AddInt32(&p.activeCount, 1)
@@ -341,16 +342,16 @@ func (p *HSMSessionPool) createSession(ctx context.Context) (*HSMPooledSession, 
 
 // createSessionLocked creates a new session (must hold lock).
 func (p *HSMSessionPool) createSessionLocked(ctx context.Context) (*HSMPooledSession, error) {
-	session, err := p.iface.OpenSession(ctx, p.slotID, CKF_RW_SESSION|CKF_SERIAL_SESSION)
+	session, err := p.iface.OpenSession(ctx, p.slotID, CkfRWSession|CkfSerialSession)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open session: %w", err)
 	}
 
 	if p.pin != "" {
-		if err := p.iface.Login(ctx, session.Handle, CKU_USER, p.pin); err != nil {
+		if err := p.iface.Login(ctx, session.Handle, CkuUser, p.pin); err != nil {
 			var pkcs11Err *PKCS11Error
-			if !errors.As(err, &pkcs11Err) || pkcs11Err.Code != CKR_USER_ALREADY_LOGGED_IN {
-				p.iface.CloseSession(ctx, session.Handle)
+			if !errors.As(err, &pkcs11Err) || pkcs11Err.Code != ErrCkrUserAlreadyLoggedIn {
+				_ = p.iface.CloseSession(ctx, session.Handle) //nolint:errcheck // best-effort cleanup
 				return nil, fmt.Errorf("failed to login: %w", err)
 			}
 		}
@@ -390,7 +391,7 @@ func (p *HSMSessionPool) releaseSession(session *HSMPooledSession) {
 	}
 
 	// Transition to idle via state machine
-	if err := session.machine.Fire(HSMSessionEventRelease); err != nil {
+	if err := session.machine.Fire(HSMSessionEventRelease); err != nil { //nolint:contextcheck // state machine Fire doesn't take context
 		p.closeSessionLocked(context.Background(), session)
 		return
 	}
@@ -408,8 +409,8 @@ func (p *HSMSessionPool) closeSessionLocked(ctx context.Context, session *HSMPoo
 	}
 
 	// Transition to closed via state machine
-	_ = session.machine.Fire(HSMSessionEventClose)
-	p.iface.CloseSession(ctx, session.Session.Handle)
+	_ = session.machine.Fire(HSMSessionEventClose) //nolint:contextcheck // state machine Fire doesn't take context
+	_ = p.iface.CloseSession(ctx, session.Session.Handle) //nolint:errcheck // best-effort close
 
 	if session.element != nil {
 		p.sessions.Remove(session.element)
@@ -490,6 +491,7 @@ func (p *HSMSessionPool) recordAcquire(duration time.Duration) {
 	if p.stats.TotalAcquired == 1 {
 		p.stats.AverageAcquireTime = duration
 	} else {
+		//nolint:gosec // G115: TotalAcquired is a positive counter
 		p.stats.AverageAcquireTime = time.Duration(
 			(int64(p.stats.AverageAcquireTime)*(int64(p.stats.TotalAcquired)-1) + int64(duration)) /
 				int64(p.stats.TotalAcquired))
@@ -497,11 +499,21 @@ func (p *HSMSessionPool) recordAcquire(duration time.Duration) {
 }
 
 // Stats returns the current pool statistics.
-func (p *HSMSessionPool) Stats() HSMSessionStats {
+func (p *HSMSessionPool) Stats() *HSMSessionStats {
 	p.updateStats()
 	p.stats.mu.RLock()
 	defer p.stats.mu.RUnlock()
-	return *p.stats
+	return &HSMSessionStats{
+		TotalCreated:       p.stats.TotalCreated,
+		TotalClosed:        p.stats.TotalClosed,
+		TotalAcquired:      p.stats.TotalAcquired,
+		TotalReleased:      p.stats.TotalReleased,
+		TotalErrors:        p.stats.TotalErrors,
+		AverageAcquireTime: p.stats.AverageAcquireTime,
+		CurrentActive:      p.stats.CurrentActive,
+		CurrentIdle:        p.stats.CurrentIdle,
+		CurrentTotal:       p.stats.CurrentTotal,
+	}
 }
 
 // Healthy checks if the pool is healthy.
@@ -607,11 +619,11 @@ func (m *HSMSessionManager) AcquireSession(ctx context.Context, poolName string)
 }
 
 // Stats returns statistics for all pools.
-func (m *HSMSessionManager) Stats() map[string]HSMSessionStats {
+func (m *HSMSessionManager) Stats() map[string]*HSMSessionStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	stats := make(map[string]HSMSessionStats)
+	stats := make(map[string]*HSMSessionStats)
 	for name, pool := range m.pools {
 		stats[name] = pool.Stats()
 	}
@@ -655,7 +667,7 @@ func WithSession(ctx context.Context, pool *HSMSessionPool, fn func(session *HSM
 	if err != nil {
 		return err
 	}
-	defer session.Release()
+	defer session.Release() //nolint:contextcheck // Release doesn't need context
 
 	return fn(session)
 }
@@ -680,19 +692,20 @@ func WithRetry(ctx context.Context, pool *HSMSessionPool, config *HSMSessionConf
 
 		err = fn(session)
 		if err == nil {
-			session.Release()
+			session.Release() //nolint:contextcheck // Release doesn't need context
 			return nil
 		}
 
 		var pkcs11Err *PKCS11Error
 		if errors.As(err, &pkcs11Err) {
 			switch pkcs11Err.Code {
-			case CKR_SESSION_CLOSED, CKR_SESSION_HANDLE_INVALID,
-				CKR_DEVICE_ERROR, CKR_DEVICE_REMOVED, CKR_TOKEN_NOT_PRESENT:
-				session.Invalidate()
+			case ErrCkrSessionClosed, ErrCkrSessionHandleInvalid,
+				ErrCkrDeviceError, ErrCkrDeviceRemoved, ErrCkrTokenNotPresent:
+				session.Invalidate() //nolint:contextcheck // Invalidate doesn't need context
+			default:
 			}
 		}
-		session.Release()
+		session.Release() //nolint:contextcheck // Release doesn't need context
 
 		lastErr = err
 		if attempt < config.RetryAttempts {

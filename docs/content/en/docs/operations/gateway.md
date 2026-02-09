@@ -57,9 +57,6 @@ go build -o kscore-telemetry-gateway ./cmd/kscore-telemetry-gateway
 
 # Run with config file
 ./kscore-telemetry-gateway --config config.yaml
-
-# Or use environment variables
-NATS_URL=nats://localhost:4222 ./kscore-telemetry-gateway
 ```
 
 ## Configuration
@@ -69,34 +66,41 @@ The gateway is configured via YAML:
 ```yaml
 # NATS connection
 nats:
-  url: "nats://localhost:4222"
-  ca_cert: "/path/to/ca.crt"  # Optional TLS
+  urls:
+    - "nats://localhost:4222"
+  cluster: "default"
+  tls:
+    enabled: false
+    ca_file: "/path/to/ca.crt"  # Optional TLS
 
 # HTTP server
 server:
-  listen: ":8080"
+  listen: ":9091"
   read_timeout: 30s
   write_timeout: 30s
 
 # Metrics gateway
 metrics:
   enabled: true
-  max_age: 60s
-  max_series: 100000
+  stale_timeout: 60s
+  cardinality:
+    max_series: 100000
 
 # Logs gateway
 logs:
   enabled: true
-  max_entries: 100000
-  max_age: 1h
   min_level: "debug"
+  sources:
+    include: []
+    exclude: []
 
 # Traces gateway
 traces:
   enabled: true
-  max_traces: 10000
-  sampling_rate: 1.0
-  sample_errors: true
+  sampling:
+    rate: 1.0
+    priority_sample:
+      errors: true
 ```
 
 ## Endpoints
@@ -116,53 +120,86 @@ traces:
 
 ```yaml
 metrics:
+  enabled: true
+
+  # Subject to subscribe to for metrics (supports wildcards)
+  subject: "kscore.telemetry.metrics.>"
+
   # Maximum staleness before metrics are dropped
-  max_age: 60s
+  stale_timeout: 60s
 
-  # Maximum metric series to store
-  max_series: 100000
+  # Cardinality control
+  cardinality:
+    max_series: 100000
+    max_labels_per_series: 100
+    drop_high_cardinality: false
 
-  # Drop high-cardinality metrics
-  drop_high_cardinality: false
-  high_cardinality_threshold: 1000
+  # Label manipulation
+  labels:
+    add:
+      environment: "production"
+    drop:
+      - "internal_id"
 
   # Remote write to Prometheus
   remote_write:
-    - url: "http://prometheus:9090/api/v1/write"
-      batch_size: 1000
-      flush_interval: 15s
+    enabled: true
+    url: "http://prometheus:9090/api/v1/write"
+    batch_size: 1000
+    flush_interval: 15s
 ```
 
 #### Logs
 
 ```yaml
 logs:
+  enabled: true
+
+  # Subject to subscribe to for logs
+  subject: "kscore.telemetry.logs.>"
+
   # Minimum log level to accept
   min_level: "debug"  # debug, info, warn, error
 
   # Filter by source
-  include_sources: ["app", "system"]
-  exclude_sources: ["debug"]
+  sources:
+    include: ["app", "system"]
+    exclude: ["debug"]
 
   # Push to Loki
   loki:
+    enabled: true
     url: "http://loki:3100/loki/api/v1/push"
     tenant_id: "default"
+    batch_size: 1000
+    batch_wait: 100ms
 ```
 
 #### Traces
 
 ```yaml
 traces:
+  enabled: true
+
+  # Subject to subscribe to for traces
+  subject: "kscore.telemetry.traces.>"
+
   # Sampling configuration
-  sampling_rate: 0.1  # Keep 10% of traces
-  sample_errors: true  # Always keep error traces
-  slow_threshold: 1s  # Always keep slow traces
+  sampling:
+    enabled: true
+    rate: 0.1  # Keep 10% of traces
+    priority_sample:
+      errors: true           # Always keep error traces
+      slow_threshold: 1s     # Always keep slow traces
 
   # Export to OTLP endpoint
   otlp:
-    url: "http://tempo:4318/v1/traces"
-    use_gzip: true
+    enabled: true
+    endpoint: "http://tempo:4318/v1/traces"
+    protocol: "http"         # grpc or http
+    compression: "gzip"      # gzip or none
+    batch_size: 1000
+    flush_interval: 5s
 ```
 
 ## Retention Policy Sizing
@@ -261,13 +298,13 @@ logs:
   # Hybrid (memory buffer + disk overflow)
   storage: hybrid
   memory_entries: 100000     # ~10MB hot buffer
-  disk_path: /var/lib/kscore/logs
+  disk_path: /var/lib/keystone-core/logs
   disk_max_size: 10GB
   max_age: 24h
 
   # Disk-primary (higher capacity, slightly higher latency)
   storage: disk
-  disk_path: /var/lib/kscore/logs
+  disk_path: /var/lib/keystone-core/logs
   disk_max_size: 100GB
   max_age: 168h              # 7 days
   compression: zstd
@@ -287,7 +324,7 @@ logs:
 logs:
   storage: hybrid
   memory_entries: 200000
-  disk_path: /var/lib/kscore/logs
+  disk_path: /var/lib/keystone-core/logs
   disk_max_size: 20GB
   max_age: 6h
   min_level: info
@@ -296,7 +333,7 @@ logs:
 # Large deployment (1,000-10,000 agents)
 logs:
   storage: disk
-  disk_path: /var/lib/kscore/logs
+  disk_path: /var/lib/keystone-core/logs
   disk_max_size: 100GB
   max_age: 4h
   min_level: warn            # Filter to reduce volume
@@ -309,7 +346,7 @@ logs:
 # Enterprise (10,000+ agents)
 logs:
   storage: disk
-  disk_path: /var/lib/kscore/logs
+  disk_path: /var/lib/keystone-core/logs
   disk_max_size: 500GB
   max_age: 2h
   min_level: warn

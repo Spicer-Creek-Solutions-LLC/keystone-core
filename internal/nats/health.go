@@ -44,12 +44,12 @@ func (s HealthStatus) IsAvailable() bool {
 
 // HealthCheckResult contains the result of a health check
 type HealthCheckResult struct {
-	Endpoint    *Endpoint
-	Status      HealthStatus
-	Latency     time.Duration
-	CheckedAt   time.Time
-	Error       error
-	Details     map[string]interface{}
+	Endpoint  *Endpoint
+	Status    HealthStatus
+	Latency   time.Duration
+	CheckedAt time.Time
+	Error     error
+	Details   map[string]interface{}
 }
 
 // HealthChecker checks the health of an endpoint
@@ -135,6 +135,7 @@ func (h *EndpointHealth) Score() float64 {
 		score *= 0.75
 	case HealthStatusUnknown:
 		score *= 0.5
+	default:
 	}
 
 	return score
@@ -393,9 +394,9 @@ func (t *HealthTracker) CheckNow(endpoint *Endpoint) *HealthCheckResult {
 
 // HealthBasedRouter routes to endpoints based on health
 type HealthBasedRouter struct {
-	tracker    *HealthTracker
-	strategy   RoutingStrategy
-	mu         sync.RWMutex
+	tracker  *HealthTracker
+	strategy RoutingStrategy
+	mu       sync.RWMutex
 }
 
 // RoutingStrategy defines how to select an endpoint
@@ -484,7 +485,7 @@ func (r *HealthBasedRouter) selectByLeastLatency(endpoints []*Endpoint) *Endpoin
 	}
 
 	var best *Endpoint
-	var bestLatency time.Duration = time.Hour
+	bestLatency := time.Hour
 
 	for _, ep := range endpoints {
 		health := r.tracker.GetHealth(ep)
@@ -575,6 +576,7 @@ func (r *HealthBasedRouter) SelectEndpoints() []*Endpoint {
 			}
 			return scorei > scorej
 		})
+	default:
 	}
 
 	return healthy
@@ -604,10 +606,12 @@ func NewPingHealthChecker(connManager *PooledConnectionManager) *PingHealthCheck
 	return &PingHealthChecker{connManager: connManager}
 }
 
+// Name returns the name.
 func (c *PingHealthChecker) Name() string {
 	return "ping"
 }
 
+// Check performs a health check.
 func (c *PingHealthChecker) Check(ctx context.Context, endpoint *Endpoint) *HealthCheckResult {
 	result := &HealthCheckResult{
 		Endpoint:  endpoint,
@@ -644,10 +648,12 @@ func (c *PingHealthChecker) Check(ctx context.Context, endpoint *Endpoint) *Heal
 // NoOpHealthChecker always returns healthy (for testing)
 type NoOpHealthChecker struct{}
 
+// Name returns the name.
 func (c *NoOpHealthChecker) Name() string {
 	return "noop"
 }
 
+// Check performs a health check.
 func (c *NoOpHealthChecker) Check(ctx context.Context, endpoint *Endpoint) *HealthCheckResult {
 	return &HealthCheckResult{
 		Endpoint:  endpoint,

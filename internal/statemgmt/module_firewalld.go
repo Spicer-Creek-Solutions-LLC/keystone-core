@@ -25,16 +25,16 @@ func NewFirewalldModule() *FirewalldModule {
 // FirewalldConfig holds firewalld-specific configuration
 type FirewalldConfig struct {
 	// Zone configuration
-	Zone       string // Zone name (public, internal, dmz, etc.)
-	Source     string // Source IP/CIDR to add to zone
-	Interface  string // Interface to add to zone
-	Target     string // Zone default target (default, ACCEPT, DROP, REJECT)
+	Zone      string // Zone name (public, internal, dmz, etc.)
+	Source    string // Source IP/CIDR to add to zone
+	Interface string // Interface to add to zone
+	Target    string // Zone default target (default, ACCEPT, DROP, REJECT)
 
 	// Service/Port rules
-	Service    string // Service name (ssh, http, https, etc.)
-	Port       int    // Port number
-	PortRange  string // Port range (e.g., "8000-8100")
-	Protocol   string // tcp, udp
+	Service   string // Service name (ssh, http, https, etc.)
+	Port      int    // Port number
+	PortRange string // Port range (e.g., "8000-8100")
+	Protocol  string // tcp, udp
 
 	// Rich rules
 	RichRule   string // Full rich rule specification
@@ -48,20 +48,20 @@ type FirewalldConfig struct {
 	LogLevel   string // Log level (emerg, alert, crit, err, warning, notice, info, debug)
 
 	// Forward ports
-	ToPort     int    // Forward to port
-	ToAddr     string // Forward to address
+	ToPort int    // Forward to port
+	ToAddr string // Forward to address
 
 	// Masquerade
-	Masquerade bool   // Enable masquerade for zone
+	Masquerade bool // Enable masquerade for zone
 
 	// ICMP blocks
-	ICMPBlock  string // ICMP type to block
-	ICMPBlockInversion bool // Invert ICMP block
+	ICMPBlock          string // ICMP type to block
+	ICMPBlockInversion bool   // Invert ICMP block
 
 	// Options
-	Permanent  bool   // Make changes permanent
-	Immediate  bool   // Apply immediately (runtime)
-	Timeout    int    // Timeout in seconds (0 = permanent)
+	Permanent bool // Make changes permanent
+	Immediate bool // Apply immediately (runtime)
+	Timeout   int  // Timeout in seconds (0 = permanent)
 }
 
 // Check checks the current state of a firewalld configuration
@@ -134,7 +134,7 @@ func (m *FirewalldModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the firewalld configuration
@@ -154,7 +154,7 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		result.Comment = result.Error.Error()
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	running, err := m.isFirewalldRunning(ctx)
@@ -163,7 +163,7 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		result.Comment = result.Error.Error()
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	config, err := m.parseFirewalldConfig(decl)
@@ -172,7 +172,7 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	checkResult, err := m.Check(ctx, decl)
@@ -181,7 +181,7 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if checkResult.Matches {
@@ -190,16 +190,16 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	var applyErr error
 	var comment string
 
 	if decl.State == "present" {
-		applyErr, comment = m.addResource(ctx, config)
+		comment, applyErr = m.addResource(ctx, config)
 	} else {
-		applyErr, comment = m.removeResource(ctx, config)
+		comment, applyErr = m.removeResource(ctx, config)
 	}
 
 	if applyErr != nil {
@@ -215,7 +215,7 @@ func (m *FirewalldModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test tests if the firewalld configuration is in the desired state
@@ -375,34 +375,34 @@ func (m *FirewalldModule) buildRichRule(config *FirewalldConfig) string {
 	parts = append(parts, "rule")
 
 	if config.Family != "" {
-		parts = append(parts, fmt.Sprintf("family=\"%s\"", config.Family))
+		parts = append(parts, fmt.Sprintf("family=%q", config.Family))
 	}
 
 	if config.SourceAddr != "" {
-		parts = append(parts, fmt.Sprintf("source address=\"%s\"", config.SourceAddr))
+		parts = append(parts, fmt.Sprintf("source address=%q", config.SourceAddr))
 	}
 
 	if config.DestAddr != "" {
-		parts = append(parts, fmt.Sprintf("destination address=\"%s\"", config.DestAddr))
+		parts = append(parts, fmt.Sprintf("destination address=%q", config.DestAddr))
 	}
 
 	if config.Service != "" {
-		parts = append(parts, fmt.Sprintf("service name=\"%s\"", config.Service))
+		parts = append(parts, fmt.Sprintf("service name=%q", config.Service))
 	} else if config.DestPort > 0 {
-		parts = append(parts, fmt.Sprintf("port port=\"%d\" protocol=\"%s\"", config.DestPort, config.Protocol))
+		parts = append(parts, fmt.Sprintf("port port=%q protocol=%q", fmt.Sprintf("%d", config.DestPort), config.Protocol))
 	}
 
 	if config.Limit != "" {
-		parts = append(parts, fmt.Sprintf("limit value=\"%s\"", config.Limit))
+		parts = append(parts, fmt.Sprintf("limit value=%q", config.Limit))
 	}
 
 	if config.LogPrefix != "" || config.LogLevel != "" {
 		logPart := "log"
 		if config.LogPrefix != "" {
-			logPart += fmt.Sprintf(" prefix=\"%s\"", config.LogPrefix)
+			logPart += fmt.Sprintf(" prefix=%q", config.LogPrefix)
 		}
 		if config.LogLevel != "" {
-			logPart += fmt.Sprintf(" level=\"%s\"", config.LogLevel)
+			logPart += fmt.Sprintf(" level=%q", config.LogLevel)
 		}
 		parts = append(parts, logPart)
 	}
@@ -422,7 +422,7 @@ func (m *FirewalldModule) buildRichRule(config *FirewalldConfig) string {
 }
 
 // addResource adds a firewalld resource
-func (m *FirewalldModule) addResource(ctx context.Context, config *FirewalldConfig) (error, string) {
+func (m *FirewalldModule) addResource(ctx context.Context, config *FirewalldConfig) (string, error) {
 	var args []string
 	var comment string
 
@@ -464,7 +464,7 @@ func (m *FirewalldModule) addResource(ctx context.Context, config *FirewalldConf
 		args = []string{"--zone", config.Zone, "--add-forward-port", fwdPort}
 		comment = fmt.Sprintf("Added forward port to zone %s", config.Zone)
 	default:
-		return fmt.Errorf("no valid firewalld resource specified"), ""
+		return "", fmt.Errorf("no valid firewalld resource specified")
 	}
 
 	// Add permanent and timeout flags
@@ -478,7 +478,7 @@ func (m *FirewalldModule) addResource(ctx context.Context, config *FirewalldConf
 	cmd := exec.CommandContext(ctx, "firewall-cmd", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("firewall-cmd failed: %w (output: %s)", err, string(output)), ""
+		return "", fmt.Errorf("firewall-cmd failed: %w (output: %s)", err, string(output))
 	}
 
 	// If permanent and immediate, reload
@@ -487,11 +487,11 @@ func (m *FirewalldModule) addResource(ctx context.Context, config *FirewalldConf
 		cmd.Run()
 	}
 
-	return nil, comment
+	return comment, nil
 }
 
 // removeResource removes a firewalld resource
-func (m *FirewalldModule) removeResource(ctx context.Context, config *FirewalldConfig) (error, string) {
+func (m *FirewalldModule) removeResource(ctx context.Context, config *FirewalldConfig) (string, error) {
 	var args []string
 	var comment string
 
@@ -533,7 +533,7 @@ func (m *FirewalldModule) removeResource(ctx context.Context, config *FirewalldC
 		args = []string{"--zone", config.Zone, "--remove-forward-port", fwdPort}
 		comment = fmt.Sprintf("Removed forward port from zone %s", config.Zone)
 	default:
-		return fmt.Errorf("no valid firewalld resource specified"), ""
+		return "", fmt.Errorf("no valid firewalld resource specified")
 	}
 
 	if config.Permanent {
@@ -543,7 +543,7 @@ func (m *FirewalldModule) removeResource(ctx context.Context, config *FirewalldC
 	cmd := exec.CommandContext(ctx, "firewall-cmd", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("firewall-cmd failed: %w (output: %s)", err, string(output)), ""
+		return "", fmt.Errorf("firewall-cmd failed: %w (output: %s)", err, string(output))
 	}
 
 	if config.Permanent && config.Immediate {
@@ -551,9 +551,9 @@ func (m *FirewalldModule) removeResource(ctx context.Context, config *FirewalldC
 		cmd.Run()
 	}
 
-	return nil, comment
+	return comment, nil
 }
 
 func init() {
-	RegisterModule(NewFirewalldModule())
+	_ = RegisterModule(NewFirewalldModule()) //nolint:errcheck // module registration in init
 }

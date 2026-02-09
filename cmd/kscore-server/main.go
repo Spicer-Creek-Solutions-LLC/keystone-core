@@ -1,3 +1,4 @@
+// Package main implements the kscore-server control plane daemon.
 package main
 
 import (
@@ -116,13 +117,13 @@ func runServer(cmd *cobra.Command, args []string) {
 	natsManager, err := natsmgr.NewManager(&cfg.NATS)
 	if err != nil {
 		logger.Error("Failed to create NATS manager", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 
 	// Start NATS manager
 	if err := natsManager.Start(); err != nil {
 		logger.Error("Failed to start NATS manager", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	defer natsManager.Shutdown()
 
@@ -135,7 +136,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Health check
 	if err := natsManager.Health(); err != nil {
 		logger.Error("NATS health check failed", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	logger.Info("NATS health check passed")
 
@@ -154,14 +155,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	stateStore, err := state.NewStore(storeConfig)
 	if err != nil {
 		logger.Error("Failed to create state store", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	defer stateStore.Close()
 
 	// Test database connection
 	if err := stateStore.Ping(ctx); err != nil {
 		logger.Error("Failed to connect to database", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	logger.Info("State storage initialized", logging.String("backend", string(cfg.Storage.Backend)))
 
@@ -174,7 +175,7 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	if err := connMgr.Start(); err != nil {
 		logger.Error("Failed to start connection manager", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	defer connMgr.Stop()
 
@@ -183,7 +184,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	dispatcher := controlplane.NewCommandDispatcher(connMgr, stateStore)
 	if err := dispatcher.Start(); err != nil {
 		logger.Error("Failed to start command dispatcher", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	defer dispatcher.Stop()
 
@@ -204,7 +205,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		authCfg, err := auth.NewInterceptorConfigFromConfig(cfg.Auth)
 		if err != nil {
 			logger.Error("Failed to initialize authentication", logging.Error(err))
-			os.Exit(1)
+			return
 		}
 
 		// Add audit logging for auth events (using structured logger)
@@ -253,7 +254,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	grpcListeners, err := server.CreateListeners(grpcListenerCfg)
 	if err != nil {
 		logger.Error("Failed to create gRPC listeners", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 
 	// Start gRPC server on all configured listeners
@@ -319,14 +320,18 @@ func runServer(cmd *cobra.Command, args []string) {
 	httpListeners, err := server.CreateListeners(httpListenerCfg)
 	if err != nil {
 		logger.Error("Failed to create HTTP listeners", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 
 	// Track HTTP servers for graceful shutdown
 	var httpServers []*http.Server
 	for _, lr := range httpListeners {
 		httpServer := &http.Server{
-			Handler: httpMux,
+			Handler:           httpMux,
+			ReadTimeout:       10 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      10 * time.Second,
+			IdleTimeout:       120 * time.Second,
 		}
 		httpServers = append(httpServers, httpServer)
 
@@ -401,7 +406,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Info("Initializing webhook receiver")
 
 		// Create webhook config
-		webhookConfig := &webhook.WebhookConfig{
+		webhookConfig := &webhook.Config{
 			Enabled:  true,
 			Addr:     fmt.Sprintf(":%d", cfg.Webhook.Port),
 			Path:     cfg.Webhook.Path,
@@ -531,7 +536,7 @@ type loggingEventProcessor struct {
 	logger logging.Logger
 }
 
-func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook.WebhookEvent) error {
+func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook.Event) error {
 	p.logger.Info("Webhook event received",
 		logging.String("type", string(event.Type)),
 		logging.String("source", event.Source),

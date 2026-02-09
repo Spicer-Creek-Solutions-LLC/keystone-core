@@ -509,7 +509,7 @@ func (dm *DeliveryManager) processRetries() {
 		backoff := dm.calculateBackoff(msg.Attempts)
 		if time.Since(msg.LastAttempt) < backoff {
 			// Not ready for retry, re-queue
-			dm.buffer.Enqueue(msg)
+			_ = dm.buffer.Enqueue(msg) //nolint:errcheck // best-effort re-queue
 			continue
 		}
 
@@ -518,7 +518,7 @@ func (dm *DeliveryManager) processRetries() {
 			atomic.AddInt64(&dm.stats.TotalRetries, 1)
 			msg.Attempts++
 			msg.LastAttempt = time.Now()
-			dm.buffer.Enqueue(msg)
+			_ = dm.buffer.Enqueue(msg) //nolint:errcheck // best-effort re-queue
 		}
 	}
 }

@@ -12,6 +12,7 @@ import (
 // HybridModeEvent represents events that can occur in hybrid mode
 type HybridModeEvent string
 
+// HybridModeEvent constants define events for hybrid mode state transitions.
 const (
 	HybridModeEventStart             HybridModeEvent = "start"
 	HybridModeEventDetermined        HybridModeEvent = "determined"

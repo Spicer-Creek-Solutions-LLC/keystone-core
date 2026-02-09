@@ -1,3 +1,5 @@
+// Package server provides gRPC server implementations for the control plane
+// API including agent management, state, and policy services.
 package server
 
 import (
@@ -8,10 +10,10 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	"github.com/shawnbutts/keystone-core/internal/policy"
 	"github.com/shawnbutts/keystone-core/internal/state"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // parsePageToken decodes a page token to get the offset
@@ -119,7 +121,7 @@ func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsR
 		return &pb.ListAgentsResponse{
 			Agents:        pbAgents,
 			NextPageToken: nextPageToken,
-			TotalCount:    int32(len(pbAgents)),
+			TotalCount:    int32(len(pbAgents)), //nolint:gosec // G115: agent count bounded by page size
 		}, nil
 	}
 
@@ -163,7 +165,7 @@ func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsR
 	return &pb.ListAgentsResponse{
 		Agents:        filteredAgents[start:end],
 		NextPageToken: nextPageToken,
-		TotalCount:    int32(totalCount),
+		TotalCount:    int32(totalCount), //nolint:gosec // G115: agent count bounded by deployment
 	}, nil
 }
 
@@ -182,7 +184,7 @@ func (s *ControlPlaneServer) GetAgent(ctx context.Context, req *pb.GetAgentReque
 	}
 
 	// Fallback to connection manager (in-memory) if no store is configured
-	agent, err := s.connMgr.GetAgent(req.AgentId)
+	agent, err := s.connMgr.GetAgent(req.AgentId) //nolint:contextcheck // GetAgent API doesn't take context
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
@@ -305,7 +307,7 @@ func (s *ControlPlaneServer) ListCommands(ctx context.Context, req *pb.ListComma
 
 	return &pb.ListCommandsResponse{
 		Commands:      pbCommands,
-		TotalCount:    int32(len(pbCommands)),
+		TotalCount:    int32(len(pbCommands)), //nolint:gosec // G115: command count bounded by page size
 		NextPageToken: nextToken,
 	}, nil
 }
@@ -351,7 +353,7 @@ func (s *ControlPlaneServer) ListBatchJobs(ctx context.Context, req *pb.ListBatc
 
 	return &pb.ListBatchJobsResponse{
 		Jobs:       jobs,
-		TotalCount: int32(len(jobs)),
+		TotalCount: int32(len(jobs)), //nolint:gosec // G115: job count bounded by limit
 	}, nil
 }
 

@@ -7,8 +7,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/vendors"
 )
 
-func TestVyOSVersionStructure(t *testing.T) {
-	version := &VyOSVersion{
+func TestVersionStructure(t *testing.T) {
+	version := &Version{
 		Version:      "1.4.0",
 		BuildDate:    "2024-01-15",
 		Variant:      "vyos",
@@ -23,8 +23,8 @@ func TestVyOSVersionStructure(t *testing.T) {
 	}
 }
 
-func TestVyOSConfigStructure(t *testing.T) {
-	cfg := &VyOSConfig{
+func TestConfigStructure(t *testing.T) {
+	cfg := &Config{
 		Raw: "interfaces ethernet eth0 address 192.168.1.1/24",
 		Tree: map[string]interface{}{
 			"interfaces": map[string]interface{}{
@@ -42,8 +42,8 @@ func TestVyOSConfigStructure(t *testing.T) {
 	}
 }
 
-func TestVyOSInterfaceStructure(t *testing.T) {
-	iface := VyOSInterface{
+func TestInterfaceStructure(t *testing.T) {
+	iface := Interface{
 		Name:        "eth0",
 		Type:        "ethernet",
 		Description: "WAN interface",
@@ -67,8 +67,8 @@ func TestVyOSInterfaceStructure(t *testing.T) {
 	}
 }
 
-func TestVyOSRouteStructure(t *testing.T) {
-	route := VyOSRoute{
+func TestRouteStructure(t *testing.T) {
+	route := Route{
 		Destination: "0.0.0.0/0",
 		NextHop:     "192.168.1.1",
 		Interface:   "eth0",
@@ -87,8 +87,8 @@ func TestVyOSRouteStructure(t *testing.T) {
 	}
 }
 
-func TestVyOSFirewallRuleStructure(t *testing.T) {
-	rule := VyOSFirewallRule{
+func TestFirewallRuleStructure(t *testing.T) {
+	rule := FirewallRule{
 		Number:      10,
 		Action:      "accept",
 		Protocol:    "tcp",
@@ -115,12 +115,12 @@ func TestVyOSFirewallRuleStructure(t *testing.T) {
 	}
 }
 
-func TestVyOSFirewallRulesetStructure(t *testing.T) {
-	ruleset := VyOSFirewallRuleset{
+func TestFirewallRulesetStructure(t *testing.T) {
+	ruleset := FirewallRuleset{
 		Name:          "WAN_IN",
 		DefaultAction: "drop",
 		Description:   "Inbound WAN firewall",
-		Rules: []VyOSFirewallRule{
+		Rules: []FirewallRule{
 			{Number: 10, Action: "accept", Protocol: "icmp"},
 			{Number: 20, Action: "accept", Protocol: "tcp", Port: "22"},
 		},
@@ -138,7 +138,7 @@ func TestVyOSFirewallRulesetStructure(t *testing.T) {
 }
 
 func TestGetInterfaceType(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	tests := []struct {
 		name     string
@@ -172,7 +172,7 @@ func TestGetInterfaceType(t *testing.T) {
 }
 
 func TestParseVersion(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	versionOutput := `Version:          VyOS 1.4.0
 Build date:       2024-01-15
@@ -200,7 +200,7 @@ Compiled for CPU: Intel Core Processor`
 }
 
 func TestParseVersionEdgeOS(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	versionOutput := `Version:      EdgeOS v2.0.9
 Build date:   2022-06-15
@@ -214,7 +214,7 @@ Ubiquiti Networks, Inc.`
 }
 
 func TestParseUptime(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	tests := []struct {
 		name     string
@@ -244,7 +244,7 @@ func TestParseUptime(t *testing.T) {
 }
 
 func TestParseUptimeDuration(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	tests := []struct {
 		name   string
@@ -274,7 +274,7 @@ func TestParseUptimeDuration(t *testing.T) {
 }
 
 func TestParseInterfaceFacts(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	output := `eth0     up      192.168.1.1/24
 eth1     down    unassigned
@@ -288,7 +288,7 @@ lo       up      127.0.0.1/8`
 }
 
 func TestParseInterfaces(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	output := `eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
     link/ether 00:0c:29:xx:xx:xx brd ff:ff:ff:ff:ff:ff
@@ -316,7 +316,7 @@ eth1: <BROADCAST,MULTICAST> mtu 1500
 }
 
 func TestParseRoutes(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	output := `Codes: K - kernel, C - connected, S - static
 S>* 0.0.0.0/0 [1/0] via 192.168.1.1, eth0
@@ -331,7 +331,7 @@ C>* 10.0.0.0/8 is directly connected, eth1`
 }
 
 func TestParseFirewallRulesets(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	output := `Ruleset: WAN_IN
 default-action drop
@@ -354,7 +354,7 @@ default-action accept`
 }
 
 func TestParseMemoryInfo(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	// VyOS memory output format with "total" and "free" labels on separate lines
 	output := `Memory information:
@@ -382,7 +382,7 @@ Free:  2048000 kB`
 }
 
 func TestParseSerialNumber(t *testing.T) {
-	adapter := &VyOSAdapter{}
+	adapter := &Adapter{}
 
 	// VyOS typically doesn't have a serial number
 	serial := adapter.parseSerialNumber("CPU info output")
@@ -391,8 +391,8 @@ func TestParseSerialNumber(t *testing.T) {
 	}
 }
 
-func TestVyOSAdapterVendor(t *testing.T) {
-	adapter := &VyOSAdapter{}
+func TestAdapterVendor(t *testing.T) {
+	adapter := &Adapter{}
 	if adapter.Vendor() != vendors.VendorVyOS {
 		t.Errorf("Vendor() = %v, want VendorVyOS", adapter.Vendor())
 	}

@@ -3,19 +3,13 @@ package aws
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/secrets"
 )
-
-// mockSecretsManagerServer creates a mock AWS Secrets Manager server for testing.
-func mockSecretsManagerServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(handler))
-}
 
 func TestDefaultClientConfig(t *testing.T) {
 	cfg := DefaultClientConfig()
@@ -182,11 +176,11 @@ func TestSecretValueMethods(t *testing.T) {
 
 func TestSecretValueVersionStages(t *testing.T) {
 	tests := []struct {
-		name           string
-		stages         []string
-		wantCurrent    bool
-		wantPrevious   bool
-		wantPending    bool
+		name         string
+		stages       []string
+		wantCurrent  bool
+		wantPrevious bool
+		wantPending  bool
 	}{
 		{
 			name:        "AWSCURRENT",
@@ -249,9 +243,9 @@ func TestSecretVersionInfoStages(t *testing.T) {
 
 func TestTranslateError(t *testing.T) {
 	tests := []struct {
-		name     string
-		errMsg   string
-		wantErr  error
+		name    string
+		errMsg  string
+		wantErr error
 	}{
 		{
 			name:    "ResourceNotFoundException",
@@ -288,7 +282,7 @@ func TestTranslateError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := translateError(customError{msg: tt.errMsg})
-			if err != tt.wantErr {
+			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("translateError() = %v, want %v", err, tt.wantErr)
 			}
 		})
@@ -515,8 +509,8 @@ func TestRotationStatus(t *testing.T) {
 	status := &RotationStatus{
 		Enabled:        true,
 		LambdaARN:      "arn:aws:lambda:us-east-1:123456789:function:rotator",
-		LastRotated:   time.Now().Add(-24 * time.Hour),
-		NextRotation:  time.Now().Add(6 * 24 * time.Hour),
+		LastRotated:    time.Now().Add(-24 * time.Hour),
+		NextRotation:   time.Now().Add(6 * 24 * time.Hour),
 		AutoRotateDays: 7,
 	}
 
@@ -657,14 +651,14 @@ func TestBackendRenewRevokeLeaseNotSupported(t *testing.T) {
 
 	t.Run("RenewLease returns error", func(t *testing.T) {
 		_, err := b.RenewLease(ctx, "lease-id", time.Hour)
-		if err != secrets.ErrLeaseNotFound {
+		if !errors.Is(err, secrets.ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
 
 	t.Run("RevokeLease returns error", func(t *testing.T) {
 		err := b.RevokeLease(ctx, "lease-id")
-		if err != secrets.ErrLeaseNotFound {
+		if !errors.Is(err, secrets.ErrLeaseNotFound) {
 			t.Errorf("expected ErrLeaseNotFound, got %v", err)
 		}
 	})
@@ -750,7 +744,7 @@ func TestReplicationStatusFields(t *testing.T) {
 		Region:        "eu-west-1",
 		Status:        "InSync",
 		StatusMessage: "Replication is in sync",
-		KmsKeyId:      "arn:aws:kms:eu-west-1:123:key/abc",
+		KmsKeyID:      "arn:aws:kms:eu-west-1:123:key/abc",
 	}
 
 	if status.Region != "eu-west-1" {

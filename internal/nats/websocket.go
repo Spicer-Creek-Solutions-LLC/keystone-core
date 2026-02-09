@@ -1003,21 +1003,19 @@ func (c *WebSocketConnection) buildOptions() ([]nats.Option, error) {
 	}
 
 	// Connection callbacks
-	opts = append(opts, nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
-		c.handleDisconnect(err)
-	}))
-
-	opts = append(opts, nats.ReconnectHandler(func(_ *nats.Conn) {
-		c.handleReconnect()
-	}))
-
-	opts = append(opts, nats.ClosedHandler(func(_ *nats.Conn) {
-		c.handleClosed()
-	}))
-
-	opts = append(opts, nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
-		c.handleError(err)
-	}))
+	opts = append(opts,
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			c.handleDisconnect(err)
+		}),
+		nats.ReconnectHandler(func(_ *nats.Conn) {
+			c.handleReconnect()
+		}),
+		nats.ClosedHandler(func(_ *nats.Conn) {
+			c.handleClosed()
+		}),
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			c.handleError(err)
+		}))
 
 	// Timeouts
 	if c.config.HandshakeTimeout > 0 {
@@ -1198,7 +1196,6 @@ type WebSocketManager struct {
 
 	// Server configuration
 	serverConfig *WebSocketServerConfig
-	server       *server.Server
 	serverMu     sync.RWMutex
 
 	// State
@@ -1276,6 +1273,7 @@ func (m *WebSocketManager) AddConnection(name string, endpoint *Endpoint) error 
 			if m.onDisconnect != nil {
 				m.onDisconnect(name, conn.LastError())
 			}
+		default:
 		}
 	})
 
@@ -1405,14 +1403,17 @@ func NewEnhancedWebSocketStrategy(config *StrategyConfig, proxyConfig *WebSocket
 	}
 }
 
+// Name returns the name.
 func (s *EnhancedWebSocketStrategy) Name() string {
 	return "websocket-proxy"
 }
 
+// SupportsEndpoint returns whether the strategy supports the given endpoint.
 func (s *EnhancedWebSocketStrategy) SupportsEndpoint(endpoint *Endpoint) bool {
 	return endpoint.Scheme == SchemeWS || endpoint.Scheme == SchemeWSS
 }
 
+// ConfigureOptions configures connection options for the strategy.
 func (s *EnhancedWebSocketStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfig) ([]nats.Option, error) {
 	// Start with base WebSocket strategy
 	baseStrategy := NewWebSocketStrategy(s.config)
@@ -1440,6 +1441,7 @@ func (s *EnhancedWebSocketStrategy) ConfigureOptions(endpoint *Endpoint, config 
 	return opts, nil
 }
 
+// Priority returns the strategy priority.
 func (s *EnhancedWebSocketStrategy) Priority() int {
 	return 150 // Between TLS (50) and basic WebSocket (200)
 }

@@ -493,6 +493,3 @@ func randomTraceID() string {
 	return string(b)
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}

@@ -4,13 +4,14 @@ import (
 	"time"
 )
 
-// QueryType represents the type of query
-type QueryType string
+// Type represents the type of query
+type Type string
 
+// QueryTypeMetrics constants define the supported types.
 const (
-	QueryTypeMetrics QueryType = "metrics"
-	QueryTypeLogs    QueryType = "logs"
-	QueryTypeTraces  QueryType = "traces"
+	QueryTypeMetrics Type = "metrics"
+	QueryTypeLogs    Type = "logs"
+	QueryTypeTraces  Type = "traces"
 )
 
 // TimeRange represents a time range for queries
@@ -217,8 +218,8 @@ type TracesResult struct {
 	Total int `json:"total,omitempty"`
 }
 
-// ErrorResponse represents an error response
-type ErrorResponse struct {
+// ResponseError represents an error response
+type ResponseError struct {
 	// Message is the error message
 	Message string `json:"error"`
 

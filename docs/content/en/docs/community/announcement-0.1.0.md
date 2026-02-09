@@ -36,17 +36,16 @@ kscore-agent join --server https://control-plane:8443
 Define desired state in YAML and let Keystone Core ensure compliance:
 
 ```yaml
-states:
-  packages:
-    - name: ensure-nginx
-      package: nginx
-      state: present
+package:
+  ensure_nginx:
+    state: present
+    name: nginx
 
-  services:
-    - name: nginx-running
-      service: nginx
-      state: running
-      enabled: true
+service:
+  nginx_running:
+    state: running
+    name: nginx
+    enabled: true
 ```
 
 ### Event-Driven Reactors
@@ -88,7 +87,7 @@ Get started quickly with official blueprints:
 - **postgres-ha** - High-availability PostgreSQL
 
 ```bash
-kscorectl blueprint apply kscore/monitoring-stack
+kscorectl blueprint install kscore/monitoring-stack
 ```
 
 ## Architecture Highlights
@@ -107,10 +106,10 @@ Install the CLI and bootstrap your first control plane in minutes:
 curl -fsSL https://get.keystone-core.io | sh
 
 # Bootstrap control plane
-kscorectl bootstrap init --mode embedded
+kscorectl bootstrap seed --mode embedded
 
-# Apply a blueprint
-kscorectl blueprint apply kscore/security-baseline
+# Install a blueprint
+kscorectl blueprint install kscore/security-baseline
 ```
 
 ## What's Included
@@ -139,8 +138,8 @@ This release includes:
 Keystone Core is open source and we welcome contributions:
 
 - **Documentation**: [docs.keystone-core.io](https://docs.keystone-core.io)
-- **GitHub**: [github.com/keystone-core](https://github.com/keystone-core)
-- **Discussions**: [GitHub Discussions](https://github.com/keystone-core/keystone-core/discussions)
+- **GitHub**: [github.com/shawnbutts/keystone-core](https://github.com/shawnbutts/keystone-core)
+- **Discussions**: [GitHub Discussions](https://github.com/shawnbutts/keystone-core/discussions)
 
 ## What's Next
 
@@ -157,4 +156,4 @@ Thank you to everyone who contributed to making this release possible. We're exc
 
 ---
 
-*Keystone Core 0.1.0 is available now. [Get started today](/docs/getting-started/quickstart/).*
+*Keystone Core 0.1.0 is available now. [Get started today](/docs/getting-started/quick-start/).*

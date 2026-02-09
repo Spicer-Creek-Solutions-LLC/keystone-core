@@ -31,11 +31,12 @@ type PromiscConfig struct {
 // PromiscBackend represents the available promiscuous mode backend
 type PromiscBackend string
 
+// PBUnknown and related constants.
 const (
 	PBUnknown  PromiscBackend = "unknown"
-	PBIPLink   PromiscBackend = "ip_link"   // Linux ip command
-	PBIfconfig PromiscBackend = "ifconfig"  // macOS/BSD ifconfig
-	PBNetsh    PromiscBackend = "netsh"     // Windows netsh
+	PBIPLink   PromiscBackend = "ip_link"  // Linux ip command
+	PBIfconfig PromiscBackend = "ifconfig" // macOS/BSD ifconfig
+	PBNetsh    PromiscBackend = "netsh"    // Windows netsh
 )
 
 // Check checks the current promiscuous mode state
@@ -67,7 +68,7 @@ func (m *PromiscModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		result.Present = false
 		result.CurrentState = "absent"
 		result.Matches = false
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	result.Present = true
@@ -110,7 +111,7 @@ func (m *PromiscModule) Check(ctx context.Context, decl *StateDeclaration) (*Mod
 		}
 	}
 
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the promiscuous mode configuration
@@ -129,7 +130,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to parse config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if err := m.validatePromiscConfig(config); err != nil {
@@ -138,7 +139,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Invalid config: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	backend, err := m.detectPromiscBackend()
@@ -148,7 +149,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to detect promisc backend: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Check current state
@@ -158,7 +159,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = fmt.Sprintf("Failed to check current state: %v", err)
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// If already in desired state, no changes needed
@@ -168,7 +169,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 		result.Comment = "Already in desired state"
 		result.EndTime = time.Now()
 		result.Duration = result.EndTime.Sub(startTime)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	// Apply changes
@@ -194,7 +195,7 @@ func (m *PromiscModule) Apply(ctx context.Context, decl *StateDeclaration) (*Sta
 
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(startTime)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Test verifies the promiscuous mode matches the desired state
@@ -203,7 +204,7 @@ func (m *PromiscModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 	if err != nil {
 		return false, err
 	}
-	return checkResult.Matches, nil
+	return checkResult.Matches, nil //nolint:nilerr // intentional
 }
 
 // parsePromiscConfig parses the state declaration into PromiscConfig
@@ -227,7 +228,7 @@ func (m *PromiscModule) parsePromiscConfig(decl *StateDeclaration) (*PromiscConf
 		config.AllMulti = v
 	}
 
-	return config, nil
+	return config, nil //nolint:nilerr // intentional
 }
 
 // validatePromiscConfig validates the promiscuous mode configuration
@@ -243,15 +244,15 @@ func (m *PromiscModule) detectPromiscBackend() (PromiscBackend, error) {
 	switch runtime.GOOS {
 	case "linux":
 		if _, err := exec.LookPath("ip"); err == nil {
-			return PBIPLink, nil
+			return PBIPLink, nil //nolint:nilerr // intentional
 		}
 		return PBUnknown, fmt.Errorf("ip command not found")
 
 	case "darwin", "freebsd", "openbsd", "netbsd":
-		return PBIfconfig, nil
+		return PBIfconfig, nil //nolint:nilerr // intentional
 
 	case "windows":
-		return PBNetsh, nil
+		return PBNetsh, nil //nolint:nilerr // intentional
 
 	default:
 		return PBUnknown, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
@@ -264,17 +265,17 @@ func (m *PromiscModule) checkInterfaceExists(ctx context.Context, backend Promis
 	case PBIPLink:
 		cmd := exec.CommandContext(ctx, "ip", "link", "show", iface)
 		err := cmd.Run()
-		return err == nil, nil
+		return err == nil, nil //nolint:nilerr // intentional
 
 	case PBIfconfig:
 		cmd := exec.CommandContext(ctx, "ifconfig", iface)
 		err := cmd.Run()
-		return err == nil, nil
+		return err == nil, nil //nolint:nilerr // intentional
 
 	case PBNetsh:
 		cmd := exec.CommandContext(ctx, "netsh", "interface", "show", "interface", iface)
 		err := cmd.Run()
-		return err == nil, nil
+		return err == nil, nil //nolint:nilerr // intentional
 
 	default:
 		return false, fmt.Errorf("unsupported backend: %s", backend)
@@ -282,7 +283,7 @@ func (m *PromiscModule) checkInterfaceExists(ctx context.Context, backend Promis
 }
 
 // getPromiscState gets the current promiscuous mode state
-func (m *PromiscModule) getPromiscState(ctx context.Context, backend PromiscBackend, iface string) (promisc bool, allmulti bool, err error) {
+func (m *PromiscModule) getPromiscState(ctx context.Context, backend PromiscBackend, iface string) (promisc, allmulti bool, err error) {
 	switch backend {
 	case PBIPLink:
 		return m.getPromiscStateLinux(ctx, iface)
@@ -327,7 +328,7 @@ func (m *PromiscModule) disablePromisc(ctx context.Context, backend PromiscBacke
 // Linux Backend (ip link)
 // ============================================================================
 
-func (m *PromiscModule) getPromiscStateLinux(ctx context.Context, iface string) (bool, bool, error) {
+func (m *PromiscModule) getPromiscStateLinux(ctx context.Context, iface string) (promisc, allmulti bool, err error) {
 	cmd := exec.CommandContext(ctx, "ip", "link", "show", iface)
 	output, err := cmd.Output()
 	if err != nil {
@@ -338,12 +339,12 @@ func (m *PromiscModule) getPromiscStateLinux(ctx context.Context, iface string) 
 
 	// Check for PROMISC flag
 	// Format: "2: eth0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> ..."
-	promisc := strings.Contains(outputStr, "PROMISC")
+	promisc = strings.Contains(outputStr, "PROMISC")
 
 	// Check for ALLMULTI flag
-	allmulti := strings.Contains(outputStr, "ALLMULTI")
+	allmulti = strings.Contains(outputStr, "ALLMULTI")
 
-	return promisc, allmulti, nil
+	return promisc, allmulti, nil //nolint:nilerr // returning parsed interface flags, no error
 }
 
 func (m *PromiscModule) enablePromiscLinux(ctx context.Context, config *PromiscConfig, result *StateResult) error {
@@ -398,7 +399,7 @@ func (m *PromiscModule) disablePromiscLinux(ctx context.Context, config *Promisc
 // macOS/BSD Backend (ifconfig)
 // ============================================================================
 
-func (m *PromiscModule) getPromiscStateMacOS(ctx context.Context, iface string) (bool, bool, error) {
+func (m *PromiscModule) getPromiscStateMacOS(ctx context.Context, iface string) (promisc, allmulti bool, err error) {
 	cmd := exec.CommandContext(ctx, "ifconfig", iface)
 	output, err := cmd.Output()
 	if err != nil {
@@ -411,14 +412,14 @@ func (m *PromiscModule) getPromiscStateMacOS(ctx context.Context, iface string) 
 	flagsRegex := regexp.MustCompile(`flags=\d+<([^>]+)>`)
 	matches := flagsRegex.FindStringSubmatch(outputStr)
 	if len(matches) < 2 {
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // flags line not found, assume disabled
 	}
 
 	flags := matches[1]
-	promisc := strings.Contains(flags, "PROMISC")
-	allmulti := strings.Contains(flags, "ALLMULTI")
+	promisc = strings.Contains(flags, "PROMISC")
+	allmulti = strings.Contains(flags, "ALLMULTI")
 
-	return promisc, allmulti, nil
+	return promisc, allmulti, nil //nolint:nilerr // returning parsed interface flags, no error
 }
 
 func (m *PromiscModule) enablePromiscMacOS(ctx context.Context, config *PromiscConfig, result *StateResult) error {
@@ -449,7 +450,7 @@ func (m *PromiscModule) disablePromiscMacOS(ctx context.Context, config *Promisc
 // Windows Backend (netsh/PowerShell)
 // ============================================================================
 
-func (m *PromiscModule) getPromiscStateWindows(ctx context.Context, iface string) (bool, bool, error) {
+func (m *PromiscModule) getPromiscStateWindows(ctx context.Context, iface string) (promisc, allmulti bool, err error) {
 	// Windows doesn't have a direct promiscuous mode flag exposed via netsh
 	// We need to check via PowerShell/WMI or the adapter's advanced properties
 	// Note: Windows typically enables promiscuous mode at the application level (e.g., WinPcap)
@@ -473,13 +474,13 @@ if ($adapter) {
 	output, err := psCmd.Output()
 	if err != nil {
 		// If the advanced property doesn't exist, assume disabled
-		return false, false, nil
+		return false, false, nil //nolint:nilerr // property not existing is a valid state
 	}
 
 	outputStr := strings.TrimSpace(string(output))
-	promisc := outputStr == "enabled"
+	promisc = outputStr == "enabled"
 
-	return promisc, false, nil
+	return promisc, false, nil //nolint:nilerr // returning parsed promiscuous state, no error
 }
 
 func (m *PromiscModule) enablePromiscWindows(ctx context.Context, config *PromiscConfig, result *StateResult) error {
@@ -543,5 +544,5 @@ try {
 }
 
 func init() {
-	RegisterModule(NewPromiscModule())
+	_ = RegisterModule(NewPromiscModule()) //nolint:errcheck // module registration in init
 }

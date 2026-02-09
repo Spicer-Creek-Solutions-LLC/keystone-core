@@ -36,20 +36,20 @@ Create a file named `hello-state.yaml`:
 # hello-state.yaml
 # A simple state that creates a greeting file
 
-states:
-  file:
-    - id: /tmp/hello-keystone.txt
-      state: present
-      parameters:
-        contents: |
-          Hello from Keystone Core!
+file:
+  hello_file:
+    state: present
+    name: /tmp/hello-keystone.txt
+    contents: |
+      Hello from Keystone Core!
 
-          This file was created by declarative state management.
-          Timestamp: {{ .facts.timestamp }}
-        mode: "0644"
+      This file was created by declarative state management.
+      Timestamp: {{ .facts.timestamp }}
+    mode: "0644"
 ```
 
 This state:
+- Uses the `file` module with a state ID of `hello_file`
 - Creates a file at `/tmp/hello-keystone.txt`
 - Sets the content with a template that includes a timestamp
 - Sets file permissions to `0644`
@@ -151,18 +151,17 @@ Update the file content:
 
 ```yaml
 # hello-state.yaml (updated)
-states:
-  file:
-    - id: /tmp/hello-keystone.txt
-      state: present
-      parameters:
-        contents: |
-          Hello from Keystone Core!
+file:
+  hello_file:
+    state: present
+    name: /tmp/hello-keystone.txt
+    contents: |
+      Hello from Keystone Core!
 
-          This file was updated by declarative state management.
-          Version: 2
-          Timestamp: {{ .facts.timestamp }}
-        mode: "0644"
+      This file was updated by declarative state management.
+      Version: 2
+      Timestamp: {{ .facts.timestamp }}
+    mode: "0644"
 ```
 
 Check and apply:
@@ -191,10 +190,10 @@ To remove the file, change the state to `absent`:
 
 ```yaml
 # hello-state.yaml (cleanup)
-states:
-  file:
-    - id: /tmp/hello-keystone.txt
-      state: absent
+file:
+  hello_file:
+    state: absent
+    name: /tmp/hello-keystone.txt
 ```
 
 Apply to remove:
@@ -212,40 +211,39 @@ Here's a more complete example managing multiple resources:
 metadata:
   description: Complete example with multiple resources
 
-vars:
+variables:
   app_name: myapp
   app_user: appuser
 
-states:
-  # Create application user
-  user:
-    - id: {{ .vars.app_user }}
-      state: present
-      parameters:
-        shell: /bin/bash
-        home: /home/{{ .vars.app_user }}
+# Create application user
+user:
+  app_user:
+    state: present
+    name: "{{ .vars.app_user }}"
+    shell: /bin/bash
+    home: "/home/{{ .vars.app_user }}"
 
-  # Create application directory
-  file:
-    - id: /opt/{{ .vars.app_name }}
-      state: directory
-      parameters:
-        owner: {{ .vars.app_user }}
-        mode: "0755"
-      require:
-        - user: {{ .vars.app_user }}
+# Create application directory
+file:
+  app_dir:
+    state: directory
+    name: "/opt/{{ .vars.app_name }}"
+    owner: "{{ .vars.app_user }}"
+    mode: "0755"
+    require:
+      - user: app_user
 
-    - id: /opt/{{ .vars.app_name }}/config.yaml
-      state: present
-      parameters:
-        contents: |
-          app:
-            name: {{ .vars.app_name }}
-            environment: {{ .facts.environment | default "development" }}
-        owner: {{ .vars.app_user }}
-        mode: "0640"
-      require:
-        - file: /opt/{{ .vars.app_name }}
+  app_config:
+    state: present
+    name: "/opt/{{ .vars.app_name }}/config.yaml"
+    contents: |
+      app:
+        name: {{ .vars.app_name }}
+        environment: {{ .facts.environment | default "development" }}
+    owner: "{{ .vars.app_user }}"
+    mode: "0640"
+    require:
+      - file: app_dir
 ```
 
 This example demonstrates:

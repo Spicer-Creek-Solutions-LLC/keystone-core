@@ -49,11 +49,11 @@ type AgentResponse struct {
 
 // AgentListResponse represents the list agents API response.
 type AgentListResponse struct {
-	Agents     []AgentResponse `json:"agents"`
-	Total      int             `json:"total"`
-	Online     int             `json:"online"`
-	Offline    int             `json:"offline"`
-	RetrievedAt time.Time      `json:"retrieved_at"`
+	Agents      []AgentResponse `json:"agents"`
+	Total       int             `json:"total"`
+	Online      int             `json:"online"`
+	Offline     int             `json:"offline"`
+	RetrievedAt time.Time       `json:"retrieved_at"`
 }
 
 // TagsUpdateRequest represents the request body for updating agent tags.

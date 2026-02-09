@@ -32,7 +32,7 @@ This applies locally on the host running `kscorectl`.
 Verify the result:
 
 ```bash
-kscorectl exec run --target "agent_id:my-first-agent" -- cat /tmp/hello-from-kscore.txt
+kscorectl exec run --target "id:my-first-agent" -- cat /tmp/hello-from-kscore.txt
 ```
 
 Expected output:

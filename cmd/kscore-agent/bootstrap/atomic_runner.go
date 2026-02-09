@@ -16,7 +16,7 @@ type AtomicRunner struct {
 	verbose         bool
 	jsonOutput      bool
 	mode            DeploymentMode
-	bootstrapConfig *BootstrapConfig
+	bootstrapConfig *Config
 	atomicConfig    AtomicConfig
 	transaction     *TransactionManager
 }
@@ -63,7 +63,7 @@ func (r *AtomicRunner) SetMode(mode DeploymentMode) {
 }
 
 // SetBootstrapConfig sets the bootstrap configuration.
-func (r *AtomicRunner) SetBootstrapConfig(cfg *BootstrapConfig) {
+func (r *AtomicRunner) SetBootstrapConfig(cfg *Config) {
 	r.bootstrapConfig = cfg
 }
 
@@ -168,7 +168,7 @@ func (r *AtomicRunner) Run(ctx context.Context) error {
 
 			// Record failure
 			if !state.DryRun {
-				r.transaction.OnPhaseFailure(ctx, i, phase, phaseErr)
+				_ = r.transaction.OnPhaseFailure(ctx, i, phase, phaseErr) //nolint:errcheck // best-effort callback
 			}
 
 			// Collect diagnostics
@@ -192,7 +192,7 @@ func (r *AtomicRunner) Run(ctx context.Context) error {
 
 			// Update system info after detect phase
 			if phase.Name == PhaseDetect && state.System != nil {
-				r.transaction.SetSystemInfo(state.System)
+				_ = r.transaction.SetSystemInfo(state.System) //nolint:errcheck // best-effort info update
 			}
 		}
 
@@ -265,7 +265,7 @@ func (r *AtomicRunner) performRollback(ctx context.Context, state *State, comple
 
 	// Signal rollback start
 	if !state.DryRun {
-		r.transaction.BeforeRollback(rollbackCtx, reason)
+		_ = r.transaction.BeforeRollback(rollbackCtx, reason) //nolint:errcheck // best-effort callback
 	}
 
 	r.logEvent(state, "rollback_start", map[string]interface{}{
@@ -294,7 +294,7 @@ func (r *AtomicRunner) performRollback(ctx context.Context, state *State, comple
 			// Find the phase index
 			for j, p := range r.phases {
 				if p.Name == phase.Name {
-					r.transaction.AfterPhaseRollback(rollbackCtx, j, phase)
+					_ = r.transaction.AfterPhaseRollback(rollbackCtx, j, phase) //nolint:errcheck // best-effort callback
 					break
 				}
 			}
@@ -303,7 +303,7 @@ func (r *AtomicRunner) performRollback(ctx context.Context, state *State, comple
 
 	// Signal rollback complete
 	if !state.DryRun {
-		r.transaction.AfterRollback(rollbackCtx)
+		_ = r.transaction.AfterRollback(rollbackCtx) //nolint:errcheck // best-effort callback
 	}
 
 	r.logEvent(state, "rollback_complete", nil)
@@ -336,7 +336,7 @@ func (r *AtomicRunner) logEvent(state *State, event string, data map[string]inte
 }
 
 // GetCheckpoint returns the current checkpoint for inspection.
-func (r *AtomicRunner) GetCheckpoint() *BootstrapCheckpoint {
+func (r *AtomicRunner) GetCheckpoint() *Checkpoint {
 	if r.transaction == nil {
 		return nil
 	}

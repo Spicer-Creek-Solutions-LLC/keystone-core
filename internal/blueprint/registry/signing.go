@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/signing"
@@ -30,6 +29,7 @@ const (
 // KeyType represents the type of cryptographic key.
 type KeyType string
 
+// KeyTypeECDSA constants define the supported types.
 const (
 	KeyTypeECDSA   KeyType = "ecdsa"
 	KeyTypeRSA     KeyType = "rsa"
@@ -186,6 +186,7 @@ func (s *Signer) Sign(ctx context.Context, data []byte) (*SigningResult, error) 
 	case SignatureFormatBundle:
 		hash := sha256.Sum256(data)
 		return s.signBundle(ctx, data, hash[:])
+	default:
 	}
 
 	// Use the shared signing package for cosign and detached formats
@@ -334,13 +335,4 @@ func ParseSignatureBundle(data []byte) (*SignatureBundle, error) {
 // FormatFingerprint formats a public key fingerprint using the shared signing package.
 func FormatFingerprint(publicKey []byte) string {
 	return signing.KeyFingerprint(publicKey)
-}
-
-// formatHexFingerprint formats bytes as a colon-separated hex string.
-func formatHexFingerprint(data []byte) string {
-	var parts []string
-	for _, b := range data[:8] { // Use first 8 bytes for short fingerprint
-		parts = append(parts, fmt.Sprintf("%02x", b))
-	}
-	return strings.Join(parts, ":")
 }

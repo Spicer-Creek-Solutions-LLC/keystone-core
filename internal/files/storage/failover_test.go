@@ -686,6 +686,9 @@ func TestBytesReaderAt(t *testing.T) {
 
 	// Read from offset
 	n, err = r.ReadAt(buf, 6)
+	if err != nil {
+		t.Fatalf("ReadAt failed: %v", err)
+	}
 	if n != 5 {
 		t.Errorf("Read %d bytes, want 5", n)
 	}
@@ -695,7 +698,7 @@ func TestBytesReaderAt(t *testing.T) {
 
 	// Read past end
 	_, err = r.ReadAt(buf, 100)
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Error("Should return EOF when reading past end")
 	}
 }

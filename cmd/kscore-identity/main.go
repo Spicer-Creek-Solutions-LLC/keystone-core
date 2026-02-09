@@ -78,53 +78,6 @@ This plugin is typically invoked via kscorectl:
 	return rootCmd
 }
 
-// version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("kscore-identity version %s\n", version)
-	},
-}
-
-// status command
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show identity provider status",
-	Long:  `Display the current status of the identity provider including CA info, active SVIDs, and federation status.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// In a real implementation, this would connect to the control plane API
-		// For now, show a demo status
-		status := &IdentityStatus{
-			Provider:    "embedded",
-			TrustDomain: "kscore.local",
-			CAStatus:    "healthy",
-			CAExpiry:    time.Now().Add(365 * 24 * time.Hour),
-			ActiveSVIDs: 42,
-			FederatedDomains: []string{
-				"partner.example.org",
-			},
-			LastRotation: time.Now().Add(-30 * time.Minute),
-		}
-
-		if outputFmt == "json" {
-			return printJSON(status)
-		}
-
-		fmt.Println("Identity Provider Status")
-		fmt.Println("========================")
-		fmt.Printf("Provider:          %s\n", status.Provider)
-		fmt.Printf("Trust Domain:      %s\n", status.TrustDomain)
-		fmt.Printf("CA Status:         %s\n", status.CAStatus)
-		fmt.Printf("CA Expires:        %s\n", status.CAExpiry.Format(time.RFC3339))
-		fmt.Printf("Active SVIDs:      %d\n", status.ActiveSVIDs)
-		fmt.Printf("Federated Domains: %d\n", len(status.FederatedDomains))
-		fmt.Printf("Last Rotation:     %s\n", status.LastRotation.Format(time.RFC3339))
-
-		return nil
-	},
-}
-
 type IdentityStatus struct {
 	Provider         string    `json:"provider"`
 	TrustDomain      string    `json:"trust_domain"`
@@ -149,6 +102,8 @@ var (
 	tokenAgentID string
 	tokenTTL     time.Duration
 	tokenLabels  []string
+	tokenPath    string
+	tokenUses    int
 )
 
 func init() {
@@ -160,6 +115,8 @@ func init() {
 	tokenCreateCmd.Flags().StringVar(&tokenAgentID, "agent-id", "", "Agent ID for this token (required)")
 	tokenCreateCmd.Flags().DurationVar(&tokenTTL, "ttl", 5*time.Minute, "Token time-to-live")
 	tokenCreateCmd.Flags().StringSliceVar(&tokenLabels, "label", nil, "Labels to apply (key=value)")
+	tokenCreateCmd.Flags().StringVar(&tokenPath, "path", "", "SPIFFE path prefix for the agent identity")
+	tokenCreateCmd.Flags().IntVar(&tokenUses, "uses", 1, "Maximum number of times this token can be used")
 	tokenCreateCmd.MarkFlagRequired("agent-id")
 }
 
@@ -444,7 +401,7 @@ Example:
 			return err
 		}
 
-		if err := os.WriteFile(caBackupOutput, data, 0600); err != nil {
+		if err := os.WriteFile(caBackupOutput, data, 0o600); err != nil {
 			return fmt.Errorf("failed to write backup: %w", err)
 		}
 
@@ -607,8 +564,8 @@ Example:
 		// Create federation domain
 		fedDomain := &federation.FederatedDomain{
 			TrustDomain:     trustDomain,
-			Type:            federation.FederationType(fedType),
-			State:           federation.FederationStatePending,
+			Type:            federation.Type(fedType),
+			State:           federation.StatePending,
 			BundleEndpoint:  fedBundleEndpoint,
 			RefreshInterval: fedRefreshInterval,
 			CreatedAt:       time.Now(),

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -381,13 +382,13 @@ func TestLogger_Close(t *testing.T) {
 
 	ctx := context.Background()
 	err = logger.Log(ctx, &Event{})
-	if err != ErrLoggerClosed {
+	if !errors.Is(err, ErrLoggerClosed) {
 		t.Errorf("Expected ErrLoggerClosed, got %v", err)
 	}
 
 	// Double close
 	err = logger.Close()
-	if err != ErrLoggerClosed {
+	if !errors.Is(err, ErrLoggerClosed) {
 		t.Errorf("Double close should return ErrLoggerClosed, got %v", err)
 	}
 }

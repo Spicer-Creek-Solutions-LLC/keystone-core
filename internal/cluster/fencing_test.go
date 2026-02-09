@@ -190,11 +190,11 @@ func TestFenceGuard_GetStatus(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -209,11 +209,11 @@ func TestFenceGuard_GetReason(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -228,11 +228,11 @@ func TestFenceGuard_IsFenced(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -246,11 +246,11 @@ func TestFenceGuard_CanWrite(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -264,11 +264,11 @@ func TestFenceGuard_CanRead(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -282,11 +282,11 @@ func TestFenceGuard_Fence(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -311,11 +311,11 @@ func TestFenceGuard_AcquireOperation(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -342,11 +342,11 @@ func TestFenceGuard_ValidateEpoch(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -366,11 +366,11 @@ func TestFenceGuard_SetLeaseValid(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fenceConfig := DefaultFenceConfig()
@@ -398,11 +398,11 @@ func TestFenceGuard_AddObserver(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -426,11 +426,11 @@ func TestFenceGuard_GetStats(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -455,11 +455,11 @@ func TestFenceGuard_NewFenceToken(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")
@@ -481,11 +481,11 @@ func TestFenceGuard_ValidateFenceToken(t *testing.T) {
 	config := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
 	etcd := &EtcdClient{}
 	mm := &MembershipManager{
-		config:    config,
-		etcd:      etcd,
-		members:   make(map[string]*Member),
-		stopChan:  make(chan struct{}),
-		doneChan:  make(chan struct{}),
+		config:   config,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 
 	fg, _ := NewFenceGuard(nil, etcd, mm, nil, "member-1")

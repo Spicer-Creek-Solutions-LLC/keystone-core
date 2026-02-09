@@ -271,7 +271,7 @@ func buildClientOptions(cfg *ClientConfig) azcore.ClientOptions {
 
 	if cfg.RetryOptions != nil {
 		opts.Retry = policy.RetryOptions{
-			MaxRetries:    int32(cfg.RetryOptions.MaxRetries),
+			MaxRetries:    int32(cfg.RetryOptions.MaxRetries), //nolint:gosec // G115: small retry count
 			RetryDelay:    cfg.RetryOptions.RetryDelay,
 			MaxRetryDelay: cfg.RetryOptions.MaxRetryDelay,
 		}
@@ -1076,7 +1076,7 @@ func attributesFromSecret(attrs *azsecrets.SecretAttributes) *SecretAttributes {
 		sa.Expires = *attrs.Expires
 	}
 	if attrs.RecoveryLevel != nil {
-		sa.RecoveryLevel = string(*attrs.RecoveryLevel)
+		sa.RecoveryLevel = *attrs.RecoveryLevel
 	}
 	if attrs.RecoverableDays != nil {
 		sa.RecoverableDays = int(*attrs.RecoverableDays)
@@ -1133,7 +1133,7 @@ func attributesFromKey(attrs *azkeys.KeyAttributes) *KeyAttributes {
 		ka.Expires = *attrs.Expires
 	}
 	if attrs.RecoveryLevel != nil {
-		ka.RecoveryLevel = string(*attrs.RecoveryLevel)
+		ka.RecoveryLevel = *attrs.RecoveryLevel
 	}
 	if attrs.Exportable != nil {
 		ka.Exportable = *attrs.Exportable
@@ -1189,7 +1189,7 @@ func attributesFromCertificate(attrs *azcertificates.CertificateAttributes) *Cer
 		ca.Expires = *attrs.Expires
 	}
 	if attrs.RecoveryLevel != nil {
-		ca.RecoveryLevel = string(*attrs.RecoveryLevel)
+		ca.RecoveryLevel = *attrs.RecoveryLevel
 	}
 	return ca
 }

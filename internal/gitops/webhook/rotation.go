@@ -118,6 +118,7 @@ type RotationEvent struct {
 // RotationEventType represents types of rotation events
 type RotationEventType string
 
+// RotationEventCreated constants define the events.
 const (
 	RotationEventCreated        RotationEventType = "created"
 	RotationEventRotated        RotationEventType = "rotated"
@@ -264,7 +265,7 @@ func (r *SecretRotator) checkWebhookRotation(ctx context.Context, webhookID stri
 
 	if active == nil {
 		// No active secret, create initial one
-		r.CreateInitialSecret(ctx, webhookID)
+		_, _ = r.CreateInitialSecret(ctx, webhookID) //nolint:errcheck // best-effort initial secret creation
 		return
 	}
 
@@ -282,7 +283,7 @@ func (r *SecretRotator) checkWebhookRotation(ctx context.Context, webhookID stri
 				Version:         active.Version,
 				Timestamp:       now,
 				Details: map[string]interface{}{
-					"expires_at":    nextRotation,
+					"expires_at":     nextRotation,
 					"days_remaining": int(nextRotation.Sub(now).Hours() / 24),
 				},
 			})
@@ -291,7 +292,7 @@ func (r *SecretRotator) checkWebhookRotation(ctx context.Context, webhookID stri
 
 	// Check if rotation is needed
 	if now.After(active.CreatedAt.Add(r.config.RotationInterval)) {
-		r.RotateSecret(ctx, webhookID)
+		_, _ = r.RotateSecret(ctx, webhookID) //nolint:errcheck // best-effort rotation
 	}
 
 	// Check for grace period expirations
@@ -311,7 +312,7 @@ func (r *SecretRotator) checkGracePeriodExpirations(ctx context.Context, webhook
 		if v.Status == SecretStatusGracePeriod {
 			gracePeriodEnd := v.RotatedAt.Add(r.config.GracePeriod)
 			if now.After(gracePeriodEnd) {
-				r.store.UpdateVersionStatus(ctx, webhookID, v.ID, SecretStatusExpired)
+				_ = r.store.UpdateVersionStatus(ctx, webhookID, v.ID, SecretStatusExpired) //nolint:errcheck // best-effort status update
 				r.emitEvent(&RotationEvent{
 					Type:            RotationEventGracePeriodEnd,
 					WebhookID:       webhookID,
@@ -420,7 +421,7 @@ func (r *SecretRotator) RotateSecret(ctx context.Context, webhookID string) (*Se
 }
 
 // RevokeSecret revokes a specific secret version
-func (r *SecretRotator) RevokeSecret(ctx context.Context, webhookID string, versionID string) error {
+func (r *SecretRotator) RevokeSecret(ctx context.Context, webhookID, versionID string) error {
 	if err := r.store.UpdateVersionStatus(ctx, webhookID, versionID, SecretStatusRevoked); err != nil {
 		return fmt.Errorf("failed to revoke secret: %w", err)
 	}
@@ -468,7 +469,7 @@ func (r *SecretRotator) cleanupOldVersions(ctx context.Context, webhookID string
 	if len(versions) > r.config.MaxVersions {
 		for _, v := range versions {
 			if v.Status == SecretStatusExpired || v.Status == SecretStatusRevoked {
-				r.store.DeleteVersion(ctx, webhookID, v.ID)
+				_ = r.store.DeleteVersion(ctx, webhookID, v.ID) //nolint:errcheck // best-effort cleanup
 			}
 		}
 	}
@@ -608,7 +609,7 @@ func (s *InMemorySecretStore) SaveVersion(ctx context.Context, webhookID string,
 }
 
 // UpdateVersionStatus updates a version's status
-func (s *InMemorySecretStore) UpdateVersionStatus(ctx context.Context, webhookID string, versionID string, status SecretStatus) error {
+func (s *InMemorySecretStore) UpdateVersionStatus(ctx context.Context, webhookID, versionID string, status SecretStatus) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -626,7 +627,7 @@ func (s *InMemorySecretStore) UpdateVersionStatus(ctx context.Context, webhookID
 }
 
 // DeleteVersion deletes a secret version
-func (s *InMemorySecretStore) DeleteVersion(ctx context.Context, webhookID string, versionID string) error {
+func (s *InMemorySecretStore) DeleteVersion(ctx context.Context, webhookID, versionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

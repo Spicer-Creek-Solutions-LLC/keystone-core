@@ -144,6 +144,7 @@ func (m *Machine[S, E]) CanFireCtx(ctx context.Context, event E) bool {
 		m.mu.RUnlock()
 		return false
 	}
+	guards = make([]Guard[S, E], 0, len(t.guards))
 	guards = append(guards, t.guards...)
 	m.mu.RUnlock()
 
@@ -213,9 +214,13 @@ func (m *Machine[S, E]) fire(ctx context.Context, event E, metadata map[string]a
 	}
 
 	toState = t.to
+	guards = make([]Guard[S, E], 0, len(t.guards))
 	guards = append(guards, t.guards...)
+	onExit = make([]StateCallback[S], 0, len(m.onExit[fromState]))
 	onExit = append(onExit, m.onExit[fromState]...)
+	onEnter = make([]StateCallback[S], 0, len(m.onEnter[toState]))
 	onEnter = append(onEnter, m.onEnter[toState]...)
+	onTransition = make([]TransitionCallback[S, E], 0, len(m.onTransition))
 	onTransition = append(onTransition, m.onTransition...)
 	history = m.history
 	stateEnteredAt = m.stateEnteredAt
@@ -276,7 +281,7 @@ func (m *Machine[S, E]) fire(ctx context.Context, event E, metadata map[string]a
 	return nil
 }
 
-func (m *Machine[S, E]) safeStateCallback(ctx context.Context, phase string, state S, other S, cb StateCallback[S]) {
+func (m *Machine[S, E]) safeStateCallback(ctx context.Context, phase string, state, other S, cb StateCallback[S]) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := fmt.Errorf("state callback panic: %v", r)
@@ -286,7 +291,7 @@ func (m *Machine[S, E]) safeStateCallback(ctx context.Context, phase string, sta
 	cb(ctx, state, other)
 }
 
-func (m *Machine[S, E]) safeTransitionCallback(ctx context.Context, from S, to S, event E, cb TransitionCallback[S, E]) {
+func (m *Machine[S, E]) safeTransitionCallback(ctx context.Context, from, to S, event E, cb TransitionCallback[S, E]) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := fmt.Errorf("transition callback panic: %v", r)
@@ -316,7 +321,8 @@ func (m *Machine[S, E]) recordTransitionError(ctx context.Context, err error) {
 			{Key: "machine", Value: m.name},
 			{Key: "error", Value: err},
 		}
-		if transErr, ok := err.(*TransitionError); ok {
+		var transErr *TransitionError
+		if errors.As(err, &transErr) {
 			fields = append(fields,
 				Field{Key: "from", Value: transErr.From},
 				Field{Key: "event", Value: transErr.Event},
@@ -330,7 +336,7 @@ func (m *Machine[S, E]) recordTransitionError(ctx context.Context, err error) {
 	}
 }
 
-func (m *Machine[S, E]) recordCallbackPanic(ctx context.Context, err error, phase string, state S, other S, event *E) {
+func (m *Machine[S, E]) recordCallbackPanic(ctx context.Context, err error, phase string, state, other S, event *E) {
 	if m.metrics != nil {
 		m.metrics.recordCallbackPanic()
 	}

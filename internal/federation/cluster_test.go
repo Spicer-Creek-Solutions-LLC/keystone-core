@@ -124,8 +124,8 @@ func TestClusterHealth(t *testing.T) {
 	}
 }
 
-func TestDefaultFederationConfig(t *testing.T) {
-	config := DefaultFederationConfig()
+func TestDefaultConfig(t *testing.T) {
+	config := DefaultConfig()
 
 	if config.HealthInterval != 30*time.Second {
 		t.Errorf("HealthInterval = %v, want 30s", config.HealthInterval)
@@ -181,7 +181,12 @@ func TestNewFederation_TLSConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := DefaultFederationConfig()
+			// For skip_verify tests, set the environment variable to allow insecure TLS
+			if tt.skipVerify {
+				t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+			}
+
+			config := DefaultConfig()
 			config.TLSConfig = &TLSConfig{SkipVerify: tt.skipVerify, MinVersion: tt.minVersion}
 
 			fed := NewFederation(config, store, "local-cluster")
@@ -207,7 +212,7 @@ func TestFederation_StartStop(t *testing.T) {
 	fed := NewFederation(nil, store, "local-cluster")
 
 	var started, stopped bool
-	fed.AddListener(func(e *FederationEvent) {
+	fed.AddListener(func(e *Event) {
 		if e.Type == "federation_started" {
 			started = true
 		}
@@ -251,8 +256,8 @@ func TestFederation_LeaveCluster(t *testing.T) {
 	}
 	store.Save(ctx, cluster)
 
-	var events []*FederationEvent
-	fed.AddListener(func(e *FederationEvent) {
+	var events []*Event
+	fed.AddListener(func(e *Event) {
 		events = append(events, e)
 	})
 
@@ -354,7 +359,7 @@ func TestFederation_ListClustersByRegion(t *testing.T) {
 	}
 }
 
-func TestFederation_GetFederationStats(t *testing.T) {
+func TestFederation_GetStats(t *testing.T) {
 	store := NewInMemoryClusterStore()
 	fed := NewFederation(nil, store, "local-cluster")
 
@@ -391,9 +396,9 @@ func TestFederation_GetFederationStats(t *testing.T) {
 		store.Save(ctx, c)
 	}
 
-	stats, err := fed.GetFederationStats(ctx)
+	stats, err := fed.GetStats(ctx)
 	if err != nil {
-		t.Fatalf("GetFederationStats failed: %v", err)
+		t.Fatalf("GetStats failed: %v", err)
 	}
 
 	if stats.TotalClusters != 3 {
@@ -653,8 +658,8 @@ func TestScheduler_Schedule_PolicyNotFound(t *testing.T) {
 	}
 }
 
-func TestFederationConfig(t *testing.T) {
-	config := &FederationConfig{
+func TestConfig(t *testing.T) {
+	config := &Config{
 		ID:               "fed-1",
 		Name:             "production-federation",
 		HealthInterval:   15 * time.Second,
@@ -688,8 +693,8 @@ func TestTLSConfig(t *testing.T) {
 	}
 }
 
-func TestFederationEvent(t *testing.T) {
-	event := &FederationEvent{
+func TestEvent(t *testing.T) {
+	event := &Event{
 		Type:      "cluster_joined",
 		ClusterID: "cluster-1",
 		Timestamp: time.Now(),
@@ -750,16 +755,16 @@ func TestCopyCluster(t *testing.T) {
 		},
 	}
 
-	copy := copyCluster(original)
+	copied := copyCluster(original)
 
 	// Verify deep copy
-	if copy.ID != original.ID {
+	if copied.ID != original.ID {
 		t.Error("ID should match")
 	}
 
 	// Modify copy and verify original is unchanged
-	copy.Name = "modified"
-	copy.Labels["env"] = "dev"
+	copied.Name = "modified"
+	copied.Labels["env"] = "dev"
 
 	if original.Name == "modified" {
 		t.Error("Original should not be modified")

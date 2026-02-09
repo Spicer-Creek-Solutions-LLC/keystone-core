@@ -191,7 +191,7 @@ func TestBundler_CreateBundle(t *testing.T) {
 	}
 
 	// Create blueprint.yaml
-	blueprintYAML := `apiVersion: blueprints.kscore.io/v1
+	blueprintYAML := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: test-bp

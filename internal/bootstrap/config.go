@@ -116,7 +116,7 @@ func (c *ConfigLoader) applyDefaults(config *SeedConfig) {
 		config.NATS.Mode = NATSModeEmbedded
 	}
 	if config.NATS.StoreDir == "" {
-		config.NATS.StoreDir = "/var/lib/kscore/nats"
+		config.NATS.StoreDir = "/var/lib/keystone-core/nats"
 	}
 	if config.NATS.MaxMemory == "" {
 		config.NATS.MaxMemory = "1GB"
@@ -133,7 +133,7 @@ func (c *ConfigLoader) applyDefaults(config *SeedConfig) {
 		config.Database.Type = DatabaseTypeSQLite
 	}
 	if config.Database.Type == DatabaseTypeSQLite && config.Database.Path == "" {
-		config.Database.Path = "/var/lib/kscore/state.db"
+		config.Database.Path = "/var/lib/keystone-core/state.db"
 	}
 	if config.Database.Type == DatabaseTypePostgreSQL {
 		if config.Database.Port == 0 {
@@ -149,7 +149,7 @@ func (c *ConfigLoader) applyDefaults(config *SeedConfig) {
 		config.Etcd.Mode = EtcdModeEmbedded
 	}
 	if config.Etcd.DataDir == "" {
-		config.Etcd.DataDir = "/var/lib/kscore/etcd"
+		config.Etcd.DataDir = "/var/lib/keystone-core/etcd"
 	}
 
 	// Post-bootstrap defaults
@@ -355,17 +355,17 @@ func DefaultSeedConfig() *SeedConfig {
 		NATS: NATSConfig{
 			Mode:      NATSModeEmbedded,
 			JetStream: true,
-			StoreDir:  "/var/lib/kscore/nats",
+			StoreDir:  "/var/lib/keystone-core/nats",
 			MaxMemory: "1GB",
 			MaxFile:   "10GB",
 		},
 		Database: DatabaseConfig{
 			Type: DatabaseTypeSQLite,
-			Path: "/var/lib/kscore/state.db",
+			Path: "/var/lib/keystone-core/state.db",
 		},
 		Etcd: EtcdConfig{
 			Mode:    EtcdModeEmbedded,
-			DataDir: "/var/lib/kscore/etcd",
+			DataDir: "/var/lib/keystone-core/etcd",
 		},
 		PostBootstrap: PostBootstrapConfig{
 			ApplyStates:    false,

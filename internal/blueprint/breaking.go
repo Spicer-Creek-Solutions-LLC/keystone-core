@@ -153,17 +153,17 @@ func (d *BreakingChangeDetector) Detect(oldBlueprint, newBlueprint *Blueprint) *
 }
 
 // checkMajorVersion checks for major version bumps.
-func (d *BreakingChangeDetector) checkMajorVersion(old, new *Blueprint, report *BreakingChangeReport) {
+func (d *BreakingChangeDetector) checkMajorVersion(old, updated *Blueprint, report *BreakingChangeReport) {
 	oldMajor := getMajorVersion(old.Metadata.Version)
-	newMajor := getMajorVersion(new.Metadata.Version)
+	newMajor := getMajorVersion(updated.Metadata.Version)
 
 	if newMajor > oldMajor {
 		report.Changes = append(report.Changes, BreakingChange{
 			Type:        BreakingMajorVersion,
 			Severity:    SeverityHigh,
-			Description: fmt.Sprintf("Major version upgrade from %s to %s", old.Metadata.Version, new.Metadata.Version),
+			Description: fmt.Sprintf("Major version upgrade from %s to %s", old.Metadata.Version, updated.Metadata.Version),
 			OldValue:    old.Metadata.Version,
-			NewValue:    new.Metadata.Version,
+			NewValue:    updated.Metadata.Version,
 			Migration:   "Review the changelog and migration guide for this major version.",
 			AutoFixable: false,
 		})
@@ -171,16 +171,16 @@ func (d *BreakingChangeDetector) checkMajorVersion(old, new *Blueprint, report *
 }
 
 // checkParameterChanges checks for parameter schema changes.
-func (d *BreakingChangeDetector) checkParameterChanges(old, new *Blueprint, report *BreakingChangeReport) {
+func (d *BreakingChangeDetector) checkParameterChanges(old, updated *Blueprint, report *BreakingChangeReport) {
 	// Check for removed parameters
-	for name, oldParam := range old.Parameters {
-		if _, exists := new.Parameters[name]; !exists {
+	for name := range old.Parameters {
+		if _, exists := updated.Parameters[name]; !exists {
 			report.Changes = append(report.Changes, BreakingChange{
 				Type:         BreakingParameterRemoved,
 				Severity:     SeverityMedium,
 				Description:  fmt.Sprintf("Parameter '%s' was removed", name),
 				AffectedItem: name,
-				OldValue:     fmt.Sprintf("type: %s", oldParam.Type),
+				OldValue:     fmt.Sprintf("type: %s", old.Parameters[name].Type),
 				Migration:    "Remove this parameter from your configuration.",
 				AutoFixable:  true,
 			})
@@ -188,7 +188,8 @@ func (d *BreakingChangeDetector) checkParameterChanges(old, new *Blueprint, repo
 	}
 
 	// Check for type changes and new required parameters
-	for name, newParam := range new.Parameters {
+	for name := range updated.Parameters {
+		newParam := updated.Parameters[name]
 		oldParam, exists := old.Parameters[name]
 		if !exists {
 			// New parameter
@@ -235,10 +236,10 @@ func (d *BreakingChangeDetector) checkParameterChanges(old, new *Blueprint, repo
 }
 
 // checkFeatureChanges checks for feature changes.
-func (d *BreakingChangeDetector) checkFeatureChanges(old, new *Blueprint, report *BreakingChangeReport) {
+func (d *BreakingChangeDetector) checkFeatureChanges(old, updated *Blueprint, report *BreakingChangeReport) {
 	// Check for removed features
 	for name := range old.Features {
-		if _, exists := new.Features[name]; !exists {
+		if _, exists := updated.Features[name]; !exists {
 			report.Changes = append(report.Changes, BreakingChange{
 				Type:         BreakingFeatureRemoved,
 				Severity:     SeverityMedium,
@@ -252,8 +253,8 @@ func (d *BreakingChangeDetector) checkFeatureChanges(old, new *Blueprint, report
 }
 
 // checkDependencyChanges checks for dependency changes.
-func (d *BreakingChangeDetector) checkDependencyChanges(old, new *Blueprint, report *BreakingChangeReport) {
-	if old.Dependencies == nil || new.Dependencies == nil {
+func (d *BreakingChangeDetector) checkDependencyChanges(old, updated *Blueprint, report *BreakingChangeReport) {
+	if old.Dependencies == nil || updated.Dependencies == nil {
 		return
 	}
 
@@ -268,10 +269,10 @@ func (d *BreakingChangeDetector) checkDependencyChanges(old, new *Blueprint, rep
 
 	// Combine all new dependencies
 	newDeps := make(map[string]bool)
-	for _, dep := range new.Dependencies.Requires {
+	for _, dep := range updated.Dependencies.Requires {
 		newDeps[dep] = true
 	}
-	for _, dep := range new.Dependencies.RequiresBefore {
+	for _, dep := range updated.Dependencies.RequiresBefore {
 		newDeps[dep] = true
 	}
 
@@ -291,10 +292,10 @@ func (d *BreakingChangeDetector) checkDependencyChanges(old, new *Blueprint, rep
 }
 
 // checkEntrypointChanges checks for entry point changes.
-func (d *BreakingChangeDetector) checkEntrypointChanges(old, new *Blueprint, report *BreakingChangeReport) {
+func (d *BreakingChangeDetector) checkEntrypointChanges(old, updated *Blueprint, report *BreakingChangeReport) {
 	// Check for removed entry points
 	for name := range old.Entrypoints {
-		if _, exists := new.Entrypoints[name]; !exists {
+		if _, exists := updated.Entrypoints[name]; !exists {
 			report.Changes = append(report.Changes, BreakingChange{
 				Type:         BreakingEntrypointRemoved,
 				Severity:     SeverityHigh,
@@ -310,7 +311,7 @@ func (d *BreakingChangeDetector) checkEntrypointChanges(old, new *Blueprint, rep
 // checkStateChanges checks for state file changes by examining entrypoint values.
 // Since state files are resolved dynamically via entrypoints and features,
 // we check if any entrypoint now points to a different or removed state file.
-func (d *BreakingChangeDetector) checkStateChanges(old, new *Blueprint, report *BreakingChangeReport) {
+func (d *BreakingChangeDetector) checkStateChanges(old, updated *Blueprint, report *BreakingChangeReport) {
 	// Collect all state files referenced by entrypoints in the old blueprint
 	oldStateFiles := make(map[string]bool)
 	for _, stateFile := range old.Entrypoints {
@@ -319,7 +320,7 @@ func (d *BreakingChangeDetector) checkStateChanges(old, new *Blueprint, report *
 
 	// Collect all state files referenced by entrypoints in the new blueprint
 	newStateFiles := make(map[string]bool)
-	for _, stateFile := range new.Entrypoints {
+	for _, stateFile := range updated.Entrypoints {
 		newStateFiles[stateFile] = true
 	}
 
@@ -328,7 +329,7 @@ func (d *BreakingChangeDetector) checkStateChanges(old, new *Blueprint, report *
 		if !newStateFiles[stateFile] {
 			// Check if the file is still referenced but via a different entrypoint name
 			stillExists := false
-			for _, sf := range new.Entrypoints {
+			for _, sf := range updated.Entrypoints {
 				if sf == stateFile {
 					stillExists = true
 					break

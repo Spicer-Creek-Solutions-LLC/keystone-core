@@ -120,8 +120,8 @@ type MigrationStep struct {
 	Reversible bool `json:"reversible"`
 }
 
-// PolicyMigrator handles policy migrations
-type PolicyMigrator struct {
+// Migrator handles policy migrations
+type Migrator struct {
 	registry   *Registry
 	migrations map[string]MigrationFunc
 	history    []*MigrationRecord
@@ -173,9 +173,9 @@ func (l *noopMigrationLogger) Info(msg string, fields map[string]interface{})  {
 func (l *noopMigrationLogger) Warn(msg string, fields map[string]interface{})  {}
 func (l *noopMigrationLogger) Error(msg string, fields map[string]interface{}) {}
 
-// NewPolicyMigrator creates a new policy migrator
-func NewPolicyMigrator(registry *Registry) *PolicyMigrator {
-	m := &PolicyMigrator{
+// NewMigrator creates a new policy migrator
+func NewMigrator(registry *Registry) *Migrator {
+	m := &Migrator{
 		registry:   registry,
 		migrations: make(map[string]MigrationFunc),
 		history:    make([]*MigrationRecord, 0),
@@ -188,7 +188,7 @@ func NewPolicyMigrator(registry *Registry) *PolicyMigrator {
 }
 
 // registerBuiltinMigrations registers the standard migration functions
-func (m *PolicyMigrator) registerBuiltinMigrations() {
+func (m *Migrator) registerBuiltinMigrations() {
 	// V1 -> V2: Add policy sets support
 	m.migrations["v1_to_v2"] = func(p *Policy) (*Policy, error) {
 		// V2 added PolicySet support, policies themselves don't change much
@@ -231,14 +231,14 @@ func (m *PolicyMigrator) registerBuiltinMigrations() {
 }
 
 // RegisterMigration registers a custom migration function
-func (m *PolicyMigrator) RegisterMigration(name string, fn MigrationFunc) {
+func (m *Migrator) RegisterMigration(name string, fn MigrationFunc) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.migrations[name] = fn
 }
 
 // Plan creates a migration plan
-func (m *PolicyMigrator) Plan(fromVersion, toVersion MigrationVersion) (*MigrationPlan, error) {
+func (m *Migrator) Plan(fromVersion, toVersion MigrationVersion) (*MigrationPlan, error) {
 	// Get all policies to count affected
 	policies := m.registry.ListPolicies()
 
@@ -299,7 +299,7 @@ func (m *PolicyMigrator) Plan(fromVersion, toVersion MigrationVersion) (*Migrati
 }
 
 // buildStep creates a migration step
-func (m *PolicyMigrator) buildStep(from, to MigrationVersion) *MigrationStep {
+func (m *Migrator) buildStep(from, to MigrationVersion) *MigrationStep {
 	step := &MigrationStep{
 		Version:        to,
 		RequiresBackup: true,
@@ -339,7 +339,7 @@ func (m *PolicyMigrator) buildStep(from, to MigrationVersion) *MigrationStep {
 }
 
 // Migrate performs the migration
-func (m *PolicyMigrator) Migrate(ctx *MigrationContext, fromVersion, toVersion MigrationVersion) (*MigrationRecord, error) {
+func (m *Migrator) Migrate(ctx *MigrationContext, fromVersion, toVersion MigrationVersion) (*MigrationRecord, error) {
 	if ctx == nil {
 		ctx = DefaultMigrationContext()
 	}
@@ -429,7 +429,7 @@ func (m *PolicyMigrator) Migrate(ctx *MigrationContext, fromVersion, toVersion M
 					record.Status = MigrationFailed
 					record.CompletedAt = time.Now()
 					record.Duration = record.CompletedAt.Sub(record.StartedAt)
-					return record, fmt.Errorf("migration stopped: %v", err)
+					return record, fmt.Errorf("migration stopped: %w", err)
 				}
 				continue
 			}
@@ -445,7 +445,7 @@ func (m *PolicyMigrator) Migrate(ctx *MigrationContext, fromVersion, toVersion M
 						record.Status = MigrationFailed
 						record.CompletedAt = time.Now()
 						record.Duration = record.CompletedAt.Sub(record.StartedAt)
-						return record, fmt.Errorf("validation stopped: %v", err)
+						return record, fmt.Errorf("validation stopped: %w", err)
 					}
 					continue
 				}
@@ -488,17 +488,17 @@ func (m *PolicyMigrator) Migrate(ctx *MigrationContext, fromVersion, toVersion M
 	m.mu.Unlock()
 
 	ctx.Logger.Info("Migration completed", map[string]interface{}{
-		"status":    record.Status,
-		"migrated":  record.PoliciesMigrated,
-		"failed":    record.PoliciesFailed,
-		"duration":  record.Duration.String(),
+		"status":   record.Status,
+		"migrated": record.PoliciesMigrated,
+		"failed":   record.PoliciesFailed,
+		"duration": record.Duration.String(),
 	})
 
 	return record, nil
 }
 
 // validatePolicy validates a policy after migration
-func (m *PolicyMigrator) validatePolicy(p *Policy) error {
+func (m *Migrator) validatePolicy(p *Policy) error {
 	if p.ID == "" {
 		return fmt.Errorf("policy ID is required")
 	}
@@ -526,7 +526,7 @@ func (m *PolicyMigrator) validatePolicy(p *Policy) error {
 		// Validate builtin policy config
 		var config map[string]interface{}
 		if err := json.Unmarshal([]byte(p.Policy), &config); err != nil {
-			return fmt.Errorf("builtin policy config is not valid JSON: %v", err)
+			return fmt.Errorf("builtin policy config is not valid JSON: %w", err)
 		}
 	}
 
@@ -534,11 +534,11 @@ func (m *PolicyMigrator) validatePolicy(p *Policy) error {
 }
 
 // backupPolicies creates a backup of all policies
-func (m *PolicyMigrator) backupPolicies(dir string) error {
+func (m *Migrator) backupPolicies(dir string) error {
 	policies := m.registry.ListPolicies()
 
 	// Create backup structure
-	backup := &PolicyBackup{
+	backup := &Backup{
 		Version:   CurrentVersion,
 		CreatedAt: time.Now(),
 		Policies:  policies,
@@ -550,15 +550,15 @@ func (m *PolicyMigrator) backupPolicies(dir string) error {
 	return nil // Simplified for now
 }
 
-// PolicyBackup represents a backup of policies
-type PolicyBackup struct {
+// Backup represents a backup of policies
+type Backup struct {
 	Version   MigrationVersion `json:"version"`
 	CreatedAt time.Time        `json:"created_at"`
 	Policies  []*Policy        `json:"policies"`
 }
 
 // Rollback rolls back a migration
-func (m *PolicyMigrator) Rollback(recordID string, ctx *MigrationContext) (*MigrationRecord, error) {
+func (m *Migrator) Rollback(recordID string, ctx *MigrationContext) (*MigrationRecord, error) {
 	if ctx == nil {
 		ctx = DefaultMigrationContext()
 	}
@@ -587,7 +587,7 @@ func (m *PolicyMigrator) Rollback(recordID string, ctx *MigrationContext) (*Migr
 }
 
 // GetHistory returns migration history
-func (m *PolicyMigrator) GetHistory() []*MigrationRecord {
+func (m *Migrator) GetHistory() []*MigrationRecord {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -597,7 +597,7 @@ func (m *PolicyMigrator) GetHistory() []*MigrationRecord {
 }
 
 // GetLatestMigration returns the most recent migration
-func (m *PolicyMigrator) GetLatestMigration() *MigrationRecord {
+func (m *Migrator) GetLatestMigration() *MigrationRecord {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -607,17 +607,17 @@ func (m *PolicyMigrator) GetLatestMigration() *MigrationRecord {
 	return m.history[len(m.history)-1]
 }
 
-// PolicyConverter handles conversion between policy types
-type PolicyConverter struct {
+// Converter handles conversion between policy types
+type Converter struct {
 	converters map[string]ConverterFunc
 }
 
 // ConverterFunc converts a policy from one type to another
-type ConverterFunc func(policy *Policy, targetType PolicyType) (*Policy, error)
+type ConverterFunc func(policy *Policy, targetType Type) (*Policy, error)
 
-// NewPolicyConverter creates a new policy converter
-func NewPolicyConverter() *PolicyConverter {
-	c := &PolicyConverter{
+// NewConverter creates a new policy converter
+func NewConverter() *Converter {
+	c := &Converter{
 		converters: make(map[string]ConverterFunc),
 	}
 
@@ -628,7 +628,7 @@ func NewPolicyConverter() *PolicyConverter {
 }
 
 // registerBuiltinConverters registers standard converters
-func (c *PolicyConverter) registerBuiltinConverters() {
+func (c *Converter) registerBuiltinConverters() {
 	// CEL to OPA (simplified conversion)
 	c.converters["cel_to_opa"] = func(p *Policy, targetType PolicyType) (*Policy, error) {
 		converted := *p
@@ -680,7 +680,7 @@ true`, p.Name, "see metadata for original")
 }
 
 // Convert converts a policy to a different type
-func (c *PolicyConverter) Convert(policy *Policy, targetType PolicyType) (*Policy, error) {
+func (c *Converter) Convert(policy *Policy, targetType PolicyType) (*Policy, error) {
 	if policy.Type == targetType {
 		// No conversion needed
 		converted := *policy
@@ -697,7 +697,7 @@ func (c *PolicyConverter) Convert(policy *Policy, targetType PolicyType) (*Polic
 }
 
 // CanConvert checks if a conversion is available
-func (c *PolicyConverter) CanConvert(fromType, toType PolicyType) bool {
+func (c *Converter) CanConvert(fromType, toType PolicyType) bool {
 	if fromType == toType {
 		return true
 	}
@@ -707,7 +707,7 @@ func (c *PolicyConverter) CanConvert(fromType, toType PolicyType) bool {
 }
 
 // ListAvailableConversions lists all available conversion paths
-func (c *PolicyConverter) ListAvailableConversions() []string {
+func (c *Converter) ListAvailableConversions() []string {
 	result := make([]string, 0, len(c.converters))
 	for k := range c.converters {
 		result = append(result, k)
@@ -717,13 +717,13 @@ func (c *PolicyConverter) ListAvailableConversions() []string {
 }
 
 // RegisterConverter registers a custom converter
-func (c *PolicyConverter) RegisterConverter(fromType, toType PolicyType, fn ConverterFunc) {
+func (c *Converter) RegisterConverter(fromType, toType PolicyType, fn ConverterFunc) {
 	key := fmt.Sprintf("%s_to_%s", fromType, toType)
 	c.converters[key] = fn
 }
 
-// PolicyValidator validates policies for migration compatibility
-type PolicyValidator struct {
+// Validator validates policies for migration compatibility
+type Validator struct {
 	validators map[PolicyType]ValidatorFunc
 }
 
@@ -737,9 +737,9 @@ type ValidationError struct {
 	Severe  bool   `json:"severe"`
 }
 
-// NewPolicyValidator creates a new policy validator
-func NewPolicyValidator() *PolicyValidator {
-	v := &PolicyValidator{
+// NewValidator creates a new policy validator
+func NewValidator() *Validator {
+	v := &Validator{
 		validators: make(map[PolicyType]ValidatorFunc),
 	}
 
@@ -750,9 +750,9 @@ func NewPolicyValidator() *PolicyValidator {
 }
 
 // registerBuiltinValidators registers standard validators
-func (v *PolicyValidator) registerBuiltinValidators() {
+func (v *Validator) registerBuiltinValidators() {
 	// OPA validator
-	v.validators[PolicyTypeOPA] = func(p *Policy) []ValidationError {
+	v.validators[TypeOPA] = func(p *Policy) []ValidationError {
 		var errors []ValidationError
 
 		if len(p.Policy) < 20 {
@@ -776,7 +776,7 @@ func (v *PolicyValidator) registerBuiltinValidators() {
 	}
 
 	// CEL validator
-	v.validators[PolicyTypeCEL] = func(p *Policy) []ValidationError {
+	v.validators[TypeCEL] = func(p *Policy) []ValidationError {
 		var errors []ValidationError
 
 		if len(p.Policy) < 3 {
@@ -791,7 +791,7 @@ func (v *PolicyValidator) registerBuiltinValidators() {
 	}
 
 	// Builtin validator
-	v.validators[PolicyTypeBuiltin] = func(p *Policy) []ValidationError {
+	v.validators[TypeBuiltin] = func(p *Policy) []ValidationError {
 		var errors []ValidationError
 
 		var config map[string]interface{}
@@ -817,7 +817,7 @@ func (v *PolicyValidator) registerBuiltinValidators() {
 }
 
 // Validate validates a policy
-func (v *PolicyValidator) Validate(policy *Policy) []ValidationError {
+func (v *Validator) Validate(policy *Policy) []ValidationError {
 	var errors []ValidationError
 
 	// Common validation
@@ -854,13 +854,13 @@ func (v *PolicyValidator) Validate(policy *Policy) []ValidationError {
 }
 
 // RegisterValidator registers a custom validator
-func (v *PolicyValidator) RegisterValidator(policyType PolicyType, fn ValidatorFunc) {
+func (v *Validator) RegisterValidator(policyType PolicyType, fn ValidatorFunc) {
 	v.validators[policyType] = fn
 }
 
 // containsString checks if a string contains a substring
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStringHelper(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsStringHelper(s, substr))
 }
 
 func containsStringHelper(s, substr string) bool {
@@ -871,3 +871,26 @@ func containsStringHelper(s, substr string) bool {
 	}
 	return false
 }
+
+// Deprecated aliases for backward compatibility
+//
+//nolint:revive,staticcheck // stuttering names kept for backward compatibility
+type (
+	// PolicyMigrator is deprecated: Use Migrator instead.
+	PolicyMigrator = Migrator
+	// PolicyBackup is deprecated: Use Backup instead.
+	PolicyBackup = Backup
+	// PolicyConverter is deprecated: Use Converter instead.
+	PolicyConverter = Converter
+	// PolicyValidator is deprecated: Use Validator instead.
+	PolicyValidator = Validator
+)
+
+// NewPolicyMigrator is deprecated: Use NewMigrator instead.
+var NewPolicyMigrator = NewMigrator
+
+// NewPolicyConverter is deprecated: Use NewConverter instead.
+var NewPolicyConverter = NewConverter
+
+// NewPolicyValidator is deprecated: Use NewValidator instead.
+var NewPolicyValidator = NewValidator

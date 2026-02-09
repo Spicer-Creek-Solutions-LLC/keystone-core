@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-func TestNewNATSMetricsCollector(t *testing.T) {
+func TestNewMetricsCollector(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	if collector == nil {
 		t.Fatal("expected non-nil collector")
@@ -20,7 +20,7 @@ func TestNewNATSMetricsCollector(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordConnection(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordConnection("nats://localhost:4222", "primary", "success")
 	collector.RecordConnection("nats://localhost:4222", "primary", "success")
@@ -34,7 +34,7 @@ func TestNATSMetricsCollector_RecordConnection(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordConnectionLatency(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordConnectionLatency("nats://localhost:4222", 10*time.Millisecond)
 	collector.RecordConnectionLatency("nats://localhost:4222", 20*time.Millisecond)
@@ -48,7 +48,7 @@ func TestNATSMetricsCollector_RecordConnectionLatency(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordConnectionError(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordConnectionError("nats://localhost:4222", "connection_refused")
 	collector.RecordConnectionError("nats://localhost:4222", "connection_refused")
@@ -62,7 +62,7 @@ func TestNATSMetricsCollector_RecordConnectionError(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordMessage(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordMessage("sent", "cmd", 1024)
 	collector.RecordMessage("sent", "cmd", 2048)
@@ -82,7 +82,7 @@ func TestNATSMetricsCollector_RecordMessage(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordReconnection(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordReconnection("nats://localhost:4222")
 	collector.RecordReconnection("nats://localhost:4222")
@@ -95,7 +95,7 @@ func TestNATSMetricsCollector_RecordReconnection(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordCircuitBreakerState(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordCircuitBreakerState("endpoint", CircuitStateClosed)
 	stats := collector.GetStats()
@@ -112,7 +112,7 @@ func TestNATSMetricsCollector_RecordCircuitBreakerState(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordDegradationMode(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordDegradationMode("buffer", DegradationModeNormal)
 	stats := collector.GetStats()
@@ -129,7 +129,7 @@ func TestNATSMetricsCollector_RecordDegradationMode(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordFailover(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordFailover("nats://primary:4222", "nats://backup:4222")
 	collector.RecordFailover("nats://primary:4222", "nats://backup:4222")
@@ -142,7 +142,7 @@ func TestNATSMetricsCollector_RecordFailover(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordBufferSize(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordBufferSize("outbound", 100)
 	collector.RecordBufferSize("outbound", 200)
@@ -155,7 +155,7 @@ func TestNATSMetricsCollector_RecordBufferSize(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordBufferOverflow(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordBufferOverflow()
 	collector.RecordBufferOverflow()
@@ -168,7 +168,7 @@ func TestNATSMetricsCollector_RecordBufferOverflow(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordDelivery(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordDeliveryAcked()
 	collector.RecordDeliveryAcked()
@@ -189,7 +189,7 @@ func TestNATSMetricsCollector_RecordDelivery(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordDuplicate(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordDuplicateDetected()
 	collector.RecordDuplicateDetected()
@@ -203,7 +203,7 @@ func TestNATSMetricsCollector_RecordDuplicate(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordLeafNode(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordLeafNode("hub1", 1)
 	collector.RecordLeafNode("hub1", 1)
@@ -217,7 +217,7 @@ func TestNATSMetricsCollector_RecordLeafNode(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordGateway(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordGatewayConnection("cluster1", "cluster2", 1)
 	collector.RecordGatewayConnection("cluster1", "cluster2", -1)
@@ -231,7 +231,7 @@ func TestNATSMetricsCollector_RecordGateway(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordGatewayLatency(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordGatewayLatency("cluster1", "cluster2", 50*time.Millisecond)
 	collector.RecordGatewayLatency("cluster1", "cluster2", 100*time.Millisecond)
@@ -244,7 +244,7 @@ func TestNATSMetricsCollector_RecordGatewayLatency(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordBootstrapRequest(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordBootstrapRequest("approved")
 	collector.RecordBootstrapRequest("approved")
@@ -260,7 +260,7 @@ func TestNATSMetricsCollector_RecordBootstrapRequest(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordCoordinationRPC(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordCoordinationRPC("GetLeader", "success")
 	collector.RecordCoordinationRPC("GetLeader", "success")
@@ -276,7 +276,7 @@ func TestNATSMetricsCollector_RecordCoordinationRPC(t *testing.T) {
 
 func TestNATSMetricsCollector_RecordCoordinationLatency(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	collector.RecordCoordinationLatency("GetLeader", 10*time.Millisecond)
 	collector.RecordCoordinationLatency("GetLeader", 20*time.Millisecond)
@@ -339,7 +339,7 @@ func TestLatencyHistogram_MultipleObservations(t *testing.T) {
 
 func TestPrometheusExporter(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	// Record some metrics
 	collector.RecordConnection("nats://localhost:4222", "primary", "success")
@@ -373,7 +373,7 @@ func TestPrometheusExporter(t *testing.T) {
 
 func TestPrometheusExporter_AllMetricTypes(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	// Record various metric types
 	collector.RecordConnection("endpoint", "primary", "success")
@@ -423,7 +423,7 @@ func TestObservabilityConfig_Defaults(t *testing.T) {
 
 func TestNATSMetricsCollector_GetStats(t *testing.T) {
 	config := DefaultObservabilityConfig()
-	collector := NewNATSMetricsCollector(config)
+	collector := NewMetricsCollector(config)
 
 	// Record some data
 	collector.RecordConnection("ep1", "primary", "success")

@@ -54,7 +54,7 @@ type ModuleRefDoc struct {
 	// Since indicates when the module was added
 	Since string `json:"since,omitempty"`
 
-	// Deprecated indicates if the module is deprecated
+	// DeprecationNote indicates if the module is deprecated
 	Deprecated string `json:"deprecated,omitempty"`
 
 	// Types are the exported types
@@ -87,7 +87,7 @@ type TypeDoc struct {
 	// Since indicates when this type was added
 	Since string `json:"since,omitempty"`
 
-	// Deprecated indicates if the type is deprecated
+	// DeprecationNote indicates if the type is deprecated
 	Deprecated string `json:"deprecated,omitempty"`
 }
 
@@ -138,7 +138,7 @@ type FunctionDoc struct {
 	// Since indicates when this function was added
 	Since string `json:"since,omitempty"`
 
-	// Deprecated indicates if the function is deprecated
+	// DeprecationNote indicates if the function is deprecated
 	Deprecated string `json:"deprecated,omitempty"`
 }
 
@@ -198,7 +198,7 @@ func (g *ModuleDocGenerator) GenerateFromPackage(pkgPath string) (*ModuleRefDoc,
 	}
 
 	// Get the first non-test package
-	var pkg *ast.Package
+	var pkg *ast.Package //nolint:staticcheck // SA1019: ast.Package is deprecated but requires major refactoring to use go/types
 	for name, p := range pkgs {
 		if !strings.HasSuffix(name, "_test") {
 			pkg = p
@@ -480,7 +480,8 @@ func (g *ModuleDocGenerator) WriteMarkdown(modDoc *ModuleRefDoc, w *bytes.Buffer
 
 // WriteToFile writes documentation to a file
 func (g *ModuleDocGenerator) WriteToFile(modDoc *ModuleRefDoc) error {
-	if err := os.MkdirAll(g.OutputDir, 0755); err != nil {
+	//nolint:gosec // G301: documentation directory needs to be accessible by users
+	if err := os.MkdirAll(g.OutputDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -498,7 +499,8 @@ func (g *ModuleDocGenerator) WriteToFile(modDoc *ModuleRefDoc) error {
 	}
 
 	outputPath := filepath.Join(g.OutputDir, filename)
-	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
+	//nolint:gosec // G306: documentation files need to be readable
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -731,10 +733,8 @@ func extractTags(tag *ast.BasicLit) map[string]string {
 	return tags
 }
 
-var annotationRe = regexp.MustCompile(`@(\w+)\s+(.+)`)
-
-func extractAnnotation(doc string, name string) string {
-	lines := strings.Split(doc, "\n")
+func extractAnnotation(docStr, name string) string {
+	lines := strings.Split(docStr, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "@"+name) {
@@ -748,8 +748,8 @@ func extractAnnotation(doc string, name string) string {
 	return ""
 }
 
-func extractParamDoc(doc string, paramName string) string {
-	lines := strings.Split(doc, "\n")
+func extractParamDoc(docStr, paramName string) string {
+	lines := strings.Split(docStr, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		// Look for patterns like "paramName - description" or "@param paramName description"
@@ -763,8 +763,8 @@ func extractParamDoc(doc string, paramName string) string {
 	return ""
 }
 
-func extractReturnDoc(doc string, typeName string) string {
-	lines := strings.Split(doc, "\n")
+func extractReturnDoc(docStr, typeName string) string {
+	lines := strings.Split(docStr, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "@return") || strings.HasPrefix(line, "@returns") {
@@ -774,9 +774,9 @@ func extractReturnDoc(doc string, typeName string) string {
 	return ""
 }
 
-func extractErrors(doc string) []string {
+func extractErrors(docStr string) []string {
 	var errors []string
-	lines := strings.Split(doc, "\n")
+	lines := strings.Split(docStr, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "@error") || strings.HasPrefix(line, "@throws") {
@@ -789,8 +789,8 @@ func extractErrors(doc string) []string {
 	return errors
 }
 
-func cleanDoc(doc string) string {
-	lines := strings.Split(doc, "\n")
+func cleanDoc(docStr string) string {
+	lines := strings.Split(docStr, "\n")
 	var cleaned []string
 	for _, line := range lines {
 		line = strings.TrimSpace(line)

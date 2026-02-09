@@ -251,6 +251,7 @@ func (h *verboseEventHandler) OnTestEnd(result *bptesting.TestResult) {
 		status = "○ SKIP"
 	case bptesting.StatusError:
 		status = "✗ ERROR"
+	default:
 	}
 
 	fmt.Fprintf(h.out, "        %s (%v)\n", status, result.Duration.Round(time.Millisecond))
@@ -278,7 +279,8 @@ func (h *verboseEventHandler) OnAssertionResult(result *bptesting.AssertionResul
 }
 
 func printSuiteSummary(result *bptesting.TestSuiteResult) {
-	for _, test := range result.Tests {
+	for i := range result.Tests {
+		test := &result.Tests[i]
 		status := "✓"
 		switch test.Status {
 		case bptesting.StatusFailed:
@@ -287,6 +289,7 @@ func printSuiteSummary(result *bptesting.TestSuiteResult) {
 			status = "○"
 		case bptesting.StatusError:
 			status = "!"
+		default:
 		}
 		fmt.Printf("  %s %s (%v)\n", status, test.Name, test.Duration.Round(time.Millisecond))
 
@@ -344,7 +347,7 @@ func printOverallSummary(summary overallSummary) {
 
 func outputJSON(results []*bptesting.TestSuiteResult, summary overallSummary) error {
 	output := struct {
-		Summary overallSummary                  `json:"summary"`
+		Summary overallSummary               `json:"summary"`
 		Suites  []*bptesting.TestSuiteResult `json:"suites"`
 	}{
 		Summary: summary,
@@ -357,7 +360,8 @@ func outputJSON(results []*bptesting.TestSuiteResult, summary overallSummary) er
 	}
 
 	if testOutput != "" {
-		return os.WriteFile(testOutput, data, 0644)
+		//nolint:gosec // G306: test output files need to be readable by CI systems
+		return os.WriteFile(testOutput, data, 0o644)
 	}
 
 	fmt.Println(string(data))
@@ -423,7 +427,8 @@ func outputJUnit(results []*bptesting.TestSuiteResult) error {
 			Time:     result.Duration.Seconds(),
 		}
 
-		for _, test := range result.Tests {
+		for i := range result.Tests {
+			test := &result.Tests[i]
 			tc := junitTestCase{
 				Name:      test.Name,
 				Classname: result.Name,
@@ -452,6 +457,7 @@ func outputJUnit(results []*bptesting.TestSuiteResult) error {
 				tc.Skipped = &junitSkipped{
 					Message: test.SkipReason,
 				}
+			default:
 			}
 
 			suite.Cases = append(suite.Cases, tc)
@@ -473,7 +479,8 @@ func outputJUnit(results []*bptesting.TestSuiteResult) error {
 	output := xml.Header + string(data)
 
 	if testOutput != "" {
-		return os.WriteFile(testOutput, []byte(output), 0644)
+		//nolint:gosec // G306: test output files need to be readable by CI systems
+		return os.WriteFile(testOutput, []byte(output), 0o644)
 	}
 
 	fmt.Println(output)

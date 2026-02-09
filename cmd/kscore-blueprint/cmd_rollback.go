@@ -120,14 +120,15 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	var targetSnapshot *blueprint.Snapshot
 	var targetVersion string
 
-	if rollbackToSnapshot != "" {
+	switch {
+	case rollbackToSnapshot != "":
 		// Use specified snapshot
 		targetSnapshot, err = snapshotManager.GetSnapshot(rollbackToSnapshot)
 		if err != nil {
 			return fmt.Errorf("failed to get snapshot %s: %w", rollbackToSnapshot, err)
 		}
 		targetVersion = targetSnapshot.BlueprintVersion
-	} else if rollbackToVersion != "" {
+	case rollbackToVersion != "":
 		// Find snapshot for specified version
 		snapshots, err := snapshotManager.ListSnapshots(agentID, name, "")
 		if err != nil {
@@ -143,7 +144,7 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("no snapshot found for version %s", rollbackToVersion)
 		}
 		targetVersion = rollbackToVersion
-	} else {
+	default:
 		// Find previous version from history
 		targetVersion, err = tracker.FindRollbackTarget(agentID, name)
 		if err != nil {
@@ -334,10 +335,10 @@ func showRollbackHistory(blueprintName, trackerPath string) error {
 	}
 
 	// Filter to only show entries for this blueprint
-	var filtered []blueprint.BlueprintHistoryEntry
-	for _, entry := range history {
-		if entry.BlueprintName == blueprintName || entry.Namespace == blueprintName {
-			filtered = append(filtered, entry)
+	var filtered []blueprint.HistoryEntry
+	for i := range history {
+		if history[i].BlueprintName == blueprintName || history[i].Namespace == blueprintName {
+			filtered = append(filtered, history[i])
 		}
 	}
 
@@ -353,7 +354,8 @@ func showRollbackHistory(blueprintName, trackerPath string) error {
 	}
 
 	fmt.Printf("History for %s:\n\n", blueprintName)
-	for _, entry := range filtered {
+	for i := range filtered {
+		entry := &filtered[i]
 		status := "✓"
 		if !entry.Success {
 			status = "✗"
@@ -421,7 +423,7 @@ func loadManifest(path string) (*blueprint.Blueprint, error) {
 }
 
 // printRestoreSummary prints a summary of states that would be restored
-func printRestoreSummary(states map[string][]blueprint.BlueprintStateDeclaration) {
+func printRestoreSummary(states map[string][]blueprint.StateDeclaration) {
 	if len(states) == 0 {
 		return
 	}

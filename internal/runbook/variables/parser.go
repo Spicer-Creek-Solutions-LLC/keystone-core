@@ -103,7 +103,7 @@ func (p *OutputParser) getSourceData(data interface{}, source runbook.OutputSour
 }
 
 // parseJSON extracts a value from JSON using a JSONPath-like expression.
-func (p *OutputParser) parseJSON(data string, path string) (interface{}, error) {
+func (p *OutputParser) parseJSON(data, path string) (interface{}, error) {
 	if path == "" {
 		// No path - parse entire JSON
 		var v interface{}
@@ -217,7 +217,7 @@ func splitPath(path string) []string {
 
 // parseRegex extracts a value using a regular expression.
 // The path is the regex pattern. Named groups or first capture group is returned.
-func (p *OutputParser) parseRegex(data string, pattern string) (interface{}, error) {
+func (p *OutputParser) parseRegex(data, pattern string) (interface{}, error) {
 	if pattern == "" {
 		return data, nil
 	}
@@ -267,7 +267,7 @@ func (p *OutputParser) parseRegex(data string, pattern string) (interface{}, err
 // - "first": return first line
 // - "last": return last line
 // - "count": return line count
-func (p *OutputParser) parseLine(data string, path string) (interface{}, error) {
+func (p *OutputParser) parseLine(data, path string) (interface{}, error) {
 	lines := strings.Split(strings.TrimSuffix(data, "\n"), "\n")
 
 	switch path {

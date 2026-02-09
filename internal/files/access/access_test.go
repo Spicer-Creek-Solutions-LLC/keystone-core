@@ -122,12 +122,12 @@ func TestACLEntry_Matches(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		req      *AccessRequest
+		req      *Request
 		expected bool
 	}{
 		{
 			name: "matches all criteria",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -141,7 +141,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "identity pattern mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://other.com/agent1",
 					Type:  "agent",
@@ -155,7 +155,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "identity type mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/user1",
 					Type:  "user",
@@ -169,7 +169,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "role mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -183,7 +183,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "namespace mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -197,7 +197,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "path mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -211,7 +211,7 @@ func TestACLEntry_Matches(t *testing.T) {
 		},
 		{
 			name: "action mismatch",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -257,13 +257,13 @@ func TestACL_Evaluate(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		req         *AccessRequest
+		req         *Request
 		wantAllowed bool
 		wantRule    string
 	}{
 		{
 			name: "denied by higher priority rule",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID: "spiffe://example.com/agent1",
 				},
@@ -274,7 +274,7 @@ func TestACL_Evaluate(t *testing.T) {
 		},
 		{
 			name: "allowed by lower priority rule",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID: "spiffe://example.com/agent1",
 				},
@@ -285,7 +285,7 @@ func TestACL_Evaluate(t *testing.T) {
 		},
 		{
 			name: "no matching rule",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID: "spiffe://other.com/agent1",
 				},
@@ -356,12 +356,12 @@ func TestAuthorizer_Authorize(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		req         *AccessRequest
+		req         *Request
 		wantAllowed bool
 	}{
 		{
 			name: "allowed - matches ACL",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -375,7 +375,7 @@ func TestAuthorizer_Authorize(t *testing.T) {
 		},
 		{
 			name: "denied - no identity",
-			req: &AccessRequest{
+			req: &Request{
 				Identity:  nil,
 				Namespace: "packages",
 				Path:      "/nginx.deb",
@@ -385,7 +385,7 @@ func TestAuthorizer_Authorize(t *testing.T) {
 		},
 		{
 			name: "denied - expired identity",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:        "spiffe://example.com/agent1",
 					ExpiresAt: time.Now().Add(-time.Hour),
@@ -398,7 +398,7 @@ func TestAuthorizer_Authorize(t *testing.T) {
 		},
 		{
 			name: "denied - wrong role",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -412,7 +412,7 @@ func TestAuthorizer_Authorize(t *testing.T) {
 		},
 		{
 			name: "denied - wrong action",
-			req: &AccessRequest{
+			req: &Request{
 				Identity: &Identity{
 					ID:    "spiffe://example.com/agent1",
 					Type:  "agent",
@@ -452,7 +452,7 @@ func TestAuthorizer_NamespaceConfig_ReadOnly(t *testing.T) {
 	ctx := context.Background()
 
 	// Read should be allowed
-	result, _ := authorizer.Authorize(ctx, &AccessRequest{
+	result, _ := authorizer.Authorize(ctx, &Request{
 		Identity:  &Identity{ID: "test"},
 		Namespace: "readonly",
 		Path:      "/file.txt",
@@ -463,7 +463,7 @@ func TestAuthorizer_NamespaceConfig_ReadOnly(t *testing.T) {
 	}
 
 	// Write should be denied
-	result, _ = authorizer.Authorize(ctx, &AccessRequest{
+	result, _ = authorizer.Authorize(ctx, &Request{
 		Identity:  &Identity{ID: "test"},
 		Namespace: "readonly",
 		Path:      "/file.txt",
@@ -511,7 +511,7 @@ func TestAuthorizer_NamespaceConfig_Extensions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, _ := authorizer.Authorize(ctx, &AccessRequest{
+			result, _ := authorizer.Authorize(ctx, &Request{
 				Identity:  &Identity{ID: "test"},
 				Namespace: "packages",
 				Path:      tt.path,
@@ -527,7 +527,7 @@ func TestAuthorizer_NamespaceConfig_Extensions(t *testing.T) {
 func TestRequestSigner(t *testing.T) {
 	signer := NewRequestSigner("my-secret-key")
 
-	req := &AccessRequest{
+	req := &Request{
 		Identity: &Identity{
 			ID: "spiffe://example.com/agent1",
 		},
@@ -553,7 +553,7 @@ func TestRequestSigner(t *testing.T) {
 	}
 
 	// Modified request should have different signature
-	modifiedReq := &AccessRequest{
+	modifiedReq := &Request{
 		Identity: &Identity{
 			ID: "spiffe://example.com/agent2",
 		},

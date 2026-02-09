@@ -359,27 +359,19 @@ This matrix shows compatibility between components across supported versions.
 ### CLI Commands
 
 ```bash
-# Check component versions
-kscorectl version --all
+# Check component versions (detailed output)
+kscorectl version --verbose
 
-# Output:
-# Control Plane: 0.1.0
-# CLI: 0.1.0
-# Database Schema: 1
-# NATS Protocol: 1
-# API Version: v1
-
-# Check compatibility
-kscorectl compatibility check
-
-# Output:
-# ✅ CLI compatible with control plane
-# ✅ Database schema up to date
-# ✅ All agents running compatible versions
-# ✅ NATS server version compatible
+# Output (JSON):
+# {
+#   "version": "0.1.0",
+#   "commit": "abc123",
+#   "buildDate": "2026-01-28",
+#   "goVersion": "go1.25"
+# }
 
 # Check agent compatibility
-kscorectl agent list --show-compatibility
+kscorectl agents list --show-compatibility
 
 # Output:
 # AGENT          VERSION   COMPATIBLE   FEATURES
@@ -391,7 +383,7 @@ kscorectl agent list --show-compatibility
 ### Programmatic Check
 
 ```go
-import "github.com/keystone-core/kscore/compatibility"
+import "github.com/shawnbutts/keystone-core/compatibility"
 
 // Check version compatibility
 result := compatibility.Check(

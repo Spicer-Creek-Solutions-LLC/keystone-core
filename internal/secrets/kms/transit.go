@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,16 +68,18 @@ func DefaultTransitConfig() *TransitConfig {
 // EncryptionAlgorithm represents supported encryption algorithms.
 type EncryptionAlgorithm string
 
+// AlgorithmAESGCM constants define the algorithms.
 const (
-	AlgorithmAESGCM      EncryptionAlgorithm = "aes-gcm"
-	AlgorithmAESCBC      EncryptionAlgorithm = "aes-cbc"
-	AlgorithmChaCha20    EncryptionAlgorithm = "chacha20-poly1305"
-	AlgorithmRSAOAEP     EncryptionAlgorithm = "rsa-oaep"
+	AlgorithmAESGCM   EncryptionAlgorithm = "aes-gcm"
+	AlgorithmAESCBC   EncryptionAlgorithm = "aes-cbc"
+	AlgorithmChaCha20 EncryptionAlgorithm = "chacha20-poly1305"
+	AlgorithmRSAOAEP  EncryptionAlgorithm = "rsa-oaep"
 )
 
 // HMACAlgorithm represents supported HMAC algorithms.
 type HMACAlgorithm string
 
+// HMACAlgorithmSHA256 constants define the algorithms.
 const (
 	HMACAlgorithmSHA256 HMACAlgorithm = "hmac-sha256"
 	HMACAlgorithmSHA384 HMACAlgorithm = "hmac-sha384"
@@ -95,16 +98,16 @@ type TransitEngine struct {
 
 // TransitKey represents a transit encryption key.
 type TransitKey struct {
-	Name             string              `json:"name"`
-	Algorithm        EncryptionAlgorithm `json:"algorithm"`
-	KeyMaterial      []byte              `json:"-"`
-	KeySize          int                 `json:"key_size"`
-	ConvergentKey    []byte              `json:"-"`
-	SupportsConvergent bool              `json:"supports_convergent"`
-	Exportable       bool                `json:"exportable"`
-	CreatedAt        time.Time           `json:"created_at"`
-	Version          int                 `json:"version"`
-	MinDecryptVersion int                `json:"min_decrypt_version"`
+	Name               string              `json:"name"`
+	Algorithm          EncryptionAlgorithm `json:"algorithm"`
+	KeyMaterial        []byte              `json:"-"`
+	KeySize            int                 `json:"key_size"`
+	ConvergentKey      []byte              `json:"-"`
+	SupportsConvergent bool                `json:"supports_convergent"`
+	Exportable         bool                `json:"exportable"`
+	CreatedAt          time.Time           `json:"created_at"`
+	Version            int                 `json:"version"`
+	MinDecryptVersion  int                 `json:"min_decrypt_version"`
 }
 
 // HMACKey represents an HMAC key.
@@ -226,16 +229,16 @@ func (t *TransitEngine) ConvergentEncrypt(ctx context.Context, req *ConvergentEn
 	ciphertext := gcm.Seal(nil, nonce, req.Plaintext, req.Context)
 
 	versionPrefix := make([]byte, 4)
-	binary.BigEndian.PutUint32(versionPrefix, uint32(key.Version))
+	binary.BigEndian.PutUint32(versionPrefix, uint32(key.Version)) //nolint:gosec // G115: key version
 
 	return &ConvergentEncryptResponse{
-		Ciphertext: append(versionPrefix, ciphertext...),
+		Ciphertext: slices.Concat(versionPrefix, ciphertext),
 		KeyVersion: key.Version,
 	}, nil
 }
 
 // ConvergentDecrypt performs convergent decryption.
-func (t *TransitEngine) ConvergentDecrypt(ctx context.Context, keyName string, ciphertext, context []byte) ([]byte, error) {
+func (t *TransitEngine) ConvergentDecrypt(ctx context.Context, keyName string, ciphertext, additionalData []byte) ([]byte, error) {
 	key, err := t.GetKey(keyName)
 	if err != nil {
 		return nil, err
@@ -256,7 +259,7 @@ func (t *TransitEngine) ConvergentDecrypt(ctx context.Context, keyName string, c
 
 	actualCiphertext := ciphertext[4:]
 
-	derivedKey := t.deriveConvergentKeyForDecrypt(key, actualCiphertext, context)
+	derivedKey := t.deriveConvergentKeyForDecrypt(key, actualCiphertext, additionalData)
 	defer zeroBytes(derivedKey)
 
 	block, err := aes.NewCipher(derivedKey)
@@ -274,7 +277,7 @@ func (t *TransitEngine) ConvergentDecrypt(ctx context.Context, keyName string, c
 		return nil, errors.New("ciphertext too short for nonce")
 	}
 
-	plaintext, err := gcm.Open(nil, actualCiphertext[:nonceSize], actualCiphertext[nonceSize:], context)
+	plaintext, err := gcm.Open(nil, actualCiphertext[:nonceSize], actualCiphertext[nonceSize:], additionalData)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed: %w", err)
 	}
@@ -283,45 +286,45 @@ func (t *TransitEngine) ConvergentDecrypt(ctx context.Context, keyName string, c
 }
 
 // deriveConvergentKey derives a deterministic key for convergent encryption.
-func (t *TransitEngine) deriveConvergentKey(key *TransitKey, plaintext, context []byte) []byte {
+func (t *TransitEngine) deriveConvergentKey(key *TransitKey, plaintext, additionalData []byte) []byte {
 	h := sha256.New()
 	h.Write(key.ConvergentKey)
 	h.Write(plaintext)
-	if len(context) > 0 {
-		h.Write(context)
+	if len(additionalData) > 0 {
+		h.Write(additionalData)
 	}
 	derived := h.Sum(nil)
 
 	reader := hkdf.New(sha256.New, key.KeyMaterial, derived, []byte("convergent-encryption"))
 	derivedKey := make([]byte, len(key.KeyMaterial))
-	io.ReadFull(reader, derivedKey)
+	_, _ = io.ReadFull(reader, derivedKey) //nolint:errcheck // HKDF reader always succeeds
 	return derivedKey
 }
 
 // deriveConvergentKeyForDecrypt derives the key for decryption (needs plaintext from ciphertext).
-func (t *TransitEngine) deriveConvergentKeyForDecrypt(key *TransitKey, ciphertext, context []byte) []byte {
+func (t *TransitEngine) deriveConvergentKeyForDecrypt(key *TransitKey, ciphertext, additionalData []byte) []byte {
 	h := sha256.New()
 	h.Write(key.ConvergentKey)
 	h.Write(ciphertext)
-	if len(context) > 0 {
-		h.Write(context)
+	if len(additionalData) > 0 {
+		h.Write(additionalData)
 	}
 	derived := h.Sum(nil)
 
 	reader := hkdf.New(sha256.New, key.KeyMaterial, derived, []byte("convergent-decryption"))
 	derivedKey := make([]byte, len(key.KeyMaterial))
-	io.ReadFull(reader, derivedKey)
+	_, _ = io.ReadFull(reader, derivedKey) //nolint:errcheck // HKDF reader always succeeds
 	return derivedKey
 }
 
 // deriveConvergentNonce derives a deterministic nonce for convergent encryption.
-func (t *TransitEngine) deriveConvergentNonce(key *TransitKey, plaintext, context []byte) []byte {
+func (t *TransitEngine) deriveConvergentNonce(key *TransitKey, plaintext, additionalData []byte) []byte {
 	h := sha256.New()
 	h.Write(key.ConvergentKey)
 	h.Write([]byte("nonce"))
 	h.Write(plaintext)
-	if len(context) > 0 {
-		h.Write(context)
+	if len(additionalData) > 0 {
+		h.Write(additionalData)
 	}
 	return h.Sum(nil)[:t.config.ConvergentNonceSize]
 }
@@ -341,10 +344,10 @@ type BatchEncryptItem struct {
 
 // BatchEncryptResponse represents a batch encryption response.
 type BatchEncryptResponse struct {
-	Results    []BatchEncryptResult `json:"results"`
-	Succeeded  int                  `json:"succeeded"`
-	Failed     int                  `json:"failed"`
-	TotalTime  time.Duration        `json:"total_time"`
+	Results   []BatchEncryptResult `json:"results"`
+	Succeeded int                  `json:"succeeded"`
+	Failed    int                  `json:"failed"`
+	TotalTime time.Duration        `json:"total_time"`
 }
 
 // BatchEncryptResult represents the result of a single batch encryption.
@@ -525,7 +528,7 @@ func (t *TransitEngine) BatchDecrypt(ctx context.Context, req *BatchDecryptReque
 }
 
 // encryptSingle encrypts a single plaintext.
-func (t *TransitEngine) encryptSingle(key *TransitKey, plaintext []byte, context map[string]string) ([]byte, error) {
+func (t *TransitEngine) encryptSingle(key *TransitKey, plaintext []byte, encContext map[string]string) ([]byte, error) {
 	block, err := aes.NewCipher(key.KeyMaterial)
 	if err != nil {
 		return nil, err
@@ -542,20 +545,20 @@ func (t *TransitEngine) encryptSingle(key *TransitKey, plaintext []byte, context
 	}
 
 	var aad []byte
-	if len(context) > 0 {
-		aad, _ = json.Marshal(context)
+	if len(encContext) > 0 {
+		aad, _ = json.Marshal(encContext)
 	}
 
 	ciphertext := gcm.Seal(nonce, nonce, plaintext, aad)
 
 	versionPrefix := make([]byte, 4)
-	binary.BigEndian.PutUint32(versionPrefix, uint32(key.Version))
+	binary.BigEndian.PutUint32(versionPrefix, uint32(key.Version)) //nolint:gosec // G115: key version
 
-	return append(versionPrefix, ciphertext...), nil
+	return slices.Concat(versionPrefix, ciphertext), nil
 }
 
 // decryptSingle decrypts a single ciphertext.
-func (t *TransitEngine) decryptSingle(key *TransitKey, ciphertext []byte, context map[string]string) ([]byte, error) {
+func (t *TransitEngine) decryptSingle(key *TransitKey, ciphertext []byte, decContext map[string]string) ([]byte, error) {
 	if len(ciphertext) < 4 {
 		return nil, errors.New("ciphertext too short")
 	}
@@ -583,8 +586,8 @@ func (t *TransitEngine) decryptSingle(key *TransitKey, ciphertext []byte, contex
 	}
 
 	var aad []byte
-	if len(context) > 0 {
-		aad, _ = json.Marshal(context)
+	if len(decContext) > 0 {
+		aad, _ = json.Marshal(decContext)
 	}
 
 	return gcm.Open(nil, actualCiphertext[:nonceSize], actualCiphertext[nonceSize:], aad)
@@ -592,18 +595,18 @@ func (t *TransitEngine) decryptSingle(key *TransitKey, ciphertext []byte, contex
 
 // TransitDataKeyRequest represents a request to generate a data encryption key.
 type TransitDataKeyRequest struct {
-	KeyName       string `json:"key_name"`
-	KeySize       int    `json:"key_size,omitempty"`
-	Context       []byte `json:"context,omitempty"`
-	Nonce         []byte `json:"nonce,omitempty"`
+	KeyName string `json:"key_name"`
+	KeySize int    `json:"key_size,omitempty"`
+	Context []byte `json:"context,omitempty"`
+	Nonce   []byte `json:"nonce,omitempty"`
 }
 
 // GenerateDataKeyResponse represents a generated data encryption key.
 type GenerateDataKeyResponse struct {
-	Plaintext      []byte    `json:"plaintext"`
-	Ciphertext     []byte    `json:"ciphertext"`
-	KeyVersion     int       `json:"key_version"`
-	GeneratedAt    time.Time `json:"generated_at"`
+	Plaintext   []byte    `json:"plaintext"`
+	Ciphertext  []byte    `json:"ciphertext"`
+	KeyVersion  int       `json:"key_version"`
+	GeneratedAt time.Time `json:"generated_at"`
 }
 
 // GenerateDataKeyForTransit generates a data encryption key wrapped by a transit key.
@@ -755,21 +758,21 @@ func (t *TransitEngine) HMACVerify(ctx context.Context, req *HMACVerifyRequest) 
 
 // KeyExportRequest represents a key export request.
 type KeyExportRequest struct {
-	KeyName       string `json:"key_name"`
-	KeyType       string `json:"key_type"`
-	WrapperKeyID  string `json:"wrapper_key_id,omitempty"`
+	KeyName      string `json:"key_name"`
+	KeyType      string `json:"key_type"`
+	WrapperKeyID string `json:"wrapper_key_id,omitempty"`
 }
 
 // KeyExportResponse represents an exported key.
 type KeyExportResponse struct {
-	KeyName       string    `json:"key_name"`
-	KeyType       string    `json:"key_type"`
-	KeyMaterial   []byte    `json:"key_material,omitempty"`
-	WrappedKey    []byte    `json:"wrapped_key,omitempty"`
-	WrapperKeyID  string    `json:"wrapper_key_id,omitempty"`
-	KeyVersion    int       `json:"key_version"`
-	Algorithm     string    `json:"algorithm"`
-	ExportedAt    time.Time `json:"exported_at"`
+	KeyName      string    `json:"key_name"`
+	KeyType      string    `json:"key_type"`
+	KeyMaterial  []byte    `json:"key_material,omitempty"`
+	WrappedKey   []byte    `json:"wrapped_key,omitempty"`
+	WrapperKeyID string    `json:"wrapper_key_id,omitempty"`
+	KeyVersion   int       `json:"key_version"`
+	Algorithm    string    `json:"algorithm"`
+	ExportedAt   time.Time `json:"exported_at"`
 }
 
 // ExportKey exports a key (if allowed).
@@ -845,20 +848,21 @@ func (t *TransitEngine) ExportKey(ctx context.Context, req *KeyExportRequest) (*
 
 // ImportKeyRequest represents a key import request.
 type ImportKeyRequest struct {
-	KeyName       string              `json:"key_name"`
-	KeyType       string              `json:"key_type"`
-	KeyMaterial   []byte              `json:"key_material,omitempty"`
-	WrappedKey    []byte              `json:"wrapped_key,omitempty"`
-	WrapperKeyID  string              `json:"wrapper_key_id,omitempty"`
-	Algorithm     EncryptionAlgorithm `json:"algorithm,omitempty"`
-	Exportable    bool                `json:"exportable,omitempty"`
+	KeyName      string              `json:"key_name"`
+	KeyType      string              `json:"key_type"`
+	KeyMaterial  []byte              `json:"key_material,omitempty"`
+	WrappedKey   []byte              `json:"wrapped_key,omitempty"`
+	WrapperKeyID string              `json:"wrapper_key_id,omitempty"`
+	Algorithm    EncryptionAlgorithm `json:"algorithm,omitempty"`
+	Exportable   bool                `json:"exportable,omitempty"`
 }
 
 // ImportKey imports a key.
 func (t *TransitEngine) ImportKey(ctx context.Context, req *ImportKeyRequest) error {
 	var keyMaterial []byte
 
-	if len(req.WrappedKey) > 0 {
+	switch {
+	case len(req.WrappedKey) > 0:
 		if req.WrapperKeyID == "" {
 			return errors.New("wrapper key ID required for wrapped key import")
 		}
@@ -874,10 +878,10 @@ func (t *TransitEngine) ImportKey(ctx context.Context, req *ImportKeyRequest) er
 			return fmt.Errorf("failed to unwrap key: %w", err)
 		}
 		keyMaterial = unwrapResp.PlaintextKey
-	} else if len(req.KeyMaterial) > 0 {
+	case len(req.KeyMaterial) > 0:
 		keyMaterial = make([]byte, len(req.KeyMaterial))
 		copy(keyMaterial, req.KeyMaterial)
-	} else {
+	default:
 		return errors.New("either key_material or wrapped_key must be provided")
 	}
 

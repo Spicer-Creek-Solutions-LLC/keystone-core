@@ -7,15 +7,15 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
-func TestNewMirrorGroup(t *testing.T) {
+func TestNewGroup(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  *MirrorGroupConfig
+		config  *GroupConfig
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID:   "test-group",
 				Name: "Test Group",
 				Mirrors: []*Mirror{
@@ -27,7 +27,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "missing ID",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				Name: "Test Group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1", ClusterID: "cluster-1"},
@@ -37,7 +37,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "no mirrors",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID:      "test-group",
 				Mirrors: []*Mirror{},
 			},
@@ -45,7 +45,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "duplicate mirror ID",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID: "test-group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1", ClusterID: "cluster-1"},
@@ -56,7 +56,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "mirror missing cluster ID",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID: "test-group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1"},
@@ -66,7 +66,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "invalid read strategy",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID: "test-group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1", ClusterID: "cluster-1"},
@@ -77,7 +77,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "invalid write policy",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID: "test-group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1", ClusterID: "cluster-1"},
@@ -88,7 +88,7 @@ func TestNewMirrorGroup(t *testing.T) {
 		},
 		{
 			name: "quorum too large",
-			config: &MirrorGroupConfig{
+			config: &GroupConfig{
 				ID: "test-group",
 				Mirrors: []*Mirror{
 					{ID: "mirror-1", ClusterID: "cluster-1"},
@@ -102,20 +102,20 @@ func TestNewMirrorGroup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			group, err := NewMirrorGroup(tt.config)
+			group, err := NewGroup(tt.config)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewMirrorGroup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewGroup() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && group == nil {
-				t.Error("NewMirrorGroup() returned nil group")
+				t.Error("NewGroup() returned nil group")
 			}
 		})
 	}
 }
 
-func TestMirrorGroup_GetHealthyMirrors(t *testing.T) {
-	group, err := NewMirrorGroup(&MirrorGroupConfig{
+func TestGroup_GetHealthyMirrors(t *testing.T) {
+	group, err := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true},
@@ -134,15 +134,15 @@ func TestMirrorGroup_GetHealthyMirrors(t *testing.T) {
 	}
 
 	// Mark one as unhealthy
-	group.UpdateHealth("m1", MirrorStateUnhealthy, 100*time.Millisecond, nil)
+	group.UpdateHealth("m1", StateUnhealthy, 100*time.Millisecond, nil)
 	healthy = group.GetHealthyMirrors()
 	if len(healthy) != 1 {
 		t.Errorf("Expected 1 healthy mirror, got %d", len(healthy))
 	}
 }
 
-func TestMirrorGroup_UpdateHealth(t *testing.T) {
-	group, err := NewMirrorGroup(&MirrorGroupConfig{
+func TestGroup_UpdateHealth(t *testing.T) {
+	group, err := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true},
@@ -153,12 +153,12 @@ func TestMirrorGroup_UpdateHealth(t *testing.T) {
 	}
 
 	// Update with success
-	group.UpdateHealth("m1", MirrorStateHealthy, 50*time.Millisecond, nil)
+	group.UpdateHealth("m1", StateHealthy, 50*time.Millisecond, nil)
 	health, ok := group.GetHealth("m1")
 	if !ok {
 		t.Fatal("Health not found")
 	}
-	if health.State != MirrorStateHealthy {
+	if health.State != StateHealthy {
 		t.Errorf("Expected healthy state, got %s", health.State)
 	}
 	if health.AvgLatency != 50*time.Millisecond {
@@ -166,7 +166,7 @@ func TestMirrorGroup_UpdateHealth(t *testing.T) {
 	}
 
 	// Update with more samples
-	group.UpdateHealth("m1", MirrorStateHealthy, 100*time.Millisecond, nil)
+	group.UpdateHealth("m1", StateHealthy, 100*time.Millisecond, nil)
 	health, _ = group.GetHealth("m1")
 	// EMA should be closer to 100ms now
 	if health.AvgLatency <= 50*time.Millisecond {
@@ -174,8 +174,8 @@ func TestMirrorGroup_UpdateHealth(t *testing.T) {
 	}
 }
 
-func TestMirrorGroup_MatchesPath(t *testing.T) {
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+func TestGroup_MatchesPath(t *testing.T) {
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1"},
@@ -201,7 +201,7 @@ func TestMirrorGroup_MatchesPath(t *testing.T) {
 	}
 
 	// Empty path prefixes should match all
-	groupAll, _ := NewMirrorGroup(&MirrorGroupConfig{
+	groupAll, _ := NewGroup(&GroupConfig{
 		ID: "test-group-all",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1"},
@@ -212,8 +212,8 @@ func TestMirrorGroup_MatchesPath(t *testing.T) {
 	}
 }
 
-func TestMirrorGroup_MatchesNamespace(t *testing.T) {
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+func TestGroup_MatchesNamespace(t *testing.T) {
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1"},
@@ -241,7 +241,7 @@ func TestMirrorGroup_MatchesNamespace(t *testing.T) {
 func TestRegistry(t *testing.T) {
 	registry := NewRegistry()
 
-	group1, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group1, _ := NewGroup(&GroupConfig{
 		ID:           "group-1",
 		PathPrefixes: []string{"/packages/"},
 		Mirrors: []*Mirror{
@@ -249,7 +249,7 @@ func TestRegistry(t *testing.T) {
 		},
 	})
 
-	group2, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group2, _ := NewGroup(&GroupConfig{
 		ID:         "group-2",
 		Namespaces: []string{"prod"},
 		Mirrors: []*Mirror{
@@ -257,7 +257,7 @@ func TestRegistry(t *testing.T) {
 		},
 	})
 
-	defaultGroup, _ := NewMirrorGroup(&MirrorGroupConfig{
+	defaultGroup, _ := NewGroup(&GroupConfig{
 		ID: "default",
 		Mirrors: []*Mirror{
 			{ID: "m3", ClusterID: "c3"},
@@ -316,7 +316,7 @@ func TestRegistry(t *testing.T) {
 func TestNearestRouter(t *testing.T) {
 	router := NewNearestRouter()
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true, Priority: 1},
@@ -351,7 +351,7 @@ func TestNearestRouter(t *testing.T) {
 func TestRoundRobinRouter(t *testing.T) {
 	router := NewRoundRobinRouter()
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true, Weight: 1},
@@ -381,7 +381,7 @@ func TestRoundRobinRouter(t *testing.T) {
 func TestFailoverRouter(t *testing.T) {
 	router := NewFailoverRouter()
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true, Priority: 3},
@@ -409,7 +409,7 @@ func TestFailoverRouter(t *testing.T) {
 }
 
 func TestWriteRouters(t *testing.T) {
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true, Priority: 1, ReadOnly: false},
@@ -590,7 +590,7 @@ func TestHaversineDistance(t *testing.T) {
 func TestGeoRouter(t *testing.T) {
 	router := NewGeoRouter(NewFailoverRouter())
 
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "c1", Enabled: true, Location: &Location{Region: "us-east"}},

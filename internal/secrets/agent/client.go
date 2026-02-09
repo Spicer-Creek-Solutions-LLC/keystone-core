@@ -37,6 +37,7 @@ import (
 //	    Closed --> [*]
 type ClientState string
 
+// ClientStateDisconnected constants define the possible states.
 const (
 	ClientStateDisconnected ClientState = "disconnected"
 	ClientStateConnecting   ClientState = "connecting"
@@ -189,18 +190,18 @@ type Client struct {
 
 // ClientStats contains statistics about the client.
 type ClientStats struct {
-	RequestCount      int64
-	CacheHits         int64
-	CacheMisses       int64
-	RefreshCount      int64
-	RefreshErrors     int64
-	BatchCount        int64
-	ConnectAttempts   int64
-	ConnectSuccesses  int64
-	ConnectFailures   int64
-	LastRequestTime   time.Time
-	LastRefreshTime   time.Time
-	LastConnectTime   time.Time
+	RequestCount     int64
+	CacheHits        int64
+	CacheMisses      int64
+	RefreshCount     int64
+	RefreshErrors    int64
+	BatchCount       int64
+	ConnectAttempts  int64
+	ConnectSuccesses int64
+	ConnectFailures  int64
+	LastRequestTime  time.Time
+	LastRefreshTime  time.Time
+	LastConnectTime  time.Time
 }
 
 // SecretBrokerClient defines the interface for communicating with the broker.
@@ -424,7 +425,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 
 	// Transition to connecting
-	if err := c.machine.Fire(ClientEventConnect); err != nil {
+	if err := c.machine.Fire(ClientEventConnect); err != nil { //nolint:contextcheck // Fire doesn't take context
 		return fmt.Errorf("cannot connect from state %s: %w", state, err)
 	}
 
@@ -433,7 +434,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Unlock()
 
 	if c.broker == nil {
-		_ = c.machine.Fire(ClientEventConnectFailed)
+		_ = c.machine.Fire(ClientEventConnectFailed) //nolint:contextcheck // Fire doesn't take context
 		return fmt.Errorf("broker client not set")
 	}
 
@@ -441,12 +442,12 @@ func (c *Client) Connect(ctx context.Context) error {
 	defer cancel()
 
 	if err := c.broker.Connect(connectCtx); err != nil {
-		_ = c.machine.Fire(ClientEventConnectFailed)
+		_ = c.machine.Fire(ClientEventConnectFailed) //nolint:contextcheck // Fire doesn't take context
 		return fmt.Errorf("failed to connect to broker: %w", err)
 	}
 
 	// Transition to connected (stats updated in callback)
-	if err := c.machine.Fire(ClientEventConnected); err != nil {
+	if err := c.machine.Fire(ClientEventConnected); err != nil { //nolint:contextcheck // Fire doesn't take context
 		return fmt.Errorf("failed to complete connection: %w", err)
 	}
 
@@ -915,7 +916,7 @@ func NewDiskCache(path string, encryptionKey []byte) (*DiskCache, error) {
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(path, 0700); err != nil {
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -976,7 +977,7 @@ func (c *DiskCache) Set(path string, secret *secrets.Secret) error {
 	}
 
 	filename := c.pathToFilename(path)
-	if err := os.WriteFile(filename, ciphertext, 0600); err != nil {
+	if err := os.WriteFile(filename, ciphertext, 0o600); err != nil {
 		return fmt.Errorf("failed to write: %w", err)
 	}
 

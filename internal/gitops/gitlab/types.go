@@ -1,3 +1,5 @@
+// Package gitlab provides GitLab API integration for merge request management
+// and GitOps automation workflows.
 package gitlab
 
 // Config represents GitLab client configuration

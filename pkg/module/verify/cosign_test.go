@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"math/big"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -307,7 +307,7 @@ func TestCosignVerifier_VerifySignature_MissingSignature(t *testing.T) {
 
 	verifier := NewCosignVerifier()
 	_, err = verifier.VerifySignature(modulePath, "/nonexistent/signature.sig", pubKeyPEM)
-	if err != ErrSignatureNotFound {
+	if !errors.Is(err, ErrSignatureNotFound) {
 		t.Errorf("expected ErrSignatureNotFound, got %v", err)
 	}
 }
@@ -570,14 +570,4 @@ func TestCosignBundle_JSON(t *testing.T) {
 	if parsed.Cert != bundle.Cert {
 		t.Error("cert mismatch")
 	}
-}
-
-// Helper to create a raw R||S signature for testing
-func createRawSignature(r, s *big.Int) []byte {
-	rBytes := r.Bytes()
-	sBytes := s.Bytes()
-	rawSig := make([]byte, 64)
-	copy(rawSig[32-len(rBytes):32], rBytes)
-	copy(rawSig[64-len(sBytes):64], sBytes)
-	return rawSig
 }

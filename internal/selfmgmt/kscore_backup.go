@@ -119,7 +119,7 @@ func (m *BackupModule) Check(ctx context.Context, config interface{}) (*CheckRes
 
 	// Check if backup is configured
 	backupConfigPath := m.getBackupConfigPath()
-	cronExists := m.backupCronExists()
+	cronExists := m.backupCronExists(ctx)
 
 	if cronExists {
 		result.CurrentState = StateEnabled
@@ -130,7 +130,7 @@ func (m *BackupModule) Check(ctx context.Context, config interface{}) (*CheckRes
 	}
 
 	result.Matches = (result.CurrentState == cfg.State)
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // Apply applies the desired backup state.
@@ -155,14 +155,14 @@ func (m *BackupModule) Apply(ctx context.Context, config interface{}, dryRun boo
 	}
 
 	if checkResult.Matches {
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	if dryRun {
 		result.Changes["action"] = fmt.Sprintf("Would change from %s to %s", checkResult.CurrentState, cfg.State)
 		result.Changed = true
 		result.NewState = cfg.State
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result.Error
 	}
 
 	switch cfg.State {
@@ -171,7 +171,7 @@ func (m *BackupModule) Apply(ctx context.Context, config interface{}, dryRun boo
 		if err := m.writeBackupConfig(cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["wrote_config"] = true
 		result.Changed = true
@@ -180,24 +180,24 @@ func (m *BackupModule) Apply(ctx context.Context, config interface{}, dryRun boo
 		if err := m.writeBackupScript(cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["wrote_script"] = true
 
 		// Create cron job or systemd timer
-		if err := m.enableBackupSchedule(cfg); err != nil {
+		if err := m.enableBackupSchedule(ctx, cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["enabled_schedule"] = cfg.Schedule
 
 	case StateDisabled:
 		// Remove cron job or systemd timer
-		if err := m.disableBackupSchedule(); err != nil {
+		if err := m.disableBackupSchedule(ctx); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["disabled_schedule"] = true
 		result.Changed = true
@@ -207,7 +207,7 @@ func (m *BackupModule) Apply(ctx context.Context, config interface{}, dryRun boo
 		if err := m.writeBackupConfig(cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["wrote_config"] = true
 		result.Changed = true
@@ -216,13 +216,15 @@ func (m *BackupModule) Apply(ctx context.Context, config interface{}, dryRun boo
 		if err := m.writeBackupScript(cfg); err != nil {
 			result.Success = false
 			result.Error = err
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result.Error
 		}
 		result.Changes["wrote_script"] = true
+	default:
+		// StateInstalled, StateUninstalled, StateRunning, StateStopped not applicable for backup module
 	}
 
 	result.NewState = cfg.State
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result.Error
 }
 
 // getBackupConfigPath returns the backup configuration path.
@@ -231,7 +233,7 @@ func (m *BackupModule) getBackupConfigPath() string {
 	case "windows":
 		return filepath.Join(os.Getenv("ProgramData"), "kscore", "backup.json")
 	default:
-		return "/etc/kscore/backup.json"
+		return "/etc/keystone-core/backup.json"
 	}
 }
 
@@ -246,12 +248,12 @@ func (m *BackupModule) getBackupScriptPath() string {
 }
 
 // backupCronExists checks if backup cron/timer exists.
-func (m *BackupModule) backupCronExists() bool {
+func (m *BackupModule) backupCronExists(ctx context.Context) bool {
 	initSystem := DetectInitSystem()
 
 	switch initSystem {
 	case "systemd":
-		cmd := exec.Command("systemctl", "is-enabled", "--quiet", "kscore-backup.timer")
+		cmd := exec.CommandContext(ctx, "systemctl", "is-enabled", "--quiet", "kscore-backup.timer")
 		return cmd.Run() == nil
 	case "launchd":
 		plistPath := filepath.Join(os.Getenv("HOME"), "Library", "LaunchAgents", "com.keystone.backup.plist")
@@ -262,7 +264,7 @@ func (m *BackupModule) backupCronExists() bool {
 		_, err := os.Stat(plistPath)
 		return err == nil
 	default:
-		cmd := exec.Command("crontab", "-l")
+		cmd := exec.CommandContext(ctx, "crontab", "-l")
 		output, err := cmd.Output()
 		if err != nil {
 			return false
@@ -276,7 +278,8 @@ func (m *BackupModule) writeBackupConfig(cfg *BackupConfig) error {
 	configPath := m.getBackupConfigPath()
 
 	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: config directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -285,7 +288,7 @@ func (m *BackupModule) writeBackupConfig(cfg *BackupConfig) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, content, 0600); err != nil {
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -297,7 +300,8 @@ func (m *BackupModule) writeBackupScript(cfg *BackupConfig) error {
 	scriptPath := m.getBackupScriptPath()
 
 	dir := filepath.Dir(scriptPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	//nolint:gosec // G301: script directory needs to be accessible by service user
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create script directory: %w", err)
 	}
 
@@ -308,9 +312,9 @@ func (m *BackupModule) writeBackupScript(cfg *BackupConfig) error {
 		script = m.buildUnixBackupScript(cfg)
 	}
 
-	perm := os.FileMode(0755)
+	perm := os.FileMode(0o755)
 	if runtime.GOOS == "windows" {
-		perm = 0644
+		perm = 0o644
 	}
 
 	if err := os.WriteFile(scriptPath, []byte(script), perm); err != nil {
@@ -350,20 +354,20 @@ mkdir -p "${BACKUP_DIR}"
 
 # Backup configuration
 log "Backing up configuration"
-if [ -d "/etc/kscore" ]; then
-    cp -r /etc/kscore "${BACKUP_DIR}/config"
+if [ -d "/etc/keystone-core" ]; then
+    cp -r /etc/keystone-core "${BACKUP_DIR}/config"
 fi
 
 # Backup SQLite database if exists
-if [ -f "/var/lib/kscore/state.db" ]; then
+if [ -f "/var/lib/keystone-core/state.db" ]; then
     log "Backing up SQLite database"
-    sqlite3 /var/lib/kscore/state.db ".backup '${BACKUP_DIR}/state.db'"
+    sqlite3 /var/lib/keystone-core/state.db ".backup '${BACKUP_DIR}/state.db'"
 fi
 
 # Backup NATS JetStream if exists
-if [ -d "/var/lib/kscore/jetstream" ]; then
+if [ -d "/var/lib/keystone-core/jetstream" ]; then
     log "Backing up JetStream data"
-    cp -r /var/lib/kscore/jetstream "${BACKUP_DIR}/jetstream"
+    cp -r /var/lib/keystone-core/jetstream "${BACKUP_DIR}/jetstream"
 fi
 
 {{if .EncryptionKey}}
@@ -393,7 +397,7 @@ log "Backup completed: ${BACKUP_FILE}"
 
 	t := template.Must(template.New("backup").Parse(tmpl))
 	var buf strings.Builder
-	t.Execute(&buf, map[string]interface{}{
+	_ = t.Execute(&buf, map[string]interface{}{ //nolint:errcheck // template.Must ensures valid template
 		"ConfigPath":    m.getBackupConfigPath(),
 		"Destination":   destination,
 		"RetentionDays": retentionDays,
@@ -464,7 +468,7 @@ Log "Backup completed: $ArchivePath"
 
 	t := template.Must(template.New("backup").Parse(tmpl))
 	var buf strings.Builder
-	t.Execute(&buf, map[string]interface{}{
+	_ = t.Execute(&buf, map[string]interface{}{ //nolint:errcheck // template.Must ensures valid template
 		"ConfigPath":    m.getBackupConfigPath(),
 		"Destination":   destination,
 		"RetentionDays": retentionDays,
@@ -474,39 +478,39 @@ Log "Backup completed: $ArchivePath"
 }
 
 // enableBackupSchedule enables the backup schedule.
-func (m *BackupModule) enableBackupSchedule(cfg *BackupConfig) error {
+func (m *BackupModule) enableBackupSchedule(ctx context.Context, cfg *BackupConfig) error {
 	initSystem := DetectInitSystem()
 
 	switch initSystem {
 	case "systemd":
-		return m.enableSystemdTimer(cfg)
+		return m.enableSystemdTimer(ctx, cfg)
 	case "launchd":
-		return m.enableLaunchdJob(cfg)
+		return m.enableLaunchdJob(ctx, cfg)
 	case "windows":
-		return m.enableWindowsTask(cfg)
+		return m.enableWindowsTask(ctx, cfg)
 	default:
-		return m.enableCronJob(cfg)
+		return m.enableCronJob(ctx, cfg)
 	}
 }
 
 // disableBackupSchedule disables the backup schedule.
-func (m *BackupModule) disableBackupSchedule() error {
+func (m *BackupModule) disableBackupSchedule(ctx context.Context) error {
 	initSystem := DetectInitSystem()
 
 	switch initSystem {
 	case "systemd":
-		return m.disableSystemdTimer()
+		return m.disableSystemdTimer(ctx)
 	case "launchd":
-		return m.disableLaunchdJob()
+		return m.disableLaunchdJob(ctx)
 	case "windows":
-		return m.disableWindowsTask()
+		return m.disableWindowsTask(ctx)
 	default:
-		return m.disableCronJob()
+		return m.disableCronJob(ctx)
 	}
 }
 
 // enableSystemdTimer creates and enables a systemd timer.
-func (m *BackupModule) enableSystemdTimer(cfg *BackupConfig) error {
+func (m *BackupModule) enableSystemdTimer(ctx context.Context, cfg *BackupConfig) error {
 	serviceContent := fmt.Sprintf(`[Unit]
 Description=Keystone Core Backup Service
 After=network.target
@@ -521,7 +525,8 @@ WantedBy=multi-user.target
 `, m.getBackupScriptPath())
 
 	servicePath := "/etc/systemd/system/kscore-backup.service"
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
+	//nolint:gosec // G306: systemd unit files need to be readable by systemd
+	if err := os.WriteFile(servicePath, []byte(serviceContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write service unit: %w", err)
 	}
 
@@ -540,15 +545,16 @@ WantedBy=timers.target
 `, onCalendar)
 
 	timerPath := "/etc/systemd/system/kscore-backup.timer"
-	if err := os.WriteFile(timerPath, []byte(timerContent), 0644); err != nil {
+	//nolint:gosec // G306: systemd timer files need to be readable by systemd
+	if err := os.WriteFile(timerPath, []byte(timerContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write timer unit: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("failed to reload systemd: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "enable", "--now", "kscore-backup.timer").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "enable", "--now", "kscore-backup.timer").Run(); err != nil {
 		return fmt.Errorf("failed to enable timer: %w", err)
 	}
 
@@ -556,17 +562,17 @@ WantedBy=timers.target
 }
 
 // disableSystemdTimer disables and removes the systemd timer.
-func (m *BackupModule) disableSystemdTimer() error {
-	exec.Command("systemctl", "stop", "kscore-backup.timer").Run()
-	exec.Command("systemctl", "disable", "kscore-backup.timer").Run()
+func (m *BackupModule) disableSystemdTimer(ctx context.Context) error {
+	exec.CommandContext(ctx, "systemctl", "stop", "kscore-backup.timer").Run()
+	exec.CommandContext(ctx, "systemctl", "disable", "kscore-backup.timer").Run()
 	os.Remove("/etc/systemd/system/kscore-backup.service")
 	os.Remove("/etc/systemd/system/kscore-backup.timer")
-	exec.Command("systemctl", "daemon-reload").Run()
+	exec.CommandContext(ctx, "systemctl", "daemon-reload").Run()
 	return nil
 }
 
 // enableLaunchdJob creates a launchd plist.
-func (m *BackupModule) enableLaunchdJob(cfg *BackupConfig) error {
+func (m *BackupModule) enableLaunchdJob(ctx context.Context, cfg *BackupConfig) error {
 	interval := m.cronToLaunchdInterval(cfg.Schedule)
 
 	plistContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -582,19 +588,20 @@ func (m *BackupModule) enableLaunchdJob(cfg *BackupConfig) error {
     <key>StartCalendarInterval</key>
     %s
     <key>StandardOutPath</key>
-    <string>/var/log/kscore-backup.log</string>
+    <string>/var/log/keystone-core-backup.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/kscore-backup.log</string>
+    <string>/var/log/keystone-core-backup.log</string>
 </dict>
 </plist>
 `, m.getBackupScriptPath(), interval)
 
 	plistPath := "/Library/LaunchDaemons/com.keystone.backup.plist"
-	if err := os.WriteFile(plistPath, []byte(plistContent), 0644); err != nil {
+	//nolint:gosec // G306: launchd plist files need to be readable by launchd
+	if err := os.WriteFile(plistPath, []byte(plistContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write plist: %w", err)
 	}
 
-	if err := exec.Command("launchctl", "load", plistPath).Run(); err != nil {
+	if err := exec.CommandContext(ctx, "launchctl", "load", plistPath).Run(); err != nil {
 		return fmt.Errorf("failed to load launchd job: %w", err)
 	}
 
@@ -602,16 +609,16 @@ func (m *BackupModule) enableLaunchdJob(cfg *BackupConfig) error {
 }
 
 // disableLaunchdJob removes the launchd job.
-func (m *BackupModule) disableLaunchdJob() error {
+func (m *BackupModule) disableLaunchdJob(ctx context.Context) error {
 	plistPath := "/Library/LaunchDaemons/com.keystone.backup.plist"
-	exec.Command("launchctl", "unload", plistPath).Run()
+	exec.CommandContext(ctx, "launchctl", "unload", plistPath).Run()
 	os.Remove(plistPath)
 	return nil
 }
 
 // enableCronJob adds a cron entry.
-func (m *BackupModule) enableCronJob(cfg *BackupConfig) error {
-	cmd := exec.Command("crontab", "-l")
+func (m *BackupModule) enableCronJob(ctx context.Context, cfg *BackupConfig) error {
+	cmd := exec.CommandContext(ctx, "crontab", "-l")
 	output, _ := cmd.Output()
 
 	lines := strings.Split(string(output), "\n")
@@ -626,7 +633,7 @@ func (m *BackupModule) enableCronJob(cfg *BackupConfig) error {
 		cfg.Schedule, m.getBackupScriptPath()))
 
 	cronContent := strings.Join(newLines, "\n") + "\n"
-	cmd = exec.Command("crontab", "-")
+	cmd = exec.CommandContext(ctx, "crontab", "-")
 	cmd.Stdin = strings.NewReader(cronContent)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to update crontab: %w", err)
@@ -636,11 +643,11 @@ func (m *BackupModule) enableCronJob(cfg *BackupConfig) error {
 }
 
 // disableCronJob removes the cron entry.
-func (m *BackupModule) disableCronJob() error {
-	cmd := exec.Command("crontab", "-l")
+func (m *BackupModule) disableCronJob(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "crontab", "-l")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // no crontab is not an error
 	}
 
 	lines := strings.Split(string(output), "\n")
@@ -652,10 +659,10 @@ func (m *BackupModule) disableCronJob() error {
 	}
 
 	if len(newLines) == 0 {
-		exec.Command("crontab", "-r").Run()
+		exec.CommandContext(ctx, "crontab", "-r").Run()
 	} else {
 		cronContent := strings.Join(newLines, "\n") + "\n"
-		cmd = exec.Command("crontab", "-")
+		cmd = exec.CommandContext(ctx, "crontab", "-")
 		cmd.Stdin = strings.NewReader(cronContent)
 		cmd.Run()
 	}
@@ -664,12 +671,13 @@ func (m *BackupModule) disableCronJob() error {
 }
 
 // enableWindowsTask creates a Windows scheduled task.
-func (m *BackupModule) enableWindowsTask(cfg *BackupConfig) error {
+func (m *BackupModule) enableWindowsTask(ctx context.Context, cfg *BackupConfig) error {
 	trigger := m.cronToWindowsTrigger(cfg.Schedule)
 
-	cmd := exec.Command("schtasks", "/Create", "/F",
+	//nolint:gosec // G204: schtasks execution is intentional for backup scheduling on Windows
+	cmd := exec.CommandContext(ctx, "schtasks", "/Create", "/F",
 		"/TN", "KscoreBackup",
-		"/TR", fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File \"%s\"", m.getBackupScriptPath()),
+		"/TR", fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File %q", m.getBackupScriptPath()),
 		"/SC", trigger.schedule,
 		"/ST", trigger.startTime,
 		"/RU", "SYSTEM")
@@ -680,8 +688,8 @@ func (m *BackupModule) enableWindowsTask(cfg *BackupConfig) error {
 }
 
 // disableWindowsTask removes the Windows scheduled task.
-func (m *BackupModule) disableWindowsTask() error {
-	cmd := exec.Command("schtasks", "/Delete", "/F", "/TN", "KscoreBackup")
+func (m *BackupModule) disableWindowsTask(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "schtasks", "/Delete", "/F", "/TN", "KscoreBackup")
 	return cmd.Run()
 }
 
@@ -836,11 +844,11 @@ func (m *BackupModule) cronToWindowsTrigger(schedule string) windowsTrigger {
 	if hour != "*" {
 		h = hour
 	}
-	min := "00"
+	minVal := "00"
 	if minute != "*" {
-		min = minute
+		minVal = minute
 	}
-	startTime := fmt.Sprintf("%s:%s", h, min)
+	startTime := fmt.Sprintf("%s:%s", h, minVal)
 
 	if dayWeek != "*" {
 		return windowsTrigger{schedule: "WEEKLY", startTime: startTime}
@@ -861,8 +869,10 @@ func (m *BackupModule) TriggerBackup(ctx context.Context) error {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
+		//nolint:gosec // G204: PowerShell script execution is intentional for backup operations
 		cmd = exec.CommandContext(ctx, "powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
 	} else {
+		//nolint:gosec // G204: bash script execution is intentional for backup operations
 		cmd = exec.CommandContext(ctx, "/bin/bash", scriptPath)
 	}
 

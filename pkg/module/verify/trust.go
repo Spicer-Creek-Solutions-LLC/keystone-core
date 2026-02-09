@@ -127,7 +127,7 @@ func computeKeyFingerprint(publicKey []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// CompositeT trustPolicy combines multiple trust policies
+// CompositeTrustPolicy combines multiple trust policies.
 type CompositeTrustPolicy struct {
 	policies []TrustPolicy
 	mu       sync.RWMutex

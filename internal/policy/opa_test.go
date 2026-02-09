@@ -168,9 +168,9 @@ violations[msg] {
 	}
 
 	tests := []struct {
-		name    string
-		input   *EvaluationInput
-		allowed bool
+		name           string
+		input          *EvaluationInput
+		allowed        bool
 		wantViolations bool
 	}{
 		{
@@ -178,7 +178,7 @@ violations[msg] {
 			input: &EvaluationInput{
 				Action: "read",
 			},
-			allowed: true,
+			allowed:        true,
 			wantViolations: false,
 		},
 		{
@@ -189,7 +189,7 @@ violations[msg] {
 					"protected": true,
 				},
 			},
-			allowed: false,
+			allowed:        false,
 			wantViolations: true,
 		},
 	}
@@ -270,9 +270,9 @@ this is not valid rego
 			wantErr: true,
 		},
 		{
-			name: "empty policy",
+			name:       "empty policy",
 			policyCode: "",
-			wantErr: true,
+			wantErr:    true,
 		},
 	}
 

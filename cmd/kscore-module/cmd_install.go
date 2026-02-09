@@ -16,17 +16,17 @@ import (
 )
 
 var (
-	installRegistry      string
-	installToken         string
-	installUsername      string
-	installPassword      string
-	installCacheDir      string
-	installModulesDir    string
-	installVerify        bool
-	installPublicKey     string
-	installForce         bool
-	installDryRun        bool
-	installGlobal        bool
+	installRegistry   string
+	installToken      string
+	installUsername   string
+	installPassword   string
+	installCacheDir   string
+	installModulesDir string
+	installVerify     bool
+	installPublicKey  string
+	installForce      bool
+	installDryRun     bool
+	installGlobal     bool
 )
 
 var maxModuleArchiveEntrySize = int64(256 * 1024 * 1024)
@@ -122,7 +122,7 @@ func installExecute(cmd *cobra.Command, args []string) error {
 	auth := buildInstallAuthConfig()
 
 	// Create registry client
-	config := registry.DefaultRegistryConfig(registryURL)
+	config := registry.DefaultConfig(registryURL)
 	config.Auth = auth
 	client, err := registry.NewHTTPClient(config)
 	if err != nil {
@@ -346,11 +346,12 @@ func installModule(client *registry.HTTPClient, cache *resolver.ModuleCache, mod
 				} else {
 					verifier := verify.NewSignatureVerifier(verify.SignatureFormatPKCS1)
 					valid, err := verifier.VerifySignature(tmpPath, sigPath, keyData)
-					if err != nil {
+					switch {
+					case err != nil:
 						fmt.Printf("failed (%v)\n", err)
-					} else if !valid {
+					case !valid:
 						return fmt.Errorf("signature verification failed")
-					} else {
+					default:
 						fmt.Println("valid")
 					}
 				}
@@ -398,7 +399,8 @@ func extractModule(zipPath, moduleName, version, modulesDir string) error {
 	fmt.Printf("  Extracting to %s... ", targetDir)
 
 	// Create directory
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	//nolint:gosec // G301: module directory needs to be accessible by service user
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		fmt.Println("failed")
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -418,21 +420,22 @@ func extractModule(zipPath, moduleName, version, modulesDir string) error {
 			continue
 		}
 
+		//nolint:gosec // G115: maxModuleArchiveEntrySize is a small constant (100MB), fits in uint64
 		if f.UncompressedSize64 > uint64(maxModuleArchiveEntrySize) {
 			fmt.Println("failed")
 			return fmt.Errorf("archive entry %s exceeds max size", f.Name)
 		}
 
-		// Determine target path
-		targetPath := filepath.Join(targetDir, f.Name)
-
-		// Security: ensure path is within target directory
-		if !strings.HasPrefix(filepath.Clean(targetPath), filepath.Clean(targetDir)) {
+		// Security: ensure path is within target directory (G305 path traversal check)
+		cleanTargetDir := filepath.Clean(targetDir)
+		targetPath := filepath.Clean(filepath.Join(targetDir, f.Name)) //nolint:gosec // G305: path validated by HasPrefix check below
+		if !strings.HasPrefix(targetPath, cleanTargetDir+string(os.PathSeparator)) && targetPath != cleanTargetDir {
 			continue // Skip files that would escape target directory
 		}
 
 		// Create parent directories
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		//nolint:gosec // G301: parent directory needs to be accessible by service user
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			fmt.Println("failed")
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
@@ -451,6 +454,7 @@ func extractModule(zipPath, moduleName, version, modulesDir string) error {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
 
+		//nolint:gosec // G115: UncompressedSize64 is checked against maxModuleArchiveEntrySize above
 		_, err = io.CopyN(dst, src, int64(f.UncompressedSize64))
 		src.Close()
 		dst.Close()

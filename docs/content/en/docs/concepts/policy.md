@@ -1781,10 +1781,10 @@ policies:
 
 ```bash
 # Import CIS Level 1 policies
-kscorectl policy import https://policies.kscore.io/cis/level1-linux.yaml
+kscorectl policy import https://policies.keystone-core.io/cis/level1-linux.yaml
 
 # Import SOC 2 policies
-kscorectl policy import https://policies.kscore.io/soc2/full.yaml
+kscorectl policy import https://policies.keystone-core.io/soc2/full.yaml
 
 # Import from local file
 kscorectl policy import ./policies/hipaa-security.yaml

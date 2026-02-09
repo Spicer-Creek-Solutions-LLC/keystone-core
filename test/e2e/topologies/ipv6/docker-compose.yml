@@ -52,8 +52,8 @@ services:
       - "127.0.0.1:8082:8082"   # Webhook receiver
       - "127.0.0.1:4222:4222"   # NATS
     volumes:
-      - server-data:/var/lib/kscore
-      - ./config/server.yaml:/etc/kscore/server.yaml:ro
+      - server-data:/var/lib/keystone-core
+      - ./config/server.yaml:/etc/keystone-core/server.yaml:ro
     environment:
       - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_ADDRESS_FAMILY=ipv6_only
@@ -87,7 +87,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-web-1.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-web-1.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_ADDRESS_FAMILY=ipv6_only
     logging: *default-logging
@@ -105,7 +105,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-web-2.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-web-2.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_ADDRESS_FAMILY=ipv6_only
     logging: *default-logging
@@ -123,7 +123,7 @@ services:
       server:
         condition: service_healthy
     volumes:
-      - ./config/agent-db-1.yaml:/etc/kscore/agent.yaml:ro
+      - ./config/agent-db-1.yaml:/etc/keystone-core/agent.yaml:ro
     environment:
       - KSCORE_ADDRESS_FAMILY=ipv6_only
     logging: *default-logging

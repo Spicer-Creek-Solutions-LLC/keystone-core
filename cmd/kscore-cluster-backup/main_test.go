@@ -88,7 +88,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check server flag
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
-		t.Error("expected --server flag")
+		t.Fatal("expected --server flag")
 	}
 	if serverFlag.DefValue != "localhost:9090" {
 		t.Errorf("expected server default to be 'localhost:9090', got %s", serverFlag.DefValue)
@@ -97,7 +97,7 @@ func TestGlobalFlags(t *testing.T) {
 	// Check output flag
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag")
+		t.Fatal("expected --output flag")
 	}
 	if outputFlag.DefValue != "table" {
 		t.Errorf("expected output default to be 'table', got %s", outputFlag.DefValue)
@@ -184,7 +184,7 @@ func TestListCommandFlags(t *testing.T) {
 
 	limitFlag := listCmd.Flags().Lookup("limit")
 	if limitFlag == nil {
-		t.Error("expected --limit flag on list command")
+		t.Fatal("expected --limit flag on list command")
 	}
 	if limitFlag.DefValue != "20" {
 		t.Errorf("expected limit default to be '20', got %s", limitFlag.DefValue)
@@ -246,7 +246,7 @@ func TestScheduleAddFlags(t *testing.T) {
 
 	cronFlag := addCmd.Flags().Lookup("cron")
 	if cronFlag == nil {
-		t.Error("expected --cron flag on schedule add command")
+		t.Fatal("expected --cron flag on schedule add command")
 	}
 	if cronFlag.DefValue != "0 0 * * *" {
 		t.Errorf("expected cron default to be '0 0 * * *', got %s", cronFlag.DefValue)

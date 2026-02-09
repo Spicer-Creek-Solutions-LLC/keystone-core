@@ -2,6 +2,7 @@ package gitsync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -168,7 +169,7 @@ func (r *Repository) Sync(ctx context.Context) (*SyncResult, error) {
 	})
 
 	if err != nil {
-		if err == git.NoErrAlreadyUpToDate {
+		if errors.Is(err, git.NoErrAlreadyUpToDate) {
 			result.Success = true
 			result.Updated = false
 			result.CurrentCommit = result.PreviousCommit
@@ -294,7 +295,7 @@ func (r *Repository) Push(ctx context.Context) error {
 		Auth:       r.auth,
 	})
 	if err != nil {
-		if err == git.NoErrAlreadyUpToDate {
+		if errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return nil
 		}
 		return fmt.Errorf("failed to push: %w", err)
@@ -427,12 +428,12 @@ func (r *Repository) GetPreviousCommit() (string, error) {
 
 // CommitInfo represents information about a commit
 type CommitInfo struct {
-	Hash       string
-	Message    string
-	Author     string
+	Hash        string
+	Message     string
+	Author      string
 	AuthorEmail string
-	Timestamp  time.Time
-	ParentHash string
+	Timestamp   time.Time
+	ParentHash  string
 }
 
 // GetCommitHistory returns the last n commits from HEAD

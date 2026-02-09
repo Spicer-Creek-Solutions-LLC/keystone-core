@@ -31,7 +31,7 @@ func newMockS3Client() *MockS3Client {
 func (c *MockS3Client) GetObject(ctx context.Context, bucket, key string, opts *S3GetOptions) (*S3Object, error) {
 	obj, ok := c.objects[key]
 	if !ok {
-		return nil, &BackendError{Op: "get", Path: key, Err: ErrNotFound}
+		return nil, &Error{Op: "get", Path: key, Err: ErrNotFound}
 	}
 
 	data := obj.data
@@ -91,7 +91,7 @@ func (c *MockS3Client) DeleteObject(ctx context.Context, bucket, key string) err
 func (c *MockS3Client) HeadObject(ctx context.Context, bucket, key string) (*S3ObjectInfo, error) {
 	obj, ok := c.objects[key]
 	if !ok {
-		return nil, &BackendError{Op: "head", Path: key, Err: ErrNotFound}
+		return nil, &Error{Op: "head", Path: key, Err: ErrNotFound}
 	}
 
 	return &S3ObjectInfo{
@@ -179,8 +179,8 @@ func TestNewS3Backend(t *testing.T) {
 				if b.Name() != tt.config.Name {
 					t.Errorf("Name() = %v, want %v", b.Name(), tt.config.Name)
 				}
-				if b.Type() != BackendTypeS3 {
-					t.Errorf("Type() = %v, want %v", b.Type(), BackendTypeS3)
+				if b.Type() != TypeS3 {
+					t.Errorf("Type() = %v, want %v", b.Type(), TypeS3)
 				}
 			}
 		})
@@ -398,7 +398,7 @@ func newMockGCSClient() *MockGCSClient {
 func (c *MockGCSClient) GetObject(ctx context.Context, bucket, object string, opts *GCSGetOptions) (*GCSObject, error) {
 	obj, ok := c.objects[object]
 	if !ok {
-		return nil, &BackendError{Op: "get", Path: object, Err: ErrNotFound}
+		return nil, &Error{Op: "get", Path: object, Err: ErrNotFound}
 	}
 
 	data := obj.data
@@ -457,7 +457,7 @@ func (c *MockGCSClient) DeleteObject(ctx context.Context, bucket, object string)
 func (c *MockGCSClient) GetObjectAttrs(ctx context.Context, bucket, object string) (*GCSObjectAttrs, error) {
 	obj, ok := c.objects[object]
 	if !ok {
-		return nil, &BackendError{Op: "attrs", Path: object, Err: ErrNotFound}
+		return nil, &Error{Op: "attrs", Path: object, Err: ErrNotFound}
 	}
 
 	return &GCSObjectAttrs{
@@ -531,8 +531,8 @@ func TestNewGCSBackend(t *testing.T) {
 				if b.Name() != tt.config.Name {
 					t.Errorf("Name() = %v, want %v", b.Name(), tt.config.Name)
 				}
-				if b.Type() != BackendTypeGCS {
-					t.Errorf("Type() = %v, want %v", b.Type(), BackendTypeGCS)
+				if b.Type() != TypeGCS {
+					t.Errorf("Type() = %v, want %v", b.Type(), TypeGCS)
 				}
 			}
 		})
@@ -611,7 +611,7 @@ func newMockAzureClient() *MockAzureClient {
 func (c *MockAzureClient) GetBlob(ctx context.Context, container, blob string, opts *AzureGetOptions) (*AzureBlob, error) {
 	obj, ok := c.blobs[blob]
 	if !ok {
-		return nil, &BackendError{Op: "get", Path: blob, Err: ErrNotFound}
+		return nil, &Error{Op: "get", Path: blob, Err: ErrNotFound}
 	}
 
 	data := obj.data
@@ -670,7 +670,7 @@ func (c *MockAzureClient) DeleteBlob(ctx context.Context, container, blob string
 func (c *MockAzureClient) GetBlobProperties(ctx context.Context, container, blob string) (*AzureBlobProperties, error) {
 	obj, ok := c.blobs[blob]
 	if !ok {
-		return nil, &BackendError{Op: "props", Path: blob, Err: ErrNotFound}
+		return nil, &Error{Op: "props", Path: blob, Err: ErrNotFound}
 	}
 
 	return &AzureBlobProperties{
@@ -763,8 +763,8 @@ func TestNewAzureBackend(t *testing.T) {
 				if b.Name() != tt.config.Name {
 					t.Errorf("Name() = %v, want %v", b.Name(), tt.config.Name)
 				}
-				if b.Type() != BackendTypeAzure {
-					t.Errorf("Type() = %v, want %v", b.Type(), BackendTypeAzure)
+				if b.Type() != TypeAzure {
+					t.Errorf("Type() = %v, want %v", b.Type(), TypeAzure)
 				}
 			}
 		})

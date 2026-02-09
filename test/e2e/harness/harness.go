@@ -160,14 +160,18 @@ func (e *TestEnvironment) Start(ctx context.Context, cfg *Config) error {
 		// This handles cases where previous test runs crashed or containers
 		// were started manually outside the test harness
 		fmt.Print("Cleaning up any existing containers...")
-		downArgs := append(args, "down", "-v", "--remove-orphans")
+		downArgs := make([]string, len(args), len(args)+3)
+		copy(downArgs, args)
+		downArgs = append(downArgs, "down", "-v", "--remove-orphans")
 		_ = e.runCompose(ctx, downArgs...) // Ignore errors - containers might not exist
 		fmt.Println(" done")
 
 		if cfg.BuildImages {
 			// Build images first (quiet mode to avoid flooding terminal)
 			fmt.Print("Building container images...")
-			buildArgs := append(args, "build", "-q")
+			buildArgs := make([]string, len(args), len(args)+2)
+			copy(buildArgs, args)
+			buildArgs = append(buildArgs, "build", "-q")
 			if err := e.runCompose(ctx, buildArgs...); err != nil {
 				fmt.Println(" FAILED")
 				return fmt.Errorf("failed to build images: %w", err)
@@ -177,7 +181,9 @@ func (e *TestEnvironment) Start(ctx context.Context, cfg *Config) error {
 
 		// Start containers
 		fmt.Print("Starting containers...")
-		upArgs := append(args, "up", "-d", "--wait")
+		upArgs := make([]string, len(args), len(args)+3)
+		copy(upArgs, args)
+		upArgs = append(upArgs, "up", "-d", "--wait")
 		if err := e.runCompose(ctx, upArgs...); err != nil {
 			fmt.Println(" FAILED")
 			return fmt.Errorf("failed to start containers: %w", err)
@@ -196,9 +202,9 @@ func (e *TestEnvironment) Start(ctx context.Context, cfg *Config) error {
 	fmt.Println(" ready")
 
 	// Establish gRPC connection
-	conn, err := grpc.DialContext(ctx, e.ServerGRPCAddr,
+	conn, err := grpc.DialContext(ctx, e.ServerGRPCAddr, //nolint:staticcheck // SA1019: grpc.DialContext is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x
 	)
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC server: %w", err)
@@ -268,13 +274,14 @@ func (e *TestEnvironment) Logs(ctx context.Context, service string) error {
 
 // Exec executes a command in a container
 func (e *TestEnvironment) Exec(ctx context.Context, service string, command ...string) (string, error) {
-	args := []string{
+	args := make([]string, 0, 7+len(command))
+	args = append(args,
 		"-f", e.ComposeFile,
 		"-p", e.ProjectName,
 		"exec",
 		"-T", // No TTY
 		service,
-	}
+	)
 	args = append(args, command...)
 
 	cmd := exec.CommandContext(ctx, "docker", append([]string{"compose"}, args...)...)
@@ -339,11 +346,11 @@ func (e *TestEnvironment) runComposeWithOutput(ctx context.Context, showOutput b
 	}
 
 	// Capture output, only print on error
-	output, err := cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fall back to docker-compose (legacy)
 		cmd = exec.CommandContext(ctx, "docker-compose", args...)
-		output, err = cmd.CombinedOutput()
+		output, err := cmd.CombinedOutput()
 		if err != nil {
 			// Print captured output on failure for debugging
 			fmt.Fprintf(os.Stderr, "docker-compose failed:\n%s\n", output)
@@ -360,7 +367,7 @@ func (e *TestEnvironment) waitForHealthy(ctx context.Context, timeout time.Durat
 	healthURL := e.ServerHTTPAddr + "/health/live"
 
 	for time.Now().Before(deadline) {
-		req, err := http.NewRequestWithContext(ctx, "GET", healthURL, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", healthURL, http.NoBody)
 		if err != nil {
 			return err
 		}

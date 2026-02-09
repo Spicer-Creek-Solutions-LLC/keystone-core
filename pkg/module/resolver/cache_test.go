@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -248,7 +249,7 @@ func TestModuleCache_Readonly(t *testing.T) {
 
 	module := ModuleReference{Name: "test/module", Version: "1.0.0"}
 	_, err = cache.Put(module, testFile, true)
-	if err != ErrCacheReadonly {
+	if !errors.Is(err, ErrCacheReadonly) {
 		t.Errorf("Put() in readonly cache error = %v, want ErrCacheReadonly", err)
 	}
 }

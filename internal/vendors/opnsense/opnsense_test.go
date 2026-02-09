@@ -1,6 +1,7 @@
 package opnsense
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -91,7 +92,7 @@ func TestAdapterMetrics(t *testing.T) {
 func TestAdapterDisconnect(t *testing.T) {
 	adapter := NewAdapter(nil)
 
-	err := adapter.Disconnect(nil)
+	err := adapter.Disconnect(context.Background())
 	if err != nil {
 		t.Errorf("Disconnect() error = %v, want nil", err)
 	}
@@ -277,7 +278,7 @@ func TestSaveConfig(t *testing.T) {
 	adapter := NewAdapter(nil)
 
 	// SaveConfig is a no-op for OPNsense
-	err := adapter.SaveConfig(nil)
+	err := adapter.SaveConfig(context.Background())
 	if err != nil {
 		t.Errorf("SaveConfig() error = %v", err)
 	}

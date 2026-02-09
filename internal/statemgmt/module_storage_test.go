@@ -1029,16 +1029,16 @@ func TestMountModule_ParseFstab(t *testing.T) {
 			expected: []FstabEntry{{Device: "/dev/sdb1", Path: "/mnt/backup", FSType: "xfs", Options: "rw,noatime", Dump: 0, Pass: 0}},
 		},
 		{
-			name:     "multiple entries",
-			content:  "/dev/sda1 / ext4 defaults 0 1\n/dev/sda2 /home ext4 defaults 0 2\n",
+			name:    "multiple entries",
+			content: "/dev/sda1 / ext4 defaults 0 1\n/dev/sda2 /home ext4 defaults 0 2\n",
 			expected: []FstabEntry{
 				{Device: "/dev/sda1", Path: "/", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 1},
 				{Device: "/dev/sda2", Path: "/home", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2},
 			},
 		},
 		{
-			name:     "mixed with comments and empty lines",
-			content:  "# Root filesystem\n/dev/sda1 / ext4 defaults 0 1\n\n# Home\n/dev/sda2 /home ext4 defaults 0 2\n",
+			name:    "mixed with comments and empty lines",
+			content: "# Root filesystem\n/dev/sda1 / ext4 defaults 0 1\n\n# Home\n/dev/sda2 /home ext4 defaults 0 2\n",
 			expected: []FstabEntry{
 				{Device: "/dev/sda1", Path: "/", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 1},
 				{Device: "/dev/sda2", Path: "/home", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2},

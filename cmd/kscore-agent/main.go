@@ -133,13 +133,14 @@ func runAgent(cmd *cobra.Command, args []string) {
 	// Health check
 	if err := natsManager.Health(); err != nil {
 		logger.Error("NATS health check failed", logging.Error(err))
-		os.Exit(1)
+		natsManager.Shutdown()
+		return
 	}
 	logger.Info("NATS health check passed")
 
 	// Create agent
 	logger.Info("Creating agent instance")
-	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.AgentConfig{
+	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.Config{
 		ID:                cfg.Agent.ID,
 		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
 		MetadataInterval:  cfg.Agent.MetadataInterval,
@@ -148,13 +149,13 @@ func runAgent(cmd *cobra.Command, args []string) {
 	})
 	if err != nil {
 		logger.Error("Failed to create agent", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 
 	// Start agent services (registration, heartbeat, command subscription)
 	if err := agnt.Start(); err != nil {
 		logger.Error("Failed to start agent", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 	defer agnt.Stop()
 
@@ -168,10 +169,8 @@ func runAgent(cmd *cobra.Command, args []string) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	select {
-	case <-sigChan:
-		logger.Info("Received shutdown signal, shutting down gracefully")
-	}
+	<-sigChan
+	logger.Info("Received shutdown signal, shutting down gracefully")
 
 	// Graceful shutdown
 	logger.Info("Stopping agent")
@@ -249,7 +248,7 @@ func runAsWindowsService() {
 	defer natsManager.Shutdown()
 
 	// Create agent
-	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.AgentConfig{
+	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.Config{
 		ID:                cfg.Agent.ID,
 		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
 		MetadataInterval:  cfg.Agent.MetadataInterval,
@@ -258,13 +257,12 @@ func runAsWindowsService() {
 	})
 	if err != nil {
 		logger.Error("Failed to create agent", logging.Error(err))
-		os.Exit(1)
+		return
 	}
 
 	// Run as Windows service
 	logger.Info("Starting agent as Windows service")
 	if err := agent.RunAsService(agnt); err != nil {
 		logger.Error("Service failed", logging.Error(err))
-		os.Exit(1)
 	}
 }

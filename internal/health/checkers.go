@@ -140,13 +140,14 @@ func (c *DatabaseChecker) Check(ctx context.Context) CheckResult {
 	result.Details["wait_duration_ms"] = stats.WaitDuration.Milliseconds()
 
 	// Determine status based on latency and wait count
-	if pingDuration > 100*time.Millisecond {
+	switch {
+	case pingDuration > 100*time.Millisecond:
 		result.Status = StatusDegraded
 		result.Message = fmt.Sprintf("High database latency: %v", pingDuration)
-	} else if stats.WaitCount > 1000 {
+	case stats.WaitCount > 1000:
 		result.Status = StatusDegraded
 		result.Message = fmt.Sprintf("High connection wait count: %d", stats.WaitCount)
-	} else {
+	default:
 		result.Status = StatusHealthy
 		result.Message = "Database connection healthy"
 	}
@@ -213,13 +214,14 @@ func (c *AgentPoolChecker) Check(ctx context.Context) CheckResult {
 	availability := float64(connected) / float64(total)
 	result.Details["availability"] = fmt.Sprintf("%.1f%%", availability*100)
 
-	if availability < 0.5 {
+	switch {
+	case availability < 0.5:
 		result.Status = StatusUnhealthy
 		result.Message = fmt.Sprintf("Critical agent availability: %.1f%%", availability*100)
-	} else if availability < c.minHealthyThreshold {
+	case availability < c.minHealthyThreshold:
 		result.Status = StatusDegraded
 		result.Message = fmt.Sprintf("Low agent availability: %.1f%%", availability*100)
-	} else {
+	default:
 		result.Status = StatusHealthy
 		result.Message = fmt.Sprintf("Agent availability: %.1f%%", availability*100)
 	}
@@ -230,8 +232,8 @@ func (c *AgentPoolChecker) Check(ctx context.Context) CheckResult {
 
 // FunctionChecker wraps a custom health check function
 type FunctionChecker struct {
-	name     string
-	checkFn  func(ctx context.Context) CheckResult
+	name    string
+	checkFn func(ctx context.Context) CheckResult
 }
 
 // NewFunctionChecker creates a new function-based health checker
@@ -262,7 +264,7 @@ func (c *FunctionChecker) Check(ctx context.Context) CheckResult {
 // ListenerInfo represents information about a network listener
 type ListenerInfo struct {
 	Address   string `json:"address"`
-	Protocol  string `json:"protocol"` // grpc, http
+	Protocol  string `json:"protocol"`   // grpc, http
 	IPVersion string `json:"ip_version"` // ipv4, ipv6
 	Active    bool   `json:"active"`
 }
@@ -357,19 +359,21 @@ func (c *NetworkChecker) Check(ctx context.Context) CheckResult {
 	result.Details["dual_stack"] = ipv4Count > 0 && ipv6Count > 0
 
 	// Determine overall status
-	if activeCount == 0 {
+	switch {
+	case activeCount == 0:
 		result.Status = StatusUnhealthy
 		result.Message = "No active listeners"
-	} else if inactiveCount > 0 {
+	case inactiveCount > 0:
 		result.Status = StatusDegraded
 		result.Message = fmt.Sprintf("%d of %d listeners active", activeCount, len(c.listeners))
-	} else {
+	default:
 		result.Status = StatusHealthy
-		if ipv4Count > 0 && ipv6Count > 0 {
+		switch {
+		case ipv4Count > 0 && ipv6Count > 0:
 			result.Message = fmt.Sprintf("All %d listeners active (dual-stack)", activeCount)
-		} else if ipv6Count > 0 {
+		case ipv6Count > 0:
 			result.Message = fmt.Sprintf("All %d listeners active (IPv6)", activeCount)
-		} else {
+		default:
 			result.Message = fmt.Sprintf("All %d listeners active (IPv4)", activeCount)
 		}
 	}

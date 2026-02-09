@@ -60,6 +60,7 @@ type StateConfigList struct {
 
 // CRD manifests for Kubernetes deployment
 
+// RemoteExecutionCRD and related constants.
 const RemoteExecutionCRD = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -177,6 +178,7 @@ spec:
       status: {}
 `
 
+// StateConfigCRD constants define the possible states.
 const StateConfigCRD = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition

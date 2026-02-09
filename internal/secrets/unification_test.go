@@ -31,14 +31,14 @@ func NewMockBackend(name string, backendType BackendType) *MockBackend {
 	}
 }
 
-func (m *MockBackend) Type() BackendType    { return m.backendType }
-func (m *MockBackend) Name() string         { return m.name }
+func (m *MockBackend) Type() BackendType                { return m.backendType }
+func (m *MockBackend) Name() string                     { return m.name }
 func (m *MockBackend) Healthy(ctx context.Context) bool { return m.healthy }
 
-func (m *MockBackend) SetHealthy(healthy bool) { m.healthy = healthy }
+func (m *MockBackend) SetHealthy(healthy bool)  { m.healthy = healthy }
 func (m *MockBackend) SetDelay(d time.Duration) { m.delay = d }
-func (m *MockBackend) SetError(err error) { m.err = err }
-func (m *MockBackend) FailNextN(n int) { m.failNextN.Store(int32(n)) }
+func (m *MockBackend) SetError(err error)       { m.err = err }
+func (m *MockBackend) FailNextN(n int)          { m.failNextN.Store(int32(n)) }
 
 func (m *MockBackend) AddSecret(path string, data map[string]interface{}) {
 	m.secrets[path] = &Secret{
@@ -88,7 +88,7 @@ func (m *MockBackend) ReadDynamic(ctx context.Context, req *SecretRequest) (*Sec
 }
 
 func (m *MockBackend) List(ctx context.Context, prefix string) ([]string, error) {
-	var names []string
+	names := make([]string, 0, len(m.secrets))
 	for path := range m.secrets {
 		names = append(names, path)
 	}
@@ -224,7 +224,7 @@ func TestHealthMonitor(t *testing.T) {
 	t.Run("registers and tracks backends", func(t *testing.T) {
 		hm := NewHealthMonitor(&HealthMonitorConfig{
 			CheckInterval:      10 * time.Millisecond,
-			Timeout:           100 * time.Millisecond,
+			Timeout:            100 * time.Millisecond,
 			HealthyThreshold:   1,
 			UnhealthyThreshold: 1,
 		})
@@ -248,7 +248,7 @@ func TestHealthMonitor(t *testing.T) {
 
 		hm := NewHealthMonitor(&HealthMonitorConfig{
 			CheckInterval:      10 * time.Millisecond,
-			Timeout:           100 * time.Millisecond,
+			Timeout:            100 * time.Millisecond,
 			HealthyThreshold:   1,
 			UnhealthyThreshold: 1,
 		})
@@ -276,7 +276,7 @@ func TestHealthMonitor(t *testing.T) {
 
 		hm := NewHealthMonitor(&HealthMonitorConfig{
 			CheckInterval:      10 * time.Millisecond,
-			Timeout:           100 * time.Millisecond,
+			Timeout:            100 * time.Millisecond,
 			HealthyThreshold:   1,
 			UnhealthyThreshold: 1,
 		})
@@ -328,7 +328,7 @@ func TestBackendGroup(t *testing.T) {
 		ctx := context.Background()
 		hm := NewHealthMonitor(&HealthMonitorConfig{
 			CheckInterval:      100 * time.Millisecond,
-			Timeout:           100 * time.Millisecond,
+			Timeout:            100 * time.Millisecond,
 			HealthyThreshold:   1,
 			UnhealthyThreshold: 1,
 		})
@@ -515,7 +515,7 @@ func TestRetryer(t *testing.T) {
 
 		// With 50ms delays and 80ms timeout, should get ~2 attempts before timeout
 		// Should get context deadline exceeded
-		if err != context.DeadlineExceeded {
+		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("expected deadline exceeded, got %v", err)
 		}
 
@@ -763,7 +763,7 @@ func TestBackendFactory(t *testing.T) {
 				configs := map[string]*BackendConfig{
 					"test": tt.config,
 				}
-				err := ValidateConfig(&SecretsConfig{Backends: configs})
+				err := ValidateConfig(&Config{Backends: configs})
 
 				if (err != nil) != tt.wantErr {
 					t.Errorf("ValidateConfig() error = %v, wantErr %v", err, tt.wantErr)

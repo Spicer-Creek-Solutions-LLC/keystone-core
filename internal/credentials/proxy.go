@@ -4,9 +4,9 @@ package credentials
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,7 +34,6 @@ type ProxyCredentialProvider struct {
 	config    *ProxyCredentialProviderConfig
 	cache     *CredentialCache
 	encryptor *CredentialEncryptor
-	mu        sync.RWMutex
 }
 
 // NewProxyCredentialProvider creates a new NATS-based credential provider.
@@ -186,7 +185,6 @@ type CredentialHandler struct {
 	store       CredentialStore
 	encryptor   *CredentialEncryptor
 	auditLogger AuditLogger
-	mu          sync.RWMutex
 }
 
 // CredentialHandlerConfig configures the credential handler.
@@ -230,7 +228,7 @@ func (h *CredentialHandler) HandleRequest(msg *nats.Msg) {
 
 	// Audit the request
 	if h.auditLogger != nil {
-		h.auditLogger.LogCredentialAccess(ctx, &CredentialAccessEvent{
+		_ = h.auditLogger.LogCredentialAccess(ctx, &CredentialAccessEvent{ //nolint:errcheck // best-effort audit
 			CredentialRef: request.CredentialRef,
 			ProxyAgentID:  request.ProxyAgentID,
 			RequestID:     request.RequestID,
@@ -249,11 +247,12 @@ func (h *CredentialHandler) HandleRequest(msg *nats.Msg) {
 	// Fetch credential
 	cred, err := h.store.Get(ctx, credID)
 	if err != nil {
-		if err == ErrCredentialNotFound {
+		switch {
+		case errors.Is(err, ErrCredentialNotFound):
 			h.sendError(msg, "credential not found")
-		} else if err == ErrCredentialExpired {
+		case errors.Is(err, ErrCredentialExpired):
 			h.sendError(msg, "credential expired")
-		} else {
+		default:
 			h.sendError(msg, "failed to retrieve credential")
 		}
 		return
@@ -288,7 +287,7 @@ func (h *CredentialHandler) HandleRequest(msg *nats.Msg) {
 
 	// Audit success
 	if h.auditLogger != nil {
-		h.auditLogger.LogCredentialAccess(ctx, &CredentialAccessEvent{
+		_ = h.auditLogger.LogCredentialAccess(ctx, &CredentialAccessEvent{ //nolint:errcheck // best-effort audit
 			CredentialRef: request.CredentialRef,
 			ProxyAgentID:  request.ProxyAgentID,
 			RequestID:     request.RequestID,
@@ -346,10 +345,7 @@ func ParseCredentialRef(ref string) (string, error) {
 }
 
 // CredentialRefBuilder helps build credential references.
-type CredentialRefBuilder struct {
-	backend string
-	parts   []string
-}
+type CredentialRefBuilder struct{}
 
 // NewCredentialRefBuilder creates a new credential reference builder.
 func NewCredentialRefBuilder() *CredentialRefBuilder {

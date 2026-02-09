@@ -228,9 +228,9 @@ func TestShardChangeEvent_Fields(t *testing.T) {
 
 func TestShardAssignment_Clone(t *testing.T) {
 	original := &ShardAssignment{
-		AgentID:    "agent-1",
-		MemberID:   "member-1",
-		Version:    5,
+		AgentID:  "agent-1",
+		MemberID: "member-1",
+		Version:  5,
 	}
 
 	// The ShardAssignment doesn't have a Clone method, but let's test the struct

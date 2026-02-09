@@ -42,7 +42,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - "--config"
-            - "/etc/kscore/agent.yaml"
+            - "/etc/keystone-core/agent.yaml"
           env:
             - name: NODE_NAME
               valueFrom:
@@ -96,14 +96,14 @@ spec:
             allowPrivilegeEscalation: false
           volumeMounts:
             - name: config
-              mountPath: /etc/kscore
+              mountPath: /etc/keystone-core
               readOnly: true
             - name: workdir
               mountPath: /tmp/kscore
             - name: state
-              mountPath: /var/lib/kscore/states
+              mountPath: /var/lib/keystone-core/states
             - name: cache
-              mountPath: /var/cache/kscore
+              mountPath: /var/cache/keystone-core
             # kics-scan ignore-block - Agent requires host filesystem access for state management
             - name: host-root
               mountPath: /host

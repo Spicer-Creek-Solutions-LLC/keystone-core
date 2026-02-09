@@ -145,6 +145,7 @@ type DriftReport struct {
 // DriftSeverity indicates the severity of detected drift.
 type DriftSeverity string
 
+// DriftSeverity constants define the severity levels.
 const (
 	DriftSeverityNone     DriftSeverity = "none"
 	DriftSeverityLow      DriftSeverity = "low"
@@ -177,6 +178,7 @@ type DriftDiff struct {
 // DriftDiffType indicates the type of configuration difference.
 type DriftDiffType string
 
+// DiffTypeAdded constants define the supported types.
 const (
 	DiffTypeAdded    DriftDiffType = "added"
 	DiffTypeRemoved  DriftDiffType = "removed"
@@ -319,10 +321,10 @@ func (d *DriftDetector) CheckDrift(ctx context.Context, deviceID string) (*Drift
 
 	// Emit event if drift detected
 	if report.HasDrift && d.eventEmitter != nil {
-		d.eventEmitter.Emit(StateEvent{
+		d.eventEmitter.Emit(Event{
 			Type:     EventStateDrift,
 			DeviceID: deviceID,
-			Result:   StateResult(report.Severity),
+			Result:   Result(report.Severity),
 			Duration: report.Duration,
 		})
 	}
@@ -396,7 +398,7 @@ func (d *DriftDetector) StartBackgroundChecks(ctx context.Context) error {
 			case <-d.stopCh:
 				return
 			case <-ticker.C:
-				d.CheckAllDrift(ctx)
+				_, _ = d.CheckAllDrift(ctx) //nolint:errcheck // best-effort periodic check
 			}
 		}
 	}()
@@ -550,7 +552,7 @@ func splitLines(s string) []string {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\n' {
 			line := s[start:i]
-			if len(line) > 0 && line[len(line)-1] == '\r' {
+			if line != "" && line[len(line)-1] == '\r' {
 				line = line[:len(line)-1]
 			}
 			if line != "" {
@@ -571,7 +573,7 @@ func splitLines(s string) []string {
 // containsIgnoreCase checks if a string contains a substring (case-insensitive).
 func containsIgnoreCase(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr ||
-		(len(s) > 0 && len(substr) > 0 && contains(toLower(s), toLower(substr))))
+		(s != "" && substr != "" && contains(toLower(s), toLower(substr))))
 }
 
 func contains(s, substr string) bool {

@@ -56,7 +56,7 @@ func (h *schemaV1Handler) Version() int {
 
 // lockFileV1 represents the legacy v1 lock file format
 type lockFileV1 struct {
-	SchemaVersion int                    `yaml:"schema_version"`
+	SchemaVersion int                       `yaml:"schema_version"`
 	Modules       map[string]lockedModuleV1 `yaml:"modules"`
 }
 
@@ -74,7 +74,7 @@ func (h *schemaV1Handler) Parse(data []byte) (*LockFile, error) {
 	// Convert to current format
 	lf := &LockFile{
 		SchemaVersion: 1,
-		Metadata: &LockFileMetadata{
+		Metadata: &Metadata{
 			GeneratedAt: time.Now(),
 			Comment:     "Migrated from schema v1",
 		},
@@ -146,7 +146,7 @@ func (m *migratorV1ToV2) ToVersion() int   { return 2 }
 func (m *migratorV1ToV2) Migrate(lf *LockFile) error {
 	// Add metadata if missing
 	if lf.Metadata == nil {
-		lf.Metadata = &LockFileMetadata{
+		lf.Metadata = &Metadata{
 			GeneratedAt: time.Now(),
 			Comment:     "Migrated from schema v1",
 		}
@@ -213,7 +213,7 @@ func MigrateFile(path string) (*MigrationResult, error) {
 }
 
 // CanMigrate checks if a lock file can be migrated
-func CanMigrate(path string) (bool, int, error) {
+func CanMigrate(path string) (canMigrate bool, currentVersion int, err error) {
 	lf, err := Load(path)
 	if err != nil {
 		return false, 0, err

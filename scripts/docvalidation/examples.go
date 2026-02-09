@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,12 +51,12 @@ func (ev *ExampleValidator) Close() {
 func (ev *ExampleValidator) ExtractExamples(verbose bool) []CodeExample {
 	filepath.Walk(ev.docsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // continue walk on read error
 		}
 
 		relPath, _ := filepath.Rel(ev.docsDir, path)
@@ -197,7 +198,7 @@ func isGoFragment(code string) bool {
 	return false
 }
 
-func (ev *ExampleValidator) validateGoCode(code string) (bool, string) {
+func (ev *ExampleValidator) validateGoCode(code string) (valid bool, errMsg string) {
 	// Write to temp file
 	tmpFile := filepath.Join(ev.tempDir, "example.go")
 
@@ -211,12 +212,13 @@ func (ev *ExampleValidator) validateGoCode(code string) (bool, string) {
 		return true, ""
 	}
 
-	if err := os.WriteFile(tmpFile, []byte(code), 0644); err != nil {
+	//nolint:gosec // G306: temp files for validation are in temp dir
+	if err := os.WriteFile(tmpFile, []byte(code), 0o644); err != nil {
 		return false, err.Error()
 	}
 
 	// Try to parse with go vet (less strict than compile)
-	cmd := exec.Command("go", "vet", tmpFile)
+	cmd := exec.CommandContext(context.Background(), "go", "vet", tmpFile)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, strings.TrimSpace(string(output))
@@ -225,7 +227,7 @@ func (ev *ExampleValidator) validateGoCode(code string) (bool, string) {
 	return true, ""
 }
 
-func validateYAMLSyntax(code string) (bool, string) {
+func validateYAMLSyntax(code string) (valid bool, errMsg string) {
 	// Basic YAML syntax checks
 	lines := strings.Split(code, "\n")
 
@@ -235,21 +237,12 @@ func validateYAMLSyntax(code string) (bool, string) {
 			return false, fmt.Sprintf("line %d: tabs not allowed in YAML (use spaces)", i+1)
 		}
 
-		// Check for inconsistent indentation (very basic check)
-		trimmed := strings.TrimLeft(line, " ")
-		indent := len(line) - len(trimmed)
-		if indent > 0 && indent%2 != 0 && trimmed != "" {
-			// Allow odd indentation for continuation
-			if !strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "#") {
-				// Just a warning, not an error
-			}
-		}
 	}
 
 	return true, ""
 }
 
-func (ev *ExampleValidator) validateBashSyntax(code string) (bool, string) {
+func (ev *ExampleValidator) validateBashSyntax(code string) (valid bool, errMsg string) {
 	// Skip if it's just comments or simple commands
 	lines := strings.Split(code, "\n")
 	hasCode := false
@@ -267,12 +260,13 @@ func (ev *ExampleValidator) validateBashSyntax(code string) (bool, string) {
 
 	// Write to temp file
 	tmpFile := filepath.Join(ev.tempDir, "example.sh")
-	if err := os.WriteFile(tmpFile, []byte(code), 0644); err != nil {
+	//nolint:gosec // G306: temp files for validation are in temp dir
+	if err := os.WriteFile(tmpFile, []byte(code), 0o644); err != nil {
 		return false, err.Error()
 	}
 
 	// Check syntax with bash -n
-	cmd := exec.Command("bash", "-n", tmpFile)
+	cmd := exec.CommandContext(context.Background(), "bash", "-n", tmpFile)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, strings.TrimSpace(string(output))

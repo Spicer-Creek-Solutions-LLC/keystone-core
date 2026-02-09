@@ -74,8 +74,8 @@ func TestMain(m *testing.M) {
 
 	// Cleanup
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	_ = testEnv.Stop(ctx)
+	cancel()
 
 	os.Exit(code)
 }
@@ -118,17 +118,17 @@ func TestState_FileCreate(t *testing.T) {
 	testContent := "Hello from E2E test"
 
 	// Create file via command (simulating state apply)
-	resp := testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	resp := testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"echo '"+testContent+"' > "+testFile)
 	if resp == nil {
 		t.Fatal("Failed to create file")
 	}
 
 	// Verify file exists
-	testEnv.AssertFileExists(t, ctx, agentID, testFile)
+	testEnv.AssertFileExists(ctx, t, agentID, testFile)
 
 	// Verify content
-	testEnv.AssertFileContents(t, ctx, agentID, testFile, testContent)
+	testEnv.AssertFileContents(ctx, t, agentID, testFile, testContent)
 
 	// Cleanup
 	_, _ = testEnv.ExecuteCommandAndWait(ctx, agentID, "rm", "-f", testFile)
@@ -143,15 +143,15 @@ func TestState_FileModify(t *testing.T) {
 	testFile := "/tmp/e2e-test-modify.txt"
 
 	// Create initial file
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"echo 'initial content' > "+testFile)
 
 	// Modify file
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"echo 'modified content' > "+testFile)
 
 	// Verify new content
-	testEnv.AssertFileContents(t, ctx, agentID, testFile, "modified content")
+	testEnv.AssertFileContents(ctx, t, agentID, testFile, "modified content")
 
 	// Cleanup
 	_, _ = testEnv.ExecuteCommandAndWait(ctx, agentID, "rm", "-f", testFile)
@@ -166,14 +166,14 @@ func TestState_FileDelete(t *testing.T) {
 	testFile := "/tmp/e2e-test-delete.txt"
 
 	// Create file first
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"echo 'to be deleted' > "+testFile)
 
 	// Verify it exists
-	testEnv.AssertFileExists(t, ctx, agentID, testFile)
+	testEnv.AssertFileExists(ctx, t, agentID, testFile)
 
 	// Delete file
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "rm", "-f", testFile)
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "rm", "-f", testFile)
 
 	// Verify it's gone
 	result, err := testEnv.ExecuteCommandAndWait(ctx, agentID, "test", "-f", testFile)
@@ -194,7 +194,7 @@ func TestState_DirectoryCreate(t *testing.T) {
 	testDir := "/tmp/e2e-test-dir"
 
 	// Create directory
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "mkdir", "-p", testDir)
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "mkdir", "-p", testDir)
 
 	// Verify it exists and is a directory
 	result, err := testEnv.ExecuteCommandAndWait(ctx, agentID, "test", "-d", testDir)
@@ -223,7 +223,7 @@ func TestState_FileIdempotency(t *testing.T) {
 	testContent := "idempotent content"
 
 	// Apply state first time
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"echo '"+testContent+"' > "+testFile)
 
 	// Get initial mtime
@@ -238,11 +238,11 @@ func TestState_FileIdempotency(t *testing.T) {
 
 	// Apply same content again (simulating idempotent state)
 	// In a real state module, this would check first and skip if unchanged
-	testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+	testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 		"cat "+testFile+" | grep -q '"+testContent+"' || echo '"+testContent+"' > "+testFile)
 
 	// Verify content is still correct
-	testEnv.AssertFileContents(t, ctx, agentID, testFile, testContent)
+	testEnv.AssertFileContents(ctx, t, agentID, testFile, testContent)
 
 	// Get new mtime - should be unchanged if idempotent
 	result2, err := testEnv.ExecuteCommandAndWait(ctx, agentID, "stat", "-c", "%Y", testFile)
@@ -276,9 +276,9 @@ func TestState_CrossAgentFileSync(t *testing.T) {
 	// Apply to all agents
 	for _, agentID := range agents {
 		t.Run(agentID, func(t *testing.T) {
-			testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c",
+			testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c",
 				"echo '"+testContent+"' > "+testFile)
-			testEnv.AssertFileContents(t, ctx, agentID, testFile, testContent)
+			testEnv.AssertFileContents(ctx, t, agentID, testFile, testContent)
 		})
 	}
 
@@ -300,7 +300,7 @@ func TestState_UserExists(t *testing.T) {
 	agentID := "agent-web-1"
 
 	// Check for root user (should exist)
-	resp := testEnv.AssertCommandSuccess(t, ctx, agentID, "id", "root")
+	resp := testEnv.AssertCommandSuccess(ctx, t, agentID, "id", "root")
 	if resp == nil {
 		t.Fatal("Failed to check for root user")
 	}
@@ -328,7 +328,7 @@ func TestState_CmdRun(t *testing.T) {
 	agentID := "agent-web-1"
 
 	// Test successful command
-	resp := testEnv.AssertCommandSuccess(t, ctx, agentID, "echo", "test command")
+	resp := testEnv.AssertCommandSuccess(ctx, t, agentID, "echo", "test command")
 	if resp == nil {
 		t.Fatal("Command failed")
 	}
@@ -337,7 +337,7 @@ func TestState_CmdRun(t *testing.T) {
 	}
 
 	// Test command with complex output
-	resp = testEnv.AssertCommandSuccess(t, ctx, agentID, "sh", "-c", "echo line1; echo line2")
+	resp = testEnv.AssertCommandSuccess(ctx, t, agentID, "sh", "-c", "echo line1; echo line2")
 	if resp == nil {
 		t.Fatal("Command failed")
 	}
@@ -391,7 +391,7 @@ func TestState_PackageCheck(t *testing.T) {
 	agentID := "agent-web-1" // Alpine container
 
 	// Check for apk (should exist on Alpine)
-	resp := testEnv.AssertCommandSuccess(t, ctx, agentID, "which", "apk")
+	resp := testEnv.AssertCommandSuccess(ctx, t, agentID, "which", "apk")
 	if resp == nil {
 		t.Skip("apk not found - not an Alpine container")
 	}

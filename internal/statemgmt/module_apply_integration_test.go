@@ -988,14 +988,14 @@ func createSimpleTarArchive(t *testing.T, tmpDir string) []byte {
 	// Create a minimal tar archive with just a header
 	// This is a simple 512-byte tar header for a file
 	header := make([]byte, 512)
-	copy(header[0:], "testfile.txt")    // filename
-	copy(header[100:], "0000644")       // mode
-	copy(header[108:], "0000000")       // uid
-	copy(header[116:], "0000000")       // gid
-	copy(header[124:], "00000000000")   // size
-	copy(header[136:], "00000000000")   // mtime
-	copy(header[156:], "0")             // typeflag
-	copy(header[257:], "ustar")         // magic
+	copy(header[0:], "testfile.txt")  // filename
+	copy(header[100:], "0000644")     // mode
+	copy(header[108:], "0000000")     // uid
+	copy(header[116:], "0000000")     // gid
+	copy(header[124:], "00000000000") // size
+	copy(header[136:], "00000000000") // mtime
+	copy(header[156:], "0")           // typeflag
+	copy(header[257:], "ustar")       // magic
 	// Checksum calculation would go here for a real tar
 	return header
 }

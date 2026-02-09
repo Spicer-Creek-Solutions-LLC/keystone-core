@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -609,7 +610,7 @@ func TestRollingStrategy(t *testing.T) {
 		cancel() // Cancel immediately
 
 		err := strategy.Execute(ctx, rotation, rotation.Targets)
-		if err != context.Canceled {
+		if !errors.Is(err, context.Canceled) {
 			t.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
@@ -1372,6 +1373,7 @@ func TestIntegrationRotationWorkflow(t *testing.T) {
 					events = append(events, NotificationEventComplete)
 				case RotationStateFailed:
 					events = append(events, NotificationEventFailed)
+				default:
 				}
 				mu.Unlock()
 			},

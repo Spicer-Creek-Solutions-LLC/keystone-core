@@ -46,7 +46,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - "--config"
-            - "/etc/kscore/server.yaml"
+            - "/etc/keystone-core/server.yaml"
           env:
             - name: POD_NAME
               valueFrom:
@@ -101,15 +101,15 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config
-              mountPath: /etc/kscore
+              mountPath: /etc/keystone-core
               readOnly: true
             - name: data
-              mountPath: /var/lib/kscore
+              mountPath: /var/lib/keystone-core
             - name: tmp
               mountPath: /tmp
             {{- if .Values.tls.enabled }}
             - name: tls
-              mountPath: /etc/kscore/tls
+              mountPath: /etc/keystone-core/tls
               readOnly: true
             {{- end }}
             {{- with .Values.extraVolumeMounts }}

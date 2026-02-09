@@ -24,26 +24,26 @@ type AuditEntry struct {
 	Metadata        map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// PolicyAuditor tracks and records policy evaluations
-type PolicyAuditor struct {
+// Auditor tracks and records policy evaluations
+type Auditor struct {
 	entries []AuditEntry
 	mu      sync.RWMutex
 	maxSize int
 }
 
-// NewPolicyAuditor creates a new policy auditor
-func NewPolicyAuditor(maxSize int) *PolicyAuditor {
+// NewAuditor creates a new policy auditor
+func NewAuditor(maxSize int) *Auditor {
 	if maxSize <= 0 {
 		maxSize = 10000 // Default to 10k entries
 	}
-	return &PolicyAuditor{
+	return &Auditor{
 		entries: make([]AuditEntry, 0, maxSize),
 		maxSize: maxSize,
 	}
 }
 
 // RecordEvaluation records a policy evaluation
-func (a *PolicyAuditor) RecordEvaluation(ctx context.Context, result *EvaluationResult, resourceType, user, action string, enforcementMode EnforcementMode) {
+func (a *Auditor) RecordEvaluation(ctx context.Context, result *EvaluationResult, resourceType, user, action string, enforcementMode EnforcementMode) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -70,7 +70,7 @@ func (a *PolicyAuditor) RecordEvaluation(ctx context.Context, result *Evaluation
 }
 
 // RecordPolicyResult records a multi-policy evaluation result
-func (a *PolicyAuditor) RecordPolicyResult(ctx context.Context, result *PolicyResult, resourceType, user, action string, enforcementMode EnforcementMode) {
+func (a *Auditor) RecordPolicyResult(ctx context.Context, result *PolicyResult, resourceType, user, action string, enforcementMode EnforcementMode) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -100,7 +100,7 @@ func (a *PolicyAuditor) RecordPolicyResult(ctx context.Context, result *PolicyRe
 }
 
 // GetEntries retrieves audit entries with optional filtering
-func (a *PolicyAuditor) GetEntries(filter *AuditFilter) []AuditEntry {
+func (a *Auditor) GetEntries(filter *AuditFilter) []AuditEntry {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -113,9 +113,9 @@ func (a *PolicyAuditor) GetEntries(filter *AuditFilter) []AuditEntry {
 
 	// Filter entries
 	filtered := make([]AuditEntry, 0)
-	for _, entry := range a.entries {
-		if filter.Matches(entry) {
-			filtered = append(filtered, entry)
+	for i := range a.entries {
+		if filter.Matches(a.entries[i]) {
+			filtered = append(filtered, a.entries[i])
 		}
 	}
 
@@ -128,7 +128,7 @@ func (a *PolicyAuditor) GetEntries(filter *AuditFilter) []AuditEntry {
 }
 
 // GetSummary returns a summary of audit entries
-func (a *PolicyAuditor) GetSummary(filter *AuditFilter) *AuditSummary {
+func (a *Auditor) GetSummary(filter *AuditFilter) *AuditSummary {
 	entries := a.GetEntries(filter)
 
 	summary := &AuditSummary{
@@ -144,7 +144,8 @@ func (a *PolicyAuditor) GetSummary(filter *AuditFilter) *AuditSummary {
 
 	totalDuration := time.Duration(0)
 
-	for _, entry := range entries {
+	for i := range entries {
+		entry := &entries[i]
 		if entry.Allowed {
 			summary.AllowedEvaluations++
 		} else {
@@ -172,7 +173,7 @@ func (a *PolicyAuditor) GetSummary(filter *AuditFilter) *AuditSummary {
 }
 
 // Clear clears all audit entries
-func (a *PolicyAuditor) Clear() {
+func (a *Auditor) Clear() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.entries = make([]AuditEntry, 0, a.maxSize)
@@ -218,27 +219,27 @@ func (f *AuditFilter) Matches(entry AuditEntry) bool {
 
 // AuditSummary provides statistical summary of policy evaluations
 type AuditSummary struct {
-	TotalEvaluations      int                `json:"total_evaluations"`
-	AllowedEvaluations    int                `json:"allowed_evaluations"`
-	DeniedEvaluations     int                `json:"denied_evaluations"`
-	TotalViolations       int                `json:"total_violations"`
-	ViolationsBySeverity  map[Severity]int   `json:"violations_by_severity"`
-	ViolationsByPolicy    map[string]int     `json:"violations_by_policy"`
-	EvaluationsByResource map[string]int     `json:"evaluations_by_resource"`
-	AverageDuration       time.Duration      `json:"average_duration"`
+	TotalEvaluations      int              `json:"total_evaluations"`
+	AllowedEvaluations    int              `json:"allowed_evaluations"`
+	DeniedEvaluations     int              `json:"denied_evaluations"`
+	TotalViolations       int              `json:"total_violations"`
+	ViolationsBySeverity  map[Severity]int `json:"violations_by_severity"`
+	ViolationsByPolicy    map[string]int   `json:"violations_by_policy"`
+	EvaluationsByResource map[string]int   `json:"evaluations_by_resource"`
+	AverageDuration       time.Duration    `json:"average_duration"`
 }
 
 // ComplianceReport represents a compliance status report
 type ComplianceReport struct {
-	GeneratedAt         time.Time           `json:"generated_at"`
-	Period              ReportPeriod        `json:"period"`
-	TotalPolicies       int                 `json:"total_policies"`
-	CompliantPolicies   int                 `json:"compliant_policies"`
-	ViolatingPolicies   int                 `json:"violating_policies"`
-	ComplianceRate      float64             `json:"compliance_rate"`
-	PolicyResults       []*PolicySummary    `json:"policy_results"`
+	GeneratedAt          time.Time          `json:"generated_at"`
+	Period               ReportPeriod       `json:"period"`
+	TotalPolicies        int                `json:"total_policies"`
+	CompliantPolicies    int                `json:"compliant_policies"`
+	ViolatingPolicies    int                `json:"violating_policies"`
+	ComplianceRate       float64            `json:"compliance_rate"`
+	PolicyResults        []*PolicySummary   `json:"policy_results"`
 	ViolationsBySeverity map[Severity]int   `json:"violations_by_severity"`
-	TopViolations       []ViolationSummary  `json:"top_violations"`
+	TopViolations        []ViolationSummary `json:"top_violations"`
 }
 
 // ViolationSummary summarizes violations by policy
@@ -257,12 +258,12 @@ type ReportPeriod struct {
 
 // ComplianceReporter generates compliance reports
 type ComplianceReporter struct {
-	auditor  *PolicyAuditor
+	auditor  *Auditor
 	registry *Registry
 }
 
 // NewComplianceReporter creates a new compliance reporter
-func NewComplianceReporter(auditor *PolicyAuditor, registry *Registry) *ComplianceReporter {
+func NewComplianceReporter(auditor *Auditor, registry *Registry) *ComplianceReporter {
 	return &ComplianceReporter{
 		auditor:  auditor,
 		registry: registry,
@@ -284,7 +285,8 @@ func (r *ComplianceReporter) GenerateReport(period ReportPeriod) *ComplianceRepo
 	violationsByPolicy := make(map[string]int)
 	violationsBySeverity := make(map[Severity]int)
 
-	for _, entry := range entries {
+	for i := range entries {
+		entry := &entries[i]
 		if _, exists := statsMap[entry.PolicyID]; !exists {
 			statsMap[entry.PolicyID] = &policyStats{
 				policyID:   entry.PolicyID,

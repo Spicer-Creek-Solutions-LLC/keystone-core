@@ -28,9 +28,9 @@ type EncryptedSecretCache struct {
 	gcm cipher.AEAD
 
 	// stats tracks cache statistics.
-	hits       atomic.Int64
-	misses     atomic.Int64
-	evictions  atomic.Int64
+	hits        atomic.Int64
+	misses      atomic.Int64
+	evictions   atomic.Int64
 	expirations atomic.Int64
 
 	// cleanup goroutine management
@@ -136,7 +136,7 @@ func (c *EncryptedSecretCache) Get(ctx context.Context, path string) (*Secret, b
 	if err != nil {
 		c.misses.Add(1)
 		// Decryption failed - remove corrupted entry
-		go c.Delete(ctx, path)
+		go func() { _ = c.Delete(ctx, path) }() //nolint:errcheck // best-effort cleanup
 		return nil, false
 	}
 
@@ -170,7 +170,7 @@ func (c *EncryptedSecretCache) Put(ctx context.Context, secret *Secret, ttl time
 	// Generate nonce
 	nonce := make([]byte, c.gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return fmt.Errorf("%w: failed to generate nonce: %v", ErrCacheEncryptionFailed, err)
+		return fmt.Errorf("%w: failed to generate nonce: %w", ErrCacheEncryptionFailed, err)
 	}
 
 	// Encrypt

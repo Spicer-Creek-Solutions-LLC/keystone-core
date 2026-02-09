@@ -79,7 +79,7 @@ nats:
   listen: "0.0.0.0:4222"
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/nats
+    store_dir: /var/lib/keystone-core/nats
     max_memory: "1GB"
     max_file: "10GB"
 ```
@@ -113,10 +113,10 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/kscore/nats.creds
+  credentials: /etc/keystone-core/nats.creds
   tls:
     enabled: true
-    ca_file: /etc/kscore/ca.crt
+    ca_file: /etc/keystone-core/ca.crt
 ```
 
 **NATS Cluster Setup**:
@@ -169,7 +169,7 @@ nats:
   leaf:
     remotes:
       - url: "nats://central-nats-cluster:7422"
-        credentials: /etc/kscore/leaf.creds
+        credentials: /etc/keystone-core/leaf.creds
 ```
 
 **Characteristics**:
@@ -819,17 +819,17 @@ nats bench js-test --js --pub 1 --msgs 500000 --replicas 3
 
 **Keystone Core specific benchmark:**
 ```bash
-# Simulate agent heartbeat workload
-kscorectl bench heartbeats --agents 10000 --duration 5m
+# Benchmark agent registration throughput
+kscorectl benchmark agent-registration --count 10000 --parallel 50
 
-# Simulate command workload
-kscorectl bench commands --concurrent 100 --duration 5m
+# Benchmark command execution throughput
+kscorectl benchmark command-execution --count 10000 --parallel 100
 
-# Simulate event workload
-kscorectl bench events --rate 10000 --duration 5m
+# Benchmark state application
+kscorectl benchmark state-apply --state test.yaml --targets 100
 
-# Full workload simulation
-kscorectl bench mixed --agents 5000 --commands-per-sec 1000 --events-per-sec 5000
+# Run all benchmarks
+kscorectl benchmark all --output json
 ```
 
 ### Server Configuration Tuning
@@ -1348,7 +1348,7 @@ nsc add user -a kscore agent1
 Agent config:
 ```yaml
 nats:
-  credentials: /etc/kscore/agent1.creds
+  credentials: /etc/keystone-core/agent1.creds
 ```
 
 **Token Authentication**:
@@ -1400,9 +1400,9 @@ Keystone Core client:
 nats:
   tls:
     enabled: true
-    ca_file: /etc/kscore/ca.crt
-    cert_file: /etc/kscore/client.crt
-    key_file: /etc/kscore/client.key
+    ca_file: /etc/keystone-core/ca.crt
+    cert_file: /etc/keystone-core/client.crt
+    key_file: /etc/keystone-core/client.key
     verify_server: true
 ```
 
@@ -1473,9 +1473,9 @@ nats:
   # TLS settings apply to WebSocket connections too
   tls:
     enabled: true
-    ca_file: /etc/kscore/ca.crt
-    cert_file: /etc/kscore/agent.crt
-    key_file: /etc/kscore/agent.key
+    ca_file: /etc/keystone-core/ca.crt
+    cert_file: /etc/keystone-core/agent.crt
+    key_file: /etc/keystone-core/agent.key
 
   # WebSocket-specific settings
   websocket:
@@ -1493,7 +1493,7 @@ nats:
     proxy:
       url: http://proxy.corp.example.com:8080
       username: agent-user
-      password_file: /etc/kscore/proxy-password
+      password_file: /etc/keystone-core/proxy-password
 ```
 
 #### WebSocket Security Considerations
@@ -1553,7 +1553,7 @@ WebSocket supports all NATS authentication methods, but some have additional con
 nats:
   urls:
     - wss://nats.example.com:8443
-  credentials: /etc/kscore/agent.creds
+  credentials: /etc/keystone-core/agent.creds
 ```
 
 **Token in Header (Alternative):**
@@ -1573,7 +1573,7 @@ nats:
 
 # CORRECT - Use credential file
 nats:
-  credentials: /etc/kscore/agent.creds
+  credentials: /etc/keystone-core/agent.creds
 ```
 
 ##### 4. Rate Limiting and DDoS Protection
@@ -2111,7 +2111,7 @@ nats:
   mode: embedded
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/nats
+    store_dir: /var/lib/keystone-core/nats
     max_memory: "256MB"
     max_file: "1GB"
 ```
@@ -2123,7 +2123,7 @@ nats:
   mode: embedded
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/nats
+    store_dir: /var/lib/keystone-core/nats
     max_memory: "1GB"
     max_file: "10GB"
   max_payload: "1MB"
@@ -2137,7 +2137,7 @@ nats:
   mode: embedded
   jetstream:
     enabled: true
-    store_dir: /var/lib/kscore/nats
+    store_dir: /var/lib/keystone-core/nats
     max_memory: "4GB"
     max_file: "50GB"
   max_payload: "1MB"
@@ -2292,11 +2292,11 @@ Fix:
 
 ### SQLite → PostgreSQL (State Storage)
 
-Note: This migrates state storage, not NATS. See [State Storage](state-storage/) for details.
+Note: This migrates state storage, not NATS. See [State Storage](/docs/concepts/state-storage/) for details.
 
 ## Next Steps
 
-- Learn about [State Storage](state-storage/) for operational data
-- Understand [Remote Execution](remote-execution/) message flows
-- Explore [Events](events/) that flow through NATS
-- See [Control Plane](control-plane/) for NATS integration details
+- Learn about [State Storage](/docs/concepts/state-storage/) for operational data
+- Understand [Remote Execution](/docs/concepts/remote-execution/) message flows
+- Explore [Events](/docs/concepts/events/) that flow through NATS
+- See [Control Plane](/docs/concepts/control-plane/) for NATS integration details

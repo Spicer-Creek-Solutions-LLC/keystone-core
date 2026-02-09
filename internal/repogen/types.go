@@ -93,12 +93,12 @@ type FileEntry struct {
 
 // RepositoryMetadata holds metadata for a generated repository.
 type RepositoryMetadata struct {
-	Type        string    // Repository type (dnf, apt, windows, blueprints, modules)
-	Version     string    // Keystone Core version
-	GeneratedAt time.Time // Generation timestamp
-	PackageCount int      // Number of packages/items
-	Signed      bool      // Whether the repo is signed
-	BaseURL     string    // Suggested base URL for serving
+	Type         string    // Repository type (dnf, apt, windows, blueprints, modules)
+	Version      string    // Keystone Core version
+	GeneratedAt  time.Time // Generation timestamp
+	PackageCount int       // Number of packages/items
+	Signed       bool      // Whether the repo is signed
+	BaseURL      string    // Suggested base URL for serving
 }
 
 // BlueprintEntry describes a blueprint in the registry.
@@ -206,7 +206,7 @@ func KeystonePackages(version string) []PackageInfo {
 			Description: "Keystone Core control plane server",
 			License:     "Apache-2.0",
 			URL:         "https://github.com/shawnbutts/keystone-core",
-			Maintainer:  "Keystone Core Team <team@kscore.io>",
+			Maintainer:  "Keystone Core Team <team@keystone-core.io>",
 			Files: []FileEntry{
 				{Source: "kscore-server", Destination: "/usr/local/bin/kscore-server", Mode: "0755"},
 			},
@@ -218,7 +218,7 @@ func KeystonePackages(version string) []PackageInfo {
 			Description: "Keystone Core agent for managed nodes",
 			License:     "Apache-2.0",
 			URL:         "https://github.com/shawnbutts/keystone-core",
-			Maintainer:  "Keystone Core Team <team@kscore.io>",
+			Maintainer:  "Keystone Core Team <team@keystone-core.io>",
 			Files: []FileEntry{
 				{Source: "kscore-agent", Destination: "/usr/local/bin/kscore-agent", Mode: "0755"},
 			},
@@ -230,7 +230,7 @@ func KeystonePackages(version string) []PackageInfo {
 			Description: "Keystone Core CLI tool",
 			License:     "Apache-2.0",
 			URL:         "https://github.com/shawnbutts/keystone-core",
-			Maintainer:  "Keystone Core Team <team@kscore.io>",
+			Maintainer:  "Keystone Core Team <team@keystone-core.io>",
 			Files: []FileEntry{
 				{Source: "kscorectl", Destination: "/usr/local/bin/kscorectl", Mode: "0755"},
 			},

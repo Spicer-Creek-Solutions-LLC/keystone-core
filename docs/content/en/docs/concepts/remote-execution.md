@@ -878,78 +878,30 @@ execution:
 | GCS | STANDARD | NEARLINE | COLDLINE | ARCHIVE |
 | Azure | Hot | Cool | Cold | Archive |
 
-#### Archive Command
-
-Manually archive output:
-
-```bash
-# Archive output older than 90 days
-kscorectl exec archive --older-than 90d
-
-# Archive specific job
-kscorectl exec archive --job-id job-123
-
-# Archive to specific location
-kscorectl exec archive --older-than 90d --destination s3://archive-bucket/
-```
-
-#### Export for Compliance
-
-Export output for compliance audits:
-
-```bash
-# Export all output for date range
-kscorectl exec export \
-  --since 2024-01-01 \
-  --until 2024-03-31 \
-  --output /backup/Q1-2024-commands.tar.gz
-
-# Export with metadata
-kscorectl exec export \
-  --since 2024-01-01 \
-  --until 2024-03-31 \
-  --include-metadata \
-  --format json \
-  --output /backup/Q1-2024-commands.json
-```
-
 ### Retrieval
 
-#### Recent Output (from Database)
+#### Get Job Output
 
 ```bash
-# Get job output (uses database if within retention)
+# Get job output
 kscorectl exec output job-123
 
 # Get output for specific agent
 kscorectl exec output job-123 --agent web-01
-```
 
-#### Archived Output
+# Show only last 50 lines
+kscorectl exec output job-123 --tail 50
 
-```bash
-# Retrieve from archive (may take time for cold storage)
-kscorectl exec output job-123 --from-archive
+# Follow output in real-time (for running jobs)
+kscorectl exec output job-123 --follow
 
-# Check archive status
-kscorectl exec archive status job-123
-```
-
-#### Full Output (Object Storage)
-
-```bash
-# Get full untruncated output
-kscorectl exec output job-123 --full
-
-# Download to file
-kscorectl exec output job-123 --full --output /tmp/output.txt
+# Output as JSON
+kscorectl exec output job-123 -o json
 ```
 
 ### Cleanup Policies
 
-#### Automatic Cleanup
-
-Configure automatic cleanup of expired output:
+Output retention and cleanup are managed through control plane configuration:
 
 ```yaml
 execution:
@@ -962,21 +914,7 @@ execution:
       notify_on_error: true    # Alert on cleanup failures
 ```
 
-#### Manual Cleanup
-
-```bash
-# Preview what would be deleted
-kscorectl exec cleanup --dry-run
-
-# Delete output older than 90 days
-kscorectl exec cleanup --older-than 90d
-
-# Delete output for specific targets
-kscorectl exec cleanup --target "environment:dev" --older-than 7d
-
-# Force cleanup (skip confirmation)
-kscorectl exec cleanup --older-than 90d --force
-```
+> **Note**: Output archival, export, and manual cleanup commands (`exec archive`, `exec export`, `exec cleanup`) are planned but not yet implemented. Configure retention policies in the control plane configuration.
 
 ### Storage Sizing Guidelines
 
@@ -1140,7 +1078,7 @@ kscorectl exec run "command" --target "failed-agent-id"
 
 ## Next Steps
 
-- Learn about [State Management](state-management/) for declarative configuration
-- Understand [Events](events/) emitted during command execution
-- Explore [Control Plane](control-plane/) command dispatcher details
-- See [Agents](agents/) for command execution internals
+- Learn about [State Management](/docs/concepts/state-management/) for declarative configuration
+- Understand [Events](/docs/concepts/events/) emitted during command execution
+- Explore [Control Plane](/docs/concepts/control-plane/) command dispatcher details
+- See [Agents](/docs/concepts/agents/) for command execution internals

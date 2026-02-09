@@ -706,10 +706,10 @@ func TestToBool(t *testing.T) {
 
 func TestToString(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   interface{}
-		want    string
-		wantOk  bool
+		name   string
+		input  interface{}
+		want   string
+		wantOk bool
 	}{
 		{"string", "hello", "hello", true},
 		{"empty string", "", "", true},
@@ -843,9 +843,9 @@ func TestCompareGreater(t *testing.T) {
 
 		// string comparison fallback (when numeric fails)
 		// Note: bools/mixed types convert to strings and compare lexicographically
-		{"bool true > false lexicographic", true, false, true},  // "true" > "false"
+		{"bool true > false lexicographic", true, false, true}, // "true" > "false"
 		{"nil vs nil", nil, nil, false},
-		{"string vs int", "hello", 42, true},  // "hello" > "42" lexicographically
+		{"string vs int", "hello", 42, true}, // "hello" > "42" lexicographically
 	}
 
 	for _, tt := range tests {
@@ -1110,7 +1110,7 @@ func TestStartsWithValue(t *testing.T) {
 		{"int not starts with", 12345, 34, false},
 
 		// non-string types that can't be converted
-		{"bool values", true, true, true}, // "true" starts with "true"
+		{"bool values", true, true, true},      // "true" starts with "true"
 		{"bool with string", true, "tr", true}, // "true" starts with "tr"
 	}
 
@@ -1143,7 +1143,7 @@ func TestEndsWithValue(t *testing.T) {
 		{"int not ends with", 12345, 12, false},
 
 		// bool and string combinations
-		{"bool values", true, "true", true}, // "true" ends with "true"
+		{"bool values", true, "true", true},    // "true" ends with "true"
 		{"bool with string", true, "ue", true}, // "true" ends with "ue"
 	}
 

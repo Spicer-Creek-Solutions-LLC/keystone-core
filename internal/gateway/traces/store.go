@@ -104,6 +104,7 @@ type Span struct {
 // SpanStatus represents the span status.
 type SpanStatus int
 
+// SpanStatusUnset constants define the possible statuses.
 const (
 	SpanStatusUnset SpanStatus = iota
 	SpanStatusOK
@@ -117,8 +118,8 @@ type SpanEvent struct {
 	Attributes map[string]interface{}
 }
 
-// TracesStore stores traces from multiple agents.
-type TracesStore struct {
+// Store stores traces from multiple agents.
+type Store struct {
 	traces map[string]*Trace
 	mu     sync.RWMutex
 	config StoreConfig
@@ -136,35 +137,36 @@ type TracesStore struct {
 }
 
 // NewTracesStore creates a new traces store.
-func NewTracesStore(config StoreConfig) *TracesStore {
-	return &TracesStore{
+func NewTracesStore(config StoreConfig) *Store {
+	return &Store{
 		traces: make(map[string]*Trace),
 		config: config,
 	}
 }
 
 // SetOnTraceAdded sets the callback for when a trace is added.
-func (s *TracesStore) SetOnTraceAdded(fn func(trace *Trace)) {
+func (s *Store) SetOnTraceAdded(fn func(trace *Trace)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onTraceAdded = fn
 }
 
 // Store stores spans, grouping them into traces.
-func (s *TracesStore) Store(spans []Span) int {
+func (s *Store) Store(spans []Span) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	stored := 0
 
-	for _, span := range spans {
+	for i := range spans {
+		span := &spans[i]
 		s.spansReceived++
 
 		// Get or create trace
 		trace, exists := s.traces[span.TraceID]
 		if !exists {
 			// Check if we should sample this trace
-			if !s.shouldSample(&span) {
+			if !s.shouldSample(span) {
 				s.tracesDropped++
 				continue
 			}
@@ -185,7 +187,7 @@ func (s *TracesStore) Store(spans []Span) int {
 		}
 
 		// Add span to trace
-		trace.Spans = append(trace.Spans, span)
+		trace.Spans = append(trace.Spans, *span)
 
 		// Update trace metadata
 		if span.StartTime.Before(trace.StartTime) || trace.StartTime.IsZero() {
@@ -216,7 +218,7 @@ func (s *TracesStore) Store(spans []Span) int {
 }
 
 // shouldSample determines if a span/trace should be sampled.
-func (s *TracesStore) shouldSample(span *Span) bool {
+func (s *Store) shouldSample(span *Span) bool {
 	// Always sample errors if configured
 	if s.config.SampleErrors && span.Status == SpanStatusError {
 		return true
@@ -241,7 +243,7 @@ func (s *TracesStore) shouldSample(span *Span) bool {
 }
 
 // evictOldest removes the oldest trace.
-func (s *TracesStore) evictOldest() {
+func (s *Store) evictOldest() {
 	var oldestID string
 	var oldestTime time.Time
 
@@ -258,7 +260,7 @@ func (s *TracesStore) evictOldest() {
 }
 
 // Get returns a trace by ID.
-func (s *TracesStore) Get(traceID string) (*Trace, bool) {
+func (s *Store) Get(traceID string) (*Trace, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -267,7 +269,7 @@ func (s *TracesStore) Get(traceID string) (*Trace, bool) {
 }
 
 // GetAll returns all traces.
-func (s *TracesStore) GetAll() []*Trace {
+func (s *Store) GetAll() []*Trace {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -278,7 +280,7 @@ func (s *TracesStore) GetAll() []*Trace {
 	return result
 }
 
-// Query queries traces.
+// TraceQuery defines query parameters for traces.
 type TraceQuery struct {
 	// ServiceName filters by service
 	ServiceName string
@@ -306,7 +308,7 @@ type TraceQuery struct {
 }
 
 // Query returns traces matching the query.
-func (s *TracesStore) Query(q TraceQuery) []*Trace {
+func (s *Store) Query(q TraceQuery) []*Trace {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -347,7 +349,7 @@ func (s *TracesStore) Query(q TraceQuery) []*Trace {
 }
 
 // GetPending returns traces that haven't been exported yet.
-func (s *TracesStore) GetPending(limit int) []*Trace {
+func (s *Store) GetPending(limit int) []*Trace {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -362,14 +364,14 @@ func (s *TracesStore) GetPending(limit int) []*Trace {
 }
 
 // Remove removes a trace.
-func (s *TracesStore) Remove(traceID string) {
+func (s *Store) Remove(traceID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.traces, traceID)
 }
 
 // Cleanup removes old traces.
-func (s *TracesStore) Cleanup() int {
+func (s *Store) Cleanup() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -391,14 +393,14 @@ func (s *TracesStore) Cleanup() int {
 }
 
 // Clear removes all traces.
-func (s *TracesStore) Clear() {
+func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.traces = make(map[string]*Trace)
 }
 
-// TracesStoreStats holds store statistics.
-type TracesStoreStats struct {
+// StoreStats holds store statistics.
+type StoreStats struct {
 	TraceCount     int
 	TracesReceived int64
 	TracesDropped  int64
@@ -406,10 +408,10 @@ type TracesStoreStats struct {
 }
 
 // Stats returns store statistics.
-func (s *TracesStore) Stats() TracesStoreStats {
+func (s *Store) Stats() StoreStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return TracesStoreStats{
+	return StoreStats{
 		TraceCount:     len(s.traces),
 		TracesReceived: s.tracesReceived,
 		TracesDropped:  s.tracesDropped,

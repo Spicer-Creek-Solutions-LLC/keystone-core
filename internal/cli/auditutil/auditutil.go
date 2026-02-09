@@ -1,3 +1,4 @@
+// Package auditutil provides audit logging utilities for CLI commands.
 package auditutil
 
 import (
@@ -19,7 +20,7 @@ type CommandAudit struct {
 }
 
 // Attach installs audit hooks on the root command and returns a handler for failures.
-func Attach(rootCmd *cobra.Command, tool string, level *string, backend *string) *CommandAudit {
+func Attach(rootCmd *cobra.Command, tool string, level, backend *string) *CommandAudit {
 	handler := &CommandAudit{}
 
 	prevPreRunE := rootCmd.PersistentPreRunE
@@ -32,7 +33,7 @@ func Attach(rootCmd *cobra.Command, tool string, level *string, backend *string)
 			}
 		}
 		if !handler.initialized {
-			handler.cleanup = Init(tool, *level, *backend)
+			handler.cleanup = Init(cmd.Context(), tool, *level, *backend)
 			handler.initialized = true
 		}
 
@@ -79,12 +80,12 @@ func (c *CommandAudit) log(ctx context.Context, result audit.AuditResult, exitCo
 }
 
 // Init configures the global auditor and returns a cleanup function.
-func Init(tool, level, backend string) func() {
+func Init(ctx context.Context, tool, level, backend string) func() {
 	config := &audit.AuditConfig{
 		Level:   audit.AuditLevel(level),
 		Backend: backend,
 	}
-	if err := audit.Init(tool, config); err != nil {
+	if err := audit.Init(ctx, tool, config); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize audit logging: %v\n", err)
 	}
 	return func() {

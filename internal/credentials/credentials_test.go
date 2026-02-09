@@ -3,6 +3,7 @@ package credentials
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -569,7 +570,7 @@ func TestInMemoryCredentialStore(t *testing.T) {
 
 	// Verify deleted
 	_, err = store.Get(ctx, "test-cred")
-	if err != ErrCredentialNotFound {
+	if !errors.Is(err, ErrCredentialNotFound) {
 		t.Errorf("expected ErrCredentialNotFound, got %v", err)
 	}
 }
@@ -594,7 +595,7 @@ func TestInMemoryCredentialStore_ExpiredCredential(t *testing.T) {
 
 	// Get should return expired error
 	_, err := store.Get(ctx, "expired")
-	if err != ErrCredentialExpired {
+	if !errors.Is(err, ErrCredentialExpired) {
 		t.Errorf("expected ErrCredentialExpired, got %v", err)
 	}
 }

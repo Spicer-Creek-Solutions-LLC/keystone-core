@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// CacheConfig is the configuration for the file cache.
-type CacheConfig struct {
+// Config is the configuration for the file cache.
+type Config struct {
 	// Path is the directory to store cached files.
 	Path string `yaml:"path"`
 
@@ -49,8 +49,8 @@ const (
 	EvictionFIFO EvictionPolicy = "fifo"
 )
 
-// CacheEntry represents a cached file.
-type CacheEntry struct {
+// Entry represents a cached file.
+type Entry struct {
 	// Key is the cache key (usually file path).
 	Key string
 
@@ -82,8 +82,8 @@ type CacheEntry struct {
 	Metadata map[string]string
 }
 
-// CacheStats contains cache statistics.
-type CacheStats struct {
+// Stats contains cache statistics.
+type Stats struct {
 	// TotalSize is the total size of cached files.
 	TotalSize int64
 
@@ -106,10 +106,10 @@ type CacheStats struct {
 // Cache is a file cache interface.
 type Cache interface {
 	// Get retrieves a file from the cache.
-	Get(ctx context.Context, key string) (*CacheResult, error)
+	Get(ctx context.Context, key string) (*Result, error)
 
 	// Put stores a file in the cache.
-	Put(ctx context.Context, key string, reader io.Reader, entry *CacheEntry) error
+	Put(ctx context.Context, key string, reader io.Reader, entry *Entry) error
 
 	// Delete removes a file from the cache.
 	Delete(ctx context.Context, key string) error
@@ -118,7 +118,7 @@ type Cache interface {
 	Exists(ctx context.Context, key string) (bool, error)
 
 	// GetEntry returns cache entry metadata without the content.
-	GetEntry(ctx context.Context, key string) (*CacheEntry, error)
+	GetEntry(ctx context.Context, key string) (*Entry, error)
 
 	// Invalidate removes files matching a pattern.
 	Invalidate(ctx context.Context, pattern string) (int, error)
@@ -127,7 +127,7 @@ type Cache interface {
 	Clear(ctx context.Context) error
 
 	// Stats returns cache statistics.
-	Stats(ctx context.Context) (*CacheStats, error)
+	Stats(ctx context.Context) (*Stats, error)
 
 	// Cleanup removes expired or excess files.
 	Cleanup(ctx context.Context) error
@@ -136,34 +136,35 @@ type Cache interface {
 	Close() error
 }
 
-// CacheResult is the result of a cache get operation.
-type CacheResult struct {
+// Result is the result of a cache get operation.
+type Result struct {
 	// Reader streams the cached content.
 	Reader io.ReadCloser
 
 	// Entry is the cache entry metadata.
-	Entry *CacheEntry
+	Entry *Entry
 }
 
 // FileCache implements Cache using the filesystem.
 type FileCache struct {
-	config  *CacheConfig
-	entries map[string]*CacheEntry
+	config  *Config
+	entries map[string]*Entry
 	mu      sync.RWMutex
-	stats   CacheStats
+	stats   Stats
 
 	stopCleanup chan struct{}
 	cleanupDone chan struct{}
 }
 
 // NewFileCache creates a new filesystem-based cache.
-func NewFileCache(config *CacheConfig) (*FileCache, error) {
+func NewFileCache(config *Config) (*FileCache, error) {
 	if config.Path == "" {
 		return nil, fmt.Errorf("cache: path is required")
 	}
 
 	// Create cache directory
-	if err := os.MkdirAll(config.Path, 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(config.Path, 0o755); err != nil {
 		return nil, fmt.Errorf("cache: failed to create directory: %w", err)
 	}
 
@@ -177,7 +178,7 @@ func NewFileCache(config *CacheConfig) (*FileCache, error) {
 
 	cache := &FileCache{
 		config:      config,
-		entries:     make(map[string]*CacheEntry),
+		entries:     make(map[string]*Entry),
 		stopCleanup: make(chan struct{}),
 		cleanupDone: make(chan struct{}),
 	}
@@ -195,7 +196,7 @@ func NewFileCache(config *CacheConfig) (*FileCache, error) {
 }
 
 // Get retrieves a file from the cache.
-func (c *FileCache) Get(ctx context.Context, key string) (*CacheResult, error) {
+func (c *FileCache) Get(ctx context.Context, key string) (*Result, error) {
 	c.mu.Lock()
 	entry, ok := c.entries[key]
 	if !ok {
@@ -233,18 +234,19 @@ func (c *FileCache) Get(ctx context.Context, key string) (*CacheResult, error) {
 		return nil, fmt.Errorf("cache: failed to open file: %w", err)
 	}
 
-	return &CacheResult{
+	return &Result{
 		Reader: file,
 		Entry:  entry,
 	}, nil
 }
 
 // Put stores a file in the cache.
-func (c *FileCache) Put(ctx context.Context, key string, reader io.Reader, entry *CacheEntry) error {
+func (c *FileCache) Put(ctx context.Context, key string, reader io.Reader, entry *Entry) error {
 	filePath := c.filePath(key)
 
 	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	//nolint:gosec // G301: cache directory needs to be accessible by service user
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		return fmt.Errorf("cache: failed to create directory: %w", err)
 	}
 
@@ -342,7 +344,7 @@ func (c *FileCache) Exists(ctx context.Context, key string) (bool, error) {
 }
 
 // GetEntry returns cache entry metadata without the content.
-func (c *FileCache) GetEntry(ctx context.Context, key string) (*CacheEntry, error) {
+func (c *FileCache) GetEntry(ctx context.Context, key string) (*Entry, error) {
 	c.mu.RLock()
 	entry, ok := c.entries[key]
 	c.mu.RUnlock()
@@ -387,7 +389,7 @@ func (c *FileCache) Invalidate(ctx context.Context, pattern string) (int, error)
 // Clear removes all cached files.
 func (c *FileCache) Clear(ctx context.Context) error {
 	c.mu.Lock()
-	c.entries = make(map[string]*CacheEntry)
+	c.entries = make(map[string]*Entry)
 	c.mu.Unlock()
 
 	// Remove all files in cache directory
@@ -407,7 +409,7 @@ func (c *FileCache) Clear(ctx context.Context) error {
 }
 
 // Stats returns cache statistics.
-func (c *FileCache) Stats(ctx context.Context) (*CacheStats, error) {
+func (c *FileCache) Stats(ctx context.Context) (*Stats, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -494,7 +496,7 @@ func (c *FileCache) loadEntries() error {
 	// Walk the cache directory
 	return filepath.Walk(c.config.Path, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
-			return nil
+			return nil //nolint:nilerr // skip errors in walk to continue
 		}
 
 		// Reconstruct key from path - this is a simplified version
@@ -502,7 +504,7 @@ func (c *FileCache) loadEntries() error {
 		relPath, _ := filepath.Rel(c.config.Path, path)
 		if len(relPath) > 2 {
 			// This is a cached file
-			c.entries[path] = &CacheEntry{
+			c.entries[path] = &Entry{
 				Key:          path,
 				Size:         info.Size(),
 				CachedAt:     info.ModTime(),
@@ -559,7 +561,7 @@ func (c *FileCache) evictEntriesExcluding(count int, excludeKey string) int {
 	}
 
 	// Convert to slice for sorting, excluding protected key
-	entries := make([]*CacheEntry, 0, len(c.entries))
+	entries := make([]*Entry, 0, len(c.entries))
 	for _, entry := range c.entries {
 		if entry.Key != excludeKey {
 			entries = append(entries, entry)
@@ -609,7 +611,7 @@ func (c *FileCache) cleanupLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			c.Cleanup(context.Background())
+			_ = c.Cleanup(context.Background()) //nolint:errcheck // best-effort periodic cleanup
 		case <-c.stopCleanup:
 			return
 		}

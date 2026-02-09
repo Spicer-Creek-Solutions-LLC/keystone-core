@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"google.golang.org/protobuf/proto"
 )
 

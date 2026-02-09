@@ -165,7 +165,7 @@ func (c *LogCapability) Name() string {
 func (c *LogCapability) Validate() error {
 	if c.RateLimit != nil {
 		if err := c.RateLimit.Validate(); err != nil {
-			return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
+			return fmt.Errorf("%w: invalid rate limit: %w", ErrInvalidConfiguration, err)
 		}
 	}
 	return nil

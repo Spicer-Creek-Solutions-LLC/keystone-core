@@ -164,11 +164,8 @@ func (b *Backend) List(ctx context.Context, prefix string) ([]string, error) {
 	// Build filter if prefix is specified
 	var opts []ListSecretsOption
 	resolvedPrefix := b.resolveSecretName(prefix)
-	if resolvedPrefix != "" {
-		// GCP uses a filter expression, not a prefix
-		// Filter syntax: labels.env=prod
-		// We can't directly filter by name prefix, so we'll filter client-side
-	}
+	// Note: GCP uses filter expressions (e.g., labels.env=prod), not prefix filtering.
+	// We filter client-side since direct prefix filtering isn't supported.
 
 	// List all secrets
 	entries, err := b.client.ListSecrets(ctx, opts...)

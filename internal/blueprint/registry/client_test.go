@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +14,7 @@ import (
 func TestNewHTTPClient(t *testing.T) {
 	tests := []struct {
 		name      string
-		config    *RegistryConfig
+		config    *Config
 		wantErr   bool
 		errSubstr string
 	}{
@@ -24,27 +25,27 @@ func TestNewHTTPClient(t *testing.T) {
 		},
 		{
 			name:      "empty URL fails",
-			config:    &RegistryConfig{},
+			config:    &Config{},
 			wantErr:   true,
 			errSubstr: "URL is required",
 		},
 		{
 			name: "valid config",
-			config: &RegistryConfig{
+			config: &Config{
 				URL: "https://registry.example.com",
 			},
 			wantErr: false,
 		},
 		{
 			name: "URL with trailing slash normalized",
-			config: &RegistryConfig{
+			config: &Config{
 				URL: "https://registry.example.com/",
 			},
 			wantErr: false,
 		},
 		{
 			name: "custom timeout",
-			config: &RegistryConfig{
+			config: &Config{
 				URL:     "https://registry.example.com",
 				Timeout: 60 * time.Second,
 			},
@@ -70,7 +71,7 @@ func TestNewHTTPClient(t *testing.T) {
 			}
 
 			if client == nil {
-				t.Error("expected client, got nil")
+				t.Fatal("expected client, got nil")
 			}
 
 			if client.config.URL == "" {
@@ -92,7 +93,7 @@ func TestNewHTTPClient(t *testing.T) {
 }
 
 func TestDefaultRegistryConfig(t *testing.T) {
-	config := DefaultRegistryConfig()
+	config := DefaultConfig()
 
 	if config.Timeout != 30*time.Second {
 		t.Errorf("default timeout = %v, want 30s", config.Timeout)
@@ -123,7 +124,7 @@ func TestHTTPClient_ListVersions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, err := NewHTTPClient(&Config{URL: server.URL})
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestHTTPClient_ListVersions(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		_, err := client.ListVersions("notfound/bp")
-		if err != ErrBlueprintNotFound {
+		if !errors.Is(err, ErrBlueprintNotFound) {
 			t.Errorf("error = %v, want ErrBlueprintNotFound", err)
 		}
 	})
@@ -179,7 +180,7 @@ func TestHTTPClient_GetBlueprintInfo(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	t.Run("success", func(t *testing.T) {
 		result, err := client.GetBlueprintInfo("myorg/web-stack", "1.0.0")
@@ -200,7 +201,7 @@ func TestHTTPClient_GetBlueprintInfo(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		_, err := client.GetBlueprintInfo("myorg/web-stack", "9.9.9")
-		if err != ErrVersionNotFound {
+		if !errors.Is(err, ErrVersionNotFound) {
 			t.Errorf("error = %v, want ErrVersionNotFound", err)
 		}
 	})
@@ -216,7 +217,7 @@ func TestHTTPClient_GetLatestVersion(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	version, err := client.GetLatestVersion("myorg/web-stack")
 	if err != nil {
@@ -240,7 +241,7 @@ func TestHTTPClient_DownloadBlueprint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	t.Run("success", func(t *testing.T) {
 		data, err := client.DownloadBlueprint("myorg/web-stack", "1.0.0")
@@ -255,14 +256,14 @@ func TestHTTPClient_DownloadBlueprint(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		_, err := client.DownloadBlueprint("myorg/web-stack", "9.9.9")
-		if err != ErrVersionNotFound {
+		if !errors.Is(err, ErrVersionNotFound) {
 			t.Errorf("error = %v, want ErrVersionNotFound", err)
 		}
 	})
 }
 
 func TestHTTPClient_GetManifest(t *testing.T) {
-	manifestYAML := `apiVersion: blueprints.kscore.io/v1
+	manifestYAML := `apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: web-stack
@@ -279,7 +280,7 @@ metadata:
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	bp, err := client.GetManifest("myorg/web-stack", "1.0.0")
 	if err != nil {
@@ -333,7 +334,7 @@ func TestHTTPClient_PublishBlueprint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	t.Run("success", func(t *testing.T) {
 		req := &PublishRequest{
@@ -407,7 +408,7 @@ func TestHTTPClient_Search(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	result, err := client.Search(&SearchQuery{Vendor: "myorg"})
 	if err != nil {
@@ -439,7 +440,7 @@ func TestHTTPClient_GetIndex(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	entries, err := client.GetIndex()
 	if err != nil {
@@ -465,7 +466,7 @@ func TestHTTPClient_GetVendors(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	result, err := client.GetVendors()
 	if err != nil {
@@ -491,7 +492,7 @@ func TestHTTPClient_GetTags(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	result, err := client.GetTags()
 	if err != nil {
@@ -513,7 +514,7 @@ func TestHTTPClient_Authentication(t *testing.T) {
 	defer server.Close()
 
 	t.Run("basic auth", func(t *testing.T) {
-		client, _ := NewHTTPClient(&RegistryConfig{
+		client, _ := NewHTTPClient(&Config{
 			URL: server.URL,
 			Auth: &AuthConfig{
 				Type:     AuthTypeBasic,
@@ -533,7 +534,7 @@ func TestHTTPClient_Authentication(t *testing.T) {
 	})
 
 	t.Run("bearer auth", func(t *testing.T) {
-		client, _ := NewHTTPClient(&RegistryConfig{
+		client, _ := NewHTTPClient(&Config{
 			URL: server.URL,
 			Auth: &AuthConfig{
 				Type:  AuthTypeBearer,
@@ -556,7 +557,7 @@ func TestHTTPClient_Authentication(t *testing.T) {
 		}))
 		defer apiKeyServer.Close()
 
-		client, _ := NewHTTPClient(&RegistryConfig{
+		client, _ := NewHTTPClient(&Config{
 			URL: apiKeyServer.URL,
 			Auth: &AuthConfig{
 				Type:  AuthTypeAPIKey,
@@ -584,7 +585,7 @@ func TestHTTPClient_ErrorHandling(t *testing.T) {
 		case "/blueprints/error/@latest":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(&RegistryError{
+			json.NewEncoder(w).Encode(&Error{
 				Code:    "invalid_request",
 				Message: "Invalid request parameters",
 			})
@@ -594,18 +595,18 @@ func TestHTTPClient_ErrorHandling(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{URL: server.URL})
+	client, _ := NewHTTPClient(&Config{URL: server.URL})
 
 	t.Run("unauthorized", func(t *testing.T) {
 		_, err := client.GetLatestVersion("unauthorized")
-		if err != ErrUnauthorized {
+		if !errors.Is(err, ErrUnauthorized) {
 			t.Errorf("error = %v, want ErrUnauthorized", err)
 		}
 	})
 
 	t.Run("forbidden", func(t *testing.T) {
 		_, err := client.GetLatestVersion("forbidden")
-		if err != ErrForbidden {
+		if !errors.Is(err, ErrForbidden) {
 			t.Errorf("error = %v, want ErrForbidden", err)
 		}
 	})
@@ -616,16 +617,16 @@ func TestHTTPClient_ErrorHandling(t *testing.T) {
 			Version: "1.0.0",
 			Archive: []byte("data"),
 		})
-		if err != ErrVersionExists {
+		if !errors.Is(err, ErrVersionExists) {
 			t.Errorf("error = %v, want ErrVersionExists", err)
 		}
 	})
 
 	t.Run("registry error", func(t *testing.T) {
 		_, err := client.GetLatestVersion("error")
-		regErr, ok := err.(*RegistryError)
-		if !ok {
-			t.Fatalf("error type = %T, want *RegistryError", err)
+		var regErr *Error
+		if !errors.As(err, &regErr) {
+			t.Fatalf("error type = %T, want *Error", err)
 		}
 		if regErr.Code != "invalid_request" {
 			t.Errorf("code = %q, want %q", regErr.Code, "invalid_request")
@@ -639,7 +640,7 @@ func TestHTTPClient_RetryRespectsTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, _ := NewHTTPClient(&RegistryConfig{
+	client, _ := NewHTTPClient(&Config{
 		URL:           server.URL,
 		RetryAttempts: 3,
 		RetryDelay:    time.Second,
@@ -659,45 +660,45 @@ func TestHTTPClient_RetryRespectsTimeout(t *testing.T) {
 
 func TestRegistryError(t *testing.T) {
 	t.Run("Error method", func(t *testing.T) {
-		err := &RegistryError{Message: "test error"}
+		err := &Error{Message: "test error"}
 		if err.Error() != "test error" {
 			t.Errorf("Error() = %q, want %q", err.Error(), "test error")
 		}
 
-		err = &RegistryError{Code: "test_code"}
+		err = &Error{Code: "test_code"}
 		if err.Error() != "test_code" {
 			t.Errorf("Error() = %q, want %q", err.Error(), "test_code")
 		}
 	})
 
 	t.Run("IsNotFound", func(t *testing.T) {
-		err := &RegistryError{StatusCode: 404}
+		err := &Error{StatusCode: 404}
 		if !err.IsNotFound() {
 			t.Error("expected IsNotFound() = true")
 		}
 
-		err = &RegistryError{Code: "not_found"}
+		err = &Error{Code: "not_found"}
 		if !err.IsNotFound() {
 			t.Error("expected IsNotFound() = true")
 		}
 	})
 
 	t.Run("IsUnauthorized", func(t *testing.T) {
-		err := &RegistryError{StatusCode: 401}
+		err := &Error{StatusCode: 401}
 		if !err.IsUnauthorized() {
 			t.Error("expected IsUnauthorized() = true")
 		}
 	})
 
 	t.Run("IsForbidden", func(t *testing.T) {
-		err := &RegistryError{StatusCode: 403}
+		err := &Error{StatusCode: 403}
 		if !err.IsForbidden() {
 			t.Error("expected IsForbidden() = true")
 		}
 	})
 
 	t.Run("IsConflict", func(t *testing.T) {
-		err := &RegistryError{StatusCode: 409}
+		err := &Error{StatusCode: 409}
 		if !err.IsConflict() {
 			t.Error("expected IsConflict() = true")
 		}

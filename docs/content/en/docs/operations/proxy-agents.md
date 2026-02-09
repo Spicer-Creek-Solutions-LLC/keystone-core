@@ -3,7 +3,7 @@ title: "Proxy Agent Operations"
 linkTitle: "Proxy Agents"
 weight: 23
 description: >
-  Operating Keystone Core proxy agents for managing unmanaged devices via SSH, SNMP, REST, and WinRM.
+  Operating Keystone Core proxy agents for managing unmanaged devices via SSH, SNMP, REST, WinRM, NETCONF, RESTCONF, and gNMI.
 ---
 
 ## Overview
@@ -26,10 +26,10 @@ For managing devices in a single network segment:
 
 ```bash
 # Start proxy agent
-kscore-agent --proxy --config /etc/kscore/proxy-agent.yaml
+kscore-agent --proxy --config /etc/keystone-core/proxy-agent.yaml
 ```
 
-**Configuration (`/etc/kscore/proxy-agent.yaml`):**
+**Configuration (`/etc/keystone-core/proxy-agent.yaml`):**
 
 ```yaml
 agent:
@@ -43,14 +43,14 @@ nats:
   url: nats://control-plane:4222
   tls:
     enabled: true
-    ca_file: /etc/kscore/certs/ca.crt
-    cert_file: /etc/kscore/certs/agent.crt
-    key_file: /etc/kscore/certs/agent.key
+    ca_file: /etc/keystone-core/certs/ca.crt
+    cert_file: /etc/keystone-core/certs/agent.crt
+    key_file: /etc/keystone-core/certs/agent.key
 
 proxy:
   # Device registry
   devices:
-    config_file: /etc/kscore/devices.yaml
+    config_file: /etc/keystone-core/devices.yaml
     sync_interval: 5m
 
   # Credential storage
@@ -135,7 +135,7 @@ spec:
       containers:
         - name: proxy-agent
           image: kscore/agent:latest
-          args: ["--proxy", "--config", "/etc/kscore/config.yaml"]
+          args: ["--proxy", "--config", "/etc/keystone-core/config.yaml"]
           env:
             - name: KSCORE_AGENT_ID
               valueFrom:
@@ -143,9 +143,9 @@ spec:
                   fieldPath: metadata.name
           volumeMounts:
             - name: config
-              mountPath: /etc/kscore
+              mountPath: /etc/keystone-core
             - name: certs
-              mountPath: /etc/kscore/certs
+              mountPath: /etc/keystone-core/certs
       volumes:
         - name: config
           configMap:
@@ -162,7 +162,7 @@ spec:
 **Via Configuration File:**
 
 ```yaml
-# /etc/kscore/devices.yaml
+# /etc/keystone-core/devices.yaml
 devices:
   - id: core-router-01
     name: Core Router 1
@@ -267,8 +267,8 @@ kscorectl proxy device health --all
 credentials:
   type: file
   file:
-    path: /etc/kscore/credentials.yaml
-    encryption_key_file: /etc/kscore/creds.key
+    path: /etc/keystone-core/credentials.yaml
+    encryption_key_file: /etc/keystone-core/creds.key
 ```
 
 **HashiCorp Vault (Production):**
@@ -718,7 +718,7 @@ profiles:
       session_timeout: 300s
     parser:
       type: textfsm
-      templates_dir: /etc/kscore/templates/cisco-ios
+      templates_dir: /etc/keystone-core/templates/cisco-ios
     commands:
       show_config: show running-config
       show_version: show version

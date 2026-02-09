@@ -111,7 +111,7 @@ func (m *ScheduledTaskModule) Check(ctx context.Context, decl *StateDeclaration)
 		return nil, err
 	}
 
-	exists := m.taskExists(config)
+	exists := m.taskExists(ctx, config)
 
 	switch decl.State {
 	case "present":
@@ -169,8 +169,8 @@ func (m *ScheduledTaskModule) Apply(ctx context.Context, decl *StateDeclaration)
 	switch decl.State {
 	case "present":
 		// Delete existing task if it exists (for idempotent updates)
-		if m.taskExists(config) {
-			if err := m.deleteTask(config); err != nil {
+		if m.taskExists(ctx, config) {
+			if err := m.deleteTask(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete existing task: %v", err)
 				return result, err
@@ -178,7 +178,7 @@ func (m *ScheduledTaskModule) Apply(ctx context.Context, decl *StateDeclaration)
 		}
 
 		// Create the task
-		if err := m.createTask(config); err != nil {
+		if err := m.createTask(ctx, config); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to create task: %v", err)
 			return result, err
@@ -188,12 +188,12 @@ func (m *ScheduledTaskModule) Apply(ctx context.Context, decl *StateDeclaration)
 		result.Comment = fmt.Sprintf("Task '%s' created", config.Name)
 
 	case "absent":
-		if !m.taskExists(config) {
+		if !m.taskExists(ctx, config) {
 			result.Comment = fmt.Sprintf("Task '%s' already absent", config.Name)
 			return result, nil
 		}
 
-		if err := m.deleteTask(config); err != nil {
+		if err := m.deleteTask(ctx, config); err != nil {
 			result.Success = false
 			result.Comment = fmt.Sprintf("Failed to delete task: %v", err)
 			return result, err
@@ -318,22 +318,19 @@ func (m *ScheduledTaskModule) getTaskName(config *ScheduledTaskConfig) string {
 }
 
 // taskExists checks if the task exists.
-func (m *ScheduledTaskModule) taskExists(config *ScheduledTaskConfig) bool {
+func (m *ScheduledTaskModule) taskExists(ctx context.Context, config *ScheduledTaskConfig) bool {
 	taskName := m.getTaskName(config)
-	cmd := exec.Command("schtasks", "/Query", "/TN", taskName)
+	cmd := exec.CommandContext(ctx, "schtasks", "/Query", "/TN", taskName)
 	err := cmd.Run()
 	return err == nil
 }
 
 // createTask creates a scheduled task.
-func (m *ScheduledTaskModule) createTask(config *ScheduledTaskConfig) error {
+func (m *ScheduledTaskModule) createTask(ctx context.Context, config *ScheduledTaskConfig) error {
 	args := []string{"/Create", "/F"} // /F forces creation (overwrites)
 
-	// Task name
-	args = append(args, "/TN", m.getTaskName(config))
-
-	// Action
-	args = append(args, "/TR", m.buildCommand(config))
+	// Task name and action
+	args = append(args, "/TN", m.getTaskName(config), "/TR", m.buildCommand(config))
 
 	// Trigger
 	triggerArgs := m.buildTriggerArgs(config)
@@ -352,10 +349,10 @@ func (m *ScheduledTaskModule) createTask(config *ScheduledTaskConfig) error {
 		}
 	}
 
-	cmd := exec.Command("schtasks", args...)
+	cmd := exec.CommandContext(ctx, "schtasks", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("schtasks create failed: %v: %s", err, string(output))
+		return fmt.Errorf("schtasks create failed: %w: %s", err, string(output))
 	}
 
 	// Apply additional settings that schtasks doesn't support directly
@@ -367,7 +364,7 @@ func (m *ScheduledTaskModule) createTask(config *ScheduledTaskConfig) error {
 // buildCommand builds the command string.
 func (m *ScheduledTaskModule) buildCommand(config *ScheduledTaskConfig) string {
 	if config.Arguments != "" {
-		return fmt.Sprintf("\"%s\" %s", config.Execute, config.Arguments)
+		return fmt.Sprintf("%q %s", config.Execute, config.Arguments)
 	}
 	return config.Execute
 }
@@ -436,8 +433,7 @@ func (m *ScheduledTaskModule) buildTriggerArgs(config *ScheduledTaskConfig) []st
 		}
 
 	case "on_idle", "onidle":
-		args = append(args, "/SC", "ONIDLE")
-		args = append(args, "/I", "10") // Default idle time of 10 minutes
+		args = append(args, "/SC", "ONIDLE", "/I", "10") // Default idle time of 10 minutes
 
 	default:
 		// Default to once
@@ -451,12 +447,12 @@ func (m *ScheduledTaskModule) buildTriggerArgs(config *ScheduledTaskConfig) []st
 }
 
 // deleteTask deletes a scheduled task.
-func (m *ScheduledTaskModule) deleteTask(config *ScheduledTaskConfig) error {
+func (m *ScheduledTaskModule) deleteTask(ctx context.Context, config *ScheduledTaskConfig) error {
 	taskName := m.getTaskName(config)
-	cmd := exec.Command("schtasks", "/Delete", "/TN", taskName, "/F")
+	cmd := exec.CommandContext(ctx, "schtasks", "/Delete", "/TN", taskName, "/F")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("schtasks delete failed: %v: %s", err, string(output))
+		return fmt.Errorf("schtasks delete failed: %w: %s", err, string(output))
 	}
 	return nil
 }

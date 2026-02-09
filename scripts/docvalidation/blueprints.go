@@ -12,49 +12,49 @@ import (
 
 // BlueprintFile represents a blueprint state file
 type BlueprintFile struct {
-	Path          string   `json:"path"`
-	RelPath       string   `json:"rel_path"`
-	Blueprint     string   `json:"blueprint"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	Version       string   `json:"version"`
-	StateCount    int      `json:"state_count"`
-	HasIncludes   bool     `json:"has_includes"`
-	Valid         bool     `json:"valid"`
-	Errors        []string `json:"errors,omitempty"`
-	Warnings      []string `json:"warnings,omitempty"`
-	UsesGoTemplate bool    `json:"uses_go_template"`
+	Path           string   `json:"path"`
+	RelPath        string   `json:"rel_path"`
+	Blueprint      string   `json:"blueprint"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Version        string   `json:"version"`
+	StateCount     int      `json:"state_count"`
+	HasIncludes    bool     `json:"has_includes"`
+	Valid          bool     `json:"valid"`
+	Errors         []string `json:"errors,omitempty"`
+	Warnings       []string `json:"warnings,omitempty"`
+	UsesGoTemplate bool     `json:"uses_go_template"`
 }
 
 // BlueprintManifest represents a blueprint.yaml manifest
 type BlueprintManifest struct {
-	Path        string            `json:"path"`
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Description string            `json:"description"`
-	Parameters  int               `json:"parameter_count"`
-	Features    int               `json:"feature_count"`
-	Valid       bool              `json:"valid"`
-	Errors      []string          `json:"errors,omitempty"`
+	Path        string   `json:"path"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version"`
+	Description string   `json:"description"`
+	Parameters  int      `json:"parameter_count"`
+	Features    int      `json:"feature_count"`
+	Valid       bool     `json:"valid"`
+	Errors      []string `json:"errors,omitempty"`
 }
 
 // BlueprintInventory holds blueprint validation results
 type BlueprintInventory struct {
-	RootDir     string              `json:"root_dir"`
-	Blueprints  []BlueprintManifest `json:"blueprints"`
-	StateFiles  []BlueprintFile     `json:"state_files"`
-	Summary     BlueprintSummary    `json:"summary"`
+	RootDir    string              `json:"root_dir"`
+	Blueprints []BlueprintManifest `json:"blueprints"`
+	StateFiles []BlueprintFile     `json:"state_files"`
+	Summary    BlueprintSummary    `json:"summary"`
 }
 
 // BlueprintSummary provides summary statistics
 type BlueprintSummary struct {
-	TotalBlueprints  int `json:"total_blueprints"`
-	TotalStateFiles  int `json:"total_state_files"`
-	TotalStates      int `json:"total_states"`
-	ValidFiles       int `json:"valid_files"`
-	InvalidFiles     int `json:"invalid_files"`
+	TotalBlueprints   int `json:"total_blueprints"`
+	TotalStateFiles   int `json:"total_state_files"`
+	TotalStates       int `json:"total_states"`
+	ValidFiles        int `json:"valid_files"`
+	InvalidFiles      int `json:"invalid_files"`
 	FilesWithWarnings int `json:"files_with_warnings"`
-	GoTemplateUsage  int `json:"go_template_usage"`
+	GoTemplateUsage   int `json:"go_template_usage"`
 }
 
 // StateFileContent represents parsed state file content
@@ -222,7 +222,7 @@ func (bv *BlueprintValidator) validateManifest(path, blueprint string, verbose b
 func (bv *BlueprintValidator) validateStateFiles(statesDir, blueprint string, verbose bool) {
 	filepath.Walk(statesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		if !strings.HasSuffix(path, ".yaml") && !strings.HasSuffix(path, ".yml") {
@@ -348,7 +348,8 @@ func (bv *BlueprintValidator) calculateSummary() {
 	summary.TotalBlueprints = len(bv.inventory.Blueprints)
 	summary.TotalStateFiles = len(bv.inventory.StateFiles)
 
-	for _, sf := range bv.inventory.StateFiles {
+	for i := range bv.inventory.StateFiles {
+		sf := &bv.inventory.StateFiles[i]
 		summary.TotalStates += sf.StateCount
 		if sf.Valid {
 			summary.ValidFiles++
@@ -384,7 +385,8 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 	sb.WriteString("## Blueprints\n\n")
 	sb.WriteString("| Blueprint | Version | Parameters | Features | Valid |\n")
 	sb.WriteString("|-----------|---------|------------|----------|-------|\n")
-	for _, bp := range inv.Blueprints {
+	for i := range inv.Blueprints {
+		bp := &inv.Blueprints[i]
 		valid := "✓"
 		if !bp.Valid {
 			valid = "✗"
@@ -399,15 +401,16 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 
 	// Group by blueprint
 	byBlueprint := make(map[string][]BlueprintFile)
-	for _, sf := range inv.StateFiles {
-		byBlueprint[sf.Blueprint] = append(byBlueprint[sf.Blueprint], sf)
+	for i := range inv.StateFiles {
+		byBlueprint[inv.StateFiles[i].Blueprint] = append(byBlueprint[inv.StateFiles[i].Blueprint], inv.StateFiles[i])
 	}
 
 	for blueprint, files := range byBlueprint {
 		sb.WriteString(fmt.Sprintf("### %s\n\n", blueprint))
 		sb.WriteString("| File | States | Valid | Template |\n")
 		sb.WriteString("|------|--------|-------|----------|\n")
-		for _, sf := range files {
+		for i := range files {
+			sf := &files[i]
 			valid := "✓"
 			if !sf.Valid {
 				valid = "✗"
@@ -426,8 +429,8 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 
 	// Errors
 	hasErrors := false
-	for _, sf := range inv.StateFiles {
-		if len(sf.Errors) > 0 {
+	for i := range inv.StateFiles {
+		if len(inv.StateFiles[i].Errors) > 0 {
 			hasErrors = true
 			break
 		}
@@ -435,7 +438,8 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 
 	if hasErrors {
 		sb.WriteString("## Errors\n\n")
-		for _, sf := range inv.StateFiles {
+		for i := range inv.StateFiles {
+			sf := &inv.StateFiles[i]
 			if len(sf.Errors) == 0 {
 				continue
 			}
@@ -449,8 +453,8 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 
 	// Warnings
 	hasWarnings := false
-	for _, sf := range inv.StateFiles {
-		if len(sf.Warnings) > 0 {
+	for i := range inv.StateFiles {
+		if len(inv.StateFiles[i].Warnings) > 0 {
 			hasWarnings = true
 			break
 		}
@@ -458,7 +462,8 @@ func GenerateBlueprintReport(inv *BlueprintInventory) string {
 
 	if hasWarnings {
 		sb.WriteString("## Warnings\n\n")
-		for _, sf := range inv.StateFiles {
+		for i := range inv.StateFiles {
+			sf := &inv.StateFiles[i]
 			if len(sf.Warnings) == 0 {
 				continue
 			}

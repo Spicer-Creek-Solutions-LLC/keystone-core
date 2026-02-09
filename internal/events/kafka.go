@@ -377,7 +377,7 @@ func (s *KafkaSubscriber) Subscribe(subject string, handler EventHandler) (*Subs
 
 // SubscribeQueue subscribes to events with a queue group
 // For Kafka, this is similar to Subscribe (consumer groups handle load balancing)
-func (s *KafkaSubscriber) SubscribeQueue(subject string, queue string, handler EventHandler) (*Subscription, error) {
+func (s *KafkaSubscriber) SubscribeQueue(subject, queue string, handler EventHandler) (*Subscription, error) {
 	// In Kafka, the consumer group handles queue semantics
 	return s.Subscribe(subject, handler)
 }

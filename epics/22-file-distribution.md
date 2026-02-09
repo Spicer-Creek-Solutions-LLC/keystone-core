@@ -537,7 +537,7 @@ type FileChunk struct {
 server:
   nats:
     urls: ["nats://nats:4222"]
-    credentials_file: /etc/kscore/nats.creds
+    credentials_file: /etc/keystone-core/nats.creds
 
   cluster_id: "production"
   instance_id: "files-1"
@@ -585,7 +585,7 @@ backends:
     type: git
     url: git@github.com:org/configs.git
     branch: main
-    ssh_key_file: /etc/kscore/git-deploy-key
+    ssh_key_file: /etc/keystone-core/git-deploy-key
     poll_interval: 60s
     priority: 3
     paths:
@@ -594,7 +594,7 @@ backends:
   # Local filesystem (fallback)
   - name: local
     type: filesystem
-    root: /var/lib/kscore/files
+    root: /var/lib/keystone-core/files
     priority: 10
     paths:
       - /**                      # Catch-all fallback
@@ -664,7 +664,7 @@ mirror_groups:
         role: secondary
         weight: 80               # Slightly less preferred
         credentials:
-          service_account_file: /etc/kscore/gcp-sa.json
+          service_account_file: /etc/keystone-core/gcp-sa.json
 
       - name: local-backup
         type: filesystem
@@ -727,7 +727,7 @@ namespaces:
 # Agent configuration for file retrieval
 files:
   enabled: true
-  cache_dir: /var/cache/kscore/files
+  cache_dir: /var/cache/keystone-core/files
   cache_size: 1073741824         # 1GB local cache
   chunk_size: 1048576            # 1MB
   retry_attempts: 3
@@ -773,7 +773,7 @@ files:
 # Proxy agent file cache configuration
 file_cache:
   enabled: true
-  cache_dir: /var/cache/kscore/file-cache
+  cache_dir: /var/cache/keystone-core/file-cache
   max_size: 10737418240          # 10GB
 
   # Eviction policy

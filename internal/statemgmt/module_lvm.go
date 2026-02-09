@@ -114,7 +114,7 @@ func (m *LVMPVModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		return nil, err
 	}
 
-	exists := m.pvExists(config.Device)
+	exists := m.pvExists(ctx, config.Device)
 	result.Metadata["exists"] = exists
 
 	switch decl.State {
@@ -170,12 +170,12 @@ func (m *LVMPVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		return result, err
 	}
 
-	exists := m.pvExists(config.Device)
+	exists := m.pvExists(ctx, config.Device)
 
 	switch decl.State {
 	case "present":
 		if !exists {
-			if err := m.createPV(config); err != nil {
+			if err := m.createPV(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create PV: %v", err)
 				return result, err
@@ -186,7 +186,7 @@ func (m *LVMPVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 	case "absent":
 		if exists {
-			if err := m.removePV(config.Device); err != nil {
+			if err := m.removePV(ctx, config.Device); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to remove PV: %v", err)
 				return result, err
@@ -233,13 +233,13 @@ func (m *LVMPVModule) parseConfig(decl *StateDeclaration) (*LVMPVConfig, error) 
 }
 
 // pvExists checks if a PV exists.
-func (m *LVMPVModule) pvExists(device string) bool {
-	cmd := exec.Command("pvs", "--noheadings", device)
+func (m *LVMPVModule) pvExists(ctx context.Context, device string) bool {
+	cmd := exec.CommandContext(ctx, "pvs", "--noheadings", device)
 	return cmd.Run() == nil
 }
 
 // createPV creates a physical volume.
-func (m *LVMPVModule) createPV(config *LVMPVConfig) error {
+func (m *LVMPVModule) createPV(ctx context.Context, config *LVMPVConfig) error {
 	args := []string{}
 
 	if config.Force {
@@ -254,20 +254,20 @@ func (m *LVMPVModule) createPV(config *LVMPVConfig) error {
 
 	args = append(args, config.Device)
 
-	cmd := exec.Command("pvcreate", args...)
+	cmd := exec.CommandContext(ctx, "pvcreate", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("pvcreate failed: %v: %s", err, string(output))
+		return fmt.Errorf("pvcreate failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // removePV removes a physical volume.
-func (m *LVMPVModule) removePV(device string) error {
-	cmd := exec.Command("pvremove", "-ff", "-y", device)
+func (m *LVMPVModule) removePV(ctx context.Context, device string) error {
+	cmd := exec.CommandContext(ctx, "pvremove", "-ff", "-y", device)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("pvremove failed: %v: %s", err, string(output))
+		return fmt.Errorf("pvremove failed: %w: %s", err, string(output))
 	}
 	return nil
 }
@@ -290,7 +290,7 @@ func (m *LVMVGModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		return nil, err
 	}
 
-	exists := m.vgExists(config.Name)
+	exists := m.vgExists(ctx, config.Name)
 	result.Metadata["exists"] = exists
 
 	switch decl.State {
@@ -347,12 +347,12 @@ func (m *LVMVGModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		return result, err
 	}
 
-	exists := m.vgExists(config.Name)
+	exists := m.vgExists(ctx, config.Name)
 
 	switch decl.State {
 	case "present":
 		if !exists {
-			if err := m.createVG(config); err != nil {
+			if err := m.createVG(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create VG: %v", err)
 				return result, err
@@ -363,7 +363,7 @@ func (m *LVMVGModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 	case "absent":
 		if exists {
-			if err := m.removeVG(config.Name); err != nil {
+			if err := m.removeVG(ctx, config.Name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to remove VG: %v", err)
 				return result, err
@@ -419,13 +419,13 @@ func (m *LVMVGModule) parseConfig(decl *StateDeclaration) (*LVMVGConfig, error) 
 }
 
 // vgExists checks if a VG exists.
-func (m *LVMVGModule) vgExists(name string) bool {
-	cmd := exec.Command("vgs", "--noheadings", name)
+func (m *LVMVGModule) vgExists(ctx context.Context, name string) bool {
+	cmd := exec.CommandContext(ctx, "vgs", "--noheadings", name)
 	return cmd.Run() == nil
 }
 
 // createVG creates a volume group.
-func (m *LVMVGModule) createVG(config *LVMVGConfig) error {
+func (m *LVMVGModule) createVG(ctx context.Context, config *LVMVGConfig) error {
 	if len(config.PhysicalVolumes) == 0 {
 		return fmt.Errorf("at least one PV is required")
 	}
@@ -439,20 +439,20 @@ func (m *LVMVGModule) createVG(config *LVMVGConfig) error {
 	args = append(args, config.Name)
 	args = append(args, config.PhysicalVolumes...)
 
-	cmd := exec.Command("vgcreate", args...)
+	cmd := exec.CommandContext(ctx, "vgcreate", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("vgcreate failed: %v: %s", err, string(output))
+		return fmt.Errorf("vgcreate failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // removeVG removes a volume group.
-func (m *LVMVGModule) removeVG(name string) error {
-	cmd := exec.Command("vgremove", "-f", name)
+func (m *LVMVGModule) removeVG(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "vgremove", "-f", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("vgremove failed: %v: %s", err, string(output))
+		return fmt.Errorf("vgremove failed: %w: %s", err, string(output))
 	}
 	return nil
 }
@@ -475,7 +475,7 @@ func (m *LVMLVModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 		return nil, err
 	}
 
-	exists := m.lvExists(config.VGName, config.Name)
+	exists := m.lvExists(ctx, config.VGName, config.Name)
 	result.Metadata["exists"] = exists
 
 	switch decl.State {
@@ -532,12 +532,12 @@ func (m *LVMLVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 		return result, err
 	}
 
-	exists := m.lvExists(config.VGName, config.Name)
+	exists := m.lvExists(ctx, config.VGName, config.Name)
 
 	switch decl.State {
 	case "present":
 		if !exists {
-			if err := m.createLV(config); err != nil {
+			if err := m.createLV(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create LV: %v", err)
 				return result, err
@@ -546,7 +546,7 @@ func (m *LVMLVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 			// Create filesystem if specified
 			if config.FSType != "" {
-				if err := m.createFilesystem(config); err != nil {
+				if err := m.createFilesystem(ctx, config); err != nil {
 					result.Success = false
 					result.Comment = fmt.Sprintf("Failed to create filesystem: %v", err)
 					return result, err
@@ -554,7 +554,7 @@ func (m *LVMLVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 			}
 		} else if config.Resize {
 			// Check if resize needed
-			if changed, err := m.resizeLV(config); err != nil {
+			if changed, err := m.resizeLV(ctx, config); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to resize LV: %v", err)
 				return result, err
@@ -566,7 +566,7 @@ func (m *LVMLVModule) Apply(ctx context.Context, decl *StateDeclaration) (*State
 
 	case "absent":
 		if exists {
-			if err := m.removeLV(config.VGName, config.Name); err != nil {
+			if err := m.removeLV(ctx, config.VGName, config.Name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to remove LV: %v", err)
 				return result, err
@@ -628,14 +628,14 @@ func (m *LVMLVModule) parseConfig(decl *StateDeclaration) (*LVMLVConfig, error) 
 }
 
 // lvExists checks if an LV exists.
-func (m *LVMLVModule) lvExists(vg, lv string) bool {
+func (m *LVMLVModule) lvExists(ctx context.Context, vg, lv string) bool {
 	path := fmt.Sprintf("%s/%s", vg, lv)
-	cmd := exec.Command("lvs", "--noheadings", path)
+	cmd := exec.CommandContext(ctx, "lvs", "--noheadings", path)
 	return cmd.Run() == nil
 }
 
 // createLV creates a logical volume.
-func (m *LVMLVModule) createLV(config *LVMLVConfig) error {
+func (m *LVMLVModule) createLV(ctx context.Context, config *LVMLVConfig) error {
 	args := []string{"-n", config.Name}
 
 	// Size options
@@ -679,27 +679,27 @@ func (m *LVMLVModule) createLV(config *LVMLVConfig) error {
 
 	args = append(args, config.VGName)
 
-	cmd := exec.Command("lvcreate", args...)
+	cmd := exec.CommandContext(ctx, "lvcreate", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("lvcreate failed: %v: %s", err, string(output))
+		return fmt.Errorf("lvcreate failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // removeLV removes a logical volume.
-func (m *LVMLVModule) removeLV(vg, lv string) error {
+func (m *LVMLVModule) removeLV(ctx context.Context, vg, lv string) error {
 	path := fmt.Sprintf("%s/%s", vg, lv)
-	cmd := exec.Command("lvremove", "-f", path)
+	cmd := exec.CommandContext(ctx, "lvremove", "-f", path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("lvremove failed: %v: %s", err, string(output))
+		return fmt.Errorf("lvremove failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // resizeLV resizes a logical volume.
-func (m *LVMLVModule) resizeLV(config *LVMLVConfig) (bool, error) {
+func (m *LVMLVModule) resizeLV(ctx context.Context, config *LVMLVConfig) (bool, error) {
 	if config.Size == "" && config.Extents == "" {
 		return false, nil
 	}
@@ -719,47 +719,47 @@ func (m *LVMLVModule) resizeLV(config *LVMLVConfig) (bool, error) {
 
 	args = append(args, path)
 
-	cmd := exec.Command("lvresize", args...)
+	cmd := exec.CommandContext(ctx, "lvresize", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if no resize needed
 		if strings.Contains(string(output), "matches existing size") {
 			return false, nil
 		}
-		return false, fmt.Errorf("lvresize failed: %v: %s", err, string(output))
+		return false, fmt.Errorf("lvresize failed: %w: %s", err, string(output))
 	}
 	return true, nil
 }
 
 // createFilesystem creates a filesystem on the LV.
-func (m *LVMLVModule) createFilesystem(config *LVMLVConfig) error {
+func (m *LVMLVModule) createFilesystem(ctx context.Context, config *LVMLVConfig) error {
 	path := fmt.Sprintf("/dev/%s/%s", config.VGName, config.Name)
 
 	var cmd *exec.Cmd
 	switch config.FSType {
 	case "ext4":
-		cmd = exec.Command("mkfs.ext4", "-F", path)
+		cmd = exec.CommandContext(ctx, "mkfs.ext4", "-F", path)
 	case "ext3":
-		cmd = exec.Command("mkfs.ext3", "-F", path)
+		cmd = exec.CommandContext(ctx, "mkfs.ext3", "-F", path)
 	case "xfs":
-		cmd = exec.Command("mkfs.xfs", "-f", path)
+		cmd = exec.CommandContext(ctx, "mkfs.xfs", "-f", path)
 	case "btrfs":
-		cmd = exec.Command("mkfs.btrfs", "-f", path)
+		cmd = exec.CommandContext(ctx, "mkfs.btrfs", "-f", path)
 	default:
-		cmd = exec.Command("mkfs", "-t", config.FSType, path)
+		cmd = exec.CommandContext(ctx, "mkfs", "-t", config.FSType, path)
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mkfs failed: %v: %s", err, string(output))
+		return fmt.Errorf("mkfs failed: %w: %s", err, string(output))
 	}
 	return nil
 }
 
 // GetLVInfo returns information about a logical volume.
-func (m *LVMLVModule) GetLVInfo(vg, lv string) (size, attr string, err error) {
+func (m *LVMLVModule) GetLVInfo(ctx context.Context, vg, lv string) (size, attr string, err error) {
 	path := fmt.Sprintf("%s/%s", vg, lv)
-	cmd := exec.Command("lvs", "--noheadings", "-o", "lv_size,lv_attr", path)
+	cmd := exec.CommandContext(ctx, "lvs", "--noheadings", "-o", "lv_size,lv_attr", path)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", "", err

@@ -6,7 +6,7 @@ import (
 
 func TestParseManifest_Valid(t *testing.T) {
 	data := []byte(`
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -221,7 +221,7 @@ hooks:
 
 func TestParseManifest_Minimal(t *testing.T) {
 	data := []byte(`
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: minimal

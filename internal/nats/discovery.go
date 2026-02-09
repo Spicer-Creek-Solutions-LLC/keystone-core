@@ -224,10 +224,12 @@ func NewDNSDiscoverer(config *DNSDiscoveryConfig) (*DNSDiscoverer, error) {
 	}, nil
 }
 
+// Method returns the discovery method.
 func (d *DNSDiscoverer) Method() DiscoveryMethod {
 	return DiscoveryMethodDNS
 }
 
+// Discover discovers available endpoints.
 func (d *DNSDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
 	// Try SRV records first
 	endpoints, err := d.discoverSRV(ctx)
@@ -367,6 +369,7 @@ func (d *DNSDiscoverer) updateEndpoints(endpoints []*DiscoveredEndpoint) {
 	d.lastRefresh = time.Now()
 }
 
+// Watch watches for endpoint changes.
 func (d *DNSDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
 	if d.config.RefreshInterval <= 0 {
 		return errors.New("refresh interval must be positive for watching")
@@ -397,6 +400,7 @@ func (d *DNSDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEn
 	return nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (d *DNSDiscoverer) Close() error {
 	d.cancel()
 	d.wg.Wait()
@@ -461,10 +465,6 @@ func (c *MDNSDiscoveryConfig) Validate() error {
 type MDNSDiscoverer struct {
 	config *MDNSDiscoveryConfig
 
-	// State
-	mu        sync.RWMutex
-	endpoints []*DiscoveredEndpoint
-
 	// Lifecycle
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -489,10 +489,12 @@ func NewMDNSDiscoverer(config *MDNSDiscoveryConfig) (*MDNSDiscoverer, error) {
 	}, nil
 }
 
+// Method returns the discovery method.
 func (d *MDNSDiscoverer) Method() DiscoveryMethod {
 	return DiscoveryMethodMDNS
 }
 
+// Discover discovers available endpoints.
 func (d *MDNSDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
 	timeout := d.config.BrowseTimeout
 	if deadline, ok := ctx.Deadline(); ok {
@@ -594,6 +596,7 @@ func mapToEndpoints(endpointMap map[string]*DiscoveredEndpoint) []*DiscoveredEnd
 	return endpoints
 }
 
+// Watch watches for endpoint changes.
 func (d *MDNSDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
 	if d.config.RefreshInterval <= 0 {
 		return errors.New("refresh interval must be positive for watching")
@@ -624,6 +627,7 @@ func (d *MDNSDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredE
 	return nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (d *MDNSDiscoverer) Close() error {
 	d.cancel()
 	d.wg.Wait()
@@ -756,10 +760,12 @@ func NewKubernetesDiscoverer(config *KubernetesDiscoveryConfig) (*KubernetesDisc
 	}, nil
 }
 
+// Method returns the discovery method.
 func (d *KubernetesDiscoverer) Method() DiscoveryMethod {
 	return DiscoveryMethodKubernetes
 }
 
+// Discover discovers available endpoints.
 func (d *KubernetesDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
 	namespace := d.config.Namespace
 	if namespace == "" {
@@ -811,7 +817,8 @@ func (d *KubernetesDiscoverer) discoverFromEndpointSlices(ctx context.Context, n
 	var endpoints []*DiscoveredEndpoint
 	priority := 0
 
-	for _, slice := range slices.Items {
+	for i := range slices.Items {
+		slice := &slices.Items[i]
 		// Find the target port
 		var targetPort int32 = 4222 // Default NATS port
 		for _, port := range slice.Ports {
@@ -993,6 +1000,7 @@ func (d *KubernetesDiscoverer) discoverFromDNS(ctx context.Context, namespace st
 	return endpoints, nil
 }
 
+// Watch watches for endpoint changes.
 func (d *KubernetesDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
 	if d.config.RefreshInterval <= 0 {
 		return errors.New("refresh interval must be positive for watching")
@@ -1023,6 +1031,7 @@ func (d *KubernetesDiscoverer) Watch(ctx context.Context, callback func([]*Disco
 	return nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (d *KubernetesDiscoverer) Close() error {
 	d.cancel()
 	d.wg.Wait()
@@ -1131,6 +1140,7 @@ func NewServiceRegistryDiscoverer(config *ServiceRegistryConfig) (*ServiceRegist
 	}, nil
 }
 
+// Method returns the discovery method.
 func (d *ServiceRegistryDiscoverer) Method() DiscoveryMethod {
 	switch d.config.Type {
 	case "consul":
@@ -1142,6 +1152,7 @@ func (d *ServiceRegistryDiscoverer) Method() DiscoveryMethod {
 	}
 }
 
+// Discover discovers available endpoints.
 func (d *ServiceRegistryDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
 	// Note: Full implementation requires consul-api or etcd client libraries
 	// This is a placeholder that demonstrates the interface
@@ -1199,7 +1210,7 @@ func (d *ServiceRegistryDiscoverer) discoverConsul(ctx context.Context) ([]*Disc
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create consul request: %w", err)
 	}
@@ -1231,7 +1242,8 @@ func (d *ServiceRegistryDiscoverer) discoverConsul(ctx context.Context) ([]*Disc
 	}
 
 	endpoints := make([]*DiscoveredEndpoint, 0, len(services))
-	for i, svc := range services {
+	for i := range services {
+		svc := &services[i]
 		// Determine host - prefer service address, fall back to node address
 		host := svc.Service.Address
 		if host == "" {
@@ -1403,6 +1415,7 @@ func (d *ServiceRegistryDiscoverer) discoverEtcd(ctx context.Context) ([]*Discov
 	return endpoints, nil
 }
 
+// Watch watches for endpoint changes.
 func (d *ServiceRegistryDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
 	if d.config.RefreshInterval <= 0 {
 		return errors.New("refresh interval must be positive for watching")
@@ -1433,6 +1446,7 @@ func (d *ServiceRegistryDiscoverer) Watch(ctx context.Context, callback func([]*
 	return nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (d *ServiceRegistryDiscoverer) Close() error {
 	d.cancel()
 	d.wg.Wait()
@@ -1491,19 +1505,23 @@ func NewStaticDiscoverer(urls []string) *StaticDiscoverer {
 	}
 }
 
+// Method returns the discovery method.
 func (d *StaticDiscoverer) Method() DiscoveryMethod {
 	return DiscoveryMethodStatic
 }
 
+// Discover discovers available endpoints.
 func (d *StaticDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
 	return d.endpoints, nil
 }
 
+// Watch watches for endpoint changes.
 func (d *StaticDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
 	// Static endpoints don't change
 	return nil
 }
 
+// Close closes the resource and releases any associated resources.
 func (d *StaticDiscoverer) Close() error {
 	return nil
 }
@@ -1626,10 +1644,8 @@ func (m *DiscoveryManager) Start() error {
 
 	m.running.Store(true)
 
-	// Initial discovery
-	if err := m.refresh(); err != nil {
-		// Log but don't fail - we may get endpoints later
-	}
+	// Initial discovery - best-effort, we may get endpoints later via refresh loop
+	_ = m.refresh()
 
 	// Start refresh loop
 	m.wg.Add(1)
@@ -1675,7 +1691,7 @@ func (m *DiscoveryManager) refreshLoop() {
 		case <-m.ctx.Done():
 			return
 		case <-ticker.C:
-			m.refresh()
+			_ = m.refresh() //nolint:errcheck // best-effort periodic refresh
 		}
 	}
 }
@@ -1794,8 +1810,9 @@ func (m *DiscoveryManager) checkHealth() {
 
 func (m *DiscoveryManager) checkEndpointHealth(ep *DiscoveredEndpoint) bool {
 	// Simple TCP connectivity check
-	addr := fmt.Sprintf("%s:%d", ep.Host, ep.Port)
-	conn, err := net.DialTimeout("tcp", addr, m.config.HealthCheckTimeout)
+	addr := net.JoinHostPort(ep.Host, strconv.Itoa(ep.Port))
+	d := &net.Dialer{Timeout: m.config.HealthCheckTimeout}
+	conn, err := d.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}
@@ -2075,10 +2092,11 @@ func (ac *AutoConfigurator) detectNetworkType(ctx context.Context) NetworkType {
 	}
 
 	// Try direct TCP connection
+	dialer := &net.Dialer{Timeout: ac.connectTimeout}
 	for _, ep := range endpoints {
 		if ep.Scheme == SchemeNATS || ep.Scheme == SchemeTLS {
-			addr := fmt.Sprintf("%s:%d", ep.Host, ep.Port)
-			conn, err := net.DialTimeout("tcp", addr, ac.connectTimeout)
+			addr := net.JoinHostPort(ep.Host, strconv.Itoa(ep.Port))
+			conn, err := dialer.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				conn.Close()
 				return NetworkTypeDirect
@@ -2089,8 +2107,8 @@ func (ac *AutoConfigurator) detectNetworkType(ctx context.Context) NetworkType {
 	// Try WebSocket connection
 	for _, ep := range endpoints {
 		if ep.Scheme == SchemeWS || ep.Scheme == SchemeWSS {
-			addr := fmt.Sprintf("%s:%d", ep.Host, ep.Port)
-			conn, err := net.DialTimeout("tcp", addr, ac.connectTimeout)
+			addr := net.JoinHostPort(ep.Host, strconv.Itoa(ep.Port))
+			conn, err := dialer.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				conn.Close()
 				return NetworkTypeFirewall
@@ -2101,7 +2119,7 @@ func (ac *AutoConfigurator) detectNetworkType(ctx context.Context) NetworkType {
 	return NetworkTypeNAT
 }
 
-func (ac *AutoConfigurator) selectStrategy(networkType NetworkType) (string, []string) {
+func (ac *AutoConfigurator) selectStrategy(networkType NetworkType) (primary string, fallbacks []string) {
 	switch networkType {
 	case NetworkTypeDirect:
 		if ac.preferWebSocket {

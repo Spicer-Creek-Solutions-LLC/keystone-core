@@ -218,13 +218,12 @@ func newOTLPExporter(cfg ExporterConfig) (sdktrace.SpanExporter, error) {
 		opts = append(opts, otlptracegrpc.WithTimeout(cfg.Timeout))
 	}
 
-	switch cfg.Compression {
-	case "gzip":
+	if cfg.Compression == "gzip" {
 		opts = append(opts, otlptracegrpc.WithCompressor("gzip"))
 	}
 
 	// Add dial options
-	opts = append(opts, otlptracegrpc.WithDialOption(grpc.WithBlock()))
+	opts = append(opts, otlptracegrpc.WithDialOption(grpc.WithBlock())) //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
 
 	client := otlptracegrpc.NewClient(opts...)
 	return otlptrace.New(context.Background(), client)
@@ -248,8 +247,7 @@ func newOTLPHTTPExporter(cfg ExporterConfig) (sdktrace.SpanExporter, error) {
 		opts = append(opts, otlptracehttp.WithTimeout(cfg.Timeout))
 	}
 
-	switch cfg.Compression {
-	case "gzip":
+	if cfg.Compression == "gzip" {
 		opts = append(opts, otlptracehttp.WithCompression(otlptracehttp.GzipCompression))
 	}
 
@@ -304,14 +302,14 @@ func DefaultConfig(serviceName string) *Config {
 }
 
 // NewOTLPConfig creates a config with OTLP exporter
-func NewOTLPConfig(serviceName, endpoint string, insecure bool) *Config {
+func NewOTLPConfig(serviceName, endpoint string, useInsecure bool) *Config {
 	cfg := DefaultConfig(serviceName)
 	cfg.Enabled = true
 	cfg.Exporters = []ExporterConfig{
 		{
 			Type:               ExporterOTLP,
 			Endpoint:           endpoint,
-			Insecure:           insecure,
+			Insecure:           useInsecure,
 			Timeout:            10 * time.Second,
 			Compression:        "gzip",
 			BatchTimeout:       5 * time.Second,

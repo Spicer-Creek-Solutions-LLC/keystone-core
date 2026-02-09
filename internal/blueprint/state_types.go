@@ -2,9 +2,9 @@
 // These types mirror pkg/statemgmt types to avoid import cycles.
 package blueprint
 
-// BlueprintStateFile represents a state file with blueprint includes resolved.
+// StateFile represents a state file with blueprint includes resolved.
 // This is the blueprint package's view of a state file, separate from statemgmt.StateFile.
-type BlueprintStateFile struct {
+type StateFile struct {
 	// Path is the original state file path.
 	Path string
 
@@ -12,22 +12,22 @@ type BlueprintStateFile struct {
 	Includes []string
 
 	// BlueprintIncludes are blueprint includes to resolve.
-	BlueprintIncludes []BlueprintInclude
+	BlueprintIncludes []Include
 
 	// Variables are variable definitions.
 	Variables map[string]interface{}
 
 	// States are state declarations organized by module.
-	States map[string][]BlueprintStateDeclaration
+	States map[string][]StateDeclaration
 
 	// Metadata contains file metadata.
 	Metadata *BlueprintMetadata
 }
 
-// Note: BlueprintInclude is defined in loader.go
+// Note: Include is defined in loader.go
 
-// BlueprintStateDeclaration represents a single state declaration.
-type BlueprintStateDeclaration struct {
+// StateDeclaration represents a single state declaration.
+type StateDeclaration struct {
 	// ID is the unique identifier for this state.
 	ID string
 
@@ -53,38 +53,38 @@ type BlueprintStateDeclaration struct {
 	OnlyIf string
 
 	// Requisites define dependencies between states.
-	Requisites BlueprintRequisites
+	Requisites Requisites
 }
 
-// BlueprintRequisites define relationships between states.
-type BlueprintRequisites struct {
+// Requisites define relationships between states.
+type Requisites struct {
 	// Require specifies states that must complete before this one.
-	Require []BlueprintStateReference
+	Require []StateReference
 
 	// RequireIn specifies states that require this one.
-	RequireIn []BlueprintStateReference
+	RequireIn []StateReference
 
 	// Watch specifies states to watch for changes.
-	Watch []BlueprintStateReference
+	Watch []StateReference
 
 	// WatchIn specifies states that watch this one.
-	WatchIn []BlueprintStateReference
+	WatchIn []StateReference
 
 	// Prereq specifies prerequisite states.
-	Prereq []BlueprintStateReference
+	Prereq []StateReference
 
 	// PrereqIn specifies states for which this is a prereq.
-	PrereqIn []BlueprintStateReference
+	PrereqIn []StateReference
 
 	// Onchanges specifies states that trigger this on change.
-	Onchanges []BlueprintStateReference
+	Onchanges []StateReference
 
 	// OnchangesIn specifies states triggered by changes to this.
-	OnchangesIn []BlueprintStateReference
+	OnchangesIn []StateReference
 }
 
-// BlueprintStateReference references another state.
-type BlueprintStateReference struct {
+// StateReference references another state.
+type StateReference struct {
 	// Module is the state module.
 	Module string
 
@@ -93,6 +93,8 @@ type BlueprintStateReference struct {
 }
 
 // BlueprintMetadata contains state file metadata.
+//
+//nolint:revive // Cannot rename to Metadata as there's already a Metadata struct in this package
 type BlueprintMetadata struct {
 	// Name is the state file name.
 	Name string
@@ -113,9 +115,9 @@ type BlueprintMetadata struct {
 // StateFileConverter converts between blueprint and statemgmt state representations.
 // This interface is implemented by callers who need to integrate with statemgmt.
 type StateFileConverter interface {
-	// ToStateFile converts a BlueprintStateFile to the target state file type.
-	ToStateFile(bsf *BlueprintStateFile) (interface{}, error)
+	// ToStateFile converts a StateFile to the target state file type.
+	ToStateFile(bsf *StateFile) (interface{}, error)
 
-	// FromStateFile converts a target state file to BlueprintStateFile.
-	FromStateFile(sf interface{}) (*BlueprintStateFile, error)
+	// FromStateFile converts a target state file to StateFile.
+	FromStateFile(sf interface{}) (*StateFile, error)
 }

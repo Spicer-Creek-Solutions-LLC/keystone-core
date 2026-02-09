@@ -437,8 +437,8 @@ type failoverMockBackend struct {
 	name    string
 }
 
-func (m *failoverMockBackend) Type() BackendType             { return BackendTypeVault }
-func (m *failoverMockBackend) Name() string                  { return m.name }
+func (m *failoverMockBackend) Type() BackendType              { return BackendTypeVault }
+func (m *failoverMockBackend) Name() string                   { return m.name }
 func (m *failoverMockBackend) Healthy(_ context.Context) bool { return m.healthy }
 func (m *failoverMockBackend) Read(_ context.Context, _ *SecretRequest) (*Secret, error) {
 	return nil, nil
@@ -451,7 +451,7 @@ func (m *failoverMockBackend) RenewLease(_ context.Context, _ string, _ time.Dur
 	return nil, nil
 }
 func (m *failoverMockBackend) RevokeLease(_ context.Context, _ string) error { return nil }
-func (m *failoverMockBackend) Close() error                                   { return nil }
+func (m *failoverMockBackend) Close() error                                  { return nil }
 
 func TestHealthMonitor_InitialState(t *testing.T) {
 	hm := NewHealthMonitor(nil)

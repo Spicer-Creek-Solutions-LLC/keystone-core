@@ -633,12 +633,10 @@ func TestRunner_AssertionHelpers(t *testing.T) {
 		t.Fatal("expected states count to fail for invalid expected type")
 	}
 
-	assertion = &Assertion{Type: AssertNoFailures}
 	if runner.assertNoFailures(execResult).Passed {
 		t.Fatal("expected no-failures assertion to fail when failures exist")
 	}
 
-	assertion = &Assertion{Type: AssertIdempotent}
 	if runner.assertIdempotent(context.Background(), &TestCase{}, execResult).Passed {
 		t.Fatal("expected idempotent assertion to fail when changes exist")
 	}
@@ -854,7 +852,7 @@ func setupTestBlueprint(t *testing.T) string {
 	}
 
 	manifest := `
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: demo

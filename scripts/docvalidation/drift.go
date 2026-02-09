@@ -14,20 +14,20 @@ import (
 
 // DriftReport contains documentation drift analysis
 type DriftReport struct {
-	NewPackages       []string            `json:"new_packages"`        // Packages with no docs
-	UndocumentedTypes []UndocumentedItem  `json:"undocumented_types"`  // New exported types without godoc
-	UndocumentedFuncs []UndocumentedItem  `json:"undocumented_funcs"`  // New exported funcs without godoc
-	StaleReferences   []StaleReference    `json:"stale_references"`    // Docs referencing non-existent code
-	MissingEpicDocs   []int               `json:"missing_epic_docs"`   // Epics without documentation
-	APIChanges        []APIChange         `json:"api_changes"`         // Potential API changes
+	NewPackages       []string           `json:"new_packages"`       // Packages with no docs
+	UndocumentedTypes []UndocumentedItem `json:"undocumented_types"` // New exported types without godoc
+	UndocumentedFuncs []UndocumentedItem `json:"undocumented_funcs"` // New exported funcs without godoc
+	StaleReferences   []StaleReference   `json:"stale_references"`   // Docs referencing non-existent code
+	MissingEpicDocs   []int              `json:"missing_epic_docs"`  // Epics without documentation
+	APIChanges        []APIChange        `json:"api_changes"`        // Potential API changes
 }
 
 // UndocumentedItem represents an exported symbol without documentation
 type UndocumentedItem struct {
-	Package  string `json:"package"`
-	Name     string `json:"name"`
-	File     string `json:"file"`
-	Line     int    `json:"line"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
+	File    string `json:"file"`
+	Line    int    `json:"line"`
 }
 
 // StaleReference represents a documentation reference to non-existent code
@@ -72,7 +72,8 @@ func RunDriftDetection(rootDir string, verbose bool) {
 	// Write report to file
 	writeReport := formatDriftReport(report)
 	outputPath := "./scripts/docvalidation/drift-report.md"
-	if err := os.WriteFile(outputPath, []byte(writeReport), 0644); err != nil {
+	//nolint:gosec // G306: drift reports need to be readable by developers
+	if err := os.WriteFile(outputPath, []byte(writeReport), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 		return
 	}
@@ -94,12 +95,12 @@ func findUndocumentedPackages(pkgRoot, docsRoot string, verbose bool) []string {
 	// Scan docs for package mentions
 	filepath.Walk(docsRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // continue walk on read error
 		}
 
 		text := string(content)
@@ -137,9 +138,7 @@ func findUndocumentedPackages(pkgRoot, docsRoot string, verbose bool) []string {
 	return undocumented
 }
 
-func findUndocumentedSymbols(pkgRoot string, verbose bool) ([]UndocumentedItem, []UndocumentedItem) {
-	var undocTypes []UndocumentedItem
-	var undocFuncs []UndocumentedItem
+func findUndocumentedSymbols(pkgRoot string, verbose bool) (undocTypes, undocFuncs []UndocumentedItem) {
 
 	entries, err := os.ReadDir(pkgRoot)
 	if err != nil {
@@ -254,12 +253,12 @@ func findStaleReferences(docsRoot, pkgRoot string, verbose bool) []StaleReferenc
 
 	filepath.Walk(docsRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // continue walk on read error
 		}
 
 		relPath, _ := filepath.Rel(docsRoot, path)
@@ -325,12 +324,12 @@ func findMissingEpicDocs(docsRoot string, verbose bool) []int {
 
 	filepath.Walk(docsRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
+			return nil //nolint:nilerr // continue walk on error
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // continue walk on read error
 		}
 
 		text := string(content)
@@ -442,7 +441,7 @@ func formatDriftReport(report *DriftReport) string {
 
 	// Summary
 	sb.WriteString("## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("| Category | Count |\n"))
+	sb.WriteString("| Category | Count |\n")
 	sb.WriteString("|----------|-------|\n")
 	sb.WriteString(fmt.Sprintf("| Packages without docs | %d |\n", len(report.NewPackages)))
 	sb.WriteString(fmt.Sprintf("| Undocumented types | %d |\n", len(report.UndocumentedTypes)))
@@ -516,9 +515,3 @@ func formatDriftReport(report *DriftReport) string {
 	return sb.String()
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

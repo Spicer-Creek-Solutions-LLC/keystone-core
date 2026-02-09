@@ -125,7 +125,8 @@ func initWasmModule(moduleName, outputDir string) error {
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		//nolint:gosec // G301: module directory needs to be accessible by users
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -159,7 +160,8 @@ limits:
 dependencies: {}
 `, moduleName, moduleName, coalesce(initDescription, "A WASM module for Keystone Core"), coalesce(initAuthor, ""), name)
 
-	if err := os.WriteFile(filepath.Join(outputDir, "module.yaml"), []byte(manifest), 0644); err != nil {
+	//nolint:gosec // G306: module manifest needs to be readable by operators and tools
+	if err := os.WriteFile(filepath.Join(outputDir, "module.yaml"), []byte(manifest), 0o644); err != nil {
 		return fmt.Errorf("failed to write module.yaml: %w", err)
 	}
 
@@ -171,7 +173,8 @@ dependencies: {}
 		bt, bt, bt, name, bt, bt, bt,
 		bt, bt, bt, moduleName, bt, bt, bt)
 
-	if err := os.WriteFile(filepath.Join(outputDir, "README.md"), []byte(readme), 0644); err != nil {
+	//nolint:gosec // G306: README needs to be readable by users
+	if err := os.WriteFile(filepath.Join(outputDir, "README.md"), []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("failed to write README.md: %w", err)
 	}
 
@@ -194,7 +197,8 @@ lto = true
 strip = true
 `, name)
 
-	if err := os.WriteFile(filepath.Join(outputDir, "Cargo.toml"), []byte(cargoToml), 0644); err != nil {
+	//nolint:gosec // G306: Cargo.toml needs to be readable for builds
+	if err := os.WriteFile(filepath.Join(outputDir, "Cargo.toml"), []byte(cargoToml), 0o644); err != nil {
 		return fmt.Errorf("failed to write Cargo.toml: %w", err)
 	}
 
@@ -214,10 +218,12 @@ pub extern "C" fn check() -> i32 {
     0
 }
 `
-	if err := os.MkdirAll(filepath.Join(outputDir, "src"), 0755); err != nil {
+	//nolint:gosec // G301: source directory needs to be accessible by users
+	if err := os.MkdirAll(filepath.Join(outputDir, "src"), 0o755); err != nil {
 		return fmt.Errorf("failed to create src directory: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(outputDir, "src", "lib.rs"), []byte(libRs), 0644); err != nil {
+	//nolint:gosec // G306: source files need to be readable for builds
+	if err := os.WriteFile(filepath.Join(outputDir, "src", "lib.rs"), []byte(libRs), 0o644); err != nil {
 		return fmt.Errorf("failed to write src/lib.rs: %w", err)
 	}
 

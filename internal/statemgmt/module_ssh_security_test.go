@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -46,7 +47,7 @@ func TestAuthorizedKeysModule_Check_MissingUser(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "user parameter is required") {
 		t.Errorf("expected user required error, got: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestAuthorizedKeysModule_Check_MissingKey(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "key parameter is required") {
 		t.Errorf("expected key required error, got: %v", err)
 	}
@@ -159,7 +160,7 @@ func TestKnownHostsModule_Check_MissingHost(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "host parameter is required") {
 		t.Errorf("expected host required error, got: %v", err)
 	}
@@ -249,7 +250,7 @@ func TestSSHDConfigModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -394,7 +395,7 @@ func TestSELinuxModule_Check_NonLinux(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "only available on Linux") {
 		t.Errorf("expected Linux-only error, got: %v", err)
 	}
@@ -431,7 +432,7 @@ func TestSELinuxBooleanModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -475,7 +476,7 @@ func TestAppArmorModule_Check_NonLinux(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "only available on Linux") {
 		t.Errorf("expected Linux-only error, got: %v", err)
 	}
@@ -499,7 +500,7 @@ func TestAppArmorModule_Check_MissingProfile(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "profile parameter is required") {
 		t.Errorf("expected profile required error, got: %v", err)
 	}
@@ -538,7 +539,7 @@ func TestAppArmorProfileModule_Check_NonLinux(t *testing.T) {
 		},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "only available on Linux") {
 		t.Errorf("expected Linux-only error, got: %v", err)
 	}
@@ -557,7 +558,7 @@ func TestAppArmorProfileModule_Check_MissingName(t *testing.T) {
 		Parameters: map[string]interface{}{},
 	}
 
-	_, err := m.Check(nil, decl)
+	_, err := m.Check(context.Background(), decl)
 	if err == nil || !strings.Contains(err.Error(), "name parameter is required") {
 		t.Errorf("expected name required error, got: %v", err)
 	}
@@ -636,13 +637,14 @@ func TestAuthorizedKeysModule_AddKey(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			sshDir := filepath.Join(tmpDir, ".ssh")
 			authKeysPath := filepath.Join(sshDir, "authorized_keys")
 
-			err := m.addKey(authKeysPath, tt.user, tt.keyType, tt.key, tt.comment, tt.options)
+			err := m.addKey(ctx, authKeysPath, tt.user, tt.keyType, tt.key, tt.comment, tt.options)
 			if err != nil {
 				t.Fatalf("addKey failed: %v", err)
 			}
@@ -684,6 +686,7 @@ func TestAuthorizedKeysModule_AddKey_AppendToExisting(t *testing.T) {
 	}
 
 	m := NewAuthorizedKeysModule()
+	ctx := context.Background()
 	tmpDir := t.TempDir()
 	sshDir := filepath.Join(tmpDir, ".ssh")
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
@@ -698,7 +701,7 @@ func TestAuthorizedKeysModule_AddKey_AppendToExisting(t *testing.T) {
 	}
 
 	// Add another key
-	err := m.addKey(authKeysPath, "testuser", "ssh-ed25519", "NEWKEY", "user@new", "")
+	err := m.addKey(ctx, authKeysPath, "testuser", "ssh-ed25519", "NEWKEY", "user@new", "")
 	if err != nil {
 		t.Fatalf("addKey failed: %v", err)
 	}
@@ -856,12 +859,13 @@ func TestKnownHostsModule_AddHostKey(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			knownHostsPath := filepath.Join(tmpDir, "known_hosts")
 
-			err := m.addHostKey(knownHostsPath, tt.host, tt.keyType, tt.key, tt.hashHost)
+			err := m.addHostKey(ctx, knownHostsPath, tt.host, tt.keyType, tt.key, tt.hashHost)
 			if err != nil {
 				t.Fatalf("addHostKey failed: %v", err)
 			}
@@ -884,6 +888,7 @@ func TestKnownHostsModule_AddHostKey_ReplacesExisting(t *testing.T) {
 	}
 
 	m := NewKnownHostsModule()
+	ctx := context.Background()
 	tmpDir := t.TempDir()
 	knownHostsPath := filepath.Join(tmpDir, "known_hosts")
 
@@ -894,7 +899,7 @@ func TestKnownHostsModule_AddHostKey_ReplacesExisting(t *testing.T) {
 	}
 
 	// Add key for same host (should replace)
-	err := m.addHostKey(knownHostsPath, "github.com", "ssh-ed25519", "NEWKEY", false)
+	err := m.addHostKey(ctx, knownHostsPath, "github.com", "ssh-ed25519", "NEWKEY", false)
 	if err != nil {
 		t.Fatalf("addHostKey failed: %v", err)
 	}

@@ -344,7 +344,7 @@ func ServerPermissions(cluster, serverID string) SubjectPermissions {
 	b := NewSubjectBuilder(cluster)
 	return SubjectPermissions{
 		Publish: []string{
-			b.ServerAnnounce(),        // Announce presence
+			b.ServerAnnounce(),            // Announce presence
 			fmt.Sprintf("%s.>", b.base()), // Can publish to any subject in cluster
 		},
 		Subscribe: []string{

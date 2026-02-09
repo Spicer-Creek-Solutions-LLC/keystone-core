@@ -180,7 +180,7 @@ type DeploymentThresholds struct {
 	Environment string `json:"environment,omitempty"`
 
 	// Strategy this applies to (empty for all strategies)
-	Strategy PromotionStrategy `json:"strategy,omitempty"`
+	Strategy Strategy `json:"strategy,omitempty"`
 
 	// Config threshold configuration
 	Config *ThresholdConfig `json:"config"`
@@ -195,7 +195,7 @@ type DeploymentThresholds struct {
 // ThresholdRegistry manages threshold configurations
 type ThresholdRegistry struct {
 	// Global defaults by strategy
-	defaults map[PromotionStrategy]*ThresholdConfig
+	defaults map[Strategy]*ThresholdConfig
 
 	// Per-environment/deployment overrides
 	overrides []*DeploymentThresholds
@@ -206,7 +206,7 @@ type ThresholdRegistry struct {
 // NewThresholdRegistry creates a new threshold registry with defaults
 func NewThresholdRegistry() *ThresholdRegistry {
 	return &ThresholdRegistry{
-		defaults: map[PromotionStrategy]*ThresholdConfig{
+		defaults: map[Strategy]*ThresholdConfig{
 			StrategyCanary:    DefaultCanaryThresholds(),
 			StrategyBlueGreen: DefaultBlueGreenThresholds(),
 		},
@@ -215,14 +215,14 @@ func NewThresholdRegistry() *ThresholdRegistry {
 }
 
 // SetDefault sets the default threshold config for a strategy
-func (r *ThresholdRegistry) SetDefault(strategy PromotionStrategy, config *ThresholdConfig) {
+func (r *ThresholdRegistry) SetDefault(strategy Strategy, config *ThresholdConfig) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.defaults[strategy] = config
 }
 
 // GetDefault returns the default threshold config for a strategy
-func (r *ThresholdRegistry) GetDefault(strategy PromotionStrategy) *ThresholdConfig {
+func (r *ThresholdRegistry) GetDefault(strategy Strategy) *ThresholdConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.defaults[strategy]
@@ -236,7 +236,7 @@ func (r *ThresholdRegistry) AddOverride(override *DeploymentThresholds) {
 }
 
 // RemoveOverride removes an override for a specific environment
-func (r *ThresholdRegistry) RemoveOverride(environment string, strategy PromotionStrategy) bool {
+func (r *ThresholdRegistry) RemoveOverride(environment string, strategy Strategy) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -250,7 +250,7 @@ func (r *ThresholdRegistry) RemoveOverride(environment string, strategy Promotio
 }
 
 // GetThresholds returns the effective threshold config for an environment and strategy
-func (r *ThresholdRegistry) GetThresholds(environment string, strategy PromotionStrategy) *ThresholdConfig {
+func (r *ThresholdRegistry) GetThresholds(environment string, strategy Strategy) *ThresholdConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -396,7 +396,7 @@ type ThresholdResult struct {
 }
 
 // Evaluate evaluates all thresholds for a deployment
-func (e *ThresholdEvaluator) Evaluate(ctx context.Context, environment string, strategy PromotionStrategy, labels map[string]string) (*EvaluationResult, error) {
+func (e *ThresholdEvaluator) Evaluate(ctx context.Context, environment string, strategy Strategy, labels map[string]string) (*EvaluationResult, error) {
 	startTime := time.Now()
 	config := e.registry.GetThresholds(environment, strategy)
 	if config == nil {

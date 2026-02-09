@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,8 @@ import (
 const (
 	// AWS EC2 metadata service endpoints
 	awsMetadataBaseURL = "http://169.254.169.254/latest/meta-data"
-	awsMetadataToken   = "http://169.254.169.254/latest/api/token"
+	//nolint:gosec // G101: false positive - this is a URL endpoint, not a hardcoded secret
+	awsMetadataToken = "http://169.254.169.254/latest/api/token"
 	awsDynamicURL      = "http://169.254.169.254/latest/dynamic/instance-identity/document"
 
 	// ECS metadata endpoints
@@ -75,6 +77,7 @@ func (d *AWSDetector) Detect() (*Metadata, error) {
 		if err := d.collectEC2Metadata(metadata); err != nil {
 			return nil, fmt.Errorf("failed to collect EC2 metadata: %w", err)
 		}
+	default:
 	}
 
 	return metadata, nil
@@ -132,7 +135,8 @@ func (d *AWSDetector) isEC2() bool {
 	}
 
 	// Try to access metadata service
-	req, err := http.NewRequest("GET", awsMetadataBaseURL+"/ami-id", nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
+	// Use context.Background() since this is a simple detection call with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", awsMetadataBaseURL+"/ami-id", http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
 	if err != nil {
 		return false
 	}
@@ -152,7 +156,8 @@ func (d *AWSDetector) isEC2() bool {
 
 // getIMDSv2Token gets an IMDSv2 token for EC2 metadata access
 func (d *AWSDetector) getIMDSv2Token() (string, error) {
-	req, err := http.NewRequest("PUT", awsMetadataToken, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
+	// Use context.Background() since this is called from detection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "PUT", awsMetadataToken, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
 	if err != nil {
 		return "", err
 	}
@@ -242,7 +247,7 @@ func (d *AWSDetector) collectECSMetadata(metadata *Metadata) error {
 	// Get container metadata
 	containerMetadata, err := d.getECSContainerMetadata(metadataURI)
 	if err == nil {
-		metadata.Container.ContainerID = containerMetadata.DockerId
+		metadata.Container.ContainerID = containerMetadata.DockerID
 		metadata.Container.ContainerName = containerMetadata.Name
 		metadata.Container.ImageName = containerMetadata.Image
 		metadata.Container.ImageDigest = containerMetadata.ImageID
@@ -255,7 +260,7 @@ func (d *AWSDetector) collectECSMetadata(metadata *Metadata) error {
 func (d *AWSDetector) collectLambdaMetadata(metadata *Metadata) error {
 	functionName := os.Getenv(lambdaFunctionNameEnv)
 	if functionName == "" {
-		return fmt.Errorf("Lambda function name not found")
+		return fmt.Errorf("lambda function name not found")
 	}
 
 	metadata.Serverless = &ServerlessMetadata{
@@ -285,7 +290,8 @@ func (d *AWSDetector) collectLambdaMetadata(metadata *Metadata) error {
 
 // getMetadata gets a metadata value from EC2 metadata service
 func (d *AWSDetector) getMetadata(token, path string) (string, error) {
-	req, err := http.NewRequest("GET", awsMetadataBaseURL+path, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
+	// Use context.Background() since this is called from detection/collection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", awsMetadataBaseURL+path, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS IMDS uses link-local HTTP
 	if err != nil {
 		return "", err
 	}
@@ -314,7 +320,8 @@ func (d *AWSDetector) getMetadata(token, path string) (string, error) {
 
 // getInstanceIdentityDocument gets the EC2 instance identity document
 func (d *AWSDetector) getInstanceIdentityDocument(token string) (*ec2InstanceIdentityDocument, error) {
-	req, err := http.NewRequest("GET", awsDynamicURL, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS dynamic metadata uses link-local HTTP
+	// Use context.Background() since this is called from detection/collection methods with no parent context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", awsDynamicURL, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- AWS dynamic metadata uses link-local HTTP
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +371,11 @@ func (d *AWSDetector) getInstanceTags(token string) (map[string]string, error) {
 
 // getECSTaskMetadata gets ECS task metadata
 func (d *AWSDetector) getECSTaskMetadata(baseURI string) (*ecsTaskMetadata, error) {
-	resp, err := d.httpClient.Get(baseURI + "/task") // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- ECS metadata uses link-local HTTP
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURI+"/task", http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- ECS metadata uses link-local HTTP
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +391,11 @@ func (d *AWSDetector) getECSTaskMetadata(baseURI string) (*ecsTaskMetadata, erro
 
 // getECSContainerMetadata gets ECS container metadata
 func (d *AWSDetector) getECSContainerMetadata(baseURI string) (*ecsContainerMetadata, error) {
-	resp, err := d.httpClient.Get(baseURI) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- ECS metadata uses link-local HTTP
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURI, http.NoBody) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- ECS metadata uses link-local HTTP
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +430,7 @@ type ecsTaskMetadata struct {
 }
 
 type ecsContainerMetadata struct {
-	DockerId string `json:"DockerId"`
+	DockerID string `json:"DockerId"`
 	Name     string `json:"Name"`
 	Image    string `json:"Image"`
 	ImageID  string `json:"ImageID"`

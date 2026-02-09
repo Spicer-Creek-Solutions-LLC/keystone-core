@@ -8,6 +8,15 @@ description: "Migrate from legacy credential systems to Keystone Core's unified 
 
 This guide helps you migrate from existing credential management approaches to Keystone Core's unified secrets management system. Whether you're moving from environment variables, configuration files, or other secret managers, this guide provides step-by-step instructions.
 
+> **Implementation Note**: Keystone Core's secrets management focuses on **rotation orchestration** and
+> **workload secret injection**, not direct secret storage. The `kscorectl secrets put/get` commands
+> shown in this guide represent the conceptual workflow. In practice:
+> - **Store secrets** using your backend directly (Vault CLI, AWS CLI, etc.)
+> - **Reference secrets** in workload definitions using `{{ secret "path" }}` syntax
+> - **Orchestrate rotation** using `kscorectl secrets rotate` commands
+>
+> See [Secrets Backends](/docs/operations/secrets-backends/) for backend-specific instructions.
+
 ## Migration Paths
 
 ### From Environment Variables
@@ -50,9 +59,11 @@ workload:
 
 **Migration steps:**
 1. Inventory all environment variables containing secrets
-2. Store each secret in Keystone:
+2. Store each secret in your backend (e.g., Vault):
    ```bash
-   kscorectl secrets put <path> --value "$EXISTING_ENV_VAR"
+   # Using Vault CLI
+   vault kv put secret/database/app/password value="$DB_PASSWORD"
+   vault kv put secret/api/stripe value="$API_KEY"
    ```
 3. Update workload definitions to reference secrets
 4. Remove environment variables from deployment scripts
@@ -217,41 +228,40 @@ workload:
 
 ### Export Existing Secrets
 
-**From environment files:**
+> **Note**: Use your secrets backend CLI directly for bulk operations.
+
+**From environment files to Vault:**
 ```bash
-# Export from .env file
+# Export from .env file to Vault
 while IFS='=' read -r key value; do
   if [[ ! "$key" =~ ^# && -n "$key" ]]; then
-    kscorectl secrets put "env/$key" --value "$value"
+    vault kv put "secret/env/$key" value="$value"
     echo "Migrated: $key"
   fi
 done < .env
 ```
 
-**From Kubernetes:**
+**From Kubernetes to Vault:**
 ```bash
-# Export K8s secrets
+# Export K8s secrets to Vault
 for secret in $(kubectl get secrets -o name); do
   name=$(echo $secret | cut -d'/' -f2)
   kubectl get $secret -o jsonpath='{.data}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while read line; do
     key=$(echo $line | cut -d'=' -f1)
     value=$(echo $line | cut -d'=' -f2 | base64 -d)
-    kscorectl secrets put "k8s/$name/$key" --value "$value"
+    vault kv put "secret/k8s/$name/$key" value="$value"
     echo "Migrated: $name/$key"
   done
 done
 ```
 
-**From HashiCorp Vault:**
+**Reorganize within Vault:**
 ```bash
-# Export from Vault
+# Copy secrets within Vault to new paths
 vault kv list -format=json secret/ | jq -r '.[]' | while read path; do
-  vault kv get -format=json "secret/$path" | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' | while read line; do
-    key=$(echo $line | cut -d'=' -f1)
-    value=$(echo $line | cut -d'=' -f2)
-    kscorectl secrets put "vault/$path/$key" --value "$value"
-    echo "Migrated: $path/$key"
-  done
+  vault kv get -format=json "secret/$path" | jq -r '.data.data' | \
+    vault kv put "secret/migrated/$path" -
+  echo "Copied: $path"
 done
 ```
 
@@ -262,7 +272,7 @@ Validate secrets were migrated correctly:
 ```bash
 # Compare original and migrated values
 original=$(cat .env | grep "^DB_PASSWORD=" | cut -d'=' -f2)
-migrated=$(kscorectl secrets get env/DB_PASSWORD --field value)
+migrated=$(vault kv get -field=value secret/env/DB_PASSWORD)
 
 if [ "$original" = "$migrated" ]; then
   echo "DB_PASSWORD: MATCH"
@@ -277,8 +287,15 @@ fi
 
 1. **Inventory secrets:**
    ```bash
-   # Generate secret inventory
-   kscorectl secrets inventory --sources env,files,vault --output inventory.yaml
+   # Manually inventory secrets from various sources
+   # Environment variables
+   env | grep -E '(PASSWORD|SECRET|KEY|TOKEN)' > inventory-env.txt
+
+   # Vault secrets
+   vault kv list -format=json secret/ > inventory-vault.json
+
+   # Kubernetes secrets
+   kubectl get secrets -A -o json | jq '.items[].metadata.name' > inventory-k8s.txt
    ```
 
 2. **Identify secret types:**
@@ -310,8 +327,13 @@ fi
 
 2. **Test connectivity:**
    ```bash
-   kscorectl secrets backend test vault
-   kscorectl secrets backend test aws
+   # Test Vault connectivity
+   vault status
+   vault token lookup
+
+   # Test AWS connectivity
+   aws sts get-caller-identity
+   aws secretsmanager list-secrets --max-results 1
    ```
 
 3. **Configure routing:**
@@ -329,23 +351,23 @@ fi
 
 1. **Migrate secrets in batches:**
    ```bash
-   # Migrate database credentials
-   kscorectl secrets migrate \
-     --source vault:secret/data/database \
-     --destination database/production \
-     --dry-run
+   # Copy secrets within Vault to new paths
+   # First, read the source secret
+   vault kv get -format=json secret/data/database > /tmp/db-secret.json
 
-   # Execute migration
-   kscorectl secrets migrate \
-     --source vault:secret/data/database \
-     --destination database/production
+   # Then write to new location
+   cat /tmp/db-secret.json | jq '.data.data' | \
+     vault kv put secret/database/production -
+
+   # Clean up temp file
+   rm /tmp/db-secret.json
    ```
 
 2. **Verify migration:**
    ```bash
-   kscorectl secrets verify \
-     --source vault:secret/data/database \
-     --destination database/production
+   # Compare source and destination values
+   vault kv get secret/data/database
+   vault kv get secret/database/production
    ```
 
 ### Phase 4: Workload Updates
@@ -372,10 +394,10 @@ fi
 2. **Deploy updates gradually:**
    ```bash
    # Update canary first
-   kscorectl state apply workload.yaml --target "role=canary"
+   kscorectl state apply workload.yaml --target "role:canary"
 
-   # Verify functionality
-   kscorectl secrets verify --workload app-canary
+   # Verify functionality by checking application logs and health
+   kscorectl exec run "role:canary" -- curl -s localhost:8080/health
 
    # Roll out to all
    kscorectl state apply workload.yaml
@@ -404,11 +426,12 @@ fi
 If issues occur during migration:
 
 ```bash
-# Restore previous workload configuration
-kscorectl state rollback workload.yaml --to-version 1
+# Restore previous workload configuration using git
+git checkout HEAD~1 -- workload.yaml
+kscorectl state apply workload.yaml
 
-# Or manually switch back to legacy secrets
-kscorectl secrets route set database/* --backend legacy
+# Or manually update workload to use old secret paths
+# Edit workload.yaml to reference old paths, then re-apply
 ```
 
 ### Gradual Rollback
@@ -431,18 +454,14 @@ secrets:
 ### Integration Tests
 
 ```bash
-# Test secret retrieval
-kscorectl secrets test get database/production/password
+# Test secret retrieval directly from backend
+vault kv get secret/database/production
 
-# Test secret injection
-kscorectl secrets test inject \
-  --workload test-app \
-  --secrets database/production
+# Test secret injection by deploying a test workload
+kscorectl state apply test-workload.yaml --dry-run
 
 # Test rotation workflow
-kscorectl secrets test rotation \
-  --path database/production \
-  --dry-run
+kscorectl secrets rotate start --path database/production --dry-run
 ```
 
 ### Smoke Tests
@@ -451,8 +470,8 @@ kscorectl secrets test rotation \
 # Verify application can connect
 curl -f http://app.example.com/health/database
 
-# Verify secrets are injected
-kscorectl exec app-pod -- env | grep DB_PASSWORD
+# Verify secrets are injected (use agent ID, not pod name)
+kscorectl exec run "name:app-server" -- env | grep DB_PASSWORD
 ```
 
 ## Common Migration Issues
@@ -493,14 +512,18 @@ secrets:
 
 **Solution:**
 ```bash
-# Check current permissions
-kscorectl secrets policy show database/*
+# Check current Vault policy
+vault policy read keystone-secrets
 
-# Grant migration permissions
-kscorectl secrets policy allow \
-  --principal "migration-service" \
-  --path "database/*" \
-  --operations read,write
+# Update Vault policy to grant access
+vault policy write keystone-secrets - <<EOF
+path "secret/data/database/*" {
+  capabilities = ["read", "list"]
+}
+path "database/creds/*" {
+  capabilities = ["read"]
+}
+EOF
 ```
 
 ### Issue: Encoding Differences

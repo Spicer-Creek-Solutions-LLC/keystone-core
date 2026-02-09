@@ -349,7 +349,7 @@ func TestDeadLetterReadyForRetry(t *testing.T) {
 	dlq.Enqueue(ctx, entry)
 
 	// Update next_retry_at to past
-	dlq.db.Exec("UPDATE dead_letter_entries SET next_retry_at = ? WHERE id = ?",
+	dlq.db.ExecContext(ctx, "UPDATE dead_letter_entries SET next_retry_at = ? WHERE id = ?",
 		time.Now().Add(-1*time.Minute), entry.ID)
 
 	// Query ready for retry
@@ -405,7 +405,7 @@ func TestDeadLetterExponentialBackoff(t *testing.T) {
 
 	// Verify backoff is capped at max
 	retryHigh := dlq.calculateNextRetry(100)
-	diffHigh := retryHigh.Sub(time.Now())
+	diffHigh := time.Until(retryHigh)
 	if diffHigh > config.MaxBackoff+time.Second {
 		t.Errorf("Expected backoff capped at %v, got %v", config.MaxBackoff, diffHigh)
 	}

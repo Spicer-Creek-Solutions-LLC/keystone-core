@@ -1,3 +1,5 @@
+// Package edge provides edge device management capabilities including
+// operation modes, connectivity tracking, and resource caching.
 package edge
 
 import (
@@ -78,9 +80,9 @@ func (m *DefaultManager) getCPUUsage() float64 {
 	m.cpuMu.RLock()
 	// If we have a recent CPU measurement, use it
 	if time.Since(m.lastCPUUpdate) < 5*time.Second && m.lastCPUPercent > 0 {
-		cpu := m.lastCPUPercent
+		cachedCPU := m.lastCPUPercent
 		m.cpuMu.RUnlock()
-		return cpu
+		return cachedCPU
 	}
 	m.cpuMu.RUnlock()
 
@@ -122,6 +124,7 @@ func (m *DefaultManager) GetStatus() (*Status, error) {
 	// Get memory usage
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
+	//nolint:gosec // G115: memory in MB is bounded by physical memory, fits in int
 	memoryUsageMB := int(memStats.Alloc / 1024 / 1024)
 
 	// Get CPU usage
@@ -179,11 +182,9 @@ func (m *DefaultManager) SetConnected(connected bool) {
 		if !previousState && m.config.EnableOfflineMode {
 			m.mode = ModeOnline
 		}
-	} else {
+	} else if m.config.EnableOfflineMode {
 		// Transition to offline mode if enabled
-		if m.config.EnableOfflineMode {
-			m.mode = ModeOffline
-		}
+		m.mode = ModeOffline
 	}
 }
 
@@ -201,6 +202,7 @@ func (m *DefaultManager) CheckResourceConstraints() (bool, error) {
 	// Get memory usage
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
+	//nolint:gosec // G115: memory in MB is bounded by physical memory, fits in int
 	memoryUsageMB := int(memStats.Alloc / 1024 / 1024)
 
 	// Check memory constraint

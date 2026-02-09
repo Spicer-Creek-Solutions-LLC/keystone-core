@@ -13,9 +13,9 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/identity"
 )
 
-// Manager implements the FederationManager interface.
-type Manager struct {
-	config *FederationConfig
+// ManagerImpl implements the Manager interface.
+type ManagerImpl struct {
+	config *Config
 
 	mu               sync.RWMutex
 	federatedDomains map[string]*FederatedDomain
@@ -24,7 +24,7 @@ type Manager struct {
 }
 
 // NewManager creates a new federation manager.
-func NewManager(config *FederationConfig) (*Manager, error) {
+func NewManager(config *Config) (*ManagerImpl, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config is required")
 	}
@@ -32,14 +32,14 @@ func NewManager(config *FederationConfig) (*Manager, error) {
 		return nil, fmt.Errorf("local trust domain is required")
 	}
 
-	return &Manager{
+	return &ManagerImpl{
 		config:           config,
 		federatedDomains: make(map[string]*FederatedDomain),
 	}, nil
 }
 
 // AddFederatedDomain adds a new federated trust domain.
-func (m *Manager) AddFederatedDomain(ctx context.Context, domain *FederatedDomain) error {
+func (m *ManagerImpl) AddFederatedDomain(ctx context.Context, domain *FederatedDomain) error {
 	if domain == nil {
 		return fmt.Errorf("domain is required")
 	}
@@ -77,9 +77,9 @@ func (m *Manager) AddFederatedDomain(ctx context.Context, domain *FederatedDomai
 
 	// Set initial state
 	if m.config.RequireApproval && domain.State == "" {
-		domain.State = FederationStatePending
+		domain.State = StatePending
 	} else if domain.State == "" {
-		domain.State = FederationStateActive
+		domain.State = StateActive
 	}
 
 	// Store in memory
@@ -94,13 +94,13 @@ func (m *Manager) AddFederatedDomain(ctx context.Context, domain *FederatedDomai
 	}
 
 	// Emit event
-	m.emitEvent(FederationEventAdded, domain.TrustDomain, nil)
+	m.emitEvent(EventAdded, domain.TrustDomain, nil)
 
 	return nil
 }
 
 // RemoveFederatedDomain removes a federated trust domain.
-func (m *Manager) RemoveFederatedDomain(ctx context.Context, trustDomain string) error {
+func (m *ManagerImpl) RemoveFederatedDomain(ctx context.Context, trustDomain string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -118,13 +118,13 @@ func (m *Manager) RemoveFederatedDomain(ctx context.Context, trustDomain string)
 	}
 
 	// Emit event
-	m.emitEvent(FederationEventRemoved, trustDomain, nil)
+	m.emitEvent(EventRemoved, trustDomain, nil)
 
 	return nil
 }
 
 // GetFederatedDomain retrieves a federated domain by trust domain.
-func (m *Manager) GetFederatedDomain(ctx context.Context, trustDomain string) (*FederatedDomain, error) {
+func (m *ManagerImpl) GetFederatedDomain(ctx context.Context, trustDomain string) (*FederatedDomain, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -137,7 +137,7 @@ func (m *Manager) GetFederatedDomain(ctx context.Context, trustDomain string) (*
 }
 
 // ListFederatedDomains lists all federated domains.
-func (m *Manager) ListFederatedDomains(ctx context.Context) ([]*FederatedDomain, error) {
+func (m *ManagerImpl) ListFederatedDomains(ctx context.Context) ([]*FederatedDomain, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -150,7 +150,7 @@ func (m *Manager) ListFederatedDomains(ctx context.Context) ([]*FederatedDomain,
 }
 
 // UpdateFederatedDomain updates a federated domain.
-func (m *Manager) UpdateFederatedDomain(ctx context.Context, domain *FederatedDomain) error {
+func (m *ManagerImpl) UpdateFederatedDomain(ctx context.Context, domain *FederatedDomain) error {
 	if domain == nil {
 		return fmt.Errorf("domain is required")
 	}
@@ -177,13 +177,13 @@ func (m *Manager) UpdateFederatedDomain(ctx context.Context, domain *FederatedDo
 	}
 
 	// Emit event
-	m.emitEvent(FederationEventUpdated, domain.TrustDomain, nil)
+	m.emitEvent(EventUpdated, domain.TrustDomain, nil)
 
 	return nil
 }
 
 // RefreshTrustBundle refreshes the trust bundle for a domain.
-func (m *Manager) RefreshTrustBundle(ctx context.Context, trustDomain string) error {
+func (m *ManagerImpl) RefreshTrustBundle(ctx context.Context, trustDomain string) error {
 	m.mu.RLock()
 	domain, exists := m.federatedDomains[trustDomain]
 	m.mu.RUnlock()
@@ -213,13 +213,13 @@ func (m *Manager) RefreshTrustBundle(ctx context.Context, trustDomain string) er
 	m.mu.Unlock()
 
 	// Emit event
-	m.emitEvent(FederationEventRefreshed, trustDomain, nil)
+	m.emitEvent(EventRefreshed, trustDomain, nil)
 
 	return nil
 }
 
 // GetAggregatedTrustBundle returns a combined trust bundle from all active federations.
-func (m *Manager) GetAggregatedTrustBundle(ctx context.Context) (*identity.TrustBundle, error) {
+func (m *ManagerImpl) GetAggregatedTrustBundle(ctx context.Context) (*identity.TrustBundle, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -252,7 +252,7 @@ func (m *Manager) GetAggregatedTrustBundle(ctx context.Context) (*identity.Trust
 }
 
 // ValidateSVID validates an SVID against federated trust bundles.
-func (m *Manager) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*ValidationResult, error) {
+func (m *ManagerImpl) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*ValidationResult, error) {
 	if svid == nil || len(svid.Certificates) == 0 {
 		return &ValidationResult{
 			Valid:       false,
@@ -277,11 +277,11 @@ func (m *Manager) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*V
 		if err := m.validateCertChain(svid.Certificates, m.config.LocalTrustBundle); err != nil {
 			result.Valid = false
 			result.Error = err.Error()
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result
 		}
 		result.Valid = true
 		result.CertificateChain = svid.Certificates
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result
 	}
 
 	// Check federated domains
@@ -292,22 +292,22 @@ func (m *Manager) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*V
 	if !exists {
 		result.Valid = false
 		result.Error = fmt.Sprintf("trust domain %s is not federated", trustDomain)
-		m.emitEvent(FederationEventValidationFailed, trustDomain, map[string]string{
+		m.emitEvent(EventValidationFailed, trustDomain, map[string]string{
 			"reason":    "not_federated",
 			"spiffe_id": spiffeID.String(),
 		})
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result
 	}
 
 	if !domain.IsActive() {
 		result.Valid = false
 		result.Error = fmt.Sprintf("federation with %s is not active (state: %s)", trustDomain, domain.State)
-		m.emitEvent(FederationEventValidationFailed, trustDomain, map[string]string{
+		m.emitEvent(EventValidationFailed, trustDomain, map[string]string{
 			"reason":    "federation_not_active",
 			"state":     string(domain.State),
 			"spiffe_id": spiffeID.String(),
 		})
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result
 	}
 
 	result.IsFederated = true
@@ -317,18 +317,18 @@ func (m *Manager) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*V
 	if domain.TrustBundle == nil || len(domain.TrustBundle.X509Authorities) == 0 {
 		result.Valid = false
 		result.Error = fmt.Sprintf("no trust bundle for %s", trustDomain)
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result
 	}
 
 	if err := m.validateCertChain(svid.Certificates, domain.TrustBundle); err != nil {
 		result.Valid = false
 		result.Error = err.Error()
-		m.emitEvent(FederationEventValidationFailed, trustDomain, map[string]string{
+		m.emitEvent(EventValidationFailed, trustDomain, map[string]string{
 			"reason":    "cert_validation_failed",
 			"error":     err.Error(),
 			"spiffe_id": spiffeID.String(),
 		})
-		return result, nil
+		return result, nil //nolint:nilerr // error captured in result
 	}
 
 	// Apply policy
@@ -337,24 +337,24 @@ func (m *Manager) ValidateSVID(ctx context.Context, svid *identity.X509SVID) (*V
 			result.Valid = false
 			result.Error = err.Error()
 			result.MatchedPolicy = domain.Policy.Name
-			m.emitEvent(FederationEventValidationFailed, trustDomain, map[string]string{
+			m.emitEvent(EventValidationFailed, trustDomain, map[string]string{
 				"reason":    "policy_denied",
 				"policy":    domain.Policy.Name,
 				"error":     err.Error(),
 				"spiffe_id": spiffeID.String(),
 			})
-			return result, nil
+			return result, nil //nolint:nilerr // error captured in result
 		}
 		result.MatchedPolicy = domain.Policy.Name
 	}
 
 	result.Valid = true
 	result.CertificateChain = svid.Certificates
-	return result, nil
+	return result, nil //nolint:nilerr // error captured in result
 }
 
 // Start starts background trust bundle refresh.
-func (m *Manager) Start(ctx context.Context) error {
+func (m *ManagerImpl) Start(ctx context.Context) error {
 	m.mu.Lock()
 	if m.started {
 		m.mu.Unlock()
@@ -378,13 +378,13 @@ func (m *Manager) Start(ctx context.Context) error {
 	}
 
 	// Start refresh loop
-	go m.refreshLoop()
+	go m.refreshLoop() //nolint:contextcheck // background loop uses internal context
 
 	return nil
 }
 
 // Stop stops the federation manager.
-func (m *Manager) Stop(ctx context.Context) error {
+func (m *ManagerImpl) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -402,7 +402,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 
 // Private methods
 
-func (m *Manager) validateCertChain(certs []*x509.Certificate, bundle *identity.TrustBundle) error {
+func (m *ManagerImpl) validateCertChain(certs []*x509.Certificate, bundle *identity.TrustBundle) error {
 	if len(certs) == 0 {
 		return fmt.Errorf("no certificates to validate")
 	}
@@ -448,7 +448,7 @@ func (m *Manager) validateCertChain(certs []*x509.Certificate, bundle *identity.
 	return nil
 }
 
-func (m *Manager) applyPolicy(spiffeID identity.SPIFFEID, policy *TrustPolicy) error {
+func (m *ManagerImpl) applyPolicy(spiffeID identity.SPIFFEID, policy *TrustPolicy) error {
 	// Check denied paths first (takes precedence)
 	for _, pattern := range policy.DeniedPaths {
 		if matchPath(spiffeID.Path, pattern) {
@@ -495,12 +495,12 @@ func (m *Manager) applyPolicy(spiffeID identity.SPIFFEID, policy *TrustPolicy) e
 	return nil
 }
 
-func (m *Manager) emitEvent(eventType FederationEventType, trustDomain string, details map[string]string) {
+func (m *ManagerImpl) emitEvent(eventType EventType, trustDomain string, details map[string]string) {
 	if m.config.EventCallback == nil {
 		return
 	}
 
-	event := &FederationEvent{
+	event := &Event{
 		Type:        eventType,
 		TrustDomain: trustDomain,
 		Timestamp:   time.Now(),
@@ -509,7 +509,7 @@ func (m *Manager) emitEvent(eventType FederationEventType, trustDomain string, d
 	m.config.EventCallback(event)
 }
 
-func (m *Manager) refreshLoop() {
+func (m *ManagerImpl) refreshLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -524,7 +524,7 @@ func (m *Manager) refreshLoop() {
 	}
 }
 
-func (m *Manager) refreshAllBundles() {
+func (m *ManagerImpl) refreshAllBundles() {
 	m.mu.RLock()
 	domains := make([]*FederatedDomain, 0, len(m.federatedDomains))
 	for _, d := range m.federatedDomains {
@@ -547,21 +547,19 @@ func (m *Manager) refreshAllBundles() {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		if err := m.RefreshTrustBundle(ctx, domain.TrustDomain); err != nil {
-			// Log error but continue
-		}
+		_ = m.RefreshTrustBundle(ctx, domain.TrustDomain) // best-effort refresh, continue on error
 		cancel()
 	}
 }
 
-func (m *Manager) checkExpirations() {
+func (m *ManagerImpl) checkExpirations() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	for trustDomain, domain := range m.federatedDomains {
-		if domain.State == FederationStateActive && domain.IsExpired() {
-			domain.State = FederationStateExpired
-			m.emitEvent(FederationEventExpired, trustDomain, nil)
+		if domain.State == StateActive && domain.IsExpired() {
+			domain.State = StateExpired
+			m.emitEvent(EventExpired, trustDomain, nil)
 		}
 	}
 }
@@ -618,5 +616,5 @@ func extractServiceName(path string) string {
 	return parts[len(parts)-1]
 }
 
-// Verify Manager implements FederationManager
-var _ FederationManager = (*Manager)(nil)
+// Verify ManagerImpl implements Manager
+var _ Manager = (*ManagerImpl)(nil)

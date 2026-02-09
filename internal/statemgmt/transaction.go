@@ -31,6 +31,7 @@ type Transaction struct {
 // TransactionStatus represents the status of a transaction
 type TransactionStatus string
 
+// TransactionStatus constants define the possible statuses.
 const (
 	TransactionStatusPending    TransactionStatus = "pending"
 	TransactionStatusActive     TransactionStatus = "active"
@@ -58,6 +59,7 @@ type TransactionOperation struct {
 // OperationType represents the type of state operation
 type OperationType string
 
+// OperationType constants define the supported types.
 const (
 	OperationTypeCreate OperationType = "create"
 	OperationTypeUpdate OperationType = "update"
@@ -165,7 +167,7 @@ func (tm *TransactionManager) GetTransaction(id string) *Transaction {
 }
 
 // RecordOperation records an operation in the active transaction
-func (tm *TransactionManager) RecordOperation(op *TransactionOperation, rollback RollbackFunc) error {
+func (tm *TransactionManager) RecordOperation(ctx context.Context, op *TransactionOperation, rollback RollbackFunc) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
@@ -192,7 +194,7 @@ func (tm *TransactionManager) RecordOperation(op *TransactionOperation, rollback
 	if !op.Success && tm.config.RollbackOnPartialFailure {
 		// Trigger rollback asynchronously
 		go func() {
-			tm.Rollback(context.Background(), op.Error)
+			tm.Rollback(ctx, op.Error)
 		}()
 	}
 
@@ -215,7 +217,7 @@ func (tm *TransactionManager) Commit(ctx context.Context) error {
 	// Check all operations succeeded
 	for _, op := range txn.operations {
 		if !op.Success {
-			return fmt.Errorf("cannot commit: operation %s failed: %v", op.ID, op.Error)
+			return fmt.Errorf("cannot commit: operation %s failed: %w", op.ID, op.Error)
 		}
 	}
 
@@ -466,7 +468,7 @@ func (te *TransactionalExecutor) ExecuteWithTransaction(ctx context.Context, sta
 			}
 		}
 
-		te.txnManager.RecordOperation(op, nil) // Rollback would need module-specific implementation
+		_ = te.txnManager.RecordOperation(ctx, op, nil) //nolint:errcheck // best-effort tracking; rollback needs module-specific implementation
 	}
 
 	// Commit or rollback based on results
@@ -605,7 +607,7 @@ func (rb *RollbackBuilder) FileRollback(path string, previousContent []byte, pre
 }
 
 // PackageRollback creates a rollback for package operations
-func (rb *RollbackBuilder) PackageRollback(name string, previousVersion string, wasInstalled bool) RollbackFunc {
+func (rb *RollbackBuilder) PackageRollback(name, previousVersion string, wasInstalled bool) RollbackFunc {
 	return func(ctx context.Context) error {
 		if !wasInstalled {
 			// Package wasn't installed, remove it
@@ -617,7 +619,7 @@ func (rb *RollbackBuilder) PackageRollback(name string, previousVersion string, 
 }
 
 // ServiceRollback creates a rollback for service operations
-func (rb *RollbackBuilder) ServiceRollback(name string, previousState string, previousEnabled bool) RollbackFunc {
+func (rb *RollbackBuilder) ServiceRollback(name, previousState string, previousEnabled bool) RollbackFunc {
 	return func(ctx context.Context) error {
 		// Restore previous service state
 		return nil

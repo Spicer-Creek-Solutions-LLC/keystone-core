@@ -495,10 +495,10 @@ func TestAnalyzeForRecovery(t *testing.T) {
 	txLog.LogCheckpoint("agents", "a100", 100, 100) // Complete
 	txLog.LogCheckpoint("commands", "c50", 50, 100) // Incomplete
 	txLog.LogEntry(&TransactionLogEntry{
-		Table:     "commands",
-		Operation: OpMigrateRecord,
-		RecordID:  "c55",
-		Status:    StatusFailure,
+		Table:        "commands",
+		Operation:    OpMigrateRecord,
+		RecordID:     "c55",
+		Status:       StatusFailure,
 		ErrorMessage: "connection lost",
 	})
 	txLog.Close()

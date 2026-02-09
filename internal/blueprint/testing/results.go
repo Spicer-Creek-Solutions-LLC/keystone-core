@@ -275,7 +275,8 @@ func (r *TestSuiteResult) CalculateSummary() {
 		Total: len(r.Tests),
 	}
 
-	for _, test := range r.Tests {
+	for i := range r.Tests {
+		test := &r.Tests[i]
 		switch test.Status {
 		case StatusPassed:
 			r.Summary.Passed++
@@ -288,6 +289,7 @@ func (r *TestSuiteResult) CalculateSummary() {
 		case StatusError:
 			r.Summary.Errors++
 			r.Summary.ErrorTests = append(r.Summary.ErrorTests, test.Name)
+		default:
 		}
 		r.Summary.TotalDuration += test.Duration
 	}

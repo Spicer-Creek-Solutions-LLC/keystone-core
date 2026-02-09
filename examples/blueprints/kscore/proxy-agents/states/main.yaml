@@ -7,12 +7,12 @@ states:
   proxy_agents_config_dir:
     module: file
     state: directory
-    name: /etc/kscore
+    name: /etc/keystone-core
 
   proxy_agents_config_file:
     module: file
     state: managed
-    name: /etc/kscore/proxy-agents.yaml
+    name: /etc/keystone-core/proxy-agents.yaml
     contents: |
       proxy_agents:
         credential_backend: "{{ .credential_backend }}"

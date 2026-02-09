@@ -23,7 +23,7 @@ type ProxyStateExecutor struct {
 	config ExecutorConfig
 
 	// stats tracks execution statistics
-	stats ExecutorStats
+	stats   ExecutorStats
 	statsMu sync.RWMutex
 
 	// eventEmitter emits state events
@@ -65,54 +65,56 @@ func DefaultExecutorConfig() ExecutorConfig {
 
 // ExecutorStats tracks execution statistics.
 type ExecutorStats struct {
-	TotalExecutions    int64
+	TotalExecutions      int64
 	SuccessfulExecutions int64
-	FailedExecutions   int64
-	TotalStates        int64
-	AppliedStates      int64
-	FailedStates       int64
-	SkippedStates      int64
-	TotalDuration      time.Duration
-	LastExecution      time.Time
+	FailedExecutions     int64
+	TotalStates          int64
+	AppliedStates        int64
+	FailedStates         int64
+	SkippedStates        int64
+	TotalDuration        time.Duration
+	LastExecution        time.Time
 }
 
 // EventEmitter emits state execution events.
 type EventEmitter interface {
-	Emit(event StateEvent)
+	Emit(event Event)
 }
 
-// StateEvent represents a state execution event.
-type StateEvent struct {
-	Type        StateEventType
-	DeviceID    string
-	StateName   string
-	ModuleType  string
-	Result      StateResult
-	Timestamp   time.Time
-	Duration    time.Duration
-	Error       error
+// Event represents a state execution event.
+type Event struct {
+	Type       EventType
+	DeviceID   string
+	StateName  string
+	ModuleType string
+	Result     Result
+	Timestamp  time.Time
+	Duration   time.Duration
+	Error      error
 }
 
-// StateEventType represents the type of state event.
-type StateEventType string
+// EventType represents the type of state event.
+type EventType string
 
+// EventState constants define the possible states.
 const (
-	EventStateStart    StateEventType = "state.start"
-	EventStateComplete StateEventType = "state.complete"
-	EventStateFailed   StateEventType = "state.failed"
-	EventStateSkipped  StateEventType = "state.skipped"
-	EventStateDrift    StateEventType = "state.drift"
+	EventStateStart    EventType = "state.start"
+	EventStateComplete EventType = "state.complete"
+	EventStateFailed   EventType = "state.failed"
+	EventStateSkipped  EventType = "state.skipped"
+	EventStateDrift    EventType = "state.drift"
 )
 
-// StateResult represents the result of a state operation.
-type StateResult string
+// Result represents the result of a state operation.
+type Result string
 
+// ResultSuccess and related constants.
 const (
-	ResultSuccess   StateResult = "success"
-	ResultFailed    StateResult = "failed"
-	ResultSkipped   StateResult = "skipped"
-	ResultNoChange  StateResult = "no_change"
-	ResultChanged   StateResult = "changed"
+	ResultSuccess  Result = "success"
+	ResultFailed   Result = "failed"
+	ResultSkipped  Result = "skipped"
+	ResultNoChange Result = "no_change"
+	ResultChanged  Result = "changed"
 )
 
 // ProxyStateRun represents a state run on a proxied device.
@@ -190,7 +192,7 @@ type ProxyStateResult struct {
 	Module string
 
 	// Result is the outcome
-	Result StateResult
+	Result Result
 
 	// Changed indicates if changes were made
 	Changed bool
@@ -210,13 +212,13 @@ type ProxyStateResult struct {
 
 // ProxyRunSummary summarizes a state run.
 type ProxyRunSummary struct {
-	TotalStates   int
-	Succeeded     int
-	Failed        int
-	Changed       int
-	Unchanged     int
-	Skipped       int
-	Duration      time.Duration
+	TotalStates int
+	Succeeded   int
+	Failed      int
+	Changed     int
+	Unchanged   int
+	Skipped     int
+	Duration    time.Duration
 }
 
 // NewProxyStateExecutor creates a new proxy state executor.
@@ -263,6 +265,32 @@ func (e *ProxyStateExecutor) registerDefaultModules() {
 	e.modules.Register("vyos_config", NewVyOSConfigModule())
 	e.modules.Register("pfsense_config", NewPfSenseConfigModule())
 	e.modules.Register("opnsense_config", NewOPNsenseConfigModule())
+
+	// HP/Aruba modules
+	e.modules.Register("hp_procurve_config", NewHPProCurveConfigModule())
+	e.modules.Register("hp_arubaos_config", NewHPArubaOSConfigModule())
+	e.modules.Register("hp_aoscx_config", NewHPAOSCXConfigModule())
+
+	// Dell modules
+	e.modules.Register("dell_os10_config", NewDellOS10ConfigModule())
+	e.modules.Register("dell_os9_config", NewDellOS9ConfigModule())
+	e.modules.Register("dell_powerswitch_config", NewDellPowerSwitchConfigModule())
+
+	// Security vendor modules
+	e.modules.Register("fortios_config", NewFortiOSConfigModule())
+	e.modules.Register("panos_config", NewPANOSConfigModule())
+	e.modules.Register("bigip_config", NewBigIPConfigModule())
+
+	// P1/P2 vendor modules
+	e.modules.Register("checkpoint_gaia_config", NewCheckpointGaiaConfigModule())
+	e.modules.Register("mikrotik_routeros_config", NewMikroTikRouterOSConfigModule())
+	e.modules.Register("ubiquiti_edgeos_config", NewUbiquitiEdgeOSConfigModule())
+	e.modules.Register("extreme_exos_config", NewExtremeEXOSConfigModule())
+	e.modules.Register("nokia_sros_config", NewNokiaSROSConfigModule())
+	e.modules.Register("huawei_vrp_config", NewHuaweiVRPConfigModule())
+	e.modules.Register("mellanox_onyx_config", NewMellanoxOnyxConfigModule())
+	e.modules.Register("alliedtelesis_awplus_config", NewAlliedTelesisAWPlusConfigModule())
+	e.modules.Register("ciena_saos_config", NewCienaSAOSConfigModule())
 
 	// WinRM modules
 	e.modules.Register("winrm_file", NewWinRMFileModule())
@@ -321,7 +349,7 @@ func (e *ProxyStateExecutor) Execute(ctx context.Context, deviceID string, state
 				eventType = EventStateSkipped
 			}
 
-			e.eventEmitter.Emit(StateEvent{
+			e.eventEmitter.Emit(Event{
 				Type:       eventType,
 				DeviceID:   deviceID,
 				StateName:  state.Name,
@@ -423,7 +451,7 @@ func (e *ProxyStateExecutor) executeState(ctx context.Context, device *proxy.Pro
 }
 
 // checkCondition checks if a condition is met.
-func (e *ProxyStateExecutor) checkCondition(ctx context.Context, executor proxy.ProxiedExecutor, deviceID string, condition string) bool {
+func (e *ProxyStateExecutor) checkCondition(ctx context.Context, executor proxy.ProxiedExecutor, deviceID, condition string) bool {
 	result, err := executor.Execute(ctx, &proxy.ProxiedExecuteRequest{
 		DeviceID: deviceID,
 		Command:  condition,
@@ -556,10 +584,16 @@ func generateRunID() string {
 func (e *ProxyStateExecutor) ExecuteFile(ctx context.Context, deviceID string, stateFile *statemgmt.StateFile) (*ProxyStateRun, error) {
 	// Convert state file to proxy state declarations
 	// stateFile.States is map[string][]StateDeclaration
-	var states []ProxyStateDeclaration
+	// Count total states first
+	total := 0
+	for _, decls := range stateFile.States {
+		total += len(decls)
+	}
+	states := make([]ProxyStateDeclaration, 0, total)
 
 	for _, decls := range stateFile.States {
-		for _, decl := range decls {
+		for i := range decls {
+			decl := &decls[i]
 			proxyDecl := ProxyStateDeclaration{
 				ID:         decl.ID,
 				Name:       decl.ID, // Use ID as Name since StateDeclaration doesn't have a Name field

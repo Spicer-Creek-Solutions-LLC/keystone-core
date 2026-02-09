@@ -79,8 +79,8 @@ func TestCapabilityContext(t *testing.T) {
 func TestCapabilityRegistry_Register(t *testing.T) {
 	registry := NewCapabilityRegistry()
 
-	cap := &mockCapability{name: "test.capability"}
-	err := registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	err := registry.Register(testCap)
 	if err != nil {
 		t.Fatalf("failed to register capability: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestCapabilityRegistry_Register(t *testing.T) {
 	}
 
 	// Test duplicate registration
-	err = registry.Register(cap)
+	err = registry.Register(testCap)
 	if !errors.Is(err, ErrCapabilityAlreadyRegistered) {
 		t.Errorf("expected ErrCapabilityAlreadyRegistered, got %v", err)
 	}
@@ -109,8 +109,8 @@ func TestCapabilityRegistry_RegisterNil(t *testing.T) {
 func TestCapabilityRegistry_RegisterEmptyName(t *testing.T) {
 	registry := NewCapabilityRegistry()
 
-	cap := &mockCapability{name: ""}
-	err := registry.Register(cap)
+	testCap := &mockCapability{name: ""}
+	err := registry.Register(testCap)
 	if !errors.Is(err, ErrEmptyCapabilityName) {
 		t.Errorf("expected ErrEmptyCapabilityName, got %v", err)
 	}
@@ -120,14 +120,14 @@ func TestCapabilityRegistry_RegisterInvalid(t *testing.T) {
 	registry := NewCapabilityRegistry()
 
 	validationErr := errors.New("validation failed")
-	cap := &mockCapability{
+	testCap := &mockCapability{
 		name: "test.invalid",
 		validateFn: func() error {
 			return validationErr
 		},
 	}
 
-	err := registry.Register(cap)
+	err := registry.Register(testCap)
 	if err == nil {
 		t.Fatal("expected error for invalid capability")
 	}
@@ -139,15 +139,15 @@ func TestCapabilityRegistry_RegisterInvalid(t *testing.T) {
 func TestCapabilityRegistry_Get(t *testing.T) {
 	registry := NewCapabilityRegistry()
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	retrieved, err := registry.Get("test.capability")
 	if err != nil {
 		t.Fatalf("failed to get capability: %v", err)
 	}
 
-	if retrieved != cap {
+	if retrieved != testCap {
 		t.Error("retrieved capability does not match registered capability")
 	}
 
@@ -165,8 +165,8 @@ func TestCapabilityRegistry_Has(t *testing.T) {
 		t.Error("expected Has to return false for non-existent capability")
 	}
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	if !registry.Has("test.capability") {
 		t.Error("expected Has to return true for registered capability")
@@ -201,8 +201,8 @@ func TestCapabilityRegistry_List(t *testing.T) {
 func TestCapabilityRegistry_Unregister(t *testing.T) {
 	registry := NewCapabilityRegistry()
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	err := registry.Unregister("test.capability")
 	if err != nil {
@@ -241,8 +241,8 @@ func TestCapabilityInvoker_Invoke(t *testing.T) {
 	auditor := &mockAuditLogger{}
 	invoker := NewCapabilityInvoker(registry, auditor)
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
@@ -281,8 +281,8 @@ func TestCapabilityInvoker_InvokeError(t *testing.T) {
 	auditor := &mockAuditLogger{}
 	invoker := NewCapabilityInvoker(registry, auditor)
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 
@@ -342,8 +342,8 @@ func TestCapabilityInvoker_NoAuditor(t *testing.T) {
 	registry := NewCapabilityRegistry()
 	invoker := NewCapabilityInvoker(registry, nil)
 
-	cap := &mockCapability{name: "test.capability"}
-	registry.Register(cap)
+	testCap := &mockCapability{name: "test.capability"}
+	registry.Register(testCap)
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
 

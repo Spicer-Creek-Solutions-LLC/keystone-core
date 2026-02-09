@@ -465,8 +465,8 @@ func (dm *DegradationManager) Queue(op *QueuedOperation) error {
 
 func (dm *DegradationManager) dropLowestPriority(incomingPriority OperationPriority) bool {
 	// Find lowest priority operation
-	var lowestIdx int = -1
-	var lowestPriority OperationPriority = OperationPriorityCritical
+	var lowestIdx = -1
+	var lowestPriority = OperationPriorityCritical
 
 	for i := len(dm.queue) - 1; i >= 0; i-- {
 		if dm.queue[i].Priority > lowestPriority {
@@ -545,6 +545,8 @@ func (dm *DegradationManager) improve() {
 		dm.transitionTo(DegradationModeDegraded)
 	case DegradationModeDegraded:
 		dm.transitionTo(DegradationModeNormal)
+
+	default:
 	}
 }
 
@@ -556,6 +558,8 @@ func (dm *DegradationManager) degrade() {
 		dm.transitionTo(DegradationModeLimited)
 	case DegradationModeLimited:
 		dm.transitionTo(DegradationModeOffline)
+
+	default:
 	}
 }
 
@@ -604,7 +608,7 @@ func (dm *DegradationManager) processQueuedOperations() {
 		// Check if operation is allowed
 		if !dm.AllowOperation(op.Priority) {
 			// Re-queue
-			dm.Queue(op)
+			_ = dm.Queue(op) //nolint:errcheck // best-effort re-queue
 			break
 		}
 

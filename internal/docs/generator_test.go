@@ -117,10 +117,10 @@ func TestTypeInfo(t *testing.T) {
 
 func TestFieldInfo(t *testing.T) {
 	tests := []struct {
-		name     string
-		field    FieldInfo
-		wantReq  bool
-		wantDep  bool
+		name    string
+		field   FieldInfo
+		wantReq bool
+		wantDep bool
 	}{
 		{
 			name: "required field",

@@ -80,8 +80,8 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 	result := validator.Validate(bp)
 	if len(result.Errors) > 0 {
 		fmt.Println("Validation errors:")
-		for _, e := range result.Errors {
-			fmt.Printf("  ✗ %s\n", e)
+		for i := range result.Errors {
+			fmt.Printf("  ✗ %s\n", result.Errors[i])
 		}
 		return fmt.Errorf("blueprint validation failed")
 	}
@@ -123,7 +123,7 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 
 	// Publish to registry
 	fmt.Println("Uploading to registry...")
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 120 * time.Second,
 	})
@@ -168,7 +168,8 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 	if signature != "" {
 		// Write signature to a temp file and upload
 		sigPath := packagePath + ".sig"
-		if err := os.WriteFile(sigPath, []byte(signature), 0644); err != nil {
+		//nolint:gosec // G306: signature files need to be readable for verification
+		if err := os.WriteFile(sigPath, []byte(signature), 0o644); err != nil {
 			return fmt.Errorf("failed to write signature: %w", err)
 		}
 		defer os.Remove(sigPath)
@@ -388,7 +389,8 @@ func signExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write signature to file
-	if err := os.WriteFile(outputFile, []byte(result.Signature), 0644); err != nil {
+	//nolint:gosec // G306: signature files need to be readable for verification
+	if err := os.WriteFile(outputFile, []byte(result.Signature), 0o644); err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
 
@@ -403,7 +405,7 @@ func generateSigningKey() error {
 	}
 
 	keysDir := filepath.Join(home, ".kscore", "keys")
-	if err := os.MkdirAll(keysDir, 0700); err != nil {
+	if err := os.MkdirAll(keysDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create keys directory: %w", err)
 	}
 
@@ -424,10 +426,11 @@ func generateSigningKey() error {
 	}
 
 	// Write keys to files
-	if err := os.WriteFile(privateKeyPath, privateKey, 0600); err != nil {
+	if err := os.WriteFile(privateKeyPath, privateKey, 0o600); err != nil {
 		return fmt.Errorf("failed to write private key: %w", err)
 	}
-	if err := os.WriteFile(publicKeyPath, publicKey, 0644); err != nil {
+	//nolint:gosec // G306: public key needs to be readable for signature verification
+	if err := os.WriteFile(publicKeyPath, publicKey, 0o644); err != nil {
 		return fmt.Errorf("failed to write public key: %w", err)
 	}
 
@@ -568,7 +571,7 @@ func verifyFromRegistry(ref string) error {
 	}
 	fmt.Printf(" from %s...\n", registryURL)
 
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 60 * time.Second,
 	})

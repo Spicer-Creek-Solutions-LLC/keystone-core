@@ -342,7 +342,7 @@ func parseDuration(s string) (time.Duration, error) {
 }
 
 // ParseSource parses a source string and returns the type and path
-func ParseSource(source string) (SourceType, string) {
+func ParseSource(source string) (sourceType SourceType, path string) {
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
 		return SourceTypeHTTP, source
 	}

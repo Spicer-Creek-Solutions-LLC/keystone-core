@@ -85,7 +85,7 @@ func (a *TunnelAdapter) LocalForward(ctx context.Context, req *protocols.Forward
 	remoteAddr := fmt.Sprintf("%s:%d", req.RemoteHost, req.RemotePort)
 
 	// Create local listener
-	listener, err := net.Listen("tcp", localAddr)
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", localAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local listener: %w", err)
 	}
@@ -131,7 +131,9 @@ func (a *TunnelAdapter) LocalForward(ctx context.Context, req *protocols.Forward
 }
 
 // acceptLocalConnections accepts local connections and forwards them.
-func (a *TunnelAdapter) acceptLocalConnections(ctx context.Context, tunnel *activeTunnel, client interface{ Dial(string, string) (net.Conn, error) }) {
+func (a *TunnelAdapter) acceptLocalConnections(ctx context.Context, tunnel *activeTunnel, client interface {
+	Dial(string, string) (net.Conn, error)
+}) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -156,7 +158,9 @@ func (a *TunnelAdapter) acceptLocalConnections(ctx context.Context, tunnel *acti
 }
 
 // forwardLocalConnection forwards a single local connection through SSH.
-func (a *TunnelAdapter) forwardLocalConnection(ctx context.Context, tunnel *activeTunnel, localConn net.Conn, client interface{ Dial(string, string) (net.Conn, error) }) {
+func (a *TunnelAdapter) forwardLocalConnection(ctx context.Context, tunnel *activeTunnel, localConn net.Conn, client interface {
+	Dial(string, string) (net.Conn, error)
+}) {
 	defer localConn.Close()
 
 	// Connect to remote through SSH
@@ -285,7 +289,7 @@ func (a *TunnelAdapter) forwardRemoteConnection(ctx context.Context, tunnel *act
 	defer remoteConn.Close()
 
 	// Connect to local address
-	localConn, err := net.Dial("tcp", tunnel.localAddr)
+	localConn, err := (&net.Dialer{}).DialContext(ctx, "tcp", tunnel.localAddr)
 	if err != nil {
 		return
 	}
@@ -331,7 +335,7 @@ func (a *TunnelAdapter) DynamicForward(ctx context.Context, localAddr string) (*
 	}
 
 	// Create local SOCKS listener
-	listener, err := net.Listen("tcp", localAddr)
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", localAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SOCKS listener: %w", err)
 	}
@@ -376,7 +380,9 @@ func (a *TunnelAdapter) DynamicForward(ctx context.Context, localAddr string) (*
 }
 
 // acceptSOCKSConnections accepts SOCKS connections.
-func (a *TunnelAdapter) acceptSOCKSConnections(ctx context.Context, tunnel *activeTunnel, client interface{ Dial(string, string) (net.Conn, error) }) {
+func (a *TunnelAdapter) acceptSOCKSConnections(ctx context.Context, tunnel *activeTunnel, client interface {
+	Dial(string, string) (net.Conn, error)
+}) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -401,7 +407,9 @@ func (a *TunnelAdapter) acceptSOCKSConnections(ctx context.Context, tunnel *acti
 
 // handleSOCKSConnection handles a single SOCKS connection.
 // Implements SOCKS5 protocol (simplified).
-func (a *TunnelAdapter) handleSOCKSConnection(ctx context.Context, tunnel *activeTunnel, localConn net.Conn, client interface{ Dial(string, string) (net.Conn, error) }) {
+func (a *TunnelAdapter) handleSOCKSConnection(ctx context.Context, tunnel *activeTunnel, localConn net.Conn, client interface {
+	Dial(string, string) (net.Conn, error)
+}) {
 	defer localConn.Close()
 
 	// Read SOCKS5 greeting

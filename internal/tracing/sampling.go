@@ -75,7 +75,7 @@ func DefaultAdaptiveSamplingConfig() *AdaptiveSamplingConfig {
 		ErrorThreshold:      0.05, // Increase sampling above 5% error rate
 		LowErrorThreshold:   0.01, // Decrease sampling below 1% error rate
 		AdaptationWindow:    time.Minute,
-		RateIncrement:       0.1, // Increase by 10% per adaptation
+		RateIncrement:       0.1,  // Increase by 10% per adaptation
 		RateDecrement:       0.05, // Decrease by 5% per adaptation
 		PerSpanRules:        make(map[string]*SpanSamplingRule),
 		AlwaysSampleOnError: true,
@@ -256,12 +256,12 @@ func (s *AdaptiveSampler) GetStats() *SamplingStats {
 	defer s.mu.RUnlock()
 
 	stats := &SamplingStats{
-		CurrentRate:      s.currentRate.Load().(float64),
-		TotalSpans:       s.totalSpans,
-		ErrorSpans:       s.errorSpans,
-		WindowStart:      s.windowStart,
-		LastAdaptation:   s.lastAdaptTime,
-		PerSpanStats:     make(map[string]*PerSpanSamplingStats),
+		CurrentRate:    s.currentRate.Load().(float64),
+		TotalSpans:     s.totalSpans,
+		ErrorSpans:     s.errorSpans,
+		WindowStart:    s.windowStart,
+		LastAdaptation: s.lastAdaptTime,
+		PerSpanStats:   make(map[string]*PerSpanSamplingStats),
 	}
 
 	if s.totalSpans > 0 {
@@ -285,13 +285,13 @@ func (s *AdaptiveSampler) GetStats() *SamplingStats {
 
 // SamplingStats contains sampling statistics
 type SamplingStats struct {
-	CurrentRate    float64                            `json:"current_rate"`
-	TotalSpans     int64                              `json:"total_spans"`
-	ErrorSpans     int64                              `json:"error_spans"`
-	ErrorRate      float64                            `json:"error_rate"`
-	WindowStart    time.Time                          `json:"window_start"`
-	LastAdaptation time.Time                          `json:"last_adaptation"`
-	PerSpanStats   map[string]*PerSpanSamplingStats   `json:"per_span_stats,omitempty"`
+	CurrentRate    float64                          `json:"current_rate"`
+	TotalSpans     int64                            `json:"total_spans"`
+	ErrorSpans     int64                            `json:"error_spans"`
+	ErrorRate      float64                          `json:"error_rate"`
+	WindowStart    time.Time                        `json:"window_start"`
+	LastAdaptation time.Time                        `json:"last_adaptation"`
+	PerSpanStats   map[string]*PerSpanSamplingStats `json:"per_span_stats,omitempty"`
 }
 
 // PerSpanSamplingStats contains per-span statistics

@@ -343,10 +343,11 @@ func TestCorrelationRoundTripper(t *testing.T) {
 	ctx = WithRequestID(ctx, "rt-request")
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", testServer.URL, nil)
-	_, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
+	resp.Body.Close()
 
 	if capturedCorrelationID != "rt-correlation" {
 		t.Errorf("Expected 'rt-correlation', got '%s'", capturedCorrelationID)
@@ -370,11 +371,12 @@ func TestCorrelationRoundTripper_Generate(t *testing.T) {
 	client := &http.Client{Transport: transport}
 
 	// Create request without correlation ID
-	req, _ := http.NewRequest("GET", testServer.URL, nil)
-	_, err := client.Do(req)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", testServer.URL, nil)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
+	resp.Body.Close()
 
 	if capturedCorrelationID == "" {
 		t.Error("Expected generated correlation ID")

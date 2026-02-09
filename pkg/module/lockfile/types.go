@@ -7,12 +7,12 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/semver"
 )
 
-// LockFileNotFoundError indicates the lock file doesn't exist
-type LockFileNotFoundError struct {
+// NotFoundError indicates the lock file doesn't exist
+type NotFoundError struct {
 	Path string
 }
 
-func (e *LockFileNotFoundError) Error() string {
+func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("lock file not found: %s", e.Path)
 }
 
@@ -94,8 +94,8 @@ type MigrationStep struct {
 	Error string `json:"error,omitempty"`
 }
 
-// LockFileDiff represents differences between two lock files
-type LockFileDiff struct {
+// Diff represents differences between two lock files
+type Diff struct {
 	// Added modules
 	Added map[string]*LockedModule `json:"added"`
 
@@ -125,12 +125,12 @@ type ModuleChange struct {
 }
 
 // IsEmpty returns true if there are no changes
-func (d *LockFileDiff) IsEmpty() bool {
+func (d *Diff) IsEmpty() bool {
 	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Changed) == 0
 }
 
 // Summary returns a human-readable summary of changes
-func (d *LockFileDiff) Summary() string {
+func (d *Diff) Summary() string {
 	if d.IsEmpty() {
 		return "No changes"
 	}

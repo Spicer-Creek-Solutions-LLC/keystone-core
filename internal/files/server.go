@@ -70,12 +70,12 @@ type RateLimitConfig struct {
 
 // ServerMetrics tracks server metrics.
 type ServerMetrics struct {
-	RequestsTotal      atomic.Int64
-	RequestsSucceeded  atomic.Int64
-	RequestsFailed     atomic.Int64
-	BytesTransferred   atomic.Int64
-	ActiveTransfers    atomic.Int32
-	ChunksTransferred  atomic.Int64
+	RequestsTotal     atomic.Int64
+	RequestsSucceeded atomic.Int64
+	RequestsFailed    atomic.Int64
+	BytesTransferred  atomic.Int64
+	ActiveTransfers   atomic.Int32
+	ChunksTransferred atomic.Int64
 }
 
 // NewServer creates a new file server.

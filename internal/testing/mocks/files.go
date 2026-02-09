@@ -16,6 +16,7 @@ type FileSource struct {
 	Delay    time.Duration
 }
 
+// Get retrieves file content.
 func (m *FileSource) Get(ctx context.Context) (io.ReadCloser, error) {
 	if m.Err != nil {
 		return nil, m.Err
@@ -32,10 +33,12 @@ func (m *FileSource) Get(ctx context.Context) (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(m.Data)), nil
 }
 
+// GetChecksum retrieves the checksum of a file.
 func (m *FileSource) GetChecksum() string {
 	return m.Checksum
 }
 
+// GetVersion retrieves the version of a file.
 func (m *FileSource) GetVersion() string {
 	return m.Version
 }

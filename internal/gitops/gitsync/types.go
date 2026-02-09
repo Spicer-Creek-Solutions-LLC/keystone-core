@@ -1,3 +1,5 @@
+// Package gitsync provides Git repository synchronization for tracking
+// and applying configuration changes from remote repositories.
 package gitsync
 
 import "time"
@@ -47,6 +49,7 @@ type AuthConfig struct {
 // AuthType represents the authentication method
 type AuthType string
 
+// AuthType constants define the supported types.
 const (
 	AuthTypeNone  AuthType = "none"
 	AuthTypeToken AuthType = "token"

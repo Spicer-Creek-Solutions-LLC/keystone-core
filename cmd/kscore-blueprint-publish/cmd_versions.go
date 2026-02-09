@@ -57,7 +57,7 @@ func versionsExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, err := registry.NewHTTPClient(&registry.RegistryConfig{
+	client, err := registry.NewHTTPClient(&registry.Config{
 		URL:     registryURL,
 		Timeout: 30 * time.Second,
 	})

@@ -396,7 +396,7 @@ scrape_configs:
           - localhost
         labels:
           job: kscore-server
-          __path__: /var/log/kscore/server.log
+          __path__: /var/log/keystone-core/server.log
     pipeline_stages:
       - json:
           expressions:
@@ -417,7 +417,7 @@ scrape_configs:
           - localhost
         labels:
           job: kscore-agents
-          __path__: /var/log/kscore/agent-*.log
+          __path__: /var/log/keystone-core/agent-*.log
 ```
 
 **Add Loki to Grafana:**
@@ -455,7 +455,7 @@ filebeat.inputs:
   - type: log
     enabled: true
     paths:
-      - /var/log/kscore/*.log
+      - /var/log/keystone-core/*.log
     json.keys_under_root: true
     json.add_error_key: true
 
@@ -685,7 +685,7 @@ groups:
           runbook_url: "https://docs.example.com/runbooks/high-memory"
 
       - alert: ControlPlaneDiskSpaceLow
-        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/kscore"} / node_filesystem_size_bytes{mountpoint="/var/lib/kscore"}) < 0.15
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/keystone-core"} / node_filesystem_size_bytes{mountpoint="/var/lib/keystone-core"}) < 0.15
         for: 5m
         labels:
           severity: warning
@@ -694,7 +694,7 @@ groups:
           description: "Only {{ $value | humanizePercentage }} disk space remaining"
 
       - alert: ControlPlaneDiskSpaceCritical
-        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/kscore"} / node_filesystem_size_bytes{mountpoint="/var/lib/kscore"}) < 0.05
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/keystone-core"} / node_filesystem_size_bytes{mountpoint="/var/lib/keystone-core"}) < 0.05
         for: 5m
         labels:
           severity: critical
@@ -1642,7 +1642,7 @@ curl http://localhost:3100/metrics | grep loki_ingester
 
 ## See Also
 
-- [Deployment Guide](deployment/) - Deploy monitoring stack
-- [Troubleshooting Guide](troubleshooting/) - Debug monitoring issues
+- [Deployment Guide](/docs/operations/deployment/) - Deploy monitoring stack
+- [Troubleshooting Guide](/docs/operations/troubleshooting/) - Debug monitoring issues
 - [Metrics Reference](/docs/reference/metrics/) - Complete metrics catalog
 - [Grafana Dashboards](https://github.com/shawnbutts/grafana-dashboards) - Dashboard repository

@@ -13,8 +13,8 @@ var (
 	// ErrMirrorNotFound indicates the specified mirror was not found.
 	ErrMirrorNotFound = errors.New("mirror not found")
 
-	// ErrMirrorGroupNotFound indicates the specified mirror group was not found.
-	ErrMirrorGroupNotFound = errors.New("mirror group not found")
+	// ErrGroupNotFound indicates the specified mirror group was not found.
+	ErrGroupNotFound = errors.New("mirror group not found")
 
 	// ErrMirrorUnhealthy indicates the mirror is unhealthy.
 	ErrMirrorUnhealthy = errors.New("mirror is unhealthy")

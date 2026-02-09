@@ -10,7 +10,9 @@
 #
 # Usage:
 #   KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/multi-node-cluster.yaml \
-#     KSCORE_REPO_URL=http://${KSCORE_VM_HOST}:8080/repos \
+#     KSCORE_VM_CP_HOST=cp1.example.internal \
+#     KSCORE_VM_AGENT_HOST=agent1.example.internal \
+#     KSCORE_REPO_URL=http://repo-host.example.internal:8080/repos \
 #     go test -v ./test/bootstrap/vm/scenarios -run TestMultiNodeCluster
 
 vm_provider: ssh
@@ -20,7 +22,7 @@ ssh:
   nodes:
     # Control plane node - runs kscore-server and kscore-agent
     - name: kscp1
-      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Control plane VM IP
+      host: ${KSCORE_VM_CP_HOST}      # Control plane hostname or IP
       port: 22
       user: test                # <-- UPDATE: SSH user
       key_file: ~/.ssh/id_ed25519
@@ -29,7 +31,7 @@ ssh:
 
     # Agent node - joins the control plane
     - name: ksagent1
-      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Agent VM IP
+      host: ${KSCORE_VM_AGENT_HOST}      # Agent hostname or IP
       port: 22
       user: test                # <-- UPDATE: SSH user
       key_file: ~/.ssh/id_ed25519

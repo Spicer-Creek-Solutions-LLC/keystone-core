@@ -28,20 +28,20 @@ func TestRequestState_IsTerminal(t *testing.T) {
 
 func TestApprovalMode_IsValid(t *testing.T) {
 	tests := []struct {
-		mode  ApprovalMode
+		mode  Mode
 		valid bool
 	}{
-		{ApprovalModeAny, true},
-		{ApprovalModeAll, true},
-		{ApprovalModeCount, true},
-		{ApprovalMode("invalid"), false},
-		{ApprovalMode(""), false},
+		{ModeAny, true},
+		{ModeAll, true},
+		{ModeCount, true},
+		{Mode("invalid"), false},
+		{Mode(""), false},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
 			if got := tt.mode.IsValid(); got != tt.valid {
-				t.Errorf("ApprovalMode(%q).IsValid() = %v, want %v", tt.mode, got, tt.valid)
+				t.Errorf("Mode(%q).IsValid() = %v, want %v", tt.mode, got, tt.valid)
 			}
 		})
 	}
@@ -145,12 +145,12 @@ func TestConfig_GetMode(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   Config
-		expected ApprovalMode
+		expected Mode
 	}{
-		{"default", Config{}, ApprovalModeAny},
-		{"any", Config{Mode: ApprovalModeAny}, ApprovalModeAny},
-		{"all", Config{Mode: ApprovalModeAll}, ApprovalModeAll},
-		{"count", Config{Mode: ApprovalModeCount}, ApprovalModeCount},
+		{"default", Config{}, ModeAny},
+		{"any", Config{Mode: ModeAny}, ModeAny},
+		{"all", Config{Mode: ModeAll}, ModeAll},
+		{"count", Config{Mode: ModeCount}, ModeCount},
 	}
 
 	for _, tt := range tests {
@@ -168,10 +168,10 @@ func TestConfig_GetRequiredCount(t *testing.T) {
 		config   Config
 		expected int
 	}{
-		{"any_mode", Config{Mode: ApprovalModeAny, Approvers: []string{"a", "b", "c"}}, 1},
-		{"all_mode", Config{Mode: ApprovalModeAll, Approvers: []string{"a", "b", "c"}}, 3},
-		{"count_mode", Config{Mode: ApprovalModeCount, RequiredCount: 2}, 2},
-		{"count_mode_default", Config{Mode: ApprovalModeCount}, 1},
+		{"any_mode", Config{Mode: ModeAny, Approvers: []string{"a", "b", "c"}}, 1},
+		{"all_mode", Config{Mode: ModeAll, Approvers: []string{"a", "b", "c"}}, 3},
+		{"count_mode", Config{Mode: ModeCount, RequiredCount: 2}, 2},
+		{"count_mode_default", Config{Mode: ModeCount}, 1},
 		{"default_mode", Config{Approvers: []string{"a", "b"}}, 1},
 	}
 

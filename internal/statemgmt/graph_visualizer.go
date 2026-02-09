@@ -292,7 +292,7 @@ func (v *GraphVisualizer) renderDOT(graph *VisualGraph) string {
 					color = "#ffffff"
 				}
 				label := fmt.Sprintf("%s\\n%s", node.Module, truncateID(node.StateID, 30))
-				sb.WriteString(fmt.Sprintf("    \"%s\" [label=\"%s\", fillcolor=\"%s\"];\n",
+				sb.WriteString(fmt.Sprintf("    %q [label=%q, fillcolor=%q];\n",
 					escapeQuotes(node.ID), label, color))
 			}
 		}
@@ -319,7 +319,7 @@ func (v *GraphVisualizer) renderDOT(graph *VisualGraph) string {
 		if style == "" {
 			style = "color=black"
 		}
-		sb.WriteString(fmt.Sprintf("  \"%s\" -> \"%s\" [%s, label=\"%s\"];\n",
+		sb.WriteString(fmt.Sprintf("  %q -> %q [%s, label=%q];\n",
 			escapeQuotes(edge.From), escapeQuotes(edge.To), style, edge.EdgeType))
 	}
 
@@ -371,7 +371,7 @@ func (v *GraphVisualizer) renderMermaid(graph *VisualGraph) string {
 			if node != nil {
 				nodeID := sanitizeMermaidID(node.ID)
 				label := fmt.Sprintf("%s: %s", node.Module, truncateID(node.StateID, 25))
-				sb.WriteString(fmt.Sprintf("        %s[\"%s\"]\n", nodeID, label))
+				sb.WriteString(fmt.Sprintf("        %s[%q]\n", nodeID, label))
 			}
 		}
 		sb.WriteString("    end\n")
@@ -521,7 +521,7 @@ func (v *GraphVisualizer) renderJSON(graph *VisualGraph) string {
 		if i == len(graph.Nodes)-1 {
 			comma = ""
 		}
-		sb.WriteString(fmt.Sprintf("    {\"id\": \"%s\", \"module\": \"%s\", \"state_id\": \"%s\", \"state\": \"%s\", \"level\": %d}%s\n",
+		sb.WriteString(fmt.Sprintf("    {\"id\": %q, \"module\": %q, \"state_id\": %q, \"state\": %q, \"level\": %d}%s\n",
 			escapeJSON(node.ID), escapeJSON(node.Module), escapeJSON(node.StateID), escapeJSON(node.State), node.Level, comma))
 	}
 	sb.WriteString("  ],\n")
@@ -533,7 +533,7 @@ func (v *GraphVisualizer) renderJSON(graph *VisualGraph) string {
 		if i == len(graph.Edges)-1 {
 			comma = ""
 		}
-		sb.WriteString(fmt.Sprintf("    {\"from\": \"%s\", \"to\": \"%s\", \"type\": \"%s\"}%s\n",
+		sb.WriteString(fmt.Sprintf("    {\"from\": %q, \"to\": %q, \"type\": %q}%s\n",
 			escapeJSON(edge.From), escapeJSON(edge.To), escapeJSON(edge.EdgeType), comma))
 	}
 	sb.WriteString("  ],\n")
@@ -547,7 +547,7 @@ func (v *GraphVisualizer) renderJSON(graph *VisualGraph) string {
 		}
 		levelStr := make([]string, len(level))
 		for j, l := range level {
-			levelStr[j] = fmt.Sprintf("\"%s\"", escapeJSON(l))
+			levelStr[j] = fmt.Sprintf("%q", escapeJSON(l))
 		}
 		sb.WriteString(fmt.Sprintf("    [%s]%s\n", strings.Join(levelStr, ", "), comma))
 	}

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// mockBackend implements MirrorBackend for testing.
+// mockBackend implements Backend for testing.
 type mockBackend struct {
 	files map[string]*mockFile
 	mu    sync.RWMutex
@@ -284,7 +284,7 @@ func TestSyncEngine_ScheduleSync(t *testing.T) {
 	registry := NewRegistry()
 
 	// Create a mirror group with multiple mirrors
-	config := &MirrorGroupConfig{
+	config := &GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "primary", ClusterID: "cluster1", IsPrimary: true, Enabled: true},
@@ -294,7 +294,7 @@ func TestSyncEngine_ScheduleSync(t *testing.T) {
 		WritePolicy:  WritePolicyAll,
 	}
 
-	group, err := NewMirrorGroup(config)
+	group, err := NewGroup(config)
 	if err != nil {
 		t.Fatalf("failed to create mirror group: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestSyncEngine_ScheduleSync(t *testing.T) {
 func TestSyncEngine_TriggerSync(t *testing.T) {
 	registry := NewRegistry()
 
-	config := &MirrorGroupConfig{
+	config := &GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "m1", ClusterID: "cluster1", Enabled: true},
@@ -339,7 +339,7 @@ func TestSyncEngine_TriggerSync(t *testing.T) {
 		WritePolicy:  WritePolicyAll,
 	}
 
-	group, _ := NewMirrorGroup(config)
+	group, _ := NewGroup(config)
 	registry.Register(group)
 
 	engine := NewSyncEngine(registry, DefaultSyncConfig())
@@ -363,8 +363,8 @@ func TestSyncEngine_TriggerSync_GroupNotFound(t *testing.T) {
 	engine := NewSyncEngine(registry, DefaultSyncConfig())
 
 	_, err := engine.TriggerSync("nonexistent", "m1", "m2", 0)
-	if err != ErrMirrorGroupNotFound {
-		t.Errorf("expected ErrMirrorGroupNotFound, got %v", err)
+	if !errors.Is(err, ErrGroupNotFound) {
+		t.Errorf("expected ErrGroupNotFound, got %v", err)
 	}
 }
 
@@ -610,7 +610,7 @@ func TestRateLimitedReader(t *testing.T) {
 	// Read some data
 	for i := 0; i < 5; i++ {
 		_, err := reader.Read(buf)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			t.Fatalf("read failed: %v", err)
 		}
 	}
@@ -670,7 +670,7 @@ func TestSyncEngine_ExecuteSync_Integration(t *testing.T) {
 	// Set up registry with mirror group
 	registry := NewRegistry()
 
-	config := &MirrorGroupConfig{
+	config := &GroupConfig{
 		ID: "test-group",
 		Mirrors: []*Mirror{
 			{ID: "source", ClusterID: "cluster1", IsPrimary: true, Enabled: true},
@@ -680,7 +680,7 @@ func TestSyncEngine_ExecuteSync_Integration(t *testing.T) {
 		WritePolicy:  WritePolicyAll,
 	}
 
-	group, _ := NewMirrorGroup(config)
+	group, _ := NewGroup(config)
 	registry.Register(group)
 
 	// Create backends with test data
@@ -917,7 +917,7 @@ func TestMockBackend(t *testing.T) {
 	}
 
 	_, err = backend.GetFile(ctx, "/test.txt")
-	if err != ErrMirrorNotFound {
+	if !errors.Is(err, ErrMirrorNotFound) {
 		t.Error("expected ErrMirrorNotFound after delete")
 	}
 }

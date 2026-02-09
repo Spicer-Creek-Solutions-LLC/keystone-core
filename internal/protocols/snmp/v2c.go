@@ -28,7 +28,7 @@ func NewV2cAdapter(config *Config) *V2cAdapter {
 }
 
 // GetBulk performs an SNMP GETBULK operation.
-func (a *V2cAdapter) GetBulk(ctx context.Context, oids []string, nonRepeaters uint8, maxRepetitions uint32) ([]SNMPVariable, error) {
+func (a *V2cAdapter) GetBulk(ctx context.Context, oids []string, nonRepeaters uint8, maxRepetitions uint32) ([]Variable, error) {
 	a.mu.RLock()
 	client := a.client
 	connected := a.connected
@@ -157,7 +157,7 @@ type Trap struct {
 	GenericTrap  int
 	SpecificTrap int
 	Timestamp    uint32
-	Variables    []SNMPVariable
+	Variables    []Variable
 	ReceivedAt   time.Time
 }
 
@@ -254,11 +254,11 @@ type InformResponse struct {
 	RequestID int32
 	Error     gosnmp.SNMPError
 	ErrorIdx  uint8
-	Variables []SNMPVariable
+	Variables []Variable
 }
 
 // SendInform sends an SNMP INFORM request.
-func (a *V2cAdapter) SendInform(ctx context.Context, target string, port uint16, variables []SNMPVariable) (*InformResponse, error) {
+func (a *V2cAdapter) SendInform(ctx context.Context, target string, port uint16, variables []Variable) (*InformResponse, error) {
 	a.mu.RLock()
 	community := ""
 	if a.client != nil {
@@ -307,6 +307,7 @@ func (a *V2cAdapter) SendInform(ctx context.Context, target string, port uint16,
 	}
 
 	// Convert response
+	//nolint:gosec // G115: SNMP RequestID is a 32-bit value, fits in int32
 	response := &InformResponse{
 		RequestID: int32(result.RequestID),
 		Error:     result.Error,
@@ -344,14 +345,14 @@ var CommonOIDs = struct {
 	IfOutErrors string
 
 	// IP group
-	IpForwarding    string
-	IpDefaultTTL    string
-	IpAdEntAddr     string
-	IpAdEntNetMask  string
-	IpAdEntIfIndex  string
-	IpRouteDest     string
-	IpRouteNextHop  string
-	IpRouteIfIndex  string
+	IPForwarding   string
+	IPDefaultTTL   string
+	IPAdEntAddr    string
+	IPAdEntNetMask string
+	IPAdEntIfIndex string
+	IPRouteDest    string
+	IPRouteNextHop string
+	IPRouteIfIndex string
 
 	// SNMP group
 	SNMPInPkts  string
@@ -382,14 +383,14 @@ var CommonOIDs = struct {
 	IfOutErrors: ".1.3.6.1.2.1.2.2.1.20",
 
 	// IP group (.1.3.6.1.2.1.4)
-	IpForwarding:   ".1.3.6.1.2.1.4.1.0",
-	IpDefaultTTL:   ".1.3.6.1.2.1.4.2.0",
-	IpAdEntAddr:    ".1.3.6.1.2.1.4.20.1.1",
-	IpAdEntNetMask: ".1.3.6.1.2.1.4.20.1.3",
-	IpAdEntIfIndex: ".1.3.6.1.2.1.4.20.1.2",
-	IpRouteDest:    ".1.3.6.1.2.1.4.21.1.1",
-	IpRouteNextHop: ".1.3.6.1.2.1.4.21.1.7",
-	IpRouteIfIndex: ".1.3.6.1.2.1.4.21.1.2",
+	IPForwarding:   ".1.3.6.1.2.1.4.1.0",
+	IPDefaultTTL:   ".1.3.6.1.2.1.4.2.0",
+	IPAdEntAddr:    ".1.3.6.1.2.1.4.20.1.1",
+	IPAdEntNetMask: ".1.3.6.1.2.1.4.20.1.3",
+	IPAdEntIfIndex: ".1.3.6.1.2.1.4.20.1.2",
+	IPRouteDest:    ".1.3.6.1.2.1.4.21.1.1",
+	IPRouteNextHop: ".1.3.6.1.2.1.4.21.1.7",
+	IPRouteIfIndex: ".1.3.6.1.2.1.4.21.1.2",
 
 	// SNMP group (.1.3.6.1.2.1.11)
 	SNMPInPkts:  ".1.3.6.1.2.1.11.1.0",

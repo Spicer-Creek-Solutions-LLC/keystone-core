@@ -1,6 +1,7 @@
 package verification
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,13 +24,13 @@ func NewHTTPVerifier() *HTTPVerifier {
 }
 
 // Type returns the verification type
-func (v *HTTPVerifier) Type() VerificationType {
-	return VerificationTypeHTTP
+func (v *HTTPVerifier) Type() Type {
+	return TypeHTTP
 }
 
 // Verify performs an HTTP health check
-func (v *HTTPVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
-	result := &VerificationResult{
+func (v *HTTPVerifier) Verify(step *Step) (*Result, error) {
+	result := &Result{
 		StepName:  step.Name,
 		Timestamp: time.Now(),
 		Data:      make(map[string]interface{}),
@@ -50,9 +51,10 @@ func (v *HTTPVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 
 	// Optional fields
 	expectedStatus := 200
-	if s, ok := step.Config["expected_status"].(int); ok {
+	switch s := step.Config["expected_status"].(type) {
+	case int:
 		expectedStatus = s
-	} else if s, ok := step.Config["expected_status"].(float64); ok {
+	case float64:
 		expectedStatus = int(s)
 	}
 
@@ -62,7 +64,8 @@ func (v *HTTPVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 	}
 
 	// Create request
-	req, err := http.NewRequest(method, url, nil)
+	// Use context.Background() since this verifier has no parent context and relies on HTTP client timeout
+	req, err := http.NewRequestWithContext(context.Background(), method, url, http.NoBody)
 	if err != nil {
 		result.Success = false
 		result.Message = fmt.Sprintf("Failed to create request: %v", err)

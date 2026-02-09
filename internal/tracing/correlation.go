@@ -94,7 +94,8 @@ func NewCorrelationIDGenerator(config *CorrelationConfig) *CorrelationIDGenerato
 		config: config,
 		pool: sync.Pool{
 			New: func() interface{} {
-				return make([]byte, config.IDLength)
+				buf := make([]byte, config.IDLength)
+				return &buf
 			},
 		},
 	}
@@ -102,15 +103,15 @@ func NewCorrelationIDGenerator(config *CorrelationConfig) *CorrelationIDGenerato
 
 // Generate generates a new correlation ID
 func (g *CorrelationIDGenerator) Generate() string {
-	buf := g.pool.Get().([]byte)
+	buf := g.pool.Get().(*[]byte)
 	defer g.pool.Put(buf)
 
-	if _, err := rand.Read(buf); err != nil {
+	if _, err := rand.Read(*buf); err != nil {
 		// Fallback to timestamp-based ID
 		return hex.EncodeToString([]byte(time.Now().Format("20060102150405.000000")))
 	}
 
-	return hex.EncodeToString(buf)
+	return hex.EncodeToString(*buf)
 }
 
 // CorrelationContext holds correlation information

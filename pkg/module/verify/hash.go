@@ -61,11 +61,12 @@ func (v *DefaultHashVerifier) ComputeHash(modulePath string) (string, error) {
 	var hashValue string
 
 	// Handle directory vs file
-	if info.IsDir() {
+	switch {
+	case info.IsDir():
 		hashValue, err = v.computeDirectoryHash(modulePath)
-	} else if strings.HasSuffix(modulePath, ".zip") {
+	case strings.HasSuffix(modulePath, ".zip"):
 		hashValue, err = v.computeZipHash(modulePath)
-	} else {
+	default:
 		hashValue, err = v.computeFileHash(modulePath)
 	}
 
@@ -129,7 +130,7 @@ func (v *DefaultHashVerifier) computeZipHash(zipPath string) (string, error) {
 			return "", fmt.Errorf("failed to open file in zip: %w", err)
 		}
 
-		if _, err := io.CopyN(hasher, rc, int64(file.UncompressedSize64)); err != nil {
+		if _, err := io.CopyN(hasher, rc, int64(file.UncompressedSize64)); err != nil { //nolint:gosec // G115: file size
 			rc.Close()
 			return "", fmt.Errorf("failed to hash file content: %w", err)
 		}
@@ -202,9 +203,7 @@ func (v *DefaultHashVerifier) newHasher() hash.Hash {
 	switch v.algorithm {
 	case SHA512:
 		return sha512.New()
-	case SHA256:
-		fallthrough
-	default:
+	default: // includes SHA256
 		return sha256.New()
 	}
 }

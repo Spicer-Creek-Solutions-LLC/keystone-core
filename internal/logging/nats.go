@@ -289,10 +289,10 @@ func (n *NATSOutput) flushLoop() {
 }
 
 // Stats returns output statistics.
-func (n *NATSOutput) Stats() (sent, dropped int64, lastErr error, lastErrTime time.Time) {
+func (n *NATSOutput) Stats() (sent, dropped int64, lastErrTime time.Time, lastErr error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return n.messagesSent, n.messagesDropped, n.lastError, n.lastErrorTime
+	return n.messagesSent, n.messagesDropped, n.lastErrorTime, n.lastError
 }
 
 // IsConnected returns whether NATS is connected.

@@ -12,8 +12,8 @@ import (
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/internal/events"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -31,7 +31,7 @@ type AgentsModel struct {
 
 	// Agent data
 	agents    map[string]*pb.AgentInfo // agent_id -> AgentInfo
-	agentList []*pb.AgentInfo           // sorted list for table
+	agentList []*pb.AgentInfo          // sorted list for table
 	mu        sync.RWMutex
 
 	// State
@@ -99,10 +99,10 @@ func (m *AgentsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		m.table.SetHeight(m.height - 5) // Account for title and help text
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "r":
+		if msg.String() == "r" {
 			// Refresh agents
-			return m, m.Fetch()
+			cmd := m.Fetch()
+			return m, cmd
 		}
 
 	case agentStatsMsg:
@@ -265,6 +265,7 @@ func (m *AgentsModel) handleAgentEvent(event *events.Event) {
 			m.mu.Unlock()
 			m.updateTableRows()
 		}
+	default:
 	}
 }
 
@@ -297,11 +298,12 @@ func formatTimeSince(t time.Time) string {
 
 	if duration.Seconds() < 60 {
 		return fmt.Sprintf("%.0fs ago", duration.Seconds())
-	} else if duration.Minutes() < 60 {
-		return fmt.Sprintf("%.0fm ago", duration.Minutes())
-	} else if duration.Hours() < 24 {
-		return fmt.Sprintf("%.0fh ago", duration.Hours())
-	} else {
-		return fmt.Sprintf("%.0fd ago", duration.Hours()/24)
 	}
+	if duration.Minutes() < 60 {
+		return fmt.Sprintf("%.0fm ago", duration.Minutes())
+	}
+	if duration.Hours() < 24 {
+		return fmt.Sprintf("%.0fh ago", duration.Hours())
+	}
+	return fmt.Sprintf("%.0fd ago", duration.Hours()/24)
 }

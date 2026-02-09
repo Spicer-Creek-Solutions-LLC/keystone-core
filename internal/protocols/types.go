@@ -22,6 +22,14 @@ const (
 	ProtocolREST ProtocolType = "rest"
 	// ProtocolWinRM is the WinRM protocol.
 	ProtocolWinRM ProtocolType = "winrm"
+	// ProtocolNETCONF is the NETCONF protocol (RFC 6241).
+	ProtocolNETCONF ProtocolType = "netconf"
+	// ProtocolRESTCONF is the RESTCONF protocol (RFC 8040).
+	ProtocolRESTCONF ProtocolType = "restconf"
+	// ProtocolTelnet is the Telnet protocol (RFC 854).
+	ProtocolTelnet ProtocolType = "telnet"
+	// ProtocolGNMI is the gNMI protocol (gRPC Network Management Interface).
+	ProtocolGNMI ProtocolType = "gnmi"
 )
 
 // ProtocolAdapter defines the interface for protocol-specific communication.
@@ -408,3 +416,359 @@ type FileTransferAdapterFactory func(config *ConnectionConfig) (FileTransferAdap
 
 // TunnelAdapterFactory creates tunnel adapters.
 type TunnelAdapterFactory func(config *ConnectionConfig) (TunnelAdapter, error)
+
+// NetconfAdapterFactory creates NETCONF adapters.
+type NetconfAdapterFactory func(config *ConnectionConfig) (NetconfAdapter, error)
+
+// NetconfAdapter extends ProtocolAdapter with NETCONF-specific operations (RFC 6241).
+type NetconfAdapter interface {
+	ProtocolAdapter
+
+	// GetConfig retrieves configuration from the specified datastore.
+	GetConfig(ctx context.Context, source string, filter *NetconfFilter) ([]byte, error)
+
+	// EditConfig modifies the specified datastore.
+	EditConfig(ctx context.Context, target string, config []byte, opts *NetconfEditOptions) error
+
+	// CopyConfig copies one datastore to another.
+	CopyConfig(ctx context.Context, source, target string) error
+
+	// DeleteConfig deletes the specified datastore.
+	DeleteConfig(ctx context.Context, target string) error
+
+	// Lock acquires a lock on the specified datastore.
+	Lock(ctx context.Context, target string) error
+
+	// Unlock releases a lock on the specified datastore.
+	Unlock(ctx context.Context, target string) error
+
+	// Commit commits the candidate configuration to running.
+	Commit(ctx context.Context) error
+
+	// DiscardChanges discards uncommitted candidate changes.
+	DiscardChanges(ctx context.Context) error
+
+	// Validate validates the specified datastore or candidate configuration.
+	Validate(ctx context.Context, source string) error
+
+	// Get retrieves running configuration and device state data.
+	Get(ctx context.Context, filter *NetconfFilter) ([]byte, error)
+
+	// ServerCapabilities returns the capabilities advertised by the server.
+	ServerCapabilities() []string
+
+	// SessionID returns the NETCONF session ID assigned by the server.
+	SessionID() uint32
+}
+
+// NetconfFilter specifies a filter for NETCONF get/get-config operations.
+type NetconfFilter struct {
+	// Type is the filter type: "subtree" or "xpath".
+	Type string `json:"type"`
+
+	// Content is the filter body (XML subtree or XPath expression).
+	Content string `json:"content"`
+}
+
+// NetconfEditOptions specifies options for NETCONF edit-config operations.
+type NetconfEditOptions struct {
+	// DefaultOperation is the default edit operation: "merge", "replace", "none".
+	DefaultOperation string `json:"default_operation,omitempty"`
+
+	// TestOption controls validation: "test-then-set", "set", "test-only".
+	TestOption string `json:"test_option,omitempty"`
+
+	// ErrorOption controls error handling: "stop-on-error", "continue-on-error", "rollback-on-error".
+	ErrorOption string `json:"error_option,omitempty"`
+}
+
+// GNMIAdapterFactory creates gNMI adapters.
+type GNMIAdapterFactory func(config *ConnectionConfig) (GNMIAdapter, error)
+
+// GNMIAdapter extends ProtocolAdapter with gNMI-specific operations.
+type GNMIAdapter interface {
+	ProtocolAdapter
+
+	// Capabilities retrieves the gNMI capabilities from the target.
+	Capabilities(ctx context.Context) (*GNMICapabilitiesResult, error)
+
+	// Get retrieves data from the specified paths.
+	Get(ctx context.Context, paths []GNMIPath, opts *GNMIGetOptions) (*GNMIGetResult, error)
+
+	// Set modifies data on the target.
+	Set(ctx context.Context, req *GNMISetRequest) (*GNMISetResult, error)
+
+	// Subscribe creates a subscription for streaming telemetry.
+	Subscribe(ctx context.Context, req *GNMISubscribeRequest) (*GNMISubscription, error)
+
+	// Reboot requests a device reboot via gNOI.
+	Reboot(ctx context.Context, method GNMIRebootMethod, message string) error
+
+	// Ping executes a network ping via gNOI.
+	Ping(ctx context.Context, destination string, count int32, interval int64) ([]*GNMIPingResponse, error)
+
+	// Traceroute executes a traceroute via gNOI.
+	Traceroute(ctx context.Context, destination string, maxTTL int32) ([]*GNMITracerouteResponse, error)
+}
+
+// GNMIPath represents a gNMI path element.
+type GNMIPath struct {
+	// Elements is the list of path elements (e.g., ["interfaces", "interface[name=eth0]"]).
+	Elements []string `json:"elements"`
+	// Origin is the data model origin (e.g., "openconfig").
+	Origin string `json:"origin,omitempty"`
+	// Target is the target name for the path.
+	Target string `json:"target,omitempty"`
+}
+
+// GNMICapabilitiesResult contains the result of a Capabilities RPC.
+type GNMICapabilitiesResult struct {
+	// SupportedModels lists the YANG models supported by the target.
+	SupportedModels []GNMIModelData `json:"supported_models"`
+	// SupportedEncodings lists the supported data encodings.
+	SupportedEncodings []string `json:"supported_encodings"`
+	// GNMIVersion is the gNMI protocol version.
+	GNMIVersion string `json:"gnmi_version"`
+}
+
+// GNMIModelData describes a YANG model supported by the target.
+type GNMIModelData struct {
+	Name         string `json:"name"`
+	Organization string `json:"organization"`
+	Version      string `json:"version"`
+}
+
+// GNMIGetOptions specifies options for a Get RPC.
+type GNMIGetOptions struct {
+	// Encoding is the requested data encoding (e.g., "json_ietf", "proto").
+	Encoding string `json:"encoding,omitempty"`
+	// DataType filters the type of data: "all", "config", "state", "operational".
+	DataType string `json:"data_type,omitempty"`
+}
+
+// GNMIGetResult contains the result of a Get RPC.
+type GNMIGetResult struct {
+	// Notifications is the list of notifications returned.
+	Notifications []GNMINotification `json:"notifications"`
+}
+
+// GNMINotification represents a gNMI notification message.
+type GNMINotification struct {
+	// Timestamp is the notification timestamp in nanoseconds.
+	Timestamp int64 `json:"timestamp"`
+	// Prefix is the common path prefix for updates.
+	Prefix GNMIPath `json:"prefix,omitempty"`
+	// Updates contains the updated values.
+	Updates []GNMIUpdate `json:"updates,omitempty"`
+	// Deletes contains deleted paths.
+	Deletes []GNMIPath `json:"deletes,omitempty"`
+}
+
+// GNMIUpdate represents a single path-value update.
+type GNMIUpdate struct {
+	// Path is the data path.
+	Path GNMIPath `json:"path"`
+	// Value is the JSON-encoded value.
+	Value []byte `json:"value"`
+}
+
+// GNMISetRequest specifies a Set RPC request.
+type GNMISetRequest struct {
+	// Delete is the list of paths to delete.
+	Delete []GNMIPath `json:"delete,omitempty"`
+	// Replace is the list of path-value pairs to replace.
+	Replace []GNMIUpdate `json:"replace,omitempty"`
+	// Update is the list of path-value pairs to update (merge).
+	Update []GNMIUpdate `json:"update,omitempty"`
+}
+
+// GNMISetResult contains the result of a Set RPC.
+type GNMISetResult struct {
+	// Timestamp is the server timestamp of the set operation.
+	Timestamp int64 `json:"timestamp"`
+	// Results contains per-operation results.
+	Results []GNMIUpdateResult `json:"results"`
+}
+
+// GNMIUpdateResult contains the result of a single set operation.
+type GNMIUpdateResult struct {
+	// Path is the affected path.
+	Path GNMIPath `json:"path"`
+	// Op is the operation type: "delete", "replace", "update".
+	Op string `json:"op"`
+}
+
+// GNMISubscribeRequest specifies a Subscribe RPC request.
+type GNMISubscribeRequest struct {
+	// Paths is the list of paths to subscribe to.
+	Paths []GNMIPath `json:"paths"`
+	// Mode is the subscription mode: "stream", "once", "poll".
+	Mode string `json:"mode"`
+	// StreamMode is the streaming mode: "target_defined", "on_change", "sample".
+	StreamMode string `json:"stream_mode,omitempty"`
+	// SampleInterval is the sampling interval in nanoseconds (for sample mode).
+	SampleInterval int64 `json:"sample_interval,omitempty"`
+	// Encoding is the data encoding (e.g., "json_ietf", "proto").
+	Encoding string `json:"encoding,omitempty"`
+}
+
+// GNMISubscription represents an active gNMI subscription.
+type GNMISubscription struct {
+	notifications chan GNMINotification
+	errors        chan error
+	syncReceived  chan struct{}
+	cancel        context.CancelFunc
+	done          chan struct{}
+}
+
+// NewGNMISubscription creates a new GNMISubscription.
+func NewGNMISubscription(cancel context.CancelFunc) *GNMISubscription {
+	return &GNMISubscription{
+		notifications: make(chan GNMINotification, 100),
+		errors:        make(chan error, 10),
+		syncReceived:  make(chan struct{}),
+		cancel:        cancel,
+		done:          make(chan struct{}),
+	}
+}
+
+// Notifications returns the channel for receiving notifications.
+func (s *GNMISubscription) Notifications() <-chan GNMINotification {
+	return s.notifications
+}
+
+// Errors returns the channel for receiving errors.
+func (s *GNMISubscription) Errors() <-chan error {
+	return s.errors
+}
+
+// SyncComplete returns a channel that is closed when the initial sync is done.
+func (s *GNMISubscription) SyncComplete() <-chan struct{} {
+	return s.syncReceived
+}
+
+// Done returns a channel that is closed when the subscription ends.
+func (s *GNMISubscription) Done() <-chan struct{} {
+	return s.done
+}
+
+// Close cancels the subscription and releases resources.
+func (s *GNMISubscription) Close() {
+	s.cancel()
+}
+
+// SendNotification sends a notification to the subscription channel (non-blocking).
+func (s *GNMISubscription) SendNotification(n GNMINotification) {
+	select {
+	case s.notifications <- n:
+	default:
+	}
+}
+
+// SendError sends an error to the subscription channel (non-blocking).
+func (s *GNMISubscription) SendError(err error) {
+	select {
+	case s.errors <- err:
+	default:
+	}
+}
+
+// CloseSyncComplete signals that the initial sync is complete.
+func (s *GNMISubscription) CloseSyncComplete() {
+	close(s.syncReceived)
+}
+
+// CloseDone signals that the subscription has ended.
+func (s *GNMISubscription) CloseDone() {
+	close(s.done)
+}
+
+// GNMIRebootMethod specifies the reboot method for gNOI.
+type GNMIRebootMethod string
+
+const (
+	GNMIRebootCold   GNMIRebootMethod = "cold"
+	GNMIRebootWarm   GNMIRebootMethod = "warm"
+	GNMIRebootPowerUp GNMIRebootMethod = "powerup"
+)
+
+// GNMIPingResponse contains a single ping response.
+type GNMIPingResponse struct {
+	Source  string `json:"source"`
+	Time    int64  `json:"time_ns"`
+	Bytes   int32  `json:"bytes"`
+	TTL     int32  `json:"ttl"`
+	Sequence int32 `json:"sequence"`
+}
+
+// GNMITracerouteResponse contains a single traceroute hop.
+type GNMITracerouteResponse struct {
+	Hop     int32  `json:"hop"`
+	Address string `json:"address"`
+	RTT     int64  `json:"rtt_ns"`
+}
+
+// RestconfAdapterFactory creates RESTCONF adapters.
+type RestconfAdapterFactory func(config *ConnectionConfig) (RestconfAdapter, error)
+
+// RestconfAdapter extends ProtocolAdapter with RESTCONF-specific operations (RFC 8040).
+type RestconfAdapter interface {
+	ProtocolAdapter
+
+	// GetData retrieves YANG data from the specified path.
+	GetData(ctx context.Context, path string, opts *RestconfQueryOptions) ([]byte, error)
+
+	// PostData creates a new data resource at the specified path.
+	PostData(ctx context.Context, path string, data []byte) error
+
+	// PutData creates or replaces a data resource at the specified path.
+	PutData(ctx context.Context, path string, data []byte) error
+
+	// PatchData merges data into an existing resource at the specified path.
+	PatchData(ctx context.Context, path string, data []byte) error
+
+	// DeleteData removes a data resource at the specified path.
+	DeleteData(ctx context.Context, path string) error
+
+	// InvokeOperation calls a YANG RPC or action.
+	InvokeOperation(ctx context.Context, operation string, input []byte) ([]byte, error)
+
+	// YANGLibraryVersion returns the YANG library version supported by the server.
+	YANGLibraryVersion(ctx context.Context) (string, error)
+
+	// ServerModules returns the YANG modules reported by the server.
+	ServerModules(ctx context.Context) ([]RestconfModule, error)
+
+	// RootPath returns the RESTCONF API root path.
+	RootPath() string
+}
+
+// RestconfQueryOptions specifies query parameters for RESTCONF GET requests.
+type RestconfQueryOptions struct {
+	// Depth limits the depth of returned data (1-65535, 0 for unbounded).
+	Depth int `json:"depth,omitempty"`
+
+	// Fields selects specific fields to return.
+	Fields string `json:"fields,omitempty"`
+
+	// Content filters by data type: "all", "config", "nonconfig".
+	Content string `json:"content,omitempty"`
+
+	// WithDefaults controls default value reporting: "report-all", "trim", "explicit", "report-all-tagged".
+	WithDefaults string `json:"with_defaults,omitempty"`
+
+	// Filter is an XPath or subtree filter expression.
+	Filter string `json:"filter,omitempty"`
+}
+
+// RestconfModule describes a YANG module reported by a RESTCONF server.
+type RestconfModule struct {
+	// Name is the module name.
+	Name string `json:"name"`
+
+	// Revision is the module revision date.
+	Revision string `json:"revision"`
+
+	// Namespace is the module XML namespace.
+	Namespace string `json:"namespace"`
+}

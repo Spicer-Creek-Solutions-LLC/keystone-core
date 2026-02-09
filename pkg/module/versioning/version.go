@@ -240,7 +240,8 @@ func (v *VersionInfo) WarningMessage() string {
 	if len(v.SecurityAdvisories) > 0 {
 		warnings = append(warnings, fmt.Sprintf("SECURITY: %s@%s has %d security advisory(ies)",
 			v.Module, v.Version, len(v.SecurityAdvisories)))
-		for _, adv := range v.SecurityAdvisories {
+		for i := range v.SecurityAdvisories {
+			adv := &v.SecurityAdvisories[i]
 			warnings = append(warnings, fmt.Sprintf("  - [%s] %s: %s", adv.Severity, adv.ID, adv.Title))
 		}
 	}
@@ -341,7 +342,7 @@ func (v *VersionInfo) Yank(reason string) {
 }
 
 // Retract marks a version as retracted due to critical issues
-func (v *VersionInfo) Retract(reason string, cve string) {
+func (v *VersionInfo) Retract(reason, cve string) {
 	v.State = VersionStateRetracted
 	v.Retraction = &RetractionInfo{
 		RetractedAt: time.Now(),

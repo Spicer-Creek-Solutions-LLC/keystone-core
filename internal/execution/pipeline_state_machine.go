@@ -237,7 +237,7 @@ func NewManagedPipeline(pipeline *Pipeline, callbacks *PipelineCallbacks) *Manag
 			// Skip remaining stages
 			for i := mp.currentStage; i < len(mp.stageMachines); i++ {
 				if mp.stageMachines[i].State() == StageStatePending {
-					mp.stageMachines[i].Skip()
+					_ = mp.stageMachines[i].SkipCtx(ctx) //nolint:errcheck // best-effort skip
 				}
 			}
 			if mp.callbacks != nil && mp.callbacks.OnCancelled != nil {
@@ -252,7 +252,7 @@ func NewManagedPipeline(pipeline *Pipeline, callbacks *PipelineCallbacks) *Manag
 			// Skip remaining stages
 			for i := mp.currentStage; i < len(mp.stageMachines); i++ {
 				if mp.stageMachines[i].State() == StageStatePending {
-					mp.stageMachines[i].Skip()
+					_ = mp.stageMachines[i].SkipCtx(ctx) //nolint:errcheck // best-effort skip
 				}
 			}
 			if mp.callbacks != nil && mp.callbacks.OnTimeout != nil {
@@ -492,7 +492,12 @@ func (ms *ManagedStage) Fail(err error, stderr []byte, exitCode int) error {
 
 // Skip marks the stage as skipped.
 func (ms *ManagedStage) Skip() error {
-	return ms.machine.Fire(StageEventSkip)
+	return ms.SkipCtx(context.Background())
+}
+
+// SkipCtx marks the stage as skipped with context.
+func (ms *ManagedStage) SkipCtx(ctx context.Context) error {
+	return ms.machine.FireCtx(ctx, StageEventSkip)
 }
 
 // IsPending returns true if stage is pending.

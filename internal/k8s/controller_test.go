@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestRemoteExecutionController(t *testing.T) {
 		// Wait for start to return
 		select {
 		case err := <-errCh:
-			if err != nil && err != context.Canceled {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 		case <-time.After(time.Second):
@@ -122,7 +123,7 @@ func TestStateConfigController(t *testing.T) {
 
 		select {
 		case err := <-errCh:
-			if err != nil && err != context.Canceled {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 		case <-time.After(time.Second):
@@ -188,7 +189,7 @@ func TestOperatorManager(t *testing.T) {
 
 		select {
 		case err := <-errCh:
-			if err != nil && err != context.Canceled {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 		case <-time.After(time.Second):

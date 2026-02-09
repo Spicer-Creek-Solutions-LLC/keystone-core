@@ -582,5 +582,5 @@ When refactoring existing code to use state machines:
 
 ## Further Reading
 
-- [Epic 39: State Machine Refactoring](/epics/39-state-machine-refactoring.md)
+- [Epic 39: State Machine Refactoring](/docs/community/roadmap/#epic-39-state-machine-refactoring)
 - [pkg/statemachine GoDoc](https://pkg.go.dev/github.com/shawnbutts/keystone-core/pkg/statemachine)

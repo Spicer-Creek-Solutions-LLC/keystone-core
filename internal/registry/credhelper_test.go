@@ -94,8 +94,8 @@ func TestCredentialHelperRegistry_LoadFromDockerConfig(t *testing.T) {
 	config := &DockerConfig{
 		CredsStore: "osxkeychain",
 		CredHelpers: map[string]string{
-			"gcr.io":                                      "gcloud",
-			"123456789.dkr.ecr.us-west-2.amazonaws.com":   "ecr-login",
+			"gcr.io": "gcloud",
+			"123456789.dkr.ecr.us-west-2.amazonaws.com": "ecr-login",
 		},
 	}
 
@@ -121,7 +121,7 @@ func TestCredentialHelperRegistry_GetHelper_Patterns(t *testing.T) {
 	registry.RegisterHelper("*.gcr.io", NewExternalCredentialHelper("gcloud"))
 
 	tests := []struct {
-		registry string
+		registry  string
 		hasHelper bool
 	}{
 		{"us.gcr.io", true},

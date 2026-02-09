@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -36,12 +37,12 @@ func (v *DefaultSignatureVerifier) VerifySignature(modulePath, signaturePath str
 		HashAlgorithm: signing.HashSHA256,
 	})
 	if err != nil {
-		return false, fmt.Errorf("%w: %v", ErrInvalidPublicKey, err)
+		return false, fmt.Errorf("%w: %w", ErrInvalidPublicKey, err)
 	}
 
 	valid, err := verifier.VerifyFile(context.Background(), modulePath, signaturePath)
 	if err != nil {
-		if err == signing.ErrSignatureNotFound {
+		if errors.Is(err, signing.ErrSignatureNotFound) {
 			return false, ErrSignatureNotFound
 		}
 		return false, err
@@ -122,7 +123,7 @@ func (v *CosignVerifier) VerifySignature(modulePath, signaturePath string, publi
 	// Parse public key (PEM-encoded, cosign format)
 	pubKey, err := parseCosignPublicKey(publicKey)
 	if err != nil {
-		return false, fmt.Errorf("%w: %v", ErrInvalidPublicKey, err)
+		return false, fmt.Errorf("%w: %w", ErrInvalidPublicKey, err)
 	}
 
 	// Compute SHA256 hash of module content
@@ -201,10 +202,8 @@ func parseCosignPublicKey(pemData []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to decode PEM block")
 	}
 
-	// Cosign uses "PUBLIC KEY" type (PKIX format)
-	if block.Type != "PUBLIC KEY" && block.Type != "RSA PUBLIC KEY" && block.Type != "EC PUBLIC KEY" {
-		// Still try to parse it
-	}
+	// Note: Cosign uses "PUBLIC KEY" type (PKIX format), but we try to parse
+	// other formats for flexibility
 
 	// Try parsing as PKIX public key (standard format)
 	if pubKey, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {

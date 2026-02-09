@@ -17,9 +17,9 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/vendors"
 )
 
-// VyOSAdapter implements the VendorAdapter interface for VyOS and EdgeOS devices.
+// Adapter implements the VendorAdapter interface for VyOS and EdgeOS devices.
 // VyOS uses a configuration tree structure with set/delete commands.
-type VyOSAdapter struct {
+type Adapter struct {
 	*vendors.BaseVendorAdapter
 
 	// SSH client for CLI access
@@ -30,23 +30,23 @@ type VyOSAdapter struct {
 	configMu     sync.Mutex
 
 	// Cached system info
-	cachedVersion *VyOSVersion
+	cachedVersion *Version
 	versionMu     sync.RWMutex
 
 	// Device variant (vyos or edgeos)
 	variant string
 }
 
-// VyOSVersion contains VyOS/EdgeOS version information.
-type VyOSVersion struct {
-	Version     string `json:"version"`
-	BuildDate   string `json:"build_date"`
-	Variant     string `json:"variant"` // "vyos" or "edgeos"
+// Version contains VyOS/EdgeOS version information.
+type Version struct {
+	Version      string `json:"version"`
+	BuildDate    string `json:"build_date"`
+	Variant      string `json:"variant"` // "vyos" or "edgeos"
 	Architecture string `json:"architecture"`
 }
 
-// VyOSConfig represents a VyOS configuration tree.
-type VyOSConfig struct {
+// Config represents a VyOS configuration tree.
+type Config struct {
 	// Raw configuration text
 	Raw string `json:"raw"`
 
@@ -57,8 +57,8 @@ type VyOSConfig struct {
 	Commands []string `json:"commands,omitempty"`
 }
 
-// VyOSInterface represents a VyOS interface.
-type VyOSInterface struct {
+// Interface represents a VyOS interface.
+type Interface struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"` // ethernet, loopback, tunnel, etc.
 	Description string   `json:"description,omitempty"`
@@ -68,8 +68,8 @@ type VyOSInterface struct {
 	MTU         int      `json:"mtu,omitempty"`
 }
 
-// VyOSRoute represents a VyOS static route.
-type VyOSRoute struct {
+// Route represents a VyOS static route.
+type Route struct {
 	Destination string `json:"destination"`
 	NextHop     string `json:"next_hop,omitempty"`
 	Interface   string `json:"interface,omitempty"`
@@ -77,8 +77,8 @@ type VyOSRoute struct {
 	Blackhole   bool   `json:"blackhole,omitempty"`
 }
 
-// VyOSFirewallRule represents a VyOS firewall rule.
-type VyOSFirewallRule struct {
+// FirewallRule represents a VyOS firewall rule.
+type FirewallRule struct {
 	Number      int      `json:"number"`
 	Action      string   `json:"action"` // accept, drop, reject
 	Protocol    string   `json:"protocol,omitempty"`
@@ -91,16 +91,16 @@ type VyOSFirewallRule struct {
 	Disabled    bool     `json:"disabled,omitempty"`
 }
 
-// VyOSFirewallRuleset represents a VyOS firewall ruleset.
-type VyOSFirewallRuleset struct {
-	Name          string             `json:"name"`
-	DefaultAction string             `json:"default_action"` // accept, drop, reject
-	Description   string             `json:"description,omitempty"`
-	Rules         []VyOSFirewallRule `json:"rules,omitempty"`
+// FirewallRuleset represents a VyOS firewall ruleset.
+type FirewallRuleset struct {
+	Name          string         `json:"name"`
+	DefaultAction string         `json:"default_action"` // accept, drop, reject
+	Description   string         `json:"description,omitempty"`
+	Rules         []FirewallRule `json:"rules,omitempty"`
 }
 
-// NewVyOSAdapter creates a new VyOS/EdgeOS adapter.
-func NewVyOSAdapter(config *vendors.VendorConfig, sshClient *ssh.Adapter) (*VyOSAdapter, error) {
+// NewAdapter creates a new VyOS/EdgeOS adapter.
+func NewAdapter(config *vendors.VendorConfig, sshClient *ssh.Adapter) (*Adapter, error) {
 	if sshClient == nil {
 		return nil, fmt.Errorf("SSH client is required for VyOS adapter")
 	}
@@ -110,7 +110,7 @@ func NewVyOSAdapter(config *vendors.VendorConfig, sshClient *ssh.Adapter) (*VyOS
 		return nil, fmt.Errorf("failed to create base adapter: %w", err)
 	}
 
-	adapter := &VyOSAdapter{
+	adapter := &Adapter{
 		BaseVendorAdapter: baseAdapter,
 		sshClient:         sshClient,
 		variant:           "vyos", // Will be detected on connect
@@ -120,12 +120,12 @@ func NewVyOSAdapter(config *vendors.VendorConfig, sshClient *ssh.Adapter) (*VyOS
 }
 
 // Vendor returns the vendor type.
-func (a *VyOSAdapter) Vendor() vendors.VendorType {
+func (a *Adapter) Vendor() vendors.VendorType {
 	return vendors.VendorVyOS
 }
 
 // Connect establishes a connection to the VyOS device.
-func (a *VyOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred credentials.Credential) error {
+func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred credentials.Credential) error {
 	a.Device = device
 	a.Credential = cred
 
@@ -135,7 +135,7 @@ func (a *VyOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, 
 
 	// Detect device variant and version
 	if err := a.detectVersion(ctx); err != nil {
-		a.sshClient.Disconnect(ctx)
+		_ = a.sshClient.Disconnect(ctx) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to detect VyOS version: %w", err)
 	}
 
@@ -144,13 +144,13 @@ func (a *VyOSAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, 
 }
 
 // Disconnect closes the connection to the VyOS device.
-func (a *VyOSAdapter) Disconnect(ctx context.Context) error {
+func (a *Adapter) Disconnect(ctx context.Context) error {
 	a.configMu.Lock()
 	if a.inConfigMode {
 		// Exit configuration mode cleanly
 		discardCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		a.executeCommand(discardCtx, "exit discard")
+		_, _ = a.executeCommand(discardCtx, "exit discard") //nolint:errcheck // best-effort cleanup
 		a.inConfigMode = false
 	}
 	a.configMu.Unlock()
@@ -160,7 +160,7 @@ func (a *VyOSAdapter) Disconnect(ctx context.Context) error {
 }
 
 // Execute runs a command on the VyOS device.
-func (a *VyOSAdapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*protocols.ExecuteResult, error) {
+func (a *Adapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*protocols.ExecuteResult, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -169,7 +169,7 @@ func (a *VyOSAdapter) Execute(ctx context.Context, req *protocols.ExecuteRequest
 }
 
 // executeCommand executes a CLI command.
-func (a *VyOSAdapter) executeCommand(ctx context.Context, command string) (*protocols.ExecuteResult, error) {
+func (a *Adapter) executeCommand(ctx context.Context, command string) (*protocols.ExecuteResult, error) {
 	req := &protocols.ExecuteRequest{
 		Command: command,
 	}
@@ -188,7 +188,7 @@ func (a *VyOSAdapter) executeCommand(ctx context.Context, command string) (*prot
 }
 
 // GetSystemInfo retrieves system information from the VyOS device.
-func (a *VyOSAdapter) GetSystemInfo(ctx context.Context) (*vendors.SystemInfo, error) {
+func (a *Adapter) GetSystemInfo(ctx context.Context) (*vendors.SystemInfo, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -227,7 +227,7 @@ func (a *VyOSAdapter) GetSystemInfo(ctx context.Context) (*vendors.SystemInfo, e
 }
 
 // GetFacts retrieves device facts and metadata.
-func (a *VyOSAdapter) GetFacts(ctx context.Context) (*vendors.DeviceFacts, error) {
+func (a *Adapter) GetFacts(ctx context.Context) (*vendors.DeviceFacts, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -277,7 +277,7 @@ func (a *VyOSAdapter) GetFacts(ctx context.Context) (*vendors.DeviceFacts, error
 }
 
 // parseUptimeDuration parses uptime output into a duration.
-func (a *VyOSAdapter) parseUptimeDuration(output string) time.Duration {
+func (a *Adapter) parseUptimeDuration(output string) time.Duration {
 	// VyOS uptime format varies, parse the days/hours/minutes
 	// Example: "up 5 days, 2:30"
 	var days, hours, minutes int
@@ -294,7 +294,7 @@ func (a *VyOSAdapter) parseUptimeDuration(output string) time.Duration {
 }
 
 // parseInterfaceFacts parses interface output into facts.
-func (a *VyOSAdapter) parseInterfaceFacts(output string) []vendors.InterfaceFact {
+func (a *Adapter) parseInterfaceFacts(output string) []vendors.InterfaceFact {
 	var interfaces []vendors.InterfaceFact
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -323,7 +323,7 @@ func (a *VyOSAdapter) parseInterfaceFacts(output string) []vendors.InterfaceFact
 }
 
 // parseMemoryInfo parses memory output into total and free bytes.
-func (a *VyOSAdapter) parseMemoryInfo(output string) (total, free int64) {
+func (a *Adapter) parseMemoryInfo(output string) (total, free int64) {
 	// VyOS memory format varies
 	// Try to extract numbers
 	lines := strings.Split(output, "\n")
@@ -348,7 +348,7 @@ func (a *VyOSAdapter) parseMemoryInfo(output string) (total, free int64) {
 
 // GetConfig retrieves the current configuration.
 // section can be empty for full config, or specify a section like "interface", "firewall", etc.
-func (a *VyOSAdapter) GetConfig(ctx context.Context, section string) (string, error) {
+func (a *Adapter) GetConfig(ctx context.Context, section string) (string, error) {
 	if !a.IsConnected() {
 		return "", fmt.Errorf("not connected to device")
 	}
@@ -373,7 +373,7 @@ func (a *VyOSAdapter) GetConfig(ctx context.Context, section string) (string, er
 }
 
 // SetConfig applies configuration commands to the VyOS device.
-func (a *VyOSAdapter) SetConfig(ctx context.Context, commands []string) error {
+func (a *Adapter) SetConfig(ctx context.Context, commands []string) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -386,7 +386,7 @@ func (a *VyOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	// Apply each command
 	for _, cmd := range commands {
@@ -397,12 +397,12 @@ func (a *VyOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 
 		result, err := a.executeCommand(ctx, cmd)
 		if err != nil {
-			a.exitConfigMode(ctx, true) // Discard changes
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup // Discard changes
 			return fmt.Errorf("failed to apply command '%s': %w", cmd, err)
 		}
 
 		if result.ExitCode != 0 {
-			a.exitConfigMode(ctx, true) // Discard changes
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup // Discard changes
 			return fmt.Errorf("command '%s' failed: %s", cmd, string(result.Stderr))
 		}
 	}
@@ -410,12 +410,12 @@ func (a *VyOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 	// Commit configuration (don't save automatically - use SaveConfig for that)
 	result, err := a.executeCommand(ctx, "commit")
 	if err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	if result.ExitCode != 0 {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("commit failed: %s", string(result.Stderr))
 	}
 
@@ -423,7 +423,7 @@ func (a *VyOSAdapter) SetConfig(ctx context.Context, commands []string) error {
 }
 
 // SaveConfig saves the running configuration to startup/persistent config.
-func (a *VyOSAdapter) SaveConfig(ctx context.Context) error {
+func (a *Adapter) SaveConfig(ctx context.Context) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -434,7 +434,7 @@ func (a *VyOSAdapter) SaveConfig(ctx context.Context) error {
 		if err := a.enterConfigMode(ctx); err != nil {
 			return err
 		}
-		defer a.exitConfigMode(ctx, false)
+		defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 	}
 
 	// Save the configuration
@@ -451,7 +451,7 @@ func (a *VyOSAdapter) SaveConfig(ctx context.Context) error {
 }
 
 // BackupConfig creates a backup of the current configuration.
-func (a *VyOSAdapter) BackupConfig(ctx context.Context, destination string) error {
+func (a *Adapter) BackupConfig(ctx context.Context, destination string) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -462,7 +462,7 @@ func (a *VyOSAdapter) BackupConfig(ctx context.Context, destination string) erro
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	result, err := a.executeCommand(ctx, cmd)
 	if err != nil {
@@ -477,7 +477,7 @@ func (a *VyOSAdapter) BackupConfig(ctx context.Context, destination string) erro
 }
 
 // RestoreConfig restores configuration from a backup.
-func (a *VyOSAdapter) RestoreConfig(ctx context.Context, source string) error {
+func (a *Adapter) RestoreConfig(ctx context.Context, source string) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -488,32 +488,32 @@ func (a *VyOSAdapter) RestoreConfig(ctx context.Context, source string) error {
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	result, err := a.executeCommand(ctx, cmd)
 	if err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if result.ExitCode != 0 {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("load failed: %s", string(result.Stderr))
 	}
 
 	// Commit and save
 	result, err = a.executeCommand(ctx, "commit")
 	if err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	if result.ExitCode != 0 {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return fmt.Errorf("commit failed: %s", string(result.Stderr))
 	}
 
-	result, err = a.executeCommand(ctx, "save")
+	_, err = a.executeCommand(ctx, "save")
 	if err != nil {
 		return fmt.Errorf("failed to save: %w", err)
 	}
@@ -522,7 +522,7 @@ func (a *VyOSAdapter) RestoreConfig(ctx context.Context, source string) error {
 }
 
 // GetInterfaces retrieves interface information.
-func (a *VyOSAdapter) GetInterfaces(ctx context.Context) ([]VyOSInterface, error) {
+func (a *Adapter) GetInterfaces(ctx context.Context) ([]Interface, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -540,7 +540,7 @@ func (a *VyOSAdapter) GetInterfaces(ctx context.Context) ([]VyOSInterface, error
 }
 
 // GetRoutes retrieves routing table.
-func (a *VyOSAdapter) GetRoutes(ctx context.Context) ([]VyOSRoute, error) {
+func (a *Adapter) GetRoutes(ctx context.Context) ([]Route, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -558,7 +558,7 @@ func (a *VyOSAdapter) GetRoutes(ctx context.Context) ([]VyOSRoute, error) {
 }
 
 // GetFirewallRulesets retrieves firewall rulesets.
-func (a *VyOSAdapter) GetFirewallRulesets(ctx context.Context) ([]VyOSFirewallRuleset, error) {
+func (a *Adapter) GetFirewallRulesets(ctx context.Context) ([]FirewallRuleset, error) {
 	if !a.IsConnected() {
 		return nil, fmt.Errorf("not connected to device")
 	}
@@ -576,7 +576,7 @@ func (a *VyOSAdapter) GetFirewallRulesets(ctx context.Context) ([]VyOSFirewallRu
 }
 
 // ConfigureInterface configures a network interface.
-func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterface) error {
+func (a *Adapter) ConfigureInterface(ctx context.Context, iface Interface) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -584,7 +584,7 @@ func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterfac
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	// Determine interface type path
 	ifType := a.getInterfaceType(iface.Name)
@@ -594,7 +594,7 @@ func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterfac
 	if iface.Description != "" {
 		cmd := fmt.Sprintf("set %s description '%s'", basePath, iface.Description)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 	}
@@ -603,7 +603,7 @@ func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterfac
 	for _, addr := range iface.Address {
 		cmd := fmt.Sprintf("set %s address %s", basePath, addr)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 	}
@@ -612,14 +612,14 @@ func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterfac
 	if iface.MTU > 0 {
 		cmd := fmt.Sprintf("set %s mtu %d", basePath, iface.MTU)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 	}
 
 	// Commit and save
 	if _, err := a.executeCommand(ctx, "commit"); err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return err
 	}
 
@@ -631,7 +631,7 @@ func (a *VyOSAdapter) ConfigureInterface(ctx context.Context, iface VyOSInterfac
 }
 
 // ConfigureStaticRoute adds a static route.
-func (a *VyOSAdapter) ConfigureStaticRoute(ctx context.Context, route VyOSRoute) error {
+func (a *Adapter) ConfigureStaticRoute(ctx context.Context, route Route) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -639,41 +639,42 @@ func (a *VyOSAdapter) ConfigureStaticRoute(ctx context.Context, route VyOSRoute)
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	basePath := fmt.Sprintf("protocols static route %s", route.Destination)
 
-	if route.Blackhole {
+	switch {
+	case route.Blackhole:
 		cmd := fmt.Sprintf("set %s blackhole", basePath)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
-	} else if route.NextHop != "" {
+	case route.NextHop != "":
 		cmd := fmt.Sprintf("set %s next-hop %s", basePath, route.NextHop)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 
 		if route.Distance > 0 {
 			cmd = fmt.Sprintf("set %s next-hop %s distance %d", basePath, route.NextHop, route.Distance)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
-	} else if route.Interface != "" {
+	case route.Interface != "":
 		cmd := fmt.Sprintf("set %s interface %s", basePath, route.Interface)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 	}
 
 	// Commit and save
 	if _, err := a.executeCommand(ctx, "commit"); err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return err
 	}
 
@@ -685,7 +686,7 @@ func (a *VyOSAdapter) ConfigureStaticRoute(ctx context.Context, route VyOSRoute)
 }
 
 // ConfigureFirewallRuleset configures a firewall ruleset.
-func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOSFirewallRuleset) error {
+func (a *Adapter) ConfigureFirewallRuleset(ctx context.Context, ruleset FirewallRuleset) error {
 	if !a.IsConnected() {
 		return fmt.Errorf("not connected to device")
 	}
@@ -693,14 +694,14 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 	if err := a.enterConfigMode(ctx); err != nil {
 		return err
 	}
-	defer a.exitConfigMode(ctx, false)
+	defer func() { _ = a.exitConfigMode(ctx, false) }() //nolint:errcheck // best-effort cleanup
 
 	basePath := fmt.Sprintf("firewall name %s", ruleset.Name)
 
 	// Set default action
 	cmd := fmt.Sprintf("set %s default-action %s", basePath, ruleset.DefaultAction)
 	if _, err := a.executeCommand(ctx, cmd); err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return err
 	}
 
@@ -708,19 +709,20 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 	if ruleset.Description != "" {
 		cmd = fmt.Sprintf("set %s description '%s'", basePath, ruleset.Description)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 	}
 
 	// Configure rules
-	for _, rule := range ruleset.Rules {
+	for i := range ruleset.Rules {
+		rule := &ruleset.Rules[i]
 		rulePath := fmt.Sprintf("%s rule %d", basePath, rule.Number)
 
 		// Action
 		cmd = fmt.Sprintf("set %s action %s", rulePath, rule.Action)
 		if _, err := a.executeCommand(ctx, cmd); err != nil {
-			a.exitConfigMode(ctx, true)
+			_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 			return err
 		}
 
@@ -728,7 +730,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Protocol != "" {
 			cmd = fmt.Sprintf("set %s protocol %s", rulePath, rule.Protocol)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -737,7 +739,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Source != "" {
 			cmd = fmt.Sprintf("set %s source address %s", rulePath, rule.Source)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -746,7 +748,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Destination != "" {
 			cmd = fmt.Sprintf("set %s destination address %s", rulePath, rule.Destination)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -755,7 +757,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Port != "" {
 			cmd = fmt.Sprintf("set %s destination port %s", rulePath, rule.Port)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -764,7 +766,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		for _, state := range rule.State {
 			cmd = fmt.Sprintf("set %s state %s enable", rulePath, state)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -773,7 +775,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Description != "" {
 			cmd = fmt.Sprintf("set %s description '%s'", rulePath, rule.Description)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -782,7 +784,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Log {
 			cmd = fmt.Sprintf("set %s log enable", rulePath)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -791,7 +793,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 		if rule.Disabled {
 			cmd = fmt.Sprintf("set %s disable", rulePath)
 			if _, err := a.executeCommand(ctx, cmd); err != nil {
-				a.exitConfigMode(ctx, true)
+				_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 				return err
 			}
 		}
@@ -799,7 +801,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 
 	// Commit and save
 	if _, err := a.executeCommand(ctx, "commit"); err != nil {
-		a.exitConfigMode(ctx, true)
+		_ = a.exitConfigMode(ctx, true) //nolint:errcheck // best-effort cleanup
 		return err
 	}
 
@@ -811,7 +813,7 @@ func (a *VyOSAdapter) ConfigureFirewallRuleset(ctx context.Context, ruleset VyOS
 }
 
 // enterConfigMode enters VyOS configuration mode.
-func (a *VyOSAdapter) enterConfigMode(ctx context.Context) error {
+func (a *Adapter) enterConfigMode(ctx context.Context) error {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 
@@ -833,7 +835,7 @@ func (a *VyOSAdapter) enterConfigMode(ctx context.Context) error {
 }
 
 // exitConfigMode exits VyOS configuration mode.
-func (a *VyOSAdapter) exitConfigMode(ctx context.Context, discard bool) error {
+func (a *Adapter) exitConfigMode(ctx context.Context, discard bool) error {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 
@@ -855,7 +857,7 @@ func (a *VyOSAdapter) exitConfigMode(ctx context.Context, discard bool) error {
 }
 
 // detectVersion detects the VyOS/EdgeOS version.
-func (a *VyOSAdapter) detectVersion(ctx context.Context) error {
+func (a *Adapter) detectVersion(ctx context.Context) error {
 	result, err := a.executeCommand(ctx, "show version")
 	if err != nil {
 		return err
@@ -876,8 +878,8 @@ func (a *VyOSAdapter) detectVersion(ctx context.Context) error {
 }
 
 // parseVersion parses VyOS version output.
-func (a *VyOSAdapter) parseVersion(output string) *VyOSVersion {
-	version := &VyOSVersion{
+func (a *Adapter) parseVersion(output string) *Version {
+	version := &Version{
 		Variant: "vyos",
 	}
 
@@ -890,11 +892,12 @@ func (a *VyOSAdapter) parseVersion(output string) *VyOSVersion {
 			version.Variant = "edgeos"
 		}
 
-		if strings.HasPrefix(line, "Version:") {
+		switch {
+		case strings.HasPrefix(line, "Version:"):
 			version.Version = strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
-		} else if strings.HasPrefix(line, "Build date:") {
+		case strings.HasPrefix(line, "Build date:"):
 			version.BuildDate = strings.TrimSpace(strings.TrimPrefix(line, "Build date:"))
-		} else if strings.HasPrefix(line, "Architecture:") {
+		case strings.HasPrefix(line, "Architecture:"):
 			version.Architecture = strings.TrimSpace(strings.TrimPrefix(line, "Architecture:"))
 		}
 	}
@@ -903,7 +906,7 @@ func (a *VyOSAdapter) parseVersion(output string) *VyOSVersion {
 }
 
 // parseUptime parses uptime output.
-func (a *VyOSAdapter) parseUptime(output string) string {
+func (a *Adapter) parseUptime(output string) string {
 	// Example: "up 10 days, 5 hours, 23 minutes"
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -918,15 +921,15 @@ func (a *VyOSAdapter) parseUptime(output string) string {
 }
 
 // parseSerialNumber extracts serial number from hardware info.
-func (a *VyOSAdapter) parseSerialNumber(output string) string {
+func (a *Adapter) parseSerialNumber(output string) string {
 	// VyOS typically runs on virtual or commodity hardware
 	// Serial number may not be available
 	return ""
 }
 
 // parseInterfaces parses interface output.
-func (a *VyOSAdapter) parseInterfaces(output string) []VyOSInterface {
-	var interfaces []VyOSInterface
+func (a *Adapter) parseInterfaces(output string) []Interface {
+	var interfaces []Interface
 
 	// Parse "show interfaces" output
 	// Format varies by interface type, but generally:
@@ -935,7 +938,7 @@ func (a *VyOSAdapter) parseInterfaces(output string) []VyOSInterface {
 	//     inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0
 
 	lines := strings.Split(output, "\n")
-	var currentIface *VyOSInterface
+	var currentIface *Interface
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -954,7 +957,7 @@ func (a *VyOSAdapter) parseInterfaces(output string) []VyOSInterface {
 				parts := strings.SplitN(line, ":", 2)
 				name := strings.TrimSpace(parts[0])
 
-				currentIface = &VyOSInterface{
+				currentIface = &Interface{
 					Name: name,
 					Type: a.getInterfaceType(name),
 				}
@@ -999,8 +1002,8 @@ func (a *VyOSAdapter) parseInterfaces(output string) []VyOSInterface {
 }
 
 // parseRoutes parses routing table output.
-func (a *VyOSAdapter) parseRoutes(output string) []VyOSRoute {
-	var routes []VyOSRoute
+func (a *Adapter) parseRoutes(output string) []Route {
+	var routes []Route
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -1031,7 +1034,7 @@ func (a *VyOSAdapter) parseRoutes(output string) []VyOSRoute {
 			continue
 		}
 
-		route := VyOSRoute{
+		route := Route{
 			Destination: dest,
 		}
 
@@ -1057,12 +1060,12 @@ func (a *VyOSAdapter) parseRoutes(output string) []VyOSRoute {
 }
 
 // parseFirewallRulesets parses firewall output.
-func (a *VyOSAdapter) parseFirewallRulesets(output string) []VyOSFirewallRuleset {
+func (a *Adapter) parseFirewallRulesets(output string) []FirewallRuleset {
 	// This is a simplified parser - full parsing would require more complex logic
-	var rulesets []VyOSFirewallRuleset
+	var rulesets []FirewallRuleset
 
 	lines := strings.Split(output, "\n")
-	var currentRuleset *VyOSFirewallRuleset
+	var currentRuleset *FirewallRuleset
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -1076,7 +1079,7 @@ func (a *VyOSAdapter) parseFirewallRulesets(output string) []VyOSFirewallRuleset
 				rulesets = append(rulesets, *currentRuleset)
 			}
 			name := strings.TrimSpace(strings.TrimPrefix(line, "Ruleset:"))
-			currentRuleset = &VyOSFirewallRuleset{
+			currentRuleset = &FirewallRuleset{
 				Name: name,
 			}
 		} else if currentRuleset != nil {
@@ -1095,7 +1098,7 @@ func (a *VyOSAdapter) parseFirewallRulesets(output string) []VyOSFirewallRuleset
 }
 
 // getInterfaceType determines the interface type from its name.
-func (a *VyOSAdapter) getInterfaceType(name string) string {
+func (a *Adapter) getInterfaceType(name string) string {
 	switch {
 	case strings.HasPrefix(name, "eth"):
 		return "ethernet"
@@ -1119,7 +1122,7 @@ func (a *VyOSAdapter) getInterfaceType(name string) string {
 }
 
 // MarshalJSON implements custom JSON marshaling.
-func (a *VyOSAdapter) MarshalJSON() ([]byte, error) {
+func (a *Adapter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":      "vyos",
 		"variant":   a.variant,
@@ -1134,6 +1137,6 @@ func init() {
 		if !ok {
 			return nil, fmt.Errorf("VyOS adapter requires SSH adapter")
 		}
-		return NewVyOSAdapter(config, sshAdapter)
+		return NewAdapter(config, sshAdapter)
 	})
 }

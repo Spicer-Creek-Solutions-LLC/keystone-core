@@ -392,10 +392,10 @@ func TestClientStateTransitions(t *testing.T) {
 
 	// State change callback
 	var stateChanges []struct {
-		old, new ClientState
+		old, updated ClientState
 	}
-	client.OnStateChange(func(old, new ClientState) {
-		stateChanges = append(stateChanges, struct{ old, new ClientState }{old, new})
+	client.OnStateChange(func(old, updated ClientState) {
+		stateChanges = append(stateChanges, struct{ old, updated ClientState }{old, updated})
 	})
 
 	// Try to connect (will fail without real SPIRE agent)
@@ -832,7 +832,7 @@ func TestCreateMockSocket(t *testing.T) {
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	// Create a listener (simulates SPIRE agent socket)
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socketPath)
 	if err != nil {
 		t.Fatalf("failed to create listener: %v", err)
 	}

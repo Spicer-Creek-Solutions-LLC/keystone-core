@@ -38,7 +38,7 @@ func (m *AuthorizedKeysModule) Check(ctx context.Context, decl *StateDeclaration
 		return nil, fmt.Errorf("key parameter is required")
 	}
 
-	authKeysPath, err := m.getAuthorizedKeysPath(user)
+	authKeysPath, err := m.getAuthorizedKeysPath(ctx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (m *AuthorizedKeysModule) Apply(ctx context.Context, decl *StateDeclaration
 
 	switch decl.State {
 	case "present":
-		if err := m.addKey(authKeysPath, user, keyType, key, keyComment, options); err != nil {
+		if err := m.addKey(ctx, authKeysPath, user, keyType, key, keyComment, options); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),
@@ -169,7 +169,7 @@ func (m *AuthorizedKeysModule) Test(ctx context.Context, decl *StateDeclaration)
 	return result.Matches, nil
 }
 
-func (m *AuthorizedKeysModule) getAuthorizedKeysPath(user string) (string, error) {
+func (m *AuthorizedKeysModule) getAuthorizedKeysPath(ctx context.Context, user string) (string, error) {
 	// Get user's home directory
 	var homeDir string
 
@@ -182,7 +182,7 @@ func (m *AuthorizedKeysModule) getAuthorizedKeysPath(user string) (string, error
 		homeDir = "/root"
 	} else {
 		// Try to get from passwd
-		cmd := exec.Command("getent", "passwd", user)
+		cmd := exec.CommandContext(ctx, "getent", "passwd", user)
 		output, err := cmd.Output()
 		if err != nil {
 			// Fallback to /home/user
@@ -200,7 +200,7 @@ func (m *AuthorizedKeysModule) getAuthorizedKeysPath(user string) (string, error
 	return filepath.Join(homeDir, ".ssh", "authorized_keys"), nil
 }
 
-func (m *AuthorizedKeysModule) keyExists(path, keyType, key string) (bool, string, error) {
+func (m *AuthorizedKeysModule) keyExists(path, keyType, key string) (exists bool, comment string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return false, "", err
@@ -234,16 +234,16 @@ func (m *AuthorizedKeysModule) keyExists(path, keyType, key string) (bool, strin
 	return false, "", scanner.Err()
 }
 
-func (m *AuthorizedKeysModule) addKey(path, user, keyType, key, comment, options string) error {
+func (m *AuthorizedKeysModule) addKey(ctx context.Context, path, user, keyType, key, comment, options string) error {
 	// Ensure .ssh directory exists
 	sshDir := filepath.Dir(path)
-	if err := os.MkdirAll(sshDir, 0700); err != nil {
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create .ssh directory: %w", err)
 	}
 
 	// Set ownership if running as root
 	if os.Getuid() == 0 {
-		cmd := exec.Command("chown", user, sshDir)
+		cmd := exec.CommandContext(ctx, "chown", user, sshDir)
 		cmd.Run()
 	}
 
@@ -260,7 +260,7 @@ func (m *AuthorizedKeysModule) addKey(path, user, keyType, key, comment, options
 	keyLine += "\n"
 
 	// Append to file
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open authorized_keys: %w", err)
 	}
@@ -272,7 +272,7 @@ func (m *AuthorizedKeysModule) addKey(path, user, keyType, key, comment, options
 
 	// Set ownership if running as root
 	if os.Getuid() == 0 {
-		cmd := exec.Command("chown", user, path)
+		cmd := exec.CommandContext(ctx, "chown", user, path)
 		cmd.Run()
 	}
 
@@ -319,7 +319,7 @@ func (m *AuthorizedKeysModule) removeKey(path, keyType, key string) error {
 	}
 
 	// Write back
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0600)
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 // KnownHostsModule manages SSH known_hosts entries
@@ -351,7 +351,7 @@ func (m *KnownHostsModule) Check(ctx context.Context, decl *StateDeclaration) (*
 		if user == "" {
 			path = "/etc/ssh/ssh_known_hosts"
 		} else {
-			khPath, err := m.getKnownHostsPath(user)
+			khPath, err := m.getKnownHostsPath(ctx, user)
 			if err != nil {
 				return nil, err
 			}
@@ -443,7 +443,7 @@ func (m *KnownHostsModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 	case "present":
 		// If no key provided, scan for it
 		if key == "" {
-			scannedKey, scannedType, err := m.scanHostKey(host, keyType)
+			scannedKey, scannedType, err := m.scanHostKey(ctx, host, keyType)
 			if err != nil {
 				return &StateResult{
 					StateID: decl.ID,
@@ -457,7 +457,7 @@ func (m *KnownHostsModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			keyType = scannedType
 		}
 
-		if err := m.addHostKey(path, host, keyType, key, hashKnownHosts); err != nil {
+		if err := m.addHostKey(ctx, path, host, keyType, key, hashKnownHosts); err != nil {
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),
@@ -505,7 +505,7 @@ func (m *KnownHostsModule) Test(ctx context.Context, decl *StateDeclaration) (bo
 	return result.Matches, nil
 }
 
-func (m *KnownHostsModule) getKnownHostsPath(user string) (string, error) {
+func (m *KnownHostsModule) getKnownHostsPath(ctx context.Context, user string) (string, error) {
 	if runtime.GOOS == "windows" {
 		return "", fmt.Errorf("known_hosts not supported on Windows")
 	}
@@ -514,7 +514,7 @@ func (m *KnownHostsModule) getKnownHostsPath(user string) (string, error) {
 	if user == "root" {
 		homeDir = "/root"
 	} else {
-		cmd := exec.Command("getent", "passwd", user)
+		cmd := exec.CommandContext(ctx, "getent", "passwd", user)
 		output, err := cmd.Output()
 		if err != nil {
 			homeDir = filepath.Join("/home", user)
@@ -531,7 +531,7 @@ func (m *KnownHostsModule) getKnownHostsPath(user string) (string, error) {
 	return filepath.Join(homeDir, ".ssh", "known_hosts"), nil
 }
 
-func (m *KnownHostsModule) hostExists(path, host string) (bool, string, string, error) {
+func (m *KnownHostsModule) hostExists(path, host string) (exists bool, keyData, keyType string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return false, "", "", err
@@ -559,9 +559,9 @@ func (m *KnownHostsModule) hostExists(path, host string) (bool, string, string, 
 	return false, "", "", scanner.Err()
 }
 
-func (m *KnownHostsModule) scanHostKey(host, keyType string) (string, string, error) {
+func (m *KnownHostsModule) scanHostKey(ctx context.Context, host, keyType string) (keyData, actualKeyType string, err error) {
 	args := []string{"-t", keyType, host}
-	cmd := exec.Command("ssh-keyscan", args...)
+	cmd := exec.CommandContext(ctx, "ssh-keyscan", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("ssh-keyscan failed: %w", err)
@@ -582,26 +582,26 @@ func (m *KnownHostsModule) scanHostKey(host, keyType string) (string, string, er
 	return "", "", fmt.Errorf("no key found for host %s", host)
 }
 
-func (m *KnownHostsModule) addHostKey(path, host, keyType, key string, hashHost bool) error {
+func (m *KnownHostsModule) addHostKey(ctx context.Context, path, host, keyType, key string, hashHost bool) error {
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
 	// Remove existing entry first
-	m.removeHostKey(path, host)
+	_ = m.removeHostKey(path, host) //nolint:errcheck // best-effort cleanup before adding new key
 
 	hostEntry := host
 	if hashHost {
 		// Use ssh-keygen to hash
-		cmd := exec.Command("ssh-keygen", "-H", "-f", path)
+		cmd := exec.CommandContext(ctx, "ssh-keygen", "-H", "-f", path)
 		cmd.Run()
 	}
 
 	line := fmt.Sprintf("%s %s %s\n", hostEntry, keyType, key)
 
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) //nolint:gosec // G302: SSH known_hosts files are typically world-readable
 	if err != nil {
 		return err
 	}
@@ -653,7 +653,8 @@ func (m *KnownHostsModule) removeHostKey(path, host string) error {
 		return err
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	//nolint:gosec // G306: known_hosts file needs to be readable by SSH clients
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 // SSHDConfigModule manages sshd_config settings
@@ -807,7 +808,7 @@ func (m *SSHDConfigModule) Test(ctx context.Context, decl *StateDeclaration) (bo
 	return result.Matches, nil
 }
 
-func (m *SSHDConfigModule) getConfigValue(path, name string) (string, bool, error) {
+func (m *SSHDConfigModule) getConfigValue(path, name string) (value string, exists bool, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", false, err
@@ -815,7 +816,6 @@ func (m *SSHDConfigModule) getConfigValue(path, name string) (string, bool, erro
 	defer file.Close()
 
 	// Case-insensitive matching for sshd_config
-	nameLower := strings.ToLower(name)
 	pattern := regexp.MustCompile(`(?i)^\s*` + regexp.QuoteMeta(name) + `\s+(.+)$`)
 
 	scanner := bufio.NewScanner(file)
@@ -834,7 +834,7 @@ func (m *SSHDConfigModule) getConfigValue(path, name string) (string, bool, erro
 
 		// Also check for Match blocks - simplified handling
 		fields := strings.Fields(trimmed)
-		if len(fields) >= 2 && strings.ToLower(fields[0]) == nameLower {
+		if len(fields) >= 2 && strings.EqualFold(fields[0], name) {
 			return strings.Join(fields[1:], " "), true, nil
 		}
 	}
@@ -852,13 +852,12 @@ func (m *SSHDConfigModule) setConfigValue(path, name, value string, backup bool)
 	// Create backup if requested
 	if backup && len(content) > 0 {
 		backupPath := path + ".bak"
-		if err := os.WriteFile(backupPath, content, 0600); err != nil {
+		if err := os.WriteFile(backupPath, content, 0o600); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	lines := strings.Split(string(content), "\n")
-	nameLower := strings.ToLower(name)
 	found := false
 	var newLines []string
 
@@ -868,7 +867,7 @@ func (m *SSHDConfigModule) setConfigValue(path, name, value string, backup bool)
 		// Check if this is the line we're looking for
 		if !strings.HasPrefix(trimmed, "#") {
 			fields := strings.Fields(trimmed)
-			if len(fields) >= 1 && strings.ToLower(fields[0]) == nameLower {
+			if len(fields) >= 1 && strings.EqualFold(fields[0], name) {
 				// Replace this line
 				newLines = append(newLines, fmt.Sprintf("%s %s", name, value))
 				found = true
@@ -883,7 +882,7 @@ func (m *SSHDConfigModule) setConfigValue(path, name, value string, backup bool)
 		newLines = append(newLines, fmt.Sprintf("%s %s", name, value))
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0600)
+	return os.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0o600)
 }
 
 func (m *SSHDConfigModule) removeConfigValue(path, name string, backup bool) error {
@@ -897,13 +896,12 @@ func (m *SSHDConfigModule) removeConfigValue(path, name string, backup bool) err
 
 	if backup {
 		backupPath := path + ".bak"
-		if err := os.WriteFile(backupPath, content, 0600); err != nil {
+		if err := os.WriteFile(backupPath, content, 0o600); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
 	lines := strings.Split(string(content), "\n")
-	nameLower := strings.ToLower(name)
 	var newLines []string
 
 	for _, line := range lines {
@@ -911,7 +909,7 @@ func (m *SSHDConfigModule) removeConfigValue(path, name string, backup bool) err
 
 		if !strings.HasPrefix(trimmed, "#") {
 			fields := strings.Fields(trimmed)
-			if len(fields) >= 1 && strings.ToLower(fields[0]) == nameLower {
+			if len(fields) >= 1 && strings.EqualFold(fields[0], name) {
 				// Skip this line (comment it out instead of removing)
 				newLines = append(newLines, "#"+line)
 				continue
@@ -920,12 +918,6 @@ func (m *SSHDConfigModule) removeConfigValue(path, name string, backup bool) err
 		newLines = append(newLines, line)
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0600)
+	return os.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0o600)
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

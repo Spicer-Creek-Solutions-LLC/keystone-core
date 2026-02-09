@@ -2,6 +2,7 @@ package verify
 
 import (
 	"archive/zip"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,8 +98,8 @@ func TestComputeZipHash(t *testing.T) {
 
 	// Add files to ZIP
 	files := map[string]string{
-		"file1.txt": "content1",
-		"file2.txt": "content2",
+		"file1.txt":     "content1",
+		"file2.txt":     "content2",
 		"dir/file3.txt": "content3",
 	}
 
@@ -208,7 +209,7 @@ func TestComputeHashNonexistent(t *testing.T) {
 	verifier := NewDefaultHashVerifier()
 
 	_, err := verifier.ComputeHash("/nonexistent/path")
-	if err != ErrModuleNotFound {
+	if !errors.Is(err, ErrModuleNotFound) {
 		t.Errorf("expected ErrModuleNotFound, got %v", err)
 	}
 }

@@ -167,7 +167,7 @@ func TestStateApplyAction(t *testing.T) {
 	var gotStateFile string
 	var gotCheckOnly bool
 
-	action := NewStateApplyAction("state-apply", "/etc/kscore/state.yaml", func(ctx context.Context, stateFile string, checkOnly bool) error {
+	action := NewStateApplyAction("state-apply", "/etc/keystone-core/state.yaml", func(ctx context.Context, stateFile string, checkOnly bool) error {
 		called = true
 		gotStateFile = stateFile
 		gotCheckOnly = checkOnly
@@ -183,7 +183,7 @@ func TestStateApplyAction(t *testing.T) {
 	if !called {
 		t.Error("Expected state apply handler to be called")
 	}
-	if gotStateFile != "/etc/kscore/state.yaml" {
+	if gotStateFile != "/etc/keystone-core/state.yaml" {
 		t.Errorf("unexpected state file: %s", gotStateFile)
 	}
 	if !gotCheckOnly {

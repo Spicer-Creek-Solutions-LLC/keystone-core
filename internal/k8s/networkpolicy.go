@@ -36,7 +36,7 @@ const (
 
 // LabelSelector selects resources by labels.
 type LabelSelector struct {
-	MatchLabels      map[string]string        `json:"matchLabels,omitempty"`
+	MatchLabels      map[string]string          `json:"matchLabels,omitempty"`
 	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
@@ -69,8 +69,8 @@ type NetworkPolicyPeer struct {
 
 // NetworkPolicyIngressRule describes a rule for ingress traffic.
 type NetworkPolicyIngressRule struct {
-	Ports []NetworkPolicyPort   `json:"ports,omitempty"`
-	From  []NetworkPolicyPeer   `json:"from,omitempty"`
+	Ports []NetworkPolicyPort `json:"ports,omitempty"`
+	From  []NetworkPolicyPeer `json:"from,omitempty"`
 }
 
 // NetworkPolicyEgressRule describes a rule for egress traffic.
@@ -355,8 +355,8 @@ func (pm *PolicyManager) registerBuiltinTemplates() {
 						},
 					},
 					Ports: []NetworkPolicyPort{
-						{Protocol: ProtocolTCP, Port: 5432}, // PostgreSQL
-						{Protocol: ProtocolTCP, Port: 3306}, // MySQL
+						{Protocol: ProtocolTCP, Port: 5432},  // PostgreSQL
+						{Protocol: ProtocolTCP, Port: 3306},  // MySQL
 						{Protocol: ProtocolTCP, Port: 27017}, // MongoDB
 					},
 				},
@@ -698,9 +698,9 @@ func (s *InMemoryPolicyStore) Get(_ context.Context, namespace, name string) (*N
 
 	// Return a copy
 	data, _ := json.Marshal(policy)
-	var copy NetworkPolicy
-	_ = json.Unmarshal(data, &copy)
-	return &copy, nil
+	var copied NetworkPolicy
+	_ = json.Unmarshal(data, &copied)
+	return &copied, nil
 }
 
 // List lists policies in a namespace.
@@ -710,13 +710,18 @@ func (s *InMemoryPolicyStore) List(_ context.Context, namespace string) ([]*Netw
 
 	if namespace == "" {
 		// Return all policies from all namespaces
-		var result []*NetworkPolicy
+		// Count total policies first
+		total := 0
+		for _, nsPolicies := range s.policies {
+			total += len(nsPolicies)
+		}
+		result := make([]*NetworkPolicy, 0, total)
 		for _, nsPolicies := range s.policies {
 			for _, policy := range nsPolicies {
 				data, _ := json.Marshal(policy)
-				var copy NetworkPolicy
-				_ = json.Unmarshal(data, &copy)
-				result = append(result, &copy)
+				var copied NetworkPolicy
+				_ = json.Unmarshal(data, &copied)
+				result = append(result, &copied)
 			}
 		}
 		return result, nil
@@ -730,9 +735,9 @@ func (s *InMemoryPolicyStore) List(_ context.Context, namespace string) ([]*Netw
 	result := make([]*NetworkPolicy, 0, len(nsPolicies))
 	for _, policy := range nsPolicies {
 		data, _ := json.Marshal(policy)
-		var copy NetworkPolicy
-		_ = json.Unmarshal(data, &copy)
-		result = append(result, &copy)
+		var copied NetworkPolicy
+		_ = json.Unmarshal(data, &copied)
+		result = append(result, &copied)
 	}
 
 	return result, nil
@@ -753,9 +758,9 @@ func (s *InMemoryPolicyStore) Create(_ context.Context, policy *NetworkPolicy) e
 
 	// Store a copy
 	data, _ := json.Marshal(policy)
-	var copy NetworkPolicy
-	_ = json.Unmarshal(data, &copy)
-	s.policies[policy.Namespace][policy.Name] = &copy
+	var copied NetworkPolicy
+	_ = json.Unmarshal(data, &copied)
+	s.policies[policy.Namespace][policy.Name] = &copied
 
 	return nil
 }
@@ -775,9 +780,9 @@ func (s *InMemoryPolicyStore) Update(_ context.Context, policy *NetworkPolicy) e
 
 	// Store a copy
 	data, _ := json.Marshal(policy)
-	var copy NetworkPolicy
-	_ = json.Unmarshal(data, &copy)
-	s.policies[policy.Namespace][policy.Name] = &copy
+	var copied NetworkPolicy
+	_ = json.Unmarshal(data, &copied)
+	s.policies[policy.Namespace][policy.Name] = &copied
 
 	return nil
 }
@@ -811,15 +816,15 @@ func NewPolicyGenerator(manager *PolicyManager) *PolicyGenerator {
 
 // ApplicationSpec describes an application's networking requirements.
 type ApplicationSpec struct {
-	Name        string              `json:"name"`
-	Namespace   string              `json:"namespace"`
-	Labels      map[string]string   `json:"labels"`
-	Tier        string              `json:"tier"` // web, app, database
-	IngressPorts []int32            `json:"ingressPorts,omitempty"`
-	EgressTargets []EgressTarget    `json:"egressTargets,omitempty"`
-	AllowFromNamespaces []string    `json:"allowFromNamespaces,omitempty"`
-	AllowFromLabels map[string]string `json:"allowFromLabels,omitempty"`
-	DenyAll     bool                `json:"denyAll,omitempty"`
+	Name                string            `json:"name"`
+	Namespace           string            `json:"namespace"`
+	Labels              map[string]string `json:"labels"`
+	Tier                string            `json:"tier"` // web, app, database
+	IngressPorts        []int32           `json:"ingressPorts,omitempty"`
+	EgressTargets       []EgressTarget    `json:"egressTargets,omitempty"`
+	AllowFromNamespaces []string          `json:"allowFromNamespaces,omitempty"`
+	AllowFromLabels     map[string]string `json:"allowFromLabels,omitempty"`
+	DenyAll             bool              `json:"denyAll,omitempty"`
 }
 
 // EgressTarget describes an egress target.
@@ -1005,10 +1010,10 @@ type AuditFinding struct {
 
 // AuditReport contains the results of a policy audit.
 type AuditReport struct {
-	Timestamp   time.Time       `json:"timestamp"`
-	TotalPolicies int           `json:"totalPolicies"`
-	Findings    []AuditFinding  `json:"findings"`
-	Summary     map[string]int  `json:"summary"` // severity -> count
+	Timestamp     time.Time      `json:"timestamp"`
+	TotalPolicies int            `json:"totalPolicies"`
+	Findings      []AuditFinding `json:"findings"`
+	Summary       map[string]int `json:"summary"` // severity -> count
 }
 
 // NewPolicyAuditor creates a new policy auditor with default rules.

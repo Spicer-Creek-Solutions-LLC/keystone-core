@@ -1,3 +1,4 @@
+// Package main implements the kscore-gitops CLI for GitOps integration and deployment management.
 package main
 
 import (
@@ -328,7 +329,7 @@ func init() {
 
 func rollbackExecute(cmd *cobra.Command, args []string) error {
 	// Validate strategy
-	strategy := rollback.RollbackStrategy(rollbackStrategy)
+	strategy := rollback.Strategy(rollbackStrategy)
 	switch strategy {
 	case rollback.StrategyPreviousRevision, rollback.StrategySpecificRevision, rollback.StrategyLastKnownGood:
 		// Valid
@@ -342,9 +343,9 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build rollback config
-	config := &rollback.RollbackConfig{
+	config := &rollback.Config{
 		Name:        fmt.Sprintf("rollback-%s-%d", rollbackApp, time.Now().Unix()),
-		Type:        rollback.RollbackType(rollbackType),
+		Type:        rollback.Type(rollbackType),
 		Strategy:    strategy,
 		Trigger:     rollback.TriggerManual,
 		Application: rollbackApp,
@@ -354,7 +355,7 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build request
-	request := &rollback.RollbackRequest{
+	request := &rollback.Request{
 		ConfigName:       config.Name,
 		Reason:           rollbackReason,
 		RequestedBy:      rollbackUser,
@@ -437,7 +438,7 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 
 	// In a real implementation, this would connect to the control plane
 	// For now, we'll create a mock result
-	result := &rollback.RollbackResult{
+	result := &rollback.Result{
 		ID:               fmt.Sprintf("rb-%d", time.Now().UnixNano()),
 		Config:           config,
 		Request:          request,
@@ -552,7 +553,7 @@ func init() {
 
 func promoteExecute(cmd *cobra.Command, args []string) error {
 	// Build request
-	request := &promotion.PromotionRequest{
+	request := &promotion.Request{
 		Pipeline:         promotePipeline,
 		FromEnvironment:  promoteFrom,
 		ToEnvironment:    promoteTo,
@@ -642,7 +643,7 @@ func promoteExecute(cmd *cobra.Command, args []string) error {
 
 	// In a real implementation, this would connect to the control plane
 	// For now, we'll create a mock result
-	result := &promotion.PromotionResult{
+	result := &promotion.Result{
 		ID: fmt.Sprintf("promo-%d", time.Now().UnixNano()),
 		Pipeline: &promotion.Pipeline{
 			Name:        request.Pipeline,
@@ -1228,7 +1229,8 @@ func repoListExecute(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), "=======================")
 		fmt.Fprintln(cmd.OutOrStdout())
 
-		for _, repo := range repos {
+		for i := range repos {
+			repo := &repos[i]
 			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", repo.Name)
 			fmt.Fprintf(cmd.OutOrStdout(), "  URL:       %s\n", repo.URL)
 			fmt.Fprintf(cmd.OutOrStdout(), "  Branch:    %s\n", repo.Branch)
@@ -1485,14 +1487,14 @@ func deployListExecute(cmd *cobra.Command, args []string) error {
 
 	// Apply filters
 	filtered := make([]DeploymentInfo, 0)
-	for _, d := range deployments {
-		if deployListEnv != "" && d.Environment != deployListEnv {
+	for i := range deployments {
+		if deployListEnv != "" && deployments[i].Environment != deployListEnv {
 			continue
 		}
-		if deployListApp != "" && d.Application != deployListApp {
+		if deployListApp != "" && deployments[i].Application != deployListApp {
 			continue
 		}
-		filtered = append(filtered, d)
+		filtered = append(filtered, deployments[i])
 	}
 
 	// Apply limit
@@ -1531,7 +1533,8 @@ func deployListExecute(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-12s %-20s %-20s\n", "ID", "APP", "ENV", "STATUS", "REVISION", "TIME")
 		fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 95))
 
-		for _, d := range filtered {
+		for i := range filtered {
+			d := &filtered[i]
 			fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-12s %-20s %-20s\n",
 				d.ID,
 				truncate(d.Application, 12),
@@ -1654,7 +1657,7 @@ func deployApproveExecute(cmd *cobra.Command, args []string) error {
 		fmt.Fprint(cmd.OutOrStdout(), "Approve this deployment? [y/N]: ")
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 			fmt.Fprintln(cmd.OutOrStdout(), "Approval cancelled.")
 			return nil
 		}
@@ -1703,7 +1706,7 @@ type VerificationStepDefinition struct {
 	Config            map[string]interface{} `yaml:"config"`
 }
 
-func loadVerificationWorkflow(path string) (*verification.VerificationWorkflow, error) {
+func loadVerificationWorkflow(path string) (*verification.Workflow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -1714,8 +1717,8 @@ func loadVerificationWorkflow(path string) (*verification.VerificationWorkflow, 
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	// Convert to verification.VerificationWorkflow
-	workflow := &verification.VerificationWorkflow{
+	// Convert to verification.Workflow
+	workflow := &verification.Workflow{
 		Name:        wfFile.Name,
 		Description: wfFile.Description,
 		Parallel:    wfFile.Parallel,
@@ -1731,11 +1734,11 @@ func loadVerificationWorkflow(path string) (*verification.VerificationWorkflow, 
 	}
 
 	// Convert steps
-	workflow.Steps = make([]*verification.VerificationStep, len(wfFile.Steps))
+	workflow.Steps = make([]*verification.Step, len(wfFile.Steps))
 	for i, stepDef := range wfFile.Steps {
-		step := &verification.VerificationStep{
+		step := &verification.Step{
 			Name:              stepDef.Name,
-			Type:              verification.VerificationType(stepDef.Type),
+			Type:              verification.Type(stepDef.Type),
 			Retries:           stepDef.Retries,
 			ContinueOnFailure: stepDef.ContinueOnFailure,
 			Config:            stepDef.Config,
@@ -1787,7 +1790,7 @@ func buildKeyValueTable(pairs [][2]string) *output.Table {
 	}
 }
 
-func buildPromotionStageTable(result *promotion.PromotionResult) *output.Table {
+func buildPromotionStageTable(result *promotion.Result) *output.Table {
 	rows := make([][]string, 0, len(result.Stages))
 	for _, stage := range result.Stages {
 		status := "OK"
@@ -1850,7 +1853,8 @@ func buildStatusTable(operations []OperationStatus) *output.Table {
 
 func buildRepoTable(repos []RepoConfig) *output.Table {
 	rows := make([][]string, 0, len(repos))
-	for _, repo := range repos {
+	for i := range repos {
+		repo := &repos[i]
 		rows = append(rows, []string{
 			repo.Name,
 			truncate(repo.URL, 40),
@@ -1869,7 +1873,8 @@ func buildRepoTable(repos []RepoConfig) *output.Table {
 
 func buildDeploymentTable(deployments []DeploymentInfo) *output.Table {
 	rows := make([][]string, 0, len(deployments))
-	for _, d := range deployments {
+	for i := range deployments {
+		d := &deployments[i]
 		rows = append(rows, []string{
 			d.ID,
 			d.Application,

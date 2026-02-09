@@ -942,8 +942,8 @@ func TestCalculateStateSeverity_AllBranches(t *testing.T) {
 		expected    DriftSeverity
 	}{
 		{
-			name: "empty differences",
-			decl: &StateDeclaration{Module: "file"},
+			name:        "empty differences",
+			decl:        &StateDeclaration{Module: "file"},
 			differences: []Difference{},
 			expected:    DriftNone,
 		},

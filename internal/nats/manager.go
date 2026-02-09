@@ -72,12 +72,12 @@ func (m *Manager) startEmbeddedServer() error {
 	// Get effective host based on address family preference
 	host := m.config.Embedded.GetEffectiveHost()
 	opts := &server.Options{
-		Host:           host,
-		Port:           m.config.Embedded.Port,
-		MaxConn:        m.config.Embedded.MaxConnections,
-		MaxPayload:     1024 * 1024, // 1MB
-		WriteDeadline:  10 * time.Second,
-		MaxControlLine: 4096,
+		Host:                  host,
+		Port:                  m.config.Embedded.Port,
+		MaxConn:               m.config.Embedded.MaxConnections,
+		MaxPayload:            1024 * 1024, // 1MB
+		WriteDeadline:         10 * time.Second,
+		MaxControlLine:        4096,
 		DisableShortFirstPing: false,
 	}
 
@@ -89,7 +89,8 @@ func (m *Manager) startEmbeddedServer() error {
 		}
 
 		// Ensure store directory exists
-		if err := os.MkdirAll(storeDir, 0755); err != nil {
+		//nolint:gosec // G301: JetStream store directory needs to be accessible by service user
+		if err := os.MkdirAll(storeDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create JetStream store directory: %w", err)
 		}
 
@@ -177,24 +178,24 @@ func (m *Manager) connect() error {
 	}
 
 	// Determine connection URL
-	url := m.config.URL
-	if m.embeddedMode && url == "" {
+	natsURL := m.config.URL
+	if m.embeddedMode && natsURL == "" {
 		host := m.config.Embedded.GetEffectiveHost()
 		// Format IPv6 addresses with brackets for URL
 		if isIPv6Host(host) {
-			url = fmt.Sprintf("nats://[%s]:%d", host, m.config.Embedded.Port)
+			natsURL = fmt.Sprintf("nats://[%s]:%d", host, m.config.Embedded.Port)
 		} else {
-			url = fmt.Sprintf("nats://%s:%d", host, m.config.Embedded.Port)
+			natsURL = fmt.Sprintf("nats://%s:%d", host, m.config.Embedded.Port)
 		}
 	}
-	if url == "" {
+	if natsURL == "" {
 		return fmt.Errorf("NATS URL is required for external mode")
 	}
 
 	// Connect to NATS
-	nc, err := nats.Connect(url, opts...)
+	nc, err := nats.Connect(natsURL, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to connect to NATS at %s: %w", url, err)
+		return fmt.Errorf("failed to connect to NATS at %s: %w", natsURL, err)
 	}
 
 	m.conn = nc

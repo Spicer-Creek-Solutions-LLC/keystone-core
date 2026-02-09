@@ -92,7 +92,7 @@ func TestInitCommandFlags(t *testing.T) {
 	// Check that init flags exist
 	typeFlag := initCmd.Flags().Lookup("type")
 	if typeFlag == nil {
-		t.Error("expected --type flag on init command")
+		t.Fatal("expected --type flag on init command")
 	}
 	if typeFlag.DefValue != "starlark" {
 		t.Errorf("expected type default to be 'starlark', got %s", typeFlag.DefValue)

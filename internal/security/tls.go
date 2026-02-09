@@ -1,3 +1,5 @@
+// Package security provides TLS certificate management and path traversal
+// protection utilities.
 package security
 
 import (
@@ -164,7 +166,8 @@ func SaveCertificatePEM(cert *x509.Certificate, filename string) error {
 		Bytes: cert.Raw,
 	})
 
-	return os.WriteFile(filename, certPEM, 0644)
+	//nolint:gosec // G306: certificates need to be readable for TLS verification
+	return os.WriteFile(filename, certPEM, 0o644)
 }
 
 // SavePrivateKeyPEM saves a private key to a PEM file
@@ -179,7 +182,7 @@ func SavePrivateKeyPEM(key *ecdsa.PrivateKey, filename string) error {
 		Bytes: keyBytes,
 	})
 
-	return os.WriteFile(filename, keyPEM, 0600)
+	return os.WriteFile(filename, keyPEM, 0o600)
 }
 
 // LoadCertificatePEM loads a certificate from a PEM file

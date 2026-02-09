@@ -77,7 +77,7 @@ func TestUserModule_GetUserShell(t *testing.T) {
 	module := NewUserModule()
 
 	// Get shell for root user (exists on all Unix-like systems)
-	shell, err := module.getUserShell("root")
+	shell, err := module.getUserShell(context.Background(), "root")
 	if err != nil {
 		t.Fatalf("getUserShell failed: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestUserModule_GetUserShell_Darwin(t *testing.T) {
 	module := NewUserModule()
 
 	// Test with current user
-	shell, err := module.getUserShell("root")
+	shell, err := module.getUserShell(context.Background(), "root")
 	if err != nil {
 		t.Fatalf("getUserShell failed: %v", err)
 	}

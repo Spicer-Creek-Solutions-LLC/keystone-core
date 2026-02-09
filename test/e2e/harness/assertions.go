@@ -3,6 +3,7 @@ package harness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -37,7 +38,7 @@ func (e *TestEnvironment) ExecuteCommandAndWait(ctx context.Context, agentID, co
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -56,6 +57,7 @@ func (e *TestEnvironment) ExecuteCommandAndWait(ctx context.Context, agentID, co
 		case pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED:
 			result.ExitCode = resp.ExitCode
 			result.Error = resp.Error
+		default:
 		}
 	}
 
@@ -115,7 +117,7 @@ func (e *TestEnvironment) WaitForAgentStatus(ctx context.Context, agentID string
 }
 
 // WaitForCondition waits for a condition function to return true
-func WaitForCondition(ctx context.Context, timeout time.Duration, interval time.Duration, condition func() (bool, error)) error {
+func WaitForCondition(ctx context.Context, timeout, interval time.Duration, condition func() (bool, error)) error {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -139,7 +141,7 @@ func WaitForCondition(ctx context.Context, timeout time.Duration, interval time.
 }
 
 // AssertAgentOnline asserts that an agent is online
-func (e *TestEnvironment) AssertAgentOnline(t *testing.T, ctx context.Context, agentID string) {
+func (e *TestEnvironment) AssertAgentOnline(ctx context.Context, t *testing.T, agentID string) {
 	t.Helper()
 
 	resp, err := e.client.GetAgent(ctx, &pb.GetAgentRequest{
@@ -159,7 +161,7 @@ func (e *TestEnvironment) AssertAgentOnline(t *testing.T, ctx context.Context, a
 }
 
 // AssertAgentCount asserts the number of registered agents
-func (e *TestEnvironment) AssertAgentCount(t *testing.T, ctx context.Context, expected int) {
+func (e *TestEnvironment) AssertAgentCount(ctx context.Context, t *testing.T, expected int) {
 	t.Helper()
 
 	resp, err := e.client.ListAgents(ctx, &pb.ListAgentsRequest{
@@ -175,7 +177,7 @@ func (e *TestEnvironment) AssertAgentCount(t *testing.T, ctx context.Context, ex
 }
 
 // AssertCommandSuccess asserts that a command executed successfully
-func (e *TestEnvironment) AssertCommandSuccess(t *testing.T, ctx context.Context, agentID, command string, args ...string) *CommandResult {
+func (e *TestEnvironment) AssertCommandSuccess(ctx context.Context, t *testing.T, agentID, command string, args ...string) *CommandResult {
 	t.Helper()
 
 	result, err := e.ExecuteCommandAndWait(ctx, agentID, command, args...)
@@ -190,10 +192,10 @@ func (e *TestEnvironment) AssertCommandSuccess(t *testing.T, ctx context.Context
 }
 
 // AssertCommandOutput asserts that a command produces expected output
-func (e *TestEnvironment) AssertCommandOutput(t *testing.T, ctx context.Context, agentID, command string, expectedOutput string, args ...string) {
+func (e *TestEnvironment) AssertCommandOutput(ctx context.Context, t *testing.T, agentID, command, expectedOutput string, args ...string) {
 	t.Helper()
 
-	result := e.AssertCommandSuccess(t, ctx, agentID, command, args...)
+	result := e.AssertCommandSuccess(ctx, t, agentID, command, args...)
 	if result == nil {
 		return
 	}
@@ -204,7 +206,7 @@ func (e *TestEnvironment) AssertCommandOutput(t *testing.T, ctx context.Context,
 }
 
 // AssertBatchSuccess asserts that a batch command completed successfully on all targets
-func (e *TestEnvironment) AssertBatchSuccess(t *testing.T, ctx context.Context, batchJobID string, expectedAgents int) *pb.GetBatchJobStatusResponse {
+func (e *TestEnvironment) AssertBatchSuccess(ctx context.Context, t *testing.T, batchJobID string, expectedAgents int) *pb.GetBatchJobStatusResponse {
 	t.Helper()
 
 	resp, err := e.WaitForBatchJobComplete(ctx, batchJobID, 60*time.Second)
@@ -218,10 +220,10 @@ func (e *TestEnvironment) AssertBatchSuccess(t *testing.T, ctx context.Context, 
 		return resp
 	}
 
-	if resp.Job.Summary.Total != int32(expectedAgents) {
+	if resp.Job.Summary.Total != int32(expectedAgents) { //nolint:gosec // G115: test param
 		t.Errorf("Expected batch job to target %d agents, got %d", expectedAgents, resp.Job.Summary.Total)
 	}
-	if resp.Job.Summary.Successful != int32(expectedAgents) {
+	if resp.Job.Summary.Successful != int32(expectedAgents) { //nolint:gosec // G115: test param
 		t.Errorf("Expected %d successful executions, got %d", expectedAgents, resp.Job.Summary.Successful)
 	}
 	if resp.Job.Summary.Failed != 0 {
@@ -232,10 +234,10 @@ func (e *TestEnvironment) AssertBatchSuccess(t *testing.T, ctx context.Context, 
 }
 
 // AssertNoErrors checks container logs for errors
-func (e *TestEnvironment) AssertNoErrors(t *testing.T, ctx context.Context, service string, errorPatterns ...string) {
+func (e *TestEnvironment) AssertNoErrors(ctx context.Context, t *testing.T, service string, errorPatterns ...string) {
 	t.Helper()
 
-	output, err := e.Exec(ctx, service, "cat", "/var/log/kscore.log")
+	output, err := e.Exec(ctx, service, "cat", "/var/log/keystone-core.log")
 	if err != nil {
 		// Log file might not exist, that's okay
 		return
@@ -259,7 +261,7 @@ func (e *TestEnvironment) AssertNoErrors(t *testing.T, ctx context.Context, serv
 }
 
 // AssertFileExists checks if a file exists on an agent
-func (e *TestEnvironment) AssertFileExists(t *testing.T, ctx context.Context, agentID, filePath string) {
+func (e *TestEnvironment) AssertFileExists(ctx context.Context, t *testing.T, agentID, filePath string) {
 	t.Helper()
 
 	result, err := e.ExecuteCommandAndWait(ctx, agentID, "test", "-f", filePath)
@@ -273,7 +275,7 @@ func (e *TestEnvironment) AssertFileExists(t *testing.T, ctx context.Context, ag
 }
 
 // AssertFileContents checks if a file contains expected content
-func (e *TestEnvironment) AssertFileContents(t *testing.T, ctx context.Context, agentID, filePath, expectedContent string) {
+func (e *TestEnvironment) AssertFileContents(ctx context.Context, t *testing.T, agentID, filePath, expectedContent string) {
 	t.Helper()
 
 	result, err := e.ExecuteCommandAndWait(ctx, agentID, "cat", filePath)
@@ -292,7 +294,7 @@ func (e *TestEnvironment) AssertFileContents(t *testing.T, ctx context.Context, 
 }
 
 // AssertServiceRunning checks if a service is running on an agent (for systemd containers)
-func (e *TestEnvironment) AssertServiceRunning(t *testing.T, ctx context.Context, agentID, serviceName string) {
+func (e *TestEnvironment) AssertServiceRunning(ctx context.Context, t *testing.T, agentID, serviceName string) {
 	t.Helper()
 
 	result, err := e.ExecuteCommandAndWait(ctx, agentID, "pgrep", "-x", serviceName)

@@ -344,11 +344,11 @@ func TestVersionedRecord_UnmarshalJSON(t *testing.T) {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	if record.SchemaType != SchemaTypeLog {
-		t.Errorf("Expected SchemaType=%s, got %s", SchemaTypeLog, record.SchemaType)
+	if record.Type != SchemaTypeLog {
+		t.Errorf("Expected Type=%s, got %s", SchemaTypeLog, record.Type)
 	}
-	if record.SchemaVersion != 2 {
-		t.Errorf("Expected SchemaVersion=2, got %d", record.SchemaVersion)
+	if record.Version != 2 {
+		t.Errorf("Expected Version=2, got %d", record.Version)
 	}
 	if record.Data["message"] != "test" {
 		t.Error("Data should contain message field")

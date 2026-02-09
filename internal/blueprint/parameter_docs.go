@@ -117,14 +117,15 @@ func (g *ParameterDocGenerator) GenerateDocsString(bp *Blueprint) (string, error
 
 // buildParameterDocs converts schema parameters to documentation format.
 func (g *ParameterDocGenerator) buildParameterDocs(schemas map[string]ParameterSchema, required []string, prefix string) []ParameterDoc {
-	var docs []ParameterDoc
+	docs := make([]ParameterDoc, 0, len(schemas))
 
 	requiredSet := make(map[string]bool)
 	for _, r := range required {
 		requiredSet[r] = true
 	}
 
-	for name, schema := range schemas {
+	for name := range schemas {
+		schema := schemas[name]
 		fullName := name
 		if prefix != "" {
 			fullName = prefix + "." + name
@@ -154,8 +155,8 @@ func (g *ParameterDocGenerator) buildParameterDocs(schemas map[string]ParameterS
 		if schema.Type == "object" && schema.Properties != nil {
 			// For nested objects, gather required fields from the properties themselves
 			var nestedRequired []string
-			for propName, propSchema := range schema.Properties {
-				if propSchema.Required {
+			for propName := range schema.Properties {
+				if schema.Properties[propName].Required {
 					nestedRequired = append(nestedRequired, propName)
 				}
 			}
@@ -324,8 +325,8 @@ func (g *ParameterDocGenerator) writePlainText(bp *Blueprint, docs []ParameterDo
 		fmt.Fprintln(w)
 	}
 
-	for _, doc := range docs {
-		g.writeParameterPlainText(doc, w, 0)
+	for i := range docs {
+		g.writeParameterPlainText(docs[i], w, 0)
 	}
 
 	return nil
@@ -378,8 +379,8 @@ func (g *ParameterDocGenerator) writeParameterPlainText(doc ParameterDoc, w io.W
 	fmt.Fprintln(w)
 
 	// Handle nested parameters
-	for _, child := range doc.Children {
-		g.writeParameterPlainText(child, w, indent+1)
+	for i := range doc.Children {
+		g.writeParameterPlainText(doc.Children[i], w, indent+1)
 	}
 }
 
@@ -413,8 +414,8 @@ func (g *ParameterDocGenerator) writeHTML(bp *Blueprint, docs []ParameterDoc, w 
 
 	fmt.Fprintln(w, "  <h2>Parameters</h2>")
 
-	for _, doc := range docs {
-		g.writeParameterHTML(doc, w, false)
+	for i := range docs {
+		g.writeParameterHTML(docs[i], w, false)
 	}
 
 	fmt.Fprintln(w, "</body>")
@@ -480,8 +481,8 @@ func (g *ParameterDocGenerator) writeParameterHTML(doc ParameterDoc, w io.Writer
 	// Handle nested parameters
 	if len(doc.Children) > 0 {
 		fmt.Fprintln(w, "    <h4>Nested Parameters:</h4>")
-		for _, child := range doc.Children {
-			g.writeParameterHTML(child, w, true)
+		for j := range doc.Children {
+			g.writeParameterHTML(doc.Children[j], w, true)
 		}
 	}
 
@@ -500,8 +501,8 @@ func (g *ParameterDocGenerator) writeJSON(bp *Blueprint, docs []ParameterDoc, w 
 
 	fmt.Fprintln(w, "  \"parameters\": [")
 
-	for i, doc := range docs {
-		g.writeParameterJSON(doc, w, 2)
+	for i := range docs {
+		g.writeParameterJSON(docs[i], w, 2)
 		if i < len(docs)-1 {
 			fmt.Fprintln(w, ",")
 		} else {
@@ -578,8 +579,8 @@ func (g *ParameterDocGenerator) writeParameterJSON(doc ParameterDoc, w io.Writer
 	// Handle nested parameters
 	if len(doc.Children) > 0 {
 		fmt.Fprintf(w, "%s  \"children\": [\n", prefix)
-		for i, child := range doc.Children {
-			g.writeParameterJSON(child, w, indent+2)
+		for i := range doc.Children {
+			g.writeParameterJSON(doc.Children[i], w, indent+2)
 			if i < len(doc.Children)-1 {
 				fmt.Fprintln(w, ",")
 			} else {

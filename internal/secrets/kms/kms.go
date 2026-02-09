@@ -12,6 +12,7 @@ import (
 // ProviderType identifies the KMS provider.
 type ProviderType string
 
+// ProviderTypeAWS constants define the supported types.
 const (
 	ProviderTypeAWS        ProviderType = "aws_kms"
 	ProviderTypeAzure      ProviderType = "azure_keyvault"
@@ -40,27 +41,30 @@ func (p ProviderType) Valid() bool {
 // KeyType represents the type of cryptographic key.
 type KeyType string
 
+// KeyTypeSymmetric constants define the supported types.
 const (
-	KeyTypeSymmetric   KeyType = "symmetric"   // AES-256
-	KeyTypeAsymmetric  KeyType = "asymmetric"  // RSA, EC
-	KeyTypeDataKey     KeyType = "data_key"    // Generated data encryption key
+	KeyTypeSymmetric  KeyType = "symmetric"  // AES-256
+	KeyTypeAsymmetric KeyType = "asymmetric" // RSA, EC
+	KeyTypeDataKey    KeyType = "data_key"   // Generated data encryption key
 )
 
 // KeySpec represents the key specification.
 type KeySpec string
 
+// KeySpecAES256 constants define the key types.
 const (
-	KeySpecAES256         KeySpec = "AES_256"
-	KeySpecRSA2048        KeySpec = "RSA_2048"
-	KeySpecRSA4096        KeySpec = "RSA_4096"
-	KeySpecECCNISTP256    KeySpec = "ECC_NIST_P256"
-	KeySpecECCNISTP384    KeySpec = "ECC_NIST_P384"
+	KeySpecAES256           KeySpec = "AES_256"
+	KeySpecRSA2048          KeySpec = "RSA_2048"
+	KeySpecRSA4096          KeySpec = "RSA_4096"
+	KeySpecECCNISTP256      KeySpec = "ECC_NIST_P256"
+	KeySpecECCNISTP384      KeySpec = "ECC_NIST_P384"
 	KeySpecSymmetricDefault KeySpec = "SYMMETRIC_DEFAULT"
 )
 
 // KeyUsage represents how a key can be used.
 type KeyUsage string
 
+// KeyUsageEncryptDecrypt constants define the key types.
 const (
 	KeyUsageEncryptDecrypt KeyUsage = "ENCRYPT_DECRYPT"
 	KeyUsageSignVerify     KeyUsage = "SIGN_VERIFY"

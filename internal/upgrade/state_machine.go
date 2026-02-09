@@ -8,7 +8,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// UpgradeEvent represents events that trigger upgrade state transitions.
+// Event represents events that trigger upgrade state transitions.
 //
 // State diagram:
 //
@@ -37,77 +37,77 @@ import (
 //	Cancelled --> [*]
 //
 // ```
-type UpgradeEvent string
+type Event string
 
 const (
 	// EventStart initiates the upgrade process
-	EventStart UpgradeEvent = "start"
+	EventStart Event = "start"
 	// EventValidate begins validation
-	EventValidate UpgradeEvent = "validate"
+	EventValidate Event = "validate"
 	// EventPrepareOk indicates validation passed
-	EventPrepareOk UpgradeEvent = "prepare_ok"
+	EventPrepareOk Event = "prepare_ok"
 	// EventValidationFailed indicates validation failed
-	EventValidationFailed UpgradeEvent = "validation_failed"
+	EventValidationFailed Event = "validation_failed"
 	// EventBeginUpgrade starts the actual upgrade
-	EventBeginUpgrade UpgradeEvent = "begin_upgrade"
+	EventBeginUpgrade Event = "begin_upgrade"
 	// EventPrepareFailed indicates preparation failed
-	EventPrepareFailed UpgradeEvent = "prepare_failed"
+	EventPrepareFailed Event = "prepare_failed"
 	// EventUpgradeComplete indicates upgrade finished (may have errors)
-	EventUpgradeComplete UpgradeEvent = "upgrade_complete"
+	EventUpgradeComplete Event = "upgrade_complete"
 	// EventUpgradeFailed indicates upgrade failed
-	EventUpgradeFailed UpgradeEvent = "upgrade_failed"
+	EventUpgradeFailed Event = "upgrade_failed"
 	// EventVerificationPassed indicates verification succeeded
-	EventVerificationPassed UpgradeEvent = "verification_passed"
+	EventVerificationPassed Event = "verification_passed"
 	// EventVerificationFailed indicates verification failed
-	EventVerificationFailed UpgradeEvent = "verification_failed"
+	EventVerificationFailed Event = "verification_failed"
 	// EventInitiateRollback starts the rollback process
-	EventInitiateRollback UpgradeEvent = "initiate_rollback"
+	EventInitiateRollback Event = "initiate_rollback"
 	// EventRollbackComplete indicates rollback finished
-	EventRollbackComplete UpgradeEvent = "rollback_complete"
+	EventRollbackComplete Event = "rollback_complete"
 	// EventRollbackFailed indicates rollback failed
-	EventRollbackFailed UpgradeEvent = "rollback_failed"
+	EventRollbackFailed Event = "rollback_failed"
 	// EventCancel cancels the upgrade
-	EventCancel UpgradeEvent = "cancel"
+	EventCancel Event = "cancel"
 )
 
-// UpgradeStateMachine manages the lifecycle of an upgrade operation.
-type UpgradeStateMachine struct {
-	machine  *statemachine.Machine[UpgradePhase, UpgradeEvent]
-	strategy UpgradeStrategy
-	state    *UpgradeState
+// StateMachine manages the lifecycle of an upgrade operation.
+type StateMachine struct {
+	machine  *statemachine.Machine[Phase, Event]
+	strategy Strategy
+	state    *State
 
 	// Callbacks
-	onPhaseChange func(from, to UpgradePhase)
-	onError       func(phase UpgradePhase, err error)
+	onPhaseChange func(from, to Phase)
+	onError       func(phase Phase, err error)
 }
 
-// UpgradeStateMachineConfig configures the upgrade state machine.
-type UpgradeStateMachineConfig struct {
+// StateMachineConfig configures the upgrade state machine.
+type StateMachineConfig struct {
 	// Strategy determines which transitions are valid
-	Strategy UpgradeStrategy
+	Strategy Strategy
 	// InitialState is the starting state (defaults to Idle)
-	InitialState UpgradePhase
+	InitialState Phase
 	// OnPhaseChange is called when the phase changes
-	OnPhaseChange func(from, to UpgradePhase)
+	OnPhaseChange func(from, to Phase)
 	// OnError is called when entering a failed state
-	OnError func(phase UpgradePhase, err error)
+	OnError func(phase Phase, err error)
 	// HistorySize is the number of transitions to track (0 disables)
 	HistorySize int
 }
 
-// DefaultUpgradeStateMachineConfig returns the default configuration.
-func DefaultUpgradeStateMachineConfig() *UpgradeStateMachineConfig {
-	return &UpgradeStateMachineConfig{
+// DefaultStateMachineConfig returns the default configuration.
+func DefaultStateMachineConfig() *StateMachineConfig {
+	return &StateMachineConfig{
 		Strategy:     StrategyRolling,
 		InitialState: PhaseIdle,
 		HistorySize:  50,
 	}
 }
 
-// NewUpgradeStateMachine creates a new upgrade state machine.
-func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMachine {
+// NewStateMachine creates a new upgrade state machine.
+func NewStateMachine(config *StateMachineConfig) *StateMachine {
 	if config == nil {
-		config = DefaultUpgradeStateMachineConfig()
+		config = DefaultStateMachineConfig()
 	}
 
 	// Apply defaults for unset fields
@@ -124,17 +124,17 @@ func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMach
 		historySize = 50
 	}
 
-	usm := &UpgradeStateMachine{
+	usm := &StateMachine{
 		strategy:      strategy,
 		onPhaseChange: config.OnPhaseChange,
 		onError:       config.OnError,
-		state: &UpgradeState{
+		state: &State{
 			Phase:  initialState,
 			Status: StatusPending,
 		},
 	}
 
-	builder := statemachine.New[UpgradePhase, UpgradeEvent](initialState).
+	builder := statemachine.New[Phase, Event](initialState).
 		WithName(fmt.Sprintf("upgrade-%s", strategy))
 
 	if historySize > 0 {
@@ -171,7 +171,7 @@ func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMach
 	// Add callbacks - capture usm.onPhaseChange in closure since usm is already set
 	onPhaseChange := usm.onPhaseChange
 	if onPhaseChange != nil {
-		builder.OnTransition(func(ctx context.Context, from, to UpgradePhase, event UpgradeEvent) {
+		builder.OnTransition(func(ctx context.Context, from, to Phase, event Event) {
 			onPhaseChange(from, to)
 		})
 	}
@@ -179,7 +179,7 @@ func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMach
 	// Track state entry for error handling
 	onError := usm.onError
 	builder.
-		OnEnter(PhaseFailed, func(ctx context.Context, phase, from UpgradePhase) {
+		OnEnter(PhaseFailed, func(ctx context.Context, phase, from Phase) {
 			usm.state.Status = StatusFailed
 			if onError != nil {
 				// Extract error from context if available
@@ -188,22 +188,22 @@ func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMach
 				}
 			}
 		}).
-		OnEnter(PhaseCompleted, func(ctx context.Context, phase, from UpgradePhase) {
+		OnEnter(PhaseCompleted, func(ctx context.Context, phase, from Phase) {
 			usm.state.Status = StatusCompleted
 			now := time.Now()
 			usm.state.EndTime = &now
 		}).
-		OnEnter(PhaseRolledBack, func(ctx context.Context, phase, from UpgradePhase) {
+		OnEnter(PhaseRolledBack, func(ctx context.Context, phase, from Phase) {
 			usm.state.Status = StatusRolledBack
 			now := time.Now()
 			usm.state.EndTime = &now
 		}).
-		OnEnter(PhaseCancelled, func(ctx context.Context, phase, from UpgradePhase) {
+		OnEnter(PhaseCancelled, func(ctx context.Context, phase, from Phase) {
 			usm.state.Status = StatusCancelled
 			now := time.Now()
 			usm.state.EndTime = &now
 		}).
-		OnEnter(PhaseUpgrading, func(ctx context.Context, phase, from UpgradePhase) {
+		OnEnter(PhaseUpgrading, func(ctx context.Context, phase, from Phase) {
 			usm.state.Status = StatusInProgress
 		})
 
@@ -215,18 +215,18 @@ func NewUpgradeStateMachine(config *UpgradeStateMachineConfig) *UpgradeStateMach
 type contextKeyError struct{}
 
 // Phase returns the current upgrade phase.
-func (usm *UpgradeStateMachine) Phase() UpgradePhase {
+func (usm *StateMachine) Phase() Phase {
 	return usm.machine.State()
 }
 
 // Status returns the derived status from the current phase.
-func (usm *UpgradeStateMachine) Status() UpgradeStatus {
+func (usm *StateMachine) Status() Status {
 	phase := usm.machine.State()
 	return PhaseToStatus(phase)
 }
 
 // PhaseToStatus maps a phase to its corresponding status.
-func PhaseToStatus(phase UpgradePhase) UpgradeStatus {
+func PhaseToStatus(phase Phase) Status {
 	switch phase {
 	case PhaseIdle, PhasePending:
 		return StatusPending
@@ -248,12 +248,12 @@ func PhaseToStatus(phase UpgradePhase) UpgradeStatus {
 }
 
 // Fire triggers a state transition.
-func (usm *UpgradeStateMachine) Fire(event UpgradeEvent) error {
+func (usm *StateMachine) Fire(event Event) error {
 	return usm.FireCtx(context.Background(), event)
 }
 
 // FireCtx triggers a state transition with context.
-func (usm *UpgradeStateMachine) FireCtx(ctx context.Context, event UpgradeEvent) error {
+func (usm *StateMachine) FireCtx(ctx context.Context, event Event) error {
 	err := usm.machine.FireCtx(ctx, event)
 	if err == nil {
 		usm.state.Phase = usm.machine.State()
@@ -263,53 +263,53 @@ func (usm *UpgradeStateMachine) FireCtx(ctx context.Context, event UpgradeEvent)
 }
 
 // FireWithError triggers a transition to a failed state with error context.
-func (usm *UpgradeStateMachine) FireWithError(event UpgradeEvent, err error) error {
+func (usm *StateMachine) FireWithError(event Event, err error) error {
 	ctx := context.WithValue(context.Background(), contextKeyError{}, err)
 	return usm.machine.FireCtx(ctx, event)
 }
 
 // CanFire returns true if the event can trigger a transition.
-func (usm *UpgradeStateMachine) CanFire(event UpgradeEvent) bool {
+func (usm *StateMachine) CanFire(event Event) bool {
 	return usm.machine.CanFire(event)
 }
 
 // AvailableEvents returns events that can be fired from the current phase.
-func (usm *UpgradeStateMachine) AvailableEvents() []UpgradeEvent {
+func (usm *StateMachine) AvailableEvents() []Event {
 	return usm.machine.AvailableEvents()
 }
 
 // State returns the internal upgrade state.
-func (usm *UpgradeStateMachine) State() *UpgradeState {
+func (usm *StateMachine) State() *State {
 	return usm.state
 }
 
 // History returns the transition history.
-func (usm *UpgradeStateMachine) History() *statemachine.History[UpgradePhase, UpgradeEvent] {
+func (usm *StateMachine) History() *statemachine.History[Phase, Event] {
 	return usm.machine.History()
 }
 
 // IsTerminal returns true if the upgrade is in a terminal state.
-func (usm *UpgradeStateMachine) IsTerminal() bool {
+func (usm *StateMachine) IsTerminal() bool {
 	return usm.machine.IsInAnyState(PhaseCompleted, PhaseFailed, PhaseRolledBack, PhaseCancelled)
 }
 
 // IsActive returns true if the upgrade is actively processing.
-func (usm *UpgradeStateMachine) IsActive() bool {
+func (usm *StateMachine) IsActive() bool {
 	return usm.machine.IsInAnyState(PhaseValidating, PhasePreparing, PhaseUpgrading, PhaseVerifying, PhaseRollingBack)
 }
 
 // CanRollback returns true if rollback can be initiated.
-func (usm *UpgradeStateMachine) CanRollback() bool {
+func (usm *StateMachine) CanRollback() bool {
 	return usm.machine.CanFire(EventInitiateRollback)
 }
 
 // CanCancel returns true if the upgrade can be cancelled.
-func (usm *UpgradeStateMachine) CanCancel() bool {
+func (usm *StateMachine) CanCancel() bool {
 	return usm.machine.CanFire(EventCancel)
 }
 
 // Progress returns the estimated progress percentage (0-100).
-func (usm *UpgradeStateMachine) Progress() int {
+func (usm *StateMachine) Progress() int {
 	phase := usm.machine.State()
 	switch phase {
 	case PhaseIdle:
@@ -340,7 +340,7 @@ func (usm *UpgradeStateMachine) Progress() int {
 }
 
 // PhaseDisplayName returns a human-readable name for a phase.
-func PhaseDisplayName(phase UpgradePhase) string {
+func PhaseDisplayName(phase Phase) string {
 	switch phase {
 	case PhaseIdle:
 		return "Idle"
@@ -370,4 +370,4 @@ func PhaseDisplayName(phase UpgradePhase) string {
 }
 
 // PhaseCancelled is the cancelled phase constant.
-const PhaseCancelled UpgradePhase = "cancelled"
+const PhaseCancelled Phase = "cancelled"

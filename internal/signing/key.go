@@ -102,13 +102,13 @@ func LoadPrivateKey(pemData []byte, password string) (crypto.PrivateKey, KeyType
 	var keyBytes []byte
 	var err error
 
-	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
+	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck // deprecated but needed for backward compatibility with encrypted PEM files
 		if password == "" {
 			return nil, "", ErrKeyEncrypted
 		}
-		keyBytes, err = x509.DecryptPEMBlock(block, []byte(password)) //nolint:staticcheck
+		keyBytes, err = x509.DecryptPEMBlock(block, []byte(password)) //nolint:staticcheck // deprecated but needed for backward compatibility with encrypted PEM files
 		if err != nil {
-			return nil, "", fmt.Errorf("%w: failed to decrypt key: %v", ErrInvalidKey, err)
+			return nil, "", fmt.Errorf("%w: failed to decrypt key: %w", ErrInvalidKey, err)
 		}
 	} else {
 		keyBytes = block.Bytes
@@ -119,14 +119,14 @@ func LoadPrivateKey(pemData []byte, password string) (crypto.PrivateKey, KeyType
 	case "EC PRIVATE KEY":
 		key, err := x509.ParseECPrivateKey(keyBytes)
 		if err != nil {
-			return nil, "", fmt.Errorf("%w: %v", ErrInvalidKey, err)
+			return nil, "", fmt.Errorf("%w: %w", ErrInvalidKey, err)
 		}
 		return key, KeyTypeECDSA, nil
 
 	case "RSA PRIVATE KEY":
 		key, err := x509.ParsePKCS1PrivateKey(keyBytes)
 		if err != nil {
-			return nil, "", fmt.Errorf("%w: %v", ErrInvalidKey, err)
+			return nil, "", fmt.Errorf("%w: %w", ErrInvalidKey, err)
 		}
 		return key, KeyTypeRSA, nil
 
@@ -150,7 +150,7 @@ func LoadPrivateKey(pemData []byte, password string) (crypto.PrivateKey, KeyType
 func parsePKCS8PrivateKey(keyBytes []byte) (crypto.PrivateKey, KeyType, error) {
 	key, err := x509.ParsePKCS8PrivateKey(keyBytes)
 	if err != nil {
-		return nil, "", fmt.Errorf("%w: %v", ErrInvalidKey, err)
+		return nil, "", fmt.Errorf("%w: %w", ErrInvalidKey, err)
 	}
 
 	switch k := key.(type) {
@@ -242,8 +242,7 @@ func EncryptPrivateKey(privateKeyPEM []byte, password string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: failed to decode PEM block", ErrInvalidKey)
 	}
 
-	//nolint:staticcheck
-	encBlock, err := x509.EncryptPEMBlock(rand.Reader, block.Type, block.Bytes, []byte(password), x509.PEMCipherAES256)
+	encBlock, err := x509.EncryptPEMBlock(rand.Reader, block.Type, block.Bytes, []byte(password), x509.PEMCipherAES256) //nolint:staticcheck // deprecated but needed for backward compatibility with encrypted PEM files
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt private key: %w", err)
 	}
@@ -269,7 +268,7 @@ func KeyFingerprint(publicKeyPEM []byte) string {
 
 // formatFingerprint formats bytes as a colon-separated hex string.
 func formatFingerprint(data []byte) string {
-	var parts []string
+	parts := make([]string, 0, 8)
 	for _, b := range data[:8] { // Use first 8 bytes for short fingerprint
 		parts = append(parts, fmt.Sprintf("%02x", b))
 	}

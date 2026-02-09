@@ -112,9 +112,10 @@ func (h *LoopHandler) Execute(ctx context.Context, step *runbook.Step, varCtx Va
 
 	// Get maxParallel
 	maxParallel := 0
-	if v, ok := step.Config["maxParallel"].(int); ok {
+	switch v := step.Config["maxParallel"].(type) {
+	case int:
 		maxParallel = v
-	} else if v, ok := step.Config["maxParallel"].(float64); ok {
+	case float64:
 		maxParallel = int(v)
 	}
 
@@ -247,10 +248,10 @@ func (h *LoopHandler) Execute(ctx context.Context, step *runbook.Step, varCtx Va
 
 // LoopIterationResult holds the result of a single loop iteration.
 type LoopIterationResult struct {
-	Index   int         `json:"index"`
-	Item    interface{} `json:"item"`
-	Success bool        `json:"success"`
-	Error   error       `json:"error,omitempty"`
+	Index   int                    `json:"index"`
+	Item    interface{}            `json:"item"`
+	Success bool                   `json:"success"`
+	Error   error                  `json:"error,omitempty"`
 	Outputs map[string]interface{} `json:"outputs,omitempty"`
 }
 

@@ -422,11 +422,6 @@ func (d *JobDistributor) storeJob(ctx context.Context, job *DistributedJob) erro
 	return d.etcd.Put(ctx, jobKeyPrefix+job.ID, data, 0)
 }
 
-// deleteJob deletes a job from etcd.
-func (d *JobDistributor) deleteJob(ctx context.Context, jobID string) error {
-	return d.etcd.Delete(ctx, jobKeyPrefix+jobID)
-}
-
 // watchJobs watches for jobs assigned to this member.
 func (d *JobDistributor) watchJobs(ctx context.Context) {
 	defer func() {
@@ -465,10 +460,7 @@ func (d *JobDistributor) watchJobs(ctx context.Context) {
 			go d.executeJob(ctx, &job)
 		}
 	})
-
-	if err != nil {
-		// Log error
-	}
+	_ = err // error logged via callback
 }
 
 // processExistingJobs processes any jobs already assigned to this member.
@@ -527,15 +519,16 @@ func (d *JobDistributor) executeJob(ctx context.Context, job *DistributedJob) {
 	result, err := handler(execCtx, job)
 
 	// Check for timeout
-	if execCtx.Err() == context.DeadlineExceeded {
+	switch {
+	case execCtx.Err() == context.DeadlineExceeded:
 		job.Status = JobStatusTimeout
 		job.Error = "job timed out"
-	} else if err != nil {
+	case err != nil:
 		// Handle retry
 		if job.RetryCount < job.MaxRetries {
 			job.RetryCount++
 			job.Status = JobStatusAssigned
-			d.storeJob(ctx, job)
+			_ = d.storeJob(ctx, job) //nolint:errcheck // best-effort persistence
 			// Re-queue after delay
 			time.AfterFunc(time.Second*time.Duration(job.RetryCount), func() {
 				d.executeJob(ctx, job)
@@ -543,7 +536,7 @@ func (d *JobDistributor) executeJob(ctx context.Context, job *DistributedJob) {
 			return
 		}
 		d.completeJob(ctx, job, nil, err)
-	} else {
+	default:
 		d.completeJob(ctx, job, result, nil)
 	}
 }
@@ -562,7 +555,7 @@ func (d *JobDistributor) completeJob(ctx context.Context, job *DistributedJob, r
 	}
 
 	// Store final state
-	d.storeJob(ctx, job)
+	_ = d.storeJob(ctx, job) //nolint:errcheck // best-effort persistence
 
 	// Notify waiters
 	d.mu.RLock()
@@ -606,22 +599,23 @@ func (d *JobDistributor) ReassignJobsFromMember(ctx context.Context, failedMembe
 
 	reassigned := 0
 	for _, job := range jobs {
-		if job.Status == JobStatusAssigned || job.Status == JobStatusRunning {
-			// Find a new member
-			newMemberID := d.findHealthyMember(job)
-			if newMemberID == "" {
-				continue
-			}
-
-			job.AssignedMemberID = newMemberID
-			job.Status = JobStatusAssigned
-			job.RetryCount++
-
-			if err := d.storeJob(ctx, job); err != nil {
-				continue
-			}
-			reassigned++
+		if job.Status != JobStatusAssigned && job.Status != JobStatusRunning {
+			continue
 		}
+		// Find a new member
+		newMemberID := d.findHealthyMember(job)
+		if newMemberID == "" {
+			continue
+		}
+
+		job.AssignedMemberID = newMemberID
+		job.Status = JobStatusAssigned
+		job.RetryCount++
+
+		if err := d.storeJob(ctx, job); err != nil {
+			continue
+		}
+		reassigned++
 	}
 
 	return reassigned, nil

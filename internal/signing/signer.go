@@ -57,11 +57,12 @@ func NewKeySigner(config *KeySignerConfig) (*KeySigner, error) {
 	var keyType KeyType
 	var err error
 
-	if len(config.PrivateKeyPEM) > 0 {
+	switch {
+	case len(config.PrivateKeyPEM) > 0:
 		privateKey, keyType, err = LoadPrivateKey(config.PrivateKeyPEM, config.Password)
-	} else if config.PrivateKeyPath != "" {
+	case config.PrivateKeyPath != "":
 		privateKey, keyType, err = LoadPrivateKeyFromFile(config.PrivateKeyPath, config.Password)
-	} else {
+	default:
 		return nil, fmt.Errorf("private key is required (provide PrivateKeyPEM or PrivateKeyPath)")
 	}
 
@@ -95,10 +96,10 @@ func (s *KeySigner) Sign(ctx context.Context, data []byte) (*SignatureResult, er
 	// Calculate hash
 	hasher := s.newHasher()
 	hasher.Write(data)
-	hash := hasher.Sum(nil)
+	digest := hasher.Sum(nil)
 
 	// Create signature
-	signature, err := s.signHash(hash)
+	signature, err := s.signHash(digest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign: %w", err)
 	}
@@ -112,7 +113,7 @@ func (s *KeySigner) Sign(ctx context.Context, data []byte) (*SignatureResult, er
 	result := &SignatureResult{
 		Signature:       signature,
 		SignatureBase64: base64.StdEncoding.EncodeToString(signature),
-		Digest:          fmt.Sprintf("%s:%s", s.config.HashAlgorithm, base64.StdEncoding.EncodeToString(hash)),
+		Digest:          fmt.Sprintf("%s:%s", s.config.HashAlgorithm, base64.StdEncoding.EncodeToString(digest)),
 		DigestAlgorithm: s.config.HashAlgorithm,
 		Timestamp:       time.Now().UTC(),
 		SignerIdentity:  KeyFingerprint(pubKeyPEM),
@@ -121,7 +122,7 @@ func (s *KeySigner) Sign(ctx context.Context, data []byte) (*SignatureResult, er
 
 	// Create bundle if requested
 	if s.config.Format == FormatBundle {
-		result.Bundle = s.createBundle(data, hash, signature)
+		result.Bundle = s.createBundle(data, digest, signature)
 	}
 
 	return result, nil
@@ -171,17 +172,17 @@ func (s *KeySigner) cryptoHash() crypto.Hash {
 }
 
 // signHash signs a hash using the private key.
-func (s *KeySigner) signHash(hash []byte) ([]byte, error) {
+func (s *KeySigner) signHash(digest []byte) ([]byte, error) {
 	switch key := s.privateKey.(type) {
 	case *ecdsa.PrivateKey:
-		return ecdsa.SignASN1(rand.Reader, key, hash)
+		return ecdsa.SignASN1(rand.Reader, key, digest)
 
 	case *rsa.PrivateKey:
-		return rsa.SignPKCS1v15(rand.Reader, key, s.cryptoHash(), hash)
+		return rsa.SignPKCS1v15(rand.Reader, key, s.cryptoHash(), digest)
 
 	case ed25519.PrivateKey:
 		// Ed25519 signs the message directly, but we sign the hash for consistency
-		return ed25519.Sign(key, hash), nil
+		return ed25519.Sign(key, digest), nil
 
 	default:
 		return nil, fmt.Errorf("%w: %T", ErrUnsupportedKeyType, key)
@@ -189,12 +190,12 @@ func (s *KeySigner) signHash(hash []byte) ([]byte, error) {
 }
 
 // createBundle creates a signature bundle.
-func (s *KeySigner) createBundle(data, hash, signature []byte) *SignatureBundle {
+func (s *KeySigner) createBundle(data, digest, signature []byte) *SignatureBundle {
 	payload := map[string]interface{}{
 		"critical": map[string]interface{}{
 			"type": "generic signature",
 			"digest": map[string]string{
-				string(s.config.HashAlgorithm): fmt.Sprintf("%x", hash),
+				string(s.config.HashAlgorithm): fmt.Sprintf("%x", digest),
 			},
 		},
 		"optional": s.config.Annotations,
@@ -240,7 +241,8 @@ func (w *SignatureWriter) SignToFile(ctx context.Context, data []byte, signature
 		return err
 	}
 
-	return os.WriteFile(signaturePath, []byte(result.SignatureBase64), 0644)
+	//nolint:gosec // G306: signature files need to be readable for verification
+	return os.WriteFile(signaturePath, []byte(result.SignatureBase64), 0o644)
 }
 
 // SignFileToFile signs a file and writes the signature to another file.
@@ -250,7 +252,8 @@ func (w *SignatureWriter) SignFileToFile(ctx context.Context, dataPath, signatur
 		return err
 	}
 
-	return os.WriteFile(signaturePath, []byte(result.SignatureBase64), 0644)
+	//nolint:gosec // G306: signature files need to be readable for verification
+	return os.WriteFile(signaturePath, []byte(result.SignatureBase64), 0o644)
 }
 
 // SignFileToBundleFile signs a file and writes a signature bundle.
@@ -278,5 +281,6 @@ func (w *SignatureWriter) SignFileToBundleFile(ctx context.Context, dataPath, bu
 		return fmt.Errorf("failed to marshal bundle: %w", err)
 	}
 
-	return os.WriteFile(bundlePath, bundleBytes, 0644)
+	//nolint:gosec // G306: signature bundle files need to be readable for verification
+	return os.WriteFile(bundlePath, bundleBytes, 0o644)
 }

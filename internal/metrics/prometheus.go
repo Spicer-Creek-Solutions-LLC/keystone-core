@@ -12,12 +12,12 @@ import (
 
 // PrometheusCollector implements the Collector interface using Prometheus
 type PrometheusCollector struct {
-	registry *prometheus.Registry
-	counters map[string]*prometheus.CounterVec
-	gauges   map[string]*prometheus.GaugeVec
+	registry   *prometheus.Registry
+	counters   map[string]*prometheus.CounterVec
+	gauges     map[string]*prometheus.GaugeVec
 	histograms map[string]*prometheus.HistogramVec
-	summaries map[string]*prometheus.SummaryVec
-	mu       sync.RWMutex
+	summaries  map[string]*prometheus.SummaryVec
+	mu         sync.RWMutex
 }
 
 // NewPrometheusCollector creates a new Prometheus collector

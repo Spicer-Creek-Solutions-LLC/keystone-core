@@ -205,10 +205,10 @@ func TestWebSocketConfig_GetListenAddress(t *testing.T) {
 
 func TestWebSocketTLSConfig_ToTLSConfig(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    WebSocketTLSConfig
-		wantErr   bool
-		setupEnv  bool // Set KSCORE_ALLOW_INSECURE_TLS=1 for this test
+		name     string
+		config   WebSocketTLSConfig
+		wantErr  bool
+		setupEnv bool // Set KSCORE_ALLOW_INSECURE_TLS=1 for this test
 	}{
 		{
 			name:    "empty config is valid",
@@ -289,8 +289,8 @@ func TestWebSocketProxyConfig_ShouldBypass(t *testing.T) {
 	}{
 		{"localhost", true},
 		{"127.0.0.1", true},
-		{"api.internal.example.com", true},  // Matches *.internal.example.com
-		{"internal.example.com", false},     // Doesn't match *.internal.example.com (no subdomain)
+		{"api.internal.example.com", true}, // Matches *.internal.example.com
+		{"internal.example.com", false},    // Doesn't match *.internal.example.com (no subdomain)
 		{"external.example.com", false},
 		{"proxy.example.com", false},
 	}

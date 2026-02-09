@@ -501,10 +501,10 @@ Components exposed within the trusted network.
 
 | Path | Purpose | Permissions | Risks |
 |------|---------|-------------|-------|
-| `/etc/kscore/` | Configuration | 600 (root:kscore) | Credential exposure |
-| `/var/lib/kscore/` | State data | 700 (kscore:kscore) | Data tampering |
-| `/var/log/kscore/` | Log files | 640 (kscore:adm) | Information disclosure |
-| `/etc/kscore/certs/` | TLS certificates | 400 (kscore:kscore) | Key compromise |
+| `/etc/keystone-core/` | Configuration | 600 (root:kscore) | Credential exposure |
+| `/var/lib/keystone-core/` | State data | 700 (kscore:kscore) | Data tampering |
+| `/var/log/keystone-core/` | Log files | 640 (kscore:adm) | Information disclosure |
+| `/etc/keystone-core/certs/` | TLS certificates | 400 (kscore:kscore) | Key compromise |
 
 ### Agent Attack Surface
 

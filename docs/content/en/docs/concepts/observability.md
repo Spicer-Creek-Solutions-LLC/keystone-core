@@ -571,7 +571,7 @@ logging:
   level: info              # debug, info, warn, error
   format: json             # json, logfmt, text
   output: stdout           # stdout, file
-  file: /var/log/kscore/server.log
+  file: /var/log/keystone-core/server.log
   max_size: 100MB
   max_backups: 3
   max_age: 30              # days
@@ -695,9 +695,9 @@ logging:
 
     # TLS for tcp+tls transport
     tls:
-      cert_file: /etc/kscore/certs/client.crt
-      key_file: /etc/kscore/certs/client.key
-      ca_file: /etc/kscore/certs/ca.crt
+      cert_file: /etc/keystone-core/certs/client.crt
+      key_file: /etc/keystone-core/certs/client.key
+      ca_file: /etc/keystone-core/certs/ca.crt
 ```
 
 **RFC 5424 Format**:
@@ -713,7 +713,7 @@ logging:
 **rsyslog Configuration**:
 ```
 # /etc/rsyslog.d/kscore.conf
-local0.* /var/log/kscore.log
+local0.* /var/log/keystone-core.log
 ```
 
 ### SIEM Field Mapping
@@ -820,7 +820,7 @@ Map Keystone fields to ECS for Elastic SIEM and Kibana:
   log:
     enabled: true
     var.paths:
-      - /var/log/kscore/*.log
+      - /var/log/keystone-core/*.log
     var.format: json
 ```
 
@@ -854,7 +854,7 @@ Map Keystone fields to ECS for Elastic SIEM and Kibana:
 # /etc/logstash/conf.d/kscore.conf
 input {
   file {
-    path => "/var/log/kscore/*.log"
+    path => "/var/log/keystone-core/*.log"
     codec => json
     tags => ["kscore"]
   }
@@ -1083,7 +1083,7 @@ Keystone_CL
   "logs": [
     {
       "streams": ["Custom-Keystone_CL"],
-      "filePaths": ["/var/log/kscore/*.log"],
+      "filePaths": ["/var/log/keystone-core/*.log"],
       "format": "json",
       "settings": {
         "text": {
@@ -1146,7 +1146,7 @@ Quick reference for field normalization across all SIEM formats:
 **Splunk Add-on**:
 ```
 # inputs.conf
-[monitor:///var/log/kscore]
+[monitor:///var/log/keystone-core]
 sourcetype = kscore:json
 index = main
 
@@ -1194,7 +1194,7 @@ WRITE_META = true
 ```
 <source>
   @type tail
-  path /var/log/kscore/*.log
+  path /var/log/keystone-core/*.log
   pos_file /var/log/td-agent/kscore.pos
   tag kscore.logs
   <parse>
@@ -1222,7 +1222,7 @@ WRITE_META = true
 ```toml
 [sources.kscore_logs]
 type = "file"
-include = ["/var/log/kscore/*.log"]
+include = ["/var/log/keystone-core/*.log"]
 
 [transforms.kscore_parse]
 type = "remap"
@@ -1930,7 +1930,7 @@ audit:
 
   # File backend
   file:
-    path: /var/log/kscore/audit.log
+    path: /var/log/keystone-core/audit.log
     max_size: 100MB
     max_backups: 10
 

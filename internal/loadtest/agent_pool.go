@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // SimulatedAgent represents a simulated agent for load testing.
@@ -158,7 +158,7 @@ func (a *SimulatedAgent) register() error {
 	msg, err := a.nats.PublishRequest(subject, data, 10*time.Second)
 	if err != nil {
 		// In load tests without a control plane, just consider registered
-		return nil
+		return nil //nolint:nilerr // intentional: load test doesn't require control plane
 	}
 
 	// Parse response if available
@@ -350,7 +350,7 @@ func (p *AgentPool) StartAll(ctx context.Context) error {
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("%d agents failed to start: %v", len(errors), errors[0])
+		return fmt.Errorf("%d agents failed to start: %w", len(errors), errors[0])
 	}
 
 	return nil

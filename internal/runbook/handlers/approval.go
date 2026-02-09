@@ -84,13 +84,13 @@ func (h *ApprovalHandler) Validate(step *runbook.Step) error {
 
 	// Validate mode if specified
 	if mode, ok := step.Config["mode"].(string); ok {
-		m := approval.ApprovalMode(mode)
+		m := approval.Mode(mode)
 		if !m.IsValid() {
 			return fmt.Errorf("invalid approval mode: %s (valid: any, all, count)", mode)
 		}
 
 		// Require requiredCount for count mode
-		if m == approval.ApprovalModeCount {
+		if m == approval.ModeCount {
 			if _, ok := step.Config["requiredCount"]; !ok {
 				return fmt.Errorf("requiredCount is required when mode is 'count'")
 			}
@@ -180,9 +180,9 @@ func (h *ApprovalHandler) Execute(ctx context.Context, step *runbook.Step, varCt
 		if ctx.Err() != nil {
 			// Try to cancel the pending request using a background context
 			// since the original context is already cancelled
-			cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //nolint:contextcheck // intentional: original ctx is cancelled, need new context for cleanup
 			defer cancel()
-			_, cancelErr := h.manager.Cancel(cancelCtx, requestID, "execution cancelled")
+			_, cancelErr := h.manager.Cancel(cancelCtx, requestID, "execution cancelled") //nolint:contextcheck // intentional: using cleanup context
 			if cancelErr != nil {
 				_ = cancelErr
 			}
@@ -254,13 +254,14 @@ func (h *ApprovalHandler) buildConfig(config map[string]interface{}, varCtx Vari
 
 	// Mode (optional, default: any)
 	if mode, ok := config["mode"].(string); ok {
-		ac.Mode = approval.ApprovalMode(mode)
+		ac.Mode = approval.Mode(mode)
 	}
 
 	// RequiredCount (optional)
-	if count, ok := config["requiredCount"].(int); ok {
+	switch count := config["requiredCount"].(type) {
+	case int:
 		ac.RequiredCount = count
-	} else if count, ok := config["requiredCount"].(float64); ok {
+	case float64:
 		ac.RequiredCount = int(count)
 	}
 
@@ -315,9 +316,9 @@ func (h *ApprovalHandler) buildResult(req *approval.Request, startTime time.Time
 		responses := make([]map[string]interface{}, len(req.Responses))
 		for i, r := range req.Responses {
 			responses[i] = map[string]interface{}{
-				"approver":    r.Approver,
-				"decision":    string(r.Decision),
-				"comment":     r.Comment,
+				"approver":     r.Approver,
+				"decision":     string(r.Decision),
+				"comment":      r.Comment,
 				"responded_at": r.RespondedAt.Format(time.RFC3339),
 			}
 		}

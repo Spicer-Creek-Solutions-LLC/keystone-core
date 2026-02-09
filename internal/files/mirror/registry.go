@@ -8,24 +8,24 @@ import (
 
 // Registry manages multiple mirror groups.
 type Registry struct {
-	groups   map[string]*MirrorGroup
-	byPath   map[string]*MirrorGroup // Path prefix -> group
-	byNS     map[string]*MirrorGroup // Namespace -> group
-	defaultG *MirrorGroup
+	groups   map[string]*Group
+	byPath   map[string]*Group // Path prefix -> group
+	byNS     map[string]*Group // Namespace -> group
+	defaultG *Group
 	mu       sync.RWMutex
 }
 
 // NewRegistry creates a new mirror registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		groups: make(map[string]*MirrorGroup),
-		byPath: make(map[string]*MirrorGroup),
-		byNS:   make(map[string]*MirrorGroup),
+		groups: make(map[string]*Group),
+		byPath: make(map[string]*Group),
+		byNS:   make(map[string]*Group),
 	}
 }
 
 // Register adds a mirror group to the registry.
-func (r *Registry) Register(group *MirrorGroup) error {
+func (r *Registry) Register(group *Group) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (r *Registry) Unregister(groupID string) error {
 }
 
 // Get returns a mirror group by ID.
-func (r *Registry) Get(groupID string) (*MirrorGroup, bool) {
+func (r *Registry) Get(groupID string) (*Group, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	g, ok := r.groups[groupID]
@@ -100,12 +100,12 @@ func (r *Registry) Get(groupID string) (*MirrorGroup, bool) {
 }
 
 // GetForPath returns the mirror group handling a specific path.
-func (r *Registry) GetForPath(path string) *MirrorGroup {
+func (r *Registry) GetForPath(path string) *Group {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	// Find longest matching prefix
-	var best *MirrorGroup
+	var best *Group
 	var bestLen int
 
 	for prefix, group := range r.byPath {
@@ -125,7 +125,7 @@ func (r *Registry) GetForPath(path string) *MirrorGroup {
 }
 
 // GetForNamespace returns the mirror group handling a specific namespace.
-func (r *Registry) GetForNamespace(namespace string) *MirrorGroup {
+func (r *Registry) GetForNamespace(namespace string) *Group {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -143,7 +143,7 @@ func (r *Registry) GetForNamespace(namespace string) *MirrorGroup {
 }
 
 // GetForRequest returns the best mirror group for a file request.
-func (r *Registry) GetForRequest(path, namespace string) *MirrorGroup {
+func (r *Registry) GetForRequest(path, namespace string) *Group {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -153,7 +153,7 @@ func (r *Registry) GetForRequest(path, namespace string) *MirrorGroup {
 	}
 
 	// Try path-specific group
-	var best *MirrorGroup
+	var best *Group
 	var bestLen int
 	for prefix, group := range r.byPath {
 		if len(path) >= len(prefix) && path[:len(prefix)] == prefix {
@@ -171,11 +171,11 @@ func (r *Registry) GetForRequest(path, namespace string) *MirrorGroup {
 }
 
 // List returns all registered mirror groups.
-func (r *Registry) List() []*MirrorGroup {
+func (r *Registry) List() []*Group {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	groups := make([]*MirrorGroup, 0, len(r.groups))
+	groups := make([]*Group, 0, len(r.groups))
 	for _, g := range r.groups {
 		groups = append(groups, g)
 	}
@@ -183,7 +183,7 @@ func (r *Registry) List() []*MirrorGroup {
 }
 
 // GetDefault returns the default mirror group.
-func (r *Registry) GetDefault() *MirrorGroup {
+func (r *Registry) GetDefault() *Group {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.defaultG
@@ -204,13 +204,13 @@ func (r *Registry) SetDefault(groupID string) error {
 }
 
 // GetAllHealth returns health status for all mirrors in all groups.
-func (r *Registry) GetAllHealth() map[string]map[string]*MirrorHealth {
+func (r *Registry) GetAllHealth() map[string]map[string]*Health {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := make(map[string]map[string]*MirrorHealth)
+	result := make(map[string]map[string]*Health)
 	for groupID, group := range r.groups {
-		groupHealth := make(map[string]*MirrorHealth)
+		groupHealth := make(map[string]*Health)
 		for mirrorID := range group.mirrors {
 			if h, ok := group.health[mirrorID]; ok {
 				groupHealth[mirrorID] = h
@@ -222,13 +222,13 @@ func (r *Registry) GetAllHealth() map[string]map[string]*MirrorHealth {
 }
 
 // GetAllStats returns statistics for all mirrors in all groups.
-func (r *Registry) GetAllStats() map[string]map[string]*MirrorStats {
+func (r *Registry) GetAllStats() map[string]map[string]*Stats {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := make(map[string]map[string]*MirrorStats)
+	result := make(map[string]map[string]*Stats)
 	for groupID, group := range r.groups {
-		groupStats := make(map[string]*MirrorStats)
+		groupStats := make(map[string]*Stats)
 		for mirrorID := range group.mirrors {
 			if s, ok := group.stats[mirrorID]; ok {
 				groupStats[mirrorID] = s

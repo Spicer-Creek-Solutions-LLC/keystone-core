@@ -97,7 +97,7 @@ msiexec /i kscore-agent.msi /qn /l*v install.log SERVERURL=nats://server:4222
 
 4. Install as Windows service:
    ```powershell
-   & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" install
+   & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" service-install
    ```
 
 5. Start the service:
@@ -373,7 +373,7 @@ msiexec /x {product-code-guid} /qn
 ```powershell
 # Stop and remove service
 Stop-Service KeystoneCoreAgent -ErrorAction SilentlyContinue
-& "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" uninstall
+& "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" service-uninstall
 
 # Remove files
 Remove-Item -Recurse -Force "C:\Program Files\KeystoneCore"
@@ -405,9 +405,9 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
    Test-NetConnection -ComputerName control-plane.example.com -Port 4222
    ```
 
-4. **Run in console mode for debugging**:
+4. **Run in foreground for debugging** (instead of as a service):
    ```powershell
-   & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" --console --config "C:\ProgramData\kscore\agent.yaml"
+   & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" --config "C:\ProgramData\kscore\agent.yaml"
    ```
 
 ### Connection Issues
@@ -456,7 +456,7 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
 
 ## Enterprise Deployment
 
-See the [Windows MSI README](/deploy/windows/README.md) for:
+See the [Windows setup guide](/docs/operations/windows/) for:
 
 - Group Policy deployment
 - SCCM deployment

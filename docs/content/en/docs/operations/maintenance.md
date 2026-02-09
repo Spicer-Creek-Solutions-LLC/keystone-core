@@ -29,8 +29,8 @@ Keystone Core state should be backed up regularly to prevent data loss.
    - Job execution history
 
 2. **Configuration Files**
-   - `/etc/kscore/server.yaml`
-   - `/etc/kscore/agent.yaml`
+   - `/etc/keystone-core/server.yaml`
+   - `/etc/keystone-core/agent.yaml`
    - Reactor definitions
    - Policy files
 
@@ -68,7 +68,7 @@ Keystone Core state should be backed up regularly to prevent data loss.
 # /usr/local/bin/backup-sqlite.sh
 
 BACKUP_DIR="/var/backups/kscore"
-DB_PATH="/var/lib/kscore/state.db"
+DB_PATH="/var/lib/keystone-core/state.db"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 # Create backup directory
@@ -89,7 +89,7 @@ echo "Backup completed: state-$TIMESTAMP.db.gz"
 **Schedule with Cron:**
 ```bash
 # /etc/cron.d/kscore-cluster-backup
-0 2 * * * keystonecore /usr/local/bin/backup-sqlite.sh >> /var/log/kscore/backup.log 2>&1
+0 2 * * * keystonecore /usr/local/bin/backup-sqlite.sh >> /var/log/keystone-core/backup.log 2>&1
 ```
 
 **Verify Backup:**
@@ -224,7 +224,7 @@ fi
 **Schedule with Cron:**
 ```bash
 # /etc/cron.d/kscore-cluster-backup
-0 * * * * keystonecore /usr/local/bin/backup-cluster.sh >> /var/log/kscore/cluster-backup.log 2>&1
+0 * * * * keystonecore /usr/local/bin/backup-cluster.sh >> /var/log/keystone-core/cluster-backup.log 2>&1
 ```
 
 ### Configuration Backup
@@ -232,7 +232,7 @@ fi
 **Git Repository (Recommended):**
 ```bash
 # Initialize git repo
-cd /etc/kscore
+cd /etc/keystone-core
 git init
 git add .
 git commit -m "Initial configuration"
@@ -242,17 +242,17 @@ git remote add origin git@github.com:yourorg/kscore-config.git
 git push -u origin main
 
 # Automatic backup on changes
-cat > /etc/kscore/.git/hooks/post-commit <<'EOF'
+cat > /etc/keystone-core/.git/hooks/post-commit <<'EOF'
 #!/bin/bash
 git push origin main
 EOF
-chmod +x /etc/kscore/.git/hooks/post-commit
+chmod +x /etc/keystone-core/.git/hooks/post-commit
 ```
 
 **Tarball Backup:**
 ```bash
 # Backup all configs
-tar -czf /var/backups/kscore/config-$(date +%Y%m%d).tar.gz /etc/kscore
+tar -czf /var/backups/kscore/config-$(date +%Y%m%d).tar.gz /etc/keystone-core
 ```
 
 ### Backup Verification
@@ -307,10 +307,10 @@ rsync -avz --delete /var/backups/kscore/ backup-server:/backups/kscore/
 sudo systemctl stop kscore-server
 
 # Restore database
-gunzip -c /var/backups/kscore/state-20240115-020000.db.gz > /var/lib/kscore/state.db
+gunzip -c /var/backups/kscore/state-20240115-020000.db.gz > /var/lib/keystone-core/state.db
 
 # Fix permissions
-sudo chown kscore:kscore /var/lib/kscore/state.db
+sudo chown kscore:kscore /var/lib/keystone-core/state.db
 
 # Start Keystone Core
 sudo systemctl start kscore-server
@@ -373,7 +373,7 @@ nats stream info kscore-events
 
 **From Git:**
 ```bash
-cd /etc/kscore
+cd /etc/keystone-core
 git pull origin main
 sudo systemctl restart kscore-server
 ```
@@ -540,7 +540,7 @@ sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 
 **5. Run Migrations (if needed):**
 ```bash
-kscore-server migrate --config /etc/kscore/server.yaml
+kscore-server migrate --config /etc/keystone-core/server.yaml
 ```
 
 **6. Start Service:**
@@ -782,21 +782,21 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 **Vacuum (Defragment):**
 ```bash
 # Reclaim space from deleted records
-sqlite3 /var/lib/kscore/state.db "VACUUM;"
+sqlite3 /var/lib/keystone-core/state.db "VACUUM;"
 
 # Analyze for query optimization
-sqlite3 /var/lib/kscore/state.db "ANALYZE;"
+sqlite3 /var/lib/keystone-core/state.db "ANALYZE;"
 ```
 
 **Integrity Check:**
 ```bash
-sqlite3 /var/lib/kscore/state.db "PRAGMA integrity_check;"
+sqlite3 /var/lib/keystone-core/state.db "PRAGMA integrity_check;"
 ```
 
 **Size Monitoring:**
 ```bash
 # Check database size
-du -h /var/lib/kscore/state.db
+du -h /var/lib/keystone-core/state.db
 
 # Alert if >10GB (approaching SQLite limits)
 ```
@@ -861,7 +861,7 @@ sudo systemctl stop kscore-server
 
 # Dry run to see what will be migrated
 kscorectl migrate run \
-  --sqlite /var/lib/kscore/state.db \
+  --sqlite /var/lib/keystone-core/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore" \
   --dry-run --verbose
 ```
@@ -870,7 +870,7 @@ kscorectl migrate run \
 ```bash
 # Migrate all data from SQLite to PostgreSQL
 kscorectl migrate run \
-  --sqlite /var/lib/kscore/state.db \
+  --sqlite /var/lib/keystone-core/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore"
 
 # Output shows progress:
@@ -891,7 +891,7 @@ kscorectl migrate run \
 ```bash
 # Verify all data was migrated correctly
 kscorectl migrate validate \
-  --sqlite /var/lib/kscore/state.db \
+  --sqlite /var/lib/keystone-core/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore"
 
 # Output:
@@ -906,7 +906,7 @@ kscorectl migrate validate \
 
 **5. Update Configuration:**
 ```yaml
-# /etc/kscore/server.yaml
+# /etc/keystone-core/server.yaml
 storage:
   type: postgresql
   postgresql:
@@ -930,8 +930,8 @@ kscorectl agent list --filter "status:online"
 
 **7. Backup SQLite (Archive):**
 ```bash
-gzip /var/lib/kscore/state.db
-mv /var/lib/kscore/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d).db.gz
+gzip /var/lib/keystone-core/state.db
+mv /var/lib/keystone-core/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d).db.gz
 ```
 
 **Migration Options:**
@@ -994,7 +994,7 @@ WHERE timestamp < NOW() - INTERVAL '30 days'
 **Logrotate Configuration:**
 ```
 # /etc/logrotate.d/kscore
-/var/log/kscore/*.log {
+/var/log/keystone-core/*.log {
     daily
     rotate 30
     compress
@@ -1154,7 +1154,7 @@ kscorectl agent list     # Agents
 
 ## See Also
 
-- [Deployment Guide](deployment/) - Initial deployment
-- [Monitoring Guide](monitoring/) - Track system health
-- [Troubleshooting Guide](troubleshooting/) - Resolve issues
+- [Deployment Guide](/docs/operations/deployment/) - Initial deployment
+- [Monitoring Guide](/docs/operations/monitoring/) - Track system health
+- [Troubleshooting Guide](/docs/operations/troubleshooting/) - Resolve issues
 - [Configuration Reference](/docs/reference/configuration/) - All config options

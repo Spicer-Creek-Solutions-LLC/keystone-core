@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-func TestNewMirrorMetrics(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestNewMetrics(t *testing.T) {
+	metrics := NewMetrics()
 	if metrics == nil {
-		t.Fatal("NewMirrorMetrics returned nil")
+		t.Fatal("NewMetrics returned nil")
 	}
 
 	// Check that all maps are initialized
@@ -31,8 +31,8 @@ func TestNewMirrorMetrics(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_SetGroupCount(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_SetGroupCount(t *testing.T) {
+	metrics := NewMetrics()
 
 	metrics.SetGroupCount(5)
 	if metrics.groupCount != 5 {
@@ -45,29 +45,29 @@ func TestMirrorMetrics_SetGroupCount(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_SetMirrorHealth(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_SetMirrorHealth(t *testing.T) {
+	metrics := NewMetrics()
 
-	metrics.SetMirrorHealth("group1", "mirror1", MirrorStateHealthy)
-	metrics.SetMirrorHealth("group1", "mirror2", MirrorStateDegraded)
-	metrics.SetMirrorHealth("group2", "mirror1", MirrorStateUnhealthy)
+	metrics.SetMirrorHealth("group1", "mirror1", StateHealthy)
+	metrics.SetMirrorHealth("group1", "mirror2", StateDegraded)
+	metrics.SetMirrorHealth("group2", "mirror1", StateUnhealthy)
 
 	// Check group1
-	if metrics.mirrorHealth["group1"]["mirror1"] != MirrorStateHealthy {
+	if metrics.mirrorHealth["group1"]["mirror1"] != StateHealthy {
 		t.Error("mirror1 state not healthy")
 	}
-	if metrics.mirrorHealth["group1"]["mirror2"] != MirrorStateDegraded {
+	if metrics.mirrorHealth["group1"]["mirror2"] != StateDegraded {
 		t.Error("mirror2 state not degraded")
 	}
 
 	// Check group2
-	if metrics.mirrorHealth["group2"]["mirror1"] != MirrorStateUnhealthy {
+	if metrics.mirrorHealth["group2"]["mirror1"] != StateUnhealthy {
 		t.Error("group2 mirror1 state not unhealthy")
 	}
 }
 
-func TestMirrorMetrics_RecordRead(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_RecordRead(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Record successful read
 	metrics.RecordRead("group1", 1024, 10*time.Millisecond, nil)
@@ -93,8 +93,8 @@ func TestMirrorMetrics_RecordRead(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_RecordWrite(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_RecordWrite(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Record successful write
 	metrics.RecordWrite("group1", 2048, 20*time.Millisecond, nil)
@@ -120,8 +120,8 @@ func TestMirrorMetrics_RecordWrite(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_RecordSyncOperation(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_RecordSyncOperation(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Record successful sync
 	metrics.RecordSyncOperation("group1", true, 10240, 5, 100*time.Millisecond)
@@ -153,8 +153,8 @@ func TestMirrorMetrics_RecordSyncOperation(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_SetActiveSyncOperations(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_SetActiveSyncOperations(t *testing.T) {
+	metrics := NewMetrics()
 
 	metrics.SetActiveSyncOperations("group1", 3)
 	if metrics.syncOperationsActive["group1"] != 3 {
@@ -167,8 +167,8 @@ func TestMirrorMetrics_SetActiveSyncOperations(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_RecordConflict(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_RecordConflict(t *testing.T) {
+	metrics := NewMetrics()
 
 	metrics.RecordConflict("group1")
 	metrics.RecordConflict("group1")
@@ -182,12 +182,12 @@ func TestMirrorMetrics_RecordConflict(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_Export(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_Export(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Set up some data
 	metrics.SetGroupCount(2)
-	metrics.SetMirrorHealth("group1", "mirror1", MirrorStateHealthy)
+	metrics.SetMirrorHealth("group1", "mirror1", StateHealthy)
 	metrics.RecordRead("group1", 1024, 10*time.Millisecond, nil)
 	metrics.RecordWrite("group1", 2048, 20*time.Millisecond, nil)
 	metrics.RecordSyncOperation("group1", true, 4096, 2, 50*time.Millisecond)
@@ -226,8 +226,8 @@ func TestMirrorMetrics_Export(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_Export_Empty(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_Export_Empty(t *testing.T) {
+	metrics := NewMetrics()
 	output := metrics.Export()
 
 	// Should still have group count header
@@ -241,8 +241,8 @@ func TestMirrorMetrics_Export_Empty(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_RecordLatencyBucket(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_RecordLatencyBucket(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Record reads with different latencies
 	metrics.RecordRead("group1", 100, 1*time.Millisecond, nil)   // bucket 0 (<=1ms)
@@ -266,12 +266,12 @@ func TestMirrorMetrics_RecordLatencyBucket(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_CollectFromRegistry(t *testing.T) {
+func TestMetrics_CollectFromRegistry(t *testing.T) {
 	registry := NewRegistry()
-	metrics := NewMirrorMetrics()
+	metrics := NewMetrics()
 
 	// Add a group with mirrors
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -282,8 +282,8 @@ func TestMirrorMetrics_CollectFromRegistry(t *testing.T) {
 		WritePolicy:  WritePolicyAll,
 	})
 	registry.Register(group)
-	group.UpdateHealth("mirror-1", MirrorStateHealthy, 10*time.Millisecond, nil)
-	group.UpdateHealth("mirror-2", MirrorStateDegraded, 50*time.Millisecond, nil)
+	group.UpdateHealth("mirror-1", StateHealthy, 10*time.Millisecond, nil)
+	group.UpdateHealth("mirror-2", StateDegraded, 50*time.Millisecond, nil)
 
 	// Collect
 	metrics.CollectFromRegistry(registry)
@@ -292,21 +292,21 @@ func TestMirrorMetrics_CollectFromRegistry(t *testing.T) {
 		t.Errorf("expected 1 group, got %d", metrics.groupCount)
 	}
 
-	if metrics.mirrorHealth["test-group"]["mirror-1"] != MirrorStateHealthy {
+	if metrics.mirrorHealth["test-group"]["mirror-1"] != StateHealthy {
 		t.Error("mirror-1 health not collected correctly")
 	}
-	if metrics.mirrorHealth["test-group"]["mirror-2"] != MirrorStateDegraded {
+	if metrics.mirrorHealth["test-group"]["mirror-2"] != StateDegraded {
 		t.Error("mirror-2 health not collected correctly")
 	}
 }
 
-func TestMirrorMetrics_CollectFromSyncEngine(t *testing.T) {
+func TestMetrics_CollectFromSyncEngine(t *testing.T) {
 	registry := NewRegistry()
 	syncEngine := NewSyncEngine(registry, DefaultSyncConfig())
-	metrics := NewMirrorMetrics()
+	metrics := NewMetrics()
 
 	// Add a group
-	group, _ := NewMirrorGroup(&MirrorGroupConfig{
+	group, _ := NewGroup(&GroupConfig{
 		ID:   "test-group",
 		Name: "Test Group",
 		Mirrors: []*Mirror{
@@ -329,8 +329,8 @@ func TestMirrorMetrics_CollectFromSyncEngine(t *testing.T) {
 	// Just verify no panic and method completes
 }
 
-func TestMirrorMetrics_MetricsHandler(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_MetricsHandler(t *testing.T) {
+	metrics := NewMetrics()
 	metrics.SetGroupCount(1)
 
 	handler := metrics.MetricsHandler()
@@ -342,8 +342,8 @@ func TestMirrorMetrics_MetricsHandler(t *testing.T) {
 	// Full HTTP testing would require httptest
 }
 
-func TestMirrorMetrics_WriteHistogram(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_WriteHistogram(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Record some latencies
 	metrics.RecordRead("group1", 100, 5*time.Millisecond, nil)
@@ -368,8 +368,8 @@ func TestMirrorMetrics_WriteHistogram(t *testing.T) {
 	}
 }
 
-func TestMirrorMetrics_ConcurrentAccess(t *testing.T) {
-	metrics := NewMirrorMetrics()
+func TestMetrics_ConcurrentAccess(t *testing.T) {
+	metrics := NewMetrics()
 
 	// Run concurrent operations to test thread safety
 	done := make(chan bool)
@@ -380,7 +380,7 @@ func TestMirrorMetrics_ConcurrentAccess(t *testing.T) {
 			for j := 0; j < 100; j++ {
 				metrics.RecordRead(groupID, 100, time.Duration(n)*time.Millisecond, nil)
 				metrics.RecordWrite(groupID, 100, time.Duration(n)*time.Millisecond, nil)
-				metrics.SetMirrorHealth(groupID, "mirror1", MirrorStateHealthy)
+				metrics.SetMirrorHealth(groupID, "mirror1", StateHealthy)
 			}
 			done <- true
 		}(i)

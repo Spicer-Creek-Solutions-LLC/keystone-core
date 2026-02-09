@@ -14,7 +14,7 @@ func TestExecutor_Execute_SimpleRunbook(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "simple-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name:   "step1",
@@ -58,7 +58,7 @@ func TestExecutor_Execute_WithDependencies(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "dep-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name:   "first",
@@ -99,7 +99,7 @@ func TestExecutor_Execute_FailStep(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "fail-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name: "fail_step",
@@ -146,7 +146,7 @@ func TestExecutor_Execute_ContinueOnError(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "continue-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name:            "fail_step",
@@ -197,7 +197,7 @@ func TestExecutor_Execute_WithInputs(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "input-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Inputs: []runbook.InputDef{
 				{Name: "target", Type: runbook.InputTypeString, Required: true},
 				{Name: "count", Type: runbook.InputTypeInt, Default: 5},
@@ -243,7 +243,7 @@ func TestExecutor_Execute_Cancellation(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "cancel-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name: "wait_step",
@@ -281,7 +281,7 @@ func TestExecutor_Execute_OnSuccessHandler(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "success-handler-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name:   "main_step",
@@ -304,7 +304,7 @@ func TestExecutor_Execute_OnSuccessHandler(t *testing.T) {
 	executor := NewExecutor(
 		WithStepCallbacks(
 			nil,
-			func(ctx context.Context, exec *ExecutionContext, step *StepContext) {
+			func(ctx context.Context, exec *Context, step *StepContext) {
 				if step.Name() == "success_handler" {
 					onSuccessCalled = true
 				}
@@ -335,7 +335,7 @@ func TestExecutor_Execute_OnFailureHandler(t *testing.T) {
 		Metadata: runbook.Metadata{
 			Name: "failure-handler-test",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{
 					Name: "fail_step",
@@ -360,7 +360,7 @@ func TestExecutor_Execute_OnFailureHandler(t *testing.T) {
 	executor := NewExecutor(
 		WithStepCallbacks(
 			nil,
-			func(ctx context.Context, exec *ExecutionContext, step *StepContext) {
+			func(ctx context.Context, exec *Context, step *StepContext) {
 				if step.Name() == "failure_handler" {
 					onFailureCalled = true
 				}
@@ -459,13 +459,13 @@ func indexOf(slice []string, item string) int {
 	return -1
 }
 
-func TestExecutionContext(t *testing.T) {
+func TestContext(t *testing.T) {
 	rb := &runbook.Runbook{
 		Metadata: runbook.Metadata{
 			Name:    "test-rb",
 			Version: "1.0.0",
 		},
-		Spec: runbook.RunbookSpec{
+		Spec: runbook.Spec{
 			Steps: []runbook.Step{
 				{Name: "step1", Type: runbook.StepTypeNoop, Config: map[string]interface{}{}},
 			},
@@ -477,7 +477,7 @@ func TestExecutionContext(t *testing.T) {
 		"count":  42,
 	}
 
-	ctx := NewExecutionContext("exec-123", rb, inputs)
+	ctx := NewContext("exec-123", rb, inputs)
 
 	if ctx.ExecutionID() != "exec-123" {
 		t.Errorf("ExecutionID() = %v, want %v", ctx.ExecutionID(), "exec-123")

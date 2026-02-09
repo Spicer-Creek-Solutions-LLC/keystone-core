@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
@@ -300,7 +301,7 @@ func TestSyslogOutputUDP(t *testing.T) {
 
 func TestSyslogOutputTCP(t *testing.T) {
 	// Start a TCP listener
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,12 +474,12 @@ func TestSyslogPriorities(t *testing.T) {
 		level    Level
 		expected int
 	}{
-		{FacilityKern, LevelDebug, 7},      // 0*8 + 7
-		{FacilityUser, LevelInfo, 14},      // 1*8 + 6
-		{FacilityDaemon, LevelWarn, 28},    // 3*8 + 4
-		{FacilityAuth, LevelError, 35},     // 4*8 + 3
-		{FacilityLocal0, LevelInfo, 134},   // 16*8 + 6
-		{FacilityLocal7, LevelError, 187},  // 23*8 + 3
+		{FacilityKern, LevelDebug, 7},     // 0*8 + 7
+		{FacilityUser, LevelInfo, 14},     // 1*8 + 6
+		{FacilityDaemon, LevelWarn, 28},   // 3*8 + 4
+		{FacilityAuth, LevelError, 35},    // 4*8 + 3
+		{FacilityLocal0, LevelInfo, 134},  // 16*8 + 6
+		{FacilityLocal7, LevelError, 187}, // 23*8 + 3
 	}
 
 	for _, tt := range tests {

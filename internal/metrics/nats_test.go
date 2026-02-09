@@ -224,7 +224,7 @@ func TestCalculateQuantiles(t *testing.T) {
 
 	// Check quantile values
 	expectedQuantiles := map[float64]float64{
-		0.5:  5,  // median
+		0.5:  5, // median
 		0.9:  9,
 		0.95: 9,
 		0.99: 9,
@@ -332,7 +332,7 @@ func TestNATSCollectorStats(t *testing.T) {
 		lastErrorTime:     time.Time{},
 	}
 
-	published, dropped, lastErr, lastErrTime := collector.Stats()
+	published, dropped, lastErrTime, lastErr := collector.Stats()
 
 	if published != 100 {
 		t.Errorf("Expected published 100, got %d", published)

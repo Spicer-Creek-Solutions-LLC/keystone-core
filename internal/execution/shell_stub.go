@@ -23,16 +23,17 @@ type PowerShellVersion struct {
 	VersionText string
 }
 
-// ExecutionPolicy represents PowerShell execution policy
-type ExecutionPolicy string
+// Policy represents PowerShell execution policy
+type Policy string
 
+// PolicyRestricted constants define the policy types.
 const (
-	ExecutionPolicyRestricted   ExecutionPolicy = "Restricted"
-	ExecutionPolicyAllSigned    ExecutionPolicy = "AllSigned"
-	ExecutionPolicyRemoteSigned ExecutionPolicy = "RemoteSigned"
-	ExecutionPolicyUnrestricted ExecutionPolicy = "Unrestricted"
-	ExecutionPolicyBypass       ExecutionPolicy = "Bypass"
-	ExecutionPolicyUndefined    ExecutionPolicy = "Undefined"
+	PolicyRestricted   Policy = "Restricted"
+	PolicyAllSigned    Policy = "AllSigned"
+	PolicyRemoteSigned Policy = "RemoteSigned"
+	PolicyUnrestricted Policy = "Unrestricted"
+	PolicyBypass       Policy = "Bypass"
+	PolicyUndefined    Policy = "Undefined"
 )
 
 // PowerShellExecutor provides enhanced PowerShell execution capabilities
@@ -41,7 +42,7 @@ type PowerShellExecutor struct {
 	// PreferCore prefers PowerShell Core (pwsh) over Windows PowerShell
 	PreferCore bool
 
-	// UseBypassPolicy uses -ExecutionPolicy Bypass for script execution
+	// UseBypassPolicy uses -Policy Bypass for script execution
 	UseBypassPolicy bool
 
 	// NoProfile skips loading PowerShell profiles for faster execution
@@ -80,10 +81,10 @@ func (e *PowerShellExecutor) DetectPowerShell() (*PowerShellVersion, error) {
 	return nil, fmt.Errorf("PowerShell is only available on Windows")
 }
 
-// GetExecutionPolicy returns the current PowerShell execution policy
+// GetPolicy returns the current PowerShell execution policy
 // On non-Windows platforms, this returns an error
-func (e *PowerShellExecutor) GetExecutionPolicy(ctx context.Context) (ExecutionPolicy, error) {
-	return ExecutionPolicyUndefined, fmt.Errorf("PowerShell is only available on Windows")
+func (e *PowerShellExecutor) GetPolicy(ctx context.Context) (Policy, error) {
+	return PolicyUndefined, fmt.Errorf("PowerShell is only available on Windows")
 }
 
 // Execute runs a PowerShell command or script block

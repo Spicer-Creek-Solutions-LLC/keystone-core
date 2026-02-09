@@ -12,7 +12,7 @@ func TestValidator_Validate_ValidRunbook(t *testing.T) {
 		Metadata: Metadata{
 			Name: "valid-runbook",
 		},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name: "step1",
@@ -36,7 +36,7 @@ func TestValidator_Validate_MissingName(t *testing.T) {
 		APIVersion: APIVersion,
 		Kind:       Kind,
 		Metadata:   Metadata{},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name:   "step1",
@@ -77,7 +77,7 @@ func TestValidator_Validate_InvalidName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: tt.runbook},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
 					},
@@ -96,7 +96,7 @@ func TestValidator_Validate_InvalidName(t *testing.T) {
 func TestValidator_Validate_NoSteps(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "no-steps"},
-		Spec:     RunbookSpec{Steps: []Step{}},
+		Spec:     Spec{Steps: []Step{}},
 	}
 
 	v := NewValidator()
@@ -112,7 +112,7 @@ func TestValidator_Validate_NoSteps(t *testing.T) {
 func TestValidator_Validate_DuplicateStepNames(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "dup-steps"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
 				{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
@@ -133,7 +133,7 @@ func TestValidator_Validate_DuplicateStepNames(t *testing.T) {
 func TestValidator_Validate_InvalidStepType(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "invalid-type"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "step1", Type: StepType("invalid"), Config: map[string]interface{}{}},
 			},
@@ -153,7 +153,7 @@ func TestValidator_Validate_InvalidStepType(t *testing.T) {
 func TestValidator_Validate_FutureStepType(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "future-type"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "step1", Type: StepTypeQuery, Config: map[string]interface{}{}},
 			},
@@ -177,7 +177,7 @@ func TestValidator_Validate_FutureStepType(t *testing.T) {
 func TestValidator_Validate_InvalidTimeout(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "invalid-timeout"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Timeout: "invalid",
 			Steps: []Step{
 				{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
@@ -198,7 +198,7 @@ func TestValidator_Validate_InvalidTimeout(t *testing.T) {
 func TestValidator_Validate_InvalidStepTimeout(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "invalid-step-timeout"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name:    "step1",
@@ -220,7 +220,7 @@ func TestValidator_Validate_InvalidStepTimeout(t *testing.T) {
 func TestValidator_Validate_MissingDependency(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "missing-dep"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name:      "step1",
@@ -245,7 +245,7 @@ func TestValidator_Validate_MissingDependency(t *testing.T) {
 func TestValidator_Validate_SelfDependency(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "self-dep"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name:      "step1",
@@ -270,7 +270,7 @@ func TestValidator_Validate_SelfDependency(t *testing.T) {
 func TestValidator_Validate_CircularDependency(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "circular-dep"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "a", Type: StepTypeNoop, DependsOn: []string{"c"}, Config: map[string]interface{}{}},
 				{Name: "b", Type: StepTypeNoop, DependsOn: []string{"a"}, Config: map[string]interface{}{}},
@@ -292,7 +292,7 @@ func TestValidator_Validate_CircularDependency(t *testing.T) {
 func TestValidator_Validate_ValidDependencyChain(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "valid-deps"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "a", Type: StepTypeNoop, Config: map[string]interface{}{}},
 				{Name: "b", Type: StepTypeNoop, DependsOn: []string{"a"}, Config: map[string]interface{}{}},
@@ -355,7 +355,7 @@ func TestValidator_Validate_InputValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "input-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Inputs: []InputDef{tt.input},
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
@@ -378,7 +378,7 @@ func TestValidator_Validate_InputValidation(t *testing.T) {
 func TestValidator_Validate_DuplicateInputNames(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "dup-inputs"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Inputs: []InputDef{
 				{Name: "input1", Type: InputTypeString},
 				{Name: "input1", Type: InputTypeInt},
@@ -421,7 +421,7 @@ func TestValidator_Validate_CommandStepConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "cmd-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeCommand, Config: tt.config},
 					},
@@ -469,7 +469,7 @@ func TestValidator_Validate_APIStepConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "api-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeAPI, Config: tt.config},
 					},
@@ -512,7 +512,7 @@ func TestValidator_Validate_NotificationStepConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "notify-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeNotification, Config: tt.config},
 					},
@@ -565,7 +565,7 @@ func TestValidator_Validate_WaitStepConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "wait-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeWait, Config: tt.config},
 					},
@@ -603,7 +603,7 @@ func TestValidator_Validate_FailStepConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "fail-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeFail, Config: tt.config},
 					},
@@ -685,7 +685,7 @@ func TestValidator_Validate_OutputValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "output-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{
 							Name:    "step1",
@@ -712,7 +712,7 @@ func TestValidator_Validate_OutputValidation(t *testing.T) {
 func TestValidator_Validate_DuplicateOutputNames(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "dup-outputs"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{
 					Name:   "step1",
@@ -779,7 +779,7 @@ func TestValidator_Validate_RetryConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "retry-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Steps: []Step{
 						{
 							Name:    "step1",
@@ -806,7 +806,7 @@ func TestValidator_Validate_RetryConfig(t *testing.T) {
 func TestValidator_Validate_NegativeMaxRetries(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "neg-retries"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			MaxRetries: -1,
 			Steps: []Step{
 				{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
@@ -906,7 +906,7 @@ func TestValidator_Validate_InputValidationRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := &Runbook{
 				Metadata: Metadata{Name: "validation-test"},
-				Spec: RunbookSpec{
+				Spec: Spec{
 					Inputs: []InputDef{tt.input},
 					Steps: []Step{
 						{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
@@ -994,7 +994,7 @@ func TestValidationError_Error(t *testing.T) {
 func TestValidate_ConvenienceFunction(t *testing.T) {
 	rb := &Runbook{
 		Metadata: Metadata{Name: "test"},
-		Spec: RunbookSpec{
+		Spec: Spec{
 			Steps: []Step{
 				{Name: "step1", Type: StepTypeNoop, Config: map[string]interface{}{}},
 			},

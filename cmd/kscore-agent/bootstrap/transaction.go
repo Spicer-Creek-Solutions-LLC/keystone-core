@@ -81,7 +81,7 @@ func NewTransactionManager(config AtomicConfig, output io.Writer, verbose bool) 
 }
 
 // Begin starts a new bootstrap transaction.
-func (t *TransactionManager) Begin(ctx context.Context, mode DeploymentMode, cfg *BootstrapConfig, phases []Phase) error {
+func (t *TransactionManager) Begin(ctx context.Context, mode DeploymentMode, cfg *Config, phases []Phase) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -303,7 +303,7 @@ func (t *TransactionManager) SetSystemInfo(info *SystemInfo) error {
 }
 
 // GetCheckpoint returns the current checkpoint for inspection.
-func (t *TransactionManager) GetCheckpoint() *BootstrapCheckpoint {
+func (t *TransactionManager) GetCheckpoint() *Checkpoint {
 	if !t.config.EnableCheckpoints {
 		return nil
 	}

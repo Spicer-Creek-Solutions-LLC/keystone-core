@@ -97,7 +97,7 @@ blueprints/community/web-app-stack/
 ### Full Schema
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 
 metadata:
@@ -114,7 +114,7 @@ metadata:
 
   license: Apache-2.0
   repository: https://github.com/kscore-blueprints/web-app-stack
-  documentation: https://blueprints.kscore.io/web-app-stack
+  documentation: https://blueprints.keystone-core.io/web-app-stack
 
   keywords:
     - web
@@ -594,7 +594,7 @@ parameters:
 The secrets backend is configured at the agent/control-plane level:
 
 ```yaml
-# /etc/kscore/agent.yaml
+# /etc/keystone-core/agent.yaml
 secrets:
   backend: vault  # or: kubernetes, encrypted-file, env
 
@@ -610,8 +610,8 @@ secrets:
 
   # OR encrypted local file
   encrypted_file:
-    path: /etc/kscore/secrets.enc
-    key_file: /etc/kscore/secrets.key
+    path: /etc/keystone-core/secrets.enc
+    key_file: /etc/keystone-core/secrets.key
 ```
 
 Blueprint manifests indicate which parameters should come from secrets:
@@ -855,7 +855,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install kscorectl
-        run: curl -sSL https://get.kscore.io | bash
+        run: curl -sSL https://get.keystone-core.io | bash
 
       - name: Validate blueprint
         run: kscorectl blueprint validate .
@@ -1171,7 +1171,7 @@ Deliverables:
 ### A. Monitoring Stack
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: prometheus-stack
@@ -1210,7 +1210,7 @@ parameters:
 ### B. Security Baseline
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: security-baseline
@@ -1250,7 +1250,7 @@ parameters:
 ### C. Kubernetes Prerequisites
 
 ```yaml
-apiVersion: blueprints.kscore.io/v1
+apiVersion: blueprints.keystone-core.io/v1
 kind: Blueprint
 metadata:
   name: k8s-node-prep

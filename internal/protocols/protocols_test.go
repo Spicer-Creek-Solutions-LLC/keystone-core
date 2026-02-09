@@ -91,6 +91,10 @@ func TestProtocolType(t *testing.T) {
 		{"SNMP", ProtocolSNMP, "snmp"},
 		{"REST", ProtocolREST, "rest"},
 		{"WinRM", ProtocolWinRM, "winrm"},
+		{"NETCONF", ProtocolNETCONF, "netconf"},
+		{"RESTCONF", ProtocolRESTCONF, "restconf"},
+		{"Telnet", ProtocolTelnet, "telnet"},
+		{"GNMI", ProtocolGNMI, "gnmi"},
 	}
 
 	for _, tt := range tests {

@@ -17,6 +17,7 @@ type Authenticator interface {
 // NoneAuthenticator allows all requests (no authentication)
 type NoneAuthenticator struct{}
 
+// Authenticate authenticates the request.
 func (a *NoneAuthenticator) Authenticate(r *http.Request, body []byte) error {
 	return nil
 }
@@ -27,6 +28,7 @@ type HMACAuthenticator struct {
 	Header string // Header containing the signature (e.g., "X-Hub-Signature-256")
 }
 
+// Authenticate authenticates the request.
 func (a *HMACAuthenticator) Authenticate(r *http.Request, body []byte) error {
 	signature := r.Header.Get(a.Header)
 	if signature == "" {
@@ -53,6 +55,7 @@ type BearerAuthenticator struct {
 	Token string
 }
 
+// Authenticate authenticates the request.
 func (a *BearerAuthenticator) Authenticate(r *http.Request, body []byte) error {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
@@ -61,7 +64,7 @@ func (a *BearerAuthenticator) Authenticate(r *http.Request, body []byte) error {
 
 	// Extract bearer token
 	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 		return fmt.Errorf("invalid authorization header format")
 	}
 

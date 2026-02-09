@@ -211,9 +211,7 @@ func (c *Config) GetAdvertiseAddress() (string, error) {
 			return ipv4Addrs[0], nil
 		}
 
-	case PreferIPv4:
-		fallthrough
-	default:
+	default: // includes PreferIPv4
 		if len(ipv4Addrs) > 0 {
 			return ipv4Addrs[0], nil
 		}
@@ -801,7 +799,8 @@ func (c *Config) HARecommendations() []HARecommendation {
 			}
 
 			// Minimum cluster size check
-			if memberCount == 1 {
+			switch memberCount {
+			case 1:
 				recs = append(recs, HARecommendation{
 					Component:           "cluster",
 					Level:               "critical",
@@ -809,7 +808,7 @@ func (c *Config) HARecommendations() []HARecommendation {
 					Recommendation:      "Add at least 2 more members to form a 3-node cluster that can tolerate 1 failure.",
 					AffectsAvailability: true,
 				})
-			} else if memberCount == 2 {
+			case 2:
 				recs = append(recs, HARecommendation{
 					Component:           "cluster",
 					Level:               "critical",
@@ -906,7 +905,7 @@ func (c *Config) HARecommendations() []HARecommendation {
 					Component:           "cluster",
 					Level:               "warning",
 					Issue:               fmt.Sprintf("Custom quorum_size=%d differs from calculated value %d (N/2+1 for %d members).", c.QuorumSize, expectedQuorum, memberCount),
-					Recommendation:      fmt.Sprintf("Set quorum_size=0 for automatic calculation, or ensure custom value is intentional. Non-standard quorum may affect fault tolerance."),
+					Recommendation:      "Set quorum_size=0 for automatic calculation, or ensure custom value is intentional. Non-standard quorum may affect fault tolerance.",
 					AffectsAvailability: true,
 				})
 			}
@@ -949,7 +948,8 @@ func (c *Config) ValidateHARequirements() error {
 	}
 
 	// Check minimum cluster size for HA
-	if c.Etcd.Mode == EtcdModeEmbedded {
+	switch c.Etcd.Mode {
+	case EtcdModeEmbedded:
 		if c.Etcd.Embedded == nil || c.Etcd.Embedded.InitialCluster == "" {
 			return fmt.Errorf("cluster: initial_cluster must be configured for HA (embedded etcd mode)")
 		}
@@ -957,7 +957,7 @@ func (c *Config) ValidateHARequirements() error {
 		if memberCount < 3 {
 			return fmt.Errorf("cluster: minimum 3 members required for HA (found %d). 2-node clusters cannot maintain quorum if one node fails", memberCount)
 		}
-	} else if c.Etcd.Mode == EtcdModeExternal {
+	case EtcdModeExternal:
 		if len(c.Etcd.Endpoints) < 3 {
 			return fmt.Errorf("cluster: minimum 3 etcd endpoints recommended for HA (found %d)", len(c.Etcd.Endpoints))
 		}

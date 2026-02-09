@@ -12,6 +12,7 @@ import (
 // RecordType represents a DNS record type.
 type RecordType string
 
+// RecordTypeA constants define the supported types.
 const (
 	RecordTypeA     RecordType = "A"
 	RecordTypeAAAA  RecordType = "AAAA"
@@ -128,6 +129,8 @@ func (r *Record) Validate() error {
 		if r.Port < 0 || r.Port > 65535 {
 			return fmt.Errorf("SRV port must be between 0 and 65535")
 		}
+	default:
+		// Other record types have no type-specific validation
 	}
 
 	return nil
@@ -144,6 +147,8 @@ func (r *Record) Normalize(zone string) *Record {
 	switch r.Type {
 	case RecordTypeCNAME, RecordTypeMX, RecordTypeNS, RecordTypeSRV, RecordTypeALIAS:
 		normalized.Value = NormalizeFQDN(r.Value)
+	default:
+		// Other record types don't require value normalization
 	}
 
 	// Default TTL if not specified
@@ -293,9 +298,7 @@ func NormalizeName(name, zone string) string {
 
 	// Remove zone suffix if present
 	zoneSuffix := "." + zone
-	if strings.HasSuffix(name, zoneSuffix) {
-		name = strings.TrimSuffix(name, zoneSuffix)
-	}
+	name = strings.TrimSuffix(name, zoneSuffix)
 
 	return name
 }
@@ -304,7 +307,7 @@ func NormalizeName(name, zone string) string {
 func NormalizeFQDN(name string) string {
 	name = strings.ToLower(name)
 	if !strings.HasSuffix(name, ".") {
-		name = name + "."
+		name += "."
 	}
 	return name
 }

@@ -58,9 +58,7 @@ func (m *IOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 	commands = append(commands, "configure terminal")
 
 	// Navigate to parent context
-	for _, parent := range parents {
-		commands = append(commands, parent)
-	}
+	commands = append(commands, parents...)
 
 	// Add before commands
 	commands = append(commands, before...)
@@ -72,9 +70,7 @@ func (m *IOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 			commands = append(commands, fmt.Sprintf("no %s", parent))
 		}
 		// Re-enter parent context
-		for _, parent := range parents {
-			commands = append(commands, parent)
-		}
+		commands = append(commands, parents...)
 	}
 
 	// Add configuration lines
@@ -159,12 +155,9 @@ func (m *NXOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 	}
 
 	// Build commands (similar to IOS but with NX-OS specifics)
-	var commands []string
+	commands := make([]string, 0, 2+len(parents)+len(lines))
 	commands = append(commands, "configure terminal")
-
-	for _, parent := range parents {
-		commands = append(commands, parent)
-	}
+	commands = append(commands, parents...)
 
 	commands = append(commands, lines...)
 	commands = append(commands, "end")
@@ -266,13 +259,13 @@ func (m *JUNOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*M
 	// Apply configuration
 	if hasSrc {
 		if _, err := mctx.ExecuteCommand(ctx, fmt.Sprintf("load merge %s", src)); err != nil {
-			mctx.ExecuteCommand(ctx, "rollback 0")
+			_, _ = mctx.ExecuteCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
 			return nil, fmt.Errorf("failed to load configuration: %w", err)
 		}
 	} else {
 		for _, line := range lines {
 			if _, err := mctx.ExecuteCommand(ctx, fmt.Sprintf("set %s", line)); err != nil {
-				mctx.ExecuteCommand(ctx, "rollback 0")
+				_, _ = mctx.ExecuteCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
 				return nil, fmt.Errorf("failed to set '%s': %w", line, err)
 			}
 		}
@@ -281,7 +274,7 @@ func (m *JUNOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*M
 	// Check for differences
 	diffResult, _ := mctx.ExecuteCommand(ctx, "show | compare")
 	if strings.TrimSpace(string(diffResult.Stdout)) == "" {
-		mctx.ExecuteCommand(ctx, "rollback 0")
+		_, _ = mctx.ExecuteCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
 		result.Comment = "No changes needed"
 		return result, nil
 	}
@@ -290,7 +283,7 @@ func (m *JUNOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*M
 	result.Details["diff"] = diffResult.Stdout
 
 	if mctx.DryRun {
-		mctx.ExecuteCommand(ctx, "rollback 0")
+		_, _ = mctx.ExecuteCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
 		result.Comment = "Configuration would be committed"
 		return result, nil
 	}
@@ -298,14 +291,14 @@ func (m *JUNOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*M
 	// Commit with optional confirm
 	commitCmd := "commit"
 	if comment != "" {
-		commitCmd += fmt.Sprintf(" comment \"%s\"", comment)
+		commitCmd += fmt.Sprintf(" comment %q", comment)
 	}
 	if confirm > 0 {
 		commitCmd += fmt.Sprintf(" confirmed %d", confirm)
 	}
 
 	if _, err := mctx.ExecuteCommand(ctx, commitCmd); err != nil {
-		mctx.ExecuteCommand(ctx, "rollback 0")
+		_, _ = mctx.ExecuteCommand(ctx, "rollback 0") //nolint:errcheck // best-effort rollback
 		return nil, fmt.Errorf("commit failed: %w", err)
 	}
 
@@ -347,10 +340,8 @@ func (m *EOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 	// Create session for atomic changes
 	sessionResult, _ := mctx.ExecuteCommand(ctx, "configure session kscore")
 
-	var commands []string
-	for _, parent := range parents {
-		commands = append(commands, parent)
-	}
+	commands := make([]string, 0, len(parents)+len(lines))
+	commands = append(commands, parents...)
 	commands = append(commands, lines...)
 
 	// Check if change is needed (using EOS session diff)
@@ -364,7 +355,7 @@ func (m *EOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 	}
 
 	if !needsChange {
-		mctx.ExecuteCommand(ctx, "abort")
+		_, _ = mctx.ExecuteCommand(ctx, "abort") //nolint:errcheck // best-effort cleanup
 		result.Comment = "Configuration already matches"
 		return result, nil
 	}
@@ -372,7 +363,7 @@ func (m *EOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 	result.Changed = true
 
 	if mctx.DryRun {
-		mctx.ExecuteCommand(ctx, "abort")
+		_, _ = mctx.ExecuteCommand(ctx, "abort") //nolint:errcheck // best-effort cleanup
 		result.Comment = "Configuration would be applied"
 		result.Details["commands"] = commands
 		return result, nil
@@ -381,7 +372,7 @@ func (m *EOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 	// Apply configuration
 	for _, cmd := range commands {
 		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
-			mctx.ExecuteCommand(ctx, "abort")
+			_, _ = mctx.ExecuteCommand(ctx, "abort") //nolint:errcheck // best-effort cleanup
 			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
 		}
 	}
@@ -394,7 +385,7 @@ func (m *EOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mod
 
 	// Commit session
 	if _, err := mctx.ExecuteCommand(ctx, "commit"); err != nil {
-		mctx.ExecuteCommand(ctx, "abort")
+		_, _ = mctx.ExecuteCommand(ctx, "abort") //nolint:errcheck // best-effort cleanup
 		return nil, fmt.Errorf("commit failed: %w", err)
 	}
 
@@ -450,7 +441,7 @@ func (m *VyOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 			cmd = "set " + line
 		}
 		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
-			mctx.ExecuteCommand(ctx, "exit discard")
+			_, _ = mctx.ExecuteCommand(ctx, "exit discard") //nolint:errcheck // best-effort cleanup
 			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
 		}
 	}
@@ -458,7 +449,7 @@ func (m *VyOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 	// Compare changes
 	compareResult, _ := mctx.ExecuteCommand(ctx, "compare")
 	if strings.TrimSpace(string(compareResult.Stdout)) == "No changes" {
-		mctx.ExecuteCommand(ctx, "exit discard")
+		_, _ = mctx.ExecuteCommand(ctx, "exit discard") //nolint:errcheck // best-effort cleanup
 		result.Comment = "No changes needed"
 		return result, nil
 	}
@@ -467,14 +458,14 @@ func (m *VyOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 	result.Details["diff"] = compareResult.Stdout
 
 	if mctx.DryRun {
-		mctx.ExecuteCommand(ctx, "exit discard")
+		_, _ = mctx.ExecuteCommand(ctx, "exit discard") //nolint:errcheck // best-effort cleanup
 		result.Comment = "Configuration would be committed"
 		return result, nil
 	}
 
 	// Commit changes
 	if _, err := mctx.ExecuteCommand(ctx, "commit"); err != nil {
-		mctx.ExecuteCommand(ctx, "exit discard")
+		_, _ = mctx.ExecuteCommand(ctx, "exit discard") //nolint:errcheck // best-effort cleanup
 		return nil, fmt.Errorf("commit failed: %w", err)
 	}
 
@@ -485,7 +476,7 @@ func (m *VyOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*Mo
 		}
 	}
 
-	mctx.ExecuteCommand(ctx, "exit")
+	_, _ = mctx.ExecuteCommand(ctx, "exit") //nolint:errcheck // best-effort cleanup
 	result.Comment = "Configuration committed"
 	return result, nil
 }
@@ -544,7 +535,7 @@ func (m *PfSenseConfigModule) Execute(ctx context.Context, mctx ModuleContext) (
 	}
 
 	// Apply changes (reload relevant service)
-	mctx.ExecuteCommand(ctx, "POST /api/v1/firewall/apply")
+	_, _ = mctx.ExecuteCommand(ctx, "POST /api/v1/firewall/apply") //nolint:errcheck // best-effort apply
 
 	result.Comment = fmt.Sprintf("Configuration for %s updated", section)
 	return result, nil
@@ -617,7 +608,7 @@ func (m *OPNsenseConfigModule) Execute(ctx context.Context, mctx ModuleContext) 
 	// Reconfigure if needed
 	if action == "set" {
 		reconfigPath := fmt.Sprintf("/api/%s/service/reconfigure", module)
-		mctx.ExecuteCommand(ctx, fmt.Sprintf("POST %s", reconfigPath))
+		_, _ = mctx.ExecuteCommand(ctx, fmt.Sprintf("POST %s", reconfigPath)) //nolint:errcheck // best-effort reconfigure
 	}
 
 	result.Comment = "Configuration applied"
@@ -626,6 +617,1262 @@ func (m *OPNsenseConfigModule) Execute(ctx context.Context, mctx ModuleContext) 
 
 // Check performs a dry-run check.
 func (m *OPNsenseConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// =============================================================================
+// HP/Aruba Configuration Modules
+// =============================================================================
+
+// HPProCurveConfigModule manages HP ProCurve configuration.
+type HPProCurveConfigModule struct {
+	BaseProxyModule
+}
+
+// NewHPProCurveConfigModule creates a new HP ProCurve config module.
+func NewHPProCurveConfigModule() *HPProCurveConfigModule {
+	return &HPProCurveConfigModule{BaseProxyModule{name: "hp_procurve_config"}}
+}
+
+// Execute runs the HP ProCurve config module.
+func (m *HPProCurveConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "exit")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "write memory"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *HPProCurveConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// HPArubaOSConfigModule manages HP ArubaOS configuration.
+type HPArubaOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewHPArubaOSConfigModule creates a new HP ArubaOS config module.
+func NewHPArubaOSConfigModule() *HPArubaOSConfigModule {
+	return &HPArubaOSConfigModule{BaseProxyModule{name: "hp_arubaos_config"}}
+}
+
+// Execute runs the HP ArubaOS config module.
+func (m *HPArubaOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "write memory"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *HPArubaOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// HPAOSCXConfigModule manages Aruba AOS-CX configuration.
+type HPAOSCXConfigModule struct {
+	BaseProxyModule
+}
+
+// NewHPAOSCXConfigModule creates a new AOS-CX config module.
+func NewHPAOSCXConfigModule() *HPAOSCXConfigModule {
+	return &HPAOSCXConfigModule{BaseProxyModule{name: "hp_aoscx_config"}}
+}
+
+// Execute runs the AOS-CX config module.
+func (m *HPAOSCXConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "copy running-config startup-config"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *HPAOSCXConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// =============================================================================
+// Dell Configuration Modules
+// =============================================================================
+
+// DellOS10ConfigModule manages Dell OS10 configuration.
+type DellOS10ConfigModule struct {
+	BaseProxyModule
+}
+
+// NewDellOS10ConfigModule creates a new Dell OS10 config module.
+func NewDellOS10ConfigModule() *DellOS10ConfigModule {
+	return &DellOS10ConfigModule{BaseProxyModule{name: "dell_os10_config"}}
+}
+
+// Execute runs the Dell OS10 config module.
+func (m *DellOS10ConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-configuration")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "write memory"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *DellOS10ConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// DellOS9ConfigModule manages Dell OS9 / FTOS configuration.
+type DellOS9ConfigModule struct {
+	BaseProxyModule
+}
+
+// NewDellOS9ConfigModule creates a new Dell OS9 config module.
+func NewDellOS9ConfigModule() *DellOS9ConfigModule {
+	return &DellOS9ConfigModule{BaseProxyModule{name: "dell_os9_config"}}
+}
+
+// Execute runs the Dell OS9 config module.
+func (m *DellOS9ConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "write"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *DellOS9ConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// DellPowerSwitchConfigModule manages Dell PowerSwitch configuration.
+type DellPowerSwitchConfigModule struct {
+	BaseProxyModule
+}
+
+// NewDellPowerSwitchConfigModule creates a new Dell PowerSwitch config module.
+func NewDellPowerSwitchConfigModule() *DellPowerSwitchConfigModule {
+	return &DellPowerSwitchConfigModule{BaseProxyModule{name: "dell_powerswitch_config"}}
+}
+
+// Execute runs the Dell PowerSwitch config module.
+func (m *DellPowerSwitchConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "exit")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "copy running-config startup-config"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *DellPowerSwitchConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// =============================================================================
+// Security Vendor Configuration Modules
+// =============================================================================
+
+// FortiOSConfigModule manages FortiOS configuration.
+type FortiOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewFortiOSConfigModule creates a new FortiOS config module.
+func NewFortiOSConfigModule() *FortiOSConfigModule {
+	return &FortiOSConfigModule{BaseProxyModule{name: "fortios_config"}}
+}
+
+// Execute runs the FortiOS config module.
+func (m *FortiOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	section, hasSection := m.GetString(mctx.Parameters, "section")
+	name, _ := m.GetString(mctx.Parameters, "name")
+	settings, hasSettings := mctx.Parameters["settings"].(map[string]interface{})
+	backup, _ := m.GetBool(mctx.Parameters, "backup")
+
+	if !hasSection {
+		return nil, fmt.Errorf("section parameter is required")
+	}
+
+	if backup {
+		backupResult, err := mctx.ExecuteCommand(ctx, "show full-configuration")
+		if err == nil {
+			result.Details["backup"] = backupResult.Stdout
+		}
+	}
+
+	// Build FortiOS-style commands: config <section> / edit <name> / set k v / next / end
+	var commands []string
+	commands = append(commands, fmt.Sprintf("config %s", section))
+	if name != "" {
+		commands = append(commands, fmt.Sprintf("edit %s", name))
+	}
+	if hasSettings {
+		for k, v := range settings {
+			commands = append(commands, fmt.Sprintf("set %s %v", k, v))
+		}
+	}
+	if name != "" {
+		commands = append(commands, "next")
+	}
+	commands = append(commands, "end")
+
+	// Check current config
+	showResult, _ := mctx.ExecuteCommand(ctx, fmt.Sprintf("show %s", section))
+	needsChange := true
+	if hasSettings {
+		needsChange = false
+		for k, v := range settings {
+			if !strings.Contains(string(showResult.Stdout), fmt.Sprintf("set %s %v", k, v)) {
+				needsChange = true
+				break
+			}
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "abort") //nolint:errcheck // best-effort abort
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *FortiOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// PANOSConfigModule manages Palo Alto PAN-OS configuration.
+type PANOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewPANOSConfigModule creates a new PAN-OS config module.
+func NewPANOSConfigModule() *PANOSConfigModule {
+	return &PANOSConfigModule{BaseProxyModule{name: "panos_config"}}
+}
+
+// Execute runs the PAN-OS config module.
+func (m *PANOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	commit, _ := m.GetBool(mctx.Parameters, "commit")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	// Enter configure mode
+	if _, err := mctx.ExecuteCommand(ctx, "configure"); err != nil {
+		return nil, fmt.Errorf("failed to enter configure mode: %w", err)
+	}
+
+	// Apply set commands
+	for _, line := range lines {
+		cmd := line
+		if !strings.HasPrefix(strings.ToLower(line), "set ") &&
+			!strings.HasPrefix(strings.ToLower(line), "delete ") {
+			cmd = "set " + line
+		}
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "exit") //nolint:errcheck // best-effort exit
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		_, _ = mctx.ExecuteCommand(ctx, "exit") //nolint:errcheck // best-effort exit
+		result.Comment = "Configuration would be committed"
+		return result, nil
+	}
+
+	if commit {
+		if _, err := mctx.ExecuteCommand(ctx, "commit"); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "exit") //nolint:errcheck // best-effort exit
+			return nil, fmt.Errorf("commit failed: %w", err)
+		}
+		result.Comment = "Configuration committed"
+	} else {
+		result.Comment = "Configuration applied (not committed)"
+	}
+
+	_, _ = mctx.ExecuteCommand(ctx, "exit") //nolint:errcheck // best-effort exit
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *PANOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// BigIPConfigModule manages F5 BIG-IP configuration.
+type BigIPConfigModule struct {
+	BaseProxyModule
+}
+
+// NewBigIPConfigModule creates a new BIG-IP config module.
+func NewBigIPConfigModule() *BigIPConfigModule {
+	return &BigIPConfigModule{BaseProxyModule{name: "bigip_config"}}
+}
+
+// Execute runs the BIG-IP config module.
+func (m *BigIPConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	// Execute tmsh commands directly
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "save sys config"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *BigIPConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// =============================================================================
+// P1/P2 Vendor Configuration Modules
+// =============================================================================
+
+// CheckpointGaiaConfigModule manages Check Point Gaia configuration.
+type CheckpointGaiaConfigModule struct {
+	BaseProxyModule
+}
+
+// NewCheckpointGaiaConfigModule creates a new Checkpoint Gaia config module.
+func NewCheckpointGaiaConfigModule() *CheckpointGaiaConfigModule {
+	return &CheckpointGaiaConfigModule{BaseProxyModule{name: "checkpoint_gaia_config"}}
+}
+
+// Execute runs the Checkpoint Gaia config module.
+func (m *CheckpointGaiaConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "save config"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *CheckpointGaiaConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// MikroTikRouterOSConfigModule manages MikroTik RouterOS configuration.
+type MikroTikRouterOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewMikroTikRouterOSConfigModule creates a new MikroTik RouterOS config module.
+func NewMikroTikRouterOSConfigModule() *MikroTikRouterOSConfigModule {
+	return &MikroTikRouterOSConfigModule{BaseProxyModule{name: "mikrotik_routeros_config"}}
+}
+
+// Execute runs the MikroTik RouterOS config module.
+func (m *MikroTikRouterOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	// RouterOS auto-saves; no explicit save needed
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *MikroTikRouterOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// UbiquitiEdgeOSConfigModule manages Ubiquiti EdgeOS configuration.
+type UbiquitiEdgeOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewUbiquitiEdgeOSConfigModule creates a new Ubiquiti EdgeOS config module.
+func NewUbiquitiEdgeOSConfigModule() *UbiquitiEdgeOSConfigModule {
+	return &UbiquitiEdgeOSConfigModule{BaseProxyModule{name: "ubiquiti_edgeos_config"}}
+}
+
+// Execute runs the Ubiquiti EdgeOS config module.
+func (m *UbiquitiEdgeOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	commit, _ := m.GetBool(mctx.Parameters, "commit")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	// Enter configure mode
+	if _, err := mctx.ExecuteCommand(ctx, "configure"); err != nil {
+		return nil, fmt.Errorf("failed to enter configure mode: %w", err)
+	}
+
+	for _, cmd := range commands {
+		c := cmd
+		if !strings.HasPrefix(strings.ToLower(c), "set ") &&
+			!strings.HasPrefix(strings.ToLower(c), "delete ") {
+			c = "set " + c
+		}
+		if _, err := mctx.ExecuteCommand(ctx, c); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "discard")
+			_, _ = mctx.ExecuteCommand(ctx, "exit")
+			return nil, fmt.Errorf("failed to execute '%s': %w", c, err)
+		}
+	}
+
+	if commit {
+		if _, err := mctx.ExecuteCommand(ctx, "commit"); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "discard")
+			_, _ = mctx.ExecuteCommand(ctx, "exit")
+			return nil, fmt.Errorf("commit failed: %w", err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "save"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	_, _ = mctx.ExecuteCommand(ctx, "exit")
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *UbiquitiEdgeOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// ExtremeEXOSConfigModule manages Extreme EXOS configuration.
+type ExtremeEXOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewExtremeEXOSConfigModule creates a new Extreme EXOS config module.
+func NewExtremeEXOSConfigModule() *ExtremeEXOSConfigModule {
+	return &ExtremeEXOSConfigModule{BaseProxyModule{name: "extreme_exos_config"}}
+}
+
+// Execute runs the Extreme EXOS config module.
+func (m *ExtremeEXOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "save configuration primary"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *ExtremeEXOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// NokiaSROSConfigModule manages Nokia SR OS configuration.
+type NokiaSROSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewNokiaSROSConfigModule creates a new Nokia SR OS config module.
+func NewNokiaSROSConfigModule() *NokiaSROSConfigModule {
+	return &NokiaSROSConfigModule{BaseProxyModule{name: "nokia_sros_config"}}
+}
+
+// Execute runs the Nokia SR OS config module.
+func (m *NokiaSROSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	// Enter configure mode
+	if _, err := mctx.ExecuteCommand(ctx, "configure"); err != nil {
+		return nil, fmt.Errorf("failed to enter configure mode: %w", err)
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			_, _ = mctx.ExecuteCommand(ctx, "exit all")
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	_, _ = mctx.ExecuteCommand(ctx, "exit all")
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "admin save"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *NokiaSROSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// HuaweiVRPConfigModule manages Huawei VRP configuration.
+type HuaweiVRPConfigModule struct {
+	BaseProxyModule
+}
+
+// NewHuaweiVRPConfigModule creates a new Huawei VRP config module.
+func NewHuaweiVRPConfigModule() *HuaweiVRPConfigModule {
+	return &HuaweiVRPConfigModule{BaseProxyModule{name: "huawei_vrp_config"}}
+}
+
+// Execute runs the Huawei VRP config module.
+func (m *HuaweiVRPConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "system-view")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "return")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "display current-configuration")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		_, _ = mctx.ExecuteCommand(ctx, "save")
+		if _, err := mctx.ExecuteCommand(ctx, "Y"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *HuaweiVRPConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// MellanoxOnyxConfigModule manages Mellanox/NVIDIA Onyx configuration.
+type MellanoxOnyxConfigModule struct {
+	BaseProxyModule
+}
+
+// NewMellanoxOnyxConfigModule creates a new Mellanox Onyx config module.
+func NewMellanoxOnyxConfigModule() *MellanoxOnyxConfigModule {
+	return &MellanoxOnyxConfigModule{BaseProxyModule{name: "mellanox_onyx_config"}}
+}
+
+// Execute runs the Mellanox Onyx config module.
+func (m *MellanoxOnyxConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "configuration write"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *MellanoxOnyxConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// AlliedTelesisAWPlusConfigModule manages Allied Telesis AlliedWare Plus configuration.
+type AlliedTelesisAWPlusConfigModule struct {
+	BaseProxyModule
+}
+
+// NewAlliedTelesisAWPlusConfigModule creates a new Allied Telesis AlliedWare Plus config module.
+func NewAlliedTelesisAWPlusConfigModule() *AlliedTelesisAWPlusConfigModule {
+	return &AlliedTelesisAWPlusConfigModule{BaseProxyModule{name: "alliedtelesis_awplus_config"}}
+}
+
+// Execute runs the Allied Telesis AlliedWare Plus config module.
+func (m *AlliedTelesisAWPlusConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	lines, hasLines := m.GetStringSlice(mctx.Parameters, "lines")
+	parents, _ := m.GetStringSlice(mctx.Parameters, "parents")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasLines {
+		return nil, fmt.Errorf("lines parameter is required")
+	}
+
+	commands := make([]string, 0, 2+len(parents)+len(lines))
+	commands = append(commands, "configure terminal")
+	commands = append(commands, parents...)
+	commands = append(commands, lines...)
+	commands = append(commands, "end")
+
+	runningResult, _ := mctx.ExecuteCommand(ctx, "show running-config")
+	needsChange := false
+	for _, line := range lines {
+		if !strings.Contains(string(runningResult.Stdout), strings.TrimSpace(line)) {
+			needsChange = true
+			break
+		}
+	}
+
+	if !needsChange {
+		result.Comment = "Configuration already matches"
+		return result, nil
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Configuration would be applied"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "write"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *AlliedTelesisAWPlusConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	mctx.DryRun = true
+	return m.Execute(ctx, mctx)
+}
+
+// CienaSAOSConfigModule manages Ciena SAOS configuration.
+type CienaSAOSConfigModule struct {
+	BaseProxyModule
+}
+
+// NewCienaSAOSConfigModule creates a new Ciena SAOS config module.
+func NewCienaSAOSConfigModule() *CienaSAOSConfigModule {
+	return &CienaSAOSConfigModule{BaseProxyModule{name: "ciena_saos_config"}}
+}
+
+// Execute runs the Ciena SAOS config module.
+func (m *CienaSAOSConfigModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	result := &ModuleResult{
+		Details: make(map[string]interface{}),
+	}
+
+	commands, hasCommands := m.GetStringSlice(mctx.Parameters, "commands")
+	save, _ := m.GetBool(mctx.Parameters, "save")
+
+	if !hasCommands {
+		return nil, fmt.Errorf("commands parameter is required")
+	}
+
+	result.Changed = true
+
+	if mctx.DryRun {
+		result.Comment = "Commands would be executed"
+		result.Details["commands"] = commands
+		return result, nil
+	}
+
+	for _, cmd := range commands {
+		if _, err := mctx.ExecuteCommand(ctx, cmd); err != nil {
+			return nil, fmt.Errorf("failed to execute '%s': %w", cmd, err)
+		}
+	}
+
+	if save {
+		if _, err := mctx.ExecuteCommand(ctx, "configuration save"); err != nil {
+			return nil, fmt.Errorf("failed to save configuration: %w", err)
+		}
+	}
+
+	result.Comment = "Configuration applied"
+	result.Details["commands"] = commands
+	return result, nil
+}
+
+// Check performs a dry-run check.
+func (m *CienaSAOSConfigModule) Check(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
 	mctx.DryRun = true
 	return m.Execute(ctx, mctx)
 }

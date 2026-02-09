@@ -3,6 +3,7 @@ package execution
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -181,9 +182,11 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 	if shell != nil {
 		// Use shell to execute the command
 		shellCmd, shellArgs := shell.Command(req.Command)
+		//nolint:gosec // G204: remote command execution is the core purpose of this infrastructure tool
 		cmd = exec.CommandContext(cmdCtx, shellCmd, shellArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	} else {
 		// Direct execution without shell
+		//nolint:gosec // G204: remote command execution is the core purpose of this infrastructure tool
 		cmd = exec.CommandContext(cmdCtx, req.Command, req.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	}
 
@@ -232,7 +235,8 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 
 	// Get exit code
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.Error = err

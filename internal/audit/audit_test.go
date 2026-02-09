@@ -33,7 +33,7 @@ func TestNewAuditorWithNoneLevel(t *testing.T) {
 		Level: AuditLevelNone,
 	}
 
-	auditor, err := NewAuditor("test-tool", config)
+	auditor, err := NewAuditor(context.Background(), "test-tool", config)
 	if err != nil {
 		t.Fatalf("NewAuditor() error = %v", err)
 	}
@@ -53,7 +53,7 @@ func TestNewAuditorWithStderr(t *testing.T) {
 		Backend: "stderr",
 	}
 
-	auditor, err := NewAuditor("test-tool", config)
+	auditor, err := NewAuditor(context.Background(), "test-tool", config)
 	if err != nil {
 		t.Fatalf("NewAuditor() error = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestAuditorStartEntry(t *testing.T) {
 		Backend: "none",
 	}
 
-	auditor, err := NewAuditor("kscore-exec", config)
+	auditor, err := NewAuditor(context.Background(), "kscore-exec", config)
 	if err != nil {
 		t.Fatalf("NewAuditor() error = %v", err)
 	}
@@ -255,7 +255,7 @@ func TestGenerateCorrelationID(t *testing.T) {
 
 func TestGlobalAuditorFunctions(t *testing.T) {
 	// Initialize global auditor
-	err := Init("test-tool", &AuditConfig{
+	err := Init(context.Background(), "test-tool", &AuditConfig{
 		Level:   AuditLevelAll,
 		Backend: "none",
 	})
@@ -515,7 +515,7 @@ func TestUnknownBackend(t *testing.T) {
 		Backend: "unknown-backend",
 	}
 
-	_, err := NewAuditor("test", config)
+	_, err := NewAuditor(context.Background(), "test", config)
 	if err == nil {
 		t.Error("Expected error for unknown backend")
 	}

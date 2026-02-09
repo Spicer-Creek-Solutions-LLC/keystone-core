@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func setupDatabase(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]string, error) {
+func setupDatabase(cfg *Config, output io.Writer, verbose bool) ([]string, error) {
 	switch strings.ToLower(cfg.Storage) {
 	case "postgres":
 		dsn := buildPostgresDSN(cfg)
@@ -36,19 +36,20 @@ func setupDatabase(cfg *BootstrapConfig, output io.Writer, verbose bool) ([]stri
 	}
 }
 
-func sqliteDatabasePath(cfg *BootstrapConfig) string {
-	return "/var/lib/kscore/kscore.db"
+func sqliteDatabasePath(cfg *Config) string {
+	return "/var/lib/keystone-core/state.db"
 }
 
 func ensureSQLiteDatabase(path string) (bool, error) {
 	if path == "" {
 		return false, fmt.Errorf("sqlite path is required")
 	}
+	//nolint:gosec // G301: database directory needs to be accessible by service user
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return false, fmt.Errorf("create sqlite directory: %w", err)
 	}
 	existed := fileExists(path)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o640)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o640) //nolint:gosec // G302: Database file needs group-read for service account access
 	if err != nil {
 		return false, fmt.Errorf("create sqlite file: %w", err)
 	}

@@ -219,7 +219,8 @@ func (cm *ConnectionManager) loadAgentsFromStore() error {
 	defer cm.mu.Unlock()
 
 	loaded := 0
-	for _, sa := range agents {
+	for i := range agents {
+		sa := &agents[i]
 		// Skip if already in memory (shouldn't happen on startup, but be safe)
 		if _, exists := cm.agents[sa.ID]; exists {
 			continue
@@ -227,10 +228,10 @@ func (cm *ConnectionManager) loadAgentsFromStore() error {
 
 		// Convert stored agent to AgentInfo
 		info := &AgentInfo{
-			ID:           sa.ID,
-			RegisteredAt: sa.RegisteredAt,
+			ID:            sa.ID,
+			RegisteredAt:  sa.RegisteredAt,
 			LastHeartbeat: sa.LastSeen,
-			Status:       pb.AgentStatus_AGENT_STATUS_UNSPECIFIED, // Will be updated on first heartbeat
+			Status:        pb.AgentStatus_AGENT_STATUS_UNSPECIFIED, // Will be updated on first heartbeat
 			Metadata: &pb.AgentMetadata{
 				Hostname:    sa.Hostname,
 				Os:          sa.OS,
@@ -413,7 +414,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 		AgentId:      req.AgentId,
 		RegisteredAt: timestamppb.New(info.RegisteredAt),
 		Config: &pb.AgentConfig{
-			HeartbeatInterval: 30, // 30 seconds
+			HeartbeatInterval: 30,  // 30 seconds
 			CommandTimeout:    300, // 5 minutes
 			MetadataInterval:  300, // 5 minutes
 		},
@@ -448,7 +449,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 	// Extract trace context from NATS message
 	ctx := tracing.ExtractTraceContext(cm.ctx, msg)
-	ctx, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanAgentHeartbeat)
+	_, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanAgentHeartbeat)
 	defer span.End()
 
 	// Parse heartbeat request
@@ -644,7 +645,7 @@ func (cm *ConnectionManager) SendCommandWithContext(ctx context.Context, agentID
 	defer span.End()
 
 	// Check if agent exists and is online
-	info, err := cm.GetAgent(agentID)
+	info, err := cm.GetAgent(agentID) //nolint:contextcheck // GetAgent API doesn't take context
 	if err != nil {
 		tracing.RecordError(span, err)
 		return err

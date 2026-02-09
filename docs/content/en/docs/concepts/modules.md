@@ -203,7 +203,7 @@ Operators can override module-declared capabilities using a capability policy fi
 ### Policy Structure
 
 ```yaml
-# /etc/kscore/capability-policy.yaml
+# /etc/keystone-core/capability-policy.yaml
 schema_version: 1
 
 # Default policy applied to all modules
@@ -331,21 +331,9 @@ fs.read:
 
 Capability locks prevent module updates from escalating permissions. This protects against supply chain attacks where a malicious update adds dangerous capabilities.
 
-### Creating a Lock
+### Lock File
 
-```bash
-# Lock a module's current capabilities
-kscorectl module lock my-org/web-deployer
-
-# Lock with reason (for audit trail)
-kscorectl module lock my-org/web-deployer \
-  --reason "Production deployment - capabilities frozen"
-
-# View lock details
-kscorectl module lock show my-org/web-deployer
-```
-
-**Lock File (stored in `/var/lib/kscore/capability-locks.json`):**
+Capability locks are stored in `/var/lib/keystone-core/capability-locks.json`:
 ```json
 {
   "my-org/web-deployer": {
@@ -384,13 +372,7 @@ Update capabilities: [fs.read, log]  ← ALLOWED (http.get removed)
 
 ### Unlocking
 
-```bash
-# Unlock a module (requires admin role)
-kscorectl module unlock my-org/web-deployer \
-  --reason "Upgrading to v2.0 with new capabilities"
-
-# The unlock is audited
-```
+To unlock a module (for upgrading to new capabilities), modify the lock file directly or use administrative APIs. Lock and unlock operations are recorded in the audit log.
 
 ## Security Guarantees
 
@@ -504,16 +486,10 @@ Policy decisions are logged:
 
 ### Compliance Reporting
 
-```bash
-# List all modules and their capabilities
-kscorectl module list --show-capabilities
-
-# Show capability policy compliance
-kscorectl module policy audit
-
-# Export capability grants for compliance review
-kscorectl module capabilities export --format csv > capabilities-report.csv
-```
+Module capability information can be reviewed by:
+- Examining the capability policy file (`/etc/keystone-core/capability-policy.yaml`)
+- Reviewing module manifests with `kscorectl module tree`
+- Checking capability locks in `/var/lib/keystone-core/capability-locks.json`
 
 ## Best Practices
 
@@ -534,7 +510,7 @@ kscorectl module capabilities export --format csv > capabilities-report.csv
 
 ### Security Hardening Checklist
 
-- [ ] Capability policy file deployed (`/etc/kscore/capability-policy.yaml`)
+- [ ] Capability policy file deployed (`/etc/keystone-core/capability-policy.yaml`)
 - [ ] Default policy denies `exec`, `secrets.write`
 - [ ] All third-party modules have explicit policy entries
 - [ ] Production modules are capability-locked
@@ -547,7 +523,7 @@ kscorectl module capabilities export --format csv > capabilities-report.csv
 
 ### Capability Policy File
 
-**Location**: `/etc/kscore/capability-policy.yaml`
+**Location**: `/etc/keystone-core/capability-policy.yaml`
 
 ```yaml
 schema_version: 1
@@ -575,7 +551,7 @@ modules:
 
 ### Capability Lock File
 
-**Location**: `/var/lib/kscore/capability-locks.json`
+**Location**: `/var/lib/keystone-core/capability-locks.json`
 
 ```json
 {

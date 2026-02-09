@@ -110,7 +110,7 @@ Run a command on the agent:
 
 ```bash
 kscorectl exec run "echo 'Hello from Keystone Core!'" \
-  --target "agent_id:my-first-agent"
+  --target "id:my-first-agent"
 ```
 
 **Expected output**:
@@ -171,7 +171,7 @@ Verify the file was created:
 
 ```bash
 kscorectl exec run "cat /tmp/kscore-test.txt" \
-  --target "agent_id:my-first-agent"
+  --target "id:my-first-agent"
 ```
 
 **Expected output**:
@@ -190,7 +190,7 @@ Modify the file manually:
 
 ```bash
 kscorectl exec run "echo 'Modified!' > /tmp/kscore-test.txt" \
-  --target "agent_id:my-first-agent"
+  --target "id:my-first-agent"
 ```
 
 Check for drift:
