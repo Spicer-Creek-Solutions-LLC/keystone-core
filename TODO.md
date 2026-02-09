@@ -15,12 +15,9 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### API Documentation Gaps
 
-- [ ] **Secrets API reference docs have no matching REST/gRPC implementation**
-  - Resolution: code
-  - Docs describe `/api/v1/secrets/*` REST and secrets gRPC services
-  - No secrets proto files under `api/proto/` and no REST handlers under `pkg/api/`
-  - Docs reference `github.com/shawnbutts/keystone-core/pkg/secrets` and `pkg/secrets/transit`, but no public `pkg/secrets` exists
-  - Reference: `docs/content/en/docs/reference/secrets-api.md`
+- [x] **Secrets API reference docs have no matching REST/gRPC implementation** *(Moved to Epic 101)*
+  - See `epics/101-secrets-api-implementation.md` for full implementation plan
+  - Covers REST handlers, gRPC service, public client package, CLI wiring
 
 - [x] **Agent metrics REST endpoint documented but not implemented** ✓ FIXED
   - Resolution: code

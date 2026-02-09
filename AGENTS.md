@@ -311,6 +311,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
     ├── 41-dns-provider-management.md    # DNS record management via provider APIs
     ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
+    ├── 101-secrets-api-implementation.md # Secrets REST/gRPC API layer
     ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
@@ -381,6 +382,10 @@ Implementation order:
 ### In Progress
 
 100. **Epic 100** (0.1.0 Release Readiness) - IN PROGRESS - Blueprint signing, version reset, docs audit, VM validation
+
+### Planned
+
+101. **Epic 101** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
 
 ### Future Epics (Not Yet Planned)
 
