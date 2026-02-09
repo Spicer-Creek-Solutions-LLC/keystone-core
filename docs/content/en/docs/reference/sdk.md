@@ -10,6 +10,7 @@ description: >
 Keystone Core provides language SDKs for writing modules that compile to WASM and run in the module runtime.
 
 Available SDKs:
+
 - Go (TinyGo)
 - Rust
 - C++
@@ -21,6 +22,7 @@ All SDKs ship with a `hello-world` example under `modules/sdk/*/examples/hello-w
 Path: `modules/sdk/go`
 
 Key notes:
+
 - Build with TinyGo to target `wasm32-wasi`.
 - Implement the `Run` entry point and use the SDK host APIs.
 
@@ -36,6 +38,7 @@ tinygo build -o hello-world-go.wasm -target wasm32-wasi -opt=z .
 Path: `modules/sdk/rust`
 
 Key notes:
+
 - Build with `wasm32-wasi`.
 - Use the SDK crate to access host functions and types.
 
@@ -51,6 +54,7 @@ cargo build --target wasm32-wasi --release
 Path: `modules/sdk/cpp`
 
 Key notes:
+
 - Build with the WASI SDK toolchain.
 - Include `kscore` headers from the SDK.
 
@@ -228,6 +232,7 @@ Map Keystone API errors to language-appropriate exceptions:
 | 503 | `service_unavailable` | `ServiceUnavailableError` |
 
 **Python Implementation**:
+
 ```python
 class KeystoneError(Exception):
     """Base exception for Keystone SDK"""
@@ -277,6 +282,7 @@ def handle_response(response):
 ```
 
 **TypeScript Implementation**:
+
 ```typescript
 export class KeystoneError extends Error {
   constructor(
@@ -478,6 +484,7 @@ async function withRetry<T>(
 For real-time events, implement Server-Sent Events (SSE) or gRPC streaming:
 
 **SSE Client (REST)**:
+
 ```python
 import json
 import requests
@@ -510,6 +517,7 @@ for event in client.events.stream(filter="type =~ 'agent.*'"):
 ```
 
 **gRPC Streaming**:
+
 ```python
 import grpc
 
@@ -532,6 +540,7 @@ class EventStreamGrpc:
 Generate gRPC clients from Keystone proto files:
 
 **Protocol Buffer Location**:
+
 ```
 proto/
 ├── agent_service.proto
@@ -586,6 +595,7 @@ protoc \
 ### Request/Response Patterns
 
 **Standard Request Pattern**:
+
 ```python
 class BaseResource:
     def __init__(self, client):
@@ -626,6 +636,7 @@ class BaseResource:
 ```
 
 **Resource Implementation**:
+
 ```python
 class AgentResource(BaseResource):
     def list(

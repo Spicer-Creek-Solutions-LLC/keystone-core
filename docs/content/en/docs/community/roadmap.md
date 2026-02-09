@@ -16,6 +16,7 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ## Roadmap Overview
 
 ---
+
 >## 🚧 Early Preview / Not Production Ready
 >
 > Keystone Core is under active development and **not yet suitable for production**.
@@ -82,6 +83,7 @@ Foundation for the entire system including:
 - **Security**: mTLS, API key authentication, credential management
 
 **Key Achievements**:
+
 - Zero-dependency getting started (embedded NATS + SQLite)
 - Comprehensive agent lifecycle management
 - Robust command execution with streaming output
@@ -102,6 +104,7 @@ Cross-platform remote command execution:
 - **Job Tracking**: Comprehensive job status and output streaming
 
 **Key Achievements**:
+
 - Execute commands on 1000+ agents simultaneously
 - Flexible targeting with compound expressions
 - Real-time streaming output
@@ -121,6 +124,7 @@ Declarative configuration management (Salt-like):
 - **CLI Tools**: `kscore-state apply`, `check`, `drift`
 
 **Key Achievements**:
+
 - Idempotent state application
 - Cross-platform module support
 - Template rendering with rich function library
@@ -143,6 +147,7 @@ Event-driven automation:
 - **Integration**: CloudEvents, Kafka adapters
 
 **Key Achievements**:
+
 - Real-time event streaming
 - Complex filter expressions
 - Built-in actions (webhook, command, event emission)
@@ -164,6 +169,7 @@ Integrate with GitOps tools:
 - **Git Sync**: Repository synchronization with state/reactor files
 
 **Key Achievements**:
+
 - Unified webhook handling for major GitOps tools
 - Pluggable verification steps (HTTP, K8s, command)
 - Progressive delivery (canary, blue/green)
@@ -184,6 +190,7 @@ Policy-as-code for compliance:
 - **Compliance Reporting**: Generate compliance reports
 
 **Key Achievements**:
+
 - Dual policy engine support (OPA + CEL)
 - Flexible enforcement modes
 - Comprehensive audit logging
@@ -207,6 +214,7 @@ Comprehensive monitoring and observability:
 - **Query API**: Unified API for metrics, logs, traces
 
 **Key Achievements**:
+
 - Comprehensive observability stack
 - Real-time monitoring without external dependencies
 - Complete dashboard coverage
@@ -228,6 +236,7 @@ Support for diverse infrastructure:
 - **Service Mesh**: Istio, Linkerd, Consul integration
 
 **Key Achievements**:
+
 - Unified API across all environment types
 - Automatic platform detection
 - Seamless edge-to-cloud operation
@@ -251,6 +260,7 @@ Extensible module system:
 - **Registry**: OCI registry client + HTTP registry server
 
 **Key Achievements**:
+
 - Secure, sandboxed plugin execution
 - Complete SDK suite for multiple languages
 - Reproducible builds with lock files
@@ -275,6 +285,7 @@ Comprehensive Hugo + Docsy documentation:
 - **Phase 7**: Blog & Release Notes (5 pages)
 
 **Key Achievements**:
+
 - ~21,500 lines of documentation
 - Complete coverage of all features
 - Searchable documentation site
@@ -298,6 +309,7 @@ High availability clustering:
 - **CLI Tools**: `kscore-cluster status`, `members`, `leader`, `health`, `rebalance`
 
 **Key Achievements**:
+
 - Zero-downtime failovers
 - Automatic agent reassignment on node failure
 - Split-brain prevention with quorum checks
@@ -320,6 +332,7 @@ Comprehensive end-to-end testing framework:
 - **CI/CD**: GitHub Actions workflow for automated E2E tests
 
 **Test Organization**:
+
 ```
 test/e2e/
 ├── harness/          # Test environment management
@@ -331,6 +344,7 @@ test/e2e/
 ```
 
 **Key Achievements**:
+
 - Complete E2E test infrastructure
 - HA cluster topology with NATS cluster + etcd + PostgreSQL
 - Performance tests with JSON reports
@@ -349,6 +363,7 @@ Pure Go build for simplified cross-compilation:
 - **WASM Runtime**: Using `github.com/tetratelabs/wazero` (pure Go WebAssembly)
 
 **Key Achievements**:
+
 - `CGO_ENABLED=0 go build ./...` works
 - Cross-compilation without toolchains
 - Alpine/scratch Docker images without libc
@@ -374,6 +389,7 @@ NATS-only communication with advanced networking:
 - **Observability**: 30+ NATS mesh metrics, Grafana dashboard, 25 alert rules
 
 **Key Achievements**:
+
 - Flexible deployment across NAT, firewalls, and complex networks
 - Automatic endpoint discovery and failover
 - Local message buffering during network outages
@@ -393,6 +409,7 @@ Enhanced telemetry transport and logging:
 - **TUI Monitor Integration**: Real-time NATS-based log/metrics streaming
 
 **Key Achievements**:
+
 - NATS-native telemetry for air-gapped environments
 - Multi-backend audit logging
 - Real-time TUI updates via NATS subscriptions
@@ -420,6 +437,7 @@ Cross-platform system management modules inspired by Salt Project:
 - **Config**: pip, npm, gem, ufw, alternatives, logrotate, sudoers, limits, modprobe, syslog, lineinfile, ini_file, archive
 
 **Key Achievements**:
+
 - 94 cross-platform modules
 - Comprehensive test coverage
 - Example state files for common scenarios
@@ -442,6 +460,7 @@ Zero-configuration identity and mTLS:
 - **Production Hardening**: AES-256-GCM encryption, CA rotation, LRU cache
 
 **Key Achievements**:
+
 - Zero-configuration mTLS out of the box
 - Cloud provider attestation
 - Trust domain federation
@@ -462,6 +481,7 @@ Full IPv6 and dual-stack support:
 - **E2E Testing**: IPv6-only test topology
 
 **Key Achievements**:
+
 - Full dual-stack support
 - IPv6-only deployment option
 - E2E test coverage for IPv6
@@ -481,6 +501,7 @@ Telemetry gateway for isolated agents:
 - **Deployment**: Docker Compose stack with Prometheus, Loki, Tempo, Grafana
 
 **Key Achievements**:
+
 - Bridge agents to standard observability backends
 - Cardinality control for high-scale deployments
 - Complete Docker Compose deployment
@@ -501,6 +522,7 @@ Comprehensive Windows agent:
 - **Installer**: WiX-based MSI installer with silent install support
 
 **Key Achievements**:
+
 - Full Windows service lifecycle management
 - Windows-native state modules
 - Enterprise deployment via MSI
@@ -521,6 +543,7 @@ Manage devices that cannot run native agents:
 - **Observability**: 30+ metrics, Grafana dashboard, health monitoring
 
 **Key Achievements**:
+
 - Transparent targeting (proxied devices appear as virtual agents)
 - Secure credential storage with rotation
 - Network device configuration management
@@ -543,6 +566,7 @@ NATS-based file distribution for agents:
 - **Observability**: 241 tests, Grafana dashboard
 
 **Key Achievements**:
+
 - NATS-native file distribution (no HTTP required)
 - Multiple storage backend support
 - Geographic routing with failover
@@ -564,6 +588,7 @@ Use Keystone Core to manage itself:
 - **Runbooks**: 9 operational runbook templates
 
 **Key Achievements**:
+
 - Zero-dependency bootstrap (embedded NATS + SQLite)
 - Complete backup/restore with encryption
 - Rolling and canary upgrade strategies
@@ -583,6 +608,7 @@ Documentation validation and quality assurance:
 - **Gap Analysis**: Documentation coverage analysis with remediation plan
 
 **Key Achievements**:
+
 - 61 documentation files validated
 - 2,103 code examples checked and fixed
 - Comprehensive gap analysis with prioritized remediation plan
@@ -602,6 +628,7 @@ Pre-packaged, reusable state collections (similar to Salt Formulas, Ansible Role
 - **CLI**: kscore-blueprint commands (init, validate, build, publish, install, apply, rollback)
 
 **Key Achievements**:
+
 - Complete design specification
 - Blueprint manifest format defined
 - Parameter and secret handling designed
@@ -625,6 +652,7 @@ Single-binary bootstrap experience for demo, production, and full-scale deployme
 - **Verification**: Service, API, NATS/Postgres connectivity and diagnostics capture
 
 **Key Achievements**:
+
 - Single command `kscore-agent bootstrap` for end-to-end setup
 - Automated validation and rollback for safer installs
 - Diagnostics bundle for troubleshooting failed runs
@@ -644,6 +672,7 @@ Address all issues identified in the comprehensive project review (NEEDSWORK.md)
 - **Polish**: Error messages, code cleanup, dependency updates
 
 **Key Achievements**:
+
 - All Critical/High/Medium/Low items resolved or explicitly deferred
 - CLI and audit logging standardized with output format parity
 - Test flakiness reduced with shared mocks and wait helpers
@@ -706,6 +735,7 @@ Restructured CLI commands to improve user experience by splitting oversized comm
 - **Backward Compatibility**: All original commands retained with deprecation warnings pointing to new commands
 
 **Key Achievements**:
+
 - Split 6 oversized commands into 12 focused commands
 - Created reusable deprecation framework for future migrations
 - All commands follow 7±2 subcommand guideline
@@ -727,6 +757,7 @@ Internal project policies, design philosophies, and architectural guardrails ins
 - **Code Review Checklists**: Security review checklists for each principle
 
 **Key Achievements**:
+
 - Security-conscious design thinking embedded in development process
 - Clear contributor expectations for security-relevant decisions
 - Comprehensive cryptographic standards with approved/acceptable/deprecated algorithms
@@ -738,7 +769,7 @@ Internal project policies, design philosophies, and architectural guardrails ins
 
 These items are under consideration for future development:
 
-#### 0.1.0 Release Readiness
+### 0.1.0 Release Readiness
 
 Final polish and release readiness for the 0.1.0 project announcement:
 
@@ -748,21 +779,21 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - VM-based bootstrap validation on real hosts
 - Release checklist and announcement notes
 
-#### Multi-Tenancy & Namespace Isolation
+### Multi-Tenancy & Namespace Isolation
 
 - Namespace isolation for multi-team environments
 - Tenant-specific policies and resource quotas
 - Cross-tenant visibility controls
 - Per-tenant audit logging
 
-#### Scheduled Operations & Maintenance Windows
+### Scheduled Operations & Maintenance Windows
 
 - Time-based execution scheduling
 - Maintenance windows with automatic blackout periods
 - Batch job orchestration
 - Priority-based execution queues
 
-#### Web UI Dashboard
+### Web UI Dashboard
 
 - React-based web dashboard
 - Real-time agent monitoring
@@ -770,7 +801,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Policy compliance dashboards
 - Job history and execution logs
 
-#### Automatic Drift Remediation
+### Automatic Drift Remediation
 
 - Opt-in automatic fix for detected drift
 - Approval workflows for critical changes
@@ -778,7 +809,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Rollback on remediation failure
 - Remediation scheduling (maintenance windows)
 
-#### Agent Self-Update
+### Agent Self-Update
 
 - Secure binary distribution via NATS
 - Staged rollouts (canary, percentage-based)
@@ -786,7 +817,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Version pinning per environment
 - Offline update packages for air-gapped environments
 
-#### Compliance Framework Presets
+### Compliance Framework Presets
 
 - CIS Benchmarks policy packs (Linux, Windows, Kubernetes)
 - SOC 2 compliance policies
@@ -794,7 +825,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - PCI-DSS compliance policies
 - Custom framework builder
 
-#### Network Discovery & Topology
+### Network Discovery & Topology
 
 - Automatic network scanning
 - L2/L3 topology mapping
@@ -802,7 +833,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Change detection and alerting
 - Integration with CMDB
 
-#### Runbook Automation
+### Runbook Automation
 
 - Multi-step orchestration workflows
 - Conditional branching (if/else, switch)
@@ -810,7 +841,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Parallel and sequential step execution
 - Human-in-the-loop confirmation
 
-#### Disaster Recovery
+### Disaster Recovery
 
 - Full backup/restore of cluster state
 - State export/import for migration
@@ -818,42 +849,42 @@ Final polish and release readiness for the 0.1.0 project announcement:
 - Point-in-time recovery
 - Backup verification and testing
 
-#### ServiceNow/ITSM Integration
+### ServiceNow/ITSM Integration
 
 - Change request integration
 - Incident creation from policy violations
 - CMDB synchronization
 - Approval workflow integration
 
-#### Secrets Management Integration
+### Secrets Management Integration
 
 - HashiCorp Vault integration (KV, dynamic secrets)
 - AWS Secrets Manager support
 - Azure Key Vault support
 - GCP Secret Manager support
 
-#### Terraform Provider
+### Terraform Provider
 
 - Terraform provider for Keystone Core resources
 - State file management
 - Agent provisioning
 - Policy-as-code from Terraform
 
-#### Chef/Puppet Migration Tools
+### Chef/Puppet Migration Tools
 
 - Chef cookbook to Keystone Core state converter
 - Puppet manifest to Keystone Core state converter
 - Migration assessment tools
 - Dual-run mode for validation
 
-#### Mobile Monitoring App
+### Mobile Monitoring App
 
 - iOS and Android apps
 - Push notifications for alerts
 - Agent status overview
 - Quick actions (restart, rerun)
 
-#### Natural Language Interface
+### Natural Language Interface
 
 - ChatGPT/Claude-powered natural language commands
 - "Show me all agents with drift"

@@ -67,6 +67,7 @@ You may upgrade:
 You may **not skip 3+ releases**. If you do, you must hop through an intermediate release.
 
 Example:
+
 ```
 A → B (OK)
 A → C (OK)
@@ -160,5 +161,3 @@ It balances long-term evolution with short-term usability.
 
 Feedback is welcome as the project evolves. The goal is to deliver a platform that is dependable,
 well-governed, and pleasant to operate — not one encumbered by legacy or surprise breaking changes.
-
-

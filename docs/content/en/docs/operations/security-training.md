@@ -10,6 +10,7 @@ description: >
 This security training guide provides comprehensive education on secure development practices, operational security, and security awareness for everyone working with Keystone Core. Training is organized into role-based modules with hands-on exercises.
 
 **Training Objectives**:
+
 - Understand Keystone Core's security architecture and threat landscape
 - Learn secure coding practices specific to infrastructure automation
 - Master operational security procedures
@@ -52,6 +53,7 @@ This security training guide provides comprehensive education on secure developm
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Explain Keystone Core's security architecture and trust boundaries
 - Identify threat actors and their motivations
 - Understand the STRIDE threat model
@@ -97,6 +99,7 @@ flowchart TB
 ```
 
 **Trust Boundaries**:
+
 - **TB1**: API Authentication (external to control plane)
 - **TB2**: Internal Services (API to control plane components)
 - **TB3**: Agent Communication (control plane to agents)
@@ -166,6 +169,7 @@ flowchart TB
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Apply secure coding practices in Go
 - Prevent common vulnerabilities (OWASP Top 10)
 - Use security tools in the development workflow
@@ -496,6 +500,7 @@ func ExecuteUserCommand(w http.ResponseWriter, r *http.Request) {
 6. **Logging Sensitive Data**: Commands logged without redaction
 
 **Remediation**:
+
 - Use exec.Command with separate arguments (no shell)
 - Implement command allowlisting
 - Add authentication and authorization
@@ -516,6 +521,7 @@ func ExecuteUserCommand(w http.ResponseWriter, r *http.Request) {
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Conduct security-focused code reviews
 - Identify security issues in pull requests
 - Apply the security review checklist
@@ -526,29 +532,34 @@ After completing this module, you will be able to:
 Use this checklist when reviewing pull requests:
 
 **Authentication & Authorization**:
+
 - [ ] Authentication required for sensitive endpoints?
 - [ ] Authorization checks before accessing resources?
 - [ ] No hardcoded credentials or secrets?
 - [ ] Token validation and expiration handled?
 
 **Input Handling**:
+
 - [ ] All user input validated?
 - [ ] Parameterized queries for database access?
 - [ ] No command injection possibilities?
 - [ ] Path traversal prevented?
 
 **Error Handling**:
+
 - [ ] No sensitive information in error messages?
 - [ ] Proper error logging (not exposing secrets)?
 - [ ] Graceful degradation for failures?
 
 **Cryptography**:
+
 - [ ] Strong algorithms used (AES-256, SHA-256+)?
 - [ ] No custom crypto implementations?
 - [ ] Secure random number generation?
 - [ ] Proper key management?
 
 **Data Protection**:
+
 - [ ] Sensitive data encrypted in transit?
 - [ ] Sensitive data encrypted at rest?
 - [ ] No secrets in logs or debug output?
@@ -662,6 +673,7 @@ Review the following diff and provide security feedback:
 **Security Issues**:
 
 1. **Missing Authentication**: No webhook signature verification
+
    ```go
    // Add HMAC signature verification
    signature := r.Header.Get("X-Hub-Signature-256")
@@ -672,6 +684,7 @@ Review the following diff and provide security feedback:
    ```
 
 2. **Error Handling Ignored**: ReadAll and Unmarshal errors discarded
+
    ```go
    body, err := io.ReadAll(r.Body)
    if err != nil {
@@ -681,6 +694,7 @@ Review the following diff and provide security feedback:
    ```
 
 3. **Type Assertion Without Check**: Potential panic on malformed data
+
    ```go
    target, ok := event.Data["target"].(string)
    if !ok {
@@ -708,6 +722,7 @@ Review the following diff and provide security feedback:
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Deploy Keystone Core securely
 - Configure authentication and authorization
 - Implement defense-in-depth
@@ -947,6 +962,7 @@ jq 'select(.action | test("delete|destroy|wipe"))' \
 Perform a security assessment of a Keystone Core deployment:
 
 1. **Network Security Review**
+
    ```bash
    # Check open ports
    sudo netstat -tlnp | grep -E "(kscore|nats)"
@@ -956,6 +972,7 @@ Perform a security assessment of a Keystone Core deployment:
    ```
 
 2. **Authentication Review**
+
    ```bash
    # Check authentication configuration
    cat /etc/keystone-core/server.yaml | grep -A 10 "auth:"
@@ -965,6 +982,7 @@ Perform a security assessment of a Keystone Core deployment:
    ```
 
 3. **Authorization Review**
+
    ```bash
    # Review RBAC configuration
    cat /etc/keystone-core/rbac.yaml
@@ -984,6 +1002,7 @@ Perform a security assessment of a Keystone Core deployment:
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Identify and classify security incidents
 - Execute incident response procedures
 - Contain and eradicate threats
@@ -1079,6 +1098,7 @@ kscore-audit log --since 1h | jq 'select(.severity == "warning" or .severity == 
 **Phase 5: Post-Incident Review**
 
 Document the following:
+
 - Timeline of events
 - Attack vector and root cause
 - Actions taken
@@ -1177,18 +1197,21 @@ Walk through the incident response process:
 **Severity**: High to Critical (depending on what actions were taken post-login)
 
 **Immediate Actions**:
+
 - Revoke the compromised operator session
 - Block the suspicious IP address
 - Disable the compromised account temporarily
 - Alert the security team
 
 **Investigation**:
+
 - Review all actions taken by the session
 - Check for privilege escalation attempts
 - Look for data exfiltration indicators
 - Review authentication logs for the account
 
 **Scope Assessment**:
+
 - What resources did the account have access to?
 - Were any commands executed?
 - Were any state changes applied?
@@ -1207,6 +1230,7 @@ Walk through the incident response process:
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Understand compliance requirements for infrastructure automation
 - Implement security controls for common frameworks
 - Conduct compliance audits
@@ -1317,6 +1341,7 @@ cp /etc/keystone-core/server.yaml security-config.yaml
 ### Learning Objectives
 
 After completing this module, you will be able to:
+
 - Recognize social engineering attacks
 - Protect credentials and sensitive data
 - Report security concerns appropriately
@@ -1325,6 +1350,7 @@ After completing this module, you will be able to:
 ### 7.1 Recognizing Threats
 
 **Phishing Indicators**:
+
 - Urgent or threatening language
 - Requests for credentials or sensitive data
 - Suspicious sender addresses
@@ -1332,6 +1358,7 @@ After completing this module, you will be able to:
 - Unexpected attachments
 
 **Social Engineering Tactics**:
+
 - Authority: "I'm from IT security..."
 - Urgency: "This must be done immediately..."
 - Reciprocity: "I helped you before, now..."
@@ -1340,6 +1367,7 @@ After completing this module, you will be able to:
 ### 7.2 Credential Protection
 
 **Password Best Practices**:
+
 - Use unique passwords for each service
 - Use a password manager
 - Enable MFA wherever available
@@ -1347,6 +1375,7 @@ After completing this module, you will be able to:
 - Report suspected compromise immediately
 
 **API Key Security**:
+
 ```bash
 # DO: Store API keys in environment variables
 export KSCORE_API_KEY="sk_live_..."
@@ -1361,6 +1390,7 @@ kscorectl config set api_key vault://secret/kscore/api-key
 ### 7.3 Reporting Security Issues
 
 **When to Report**:
+
 - Suspicious emails or messages
 - Unexpected access requests
 - Lost or stolen devices
@@ -1369,9 +1399,10 @@ kscorectl config set api_key vault://secret/kscore/api-key
 - Security vulnerabilities
 
 **How to Report**:
-- Internal: security@company.com or security Slack channel
+
+- Internal: <security@company.com> or security Slack channel
 - Urgent: Call security hotline
-- External vulnerabilities: security@keystone-core.io
+- External vulnerabilities: <security@keystone-core.io>
 
 ### 7.4 Daily Security Practices
 
@@ -1447,5 +1478,5 @@ Training completion is tracked in the security training portal. Managers can vie
 ### Getting Help
 
 - Security questions: #security Slack channel
-- Incident reporting: security@company.com
-- Training questions: training@company.com
+- Incident reporting: <security@company.com>
+- Training questions: <training@company.com>

@@ -20,16 +20,16 @@ certified (a), (b) or (c) and I have not modified it.
 **(d) AI-Generated Content**: If this contribution includes content generated
 by artificial intelligence tools, I additionally certify that:
 
-   - I have disclosed the use of AI assistance in the commit message using the
+- I have disclosed the use of AI assistance in the commit message using the
      format specified in CONTRIBUTING.md
-   - I have reviewed and tested the AI-generated content
-   - I understand that AI-generated content may not be eligible for copyright
+- I have reviewed and tested the AI-generated content
+- I understand that AI-generated content may not be eligible for copyright
      protection under current law
-   - I take full responsibility for the contribution as if I had authored it
+- I take full responsibility for the contribution as if I had authored it
      myself
-   - I make no copyright claim on portions that are purely AI-generated without
+- I make no copyright claim on portions that are purely AI-generated without
      my creative input
-   - I have verified the AI-generated content does not knowingly infringe on
+- I have verified the AI-generated content does not knowingly infringe on
      any third party's intellectual property rights
 
 **(e)** I understand and agree that this project and the contribution are

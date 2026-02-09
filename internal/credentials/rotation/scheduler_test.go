@@ -8,13 +8,13 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-func TestNewRotationScheduler(t *testing.T) {
+func TestNewScheduler(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 	policies := NewPolicyEngine()
 
-	sched := NewRotationScheduler(engine, policies, store, audit)
+	sched := NewScheduler(engine, policies, store, audit)
 	if sched == nil {
 		t.Fatal("expected non-nil scheduler")
 	}
@@ -23,11 +23,11 @@ func TestNewRotationScheduler(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_StartStop(t *testing.T) {
+func TestScheduler_StartStop(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 	sched.SetCheckInterval(50 * time.Millisecond)
 
 	ctx := context.Background()
@@ -57,19 +57,19 @@ func TestRotationScheduler_StartStop(t *testing.T) {
 	sched.Stop()
 }
 
-func TestRotationScheduler_GetStatus(t *testing.T) {
+func TestScheduler_GetStatus(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
 
-	_ = policies.AddPolicy(&RotationPolicy{
+	_ = policies.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
 		Enabled:         true,
 	})
 
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
 	status := sched.GetStatus()
 	if status.Running {
@@ -83,16 +83,16 @@ func TestRotationScheduler_GetStatus(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_TriggerNow(t *testing.T) {
+func TestScheduler_TriggerNow(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	engine.RegisterProvider(provider)
 
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, audit)
+	sched := NewScheduler(engine, policies, store, audit)
 
 	ctx := context.Background()
 
@@ -115,11 +115,11 @@ func TestRotationScheduler_TriggerNow(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_TriggerNowNotFound(t *testing.T) {
+func TestScheduler_TriggerNowNotFound(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
 	_, err := sched.TriggerNow(context.Background(), "nonexistent")
 	if err == nil {
@@ -127,13 +127,13 @@ func TestRotationScheduler_TriggerNowNotFound(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_AddPolicy(t *testing.T) {
+func TestScheduler_AddPolicy(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
-	err := sched.AddPolicy(&RotationPolicy{
+	err := sched.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          90 * 24 * time.Hour,
@@ -145,13 +145,13 @@ func TestRotationScheduler_AddPolicy(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_AddPolicyInvalidCron(t *testing.T) {
+func TestScheduler_AddPolicyInvalidCron(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
-	err := sched.AddPolicy(&RotationPolicy{
+	err := sched.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
@@ -163,16 +163,16 @@ func TestRotationScheduler_AddPolicyInvalidCron(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_AutomaticRotation(t *testing.T) {
+func TestScheduler_AutomaticRotation(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	engine.RegisterProvider(provider)
 
 	policies := NewPolicyEngine()
-	_ = policies.AddPolicy(&RotationPolicy{
+	_ = policies.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          1 * time.Millisecond, // Very short for testing
@@ -180,7 +180,7 @@ func TestRotationScheduler_AutomaticRotation(t *testing.T) {
 		RollbackOnFail:  true,
 	})
 
-	sched := NewRotationScheduler(engine, policies, store, audit)
+	sched := NewScheduler(engine, policies, store, audit)
 	sched.SetCheckInterval(50 * time.Millisecond)
 
 	ctx := context.Background()
@@ -211,11 +211,11 @@ func TestRotationScheduler_AutomaticRotation(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_ContextCancellation(t *testing.T) {
+func TestScheduler_ContextCancellation(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 	sched.SetCheckInterval(50 * time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -233,11 +233,11 @@ func TestRotationScheduler_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_SetCheckInterval(t *testing.T) {
+func TestScheduler_SetCheckInterval(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
 	sched.SetCheckInterval(5 * time.Minute)
 
@@ -248,11 +248,11 @@ func TestRotationScheduler_SetCheckInterval(t *testing.T) {
 	}
 }
 
-func TestRotationScheduler_NilAuditLogger(t *testing.T) {
+func TestScheduler_NilAuditLogger(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 	policies := NewPolicyEngine()
-	sched := NewRotationScheduler(engine, policies, store, nil)
+	sched := NewScheduler(engine, policies, store, nil)
 
 	// Should not panic with nil audit logger
 	sched.logAudit(context.Background(), "test", true, "msg")

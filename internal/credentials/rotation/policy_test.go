@@ -21,7 +21,7 @@ func TestNewPolicyEngine(t *testing.T) {
 func TestPolicyEngine_AddPolicy(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	policy := &RotationPolicy{
+	policy := &Policy{
 		ID:              "p1",
 		Name:            "SSH 90-day",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
@@ -49,11 +49,11 @@ func TestPolicyEngine_AddPolicyValidation(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		policy *RotationPolicy
+		policy *Policy
 	}{
-		{"empty ID", &RotationPolicy{MaxAge: time.Hour, CredentialTypes: []credentials.CredentialType{"x"}}},
-		{"zero max age", &RotationPolicy{ID: "p1", CredentialTypes: []credentials.CredentialType{"x"}}},
-		{"no credential types", &RotationPolicy{ID: "p1", MaxAge: time.Hour}},
+		{"empty ID", &Policy{MaxAge: time.Hour, CredentialTypes: []credentials.CredentialType{"x"}}},
+		{"zero max age", &Policy{ID: "p1", CredentialTypes: []credentials.CredentialType{"x"}}},
+		{"no credential types", &Policy{ID: "p1", MaxAge: time.Hour}},
 	}
 
 	for _, tt := range tests {
@@ -69,7 +69,7 @@ func TestPolicyEngine_AddPolicyValidation(t *testing.T) {
 func TestPolicyEngine_AddPolicyDuplicate(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	policy := &RotationPolicy{
+	policy := &Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
@@ -85,14 +85,14 @@ func TestPolicyEngine_AddPolicyDuplicate(t *testing.T) {
 func TestPolicyEngine_UpdatePolicy(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		Name:            "old name",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
 	})
 
-	err := pe.UpdatePolicy(&RotationPolicy{
+	err := pe.UpdatePolicy(&Policy{
 		ID:              "p1",
 		Name:            "new name",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
@@ -110,7 +110,7 @@ func TestPolicyEngine_UpdatePolicy(t *testing.T) {
 
 func TestPolicyEngine_UpdatePolicyNotFound(t *testing.T) {
 	pe := NewPolicyEngine()
-	err := pe.UpdatePolicy(&RotationPolicy{ID: "nonexistent"})
+	err := pe.UpdatePolicy(&Policy{ID: "nonexistent"})
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -119,7 +119,7 @@ func TestPolicyEngine_UpdatePolicyNotFound(t *testing.T) {
 func TestPolicyEngine_RemovePolicy(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
@@ -147,10 +147,10 @@ func TestPolicyEngine_RemovePolicyNotFound(t *testing.T) {
 func TestPolicyEngine_ListPolicies(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID: "p1", CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword}, MaxAge: time.Hour,
 	})
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID: "p2", CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSNMPv2c}, MaxAge: time.Hour,
 	})
 
@@ -163,7 +163,7 @@ func TestPolicyEngine_ListPolicies(t *testing.T) {
 func TestPolicyEngine_EvaluateOK(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          90 * 24 * time.Hour,
@@ -191,7 +191,7 @@ func TestPolicyEngine_EvaluateOK(t *testing.T) {
 func TestPolicyEngine_EvaluateWarning(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          90 * 24 * time.Hour,
@@ -219,7 +219,7 @@ func TestPolicyEngine_EvaluateWarning(t *testing.T) {
 func TestPolicyEngine_EvaluateRotate(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          90 * 24 * time.Hour,
@@ -246,7 +246,7 @@ func TestPolicyEngine_EvaluateRotate(t *testing.T) {
 func TestPolicyEngine_EvaluateExpired(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          90 * 24 * time.Hour,
@@ -274,7 +274,7 @@ func TestPolicyEngine_EvaluateExpired(t *testing.T) {
 func TestPolicyEngine_EvaluateNoMatchingPolicy(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSNMPv2c},
 		MaxAge:          time.Hour,
@@ -299,7 +299,7 @@ func TestPolicyEngine_EvaluateNoMatchingPolicy(t *testing.T) {
 func TestPolicyEngine_EvaluateDisabledPolicy(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          1 * time.Hour,
@@ -327,7 +327,7 @@ func TestPolicyEngine_EvaluateMostUrgentWins(t *testing.T) {
 	pe := NewPolicyEngine()
 
 	// Lenient policy: 365-day max age (would be OK)
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "lenient",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          365 * 24 * time.Hour,
@@ -336,7 +336,7 @@ func TestPolicyEngine_EvaluateMostUrgentWins(t *testing.T) {
 	})
 
 	// Strict policy: 30-day max age (would trigger rotate)
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "strict",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          30 * 24 * time.Hour,
@@ -366,7 +366,7 @@ func TestPolicyEngine_EvaluateMostUrgentWins(t *testing.T) {
 func TestPolicyEngine_EvaluateNoCreationTime(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          time.Hour,
@@ -392,7 +392,7 @@ func TestPolicyEngine_EvaluateNoCreationTime(t *testing.T) {
 func TestPolicyEngine_FindDueCredentials(t *testing.T) {
 	pe := NewPolicyEngine()
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "p1",
 		CredentialTypes: []credentials.CredentialType{credentials.CredentialTypeSSHPassword},
 		MaxAge:          30 * 24 * time.Hour,
@@ -481,7 +481,7 @@ func TestPolicyEngine_EvaluateAllCredentialTypes(t *testing.T) {
 		credentials.CredentialTypeGNMI,
 	}
 
-	_ = pe.AddPolicy(&RotationPolicy{
+	_ = pe.AddPolicy(&Policy{
 		ID:              "all-types",
 		CredentialTypes: allTypes,
 		MaxAge:          30 * 24 * time.Hour,

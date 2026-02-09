@@ -40,6 +40,7 @@ docker-compose up -d
 ```
 
 This starts:
+
 - **NATS**: Message transport on port 4222
 - **Telemetry Gateway**: Aggregation on port 8080
 - **Prometheus**: Metrics storage on port 9090
@@ -47,7 +48,7 @@ This starts:
 - **Tempo**: Trace storage on port 3200
 - **Grafana**: Visualization on port 3000
 
-Access Grafana at http://localhost:3000 (admin/admin).
+Access Grafana at <http://localhost:3000> (admin/admin).
 
 ### Standalone Binary
 
@@ -240,6 +241,7 @@ Total Series = Agents × Metrics_Per_Agent × Label_Combinations
 ```
 
 Example for 1,000 agents:
+
 - System metrics: 50 metrics × 1 (no additional labels) = 50,000 series
 - Application metrics: 100 metrics × 5 (service labels) = 500,000 series
 - Total: ~550,000 series
@@ -636,11 +638,13 @@ A pre-built Grafana dashboard is included at `deploy/gateway/grafana/provisionin
 ### No metrics appearing
 
 1. Check NATS connectivity:
+
    ```bash
    nats sub "kscore.telemetry.metrics.>"
    ```
 
 2. Verify agent is publishing:
+
    ```bash
    curl http://agent:8080/metrics
    ```
@@ -652,6 +656,7 @@ A pre-built Grafana dashboard is included at `deploy/gateway/grafana/provisionin
 If you see cardinality warnings, consider:
 
 1. Enable cardinality control:
+
    ```yaml
    metrics:
      drop_high_cardinality: true

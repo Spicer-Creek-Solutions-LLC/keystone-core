@@ -89,6 +89,97 @@ func TestTagsUpdateRequestStructure(t *testing.T) {
 	}
 }
 
+func TestAgentMetricsResponseStructure(t *testing.T) {
+	now := time.Now().UTC()
+	resp := AgentMetricsResponse{
+		AgentID:           "agent-123",
+		CPUPercent:        45.2,
+		MemoryPercent:     72.8,
+		DiskPercent:       55.0,
+		LoadAverage:       []float32{1.5, 2.0, 1.8},
+		ActiveConnections: 42,
+		CollectedAt:       now,
+	}
+
+	if resp.AgentID != "agent-123" {
+		t.Errorf("AgentID = %v", resp.AgentID)
+	}
+	if resp.CPUPercent != 45.2 {
+		t.Errorf("CPUPercent = %v", resp.CPUPercent)
+	}
+	if resp.MemoryPercent != 72.8 {
+		t.Errorf("MemoryPercent = %v", resp.MemoryPercent)
+	}
+	if resp.DiskPercent != 55.0 {
+		t.Errorf("DiskPercent = %v", resp.DiskPercent)
+	}
+	if len(resp.LoadAverage) != 3 {
+		t.Errorf("LoadAverage count = %d", len(resp.LoadAverage))
+	}
+	if resp.ActiveConnections != 42 {
+		t.Errorf("ActiveConnections = %d", resp.ActiveConnections)
+	}
+}
+
+func TestAgentMetricsResponseJSONMarshal(t *testing.T) {
+	now := time.Now().UTC()
+	resp := AgentMetricsResponse{
+		AgentID:           "agent-456",
+		CPUPercent:        12.5,
+		MemoryPercent:     60.0,
+		DiskPercent:       30.0,
+		LoadAverage:       []float32{0.5, 0.8, 0.6},
+		ActiveConnections: 10,
+		CollectedAt:       now,
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var unmarshaled AgentMetricsResponse
+	if err := json.Unmarshal(data, &unmarshaled); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if unmarshaled.AgentID != resp.AgentID {
+		t.Errorf("AgentID = %v, want %v", unmarshaled.AgentID, resp.AgentID)
+	}
+	if unmarshaled.CPUPercent != resp.CPUPercent {
+		t.Errorf("CPUPercent = %v, want %v", unmarshaled.CPUPercent, resp.CPUPercent)
+	}
+	if unmarshaled.ActiveConnections != resp.ActiveConnections {
+		t.Errorf("ActiveConnections = %v, want %v", unmarshaled.ActiveConnections, resp.ActiveConnections)
+	}
+	if len(unmarshaled.LoadAverage) != len(resp.LoadAverage) {
+		t.Errorf("LoadAverage count = %d, want %d", len(unmarshaled.LoadAverage), len(resp.LoadAverage))
+	}
+}
+
+func TestAgentMetricsResponseEmptyMetrics(t *testing.T) {
+	resp := AgentMetricsResponse{
+		AgentID: "agent-789",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if result["agent_id"] != "agent-789" {
+		t.Errorf("agent_id = %v", result["agent_id"])
+	}
+	if result["cpu_percent"].(float64) != 0 {
+		t.Errorf("cpu_percent should be 0 for empty metrics")
+	}
+}
+
 func TestAgentStatusToString(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -137,17 +137,18 @@ func (m *Manager) List() []*ManagedExecution {
 func (m *Manager) Pause(executionID string) error {
 	m.mu.Lock()
 	exec, ok := m.executions[executionID]
-	m.mu.Unlock()
-
 	if !ok {
+		m.mu.Unlock()
 		return fmt.Errorf("execution %s not found", executionID)
 	}
 
 	if exec.paused {
+		m.mu.Unlock()
 		return errors.New("execution already paused")
 	}
 
 	if exec.IsTerminal() {
+		m.mu.Unlock()
 		return errors.New("cannot pause terminal execution")
 	}
 
@@ -155,6 +156,7 @@ func (m *Manager) Pause(executionID string) error {
 	now := time.Now()
 	exec.pausedAt = &now
 	close(exec.pauseCh)
+	m.mu.Unlock()
 
 	// Save state
 	if m.storage != nil {
@@ -168,13 +170,13 @@ func (m *Manager) Pause(executionID string) error {
 func (m *Manager) Resume(executionID string) error {
 	m.mu.Lock()
 	exec, ok := m.executions[executionID]
-	m.mu.Unlock()
-
 	if !ok {
+		m.mu.Unlock()
 		return fmt.Errorf("execution %s not found", executionID)
 	}
 
 	if !exec.paused {
+		m.mu.Unlock()
 		return errors.New("execution not paused")
 	}
 
@@ -187,6 +189,7 @@ func (m *Manager) Resume(executionID string) error {
 	exec.resumeCh = make(chan struct{})
 	exec.pauseCh = make(chan struct{})
 	close(oldResumeCh)
+	m.mu.Unlock()
 
 	// Save state
 	if m.storage != nil {
@@ -199,9 +202,9 @@ func (m *Manager) Resume(executionID string) error {
 // IsPaused returns true if the execution is paused.
 func (m *Manager) IsPaused(executionID string) bool {
 	m.mu.RLock()
-	exec, ok := m.executions[executionID]
-	m.mu.RUnlock()
+	defer m.mu.RUnlock()
 
+	exec, ok := m.executions[executionID]
 	if !ok {
 		return false
 	}
@@ -214,16 +217,17 @@ func (m *Manager) IsPaused(executionID string) bool {
 func (m *Manager) WaitIfPaused(ctx context.Context, executionID string) bool {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
-	m.mu.RUnlock()
-
 	if !ok || !exec.paused {
+		m.mu.RUnlock()
 		return true
 	}
+	resumeCh := exec.resumeCh
+	m.mu.RUnlock()
 
 	select {
 	case <-ctx.Done():
 		return false
-	case <-exec.resumeCh:
+	case <-resumeCh:
 		return true
 	}
 }
@@ -313,18 +317,21 @@ func (m *Manager) SkipStep(ctx context.Context, executionID, stepName string) er
 func (m *Manager) Cancel(ctx context.Context, executionID string) error {
 	m.mu.RLock()
 	exec, ok := m.executions[executionID]
-	m.mu.RUnlock()
-
 	if !ok {
+		m.mu.RUnlock()
 		return fmt.Errorf("execution %s not found", executionID)
 	}
 
 	if exec.IsTerminal() {
+		m.mu.RUnlock()
 		return errors.New("cannot cancel terminal execution")
 	}
 
+	paused := exec.paused
+	m.mu.RUnlock()
+
 	// If paused, resume first to allow cancellation
-	if exec.paused {
+	if paused {
 		_ = m.Resume(executionID) //nolint:contextcheck // Resume API doesn't take context
 	}
 

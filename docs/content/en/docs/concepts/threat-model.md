@@ -16,6 +16,7 @@ This document describes the security threat model for Keystone Core, identifying
 ### Purpose
 
 This threat model serves to:
+
 - Identify and document security risks in Keystone Core deployments
 - Guide security architecture decisions
 - Inform security testing and validation efforts
@@ -25,6 +26,7 @@ This threat model serves to:
 ### Scope
 
 **In Scope**:
+
 - Keystone Core control plane components
 - Agent software and communication protocols
 - NATS message bus integration
@@ -35,6 +37,7 @@ This threat model serves to:
 - Integration points (GitOps, observability, secrets management)
 
 **Out of Scope**:
+
 - Managed system security (OS hardening of target nodes)
 - Network infrastructure security (firewalls, load balancers)
 - Physical security of data centers
@@ -143,6 +146,7 @@ flowchart TB
 **Data Crossing**: API requests (gRPC/REST), webhooks (GitOps, GitHub/GitLab).
 
 **Security Controls**:
+
 - TLS 1.3 for all connections
 - API key or JWT authentication required
 - Rate limiting and request throttling
@@ -156,6 +160,7 @@ flowchart TB
 **Data Crossing**: Commands, events, state updates, heartbeats.
 
 **Security Controls**:
+
 - mTLS with client certificate validation
 - NATS authorization rules (publish/subscribe permissions)
 - JetStream persistence with authenticated access
@@ -168,6 +173,7 @@ flowchart TB
 **Data Crossing**: Commands, execution results, state applications, heartbeats.
 
 **Security Controls**:
+
 - mTLS with per-agent certificates (Manual mode) or SVIDs (SPIFFE mode)
 - Agent identity attestation (join token, cloud metadata, K8s SAT)
 - Command authorization via policy engine
@@ -180,6 +186,7 @@ flowchart TB
 **Data Crossing**: Agent state, job history, configuration data, audit logs.
 
 **Security Controls**:
+
 - TLS for PostgreSQL connections
 - Database authentication (username/password or certificate)
 - Encryption at rest (database-level or filesystem)
@@ -192,6 +199,7 @@ flowchart TB
 **Data Crossing**: File operations, process execution, system configuration.
 
 **Security Controls**:
+
 - Least-privilege agent user (non-root when possible)
 - Command allowlists for restricted operations
 - State module validation
@@ -204,6 +212,7 @@ flowchart TB
 **Data Crossing**: SSH commands, SNMP queries, REST API calls, WinRM commands.
 
 **Security Controls**:
+
 - Credential encryption at rest (AES-256-GCM)
 - Credential rotation policies
 - Protocol-specific security (SSH keys, SNMPv3 auth)
@@ -527,6 +536,7 @@ Attack surface on managed nodes running Keystone Core agents.
 **Attacker Goal**: Gain unauthorized access to control plane functionality.
 
 **Attack Tree**:
+
 ```
 [Compromise API Access]
 ├── [Obtain Valid Credentials]
@@ -545,6 +555,7 @@ Attack surface on managed nodes running Keystone Core agents.
 ```
 
 **Mitigations**:
+
 - Strong authentication (mTLS preferred, MFA for sensitive operations)
 - Rate limiting on authentication endpoints (5 failures = 15-minute lockout)
 - Input validation on all API parameters
@@ -552,6 +563,7 @@ Attack surface on managed nodes running Keystone Core agents.
 - API key rotation policies
 
 **Detection**:
+
 - Monitor failed authentication attempts
 - Alert on unusual API access patterns
 - Track API key usage anomalies
@@ -561,6 +573,7 @@ Attack surface on managed nodes running Keystone Core agents.
 **Attacker Goal**: Use compromised agent to access other systems or escalate privileges.
 
 **Attack Tree**:
+
 ```
 [Compromise Agent]
 ├── [Initial Access]
@@ -582,6 +595,7 @@ Attack surface on managed nodes running Keystone Core agents.
 ```
 
 **Mitigations**:
+
 - Per-agent SVID certificates with workload attestation
 - Agent targeting validation (agents can only receive their own commands)
 - Least-privilege agent execution (non-root, minimal capabilities)
@@ -589,6 +603,7 @@ Attack surface on managed nodes running Keystone Core agents.
 - Secret scoping (agents only receive secrets they need)
 
 **Detection**:
+
 - Monitor for unusual command execution patterns
 - Alert on agent behavior anomalies
 - Track certificate usage from unexpected locations
@@ -598,6 +613,7 @@ Attack surface on managed nodes running Keystone Core agents.
 **Attacker Goal**: Inject malicious code through the module system.
 
 **Attack Tree**:
+
 ```
 [Compromise Module System]
 ├── [Malicious Module Injection]
@@ -616,6 +632,7 @@ Attack surface on managed nodes running Keystone Core agents.
 ```
 
 **Mitigations**:
+
 - Cosign signatures with key transparency
 - SumDB inclusion proofs
 - Capability-based access control (no ambient authority)
@@ -624,6 +641,7 @@ Attack surface on managed nodes running Keystone Core agents.
 - Sandboxed execution (WASM/Starlark)
 
 **Detection**:
+
 - Monitor module installation events
 - Alert on unsigned or unverified modules
 - Track capability usage anomalies
@@ -633,6 +651,7 @@ Attack surface on managed nodes running Keystone Core agents.
 **Attacker Goal**: Abuse legitimate access for unauthorized purposes.
 
 **Attack Tree**:
+
 ```
 [Malicious Insider]
 ├── [Data Exfiltration]
@@ -650,6 +669,7 @@ Attack surface on managed nodes running Keystone Core agents.
 ```
 
 **Mitigations**:
+
 - Separation of duties (require multiple approvals for destructive operations)
 - Comprehensive audit logging with tamper-evident storage
 - RBAC with least-privilege defaults
@@ -657,6 +677,7 @@ Attack surface on managed nodes running Keystone Core agents.
 - Background checks and access reviews
 
 **Detection**:
+
 - Anomaly detection on user behavior
 - Alert on policy modifications
 - Monitor for bulk data exports
@@ -667,6 +688,7 @@ Attack surface on managed nodes running Keystone Core agents.
 **Attacker Goal**: Disrupt Keystone Core operations.
 
 **Attack Tree**:
+
 ```
 [Denial of Service]
 ├── [Network Layer]
@@ -689,6 +711,7 @@ Attack surface on managed nodes running Keystone Core agents.
 ```
 
 **Mitigations**:
+
 - Rate limiting at API, webhook, and authentication layers
 - Connection pooling with limits
 - JetStream consumer limits and flow control
@@ -698,6 +721,7 @@ Attack surface on managed nodes running Keystone Core agents.
 - Horizontal scaling with load balancing
 
 **Detection**:
+
 - Monitor request rates and response times
 - Alert on resource utilization thresholds
 - Track queue depths and consumer lag
@@ -736,11 +760,13 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Risk Scoring Methodology
 
 **Likelihood Factors**:
+
 - L1 (Low): Requires significant resources, skill, and luck
 - L2 (Medium): Possible with moderate effort and skill
 - L3 (High): Easy to exploit with common tools/techniques
 
 **Impact Factors**:
+
 - I1 (Low): Limited scope, easily recoverable
 - I2 (Medium): Significant disruption, recoverable with effort
 - I3 (High): Critical impact, difficult to recover
@@ -778,6 +804,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 1: Perimeter Security
 
 **Controls**:
+
 - Network firewalls restricting access to control plane
 - Load balancers with DDoS protection
 - Web Application Firewall (WAF) for API endpoints
@@ -785,6 +812,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - VPN or private network for internal communications
 
 **Monitoring**:
+
 - Network traffic analysis
 - Intrusion detection systems (IDS)
 - Blocked connection logging
@@ -792,6 +820,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 2: Authentication & Authorization
 
 **Controls**:
+
 - Multi-factor authentication for administrative access
 - mTLS for service-to-service communication
 - SPIFFE/SPIRE for workload identity
@@ -800,6 +829,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - API key rotation and expiration
 
 **Monitoring**:
+
 - Failed authentication tracking
 - Privilege escalation detection
 - Access pattern anomaly detection
@@ -807,6 +837,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 3: Application Security
 
 **Controls**:
+
 - Input validation on all API endpoints
 - Parameterized queries for database access
 - Output encoding to prevent injection
@@ -815,6 +846,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - Error handling without information leakage
 
 **Monitoring**:
+
 - Application error rates
 - Input validation failures
 - Security event correlation
@@ -822,6 +854,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 4: Data Security
 
 **Controls**:
+
 - TLS 1.3 for all network communications
 - Encryption at rest for databases
 - Secrets management with Vault/KMS
@@ -830,6 +863,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - Secure deletion policies
 
 **Monitoring**:
+
 - Certificate expiration tracking
 - Encryption status verification
 - Key rotation compliance
@@ -837,6 +871,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 5: Runtime Security
 
 **Controls**:
+
 - Sandboxed module execution (WASM/Starlark)
 - Capability-based access control
 - Resource limits (CPU, memory, network)
@@ -845,6 +880,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - Non-root execution
 
 **Monitoring**:
+
 - Resource utilization tracking
 - Sandbox violation attempts
 - Process anomaly detection
@@ -852,6 +888,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Layer 6: Audit & Compliance
 
 **Controls**:
+
 - Comprehensive audit logging
 - Tamper-evident log storage
 - Policy evaluation logging
@@ -859,6 +896,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 - Compliance reporting
 
 **Monitoring**:
+
 - Log integrity verification
 - Compliance drift detection
 - Security control effectiveness metrics
@@ -881,6 +919,7 @@ A custom ATT&CK Navigator layer for Keystone Core security assessments is availa
 ### Certificate Management
 
 **Certificate Hierarchy**:
+
 ```
 Root CA (offline, 10-year validity)
 ├── Intermediate CA (online, 3-year validity)
@@ -891,6 +930,7 @@ Root CA (offline, 10-year validity)
 ```
 
 **Key Protection**:
+
 | Key Type | Storage | Access Control | Backup |
 |----------|---------|----------------|--------|
 | Root CA private key | HSM (offline) | Dual custody | Hardware backup, secure vault |
@@ -899,6 +939,7 @@ Root CA (offline, 10-year validity)
 | Agent keys | TPM or encrypted file | Agent process only | Re-enrollment |
 
 **Certificate Revocation**:
+
 - CRL (Certificate Revocation List) published hourly
 - OCSP responder for real-time checks
 - Short-lived SVIDs (1-hour validity) minimize revocation need
@@ -932,6 +973,7 @@ Root CA (offline, 10-year validity)
 ### Supply Chain Security
 
 **Build Pipeline Security**:
+
 - Reproducible builds with locked dependencies
 - SLSA Level 3 compliance target
 - Build provenance attestation
@@ -939,12 +981,14 @@ Root CA (offline, 10-year validity)
 - SBOM generation (SPDX/CycloneDX)
 
 **Dependency Management**:
+
 - `go.sum` verification for all dependencies
 - Automatic vulnerability scanning (govulncheck, gosec)
 - Dependency review for security-sensitive changes
 - Removal of unused dependencies
 
 **Distribution Security**:
+
 - Signed releases (GPG/Cosign)
 - Checksum verification files
 - Official distribution channels only
@@ -986,6 +1030,7 @@ Root CA (offline, 10-year validity)
 ### Security Test Cases
 
 **Authentication Testing**:
+
 - [ ] Invalid credentials return generic error
 - [ ] Rate limiting activates after threshold
 - [ ] Session timeout enforced
@@ -993,6 +1038,7 @@ Root CA (offline, 10-year validity)
 - [ ] Token expiration enforced
 
 **Authorization Testing**:
+
 - [ ] RBAC enforced for all endpoints
 - [ ] Vertical privilege escalation prevented
 - [ ] Horizontal privilege escalation prevented
@@ -1000,6 +1046,7 @@ Root CA (offline, 10-year validity)
 - [ ] Policy evaluation logged
 
 **Input Validation Testing**:
+
 - [ ] SQL injection prevented
 - [ ] Command injection prevented
 - [ ] Path traversal prevented
@@ -1007,6 +1054,7 @@ Root CA (offline, 10-year validity)
 - [ ] Large payload handling
 
 **Cryptographic Testing**:
+
 - [ ] TLS 1.3 enforced
 - [ ] Weak ciphers rejected
 - [ ] Certificate validation enforced
@@ -1020,30 +1068,35 @@ Root CA (offline, 10-year validity)
 ### Security in Development Phases
 
 **Design Phase**:
+
 - Threat modeling for new features
 - Security architecture review
 - Privacy impact assessment (if applicable)
 - Compliance requirements identification
 
 **Implementation Phase**:
+
 - Secure coding guidelines adherence
 - Code review with security focus
 - Automated security scanning
 - Unit tests for security controls
 
 **Testing Phase**:
+
 - Security test case execution
 - Penetration testing for high-risk changes
 - Performance testing (DoS resilience)
 - Chaos engineering tests
 
 **Deployment Phase**:
+
 - Infrastructure as code security review
 - Configuration security validation
 - Secrets management verification
 - Monitoring and alerting setup
 
 **Operations Phase**:
+
 - Security monitoring
 - Vulnerability management
 - Incident response readiness
@@ -1052,6 +1105,7 @@ Root CA (offline, 10-year validity)
 ### Security Champions
 
 Each development team should have a designated security champion responsible for:
+
 - Reviewing security-sensitive code changes
 - Participating in threat modeling sessions
 - Staying current on security best practices
@@ -1060,17 +1114,20 @@ Each development team should have a designated security champion responsible for
 ### Vulnerability Disclosure
 
 **Reporting**:
-- Security vulnerabilities should be reported to security@keystone-core.io
+
+- Security vulnerabilities should be reported to <security@keystone-core.io>
 - Use PGP encryption for sensitive reports (key available on website)
 - Expected response time: 48 hours for initial acknowledgment
 
 **Handling**:
+
 - Triage and severity assessment within 24 hours
 - Critical vulnerabilities: patch within 72 hours
 - High vulnerabilities: patch within 30 days
 - Medium/Low: patch in next regular release
 
 **Disclosure**:
+
 - Coordinate disclosure with reporter
 - CVE assignment for significant vulnerabilities
 - Security advisory publication
@@ -1094,12 +1151,14 @@ Each development team should have a designated security champion responsible for
 ### Security Dashboards
 
 **Operations Dashboard**:
+
 - Real-time authentication events
 - Active security incidents
 - Vulnerability status
 - Compliance posture
 
 **Executive Dashboard**:
+
 - Risk score trending
 - Security incidents (30-day)
 - Compliance status

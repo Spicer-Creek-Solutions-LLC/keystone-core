@@ -10,24 +10,24 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
-// RotationEngine orchestrates credential rotation using a state machine workflow.
-type RotationEngine struct {
+// Engine orchestrates credential rotation using a state machine workflow.
+type Engine struct {
 	mu        sync.RWMutex
-	providers []RotationProvider
+	providers []Provider
 	store     credentials.CredentialStore
 	audit     credentials.AuditLogger
 	jobs      map[string]*managedJob
 }
 
 type managedJob struct {
-	job     *RotationJob
+	job     *Job
 	machine *statemachine.Machine[CredRotationState, CredRotationEvent]
 }
 
-// NewRotationEngine creates a new rotation engine.
-func NewRotationEngine(store credentials.CredentialStore, audit credentials.AuditLogger) *RotationEngine {
-	return &RotationEngine{
-		providers: make([]RotationProvider, 0),
+// NewEngine creates a new rotation engine.
+func NewEngine(store credentials.CredentialStore, audit credentials.AuditLogger) *Engine {
+	return &Engine{
+		providers: make([]Provider, 0),
 		store:     store,
 		audit:     audit,
 		jobs:      make(map[string]*managedJob),
@@ -35,14 +35,14 @@ func NewRotationEngine(store credentials.CredentialStore, audit credentials.Audi
 }
 
 // RegisterProvider registers a rotation provider.
-func (e *RotationEngine) RegisterProvider(provider RotationProvider) {
+func (e *Engine) RegisterProvider(provider Provider) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.providers = append(e.providers, provider)
 }
 
 // findProvider returns the first provider that supports the credential type.
-func (e *RotationEngine) findProvider(credType credentials.CredentialType) RotationProvider {
+func (e *Engine) findProvider(credType credentials.CredentialType) Provider {
 	for _, p := range e.providers {
 		if p.SupportsType(credType) {
 			return p
@@ -52,7 +52,7 @@ func (e *RotationEngine) findProvider(credType credentials.CredentialType) Rotat
 }
 
 // Rotate executes a credential rotation job synchronously.
-func (e *RotationEngine) Rotate(ctx context.Context, job *RotationJob) (*RotationResult, error) {
+func (e *Engine) Rotate(ctx context.Context, job *Job) (*Result, error) {
 	e.mu.RLock()
 	provider := e.findProvider(job.CredentialType)
 	e.mu.RUnlock()
@@ -86,7 +86,7 @@ func (e *RotationEngine) Rotate(ctx context.Context, job *RotationJob) (*Rotatio
 }
 
 // GetJob returns a rotation job by ID.
-func (e *RotationEngine) GetJob(id string) (*RotationJob, bool) {
+func (e *Engine) GetJob(id string) (*Job, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	mj, ok := e.jobs[id]
@@ -97,10 +97,10 @@ func (e *RotationEngine) GetJob(id string) (*RotationJob, bool) {
 }
 
 // ListJobs returns all active rotation jobs.
-func (e *RotationEngine) ListJobs() []*RotationJob {
+func (e *Engine) ListJobs() []*Job {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	jobs := make([]*RotationJob, 0, len(e.jobs))
+	jobs := make([]*Job, 0, len(e.jobs))
 	for _, mj := range e.jobs {
 		jobs = append(jobs, mj.job)
 	}
@@ -136,11 +136,11 @@ func buildRotationMachine() *statemachine.Machine[CredRotationState, CredRotatio
 	return builder.MustBuild()
 }
 
-func (e *RotationEngine) executeRotation(ctx context.Context, mj *managedJob, provider RotationProvider) *RotationResult {
+func (e *Engine) executeRotation(ctx context.Context, mj *managedJob, provider Provider) *Result {
 	job := mj.job
 	machine := mj.machine
 
-	result := &RotationResult{
+	result := &Result{
 		JobID:          job.ID,
 		CredentialID:   job.CredentialID,
 		CredentialType: job.CredentialType,
@@ -224,15 +224,15 @@ func (e *RotationEngine) executeRotation(ctx context.Context, mj *managedJob, pr
 	return result
 }
 
-func (e *RotationEngine) handleFailure(
+func (e *Engine) handleFailure(
 	ctx context.Context,
 	machine *statemachine.Machine[CredRotationState, CredRotationEvent],
-	result *RotationResult,
-	job *RotationJob,
-	provider RotationProvider,
+	result *Result,
+	job *Job,
+	provider Provider,
 	stage string,
 	err error,
-) *RotationResult {
+) *Result {
 	errMsg := fmt.Sprintf("%s failed: %v", stage, err)
 	e.logAudit(ctx, job, "rotation_"+stage+"_failed", false, errMsg)
 
@@ -262,7 +262,7 @@ func (e *RotationEngine) handleFailure(
 	return e.failResult(result, job, errMsg)
 }
 
-func (e *RotationEngine) failResult(result *RotationResult, job *RotationJob, errMsg string) *RotationResult {
+func (e *Engine) failResult(result *Result, job *Job, errMsg string) *Result {
 	job.CompletedAt = time.Now()
 	job.Error = errMsg
 	result.Success = false
@@ -272,7 +272,7 @@ func (e *RotationEngine) failResult(result *RotationResult, job *RotationJob, er
 	return result
 }
 
-func (e *RotationEngine) logAudit(ctx context.Context, job *RotationJob, action string, success bool, errMsg string) {
+func (e *Engine) logAudit(ctx context.Context, job *Job, action string, success bool, errMsg string) {
 	if e.audit == nil {
 		return
 	}

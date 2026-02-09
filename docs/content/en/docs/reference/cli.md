@@ -74,6 +74,7 @@ kscorectl version
 ```
 
 **Output**:
+
 ```
 Keystone Core v1.0.0
   Build: abc123
@@ -82,6 +83,7 @@ Keystone Core v1.0.0
 ```
 
 **Flags**:
+
 - `--short`: Show only version number
 - `--verbose`: Show detailed version information including all dependencies in JSON format
 
@@ -94,6 +96,7 @@ kscorectl help [command]
 ```
 
 **Examples**:
+
 ```bash
 kscorectl help              # Show all commands
 kscorectl help exec         # Show exec plugin help
@@ -109,6 +112,7 @@ kscorectl completion [bash|zsh|fish|powershell]
 ```
 
 **Examples**:
+
 ```bash
 # Bash
 kscorectl completion bash > /etc/bash_completion.d/kscorectl
@@ -144,6 +148,7 @@ kscorectl health check
 ```
 
 **Flags**:
+
 - `--full`: Perform a full health check of all components
 
 ### kscorectl api-key
@@ -159,6 +164,7 @@ kscorectl api-key create --name "ci-pipeline" --role operator --expires-in 90d
 ```
 
 **Flags**:
+
 - `--name string`: Name for the API key (required)
 - `--role string`: Role for the API key (admin, operator, readonly) (default: readonly)
 - `--expires-in string`: Expiration time (e.g., 30d, 1y) (default: 365d)
@@ -173,6 +179,7 @@ kscorectl api-key list -o json
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json) (default: table)
 
 #### api-key revoke
@@ -184,6 +191,7 @@ kscorectl api-key revoke <key-id>
 ```
 
 **Arguments**:
+
 - `<key-id>`: ID of the API key to revoke (required)
 
 ### kscorectl benchmark
@@ -210,11 +218,13 @@ kscorectl benchmark all --output json
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (text, json) (default: text)
 - `--duration string`: Duration to run benchmarks (e.g., 30s, 1m, 5m) (default: 1m)
 - `--report`: Generate detailed benchmark report
 
 **Subcommands**:
+
 - `all`: Run all available benchmarks
 - `agent-registration`: Benchmark agent registration performance
 - `command-execution`: Benchmark command execution throughput
@@ -224,6 +234,7 @@ kscorectl benchmark all --output json
 ### kscorectl maintenance
 
 Manage maintenance mode for the Keystone Core control plane. In maintenance mode:
+
 - No new agent connections are accepted
 - New commands/state applications are queued
 - Event processing continues (for monitoring)
@@ -247,6 +258,7 @@ kscorectl maintenance enable --force
 ```
 
 **Flags**:
+
 - `--reason string`: Reason for entering maintenance mode
 - `--duration string`: Expected duration (e.g., 30m, 2h)
 - `-f, --force`: Skip confirmation prompt
@@ -260,6 +272,7 @@ kscorectl maintenance disable
 ```
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation prompt
 
 #### maintenance status
@@ -275,6 +288,7 @@ kscorectl maintenance status -o json
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (text, json) (default: text)
 
 #### maintenance queue
@@ -290,6 +304,7 @@ kscorectl maintenance queue --status
 ```
 
 **Flags**:
+
 - `--status`: Show queue status summary instead of listing items
 
 #### maintenance cleanup
@@ -305,6 +320,7 @@ kscorectl maintenance cleanup --older-than 30d --dry-run
 ```
 
 **Flags**:
+
 - `--older-than string`: Delete data older than this duration (e.g., 7d, 30d) (default: 30d)
 - `--dry-run`: Show what would be deleted without actually deleting
 
@@ -322,12 +338,14 @@ kscorectl exec run <command> --target <target-expression>
 ```
 
 **Arguments**:
+
 - `<target-expression>`: Target expression to select agents (required)
 - `<command>`: Command to execute (required, after --)
 - `[args...]`: Command arguments (optional)
- - `--target`: Optional target expression flag (useful when command comes first)
+- `--target`: Optional target expression flag (useful when command comes first)
 
 **Global Flags**:
+
 - `--server string`: Keystone Core server address (default: localhost:50051)
 - `--timeout duration`: Request timeout (default: 5m)
 - `--audit-level string`: Audit logging level (all, errors, none)
@@ -340,6 +358,7 @@ kscorectl exec run <command> --target <target-expression>
 - `--tls-skip-verify`: Skip TLS certificate verification (requires `KSCORE_ALLOW_INSECURE_TLS=1`, dev only)
 
 **Flags**:
+
 - `--concurrency int`: Number of concurrent executions (default: 10)
 - `--continue-on-failure`: Continue executing on other agents if some fail (default: true)
 - `--working-dir string`: Working directory for command execution
@@ -351,6 +370,7 @@ kscorectl exec run <command> --target <target-expression>
 - `--show-results`: Show per-agent results at the end (default: true)
 
 **Target Expression Syntax**:
+
 - Label matching: `role:web`, `env:prod`
 - OS matching: `os:linux`, `arch:amd64`
 - Hostname glob: `hostname:web-*`
@@ -359,6 +379,7 @@ kscorectl exec run <command> --target <target-expression>
 - Grouping: `(os:linux and role:web) or (os:darwin and role:api)`
 
 **Examples**:
+
 ```bash
 # Execute on all Linux web servers
 kscorectl exec run "os:linux and role:web" -- systemctl restart nginx
@@ -377,6 +398,7 @@ kscorectl exec run "role:web" echo "hello"
 ```
 
 **Output**:
+
 ```
 Executing: systemctl restart nginx
 Target: os:linux and role:web
@@ -410,15 +432,18 @@ kscorectl exec status <job-id>
 ```
 
 **Arguments**:
+
 - `<job-id>`: Batch job ID (required)
 
 **Examples**:
+
 ```bash
 kscorectl exec status abc123
 kscorectl exec status --server prod-server:50051 abc123
 ```
 
 **Output**:
+
 ```
 Batch Job: abc123
 Target:    os:linux and role:web
@@ -452,10 +477,12 @@ kscorectl exec list [flags]
 ```
 
 **Flags**:
+
 - `--status string`: Filter by status (pending, running, completed, failed)
 - `--page-size int`: Number of jobs to return (default: 20)
 
 **Examples**:
+
 ```bash
 # List all jobs
 kscorectl exec list
@@ -471,6 +498,7 @@ kscorectl exec list --page-size 50
 ```
 
 **Output**:
+
 ```
 JOB ID                               TARGET               STATUS       TOTAL    SUCCESS  FAILED
 abc123-def4-5678-90ab-cdef12345678   os:linux and role:w  COMPLETED    50       48       2
@@ -489,6 +517,7 @@ kscorectl exec version
 ```
 
 **Output**:
+
 ```
 kscore-exec version 1.0.0
   Git commit: abc123def
@@ -505,15 +534,18 @@ kscorectl exec shell <target-expression>
 ```
 
 **Arguments**:
+
 - `<target-expression>`: Target expression to select a single agent (required)
 
 **Flags**:
+
 - `--shell string`: Shell to use (default: /bin/sh)
 - `--term string`: Terminal type (default: xterm-256color)
 - `--rows int`: Terminal rows (default: 24)
 - `--cols int`: Terminal columns (default: 80)
 
 **Examples**:
+
 ```bash
 # Start shell on specific agent
 kscorectl exec shell "hostname:web-01"
@@ -526,6 +558,7 @@ kscorectl exec shell "hostname:db-01" --rows 40 --cols 120
 ```
 
 **Notes**:
+
 - Target must resolve to exactly one agent
 - Requires PTY support on the agent
 - Press Ctrl+D or type `exit` to close the session
@@ -539,16 +572,19 @@ kscorectl exec script <target-expression> <script-file>
 ```
 
 **Arguments**:
+
 - `<target-expression>`: Target expression to select agents (required)
 - `<script-file>`: Path to local script file to execute (required)
 
 **Flags**:
+
 - `--interpreter string`: Script interpreter (default: auto-detect from shebang)
 - `--args strings`: Arguments to pass to the script
 - `--concurrency int`: Number of concurrent executions (default: 10)
 - `--timeout duration`: Script execution timeout (default: 10m)
 
 **Examples**:
+
 ```bash
 # Execute a bash script on all web servers
 kscorectl exec script "role:web" ./deploy.sh
@@ -564,6 +600,7 @@ kscorectl exec script "role:db" ./migration.sh --timeout 30m
 ```
 
 **Output**:
+
 ```
 Uploading script: ./deploy.sh (2.5KB)
 Executing on 10 agents...
@@ -585,9 +622,11 @@ kscorectl exec async <target-expression> -- <command> [args...]
 ```
 
 **Flags**:
+
 - Same as `exec run`
 
 **Examples**:
+
 ```bash
 # Start long-running command
 kscorectl exec async "role:batch" -- ./long-job.sh
@@ -605,6 +644,7 @@ kscorectl exec cancel <job-id>
 ```
 
 **Examples**:
+
 ```bash
 kscorectl exec cancel abc123
 ```
@@ -618,11 +658,13 @@ kscorectl exec history [flags]
 ```
 
 **Flags**:
+
 - `--limit int`: Maximum results (default: 50)
 - `--since duration`: Show jobs from this duration ago
 - `--target string`: Filter by target expression
 
 **Examples**:
+
 ```bash
 # Recent history
 kscorectl exec history
@@ -643,10 +685,12 @@ kscorectl exec output <job-id>
 ```
 
 **Flags**:
+
 - `--agent string`: Show output for specific agent only
 - `--follow`: Stream output as it becomes available
 
 **Examples**:
+
 ```bash
 # Get all output
 kscorectl exec output abc123
@@ -668,9 +712,11 @@ kscorectl state apply <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 - `--dry-run`: Check what would change without applying
 - `--preview`: Show rendered state with variables/facts substituted without executing
@@ -679,6 +725,7 @@ kscorectl state apply <state-file> [flags]
 - `--audit-output string`: Audit output backend (auto, syslog, journald, stderr, none)
 
 **Examples**:
+
 ```bash
 # Apply a state file
 kscorectl state apply states/webserver.yaml
@@ -694,6 +741,7 @@ kscorectl state apply states/app.yaml --preview --vars vars/staging.yaml
 ```
 
 **Output**:
+
 ```
 Loading state file: states/webserver.yaml
 Applying state: Web server configuration
@@ -726,13 +774,16 @@ kscorectl state check <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 - `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
+
 ```bash
 # Check a state file
 kscorectl state check states/webserver.yaml
@@ -742,6 +793,7 @@ kscorectl state check states/app.yaml --vars vars/staging.yaml
 ```
 
 **Output**:
+
 ```
 Loading state file: states/webserver.yaml
 Checking state: Web server configuration
@@ -774,13 +826,16 @@ kscorectl state drift <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 - `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
+
 ```bash
 # Detect drift
 kscorectl state drift states/webserver.yaml
@@ -790,6 +845,7 @@ kscorectl state drift states/app.yaml --vars vars/production.yaml
 ```
 
 **Output (no drift)**:
+
 ```
 Loading state file: states/webserver.yaml
 Checking drift for: Web server configuration
@@ -807,6 +863,7 @@ High:   0
 ```
 
 **Output (with drift)**:
+
 ```
 Loading state file: states/webserver.yaml
 Checking drift for: Web server configuration
@@ -838,13 +895,16 @@ kscorectl state test <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 - `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
+
 ```bash
 # Test a state file
 kscorectl state test states/webserver.yaml
@@ -862,13 +922,16 @@ kscorectl state diff <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 - `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
+
 ```bash
 # Show differences
 kscorectl state diff states/webserver.yaml
@@ -886,12 +949,15 @@ kscorectl state show <state-file> [flags]
 ```
 
 **Arguments**:
+
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
+
 - `--vars string`: Variables file (YAML)
 
 **Examples**:
+
 ```bash
 # Show rendered state
 kscorectl state show states/webserver.yaml
@@ -901,6 +967,7 @@ kscorectl state show states/app.yaml --vars vars/production.yaml
 ```
 
 **Output**:
+
 ```
 === Rendered State Preview ===
 
@@ -949,14 +1016,17 @@ kscorectl state history [application-id] [flags]
 ```
 
 **Arguments**:
+
 - `[application-id]`: Optional application ID to show details
 
 **Flags**:
+
 - `--target string`: Filter by target expression
 - `--limit int`: Maximum number of entries to show (default: 20)
 - `--json`: Output in JSON format
 
 **Examples**:
+
 ```bash
 # List recent applications
 kscorectl state history --limit 20
@@ -969,6 +1039,7 @@ kscorectl state history --target "role:web" --limit 10
 ```
 
 **Output**:
+
 ```
   ID           TIMESTAMP            TARGET     STATUS   CHANGES
   app-abc123   2024-01-19 10:30:00  role:web   success  5 changed
@@ -985,13 +1056,16 @@ kscorectl state rollback <application-id> [flags]
 ```
 
 **Arguments**:
+
 - `<application-id>`: Application ID to rollback to (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be rolled back without applying
 - `--force`: Skip confirmation prompt
 
 **Examples**:
+
 ```bash
 # Rollback to a specific application
 kscorectl state rollback app-123
@@ -1012,6 +1086,7 @@ kscorectl state version
 ```
 
 **Output**:
+
 ```
 Keystone Core v1.0.0
   Build: abc123
@@ -1032,6 +1107,7 @@ kscorectl monitor [flags]
 ```
 
 **Flags**:
+
 - `--control-plane string`: Control plane gRPC address
 - `--server string`: Alias for `--control-plane`
 - `--nats-url string`: NATS server URL for direct connection
@@ -1041,6 +1117,7 @@ kscorectl monitor [flags]
 - `--no-color`: Disable colors
 
 **Views**:
+
 1. Dashboard - System overview
 2. Agents - Agent list and status
 3. Events - Real-time event stream
@@ -1051,6 +1128,7 @@ kscorectl monitor [flags]
 8. Metrics - Performance metrics
 
 **Keyboard Navigation**:
+
 ```
 1-8     Switch views
 ↑/↓     Scroll
@@ -1062,6 +1140,7 @@ q       Quit
 ```
 
 **Example**:
+
 ```bash
 # Start with default view
 kscorectl monitor
@@ -1088,15 +1167,18 @@ kscorectl module init <name> [flags]
 ```
 
 **Arguments**:
+
 - `<name>`: Module name in vendor/package format (required)
 
 **Flags**:
+
 - `--type string`: Module type: `starlark` or `wasm` (default: starlark)
 - `--author string`: Module author name
 - `--description string`: Module description
 - `--output string`: Output directory (defaults to package name)
 
 **Examples**:
+
 ```bash
 # Create a Starlark module
 kscorectl module init myorg/webserver
@@ -1114,6 +1196,7 @@ kscorectl module init myorg/webserver --output ./modules/webserver
 ```
 
 **Output**:
+
 ```
 Creating module: myorg/webserver
 Output directory: webserver
@@ -1131,6 +1214,7 @@ Next steps:
 ```
 
 **Created Files** (Starlark):
+
 ```
 webserver/
 ├── module.yaml        # Module manifest with metadata and capabilities
@@ -1150,12 +1234,15 @@ kscorectl module validate [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to module directory or module.yaml file (default: current directory)
 
 **Flags**:
+
 - `--strict`: Treat warnings as errors
 
 **Validation Checks**:
+
 - YAML syntax validation
 - Required fields (name, version, type)
 - Module type validation (starlark, wasm, hybrid)
@@ -1165,6 +1252,7 @@ kscorectl module validate [path] [flags]
 - Entrypoint file existence
 
 **Examples**:
+
 ```bash
 # Validate current directory
 kscorectl module validate
@@ -1180,6 +1268,7 @@ kscorectl module validate --strict
 ```
 
 **Output (Success)**:
+
 ```
 Validating: ./my-module/module.yaml
 
@@ -1196,6 +1285,7 @@ Module Summary:
 ```
 
 **Output (Warnings)**:
+
 ```
 Validating: ./my-module/module.yaml
 
@@ -1207,6 +1297,7 @@ Warnings:
 ```
 
 **Output (Errors)**:
+
 ```
 Validating: ./my-module/module.yaml
 
@@ -1229,13 +1320,16 @@ kscorectl module build [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to module directory (default: current directory)
 
 **Flags**:
+
 - `--output, -o string`: Output ZIP file path (default: `<name>-<version>.zip`)
 - `--no-verify`: Skip pre-build validation
 
 **Examples**:
+
 ```bash
 # Build in current directory
 kscorectl module build
@@ -1251,6 +1345,7 @@ kscorectl module build --no-verify
 ```
 
 **Output**:
+
 ```
 Building module: myorg/webserver v1.0.0
 ✓ Validation passed
@@ -1282,9 +1377,11 @@ kscorectl module resolve [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to module directory (default: current directory)
 
 **Flags**:
+
 - `--lock-file string`: Lock file path (default: module.lock)
 - `--update`: Update to latest compatible versions (ignores existing lock file)
 - `--allow-prerelease`: Include pre-release versions in resolution
@@ -1293,6 +1390,7 @@ kscorectl module resolve [path] [flags]
 - `--offline`: Offline mode (use cache only)
 
 **Resolution Process**:
+
 1. Parses module.yaml for dependencies
 2. Queries registry for available versions (when registry is configured)
 3. Resolves version constraints using MVS (Minimum Version Selection) algorithm
@@ -1300,11 +1398,13 @@ kscorectl module resolve [path] [flags]
 5. Generates module.lock with pinned versions and hashes
 
 **Current Limitations**:
+
 - Registry querying requires a configured module registry (not yet available)
 - Without a registry, resolution only works with existing lock files or cached modules
 - Use `--offline` with a manually created lock file as a workaround
 
 **Examples**:
+
 ```bash
 # Resolve dependencies
 kscorectl module resolve
@@ -1320,6 +1420,7 @@ kscorectl module resolve --offline
 ```
 
 **Output**:
+
 ```
 Resolving dependencies for: myorg/webserver v1.0.0
 Dependencies: 3
@@ -1341,6 +1442,7 @@ Next steps:
 ```
 
 **Lock File Format** (module.lock):
+
 ```yaml
 schema_version: 1
 modules:
@@ -1361,13 +1463,16 @@ kscorectl module tree [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to module directory (default: current directory)
 
 **Flags**:
+
 - `--depth int`: Maximum depth to display (0 = unlimited)
 - `--flat`: Show as flat list instead of tree
 
 **Examples**:
+
 ```bash
 # Show dependency tree
 kscorectl module tree
@@ -1380,6 +1485,7 @@ kscorectl module tree --flat
 ```
 
 **Output (Tree)**:
+
 ```
 myorg/webserver@1.0.0
 ├── std/files@1.2.0
@@ -1390,6 +1496,7 @@ myorg/webserver@1.0.0
 ```
 
 **Output (Flat)**:
+
 ```
 NAME                     CONSTRAINT      RESOLVED        HASH
 ----                     ----------      --------        ----
@@ -1410,9 +1517,11 @@ kscorectl module verify <path> [flags]
 ```
 
 **Arguments**:
+
 - `<path>`: Path to module ZIP file (required)
 
 **Flags**:
+
 - `--require-signature`: Require valid digital signature
 - `--require-sumdb`: Require SumDB (transparency log) verification
 - `--hash string`: Expected hash for verification (format: sha256:hex)
@@ -1421,11 +1530,13 @@ kscorectl module verify <path> [flags]
 - `--allow-insecure`: Allow verification to proceed even if some checks fail
 
 **Verification Checks**:
+
 - SHA256 hash integrity
 - Digital signature (RSA, ECDSA, Ed25519)
 - Transparency log (SumDB) verification
 
 **Examples**:
+
 ```bash
 # Verify hash only
 kscorectl module verify my-module-1.0.0.zip
@@ -1445,6 +1556,7 @@ kscorectl module verify my-module.zip \
 ```
 
 **Output**:
+
 ```
 Verifying: my-module-1.0.0.zip
 Size: 4.2 KB
@@ -1472,20 +1584,24 @@ kscorectl module test [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to module directory (default: current directory)
 
 **Flags**:
+
 - `-v, --verbose`: Show verbose test output
 - `--filter string`: Filter tests by name pattern
 - `--timeout duration`: Test timeout (default: 5m)
 - `--coverage`: Enable coverage reporting (not yet implemented)
 
 **Test Discovery**:
+
 - Tests are discovered in the `tests/` directory
 - Test files must end with `_test.star`
 - Test functions must start with `test_`
 
 **Available Assertions**:
+
 - `assert.eq(actual, expected)` - Assert equality
 - `assert.ne(actual, expected)` - Assert inequality
 - `assert.true(value)` - Assert truthy
@@ -1494,6 +1610,7 @@ kscorectl module test [path] [flags]
 - `assert.contains(haystack, needle)` - Assert string contains
 
 **Examples**:
+
 ```bash
 # Run all tests
 kscorectl module test
@@ -1509,6 +1626,7 @@ kscorectl module test -v
 ```
 
 **Output**:
+
 ```
 Running tests for: myorg/webserver v1.0.0
 Found 2 test file(s)
@@ -1526,6 +1644,7 @@ Time:    45ms
 ```
 
 **Output (Verbose)**:
+
 ```
 Running tests for: myorg/webserver v1.0.0
 Found 2 test file(s)
@@ -1552,6 +1671,7 @@ Time:    45ms
 ```
 
 **Output (Failures)**:
+
 ```
 Running tests for: myorg/webserver v1.0.0
 
@@ -1578,6 +1698,7 @@ kscorectl module sign <path> [flags]
 ```
 
 **Flags**:
+
 - `-k, --key string`: Private key file (PEM format)
 - `-o, --output string`: Output signature file (default: `<module>.sig`)
 - `-f, --force`: Overwrite existing signature file
@@ -1585,11 +1706,13 @@ kscorectl module sign <path> [flags]
 - `--key-bits int`: Key size in bits for RSA (default: 2048)
 
 **Supported Key Types**:
+
 - RSA (2048, 4096 bits)
 - ECDSA (P-256)
 - Ed25519
 
 **Examples**:
+
 ```bash
 # Sign with an existing private key
 kscorectl module sign my-module.zip --key private.pem
@@ -1608,6 +1731,7 @@ kscorectl module sign my-module.zip --key private.pem --force
 ```
 
 **Output (with key generation)**:
+
 ```
 Signing: my-module.zip
 Size: 1.3 KB
@@ -1626,12 +1750,14 @@ To verify this signature:
 ```
 
 **Key Management**:
+
 - Private keys are written with mode 0600 (owner read/write only)
 - Public keys are written with mode 0644 (world readable)
 - Keep private keys secure - anyone with the private key can sign modules
 - Distribute public keys for verification
 
 **Workflow**:
+
 ```bash
 # 1. Build module
 kscorectl module build
@@ -1654,7 +1780,8 @@ kscorectl module publish <path> [flags]
 ```
 
 **Flags**:
-- `--registry string`: Registry URL (default: KSCORE_REGISTRY env or https://registry.keystonecore.io)
+
+- `--registry string`: Registry URL (default: KSCORE_REGISTRY env or <https://registry.keystonecore.io>)
 - `--token string`: Authentication token (or KSCORE_REGISTRY_TOKEN env)
 - `--username string`: Username for basic auth (or KSCORE_REGISTRY_USERNAME env)
 - `--password string`: Password for basic auth (or KSCORE_REGISTRY_PASSWORD env)
@@ -1665,6 +1792,7 @@ kscorectl module publish <path> [flags]
 - `--dry-run`: Validate without publishing
 
 **Examples**:
+
 ```bash
 # Publish to the default registry
 kscorectl module publish my-module-1.0.0.zip
@@ -1686,6 +1814,7 @@ kscorectl module publish my-module-1.0.0.zip --dry-run
 ```
 
 **Output (Dry Run)**:
+
 ```
 Publishing: my-module-1.0.0.zip
 Size: 1.3 KB
@@ -1708,6 +1837,7 @@ Dry run complete. Use --dry-run=false to publish.
 ```
 
 **Output (Success)**:
+
 ```
 Publishing: my-module-1.0.0.zip
 Size: 1.3 KB
@@ -1734,10 +1864,12 @@ Published: 2024-01-15 10:30:45
 ```
 
 **Authentication**:
+
 - Bearer token (recommended): Use `--token` or `KSCORE_REGISTRY_TOKEN`
 - Basic auth: Use `--username`/`--password` or `KSCORE_REGISTRY_USERNAME`/`KSCORE_REGISTRY_PASSWORD`
 
 **Workflow**:
+
 ```bash
 # Complete publish workflow
 kscorectl module validate
@@ -1759,7 +1891,8 @@ kscorectl module install <module[@version]> [modules...] [flags]
 ```
 
 **Flags**:
-- `--registry string`: Registry URL (defaults to KSCORE_REGISTRY env var or https://registry.keystonecore.io)
+
+- `--registry string`: Registry URL (defaults to KSCORE_REGISTRY env var or <https://registry.keystonecore.io>)
 - `--token string`: Authentication token (can also use KSCORE_REGISTRY_TOKEN)
 - `--username string`: Username for basic auth (can also use KSCORE_REGISTRY_USERNAME)
 - `--password string`: Password for basic auth (can also use KSCORE_REGISTRY_PASSWORD)
@@ -1772,12 +1905,14 @@ kscorectl module install <module[@version]> [modules...] [flags]
 - `--global`: Install to global cache only (don't extract to modules dir)
 
 **Module References**:
+
 - `myorg/mymodule` - Install latest version
 - `myorg/mymodule@1.0.0` - Install specific version
 - `myorg/mymodule@^1.0.0` - Install latest compatible with 1.x.x
 - `myorg/mymodule@~1.2.0` - Install latest compatible with 1.2.x
 
 **Examples**:
+
 ```bash
 # Install latest version
 kscorectl module install myorg/webserver
@@ -1802,6 +1937,7 @@ kscorectl module install myorg/webserver --registry https://registry.example.com
 ```
 
 **Output**:
+
 ```
 Registry: https://registry.keystonecore.io
 Cache: /Users/user/.kscore/modules
@@ -1846,9 +1982,11 @@ kscorectl blueprint init <vendor/name> [flags]
 ```
 
 **Arguments**:
+
 - `<vendor/name>`: Blueprint name in vendor/package format (e.g., myorg/web-stack)
 
 **Flags**:
+
 - `--description string`: Blueprint description
 - `--author string`: Author name
 - `--email string`: Author email
@@ -1858,6 +1996,7 @@ kscorectl blueprint init <vendor/name> [flags]
 - `--keywords strings`: Blueprint keywords (comma-separated)
 
 **Created Structure**:
+
 ```
 <name>/
 ├── blueprint.yaml    # Manifest with metadata and parameters
@@ -1869,6 +2008,7 @@ kscorectl blueprint init <vendor/name> [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Basic initialization
 kscorectl blueprint init myorg/web-stack
@@ -1895,13 +2035,16 @@ kscorectl blueprint validate [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to blueprint directory (default: current directory)
 
 **Flags**:
+
 - `--strict`: Treat warnings as errors (exit with error on any warning)
 - `--format string`: Output format: text, json (default: text)
 
 **Validation Checks**:
+
 - YAML syntax validation
 - Required fields (apiVersion, kind, metadata.name, metadata.version)
 - Parameter schema validation
@@ -1910,6 +2053,7 @@ kscorectl blueprint validate [path] [flags]
 - Template syntax (basic check)
 
 **Examples**:
+
 ```bash
 # Validate current directory
 kscorectl blueprint validate
@@ -1925,6 +2069,7 @@ kscorectl blueprint validate ./myorg-web-stack --format json
 ```
 
 **Output (Success)**:
+
 ```
 Validating blueprint: myorg/web-stack@1.0.0
 
@@ -1938,6 +2083,7 @@ Validation passed!
 ```
 
 **Output (Errors)**:
+
 ```
 Validating blueprint: myorg/broken-stack@1.0.0
 
@@ -1957,13 +2103,16 @@ kscorectl blueprint lint [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to blueprint directory (default: current directory)
 
 **Flags**:
+
 - `--fix`: Automatically fix issues where possible
 - `--format string`: Output format: text, json (default: text)
 
 **Lint Categories**:
+
 - **documentation**: README exists, parameters documented, description present
 - **security**: No hardcoded secrets, sensitive parameters marked
 - **naming**: Consistent naming conventions, valid identifiers
@@ -1972,6 +2121,7 @@ kscorectl blueprint lint [path] [flags]
 - **license**: License file present, valid SPDX identifier
 
 **Examples**:
+
 ```bash
 # Lint current directory
 kscorectl blueprint lint
@@ -1984,6 +2134,7 @@ kscorectl blueprint lint --format json
 ```
 
 **Output**:
+
 ```
 Linting blueprint: myorg/web-stack@1.0.0
 
@@ -2022,9 +2173,11 @@ kscorectl blueprint test [path] [flags]
 ```
 
 **Arguments**:
+
 - `[path]`: Path to blueprint directory (default: current directory)
 
 **Flags**:
+
 - `-v, --verbose`: Verbose output with detailed test events
 - `--dry-run`: Dry run (no actual state changes)
 - `--timeout duration`: Default test timeout (default: 5m)
@@ -2038,6 +2191,7 @@ kscorectl blueprint test [path] [flags]
 - `--stop-on-failure`: Stop on first failure
 
 **Test File Format** (tests/*_test.yaml):
+
 ```yaml
 name: Basic Tests
 description: Test basic blueprint functionality
@@ -2063,6 +2217,7 @@ teardown:
 ```
 
 **Assertion Types**:
+
 - `no_failures`: No state application failures
 - `state_applied`: Specific state was applied
 - `state_changed`: Specific state made changes
@@ -2076,6 +2231,7 @@ teardown:
 - `idempotent`: Running twice produces same result
 
 **Examples**:
+
 ```bash
 # Run all tests
 kscorectl blueprint test
@@ -2103,6 +2259,7 @@ kscorectl blueprint test --dry-run
 ```
 
 **Output (Text)**:
+
 ```
 Running blueprint tests from ./tests
 
@@ -2140,9 +2297,11 @@ kscorectl blueprint search [query] [flags]
 ```
 
 **Arguments**:
+
 - `[query]`: Search query (optional, lists all if empty)
 
 **Flags**:
+
 - `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--category string`: Filter by category
 - `--tags strings`: Filter by tags (comma-separated)
@@ -2154,6 +2313,7 @@ kscorectl blueprint search [query] [flags]
 - `--json`: Output as JSON
 
 **Examples**:
+
 ```bash
 # Search for nginx blueprints
 kscorectl blueprint search nginx
@@ -2178,6 +2338,7 @@ kscorectl blueprint search nginx --json
 ```
 
 **Output**:
+
 ```
 Search results for "nginx":
 
@@ -2198,14 +2359,17 @@ kscorectl blueprint info <blueprint> [flags]
 ```
 
 **Arguments**:
+
 - `<blueprint>`: Blueprint name (e.g., community/nginx)
 
 **Flags**:
+
 - `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--version string`: Specific version (default: latest)
 - `--json`: Output as JSON
 
 **Examples**:
+
 ```bash
 # Show info for latest version
 kscorectl blueprint info community/nginx
@@ -2218,6 +2382,7 @@ kscorectl blueprint info community/nginx --json
 ```
 
 **Output**:
+
 ```
 Name:        community/nginx
 Version:     2.1.0
@@ -2253,9 +2418,11 @@ kscorectl blueprint install <blueprint[@version]>... [flags]
 ```
 
 **Arguments**:
+
 - `<blueprint[@version]>`: One or more blueprints to install (version optional)
 
 **Flags**:
+
 - `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--dir string`: Installation directory (default: ~/.keystone-core/blueprints)
 - `--verify`: Verify signature before installing (default: true)
@@ -2264,6 +2431,7 @@ kscorectl blueprint install <blueprint[@version]>... [flags]
 - `--no-deps`: Don't install dependencies
 
 **Examples**:
+
 ```bash
 # Install latest version
 kscorectl blueprint install community/nginx
@@ -2288,6 +2456,7 @@ kscorectl blueprint install community/nginx --verify=false
 ```
 
 **Output**:
+
 ```
 Installing community/nginx@2.1.0...
   Downloading community/nginx@2.1.0 (245 KB)
@@ -2307,9 +2476,11 @@ kscorectl blueprint update [blueprint...] [flags]
 ```
 
 **Arguments**:
+
 - `[blueprint...]`: Blueprints to update (default: all installed)
 
 **Flags**:
+
 - `--registry string`: Registry URL
 - `--dir string`: Blueprint directory (default: ~/.keystone-core/blueprints)
 - `--dry-run`: Show what would be updated
@@ -2318,6 +2489,7 @@ kscorectl blueprint update [blueprint...] [flags]
 - `--show-breaking`: Show breaking changes before updating
 
 **Examples**:
+
 ```bash
 # Update all blueprints (minor/patch only)
 kscorectl blueprint update
@@ -2336,6 +2508,7 @@ kscorectl blueprint update --show-breaking
 ```
 
 **Output**:
+
 ```
 Checking for updates...
 
@@ -2360,14 +2533,17 @@ kscorectl blueprint remove <blueprint>... [flags]
 ```
 
 **Arguments**:
+
 - `<blueprint>...`: One or more blueprints to remove
 
 **Flags**:
+
 - `--dir string`: Blueprint directory (default: ~/.keystone-core/blueprints)
 - `--force`: Remove without confirmation
 - `--dry-run`: Show what would be removed
 
 **Examples**:
+
 ```bash
 # Remove a blueprint
 kscorectl blueprint remove community/nginx
@@ -2383,6 +2559,7 @@ kscorectl blueprint remove community/nginx --dry-run
 ```
 
 **Output**:
+
 ```
 Removing community/nginx@2.2.1...
   Removing ~/.keystone-core/blueprints/community/nginx
@@ -2395,6 +2572,7 @@ Removing community/nginx@2.2.1...
 The following commands are deprecated and will be removed in a future version. They are being moved to separate binaries:
 
 **Moving to kscore-blueprint-publish**:
+
 - `blueprint publish` → `blueprint-publish publish`
 - `blueprint sign` → `blueprint-publish sign`
 - `blueprint verify` → `blueprint-publish verify`
@@ -2402,6 +2580,7 @@ The following commands are deprecated and will be removed in a future version. T
 - `blueprint docs` → `blueprint-publish docs`
 
 **Moving to kscore-blueprint-state**:
+
 - `blueprint rollback` → `blueprint-state rollback`
 - `blueprint snapshot` → `blueprint-state snapshot`
 
@@ -2427,6 +2606,7 @@ kscorectl blueprint-publish publish [path] [flags]
 ```
 
 **Flags**:
+
 - `--registry string`: Registry URL
 - `--sign`: Sign before publishing (default: true)
 - `--key string`: Signing key file
@@ -2434,6 +2614,7 @@ kscorectl blueprint-publish publish [path] [flags]
 - `--dry-run`: Show what would be published
 
 **Examples**:
+
 ```bash
 # Publish current directory
 kscorectl blueprint-publish publish .
@@ -2451,6 +2632,7 @@ kscorectl blueprint-publish sign <file> [flags]
 ```
 
 **Flags**:
+
 - `--key string`: Signing key file
 - `--generate-key`: Generate a new signing key pair
 - `--output string`: Output signature file
@@ -2464,6 +2646,7 @@ kscorectl blueprint-publish verify <blueprint[@version]|file> [flags]
 ```
 
 **Flags**:
+
 - `--key string`: Public key file for verification
 - `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--signature string`: Signature file (for local verification)
@@ -2477,6 +2660,7 @@ kscorectl blueprint-publish versions <blueprint> [flags]
 ```
 
 **Flags**:
+
 - `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--all`: Include prerelease versions
 - `--limit int`: Maximum versions to show (default: 20)
@@ -2491,6 +2675,7 @@ kscorectl blueprint-publish docs [path] [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output directory (default: docs)
 - `--format string`: Output format (markdown, html, json)
 - `--include-usage`: Include usage examples (default: true)
@@ -2515,6 +2700,7 @@ kscorectl blueprint-state rollback <blueprint> [flags]
 ```
 
 **Flags**:
+
 - `--dir string`: Blueprint directory (default: ~/.keystone-core/blueprints)
 - `--dry-run`: Show what would happen without changes
 - `--force`: Force rollback even with breaking changes
@@ -2532,11 +2718,13 @@ kscorectl blueprint-state snapshot <command> [flags]
 ```
 
 **Commands**:
+
 - `list [blueprint]`: List available snapshots
 - `delete <snapshot-id>`: Delete a snapshot
 - `info <snapshot-id>`: Show snapshot details
 
 **Common Flags**:
+
 - `--dir string`: Snapshot directory
 - `--limit int`: Maximum snapshots to show (list)
 - `--json`: Output in JSON format
@@ -2550,6 +2738,7 @@ kscorectl blueprint-state diff <snapshot1> <snapshot2> [flags]
 ```
 
 **Flags**:
+
 - `--dir string`: Snapshot directory
 - `--json`: Output in JSON format
 - `--files-only`: Show only file differences
@@ -2567,14 +2756,17 @@ kscorectl policy list <policyfile> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to YAML file containing policy definitions
 
 **Flags**:
+
 - `--category string`: Filter by category (security, compliance, operational, cost, custom)
 - `--type string`: Filter by type (opa, cel)
 - `-o, --output string`: Output format: table, json, yaml (default: table)
 
 **Examples**:
+
 ```bash
 # List all policies from a file
 kscorectl policy list policies/all.yaml
@@ -2590,6 +2782,7 @@ kscorectl policy list policies/all.yaml --output json
 ```
 
 **Output**:
+
 ```
 ID                            TYPE     CATEGORY     SEVERITY   ENABLED
 ---------------------------------------------------------------------------
@@ -2609,21 +2802,25 @@ kscorectl policy validate <policyfile>
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 
 **Validation Checks**:
+
 - YAML syntax validation
 - Required fields (id, name, type, code)
 - Policy code syntax (OPA Rego or CEL)
 - Valid enum values (type, category, severity)
 
 **Examples**:
+
 ```bash
 # Validate a policy file
 kscorectl policy validate policies/security.yaml
 ```
 
 **Output (Success)**:
+
 ```
 Validating policy file: policies/security.yaml
 
@@ -2641,6 +2838,7 @@ Warnings: 0
 ```
 
 **Output (Errors)**:
+
 ```
 Validating policy file: policies/broken.yaml
 
@@ -2665,12 +2863,15 @@ kscorectl policy check <policyfile> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 
 **Required Flags**:
+
 - `--policy string`: Policy ID to evaluate
 
 **Optional Flags**:
+
 - `--input-file string`: Input JSON file
 - `--input string`: Inline input JSON
 - `--action string`: Action being performed (default: "check")
@@ -2679,6 +2880,7 @@ kscorectl policy check <policyfile> [flags]
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Check a specific policy with input from file
 kscorectl policy check policies/security.yaml \
@@ -2699,6 +2901,7 @@ kscorectl policy check policies/security.yaml \
 ```
 
 **Output (Allowed)**:
+
 ```
 Policy: Security No Root (security-no-root)
 Type:   opa
@@ -2709,6 +2912,7 @@ Duration: 1.234ms
 ```
 
 **Output (Denied)**:
+
 ```
 Policy: Security No Root (security-no-root)
 Type:   opa
@@ -2732,13 +2936,16 @@ kscorectl policy show <policyfile> <policyid> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 - `<policyid>`: Policy ID to display
 
 **Flags**:
+
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Show policy details
 kscorectl policy show policies/security.yaml security-no-root
@@ -2748,6 +2955,7 @@ kscorectl policy show policies/security.yaml security-no-root --output yaml
 ```
 
 **Output**:
+
 ```
 ID:              security-no-root
 Name:            Security No Root
@@ -2780,12 +2988,15 @@ kscorectl policy create <policyfile> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file (created if doesn't exist)
 
 **Required Flags**:
+
 - `--name string`: Policy name/ID
 
 **Optional Flags**:
+
 - `--description string`: Policy description
 - `--type string`: Policy type: opa, cel (default: opa)
 - `--category string`: Policy category: security, compliance, operational, cost, custom (default: custom)
@@ -2796,6 +3007,7 @@ kscorectl policy create <policyfile> [flags]
 - `--code-file string`: Policy code from file
 
 **Examples**:
+
 ```bash
 # Create a policy with inline code
 kscorectl policy create policies/security.yaml --name deny-privileged \
@@ -2815,6 +3027,7 @@ kscorectl policy create policies/security.yaml --name require-labels \
 ```
 
 **Output**:
+
 ```
 ✓ Policy 'deny-privileged' created successfully
   Type:     opa
@@ -2833,10 +3046,12 @@ kscorectl policy update <policyfile> <policyid> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 - `<policyid>`: Policy ID to update
 
 **Flags**:
+
 - `--description string`: New description
 - `--severity string`: New severity: low, medium, high, critical
 - `--mode string`: New enforcement mode: enforce, audit, warn
@@ -2845,6 +3060,7 @@ kscorectl policy update <policyfile> <policyid> [flags]
 - `--code-file string`: New policy code from file
 
 **Examples**:
+
 ```bash
 # Update policy severity
 kscorectl policy update policies/security.yaml deny-privileged --severity critical
@@ -2861,6 +3077,7 @@ kscorectl policy update policies/security.yaml deny-privileged \
 ```
 
 **Output**:
+
 ```
 ✓ Policy 'deny-privileged' updated successfully
 ```
@@ -2874,13 +3091,16 @@ kscorectl policy delete <policyfile> <policyid> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 - `<policyid>`: Policy ID to delete
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation prompt
 
 **Examples**:
+
 ```bash
 # Delete a policy (prompts for confirmation)
 kscorectl policy delete policies/security.yaml deny-privileged
@@ -2890,6 +3110,7 @@ kscorectl policy delete policies/security.yaml deny-privileged --force
 ```
 
 **Output**:
+
 ```
 Delete policy 'deny-privileged' from policies/security.yaml? [y/N]: y
 ✓ Policy 'deny-privileged' deleted successfully
@@ -2904,13 +3125,16 @@ kscorectl policy activate <policyfile> <policyid> [flags]
 ```
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 - `<policyid>`: Policy ID to activate
 
 **Flags**:
+
 - `--mode string`: Enforcement mode: enforce, audit, warn
 
 **Examples**:
+
 ```bash
 # Activate a policy
 kscorectl policy activate policies/security.yaml deny-privileged
@@ -2920,6 +3144,7 @@ kscorectl policy activate policies/security.yaml deny-privileged --mode enforce
 ```
 
 **Output**:
+
 ```
 ✓ Policy 'deny-privileged' activated
   Mode: enforce
@@ -2936,10 +3161,12 @@ kscorectl policy deactivate <policyfile> <policyid>
 **Aliases**: `policy disable`
 
 **Arguments**:
+
 - `<policyfile>`: Path to policy YAML file
 - `<policyid>`: Policy ID to deactivate
 
 **Examples**:
+
 ```bash
 # Deactivate a policy
 kscorectl policy deactivate policies/security.yaml deny-privileged
@@ -2949,6 +3176,7 @@ kscorectl policy disable policies/security.yaml deny-privileged
 ```
 
 **Output**:
+
 ```
 ✓ Policy 'deny-privileged' deactivated
 ```
@@ -2964,6 +3192,7 @@ kscorectl policy audit [flags]
 ```
 
 **Flags**:
+
 - `--policy string`: Filter by policy ID
 - `--resource-type string`: Filter by resource type
 - `--denied`: Show only denied evaluations
@@ -2971,6 +3200,7 @@ kscorectl policy audit [flags]
 - `-o, --output string`: Output format: text, json, yaml, table (default: table)
 
 **Examples**:
+
 ```bash
 # Show recent audit entries
 kscorectl policy audit
@@ -2986,6 +3216,7 @@ kscorectl policy audit --limit 50
 ```
 
 **Output**:
+
 ```
 TIMESTAMP            POLICY                    RESOURCE        RESULT     VIOLATIONS
 -------------------------------------------------------------------------------------
@@ -3005,10 +3236,12 @@ kscorectl policy report [flags]
 ```
 
 **Flags**:
+
 - `--days int`: Number of days to include in report (default: 7)
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Generate report for last 7 days
 kscorectl policy report --days 7
@@ -3018,6 +3251,7 @@ kscorectl policy report --days 30 --output json
 ```
 
 **Output**:
+
 ```
 === Compliance Report ===
 Generated: 2024-01-15T10:30:45Z
@@ -3065,6 +3299,7 @@ kscorectl audit log [flags]
 ```
 
 **Flags**:
+
 - `--policy string`: Filter by policy ID
 - `--resource-type string`: Filter by resource type
 - `--denied`: Show only denied evaluations
@@ -3074,6 +3309,7 @@ kscorectl audit log [flags]
 - `-o, --format string`: Output format: table, text, json, yaml (default: table)
 
 **Examples**:
+
 ```bash
 # Show recent audit entries
 kscorectl audit log
@@ -3097,12 +3333,14 @@ kscorectl audit report [flags]
 ```
 
 **Flags**:
+
 - `--days int`: Number of days to include (default: 7)
 - `--category string`: Filter by policy category
 - `--severity string`: Filter by severity (low, medium, high, critical)
 - `-o, --format string`: Output format: table, text, json, yaml (default: table)
 
 **Examples**:
+
 ```bash
 # Generate report for last 7 days
 kscorectl audit report --days 7
@@ -3120,11 +3358,13 @@ kscorectl audit export [flags]
 ```
 
 **Flags**:
+
 - `--days int`: Number of days to export (default: 30)
 - `--output string`: Output file path (default: stdout)
 - `--export-format string`: Export format (json, csv, yaml) (default: json)
 
 **Examples**:
+
 ```bash
 # Export last 30 days to JSON
 kscorectl audit export --days 30 --output audit-data.json
@@ -3142,10 +3382,12 @@ kscorectl audit stats [flags]
 ```
 
 **Flags**:
+
 - `--days int`: Number of days to analyze (default: 7)
 - `-o, --format string`: Output format: table, text, json, yaml (default: table)
 
 **Examples**:
+
 ```bash
 # Show stats for last 7 days
 kscorectl audit stats --days 7
@@ -3167,14 +3409,17 @@ kscorectl gitops verify <workflow-file> [flags]
 ```
 
 **Arguments**:
+
 - `<workflow-file>`: Path to verification workflow YAML file
 
 **Flags**:
+
 - `--parallel`: Run steps in parallel
 - `--timeout string`: Workflow timeout (default: 2m)
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Workflow File Format**:
+
 ```yaml
 name: post-deploy-checks
 description: Verify deployment health
@@ -3197,6 +3442,7 @@ steps:
 ```
 
 **Examples**:
+
 ```bash
 # Run a verification workflow
 kscorectl gitops verify workflows/post-deploy.yaml
@@ -3209,6 +3455,7 @@ kscorectl gitops verify workflows/full-check.yaml --timeout 5m
 ```
 
 **Output**:
+
 ```
 Running verification workflow: post-deploy-checks
 Description: Verify deployment health
@@ -3237,9 +3484,11 @@ kscorectl gitops rollback [flags]
 ```
 
 **Required Flags**:
+
 - `--app string`: Application name
 
 **Optional Flags**:
+
 - `--namespace string`: Namespace (default: default)
 - `--type string`: Rollback type: argocd, flux, git (default: argocd)
 - `--strategy string`: Strategy: previous, specific, last_known_good (default: previous)
@@ -3250,11 +3499,13 @@ kscorectl gitops rollback [flags]
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Rollback Strategies**:
+
 - `previous`: Rollback to immediately previous revision
 - `specific`: Rollback to a specific revision (requires --revision)
 - `last_known_good`: Rollback to last known healthy state
 
 **Examples**:
+
 ```bash
 # Rollback to previous revision
 kscorectl gitops rollback --app myapp --strategy previous
@@ -3275,6 +3526,7 @@ kscorectl gitops rollback --app myapp --strategy previous --dry-run
 ```
 
 **Output**:
+
 ```
 Rollback Configuration
 ======================
@@ -3304,11 +3556,13 @@ kscorectl gitops promote [flags]
 ```
 
 **Required Flags**:
+
 - `--pipeline string`: Pipeline name
 - `--from string`: Source environment
 - `--to string`: Target environment
 
 **Optional Flags**:
+
 - `--revision string`: Specific revision to promote
 - `--reason string`: Reason for promotion
 - `--user string`: User performing promotion
@@ -3318,6 +3572,7 @@ kscorectl gitops promote [flags]
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Promote from staging to production
 kscorectl gitops promote \
@@ -3348,6 +3603,7 @@ kscorectl gitops promote \
 ```
 
 **Output**:
+
 ```
 Promotion Request
 =================
@@ -3381,6 +3637,7 @@ kscorectl gitops webhook list
 ```
 
 **Output**:
+
 ```
 Registered Webhook Handlers
 ===========================
@@ -3413,9 +3670,11 @@ kscorectl gitops webhook test <type>
 ```
 
 **Arguments**:
+
 - `<type>`: Webhook type: argocd, flux, github, gitlab
 
 **Examples**:
+
 ```bash
 # Test ArgoCD webhook
 kscorectl gitops webhook test argocd
@@ -3425,6 +3684,7 @@ kscorectl gitops webhook test github
 ```
 
 **Output**:
+
 ```
 Test Webhook: argocd
 
@@ -3455,11 +3715,13 @@ kscorectl gitops status [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Status type: rollbacks, promotions, verifications, all (default: all)
 - `--limit int`: Maximum entries to show (default: 10)
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Show recent rollbacks
 kscorectl gitops status --type rollbacks
@@ -3472,6 +3734,7 @@ kscorectl gitops status --output json
 ```
 
 **Output**:
+
 ```
 ID           TYPE         STATUS       TARGET                         TIME                 DURATION
 ----------------------------------------------------------------------------------------------------
@@ -3495,9 +3758,11 @@ kscorectl gitops repo list [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # List all repositories
 kscorectl gitops repo list
@@ -3507,6 +3772,7 @@ kscorectl gitops repo list --output json
 ```
 
 **Output**:
+
 ```
 Configured Repositories
 =======================
@@ -3541,18 +3807,22 @@ kscorectl gitops repo add <name> [flags]
 ```
 
 **Arguments**:
+
 - `<name>`: Repository name
 
 **Required Flags**:
+
 - `--url string`: Repository URL
 
 **Optional Flags**:
+
 - `--branch string`: Branch to track (default: main)
 - `--path string`: Path within repository
 - `--auth string`: Authentication method: none, ssh, token (default: none)
 - `--key string`: SSH key path (for --auth ssh)
 
 **Examples**:
+
 ```bash
 # Add a repository with SSH
 kscorectl gitops repo add myrepo \
@@ -3583,9 +3853,11 @@ kscorectl gitops repo remove <name>
 **Aliases**: `rm`, `delete`
 
 **Arguments**:
+
 - `<name>`: Repository name to remove
 
 **Examples**:
+
 ```bash
 # Remove a repository
 kscorectl gitops repo remove myrepo
@@ -3600,12 +3872,15 @@ kscorectl gitops repo sync <name> [flags]
 ```
 
 **Arguments**:
+
 - `<name>`: Repository name to synchronize
 
 **Flags**:
+
 - `--force`: Force sync, discarding local changes
 
 **Examples**:
+
 ```bash
 # Sync a repository
 kscorectl gitops repo sync myrepo
@@ -3627,12 +3902,14 @@ kscorectl gitops deploy list [flags]
 ```
 
 **Flags**:
+
 - `--env string`: Filter by environment
 - `--app string`: Filter by application
 - `--limit int`: Maximum entries to show (default: 10)
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # List all recent deployments
 kscorectl gitops deploy list
@@ -3648,6 +3925,7 @@ kscorectl gitops deploy list --output json --limit 20
 ```
 
 **Output**:
+
 ```
 ID           APP          ENV          STATUS              REVISION             TIME
 -----------------------------------------------------------------------------------------------
@@ -3667,12 +3945,15 @@ kscorectl gitops deploy show <deployment-id> [flags]
 ```
 
 **Arguments**:
+
 - `<deployment-id>`: Deployment ID
 
 **Flags**:
+
 - `-o, --output string`: Output format: text, json, yaml, table (default: text)
 
 **Examples**:
+
 ```bash
 # Show deployment details
 kscorectl gitops deploy show deploy-001
@@ -3682,6 +3963,7 @@ kscorectl gitops deploy show deploy-001 --output json
 ```
 
 **Output**:
+
 ```
 Deployment Details
 ==================
@@ -3706,15 +3988,18 @@ kscorectl gitops deploy rollback <deployment-id>
 ```
 
 **Arguments**:
+
 - `<deployment-id>`: Deployment ID to rollback
 
 **Examples**:
+
 ```bash
 # Rollback a deployment
 kscorectl gitops deploy rollback deploy-001
 ```
 
 **Output**:
+
 ```
 Rolling back deployment: deploy-001
 
@@ -3736,12 +4021,15 @@ kscorectl gitops deploy approve <deployment-id> [flags]
 ```
 
 **Arguments**:
+
 - `<deployment-id>`: Deployment ID to approve
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation prompt
 
 **Examples**:
+
 ```bash
 # Approve a pending deployment
 kscorectl gitops deploy approve deploy-003
@@ -3751,6 +4039,7 @@ kscorectl gitops deploy approve deploy-003 --force
 ```
 
 **Output**:
+
 ```
 Approving deployment: deploy-003
 
@@ -3792,6 +4081,7 @@ kscorectl webhook list [flags]
 ```
 
 **Examples**:
+
 ```bash
 # List all webhook handlers
 kscorectl webhook list
@@ -3809,9 +4099,11 @@ kscorectl webhook show <type> [flags]
 ```
 
 **Arguments**:
+
 - `<type>`: argocd, flux, github, gitlab
 
 **Examples**:
+
 ```bash
 # Show ArgoCD webhook details
 kscorectl webhook show argocd
@@ -3829,9 +4121,11 @@ kscorectl webhook test <type>
 ```
 
 **Arguments**:
+
 - `<type>`: argocd, flux, github, gitlab
 
 **Examples**:
+
 ```bash
 # Test ArgoCD webhook
 kscorectl webhook test argocd
@@ -3846,10 +4140,12 @@ kscorectl webhook history [flags]
 ```
 
 **Flags**:
+
 - `--limit int`: Maximum entries to show (default: 20)
 - `-o, --format string`: Output format: table, text, json, yaml (default: table)
 
 **Examples**:
+
 ```bash
 # View recent webhook deliveries
 kscorectl webhook history
@@ -3867,10 +4163,12 @@ kscorectl webhook secrets <command> [flags]
 ```
 
 **Commands**:
+
 - `list`: List webhook secrets
 - `rotate <name>`: Rotate a webhook secret
 
 **Examples**:
+
 ```bash
 # List webhook secrets
 kscorectl webhook secrets list
@@ -3892,10 +4190,12 @@ kscorectl cluster status [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json, yaml) (default: table)
 - `-w, --watch`: Watch for changes
 
 **Output**:
+
 ```
 Cluster: kscore-prod
 Status:  healthy
@@ -3917,10 +4217,12 @@ kscorectl cluster members [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json, yaml)
 - `--details`: Show detailed member information
 
 **Example**:
+
 ```bash
 kscorectl cluster members --output json
 kscorectl cluster members --details
@@ -3935,6 +4237,7 @@ kscorectl cluster leader
 ```
 
 **Output**:
+
 ```
 Leader: server-1
 Address: 192.168.1.10:5000
@@ -3950,9 +4253,11 @@ kscorectl cluster health [flags]
 ```
 
 **Flags**:
+
 - `-v, --verbose`: Show detailed health information
 
 **Output**:
+
 ```
 Cluster Health: HEALTHY
 
@@ -3975,9 +4280,11 @@ kscorectl cluster shards [flags]
 ```
 
 **Flags**:
+
 - `--show-agents`: Show individual agent IDs per shard
 
 **Example**:
+
 ```bash
 kscorectl cluster shards
 kscorectl cluster shards --show-agents
@@ -3992,12 +4299,15 @@ kscorectl cluster add <address> [flags]
 ```
 
 **Arguments**:
+
 - `<address>`: Address of the new member to add (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be done without adding a member
 
 **Example**:
+
 ```bash
 kscorectl cluster add server-4:9090
 kscorectl cluster add server-4:9090 --dry-run
@@ -4012,12 +4322,15 @@ kscorectl cluster join <cluster-address> [flags]
 ```
 
 **Arguments**:
+
 - `<cluster-address>`: Address of any existing cluster member (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be done without joining
 
 **Example**:
+
 ```bash
 kscorectl cluster join server-1:9090
 ```
@@ -4031,10 +4344,12 @@ kscorectl cluster leave [flags]
 ```
 
 **Flags**:
+
 - `--force`: Force leave without graceful agent migration
 - `--dry-run`: Show what would be done without leaving
 
 **Example**:
+
 ```bash
 kscorectl cluster leave
 kscorectl cluster leave --force
@@ -4049,12 +4364,15 @@ kscorectl cluster drain <member-id> [flags]
 ```
 
 **Arguments**:
+
 - `<member-id>`: ID of the member to drain (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be done without draining
 
 **Example**:
+
 ```bash
 kscorectl cluster drain server-2
 kscorectl cluster drain server-2 --dry-run
@@ -4069,12 +4387,15 @@ kscorectl cluster undrain <member-id> [flags]
 ```
 
 **Arguments**:
+
 - `<member-id>`: ID of the member to undrain (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be done without undraining
 
 **Example**:
+
 ```bash
 kscorectl cluster undrain server-2
 ```
@@ -4088,12 +4409,15 @@ kscorectl cluster transfer-leader <member-id> [flags]
 ```
 
 **Arguments**:
+
 - `<member-id>`: ID of the member to become leader (required)
 
 **Flags**:
+
 - `--dry-run`: Show what would be done without transferring leadership
 
 **Example**:
+
 ```bash
 kscorectl cluster transfer-leader server-2
 kscorectl cluster transfer-leader server-2 --dry-run
@@ -4108,11 +4432,13 @@ kscorectl cluster backup [flags]
 ```
 
 **Flags**:
+
 - `-f, --output string`: Output file path (default: stdout)
 - `--shards-only`: Backup only shard assignments
 - `--config-only`: Backup only cluster configuration
 
 **Examples**:
+
 ```bash
 # Backup to stdout
 kscorectl cluster backup
@@ -4128,6 +4454,7 @@ kscorectl cluster backup --config-only -f config.json
 ```
 
 **Output** (JSON):
+
 ```json
 {
   "version": "1.0",
@@ -4152,11 +4479,13 @@ kscorectl cluster restore [flags]
 ```
 
 **Flags**:
+
 - `-f, --input string`: Input backup file path (required)
 - `--force`: Skip confirmation prompt
 - `--dry-run`: Show what would be restored without making changes
 
 **Examples**:
+
 ```bash
 # Basic restore
 kscorectl cluster restore -f cluster-backup.json
@@ -4169,6 +4498,7 @@ kscorectl cluster restore -f cluster-backup.json --dry-run
 ```
 
 **Output**:
+
 ```
 Restoring cluster state from cluster-backup.json...
 
@@ -4196,10 +4526,12 @@ kscorectl cluster rebalance [flags]
 ```
 
 **Flags**:
+
 - `--dry-run`: Show what would change without making changes
 - `--reason string`: Reason for rebalancing (default: "CLI request")
 
 **Output**:
+
 ```
 Rebalancing agents across cluster members...
 
@@ -4226,9 +4558,11 @@ kscorectl cluster remove <member-id> [flags]
 ```
 
 **Flags**:
+
 - `--force`: Force removal without reassigning agents first
 
 **Example**:
+
 ```bash
 # Remove unhealthy member (agents will be reassigned)
 kscorectl cluster remove server-3
@@ -4260,12 +4594,14 @@ kscorectl cluster-backup backup [flags]
 ```
 
 **Flags**:
+
 - `-f, --file string`: Output file path (default: stdout)
 - `--compress`: Compress the backup
 - `--encrypt`: Encrypt the backup
 - `--description string`: Backup description
 
 **Examples**:
+
 ```bash
 # Create a backup to file
 kscorectl cluster-backup backup --file cluster-backup.bin
@@ -4283,11 +4619,13 @@ kscorectl cluster-backup restore [flags]
 ```
 
 **Flags**:
+
 - `-f, --input string`: Input backup file path (required)
 - `--force`: Skip confirmation prompt
 - `--dry-run`: Show what would be done without restoring
 
 **Examples**:
+
 ```bash
 # Restore from backup
 kscorectl cluster-backup restore --input cluster-backup.bin
@@ -4305,6 +4643,7 @@ kscorectl cluster-backup list [flags]
 ```
 
 **Flags**:
+
 - `--limit int`: Maximum number of backups to show (default: 20)
 
 ### cluster-backup verify
@@ -4316,6 +4655,7 @@ kscorectl cluster-backup verify [flags]
 ```
 
 **Flags**:
+
 - `-f, --input string`: Backup file to verify (required)
 
 ### cluster-backup schedule
@@ -4327,15 +4667,18 @@ kscorectl cluster-backup schedule <command> [flags]
 ```
 
 **Commands**:
+
 - `list`: List backup schedules
 - `add <name>`: Add a backup schedule
 - `remove <name>`: Remove a backup schedule
 
 **Flags (schedule add)**:
-- `--cron string`: Cron expression (default: "0 0 * * *")
+
+- `--cron string`: Cron expression (default: "0 0 ** *")
 - `--retention string`: Backup retention period (default: "7d")
 
 **Examples**:
+
 ```bash
 # Add a daily backup schedule
 kscorectl cluster-backup schedule add daily --cron "0 2 * * *" --retention 14d
@@ -4369,6 +4712,7 @@ kscorectl identity version
 ```
 
 **Output**:
+
 ```
 kscore-identity version 0.1.0 (built: 2024-01-15)
 ```
@@ -4382,9 +4726,11 @@ kscorectl identity status [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json, yaml) (default: table)
 
 **Output**:
+
 ```
 Identity Provider Status
 ========================
@@ -4410,11 +4756,13 @@ kscorectl identity token create [flags]
 ```
 
 **Flags**:
+
 - `--path string`: SPIFFE path for agents using this token (default: /agent/default)
 - `--ttl string`: Token time-to-live (default: 5m)
 - `--uses int`: Maximum number of uses, 0 for unlimited (default: 1)
 
 **Examples**:
+
 ```bash
 # Create a token with default settings
 kscorectl identity token create
@@ -4427,6 +4775,7 @@ kscorectl identity token create --path /agent/db --ttl 1h --uses 5
 ```
 
 **Output**:
+
 ```
 Token created successfully!
 Token:    Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
@@ -4450,6 +4799,7 @@ kscorectl identity token list [flags]
 ```
 
 **Output**:
+
 ```
 TOKEN                                    AGENT PATH           EXPIRES                    USES  STATUS
 test-token-1                             /agent/web           2024-01-15T12:00:00Z       0/1   valid
@@ -4465,6 +4815,7 @@ kscorectl identity token show <token-id>
 ```
 
 **Output**:
+
 ```
 Token Details
 =============
@@ -4485,6 +4836,7 @@ kscorectl identity token revoke <token-id>
 ```
 
 **Output**:
+
 ```
 Token revoked successfully: abc123def456
 ```
@@ -4502,9 +4854,11 @@ kscorectl identity ca info [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json, yaml)
 
 **Output**:
+
 ```
 Certificate Authority Information
 ==================================
@@ -4536,10 +4890,12 @@ kscorectl identity ca backup [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output file path (required)
 - `--encrypt`: Encrypt the backup (default: true)
 
 **Examples**:
+
 ```bash
 # Create encrypted backup
 kscorectl identity ca backup --output /var/backups/ca-backup.json
@@ -4549,6 +4905,7 @@ kscorectl identity ca backup --output ca-backup.json --encrypt=false
 ```
 
 **Output**:
+
 ```
 CA backup created: /var/backups/ca-backup.json
 Encrypted: true
@@ -4564,14 +4921,17 @@ kscorectl identity ca restore [flags]
 ```
 
 **Flags**:
+
 - `--input string`: Backup file to restore (required)
 
 **Example**:
+
 ```bash
 kscorectl identity ca restore --input /var/backups/ca-backup.json
 ```
 
 **Output**:
+
 ```
 Restoring CA from backup (created 2024-01-15T10:00:00Z)
 Trust Domain: kscore.local
@@ -4587,6 +4947,7 @@ kscorectl identity ca rotate
 ```
 
 **Output**:
+
 ```
 CA rotation initiated...
 New signing CA created
@@ -4607,9 +4968,11 @@ kscorectl identity federation list [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json)
 
 **Output**:
+
 ```
 TRUST DOMAIN             TYPE             STATE     LAST REFRESH
 partner.example.org      bidirectional    active    2024-01-15T10:00:00Z
@@ -4625,12 +4988,14 @@ kscorectl identity federation add <trust-domain> [flags]
 ```
 
 **Flags**:
+
 - `--endpoint string`: Bundle endpoint URL (required)
 - `--profile string`: Bundle endpoint profile (default: https_web)
 - `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
 - `--refresh-interval string`: Bundle refresh interval (default: 5m)
 
 **Examples**:
+
 ```bash
 # Add bidirectional federation
 kscorectl identity federation add partner.example.org \
@@ -4649,6 +5014,7 @@ kscorectl identity federation add vendor.example.com \
 ```
 
 **Output**:
+
 ```
 Federation relationship added: partner.example.org
 Bundle Endpoint: https://partner.example.org/.well-known/spiffe-bundle
@@ -4669,6 +5035,7 @@ kscorectl identity federation show <trust-domain>
 ```
 
 **Output**:
+
 ```
 Trust Domain:     partner.example.org
 Type:             bidirectional
@@ -4696,6 +5063,7 @@ kscorectl identity federation suspend <trust-domain>
 ```
 
 **Output**:
+
 ```
 Federation relationship suspended: partner.example.org
 SVIDs from this domain will no longer be accepted
@@ -4710,6 +5078,7 @@ kscorectl identity federation activate <trust-domain>
 ```
 
 **Output**:
+
 ```
 Federation relationship activated: partner.example.org
 SVIDs from this domain will now be accepted
@@ -4724,14 +5093,17 @@ kscorectl identity federation remove <trust-domain> [flags]
 ```
 
 **Flags**:
+
 - `--force`: Force removal without confirmation
 
 **Example**:
+
 ```bash
 kscorectl identity federation remove vendor.example.com --force
 ```
 
 **Output**:
+
 ```
 Federation relationship removed: vendor.example.com
 ```
@@ -4745,6 +5117,7 @@ kscorectl identity federation refresh <trust-domain>
 ```
 
 **Output**:
+
 ```
 Trust bundle refreshed: partner.example.org
 Retrieved 2 certificates
@@ -4763,9 +5136,11 @@ kscorectl identity bundle show [flags]
 ```
 
 **Flags**:
+
 - `-o, --output string`: Output format (table, json)
 
 **Output**:
+
 ```
 Local Trust Bundle
 ==================
@@ -4790,9 +5165,11 @@ kscorectl identity bundle export [flags]
 ```
 
 **Flags**:
+
 - `--format string`: Export format: pem, jwks, spiffe (default: pem)
 
 **Examples**:
+
 ```bash
 # Export as PEM
 kscorectl identity bundle export --format pem
@@ -4805,6 +5182,7 @@ kscorectl identity bundle export --format spiffe
 ```
 
 **Output (PEM)**:
+
 ```
 -----BEGIN CERTIFICATE-----
 MIIBxDCCAWqgAwIBAgIQExample...
@@ -4815,6 +5193,7 @@ MIIBxDCCAWqgAwIBAgIQExample...
 ```
 
 **Output (JWKS)**:
+
 ```json
 {
   "keys": [
@@ -4838,9 +5217,11 @@ kscorectl identity events [flags]
 ```
 
 **Flags**:
+
 - `--limit int`: Number of events to show (default: 10)
 
 **Output**:
+
 ```
 TIME       TYPE                    DESCRIPTION
 10:00:05   svid.issued             X.509 SVID issued
@@ -4853,6 +5234,7 @@ TIME       TYPE                    DESCRIPTION
 ### Examples
 
 **Bootstrap a new agent**:
+
 ```bash
 # Create a join token
 kscorectl identity token create --path /agent/web-server-1 --ttl 10m
@@ -4862,6 +5244,7 @@ kscorectl identity token create --path /agent/web-server-1 --ttl 10m
 ```
 
 **Set up trust federation**:
+
 ```bash
 # Add federation relationship
 kscorectl identity federation add partner.example.org \
@@ -4875,6 +5258,7 @@ kscorectl identity federation activate partner.example.org
 ```
 
 **Backup and restore CA**:
+
 ```bash
 # Create encrypted backup
 kscorectl identity ca backup --output /var/backups/ca-$(date +%Y%m%d).json
@@ -4884,6 +5268,7 @@ kscorectl identity ca restore --input /var/backups/ca-20240115.json
 ```
 
 **Rotate CA**:
+
 ```bash
 # Check current CA status
 kscorectl identity ca info
@@ -4920,6 +5305,7 @@ kscorectl federation wizard [flags]
 ```
 
 **Flags**:
+
 - `--non-interactive`: Run with prompts from flags only
 - `--domain string`: Partner trust domain
 - `--endpoint string`: Bundle endpoint URL
@@ -4930,6 +5316,7 @@ kscorectl federation wizard [flags]
 - `--auto-activate`: Activate immediately without confirmation
 
 **Examples**:
+
 ```bash
 # Interactive mode - guided setup
 kscorectl federation wizard
@@ -4945,6 +5332,7 @@ kscorectl federation wizard \
 ```
 
 **Policy Templates**:
+
 | Template | Description |
 |----------|-------------|
 | `services-only` | Allow `/service/**`, deny `/admin/**` and `/internal/**` (recommended) |
@@ -4969,6 +5357,7 @@ kscorectl federation add <trust-domain> [flags]
 ```
 
 **Flags**:
+
 - `--bundle-endpoint string`: Bundle endpoint URL
 - `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
 - `--refresh-interval duration`: Trust bundle refresh interval (default: 5m)
@@ -5006,6 +5395,7 @@ kscorectl federation remove <trust-domain> [flags]
 ```
 
 **Flags**:
+
 - `--force`: Skip confirmation prompt
 
 ### federation refresh
@@ -5025,10 +5415,12 @@ kscorectl federation bundle <command> [flags]
 ```
 
 **Commands**:
+
 - `show`: Show the local trust bundle
 - `export`: Export the trust bundle
 
 **Export Flags**:
+
 - `--format string`: Bundle format (pem, jwks, spiffe)
 
 ## kscore-migrate (Database Migration)
@@ -5044,10 +5436,12 @@ kscorectl migrate run [flags]
 ```
 
 **Required Flags**:
+
 - `--sqlite string`: Path to SQLite database file
 - `--postgres string`: PostgreSQL connection string
 
 **Optional Flags**:
+
 - `--dry-run`: Perform a dry run without writing to target
 - `--batch-size int`: Number of records per batch (default: 100)
 - `--continue-on-error`: Continue migration even if some records fail
@@ -5055,6 +5449,7 @@ kscorectl migrate run [flags]
 - `--verbose`: Enable verbose output
 
 **Examples**:
+
 ```bash
 # Basic migration
 kscorectl migrate run \
@@ -5075,6 +5470,7 @@ kscorectl migrate run \
 ```
 
 **Output**:
+
 ```
 Starting migration from SQLite to PostgreSQL...
   Mode: DRY RUN (no data will be written)
@@ -5110,10 +5506,12 @@ kscorectl migrate validate [flags]
 ```
 
 **Required Flags**:
+
 - `--sqlite string`: Path to SQLite database file
 - `--postgres string`: PostgreSQL connection string
 
 **Examples**:
+
 ```bash
 kscorectl migrate validate \
   --sqlite /var/lib/keystone-core/state.db \
@@ -5121,6 +5519,7 @@ kscorectl migrate validate \
 ```
 
 **Output (Success)**:
+
 ```
 Validating migration...
   Source: /var/lib/keystone-core/state.db
@@ -5136,6 +5535,7 @@ Validation PASSED - all record counts match
 ```
 
 **Output (Failure)**:
+
 ```
 Validation FAILED - discrepancies found:
   - agent count mismatch: source=150, target=148
@@ -5161,15 +5561,17 @@ kscore-registry [flags]
 ```
 
 **Flags**:
+
 - `--data string`: Data directory for storing modules (default: ./data)
 - `--listen string`: Address to listen on (default: :8090)
 - `--api-key string`: API key for write operations (or KSCORE_REGISTRY_API_KEY env)
 - `--readonly`: Disable write operations (mirror mode)
 - `--max-upload-size int`: Maximum upload size in bytes (default: 100MB)
 - `--cors`: Enable CORS headers (requires --cors-origins)
-- `--cors-origins string`: Comma-separated list of allowed CORS origins (e.g., 'https://example.com,https://app.example.com')
+- `--cors-origins string`: Comma-separated list of allowed CORS origins (e.g., '<https://example.com,https://app.example.com>')
 
 **Examples**:
+
 ```bash
 # Start with defaults
 kscore-registry
@@ -5200,11 +5602,13 @@ kscore-registry version
 ```
 
 **Output**:
+
 ```
 kscore-registry version 0.1.0
 ```
 
 **Server Startup Output**:
+
 ```
 Starting kscore-registry on :8090
   Data directory: ./data
@@ -5233,6 +5637,7 @@ curl http://localhost:8090/myorg/webserver/@v/list
 ```
 
 **Response**:
+
 ```
 1.2.0
 1.1.0
@@ -5248,6 +5653,7 @@ curl http://localhost:8090/myorg/webserver/@v/1.2.0.info
 ```
 
 **Response**:
+
 ```json
 {
   "name": "myorg/webserver",
@@ -5270,6 +5676,7 @@ curl http://localhost:8090/myorg/webserver/@v/1.2.0.mod
 ```
 
 **Response** (YAML):
+
 ```yaml
 name: myorg/webserver
 version: 1.2.0
@@ -5307,6 +5714,7 @@ curl -X POST http://localhost:8090/myorg/webserver/@v/1.2.0 \
 ```
 
 **Form Fields**:
+
 - `module`: Module ZIP file (required)
 - `manifest`: Module manifest YAML content (required)
 - `hash`: SHA256 hash of the module (optional, computed if not provided)
@@ -5316,6 +5724,7 @@ curl -X POST http://localhost:8090/myorg/webserver/@v/1.2.0 \
 - `tags`: JSON array of tags
 
 **Response**:
+
 ```json
 {
   "module_name": "myorg/webserver",
@@ -5328,6 +5737,7 @@ curl -X POST http://localhost:8090/myorg/webserver/@v/1.2.0 \
 ```
 
 **Error Responses**:
+
 - `401 Unauthorized`: Missing or invalid API key
 - `403 Forbidden`: Registry is in read-only mode
 - `409 Conflict`: Version already exists (use `force=true` to overwrite)
@@ -5349,6 +5759,7 @@ curl http://localhost:8090/health
 ```
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -5363,6 +5774,7 @@ curl http://localhost:8090/
 ```
 
 **Response**:
+
 ```json
 {
   "name": "kscore-registry",
@@ -5376,11 +5788,13 @@ curl http://localhost:8090/
 Write operations (publish, delete) require authentication via API key:
 
 **Header Authentication**:
+
 ```bash
 curl -H "X-API-Key: your-secret-api-key" ...
 ```
 
 **Bearer Token**:
+
 ```bash
 curl -H "Authorization: Bearer your-secret-api-key" ...
 ```
@@ -5460,6 +5874,7 @@ KSCORE_CACHE_DIR="/var/cache/keystone-core/modules"
 ```
 
 **Example**:
+
 ```bash
 export KSCORE_SERVER="http://localhost:8080"
 kscorectl exec run "uptime" --target "role:web"
@@ -5490,6 +5905,7 @@ alias tam='kscorectl monitor'
 ```
 
 **Usage**:
+
 ```bash
 tae "uptime" --target "role:web"
 tas web-server.yaml
@@ -5513,6 +5929,7 @@ Manage agent inventory, tokens, tags, and status. Invoked via `kscorectl agents`
 List registered agents with filters.
 
 **Flags**:
+
 - `--status string`: Filter by status (online, offline, degraded)
 - `--filter string`: Filter expression (e.g., 'role:web')
 - `--label, -l string`: Filter by label (can be repeated)
@@ -5521,6 +5938,7 @@ List registered agents with filters.
 - `--show-compatibility`: Show version compatibility information
 
 **Examples**:
+
 ```bash
 kscorectl agents list --status online --label role=web --limit 100
 kscorectl agents list --edge --show-compatibility
@@ -5571,6 +5989,7 @@ Manage agent join tokens.
 Create a new join token for agent registration.
 
 **Flags**:
+
 - `--ttl string`: Token time-to-live (e.g., 1h, 24h, 7d)
 - `--max-uses int`: Maximum number of times token can be used
 
@@ -5583,6 +6002,7 @@ kscorectl agents token create --ttl 1h --max-uses 10
 List join tokens.
 
 **Flags**:
+
 - `--show-expired`: Include expired tokens in output
 
 ```bash
@@ -5747,6 +6167,7 @@ kscore-agent service-status
 ```
 
 **Service Configuration**:
+
 - **Name**: kscore-agent
 - **Display Name**: Keystone Core Agent
 - **Startup Type**: Automatic (Delayed Start)
@@ -5764,6 +6185,7 @@ kscore-agent service-status
 
 > **Note**: In development, the agent looks for `keystone-core-agent.yaml` in the current directory.
 > For production deployments:
+>
 > - **Linux/macOS**: `/etc/keystone-core/agent.yaml`
 > - **Windows**: `C:\ProgramData\kscore\agent.yaml`
 
@@ -5777,6 +6199,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **Basic Flags**:
+
 ```
 --mode string                Deployment mode: demo, production, fullscale, custom
 --dry-run                    Show planned actions without making changes
@@ -5789,6 +6212,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **Cluster Configuration**:
+
 ```
 --cluster-name string        Cluster name
 --node-role string           Node role: control-plane, agent, both
@@ -5801,6 +6225,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **Storage Configuration**:
+
 ```
 --storage-backend string     Storage backend: sqlite, postgres
 --postgres-host string       PostgreSQL host
@@ -5812,6 +6237,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **NATS Configuration**:
+
 ```
 --nats-mode string           NATS mode: embedded, cluster, external, leaf
 --nats-urls strings          External NATS URLs
@@ -5821,6 +6247,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **TLS Configuration**:
+
 ```
 --generate-certs             Generate self-signed certificates
 --tls-cert-file string       TLS certificate file
@@ -5832,12 +6259,14 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **Package Configuration**:
+
 ```
 --package-channel string     Package channel to install from (default: stable)
 --package-version string     Package version to install (pin)
 ```
 
 **Migration Flags** (SQLite to PostgreSQL):
+
 ```
 --migrate-from-sqlite string   Path to SQLite database to migrate
 --migrate-batch-size int       Batch size for migration (default: 100)
@@ -5846,6 +6275,7 @@ kscore-agent bootstrap --config bootstrap.yaml --non-interactive
 ```
 
 **Blueprint Configuration**:
+
 ```
 --blueprints-dir string          Directory containing blueprints
 --apply-blueprint strings        Blueprints to apply after bootstrap
@@ -5933,16 +6363,19 @@ kscore-server version
 Enable command completion:
 
 **Bash**:
+
 ```bash
 echo 'source <(kscorectl completion bash)' >> ~/.bashrc
 ```
 
 **Zsh**:
+
 ```bash
 echo 'source <(kscorectl completion zsh)' >> ~/.zshrc
 ```
 
 **Fish**:
+
 ```bash
 kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 ```
@@ -5952,6 +6385,7 @@ kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 ### Common Workflows
 
 **Deploy and verify**:
+
 ```bash
 # Apply state
 kscorectl state apply web-server.yaml
@@ -5964,6 +6398,7 @@ kscorectl exec run "systemctl restart nginx" --target "role:web"
 ```
 
 **Investigate issues**:
+
 ```bash
 # Check agent status
 kscorectl monitor --view 2
@@ -5976,6 +6411,7 @@ kscorectl monitor --view 7
 ```
 
 **Compliance check**:
+
 ```bash
 # Check compliance status
 kscorectl policy compliance --days 30
@@ -7010,6 +7446,7 @@ kscorectl files-storage backend <command> [flags]
 ```
 
 **Commands**:
+
 - `list`: List configured backends
 - `status <name>`: Get backend status
 - `sync <source> <destination>`: Synchronize backends
@@ -7018,6 +7455,7 @@ kscorectl files-storage backend <command> [flags]
 - `health`: Check health of all backends
 
 **Sync Flags**:
+
 - `--dry-run`: Show what would be done
 - `--force`: Force sync even if destination has newer files
 
@@ -7030,6 +7468,7 @@ kscorectl files-storage mirrors <command> [flags]
 ```
 
 **Commands**:
+
 - `list`: List mirror groups
 - `show <group-id>`: Show mirror group details
 - `sync <group-id>`: Trigger manual sync
@@ -7037,6 +7476,7 @@ kscorectl files-storage mirrors <command> [flags]
 - `conflicts`: List unresolved conflicts
 
 **Sync Flags**:
+
 - `--dry-run`: Show what would be done
 
 ## kscore-bootstrap (Cluster Bootstrap Tool)
@@ -7088,6 +7528,7 @@ kscore-bootstrap seed --config bootstrap.yaml --dry-run
 ```
 
 **Seed Flags**:
+
 ```
 --cluster-name string   Cluster name identifier
 --trust-domain string   SPIFFE trust domain
@@ -7118,6 +7559,7 @@ kscore-bootstrap restore \
 ```
 
 **Restore Flags**:
+
 ```
 --backup-path string    Path to backup archive
 --verify-integrity      Verify backup integrity before restore
@@ -7147,6 +7589,7 @@ kscore-bootstrap import \
 ```
 
 **Import Flags**:
+
 ```
 --source string      Source URL or file path
 --format string      Source format: yaml, json, tar
@@ -7167,6 +7610,7 @@ kscore-bootstrap validate seed-config.yaml --output json
 ```
 
 **Validate Flags**:
+
 ```
 -o, --output string    Output format: text, json, yaml, table (default: text)
 ```
@@ -7184,11 +7628,13 @@ kscore-bootstrap status --output json
 ```
 
 **Status Flags**:
+
 ```
 -o, --output string    Output format: text, json, yaml, table (default: text)
 ```
 
 **Status Output**:
+
 ```
 Bootstrap Status:
   Cluster Name: production
@@ -7218,6 +7664,7 @@ kscore-bootstrap cleanup --force
 ```
 
 **Cleanup Flags**:
+
 ```
 --force          Force cleanup without confirmation
 --interactive    Prompt before each deletion
@@ -7283,6 +7730,7 @@ When running, the gateway exposes the following endpoints:
 #### Metrics Gateway
 
 The metrics gateway:
+
 - Subscribes to `kscore.telemetry.metrics.>` on NATS (configurable)
 - Aggregates metrics from all agents
 - Exposes `/metrics` for Prometheus scraping
@@ -7292,6 +7740,7 @@ The metrics gateway:
 - Remote write support for pushing to Prometheus
 
 **Prometheus Scrape Configuration**:
+
 ```yaml
 scrape_configs:
   - job_name: 'kscore-gateway'
@@ -7302,6 +7751,7 @@ scrape_configs:
 #### Logs Gateway
 
 The logs gateway:
+
 - Subscribes to `kscore.telemetry.logs.>` on NATS (configurable)
 - Buffers and batches logs
 - Pushes to Loki via push API
@@ -7313,6 +7763,7 @@ The logs gateway:
 #### Traces Gateway
 
 The traces gateway:
+
 - Subscribes to `kscore.telemetry.traces.>` on NATS (configurable)
 - Groups spans into traces
 - Exports via OTLP to Tempo/Jaeger (gRPC or HTTP)
@@ -7461,6 +7912,7 @@ ha:
 #### Configuration Sections
 
 **nats** - NATS connection:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `urls` | []string | `["nats://localhost:4222"]` | NATS server URLs |
@@ -7471,6 +7923,7 @@ ha:
 | `reconnect_jitter` | duration | `500ms` | Random jitter for reconnects |
 
 **server** - HTTP server:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `listen` | string | `0.0.0.0:9091` | Listen address |
@@ -7482,6 +7935,7 @@ ha:
 | `write_timeout` | duration | `30s` | HTTP write timeout |
 
 **metrics.cardinality** - Cardinality control:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `max_series` | int | `100000` | Maximum total metric series |
@@ -7489,6 +7943,7 @@ ha:
 | `drop_high_cardinality` | bool | `false` | Auto-drop high cardinality metrics |
 
 **logs** - Log filtering:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `min_level` | string | `info` | Minimum log level (debug, info, warn, error, fatal) |
@@ -7496,6 +7951,7 @@ ha:
 | `sources.exclude` | []string | `[]` | Exclude these sources |
 
 **traces.sampling** - Trace sampling:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `rate` | float64 | `1.0` | Sampling rate (0.0 to 1.0) |
@@ -7551,6 +8007,7 @@ kscorectl backup create [flags]
 ```
 
 **Flags**:
+
 - `-t, --type string`: Backup type: full, incremental, database, configuration, jetstream, etcd, secrets (default: full)
 - `-c, --components strings`: Specific components to backup (database, config, secrets, jetstream, etcd, certificates)
 - `-d, --destination string`: Backup destination (local, s3://bucket/path, gs://bucket/path, azure://container/path)
@@ -7562,12 +8019,14 @@ kscorectl backup create [flags]
 - `--async`: Run backup asynchronously
 
 **Rclone Flags** (for cloud storage via rclone):
+
 - `--rclone-remote string`: Rclone remote name (configured via 'rclone config')
 - `--rclone-path string`: Path within the rclone remote
 - `--rclone-config string`: Path to rclone config file (default: ~/.config/rclone/rclone.conf)
 - `--rclone-streaming`: Use streaming mode for rclone - pipes data directly without temp files (default: true)
 
 **Compression Types**:
+
 | Type | Extension | Description |
 |------|-----------|-------------|
 | none | (none) | No compression |
@@ -7580,6 +8039,7 @@ kscorectl backup create [flags]
 **Rclone Destinations**:
 
 The `--rclone-remote` flag enables backup to any of 50+ cloud storage providers supported by rclone, including:
+
 - Dropbox, Google Drive, OneDrive, Box
 - Backblaze B2, Wasabi, DigitalOcean Spaces
 - SFTP, FTP, WebDAV
@@ -7588,6 +8048,7 @@ The `--rclone-remote` flag enables backup to any of 50+ cloud storage providers 
 Configure remotes first with `rclone config`. With streaming mode enabled (default), data is piped directly to cloud storage without requiring local temporary storage.
 
 **Examples**:
+
 ```bash
 # Create a full backup
 kscorectl backup create --type full
@@ -7632,12 +8093,14 @@ kscorectl backup list [flags]
 ```
 
 **Flags**:
+
 - `--last string`: Show backups from last duration (e.g., 24h, 7d)
 - `-t, --type string`: Filter by backup type
 - `--status string`: Filter by status (completed, failed, running)
 - `-n, --limit int`: Maximum number of backups to show (default: 20)
 
 **Examples**:
+
 ```bash
 # List all backups
 kscorectl backup list
@@ -7664,6 +8127,7 @@ kscorectl backup show <backup-id>
 ```
 
 **Examples**:
+
 ```bash
 kscorectl backup show backup-20240115-060000
 kscorectl backup show backup-20240115-060000 -o yaml
@@ -7678,11 +8142,13 @@ kscorectl backup verify <backup-id> [flags]
 ```
 
 **Flags**:
+
 - `--check-integrity`: Verify component integrity (default: true)
 - `--check-restorable`: Verify backup can be restored (performs restore simulation)
 - `-v, --verbose`: Show detailed verification output
 
 **Examples**:
+
 ```bash
 # Basic verification
 kscorectl backup verify backup-20240115-060000
@@ -7703,6 +8169,7 @@ kscorectl backup restore <backup-id> [flags]
 ```
 
 **Flags**:
+
 - `-t, --target string`: Target cluster for restore
 - `-c, --components strings`: Specific components to restore
 - `--dry-run`: Show what would be restored without making changes
@@ -7710,6 +8177,7 @@ kscorectl backup restore <backup-id> [flags]
 - `--async`: Run restore asynchronously
 
 **Examples**:
+
 ```bash
 # Dry-run restore (preview)
 kscorectl backup restore backup-20240115-060000 --dry-run
@@ -7733,10 +8201,12 @@ kscorectl backup delete [backup-id] [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation prompts
 - `--older-than string`: Delete backups older than duration (e.g., 30d, 1w)
 
 **Examples**:
+
 ```bash
 # Delete a specific backup
 kscorectl backup delete backup-20240115-060000
@@ -7757,6 +8227,7 @@ kscorectl backup replication-status
 ```
 
 **Example Output**:
+
 ```
 Backup Replication Status
 =========================
@@ -7794,13 +8265,15 @@ kscorectl backup schedule create <name> [flags]
 ```
 
 **Flags**:
-- `--schedule string`: Cron schedule expression (default: "0 6 * * *")
+
+- `--schedule string`: Cron schedule expression (default: "0 6 ** *")
 - `-t, --type string`: Backup type (default: full)
 - `-c, --components strings`: Components to backup
 - `-d, --destination string`: Backup destination
 - `--retain int`: Number of backups to retain (default: 7)
 
 **Examples**:
+
 ```bash
 # Create daily full backup schedule
 kscorectl backup schedule create daily-full --schedule "0 6 * * *" --type full
@@ -7850,6 +8323,7 @@ kscorectl backup retention set <policy-name> [flags]
 ```
 
 **Flags**:
+
 - `--max-backups int`: Maximum number of backups to keep
 - `--max-age string`: Maximum age of backups (e.g., 30d)
 - `--keep-daily int`: Daily backups to keep
@@ -7858,6 +8332,7 @@ kscorectl backup retention set <policy-name> [flags]
 - `--keep-yearly int`: Yearly backups to keep
 
 **Examples**:
+
 ```bash
 # Set default retention policy
 kscorectl backup retention set default --max-backups 30 --max-age 30d
@@ -7875,9 +8350,11 @@ kscorectl backup retention apply [flags]
 ```
 
 **Flags**:
+
 - `--dry-run`: Show what would be deleted without making changes
 
 **Examples**:
+
 ```bash
 # Preview cleanup
 kscorectl backup retention apply --dry-run
@@ -7907,6 +8384,7 @@ kscorectl events list [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Filter by event type (e.g., agent.connect, state.change)
 - `--source string`: Filter by event source
 - `--severity string`: Filter by minimum severity (debug, info, warning, error, critical)
@@ -7918,6 +8396,7 @@ kscorectl events list [flags]
 - `--limit int`: Maximum events to show (default: 50)
 
 **Examples**:
+
 ```bash
 # List recent events
 kscorectl events list
@@ -7944,11 +8423,13 @@ kscorectl events query <expression> [flags]
 ```
 
 **Flags**:
+
 - `--since string`: Query events since time
 - `--until string`: Query events until time
 - `-n, --limit int`: Maximum events to return (default: 100)
 
 **Examples**:
+
 ```bash
 # Query state drift events
 kscorectl events query 'type == "state.drift" && severity == "warning"'
@@ -7969,6 +8450,7 @@ kscorectl events emit [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Event type (required)
 - `--data string`: Event data as JSON
 - `--severity string`: Event severity: info, warning, error, critical (default: info)
@@ -7976,6 +8458,7 @@ kscorectl events emit [flags]
 - `--correlation-id string`: Correlation ID for event tracing
 
 **Examples**:
+
 ```bash
 # Emit a simple event
 kscorectl events emit --type custom.deployment.started --data '{"version":"1.2.3"}'
@@ -7996,6 +8479,7 @@ kscorectl events replay [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Filter events to replay by type
 - `--since string`: Replay events since time
 - `--until string`: Replay events until time
@@ -8004,6 +8488,7 @@ kscorectl events replay [flags]
 - `--rate float`: Replay rate multiplier (default: 1.0)
 
 **Examples**:
+
 ```bash
 # Dry-run replay of drift events
 kscorectl events replay --type "state.drift" --since 24h --dry-run
@@ -8024,12 +8509,14 @@ kscorectl events watch [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Filter by event type pattern
 - `--severity string`: Minimum severity to show
 - `--source string`: Filter by source
 - `--format string`: Output format: text, json, jsonl (default: text)
 
 **Examples**:
+
 ```bash
 # Watch all events
 kscorectl events watch
@@ -8065,12 +8552,14 @@ kscorectl events retention set [flags]
 ```
 
 **Flags**:
+
 - `--max-age string`: Maximum event age (e.g., 7d, 30d)
 - `--max-count int`: Maximum number of events to retain
 - `--min-severity string`: Minimum severity to keep (debug, info, warning, error, critical)
 - `--type string`: Apply settings to specific event type
 
 **Examples**:
+
 ```bash
 # Set global retention to 30 days
 kscorectl events retention set --max-age 30d
@@ -8098,6 +8587,7 @@ kscorectl events dlq list [flags]
 ```
 
 **Flags**:
+
 - `--reason string`: Filter by failure reason
 - `-n, --limit int`: Maximum events to show (default: 50)
 
@@ -8118,10 +8608,12 @@ kscorectl events dlq retry [event-id] [flags]
 ```
 
 **Flags**:
+
 - `--all`: Retry all DLQ events
 - `--type string`: Retry events of specific type
 
 **Examples**:
+
 ```bash
 # Retry specific event
 kscorectl events dlq retry evt-12345
@@ -8142,11 +8634,13 @@ kscorectl events dlq purge [flags]
 ```
 
 **Flags**:
+
 - `--older-than string`: Purge events older than duration
 - `--reason string`: Purge events with specific failure reason
 - `-f, --force`: Skip confirmation
 
 **Examples**:
+
 ```bash
 # Purge events older than 7 days
 kscorectl events dlq purge --older-than 7d --force
@@ -8176,12 +8670,14 @@ kscorectl schedule list [flags]
 ```
 
 **Flags**:
+
 - `--type string`: Filter by schedule type (command, state, blueprint, reactor)
 - `--status string`: Filter by status (active, paused, disabled)
 - `--label strings`: Filter by label (key:value format)
 - `--limit int`: Maximum schedules to show (default: 50)
 
 **Examples**:
+
 ```bash
 # List all schedules
 kscorectl schedule list
@@ -8213,10 +8709,11 @@ kscorectl schedule create [flags]
 ```
 
 **Flags**:
+
 - `--name string`: Schedule name (required)
 - `--description string`: Schedule description
 - `--type string`: Schedule type: command, state, blueprint, reactor (default: command)
-- `--cron string`: Cron expression (e.g., "0 2 * * *")
+- `--cron string`: Cron expression (e.g., "0 2 ** *")
 - `--interval string`: Interval duration (e.g., "1h", "30m")
 - `--timezone string`: Timezone for schedule evaluation (default: UTC)
 - `--target-all`: Target all agents
@@ -8234,6 +8731,7 @@ kscorectl schedule create [flags]
 - `--maintenance-window string`: Link to maintenance window
 
 **Examples**:
+
 ```bash
 # Create a cron-based command schedule
 kscorectl schedule create --name daily-backup --type command \
@@ -8298,6 +8796,7 @@ kscorectl schedule delete <schedule-id> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Force deletion without confirmation
 
 ### schedule history
@@ -8309,10 +8808,12 @@ kscorectl schedule history <schedule-id> [flags]
 ```
 
 **Flags**:
+
 - `--limit int`: Number of executions to show (default: 20)
 - `--status string`: Filter by execution status
 
 **Examples**:
+
 ```bash
 # Show last 20 executions
 kscorectl schedule history sched-001
@@ -8330,12 +8831,14 @@ kscorectl schedule maintenance list [flags]
 ```
 
 **Flags**:
+
 - `--status string`: Filter by status (scheduled, active, completed, cancelled)
 - `--type string`: Filter by type (planned, emergency, recurring)
 - `--label strings`: Filter by label (key:value format)
 - `--limit int`: Maximum windows to show (default: 50)
 
 **Examples**:
+
 ```bash
 # List all maintenance windows
 kscorectl schedule maintenance list
@@ -8364,6 +8867,7 @@ kscorectl schedule maintenance create [flags]
 ```
 
 **Flags**:
+
 - `--name string`: Window name (required)
 - `--description string`: Window description
 - `--type string`: Window type: planned, emergency, recurring (default: planned)
@@ -8384,6 +8888,7 @@ kscorectl schedule maintenance create [flags]
 - `--label strings`: Labels (key:value format)
 
 **Examples**:
+
 ```bash
 # Create a planned maintenance window
 kscorectl schedule maintenance create --name "weekly-patching" \
@@ -8425,6 +8930,7 @@ kscorectl schedule maintenance cancel <window-id> [flags]
 ```
 
 **Flags**:
+
 - `--reason string`: Cancellation reason
 
 ### schedule maintenance extend
@@ -8436,10 +8942,12 @@ kscorectl schedule maintenance extend <window-id> [flags]
 ```
 
 **Flags**:
+
 - `--end string`: New end time (RFC3339 format)
 - `--duration string`: Extend by duration (e.g., 1h, 30m)
 
 **Examples**:
+
 ```bash
 # Extend to new end time
 kscorectl schedule maintenance extend maint-001 --end "2024-01-15T08:00:00Z"
@@ -8465,6 +8973,7 @@ kscorectl schedule maintenance upcoming [flags]
 ```
 
 **Flags**:
+
 - `--within string`: Show windows starting within duration (default: 24h)
 
 ### schedule maintenance conflicts
@@ -8484,6 +8993,7 @@ kscorectl schedule maintenance delete <window-id> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Force deletion without confirmation
 
 ## kscore-upgrade (Upgrade Management)
@@ -8509,11 +9019,13 @@ kscorectl upgrade check [flags]
 ```
 
 **Flags**:
+
 - `-t, --target string`: Check compatibility with specific target version
 - `--include-prerelease`: Include prerelease versions
 - `--channel string`: Release channel: stable, beta, nightly (default: stable)
 
 **Examples**:
+
 ```bash
 # Check for available upgrades
 kscorectl upgrade check
@@ -8526,6 +9038,7 @@ kscorectl upgrade check --channel beta
 ```
 
 **Example Output**:
+
 ```
 Upgrade Check
 =============
@@ -8554,6 +9067,7 @@ kscorectl upgrade plan [flags]
 ```
 
 **Flags**:
+
 - `--target string`: Target version (required)
 - `--strategy string`: Upgrade strategy: rolling, canary, blue-green (default: rolling)
 - `--batch-size int`: Number of agents per batch (default: 10)
@@ -8563,6 +9077,7 @@ kscorectl upgrade plan [flags]
 - `--save string`: Save plan to file
 
 **Examples**:
+
 ```bash
 # Create rolling upgrade plan
 kscorectl upgrade plan --target 1.6.0
@@ -8583,12 +9098,14 @@ kscorectl upgrade execute [flags]
 ```
 
 **Flags**:
+
 - `--target string`: Target version
 - `--plan string`: Path to saved upgrade plan
 - `--confirm`: Confirm execution without prompting
 - `--async`: Run upgrade asynchronously
 
 **Examples**:
+
 ```bash
 # Execute upgrade to target version
 kscorectl upgrade execute --target 1.6.0 --confirm
@@ -8609,6 +9126,7 @@ kscorectl upgrade status [upgrade-id]
 ```
 
 **Examples**:
+
 ```bash
 # Show current upgrade status
 kscorectl upgrade status
@@ -8626,6 +9144,7 @@ kscorectl upgrade cancel [upgrade-id] [flags]
 ```
 
 **Flags**:
+
 - `--rollback`: Rollback completed upgrades
 - `-f, --force`: Force cancellation
 
@@ -8650,6 +9169,7 @@ kscorectl upgrade canary promote [flags]
 ```
 
 **Flags**:
+
 - `--confirm`: Confirm promotion
 
 #### upgrade canary rollback
@@ -8661,6 +9181,7 @@ kscorectl upgrade canary rollback [flags]
 ```
 
 **Flags**:
+
 - `--confirm`: Confirm rollback
 
 ### upgrade agents
@@ -8676,6 +9197,7 @@ kscorectl upgrade agents list [flags]
 ```
 
 **Flags**:
+
 - `--version string`: Filter by version
 - `--outdated`: Show only outdated agents
 - `--target string`: Target filter expression
@@ -8697,11 +9219,13 @@ kscorectl upgrade rollback [flags]
 ```
 
 **Flags**:
+
 - `--target string`: Target version to rollback to
 - `--confirm`: Confirm rollback
 - `--force`: Force rollback even if unhealthy
 
 **Examples**:
+
 ```bash
 # Rollback to previous version
 kscorectl upgrade rollback --confirm
@@ -8719,6 +9243,7 @@ kscorectl upgrade history [flags]
 ```
 
 **Flags**:
+
 - `-n, --limit int`: Number of upgrades to show (default: 10)
 - `--status string`: Filter by status
 
@@ -8731,6 +9256,7 @@ kscorectl upgrade logs [upgrade-id] [flags]
 ```
 
 **Flags**:
+
 - `--follow`: Follow log output
 - `--tail int`: Number of lines to show (default: 100)
 
@@ -8757,6 +9283,7 @@ kscorectl proxy status
 ```
 
 **Example Output**:
+
 ```
 Proxy Agent Status
 ==================
@@ -8796,12 +9323,14 @@ kscorectl proxy device list [flags]
 ```
 
 **Flags**:
+
 - `--proxy string`: Filter by proxy agent
 - `--vendor string`: Filter by vendor
 - `--type string`: Filter by device type
 - `--status string`: Filter by status (healthy, degraded, unhealthy)
 
 **Examples**:
+
 ```bash
 # List all devices
 kscorectl proxy device list
@@ -8830,6 +9359,7 @@ kscorectl proxy device add [flags]
 ```
 
 **Flags**:
+
 - `--name string`: Device name (required)
 - `--address string`: Device address (required)
 - `--protocol string`: Protocol: ssh, snmp, rest, winrm (default: ssh)
@@ -8840,6 +9370,7 @@ kscorectl proxy device add [flags]
 - `--labels strings`: Labels (key=value format)
 
 **Examples**:
+
 ```bash
 # Add a Cisco router
 kscorectl proxy device add --name core-router-01 \
@@ -8862,6 +9393,7 @@ kscorectl proxy device import [flags]
 ```
 
 **Flags**:
+
 - `--file string`: File to import (required)
 - `--format string`: File format: yaml, csv (default: yaml)
 
@@ -8874,6 +9406,7 @@ kscorectl proxy device update <device-id> [flags]
 ```
 
 **Flags**:
+
 - `--labels strings`: Labels to set (key=value)
 
 #### proxy device remove
@@ -8885,6 +9418,7 @@ kscorectl proxy device remove <device-id> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation
 
 #### proxy device test
@@ -8896,6 +9430,7 @@ kscorectl proxy device test <device-id> [flags]
 ```
 
 **Flags**:
+
 - `--protocol string`: Override protocol for test
 - `--credential string`: Override credential for test
 - `--debug`: Enable debug output
@@ -8909,6 +9444,7 @@ kscorectl proxy device health [device-id] [flags]
 ```
 
 **Flags**:
+
 - `--all`: Check health of all devices
 
 #### proxy device ping
@@ -8944,6 +9480,7 @@ kscorectl proxy device connect <device-id> [flags]
 ```
 
 **Flags**:
+
 - `--credential string`: Credential to use
 
 ### proxy credential
@@ -8959,6 +9496,7 @@ kscorectl proxy credential list [flags]
 ```
 
 **Flags**:
+
 - `--protocol string`: Filter by protocol
 - `--backend string`: Filter by backend (local, vault, k8s-secret)
 
@@ -8971,6 +9509,7 @@ kscorectl proxy credential add [flags]
 ```
 
 **Flags**:
+
 - `--name string`: Credential name (required)
 - `--type string`: Credential type: ssh-password, ssh-key, snmp-v2c, snmp-v3, rest-token, rest-basic, winrm (required)
 - `--protocol string`: Associated protocol
@@ -8983,6 +9522,7 @@ kscorectl proxy credential add [flags]
 - `--device-types strings`: Device types this credential applies to
 
 **Examples**:
+
 ```bash
 # Add SSH key credential
 kscorectl proxy credential add --name cisco-ssh \
@@ -9019,6 +9559,7 @@ kscorectl proxy credential test <name> [flags]
 ```
 
 **Flags**:
+
 - `--device string`: Device to test credential against
 
 #### proxy credential rotate
@@ -9030,6 +9571,7 @@ kscorectl proxy credential rotate <name> [flags]
 ```
 
 **Flags**:
+
 - `--password-prompt`: Prompt for new password
 
 #### proxy credential delete
@@ -9041,6 +9583,7 @@ kscorectl proxy credential delete <name> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Skip confirmation
 
 #### proxy credential verify
@@ -9072,6 +9615,7 @@ kscorectl proxy discover scan [flags]
 ```
 
 **Flags**:
+
 - `--subnet string`: Subnet to scan (CIDR notation)
 - `--protocols strings`: Protocols to probe (ssh, snmp, rest, winrm)
 - `--ports strings`: Ports to scan
@@ -9079,6 +9623,7 @@ kscorectl proxy discover scan [flags]
 - `--workers int`: Number of parallel workers (default: 20)
 
 **Examples**:
+
 ```bash
 # Scan subnet for SSH and SNMP devices
 kscorectl proxy discover scan --subnet 192.168.1.0/24 --protocols ssh,snmp
@@ -9096,6 +9641,7 @@ kscorectl proxy discover list [flags]
 ```
 
 **Flags**:
+
 - `--status string`: Filter by status (pending, approved, rejected, ignored)
 
 #### proxy discover approve
@@ -9107,6 +9653,7 @@ kscorectl proxy discover approve <discovery-id> [flags]
 ```
 
 **Flags**:
+
 - `--name string`: Device name
 - `--profile string`: Device profile
 - `--credential string`: Credential set
@@ -9136,6 +9683,7 @@ kscorectl proxy discover approve-all [flags]
 ```
 
 **Flags**:
+
 - `--vendor string`: Filter by vendor
 - `--credential string`: Credential to assign to approved devices
 
@@ -9156,6 +9704,7 @@ kscorectl proxy discover auto-approve [flags]
 ```
 
 **Flags**:
+
 - `--profile strings`: Profiles to auto-approve
 
 #### proxy discover logs
@@ -9167,6 +9716,7 @@ kscorectl proxy discover logs [flags]
 ```
 
 **Flags**:
+
 - `--tail int`: Number of log lines to show (default: 50)
 
 #### proxy discover config
@@ -9190,9 +9740,11 @@ kscorectl proxy drift check [device-id] [flags]
 ```
 
 **Flags**:
+
 - `--all`: Check all devices
 
 **Examples**:
+
 ```bash
 # Check specific device for drift
 kscorectl proxy drift check router-01
@@ -9218,6 +9770,7 @@ kscorectl proxy drift remediate <device-id> [flags]
 ```
 
 **Flags**:
+
 - `--dry-run`: Show what would be changed without applying
 
 ### proxy state
@@ -9233,12 +9786,14 @@ kscorectl proxy state apply <state-file> [flags]
 ```
 
 **Flags**:
+
 - `--device string`: Apply to specific device
 - `--target string`: Target expression
 - `--dry-run`: Preview changes without applying
 - `-f, --force`: Apply without confirmation
 
 **Examples**:
+
 ```bash
 # Apply state to device
 kscorectl proxy state apply network-config.yaml --device router-01
@@ -9259,6 +9814,7 @@ kscorectl proxy state check <state-file> [flags]
 ```
 
 **Flags**:
+
 - `--device string`: Check specific device
 - `--target string`: Target expression
 
@@ -9271,6 +9827,7 @@ kscorectl proxy state logs [flags]
 ```
 
 **Flags**:
+
 - `--device string`: Filter logs by device
 - `--run-id string`: Filter by run ID
 
@@ -9395,6 +9952,7 @@ kscore-migrate update-scripts \
 #### Manual Migration Examples
 
 **Before (< 0.4.0)**:
+
 ```bash
 #!/bin/bash
 # Old script using deprecated commands
@@ -9413,6 +9971,7 @@ kscorectl compliance --report
 ```
 
 **After (≥ 0.4.0)**:
+
 ```bash
 #!/bin/bash
 # Updated script using new commands
@@ -9492,6 +10051,7 @@ kscorectl exec run "cmd" --target "role=web AND datacenter=us-east-1"
 #### GitHub Actions
 
 **Before**:
+
 ```yaml
 - name: Apply state
   run: |
@@ -9500,6 +10060,7 @@ kscorectl exec run "cmd" --target "role=web AND datacenter=us-east-1"
 ```
 
 **After**:
+
 ```yaml
 - name: Apply state
   run: |
@@ -9510,6 +10071,7 @@ kscorectl exec run "cmd" --target "role=web AND datacenter=us-east-1"
 #### GitLab CI
 
 **Before**:
+
 ```yaml
 deploy:
   script:
@@ -9518,6 +10080,7 @@ deploy:
 ```
 
 **After**:
+
 ```yaml
 deploy:
   script:
@@ -9528,12 +10091,14 @@ deploy:
 #### Jenkins
 
 **Before**:
+
 ```groovy
 sh 'kscorectl run "service nginx restart" --agents "web*"'
 sh 'kscorectl compliance --report > compliance.html'
 ```
 
 **After**:
+
 ```groovy
 sh 'kscorectl exec run "service nginx restart" --target "hostname=web*"'
 sh 'kscorectl policy report --output json > compliance.json'
@@ -9623,6 +10188,7 @@ kscore-repo-gen all [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Generate all repositories for version 0.1.0
 kscore-repo-gen all --version 0.1.0 --output build/repos
@@ -9640,6 +10206,7 @@ kscore-repo-gen dnf [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Generate DNF repository
 kscore-repo-gen dnf --version 0.1.0 --output build/repos/dnf
@@ -9657,6 +10224,7 @@ kscore-repo-gen apt [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Generate APT repository
 kscore-repo-gen apt --version 0.1.0 --output build/repos/apt
@@ -9671,6 +10239,7 @@ kscore-repo-gen windows [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Generate Windows repository
 kscore-repo-gen windows --version 0.1.0 --output build/repos/windows
@@ -9685,9 +10254,11 @@ kscore-repo-gen blueprints [flags]
 ```
 
 **Flags**:
+
 - `--blueprints-dir string`: Source blueprints directory (default: examples/blueprints/kscore)
 
 **Examples**:
+
 ```bash
 # Generate blueprint registry from default location
 kscore-repo-gen blueprints --output build/repos/blueprints
@@ -9705,6 +10276,7 @@ kscore-repo-gen modules [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Generate module registry
 kscore-repo-gen modules --output build/repos/modules
@@ -9743,6 +10315,7 @@ Mirror Keystone Core repositories for air-gapped deployments. Downloads all pack
 ```
 
 **Repository Types** (for `--only` and `--skip`):
+
 - `dnf`, `yum`, `rpm` - DNF/YUM packages
 - `apt`, `deb` - APT packages
 - `windows`, `win` - Windows packages
@@ -9760,6 +10333,7 @@ kscore-repo-mirror [flags]
 ```
 
 **Examples**:
+
 ```bash
 # Mirror everything to ./mirror
 kscore-repo-mirror
@@ -9847,6 +10421,7 @@ python3 -m http.server 8080
 **Option 2: Use Local File Paths**
 
 DNF/YUM:
+
 ```bash
 sudo cp keystonecore-local.repo /etc/yum.repos.d/
 # Edit the file to set the correct path
@@ -9854,6 +10429,7 @@ sudo dnf install kscore-server kscore-agent
 ```
 
 APT:
+
 ```bash
 sudo cp keystonecore-local.list /etc/apt/sources.list.d/
 # Edit the file to set the correct path
@@ -9862,23 +10438,27 @@ sudo apt install kscore-server kscore-agent
 ```
 
 Windows:
+
 ```powershell
 cd windows\x64
 .\install.ps1 -Package all
 ```
 
 macOS:
+
 ```bash
 cd macos/arm64
 ./install.sh
 ```
 
 Blueprint Registry:
+
 ```bash
 kscorectl blueprint config set registry file:///path/to/mirror/blueprints
 ```
 
 Module Registry:
+
 ```bash
 kscorectl module config set registry file:///path/to/mirror/modules
 ```
@@ -9904,12 +10484,14 @@ kscorectl runbook approvals [flags]
 ```
 
 **Flags**:
+
 - `--mine`: Show only approvals assigned to me
 - `--state string`: Filter by state (pending, approved, rejected, expired, cancelled)
 - `--execution string`: Filter by execution ID
 - `--limit int`: Maximum number of results (default: 50)
 
 **Examples**:
+
 ```bash
 # List all pending approvals
 kscorectl runbook approvals
@@ -9922,6 +10504,7 @@ kscorectl runbook approvals --state approved
 ```
 
 **Output**:
+
 ```
 ID           TITLE                          STATE        RESPONSES  CREATED
 ------------------------------------------------------------------------------------------
@@ -9940,12 +10523,15 @@ kscorectl runbook approve <request-id> [flags]
 ```
 
 **Arguments**:
+
 - `<request-id>`: Request ID to approve (required)
 
 **Flags**:
+
 - `--reason string`: Reason for approval
 
 **Examples**:
+
 ```bash
 # Approve a request
 kscorectl runbook approve req-123 --reason "Verified prerequisites"
@@ -9963,12 +10549,15 @@ kscorectl runbook reject <request-id> [flags]
 ```
 
 **Arguments**:
+
 - `<request-id>`: Request ID to reject (required)
 
 **Required Flags**:
+
 - `--reason string`: Reason for rejection
 
 **Examples**:
+
 ```bash
 # Reject a request with reason
 kscorectl runbook reject req-123 --reason "Replication lag too high"
@@ -9983,12 +10572,15 @@ kscorectl runbook delegate <request-id> [flags]
 ```
 
 **Arguments**:
+
 - `<request-id>`: Request ID to delegate (required)
 
 **Required Flags**:
+
 - `--to string`: User or group to delegate to
 
 **Examples**:
+
 ```bash
 # Delegate to another user
 kscorectl runbook delegate req-123 --to @another-approver
@@ -10006,11 +10598,13 @@ kscorectl runbook interventions [flags]
 ```
 
 **Flags**:
+
 - `--state string`: Filter by state (pending, completed, expired, cancelled)
 - `--execution string`: Filter by execution ID
 - `--limit int`: Maximum number of results (default: 50)
 
 **Examples**:
+
 ```bash
 # List all pending interventions
 kscorectl runbook interventions
@@ -10031,14 +10625,17 @@ kscorectl runbook respond <request-id> [flags]
 ```
 
 **Arguments**:
+
 - `<request-id>`: Request ID to respond to (required)
 
 **Flags**:
+
 - `--value strings`: Set a value (format: name=value)
 - `--confirmed`: Confirm the request
 - `--comment string`: Optional comment
 
 **Examples**:
+
 ```bash
 # Respond to a prompt
 kscorectl runbook respond int-123 --value version=1.0.0 --value replicas=3
@@ -10071,12 +10668,14 @@ kscorectl secrets rotate list [flags]
 **Aliases**: `ls`
 
 **Flags**:
+
 - `--state string`: Filter by state (pending, in_progress, completed, failed, rolled_back)
 - `--strategy string`: Filter by strategy (rolling, blue-green, canary)
 - `--label strings`: Filter by label (key:value format)
 - `--limit int`: Maximum number of rotations to show (default: 50)
 
 **Examples**:
+
 ```bash
 # List all rotations
 kscorectl secrets rotate list
@@ -10097,9 +10696,11 @@ kscorectl secrets rotate show <rotation-id>
 ```
 
 **Arguments**:
+
 - `<rotation-id>`: Rotation ID to show (required)
 
 **Examples**:
+
 ```bash
 # Show rotation details
 kscorectl secrets rotate show rot-abc123
@@ -10114,14 +10715,17 @@ kscorectl secrets rotate start [flags]
 ```
 
 **Required Flags**:
+
 - `--secret string`: Secret path to rotate
 
 **Targeting Flags** (at least one required):
+
 - `--target strings`: Target agent IDs
 - `--target-tags strings`: Target agents with tags (key:value)
 - `--target-roles strings`: Target agents with roles
 
 **Optional Flags**:
+
 - `--strategy string`: Rotation strategy: rolling, blue-green, canary (default: rolling)
 - `--batch-size int`: Number of targets per batch (default: 1)
 - `--batch-delay string`: Delay between batches (default: 30s)
@@ -10135,6 +10739,7 @@ kscorectl secrets rotate start [flags]
 - `--label strings`: Labels (key:value format)
 
 **Examples**:
+
 ```bash
 # Start a blue-green rotation
 kscorectl secrets rotate start --secret vault/secret/db \
@@ -10165,13 +10770,16 @@ kscorectl secrets rotate status <rotation-id> [flags]
 ```
 
 **Arguments**:
+
 - `<rotation-id>`: Rotation ID to show status for (required)
 
 **Flags**:
+
 - `-w, --watch`: Watch status continuously
 - `--interval string`: Watch interval (default: 2s)
 
 **Examples**:
+
 ```bash
 # Show status once
 kscorectl secrets rotate status rot-123
@@ -10189,13 +10797,16 @@ kscorectl secrets rotate history [secret-path] [flags]
 ```
 
 **Arguments**:
+
 - `[secret-path]`: Optional secret path to filter by
 
 **Flags**:
+
 - `--limit int`: Number of rotations to show (default: 20)
 - `--status string`: Filter by status
 
 **Examples**:
+
 ```bash
 # Show all rotation history
 kscorectl secrets rotate history
@@ -10216,6 +10827,7 @@ kscorectl secrets rotate trigger <schedule-id>
 ```
 
 **Arguments**:
+
 - `<schedule-id>`: Schedule ID to trigger (required)
 
 ### secrets rotate rollback
@@ -10227,13 +10839,16 @@ kscorectl secrets rotate rollback <rotation-id> [flags]
 ```
 
 **Arguments**:
+
 - `<rotation-id>`: Rotation ID to rollback (required)
 
 **Flags**:
+
 - `-f, --force`: Force rollback without confirmation
 - `--reason string`: Reason for rollback
 
 **Examples**:
+
 ```bash
 # Rollback a rotation
 kscorectl secrets rotate rollback rot-123 --reason "health check failures" --force
@@ -10264,6 +10879,7 @@ kscorectl secrets rotate cancel <rotation-id> [flags]
 ```
 
 **Flags**:
+
 - `--reason string`: Cancellation reason
 
 ### secrets schedule list
@@ -10293,10 +10909,12 @@ kscorectl secrets schedule create [flags]
 ```
 
 **Required Flags**:
+
 - `--secret string`: Secret path
 - `--schedule string`: Cron schedule
 
 **Optional Flags**:
+
 - `--strategy string`: Rotation strategy (default: rolling)
 - `--target strings`: Target agent IDs
 - `--target-tags strings`: Target tags
@@ -10309,6 +10927,7 @@ kscorectl secrets schedule create [flags]
 - `--label strings`: Labels
 
 **Examples**:
+
 ```bash
 # Create daily rotation at 2am
 kscorectl secrets schedule create --secret vault/secret/db \
@@ -10344,6 +10963,7 @@ kscorectl secrets schedule delete <schedule-id> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Force deletion without confirmation
 
 ### secrets policy list
@@ -10371,10 +10991,12 @@ kscorectl secrets policy create [flags]
 ```
 
 **Required Flags**:
+
 - `--name string`: Policy name
 - `--pattern string`: Secret path pattern
 
 **Optional Flags**:
+
 - `--max-age string`: Maximum secret age before rotation (default: 90d)
 - `--strategy string`: Default rotation strategy (default: rolling)
 - `--batch-size int`: Default batch size (default: 1)
@@ -10382,6 +11004,7 @@ kscorectl secrets policy create [flags]
 - `--enabled`: Enable policy (default: true)
 
 **Examples**:
+
 ```bash
 # Create a policy for database secrets
 kscorectl secrets policy create --name db-policy \
@@ -10401,6 +11024,7 @@ kscorectl secrets policy delete <policy-id> [flags]
 ```
 
 **Flags**:
+
 - `-f, --force`: Force deletion without confirmation
 
 ## See Also

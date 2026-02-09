@@ -19,12 +19,14 @@ Controls how Keystone Core selects between IPv4 and IPv6 addresses.
 | `ipv6_only` | Only use IPv6 addresses, fail if unavailable |
 
 **Control Plane:**
+
 ```yaml
 cluster:
   address_family: prefer_ipv6
 ```
 
 **Agent:**
+
 ```yaml
 agent:
   address_family: prefer_ipv6
@@ -377,6 +379,7 @@ kscorectl exec run --target 'ip:192.168.1.100' -- uptime
 | `kscore_connection_duration_seconds` | Histogram | `family` | Connection duration |
 
 **Labels:**
+
 - `family`: `ipv4`, `ipv6`
 
 ### Agent Address Metrics
@@ -387,6 +390,7 @@ kscorectl exec run --target 'ip:192.168.1.100' -- uptime
 | `kscore_agent_addresses_total` | Gauge | `family` | Total addresses reported |
 
 **Labels:**
+
 - `family`: `ipv4`, `ipv6`, `dual_stack`
 
 ### Example PromQL Queries

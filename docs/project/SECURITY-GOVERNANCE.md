@@ -55,6 +55,7 @@ Security governance ensures that security considerations are systematically inte
 ### Project Leadership (BDFL)
 
 **Security Responsibilities**:
+
 - Approve security governance policies and updates
 - Make final decisions on critical security matters
 - Approve breaking changes with security implications
@@ -62,6 +63,7 @@ Security governance ensures that security considerations are systematically inte
 - Review and approve security incident communications
 
 **Decision Authority**:
+
 - Security policy changes
 - Vulnerability disclosure timing for critical issues
 - Security tool and process investments
@@ -72,6 +74,7 @@ Security governance ensures that security considerations are systematically inte
 **Composition**: 3-5 members including at least one maintainer with security expertise
 
 **Responsibilities**:
+
 - Develop and maintain security strategy
 - Review threat models for new features
 - Coordinate vulnerability response
@@ -82,6 +85,7 @@ Security governance ensures that security considerations are systematically inte
 **Meeting Cadence**: Bi-weekly (more frequent during incidents)
 
 **Decisions Made**:
+
 - Vulnerability severity classification
 - Patch timeline prioritization
 - Security architecture recommendations
@@ -90,11 +94,13 @@ Security governance ensures that security considerations are systematically inte
 ### Security Maintainers
 
 **Qualifications**:
+
 - Maintainer status in the project
 - Demonstrated security expertise
 - Completed security training curriculum
 
 **Responsibilities**:
+
 - Review security-sensitive pull requests
 - Maintain security documentation
 - Implement security controls and features
@@ -102,6 +108,7 @@ Security governance ensures that security considerations are systematically inte
 - Conduct security architecture reviews
 
 **Authority**:
+
 - Approve/reject PRs affecting security
 - Request security reviews on any PR
 - Escalate security concerns to working group
@@ -109,11 +116,13 @@ Security governance ensures that security considerations are systematically inte
 ### Security Champions
 
 **Qualifications**:
+
 - Active contributor to the project
 - Completed security training (Modules 1-3)
 - Nominated by maintainers
 
 **Responsibilities**:
+
 - Advocate for security within development teams
 - Perform initial security review of PRs
 - Identify potential security issues early
@@ -121,6 +130,7 @@ Security governance ensures that security considerations are systematically inte
 - Escalate security concerns appropriately
 
 **One Per Area**:
+
 - Core infrastructure
 - Agent system
 - API and authentication
@@ -133,6 +143,7 @@ Security governance ensures that security considerations are systematically inte
 **Composition**: On-call rotation of security maintainers and champions
 
 **Responsibilities**:
+
 - Initial triage of vulnerability reports
 - Incident response coordination
 - Forensic analysis when needed
@@ -140,6 +151,7 @@ Security governance ensures that security considerations are systematically inte
 - Patch development and review
 
 **Response SLAs**:
+
 | Severity | Initial Response | Assessment | Patch |
 |----------|------------------|------------|-------|
 | Critical | 4 hours | 24 hours | 72 hours |
@@ -192,6 +204,7 @@ Security governance ensures that security considerations are systematically inte
 All PRs are automatically labeled by CI based on files changed. PRs with security-relevant changes require additional review.
 
 **Security-Sensitive Areas** (require security review):
+
 - `pkg/security/*` - Security utilities
 - `pkg/auth/*` - Authentication
 - `pkg/authz/*` - Authorization
@@ -231,30 +244,35 @@ See [SECURITY-RELEASE.md](SECURITY-RELEASE.md) for detailed procedures.
 ### Vulnerability Disclosure Policy
 
 **Coordinated Disclosure**:
+
 - Keystone Core follows responsible disclosure practices
 - We work with reporters to set reasonable timelines
 - Standard embargo period: 90 days (negotiable based on severity)
 - Reporters credited unless they prefer anonymity
 
 **Disclosure Channels**:
-- Security reports: security@keystone-core.io
+
+- Security reports: <security@keystone-core.io>
 - PGP key available on website for encrypted reports
 - GitHub Security Advisories for managed disclosure
 
 ### Dependency Management Policy
 
 **Requirements**:
+
 - All dependencies must be vetted before addition
 - Dependencies must have active maintenance (commit within 12 months)
 - Security vulnerabilities must be addressed within SLA
 - Transitive dependencies are subject to same requirements
 
 **Monitoring**:
+
 - Dependabot alerts enabled for all repositories
 - Weekly dependency review by security maintainer
 - Quarterly deep review of all dependencies
 
 **Response**:
+
 - Critical vulnerabilities: Immediate update or removal
 - High vulnerabilities: Update within 30 days
 - Medium/Low: Update in next regular release
@@ -264,6 +282,7 @@ See [SECURITY-RELEASE.md](SECURITY-RELEASE.md) for detailed procedures.
 See [SECURITY-DESIGN.md](SECURITY-DESIGN.md) for approved algorithms.
 
 **Requirements**:
+
 - Use only approved cryptographic algorithms
 - Cryptographic code must be reviewed by security maintainer
 - No custom cryptographic implementations
@@ -283,6 +302,7 @@ See [SECURITY-DESIGN.md](SECURITY-DESIGN.md) for approved algorithms.
 | Admin | Above + repository settings |
 
 **Secrets Management**:
+
 - CI/CD secrets managed through GitHub Secrets
 - Rotation required every 90 days
 - Access logged and reviewed quarterly
@@ -336,6 +356,7 @@ See [SECURITY-DESIGN.md](SECURITY-DESIGN.md) for approved algorithms.
 ### Security Dashboard
 
 Public security metrics available at `/security-dashboard`:
+
 - Days since last security incident
 - Open vulnerability count by severity
 - Security patch coverage
@@ -360,12 +381,14 @@ Keystone Core security controls are designed to support:
 ### Audit Support
 
 **Audit Readiness**:
+
 - Control documentation maintained in `/docs/compliance/`
 - Evidence collection automated where possible
 - Audit trails preserved per retention policy
 - Change history in version control
 
 **Audit Request Process**:
+
 1. Request received through official channels
 2. Security working group assigns liaison
 3. Evidence package prepared
@@ -387,12 +410,14 @@ Keystone Core security controls are designed to support:
 ### Security Awareness Program
 
 **Components**:
+
 - Quarterly security newsletters
 - Monthly threat briefings
 - Security office hours (bi-weekly)
 - Annual security workshop
 
 **Topics Covered**:
+
 - Emerging threats and vulnerabilities
 - Security best practices updates
 - Incident lessons learned
@@ -405,6 +430,7 @@ Keystone Core security controls are designed to support:
 ### When Exceptions Apply
 
 Exceptions may be requested when:
+
 - Technical constraints prevent compliance
 - Temporary workaround while proper fix is developed
 - Legacy system transition period
@@ -465,8 +491,8 @@ review_date: 2025-02-15
 
 ## Contact Information
 
-**Security Working Group**: security-wg@keystone-core.io
-**Vulnerability Reports**: security@keystone-core.io
+**Security Working Group**: <security-wg@keystone-core.io>
+**Vulnerability Reports**: <security@keystone-core.io>
 **Security Questions**: #security channel in community chat
 
 **PGP Key Fingerprint**: (Published on website)

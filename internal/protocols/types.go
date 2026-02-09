@@ -687,8 +687,11 @@ func (s *GNMISubscription) CloseDone() {
 type GNMIRebootMethod string
 
 const (
-	GNMIRebootCold   GNMIRebootMethod = "cold"
-	GNMIRebootWarm   GNMIRebootMethod = "warm"
+	// GNMIRebootCold performs a cold reboot.
+	GNMIRebootCold GNMIRebootMethod = "cold"
+	// GNMIRebootWarm performs a warm reboot.
+	GNMIRebootWarm GNMIRebootMethod = "warm"
+	// GNMIRebootPowerUp performs a power-cycle reboot.
 	GNMIRebootPowerUp GNMIRebootMethod = "powerup"
 )
 

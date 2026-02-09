@@ -5,8 +5,6 @@ description: >
   Release notes for Keystone Core versions
 ---
 
-# Release Notes
-
 This page contains release notes for Keystone Core. For detailed changelog entries, see the [CHANGELOG](https://github.com/shawnbutts/keystone-core/blob/main/CHANGELOG.md).
 
 ## Version 0.1.0 (2026-01-28)
@@ -166,6 +164,7 @@ This release represents the culmination of 41 completed epics spanning core infr
 ### Upgrade Notes
 
 This is the initial release. For future upgrades:
+
 - Follow the sequential upgrade path (0.1.x → 0.2.x → 0.3.x)
 - Review compatibility matrix before upgrading
 - Back up state database before major upgrades

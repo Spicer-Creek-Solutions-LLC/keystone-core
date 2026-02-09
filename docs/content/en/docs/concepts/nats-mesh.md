@@ -68,6 +68,7 @@ Keystone Core supports multiple connection strategies for different network envi
 ### Direct TCP
 
 Standard NATS connection over TCP. Use when:
+
 - Agents have direct network access to NATS
 - No NAT or firewalls between agent and server
 - Lowest latency required
@@ -82,6 +83,7 @@ agent:
 ### TLS Encrypted
 
 Encrypted connections with certificate verification. Use when:
+
 - Traffic traverses untrusted networks
 - Compliance requires encryption in transit
 - mTLS authentication needed
@@ -100,6 +102,7 @@ agent:
 ### WebSocket
 
 NATS over WebSocket for HTTP-friendly environments. Use when:
+
 - Firewalls only allow HTTP/HTTPS traffic
 - Behind corporate proxies
 - Browser-based agents
@@ -118,6 +121,7 @@ agent:
 ### Leaf Node
 
 Embedded NATS connecting as a leaf to the hub. Use when:
+
 - Agents behind NAT (outbound-only connections)
 - Edge locations with unreliable connectivity
 - Local message buffering needed
@@ -523,6 +527,7 @@ agent:
 ```
 
 The auto-configurator:
+
 1. Detects network type (direct, NAT, symmetric NAT, firewall)
 2. Tests connectivity to discovered endpoints
 3. Selects optimal connection strategy
@@ -545,6 +550,7 @@ agent:
 ```
 
 States:
+
 - **Closed**: Normal operation, requests flow through
 - **Open**: All requests fail immediately
 - **Half-Open**: Limited requests allowed to test recovery

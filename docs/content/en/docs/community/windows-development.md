@@ -11,33 +11,34 @@ This guide covers setting up a Windows development environment for building and 
 ### Required Software
 
 1. **Go 1.25+**
-   - Download from https://go.dev/dl/
+   - Download from <https://go.dev/dl/>
    - Or use winget: `winget install GoLang.Go`
    - Verify: `go version`
 
 2. **Git for Windows**
-   - Download from https://git-scm.com/download/win
+   - Download from <https://git-scm.com/download/win>
    - Or use winget: `winget install Git.Git`
    - Verify: `git --version`
 
 3. **PowerShell 7+** (recommended)
-   - Download from https://github.com/PowerShell/PowerShell/releases
+   - Download from <https://github.com/PowerShell/PowerShell/releases>
    - Or use winget: `winget install Microsoft.PowerShell`
    - Verify: `pwsh --version`
 
 ### Optional Tools
 
-4. **.NET SDK 6.0+** (for MSI building)
-   - Download from https://dotnet.microsoft.com/download
+1. **.NET SDK 6.0+** (for MSI building)
+   - Download from <https://dotnet.microsoft.com/download>
    - Or use winget: `winget install Microsoft.DotNet.SDK.8`
    - Required for: Building MSI installer
 
-5. **WiX Toolset v4** (for MSI building)
+2. **WiX Toolset v4** (for MSI building)
+
    ```powershell
    dotnet tool install --global wix
    ```
 
-6. **Make for Windows** (optional)
+3. **Make for Windows** (optional)
    - Install via Chocolatey: `choco install make`
    - Or use MSYS2/MinGW
 
@@ -245,6 +246,7 @@ Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name
 ```
 
 Or add to Git config:
+
 ```powershell
 git config --system core.longpaths true
 ```
@@ -305,6 +307,7 @@ go mod tidy
    - YAML
 
 3. Create settings (`.vscode/settings.json`):
+
 ```json
 {
     "go.testFlags": ["-v"],
@@ -328,6 +331,7 @@ go mod tidy
 ### Testing Windows-Specific Code
 
 1. Write tests that skip on non-Windows:
+
 ```go
 func TestWindowsFeature(t *testing.T) {
     if runtime.GOOS != "windows" {
@@ -337,14 +341,16 @@ func TestWindowsFeature(t *testing.T) {
 }
 ```
 
-2. Use build tags for platform-specific files:
+1. Use build tags for platform-specific files:
+
 ```go
 //go:build windows
 
 package mypackage
 ```
 
-3. Create stub files for other platforms:
+1. Create stub files for other platforms:
+
 ```go
 //go:build !windows
 

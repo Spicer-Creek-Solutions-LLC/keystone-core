@@ -31,6 +31,7 @@ flowchart TB
 Suitable for development, testing, and small organizations (<100 users).
 
 **Docker**:
+
 ```bash
 docker run -d \
   --name kscore-registry \
@@ -41,6 +42,7 @@ docker run -d \
 ```
 
 **Binary**:
+
 ```bash
 kscore-registry \
   --data /var/lib/keystone-core/modules \
@@ -49,6 +51,7 @@ kscore-registry \
 ```
 
 **systemd Service**:
+
 ```ini
 # /etc/systemd/system/kscore-registry.service
 [Unit]
@@ -138,6 +141,7 @@ volumes:
 ```
 
 **HAProxy Configuration**:
+
 ```
 # haproxy.cfg
 global
@@ -547,6 +551,7 @@ spec:
 Always use TLS in production. Configure at the load balancer or ingress:
 
 **Nginx**:
+
 ```nginx
 server {
     listen 443 ssl http2;
@@ -741,6 +746,7 @@ systemctl start kscore-registry
 ### Common Issues
 
 **Registry won't start**:
+
 ```bash
 # Check data directory permissions
 ls -la /var/lib/keystone-core/modules
@@ -751,15 +757,18 @@ chmod 755 /var/lib/keystone-core/modules
 ```
 
 **Publish fails with 403**:
+
 - Verify API key is set correctly
 - Check if registry is in read-only mode
 
 **Module download slow**:
+
 - Check network between client and registry
 - Consider deploying regional replicas
 - Enable CDN caching for static assets
 
 **Disk space issues**:
+
 ```bash
 # Find large modules
 du -sh /var/lib/keystone-core/modules/*/*/* | sort -rh | head -20

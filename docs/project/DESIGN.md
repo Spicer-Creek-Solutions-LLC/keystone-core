@@ -11,6 +11,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 ### The Gap in Modern Infrastructure Management
 
 Modern infrastructure teams use a combination of tools:
+
 - **GitOps** (ArgoCD, Flux): Declarative application deployment
 - **Infrastructure-as-Code** (Terraform, Pulumi): Declarative infrastructure provisioning
 - **Configuration Management** (Ansible): Ad-hoc configuration and deployment
@@ -20,24 +21,28 @@ However, a critical gap exists in the operational layer:
 #### Problems Keystone Core Solves
 
 **1. The GitOps Deployment Gap**
+
 - GitOps handles "what should be deployed" but not "what happens after"
 - No real-time verification that deployed state matches desired state
 - Manual drift detection and remediation
 - Slow response to runtime issues (commit → PR → merge → deploy cycle)
 
 **2. Real-time Operations at Scale**
+
 - Ansible doesn't scale well beyond 1000+ nodes
 - No good solution for "execute this NOW across 5000 servers"
 - Incident response requires ad-hoc scripts or manual intervention
 - Coordinated operations across hybrid infrastructure are complex
 
 **3. Continuous Compliance & Drift**
+
 - Runtime drift happens between deployments (manual changes, failed updates, security violations)
 - Compliance checking only at deployment time, not continuously
 - No automated remediation of policy violations
 - Audit requirements need real-time enforcement, not eventual consistency
 
 **4. Hybrid Infrastructure Complexity**
+
 - Teams manage Kubernetes clusters, VMs, bare metal, edge devices
 - Different tools for different environments
 - No unified operational control plane
@@ -113,6 +118,7 @@ flowchart TD
 ### Key Architectural Decisions
 
 **1. NATS as Message Bus**
+
 - Proven scalability (millions of messages/sec)
 - **Embedded mode** for initial setups, small deployments, and agents (zero external dependencies)
 - External cluster mode for production scale and high availability
@@ -121,6 +127,7 @@ flowchart TD
 - Seamless migration path from embedded to external cluster as deployments grow
 
 **2. Written in Go**
+
 - Single static binary (no runtime dependencies)
 - Excellent performance and low resource usage
 - Cross-platform support
@@ -128,6 +135,7 @@ flowchart TD
 - Large ecosystem for cloud-native integration
 
 **3. Agent-Based Architecture**
+
 - Lightweight agents on managed nodes
 - Pull and push modes supported
 - Secure by default (mutual TLS)
@@ -135,6 +143,7 @@ flowchart TD
 - Local execution prevents network dependency
 
 **4. API-First Design**
+
 - Everything accessible via API
 - CLI wraps API calls
 - Easy integration with existing tools
@@ -146,6 +155,7 @@ flowchart TD
 Keystone Core supports flexible NATS deployment strategies to match operational requirements:
 
 **Embedded Mode** (Recommended for getting started)
+
 - NATS server runs in-process with control plane or agent
 - Zero external dependencies - single binary deployment
 - Ideal for:
@@ -157,6 +167,7 @@ Keystone Core supports flexible NATS deployment strategies to match operational 
 - Full JetStream support for local persistence
 
 **External Cluster Mode** (Recommended for production)
+
 - Dedicated NATS cluster infrastructure
 - High availability with automatic failover
 - Ideal for:
@@ -167,6 +178,7 @@ Keystone Core supports flexible NATS deployment strategies to match operational 
 - Supports NATS clustering and JetStream replication
 
 **Hybrid Mode**
+
 - Control plane uses external NATS cluster
 - Agents use embedded NATS with leaf node connections
 - Ideal for:
@@ -180,6 +192,7 @@ Keystone Core supports flexible NATS deployment strategies to match operational 
 Keystone Core provides flexible storage options following the same zero-dependencies philosophy:
 
 **SQLite Mode** (Recommended for getting started)
+
 - Embedded database - zero external dependencies
 - Single-file storage with ACID guarantees
 - Ideal for:
@@ -191,6 +204,7 @@ Keystone Core provides flexible storage options following the same zero-dependen
 - Automated migration tooling to PostgreSQL when scaling up
 
 **PostgreSQL Mode** (Recommended for production)
+
 - External database for high availability
 - Advanced features: replication, point-in-time recovery
 - Ideal for:
@@ -201,6 +215,7 @@ Keystone Core provides flexible storage options following the same zero-dependen
 - Seamless migration from SQLite with zero downtime
 
 **Design Rationale: Why Not JetStream for State?**
+
 - JetStream is perfect for events and messaging (temporal, ordered data)
 - State requires: complex queries, secondary indexes, transactional semantics, relational joins
 - SQLite/PostgreSQL provide mature query optimization and ACID guarantees
@@ -220,16 +235,19 @@ The embedded defaults are designed for quick setup and small deployments. When s
 | **Event Volume** | SQLite | <100k events/day | PostgreSQL |
 
 **Migration Paths:**
+
 - **SQLite → PostgreSQL**: Use `kscore-migrate run` for zero-downtime migration
 - **Embedded NATS → External**: Configure `nats.mode=external` and `nats.url`
 - **Single → HA**: Add etcd cluster and multiple control plane instances
 
 **Production Warnings:**
 The server emits warnings at startup when using embedded defaults. These can be reviewed via:
+
 - Server logs (look for "PRODUCTION WARNING" entries)
 - `Config.ProductionWarnings()` API in custom integrations
 
 Key warning triggers:
+
 1. Embedded NATS mode enabled (recommends external cluster for >100 agents)
 2. SQLite storage enabled (recommends PostgreSQL for >100 agents)
 3. TLS disabled with production configuration (external NATS or PostgreSQL)
@@ -249,53 +267,58 @@ Keystone Core combines proven Salt Project-like capabilities with modern cloud-n
 
 ### Modern Cloud-Native Features
 
-6. **GitOps Integration** - Native integration with ArgoCD, Flux, Git webhooks
-7. **Policy Enforcement** - Continuous compliance with OPA/CEL
-8. **Kubernetes Native** - Operator mode, CRDs, pod exec, service mesh integration
-9. **Observability** - Prometheus metrics, OpenTelemetry, structured logging
-10. **Multi-Environment** - Unified management of K8s, VMs, bare metal, edge
+1. **GitOps Integration** - Native integration with ArgoCD, Flux, Git webhooks
+2. **Policy Enforcement** - Continuous compliance with OPA/CEL
+3. **Kubernetes Native** - Operator mode, CRDs, pod exec, service mesh integration
+4. **Observability** - Prometheus metrics, OpenTelemetry, structured logging
+5. **Multi-Environment** - Unified management of K8s, VMs, bare metal, edge
 
 ### Operational Excellence Features
 
-11. **Workflow Orchestration** - Complex multi-step operations with dependencies
-12. **Drift Detection** - Continuous monitoring and auto-remediation
-13. **Rollback Capabilities** - Automated rollback on failures
-14. **Break-Glass Operations** - Emergency access with full audit trail
-15. **Secret Management** - Integration with Vault, K8s secrets, cloud KMS
+1. **Workflow Orchestration** - Complex multi-step operations with dependencies
+2. **Drift Detection** - Continuous monitoring and auto-remediation
+3. **Rollback Capabilities** - Automated rollback on failures
+4. **Break-Glass Operations** - Emergency access with full audit trail
+5. **Secret Management** - Integration with Vault, K8s secrets, cloud KMS
 
 ### Extensibility & Security Features
 
-16. **Plugin System** - Secure, sandboxed plugins (Starlark/WASM) with capability-based security
-17. **Cryptographic Verification** - Cosign signatures and SumDB-style transparency for plugins
-18. **Deterministic Execution** - Pure, side-effect-free plugin logic with auditable behavior
+1. **Plugin System** - Secure, sandboxed plugins (Starlark/WASM) with capability-based security
+2. **Cryptographic Verification** - Cosign signatures and SumDB-style transparency for plugins
+3. **Deterministic Execution** - Pure, side-effect-free plugin logic with auditable behavior
 
 ## Use Cases
 
 ### 1. Deployment Verification
+
 ```
 ArgoCD deploys new version → Keystone Core verifies health across fleet
 → Detects errors → Triggers automated rollback via GitOps
 ```
 
 ### 2. Incident Response
+
 ```
 Alert: Memory leak detected → Keystone Core gathers diagnostics from 500 pods
 → Restarts affected services → Coordinates traffic shift → All in <60s
 ```
 
 ### 3. Continuous Compliance
+
 ```
 Security policy: No containers run as root → Keystone Core continuously monitors
 → Kills violating pods → Alerts security team → Blocks re-deployment
 ```
 
 ### 4. Coordinated Maintenance
+
 ```
 Maintenance window → Keystone Core drains nodes by zone → Applies updates
 → Verifies health → Returns to service → Moves to next zone
 ```
 
 ### 5. Hybrid Infrastructure Management
+
 ```
 Single command → Execute across K8s pods, VMs, bare metal, edge devices
 → Unified reporting → Consistent policy enforcement
@@ -304,6 +327,7 @@ Single command → Execute across K8s pods, VMs, bare metal, edge devices
 ## Technology Stack
 
 ### Core Technologies
+
 - **Language**: Go 1.25+
 - **Message Bus**: NATS 2.10+ with JetStream (embedded or external cluster)
 - **Storage**: SQLite (embedded) or PostgreSQL for state
@@ -311,6 +335,7 @@ Single command → Execute across K8s pods, VMs, bare metal, edge devices
 - **Security**: mTLS, RBAC, audit logging
 
 ### Integration Technologies
+
 - **Kubernetes**: client-go, controller-runtime
 - **GitOps**: ArgoCD API, Flux controllers
 - **Policy**: Open Policy Agent (OPA), CEL
@@ -326,6 +351,7 @@ Keystone Core follows the same "simple → production" philosophy for security a
 **Purpose**: Zero dependencies for getting started, development, testing, and small deployments.
 
 **How it works:**
+
 - Static CA and certificates generated via `pkg/security/tls.go`
 - Control plane generates CA on first startup
 - Agents receive signed certificates during registration
@@ -333,12 +359,14 @@ Keystone Core follows the same "simple → production" philosophy for security a
 - Traditional mTLS between agents and control plane
 
 **Best for:**
+
 - Development and testing environments
 - Small deployments (<100 nodes)
 - Air-gapped environments without external dependencies
 - Quick proof-of-concept deployments
 
 **Configuration:**
+
 ```yaml
 security:
   mode: manual
@@ -351,6 +379,7 @@ security:
 ```
 
 **Limitations:**
+
 - Manual certificate rotation required
 - No automatic identity attestation
 - Static credentials (compromise risk)
@@ -361,6 +390,7 @@ security:
 **Purpose**: Zero-trust security with automatic identity provisioning and rotation for production deployments.
 
 **How it works:**
+
 - SPIRE server runs alongside Keystone Core control plane
 - SPIRE agents run alongside Keystone Core agents
 - Workload attestation proves agent identity without secrets
@@ -368,6 +398,7 @@ security:
 - Cryptographic identities encode agent metadata (role, labels, environment)
 
 **Best for:**
+
 - Production deployments (100+ nodes)
 - Compliance-required environments (SOC2, PCI-DSS, HIPAA)
 - Multi-cloud and hybrid infrastructure
@@ -375,6 +406,7 @@ security:
 - Plugin system with privileged modules (Epic 9)
 
 **Configuration:**
+
 ```yaml
 security:
   mode: spire
@@ -394,6 +426,7 @@ security:
 ```
 
 **Benefits:**
+
 - **Automatic rotation**: SVIDs rotate every hour without downtime
 - **No secret distribution**: Agents prove identity via platform attestation
 - **Zero-trust by default**: Every connection requires valid SPIFFE identity
@@ -403,6 +436,7 @@ security:
 - **Audit compliance**: Full identity lifecycle logging
 
 **SPIFFE Identity Examples:**
+
 ```
 # Control plane server
 spiffe://kscore.local/server/control-plane
@@ -483,6 +517,7 @@ flowchart LR
 ```
 
 **Migration steps:**
+
 1. Deploy SPIRE server alongside control plane
 2. Deploy SPIRE agents alongside Keystone Core agents
 3. Update configuration: `identity.provider.type: spire`
@@ -492,9 +527,11 @@ flowchart LR
 7. Old embedded CA certificates expire naturally
 
 **Zero-downtime migration:**
+
 - Control plane uses SPIRE fallback to handle unavailability during migration
 - Agents migrate on rolling restart basis
 - Configuration for graceful fallback:
+
   ```yaml
   identity:
     provider:
@@ -509,25 +546,30 @@ flowchart LR
 ### Security Integration Points
 
 **1. Agent Authentication (Epic 1)**
+
 - Agents authenticate to control plane via mTLS
 - SPIRE mode (`identity.provider.type: spire`): Agent identity proven via platform attestation
 - Embedded mode (`identity.provider.type: embedded`): Agent uses embedded CA-issued certificate
 
 **2. Command Authorization (Epic 2)**
+
 - Commands authorized based on agent identity
 - SPIRE selectors enable fine-grained RBAC
 - Example: Only agents with `label:role=db-admin` can run database commands
 
 **3. Policy Enforcement (Epic 6)**
+
 - Policies reference SPIFFE identities and selectors
 - Example policy: "Agents without `label:compliant=true` cannot execute privileged commands"
 
 **4. Module System (Epic 9)**
+
 - Modules must present valid SPIFFE identity to load
 - Control plane validates module signature AND SPIFFE selectors
 - Example: Firewall module requires `capability:network.configure` selector
 
 **5. Service Mesh Integration (Epic 8)**
+
 - Keystone Core shares SPIRE trust domain with Istio/Linkerd
 - Agents can authenticate to mesh services
 - Unified zero-trust across infrastructure and application layers
@@ -535,11 +577,13 @@ flowchart LR
 ### Security Recommendations
 
 **Development/Testing:**
+
 - Use `embedded` identity provider for speed and simplicity
 - Embedded NATS + SQLite + embedded identity = single binary, no dependencies
 - Configuration: `identity.provider.type: embedded`
 
 **Production (<100 nodes):**
+
 - Consider `embedded` identity provider if:
   - No compliance requirements
   - Air-gapped environment
@@ -547,6 +591,7 @@ flowchart LR
 - Implement CA certificate rotation via `identity.ca.rotate_signing_ca_before`
 
 **Production (100+ nodes, compliance required):**
+
 - Use SPIRE identity provider (`identity.provider.type: spire`) for:
   - Zero-trust security posture
   - Automatic credential rotation
@@ -555,6 +600,7 @@ flowchart LR
   - Plugin system with privileged modules
 
 **Enterprise:**
+
 - SPIRE identity provider required
 - External NATS cluster for HA
 - PostgreSQL with replication
@@ -563,16 +609,19 @@ flowchart LR
 ## Success Metrics
 
 ### Adoption Metrics
+
 - Time to first successful remote execution: <5 minutes
 - Number of nodes managed per installation
 - Multi-environment adoption rate (K8s + VMs)
 
 ### Performance Metrics
+
 - Command execution latency: <100ms to 1000 nodes
 - Event processing throughput: >100k events/sec
 - State application time: <30s for 5000 nodes
 
 ### Operational Metrics
+
 - Drift detection time: <60s from occurrence
 - Incident response time reduction: >70%
 - Compliance violation detection rate: 100%
@@ -580,30 +629,35 @@ flowchart LR
 ## Project Phases
 
 ### Phase 1: Core Foundation (MVP)
+
 - NATS integration and agent communication
 - Remote execution engine
 - Basic state management
 - CLI and API server
 
 ### Phase 2: GitOps Integration
+
 - Event receivers from ArgoCD/Flux
 - Deployment verification workflows
 - Rollback capabilities
 - Webhook support
 
 ### Phase 3: Policy & Compliance
+
 - OPA integration
 - Continuous compliance monitoring
 - Drift detection and remediation
 - Audit logging
 
 ### Phase 4: Multi-Environment
+
 - Kubernetes operator mode
 - VM/bare metal support
 - Edge computing scenarios
 - Unified targeting
 
 ### Phase 5: Enterprise Features
+
 - RBAC and multi-tenancy
 - High availability and disaster recovery
 - Advanced workflow orchestration
@@ -612,18 +666,21 @@ flowchart LR
 ## Competitive Differentiation
 
 **vs. Ansible**
+
 - 10x faster execution at scale
 - Real-time vs. sequential execution
 - Event-driven automation
 - Better GitOps integration
 
 **vs. Salt Project**
+
 - Modern Go implementation (single binary)
 - Cloud-native first (K8s, service mesh)
 - Active development and community
 - Clear open-source licensing
 
 **vs. Kubernetes Operators**
+
 - Works across all infrastructure types
 - Not limited to K8s resources
 - Operational commands, not just state management

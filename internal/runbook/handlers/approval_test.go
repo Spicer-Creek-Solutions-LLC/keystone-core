@@ -57,15 +57,16 @@ func (m *mockApprovalManager) CreateRequest(ctx context.Context, config *approva
 func (m *mockApprovalManager) WaitForApproval(ctx context.Context, requestID string) (*approval.Request, error) {
 	m.mu.Lock()
 	req, ok := m.requests[requestID]
-	m.mu.Unlock()
-
 	if !ok {
+		m.mu.Unlock()
 		return nil, fmt.Errorf("request not found")
 	}
 
 	if req.State.IsTerminal() {
+		m.mu.Unlock()
 		return req, nil
 	}
+	m.mu.Unlock()
 
 	select {
 	case <-ctx.Done():
@@ -105,44 +106,48 @@ func (m *mockApprovalManager) Cancel(ctx context.Context, requestID string, reas
 func (m *mockApprovalManager) Approve(requestID string) {
 	m.mu.Lock()
 	req, ok := m.requests[requestID]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+
+	req.State = approval.RequestStateApproved
+	req.Responses = append(req.Responses, approval.Response{
+		Approver:    "test-approver",
+		Decision:    approval.DecisionApproved,
+		RespondedAt: time.Now(),
+	})
+	now := time.Now()
+	req.CompletedAt = &now
 	m.mu.Unlock()
 
-	if ok {
-		req.State = approval.RequestStateApproved
-		req.Responses = append(req.Responses, approval.Response{
-			Approver:    "test-approver",
-			Decision:    approval.DecisionApproved,
-			RespondedAt: time.Now(),
-		})
-		now := time.Now()
-		req.CompletedAt = &now
-
-		select {
-		case m.waitCh <- req:
-		default:
-		}
+	select {
+	case m.waitCh <- req:
+	default:
 	}
 }
 
 func (m *mockApprovalManager) Reject(requestID string) {
 	m.mu.Lock()
 	req, ok := m.requests[requestID]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+
+	req.State = approval.RequestStateRejected
+	req.Responses = append(req.Responses, approval.Response{
+		Approver:    "test-approver",
+		Decision:    approval.DecisionRejected,
+		RespondedAt: time.Now(),
+	})
+	now := time.Now()
+	req.CompletedAt = &now
 	m.mu.Unlock()
 
-	if ok {
-		req.State = approval.RequestStateRejected
-		req.Responses = append(req.Responses, approval.Response{
-			Approver:    "test-approver",
-			Decision:    approval.DecisionRejected,
-			RespondedAt: time.Now(),
-		})
-		now := time.Now()
-		req.CompletedAt = &now
-
-		select {
-		case m.waitCh <- req:
-		default:
-		}
+	select {
+	case m.waitCh <- req:
+	default:
 	}
 }
 

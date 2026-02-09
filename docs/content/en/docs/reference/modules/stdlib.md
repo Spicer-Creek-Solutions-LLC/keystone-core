@@ -4,8 +4,6 @@ description: Built-in modules for YAML, XML, and other common operations
 weight: 10
 ---
 
-# Standard Library Modules
-
 Package stdlib provides standard library modules for plugins.
 
 **Import:** `github.com/shawnbutts/keystone-core/pkg/plugin/stdlib`
@@ -409,7 +407,6 @@ func setPath(doc interface{}, path string, value interface{}) error
 ```go
 func writeYAML(w io.Writer, v interface{}, level, indent int) error
 ```
-
 
 ---
 

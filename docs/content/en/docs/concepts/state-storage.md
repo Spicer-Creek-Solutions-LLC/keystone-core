@@ -73,6 +73,7 @@ type Store interface {
 SQLite provides a zero-dependency storage option using the pure-Go `modernc.org/sqlite` driver (no CGO required).
 
 **Best for:**
+
 - Development and testing
 - Single-node deployments
 - Small deployments (<100 agents)
@@ -153,6 +154,7 @@ PRAGMA synchronous = NORMAL;
 PostgreSQL provides production-grade storage with high availability, scalability, and advanced features.
 
 **Best for:**
+
 - Production deployments
 - Large deployments (100+ agents)
 - High availability requirements

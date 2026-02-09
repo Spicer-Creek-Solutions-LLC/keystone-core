@@ -10,6 +10,7 @@ description: >
 Keystone Core agents are lightweight Go binaries that run on every managed node in your infrastructure. They provide the execution layer for all Keystone Core operations.
 
 **Key Characteristics**:
+
 - **Lightweight**: <50MB binary, <100MB memory footprint
 - **Cross-platform**: Linux, Windows, macOS, ARM support
 - **Secure**: Authenticated connections, sandboxed execution
@@ -97,6 +98,7 @@ When a command is received:
 6. **Emit**: Emit execution event
 
 Supported shells:
+
 - **Linux**: bash, sh
 - **Windows**: PowerShell, cmd
 - **macOS**: bash, zsh
@@ -118,12 +120,14 @@ When a state configuration is received:
 Agents automatically collect system metadata:
 
 **Operating System**:
+
 - OS type (linux, windows, darwin)
 - Distribution (ubuntu, centos, rhel, debian, etc.)
 - Version
 - Kernel version
 
 **Hardware**:
+
 - CPU count, model, vendor, frequency, cache size
 - Total memory, available memory, swap
 - Disk devices, partitions, usage
@@ -131,21 +135,25 @@ Agents automatically collect system metadata:
 - BMC/IPMI (if present on bare metal servers)
 
 **Network**:
+
 - Hostname
 - Primary IP address
 - All IP addresses
 
 **Cloud Provider** (auto-detected):
+
 - AWS (EC2, ECS, Lambda)
 - GCP (Compute Engine, GKE, Cloud Functions)
 - Azure (VM, AKS, Azure Functions)
 
 **Container Runtime**:
+
 - Docker (if present)
 - containerd (if present)
 - Kubernetes pod information (if running in K8s)
 
 **Service Mesh**:
+
 - Istio (sidecar detection)
 - Linkerd (proxy detection)
 - Consul (agent detection)
@@ -237,11 +245,13 @@ type BMCInfo struct {
 3. **DMI/SMBIOS**: Check sysfs for IPMI kernel modules (`ipmi_si`, `ipmi_devintf`)
 
 **Requirements for BMC Detection**:
+
 - Linux: `ipmitool` package installed (optional, for detailed info)
 - Linux: IPMI kernel modules loaded (`ipmi_si`, `ipmi_devintf`, `ipmi_msghandler`)
 - Windows/macOS: Limited detection (no IPMI device files)
 
 **Example BMC Metadata**:
+
 ```json
 {
   "bmc": {
@@ -256,6 +266,7 @@ type BMCInfo struct {
 ```
 
 **Use Cases**:
+
 - **Inventory Management**: Track all BMC endpoints in your infrastructure
 - **Out-of-Band Management**: Power on/off servers when OS is unresponsive
 - **Hardware Monitoring**: Query BMC sensors for temperature, fan speed, etc.
@@ -273,6 +284,7 @@ type DefaultDetector struct {
 ```
 
 The cache is automatically invalidated when:
+
 - Cache age exceeds `cacheAge`
 - Explicit refresh requested
 
@@ -406,6 +418,7 @@ WantedBy=multi-user.target
 ```
 
 Enable and start:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable kscore-agent
@@ -482,6 +495,7 @@ spec:
 ### Linux
 
 **Distributions**:
+
 - Ubuntu (all versions)
 - Debian (all versions)
 - CentOS / RHEL (7+)
@@ -491,6 +505,7 @@ spec:
 - openSUSE
 
 **Package Managers**:
+
 - apt (Debian, Ubuntu)
 - yum/dnf (RHEL, CentOS, Fedora)
 - zypper (openSUSE)
@@ -498,6 +513,7 @@ spec:
 - apk (Alpine)
 
 **Init Systems**:
+
 - systemd (primary)
 - upstart (legacy)
 - sysvinit (legacy)
@@ -506,20 +522,24 @@ spec:
 ### Windows
 
 **Versions**:
+
 - Windows Server 2016+
 - Windows 10+
 - Windows 11
 
 **Shells**:
+
 - PowerShell 5.1+
 - PowerShell Core 7+
 - cmd.exe
 
 **Service Management**:
+
 - Windows Service Manager
 - NSSM (Non-Sucking Service Manager)
 
 **Package Managers**:
+
 - Chocolatey
 - winget
 - scoop
@@ -527,16 +547,20 @@ spec:
 ### macOS
 
 **Versions**:
+
 - macOS 10.15+ (Catalina and newer)
 
 **Shells**:
+
 - bash
 - zsh (default on macOS 10.15+)
 
 **Service Management**:
+
 - launchd
 
 **Package Managers**:
+
 - Homebrew
 
 ### ARM Support
@@ -545,6 +569,7 @@ spec:
 - ARMv7
 
 Common platforms:
+
 - Raspberry Pi (all models)
 - AWS Graviton
 - Ampere Altra
@@ -589,22 +614,26 @@ cache:
 Agents enforce multiple layers of security for command execution:
 
 **Authorization:**
+
 - Principal-based access control (who can execute commands)
 - Optional HMAC-SHA256 command signing
 - Configurable allowed principals list
 
 **Command Filtering:**
+
 - Allowlist mode (only permitted commands run)
 - Blocklist mode (specific commands blocked)
 - Regex pattern blocking for dangerous command sequences
 - Exempt commands for legitimate operations (e.g., `mkfs.*` for disk provisioning)
 
 **Environment Protection:**
+
 - Blocks dangerous environment variables (LD_PRELOAD, DYLD_INSERT_LIBRARIES, etc.)
 - Argument length limits to prevent injection attacks
 - Working directory path traversal protection
 
 **Example Security Configuration:**
+
 ```yaml
 security:
   authorization:
@@ -629,11 +658,13 @@ security:
 Agents can optionally run an embedded NATS server for edge deployments:
 
 **Security Requirements:**
+
 - Embedded NATS is **disabled by default**
 - TLS and authentication are **required** when binding to non-localhost
 - Must be explicitly enabled via configuration or CLI
 
 **Enable via CLI:**
+
 ```bash
 kscore-agent config enable-embedded-nats --restart
 ```
@@ -643,11 +674,13 @@ kscore-agent config enable-embedded-nats --restart
 Commands execute in sandboxed environments:
 
 **Linux**:
+
 - seccomp filters
 - cgroups for resource limits
 - Namespace isolation (optional)
 
 **Windows**:
+
 - Process isolation
 - Job objects for resource limits
 
@@ -673,17 +706,20 @@ sequenceDiagram
 ```
 
 **Bootstrap Credential Types**:
+
 - **NKey**: NATS NKey-based authentication (recommended)
 - **Token**: Simple token authentication
 - **JWT**: JWT-based authentication with claims
 
 **Security Properties**:
+
 - **Time-limited**: Bootstrap credentials expire (default 5 minutes, max 24 hours)
 - **Minimal permissions**: Can only publish to registration topic
 - **Single-use**: Optionally limited to one registration
 - **Audited**: All bootstrap events logged
 
 **Configuration**:
+
 ```yaml
 bootstrap:
   enabled: true
@@ -696,6 +732,7 @@ bootstrap:
 ```
 
 **Extensibility**:
+
 - `IdentityVerifier` interface for custom identity verification (SPIFFE, cloud IAM)
 - `CredentialIssuer` interface for custom credential generation
 - Integration points for future SPIFFE/SPIRE support
@@ -703,6 +740,7 @@ bootstrap:
 ### Authentication
 
 Agents authenticate to control plane using:
+
 - NATS credentials (JWT-based)
 - TLS client certificates
 - NKey-based authentication (recommended for production)
@@ -711,6 +749,7 @@ Agents authenticate to control plane using:
 ### Permissions
 
 Commands run with configurable permissions:
+
 - Run as specific user
 - Command whitelist/blacklist
 - Sudo/elevation restrictions
@@ -741,6 +780,7 @@ kscore_agent_connected{status="online|offline"}
 ### Health Checks
 
 Agents support health checks:
+
 - Process alive check
 - NATS connection check
 - Control plane reachability
@@ -753,6 +793,7 @@ Agents support health checks:
 **Problem**: Agent process fails to start
 
 Check:
+
 - Validate YAML syntax: `python3 -c "import yaml; yaml.safe_load(open('agent.yaml'))"`
 - Permissions: Agent user has access to config file and directories
 - Dependencies: NATS URL is accessible
@@ -763,12 +804,14 @@ Check:
 **Problem**: Agent can't connect to control plane
 
 Check:
+
 - Network connectivity: `ping control-plane.example.com`
 - NATS port open: `nc -zv control-plane.example.com 4222`
 - TLS certificates valid (if using TLS)
 - NATS credentials correct (if using auth)
 
 Debug (set log level in config or via environment):
+
 ```bash
 KSCORE_LOG_LEVEL=debug kscore-agent --config agent.yaml
 ```
@@ -778,11 +821,13 @@ KSCORE_LOG_LEVEL=debug kscore-agent --config agent.yaml
 **Problem**: Agent consuming excessive CPU
 
 Check:
+
 - Number of concurrent commands: `max_concurrent` setting
 - Command timeouts: Long-running commands blocking
 - State module performance: Complex state files
 
 Fix:
+
 - Reduce `max_concurrent` setting
 - Set shorter timeouts
 - Optimize state files
@@ -792,11 +837,13 @@ Fix:
 **Problem**: Agent consuming excessive memory
 
 Check:
+
 - Buffer size (offline mode)
 - Command output size (streaming vs buffering)
 - Cache size
 
 Fix:
+
 ```yaml
 limits:
   max_memory: "256MB"

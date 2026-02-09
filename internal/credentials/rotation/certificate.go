@@ -16,9 +16,9 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-// CertificateRotationProvider rotates TLS certificates for gNMI and other
+// CertificateProvider rotates TLS certificates for gNMI and other
 // certificate-based device credentials.
-type CertificateRotationProvider struct {
+type CertificateProvider struct {
 	// CertValidity is the validity period for generated certificates (default 365 days).
 	CertValidity time.Duration
 	// Commander installs and verifies certificates on devices.
@@ -32,19 +32,21 @@ type CertificateCommander interface {
 	RemoveCertificate(ctx context.Context, device DeviceInfo, cert []byte) error
 }
 
-// NewCertificateRotationProvider creates a new certificate rotation provider.
-func NewCertificateRotationProvider(commander CertificateCommander) *CertificateRotationProvider {
-	return &CertificateRotationProvider{
+// NewCertificateProvider creates a new certificate rotation provider.
+func NewCertificateProvider(commander CertificateCommander) *CertificateProvider {
+	return &CertificateProvider{
 		CertValidity: 365 * 24 * time.Hour,
 		Commander:    commander,
 	}
 }
 
-func (p *CertificateRotationProvider) SupportsType(credType credentials.CredentialType) bool {
+// SupportsType implements Provider.
+func (p *CertificateProvider) SupportsType(credType credentials.CredentialType) bool {
 	return credType == credentials.CredentialTypeGNMI
 }
 
-func (p *CertificateRotationProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
+// ValidateOld implements Provider.
+func (p *CertificateProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
 	gnmi, ok := cred.(*credentials.GNMICredential)
 	if !ok {
 		return fmt.Errorf("expected GNMICredential, got %T", cred)
@@ -55,7 +57,8 @@ func (p *CertificateRotationProvider) ValidateOld(ctx context.Context, device De
 	return p.Commander.VerifyCertificate(ctx, device, gnmi.ClientCert)
 }
 
-func (p *CertificateRotationProvider) Generate(_ context.Context, device DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
+// Generate implements Provider.
+func (p *CertificateProvider) Generate(_ context.Context, device DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
 	old, ok := oldCred.(*credentials.GNMICredential)
 	if !ok {
 		return nil, fmt.Errorf("expected GNMICredential, got %T", oldCred)
@@ -117,7 +120,8 @@ func (p *CertificateRotationProvider) Generate(_ context.Context, device DeviceI
 	}, nil
 }
 
-func (p *CertificateRotationProvider) Apply(ctx context.Context, device DeviceInfo, _, newCred credentials.Credential) error {
+// Apply implements Provider.
+func (p *CertificateProvider) Apply(ctx context.Context, device DeviceInfo, _, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no certificate commander configured")
 	}
@@ -128,7 +132,8 @@ func (p *CertificateRotationProvider) Apply(ctx context.Context, device DeviceIn
 	return p.Commander.InstallCertificate(ctx, device, gnmi.ClientCert, gnmi.ClientKey)
 }
 
-func (p *CertificateRotationProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
+// Verify implements Provider.
+func (p *CertificateProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no certificate commander configured")
 	}
@@ -139,7 +144,8 @@ func (p *CertificateRotationProvider) Verify(ctx context.Context, device DeviceI
 	return p.Commander.VerifyCertificate(ctx, device, gnmi.ClientCert)
 }
 
-func (p *CertificateRotationProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
+// Rollback implements Provider.
+func (p *CertificateProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no certificate commander configured")
 	}
@@ -157,7 +163,8 @@ func (p *CertificateRotationProvider) Rollback(ctx context.Context, device Devic
 	return p.Commander.InstallCertificate(ctx, device, oldGNMI.ClientCert, oldGNMI.ClientKey)
 }
 
-func (p *CertificateRotationProvider) Cleanup(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) error {
+// Cleanup implements Provider.
+func (p *CertificateProvider) Cleanup(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) error {
 	if p.Commander == nil {
 		return nil
 	}
@@ -168,4 +175,4 @@ func (p *CertificateRotationProvider) Cleanup(ctx context.Context, device Device
 	return p.Commander.RemoveCertificate(ctx, device, gnmi.ClientCert)
 }
 
-var _ RotationProvider = (*CertificateRotationProvider)(nil)
+var _ Provider = (*CertificateProvider)(nil)

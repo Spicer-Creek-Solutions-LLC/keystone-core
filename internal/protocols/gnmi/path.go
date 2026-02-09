@@ -113,15 +113,15 @@ func ToProtoPath(path protocols.GNMIPath) *gnmipb.Path {
 
 // parsePathElement parses a path element like "interface[name=eth0][type=ethernet]"
 // into a name and key map.
-func parsePathElement(elem string) (string, map[string]string) {
+func parsePathElement(elem string) (name string, keys map[string]string) {
 	idx := strings.Index(elem, "[")
 	if idx < 0 {
 		return elem, nil
 	}
 
-	name := elem[:idx]
+	name = elem[:idx]
 	rest := elem[idx:]
-	keys := make(map[string]string)
+	keys = make(map[string]string)
 
 	for rest != "" {
 		if !strings.HasPrefix(rest, "[") {
@@ -196,8 +196,8 @@ func FromProtoValue(tv *gnmipb.TypedValue) ([]byte, error) {
 		return json.Marshal(v.UintVal)
 	case *gnmipb.TypedValue_BoolVal:
 		return json.Marshal(v.BoolVal)
-	case *gnmipb.TypedValue_FloatVal:
-		return json.Marshal(v.FloatVal)
+	case *gnmipb.TypedValue_FloatVal: //nolint:staticcheck // SA1019: FloatVal is deprecated but still used by some devices
+		return json.Marshal(v.FloatVal) //nolint:staticcheck // SA1019: see above
 	case *gnmipb.TypedValue_BytesVal:
 		return v.BytesVal, nil
 	case *gnmipb.TypedValue_AsciiVal:

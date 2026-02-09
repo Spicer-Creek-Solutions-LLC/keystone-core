@@ -37,6 +37,7 @@ Salt and Keystone Core share similar concepts: both use declarative state files 
 #### Package Management
 
 **Salt**:
+
 ```yaml
 # /srv/salt/nginx/init.sls
 nginx:
@@ -51,6 +52,7 @@ nginx:
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx.yaml
 package:
@@ -71,6 +73,7 @@ service:
 #### File Management
 
 **Salt**:
+
 ```yaml
 # /srv/salt/nginx/config.sls
 /etc/nginx/nginx.conf:
@@ -89,6 +92,7 @@ service:
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx-config.yaml
 file:
@@ -111,6 +115,7 @@ file:
 #### User Management
 
 **Salt**:
+
 ```yaml
 # /srv/salt/users/init.sls
 {% for user, data in pillar.get('users', {}).items() %}
@@ -125,6 +130,7 @@ file:
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/users.yaml
 user:
@@ -143,6 +149,7 @@ user:
 ### Pillar to Variables Migration
 
 **Salt Pillar** (`/srv/pillar/nginx.sls`):
+
 ```yaml
 nginx:
   workers: 4
@@ -153,6 +160,7 @@ nginx:
 ```
 
 **Keystone Variables** (`vars/nginx.yaml`):
+
 ```yaml
 nginx:
   workers: 4
@@ -242,6 +250,7 @@ Ansible uses playbooks and roles; Keystone Core uses state files and modules. Bo
 #### Package Installation
 
 **Ansible**:
+
 ```yaml
 # roles/nginx/tasks/main.yml
 - name: Install nginx
@@ -258,6 +267,7 @@ Ansible uses playbooks and roles; Keystone Core uses state files and modules. Bo
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx.yaml
 package:
@@ -277,6 +287,7 @@ service:
 #### Template Files
 
 **Ansible**:
+
 ```yaml
 - name: Configure nginx
   ansible.builtin.template:
@@ -289,6 +300,7 @@ service:
 ```
 
 **Keystone Core**:
+
 ```yaml
 file:
   nginx_config:
@@ -306,6 +318,7 @@ file:
 #### Conditionals
 
 **Ansible**:
+
 ```yaml
 - name: Install package (Debian)
   ansible.builtin.apt:
@@ -321,6 +334,7 @@ file:
 ```
 
 **Keystone Core**:
+
 ```yaml
 # Keystone automatically uses correct package manager
 package:
@@ -346,6 +360,7 @@ package:
 #### Loops
 
 **Ansible**:
+
 ```yaml
 - name: Create users
   ansible.builtin.user:
@@ -356,6 +371,7 @@ package:
 ```
 
 **Keystone Core**:
+
 ```yaml
 user:
 {{ range .vars.users }}
@@ -369,6 +385,7 @@ user:
 #### Handlers
 
 **Ansible**:
+
 ```yaml
 # tasks/main.yml
 - name: Update config
@@ -390,6 +407,7 @@ user:
 ```
 
 **Keystone Core**:
+
 ```yaml
 file:
   app_config:
@@ -417,6 +435,7 @@ cmd:
 ### Inventory to Targeting
 
 **Ansible Inventory**:
+
 ```ini
 [webservers]
 web1.example.com
@@ -431,6 +450,7 @@ db2.example.com
 ```
 
 **Keystone Agent Targeting**:
+
 ```bash
 # Target by role (set during agent registration)
 kscorectl state apply nginx.yaml --target "role=webserver"
@@ -445,6 +465,7 @@ kscorectl state apply nginx.yaml --target "tier=frontend"
 ### Variable Migration
 
 **Ansible** (`group_vars/webservers.yml`):
+
 ```yaml
 http_port: 80
 max_clients: 200
@@ -455,6 +476,7 @@ nginx:
 ```
 
 **Keystone** (`vars/webservers.yaml`):
+
 ```yaml
 http_port: 80
 max_clients: 200
@@ -534,6 +556,7 @@ Puppet uses manifests with a Ruby-like DSL; Keystone Core uses YAML state files.
 #### Package and Service
 
 **Puppet**:
+
 ```puppet
 # modules/nginx/manifests/init.pp
 class nginx {
@@ -560,6 +583,7 @@ class nginx {
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx.yaml
 package:
@@ -592,6 +616,7 @@ file:
 #### Variables and Templates
 
 **Puppet**:
+
 ```puppet
 # manifests/config.pp
 class nginx::config (
@@ -609,6 +634,7 @@ class nginx::config (
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx-config.yaml
 file:
@@ -626,6 +652,7 @@ file:
 #### Defined Types (Loops)
 
 **Puppet**:
+
 ```puppet
 # manifests/vhost.pp
 define nginx::vhost (
@@ -656,6 +683,7 @@ nginx::vhost { 'api.example.com':
 ```
 
 **Keystone Core**:
+
 ```yaml
 # states/nginx-vhosts.yaml
 file:
@@ -690,6 +718,7 @@ vhosts:
 #### Conditionals with Facts
 
 **Puppet**:
+
 ```puppet
 case $facts['os']['family'] {
   'Debian': {
@@ -707,6 +736,7 @@ case $facts['os']['family'] {
 ```
 
 **Keystone Core**:
+
 ```yaml
 package:
 {{ if eq .facts.os_family "debian" }}
@@ -726,6 +756,7 @@ package:
 ### Hiera to Variables
 
 **Hiera** (`data/common.yaml`):
+
 ```yaml
 nginx::worker_processes: 4
 nginx::sites:
@@ -734,11 +765,13 @@ nginx::sites:
 ```
 
 **Hiera** (`data/nodes/web01.example.com.yaml`):
+
 ```yaml
 nginx::worker_processes: 8
 ```
 
 **Keystone Variables**:
+
 ```yaml
 # vars/common.yaml
 nginx:

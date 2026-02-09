@@ -49,6 +49,7 @@ private_image:
 ```
 
 This reads credentials from:
+
 1. `credHelpers` entries for registry-specific helpers
 2. `auths` entries for direct credentials
 3. `credsStore` for the default credential helper
@@ -73,6 +74,7 @@ ecr_image:
 3. **Azure ACR**: Uses managed identity to get AAD token, exchanges for ACR refresh token
 
 **Requirements**:
+
 - Instance/pod must have appropriate IAM role/service account
 - For AWS: IAM role with `ecr:GetAuthorizationToken` permission
 - For GCP: Service account with `roles/artifactregistry.reader`
@@ -123,6 +125,7 @@ When `registry_auth` is set, credentials are resolved in this order:
 **Detection**: Registry URL matches `*.dkr.ecr.*.amazonaws.com`
 
 **Credential Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Agent
@@ -137,6 +140,7 @@ sequenceDiagram
 ```
 
 **Credential format**:
+
 - Username: `AWS`
 - Password: Temporary authorization token
 - Expires: 12 hours
@@ -146,6 +150,7 @@ sequenceDiagram
 **Detection**: Registry URL matches `*.gcr.io` or `*-docker.pkg.dev`
 
 **Credential Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Agent
@@ -158,6 +163,7 @@ sequenceDiagram
 ```
 
 **Credential format**:
+
 - Username: `_token`
 - Password: OAuth2 access token
 - Expires: 1 hour
@@ -167,6 +173,7 @@ sequenceDiagram
 **Detection**: Registry URL matches `*.azurecr.io`
 
 **Credential Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Agent
@@ -180,6 +187,7 @@ sequenceDiagram
 ```
 
 **Credential format**:
+
 - Username: `00000000-0000-0000-0000-000000000000` (GUID)
 - Password: ACR refresh token
 - Expires: 3 hours
@@ -302,6 +310,7 @@ model_server:
 **Problem**: `failed to resolve credentials for registry`
 
 **Solutions**:
+
 1. Verify the registry URL is correct
 2. Check that cloud metadata service is accessible
 3. Verify IAM role/service account has required permissions
@@ -312,6 +321,7 @@ model_server:
 **Problem**: Cloud credentials not auto-detected
 
 **Check**:
+
 ```bash
 # AWS - verify instance has IAM role
 curl -H "X-aws-ec2-metadata-token: $(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")" \
@@ -331,6 +341,7 @@ curl -H "Metadata: true" \
 **Problem**: `secret not found` or `no credentials for registry`
 
 **Check**:
+
 1. Verify secret exists in the specified namespace
 2. Verify secret type is `kubernetes.io/dockerconfigjson`
 3. Verify the `.dockerconfigjson` data contains credentials for the target registry
@@ -344,6 +355,7 @@ kubectl get secret my-pull-secret -n default -o jsonpath='{.data.\.dockerconfigj
 **Problem**: `docker-credential-* not found in PATH`
 
 **Solution**: Install the required credential helper:
+
 ```bash
 # AWS ECR
 # Install amazon-ecr-credential-helper

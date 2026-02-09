@@ -76,6 +76,7 @@ Co-Authored-By: AI Name <noreply@domain.com>
 ```
 
 Common AI attribution lines:
+
 - `Co-Authored-By: Claude <noreply@anthropic.com>`
 - `Co-Authored-By: GitHub Copilot <noreply@github.com>`
 - `Co-Authored-By: GPT-4 <noreply@openai.com>`
@@ -127,6 +128,7 @@ AI-assisted contributions can be identified by:
    - `ai-assisted`
 
 3. **Git log search**:
+
    ```bash
    git log --grep="Generated with" --grep="Co-Authored-By.*Claude" --grep="Co-Authored-By.*Copilot" --all-match
    ```
@@ -149,6 +151,7 @@ COPYRIGHTABILITY OF AI-GENERATED CONTENT. USERS ASSUME ALL RISKS ASSOCIATED
 WITH THE USE OF THIS SOFTWARE.
 
 The project maintainers are not responsible for:
+
 - The copyright status of AI-generated content in any jurisdiction
 - Any claims arising from the use of AI-generated code
 - The accuracy or fitness of AI-generated contributions

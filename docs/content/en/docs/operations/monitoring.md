@@ -10,6 +10,7 @@ description: >
 Keystone Core provides comprehensive observability through Prometheus metrics, structured logging, distributed tracing, and pre-built Grafana dashboards. This guide covers the complete monitoring stack setup for production deployments.
 
 **Monitoring Stack:**
+
 - **Metrics**: Prometheus + Grafana (70+ metrics exposed)
 - **Logging**: Structured JSON logs + Loki/Elasticsearch
 - **Tracing**: OpenTelemetry + Jaeger (distributed tracing)
@@ -22,6 +23,7 @@ Keystone Core exposes 70+ Prometheus metrics on `/metrics` endpoint.
 ### Installation
 
 **Install Prometheus:**
+
 ```bash
 wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
 tar xvf prometheus-2.45.0.linux-amd64.tar.gz
@@ -30,6 +32,7 @@ sudo mv prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
 ```
 
 **Configuration (prometheus.yml):**
+
 ```yaml
 global:
   scrape_interval: 15s
@@ -72,6 +75,7 @@ scrape_configs:
 ```
 
 **Systemd Service:**
+
 ```ini
 # /etc/systemd/system/prometheus.service
 [Unit]
@@ -93,6 +97,7 @@ WantedBy=multi-user.target
 ```
 
 **Start Prometheus:**
+
 ```bash
 sudo systemctl enable prometheus
 sudo systemctl start prometheus
@@ -104,6 +109,7 @@ curl http://localhost:9090/api/v1/targets
 ### Key Metrics
 
 **Control Plane Metrics:**
+
 ```promql
 # API request rate
 rate(kscore_api_requests_total[5m])
@@ -123,6 +129,7 @@ rate(kscore_states_applied_total[5m])
 ```
 
 **Agent Metrics:**
+
 ```promql
 # Agent heartbeat failures
 kscore_agent_heartbeat_failures_total
@@ -138,6 +145,7 @@ kscore_agent_disk_usage_bytes / kscore_agent_disk_total_bytes
 ```
 
 **Event System Metrics:**
+
 ```promql
 # Event publish rate
 rate(kscore_events_published_total[5m])
@@ -150,6 +158,7 @@ rate(kscore_reactor_failures_total[5m])
 ```
 
 **Policy Metrics:**
+
 ```promql
 # Policy evaluations
 rate(kscore_policy_evaluations_total[5m])
@@ -164,6 +173,7 @@ kscore_policy_compliance_score
 ### Retention and Storage
 
 **Storage Configuration:**
+
 ```yaml
 # prometheus.yml
 storage:
@@ -174,6 +184,7 @@ storage:
 ```
 
 **Disk Usage Estimate:**
+
 - ~1KB per sample
 - 70 metrics × 1,000 agents × 4 samples/min = 280,000 samples/min
 - Daily: ~400MB/day
@@ -186,6 +197,7 @@ Keystone Core provides 10 pre-built Grafana dashboards.
 ### Installation
 
 **Install Grafana:**
+
 ```bash
 wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
 echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
@@ -194,6 +206,7 @@ sudo apt-get install grafana
 ```
 
 **Configure Datasource:**
+
 ```yaml
 # /etc/grafana/provisioning/datasources/prometheus.yml
 apiVersion: 1
@@ -208,6 +221,7 @@ datasources:
 ```
 
 **Import Dashboards:**
+
 ```bash
 # Download dashboards
 wget https://github.com/shawnbutts/keystone-core/raw/main/deploy/grafana/dashboards/*.json \
@@ -226,6 +240,7 @@ EOF
 ```
 
 **Start Grafana:**
+
 ```bash
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
@@ -237,6 +252,7 @@ sudo systemctl start grafana-server
 ### Dashboard Overview
 
 **1. Keystone Core Overview**
+
 - System health status
 - Agent counts (total, healthy, degraded, offline)
 - Command execution rates
@@ -245,6 +261,7 @@ sudo systemctl start grafana-server
 - Recent events timeline
 
 **2. Control Plane Health**
+
 - Control plane uptime
 - API request rate and latency
 - NATS message throughput
@@ -253,6 +270,7 @@ sudo systemctl start grafana-server
 - Error rates by component
 
 **3. Agent Fleet**
+
 - Agent distribution by datacenter/role
 - Agent resource utilization (CPU, memory, disk)
 - Agent version distribution
@@ -260,6 +278,7 @@ sudo systemctl start grafana-server
 - Agent connectivity status
 
 **4. State Management**
+
 - State applications (success/failure rates)
 - Drift detection events by severity
 - State changes by module
@@ -267,6 +286,7 @@ sudo systemctl start grafana-server
 - Resources under management
 
 **5. Policy Compliance**
+
 - Overall compliance score
 - Violations by severity
 - Remediation success rate
@@ -274,6 +294,7 @@ sudo systemctl start grafana-server
 - Compliance trends (7-day average)
 
 **6. GitOps Operations**
+
 - Deployment verification metrics
 - Verification success rate
 - Rollback frequency and reasons
@@ -283,6 +304,7 @@ sudo systemctl start grafana-server
 ### Custom Dashboards
 
 **Create New Dashboard:**
+
 1. Go to Grafana → Dashboards → New Dashboard
 2. Add panel
 3. Select Prometheus datasource
@@ -291,6 +313,7 @@ sudo systemctl start grafana-server
 6. Save dashboard
 
 **Example Panel (API Latency):**
+
 ```json
 {
   "title": "API Request Latency (P95)",
@@ -312,6 +335,7 @@ Keystone Core emits structured JSON logs for centralized aggregation.
 ### Loki Setup (Recommended)
 
 **Install Loki:**
+
 ```bash
 wget https://github.com/grafana/loki/releases/download/v2.8.0/loki-linux-amd64.zip
 unzip loki-linux-amd64.zip
@@ -319,6 +343,7 @@ sudo mv loki-linux-amd64 /usr/local/bin/loki
 ```
 
 **Configuration (loki-config.yml):**
+
 ```yaml
 auth_enabled: false
 
@@ -366,11 +391,13 @@ table_manager:
 ```
 
 **Start Loki:**
+
 ```bash
 loki -config.file=loki-config.yml
 ```
 
 **Install Promtail (Log Shipper):**
+
 ```bash
 wget https://github.com/grafana/loki/releases/download/v2.8.0/promtail-linux-amd64.zip
 unzip promtail-linux-amd64.zip
@@ -378,6 +405,7 @@ sudo mv promtail-linux-amd64 /usr/local/bin/promtail
 ```
 
 **Promtail Configuration:**
+
 ```yaml
 server:
   http_listen_port: 9080
@@ -421,6 +449,7 @@ scrape_configs:
 ```
 
 **Add Loki to Grafana:**
+
 ```yaml
 # /etc/grafana/provisioning/datasources/loki.yml
 apiVersion: 1
@@ -436,6 +465,7 @@ datasources:
 ### Elasticsearch Setup (Alternative)
 
 **Install Elasticsearch:**
+
 ```bash
 # Add Elastic repository
 wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
@@ -445,11 +475,13 @@ sudo apt-get install elasticsearch
 ```
 
 **Install Filebeat:**
+
 ```bash
 sudo apt-get install filebeat
 ```
 
 **Filebeat Configuration:**
+
 ```yaml
 filebeat.inputs:
   - type: log
@@ -470,6 +502,7 @@ setup.template.pattern: "kscore-*"
 ### Log Queries
 
 **Loki Queries (LogQL):**
+
 ```logql
 # All error logs
 {job="kscore-server"} |= "error"
@@ -485,6 +518,7 @@ setup.template.pattern: "kscore-*"
 ```
 
 **Elasticsearch Queries:**
+
 ```json
 {
   "query": {
@@ -505,6 +539,7 @@ Configure Prometheus Alertmanager for production alerting.
 ### Alertmanager Installation
 
 **Install:**
+
 ```bash
 wget https://github.com/prometheus/alertmanager/releases/download/v0.26.0/alertmanager-0.26.0.linux-amd64.tar.gz
 tar xvf alertmanager-0.26.0.linux-amd64.tar.gz
@@ -512,6 +547,7 @@ sudo mv alertmanager-0.26.0.linux-amd64/alertmanager /usr/local/bin/
 ```
 
 **Configuration (alertmanager.yml):**
+
 ```yaml
 global:
   resolve_timeout: 5m
@@ -556,6 +592,7 @@ receivers:
 ### Alert Rules
 
 **Create Alert Rules (alerts.yml):**
+
 ```yaml
 groups:
   - name: kscore-control-plane
@@ -911,6 +948,7 @@ groups:
 ```
 
 **Load Alert Rules in Prometheus:**
+
 ```yaml
 # prometheus.yml
 rule_files:
@@ -925,6 +963,7 @@ alerting:
 ### Testing Alerts
 
 **Test Alert Rule:**
+
 ```bash
 # Check alert rule syntax
 promtool check rules alerts.yml
@@ -934,6 +973,7 @@ curl http://localhost:9090/api/v1/alerts
 ```
 
 **Test Alertmanager:**
+
 ```bash
 # Send test alert
 amtool alert add test_alert severity=critical --alertmanager.url=http://localhost:9093
@@ -949,6 +989,7 @@ Keystone Core exposes health check endpoints for load balancers and orchestrator
 ### Endpoints
 
 **Liveness Probe:**
+
 ```bash
 GET /health/live
 
@@ -957,6 +998,7 @@ GET /health/live
 ```
 
 **Readiness Probe:**
+
 ```bash
 GET /health/ready
 
@@ -966,6 +1008,7 @@ GET /health/ready
 ```
 
 **Detailed Status:**
+
 ```bash
 GET /health/status
 
@@ -1006,12 +1049,14 @@ readinessProbe:
 ### Load Balancer Health Checks
 
 **HAProxy:**
+
 ```
 option httpchk GET /health/ready
 http-check expect status 200
 ```
 
 **Nginx:**
+
 ```nginx
 upstream kscore {
     server server1:8080 max_fails=3 fail_timeout=30s;
@@ -1046,6 +1091,7 @@ Agent registration throughput depends on control plane resources and network con
 | P99 registration latency | 50ms | 100ms | 200ms | 400ms |
 
 **Key Metrics**:
+
 ```promql
 # Registration throughput
 rate(kscore_agent_registrations_total[5m])
@@ -1060,6 +1106,7 @@ rate(kscore_agent_registration_failures_total[5m])
 ```
 
 **Factors Affecting Performance**:
+
 - Database backend (PostgreSQL faster than SQLite at scale)
 - Network latency to control plane
 - TLS handshake overhead
@@ -1067,6 +1114,7 @@ rate(kscore_agent_registration_failures_total[5m])
 - Concurrent registration bursts
 
 **Optimization Tips**:
+
 - Use PostgreSQL for >500 agents
 - Enable connection pooling (pgbouncer)
 - Configure agent staggered startup (avoid thundering herd)
@@ -1097,6 +1145,7 @@ Command execution latency measures the time from command dispatch to result rece
 | PowerShell | 100ms | 400ms | 800ms | Includes startup |
 
 **Key Metrics**:
+
 ```promql
 # Command dispatch latency
 histogram_quantile(0.95, rate(kscore_command_dispatch_duration_seconds_bucket[5m]))
@@ -1122,6 +1171,7 @@ rate(kscore_command_executions_total{exit_code!="0"}[5m]) # Failure
 | 10,000 | 200s | 5s | 40x |
 
 **Optimization Tips**:
+
 - Use batch execution for multiple targets
 - Configure appropriate timeouts (don't use excessive timeouts)
 - Prefer PowerShell Core over Windows PowerShell
@@ -1156,6 +1206,7 @@ State application performance depends on state complexity and target count.
 | `command` | Variable | N/A | Depends on command |
 
 **Key Metrics**:
+
 ```promql
 # State application throughput (resources/sec)
 rate(kscore_state_resources_applied_total[5m])
@@ -1181,6 +1232,7 @@ histogram_quantile(0.95, rate(kscore_state_dag_duration_seconds_bucket[5m]))
 | 500 resources | 500s | 50s | 12s | 8s |
 
 **Optimization Tips**:
+
 - Minimize state file size (split into logical groups)
 - Use state compilation for complex templates
 - Enable parallel module execution where safe
@@ -1211,6 +1263,7 @@ Event system latency from publish to reactor execution.
 | 100,000+ | 100ms+ | 500ms+ | Saturation |
 
 **Key Metrics**:
+
 ```promql
 # Event publish rate
 rate(kscore_events_published_total[5m])
@@ -1237,6 +1290,7 @@ rate(kscore_events_dropped_total[5m])
 | Replicated (R=3) | 30K msg/s | 100K msg/s | 3x storage |
 
 **Optimization Tips**:
+
 - Use memory streams for high-volume, non-critical events
 - Configure appropriate retention limits
 - Use consumer groups for parallel processing
@@ -1265,6 +1319,7 @@ Policy evaluation performance for OPA/Rego policies.
 | Very Large (>100KB) | 50ms | 200ms | 500ms |
 
 **Key Metrics**:
+
 ```promql
 # Policy evaluation rate
 rate(kscore_policy_evaluations_total[5m])
@@ -1293,6 +1348,7 @@ rate(kscore_policy_cache_hits_total[5m]) /
 | 10,000 | 10 | 100,000 | 5s | 200s |
 
 **Optimization Tips**:
+
 - Enable policy result caching
 - Use partial evaluation for complex policies
 - Pre-compile policies at startup
@@ -1302,6 +1358,7 @@ rate(kscore_policy_cache_hits_total[5m]) /
 #### Performance Testing Methodology
 
 **Load Testing Tools**:
+
 ```bash
 # Use kscorectl built-in benchmarks
 kscorectl benchmark agent-registration --count 1000 --parallel 50
@@ -1313,6 +1370,7 @@ kscorectl benchmark --output json > benchmark-results.json
 ```
 
 **Continuous Benchmarking**:
+
 ```yaml
 # .github/workflows/benchmark.yml
 name: Performance Benchmarks
@@ -1339,6 +1397,7 @@ jobs:
 ```
 
 **Recording Rules for Baselines**:
+
 ```yaml
 # recording_rules.yml
 groups:
@@ -1364,17 +1423,20 @@ groups:
 ### Service Level Objectives (SLOs)
 
 **Control Plane SLOs:**
+
 - **Availability**: 99.9% uptime (43 minutes downtime/month)
 - **Latency**: P95 API latency <500ms, P99 <1s
 - **Throughput**: 1000+ API requests/sec
 - **Error Rate**: <0.1% (5xx errors)
 
 **Agent SLOs:**
+
 - **Availability**: 95% agents connected at all times
 - **Command Execution**: P95 latency <100ms, P99 <500ms
 - **Heartbeat**: 100% heartbeats within 30s interval
 
 **State Management SLOs:**
+
 - **Application Success**: >99% state applications succeed
 - **Drift Detection**: Drift detected within 5 minutes
 - **Idempotency**: 100% idempotent operations
@@ -1382,6 +1444,7 @@ groups:
 ### Monitoring SLOs
 
 **SLO Dashboard Queries:**
+
 ```promql
 # Availability (control plane)
 avg_over_time(up{job="kscore-server"}[30d]) * 100
@@ -1398,6 +1461,7 @@ rate(kscore_api_requests_total[5m])
 ```
 
 **Error Budget Alerts:**
+
 ```yaml
 - alert: SLOErrorBudgetExhausted
   expr: (1 - avg_over_time(up{job="kscore-server"}[30d])) > 0.001
@@ -1415,6 +1479,7 @@ Keystone Core includes built-in pprof profiling endpoints for debugging performa
 ### Enabling Profiling
 
 **Server Configuration:**
+
 ```yaml
 # server.yaml
 profiling:
@@ -1425,6 +1490,7 @@ profiling:
 ```
 
 **Agent Configuration:**
+
 ```yaml
 # agent.yaml
 profiling:
@@ -1447,6 +1513,7 @@ profiling:
 ### Capturing Profiles
 
 **Using curl:**
+
 ```bash
 # CPU profile (30 seconds)
 curl -o cpu.prof http://localhost:6060/debug/pprof/profile?seconds=30
@@ -1462,6 +1529,7 @@ curl -o trace.out http://localhost:6060/debug/pprof/trace?seconds=5
 ```
 
 **Using go tool pprof:**
+
 ```bash
 # Interactive CPU analysis
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
@@ -1474,6 +1542,7 @@ go tool pprof -http=:8080 http://localhost:6060/debug/pprof/profile?seconds=30
 ```
 
 **Using go tool trace:**
+
 ```bash
 # Capture trace
 curl -o trace.out http://localhost:6060/debug/pprof/trace?seconds=5
@@ -1485,6 +1554,7 @@ go tool trace trace.out
 ### Common Profiling Scenarios
 
 **High CPU Usage:**
+
 ```bash
 # 1. Capture CPU profile during high load
 go tool pprof -http=:8080 http://server:6060/debug/pprof/profile?seconds=60
@@ -1494,6 +1564,7 @@ go tool pprof -http=:8080 http://server:6060/debug/pprof/profile?seconds=60
 ```
 
 **Memory Leaks:**
+
 ```bash
 # 1. Capture heap profile at baseline
 curl -o heap1.prof http://server:6060/debug/pprof/heap
@@ -1508,6 +1579,7 @@ go tool pprof -base=heap1.prof heap2.prof
 ```
 
 **Goroutine Leaks:**
+
 ```bash
 # Check goroutine count
 curl -s http://server:6060/debug/pprof/goroutine?debug=1 | head -1
@@ -1517,6 +1589,7 @@ curl -s http://server:6060/debug/pprof/goroutine?debug=2 > goroutines.txt
 ```
 
 **Mutex Contention:**
+
 ```yaml
 # Enable mutex profiling in config
 profiling:
@@ -1535,10 +1608,12 @@ go tool pprof http://server:6060/debug/pprof/mutex
 
 1. **Bind to localhost**: Only expose profiling on `127.0.0.1`
 2. **Use SSH tunneling** for remote access:
+
    ```bash
    ssh -L 6060:127.0.0.1:6060 user@server
    go tool pprof http://localhost:6060/debug/pprof/profile
    ```
+
 3. **Disable in production** unless actively debugging
 4. **Use firewall rules** to restrict access
 5. **Enable authentication** if exposing externally
@@ -1554,6 +1629,7 @@ curl http://localhost:6060/debug/pprof/symbol   # Symbol table
 ```
 
 **Programmatic Access:**
+
 ```go
 // Get runtime stats via API
 stats := profiling.GetStats()
@@ -1566,24 +1642,28 @@ fmt.Printf("GC Cycles: %d\n", stats.NumGC)
 ## Best Practices
 
 ### Metrics Collection
+
 - **Scrape interval**: 10-15s for control plane, 30s for agents
 - **Retention**: 30 days minimum, 90 days for compliance
 - **Cardinality**: Limit high-cardinality labels (e.g., don't use correlation_id as label)
 - **Aggregation**: Use recording rules for expensive queries
 
 ### Logging
+
 - **Structured logging**: Always use JSON format
 - **Log levels**: ERROR for actionable issues, WARN for degraded state, INFO for significant events
 - **Correlation IDs**: Always include for request tracing
 - **Sampling**: Sample DEBUG logs in production (1% sampling typical)
 
 ### Alerting
+
 - **Alert on symptoms, not causes** - Alert on user impact (high latency) not causes (high CPU)
 - **Group alerts** - Group by cluster/datacenter to reduce noise
 - **Silence during maintenance** - Use Alertmanager silences for planned downtime
 - **Runbooks**: Every alert should link to a runbook
 
 ### Dashboards
+
 - **Role-based dashboards** - Separate dashboards for SRE, Dev, Ops
 - **Drill-down capability** - Link from high-level to detailed views
 - **Time range selector** - Make time ranges easily adjustable
@@ -1594,6 +1674,7 @@ fmt.Printf("GC Cycles: %d\n", stats.NumGC)
 ### Prometheus Issues
 
 **High Memory Usage:**
+
 ```bash
 # Check TSDB stats
 curl http://localhost:9090/api/v1/status/tsdb
@@ -1602,6 +1683,7 @@ curl http://localhost:9090/api/v1/status/tsdb
 ```
 
 **Missing Targets:**
+
 ```bash
 # Check target status
 curl http://localhost:9090/api/v1/targets
@@ -1612,6 +1694,7 @@ curl http://localhost:9090/api/v1/targets
 ### Grafana Issues
 
 **Dashboard Not Loading:**
+
 ```bash
 # Check Grafana logs
 sudo journalctl -u grafana-server -f
@@ -1621,6 +1704,7 @@ sudo journalctl -u grafana-server -f
 ```
 
 **No Data in Panels:**
+
 - Verify Prometheus datasource configured correctly
 - Check time range selector
 - Test PromQL query in Prometheus UI first
@@ -1629,6 +1713,7 @@ sudo journalctl -u grafana-server -f
 ### Loki Issues
 
 **Logs Not Appearing:**
+
 ```bash
 # Check Promtail status
 sudo systemctl status promtail

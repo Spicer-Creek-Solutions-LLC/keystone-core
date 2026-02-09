@@ -805,14 +805,17 @@ kscorectl test integration --suite recovery
    kscorectl certs rotate --component agent
    ```
 
-4. Distribute new certificates:
+1. Distribute new certificates:
+
    ```bash
    kscorectl state apply /etc/keystone-core/states/certificates.yaml
    ```
 
 ## Verification
-5. Verify new certificates: `kscorectl certs verify`
-6. Test connectivity: `kscorectl agent ping --all`
+
+1. Verify new certificates: `kscorectl certs verify`
+2. Test connectivity: `kscorectl agent ping --all`
+
 ```
 
 ## Metrics and Alerting

@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 This scenario deploys production-ready database clusters:
+
 - **PostgreSQL HA**: Streaming replication with automatic failover
 - **MySQL HA**: Group replication cluster
 - **Backup & Recovery**: Automated backups with point-in-time recovery

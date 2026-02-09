@@ -10,6 +10,7 @@ description: >
 The NETCONF protocol adapter implements RFC 6241 (NETCONF Configuration Protocol) over SSH, enabling management of network devices that support the NETCONF subsystem. It integrates with the proxy agent system as both a generic `ProtocolAdapter` and an extended `NetconfAdapter` with typed operations.
 
 **Key features**:
+
 - Full RFC 6241 operation set (get-config, edit-config, lock, commit, etc.)
 - NETCONF 1.0 (EOM framing) and 1.1 (chunked framing, RFC 6242)
 - Automatic capability negotiation and framing mode selection

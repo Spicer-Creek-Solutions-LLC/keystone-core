@@ -10,6 +10,7 @@ description: >
 Keystone Core provides first-class Windows support for the agent component, enabling management of Windows servers alongside Linux and macOS infrastructure. The Windows agent runs as a native Windows service, integrates with Windows Event Log, and supports Windows-specific management features.
 
 **Supported Windows Versions**:
+
 - Windows Server 2016, 2019, 2022
 - Windows 10/11 (for development)
 
@@ -42,6 +43,7 @@ $PSVersionTable.PSVersion
 ```
 
 **Check Windows PowerShell version:**
+
 ```powershell
 # Windows PowerShell path
 powershell.exe -Command "$PSVersionTable.PSVersion"
@@ -92,6 +94,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 When executing commands that produce text output, be aware of encoding differences:
 
 **Windows PowerShell 5.1 (UTF-16 LE by default):**
+
 ```powershell
 # Force UTF-8 for command output
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -99,12 +102,14 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 ```
 
 **PowerShell 7+ (UTF-8 by default):**
+
 ```powershell
 # Already UTF-8, but can be explicitly set
 $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 ```
 
 **Configuration for consistent encoding:**
+
 ```yaml
 # agent.yaml
 execution:
@@ -133,6 +138,7 @@ Windows PowerShell 5.1 includes a BOM in UTF-8 output by default, while PowerShe
 | `ConvertTo-Json > file` | UTF-16 LE with BOM | UTF-8 without BOM |
 
 **Edge Case: BOM causes JSON parsing failures**
+
 ```powershell
 # Windows PowerShell 5.1 - Creates file with BOM
 $data | ConvertTo-Json | Out-File data.json
@@ -143,6 +149,7 @@ $parsed = Get-Content data.json | ConvertFrom-Json
 ```
 
 **Solution:**
+
 ```powershell
 # Windows PowerShell 5.1 - Force UTF-8 without BOM
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -157,6 +164,7 @@ $data | ConvertTo-Json | Out-File -Encoding utf8 data.json
 PowerShell pipelines handle encoding differently than direct output:
 
 **Edge Case: Pipeline drops special characters**
+
 ```powershell
 # Direct assignment preserves characters
 $text = "日本語テスト"
@@ -167,6 +175,7 @@ $text | cmd.exe /c "type CON"  # May produce garbled output
 ```
 
 **Edge Case: Native command output encoding**
+
 ```powershell
 # Windows PowerShell 5.1 - Console encoding mismatch
 $output = & ipconfig /all  # Uses OEM code page
@@ -174,6 +183,7 @@ $output = & ipconfig /all  # Uses OEM code page
 ```
 
 **Solution - Set console encoding explicitly:**
+
 ```powershell
 # Windows PowerShell 5.1 - Match console to command output
 [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(437)  # OEM US
@@ -200,6 +210,7 @@ Different cmdlets use different default encodings, which can cause data corrupti
 | `Invoke-WebRequest` (save) | UTF-8 | UTF-8 |
 
 **Edge Case: Mixed encoding in config files**
+
 ```powershell
 # Windows PowerShell 5.1
 Get-Content config.json | ConvertFrom-Json  # Uses system default
@@ -209,6 +220,7 @@ $config | ConvertTo-Json | Out-File config.json  # UTF-16 LE!
 ```
 
 **Solution - Consistent encoding wrapper:**
+
 ```powershell
 # Create functions that enforce consistent encoding
 function Read-JsonFile {
@@ -235,6 +247,7 @@ function Write-JsonFile {
 Registry values and environment variables have their own encoding considerations:
 
 **Edge Case: Registry string encoding**
+
 ```powershell
 # Registry stores strings as UTF-16 internally
 # But PowerShell may misinterpret when reading/writing
@@ -246,6 +259,7 @@ $value = Get-ItemProperty -Path "HKCU:\Environment" -Name "TEST_VAR"
 ```
 
 **Edge Case: Environment variable expansion**
+
 ```powershell
 # Windows PowerShell 5.1 - Environment variable encoding
 $env:PATH  # UTF-16 internally, converted to current encoding
@@ -253,6 +267,7 @@ $env:PATH  # UTF-16 internally, converted to current encoding
 ```
 
 **Solution:**
+
 ```powershell
 # Explicitly handle encoding when working with registry/environment
 [Environment]::SetEnvironmentVariable("TEST_VAR", "Ümläut", "User")
@@ -264,6 +279,7 @@ $value = [Environment]::GetEnvironmentVariable("TEST_VAR", "User")
 HTTP and other network streams require explicit encoding handling:
 
 **Edge Case: Invoke-WebRequest response encoding**
+
 ```powershell
 # Windows PowerShell 5.1 - May misdetect encoding
 $response = Invoke-WebRequest -Uri "https://example.com/api"
@@ -273,6 +289,7 @@ $response.Content  # May be garbled if server doesn't send charset header
 ```
 
 **Solution:**
+
 ```powershell
 # Force UTF-8 decoding
 $response = Invoke-WebRequest -Uri "https://example.com/api"
@@ -284,6 +301,7 @@ $data = Invoke-RestMethod -Uri "https://example.com/api"
 ```
 
 **Edge Case: WebSocket and TCP stream encoding**
+
 ```powershell
 # TCP streams default to ASCII in Windows PowerShell 5.1
 $tcpClient = New-Object System.Net.Sockets.TcpClient("example.com", 80)
@@ -293,6 +311,7 @@ $writer.WriteLine("GET / HTTP/1.1")  # ASCII only
 ```
 
 **Solution:**
+
 ```powershell
 # Explicitly specify UTF-8 for network streams
 $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
@@ -303,6 +322,7 @@ $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF
 Scripts executed across different PowerShell versions need careful encoding:
 
 **Edge Case: Script file encoding**
+
 ```powershell
 # A script saved as UTF-8 with BOM works in both versions
 # A script saved as UTF-8 without BOM may fail in Windows PowerShell 5.1
@@ -314,6 +334,7 @@ Scripts executed across different PowerShell versions need careful encoding:
 ```
 
 **Solution - Script encoding best practices:**
+
 1. Save scripts as UTF-8 with BOM for Windows PowerShell 5.1 compatibility
 2. Or use ASCII-only in the first line and handle encoding in script:
 
@@ -329,6 +350,7 @@ Write-Host "日本語"
 When Keystone Core executes commands remotely, encoding must be handled carefully:
 
 **Edge Case: Remote command output corruption**
+
 ```powershell
 # Command output may be corrupted if:
 # 1. Remote system uses different code page
@@ -337,6 +359,7 @@ When Keystone Core executes commands remotely, encoding must be handled carefull
 ```
 
 **Keystone Core configuration for consistent remote encoding:**
+
 ```yaml
 # agent.yaml
 execution:
@@ -407,6 +430,7 @@ pwsh --version
 Keystone Core executes commands on Windows agents using PowerShell. Consider these factors:
 
 **Default Shell Selection:**
+
 ```yaml
 # agent.yaml
 execution:
@@ -425,6 +449,7 @@ execution:
 ```
 
 **PowerShell-specific commands:**
+
 ```bash
 # Execute PowerShell command (agent uses configured default_shell)
 kscorectl exec run "os:windows" -- powershell -Command "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10"
@@ -436,11 +461,13 @@ kscorectl exec run "os:windows" -- pwsh -Command "Get-Process | ForEach-Object -
 ### Troubleshooting PowerShell Issues
 
 **Issue: Script execution blocked by policy**
+
 ```
 Error: File cannot be loaded because running scripts is disabled on this system
 ```
 
 **Solution:**
+
 ```powershell
 # Check policy
 Get-ExecutionPolicy -List
@@ -450,11 +477,13 @@ Set-ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
 ```
 
 **Issue: Encoding problems in output**
+
 ```
 Output contains unexpected characters or garbled text
 ```
 
 **Solution:**
+
 ```powershell
 # Set console encoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -463,11 +492,13 @@ Output contains unexpected characters or garbled text
 ```
 
 **Issue: PowerShell Core not found**
+
 ```
 Error: pwsh.exe not found
 ```
 
 **Solution:**
+
 ```powershell
 # Check if PowerShell Core is installed
 Get-Command pwsh -ErrorAction SilentlyContinue
@@ -477,11 +508,13 @@ Get-Command pwsh -ErrorAction SilentlyContinue
 ```
 
 **Issue: WMI commands fail in PowerShell 7**
+
 ```
 Error: The term 'Get-WmiObject' is not recognized
 ```
 
 **Solution:**
+
 ```powershell
 # Use CIM cmdlets instead (work in both versions)
 Get-CimInstance -ClassName Win32_OperatingSystem  # Instead of Get-WmiObject
@@ -513,6 +546,7 @@ The agent can be installed as a Windows service that starts automatically on boo
 ```
 
 The service will be configured with:
+
 - **Name**: kscore-agent
 - **Display Name**: Keystone Core Agent
 - **Startup Type**: Automatic (Delayed Start)
@@ -537,6 +571,7 @@ C:\ProgramData\kscore\agent.yaml
 ```
 
 You can specify an alternate location using:
+
 - Command line: `--config C:\path\to\config.yaml`
 - Environment variable: `KSCORE_CONFIG=C:\path\to\config.yaml`
 
@@ -600,6 +635,7 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Keyston
 ```
 
 Configure agent to use custom channel:
+
 ```yaml
 # agent.yaml
 logging:
@@ -786,6 +822,7 @@ Create a custom view for Keystone Core events:
 ```
 
 Import via Event Viewer:
+
 1. Open Event Viewer (`eventvwr.msc`)
 2. Right-click Custom Views → Import Custom View
 3. Select the XML file
@@ -797,6 +834,7 @@ Import via Event Viewer:
 Forward Keystone Core events to a central collector:
 
 **Collector Configuration:**
+
 ```powershell
 # Enable Windows Event Collector service
 wecutil qc
@@ -832,6 +870,7 @@ wecutil cs subscription.xml
 ```
 
 **Source (Agent) Configuration:**
+
 ```powershell
 # Configure agent machine to forward events
 winrm quickconfig
@@ -852,6 +891,7 @@ renderXml = true
 ```
 
 **Splunk Search Queries:**
+
 ```spl
 # All Keystone Core events
 index=main sourcetype="WinEventLog:Application" source="WinEventLog:Application" KeystoneCore
@@ -888,6 +928,7 @@ output.elasticsearch:
 ```
 
 **Kibana Queries:**
+
 ```
 winlog.provider_name: "KeystoneCore" AND winlog.event_id: [3001 TO 3099]
 ```
@@ -921,6 +962,7 @@ Use Azure Monitor Agent to collect events:
 ```
 
 **KQL Queries in Sentinel:**
+
 ```kusto
 Event
 | where Source == "KeystoneCore"
@@ -956,6 +998,7 @@ wevtutil sl KeystoneCore /ab:true       # Auto-backup when full
 | Large (100+ agents) | ~100,000 | 100MB+ | 7 days |
 
 **Event sizes by type:**
+
 - Informational: ~500 bytes average
 - Warning: ~1KB average
 - Error: ~2KB average (includes stack traces)
@@ -1148,6 +1191,7 @@ Antivirus software can interfere with Keystone agent operations through file sca
 Configure these exclusions in your antivirus software:
 
 **Process Exclusions**:
+
 | Process | Path |
 |---------|------|
 | Agent executable | `C:\Program Files\kscore\kscore-agent.exe` |
@@ -1155,6 +1199,7 @@ Configure these exclusions in your antivirus software:
 | CLI tool | `C:\Program Files\kscore\kscorectl.exe` |
 
 **Path Exclusions**:
+
 | Path | Contents |
 |------|----------|
 | `C:\Program Files\kscore\` | Program binaries, modules |
@@ -1164,6 +1209,7 @@ Configure these exclusions in your antivirus software:
 | `C:\ProgramData\kscore\cache\` | Temporary files |
 
 **Extension Exclusions**:
+
 | Extension | Purpose |
 |-----------|---------|
 | `.wasm` | WebAssembly modules |
@@ -1172,6 +1218,7 @@ Configure these exclusions in your antivirus software:
 ### Windows Defender
 
 **PowerShell Configuration**:
+
 ```powershell
 # Add comprehensive exclusions
 # Process exclusions
@@ -1191,6 +1238,7 @@ Get-MpPreference | Select-Object -Property Exclusion*
 ```
 
 **Group Policy Configuration**:
+
 ```
 Computer Configuration
 └── Administrative Templates
@@ -1203,6 +1251,7 @@ Computer Configuration
 ```
 
 **Intune/Endpoint Manager**:
+
 ```json
 {
   "defenderExcludedPaths": [
@@ -1233,6 +1282,7 @@ Computer Configuration
    - Add hash exclusion for signed agent binary
 
 **PowerShell (requires Falcon toolkit)**:
+
 ```powershell
 # Install Falcon toolkit
 Install-Module -Name PSFalcon
@@ -1246,6 +1296,7 @@ New-FalconMLExclusion -Value "C:\Program Files\kscore\kscore-agent.exe" `
 ```
 
 **Response Prevention Exclusions**:
+
 ```
 Pattern: C:\Program Files\kscore\**
 Pattern Type: Glob
@@ -1268,6 +1319,7 @@ Apply To: All sensor groups (or specific groups)
 | Extension | `.wasm` |
 
 **Command Line (SEPM 14.3+)**:
+
 ```batch
 rem Add file exception
 sepmcli -addexclusion -type file -path "C:\Program Files\kscore\kscore-agent.exe"
@@ -1297,6 +1349,7 @@ Applies to: All scans
 ```
 
 **ExtraDAT Exclusion**:
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtraDAT>
@@ -1322,6 +1375,7 @@ Applies to: All scans
 | Extensions | `wasm` |
 
 **Apex One Server Script**:
+
 ```powershell
 # Using Apex One API
 $exclusions = @{
@@ -1354,6 +1408,7 @@ Invoke-RestMethod -Uri "https://apex-server/api/v1/exclusions" `
 | Mode | Suppress |
 
 **API Configuration**:
+
 ```powershell
 $headers = @{
     "Authorization" = "APIToken $ApiToken"
@@ -1396,6 +1451,7 @@ Value: kscore-agent.exe
 ```
 
 **Sophos Enterprise Console (On-Premises)**:
+
 ```
 Policy: Anti-virus and HIPS
 On-access scanning exclusions:
@@ -1418,6 +1474,7 @@ path: "C:\\Program Files\\kscore\\**"
 ```
 
 **CB Response/EDR**:
+
 ```
 Watchlist Exclusion:
 process_name:kscore-agent.exe OR path:C:\Program Files\kscore\*
@@ -1438,6 +1495,7 @@ Action: Allow
 | Process | `kscore-agent.exe` |
 
 **ESET Command Line**:
+
 ```batch
 rem Add exclusion via ESET command line
 ecmd /setvalue antivirusexclusions=C:\Program Files\kscore\*.*
@@ -1465,6 +1523,7 @@ Process: kscore-agent.exe
 For enterprise deployments, use GPO to deploy exclusions centrally:
 
 **PowerShell Startup Script**:
+
 ```powershell
 # deploy-av-exclusions.ps1
 # Deploy as Computer Startup Script via GPO
@@ -1487,6 +1546,7 @@ $logPath = "C:\Windows\Logs\kscore-av-exclusions.log"
 ```
 
 **GPO ADMX Template**:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions>
@@ -1508,6 +1568,7 @@ $logPath = "C:\Windows\Logs\kscore-av-exclusions.log"
 ### Verifying Exclusions
 
 **Test Script**:
+
 ```powershell
 # verify-av-exclusions.ps1
 function Test-AVExclusions {
@@ -1545,6 +1606,7 @@ Test-AVExclusions | Format-Table -AutoSize
 ### Monitoring AV Interference
 
 **Event Log Monitoring**:
+
 ```powershell
 # Monitor for AV blocking events
 $events = Get-WinEvent -FilterHashtable @{
@@ -1562,6 +1624,7 @@ if ($events) {
 ```
 
 **Agent Health Check**:
+
 ```yaml
 # Keystone state to verify AV exclusions
 av_exclusion_check:
@@ -1603,6 +1666,7 @@ UAC operates at several levels:
 | 0 | Never notify | UAC disabled (not recommended) |
 
 **Check current UAC level**:
+
 ```powershell
 $uacLevel = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 [PSCustomObject]@{
@@ -1622,6 +1686,7 @@ The Keystone agent runs as a Windows service under the SYSTEM account by default
 - Cannot interact with desktop sessions
 
 **Verify service account**:
+
 ```powershell
 $svc = Get-WmiObject Win32_Service -Filter "Name='kscore-agent'"
 $svc.StartName
@@ -1643,6 +1708,7 @@ execution:
 ```
 
 **Capabilities**:
+
 - Full registry access (HKLM, HKCR)
 - Access to all files and folders
 - Service management
@@ -1650,6 +1716,7 @@ execution:
 - No UAC prompts
 
 **Limitations**:
+
 - Cannot access user-specific resources (HKCU, user profiles)
 - Cannot interact with user desktop
 - Network access uses computer credentials
@@ -1668,6 +1735,7 @@ execution:
 ```
 
 **UAC Considerations for User Context**:
+
 ```yaml
 # Commands requiring elevation need special handling
 state:
@@ -1713,6 +1781,7 @@ Start-ScheduledTask -TaskName "KeystoneElevatedTask"
 ```
 
 **In Keystone state**:
+
 ```yaml
 elevated_task:
   module: command
@@ -1747,6 +1816,7 @@ Invoke-Command -ComputerName localhost -ScriptBlock {
 ```
 
 **Configuration for unattended remoting**:
+
 ```powershell
 # Allow unattended remoting with CredSSP
 Enable-WSManCredSSP -Role Server -Force
@@ -1767,6 +1837,7 @@ install_software:
 ```
 
 For MSI installers:
+
 ```yaml
 install_msi:
   module: command
@@ -1864,6 +1935,7 @@ whoami /priv
 ```
 
 **Common causes**:
+
 - File system virtualization redirecting writes
 - Registry virtualization
 - Protected folders (Program Files, Windows)
@@ -1920,6 +1992,7 @@ For enterprise deployments, configure UAC via Group Policy:
 | Auto-elevate signed binaries | `...\User Account Control: Only elevate executables that are signed and validated` | Enabled |
 
 **Export/Import UAC settings**:
+
 ```powershell
 # Export
 secedit /export /cfg C:\uac-settings.inf /areas SECURITYPOLICY
@@ -2537,16 +2610,19 @@ check_and_set:
 ### Service Won't Start
 
 1. Check Event Log for errors:
+
    ```powershell
    Get-EventLog -LogName Application -Source KeystoneCore -Newest 10
    ```
 
 2. Verify configuration file exists and is valid:
+
    ```powershell
    Test-Path C:\ProgramData\kscore\agent.yaml
    ```
 
 3. Run in console mode to see errors:
+
    ```powershell
    .\kscore-agent.exe --config C:\ProgramData\kscore\agent.yaml
    ```
@@ -2554,16 +2630,19 @@ check_and_set:
 ### Connection Issues
 
 1. Test connectivity to NATS server:
+
    ```powershell
    Test-NetConnection -ComputerName nats.example.com -Port 4222
    ```
 
 2. Check firewall rules:
+
    ```powershell
    Get-NetFirewallRule -DisplayName "*Keystone*"
    ```
 
 3. Verify TLS certificates:
+
    ```powershell
    Test-Path C:\ProgramData\kscore\ca.crt
    ```
@@ -2585,6 +2664,7 @@ logging:
 ```
 
 Then restart the service:
+
 ```powershell
 Restart-Service kscore-agent
 ```
@@ -2668,6 +2748,7 @@ ENVIRONMENT=production
 6. Click **OK**
 
 **Using PowerShell**:
+
 ```powershell
 # Import GroupPolicy module
 Import-Module GroupPolicy
@@ -2790,6 +2871,7 @@ Use GPP to deploy configuration files:
 2. Add custom registry settings for agent configuration
 
 **Example Registry Items**:
+
 | Hive | Path | Name | Type | Value |
 |------|------|------|------|-------|
 | HKLM | SOFTWARE\Keystone\Agent | ServerUrl | REG_SZ | nats://nats.example.com:4222 |
@@ -2889,16 +2971,19 @@ Get-WinEvent -FilterHashtable @{
 ```
 
 **Installation Command**:
+
 ```cmd
 msiexec /i "kscore-agent.msi" /qn SERVERURL=nats://nats.example.com:4222 AGENTID=%COMPUTERNAME% /l*v "%TEMP%\kscore-install.log"
 ```
 
 **Uninstall Command**:
+
 ```cmd
 msiexec /x {PRODUCT-GUID} /qn
 ```
 
 **Detection Script (PowerShell)**:
+
 ```powershell
 # SCCM Detection Script
 $service = Get-Service -Name "kscore-agent" -ErrorAction SilentlyContinue
@@ -2945,22 +3030,26 @@ Start-Process msiexec -ArgumentList "/i `"$msiPath`" /qn SERVERURL=$ServerUrl AG
 #### Configure in Intune
 
 **App Information**:
+
 - Name: `Keystone Agent`
 - Publisher: `Anthropic`
 - App version: `1.0.0`
 
 **Program**:
+
 - Install command: `powershell.exe -ExecutionPolicy Bypass -File install.ps1 -ServerUrl "nats://nats.example.com:4222"`
 - Uninstall command: `msiexec /x {PRODUCT-GUID} /qn`
 - Install behavior: `System`
 
 **Detection Rules**:
+
 | Rule Type | Path | Detection Method |
 |-----------|------|-----------------|
 | File | `C:\Program Files\kscore\kscore-agent.exe` | File or folder exists |
 | Registry | `HKLM\SOFTWARE\Keystone\Agent\Version` | String comparison |
 
 **Requirements**:
+
 - OS architecture: `64-bit`
 - Minimum OS: `Windows 10 1809`
 
@@ -3013,6 +3102,7 @@ msiexec /x {PRODUCT-GUID} /qn
 ### Post-Deployment Verification
 
 **PowerShell Verification Script**:
+
 ```powershell
 # verify-deployment.ps1
 param(
@@ -3034,6 +3124,7 @@ $results | Format-Table -AutoSize
 ```
 
 **SCCM Collection Query**:
+
 ```sql
 SELECT
     R.Name0,
@@ -3058,6 +3149,7 @@ This section covers common Windows-specific issues and their solutions.
 **Symptoms**: Service fails to start, Event ID 7000/7009 in Event Log
 
 **Diagnostic Steps**:
+
 ```powershell
 # Check service status
 Get-Service kscore-agent | Format-List *
@@ -3090,6 +3182,7 @@ Get-WinEvent -FilterHashtable @{
 | Missing dependencies | Ensure VC++ Redistributable is installed |
 
 **Fix service account permissions**:
+
 ```powershell
 # Grant "Log on as a service" right
 $sid = (New-Object System.Security.Principal.NTAccount("DOMAIN\ServiceAccount")).Translate(
@@ -3110,6 +3203,7 @@ Remove-Item $tmp
 **Symptoms**: Service starts then stops, Event ID 7034 (unexpected termination)
 
 **Diagnostic Steps**:
+
 ```powershell
 # Check for crash dumps
 Get-ChildItem "$env:LOCALAPPDATA\CrashDumps" -Filter "*kscore*"
@@ -3165,6 +3259,7 @@ $recoveryActions = @(
 **Symptoms**: Agent shows disconnected status, connection timeout errors
 
 **Diagnostic Steps**:
+
 ```powershell
 # Test network connectivity
 Test-NetConnection -ComputerName nats.example.com -Port 4222
@@ -3192,6 +3287,7 @@ Get-WinEvent -FilterHashtable @{
 ```
 
 **Firewall Configuration**:
+
 ```powershell
 # Allow outbound NATS connections
 New-NetFirewallRule -DisplayName "Keystone Agent Outbound" `
@@ -3225,6 +3321,7 @@ proxy:
 ```
 
 **Verify proxy connectivity**:
+
 ```powershell
 # Test proxy connection
 $proxy = New-Object System.Net.WebProxy("http://proxy.example.com:8080")
@@ -3241,6 +3338,7 @@ $response.StatusCode
 **Symptoms**: "certificate verify failed", "unknown authority" errors
 
 **Diagnostic Steps**:
+
 ```powershell
 # View certificate chain
 $uri = "https://control-plane.example.com:8080"
@@ -3262,6 +3360,7 @@ Get-ChildItem Cert:\LocalMachine\Root | Where-Object {
 ```
 
 **Install custom CA certificate**:
+
 ```powershell
 # Import CA to trusted root store
 $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2("C:\certs\ca.crt")
@@ -3315,6 +3414,7 @@ Set-Acl $keyFullPath $acl
 **Symptoms**: Exit code 5 (Access Denied), commands don't execute
 
 **Diagnostic Steps**:
+
 ```powershell
 # Check service account privileges
 whoami /priv
@@ -3330,6 +3430,7 @@ Start-Process powershell -Credential $cred -ArgumentList "-Command", "whoami /pr
 **Common Solutions**:
 
 1. **Run agent as SYSTEM**:
+
 ```powershell
 # Change service to LocalSystem
 Set-Service -Name kscore-agent -StartupType Automatic
@@ -3337,7 +3438,8 @@ sc.exe config kscore-agent obj= "LocalSystem"
 Restart-Service kscore-agent
 ```
 
-2. **Grant specific privileges**:
+1. **Grant specific privileges**:
+
 ```powershell
 # Export current security policy
 secedit /export /cfg C:\secpol.cfg
@@ -3367,6 +3469,7 @@ powershell -ExecutionPolicy Bypass -File "script.ps1"
 ```
 
 **Configure in agent.yaml**:
+
 ```yaml
 execution:
   powershell:
@@ -3403,6 +3506,7 @@ execution:
 **Symptoms**: Agent consuming excessive CPU
 
 **Diagnostic Steps**:
+
 ```powershell
 # Check agent process
 Get-Process -Name kscore-agent | Format-List *
@@ -3455,6 +3559,7 @@ Get-Counter "\Process(kscore-agent)\Private Bytes" -SampleInterval 60 -MaxSample
 ```
 
 **Memory optimization**:
+
 ```yaml
 # agent.yaml
 resources:
@@ -3474,6 +3579,7 @@ resources:
 **Symptoms**: State application errors, partial changes
 
 **Diagnostic Steps**:
+
 ```powershell
 # Run state in dry-run mode (check what would change)
 kscorectl state apply --target "this-agent" --dry-run
@@ -3512,6 +3618,7 @@ Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\YourApp"
 ```
 
 **Registry state best practices**:
+
 ```yaml
 # Explicitly specify registry view
 registry_value:

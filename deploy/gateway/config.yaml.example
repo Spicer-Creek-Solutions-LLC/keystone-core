@@ -3,162 +3,151 @@
 
 # NATS connection settings
 nats:
-  # URL to connect to NATS
-  url: "nats://localhost:4222"
+  # NATS server URLs
+  urls:
+    - "nats://localhost:4222"
 
-  # Optional: Path to CA certificate for TLS
-  # ca_cert: "/path/to/ca.crt"
+  # Cluster name for subject prefixing
+  cluster: "default"
 
-  # Optional: Path to client certificate for mTLS
-  # cert: "/path/to/client.crt"
+  # Optional: Credentials file for JWT/NKey auth
+  # credentials_file: "/path/to/gateway.creds"
 
-  # Optional: Path to client private key for mTLS
-  # key: "/path/to/client.key"
+  # Optional: TLS configuration
+  # tls:
+  #   enabled: true
+  #   cert_file: "/path/to/client.crt"
+  #   key_file: "/path/to/client.key"
+  #   ca_file: "/path/to/ca.crt"
+
+  # Reconnect settings
+  max_reconnects: -1
+  reconnect_wait: 2s
 
 # HTTP server settings
 server:
   # Address to listen on
   listen: ":8080"
 
-  # Read timeout
+  # Endpoint paths
+  metrics_path: "/metrics"
+  health_path: "/health"
+  ready_path: "/ready"
+  federate_path: "/federate"
+
+  # Timeouts
   read_timeout: 30s
-
-  # Write timeout
   write_timeout: 30s
-
-  # Optional: TLS configuration
-  # tls:
-  #   cert: "/path/to/server.crt"
-  #   key: "/path/to/server.key"
 
 # Metrics gateway configuration
 metrics:
   # Enable metrics gateway
   enabled: true
 
-  # Maximum staleness age for agent metrics
-  max_age: 60s
+  # NATS subject to subscribe to for metrics (supports wildcards)
+  subject: "keystone.metrics.>"
 
-  # Maximum number of metric series
-  max_series: 100000
-
-  # Maximum labels per series
-  max_labels_per_series: 20
-
-  # Drop high-cardinality metrics
-  drop_high_cardinality: false
-
-  # Threshold for high-cardinality detection
-  high_cardinality_threshold: 1000
-
-  # Optional: Remote write to Prometheus-compatible backends
-  # remote_write:
-  #   - url: "http://prometheus:9090/api/v1/write"
-  #     batch_size: 1000
-  #     flush_interval: 15s
-  #     timeout: 30s
-  #     max_retries: 3
-  #
-  #     # Optional: Headers
-  #     headers:
-  #       X-Custom-Header: "value"
-  #
-  #     # Optional: Basic auth
-  #     basic_auth:
-  #       username: "admin"
-  #       password: "secret"
-  #
-  #     # Optional: Bearer token
-  #     bearer_token: "your-token"
+  # Remove agents not seen for this duration
+  stale_timeout: 5m
 
   # Label transformations
-  # label_transforms:
+  # labels:
   #   add:
   #     cluster: "prod-us-east-1"
   #   drop:
   #     - internal_metric
   #   rewrite:
-  #     old_name: new_name
+  #     - source: old_name
+  #       target: new_name
+
+  # Cardinality control
+  cardinality:
+    max_series: 100000
+    max_labels_per_series: 20
+    drop_high_cardinality: false
+
+  # Optional: Remote write to Prometheus-compatible backends
+  # remote_write:
+  #   enabled: true
+  #   url: "http://prometheus:9090/api/v1/write"
+  #   batch_size: 1000
+  #   flush_interval: 15s
+  #   auth:
+  #     type: "basic"
+  #     username: "admin"
+  #     password: "secret"
+
+  # Federation settings
+  # federation:
+  #   enabled: true
+  #   path: "/federate"
 
 # Logs gateway configuration
 logs:
   # Enable logs gateway
   enabled: true
 
-  # Maximum number of log entries to keep in memory
-  max_entries: 100000
+  # NATS subject to subscribe to for logs
+  subject: "keystone.logs.>"
 
-  # Maximum age for log entries
-  max_age: 1h
+  # Minimum log level (debug, info, warn, error)
+  # min_level: "info"
 
-  # Minimum log level to store (debug, info, warn, error)
-  min_level: "debug"
-
-  # Only include logs from these sources (empty = all)
-  include_sources: []
-
-  # Exclude logs from these sources
-  exclude_sources: []
+  # Optional: Source filtering
+  # sources:
+  #   include: []
+  #   exclude: []
 
   # Optional: Push to Loki
   # loki:
+  #   enabled: true
   #   url: "http://loki:3100/loki/api/v1/push"
   #   batch_size: 100
-  #   flush_interval: 5s
-  #   timeout: 10s
-  #   max_retries: 3
-  #
-  #   # Optional: Tenant ID for multi-tenant Loki
-  #   tenant_id: "default"
-  #
-  #   # Optional: Basic auth
-  #   basic_auth:
-  #     username: "admin"
-  #     password: "secret"
+  #   batch_wait: 1s
+
+  # Optional: Push to Elasticsearch
+  # elasticsearch:
+  #   enabled: true
+  #   urls:
+  #     - "http://elasticsearch:9200"
+  #   index: "kscore-logs-%Y.%m.%d"
+  #   batch_size: 500
 
 # Traces gateway configuration
 traces:
   # Enable traces gateway
   enabled: true
 
-  # Maximum number of traces to keep in memory
-  max_traces: 10000
+  # NATS subject to subscribe to for traces
+  subject: "keystone.traces.>"
 
-  # Maximum age for traces
-  max_age: 1h
-
-  # Sampling rate (0.0 to 1.0)
-  sampling_rate: 1.0
-
-  # Always sample traces with errors
-  sample_errors: true
-
-  # Always sample traces slower than this
-  slow_threshold: 1s
+  # Sampling configuration
+  # sampling:
+  #   enabled: true
+  #   rate: 1.0
+  #   priority_sample:
+  #     errors: true
+  #     slow_threshold: 1s
 
   # Optional: Export to OTLP endpoint (Tempo, Jaeger, etc.)
   # otlp:
-  #   url: "http://tempo:4318/v1/traces"
+  #   enabled: true
+  #   endpoint: "http://tempo:4318/v1/traces"
+  #   protocol: grpc
+  #   compression: gzip
   #   batch_size: 100
   #   flush_interval: 5s
-  #   timeout: 10s
-  #   max_retries: 3
-  #   use_gzip: true
-  #
-  #   # Optional: Headers
-  #   headers:
-  #     X-Custom-Header: "value"
 
 # High availability configuration
 ha:
   # Enable HA mode
   enabled: false
 
-  # Instance ID (must be unique per instance)
-  instance_id: "gateway-1"
+  # Queue group name for distributing work
+  queue_group: "kscore-gateway"
 
-  # Shard count for distributing work
-  shard_count: 1
-
-  # Cleanup interval for stale data
-  cleanup_interval: 1m
+  # Leader election settings
+  # leader_election:
+  #   enabled: true
+  #   lease_duration: 15s
+  #   renew_deadline: 10s

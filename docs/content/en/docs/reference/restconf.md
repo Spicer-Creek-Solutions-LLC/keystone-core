@@ -12,6 +12,7 @@ The RESTCONF protocol adapter implements RFC 8040 (RESTCONF Protocol) over HTTPS
 RESTCONF complements NETCONF by providing the same YANG data model access via REST APIs instead of XML-over-SSH.
 
 **Key features**:
+
 - Full RFC 8040 data operation set (GET, POST, PUT, PATCH, DELETE)
 - YANG RPC/action invocation
 - Server-Sent Events (SSE) for notification streams

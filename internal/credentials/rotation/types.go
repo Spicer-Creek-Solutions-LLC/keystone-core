@@ -10,6 +10,7 @@ import (
 // CredRotationState represents the state of a credential rotation job.
 type CredRotationState string
 
+// Credential rotation states.
 const (
 	CredRotationPending     CredRotationState = "pending"
 	CredRotationValidating  CredRotationState = "validating_old"
@@ -37,6 +38,7 @@ func (s CredRotationState) IsTerminal() bool {
 // CredRotationEvent represents events that trigger state transitions.
 type CredRotationEvent string
 
+// Credential rotation event types.
 const (
 	CredRotationEventStart      CredRotationEvent = "start"
 	CredRotationEventValidated  CredRotationEvent = "validated"
@@ -60,8 +62,8 @@ type DeviceInfo struct {
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
-// RotationJob represents a single credential rotation operation.
-type RotationJob struct {
+// Job represents a single credential rotation operation.
+type Job struct {
 	ID             string                   `json:"id"`
 	DeviceID       string                   `json:"device_id"`
 	CredentialID   string                   `json:"credential_id"`
@@ -77,8 +79,8 @@ type RotationJob struct {
 	Error          string                   `json:"error,omitempty"`
 }
 
-// RotationResult contains the outcome of a credential rotation.
-type RotationResult struct {
+// Result contains the outcome of a credential rotation.
+type Result struct {
 	JobID          string                   `json:"job_id"`
 	CredentialID   string                   `json:"credential_id"`
 	CredentialType credentials.CredentialType `json:"credential_type"`
@@ -94,6 +96,7 @@ type RotationResult struct {
 // PolicyAction indicates what action a policy evaluation recommends.
 type PolicyAction string
 
+// Policy evaluation action results.
 const (
 	PolicyActionOK      PolicyAction = "ok"
 	PolicyActionWarning PolicyAction = "warning"
@@ -101,8 +104,8 @@ const (
 	PolicyActionExpired PolicyAction = "expired"
 )
 
-// RotationPolicy defines when and how credentials should be rotated.
-type RotationPolicy struct {
+// Policy defines when and how credentials should be rotated.
+type Policy struct {
 	ID              string                      `json:"id"`
 	Name            string                      `json:"name"`
 	CredentialTypes []credentials.CredentialType `json:"credential_types"`

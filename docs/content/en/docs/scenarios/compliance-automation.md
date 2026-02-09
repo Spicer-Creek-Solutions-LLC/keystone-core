@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 This scenario implements automated compliance management:
+
 - **Security Baselines**: Enforce CIS benchmarks and custom standards
 - **Policy Enforcement**: Use OPA/CEL policies to prevent misconfigurations
 - **Continuous Auditing**: Real-time compliance monitoring
@@ -16,6 +17,7 @@ This scenario implements automated compliance management:
 ### Business Context
 
 Organizations need to:
+
 - Meet regulatory requirements (SOC 2, PCI-DSS, HIPAA, FedRAMP)
 - Pass security audits with minimal effort
 - Prevent compliance drift

@@ -2,6 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,6 +32,8 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"emit",
 		"replay",
 		"watch",
+		"subscribe",
+		"export",
 		"retention",
 		"dlq",
 	}
@@ -402,5 +408,333 @@ func TestMin(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("min(%d, %d) = %d, want %d", tt.a, tt.b, result, tt.expected)
 		}
+	}
+}
+
+func TestNewSubscribeCmd(t *testing.T) {
+	cmd := newSubscribeCmd()
+
+	if cmd == nil {
+		t.Fatal("newSubscribeCmd should not return nil")
+	}
+	if cmd.Use != "subscribe <pattern>" {
+		t.Errorf("Use = %v, want 'subscribe <pattern>'", cmd.Use)
+	}
+
+	flags := []string{"filter-type", "filter-severity", "output"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestSubscribeRequiresPattern(t *testing.T) {
+	cmd := newSubscribeCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no pattern argument is provided")
+	}
+}
+
+func TestSubscribeTableOutput(t *testing.T) {
+	cmd := newSubscribeCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"agent.*"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Subscribed to agent.*...") {
+		t.Error("output should contain subscription confirmation message")
+	}
+	if !strings.Contains(out, "agent.") {
+		t.Error("output should contain matching agent events")
+	}
+}
+
+func TestSubscribeJSONOutput(t *testing.T) {
+	cmd := newSubscribeCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"agent.*", "--output", "json"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Subscribed to agent.*...") {
+		t.Error("output should contain subscription confirmation message")
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	for _, line := range lines[1:] {
+		if line == "" {
+			continue
+		}
+		var event EventDisplay
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Errorf("expected valid JSON line, got parse error: %v for line: %s", err, line)
+		}
+	}
+}
+
+func TestSubscribeSeverityFilter(t *testing.T) {
+	cmd := newSubscribeCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"*", "--filter-severity", "warning"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if strings.Contains(out, "  debug\n") {
+		t.Error("output should not contain debug events when filtering for warning+")
+	}
+	if strings.Contains(out, "  info\n") {
+		t.Error("output should not contain info events when filtering for warning+")
+	}
+}
+
+func TestSubscribeInvalidSeverity(t *testing.T) {
+	cmd := newSubscribeCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"*", "--filter-severity", "invalid"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid severity")
+	}
+}
+
+func TestSubscribeOptionsStructure(t *testing.T) {
+	opts := SubscribeOptions{
+		FilterType:     "agent.connect",
+		FilterSeverity: "warning",
+		Output:         "json",
+	}
+
+	if opts.FilterType != "agent.connect" {
+		t.Errorf("FilterType = %v, want agent.connect", opts.FilterType)
+	}
+	if opts.FilterSeverity != "warning" {
+		t.Errorf("FilterSeverity = %v, want warning", opts.FilterSeverity)
+	}
+	if opts.Output != "json" {
+		t.Errorf("Output = %v, want json", opts.Output)
+	}
+}
+
+func TestNewExportCmd(t *testing.T) {
+	cmd := newExportCmd()
+
+	if cmd == nil {
+		t.Fatal("newExportCmd should not return nil")
+	}
+	if cmd.Use != "export" {
+		t.Errorf("Use = %v, want export", cmd.Use)
+	}
+
+	flags := []string{"output", "format", "start", "end", "type", "limit"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestExportRequiresOutput(t *testing.T) {
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when --output is not provided")
+	}
+}
+
+func TestExportJSON(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "events.json")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--limit", "5"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Exported 5 event(s)") {
+		t.Errorf("expected export confirmation, got: %s", out)
+	}
+	if !strings.Contains(out, "format: json") {
+		t.Errorf("expected format: json in output, got: %s", out)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	var events []EventDisplay
+	if err := json.Unmarshal(data, &events); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if len(events) != 5 {
+		t.Errorf("expected 5 events in JSON, got %d", len(events))
+	}
+}
+
+func TestExportCSV(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "events.csv")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--format", "csv", "--limit", "3"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Exported 3 event(s)") {
+		t.Errorf("expected export confirmation, got: %s", out)
+	}
+	if !strings.Contains(out, "format: csv") {
+		t.Errorf("expected format: csv in output, got: %s", out)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	// header + 3 data rows
+	if len(lines) != 4 {
+		t.Errorf("expected 4 lines in CSV (header + 3 rows), got %d", len(lines))
+	}
+	if !strings.HasPrefix(lines[0], "id,type,source,severity,timestamp,correlation_id") {
+		t.Errorf("unexpected CSV header: %s", lines[0])
+	}
+}
+
+func TestExportWithTypeFilter(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "filtered.json")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--type", "agent.connect", "--limit", "20"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	var events []EventDisplay
+	if err := json.Unmarshal(data, &events); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	for _, e := range events {
+		if e.Type != "agent.connect" {
+			t.Errorf("expected all events to be agent.connect, got %s", e.Type)
+		}
+	}
+}
+
+func TestExportInvalidFormat(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "events.txt")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--format", "xml"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for unsupported format")
+	}
+}
+
+func TestExportInvalidStartTime(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "events.json")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--start", "not-a-time"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid start time")
+	}
+}
+
+func TestExportInvalidEndTime(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "events.json")
+
+	cmd := newExportCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--output", outFile, "--end", "not-a-time"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid end time")
+	}
+}
+
+func TestExportOptionsStructure(t *testing.T) {
+	opts := ExportOptions{
+		Output: "events.json",
+		Format: "csv",
+		Start:  "2024-01-01T00:00:00Z",
+		End:    "2024-01-02T00:00:00Z",
+		Type:   "agent.connect",
+		Limit:  500,
+	}
+
+	if opts.Output != "events.json" {
+		t.Errorf("Output = %v, want events.json", opts.Output)
+	}
+	if opts.Format != "csv" {
+		t.Errorf("Format = %v, want csv", opts.Format)
+	}
+	if opts.Limit != 500 {
+		t.Errorf("Limit = %d, want 500", opts.Limit)
 	}
 }

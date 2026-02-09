@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 This scenario deploys a complete 3-tier web application consisting of:
+
 - **Load Balancer Tier**: Nginx reverse proxy with SSL termination
 - **Application Tier**: Node.js/Python application servers
 - **Database Tier**: PostgreSQL with replication
@@ -15,6 +16,7 @@ This scenario deploys a complete 3-tier web application consisting of:
 ### Business Context
 
 A typical enterprise web application requires:
+
 - High availability across all tiers
 - SSL/TLS termination at the edge
 - Horizontal scaling for application servers
@@ -527,6 +529,7 @@ kscorectl exec run "lb-01" -- ab -n 10000 -c 100 https://webapp.example.com/
 ### Common Issues
 
 **502 Bad Gateway from Nginx**
+
 ```bash
 # Check if app servers are running
 kscorectl exec run "tier:application" -- systemctl status webapp
@@ -536,6 +539,7 @@ kscorectl exec run "tier:loadbalancer" -- sh -c "nginx -t && tail -50 /var/log/n
 ```
 
 **Database Connection Failures**
+
 ```bash
 # Verify PostgreSQL is listening
 kscorectl exec run "tier:database" -- sh -c "ss -tlnp | grep 5432"
@@ -548,6 +552,7 @@ kscorectl exec run "app-01" -- sh -c "PGPASSWORD=xxx psql -h 10.0.3.10 -U webapp
 ```
 
 **Replication Lag**
+
 ```bash
 # Check replication lag on primary
 kscorectl exec run "tier:database and role:primary" -- \

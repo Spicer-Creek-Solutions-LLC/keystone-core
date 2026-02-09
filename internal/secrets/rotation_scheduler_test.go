@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -383,13 +384,13 @@ func TestRotationScheduler(t *testing.T) {
 		orchestrator := NewRotationOrchestrator(broker)
 		scheduler := NewRotationScheduler(orchestrator)
 
-		var startCalled, completeCalled bool
+		var startCalled, completeCalled atomic.Bool
 		scheduler.SetCallbacks(
 			func(s *ScheduledRotation) {
-				startCalled = true
+				startCalled.Store(true)
 			},
 			func(s *ScheduledRotation, r *RotationResult) {
-				completeCalled = true
+				completeCalled.Store(true)
 			},
 		)
 
@@ -409,10 +410,10 @@ func TestRotationScheduler(t *testing.T) {
 		_ = scheduler.TriggerNow("sched-1")
 		time.Sleep(200 * time.Millisecond)
 
-		if !startCalled {
+		if !startCalled.Load() {
 			t.Error("start callback should be called")
 		}
-		if !completeCalled {
+		if !completeCalled.Load() {
 			t.Error("complete callback should be called")
 		}
 	})

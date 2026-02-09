@@ -23,8 +23,13 @@ import (
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/policy"
 	"github.com/shawnbutts/keystone-core/internal/state"
+	"github.com/shawnbutts/keystone-core/pkg/api/agents"
+	apiapikeys "github.com/shawnbutts/keystone-core/pkg/api/apikeys"
 	"github.com/shawnbutts/keystone-core/pkg/api/auth"
+	"github.com/shawnbutts/keystone-core/pkg/api/execution"
+	"github.com/shawnbutts/keystone-core/pkg/api/maintenance"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
+	apistate "github.com/shawnbutts/keystone-core/pkg/api/state"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
@@ -311,6 +316,14 @@ func runServer(cmd *cobra.Command, args []string) {
 		writeJSONResponse(w, http.StatusOK, status)
 	})
 
+	// Register REST API handlers
+	agents.NewHandler(connMgr).RegisterRoutes(httpMux)
+	execution.NewHandler(dispatcher, connMgr).RegisterRoutes(httpMux)
+	apistate.NewHandler().RegisterRoutes(httpMux)
+	maintenance.NewHandler(maintenance.NewMemoryStore()).RegisterRoutes(httpMux)
+	apiapikeys.NewHandler(apiapikeys.NewMemoryStore()).RegisterRoutes(httpMux)
+	logger.Info("REST API handlers registered")
+
 	// Create HTTP listeners for each address
 	httpListenerCfg := &server.ListenerConfig{
 		Addresses:     grpcListenAddrs, // Use same addresses as gRPC
@@ -561,9 +574,9 @@ func (a *stateStoreAdapter) ListAgents(ctx context.Context, filter *controlplane
 		return nil, err
 	}
 
-	agents := make([]controlplane.StoredAgent, len(records))
+	result := make([]controlplane.StoredAgent, len(records))
 	for i, r := range records {
-		agents[i] = controlplane.StoredAgent{
+		result[i] = controlplane.StoredAgent{
 			ID:           r.ID,
 			Hostname:     r.Hostname,
 			OS:           r.OS,
@@ -575,7 +588,7 @@ func (a *stateStoreAdapter) ListAgents(ctx context.Context, filter *controlplane
 			LastSeen:     r.LastHeartbeat,
 		}
 	}
-	return agents, nil
+	return result, nil
 }
 
 func (a *stateStoreAdapter) GetAgent(ctx context.Context, agentID string) (*controlplane.StoredAgent, error) {

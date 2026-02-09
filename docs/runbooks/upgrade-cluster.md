@@ -207,17 +207,17 @@ kscorectl upgrade status --watch
 
 ### Within 24 hours
 
-4. [ ] Review post-upgrade metrics
-5. [ ] Address any new warnings
-6. [ ] Update documentation
-7. [ ] Clean up old version artifacts
+1. [ ] Review post-upgrade metrics
+2. [ ] Address any new warnings
+3. [ ] Update documentation
+4. [ ] Clean up old version artifacts
 
 ### If Rollback Occurred
 
-8. [ ] Collect diagnostics
-9. [ ] File issue with details
-10. [ ] Schedule post-mortem
-11. [ ] Plan retry after fix
+1. [ ] Collect diagnostics
+2. [ ] File issue with details
+3. [ ] Schedule post-mortem
+4. [ ] Plan retry after fix
 
 ## Appendix: Upgrade Strategies
 

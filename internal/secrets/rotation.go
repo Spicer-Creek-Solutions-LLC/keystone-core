@@ -1174,12 +1174,12 @@ func (s *BlueGreenStrategy) Execute(ctx context.Context, rotation *ManagedRotati
 		go func(t *RotationTarget) { //nolint:contextcheck // goroutine calls MarkBatchProgress which uses state machine
 			defer wg.Done()
 
+			mu.Lock()
 			// Simulate target update
 			// In real implementation, this would push the secret to the target
 			t.UpdatedAt = time.Now()
 			t.TransitionTarget(TargetEventUpdateSuccess)
 
-			mu.Lock()
 			if firstErr == nil {
 				// Update progress
 				updated := 0

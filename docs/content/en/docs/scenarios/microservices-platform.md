@@ -215,6 +215,7 @@ kscorectl exec run "role:k8s-master" -- \
 ### Sidecar Not Injecting
 
 Ensure namespace has the injection label:
+
 ```bash
 kubectl label namespace microservices istio-injection=enabled
 ```
@@ -222,6 +223,7 @@ kubectl label namespace microservices istio-injection=enabled
 ### Circuit Breaker Triggering
 
 Check outlier detection settings and service health:
+
 ```bash
 istioctl proxy-config cluster deploy/api-gateway -n microservices
 ```

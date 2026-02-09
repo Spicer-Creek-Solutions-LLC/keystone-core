@@ -28,6 +28,10 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"show",
 		"history",
 		"rollback",
+		"compile",
+		"vars",
+		"export",
+		"restore",
 	}
 
 	for _, expected := range expectedSubcommands {
@@ -118,7 +122,7 @@ func TestDriftCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	flags := []string{"target", "vars"}
+	flags := []string{"target", "vars", "fix"}
 	for _, flag := range flags {
 		if driftCmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag %q not found", flag)
@@ -227,5 +231,235 @@ func TestHasRequisites(t *testing.T) {
 	emptyReq := &statemgmt.Requisites{}
 	if hasRequisites(emptyReq) {
 		t.Error("hasRequisites should return false for empty requisites")
+	}
+}
+
+func TestCompileCmd(t *testing.T) {
+	if compileCmd == nil {
+		t.Fatal("compileCmd should not be nil")
+	}
+	if compileCmd.Use != "compile <statefile>" {
+		t.Errorf("Use = %v, want 'compile <statefile>'", compileCmd.Use)
+	}
+
+	// Check flags exist
+	flags := []string{"vars", "vars-file", "output"}
+	for _, flag := range flags {
+		if compileCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestVarsCmd(t *testing.T) {
+	if varsCmd == nil {
+		t.Fatal("varsCmd should not be nil")
+	}
+	if varsCmd.Use != "vars" {
+		t.Errorf("Use = %v, want 'vars'", varsCmd.Use)
+	}
+
+	// Check subcommands exist
+	subcommands := []string{"get", "list"}
+	for _, expected := range subcommands {
+		found := false
+		for _, sub := range varsCmd.Commands() {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected subcommand %q not found on vars", expected)
+		}
+	}
+}
+
+func TestVarsGetCmd(t *testing.T) {
+	if varsGetCmd == nil {
+		t.Fatal("varsGetCmd should not be nil")
+	}
+	if varsGetCmd.Use != "get <key>" {
+		t.Errorf("Use = %v, want 'get <key>'", varsGetCmd.Use)
+	}
+
+	// Check flags exist
+	flags := []string{"scope", "agent", "role"}
+	for _, flag := range flags {
+		if varsGetCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestVarsListCmd(t *testing.T) {
+	if varsListCmd == nil {
+		t.Fatal("varsListCmd should not be nil")
+	}
+	if varsListCmd.Use != "list" {
+		t.Errorf("Use = %v, want 'list'", varsListCmd.Use)
+	}
+
+	// Check flags exist
+	flags := []string{"scope", "agent", "role"}
+	for _, flag := range flags {
+		if varsListCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestVarsGetExecute_AgentScopeRequiresAgent(t *testing.T) {
+	varsGetScope = "agent"
+	varsGetAgent = ""
+	err := varsGetExecute(varsGetCmd, []string{"http_port"})
+	if err == nil {
+		t.Error("expected error when scope is agent but --agent is not set")
+	}
+}
+
+func TestVarsGetExecute_RoleScopeRequiresRole(t *testing.T) {
+	varsGetScope = "role"
+	varsGetRole = ""
+	err := varsGetExecute(varsGetCmd, []string{"http_port"})
+	if err == nil {
+		t.Error("expected error when scope is role but --role is not set")
+	}
+}
+
+func TestVarsListExecute_AgentScopeRequiresAgent(t *testing.T) {
+	varsListScope = "agent"
+	varsListAgent = ""
+	err := varsListExecute(varsListCmd, []string{})
+	if err == nil {
+		t.Error("expected error when scope is agent but --agent is not set")
+	}
+}
+
+func TestVarsListExecute_RoleScopeRequiresRole(t *testing.T) {
+	varsListScope = "role"
+	varsListRole = ""
+	err := varsListExecute(varsListCmd, []string{})
+	if err == nil {
+		t.Error("expected error when scope is role but --role is not set")
+	}
+}
+
+func TestExportCmd(t *testing.T) {
+	if exportCmd == nil {
+		t.Fatal("exportCmd should not be nil")
+	}
+	if exportCmd.Use != "export" {
+		t.Errorf("Use = %v, want 'export'", exportCmd.Use)
+	}
+
+	// Check flags exist
+	if exportCmd.Flags().Lookup("output") == nil {
+		t.Error("expected flag 'output' not found")
+	}
+}
+
+func TestRestoreCmd(t *testing.T) {
+	if restoreCmd == nil {
+		t.Fatal("restoreCmd should not be nil")
+	}
+	if restoreCmd.Use != "restore" {
+		t.Errorf("Use = %v, want 'restore'", restoreCmd.Use)
+	}
+
+	// Check flags exist
+	if restoreCmd.Flags().Lookup("input") == nil {
+		t.Error("expected flag 'input' not found")
+	}
+}
+
+func TestRestoreExecute_MissingFile(t *testing.T) {
+	restoreInput = "/nonexistent/path/state.yaml"
+	err := restoreExecute(restoreCmd, []string{})
+	if err == nil {
+		t.Error("expected error for nonexistent input file")
+	}
+}
+
+func TestBuildCompiledOutput(t *testing.T) {
+	stateFile := &statemgmt.StateFile{
+		Metadata: statemgmt.StateMetadata{
+			Name:        "test-state",
+			Description: "A test state",
+			Version:     "1.0",
+			Tags:        []string{"test"},
+		},
+		States: map[string][]statemgmt.StateDeclaration{
+			"file": {
+				{
+					ID:    "/tmp/test.txt",
+					State: "present",
+					Parameters: map[string]interface{}{
+						"contents": "hello",
+					},
+				},
+			},
+		},
+	}
+
+	vars := statemgmt.NewVars()
+	vars.Set("env", "production")
+	facts := statemgmt.NewFacts()
+
+	compiled := buildCompiledOutput(stateFile, vars, facts)
+
+	metadata, ok := compiled["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected metadata in compiled output")
+	}
+	if metadata["name"] != "test-state" {
+		t.Errorf("metadata name = %v, want 'test-state'", metadata["name"])
+	}
+	if metadata["description"] != "A test state" {
+		t.Errorf("metadata description = %v, want 'A test state'", metadata["description"])
+	}
+
+	variables, ok := compiled["variables"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected variables in compiled output")
+	}
+	if variables["env"] != "production" {
+		t.Errorf("variables env = %v, want 'production'", variables["env"])
+	}
+
+	states, ok := compiled["states"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected states in compiled output")
+	}
+	fileStates, ok := states["file"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("expected file states in compiled output")
+	}
+	if len(fileStates) != 1 {
+		t.Fatalf("expected 1 file state, got %d", len(fileStates))
+	}
+	if fileStates[0]["id"] != "/tmp/test.txt" {
+		t.Errorf("file state id = %v, want '/tmp/test.txt'", fileStates[0]["id"])
+	}
+}
+
+func TestBuildCompiledOutput_EmptyVars(t *testing.T) {
+	stateFile := &statemgmt.StateFile{
+		Metadata: statemgmt.StateMetadata{
+			Name: "empty-vars-test",
+		},
+		States: map[string][]statemgmt.StateDeclaration{},
+	}
+
+	vars := statemgmt.NewVars()
+	facts := &statemgmt.Facts{Data: map[string]interface{}{}}
+
+	compiled := buildCompiledOutput(stateFile, vars, facts)
+
+	if _, ok := compiled["variables"]; ok {
+		t.Error("expected no variables key when vars are empty")
+	}
+	if _, ok := compiled["facts"]; ok {
+		t.Error("expected no facts key when facts are empty")
 	}
 }

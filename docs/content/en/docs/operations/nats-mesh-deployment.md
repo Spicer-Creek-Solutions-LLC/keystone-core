@@ -706,12 +706,14 @@ agent:
 ### From Embedded to External NATS
 
 1. **Deploy external NATS cluster**:
+
    ```bash
    # Start NATS cluster
    docker-compose -f nats-cluster.yml up -d
    ```
 
 2. **Update control plane configuration**:
+
    ```yaml
    server:
      nats:
@@ -722,12 +724,14 @@ agent:
    ```
 
 3. **Rolling update agents**:
+
    ```bash
    # Update agent configuration
    kscorectl agent update-config --nats-urls nats://nats-1:4222,nats://nats-2:4222
    ```
 
 4. **Verify connectivity**:
+
    ```bash
    kscorectl cluster status
    kscorectl agent list
@@ -736,6 +740,7 @@ agent:
 ### From Direct to Leaf Node
 
 1. **Configure hub for leaf connections**:
+
    ```yaml
    # Add to hub NATS config
    leafnodes {
@@ -744,6 +749,7 @@ agent:
    ```
 
 2. **Update edge agent configuration**:
+
    ```yaml
    agent:
      nats:
@@ -753,6 +759,7 @@ agent:
    ```
 
 3. **Restart edge agents**:
+
    ```bash
    systemctl restart kscore-agent
    ```
@@ -760,6 +767,7 @@ agent:
 ### Adding Gateway (Supercluster)
 
 1. **Configure gateway on existing cluster**:
+
    ```yaml
    gateway {
      name: region-1
@@ -771,6 +779,7 @@ agent:
    ```
 
 2. **Configure new region cluster**:
+
    ```yaml
    gateway {
      name: region-2
@@ -782,6 +791,7 @@ agent:
    ```
 
 3. **Update control plane routing**:
+
    ```yaml
    server:
      nats:

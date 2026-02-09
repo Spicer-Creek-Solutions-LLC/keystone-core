@@ -2,6 +2,7 @@ package telnet
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -48,7 +49,7 @@ func TestNewSecurityEnforcer_ValidCIDR(t *testing.T) {
 func TestCheckConnection_NoAllowlist(t *testing.T) {
 	enforcer, _ := NewSecurityEnforcer(&SecurityConfig{}, nil)
 	// No allowlist means all addresses allowed
-	if err := enforcer.CheckConnection("1.2.3.4:23"); err != nil {
+	if err := enforcer.CheckConnection(context.Background(),"1.2.3.4:23"); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 }
@@ -58,7 +59,7 @@ func TestCheckConnection_AllowedIP(t *testing.T) {
 		AllowedNetworks: []string{"10.0.0.0/8"},
 	}
 	enforcer, _ := NewSecurityEnforcer(config, nil)
-	if err := enforcer.CheckConnection("10.1.2.3:23"); err != nil {
+	if err := enforcer.CheckConnection(context.Background(),"10.1.2.3:23"); err != nil {
 		t.Errorf("expected allowed, got %v", err)
 	}
 }
@@ -68,7 +69,7 @@ func TestCheckConnection_DeniedIP(t *testing.T) {
 		AllowedNetworks: []string{"10.0.0.0/8"},
 	}
 	enforcer, _ := NewSecurityEnforcer(config, nil)
-	err := enforcer.CheckConnection("192.168.1.1:23")
+	err := enforcer.CheckConnection(context.Background(),"192.168.1.1:23")
 	if err == nil {
 		t.Error("expected error for denied IP")
 	}
@@ -80,7 +81,7 @@ func TestCheckConnection_IPWithoutPort(t *testing.T) {
 	}
 	enforcer, _ := NewSecurityEnforcer(config, nil)
 	// No port in address
-	if err := enforcer.CheckConnection("10.1.2.3"); err != nil {
+	if err := enforcer.CheckConnection(context.Background(),"10.1.2.3"); err != nil {
 		t.Errorf("expected allowed, got %v", err)
 	}
 }
@@ -99,7 +100,7 @@ func TestCheckConnection_MultipleNetworks(t *testing.T) {
 		{"192.168.1.1:23", false},
 	}
 	for _, tt := range tests {
-		err := enforcer.CheckConnection(tt.addr)
+		err := enforcer.CheckConnection(context.Background(),tt.addr)
 		if tt.allowed && err != nil {
 			t.Errorf("expected %s to be allowed, got %v", tt.addr, err)
 		}

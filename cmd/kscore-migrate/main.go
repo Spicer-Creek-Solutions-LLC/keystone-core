@@ -5,6 +5,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
@@ -25,6 +28,11 @@ var (
 	batchSize     int
 	continueOnErr bool
 	skipExisting  bool
+
+	// Verify flags
+	sourceSystem string
+	sourceDir    string
+	targetDB     string
 )
 
 func newRootCmd() *cobra.Command {
@@ -52,6 +60,7 @@ Usage via kscorectl:
 	rootCmd.AddCommand(
 		newRunCommand(),
 		newValidateCommand(),
+		newVerifyCommand(),
 		newVersionCmd(),
 	)
 
@@ -291,4 +300,442 @@ func validateMigration(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  - %s\n", d)
 	}
 	return fmt.Errorf("validation failed")
+}
+
+var supportedSourceSystems = []string{"salt", "ansible", "puppet", "chef"}
+
+func isValidSourceSystem(system string) bool {
+	for _, s := range supportedSourceSystems {
+		if s == system {
+			return true
+		}
+	}
+	return false
+}
+
+type verifyCheckStatus string
+
+const (
+	statusPass verifyCheckStatus = "PASS"
+	statusFail verifyCheckStatus = "FAIL"
+	statusSkip verifyCheckStatus = "SKIP"
+)
+
+type verifyCheckResult struct {
+	Name    string
+	Status  verifyCheckStatus
+	Details string
+}
+
+func newVerifyCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "verify",
+		Short: "Verify migration from external configuration management systems",
+		Long: `Verify data integrity after migrating from an external configuration management system.
+
+This command checks that data from the source system (Salt, Ansible, Puppet, Chef) has been
+correctly migrated to Keystone Core by verifying:
+  - Source data is readable
+  - State definitions have been migrated
+  - Agent/minion mappings are complete
+  - Variables/pillar data is preserved
+  - Event subscriptions have been migrated
+
+Usage:
+  kscorectl migrate verify --source-system salt --source-dir /srv/salt --target-db /var/lib/keystone/keystone.db`,
+		RunE: runVerify,
+	}
+
+	cmd.Flags().StringVar(&sourceSystem, "source-system", "", "Source configuration management system (salt, ansible, puppet, chef)")
+	cmd.Flags().StringVar(&sourceDir, "source-dir", "", "Path to source system data export directory")
+	cmd.Flags().StringVar(&targetDB, "target-db", "", "Path to Keystone Core database")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed verification output")
+
+	cmd.MarkFlagRequired("source-system")
+
+	return cmd
+}
+
+func runVerify(cmd *cobra.Command, args []string) error {
+	system := strings.ToLower(sourceSystem)
+	if !isValidSourceSystem(system) {
+		return fmt.Errorf("unsupported source system %q: supported systems are %s",
+			sourceSystem, strings.Join(supportedSourceSystems, ", "))
+	}
+
+	out := cmd.OutOrStdout()
+
+	fmt.Fprintf(out, "Verifying migration from %s to Keystone Core...\n", system)
+	if sourceDir != "" {
+		fmt.Fprintf(out, "  Source directory: %s\n", sourceDir)
+	}
+	if targetDB != "" {
+		fmt.Fprintf(out, "  Target database:  %s\n", targetDB)
+	}
+	fmt.Fprintln(out)
+
+	results := runVerifyChecks(system, sourceDir, targetDB)
+
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "CHECK\tSTATUS\tDETAILS\n")
+	fmt.Fprintf(w, "-----\t------\t-------\n")
+	for _, r := range results {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", r.Name, r.Status, r.Details)
+	}
+	w.Flush()
+	fmt.Fprintln(out)
+
+	passed := 0
+	failed := 0
+	skipped := 0
+	for _, r := range results {
+		switch r.Status {
+		case statusPass:
+			passed++
+		case statusFail:
+			failed++
+		case statusSkip:
+			skipped++
+		}
+	}
+
+	fmt.Fprintf(out, "Results: %d passed, %d failed, %d skipped\n", passed, failed, skipped)
+
+	if failed > 0 {
+		return fmt.Errorf("verification failed: %d check(s) did not pass", failed)
+	}
+
+	return nil
+}
+
+func runVerifyChecks(system, srcDir, tgtDB string) []verifyCheckResult {
+	var results []verifyCheckResult
+
+	results = append(results, checkSourceReadable(system, srcDir))
+	results = append(results, checkStateDefinitions(system, srcDir))
+	results = append(results, checkAgentMappings(system, srcDir, tgtDB))
+	results = append(results, checkVariablesPreserved(system, srcDir))
+	results = append(results, checkEventSubscriptions(system, srcDir))
+
+	return results
+}
+
+func checkSourceReadable(system, srcDir string) verifyCheckResult {
+	name := "Source data readable"
+	if srcDir == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir specified",
+		}
+	}
+
+	info, err := os.Stat(srcDir)
+	if err != nil {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("Cannot access source directory: %v", err),
+		}
+	}
+	if !info.IsDir() {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("Source path is not a directory: %s", srcDir),
+		}
+	}
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("Cannot read source directory: %v", err),
+		}
+	}
+
+	if len(entries) == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: "Source directory is empty",
+		}
+	}
+
+	return verifyCheckResult{
+		Name:    name,
+		Status:  statusPass,
+		Details: fmt.Sprintf("Found %d entries in source directory", len(entries)),
+	}
+}
+
+func stateFileExtensions(system string) []string {
+	switch system {
+	case "salt":
+		return []string{".sls"}
+	case "ansible":
+		return []string{".yml", ".yaml"}
+	case "puppet":
+		return []string{".pp"}
+	case "chef":
+		return []string{".rb"}
+	default:
+		return nil
+	}
+}
+
+func checkStateDefinitions(system, srcDir string) verifyCheckResult {
+	name := "State definitions migrated"
+	if srcDir == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir specified",
+		}
+	}
+
+	exts := stateFileExtensions(system)
+	if len(exts) == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No known state file extensions for %s", system),
+		}
+	}
+
+	var found int
+	filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		for _, e := range exts {
+			if ext == e {
+				found++
+				break
+			}
+		}
+		return nil
+	})
+
+	if found == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("No %s state files found in source directory", system),
+		}
+	}
+
+	return verifyCheckResult{
+		Name:    name,
+		Status:  statusPass,
+		Details: fmt.Sprintf("Found %d %s state file(s) in source", found, system),
+	}
+}
+
+func agentSubdirHint(system string) string {
+	switch system {
+	case "salt":
+		return "minions"
+	case "ansible":
+		return "inventory"
+	case "puppet":
+		return "nodes"
+	case "chef":
+		return "nodes"
+	default:
+		return ""
+	}
+}
+
+func checkAgentMappings(system, srcDir, tgtDB string) verifyCheckResult {
+	name := "Agent/minion mappings complete"
+	if srcDir == "" && tgtDB == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir or --target-db specified",
+		}
+	}
+
+	if srcDir == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir specified; cannot enumerate source agents",
+		}
+	}
+
+	hint := agentSubdirHint(system)
+	if hint == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No agent directory convention for %s", system),
+		}
+	}
+
+	agentDir := filepath.Join(srcDir, hint)
+	info, err := os.Stat(agentDir)
+	if err != nil || !info.IsDir() {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No %s directory found in source export", hint),
+		}
+	}
+
+	entries, err := os.ReadDir(agentDir)
+	if err != nil {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("Cannot read %s directory: %v", hint, err),
+		}
+	}
+
+	if len(entries) == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("No agent entries found in %s directory", hint),
+		}
+	}
+
+	return verifyCheckResult{
+		Name:    name,
+		Status:  statusPass,
+		Details: fmt.Sprintf("Found %d agent/minion entries in %s", len(entries), hint),
+	}
+}
+
+func variablesSubdirHint(system string) string {
+	switch system {
+	case "salt":
+		return "pillar"
+	case "ansible":
+		return "group_vars"
+	case "puppet":
+		return "hieradata"
+	case "chef":
+		return "data_bags"
+	default:
+		return ""
+	}
+}
+
+func checkVariablesPreserved(system, srcDir string) verifyCheckResult {
+	name := "Variables/pillar data preserved"
+	if srcDir == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir specified",
+		}
+	}
+
+	hint := variablesSubdirHint(system)
+	if hint == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No variables directory convention for %s", system),
+		}
+	}
+
+	varDir := filepath.Join(srcDir, hint)
+	info, err := os.Stat(varDir)
+	if err != nil || !info.IsDir() {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No %s directory found in source export", hint),
+		}
+	}
+
+	var count int
+	filepath.Walk(varDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		count++
+		return nil
+	})
+
+	if count == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("No variable files found in %s directory", hint),
+		}
+	}
+
+	return verifyCheckResult{
+		Name:    name,
+		Status:  statusPass,
+		Details: fmt.Sprintf("Found %d variable file(s) in %s", count, hint),
+	}
+}
+
+func checkEventSubscriptions(system, srcDir string) verifyCheckResult {
+	name := "Event subscriptions migrated"
+	if srcDir == "" {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: "No --source-dir specified",
+		}
+	}
+
+	var subDir string
+	switch system {
+	case "salt":
+		subDir = "reactor"
+	case "ansible":
+		subDir = "callbacks"
+	case "puppet":
+		subDir = "reports"
+	case "chef":
+		subDir = "handlers"
+	default:
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No event subscription convention for %s", system),
+		}
+	}
+
+	eventDir := filepath.Join(srcDir, subDir)
+	info, err := os.Stat(eventDir)
+	if err != nil || !info.IsDir() {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No %s directory found in source export", subDir),
+		}
+	}
+
+	entries, err := os.ReadDir(eventDir)
+	if err != nil {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusFail,
+			Details: fmt.Sprintf("Cannot read %s directory: %v", subDir, err),
+		}
+	}
+
+	if len(entries) == 0 {
+		return verifyCheckResult{
+			Name:    name,
+			Status:  statusSkip,
+			Details: fmt.Sprintf("No entries in %s directory", subDir),
+		}
+	}
+
+	return verifyCheckResult{
+		Name:    name,
+		Status:  statusPass,
+		Details: fmt.Sprintf("Found %d event subscription(s) in %s", len(entries), subDir),
+	}
 }

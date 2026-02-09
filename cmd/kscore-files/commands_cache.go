@@ -19,7 +19,7 @@ func newCacheCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cache",
 		Short: "Manage file caches",
-		Long:  `Commands for managing file caches (status, clear, warm).`,
+		Long:  `Commands for managing file caches (status, clear, warm, invalidate, verify, show, refresh, set-ttl, history).`,
 	}
 
 	cmd.AddCommand(newCacheStatusCmd())
@@ -28,6 +28,12 @@ func newCacheCmd() *cobra.Command {
 	cmd.AddCommand(newCacheListCmd())
 	cmd.AddCommand(newCacheEvictCmd())
 	cmd.AddCommand(newCacheStatsCmd())
+	cmd.AddCommand(newCacheInvalidateCmd())
+	cmd.AddCommand(newCacheVerifyCmd())
+	cmd.AddCommand(newCacheShowCmd())
+	cmd.AddCommand(newCacheRefreshCmd())
+	cmd.AddCommand(newCacheSetTTLCmd())
+	cmd.AddCommand(newCacheHistoryCmd())
 
 	return cmd
 }
@@ -59,6 +65,60 @@ type CacheEntry struct {
 	ExpiresAt   time.Time `json:"expires_at,omitempty"`
 	LastAccess  time.Time `json:"last_access"`
 	AccessCount int64     `json:"access_count"`
+}
+
+// CacheItemDetail contains detailed information about a specific cached item.
+type CacheItemDetail struct {
+	Key         string            `json:"key"`
+	Path        string            `json:"path"`
+	Size        int64             `json:"size"`
+	Checksum    string            `json:"checksum"`
+	Algorithm   string            `json:"algorithm"`
+	CachedAt    time.Time         `json:"cached_at"`
+	ExpiresAt   time.Time         `json:"expires_at,omitempty"`
+	LastAccess  time.Time         `json:"last_access"`
+	AccessCount int64             `json:"access_count"`
+	TTL         time.Duration     `json:"ttl"`
+	Source      string            `json:"source"`
+	Namespace   string            `json:"namespace,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+// CacheInvalidateResult contains the result of a cache invalidation operation.
+type CacheInvalidateResult struct {
+	Invalidated int64 `json:"invalidated"`
+	Errors      int64 `json:"errors"`
+}
+
+// CacheVerifyResult contains the result of a cache verification.
+type CacheVerifyResult struct {
+	TotalEntries   int64            `json:"total_entries"`
+	ValidEntries   int64            `json:"valid_entries"`
+	CorruptEntries int64            `json:"corrupt_entries"`
+	MissingEntries int64            `json:"missing_entries"`
+	Details        []CacheVerifyErr `json:"details,omitempty"`
+}
+
+// CacheVerifyErr describes a single verification failure.
+type CacheVerifyErr struct {
+	Key    string `json:"key"`
+	Reason string `json:"reason"`
+}
+
+// CacheRefreshResult contains the result of a cache refresh operation.
+type CacheRefreshResult struct {
+	Refreshed int64         `json:"refreshed"`
+	Errors    int64         `json:"errors"`
+	Duration  time.Duration `json:"duration"`
+}
+
+// CacheHistoryEntry represents a single cache operation log entry.
+type CacheHistoryEntry struct {
+	Timestamp time.Time `json:"timestamp"`
+	Operation string    `json:"operation"`
+	Key       string    `json:"key,omitempty"`
+	Result    string    `json:"result"`
+	Details   string    `json:"details,omitempty"`
 }
 
 // CacheStats contains detailed cache statistics.
@@ -593,6 +653,484 @@ Examples:
 	return cmd
 }
 
+// newCacheInvalidateCmd creates the invalidate command.
+func newCacheInvalidateCmd() *cobra.Command {
+	var (
+		target   string
+		priority string
+		force    bool
+		dryRun   bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "invalidate <path-or-pattern>",
+		Short: "Invalidate specific cached items",
+		Long: `Invalidate cached items by path or glob pattern.
+
+Invalidated entries are marked stale and will be re-fetched on next access.
+
+Examples:
+  kscore-files cache invalidate /states/nginx-config
+  kscore-files cache invalidate "states/web-*"
+  kscore-files cache invalidate "policies/*" --target "*" --priority high
+  kscore-files cache invalidate "/packages/old-*" --dry-run`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pattern := args[0]
+
+			if dryRun {
+				fmt.Printf("Dry run: would invalidate entries matching %s\n", pattern)
+				if target != "" {
+					fmt.Printf("  Target: %s\n", target)
+				}
+				return nil
+			}
+
+			if !force {
+				fmt.Printf("Invalidate entries matching %s? [y/N]: ", pattern)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
+					fmt.Println("Cancelled")
+					return nil
+				}
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminLong)
+			defer cancel()
+
+			result, err := invalidateCache(ctx, client, pattern, target, priority)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Invalidated %d entries\n", result.Invalidated)
+			if result.Errors > 0 {
+				fmt.Printf("Errors: %d\n", result.Errors)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&target, "target", "", "Target agents for invalidation (e.g., 'region=us-west', '*')")
+	cmd.Flags().StringVar(&priority, "priority", "normal", "Invalidation priority (normal, high)")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be invalidated without invalidating")
+
+	return cmd
+}
+
+// newCacheVerifyCmd creates the verify command.
+func newCacheVerifyCmd() *cobra.Command {
+	var (
+		fix       bool
+		outputFmt string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "verify [name]",
+		Short: "Verify cache integrity",
+		Long: `Verify cache integrity by checking checksums and detecting corruption.
+
+Examples:
+  kscore-files cache verify
+  kscore-files cache verify agent-cache
+  kscore-files cache verify --fix
+  kscore-files cache verify --output json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cacheName := ""
+			if len(args) > 0 {
+				cacheName = args[0]
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminLong)
+			defer cancel()
+
+			result, err := verifyCache(ctx, client, cacheName, fix)
+			if err != nil {
+				return err
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, result)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, result)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"TOTAL ENTRIES", fmt.Sprintf("%d", result.TotalEntries)},
+					{"VALID", fmt.Sprintf("%d", result.ValidEntries)},
+					{"CORRUPT", fmt.Sprintf("%d", result.CorruptEntries)},
+					{"MISSING", fmt.Sprintf("%d", result.MissingEntries)},
+				})
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				if len(result.Details) > 0 {
+					fmt.Println("\nIssues:")
+					rows := make([][]string, 0, len(result.Details))
+					for _, d := range result.Details {
+						rows = append(rows, []string{d.Key, d.Reason})
+					}
+					return output.WriteTable(os.Stdout, &output.Table{
+						Headers: []string{"KEY", "REASON"},
+						Rows:    rows,
+					})
+				}
+				return nil
+			case output.FormatText:
+				fmt.Println("Verifying cache entries...")
+				fmt.Printf("Total entries: %d\n", result.TotalEntries)
+				fmt.Printf("Valid:         %d\n", result.ValidEntries)
+				fmt.Printf("Corrupt:       %d\n", result.CorruptEntries)
+				fmt.Printf("Missing:       %d\n", result.MissingEntries)
+				if len(result.Details) > 0 {
+					fmt.Println("\nIssues found:")
+					for _, d := range result.Details {
+						fmt.Printf("  %s: %s\n", d.Key, d.Reason)
+					}
+				}
+				if result.CorruptEntries == 0 && result.MissingEntries == 0 {
+					fmt.Println("\nCache integrity OK")
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
+		},
+	}
+
+	cmd.Flags().BoolVar(&fix, "fix", false, "Remove corrupt or missing entries")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
+
+	return cmd
+}
+
+// newCacheShowCmd creates the show command.
+func newCacheShowCmd() *cobra.Command {
+	var outputFmt string
+
+	cmd := &cobra.Command{
+		Use:   "show <key>",
+		Short: "Show details about a cached item",
+		Long: `Show detailed information about a specific cached item including
+size, checksum, TTL, access count, and metadata.
+
+Examples:
+  kscore-files cache show states/nginx-config
+  kscore-files cache show packages/nginx-1.20.rpm --output json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			key := args[0]
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
+
+			item, err := getCacheItem(ctx, client, key)
+			if err != nil {
+				return err
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, item)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, item)
+			case output.FormatTable:
+				pairs := [][2]string{
+					{"KEY", item.Key},
+					{"PATH", item.Path},
+					{"SIZE", formatSize(item.Size)},
+					{"CHECKSUM", item.Checksum},
+					{"ALGORITHM", item.Algorithm},
+					{"CACHED AT", formatTime(item.CachedAt)},
+					{"EXPIRES AT", formatTime(item.ExpiresAt)},
+					{"LAST ACCESS", formatTime(item.LastAccess)},
+					{"ACCESS COUNT", fmt.Sprintf("%d", item.AccessCount)},
+					{"TTL", item.TTL.String()},
+					{"SOURCE", item.Source},
+				}
+				if item.Namespace != "" {
+					pairs = append(pairs, [2]string{"NAMESPACE", item.Namespace})
+				}
+				table := buildKeyValueTable(pairs)
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				if len(item.Metadata) > 0 {
+					fmt.Println("\nMetadata:")
+					rows := make([][]string, 0, len(item.Metadata))
+					for k, v := range item.Metadata {
+						rows = append(rows, []string{k, v})
+					}
+					return output.WriteTable(os.Stdout, &output.Table{
+						Headers: []string{"KEY", "VALUE"},
+						Rows:    rows,
+					})
+				}
+				return nil
+			case output.FormatText:
+				fmt.Printf("ID: %s\n", item.Key)
+				fmt.Printf("Path: %s\n", item.Path)
+				fmt.Printf("Size: %s\n", formatSize(item.Size))
+				fmt.Printf("Checksum: %s (%s)\n", item.Checksum, item.Algorithm)
+				fmt.Printf("Cached At: %s\n", formatTime(item.CachedAt))
+				if !item.ExpiresAt.IsZero() {
+					fmt.Printf("Expires At: %s\n", formatTime(item.ExpiresAt))
+				}
+				fmt.Printf("Last Access: %s\n", formatTime(item.LastAccess))
+				fmt.Printf("Access Count: %d\n", item.AccessCount)
+				fmt.Printf("TTL: %s\n", item.TTL)
+				fmt.Printf("Source: %s\n", item.Source)
+				if item.Namespace != "" {
+					fmt.Printf("Namespace: %s\n", item.Namespace)
+				}
+				if len(item.Metadata) > 0 {
+					fmt.Println("Metadata:")
+					for k, v := range item.Metadata {
+						fmt.Printf("  %s: %s\n", k, v)
+					}
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
+		},
+	}
+
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
+
+	return cmd
+}
+
+// newCacheRefreshCmd creates the refresh command.
+func newCacheRefreshCmd() *cobra.Command {
+	var (
+		force  bool
+		dryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "refresh <path-or-pattern>",
+		Short: "Refresh cached items from source",
+		Long: `Refresh cached items by re-fetching them from the original source.
+
+This re-downloads and updates cached entries while preserving cache keys.
+
+Examples:
+  kscore-files cache refresh states/nginx-config
+  kscore-files cache refresh "states/*" --force
+  kscore-files cache refresh "/packages/*" --dry-run`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pattern := args[0]
+
+			if dryRun {
+				fmt.Printf("Dry run: would refresh entries matching %s\n", pattern)
+				return nil
+			}
+
+			if !force {
+				fmt.Printf("Refresh entries matching %s? [y/N]: ", pattern)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
+					fmt.Println("Cancelled")
+					return nil
+				}
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminSync)
+			defer cancel()
+
+			result, err := refreshCache(ctx, client, pattern, force)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Refreshed %d entries\n", result.Refreshed)
+			if result.Errors > 0 {
+				fmt.Printf("Errors: %d\n", result.Errors)
+			}
+			fmt.Printf("Duration: %s\n", result.Duration)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Refresh even if entries are not expired")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be refreshed without refreshing")
+
+	return cmd
+}
+
+// newCacheSetTTLCmd creates the set-ttl command.
+func newCacheSetTTLCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set-ttl <key> <duration>",
+		Short: "Set TTL for cached items",
+		Long: `Set the time-to-live for a specific cached item or pattern.
+
+Duration accepts Go duration strings (e.g., 1h, 30m, 24h) and day suffixes (e.g., 7d).
+
+Examples:
+  kscore-files cache set-ttl states/nginx-config 6h
+  kscore-files cache set-ttl "packages/*" 7d
+  kscore-files cache set-ttl policies/security 30m`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			key := args[0]
+			durationStr := args[1]
+
+			ttl, err := parseDuration(durationStr)
+			if err != nil {
+				return fmt.Errorf("invalid duration %q: %w", durationStr, err)
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
+
+			updated, err := setCacheTTL(ctx, client, key, ttl)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Updated TTL for %d entries to %s\n", updated, ttl)
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// newCacheHistoryCmd creates the history command.
+func newCacheHistoryCmd() *cobra.Command {
+	var (
+		opType    string
+		limit     int
+		outputFmt string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "history [name]",
+		Short: "Show cache operation history",
+		Long: `Show the history of cache operations including hits, misses, evictions,
+invalidations, and refreshes.
+
+Examples:
+  kscore-files cache history
+  kscore-files cache history agent-cache
+  kscore-files cache history --type invalidation --limit 50
+  kscore-files cache history --type eviction --output json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cacheName := ""
+			if len(args) > 0 {
+				cacheName = args[0]
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
+
+			entries, err := getCacheHistory(ctx, client, cacheName, opType, limit)
+			if err != nil {
+				return err
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, entries)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, entries)
+			case output.FormatTable, output.FormatText:
+				if len(entries) == 0 {
+					fmt.Println("No cache history entries found")
+					return nil
+				}
+				rows := make([][]string, 0, len(entries))
+				for i := range entries {
+					entry := &entries[i]
+					rows = append(rows, []string{
+						entry.Timestamp.Format("2006-01-02 15:04:05"),
+						entry.Operation,
+						entry.Key,
+						entry.Result,
+						entry.Details,
+					})
+				}
+				table := &output.Table{
+					Headers: []string{"TIMESTAMP", "OPERATION", "KEY", "RESULT", "DETAILS"},
+					Rows:    rows,
+				}
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				fmt.Printf("\nTotal: %d entries\n", len(entries))
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
+		},
+	}
+
+	cmd.Flags().StringVar(&opType, "type", "", "Filter by operation type (hit, miss, eviction, invalidation, refresh)")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum entries to show")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
+
+	return cmd
+}
+
 // Helper functions
 
 type CacheClearResult struct {
@@ -751,6 +1289,139 @@ func getCacheStats(ctx context.Context, client *AdminClient, name string) (*Cach
 	}
 
 	return &stats, nil
+}
+
+func invalidateCache(ctx context.Context, client *AdminClient, pattern, target, priority string) (*CacheInvalidateResult, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.invalidate", client.clusterID)
+
+	req := map[string]interface{}{
+		"pattern":  pattern,
+		"target":   target,
+		"priority": priority,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CacheInvalidateResult
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func verifyCache(ctx context.Context, client *AdminClient, name string, fix bool) (*CacheVerifyResult, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.verify", client.clusterID)
+
+	req := map[string]interface{}{
+		"name": name,
+		"fix":  fix,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CacheVerifyResult
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func getCacheItem(ctx context.Context, client *AdminClient, key string) (*CacheItemDetail, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.show", client.clusterID)
+
+	req := map[string]string{"key": key}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var item CacheItemDetail
+	if err := json.Unmarshal(msg.Data, &item); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &item, nil
+}
+
+func refreshCache(ctx context.Context, client *AdminClient, pattern string, force bool) (*CacheRefreshResult, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.refresh", client.clusterID)
+
+	req := map[string]interface{}{
+		"pattern": pattern,
+		"force":   force,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CacheRefreshResult
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func setCacheTTL(ctx context.Context, client *AdminClient, key string, ttl time.Duration) (int64, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.set-ttl", client.clusterID)
+
+	req := map[string]interface{}{
+		"key": key,
+		"ttl": ttl.String(),
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return 0, err
+	}
+
+	var result struct {
+		Updated int64 `json:"updated"`
+	}
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result.Updated, nil
+}
+
+func getCacheHistory(ctx context.Context, client *AdminClient, name, opType string, limit int) ([]CacheHistoryEntry, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.history", client.clusterID)
+
+	req := map[string]interface{}{
+		"name":  name,
+		"type":  opType,
+		"limit": limit,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var entries []CacheHistoryEntry
+	if err := json.Unmarshal(msg.Data, &entries); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return entries, nil
 }
 
 func parseDuration(s string) (time.Duration, error) {

@@ -738,13 +738,12 @@ func TestRotationOrchestrator(t *testing.T) {
 		broker := NewSecretBroker(&BrokerConfig{})
 		orchestrator := NewRotationOrchestrator(broker)
 
-		targets := createTestTargets(5)
 		config := &RotationConfig{
 			Strategy: RotationStrategyBlueGreen,
 		}
 
-		_, _ = orchestrator.StartRotation(context.Background(), "rot-list-1", "vault/secret/db1", config, targets)
-		_, _ = orchestrator.StartRotation(context.Background(), "rot-list-2", "vault/secret/db2", config, targets)
+		_, _ = orchestrator.StartRotation(context.Background(), "rot-list-1", "vault/secret/db1", config, createTestTargets(5))
+		_, _ = orchestrator.StartRotation(context.Background(), "rot-list-2", "vault/secret/db2", config, createTestTargets(5))
 
 		rotations := orchestrator.ListRotations()
 		if len(rotations) < 2 {

@@ -10,6 +10,7 @@ description: >
 Security is critical for production Keystone Core deployments. This guide covers authentication methods, TLS configuration, RBAC policies, security hardening, and audit logging.
 
 **Security Layers:**
+
 - **Authentication**: Token-based and certificate-based auth
 - **Encryption**: TLS for all communications (NATS, API, database)
 - **Authorization**: RBAC with policy-based access control
@@ -27,6 +28,7 @@ Keystone Core supports multiple authentication methods.
 ### API Key Authentication
 
 **Generate API Key:**
+
 ```bash
 # Create API key
 kscorectl api-key create --name "monitoring-system" --role "read-only"
@@ -37,6 +39,7 @@ kscorectl api-key create --name "monitoring-system" --role "read-only"
 ```
 
 **Use API Key:**
+
 ```bash
 # With CLI
 export KSCORE_API_KEY="sk_abcdef1234567890"
@@ -48,6 +51,7 @@ curl -H "Authorization: Bearer sk_abcdef1234567890" \
 ```
 
 **Rotate API Keys:**
+
 ```bash
 # List keys
 kscorectl api-key list
@@ -64,6 +68,7 @@ kscorectl api-key create --name "monitoring-system" --role "read-only"
 Keystone Core supports JWT (JSON Web Token) authentication with multiple signing algorithms.
 
 **Supported Algorithms:**
+
 | Algorithm | Type | Key Size | Use Case |
 |-----------|------|----------|----------|
 | HS256/384/512 | HMAC | 256+ bits | Shared secret, simple deployments |
@@ -71,6 +76,7 @@ Keystone Core supports JWT (JSON Web Token) authentication with multiple signing
 | ES256/384/512 | ECDSA | P-256/384/521 | Compact tokens, mobile clients |
 
 **HMAC Configuration (Symmetric Key):**
+
 ```yaml
 # server.yaml
 auth:
@@ -83,6 +89,7 @@ auth:
 ```
 
 **RSA/ECDSA Configuration (Asymmetric Key):**
+
 ```yaml
 # server.yaml
 auth:
@@ -95,6 +102,7 @@ auth:
 ```
 
 **JWT Claims Structure:**
+
 ```json
 {
   "sub": "user-123",           // Subject (user ID)
@@ -110,6 +118,7 @@ auth:
 ```
 
 **Generate API Key:**
+
 ```bash
 # Create an API key for CLI authentication
 kscorectl api-key create --name "admin-cli" --role admin --expires-in 30d
@@ -124,6 +133,7 @@ kscorectl api-key create --name "admin-cli" --role admin --expires-in 30d
 > for user authentication via JWT.
 
 **Using JWT with External Identity Providers:**
+
 ```yaml
 # Integration with Auth0, Okta, Keycloak, etc.
 auth:
@@ -142,12 +152,14 @@ auth:
 Keystone Core's mTLS authenticator extracts identity from client certificates and maps certificate attributes to roles using flexible pattern matching.
 
 **Identity Extraction (in priority order):**
+
 1. Common Name (CN) from certificate subject
 2. DNS Subject Alternative Names (SANs)
 3. Email Subject Alternative Names
 4. URI Subject Alternative Names (including SPIFFE IDs)
 
 **Generate Certificates:**
+
 ```bash
 # Create CA
 openssl genrsa -out ca-key.pem 4096
@@ -177,6 +189,7 @@ openssl x509 -req -days 365 -in operator.csr -CA ca.pem -CAkey ca-key.pem \
 ```
 
 **Server Configuration with Role Mapping:**
+
 ```yaml
 # server.yaml
 auth:
@@ -227,12 +240,14 @@ api:
 
 **Pattern Priority:**
 Patterns are matched in specificity order (most specific first):
+
 1. Exact matches (no wildcards)
 2. Single wildcards (`*`)
 3. Double wildcards (`**`)
 4. Longer patterns before shorter
 
 **Client Configuration:**
+
 ```yaml
 # ~/.keystone-core/config.yaml
 api:
@@ -245,6 +260,7 @@ api:
 
 **Certificate Metadata:**
 The authenticator extracts and logs certificate metadata for auditing:
+
 - `cn`: Common Name
 - `serial`: Certificate serial number
 - `issuer`: Issuer CN
@@ -255,6 +271,7 @@ The authenticator extracts and logs certificate metadata for auditing:
 
 **Multi-Method Authentication:**
 Combine mTLS with other methods for defense in depth:
+
 ```yaml
 auth:
   type: multi  # Try methods in order
@@ -274,12 +291,14 @@ auth:
 ### NATS Authentication
 
 **Credentials File (Recommended):**
+
 ```bash
 # Create NATS credentials
 nats-server --genkey --user keystonecore > /etc/nats/kscore.creds
 ```
 
 **NATS Configuration:**
+
 ```conf
 # nats-server.conf
 accounts {
@@ -295,6 +314,7 @@ accounts {
 ```
 
 **Agent Configuration:**
+
 ```yaml
 # agent.yaml
 nats:
@@ -325,6 +345,7 @@ kscore-server --config server.yaml
 ```
 
 **Affected Components:**
+
 - NATS connections (Direct, TLS, WebSocket, LeafNode strategies)
 - NATS gateway connections
 - Module registry clients (OCI and HTTP)
@@ -332,6 +353,7 @@ kscore-server --config server.yaml
 
 **Security Warning:**
 When `KSCORE_ALLOW_INSECURE_TLS=1` is set, a warning is logged:
+
 ```
 WARNING: InsecureSkipVerify is enabled - this should only be used for development/testing
 ```
@@ -341,6 +363,7 @@ WARNING: InsecureSkipVerify is enabled - this should only be used for developmen
 ### Control Plane TLS
 
 **Server Configuration:**
+
 ```yaml
 # server.yaml
 api:
@@ -357,6 +380,7 @@ api:
 ```
 
 **Let's Encrypt Certificates:**
+
 ```bash
 # Install certbot
 sudo apt-get install certbot
@@ -376,6 +400,7 @@ sudo crontab -e
 ### NATS TLS
 
 **NATS Server Configuration:**
+
 ```conf
 # nats-server.conf
 tls {
@@ -388,6 +413,7 @@ tls {
 ```
 
 **Agent Configuration:**
+
 ```yaml
 # agent.yaml
 nats:
@@ -402,6 +428,7 @@ nats:
 ### PostgreSQL TLS
 
 **PostgreSQL Configuration:**
+
 ```ini
 # postgresql.conf
 ssl = on
@@ -412,12 +439,14 @@ ssl_min_protocol_version = 'TLSv1.2'
 ```
 
 **pg_hba.conf:**
+
 ```
 # Require SSL for all connections
 hostssl    kscore      kscore      10.0.0.0/8              md5
 ```
 
 **Client Configuration:**
+
 ```yaml
 # server.yaml
 storage:
@@ -465,6 +494,7 @@ webhooks:
 ```
 
 **How it works:**
+
 1. Webhook source computes HMAC-SHA256 of request body using shared secret
 2. Signature sent in `X-Hub-Signature-256` header (GitHub format)
 3. Keystone Core verifies signature before processing
@@ -479,6 +509,7 @@ webhooks:
 | **Flux** | Notification Controller → Receiver secret |
 
 **Generate a secure secret:**
+
 ```bash
 # Generate 256-bit secret
 openssl rand -base64 32
@@ -500,6 +531,7 @@ webhooks:
 ```
 
 **Usage:**
+
 ```bash
 # Webhook source includes Authorization header
 curl -X POST \
@@ -534,6 +566,7 @@ webhooks:
 ```
 
 **Per-source rate limiting:**
+
 ```yaml
 webhooks:
   rate_limiting:
@@ -544,6 +577,7 @@ webhooks:
 ```
 
 **Response when rate limited:**
+
 - HTTP 429 Too Many Requests
 - `Retry-After` header indicates when to retry
 
@@ -568,6 +602,7 @@ webhooks:
 ```
 
 **Dynamic IP lookup for cloud services:**
+
 ```bash
 # GitHub webhook IPs (updated regularly)
 curl -s https://api.github.com/meta | jq '.hooks[]'
@@ -592,6 +627,7 @@ webhooks:
 ```
 
 **Let's Encrypt with automatic renewal:**
+
 ```bash
 certbot certonly --standalone -d webhooks.kscore.example.com
 ```
@@ -611,6 +647,7 @@ webhooks:
 ```
 
 **Event validation:**
+
 - All webhook payloads validated against expected schema
 - Unknown event types logged but not processed
 - Payload size limited (default: 1MB)
@@ -635,6 +672,7 @@ webhooks:
 ```
 
 **Audit log entries include:**
+
 - Timestamp
 - Source IP
 - Webhook type (argocd, flux, github, gitlab)
@@ -643,6 +681,7 @@ webhooks:
 - Processing result
 
 **Query webhook audit logs:**
+
 ```bash
 # Use kscore-audit log with jq filtering
 kscore-audit log --output json | jq 'select(.event_type | startswith("gitops.webhook")) | select(.result == "failed")'
@@ -654,6 +693,7 @@ cat /var/log/keystone-core/audit.log | jq 'select(.event_type | startswith("gito
 ### Monitoring and Alerting
 
 **Prometheus metrics:**
+
 ```yaml
 # Alert on webhook authentication failures
 - alert: WebhookAuthFailures
@@ -666,6 +706,7 @@ cat /var/log/keystone-core/audit.log | jq 'select(.event_type | startswith("gito
 ```
 
 **Key metrics:**
+
 | Metric | Description |
 |--------|-------------|
 | `kscore_webhook_requests_total` | Total webhook requests by type and status |
@@ -690,11 +731,13 @@ Before exposing webhooks to the internet:
 ### Example: Secure GitHub Webhook Configuration
 
 **1. Generate secret:**
+
 ```bash
 export GITHUB_WEBHOOK_SECRET="$(openssl rand -base64 32)"
 ```
 
 **2. Configure Keystone Core:**
+
 ```yaml
 # server.yaml
 webhooks:
@@ -724,6 +767,7 @@ webhooks:
 ```
 
 **3. Configure GitHub repository:**
+
 - Repository Settings → Webhooks → Add webhook
 - Payload URL: `https://webhooks.kscore.example.com/github/webhooks`
 - Content type: `application/json`
@@ -731,6 +775,7 @@ webhooks:
 - Events: Select specific events (deployment, push)
 
 **4. Verify webhook delivery:**
+
 ```bash
 # Check webhook stats
 curl -s https://kscore.example.com/stats | jq '.webhooks'
@@ -746,23 +791,27 @@ Define fine-grained access control policies.
 ### Built-in Roles
 
 **admin:**
+
 - Full system access
 - Create/modify policies
 - Manage users and roles
 - Execute any command
 
 **operator:**
+
 - Deploy applications
 - Execute commands
 - Apply state configurations
 - View all resources
 
 **read-only:**
+
 - View agents and resources
 - Query metrics and logs
 - No write permissions
 
 **agent:**
+
 - Agent registration only
 - Heartbeat and telemetry
 - No user-facing permissions
@@ -770,6 +819,7 @@ Define fine-grained access control policies.
 ### Custom Roles
 
 **Define Custom Role:**
+
 ```yaml
 # roles.yaml
 - name: deployment-manager
@@ -802,6 +852,7 @@ auth:
 ### Policy-Based Access Control
 
 **OPA Policy Example:**
+
 ```rego
 # rbac.rego
 package kscore.rbac
@@ -836,6 +887,7 @@ deny {
 ```
 
 **Apply Policy:**
+
 ```bash
 kscorectl policy create rbac --file rbac.rego --enforce
 ```
@@ -863,6 +915,7 @@ kscore-audit log --output json | jq 'select(.event_type | contains("rbac"))'
 ### Operating System Hardening
 
 **Firewall Configuration:**
+
 ```bash
 # Allow only necessary ports
 sudo ufw default deny incoming
@@ -884,6 +937,7 @@ sudo ufw enable
 ```
 
 **Disable Unnecessary Services:**
+
 ```bash
 # List running services
 systemctl list-units --type=service --state=running
@@ -894,6 +948,7 @@ sudo systemctl disable cups
 ```
 
 **File System Permissions:**
+
 ```bash
 # Restrict config files
 sudo chmod 600 /etc/keystone-core/server.yaml
@@ -909,6 +964,7 @@ sudo chown kscore:kscore /var/lib/keystone-core
 ```
 
 **SELinux/AppArmor:**
+
 ```bash
 # Enable SELinux
 sudo setenforce 1
@@ -920,6 +976,7 @@ sudo setenforce 1
 ### Application Hardening
 
 **Principle of Least Privilege:**
+
 ```bash
 # Run as non-root user
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin kscore
@@ -936,6 +993,7 @@ ReadWritePaths=/var/lib/keystone-core
 ```
 
 **API Rate Limiting:**
+
 ```yaml
 # server.yaml
 api:
@@ -960,18 +1018,21 @@ auth:
 ```
 
 When a client exceeds the failure threshold:
+
 - Further authentication attempts return gRPC `ResourceExhausted` status
 - The lockout includes time remaining in the error message
 - Successful authentication resets the failure counter
 - Client identification uses peer IP or X-Forwarded-For/X-Real-IP headers
 
 **Monitor rate limiting:**
+
 ```bash
 # Check rate limiter stats via metrics
 curl -s http://control-plane:8080/metrics | grep auth_rate
 ```
 
 **Input Validation:**
+
 - All API inputs validated
 - YAML parsing with size limits
 - Command injection prevention
@@ -1012,6 +1073,7 @@ execution:
 The deprecation warning is logged once at startup when permissive mode is detected.
 
 **Secrets Management:**
+
 ```yaml
 # Use external secrets manager
 secrets:
@@ -1051,6 +1113,7 @@ flowchart TB
 ```
 
 **Firewall Rules:**
+
 - Management → Control Plane: SSH, API (8080/8443)
 - Control Plane → Control Plane: NATS (4222, 6222), PostgreSQL (5432)
 - Agents → Control Plane: NATS (4222) only
@@ -1063,6 +1126,7 @@ Track all security-relevant events.
 ### Enable Audit Logging
 
 **Configuration:**
+
 ```yaml
 # server.yaml
 audit:
@@ -1098,6 +1162,7 @@ audit:
 ### Query Audit Logs
 
 **With jq:**
+
 ```bash
 # All failed operations
 cat /var/log/keystone-core/audit.log | jq 'select(.result == "failed")'
@@ -1111,6 +1176,7 @@ cat /var/log/keystone-core/audit.log | \
 ```
 
 **With Elasticsearch:**
+
 ```json
 {
   "query": {
@@ -1135,6 +1201,7 @@ audit:
 ```
 
 **Off-site Archival:**
+
 ```bash
 # Daily export to S3
 aws s3 cp /var/log/keystone-core/audit.log \
@@ -1150,6 +1217,7 @@ aws s3 cp audit.log.gpg s3://compliance-logs/kscore/
 Policy evaluations are audited separately with support for persistent storage, configurable retention, and automatic sensitive data redaction.
 
 **Persistent SQLite Audit Store:**
+
 ```yaml
 # server.yaml
 policy:
@@ -1186,6 +1254,7 @@ policy:
 ```
 
 **Policy Audit Entry Format:**
+
 ```json
 {
   "id": "audit-1705312345678",
@@ -1215,6 +1284,7 @@ policy:
 ```
 
 **Query Policy Audit:**
+
 ```bash
 # List policy evaluations (most recent 100)
 kscorectl policy audit --limit 100
@@ -1249,6 +1319,7 @@ Redaction automatically sanitizes sensitive data before storing audit entries:
 3. **User Redaction**: When enabled, user identifiers are partially masked (e.g., `administrator` → `ad***`).
 
 **Example Redaction:**
+
 ```yaml
 # Original audit entry metadata
 metadata:
@@ -1266,6 +1337,7 @@ metadata:
 ```
 
 **Best Practices:**
+
 - Use persistent storage (`sqlite`) for production deployments
 - Set retention to meet compliance requirements (SOC 2: 1 year, HIPAA: 6 years)
 - Enable `redact_user` if user identifiers are considered sensitive
@@ -1276,18 +1348,21 @@ metadata:
 ### SOC 2 Compliance
 
 **Access Control:**
+
 - [x] Role-based access control implemented
 - [x] Audit logging of all access
 - [x] MFA for administrative access
 - [x] Regular access reviews
 
 **Data Security:**
+
 - [x] Encryption in transit (TLS)
 - [x] Encryption at rest (database)
 - [x] Secrets management (Vault)
 - [x] Data retention policies
 
 **Change Management:**
+
 - [x] All changes tracked in audit log
 - [x] State configurations version controlled
 - [x] Approval workflow for production changes
@@ -1295,12 +1370,14 @@ metadata:
 ### HIPAA Compliance
 
 **Required:**
+
 - Encryption: TLS 1.2+ for all communications
 - Access Controls: RBAC with audit logging
 - Audit Trails: 6-year retention minimum
 - Backup/Recovery: Daily backups, quarterly DR tests
 
 **Configuration:**
+
 ```yaml
 # server.yaml - HIPAA compliance settings
 audit:
@@ -1340,6 +1417,7 @@ kscore-audit export --format json --output alice-export.json
 ```
 
 **Data Retention:**
+
 ```yaml
 # server.yaml
 data_retention:
@@ -1353,6 +1431,7 @@ data_retention:
 ### HashiCorp Vault Integration
 
 **Configuration:**
+
 ```yaml
 # server.yaml
 secrets:
@@ -1368,6 +1447,7 @@ secrets:
 ```
 
 **Store Secrets:**
+
 ```bash
 # Database password
 vault kv put secret/kscore/database password="secure-db-password"
@@ -1380,6 +1460,7 @@ vault kv put secret/kscore/api-keys monitoring="sk_monitoring_key"
 ```
 
 **Rotate Secrets:**
+
 ```bash
 # Update secret in Vault
 vault kv put secret/kscore/database password="new-secure-password"
@@ -1442,6 +1523,7 @@ security:
 ```
 
 **How Authorization Works:**
+
 1. Control plane sends commands with `X-Keystone-Principal` header
 2. Agent validates principal against `allowed_principals` list
 3. If `require_signature` is true, validates HMAC signature in `X-Keystone-Signature` header
@@ -1479,6 +1561,7 @@ security:
 ```
 
 **Allowlist Mode (Most Secure):**
+
 ```yaml
 security:
   command_filter:
@@ -1514,11 +1597,13 @@ security:
 When running embedded NATS on agents, security is enforced:
 
 **Default Behavior:**
+
 - Embedded NATS is **disabled by default** (requires explicit configuration)
 - When enabled, binds to `0.0.0.0` (all interfaces)
 - TLS and authentication are **required** for non-localhost binding
 
 **Enable Embedded NATS via CLI:**
+
 ```bash
 # Enable with TLS (required for external access)
 kscore-agent config enable-embedded-nats \
@@ -1536,6 +1621,7 @@ kscore-agent config disable-embedded-nats \
 ```
 
 **Secure Embedded NATS Configuration:**
+
 ```yaml
 # agent.yaml
 nats:
@@ -1553,6 +1639,7 @@ nats:
 ```
 
 **Localhost-only Mode (Development):**
+
 ```yaml
 # agent.yaml - no TLS/auth required for localhost
 nats:
@@ -1660,6 +1747,7 @@ modules:
 ```
 
 When a locked module is updated:
+
 - New capabilities are **blocked** by policy
 - Removed capabilities are **allowed**
 - More restrictive configurations are **allowed**
@@ -1727,6 +1815,7 @@ For complete module security documentation, see [Module System & Security](/docs
 5. **Review**: Post-incident review and remediation
 
 **Incident Response Plan:**
+
 ```bash
 # 1. Isolate compromised node
 kscorectl agents quarantine web-05
@@ -1752,6 +1841,7 @@ kscore-audit report --since 24h
 ## Security Tools
 
 **Vulnerability Scanning:**
+
 ```bash
 # Scan Docker images
 trivy image kscore/server:latest
@@ -1764,6 +1854,7 @@ nmap -sV control-plane
 ```
 
 **Intrusion Detection:**
+
 ```bash
 # Install OSSEC
 sudo apt-get install ossec-hids
@@ -1773,6 +1864,7 @@ tail -f /var/ossec/logs/alerts/alerts.log
 ```
 
 **Secrets Detection:**
+
 ```bash
 # Scan git repo for accidentally committed secrets
 trufflehog filesystem /etc/keystone-core
@@ -1794,6 +1886,7 @@ Keystone Core uses automated security scanning in CI that **blocks** merges when
 ### Handling Vulnerability Findings
 
 **Option 1: Fix the Vulnerability (Preferred)**
+
 ```bash
 # Update vulnerable dependency
 go get -u github.com/vulnerable/package@latest
@@ -1806,6 +1899,7 @@ govulncheck ./...
 **Option 2: Inline Waiver with Nosec**
 
 For gosec findings where the code is safe despite the warning:
+
 ```go
 // #nosec G104 -- error intentionally ignored for cleanup operations
 // Justification: File removal errors cannot be meaningfully handled during shutdown
@@ -1813,6 +1907,7 @@ _ = os.Remove(tempFile)
 ```
 
 **Nosec annotation requirements:**
+
 - Include the rule ID (e.g., `G104`)
 - Provide justification comment
 - Document why the code is safe
@@ -1820,6 +1915,7 @@ _ = os.Remove(tempFile)
 **Option 3: Global Waiver in .gosec.yaml**
 
 For patterns that are safe across the codebase:
+
 ```yaml
 # .gosec.yaml
 # G104: Errors unhandled - excluded for logging cleanup
@@ -1831,6 +1927,7 @@ rules:
 ```
 
 **Waiver requirements:**
+
 - Justification for why the code is safe
 - Tracking reference (issue/ticket)
 - Review date for periodic reassessment
@@ -1859,16 +1956,19 @@ rules:
 When govulncheck reports a vulnerability:
 
 1. **Check if the vulnerable code path is used:**
+
    ```bash
    govulncheck -show verbose ./...
    ```
 
 2. **Update the dependency if available:**
+
    ```bash
    go get -u github.com/package@latest
    ```
 
 3. **If no fix available, document in security.md:**
+
    ```markdown
    ### Accepted Vulnerabilities
 

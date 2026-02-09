@@ -17,18 +17,23 @@ While GitOps tools like ArgoCD and Flux excel at deploying applications declarat
 ## What You'll Find Here
 
 ### [Getting Started](/docs/getting-started/)
+
 New to Keystone Core? Start here to understand what it is, install it, and complete your first deployment in under 15 minutes.
 
 ### [Concepts](/docs/concepts/)
+
 Deep dives into Keystone Core's architecture and subsystems: agents, state management, events, GitOps integration, policy enforcement, and more.
 
 ### [Quick Start](/docs/getting-started/quick-start/)
+
 Get up and running in 5 minutes with our hands-on quick start guide. Deploy your first control plane and agent.
 
 ### [Reference](/docs/reference/)
+
 Complete reference documentation for the CLI, API, configuration files, state modules, events, and metrics.
 
 ### [Operations](/docs/operations/)
+
 Production deployment guides, monitoring setup, troubleshooting, backup/restore, and scaling guidance.
 
 ## Quick Links
@@ -50,6 +55,7 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 ## Project Status
 
 ---
+
 >## 🚧 Early Preview / Not Production Ready
 >
 > Keystone Core is under active development and **not yet suitable for production**.

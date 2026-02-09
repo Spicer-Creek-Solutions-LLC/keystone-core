@@ -11,6 +11,7 @@ description: >
 Before installing Keystone Core, ensure you have:
 
 ### System Requirements
+
 - **Operating System**: Linux, macOS, or Windows
 - **Architecture**: amd64, arm64
 - **Memory**: 512MB minimum (2GB recommended for control plane)
@@ -18,6 +19,7 @@ Before installing Keystone Core, ensure you have:
 - **Go**: 1.25+ (if building from source)
 
 ### Network Requirements
+
 - Control plane needs port 4222 for NATS (configurable)
 - Control plane needs port 8080 for API server (configurable)
 - Agents need outbound connectivity to control plane
@@ -453,6 +455,7 @@ Now that Keystone Core is installed:
 3. **[Configuration Reference](../../reference/configuration/)** - Explore all configuration options
 
 Or dive into specific features:
+
 - [Remote Execution](../../concepts/remote-execution/) - Execute commands across your infrastructure
 - [State Management](../../concepts/state-management/) - Declarative configuration management
 - [Monitoring](../../operations/monitoring/) - Set up observability and dashboards

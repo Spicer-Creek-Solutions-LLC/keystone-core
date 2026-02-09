@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -282,8 +283,8 @@ func newBenchmarkCache() *benchmarkCache {
 }
 
 func (c *benchmarkCache) Get(ctx context.Context, path string) (*Secret, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	entry, ok := c.entries[path]
 	if !ok {
@@ -475,7 +476,7 @@ func TestThroughput(t *testing.T) {
 						t.Errorf("worker %d: read error: %v", workerID, err)
 						return
 					}
-					ops++
+					atomic.AddInt64(&ops, 1)
 					i++
 				}
 			}
@@ -484,7 +485,7 @@ func TestThroughput(t *testing.T) {
 
 	wg.Wait()
 
-	opsPerSecond := float64(ops) / duration.Seconds()
+	opsPerSecond := float64(atomic.LoadInt64(&ops)) / duration.Seconds()
 	t.Logf("Throughput: %.0f ops/sec with %d workers", opsPerSecond, numWorkers)
 
 	// Expect at least 10,000 ops/sec for cached reads

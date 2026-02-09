@@ -4,8 +4,6 @@ description: "Configuration reference for file distribution storage backends"
 weight: 80
 ---
 
-# File Backends Reference
-
 This page provides detailed configuration options for each file distribution storage backend.
 
 ## Backend Configuration
@@ -23,7 +21,7 @@ backends:
 ```
 
 > **Note**: The server expects a `backends` array, not a single `backend` object. Each backend requires a unique `name` and `type`.
-
+>
 > **Current Support**: Only the `filesystem` backend type is fully wired in the kscore-files server. Cloud backends (S3, GCS, Azure) are implemented as library code but not yet exposed through the server configuration. See individual backend sections for future configuration reference.
 
 ## Compression System
@@ -31,12 +29,14 @@ backends:
 The file distribution service includes an optional compression library for stored files and transfer payloads. Compression is MIME-aware, can skip already compressed formats, and automatically avoids compression when it would increase size. Integration is available for file distribution components but is not yet exposed through the public configuration.
 
 **Supported Algorithms**:
+
 - `none` (disabled)
 - `gzip`
 - `zstd`
 - `lz4`
 - `snappy`
 - `auto` (size-based selection, currently falls back to gzip when other libraries are not available)
+
 > **Note**: The current implementation uses gzip as a fallback for zstd/lz4/snappy until native libraries are wired in.
 
 **Compression Configuration Fields** (internal API; not yet exposed in `files.yaml`):
@@ -52,6 +52,7 @@ The file distribution service includes an optional compression library for store
 | `incompressible_types` | []string | MIME types to never compress |
 
 **Behavior Notes**:
+
 - If `compressible_types` is set, only those types are compressed.
 - If compression yields larger data, the original payload is preserved.
 - MIME checks use both content type and file extension hints.
@@ -75,6 +76,7 @@ Keystone Core includes a storage failover manager that can monitor backend healt
 | `enable_queue` | bool | Enable queueing during failover |
 
 **Failover Behavior**:
+
 - Health checks run continuously and update backend status.
 - When a backend becomes unhealthy, operations can be queued or retried.
 - Backends recover automatically after reaching the recovery threshold.
@@ -84,6 +86,7 @@ Keystone Core includes a storage failover manager that can monitor backend healt
 Mirror groups support incremental sync based on metadata comparison (checksum, size, and modification time). Sync plans classify actions per file: `copy`, `delete`, `conflict`, or `skip`.
 
 **Conflict Strategies**:
+
 - `newest-wins`: Choose the file with the most recent modification time.
 - `largest-wins`: Choose the file with the largest size.
 - `primary-wins`: Always select the primary mirror's version.
@@ -207,6 +210,7 @@ backend:
 ### Authentication
 
 GCS supports multiple authentication methods:
+
 1. **Service account file**: Set `credentials_file`
 2. **Environment variable**: Set `GOOGLE_APPLICATION_CREDENTIALS`
 3. **Workload Identity**: For GKE deployments
@@ -240,6 +244,7 @@ backend:
 ### Authentication
 
 Azure supports:
+
 1. **Access key**: Set `access_key`
 2. **Managed Identity**: Omit `access_key` for Azure VMs
 3. **Service Principal**: Use environment variables

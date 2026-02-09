@@ -10,6 +10,7 @@ description: >
 Keystone Core supports multiple deployment patterns to match your infrastructure needs. This guide covers deployment options from simple single-node setups to highly-available production clusters across Kubernetes, VMs, and bare metal.
 
 **Deployment Spectrum:**
+
 - **Development** → Single-node with embedded NATS and SQLite
 - **Small Production** → Multi-node with external NATS and SQLite (<100 nodes)
 - **Large Production** → HA cluster with external NATS and PostgreSQL (100+ nodes)
@@ -38,12 +39,14 @@ flowchart TB
 ### Installation
 
 **Prerequisites:**
+
 - Linux server (Ubuntu 22.04, RHEL 8+, Debian 11+)
 - 2+ CPU cores
 - 4GB+ RAM
 - 20GB+ disk space
 
 **Install Binary:**
+
 ```bash
 # Download latest release
 wget https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-server-linux-amd64
@@ -55,6 +58,7 @@ kscore-server version
 ```
 
 **Configuration:**
+
 ```yaml
 # /etc/keystone-core/server.yaml
 api:
@@ -79,6 +83,7 @@ logging:
 ```
 
 **Systemd Service:**
+
 ```ini
 # /etc/systemd/system/kscore-server.service
 [Unit]
@@ -98,6 +103,7 @@ WantedBy=multi-user.target
 ```
 
 **Start Service:**
+
 ```bash
 # Create user and directories
 sudo useradd --system --no-create-home kscore
@@ -120,7 +126,7 @@ sudo systemctl status kscore-server
 - Not suitable for production workloads requiring 99.9%+ uptime
 - SQLite performance limits state operations at scale
 
-**Migration Path:** When you outgrow single-node, migrate to [High-Availability Setup](#high-availability).
+**Migration Path:** When you outgrow single-node, migrate to [High-Availability Setup](#high-availability-deployment).
 
 ## High-Availability Deployment
 
@@ -177,6 +183,7 @@ flowchart TB
 ### NATS Cluster Setup
 
 **Install NATS Server:**
+
 ```bash
 # On each NATS node
 wget https://github.com/nats-io/nats-server/releases/latest/download/nats-server-linux-amd64
@@ -185,6 +192,7 @@ sudo mv nats-server-linux-amd64 /usr/local/bin/nats-server
 ```
 
 **NATS Configuration (Node 1):**
+
 ```conf
 # /etc/nats/nats-server.conf
 port: 4222
@@ -217,6 +225,7 @@ accounts {
 ```
 
 **Systemd Service:**
+
 ```ini
 # /etc/systemd/system/nats-server.service
 [Unit]
@@ -237,11 +246,13 @@ Repeat for nodes 2 and 3 (change `server_name` accordingly).
 ### PostgreSQL Setup
 
 **Install PostgreSQL 14+:**
+
 ```bash
 sudo apt-get install postgresql-14 postgresql-14-contrib
 ```
 
 **Configure Primary:**
+
 ```sql
 -- Create database and user
 CREATE USER kscore WITH PASSWORD 'secure_password';
@@ -252,6 +263,7 @@ CREATE USER replicator WITH REPLICATION PASSWORD 'repl_password';
 ```
 
 **postgresql.conf:**
+
 ```ini
 # /etc/postgresql/14/main/postgresql.conf
 listen_addresses = '*'
@@ -262,6 +274,7 @@ hot_standby = on
 ```
 
 **pg_hba.conf:**
+
 ```
 # /etc/postgresql/14/main/pg_hba.conf
 host    replication     replicator      10.0.0.0/8              md5
@@ -269,6 +282,7 @@ host    kscore      kscore      10.0.0.0/8              md5
 ```
 
 **Set up Replicas:**
+
 ```bash
 # On replica servers
 pg_basebackup -h primary_host -D /var/lib/postgresql/14/main -U replicator -P --wal-method=stream
@@ -325,6 +339,7 @@ logging:
 For smaller HA deployments (3-5 control plane nodes), you can use embedded etcd mode which runs an etcd server in-process with each control plane node. This eliminates the need for a separate etcd cluster.
 
 **Embedded Mode Configuration:**
+
 ```yaml
 # /etc/keystone-core/server.yaml
 clustering:
@@ -351,12 +366,14 @@ clustering:
 ```
 
 **When to Use Embedded Mode:**
+
 - 3-5 control plane nodes
 - Simpler deployment without separate etcd cluster
 - Development and staging environments
 - Smaller production deployments
 
 **When to Use External Mode:**
+
 - 5+ control plane nodes
 - Existing etcd infrastructure
 - Need for independent etcd scaling
@@ -364,6 +381,7 @@ clustering:
 
 **Mixed Deployment:**
 You can start with embedded mode and migrate to external mode later by:
+
 1. Setting up external etcd cluster
 2. Exporting data from embedded etcd
 3. Importing to external cluster
@@ -374,17 +392,20 @@ You can start with embedded mode and migrate to external mode later by:
 In HA deployments, agents may connect to different control plane servers over time (due to load balancing or failover). Keystone Core handles this automatically:
 
 **How It Works:**
+
 1. **Startup Loading**: Each control plane server loads all registered agents from the shared PostgreSQL database on startup
 2. **Dynamic Discovery**: When a heartbeat arrives from an agent not in memory, the server checks the database before rejecting it
 3. **Seamless Handoff**: If the agent exists in the database, it's loaded and heartbeat processing continues normally
 
 **Benefits:**
+
 - Zero agent re-registration during failover
 - Agents can connect to any control plane server
 - Load balancer can route agents freely without session affinity
 - New control plane servers immediately recognize all existing agents
 
 **Requirements:**
+
 - Shared PostgreSQL database (required for HA)
 - All control plane servers must use the same database
 
@@ -393,6 +414,7 @@ This ensures true high-availability with no agent disruption when control plane 
 ### Load Balancer Setup
 
 **HAProxy Configuration:**
+
 ```
 # /etc/haproxy/haproxy.cfg
 frontend kscore_api
@@ -432,6 +454,7 @@ psql -U kscore -c "SELECT * FROM pg_stat_replication;"
 ## Kubernetes Deployment
 
 Keystone Core provides two options for Kubernetes deployment:
+
 1. **Helm Charts** - Full-featured charts with HA support and Bitnami dependencies
 2. **Raw Manifests** - Kustomize-based manifests for simple deployments
 
@@ -481,6 +504,7 @@ flowchart TB
 ### Option 1: Helm Charts (Recommended)
 
 Keystone Core provides two Helm charts in `deploy/helm/`:
+
 - **kscore-server** - Control plane (Deployment or StatefulSet for HA)
 - **kscore-agent** - Agent DaemonSet
 
@@ -767,6 +791,7 @@ kscorectl cluster status
 ### Accessing the Server
 
 **Port Forward (Development):**
+
 ```bash
 # gRPC API
 kubectl -n kscore-system port-forward svc/kscore-server 9090:9090
@@ -776,6 +801,7 @@ kubectl -n kscore-system port-forward svc/kscore-server 8080:8080
 ```
 
 **Ingress (Production):**
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -971,6 +997,7 @@ docker-compose down -v
 ### Horizontal Scaling (Adding Nodes)
 
 **Control Plane Scaling:**
+
 ```bash
 # Add new control plane node
 # 1. Install kscore-server
@@ -982,16 +1009,19 @@ docker-compose down -v
 ```
 
 **Agent Scaling:**
+
 - Agents are stateless - add as many as needed
 - No configuration changes required
 - Agents automatically discover control plane via NATS
 
 **NATS Scaling:**
+
 - Always use odd numbers (3, 5, 7) for cluster consensus
 - 3 nodes sufficient for most workloads
 - 5+ nodes for geo-distributed deployments
 
 **Database Scaling:**
+
 - Add read replicas for query load
 - Shard by datacenter/region for geo-distribution
 - Connection pooling at application layer
@@ -999,16 +1029,19 @@ docker-compose down -v
 ### Vertical Scaling (Resource Increases)
 
 **CPU Scaling:**
+
 - Control plane: 2-4 cores typical, 8+ for high throughput
 - NATS: 4+ cores for message routing
 - PostgreSQL: 4-8 cores for query processing
 
 **Memory Scaling:**
+
 - Control plane: 4GB minimum, 8-16GB typical, 32GB+ for large deployments
 - NATS JetStream: 8GB+ for message buffering
 - PostgreSQL: 8-32GB+ depending on state size
 
 **Disk Scaling:**
+
 - JetStream: 100GB+ for event storage (depends on retention)
 - PostgreSQL: 50GB+ (grows with managed nodes and state history)
 - Use SSD/NVMe for best performance
@@ -1030,6 +1063,7 @@ docker-compose down -v
 **1. Set up NATS cluster** (see [NATS Cluster Setup](#nats-cluster-setup))
 
 **2. Update control plane configuration:**
+
 ```yaml
 nats:
   mode: external
@@ -1041,6 +1075,7 @@ nats:
 ```
 
 **3. Migrate JetStream data** (if needed):
+
 ```bash
 # Backup embedded JetStream
 nats-server --signal backup --jetstream /var/lib/keystone-core/jetstream
@@ -1050,11 +1085,13 @@ nats stream restore --dir /backup/jetstream
 ```
 
 **4. Restart control plane:**
+
 ```bash
 sudo systemctl restart kscore-server
 ```
 
 **5. Verify agents reconnect:**
+
 ```bash
 kscorectl agent list
 ```
@@ -1064,6 +1101,7 @@ kscorectl agent list
 **1. Set up PostgreSQL** (see [PostgreSQL Setup](#postgresql-setup))
 
 **2. Export SQLite data:**
+
 ```bash
 kscorectl migrate export \
   --source sqlite:///var/lib/keystone-core/state.db \
@@ -1071,6 +1109,7 @@ kscorectl migrate export \
 ```
 
 **3. Import to PostgreSQL:**
+
 ```bash
 kscorectl migrate import \
   --input /tmp/state-export.sql \
@@ -1078,6 +1117,7 @@ kscorectl migrate import \
 ```
 
 **4. Update configuration:**
+
 ```yaml
 storage:
   type: postgresql
@@ -1089,6 +1129,7 @@ storage:
 ```
 
 **5. Restart and verify:**
+
 ```bash
 sudo systemctl restart kscore-server
 kscorectl state list  # Verify state is accessible
@@ -1097,6 +1138,7 @@ kscorectl state list  # Verify state is accessible
 ## Best Practices
 
 ### Deployment
+
 - **Start small, scale up** - Begin with single-node, migrate to HA as you grow
 - **Use external NATS** for production (>100 managed nodes)
 - **Use PostgreSQL** for production (>100 managed nodes or high state change rate)
@@ -1104,18 +1146,21 @@ kscorectl state list  # Verify state is accessible
 - **Deploy agents near control plane** - Same datacenter for <10ms latency
 
 ### Networking
+
 - **Use private networks** - Control plane and NATS should not be public
 - **Enable TLS** - Encrypt all traffic (NATS, API, PostgreSQL)
 - **Configure firewalls** - Restrict access to necessary ports only
 - **Use load balancers** - Distribute API load across control plane nodes
 
 ### Storage
+
 - **SSD/NVMe required** for PostgreSQL and JetStream
 - **RAID 10 recommended** for redundancy and performance
 - **Monitor disk usage** - Set up alerts for 80%+ utilization
 - **Plan for growth** - 20% annual growth in state and events
 
 ### Capacity Planning
+
 - **Control plane**: 1 CPU core per 100 agents, 1GB RAM per 100 agents
 - **NATS**: 1 CPU core per 1,000 msgs/sec, 1GB RAM per 10,000 buffered messages
 - **PostgreSQL**: 1GB RAM per 10,000 state resources
@@ -1163,6 +1208,7 @@ Embedded NATS runs in-process with the control plane. Memory is the primary cons
 **Configuration for Different Scales:**
 
 **Small (up to 50 agents):**
+
 ```yaml
 nats:
   mode: embedded
@@ -1174,6 +1220,7 @@ nats:
 ```
 
 **Medium (50-200 agents):**
+
 ```yaml
 nats:
   mode: embedded
@@ -1187,6 +1234,7 @@ nats:
 ```
 
 **Large (200-500 agents - at the limit):**
+
 ```yaml
 nats:
   mode: embedded
@@ -1252,6 +1300,7 @@ storage:
 **When SQLite Becomes a Bottleneck:**
 
 Signs you need PostgreSQL:
+
 - Write latency >100ms consistently
 - State apply operations queuing
 - Database file >10GB
@@ -1261,6 +1310,7 @@ Signs you need PostgreSQL:
 ### Combined Resource Requirements
 
 **System Memory Formula:**
+
 ```
 Total RAM = OS Base (512 MB)
           + Control Plane Base (500 MB)
@@ -1293,6 +1343,7 @@ SQLite and JetStream both require fast disk I/O.
 | Network storage (NFS/EBS) | Variable | Test latency carefully |
 
 **I/O Monitoring:**
+
 ```bash
 # Check disk I/O wait
 iostat -x 1
@@ -1305,17 +1356,20 @@ iostat -x 1
 When memory is constrained, embedded NATS and SQLite compete for resources.
 
 **Priority Order:**
+
 1. OS and control plane base functions
 2. Active connections and subscriptions
 3. JetStream memory cache
 4. SQLite page cache
 
 **Under Memory Pressure:**
+
 - JetStream falls back to file storage (slower)
 - SQLite flushes cache more frequently
 - Connection buffers may be reduced
 
 **Configuration for Memory-Constrained Environments:**
+
 ```yaml
 nats:
   jetstream:
@@ -1376,12 +1430,14 @@ alerts:
 When you outgrow embedded mode, migrate to external NATS cluster and PostgreSQL.
 
 **Migration Triggers:**
+
 - Consistent memory pressure (>80% usage)
 - SQLite write latency >100ms (p95)
 - Need for high availability
 - Agent count approaching 500
 
 **Migration Path:**
+
 1. Deploy external NATS cluster
 2. Deploy PostgreSQL
 3. Migrate using `kscorectl migrate` tool
@@ -1396,11 +1452,13 @@ See [Migration Paths](#migration-paths) for detailed procedures.
 ### Control Plane Won't Start
 
 **Check logs:**
+
 ```bash
 sudo journalctl -u kscore-server -f
 ```
 
 **Common issues:**
+
 - Configuration syntax errors - validate YAML
 - Cannot connect to NATS - verify NATS is running and credentials correct
 - Cannot connect to database - verify PostgreSQL is running and accessible
@@ -1409,11 +1467,13 @@ sudo journalctl -u kscore-server -f
 ### Agents Won't Connect
 
 **Check agent logs:**
+
 ```bash
 sudo journalctl -u kscore-agent -f
 ```
 
 **Common issues:**
+
 - Cannot resolve NATS host - verify DNS or use IP address
 - Authentication failed - check NATS credentials
 - Network unreachable - verify firewall rules and routing
@@ -1422,11 +1482,13 @@ sudo journalctl -u kscore-agent -f
 ### Cluster Election Fails
 
 **Check etcd health:**
+
 ```bash
 etcdctl endpoint health
 ```
 
 **Common issues:**
+
 - Less than 3 etcd nodes - need quorum for elections
 - Network partitions - verify connectivity between nodes
 - Clock skew - synchronize clocks with NTP
@@ -1434,6 +1496,7 @@ etcdctl endpoint health
 ### Performance Issues
 
 **Check resource utilization:**
+
 ```bash
 # CPU and memory
 top
@@ -1446,6 +1509,7 @@ iftop
 ```
 
 **Common bottlenecks:**
+
 - Insufficient CPU - scale vertically or horizontally
 - Memory swapping - increase RAM or reduce memory usage
 - Disk I/O saturation - use faster disks or add caching

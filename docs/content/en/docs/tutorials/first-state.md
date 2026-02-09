@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 In this tutorial, you'll learn how to:
+
 - Create a state declaration file
 - Apply states to managed nodes
 - Verify the applied configuration
@@ -22,6 +23,7 @@ In this tutorial, you'll learn how to:
 - `kscorectl` CLI configured
 
 Verify your setup:
+
 ```bash
 kscorectl agent list
 ```
@@ -49,6 +51,7 @@ file:
 ```
 
 This state:
+
 - Uses the `file` module with a state ID of `hello_file`
 - Creates a file at `/tmp/hello-keystone.txt`
 - Sets the content with a template that includes a timestamp
@@ -63,6 +66,7 @@ kscorectl state check hello-state.yaml
 ```
 
 Output:
+
 ```
 Checking state: hello-state.yaml
 
@@ -87,6 +91,7 @@ kscorectl state apply hello-state.yaml
 ```
 
 Output:
+
 ```
 Applying state: hello-state.yaml
 
@@ -111,6 +116,7 @@ kscorectl exec run "*" -- cat /tmp/hello-keystone.txt
 ```
 
 Output:
+
 ```
 [agent-001]
 Hello from Keystone Core!
@@ -128,6 +134,7 @@ kscorectl state apply hello-state.yaml
 ```
 
 Output:
+
 ```
 Applying state: hello-state.yaml
 
@@ -171,6 +178,7 @@ kscorectl state check hello-state.yaml
 ```
 
 Output:
+
 ```
 [agent-001] Checking...
   /tmp/hello-keystone.txt:
@@ -247,6 +255,7 @@ file:
 ```
 
 This example demonstrates:
+
 - **Variables**: Reusable values with `vars`
 - **Templates**: Dynamic content with `{{ }}`
 - **Dependencies**: `require` ensures proper ordering

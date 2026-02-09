@@ -36,6 +36,7 @@ compatibility, architecture, or user experience require an RFC proposal.
 ### Breaking Changes
 
 Breaking changes require:
+
 - An RFC proposal (unless trivial)
 - Maintainer agreement
 - BDFL approval

@@ -34,6 +34,7 @@ The `security-baseline` blueprint implements security hardening best practices.
 | `ssh_allowed_groups` | `[]` | Empty = all groups; recommend setting to specific group |
 
 **Recommendations:**
+
 - Always set `ssh_allowed_users` or `ssh_allowed_groups` in production
 - Consider changing `ssh_port` on internet-facing servers
 - Use `prohibit-password` for root if you need emergency root access via console
@@ -47,6 +48,7 @@ The `security-baseline` blueprint implements security hardening best practices.
 | `firewall_allowed_ips` | `[]` | No IP whitelisting by default |
 
 **Recommendations:**
+
 - Add application-specific ports to `firewall_allowed_ports`
 - Use `firewall_allowed_ips` for management networks in enterprise environments
 
@@ -64,6 +66,7 @@ The `security-baseline` blueprint implements security hardening best practices.
 | `password_require_special` | `true` | Character complexity requirement |
 
 **Note:** NIST 800-63B (2024 revision) now recommends length over complexity. Consider:
+
 - Increasing `password_min_length` to 14-16 characters
 - Setting complexity requirements to `false` with longer minimum length
 - Using passphrases instead of complex passwords
@@ -94,6 +97,7 @@ The `security-baseline` blueprint implements security hardening best practices.
 | `fail2ban_maxretry` | `5` | Allows for typos; low enough to stop brute force |
 
 **Recommendations:**
+
 - Enable `fail2ban` feature (disabled by default) for internet-facing servers
 - Consider increasing `fail2ban_bantime` to 86400 (24 hours) for repeated offenders
 
@@ -105,6 +109,7 @@ The `security-baseline` blueprint implements security hardening best practices.
 | `updates_reboot_time` | `02:00` | Off-peak hours if auto-reboot enabled |
 
 **Recommendations:**
+
 - Enable `automatic_updates` feature for security updates
 - Consider enabling `updates_auto_reboot` for non-critical systems
 
@@ -124,6 +129,7 @@ The `monitoring-stack` blueprint deploys Prometheus, Grafana, and related tools.
 | `alertmanager_version` | `0.26.0` | Current stable release |
 
 **Recommendations:**
+
 - Pin versions explicitly for reproducible deployments
 - Update versions regularly for security patches
 - Test new versions in staging before production
@@ -138,6 +144,7 @@ The `monitoring-stack` blueprint deploys Prometheus, Grafana, and related tools.
 | `prometheus_scrape_interval` | `15s` | Good balance of granularity and resource usage |
 
 **Sizing guidance:**
+
 - 15d retention uses ~1-2GB per 100 time series at 15s scrape
 - Increase retention for capacity planning analysis
 - Consider remote storage (Thanos, Cortex) for long-term retention
@@ -151,6 +158,7 @@ The `monitoring-stack` blueprint deploys Prometheus, Grafana, and related tools.
 | `grafana_domain` | `localhost` | Safe default; set to actual domain in production |
 
 **Security notes:**
+
 - `grafana_admin_password` is **required** (no default) - must be set explicitly
 - `grafana_secret_key` is **required** - used for signing cookies and tokens
 - Consider placing Grafana behind a reverse proxy with TLS
@@ -163,6 +171,7 @@ The `monitoring-stack` blueprint deploys Prometheus, Grafana, and related tools.
 | `node_exporter_collectors` | `[cpu, diskstats, ...]` | Essential collectors for system monitoring |
 
 **Default collectors explanation:**
+
 - `cpu` - CPU usage metrics
 - `diskstats` - Disk I/O metrics
 - `filesystem` - Disk space metrics
@@ -196,6 +205,7 @@ The `production-cluster` blueprint deploys Keystone Core in HA configuration.
 | `postgres_user` | `keystone` | Application-specific user (not superuser) |
 
 **Security notes:**
+
 - `postgres_password` is **required** - no default for security
 - `postgres_host` is **required** - explicit configuration required
 - Consider using connection pooling (PgBouncer) for production
@@ -207,11 +217,13 @@ The `production-cluster` blueprint deploys Keystone Core in HA configuration.
 | `tls_mode` | `generate` | Auto-generates self-signed certs for initial setup |
 
 **Modes explanation:**
+
 - `generate` - Auto-generate self-signed certificates (development/testing)
 - `provided` - Use existing certificates (production with internal CA)
 - `letsencrypt` - Automatic Let's Encrypt certificates (public-facing)
 
 **Recommendations:**
+
 - Use `provided` mode with organizational PKI for production
 - Use `letsencrypt` for internet-accessible deployments
 - Never use `generate` mode in production
@@ -249,16 +261,20 @@ The `enterprise-platform` blueprint extends production-cluster with additional f
 All blueprints enforce validation rules:
 
 ### Type Validation
+
 - `string` - Any text value
 - `integer` - Whole numbers only
 - `boolean` - `true` or `false`
 - `array` - List of values
 
 ### Enum Validation
+
 Parameters with `enum` only accept listed values.
 
 ### Required Parameters
+
 Parameters marked `required: true` must be explicitly set:
+
 - `postgres_password` - Database credentials
 - `postgres_host` - Database connection
 - `control_plane_nodes` - Cluster membership
@@ -266,7 +282,9 @@ Parameters marked `required: true` must be explicitly set:
 - `grafana_secret_key` - Session signing
 
 ### Sensitive Parameters
+
 Parameters marked `sensitive: true` are:
+
 - Masked in logs and output
 - Stored encrypted in state
 - Not displayed in dry-run output
@@ -305,6 +323,7 @@ parameters:
 ## Changelog
 
 ### Version 1.0.0
+
 - Initial parameter defaults review
 - Documented rationale for all security-baseline parameters
 - Added sizing guidance for monitoring stack

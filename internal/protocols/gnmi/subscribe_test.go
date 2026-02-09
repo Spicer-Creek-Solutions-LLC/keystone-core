@@ -2,6 +2,7 @@ package gnmi
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -42,13 +43,9 @@ func TestAdapter_Subscribe_Once(t *testing.T) {
 		}
 
 		// Send sync response
-		if err := stream.Send(&gnmipb.SubscribeResponse{
+		return stream.Send(&gnmipb.SubscribeResponse{
 			Response: &gnmipb.SubscribeResponse_SyncResponse{SyncResponse: true},
-		}); err != nil {
-			return err
-		}
-
-		return nil
+		})
 	}
 
 	adapter := &Adapter{config: DefaultConfig(), metrics: &protocols.AdapterMetrics{}}
@@ -285,13 +282,9 @@ func TestAdapter_ExecuteCommand_SubscribeOnce(t *testing.T) {
 			return err
 		}
 
-		if err := stream.Send(&gnmipb.SubscribeResponse{
+		return stream.Send(&gnmipb.SubscribeResponse{
 			Response: &gnmipb.SubscribeResponse_SyncResponse{SyncResponse: true},
-		}); err != nil {
-			return err
-		}
-
-		return nil
+		})
 	}
 
 	adapter := &Adapter{config: DefaultConfig(), metrics: &protocols.AdapterMetrics{}}
@@ -360,7 +353,7 @@ func TestGNMISubscription_Methods(t *testing.T) {
 	sub.SendError(io.EOF)
 	select {
 	case err := <-sub.Errors():
-		if err != io.EOF {
+		if !errors.Is(err, io.EOF) {
 			t.Errorf("expected io.EOF, got %v", err)
 		}
 	default:

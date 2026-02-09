@@ -1,3 +1,5 @@
+// Package restconf implements the RESTCONF protocol adapter (RFC 8040)
+// for managing network devices over HTTPS with YANG-modeled data.
 package restconf
 
 import (
@@ -137,11 +139,12 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	a.auth = auth
 
 	// Discover root path
-	if a.config.RootPath != "" {
+	switch {
+	case a.config.RootPath != "":
 		a.rootPath = a.config.RootPath
-	} else if a.config.DiscoverRoot {
+	case a.config.DiscoverRoot:
 		a.rootPath = discoverRootPath(ctx, a.client, a.auth)
-	} else {
+	default:
 		a.rootPath = DefaultRootPath
 	}
 

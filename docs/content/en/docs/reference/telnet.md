@@ -10,6 +10,7 @@ description: >
 The Telnet protocol adapter implements RFC 854/855 for managing legacy network devices that only support Telnet CLI access. Because Telnet transmits data in plaintext, the adapter enforces security controls (IP allowlisting, deprecation warnings, audit logging, session time limits) at the framework level.
 
 **Key features**:
+
 - RFC 854/855 IAC negotiation state machine (WILL/WONT/DO/DONT, sub-negotiation)
 - Expect-style I/O with prompt detection and pattern matching
 - Security-first design: IP allowlisting, deprecation warnings, audit logging

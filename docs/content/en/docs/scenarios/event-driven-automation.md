@@ -14,6 +14,7 @@ description: >
 ## Overview
 
 This scenario demonstrates event-driven infrastructure automation:
+
 - **Event Sources**: Agent events, external webhooks, scheduled triggers
 - **Reactors**: Automated responses to events
 - **Workflows**: Complex multi-step automation
@@ -22,6 +23,7 @@ This scenario demonstrates event-driven infrastructure automation:
 ### Business Context
 
 Event-driven automation enables:
+
 - Immediate response to infrastructure changes
 - Self-healing infrastructure
 - Automated incident response

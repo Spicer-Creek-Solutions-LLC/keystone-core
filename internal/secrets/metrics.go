@@ -270,12 +270,13 @@ func (m *BrokerMetrics) recordLatency(operation string, d time.Duration) {
 
 func (m *BrokerMetrics) recordBackendLatency(backend string, d time.Duration, err error) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	bm, ok := m.backendMetrics[backend]
 	if !ok {
 		bm = &BackendMetrics{Name: backend}
 		m.backendMetrics[backend] = bm
 	}
-	m.mu.Unlock()
 
 	bm.RequestsTotal++
 	if err == nil {

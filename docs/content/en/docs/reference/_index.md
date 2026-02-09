@@ -24,6 +24,7 @@ This section provides detailed technical reference documentation for all Keyston
 ## Quick Navigation
 
 ### For Developers
+
 - [REST API Endpoints](api/#rest-api-endpoints)
 - [gRPC Services](api/#grpc-services)
 - [Event Schemas](events/)
@@ -32,12 +33,14 @@ This section provides detailed technical reference documentation for all Keyston
 - [Visualization API](visualization/) - Topology and graphs
 
 ### For Operators
+
 - [kscorectl Commands](cli/)
 - [Control Plane Configuration](configuration/#control-plane)
 - [Agent Configuration](configuration/#agent)
 - [State File Syntax](modules/)
 
 ### For Users
+
 - [CLI Quick Reference](cli/#quick-reference)
 - [Common Configurations](configuration/#common-configurations)
 - [Event Filtering](events/#filtering-expressions)

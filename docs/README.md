@@ -16,17 +16,20 @@ This directory contains the source files for the Keystone Core documentation sit
 ### First-time Setup
 
 1. **Clone the repository** (if you haven't already):
+
    ```bash
    git clone https://github.com/shawnbutts/keystone-core.git
    cd keystone-core
    ```
 
 2. **Initialize the Docsy theme submodule**:
+
    ```bash
    git submodule update --init --recursive
    ```
 
 3. **Install npm dependencies**:
+
    ```bash
    cd docs
    npm install
@@ -39,6 +42,7 @@ This directory contains the source files for the Keystone Core documentation sit
    - Build tools
 
 4. **Create Hugo module placeholders (Docsy submodule builds)**:
+
    ```bash
    cd docs/themes/docsy/scripts
    node mkdirp-hugo-mod.js ../..
@@ -50,6 +54,7 @@ This directory contains the source files for the Keystone Core documentation sit
 The documentation site is configured to build to `build/docs/` (see `publishDir` in `hugo.toml`).
 
 **Build the site**:
+
 ```bash
 cd docs
 hugo
@@ -57,6 +62,7 @@ hugo
 ```
 
 **Build and serve locally** (with live reload):
+
 ```bash
 cd docs
 hugo server
@@ -64,6 +70,7 @@ hugo server
 ```
 
 **Build for production**:
+
 ```bash
 cd docs
 hugo --minify
@@ -81,6 +88,7 @@ make docs-check-container
 ```
 
 If you need to override container images (e.g., restricted registries), set:
+
 ```bash
 DOCS_NODE_IMAGE=... DOCS_LYCHEE_IMAGE=... make docs-check-container
 ```
@@ -112,6 +120,7 @@ docs/
 3. Write content using Markdown and Hugo shortcodes
 
 Example:
+
 ```markdown
 ---
 title: "My New Page"
@@ -176,6 +185,7 @@ To customize the Docsy theme:
 
 - **Error**: `module "github.com/FortAwesome/Font-Awesome" not found`
   - **Fix**: Create Docsy Hugo module placeholders:
+
     ```bash
     cd docs/themes/docsy/scripts
     node mkdirp-hugo-mod.js ../..
@@ -206,11 +216,13 @@ Generate PDF versions of the documentation for offline use. We offer four approa
 ### Quick Start
 
 **Default method (Paged.js + Playwright):**
+
 ```bash
 make docs-pdf
 ```
 
 This automatically:
+
 - Installs npm dependencies if needed
 - Installs Playwright browsers if needed
 - Builds the Hugo site
@@ -237,12 +249,14 @@ make docs-all-container
 ```
 
 **Benefits:**
+
 - No local dependencies required (no Hugo, Node.js, Pandoc, or LaTeX)
 - Consistent builds across machines
 - Works with both Docker and Podman (auto-detected)
 - Isolated, reproducible environment
 
 **First run will take longer** as it builds the container image (~2-3GB) with all dependencies:
+
 - Hugo Extended
 - Node.js 20 + npm
 - Playwright + Chromium
@@ -252,6 +266,7 @@ make docs-all-container
 Subsequent runs are fast as they reuse the cached container image.
 
 **Build the container image only:**
+
 ```bash
 make docs-container-build
 ```
@@ -274,6 +289,7 @@ cd docs && node generate-pdfs.js --section=concepts
 ```
 
 **Features:**
+
 - Cover page with title, version, and generation date
 - Table of contents (in complete documentation PDF)
 - Running headers with section names
@@ -295,6 +311,7 @@ make docs-pdf-simple
 Generates professional book-quality PDFs using Pandoc and LaTeX. Best typography and formatting but requires additional dependencies.
 
 **Prerequisites:**
+
 ```bash
 # macOS
 brew install pandoc
@@ -308,11 +325,13 @@ pip install Pygments
 ```
 
 **Generate:**
+
 ```bash
 make docs-pdf-book
 ```
 
 **Features:**
+
 - Professional LaTeX typography
 - Proper table of contents with page numbers
 - Chapter numbering
@@ -325,6 +344,7 @@ make docs-pdf-book
 All PDFs are created in `build/pdfs/`:
 
 **Paged.js/Simple mode:**
+
 - `keystone-core-getting-started.pdf` - Getting Started guide
 - `keystone-core-concepts.pdf` - Core Concepts documentation
 - `keystone-core-reference.pdf` - Complete API/CLI reference
@@ -333,6 +353,7 @@ All PDFs are created in `build/pdfs/`:
 - `keystone-core-complete.pdf` - Complete documentation
 
 **Book mode (Pandoc + LaTeX):**
+
 - `keystone-core-getting-started-book.pdf`
 - `keystone-core-concepts-book.pdf`
 - `keystone-core-reference-book.pdf`
@@ -353,8 +374,9 @@ The print styling is defined in `static/css/print.css`. Key customizations:
 ### Browser Print (Alternative)
 
 You can also use your browser's print function:
+
 1. Start Hugo server: `hugo server`
-2. Navigate to http://localhost:1313
+2. Navigate to <http://localhost:1313>
 3. Use browser print (Cmd+P / Ctrl+P)
 4. Select "Save as PDF"
 
@@ -363,18 +385,21 @@ You can also use your browser's print function:
 We offer multiple PDF generation options because:
 
 **Paged.js + Playwright:**
+
 - **Node.js only** - No additional dependencies beyond Hugo setup
 - **CSS Paged Media** - Standard-based approach for print styling
 - **Good quality** - Cover pages, TOC, running headers
 - **Fast** - Generates all PDFs in under 30 seconds
 
 **Pandoc + LaTeX:**
+
 - **Best typography** - LaTeX is the gold standard for document typesetting
 - **Book features** - Proper chapters, indexes, cross-references
 - **Professional output** - Suitable for printed documentation
 - **Trade-off** - Requires ~4GB MacTeX installation
 
 See also:
+
 - [Paged.js](https://pagedjs.org/) - CSS Paged Media polyfill
 - [pdf-book-exporter](https://github.com/rootsongjc/pdf-book-exporter) - Hugo book to PDF
 

@@ -8,6 +8,7 @@ description: >
 This scenario demonstrates managing Windows infrastructure with Keystone Core, including Active Directory, Group Policy, and PowerShell-based automation.
 
 > **Implementation Note**: This scenario includes both implemented and planned features:
+>
 > - **Implemented**: `win_service`, `win_registry`, `win_firewall`, `win_package`, `win_feature`, `scheduled_task`, `cmd` (PowerShell execution)
 > - **Planned**: `ad_user`, `ad_group`, `gpo`, `dsc` modules are described below as conceptual designs. Until implemented, use the `cmd` module with PowerShell scripts to manage Active Directory, Group Policy, and DSC configurations.
 
@@ -59,6 +60,7 @@ Windows environments require specialized management approaches:
 > Use the `cmd` module with PowerShell for AD management until then.
 
 **Planned API** (conceptual design):
+
 ```yaml
 # ad-users.yaml - Planned ad_user module API
 metadata:
@@ -89,6 +91,7 @@ ad_user:
 ```
 
 **Current workaround** using PowerShell:
+
 ```yaml
 # ad-users-workaround.yaml
 metadata:
@@ -117,6 +120,7 @@ cmd:
 > Use the `cmd` module with PowerShell GroupPolicy cmdlets until then.
 
 **Planned API** (conceptual design):
+
 ```yaml
 # gpo-security-baseline.yaml - Planned gpo module API
 metadata:
@@ -150,6 +154,7 @@ gpo:
 ```
 
 **Current workaround** using PowerShell:
+
 ```yaml
 # gpo-workaround.yaml
 cmd:
@@ -254,6 +259,7 @@ win_firewall:
 > Use the `cmd` module with PowerShell to invoke DSC configurations until then.
 
 **Planned API** (conceptual design):
+
 ```yaml
 # dsc-configuration.yaml - Planned dsc module API
 metadata:
@@ -287,6 +293,7 @@ dsc:
 ```
 
 **Current workaround** using PowerShell and win_feature:
+
 ```yaml
 # dsc-workaround.yaml
 win_feature:
@@ -365,6 +372,7 @@ kscorectl exec run "os:Windows" -- \
 ### Agent Communication Issues
 
 Check WinRM configuration:
+
 ```powershell
 winrm quickconfig
 winrm get winrm/config
@@ -373,6 +381,7 @@ winrm get winrm/config
 ### GPO Not Applying
 
 Force Group Policy refresh:
+
 ```powershell
 gpupdate /force
 ```
@@ -380,6 +389,7 @@ gpupdate /force
 ### DSC Configuration Drift
 
 Check DSC status:
+
 ```powershell
 Get-DscConfigurationStatus
 Test-DscConfiguration -Detailed

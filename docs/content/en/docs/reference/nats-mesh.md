@@ -260,6 +260,7 @@ kscore.{cluster}.{category}.{entity}.{operation}
 | `>` | Matches one or more tokens |
 
 Examples:
+
 - `kscore.prod.agent.*.heartbeat` - All agent heartbeats
 - `kscore.*.command.>` - All commands across all clusters
 - `kscore.prod.event.state.>` - All state events in prod
@@ -519,6 +520,7 @@ sequenceDiagram
 Keystone Core provides publisher backpressure controls to protect NATS and JetStream under high-volume workloads. Backpressure can block, drop, buffer, or throttle publishes when pending messages exceed configured limits.
 
 **Strategies**:
+
 - `block`: Wait for capacity before publishing
 - `drop`: Drop messages when queue is full
 - `buffer`: Buffer in memory until capacity returns
@@ -538,6 +540,7 @@ Keystone Core provides publisher backpressure controls to protect NATS and JetSt
 | `lowWaterMark` | float | Resume threshold (0.0-1.0) |
 
 **Operational Notes**:
+
 - Pause/resume events fire when crossing watermarks.
 - Dropped messages increment internal counters for monitoring.
 - Blocking respects context cancellation and timeouts.
@@ -547,12 +550,14 @@ Keystone Core provides publisher backpressure controls to protect NATS and JetSt
 Ordering controls provide predictable delivery across subjects and partitions. Keystone Core supports multiple ordering modes depending on throughput and correctness needs.
 
 **Ordering Modes**:
+
 - `none`: No ordering guarantees (highest throughput)
 - `per_subject`: Ordering within a single subject (single publisher)
 - `per_partition`: Ordering within a partition key (recommended)
 - `global`: Strict global order (lowest throughput)
 
 **Common Partition Keys**:
+
 - `agent-id` header (per-agent ordering)
 - `correlation-id` header (request/response ordering)
 - subject name (per-subject ordering)
@@ -570,6 +575,7 @@ Ordering controls provide predictable delivery across subjects and partitions. K
 | `retry_delay` | duration | Delay between retries |
 
 **Best Practices**:
+
 - Use idempotent consumers; JetStream can redeliver.
 - Keep `window_size` small for strict ordering.
 - Monitor sequence gaps to detect out-of-order delivery.

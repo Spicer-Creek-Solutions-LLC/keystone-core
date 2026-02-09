@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 This scenario implements comprehensive disaster recovery:
+
 - **Backup Strategy**: Automated backups of configuration and state
 - **Recovery Procedures**: Step-by-step recovery runbooks
 - **Failover Testing**: Regular DR drills
@@ -16,6 +17,7 @@ This scenario implements comprehensive disaster recovery:
 ### Business Context
 
 Disaster recovery ensures:
+
 - Business continuity during outages
 - Compliance with data retention requirements
 - Reduced recovery time objective (RTO)

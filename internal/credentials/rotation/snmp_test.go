@@ -42,8 +42,8 @@ func (m *mockSNMPCommander) TestSNMPAccess(_ context.Context, _ DeviceInfo, _ cr
 
 var _ SNMPCommander = (*mockSNMPCommander)(nil)
 
-func TestSNMPRotationProvider_SupportsType(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_SupportsType(t *testing.T) {
+	p := NewSNMPProvider(nil)
 
 	tests := []struct {
 		credType credentials.CredentialType
@@ -64,9 +64,9 @@ func TestSNMPRotationProvider_SupportsType(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_ValidateOld(t *testing.T) {
+func TestSNMPProvider_ValidateOld(t *testing.T) {
 	cmd := &mockSNMPCommander{}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	err := p.ValidateOld(context.Background(), DeviceInfo{}, &credentials.SNMPv2cCredential{})
 	if err != nil {
@@ -77,16 +77,16 @@ func TestSNMPRotationProvider_ValidateOld(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_ValidateOldNoCommander(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_ValidateOldNoCommander(t *testing.T) {
+	p := NewSNMPProvider(nil)
 	err := p.ValidateOld(context.Background(), DeviceInfo{}, nil)
 	if err == nil {
 		t.Fatal("expected error without commander")
 	}
 }
 
-func TestSNMPRotationProvider_GenerateV2c(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_GenerateV2c(t *testing.T) {
+	p := NewSNMPProvider(nil)
 	p.CommunityLength = 16
 
 	old := &credentials.SNMPv2cCredential{
@@ -118,8 +118,8 @@ func TestSNMPRotationProvider_GenerateV2c(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_GenerateV3AuthPriv(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_GenerateV3AuthPriv(t *testing.T) {
+	p := NewSNMPProvider(nil)
 	p.PasswordLength = 20
 
 	old := &credentials.SNMPv3Credential{
@@ -168,8 +168,8 @@ func TestSNMPRotationProvider_GenerateV3AuthPriv(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_GenerateV3AuthNoPriv(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_GenerateV3AuthNoPriv(t *testing.T) {
+	p := NewSNMPProvider(nil)
 
 	old := &credentials.SNMPv3Credential{
 		BaseCredential: credentials.BaseCredential{
@@ -196,17 +196,17 @@ func TestSNMPRotationProvider_GenerateV3AuthNoPriv(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_GenerateUnsupported(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_GenerateUnsupported(t *testing.T) {
+	p := NewSNMPProvider(nil)
 	_, err := p.Generate(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err == nil {
 		t.Fatal("expected error for unsupported type")
 	}
 }
 
-func TestSNMPRotationProvider_ApplyV2c(t *testing.T) {
+func TestSNMPProvider_ApplyV2c(t *testing.T) {
 	cmd := &mockSNMPCommander{}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	newCred := &credentials.SNMPv2cCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "s1"},
@@ -222,9 +222,9 @@ func TestSNMPRotationProvider_ApplyV2c(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_ApplyV3(t *testing.T) {
+func TestSNMPProvider_ApplyV3(t *testing.T) {
 	cmd := &mockSNMPCommander{}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	newCred := &credentials.SNMPv3Credential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "s1"},
@@ -242,9 +242,9 @@ func TestSNMPRotationProvider_ApplyV3(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_ApplyFails(t *testing.T) {
+func TestSNMPProvider_ApplyFails(t *testing.T) {
 	cmd := &mockSNMPCommander{setCommunityErr: errors.New("device error")}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	err := p.Apply(context.Background(), DeviceInfo{}, &credentials.SNMPv2cCredential{}, &credentials.SNMPv2cCredential{Community: "x"})
 	if err == nil {
@@ -252,9 +252,9 @@ func TestSNMPRotationProvider_ApplyFails(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_Verify(t *testing.T) {
+func TestSNMPProvider_Verify(t *testing.T) {
 	cmd := &mockSNMPCommander{}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	err := p.Verify(context.Background(), DeviceInfo{}, &credentials.SNMPv2cCredential{})
 	if err != nil {
@@ -262,9 +262,9 @@ func TestSNMPRotationProvider_Verify(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_RollbackV2c(t *testing.T) {
+func TestSNMPProvider_RollbackV2c(t *testing.T) {
 	cmd := &mockSNMPCommander{}
-	p := NewSNMPRotationProvider(cmd)
+	p := NewSNMPProvider(cmd)
 
 	oldCred := &credentials.SNMPv2cCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "s1"},
@@ -280,14 +280,14 @@ func TestSNMPRotationProvider_RollbackV2c(t *testing.T) {
 	}
 }
 
-func TestSNMPRotationProvider_Cleanup(t *testing.T) {
-	p := NewSNMPRotationProvider(nil)
+func TestSNMPProvider_Cleanup(t *testing.T) {
+	p := NewSNMPProvider(nil)
 	err := p.Cleanup(context.Background(), DeviceInfo{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestSNMPRotationProvider_InterfaceCompliance(t *testing.T) {
-	var _ RotationProvider = (*SNMPRotationProvider)(nil)
+func TestSNMPProvider_InterfaceCompliance(t *testing.T) {
+	var _ Provider = (*SNMPProvider)(nil)
 }

@@ -66,44 +66,53 @@ flowchart TB
 The control plane orchestrates all operations. It consists of:
 
 #### API Server
+
 - **gRPC** for high-performance agent communication
 - **REST** for user/tool interaction
 - **Webhooks** for GitOps tool integration
 
 **Responsibilities**:
+
 - Authenticate and authorize requests
 - Route commands to agents
 - Serve metrics and health checks
 - Handle webhook events
 
 #### Connection Manager
+
 Tracks all connected agents and their metadata.
 
 **Key Functions**:
+
 - Agent registration
 - Heartbeat monitoring
 - Connection state tracking
 - Metadata storage
 
 **Data Tracked**:
+
 - Agent ID, datacenter, environment, role
 - OS, architecture, kernel version
 - Last heartbeat timestamp
 - Custom tags
 
 #### Command Dispatcher
+
 Routes command execution requests to targeted agents.
 
 **Features**:
+
 - Expression-based targeting (`role:web and datacenter:us-east-1`)
 - Batch execution with concurrency control
 - Job tracking and result collection
 - Timeout and retry handling
 
 #### State Manager
+
 Executes declarative state configurations.
 
 **Capabilities**:
+
 - Parse and validate state files (YAML)
 - Resolve dependencies (requisites)
 - Execute state modules (file, package, service, user, group, cmd)
@@ -111,9 +120,11 @@ Executes declarative state configurations.
 - Generate state change events
 
 #### Event Engine
+
 Processes and routes infrastructure events.
 
 **Components**:
+
 - **Publisher**: Publishes events to NATS JetStream
 - **Subscriber**: Receives events from JetStream
 - **Router**: Routes events to reactors based on filters
@@ -123,9 +134,11 @@ Processes and routes infrastructure events.
 **Event Types**: 15 types across agent, job, state, system, and user categories
 
 #### Policy Enforcement
+
 Enforces policies using OPA (Rego) or CEL.
 
 **Enforcement Points**:
+
 - Pre-execution (before commands/state runs)
 - Post-execution (after operations complete)
 - On change (when state changes)
@@ -133,27 +146,32 @@ Enforces policies using OPA (Rego) or CEL.
 - On event (event-triggered)
 
 **Actions**:
+
 - Block (prevent operation)
 - Warn (allow but log)
 - Audit (log only)
 - Remediate (auto-fix)
 
 #### GitOps Integration
+
 Integrates with GitOps tools for deployment lifecycle.
 
 **Webhook Receivers**:
+
 - ArgoCD (application sync/health events)
 - Flux (Kustomization/HelmRelease events)
 - GitHub (deployment/workflow events)
 - GitLab (deployment/pipeline events)
 
 **Verification Framework**:
+
 - HTTP health checks
 - Kubernetes resource checks
 - Command execution checks
 - Custom script checks
 
 **Rollback Automation**:
+
 - ArgoCD rollback executor
 - Flux rollback executor
 - Git rollback executor
@@ -166,18 +184,21 @@ NATS provides the communication backbone.
 #### Deployment Modes
 
 **Embedded Mode** (development, small deployments):
+
 - NATS runs in-process with control plane
 - Zero external dependencies
 - Suitable for <100 nodes
 - Data stored in-memory (events in JetStream)
 
 **External Cluster Mode** (production):
+
 - Dedicated NATS cluster (3+ nodes)
 - High availability
 - Suitable for 100+ nodes
 - Persistent JetStream storage
 
 **Hybrid Mode** (advanced):
+
 - Control plane connects to external NATS cluster
 - Agents run embedded NATS as leaf nodes
 - Best of both worlds
@@ -185,6 +206,7 @@ NATS provides the communication backbone.
 #### JetStream
 
 Used for event persistence:
+
 - Durable event storage
 - Event replay
 - Stream-based consumption
@@ -197,30 +219,37 @@ Used for event persistence:
 Persistent storage for operational state.
 
 #### SQLite (Embedded)
+
 **Best for**:
+
 - Development and testing
 - Small deployments (<100 nodes)
 - Home labs and edge locations
 - Single-node setups
 
 **Advantages**:
+
 - Zero dependencies
 - Simple deployment
 - Excellent for getting started
 
 **Limitations**:
+
 - Single-node only
 - Limited concurrency
 - Not suitable for HA
 
 #### PostgreSQL (Production)
+
 **Best for**:
+
 - Production deployments
 - Large scale (100+ nodes)
 - High availability requirements
 - Multiple control plane nodes (clustering)
 
 **Advantages**:
+
 - ACID transactions
 - High concurrency
 - HA with replication
@@ -250,6 +279,7 @@ flowchart TD
 ```
 
 #### Agent Capabilities
+
 - Command execution (shell, PowerShell, cmd)
 - State module execution
 - Metadata collection (OS, hardware, cloud provider)
@@ -257,6 +287,7 @@ flowchart TD
 - Local caching (for offline/edge mode)
 
 #### Cross-Platform Support
+
 - **Linux**: All major distributions
 - **Windows**: PowerShell and cmd support
 - **macOS**: Full support
@@ -431,21 +462,25 @@ flowchart TD
 ## Security Model
 
 ### Transport Security
+
 - **TLS**: All NATS connections can use TLS
 - **Mutual TLS**: Agent authentication via client certs
 - **API TLS**: HTTPS for REST API
 
 ### Authentication
+
 - **NATS Credentials**: JWT-based authentication
 - **API Tokens**: Bearer tokens for API access
 - **Webhook Signatures**: HMAC verification
 
 ### Authorization
+
 - **RBAC**: Role-based access control
 - **Policy Enforcement**: OPA/CEL policies gate operations
 - **Audit Logging**: All operations logged
 
 ### Plugin Security
+
 - **Sandboxing**: Starlark and WASM sandboxed execution
 - **Capability-based**: Explicit permission grants only
 - **Cryptographic Verification**: Cosign signatures + SumDB
@@ -454,23 +489,27 @@ flowchart TD
 ## Design Decisions
 
 ### Why NATS Instead of Kafka?
+
 - Simpler operations (embedded mode)
 - Lower latency (<1ms vs ~10ms)
 - Built-in request-reply patterns
 - Lightweight footprint
 
 ### Why SQLite AND PostgreSQL?
+
 - **SQLite**: Zero dependencies for getting started
 - **PostgreSQL**: Production scale and HA
 - **Migration path**: Grow from prototype to production
 
 ### Why Separate Event Storage?
+
 - JetStream is great for streaming events
 - Relational DB better for complex queries
 - Indexes and joins needed for analytics
 - Retention policies easier in SQL
 
 ### Why Go?
+
 - Cross-platform compilation
 - Excellent concurrency (goroutines)
 - Small binary size
@@ -485,6 +524,7 @@ Now that you understand the architecture:
 - **[Reference](../../reference/)** - Complete API/CLI documentation
 
 Or explore specific architectural topics:
+
 - [NATS Integration](../../concepts/message-bus/)
 - [State Storage Design](../../concepts/state-storage/)
 - [Event System Architecture](../../concepts/events/)

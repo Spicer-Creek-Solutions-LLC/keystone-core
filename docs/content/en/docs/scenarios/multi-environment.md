@@ -15,6 +15,7 @@ description: >
 ## Overview
 
 This scenario implements a multi-environment workflow:
+
 - **Environment Isolation**: Separate configurations per environment
 - **Promotion Pipelines**: Controlled promotion from dev → staging → production
 - **Approval Gates**: Required approvals for production changes
@@ -23,6 +24,7 @@ This scenario implements a multi-environment workflow:
 ### Business Context
 
 Multi-environment management ensures:
+
 - Changes are tested before production
 - Audit trail for all promotions
 - Rollback capability at each stage

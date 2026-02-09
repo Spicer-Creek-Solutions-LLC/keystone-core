@@ -325,15 +325,14 @@ func (a *EdgeOSAdapter) parseInterfaces(output string) []vendors.InterfaceFact {
 		}
 
 		for _, f := range fields[1:] {
-			lf := strings.ToLower(f)
-			switch {
-			case lf == "u/u":
+			switch strings.ToLower(f) {
+			case "u/u":
 				iface.AdminStatus = "up"
 				iface.OperStatus = "up"
-			case lf == "u/d" || lf == "up/down":
+			case "u/d", "up/down":
 				iface.AdminStatus = "up"
 				iface.OperStatus = "down"
-			case lf == "d/d" || lf == "a/d":
+			case "d/d", "a/d":
 				iface.AdminStatus = "down"
 				iface.OperStatus = "down"
 			}

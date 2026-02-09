@@ -8,8 +8,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-// SNMPRotationProvider rotates SNMP v2c community strings and v3 credentials.
-type SNMPRotationProvider struct {
+// SNMPProvider rotates SNMP v2c community strings and v3 credentials.
+type SNMPProvider struct {
 	// CommunityLength is the length of generated community strings (default 24).
 	CommunityLength int
 	// PasswordLength is the length of generated SNMPv3 passwords (default 32).
@@ -25,27 +25,30 @@ type SNMPCommander interface {
 	TestSNMPAccess(ctx context.Context, device DeviceInfo, cred credentials.Credential) error
 }
 
-// NewSNMPRotationProvider creates a new SNMP rotation provider.
-func NewSNMPRotationProvider(commander SNMPCommander) *SNMPRotationProvider {
-	return &SNMPRotationProvider{
+// NewSNMPProvider creates a new SNMP rotation provider.
+func NewSNMPProvider(commander SNMPCommander) *SNMPProvider {
+	return &SNMPProvider{
 		CommunityLength: 24,
 		PasswordLength:  32,
 		Commander:       commander,
 	}
 }
 
-func (p *SNMPRotationProvider) SupportsType(credType credentials.CredentialType) bool {
+// SupportsType implements Provider.
+func (p *SNMPProvider) SupportsType(credType credentials.CredentialType) bool {
 	return credType == credentials.CredentialTypeSNMPv2c || credType == credentials.CredentialTypeSNMPv3
 }
 
-func (p *SNMPRotationProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
+// ValidateOld implements Provider.
+func (p *SNMPProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SNMP commander configured")
 	}
 	return p.Commander.TestSNMPAccess(ctx, device, cred)
 }
 
-func (p *SNMPRotationProvider) Generate(_ context.Context, _ DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
+// Generate implements Provider.
+func (p *SNMPProvider) Generate(_ context.Context, _ DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
 	switch old := oldCred.(type) {
 	case *credentials.SNMPv2cCredential:
 		return p.generateV2c(old)
@@ -56,7 +59,8 @@ func (p *SNMPRotationProvider) Generate(_ context.Context, _ DeviceInfo, oldCred
 	}
 }
 
-func (p *SNMPRotationProvider) Apply(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
+// Apply implements Provider.
+func (p *SNMPProvider) Apply(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SNMP commander configured")
 	}
@@ -71,14 +75,16 @@ func (p *SNMPRotationProvider) Apply(ctx context.Context, device DeviceInfo, old
 	}
 }
 
-func (p *SNMPRotationProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
+// Verify implements Provider.
+func (p *SNMPProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SNMP commander configured")
 	}
 	return p.Commander.TestSNMPAccess(ctx, device, newCred)
 }
 
-func (p *SNMPRotationProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, _ credentials.Credential) error {
+// Rollback implements Provider.
+func (p *SNMPProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, _ credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SNMP commander configured")
 	}
@@ -93,11 +99,12 @@ func (p *SNMPRotationProvider) Rollback(ctx context.Context, device DeviceInfo, 
 	}
 }
 
-func (p *SNMPRotationProvider) Cleanup(_ context.Context, _ DeviceInfo, _ credentials.Credential) error {
+// Cleanup implements Provider.
+func (p *SNMPProvider) Cleanup(_ context.Context, _ DeviceInfo, _ credentials.Credential) error {
 	return nil
 }
 
-func (p *SNMPRotationProvider) generateV2c(old *credentials.SNMPv2cCredential) (*credentials.SNMPv2cCredential, error) {
+func (p *SNMPProvider) generateV2c(old *credentials.SNMPv2cCredential) (*credentials.SNMPv2cCredential, error) {
 	community, err := generateRandomPassword(p.CommunityLength)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate community string: %w", err)
@@ -114,7 +121,7 @@ func (p *SNMPRotationProvider) generateV2c(old *credentials.SNMPv2cCredential) (
 	}, nil
 }
 
-func (p *SNMPRotationProvider) generateV3(old *credentials.SNMPv3Credential) (*credentials.SNMPv3Credential, error) {
+func (p *SNMPProvider) generateV3(old *credentials.SNMPv3Credential) (*credentials.SNMPv3Credential, error) {
 	newCred := &credentials.SNMPv3Credential{
 		BaseCredential: credentials.BaseCredential{
 			CredentialID:   old.CredentialID,
@@ -152,4 +159,4 @@ func (p *SNMPRotationProvider) generateV3(old *credentials.SNMPv3Credential) (*c
 	return newCred, nil
 }
 
-var _ RotationProvider = (*SNMPRotationProvider)(nil)
+var _ Provider = (*SNMPProvider)(nil)

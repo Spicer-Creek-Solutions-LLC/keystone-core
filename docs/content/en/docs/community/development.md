@@ -30,6 +30,7 @@ This guide covers setting up a development environment for Keystone Core, buildi
 ### Install Go
 
 **Linux/macOS:**
+
 ```bash
 # Download and install Go 1.25+
 wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
@@ -41,14 +42,16 @@ export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
 **macOS (Homebrew):**
+
 ```bash
 brew install go
 ```
 
 **Windows:**
-Download installer from https://go.dev/dl/ and run.
+Download installer from <https://go.dev/dl/> and run.
 
 **Verify installation:**
+
 ```bash
 go version
 # Output: go version go1.21.5 linux/amd64
@@ -250,6 +253,7 @@ go tool cover -func=coverage.out | grep total
 ```
 
 **Coverage targets:**
+
 - Unit tests: >80% overall
 - Critical packages: >90% (state, agent, policy)
 - New code: 100% coverage expected
@@ -272,6 +276,7 @@ go test -bench=. -benchmem ./pkg/events/
 E2E tests validate complete system behavior using containerized environments. They require Docker or Podman.
 
 **Prerequisites:**
+
 ```bash
 # Docker must be running
 docker ps
@@ -281,6 +286,7 @@ podman machine start
 ```
 
 **Quick E2E Tests:**
+
 ```bash
 # Run topology tests (all-in-one environment)
 make e2e-test
@@ -293,6 +299,7 @@ make e2e-test
 ```
 
 **Full E2E Suite:**
+
 ```bash
 # Run ALL E2E tests (30+ minutes)
 make e2e-full
@@ -305,6 +312,7 @@ make e2e-perf
 ```
 
 **HA Cluster Tests:**
+
 ```bash
 # Run HA cluster topology tests (3 control planes + 5 agents)
 make e2e-ha
@@ -318,6 +326,7 @@ make e2e-ha
 ```
 
 **VM E2E Tests:**
+
 ```bash
 # All-in-one topology
 KSCORE_E2E_TESTS=1 KSCORE_E2E_MODE=vm \
@@ -338,6 +347,7 @@ KSCORE_E2E_TESTS=1 KSCORE_E2E_MODE=vm \
 ```
 
 **Manual E2E Environment:**
+
 ```bash
 # Start E2E environment without running tests
 make e2e-up
@@ -357,6 +367,7 @@ make e2e-down
 ```
 
 **Environment Variables:**
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KSCORE_E2E_TESTS` | - | Set to `1` to enable E2E tests |
@@ -368,6 +379,7 @@ make e2e-down
 | `KSCORE_E2E_CONFIG` | - | Path to VM inventory file |
 
 **Test Organization:**
+
 ```
 test/e2e/
 ├── harness/           # Test environment management
@@ -395,6 +407,7 @@ test/e2e/
 ```
 
 **Writing E2E Tests:**
+
 ```go
 func TestMyFeature(t *testing.T) {
     // Skip if E2E tests not enabled
@@ -464,6 +477,7 @@ make check
 ### Running Locally
 
 **Start the Control Plane:**
+
 ```bash
 # Run with embedded NATS and SQLite (development mode)
 ./build/bin/kscore-server --config configs/server-dev.yaml
@@ -473,6 +487,7 @@ KSCORE_LOG_LEVEL=debug go run ./cmd/kscore-server
 ```
 
 **Start an Agent:**
+
 ```bash
 # Connect to local control plane (configure NATS URL in agent config)
 ./build/bin/kscore-agent --config configs/agent-dev.yaml
@@ -482,6 +497,7 @@ KSCORE_LOG_LEVEL=debug go run ./cmd/kscore-agent --config configs/agent-dev.yaml
 ```
 
 **Use CLI Tools:**
+
 ```bash
 # Execute a remote command
 ./build/bin/kscore-exec run --target="*" -- hostname
@@ -541,6 +557,7 @@ docker compose -f test/e2e/topologies/ha-cluster/docker-compose.yml down
 | HA Server 3 | 8084 | 8085 | 4224 |
 
 **Monitor Features:**
+
 - Press `1-8` to switch between views (Dashboard, Agents, Events, Drift, Policy, Jobs, Logs, Metrics)
 - Press `?` for help
 - Press `q` to quit
@@ -600,6 +617,7 @@ make dev
 ### Debugging
 
 **Using Delve:**
+
 ```bash
 # Debug server
 dlv debug ./cmd/kscore-server -- --config configs/server-dev.yaml
@@ -613,6 +631,7 @@ dlv test ./pkg/state/... -- -test.run TestStateApply
 ```
 
 **VS Code Configuration:**
+
 ```json
 // .vscode/launch.json
 {
@@ -674,6 +693,7 @@ go run ./cmd/kscore-module test modules/mymodule
 ### WASM Module Development
 
 **Rust:**
+
 ```bash
 cd modules/sdk/rust/examples/hello-world
 
@@ -685,6 +705,7 @@ go run ./cmd/kscore-module test target/wasm32-wasi/release/hello_world.wasm
 ```
 
 **Go (TinyGo):**
+
 ```bash
 cd modules/sdk/go/examples/hello-world
 
@@ -730,6 +751,7 @@ docs/
 ### Writing Documentation
 
 **Front matter:**
+
 ```yaml
 ---
 title: "Page Title"
@@ -740,6 +762,7 @@ description: >
 ```
 
 **Code blocks:**
+
 ```markdown
 ```bash
 # Shell commands
@@ -758,6 +781,7 @@ func main() {
     // code
 }
 ```
+
 ```
 
 **Admonitions:**
@@ -814,6 +838,7 @@ make release
 GoReleaser produces the following artifacts:
 
 **Binaries:**
+
 - `kscore-server` - Control plane server
 - `kscore-agent` - Agent daemon
 - `kscorectl` - Main CLI
@@ -822,6 +847,7 @@ GoReleaser produces the following artifacts:
 - `kscore-monitor` - TUI monitoring tool
 
 **Archives:**
+
 - `keystone-core_VERSION_linux_amd64.tar.gz`
 - `keystone-core_VERSION_linux_arm64.tar.gz`
 - `keystone-core_VERSION_darwin_amd64.tar.gz`
@@ -829,11 +855,13 @@ GoReleaser produces the following artifacts:
 - `keystone-core_VERSION_windows_amd64.zip`
 
 **Linux Packages:**
+
 - `kscore-server_VERSION_linux_amd64.deb` / `.rpm`
 - `kscore-agent_VERSION_linux_amd64.deb` / `.rpm`
 - `kscore-cli_VERSION_linux_amd64.deb` / `.rpm`
 
 **Checksums:**
+
 - `checksums.txt` - SHA256 checksums for all artifacts
 
 ### Installing Linux Packages
@@ -875,6 +903,7 @@ Update `CHANGELOG.md` following Keep a Changelog format:
 ### Build Issues
 
 **Module download errors:**
+
 ```bash
 # Clear module cache
 go clean -modcache
@@ -884,12 +913,14 @@ go mod download
 ```
 
 **CGO issues:**
+
 ```bash
 # Disable CGO if having issues
 CGO_ENABLED=0 make build
 ```
 
 **Version mismatch:**
+
 ```bash
 # Ensure Go version matches
 go version  # Should be 1.25+
@@ -901,6 +932,7 @@ go mod tidy
 ### Test Issues
 
 **Flaky tests:**
+
 ```bash
 # Run with race detector
 go test -race ./...
@@ -910,6 +942,7 @@ go test -count=10 ./pkg/agent/...
 ```
 
 **Integration test failures:**
+
 ```bash
 # Check Docker is running
 docker ps
@@ -935,6 +968,7 @@ export LOG_PKG_NATS=trace
 ### VS Code
 
 **Recommended extensions:**
+
 - Go (official)
 - Go Test Explorer
 - GitLens
@@ -942,6 +976,7 @@ export LOG_PKG_NATS=trace
 - Markdown All in One
 
 **Settings (`.vscode/settings.json`):**
+
 ```json
 {
   "go.useLanguageServer": true,
@@ -958,6 +993,7 @@ export LOG_PKG_NATS=trace
 ### GoLand
 
 **Recommended setup:**
+
 1. Enable Go modules integration
 2. Configure golangci-lint as external tool
 3. Set up file watchers for `gofmt`
@@ -966,6 +1002,7 @@ export LOG_PKG_NATS=trace
 ### Vim/Neovim
 
 **Recommended plugins:**
+
 - vim-go (Vim) or nvim-lspconfig with gopls (Neovim)
 - ale or nvim-lint for linting
 - vim-test for running tests

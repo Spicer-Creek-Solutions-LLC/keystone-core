@@ -36,7 +36,7 @@ func TestError_ErrorNoMessage(t *testing.T) {
 }
 
 func TestErrors_Single(t *testing.T) {
-	errs := &Errors{Errors: []Error{{
+	errs := &ResponseError{Errors: []Error{{
 		ErrorType: "protocol",
 		ErrorTag:  "invalid-value",
 	}}}
@@ -46,7 +46,7 @@ func TestErrors_Single(t *testing.T) {
 }
 
 func TestErrors_Multiple(t *testing.T) {
-	errs := &Errors{Errors: []Error{
+	errs := &ResponseError{Errors: []Error{
 		{ErrorType: "protocol", ErrorTag: "error-one"},
 		{ErrorType: "application", ErrorTag: "error-two"},
 	}}
@@ -57,8 +57,8 @@ func TestErrors_Multiple(t *testing.T) {
 }
 
 func TestErrors_HasError(t *testing.T) {
-	assert.True(t, (&Errors{Errors: []Error{{ErrorTag: "test"}}}).HasError())
-	assert.False(t, (&Errors{}).HasError())
+	assert.True(t, (&ResponseError{Errors: []Error{{ErrorTag: "test"}}}).HasError())
+	assert.False(t, (&ResponseError{}).HasError())
 }
 
 func TestParseErrorResponse_JSON(t *testing.T) {

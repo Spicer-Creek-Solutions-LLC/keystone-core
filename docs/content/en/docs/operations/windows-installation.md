@@ -40,6 +40,7 @@ This guide covers installing and operating the Keystone Core agent on Windows Se
 1. Download `kscore-agent.msi` from the [releases page](https://github.com/shawnbutts/keystone-core/releases)
 
 2. Run the installer:
+
    ```powershell
    Start-Process msiexec.exe -ArgumentList '/i', 'kscore-agent.msi' -Wait
    ```
@@ -83,12 +84,14 @@ msiexec /i kscore-agent.msi /qn /l*v install.log SERVERURL=nats://server:4222
 ### Method 2: Manual Installation
 
 1. Download the agent binary:
+
    ```powershell
    Invoke-WebRequest -Uri "https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-agent-windows-amd64.exe" `
        -OutFile "C:\Program Files\KeystoneCore\bin\kscore-agent.exe"
    ```
 
 2. Create configuration directory:
+
    ```powershell
    New-Item -ItemType Directory -Force -Path "C:\ProgramData\kscore"
    ```
@@ -96,11 +99,13 @@ msiexec /i kscore-agent.msi /qn /l*v install.log SERVERURL=nats://server:4222
 3. Create configuration file (see [Configuration](#configuration))
 
 4. Install as Windows service:
+
    ```powershell
    & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" service-install
    ```
 
 5. Start the service:
+
    ```powershell
    Start-Service KeystoneCoreAgent
    ```
@@ -130,6 +135,7 @@ winget install KeystoneCore.Agent --custom "/SERVERURL=nats://server:4222"
 ### Configuration File Location
 
 The agent configuration is stored at:
+
 ```
 C:\ProgramData\kscore\agent.yaml
 ```
@@ -390,22 +396,26 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
 ### Service Won't Start
 
 1. **Check configuration file**:
+
    ```powershell
    Test-Path "C:\ProgramData\kscore\agent.yaml"
    Get-Content "C:\ProgramData\kscore\agent.yaml"
    ```
 
 2. **Check event log for errors**:
+
    ```powershell
    Get-EventLog -LogName Application -Source KeystoneCore -Newest 10
    ```
 
 3. **Test connectivity to NATS server**:
+
    ```powershell
    Test-NetConnection -ComputerName control-plane.example.com -Port 4222
    ```
 
 4. **Run in foreground for debugging** (instead of as a service):
+
    ```powershell
    & "C:\Program Files\KeystoneCore\bin\kscore-agent.exe" --config "C:\ProgramData\kscore\agent.yaml"
    ```
@@ -413,16 +423,19 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
 ### Connection Issues
 
 1. **Check firewall rules**:
+
    ```powershell
    Get-NetFirewallRule -DisplayName "*Keystone*"
    ```
 
 2. **Check DNS resolution**:
+
    ```powershell
    Resolve-DnsName control-plane.example.com
    ```
 
 3. **Test TLS certificate**:
+
    ```powershell
    $cert = Get-PfxCertificate -FilePath "C:\ProgramData\kscore\agent.crt"
    $cert | Format-List
@@ -431,11 +444,13 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
 ### Permission Issues
 
 1. **Check service account**:
+
    ```powershell
    (Get-WmiObject Win32_Service -Filter "Name='KeystoneCoreAgent'").StartName
    ```
 
 2. **Verify file permissions**:
+
    ```powershell
    Get-Acl "C:\ProgramData\kscore\agent.yaml" | Format-List
    ```
@@ -443,11 +458,13 @@ Remove-Item -Path "HKLM:\SOFTWARE\KeystoneCore" -Recurse -ErrorAction SilentlyCo
 ### Performance Issues
 
 1. **Check resource usage**:
+
    ```powershell
    Get-Process kscore-agent | Select-Object CPU, WorkingSet64, Handles
    ```
 
 2. **Enable debug logging**:
+
    ```yaml
    # In agent.yaml
    logging:

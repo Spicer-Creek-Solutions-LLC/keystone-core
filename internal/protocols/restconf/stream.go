@@ -75,6 +75,7 @@ func (a *Adapter) Subscribe(ctx context.Context, stream string) (*StreamSubscrip
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
 		r, _ := rest.NewResponse(resp)
 		cancel()
 		if r != nil {

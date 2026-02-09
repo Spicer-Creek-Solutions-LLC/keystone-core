@@ -17,6 +17,7 @@ The secrets broker provides unified access to multiple secret backends.
 Retrieve a secret from the configured backend.
 
 **gRPC:**
+
 ```protobuf
 rpc GetSecret(GetSecretRequest) returns (GetSecretResponse);
 
@@ -35,6 +36,7 @@ message GetSecretResponse {
 ```
 
 **REST:**
+
 ```http
 GET /api/v1/secrets/{path}
 Authorization: Bearer <token>
@@ -62,6 +64,7 @@ Response:
 ```
 
 **Go Client:**
+
 ```go
 import "github.com/shawnbutts/keystone-core/pkg/secrets"
 
@@ -90,6 +93,7 @@ if secret.Lease != nil {
 List secrets at a path (if supported by backend).
 
 **gRPC:**
+
 ```protobuf
 rpc ListSecrets(ListSecretsRequest) returns (ListSecretsResponse);
 
@@ -104,6 +108,7 @@ message ListSecretsResponse {
 ```
 
 **REST:**
+
 ```http
 GET /api/v1/secrets/{path}?list=true
 Authorization: Bearer <token>
@@ -123,6 +128,7 @@ Response:
 Write or update a secret (static secrets only).
 
 **gRPC:**
+
 ```protobuf
 rpc WriteSecret(WriteSecretRequest) returns (WriteSecretResponse);
 
@@ -139,6 +145,7 @@ message WriteSecretResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/secrets/{path}
 Authorization: Bearer <token>
@@ -163,6 +170,7 @@ Response:
 Delete a secret.
 
 **gRPC:**
+
 ```protobuf
 rpc DeleteSecret(DeleteSecretRequest) returns (DeleteSecretResponse);
 
@@ -173,6 +181,7 @@ message DeleteSecretRequest {
 ```
 
 **REST:**
+
 ```http
 DELETE /api/v1/secrets/{path}
 Authorization: Bearer <token>
@@ -198,6 +207,7 @@ The lease manager tracks and renews dynamic secret leases.
 Get lease information.
 
 **gRPC:**
+
 ```protobuf
 rpc GetLease(GetLeaseRequest) returns (LeaseInfo);
 
@@ -220,6 +230,7 @@ message LeaseInfo {
 ```
 
 **REST:**
+
 ```http
 GET /api/v1/leases/{lease_id}
 Authorization: Bearer <token>
@@ -243,6 +254,7 @@ Response:
 List leases with filtering.
 
 **gRPC:**
+
 ```protobuf
 rpc ListLeases(ListLeasesRequest) returns (ListLeasesResponse);
 
@@ -263,6 +275,7 @@ message ListLeasesResponse {
 ```
 
 **REST:**
+
 ```http
 GET /api/v1/leases
 Authorization: Bearer <token>
@@ -288,6 +301,7 @@ Response:
 Renew a lease to extend its TTL.
 
 **gRPC:**
+
 ```protobuf
 rpc RenewLease(RenewLeaseRequest) returns (RenewLeaseResponse);
 
@@ -304,6 +318,7 @@ message RenewLeaseResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/leases/{lease_id}/renew
 Authorization: Bearer <token>
@@ -326,6 +341,7 @@ Response:
 Revoke a lease and invalidate credentials.
 
 **gRPC:**
+
 ```protobuf
 rpc RevokeLease(RevokeLeaseRequest) returns (RevokeLeaseResponse);
 
@@ -336,6 +352,7 @@ message RevokeLeaseRequest {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/leases/{lease_id}/revoke
 Authorization: Bearer <token>
@@ -351,6 +368,7 @@ Response:
 Revoke multiple leases by criteria.
 
 **gRPC:**
+
 ```protobuf
 rpc BulkRevoke(BulkRevokeRequest) returns (BulkRevokeResponse);
 
@@ -367,6 +385,7 @@ message BulkRevokeResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/leases/bulk-revoke
 Authorization: Bearer <token>
@@ -395,6 +414,7 @@ The rotation orchestrator manages secret rotation workflows.
 Initiate a secret rotation.
 
 **gRPC:**
+
 ```protobuf
 rpc StartRotation(StartRotationRequest) returns (RotationStatus);
 
@@ -425,6 +445,7 @@ message CanaryConfig {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/rotations
 Authorization: Bearer <token>
@@ -460,6 +481,7 @@ Response:
 Get current rotation status.
 
 **gRPC:**
+
 ```protobuf
 rpc GetRotationStatus(GetRotationStatusRequest) returns (RotationStatus);
 
@@ -483,6 +505,7 @@ message Progress {
 ```
 
 **REST:**
+
 ```http
 GET /api/v1/rotations/{rotation_id}
 Authorization: Bearer <token>
@@ -508,6 +531,7 @@ Response:
 Cancel an in-progress rotation.
 
 **gRPC:**
+
 ```protobuf
 rpc CancelRotation(CancelRotationRequest) returns (CancelRotationResponse);
 
@@ -518,6 +542,7 @@ message CancelRotationRequest {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/rotations/{rotation_id}/cancel
 Authorization: Bearer <token>
@@ -539,6 +564,7 @@ Response:
 Rollback a completed or failed rotation.
 
 **REST:**
+
 ```http
 POST /api/v1/rotations/{rotation_id}/rollback
 Authorization: Bearer <token>
@@ -561,6 +587,7 @@ The transit engine provides encryption-as-a-service.
 Encrypt plaintext data.
 
 **gRPC:**
+
 ```protobuf
 rpc Encrypt(EncryptRequest) returns (EncryptResponse);
 
@@ -578,6 +605,7 @@ message EncryptResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/transit/encrypt/{key_name}
 Authorization: Bearer <token>
@@ -596,6 +624,7 @@ Response:
 ```
 
 **Go Client:**
+
 ```go
 import "github.com/shawnbutts/keystone-core/pkg/secrets/transit"
 
@@ -616,6 +645,7 @@ ciphertext, err := engine.EncryptWithVersion(ctx, "my-key", plaintext, 2)
 Decrypt ciphertext data.
 
 **gRPC:**
+
 ```protobuf
 rpc Decrypt(DecryptRequest) returns (DecryptResponse);
 
@@ -631,6 +661,7 @@ message DecryptResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/transit/decrypt/{key_name}
 Authorization: Bearer <token>
@@ -651,6 +682,7 @@ Response:
 Process multiple items efficiently.
 
 **gRPC:**
+
 ```protobuf
 rpc BatchEncrypt(BatchEncryptRequest) returns (BatchEncryptResponse);
 
@@ -675,6 +707,7 @@ message BatchResult {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/transit/batch-encrypt/{key_name}
 Authorization: Bearer <token>
@@ -703,6 +736,7 @@ Response:
 Generate a data encryption key (envelope encryption).
 
 **gRPC:**
+
 ```protobuf
 rpc GenerateDataKey(GenerateDataKeyRequest) returns (DataKey);
 
@@ -719,6 +753,7 @@ message DataKey {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/transit/datakey/{key_name}
 Authorization: Bearer <token>
@@ -740,6 +775,7 @@ Response:
 Create a digital signature.
 
 **gRPC:**
+
 ```protobuf
 rpc Sign(SignRequest) returns (SignResponse);
 
@@ -757,6 +793,7 @@ message SignResponse {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/transit/sign/{key_name}
 Authorization: Bearer <token>
@@ -779,6 +816,7 @@ Response:
 Verify a digital signature.
 
 **REST:**
+
 ```http
 POST /api/v1/transit/verify/{key_name}
 Authorization: Bearer <token>
@@ -801,6 +839,7 @@ Response:
 Generate HMAC.
 
 **REST:**
+
 ```http
 POST /api/v1/transit/hmac/{key_name}
 Authorization: Bearer <token>
@@ -828,6 +867,7 @@ The compliance API provides audit and reporting functionality.
 Generate a compliance report for a framework.
 
 **gRPC:**
+
 ```protobuf
 rpc GenerateComplianceReport(ComplianceReportRequest) returns (ComplianceReport);
 
@@ -849,6 +889,7 @@ message ComplianceReport {
 ```
 
 **REST:**
+
 ```http
 POST /api/v1/compliance/reports
 Authorization: Bearer <token>
@@ -885,6 +926,7 @@ Response:
 Query audit logs.
 
 **REST:**
+
 ```http
 GET /api/v1/audit/logs
 Authorization: Bearer <token>
@@ -924,6 +966,7 @@ Response:
 ### Secrets Health
 
 **REST:**
+
 ```http
 GET /api/v1/health/secrets
 Authorization: Bearer <token>

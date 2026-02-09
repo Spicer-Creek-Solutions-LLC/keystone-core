@@ -98,6 +98,7 @@ curl -X POST https://events.pagerduty.com/v2/enqueue \
 #### Step 2.1: Isolate Compromised Components
 
 **If credential compromise suspected**:
+
 ```bash
 # Revoke all API keys
 kscorectl auth revoke-all --type api-key --confirm
@@ -110,6 +111,7 @@ kscorectl auth rotate-signing-key --immediate
 ```
 
 **If agent compromise suspected**:
+
 ```bash
 # Identify suspicious agents
 kscorectl agent list --suspicious
@@ -124,6 +126,7 @@ done
 ```
 
 **If control plane compromise suspected**:
+
 ```bash
 # Isolate affected node from cluster
 ssh ks-server-compromised "systemctl stop kscore-server"
@@ -437,10 +440,10 @@ ss -tuanp | grep ESTABLISHED | grep -E ":(4444|1337|31337)"
 
 | Role | Contact | When to Notify |
 |------|---------|----------------|
-| Security Lead | security@example.com | All incidents |
-| On-call Engineer | pager@example.com | P1/P2 incidents |
-| Legal | legal@example.com | Data breaches |
-| Management | ciso@example.com | P1 incidents |
+| Security Lead | <security@example.com> | All incidents |
+| On-call Engineer | <pager@example.com> | P1/P2 incidents |
+| Legal | <legal@example.com> | Data breaches |
+| Management | <ciso@example.com> | P1 incidents |
 
 ## Appendix: Evidence Retention
 

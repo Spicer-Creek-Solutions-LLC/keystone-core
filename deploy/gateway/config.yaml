@@ -2,50 +2,49 @@
 # Docker Compose setup with Prometheus, Loki, and Tempo
 
 nats:
-  url: "nats://nats:4222"
+  urls:
+    - "nats://nats:4222"
+  cluster: "default"
+  max_reconnects: -1
+  reconnect_wait: 2s
 
 server:
   listen: ":8080"
+  metrics_path: "/metrics"
+  health_path: "/health"
+  ready_path: "/ready"
+  federate_path: "/federate"
   read_timeout: 30s
   write_timeout: 30s
 
 metrics:
   enabled: true
-  max_age: 60s
-  max_series: 100000
-  max_labels_per_series: 20
-  drop_high_cardinality: false
-  high_cardinality_threshold: 1000
+  subject: "keystone.metrics.>"
+  stale_timeout: 5m
+  cardinality:
+    max_series: 100000
+    max_labels_per_series: 20
+    drop_high_cardinality: false
 
 logs:
   enabled: true
-  max_entries: 100000
-  max_age: 1h
-  min_level: "debug"
+  subject: "keystone.logs.>"
   loki:
+    enabled: true
     url: "http://loki:3100/loki/api/v1/push"
     batch_size: 100
-    flush_interval: 5s
-    timeout: 10s
-    max_retries: 3
+    batch_wait: 5s
 
 traces:
   enabled: true
-  max_traces: 10000
-  max_age: 1h
-  sampling_rate: 1.0
-  sample_errors: true
-  slow_threshold: 1s
+  subject: "keystone.traces.>"
   otlp:
-    url: "http://tempo:4318/v1/traces"
+    enabled: true
+    endpoint: "http://tempo:4318/v1/traces"
+    compression: gzip
     batch_size: 100
     flush_interval: 5s
-    timeout: 10s
-    max_retries: 3
-    use_gzip: true
 
 ha:
   enabled: false
-  instance_id: "gateway-1"
-  shard_count: 1
-  cleanup_interval: 1m
+  queue_group: "kscore-gateway"

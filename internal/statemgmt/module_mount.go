@@ -277,7 +277,7 @@ func (m *MountModule) parseConfig(decl *StateDeclaration) (*MountConfig, error) 
 		Pass:       0,
 		Persist:    true,
 		CreatePath: true,
-		Mode:       "0o755",
+		Mode:       "0755",
 	}
 
 	config.Device = getStringParameter(decl, "device", "")
@@ -318,7 +318,7 @@ func (m *MountModule) parseConfig(decl *StateDeclaration) (*MountConfig, error) 
 	config.CreatePath = getBoolParameter(decl, "create_path", true)
 	config.Owner = getStringParameter(decl, "owner", "")
 	config.Group = getStringParameter(decl, "group", "")
-	config.Mode = getStringParameter(decl, "mode", "0o755")
+	config.Mode = getStringParameter(decl, "mode", "0755")
 
 	return config, nil
 }

@@ -158,7 +158,7 @@ func TestAdapter_HealthCheck_NotConnected(t *testing.T) {
 
 func TestAdapter_ConnectAndExecute(t *testing.T) {
 	// Create a fake Telnet server using a TCP listener
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestAdapter_DevicePortOverride(t *testing.T) {
 
 func TestAdapter_SessionExpiry(t *testing.T) {
 	// Create a fake server
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestRegistryRegistration(t *testing.T) {
 
 func TestAdapter_Execute_WithArgs(t *testing.T) {
 	// Create a fake server
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}

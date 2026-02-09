@@ -123,8 +123,8 @@ func (s *Session) ServerCapabilities() []Capability {
 }
 
 // HasCapability checks if the server advertises the given capability.
-func (s *Session) HasCapability(cap Capability) bool {
-	target := string(cap)
+func (s *Session) HasCapability(capability Capability) bool {
+	target := string(capability)
 	for _, c := range s.serverCaps {
 		if string(c) == target || strings.HasPrefix(string(c), target+"?") {
 			return true

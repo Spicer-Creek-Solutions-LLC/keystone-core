@@ -339,9 +339,7 @@ func TestCreateRestconfAdapter_ViaRegistry(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, adapter)
 
-	// Verify it implements RestconfAdapter
-	_, ok := adapter.(protocols.RestconfAdapter)
-	assert.True(t, ok)
+	assert.NotNil(t, adapter)
 }
 
 // Interface compliance

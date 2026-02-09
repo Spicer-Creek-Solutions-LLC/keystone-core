@@ -540,3 +540,698 @@ func TestInterventionsCommand_FilterByExecution(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 }
+
+// ============================================================================
+// List Command Tests
+// ============================================================================
+
+func TestListCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected 'deploy-service' in list output")
+	}
+	if !strings.Contains(out, "rotate-credentials") {
+		t.Error("expected 'rotate-credentials' in list output")
+	}
+	if !strings.Contains(out, "Total:") {
+		t.Error("expected 'Total:' in list output")
+	}
+}
+
+func TestListCommand_FilterByTag(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list", "--tag", "security"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "rotate-credentials") {
+		t.Error("expected 'rotate-credentials' in filtered output")
+	}
+	if !strings.Contains(out, "security-scan") {
+		t.Error("expected 'security-scan' in filtered output")
+	}
+}
+
+func TestListCommand_FilterByTagNoMatch(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list", "--tag", "nonexistent"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "No runbooks found") {
+		t.Error("expected 'No runbooks found' in output")
+	}
+}
+
+func TestListCommand_JSONOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list", "-o", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestListCommand_YAMLOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list", "-o", "yaml"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestListCommand_Limit(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list", "--limit", "2"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Total: 2") {
+		t.Errorf("expected 'Total: 2' in output, got: %s", out)
+	}
+}
+
+// ============================================================================
+// Execute Command Tests
+// ============================================================================
+
+func TestExecuteCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--var", "version=1.2.0"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Execution started:") {
+		t.Error("expected 'Execution started:' in output")
+	}
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected 'deploy-service' in output")
+	}
+	if !strings.Contains(out, "version = 1.2.0") {
+		t.Error("expected variable in output")
+	}
+}
+
+func TestExecuteCommand_DryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--var", "version=1.2.0", "--dry-run"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Dry run:") {
+		t.Error("expected 'Dry run:' in output")
+	}
+	if !strings.Contains(out, "Steps that would execute:") {
+		t.Error("expected step list in dry run output")
+	}
+	if !strings.Contains(out, "No changes made") {
+		t.Error("expected 'No changes made' in dry run output")
+	}
+}
+
+func TestExecuteCommand_NotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "nonexistent-runbook"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent runbook")
+	}
+}
+
+func TestExecuteCommand_InvalidVar(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--var", "badformat"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid variable format")
+	}
+}
+
+func TestExecuteCommand_NoArgs(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no args provided")
+	}
+}
+
+// ============================================================================
+// Status Command Tests
+// ============================================================================
+
+func TestStatusCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status", "exec-a1b2c3"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "exec-a1b2c3") {
+		t.Error("expected execution ID in output")
+	}
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected runbook name in output")
+	}
+	if !strings.Contains(out, "completed") {
+		t.Error("expected state in output")
+	}
+}
+
+func TestStatusCommand_Running(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status", "exec-d4e5f6"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "running") {
+		t.Error("expected 'running' state in output")
+	}
+	if !strings.Contains(out, "health-check") {
+		t.Error("expected current step in output")
+	}
+}
+
+func TestStatusCommand_NotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status", "exec-nonexistent"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent execution")
+	}
+}
+
+func TestStatusCommand_JSONOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status", "exec-a1b2c3", "-o", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestStatusCommand_YAMLOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status", "exec-a1b2c3", "-o", "yaml"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestStatusCommand_NoArgs(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"status"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no args provided")
+	}
+}
+
+// ============================================================================
+// List Executions Command Tests
+// ============================================================================
+
+func TestListExecutionsCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "exec-a1b2c3") {
+		t.Error("expected execution ID in output")
+	}
+	if !strings.Contains(out, "Total:") {
+		t.Error("expected 'Total:' in output")
+	}
+}
+
+func TestListExecutionsCommand_FilterByRunbook(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "--runbook", "deploy-service"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected 'deploy-service' in output")
+	}
+	if strings.Contains(out, "rotate-credentials") {
+		t.Error("should not contain 'rotate-credentials' when filtering")
+	}
+}
+
+func TestListExecutionsCommand_FilterByState(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "--state", "completed"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "completed") {
+		t.Error("expected 'completed' in output")
+	}
+	if strings.Contains(out, "running") {
+		t.Error("should not contain 'running' when filtering by completed")
+	}
+}
+
+func TestListExecutionsCommand_FilterNoMatch(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "--runbook", "nonexistent"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "No executions found") {
+		t.Error("expected 'No executions found' in output")
+	}
+}
+
+func TestListExecutionsCommand_JSONOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "-o", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestListExecutionsCommand_Limit(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "--limit", "2"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Total: 2") {
+		t.Errorf("expected 'Total: 2' in output, got: %s", out)
+	}
+}
+
+// ============================================================================
+// Audit Command Tests
+// ============================================================================
+
+func TestAuditCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "deploy-service"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Audit trail for: deploy-service") {
+		t.Error("expected audit header in output")
+	}
+	if !strings.Contains(out, "execute") {
+		t.Error("expected 'execute' action in output")
+	}
+	if !strings.Contains(out, "approve") {
+		t.Error("expected 'approve' action in output")
+	}
+}
+
+func TestAuditCommand_NotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "nonexistent-runbook"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent runbook")
+	}
+}
+
+func TestAuditCommand_JSONOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "deploy-service", "-o", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestAuditCommand_YAMLOutput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "deploy-service", "-o", "yaml"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestAuditCommand_Limit(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "deploy-service", "--limit", "2"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Total: 2") {
+		t.Errorf("expected 'Total: 2' in output, got: %s", out)
+	}
+}
+
+func TestAuditCommand_NoArgs(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no args provided")
+	}
+}
+
+// ============================================================================
+// Test Command Tests
+// ============================================================================
+
+func TestTestCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Testing runbook: deploy-service") {
+		t.Error("expected test header in output")
+	}
+	if !strings.Contains(out, "[PASS]") {
+		t.Error("expected PASS results in output")
+	}
+	if !strings.Contains(out, "All tests passed") {
+		t.Error("expected 'All tests passed' in output")
+	}
+}
+
+func TestTestCommand_WithVars(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--var", "version=1.2.0"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "All tests passed") {
+		t.Error("expected 'All tests passed' in output")
+	}
+}
+
+func TestTestCommand_Verbose(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--verbose"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Runbook YAML is valid") {
+		t.Error("expected verbose detail 'Runbook YAML is valid' in output")
+	}
+	if !strings.Contains(out, "Required permissions") {
+		t.Error("expected verbose detail about permissions in output")
+	}
+}
+
+func TestTestCommand_NotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "nonexistent-runbook"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent runbook")
+	}
+}
+
+func TestTestCommand_InvalidVar(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--var", "badformat"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid variable format")
+	}
+}
+
+func TestTestCommand_NoArgs(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no args provided")
+	}
+}
+
+// ============================================================================
+// Sample Data Generator Tests
+// ============================================================================
+
+func TestGenerateSampleRunbooks(t *testing.T) {
+	runbooks := generateSampleRunbooks()
+	if len(runbooks) < 4 {
+		t.Errorf("expected at least 4 sample runbooks, got %d", len(runbooks))
+	}
+
+	for _, rb := range runbooks {
+		if rb.Name == "" {
+			t.Error("runbook name should not be empty")
+		}
+		if rb.Description == "" {
+			t.Error("runbook description should not be empty")
+		}
+		if rb.Version == "" {
+			t.Error("runbook version should not be empty")
+		}
+		if len(rb.Tags) == 0 {
+			t.Errorf("runbook %s should have at least one tag", rb.Name)
+		}
+		if rb.StepCount == 0 {
+			t.Errorf("runbook %s should have at least one step", rb.Name)
+		}
+	}
+}
+
+func TestGenerateSampleExecutions(t *testing.T) {
+	executions := generateSampleExecutions()
+	if len(executions) < 4 {
+		t.Errorf("expected at least 4 sample executions, got %d", len(executions))
+	}
+
+	for _, e := range executions {
+		if e.ID == "" {
+			t.Error("execution ID should not be empty")
+		}
+		if e.Runbook == "" {
+			t.Error("execution runbook should not be empty")
+		}
+		if e.State == "" {
+			t.Error("execution state should not be empty")
+		}
+		if e.StartedBy == "" {
+			t.Error("execution started_by should not be empty")
+		}
+	}
+}
+
+func TestFindRunbook(t *testing.T) {
+	rb := findRunbook("deploy-service")
+	if rb == nil {
+		t.Fatal("expected to find deploy-service")
+	}
+	if rb.Name != "deploy-service" {
+		t.Errorf("Name = %q, want %q", rb.Name, "deploy-service")
+	}
+
+	rb = findRunbook("nonexistent")
+	if rb != nil {
+		t.Error("expected nil for nonexistent runbook")
+	}
+}
+
+func TestMatchesTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		runbookTags []string
+		filterTags  []string
+		want        bool
+	}{
+		{"match single", []string{"security", "compliance"}, []string{"security"}, true},
+		{"match multiple", []string{"deployment", "production"}, []string{"deployment", "production"}, true},
+		{"no match", []string{"deployment"}, []string{"security"}, false},
+		{"partial match", []string{"security", "compliance"}, []string{"security", "other"}, true},
+		{"empty filter", []string{"security"}, []string{}, false},
+		{"empty runbook tags", []string{}, []string{"security"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesTags(tt.runbookTags, tt.filterTags)
+			if got != tt.want {
+				t.Errorf("matchesTags(%v, %v) = %v, want %v", tt.runbookTags, tt.filterTags, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateID(t *testing.T) {
+	id1 := generateID()
+	if id1 == "" {
+		t.Error("expected non-empty ID")
+	}
+
+	id2 := generateID()
+	if id1 == id2 {
+		t.Log("IDs may collide if generated at same nanosecond; this is acceptable for demo data")
+	}
+}
+
+func TestRootCommand_IncludesNewCommands(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"--help"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	for _, subcmd := range []string{"list", "execute", "status", "list-executions", "audit", "test"} {
+		if !strings.Contains(out, subcmd) {
+			t.Errorf("expected %q command in help output", subcmd)
+		}
+	}
+}

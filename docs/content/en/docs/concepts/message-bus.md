@@ -20,17 +20,20 @@ Keystone Core uses [NATS](https://nats.io/) as its message bus, providing the co
 We chose NATS over alternatives (Kafka, RabbitMQ, Redis) because:
 
 **vs Kafka**:
+
 - Simpler operations (embedded mode, no ZooKeeper)
 - Lower latency (<1ms vs ~10ms)
 - Built-in request-reply patterns
 - Lightweight footprint
 
 **vs RabbitMQ**:
+
 - Higher throughput (10x faster)
 - Better clustering support
 - Simpler protocol (text-based, not AMQP)
 
 **vs Redis Pub/Sub**:
+
 - Persistence (JetStream)
 - At-least-once delivery
 - Better scaling for large deployments
@@ -67,12 +70,14 @@ Keystone Core supports three NATS deployment modes:
 NATS runs in-process with the control plane binary.
 
 **Best for**:
+
 - Development and testing
 - Small deployments (<100 nodes)
 - Home labs and edge locations
 - Quick prototyping
 
 **Configuration**:
+
 ```yaml
 nats:
   mode: embedded
@@ -85,12 +90,14 @@ nats:
 ```
 
 **Characteristics**:
+
 - Zero dependencies
 - Single binary deployment
 - Automatic lifecycle management
 - Perfect for getting started
 
 **Limitations**:
+
 - No high availability
 - Limited to control plane resources
 - Not recommended for >100 nodes
@@ -100,12 +107,14 @@ nats:
 Dedicated NATS cluster (3+ nodes) for high availability.
 
 **Best for**:
+
 - Production deployments
 - Large scale (100+ nodes)
 - High availability requirements
 - Multi-region deployments
 
 **Configuration**:
+
 ```yaml
 nats:
   mode: external
@@ -120,6 +129,7 @@ nats:
 ```
 
 **NATS Cluster Setup**:
+
 ```mermaid
 flowchart TD
     subgraph Cluster["NATS Cluster"]
@@ -136,6 +146,7 @@ flowchart TD
 ```
 
 **Characteristics**:
+
 - High availability (automatic failover)
 - Horizontal scalability
 - Dedicated resources
@@ -146,6 +157,7 @@ flowchart TD
 Control plane connects to external cluster, agents run embedded NATS as leaf nodes.
 
 **Best for**:
+
 - Edge deployments
 - Multi-region with central cluster
 - Bandwidth-constrained locations
@@ -154,6 +166,7 @@ Control plane connects to external cluster, agents run embedded NATS as leaf nod
 **Configuration**:
 
 Control plane:
+
 ```yaml
 nats:
   mode: external
@@ -162,6 +175,7 @@ nats:
 ```
 
 Edge agents:
+
 ```yaml
 nats:
   mode: leaf
@@ -173,6 +187,7 @@ nats:
 ```
 
 **Characteristics**:
+
 - Best of both worlds
 - Local buffering at edge
 - Automatic sync when connected
@@ -276,6 +291,7 @@ nats:
 ```
 
 etcd entries can be stored in two formats:
+
 - **JSON**: `{"host": "nats1.example.com", "port": 4222}`
 - **Simple**: `nats1.example.com:4222`
 
@@ -400,6 +416,7 @@ All messages include a standard envelope with routing metadata:
 ```
 
 **Envelope Fields**:
+
 - `message_id`: Unique message identifier for deduplication
 - `correlation_id`: Links related messages (request/response)
 - `cluster`: Target cluster for supercluster routing
@@ -680,6 +697,7 @@ JetStream provides persistence for events:
 Keystone Core creates these JetStream streams:
 
 **Events Stream**:
+
 ```
 Name: KSCORE_EVENTS
 Subjects: kscore.event, kscore.agent.*.event
@@ -689,6 +707,7 @@ Max Age: 30 days
 ```
 
 **Audit Stream**:
+
 ```
 Name: KSCORE_AUDIT
 Subjects: kscore.command.result, kscore.state.result, kscore.policy.*
@@ -698,6 +717,7 @@ Max Age: 90 days
 ```
 
 **Webhooks Stream**:
+
 ```
 Name: KSCORE_GITOPS
 Subjects: kscore.gitops.webhook.*
@@ -709,11 +729,13 @@ Max Age: 7 days
 ### Why JetStream for Events but NOT for State?
 
 **JetStream is used for**:
+
 - Event streaming and replay
 - Webhook buffering
 - Audit trail
 
 **SQLite/PostgreSQL is used for**:
+
 - Operational state (agent metadata, job status)
 - Configuration (policies, reactors)
 - Complex queries with indexes
@@ -721,6 +743,7 @@ Max Age: 7 days
 - Relational data
 
 **Rationale**:
+
 - JetStream excels at streaming, not querying
 - State requires SQL joins, indexes, transactions
 - Hybrid approach gives best of both worlds
@@ -737,6 +760,7 @@ Measured on single NATS server (4 cores, 8GB RAM):
 - **JetStream Subscribe**: 500k msgs/sec
 
 Real-world Keystone Core workload (clustered NATS):
+
 - **Heartbeats**: 100k agents × 2 msgs/min = 3,333 msgs/sec
 - **Commands**: 10k commands/sec (bursts to 50k)
 - **Events**: 50k events/sec
@@ -752,11 +776,13 @@ Real-world Keystone Core workload (clustered NATS):
 ### Resource Usage
 
 **Embedded NATS** (per control plane instance):
+
 - Memory: 100-500MB (depending on JetStream storage)
 - CPU: 0.1-0.5 cores
 - Disk I/O: 10-100 MB/s (JetStream writes)
 
 **External NATS Cluster** (per node):
+
 - Memory: 2-4GB
 - CPU: 1-2 cores
 - Disk I/O: 100-500 MB/s
@@ -818,6 +844,7 @@ nats bench js-test --js --pub 1 --msgs 500000 --replicas 3
 ```
 
 **Keystone Core specific benchmark:**
+
 ```bash
 # Benchmark agent registration throughput
 kscorectl benchmark agent-registration --count 10000 --parallel 50
@@ -1117,6 +1144,7 @@ net.ipv4.tcp_tw_reuse = 1
 ```
 
 Apply changes:
+
 ```bash
 sysctl -p
 ```
@@ -1255,6 +1283,7 @@ groups:
 **Symptoms:** P99 latency > 10ms
 
 **Diagnosis:**
+
 ```bash
 # Check for slow consumers
 nats server check connection --server nats://localhost:4222
@@ -1267,6 +1296,7 @@ nats-top -s nats://localhost:4222
 ```
 
 **Solutions:**
+
 - Increase client pending limits
 - Add more NATS nodes
 - Reduce message size
@@ -1277,6 +1307,7 @@ nats-top -s nats://localhost:4222
 **Symptoms:** `slow_consumers` metric > 0
 
 **Diagnosis:**
+
 ```bash
 # Identify slow connections
 nats server connections --sort pending
@@ -1286,6 +1317,7 @@ nats server connz --cid <connection_id>
 ```
 
 **Solutions:**
+
 - Increase `max_pending` on clients
 - Use JetStream with flow control
 - Scale out slow consumers
@@ -1296,6 +1328,7 @@ nats server connz --cid <connection_id>
 **Symptoms:** Consumer `num_pending` growing
 
 **Diagnosis:**
+
 ```bash
 # Check stream status
 nats stream info KSCORE_EVENTS
@@ -1308,6 +1341,7 @@ nats consumer pending KSCORE_EVENTS <consumer_name>
 ```
 
 **Solutions:**
+
 - Increase consumer parallelism
 - Increase `max_ack_pending`
 - Scale out consumer instances
@@ -1318,6 +1352,7 @@ nats consumer pending KSCORE_EVENTS <consumer_name>
 **Symptoms:** NATS server using excessive memory
 
 **Diagnosis:**
+
 ```bash
 # Check server memory
 nats server varz | jq '.mem'
@@ -1327,6 +1362,7 @@ nats server jsz | jq '.memory'
 ```
 
 **Solutions:**
+
 - Reduce `max_memory_store`
 - Use file-based storage for streams
 - Reduce pending limits
@@ -1337,6 +1373,7 @@ nats server jsz | jq '.memory'
 ### Authentication
 
 **NATS Credentials (JWT)**:
+
 ```bash
 # Generate credentials
 nsc add user -a kscore agent1
@@ -1346,18 +1383,21 @@ nsc add user -a kscore agent1
 ```
 
 Agent config:
+
 ```yaml
 nats:
   credentials: /etc/keystone-core/agent1.creds
 ```
 
 **Token Authentication**:
+
 ```yaml
 nats:
   token: "secret-token-here"
 ```
 
 **Username/Password** (not recommended):
+
 ```yaml
 nats:
   username: "agent1"
@@ -1386,6 +1426,7 @@ NATS supports fine-grained authorization:
 **TLS Configuration**:
 
 NATS server:
+
 ```conf
 tls {
   cert_file: "/etc/nats/server.crt"
@@ -1396,6 +1437,7 @@ tls {
 ```
 
 Keystone Core client:
+
 ```yaml
 nats:
   tls:
@@ -1515,6 +1557,7 @@ nats:
 ```
 
 **Why TLS is critical for WebSocket:**
+
 - WebSocket upgrades from HTTP - plaintext is interceptable
 - Many proxies/firewalls inspect HTTP traffic
 - Authentication tokens visible without encryption
@@ -1540,6 +1583,7 @@ websocket {
 ```
 
 **CORS attack vectors:**
+
 - Wildcard allows any malicious site to connect
 - Attackers can steal authentication tokens
 - Cross-site scripting (XSS) can exploit open CORS
@@ -1549,6 +1593,7 @@ websocket {
 WebSocket supports all NATS authentication methods, but some have additional considerations:
 
 **JWT Authentication (Recommended):**
+
 ```yaml
 nats:
   urls:
@@ -1557,6 +1602,7 @@ nats:
 ```
 
 **Token in Header (Alternative):**
+
 ```yaml
 nats:
   websocket:
@@ -1565,6 +1611,7 @@ nats:
 ```
 
 **NEVER send credentials in URL:**
+
 ```yaml
 # WRONG - Token visible in logs, history
 nats:
@@ -1600,6 +1647,7 @@ websocket {
 WebSocket requires proper proxy configuration:
 
 **nginx reverse proxy:**
+
 ```nginx
 upstream nats_websocket {
     server nats1.internal:8443;
@@ -1639,6 +1687,7 @@ server {
 ```
 
 **AWS ALB:**
+
 ```yaml
 # ALB must be configured for WebSocket
 # - Target type: IP (not Lambda)
@@ -1663,6 +1712,7 @@ rate(nats_websocket_bytes_received_total[5m])
 ```
 
 **Alert on anomalies:**
+
 ```yaml
 - alert: WebSocketHandshakeFailuresHigh
   expr: rate(nats_websocket_handshake_failures_total[5m]) > 10
@@ -1706,6 +1756,7 @@ flowchart LR
 ```
 
 **Configuration:**
+
 ```yaml
 # Agent behind corporate firewall
 nats:
@@ -1736,6 +1787,7 @@ flowchart LR
 ```
 
 **Browser client example:**
+
 ```javascript
 // Browser NATS client
 import { connect } from 'nats.ws';
@@ -1793,6 +1845,7 @@ WebSocket adds overhead compared to raw TCP:
 | Latency (p50) | ~1ms | ~2-3ms | +1-2ms |
 
 **When performance matters:**
+
 - Use TCP for internal agents
 - Reserve WebSocket for constrained environments
 - Enable compression for bandwidth-limited connections
@@ -1827,6 +1880,7 @@ nats-server \
 ```
 
 Full config:
+
 ```conf
 # Server
 port: 4222
@@ -1854,16 +1908,19 @@ jetstream {
 ### Failure Scenarios
 
 **Single Node Failure**:
+
 - Cluster continues operating
 - Clients automatically reconnect to surviving nodes
 - JetStream streams remain available
 
 **Network Partition**:
+
 - Majority partition continues
 - Minority partition is unavailable
 - Automatic re-sync on partition heal
 
 **Complete Cluster Failure**:
+
 - Control plane and agents buffer messages
 - Automatic reconnection when cluster recovers
 - No message loss (JetStream persistence)
@@ -1879,6 +1936,7 @@ curl http://nats-server:8222/varz
 ```
 
 Key metrics:
+
 ```json
 {
   "connections": 1234,
@@ -1897,6 +1955,7 @@ curl http://nats-server:8222/jsz
 ```
 
 Per-stream metrics:
+
 ```json
 {
   "streams": [
@@ -1923,6 +1982,7 @@ docker run -d \
 ```
 
 Metrics:
+
 ```
 nats_varz_connections
 nats_varz_in_msgs
@@ -1937,14 +1997,17 @@ nats_jetstream_stream_bytes
 ### Sizing
 
 **Small** (<100 agents):
+
 - Embedded mode
 - 1GB JetStream storage
 
 **Medium** (100-1,000 agents):
+
 - 3-node external cluster
 - 10GB JetStream storage per node
 
 **Large** (1,000+ agents):
+
 - 5-node external cluster
 - 100GB JetStream storage per node
 - Dedicated NATS infrastructure
@@ -1999,11 +2062,13 @@ nats:
 ```
 
 **Symptoms of memory pressure:**
+
 - Slow consumer warnings
 - Increased latency
 - Connection drops during peaks
 
 **Mitigation:**
+
 ```yaml
 # Enable flow control to prevent memory exhaustion
 nats:
@@ -2024,6 +2089,7 @@ nats:
 ```
 
 **Memory per large message:**
+
 - 100KB message × 100 pending = 10MB
 - 1MB message × 100 pending = 100MB
 
@@ -2053,6 +2119,7 @@ nats:
 ```
 
 **Memory per consumer with lag:**
+
 - 1,000 pending acks × 1KB = ~1MB per consumer
 - 10 consumers × 10,000 pending = 100MB
 
@@ -2068,6 +2135,7 @@ nats:
 ```
 
 **Warning signs:**
+
 - `slow_consumers` metric increasing
 - Memory growth correlating with specific agents
 
@@ -2082,6 +2150,7 @@ Spike memory = Agents × 0.5MB  # Reconnection overhead
 **For 500 agents:** Expect ~250MB spike during recovery.
 
 **Mitigation:**
+
 ```yaml
 # Stagger agent reconnections
 agent:
@@ -2106,6 +2175,7 @@ nats:
 #### Recommended Configurations
 
 **Minimal (Dev/Test):**
+
 ```yaml
 nats:
   mode: embedded
@@ -2115,9 +2185,11 @@ nats:
     max_memory: "256MB"
     max_file: "1GB"
 ```
+
 *Suitable for: <50 agents, development, CI/CD*
 
 **Standard (Small Production):**
+
 ```yaml
 nats:
   mode: embedded
@@ -2129,9 +2201,11 @@ nats:
   max_payload: "1MB"
   max_connections: 500
 ```
+
 *Suitable for: 50-200 agents, small production*
 
 **Maximum Embedded (Large Single-Node):**
+
 ```yaml
 nats:
   mode: embedded
@@ -2146,6 +2220,7 @@ nats:
     enabled: true
     max_pending: 5000
 ```
+
 *Suitable for: 200-500 agents, resource-constrained environments*
 
 **Note:** For >500 agents, strongly consider external NATS cluster.
@@ -2165,6 +2240,7 @@ nats_jetstream_stream_state_bytes{stream="KSCORE_EVENTS"}
 ```
 
 **Alert thresholds:**
+
 ```yaml
 # Alert at 80% of configured max_memory
 - alert: NATSMemoryHigh
@@ -2177,6 +2253,7 @@ nats_jetstream_stream_state_bytes{stream="KSCORE_EVENTS"}
 #### When to Migrate to External Cluster
 
 Consider external NATS cluster when:
+
 - Agent count exceeds 500
 - Memory requirements exceed 4GB
 - High availability is required
@@ -2186,6 +2263,7 @@ Consider external NATS cluster when:
 ### Tuning
 
 **Connection Limits**:
+
 ```conf
 max_connections: 10000
 max_control_line: 4096
@@ -2193,6 +2271,7 @@ max_payload: 1048576  # 1MB
 ```
 
 **JetStream**:
+
 ```conf
 jetstream {
   max_memory_store: 8GB
@@ -2202,6 +2281,7 @@ jetstream {
 ```
 
 **Performance**:
+
 ```conf
 # Disable slow consumer detection if using JetStream
 max_pending_size: 0
@@ -2222,6 +2302,7 @@ max_pending_size: 0
 **Problem**: Agents can't connect to NATS
 
 Check:
+
 ```bash
 # Test NATS connectivity
 nats --server=nats://control-plane:4222 pub test "hello"
@@ -2238,11 +2319,13 @@ nc -zv control-plane 4222
 **Problem**: `slow_consumers` metric increasing
 
 Causes:
+
 - Agent can't keep up with message rate
 - Network congestion
 - Agent resource constraints
 
 Fix:
+
 - Increase agent resources
 - Use queue groups for load distribution
 - Enable flow control
@@ -2252,6 +2335,7 @@ Fix:
 **Problem**: JetStream out of disk space
 
 Fix:
+
 ```bash
 # Check stream usage
 nats stream ls
@@ -2268,12 +2352,14 @@ nats stream edit KSCORE_EVENTS --max-age=7d
 **Problem**: NATS cluster partitioned
 
 Detection:
+
 ```bash
 # Check cluster status on each node
 nats --server=nats://nats1:4222 server list
 ```
 
 Fix:
+
 - Resolve network partition
 - Restart minority partition nodes
 - Cluster will automatically re-sync

@@ -160,9 +160,13 @@ func (h *Handler) handleAgent(w http.ResponseWriter, r *http.Request) {
 
 	agentID := parts[0]
 
-	// Check if this is a tags update
+	// Check sub-resource routes
 	if len(parts) >= 2 && parts[1] == "tags" {
 		h.handleAgentTags(w, r, agentID)
+		return
+	}
+	if len(parts) >= 2 && parts[1] == "metrics" {
+		h.handleAgentMetrics(w, r, agentID)
 		return
 	}
 
@@ -243,6 +247,46 @@ func (h *Handler) handleAgentTags(w http.ResponseWriter, r *http.Request, agentI
 		"agent_id": agentID,
 		"tags":     agent.Metadata.GetLabels(),
 		"updated":  true,
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// AgentMetricsResponse represents the agent metrics API response.
+type AgentMetricsResponse struct {
+	AgentID           string    `json:"agent_id"`
+	CPUPercent        float32   `json:"cpu_percent"`
+	MemoryPercent     float32   `json:"memory_percent"`
+	DiskPercent       float32   `json:"disk_percent"`
+	LoadAverage       []float32 `json:"load_average"`
+	ActiveConnections int32     `json:"active_connections"`
+	CollectedAt       time.Time `json:"collected_at"`
+}
+
+// handleAgentMetrics handles GET /api/v1/agents/{id}/metrics
+func (h *Handler) handleAgentMetrics(w http.ResponseWriter, r *http.Request, agentID string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	agent, err := h.connMgr.GetAgent(agentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Agent not found")
+		return
+	}
+
+	resp := AgentMetricsResponse{
+		AgentID:     agentID,
+		CollectedAt: agent.LastHeartbeat,
+	}
+
+	if agent.LastMetrics != nil {
+		resp.CPUPercent = agent.LastMetrics.CpuPercent
+		resp.MemoryPercent = agent.LastMetrics.MemoryPercent
+		resp.DiskPercent = agent.LastMetrics.DiskPercent
+		resp.LoadAverage = agent.LastMetrics.LoadAverage
+		resp.ActiveConnections = agent.LastMetrics.ActiveConnections
 	}
 
 	writeJSON(w, http.StatusOK, resp)

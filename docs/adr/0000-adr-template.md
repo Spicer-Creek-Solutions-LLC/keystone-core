@@ -54,10 +54,12 @@ If relevant, outline the high-level implementation approach:
 **Description**: Brief description of this alternative.
 
 **Pros**:
+
 - Pro 1
 - Pro 2
 
 **Cons**:
+
 - Con 1
 - Con 2
 
@@ -68,10 +70,12 @@ If relevant, outline the high-level implementation approach:
 **Description**: Brief description of this alternative.
 
 **Pros**:
+
 - Pro 1
 - Pro 2
 
 **Cons**:
+
 - Con 1
 - Con 2
 
@@ -82,10 +86,12 @@ If relevant, outline the high-level implementation approach:
 **Description**: Maintain the status quo.
 
 **Pros**:
+
 - No implementation effort
 - No risk of regression
 
 **Cons**:
+
 - Problem remains unsolved
 - [Other cons]
 

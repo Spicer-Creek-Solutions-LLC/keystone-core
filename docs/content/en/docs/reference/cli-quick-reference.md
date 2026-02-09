@@ -776,6 +776,7 @@ kscorectl policy activate require-labels --mode enforce
 | `repo-mirror --verbose` | Verbose output | `repo-mirror --verbose` |
 
 **Repository Types** (for `--only` and `--skip`):
+
 - `dnf`, `apt`, `windows`, `macos` - Package repositories
 - `blueprints`, `modules` - Registries
 - `docs` - Documentation

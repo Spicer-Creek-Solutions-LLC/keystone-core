@@ -6,8 +6,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-// RotationProvider implements credential rotation for a specific protocol.
-type RotationProvider interface {
+// Provider implements credential rotation for a specific protocol or device type.
+type Provider interface {
 	// SupportsType returns true if this provider can rotate the credential type.
 	SupportsType(credType credentials.CredentialType) bool
 

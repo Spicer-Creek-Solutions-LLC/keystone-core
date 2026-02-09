@@ -25,6 +25,7 @@ make docs-modules
 ```
 
 The tool extracts documentation from:
+
 - Package comments
 - Type definitions and their doc comments
 - Method signatures and documentation

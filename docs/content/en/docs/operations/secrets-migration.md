@@ -11,6 +11,7 @@ This guide helps you migrate from existing credential management approaches to K
 > **Implementation Note**: Keystone Core's secrets management focuses on **rotation orchestration** and
 > **workload secret injection**, not direct secret storage. The `kscorectl secrets put/get` commands
 > shown in this guide represent the conceptual workflow. In practice:
+>
 > - **Store secrets** using your backend directly (Vault CLI, AWS CLI, etc.)
 > - **Reference secrets** in workload definitions using `{{ secret "path" }}` syntax
 > - **Orchestrate rotation** using `kscorectl secrets rotate` commands
@@ -24,6 +25,7 @@ This guide helps you migrate from existing credential management approaches to K
 Environment variables are a common but insecure method for managing secrets.
 
 **Before (environment variables):**
+
 ```bash
 export DB_PASSWORD="secretpassword"
 export API_KEY="sk_live_abc123"
@@ -39,6 +41,7 @@ workload:
 ```
 
 **After (Keystone Secrets):**
+
 ```yaml
 # Store secrets first
 # kscorectl secrets put database/app/password --value "secretpassword"
@@ -58,13 +61,16 @@ workload:
 ```
 
 **Migration steps:**
+
 1. Inventory all environment variables containing secrets
 2. Store each secret in your backend (e.g., Vault):
+
    ```bash
    # Using Vault CLI
    vault kv put secret/database/app/password value="$DB_PASSWORD"
    vault kv put secret/api/stripe value="$API_KEY"
    ```
+
 3. Update workload definitions to reference secrets
 4. Remove environment variables from deployment scripts
 5. Verify workloads receive secrets correctly
@@ -72,6 +78,7 @@ workload:
 ### From Configuration Files
 
 **Before (plaintext config files):**
+
 ```yaml
 # config.yaml
 database:
@@ -84,6 +91,7 @@ api:
 ```
 
 **After (Keystone Secrets):**
+
 ```yaml
 # config.yaml (secrets removed)
 database:
@@ -114,6 +122,7 @@ workload:
 If you're already using Vault but want to leverage Keystone's unified interface:
 
 **Before (direct Vault access):**
+
 ```go
 client, _ := vault.NewClient(vault.DefaultConfig())
 secret, _ := client.Logical().Read("secret/data/myapp")
@@ -121,6 +130,7 @@ password := secret.Data["data"].(map[string]interface{})["password"]
 ```
 
 **After (Keystone Secrets):**
+
 ```yaml
 # Configure Vault as backend
 secrets:
@@ -144,6 +154,7 @@ workload:
 ```
 
 **Benefits of migration:**
+
 - Unified API across multiple backends
 - Automatic lease management
 - Coordinated rotation
@@ -152,6 +163,7 @@ workload:
 ### From AWS Secrets Manager (Direct)
 
 **Before (direct AWS SDK):**
+
 ```go
 client := secretsmanager.NewFromConfig(cfg)
 result, _ := client.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
@@ -161,6 +173,7 @@ password := result.SecretString
 ```
 
 **After (Keystone Secrets):**
+
 ```yaml
 # Configure AWS as backend
 secrets:
@@ -185,6 +198,7 @@ workload:
 ### From Kubernetes Secrets
 
 **Before (K8s Secrets):**
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -205,6 +219,7 @@ containers:
 ```
 
 **After (Keystone Secrets):**
+
 ```yaml
 # Store in Keystone
 # kscorectl secrets put myapp/database --value "secretpassword"
@@ -219,6 +234,7 @@ workload:
 ```
 
 **Benefits:**
+
 - No base64 encoding required
 - Automatic rotation support
 - Cross-cluster secret sharing
@@ -231,6 +247,7 @@ workload:
 > **Note**: Use your secrets backend CLI directly for bulk operations.
 
 **From environment files to Vault:**
+
 ```bash
 # Export from .env file to Vault
 while IFS='=' read -r key value; do
@@ -242,6 +259,7 @@ done < .env
 ```
 
 **From Kubernetes to Vault:**
+
 ```bash
 # Export K8s secrets to Vault
 for secret in $(kubectl get secrets -o name); do
@@ -256,6 +274,7 @@ done
 ```
 
 **Reorganize within Vault:**
+
 ```bash
 # Copy secrets within Vault to new paths
 vault kv list -format=json secret/ | jq -r '.[]' | while read path; do
@@ -286,6 +305,7 @@ fi
 ### Phase 1: Assessment
 
 1. **Inventory secrets:**
+
    ```bash
    # Manually inventory secrets from various sources
    # Environment variables
@@ -311,6 +331,7 @@ fi
 ### Phase 2: Backend Configuration
 
 1. **Configure backends:**
+
    ```yaml
    secrets:
      backends:
@@ -326,6 +347,7 @@ fi
    ```
 
 2. **Test connectivity:**
+
    ```bash
    # Test Vault connectivity
    vault status
@@ -337,6 +359,7 @@ fi
    ```
 
 3. **Configure routing:**
+
    ```yaml
    secrets:
      routing:
@@ -350,6 +373,7 @@ fi
 ### Phase 3: Secret Migration
 
 1. **Migrate secrets in batches:**
+
    ```bash
    # Copy secrets within Vault to new paths
    # First, read the source secret
@@ -364,6 +388,7 @@ fi
    ```
 
 2. **Verify migration:**
+
    ```bash
    # Compare source and destination values
    vault kv get secret/data/database
@@ -373,6 +398,7 @@ fi
 ### Phase 4: Workload Updates
 
 1. **Update workload definitions:**
+
    ```yaml
    # Before
    workload:
@@ -392,6 +418,7 @@ fi
    ```
 
 2. **Deploy updates gradually:**
+
    ```bash
    # Update canary first
    kscorectl state apply workload.yaml --target "role:canary"
@@ -406,6 +433,7 @@ fi
 ### Phase 5: Cleanup
 
 1. **Remove legacy access:**
+
    ```bash
    # Revoke old Vault tokens
    vault token revoke <old-token>
@@ -481,6 +509,7 @@ kscorectl exec run "name:app-server" -- env | grep DB_PASSWORD
 **Problem:** Existing paths conflict with new naming scheme.
 
 **Solution:**
+
 ```yaml
 secrets:
   routing:
@@ -496,6 +525,7 @@ secrets:
 **Problem:** Legacy system has different rotation schedules.
 
 **Solution:**
+
 ```yaml
 secrets:
   rotation:
@@ -511,6 +541,7 @@ secrets:
 **Problem:** New system lacks permissions from old system.
 
 **Solution:**
+
 ```bash
 # Check current Vault policy
 vault policy read keystone-secrets
@@ -531,6 +562,7 @@ EOF
 **Problem:** Secrets have different encodings (base64, URL encoding).
 
 **Solution:**
+
 ```yaml
 # Specify encoding during migration
 secrets:

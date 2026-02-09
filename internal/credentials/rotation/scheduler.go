@@ -10,10 +10,10 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/secrets"
 )
 
-// RotationScheduler manages scheduled credential rotation based on policies.
-type RotationScheduler struct {
+// Scheduler manages scheduled credential rotation based on policies.
+type Scheduler struct {
 	mu            sync.RWMutex
-	engine        *RotationEngine
+	engine        *Engine
 	policies      *PolicyEngine
 	audit         credentials.AuditLogger
 	store         credentials.CredentialStore
@@ -26,14 +26,14 @@ type RotationScheduler struct {
 	nextCheckTime time.Time
 }
 
-// NewRotationScheduler creates a new rotation scheduler.
-func NewRotationScheduler(
-	engine *RotationEngine,
+// NewScheduler creates a new rotation scheduler.
+func NewScheduler(
+	engine *Engine,
 	policies *PolicyEngine,
 	store credentials.CredentialStore,
 	audit credentials.AuditLogger,
-) *RotationScheduler {
-	return &RotationScheduler{
+) *Scheduler {
+	return &Scheduler{
 		engine:        engine,
 		policies:      policies,
 		store:         store,
@@ -43,14 +43,14 @@ func NewRotationScheduler(
 }
 
 // SetCheckInterval sets the interval for checking due rotations.
-func (s *RotationScheduler) SetCheckInterval(interval time.Duration) {
+func (s *Scheduler) SetCheckInterval(interval time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.checkInterval = interval
 }
 
 // Start starts the scheduler.
-func (s *RotationScheduler) Start(ctx context.Context) error {
+func (s *Scheduler) Start(ctx context.Context) error {
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
@@ -67,7 +67,7 @@ func (s *RotationScheduler) Start(ctx context.Context) error {
 }
 
 // Stop stops the scheduler.
-func (s *RotationScheduler) Stop() {
+func (s *Scheduler) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -80,14 +80,14 @@ func (s *RotationScheduler) Stop() {
 }
 
 // IsRunning returns whether the scheduler is running.
-func (s *RotationScheduler) IsRunning() bool {
+func (s *Scheduler) IsRunning() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.running
 }
 
 // GetStatus returns the current scheduler status.
-func (s *RotationScheduler) GetStatus() *SchedulerStatus {
+func (s *Scheduler) GetStatus() *SchedulerStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -103,13 +103,13 @@ func (s *RotationScheduler) GetStatus() *SchedulerStatus {
 }
 
 // TriggerNow triggers immediate rotation for a specific credential.
-func (s *RotationScheduler) TriggerNow(ctx context.Context, credentialID string) (*RotationResult, error) {
+func (s *Scheduler) TriggerNow(ctx context.Context, credentialID string) (*Result, error) {
 	cred, err := s.store.Get(ctx, credentialID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential: %w", err)
 	}
 
-	job := &RotationJob{
+	job := &Job{
 		ID:             fmt.Sprintf("manual-%s-%d", credentialID, time.Now().UnixNano()),
 		CredentialID:   credentialID,
 		CredentialType: cred.Type(),
@@ -121,7 +121,7 @@ func (s *RotationScheduler) TriggerNow(ctx context.Context, credentialID string)
 }
 
 // AddPolicy adds a rotation policy to the scheduler.
-func (s *RotationScheduler) AddPolicy(policy *RotationPolicy) error {
+func (s *Scheduler) AddPolicy(policy *Policy) error {
 	// Validate cron schedule if provided
 	if policy.Schedule != "" {
 		if _, err := secrets.ParseCron(policy.Schedule); err != nil {
@@ -131,7 +131,7 @@ func (s *RotationScheduler) AddPolicy(policy *RotationPolicy) error {
 	return s.policies.AddPolicy(policy)
 }
 
-func (s *RotationScheduler) run(ctx context.Context) {
+func (s *Scheduler) run(ctx context.Context) {
 	ticker := time.NewTicker(s.checkInterval)
 	defer ticker.Stop()
 
@@ -148,7 +148,7 @@ func (s *RotationScheduler) run(ctx context.Context) {
 	}
 }
 
-func (s *RotationScheduler) checkDueRotations(ctx context.Context) {
+func (s *Scheduler) checkDueRotations(ctx context.Context) {
 	now := time.Now()
 
 	s.mu.Lock()
@@ -192,7 +192,7 @@ func (s *RotationScheduler) checkDueRotations(ctx context.Context) {
 	}
 }
 
-func (s *RotationScheduler) logAudit(ctx context.Context, action string, success bool, message string) {
+func (s *Scheduler) logAudit(ctx context.Context, action string, success bool, message string) {
 	if s.audit == nil {
 		return
 	}

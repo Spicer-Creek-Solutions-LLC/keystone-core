@@ -10,6 +10,7 @@ description: >
 The gNMI protocol adapter implements the [gRPC Network Management Interface](https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md) specification for managing modern network devices. gNMI provides a gRPC-based mechanism for retrieving and modifying configuration, streaming telemetry, and querying device capabilities using structured data models (primarily OpenConfig YANG).
 
 **Key features**:
+
 - Full gNMI RPC support: Capabilities, Get, Set, Subscribe
 - Streaming telemetry via channel-based subscriptions (ONCE, STREAM, POLL modes)
 - mTLS and per-RPC username/password authentication

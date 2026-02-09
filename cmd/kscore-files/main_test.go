@@ -269,6 +269,241 @@ func TestBackendConfig(t *testing.T) {
 	}
 }
 
+func TestCacheSubcommands(t *testing.T) {
+	cacheCmd := newCacheCmd()
+	if cacheCmd == nil {
+		t.Fatal("expected cache command to not be nil")
+	}
+
+	expected := []string{
+		"status", "clear", "warm", "list", "evict", "stats",
+		"invalidate", "verify", "show", "refresh", "set-ttl", "history",
+	}
+
+	for _, name := range expected {
+		found := false
+		for _, sub := range cacheCmd.Commands() {
+			if sub.Name() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected cache subcommand %q not found", name)
+		}
+	}
+}
+
+func TestCacheInvalidateCmd(t *testing.T) {
+	cmd := newCacheInvalidateCmd()
+	if cmd == nil {
+		t.Fatal("expected invalidate command to not be nil")
+	}
+	if cmd.Use != "invalidate <path-or-pattern>" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+
+	flags := []string{"target", "priority", "force", "dry-run"}
+	for _, name := range flags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("expected flag --%s", name)
+		}
+	}
+
+	if cmd.Flags().Lookup("priority").DefValue != "normal" {
+		t.Errorf("expected priority default to be 'normal', got %s", cmd.Flags().Lookup("priority").DefValue)
+	}
+}
+
+func TestCacheInvalidateDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{"cache", "invalidate", "states/nginx-config", "--dry-run"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("dry-run should not error: %v", err)
+	}
+}
+
+func TestCacheVerifyCmd(t *testing.T) {
+	cmd := newCacheVerifyCmd()
+	if cmd == nil {
+		t.Fatal("expected verify command to not be nil")
+	}
+	if cmd.Use != "verify [name]" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+
+	flags := []string{"fix", "output"}
+	for _, name := range flags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("expected flag --%s", name)
+		}
+	}
+}
+
+func TestCacheShowCmd(t *testing.T) {
+	cmd := newCacheShowCmd()
+	if cmd == nil {
+		t.Fatal("expected show command to not be nil")
+	}
+	if cmd.Use != "show <key>" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+
+	if cmd.Flags().Lookup("output") == nil {
+		t.Error("expected flag --output")
+	}
+}
+
+func TestCacheRefreshCmd(t *testing.T) {
+	cmd := newCacheRefreshCmd()
+	if cmd == nil {
+		t.Fatal("expected refresh command to not be nil")
+	}
+	if cmd.Use != "refresh <path-or-pattern>" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+
+	flags := []string{"force", "dry-run"}
+	for _, name := range flags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("expected flag --%s", name)
+		}
+	}
+}
+
+func TestCacheRefreshDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{"cache", "refresh", "states/nginx-config", "--dry-run"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("dry-run should not error: %v", err)
+	}
+}
+
+func TestCacheSetTTLCmd(t *testing.T) {
+	cmd := newCacheSetTTLCmd()
+	if cmd == nil {
+		t.Fatal("expected set-ttl command to not be nil")
+	}
+	if cmd.Use != "set-ttl <key> <duration>" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+}
+
+func TestCacheHistoryCmd(t *testing.T) {
+	cmd := newCacheHistoryCmd()
+	if cmd == nil {
+		t.Fatal("expected history command to not be nil")
+	}
+	if cmd.Use != "history [name]" {
+		t.Errorf("unexpected Use: %s", cmd.Use)
+	}
+
+	flags := []string{"type", "limit", "output"}
+	for _, name := range flags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("expected flag --%s", name)
+		}
+	}
+
+	if cmd.Flags().Lookup("limit").DefValue != "50" {
+		t.Errorf("expected limit default to be '50', got %s", cmd.Flags().Lookup("limit").DefValue)
+	}
+}
+
+func TestCacheSubcommandHelp(t *testing.T) {
+	subcommands := []string{"invalidate", "verify", "show", "refresh", "set-ttl", "history"}
+
+	for _, subcmd := range subcommands {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := newRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetArgs([]string{"cache", subcmd, "--help"})
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("cache %s --help failed: %v", subcmd, err)
+			}
+
+			out := buf.String()
+			if !strings.Contains(out, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", out)
+			}
+		})
+	}
+}
+
+func TestCacheNewTypes(t *testing.T) {
+	t.Run("CacheItemDetail", func(t *testing.T) {
+		item := CacheItemDetail{
+			Key:       "test/key",
+			Path:      "/data/test/key",
+			Size:      1024,
+			Checksum:  "abc123",
+			Algorithm: "sha256",
+			Source:    "origin",
+			Metadata:  map[string]string{"env": "prod"},
+		}
+		if item.Key != "test/key" {
+			t.Errorf("unexpected Key: %s", item.Key)
+		}
+		if item.Metadata["env"] != "prod" {
+			t.Errorf("unexpected Metadata: %v", item.Metadata)
+		}
+	})
+
+	t.Run("CacheInvalidateResult", func(t *testing.T) {
+		r := CacheInvalidateResult{Invalidated: 5, Errors: 1}
+		if r.Invalidated != 5 {
+			t.Errorf("unexpected Invalidated: %d", r.Invalidated)
+		}
+	})
+
+	t.Run("CacheVerifyResult", func(t *testing.T) {
+		r := CacheVerifyResult{
+			TotalEntries:   100,
+			ValidEntries:   98,
+			CorruptEntries: 1,
+			MissingEntries: 1,
+			Details:        []CacheVerifyErr{{Key: "bad", Reason: "checksum mismatch"}},
+		}
+		if r.TotalEntries != 100 {
+			t.Errorf("unexpected TotalEntries: %d", r.TotalEntries)
+		}
+		if len(r.Details) != 1 {
+			t.Errorf("unexpected Details length: %d", len(r.Details))
+		}
+	})
+
+	t.Run("CacheRefreshResult", func(t *testing.T) {
+		r := CacheRefreshResult{Refreshed: 10, Errors: 0}
+		if r.Refreshed != 10 {
+			t.Errorf("unexpected Refreshed: %d", r.Refreshed)
+		}
+	})
+
+	t.Run("CacheHistoryEntry", func(t *testing.T) {
+		e := CacheHistoryEntry{
+			Operation: "invalidation",
+			Key:       "states/nginx",
+			Result:    "success",
+		}
+		if e.Operation != "invalidation" {
+			t.Errorf("unexpected Operation: %s", e.Operation)
+		}
+	})
+}
+
 // findSubcommand finds a subcommand by name
 func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 	for _, sub := range cmd.Commands() {

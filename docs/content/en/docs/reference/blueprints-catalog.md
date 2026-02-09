@@ -338,7 +338,7 @@ PostgreSQL HA cluster with streaming replication.
 | `ssl_cert` | string | | SSL certificate |
 | `ssl_key` | string | | SSL private key (sensitive) |
 | `backup_enabled` | boolean | true | Enable automated backups |
-| `backup_schedule` | string | 0 2 * * * | Backup cron schedule |
+| `backup_schedule` | string | 0 2 ** * | Backup cron schedule |
 | `backup_retention_days` | integer | 30 | Backup retention |
 | `backup_destination` | string | | S3 bucket or path for backups |
 

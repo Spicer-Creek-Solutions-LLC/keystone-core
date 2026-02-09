@@ -115,6 +115,7 @@ fmt.Printf("Result type: %s\n", result.ResultType)
 #### Result Types
 
 **Vector** (instant query results):
+
 ```json
 {
   "result_type": "vector",
@@ -129,6 +130,7 @@ fmt.Printf("Result type: %s\n", result.ResultType)
 ```
 
 **Matrix** (range query results):
+
 ```json
 {
   "result_type": "matrix",

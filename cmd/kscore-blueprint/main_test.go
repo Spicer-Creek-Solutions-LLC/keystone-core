@@ -29,7 +29,7 @@ func TestRootCommand(t *testing.T) {
 	// Check that all expected subcommands exist (including deprecated ones)
 	expectedCommands := []string{
 		"version", "init", "validate", "lint", "test", "search", "info",
-		"install", "update", "remove",
+		"install", "update", "remove", "bundle", "mirror", "applied",
 		// Deprecated commands that still exist
 		"publish", "sign", "verify", "versions", "docs", "rollback", "snapshot",
 	}
@@ -196,9 +196,58 @@ func TestDeprecatedCommandsExist(t *testing.T) {
 	}
 }
 
+func TestBundleCommandExists(t *testing.T) {
+	cmd := newRootCmd()
+	bundleCmd := findSubcommand(cmd, "bundle")
+	if bundleCmd == nil {
+		t.Fatal("bundle subcommand not found")
+	}
+
+	// Check subcommands
+	createCmd := findSubcommand(bundleCmd, "create")
+	if createCmd == nil {
+		t.Error("bundle create subcommand not found")
+	}
+
+	installCmd := findSubcommand(bundleCmd, "install")
+	if installCmd == nil {
+		t.Error("bundle install subcommand not found")
+	}
+}
+
+func TestMirrorCommandExists(t *testing.T) {
+	cmd := newRootCmd()
+	mirrorCmd := findSubcommand(cmd, "mirror")
+	if mirrorCmd == nil {
+		t.Fatal("mirror subcommand not found")
+	}
+
+	expectedSubs := []string{"sync", "serve", "export", "import"}
+	for _, sub := range expectedSubs {
+		if findSubcommand(mirrorCmd, sub) == nil {
+			t.Errorf("mirror %s subcommand not found", sub)
+		}
+	}
+}
+
+func TestAppliedCommandExists(t *testing.T) {
+	cmd := newRootCmd()
+	appliedCmd := findSubcommand(cmd, "applied")
+	if appliedCmd == nil {
+		t.Fatal("applied subcommand not found")
+	}
+
+	expectedSubs := []string{"list", "show", "history", "usage"}
+	for _, sub := range expectedSubs {
+		if findSubcommand(appliedCmd, sub) == nil {
+			t.Errorf("applied %s subcommand not found", sub)
+		}
+	}
+}
+
 func TestSubcommandHelp(t *testing.T) {
 	// Test help for core subcommands
-	subcommands := []string{"init", "validate", "lint", "search", "info", "install", "update", "remove"}
+	subcommands := []string{"init", "validate", "lint", "search", "info", "install", "update", "remove", "bundle", "mirror", "applied"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {

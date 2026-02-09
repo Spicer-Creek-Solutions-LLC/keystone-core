@@ -5,8 +5,6 @@ description: >
   Release compatibility, support windows, upgrade paths, and technical guidelines for operators and developers
 ---
 
-# Keystone Core — Compatibility & Upgrade Technical Guidelines
-
 This document describes the technical rules, invariants, and implementation mechanics behind the
 Keystone Core compatibility and upgrade model. The focus is on maintainability, correctness, and
 operational safety.
@@ -153,6 +151,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ❌ Unsupported | ⚠️ Limited | ✅ Full | ✅ Full |
 
 **Legend**:
+
 - ✅ **Full**: All features work, fully tested combination
 - ⚠️ **Limited**: Core features work, some new features may be unavailable
 - ❌ **Unsupported**: Not tested, may have protocol incompatibilities
@@ -169,6 +168,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ✅ | ⚠️ | ✅ | ✅ | ✅ |
 
 **Notes**:
+
 - SQLite recommended for deployments < 500 agents
 - PostgreSQL 13 reaches EOL November 2025
 - PostgreSQL 16 requires 0.2.x+ for full feature support
@@ -183,6 +183,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ❌ | ✅ | ✅ |
 
 **Notes**:
+
 - JetStream required for all versions
 - NATS 2.9.x deprecated in 0.4.x
 - NATS 2.11.x recommended for new deployments
@@ -197,6 +198,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ❌ | ✅ |
 
 **Notes**:
+
 - etcd 3.5.x recommended for all deployments
 - etcd 3.4.x support removed in 0.4.x
 
@@ -230,6 +232,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ❌ | ⚠️ | ✅ | ✅ | ✅ |
 
 **Notes**:
+
 - Helm chart compatibility follows same matrix
 - Operator supports N-3 Kubernetes versions
 - CRD versions may differ; see Helm chart docs
@@ -244,6 +247,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ⚠️ deprecated | ✅ | ⚠️ deprecated | ✅ |
 
 **Migration Notes**:
+
 - REST API v1 deprecated in 0.4.x, removed in 0.6.x
 - gRPC v1 deprecated in 0.4.x, removed in 0.6.x
 - Use API version header to specify desired version
@@ -296,6 +300,7 @@ This matrix shows compatibility between components across supported versions.
 | 0.4.x | ❌ | ❌ | ❌ | — |
 
 **Legend**:
+
 - ✅ Direct upgrade supported
 - ⚠️ Requires intermediate version (step upgrade)
 - ❌ Downgrade not supported
@@ -383,16 +388,15 @@ kscorectl agents list --show-compatibility
 ### Programmatic Check
 
 ```go
-import "github.com/shawnbutts/keystone-core/compatibility"
+import "github.com/shawnbutts/keystone-core/pkg/semver"
 
-// Check version compatibility
-result := compatibility.Check(
-    compatibility.ControlPlane("0.4.1"),
-    compatibility.Agent("0.3.5"),
-)
+// Parse versions and check compatibility
+controlPlane, _ := semver.Parse("0.4.1")
+agent, _ := semver.Parse("0.3.5")
 
-if result.Status == compatibility.Limited {
-    log.Warn("Limited compatibility", "missing", result.MissingFeatures)
+diff := semver.Compare(controlPlane, agent)
+if !diff.IsCompatible() {
+    log.Warn("Incompatible versions", "change", diff.ChangeType)
 }
 ```
 

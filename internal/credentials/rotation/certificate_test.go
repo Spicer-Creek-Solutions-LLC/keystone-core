@@ -43,8 +43,8 @@ func (m *mockCertCommander) RemoveCertificate(_ context.Context, _ DeviceInfo, _
 
 var _ CertificateCommander = (*mockCertCommander)(nil)
 
-func TestCertificateRotationProvider_SupportsType(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_SupportsType(t *testing.T) {
+	p := NewCertificateProvider(nil)
 
 	tests := []struct {
 		credType credentials.CredentialType
@@ -65,9 +65,9 @@ func TestCertificateRotationProvider_SupportsType(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_ValidateOld(t *testing.T) {
+func TestCertificateProvider_ValidateOld(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	cred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{
@@ -86,9 +86,9 @@ func TestCertificateRotationProvider_ValidateOld(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_ValidateOldWrongType(t *testing.T) {
+func TestCertificateProvider_ValidateOldWrongType(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	err := p.ValidateOld(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err == nil {
@@ -96,8 +96,8 @@ func TestCertificateRotationProvider_ValidateOldWrongType(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_ValidateOldNoCommander(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_ValidateOldNoCommander(t *testing.T) {
+	p := NewCertificateProvider(nil)
 
 	cred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "g1"},
@@ -108,8 +108,8 @@ func TestCertificateRotationProvider_ValidateOldNoCommander(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_Generate(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_Generate(t *testing.T) {
+	p := NewCertificateProvider(nil)
 	p.CertValidity = 30 * 24 * time.Hour
 
 	old := &credentials.GNMICredential{
@@ -166,17 +166,17 @@ func TestCertificateRotationProvider_Generate(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_GenerateWrongType(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_GenerateWrongType(t *testing.T) {
+	p := NewCertificateProvider(nil)
 	_, err := p.Generate(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err == nil {
 		t.Fatal("expected error for wrong type")
 	}
 }
 
-func TestCertificateRotationProvider_Apply(t *testing.T) {
+func TestCertificateProvider_Apply(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	newCred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "g1"},
@@ -193,26 +193,26 @@ func TestCertificateRotationProvider_Apply(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_ApplyNoCommander(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_ApplyNoCommander(t *testing.T) {
+	p := NewCertificateProvider(nil)
 	err := p.Apply(context.Background(), DeviceInfo{}, nil, &credentials.GNMICredential{})
 	if err == nil {
 		t.Fatal("expected error without commander")
 	}
 }
 
-func TestCertificateRotationProvider_ApplyWrongType(t *testing.T) {
+func TestCertificateProvider_ApplyWrongType(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 	err := p.Apply(context.Background(), DeviceInfo{}, nil, &credentials.SSHPasswordCredential{})
 	if err == nil {
 		t.Fatal("expected error for wrong type")
 	}
 }
 
-func TestCertificateRotationProvider_Verify(t *testing.T) {
+func TestCertificateProvider_Verify(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	newCred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "g1"},
@@ -228,9 +228,9 @@ func TestCertificateRotationProvider_Verify(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_VerifyFails(t *testing.T) {
+func TestCertificateProvider_VerifyFails(t *testing.T) {
 	cmd := &mockCertCommander{verifyErr: errors.New("cert invalid")}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	err := p.Verify(context.Background(), DeviceInfo{}, &credentials.GNMICredential{ClientCert: []byte("bad")})
 	if err == nil {
@@ -238,9 +238,9 @@ func TestCertificateRotationProvider_VerifyFails(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_Rollback(t *testing.T) {
+func TestCertificateProvider_Rollback(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	oldCred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "g1"},
@@ -264,9 +264,9 @@ func TestCertificateRotationProvider_Rollback(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_RollbackWrongType(t *testing.T) {
+func TestCertificateProvider_RollbackWrongType(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	err := p.Rollback(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{}, &credentials.GNMICredential{})
 	if err == nil {
@@ -274,9 +274,9 @@ func TestCertificateRotationProvider_RollbackWrongType(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_Cleanup(t *testing.T) {
+func TestCertificateProvider_Cleanup(t *testing.T) {
 	cmd := &mockCertCommander{}
-	p := NewCertificateRotationProvider(cmd)
+	p := NewCertificateProvider(cmd)
 
 	oldCred := &credentials.GNMICredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "g1"},
@@ -292,14 +292,14 @@ func TestCertificateRotationProvider_Cleanup(t *testing.T) {
 	}
 }
 
-func TestCertificateRotationProvider_CleanupNilCommander(t *testing.T) {
-	p := NewCertificateRotationProvider(nil)
+func TestCertificateProvider_CleanupNilCommander(t *testing.T) {
+	p := NewCertificateProvider(nil)
 	err := p.Cleanup(context.Background(), DeviceInfo{}, &credentials.GNMICredential{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestCertificateRotationProvider_InterfaceCompliance(t *testing.T) {
-	var _ RotationProvider = (*CertificateRotationProvider)(nil)
+func TestCertificateProvider_InterfaceCompliance(t *testing.T) {
+	var _ Provider = (*CertificateProvider)(nil)
 }

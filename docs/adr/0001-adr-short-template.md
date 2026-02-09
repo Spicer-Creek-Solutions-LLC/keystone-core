@@ -11,6 +11,7 @@
 For simpler decisions that don't require the full ADR template, use this short form.
 
 This template is appropriate for:
+
 - Minor architectural decisions
 - Technology choices with limited scope
 - Process decisions

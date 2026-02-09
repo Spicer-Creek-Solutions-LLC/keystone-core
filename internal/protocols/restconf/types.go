@@ -4,10 +4,14 @@ package restconf
 type ContentType string
 
 const (
-	ContentTypeYANGJSON  ContentType = "application/yang-data+json"
-	ContentTypeYANGXML   ContentType = "application/yang-data+xml"
+	// ContentTypeYANGJSON is the JSON YANG data content type.
+	ContentTypeYANGJSON ContentType = "application/yang-data+json"
+	// ContentTypeYANGXML is the XML YANG data content type.
+	ContentTypeYANGXML ContentType = "application/yang-data+xml"
+	// ContentTypePatchJSON is the JSON YANG patch content type.
 	ContentTypePatchJSON ContentType = "application/yang-patch+json"
-	ContentTypePatchXML  ContentType = "application/yang-patch+xml"
+	// ContentTypePatchXML is the XML YANG patch content type.
+	ContentTypePatchXML ContentType = "application/yang-patch+xml"
 )
 
 // String returns the string representation of the content type.
@@ -19,8 +23,11 @@ func (c ContentType) String() string {
 type ContentOption string
 
 const (
-	ContentAll       ContentOption = "all"
-	ContentConfig    ContentOption = "config"
+	// ContentAll returns all data (config and state).
+	ContentAll ContentOption = "all"
+	// ContentConfig returns only configuration data.
+	ContentConfig ContentOption = "config"
+	// ContentNonconfig returns only non-configuration (state) data.
 	ContentNonconfig ContentOption = "nonconfig"
 )
 
@@ -38,10 +45,14 @@ func (c ContentOption) Valid() bool {
 type WithDefaultsMode string
 
 const (
-	WithDefaultsReportAll       WithDefaultsMode = "report-all"
+	// WithDefaultsReportAll reports all default values.
+	WithDefaultsReportAll WithDefaultsMode = "report-all"
+	// WithDefaultsReportAllTagged reports all with tagged defaults.
 	WithDefaultsReportAllTagged WithDefaultsMode = "report-all-tagged"
-	WithDefaultsTrim            WithDefaultsMode = "trim"
-	WithDefaultsExplicit        WithDefaultsMode = "explicit"
+	// WithDefaultsTrim omits default values from the response.
+	WithDefaultsTrim WithDefaultsMode = "trim"
+	// WithDefaultsExplicit only reports explicitly set values.
+	WithDefaultsExplicit WithDefaultsMode = "explicit"
 )
 
 // Valid returns true if the with-defaults mode is valid.

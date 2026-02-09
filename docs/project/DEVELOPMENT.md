@@ -47,6 +47,7 @@ git checkout -b feature/your-feature-name
 ```
 
 **Branch naming conventions:**
+
 - `feature/` - New features
 - `fix/` - Bug fixes
 - `docs/` - Documentation changes
@@ -79,6 +80,7 @@ Closes #123"
 ```
 
 **Commit message format:**
+
 ```
 <type>: <summary line (50 chars max)>
 
@@ -124,6 +126,7 @@ We follow standard Go conventions:
 - **Follow Effective Go**: See [Effective Go](https://golang.org/doc/effective_go.html)
 
 **Code organization:**
+
 ```
 pkg/
 ├── api/           # Public APIs (gRPC/REST)
@@ -313,6 +316,7 @@ git commit --signoff -m "Your commit message"
 ```
 
 This adds:
+
 ```
 Signed-off-by: Your Name <your.email@example.com>
 ```

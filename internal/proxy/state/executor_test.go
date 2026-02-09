@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -50,6 +51,7 @@ func (f *fakeExecutor) Close(ctx context.Context, deviceID string) error {
 }
 
 type fakeModule struct {
+	mu            sync.Mutex
 	name          string
 	executeErr    error
 	executeResult *ModuleResult
@@ -62,8 +64,10 @@ func (m *fakeModule) Name() string {
 }
 
 func (m *fakeModule) Execute(ctx context.Context, mctx ModuleContext) (*ModuleResult, error) {
+	m.mu.Lock()
 	m.calls++
 	m.lastDryRun = mctx.DryRun
+	m.mu.Unlock()
 	if m.executeErr != nil {
 		return nil, m.executeErr
 	}

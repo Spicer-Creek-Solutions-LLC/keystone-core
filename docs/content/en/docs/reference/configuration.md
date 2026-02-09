@@ -10,6 +10,7 @@ description: >
 Keystone Core components are configured using YAML files. This reference documents all configuration options.
 
 **Configuration Files**:
+
 - Control Plane: `/etc/keystone-core/server.yaml`
 - Agent: `/etc/keystone-core/agent.yaml`
 - CLI: `~/.keystone-core/config.yaml`
@@ -17,6 +18,7 @@ Keystone Core components are configured using YAML files. This reference documen
 **Note**: When running without `--config`, binaries search for `keystone-core.yaml` in `/etc/keystone-core/`, `~/.keystone-core/`, and the current directory. The package-installed systemd services explicitly pass the config file path.
 
 **Why `/etc/keystone-core` instead of `/etc/keystone-core`?**
+
 - Clearer and less ambiguous for operators and in multi-product environments.
 - Aligns with the full product/package name and systemd unit naming.
 - Reduces support friction by keeping docs and paths consistent.
@@ -79,20 +81,18 @@ nats:
   credential: ""                    # NATS credentials file (NKey/JWT)
   max_reconnects: -1                # -1 = unlimited, 0 = disabled
   reconnect_wait: "2s"
-  tls:
-    enabled: false
-    cert_file: ""
-    key_file: ""
-    ca_file: ""
-    min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   jetstream:
     enabled: true                   # Enable JetStream
-    storedir: "/var/lib/keystone-core/nats"
-    max_memory: "1GB"               # Max memory for streams
-    max_file: "10GB"                # Max file storage
+    storedir: "/var/lib/keystone-core/nats"  # Default: ./data/nats (relative to working directory)
     max_storage: "10GB"             # Max total storage (bytes)
   embedded:
     listen: "0.0.0.0:4222"           # Combined host:port (overrides host/port)
+    host: "127.0.0.1"               # Host for embedded NATS (default: 127.0.0.1)
+    port: 4222                       # Port for embedded NATS
+    enable_jetstream: true           # Enable JetStream in embedded mode
+    storedir: "./data/nats"          # JetStream storage directory
+    max_memory: 1073741824           # Max memory in bytes (default: 1GB)
+    max_connections: 1000            # Max concurrent connections
     addressfamily: "prefer_ipv4"    # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
     leaf_node_urls: []               # Parent leaf URLs when mode: leaf
 
@@ -100,26 +100,14 @@ nats:
 storage:
   backend: "sqlite"                 # sqlite, postgresql
   sqlite:
-    path: "/var/lib/keystone-core/keystone-core.db"
-    wal: true                        # Enable WAL mode
-    # Note: SQLite doesn't use traditional connection pooling.
-    # max_connections controls the serialized access queue size
-    max_connections: 10
-    busy_timeout: "5s"
+    path: "/var/lib/keystone-core/keystone-core.db"  # Default: ./data/keystone-core.db
+    wal: true                        # Enable WAL mode (default: true)
+    busy_timeout: 5000               # Busy timeout in milliseconds (default: 5000)
   postgresql:
-    dsn: ""                          # Optional DSN (overrides host/port/credentials)
-    host: "localhost"
-    port: 5432
-    database: "kscore"
-    username: "kscore"
-    password: ""
-    sslmode: "disable"              # disable, require, verify-ca, verify-full
-    max_connections: 25
-    idle_connections: 5
-    connection_lifetime: "1h"
-    max_open_conns: 25
-    max_idle_conns: 5
-    conn_max_lifetime: "5m"
+    dsn: ""                          # Connection string (e.g., "postgres://user:pass@host:5432/db?sslmode=verify-full")
+    max_open_conns: 25               # Maximum open connections (default: 25)
+    max_idle_conns: 5                # Maximum idle connections (default: 5)
+    conn_max_lifetime: "5m"          # Connection max lifetime (default: 5m)
 
 # Logging
 # Note: File output is not supported - use journald, container log drivers, or syslog
@@ -245,8 +233,6 @@ policy:
   enabled: true
   engine: "both"                    # opa, cel, both
   enforcement_mode: "enforce"       # enforce, audit, warn
-  cache_ttl: "5m"                   # Policy cache TTL
-  evaluation_timeout: "10s"         # Policy evaluation timeout
   policies:                         # Built-in policy definitions
     - id: "deny-ssh-root"
       name: "Deny SSH Root Login"
@@ -258,11 +244,6 @@ policy:
       code: |
         package kscore.security
         deny[msg] { input.resource.type == "ssh" }
-  opa:
-    enabled: true
-    memory_limit: "512MB"
-  cel:
-    enabled: true
 ```
 
 ### GitOps Integration
@@ -685,6 +666,7 @@ Flag mapping:
 | `security.cors_origins` | `--cors-origins` |
 
 Notes:
+
 - `auth.enabled` is deployment metadata only; the server enables write auth when `api_key` is provided.
 - `auth.api_key_file` is not supported by `kscore-registry` flags (use `KSCORE_REGISTRY_API_KEY`).
 - `logging.*` and `telemetry.*` are deployment reference only; `kscore-registry` does not expose these as CLI flags.
@@ -990,94 +972,39 @@ nats:
     key_file: "/etc/keystone-core/agent.key"
 
   # Embedded NATS settings (when mode: embedded or leaf)
-  # Security: TLS and authentication are REQUIRED when binding to non-localhost
   embedded:
-    host: "0.0.0.0"                 # Bind address (default: all interfaces)
+    listen: "0.0.0.0:4222"         # Combined host:port
+    host: "0.0.0.0"                 # Bind address
     port: 4222                      # NATS port
-    server_name: ""                 # Optional server name
-    max_connections: 100            # Max client connections
-    max_payload: 1048576            # 1MB max message size
-
-    # TLS configuration (REQUIRED for non-localhost binding)
-    tls:
-      cert_file: "/etc/keystone-core/nats-server.crt"
-      key_file: "/etc/keystone-core/nats-server.key"
-      ca_file: "/etc/keystone-core/ca.crt"
-      verify: true                  # Verify client certificates
-
-    # Authentication (REQUIRED for non-localhost binding)
-    auth:
-      token: ""                     # Simple token auth
-      users: []                     # User/password authentication
-      nkey_users: []                # NKey-based authentication
-
-    # Leaf node configuration (when mode: leaf)
-    leaf_remotes:
-      - urls: ["nats://upstream:4222"]
-        credentials: "/etc/keystone-core/leaf.creds"
+    enable_jetstream: true           # Enable JetStream
+    storedir: "./data/nats"          # JetStream storage directory
+    max_memory: 1073741824           # Max memory (bytes, default: 1GB)
+    max_connections: 100             # Max client connections
+    addressfamily: "prefer_ipv4"    # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+    leaf_node_urls: []               # Parent leaf URLs (when mode: leaf)
 
   # Connection settings
   max_reconnects: -1                # Unlimited reconnects
-  reconnect_delay: "2s"
-  reconnect_jitter: "1s"
-  ping_interval: "2m"
-  max_ping_out: 2
-
-  # Network settings
-  addressfamily: "any"             # any, ipv4, ipv6 (default: any)
-                                    # Controls address resolution preference
+  reconnect_wait: "2s"
 
 # Agent Identity
 agent:
   id: ""                            # Auto-generated if empty
-  datacenter: "us-east-1"
-  environment: "production"
-  role: "web"
+  heartbeat_interval: "30s"         # Heartbeat interval (default: 30s)
+  command_timeout: "5m"             # Command execution timeout (default: 5m)
+  metadata_interval: "5m"           # System metadata collection interval (default: 5m)
   addressfamily: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
   advertise_addrs: []               # Optional static advertise addresses
-  labels:
+  labels:                           # Key-value pairs for targeting
     tier: "frontend"
-  tags:
-    - "nginx"
-    - "frontend"
-
-  # Custom metadata
-  metadata:
-    team: "platform"
-    cost_center: "engineering"
-
-# Heartbeat
-heartbeat:
-  interval: "30s"
-  timeout: "10s"
-  include_stats: true               # Include resource stats
+    env: "production"
+    role: "web"
 
 # Logging
 logging:
   level: "info"
   format: "json"
-  output: "stdout"
-  file: "/var/log/keystone-core/agent.log"
-
-# Execution Settings
-execution:
-  timeout: "5m"                     # Default command timeout
-  max_concurrent: 10                # Max concurrent commands
-  shell: "bash"                     # bash, sh, zsh, powershell, cmd
-  working_dir: "/tmp"
-
-  # Resource limits
-  limits:
-    max_memory: "512MB"
-    max_cpu_percent: 80
-    max_processes: 100
-
-# State Management
-state:
-  modules_dir: "/var/lib/keystone-core/modules"
-  cache_enabled: true
-  cache_dir: "/var/cache/keystone-core"
-  dry_run: false
+  output: "stdout"                  # stdout, syslog (file output not supported)
 
 # Security
 security:
@@ -1405,8 +1332,10 @@ storage:
 logging:
   level: info
   format: json
-  output: file
-  file: "/var/log/keystone-core/server.log"
+  output: syslog                    # Use syslog for production (file output not supported)
+  syslog:
+    network: unix
+    address: "/dev/log"
 ```
 
 ### High Availability

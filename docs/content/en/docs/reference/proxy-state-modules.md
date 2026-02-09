@@ -10,6 +10,7 @@ description: >
 Proxy state modules provide idempotent configuration management for network devices and servers managed through proxy agents. Each module implements the `ProxyModule` interface with `Execute()` and `Check()` methods.
 
 All modules support:
+
 - **Dry-run mode**: Check what changes would be made without applying them
 - **Idempotent execution**: Only make changes when the current state differs from desired state
 - **Result reporting**: Return whether changes were made and detailed information

@@ -10,7 +10,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-// mockProvider implements RotationProvider for testing.
+// mockProvider implements Provider for testing.
 type mockProvider struct {
 	mu             sync.Mutex
 	supportedTypes []credentials.CredentialType
@@ -103,10 +103,10 @@ func (m *mockProvider) getCalls() []string {
 	return result
 }
 
-var _ RotationProvider = (*mockProvider)(nil)
+var _ Provider = (*mockProvider)(nil)
 
-func makeTestJob() *RotationJob {
-	return &RotationJob{
+func makeTestJob() *Job {
+	return &Job{
 		ID:             "test-rotation-1",
 		DeviceID:       "device-1",
 		CredentialID:   "cred-1",
@@ -129,10 +129,10 @@ func makeTestJob() *RotationJob {
 	}
 }
 
-func TestNewRotationEngine(t *testing.T) {
+func TestNewEngine(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	if engine == nil {
 		t.Fatal("expected non-nil engine")
@@ -145,8 +145,8 @@ func TestNewRotationEngine(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_RegisterProvider(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_RegisterProvider(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 
 	engine.RegisterProvider(provider)
@@ -158,10 +158,10 @@ func TestRotationEngine_RegisterProvider(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_RotateSuccess(t *testing.T) {
+func TestEngine_RotateSuccess(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	engine.RegisterProvider(provider)
@@ -218,8 +218,8 @@ func TestRotationEngine_RotateSuccess(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_NoProviderError(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_NoProviderError(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	job := makeTestJob()
 	_, err := engine.Rotate(context.Background(), job)
@@ -231,9 +231,9 @@ func TestRotationEngine_NoProviderError(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_DuplicateJobError(t *testing.T) {
+func TestEngine_DuplicateJobError(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	// Make generate block so the job stays active
@@ -260,10 +260,10 @@ func TestRotationEngine_DuplicateJobError(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_ValidateFailure(t *testing.T) {
+func TestEngine_ValidateFailure(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.validateErr = errors.New("connection refused")
@@ -289,8 +289,8 @@ func TestRotationEngine_ValidateFailure(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_GenerateFailure(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_GenerateFailure(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.generateErr = errors.New("key generation failed")
@@ -308,10 +308,10 @@ func TestRotationEngine_GenerateFailure(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_ApplyFailureWithRollback(t *testing.T) {
+func TestEngine_ApplyFailureWithRollback(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(store, audit)
+	engine := NewEngine(store, audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.applyErr = errors.New("device rejected config")
@@ -341,8 +341,8 @@ func TestRotationEngine_ApplyFailureWithRollback(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_ApplyFailureNoRollback(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_ApplyFailureNoRollback(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.applyErr = errors.New("device rejected config")
@@ -363,8 +363,8 @@ func TestRotationEngine_ApplyFailureNoRollback(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_VerifyFailureWithRollback(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_VerifyFailureWithRollback(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.verifyErr = errors.New("new credential rejected")
@@ -388,9 +388,9 @@ func TestRotationEngine_VerifyFailureWithRollback(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_RollbackAlsoFails(t *testing.T) {
+func TestEngine_RollbackAlsoFails(t *testing.T) {
 	audit := credentials.NewInMemoryAuditLogger(nil)
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), audit)
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), audit)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.applyErr = errors.New("apply failed")
@@ -418,9 +418,9 @@ func TestRotationEngine_RollbackAlsoFails(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_CleanupFailure(t *testing.T) {
+func TestEngine_CleanupFailure(t *testing.T) {
 	store := credentials.NewInMemoryCredentialStore()
-	engine := NewRotationEngine(store, nil)
+	engine := NewEngine(store, nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.cleanupErr = errors.New("cleanup failed")
@@ -435,8 +435,8 @@ func TestRotationEngine_CleanupFailure(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_GetJob(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_GetJob(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	// No jobs
 	_, ok := engine.GetJob("nonexistent")
@@ -459,8 +459,8 @@ func TestRotationEngine_GetJob(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_ListJobs(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_ListJobs(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	jobs := engine.ListJobs()
 	if len(jobs) != 0 {
@@ -469,8 +469,8 @@ func TestRotationEngine_ListJobs(t *testing.T) {
 
 	// Insert two jobs
 	engine.mu.Lock()
-	engine.jobs["j1"] = &managedJob{job: &RotationJob{ID: "j1"}, machine: buildRotationMachine()}
-	engine.jobs["j2"] = &managedJob{job: &RotationJob{ID: "j2"}, machine: buildRotationMachine()}
+	engine.jobs["j1"] = &managedJob{job: &Job{ID: "j1"}, machine: buildRotationMachine()}
+	engine.jobs["j2"] = &managedJob{job: &Job{ID: "j2"}, machine: buildRotationMachine()}
 	engine.mu.Unlock()
 
 	jobs = engine.ListJobs()
@@ -479,8 +479,8 @@ func TestRotationEngine_ListJobs(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_NilAuditLogger(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_NilAuditLogger(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	engine.RegisterProvider(provider)
@@ -495,8 +495,8 @@ func TestRotationEngine_NilAuditLogger(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_ContextCancellation(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_ContextCancellation(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	provider.validateErr = context.Canceled
@@ -649,13 +649,13 @@ func TestCredRotationState_IsTerminal(t *testing.T) {
 	}
 }
 
-func TestRotationEngine_StoreFailureWithRollback(t *testing.T) {
+func TestEngine_StoreFailureWithRollback(t *testing.T) {
 	// Use a store that fails on Store
 	failStore := &failingStore{
 		CredentialStore: credentials.NewInMemoryCredentialStore(),
 		storeErr:        errors.New("disk full"),
 	}
-	engine := NewRotationEngine(failStore, nil)
+	engine := NewEngine(failStore, nil)
 
 	provider := newMockProvider(credentials.CredentialTypeSSHPassword)
 	engine.RegisterProvider(provider)
@@ -681,8 +681,8 @@ func (s *failingStore) Store(_ context.Context, _ credentials.Credential) error 
 	return s.storeErr
 }
 
-func TestRotationEngine_MultipleProviders(t *testing.T) {
-	engine := NewRotationEngine(credentials.NewInMemoryCredentialStore(), nil)
+func TestEngine_MultipleProviders(t *testing.T) {
+	engine := NewEngine(credentials.NewInMemoryCredentialStore(), nil)
 
 	sshProvider := newMockProvider(credentials.CredentialTypeSSHPassword, credentials.CredentialTypeSSHKey)
 	snmpProvider := newMockProvider(credentials.CredentialTypeSNMPv2c, credentials.CredentialTypeSNMPv3)
@@ -710,9 +710,9 @@ func TestRotationEngine_MultipleProviders(t *testing.T) {
 	}
 }
 
-func TestRotationResult_Fields(t *testing.T) {
+func TestResult_Fields(t *testing.T) {
 	now := time.Now()
-	result := &RotationResult{
+	result := &Result{
 		JobID:          "job-1",
 		CredentialID:   "cred-1",
 		CredentialType: credentials.CredentialTypeSSHPassword,

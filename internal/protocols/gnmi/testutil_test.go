@@ -124,7 +124,7 @@ func (m *mockGNMIServer) Subscribe(stream gnmipb.GNMI_SubscribeServer) error {
 func startMockServer(t *testing.T, certs *testCerts) *mockGNMIServer {
 	t.Helper()
 
-	lis, err := net.Listen("tcp", "localhost:0")
+	lis, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}

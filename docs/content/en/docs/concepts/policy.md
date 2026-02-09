@@ -10,6 +10,7 @@ description: >
 Keystone Core's policy enforcement system enables you to define, enforce, and audit compliance policies across your infrastructure. Policies are written as code (using OPA Rego or CEL), evaluated automatically at key enforcement points, and violations are tracked for compliance reporting.
 
 **Key Capabilities**:
+
 - **Policy-as-Code**: Define policies in OPA (Rego) or CEL
 - **Continuous Compliance**: Evaluate policies at runtime, not just deployment
 - **Multiple Enforcement Modes**: Block, warn, audit
@@ -55,6 +56,7 @@ Keystone Core supports three policy types:
 **Best for**: Complex policies with rich data structures
 
 **Example** - SSH hardening policy:
+
 ```rego
 package kscore.security.ssh
 
@@ -88,6 +90,7 @@ deny[msg] {
 **Best for**: Simple policies with boolean expressions
 
 **Example** - Resource ownership policy:
+
 ```cel
 // Resources must have an owner tag
 resource.tags.contains("owner")
@@ -237,6 +240,7 @@ Block privileged execution:
 ```
 
 Blocks operations when:
+
 - `context.privileged` is `true`
 - `context.run_as_user` is `"root"` or `"0"`
 
@@ -414,6 +418,7 @@ Control resources by name patterns:
 #### Built-in Policy Examples
 
 **Business Hours Only**:
+
 ```yaml
 id: "business-hours-only"
 name: "Business Hours Deployment Window"
@@ -435,6 +440,7 @@ code: |
 ```
 
 **No Production Deletion Without Approval**:
+
 ```yaml
 id: "prod-delete-approval"
 name: "Production Delete Requires Approval"
@@ -455,6 +461,7 @@ targets:
 ```
 
 **Block Test Resources in Production**:
+
 ```yaml
 id: "no-test-in-prod"
 name: "Block Test Resources in Production"
@@ -579,6 +586,7 @@ enforcement: enforce
 **Result**: Policy violations prevent the operation from executing.
 
 **Example**:
+
 ```bash
 $ kscorectl state apply web-server.yaml
 
@@ -600,6 +608,7 @@ enforcement: audit
 **Result**: Policy violations are logged and tracked, but operations proceed.
 
 **Example**:
+
 ```bash
 $ kscorectl state apply web-server.yaml
 
@@ -622,6 +631,7 @@ enforcement: warn
 **Result**: Policy violations display warnings but don't prevent execution.
 
 **Example**:
+
 ```bash
 $ kscorectl state apply web-server.yaml
 
@@ -647,6 +657,7 @@ enforce_at:
 **Use case**: Block disallowed commands before execution
 
 **Example**:
+
 ```rego
 package kscore.execution
 
@@ -671,6 +682,7 @@ enforce_at:
 **Use case**: Verify expected outcomes
 
 **Example**:
+
 ```rego
 package kscore.execution
 
@@ -696,6 +708,7 @@ enforce_at:
 **Use case**: Validate configuration changes
 
 **Example**:
+
 ```rego
 package kscore.config
 
@@ -720,6 +733,7 @@ enforce_at:
 **Use case**: Auto-remediate critical drift
 
 **Example**:
+
 ```rego
 package kscore.drift
 
@@ -745,6 +759,7 @@ event_filter: "type == 'agent.connect'"
 **Use case**: Validate new agents meet compliance requirements
 
 **Example**:
+
 ```rego
 package kscore.agent
 
@@ -1863,6 +1878,7 @@ kscorectl policy export \
 **Problem**: Policy not being evaluated
 
 Check:
+
 ```bash
 # Verify policy is registered
 kscorectl policy list
@@ -1879,6 +1895,7 @@ kscorectl policy test ssh-hardening --input test-input.json
 **Problem**: Policy rejects all resources
 
 Debug:
+
 ```bash
 # Test with sample input
 kscorectl policy test ssh-hardening --input sample.json --verbose
@@ -1895,6 +1912,7 @@ kscorectl policy show ssh-hardening
 **Problem**: Compliance score doesn't match reality
 
 Fix:
+
 ```bash
 # Re-evaluate all policies
 kscorectl policy evaluate --all --force

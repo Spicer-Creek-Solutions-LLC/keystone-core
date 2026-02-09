@@ -4,8 +4,6 @@ description: "Distributed file system for infrastructure management"
 weight: 110
 ---
 
-# File Distribution
-
 Keystone Core includes a distributed file system for managing configuration files, binaries, and other assets across your infrastructure. Built on NATS and supporting multiple storage backends, it provides reliable, secure, and efficient file distribution at scale.
 
 ## Overview
@@ -318,6 +316,7 @@ Files can be managed through state declarations:
 ```
 
 The `files://` source protocol:
+
 1. Fetches file from central file server
 2. Uses content hash for change detection
 3. Applies local file management

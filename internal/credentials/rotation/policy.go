@@ -13,18 +13,18 @@ import (
 // which credentials need rotation.
 type PolicyEngine struct {
 	mu       sync.RWMutex
-	policies map[string]*RotationPolicy
+	policies map[string]*Policy
 }
 
 // NewPolicyEngine creates a new policy engine.
 func NewPolicyEngine() *PolicyEngine {
 	return &PolicyEngine{
-		policies: make(map[string]*RotationPolicy),
+		policies: make(map[string]*Policy),
 	}
 }
 
 // AddPolicy adds a rotation policy.
-func (pe *PolicyEngine) AddPolicy(policy *RotationPolicy) error {
+func (pe *PolicyEngine) AddPolicy(policy *Policy) error {
 	if policy.ID == "" {
 		return fmt.Errorf("policy ID is required")
 	}
@@ -47,7 +47,7 @@ func (pe *PolicyEngine) AddPolicy(policy *RotationPolicy) error {
 }
 
 // UpdatePolicy updates an existing policy.
-func (pe *PolicyEngine) UpdatePolicy(policy *RotationPolicy) error {
+func (pe *PolicyEngine) UpdatePolicy(policy *Policy) error {
 	if policy.ID == "" {
 		return fmt.Errorf("policy ID is required")
 	}
@@ -77,7 +77,7 @@ func (pe *PolicyEngine) RemovePolicy(id string) error {
 }
 
 // GetPolicy returns a policy by ID.
-func (pe *PolicyEngine) GetPolicy(id string) (*RotationPolicy, bool) {
+func (pe *PolicyEngine) GetPolicy(id string) (*Policy, bool) {
 	pe.mu.RLock()
 	defer pe.mu.RUnlock()
 	p, ok := pe.policies[id]
@@ -85,11 +85,11 @@ func (pe *PolicyEngine) GetPolicy(id string) (*RotationPolicy, bool) {
 }
 
 // ListPolicies returns all policies.
-func (pe *PolicyEngine) ListPolicies() []*RotationPolicy {
+func (pe *PolicyEngine) ListPolicies() []*Policy {
 	pe.mu.RLock()
 	defer pe.mu.RUnlock()
 
-	result := make([]*RotationPolicy, 0, len(pe.policies))
+	result := make([]*Policy, 0, len(pe.policies))
 	for _, p := range pe.policies {
 		result = append(result, p)
 	}
@@ -131,13 +131,13 @@ func (pe *PolicyEngine) Evaluate(cred credentials.Credential, now time.Time) *Po
 
 // FindDueCredentials scans the credential store and returns jobs for credentials
 // that need rotation according to enabled policies.
-func (pe *PolicyEngine) FindDueCredentials(ctx context.Context, store credentials.CredentialStore, now time.Time) ([]*RotationJob, error) {
+func (pe *PolicyEngine) FindDueCredentials(ctx context.Context, store credentials.CredentialStore, now time.Time) ([]*Job, error) {
 	ids, err := store.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list credentials: %w", err)
 	}
 
-	var jobs []*RotationJob
+	var jobs []*Job
 
 	for _, id := range ids {
 		cred, err := store.Get(ctx, id)
@@ -153,7 +153,7 @@ func (pe *PolicyEngine) FindDueCredentials(ctx context.Context, store credential
 				rollback = policy.RollbackOnFail
 			}
 
-			jobs = append(jobs, &RotationJob{
+			jobs = append(jobs, &Job{
 				ID:             fmt.Sprintf("auto-%s-%d", id, now.UnixNano()),
 				CredentialID:   id,
 				CredentialType: cred.Type(),
@@ -166,7 +166,7 @@ func (pe *PolicyEngine) FindDueCredentials(ctx context.Context, store credential
 	return jobs, nil
 }
 
-func policyMatchesType(policy *RotationPolicy, credType credentials.CredentialType) bool {
+func policyMatchesType(policy *Policy, credType credentials.CredentialType) bool {
 	for _, t := range policy.CredentialTypes {
 		if t == credType {
 			return true
@@ -175,7 +175,7 @@ func policyMatchesType(policy *RotationPolicy, credType credentials.CredentialTy
 	return false
 }
 
-func evaluateCredential(policy *RotationPolicy, cred credentials.Credential, now time.Time) *PolicyResult {
+func evaluateCredential(policy *Policy, cred credentials.Credential, now time.Time) *PolicyResult {
 	result := &PolicyResult{
 		PolicyID:     policy.ID,
 		CredentialID: cred.ID(),

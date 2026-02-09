@@ -1,4 +1,6 @@
-.PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
+.PHONY: help proto build test test-verbose test-coverage test-integration benchmark \
+       fmt lint-fix check \
+       clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
        docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
        docs-validate-drift docs-validate-sync docs-validate-all \
@@ -310,6 +312,33 @@ build-windows:
 test:
 	go test -v -race -coverprofile=coverage.out ./...
 
+test-verbose: test
+
+test-coverage: test
+	@go tool cover -func=coverage.out
+	@echo ""
+	@echo "HTML coverage report: go tool cover -html=coverage.out"
+
+test-integration:
+	go test -v -race -tags integration ./...
+
+benchmark:
+	go test -bench=. -benchmem -run=^$$ ./...
+
+fmt:
+	gofmt -w -s cmd/ internal/ pkg/ test/
+
+lint-fix:
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --fix ./...; \
+	else \
+		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi
+
+check: fmt lint test
+	@echo "All checks passed."
+
 # =============================================================================
 # Cleanup
 # =============================================================================
@@ -565,7 +594,7 @@ docs-lint-container:
 		-v "$(PWD)":/workspace \
 		-w /workspace \
 		$(DOCS_NODE_IMAGE) \
-		bash -c "npx -y markdownlint-cli2 -c .markdownlint-cli2.yaml \"docs/**/*.md\""
+		bash -c "npx -y markdownlint-cli2 \"docs/**/*.md\""
 
 docs-links-container: docs-container-build
 	@echo "Running link check (containerized)..."

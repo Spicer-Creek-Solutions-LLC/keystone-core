@@ -14,6 +14,7 @@ description: >
 ## Overview
 
 This scenario implements a complete GitOps workflow where:
+
 - Infrastructure configuration lives in Git
 - Changes trigger automatic deployments
 - Deployments are verified before being marked complete
@@ -22,6 +23,7 @@ This scenario implements a complete GitOps workflow where:
 ### Business Context
 
 GitOps provides:
+
 - **Auditability**: All changes tracked in Git history
 - **Reproducibility**: Any state can be recreated from Git
 - **Self-healing**: Drift automatically corrected

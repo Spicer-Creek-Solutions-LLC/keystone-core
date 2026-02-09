@@ -4,8 +4,6 @@ description: Module resource limits and usage tracking
 weight: 20
 ---
 
-# Resource Management
-
 Package resources provides configurable resource limits for Keystone plugin modules.
 
 **Import:** `github.com/shawnbutts/keystone-core/pkg/plugin/resources`
@@ -618,7 +616,6 @@ Usage tracks resource usage.
 | `bytesWritten` | `int64` | atomic |
 
 ---
-
 
 ---
 

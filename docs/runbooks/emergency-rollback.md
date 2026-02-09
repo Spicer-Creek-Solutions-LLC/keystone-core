@@ -50,6 +50,7 @@ kscorectl agent list --status | grep -c offline
 ### Step 2: Decision Point
 
 **If automatic rollback is in progress:**
+
 ```bash
 # Monitor rollback progress
 kscorectl upgrade status --watch
@@ -58,6 +59,7 @@ kscorectl upgrade status --watch
 ```
 
 **If manual rollback is needed:**
+
 ```bash
 # Continue to Step 3
 ```
@@ -154,23 +156,24 @@ kscore-bootstrap restore --backup /backup/pre-upgrade.tar.gz
 1. [ ] Update status page/incident ticket
 2. [ ] Notify stakeholders of rollback completion
 3. [ ] Collect diagnostic information:
+
    ```bash
    kscorectl diagnostics collect --output /tmp/diagnostics-$(date +%Y%m%d).tar.gz
    ```
 
 ### Within 24 hours
 
-4. [ ] Create incident report
-5. [ ] Schedule post-mortem
-6. [ ] File bug report with diagnostics
-7. [ ] Update runbook if needed
+1. [ ] Create incident report
+2. [ ] Schedule post-mortem
+3. [ ] File bug report with diagnostics
+4. [ ] Update runbook if needed
 
 ### Before Next Upgrade Attempt
 
-8. [ ] Root cause identified and fixed
-9. [ ] Fix validated in staging
-10. [ ] Rollback procedure reviewed
-11. [ ] Stakeholders notified of retry plan
+1. [ ] Root cause identified and fixed
+2. [ ] Fix validated in staging
+3. [ ] Rollback procedure reviewed
+4. [ ] Stakeholders notified of retry plan
 
 ## Appendix: Quick Reference
 
@@ -215,4 +218,4 @@ kscore_upgrade_rollback_status
 |------|---------|
 | On-Call Engineer | PagerDuty |
 | Platform Team Lead | [Contact Info] |
-| Keystone Support | support@keystone.io |
+| Keystone Support | <support@keystone.io> |

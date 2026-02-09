@@ -13,6 +13,7 @@ description: >
 Keystone Core's state management system enables you to describe your infrastructure's desired state declaratively. The system ensures your infrastructure matches that state through idempotent operations.
 
 **Key Principles**:
+
 - **Declarative**: Describe what you want, not how to achieve it
 - **Idempotent**: Safe to run repeatedly with same result
 - **Dependency-Aware**: Automatic ordering based on requisites
@@ -53,6 +54,7 @@ nginx_service:
 Each state declaration has:
 
 **State ID** (e.g., `nginx_package`):
+
 - Unique identifier
 - Used for requisite references
 - Meaningful name for readability
@@ -74,12 +76,14 @@ Keystone Core includes 95 built-in modules across 20+ categories. This section h
 Manages files and directories:
 
 **States**:
+
 - `present`: Ensure file exists with specified content
 - `absent`: Ensure file does not exist
 - `directory`: Ensure directory exists
 - `symlink`: Ensure symlink exists
 
 **Example**:
+
 ```yaml
 app_config:
   module: file
@@ -95,6 +99,7 @@ app_config:
 ```
 
 **Parameters**:
+
 - `path`: File path (required)
 - `contents`: File contents (for `present`)
 - `source`: Source file (alternative to `contents`)
@@ -107,12 +112,14 @@ app_config:
 Manages software packages:
 
 **States**:
+
 - `installed`: Ensure package is installed
 - `removed`: Ensure package is not installed
 - `latest`: Ensure latest version is installed
 - `purged`: Remove package and config files
 
 **Example**:
+
 ```yaml
 docker:
   module: package
@@ -122,11 +129,13 @@ docker:
 ```
 
 **Cross-Platform Support**:
+
 - Linux: apt, yum, dnf, zypper, pacman, apk
 - macOS: homebrew
 - Windows: chocolatey, winget
 
 **Parameters**:
+
 - `name`: Package name (required)
 - `version`: Specific version (optional)
 - `repo`: Custom repository (optional)
@@ -136,12 +145,14 @@ docker:
 Manages system services:
 
 **States**:
+
 - `running`: Ensure service is running
 - `stopped`: Ensure service is stopped
 - `enabled`: Enable service on boot
 - `disabled`: Disable service on boot
 
 **Example**:
+
 ```yaml
 postgresql:
   module: service
@@ -152,11 +163,13 @@ postgresql:
 ```
 
 **Cross-Platform Support**:
+
 - Linux: systemd, upstart, sysvinit, openrc
 - macOS: launchd
 - Windows: Windows Service Manager
 
 **Parameters**:
+
 - `name`: Service name (required)
 - `enabled`: Enable on boot (boolean)
 - `reload`: Reload instead of restart (boolean)
@@ -166,10 +179,12 @@ postgresql:
 Manages user accounts:
 
 **States**:
+
 - `present`: Ensure user exists
 - `absent`: Ensure user does not exist
 
 **Example**:
+
 ```yaml
 appuser:
   module: user
@@ -185,6 +200,7 @@ appuser:
 ```
 
 **Parameters**:
+
 - `name`: Username (required)
 - `uid`: User ID
 - `gid`: Primary group ID
@@ -197,10 +213,12 @@ appuser:
 Manages groups:
 
 **States**:
+
 - `present`: Ensure group exists
 - `absent`: Ensure group does not exist
 
 **Example**:
+
 ```yaml
 developers:
   module: group
@@ -210,6 +228,7 @@ developers:
 ```
 
 **Parameters**:
+
 - `name`: Group name (required)
 - `gid`: Group ID
 
@@ -218,10 +237,12 @@ developers:
 Executes commands:
 
 **States**:
+
 - `run`: Run command unconditionally
 - `wait`: Run only when watched resource changes
 
 **Example**:
+
 ```yaml
 reload_app:
   module: cmd
@@ -238,6 +259,7 @@ database_migration:
 ```
 
 **Parameters**:
+
 - `command`: Command to run (required)
 - `cwd`: Working directory
 - `env`: Environment variables
@@ -250,10 +272,12 @@ database_migration:
 Manages Docker container images:
 
 **States**:
+
 - `present`: Ensure image is pulled
 - `absent`: Ensure image is removed
 
 **Example**:
+
 ```yaml
 app_image:
   module: docker_image
@@ -264,11 +288,13 @@ app_image:
 ```
 
 **Parameters**:
+
 - `name`: Image name (required)
 - `tag`: Image tag (default: `latest`)
 - `registry_auth`: Authentication method for private registries (optional)
 
 **Registry Authentication Methods**:
+
 - `""` (empty): No authentication (public registries)
 - `docker-config`: Use local Docker config (`~/.docker/config.json`)
 - `cloud-auto`: Auto-detect cloud provider (AWS ECR, GCP GCR, Azure ACR)
@@ -281,10 +307,12 @@ See [Container Registry Authentication](/docs/concepts/container-registry-auth/)
 Manages Docker containers:
 
 **States**:
+
 - `present`: Ensure container exists and is running
 - `absent`: Ensure container does not exist
 
 **Example**:
+
 ```yaml
 web_container:
   module: docker_container
@@ -300,6 +328,7 @@ web_container:
 ```
 
 **Parameters**:
+
 - `name`: Container name (required)
 - `image`: Image to use (required for `present`)
 - `ports`: Port mappings
@@ -312,6 +341,7 @@ web_container:
 Manages Podman container images (same interface as Docker):
 
 **Example**:
+
 ```yaml
 app_image:
   module: podman_image
@@ -326,6 +356,7 @@ app_image:
 Manages Podman containers (same interface as Docker):
 
 **Example**:
+
 ```yaml
 app_container:
   module: podman_container
@@ -341,11 +372,13 @@ app_container:
 Manages DNS records across multiple providers (Cloudflare, Route53, Google Cloud DNS, Azure DNS, and more):
 
 **States**:
+
 - `present`: Ensure specified records exist (additive)
 - `synced`: Ensure zone matches exactly (removes extra records)
 - `absent`: Ensure specified records do not exist
 
 **Example**:
+
 ```yaml
 web_records:
   module: dns_records
@@ -368,6 +401,7 @@ web_records:
 **Supported Record Types**: A, AAAA, CNAME, TXT, MX, SRV, CAA, NS, ALIAS, PTR
 
 **Parameters**:
+
 - `provider`: DNS provider name (required)
 - `zone`: DNS zone/domain (required)
 - `credentials`: Provider credentials (secret_ref or inline)
@@ -505,6 +539,7 @@ State files support Go template syntax for dynamic configuration:
 Define variables in separate files or inline:
 
 **vars.yaml**:
+
 ```yaml
 app_name: myapp
 db_host: postgres.example.com
@@ -513,6 +548,7 @@ replicas: 3
 ```
 
 **State file with variables**:
+
 ```yaml
 app_config:
   module: file
@@ -526,6 +562,7 @@ app_config:
 ```
 
 **Apply with variables**:
+
 ```bash
 kscorectl state apply web-server.yaml --vars vars.yaml
 ```
@@ -535,6 +572,7 @@ kscorectl state apply web-server.yaml --vars vars.yaml
 Facts are system-discovered metadata:
 
 **Available facts**:
+
 - `{{ .facts.os }}` - Operating system (linux, windows, darwin)
 - `{{ .facts.arch }}` - Architecture (amd64, arm64)
 - `{{ .facts.hostname }}` - Hostname
@@ -543,6 +581,7 @@ Facts are system-discovered metadata:
 - `{{ .facts.memory_total }}` - Total memory
 
 **Example**:
+
 ```yaml
 app_config:
   module: file
@@ -630,6 +669,7 @@ Summary:
 ### Drift Remediation
 
 **Manual**:
+
 ```bash
 # Check for drift
 kscorectl state check web-server.yaml
@@ -639,6 +679,7 @@ kscorectl state apply web-server.yaml
 ```
 
 **Automatic** (via reactors):
+
 ```yaml
 auto_remediate_drift:
   filter: "type == 'state.drift' and severity >= 'high'"
@@ -669,20 +710,24 @@ flowchart TD
 All state modules are idempotent - safe to run repeatedly:
 
 **File module**:
+
 - Check if file exists with correct content
 - Only write if changed
 - Only change permissions if needed
 
 **Package module**:
+
 - Check if package already installed
 - Check version matches
 - Only install/upgrade if needed
 
 **Service module**:
+
 - Check if service already in desired state
 - Only start/stop/reload if needed
 
 **Example**:
+
 ```yaml
 nginx_package:
   module: package
@@ -691,11 +736,13 @@ nginx_package:
 ```
 
 First run:
+
 ```
 nginx_package: ✓ installed (changed)
 ```
 
 Second run (nginx already installed):
+
 ```
 nginx_package: ✓ installed (unchanged)
 ```
@@ -758,6 +805,7 @@ vars/
 **Problem**: State application fails
 
 Debug:
+
 ```bash
 # Detailed output
 kscorectl state apply web.yaml
@@ -767,6 +815,7 @@ kscorectl state check web.yaml
 ```
 
 Common issues:
+
 - Syntax errors in YAML
 - Invalid module parameters
 - Unresolved requisites
@@ -777,6 +826,7 @@ Common issues:
 **Problem**: "Circular dependency detected"
 
 Fix:
+
 - Review requisite chains
 - Remove unnecessary dependencies
 - Use `watch` instead of `require` if applicable
@@ -787,6 +837,7 @@ Fix:
 **Problem**: "Template rendering error"
 
 Debug:
+
 ```bash
 # Use check mode to validate templates without applying
 kscorectl state check web.yaml --vars dev.yaml
@@ -796,6 +847,7 @@ kscorectl state show web.yaml
 ```
 
 Common issues:
+
 - Missing variables
 - Incorrect function syntax
 - Undefined facts
@@ -805,6 +857,7 @@ Common issues:
 **Problem**: Known drift not showing in reports
 
 Check:
+
 - Drift severity threshold
 - Module's drift detection logic
 - Agent connectivity
@@ -828,6 +881,7 @@ State application performance (single agent):
 - Full state run (10 modules): ~2-5s
 
 Scaling (100 agents, 10 modules each):
+
 - Sequential: ~500s
 - Parallel (batch=10): ~50s
 - Parallel (batch=50): ~10s
@@ -847,6 +901,7 @@ When working with large state files (100+ resources), understanding performance 
 | 5000 | ~3s | ~2s | ~2.5s | ~7.5s |
 
 **Key observations**:
+
 - Parsing scales linearly with file size
 - DAG building scales O(n log n) with requisite complexity
 - Validation scales linearly but can be parallelized
@@ -863,6 +918,7 @@ Large state files consume memory during processing:
 | 5000 | ~400MB | ~150MB | ~800MB |
 
 **Memory optimization tips**:
+
 - Split large state files into logical groups
 - Use `include` to compose smaller files
 - Apply to agent groups rather than all at once
@@ -927,6 +983,7 @@ config_files:
 | Network (SMB) | ~50-200 | ~5-20s |
 
 **Optimization strategies**:
+
 - Group related files in same directory
 - Use templated multi-file operations
 - Prefer atomic directory operations
@@ -946,6 +1003,7 @@ Complex templates in large state files add overhead:
 | External lookups | ~100ms+ (network) |
 
 **Template optimization tips**:
+
 ```yaml
 # SLOW: Complex template per resource
 {{ range .vars.configs }}
@@ -974,6 +1032,7 @@ configs:
 #### Scaling Recommendations
 
 **For 100-500 resources**:
+
 - Single state file acceptable
 - Enable parallel execution
 - Default settings work well
@@ -984,6 +1043,7 @@ kscorectl state apply large-state.yaml --parallel 20
 ```
 
 **For 500-1000 resources**:
+
 - Consider splitting by component or layer
 - Use `include` for composition
 - Increase agent-side timeouts
@@ -1007,6 +1067,7 @@ include:
 ```
 
 **For 1000+ resources**:
+
 - Split into multiple state applications
 - Stage rollouts by agent group
 - Use blueprints for complex deployments
@@ -1020,6 +1081,7 @@ kscorectl state apply app-layer.yaml --target "role=app"
 ```
 
 **For 5000+ resources**:
+
 - Redesign using modular architecture
 - Implement hierarchical state application
 - Use event-driven orchestration
@@ -1038,6 +1100,7 @@ Track these metrics for large state operations:
 | Agent timeouts | >1% | >5% |
 
 **Prometheus queries for monitoring**:
+
 ```promql
 # Apply duration histogram
 histogram_quantile(0.95, rate(state_apply_duration_seconds_bucket[5m]))
@@ -1052,6 +1115,7 @@ max_over_time(process_resident_memory_bytes{job="control-plane"}[5m])
 #### Troubleshooting Large State Applications
 
 **Problem: State apply times out**
+
 ```bash
 # Increase timeout for large applies
 kscorectl state apply large.yaml --timeout 30m
@@ -1062,6 +1126,7 @@ execution:
 ```
 
 **Problem: Agent runs out of memory**
+
 ```yaml
 # agent.yaml - Increase memory limits
 resources:
@@ -1069,6 +1134,7 @@ resources:
 ```
 
 **Problem: DAG build is slow**
+
 ```bash
 # Check state file for complexity
 kscorectl state show large.yaml
@@ -1078,6 +1144,7 @@ kscorectl state show large.yaml
 ```
 
 **Problem: Many resources failing in parallel**
+
 ```yaml
 # Reduce parallelism to avoid resource contention
 execution:
@@ -1507,6 +1574,7 @@ groups:
 ### Tuning Workflow
 
 1. **Measure Current Performance**
+
    ```bash
    kscorectl state apply app.yaml --timing --verbose
    ```

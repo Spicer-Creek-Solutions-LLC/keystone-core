@@ -68,11 +68,13 @@ A security review is **required** for PRs that modify:
 - [ ] Connection strings do not contain credentials in logs
 
 **Bad pattern**:
+
 ```go
 query := "SELECT * FROM users WHERE name = '" + userName + "'"
 ```
 
 **Good pattern**:
+
 ```go
 query := "SELECT * FROM users WHERE name = ?"
 db.Query(query, userName)
@@ -87,11 +89,13 @@ db.Query(query, userName)
 - [ ] Temporary files are created securely and cleaned up
 
 **Bad pattern**:
+
 ```go
 path := filepath.Join(baseDir, userInput)
 ```
 
 **Good pattern**:
+
 ```go
 if err := security.ValidatePath(userInput); err != nil {
     return err
@@ -111,11 +115,13 @@ if !strings.HasPrefix(path, baseDir) {
 - [ ] Working directory is explicitly set
 
 **Bad pattern**:
+
 ```go
 cmd := exec.Command("sh", "-c", "ls " + userDir)
 ```
 
 **Good pattern**:
+
 ```go
 cmd := exec.Command("ls", userDir)
 cmd.Dir = "/safe/base/path"
@@ -139,11 +145,13 @@ cmd.Env = []string{"PATH=/usr/bin"}
 - [ ] Resource cleanup happens even on error (defer/finally)
 
 **Bad pattern**:
+
 ```go
 return fmt.Errorf("failed to query database: %v", err)
 ```
 
 **Good pattern**:
+
 ```go
 log.Error("database query failed", "error", err, "query_type", "user_lookup")
 return ErrInternalError

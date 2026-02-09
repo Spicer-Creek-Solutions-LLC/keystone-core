@@ -8,8 +8,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/credentials"
 )
 
-// RESTRotationProvider rotates REST API credentials (basic auth, bearer, API key, OAuth2).
-type RESTRotationProvider struct {
+// RESTProvider rotates REST API credentials (basic auth, bearer, API key, OAuth2).
+type RESTProvider struct {
 	// PasswordLength is the length of generated passwords/tokens (default 48).
 	PasswordLength int
 	// APIKeyLength is the length of generated API keys (default 64).
@@ -28,16 +28,17 @@ type RESTCommander interface {
 	RevokeCredential(ctx context.Context, device DeviceInfo, cred credentials.Credential) error
 }
 
-// NewRESTRotationProvider creates a new REST rotation provider.
-func NewRESTRotationProvider(commander RESTCommander) *RESTRotationProvider {
-	return &RESTRotationProvider{
+// NewRESTProvider creates a new REST rotation provider.
+func NewRESTProvider(commander RESTCommander) *RESTProvider {
+	return &RESTProvider{
 		PasswordLength: 48,
 		APIKeyLength:   64,
 		Commander:      commander,
 	}
 }
 
-func (p *RESTRotationProvider) SupportsType(credType credentials.CredentialType) bool {
+// SupportsType implements Provider.
+func (p *RESTProvider) SupportsType(credType credentials.CredentialType) bool {
 	switch credType {
 	case credentials.CredentialTypeRESTBasic,
 		credentials.CredentialTypeRESTBearer,
@@ -49,14 +50,16 @@ func (p *RESTRotationProvider) SupportsType(credType credentials.CredentialType)
 	}
 }
 
-func (p *RESTRotationProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
+// ValidateOld implements Provider.
+func (p *RESTProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no REST commander configured")
 	}
 	return p.Commander.TestRESTAccess(ctx, device, cred)
 }
 
-func (p *RESTRotationProvider) Generate(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
+// Generate implements Provider.
+func (p *RESTProvider) Generate(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
 	if p.Commander == nil {
 		return nil, errors.New("no REST commander configured")
 	}
@@ -133,19 +136,22 @@ func (p *RESTRotationProvider) Generate(ctx context.Context, device DeviceInfo, 
 	}
 }
 
-func (p *RESTRotationProvider) Apply(_ context.Context, _ DeviceInfo, _, _ credentials.Credential) error {
+// Apply implements Provider.
+func (p *RESTProvider) Apply(_ context.Context, _ DeviceInfo, _, _ credentials.Credential) error {
 	// For REST credentials, the generation step already applied the change on the API side.
 	return nil
 }
 
-func (p *RESTRotationProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
+// Verify implements Provider.
+func (p *RESTProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no REST commander configured")
 	}
 	return p.Commander.TestRESTAccess(ctx, device, newCred)
 }
 
-func (p *RESTRotationProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
+// Rollback implements Provider.
+func (p *RESTProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no REST commander configured")
 	}
@@ -153,7 +159,8 @@ func (p *RESTRotationProvider) Rollback(ctx context.Context, device DeviceInfo, 
 	return p.Commander.RevokeCredential(ctx, device, newCred)
 }
 
-func (p *RESTRotationProvider) Cleanup(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) error {
+// Cleanup implements Provider.
+func (p *RESTProvider) Cleanup(ctx context.Context, device DeviceInfo, oldCred credentials.Credential) error {
 	if p.Commander == nil {
 		return nil
 	}
@@ -161,4 +168,4 @@ func (p *RESTRotationProvider) Cleanup(ctx context.Context, device DeviceInfo, o
 	return p.Commander.RevokeCredential(ctx, device, oldCred)
 }
 
-var _ RotationProvider = (*RESTRotationProvider)(nil)
+var _ Provider = (*RESTProvider)(nil)

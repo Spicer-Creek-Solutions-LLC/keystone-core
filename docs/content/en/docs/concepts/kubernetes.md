@@ -129,12 +129,14 @@ status:
 The Keystone Core operators reconcile CRD states:
 
 **RemoteExecutionController**:
+
 - Watches RemoteExecution resources
 - Dispatches commands to target pods/nodes
 - Aggregates results and updates status
 - Handles retries and timeouts
 
 **StateConfigController**:
+
 - Watches StateConfig resources
 - Applies state declarations to the cluster
 - Monitors for drift

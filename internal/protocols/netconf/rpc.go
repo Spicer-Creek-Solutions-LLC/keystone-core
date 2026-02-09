@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-const netconfNS = "urn:ietf:params:xml:ns:netconf:base:1.0"
-
 // Hello is the NETCONF hello message exchanged during session setup.
 type Hello struct {
 	XMLName      xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 hello"`

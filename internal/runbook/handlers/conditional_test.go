@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/shawnbutts/keystone-core/internal/runbook"
@@ -9,12 +10,15 @@ import (
 
 // mockStepExecutor implements StepExecutor for testing.
 type mockStepExecutor struct {
+	mu            sync.Mutex
 	executedSteps []runbook.Step
 	returnErr     error
 }
 
 func (m *mockStepExecutor) ExecuteSteps(ctx context.Context, steps []runbook.Step, varCtx VariableContext) error {
+	m.mu.Lock()
 	m.executedSteps = append(m.executedSteps, steps...)
+	m.mu.Unlock()
 	return m.returnErr
 }
 

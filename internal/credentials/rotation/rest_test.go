@@ -77,8 +77,8 @@ func (m *mockRESTCommander) RevokeCredential(_ context.Context, _ DeviceInfo, _ 
 
 var _ RESTCommander = (*mockRESTCommander)(nil)
 
-func TestRESTRotationProvider_SupportsType(t *testing.T) {
-	p := NewRESTRotationProvider(nil)
+func TestRESTProvider_SupportsType(t *testing.T) {
+	p := NewRESTProvider(nil)
 
 	tests := []struct {
 		credType credentials.CredentialType
@@ -102,9 +102,9 @@ func TestRESTRotationProvider_SupportsType(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_GenerateBasicAuth(t *testing.T) {
+func TestRESTProvider_GenerateBasicAuth(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	old := &credentials.RESTBasicCredential{
 		BaseCredential: credentials.BaseCredential{
@@ -132,9 +132,9 @@ func TestRESTRotationProvider_GenerateBasicAuth(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_GenerateBearer(t *testing.T) {
+func TestRESTProvider_GenerateBearer(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	old := &credentials.RESTBearerCredential{
 		BaseCredential: credentials.BaseCredential{
@@ -155,9 +155,9 @@ func TestRESTRotationProvider_GenerateBearer(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_GenerateAPIKey(t *testing.T) {
+func TestRESTProvider_GenerateAPIKey(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	old := &credentials.RESTAPIKeyCredential{
 		BaseCredential: credentials.BaseCredential{
@@ -182,9 +182,9 @@ func TestRESTRotationProvider_GenerateAPIKey(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_GenerateOAuth2(t *testing.T) {
+func TestRESTProvider_GenerateOAuth2(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	old := &credentials.RESTOAuth2Credential{
 		BaseCredential: credentials.BaseCredential{
@@ -214,26 +214,26 @@ func TestRESTRotationProvider_GenerateOAuth2(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_GenerateNoCommander(t *testing.T) {
-	p := NewRESTRotationProvider(nil)
+func TestRESTProvider_GenerateNoCommander(t *testing.T) {
+	p := NewRESTProvider(nil)
 	_, err := p.Generate(context.Background(), DeviceInfo{}, &credentials.RESTBasicCredential{})
 	if err == nil {
 		t.Fatal("expected error without commander")
 	}
 }
 
-func TestRESTRotationProvider_GenerateUnsupported(t *testing.T) {
+func TestRESTProvider_GenerateUnsupported(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 	_, err := p.Generate(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err == nil {
 		t.Fatal("expected error for unsupported type")
 	}
 }
 
-func TestRESTRotationProvider_GenerateFailure(t *testing.T) {
+func TestRESTProvider_GenerateFailure(t *testing.T) {
 	cmd := &mockRESTCommander{rotatePassErr: errors.New("API error")}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	old := &credentials.RESTBasicCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "r1", CredentialType: credentials.CredentialTypeRESTBasic},
@@ -247,8 +247,8 @@ func TestRESTRotationProvider_GenerateFailure(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_Apply(t *testing.T) {
-	p := NewRESTRotationProvider(nil)
+func TestRESTProvider_Apply(t *testing.T) {
+	p := NewRESTProvider(nil)
 	// Apply is a no-op for REST (generation already applied)
 	err := p.Apply(context.Background(), DeviceInfo{}, nil, nil)
 	if err != nil {
@@ -256,9 +256,9 @@ func TestRESTRotationProvider_Apply(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_Verify(t *testing.T) {
+func TestRESTProvider_Verify(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	err := p.Verify(context.Background(), DeviceInfo{}, &credentials.RESTBasicCredential{})
 	if err != nil {
@@ -269,9 +269,9 @@ func TestRESTRotationProvider_Verify(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_Rollback(t *testing.T) {
+func TestRESTProvider_Rollback(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	err := p.Rollback(context.Background(), DeviceInfo{}, &credentials.RESTBasicCredential{}, &credentials.RESTBasicCredential{})
 	if err != nil {
@@ -282,9 +282,9 @@ func TestRESTRotationProvider_Rollback(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_Cleanup(t *testing.T) {
+func TestRESTProvider_Cleanup(t *testing.T) {
 	cmd := &mockRESTCommander{}
-	p := NewRESTRotationProvider(cmd)
+	p := NewRESTProvider(cmd)
 
 	err := p.Cleanup(context.Background(), DeviceInfo{}, &credentials.RESTBasicCredential{})
 	if err != nil {
@@ -295,14 +295,14 @@ func TestRESTRotationProvider_Cleanup(t *testing.T) {
 	}
 }
 
-func TestRESTRotationProvider_CleanupNilCommander(t *testing.T) {
-	p := NewRESTRotationProvider(nil)
+func TestRESTProvider_CleanupNilCommander(t *testing.T) {
+	p := NewRESTProvider(nil)
 	err := p.Cleanup(context.Background(), DeviceInfo{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRESTRotationProvider_InterfaceCompliance(t *testing.T) {
-	var _ RotationProvider = (*RESTRotationProvider)(nil)
+func TestRESTProvider_InterfaceCompliance(t *testing.T) {
+	var _ Provider = (*RESTProvider)(nil)
 }

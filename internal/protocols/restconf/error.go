@@ -29,13 +29,13 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-// Errors wraps the ietf-restconf:errors response envelope.
-type Errors struct {
+// ResponseError wraps the ietf-restconf:errors response envelope.
+type ResponseError struct {
 	Errors []Error
 }
 
 // Error implements the error interface.
-func (e *Errors) Error() string {
+func (e *ResponseError) Error() string {
 	if len(e.Errors) == 1 {
 		return e.Errors[0].Error()
 	}
@@ -48,7 +48,7 @@ func (e *Errors) Error() string {
 }
 
 // HasError returns true if any error has severity "error" (not just warning).
-func (e *Errors) HasError() bool {
+func (e *ResponseError) HasError() bool {
 	return len(e.Errors) > 0
 }
 
@@ -74,7 +74,7 @@ type xmlError struct {
 }
 
 // ParseErrorResponse parses a RESTCONF error response from JSON or XML.
-func ParseErrorResponse(body []byte, contentType string) (*Errors, error) {
+func ParseErrorResponse(body []byte, contentType string) (*ResponseError, error) {
 	if len(body) == 0 {
 		return nil, fmt.Errorf("empty error response body")
 	}
@@ -85,7 +85,7 @@ func ParseErrorResponse(body []byte, contentType string) (*Errors, error) {
 	return parseJSONErrors(body)
 }
 
-func parseJSONErrors(body []byte) (*Errors, error) {
+func parseJSONErrors(body []byte) (*ResponseError, error) {
 	var env jsonErrorsEnvelope
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("parse json error response: %w", err)
@@ -93,10 +93,10 @@ func parseJSONErrors(body []byte) (*Errors, error) {
 	if len(env.IETFErrors.Error) == 0 {
 		return nil, fmt.Errorf("no errors found in response")
 	}
-	return &Errors{Errors: env.IETFErrors.Error}, nil
+	return &ResponseError{Errors: env.IETFErrors.Error}, nil
 }
 
-func parseXMLErrors(body []byte) (*Errors, error) {
+func parseXMLErrors(body []byte) (*ResponseError, error) {
 	var env xmlErrorsEnvelope
 	if err := xml.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("parse xml error response: %w", err)
@@ -106,15 +106,9 @@ func parseXMLErrors(body []byte) (*Errors, error) {
 	}
 	errs := make([]Error, len(env.Error))
 	for i, xe := range env.Error {
-		errs[i] = Error{
-			ErrorType:    xe.ErrorType,
-			ErrorTag:     xe.ErrorTag,
-			ErrorAppTag:  xe.ErrorAppTag,
-			ErrorPath:    xe.ErrorPath,
-			ErrorMessage: xe.ErrorMessage,
-		}
+		errs[i] = Error(xe)
 	}
-	return &Errors{Errors: errs}, nil
+	return &ResponseError{Errors: errs}, nil
 }
 
 // IsErrorResponse returns true if the HTTP status indicates a RESTCONF error.

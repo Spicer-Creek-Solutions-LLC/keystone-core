@@ -12,24 +12,31 @@ Keystone Core is an open-source project that thrives on community contributions.
 ## Get Involved
 
 ### [Contributing](contributing/)
+
 Learn how to contribute code, documentation, and bug reports to Keystone Core.
 
 ### [Development](development/)
+
 Set up your development environment and learn about our development workflows.
 
 ### [Roadmap](roadmap/)
+
 See what's planned for future releases and help prioritize features.
 
 ### [Support](support/)
+
 Get help, ask questions, and connect with other Keystone Core users.
 
 ### [Governance](governance/)
+
 Learn about project governance, decision making, and the RFC process.
 
 ### [Compatibility & Support Policy](compatibility/)
+
 Understand release compatibility, support windows, upgrade paths, and versioning guarantees.
 
 ### [Project Docs](project-docs/)
+
 Design, security, and contributor-facing project documentation.
 
 ## Community Principles

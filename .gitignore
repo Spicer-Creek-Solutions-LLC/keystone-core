@@ -84,6 +84,7 @@ test/e2e/performance/reports/
 CHECKPOINT.md
 .claude-session-notes.md
 .claude/
+!.claude/commands/
 SESSION-SUMMARY*.md
 *_TEST_RESULTS.md
 *_SESSION*.md

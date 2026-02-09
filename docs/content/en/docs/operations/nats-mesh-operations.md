@@ -23,6 +23,7 @@ curl -X POST http://admin:admin@grafana:3000/api/dashboards/db \
 ```
 
 The dashboard provides:
+
 - **Overview**: Connection health, message rates, error rates
 - **Connections**: Success rates, latency percentiles, circuit breaker states
 - **Messages**: Throughput, delivery status, duplicate rates
@@ -150,12 +151,14 @@ nats server ping nats://nats.example.com:4222
 ```
 
 **Common causes:**
+
 - Firewall blocking port 4222
 - DNS resolution failure
 - NATS server not running
 - TLS certificate mismatch
 
 **Solutions:**
+
 ```bash
 # Use WebSocket if TCP blocked
 agent:
@@ -180,12 +183,14 @@ watch -n 5 'nats server report connections | head -20'
 ```
 
 **Common causes:**
+
 - Network instability
 - NATS server overloaded
 - Keepalive timeout too aggressive
 - Load balancer idle timeout
 
 **Solutions:**
+
 ```yaml
 agent:
   nats:
@@ -206,11 +211,13 @@ nats bench test.latency --msgs 1000 --pub 1 --sub 1
 ```
 
 **Common causes:**
+
 - Wrong region/endpoint
 - Network congestion
 - NATS server CPU saturation
 
 **Solutions:**
+
 ```yaml
 agent:
   nats:
@@ -239,12 +246,14 @@ nats stream view KSCORE_COMMANDS
 ```
 
 **Common causes:**
+
 - Consumer offline
 - Subject mismatch
 - JetStream stream full
 - Dead letter queue full
 
 **Solutions:**
+
 ```bash
 # Check JetStream stream status
 nats stream info KSCORE_COMMANDS
@@ -264,11 +273,13 @@ curl -s http://localhost:8080/metrics | grep duplicates_detected
 ```
 
 **Common causes:**
+
 - Network retries
 - JetStream redelivery
 - Deduplication window too small
 
 **Solutions:**
+
 ```yaml
 agent:
   nats:
@@ -293,6 +304,7 @@ curl -s http://localhost:9100/metrics | grep buffer
 ```
 
 **Solutions:**
+
 ```yaml
 agent:
   nats:
@@ -319,11 +331,13 @@ docker logs nats-hub 2>&1 | grep -i leaf
 ```
 
 **Common causes:**
+
 - Hub leaf port not open (7422)
 - Credentials mismatch
 - TLS verification failure
 
 **Solutions:**
+
 ```bash
 # Test leaf connection directly
 nats-server -c /etc/nats/leaf.conf --debug
@@ -345,11 +359,13 @@ curl -s http://localhost:8080/metrics | grep gateway
 ```
 
 **Common causes:**
+
 - Gateway port not reachable
 - Interest-only mode filtering
 - Clock skew between clusters
 
 **Solutions:**
+
 ```yaml
 # Use optimistic mode for all subjects
 gateway:
@@ -392,6 +408,7 @@ nats consumer info KSCORE_COMMANDS -a -j > consumers.json
 ### Message Throughput
 
 Estimate based on:
+
 - Heartbeats: 1 msg/30s per agent
 - Commands: Variable (1-100/min per agent)
 - Events: Variable (0-1000/min per agent)
@@ -505,31 +522,37 @@ cp -r /etc/keystone-core/creds /backup/kscore-creds/
 
 1. **Remaining servers continue operating** (quorum maintained)
 2. **Replace failed server**:
+
    ```bash
    # Start new NATS server with same config
    nats-server -c /etc/nats/nats.conf
    ```
+
 3. **Server automatically joins cluster** via routes
 
 #### Complete Cluster Failure
 
 1. **Start first NATS server**:
+
    ```bash
    nats-server -c /etc/nats/nats.conf
    ```
 
 2. **Restore JetStream data** (if available):
+
    ```bash
    nats stream restore KSCORE_COMMANDS /backup/streams/commands.tar.gz
    ```
 
 3. **Start remaining servers**:
+
    ```bash
    # Other servers will sync from first
    nats-server -c /etc/nats/nats.conf
    ```
 
 4. **Verify cluster**:
+
    ```bash
    nats server report jetstream
    ```
@@ -540,9 +563,11 @@ cp -r /etc/keystone-core/creds /backup/kscore-creds/
 
 1. **Recover each regional cluster independently**
 2. **Verify gateway connectivity**:
+
    ```bash
    nats server report gateways
    ```
+
 3. **Resume cross-cluster operations**
 
 ### Runbook: Connection Storm
@@ -550,12 +575,14 @@ cp -r /etc/keystone-core/creds /backup/kscore-creds/
 When many agents reconnect simultaneously:
 
 1. **Enable rate limiting on NATS**:
+
    ```yaml
    max_connections: 1000
    max_control_line: 4KB
    ```
 
 2. **Stagger agent reconnections**:
+
    ```yaml
    agent:
      nats:
@@ -563,6 +590,7 @@ When many agents reconnect simultaneously:
    ```
 
 3. **Monitor connection rate**:
+
    ```bash
    watch 'nats server report connections | head -20'
    ```
@@ -572,11 +600,13 @@ When many agents reconnect simultaneously:
 When gateway partitions occur:
 
 1. **Identify partition**:
+
    ```bash
    nats server report gateways
    ```
 
 2. **Check agent distribution**:
+
    ```bash
    # List agents and check their labels/tags for cluster info
    kscorectl agents list -o json | jq 'group_by(.tags.cluster)'
@@ -585,12 +615,14 @@ When gateway partitions occur:
 3. **Wait for automatic recovery** (gateways reconnect)
 
 4. **If manual intervention needed**:
+
    ```bash
    # Restart gateway on one side
    nats-server --signal reload
    ```
 
 5. **Verify message reconciliation**:
+
    ```bash
    # Check metrics for duplicate processing
    curl -s http://localhost:8080/metrics | grep duplicates

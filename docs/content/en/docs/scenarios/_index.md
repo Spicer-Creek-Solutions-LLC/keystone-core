@@ -46,6 +46,7 @@ This section provides complete, production-ready examples for common real-world 
 ### Prerequisites
 
 All scenarios assume:
+
 - Keystone Core control plane is running
 - Agents are installed on target hosts
 - Basic familiarity with state files and targeting

@@ -86,29 +86,38 @@ spec:
 
 ### Executing a Runbook
 
-> **Note**: Runbook execution commands (`execute`, `status`, `list-executions`) are planned
-> but not yet implemented. Currently, runbooks are executed via the control plane API or
-> through event/schedule triggers. The `kscore-runbook` CLI currently supports approval
-> and intervention management only.
-
 ```bash
-# Planned: Execute a runbook
-# kscorectl runbook execute restart-service \
-#   --input service_name=nginx \
-#   --input target=web-servers
+# List available runbooks
+kscorectl runbook list
+kscorectl runbook list --tag security
 
-# Planned: View execution status
-# kscorectl runbook status exec-12345
+# Execute a runbook
+kscorectl runbook execute restart-service \
+  --var service_name=nginx \
+  --var target=web-servers
 
-# Planned: List recent executions
-# kscorectl runbook list-executions --runbook restart-service
+# Preview execution without running
+kscorectl runbook execute restart-service --var service_name=nginx --dry-run
 
-# Currently available: Manage approval requests
+# View execution status
+kscorectl runbook status exec-12345
+
+# List recent executions
+kscorectl runbook list-executions --runbook restart-service
+kscorectl runbook list-executions --state running
+
+# View audit trail
+kscorectl runbook audit restart-service
+
+# Validate a runbook
+kscorectl runbook test restart-service --var service_name=nginx --verbose
+
+# Manage approval requests
 kscorectl runbook approvals              # List pending approvals
 kscorectl runbook approve <request-id>   # Approve a request
 kscorectl runbook reject <request-id>    # Reject a request
 
-# Currently available: Manage intervention requests
+# Manage intervention requests
 kscorectl runbook interventions          # List pending interventions
 kscorectl runbook respond <request-id>   # Respond to an intervention
 ```

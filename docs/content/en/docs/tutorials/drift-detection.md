@@ -8,12 +8,14 @@ description: >
 ## Overview
 
 Configuration drift occurs when a system's actual state diverges from its desired state. This can happen due to:
+
 - Manual changes
 - Failed updates
 - External tools modifying configurations
 - Security incidents
 
 In this tutorial, you'll learn how to:
+
 - Enable drift detection for your states
 - Configure drift severity levels
 - Set up alerts for drift events
@@ -67,6 +69,7 @@ kscorectl state drift webserver-config.yaml
 ```
 
 Output when everything matches:
+
 ```
 Checking drift: webserver-config.yaml
 
@@ -94,6 +97,7 @@ kscorectl state drift webserver-config.yaml
 ```
 
 Output:
+
 ```
 Checking drift: webserver-config.yaml
 
@@ -256,6 +260,7 @@ file:
 ```
 
 Default severity levels:
+
 - **Critical**: Security-related (mode, owner, SELinux context)
 - **High**: Service-affecting (contents, enabled status)
 - **Medium**: Operational (non-critical settings)
@@ -271,6 +276,7 @@ kubectl apply -f deploy/grafana/dashboards/state-management.json
 ```
 
 Key metrics to monitor:
+
 - `kscore_drift_detected_total` - Total drift events
 - `kscore_drift_by_severity` - Drift by severity level
 - `kscore_drift_remediation_total` - Auto-remediation count
@@ -293,16 +299,19 @@ Key metrics to monitor:
 ## Troubleshooting
 
 **Drift not detected:**
+
 - Verify drift detection is enabled
 - Check the interval configuration
 - Ensure agent connectivity
 
 **Too many drift alerts:**
+
 - Adjust severity thresholds
 - Exclude volatile files (logs, temp files)
 - Use appropriate throttling
 
 **Auto-remediation not working:**
+
 - Check reactor is enabled
 - Verify throttle hasn't been exceeded
 - Check max_executions limit

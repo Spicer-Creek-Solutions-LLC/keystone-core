@@ -164,6 +164,7 @@ kscore-agent --config /etc/keystone-core/agent.yaml
 ```
 
 The agent will:
+
 1. Connect to the control plane
 2. Present the join token for attestation
 3. Receive its SPIFFE ID (`spiffe://kscore.local/agent/web-server-1`)
@@ -213,6 +214,7 @@ identity:
 ```
 
 The agent automatically:
+
 1. Retrieves identity document from EC2 metadata service
 2. Presents the signed document to the control plane
 3. Receives SPIFFE ID based on instance ID: `spiffe://kscore.local/agent/i-0abc123def456`
@@ -640,6 +642,7 @@ identity:
 ```
 
 During CA rotation:
+
 1. New CA is generated before the old CA expires
 2. Both CAs are valid during the overlap period
 3. SVIDs can be verified by either CA
@@ -664,6 +667,7 @@ kscorectl identity ca restore \
 ```
 
 Backups include:
+
 - Root CA certificate and encrypted private key
 - Signing CA certificate and encrypted private key
 - Trust bundle
@@ -691,6 +695,7 @@ identity:
 ```
 
 Retry strategies:
+
 - **Exponential**: Delay doubles after each attempt (recommended)
 - **Linear**: Delay increases by a fixed amount
 - **Constant**: Fixed delay between attempts
@@ -780,6 +785,7 @@ flowchart TB
 ```
 
 Replication modes:
+
 - **Sync**: Wait for all replicas (strongest consistency, highest latency)
 - **Async**: Don't wait for replicas (lowest latency, eventual consistency)
 - **Semi-sync**: Wait for at least N replicas (balance of consistency and performance)
@@ -855,22 +861,26 @@ identity:
 ### Agent Cannot Attest
 
 **Symptoms:**
+
 - Agent fails to start with "attestation failed"
 - Logs show "invalid join token" or "token expired"
 
 **Solutions:**
 
 1. **Check token validity:**
+
    ```bash
    kscorectl identity token list
    ```
 
 2. **Verify token hasn't been used:**
+
    ```bash
    kscorectl identity token show <token-id>
    ```
 
 3. **Create new token:**
+
    ```bash
    kscorectl identity token create --agent-id <agent-id>
    ```
@@ -878,23 +888,27 @@ identity:
 ### SVID Rotation Fails
 
 **Symptoms:**
+
 - Agent logs show "failed to renew SVID"
 - Connection drops after SVID expiry
 
 **Solutions:**
 
 1. **Check network connectivity:**
+
    ```bash
    # On agent
    nc -zv control-plane.example.com 4222
    ```
 
 2. **Check identity provider status:**
+
    ```bash
    kscorectl identity status
    ```
 
 3. **Verify CA is valid:**
+
    ```bash
    kscorectl identity ca info
    ```
@@ -902,22 +916,26 @@ identity:
 ### TLS Handshake Failures
 
 **Symptoms:**
+
 - "tls: bad certificate" errors
 - "x509: certificate signed by unknown authority"
 
 **Solutions:**
 
 1. **Verify trust bundle is current:**
+
    ```bash
    kscorectl identity bundle show
    ```
 
 2. **Check SPIFFE ID matches expected pattern:**
+
    ```bash
    openssl x509 -in svid.crt -text | grep URI
    ```
 
 3. **Verify trust domain matches:**
+
    ```yaml
    # Control plane and agent must match
    identity:
@@ -962,6 +980,7 @@ identity:
 ```
 
 The SPIRE integration:
+
 - Connects to the SPIRE Workload API
 - Fetches X.509 SVIDs and JWT SVIDs
 - Watches for SVID rotation

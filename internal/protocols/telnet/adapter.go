@@ -1,3 +1,5 @@
+// Package telnet implements a Telnet protocol adapter for managing legacy
+// network devices over unencrypted TCP connections.
 package telnet
 
 import (
@@ -107,7 +109,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 
 	// Close existing connection
 	if a.conn != nil {
-		a.closeInternal()
+		_ = a.closeInternal() //nolint:errcheck // best-effort close of stale connection
 	}
 
 	a.device = device
@@ -137,7 +139,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	addr := fmt.Sprintf("%s:%d", host, port)
 
 	// Check IP allowlist
-	if err := a.security.CheckConnection(addr); err != nil {
+	if err := a.security.CheckConnection(ctx, addr); err != nil {
 		a.metrics.ConnectionErrors++
 		return err
 	}

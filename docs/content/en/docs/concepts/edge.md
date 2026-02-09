@@ -207,6 +207,7 @@ TTL is determined in the following order of precedence:
 4. **System default** - Built-in default (24h)
 
 **Example:**
+
 ```yaml
 ttl:
   defaultTTL: 24h
@@ -243,6 +244,7 @@ agent:
 ```
 
 **Invalidation event format:**
+
 ```json
 {
   "type": "cache.invalidate",
@@ -257,6 +259,7 @@ agent:
 ```
 
 **Triggering invalidation from control plane:**
+
 ```bash
 # Invalidate specific entry
 kscorectl cache invalidate "states/nginx-config" --target "region=us-west"
@@ -291,6 +294,7 @@ agent:
 ```
 
 **Version metadata in cached entries:**
+
 ```json
 {
   "id": "states/nginx-config",
@@ -302,6 +306,7 @@ agent:
 ```
 
 **Version check flow:**
+
 ```
 Agent                           Control Plane
   |                                   |
@@ -337,6 +342,7 @@ agent:
 ```
 
 **Hash verification:**
+
 ```bash
 # Verify cache integrity
 kscorectl cache verify
@@ -413,6 +419,7 @@ agent:
 ```
 
 **Behavior:**
+
 ```
 Request for "nginx-config" (TTL expired 10 minutes ago)
   |
@@ -426,6 +433,7 @@ Request for "nginx-config" (TTL expired 10 minutes ago)
 #### Invalidation Events and Metrics
 
 **Events emitted:**
+
 ```json
 // Cache entry expired
 {
@@ -461,6 +469,7 @@ Request for "nginx-config" (TTL expired 10 minutes ago)
 ```
 
 **Metrics:**
+
 ```promql
 # Cache invalidation rate by reason
 rate(kscore_edge_cache_invalidations_total{reason="ttl|event|version|hash"}[5m])
@@ -914,6 +923,7 @@ kscorectl sync status
 ### Cache Sizing
 
 Size cache based on:
+
 - Number of states to cache
 - Policy complexity
 - Event buffer requirements

@@ -1,6 +1,7 @@
 package telnet
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -190,7 +191,8 @@ func TestProcessData_SubNeg_TermType(t *testing.T) {
 	_, responses := n.ProcessData(data)
 
 	// Expected: IAC SB TERMTYPE IS "xterm" IAC SE
-	expected := []byte{IAC, SB, OptTermType, SubIs}
+	expected := make([]byte, 0, 11)
+	expected = append(expected, IAC, SB, OptTermType, SubIs)
 	expected = append(expected, []byte("xterm")...)
 	expected = append(expected, IAC, SE)
 
@@ -307,13 +309,5 @@ func TestProcessData_UnexpectedByteInSubNeg(t *testing.T) {
 }
 
 func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return bytes.Equal(a, b)
 }

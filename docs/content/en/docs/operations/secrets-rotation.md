@@ -79,6 +79,7 @@ sequenceDiagram
 ```
 
 **Best For:**
+
 - Database connections with connection pools
 - API keys with immediate effect
 - Environments where brief dual-credential state is acceptable
@@ -167,6 +168,7 @@ rotation:
 ```
 
 **Best For:**
+
 - Large fleets where atomic updates are risky
 - Gradual rollouts with monitoring
 - Environments requiring zero-downtime updates
@@ -244,6 +246,7 @@ sequenceDiagram
 ```
 
 **Best For:**
+
 - Critical production systems
 - Secrets affecting user-facing services
 - Environments with comprehensive monitoring

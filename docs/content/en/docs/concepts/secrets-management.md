@@ -412,6 +412,7 @@ secrets:
 ### Cache Invalidation
 
 Caches are automatically invalidated on:
+
 - Lease expiration
 - Secret rotation
 - Explicit revocation
@@ -511,6 +512,7 @@ kscorectl secrets compliance report \
 ```
 
 Report includes:
+
 - Key inventory and rotation status
 - Access audit summary
 - Compliance check results

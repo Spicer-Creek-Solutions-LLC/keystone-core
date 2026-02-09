@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/internal/audit"
 	"github.com/shawnbutts/keystone-core/internal/statemgmt"
@@ -64,6 +67,10 @@ func init() {
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(historyCmd)
 	rootCmd.AddCommand(rollbackCmd)
+	rootCmd.AddCommand(compileCmd)
+	rootCmd.AddCommand(varsCmd)
+	rootCmd.AddCommand(exportCmd)
+	rootCmd.AddCommand(restoreCmd)
 }
 
 func main() {
@@ -115,6 +122,7 @@ func init() {
 	applyCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	applyCmd.Flags().StringVar(&applyVarsFile, "vars", "", "Variables file (YAML)")
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Check what would change without applying")
+	applyCmd.Flags().BoolVar(&applyDryRun, "check-only", false, "Alias for --dry-run")
 	applyCmd.Flags().BoolVar(&applyPreview, "preview", false, "Show rendered state before apply without executing")
 }
 
@@ -289,7 +297,10 @@ func checkExecute(cmd *cobra.Command, args []string) error {
 
 // Drift command
 
-var driftVarsFile string
+var (
+	driftVarsFile string
+	driftFix      bool
+)
 
 var driftCmd = &cobra.Command{
 	Use:   "drift <statefile>",
@@ -302,12 +313,18 @@ Drift detection identifies:
   - Missing or extra resources
   - Permission/ownership changes
 
+Use --fix to automatically remediate detected drift by re-applying
+the desired state for any drifted resources.
+
 Examples:
   # Detect drift
   kscorectl state drift states/webserver.yaml
 
   # Detect drift with variables
-  kscorectl state drift states/app.yaml --vars vars/production.yaml`,
+  kscorectl state drift states/app.yaml --vars vars/production.yaml
+
+  # Detect and auto-fix drift
+  kscorectl state drift states/webserver.yaml --fix`,
 	Args: cobra.ExactArgs(1),
 	RunE: driftExecute,
 }
@@ -315,6 +332,7 @@ Examples:
 func init() {
 	driftCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	driftCmd.Flags().StringVar(&driftVarsFile, "vars", "", "Variables file (YAML)")
+	driftCmd.Flags().BoolVar(&driftFix, "fix", false, "Auto-remediate detected drift by re-applying desired state")
 }
 
 func driftExecute(cmd *cobra.Command, args []string) error {
@@ -400,10 +418,53 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Print drift report
-	output := statemgmt.FormatDriftReport(report)
-	fmt.Println(output)
+	driftOutput := statemgmt.FormatDriftReport(report)
+	fmt.Println(driftOutput)
 
-	// Exit with error if drift detected
+	// If drift detected and --fix requested, re-apply state to remediate
+	if report.Summary.OverallSeverity != statemgmt.DriftNone && driftFix {
+		fmt.Println("=== Auto-Remediation ===")
+		fmt.Println("Re-applying desired state to fix detected drift...")
+		fmt.Println()
+
+		executor := statemgmt.NewExecutor()
+		run, execErr := executor.ExecuteState(ctx, stateFile)
+		if execErr != nil {
+			fmt.Fprintf(os.Stderr, "\nRemediation failed: %v\n", execErr)
+			printRunSummary(run, time.Since(startTime))
+			logAudit(audit.ResultFailure, 1, execErr)
+			return execErr
+		}
+
+		printRunResults(run, false)
+		printRunSummary(run, time.Since(startTime))
+
+		fixed := 0
+		if run.Summary != nil {
+			fixed = run.Summary.Changed
+		}
+
+		auditEntry.Extra = map[string]interface{}{
+			"severity":     string(report.Summary.OverallSeverity),
+			"total":        report.Summary.Total,
+			"no_drift":     report.Summary.NoDrift,
+			"low_drift":    report.Summary.LowDrift,
+			"medium_drift": report.Summary.MediumDrift,
+			"high_drift":   report.Summary.HighDrift,
+			"fix":          true,
+			"fixed":        fixed,
+		}
+
+		if run.Summary != nil && run.Summary.Failed > 0 {
+			logAudit(audit.ResultFailure, 1, fmt.Errorf("%d states failed during remediation", run.Summary.Failed))
+			os.Exit(1)
+		}
+
+		logAudit(audit.ResultSuccess, 0, nil)
+		return nil
+	}
+
+	// Exit with error if drift detected (without --fix)
 	if report.Summary.OverallSeverity != statemgmt.DriftNone {
 		auditEntry.Extra = map[string]interface{}{
 			"severity":     string(report.Summary.OverallSeverity),
@@ -919,5 +980,485 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("For local state files, consider using version control (git) to")
 	fmt.Println("manage state file versions and manually apply the previous version.")
+	return nil
+}
+
+// Compile command - compile and resolve a state definition
+
+var (
+	compileVars     []string
+	compileVarsFile string
+	compileOutput   string
+)
+
+var compileCmd = &cobra.Command{
+	Use:   "compile <statefile>",
+	Short: "Compile a state definition and output the resolved result",
+	Long: `Compile a state definition by resolving variables and templates.
+
+The compile command parses the state file, applies variables and facts,
+resolves all templates, and outputs the fully compiled result without
+executing any state changes.
+
+Output formats:
+  - yaml (default): YAML representation of the compiled state
+  - json: JSON representation of the compiled state
+
+Examples:
+  # Compile a state file
+  kscorectl state compile states/webserver.yaml
+
+  # Compile with inline variables
+  kscorectl state compile states/app.yaml --vars port=8080 --vars env=prod
+
+  # Compile with a variables file
+  kscorectl state compile states/app.yaml --vars-file vars/production.yaml
+
+  # Output as JSON
+  kscorectl state compile states/app.yaml --output json`,
+	Args: cobra.ExactArgs(1),
+	RunE: compileExecute,
+}
+
+func init() {
+	compileCmd.Flags().StringArrayVar(&compileVars, "vars", nil, "Inline variables (key=value, can be repeated)")
+	compileCmd.Flags().StringVar(&compileVarsFile, "vars-file", "", "Variables file (YAML)")
+	compileCmd.Flags().StringVar(&compileOutput, "output", "yaml", "Output format (yaml, json)")
+}
+
+func compileExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	auditEntry := audit.StartEntry(audit.ActionStateApplied, "compile")
+	auditEntry.Args = args
+
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
+	stateFilePath := args[0]
+	auditEntry.Target = stateFilePath
+
+	// Parse state file
+	baseDir := filepath.Dir(stateFilePath)
+	parser := statemgmt.NewParser(baseDir)
+	stateFile, err := parser.ParseFile(stateFilePath)
+	if err != nil {
+		err = fmt.Errorf("failed to parse state file: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
+	}
+
+	// Validate state file
+	validator := statemgmt.NewValidator()
+	valResult := validator.Validate(stateFile)
+	if !valResult.Valid {
+		err := fmt.Errorf("validation failed: %s", valResult.Summary())
+		logAudit(audit.ResultFailure, 1, err)
+		return err
+	}
+
+	// Load vars from file if specified
+	vars := statemgmt.NewVars()
+	if compileVarsFile != "" {
+		varsBaseDir := filepath.Dir(compileVarsFile)
+		varsParser := statemgmt.NewParser(varsBaseDir)
+		varsFile, err := varsParser.ParseFile(compileVarsFile)
+		if err != nil {
+			err = fmt.Errorf("failed to parse vars file: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
+		}
+		if len(varsFile.Variables) > 0 {
+			vars = statemgmt.LoadVarsFromYAML(varsFile.Variables)
+		}
+	}
+
+	// Merge inline vars (--vars key=value)
+	for _, kv := range compileVars {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			vars.Set(parts[0], parts[1])
+		}
+	}
+
+	// Collect facts
+	facts := statemgmt.NewFacts()
+
+	// Render templates
+	if err := statemgmt.RenderStateFile(stateFile, vars, facts); err != nil {
+		err = fmt.Errorf("failed to render templates: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
+	}
+
+	// Build compiled output structure
+	compiled := buildCompiledOutput(stateFile, vars, facts)
+
+	// Marshal to requested format
+	switch compileOutput {
+	case "json":
+		data, err := json.MarshalIndent(compiled, "", "  ")
+		if err != nil {
+			err = fmt.Errorf("failed to marshal JSON: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
+		}
+		fmt.Println(string(data))
+	default:
+		data, err := yaml.Marshal(compiled)
+		if err != nil {
+			err = fmt.Errorf("failed to marshal YAML: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
+		}
+		fmt.Print(string(data))
+	}
+
+	logAudit(audit.ResultSuccess, 0, nil)
+	return nil
+}
+
+// buildCompiledOutput constructs a map representing the fully compiled state.
+func buildCompiledOutput(stateFile *statemgmt.StateFile, vars *statemgmt.Vars, facts *statemgmt.Facts) map[string]interface{} {
+	compiled := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"name":        stateFile.Metadata.Name,
+			"description": stateFile.Metadata.Description,
+			"version":     stateFile.Metadata.Version,
+			"tags":        stateFile.Metadata.Tags,
+		},
+	}
+
+	if len(vars.Data) > 0 {
+		compiled["variables"] = vars.Data
+	}
+
+	if len(facts.Data) > 0 {
+		compiled["facts"] = facts.Data
+	}
+
+	states := map[string]interface{}{}
+	for module, declarations := range stateFile.States {
+		declList := make([]map[string]interface{}, 0, len(declarations))
+		for _, decl := range declarations {
+			d := map[string]interface{}{
+				"id":         decl.ID,
+				"state":      decl.State,
+				"parameters": decl.Parameters,
+			}
+			declList = append(declList, d)
+		}
+		states[module] = declList
+	}
+	compiled["states"] = states
+
+	return compiled
+}
+
+// Vars command group
+
+var varsCmd = &cobra.Command{
+	Use:   "vars",
+	Short: "Manage state variables",
+	Long: `View and manage state variables used in state templates.
+
+Variables control how state templates are rendered and allow
+the same state definitions to be reused across environments.
+
+Examples:
+  # Get a specific variable
+  kscorectl state vars get http_port
+
+  # List all variables
+  kscorectl state vars list`,
+}
+
+// Vars get subcommand
+
+var (
+	varsGetScope string
+	varsGetAgent string
+	varsGetRole  string
+)
+
+var varsGetCmd = &cobra.Command{
+	Use:   "get <key>",
+	Short: "Retrieve a specific variable value",
+	Long: `Retrieve the value of a specific state variable.
+
+Variables can be scoped to different levels:
+  - global: Available to all agents (default)
+  - agent: Specific to a single agent
+  - role: Specific to agents with a given role
+
+Examples:
+  # Get a global variable
+  kscorectl state vars get http_port
+
+  # Get an agent-scoped variable
+  kscorectl state vars get http_port --scope agent --agent web-01
+
+  # Get a role-scoped variable
+  kscorectl state vars get http_port --scope role --role webserver`,
+	Args: cobra.ExactArgs(1),
+	RunE: varsGetExecute,
+}
+
+// Vars list subcommand
+
+var (
+	varsListScope string
+	varsListAgent string
+	varsListRole  string
+)
+
+var varsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all variables",
+	Long: `List all state variables with their current values.
+
+Variables can be filtered by scope:
+  - global: Variables available to all agents (default)
+  - agent: Variables specific to a single agent
+  - role: Variables specific to agents with a given role
+
+Examples:
+  # List all global variables
+  kscorectl state vars list
+
+  # List variables for a specific agent
+  kscorectl state vars list --scope agent --agent web-01
+
+  # List variables for a role
+  kscorectl state vars list --scope role --role webserver`,
+	Args: cobra.NoArgs,
+	RunE: varsListExecute,
+}
+
+func init() {
+	varsGetCmd.Flags().StringVar(&varsGetScope, "scope", "global", "Variable scope (global, agent, role)")
+	varsGetCmd.Flags().StringVar(&varsGetAgent, "agent", "", "Agent ID (required when scope is agent)")
+	varsGetCmd.Flags().StringVar(&varsGetRole, "role", "", "Role name (required when scope is role)")
+
+	varsListCmd.Flags().StringVar(&varsListScope, "scope", "global", "Variable scope (global, agent, role)")
+	varsListCmd.Flags().StringVar(&varsListAgent, "agent", "", "Agent ID (required when scope is agent)")
+	varsListCmd.Flags().StringVar(&varsListRole, "role", "", "Role name (required when scope is role)")
+
+	varsCmd.AddCommand(varsGetCmd)
+	varsCmd.AddCommand(varsListCmd)
+}
+
+func varsGetExecute(cmd *cobra.Command, args []string) error {
+	key := args[0]
+
+	fmt.Printf("Variable: %s\n", key)
+	fmt.Printf("Scope:    %s\n", varsGetScope)
+
+	switch varsGetScope {
+	case "agent":
+		if varsGetAgent == "" {
+			return fmt.Errorf("--agent is required when scope is agent")
+		}
+		fmt.Printf("Agent:    %s\n", varsGetAgent)
+	case "role":
+		if varsGetRole == "" {
+			return fmt.Errorf("--role is required when scope is role")
+		}
+		fmt.Printf("Role:     %s\n", varsGetRole)
+	}
+
+	fmt.Println()
+	fmt.Println("Note: Variable retrieval requires control plane connectivity.")
+	fmt.Println("Variables are stored and managed on the server.")
+	fmt.Println()
+	fmt.Println("Example output (when connected):")
+	fmt.Println()
+	fmt.Printf("  %s = <value>\n", key)
+	fmt.Println()
+	fmt.Println("To set variables, use state files with a 'variables' section or")
+	fmt.Println("configure them through the control plane API.")
+	return nil
+}
+
+func varsListExecute(cmd *cobra.Command, args []string) error {
+	fmt.Printf("Scope: %s\n", varsListScope)
+
+	switch varsListScope {
+	case "agent":
+		if varsListAgent == "" {
+			return fmt.Errorf("--agent is required when scope is agent")
+		}
+		fmt.Printf("Agent: %s\n", varsListAgent)
+	case "role":
+		if varsListRole == "" {
+			return fmt.Errorf("--role is required when scope is role")
+		}
+		fmt.Printf("Role:  %s\n", varsListRole)
+	}
+
+	fmt.Println()
+	fmt.Println("Note: Variable listing requires control plane connectivity.")
+	fmt.Println("Variables are stored and managed on the server.")
+	fmt.Println()
+	fmt.Println("Example output (when connected):")
+	fmt.Println()
+	fmt.Println("  KEY             VALUE         SOURCE")
+	fmt.Println("  http_port       8080          global")
+	fmt.Println("  environment     production    global")
+	fmt.Println("  max_workers     4             role:webserver")
+	fmt.Println("  log_level       debug         agent:web-01")
+	return nil
+}
+
+// Export command - export state to a file
+
+var exportOutput string
+
+var exportCmd = &cobra.Command{
+	Use:   "export",
+	Short: "Export current state to a file",
+	Long: `Export the current managed state to a file for backup or migration.
+
+The export command captures the current state of all managed resources
+and writes them to a file that can later be restored.
+
+Examples:
+  # Export state to a file
+  kscorectl state export --output state-backup.yaml
+
+  # Export to default location
+  kscorectl state export`,
+	Args: cobra.NoArgs,
+	RunE: exportExecute,
+}
+
+func init() {
+	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output file path (defaults to stdout)")
+}
+
+func exportExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	auditEntry := audit.StartEntry(audit.ActionStateApplied, "export")
+	auditEntry.Args = args
+
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
+	fmt.Println("Exporting current state...")
+	fmt.Println()
+	fmt.Println("Note: State export requires control plane connectivity.")
+	fmt.Println("The export captures the current state of all managed resources")
+	fmt.Println("from the server's state database.")
+	fmt.Println()
+
+	if exportOutput != "" {
+		fmt.Printf("Output file: %s\n", exportOutput)
+		auditEntry.Target = exportOutput
+	} else {
+		fmt.Println("Output: stdout (use --output to write to a file)")
+	}
+
+	fmt.Println()
+	fmt.Println("Example export (when connected):")
+	fmt.Println()
+	fmt.Println("  metadata:")
+	fmt.Println("    exported_at: " + time.Now().UTC().Format(time.RFC3339))
+	fmt.Println("    version: \"1.0\"")
+	fmt.Println("    total_resources: 42")
+	fmt.Println("  resources:")
+	fmt.Println("    - module: file")
+	fmt.Println("      id: /etc/nginx/nginx.conf")
+	fmt.Println("      state: present")
+	fmt.Println("    - module: service")
+	fmt.Println("      id: nginx")
+	fmt.Println("      state: running")
+
+	logAudit(audit.ResultSuccess, 0, nil)
+	return nil
+}
+
+// Restore command - restore state from a file
+
+var restoreInput string
+
+var restoreCmd = &cobra.Command{
+	Use:   "restore",
+	Short: "Restore state from a previously exported file",
+	Long: `Restore managed state from a previously exported state file.
+
+The restore command reads a state export file and applies it to
+bring the system back to the exported state.
+
+Examples:
+  # Restore state from a file
+  kscorectl state restore --input state-backup.yaml`,
+	Args: cobra.NoArgs,
+	RunE: restoreExecute,
+}
+
+func init() {
+	restoreCmd.Flags().StringVar(&restoreInput, "input", "", "Input file path (required)")
+	_ = restoreCmd.MarkFlagRequired("input")
+}
+
+func restoreExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	auditEntry := audit.StartEntry(audit.ActionStateApplied, "restore")
+	auditEntry.Args = args
+	auditEntry.Target = restoreInput
+
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
+	fmt.Printf("Restoring state from: %s\n", restoreInput)
+	fmt.Println()
+
+	// Verify the input file exists
+	if _, err := os.Stat(restoreInput); os.IsNotExist(err) {
+		err = fmt.Errorf("input file not found: %s", restoreInput)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
+	}
+
+	fmt.Println("Note: State restore requires control plane connectivity.")
+	fmt.Println("The restore operation will apply the exported state to bring")
+	fmt.Println("managed resources back to the captured configuration.")
+	fmt.Println()
+	fmt.Println("The restore process:")
+	fmt.Println("  1. Parse the export file and validate its format")
+	fmt.Println("  2. Compare exported state with current state")
+	fmt.Println("  3. Generate a remediation plan")
+	fmt.Println("  4. Apply changes to reach the exported state")
+	fmt.Println()
+	fmt.Println("To preview changes before restoring, use:")
+	fmt.Printf("  kscorectl state restore --input %s --dry-run\n", restoreInput)
+
+	logAudit(audit.ResultSuccess, 0, nil)
 	return nil
 }

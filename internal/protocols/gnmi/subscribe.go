@@ -2,6 +2,7 @@ package gnmi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -86,7 +87,7 @@ func (a *Adapter) receiveSubscription(stream gnmipb.GNMI_SubscribeClient, sub *p
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				sub.SendError(err)
 			}
 			return

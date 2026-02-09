@@ -489,6 +489,7 @@ secrets:
 ### Secret Compromise Procedure
 
 1. **Immediate Actions**
+
    ```bash
    # Revoke compromised secret
    kscorectl secrets revoke --path "compromised/secret" --immediate
@@ -501,6 +502,7 @@ secrets:
    ```
 
 2. **Investigation**
+
    ```bash
    # Get access history
    kscorectl secrets audit \
@@ -515,6 +517,7 @@ secrets:
    ```
 
 3. **Remediation**
+
    ```bash
    # Update access policies
    kscorectl policy update \
@@ -533,17 +536,20 @@ secrets:
 > Keystone Core's secrets CLI focuses on rotation orchestration for application credentials.
 
 1. **Rotate master key** (using Vault)
+
    ```bash
    vault operator rekey -init
    vault operator rekey -key-shares=5 -key-threshold=3
    ```
 
 2. **Trigger rotation of all managed secrets**
+
    ```bash
    kscorectl secrets rotate start --all
    ```
 
 3. **Verify rotation completed**
+
    ```bash
    kscorectl secrets rotate list --status completed
    ```

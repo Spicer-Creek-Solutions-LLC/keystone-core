@@ -10,6 +10,7 @@ description: >
 Keystone Core's module system enables secure extensibility through versioned, dependency-managed packages. Modules can extend state management, event handling, verification steps, and policy enforcement without compromising system security.
 
 **Security Philosophy:**
+
 - **No Ambient Authority**: Modules cannot access any resource without explicit capability grants
 - **Sandboxed Execution**: All module code runs in isolated runtime environments
 - **Operator Override**: Operators can restrict capabilities beyond what modules declare
@@ -135,12 +136,14 @@ limits:
 Starlark is a Python-like language designed for configuration. It is **deterministic by design**:
 
 **Security Properties:**
+
 - No file I/O, network access, or system calls by default
 - No `import` statement (prevents arbitrary module loading)
 - Execution terminates after configurable step limit
 - Same inputs always produce same outputs
 
 **Enforcement Mechanisms:**
+
 - **Step Limit**: Execution aborts after N instructions (default: 1,000,000)
 - **Timeout**: Hard wall-clock limit on execution time
 - **No Ambient Authority**: Only capabilities explicitly registered are accessible
@@ -168,12 +171,14 @@ def check_nginx(ctx):
 WASM provides a memory-safe, sandboxed execution environment for high-performance modules:
 
 **Security Properties:**
+
 - **Memory Isolation**: WASM linear memory is completely isolated from host
 - **No System Access**: WASM cannot make syscalls without host-provided imports
 - **Fuel Metering**: Execution limited by instruction count (fuel)
 - **Bounds Checking**: All memory access is bounds-checked
 
 **Enforcement Mechanisms:**
+
 - **Memory Limit**: Maximum linear memory allocation (default: 64MB)
 - **Fuel Limit**: Maximum instruction count (default: 10,000,000)
 - **Host Function Gating**: Only whitelisted functions are importable
@@ -310,6 +315,7 @@ When both module manifest and operator policy specify restrictions, the **more r
 | `timeout`, `exec_timeout` | **Minimum** (shorter timeout wins) |
 
 **Example:**
+
 ```yaml
 # Module declares:
 fs.read:
@@ -334,6 +340,7 @@ Capability locks prevent module updates from escalating permissions. This protec
 ### Lock File
 
 Capability locks are stored in `/var/lib/keystone-core/capability-locks.json`:
+
 ```json
 {
   "my-org/web-deployer": {
@@ -362,6 +369,7 @@ When a locked module is updated:
 3. **Restriction changes evaluated**: More restrictive changes allowed, less restrictive blocked
 
 **Example:**
+
 ```
 Locked capabilities: [fs.read, http.get, log]
 Update capabilities: [fs.read, http.get, log, exec]  ← BLOCKED (exec is new)
@@ -401,6 +409,7 @@ To unlock a module (for upgrading to new capabilities), modify the lock file dir
 **Threat**: Malicious module update adds dangerous capabilities.
 
 **Mitigations**:
+
 - Cryptographic verification (signatures, SumDB)
 - Capability locking prevents escalation
 - Operator policy can deny dangerous capabilities for all modules
@@ -410,6 +419,7 @@ To unlock a module (for upgrading to new capabilities), modify the lock file dir
 **Threat**: Module exploits runtime vulnerability to escape sandbox.
 
 **Mitigations**:
+
 - Starlark has no native code execution
 - WASM is memory-safe by design
 - Host functions are the only interface to the system
@@ -420,6 +430,7 @@ To unlock a module (for upgrading to new capabilities), modify the lock file dir
 **Threat**: Module consumes excessive resources.
 
 **Mitigations**:
+
 - Execution timeout (wall-clock)
 - Step/fuel limits (instruction count)
 - Memory limits (WASM linear memory)
@@ -430,6 +441,7 @@ To unlock a module (for upgrading to new capabilities), modify the lock file dir
 **Threat**: Module sends sensitive data to external servers.
 
 **Mitigations**:
+
 - `http.get`/`http.post` scoped to allowed domains
 - `fs.read` scoped to allowed paths
 - Network policies can further restrict egress
@@ -439,6 +451,7 @@ To unlock a module (for upgrading to new capabilities), modify the lock file dir
 **Threat**: Module executes arbitrary commands via `exec` capability.
 
 **Mitigations**:
+
 - `exec` denied by default in policy
 - `allowed_commands` whitelist
 - `denied_commands` blocklist
@@ -487,6 +500,7 @@ Policy decisions are logged:
 ### Compliance Reporting
 
 Module capability information can be reviewed by:
+
 - Examining the capability policy file (`/etc/keystone-core/capability-policy.yaml`)
 - Reviewing module manifests with `kscorectl module tree`
 - Checking capability locks in `/var/lib/keystone-core/capability-locks.json`

@@ -73,7 +73,7 @@ func NewNegotiator(termType string, rows, cols uint16) *Negotiator {
 
 // ProcessData strips IAC sequences from raw data, returning clean text
 // and any response bytes that must be sent back to the server.
-func (n *Negotiator) ProcessData(raw []byte) (clean []byte, responses []byte) {
+func (n *Negotiator) ProcessData(raw []byte) (clean, responses []byte) {
 	state := stateNormal
 	var cmd byte
 	var subOpt byte
@@ -115,21 +115,23 @@ func (n *Negotiator) ProcessData(raw []byte) (clean []byte, responses []byte) {
 			state = stateNormal
 
 		case stateSubNeg:
-			if subIAC {
+			switch {
+			case subIAC:
 				subIAC = false
-				if b == SE {
+				switch b {
+				case SE:
 					resp := n.handleSubNegotiation(subOpt, subData)
 					responses = append(responses, resp...)
 					state = stateNormal
-				} else if b == IAC {
+				case IAC:
 					subData = append(subData, IAC)
-				} else {
+				default:
 					// Unexpected byte after IAC in subneg
 					state = stateNormal
 				}
-			} else if b == IAC {
+			case b == IAC:
 				subIAC = true
-			} else {
+			default:
 				if subOpt == 0 && len(subData) == 0 {
 					subOpt = b
 				} else {

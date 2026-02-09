@@ -10,6 +10,7 @@ description: >
 Keystone Core includes 93 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
 
 **Core Modules**:
+
 - [file](#file-module) - Manage files and directories
 - [package](#package-module) - Manage software packages
 - [service](#service-module) - Manage system services
@@ -18,6 +19,7 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [cmd](#cmd-module) - Execute commands
 
 **Network Modules**:
+
 - [network](#network-module) - Configure network interfaces
 - [route](#route-module) - Manage static routes
 - [firewall](#firewall-module) - Cross-platform firewall abstraction
@@ -27,6 +29,7 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [ufw](#ufw-module) - Ubuntu Uncomplicated Firewall
 
 **Scheduled Task Modules**:
+
 - [cron](#cron-module) - Linux cron jobs
 - [systemd_timer](#systemd_timer-module) - Linux systemd timer units
 - [launchd](#launchd-module) - macOS launchd jobs
@@ -34,6 +37,7 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [at](#at-module) - One-time scheduled tasks (Unix)
 
 **Storage Modules**:
+
 - [mount](#mount-module) - Manage filesystem mount points
 - [swap](#swap-module) - Manage Linux swap space
 - [lvm_pv](#lvm_pv-module) - Manage LVM physical volumes
@@ -43,69 +47,79 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [filesystem](#filesystem-module) - Create and manage filesystems
 
 **SSH Modules**:
-- [authorized_keys](#authorized_keys-module) - Manage SSH authorized keys
-- [known_hosts](#known_hosts-module) - Manage SSH known hosts
-- [sshd_config](#sshd_config-module) - Manage SSH daemon configuration
+
+- [authorized_keys](#authorized-keys-module) - Manage SSH authorized keys
+- [known_hosts](#known-hosts-module) - Manage SSH known hosts
+- [sshd_config](#sshd-config-module) - Manage SSH daemon configuration
 
 **Security Modules**:
+
 - [selinux](#selinux-module) - Manage SELinux state
-- [selinux_boolean](#selinux_boolean-module) - Manage SELinux booleans
+- [selinux_boolean](#selinux-boolean-module) - Manage SELinux booleans
 - [apparmor](#apparmor-module) - Manage AppArmor profile state
-- [apparmor_profile](#apparmor_profile-module) - Install AppArmor profiles
+- [apparmor_profile](#apparmor-profile-module) - Install AppArmor profiles
 
 **System Configuration Modules**:
+
 - [timezone](#timezone-module) - Manage system timezone
 - [locale](#locale-module) - Manage system locale
 - [hostname](#hostname-module) - Manage system hostname
 - [hosts](#hosts-module) - Manage /etc/hosts entries
 - [sysctl](#sysctl-module) - Manage kernel parameters
-- [kernel_module](#kernel_module-module) - Manage kernel modules
+- [kernel_module](#kernel-module-module) - Manage kernel modules
 - [alternatives](#alternatives-module) - Manage system alternatives (update-alternatives)
 
 **Container Modules**:
-- [docker_container](#docker_container-module) - Manage Docker containers
-- [docker_image](#docker_image-module) - Manage Docker images
-- [docker_network](#docker_network-module) - Manage Docker networks
-- [docker_volume](#docker_volume-module) - Manage Docker volumes
-- [podman_container](#podman_container-module) - Manage Podman containers
-- [podman_image](#podman_image-module) - Manage Podman images
-- [podman_network](#podman_network-module) - Manage Podman networks
-- [podman_volume](#podman_volume-module) - Manage Podman volumes
+
+- [docker_container](#docker-container-module) - Manage Docker containers
+- [docker_image](#docker-image-module) - Manage Docker images
+- [docker_network](#docker-network-module) - Manage Docker networks
+- [docker_volume](#docker-volume-module) - Manage Docker volumes
+- [podman_container](#podman-container-module) - Manage Podman containers
+- [podman_image](#podman-image-module) - Manage Podman images
+- [podman_network](#podman-network-module) - Manage Podman networks
+- [podman_volume](#podman-volume-module) - Manage Podman volumes
 
 **Database Modules**:
-- [postgres_database](#postgres_database-module) - Manage PostgreSQL databases
-- [postgres_user](#postgres_user-module) - Manage PostgreSQL users/roles
-- [postgres_extension](#postgres_extension-module) - Manage PostgreSQL extensions
-- [mysql_database](#mysql_database-module) - Manage MySQL/MariaDB databases
-- [mysql_user](#mysql_user-module) - Manage MySQL/MariaDB users
+
+- [postgres_database](#postgresql-database-module) - Manage PostgreSQL databases
+- [postgres_user](#postgresql-user-module) - Manage PostgreSQL users/roles
+- [postgres_extension](#postgresql-extension-module) - Manage PostgreSQL extensions
+- [mysql_database](#mysql-database-module) - Manage MySQL/MariaDB databases
+- [mysql_user](#mysql-user-module) - Manage MySQL/MariaDB users
 - [redis](#redis-module) - Manage Redis configuration and ACL users
 
 **Web Server Modules**:
-- [nginx_site](#nginx_site-module) - Manage Nginx sites (enable/disable)
-- [nginx_config](#nginx_config-module) - Manage Nginx config snippets
-- [nginx_upstream](#nginx_upstream-module) - Manage Nginx upstream configurations
-- [nginx_proxy](#nginx_proxy-module) - Manage Nginx reverse proxy configurations
-- [nginx_ssl](#nginx_ssl-module) - Manage Nginx SSL/TLS configurations
-- [nginx_location](#nginx_location-module) - Manage Nginx location blocks
-- [nginx_rate_limit](#nginx_rate_limit-module) - Manage Nginx rate limiting
-- [apache_site](#apache_site-module) - Manage Apache sites (enable/disable)
-- [apache_module](#apache_module-module) - Manage Apache modules (enable/disable)
+
+- [nginx_site](#nginx-site-module) - Manage Nginx sites (enable/disable)
+- [nginx_config](#nginx-config-module) - Manage Nginx config snippets
+- [nginx_upstream](#nginx-upstream-module) - Manage Nginx upstream configurations
+- [nginx_proxy](#nginx-proxy-module) - Manage Nginx reverse proxy configurations
+- [nginx_ssl](#nginx-ssl-module) - Manage Nginx SSL/TLS configurations
+- [nginx_location](#nginx-location-module) - Manage Nginx location blocks
+- [nginx_rate_limit](#nginx-rate-limit-module) - Manage Nginx rate limiting
+- [apache_site](#apache-site-module) - Manage Apache sites (enable/disable)
+- [apache_module](#apache-module-module) - Manage Apache modules (enable/disable)
 
 **Version Control Modules**:
+
 - [git](#git-module) - Manage Git repository clones
 - [git_config](#git_config-module) - Manage Git configuration settings
 
 **Certificate Modules**:
+
 - [x509](#x509-module) - Manage X.509 certificates and private keys
 - [ca](#ca-module) - Manage Certificate Authority operations
 - [acme](#acme-module) - Manage ACME/Let's Encrypt certificates
 
 **Language Package Modules**:
+
 - [pip](#pip-module) - Manage Python packages with pip
 - [npm](#npm-module) - Manage Node.js packages with npm
 - [gem](#gem-module) - Manage Ruby gems
 
 **Kubernetes Modules**:
+
 - [k8s_namespace](#k8s_namespace-module) - Manage Kubernetes namespaces
 - [k8s_deployment](#k8s_deployment-module) - Manage Kubernetes deployments
 - [k8s_service](#k8s_service-module) - Manage Kubernetes services
@@ -120,6 +134,7 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [k8s_hpa](#k8s_hpa-module) - Manage Kubernetes horizontal pod autoscalers
 
 **Config File Modules**:
+
 - [logrotate](#logrotate-module) - Manage logrotate configurations
 - [sudoers](#sudoers-module) - Manage sudoers configurations
 - [limits](#limits-module) - Manage PAM limits configurations
@@ -130,6 +145,7 @@ Keystone Core includes 93 built-in state modules for declarative configuration m
 - [archive](#archive-module) - Extract archive files
 
 **Windows Modules**:
+
 - [win_feature](#win_feature-module) - Manage Windows features
 - [win_registry](#win_registry-module) - Manage Windows registry
 - [win_service](#win_service-module) - Manage Windows services
@@ -164,18 +180,22 @@ Manage files, directories, and symlinks.
 #### Common Parameters
 
 **path** (string, required)
+
 - File path
 - Example: `/etc/nginx/nginx.conf`
 
 **owner** (string, optional)
+
 - File owner
 - Example: `root`, `nginx`
 
 **group** (string, optional)
+
 - File group
 - Example: `root`, `www-data`
 
 **mode** (string, optional)
+
 - File permissions (octal)
 - Example: `"0644"`, `"0755"`
 - Note: Use string format with leading zero
@@ -183,9 +203,11 @@ Manage files, directories, and symlinks.
 #### State: present
 
 **contents** (string, optional)
+
 - File contents
 - Mutually exclusive with `source`
 - Example:
+
   ```yaml
   contents: |
     server {
@@ -194,20 +216,24 @@ Manage files, directories, and symlinks.
   ```
 
 **source** (string, optional)
+
 - Source file URL
 - Mutually exclusive with `contents`
 - Schemes: `file://`, `http://`, `https://`
 - Example: `file:///etc/template.conf`
 
 **create** (bool, optional, default: true)
+
 - Create file if it doesn't exist
 - Example: `true`
 
 **replace** (bool, optional, default: true)
+
 - Replace file if contents differ
 - Example: `false` (don't overwrite)
 
 **backup** (bool, optional, default: false)
+
 - Create backup before replacing
 - Backup location: `<path>.backup.<timestamp>`
 - Example: `true`
@@ -215,24 +241,29 @@ Manage files, directories, and symlinks.
 #### State: directory
 
 **makedirs** (bool, optional, default: false)
+
 - Create parent directories
 - Example: `true`
 
 **clean** (bool, optional, default: false)
+
 - Remove unmanaged files from directory
 - Example: `false`
 
 **recurse** (bool, optional, default: false)
+
 - Apply permissions recursively
 - Example: `true`
 
 #### State: symlink
 
 **target** (string, required)
+
 - Symlink target path
 - Example: `/usr/local/bin/app`
 
 **force** (bool, optional, default: false)
+
 - Force creation (remove existing file)
 - Example: `true`
 
@@ -323,32 +354,39 @@ Manage software packages across platforms.
 ### Parameters
 
 **name** (string, required)
+
 - Package name
 - Example: `nginx`, `docker-ce`
 
 **version** (string, optional)
+
 - Specific version
 - Use wildcards for version ranges
 - Example: `1.24.*`, `>=1.20`
 
 **repo** (string, optional)
+
 - Custom repository
 - Platform-specific format
 - Example: `ppa:nginx/stable` (Ubuntu)
 
 **sources** (list, optional)
+
 - Additional package sources
 - Example:
+
   ```yaml
   sources:
     - deb https://repo.example.com/debian stable main
   ```
 
 **update_cache** (bool, optional, default: false)
+
 - Update package cache before install
 - Example: `true`
 
 **refresh** (bool, optional, default: false)
+
 - Refresh package cache
 - Example: `true`
 
@@ -713,22 +751,27 @@ Note: States can be combined (e.g., running + enabled)
 ### Parameters
 
 **name** (string, required)
+
 - Service name
 - Example: `nginx`, `docker`
 
 **enabled** (bool, optional)
+
 - Enable/disable on boot
 - Example: `true`
 
 **reload** (bool, optional, default: false)
+
 - Reload instead of restart on changes
 - Example: `true`
 
 **mask** (bool, optional, default: false)
+
 - Mask service (prevent start)
 - Example: `true`
 
 **unmask** (bool, optional, default: false)
+
 - Unmask service
 - Example: `true`
 
@@ -815,46 +858,57 @@ Manage user accounts.
 ### Parameters
 
 **name** (string, required)
+
 - Username
 - Example: `myapp`, `deploy`
 
 **uid** (int, optional)
+
 - User ID
 - Example: `1001`
 
 **gid** (int, optional)
+
 - Primary group ID
 - Example: `1001`
 
 **groups** (list, optional)
+
 - Additional groups
 - Example: `["docker", "sudo"]`
 
 **home** (string, optional)
+
 - Home directory
 - Example: `/home/myapp`
 
 **shell** (string, optional)
+
 - Login shell
 - Example: `/bin/bash`, `/usr/sbin/nologin`
 
 **password** (string, optional)
+
 - Hashed password
 - Example: `$6$...` (crypt hash)
 
 **system** (bool, optional, default: false)
+
 - Create system user
 - Example: `true`
 
 **create_home** (bool, optional, default: true)
+
 - Create home directory
 - Example: `false`
 
 **remove_home** (bool, optional, default: false)
+
 - Remove home when deleting user
 - Example: `true`
 
 **comment** (string, optional)
+
 - User comment (GECOS field)
 - Example: `"Application User"`
 
@@ -920,22 +974,27 @@ Manage groups.
 ### Parameters
 
 **name** (string, required)
+
 - Group name
 - Example: `developers`, `docker`
 
 **gid** (int, optional)
+
 - Group ID
 - Example: `2000`
 
 **system** (bool, optional, default: false)
+
 - Create system group
 - Example: `true`
 
 **members** (list, optional)
+
 - Group members
 - Example: `["user1", "user2"]`
 
 **append** (bool, optional, default: false)
+
 - Append members (don't replace)
 - Example: `true`
 
@@ -1004,16 +1063,20 @@ Execute commands.
 ### Parameters
 
 **command** (string, required)
+
 - Command to execute
 - Example: `systemctl reload nginx`
 
 **cwd** (string, optional)
+
 - Working directory
 - Example: `/opt/myapp`
 
 **env** (map, optional)
+
 - Environment variables
 - Example:
+
   ```yaml
   env:
     PATH: /usr/local/bin:/usr/bin
@@ -1021,26 +1084,32 @@ Execute commands.
   ```
 
 **timeout** (string, optional, default: 5m)
+
 - Execution timeout
 - Example: `30s`, `5m`
 
 **unless** (string, optional)
+
 - Skip if this command succeeds
 - Example: `test -f /var/lib/app/installed`
 
 **only_if** (string, optional)
+
 - Run only if this command succeeds
 - Example: `systemctl is-active nginx`
 
 **creates** (string, optional)
+
 - Skip if file exists
 - Example: `/var/lib/app/initialized`
 
 **runas** (string, optional)
+
 - Run as specific user
 - Example: `myapp`
 
 **shell** (string, optional)
+
 - Shell to use
 - Example: `bash`, `sh`, `powershell`
 
@@ -1125,68 +1194,82 @@ Configure network interfaces with static IP, DHCP, and advanced settings.
 ### Parameters
 
 **interface** (string, optional)
+
 - Network interface name
 - Defaults to state ID if not specified
 - Example: `eth0`, `enp0s3`, `en0`
 
 **address** (string or list, optional)
+
 - IPv4 address(es) with CIDR notation
 - Required for `configured` state (unless using DHCP)
 - Accepts single address or list for multiple addresses on one interface
 - Example: `192.168.1.100/24` or `["192.168.1.100/24", "192.168.1.101/24"]`
 
 **gateway** (string, optional)
+
 - Default gateway IP address
 - Example: `192.168.1.1`
 
 **dns** (string or list, optional)
+
 - DNS server(s)
 - Comma-separated string or list of strings
 - Example: `8.8.8.8,8.8.4.4` or `["1.1.1.1", "1.0.0.1"]`
 
 **mtu** (int, optional)
+
 - Maximum Transmission Unit
 - Example: `1500`, `9000` (jumbo frames)
 
 **metric** (int, optional)
+
 - Route metric for the interface
 - Example: `100`
 
 **search_domains** (string or list, optional)
+
 - DNS search domains
 - Example: `example.com,corp.example.com`
 
 **dhcp** (bool, optional)
+
 - Enable DHCP for IPv4 (alternative to static configuration)
 - Example: `true`
 
 #### IPv6 Parameters
 
 **address6** (string or list, optional)
+
 - IPv6 address(es) with prefix length
 - Accepts single address or list for multiple addresses on one interface
 - Example: `2001:db8::1/64` or `["2001:db8::1/64", "2001:db8::2/64"]`
 
 **gateway6** (string, optional)
+
 - IPv6 default gateway address
 - Example: `2001:db8::ffff`
 
 **dhcp6** (bool, optional)
+
 - Enable DHCPv6 for IPv6 address assignment
 - When `true`, uses DHCPv6 for stateful configuration
 - Example: `true`
 
 **ipv6_enabled** (bool, optional)
+
 - Enable IPv6 on the interface
 - Automatically set to `true` when `address6`, `gateway6`, or `dhcp6` is specified
 - Example: `true`
 
 **ipv6_privacy** (bool, optional)
+
 - Enable IPv6 privacy extensions (RFC 4941)
 - Generates temporary addresses for outgoing connections
 - Example: `true`
 
 **accept_ra** (bool, optional)
+
 - Accept IPv6 Router Advertisements
 - When `nil` (not specified), uses system default
 - Set to `true` for SLAAC, `false` for purely static configuration
@@ -1195,12 +1278,14 @@ Configure network interfaces with static IP, DHCP, and advanced settings.
 #### Link-Layer Parameters
 
 **mac_address** (string, optional)
+
 - Override the interface MAC address
 - Format: `xx:xx:xx:xx:xx:xx`
 - Note: Not supported on Windows
 - Example: `02:42:ac:11:00:02`
 
 **wol** (string, optional)
+
 - Wake-on-LAN mode
 - Values: `magic`, `unicast`, `multicast`, `broadcast`, `arp`, `off`
 - Also accepts ethtool flags: `g`, `u`, `m`, `b`, `a`, `d`
@@ -1390,15 +1475,18 @@ changes:
 The module automatically detects the available network manager:
 
 **Linux:**
+
 1. NetworkManager - if `nmcli` is available
 2. netplan - if `/etc/netplan/` exists
 3. systemd-networkd - if active
 4. ifupdown - if `/etc/network/interfaces` exists
 
 **macOS:**
+
 - Uses `networksetup` command
 
 **Windows:**
+
 - Uses `netsh` command
 
 ### Idempotency
@@ -1429,27 +1517,33 @@ Create and manage VLAN sub-interfaces.
 ### Parameters
 
 **parent** (string, required)
+
 - Parent interface for the VLAN
 - Example: `eth0`, `enp0s3`
 
 **id** (int, required)
+
 - VLAN ID (1-4094)
 - Also accepts `vlan_id` as parameter name
 - Example: `100`, `200`
 
 **addresses** (string or list, optional)
+
 - IP address(es) for the VLAN interface
 - Example: `["192.168.100.1/24"]`
 
 **gateway** (string, optional)
+
 - Default gateway for the VLAN
 - Example: `192.168.100.254`
 
 **dns** (string or list, optional)
+
 - DNS servers
 - Example: `["8.8.8.8"]`
 
 **mtu** (int, optional)
+
 - MTU (inherits from parent if not set)
 - Example: `1500`
 
@@ -1503,17 +1597,20 @@ Manage wireless network connections and profiles.
 ### Parameters
 
 **ssid** (string, required)
+
 - WiFi network name
 - Maximum 32 characters
 - Example: `"Office WiFi"`
 
 **security** (string, optional)
+
 - Security mode: `wpa2-psk`, `wpa3`, `wep`, `open`
 - Aliases: `wpa2` → `wpa2-psk`, `none` → `open`
 - Default: `wpa2-psk`
 - Example: `"wpa2-psk"`
 
 **password** (string, conditional)
+
 - WiFi password
 - Required for `wpa2-psk`, `wpa3`, and `wep` security modes
 - WPA: 8-63 characters
@@ -1521,31 +1618,37 @@ Manage wireless network connections and profiles.
 - Example: `"{{ vault.wifi_password }}"`
 
 **interface** (string, optional)
+
 - WiFi interface name
 - Default: auto-detected or `wlan0` (Linux), `en0` (macOS), `Wi-Fi` (Windows)
 - Example: `"wlan0"`
 
 **priority** (int, optional)
+
 - Network priority for auto-connection (0-100)
 - Higher values = higher priority
 - Default: `0`
 - Example: `100`
 
 **hidden** (bool, optional)
+
 - Whether the network SSID is hidden
 - Default: `false`
 - Example: `true`
 
 **auto_connect** (bool, optional)
+
 - Whether to auto-connect to this network
 - Default: `true`
 - Example: `false`
 
 **bssid** (string, optional)
+
 - Specific access point BSSID/MAC address
 - Example: `"00:11:22:33:44:55"`
 
 **name** (string, optional)
+
 - Connection/profile name (defaults to SSID)
 - Example: `"Work Network"`
 
@@ -1630,50 +1733,60 @@ Configure 802.1X authentication for wired and wireless network access control.
 ### Parameters
 
 **interface** (string, required)
+
 - Network interface for 802.1X authentication
 - Example: `"eth0"`, `"en0"`
 
 **eap_method** (string, required for enabled state)
+
 - EAP authentication method: `tls`, `ttls`, `peap`
 - Alias: `eap`
 - Example: `"tls"`
 
 **identity** (string, required for enabled state)
+
 - User identity/username for authentication
 - Example: `"user@example.com"`
 
 **password** (string, conditional)
+
 - Password for EAP-TTLS and EAP-PEAP methods
 - Required when `eap_method` is `ttls` or `peap`
 - Example: `"{{ vault.radius_password }}"`
 
 **client_cert** (string, conditional)
+
 - Path to client certificate for EAP-TLS
 - Required when `eap_method` is `tls`
 - Example: `"/etc/pki/client.crt"`
 
 **client_key** (string, conditional)
+
 - Path to client private key for EAP-TLS
 - Required when `eap_method` is `tls`
 - Example: `"/etc/pki/client.key"`
 
 **ca_cert** (string, optional)
+
 - Path to CA certificate for server validation
 - Recommended for all methods
 - Example: `"/etc/pki/ca.crt"`
 
 **phase2** (string, optional)
+
 - Inner authentication method for TTLS/PEAP: `mschapv2`, `pap`, `chap`, `md5`, `gtc`
 - Alias: `inner_auth`
 - Default: `mschapv2`
 - Example: `"mschapv2"`
 
 **anonymous** (string, optional)
+
 - Anonymous identity for outer authentication (privacy)
 - Alias: `anonymous_identity`
 - Example: `"anonymous@example.com"`
 
 **name** (string, optional)
+
 - Connection/profile name (defaults to `dot1x-<interface>`)
 - Example: `"corporate-auth"`
 
@@ -1754,27 +1867,33 @@ Configure network interface link settings including speed, duplex, auto-negotiat
 ### Parameters
 
 **interface** (string, required)
+
 - Network interface name (can use declaration ID)
 - Example: `"eth0"`, `"enp0s3"`
 
 **speed** (int, optional)
+
 - Link speed in Mbps: 10, 100, 1000, 2500, 5000, 10000, 25000, 40000, 100000
 - Example: `1000`
 
 **duplex** (string, optional)
+
 - Duplex mode: `full`, `half`
 - Example: `"full"`
 
 **autoneg** (bool, optional)
+
 - Enable/disable auto-negotiation
 - Alias: `auto_negotiation`
 - Example: `false`
 
 **mtu** (int, optional)
+
 - Maximum Transmission Unit (68-65535)
 - Example: `9000` (jumbo frames)
 
 **wol** (string, optional)
+
 - Wake-on-LAN mode: `disabled`, `magic`, `unicast`, `multicast`, `broadcast`, `arp`
 - Alias: `wake_on_lan`
 - Example: `"magic"`
@@ -1868,10 +1987,12 @@ Enable or disable promiscuous mode on network interfaces for packet capture, bri
 ### Parameters
 
 **interface** (string, required)
+
 - Network interface name (can use declaration ID)
 - Example: `"eth0"`, `"enp0s3"`
 
 **allmulti** (bool, optional, Linux only)
+
 - Also enable/disable all-multicast mode
 - Alias: `all_multicast`
 - Default: `false`
@@ -1948,55 +2069,67 @@ Create and manage network bonding/teaming for link aggregation.
 ### Parameters
 
 **slaves** (list, required)
+
 - Slave/member interfaces
 - Minimum 1 interface required
 - Example: `["eth0", "eth1"]`
 
 **mode** (string, required)
+
 - Bonding mode
 - Values: `balance-rr` (0), `active-backup` (1), `balance-xor` (2), `broadcast` (3), `802.3ad` (4), `balance-tlb` (5), `balance-alb` (6)
 - Example: `active-backup`, `802.3ad`
 
 **miimon** (int, optional)
+
 - MII link monitoring interval in milliseconds
 - Default: `100`
 - Example: `50`
 
 **primary** (string, optional)
+
 - Primary interface for active-backup mode
 - Example: `eth0`
 
 **lacp_rate** (string, optional)
+
 - LACP rate for 802.3ad mode
 - Values: `slow`, `fast`
 - Example: `fast`
 
 **xmit_hash_policy** (string, optional)
+
 - Transmit hash policy
 - Values: `layer2`, `layer2+3`, `layer3+4`
 - Example: `layer3+4`
 
 **updelay** (int, optional)
+
 - Delay before enabling slave (ms)
 - Example: `200`
 
 **downdelay** (int, optional)
+
 - Delay before disabling slave (ms)
 - Example: `200`
 
 **addresses** (string or list, optional)
+
 - IP address(es) for the bond interface
 - Example: `["10.0.0.1/24"]`
 
 **gateway** (string, optional)
+
 - Default gateway
 - Example: `10.0.0.254`
 
 **dns** (string or list, optional)
+
 - DNS servers
 - Example: `["8.8.8.8"]`
 
 **mtu** (int, optional)
+
 - MTU for the bond interface
 - Example: `9000`
 
@@ -2057,48 +2190,58 @@ Create and manage network bridges for virtualization and container networking.
 ### Parameters
 
 **ports** (list, optional)
+
 - Port/member interfaces
 - Also accepts `interfaces` as parameter name
 - Example: `["eth0", "eth1"]`
 
 **stp** (bool, optional)
+
 - Enable Spanning Tree Protocol
 - Default: `false`
 - Example: `true`
 
 **forward_delay** (int, optional)
+
 - STP forward delay in seconds
 - Default: `15`
 - Example: `4`
 
 **hello_time** (int, optional)
+
 - STP hello time in seconds
 - Default: `2`
 - Example: `1`
 
 **max_age** (int, optional)
+
 - STP max age in seconds
 - Default: `20`
 - Example: `10`
 
 **ageing_time** (int, optional)
+
 - MAC address ageing time in seconds
 - Default: `300`
 - Example: `600`
 
 **addresses** (string or list, optional)
+
 - IP address(es) for the bridge interface
 - Example: `["192.168.1.1/24"]`
 
 **gateway** (string, optional)
+
 - Default gateway
 - Example: `192.168.1.254`
 
 **dns** (string or list, optional)
+
 - DNS servers
 - Example: `["8.8.8.8"]`
 
 **mtu** (int, optional)
+
 - MTU for the bridge interface
 - Example: `1500`
 
@@ -2165,27 +2308,32 @@ Manage static routes across platforms.
 ### Parameters
 
 **destination** (string, optional)
+
 - Destination network in CIDR notation
 - Defaults to state ID if not specified
 - Special values: `default`, `0.0.0.0/0`
 - Example: `10.0.0.0/8`, `192.168.100.0/24`
 
 **gateway** (string, required*)
+
 - Gateway IP address for the route
 - Required unless `interface` is specified
 - Example: `192.168.1.1`
 
 **interface** (string, required*)
+
 - Network interface for the route
 - Required unless `gateway` is specified
 - Example: `eth0`, `en0`
 
 **metric** (int, optional)
+
 - Route metric/priority
 - Lower values = higher priority
 - Example: `100`
 
 **table** (string, optional, Linux only)
+
 - Routing table name
 - Example: `main`, `custom`
 
@@ -2341,58 +2489,71 @@ The module automatically detects the available backend and uses the appropriate 
 ### Parameters
 
 **protocol** (string, optional)
+
 - Network protocol for the rule
 - Values: `tcp`, `udp`, `icmp`, `all`
 - Default: `tcp`
 
 **port** (int, optional)
+
 - Single port number
 - Range: 1-65535
 - Example: `80`, `443`, `22`
 
 **port_range** (string, optional)
+
 - Port range in format `start:end`
 - Example: `8000:8080`
 
 **source** (string, optional)
+
 - Source IP address or CIDR
 - Example: `192.168.1.0/24`, `10.0.0.1`
 
 **destination** (string, optional)
+
 - Destination IP address or CIDR
 - Example: `0.0.0.0/0`
 
 **interface** (string, optional)
+
 - Network interface
 - Example: `eth0`, `enp0s3`
 
 **action** (string, required)
+
 - Action to take on matching traffic
 - Values: `accept`, `drop`, `reject`
 
 **direction** (string, optional)
+
 - Traffic direction
 - Values: `input`, `output`, `forward`
 - Default: `input`
 
 **zone** (string, optional)
+
 - Firewalld zone (Linux with firewalld only)
 - Default: `public`
 
 **chain** (string, optional)
+
 - iptables/nftables chain
 - Default: Derived from direction
 
 **table** (string, optional)
+
 - iptables/nftables table
 - Default: `filter`
 
 **profile** (string, optional)
+
 - Windows Firewall profile
 - Values: `domain`, `private`, `public`, `any`
 - Default: `any`
 
 **comment** (string, optional)
+
 - Rule description/comment
 - Used for identification and documentation
 
@@ -2471,26 +2632,31 @@ remove_old_rule:
 ### Platform-Specific Behavior
 
 #### Linux (iptables)
+
 - Rules inserted at top of chain for immediate effect
 - Uses `-C` to check rule existence
 - Supports custom chains and tables
 
 #### Linux (nftables)
+
 - Creates table/chain if not exists
 - Rules identified by content matching
 - Supports inet family for IPv4/IPv6
 
 #### Linux (firewalld)
+
 - Uses zone-based configuration
 - Rich rules for complex matching
 - Changes are permanent by default
 
 #### macOS (pf)
+
 - Rules added to keystone anchor
 - Requires `pfctl -e` to enable
 - Uses anchor isolation for safety
 
 #### Windows
+
 - Uses netsh advfirewall
 - Supports profile-based rules
 - Rule names derived from comment
@@ -2526,75 +2692,92 @@ Direct iptables management for Linux systems with full control over tables, chai
 ### Parameters
 
 **table** (string, optional)
+
 - iptables table
 - Values: `filter`, `nat`, `mangle`, `raw`, `security`
 - Default: `filter`
 
 **chain** (string, required)
+
 - Chain name
 - Built-in: `INPUT`, `OUTPUT`, `FORWARD`, `PREROUTING`, `POSTROUTING`
 - Or custom chain name
 
 **protocol** (string, optional)
+
 - Protocol to match
 - Values: `tcp`, `udp`, `icmp`, `all`
 - Example: `tcp`
 
 **source** (string, optional)
+
 - Source IP/CIDR
 - Example: `192.168.1.0/24`
 
 **destination** (string, optional)
+
 - Destination IP/CIDR
 - Example: `10.0.0.0/8`
 
 **source_port** (string, optional)
+
 - Source port or range
 - Example: `1024:65535`
 
 **destination_port** (string, optional)
+
 - Destination port or range
 - Example: `80`, `8000:8080`
 
 **interface_in** (string, optional)
+
 - Input interface
 - Example: `eth0`
 
 **interface_out** (string, optional)
+
 - Output interface
 - Example: `eth1`
 
 **jump** (string, required for present/absent)
+
 - Target action
 - Values: `ACCEPT`, `DROP`, `REJECT`, `LOG`, `RETURN`, or custom chain
 - Example: `ACCEPT`
 
 **match** (list, optional)
+
 - Extended match modules
 - Example: `["state", "multiport"]`
 
 **match_state** (string, optional)
+
 - Connection state for state match
 - Values: `NEW`, `ESTABLISHED`, `RELATED`, `INVALID`
 - Example: `NEW,ESTABLISHED`
 
 **log_prefix** (string, optional)
+
 - Prefix for LOG target
 - Example: `"DROPPED: "`
 
 **reject_with** (string, optional)
+
 - ICMP type for REJECT target
 - Example: `icmp-port-unreachable`
 
 **position** (int, optional)
+
 - Rule position in chain (1-based)
 - Default: append to end
 
 **policy** (string, required for policy state)
+
 - Default policy for chain
 - Values: `ACCEPT`, `DROP`
 
 **comment** (string, optional)
+
 - Rule comment (requires comment match module)
 
 ### Requirements
@@ -2724,81 +2907,101 @@ Modern nftables firewall management for Linux with atomic rule updates.
 ### Parameters
 
 **family** (string, optional)
+
 - Address family
 - Values: `ip` (IPv4), `ip6` (IPv6), `inet` (both), `arp`, `bridge`, `netdev`
 - Default: `inet`
 
 **table** (string, required)
+
 - Table name
 - Example: `filter`, `nat`, `mangle`
 
 **chain** (string, required)
+
 - Chain name
 - Example: `input`, `output`, `forward`
 
 **chain_type** (string, optional)
+
 - Chain type (for base chains)
 - Values: `filter`, `nat`, `route`
 - Default: `filter`
 
 **chain_hook** (string, optional)
+
 - Netfilter hook (for base chains)
 - Values: `input`, `output`, `forward`, `prerouting`, `postrouting`
 
 **chain_priority** (int, optional)
+
 - Chain priority
 - Default: `0`
 
 **chain_policy** (string, optional)
+
 - Default chain policy
 - Values: `accept`, `drop`
 - Default: `accept`
 
 **protocol** (string, optional)
+
 - Protocol to match
 - Example: `tcp`, `udp`, `icmp`
 
 **source** (string, optional)
+
 - Source address
 - Example: `192.168.1.0/24`
 
 **destination** (string, optional)
+
 - Destination address
 - Example: `10.0.0.0/8`
 
 **source_port** (int, optional)
+
 - Source port
 
 **destination_port** (int, optional)
+
 - Destination port
 - Example: `443`
 
 **interface_in** (string, optional)
+
 - Input interface
 - Example: `eth0`
 
 **interface_out** (string, optional)
+
 - Output interface
 
 **counter** (bool, optional)
+
 - Enable packet/byte counters
 - Default: `false`
 
 **action** (string, required)
+
 - Rule action
 - Values: `accept`, `drop`, `reject`, `return`, `jump`, `goto`
 
 **jump_target** (string, optional)
+
 - Target chain for jump/goto actions
 
 **log** (bool, optional)
+
 - Log matching packets
 - Default: `false`
 
 **log_prefix** (string, optional)
+
 - Log message prefix
 
 **comment** (string, optional)
+
 - Rule comment
 
 ### Requirements
@@ -2933,54 +3136,66 @@ Zone-based firewall management for Linux systems using firewalld.
 ### Parameters
 
 **zone** (string, optional)
+
 - Firewalld zone
 - Common zones: `public`, `internal`, `external`, `dmz`, `trusted`, `drop`
 - Default: `public`
 
 **service** (string, optional)
+
 - Predefined service name
 - Example: `ssh`, `http`, `https`, `mysql`, `postgresql`
 - List available: `firewall-cmd --get-services`
 
 **port** (int, optional)
+
 - Port number
 - Range: 1-65535
 
 **protocol** (string, optional)
+
 - Protocol for port rules
 - Values: `tcp`, `udp`
 - Default: `tcp`
 
 **source** (string, optional)
+
 - Source IP/CIDR to add to zone
 - Example: `192.168.1.0/24`
 
 **interface** (string, optional)
+
 - Interface to add to zone
 - Example: `eth0`
 
 **rich_rule** (string, optional)
+
 - Rich rule specification
 - Full firewalld rich language syntax
 - Example: `rule family="ipv4" source address="10.0.0.0/8" accept`
 
 **masquerade** (bool, optional)
+
 - Enable/disable masquerading for zone
 - Default: `false`
 
 **icmp_block** (string, optional)
+
 - ICMP type to block
 - Example: `echo-request`
 
 **forward_port** (map, optional)
+
 - Port forwarding configuration
 - Keys: `port`, `protocol`, `to_port`, `to_addr`
 
 **permanent** (bool, optional)
+
 - Make changes permanent (survive reboot)
 - Default: `true`
 
 **immediate** (bool, optional)
+
 - Apply changes to runtime immediately
 - Default: `true`
 
@@ -3111,6 +3326,7 @@ remove_telnet:
 ### Runtime vs Permanent
 
 With default settings (`permanent: true`, `immediate: true`):
+
 - Changes saved to permanent configuration
 - Changes also applied to current runtime
 - Survives firewalld restart and reboot
@@ -3243,9 +3459,11 @@ Manage Kubernetes namespaces declaratively.
 ### Parameters
 
 **labels** (map, optional)
+
 - Labels to apply to namespace
 - Merged with existing labels (doesn't remove unspecified labels)
 - Example:
+
   ```yaml
   labels:
     environment: production
@@ -3253,9 +3471,11 @@ Manage Kubernetes namespaces declaratively.
   ```
 
 **annotations** (map, optional)
+
 - Annotations to apply to namespace
 - Merged with existing annotations
 - Example:
+
   ```yaml
   annotations:
     description: "Production workloads"
@@ -3357,34 +3577,42 @@ Manage Kubernetes deployments declaratively with full CRUD support.
 ### Parameters
 
 **namespace** (string, optional, default: "default")
+
 - Target namespace for the deployment
 - Example: `production`
 
 **replicas** (int, optional, default: 1)
+
 - Number of desired replicas
 - Example: `3`
 
 **image** (string, required for creation)
+
 - Container image to deploy
 - Example: `nginx:latest`, `myregistry.io/myapp:v1.2.3`
 
 **container_port** (int, optional)
+
 - Port the container listens on
 - Example: `80`, `8080`
 
 **selector** (map, optional)
+
 - Pod selector labels for the deployment
 - Must match pod template labels
 - Example:
+
   ```yaml
   selector:
     app: nginx
   ```
 
 **labels** (map, optional)
+
 - Labels to apply to deployment
 - Merged with existing labels on update
 - Example:
+
   ```yaml
   labels:
     app: myapp
@@ -3392,9 +3620,11 @@ Manage Kubernetes deployments declaratively with full CRUD support.
   ```
 
 **annotations** (map, optional)
+
 - Annotations to apply to deployment
 - Merged with existing annotations on update
 - Example:
+
   ```yaml
   annotations:
     kubernetes.io/change-cause: "Updated via Keystone"
@@ -3524,18 +3754,22 @@ Manage Kubernetes services.
 ### Parameters
 
 **name** (string, required)
+
 - Service name (from state ID)
 
 **namespace** (string, optional)
+
 - Kubernetes namespace
 - Default: `"default"`
 
 **type** (string, optional)
+
 - Service type
 - Values: `ClusterIP`, `NodePort`, `LoadBalancer`, `ExternalName`
 - Default: `"ClusterIP"`
 
 **ports** (list, required for create)
+
 - List of service ports
 - Each port object contains:
   - **name** (string, optional): Port name (required if multiple ports)
@@ -3545,16 +3779,20 @@ Manage Kubernetes services.
   - **node_port** (int, optional): NodePort for NodePort/LoadBalancer services
 
 **selector** (map, optional)
+
 - Label selector for targeting pods
 - Example: `{app: nginx, tier: frontend}`
 
 **labels** (map, optional)
+
 - Labels to apply to the service
 
 **annotations** (map, optional)
+
 - Annotations to apply to the service
 
 **cluster_ip** (string, optional)
+
 - Cluster IP address
 - Use `"None"` for headless services
 
@@ -3744,16 +3982,20 @@ Manage Kubernetes configmaps.
 ### Parameters
 
 **name** (string, required)
+
 - ConfigMap name (from state ID)
 
 **namespace** (string, optional)
+
 - Kubernetes namespace
 - Default: `"default"`
 
 **data** (map, optional)
+
 - Key-value data pairs
 - Values must be strings
 - Example:
+
   ```yaml
   data:
     config.yaml: |
@@ -3763,17 +4005,21 @@ Manage Kubernetes configmaps.
   ```
 
 **binary_data** (map, optional)
+
 - Binary data (base64 encoded in YAML)
 - Example:
+
   ```yaml
   binary_data:
     cert.pem: LS0tLS1CRUdJTi...
   ```
 
 **labels** (map, optional)
+
 - Labels to apply to the configmap
 
 **annotations** (map, optional)
+
 - Annotations to apply to the configmap
 
 ### Platform Compatibility
@@ -3940,29 +4186,36 @@ Manage Kubernetes secrets for storing sensitive data.
 ### Parameters
 
 **name** (string, required)
+
 - Secret name (from state ID)
 
 **namespace** (string, optional)
+
 - Kubernetes namespace
 - Default: `"default"`
 
 **type** (string, optional)
+
 - Secret type
 - Values: `Opaque`, `kubernetes.io/tls`, `kubernetes.io/dockerconfigjson`, `kubernetes.io/basic-auth`, `kubernetes.io/ssh-auth`, `kubernetes.io/service-account-token`
 - Default: `"Opaque"`
 
 **data** (map, optional)
+
 - Binary data (base64 encoded values or raw bytes)
 - Example:
+
   ```yaml
   data:
     cert.pem: LS0tLS1CRUdJTi...
   ```
 
 **string_data** (map, optional)
+
 - String data (automatically converted to bytes)
 - More convenient than `data` for string values
 - Example:
+
   ```yaml
   string_data:
     username: admin
@@ -3970,9 +4223,11 @@ Manage Kubernetes secrets for storing sensitive data.
   ```
 
 **labels** (map, optional)
+
 - Labels to apply to the secret
 
 **annotations** (map, optional)
+
 - Annotations to apply to the secret
 
 ### Platform Compatibility
@@ -4176,17 +4431,21 @@ Manage Kubernetes ingress resources for HTTP/HTTPS routing.
 ### Parameters
 
 **name** (string, required)
+
 - Ingress name (from state ID)
 
 **namespace** (string, optional)
+
 - Kubernetes namespace
 - Default: `"default"`
 
 **ingress_class** (string, optional)
+
 - IngressClass to use (e.g., `nginx`, `traefik`, `haproxy`)
 - Maps to `spec.ingressClassName`
 
 **rules** (list, optional)
+
 - List of host-based routing rules
 - Each rule contains:
   - `host` (string): Fully qualified domain name
@@ -4198,21 +4457,25 @@ Manage Kubernetes ingress resources for HTTP/HTTPS routing.
       - `port` (int): Backend service port
 
 **tls** (list, optional)
+
 - TLS configuration for HTTPS
 - Each entry contains:
   - `hosts` (list): Hostnames covered by the TLS certificate
   - `secret_name` (string): Name of secret containing TLS certificate
 
 **default_backend** (map, optional)
+
 - Default backend for requests not matching any rule
 - Contains:
   - `service` (string): Service name
   - `port` (int): Service port
 
 **labels** (map, optional)
+
 - Labels to apply to the ingress
 
 **annotations** (map, optional)
+
 - Annotations to apply to the ingress
 - Common annotations for ingress controllers:
   - `nginx.ingress.kubernetes.io/rewrite-target`
@@ -5046,6 +5309,7 @@ The Check operation returns the following metadata:
 ```
 
 Common examples:
+
 - `0 * * * *` - Every hour
 - `0 0 * * *` - Daily at midnight
 - `0 2 * * *` - Daily at 2 AM
@@ -5389,6 +5653,7 @@ The k8s_hpa module is fully idempotent:
 ### Scaling Behavior
 
 The HPA controller:
+
 1. Periodically (default: 15s) fetches metrics for target pods
 2. Calculates desired replica count based on current vs target utilization
 3. Scales up/down within min/max bounds
@@ -5420,45 +5685,54 @@ Linux only. Uses the system crontab or per-user crontabs.
 ### Parameters
 
 **command** (string, required)
+
 - Command to execute
 - Example: `/usr/local/bin/backup.sh`
 
 **minute** (string, optional)
+
 - Minute field (0-59, `*`, or special)
 - Default: `*`
 - Example: `0`, `*/15`, `30`
 
 **hour** (string, optional)
+
 - Hour field (0-23, `*`, or special)
 - Default: `*`
 - Example: `2`, `*/6`, `9-17`
 
 **day** (string, optional)
+
 - Day of month field (1-31, `*`, or special)
 - Default: `*`
 - Example: `1`, `15`, `*/2`
 
 **month** (string, optional)
+
 - Month field (1-12, `*`, or special)
 - Default: `*`
 - Example: `1`, `6,12`, `*/3`
 
 **weekday** (string, optional)
+
 - Day of week field (0-7, `*`, or special; 0 and 7 are Sunday)
 - Default: `*`
 - Example: `1-5`, `0`, `SAT`
 
 **special** (string, optional)
+
 - Special schedule string instead of 5-field specification
 - Options: `@reboot`, `@yearly`, `@annually`, `@monthly`, `@weekly`, `@daily`, `@midnight`, `@hourly`
 - Mutually exclusive with minute/hour/day/month/weekday
 
 **user** (string, optional)
+
 - User to run the cron job as
 - Default: root (for system crontab)
 - Example: `www-data`, `nobody`
 
 **disabled** (bool, optional)
+
 - Comment out the cron entry (keep but don't run)
 - Default: false
 
@@ -5532,61 +5806,76 @@ Linux with systemd. Creates both timer and service unit files.
 ### Parameters
 
 **command** (string, required)
+
 - Command to execute when timer fires
 - Example: `/usr/local/bin/backup.sh`
 
 **description** (string, optional)
+
 - Description for both timer and service units
 - Default: "Keystone Core managed timer: {id}"
 
 **on_calendar** (string, optional)
+
 - Calendar expression for when to run
 - Format: OnCalendar from systemd.time(7)
 - Examples: `daily`, `weekly`, `*-*-* 02:00:00`, `Mon..Fri 09:00`
 
 **on_boot_sec** (string, optional)
+
 - Time after boot to first run
 - Format: timespan (e.g., `5min`, `1h`, `30s`)
 
 **on_unit_active_sec** (string, optional)
+
 - Time after last activation to run again
 - Format: timespan
 
 **on_unit_inactive_sec** (string, optional)
+
 - Time after last deactivation to run again
 - Format: timespan
 
 **on_startup_sec** (string, optional)
+
 - Time after systemd startup to first run
 - Format: timespan
 
 **accuracy_sec** (string, optional)
+
 - Timer accuracy/coalescing window
 - Default: `1min`
 
 **randomized_delay_sec** (string, optional)
+
 - Random delay added to timer
 - Default: `0`
 
 **persistent** (bool, optional)
+
 - If true, trigger immediately if a run was missed
 - Default: false
 
 **wake_system** (bool, optional)
+
 - Wake system from suspend to run timer
 - Default: false
 
 **user** (string, optional)
+
 - User to run the service as
 - Default: root
 
 **group** (string, optional)
+
 - Group to run the service as
 
 **working_directory** (string, optional)
+
 - Working directory for the command
 
 **environment** (map[string]string, optional)
+
 - Environment variables for the service
 
 ### Examples
@@ -5656,66 +5945,83 @@ macOS only. Creates plist files in `/Library/LaunchDaemons` or `/Library/LaunchA
 ### Parameters
 
 **label** (string, optional)
+
 - Job label (bundle identifier style)
 - Default: Uses state ID
 - Example: `com.example.backup`
 
 **program** (string, optional)
+
 - Program to execute
 - Example: `/usr/local/bin/backup.sh`
 - Either `program` or `program_arguments` is required
 
 **program_arguments** ([]string, optional)
+
 - Program and arguments as array
 - Example: `["/usr/bin/python3", "/opt/scripts/task.py", "--verbose"]`
 
 **run_at_load** (bool, optional)
+
 - Run job immediately when loaded
 - Default: false
 
 **start_interval** (int, optional)
+
 - Interval in seconds between runs
 - Example: `3600` (hourly)
 
 **start_calendar_interval** (map, optional)
+
 - Calendar-based scheduling
 - Keys: `Month`, `Day`, `Weekday`, `Hour`, `Minute`
 - Weekday: 0=Sunday, 6=Saturday
 
 **watch_paths** ([]string, optional)
+
 - Paths to watch for changes
 - Job runs when any watched path changes
 
 **queue_directories** ([]string, optional)
+
 - Directories to watch for new files
 - Job runs when files appear in directories
 
 **keep_alive** (bool, optional)
+
 - Keep job running continuously
 - Default: false
 
 **working_directory** (string, optional)
+
 - Working directory for the job
 
 **standard_out_path** (string, optional)
+
 - Path for stdout log
 
 **standard_error_path** (string, optional)
+
 - Path for stderr log
 
 **environment_variables** (map[string]string, optional)
+
 - Environment variables for the job
 
 **user** (string, optional)
+
 - User to run the job as
 
 **group** (string, optional)
+
 - Group to run the job as
 
 **nice** (int, optional)
+
 - Nice value (-20 to 20)
 
 **launch_agents** (bool, optional)
+
 - Install in LaunchAgents instead of LaunchDaemons
 - Default: false (installs in LaunchDaemons)
 
@@ -5795,79 +6101,99 @@ Windows only. Uses schtasks.exe command.
 ### Parameters
 
 **task_path** (string, optional)
+
 - Task folder path
 - Default: `\`
 - Example: `\MyCompany\Backup`
 
 **execute** (string, required)
+
 - Program to execute
 - Alias: `command`
 - Example: `C:\Scripts\backup.ps1`
 
 **arguments** (string, optional)
+
 - Arguments to pass to the program
 
 **start_in** (string, optional)
+
 - Working directory
 
 **description** (string, optional)
+
 - Task description
 
 **enabled** (bool, optional)
+
 - Whether task is enabled
 - Default: true
 
 **trigger_type** (string, required)
+
 - When to run the task
 - Options: `once`, `daily`, `weekly`, `monthly`, `at_logon`, `at_startup`, `on_idle`
 
 **start_time** (string, optional)
+
 - Start time in HH:MM or HH:MM:SS format
 - Example: `02:00`, `14:30:00`
 
 **start_date** (string, optional)
+
 - Start date in MM/DD/YYYY format
 
 **days_interval** (int, optional)
+
 - For `daily`: days between runs
 - Default: 1
 
 **weeks_interval** (int, optional)
+
 - For `weekly`: weeks between runs
 - Default: 1
 
 **days_of_week** ([]string, optional)
+
 - For `weekly`: days to run
 - Options: `SUN`, `MON`, `TUE`, `WED`, `THU`, `FRI`, `SAT`
 
 **months_of_year** ([]string, optional)
+
 - For `monthly`: months to run
 - Options: `JAN`, `FEB`, `MAR`, `APR`, `MAY`, `JUN`, `JUL`, `AUG`, `SEP`, `OCT`, `NOV`, `DEC`
 
 **days_of_month** ([]int, optional)
+
 - For `monthly`: days to run (1-31)
 
 **repeat_interval** (string, optional)
+
 - How often to repeat within duration
 - Example: `1 hour`, `30 minutes`
 
 **repeat_duration** (string, optional)
+
 - How long to repeat
 - Example: `8 hours`, `1 day`, `indefinitely`
 
 **delay** (string, optional)
+
 - Delay after trigger before running
 - Example: `30 seconds`, `5 minutes`
 
 **run_level** (string, optional)
+
 - Privilege level
 - Options: `limited`, `highest`
 - Default: `limited`
 
 **user** (string, optional)
+
 - User account to run as
 
 **run_only_if_logged_on** (bool, optional)
+
 - Only run if user is logged on
 - Default: false
 
@@ -5959,29 +6285,35 @@ Linux and macOS. Requires the `at` daemon (atd) to be running.
 ### Parameters
 
 **command** (string, required)
+
 - Command to execute
 - Example: `/usr/local/bin/one_time_task.sh`
 
 **time** (string, required)
+
 - When to run the job
 - Formats: `HH:MM`, `midnight`, `noon`, `now + 1 hour`, `teatime`
 - Examples: `10:00`, `now + 30 minutes`, `2:00 AM`
 
 **date** (string, optional)
+
 - Date for the job
 - Formats: `tomorrow`, `next week`, `YYYY-MM-DD`
 - Examples: `tomorrow`, `next monday`, `2025-12-25`
 
 **queue** (string, optional)
+
 - Job queue (a-z or A-Z)
 - Default: uses default queue
 - Higher letters run with higher nice values
 
 **send_mail** (bool, optional)
+
 - Send mail even if no output
 - Default: false
 
 **no_mail** (bool, optional)
+
 - Never send mail
 - Default: false
 
@@ -6063,42 +6395,53 @@ Manages filesystem mount points across platforms.
 ### Parameters
 
 **path** (string, required)
+
 - Mount point path (e.g., `/mnt/data`)
 
 **device** (string, required)
+
 - Device to mount (e.g., `/dev/sda1`, `UUID=...`, `LABEL=...`)
 
 **fstype** (string, optional)
+
 - Filesystem type (ext4, xfs, nfs, etc.)
 - Auto-detected if not specified
 
 **options** (list, optional)
+
 - Mount options (e.g., `["defaults", "noatime"]`)
 - Default: `["defaults"]`
 
 **dump** (integer, optional)
+
 - Dump frequency (0 or 1)
 - Default: `0`
 
 **pass** (integer, optional)
+
 - fsck pass number (0, 1, or 2)
 - Default: `0`
 
 **persist** (boolean, optional)
+
 - Whether to add to /etc/fstab
 - Default: `false`
 
 **create_path** (boolean, optional)
+
 - Create mount point directory if missing
 - Default: `true`
 
 **owner** (string, optional)
+
 - Owner of mount point directory
 
 **group** (string, optional)
+
 - Group of mount point directory
 
 **mode** (string, optional)
+
 - Permissions of mount point directory
 - Default: `"0755"`
 
@@ -6170,27 +6513,33 @@ Manages Linux swap space (file or partition).
 ### Parameters
 
 **path** (string, required)
+
 - Path to swap file or device (e.g., `/swapfile`, `/dev/sda2`)
 
 **size** (string, optional)
+
 - Size of swap file (e.g., `"4G"`, `"512M"`, `"1024"`)
 - Required for `present` state when creating swap file
 - Supports: G/GB, M/MB, K/KB suffixes
 - Plain number defaults to MiB
 
 **priority** (integer, optional)
+
 - Swap priority (-1 to 32767)
 - Higher priority used first
 - Default: -1 (auto)
 
 **persist** (boolean, optional)
+
 - Add to /etc/fstab
 - Default: `false`
 
 **label** (string, optional)
+
 - Swap label (mkswap -L)
 
 **uuid** (string, optional)
+
 - Swap UUID (mkswap -U)
 
 ### Platform Support
@@ -6246,9 +6595,11 @@ Manages LVM physical volumes.
 ### Parameters
 
 **device** (string, required)
+
 - Block device path (e.g., `/dev/sdb1`)
 
 **force** (boolean, optional)
+
 - Force creation even if device has data
 - Default: `false`
 
@@ -6294,16 +6645,20 @@ Manages LVM volume groups.
 ### Parameters
 
 **name** (string, required)
+
 - Volume group name
 
 **devices** (list, required for present)
+
 - List of physical volumes to include
 
 **pe_size** (string, optional)
+
 - Physical extent size (e.g., `"4M"`)
 - Default: `"4M"`
 
 **force** (boolean, optional)
+
 - Force creation
 - Default: `false`
 
@@ -6348,28 +6703,36 @@ Manages LVM logical volumes.
 ### Parameters
 
 **name** (string, required)
+
 - Logical volume name
 
 **vg** (string, required)
+
 - Volume group name
 
 **size** (string, optional)
+
 - Size of logical volume (e.g., `"10G"`, `"100%FREE"`)
 - Required for `present` state
 
 **thin_pool** (string, optional)
+
 - Thin pool for thin provisioned volumes
 
 **snapshot** (string, optional)
+
 - Source logical volume for snapshot
 
 **snapshot_size** (string, optional)
+
 - Size of snapshot
 
 **fstype** (string, optional)
+
 - Filesystem to create (ext4, xfs, etc.)
 
 **force** (boolean, optional)
+
 - Force creation/resize
 - Default: `false`
 
@@ -6424,37 +6787,47 @@ Manages disk partitions using parted.
 ### Parameters
 
 **device** (string, required)
+
 - Disk device path (e.g., `/dev/sda`)
 
 **number** (integer, required)
+
 - Partition number
 
 **start** (string, optional)
+
 - Partition start (e.g., `"1MiB"`, `"0%"`)
 - Default: `"0%"`
 
 **end** (string, optional)
+
 - Partition end (e.g., `"100%"`, `"50GiB"`)
 - Default: `"100%"`
 
 **size** (string, optional)
+
 - Alternative to end, specify size
 
 **type** (string, optional)
+
 - Partition type (primary, extended, logical)
 - Default: `"primary"`
 
 **table_type** (string, optional)
+
 - Partition table type (gpt, msdos)
 - Default: `"gpt"`
 
 **fstype** (string, optional)
+
 - Partition type code (linux, swap, efi)
 
 **label** (string, optional)
+
 - Partition label
 
 **flags** (list, optional)
+
 - Partition flags (boot, lvm, raid)
 
 ### Platform Support
@@ -6525,22 +6898,28 @@ Creates and manages filesystems on block devices.
 ### Parameters
 
 **device** (string, required)
+
 - Block device path (e.g., `/dev/sdb1`, `/dev/vg/lv`)
 
 **fstype** (string, required)
+
 - Filesystem type: ext4, ext3, xfs, btrfs, vfat, ntfs
 
 **label** (string, optional)
+
 - Filesystem label
 
 **uuid** (string, optional)
+
 - Filesystem UUID
 
 **force** (boolean, optional)
+
 - Force recreation of existing filesystem
 - Default: `false`
 
 **options** (list, optional)
+
 - Additional mkfs options
 
 ### Platform Support
@@ -6659,19 +7038,24 @@ Manages SSH authorized_keys entries for user authentication.
 ### Parameters
 
 **user** (string, required)
+
 - Username whose authorized_keys file to manage
 
 **key** (string, required)
+
 - SSH public key (base64-encoded key portion only)
 
 **key_type** (string, optional)
+
 - Key type: ssh-rsa, ssh-ed25519, ecdsa-sha2-nistp256, etc.
 - Default: `ssh-rsa`
 
 **comment** (string, optional)
+
 - Comment to append to key (e.g., user@host)
 
 **options** (string, optional)
+
 - SSH key options (e.g., `no-port-forwarding,command="/bin/date"`)
 
 ### Platform Support
@@ -6734,23 +7118,29 @@ Manages SSH known_hosts entries for host key verification.
 ### Parameters
 
 **host** (string, required)
+
 - Hostname or IP to manage
 
 **key** (string, optional)
+
 - Host public key (if not provided, will be scanned)
 
 **key_type** (string, optional)
+
 - Key type: ssh-rsa, ssh-ed25519, ecdsa-sha2-nistp256
 - Default: `ssh-rsa`
 
 **user** (string, optional)
+
 - Manage user's known_hosts instead of system-wide
 - If not specified, uses /etc/ssh/ssh_known_hosts
 
 **path** (string, optional)
+
 - Custom known_hosts file path
 
 **hash_known_hosts** (boolean, optional)
+
 - Hash hostnames in known_hosts file
 - Default: `false`
 
@@ -6809,16 +7199,20 @@ Manages SSH daemon (sshd) configuration settings.
 ### Parameters
 
 **name** (string, required)
+
 - Configuration directive name (e.g., PermitRootLogin, PasswordAuthentication)
 
 **value** (string, optional for absent)
+
 - Configuration value
 
 **path** (string, optional)
+
 - Path to sshd_config
 - Default: `/etc/ssh/sshd_config`
 
 **backup** (boolean, optional)
+
 - Create backup before modifying
 - Default: `true`
 
@@ -6889,6 +7283,7 @@ Manages SELinux enforcement mode.
 ### Parameters
 
 **persistent** (boolean, optional)
+
 - Persist change to /etc/selinux/config
 - Default: `true`
 
@@ -6942,9 +7337,11 @@ Manages SELinux boolean values.
 ### Parameters
 
 **name** (string, required)
+
 - SELinux boolean name
 
 **persistent** (boolean, optional)
+
 - Persist change across reboots
 - Default: `true`
 
@@ -6993,6 +7390,7 @@ Manages AppArmor profile enforcement mode.
 ### Parameters
 
 **profile** (string, required)
+
 - AppArmor profile name
 
 ### Platform Support
@@ -7048,15 +7446,19 @@ Installs and manages AppArmor profile files.
 ### Parameters
 
 **name** (string, required)
+
 - Profile name (file name in /etc/apparmor.d/)
 
 **source** (string, optional)
+
 - Source file path for profile content
 
 **content** (string, optional)
+
 - Inline profile content (alternative to source)
 
 **mode** (string, optional)
+
 - Initial mode: enforce, complain
 - Default: `enforce`
 
@@ -7121,6 +7523,7 @@ Manages the system timezone.
 ### Parameters
 
 **name** (string, required)
+
 - IANA timezone name (e.g., America/New_York, Europe/London)
 
 ### Platform Support
@@ -7156,6 +7559,7 @@ Manages system locale settings.
 ### Parameters
 
 **name** (string, required)
+
 - Locale name (e.g., en_US.UTF-8)
 
 ### Platform Support
@@ -7190,9 +7594,11 @@ Manages the system hostname.
 ### Parameters
 
 **name** (string, required)
+
 - Desired hostname
 
 **fqdn** (boolean, optional)
+
 - Set fully qualified domain name
 - Default: `false`
 
@@ -7230,12 +7636,15 @@ Manages /etc/hosts entries.
 ### Parameters
 
 **ip** (string, required)
+
 - IP address for the host entry
 
 **name** (string, optional)
+
 - Single hostname (use `name` or `names`)
 
 **names** (list, optional)
+
 - List of hostnames for the IP address
 
 ### Platform Support
@@ -7284,12 +7693,15 @@ Manages Linux kernel parameters via sysctl.
 ### Parameters
 
 **name** (string, required)
+
 - Sysctl parameter name (e.g., net.ipv4.ip_forward)
 
 **value** (string, required for present)
+
 - Parameter value
 
 **persist** (boolean, optional)
+
 - Write to /etc/sysctl.d/ for persistence
 - Default: `true`
 
@@ -7345,12 +7757,15 @@ Manages Linux kernel modules.
 ### Parameters
 
 **name** (string, required)
+
 - Kernel module name
 
 **params** (string, optional)
+
 - Module parameters
 
 **persist** (boolean, optional)
+
 - Make load/blacklist persistent
 - Default: `true`
 
@@ -7488,30 +7903,39 @@ Manages Docker containers.
 ### Parameters
 
 **name** (string, required)
+
 - Container name
 
 **image** (string, required for running/stopped)
+
 - Docker image to use
 
 **ports** (list, optional)
+
 - Port mappings (e.g., "8080:80")
 
 **volumes** (list, optional)
+
 - Volume mounts (e.g., "/host/path:/container/path")
 
 **env** (map, optional)
+
 - Environment variables
 
 **network** (string, optional)
+
 - Docker network to connect to
 
 **restart** (string, optional)
+
 - Restart policy (no, always, unless-stopped, on-failure)
 
 **command** (string, optional)
+
 - Command to run in container
 
 **force** (boolean, optional)
+
 - Force remove even if running
 - Default: `true`
 
@@ -7575,13 +7999,16 @@ Manages Docker images.
 ### Parameters
 
 **name** (string, required)
+
 - Image name (without tag)
 
 **tag** (string, optional)
+
 - Image tag
 - Default: `latest`
 
 **force** (boolean, optional)
+
 - Force remove even if in use
 - Default: `false`
 
@@ -7622,19 +8049,24 @@ Manages Docker networks.
 ### Parameters
 
 **name** (string, required)
+
 - Network name
 
 **driver** (string, optional)
+
 - Network driver
 - Default: `bridge`
 
 **subnet** (string, optional)
+
 - Subnet in CIDR format
 
 **gateway** (string, optional)
+
 - Gateway IP address
 
 **ip_range** (string, optional)
+
 - IP range in CIDR format
 
 ### Examples
@@ -7674,16 +8106,20 @@ Manages Docker volumes.
 ### Parameters
 
 **name** (string, required)
+
 - Volume name
 
 **driver** (string, optional)
+
 - Volume driver
 - Default: `local`
 
 **opts** (map, optional)
+
 - Driver-specific options
 
 **force** (boolean, optional)
+
 - Force remove
 - Default: `false`
 
@@ -7825,7 +8261,7 @@ create_volume:
 
 ---
 
-# Database Modules
+## Database Modules
 
 Keystone Core provides database management modules for PostgreSQL, MySQL/MariaDB, and Redis. These modules enable declarative management of databases, users, extensions, and configuration.
 
@@ -8149,6 +8585,7 @@ Manages MySQL/MariaDB users and their privileges.
 The `priv` parameter uses the format: `database.table:PRIVILEGES`
 
 Examples:
+
 - `mydb.*:ALL` - All privileges on all tables in mydb
 - `mydb.users:SELECT,INSERT,UPDATE` - SELECT, INSERT, UPDATE on mydb.users
 - `*.*:SELECT` - SELECT on all databases and tables
@@ -8229,6 +8666,7 @@ Manages Redis configuration settings and ACL users.
 ### ACL Rules Format
 
 ACL rules follow Redis ACL syntax:
+
 - `on` - Enable user
 - `+@all` - Allow all commands
 - `~*` - Allow all keys
@@ -8477,7 +8915,7 @@ Manages Nginx reverse proxy server configurations.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `name` | string | yes | - | Server block name |
-| `backend` | string | yes | - | Backend URL (e.g., http://upstream or http://host:port) |
+| `backend` | string | yes | - | Backend URL (e.g., <http://upstream> or <http://host:port>) |
 | `listen` | string | no | 80 | Listen port or address:port |
 | `server_name` | string | no | _ | Server name(s) |
 | `location` | string | no | / | Location path |
@@ -10395,6 +10833,7 @@ All modules are idempotent:
 - Safe to run repeatedly
 
 **Example**:
+
 ```yaml
 nginx_package:
   module: package
@@ -10403,11 +10842,13 @@ nginx_package:
 ```
 
 First run:
+
 ```
 nginx_package: ✓ installed (changed)
 ```
 
 Second run:
+
 ```
 nginx_package: ✓ installed (unchanged)
 ```
@@ -10415,55 +10856,67 @@ nginx_package: ✓ installed (unchanged)
 ## Cross-Platform Compatibility
 
 ### File Module
+
 - ✅ Linux, Windows, macOS
 - Permissions: Linux/macOS only
 
 ### Package Module
+
 - ✅ Linux (all distros)
 - ✅ macOS (homebrew)
 - ✅ Windows (chocolatey, winget)
 
 ### Service Module
+
 - ✅ Linux (systemd, upstart, sysv, openrc)
 - ✅ macOS (launchd)
 - ✅ Windows (Service Manager)
 
 ### User/Group Modules
+
 - ✅ Linux, macOS
 - ⚠️ Windows (limited support)
 
 ### Cmd Module
+
 - ✅ Linux, Windows, macOS
 - Shell varies by platform
 
 ### SSH Modules (authorized_keys, known_hosts, sshd_config)
+
 - ✅ Linux, macOS
 - ❌ Windows (not supported)
 
 ### SELinux Modules (selinux, selinux_boolean)
+
 - ✅ Linux (RHEL/CentOS/Fedora)
 - ⚠️ Linux (Ubuntu/Debian) - via selinux packages
 - ❌ macOS, Windows (not supported)
 
 ### AppArmor Modules (apparmor, apparmor_profile)
+
 - ✅ Linux (Ubuntu/Debian, openSUSE)
 - ⚠️ Linux (RHEL/CentOS) - not default
 - ❌ macOS, Windows (not supported)
 
 ### Config File Modules (logrotate, sudoers, limits, modprobe, syslog)
+
 - ✅ Linux
 - ❌ macOS (except sudoers)
 - ❌ Windows (not supported)
 
 ### Text File Modules (lineinfile, ini_file)
+
 - ✅ Linux, Windows, macOS
 - Line endings handled per platform
 
 ### Archive Module
+
 - ✅ Linux, macOS
 - ✅ Windows (requires tar/unzip)
 
 ### Windows Modules (win_feature, win_registry, win_service)
+
 - ❌ Linux (not supported)
 - ❌ macOS (not supported)
 - ✅ Windows (Server 2016+ for features)
@@ -10485,6 +10938,7 @@ app_config:
 ```
 
 **Available in templates**:
+
 - `.vars.*` - Variables from vars file
 - `.facts.*` - Agent facts (OS, arch, hostname, etc.)
 
@@ -10607,6 +11061,7 @@ Modules can only access explicitly granted capabilities. All 10 capability types
 | `time` | Current time | Breaks determinism | `TimeCapability` - rarely granted, breaks reproducibility |
 
 **Security Features**:
+
 - **Path validation**: Filesystem capabilities block dangerous patterns (`/`, `/etc`, `/proc`, symlink attacks)
 - **Domain validation**: HTTP capabilities block wildcards (`*`, `*.com`) and internal networks
 - **Rate limiting**: HTTP and logging capabilities enforce request limits
@@ -10671,6 +11126,7 @@ After development, modules can be distributed via:
 3. **Git Repository**: Reference modules directly from Git
 
 Distribution commands (coming soon):
+
 ```bash
 # Sign module
 kscorectl module sign ./myorg/custom-state/myorg-custom-state-0.1.0.zip

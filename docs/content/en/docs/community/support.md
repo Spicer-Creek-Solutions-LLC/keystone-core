@@ -65,13 +65,16 @@ server:
 ```
 
 ### Logs
+
 ```
 [Relevant log output]
 ```
 
 ### Expected vs Actual
+
 - Expected: [what should happen]
 - Actual: [what actually happens]
+
 ```
 
 ### Discord
@@ -142,6 +145,7 @@ KSCORE_LOG_LEVEL=debug kscorectl exec run ...
 ```
 
 Or set globally:
+
 ```bash
 export KSCORE_LOG_LEVEL=debug
 ```
@@ -157,6 +161,7 @@ Found a bug? Report it on GitHub:
 **[Create a Bug Report](https://github.com/shawnbutts/keystone-core/issues/new?template=bug_report.md)**
 
 **Required information:**
+
 - Clear title describing the bug
 - Steps to reproduce
 - Expected behavior
@@ -182,23 +187,29 @@ webserver:
     - name: nginx
       state: running
 ```
-2. Run `kscorectl state apply webserver.yaml`
+
+1. Run `kscorectl state apply webserver.yaml`
 
 ### Expected
+
 Service state should be applied
 
 ### Actual
+
 Error: "module 'service' not found"
 
 ### Logs
+
 ```
 2024-12-27 10:15:23 ERROR module not found name=service
 ```
 
 ### Notes
+
 - File module works fine
 - Package module works fine
 - Only service module fails
+
 ```
 
 ### Feature Requests
@@ -254,6 +265,7 @@ nc -zv server 4222
 **Symptoms**: State application errors, timeout
 
 **Solutions**:
+
 1. Validate state file syntax: `kscorectl state check <file>`
 2. Check module dependencies: `kscorectl module tree`
 3. Verify agent connectivity
@@ -272,6 +284,7 @@ kscorectl state apply --dry-run mystate.yaml
 **Symptoms**: Server or agent using excessive memory
 
 **Solutions**:
+
 1. Check event storage size
 2. Review retention policies
 3. Tune JetStream memory limits
@@ -330,7 +343,7 @@ For organizations requiring guaranteed support SLAs:
 - **Training**: Custom training sessions for your team
 - **Custom development**: Feature prioritization and custom integrations
 
-**Contact**: enterprise@keystonecore.io
+**Contact**: <enterprise@keystonecore.io>
 
 ### Professional Services
 
@@ -344,7 +357,7 @@ Available professional services:
 | **Performance Tuning** | Optimize for your scale and workload |
 | **Training Workshops** | On-site or virtual training sessions |
 
-**Contact**: services@keystonecore.io
+**Contact**: <services@keystonecore.io>
 
 ---
 
@@ -355,6 +368,7 @@ Available professional services:
 All community interactions are governed by our [Code of Conduct](https://github.com/shawnbutts/keystone-core/blob/main/CODE_OF_CONDUCT.md).
 
 **Key principles:**
+
 - Be respectful and inclusive
 - Be patient with newcomers
 - Focus on constructive feedback
@@ -363,6 +377,7 @@ All community interactions are governed by our [Code of Conduct](https://github.
 ### Getting the Most from Support
 
 **Do:**
+
 - Provide detailed information upfront
 - Use code blocks for logs and config
 - Be patient and respectful
@@ -370,6 +385,7 @@ All community interactions are governed by our [Code of Conduct](https://github.
 - Thank helpers
 
 **Don't:**
+
 - Ask for help without searching first
 - Ping maintainers for general questions
 - Cross-post the same question everywhere
@@ -426,6 +442,6 @@ Share your experience:
 | GitHub Discussions | Community Q&A | 1-3 days |
 | Discord | Real-time chat | Minutes to hours |
 | GitHub Issues | Bug reports, features | 1-5 days |
-| security@keystonecore.io | Security issues | 48 hours |
-| enterprise@keystonecore.io | Enterprise inquiries | 1 business day |
-| services@keystonecore.io | Professional services | 1 business day |
+| <security@keystonecore.io> | Security issues | 48 hours |
+| <enterprise@keystonecore.io> | Enterprise inquiries | 1 business day |
+| <services@keystonecore.io> | Professional services | 1 business day |

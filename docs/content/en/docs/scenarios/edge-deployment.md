@@ -249,6 +249,7 @@ kscorectl exec run "site:edge-001" -- \
 ### Agent Not Reconnecting
 
 Check reconnection settings and network:
+
 ```bash
 kscorectl exec run "site:edge-001" -- \
   journalctl -u kscore-agent -f
@@ -257,6 +258,7 @@ kscorectl exec run "site:edge-001" -- \
 ### Stale Cache
 
 Clear and rebuild cache:
+
 ```bash
 kscorectl exec run "site:edge-001" -- \
   sh -c "rm -rf /var/lib/keystone-core/cache/* && systemctl restart kscore-agent"
@@ -265,6 +267,7 @@ kscorectl exec run "site:edge-001" -- \
 ### Device Discovery Failing
 
 Verify network connectivity and nmap:
+
 ```bash
 kscorectl exec run "site:edge-001" -- \
   nmap -sn 192.168.1.0/24

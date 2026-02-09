@@ -56,18 +56,21 @@ flowchart TB
 The API Server provides two interfaces:
 
 **gRPC API** (Primary):
+
 - High-performance binary protocol
 - Used by agents for registration, heartbeats, commands
 - Bidirectional streaming for real-time updates
 - Protobuf schemas ensure type safety
 
 **REST API** (Secondary):
+
 - HTTP/JSON for user tools and webhooks
 - Automatically generated from gRPC via gRPC-gateway
 - OpenAPI/Swagger documentation
 - CORS support for web UIs
 
 **Webhook Receivers**:
+
 - ArgoCD application sync/health events
 - Flux Kustomization/HelmRelease events
 - GitHub deployment/workflow events
@@ -78,12 +81,14 @@ The API Server provides two interfaces:
 Tracks all connected agents and their metadata.
 
 **Responsibilities**:
+
 - Agent registration (receive metadata on first connect)
 - Heartbeat monitoring (30-second interval by default)
 - Connection state tracking (online, offline, degraded)
 - Metadata storage (datacenter, environment, role, tags, OS, arch)
 
 **Data Model**:
+
 ```go
 type AgentMetadata struct {
     ID          string            // Unique agent ID
@@ -100,6 +105,7 @@ type AgentMetadata struct {
 ```
 
 **Connection Lifecycle**:
+
 1. Agent connects to NATS
 2. Agent sends registration message to control plane
 3. Control plane stores metadata in database
@@ -122,17 +128,20 @@ This design ensures agents don't need to re-register when connecting to a differ
 Routes command execution requests to targeted agents.
 
 **Targeting System**:
+
 - **Glob patterns**: `web-*`, `db-prod-*`
 - **Expression-based**: `role:web and datacenter:us-east-1`
 - **Agent ID**: Direct targeting by ID
 - **Compound**: `environment:prod and (role:web or role:api)`
 
 **Execution Modes**:
+
 - **Synchronous**: Wait for all agents to complete
 - **Asynchronous**: Fire and forget, poll for results later
 - **Batch**: Execute in batches with concurrency control
 
 **Job Tracking**:
+
 ```go
 type Job struct {
     ID          string
@@ -157,6 +166,7 @@ type JobResult struct {
 ```
 
 **Features**:
+
 - Timeout enforcement (per-job and per-agent)
 - Retry logic with exponential backoff
 - Partial failure handling
@@ -167,6 +177,7 @@ type JobResult struct {
 Executes declarative state configurations.
 
 **Workflow**:
+
 1. Parse state file (YAML) and validate schema
 2. Render templates with vars and facts
 3. Build dependency graph (DAG)
@@ -177,6 +188,7 @@ Executes declarative state configurations.
 8. Emit state change events
 
 **Supported Modules**:
+
 - `file` - File/directory management
 - `package` - Package installation/removal
 - `service` - Service management (systemd, upstart, etc.)
@@ -185,6 +197,7 @@ Executes declarative state configurations.
 - `cmd` - Command execution
 
 **Drift Detection**:
+
 - Compare desired state vs actual state
 - Calculate drift severity (none, low, medium, high, critical)
 - Emit `state.drift` events with details
@@ -195,6 +208,7 @@ Executes declarative state configurations.
 Processes and routes infrastructure events.
 
 **Event Flow**:
+
 ```mermaid
 flowchart TD
     Source["1. Event Source\n(agent, state, job, webhook)"]
@@ -207,6 +221,7 @@ flowchart TD
 ```
 
 **Event Types** (15 total):
+
 - Agent: connect, disconnect, heartbeat_failed, metadata_changed
 - Job: start, complete, fail
 - State: apply.start, apply.done, apply.fail, change, drift
@@ -214,6 +229,7 @@ flowchart TD
 - User: custom events
 
 **Event Schema**:
+
 ```go
 type Event struct {
     ID            string
@@ -228,6 +244,7 @@ type Event struct {
 ```
 
 **Reactor System**:
+
 - Filter events with CEL expressions
 - Priority-based reactor ordering
 - Throttling and debouncing
@@ -238,10 +255,12 @@ type Event struct {
 Evaluates and enforces compliance policies.
 
 **Policy Types**:
+
 - **OPA (Rego)**: Powerful policy language from Open Policy Agent
 - **CEL**: Common Expression Language for simple policies
 
 **Enforcement Points**:
+
 - Pre-execution (before commands/state runs)
 - Post-execution (after operations complete)
 - On change (when state changes)
@@ -249,12 +268,14 @@ Evaluates and enforces compliance policies.
 - On event (event-triggered policies)
 
 **Enforcement Actions**:
+
 - **Block**: Prevent operation from executing
 - **Warn**: Allow but log warning
 - **Audit**: Log for compliance reporting
 - **Remediate**: Automatically fix violation
 
 **Policy Workflow**:
+
 1. Operation triggers enforcement point
 2. Load policies bound to resource type
 3. Evaluate policies (OPA or CEL)
@@ -268,12 +289,14 @@ Evaluates and enforces compliance policies.
 ### Embedded Mode (Development/Small Deployments)
 
 Best for:
+
 - Development and testing
 - Small deployments (<100 nodes)
 - Home labs and edge locations
 - Quick prototyping
 
 Configuration:
+
 ```yaml
 nats:
   mode: embedded
@@ -288,6 +311,7 @@ api:
 ```
 
 Characteristics:
+
 - Single binary runs everything
 - Zero external dependencies
 - SQLite for state storage
@@ -297,12 +321,14 @@ Characteristics:
 ### Production Mode (Large Deployments)
 
 Best for:
+
 - Production deployments
 - Large scale (100+ nodes)
 - High availability requirements
 - Multi-region deployments
 
 Configuration:
+
 ```yaml
 nats:
   mode: external
@@ -325,6 +351,7 @@ api:
 ```
 
 Characteristics:
+
 - External NATS cluster (3+ nodes)
 - PostgreSQL with replication
 - TLS encryption everywhere
@@ -367,16 +394,19 @@ flowchart TD
 ### Failure Scenarios
 
 **Control Plane Failure**:
+
 - Agents automatically reconnect to surviving instances
 - NATS queue ensures no message loss
 - State operations are idempotent (safe to retry)
 
 **NATS Cluster Failure**:
+
 - Agents buffer messages locally
 - Control plane retries until NATS recovers
 - JetStream persists events
 
 **Database Failure**:
+
 - Read replica promoted to primary
 - Control plane reconnects automatically
 - Minimal downtime (<30 seconds typical)
@@ -401,16 +431,19 @@ flowchart TD
 ### Resource Usage
 
 **Small Deployment** (<100 agents):
+
 - CPU: 0.5 cores
 - Memory: 512MB
 - Disk: 1GB
 
 **Medium Deployment** (100-1,000 agents):
+
 - CPU: 2 cores
 - Memory: 2GB
 - Disk: 10GB
 
 **Large Deployment** (1,000+ agents):
+
 - CPU: 4-8 cores
 - Memory: 4-8GB
 - Disk: 50GB+
@@ -439,6 +472,7 @@ flowchart TD
 ### Audit Logging
 
 All operations are logged with:
+
 - **Who**: User/service account
 - **What**: Operation performed
 - **When**: Timestamp
@@ -595,21 +629,25 @@ observability:
 ### Common Issues
 
 **Problem**: Control plane won't start
+
 - Check: Port 4222 (NATS) and 8080 (API) not in use
 - Check: Database connection string correct
 - Check: Config file syntax valid
 
 **Problem**: Agents not connecting
+
 - Check: NATS URL reachable from agents
 - Check: Firewall allows port 4222
 - Check: NATS credentials valid (if using auth)
 
 **Problem**: High memory usage
+
 - Check: Number of connected agents (may need to scale horizontally)
 - Check: Event retention period (reduce if too long)
 - Check: Database query performance
 
 **Problem**: Slow API responses
+
 - Check: Database indexes created
 - Check: NATS cluster healthy
 - Check: CPU utilization (may need more cores)
@@ -624,6 +662,7 @@ logging:
 ```
 
 Or at runtime via API:
+
 ```bash
 curl -X POST http://localhost:8080/admin/log-level -d '{"level":"debug"}'
 ```

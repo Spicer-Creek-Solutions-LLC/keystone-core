@@ -11,6 +11,7 @@ This guide covers the setup and configuration of each supported secret backend. 
 > **Implementation Note**: The `backends:` YAML configuration blocks shown in this document
 > represent conceptual integration patterns for reference. Currently, backend authentication
 > is handled through:
+>
 > - **Environment variables** (e.g., `VAULT_ADDR`, `VAULT_TOKEN`, `AWS_REGION`)
 > - **Backend-native configuration** (Vault agent, AWS IAM roles, Azure managed identity, GCP workload identity)
 > - **State file secret references** using `{{ secret "path" }}` syntax
@@ -60,6 +61,7 @@ backends:
 ```
 
 **Vault Setup:**
+
 ```bash
 # Enable AppRole auth
 vault auth enable approle
@@ -115,6 +117,7 @@ backends:
 ```
 
 **Vault Setup:**
+
 ```bash
 # Enable Kubernetes auth
 vault auth enable kubernetes
@@ -146,6 +149,7 @@ backends:
 ```
 
 **Usage:**
+
 ```bash
 # Write secret
 vault kv put secret/myapp/config username="app" password="secret"
@@ -172,6 +176,7 @@ backends:
 ```
 
 **Vault Setup:**
+
 ```bash
 # Enable database engine
 vault secrets enable database
@@ -205,6 +210,7 @@ backends:
 ```
 
 **Vault Setup:**
+
 ```bash
 # Enable PKI
 vault secrets enable pki
@@ -234,6 +240,7 @@ backends:
 ```
 
 **Vault Setup:**
+
 ```bash
 # Enable transit
 vault secrets enable transit
@@ -307,6 +314,7 @@ backends:
 ```
 
 **IAM Policy:**
+
 ```json
 {
   "Version": "2012-10-17",
@@ -357,6 +365,7 @@ backends:
 ```
 
 **EKS Setup:**
+
 ```bash
 # Create IAM OIDC provider
 eksctl utils associate-iam-oidc-provider --cluster my-cluster --approve
@@ -403,6 +412,7 @@ backends:
 ```
 
 **AWS Setup:**
+
 ```bash
 # Enable rotation with Lambda
 aws secretsmanager rotate-secret \
@@ -451,6 +461,7 @@ backends:
 ```
 
 **Azure Setup:**
+
 ```bash
 # Enable system-assigned identity on VM
 az vm identity assign -g myResourceGroup -n myVM
@@ -490,6 +501,7 @@ backends:
 ```
 
 **AKS Setup:**
+
 ```bash
 # Enable workload identity on AKS
 az aks update -g myResourceGroup -n myAKS --enable-oidc-issuer --enable-workload-identity
@@ -606,6 +618,7 @@ backends:
 ```
 
 **GKE Setup:**
+
 ```bash
 # Enable workload identity on GKE
 gcloud container clusters update my-cluster \

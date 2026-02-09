@@ -1421,6 +1421,7 @@ kscorectl blueprint publish ./myorg-nginx-stack --registry https://registry.myor
 ### Best Practices
 
 **Parameter Design:**
+
 - Use descriptive names with consistent naming conventions
 - Provide sensible defaults for optional parameters
 - Mark sensitive data with `sensitive: true`
@@ -1428,36 +1429,42 @@ kscorectl blueprint publish ./myorg-nginx-stack --registry https://registry.myor
 - Document parameters with descriptions and examples
 
 **State Organization:**
+
 - Keep state files focused (one concern per file)
 - Use meaningful IDs for states (not generic names)
 - Order states by dependency naturally
 - Use explicit `require` declarations for complex dependencies
 
 **Template Guidelines:**
+
 - Keep templates simple and readable
 - Use Go template functions for complex logic
 - Document template variables
 - Validate template output during testing
 
 **Testing:**
+
 - Test all code paths (features, conditionals)
 - Include idempotency tests
 - Test failure scenarios
 - Use tags to organize test categories
 
 **Documentation:**
+
 - Maintain accurate README with usage examples
 - Document all parameters with examples
 - Keep CHANGELOG up to date
 - Include troubleshooting section
 
 **Versioning:**
+
 - Follow semantic versioning strictly
 - Document breaking changes in CHANGELOG
 - Provide migration guides for major versions
 - Test upgrades between versions
 
 **Security:**
+
 - Never store secrets in blueprint files
 - Use `sensitive: true` for passwords and keys
 - Validate input parameters strictly

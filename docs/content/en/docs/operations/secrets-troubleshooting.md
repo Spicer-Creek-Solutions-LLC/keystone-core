@@ -10,6 +10,7 @@ This guide helps diagnose and resolve common issues with Keystone Core's secrets
 
 > **Implementation Note**: Many diagnostic commands shown in this guide represent planned CLI features.
 > Currently, troubleshooting primarily uses:
+>
 > - **Backend-native tools** (Vault CLI, AWS CLI, etc.) for direct diagnostics
 > - **Log files** at `/var/log/keystone/` for server and agent issues
 > - **`kscorectl secrets rotate`** for rotation orchestration
@@ -63,11 +64,13 @@ curl -s http://localhost:8080/metrics | grep secrets
 ### Cannot Connect to Backend
 
 **Symptoms:**
+
 - "connection refused" errors
 - Timeout errors
 - TLS handshake failures
 
 **Diagnosis:**
+
 ```bash
 # Test network connectivity to Vault
 curl -k -s https://vault.example.com:8200/v1/sys/health | jq
@@ -89,6 +92,7 @@ vault token lookup
 | Backend not running | Start backend service |
 
 **Vault-Specific:**
+
 ```bash
 # Check Vault status
 vault status
@@ -101,6 +105,7 @@ curl -k https://vault.example.com:8200/v1/sys/health
 ```
 
 **AWS-Specific:**
+
 ```bash
 # Test AWS credentials
 aws sts get-caller-identity
@@ -112,6 +117,7 @@ aws secretsmanager list-secrets --region us-west-2
 ### TLS Certificate Errors
 
 **Symptoms:**
+
 - "x509: certificate signed by unknown authority"
 - "certificate has expired"
 - "certificate is not valid for hostname"
@@ -139,6 +145,7 @@ backends:
 ```
 
 **Verify certificate:**
+
 ```bash
 # Check certificate details
 openssl s_client -connect vault.example.com:8200 -showcerts
@@ -152,11 +159,13 @@ openssl verify -CAfile /etc/ssl/certs/vault-ca.pem /path/to/cert.pem
 ### Token Authentication Failures
 
 **Symptoms:**
+
 - "permission denied"
 - "invalid token"
 - "token expired"
 
 **Diagnosis:**
+
 ```bash
 # Check token validity (Vault)
 vault token lookup
@@ -182,11 +191,13 @@ systemctl restart kscore-server
 ### AppRole Authentication Failures
 
 **Symptoms:**
+
 - "invalid role_id"
 - "invalid secret_id"
 - "secret_id expired"
 
 **Diagnosis:**
+
 ```bash
 # Verify role exists
 vault read auth/approle/role/keystone
@@ -197,6 +208,7 @@ vault write auth/approle/role/keystone/secret-id-accessor/lookup \
 ```
 
 **Solutions:**
+
 ```bash
 # Generate new secret ID
 vault write -f auth/approle/role/keystone/secret-id
@@ -209,11 +221,13 @@ systemctl restart kscore-server
 ### Kubernetes Authentication Failures
 
 **Symptoms:**
+
 - "service account token invalid"
 - "namespace not allowed"
 - "role not found"
 
 **Diagnosis:**
+
 ```bash
 # Check service account
 kubectl get serviceaccount keystone-server -n keystone-system
@@ -229,6 +243,7 @@ vault write auth/kubernetes/login \
 ```
 
 **Solutions:**
+
 ```bash
 # Update Vault Kubernetes config
 vault write auth/kubernetes/config \
@@ -245,6 +260,7 @@ vault write auth/kubernetes/role/keystone-secrets \
 ### Cloud Provider Authentication
 
 **AWS IAM Role Issues:**
+
 ```bash
 # Check instance metadata
 curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
@@ -257,6 +273,7 @@ aws secretsmanager get-secret-value --secret-id test-secret
 ```
 
 **Azure Managed Identity Issues:**
+
 ```bash
 # Check identity
 curl -H "Metadata: true" \
@@ -267,6 +284,7 @@ az keyvault secret list --vault-name myvault
 ```
 
 **GCP Workload Identity Issues:**
+
 ```bash
 # Check service account
 gcloud auth list
@@ -280,11 +298,13 @@ gcloud secrets list --project my-project
 ### Lease Expiration
 
 **Symptoms:**
+
 - "lease not found"
 - "lease expired"
 - Credentials stop working
 
 **Diagnosis:**
+
 ```bash
 # List leases in Vault
 vault list sys/leases/lookup/database/creds/
@@ -294,6 +314,7 @@ vault lease lookup <lease-id>
 ```
 
 **Solutions:**
+
 ```bash
 # Request new credentials directly from Vault
 vault read database/creds/app
@@ -303,6 +324,7 @@ kscorectl secrets rotate start --path database/creds/app
 
 # Configure eager renewal in config
 ```
+
 ```yaml
 secrets:
   lease_management:
@@ -313,11 +335,13 @@ secrets:
 ### Lease Renewal Failures
 
 **Symptoms:**
+
 - "lease renewal failed"
 - "max TTL exceeded"
 - Credentials expire unexpectedly
 
 **Diagnosis:**
+
 ```bash
 # Check server logs for renewal failures
 journalctl -u kscore-server | grep -i "lease"
@@ -327,6 +351,7 @@ vault lease lookup <lease-id>
 ```
 
 **Solutions:**
+
 ```bash
 # Manually renew lease using Vault CLI
 vault lease renew <lease-id>
@@ -338,11 +363,13 @@ vault read database/creds/app
 ### Too Many Leases
 
 **Symptoms:**
+
 - "lease limit exceeded"
 - Backend performance degradation
 - Memory pressure
 
 **Diagnosis:**
+
 ```bash
 # Count leases in Vault
 vault list -format=json sys/leases/lookup/database/creds/ | jq 'length'
@@ -352,6 +379,7 @@ vault read sys/quotas/lease-count/global
 ```
 
 **Solutions:**
+
 ```bash
 # Revoke all leases for a path (use with caution)
 vault lease revoke -prefix database/creds/app
@@ -365,11 +393,13 @@ vault lease revoke <lease-id>
 ### Rotation Stuck in Progress
 
 **Symptoms:**
+
 - Rotation never completes
 - "rotation timeout" errors
 - Agents not receiving new credentials
 
 **Diagnosis:**
+
 ```bash
 # Check rotation status
 kscorectl secrets rotate list
@@ -382,6 +412,7 @@ kscorectl agents list
 ```
 
 **Solutions:**
+
 ```bash
 # Cancel stuck rotation and restart
 kscorectl secrets rotate cancel <rotation-id>
@@ -394,11 +425,13 @@ vault read database/creds/app
 ### Verification Failures
 
 **Symptoms:**
+
 - "verification failed"
 - Health checks failing
 - Rotation rolls back
 
 **Diagnosis:**
+
 ```bash
 # Check server logs for verification failures
 journalctl -u kscore-server | grep -i "verification"
@@ -408,6 +441,7 @@ psql -h db.example.com -U app -c "SELECT 1"
 ```
 
 **Solutions:**
+
 ```bash
 # Check that health check endpoints work
 curl -s http://app.example.com/health/database
@@ -419,11 +453,13 @@ kscorectl secrets rotate start --path database/creds/app --skip-verification
 ### Rollback Issues
 
 **Symptoms:**
+
 - Rollback doesn't restore old credentials
 - "rollback failed" errors
 - Agents stuck with bad credentials
 
 **Diagnosis:**
+
 ```bash
 # Check rotation logs
 journalctl -u kscore-server | grep -i "rollback"
@@ -433,6 +469,7 @@ vault read database/creds/app
 ```
 
 **Solutions:**
+
 ```bash
 # Request new credentials from Vault
 vault read database/creds/app
@@ -449,11 +486,13 @@ kscorectl exec run "name:web-server" -- systemctl restart myapp
 ### Stale Cache
 
 **Symptoms:**
+
 - Old secrets returned after rotation
 - Inconsistent credentials across agents
 - Cache hit rate anomalies
 
 **Diagnosis:**
+
 ```bash
 # Check server metrics for cache stats
 curl -s http://localhost:8080/metrics | grep cache
@@ -463,6 +502,7 @@ journalctl -u kscore-agent | grep -i "cache"
 ```
 
 **Solutions:**
+
 ```bash
 # Restart the agent to clear in-memory cache
 systemctl restart kscore-agent
@@ -477,11 +517,13 @@ kscorectl secrets rotate start --path database/creds/app
 ### Cache Memory Issues
 
 **Symptoms:**
+
 - High memory usage
 - Cache eviction errors
 - Slow secret retrieval
 
 **Solutions:**
+
 ```yaml
 secrets:
   cache:
@@ -500,11 +542,13 @@ secrets:
 ### Slow Secret Retrieval
 
 **Symptoms:**
+
 - High latency for secret operations
 - Timeout errors
 - Backend throttling
 
 **Diagnosis:**
+
 ```bash
 # Measure Vault latency directly
 time vault read database/creds/app
@@ -517,6 +561,7 @@ curl -s http://localhost:8080/metrics | grep secrets
 ```
 
 **Solutions:**
+
 ```yaml
 # Enable connection pooling
 secrets:
@@ -546,11 +591,13 @@ secrets:
 ### Rate Limiting
 
 **Symptoms:**
+
 - "rate limit exceeded" errors
 - 429 responses from backend
 - Throttling warnings
 
 **Solutions:**
+
 ```yaml
 secrets:
   rate_limiting:
@@ -571,11 +618,13 @@ secrets:
 ### Agent Not Receiving Secrets
 
 **Symptoms:**
+
 - Agent reports "secret not found"
 - Environment variables not set
 - Files not created
 
 **Diagnosis:**
+
 ```bash
 # Check agent status
 kscorectl agents show <agent-id>
@@ -588,6 +637,7 @@ kscorectl exec run "name:<agent-name>" -- echo "connected"
 ```
 
 **Solutions:**
+
 ```bash
 # Restart agent to refresh secrets
 ssh <agent-host> "systemctl restart kscore-agent"
@@ -602,11 +652,13 @@ kscorectl exec run "name:<agent-name>" -- env | grep -E "(DB_|API_)"
 ### Secret Injection Failures
 
 **Symptoms:**
+
 - Environment variables missing
 - Secret files not created
 - Application startup failures
 
 **Diagnosis:**
+
 ```bash
 # Check agent logs for injection errors
 journalctl -u kscore-agent | grep -i "inject"
@@ -616,6 +668,7 @@ ls -la /etc/secrets/
 ```
 
 **Solutions:**
+
 ```yaml
 # Fix file permissions
 workload:

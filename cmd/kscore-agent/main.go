@@ -20,7 +20,10 @@ import (
 // logger is the structured logger for kscore-agent (Epic 15)
 var logger logging.Logger
 
-var cfgFile string
+var (
+	cfgFile        string
+	validateConfig bool
+)
 
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -34,8 +37,11 @@ from the control plane. It supports embedded NATS mode for edge deployments.`,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
+	rootCmd.Flags().BoolVar(&validateConfig, "validate-config", false, "Validate configuration and exit")
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newIdentityCmd())
+	rootCmd.AddCommand(newNATSCmd())
 	rootCmd.AddCommand(agentbootstrap.NewCommand())
 
 	// Add Windows service management commands
@@ -91,6 +97,12 @@ func runAgent(cmd *cobra.Command, args []string) {
 	if err := cfg.Validate(); err != nil {
 		logger.Error("Invalid configuration", logging.Error(err))
 		os.Exit(1)
+	}
+
+	// If --validate-config was passed, exit successfully after validation
+	if validateConfig {
+		fmt.Fprintln(os.Stdout, "Configuration is valid")
+		return
 	}
 
 	// Re-initialize logger with config settings (Epic 15)

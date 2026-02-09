@@ -10,6 +10,7 @@ description: >
 Keystone Core's reactor system enables automated responses to infrastructure events. Reactors subscribe to events, filter based on criteria, and execute actions—enabling self-healing, compliance remediation, and operational automation.
 
 **Key Features**:
+
 - **Event-Driven**: Triggered by any of the 15 Keystone Core event types
 - **Filter Expressions**: CEL-based filtering for precise event matching
 - **10+ Action Types**: Command execution, webhooks, state application, custom functions
@@ -92,6 +93,7 @@ drift_remediation:
 Reactors use CEL expressions to match events:
 
 **Simple Filters**:
+
 ```yaml
 # By event type
 filter: "type == 'agent.disconnect'"
@@ -107,6 +109,7 @@ filter: "'production' in tags"
 ```
 
 **Complex Filters**:
+
 ```yaml
 # Multiple conditions (AND)
 filter: "type == 'job.fail' and severity == 'critical' and 'production' in tags"
@@ -126,6 +129,7 @@ filter: "data.agent.datacenter == 'us-east-1' and data.agent.role == 'web'"
 Reactors can execute multiple actions in sequence or parallel:
 
 **Command Action**:
+
 ```yaml
 - type: command
   command: "systemctl restart nginx"
@@ -134,6 +138,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **State Apply Action**:
+
 ```yaml
 - type: state_apply
   state_file: "/etc/keystone-core/states/web-server.yaml"
@@ -142,6 +147,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Webhook Action**:
+
 ```yaml
 - type: webhook
   url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
@@ -159,6 +165,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Event Action** (emit new events):
+
 ```yaml
 - type: event
   event_type: "reactor.remediation"
@@ -169,6 +176,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Conditional Action**:
+
 ```yaml
 - type: conditional
   condition: "event.data.exit_code != 0"
@@ -182,6 +190,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Sequence Action** (execute in order):
+
 ```yaml
 - type: sequence
   actions:
@@ -194,6 +203,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Parallel Action** (execute concurrently):
+
 ```yaml
 - type: parallel
   actions:
@@ -206,6 +216,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Retry Action**:
+
 ```yaml
 - type: retry
   max_attempts: 5
@@ -218,6 +229,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Delay Action**:
+
 ```yaml
 - type: delay
   duration: "30s"
@@ -227,6 +239,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Log Action**:
+
 ```yaml
 - type: log
   level: warn
@@ -237,6 +250,7 @@ Reactors can execute multiple actions in sequence or parallel:
 ```
 
 **Function Action** (custom Go function):
+
 ```yaml
 - type: function
   function: "customRemediationLogic"
@@ -457,6 +471,7 @@ audit_logging:
 ```
 
 **Execution behavior**:
+
 - All matching reactors execute (not just first match)
 - Executed in priority order
 - Lower priority = executed first
@@ -467,16 +482,19 @@ audit_logging:
 Control reactor behavior on action failure:
 
 **Continue on Error**:
+
 ```yaml
 error_strategy: continue  # Continue to next action
 ```
 
 **Stop on Error**:
+
 ```yaml
 error_strategy: stop  # Stop execution on first error
 ```
 
 **Retry on Error**:
+
 ```yaml
 error_strategy: retry
 retry:
@@ -520,6 +538,7 @@ kscore_active_reactors
 Reactors emit events for observability:
 
 **reactor.execute**:
+
 ```json
 {
   "type": "reactor.execute",
@@ -533,6 +552,7 @@ Reactors emit events for observability:
 ```
 
 **reactor.action**:
+
 ```json
 {
   "type": "reactor.action",
@@ -622,6 +642,7 @@ if !result.Success {
 **Problem**: Reactor doesn't execute for matching events
 
 Check:
+
 ```bash
 # Verify reactor is registered
 kscorectl reactor list
@@ -641,6 +662,7 @@ kscorectl reactor stats drift_remediation
 **Problem**: Reactor executes but actions fail
 
 Check:
+
 ```bash
 # View reactor execution history
 kscorectl reactor history drift_remediation --limit 10
@@ -657,6 +679,7 @@ kscorectl exec run "systemctl restart nginx" --target "web-01"
 **Problem**: Reactor takes too long to execute
 
 Fix:
+
 - Reduce action timeout
 - Use parallel actions for independent operations
 - Increase max_concurrent
@@ -668,6 +691,7 @@ Fix:
 **Problem**: Reactor executing too frequently
 
 Fix:
+
 ```yaml
 conditions:
   throttle: "5m"           # Add throttling
@@ -701,6 +725,7 @@ conditions:
 ### Resource Usage
 
 **Per 1,000 reactors**:
+
 - Memory: 50MB
 - CPU: 0.1 cores (idle), 1-2 cores (active)
 

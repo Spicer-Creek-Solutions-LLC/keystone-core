@@ -317,13 +317,12 @@ func (a *EXOSAdapter) parsePorts(output string) []vendors.InterfaceFact {
 		}
 
 		for _, f := range fields[1:] {
-			lf := strings.ToLower(f)
-			switch {
-			case lf == "e" || lf == "enabled":
+			switch strings.ToLower(f) {
+			case "e", "enabled":
 				iface.AdminStatus = "up"
-			case lf == "d" || lf == "disabled":
+			case "d", "disabled":
 				iface.AdminStatus = "down"
-			case lf == "active" || lf == "ready":
+			case "active", "ready":
 				iface.OperStatus = "up"
 			}
 		}

@@ -1114,7 +1114,7 @@ func quotePostgresIdentifier(s string) string {
 	if regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(s) {
 		return s
 	}
-	return fmt.Sprintf("%q", strings.ReplaceAll(s, `"`, `""`))
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
 // escapeMySQLString escapes single quotes for MySQL strings

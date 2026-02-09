@@ -20,17 +20,53 @@ func newMockStorage() *mockStorage {
 	}
 }
 
+func (s *mockStorage) copyRequest(req *Request) *Request {
+	if req == nil {
+		return nil
+	}
+	cp := *req
+	if req.ExpiresAt != nil {
+		t := *req.ExpiresAt
+		cp.ExpiresAt = &t
+	}
+	if req.CompletedAt != nil {
+		t := *req.CompletedAt
+		cp.CompletedAt = &t
+	}
+	if req.Response != nil {
+		r := *req.Response
+		if req.Response.Values != nil {
+			r.Values = make(map[string]interface{}, len(req.Response.Values))
+			for k, v := range req.Response.Values {
+				r.Values[k] = v
+			}
+		}
+		cp.Response = &r
+	}
+	if req.Metadata != nil {
+		cp.Metadata = make(map[string]interface{}, len(req.Metadata))
+		for k, v := range req.Metadata {
+			cp.Metadata[k] = v
+		}
+	}
+	if req.Prompts != nil {
+		cp.Prompts = make([]PromptField, len(req.Prompts))
+		copy(cp.Prompts, req.Prompts)
+	}
+	return &cp
+}
+
 func (s *mockStorage) SaveRequest(ctx context.Context, req *Request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.requests[req.ID] = req
+	s.requests[req.ID] = s.copyRequest(req)
 	return nil
 }
 
 func (s *mockStorage) GetRequest(ctx context.Context, id string) (*Request, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.requests[id], nil
+	return s.copyRequest(s.requests[id]), nil
 }
 
 func (s *mockStorage) GetRequestByExecution(ctx context.Context, executionID, stepName string) (*Request, error) {
@@ -38,7 +74,7 @@ func (s *mockStorage) GetRequestByExecution(ctx context.Context, executionID, st
 	defer s.mu.Unlock()
 	for _, req := range s.requests {
 		if req.ExecutionID == executionID && req.StepName == stepName {
-			return req, nil
+			return s.copyRequest(req), nil
 		}
 	}
 	return nil, nil
@@ -58,7 +94,7 @@ func (s *mockStorage) ListRequests(ctx context.Context, opts ListOptions) ([]*Re
 		if opts.Type != "" && req.Type != opts.Type {
 			continue
 		}
-		result = append(result, req)
+		result = append(result, s.copyRequest(req))
 	}
 	return result, nil
 }

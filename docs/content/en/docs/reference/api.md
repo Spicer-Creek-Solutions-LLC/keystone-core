@@ -10,12 +10,14 @@ description: >
 Keystone Core provides both REST and gRPC APIs for programmatic access to all functionality. The REST API uses gRPC-gateway for automatic translation from gRPC.
 
 **Base URLs**:
+
 - REST API: `http://control-plane:8080/api/v1`
 - gRPC: `control-plane:9090`
 
 **Authentication**: All API requests require authentication (see [Authentication](#authentication))
 
 **OpenAPI Specification**: A complete OpenAPI 3.0 specification is available at [`api/openapi/openapi-spec.yaml`](https://github.com/shawnbutts/keystone-core/blob/main/api/openapi/openapi-spec.yaml). Use this for:
+
 - Generating client SDKs in any language
 - Importing into API tools (Postman, Insomnia, etc.)
 - Viewing interactive documentation via Swagger UI or Redoc
@@ -68,6 +70,7 @@ Returns server status information including version, uptime, agent counts, and r
 > **Note**: This endpoint does not require authentication and is available at `/api/status` (not `/api/v1/status`).
 
 **Response**:
+
 ```json
 {
   "version": "0.1.0",
@@ -91,6 +94,7 @@ Returns server status information including version, uptime, agent counts, and r
 ```
 
 **Example**:
+
 ```bash
 curl http://control-plane:8080/api/status
 ```
@@ -104,6 +108,7 @@ GET /api/v1/agents
 ```
 
 **Query Parameters**:
+
 - `datacenter` (string): Filter by datacenter
 - `environment` (string): Filter by environment
 - `role` (string): Filter by role
@@ -112,6 +117,7 @@ GET /api/v1/agents
 - `offset` (int): Pagination offset (default: 0)
 
 **Response**:
+
 ```json
 {
   "agents": [
@@ -138,6 +144,7 @@ GET /api/v1/agents
 ```
 
 **Example**:
+
 ```bash
 curl -H "Authorization: Bearer $API_KEY" \
   "http://control-plane:8080/api/v1/agents?environment=production&role=web"
@@ -150,6 +157,7 @@ GET /api/v1/agents/{agent_id}
 ```
 
 **Response**:
+
 ```json
 {
   "id": "web-01",
@@ -178,6 +186,7 @@ GET /api/v1/agents/{agent_id}
 ```
 
 **Example**:
+
 ```bash
 curl -H "Authorization: Bearer $API_KEY" \
   http://control-plane:8080/api/v1/agents/web-01
@@ -190,6 +199,7 @@ PATCH /api/v1/agents/{id}/tags
 ```
 
 **Request Body**:
+
 ```json
 {
   "tags": {
@@ -203,6 +213,7 @@ PATCH /api/v1/agents/{id}/tags
 > **Note**: Set a tag value to empty string `""` to delete it.
 
 **Response**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -220,6 +231,7 @@ POST /api/v1/exec
 ```
 
 **Request Body**:
+
 ```json
 {
   "command": "systemctl restart nginx",
@@ -230,6 +242,7 @@ POST /api/v1/exec
 ```
 
 **Parameters**:
+
 - `command` (string, required): Command to execute
 - `targets` (array): List of target agent IDs
 - `target` (string): Single target agent ID (alternative to `targets`)
@@ -242,6 +255,7 @@ POST /api/v1/exec
 - `shell` (string): Shell to use for execution
 
 **Synchronous Response**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -272,6 +286,7 @@ POST /api/v1/exec
 ```
 
 **Asynchronous Response**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -286,6 +301,7 @@ POST /api/v1/exec
 ```
 
 **Example**:
+
 ```bash
 curl -X POST -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
@@ -304,6 +320,7 @@ GET /api/v1/jobs/{job_id}
 ```
 
 **Response**:
+
 ```json
 {
   "id": "job-abc123",
@@ -328,6 +345,7 @@ GET /api/v1/jobs
 ```
 
 **Query Parameters**:
+
 - `agent_id` (string): Filter by agent ID
 - `status` (string): Filter by status (pending, running, success, failed, timeout, cancelled)
 - `sort` (string): Sort field
@@ -336,6 +354,7 @@ GET /api/v1/jobs
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "jobs": [
@@ -370,6 +389,7 @@ POST /api/v1/state/apply
 ```
 
 **Request Body**:
+
 ```json
 {
   "content": "states:\n  nginx_package:\n    module: package\n    params:\n      name: nginx",
@@ -381,6 +401,7 @@ POST /api/v1/state/apply
 ```
 
 **Parameters**:
+
 - `content` (string): State file YAML content (required if `path` not provided)
 - `path` (string): Path to state file on server (required if `content` not provided)
 - `vars` (object): Template variables
@@ -388,6 +409,7 @@ POST /api/v1/state/apply
 - `targets` (array): Target specific state IDs
 
 **Response**:
+
 ```json
 {
   "run_id": "run-xyz789",
@@ -441,6 +463,7 @@ POST /api/v1/state/check
 Validates state file syntax and structure without applying.
 
 **Request Body**:
+
 ```json
 {
   "content": "states:\n  nginx_package:\n    module: package\n    params:\n      name: nginx"
@@ -448,6 +471,7 @@ Validates state file syntax and structure without applying.
 ```
 
 **Response**:
+
 ```json
 {
   "valid": true,
@@ -459,6 +483,7 @@ Validates state file syntax and structure without applying.
 ```
 
 **Validation Error Example**:
+
 ```json
 {
   "valid": false,
@@ -483,6 +508,7 @@ POST /api/v1/state/drift
 ```
 
 **Request Body**:
+
 ```json
 {
   "content": "states:\n  nginx_service:\n    module: service\n    params:\n      name: nginx\n      state: running"
@@ -490,6 +516,7 @@ POST /api/v1/state/drift
 ```
 
 **Response**:
+
 ```json
 {
   "run_id": "drift-abc123",
@@ -533,6 +560,7 @@ GET /api/v1/events
 ```
 
 **Query Parameters**:
+
 - `type` (string): Filter by event type (comma-separated for multiple)
 - `source` (string): Filter by source (comma-separated for multiple)
 - `severity` (string): Filter by severity level (comma-separated for multiple)
@@ -546,6 +574,7 @@ GET /api/v1/events
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "events": [
@@ -578,6 +607,7 @@ GET /api/v1/events/{id}
 ```
 
 **Response**:
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -601,6 +631,7 @@ POST /api/v1/events
 ```
 
 **Request Body**:
+
 ```json
 {
   "type": "user.custom",
@@ -616,6 +647,7 @@ POST /api/v1/events
 ```
 
 **Parameters**:
+
 - `type` (string, required): Event type
 - `source` (string, required): Event source
 - `severity` (string): Severity level (default: `info`)
@@ -624,6 +656,7 @@ POST /api/v1/events
 - `data` (object): Event payload data
 
 **Response** (201 Created):
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -649,6 +682,7 @@ POST /api/v1/policies/evaluate
 ```
 
 **Request Body**:
+
 ```json
 {
   "policy_id": "ssh-hardening",
@@ -664,6 +698,7 @@ POST /api/v1/policies/evaluate
 ```
 
 **Parameters**:
+
 - `policy_id` (string): Evaluate a single policy
 - `policy_set_id` (string): Evaluate a policy set (alternative to `policy_id`)
 - `resource_type` (string): Evaluate all policies bound to resource type (alternative)
@@ -675,6 +710,7 @@ POST /api/v1/policies/evaluate
 > **Note**: One of `policy_id`, `policy_set_id`, or `resource_type` is required.
 
 **Response**:
+
 ```json
 {
   "allowed": true,
@@ -707,6 +743,7 @@ GET /api/v1/policies/violations
 ```
 
 **Query Parameters**:
+
 - `policy_id` (string): Filter by policy ID
 - `resource_type` (string): Filter by resource type
 - `user` (string): Filter by user
@@ -716,6 +753,7 @@ GET /api/v1/policies/violations
 - `limit` (int): Max results (default: 100)
 
 **Response**:
+
 ```json
 {
   "violations": [
@@ -755,10 +793,12 @@ GET /api/v1/policies/compliance
 ```
 
 **Query Parameters**:
+
 - `start` (string): Period start timestamp (RFC3339, default: 24 hours ago)
 - `end` (string): Period end timestamp (RFC3339, default: now)
 
 **Response**:
+
 ```json
 {
   "report": {
@@ -797,12 +837,14 @@ GET /api/v1/gitops/verifications
 ```
 
 **Query Parameters**:
+
 - `workflow` (string): Filter by workflow name
 - `success` (bool): Filter by success status (`true` or `false`)
 - `limit` (int): Max results (default: 50)
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "verifications": [
@@ -842,6 +884,7 @@ POST /api/v1/gitops/rollback
 ```
 
 **Request Body**:
+
 ```json
 {
   "application": "myapp",
@@ -855,6 +898,7 @@ POST /api/v1/gitops/rollback
 ```
 
 **Parameters**:
+
 - `application` (string, required): Application name
 - `type` (string, required): Rollback type (`argocd`, `flux`, `git`, `manual`)
 - `reason` (string, required): Reason for rollback
@@ -866,6 +910,7 @@ POST /api/v1/gitops/rollback
 - `require_approval` (bool): Force approval requirement
 
 **Response** (202 Accepted):
+
 ```json
 {
   "id": "rb-xyz789",
@@ -890,6 +935,7 @@ GET /api/v1/gitops/verifications/{id}
 ```
 
 **Response**:
+
 ```json
 {
   "id": "verify-abc123",
@@ -928,12 +974,14 @@ GET /api/v1/gitops/rollbacks
 ```
 
 **Query Parameters**:
+
 - `application` (string): Filter by application name
 - `status` (string): Filter by status (`pending`, `pending_approval`, `in_progress`, `completed`, `failed`)
 - `limit` (int): Maximum results (default: 50)
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "rollbacks": [
@@ -966,6 +1014,7 @@ GET /api/v1/gitops/rollbacks/{id}
 ```
 
 **Response**:
+
 ```json
 {
   "id": "rb-xyz789",
@@ -997,6 +1046,7 @@ POST /api/v1/gitops/rollbacks/{id}/approve
 ```
 
 **Request Body**:
+
 ```json
 {
   "approved": true,
@@ -1006,6 +1056,7 @@ POST /api/v1/gitops/rollbacks/{id}/approve
 ```
 
 **Parameters**:
+
 - `approved` (bool): Whether to approve or reject
 - `approved_by` (string, required): User approving/rejecting
 - `reason` (string): Reason for approval/rejection
@@ -1024,6 +1075,7 @@ GET /api/v1/cluster/status
 ```
 
 **Response**:
+
 ```json
 {
   "healthy": true,
@@ -1055,6 +1107,7 @@ GET /api/v1/cluster/members
 ```
 
 **Response**:
+
 ```json
 [
   {
@@ -1102,6 +1155,7 @@ POST /api/v1/cluster/members
 Pre-registers a cluster member before it starts. This enables external orchestration tools (Kubernetes operators, Terraform) to prepare the cluster for new members.
 
 **Request Body**:
+
 ```json
 {
   "id": "server-4",
@@ -1126,6 +1180,7 @@ Pre-registers a cluster member before it starts. This enables external orchestra
 | `metadata` | No | Custom key-value metadata |
 
 **Response** (201 Created):
+
 ```json
 {
   "id": "server-4",
@@ -1143,10 +1198,12 @@ Pre-registers a cluster member before it starts. This enables external orchestra
 ```
 
 **Error Responses**:
+
 - `400 Bad Request`: Missing required `address` field
 - `409 Conflict`: Member ID or address already exists
 
 **Notes**:
+
 - The member starts with `unknown` status until it actually starts and begins heartbeating
 - Members added via API are stored persistently (no lease) so they survive control plane restarts
 - Once the member starts, it will be detected and its status will update to `healthy`
@@ -1158,6 +1215,7 @@ GET /api/v1/cluster/leader
 ```
 
 **Response**:
+
 ```json
 {
   "id": "server-1",
@@ -1181,6 +1239,7 @@ POST /api/v1/cluster/leader/transfer
 Transfers cluster leadership to a specific member. Useful for planned maintenance or load balancing.
 
 **Request Body**:
+
 ```json
 {
   "target_id": "server-2"
@@ -1192,6 +1251,7 @@ Transfers cluster leadership to a specific member. Useful for planned maintenanc
 | `target_id` | **Yes** | ID of the member to transfer leadership to |
 
 **Response** (200 OK):
+
 ```json
 {
   "message": "Leadership transfer initiated",
@@ -1200,15 +1260,18 @@ Transfers cluster leadership to a specific member. Useful for planned maintenanc
 ```
 
 **Error Responses**:
+
 - `400 Bad Request`: Missing or empty `target_id`
 - `500 Internal Server Error`: Transfer failed (target unreachable, not eligible, etc.)
 
 **Notes**:
+
 - The target member must be healthy and part of the cluster
 - Transfer is asynchronous - leader election may take a few seconds
 - Use `GET /api/v1/cluster/leader` to verify the transfer completed
 
 **Example**:
+
 ```bash
 # Transfer leadership to server-2
 curl -X POST \
@@ -1229,6 +1292,7 @@ Creates a complete backup of the cluster state including membership, shard assig
 > **Note**: This endpoint returns a file download (`Content-Type: application/octet-stream`) with the backup JSON content.
 
 **Response** (file download):
+
 ```json
 {
   "version": "1.0",
@@ -1272,6 +1336,7 @@ Creates a complete backup of the cluster state including membership, shard assig
 ```
 
 **Example** (save backup to file):
+
 ```bash
 curl -H "Authorization: Bearer $API_KEY" \
   http://control-plane:8080/api/v1/cluster/backup > cluster-backup.json
@@ -1286,6 +1351,7 @@ POST /api/v1/cluster/restore
 Restores cluster state from a backup. Use with caution in production.
 
 **Query Parameters**:
+
 - `force` (bool): Override safety checks (default: false)
 - `restore_shards` (bool): Restore shard assignments (default: true)
 - `restore_config` (bool): Restore cluster configuration (default: true)
@@ -1293,6 +1359,7 @@ Restores cluster state from a backup. Use with caution in production.
 **Request Body**: The backup JSON from `GET /api/v1/cluster/backup`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1306,12 +1373,14 @@ Restores cluster state from a backup. Use with caution in production.
 ```
 
 **Safety Checks**:
+
 - Backup version must be compatible (1.0 supported)
 - Backup must have valid timestamp
 - Cluster name must match (prevents restoring wrong backup)
 - Cluster should not be healthy (use `?force=true` to override)
 
 **Example**:
+
 ```bash
 # Restore with default options
 curl -X POST \
@@ -1344,9 +1413,11 @@ POST /api/v1/cluster/rebalance
 Redistributes agents across cluster members for better load balancing.
 
 **Query Parameters**:
+
 - `reason` (string): Reason for rebalance (default: "API request")
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1370,12 +1441,14 @@ GET /api/v1/runbook/approvals
 ```
 
 **Query Parameters**:
+
 - `state` (string): Filter by state (`pending`, `approved`, `rejected`, `expired`)
 - `execution_id` (string): Filter by execution ID
 - `limit` (int): Maximum results (default: 50)
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "approvals": [
@@ -1417,6 +1490,7 @@ POST /api/v1/runbook/approvals/{id}/approve
 ```
 
 **Request Body**:
+
 ```json
 {
   "approver": "ops-team",
@@ -1425,6 +1499,7 @@ POST /api/v1/runbook/approvals/{id}/approve
 ```
 
 **Response**:
+
 ```json
 {
   "id": "apr-123",
@@ -1448,6 +1523,7 @@ POST /api/v1/runbook/approvals/{id}/reject
 ```
 
 **Request Body**:
+
 ```json
 {
   "approver": "ops-team",
@@ -1462,6 +1538,7 @@ POST /api/v1/runbook/approvals/{id}/delegate
 ```
 
 **Request Body**:
+
 ```json
 {
   "from": "ops-team",
@@ -1476,6 +1553,7 @@ GET /api/v1/runbook/interventions
 ```
 
 **Query Parameters**:
+
 - `state` (string): Filter by state (`pending`, `responded`, `cancelled`, `expired`)
 - `execution_id` (string): Filter by execution ID
 - `type` (string): Filter by type (`confirmation`, `input`, `choice`)
@@ -1483,6 +1561,7 @@ GET /api/v1/runbook/interventions
 - `offset` (int): Pagination offset
 
 **Response**:
+
 ```json
 {
   "interventions": [
@@ -1539,6 +1618,7 @@ POST /api/v1/runbook/interventions/{id}/respond
 ```
 
 **Request Body**:
+
 ```json
 {
   "operator": "db-admin",
@@ -1552,6 +1632,7 @@ POST /api/v1/runbook/interventions/{id}/respond
 ```
 
 **Response**:
+
 ```json
 {
   "id": "int-789",
@@ -1577,6 +1658,7 @@ POST /api/v1/runbook/interventions/{id}/cancel
 ```
 
 **Request Body**:
+
 ```json
 {
   "operator": "db-admin",
@@ -1797,6 +1879,7 @@ service CoordinationService {
 ```
 
 **RecoveryAction Types**:
+
 - `RESTART_EMBEDDED` - Restart the embedded NATS server (embedded mode only)
 - `RECONNECT` - Force reconnection to NATS servers
 - `FAILOVER` - Switch to backup NATS servers (pass `target_urls` in parameters)
@@ -1805,6 +1888,7 @@ service CoordinationService {
 - `RESUME` - Resume normal operations
 
 **StateUpdateType Types**:
+
 - `AGENT_REGISTER` - Agent registration propagation
 - `AGENT_HEARTBEAT` - Agent heartbeat propagation
 - `AGENT_DISCONNECT` - Agent disconnect propagation
@@ -1816,10 +1900,12 @@ service CoordinationService {
 All API endpoints are rate-limited:
 
 **Limits**:
+
 - **Default**: 100 requests/minute per API key
 - **Burst**: 20 requests/second
 
 **Headers**:
+
 ```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
@@ -1827,6 +1913,7 @@ X-RateLimit-Reset: 1642248645
 ```
 
 **429 Response**:
+
 ```json
 {
   "error": "rate_limit_exceeded",
@@ -1850,6 +1937,7 @@ All errors follow this format:
 ```
 
 **Common Error Codes**:
+
 - `invalid_request` (400): Invalid request parameters
 - `unauthorized` (401): Missing or invalid authentication
 - `forbidden` (403): Insufficient permissions
@@ -1864,11 +1952,13 @@ All errors follow this format:
 List endpoints support cursor-based pagination:
 
 **Request**:
+
 ```bash
 GET /api/v1/agents?limit=100&offset=0
 ```
 
 **Response**:
+
 ```json
 {
   "agents": [...],
@@ -1880,6 +1970,7 @@ GET /api/v1/agents?limit=100&offset=0
 ```
 
 **Next Page**:
+
 ```bash
 GET /api/v1/agents?limit=100&offset=100
 ```
@@ -1889,11 +1980,13 @@ GET /api/v1/agents?limit=100&offset=100
 Many endpoints support filtering:
 
 **Query Syntax**:
+
 ```
 ?field=value&field2=value2
 ```
 
 **Examples**:
+
 ```bash
 # Filter agents by datacenter and role
 GET /api/v1/agents?datacenter=us-east-1&role=web
@@ -1916,6 +2009,7 @@ POST /api/v1/webhooks
 ```
 
 **Request Body**:
+
 ```json
 {
   "url": "https://example.com/webhook",
@@ -2107,6 +2201,7 @@ The REST API uses URL path versioning:
 ```
 
 **Current Versions**:
+
 - `v1`: Stable, current version, recommended for all use cases
 
 > **Note**: Only API v1 is currently implemented. Future versions will be documented here when available.

@@ -10,6 +10,7 @@ description: >
 Keystone Core emits 29 standard event types across 8 categories, plus dynamic GitOps webhook events. All events follow a consistent schema and support CEL-based filtering.
 
 **Event Categories**:
+
 - [Agent Events](#agent-events) (5 types)
 - [Job Events](#job-events) (4 types)
 - [State Events](#state-events) (5 types)
@@ -41,35 +42,43 @@ All events follow this structure:
 ### Fields
 
 **id** (string, UUID)
+
 - Unique event identifier
 - Auto-generated
 
 **type** (string)
-- Event type (see [Event Types](#event-types))
+
+- Event type (see [Agent Events](#agent-events), [Job Events](#job-events), [State Events](#state-events), etc.)
 - Example: `agent.connect`, `job.complete`
 
 **source** (string)
+
 - Event source identifier
 - Usually agent ID or system component
 - Example: `web-01`, `control-plane`
 
 **timestamp** (string, RFC3339)
+
 - When event occurred
 - Example: `2024-01-15T10:30:45Z`
 
 **severity** (string)
+
 - Event severity level
 - Values: `debug`, `info`, `warning`, `error`, `critical`
 
 **correlation_id** (string)
+
 - For tracking related events
 - Example: `job-abc123`, `agent-web-01`
 
 **tags** (object, map of string to string)
+
 - Custom key-value tags
 - Example: `{"env": "production", "region": "us-east-1"}`
 
 **data** (object)
+
 - Event-specific data
 - Schema varies by event type
 
@@ -84,6 +93,7 @@ Emitted when agent registers with control plane.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -103,6 +113,7 @@ Emitted when agent registers with control plane.
 ```
 
 **Example**:
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -128,6 +139,7 @@ Emitted when agent disconnects.
 **Severity**: `warning`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -138,6 +150,7 @@ Emitted when agent disconnects.
 ```
 
 **Reason Values**:
+
 - `timeout` - Heartbeat timeout
 - `graceful` - Graceful shutdown
 - `error` - Connection error
@@ -149,6 +162,7 @@ Emitted when agent sends a heartbeat.
 **Severity**: `debug`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -165,6 +179,7 @@ Emitted when agent misses heartbeats.
 **Severity**: `warning`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -180,6 +195,7 @@ Emitted when an agent encounters an error.
 **Severity**: `error`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -201,6 +217,7 @@ Emitted when command execution begins.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -219,6 +236,7 @@ Emitted when command execution succeeds.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -240,6 +258,7 @@ Emitted when command execution fails.
 **Severity**: `error`
 
 **Data Fields**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -263,6 +282,7 @@ Emitted when streaming output from a job execution.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "job_id": "job-abc123",
@@ -274,6 +294,7 @@ Emitted when streaming output from a job execution.
 ```
 
 **Stream Values**:
+
 - `stdout` - Standard output
 - `stderr` - Standard error
 
@@ -288,6 +309,7 @@ Emitted when state application begins.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "run_id": "run-xyz789",
@@ -306,6 +328,7 @@ Emitted when state application completes successfully.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "run_id": "run-xyz789",
@@ -329,6 +352,7 @@ Emitted when state application fails.
 **Severity**: `error`
 
 **Data Fields**:
+
 ```json
 {
   "run_id": "run-xyz789",
@@ -352,6 +376,7 @@ Emitted when state resources change.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -375,6 +400,7 @@ Emitted when configuration drift detected.
 **Severity**: Varies by drift severity
 
 **Data Fields**:
+
 ```json
 {
   "agent_id": "web-01",
@@ -398,6 +424,7 @@ Emitted when configuration drift detected.
 ```
 
 **Drift Severity Mapping**:
+
 - `low` → event severity: `info`
 - `medium` → event severity: `warning`
 - `high` → event severity: `error`
@@ -408,6 +435,7 @@ Emitted when configuration drift detected.
 GitOps webhook events are dynamic and follow a consistent naming pattern based on the webhook source. These events are emitted when webhook payloads are parsed in `internal/gitops/webhook/`.
 
 **Event Type Patterns**:
+
 - `gitops.argocd.<event_type>`: Event type from ArgoCD payload (`type`) or operation phase
 - `gitops.flux.<event_type>`: Event type from `X-Flux-Event` header or payload `reason`
 - `gitops.github.<event_type>`: Event type from `X-GitHub-Event` header
@@ -415,12 +443,14 @@ GitOps webhook events are dynamic and follow a consistent naming pattern based o
 - `gitops.webhook`: Fallback when a specific type cannot be determined
 
 **Common Examples**:
+
 - `gitops.argocd.sync`, `gitops.argocd.health`, `gitops.argocd.Succeeded`
 - `gitops.flux.ReconciliationSucceeded`, `gitops.flux.ReconciliationFailed`
 - `gitops.github.deployment`, `gitops.github.deployment_status`, `gitops.github.workflow_run`, `gitops.github.push`
 - `gitops.gitlab.deployment`, `gitops.gitlab.pipeline`, `gitops.gitlab.push`, `gitops.gitlab.merge_request`
 
 **Data Fields** (superset; varies by source):
+
 ```json
 {
   "webhook_id": "uuid",
@@ -437,6 +467,7 @@ GitOps webhook events are dynamic and follow a consistent naming pattern based o
 ```
 
 **Example (ArgoCD Sync Event)**:
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -469,6 +500,7 @@ Emitted when a bootstrap credential is generated.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -486,6 +518,7 @@ Emitted when a bootstrap credential is validated.
 **Severity**: `info` (success) / `warning` (failure)
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -502,6 +535,7 @@ Emitted when a bootstrap credential is used for registration.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -518,6 +552,7 @@ Emitted when an agent successfully registers via bootstrap.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -535,6 +570,7 @@ Emitted when a bootstrap credential is revoked.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -550,6 +586,7 @@ Emitted when a bootstrap credential expires.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "credential_id": "boot-abc123",
@@ -565,6 +602,7 @@ Emitted when expired credentials are cleaned up.
 **Severity**: `debug`
 
 **Data Fields**:
+
 ```json
 {
   "cluster": "production",
@@ -583,6 +621,7 @@ Emitted when control plane starts.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "version": "1.0.0",
@@ -601,6 +640,7 @@ Emitted when control plane shuts down gracefully.
 **Severity**: `warning`
 
 **Data Fields**:
+
 ```json
 {
   "reason": "graceful shutdown",
@@ -616,6 +656,7 @@ Emitted when a system-level error occurs.
 **Severity**: `error`
 
 **Data Fields**:
+
 ```json
 {
   "error": "database connection lost",
@@ -637,6 +678,7 @@ Emitted when a user authenticates.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "user": "admin@example.com",
@@ -647,6 +689,7 @@ Emitted when a user authenticates.
 ```
 
 **Method Values**:
+
 - `api_key` - API key authentication
 - `mtls` - mTLS certificate authentication
 - `jwt` - JWT token authentication
@@ -658,6 +701,7 @@ Emitted when a user executes a command via CLI or API.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "user": "admin@example.com",
@@ -674,6 +718,7 @@ Emitted when a user action fails.
 **Severity**: `error`
 
 **Data Fields**:
+
 ```json
 {
   "user": "admin@example.com",
@@ -695,6 +740,7 @@ Emitted when a policy evaluation passes.
 **Severity**: `info`
 
 **Data Fields**:
+
 ```json
 {
   "policy_id": "require-labels",
@@ -713,6 +759,7 @@ Emitted when a policy violation is detected.
 **Severity**: `warning` (audit mode) / `error` (enforce mode)
 
 **Data Fields**:
+
 ```json
 {
   "policy_id": "require-labels",
@@ -733,6 +780,7 @@ Emitted when a policy violation is detected.
 ```
 
 **Mode Values**:
+
 - `enforce` - Violations are blocked
 - `audit` - Violations are logged only
 - `warn` - Violations generate warnings but are not blocked
@@ -744,6 +792,7 @@ Filter events using CEL (Common Expression Language).
 ### Field Access
 
 **Top-level fields**:
+
 ```javascript
 type == 'agent.connect'
 source == 'web-01'
@@ -751,6 +800,7 @@ severity == 'error'
 ```
 
 **Data fields**:
+
 ```javascript
 data.agent_id == 'web-01'
 data.job_id == 'job-abc123'
@@ -758,12 +808,14 @@ data.environment == 'production'
 ```
 
 **Nested data**:
+
 ```javascript
 data.metadata.hostname == 'web-01.example.com'
 data.results.success > 0
 ```
 
 **Arrays**:
+
 ```javascript
 'production' in tags
 tags.contains('us-east-1')
@@ -772,12 +824,14 @@ tags.contains('us-east-1')
 ### Comparison Operators
 
 **Equality**:
+
 ```javascript
 type == 'agent.connect'
 type != 'user.custom'
 ```
 
 **Comparison**:
+
 ```javascript
 severity >= 'warning'
 data.exit_code != 0
@@ -785,12 +839,14 @@ data.duration > 60
 ```
 
 **Regex**:
+
 ```javascript
 source =~ 'web-.*'
 type =~ '^agent\\..*'
 ```
 
 **Glob**:
+
 ```javascript
 source ~~ 'web-*'
 type ~~ 'state.*'
@@ -799,18 +855,21 @@ type ~~ 'state.*'
 ### Logical Operators
 
 **AND**:
+
 ```javascript
 type == 'job.fail' && severity == 'critical'
 type == 'agent.disconnect' and data.reason == 'timeout'
 ```
 
 **OR**:
+
 ```javascript
 type == 'agent.connect' || type == 'agent.disconnect'
 type == 'job.fail' or type == 'state.apply.fail'
 ```
 
 **NOT**:
+
 ```javascript
 !(type == 'user.custom')
 not (severity == 'debug')
@@ -819,18 +878,21 @@ not (severity == 'debug')
 ### Container Operations
 
 **Contains**:
+
 ```javascript
 tags.contains('production')
 type.contains('agent')
 ```
 
 **In**:
+
 ```javascript
 'production' in tags
 'us-east-1' in tags
 ```
 
 **StartsWith/EndsWith**:
+
 ```javascript
 type.startsWith('agent.')
 source.endsWith('-01')
@@ -839,6 +901,7 @@ source.endsWith('-01')
 ### Complex Filters
 
 **Multiple conditions**:
+
 ```javascript
 type == 'state.drift' &&
 data.drift_severity >= 'high' &&
@@ -847,6 +910,7 @@ data.agent_id in ['web-01', 'web-02'] &&
 ```
 
 **Nested conditions**:
+
 ```javascript
 (type == 'job.fail' || type == 'state.apply.fail') &&
 severity >= 'error' &&
@@ -854,6 +918,7 @@ data.environment == 'production'
 ```
 
 **Data validation**:
+
 ```javascript
 type == 'agent.connect' &&
 data.os == 'linux' &&
@@ -866,31 +931,37 @@ data.memory_total >= 8589934592
 ### Common Filters
 
 **All agent events**:
+
 ```javascript
 type.startsWith('agent.')
 ```
 
 **Production errors**:
+
 ```javascript
 'production' in tags && severity >= 'error'
 ```
 
 **Failed operations**:
+
 ```javascript
 type == 'job.fail' || type == 'state.apply.fail'
 ```
 
 **High-severity drift**:
+
 ```javascript
 type == 'state.drift' && data.drift_severity >= 'high'
 ```
 
 **Specific agent**:
+
 ```javascript
 source == 'web-01' || data.agent_id == 'web-01'
 ```
 
 **Time-based** (requires event.timestamp):
+
 ```javascript
 type == 'agent.disconnect' &&
 timestamp > timestamp('2024-01-15T00:00:00Z')
@@ -899,6 +970,7 @@ timestamp > timestamp('2024-01-15T00:00:00Z')
 ### Use Case Filters
 
 **Auto-remediation trigger**:
+
 ```javascript
 type == 'state.drift' &&
 data.drift_severity == 'critical' &&
@@ -906,6 +978,7 @@ data.environment == 'production'
 ```
 
 **Security alerts**:
+
 ```javascript
 type == 'policy.violation' &&
 data.category == 'security' &&
@@ -913,12 +986,14 @@ data.severity >= 'high'
 ```
 
 **Performance monitoring**:
+
 ```javascript
 type == 'job.complete' &&
 data.duration > duration('5m')
 ```
 
 **Capacity alerts**:
+
 ```javascript
 type == 'agent.connect' &&
 data.metadata.cpu_count < 4

@@ -294,17 +294,17 @@ kscore-bootstrap restore --backup /tmp/backup-older.tar.gz
 
 ### Within 24 hours
 
-4. [ ] Root cause analysis
-5. [ ] Update monitoring for new infrastructure
-6. [ ] Reconfigure backup jobs
-7. [ ] Test backup/restore cycle
+1. [ ] Root cause analysis
+2. [ ] Update monitoring for new infrastructure
+3. [ ] Reconfigure backup jobs
+4. [ ] Test backup/restore cycle
 
 ### Within 1 week
 
-8. [ ] Post-mortem meeting
-9. [ ] Update DR procedures based on learnings
-10. [ ] Plan infrastructure improvements
-11. [ ] Update runbook if needed
+1. [ ] Post-mortem meeting
+2. [ ] Update DR procedures based on learnings
+3. [ ] Plan infrastructure improvements
+4. [ ] Update runbook if needed
 
 ## Appendix: Recovery Time Estimates
 
@@ -347,6 +347,7 @@ Split-Brain State:
 ```
 
 **Common causes:**
+
 - Network equipment failure (switch, router)
 - Misconfigured firewalls
 - Cloud provider network issues
@@ -465,6 +466,7 @@ done
 ##### Step 1.3: Determine Authoritative Partition
 
 Criteria for selecting authoritative partition (in order):
+
 1. **Quorum**: Partition with majority of nodes
 2. **Data freshness**: Partition with most recent data
 3. **Agent count**: Partition serving more agents

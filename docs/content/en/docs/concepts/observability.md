@@ -10,11 +10,13 @@ description: >
 Keystone Core provides comprehensive observability through metrics, logging, and tracing. Monitor system health, track performance, debug issues, and gain insights into your infrastructure operations.
 
 **Three Pillars**:
+
 - **Metrics**: Prometheus-compatible metrics for quantitative measurement
 - **Logging**: Structured logs with correlation IDs for debugging
 - **Tracing**: Distributed tracing with OpenTelemetry for request flow
 
 **Additional Tools**:
+
 - **Grafana Dashboards**: Pre-built dashboards for visualization
 - **TUI Monitor**: Terminal-based real-time monitoring
 - **Health Checks**: Kubernetes-compatible health endpoints
@@ -66,6 +68,7 @@ Keystone Core exposes 70+ Prometheus-compatible metrics:
 ### Control Plane Metrics
 
 **API Metrics**:
+
 ```
 # HTTP requests
 kscore_api_requests_total{method,path,status}
@@ -76,6 +79,7 @@ kscore_api_active_connections
 ```
 
 **Agent Metrics**:
+
 ```
 # Agent status
 kscore_agents_connected{datacenter,environment,role}
@@ -87,6 +91,7 @@ kscore_agent_heartbeat_missed_total
 ```
 
 **Command Execution**:
+
 ```
 # Commands
 kscore_command_executions_total{status,datacenter}
@@ -98,6 +103,7 @@ kscore_batch_size{quantile}
 ```
 
 **State Management**:
+
 ```
 # State applications
 kscore_state_applications_total{status}
@@ -112,6 +118,7 @@ kscore_state_drift_detected_total{severity}
 ```
 
 **Event System**:
+
 ```
 # Events
 kscore_events_published_total{type}
@@ -124,6 +131,7 @@ kscore_event_lag_seconds
 ```
 
 **Policy Enforcement**:
+
 ```
 # Evaluations
 kscore_policy_evaluations_total{policy,result}
@@ -138,6 +146,7 @@ kscore_policy_remediations_total{policy,status}
 ```
 
 **GitOps Integration**:
+
 ```
 # Webhooks
 kscore_gitops_webhooks_received_total{source}
@@ -153,6 +162,7 @@ kscore_gitops_rollbacks_total{type,status}
 ### Agent Metrics
 
 **Resource Usage**:
+
 ```
 # CPU
 kscore_agent_cpu_usage_percent{agent_id}
@@ -167,6 +177,7 @@ kscore_agent_disk_total_bytes{agent_id,mount}
 ```
 
 **Operations**:
+
 ```
 # Commands executed
 kscore_agent_commands_executed_total{agent_id,status}
@@ -179,6 +190,7 @@ kscore_agent_events_emitted_total{agent_id,type}
 ```
 
 **Connection**:
+
 ```
 # Heartbeat
 kscore_agent_heartbeat_sent_total{agent_id}
@@ -243,6 +255,7 @@ Storage (bytes/day) = samples_per_second × bytes_per_sample × seconds_per_day
 ```
 
 Where:
+
 - **metrics**: Number of unique metric names (~70 for Keystone Core)
 - **cardinality**: Average label combinations per metric
 - **scrape_interval**: Seconds between scrapes (default 15s)
@@ -258,6 +271,7 @@ Where:
 | Enterprise | 5,000+ | ~500,000+ | ~600+ GB |
 
 **Cardinality drivers**:
+
 - Agent count (each agent adds label combinations)
 - Datacenters/environments (multiplier for many metrics)
 - Command diversity (unique commands increase `command` label cardinality)
@@ -299,6 +313,7 @@ global:
 ```
 
 **Retention by time vs size**:
+
 ```bash
 # Retain 30 days of data
 prometheus --storage.tsdb.retention.time=30d
@@ -315,6 +330,7 @@ prometheus \
 #### Sizing Examples
 
 **Example 1: Small deployment (50 agents, 7-day retention)**
+
 ```
 Metrics: 70
 Cardinality: 500 (50 agents × 10 avg label combinations)
@@ -328,6 +344,7 @@ Recommended: 5 GB with 20% headroom
 ```
 
 **Example 2: Medium deployment (500 agents, 30-day retention)**
+
 ```
 Metrics: 70
 Cardinality: 5,000 (500 agents × 10 avg label combinations)
@@ -341,6 +358,7 @@ Recommended: 150 GB with 25% headroom
 ```
 
 **Example 3: Large deployment (5,000 agents, 90-day retention)**
+
 ```
 Metrics: 70
 Cardinality: 50,000 (5,000 agents × 10 avg label combinations)
@@ -359,6 +377,7 @@ Consider: Remote write to long-term storage (Thanos, Cortex, Mimir)
 High cardinality increases storage costs. Reduce with these strategies:
 
 **1. Aggregate high-cardinality labels**:
+
 ```yaml
 # prometheus.yml - Use relabeling to drop high-cardinality labels
 scrape_configs:
@@ -372,6 +391,7 @@ scrape_configs:
 ```
 
 **2. Use recording rules for aggregation**:
+
 ```yaml
 # recording_rules.yml
 groups:
@@ -387,6 +407,7 @@ groups:
 ```
 
 **3. Filter unnecessary metrics**:
+
 ```yaml
 # Scrape only essential metrics
 scrape_configs:
@@ -403,6 +424,7 @@ scrape_configs:
 For retention beyond 30-90 days, use external long-term storage:
 
 **Thanos**:
+
 ```yaml
 # thanos-sidecar.yml
 apiVersion: v1
@@ -422,6 +444,7 @@ spec:
 ```
 
 **Grafana Mimir**:
+
 ```yaml
 # mimir-config.yml
 # Remote write from Prometheus to Mimir
@@ -434,6 +457,7 @@ remote_write:
 ```
 
 **Victoria Metrics**:
+
 ```yaml
 # prometheus.yml - Remote write to VictoriaMetrics
 remote_write:
@@ -505,6 +529,7 @@ Keystone Core uses structured logging with correlation IDs:
 ### Log Formats
 
 **JSON** (default, machine-readable):
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45.123Z",
@@ -523,11 +548,13 @@ Keystone Core uses structured logging with correlation IDs:
 ```
 
 **Logfmt** (key=value format):
+
 ```
 timestamp=2024-01-15T10:30:45.123Z level=info logger=command-dispatcher message="Command executed successfully" correlation_id=job-abc123 job_id=abc123 agent_id=web-01 command="systemctl restart nginx" duration_ms=1234 exit_code=0
 ```
 
 **Text** (human-readable, colored):
+
 ```
 2024-01-15 10:30:45.123 [INFO] command-dispatcher: Command executed successfully
   correlation_id: job-abc123
@@ -560,6 +587,7 @@ Track requests across components:
 ```
 
 **Query logs by correlation ID**:
+
 ```bash
 kscorectl logs --correlation-id job-abc123
 ```
@@ -602,6 +630,7 @@ logging:
 ```
 
 **Message Format** (JSON):
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45.123Z",
@@ -619,11 +648,13 @@ logging:
 ```
 
 **Subject Routing**:
+
 - Default: `kscore.logs`
 - Per-level: `kscore.logs.info`, `kscore.logs.error`
 - Per-service: `kscore.logs.kscore-server`
 
 **Subscribe to logs**:
+
 ```bash
 # All logs
 nats sub "kscore.logs.>"
@@ -653,6 +684,7 @@ logging:
 ```
 
 **Container Integration** (Docker/Kubernetes):
+
 ```bash
 # View logs via container runtime
 docker logs kscore-server
@@ -666,6 +698,7 @@ kubectl logs deployment/kscore-server
 ```
 
 **systemd/journald Integration**:
+
 ```bash
 # View logs via journalctl
 journalctl -u kscore-server -f
@@ -701,16 +734,19 @@ logging:
 ```
 
 **RFC 5424 Format**:
+
 ```
 <134>1 2024-01-15T10:30:45.123Z hostname kscore-server 1234 - [kscore@49152 level="info" correlation_id="abc123"] Command executed
 ```
 
 **BSD Format** (RFC 3164):
+
 ```
 <134>Jan 15 10:30:45 hostname kscore-server[1234]: Command executed
 ```
 
 **rsyslog Configuration**:
+
 ```
 # /etc/rsyslog.d/kscore.conf
 local0.* /var/log/keystone-core.log
@@ -794,6 +830,7 @@ EVAL-vendor_product = "Anthropic Keystone"
 | `vendor_product` | (static) | Common |
 
 **Splunk Search Examples**:
+
 ```spl
 # All authentication events
 index=kscore sourcetype="kscore:json" logger="auth"
@@ -850,6 +887,7 @@ Map Keystone fields to ECS for Elastic SIEM and Kibana:
 | `user.name` | `user` | User |
 
 **Logstash Pipeline**:
+
 ```ruby
 # /etc/logstash/conf.d/kscore.conf
 input {
@@ -942,6 +980,7 @@ output {
 ```
 
 **Kibana Query Examples**:
+
 ```
 # All failed commands
 event.outcome: "failure" AND event.module: "kscore"
@@ -958,6 +997,7 @@ event.category: "configuration" AND @timestamp >= now-24h
 CEF mapping for ArcSight, QRadar, and other SIEM platforms:
 
 **CEF Header Mapping**:
+
 ```
 CEF:0|Anthropic|Keystone|1.0|<signature_id>|<name>|<severity>|<extension>
 ```
@@ -1003,6 +1043,7 @@ CEF:0|Anthropic|Keystone|1.0|<signature_id>|<name>|<severity>|<extension>
 | `message` | `error` | `msg` |
 
 **CEF Output Configuration**:
+
 ```yaml
 logging:
   syslog:
@@ -1016,6 +1057,7 @@ logging:
 ```
 
 **Sample CEF Output**:
+
 ```
 CEF:0|Anthropic|Keystone|1.0|CMD_EXEC|Command Executed|3|src=10.0.0.1 dhost=agent-01 suser=admin cs1=job-abc123 cs1Label=Correlation ID cs3=apt-get cs3Label=Command cn1=1234 cn1Label=Duration (ms) cn2=0 cn2Label=Exit Code
 ```
@@ -1025,6 +1067,7 @@ CEF:0|Anthropic|Keystone|1.0|CMD_EXEC|Command Executed|3|src=10.0.0.1 dhost=agen
 LEEF mapping for IBM QRadar:
 
 **LEEF Header**:
+
 ```
 LEEF:2.0|Anthropic|Keystone|1.0|<event_id>|
 ```
@@ -1049,8 +1092,9 @@ LEEF:2.0|Anthropic|Keystone|1.0|<event_id>|
 | `outcome` | `exit_code` | Result code |
 
 **Sample LEEF Output**:
+
 ```
-LEEF:2.0|Anthropic|Keystone|1.0|CMD_EXEC|devTime=2024-01-15T10:30:45.123Z	cat=command-dispatcher	sev=3	src=10.0.0.1	dstHost=agent-01	usrName=admin	action=apt-get	responseTime=1234	outcome=0	msg=Command executed successfully
+LEEF:2.0|Anthropic|Keystone|1.0|CMD_EXEC|devTime=2024-01-15T10:30:45.123Z cat=command-dispatcher sev=3 src=10.0.0.1 dstHost=agent-01 usrName=admin action=apt-get responseTime=1234 outcome=0 msg=Command executed successfully
 ```
 
 #### Microsoft Sentinel (Azure)
@@ -1058,6 +1102,7 @@ LEEF:2.0|Anthropic|Keystone|1.0|CMD_EXEC|devTime=2024-01-15T10:30:45.123Z	cat=co
 Data connector configuration for Microsoft Sentinel:
 
 **Log Analytics Workspace Schema**:
+
 ```kusto
 // Custom log table: Keystone_CL
 Keystone_CL
@@ -1078,6 +1123,7 @@ Keystone_CL
 ```
 
 **Azure Monitor Agent Configuration**:
+
 ```json
 {
   "logs": [
@@ -1096,6 +1142,7 @@ Keystone_CL
 ```
 
 **KQL Queries for Threat Hunting**:
+
 ```kusto
 // Failed authentication attempts
 Keystone_CL
@@ -1144,6 +1191,7 @@ Quick reference for field normalization across all SIEM formats:
 #### Parser Configuration Templates
 
 **Splunk Add-on**:
+
 ```
 # inputs.conf
 [monitor:///var/log/keystone-core]
@@ -1158,6 +1206,7 @@ WRITE_META = true
 ```
 
 **Elastic Ingest Pipeline**:
+
 ```json
 {
   "description": "Keystone log parser",
@@ -1191,6 +1240,7 @@ WRITE_META = true
 ```
 
 **Fluentd Configuration**:
+
 ```
 <source>
   @type tail
@@ -1219,6 +1269,7 @@ WRITE_META = true
 ```
 
 **Vector Configuration**:
+
 ```toml
 [sources.kscore_logs]
 type = "file"
@@ -1263,6 +1314,7 @@ logging:
 ### Querying Logs
 
 **LogQL** (Loki query language):
+
 ```
 # All logs from control plane
 {service="kscore-server"}
@@ -1366,6 +1418,7 @@ Max Duration: 10s
 Keystone Core provides Go clients for querying Loki and Jaeger programmatically:
 
 **Loki Client**:
+
 ```go
 import "github.com/shawnbutts/keystone-core/pkg/query"
 
@@ -1400,6 +1453,7 @@ values, err := client.LabelValues(ctx, "service", start, end)
 ```
 
 **Jaeger Client**:
+
 ```go
 import "github.com/shawnbutts/keystone-core/pkg/query"
 
@@ -1466,6 +1520,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 ### 1. Keystone Core Overview
 
 **System-wide metrics**:
+
 - Total agents (connected, offline, degraded)
 - Command execution rate
 - State application rate
@@ -1474,12 +1529,14 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Recent events timeline
 
 **Variables**:
+
 - Environment (production, staging, dev)
 - Datacenter (us-east-1, us-west-2, etc.)
 
 ### 2. Control Plane Health
 
 **Metrics**:
+
 - Control plane status and uptime
 - CPU and memory usage
 - API request rate and latency (p95, p99)
@@ -1488,6 +1545,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Error rates by component
 
 **Alerts**:
+
 - High CPU usage (>80%)
 - High memory usage (>90%)
 - High API latency (p95 >1s)
@@ -1496,6 +1554,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 ### 3. Agent Fleet
 
 **Metrics**:
+
 - Fleet health status (healthy, degraded, offline)
 - Agent distribution by datacenter and role
 - Command execution success rate per agent
@@ -1503,6 +1562,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Agent version distribution
 
 **Variables**:
+
 - Datacenter
 - Role
 - Agent ID
@@ -1510,6 +1570,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 ### 4. State Management
 
 **Metrics**:
+
 - State applications (success, failure)
 - Drift detection events by severity
 - State changes by module
@@ -1517,12 +1578,14 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Resources under management
 
 **Variables**:
+
 - Environment
 - Module (file, package, service, etc.)
 
 ### 5. Policy Compliance
 
 **Metrics**:
+
 - Overall compliance score (gauge)
 - Violations by severity (critical, high, medium, low)
 - Remediation success rate
@@ -1530,12 +1593,14 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Compliance trends (7-day average)
 
 **Variables**:
+
 - Policy framework (OPA, CEL)
 - Environment
 
 ### 6. GitOps Operations
 
 **Metrics**:
+
 - Deployment verification metrics
 - Verification success rate
 - Rollback frequency and reasons
@@ -1543,6 +1608,7 @@ Keystone Core provides 10 pre-built Grafana dashboards:
 - Failed verifications by application
 
 **Variables**:
+
 - Application
 - Environment
 
@@ -1563,38 +1629,45 @@ Terminal-based real-time monitoring (`kscore-monitor`):
 ### Views
 
 **1. Dashboard** (default view):
+
 - System overview
 - Agent counts
 - Recent events
 - Job statistics
 
 **2. Agents**:
+
 - Interactive table with agents
 - Status, metadata, heartbeat
 - Filter by datacenter/environment/role
 
 **3. Events**:
+
 - Real-time event stream
 - Filter by type, severity
 - Search events
 - Pause/resume stream
 
 **4. State Drift**:
+
 - Configuration drift monitoring
 - Drift by severity
 - Affected resources
 
 **5. Policy Violations**:
+
 - Policy compliance tracking
 - Violations by policy
 - Remediation status
 
 **6. Jobs**:
+
 - Command execution history
 - Job status
 - Output logs
 
 **7. Logs**:
+
 - Real-time log streaming via NATS
 - Color-coded by level (debug, info, warn, error)
 - Pause/resume with `p` or `space`
@@ -1602,6 +1675,7 @@ Terminal-based real-time monitoring (`kscore-monitor`):
 - Live/Paused status indicator
 
 **8. Metrics**:
+
 - Real-time metrics via NATS
 - Grouped by service
 - Color-coded by type (counter, gauge, histogram)
@@ -1625,6 +1699,7 @@ monitor:
 ```
 
 **Subscribed subjects**:
+
 - `kscore.logs.>` - Log messages
 - `kscore.metrics.>` - Metric updates
 - `kscore.traces.>` - Trace spans
@@ -1665,6 +1740,7 @@ Kubernetes-compatible health endpoints:
 **Endpoint**: `GET /health/live`
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -1673,6 +1749,7 @@ Kubernetes-compatible health endpoints:
 ```
 
 **Status Codes**:
+
 - `200 OK`: Process is alive
 - `503 Service Unavailable`: Process is not responding
 
@@ -1681,6 +1758,7 @@ Kubernetes-compatible health endpoints:
 **Endpoint**: `GET /health/ready`
 
 **Response**:
+
 ```json
 {
   "status": "ready",
@@ -1694,6 +1772,7 @@ Kubernetes-compatible health endpoints:
 ```
 
 **Status Codes**:
+
 - `200 OK`: Ready to receive traffic
 - `503 Service Unavailable`: Not ready (dependencies unavailable)
 
@@ -1702,6 +1781,7 @@ Kubernetes-compatible health endpoints:
 **Endpoint**: `GET /health/status`
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -1788,6 +1868,7 @@ metrics:
 ```
 
 **Message Format** (JSON batch):
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45.123Z",
@@ -1811,6 +1892,7 @@ metrics:
 ```
 
 **Subscribe to metrics**:
+
 ```bash
 # All metrics
 nats sub "kscore.metrics.>"
@@ -1836,6 +1918,7 @@ tracing:
 ```
 
 **Span Format** (JSON):
+
 ```json
 {
   "trace_id": "1234567890abcdef",
@@ -1858,6 +1941,7 @@ tracing:
 ```
 
 **Batch Format**:
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45Z",
@@ -1957,11 +2041,13 @@ audit:
 ```
 
 **Subject Routing**:
+
 - Default: `kscore.audit`
 - Per-tool: `kscore.audit.kscore-exec`
 - Per-action: `kscore.audit.{tool}.{action}`
 
 **Subscribe to audit logs**:
+
 ```bash
 # All audit logs
 nats sub "kscore.audit.>"
@@ -1992,6 +2078,7 @@ kscorectl state drift webserver.yaml
 ```
 
 **Override audit settings**:
+
 ```bash
 # Disable audit logging
 kscorectl exec --audit-level none run "role:web" -- echo test
@@ -2016,6 +2103,7 @@ kscorectl exec run "role:db" -- mysql -p secret123 -e 'SELECT *'
 ```
 
 **Redacted patterns**:
+
 - Passwords (`-p`, `--password`)
 - Tokens (`--token`, `-t`)
 - Secrets (`--secret`)
@@ -2103,6 +2191,7 @@ go tool trace trace.out
 **Cause**: Too many unique label combinations
 
 Fix:
+
 ```yaml
 # Remove high-cardinality labels
 # BEFORE (bad):
@@ -2117,6 +2206,7 @@ kscore_requests_total{endpoint="/api/exec"}
 **Problem**: Logs not appearing in Loki
 
 Check:
+
 ```bash
 # Check log output
 kscorectl logs --tail 100
@@ -2133,6 +2223,7 @@ curl http://loki:3100/metrics | grep loki_ingester
 **Problem**: Traces missing spans
 
 Check:
+
 ```bash
 # Verify trace context propagation
 kscorectl logs | grep trace_id

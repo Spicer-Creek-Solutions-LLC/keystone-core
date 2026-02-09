@@ -36,6 +36,7 @@ kscore-server \
 ```
 
 **Expected output**:
+
 ```
 INFO  Starting Keystone Core Control Plane
 INFO  NATS server starting in embedded mode on 127.0.0.1:4222
@@ -76,6 +77,7 @@ kscore-agent \
 ```
 
 **Expected output**:
+
 ```
 INFO  Connecting to control plane at nats://127.0.0.1:4222
 INFO  Agent ID: my-first-agent
@@ -97,6 +99,7 @@ kscorectl agent list
 ```
 
 **Expected output**:
+
 ```
 AGENT ID         DATACENTER  ENVIRONMENT  ROLE   STATUS   LAST HEARTBEAT
 my-first-agent   local       dev          test   online   2s ago
@@ -114,6 +117,7 @@ kscorectl exec run "echo 'Hello from Keystone Core!'" \
 ```
 
 **Expected output**:
+
 ```
 Executing on 1 agent(s)...
 
@@ -152,6 +156,7 @@ kscorectl state apply /tmp/test-state.yaml
 This applies locally on the host running `kscorectl` (which is the same host as the agent in this quick start).
 
 **Expected output**:
+
 ```
 Loading state file: /tmp/test-state.yaml
 Applying state: Create a test file
@@ -175,6 +180,7 @@ kscorectl exec run "cat /tmp/kscore-test.txt" \
 ```
 
 **Expected output**:
+
 ```
 Agent: my-first-agent
 Status: success
@@ -200,6 +206,7 @@ kscorectl state drift /tmp/test-state.yaml
 ```
 
 **Expected output**:
+
 ```
 Checking drift for: Create a test file
 
@@ -228,6 +235,7 @@ kscorectl state apply /tmp/test-state.yaml
 ```
 
 **Expected output**:
+
 ```
 Loading state file: /tmp/test-state.yaml
 Applying state: Create a test file
@@ -254,6 +262,7 @@ curl http://localhost:8080/metrics | grep kscore
 ```
 
 **Sample output**:
+
 ```
 kscore_agents_connected 1
 kscore_command_executions_total 3
@@ -273,6 +282,7 @@ kscorectl monitor
 ```
 
 **What you'll see**:
+
 - Dashboard view (press `1`)
 - Connected agents (press `2`)
 - Recent events (press `3`)
@@ -282,9 +292,10 @@ Press `q` to quit.
 
 ✅ **Checkpoint**: Real-time monitoring works
 
-## 🎉 Success!
+## 🎉 Success
 
 In about 5 minutes, you've:
+
 - ✅ Started a control plane
 - ✅ Connected an agent
 - ✅ Executed remote commands
@@ -295,17 +306,20 @@ In about 5 minutes, you've:
 ## What's Next?
 
 ### Learn More
+
 - **[Architecture Overview](../architecture/)** - Understand how it all works
 - **[Concepts](../../concepts/)** - Deep dives into each subsystem
 - **[Reference](../../reference/)** - Complete API and configuration reference
 
 ### Try More Features
+
 - **[Event Reactors](../../concepts/reactors/)** - Automate responses to events
 - **[GitOps Integration](../../concepts/gitops/)** - Connect to ArgoCD/Flux
 - **[Policy Enforcement](../../concepts/policy/)** - Write OPA/CEL policies
 - **[Multi-Environment](../../scenarios/multi-environment/)** - Manage K8s, VMs, and cloud
 
 ### Production Deployment
+
 - **[High Availability](../../operations/cluster-management/)** - HA cluster setup
 - **[Monitoring Setup](../../operations/monitoring/)** - Prometheus + Grafana dashboards
 - **[Security Hardening](../../operations/security/)** - Production security
@@ -332,6 +346,7 @@ rm /tmp/kscore-test.txt
 **Error**: `failed to connect to control plane`
 
 **Fix**: Ensure control plane is running and reachable:
+
 ```bash
 curl http://localhost:8080/health/live
 nc -zv 127.0.0.1 4222
@@ -342,6 +357,7 @@ nc -zv 127.0.0.1 4222
 **Error**: `no agents matched target`
 
 **Fix**: Check agent status:
+
 ```bash
 kscorectl agent list
 ```
@@ -359,6 +375,7 @@ Ensure your target expression matches an online agent.
 **Error**: `bind: address already in use`
 
 **Fix**: Change the port:
+
 ```bash
 kscore-server --api-listen 127.0.0.1:8081 --nats-listen 127.0.0.1:4223
 ```

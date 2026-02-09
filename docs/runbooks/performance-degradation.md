@@ -68,6 +68,7 @@ curl -g 'http://prometheus:9090/api/v1/query?query=histogram_quantile(0.95,rate(
 #### Step 2.1: Control Plane Analysis
 
 **CPU Saturation**:
+
 ```bash
 # Check CPU usage per component
 for node in ks-server-1 ks-server-2 ks-server-3; do
@@ -80,6 +81,7 @@ kubectl top pods -n kscore
 ```
 
 **Memory Pressure**:
+
 ```bash
 # Check memory usage
 for node in ks-server-1 ks-server-2 ks-server-3; do
@@ -94,6 +96,7 @@ journalctl -k | grep -i oom
 ```
 
 **Disk I/O**:
+
 ```bash
 # Check disk I/O
 for node in ks-server-1 ks-server-2 ks-server-3; do
@@ -108,6 +111,7 @@ curl -g 'http://prometheus:9090/api/v1/query?query=rate(node_disk_io_time_second
 #### Step 2.2: Database Analysis
 
 **PostgreSQL**:
+
 ```bash
 # Check active connections
 psql -h postgres -U kscore -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
@@ -146,6 +150,7 @@ WHERE NOT blocked_locks.granted;
 ```
 
 **SQLite**:
+
 ```bash
 # Check database size and fragmentation
 sqlite3 /var/lib/keystone-core/keystone.db "

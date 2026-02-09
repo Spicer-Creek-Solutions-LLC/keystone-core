@@ -10,6 +10,7 @@ description: >
 Keystone Core proxy agents enable management of devices that cannot run the native agent software. This includes network hardware, legacy systems, IoT devices, and appliances that only expose management interfaces via SSH, SNMP, REST APIs, WinRM, NETCONF, RESTCONF, or gNMI.
 
 **Key Capabilities**:
+
 - **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM, NETCONF, RESTCONF, gNMI, Telnet
 - **Network Device Support**: 25 vendor drivers — Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense, HP ProCurve, HP ArubaOS, Aruba AOS-CX, Dell OS10/OS9/PowerSwitch, Fortinet FortiOS, Palo Alto PAN-OS, F5 BIG-IP, Check Point Gaia, MikroTik RouterOS, Ubiquiti EdgeOS, Extreme EXOS, Nokia SR OS, Huawei VRP, Mellanox/NVIDIA Onyx, Allied Telesis AlliedWare Plus, Ciena SAOS
 - **Transparent Targeting**: Proxied devices appear as virtual agents in targeting expressions
@@ -79,6 +80,7 @@ device:
 ```
 
 **Features**:
+
 - Password and key-based authentication
 - SSH agent forwarding
 - Interactive and exec modes
@@ -110,6 +112,7 @@ device:
 ```
 
 **SNMPv3 Security Levels**:
+
 - `noAuthNoPriv`: No authentication, no encryption
 - `authNoPriv`: Authentication only (MD5, SHA, SHA-256, SHA-512)
 - `authPriv`: Authentication and encryption (DES, AES-128, AES-192, AES-256)
@@ -130,6 +133,7 @@ device:
 ```
 
 **Authentication Methods**:
+
 - Basic authentication
 - Bearer tokens (JWT, API keys)
 - API key headers
@@ -151,6 +155,7 @@ device:
 ```
 
 **Features**:
+
 - NTLM and Kerberos authentication
 - PowerShell and CMD execution
 - TLS encryption (port 5986)
@@ -171,6 +176,7 @@ device:
 ```
 
 **Features**:
+
 - Full RFC 6241 operation set (get-config, edit-config, lock, commit, etc.)
 - NETCONF 1.0 (EOM framing) and 1.1 (chunked framing, RFC 6242)
 - Automatic capability negotiation
@@ -196,6 +202,7 @@ device:
 ```
 
 **Features**:
+
 - Full RFC 8040 data operations (GET, POST, PUT, PATCH, DELETE)
 - YANG RPC/action invocation
 - Server-Sent Events (SSE) for notification streams
@@ -221,6 +228,7 @@ device:
 ```
 
 **Features**:
+
 - Full gNMI RPC support: Capabilities, Get, Set, Subscribe
 - Streaming telemetry via channel-based subscriptions (ONCE, STREAM, POLL)
 - mTLS and per-RPC username/password authentication
@@ -246,6 +254,7 @@ device:
 ```
 
 **Features**:
+
 - RFC 854/855 IAC negotiation (terminal type, window size, echo)
 - Expect-style I/O with prompt detection and pattern matching
 - Security controls: IP allowlisting, deprecation warnings, audit logging
@@ -261,6 +270,7 @@ See the [Telnet Protocol Reference]({{< relref "../reference/telnet.md" >}}) for
 Proxy agents include a protocol-level debug logger for troubleshooting device interactions. Debug output can be captured at different verbosity levels and rendered as text, JSON, or raw hex.
 
 **Debug Levels**:
+
 - `off`: No debug output
 - `basic`: Connection lifecycle events and errors
 - `verbose`: Commands and responses
@@ -273,6 +283,7 @@ Proxy agents include a protocol-level debug logger for troubleshooting device in
 `connect`, `disconnect`, `authenticate`, `send`, `receive`, `command`, `response`, `error`, `warning`, `handshake`, `keepalive`, `timeout`
 
 **Notes**:
+
 - `trace` includes hex dumps for request/response payloads.
 - Output can be structured as JSON for ingestion into log pipelines.
 - Sensitive fields can be redacted before logging.
@@ -297,6 +308,7 @@ Proxy agents include a protocol-level debug logger for troubleshooting device in
 ### Credential Storage Backends
 
 **File-Based (Encrypted)**:
+
 ```yaml
 credential_store:
   type: file
@@ -305,6 +317,7 @@ credential_store:
 ```
 
 **HashiCorp Vault**:
+
 ```yaml
 credential_store:
   type: vault
@@ -314,6 +327,7 @@ credential_store:
 ```
 
 **Kubernetes Secrets**:
+
 ```yaml
 credential_store:
   type: kubernetes
@@ -554,6 +568,7 @@ For SNMP-managed devices:
 Vendor-specific configuration modules:
 
 **Cisco IOS**:
+
 ```yaml
 - id: configure-interface
   module: ios_config
@@ -567,6 +582,7 @@ Vendor-specific configuration modules:
 ```
 
 **Juniper JUNOS**:
+
 ```yaml
 - id: configure-interface
   module: junos_config
@@ -578,6 +594,7 @@ Vendor-specific configuration modules:
 ```
 
 **Arista EOS**:
+
 ```yaml
 - id: configure-vlan
   module: eos_config
@@ -589,6 +606,7 @@ Vendor-specific configuration modules:
 ```
 
 **pfSense**:
+
 ```yaml
 - id: add-firewall-rule
   module: pfsense_config
@@ -603,6 +621,7 @@ Vendor-specific configuration modules:
 ```
 
 **HP ProCurve**:
+
 ```yaml
 - id: configure-vlan
   module: hp_procurve_config
@@ -614,6 +633,7 @@ Vendor-specific configuration modules:
 ```
 
 **Dell OS10**:
+
 ```yaml
 - id: configure-interface
   module: dell_os10_config
@@ -625,6 +645,7 @@ Vendor-specific configuration modules:
 ```
 
 **Fortinet FortiOS**:
+
 ```yaml
 - id: configure-interface
   module: fortios_config
@@ -638,6 +659,7 @@ Vendor-specific configuration modules:
 ```
 
 **Palo Alto PAN-OS**:
+
 ```yaml
 - id: configure-security-zone
   module: panos_config
@@ -648,6 +670,7 @@ Vendor-specific configuration modules:
 ```
 
 **F5 BIG-IP**:
+
 ```yaml
 - id: create-pool
   module: bigip_config
@@ -659,6 +682,7 @@ Vendor-specific configuration modules:
 ```
 
 **Check Point Gaia**:
+
 ```yaml
 - id: configure-interface
   module: checkpoint_gaia_config
@@ -669,6 +693,7 @@ Vendor-specific configuration modules:
 ```
 
 **MikroTik RouterOS**:
+
 ```yaml
 - id: configure-ip
   module: mikrotik_routeros_config
@@ -678,6 +703,7 @@ Vendor-specific configuration modules:
 ```
 
 **Huawei VRP**:
+
 ```yaml
 - id: configure-interface
   module: huawei_vrp_config
@@ -689,6 +715,7 @@ Vendor-specific configuration modules:
 ```
 
 **Nokia SR OS**:
+
 ```yaml
 - id: configure-router
   module: nokia_sros_config

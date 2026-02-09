@@ -130,7 +130,7 @@ func (a *Adapter) buildDataURL(path string, opts *protocols.RestconfQueryOptions
 }
 
 // doRequest executes an HTTP request with auth, media type handling, and error parsing.
-func (a *Adapter) doRequest(ctx context.Context, method, path string, body []byte, acceptType string) ([]byte, http.Header, int, error) {
+func (a *Adapter) doRequest(ctx context.Context, method, path string, body []byte, acceptType string) (respBody []byte, headers http.Header, status int, err error) {
 	var bodyReader io.Reader
 	if body != nil {
 		bodyReader = bytes.NewReader(body)
@@ -170,6 +170,7 @@ func (a *Adapter) doRequest(ctx context.Context, method, path string, body []byt
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("execute request: %w", err)
 	}
+	defer resp.Body.Close()
 
 	r, err := rest.NewResponse(resp)
 	if err != nil {
@@ -201,31 +202,31 @@ func (a *Adapter) executeCommand(ctx context.Context, command string) ([]byte, e
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("get-data requires path")
 		}
-		return a.doGetData(parts[1], nil)
+		return a.doGetData(ctx, parts[1], nil)
 
 	case "post-data":
 		if len(parts) < 3 {
 			return nil, fmt.Errorf("post-data requires path and body")
 		}
-		return nil, a.doPostData(parts[1], []byte(parts[2]))
+		return nil, a.doPostData(ctx, parts[1], []byte(parts[2]))
 
 	case "put-data":
 		if len(parts) < 3 {
 			return nil, fmt.Errorf("put-data requires path and body")
 		}
-		return nil, a.doPutData(parts[1], []byte(parts[2]))
+		return nil, a.doPutData(ctx, parts[1], []byte(parts[2]))
 
 	case "patch-data":
 		if len(parts) < 3 {
 			return nil, fmt.Errorf("patch-data requires path and body")
 		}
-		return nil, a.doPatchData(parts[1], []byte(parts[2]))
+		return nil, a.doPatchData(ctx, parts[1], []byte(parts[2]))
 
 	case "delete-data":
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("delete-data requires path")
 		}
-		return nil, a.doDeleteData(parts[1])
+		return nil, a.doDeleteData(ctx, parts[1])
 
 	case "invoke":
 		if len(parts) < 2 {
@@ -235,13 +236,13 @@ func (a *Adapter) executeCommand(ctx context.Context, command string) ([]byte, e
 		if len(parts) > 2 {
 			input = []byte(parts[2])
 		}
-		return a.doInvokeOperation(parts[1], input)
+		return a.doInvokeOperation(ctx, parts[1], input)
 
 	case "yang-library":
-		return a.doYANGLibrary()
+		return a.doYANGLibrary(ctx)
 
 	case "modules":
-		return a.doModules()
+		return a.doModules(ctx)
 
 	case "get", "post", "put", "patch", "delete", "head", "options":
 		return a.doRawHTTP(ctx, strings.ToUpper(parts[0]), parts)
@@ -253,51 +254,51 @@ func (a *Adapter) executeCommand(ctx context.Context, command string) ([]byte, e
 
 // Internal operation methods (no locking, called from locked contexts via Execute).
 
-func (a *Adapter) doGetData(path string, opts *protocols.RestconfQueryOptions) ([]byte, error) {
+func (a *Adapter) doGetData(ctx context.Context, path string, opts *protocols.RestconfQueryOptions) ([]byte, error) {
 	u := a.buildDataURL(path, opts)
-	body, _, _, err := a.doRequest(context.Background(), http.MethodGet, u, nil, string(a.config.Encoding))
+	body, _, _, err := a.doRequest(ctx, http.MethodGet, u, nil, string(a.config.Encoding))
 	return body, err
 }
 
-func (a *Adapter) doPostData(path string, data []byte) error {
+func (a *Adapter) doPostData(ctx context.Context, path string, data []byte) error {
 	u := a.buildDataURL(path, nil)
-	_, _, _, err := a.doRequest(context.Background(), http.MethodPost, u, data, string(a.config.Encoding))
+	_, _, _, err := a.doRequest(ctx, http.MethodPost, u, data, string(a.config.Encoding))
 	return err
 }
 
-func (a *Adapter) doPutData(path string, data []byte) error {
+func (a *Adapter) doPutData(ctx context.Context, path string, data []byte) error {
 	u := a.buildDataURL(path, nil)
-	_, _, _, err := a.doRequest(context.Background(), http.MethodPut, u, data, string(a.config.Encoding))
+	_, _, _, err := a.doRequest(ctx, http.MethodPut, u, data, string(a.config.Encoding))
 	return err
 }
 
-func (a *Adapter) doPatchData(path string, data []byte) error {
+func (a *Adapter) doPatchData(ctx context.Context, path string, data []byte) error {
 	u := a.buildDataURL(path, nil)
-	_, _, _, err := a.doRequest(context.Background(), http.MethodPatch, u, data, string(a.config.Encoding))
+	_, _, _, err := a.doRequest(ctx, http.MethodPatch, u, data, string(a.config.Encoding))
 	return err
 }
 
-func (a *Adapter) doDeleteData(path string) error {
+func (a *Adapter) doDeleteData(ctx context.Context, path string) error {
 	u := a.buildDataURL(path, nil)
-	_, _, _, err := a.doRequest(context.Background(), http.MethodDelete, u, nil, string(a.config.Encoding))
+	_, _, _, err := a.doRequest(ctx, http.MethodDelete, u, nil, string(a.config.Encoding))
 	return err
 }
 
-func (a *Adapter) doInvokeOperation(operation string, input []byte) ([]byte, error) {
+func (a *Adapter) doInvokeOperation(ctx context.Context, operation string, input []byte) ([]byte, error) {
 	u := a.rootPath + "/operations/" + strings.TrimPrefix(operation, "/")
-	body, _, _, err := a.doRequest(context.Background(), http.MethodPost, u, input, string(a.config.Encoding))
+	body, _, _, err := a.doRequest(ctx, http.MethodPost, u, input, string(a.config.Encoding))
 	return body, err
 }
 
-func (a *Adapter) doYANGLibrary() ([]byte, error) {
+func (a *Adapter) doYANGLibrary(ctx context.Context) ([]byte, error) {
 	u := a.rootPath + "/yang-library-version"
-	body, _, _, err := a.doRequest(context.Background(), http.MethodGet, u, nil, string(ContentTypeYANGJSON))
+	body, _, _, err := a.doRequest(ctx, http.MethodGet, u, nil, string(ContentTypeYANGJSON))
 	return body, err
 }
 
-func (a *Adapter) doModules() ([]byte, error) {
+func (a *Adapter) doModules(ctx context.Context) ([]byte, error) {
 	u := a.rootPath + "/data/ietf-yang-library:modules-state"
-	body, _, _, err := a.doRequest(context.Background(), http.MethodGet, u, nil, string(ContentTypeYANGJSON))
+	body, _, _, err := a.doRequest(ctx, http.MethodGet, u, nil, string(ContentTypeYANGJSON))
 	return body, err
 }
 

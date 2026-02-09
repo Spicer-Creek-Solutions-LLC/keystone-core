@@ -10,6 +10,7 @@ description: >
 Regular maintenance is essential for reliable Keystone Core operations. This guide covers backup procedures, disaster recovery, version upgrades, database migrations, and capacity planning.
 
 **Maintenance Tasks:**
+
 - **Daily**: Automated backups, health checks
 - **Weekly**: Backup verification, log rotation
 - **Monthly**: Capacity review, upgrade planning
@@ -22,6 +23,7 @@ Keystone Core state should be backed up regularly to prevent data loss.
 ### What to Back Up
 
 **Critical Data:**
+
 1. **State Database** (SQLite or PostgreSQL)
    - Agent registrations
    - State definitions and history
@@ -39,6 +41,7 @@ Keystone Core state should be backed up regularly to prevent data loss.
    - Useful for audit compliance
 
 **Non-Critical Data:**
+
 - Prometheus metrics (ephemeral, can be lost)
 - Log files (archived separately)
 - Temporary caches
@@ -46,16 +49,19 @@ Keystone Core state should be backed up regularly to prevent data loss.
 ### Backup Strategies
 
 **Full Backups:**
+
 - Complete database snapshot
 - Run daily during low-traffic window (e.g., 2 AM)
 - Retain for 30 days minimum
 
 **Incremental Backups:**
+
 - Transaction logs (PostgreSQL WAL)
 - Run hourly for point-in-time recovery
 - Retain for 7 days
 
 **Configuration Backups:**
+
 - Git repository (recommended)
 - Version controlled
 - Automatic on every change
@@ -63,6 +69,7 @@ Keystone Core state should be backed up regularly to prevent data loss.
 ### SQLite Backup
 
 **Online Backup (Hot Backup):**
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/backup-sqlite.sh
@@ -87,12 +94,14 @@ echo "Backup completed: state-$TIMESTAMP.db.gz"
 ```
 
 **Schedule with Cron:**
+
 ```bash
 # /etc/cron.d/kscore-cluster-backup
 0 2 * * * keystonecore /usr/local/bin/backup-sqlite.sh >> /var/log/keystone-core/backup.log 2>&1
 ```
 
 **Verify Backup:**
+
 ```bash
 # Test backup integrity
 gunzip -c /var/backups/kscore/state-20240115-020000.db.gz | sqlite3 :memory: "PRAGMA integrity_check;"
@@ -103,6 +112,7 @@ gunzip -c /var/backups/kscore/state-20240115-020000.db.gz | sqlite3 :memory: "PR
 ### PostgreSQL Backup
 
 **pg_dump (Logical Backup):**
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/backup-postgres.sh
@@ -125,6 +135,7 @@ echo "Backup completed: postgres-$TIMESTAMP.dump"
 ```
 
 **pg_basebackup (Physical Backup):**
+
 ```bash
 # Full cluster backup (includes all databases)
 pg_basebackup -h localhost -U replicator -D /var/backups/postgres-base -Ft -z -P
@@ -133,6 +144,7 @@ pg_basebackup -h localhost -U replicator -D /var/backups/postgres-base -Ft -z -P
 ```
 
 **Continuous Archiving (WAL Archiving):**
+
 ```ini
 # postgresql.conf
 wal_level = replica
@@ -142,6 +154,7 @@ archive_timeout = 300  # Force WAL archival every 5 minutes
 ```
 
 **Automated Backup Script:**
+
 ```bash
 #!/bin/bash
 # Full backup + WAL archiving
@@ -155,6 +168,7 @@ pg_basebackup -h localhost -U replicator -D "/var/backups/postgres-$(date +%Y%m%
 ### JetStream Backup
 
 **Stream Backup:**
+
 ```bash
 # Backup specific stream
 nats stream backup kscore-events /var/backups/nats/events-$(date +%Y%m%d)
@@ -170,6 +184,7 @@ done
 For high-availability deployments, you can backup the cluster state via the API. This includes membership, shard assignments (which agents are managed by which control plane), and cluster configuration.
 
 **Create Cluster Backup:**
+
 ```bash
 # Backup cluster state to file
 curl -H "Authorization: Bearer $API_KEY" \
@@ -177,6 +192,7 @@ curl -H "Authorization: Bearer $API_KEY" \
 ```
 
 **kscore-cluster-backup CLI (Recommended):**
+
 ```bash
 # Create a backup
 kscorectl cluster-backup backup --file /var/backups/kscore/cluster-backup.bin
@@ -189,11 +205,13 @@ kscorectl cluster-backup restore --input /var/backups/kscore/cluster-backup.bin 
 ```
 
 **Backup Contents:**
+
 - Cluster membership and health status
 - Shard assignments (agent-to-member mappings)
 - Cluster configuration settings
 
 **Automated Cluster Backup Script:**
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/backup-cluster.sh
@@ -222,6 +240,7 @@ fi
 ```
 
 **Schedule with Cron:**
+
 ```bash
 # /etc/cron.d/kscore-cluster-backup
 0 * * * * keystonecore /usr/local/bin/backup-cluster.sh >> /var/log/keystone-core/cluster-backup.log 2>&1
@@ -230,6 +249,7 @@ fi
 ### Configuration Backup
 
 **Git Repository (Recommended):**
+
 ```bash
 # Initialize git repo
 cd /etc/keystone-core
@@ -250,6 +270,7 @@ chmod +x /etc/keystone-core/.git/hooks/post-commit
 ```
 
 **Tarball Backup:**
+
 ```bash
 # Backup all configs
 tar -czf /var/backups/kscore/config-$(date +%Y%m%d).tar.gz /etc/keystone-core
@@ -258,6 +279,7 @@ tar -czf /var/backups/kscore/config-$(date +%Y%m%d).tar.gz /etc/keystone-core
 ### Backup Verification
 
 **Weekly Verification Test:**
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/verify-backup.sh
@@ -281,6 +303,7 @@ echo "Backup verification passed: $LATEST_BACKUP"
 ### Off-Site Backup
 
 **S3 Backup:**
+
 ```bash
 # Upload to S3
 aws s3 sync /var/backups/kscore/ s3://my-backups/kscore/ \
@@ -292,6 +315,7 @@ aws s3 ls s3://my-backups/kscore/
 ```
 
 **rsync to Remote Server:**
+
 ```bash
 # Daily rsync to backup server
 rsync -avz --delete /var/backups/kscore/ backup-server:/backups/kscore/
@@ -302,6 +326,7 @@ rsync -avz --delete /var/backups/kscore/ backup-server:/backups/kscore/
 ### SQLite Restore
 
 **Full Restore:**
+
 ```bash
 # Stop Keystone Core
 sudo systemctl stop kscore-server
@@ -325,6 +350,7 @@ Not supported with SQLite. Use PostgreSQL for PITR.
 ### PostgreSQL Restore
 
 **Full Database Restore:**
+
 ```bash
 # Stop Keystone Core
 sudo systemctl stop kscore-server
@@ -341,6 +367,7 @@ sudo systemctl start kscore-server
 ```
 
 **Point-in-Time Recovery (PITR):**
+
 ```bash
 # 1. Restore base backup
 tar -xzf /var/backups/postgres-20240115.tar.gz -C /var/lib/postgresql/14/main
@@ -361,6 +388,7 @@ psql -c "SELECT pg_wal_replay_resume();"
 ### JetStream Restore
 
 **Stream Restore:**
+
 ```bash
 # Restore stream from backup
 nats stream restore kscore-events /var/backups/nats/events-20240115
@@ -372,6 +400,7 @@ nats stream info kscore-events
 ### Configuration Restore
 
 **From Git:**
+
 ```bash
 cd /etc/keystone-core
 git pull origin main
@@ -379,6 +408,7 @@ sudo systemctl restart kscore-server
 ```
 
 **From Tarball:**
+
 ```bash
 tar -xzf /var/backups/kscore/config-20240115.tar.gz -C /
 sudo systemctl restart kscore-server
@@ -387,11 +417,13 @@ sudo systemctl restart kscore-server
 ### Cluster State Restore (HA Only)
 
 Restore cluster state from a backup file. This is useful when:
+
 - Recovering from cluster failure
 - Migrating to new hardware
 - Restoring after accidental configuration changes
 
 **Basic Restore:**
+
 ```bash
 # Restore cluster state from backup
 curl -X POST \
@@ -412,6 +444,7 @@ curl -X POST \
 **Force Restore (Healthy Cluster):**
 
 By default, restore is blocked on healthy clusters to prevent accidental overwrites. Use `force=true` to override:
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $API_KEY" \
@@ -421,6 +454,7 @@ curl -X POST \
 ```
 
 **Selective Restore:**
+
 ```bash
 # Restore only configuration (not shard assignments)
 curl -X POST \
@@ -438,6 +472,7 @@ curl -X POST \
 ```
 
 **Restore Response:**
+
 ```json
 {
   "success": true,
@@ -451,6 +486,7 @@ curl -X POST \
 ```
 
 **Safety Checks:**
+
 - Backup version must be compatible (version "1.0" supported)
 - Backup must have valid timestamp
 - Cluster name must match (prevents restoring wrong cluster's backup)
@@ -461,6 +497,7 @@ curl -X POST \
 If agents were assigned to members that no longer exist, the restore process automatically reassigns them to healthy members.
 
 **Post-Restore Verification:**
+
 ```bash
 # Check cluster status
 kscorectl cluster status
@@ -475,6 +512,7 @@ kscorectl agent list --filter "status:online"
 ### Disaster Recovery Drill
 
 **Quarterly DR Test:**
+
 1. Spin up new infrastructure (test environment)
 2. Restore all backups (database, configs, JetStream)
 3. Verify agent connections
@@ -485,6 +523,7 @@ kscorectl agent list --filter "status:online"
 8. Tear down test environment
 
 **Expected Recovery Times:**
+
 - RTO (Recovery Time Objective): <1 hour
 - RPO (Recovery Point Objective): <1 hour (with hourly incremental backups)
 
@@ -493,11 +532,13 @@ kscorectl agent list --filter "status:online"
 ### Version Compatibility
 
 **Semantic Versioning:**
+
 - **Major** (1.0.0 → 2.0.0): Breaking changes, migration required
 - **Minor** (1.0.0 → 1.1.0): New features, backward compatible
 - **Patch** (1.0.0 → 1.0.1): Bug fixes, always safe to upgrade
 
 **Compatibility Matrix:**
+
 | Server Version | Agent Version | Notes |
 |----------------|---------------|-------|
 | 1.0.x | 1.0.x | Exact match recommended |
@@ -517,38 +558,45 @@ kscorectl agent list --filter "status:online"
 ### Single-Node Upgrade
 
 **1. Backup:**
+
 ```bash
 # Full backup
 /usr/local/bin/backup-sqlite.sh
 ```
 
 **2. Download New Version:**
+
 ```bash
 wget https://github.com/shawnbutts/keystone-core/releases/download/v0.2.0/kscore-server-linux-amd64
 chmod +x kscore-server-linux-amd64
 ```
 
 **3. Stop Service:**
+
 ```bash
 sudo systemctl stop kscore-server
 ```
 
 **4. Replace Binary:**
+
 ```bash
 sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 ```
 
 **5. Run Migrations (if needed):**
+
 ```bash
 kscore-server migrate --config /etc/keystone-core/server.yaml
 ```
 
 **6. Start Service:**
+
 ```bash
 sudo systemctl start kscore-server
 ```
 
 **7. Verify:**
+
 ```bash
 # Check version
 kscorectl version
@@ -567,6 +615,7 @@ kscorectl agent list
 **Zero-downtime upgrade for HA clusters:**
 
 **1. Upgrade Secondary Nodes First:**
+
 ```bash
 # On server2 (secondary)
 sudo systemctl stop kscore-server
@@ -580,6 +629,7 @@ curl http://server2:8080/health/ready
 ```
 
 **2. Upgrade Primary (Leader):**
+
 ```bash
 # Trigger leader election to another node
 kscorectl cluster step-down
@@ -594,6 +644,7 @@ sudo systemctl start kscore-server
 ```
 
 **3. Verify Cluster:**
+
 ```bash
 kscorectl cluster status
 
@@ -609,6 +660,7 @@ kscorectl cluster status
 ### Kubernetes Upgrade
 
 **Rolling Update:**
+
 ```bash
 # Update image tag
 kubectl set image deployment/kscore-server \
@@ -623,6 +675,7 @@ kubectl get pods -n kscore
 ```
 
 **With Helm:**
+
 ```bash
 # Update chart values
 helm upgrade keystonecore keystonecore/kscore \
@@ -637,6 +690,7 @@ helm rollback kscore -n kscore
 ### Agent Upgrades
 
 **Canary Upgrade (Recommended):**
+
 ```bash
 # 1. Upgrade 10% of agents
 kscorectl exec run "wget https://.../kscore-agent-new && systemctl restart kscore-agent" \
@@ -651,6 +705,7 @@ kscorectl exec run "wget https://.../kscore-agent-new && systemctl restart kscor
 ```
 
 **Automated with State Management:**
+
 ```yaml
 # agent-upgrade.yaml
 agent_binary:
@@ -679,26 +734,31 @@ Run this on each agent host that you want to upgrade.
 **If upgrade fails:**
 
 **1. Stop New Version:**
+
 ```bash
 sudo systemctl stop kscore-server
 ```
 
 **2. Restore Old Binary:**
+
 ```bash
 sudo mv /usr/local/bin/kscore-server.backup /usr/local/bin/kscore-server
 ```
 
 **3. Restore Database (if migrations ran):**
+
 ```bash
 pg_restore -U kscore -d keystonecore /var/backups/kscore/pre-upgrade-backup.dump
 ```
 
 **4. Start Old Version:**
+
 ```bash
 sudo systemctl start kscore-server
 ```
 
 **5. Verify:**
+
 ```bash
 kscorectl version
 kscorectl agent list
@@ -711,6 +771,7 @@ When NATS connectivity issues occur in an HA cluster, the coordination service p
 ### Recovery Actions
 
 **Restart Embedded NATS (Embedded Mode Only):**
+
 ```bash
 # Using grpcurl (requires mTLS)
 grpcurl -cacert ca.crt -cert client.crt -key client.key \
@@ -719,6 +780,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 ```
 
 **Force Reconnection:**
+
 ```bash
 grpcurl -cacert ca.crt -cert client.crt -key client.key \
   -d '{"request_id": "recovery-2", "initiator_id": "admin", "action": "RECOVERY_ACTION_RECONNECT"}' \
@@ -726,6 +788,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 ```
 
 **Failover to Backup NATS Servers:**
+
 ```bash
 grpcurl -cacert ca.crt -cert client.crt -key client.key \
   -d '{"request_id": "recovery-3", "initiator_id": "admin", "action": "RECOVERY_ACTION_FAILOVER", "parameters": {"target_urls": "nats://backup1:4222,nats://backup2:4222"}}' \
@@ -733,6 +796,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 ```
 
 **Drain Connections (Before Maintenance):**
+
 ```bash
 grpcurl -cacert ca.crt -cert client.crt -key client.key \
   -d '{"request_id": "recovery-4", "initiator_id": "admin", "action": "RECOVERY_ACTION_DRAIN"}' \
@@ -744,6 +808,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 When NATS is unavailable, critical state changes are propagated via the CoordinationService:
 
 **State Update Types:**
+
 - `AGENT_REGISTER` - New agent registrations
 - `AGENT_HEARTBEAT` - Agent heartbeat updates
 - `AGENT_DISCONNECT` - Agent disconnect notifications
@@ -755,6 +820,7 @@ State propagation includes version tracking to prevent stale updates from being 
 ### Checking NATS Status
 
 **Query NATS status on a specific server:**
+
 ```bash
 grpcurl -cacert ca.crt -cert client.crt -key client.key \
   -d '{"request_id": "status-1", "requester_id": "admin"}' \
@@ -762,6 +828,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 ```
 
 **Response includes:**
+
 - Connection status (connected, connecting, reconnecting, disconnected)
 - Connected NATS URLs
 - JetStream availability
@@ -780,6 +847,7 @@ grpcurl -cacert ca.crt -cert client.crt -key client.key \
 ### SQLite Maintenance
 
 **Vacuum (Defragment):**
+
 ```bash
 # Reclaim space from deleted records
 sqlite3 /var/lib/keystone-core/state.db "VACUUM;"
@@ -789,11 +857,13 @@ sqlite3 /var/lib/keystone-core/state.db "ANALYZE;"
 ```
 
 **Integrity Check:**
+
 ```bash
 sqlite3 /var/lib/keystone-core/state.db "PRAGMA integrity_check;"
 ```
 
 **Size Monitoring:**
+
 ```bash
 # Check database size
 du -h /var/lib/keystone-core/state.db
@@ -804,6 +874,7 @@ du -h /var/lib/keystone-core/state.db
 ### PostgreSQL Maintenance
 
 **Vacuum:**
+
 ```bash
 # Manual vacuum
 vacuumdb -U kscore -d keystonecore -v
@@ -816,6 +887,7 @@ vacuumdb -U kscore -d keystonecore -f
 ```
 
 **Autovacuum Configuration:**
+
 ```ini
 # postgresql.conf
 autovacuum = on
@@ -826,12 +898,14 @@ autovacuum_analyze_threshold = 50
 ```
 
 **Reindex:**
+
 ```bash
 # Rebuild indexes
 reindexdb -U kscore -d keystonecore
 ```
 
 **Statistics Update:**
+
 ```sql
 ANALYZE VERBOSE;
 ```
@@ -839,6 +913,7 @@ ANALYZE VERBOSE;
 ### Migration: SQLite → PostgreSQL
 
 **When to Migrate:**
+
 - Approaching 100 managed agents
 - Database size >5GB
 - Need for high availability
@@ -847,6 +922,7 @@ ANALYZE VERBOSE;
 **Migration Steps:**
 
 **1. Set Up PostgreSQL:**
+
 ```bash
 # See Deployment Guide for PostgreSQL setup
 sudo apt-get install postgresql-14
@@ -855,6 +931,7 @@ sudo -u postgres createdb -O kscore keystonecore
 ```
 
 **2. Plan the Migration (Dry Run):**
+
 ```bash
 # Stop control plane
 sudo systemctl stop kscore-server
@@ -867,6 +944,7 @@ kscorectl migrate run \
 ```
 
 **3. Run the Migration:**
+
 ```bash
 # Migrate all data from SQLite to PostgreSQL
 kscorectl migrate run \
@@ -888,6 +966,7 @@ kscorectl migrate run \
 ```
 
 **4. Validate the Migration:**
+
 ```bash
 # Verify all data was migrated correctly
 kscorectl migrate validate \
@@ -905,6 +984,7 @@ kscorectl migrate validate \
 ```
 
 **5. Update Configuration:**
+
 ```yaml
 # /etc/keystone-core/server.yaml
 storage:
@@ -918,6 +998,7 @@ storage:
 ```
 
 **6. Start and Verify:**
+
 ```bash
 sudo systemctl start kscore-server
 
@@ -929,6 +1010,7 @@ kscorectl agent list --filter "status:online"
 ```
 
 **7. Backup SQLite (Archive):**
+
 ```bash
 gzip /var/lib/keystone-core/state.db
 mv /var/lib/keystone-core/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d).db.gz
@@ -947,6 +1029,7 @@ mv /var/lib/keystone-core/state.db.gz /var/backups/kscore/sqlite-archive-$(date 
 **Incremental Migration:**
 
 If you need to migrate while the system is running (not recommended for production):
+
 ```bash
 # First migration
 kscorectl migrate run --sqlite ... --postgres ... --skip-existing
@@ -958,6 +1041,7 @@ kscorectl migrate run --sqlite ... --postgres ... --skip-existing
 **Rollback:**
 
 If migration fails, the source SQLite database is unchanged. Simply:
+
 1. Fix the PostgreSQL issue
 2. Re-run the migration
 3. Or continue using SQLite
@@ -967,6 +1051,7 @@ If migration fails, the source SQLite database is unchanged. Simply:
 ### Event Retention
 
 **Configure Retention:**
+
 ```yaml
 # server.yaml
 events:
@@ -982,6 +1067,7 @@ events:
 ```
 
 **Manual Cleanup:**
+
 ```sql
 -- Delete old events
 DELETE FROM events
@@ -992,6 +1078,7 @@ WHERE timestamp < NOW() - INTERVAL '30 days'
 ### Log Retention
 
 **Logrotate Configuration:**
+
 ```
 # /etc/logrotate.d/kscore
 /var/log/keystone-core/*.log {
@@ -1011,6 +1098,7 @@ WHERE timestamp < NOW() - INTERVAL '30 days'
 ### Metric Retention
 
 **Prometheus Retention:**
+
 ```yaml
 # prometheus.yml
 storage:
@@ -1020,6 +1108,7 @@ storage:
 ```
 
 **Recording Rules (Aggregate Historical Data):**
+
 ```yaml
 # Downsample to 5-minute averages for long-term storage
 groups:
@@ -1038,6 +1127,7 @@ groups:
 ### Growth Estimation
 
 **Monitor Growth Trends:**
+
 ```promql
 # Agent growth rate (agents/month)
 deriv(kscore_agents_total[30d]) * 86400 * 30
@@ -1052,6 +1142,7 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 ### Resource Planning
 
 **Control Plane Sizing:**
+
 | Agents | CPU | Memory | Disk | Network |
 |--------|-----|--------|------|---------|
 | 100 | 2 cores | 4GB | 50GB | 10Mbps |
@@ -1060,6 +1151,7 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 | 5000 | 16 cores | 32GB | 500GB | 500Mbps |
 
 **Database Sizing:**
+
 | State Resources | Disk Space | IOPS |
 |-----------------|------------|------|
 | 10,000 | 10GB | 1,000 |
@@ -1067,6 +1159,7 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 | 1,000,000 | 200GB | 10,000 |
 
 **JetStream Sizing:**
+
 | Events/Day | Retention | Disk Space |
 |------------|-----------|------------|
 | 100K | 30d | 10GB |
@@ -1076,12 +1169,14 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 ### Scaling Triggers
 
 **Add Control Plane Capacity When:**
+
 - CPU usage >70% sustained
 - Memory usage >80%
 - API latency P95 >500ms
 - Disk space <20% free
 
 **Scale Database When:**
+
 - Query latency P95 >100ms
 - Connection pool exhaustion
 - Disk I/O saturation >80%
@@ -1089,18 +1184,21 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 ## Best Practices
 
 ### Backup
+
 - **3-2-1 Rule**: 3 copies, 2 different media, 1 off-site
 - **Test Restores**: Verify backups monthly
 - **Automate Everything**: No manual backup processes
 - **Monitor Backup Jobs**: Alert on failures
 
 ### Upgrades
+
 - **Test in Staging**: Always test upgrades before production
 - **Rolling Upgrades**: Use for zero downtime (HA only)
 - **Canary Agents**: Upgrade 10% of agents first
 - **Keep Old Binaries**: For quick rollback
 
 ### Maintenance Windows
+
 - **Schedule Off-Peak**: 2-4 AM typical
 - **Notify Users**: 48 hours advance notice
 - **Document Changes**: Changelog for every upgrade
@@ -1111,6 +1209,7 @@ deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 ### Backup Failures
 
 **Disk Full:**
+
 ```bash
 # Check disk space
 df -h /var/backups
@@ -1120,6 +1219,7 @@ find /var/backups -mtime +30 -delete
 ```
 
 **Database Lock:**
+
 ```bash
 # Check for long-running queries
 SELECT pid, now() - query_start AS duration, query
@@ -1134,6 +1234,7 @@ SELECT pg_terminate_backend(pid);
 ### Upgrade Failures
 
 **Migration Failed:**
+
 ```bash
 # Check migration log
 journalctl -u kscore-server | grep migration
@@ -1143,6 +1244,7 @@ journalctl -u kscore-server | grep migration
 ```
 
 **Version Mismatch:**
+
 ```bash
 # Check all component versions
 kscorectl version        # CLI

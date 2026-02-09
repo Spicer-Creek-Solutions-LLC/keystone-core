@@ -5,8 +5,6 @@ description: >
   Keystone Core 0.1.0 release announcement
 ---
 
-# Announcing Keystone Core 0.1.0
-
 We are excited to announce the first public release of **Keystone Core**, a cloud-native runtime infrastructure control plane.
 
 ## What is Keystone Core?

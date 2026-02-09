@@ -90,13 +90,9 @@ func (a *BigIPAdapter) Connect(ctx context.Context, device *proxy.ProxiedDevice,
 	}
 	a.shell = shell
 
-	// Enter tmsh
-	if _, err := a.runCommand(ctx, "tmsh"); err != nil {
-		// May already be in tmsh
-		a.inTmsh = true
-	} else {
-		a.inTmsh = true
-	}
+	// Enter tmsh (may already be in tmsh if shell defaults to it)
+	_, _ = a.runCommand(ctx, "tmsh")
+	a.inTmsh = true
 
 	// Disable paging
 	if a.Config.DisablePaging {

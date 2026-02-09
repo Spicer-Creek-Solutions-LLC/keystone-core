@@ -16,8 +16,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// SSHRotationProvider rotates SSH password and key credentials on devices.
-type SSHRotationProvider struct {
+// SSHProvider rotates SSH password and key credentials on devices.
+type SSHProvider struct {
 	// PasswordLength is the length of generated passwords (default 32).
 	PasswordLength int
 	// KeyType is the SSH key type to generate (default ed25519).
@@ -32,27 +32,30 @@ type SSHCommander interface {
 	TestConnection(ctx context.Context, device DeviceInfo, cred credentials.Credential) error
 }
 
-// NewSSHRotationProvider creates a new SSH rotation provider.
-func NewSSHRotationProvider(commander SSHCommander) *SSHRotationProvider {
-	return &SSHRotationProvider{
+// NewSSHProvider creates a new SSH rotation provider.
+func NewSSHProvider(commander SSHCommander) *SSHProvider {
+	return &SSHProvider{
 		PasswordLength: 32,
 		KeyType:        "ed25519",
 		Commander:      commander,
 	}
 }
 
-func (p *SSHRotationProvider) SupportsType(credType credentials.CredentialType) bool {
+// SupportsType implements Provider.
+func (p *SSHProvider) SupportsType(credType credentials.CredentialType) bool {
 	return credType == credentials.CredentialTypeSSHPassword || credType == credentials.CredentialTypeSSHKey
 }
 
-func (p *SSHRotationProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
+// ValidateOld implements Provider.
+func (p *SSHProvider) ValidateOld(ctx context.Context, device DeviceInfo, cred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SSH commander configured")
 	}
 	return p.Commander.TestConnection(ctx, device, cred)
 }
 
-func (p *SSHRotationProvider) Generate(_ context.Context, _ DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
+// Generate implements Provider.
+func (p *SSHProvider) Generate(_ context.Context, _ DeviceInfo, oldCred credentials.Credential) (credentials.Credential, error) {
 	switch old := oldCred.(type) {
 	case *credentials.SSHPasswordCredential:
 		return p.generatePassword(old)
@@ -63,7 +66,8 @@ func (p *SSHRotationProvider) Generate(_ context.Context, _ DeviceInfo, oldCred 
 	}
 }
 
-func (p *SSHRotationProvider) Apply(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
+// Apply implements Provider.
+func (p *SSHProvider) Apply(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SSH commander configured")
 	}
@@ -87,14 +91,16 @@ func (p *SSHRotationProvider) Apply(ctx context.Context, device DeviceInfo, oldC
 	}
 }
 
-func (p *SSHRotationProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
+// Verify implements Provider.
+func (p *SSHProvider) Verify(ctx context.Context, device DeviceInfo, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SSH commander configured")
 	}
 	return p.Commander.TestConnection(ctx, device, newCred)
 }
 
-func (p *SSHRotationProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
+// Rollback implements Provider.
+func (p *SSHProvider) Rollback(ctx context.Context, device DeviceInfo, oldCred, newCred credentials.Credential) error {
 	if p.Commander == nil {
 		return errors.New("no SSH commander configured")
 	}
@@ -120,11 +126,12 @@ func (p *SSHRotationProvider) Rollback(ctx context.Context, device DeviceInfo, o
 	}
 }
 
-func (p *SSHRotationProvider) Cleanup(_ context.Context, _ DeviceInfo, _ credentials.Credential) error {
+// Cleanup implements Provider.
+func (p *SSHProvider) Cleanup(_ context.Context, _ DeviceInfo, _ credentials.Credential) error {
 	return nil // No cleanup needed for SSH
 }
 
-func (p *SSHRotationProvider) generatePassword(old *credentials.SSHPasswordCredential) (*credentials.SSHPasswordCredential, error) {
+func (p *SSHProvider) generatePassword(old *credentials.SSHPasswordCredential) (*credentials.SSHPasswordCredential, error) {
 	password, err := generateRandomPassword(p.PasswordLength)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate password: %w", err)
@@ -142,7 +149,7 @@ func (p *SSHRotationProvider) generatePassword(old *credentials.SSHPasswordCrede
 	}, nil
 }
 
-func (p *SSHRotationProvider) generateKey(old *credentials.SSHKeyCredential) (*credentials.SSHKeyCredential, error) {
+func (p *SSHProvider) generateKey(old *credentials.SSHKeyCredential) (*credentials.SSHKeyCredential, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate ed25519 key: %w", err)
@@ -184,4 +191,4 @@ func generateRandomPassword(length int) (string, error) {
 	return string(result), nil
 }
 
-var _ RotationProvider = (*SSHRotationProvider)(nil)
+var _ Provider = (*SSHProvider)(nil)

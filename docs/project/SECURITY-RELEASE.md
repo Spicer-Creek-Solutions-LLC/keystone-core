@@ -26,7 +26,7 @@ This document defines the process for handling security vulnerabilities and rele
 
 | Channel | Use Case | Response Time |
 |---------|----------|---------------|
-| security@keystonecore.io | General security reports | 24 hours |
+| <security@keystonecore.io> | General security reports | 24 hours |
 | GitHub Security Advisories | Public disclosure ready | 24 hours |
 | HackerOne (if applicable) | Bug bounty reports | 24 hours |
 
@@ -35,6 +35,7 @@ This document defines the process for handling security vulnerabilities and rele
 Within 24 hours of receiving a report:
 
 1. **Acknowledge Receipt**
+
    ```
    Subject: Re: Security Report - [Brief Description]
 
@@ -275,6 +276,7 @@ See [security advisory](link) for details.
 ### Release Steps
 
 1. **Tag Releases**
+
    ```bash
    # For each supported version
    git tag -s v1.4.3 -m "Security release v1.4.3"
@@ -282,6 +284,7 @@ See [security advisory](link) for details.
    ```
 
 2. **Build Artifacts**
+
    ```bash
    make release VERSION=1.4.3
    ```
@@ -378,6 +381,7 @@ Within 2 weeks of release, conduct a retrospective:
 ### Breaking Embargo
 
 Embargo may be shortened if:
+
 - Active exploitation is detected in the wild
 - Vulnerability is independently discovered and published
 - Reporter requests early disclosure
@@ -404,9 +408,9 @@ When a vulnerability is in a dependency:
 
 | Role | Contact | Backup |
 |------|---------|--------|
-| Security Lead | security-lead@keystonecore.io | security@keystonecore.io |
-| Release Manager | releases@keystonecore.io | engineering-leads@keystonecore.io |
-| Communications | comms@keystonecore.io | marketing@keystonecore.io |
+| Security Lead | <security-lead@keystonecore.io> | <security@keystonecore.io> |
+| Release Manager | <releases@keystonecore.io> | <engineering-leads@keystonecore.io> |
+| Communications | <comms@keystonecore.io> | <marketing@keystonecore.io> |
 
 ## References
 

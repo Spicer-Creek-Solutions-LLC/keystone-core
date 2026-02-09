@@ -316,6 +316,7 @@ kscorectl state apply --dry-run states/dns-records.yaml
 ```
 
 Example output:
+
 ```
 DNS Records: manage-zone-records (example.com via cloudflare)
   + CREATE A www.example.com → 203.0.113.10 (TTL: 300)
@@ -374,24 +375,30 @@ kscorectl state drift states/dns-records.yaml
 ### Common Issues
 
 **Authentication Failures**
+
 ```
 Error: provider authentication failed: invalid API token
 ```
+
 - Verify credentials are correct and have DNS zone permissions
 - Check environment variables are set if using env-based auth
 - Ensure secret references point to valid secrets
 
 **Record Conflicts**
+
 ```
 Error: record already exists with different value
 ```
+
 - Use `state: synced` to take ownership of existing records
 - Or manually reconcile conflicts before applying
 
 **Rate Limiting**
+
 ```
 Error: rate limit exceeded, retry after 60s
 ```
+
 - Reduce batch size in state definitions
 - Use exponential backoff (automatic with retries)
 - Request quota increase from provider

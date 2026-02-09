@@ -33,18 +33,31 @@ func (d Datastore) Valid() bool {
 type Capability string
 
 const (
-	BaseCapability10      Capability = "urn:ietf:params:netconf:base:1.0"
-	BaseCapability11      Capability = "urn:ietf:params:netconf:base:1.1"
-	WritableRunning       Capability = "urn:ietf:params:netconf:capability:writable-running:1.0"
-	CandidateCapability   Capability = "urn:ietf:params:netconf:capability:candidate:1.0"
-	ConfirmedCommit10     Capability = "urn:ietf:params:netconf:capability:confirmed-commit:1.0"
-	ConfirmedCommit11     Capability = "urn:ietf:params:netconf:capability:confirmed-commit:1.1"
-	RollbackOnError       Capability = "urn:ietf:params:netconf:capability:rollback-on-error:1.0"
-	Validate10            Capability = "urn:ietf:params:netconf:capability:validate:1.0"
-	Validate11            Capability = "urn:ietf:params:netconf:capability:validate:1.1"
-	StartupCapability     Capability = "urn:ietf:params:netconf:capability:startup:1.0"
-	URLCapability         Capability = "urn:ietf:params:netconf:capability:url:1.0"
-	XPathCapability       Capability = "urn:ietf:params:netconf:capability:xpath:1.0"
+	// BaseCapability10 is the NETCONF base:1.0 capability.
+	BaseCapability10 Capability = "urn:ietf:params:netconf:base:1.0"
+	// BaseCapability11 is the NETCONF base:1.1 capability.
+	BaseCapability11 Capability = "urn:ietf:params:netconf:base:1.1"
+	// WritableRunning indicates the running datastore is directly writable.
+	WritableRunning Capability = "urn:ietf:params:netconf:capability:writable-running:1.0"
+	// CandidateCapability indicates the server supports the candidate datastore.
+	CandidateCapability Capability = "urn:ietf:params:netconf:capability:candidate:1.0"
+	// ConfirmedCommit10 indicates support for confirmed-commit (1.0).
+	ConfirmedCommit10 Capability = "urn:ietf:params:netconf:capability:confirmed-commit:1.0"
+	// ConfirmedCommit11 indicates support for confirmed-commit (1.1).
+	ConfirmedCommit11 Capability = "urn:ietf:params:netconf:capability:confirmed-commit:1.1"
+	// RollbackOnError indicates support for rollback-on-error.
+	RollbackOnError Capability = "urn:ietf:params:netconf:capability:rollback-on-error:1.0"
+	// Validate10 indicates support for validate (1.0).
+	Validate10 Capability = "urn:ietf:params:netconf:capability:validate:1.0"
+	// Validate11 indicates support for validate (1.1).
+	Validate11 Capability = "urn:ietf:params:netconf:capability:validate:1.1"
+	// StartupCapability indicates the server supports the startup datastore.
+	StartupCapability Capability = "urn:ietf:params:netconf:capability:startup:1.0"
+	// URLCapability indicates support for URL-based operations.
+	URLCapability Capability = "urn:ietf:params:netconf:capability:url:1.0"
+	// XPathCapability indicates support for XPath filtering.
+	XPathCapability Capability = "urn:ietf:params:netconf:capability:xpath:1.0"
+	// NotificationCapbility indicates support for NETCONF notifications.
 	NotificationCapbility Capability = "urn:ietf:params:netconf:notification:1.0"
 )
 
@@ -52,21 +65,31 @@ const (
 type EditOperation string
 
 const (
-	EditMerge   EditOperation = "merge"
+	// EditMerge merges the configuration data.
+	EditMerge EditOperation = "merge"
+	// EditReplace replaces the configuration data.
 	EditReplace EditOperation = "replace"
-	EditCreate  EditOperation = "create"
-	EditDelete  EditOperation = "delete"
-	EditRemove  EditOperation = "remove"
-	EditNone    EditOperation = "none"
+	// EditCreate creates new configuration data (error if it exists).
+	EditCreate EditOperation = "create"
+	// EditDelete deletes configuration data (error if it doesn't exist).
+	EditDelete EditOperation = "delete"
+	// EditRemove removes configuration data if it exists.
+	EditRemove EditOperation = "remove"
+	// EditNone only applies explicitly tagged operations.
+	EditNone EditOperation = "none"
 )
 
 // ErrorType classifies the layer that generated a NETCONF error.
 type ErrorType string
 
 const (
-	ErrorTypeTransport   ErrorType = "transport"
-	ErrorTypeRPC         ErrorType = "rpc"
-	ErrorTypeProtocol    ErrorType = "protocol"
+	// ErrorTypeTransport indicates a transport layer error.
+	ErrorTypeTransport ErrorType = "transport"
+	// ErrorTypeRPC indicates an RPC layer error.
+	ErrorTypeRPC ErrorType = "rpc"
+	// ErrorTypeProtocol indicates a protocol layer error.
+	ErrorTypeProtocol ErrorType = "protocol"
+	// ErrorTypeApplication indicates an application layer error.
 	ErrorTypeApplication ErrorType = "application"
 )
 
@@ -74,7 +97,9 @@ const (
 type ErrorSeverity string
 
 const (
-	SeverityError   ErrorSeverity = "error"
+	// SeverityError indicates a severity of "error".
+	SeverityError ErrorSeverity = "error"
+	// SeverityWarning indicates a severity of "warning".
 	SeverityWarning ErrorSeverity = "warning"
 )
 

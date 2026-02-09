@@ -1,6 +1,7 @@
 package telnet
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -57,7 +58,7 @@ func NewSecurityEnforcer(config *SecurityConfig, logger *slog.Logger) (*Security
 }
 
 // CheckConnection validates a connection attempt against the allowlist.
-func (s *SecurityEnforcer) CheckConnection(addr string) error {
+func (s *SecurityEnforcer) CheckConnection(ctx context.Context, addr string) error {
 	if len(s.parsedNetworks) == 0 {
 		return nil
 	}
@@ -70,11 +71,12 @@ func (s *SecurityEnforcer) CheckConnection(addr string) error {
 	ip := net.ParseIP(host)
 	if ip == nil {
 		// Try resolving hostname
-		ips, err := net.LookupIP(host)
-		if err != nil || len(ips) == 0 {
+		resolver := &net.Resolver{}
+		addrs, err := resolver.LookupIPAddr(ctx, host)
+		if err != nil || len(addrs) == 0 {
 			return fmt.Errorf("telnet: cannot resolve address %q", host)
 		}
-		ip = ips[0]
+		ip = addrs[0].IP
 	}
 
 	for _, network := range s.parsedNetworks {

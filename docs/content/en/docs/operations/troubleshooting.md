@@ -10,6 +10,7 @@ description: >
 This guide provides systematic troubleshooting procedures for common Keystone Core issues. Each section includes diagnostic steps, common causes, and proven solutions.
 
 **Troubleshooting Methodology:**
+
 1. **Identify symptoms** - What is broken?
 2. **Check logs** - What do the logs say?
 3. **Verify configuration** - Is config correct?
@@ -21,6 +22,7 @@ This guide provides systematic troubleshooting procedures for common Keystone Co
 ## Agent Connectivity Issues
 
 ### Symptoms
+
 - Agents show as "offline" in `kscorectl agents list`
 - Agents cannot connect to control plane
 - Heartbeat failures
@@ -28,6 +30,7 @@ This guide provides systematic troubleshooting procedures for common Keystone Co
 ### Diagnostic Steps
 
 **1. Check Agent Status:**
+
 ```bash
 # On agent node
 sudo systemctl status kscore-agent
@@ -37,6 +40,7 @@ sudo journalctl -u kscore-agent -f
 ```
 
 **2. Test NATS Connectivity:**
+
 ```bash
 # From agent node, test NATS connection
 nc -zv nats-server 4222
@@ -46,6 +50,7 @@ telnet nats-server 4222
 ```
 
 **3. Verify Credentials:**
+
 ```bash
 # Check agent configuration
 cat /etc/keystone-core/agent.yaml | grep -A5 nats
@@ -57,6 +62,7 @@ nats-sub -s nats://username:password@nats-server:4222 test
 ### Common Causes and Solutions
 
 **Firewall Blocking NATS Port (4222):**
+
 ```bash
 # Check firewall rules
 sudo iptables -L -n | grep 4222
@@ -67,6 +73,7 @@ sudo iptables-save
 ```
 
 **DNS Resolution Failure:**
+
 ```bash
 # Test DNS resolution
 nslookup nats-server
@@ -76,6 +83,7 @@ echo "10.0.1.10 nats-server" | sudo tee -a /etc/hosts
 ```
 
 **TLS Certificate Mismatch:**
+
 ```bash
 # Check certificate validity
 openssl s_client -connect nats-server:4222 -showcerts
@@ -85,6 +93,7 @@ openssl x509 -in /etc/keystone-core/certs/ca.crt -text -noout | grep Subject
 ```
 
 **Agent Credential Mismatch:**
+
 ```yaml
 # Fix credentials in agent.yaml
 nats:
@@ -95,6 +104,7 @@ nats:
 ```
 
 **NATS Server Down:**
+
 ```bash
 # Check NATS server status
 sudo systemctl status nats-server
@@ -107,6 +117,7 @@ nats server check connection
 ```
 
 **Network Partition:**
+
 ```bash
 # Test network latency
 ping nats-server
@@ -121,6 +132,7 @@ mtr -r nats-server
 ## NATS Connection Problems
 
 ### Symptoms
+
 - Control plane cannot connect to NATS
 - "connection refused" errors
 - "authentication failed" errors
@@ -129,6 +141,7 @@ mtr -r nats-server
 ### Diagnostic Steps
 
 **1. Check NATS Server:**
+
 ```bash
 # NATS server status
 sudo systemctl status nats-server
@@ -141,6 +154,7 @@ sudo netstat -tlnp | grep nats
 ```
 
 **2. Test NATS CLI:**
+
 ```bash
 # Publish test message
 nats pub test "hello"
@@ -150,6 +164,7 @@ nats sub test
 ```
 
 **3. Check JetStream:**
+
 ```bash
 # JetStream account info
 nats account info
@@ -161,6 +176,7 @@ nats stream list
 ### Common Causes and Solutions
 
 **NATS Server Not Running:**
+
 ```bash
 # Start NATS
 sudo systemctl start nats-server
@@ -170,6 +186,7 @@ sudo systemctl enable nats-server
 ```
 
 **JetStream Not Enabled:**
+
 ```conf
 # nats-server.conf
 jetstream {
@@ -185,6 +202,7 @@ sudo systemctl restart nats-server
 ```
 
 **Cluster Split-Brain:**
+
 ```bash
 # Check cluster status
 nats server check jetstream
@@ -194,6 +212,7 @@ nats server check jetstream
 ```
 
 **Out of Disk Space (JetStream):**
+
 ```bash
 # Check disk usage
 df -h /var/lib/nats/jetstream
@@ -204,6 +223,7 @@ nats stream delete unused-stream
 ```
 
 **Memory Exhaustion:**
+
 ```bash
 # Check NATS memory usage
 nats server check connection
@@ -239,6 +259,7 @@ See [Maintenance - NATS Recovery](/docs/operations/maintenance/#nats-recovery-ha
 ## State Application Failures
 
 ### Symptoms
+
 - `kscorectl state apply` fails
 - State resources show as "failed"
 - Error: "state application timeout"
@@ -247,6 +268,7 @@ See [Maintenance - NATS Recovery](/docs/operations/maintenance/#nats-recovery-ha
 ### Diagnostic Steps
 
 **1. Check State File Syntax:**
+
 ```bash
 # Validate YAML syntax
 kscorectl state check web-server.yaml
@@ -256,12 +278,14 @@ yamllint web-server.yaml
 ```
 
 **2. Check Agent Logs:**
+
 ```bash
 # On target agent
 sudo journalctl -u kscore-agent | grep state
 ```
 
 **3. Test Individual States:**
+
 ```bash
 # Apply single state for debugging
 kscorectl state apply nginx-package.yaml
@@ -270,10 +294,11 @@ kscorectl state apply nginx-package.yaml
 ### Common Causes and Solutions
 
 **Invalid YAML Syntax:**
+
 ```text
 # Bad (tabs instead of spaces)
 nginx_config:
-	module: file  # ERROR: tab character
+ module: file  # ERROR: tab character
 
 # Good (spaces only)
 nginx_config:
@@ -281,6 +306,7 @@ nginx_config:
 ```
 
 **Module Not Available on Agent:**
+
 ```bash
 # Check available modules on agent
 kscorectl exec run "kscore-agent --list-modules" --target "web-01"
@@ -290,6 +316,7 @@ sudo apt-get install python3-apt  # For apt module
 ```
 
 **File Path Doesn't Exist:**
+
 ```yaml
 # Bad
 nginx_config:
@@ -313,6 +340,7 @@ nginx_config:
 ```
 
 **Circular Dependency:**
+
 ```yaml
 # Bad
 service_a:
@@ -327,6 +355,7 @@ service_b:
 ```
 
 **Timeout on Slow Operations:**
+
 ```yaml
 # Increase timeout for slow operations
 large_download:
@@ -337,6 +366,7 @@ large_download:
 ```
 
 **Permission Denied:**
+
 ```bash
 # Agent needs elevated permissions
 # Run agent as root or with sudo capabilities
@@ -348,6 +378,7 @@ sudo chown kscore:kscore /etc/nginx/nginx.conf
 ## Performance Issues
 
 ### Symptoms
+
 - High API latency
 - Slow command execution
 - Database queries slow
@@ -356,6 +387,7 @@ sudo chown kscore:kscore /etc/nginx/nginx.conf
 ### Diagnostic Steps
 
 **1. Check Resource Usage:**
+
 ```bash
 # CPU and memory
 top -p $(pgrep kscore-server)
@@ -368,6 +400,7 @@ iftop -i eth0
 ```
 
 **2. Check Database Performance:**
+
 ```bash
 # PostgreSQL slow queries
 SELECT pid, now() - query_start AS duration, query
@@ -382,6 +415,7 @@ ORDER BY seq_scan DESC;
 ```
 
 **3. Check NATS Performance:**
+
 ```bash
 # NATS message rates
 nats server check jetstream
@@ -391,6 +425,7 @@ nats consumer report
 ```
 
 **4. Profile Control Plane:**
+
 ```bash
 # Get pprof CPU profile
 curl http://localhost:8080/debug/pprof/profile?seconds=30 > cpu.prof
@@ -402,6 +437,7 @@ go tool pprof cpu.prof
 ### Common Causes and Solutions
 
 **Insufficient CPU:**
+
 ```bash
 # Check CPU usage
 mpstat 1 5
@@ -410,6 +446,7 @@ mpstat 1 5
 ```
 
 **Memory Swapping:**
+
 ```bash
 # Check swap usage
 free -h
@@ -421,6 +458,7 @@ sudo swapoff -a
 ```
 
 **Disk I/O Bottleneck:**
+
 ```bash
 # Check disk latency
 iostat -x 1
@@ -434,6 +472,7 @@ iostat -x 1
 ```
 
 **Database Connection Pool Exhausted:**
+
 ```yaml
 # Increase connection pool
 storage:
@@ -444,6 +483,7 @@ storage:
 ```
 
 **Slow Database Queries:**
+
 ```sql
 -- Add missing index
 CREATE INDEX idx_agents_datacenter ON agents(datacenter);
@@ -454,6 +494,7 @@ VACUUM ANALYZE;
 ```
 
 **Too Many Concurrent State Applications:**
+
 ```yaml
 # Limit concurrency
 state:
@@ -462,6 +503,7 @@ state:
 ```
 
 **Large Event Backlog:**
+
 ```bash
 # Check JetStream pending messages
 nats stream info kscore-events
@@ -477,6 +519,7 @@ nats stream info kscore-events
 **Meaning:** Cannot connect to specified host:port
 
 **Check:**
+
 ```bash
 # Verify service is listening
 sudo netstat -tlnp | grep 8080
@@ -486,6 +529,7 @@ sudo iptables -L -n | grep 8080
 ```
 
 **Fix:**
+
 ```bash
 # Start service
 sudo systemctl start kscore-server
@@ -499,12 +543,14 @@ sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 **Meaning:** Invalid username/password or token
 
 **Check:**
+
 ```bash
 # Verify credentials in config
 cat /etc/keystone-core/agent.yaml | grep -A3 credentials
 ```
 
 **Fix:**
+
 ```yaml
 # Update credentials
 nats:
@@ -518,12 +564,14 @@ nats:
 **Meaning:** Cannot connect to PostgreSQL
 
 **Check:**
+
 ```bash
 # Test database connection
 psql -U kscore -h localhost -d keystonecore -c "SELECT 1;"
 ```
 
 **Fix:**
+
 ```bash
 # Check PostgreSQL is running
 sudo systemctl status postgresql
@@ -538,12 +586,14 @@ host    kscore      kscore      10.0.0.0/8              md5
 **Meaning:** State execution exceeded timeout
 
 **Check:**
+
 ```bash
 # Check agent logs for what's slow
 sudo journalctl -u kscore-agent | grep timeout
 ```
 
 **Fix:**
+
 ```yaml
 # Increase timeout
 slow_operation:
@@ -557,12 +607,14 @@ slow_operation:
 **Meaning:** Policy engine blocked the operation
 
 **Check:**
+
 ```bash
 # Check policy evaluation logs
 kscorectl policy audit --denied --limit 20
 ```
 
 **Fix:**
+
 ```yaml
 # Update policy to allow operation
 # Or request policy exception
@@ -573,12 +625,14 @@ kscorectl policy audit --denied --limit 20
 **Meaning:** Significant configuration drift from desired state
 
 **Check:**
+
 ```bash
 # View drift details
 kscorectl state drift web-server.yaml
 ```
 
 **Fix:**
+
 ```bash
 # Reapply state to fix drift
 kscorectl state apply web-server.yaml
@@ -589,6 +643,7 @@ kscorectl state apply web-server.yaml
 ### Enable Debug Logs
 
 **Control Plane:**
+
 ```yaml
 # /etc/keystone-core/server.yaml
 logging:
@@ -604,6 +659,7 @@ sudo journalctl -u kscore-server -f | grep DEBUG
 ```
 
 **Agent:**
+
 ```yaml
 # /etc/keystone-core/agent.yaml
 logging:
@@ -616,6 +672,7 @@ sudo journalctl -u kscore-agent -f
 ```
 
 **Temporary Debug (Runtime):**
+
 ```bash
 # Enable debug for single command
 KSCORE_LOG_LEVEL=debug kscorectl state apply web-server.yaml
@@ -624,6 +681,7 @@ KSCORE_LOG_LEVEL=debug kscorectl state apply web-server.yaml
 ### Structured Logging
 
 **Query Logs by Correlation ID:**
+
 ```bash
 # Follow specific request
 sudo journalctl -u kscore-server | grep "correlation_id=abc-123"
@@ -633,6 +691,7 @@ logcli query '{job="kscore-server"} | json | correlation_id="abc-123"'
 ```
 
 **Query Logs by Component:**
+
 ```bash
 # All state management logs
 sudo journalctl -u kscore-server | grep '"logger":"statemgmt"'
@@ -646,6 +705,7 @@ sudo journalctl -u kscore-server | grep '"logger":"events"'
 ### Tools
 
 **Test Connectivity:**
+
 ```bash
 # TCP connection test
 nc -zv server 8080
@@ -658,6 +718,7 @@ nats-sub -s nats://server:4222 test
 ```
 
 **Measure Latency:**
+
 ```bash
 # ICMP ping
 ping server
@@ -670,6 +731,7 @@ time curl -so /dev/null http://server:8080/health/live
 ```
 
 **Packet Capture:**
+
 ```bash
 # Capture NATS traffic
 sudo tcpdump -i eth0 -w nats.pcap port 4222
@@ -679,6 +741,7 @@ wireshark nats.pcap
 ```
 
 **Bandwidth Test:**
+
 ```bash
 # Install iperf3
 sudo apt-get install iperf3
@@ -693,6 +756,7 @@ iperf3 -c server
 ### Network Issues
 
 **Packet Loss:**
+
 ```bash
 # Detect packet loss
 mtr -r server
@@ -705,6 +769,7 @@ ethtool -S eth0 | grep error
 ```
 
 **High Latency:**
+
 ```bash
 # Identify slow hop
 traceroute server
@@ -714,6 +779,7 @@ iftop -i eth0
 ```
 
 **MTU Issues:**
+
 ```bash
 # Test MTU
 ping -M do -s 1472 server  # 1500 - 28 (headers)
@@ -727,6 +793,7 @@ sudo ip link set dev eth0 mtu 1400
 ### Operating System
 
 **File Descriptor Limits:**
+
 ```bash
 # Check current limit
 ulimit -n
@@ -740,6 +807,7 @@ ulimit -n
 ```
 
 **TCP Tuning:**
+
 ```bash
 # /etc/sysctl.conf
 net.ipv4.tcp_fin_timeout = 30
@@ -752,6 +820,7 @@ sudo sysctl -p
 ```
 
 **Transparent Huge Pages (Disable for Databases):**
+
 ```bash
 # Check status
 cat /sys/kernel/mm/transparent_hugepage/enabled
@@ -902,8 +971,8 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 
 ### Before Opening an Issue
 
-1. Search existing issues: https://github.com/shawnbutts/keystone-core/issues
-2. Check documentation: https://docs.keystonecore.io
+1. Search existing issues: <https://github.com/shawnbutts/keystone-core/issues>
+2. Check documentation: <https://docs.keystonecore.io>
 3. Review logs with debug logging enabled
 4. Collect diagnostic bundle
 5. Try the solution in a test environment first
@@ -933,13 +1002,16 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 
 **Logs:**
 ```
+
 [Relevant log excerpts with debug logging]
+
 ```
 
 **Configuration:**
 ```yaml
 [Relevant config (redact secrets)]
 ```
+
 ```
 
 ### Community Support
@@ -987,6 +1059,7 @@ kscorectl agents show AGENT_ID
 **Common Issues:**
 
 **Command Blocked by Policy:**
+
 ```bash
 # Check policy evaluation results
 kscorectl policy audit --denied --limit 20
@@ -996,6 +1069,7 @@ opa eval -i input.json -d policy.rego "data.kscore.allow"
 ```
 
 **Agent Execution Mode Restrictions:**
+
 ```yaml
 # agent.yaml - Check execution policy
 execution:
@@ -1008,6 +1082,7 @@ execution:
 ```
 
 **Output Buffer Overflow:**
+
 ```yaml
 # Increase output buffer for large outputs
 execution:
@@ -1015,6 +1090,7 @@ execution:
 ```
 
 **Shell Environment Issues:**
+
 ```bash
 # Commands run in clean environment
 # Set environment explicitly
@@ -1029,6 +1105,7 @@ kscorectl exec run "my-command" --env "PATH=/usr/local/bin:/usr/bin" --target $A
 ### Event System Issues (Epic 4)
 
 **Symptoms:**
+
 - Events not being processed
 - Reactor not triggering
 - Event backlog growing
@@ -1053,6 +1130,7 @@ kscorectl events list --since 1h
 **Common Issues:**
 
 **Event Consumer Lag:**
+
 ```bash
 # Check consumer pending count
 nats consumer info kscore-events kscore-reactor | grep "Pending Messages"
@@ -1065,6 +1143,7 @@ events:
 ```
 
 **Event Schema Validation Failures:**
+
 ```bash
 # Check for rejected events in dead letter queue
 kscorectl events dlq list
@@ -1074,6 +1153,7 @@ nats stream info kscore-events-dlq
 ```
 
 **Reactor Execution Failures:**
+
 ```bash
 # Check reactor error logs via server logs
 journalctl -u kscore-server --since "1 hour ago" | grep -i reactor
@@ -1083,6 +1163,7 @@ kscorectl events dlq list --limit 10
 ```
 
 **Event Ordering Issues:**
+
 ```yaml
 # Ensure event ordering for dependent events
 events:
@@ -1092,6 +1173,7 @@ events:
 ```
 
 **Dead Letter Queue Processing:**
+
 ```bash
 # View dead letter events
 nats stream info kscore-events-dlq
@@ -1105,6 +1187,7 @@ kscorectl events replay --stream kscore-events-dlq --limit 100
 ### GitOps Integration Issues (Epic 5)
 
 **Symptoms:**
+
 - Webhooks not being received
 - Sync failures
 - Drift detection not working
@@ -1126,6 +1209,7 @@ kscorectl gitops deploy list
 **Common Issues:**
 
 **Webhook Signature Verification Failure:**
+
 ```bash
 # Check server logs for webhook errors
 journalctl -u kscore-server | grep -i "webhook.*verification"
@@ -1136,6 +1220,7 @@ journalctl -u kscore-server | grep -i "webhook.*verification"
 ```
 
 **Webhook Not Reachable:**
+
 ```bash
 # Test from external source
 curl -v https://kscore.example.com/webhooks/github
@@ -1146,6 +1231,7 @@ curl -s https://api.github.com/meta | jq '.hooks[]'
 ```
 
 **Git Authentication Failures:**
+
 ```bash
 # Test git credentials
 git ls-remote https://github.com/org/repo.git
@@ -1155,6 +1241,7 @@ kscorectl gitops repo list
 ```
 
 **Sync Conflicts:**
+
 ```bash
 # Sync a specific repository (will show any conflicts)
 kscorectl gitops repo sync REPO_NAME
@@ -1164,6 +1251,7 @@ kscorectl gitops deploy list
 ```
 
 **Approval Workflow Issues:**
+
 ```bash
 # Check pending approvals
 kscorectl runbook approvals --state pending
@@ -1177,6 +1265,7 @@ kscorectl runbook approvals --execution EXECUTION_ID
 ### Policy Enforcement Issues (Epic 6)
 
 **Symptoms:**
+
 - Unexpected policy denials
 - Policy evaluation errors
 - Compliance report failures
@@ -1198,6 +1287,7 @@ kscorectl policy list
 **Common Issues:**
 
 **Policy Syntax Errors (OPA):**
+
 ```bash
 # Validate policy syntax
 opa check my-policy.rego
@@ -1207,6 +1297,7 @@ opa eval -i input.json -d my-policy.rego "data.kscore.allow"
 ```
 
 **Policy Conflict Resolution:**
+
 ```bash
 # Review policy files for conflicting rules
 cat /etc/keystone-core/policies/*.rego
@@ -1216,6 +1307,7 @@ opa eval -d policies/ -i input.json "data.kscore"
 ```
 
 **Policy Evaluation Performance:**
+
 ```bash
 # Profile policy evaluation with OPA
 opa eval --profile -d policy.rego -i input.json "data.kscore.allow"
@@ -1225,12 +1317,14 @@ opa eval --profile -d policy.rego -i input.json "data.kscore.allow"
 ```
 
 **CEL Policy Issues:**
+
 ```bash
 # Test CEL expressions using cel-go or online validator
 # CEL policies are defined in YAML policy files
 ```
 
 **Policy Not Applied:**
+
 ```yaml
 # Check policy is enabled and has correct targets
 # policy.yaml
@@ -1247,6 +1341,7 @@ spec:
 ### Observability Issues (Epic 7)
 
 **Symptoms:**
+
 - Missing metrics
 - Traces not appearing
 - Log aggregation failures
@@ -1268,6 +1363,7 @@ curl http://localhost:8080/debug/tracez
 **Common Issues:**
 
 **Metrics Not Scraped:**
+
 ```yaml
 # Check Prometheus scrape config
 # prometheus.yml
@@ -1280,6 +1376,7 @@ scrape_configs:
 ```
 
 **High Cardinality Metrics:**
+
 ```bash
 # Check metric cardinality
 curl -s http://localhost:8080/metrics | grep -c "kscore_"
@@ -1289,6 +1386,7 @@ curl -s http://localhost:8080/metrics | grep -c "kscore_"
 ```
 
 **Traces Not Appearing:**
+
 ```yaml
 # Check OTLP exporter configuration
 # server.yaml
@@ -1301,6 +1399,7 @@ observability:
 ```
 
 **Log Forwarding Issues:**
+
 ```yaml
 # Check log output configuration
 # server.yaml
@@ -1314,6 +1413,7 @@ logging:
 ```
 
 **Dashboard Query Errors:**
+
 ```bash
 # Test PromQL query
 curl "http://prometheus:9090/api/v1/query?query=kscore_api_requests_total"
@@ -1327,6 +1427,7 @@ curl http://prometheus:9090/api/v1/label/__name__/values | jq '.data | map(selec
 ### Multi-Environment Issues (Epic 8)
 
 **Symptoms:**
+
 - Cloud discovery not working
 - Kubernetes integration failures
 - Environment promotion stuck
@@ -1348,6 +1449,7 @@ kscorectl agents list --filter "environment:production"
 **Common Issues:**
 
 **Cloud Metadata Discovery Failures:**
+
 ```bash
 # AWS
 curl http://169.254.169.254/latest/meta-data/instance-id
@@ -1360,6 +1462,7 @@ curl -H "Metadata: true" "http://169.254.169.254/metadata/instance?api-version=2
 ```
 
 **IAM Permission Issues:**
+
 ```bash
 # AWS - Check IAM role
 aws sts get-caller-identity
@@ -1370,6 +1473,7 @@ aws sts get-caller-identity
 ```
 
 **Kubernetes Service Account Issues:**
+
 ```bash
 # Check service account token
 kubectl get serviceaccount kscore-agent -o yaml
@@ -1379,6 +1483,7 @@ kubectl auth can-i list pods --as=system:serviceaccount:kscore:kscore-agent
 ```
 
 **Cross-Environment NATS Gateway Issues:**
+
 ```bash
 # Check gateway status
 nats server check gateway
@@ -1392,6 +1497,7 @@ nats server info --gateway
 ### Module System Issues (Epic 9)
 
 **Symptoms:**
+
 - Module loading failures
 - Sandbox escape errors
 - Resource limit exceeded
@@ -1413,6 +1519,7 @@ kscorectl module verify MODULE_NAME
 **Common Issues:**
 
 **Module Signature Verification Failed:**
+
 ```bash
 # Verify module signature
 kscorectl module verify MODULE_NAME
@@ -1424,6 +1531,7 @@ journalctl -u kscore-server | grep -i "signature"
 ```
 
 **Module Resource Limits Exceeded:**
+
 ```yaml
 # Increase module resource limits
 # server.yaml
@@ -1435,6 +1543,7 @@ modules:
 ```
 
 **Module Capability Denied:**
+
 ```bash
 # Check capability policy file
 cat /etc/keystone-core/capability-policy.yaml
@@ -1444,6 +1553,7 @@ kscorectl module show MODULE_NAME
 ```
 
 **Starlark Execution Errors:**
+
 ```bash
 # Check server logs for Starlark errors
 journalctl -u kscore-server | grep -i "starlark"
@@ -1455,6 +1565,7 @@ journalctl -u kscore-server | grep -i "starlark"
 ```
 
 **WASM Module Issues:**
+
 ```bash
 # Check server logs for WASM errors
 journalctl -u kscore-server | grep -i "wasm"
@@ -1468,6 +1579,7 @@ wasm-validate module.wasm
 ### HA Clustering Issues (Epic 11)
 
 **Symptoms:**
+
 - Leader election failures
 - Split-brain scenarios
 - Etcd cluster unhealthy
@@ -1489,6 +1601,7 @@ kscorectl cluster leader
 **Common Issues:**
 
 **Etcd Cluster Unhealthy:**
+
 ```bash
 # Check etcd member status
 etcdctl member list
@@ -1502,6 +1615,7 @@ etcdctl member add node3 --peer-urls=https://node3:2380
 ```
 
 **Split-Brain Recovery:**
+
 ```bash
 # Identify which partition has majority
 etcdctl endpoint status --cluster
@@ -1514,6 +1628,7 @@ etcdctl endpoint status --cluster
 ```
 
 **Leader Election Issues:**
+
 ```bash
 # Check current leader
 kscorectl cluster leader
@@ -1526,6 +1641,7 @@ etcdctl elect kscore-leader
 ```
 
 **Agent Rebalancing Slow:**
+
 ```yaml
 # Tune rebalancing parameters
 # server.yaml
@@ -1541,6 +1657,7 @@ cluster:
 ### NATS Mesh Issues (Epic 14)
 
 **Symptoms:**
+
 - Supercluster connectivity issues
 - Gateway authentication failures
 - Message routing problems
@@ -1562,6 +1679,7 @@ nats server info --leafnodes
 **Common Issues:**
 
 **Gateway Connection Failures:**
+
 ```bash
 # Test gateway connectivity
 nc -zv gateway-remote 7222
@@ -1571,6 +1689,7 @@ nats server info --gateway | grep -A5 "Gateways"
 ```
 
 **Leafnode Authentication:**
+
 ```conf
 # nats-server.conf
 leafnodes {
@@ -1584,6 +1703,7 @@ leafnodes {
 ```
 
 **Message Not Routing:**
+
 ```bash
 # Trace message routing
 nats sub ">" --trace
@@ -1593,6 +1713,7 @@ nats server info --subjects
 ```
 
 **Supercluster Recovery:**
+
 ```bash
 # Restart gateways in order
 # 1. Stop all gateways
@@ -1605,6 +1726,7 @@ nats server info --subjects
 ### SPIFFE Identity Issues (Epic 17)
 
 **Symptoms:**
+
 - SVID issuance failures
 - Trust bundle errors
 - Attestation failures
@@ -1626,6 +1748,7 @@ spire-agent api fetch bundle
 **Common Issues:**
 
 **Attestation Failure:**
+
 ```bash
 # Check attestation method
 # Agent logs show attestation type
@@ -1638,6 +1761,7 @@ journalctl -u spire-agent | grep attestation
 ```
 
 **SVID Not Rotating:**
+
 ```bash
 # Check SVID expiry
 openssl x509 -in /tmp/svid.pem -noout -dates
@@ -1647,6 +1771,7 @@ spire-agent api fetch x509 -write /tmp/ -force
 ```
 
 **Trust Bundle Sync Issues:**
+
 ```bash
 # Check federation status
 spire-server federation list
@@ -1656,6 +1781,7 @@ spire-server bundle show -format spiffe > trust-bundle.json
 ```
 
 **Workload Registration Missing:**
+
 ```bash
 # List registrations
 spire-server entry show
@@ -1673,6 +1799,7 @@ spire-server entry create \
 ### IPv6 Issues (Epic 18)
 
 **Symptoms:**
+
 - IPv6 connectivity failures
 - Dual-stack issues
 - IPv6 address detection problems
@@ -1694,6 +1821,7 @@ nc -zv -6 control-plane 8443
 **Common Issues:**
 
 **IPv6 Disabled on System:**
+
 ```bash
 # Check if IPv6 is enabled
 sysctl net.ipv6.conf.all.disable_ipv6
@@ -1703,6 +1831,7 @@ sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0
 ```
 
 **Firewall Blocking IPv6:**
+
 ```bash
 # Check ip6tables rules
 sudo ip6tables -L -n
@@ -1713,6 +1842,7 @@ sudo ip6tables -A INPUT -p tcp --dport 4222 -j ACCEPT
 ```
 
 **Dual-Stack Address Selection:**
+
 ```yaml
 # Prefer IPv4 or IPv6
 # server.yaml
@@ -1722,6 +1852,7 @@ network:
 ```
 
 **IPv6 Address Detection:**
+
 ```bash
 # Agent may pick wrong IPv6 address
 # Configure explicitly
@@ -1735,6 +1866,7 @@ network:
 ### Windows Agent Issues (Epic 20)
 
 **Symptoms:**
+
 - Windows agent not starting
 - PowerShell execution failures
 - Service management issues
@@ -1756,6 +1888,7 @@ Get-Content C:\ProgramData\keystone\agent.yaml
 **Common Issues:**
 
 **Service Not Starting:**
+
 ```powershell
 # Check service logs
 Get-WinEvent -FilterHashtable @{LogName='Application';ProviderName='kscore-agent'} -MaxEvents 10
@@ -1765,6 +1898,7 @@ Get-WinEvent -FilterHashtable @{LogName='Application';ProviderName='kscore-agent
 ```
 
 **PowerShell Execution Policy:**
+
 ```powershell
 # Check current policy
 Get-ExecutionPolicy
@@ -1774,6 +1908,7 @@ Set-ExecutionPolicy RemoteSigned -Scope LocalMachine
 ```
 
 **Path Encoding Issues:**
+
 ```yaml
 # Use forward slashes or escape backslashes
 # Good
@@ -1785,6 +1920,7 @@ path: "C:\ProgramData\keystone\config.yaml"
 ```
 
 **UAC Elevation Required:**
+
 ```yaml
 # State requiring elevation
 install_software:
@@ -1795,6 +1931,7 @@ install_software:
 ```
 
 **Antivirus Blocking Agent:**
+
 ```powershell
 # Add exclusions
 Add-MpPreference -ExclusionPath "C:\Program Files\keystone"
@@ -1806,6 +1943,7 @@ Add-MpPreference -ExclusionProcess "kscore-agent.exe"
 ### Proxy Agent Issues (Epic 21)
 
 **Symptoms:**
+
 - Cannot connect to network devices
 - SSH/SNMP authentication failures
 - Command execution timeout
@@ -1827,6 +1965,7 @@ kscorectl proxy device list
 **Common Issues:**
 
 **SSH Connection Failures:**
+
 ```bash
 # Test SSH manually
 ssh -v admin@device-ip
@@ -1839,6 +1978,7 @@ ssh-keygen -p -m PEM -f ~/.ssh/id_rsa
 ```
 
 **SNMP Authentication Failures:**
+
 ```bash
 # Test SNMPv3 manually
 snmpwalk -v3 -u admin -l authPriv -a SHA -A authpass -x AES -X privpass device-ip sysDescr
@@ -1848,6 +1988,7 @@ kscorectl proxy device show DEVICE_ID
 ```
 
 **REST API Issues:**
+
 ```bash
 # Test REST endpoint
 curl -v -u admin:password https://device-ip/restconf/data
@@ -1857,6 +1998,7 @@ openssl s_client -connect device-ip:443 -showcerts
 ```
 
 **Credential Rotation:**
+
 ```bash
 # Update device credentials via device update
 kscorectl proxy device update DEVICE_ID \
@@ -1872,6 +2014,7 @@ ssh -v admin@device-ip
 ### File Distribution Issues (Epic 22)
 
 **Symptoms:**
+
 - File upload failures
 - Download timeouts
 - Checksum mismatches
@@ -1893,6 +2036,7 @@ aws s3 ls s3://kscore-files/
 **Common Issues:**
 
 **Upload Failures:**
+
 ```bash
 # Check file size limits in server configuration
 # server.yaml
@@ -1904,6 +2048,7 @@ journalctl -u kscore-server | grep -i "upload"
 ```
 
 **Download Timeouts:**
+
 ```yaml
 # Increase timeout for large files
 # agent.yaml
@@ -1913,6 +2058,7 @@ file_distribution:
 ```
 
 **Checksum Mismatch:**
+
 ```bash
 # Verify file checksum manually
 sha256sum /path/to/local/file
@@ -1922,6 +2068,7 @@ kscorectl files-storage backend sync SOURCE_BACKEND DEST_BACKEND
 ```
 
 **S3 Backend Issues:**
+
 ```bash
 # Test S3 access
 aws s3 ls s3://kscore-files/
@@ -1938,6 +2085,7 @@ aws s3 ls s3://kscore-files/
 ### Blueprint Issues (Epic 25)
 
 **Symptoms:**
+
 - Blueprint deployment failures
 - Parameter validation errors
 - Resource creation stuck
@@ -1959,6 +2107,7 @@ journalctl -u kscore-server | grep -i "blueprint"
 **Common Issues:**
 
 **Parameter Validation Errors:**
+
 ```bash
 # Validate blueprint with parameters
 kscorectl blueprint validate ./my-blueprint
@@ -1968,6 +2117,7 @@ kscorectl blueprint info my-blueprint
 ```
 
 **Resource Creation Failures:**
+
 ```bash
 # Check state application logs
 journalctl -u kscore-server | grep -i "state"
@@ -1977,6 +2127,7 @@ journalctl -u kscore-agent | grep -i "error"
 ```
 
 **Rollback Issues:**
+
 ```bash
 # List available snapshots
 kscorectl blueprint snapshot list my-blueprint
@@ -1986,6 +2137,7 @@ kscorectl blueprint rollback my-blueprint --to SNAPSHOT_ID
 ```
 
 **Dependency Resolution:**
+
 ```bash
 # Validate blueprint for dependency issues
 kscorectl blueprint validate ./my-blueprint
@@ -1999,6 +2151,7 @@ kscorectl blueprint lint ./my-blueprint
 ### Bootstrap Issues (Epic 27)
 
 **Symptoms:**
+
 - Bootstrap process fails
 - Agent enrollment stuck
 - Control plane not initializing
@@ -2020,6 +2173,7 @@ kscorectl bootstrap validate seed.yaml
 **Common Issues:**
 
 **Seed Configuration Errors:**
+
 ```bash
 # Validate seed file
 kscorectl bootstrap validate seed.yaml
@@ -2031,6 +2185,7 @@ kscorectl bootstrap validate seed.yaml
 ```
 
 **Certificate Generation Failures:**
+
 ```bash
 # Check CA availability
 openssl verify -CAfile /etc/keystone-core/certs/ca.crt /etc/keystone-core/certs/server.crt
@@ -2040,6 +2195,7 @@ openssl req -new -x509 -days 365 -key ca-key.pem -out ca.pem
 ```
 
 **Database Initialization Errors:**
+
 ```bash
 # Check database connectivity
 psql -U kscore -h localhost -d keystonecore -c "SELECT 1;"
@@ -2049,6 +2205,7 @@ journalctl -u kscore-server | grep -i "database"
 ```
 
 **Agent Enrollment Stuck:**
+
 ```bash
 # Generate new enrollment token
 kscorectl agents token create --ttl 1h

@@ -23,6 +23,7 @@ kscorectl secrets health
 ```
 
 Expected output:
+
 ```
 Secrets System Health
 =====================
@@ -42,6 +43,7 @@ kscorectl secrets put database/production/password \
 ```
 
 Output:
+
 ```
 Secret stored successfully
   Path: database/production/password
@@ -58,6 +60,7 @@ kscorectl secrets get database/production/password
 ```
 
 Output:
+
 ```
 Key      : database/production/password
 Value    : super-secret-password-123
@@ -89,6 +92,7 @@ kscorectl secrets get database/production/credentials --format json
 Create a workload that uses your secrets.
 
 **workload.yaml:**
+
 ```yaml
 workload:
   name: myapp
@@ -138,6 +142,7 @@ kscorectl exec myapp -- cat /etc/myapp/db-config.yaml
 ```
 
 Expected output for environment:
+
 ```
 DB_HOST=db.example.com
 DB_PORT=5432
@@ -194,6 +199,7 @@ kscorectl secrets stats --path "database/*"
 Here's a complete example deploying a web application with secrets:
 
 **1. Store application secrets:**
+
 ```bash
 # Database credentials
 kscorectl secrets put myapp/database \
@@ -210,6 +216,7 @@ kscorectl secrets put myapp/tls \
 ```
 
 **2. Create workload definition:**
+
 ```yaml
 # myapp-workload.yaml
 workload:
@@ -242,11 +249,13 @@ workload:
 ```
 
 **3. Deploy:**
+
 ```bash
 kscorectl state apply myapp-workload.yaml
 ```
 
 **4. Verify:**
+
 ```bash
 # Check secrets are injected
 kscorectl secrets injection status --workload myapp-web

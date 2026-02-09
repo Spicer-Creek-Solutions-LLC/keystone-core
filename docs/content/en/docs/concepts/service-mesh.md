@@ -10,6 +10,7 @@ description: >
 Keystone Core automatically detects when agents run inside service mesh environments (Istio, Linkerd, Consul Connect, etc.) and integrates with mesh features for enhanced identity, security, and observability.
 
 **Supported Service Meshes:**
+
 - Istio
 - Linkerd
 - Consul Connect
@@ -91,6 +92,7 @@ identity:
 ```
 
 This enables:
+
 - **Zero-configuration identity**: Agent inherits mesh identity
 - **Unified trust**: Same trust domain as mesh workloads
 - **Automatic rotation**: Mesh handles certificate lifecycle
@@ -140,6 +142,7 @@ telemetry:
 ```
 
 Collected metrics include:
+
 - Request latency (upstream/downstream)
 - Request volume and error rates
 - Connection statistics
@@ -306,16 +309,19 @@ Sources = [
 ### Mesh Not Detected
 
 1. Check sidecar is running:
+
    ```bash
    kubectl get pod <pod> -o jsonpath='{.spec.containers[*].name}'
    ```
 
 2. Check environment variables:
+
    ```bash
    kubectl exec <pod> -c kscore-agent -- env | grep -i istio
    ```
 
 3. Enable debug logging:
+
    ```bash
    KSCORE_LOG_LEVEL=debug kscore-agent
    ```
@@ -323,11 +329,13 @@ Sources = [
 ### Certificate Issues
 
 1. Check certificate paths:
+
    ```bash
    kubectl exec <pod> -c kscore-agent -- ls -la /etc/certs/
    ```
 
 2. Verify certificate validity:
+
    ```bash
    kubectl exec <pod> -c kscore-agent -- openssl x509 -in /etc/certs/cert-chain.pem -text -noout
    ```
@@ -335,11 +343,13 @@ Sources = [
 ### Identity Not Working
 
 1. Verify SPIFFE ID:
+
    ```bash
    kscorectl agents show <agent-id> -o json | jq '.metadata.mesh.identity'
    ```
 
 2. Check trust federation:
+
    ```bash
    kscorectl identity federation list
    ```

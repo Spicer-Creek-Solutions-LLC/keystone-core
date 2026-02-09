@@ -93,9 +93,9 @@ This plugin provides commands for:
   - Renewing SPIFFE SVIDs
 
 Usage via kscorectl:
-  kscorectl agent list
-  kscorectl agent show <id>
-  kscorectl agent token create`,
+  kscorectl agents list
+  kscorectl agents show <id>
+  kscorectl agents token create`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -150,19 +150,19 @@ func newListCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # List all agents
-  kscorectl agent list
+  kscorectl agents list
 
   # List only online agents
-  kscorectl agent list --status online
+  kscorectl agents list --status online
 
   # List with label filter
-  kscorectl agent list --label "role=web" --label "env=prod"
+  kscorectl agents list --label "role=web" --label "env=prod"
 
   # List edge agents
-  kscorectl agent list --edge
+  kscorectl agents list --edge
 
   # Output as JSON
-  kscorectl agent list -o json`,
+  kscorectl agents list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runListAgents(cmd.Context(), cfg, status, filter, labels, edge, pageSize, showCompat)
 		},
@@ -386,10 +386,10 @@ func newShowCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Show agent details
-  kscorectl agent show web-001
+  kscorectl agents show web-001
 
   # Output as JSON
-  kscorectl agent show web-001 -o json`,
+  kscorectl agents show web-001 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShowAgent(cmd.Context(), cfg, args[0])
@@ -502,10 +502,10 @@ The agent will need to re-register to reconnect.
 
 Examples:
   # Delete an agent (with confirmation)
-  kscorectl agent delete web-001
+  kscorectl agents delete web-001
 
   # Force delete without confirmation
-  kscorectl agent delete web-001 --force`,
+  kscorectl agents delete web-001 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeleteAgent(cmd.Context(), cfg, args[0], force)
@@ -550,10 +550,10 @@ A quarantined agent remains registered but cannot:
 
 Examples:
   # Quarantine an agent
-  kscorectl agent quarantine web-001
+  kscorectl agents quarantine web-001
 
   # Quarantine with reason
-  kscorectl agent quarantine web-001 --reason "security review"`,
+  kscorectl agents quarantine web-001 --reason "security review"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runQuarantineAgent(cmd.Context(), cfg, args[0], reason)
@@ -584,7 +584,7 @@ func newUnquarantineCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Unquarantine an agent
-  kscorectl agent unquarantine web-001`,
+  kscorectl agents unquarantine web-001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Agent '%s' has been removed from quarantine.\n", args[0])
@@ -629,13 +629,13 @@ func newTokenCreateCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Create a token with 1 hour TTL
-  kscorectl agent token create --ttl 1h
+  kscorectl agents token create --ttl 1h
 
   # Create a token with limited uses
-  kscorectl agent token create --ttl 24h --max-uses 5
+  kscorectl agents token create --ttl 24h --max-uses 5
 
   # Create a token with labels
-  kscorectl agent token create --ttl 1h --label env=prod --label role=web`,
+  kscorectl agents token create --ttl 1h --label env=prod --label role=web`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTokenCreate(cmd.Context(), cfg, ttl, maxUses, labels)
 		},
@@ -713,10 +713,10 @@ func newTokenListCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # List active tokens
-  kscorectl agent token list
+  kscorectl agents token list
 
   # Include expired tokens
-  kscorectl agent token list --show-expired`,
+  kscorectl agents token list --show-expired`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTokenList(cmd.Context(), cfg, showExpired)
 		},
@@ -811,7 +811,7 @@ func newTokenRevokeCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Revoke a token
-  kscorectl agent token revoke tok-1234567890`,
+  kscorectl agents token revoke tok-1234567890`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !force {
@@ -860,7 +860,7 @@ func newTagsSetCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Set tags on an agent
-  kscorectl agent tags set web-001 role=web env=prod dc=us-east-1`,
+  kscorectl agents tags set web-001 role=web env=prod dc=us-east-1`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentID := args[0]
@@ -891,7 +891,7 @@ func newTagsAddCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Add tags to an agent
-  kscorectl agent tags add web-001 monitoring=enabled`,
+  kscorectl agents tags add web-001 monitoring=enabled`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentID := args[0]
@@ -917,7 +917,7 @@ func newTagsRemoveCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Remove a tag from an agent
-  kscorectl agent tags remove web-001 monitoring`,
+  kscorectl agents tags remove web-001 monitoring`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentID := args[0]
@@ -939,7 +939,7 @@ func newTagsShowCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Show tags for an agent
-  kscorectl agent tags show web-001`,
+  kscorectl agents tags show web-001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Sample tags
@@ -980,10 +980,10 @@ func newStatusCmd(cfg *Config) *cobra.Command {
 
 Examples:
   # Show overall agent fleet status
-  kscorectl agent status
+  kscorectl agents status
 
   # Show status for a specific agent
-  kscorectl agent status web-001`,
+  kscorectl agents status web-001`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return runAgentStatus(cmd.Context(), cfg, args[0])
@@ -1083,10 +1083,10 @@ This triggers an immediate SVID renewal, useful when:
 
 Examples:
   # Renew SVID for an agent
-  kscorectl agent renew-svid web-001
+  kscorectl agents renew-svid web-001
 
   # Force renewal even if not near expiry
-  kscorectl agent renew-svid web-001 --force`,
+  kscorectl agents renew-svid web-001 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentID := args[0]

@@ -10,6 +10,7 @@ description: >
 Keystone Core's remote execution system enables you to run commands across your entire infrastructure with flexible targeting, batch processing, and real-time output streaming.
 
 **Key Features**:
+
 - **Flexible Targeting**: Glob patterns, expressions, compound filters
 - **Batch Execution**: Control concurrency and parallelism
 - **Cross-Platform**: Linux (bash), Windows (PowerShell/cmd), macOS
@@ -96,6 +97,7 @@ kscorectl exec run "ip -6 addr" \
 ### Available Fields
 
 **Built-in Agent Fields**:
+
 - `id` - Unique agent identifier
 - `hostname` - Agent hostname
 - `os` - Operating system (linux, windows, darwin)
@@ -108,12 +110,14 @@ kscorectl exec run "ip -6 addr" \
 **Custom Labels** (from agent configuration):
 
 Labels can be accessed using **two equivalent syntaxes**:
+
 - **Direct**: `role:web`, `datacenter:us-east-1`
 - **Prefixed**: `labels.role:web`, `labels.datacenter:us-east-1`
 
 Both syntaxes work identically. The prefixed form (`labels.`) is useful when you want to be explicit that you're matching a custom label rather than a built-in field.
 
 Common custom labels:
+
 - `role` / `labels.role` - Server role (web, api, db, cache)
 - `datacenter` / `labels.datacenter` - Physical location
 - `environment` / `labels.environment` - Environment (dev, staging, prod)
@@ -121,6 +125,7 @@ Common custom labels:
 - `network` / `labels.network` - Network type (ipv4, ipv6, dual-stack)
 
 **Facts** (runtime metadata):
+
 - `facts.cpu_count` - CPU cores
 - `facts.memory_total` - Total RAM in bytes
 - `facts.hostname` - Hostname
@@ -158,6 +163,7 @@ kscorectl exec run "hostname" --target "role:web"
 ```
 
 Output:
+
 ```
 Executing on 3 agent(s)...
 
@@ -206,6 +212,7 @@ kscorectl exec run "systemctl restart app" \
 ```
 
 Execution pattern:
+
 ```
 Batch 1: [web-01, web-02, ..., web-10] ← Execute
    ↓ (wait for completion)
@@ -226,6 +233,7 @@ kscorectl exec run "ps aux | grep nginx" --target "os:linux"
 ```
 
 Specify shell explicitly:
+
 ```bash
 kscorectl exec run "echo \$SHELL" --target "os:linux" -- bash -lc 'echo $SHELL'
 ```
@@ -240,6 +248,7 @@ kscorectl exec run "Get-Process | Where-Object {$_.CPU -gt 10}" \
 ```
 
 Command Prompt:
+
 ```bash
 kscorectl exec run "dir C:\\" --target "os:windows" -- cmd /c dir C:\
 ```
@@ -310,11 +319,13 @@ kscorectl exec run "database-backup" \
 ```
 
 Behavior on timeout:
+
 - Agent kills process after timeout
 - Returns exit code 124 (timeout)
 - Stderr contains "Command timed out after Xs"
 
 If any agent hasn't completed after 10 minutes:
+
 - Job is marked as failed
 - Incomplete agents marked as timed out
 - Completed agents' results are preserved
@@ -332,6 +343,7 @@ kscorectl exec run "tail -f /var/log/app.log" \
 ```
 
 Output appears in real-time:
+
 ```
 [web-01] 2024-01-15 10:23:45 INFO Starting application
 [web-01] 2024-01-15 10:23:46 INFO Connecting to database
@@ -359,6 +371,7 @@ kscorectl exec run "systemctl restart nginx" --target "role:web"
 ```
 
 Output:
+
 ```
 Agent: web-01
 Status: success
@@ -402,6 +415,7 @@ kscorectl exec run "flaky-command" \
 ```
 
 Retry behavior:
+
 1. First attempt fails → wait 5s
 2. Second attempt fails → wait 5s
 3. Third attempt fails → wait 5s
@@ -426,16 +440,19 @@ Executes: kscore-exec run "cmd"
 ### Built-in Plugins
 
 **kscore-exec** - Remote execution:
+
 - `kscorectl exec run` - Execute command
 - `kscorectl exec status` - Check job status
 - `kscorectl exec list` - List recent jobs
 
 **kscore-state** - State management:
+
 - `kscorectl state apply` - Apply state
 - `kscorectl state check` - Check state (dry-run)
 - `kscorectl state drift` - Detect drift
 
 **kscore-module** - Module management:
+
 - `kscorectl module install` - Install module
 - `kscorectl module list` - List modules
 - `kscorectl module update` - Update modules
@@ -453,12 +470,14 @@ echo "Args: $@"
 ```
 
 Make executable and add to PATH:
+
 ```bash
 chmod +x kscore-hello
 mv kscore-hello /usr/local/bin/
 ```
 
 Use as:
+
 ```bash
 kscorectl hello world
 # Output: Hello from custom plugin!
@@ -489,6 +508,7 @@ security:
 Execute commands as a specific user on the target system. This is useful for running commands with appropriate privileges without giving the agent root access to everything.
 
 **CLI Usage:**
+
 ```bash
 # Run as specific user
 kscorectl exec run "whoami" --target "role:web" --user "www-data"
@@ -510,12 +530,14 @@ kscorectl exec run "/opt/app/bin/migrate" --target "role:api" --user "appuser"
 | Windows | Not supported | Use Windows services or scheduled tasks |
 
 **How It Works (Unix):**
+
 1. Agent looks up the target user by name or UID
 2. Retrieves UID, GID, and supplementary groups
 3. Sets `HOME` and `USER` environment variables
 4. Executes command with user's credentials via `syscall.Credential`
 
 **Configuration:**
+
 ```yaml
 # Agent config - allow user switching
 security:
@@ -528,6 +550,7 @@ security:
 ```
 
 **Error Handling:**
+
 ```bash
 # User doesn't exist
 kscorectl exec run "cmd" --target "web-01" --user "nonexistent"
@@ -543,12 +566,14 @@ kscorectl exec run "cmd" --target "windows-01" --user "Administrator"
 ```
 
 **Best Practices:**
+
 1. **Principle of Least Privilege**: Run commands as the minimum required user
 2. **Avoid Root When Possible**: Use service users for application commands
 3. **Allowlist Users**: Configure `allowed_users` to restrict which users can be switched to
 4. **Audit User Switching**: Monitor audit logs for user switching events
 
 **Example: Database Backup**
+
 ```bash
 # Run backup as postgres user (has access to data directory)
 kscorectl exec run "pg_dump mydb > /backup/mydb.sql" \
@@ -558,6 +583,7 @@ kscorectl exec run "pg_dump mydb > /backup/mydb.sql" \
 ```
 
 **Example: Web Server Restart**
+
 ```bash
 # Restart nginx as root
 kscorectl exec run "systemctl restart nginx" \
@@ -566,6 +592,7 @@ kscorectl exec run "systemctl restart nginx" \
 ```
 
 **Example: Application Deployment**
+
 ```bash
 # Deploy as application user
 kscorectl exec run "/opt/app/bin/deploy.sh" \
@@ -579,6 +606,7 @@ kscorectl exec run "/opt/app/bin/deploy.sh" \
 Commands run with agent's permissions by default.
 
 Run as specific user:
+
 ```yaml
 security:
   run_as_user: "appuser"
@@ -623,11 +651,13 @@ Total: ~170ms overhead (plus actual command execution time)
 ### Scaling
 
 **Small deployment** (100 agents):
+
 - 1 control plane
 - 10,000 commands/sec capacity
 - Typical: 100-1,000 commands/sec
 
 **Large deployment** (10,000 agents):
+
 - 3+ control plane instances (HA)
 - 100,000+ commands/sec capacity
 - Batch execution recommended
@@ -637,6 +667,7 @@ Total: ~170ms overhead (plus actual command execution time)
 ### Targeting
 
 1. **Be Specific**: Use narrow targets to avoid accidents
+
    ```bash
    # Good
    --target "role:web and datacenter:us-east-1 and environment:staging"
@@ -646,6 +677,7 @@ Total: ~170ms overhead (plus actual command execution time)
    ```
 
 2. **Test First**: Target a single agent first
+
    ```bash
    # Test on one agent
    kscorectl exec run "risky-command" --target "web-01"
@@ -655,6 +687,7 @@ Total: ~170ms overhead (plus actual command execution time)
    ```
 
 3. **Use Tags**: Tag critical servers for exclusion
+
    ```bash
    --target "role:web and not tags contains 'critical'"
    ```
@@ -662,6 +695,7 @@ Total: ~170ms overhead (plus actual command execution time)
 ### Batch Execution
 
 1. **Start Small**: Use limited concurrency for risky operations
+
    ```bash
    --concurrency 5  # For service restarts
    --concurrency 20 # For package updates
@@ -672,6 +706,7 @@ Total: ~170ms overhead (plus actual command execution time)
 ### Commands
 
 1. **Idempotent**: Commands should be safe to run multiple times
+
    ```bash
    # Good (idempotent)
    systemctl restart nginx
@@ -681,11 +716,13 @@ Total: ~170ms overhead (plus actual command execution time)
    ```
 
 2. **Timeouts**: Always set reasonable timeouts
+
    ```bash
    --command-timeout 300  # For long-running commands
    ```
 
 3. **Error Handling**: Check exit codes in scripts
+
    ```bash
    kscorectl exec run "set -e; cmd1; cmd2; cmd3" --target "..."
    ```
@@ -693,11 +730,13 @@ Total: ~170ms overhead (plus actual command execution time)
 ### Output
 
 1. **Capture Output**: Save output for audit/debugging
+
    ```bash
    kscorectl exec run "command" --target "..." > output.log 2>&1
    ```
 
 2. **Filter Output**: Use standard shell tools for filtering
+
    ```bash
    kscorectl exec run "command" --target "..." | grep "expected"
    ```
@@ -847,6 +886,7 @@ truncation:
 ```
 
 When output exceeds limits:
+
 1. Database stores first N bytes + last M bytes
 2. Full output stored in object storage
 3. Metadata includes `truncated: true` flag
@@ -934,6 +974,7 @@ Monthly storage = Daily storage × 30 × (1 + archive_factor)
 ```
 
 **Example (medium deployment):**
+
 - 5,000 commands/day × 30 KB average = 150 MB/day
 - 30 days retention = 4.5 GB
 - With 90-day archive = 13.5 GB total
@@ -975,11 +1016,13 @@ kscore_execution_archive_objects_total
 ### Security Considerations
 
 1. **Sensitive Data**: Output may contain secrets - configure short retention or disable storage:
+
    ```bash
    kscorectl exec run "show-password" --retention 0
    ```
 
 2. **Access Control**: Restrict who can retrieve output:
+
    ```yaml
    rbac:
      roles:
@@ -994,6 +1037,7 @@ kscore_execution_archive_objects_total
    ```
 
 3. **Encryption**: Enable encryption at rest:
+
    ```yaml
    execution:
      output:
@@ -1004,6 +1048,7 @@ kscore_execution_archive_objects_total
    ```
 
 4. **Audit Logging**: Track output access:
+
    ```yaml
    audit:
      log_output_access: true
@@ -1016,11 +1061,13 @@ kscore_execution_archive_objects_total
 **Problem**: Command doesn't run on any agents
 
 Check:
+
 - Target expression matches agents: `kscorectl agent list`
 - Agents are online: `kscorectl agent list --status online`
 - Network connectivity: agents can reach control plane
 
 Debug:
+
 ```bash
 # List agents matching target
 kscorectl agent list --filter "role:web"
@@ -1034,10 +1081,12 @@ kscorectl exec run "hostname" --target "role:web"
 **Problem**: Commands timing out
 
 Check:
+
 - Command actually completes in timeout window
 - Network latency not delaying results
 
 Fix:
+
 ```bash
 # Increase timeout
 --command-timeout 600
@@ -1051,11 +1100,13 @@ ssh agent-01 "command"
 **Problem**: "Permission denied" errors
 
 Check:
+
 - Agent user has required permissions
 - Sudo configured if needed
 - Command in allowed_commands list
 
 Fix:
+
 ```bash
 # Use explicit sudo
 kscorectl exec run "sudo command" --target "..."
@@ -1068,6 +1119,7 @@ kscorectl exec run "sudo command" --target "..."
 **Problem**: Some agents succeed, others fail
 
 Debug:
+
 ```bash
 # Get job status
 kscorectl exec status <job-id>

@@ -19,6 +19,7 @@ Modern infrastructure has a deployment gap:
 3. **The gap**: Configuration drift, policy violations, failed deployments, manual operations
 
 Keystone Core fills this gap by providing:
+
 - Continuous configuration management
 - Real-time event-driven automation
 - Policy enforcement and compliance
@@ -28,6 +29,7 @@ Keystone Core fills this gap by providing:
 ## Core Capabilities
 
 ### 1. Declarative State Management
+
 Define infrastructure configuration as code using state files. Keystone Core ensures the desired state matches reality.
 
 ```yaml
@@ -47,12 +49,14 @@ nginx_service:
 ```
 
 **Features**:
+
 - Idempotent operations (safe to run repeatedly)
 - Dependency resolution (requisites)
 - Drift detection (alerts when config changes)
 - Template rendering with variables and facts
 
 ### 2. Remote Execution
+
 Execute commands across your infrastructure with flexible targeting.
 
 ```bash
@@ -65,12 +69,14 @@ kscorectl exec run "apt-get update" --target "os:ubuntu" --concurrency 100
 ```
 
 **Features**:
+
 - Glob and expression-based targeting
 - Parallel batch execution
 - Cross-platform support (Linux, Windows, macOS)
 - Git-style plugin architecture
 
 ### 3. Event-Driven Automation
+
 React to infrastructure events automatically with reactors.
 
 ```yaml
@@ -84,15 +90,18 @@ React to infrastructure events automatically with reactors.
 ```
 
 **Features**:
+
 - 15 event types (agent, job, state, system, user-defined)
 - Powerful filtering with expressions
 - Multiple action types (command, webhook, state application)
 - Event storage and replay
 
 ### 4. GitOps Integration
+
 Deep integration with ArgoCD and Flux for deployment lifecycle management.
 
 **Capabilities**:
+
 - Webhook receivers (ArgoCD, Flux, GitHub, GitLab)
 - Deployment verification framework
 - Automated rollback on failure
@@ -100,6 +109,7 @@ Deep integration with ArgoCD and Flux for deployment lifecycle management.
 - Git sync for configuration
 
 ### 5. Policy Enforcement
+
 Continuous compliance using OPA (Rego) or CEL policies.
 
 ```rego
@@ -114,15 +124,18 @@ deny[msg] {
 ```
 
 **Features**:
+
 - Policy-as-code (OPA Rego, CEL expressions)
 - Enforcement points (pre/post execution, on drift, on events)
 - Audit logging
 - Compliance reporting
 
 ### 6. Multi-Environment Support
+
 Unified interface for heterogeneous infrastructure.
 
 **Supported Environments**:
+
 - **Kubernetes**: Native CRDs, operator mode
 - **VMs**: Cross-platform agents (Linux, Windows, macOS)
 - **Cloud**: AWS, GCP, Azure detection
@@ -132,15 +145,18 @@ Unified interface for heterogeneous infrastructure.
 - **Service Mesh**: Istio, Linkerd, Consul integration with SPIFFE identity
 
 ### 7. Plugin System
+
 Extend Keystone Core with custom modules.
 
 **Languages**:
+
 - **Starlark**: Python-like, deterministic, fast iteration
 - **WASM**: High performance (Rust, Go, C++)
 
 **SDKs provided** for all languages with example modules.
 
 ### 8. Identity & Security
+
 Secure workload identity with SPIFFE/SPIRE integration.
 
 - **SPIFFE identity**: Automatic workload identity via service mesh
@@ -150,6 +166,7 @@ Secure workload identity with SPIFFE/SPIRE integration.
 - **Audit logging**: Complete audit trail of all operations
 
 ### 9. Full Observability
+
 Built-in monitoring and troubleshooting tools.
 
 - **Prometheus metrics**: 70+ metrics exported
@@ -196,28 +213,36 @@ flowchart TB
 ## Use Cases
 
 ### 1. GitOps + Runtime Operations
+
 You use ArgoCD to deploy applications. Keystone Core:
+
 - Verifies deployments succeeded (health checks, smoke tests)
 - Automatically rolls back failed deployments
 - Enforces security policies on deployed workloads
 - Detects and remediates configuration drift
 
 ### 2. Hybrid Infrastructure Management
+
 You have Kubernetes clusters, legacy VMs, and edge devices. Keystone Core:
+
 - Provides unified interface across all environments
 - Applies consistent policies everywhere
 - Executes commands across heterogeneous infrastructure
 - Collects metrics and logs uniformly
 
 ### 3. Compliance Automation
+
 You need continuous compliance (SOC 2, PCI, HIPAA). Keystone Core:
+
 - Enforces policies in real-time (prevent violations)
 - Audits all operations (who, what, when)
 - Generates compliance reports
 - Remediates violations automatically
 
 ### 4. Event-Driven Operations
+
 Your infrastructure generates events. Keystone Core:
+
 - Reacts to failures automatically (restart services, scale up)
 - Integrates with external systems (PagerDuty, Slack)
 - Correlates events for root cause analysis
@@ -248,6 +273,7 @@ Ready to try Keystone Core?
 3. **[Architecture](../architecture/)** - Understand the system design
 
 Or explore specific capabilities:
+
 - [State Management Concepts](../../concepts/state-management/)
 - [Event System Overview](../../concepts/events/)
 - [GitOps Integration Guide](../../concepts/gitops/)

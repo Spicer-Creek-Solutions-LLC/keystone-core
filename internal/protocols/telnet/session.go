@@ -3,6 +3,7 @@ package telnet
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -251,18 +252,19 @@ func (s *Session) readUntil(ctx context.Context, pattern string, timeout time.Du
 		}
 
 		// Set a short read deadline so we don't block forever
-		s.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		_ = s.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 
 		n, err := s.conn.Read(readBuf)
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				// Read timeout, check context and try again
 				if err := wait.ForContext(ctx, 10*time.Millisecond); err != nil {
 					return buf.String(), err
 				}
 				continue
 			}
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return buf.String(), io.EOF
 			}
 			return buf.String(), err
@@ -272,7 +274,7 @@ func (s *Session) readUntil(ctx context.Context, pattern string, timeout time.Du
 			// Process IAC sequences
 			clean, responses := s.negotiator.ProcessData(readBuf[:n])
 			if len(responses) > 0 {
-				s.conn.Write(responses)
+				_, _ = s.conn.Write(responses)
 			}
 			buf.Write(clean)
 
@@ -301,17 +303,18 @@ func (s *Session) readUntilExpect(ctx context.Context, expects []string, timeout
 			return buf.String(), -1, fmt.Errorf("timeout waiting for expected patterns")
 		}
 
-		s.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		_ = s.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 
 		n, err := s.conn.Read(readBuf)
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				if err := wait.ForContext(ctx, 10*time.Millisecond); err != nil {
 					return buf.String(), -1, err
 				}
 				continue
 			}
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return buf.String(), -1, io.EOF
 			}
 			return buf.String(), -1, err
@@ -320,7 +323,7 @@ func (s *Session) readUntilExpect(ctx context.Context, expects []string, timeout
 		if n > 0 {
 			clean, responses := s.negotiator.ProcessData(readBuf[:n])
 			if len(responses) > 0 {
-				s.conn.Write(responses)
+				_, _ = s.conn.Write(responses)
 			}
 			buf.Write(clean)
 

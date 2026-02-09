@@ -33,13 +33,15 @@ Keystone Core handles all of this.
 
 Keystone Core takes inspiration from **Salt Project** (formerly SaltStack) but reimagines it for cloud-native environments:
 
-### From Salt:
+### From Salt
+
 - Declarative state management
 - Event-driven automation (reactors)
 - Variables (vars) and facts
 - Remote execution with targeting
 
-### Cloud-Native Additions:
+### Cloud-Native Additions
+
 - **GitOps Integration**: ArgoCD/Flux webhooks, verification, rollback
 - **Policy-as-Code**: OPA/CEL for continuous compliance
 - **Kubernetes Operator**: Native CRDs for K8s environments
@@ -50,6 +52,7 @@ Keystone Core takes inspiration from **Salt Project** (formerly SaltStack) but r
 ## When to Use Keystone Core
 
 ✅ **Use Keystone Core when**:
+
 - You have GitOps workflows and need runtime operations
 - You need configuration drift detection and remediation
 - You want event-driven infrastructure automation
@@ -58,6 +61,7 @@ Keystone Core takes inspiration from **Salt Project** (formerly SaltStack) but r
 - You need deployment verification and automated rollback
 
 ❌ **Don't use Keystone Core when**:
+
 - You only need basic configuration management (use Ansible)
 - You only need container orchestration (use Kubernetes)
 - You only need GitOps deployment (use ArgoCD/Flux alone)

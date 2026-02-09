@@ -33,8 +33,8 @@ func (m *mockSSHCommander) TestConnection(_ context.Context, _ DeviceInfo, _ cre
 
 var _ SSHCommander = (*mockSSHCommander)(nil)
 
-func TestSSHRotationProvider_SupportsType(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_SupportsType(t *testing.T) {
+	p := NewSSHProvider(nil)
 
 	tests := []struct {
 		credType credentials.CredentialType
@@ -56,9 +56,9 @@ func TestSSHRotationProvider_SupportsType(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_ValidateOld(t *testing.T) {
+func TestSSHProvider_ValidateOld(t *testing.T) {
 	cmd := &mockSSHCommander{}
-	p := NewSSHRotationProvider(cmd)
+	p := NewSSHProvider(cmd)
 
 	cred := &credentials.SSHPasswordCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "c1", CredentialType: credentials.CredentialTypeSSHPassword},
@@ -75,16 +75,16 @@ func TestSSHRotationProvider_ValidateOld(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_ValidateOldNoCommander(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_ValidateOldNoCommander(t *testing.T) {
+	p := NewSSHProvider(nil)
 	err := p.ValidateOld(context.Background(), DeviceInfo{}, nil)
 	if err == nil {
 		t.Fatal("expected error without commander")
 	}
 }
 
-func TestSSHRotationProvider_GeneratePassword(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_GeneratePassword(t *testing.T) {
+	p := NewSSHProvider(nil)
 	p.PasswordLength = 16
 
 	old := &credentials.SSHPasswordCredential{
@@ -120,8 +120,8 @@ func TestSSHRotationProvider_GeneratePassword(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_GenerateKey(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_GenerateKey(t *testing.T) {
+	p := NewSSHProvider(nil)
 
 	old := &credentials.SSHKeyCredential{
 		BaseCredential: credentials.BaseCredential{
@@ -152,17 +152,17 @@ func TestSSHRotationProvider_GenerateKey(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_GenerateUnsupported(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_GenerateUnsupported(t *testing.T) {
+	p := NewSSHProvider(nil)
 	_, err := p.Generate(context.Background(), DeviceInfo{}, &credentials.SNMPv2cCredential{})
 	if err == nil {
 		t.Fatal("expected error for unsupported type")
 	}
 }
 
-func TestSSHRotationProvider_ApplyPassword(t *testing.T) {
+func TestSSHProvider_ApplyPassword(t *testing.T) {
 	cmd := &mockSSHCommander{}
-	p := NewSSHRotationProvider(cmd)
+	p := NewSSHProvider(cmd)
 
 	oldCred := &credentials.SSHPasswordCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "c1", CredentialType: credentials.CredentialTypeSSHPassword},
@@ -184,17 +184,17 @@ func TestSSHRotationProvider_ApplyPassword(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_ApplyNoCommander(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_ApplyNoCommander(t *testing.T) {
+	p := NewSSHProvider(nil)
 	err := p.Apply(context.Background(), DeviceInfo{}, nil, &credentials.SSHPasswordCredential{})
 	if err == nil {
 		t.Fatal("expected error without commander")
 	}
 }
 
-func TestSSHRotationProvider_Verify(t *testing.T) {
+func TestSSHProvider_Verify(t *testing.T) {
 	cmd := &mockSSHCommander{}
-	p := NewSSHRotationProvider(cmd)
+	p := NewSSHProvider(cmd)
 
 	err := p.Verify(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err != nil {
@@ -205,9 +205,9 @@ func TestSSHRotationProvider_Verify(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_VerifyFails(t *testing.T) {
+func TestSSHProvider_VerifyFails(t *testing.T) {
 	cmd := &mockSSHCommander{testErr: errors.New("connection refused")}
-	p := NewSSHRotationProvider(cmd)
+	p := NewSSHProvider(cmd)
 
 	err := p.Verify(context.Background(), DeviceInfo{}, &credentials.SSHPasswordCredential{})
 	if err == nil {
@@ -215,9 +215,9 @@ func TestSSHRotationProvider_VerifyFails(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_RollbackPassword(t *testing.T) {
+func TestSSHProvider_RollbackPassword(t *testing.T) {
 	cmd := &mockSSHCommander{}
-	p := NewSSHRotationProvider(cmd)
+	p := NewSSHProvider(cmd)
 
 	oldCred := &credentials.SSHPasswordCredential{
 		BaseCredential: credentials.BaseCredential{CredentialID: "c1", CredentialType: credentials.CredentialTypeSSHPassword},
@@ -239,16 +239,16 @@ func TestSSHRotationProvider_RollbackPassword(t *testing.T) {
 	}
 }
 
-func TestSSHRotationProvider_Cleanup(t *testing.T) {
-	p := NewSSHRotationProvider(nil)
+func TestSSHProvider_Cleanup(t *testing.T) {
+	p := NewSSHProvider(nil)
 	err := p.Cleanup(context.Background(), DeviceInfo{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestSSHRotationProvider_InterfaceCompliance(t *testing.T) {
-	var _ RotationProvider = (*SSHRotationProvider)(nil)
+func TestSSHProvider_InterfaceCompliance(t *testing.T) {
+	var _ Provider = (*SSHProvider)(nil)
 }
 
 func TestGenerateRandomPassword(t *testing.T) {

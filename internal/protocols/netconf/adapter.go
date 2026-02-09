@@ -54,7 +54,6 @@ type Adapter struct {
 	connected   bool
 	lastError   error
 	lastConnect time.Time
-	lastPing    time.Time
 
 	metrics *protocols.AdapterMetrics
 }
@@ -84,7 +83,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	defer a.mu.Unlock()
 
 	if a.sshClient != nil {
-		a.closeInternal()
+		_ = a.closeInternal() //nolint:errcheck // best-effort close of stale connection
 	}
 
 	a.device = device
@@ -250,7 +249,7 @@ func (a *Adapter) Metrics() *protocols.AdapterMetrics {
 func (a *Adapter) buildSSHConfig(cred credentials.Credential) (*ssh.ClientConfig, error) {
 	hostKeyCallback := a.config.HostKeyCallback
 	if hostKeyCallback == nil {
-		hostKeyCallback = ssh.InsecureIgnoreHostKey() //nolint:gosec
+		hostKeyCallback = ssh.InsecureIgnoreHostKey() //nolint:gosec // lab and test devices may lack known host keys
 	}
 
 	config := &ssh.ClientConfig{

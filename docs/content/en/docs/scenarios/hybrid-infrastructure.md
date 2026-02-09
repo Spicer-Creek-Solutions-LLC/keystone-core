@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 This scenario demonstrates managing hybrid infrastructure:
+
 - **Kubernetes Clusters**: EKS, GKE, AKS, and on-premises
 - **Virtual Machines**: AWS EC2, Azure VMs, GCP Compute, VMware
 - **Bare Metal**: Physical servers in data centers
@@ -16,6 +17,7 @@ This scenario demonstrates managing hybrid infrastructure:
 ### Business Context
 
 Hybrid infrastructure enables:
+
 - Best-of-breed technology selection
 - Regulatory compliance (data residency)
 - Cost optimization

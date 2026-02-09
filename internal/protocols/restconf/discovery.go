@@ -28,7 +28,11 @@ func discoverRootPath(ctx context.Context, client *rest.Client, auth rest.Authen
 	}
 
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
+		return DefaultRootPath
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
 		return DefaultRootPath
 	}
 

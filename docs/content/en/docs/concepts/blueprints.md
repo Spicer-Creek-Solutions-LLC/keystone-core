@@ -7,6 +7,7 @@ weight: 15
 Blueprints are pre-packaged, reusable collections of states that can be shared, versioned, and composed to deploy complex infrastructure stacks. Similar to Salt Formulas, Ansible Roles, or Helm Charts, blueprints enable teams to encapsulate infrastructure patterns and share them across projects.
 
 > **Implementation Note**: The `kscorectl blueprint` CLI currently supports:
+>
 > - **Development**: `init`, `validate`, `lint`, `test`, `docs`
 > - **Registry**: `search`, `info`, `versions`, `install`, `update`, `remove`
 > - **Distribution**: `publish`, `sign`, `verify`
@@ -21,6 +22,7 @@ Blueprints are pre-packaged, reusable collections of states that can be shared, 
 ### What is a Blueprint?
 
 A blueprint is a versioned package containing:
+
 - **States**: Declarative resource definitions (files, packages, services, users, etc.)
 - **Parameters**: Configurable inputs with JSON Schema validation
 - **Dependencies**: Other blueprints required for operation
@@ -105,6 +107,7 @@ Platform defaults are loaded and merged in the following order, with later layer
 #### Platform Detection
 
 The system automatically detects the target platform from:
+
 - `/etc/os-release` (Linux distributions)
 - `/etc/lsb-release` (LSB-compliant systems)
 - `/etc/redhat-release` (RHEL-based systems)
@@ -541,6 +544,7 @@ cmd:
 ```
 
 **Available context:**
+
 - `.parameters` - All resolved blueprint parameters
 - `.vars` - Platform defaults and custom variables
 - `.features` - Enabled/disabled feature flags
@@ -754,6 +758,7 @@ db_password: !secret env:database/password
 **HashiCorp Vault**
 
 For production deployments, Vault integration provides:
+
 - Secret versioning
 - Dynamic secrets
 - Lease management
@@ -870,6 +875,7 @@ kscorectl blueprint validate myorg/my-blueprint --check-secrets
 ```
 
 Validation checks:
+
 1. Backend exists and is configured
 2. Secret path is valid
 3. Secret exists in the backend
@@ -897,6 +903,7 @@ Blueprint Apply:
 #### Security Best Practices
 
 **Do:**
+
 - Use `!secret` for all sensitive values (passwords, API keys, certificates)
 - Mark sensitive parameters with `sensitive: true` in schema
 - Use versioned secrets for reproducibility
@@ -904,6 +911,7 @@ Blueprint Apply:
 - Rotate secrets regularly using versioning
 
 **Don't:**
+
 - Hardcode secrets in blueprints, state files, or templates
 - Log or print resolved secret values
 - Store secrets in version control
@@ -1073,6 +1081,7 @@ file:
 ```
 
 Rollback context includes:
+
 - `rollback.from_version` - Version being rolled back from
 - `rollback.to_version` - Version being rolled back to
 - `rollback.snapshot_id` - ID of snapshot (if using snapshots)
@@ -1097,12 +1106,14 @@ kscorectl blueprint validate myorg/my-blueprint --entrypoint upgrade
 #### Entrypoint Best Practices
 
 **Do:**
+
 - Define a `default` entrypoint for standard installation
 - Create separate entrypoints for upgrade and rollback procedures
 - Keep entrypoints focused (single responsibility)
 - Document what each entrypoint does in comments
 
 **Don't:**
+
 - Duplicate large amounts of state code between entrypoints
 - Create entrypoints for minor configuration variations (use parameters)
 - Assume entrypoints share state (they run independently)
@@ -1429,6 +1440,7 @@ kscorectl blueprint applied history --agent agent-1 --output json > audit.json
 ### 1. Parameter Design
 
 **Do:**
+
 - Use descriptive names and descriptions
 - Provide sensible defaults where possible
 - Mark sensitive parameters appropriately
@@ -1436,6 +1448,7 @@ kscorectl blueprint applied history --agent agent-1 --output json > audit.json
 - Group related parameters into objects
 
 **Don't:**
+
 - Require parameters that could have defaults
 - Expose internal implementation details
 - Use overly generic names like `value` or `data`
@@ -1459,12 +1472,14 @@ parameters:
 ### 2. Dependency Management
 
 **Do:**
+
 - Use semantic version constraints (`^1.0.0`, `~2.1.0`)
 - Prefer `requires` over `requires_before` when order doesn't matter
 - Document why dependencies are needed
 - Test with minimum supported versions
 
 **Don't:**
+
 - Pin exact versions without reason
 - Create circular dependencies
 - Include unnecessary dependencies
@@ -1484,12 +1499,14 @@ dependencies:
 ### 3. State Organization
 
 **Do:**
+
 - Keep states focused and single-purpose
 - Use meaningful file names
 - Group related resources together
 - Use requisites for dependencies
 
 **Don't:**
+
 - Put everything in one file
 - Create deeply nested includes
 - Hardcode values that should be parameters
@@ -1510,6 +1527,7 @@ states/
 ### 4. Testing
 
 **Do:**
+
 - Test all parameter combinations
 - Include negative tests (invalid inputs)
 - Test idempotency (apply twice = same result)
@@ -1517,6 +1535,7 @@ states/
 - Use CI/CD for automated testing
 
 **Don't:**
+
 - Skip tests for "simple" blueprints
 - Only test the happy path
 - Assume environments are identical
@@ -1549,6 +1568,7 @@ cases:
 ### 5. Security
 
 **Do:**
+
 - Never hardcode secrets
 - Use `!secret` references for sensitive data
 - Mark sensitive parameters
@@ -1556,6 +1576,7 @@ cases:
 - Review dependencies for vulnerabilities
 
 **Don't:**
+
 - Log sensitive parameter values
 - Store secrets in templates
 - Trust unsigned blueprints in production
@@ -1573,6 +1594,7 @@ params:
 ### 6. Documentation
 
 **Do:**
+
 - Write clear README files
 - Document all parameters
 - Provide usage examples
@@ -1580,18 +1602,21 @@ params:
 - Maintain a changelog
 
 **Don't:**
+
 - Assume users know your domain
 - Skip documentation for "obvious" things
 
 ### 7. Versioning
 
 **Do:**
+
 - Follow semantic versioning
 - Document breaking changes
 - Provide migration guides
 - Support at least 2 major versions
 
 **Don't:**
+
 - Make breaking changes in minor/patch versions
 - Remove parameters without deprecation period
 - Change default behavior silently
@@ -1739,18 +1764,21 @@ nginx  (too generic)
 #### Quality Standards
 
 **Code Quality:**
+
 - No hardcoded secrets or credentials
 - Parameterize all configurable values
 - Use meaningful state and resource names
 - Include comments for complex logic
 
 **Security:**
+
 - Follow least-privilege principles
 - Document security implications
 - No execution of arbitrary user input
 - Validate all parameters
 
 **Compatibility:**
+
 - Test on all claimed platforms
 - Document platform-specific behavior
 - Support at least 2 recent OS versions
@@ -1813,18 +1841,22 @@ All contributors must follow the Keystone Core Code of Conduct:
 The following example blueprints are available in the repository:
 
 #### LAMP Stack (`examples/blueprints/lamp-stack`)
+
 A complete Linux, Apache, MySQL, PHP stack for web applications.
 
 **Features:**
+
 - Apache with security headers and virtual hosts
 - PHP with OPcache and common extensions
 - MySQL/MariaDB with secure installation
 - Optional phpMyAdmin
 
 #### Monitoring Stack (`examples/blueprints/kscore/monitoring-stack`)
+
 Production monitoring with Prometheus, Grafana, and Node Exporter.
 
 **Features:**
+
 - Prometheus metrics collection
 - Grafana visualization with pre-built dashboards
 - Node Exporter for system metrics
@@ -1832,9 +1864,11 @@ Production monitoring with Prometheus, Grafana, and Node Exporter.
 - Default alert rules
 
 #### Security Baseline (`examples/blueprints/kscore/security-baseline`)
+
 Security hardening for Linux servers following industry best practices.
 
 **Features:**
+
 - SSH hardening with modern ciphers
 - Firewall configuration (UFW/firewalld)
 - Kernel security parameters (sysctl)

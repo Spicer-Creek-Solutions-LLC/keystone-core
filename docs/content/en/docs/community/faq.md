@@ -42,11 +42,13 @@ Keystone Core has completed 25 Epics and has extensive test coverage. However, r
 ### What are the minimum requirements?
 
 **Control Plane:**
+
 - 2 CPU cores, 2GB RAM (minimal)
 - 4 CPU cores, 4GB RAM (production)
 - Linux, Windows, or macOS
 
 **Agent:**
+
 - 1 CPU core, 256MB RAM
 - Linux, Windows, or macOS
 - Network connectivity to control plane (or offline mode)
@@ -54,6 +56,7 @@ Keystone Core has completed 25 Epics and has extensive test coverage. However, r
 ### Can I run without external dependencies?
 
 Yes! Keystone Core supports "embedded mode" with:
+
 - **Embedded NATS**: In-process message bus
 - **SQLite**: File-based state storage
 
@@ -64,17 +67,20 @@ This is perfect for development, testing, home labs, or small deployments (<100 
 1. Deploy external NATS cluster
 2. Deploy PostgreSQL (if desired)
 3. Use `kscorectl migrate` tool for database migration:
+
    ```bash
    kscorectl migrate run \
      --source sqlite:///var/lib/keystone/keystone.db \
      --target postgres://keystone:pass@localhost/keystone
    ```
+
 4. Update control plane configuration to point to external services
 5. Restart control plane
 
 ### How do agents find the control plane?
 
 Agents support multiple discovery methods:
+
 - **Static**: Configure control plane URL directly
 - **DNS**: SRV record lookup for `_kscore._tcp.domain`
 - **Kubernetes**: Service discovery via endpoints
@@ -90,6 +96,7 @@ Agents support multiple discovery methods:
 - **Blueprints**: Pre-packaged collections of states with parameters
 
 Example hierarchy:
+
 ```
 Blueprint (lamp-stack)
 ├── Uses States (file, package, service)
@@ -111,6 +118,7 @@ Blueprint (lamp-stack)
 ### Can I do dry-run before applying changes?
 
 Yes, use the `check` command:
+
 ```bash
 kscorectl state check myconfig.yaml
 ```
@@ -135,6 +143,7 @@ secrets:
 ```
 
 Supported backends:
+
 - HashiCorp Vault
 - AWS Secrets Manager
 - GCP Secret Manager
@@ -147,6 +156,7 @@ Supported backends:
 ### How do I target specific agents?
 
 Use targeting expressions:
+
 ```bash
 # By hostname glob
 kscorectl exec run "web-*" -- uptime
@@ -167,6 +177,7 @@ kscorectl exec run "environment=prod AND NOT role=database" -- uptime
 - **Windows**: PowerShell, cmd.exe
 
 The shell is auto-detected based on the OS. If you need a specific shell, invoke it explicitly:
+
 ```bash
 kscorectl exec run "windows-*" -- powershell -Command "Get-Process"
 ```
@@ -174,6 +185,7 @@ kscorectl exec run "windows-*" -- powershell -Command "Get-Process"
 ### How do I run commands as a different user?
 
 Use the `--user` flag:
+
 ```bash
 kscorectl exec run --user postgres "db-*" -- psql -c "SELECT 1"
 ```
@@ -185,6 +197,7 @@ Note: Requires the agent to run as root (Linux) or with appropriate privileges (
 ### How is communication secured?
 
 All communication uses:
+
 - **mTLS**: Mutual TLS for agent-to-control-plane
 - **NATS Security**: TLS + authentication for message bus
 - **SPIFFE/SPIRE**: Workload identity (optional)
@@ -214,6 +227,7 @@ allow {
 ```
 
 Policies can:
+
 - Block dangerous operations
 - Require approvals
 - Enforce resource quotas
@@ -232,6 +246,7 @@ Policies can:
 ### What happens if a control plane node fails?
 
 With 3+ nodes:
+
 1. etcd leader election promotes a new leader
 2. Agents automatically reconnect to healthy nodes
 3. Work is redistributed (consistent hashing)
@@ -240,6 +255,7 @@ With 3+ nodes:
 ### How are agents distributed across control plane nodes?
 
 Agents are assigned to control plane nodes using consistent hashing. When a node fails:
+
 1. Affected agents are automatically reassigned
 2. Agent state is recovered from etcd/database
 3. Commands in-flight are retried on the new node
@@ -249,21 +265,25 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 ### Agent won't connect
 
 1. **Check network connectivity**:
+
    ```bash
    curl -k https://control-plane:8443/health
    ```
 
 2. **Verify TLS certificates**:
+
    ```bash
    openssl s_client -connect control-plane:8443
    ```
 
 3. **Check agent logs**:
+
    ```bash
    journalctl -u kscore-agent -f
    ```
 
 4. **Verify NATS connectivity**:
+
    ```bash
    nats-server -c /etc/keystone-core/nats.conf --test
    ```
@@ -271,16 +291,19 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 ### State application fails
 
 1. **Run in check mode first**:
+
    ```bash
    kscorectl state check myconfig.yaml
    ```
 
 2. **Check for requisite failures**:
+
    ```bash
    kscorectl state apply myconfig.yaml -v
    ```
 
 3. **Verify module availability**:
+
    ```bash
    kscorectl module list
    ```
@@ -288,16 +311,19 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 ### Commands time out
 
 1. **Check agent health**:
+
    ```bash
    kscorectl agent status agent-id
    ```
 
 2. **Increase timeout**:
+
    ```bash
    kscorectl exec run --command-timeout 300 "target" -- long-running-command
    ```
 
 3. **Track a job by ID**:
+
    ```bash
    kscorectl exec run --job-id job-123 "target" -- long-running-command
    kscorectl exec status job-123
@@ -314,6 +340,7 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 ### What's the latency for command execution?
 
 Typical latency:
+
 - Same datacenter: 10-50ms
 - Cross-region: 50-200ms
 - Edge (with buffering): Variable (buffered until connectivity)
@@ -331,11 +358,13 @@ Typical latency:
 ### How do I integrate with GitOps tools?
 
 Keystone Core provides webhook endpoints for:
+
 - **ArgoCD**: Deployment verification, health checks
 - **Flux**: Kustomization sync events
 - **GitHub/GitLab**: Deployment events, PR comments
 
 Example ArgoCD integration:
+
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -347,12 +376,14 @@ metadata:
 ### Can I use Keystone Core with Terraform?
 
 Yes, use Keystone Core for runtime operations while Terraform handles infrastructure provisioning. They're complementary:
+
 - **Terraform**: Provision VMs, networks, cloud resources
 - **Keystone Core**: Configure and maintain those resources
 
 ### How do I integrate with monitoring?
 
 Keystone Core exposes:
+
 - **Prometheus metrics**: `/metrics` endpoint
 - **OpenTelemetry traces**: OTLP export
 - **Structured logs**: JSON, logfmt, or text
@@ -364,6 +395,7 @@ Pre-built Grafana dashboards are available in `deploy/grafana/dashboards/`.
 ### How do I report bugs?
 
 Open an issue at [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues) with:
+
 - Keystone Core version (`kscorectl version`)
 - Steps to reproduce
 - Expected vs actual behavior

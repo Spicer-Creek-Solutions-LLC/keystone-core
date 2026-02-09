@@ -12,7 +12,9 @@ The Operations section provides comprehensive guides for deploying, monitoring, 
 ## Guide Categories
 
 ### [Deployment](deployment/)
+
 Production deployment patterns and strategies:
+
 - **Single-node deployment** - Simple setup for development and small deployments
 - **High-availability setup** - Multi-node cluster with automatic failover
 - **Kubernetes deployment** - Native K8s deployment with Helm charts
@@ -21,7 +23,9 @@ Production deployment patterns and strategies:
 - **Migration paths** - Embedded to external NATS, SQLite to PostgreSQL
 
 ### [Monitoring](monitoring/)
+
 Comprehensive monitoring and observability setup:
+
 - **Prometheus integration** - Metrics collection and storage
 - **Grafana dashboards** - Pre-built dashboards for all components
 - **Log aggregation** - Centralized logging with Loki or Elasticsearch
@@ -30,7 +34,9 @@ Comprehensive monitoring and observability setup:
 - **Performance metrics** - Key performance indicators and SLOs
 
 ### [Maintenance](maintenance/)
+
 Operational maintenance procedures:
+
 - **Backup procedures** - State database and configuration backups
 - **Restore procedures** - Disaster recovery workflows
 - **Upgrade procedures** - Rolling updates and version migrations
@@ -39,19 +45,25 @@ Operational maintenance procedures:
 - **Capacity planning** - Resource sizing and growth planning
 
 ### [Best Practices](best-practices/)
+
 Recommended patterns for reliable and secure operations:
+
 - **Deployment defaults** - Embedded vs external guidance
 - **Security posture** - Identity, audit, and least privilege
 - **Operational hygiene** - Backups, dry-run, rollout patterns
 
 ### [Migrations](migrations/)
+
 Common migration paths and rollout strategies:
+
 - **Salt to Keystone Core** - State translation and phased rollout
 - **SQLite to PostgreSQL** - `kscore-migrate` workflow
 - **Embedded to external NATS** - Cluster migration steps
 
 ### [Troubleshooting](troubleshooting/)
+
 Diagnostic and resolution guides:
+
 - **Agent connectivity** - Debug agent-to-control-plane connections
 - **NATS issues** - Message bus troubleshooting
 - **State failures** - State application and drift detection issues
@@ -60,14 +72,18 @@ Diagnostic and resolution guides:
 - **Debug logging** - Enable detailed logging for diagnosis
 
 ### [Runbooks](runbooks/)
+
 Operational runbooks for incidents, maintenance, and recovery:
+
 - **Incident response** - Security and operational incident handling
 - **Backup & restore** - Data protection workflows
 - **Disaster recovery** - DR procedures and validation
 - **Upgrades** - Rolling upgrade checklists
 
 ### [Security](security/)
+
 Security hardening and compliance:
+
 - **Authentication** - Token and certificate-based auth
 - **TLS configuration** - Encrypt all communications
 - **RBAC policies** - Role-based access control setup
@@ -76,7 +92,9 @@ Security hardening and compliance:
 - **Secret management** - Secure secret storage and rotation
 
 ### [Module Registry](registry/)
+
 Deploy and operate module registries:
+
 - **Single-node deployment** - Development and small deployments
 - **High-availability setup** - Redundant registry clusters
 - **Kubernetes deployment** - Cloud-native registry with StatefulSets
@@ -85,7 +103,9 @@ Deploy and operate module registries:
 - **Backup and recovery** - Registry data protection
 
 ### [NATS Mesh](nats-mesh-deployment/)
+
 NATS mesh networking and topology:
+
 - **Deployment patterns** - Simple, HA, edge, multi-region
 - **Leaf nodes** - Edge and branch office connectivity
 - **Superclusters** - Multi-region gateway configuration
@@ -93,7 +113,9 @@ NATS mesh networking and topology:
 - **Operations** - Monitoring, troubleshooting, and maintenance
 
 ### [Telemetry Gateway](gateway/)
+
 Centralized telemetry aggregation:
+
 - **Deployment** - Single-node and HA configurations
 - **Prometheus integration** - Metrics scraping and federation
 - **Loki integration** - Log aggregation and querying
@@ -101,7 +123,9 @@ Centralized telemetry aggregation:
 - **Backend configuration** - Remote write and export
 
 ### [Self-Management](self-management/)
+
 Keystone Core managing itself:
+
 - **Bootstrap** - Initial cluster deployment from seed
 - **Backup & Restore** - Data protection and recovery
 - **Rolling upgrades** - Zero-downtime version updates
@@ -109,14 +133,18 @@ Keystone Core managing itself:
 - **State modules** - Self-management state declarations
 
 ### [Windows Operations](windows/)
+
 Windows platform operations:
+
 - **Installation** - MSI installer and manual setup
 - **Service management** - Windows service configuration
 - **Agent operations** - Windows-specific agent features
 - **Troubleshooting** - Windows-specific issues
 
 ### [IPv6 Operations](ipv6/)
+
 IPv6 and dual-stack networking:
+
 - **Configuration** - IPv6-only and dual-stack setup
 - **NATS with IPv6** - Message bus configuration
 - **Agent connectivity** - IPv6 agent registration
@@ -125,25 +153,33 @@ IPv6 and dual-stack networking:
 ## Quick Navigation by Role
 
 ### For DevOps Engineers
+
 Start with:
+
 1. [Deployment Guide](deployment/) - Choose your deployment pattern
 2. [Monitoring Guide](monitoring/) - Set up observability
 3. [Troubleshooting Guide](troubleshooting/) - Common issues and solutions
 
 ### For Platform Engineers
+
 Focus on:
+
 1. [High-Availability Setup](deployment/#high-availability) - Production cluster design
 2. [Scaling Strategies](deployment/#scaling) - Handle growth
 3. [Capacity Planning](maintenance/#capacity-planning) - Resource sizing
 
 ### For Security Engineers
+
 Review:
+
 1. [Security Guide](security/) - Complete security hardening
 2. [Authentication Setup](security/#authentication) - Auth methods
 3. [Audit Logging](security/#audit-logging) - Compliance tracking
 
 ### For Site Reliability Engineers (SREs)
+
 Essential guides:
+
 1. [Monitoring Setup](monitoring/) - Full observability stack
 2. [Alert Rules](monitoring/#alerting) - Production alerting
 3. [Backup/Restore](maintenance/#backup-restore) - Disaster recovery
@@ -153,6 +189,7 @@ Essential guides:
 Before deploying Keystone Core to production, ensure you've completed:
 
 **Infrastructure**
+
 - [ ] High-availability deployment (3+ control plane nodes)
 - [ ] External NATS cluster (not embedded mode)
 - [ ] PostgreSQL database (not SQLite)
@@ -160,6 +197,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - [ ] Network segmentation and firewall rules
 
 **Monitoring**
+
 - [ ] Prometheus scraping all components
 - [ ] Grafana dashboards installed
 - [ ] Alert rules configured
@@ -167,6 +205,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - [ ] Log aggregation configured
 
 **Security**
+
 - [ ] TLS enabled for all connections
 - [ ] Certificate-based authentication
 - [ ] RBAC policies configured
@@ -174,6 +213,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - [ ] Security hardening checklist completed
 
 **Reliability**
+
 - [ ] Backup procedures tested
 - [ ] Restore procedure tested
 - [ ] Upgrade procedure documented and tested
@@ -181,6 +221,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - [ ] Runbooks created for common incidents
 
 **Performance**
+
 - [ ] Resource limits configured
 - [ ] Connection pools sized appropriately
 - [ ] Event retention policies set
@@ -190,16 +231,19 @@ Before deploying Keystone Core to production, ensure you've completed:
 ## Support Resources
 
 **Documentation**
+
 - [Architecture Overview](/docs/getting-started/architecture/) - Understand the system design
 - [Configuration Reference](/docs/reference/configuration/) - All configuration options
 - [Metrics Reference](/docs/reference/metrics/) - Complete metrics catalog
 
 **Community**
+
 - GitHub Issues - Bug reports and feature requests
 - Discussions - Questions and community support
 - Slack/Discord - Real-time community chat
 
 **Commercial Support**
+
 - Enterprise support contracts available
 - Professional services for deployment assistance
 - Training and certification programs
@@ -207,6 +251,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 ## Best Practices Summary
 
 ### Deployment
+
 - Start with single-node for dev, move to HA for production
 - Use external NATS cluster for production (>100 nodes)
 - Use PostgreSQL for production state storage
@@ -214,6 +259,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - Use leaf nodes for edge deployments
 
 ### Monitoring
+
 - Monitor all components (control plane, agents, NATS, database)
 - Set up alerting before going to production
 - Use Grafana dashboards for visualization
@@ -221,6 +267,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - Define SLOs and SLIs for critical paths
 
 ### Maintenance
+
 - Back up state database and configurations daily
 - Test restore procedures regularly
 - Use rolling updates for zero-downtime upgrades
@@ -228,6 +275,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - Plan for capacity growth
 
 ### Troubleshooting
+
 - Enable debug logging for diagnosis
 - Check agent connectivity first
 - Verify NATS cluster health
@@ -235,6 +283,7 @@ Before deploying Keystone Core to production, ensure you've completed:
 - Use metrics to identify performance bottlenecks
 
 ### Security
+
 - Enable TLS for all connections (NATS, API, database)
 - Use certificate-based authentication in production
 - Implement RBAC policies for least privilege

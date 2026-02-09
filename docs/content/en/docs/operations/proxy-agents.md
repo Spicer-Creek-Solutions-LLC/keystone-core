@@ -457,19 +457,23 @@ configure_all_routers:
 ### Protocol-Specific Modules
 
 **SSH Modules:**
+
 - `ssh_file` - Manage files via SCP/SFTP
 - `ssh_cmd` - Execute commands
 - `ssh_service` - Manage services (Linux via SSH)
 
 **SNMP Modules:**
+
 - `snmp_value` - Set SNMP values
 - `snmp_table` - Manage SNMP table entries
 
 **REST Modules:**
+
 - `http_config` - Configure via REST API
 - `http_resource` - Manage REST resources
 
 **Network Device Modules:**
+
 - `ios_config` - Cisco IOS configuration
 - `nxos_config` - Cisco NX-OS configuration
 - `junos_config` - Juniper JUNOS configuration
@@ -479,6 +483,7 @@ configure_all_routers:
 - `opnsense_config` - OPNsense configuration
 
 **WinRM Modules:**
+
 - `winrm_file` - Manage Windows files
 - `winrm_service` - Manage Windows services
 - `winrm_registry` - Manage Windows registry
@@ -603,6 +608,7 @@ journalctl -u kscore-agent -f | grep "core-router-01"
 ### Protocol-Specific Debugging
 
 **SSH:**
+
 ```bash
 # Test SSH directly
 ssh -v admin@192.168.1.1
@@ -612,6 +618,7 @@ kubectl exec -it kscore-proxy-agent-xxx -- ssh -v admin@192.168.1.1
 ```
 
 **SNMP:**
+
 ```bash
 # Test SNMP v2c
 snmpwalk -v2c -c public 192.168.1.10 system
@@ -621,12 +628,14 @@ snmpwalk -v3 -u snmpuser -l authPriv -a SHA -A authpass -x AES -X privpass 192.1
 ```
 
 **REST:**
+
 ```bash
 # Test REST API
 curl -k -H "Authorization: Bearer $API_KEY" https://192.168.1.254/api/v1/status
 ```
 
 **WinRM:**
+
 ```bash
 # Test WinRM connectivity
 winrm identify -r:https://192.168.1.100:5986 -u:Administrator -p:password

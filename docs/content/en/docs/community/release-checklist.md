@@ -5,8 +5,6 @@ description: >
   Pre-release verification checklist for Keystone Core releases
 ---
 
-# Release Checklist
-
 This checklist ensures release quality before publishing a new Keystone Core version.
 
 ## Version 0.1.0 Release Checklist

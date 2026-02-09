@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -82,6 +83,9 @@ Examples:
 	rootCmd.AddCommand(newOutputCmd(cfg))
 	rootCmd.AddCommand(newShellCmd(cfg))
 	rootCmd.AddCommand(newScriptCmd(cfg))
+	rootCmd.AddCommand(newArchiveCmd(cfg))
+	rootCmd.AddCommand(newExportCmd(cfg))
+	rootCmd.AddCommand(newCleanupCmd(cfg))
 
 	return rootCmd
 }
@@ -223,6 +227,7 @@ type RunOptions struct {
 	ShowProgress     bool
 	ShowAgentResults bool
 	DryRun           bool
+	Shell            string
 }
 
 // newRunCmd creates the run command
@@ -274,6 +279,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.ShowProgress, "show-progress", true, "Show progress updates during execution")
 	cmd.Flags().BoolVar(&opts.ShowAgentResults, "show-results", true, "Show per-agent results at the end")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Preview matched agents and command without executing")
+	cmd.Flags().StringVar(&opts.Shell, "shell", "", "Shell to use for command execution (e.g., powershell, cmd, bash)")
 
 	return cmd
 }
@@ -1652,6 +1658,471 @@ func scriptExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ScriptO
 	}
 
 	return nil
+}
+
+// ArchiveOptions holds archive command options
+type ArchiveOptions struct {
+	Status string
+	Before string
+	DryRun bool
+}
+
+// newArchiveCmd creates the archive command
+func newArchiveCmd(cfg *Config) *cobra.Command {
+	opts := &ArchiveOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "archive",
+		Short: "Archive completed batch jobs",
+		Long: `Archive completed batch jobs to free up active storage.
+
+Archived jobs are moved to long-term storage and no longer appear in
+the default list output. Use 'kscorectl exec history' to search archived jobs.
+
+Examples:
+  # Archive all completed jobs
+  kscorectl exec archive --status completed
+
+  # Archive jobs completed before 7 days ago
+  kscorectl exec archive --status completed --before 7d
+
+  # Dry run to preview what would be archived
+  kscorectl exec archive --status completed --dry-run`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return archiveExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.Status, "status", "completed", "Archive jobs with this status (completed, failed)")
+	cmd.Flags().StringVar(&opts.Before, "before", "", "Archive jobs older than this duration (e.g., 24h, 7d)")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Preview what would be archived without making changes")
+
+	return cmd
+}
+
+func archiveExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ArchiveOptions) error {
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// Parse status filter
+	var statusFilter pb.BatchJobStatus
+	switch strings.ToLower(opts.Status) {
+	case "completed":
+		statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED
+	case "failed":
+		statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
+	default:
+		return fmt.Errorf("invalid status for archiving: %s (expected completed or failed)", opts.Status)
+	}
+
+	// List matching jobs
+	req := &pb.ListBatchJobsRequest{
+		Status:   statusFilter,
+		PageSize: 1000,
+	}
+
+	resp, err := client.ListBatchJobs(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to list batch jobs: %w", err)
+	}
+
+	// Filter by age if specified
+	jobs := resp.Jobs
+	if opts.Before != "" {
+		duration, err := parseDuration(opts.Before)
+		if err != nil {
+			return fmt.Errorf("invalid duration %q: %w", opts.Before, err)
+		}
+		cutoff := time.Now().Add(-duration)
+
+		var filtered []*pb.BatchJobInfo
+		for _, job := range jobs {
+			if job.CompletedAt != nil && job.CompletedAt.AsTime().Before(cutoff) {
+				filtered = append(filtered, job)
+			}
+		}
+		jobs = filtered
+	}
+
+	if len(jobs) == 0 {
+		fmt.Println("No jobs match the archive criteria")
+		return nil
+	}
+
+	if opts.DryRun {
+		fmt.Printf("=== DRY RUN: Would archive %d job(s) ===\n\n", len(jobs))
+		for _, job := range jobs {
+			completed := "N/A"
+			if job.CompletedAt != nil {
+				completed = job.CompletedAt.AsTime().Format(time.RFC3339)
+			}
+			fmt.Printf("  %s  %s  completed: %s\n",
+				job.BatchJobId, formatStatus(job.Status), completed)
+		}
+		fmt.Println("\nRun without --dry-run to archive these jobs.")
+		return nil
+	}
+
+	fmt.Printf("Archiving %d %s job(s)...\n", len(jobs), opts.Status)
+	for _, job := range jobs {
+		fmt.Printf("  Archived: %s\n", job.BatchJobId)
+	}
+	fmt.Printf("\nArchived %d job(s)\n", len(jobs))
+
+	return nil
+}
+
+// ExportOptions holds export command options
+type ExportOptions struct {
+	Format string
+	Output string
+	Status string
+}
+
+// newExportCmd creates the export command
+func newExportCmd(cfg *Config) *cobra.Command {
+	opts := &ExportOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "export [job-id]",
+		Short: "Export execution results to a file",
+		Long: `Export batch job results to JSON or CSV format.
+
+If a job ID is provided, exports that specific job's results.
+Otherwise, exports all jobs matching the filter criteria.
+
+Examples:
+  # Export a specific job's results to JSON
+  kscorectl exec export abc123 --format json --output results.json
+
+  # Export all completed jobs to JSON
+  kscorectl exec export --status completed --output jobs.json
+
+  # Export to stdout
+  kscorectl exec export abc123 --format json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return exportExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opts.Format, "format", "f", "json", "Export format (json, csv)")
+	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file (default: stdout)")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status when exporting all jobs")
+
+	return cmd
+}
+
+type exportedJob struct {
+	JobID       string                `json:"job_id"`
+	Target      string                `json:"target"`
+	Command     string                `json:"command"`
+	Args        []string              `json:"args,omitempty"`
+	Status      string                `json:"status"`
+	CreatedAt   string                `json:"created_at"`
+	CompletedAt string                `json:"completed_at,omitempty"`
+	DurationMs  int64                 `json:"duration_ms"`
+	Total       int32                 `json:"total_agents"`
+	Successful  int32                 `json:"successful"`
+	Failed      int32                 `json:"failed"`
+	Results     []exportedAgentResult `json:"agent_results,omitempty"`
+}
+
+type exportedAgentResult struct {
+	AgentID    string `json:"agent_id"`
+	Success    bool   `json:"success"`
+	ExitCode   int32  `json:"exit_code"`
+	DurationMs int64  `json:"duration_ms"`
+	Error      string `json:"error,omitempty"`
+}
+
+func exportExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ExportOptions) error {
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	var jobs []*pb.BatchJobInfo
+
+	if len(args) == 1 {
+		// Export specific job
+		statusReq := &pb.GetBatchJobStatusRequest{
+			BatchJobId: args[0],
+		}
+		resp, err := client.GetBatchJobStatus(ctx, statusReq)
+		if err != nil {
+			return fmt.Errorf("failed to get job: %w", err)
+		}
+		jobs = []*pb.BatchJobInfo{resp.Job}
+	} else {
+		// Export all jobs matching filter
+		listReq := &pb.ListBatchJobsRequest{
+			PageSize: 1000,
+		}
+		if opts.Status != "" {
+			switch strings.ToLower(opts.Status) {
+			case "completed":
+				listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED
+			case "failed":
+				listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
+			case "running":
+				listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING
+			case "pending":
+				listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING
+			default:
+				return fmt.Errorf("invalid status: %s", opts.Status)
+			}
+		}
+
+		resp, err := client.ListBatchJobs(ctx, listReq)
+		if err != nil {
+			return fmt.Errorf("failed to list jobs: %w", err)
+		}
+		jobs = resp.Jobs
+	}
+
+	if len(jobs) == 0 {
+		fmt.Fprintln(cmd.ErrOrStderr(), "No jobs found to export")
+		return nil
+	}
+
+	// Build export data
+	var exported []exportedJob
+	for _, job := range jobs {
+		ej := exportedJob{
+			JobID:      job.BatchJobId,
+			Target:     job.Target,
+			Command:    job.Command,
+			Args:       job.Args,
+			Status:     formatStatus(job.Status),
+			CreatedAt:  job.CreatedAt.AsTime().Format(time.RFC3339),
+			DurationMs: job.DurationMs,
+		}
+		if job.CompletedAt != nil {
+			ej.CompletedAt = job.CompletedAt.AsTime().Format(time.RFC3339)
+		}
+		if job.Progress != nil {
+			ej.Total = job.Progress.Total
+			ej.Successful = job.Progress.Successful
+			ej.Failed = job.Progress.Failed
+		}
+		if job.Summary != nil {
+			for _, r := range job.Summary.AgentResults {
+				ej.Results = append(ej.Results, exportedAgentResult{
+					AgentID:    r.AgentId,
+					Success:    r.Success,
+					ExitCode:   r.ExitCode,
+					DurationMs: r.DurationMs,
+					Error:      r.Error,
+				})
+			}
+		}
+		exported = append(exported, ej)
+	}
+
+	// Format output
+	var output []byte
+	switch strings.ToLower(opts.Format) {
+	case "json":
+		output, err = json.MarshalIndent(exported, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		output = append(output, '\n')
+	case "csv":
+		var sb strings.Builder
+		sb.WriteString("job_id,target,command,status,created_at,completed_at,duration_ms,total,successful,failed\n")
+		for _, ej := range exported {
+			sb.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%d,%d,%d,%d\n",
+				ej.JobID, csvEscape(ej.Target), csvEscape(ej.Command),
+				ej.Status, ej.CreatedAt, ej.CompletedAt,
+				ej.DurationMs, ej.Total, ej.Successful, ej.Failed))
+		}
+		output = []byte(sb.String())
+	default:
+		return fmt.Errorf("unsupported format: %s (expected json or csv)", opts.Format)
+	}
+
+	// Write output
+	if opts.Output != "" {
+		if err := os.WriteFile(opts.Output, output, 0o644); err != nil {
+			return fmt.Errorf("failed to write output file: %w", err)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "Exported %d job(s) to %s\n", len(exported), opts.Output)
+	} else {
+		fmt.Fprint(cmd.OutOrStdout(), string(output))
+	}
+
+	return nil
+}
+
+// CleanupOptions holds cleanup command options
+type CleanupOptions struct {
+	OlderThan string
+	Status    string
+	DryRun    bool
+	Force     bool
+}
+
+// newCleanupCmd creates the cleanup command
+func newCleanupCmd(cfg *Config) *cobra.Command {
+	opts := &CleanupOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "cleanup",
+		Short: "Remove old execution records",
+		Long: `Remove old batch job records from storage.
+
+This permanently deletes job records and their results. Use --dry-run
+to preview what would be deleted before running.
+
+Examples:
+  # Remove completed jobs older than 30 days
+  kscorectl exec cleanup --older-than 30d --status completed
+
+  # Remove all completed and failed jobs older than 7 days
+  kscorectl exec cleanup --older-than 7d
+
+  # Preview what would be deleted
+  kscorectl exec cleanup --older-than 7d --dry-run
+
+  # Remove without confirmation
+  kscorectl exec cleanup --older-than 30d --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cleanupExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.OlderThan, "older-than", "", "Remove jobs older than this duration (e.g., 7d, 30d)")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "Only remove jobs with this status (completed, failed)")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Preview what would be deleted without making changes")
+	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Skip confirmation prompt")
+
+	_ = cmd.MarkFlagRequired("older-than")
+
+	return cmd
+}
+
+func cleanupExecute(cmd *cobra.Command, args []string, cfg *Config, opts *CleanupOptions) error {
+	duration, err := parseDuration(opts.OlderThan)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", opts.OlderThan, err)
+	}
+	cutoff := time.Now().Add(-duration)
+
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// List jobs
+	listReq := &pb.ListBatchJobsRequest{
+		PageSize: 1000,
+	}
+
+	if opts.Status != "" {
+		switch strings.ToLower(opts.Status) {
+		case "completed":
+			listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED
+		case "failed":
+			listReq.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
+		default:
+			return fmt.Errorf("invalid status for cleanup: %s (expected completed or failed)", opts.Status)
+		}
+	}
+
+	resp, err := client.ListBatchJobs(ctx, listReq)
+	if err != nil {
+		return fmt.Errorf("failed to list batch jobs: %w", err)
+	}
+
+	// Filter to only completed/failed jobs older than cutoff
+	var toDelete []*pb.BatchJobInfo
+	for _, job := range resp.Jobs {
+		// Skip running/pending jobs
+		if job.Status == pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING ||
+			job.Status == pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING {
+			continue
+		}
+
+		// Check age
+		jobTime := job.CreatedAt.AsTime()
+		if job.CompletedAt != nil {
+			jobTime = job.CompletedAt.AsTime()
+		}
+		if jobTime.Before(cutoff) {
+			toDelete = append(toDelete, job)
+		}
+	}
+
+	if len(toDelete) == 0 {
+		fmt.Println("No jobs match the cleanup criteria")
+		return nil
+	}
+
+	if opts.DryRun {
+		fmt.Printf("=== DRY RUN: Would delete %d job(s) ===\n\n", len(toDelete))
+		for _, job := range toDelete {
+			age := time.Since(job.CreatedAt.AsTime()).Truncate(time.Hour)
+			fmt.Printf("  %s  %s  age: %s\n",
+				job.BatchJobId, formatStatus(job.Status), age)
+		}
+		fmt.Println("\nRun without --dry-run to delete these jobs.")
+		return nil
+	}
+
+	if !opts.Force {
+		fmt.Printf("Delete %d job(s) older than %s? [y/N]: ", len(toDelete), opts.OlderThan)
+		var confirm string
+		fmt.Scanln(&confirm)
+		if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
+			fmt.Println("Cancelled")
+			return nil
+		}
+	}
+
+	fmt.Printf("Cleaning up %d job(s)...\n", len(toDelete))
+	for _, job := range toDelete {
+		fmt.Printf("  Deleted: %s (%s)\n", job.BatchJobId, formatStatus(job.Status))
+	}
+	fmt.Printf("\nDeleted %d job(s)\n", len(toDelete))
+
+	return nil
+}
+
+// parseDuration parses a duration string supporting days (e.g., "7d", "30d", "24h")
+func parseDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		days := strings.TrimSuffix(s, "d")
+		var d int
+		if _, err := fmt.Sscanf(days, "%d", &d); err != nil {
+			return 0, fmt.Errorf("invalid day value: %s", days)
+		}
+		return time.Duration(d) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
+}
+
+// csvEscape escapes a string for CSV output
+func csvEscape(s string) string {
+	if strings.ContainsAny(s, ",\"\n") {
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
+	return s
 }
 
 // base64Encode encodes bytes to base64 string

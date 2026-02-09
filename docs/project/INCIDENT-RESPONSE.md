@@ -40,6 +40,7 @@ This document defines the procedures for detecting, responding to, and recoverin
 ### Contact List
 
 Maintain an up-to-date contact list including:
+
 - Incident response team members (primary and backup)
 - Security team leadership
 - Legal counsel
@@ -71,6 +72,7 @@ Maintain an up-to-date contact list including:
    - Begin incident timeline
 
 **Triage Checklist**:
+
 ```
 [ ] Alert validated as security incident
 [ ] Severity level assigned: P__
@@ -88,6 +90,7 @@ Maintain an up-to-date contact list including:
 #### Short-Term Containment
 
 1. **Isolate Affected Systems**
+
    ```bash
    # Quarantine compromised agent
    kscorectl agent quarantine <agent-id>
@@ -97,6 +100,7 @@ Maintain an up-to-date contact list including:
    ```
 
 2. **Preserve Evidence**
+
    ```bash
    # Capture forensic data before changes
    kscorectl exec run "tar -czf /tmp/forensics-$(date +%s).tar.gz /var/log /etc" \
@@ -109,6 +113,7 @@ Maintain an up-to-date contact list including:
    ```
 
 3. **Revoke Compromised Credentials**
+
    ```bash
    # Revoke specific API keys
    kscorectl api-key revoke <key-id>
@@ -139,6 +144,7 @@ Maintain an up-to-date contact list including:
    - Review audit logs for timeline
 
 **Containment Checklist**:
+
 ```
 [ ] Affected systems isolated
 [ ] Evidence preserved
@@ -158,6 +164,7 @@ Maintain an up-to-date contact list including:
    - What tools/techniques were used?
 
 2. **Malware Removal**
+
    ```bash
    # Scan for known malware
    kscorectl exec run "clamscan -r /" --target "<affected-agents>"
@@ -172,6 +179,7 @@ Maintain an up-to-date contact list including:
    - Strengthen access controls
 
 4. **Credential Reset**
+
    ```bash
    # Force password reset for all affected users
    kscorectl user reset-password --scope affected
@@ -189,6 +197,7 @@ Maintain an up-to-date contact list including:
    - Add new detection rules
 
 **Eradication Checklist**:
+
 ```
 [ ] Root cause identified
 [ ] All malware/backdoors removed
@@ -203,6 +212,7 @@ Maintain an up-to-date contact list including:
 **Objective**: Restore normal operations securely.
 
 1. **System Restoration**
+
    ```bash
    # Restore from known-good backup
    kscorectl backup restore --backup-id <id> --target <agent-id>
@@ -222,6 +232,7 @@ Maintain an up-to-date contact list including:
    - Validate each system before full restoration
 
 4. **Verification**
+
    ```bash
    # Verify system health
    kscorectl agent health --target "<restored-agents>"
@@ -234,6 +245,7 @@ Maintain an up-to-date contact list including:
    ```
 
 **Recovery Checklist**:
+
 ```
 [ ] Systems restored from clean state
 [ ] Enhanced monitoring in place
@@ -463,6 +475,7 @@ Sincerely,
    - Configuration files
 
 2. **Collection Commands**
+
    ```bash
    # Collect logs
    kscorectl exec run "tar -czf /tmp/logs.tar.gz /var/log" --target "<agent>"
@@ -492,6 +505,7 @@ Sincerely,
 ### Incident Metrics
 
 Track and report:
+
 - Mean Time to Detect (MTTD)
 - Mean Time to Contain (MTTC)
 - Mean Time to Resolve (MTTR)
@@ -502,6 +516,7 @@ Track and report:
 ### Monthly Security Report
 
 Include:
+
 - Incident summary
 - Trend analysis
 - Key metrics
@@ -520,6 +535,7 @@ Include:
 ### Tabletop Exercises
 
 Conduct quarterly tabletop exercises covering:
+
 - Different incident types
 - Various severity levels
 - Communication scenarios
@@ -528,6 +544,7 @@ Conduct quarterly tabletop exercises covering:
 ### Live Drills
 
 Conduct semi-annual live drills:
+
 - Simulated incidents in test environment
 - Full response activation
 - Post-drill review

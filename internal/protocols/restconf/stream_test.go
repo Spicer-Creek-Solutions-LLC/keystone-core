@@ -116,10 +116,8 @@ func TestSubscribe_Close(t *testing.T) {
 
 	// Events channel should drain and close
 	select {
-	case _, ok := <-sub.Events():
-		if ok {
-			// May get buffered events, that's fine
-		}
+	case <-sub.Events():
+		// May get buffered events or channel close, both are fine
 	case <-time.After(3 * time.Second):
 		t.Fatal("timeout waiting for events channel to close")
 	}

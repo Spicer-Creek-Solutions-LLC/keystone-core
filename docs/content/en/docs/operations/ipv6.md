@@ -419,6 +419,7 @@ kscore_agents_by_address_family
 **Symptom:** Agent cannot connect to control plane on IPv6.
 
 **Check:**
+
 ```bash
 # Verify control plane is listening on IPv6
 ss -tlnp | grep 8080
@@ -431,6 +432,7 @@ nc -6 -zv 2001:db8::1 8080
 ```
 
 **Solution:** Ensure the control plane config uses IPv6 listen address:
+
 ```yaml
 api:
   grpc:
@@ -442,6 +444,7 @@ api:
 **Symptom:** Configuration fails with "invalid IPv6 address" error.
 
 **Check:** Ensure brackets are used in URLs:
+
 ```yaml
 # Wrong
 nats:
@@ -459,6 +462,7 @@ nats:
 **Symptom:** etcd nodes cannot form cluster over IPv6.
 
 **Check:**
+
 ```bash
 # Verify etcd is listening
 ss -tlnp | grep 2379
@@ -469,6 +473,7 @@ etcdctl --endpoints=http://[2001:db8::1]:2379 member list
 ```
 
 **Solution:** Ensure initial_cluster uses bracketed IPv6:
+
 ```yaml
 initial_cluster: "n1=http://[2001:db8::1]:2380,n2=http://[2001:db8::2]:2380"
 ```
@@ -478,6 +483,7 @@ initial_cluster: "n1=http://[2001:db8::1]:2380,n2=http://[2001:db8::2]:2380"
 **Symptom:** Cannot connect to PostgreSQL on IPv6.
 
 **Check:**
+
 ```bash
 # Verify PostgreSQL accepts IPv6 connections
 psql -h 2001:db8::10 -U kscore -d kscore
@@ -487,6 +493,7 @@ psql -h 2001:db8::10 -U kscore -d kscore
 ```
 
 **Solution:** Use structured config or bracketed DSN:
+
 ```yaml
 # Structured (recommended)
 postgresql:
@@ -661,6 +668,7 @@ az network nsg rule create \
 ### IPv4 to Dual-Stack
 
 1. **Update control plane config** to bind to both families:
+
    ```yaml
    api:
      grpc:
@@ -670,6 +678,7 @@ az network nsg rule create \
    ```
 
 2. **Add IPv6 endpoints** to existing IPv4:
+
    ```yaml
    nats:
      urls:
@@ -678,12 +687,14 @@ az network nsg rule create \
    ```
 
 3. **Update agents** with new endpoints and preference:
+
    ```yaml
    agent:
      address_family: prefer_ipv6
    ```
 
 4. **Verify connectivity** on both families:
+
    ```bash
    kscorectl agents list -o wide
    ```
@@ -691,11 +702,13 @@ az network nsg rule create \
 ### Dual-Stack to IPv6-Only
 
 1. **Verify all agents support IPv6:**
+
    ```bash
    kscorectl exec run --target 'ipv6:*' -- echo "IPv6 OK"
    ```
 
 2. **Update address_family** to ipv6_only:
+
    ```yaml
    cluster:
      address_family: ipv6_only
@@ -725,10 +738,12 @@ When troubleshooting IPv6 issues, work through this matrix:
 #### Failure: Agent Cannot Connect Over IPv6
 
 **Symptoms:**
+
 - Agent logs show connection timeouts
 - Control plane doesn't see agent registration
 
 **Diagnostic Steps:**
+
 ```bash
 # 1. Check agent can reach control plane
 ping6 2001:db8::1
@@ -744,6 +759,7 @@ ip6tables -L -n
 ```
 
 **Solutions:**
+
 - Enable IPv6 routing: `sysctl net.ipv6.conf.all.forwarding=1`
 - Add firewall rule: `ip6tables -A INPUT -p tcp --dport 4222 -j ACCEPT`
 - Verify NATS URL has brackets: `nats://[2001:db8::1]:4222`
@@ -751,10 +767,12 @@ ip6tables -L -n
 #### Failure: etcd Cluster Won't Form
 
 **Symptoms:**
+
 - etcd logs show connection refused or timeout
 - Cluster status shows unhealthy members
 
 **Diagnostic Steps:**
+
 ```bash
 # 1. Check etcd is listening on IPv6
 ss -tlnp | grep 2379
@@ -771,6 +789,7 @@ grep initial_cluster /etc/keystone-core/server.yaml
 ```
 
 **Solutions:**
+
 - Ensure initial_cluster uses bracketed addresses
 - Verify peer ports are open in firewall
 - Check advertise_address is correct and routable
@@ -778,10 +797,12 @@ grep initial_cluster /etc/keystone-core/server.yaml
 #### Failure: PostgreSQL Connection Fails
 
 **Symptoms:**
+
 - Server logs show "could not connect to database"
 - Authentication succeeds but connection drops
 
 **Diagnostic Steps:**
+
 ```bash
 # 1. Test direct PostgreSQL connection
 psql -h 2001:db8::10 -U kscore -d kscore
@@ -797,6 +818,7 @@ psql "host=2001:db8::10 sslmode=require" -c "SELECT 1;"
 ```
 
 **Solutions:**
+
 - Set `listen_addresses = '*'` in postgresql.conf
 - Add IPv6 entry to pg_hba.conf: `host kscore kscore ::/0 scram-sha-256`
 - Use structured config instead of DSN to avoid bracket issues

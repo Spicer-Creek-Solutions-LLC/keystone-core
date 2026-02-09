@@ -8,6 +8,7 @@ description: >
 ## Overview
 
 Keystone Core's remote execution system allows you to run commands on any managed node with flexible targeting. In this tutorial, you'll learn how to:
+
 - Run commands on single or multiple agents
 - Use targeting expressions
 - Handle command output
@@ -22,6 +23,7 @@ Keystone Core's remote execution system allows you to run commands on any manage
 - `kscorectl` CLI configured
 
 Verify your agents:
+
 ```bash
 kscorectl agent list
 ```
@@ -35,6 +37,7 @@ kscorectl exec run "*" -- uptime
 ```
 
 Output:
+
 ```
 [web-001] 10:30:45 up 45 days,  3:22,  0 users,  load average: 0.15, 0.10, 0.05
 [web-002] 10:30:45 up 45 days,  3:21,  0 users,  load average: 0.22, 0.18, 0.12
@@ -74,6 +77,7 @@ kscorectl exec run "role=web AND environment=production" -- nginx -t
 ```
 
 View agent labels:
+
 ```bash
 kscorectl agent show web-001
 ```
@@ -99,11 +103,13 @@ kscorectl exec run "(role=web OR role=app) AND environment=staging" -- free -m
 ## Step 5: Handle Command Output
 
 **Capture output to a file:**
+
 ```bash
 kscorectl exec run "role=database" -- pg_dump mydb > backup.sql 2>&1
 ```
 
 **Suppress per-agent results (progress only):**
+
 ```bash
 kscorectl exec run "web-*" --show-results=false -- test -f /etc/nginx/nginx.conf
 ```
@@ -131,6 +137,7 @@ kscorectl exec run --job-id job-abc123 "backup-*" -- /opt/scripts/full-backup.sh
 ```
 
 Check job status:
+
 ```bash
 kscorectl exec status job-abc123
 ```
@@ -179,31 +186,37 @@ kscorectl exec run --continue-on-failure=false "web-*" -- nginx -t && systemctl 
 ## Common Use Cases
 
 ### Check Disk Space
+
 ```bash
 kscorectl exec run "*" -- df -h / | grep -v Filesystem
 ```
 
 ### Find Large Files
+
 ```bash
 kscorectl exec run "role=app" -- find /var/log -type f -size +100M -exec ls -lh {} \;
 ```
 
 ### Check Service Status
+
 ```bash
 kscorectl exec run "role=web" -- systemctl is-active nginx
 ```
 
 ### Collect System Info
+
 ```bash
 kscorectl exec run "*" -- cat /etc/os-release
 ```
 
 ### Emergency Restart
+
 ```bash
 kscorectl exec run --command-timeout 30 "app-*" -- systemctl restart application
 ```
 
 ### Rolling Restart
+
 ```bash
 kscorectl exec run --concurrency 1 "web-*" -- systemctl restart nginx
 ```
@@ -225,12 +238,14 @@ kscorectl exec run --concurrency 1 "web-*" -- systemctl restart nginx
 ## Troubleshooting
 
 **Command times out:**
+
 ```bash
 # Increase timeout
 kscorectl exec run --command-timeout 300 "target" -- long-command
 ```
 
 **Permission denied:**
+
 ```bash
 # Check agent privileges
 kscorectl agent show agent-001
@@ -240,6 +255,7 @@ kscorectl exec run "target" -- sudo command
 ```
 
 **No agents matched:**
+
 ```bash
 # List all agents
 kscorectl agent list

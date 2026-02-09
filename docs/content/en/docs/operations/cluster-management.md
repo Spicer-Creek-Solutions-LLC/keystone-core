@@ -10,6 +10,7 @@ description: >
 This guide covers day-to-day operations for Keystone Core HA clusters, including cluster health monitoring, member management, failover procedures, and recovery operations.
 
 **Prerequisites:**
+
 - Keystone Core cluster deployed with etcd
 - Understanding of [Clustering concepts](/docs/concepts/control-plane/#high-availability)
 - Access to `kscore-cluster` CLI
@@ -45,6 +46,7 @@ flowchart TB
 ```
 
 **Quorum Requirements:**
+
 - 3 nodes: Tolerates 1 failure
 - 5 nodes: Tolerates 2 failures
 - 7 nodes: Tolerates 3 failures
@@ -196,16 +198,19 @@ curl -s http://localhost:9090/api/v1/query?query=kscore_cluster_leader_changes_t
 If one member fails:
 
 1. **Assess**: Check if member can recover
+
    ```bash
    kscorectl cluster status
    ```
 
 2. **If recoverable**: Restart the member
+
    ```bash
    systemctl restart kscore-server
    ```
 
 3. **If unrecoverable**: Remove and replace
+
    ```bash
    kscorectl cluster remove <member-id>
    kscorectl cluster add <address>
@@ -400,12 +405,14 @@ Large clusters often span multiple regions. Account for network latency:
 | Cross-region (intercontinental) | 100-200ms | 1000ms | 10000ms |
 
 **Configuration formula:**
+
 ```
 heartbeat_interval = 5× max_RTT
 election_timeout = 10× heartbeat_interval
 ```
 
 **Example for cross-region (50ms RTT):**
+
 ```yaml
 cluster:
   etcd:
@@ -425,6 +432,7 @@ Scale storage with cluster size:
 | 20,000 | ~10GB | ~30GB | ~10GB | 200GB |
 
 **Storage recommendations:**
+
 - Use SSDs (NVMe preferred) for etcd data directory
 - Separate WAL directory for write-heavy workloads
 - RAID 10 for production deployments
@@ -450,6 +458,7 @@ Resource requirements scale with cluster size and workload:
 | 20,000 | 7 | 16 cores | 32GB |
 
 **Additional considerations:**
+
 - Add 50% CPU headroom for traffic spikes
 - Add 100% memory headroom for etcd page cache
 - Consider dedicated nodes for etcd vs control plane
@@ -459,6 +468,7 @@ Resource requirements scale with cluster size and workload:
 For large clusters, optimize agent-to-member assignment:
 
 **Geographic Affinity:**
+
 ```yaml
 # Route agents to nearest control plane members
 cluster:
@@ -476,6 +486,7 @@ cluster:
 ```
 
 **Load-Based Distribution:**
+
 ```yaml
 cluster:
   agent_affinity:
@@ -514,6 +525,7 @@ cluster:
 ```
 
 **Manual rebalancing:**
+
 ```bash
 # Preview rebalance plan
 kscorectl cluster rebalance --dry-run
@@ -527,6 +539,7 @@ kscorectl cluster rebalance --reason "adding new member"
 Large clusters have higher leader election overhead:
 
 **Pre-vote optimization:**
+
 ```yaml
 cluster:
   etcd:
@@ -538,6 +551,7 @@ cluster:
 ```
 
 **Election priority (optional):**
+
 ```yaml
 # Prefer specific nodes as leader (e.g., same region as most agents)
 cluster:
@@ -572,6 +586,7 @@ flowchart TB
 ```
 
 **Adding learner nodes:**
+
 ```bash
 # Add a new member
 kscorectl cluster add https://192.168.1.20:2380
@@ -581,6 +596,7 @@ kscorectl cluster add https://192.168.1.20:2380
 ```
 
 **Routing reads to learners:**
+
 ```yaml
 cluster:
   read_routing:
@@ -1269,6 +1285,7 @@ kscorectl cluster health
 ```
 
 Run for each follower:
+
 ```bash
 # Identify followers
 LEADER=$(kscorectl cluster leader --output json | jq -r '.name')
@@ -1485,6 +1502,7 @@ rate(kscore_agent_disconnections_total[5m])
 ```
 
 Alert thresholds during upgrade:
+
 ```yaml
 # Suppress normal alerts during maintenance window
 # But alert on critical issues
@@ -1592,6 +1610,7 @@ done
 ```
 
 Usage:
+
 ```bash
 ./etcd-upgrade.sh v3.5.12 60
 ```
@@ -1601,6 +1620,7 @@ Usage:
 ### Member Won't Join
 
 1. Check network connectivity:
+
    ```bash
    nc -zv <peer-ip> 2380
    ```
@@ -1608,6 +1628,7 @@ Usage:
 2. Verify TLS certificates match cluster CA
 
 3. Check etcd logs:
+
    ```bash
    journalctl -u kscore-server -f | grep etcd
    ```
@@ -1659,6 +1680,7 @@ kscorectl cluster health
 ```
 
 **Critical HA recommendations:**
+
 - Use **odd cluster sizes** (3, 5, 7) for clear quorum decisions
 - Minimum **3 nodes** for any fault tolerance
 - **Election timeout ≥ 3× heartbeat interval** to prevent election storms
@@ -1683,6 +1705,7 @@ kscorectl cluster members --output yaml > /tmp/pre-drill-members.yaml
 #### Step 2: Simulate Leader Failure
 
 **Option A: Graceful stepdown (safest)**
+
 ```bash
 # Step down current leader, triggering election
 kscorectl cluster transfer-leader <target-member-id>
@@ -1693,6 +1716,7 @@ kscorectl cluster leader
 ```
 
 **Option B: Process kill (tests detection)**
+
 ```bash
 # On leader node
 kill -9 $(pgrep kscore-server)
@@ -1702,6 +1726,7 @@ watch -n1 'kscorectl cluster status'
 ```
 
 **Option C: Network partition (tests split-brain prevention)**
+
 ```bash
 # On leader node, block cluster traffic
 iptables -A INPUT -p tcp --dport 2380 -j DROP
@@ -1731,6 +1756,7 @@ journalctl -u kscore-server -f
 ```
 
 **Key metrics to watch:**
+
 - `kscore_cluster_leader_changes_total` - should increment by 1
 - `kscore_cluster_has_quorum` - should remain 1
 - `kscore_cluster_leader_election_duration_seconds` - measure recovery time
@@ -1755,6 +1781,7 @@ kscorectl cluster members
 #### Step 5: Document Results
 
 Record the drill results:
+
 - **Failover time**: How long until new leader was elected?
 - **Service impact**: Did any agent operations fail?
 - **Alerting**: Did monitoring detect the failure?
@@ -1784,16 +1811,19 @@ A successful failover drill should show:
 ### Common Issues During Drills
 
 **Election takes too long:**
+
 - Check network latency between nodes
 - Verify election timeout is at least 3× heartbeat interval
 - Check for resource contention
 
 **Quorum lost during drill:**
+
 - Verify you have enough members (need majority)
 - Check if multiple members failed simultaneously
 - Review network configuration
 
 **Member won't rejoin:**
+
 - Check for data directory corruption
 - Verify TLS certificates are valid
 - Review etcd logs for errors

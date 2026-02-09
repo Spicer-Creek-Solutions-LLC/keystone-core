@@ -10,6 +10,7 @@ description: >
 Keystone Core's event system enables event-driven automation by capturing, routing, and storing all infrastructure events. Everything that happens in your infrastructure generates events that can trigger automated responses.
 
 **Key Features**:
+
 - **15 Event Types**: Comprehensive coverage of all operations
 - **Pub/Sub Architecture**: NATS JetStream for reliable delivery
 - **Powerful Filtering**: CEL expressions for complex event routing
@@ -24,96 +25,117 @@ Keystone Core defines 22 standard event types across 6 categories:
 ### Agent Events
 
 **agent.connect**:
+
 - Emitted when agent registers with control plane
 - Data: agent metadata (ID, datacenter, environment, role, OS, arch)
 
 **agent.disconnect**:
+
 - Emitted when agent disconnects (graceful or timeout)
 - Data: disconnect reason, last heartbeat time
 
 **agent.heartbeat**:
+
 - Emitted for agent heartbeat events
 - Data: heartbeat info, missed count if applicable
 
 **agent.error**:
+
 - Emitted when agent encounters an error
 - Data: error details, affected operations
 
 ### Job Events
 
 **job.start**:
+
 - Emitted when command execution begins
 - Data: job ID, command, target count
 
 **job.complete**:
+
 - Emitted when command execution succeeds
 - Data: job ID, results, duration
 
 **job.fail**:
+
 - Emitted when command execution fails
 - Data: job ID, error, failed agents
 
 **job.output**:
+
 - Emitted when job produces output
 - Data: job ID, stdout, stderr, exit code
 
 ### State Events
 
 **state.apply.start**:
+
 - Emitted when state application begins
 - Data: state file, target agents, module count
 
 **state.apply.done**:
+
 - Emitted when state application completes
 - Data: results summary, changed count, failed count
 
 **state.apply.fail**:
+
 - Emitted when state application fails
 - Data: error, failed modules
 
 **state.change**:
+
 - Emitted when state resources change
 - Data: module ID, old state, new state
 
 **state.drift**:
+
 - Emitted when configuration drift detected
 - Data: drift details, severity, affected resources
 
 ### System Events
 
 **system.startup**:
+
 - Emitted when control plane starts
 - Data: version, configuration summary
 
 **system.shutdown**:
+
 - Emitted when control plane shuts down gracefully
 - Data: shutdown reason, uptime
 
 **system.error**:
+
 - Emitted when system encounters an error
 - Data: error details, component affected
 
 ### User Events
 
 **user.login**:
+
 - Emitted when user logs in
 - Data: user identity, login method, source IP
 
 **user.command**:
+
 - Emitted when user executes a command
 - Data: command, arguments, target
 
 **user.error**:
+
 - Emitted when user operation encounters an error
 - Data: error details, operation attempted
 
 ### Policy Events
 
 **policy.pass**:
+
 - Emitted when policy evaluation passes
 - Data: policy ID, resource, evaluation details
 
 **policy.violation**:
+
 - Emitted when policy violation is detected
 - Data: policy ID, severity, violation details, remediation
 
@@ -136,6 +158,7 @@ type Event struct {
 ```
 
 **Example Event** (agent.connect):
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -278,21 +301,25 @@ filter: "data.agent.environment == 'production'"
 ### Filtering Operators
 
 **Comparison**:
+
 - `==`, `!=` - Equality
 - `>`, `>=`, `<`, `<=` - Comparison
 - `=~` - Regex match
 - `~~` - Glob match
 
 **Logical**:
+
 - `and`, `&&` - Logical AND
 - `or`, `||` - Logical OR
 - `not`, `!` - Logical NOT
 
 **Container**:
+
 - `contains` - String/array contains
 - `in` - Element in array
 
 **Examples**:
+
 ```go
 // Severity comparison
 severity >= 'warning'  // warning, error, critical
@@ -362,6 +389,7 @@ CREATE TABLE events (
 ### Querying Events
 
 **CLI**:
+
 ```bash
 # List recent events
 kscorectl events list
@@ -380,12 +408,14 @@ kscorectl events query "type == 'job.fail' and severity == 'error'"
 ```
 
 **API**:
+
 ```bash
 # GET /api/v1/events
 curl "http://control-plane:8080/api/v1/events?type=agent.connect&limit=100"
 ```
 
 **Go Code**:
+
 ```go
 // Filter events using EventFilter
 filter := &events.EventFilter{
@@ -581,6 +611,7 @@ kscorectl events replay --since 1h --target webhook:https://example.com/events
 ```
 
 **Use Cases**:
+
 - Test reactor changes with historical data
 - Recover from processing failures
 - Audit and compliance reviews
@@ -610,6 +641,7 @@ Delivery: E1, E2, E3, E4 (guaranteed order)
 ```
 
 This is achieved through:
+
 - Single publisher per source
 - NATS JetStream sequence numbers
 - Ordered consumer configuration
@@ -627,6 +659,7 @@ Possible delivery: E1, E2, E3, E4 (within subject, order maintained per publishe
 ```
 
 **Subject hierarchy:**
+
 ```
 kscore.events.                    # All events
 kscore.events.agent.              # Agent events (connect, disconnect, etc.)
@@ -651,6 +684,7 @@ Possible delivery orders:
 ```
 
 **Why this matters:**
+
 - Job results may arrive before job start notification (from different agents)
 - Agent disconnect may arrive before related error events
 - State changes from multiple agents interleave unpredictably
@@ -682,6 +716,7 @@ Both publishers' events are sequenced by the leader.
 #### During Leader Elections
 
 When a leader election occurs:
+
 - Publishing pauses briefly (typically <100ms)
 - No events are lost (Raft guarantees)
 - Order is preserved across election
@@ -690,6 +725,7 @@ When a leader election occurs:
 #### Network Partitions
 
 During network partitions:
+
 - Minority partition cannot publish (no quorum)
 - Majority partition continues normally
 - After healing, all events are delivered in order
@@ -711,6 +747,7 @@ event_processing:
 ```
 
 **Trade-offs:**
+
 - Single point of bottleneck
 - Higher latency
 - Guaranteed global order
@@ -728,6 +765,7 @@ event_processing:
 ```
 
 **Trade-offs:**
+
 - Adds latency equal to buffer window
 - Requires synchronized clocks (NTP)
 - May still have edge cases with high clock skew
@@ -744,6 +782,7 @@ event_processing:
 ```
 
 **Trade-offs:**
+
 - Only orders within correlation groups
 - Requires proper correlation ID usage
 - Good for job/workflow tracking
@@ -753,6 +792,7 @@ event_processing:
 Event timestamps depend on source clocks. For accurate ordering:
 
 1. **Use NTP on all nodes**:
+
    ```bash
    # Install and configure NTP
    systemctl enable chronyd
@@ -761,6 +801,7 @@ Event timestamps depend on source clocks. For accurate ordering:
    ```
 
 2. **Monitor clock skew**:
+
    ```promql
    # Alert if clock skew exceeds 100ms
    ALERT ClockSkew
@@ -769,6 +810,7 @@ Event timestamps depend on source clocks. For accurate ordering:
    ```
 
 3. **Configure tolerance**:
+
    ```yaml
    event_processing:
      clock_skew_tolerance: 100ms
@@ -874,6 +916,7 @@ Total Storage (GB) = Daily Storage × Retention Days × (1 + Index Overhead)
 #### Small Deployment (50 agents)
 
 **Assumptions:**
+
 - 50 agents
 - 100 events/agent/day (heartbeats disabled in storage)
 - 2 KB average event size
@@ -881,6 +924,7 @@ Total Storage (GB) = Daily Storage × Retention Days × (1 + Index Overhead)
 - 30% index overhead
 
 **Calculation:**
+
 ```
 Daily: 50 × 100 × 2 KB = 10 MB/day
 30 days: 10 MB × 30 × 1.3 = 390 MB
@@ -889,6 +933,7 @@ Recommended: 1 GB (SQLite adequate)
 ```
 
 **Configuration:**
+
 ```yaml
 event_storage:
   backend: sqlite
@@ -902,6 +947,7 @@ event_storage:
 #### Medium Deployment (500 agents)
 
 **Assumptions:**
+
 - 500 agents
 - 200 events/agent/day
 - 2 KB average event size
@@ -909,6 +955,7 @@ event_storage:
 - 30% index overhead
 
 **Calculation:**
+
 ```
 Daily: 500 × 200 × 2 KB = 200 MB/day
 30 days: 200 MB × 30 × 1.3 = 7.8 GB
@@ -917,6 +964,7 @@ Recommended: 15 GB (PostgreSQL recommended)
 ```
 
 **Configuration:**
+
 ```yaml
 event_storage:
   backend: postgresql
@@ -931,6 +979,7 @@ event_storage:
 #### Large Deployment (5,000 agents)
 
 **Assumptions:**
+
 - 5,000 agents
 - 500 events/agent/day (high automation)
 - 2.5 KB average event size
@@ -938,6 +987,7 @@ event_storage:
 - 30% index overhead
 
 **Calculation:**
+
 ```
 Daily: 5,000 × 500 × 2.5 KB = 6.25 GB/day
 90 days: 6.25 GB × 90 × 1.3 = 731 GB
@@ -946,6 +996,7 @@ Recommended: 1 TB (PostgreSQL with partitioning)
 ```
 
 **Configuration:**
+
 ```yaml
 event_storage:
   backend: postgresql
@@ -968,6 +1019,7 @@ event_storage:
 #### Enterprise Deployment (50,000 agents)
 
 **Assumptions:**
+
 - 50,000 agents
 - 200 events/agent/day
 - 2 KB average event size
@@ -975,6 +1027,7 @@ event_storage:
 - 30% index overhead
 
 **Calculation:**
+
 ```
 Daily: 50,000 × 200 × 2 KB = 20 GB/day
 365 days: 20 GB × 365 × 1.3 = 9.5 TB
@@ -983,6 +1036,7 @@ Recommended: Multi-TB PostgreSQL cluster with archival
 ```
 
 **Configuration:**
+
 ```yaml
 event_storage:
   backend: postgresql
@@ -1023,6 +1077,7 @@ Optimize storage by setting different retention periods per event type:
 | user.* | 365+ days | Audit trail |
 
 **Configuration:**
+
 ```yaml
 event_storage:
   retention:
@@ -1048,6 +1103,7 @@ event_storage:
 Events flow through both JetStream (streaming) and database (queries):
 
 **JetStream Sizing:**
+
 ```yaml
 nats:
   jetstream:
@@ -1063,6 +1119,7 @@ streams:
 ```
 
 **Database Sizing:**
+
 ```yaml
 event_storage:
   # Long-term storage and queries
@@ -1072,6 +1129,7 @@ event_storage:
 ```
 
 **Relationship:**
+
 - JetStream: Short-term buffer for real-time processing
 - Database: Long-term storage for queries and audit
 
@@ -1094,6 +1152,7 @@ rate(kscore_events_stored_total[1h])
 ```
 
 **Alerts:**
+
 ```yaml
 - alert: EventStorageHigh
   expr: kscore_events_storage_percent_used > 80
@@ -1121,12 +1180,14 @@ rate(kscore_events_stored_total[1h])
 ### Cost Optimization
 
 1. **Disable heartbeat storage** if not needed for troubleshooting:
+
    ```yaml
    type_retention:
      agent.heartbeat: 0    # Don't store heartbeats
    ```
 
 2. **Truncate large events** before storage:
+
    ```yaml
    event_storage:
      truncation:
@@ -1134,6 +1195,7 @@ rate(kscore_events_stored_total[1h])
    ```
 
 3. **Archive to cold storage** after hot period:
+
    ```yaml
    archival:
      after: 30d
@@ -1141,6 +1203,7 @@ rate(kscore_events_stored_total[1h])
    ```
 
 4. **Compress archived events**:
+
    ```yaml
    archival:
      compression: zstd
@@ -1148,6 +1211,7 @@ rate(kscore_events_stored_total[1h])
    ```
 
 5. **Use partitioning** for faster retention enforcement:
+
    ```yaml
    partitioning:
      enabled: true
@@ -1172,6 +1236,7 @@ rate(kscore_events_stored_total[1h])
 ### Resource Usage
 
 **Per 10,000 events/sec**:
+
 - CPU: 0.5 cores
 - Memory: 200MB
 - Disk I/O: 50 MB/s
@@ -1245,6 +1310,7 @@ Monitor event system health:
 **Problem**: Events not appearing in storage
 
 Check:
+
 ```bash
 # Check publisher metrics
 curl http://control-plane:8080/metrics | grep events_published
@@ -1261,11 +1327,13 @@ nats consumer info KSCORE_EVENTS processor
 **Problem**: Event processing falling behind
 
 Check:
+
 - Subscriber processing speed
 - Database write performance
 - Filter complexity
 
 Fix:
+
 - Add more subscribers (horizontal scaling)
 - Optimize filters
 - Increase database resources
@@ -1275,6 +1343,7 @@ Fix:
 **Problem**: Event database out of space
 
 Fix:
+
 ```bash
 # Check storage usage via metrics
 curl http://control-plane:8080/metrics | grep events_storage

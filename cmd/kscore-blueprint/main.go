@@ -32,6 +32,9 @@ Blueprint Lifecycle:
   install   - Install a blueprint
   update    - Update installed blueprints
   remove    - Remove an installed blueprint
+  bundle    - Bundle blueprints into distributable archives
+  mirror    - Mirror blueprints between registries
+  applied   - Show applied blueprint information
   rollback  - Rollback to a previous version
   publish   - Publish blueprint to a registry
   sign      - Sign a blueprint
@@ -70,6 +73,9 @@ Examples:
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(removeCmd)
+	rootCmd.AddCommand(bundleCmd)
+	rootCmd.AddCommand(mirrorCmd)
+	rootCmd.AddCommand(appliedCmd)
 
 	// Add subcommands - publication workflow (deprecated, moving to kscore-blueprint-publish)
 	rootCmd.AddCommand(publishCmd)

@@ -13,12 +13,12 @@ This guide provides detailed instructions for creating a Keystone Core release. 
 
 | Tool | Version | Installation |
 |------|---------|--------------|
-| Go | 1.25+ | `brew install go` or https://go.dev/dl/ |
+| Go | 1.25+ | `brew install go` or <https://go.dev/dl/> |
 | goreleaser | 2.x | `go install github.com/goreleaser/goreleaser/v2@latest` |
 | cosign | 2.x | `go install github.com/sigstore/cosign/v2/cmd/cosign@latest` |
 | gpg | 2.x | `brew install gnupg` or `apt install gnupg` |
-| gh | 2.x | `brew install gh` or https://cli.github.com/ |
-| Docker | 20.10+ | https://docs.docker.com/get-docker/ |
+| gh | 2.x | `brew install gh` or <https://cli.github.com/> |
+| Docker | 20.10+ | <https://docs.docker.com/get-docker/> |
 
 ### Required Access
 
@@ -86,6 +86,7 @@ vim CHANGELOG.md
 ```
 
 CHANGELOG format:
+
 ```markdown
 ## [0.1.0] - 2026-01-28
 

@@ -13,12 +13,14 @@ This document contains detailed outlines for a video tutorial series covering Ke
 **Target Audience**: DevOps engineers, SREs, and platform engineers familiar with infrastructure management tools.
 
 **Series Format**:
+
 - 8 videos covering fundamentals
 - Each video is self-contained but builds on previous concepts
 - Includes hands-on demos with sample code
 - Follows the "explain, demonstrate, practice" pattern
 
 **Prerequisites Across Series**:
+
 - Linux or macOS system (Windows covered separately)
 - Docker or Podman installed
 - Basic YAML and terminal knowledge
@@ -65,6 +67,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Links to documentation
 
 ### Demo Assets
+
 - Architecture diagrams (Mermaid)
 - Slide deck with key points
 - No code in this video
@@ -88,6 +91,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Network ports (4222, 6222, 8080)
 
 3. **Option A: Docker Installation** (3 min)
+
    ```bash
    # Pull and run server
    docker run -d --name keystone-server \
@@ -104,6 +108,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **Option B: Binary Installation** (2 min)
+
    ```bash
    # Download latest release
    curl -sSL https://get.keystonecore.io | sh
@@ -119,6 +124,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Verification** (2 min)
+
    ```bash
    # Check server status
    keystone status
@@ -140,6 +146,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Next video preview
 
 ### Demo Assets
+
 - Terminal recording
 - Sample configuration files
 - Troubleshooting checklist
@@ -157,6 +164,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - By the end: working server, agent, and first command
 
 2. **One-Line Setup** (2 min)
+
    ```bash
    # All-in-one quickstart
    curl -sSL https://get.keystonecore.io/quickstart | sh
@@ -168,6 +176,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 3. **Verify It's Working** (1 min)
+
    ```bash
    # Check status
    keystone status
@@ -179,6 +188,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **First Command** (1 min)
+
    ```bash
    # Run command on all agents
    keystone exec '*' cmd.run 'hostname'
@@ -191,7 +201,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Explore the Web UI** (1 min)
-   - Navigate to http://localhost:8080
+   - Navigate to <http://localhost:8080>
    - Show agent list
    - Show recent jobs
    - Show metrics dashboard
@@ -201,6 +211,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Documentation links
 
 ### Demo Assets
+
 - Terminal recording
 - Quickstart script
 - Sample outputs
@@ -220,6 +231,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Salt heritage: states, vars, facts
 
 2. **Create Your First State** (4 min)
+
    ```yaml
    # hello-world.yaml
    file:
@@ -248,6 +260,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Arguments (name, contents, etc.)
 
 4. **Apply the State** (2 min)
+
    ```bash
    # Preview changes (dry-run)
    keystone state.apply hello-world test=true
@@ -260,6 +273,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Verify Results** (1 min)
+
    ```bash
    # Check the file was created
    keystone exec '*' cmd.run 'cat /tmp/keystone-hello.txt'
@@ -276,6 +290,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
 7. **Cleanup and Next Steps** (30 sec)
 
 ### Demo Assets
+
 - hello-world.yaml state file
 - Terminal recording
 - Before/after screenshots
@@ -295,6 +310,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Modules: what commands are available
 
 2. **Basic Command Execution** (2 min)
+
    ```bash
    # Run on all agents
    keystone exec '*' cmd.run 'uptime'
@@ -307,6 +323,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 3. **Targeting Patterns** (3 min)
+
    ```bash
    # Glob patterns
    keystone exec 'web-*' cmd.run 'uptime'
@@ -325,6 +342,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **Useful Execution Modules** (3 min)
+
    ```bash
    # File operations
    keystone exec '*' file.read /etc/hostname
@@ -348,6 +366,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Output Formats** (1 min)
+
    ```bash
    # JSON output
    keystone exec '*' grains.items --out=json
@@ -360,6 +379,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 6. **Async Execution** (1 min)
+
    ```bash
    # Run asynchronously
    keystone exec '*' cmd.run 'long-running-script.sh' --async
@@ -374,6 +394,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
 7. **Next Steps** (30 sec)
 
 ### Demo Assets
+
 - Command reference sheet
 - Targeting cheat sheet
 - Terminal recording with multiple agents
@@ -393,6 +414,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Use cases: auto-remediation, notifications, workflows
 
 2. **Understanding Events** (2 min)
+
    ```bash
    # Watch events in real-time
    keystone event.watch
@@ -405,6 +427,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 3. **Creating a Reactor** (4 min)
+
    ```yaml
    # /etc/keystone/reactors/agent-connected.yaml
    name: new-agent-setup
@@ -429,6 +452,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **Reactor Patterns** (3 min)
+
    ```yaml
    # Auto-remediate high disk usage
    name: disk-alert-remediation
@@ -452,6 +476,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Firing Custom Events** (2 min)
+
    ```bash
    # Fire event from CLI
    keystone event.fire 'custom/deploy/started' \
@@ -467,6 +492,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 6. **Testing Reactors** (1 min)
+
    ```bash
    # Test reactor without side effects
    keystone reactor.test new-agent-setup \
@@ -479,6 +505,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
 7. **Next Steps** (30 sec)
 
 ### Demo Assets
+
 - Reactor templates
 - Event diagram
 - Terminal recording
@@ -499,6 +526,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Automated rollback
 
 2. **Setting Up Webhooks** (3 min)
+
    ```yaml
    # /etc/keystone/gitops/webhook-config.yaml
    webhooks:
@@ -518,6 +546,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 3. **ArgoCD Integration** (3 min)
+
    ```yaml
    # ArgoCD Application with Keystone verification
    apiVersion: argoproj.io/v1alpha1
@@ -563,6 +592,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **Deployment Verification Flow** (2 min)
+
    ```mermaid
    sequenceDiagram
      ArgoCD->>Keystone: Webhook: sync.succeeded
@@ -577,6 +607,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **State from Git** (2 min)
+
    ```yaml
    # GitOps state sync config
    gitops:
@@ -599,6 +630,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 6. **Automated Rollback** (1 min)
+
    ```yaml
    rollback:
      enabled: true
@@ -614,6 +646,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
 7. **Next Steps** (30 sec)
 
 ### Demo Assets
+
 - Integration diagrams
 - Sample ArgoCD configs
 - Verification templates
@@ -633,6 +666,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    - Continuous compliance vs point-in-time audits
 
 2. **Creating Policies** (3 min)
+
    ```rego
    # /etc/keystone/policies/security.rego
    package keystone.security
@@ -663,6 +697,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 3. **Applying Policies** (2 min)
+
    ```bash
    # Test policy against current state
    keystone policy.check security --target='*'
@@ -675,6 +710,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 4. **Policy Categories** (2 min)
+
    ```yaml
    # CIS Benchmark policies
    policies:
@@ -692,6 +728,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
    ```
 
 5. **Continuous Compliance** (1 min)
+
    ```yaml
    # Compliance monitoring config
    compliance:
@@ -717,6 +754,7 @@ This document contains detailed outlines for a video tutorial series covering Ke
 7. **Next Steps** (30 sec)
 
 ### Demo Assets
+
 - Sample Rego policies
 - Compliance report examples
 - Grafana dashboard JSON

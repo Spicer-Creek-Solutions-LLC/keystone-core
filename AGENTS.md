@@ -311,6 +311,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
     ├── 41-dns-provider-management.md    # DNS record management via provider APIs
     ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
+    ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
@@ -390,7 +391,7 @@ Implementation order:
 - **Scheduled Operations** - Centralized job scheduler, maintenance windows
 - **Web UI / Management Console** - Web-based dashboard, enterprise auth (2FA, SSO), user/group management - See `epics/future-web-ui-management-console.md`
 - **Mobile Monitoring App** - Native mobile app for monitoring and alerts
-- **Natural Language Interface** - AI-powered natural language queries and commands
+- **MCP Server** - Model Context Protocol server (`kscore-mcp`) exposing Keystone Core operations to AI clients (Claude Desktop, Claude Code, Cursor) - See `epics/future-mcp-server.md`
 - **Automatic Drift Remediation** - Opt-in auto-fix, approval workflows
 - **Agent Self-Update** - Secure binary distribution, staged rollouts
 - **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS

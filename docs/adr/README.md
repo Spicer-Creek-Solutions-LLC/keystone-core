@@ -7,6 +7,7 @@ This directory contains Architectural Decision Records (ADRs) for the Keystone C
 An Architectural Decision Record (ADR) is a document that captures an important architectural decision made along with its context and consequences.
 
 ADRs help us:
+
 - Document the reasoning behind significant decisions
 - Communicate decisions to the team and stakeholders
 - Provide historical context for future developers
@@ -25,6 +26,7 @@ Write an ADR when making decisions that:
 - Affect the public API or user experience significantly
 
 Examples:
+
 - Choosing a database technology
 - Adopting a new messaging pattern
 - Changing authentication mechanisms
@@ -53,6 +55,7 @@ Examples:
 ## Creating a New ADR
 
 1. Copy the template:
+
    ```bash
    cp docs/adr/0000-adr-template.md docs/adr/NNNN-short-title.md
    ```

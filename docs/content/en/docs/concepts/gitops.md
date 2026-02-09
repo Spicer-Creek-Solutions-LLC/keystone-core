@@ -12,6 +12,7 @@ Keystone Core integrates with GitOps tools to bridge the gap between declarative
 **Key Concept**: "GitOps deploys it. We keep it running."
 
 **Core Capabilities**:
+
 - **Webhook Integration**: Receive events from ArgoCD, Flux, GitHub, GitLab
 - **Deployment Verification**: Validate deployments with health checks, commands, K8s resources
 - **Automated Rollback**: Rollback failed deployments automatically
@@ -83,6 +84,7 @@ gitops:
 ### ArgoCD Webhook
 
 **Configure ArgoCD**:
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -97,11 +99,13 @@ data:
 ```
 
 **Events received**:
+
 - `gitops.argocd.sync` - Application sync started/completed
 - `gitops.argocd.health` - Application health changed
 - `gitops.argocd.deployment` - Deployment event
 
 **Example event**:
+
 ```json
 {
   "type": "gitops.argocd.deployment",
@@ -122,6 +126,7 @@ data:
 ### Flux Webhook
 
 **Configure Flux**:
+
 ```yaml
 apiVersion: notification.toolkit.fluxcd.io/v1beta1
 kind: Provider
@@ -135,11 +140,13 @@ spec:
 ```
 
 **Events received**:
+
 - `gitops.flux.kustomization` - Kustomization reconciliation
 - `gitops.flux.helmrelease` - HelmRelease reconciliation
 - `gitops.flux.sync` - Sync event
 
 **Example event**:
+
 ```json
 {
   "type": "gitops.flux.ReconciliationSucceeded",
@@ -162,12 +169,14 @@ spec:
 ### GitHub Webhook
 
 **Configure GitHub** (repository settings):
+
 - Payload URL: `http://kscore-server:8090/webhooks/github`
 - Content type: `application/json`
 - Secret: `your-webhook-secret`
 - Events: Deployments, Workflow runs, Pushes
 
 **Events received**:
+
 - `gitops.github.deployment` - Deployment created
 - `gitops.github.deployment_status` - Deployment status updated (success, failure, pending, etc.)
 - `gitops.github.workflow_run` - Workflow run completed
@@ -176,11 +185,13 @@ spec:
 ### GitLab Webhook
 
 **Configure GitLab** (repository settings):
+
 - URL: `http://kscore-server:8090/webhooks/gitlab`
 - Secret token: `your-webhook-secret`
 - Trigger: Deployment events, Pipeline events, Push events
 
 **Events received**:
+
 - `gitops.gitlab.deployment` - Deployment event
 - `gitops.gitlab.pipeline` - Pipeline completed
 - `gitops.gitlab.push` - Code pushed
@@ -234,6 +245,7 @@ GitHub webhooks are identified by the `X-GitHub-Event` header. The following fie
 **Data Field Contents:**
 
 The `data` map in the resulting event contains:
+
 - `action` - Event action
 - `repository` - Full repository name
 - `repository_url` - Repository HTML URL
@@ -245,6 +257,7 @@ The `data` map in the resulting event contains:
 - `commits` - Commits array
 
 **Example: Filtering GitHub Deployment Status Events**
+
 ```yaml
 # Filter for successful GitHub deployments
 my_reactor:
@@ -309,6 +322,7 @@ GitLab webhooks are identified by the `X-Gitlab-Event` header, or the `object_ki
 **Data Field Contents:**
 
 The `data` map in the resulting event contains:
+
 - `object_kind` - Event type
 - `event_name` - Event name
 - `project` - Full project path
@@ -324,6 +338,7 @@ The `data` map in the resulting event contains:
 - `after` - After commit SHA (for push)
 
 **Example: Filtering GitLab Pipeline Events**
+
 ```yaml
 # Filter for successful GitLab production pipelines
 my_reactor:
@@ -358,10 +373,12 @@ type WebhookEvent struct {
 **Keystone Core Event Conversion:**
 
 When converted to a Keystone Core event, the `type` field becomes:
+
 - GitHub: `gitops.github.<event_type>` (e.g., `gitops.github.deployment_status`)
 - GitLab: `gitops.gitlab.<event_type>` (e.g., `gitops.gitlab.pipeline`)
 
 All `Data` fields are merged into the event's data map, along with:
+
 - `webhook_id` - Original webhook event ID
 - `webhook_type` - Source type (github/gitlab)
 - `application` - Application name
@@ -435,6 +452,7 @@ myapp_verification:
 ### Verification Step Types
 
 **HTTP Health Check**:
+
 ```yaml
 - name: "API health check"
   type: http_check
@@ -448,6 +466,7 @@ myapp_verification:
 ```
 
 **K8s Resource Check**:
+
 ```yaml
 - name: "Check deployment ready"
   type: k8s_check
@@ -460,6 +479,7 @@ myapp_verification:
 ```
 
 **Command Execution**:
+
 ```yaml
 - name: "Database migration check"
   type: command
@@ -470,6 +490,7 @@ myapp_verification:
 ```
 
 **Script Execution**:
+
 ```yaml
 - name: "Custom validation"
   type: script
@@ -486,6 +507,7 @@ myapp_verification:
 ### Sequential vs Parallel Execution
 
 **Sequential** (default):
+
 ```yaml
 sequential: true
 steps:
@@ -496,6 +518,7 @@ steps:
 ```
 
 **Parallel**:
+
 ```yaml
 sequential: false
 steps:
@@ -551,6 +574,7 @@ rollback_policy:
 ### Rollback Types
 
 **ArgoCD Rollback**:
+
 ```yaml
 rollback:
   type: argocd
@@ -560,6 +584,7 @@ rollback:
 ```
 
 **Flux Rollback**:
+
 ```yaml
 rollback:
   type: flux
@@ -570,6 +595,7 @@ rollback:
 ```
 
 **Git Rollback**:
+
 ```yaml
 rollback:
   type: git
@@ -580,6 +606,7 @@ rollback:
 ```
 
 **Manual Rollback**:
+
 ```yaml
 rollback:
   type: manual
@@ -592,16 +619,19 @@ rollback:
 ### Rollback Strategies
 
 **Previous**: Rollback to immediately previous deployment
+
 ```yaml
 strategy: previous
 ```
 
 **Last Known Good**: Rollback to last healthy deployment
+
 ```yaml
 strategy: last_known_good
 ```
 
 **Specific Revision**: Rollback to specific commit/revision
+
 ```yaml
 strategy: specific
 revision: "abc123"
@@ -630,6 +660,7 @@ rollback_policy:
 ```
 
 **Approve rollback**:
+
 ```bash
 # List pending rollbacks
 kscorectl gitops rollbacklist --status pending
@@ -698,11 +729,13 @@ pipeline:
 ### Promotion Strategies
 
 **Immediate** (all-at-once):
+
 ```yaml
 strategy: immediate
 ```
 
 **Canary** (gradual traffic shift):
+
 ```yaml
 strategy: canary
 canary:
@@ -717,6 +750,7 @@ canary:
 ```
 
 **Blue/Green**:
+
 ```yaml
 strategy: blue_green
 blue_green:
@@ -728,6 +762,7 @@ blue_green:
 ```
 
 **Rolling**:
+
 ```yaml
 strategy: rolling
 rolling:
@@ -738,11 +773,13 @@ rolling:
 ### Promotion Triggers
 
 **Manual**:
+
 ```bash
 kscorectl gitops promotemyapp --from staging --to production
 ```
 
 **Automatic** (on verification success):
+
 ```yaml
 environments:
   - name: dev
@@ -750,6 +787,7 @@ environments:
 ```
 
 **Scheduled**:
+
 ```yaml
 environments:
   - name: production
@@ -758,6 +796,7 @@ environments:
 ```
 
 **Event-Driven** (via reactor):
+
 ```yaml
 auto_promote_on_tag:
   filter: "type == 'gitops.github.push' and data.ref =~ 'refs/tags/v.*'"
@@ -807,6 +846,7 @@ git_sync:
 ### Synced Resources
 
 **State Files**:
+
 ```
 states/
 ├── base/
@@ -819,6 +859,7 @@ states/
 ```
 
 **Reactors**:
+
 ```
 reactors/
 ├── self-healing/
@@ -828,6 +869,7 @@ reactors/
 ```
 
 **Vars**:
+
 ```
 vars/
 ├── environments/
@@ -838,6 +880,7 @@ vars/
 ```
 
 **Workflows**:
+
 ```
 workflows/
 ├── deployment-verification/
@@ -860,10 +903,12 @@ workflows/
 Configure Git webhook to trigger instant sync:
 
 **GitHub**:
+
 - Payload URL: `http://kscore-server:8090/webhooks/git-sync`
 - Events: Push events
 
 **GitLab**:
+
 - URL: `http://kscore-server:8090/webhooks/git-sync`
 - Events: Push events
 
@@ -928,12 +973,14 @@ conflict_resolution:
 ```
 
 **Behavior:**
+
 - Git state always replaces runtime state
 - Any local modifications are lost
 - Simplest and most predictable
 - Recommended for GitOps-first workflows
 
 **Example scenario:**
+
 ```
 Git repository: nginx.yaml (version 3)
 Runtime state:  nginx.yaml (version 2, with manual edits)
@@ -941,6 +988,7 @@ Result:         Runtime overwritten with Git version 3
 ```
 
 **Warning events emitted:**
+
 ```json
 {
   "type": "git.sync.conflict",
@@ -964,12 +1012,14 @@ conflict_resolution:
 ```
 
 **Behavior:**
+
 - Runtime modifications are preserved
 - Git changes are queued for review
 - Requires manual intervention to resolve
 - Useful for operational overrides
 
 **Example scenario:**
+
 ```
 Git repository: nginx.yaml (version 3)
 Runtime state:  nginx.yaml (version 2, with emergency hotfix)
@@ -977,6 +1027,7 @@ Result:         Runtime version 2 preserved, Git change queued
 ```
 
 **Resolution workflow:**
+
 ```bash
 # View pending conflicts
 kscorectl git-sync conflicts list
@@ -1008,12 +1059,14 @@ conflict_resolution:
 ```
 
 **Behavior:**
+
 - Sync pauses when conflict detected
 - Alerts sent to configured channels
 - Human must explicitly resolve
 - Best for critical resources (policies, security configs)
 
 **Manual resolution:**
+
 ```bash
 # List conflicts requiring resolution
 kscorectl git-sync conflicts list --status pending
@@ -1071,12 +1124,14 @@ conflict_resolution:
 ```
 
 **Behavior:**
+
 - Attempts three-way merge like Git
 - Succeeds if changes don't overlap
 - Falls back to manual on true conflicts
 - Best for vars and non-critical configs
 
 **Merge example - Success:**
+
 ```yaml
 # Base version (common ancestor)
 database:
@@ -1104,6 +1159,7 @@ database:
 ```
 
 **Merge example - Conflict (same field modified):**
+
 ```yaml
 # Git version
 database:
@@ -1137,6 +1193,7 @@ conflict_resolution:
 ```
 
 **Behavior:**
+
 - Compares modification timestamps
 - Most recent change wins
 - Useful for collaborative environments
@@ -1180,6 +1237,7 @@ All conflicts emit events for monitoring and alerting:
 #### Conflict Prevention Best Practices
 
 1. **Single Source of Truth**
+
    ```yaml
    # Enforce Git as the only way to modify
    git_sync:
@@ -1193,6 +1251,7 @@ All conflicts emit events for monitoring and alerting:
    - Implement approval gates for production
 
 3. **Locking During Edits**
+
    ```bash
    # Lock a resource before manual editing
    kscorectl git-sync lock states/nginx.yaml --reason "Emergency hotfix"
@@ -1202,6 +1261,7 @@ All conflicts emit events for monitoring and alerting:
    ```
 
 4. **Validation in CI Pipeline**
+
    ```yaml
    # GitHub Actions example
    - name: Validate Keystone state files
@@ -1214,6 +1274,7 @@ All conflicts emit events for monitoring and alerting:
    ```
 
 5. **Audit Trail**
+
    ```bash
    # View sync history with conflicts
    kscorectl git-sync history --conflicts-only
@@ -1273,6 +1334,7 @@ kscore_git_sync_conflicts_resolved_total{method="auto|manual"}
 ```
 
 **Alert rules:**
+
 ```yaml
 - alert: GitSyncConflictsPending
   expr: kscore_git_sync_conflicts_pending > 0
@@ -1361,7 +1423,7 @@ Keystone Core supports interactive approval workflows through Slack, PagerDuty, 
 
 #### Creating a Slack App
 
-1. Go to https://api.slack.com/apps and create a new app
+1. Go to <https://api.slack.com/apps> and create a new app
 2. Add the following Bot Token Scopes:
    - `chat:write` - Send messages
    - `chat:write.public` - Send to public channels
@@ -1369,6 +1431,7 @@ Keystone Core supports interactive approval workflows through Slack, PagerDuty, 
    - `commands` - Handle slash commands (optional)
 
 3. Enable Interactivity and set Request URL:
+
    ```
    https://kscore-server.example.com/webhooks/slack/interactive
    ```
@@ -1542,6 +1605,7 @@ notifications:
 ```
 
 Usage:
+
 ```
 /kscore-approve myapp --env production --reason "Reviewed and tested"
 /kscore-reject myapp --env production --reason "Found regression in staging"
@@ -2049,6 +2113,7 @@ kscore_gitops_sync_duration_seconds{quantile}
 **Problem**: Webhook not triggering events
 
 Check:
+
 ```bash
 # Check webhook endpoint is accessible
 curl -X POST http://kscore-server:8090/webhooks/argocd \
@@ -2067,6 +2132,7 @@ journalctl -u kscore-server --grep "webhook-receiver"
 **Problem**: Verification steps failing unexpectedly
 
 Debug:
+
 ```bash
 # Run verification manually
 kscorectl gitops verify run myapp-verification --namespace production
@@ -2083,6 +2149,7 @@ curl http://myapp.production.svc.cluster.local/health
 **Problem**: Rollback not executing on verification failure
 
 Check:
+
 ```bash
 # Verify rollback policy is enabled
 kscorectl gitops rollbackpolicy show myapp
@@ -2099,6 +2166,7 @@ kscorectl gitops rollbackexecute myapp --namespace production --strategy previou
 **Problem**: Git repository not syncing
 
 Check:
+
 ```bash
 # Check Git sync status
 kscorectl git-sync status infrastructure-config
