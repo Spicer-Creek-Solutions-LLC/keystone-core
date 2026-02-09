@@ -308,6 +308,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 41-dns-provider-management.md    # DNS record management via provider APIs
     ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
     ├── 43-secrets-api-implementation.md   # Secrets REST/gRPC API layer
+    ├── 44-cluster-join-tokens.md          # Cluster join token management
     ├── 100-release-readiness-0.1.0.md     # 0.1.0 release readiness (future)
     ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
@@ -379,6 +380,7 @@ Implementation order:
 ### Planned
 
 43. **Epic 43** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
+44. **Epic 44** (Cluster Join Tokens) - NOT STARTED - Depends on Epic 1, 11 - Secure join token system for cluster membership with durable storage (etcd/SQLite/PostgreSQL), configurable TTL and use limits, CLI commands, REST API, audit logging
 
 ### Future Epics (Not Yet Planned)
 

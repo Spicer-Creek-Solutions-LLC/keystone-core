@@ -153,10 +153,11 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - None of these command groups exist in `cmd/kscorectl/main.go`
 
 - [ ] **Runbooks reference unsupported cluster/federation subcommands**
-  - Resolution: code
+  - Resolution: code (6 commands real implementations; `cluster token` deferred to Epic 44)
   - `docs/runbooks/bootstrap-new-cluster.md`, `docs/runbooks/disaster-recovery.md`, `docs/runbooks/capacity-scaling.md` use `cluster token`, `cluster quorum`, `cluster join-config`, `cluster member add/remove`
   - `docs/runbooks/bootstrap-new-cluster.md` references `federation status`, `federation trust list`, `federation ping`
   - `cmd/kscore-cluster` and `cmd/kscore-federation` do not implement these subcommands
+  - `cluster token generate/list/revoke` requires server-side token store → Epic 44 (`epics/44-cluster-join-tokens.md`)
 
 - [ ] **Runbooks reference unsupported bootstrap and upgrade commands**
   - Resolution: code
