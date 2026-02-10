@@ -203,10 +203,11 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Added `list`, `execute`, `status`, `list-executions`, `audit`, `test` subcommands
   - Note: `show`, `delete`, `versions`, `rollback` still need implementation
 
-- [ ] **Epic 02 remote execution doc uses missing top-level exec/file/job commands and flags**
-  - Resolution: code
-  - `epics/02-remote-execution.md` references `kscorectl script`, `kscorectl file upload`, and `kscorectl job` commands
-  - `cmd/kscore-exec` only provides `exec run/async/script/status/list/output/cancel/history` and has no `--script`, `--script-file`, or `--upload` flags
+- [x] **Epic 02 remote execution doc uses missing top-level exec/file/job commands and flags** *(DONE - doc fix)*
+  - Updated US2.3 script execution examples to use `exec run`/`exec script` subcommands
+  - Updated US2.4 file transfer examples to use `exec script` and `files put`
+  - Updated US2.6 job management to use `exec list/status/cancel/output`
+  - Updated T5.1 CLI commands list to match actual kscore-exec subcommands
 
 - [x] **Epic 04 event system doc uses missing events subcommands** *(DONE)*
   - Added `subscribe` (with --filter-type, --filter-severity, --output) and `export` (with --format json/csv, --start, --end, --type, --limit) subcommands

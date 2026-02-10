@@ -91,8 +91,8 @@ kscorectl exec "reboot" --target "id:server-[1-10]" --batch 2
 **So that** I can perform complex operations
 
 **Acceptance Criteria**:
-- Execute inline scripts: `kscorectl exec --script "#!/bin/bash\necho hello"`
-- Execute script from file: `kscorectl exec --script-file ./deploy.sh`
+- Execute inline scripts: `kscorectl exec run "role:web" -- bash -c "echo hello"`
+- Execute script from file: `kscorectl exec script "role:web" ./deploy.sh`
 - Support multiple interpreters (bash, python, ruby, powershell)
 - Pass arguments to scripts
 - Upload dependencies with script
@@ -100,8 +100,8 @@ kscorectl exec "reboot" --target "id:server-[1-10]" --batch 2
 
 **Example**:
 ```bash
-kscorectl exec --script-file deploy.sh --args "v1.2.3" --target "role:app"
-kscorectl exec --script-file check.py --interpreter python3 --target "all"
+kscorectl exec script "role:app" deploy.sh --args "v1.2.3"
+kscorectl exec script "all" check.py --interpreter python3
 ```
 
 ### US2.4: File Transfer and Execution
@@ -119,8 +119,10 @@ kscorectl exec --script-file check.py --interpreter python3 --target "all"
 
 **Example**:
 ```bash
-kscorectl exec --upload ./collector --run --args "--config /etc/config.yml"
-kscorectl file upload ./config.yml --dest /etc/myapp/ --target "role:app"
+kscorectl exec script "role:app" ./collector --args "--config /etc/config.yml"
+
+# File distribution is handled by the kscore-files plugin
+kscorectl files put ./config.yml /configs/app.yaml
 ```
 
 ### US2.5: Output Streaming and Aggregation
@@ -153,23 +155,23 @@ Summary: 2 success, 1 failure
 **So that** I can track and control execution
 
 **Acceptance Criteria**:
-- List running jobs: `kscorectl job list`
-- View job status: `kscorectl job status <job-id>`
-- Cancel running job: `kscorectl job cancel <job-id>`
-- View job results: `kscorectl job result <job-id>`
+- List running jobs: `kscorectl exec list`
+- View job status: `kscorectl exec status <job-id>`
+- Cancel running job: `kscorectl exec cancel <job-id>`
+- View job results: `kscorectl exec output <job-id>`
 - Job retention policy (configurable TTL)
 - Job search and filtering
 
 **Example**:
 ```bash
 # Start long-running job
-JOB_ID=$(kscorectl exec "apt update && apt upgrade -y" --target "os:ubuntu" --async)
+JOB_ID=$(kscorectl exec async "os:ubuntu" -- apt update && apt upgrade -y)
 
 # Check status
-kscorectl job status $JOB_ID
+kscorectl exec status $JOB_ID
 
 # Cancel if needed
-kscorectl job cancel $JOB_ID
+kscorectl exec cancel $JOB_ID
 ```
 
 ### US2.7: Execution Control
@@ -292,11 +294,13 @@ kscorectl exec "ping -c 1 google.com" --timeout 5s --target "all"
 
 ### Phase 5: CLI and API (Week 6)
 
-**T5.1: CLI Commands**
-- `kscorectl exec` - Execute command
-- `kscorectl script` - Execute script
-- `kscorectl file` - File operations
-- `kscorectl job` - Job management
+**T5.1: CLI Commands (via kscorectl → kscore-exec)**
+- `kscorectl exec run` - Execute command on targets
+- `kscorectl exec async` - Asynchronous execution
+- `kscorectl exec script` - Execute script file on targets
+- `kscorectl exec status/list/cancel/output/history` - Job management
+- `kscorectl exec shell` - Interactive shell session
+- `kscorectl files` - File distribution (separate plugin: kscore-files)
 - Add shell completion support
 - Create man pages
 
