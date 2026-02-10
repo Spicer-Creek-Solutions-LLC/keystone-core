@@ -206,7 +206,7 @@ services:
 
 **Hardware Inventory**:
 ```bash
-kscorectl inventory --target "type:baremetal"
+kscorectl agents list --labels "type=baremetal" --format yaml
 
 Agent: bare-01
   Hardware:
@@ -364,17 +364,13 @@ azure:
 
 **Cloud Discovery**:
 ```bash
-# Discover cloud resources
-kscorectl discover --provider aws --region us-east-1
+# Discover network devices on a subnet
+kscorectl proxy discover scan --network 10.0.0.0/24
 
-Discovered Resources:
-  EC2 Instances: 50
-  S3 Buckets: 15
-  RDS Instances: 5
-  Lambda Functions: 23
-
-# Import for management
-kscorectl import aws:ec2:i-12345 --target "role:web"
+# Cloud resources are managed by deploying agents to instances;
+# agents self-register with the control plane on startup.
+# Use state modules to enforce cloud resource configuration:
+kscorectl state apply cloud-resources.yaml --target "role:web"
 ```
 
 ### US8.6: Container Runtime Support
@@ -393,16 +389,16 @@ kscorectl import aws:ec2:i-12345 --target "role:web"
 
 **Container Operations**:
 ```bash
-# Execute in containers
-kscorectl exec "ls /app" --target "container:app=nginx"
+# Execute in containers via remote exec
+kscorectl exec run "docker exec nginx ls /app" --target "role:web"
 
-# Container lifecycle
-kscorectl container restart --target "container:app=nginx"
-kscorectl container logs --target "container:id=abc123" --tail 100
+# Container lifecycle via remote exec
+kscorectl exec run "docker restart nginx" --target "role:web"
+kscorectl exec run "docker logs --tail 100 abc123" --target "role:web"
 
-# Image management
-kscorectl container pull nginx:latest --target "role:web"
-kscorectl container prune --target "all"
+# Image management via remote exec
+kscorectl exec run "docker pull nginx:latest" --target "role:web"
+kscorectl exec run "docker system prune -f" --target "all"
 ```
 
 **Container State Management**:
@@ -442,15 +438,15 @@ containers:
 
 **Service Mesh Operations**:
 ```bash
-# Target by mesh metadata
-kscorectl exec "curl internal-service" --target "istio:version=v2"
+# Target by mesh metadata labels
+kscorectl exec run "curl internal-service" --target "role:istio-v2"
 
-# Mesh-specific operations
-kscorectl istio inject --target "k8s:namespace=production"
-kscorectl istio traffic-shift --service reviews --v2 50%
+# Mesh operations via remote exec (uses istioctl on target)
+kscorectl exec run "istioctl kube-inject -f deployment.yaml | kubectl apply -f -" --target "role:k8s-control"
+kscorectl exec run "istioctl experimental traffic-shift reviews --v2 50" --target "role:k8s-control"
 
 # Certificate rotation
-kscorectl exec "rotate-certs" --target "linkerd:*"
+kscorectl exec run "rotate-certs" --target "role:linkerd"
 ```
 
 ### US8.8: Unified Targeting

@@ -218,10 +218,10 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 - [x] **Epic 07 observability doc references missing debug profiling command** *(DONE - doc fix)*
   - Replaced `kscorectl debug profile` with curl-based pprof access, consistent with all other profiling docs
 
-- [ ] **Epic 08 multi-environment doc references missing inventory/discover/import/container/istio commands**
-  - Resolution: code
-  - `epics/08-multi-environment.md` documents `kscorectl inventory`, `discover`, `import`, `container`, and `istio` commands
-  - No corresponding plugins exist under `cmd/`
+- [x] **Epic 08 multi-environment doc references missing inventory/discover/import/container/istio commands** *(DONE - doc fix)*
+  - `inventory` → `agents list --labels`; `discover` → `proxy discover scan`; `import` → agent self-registration
+  - `container restart/logs/pull/prune` → `exec run "docker ..."` on targets
+  - `istio inject/traffic-shift` → `exec run "istioctl ..."` on targets
 
 - [ ] **Epic 22 file distribution doc references missing CLI operations**
   - Resolution: code
