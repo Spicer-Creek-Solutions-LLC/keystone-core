@@ -232,10 +232,11 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - `upgrade apply` → `upgrade execute --target`
   - `self status/health/drift/apply/export` → `diagnostics collect`, `state check/apply`, `backup create`
 
-- [ ] **Epic 25 blueprints doc references missing bundle/mirror/migrate/status commands**
-  - Resolution: code
-  - `epics/25-blueprints.md` documents `kscorectl blueprint bundle/bundle-install/bundle-verify/migrate/status` and `kscorectl mirror ...`
-  - No bundle or mirror subcommands exist in `cmd/kscore-blueprint*`, and no `kscore-mirror` plugin exists
+- [x] **Epic 25 blueprints doc references missing bundle/mirror/migrate/status commands** *(DONE - doc fix)*
+  - `blueprint list` → `blueprint applied list`; `blueprint status` → `blueprint applied show`
+  - `blueprint bundle <path>` → `bundle create`; `bundle-install` → `bundle install`; `bundle-verify` → `verify`
+  - `mirror init/sync --with-deps` → removed; `kscorectl mirror` → `blueprint mirror` subcommands
+  - Removed `blueprint migrate` (no equivalent; use `blueprint install <name>@<version>`)
 
 - [ ] **Epic 38 air-gapped deployments doc references missing airgap CLI**
   - Resolution: code

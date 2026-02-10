@@ -701,8 +701,8 @@ kscorectl state apply my-app.yaml
 # Acknowledge and proceed
 kscorectl state apply my-app.yaml --accept-breaking-changes
 
-# Or generate migration guide
-kscorectl blueprint migrate web-app-stack --from 1.2.0 --to 2.0.0
+# Or install a specific version to upgrade
+kscorectl blueprint install web-app-stack@2.0.0
 ```
 
 ## CLI Reference
@@ -723,7 +723,7 @@ kscorectl blueprint info <blueprint>         # Show blueprint details
 kscorectl blueprint versions <blueprint>     # List available versions
 kscorectl blueprint install <blueprint>      # Install blueprint locally
 kscorectl blueprint update                   # Update installed blueprints
-kscorectl blueprint list                     # List installed blueprints
+kscorectl blueprint applied list              # List installed blueprints
 kscorectl blueprint remove <blueprint>       # Remove installed blueprint
 
 # Blueprint Publishing
@@ -732,14 +732,13 @@ kscorectl blueprint sign <path>              # Sign blueprint
 kscorectl blueprint verify <blueprint>       # Verify blueprint signature
 
 # Blueprint Operations
-kscorectl blueprint status <blueprint>       # Show application status
+kscorectl blueprint applied show <blueprint>  # Show application status
 kscorectl blueprint rollback <blueprint>     # Rollback to previous version
-kscorectl blueprint migrate <blueprint>      # Generate migration guide
-kscorectl blueprint diff <blueprint>         # Diff current vs target version
+kscorectl blueprint-state diff <blueprint>   # Diff current vs target version
 
 # Blueprint Bundling (Air-gapped)
-kscorectl blueprint bundle <path>            # Bundle blueprint + deps
-kscorectl blueprint bundle-install <bundle>  # Install from bundle
+kscorectl blueprint bundle create <path>     # Bundle blueprint + deps
+kscorectl blueprint bundle install <bundle>  # Install from bundle
 ```
 
 ### Init Command Output
@@ -885,7 +884,7 @@ jobs:
 
 ```bash
 # Bundle a blueprint with all dependencies
-kscorectl blueprint bundle ./my-blueprint --output my-blueprint-bundle.tar.gz
+kscorectl blueprint bundle create ./my-blueprint
 
 # Bundle includes:
 # - Blueprint files
@@ -894,10 +893,7 @@ kscorectl blueprint bundle ./my-blueprint --output my-blueprint-bundle.tar.gz
 # - Checksums and signatures
 # - Metadata for offline installation
 
-# Bundle with specific versions pinned
-kscorectl blueprint bundle ./my-blueprint \
-  --output bundle.tar.gz \
-  --lock-file blueprint.lock
+# Bundle includes pinned versions from blueprint.lock if present
 ```
 
 ### Bundle Structure
@@ -925,13 +921,13 @@ my-blueprint-bundle.tar.gz
 
 ```bash
 # On air-gapped system
-kscorectl blueprint bundle-install my-blueprint-bundle.tar.gz
+kscorectl blueprint bundle install my-blueprint-bundle.tar.gz
 
-# Verify signatures
-kscorectl blueprint bundle-verify my-blueprint-bundle.tar.gz
+# Verify signatures before install
+kscorectl blueprint verify my-blueprint-bundle.tar.gz
 
 # Install to specific location
-kscorectl blueprint bundle-install my-blueprint-bundle.tar.gz \
+kscorectl blueprint bundle install my-blueprint-bundle.tar.gz \
   --blueprints-dir /srv/blueprints \
   --modules-dir /srv/modules
 ```
@@ -941,21 +937,15 @@ kscorectl blueprint bundle-install my-blueprint-bundle.tar.gz \
 For organizations with many air-gapped systems:
 
 ```bash
-# Set up local mirror (on connected system)
-kscorectl mirror init --path /var/kscore/mirror
-
-# Sync specific blueprints
-kscorectl mirror sync blueprints/community/web-app-stack@^1.0
-
-# Sync all dependencies automatically
-kscorectl mirror sync blueprints/community/web-app-stack@^1.0 --with-deps
+# Sync specific blueprints to local mirror
+kscorectl blueprint mirror sync blueprints/community/web-app-stack@^1.0
 
 # Export mirror for transfer
-kscorectl mirror export --output mirror-export.tar.gz
+kscorectl blueprint mirror export --output mirror-export.tar.gz
 
 # On air-gapped system - import and serve
-kscorectl mirror import mirror-export.tar.gz
-kscorectl mirror serve --listen :8080
+kscorectl blueprint mirror import mirror-export.tar.gz
+kscorectl blueprint mirror serve --listen :8080
 ```
 
 ## Implementation Phases
