@@ -24,12 +24,23 @@ Keystone Core provides both REST and gRPC APIs for programmatic access to all fu
 
 ## Authentication
 
+Both REST and gRPC endpoints require authentication when `auth.enabled` is `true` in the server configuration. The auth type (`apikey`, `jwt`, `mtls`, or `multi`) determines which methods are accepted.
+
+**Unauthenticated endpoints** (always accessible without credentials):
+- `/health/ready`, `/health/status` — health checks for load balancers
+- `/api/status` — server status for monitoring tools
+
 ### API Key Authentication
 
-Include API key in header:
+Include the API key via the `Authorization` header or the `X-API-Key` header:
 
 ```bash
+# Using Authorization: Bearer header
 curl -H "Authorization: Bearer <api-key>" \
+  http://control-plane:8080/api/v1/agents
+
+# Using X-API-Key header (configurable via auth.apikey.header_name)
+curl -H "X-API-Key: <api-key>" \
   http://control-plane:8080/api/v1/agents
 ```
 
@@ -109,12 +120,9 @@ GET /api/v1/agents
 
 **Query Parameters**:
 
-- `datacenter` (string): Filter by datacenter
-- `environment` (string): Filter by environment
-- `role` (string): Filter by role
-- `status` (string): Filter by status (connected, disconnected, degraded)
-- `limit` (int): Max results (default: 100)
-- `offset` (int): Pagination offset (default: 0)
+- `status` (string): Filter by status (`connected`, `disconnected`, `unknown`)
+- `labels` (string): Filter by labels (`key=value,key2=value2` format)
+- `sort` (string): Sort field (default: `hostname`)
 
 **Response**:
 
@@ -123,23 +131,25 @@ GET /api/v1/agents
   "agents": [
     {
       "id": "web-01",
-      "datacenter": "us-east-1",
-      "environment": "production",
-      "role": "web",
+      "hostname": "web-01.example.com",
+      "os": "linux",
+      "arch": "amd64",
+      "agent_version": "0.1.0",
+      "platform_version": "6.1.0-generic",
       "status": "connected",
-      "last_heartbeat": "2024-01-15T10:30:45Z",
-      "metadata": {
-        "hostname": "web-01.example.com",
-        "os": "linux",
-        "arch": "amd64",
-        "ip": "10.0.1.100"
-      },
-      "labels": {"service": "nginx", "tier": "frontend"}
+      "labels": {"service": "nginx", "tier": "frontend"},
+      "ip_addresses": ["10.0.1.100"],
+      "ipv4_addresses": ["10.0.1.100"],
+      "ipv6_addresses": ["fd00::1"],
+      "is_dual_stack": true,
+      "registered_at": "2024-01-10T08:00:00Z",
+      "last_seen": "2024-01-15T10:30:45Z"
     }
   ],
   "total": 150,
-  "limit": 100,
-  "offset": 0
+  "online": 148,
+  "offline": 2,
+  "retrieved_at": "2024-01-15T10:31:00Z"
 }
 ```
 
@@ -147,7 +157,7 @@ GET /api/v1/agents
 
 ```bash
 curl -H "Authorization: Bearer $API_KEY" \
-  "http://control-plane:8080/api/v1/agents?environment=production&role=web"
+  "http://control-plane:8080/api/v1/agents?status=connected&labels=tier=frontend"
 ```
 
 #### Get Agent
@@ -161,27 +171,19 @@ GET /api/v1/agents/{agent_id}
 ```json
 {
   "id": "web-01",
-  "datacenter": "us-east-1",
-  "environment": "production",
-  "role": "web",
+  "hostname": "web-01.example.com",
+  "os": "linux",
+  "arch": "amd64",
+  "agent_version": "0.1.0",
+  "platform_version": "6.1.0-generic",
   "status": "connected",
-  "last_heartbeat": "2024-01-15T10:30:45Z",
-  "connected_at": "2024-01-10T08:00:00Z",
-  "version": "1.0.0",
-  "metadata": {
-    "hostname": "web-01.example.com",
-    "os": "linux",
-    "arch": "amd64",
-    "ip": "10.0.1.100",
-    "cpu_count": 4,
-    "memory_total": 8589934592
-  },
   "labels": {"service": "nginx", "tier": "frontend"},
-  "resource_usage": {
-    "cpu_percent": 45.2,
-    "memory_bytes": 4294967296,
-    "disk_bytes": 21474836480
-  }
+  "ip_addresses": ["10.0.1.100"],
+  "ipv4_addresses": ["10.0.1.100"],
+  "ipv6_addresses": ["fd00::1"],
+  "is_dual_stack": true,
+  "registered_at": "2024-01-10T08:00:00Z",
+  "last_seen": "2024-01-15T10:30:45Z"
 }
 ```
 
@@ -1897,28 +1899,38 @@ service CoordinationService {
 
 ## Rate Limiting
 
-All API endpoints are rate-limited:
+REST API endpoints are rate-limited when `rate_limit.enabled` is `true` in the server configuration. Limits are configurable via `rate_limit.requests_per_minute` and `rate_limit.burst`.
 
-**Limits**:
+**Client Identification**:
 
-- **Default**: 100 requests/minute per API key
-- **Burst**: 20 requests/second
+The `rate_limit.key_extractor` setting controls how clients are identified:
 
-**Headers**:
+- `ip` (default) — by client IP address (respects `X-Forwarded-For` and `X-Real-IP`)
+- `apikey` — by `X-API-Key` header value
+- `header` — by a custom header specified in `rate_limit.header_name`
+
+**Response Headers** (included on every response when rate limiting is enabled):
 
 ```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1642248645
+Retry-After: 30
 ```
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed per window |
+| `X-RateLimit-Remaining` | Requests remaining in current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+| `Retry-After` | Seconds until next request is allowed (only on 429) |
 
 **429 Response**:
 
 ```json
 {
   "error": "rate_limit_exceeded",
-  "message": "Rate limit exceeded. Try again in 30 seconds.",
-  "retry_after": 30
+  "message": "Rate limit exceeded"
 }
 ```
 
@@ -1949,31 +1961,48 @@ All errors follow this format:
 
 ## Pagination
 
-List endpoints support cursor-based pagination:
+### REST API
+
+REST list endpoints support offset-based pagination with `limit` and `offset` query parameters:
 
 **Request**:
 
 ```bash
-GET /api/v1/agents?limit=100&offset=0
+GET /api/v1/jobs?limit=50&offset=0
 ```
 
 **Response**:
 
 ```json
 {
-  "agents": [...],
-  "total": 500,
-  "limit": 100,
+  "jobs": [...],
+  "total": 230,
+  "limit": 50,
   "offset": 0,
-  "next_offset": 100
+  "retrieved_at": "2025-01-15T10:30:00Z"
 }
 ```
 
-**Next Page**:
+**Next Page** — increment `offset` by `limit`:
 
 ```bash
-GET /api/v1/agents?limit=100&offset=100
+GET /api/v1/jobs?limit=50&offset=50
 ```
+
+Default `limit` is 50 for most endpoints. If `total` is less than or equal to `offset + limit`, there are no more pages.
+
+### gRPC API
+
+gRPC list methods use cursor-based pagination with `page_size` and `page_token`:
+
+```protobuf
+message ListAgentsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+```
+
+The response includes a `next_page_token`. Pass it as `page_token` in the next request to fetch the next page. When `next_page_token` is empty, there are no more results.
 
 ## Filtering
 
@@ -1988,52 +2017,100 @@ Many endpoints support filtering:
 **Examples**:
 
 ```bash
-# Filter agents by datacenter and role
-GET /api/v1/agents?datacenter=us-east-1&role=web
+# Filter agents by status
+GET /api/v1/agents?status=connected
+
+# Filter agents by labels
+GET /api/v1/agents?labels=tier=frontend,env=production
 
 # Filter events by type and severity
 GET /api/v1/events?type=agent.disconnect&severity=warning
-
-# Multiple values (OR)
-GET /api/v1/agents?role=web,db,cache
 ```
 
 ## Webhooks
 
-Keystone Core can send webhooks for events:
+Keystone Core receives inbound webhooks from GitOps tools (ArgoCD, Flux, GitHub, GitLab).
+The webhook source is auto-detected from request headers, or can be specified in the request body.
 
-### Configure Webhook
+> **Note**: These endpoints are not yet wired into `kscore-server`. The handler exists at `pkg/api/webhooks/` but requires the webhook receiver dependency to be instantiated first.
 
-```bash
+### Receive Webhook
+
+```http
 POST /api/v1/webhooks
 ```
 
-**Request Body**:
+The source type is detected from headers (`X-GitHub-Event`, `X-GitLab-Event`, `X-Argo-Event`, `X-Flux-Event`).
+Alternatively, provide a JSON body with an explicit type:
+
+**Request Body** (optional, for explicit type):
 
 ```json
 {
-  "url": "https://example.com/webhook",
-  "events": ["agent.disconnect", "job.fail"],
-  "secret": "webhook-secret"
+  "type": "github",
+  "payload": { ... }
 }
 ```
 
-### Webhook Payload
+**Response** (202 Accepted):
 
 ```json
 {
-  "webhook_id": "wh-abc123",
-  "event": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "type": "agent.disconnect",
-    "timestamp": "2024-01-15T10:30:45Z",
-    "data": {...}
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "accepted",
+  "type": "github",
+  "event_type": "push",
+  "timestamp": "2024-01-15T10:30:45Z"
+}
+```
+
+### Webhook Statistics
+
+```http
+GET /api/v1/webhooks/stats
+```
+
+**Response**:
+
+```json
+{
+  "total_received": 1500,
+  "total_processed": 1495,
+  "total_failed": 5,
+  "by_type": {
+    "github": 1000,
+    "argocd": 300,
+    "flux": 150,
+    "gitlab": 50
   },
-  "signature": "sha256=abc123..."
+  "last_received_time": "2024-01-15T10:30:45Z",
+  "last_processed_time": "2024-01-15T10:30:45Z",
+  "retrieved_at": "2024-01-15T10:31:00Z"
 }
 ```
 
-### Verify Signature
+### Webhook Configuration
+
+```http
+GET /api/v1/webhooks/config
+```
+
+**Response**:
+
+```json
+{
+  "enabled": true,
+  "addr": ":9095",
+  "path": "/webhooks",
+  "auth_type": "hmac",
+  "handlers": ["argocd", "flux", "github", "gitlab"],
+  "webhook_url": "https://control-plane.example.com:9095/webhooks"
+}
+```
+
+### Verify Inbound Webhook Signature
+
+When configuring a webhook secret in your GitOps tool, Keystone Core validates the signature on incoming requests. To verify signatures in your own integration tests:
 
 ```python
 import hmac
@@ -2062,7 +2139,7 @@ import (
     "net/http"
 )
 
-req, _ := http.NewRequest("GET", "http://control-plane:8080/api/v1/agents?environment=production", nil)
+req, _ := http.NewRequest("GET", "http://control-plane:8080/api/v1/agents?status=connected", nil)
 req.Header.Set("Authorization", "Bearer "+apiKey)
 
 resp, err := http.DefaultClient.Do(req)
@@ -2083,7 +2160,7 @@ json.NewDecoder(resp.Body).Decode(&result)
 from kscore import Client
 
 client = Client("http://control-plane:8080", api_key)
-agents = client.agents.list(environment="production")
+agents = client.agents.list(status="connected")
 ```
 
 ### JavaScript/TypeScript
@@ -2097,7 +2174,7 @@ const client = new Keystone CoreClient({
 });
 
 const agents = await client.agents.list({
-  environment: 'production'
+  status: 'connected'
 });
 ```
 
@@ -2173,12 +2250,12 @@ curl -X POST \
 
 ```python
 import grpc
-from kscore.proto import event_service_pb2, event_service_pb2_grpc
+from kscore.proto import controlplane_pb2, controlplane_pb2_grpc
 
 channel = grpc.insecure_channel('control-plane:9090')
-stub = event_service_pb2_grpc.EventServiceStub(channel)
+stub = controlplane_pb2_grpc.ControlPlaneServiceStub(channel)
 
-request = event_service_pb2.SubscribeEventsRequest(
+request = controlplane_pb2.SubscribeEventsRequest(
     filter="type =~ 'agent.*'"
 )
 
@@ -2386,10 +2463,10 @@ if 'Deprecation' in response.headers:
 
 ```bash
 # Before (v1beta1)
-curl /api/v1beta1/agents?filter=role:web
+curl /api/v1beta1/agents?filter=status:connected
 
 # After (v1)
-curl /api/v1/agents?role=web
+curl /api/v1/agents?status=connected
 ```
 
 | v1beta1 | v1 | Notes |

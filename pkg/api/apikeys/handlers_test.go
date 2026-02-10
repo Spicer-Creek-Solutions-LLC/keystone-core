@@ -427,7 +427,10 @@ func TestWriteError(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
-	if result["error"] != "test error" {
-		t.Errorf("error = %v", result["error"])
+	if result["error"] != "invalid_request" {
+		t.Errorf("result[error] = %v, want invalid_request", result["error"])
+	}
+	if result["message"] != "test error" {
+		t.Errorf("result[message] = %v, want test error", result["message"])
 	}
 }

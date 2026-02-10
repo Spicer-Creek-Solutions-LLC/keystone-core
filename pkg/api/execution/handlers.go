@@ -12,6 +12,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	"github.com/shawnbutts/keystone-core/internal/state"
+	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
@@ -455,5 +456,5 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	apierror.Write(w, status, message)
 }

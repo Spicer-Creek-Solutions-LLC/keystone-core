@@ -10,6 +10,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/internal/gitops/rollback"
 	"github.com/shawnbutts/keystone-core/internal/gitops/verification"
+	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 )
 
 // Handler provides HTTP handlers for GitOps API endpoints.
@@ -550,5 +551,5 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	apierror.Write(w, status, message)
 }

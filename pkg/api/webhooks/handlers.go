@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
+	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 )
 
 // Handler provides HTTP handlers for webhooks API endpoints.
@@ -186,5 +187,5 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	apierror.Write(w, status, message)
 }

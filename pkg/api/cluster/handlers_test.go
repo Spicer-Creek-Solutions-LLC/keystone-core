@@ -829,8 +829,11 @@ func TestWriteError(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
-	if result["error"] != "test error" {
-		t.Errorf("writeError() error mismatch: got %q, want %q", result["error"], "test error")
+	if result["error"] != "invalid_request" {
+		t.Errorf("writeError() error code mismatch: got %q, want %q", result["error"], "invalid_request")
+	}
+	if result["message"] != "test error" {
+		t.Errorf("writeError() message mismatch: got %q, want %q", result["message"], "test error")
 	}
 }
 
@@ -852,8 +855,11 @@ func TestAddMember_InvalidJSON(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
-	if result["error"] != "Invalid request body" {
-		t.Errorf("addMember() error mismatch: got %q", result["error"])
+	if result["error"] != "invalid_request" {
+		t.Errorf("addMember() error code mismatch: got %q, want %q", result["error"], "invalid_request")
+	}
+	if result["message"] != "Invalid request body" {
+		t.Errorf("addMember() message mismatch: got %q, want %q", result["message"], "Invalid request body")
 	}
 }
 
@@ -1266,14 +1272,18 @@ func TestErrorResponse_Structure(t *testing.T) {
 	}
 
 	var resp struct {
-		Error string `json:"error"`
+		Error   string `json:"error"`
+		Message string `json:"message"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to decode error response: %v", err)
 	}
 
-	if resp.Error != "Something went wrong" {
-		t.Errorf("Error message = %q, want %q", resp.Error, "Something went wrong")
+	if resp.Error != "internal_error" {
+		t.Errorf("Error code = %q, want %q", resp.Error, "internal_error")
+	}
+	if resp.Message != "Something went wrong" {
+		t.Errorf("Error message = %q, want %q", resp.Message, "Something went wrong")
 	}
 }
 

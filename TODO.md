@@ -292,27 +292,19 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Removed unsupported `gitops` and `security` config sections from configuration.md
   - Implementation deferred to `epics/45-control-plane-config-wiring.md`
 
-- [ ] **`kscorectl config set` is referenced in docs but not implemented**
-  - Resolution: code
-  - `kscorectl config` only supports `validate`
-  - Docs use `kscorectl config set ...` in runbooks, security training, and blueprints (15+ references)
-  - Implementing `config set` would be more appropriate than removing operational examples
-  - Reference: `docs/runbooks/*.md`, `docs/content/en/docs/operations/security-training.md`, `docs/content/en/docs/concepts/blueprints.md`, `cmd/kscorectl/main.go`
+- [x] **`kscorectl config set` is referenced in docs but not implemented** *(DONE - already implemented)*
+  - `config set` and `config show` both exist in `cmd/kscorectl/main.go`
+  - Implemented as part of earlier runbook CLI work (TODO line 150)
 
 ### SDK Documentation vs Implementation
 
-- [ ] **SDK docs reference gRPC client code that is not generated**
-  - Resolution: code
-  - Examples import `event_service_pb2`/`event_service_pb2_grpc` and other `*_service.proto` artifacts
-  - Only agent/controlplane/coordination stubs exist in `pkg/api/v1`
-  - Generate missing gRPC stubs for event, policy, state, and gitops services
-  - Reference: `docs/content/en/docs/reference/sdk.md`, `pkg/api/v1/*`, `api/proto/*.proto`
+- [x] **SDK docs reference gRPC client code that is not generated** *(DONE - docs fixed)*
+  - Updated gRPC example to use `controlplane_pb2_grpc.ControlPlaneServiceStub` instead of `event_service_pb2_grpc.EventServiceStub`
+  - Fixed proto file listing to show actual filenames (`agent.proto`, `controlplane.proto`, `coordination.proto`) with notes on generation status
 
-- [ ] **SDK examples target REST endpoints that don't exist**
-  - Resolution: code
-  - Examples use `/api/v1/events/stream`, webhook creation, and agent tag update payloads not supported by handlers
-  - Implement missing endpoints: events streaming, webhook configuration
-  - Reference: `docs/content/en/docs/reference/sdk.md`, `pkg/api/*/handlers.go`
+- [x] **SDK examples target REST endpoints that don't exist** *(DONE - docs fixed)*
+  - Replaced SSE `EventStream` class (using non-existent `/api/v1/events/stream`) with REST `EventPoller` class using `GET /api/v1/events`
+  - Updated Python and Go examples to use polling pattern matching actual API
 
 ### API Field/Endpoint Mismatches
 
@@ -320,125 +312,121 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Wired agents, execution, state, maintenance, and apikeys handlers into kscore-server HTTP mux
   - Remaining handlers (events, policy, gitops, cluster, webhooks, runbook) need their dependencies instantiated first
 
-- [ ] **OpenAPI spec paths do not match implemented API**
+- [x] **OpenAPI spec paths do not match implemented API** *(DONE - spec fixed)*
+  - Fixed `/api/agents` → `/api/v1/agents`, `/events` → `/api/v1/events`, `/webhooks` → `/api/v1/webhooks`
+  - Removed non-existent endpoints (`/api/topology`, `/api/graph`, `/events/batch`)
+  - Added missing spec entries for wired handlers: execution, state, maintenance, apikeys
+  - Updated Agent/AgentList schemas to match actual handler response fields
+  - Added notes on not-yet-wired handlers (cluster, events, webhooks, mirrors, discovery)
+  - Added `/api/v1/webhooks/config` endpoint to spec
+
+- [x] **Add missing agent proto fields** (or update docs) *(DONE - docs fixed)*
+  - Updated api.md to match actual proto/handler fields (no `datacenter/environment/role/connected_at`)
+  - Proto uses `labels` map for flexible metadata; handler returns flat fields
+
+- [x] **Agents REST API docs do not match handler filtering/response fields** *(DONE - docs fixed)*
+  - Updated List Agents: query params now show `status`, `labels`, `sort`; response shows actual fields with `total/online/offline/retrieved_at`
+  - Updated Get Agent: response shows flat fields matching `AgentResponse` struct
+  - Fixed filtering examples, Go/Python/TypeScript client examples, and migration examples
+
+- [x] **Webhook REST API docs do not match implementation** *(DONE - docs fixed)*
+  - Replaced outbound webhook docs with actual inbound webhook receiver docs
+  - Documented POST /api/v1/webhooks (receive), GET /stats, GET /config with actual response schemas
+  - Added note that handler is not yet wired into kscore-server
+
+- [x] **Webhook endpoint/path in docs does not match runtime server** *(DONE - docs fixed)*
+  - Documented that webhooks handler exists but is not yet wired into kscore-server
+  - Config response shows separate addr/path fields for the webhook receiver
+
+- [x] **Rate limiting documentation does not match code**
   - Resolution: both
-  - OpenAPI spec lists `/api/agents` and omits `/api/v1/agents`; code only implements `/api/v1/agents`
-  - Spec includes `/api/v1/mirrors` and `/api/v1/discovery` endpoints that are not wired into `kscore-server`
-  - Update spec to reflect actual endpoints or wire the handlers
-  - Reference: `api/openapi/openapi-spec.yaml`, `pkg/api/agents/handlers.go`, `internal/files/mirror/api.go`, `internal/proxy/discovery/api.go`, `cmd/kscore-server/main.go`
+  - Added `X-RateLimit-Reset` header (Unix timestamp) to rate limit middleware
+  - Changed 429 response from plain text to JSON via `apierror.Write` (`{"error":"rate_limit_exceeded","message":"Rate limit exceeded"}`)
+  - Updated docs: configurable limits (not hardcoded), key extraction strategies, `Retry-After` header, response header table
+  - Reference: `cmd/kscore-server/main.go`, `docs/content/en/docs/reference/api.md`
 
-- [ ] **Add missing agent proto fields** (or update docs)
+- [x] **API rate_limit config is documented but not wired**
+  - Resolution: code
+  - Wired `internal/ratelimit.TokenBucket` into `kscore-server` HTTP handler via `rateLimitMiddleware`
+  - Extracts client key by ip/apikey/header per `cfg.RateLimit.KeyExtractor`
+  - Returns 429 with Retry-After header; sets X-RateLimit-Limit/Remaining headers
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **API CORS config is documented but not applied**
+  - Resolution: code
+  - Added `corsMiddleware` to `kscore-server` HTTP handler chain
+  - Handles preflight OPTIONS (Allow-Methods, Allow-Headers, Max-Age) and actual request headers (Allow-Origin, Allow-Credentials)
+  - Supports wildcard and specific origin allowlists, Vary header for non-wildcard
+  - CORS wraps outermost so preflight responses bypass rate limiting
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **API TLS settings are documented but not wired into server**
+  - Resolution: code
+  - Added `buildTLSConfig` that loads cert/key, optional CA for mTLS client auth, sets min version
+  - gRPC server uses `grpc.Creds(credentials.NewTLS(...))` when TLS enabled
+  - HTTP server uses `tls.NewListener` wrapping existing listeners when TLS enabled
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **Metrics config is documented but not wired into control plane**
+  - Resolution: code
+  - `kscore-server` initializes `PrometheusCollector`, registers Go/process collectors per config
+  - Serves Prometheus metrics at `cfg.Metrics.Path` (default `/metrics`) on main HTTP mux
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **Tracing config is documented but not wired into control plane**
+  - Resolution: code
+  - `kscore-server` initializes `tracing.NewProvider()` when `tracing.enabled=true`
+  - Maps `config.TracingConfig` to `tracing.Config` (exporter type, endpoint, sampling, resource attrs)
+  - Supports OTLP, Zipkin, stdout exporters; always/never/ratio/parent_based sampling
+  - Provider shutdown deferred with 5s timeout
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **Health config is documented but not wired into control plane**
+  - Resolution: code
+  - `kscore-server` health endpoints now use `cfg.Health` settings
+  - `/health/ready` checks NATS and database per `Checks.NATS.Enabled`/`Checks.Database.Enabled`
+  - `StartupGracePeriod` reports healthy during grace window even if checks fail
+  - Per-check `Timeout` applied via context; disabled checks are skipped
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **Health endpoint responses do not match docs**
+  - Resolution: code
+  - `/health/ready` now checks NATS + database (both configurable)
+  - `/health/status` returns component-level health matching docs: `{status, components: {nats: {status, latency_ms}, database: {status, latency_ms}, agent_pool: {status, agents}}, uptime_seconds}`
+  - Agent pool health uses `MinHealthy` threshold from config
+  - 11 new tests covering all check pass/fail combinations, grace period, and disabled checks
+  - Reference: `cmd/kscore-server/main.go`
+
+- [x] **Pagination section in API docs conflicts with implementation**
+  - Resolution: docs
+  - Docs incorrectly said "cursor-based" but showed offset examples; REST handlers use `limit`/`offset`
+  - Split pagination docs into REST (offset-based) and gRPC (cursor-based) sections
+  - Updated response example to match actual handler shape: `total`, `limit`, `offset`, `retrieved_at`
+  - Reference: `docs/content/en/docs/reference/api.md`
+
+- [x] **REST API error response format differs from docs**
+  - Resolution: code
+  - Created shared `pkg/api/apierror/` package with `Response` struct (`error`, `message`, `details`) and `Write()` helper
+  - `StatusCode()` maps HTTP status to error codes: 400→`invalid_request`, 404→`not_found`, 409→`conflict`, etc.
+  - Updated `writeError` in all 11 handler packages to delegate to `apierror.Write`
+  - Updated test assertions in 9 test files to check error code and message separately
+  - Reference: `pkg/api/apierror/error.go`, `pkg/api/*/handlers.go`
+
+- [x] **REST auth model in docs does not match implementation**
   - Resolution: both
-  - Documented but not in proto: `datacenter`, `environment`, `role`, `connected_at`
-  - Location: `api/proto/agent.proto`
+  - Added `httpAuthMiddleware` that reuses existing `auth.InterceptorConfig` authenticators for HTTP requests
+  - Extracts credentials from `Authorization: Bearer <token>` or `X-API-Key` header (configurable)
+  - Health/status endpoints bypass auth; mTLS client certs supported via `r.TLS.PeerCertificates`
+  - Returns 401 JSON via `apierror.Write` on failure; stores `Principal` in request context
+  - Updated docs: listed unauthenticated endpoints, documented both header formats
+  - 7 new tests covering valid/invalid/missing credentials, health bypass, custom header, principal context
+  - Reference: `cmd/kscore-server/main.go`, `docs/content/en/docs/reference/api.md`
 
-- [ ] **Agents REST API docs do not match handler filtering/response fields**
-  - Resolution: both
-  - Docs list `datacenter/environment/role` filters and return `labels` + `connected_at`
-  - Handler only supports `status` + `labels` filter and returns `hostname/os/arch/labels/ip_addresses` + `registered_at/last_seen`
-  - Docs show pagination (`limit/offset`), but handler returns all agents and uses `sort`
-  - Update docs or implement filters/pagination/fields
-  - Reference: `docs/content/en/docs/reference/api.md`, `pkg/api/agents/handlers.go`
-
-- [ ] **Webhook REST API docs do not match implementation**
-  - Resolution: code
-  - Docs describe outbound webhooks (sending events TO external systems via url/events/secret config)
-  - Handler only implements inbound webhooks (receiving FROM ArgoCD, GitHub, etc.) with `/webhooks/stats` + `/webhooks/config`
-  - Need to implement outbound webhook support:
-    - POST /api/v1/webhooks - create outbound webhook subscription (url, events, secret)
-    - GET /api/v1/webhooks - list configured outbound webhooks
-    - GET /api/v1/webhooks/{id} - get outbound webhook details
-    - DELETE /api/v1/webhooks/{id} - remove outbound webhook
-    - Webhook dispatcher to send events to configured endpoints
-    - HMAC signature generation for outbound payloads
-  - Keep existing inbound webhook receiver functionality
-  - Reference: `docs/content/en/docs/reference/api.md`, `pkg/api/webhooks/handlers.go`
-
-- [ ] **Webhook endpoint/path in docs does not match runtime server**
-  - Resolution: both
-  - Docs use `/api/v1/webhooks` on the main API port
-  - Server runs a separate webhook receiver on `cfg.Webhook.Port` and `cfg.Webhook.Path`
-  - REST webhooks handler is not wired into `kscore-server`
-  - Reference: `docs/content/en/docs/reference/api.md`, `cmd/kscore-server/main.go`, `internal/gitops/webhook/receiver.go`
-
-- [ ] **Rate limiting documentation does not match code**
-  - Resolution: code
-  - Docs: per-API-key request limits and `X-RateLimit-*` headers
-  - Code: auth failure lockout for gRPC only (no HTTP rate limit headers)
-  - Reference: `docs/content/en/docs/reference/api.md`, `pkg/api/auth/ratelimit.go`
-
-- [ ] **API rate_limit config is documented but not wired**
-  - Resolution: code
-  - Config docs define `api.rate_limit` settings
-  - No server middleware uses `internal/ratelimit` or these settings
-  - Update docs or implement HTTP/gRPC rate limiting
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/ratelimit/*`, `cmd/kscore-server/main.go`
-
-- [ ] **API CORS config is documented but not applied**
-  - Resolution: code
-  - Config docs define `api.cors` settings
-  - No CORS handling in `kscore-server` HTTP mux
-  - Update docs or add CORS middleware
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/config/config.go`, `cmd/kscore-server/main.go`
-
-- [ ] **API TLS settings are documented but not wired into server**
-  - Resolution: code
-  - Config docs show API TLS fields (`cert_file`, `key_file`, `ca_file`, `min_version`)
-  - gRPC/HTTP servers start without TLS configuration
-  - Update docs or implement TLS for API listeners
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `cmd/kscore-server/main.go`
-
-- [ ] **Metrics config is documented but not wired into control plane**
-  - Resolution: code
-  - Config docs define `metrics` section for server
-  - `kscore-server` does not read/apply metrics config or expose `/metrics`
-  - Update docs or implement metrics configuration wiring
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/config/config.go`, `cmd/kscore-server/main.go`
-
-- [ ] **Tracing config is documented but not wired into control plane**
-  - Resolution: code
-  - Config docs define `tracing` section
-  - No tracing initialization in `kscore-server`
-  - Update docs or implement tracing wiring
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/config/config.go`, `cmd/kscore-server/main.go`
-
-- [ ] **Health config is documented but not wired into control plane**
-  - Resolution: code
-  - Config docs define `health` settings
-  - `kscore-server` health endpoints do not use config
-  - Update docs or wire health config
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/config/config.go`, `cmd/kscore-server/main.go`
-
-- [ ] **Health endpoint responses do not match docs**
-  - Resolution: code
-  - `/health/ready` checks NATS only; docs say NATS + database
-  - `/health/status` returns agent counts; docs show component health and uptime
-  - Update docs or expand health handlers
-  - Reference: `docs/content/en/docs/operations/monitoring.md`, `cmd/kscore-server/main.go`
-
-- [ ] **Pagination section in API docs conflicts with implementation**
-  - Resolution: code
-  - Docs claim cursor-based pagination for list endpoints
-  - REST handlers use `limit`/`offset`; gRPC uses `page_token`/`page_size`
-  - Reference: `docs/content/en/docs/reference/api.md`, `pkg/api/*/handlers.go`, `pkg/api/server/controlplane_server.go`
-
-- [ ] **REST API error response format differs from docs**
-  - Resolution: code
-  - Docs show `{error, message, details}` schema
-  - REST handlers return `{"error": "<message>"}` only
-  - Reference: `docs/content/en/docs/reference/api.md`, `pkg/api/*/handlers.go`
-
-- [ ] **REST auth model in docs does not match implementation**
-  - Resolution: code
-  - Docs show API key/JWT auth for REST endpoints
-  - HTTP server has no REST auth middleware; only gRPC interceptors are wired
-  - Reference: `docs/content/en/docs/reference/api.md`, `cmd/kscore-server/main.go`, `pkg/api/auth/*`
-
-- [ ] **gRPC package names in API docs do not match proto**
-  - Resolution: everything is v1
-  - Docs use `package kscore.api.v1`/`v2`
-  - Protos use `package keystone.core.v1`
-  - Reference: `docs/content/en/docs/reference/api.md`, `api/proto/*.proto`
+- [x] **gRPC package names in API docs do not match proto**
+  - Resolution: already fixed
+  - Docs already show correct `package keystone.core.v1;` matching all 7 proto files
+  - No `kscore.api.v1` or `kscore.api.v2` references remain in docs
+  - Reference: `docs/content/en/docs/reference/api.md` line 2300
 
 - [ ] **gRPC services documented but not generated/implemented**
   - Resolution: code
@@ -1318,6 +1306,30 @@ These are CLI commands identified as worth implementing in a future epic:
   - Affected plugins need audit: `kscore-files` (`files`, `mirrors`, `cache`, `namespace`), and potentially others
   - Options: flatten plugin commands so top-level subcommands are directly accessible, or add aliases at the root level
   - Reference: `cmd/kscore-files/main.go`, `pkg/plugin/`
+
+- [ ] **Wire remaining REST API handlers into kscore-server**
+  - Resolution: code
+  - 8 handler packages have `RegisterRoutes()` but are NOT called in `cmd/kscore-server/main.go`
+  - **Cluster**: `pkg/api/cluster` — needs etcd coordinator dependency
+  - **Events**: `pkg/api/events` — needs event store dependency
+  - **Webhooks**: `pkg/api/webhooks` — needs webhook receiver dependency
+  - **Mirrors**: `internal/files/mirror` — needs mirror manager dependency
+  - **Discovery**: `internal/proxy/discovery` — needs discovery engine dependency
+  - **Policy**: `pkg/api/policy` — needs policy engine dependency
+  - **GitOps**: `pkg/api/gitops` — needs gitops verifier dependency
+  - **Runbook**: `pkg/api/runbook` — needs runbook store dependency
+  - Currently wired: agents, execution, state, maintenance, apikeys
+  - Reference: `cmd/kscore-server/main.go`, `pkg/api/*/handlers.go`, `internal/files/mirror/api.go`, `internal/proxy/discovery/api.go`
+
+- [ ] **Implement outbound webhook subscriptions**
+  - Resolution: code
+  - Currently only inbound webhooks (receiving from ArgoCD/GitHub/etc.) are supported
+  - Implement outbound webhooks to send events to external systems:
+    - CRUD endpoints for webhook subscriptions (url, events filter, secret)
+    - Webhook dispatcher to deliver events to configured endpoints
+    - HMAC signature generation for outbound payloads
+    - Delivery tracking and retry logic
+  - Reference: `pkg/api/webhooks/handlers.go`, `internal/gitops/webhook/`
 
 ---
 

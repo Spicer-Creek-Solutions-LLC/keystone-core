@@ -256,8 +256,11 @@ func TestWriteError(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	if result["error"] != "verification not found" {
-		t.Errorf("result[error] = %v", result["error"])
+	if result["error"] != "not_found" {
+		t.Errorf("result[error] = %v, want not_found", result["error"])
+	}
+	if result["message"] != "verification not found" {
+		t.Errorf("result[message] = %v, want verification not found", result["message"])
 	}
 }
 

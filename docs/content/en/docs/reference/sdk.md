@@ -489,48 +489,54 @@ For real-time events, implement Server-Sent Events (SSE) or gRPC streaming:
 import json
 import requests
 
-class EventStream:
-    def __init__(self, client, filter: str = None):
+class EventPoller:
+    """Poll for new events using the REST API."""
+
+    def __init__(self, client, event_type: str = None, interval: float = 5.0):
         self.client = client
-        self.filter = filter
+        self.event_type = event_type
+        self.interval = interval
+        self.last_id = None
 
-    def __iter__(self):
-        url = f"{self.client.base_url}/api/v1/events/stream"
-        params = {"filter": self.filter} if self.filter else {}
+    def poll(self):
+        """Fetch new events since last poll."""
+        params = {}
+        if self.event_type:
+            params["type"] = self.event_type
+        if self.last_id:
+            params["after"] = self.last_id
 
-        with requests.get(
-            url,
+        response = requests.get(
+            f"{self.client.base_url}/api/v1/events",
             params=params,
             headers=self.client.auth.headers(),
-            stream=True
-        ) as response:
-            for line in response.iter_lines():
-                if line:
-                    line = line.decode("utf-8")
-                    if line.startswith("data: "):
-                        data = json.loads(line[6:])
-                        yield Event(**data)
+        )
+        events = response.json().get("events", [])
+        if events:
+            self.last_id = events[-1]["id"]
+        return [Event(**e) for e in events]
 
 # Usage
-for event in client.events.stream(filter="type =~ 'agent.*'"):
+poller = EventPoller(client, event_type="agent.*")
+for event in poller.poll():
     print(f"Event: {event.type} from {event.source}")
 ```
 
-**gRPC Streaming**:
+**gRPC Streaming** (using ControlPlaneService — the generated stubs):
 
 ```python
 import grpc
+from kscore.proto import controlplane_pb2, controlplane_pb2_grpc
 
 class EventStreamGrpc:
     def __init__(self, channel, filter: str = None):
-        self.stub = event_service_pb2_grpc.EventServiceStub(channel)
+        self.stub = controlplane_pb2_grpc.ControlPlaneServiceStub(channel)
         self.filter = filter
 
-    def __iter__(self):
-        request = event_service_pb2.SubscribeEventsRequest(
+    def subscribe(self):
+        request = controlplane_pb2.SubscribeEventsRequest(
             filter=self.filter or ""
         )
-
         for event in self.stub.SubscribeEvents(request):
             yield Event.from_proto(event)
 ```
@@ -542,54 +548,35 @@ Generate gRPC clients from Keystone proto files:
 **Protocol Buffer Location**:
 
 ```
-proto/
-├── agent_service.proto
-├── event_service.proto
-├── execution_service.proto
-├── state_service.proto
-├── policy_service.proto
-└── cluster_service.proto
+api/proto/
+├── agent.proto          # AgentService (stubs generated)
+├── controlplane.proto   # ControlPlaneService (stubs generated)
+├── coordination.proto   # CoordinationService (stubs generated)
+├── event.proto          # EventService (proto defined, stubs not yet generated)
+├── state.proto          # StateService (proto defined, stubs not yet generated)
+├── policy.proto         # PolicyService (proto defined, stubs not yet generated)
+└── cluster.proto        # ClusterService (proto defined, stubs not yet generated)
 ```
+
+> **Note**: Go stubs are pre-generated in `pkg/api/v1/` for AgentService, ControlPlaneService,
+> and CoordinationService. Event, State, Policy, and Cluster stubs will be generated in a future release.
 
 **Generation Commands**:
 
 ```bash
-# Python
+# Python (generates stubs for all proto files)
 python -m grpc_tools.protoc \
-  -I./proto \
+  -I./api/proto \
   --python_out=./sdk/python/kscore/proto \
   --grpc_python_out=./sdk/python/kscore/proto \
-  proto/*.proto
+  api/proto/*.proto
 
-# TypeScript/JavaScript
-npx grpc_tools_node_protoc \
-  --proto_path=./proto \
-  --js_out=import_style=commonjs,binary:./sdk/js/src/proto \
-  --grpc_out=grpc_js:./sdk/js/src/proto \
-  --ts_out=grpc_js:./sdk/js/src/proto \
-  proto/*.proto
-
-# Java
+# Go (already generated in pkg/api/v1/ for core services)
 protoc \
-  -I./proto \
-  --java_out=./sdk/java/src/main/java \
-  --grpc-java_out=./sdk/java/src/main/java \
-  proto/*.proto
-
-# Ruby
-grpc_tools_ruby_protoc \
-  -I./proto \
-  --ruby_out=./sdk/ruby/lib/kscore/proto \
-  --grpc_out=./sdk/ruby/lib/kscore/proto \
-  proto/*.proto
-
-# C#
-protoc \
-  -I./proto \
-  --csharp_out=./sdk/csharp/Kscore/Proto \
-  --grpc_out=./sdk/csharp/Kscore/Proto \
-  --plugin=protoc-gen-grpc=grpc_csharp_plugin \
-  proto/*.proto
+  -I./api/proto \
+  --go_out=./pkg/api/v1 --go_opt=paths=source_relative \
+  --go-grpc_out=./pkg/api/v1 --go-grpc_opt=paths=source_relative \
+  api/proto/*.proto
 ```
 
 ### Request/Response Patterns

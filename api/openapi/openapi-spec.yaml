@@ -44,20 +44,28 @@ servers:
 tags:
   - name: Health
     description: Health check and status endpoints
-  - name: Cluster
-    description: Cluster management operations
   - name: Agents
-    description: Agent management and visualization
+    description: Agent management
+  - name: Execution
+    description: Remote command execution and job tracking
+  - name: State
+    description: State management (apply, check, drift detection)
+  - name: Maintenance
+    description: Maintenance mode management
+  - name: API Keys
+    description: API key management
+  - name: Cluster
+    description: Cluster management operations (handler not yet wired into kscore-server)
   - name: Events
-    description: Event ingestion and processing
+    description: Event ingestion and querying (handler not yet wired into kscore-server)
   - name: Mirrors
-    description: File mirror management
+    description: File mirror management (handler not yet wired into kscore-server)
   - name: Discovery
-    description: Proxy device discovery
-  - name: Gateway
-    description: Telemetry gateway operations
+    description: Proxy device discovery (handler not yet wired into kscore-server)
   - name: Webhooks
-    description: GitOps webhook receivers
+    description: GitOps webhook receivers (handler not yet wired into kscore-server)
+  - name: Gateway
+    description: Telemetry gateway operations (served by kscore-telemetry-gateway)
 
 security:
   - bearerAuth: []
@@ -153,14 +161,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   # ============================================
-  # Cluster Management
+  # Cluster Management (handler not yet wired into kscore-server)
   # ============================================
   /api/v1/cluster/status:
     get:
       tags:
         - Cluster
       summary: Get cluster status
-      description: Returns current cluster status including member count and health.
+      description: |
+        Returns current cluster status including member count and health.
+        Note: Handler exists but is not yet wired into kscore-server.
       operationId: getClusterStatus
       responses:
         '200':
@@ -365,14 +375,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   # ============================================
-  # Agent Visualization
+  # Agents
   # ============================================
-  /api/agents:
+  /api/v1/agents:
     get:
       tags:
         - Agents
       summary: List agents
-      description: Returns a list of all registered agents with their current status.
+      description: |
+        Returns a list of all registered agents with their current status.
+        Supports filtering by status and labels, and sorting.
       operationId: listAgents
       parameters:
         - name: status
@@ -381,18 +393,16 @@ paths:
           schema:
             type: string
             enum: [connected, disconnected, unknown]
-        - name: environment
+        - name: labels
           in: query
-          description: Filter by environment
+          description: Filter by labels (key=value format)
           schema:
             type: string
-        - name: role
+        - name: sort
           in: query
-          description: Filter by role
+          description: Sort field
           schema:
             type: string
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
       responses:
         '200':
           description: List of agents
@@ -403,7 +413,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/agents/{id}:
+  /api/v1/agents/{id}:
     get:
       tags:
         - Agents
@@ -429,51 +439,451 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/topology:
-    get:
+  # ============================================
+  # Execution
+  # ============================================
+  /api/v1/exec:
+    post:
       tags:
-        - Agents
-      summary: Get cluster topology
-      description: Returns the cluster topology for visualization.
-      operationId: getTopology
+        - Execution
+      summary: Execute command
+      description: |
+        Executes a command on one or more target agents. Supports synchronous
+        execution (waits for results) and async mode (returns job ID immediately).
+      operationId: executeCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequest'
       responses:
         '200':
-          description: Topology data
+          description: Execution result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Topology'
+                $ref: '#/components/schemas/ExecuteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/graph:
+  /api/v1/jobs:
     get:
       tags:
-        - Agents
-      summary: Get graph visualization data
-      description: Returns graph data suitable for D3.js or similar visualization libraries.
-      operationId: getGraphData
+        - Execution
+      summary: List jobs
+      description: Returns a paginated list of command execution jobs.
+      operationId: listJobs
+      parameters:
+        - name: agent_id
+          in: query
+          description: Filter by agent ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by job status
+          schema:
+            type: string
+            enum: [pending, running, success, failed, timeout, cancelled]
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+        - name: order
+          in: query
+          description: Sort order (asc or desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
       responses:
         '200':
-          description: Graph data
+          description: List of jobs
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GraphData'
+                $ref: '#/components/schemas/JobListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/jobs/{id}:
+    get:
+      tags:
+        - Execution
+      summary: Get job details
+      description: Returns detailed information about a specific job.
+      operationId: getJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # State Management
+  # ============================================
+  /api/v1/state/apply:
+    post:
+      tags:
+        - State
+      summary: Apply state
+      description: |
+        Applies a declarative state definition. Supports dry-run mode to preview
+        changes without applying them.
+      operationId: applyState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Apply result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/state/check:
+    post:
+      tags:
+        - State
+      summary: Validate state
+      description: Validates a state definition without applying it.
+      operationId: checkState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/state/drift:
+    post:
+      tags:
+        - State
+      summary: Check drift
+      description: Checks for configuration drift against a state definition.
+      operationId: checkDrift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Drift report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriftResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============================================
+  # Maintenance Mode
+  # ============================================
+  /api/v1/maintenance/enable:
+    post:
+      tags:
+        - Maintenance
+      summary: Enable maintenance mode
+      description: Enables maintenance mode, queuing incoming commands.
+      operationId: enableMaintenance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceEnableRequest'
+      responses:
+        '200':
+          description: Maintenance enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  reason:
+                    type: string
+                  since:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Already in maintenance mode (use force=true to override)
+
+  /api/v1/maintenance/disable:
+    post:
+      tags:
+        - Maintenance
+      summary: Disable maintenance mode
+      description: Disables maintenance mode and releases queued commands.
+      operationId: disableMaintenance
+      responses:
+        '200':
+          description: Maintenance disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  disabled_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Maintenance mode is not enabled
+
+  /api/v1/maintenance/status:
+    get:
+      tags:
+        - Maintenance
+      summary: Get maintenance status
+      description: Returns current maintenance mode status.
+      operationId: getMaintenanceStatus
+      responses:
+        '200':
+          description: Maintenance status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/maintenance/queue:
+    get:
+      tags:
+        - Maintenance
+      summary: Get maintenance queue
+      description: Returns commands queued during maintenance mode.
+      operationId: getMaintenanceQueue
+      responses:
+        '200':
+          description: Queued commands
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceQueue'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/maintenance/cleanup:
+    post:
+      tags:
+        - Maintenance
+      summary: Cleanup maintenance data
+      description: Cleans up old maintenance records.
+      operationId: cleanupMaintenance
+      parameters:
+        - name: older_than
+          in: query
+          description: Delete records older than this duration
+          schema:
+            type: string
+        - name: dry_run
+          in: query
+          description: Preview cleanup without deleting
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Cleanup result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dry_run:
+                    type: boolean
+                  older_than:
+                    type: string
+                  deleted:
+                    type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   # ============================================
-  # Events
+  # API Keys
   # ============================================
-  /events:
+  /api/v1/api-keys:
+    get:
+      tags:
+        - API Keys
+      summary: List API keys
+      description: Returns all configured API keys (keys are not returned, only metadata).
+      operationId: listAPIKeys
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APIKeyEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - API Keys
+      summary: Create API key
+      description: Creates a new API key. The key value is only returned once.
+      operationId: createAPIKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyRequest'
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAPIKeyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/api-keys/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Revoke API key
+      description: Revokes (deletes) an API key.
+      operationId: revokeAPIKey
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: API key ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  revoked:
+                    type: boolean
+                  revoked_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # Events (handler not yet wired into kscore-server)
+  # ============================================
+  /api/v1/events:
+    get:
+      tags:
+        - Events
+      summary: List events
+      description: |
+        Returns a list of events with optional filtering.
+        Note: Handler exists but is not yet wired into kscore-server.
+      operationId: listEvents
+      parameters:
+        - name: type
+          in: query
+          description: Filter by event type
+          schema:
+            type: string
+        - name: source
+          in: query
+          description: Filter by event source
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Return events since this time (RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       tags:
         - Events
       summary: Submit event
       description: |
-        Submit a single event for processing. Supports both CloudEvents format
-        and native JSON format.
+        Submit an event for processing.
+        Note: Handler exists but is not yet wired into kscore-server.
       operationId: submitEvent
       requestBody:
         required: true
@@ -481,9 +891,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Event'
-          application/cloudevents+json:
-            schema:
-              $ref: '#/components/schemas/CloudEvent'
       responses:
         '202':
           description: Event accepted
@@ -495,41 +902,37 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
 
-  /events/batch:
-    post:
+  /api/v1/events/{id}:
+    get:
       tags:
         - Events
-      summary: Submit batch events
-      description: Submit multiple events in a single request.
-      operationId: submitBatchEvents
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/Event'
-              maxItems: 1000
+      summary: Get event
+      description: |
+        Returns a specific event by ID.
+        Note: Handler exists but is not yet wired into kscore-server.
+      operationId: getEvent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Event ID
+          schema:
+            type: string
       responses:
-        '202':
-          description: Events accepted
+        '200':
+          description: Event details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BatchEventResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: '#/components/schemas/Event'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   # ============================================
-  # File Mirrors
+  # File Mirrors (handler not yet wired into kscore-server)
   # ============================================
   /api/v1/mirrors:
     get:
@@ -777,7 +1180,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   # ============================================
-  # Proxy Device Discovery
+  # Proxy Device Discovery (handler not yet wired into kscore-server)
   # ============================================
   /api/v1/discovery/scan:
     post:
@@ -996,7 +1399,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   # ============================================
-  # Telemetry Gateway
+  # Telemetry Gateway (served by kscore-telemetry-gateway, not kscore-server)
   # ============================================
   /metrics:
     get:
@@ -1059,16 +1462,17 @@ paths:
                 $ref: '#/components/schemas/GatewayHealth'
 
   # ============================================
-  # Webhooks
+  # Webhooks (handler not yet wired into kscore-server)
   # ============================================
-  /webhooks:
+  /api/v1/webhooks:
     post:
       tags:
         - Webhooks
       summary: Receive webhook
       description: |
-        Receives webhooks from GitOps tools (ArgoCD, Flux, GitHub, GitLab).
+        Receives inbound webhooks from GitOps tools (ArgoCD, Flux, GitHub, GitLab).
         The source is auto-detected from headers.
+        Note: Handler exists but is not yet wired into kscore-server.
       operationId: receiveWebhook
       parameters:
         - name: X-GitHub-Event
@@ -1118,12 +1522,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /webhooks/stats:
+  /api/v1/webhooks/stats:
     get:
       tags:
         - Webhooks
       summary: Webhook statistics
-      description: Returns webhook receiver statistics.
+      description: |
+        Returns webhook receiver statistics.
+        Note: Handler exists but is not yet wired into kscore-server.
       operationId: getWebhookStats
       responses:
         '200':
@@ -1132,6 +1538,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/webhooks/config:
+    get:
+      tags:
+        - Webhooks
+      summary: Webhook configuration
+      description: |
+        Returns current webhook receiver configuration.
+        Note: Handler exists but is not yet wired into kscore-server.
+      operationId: getWebhookConfig
+      responses:
+        '200':
+          description: Webhook configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1398,33 +1823,41 @@ components:
           type: string
         hostname:
           type: string
-        environment:
-          type: string
-        roles:
-          type: array
-          items:
-            type: string
-        status:
-          type: string
-          enum: [connected, disconnected, unknown]
-        version:
-          type: string
         os:
           type: string
         arch:
           type: string
-        ipAddress:
+        agent_version:
           type: string
-        lastSeen:
+        platform_version:
           type: string
-          format: date-time
-        registeredAt:
+        status:
           type: string
-          format: date-time
+          enum: [connected, disconnected, unknown]
         labels:
           type: object
           additionalProperties:
             type: string
+        ip_addresses:
+          type: array
+          items:
+            type: string
+        ipv4_addresses:
+          type: array
+          items:
+            type: string
+        ipv6_addresses:
+          type: array
+          items:
+            type: string
+        is_dual_stack:
+          type: boolean
+        registered_at:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
 
     AgentList:
       type: object
@@ -1435,86 +1868,413 @@ components:
             $ref: '#/components/schemas/Agent'
         total:
           type: integer
+        online:
+          type: integer
+        offline:
+          type: integer
+        retrieved_at:
+          type: string
+          format: date-time
+
+    ExecuteRequest:
+      type: object
+      required:
+        - command
+      properties:
+        targets:
+          type: array
+          items:
+            type: string
+          description: Target agent IDs
+        target:
+          type: string
+          description: Single target agent ID or expression
+        command:
+          type: string
+          description: Command to execute
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        working_dir:
+          type: string
+        user:
+          type: string
+        shell:
+          type: string
+        timeout:
+          type: integer
+          description: Timeout in seconds (default 60)
+        async:
+          type: boolean
+          description: Run asynchronously (return job ID immediately)
+
+    ExecuteResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, dispatched, completed, failed]
+        targets:
+          type: array
+          items:
+            type: string
+        results:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ExecResult'
+        created_at:
+          type: string
+          format: date-time
+
+    ExecResult:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        status:
+          type: string
+        exit_code:
+          type: integer
+        stdout:
+          type: string
+        stderr:
+          type: string
+        error:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+
+    JobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        agent_id:
+          type: string
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, running, success, failed, timeout, cancelled]
+        exit_code:
+          type: integer
+        stdout:
+          type: string
+        stderr:
+          type: string
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobResponse'
+        total:
+          type: integer
         limit:
           type: integer
         offset:
           type: integer
+        retrieved_at:
+          type: string
+          format: date-time
 
-    Topology:
+    StateRequest:
       type: object
       properties:
-        clusters:
+        content:
+          type: string
+          description: State file content (YAML)
+        path:
+          type: string
+          description: State file path (local on server)
+        vars:
+          type: object
+          description: Variables to pass to templates
+        dry_run:
+          type: boolean
+          description: Preview changes without applying
+        targets:
           type: array
           items:
-            $ref: '#/components/schemas/TopologyCluster'
-        edges:
-          type: array
-          items:
-            $ref: '#/components/schemas/TopologyEdge'
+            type: string
+          description: Target specific states by ID
 
-    TopologyCluster:
+    ApplyResponse:
+      type: object
+      properties:
+        run_id:
+          type: string
+        status:
+          type: string
+          enum: [success, changed, failed, unknown]
+        summary:
+          $ref: '#/components/schemas/StateSummary'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateResult'
+        started_at:
+          type: string
+          format: date-time
+        duration:
+          type: string
+        dry_run:
+          type: boolean
+
+    StateSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        changed:
+          type: integer
+        unchanged:
+          type: integer
+        skipped:
+          type: integer
+
+    StateResult:
+      type: object
+      properties:
+        id:
+          type: string
+        module:
+          type: string
+        status:
+          type: string
+          enum: [success, failed]
+        changed:
+          type: boolean
+        comment:
+          type: string
+        error:
+          type: string
+        duration:
+          type: string
+
+    CheckResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        states:
+          type: integer
+        modules:
+          type: array
+          items:
+            type: string
+
+    ValidationError:
+      type: object
+      properties:
+        state_id:
+          type: string
+        field:
+          type: string
+        message:
+          type: string
+        line:
+          type: integer
+
+    DriftResponse:
+      type: object
+      properties:
+        run_id:
+          type: string
+        has_drift:
+          type: boolean
+        summary:
+          $ref: '#/components/schemas/DriftSummary'
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriftState'
+        checked_at:
+          type: string
+          format: date-time
+        duration:
+          type: string
+
+    DriftSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        no_drift:
+          type: integer
+        low:
+          type: integer
+        medium:
+          type: integer
+        high:
+          type: integer
+        critical:
+          type: integer
+
+    DriftState:
+      type: object
+      properties:
+        state_id:
+          type: string
+        module:
+          type: string
+        has_drift:
+          type: boolean
+        severity:
+          type: string
+          enum: [none, low, medium, high, critical]
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriftDiff'
+
+    DriftDiff:
+      type: object
+      properties:
+        path:
+          type: string
+        expected:
+          description: Expected value
+        actual:
+          description: Actual value
+        severity:
+          type: string
+        message:
+          type: string
+
+    MaintenanceEnableRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        duration:
+          type: string
+          description: Duration string (e.g., "1h", "30m")
+        force:
+          type: boolean
+          default: false
+
+    MaintenanceStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        reason:
+          type: string
+        since:
+          type: string
+          format: date-time
+        duration:
+          type: string
+        enabled_by:
+          type: string
+
+    MaintenanceQueue:
+      type: object
+      properties:
+        queued_commands:
+          type: integer
+        commands:
+          type: array
+          items:
+            type: object
+
+    CreateAPIKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, operator, readonly]
+          default: readonly
+        expires_in:
+          type: string
+          description: Expiration duration (e.g., "30d", "1y", "365d")
+          default: "365d"
+
+    CreateAPIKeyResponse:
       type: object
       properties:
         id:
           type: string
         name:
           type: string
-        type:
+        key:
           type: string
-          enum: [control-plane, agent-cluster, datacenter]
-        members:
-          type: array
-          items:
-            type: string
+          description: API key value (only returned once at creation)
+        role:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
 
-    TopologyEdge:
-      type: object
-      properties:
-        source:
-          type: string
-        target:
-          type: string
-        type:
-          type: string
-          enum: [control, data, mesh]
-
-    GraphData:
-      type: object
-      properties:
-        nodes:
-          type: array
-          items:
-            $ref: '#/components/schemas/GraphNode'
-        links:
-          type: array
-          items:
-            $ref: '#/components/schemas/GraphLink'
-
-    GraphNode:
+    APIKeyEntry:
       type: object
       properties:
         id:
           type: string
-        label:
+        name:
           type: string
-        type:
+        role:
           type: string
-        group:
+        created_at:
           type: string
-        metadata:
-          type: object
-
-    GraphLink:
-      type: object
-      properties:
-        source:
+          format: date-time
+        expires_at:
           type: string
-        target:
+          format: date-time
+        last_used:
           type: string
-        type:
-          type: string
-        weight:
-          type: number
+          format: date-time
 
     Event:
       type: object
@@ -1542,35 +2302,6 @@ components:
           type: object
           description: Event payload
 
-    CloudEvent:
-      type: object
-      description: CloudEvents 1.0 format
-      required:
-        - specversion
-        - type
-        - source
-        - id
-      properties:
-        specversion:
-          type: string
-          enum: ['1.0']
-        type:
-          type: string
-        source:
-          type: string
-          format: uri-reference
-        id:
-          type: string
-        subject:
-          type: string
-        time:
-          type: string
-          format: date-time
-        datacontenttype:
-          type: string
-        data:
-          type: object
-
     EventResponse:
       type: object
       properties:
@@ -1580,23 +2311,6 @@ components:
         status:
           type: string
           enum: [accepted, queued]
-
-    BatchEventResponse:
-      type: object
-      properties:
-        accepted:
-          type: integer
-        rejected:
-          type: integer
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              index:
-                type: integer
-              error:
-                type: string
 
     MirrorGroup:
       type: object
@@ -1995,3 +2709,15 @@ components:
         lastReceived:
           type: string
           format: date-time
+
+    WebhookConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        sources:
+          type: array
+          items:
+            type: string
+        secretConfigured:
+          type: boolean

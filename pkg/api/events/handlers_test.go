@@ -193,8 +193,11 @@ func TestWriteError(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	if result["error"] != "event not found" {
-		t.Errorf("result[error] = %v", result["error"])
+	if result["error"] != "not_found" {
+		t.Errorf("result[error] = %v, want not_found", result["error"])
+	}
+	if result["message"] != "event not found" {
+		t.Errorf("result[message] = %v, want event not found", result["message"])
 	}
 }
 
