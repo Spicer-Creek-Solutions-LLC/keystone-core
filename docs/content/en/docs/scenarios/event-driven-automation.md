@@ -550,14 +550,14 @@ actions:
 
 ```bash
 # Emit deployment started event
-kscorectl event emit deployment.started \
+kscorectl events emit deployment.started \
   --data app=webapp \
   --data version=1.5.0 \
   --data environment=production \
   --data deployer=ci-system
 
 # Emit scale request
-kscorectl event emit scale.request \
+kscorectl events emit scale.request \
   --data service=webapp \
   --data direction=up \
   --data count=2 \
@@ -570,27 +570,24 @@ kscorectl event emit scale.request \
 # Watch all events
 kscorectl events watch
 
-# Filter events
-kscorectl events watch --filter "type:deployment.*"
+# Filter events by type
+kscorectl events watch --type "deployment.*"
 
 # Output as JSON for processing
-kscorectl events watch --format json | jq '.data'
+kscorectl events watch --type "deployment.*" --format json | jq '.data'
 ```
 
-### Manage Reactors
+### Monitor Reactor Activity
 
 ```bash
-# List reactors
-kscorectl reactors list
+# View reactor execution events
+kscorectl events list --type "reactor.*"
 
-# View reactor status
-kscorectl reactor status self-healing
+# View executions for a specific reactor
+kscorectl events list --type "reactor.executed" --source self-healing
 
-# Disable reactor temporarily
-kscorectl reactor disable self-healing --duration 1h --reason "Maintenance window"
-
-# View reactor execution history
-kscorectl reactor history self-healing --limit 50
+# Watch reactor triggers in real time
+kscorectl events watch --type "reactor.*"
 ```
 
 ## Verification
@@ -598,43 +595,24 @@ kscorectl reactor history self-healing --limit 50
 ### Test Reactor Triggers
 
 ```bash
-# Simulate event to test reactor
-kscorectl reactor test self-healing \
-  --event-type agent.service.failed \
+# Simulate an event to trigger a reactor and observe the result
+kscorectl events emit agent.service.failed \
   --data agent_id=web-01 \
   --data service=nginx \
-  --data restart_count=0 \
-  --dry-run
+  --data restart_count=0
 
-# Output:
-# Reactor: self-healing (service-restart)
-# Trigger: MATCHED
-# Actions that would execute:
-#   1. restart_service: systemctl restart nginx
-#   2. wait_for_healthy: systemctl is-active nginx
-#   3. emit_success (conditional)
+# Watch for the reactor execution result
+kscorectl events watch --type "reactor.executed" --source self-healing
 ```
 
 ### Check Event Flow
 
 ```bash
-# View event routing
-kscorectl events trace --event-id evt-abc123
+# Trace event processing via correlation ID
+kscorectl events list --correlation-id evt-abc123
 
-# Output:
-# Event: evt-abc123 (agent.service.failed)
-# Received: 2024-01-15T10:30:00Z
-#
-# Routing:
-#   → Reactor: self-healing (matched)
-#   → Reactor: notification (matched)
-#   → Reactor: logging (matched)
-#
-# Execution:
-#   self-healing:
-#     Status: completed
-#     Duration: 45s
-#     Actions: 3/3 successful
+# View related reactor executions
+kscorectl events list --type "reactor.executed" --correlation-id evt-abc123
 ```
 
 ## Troubleshooting
@@ -642,27 +620,24 @@ kscorectl events trace --event-id evt-abc123
 ### Reactor Not Triggering
 
 ```bash
-# Check reactor filter
-kscorectl reactor debug self-healing --filter
-
-# Test filter against event
+# Test policy filter against event data
 kscorectl policy test \
   --filter "event.data.restart_count < 3" \
   --input '{"restart_count": 2}'
 
-# Check rate limits
-kscorectl reactor rate-limit-status self-healing
+# Check for recent reactor events (verify reactor is active)
+kscorectl events list --type "reactor.*" --source self-healing --since 1h
 ```
 
 ### Event Delivery Issues
 
 ```bash
-# Check event queue status
-kscorectl events queue-status
+# Check event storage status
+kscorectl events storage-stats
 
 # Check dead letter queue
 kscorectl events dlq list
 
-# Replay failed events
-kscorectl events dlq replay --event-id evt-xyz789
+# Retry failed events
+kscorectl events dlq retry --event-id evt-xyz789
 ```

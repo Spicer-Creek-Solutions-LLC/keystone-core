@@ -200,8 +200,8 @@ workflows:
           type: command
           target: "role:control-plane"
           command: |
-            kscorectl environment status --env dev --format json | \
-            jq -e '.healthy == true'
+            kscorectl agents list --labels "env=dev" --format json | \
+            jq -e '.[] | .status == "healthy"'
 
       - name: run_tests
         description: Run integration tests against staging
@@ -407,7 +407,7 @@ actions:
       {{ .actions.compare_staging_prod.stdout }}
       ```
 
-      Run `kscorectl environment sync --from staging --to production` to remediate.
+      Run `kscorectl state apply production.yaml --target "env:production"` to remediate.
 ```
 
 ## Usage Examples
@@ -415,74 +415,51 @@ actions:
 ### Promote to Staging
 
 ```bash
-# Request promotion
-kscorectl promote \
+# Request promotion via gitops pipeline
+kscorectl gitops promote \
+  --pipeline webapp \
   --from dev \
   --to staging \
-  --state states/webapp/webapp.yaml \
-  --version 1.5.0
+  --revision 1.5.0
 
 # Output:
 # Promotion request created: promo-abc123
 # Status: running
-#
-# Steps:
-#   ✓ validate_source: dev environment healthy
-#   ● run_tests: running integration tests...
 ```
 
 ### Promote to Production
 
 ```bash
-# Request production promotion
-kscorectl promote \
+# Request production promotion (may require approval)
+kscorectl gitops promote \
+  --pipeline webapp \
   --from staging \
   --to production \
-  --state states/webapp/webapp.yaml \
-  --version 1.5.0
+  --revision 1.5.0
 
 # Output:
 # Promotion request created: promo-def456
 # Status: pending_approval
-#
-# Approval requested from: sre-team, release-managers
-# Approval link: https://kscore.example.com/approvals/promo-def456
 ```
 
 ### Check Environment Status
 
 ```bash
-# Compare environments
-kscorectl environment compare --env1 staging --env2 production
+# Compare state declarations between environments
+kscorectl state diff staging.yaml production.yaml
 
-# Output:
-# Environment Comparison: staging vs production
-#
-# Configuration Differences:
-#   webapp:
-#     parameters.replicas: 1 -> 3
-#     parameters.resources.memory: 1Gi -> 2Gi
-#
-# Version Differences:
-#   webapp: 1.5.0 (staging) vs 1.4.2 (production)
-#
-# Drift Status: EXPECTED (environment-specific)
+# Check current state on production targets
+kscorectl state check production.yaml --target "env:production"
 ```
 
-### Sync Environments
+### Apply to Environments
 
 ```bash
-# Sync configuration from staging to production
-kscorectl environment sync \
-  --from staging \
-  --to production \
-  --dry-run
+# Dry-run state application to production
+kscorectl state apply production.yaml --target "env:production" --dry-run
 
-# Apply sync
-kscorectl environment sync \
-  --from staging \
-  --to production \
-  --approval-required
+# Apply state to production
+kscorectl state apply production.yaml --target "env:production"
 ```
 
 ## Verification
@@ -490,33 +467,18 @@ kscorectl environment sync \
 ### Check Promotion Status
 
 ```bash
-# List recent promotions
-kscorectl promote list --last 7d
-
-# Get promotion details
-kscorectl promote status promo-abc123
+# Check gitops pipeline status
+kscorectl gitops status
 ```
 
 ### Verify Environment Health
 
 ```bash
-# Check environment health
-kscorectl environment status --env production
+# Check agent health for production environment
+kscorectl agents list --labels "env=production"
 
-# Output:
-# Environment: production
-# Status: healthy
-#
-# Agents:
-#   Total: 15
-#   Connected: 15
-#   Healthy: 15
-#
-# Deployments:
-#   webapp: v1.5.0 (deployed 2024-01-15)
-#   api: v2.1.0 (deployed 2024-01-14)
-#
-# Last Promotion: 2024-01-15 10:30:00 (success)
+# Verify state compliance on production
+kscorectl state check production.yaml --target "env:production"
 ```
 
 ## Troubleshooting
@@ -525,25 +487,18 @@ kscorectl environment status --env production
 
 ```bash
 # Check pending approvals
-kscorectl approve list --pending
+kscorectl runbook approvals --mine
 
-# Check approval details
-kscorectl approve status promo-def456
-
-# Remind approvers
-kscorectl approve remind promo-def456
+# Approve a pending request
+kscorectl runbook approve <approval-id> --reason "Verified in staging"
 ```
 
 ### Canary Rollback
 
 ```bash
-# Check canary metrics
-kscorectl metrics query \
-  --query "rate(http_requests_total{canary='true',status=~'5..'}[5m])" \
-  --duration 30m
+# Check canary metrics via Prometheus
+curl -s 'http://prometheus:9090/api/v1/query?query=rate(http_requests_total{canary="true",status=~"5.."}[5m])'
 
-# Rollback canary
-kscorectl rollback \
-  --deployment promo-def456 \
-  --target "environment:production and role:canary"
+# Rollback via gitops
+kscorectl gitops rollback --app webapp --strategy canary
 ```

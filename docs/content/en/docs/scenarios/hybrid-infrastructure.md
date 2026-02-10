@@ -221,8 +221,8 @@ kscorectl agents list --group-by provider
 # vmware      30           30       30
 # bare_metal  10           10       10
 
-# Check cross-provider connectivity
-kscorectl connectivity test --from "provider:aws" --to "provider:gcp"
+# Verify agent connectivity across all providers
+kscorectl agents verify --all
 ```
 
 ## Troubleshooting
