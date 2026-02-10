@@ -40,6 +40,7 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"rewrap",
 		"template",
 		"cache",
+		"rotate-keys",
 	}
 
 	for _, expected := range expectedSubcommands {
@@ -1659,5 +1660,57 @@ func TestCacheEntryDisplay_JSON(t *testing.T) {
 
 	if decoded.Hits != 10 {
 		t.Errorf("Hits = %d, want 10", decoded.Hits)
+	}
+}
+
+// =============================================================================
+// Rotate Keys Command Tests
+// =============================================================================
+
+func TestNewRotateKeysCmd(t *testing.T) {
+	cmd := newRotateKeysCmd()
+	if cmd == nil {
+		t.Fatal("newRotateKeysCmd should not return nil")
+	}
+	if cmd.Use != "rotate-keys" {
+		t.Errorf("Use = %v, want rotate-keys", cmd.Use)
+	}
+
+	if cmd.Flags().Lookup("force") == nil {
+		t.Error("expected flag 'force' not found")
+	}
+}
+
+func TestRotateKeysForce(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"rotate-keys", "--force"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Encryption keys rotated") {
+		t.Errorf("expected rotation message, got: %s", output)
+	}
+}
+
+func TestRotateKeysHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"rotate-keys", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "encryption keys") {
+		t.Errorf("expected help text about encryption keys, got: %s", output)
 	}
 }

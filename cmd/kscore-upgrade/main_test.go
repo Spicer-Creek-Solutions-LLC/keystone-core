@@ -31,6 +31,8 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"rollback",
 		"history",
 		"logs",
+		"path",
+		"resume",
 		"version",
 	}
 
@@ -500,5 +502,137 @@ func TestComponentStatusStructure(t *testing.T) {
 	}
 	if !status.UpgradeNeeded {
 		t.Error("UpgradeNeeded should be true")
+	}
+}
+
+func TestNewPathCmd(t *testing.T) {
+	cfg := &Config{}
+	cmd := newPathCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newPathCmd should not return nil")
+	}
+	if cmd.Use != "path" {
+		t.Errorf("Use = %v, want path", cmd.Use)
+	}
+
+	flags := []string{"target", "from"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestNewResumeCmd(t *testing.T) {
+	cfg := &Config{}
+	cmd := newResumeCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newResumeCmd should not return nil")
+	}
+	if cmd.Use != "resume" {
+		t.Errorf("Use = %v, want resume", cmd.Use)
+	}
+
+	if cmd.Flags().Lookup("upgrade-id") == nil {
+		t.Error("expected flag 'upgrade-id' not found")
+	}
+}
+
+func TestCheckCmdFromFlag(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCheckCmd(cfg)
+
+	fromFlag := cmd.Flags().Lookup("from")
+	if fromFlag == nil {
+		t.Fatal("expected --from flag on check command")
+	}
+}
+
+func TestExecuteCmdNewFlags(t *testing.T) {
+	cfg := &Config{}
+	cmd := newExecuteCmd(cfg)
+
+	flags := []string{"backup-before", "auto-rollback"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found on execute command", flag)
+		}
+	}
+}
+
+func TestStatusCmdVerboseFlag(t *testing.T) {
+	cfg := &Config{}
+	cmd := newStatusCmd(cfg)
+
+	if cmd.Flags().Lookup("verbose") == nil {
+		t.Error("expected --verbose flag on status command")
+	}
+}
+
+func TestAgentsCmdNewFlags(t *testing.T) {
+	cfg := &Config{}
+	cmd := newAgentsCmd(cfg)
+
+	flags := []string{"status", "retry", "skip"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found on agents command", flag)
+		}
+	}
+}
+
+func TestUpgradePathStructure(t *testing.T) {
+	result := UpgradePathResult{
+		CurrentVersion: "1.3.0",
+		TargetVersion:  "2.0.0",
+		DirectUpgrade:  false,
+		Steps: []UpgradePath{
+			{FromVersion: "1.3.0", ToVersion: "1.4.0", Direct: true, Notes: "Patch upgrade"},
+			{FromVersion: "1.4.0", ToVersion: "1.5.0", Direct: true, Notes: "Patch upgrade"},
+		},
+	}
+
+	if result.DirectUpgrade {
+		t.Error("DirectUpgrade should be false")
+	}
+	if len(result.Steps) != 2 {
+		t.Errorf("Steps count = %d, want 2", len(result.Steps))
+	}
+	if result.Steps[0].FromVersion != "1.3.0" {
+		t.Errorf("Steps[0].FromVersion = %v, want 1.3.0", result.Steps[0].FromVersion)
+	}
+}
+
+func TestRunPathDirect(t *testing.T) {
+	cfg := &Config{OutputFormat: "json"}
+	err := runPath(cfg, "", "1.6.0")
+	if err != nil {
+		t.Fatalf("runPath failed: %v", err)
+	}
+}
+
+func TestRunPathIndirect(t *testing.T) {
+	cfg := &Config{OutputFormat: "json"}
+	err := runPath(cfg, "1.3.0", "2.0.0")
+	if err != nil {
+		t.Fatalf("runPath failed: %v", err)
+	}
+}
+
+func TestRunResume(t *testing.T) {
+	cfg := &Config{OutputFormat: "json"}
+	err := runResume(cfg, "")
+	if err != nil {
+		t.Fatalf("runResume failed: %v", err)
+	}
+}
+
+func TestRunResumeWithID(t *testing.T) {
+	cfg := &Config{OutputFormat: "json"}
+	err := runResume(cfg, "upgrade-custom-id")
+	if err != nil {
+		t.Fatalf("runResume with ID failed: %v", err)
 	}
 }

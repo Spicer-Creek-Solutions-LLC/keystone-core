@@ -93,7 +93,7 @@ Maintain an up-to-date contact list including:
 
    ```bash
    # Quarantine compromised agent
-   kscorectl agent quarantine <agent-id>
+   kscorectl agents quarantine <agent-id>
 
    # Block network access if needed
    kscorectl exec run "iptables -A INPUT -j DROP" --target "<agent-id>"
@@ -106,10 +106,9 @@ Maintain an up-to-date contact list including:
    kscorectl exec run "tar -czf /tmp/forensics-$(date +%s).tar.gz /var/log /etc" \
      --target "<agent-id>"
 
-   # Download to secure location
-   kscorectl files download /tmp/forensics-*.tar.gz \
-     --target "<agent-id>" \
-     --destination /secure/evidence/
+   # Retrieve forensic archive to secure location
+   kscorectl exec run "scp /tmp/forensics-*.tar.gz evidence@secure-host:/evidence/" \
+     --target "<agent-id>"
    ```
 
 3. **Revoke Compromised Credentials**
@@ -118,11 +117,11 @@ Maintain an up-to-date contact list including:
    # Revoke specific API keys
    kscorectl api-key revoke <key-id>
 
-   # Revoke all keys for compromised user
-   kscorectl api-key revoke-all --user <username>
+   # Revoke all API keys
+   kscorectl auth revoke-all --force
 
-   # Rotate agent certificates
-   kscorectl agent certificate rotate <agent-id>
+   # Rotate agent SVID certificate
+   kscorectl agents renew-svid <agent-id> --force
    ```
 
 4. **Block Attack Vector**
@@ -181,14 +180,17 @@ Maintain an up-to-date contact list including:
 4. **Credential Reset**
 
    ```bash
-   # Force password reset for all affected users
-   kscorectl user reset-password --scope affected
-
    # Regenerate all agent certificates
-   kscorectl agent certificate regenerate --scope affected
+   kscorectl agents certificates regenerate --all --force
+
+   # Rotate secrets encryption keys
+   kscorectl secrets rotate-keys --force
 
    # Rotate secrets in Vault
    vault kv put secret/kscore/credentials password="$(openssl rand -base64 32)"
+
+   # Force password resets via your identity provider (IdP)
+   # Keystone Core delegates user credential management to the external IdP
    ```
 
 5. **Policy Updates**
@@ -234,14 +236,14 @@ Maintain an up-to-date contact list including:
 4. **Verification**
 
    ```bash
-   # Verify system health
-   kscorectl agent health --target "<restored-agents>"
+   # Verify agent integrity
+   kscorectl agents verify --all
 
    # Check for drift
-   kscorectl state check --comprehensive --target "<restored-agents>"
+   kscorectl state check baseline.yaml --target "<restored-agents>"
 
    # Review recent audit logs
-   kscorectl audit query --since "recovery-start" --target "<restored-agents>"
+   kscorectl audit search --since "7d" --agent "<restored-agent-id>"
    ```
 
 **Recovery Checklist**:
@@ -302,22 +304,22 @@ Maintain an up-to-date contact list including:
    - Verify: Check agent audit logs, compare baseline
 
 2. CONTAIN
-   kscorectl agent quarantine <agent-id>
+   kscorectl agents quarantine <agent-id>
    kscorectl exec run "iptables -A OUTPUT -j DROP" --target "<agent-id>"
 
 3. INVESTIGATE
-   kscorectl audit query --agent <agent-id> --since 7d
+   kscorectl audit search --agent <agent-id> --since 7d
    kscorectl exec run "last -a" --target "<agent-id>"
    kscorectl exec run "netstat -tlnp" --target "<agent-id>"
 
 4. ERADICATE
    # Option A: Reimage
    # Option B: Remediate
-   kscorectl agent certificate rotate <agent-id>
+   kscorectl agents renew-svid <agent-id> --force
    kscorectl state apply hardening.yaml --target "<agent-id>"
 
 5. RECOVER
-   kscorectl agent unquarantine <agent-id>
+   kscorectl agents unquarantine <agent-id>
    # Enhanced monitoring for 7 days
 ```
 
@@ -331,13 +333,13 @@ Maintain an up-to-date contact list including:
 2. CONTAIN
    # Isolate affected instance
    # Revoke all sessions
-   kscorectl api-key revoke-all
-   kscorectl auth session invalidate-all
+   kscorectl auth revoke-all --force
+   kscorectl auth sessions invalidate
 
 3. INVESTIGATE
    # Review all recent changes
-   kscorectl audit query --type "admin.*" --since 24h
-   kscorectl policy audit list --since 24h
+   kscorectl audit search --type "admin.*" --since "24h"
+   kscorectl audit search --type "policy.*" --since "24h"
 
 4. ERADICATE
    # Rotate all credentials
@@ -386,11 +388,12 @@ Maintain an up-to-date contact list including:
    - Verify: Check module signatures, SumDB transparency log
 
 2. CONTAIN
-   # Block affected module
-   kscorectl module block <module-name>@<version>
+   # Remove affected module from registry and agents
+   kscorectl module verify <module-name>@<version>
+   # Manually remove the module version from the registry if compromised
 
-   # Identify all systems using module
-   kscorectl module audit --name <module-name>
+   # Search audit logs for module activity
+   kscorectl audit search --type "module.*" --since "30d"
 
 3. INVESTIGATE
    # Analyze module contents

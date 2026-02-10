@@ -5,6 +5,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,7 +29,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "init", "validate", "build", "resolve", "tree", "verify", "sign", "test", "publish", "install"}
+	expectedCommands := []string{"version", "init", "validate", "build", "resolve", "tree", "verify", "sign", "test", "publish", "install", "update", "mirror", "clean"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -216,7 +218,7 @@ func TestInstallCommandFlags(t *testing.T) {
 }
 
 func TestSubcommandHelp(t *testing.T) {
-	subcommands := []string{"init", "validate", "build", "resolve", "tree", "verify", "sign", "test", "publish", "install"}
+	subcommands := []string{"init", "validate", "build", "resolve", "tree", "verify", "sign", "test", "publish", "install", "update", "mirror", "clean"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {
@@ -302,6 +304,220 @@ func TestCoalesce(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestMirrorCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	mirrorCmd := findSubcommand(cmd, "mirror")
+	if mirrorCmd == nil {
+		t.Fatal("mirror subcommand not found")
+	}
+
+	flags := []string{"source", "dest", "import", "registry", "dry-run", "verify"}
+	for _, flag := range flags {
+		if mirrorCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on mirror command", flag)
+		}
+	}
+}
+
+func TestMirrorExportRequiresDest(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"mirror", "vendor/pkg@1.0.0", "--source", "https://example.com"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --dest is missing")
+	}
+}
+
+func TestMirrorExportDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"mirror", "vendor/pkg@1.0.0", "--source", "https://example.com", "--dest", t.TempDir(), "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("mirror dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Dry run") {
+		t.Errorf("expected dry run output, got: %s", output)
+	}
+}
+
+func TestMirrorImportRequiresRegistry(t *testing.T) {
+	dir := t.TempDir()
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"mirror", "--import", dir})
+
+	// Unset env var to ensure flag is required
+	t.Setenv("KSCORE_REGISTRY", "")
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --registry is missing for import")
+	}
+}
+
+func TestMirrorImportNonExistentDir(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"mirror", "--import", "/nonexistent/path", "--registry", "localhost:5000"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for nonexistent import directory")
+	}
+}
+
+func TestCleanCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	cleanCmd := findSubcommand(cmd, "clean")
+	if cleanCmd == nil {
+		t.Fatal("clean subcommand not found")
+	}
+
+	flags := []string{"all", "dry-run"}
+	for _, flag := range flags {
+		if cleanCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on clean command", flag)
+		}
+	}
+}
+
+func TestCleanNonExistentCache(t *testing.T) {
+	t.Setenv("KSCORE_CACHE_DIR", filepath.Join(t.TempDir(), "nonexistent"))
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"clean"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("clean failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Nothing to clean") {
+		t.Errorf("expected 'Nothing to clean' message, got: %s", output)
+	}
+}
+
+func TestCleanEmptyCache(t *testing.T) {
+	t.Setenv("KSCORE_CACHE_DIR", t.TempDir())
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"clean"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("clean failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "empty") {
+		t.Errorf("expected empty cache message, got: %s", output)
+	}
+}
+
+func TestCleanDryRun(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "test.zip"), []byte("test"), 0o644)
+	t.Setenv("KSCORE_CACHE_DIR", dir)
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"clean", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("clean dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Dry run") {
+		t.Errorf("expected dry run output, got: %s", output)
+	}
+}
+
+func TestCleanAll(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "test.zip"), []byte("test"), 0o644)
+	t.Setenv("KSCORE_CACHE_DIR", dir)
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"clean", "--all"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("clean --all failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Removed all cached modules") {
+		t.Errorf("expected removal message, got: %s", output)
+	}
+}
+
+func TestUpdateCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	updateCmd := findSubcommand(cmd, "update")
+	if updateCmd == nil {
+		t.Fatal("update subcommand not found")
+	}
+
+	dryRunFlag := updateCmd.Flags().Lookup("dry-run")
+	if dryRunFlag == nil {
+		t.Error("expected --dry-run flag on update command")
+	}
+}
+
+func TestUpdateHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"update", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("update --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Update") && !strings.Contains(output, "update") {
+		t.Errorf("expected help output to contain 'Update' or 'update', got: %s", output)
+	}
+}
+
+func TestDirStats(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0o644)
+	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world!"), 0o644)
+
+	size, count := dirStats(dir)
+	if count != 2 {
+		t.Errorf("expected 2 files, got %d", count)
+	}
+	if size != 11 {
+		t.Errorf("expected 11 bytes, got %d", size)
 	}
 }
 

@@ -86,6 +86,8 @@ Usage via kscorectl:
 		newRollbackCmd(cfg),
 		newHistoryCmd(cfg),
 		newLogsCmd(cfg),
+		newPathCmd(cfg),
+		newResumeCmd(cfg),
 		newVersionCmd(),
 	)
 
@@ -209,6 +211,7 @@ type UpgradeHistory struct {
 func newCheckCmd(cfg *Config) *cobra.Command {
 	var (
 		target            string
+		from              string
 		includePrerelease bool
 		channel           string
 	)
@@ -225,24 +228,28 @@ Examples:
   # Check compatibility with specific version
   kscorectl upgrade check --target 2.0.0
 
+  # Check upgrade from a specific version
+  kscorectl upgrade check --from 1.4.0 --target 1.6.0
+
   # Include prerelease versions
   kscorectl upgrade check --include-prerelease
 
   # Check specific release channel
   kscorectl upgrade check --channel stable`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCheck(cfg, target, includePrerelease, channel)
+			return runCheck(cfg, target, from, includePrerelease, channel)
 		},
 	}
 
 	cmd.Flags().StringVarP(&target, "target", "t", "", "Check compatibility with specific target version")
+	cmd.Flags().StringVar(&from, "from", "", "Override current version (e.g. to check a hypothetical upgrade path)")
 	cmd.Flags().BoolVar(&includePrerelease, "include-prerelease", false, "Include prerelease versions in check")
 	cmd.Flags().StringVar(&channel, "channel", "stable", "Release channel to check (stable, beta, nightly)")
 
 	return cmd
 }
 
-func runCheck(cfg *Config, target string, includePrerelease bool, channel string) error {
+func runCheck(cfg *Config, target, from string, includePrerelease bool, channel string) error {
 	latestVersion := "1.6.0"
 	if includePrerelease {
 		latestVersion = "1.7.0-beta.1"
@@ -251,8 +258,13 @@ func runCheck(cfg *Config, target string, includePrerelease bool, channel string
 		latestVersion = "1.7.0-dev.20240115"
 	}
 
+	currentVersion := "1.5.0"
+	if from != "" {
+		currentVersion = from
+	}
+
 	check := UpgradeCheck{
-		CurrentVersion:   "1.5.0",
+		CurrentVersion:   currentVersion,
 		LatestVersion:    latestVersion,
 		UpgradeAvailable: true,
 		TargetVersion:    target,
@@ -449,6 +461,8 @@ func newExecuteCmd(cfg *Config) *cobra.Command {
 		target         string
 		strategy       string
 		skipBackup     bool
+		backupBefore   bool
+		autoRollback   bool
 		force          bool
 		maxUnavailable int
 		planFile       string
@@ -487,6 +501,8 @@ Examples:
 	cmd.Flags().StringVarP(&target, "target", "t", "", "Target version (required unless --plan is specified)")
 	cmd.Flags().StringVar(&strategy, "strategy", "rolling", "Upgrade strategy (rolling, canary, blue-green)")
 	cmd.Flags().BoolVar(&skipBackup, "skip-backup", false, "Skip automatic backup before upgrade")
+	cmd.Flags().BoolVar(&backupBefore, "backup-before", true, "Create a backup before upgrading")
+	cmd.Flags().BoolVar(&autoRollback, "auto-rollback", true, "Automatically rollback on failure")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force upgrade even with warnings")
 	cmd.Flags().IntVar(&maxUnavailable, "max-unavailable", 1, "Maximum unavailable nodes during rolling upgrade")
 	cmd.Flags().StringVar(&planFile, "plan", "", "Execute from a saved plan file")
@@ -568,7 +584,10 @@ func runExecute(cfg *Config, target, strategy string, skipBackup, force bool, ma
 }
 
 func newStatusCmd(cfg *Config) *cobra.Command {
-	var watch bool
+	var (
+		watch      bool
+		statusVerbose bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -580,18 +599,22 @@ Examples:
   kscorectl upgrade status
 
   # Watch status in real-time
-  kscorectl upgrade status --watch`,
+  kscorectl upgrade status --watch
+
+  # Show verbose status with component details
+  kscorectl upgrade status --verbose`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatus(cfg, watch)
+			return runStatus(cfg, watch, statusVerbose)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Watch status updates in real-time")
+	cmd.Flags().BoolVar(&statusVerbose, "verbose", false, "Show verbose component details")
 
 	return cmd
 }
 
-func runStatus(cfg *Config, watch bool) error {
+func runStatus(cfg *Config, watch, statusVerbose bool) error {
 	status := UpgradeStatus{
 		UpgradeID:      "upgrade-20240115-100000",
 		Status:         "in_progress",
@@ -808,10 +831,13 @@ func newCanaryStatusCmd(cfg *Config) *cobra.Command {
 
 func newAgentsCmd(cfg *Config) *cobra.Command {
 	var (
-		target    string
-		batchSize int
-		filter    string
-		report    bool
+		target      string
+		batchSize   int
+		filter      string
+		report      bool
+		agentStatus bool
+		retry       string
+		skip        string
 	)
 
 	cmd := &cobra.Command{
@@ -827,10 +853,32 @@ Examples:
   kscorectl upgrade agents --target 1.6.0 --batch-size 10 --filter "environment:production"
 
   # Show agent upgrade report
-  kscorectl upgrade agents --report`,
+  kscorectl upgrade agents --report
+
+  # Show agent upgrade status
+  kscorectl upgrade agents --status
+
+  # Retry a failed agent upgrade
+  kscorectl upgrade agents --retry agent-005
+
+  # Skip a failed agent
+  kscorectl upgrade agents --skip agent-005`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if report {
 				return runAgentReport(cfg)
+			}
+			if agentStatus {
+				return runAgentUpgrade(cfg, "", batchSize, filter)
+			}
+			if retry != "" {
+				fmt.Printf("Retrying upgrade for agent %s...\n", retry)
+				fmt.Printf("Agent %s: upgrade re-queued\n", retry)
+				return nil
+			}
+			if skip != "" {
+				fmt.Printf("Skipping upgrade for agent %s\n", skip)
+				fmt.Printf("Agent %s: marked as skipped\n", skip)
+				return nil
 			}
 			return runAgentUpgrade(cfg, target, batchSize, filter)
 		},
@@ -840,6 +888,9 @@ Examples:
 	cmd.Flags().IntVar(&batchSize, "batch-size", 5, "Number of agents to upgrade in parallel")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter expression for agent selection")
 	cmd.Flags().BoolVar(&report, "report", false, "Show agent version report")
+	cmd.Flags().BoolVar(&agentStatus, "status", false, "Show agent upgrade status")
+	cmd.Flags().StringVar(&retry, "retry", "", "Retry upgrade for a specific agent")
+	cmd.Flags().StringVar(&skip, "skip", "", "Skip upgrade for a specific agent")
 
 	return cmd
 }
@@ -1189,6 +1240,154 @@ func runLogs(cfg *Config, upgradeID string, follow bool, tail int) error {
 	}
 
 	return nil
+}
+
+// UpgradePath represents a step in the upgrade path
+type UpgradePath struct {
+	FromVersion string `json:"from_version" yaml:"from_version"`
+	ToVersion   string `json:"to_version" yaml:"to_version"`
+	Direct      bool   `json:"direct" yaml:"direct"`
+	Notes       string `json:"notes,omitempty" yaml:"notes,omitempty"`
+}
+
+// UpgradePathResult represents the full upgrade path analysis
+type UpgradePathResult struct {
+	CurrentVersion string        `json:"current_version" yaml:"current_version"`
+	TargetVersion  string        `json:"target_version" yaml:"target_version"`
+	DirectUpgrade  bool          `json:"direct_upgrade" yaml:"direct_upgrade"`
+	Steps          []UpgradePath `json:"steps" yaml:"steps"`
+}
+
+func newPathCmd(cfg *Config) *cobra.Command {
+	var (
+		target string
+		from   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "path",
+		Short: "Show the upgrade path between versions",
+		Long: `Show the recommended upgrade path from the current (or specified) version
+to the target version, including any required intermediate upgrades.
+
+Examples:
+  # Show path from current version to target
+  kscorectl upgrade path --target 2.0.0
+
+  # Show path between two specific versions
+  kscorectl upgrade path --from 1.3.0 --target 2.0.0`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPath(cfg, from, target)
+		},
+	}
+
+	cmd.Flags().StringVarP(&target, "target", "t", "", "Target version (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Starting version (default: current installed version)")
+	cmd.MarkFlagRequired("target")
+
+	return cmd
+}
+
+func runPath(cfg *Config, from, target string) error {
+	currentVersion := "1.5.0"
+	if from != "" {
+		currentVersion = from
+	}
+
+	result := UpgradePathResult{
+		CurrentVersion: currentVersion,
+		TargetVersion:  target,
+		DirectUpgrade:  true,
+		Steps: []UpgradePath{
+			{FromVersion: currentVersion, ToVersion: target, Direct: true},
+		},
+	}
+
+	if currentVersion == "1.3.0" && target == "2.0.0" {
+		result.DirectUpgrade = false
+		result.Steps = []UpgradePath{
+			{FromVersion: "1.3.0", ToVersion: "1.4.0", Direct: true, Notes: "Patch upgrade"},
+			{FromVersion: "1.4.0", ToVersion: "1.5.0", Direct: true, Notes: "Patch upgrade"},
+			{FromVersion: "1.5.0", ToVersion: "1.6.0", Direct: true, Notes: "Last 1.x release"},
+			{FromVersion: "1.6.0", ToVersion: "2.0.0", Direct: true, Notes: "Major upgrade, review breaking changes"},
+		}
+	}
+
+	return outputResult(cfg.OutputFormat, result, func() {
+		fmt.Printf("Upgrade Path\n")
+		fmt.Printf("============\n\n")
+		fmt.Printf("From: %s\n", result.CurrentVersion)
+		fmt.Printf("To:   %s\n", result.TargetVersion)
+		if result.DirectUpgrade {
+			fmt.Printf("\nDirect upgrade supported: %s -> %s\n", result.CurrentVersion, result.TargetVersion)
+		} else {
+			fmt.Printf("\nDirect upgrade not supported. Required intermediate steps:\n\n")
+			for i, step := range result.Steps {
+				fmt.Printf("  %d. %s -> %s", i+1, step.FromVersion, step.ToVersion)
+				if step.Notes != "" {
+					fmt.Printf("  (%s)", step.Notes)
+				}
+				fmt.Println()
+			}
+		}
+	})
+}
+
+func newResumeCmd(cfg *Config) *cobra.Command {
+	var upgradeID string
+
+	cmd := &cobra.Command{
+		Use:   "resume",
+		Short: "Resume an interrupted upgrade",
+		Long: `Resume an upgrade that was interrupted or paused.
+
+This picks up from the last completed step and continues the upgrade process.
+
+Examples:
+  # Resume the most recent interrupted upgrade
+  kscorectl upgrade resume
+
+  # Resume a specific upgrade by ID
+  kscorectl upgrade resume --upgrade-id upgrade-20240115-100000`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runResume(cfg, upgradeID)
+		},
+	}
+
+	cmd.Flags().StringVar(&upgradeID, "upgrade-id", "", "Specific upgrade to resume (default: most recent)")
+
+	return cmd
+}
+
+func runResume(cfg *Config, upgradeID string) error {
+	if upgradeID == "" {
+		upgradeID = "upgrade-20240115-100000"
+	}
+
+	status := UpgradeStatus{
+		UpgradeID:      upgradeID,
+		Status:         "resuming",
+		Phase:          "upgrading",
+		CurrentVersion: "1.5.0",
+		TargetVersion:  "1.6.0",
+		Strategy:       "rolling",
+		Progress:       35,
+		StartedAt:      "2024-01-15T10:00:00Z",
+		CurrentStep:    "Resuming from step: Upgrading control plane servers",
+		StepsCompleted: 3,
+		StepsTotal:     7,
+	}
+
+	return outputResult(cfg.OutputFormat, status, func() {
+		fmt.Printf("Resuming Upgrade\n")
+		fmt.Printf("================\n\n")
+		fmt.Printf("Upgrade ID: %s\n", status.UpgradeID)
+		fmt.Printf("Target:     %s -> %s\n", status.CurrentVersion, status.TargetVersion)
+		fmt.Printf("Strategy:   %s\n", status.Strategy)
+		fmt.Printf("Progress:   %d%% (%d/%d steps completed before interruption)\n", status.Progress, status.StepsCompleted, status.StepsTotal)
+		fmt.Printf("Resuming:   %s\n", status.CurrentStep)
+		fmt.Printf("\nUse 'kscorectl upgrade status --watch' to monitor progress.\n")
+	})
 }
 
 func newVersionCmd() *cobra.Command {

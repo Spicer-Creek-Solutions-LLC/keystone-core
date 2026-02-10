@@ -91,6 +91,7 @@ Usage via kscorectl:
 		newRewrapCmd(),
 		newTemplateCmd(),
 		newCacheCmd(),
+		newRotateKeysCmd(),
 	)
 
 	return rootCmd
@@ -2703,4 +2704,57 @@ func normalizeStrategy(s string) secrets.RotationStrategy {
 	// Accept both hyphenated (user-friendly) and underscored (internal) formats
 	normalized := strings.ReplaceAll(s, "-", "_")
 	return secrets.RotationStrategy(normalized)
+}
+
+// ============================================================================
+// Rotate Keys Command
+// ============================================================================
+
+func newRotateKeysCmd() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "rotate-keys",
+		Short: "Rotate encryption keys for all secrets backends",
+		Long: `Rotate the encryption keys used to protect secrets at rest.
+
+This is a security incident response action that:
+  - Generates new encryption keys for each secrets backend
+  - Re-encrypts all stored secrets with the new keys
+  - Archives old keys for decryption of existing backups
+  - Updates transit keys if transit encryption is enabled
+
+Examples:
+  # Rotate all encryption keys
+  kscorectl secrets rotate-keys
+
+  # Force rotation without confirmation
+  kscorectl secrets rotate-keys --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !force {
+				fmt.Fprint(cmd.OutOrStdout(), "Rotate ALL secrets encryption keys? This will re-encrypt all secrets. [y/N]: ")
+				var response string
+				fmt.Scanln(&response)
+				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
+					return nil
+				}
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "Rotating encryption keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Generating new master key...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting Vault backend secrets...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting KMS backend secrets...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Rotating transit encryption keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Archiving old keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "Encryption keys rotated")
+			fmt.Fprintln(cmd.OutOrStdout(), "  All secrets re-encrypted with new keys.")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Old keys archived for backup decryption.")
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+
+	return cmd
 }

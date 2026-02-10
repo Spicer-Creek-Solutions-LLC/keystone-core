@@ -36,6 +36,10 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 | `kscorectl agent status [id]` | Agent status summary | `kscorectl agent status` |
 | `kscorectl agent tags set` | Replace agent tags | `kscorectl agent tags set web-01 role=web env=prod` |
 | `kscorectl agent renew-svid <id>` | Renew SPIFFE SVID | `kscorectl agent renew-svid web-01 --force` |
+| `kscorectl agent list --suspicious` | List suspicious agents | `kscorectl agent list --suspicious` |
+| `kscorectl agent verify` | Verify agent integrity | `kscorectl agent verify --all` |
+| `kscorectl agent verify --sample N` | Verify random sample | `kscorectl agent verify --sample 10` |
+| `kscorectl agent certificates regenerate` | Regenerate agent certs | `kscorectl agent certificates regenerate --all` |
 
 ### API Key Management
 
@@ -83,6 +87,20 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 | Command | Description | Example |
 |---------|-------------|---------|
 | `kscorectl diagnostics collect` | Collect diagnostics | `kscorectl diagnostics collect --include-logs --since 24h` |
+
+### Security
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl security scan` | Quick security scan | `kscorectl security scan` |
+| `kscorectl security scan --full` | Full security scan | `kscorectl security scan --full --output json` |
+
+### NATS Management
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl nats rotate-credentials` | Rotate NATS credentials | `kscorectl nats rotate-credentials --force` |
+| `kscorectl nats status` | NATS connection status | `kscorectl nats status --output json` |
 
 ---
 
@@ -213,6 +231,11 @@ not role:db                 # Negation
 | `module test` | Test module | `module test` |
 | `module publish` | Publish module | `module publish --registry reg.example.com` |
 | `module verify <name>` | Verify signature | `module verify stdlib/file` |
+| `module resolve` | Resolve dependencies | `module resolve` |
+| `module tree` | Show dependency tree | `module tree --flat` |
+| `module update` | Update dependencies | `module update --dry-run` |
+| `module mirror` | Mirror for air-gapped | `module mirror vendor/pkg@1.0 --dest ./mirror` |
+| `module clean` | Clean module cache | `module clean --all` |
 
 Note: module archive entries larger than 256 MB are rejected during install.
 
@@ -316,10 +339,13 @@ Note: module archive entries larger than 256 MB are rejected during install.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `cluster join <addr>` | Join cluster | `cluster join server1:2380` |
+| `cluster join <addr>` | Join cluster | `cluster join server1:2380 --token $TOKEN` |
 | `cluster leave` | Leave cluster | `cluster leave --force` |
 | `cluster rebalance` | Rebalance agents | `cluster rebalance --dry-run` |
 | `cluster remove <id>` | Remove member | `cluster remove server-3` |
+| `cluster member add <addr>` | Add member (alias) | `cluster member add server-4:9090` |
+| `cluster member remove <id>` | Remove member (alias) | `cluster member remove server-3` |
+| `cluster election restart` | Restart leader election | `cluster election restart` |
 
 ### Backup & Restore
 
@@ -369,6 +395,9 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `federation activate` | Activate federation | `federation activate partner.example.org` |
 | `federation remove` | Remove federation | `federation remove partner.example.org` |
 | `federation refresh` | Refresh trust bundle | `federation refresh partner.example.org` |
+| `federation status` | Federation health summary | `federation status` |
+| `federation trust list` | List trust relationships | `federation trust list` |
+| `federation ping` | Test domain connectivity | `federation ping --region eu-west` |
 
 ---
 
@@ -393,6 +422,9 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `bootstrap status` | Bootstrap status | `bootstrap status` |
 | `bootstrap validate` | Validate config | `bootstrap validate --config seed.yaml` |
 | `bootstrap cleanup` | Clean up artifacts | `bootstrap cleanup --force` |
+| `bootstrap join` | Join existing cluster | `bootstrap join --server https://ks:8080 --token $TOKEN` |
+| `bootstrap prereq-check` | Check prerequisites | `bootstrap prereq-check` |
+| `bootstrap cert-gen` | Generate TLS certs | `bootstrap cert-gen --output /etc/keystone-core/certs/` |
 
 ---
 
@@ -542,11 +574,15 @@ Configure remotes first with `rclone config`.
 | Command | Description | Example |
 |---------|-------------|---------|
 | `upgrade check` | Check for upgrades | `upgrade check` |
+| `upgrade check --from` | Check from version | `upgrade check --from 1.4.0 --target 1.6.0` |
 | `upgrade plan` | Create upgrade plan | `upgrade plan --target 1.6.0` |
 | `upgrade execute` | Execute upgrade | `upgrade execute --target 1.6.0 --confirm` |
 | `upgrade status` | Upgrade status | `upgrade status` |
+| `upgrade status --verbose` | Verbose status | `upgrade status --verbose` |
 | `upgrade cancel` | Cancel upgrade | `upgrade cancel --rollback` |
 | `upgrade rollback` | Rollback version | `upgrade rollback --target 1.5.2 --confirm` |
+| `upgrade path` | Show upgrade path | `upgrade path --from 1.3.0 --target 2.0.0` |
+| `upgrade resume` | Resume interrupted | `upgrade resume` |
 | `upgrade history` | Upgrade history | `upgrade history --limit 10` |
 | `upgrade logs` | Upgrade logs | `upgrade logs --follow` |
 
@@ -562,8 +598,11 @@ Configure remotes first with `rclone config`.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `upgrade agents list` | List agent versions | `upgrade agents list --outdated` |
-| `upgrade agents status <id>` | Agent upgrade status | `upgrade agents status web-01` |
+| `upgrade agents` | Upgrade agents | `upgrade agents --target 1.6.0` |
+| `upgrade agents --report` | Agent version report | `upgrade agents --report` |
+| `upgrade agents --status` | Agent upgrade status | `upgrade agents --status` |
+| `upgrade agents --retry` | Retry failed agent | `upgrade agents --retry agent-005` |
+| `upgrade agents --skip` | Skip failed agent | `upgrade agents --skip agent-005` |
 
 ---
 
@@ -635,6 +674,30 @@ Note: blueprint archive entries larger than 256 MB are rejected during install.
 | `audit query` | Query audit logs | `audit query --since 24h --type auth.*` |
 | `audit export` | Export logs | `audit export --since 7d -o audit.csv` |
 | `compliance report` | Generate report | `compliance report --framework soc2` |
+| `audit search` | Search audit entries | `audit search --type "auth.*" --status "failed" --since "7d"` |
+| `audit analyze` | Analyze for anomalies | `audit analyze --input "/tmp/*.json" --baseline "30d"` |
+| `audit timeline` | Generate incident timeline | `audit timeline --from "..." --to "..." --output timeline.html` |
+
+---
+
+## Secrets Management (kscore-secrets)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `secrets get <path>` | Retrieve secret value | `secrets get db/prod/password` |
+| `secrets list [prefix]` | List secrets | `secrets list db/ --format json` |
+| `secrets backends` | Show backend status | `secrets backends` |
+| `secrets audit [path]` | Audit secret access | `secrets audit db/ --since 24h` |
+| `secrets rotate list` | List rotation configs | `secrets rotate list` |
+| `secrets rotate start <id>` | Start rotation | `secrets rotate start db-prod --force` |
+| `secrets rotate status <id>` | Check rotation status | `secrets rotate status db-prod` |
+| `secrets schedule list` | List rotation schedules | `secrets schedule list` |
+| `secrets policy list` | List secrets policies | `secrets policy list` |
+| `secrets dynamic list` | List dynamic secrets | `secrets dynamic list --backend vault` |
+| `secrets encrypt` | Encrypt data | `secrets encrypt --keyring prod --input data.json` |
+| `secrets decrypt` | Decrypt data | `secrets decrypt --keyring prod --input data.enc` |
+| `secrets cache status` | Cache status | `secrets cache status` |
+| `secrets rotate-keys` | Rotate encryption keys | `secrets rotate-keys --force` |
 
 ---
 

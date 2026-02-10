@@ -34,6 +34,8 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"tags",
 		"status",
 		"renew-svid",
+		"verify",
+		"certificates",
 		"version",
 	}
 
@@ -90,7 +92,7 @@ func TestNewListCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	flags := []string{"status", "filter", "label", "edge", "limit", "show-compatibility"}
+	flags := []string{"status", "filter", "label", "edge", "limit", "show-compatibility", "suspicious"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag %q not found", flag)
@@ -339,5 +341,196 @@ func TestGenerateRandomToken(t *testing.T) {
 		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 			t.Errorf("token contains invalid character: %c", c)
 		}
+	}
+}
+
+func TestNewVerifyCmd(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newVerifyCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newVerifyCmd should not return nil")
+	}
+	if cmd.Use != "verify [agent-id]" {
+		t.Errorf("Use = %v, want 'verify [agent-id]'", cmd.Use)
+	}
+
+	flags := []string{"all", "sample"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestVerifyRequiresTargets(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newVerifyCmd(cfg)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no agent ID or --all specified")
+	}
+	if !strings.Contains(err.Error(), "specify an agent ID") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestVerifyResultStructure(t *testing.T) {
+	r := VerifyResult{
+		AgentID:     "web-001",
+		Reachable:   true,
+		VersionOK:   true,
+		CertValid:   true,
+		HeartbeatOK: true,
+		Status:      "ok",
+	}
+
+	if r.AgentID != "web-001" {
+		t.Errorf("AgentID = %v, want web-001", r.AgentID)
+	}
+	if r.Status != "ok" {
+		t.Errorf("Status = %v, want ok", r.Status)
+	}
+}
+
+func TestBoolCheck(t *testing.T) {
+	if boolCheck(true) != "OK" {
+		t.Errorf("boolCheck(true) = %v, want OK", boolCheck(true))
+	}
+	if boolCheck(false) != "FAIL" {
+		t.Errorf("boolCheck(false) = %v, want FAIL", boolCheck(false))
+	}
+}
+
+func TestNewCertificatesCmd(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newCertificatesCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newCertificatesCmd should not return nil")
+	}
+	if cmd.Use != "certificates" {
+		t.Errorf("Use = %v, want certificates", cmd.Use)
+	}
+
+	found := false
+	for _, c := range cmd.Commands() {
+		if c.Name() == "regenerate" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected subcommand 'regenerate' not found")
+	}
+}
+
+func TestCertificatesRegenerateFlags(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newCertificatesRegenerateCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newCertificatesRegenerateCmd should not return nil")
+	}
+
+	flags := []string{"all", "force"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestCertificatesRegenerateRequiresTarget(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newCertificatesRegenerateCmd(cfg)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no agent ID or --all specified")
+	}
+	if !strings.Contains(err.Error(), "specify an agent ID") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestCertRegenerateResultStructure(t *testing.T) {
+	r := CertRegenerateResult{
+		AgentID:   "web-001",
+		Renewed:   true,
+		ExpiresAt: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+	}
+
+	if r.AgentID != "web-001" {
+		t.Errorf("AgentID = %v, want web-001", r.AgentID)
+	}
+	if !r.Renewed {
+		t.Error("Renewed should be true")
+	}
+}
+
+func TestIsSuspiciousAgent(t *testing.T) {
+	tests := []struct {
+		name     string
+		agent    AgentDisplay
+		expected bool
+	}{
+		{
+			name: "healthy agent",
+			agent: AgentDisplay{
+				Status:        "online",
+				Version:       "0.1.0",
+				LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+			},
+			expected: false,
+		},
+		{
+			name: "degraded status",
+			agent: AgentDisplay{
+				Status:        "degraded",
+				Version:       "0.1.0",
+				LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+			},
+			expected: true,
+		},
+		{
+			name: "offline status",
+			agent: AgentDisplay{
+				Status:        "offline",
+				Version:       "0.1.0",
+				LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+			},
+			expected: true,
+		},
+		{
+			name: "version mismatch",
+			agent: AgentDisplay{
+				Status:        "online",
+				Version:       "0.0.9",
+				LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+			},
+			expected: true,
+		},
+		{
+			name: "stale heartbeat",
+			agent: AgentDisplay{
+				Status:        "online",
+				Version:       "0.1.0",
+				LastHeartbeat: time.Now().Add(-10 * time.Minute).Format(time.RFC3339),
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isSuspiciousAgent(tt.agent)
+			if got != tt.expected {
+				t.Errorf("isSuspiciousAgent() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }

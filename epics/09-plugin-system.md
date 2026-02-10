@@ -468,12 +468,11 @@ cosign sign --key security-team.key \
   manifest.yaml
 
 # Plugin uploaded to registry with signature
-kscorectl plugin publish custom-health-check \
-  --manifest manifest.yaml \
-  --signature manifest.yaml.sig
+kscorectl module publish myorg/custom-health-check \
+  --registry https://registry.keystonecore.io
 
 # Keystone Core verifies before loading
-kscorectl plugin install custom-health-check
+kscorectl module install myorg/custom-health-check
 → Downloading plugin...
 → Verifying signature with key security-team-key-2024...
 → ✓ Signature valid
@@ -521,7 +520,7 @@ Signed by: transparency-log-key
 **Detection of Tampering**:
 ```bash
 # Client checks if registry serves same plugin everyone else sees
-kscorectl plugin verify custom-health-check@1.0.0
+kscorectl module verify myorg/custom-health-check@1.0.0
 → Fetching from registry...
 → Hash: sha256:abc123...
 → Checking transparency log...
@@ -1143,7 +1142,7 @@ def verify_canary_deployment(app_name, canary_version):
 - Execute plugin with remaining arguments: `kscorectl module install` → `kscore-module install`
 - Handle plugin not found errors with helpful messages
 - Support `--help` that shows both built-in and discovered plugin commands
-- Support `kscorectl plugin list` to show all available plugins
+- Discovered plugins appear as subcommands in `kscorectl --help`
 - Version compatibility checking (optional)
 - Similar implementation to `kubectl` plugin system or `git` command dispatch
 

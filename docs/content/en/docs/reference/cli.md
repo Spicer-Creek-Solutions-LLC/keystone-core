@@ -462,6 +462,57 @@ kscorectl diagnostics collect --include-logs --include-config --since 7d
 - `--include-config`: Include sanitized configuration
 - `--since string`: How far back to collect logs (e.g., 1h, 24h, 7d) (default: 1h)
 
+### kscorectl security
+
+Security scanning and assessment.
+
+#### security scan
+
+Run a security scan of the Keystone Core deployment.
+
+```bash
+kscorectl security scan
+kscorectl security scan --full
+kscorectl security scan --targets "role:web"
+kscorectl security scan --full --output json
+```
+
+**Flags**:
+
+- `--full`: Run comprehensive security scan (includes vulnerability scan, config review, audit log integrity)
+- `--output string`: Output format (text, json) (default: text)
+- `--targets string`: Target agents by expression (e.g., 'role:web')
+
+### kscorectl nats
+
+NATS message bus management.
+
+#### nats rotate-credentials
+
+Rotate NATS authentication credentials (NKeys/JWT tokens). This is a security incident response action.
+
+```bash
+kscorectl nats rotate-credentials
+kscorectl nats rotate-credentials --force
+```
+
+**Flags**:
+
+- `-f, --force`: Skip confirmation prompt
+
+#### nats status
+
+Show the status of NATS connections and cluster health.
+
+```bash
+kscorectl nats status
+kscorectl nats status --output json
+```
+
+**Flags**:
+
+- `--output string`: Output format (text, json) (default: text)
+
 ## kscore-exec (Remote Execution)
 
 Execute commands on remote agents.
@@ -2098,6 +2149,99 @@ Installed: 1
 
 **Note**: Installing requires a running module registry. The default registry (registry.keystonecore.io) is a placeholder - use `--registry` to specify your own registry instance.
 
+### module update
+
+Update module dependencies to their latest compatible versions. Reads `module.yaml` and `module.lock`, checks the registry for newer versions that satisfy constraints, and updates the lock file.
+
+**Usage**:
+
+```bash
+kscorectl module update [module...] [flags]
+```
+
+**Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Show available updates without applying |
+
+**Examples**:
+
+```bash
+# Update all dependencies
+kscorectl module update
+
+# Update specific module
+kscorectl module update std/files
+
+# Dry run
+kscorectl module update --dry-run
+```
+
+### module mirror
+
+Export or import modules for air-gapped (offline) environments.
+
+**Usage**:
+
+```bash
+kscorectl module mirror [module[@version]...] [flags]
+```
+
+**Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--source string` | Source registry URL |
+| `--dest string` | Destination directory for export |
+| `--import string` | Mirror directory to import from |
+| `--registry string` | Target registry URL for import |
+| `--dry-run` | Show what would be mirrored |
+| `--verify` | Verify module signatures during mirror (default: true) |
+
+**Examples**:
+
+```bash
+# Export modules to a mirror directory
+kscorectl module mirror vendor/pkg_apt@v1.2.3 \
+  --source https://registry.keystonecore.io \
+  --dest ./module-mirror
+
+# Import mirror into local registry
+kscorectl module mirror --import ./module-mirror \
+  --registry localhost:5000
+```
+
+### module clean
+
+Remove cached modules from the local module cache directory.
+
+**Usage**:
+
+```bash
+kscorectl module clean [flags]
+```
+
+**Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Remove all cached modules (not just stale) |
+| `--dry-run` | Show what would be removed |
+
+**Examples**:
+
+```bash
+# Clean stale cached modules
+kscorectl module clean
+
+# Remove all cached modules
+kscorectl module clean --all
+
+# Dry run
+kscorectl module clean --dry-run
+```
+
 ## kscore-blueprint (Blueprint Management)
 
 Manage blueprint lifecycle tasks including initialization, validation, testing, and installation. Blueprints are pre-packaged, reusable collections of states similar to Salt Formulas, Ansible Roles, or Helm Charts.
@@ -3534,6 +3678,93 @@ kscorectl audit stats --days 7
 kscorectl audit stats --days 30 --format json
 ```
 
+### audit search
+
+Search audit log entries with flexible filters.
+
+```bash
+kscorectl audit search [flags]
+```
+
+**Flags**:
+
+- `--type string`: Event type pattern (e.g., 'auth.\*', 'exec.\*', 'agent.\*')
+- `--status string`: Filter by status (e.g., 'failed', 'success')
+- `--agent string`: Filter by agent ID
+- `--user string`: Filter by username
+- `--since string`: Show entries since duration (e.g., '7d', '24h')
+- `--output string`: Output file path (default: stdout)
+- `--hour string`: Filter by hour range (e.g., '0-6')
+- `--count-by string`: Count results by interval (hour, day)
+- `--limit int`: Maximum entries to return (0 for unlimited)
+
+**Examples**:
+
+```bash
+# Search for failed auth events
+kscorectl audit search --type "auth.*" --status "failed" --since "7d"
+
+# Search for agent activity
+kscorectl audit search --type "agent.*" --agent "agent-123" --since "7d"
+
+# Count login events by hour
+kscorectl audit search --type "auth.login" --count-by hour
+
+# Export to file
+kscorectl audit search --type "exec.*" --output /tmp/commands.json
+
+# Limit results
+kscorectl audit search --limit 10
+```
+
+### audit analyze
+
+Analyze audit data for anomalies against a historical baseline.
+
+```bash
+kscorectl audit analyze [flags]
+```
+
+**Flags**:
+
+- `--input string`: Input file glob pattern (e.g., '/tmp/\*.json')
+- `--baseline string`: Baseline period for comparison (default: 30d)
+- `--output string`: Output file for analysis results
+
+**Examples**:
+
+```bash
+# Analyze against 30-day baseline
+kscorectl audit analyze --input "/tmp/*.json" --baseline "30d"
+
+# Output anomalies to file
+kscorectl audit analyze --input "/tmp/*.json" --baseline "30d" --output anomalies.json
+```
+
+### audit timeline
+
+Generate a chronological incident timeline from audit events.
+
+```bash
+kscorectl audit timeline [flags]
+```
+
+**Flags**:
+
+- `--from string`: Start time (RFC3339 or human-readable)
+- `--to string`: End time (RFC3339 or human-readable)
+- `--output string`: Output file path (use .html for HTML format)
+
+**Examples**:
+
+```bash
+# Generate timeline for a time range
+kscorectl audit timeline --from "2026-01-01T00:00:00Z" --to "2026-01-02T00:00:00Z"
+
+# Output as HTML
+kscorectl audit timeline --from "2026-01-01T00:00:00Z" --to "2026-01-02T00:00:00Z" --output incident-timeline.html
+```
+
 ## kscore-gitops (GitOps Management)
 
 Manage GitOps deployments, verifications, rollbacks, and promotions with ArgoCD, Flux, GitHub, and GitLab integrations.
@@ -4466,11 +4697,15 @@ kscorectl cluster join <cluster-address> [flags]
 **Flags**:
 
 - `--dry-run`: Show what would be done without joining
+- `--token string`: Join token for cluster authentication
+- `--advertise-addr string`: Address this node advertises to other cluster members
 
 **Example**:
 
 ```bash
 kscorectl cluster join server-1:9090
+kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN
+kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN --advertise-addr 10.0.1.5
 ```
 
 ### cluster leave
@@ -4707,6 +4942,70 @@ kscorectl cluster remove server-3
 
 # Force remove without waiting for reassignment
 kscorectl cluster remove server-3 --force
+```
+
+### cluster member add
+
+Add a new member to the cluster. Alias for `cluster add`.
+
+```bash
+kscorectl cluster member add <address> [flags]
+```
+
+**Arguments**:
+
+- `<address>`: Address of the new member (required)
+
+**Flags**:
+
+- `--dry-run`: Show what would be done without adding a member
+
+**Example**:
+
+```bash
+kscorectl cluster member add server-4:9090
+```
+
+### cluster member remove
+
+Remove a member from the cluster. Alias for `cluster remove`.
+
+```bash
+kscorectl cluster member remove <member-id> [flags]
+```
+
+**Arguments**:
+
+- `<member-id>`: ID or address of the member to remove (required)
+
+**Flags**:
+
+- `--force`: Force remove even if member is unresponsive
+- `--dry-run`: Show what would be done without removing the member
+
+**Example**:
+
+```bash
+kscorectl cluster member remove server-3
+kscorectl cluster member remove server-3 --force
+```
+
+### cluster election restart
+
+Force a new leader election cycle.
+
+```bash
+kscorectl cluster election restart [flags]
+```
+
+**Flags**:
+
+- `--dry-run`: Show what would be done without restarting election
+
+**Example**:
+
+```bash
+kscorectl cluster election restart
 ```
 
 ## kscore-cluster-backup (Cluster Backup and Restore)
@@ -5561,6 +5860,65 @@ kscorectl federation bundle <command> [flags]
 
 - `--format string`: Bundle format (pem, jwks, spiffe)
 
+### federation status
+
+Show an overall summary of federation health.
+
+```bash
+kscorectl federation status [flags]
+```
+
+**Output**:
+
+- Total federated domains
+- Active, suspended, and pending domain counts
+- Last bundle refresh time
+
+**Example**:
+
+```bash
+kscorectl federation status
+kscorectl federation status -o json
+```
+
+### federation trust list
+
+List federation trust relationships. Alias for `federation list`.
+
+```bash
+kscorectl federation trust list [flags]
+```
+
+**Example**:
+
+```bash
+kscorectl federation trust list
+kscorectl federation trust list -o json
+```
+
+### federation ping
+
+Test connectivity to a federated domain by fetching its trust bundle endpoint.
+
+```bash
+kscorectl federation ping [trust-domain] [flags]
+```
+
+**Arguments**:
+
+- `[trust-domain]`: Trust domain name to ping (optional if `--region` is used)
+
+**Flags**:
+
+- `--region string`: Region/trust domain name to ping
+
+**Example**:
+
+```bash
+kscorectl federation ping partner.example.org
+kscorectl federation ping --region eu-west
+```
+
 ## kscore-migrate (Database Migration)
 
 Migrate data between storage backends (SQLite to PostgreSQL).
@@ -6074,6 +6432,7 @@ List registered agents with filters.
 - `--edge`: Show only edge agents
 - `--limit int`: Maximum number of agents to return (default: 100)
 - `--show-compatibility`: Show version compatibility information
+- `--suspicious`: Show only suspicious agents (version mismatch, stale heartbeat, degraded)
 
 **Examples**:
 
@@ -6081,6 +6440,7 @@ List registered agents with filters.
 kscorectl agents list --status online --label role=web --limit 100
 kscorectl agents list --edge --show-compatibility
 kscorectl agents list --filter "os:linux AND role:web"
+kscorectl agents list --suspicious
 ```
 
 ### agents show
@@ -6161,6 +6521,40 @@ kscorectl agents token revoke <token-id>
 ```bash
 kscorectl agents renew-svid <agent-id> --force
 ```
+
+### agents verify
+
+Verify agent integrity by checking connectivity, version, certificates, and heartbeat.
+
+```bash
+kscorectl agents verify <agent-id>
+kscorectl agents verify --all
+kscorectl agents verify --sample 10
+```
+
+**Flags**:
+
+- `--all`: Verify all agents
+- `--sample int`: Verify a random sample of N agents
+
+### agents certificates
+
+Manage agent TLS/mTLS certificates.
+
+#### agents certificates regenerate
+
+Trigger certificate regeneration for one or all agents.
+
+```bash
+kscorectl agents certificates regenerate <agent-id>
+kscorectl agents certificates regenerate --all
+kscorectl agents certificates regenerate --all --force
+```
+
+**Flags**:
+
+- `--all`: Regenerate certificates for all agents
+- `-f, --force`: Skip confirmation prompt
 
 ## kscore-loadtest (Load Testing Tool)
 
@@ -7809,6 +8203,89 @@ kscore-bootstrap cleanup --force
 --keep-backups   Preserve backup files
 ```
 
+### Join Command
+
+Join a node to an existing cluster:
+
+```bash
+# Join an existing cluster
+kscore-bootstrap join --server https://ks-server-1:8080 --token $JOIN_TOKEN
+
+# Join with a custom node name
+kscore-bootstrap join --server https://ks-server-1:8080 --token $JOIN_TOKEN --node ks-server-2
+
+# Join with an advertise address
+kscore-bootstrap join --server https://ks-server-1:8080 --token $JOIN_TOKEN --advertise-address 10.0.1.11
+```
+
+**Join Flags**:
+
+```
+--server string              URL of an existing cluster member (required)
+--token string               Join token for cluster authentication (required)
+--node string                Name for this node (default: hostname)
+--advertise-address string   Address this node advertises to the cluster
+--debug                      Enable debug output
+```
+
+### Prereq-Check Command
+
+Check system prerequisites before bootstrapping:
+
+```bash
+# Check prerequisites
+kscore-bootstrap prereq-check
+
+# Output as JSON
+kscore-bootstrap prereq-check --output json
+```
+
+**Prereq-Check Flags**:
+
+```
+-o, --output string    Output format: text, json (default: text)
+```
+
+**Checks Performed**:
+
+- OS compatibility
+- Memory (minimum 1GB)
+- Disk space
+- Required ports available (8080, 4222, 2379, 2380)
+- Network connectivity
+
+### Cert-Gen Command
+
+Generate TLS certificates for cluster components:
+
+```bash
+# Generate certificates with defaults
+kscore-bootstrap cert-gen --output /etc/keystone-core/certs/
+
+# Generate with custom names
+kscore-bootstrap cert-gen \
+  --ca-cn "My Org CA" \
+  --server-cn $(hostname -f) \
+  --output /etc/keystone-core/certs/
+```
+
+**Cert-Gen Flags**:
+
+```
+--ca-cn string       Common Name for the CA certificate (default: "Keystone Core CA")
+--server-cn string   Common Name for the server certificate (default: hostname)
+--output string      Output directory for certificates (default: /etc/keystone-core/certs)
+```
+
+**Generated Files**:
+
+| File | Description |
+|------|-------------|
+| `ca.pem` | CA certificate |
+| `ca-key.pem` | CA private key |
+| `server.pem` | Server certificate |
+| `server-key.pem` | Server private key |
+
 ## kscore-telemetry-gateway (Telemetry Aggregation Gateway)
 
 Aggregates metrics, logs, and traces from agents over NATS and exposes them to standard observability backends (Prometheus, Loki, Tempo/Jaeger).
@@ -9159,6 +9636,7 @@ kscorectl upgrade check [flags]
 **Flags**:
 
 - `-t, --target string`: Check compatibility with specific target version
+- `--from string`: Override current version (e.g. to check a hypothetical upgrade path)
 - `--include-prerelease`: Include prerelease versions
 - `--channel string`: Release channel: stable, beta, nightly (default: stable)
 
@@ -9167,6 +9645,9 @@ kscorectl upgrade check [flags]
 ```bash
 # Check for available upgrades
 kscorectl upgrade check
+
+# Check upgrade from a specific version
+kscorectl upgrade check --from 1.4.0 --target 1.6.0
 
 # Include beta versions
 kscorectl upgrade check --include-prerelease
@@ -9239,8 +9720,13 @@ kscorectl upgrade execute [flags]
 
 - `--target string`: Target version
 - `--plan string`: Path to saved upgrade plan
+- `--backup-before`: Create a backup before upgrading (default: true)
+- `--auto-rollback`: Automatically rollback on failure (default: true)
+- `--skip-backup`: Skip automatic backup before upgrade
 - `--confirm`: Confirm execution without prompting
 - `--async`: Run upgrade asynchronously
+- `-f, --force`: Force upgrade even with warnings
+- `--max-unavailable int`: Maximum unavailable nodes during rolling upgrade (default: 1)
 
 **Examples**:
 
@@ -9260,8 +9746,13 @@ kscorectl upgrade execute --target 1.6.0 --async
 Show upgrade status.
 
 ```bash
-kscorectl upgrade status [upgrade-id]
+kscorectl upgrade status [flags]
 ```
+
+**Flags**:
+
+- `-w, --watch`: Watch status updates in real-time
+- `--verbose`: Show verbose component details
 
 **Examples**:
 
@@ -9269,8 +9760,11 @@ kscorectl upgrade status [upgrade-id]
 # Show current upgrade status
 kscorectl upgrade status
 
-# Show specific upgrade status
-kscorectl upgrade status upgrade-20240115-120000
+# Watch status in real-time
+kscorectl upgrade status --watch
+
+# Show verbose status with component details
+kscorectl upgrade status --verbose
 ```
 
 ### upgrade cancel
@@ -9324,28 +9818,42 @@ kscorectl upgrade canary rollback [flags]
 
 ### upgrade agents
 
-Manage agent upgrades.
-
-#### upgrade agents list
-
-List agents and their versions.
+Manage agent upgrades across the fleet.
 
 ```bash
-kscorectl upgrade agents list [flags]
+kscorectl upgrade agents [flags]
 ```
 
 **Flags**:
 
-- `--version string`: Filter by version
-- `--outdated`: Show only outdated agents
-- `--target string`: Target filter expression
+- `-t, --target string`: Target version for agents
+- `--batch-size int`: Number of agents to upgrade in parallel (default: 5)
+- `--filter string`: Filter expression for agent selection
+- `--report`: Show agent version report
+- `--status`: Show agent upgrade status
+- `--retry string`: Retry upgrade for a specific agent
+- `--skip string`: Skip upgrade for a specific agent
 
-#### upgrade agents status
-
-Show agent upgrade status.
+**Examples**:
 
 ```bash
-kscorectl upgrade agents status <agent-id>
+# Upgrade all agents to target version
+kscorectl upgrade agents --target 1.6.0
+
+# Upgrade with batch size and filter
+kscorectl upgrade agents --target 1.6.0 --batch-size 10 --filter "environment:production"
+
+# Show agent version report
+kscorectl upgrade agents --report
+
+# Show agent upgrade status
+kscorectl upgrade agents --status
+
+# Retry a failed agent upgrade
+kscorectl upgrade agents --retry agent-005
+
+# Skip a failed agent
+kscorectl upgrade agents --skip agent-005
 ```
 
 ### upgrade rollback
@@ -9384,6 +9892,51 @@ kscorectl upgrade history [flags]
 
 - `-n, --limit int`: Number of upgrades to show (default: 10)
 - `--status string`: Filter by status
+
+### upgrade path
+
+Show the recommended upgrade path between versions.
+
+```bash
+kscorectl upgrade path [flags]
+```
+
+**Flags**:
+
+- `-t, --target string`: Target version (required)
+- `--from string`: Starting version (default: current installed version)
+
+**Examples**:
+
+```bash
+# Show path from current version to target
+kscorectl upgrade path --target 2.0.0
+
+# Show path between two specific versions
+kscorectl upgrade path --from 1.3.0 --target 2.0.0
+```
+
+### upgrade resume
+
+Resume an interrupted or paused upgrade.
+
+```bash
+kscorectl upgrade resume [flags]
+```
+
+**Flags**:
+
+- `--upgrade-id string`: Specific upgrade to resume (default: most recent)
+
+**Examples**:
+
+```bash
+# Resume the most recent interrupted upgrade
+kscorectl upgrade resume
+
+# Resume a specific upgrade by ID
+kscorectl upgrade resume --upgrade-id upgrade-20240115-100000
+```
 
 ### upgrade logs
 
@@ -11164,6 +11717,19 @@ kscorectl secrets policy delete <policy-id> [flags]
 **Flags**:
 
 - `-f, --force`: Force deletion without confirmation
+
+### secrets rotate-keys
+
+Rotate encryption keys for all secrets backends. This is a security incident response action.
+
+```bash
+kscorectl secrets rotate-keys
+kscorectl secrets rotate-keys --force
+```
+
+**Flags**:
+
+- `-f, --force`: Skip confirmation prompt
 
 ## See Also
 

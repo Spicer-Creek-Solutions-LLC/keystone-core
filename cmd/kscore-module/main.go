@@ -28,7 +28,10 @@ Module Lifecycle:
   verify    - Verify cryptographic signatures and hashes
   publish   - Publish module to a registry
   install   - Install modules from a registry
+  update    - Update dependencies to latest compatible versions
   test      - Run module tests
+  mirror    - Mirror modules for air-gapped environments
+  clean     - Clean local module cache
 
 Examples:
   # Create a new module
@@ -61,6 +64,9 @@ Examples:
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(installCmd)
+	rootCmd.AddCommand(newUpdateCmd())
+	rootCmd.AddCommand(newMirrorCmd())
+	rootCmd.AddCommand(newCleanCmd())
 
 	return rootCmd
 }

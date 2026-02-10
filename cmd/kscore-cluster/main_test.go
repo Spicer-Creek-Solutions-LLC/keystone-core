@@ -29,7 +29,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"status", "members", "leader", "add", "remove", "transfer-leader", "rebalance", "backup", "restore", "version"}
+	expectedCommands := []string{"status", "members", "leader", "add", "remove", "transfer-leader", "rebalance", "backup", "restore", "member", "election", "version"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -407,6 +407,167 @@ func TestGetAPIScheme(t *testing.T) {
 			result := getAPIScheme(tt.addr)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestMemberSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	memberCmd := findSubcommand(cmd, "member")
+	if memberCmd == nil {
+		t.Fatal("member subcommand not found")
+	}
+
+	expectedSubs := []string{"add", "remove"}
+	for _, expected := range expectedSubs {
+		found := false
+		for _, sub := range memberCmd.Commands() {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected member subcommand %s not found", expected)
+		}
+	}
+}
+
+func TestMemberAddCommandFlags(t *testing.T) {
+	memberCmd := newMemberCommand()
+	addCmd := findSubcommand(memberCmd, "add")
+	if addCmd == nil {
+		t.Fatal("member add subcommand not found")
+	}
+
+	if addCmd.Args == nil {
+		t.Error("expected member add command to have Args validation")
+	}
+
+	dryRunFlag := addCmd.Flags().Lookup("dry-run")
+	if dryRunFlag == nil {
+		t.Error("expected --dry-run flag on member add command")
+	}
+}
+
+func TestMemberRemoveCommandFlags(t *testing.T) {
+	memberCmd := newMemberCommand()
+	removeCmd := findSubcommand(memberCmd, "remove")
+	if removeCmd == nil {
+		t.Fatal("member remove subcommand not found")
+	}
+
+	if removeCmd.Args == nil {
+		t.Error("expected member remove command to have Args validation")
+	}
+
+	forceFlag := removeCmd.Flags().Lookup("force")
+	if forceFlag == nil {
+		t.Error("expected --force flag on member remove command")
+	}
+}
+
+func TestMemberAddDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"member", "add", "10.0.0.5:9090", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("member add --dry-run failed: %v", err)
+	}
+}
+
+func TestMemberRemoveDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"member", "remove", "node-2", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("member remove --dry-run failed: %v", err)
+	}
+}
+
+func TestElectionSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	electionCmd := findSubcommand(cmd, "election")
+	if electionCmd == nil {
+		t.Fatal("election subcommand not found")
+	}
+
+	restartCmd := findSubcommand(electionCmd, "restart")
+	if restartCmd == nil {
+		t.Fatal("election restart subcommand not found")
+	}
+}
+
+func TestElectionRestartDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"election", "restart", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("election restart --dry-run failed: %v", err)
+	}
+}
+
+func TestJoinCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	joinCmd := findSubcommand(cmd, "join")
+	if joinCmd == nil {
+		t.Fatal("join subcommand not found")
+	}
+
+	tokenFlag := joinCmd.Flags().Lookup("token")
+	if tokenFlag == nil {
+		t.Error("expected --token flag on join command")
+	}
+
+	advertiseAddrFlag := joinCmd.Flags().Lookup("advertise-addr")
+	if advertiseAddrFlag == nil {
+		t.Error("expected --advertise-addr flag on join command")
+	}
+}
+
+func TestJoinDryRunWithFlags(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"join", "https://ks-server:8080", "--dry-run", "--token", "test-token", "--advertise-addr", "10.0.1.5"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("join --dry-run with flags failed: %v", err)
+	}
+}
+
+func TestJoinDryRunNoToken(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"join", "https://ks-server:8080", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("join --dry-run failed: %v", err)
+	}
+}
+
+func TestMemberSubcommandHelp(t *testing.T) {
+	subcmds := []string{"member add", "member remove", "election restart"}
+	for _, subcmd := range subcmds {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := newRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			args := strings.Split(subcmd, " ")
+			args = append(args, "--help")
+			cmd.SetArgs(args)
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("%s --help failed: %v", subcmd, err)
+			}
+
+			output := buf.String()
+			if !strings.Contains(output, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", output)
 			}
 		})
 	}

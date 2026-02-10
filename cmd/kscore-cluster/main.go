@@ -60,6 +60,8 @@ Usage via kscorectl:
 		newUndrainCommand(),
 		newTransferLeaderCommand(),
 		newRebalanceCommand(),
+		newMemberCommand(),
+		newElectionCommand(),
 		newVersionCmd(),
 	)
 

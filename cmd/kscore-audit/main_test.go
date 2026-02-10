@@ -27,7 +27,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "log", "report", "export", "stats"}
+	expectedCommands := []string{"version", "log", "report", "export", "stats", "search", "analyze", "timeline"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -227,7 +227,7 @@ func TestStatsCommandFlags(t *testing.T) {
 }
 
 func TestSubcommandHelp(t *testing.T) {
-	subcommands := []string{"log", "report", "export", "stats"}
+	subcommands := []string{"log", "report", "export", "stats", "search", "analyze", "timeline"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {
@@ -325,4 +325,121 @@ func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+func TestSearchCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	searchCmd := findSubcommand(cmd, "search")
+	if searchCmd == nil {
+		t.Fatal("search subcommand not found")
+	}
+
+	flags := []string{"type", "status", "agent", "user", "since", "output", "hour", "count-by", "limit"}
+	for _, flag := range flags {
+		if searchCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on search command", flag)
+		}
+	}
+}
+
+func TestSearchResultStructure(t *testing.T) {
+	r := SearchResult{
+		Timestamp: "2026-01-01T00:00:00Z",
+		Type:      "auth.login",
+		Status:    "failed",
+		User:      "admin",
+		IP:        "10.0.1.5",
+		Details:   "test",
+	}
+
+	if r.Type != "auth.login" {
+		t.Errorf("Type = %v, want auth.login", r.Type)
+	}
+}
+
+func TestGenerateSampleSearchResults(t *testing.T) {
+	results := generateSampleSearchResults("", "", "", "")
+	if len(results) == 0 {
+		t.Error("expected some sample results")
+	}
+
+	// Filter by type
+	authResults := generateSampleSearchResults("auth.*", "", "", "")
+	for _, r := range authResults {
+		if !strings.HasPrefix(r.Type, "auth") {
+			t.Errorf("expected auth type, got %s", r.Type)
+		}
+	}
+
+	// Filter by status
+	failedResults := generateSampleSearchResults("", "failed", "", "")
+	for _, r := range failedResults {
+		if r.Status != "failed" {
+			t.Errorf("expected failed status, got %s", r.Status)
+		}
+	}
+}
+
+func TestAnalyzeCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	analyzeCmd := findSubcommand(cmd, "analyze")
+	if analyzeCmd == nil {
+		t.Fatal("analyze subcommand not found")
+	}
+
+	flags := []string{"input", "baseline", "output"}
+	for _, flag := range flags {
+		if analyzeCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on analyze command", flag)
+		}
+	}
+}
+
+func TestAnalysisResultStructure(t *testing.T) {
+	r := AnalysisResult{
+		Timestamp:  "2026-01-01T00:00:00Z",
+		Baseline:   "30d",
+		InputFiles: "/tmp/*.json",
+		Anomalies:  []AnomalyEntry{{Type: "auth.brute_force", Severity: "high", Score: 0.92, Message: "test"}},
+		Summary:    AnalysisSummary{TotalEvents: 100, Anomalies: 1, High: 1},
+	}
+
+	if r.Baseline != "30d" {
+		t.Errorf("Baseline = %v, want 30d", r.Baseline)
+	}
+	if len(r.Anomalies) != 1 {
+		t.Errorf("Anomalies length = %d, want 1", len(r.Anomalies))
+	}
+}
+
+func TestTimelineCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	timelineCmd := findSubcommand(cmd, "timeline")
+	if timelineCmd == nil {
+		t.Fatal("timeline subcommand not found")
+	}
+
+	flags := []string{"from", "to", "output"}
+	for _, flag := range flags {
+		if timelineCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on timeline command", flag)
+		}
+	}
+}
+
+func TestTimelineEntryStructure(t *testing.T) {
+	e := TimelineEntry{
+		Timestamp: "2026-01-01T00:00:00Z",
+		Type:      "auth.login",
+		Severity:  "info",
+		Actor:     "admin",
+		Summary:   "test event",
+	}
+
+	if e.Type != "auth.login" {
+		t.Errorf("Type = %v, want auth.login", e.Type)
+	}
+	if e.Actor != "admin" {
+		t.Errorf("Actor = %v, want admin", e.Actor)
+	}
 }

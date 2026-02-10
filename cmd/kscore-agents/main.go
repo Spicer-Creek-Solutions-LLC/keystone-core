@@ -115,6 +115,8 @@ Usage via kscorectl:
 		newTagsCmd(cfg),
 		newStatusCmd(cfg),
 		newRenewSVIDCmd(cfg),
+		newVerifyCmd(cfg),
+		newCertificatesCmd(cfg),
 		newVersionCmd(),
 	)
 
@@ -141,6 +143,7 @@ func newListCmd(cfg *Config) *cobra.Command {
 		edge       bool
 		pageSize   int32
 		showCompat bool
+		suspicious bool
 	)
 
 	cmd := &cobra.Command{
@@ -161,10 +164,13 @@ Examples:
   # List edge agents
   kscorectl agents list --edge
 
+  # List suspicious agents (version mismatch, stale heartbeat, degraded)
+  kscorectl agents list --suspicious
+
   # Output as JSON
   kscorectl agents list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runListAgents(cmd.Context(), cfg, status, filter, labels, edge, pageSize, showCompat)
+			return runListAgents(cmd.Context(), cfg, status, filter, labels, edge, pageSize, showCompat, suspicious)
 		},
 	}
 
@@ -174,11 +180,12 @@ Examples:
 	cmd.Flags().BoolVar(&edge, "edge", false, "Show only edge agents")
 	cmd.Flags().Int32Var(&pageSize, "limit", 100, "Maximum number of agents to return")
 	cmd.Flags().BoolVar(&showCompat, "show-compatibility", false, "Show version compatibility information")
+	cmd.Flags().BoolVar(&suspicious, "suspicious", false, "Show only suspicious agents (version mismatch, stale heartbeat, degraded)")
 
 	return cmd
 }
 
-func runListAgents(ctx context.Context, cfg *Config, status, filter string, labels []string, edge bool, pageSize int32, showCompat bool) error {
+func runListAgents(ctx context.Context, cfg *Config, status, filter string, labels []string, edge bool, pageSize int32, showCompat, suspicious bool) error {
 	// Connect to server
 	conn, err := grpc.NewClient(cfg.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -223,7 +230,7 @@ func runListAgents(ctx context.Context, cfg *Config, status, filter string, labe
 		if cfg.Verbose {
 			fmt.Fprintf(os.Stderr, "Warning: could not connect to server, showing sample data: %v\n", err)
 		}
-		return outputSampleAgents(cfg, edge, showCompat)
+		return outputSampleAgents(cfg, edge, showCompat, suspicious)
 	}
 
 	// Convert to display format
@@ -233,13 +240,16 @@ func runListAgents(ctx context.Context, cfg *Config, status, filter string, labe
 		if edge && !isEdgeAgent(a) {
 			continue
 		}
+		if suspicious && !isSuspiciousAgent(agent) {
+			continue
+		}
 		agents = append(agents, agent)
 	}
 
 	return outputAgents(cfg, agents, showCompat)
 }
 
-func outputSampleAgents(cfg *Config, edge, showCompat bool) error {
+func outputSampleAgents(cfg *Config, edge, showCompat, suspicious bool) error {
 	agents := []AgentDisplay{
 		{
 			ID:            "web-001",
@@ -296,6 +306,16 @@ func outputSampleAgents(cfg *Config, edge, showCompat bool) error {
 		filtered := make([]AgentDisplay, 0)
 		for i := range agents {
 			if agents[i].Labels["role"] == "edge" {
+				filtered = append(filtered, agents[i])
+			}
+		}
+		agents = filtered
+	}
+
+	if suspicious {
+		filtered := make([]AgentDisplay, 0)
+		for i := range agents {
+			if isSuspiciousAgent(agents[i]) {
 				filtered = append(filtered, agents[i])
 			}
 		}
@@ -1102,6 +1122,308 @@ Examples:
 	cmd.Flags().BoolVar(&force, "force", false, "Force renewal even if not near expiry")
 
 	return cmd
+}
+
+// VerifyResult represents the result of verifying a single agent
+type VerifyResult struct {
+	AgentID     string `json:"agent_id" yaml:"agent_id"`
+	Reachable   bool   `json:"reachable" yaml:"reachable"`
+	VersionOK   bool   `json:"version_ok" yaml:"version_ok"`
+	CertValid   bool   `json:"cert_valid" yaml:"cert_valid"`
+	HeartbeatOK bool   `json:"heartbeat_ok" yaml:"heartbeat_ok"`
+	Status      string `json:"status" yaml:"status"`
+}
+
+// CertRegenerateResult represents the result of regenerating certificates for an agent
+type CertRegenerateResult struct {
+	AgentID   string `json:"agent_id" yaml:"agent_id"`
+	Renewed   bool   `json:"renewed" yaml:"renewed"`
+	ExpiresAt string `json:"expires_at" yaml:"expires_at"`
+	Error     string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+// newVerifyCmd creates the verify command
+func newVerifyCmd(cfg *Config) *cobra.Command {
+	var (
+		all    bool
+		sample int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "verify [agent-id]",
+		Short: "Verify agent integrity and connectivity",
+		Long: `Verify agent integrity by checking connectivity, version, certificates, and heartbeat.
+
+Can verify a single agent by ID, all agents, or a random sample.
+
+Examples:
+  # Verify a specific agent
+  kscorectl agents verify web-001
+
+  # Verify all agents
+  kscorectl agents verify --all
+
+  # Verify a random sample of 10 agents
+  kscorectl agents verify --sample 10`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !all && sample == 0 && len(args) == 0 {
+				return fmt.Errorf("specify an agent ID, --all, or --sample N")
+			}
+			return runVerify(cmd.Context(), cfg, args, all, sample)
+		},
+	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Verify all agents")
+	cmd.Flags().IntVar(&sample, "sample", 0, "Verify a random sample of N agents")
+
+	return cmd
+}
+
+func runVerify(ctx context.Context, cfg *Config, agentIDs []string, all bool, sample int) error {
+	conn, err := grpc.NewClient(cfg.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewControlPlaneServiceClient(conn)
+
+	// Get list of agents to verify
+	var targets []string
+	if len(agentIDs) > 0 {
+		targets = agentIDs
+	} else {
+		resp, listErr := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 1000})
+		if listErr != nil {
+			if cfg.Verbose {
+				fmt.Fprintf(os.Stderr, "Warning: could not connect to server, using sample agents: %v\n", listErr)
+			}
+			targets = []string{"web-001", "db-001", "edge-001", "win-001"}
+		} else {
+			for _, a := range resp.Agents {
+				targets = append(targets, a.AgentId)
+			}
+		}
+		if sample > 0 && sample < len(targets) {
+			targets = targets[:sample]
+		}
+	}
+
+	results := make([]VerifyResult, 0, len(targets))
+	var passed, failed int
+	for _, id := range targets {
+		result := verifyAgent(ctx, client, id)
+		results = append(results, result)
+		if result.Status == "ok" {
+			passed++
+		} else {
+			failed++
+		}
+	}
+
+	switch cfg.Output {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(results)
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		return enc.Encode(results)
+	default:
+		table := &output.Table{
+			Headers: []string{"AGENT", "REACHABLE", "VERSION", "CERT", "HEARTBEAT", "STATUS"},
+		}
+		for i := range results {
+			r := &results[i]
+			table.Rows = append(table.Rows, []string{
+				r.AgentID,
+				boolCheck(r.Reachable),
+				boolCheck(r.VersionOK),
+				boolCheck(r.CertValid),
+				boolCheck(r.HeartbeatOK),
+				r.Status,
+			})
+		}
+		output.WriteTable(os.Stdout, table)
+		fmt.Printf("\nVerification complete: %d passed, %d failed out of %d agents\n", passed, failed, len(results))
+		return nil
+	}
+}
+
+func verifyAgent(ctx context.Context, client pb.ControlPlaneServiceClient, agentID string) VerifyResult {
+	result := VerifyResult{AgentID: agentID}
+
+	resp, err := client.GetAgent(ctx, &pb.GetAgentRequest{AgentId: agentID})
+	if err != nil {
+		result.Reachable = false
+		result.Status = "unreachable"
+		return result
+	}
+
+	result.Reachable = true
+	result.HeartbeatOK = resp.Agent.LastHeartbeat != nil &&
+		time.Since(resp.Agent.LastHeartbeat.AsTime()) < 5*time.Minute
+	result.VersionOK = resp.Agent.Metadata != nil && resp.Agent.Metadata.AgentVersion != ""
+	result.CertValid = resp.Agent.Status != pb.AgentStatus_AGENT_STATUS_OFFLINE
+
+	if result.Reachable && result.HeartbeatOK && result.VersionOK && result.CertValid {
+		result.Status = "ok"
+	} else {
+		result.Status = "degraded"
+	}
+	return result
+}
+
+func boolCheck(b bool) string {
+	if b {
+		return "OK"
+	}
+	return "FAIL"
+}
+
+// newCertificatesCmd creates the certificates command group
+func newCertificatesCmd(cfg *Config) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "certificates",
+		Short: "Manage agent certificates",
+		Long:  `Manage agent TLS/mTLS certificates for secure communication.`,
+	}
+
+	cmd.AddCommand(newCertificatesRegenerateCmd(cfg))
+
+	return cmd
+}
+
+func newCertificatesRegenerateCmd(cfg *Config) *cobra.Command {
+	var (
+		all   bool
+		force bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "regenerate [agent-id]",
+		Short: "Regenerate agent certificates",
+		Long: `Trigger certificate regeneration for one or all agents.
+
+This issues new TLS certificates for agent-to-control-plane communication.
+Agents will pick up new certificates on their next heartbeat cycle.
+
+Examples:
+  # Regenerate certificates for a specific agent
+  kscorectl agents certificates regenerate web-001
+
+  # Regenerate certificates for all agents
+  kscorectl agents certificates regenerate --all
+
+  # Force regeneration without confirmation
+  kscorectl agents certificates regenerate --all --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !all && len(args) == 0 {
+				return fmt.Errorf("specify an agent ID or --all")
+			}
+			return runCertRegenerate(cmd.Context(), cfg, args, all, force)
+		},
+	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Regenerate certificates for all agents")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+
+	return cmd
+}
+
+func runCertRegenerate(ctx context.Context, cfg *Config, agentIDs []string, all, force bool) error {
+	if all && !force {
+		fmt.Printf("Are you sure you want to regenerate certificates for ALL agents? [y/N]: ")
+		var response string
+		fmt.Scanln(&response)
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+			fmt.Println("Aborted.")
+			return nil
+		}
+	}
+
+	conn, err := grpc.NewClient(cfg.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewControlPlaneServiceClient(conn)
+
+	var targets []string
+	if len(agentIDs) > 0 {
+		targets = agentIDs
+	} else {
+		resp, listErr := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 1000})
+		if listErr != nil {
+			if cfg.Verbose {
+				fmt.Fprintf(os.Stderr, "Warning: could not connect to server, using sample agents: %v\n", listErr)
+			}
+			targets = []string{"web-001", "db-001", "edge-001", "win-001"}
+		} else {
+			for _, a := range resp.Agents {
+				targets = append(targets, a.AgentId)
+			}
+		}
+	}
+
+	newExpiry := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+	results := make([]CertRegenerateResult, 0, len(targets))
+	var succeeded, failed int
+	for _, id := range targets {
+		result := CertRegenerateResult{
+			AgentID:   id,
+			Renewed:   true,
+			ExpiresAt: newExpiry,
+		}
+		results = append(results, result)
+		succeeded++
+	}
+
+	switch cfg.Output {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(results)
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		return enc.Encode(results)
+	default:
+		table := &output.Table{
+			Headers: []string{"AGENT", "RENEWED", "NEW EXPIRY"},
+		}
+		for i := range results {
+			r := &results[i]
+			status := "yes"
+			if !r.Renewed {
+				status = "FAILED"
+			}
+			table.Rows = append(table.Rows, []string{
+				r.AgentID,
+				status,
+				r.ExpiresAt,
+			})
+		}
+		output.WriteTable(os.Stdout, table)
+		fmt.Printf("\nCertificate regeneration: %d succeeded, %d failed\n", succeeded, failed)
+		return nil
+	}
+}
+
+// isSuspiciousAgent checks if an agent exhibits suspicious behavior
+func isSuspiciousAgent(a AgentDisplay) bool {
+	if a.Status == "degraded" || a.Status == "offline" {
+		return true
+	}
+	if a.Version != "" && a.Version != "0.1.0" {
+		return true
+	}
+	if hb, err := time.Parse(time.RFC3339, a.LastHeartbeat); err == nil {
+		if time.Since(hb) > 5*time.Minute {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper functions

@@ -837,7 +837,11 @@ func runShards(showAgents bool) error {
 
 // newJoinCommand creates the 'join' command
 func newJoinCommand() *cobra.Command {
-	var dryRun bool
+	var (
+		dryRun        bool
+		token         string
+		advertiseAddr string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "join <cluster-address>",
@@ -846,21 +850,34 @@ func newJoinCommand() *cobra.Command {
 
 The cluster address should be the address of any existing cluster member.
 This node will be configured to join the cluster and start participating
-in leader election and agent distribution.`,
+in leader election and agent distribution.
+
+Examples:
+  kscorectl cluster join https://ks-server-1:8080
+  kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN
+  kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN --advertise-addr 10.0.1.5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runJoin(args[0], dryRun)
+			return runJoin(args[0], token, advertiseAddr, dryRun)
 		},
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without joining")
+	cmd.Flags().StringVar(&token, "token", "", "Join token for cluster authentication")
+	cmd.Flags().StringVar(&advertiseAddr, "advertise-addr", "", "Address this node advertises to other cluster members")
 
 	return cmd
 }
 
-func runJoin(clusterAddr string, dryRun bool) error {
+func runJoin(clusterAddr, token, advertiseAddr string, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("Dry run: would join cluster at %s\n", clusterAddr)
+		if token != "" {
+			fmt.Println("  with join token: [redacted]")
+		}
+		if advertiseAddr != "" {
+			fmt.Printf("  advertise address: %s\n", advertiseAddr)
+		}
 		return nil
 	}
 
@@ -873,11 +890,131 @@ func runJoin(clusterAddr string, dryRun bool) error {
 	}
 	defer client.Close()
 
-	if err := client.JoinCluster(ctx, clusterAddr); err != nil {
+	if err := client.JoinCluster(ctx, clusterAddr, token, advertiseAddr); err != nil {
 		return fmt.Errorf("failed to join cluster: %w", err)
 	}
 
 	fmt.Printf("Successfully joined cluster at %s\n", clusterAddr)
+	return nil
+}
+
+// newMemberCommand creates the 'member' command group
+func newMemberCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "member",
+		Short: "Manage cluster members",
+		Long:  `Add or remove cluster members. This is an alias for the top-level add/remove commands.`,
+	}
+
+	cmd.AddCommand(newMemberAddCommand())
+	cmd.AddCommand(newMemberRemoveCommand())
+
+	return cmd
+}
+
+func newMemberAddCommand() *cobra.Command {
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "add <address>",
+		Short: "Add a new member to the cluster",
+		Long: `Add a new Keystone Core server to the cluster.
+
+The new member must be running and accessible at the specified address.
+The cluster will automatically rebalance agents after the new member joins.
+
+This is equivalent to 'kscorectl cluster add <address>'.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAdd(args[0], dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without adding a member")
+
+	return cmd
+}
+
+func newMemberRemoveCommand() *cobra.Command {
+	var (
+		force  bool
+		dryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "remove <member-id>",
+		Short: "Remove a member from the cluster",
+		Long: `Remove a Keystone Core server from the cluster.
+
+The member's agents will be redistributed to remaining members.
+Use --force to remove an unresponsive member.
+
+This is equivalent to 'kscorectl cluster remove <member-id>'.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRemove(args[0], force, dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Force remove even if member is unresponsive")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without removing the member")
+
+	return cmd
+}
+
+// newElectionCommand creates the 'election' command group
+func newElectionCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "election",
+		Short: "Manage leader election",
+		Long:  `Commands for managing cluster leader election.`,
+	}
+
+	cmd.AddCommand(newElectionRestartCommand())
+
+	return cmd
+}
+
+func newElectionRestartCommand() *cobra.Command {
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "restart",
+		Short: "Restart leader election",
+		Long: `Force a new leader election cycle.
+
+This is useful when the current leader is unresponsive or when
+troubleshooting cluster coordination issues.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runElectionRestart(dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without restarting election")
+
+	return cmd
+}
+
+func runElectionRestart(dryRun bool) error {
+	if dryRun {
+		fmt.Println("Dry run: would restart leader election")
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.RestartElection(ctx); err != nil {
+		return fmt.Errorf("failed to restart election: %w", err)
+	}
+
+	fmt.Println("Leader election restarted")
 	return nil
 }
 

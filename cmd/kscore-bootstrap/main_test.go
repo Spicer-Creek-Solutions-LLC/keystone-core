@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -26,6 +27,9 @@ from a seed configuration, restores from backup, or imports an existing installa
 	rootCmd.AddCommand(validateCmd())
 	rootCmd.AddCommand(statusCmd())
 	rootCmd.AddCommand(cleanupCmd())
+	rootCmd.AddCommand(joinCmd())
+	rootCmd.AddCommand(prereqCheckCmd())
+	rootCmd.AddCommand(certGenCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
@@ -50,7 +54,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "seed", "restore", "import", "validate", "status", "cleanup"}
+	expectedCommands := []string{"version", "seed", "restore", "import", "validate", "status", "cleanup", "join", "prereq-check", "cert-gen"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -363,4 +367,199 @@ func TestCliLogger(t *testing.T) {
 	logger = &cliLogger{verbose: false}
 	logger.Debug("this should not output") // Should be silent
 	logger.Info("info message")
+}
+
+func TestJoinCommandFlags(t *testing.T) {
+	cmd := joinCmd()
+	if cmd == nil {
+		t.Fatal("join command is nil")
+	}
+	if cmd.Use != "join" {
+		t.Errorf("expected Use to be 'join', got %s", cmd.Use)
+	}
+
+	flags := []string{"server", "token", "node", "advertise-address", "debug"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag on join command", flag)
+		}
+	}
+}
+
+func TestJoinRequiresServerAndToken(t *testing.T) {
+	cmd := createRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"join"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when --server and --token not provided")
+	}
+}
+
+func TestJoinCommandHelp(t *testing.T) {
+	cmd := createRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"join", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("join --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+	}
+	if !strings.Contains(output, "server") {
+		t.Errorf("expected help output to mention --server, got: %s", output)
+	}
+	if !strings.Contains(output, "token") {
+		t.Errorf("expected help output to mention --token, got: %s", output)
+	}
+}
+
+func TestPrereqCheckCommand(t *testing.T) {
+	cmd := prereqCheckCmd()
+	if cmd == nil {
+		t.Fatal("prereq-check command is nil")
+	}
+	if cmd.Use != "prereq-check" {
+		t.Errorf("expected Use to be 'prereq-check', got %s", cmd.Use)
+	}
+
+	outputFlag := cmd.Flags().Lookup("output")
+	if outputFlag == nil {
+		t.Error("expected --output flag on prereq-check command")
+	}
+	if outputFlag.DefValue != "text" {
+		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)
+	}
+}
+
+func TestPrereqCheckRuns(t *testing.T) {
+	cmd := createRootCmd()
+	cmd.SetArgs([]string{"prereq-check"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("prereq-check failed: %v", err)
+	}
+}
+
+func TestPrereqCheckJSON(t *testing.T) {
+	cmd := createRootCmd()
+	cmd.SetArgs([]string{"prereq-check", "--output", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("prereq-check --output json failed: %v", err)
+	}
+}
+
+func TestCertGenCommandFlags(t *testing.T) {
+	cmd := certGenCmd()
+	if cmd == nil {
+		t.Fatal("cert-gen command is nil")
+	}
+	if cmd.Use != "cert-gen" {
+		t.Errorf("expected Use to be 'cert-gen', got %s", cmd.Use)
+	}
+
+	flags := []string{"ca-cn", "server-cn", "output"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag on cert-gen command", flag)
+		}
+	}
+
+	caCNFlag := cmd.Flags().Lookup("ca-cn")
+	if caCNFlag.DefValue != "Keystone Core CA" {
+		t.Errorf("expected ca-cn default to be 'Keystone Core CA', got %s", caCNFlag.DefValue)
+	}
+}
+
+func TestCertGenGeneratesCerts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	err := runCertGen("Test CA", "test-server", tmpDir)
+	if err != nil {
+		t.Fatalf("runCertGen failed: %v", err)
+	}
+
+	expectedFiles := []string{"ca.pem", "ca-key.pem", "server.pem", "server-key.pem"}
+	for _, f := range expectedFiles {
+		path := tmpDir + "/" + f
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Errorf("expected file %s to exist: %v", f, err)
+			continue
+		}
+		if info.Size() == 0 {
+			t.Errorf("expected file %s to not be empty", f)
+		}
+	}
+}
+
+func TestCertGenCommandHelp(t *testing.T) {
+	cmd := createRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"cert-gen", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("cert-gen --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+	}
+	if !strings.Contains(output, "ca-cn") {
+		t.Errorf("expected help output to mention --ca-cn, got: %s", output)
+	}
+}
+
+func TestWritePEM(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := tmpDir + "/test.pem"
+
+	err := writePEM(path, "CERTIFICATE", []byte("test-data"))
+	if err != nil {
+		t.Fatalf("writePEM failed: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("expected file to exist: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("expected file permissions 0600, got %o", info.Mode().Perm())
+	}
+}
+
+func TestNewSubcommandHelp(t *testing.T) {
+	subcmds := []string{"join", "prereq-check", "cert-gen"}
+	for _, subcmd := range subcmds {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := createRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetArgs([]string{subcmd, "--help"})
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("%s --help failed: %v", subcmd, err)
+			}
+
+			output := buf.String()
+			if !strings.Contains(output, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+			}
+		})
+	}
 }

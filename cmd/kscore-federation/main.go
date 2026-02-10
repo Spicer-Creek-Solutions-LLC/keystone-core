@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"text/tabwriter"
 	"time"
@@ -86,6 +87,9 @@ Examples:
 	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(refreshCmd)
 	rootCmd.AddCommand(newBundleCmd())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newTrustCmd())
+	rootCmd.AddCommand(newPingCmd())
 
 	return rootCmd
 }
@@ -518,6 +522,193 @@ Examples:
 
 func init() {
 	bundleExportCmd.Flags().StringVar(&bundleExportFormat, "format", "pem", "Export format (pem, jwks, spiffe)")
+}
+
+// ============================================================================
+// Status Command
+// ============================================================================
+
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show federation status summary",
+		Long: `Display an overall summary of federation health.
+
+Shows:
+  - Total federated domains
+  - Active and suspended counts
+  - Last bundle refresh times
+  - Connectivity status
+
+Examples:
+  kscorectl federation status
+  kscorectl federation status -o json`,
+		RunE: runFederationStatus,
+	}
+}
+
+// FederationStatus summarises all federated domains.
+type FederationStatus struct {
+	TotalDomains    int       `json:"total_domains"`
+	ActiveDomains   int       `json:"active_domains"`
+	SuspendedDomains int      `json:"suspended_domains"`
+	PendingDomains  int       `json:"pending_domains"`
+	LastRefresh     time.Time `json:"last_refresh"`
+}
+
+func runFederationStatus(cmd *cobra.Command, args []string) error {
+	// Aggregate data from the federation list.
+	domains := []FederationInfo{
+		{
+			TrustDomain: "partner.example.org",
+			Type:        "bidirectional",
+			State:       "active",
+			LastRefresh: time.Now().Add(-2 * time.Minute),
+			CertCount:   2,
+		},
+		{
+			TrustDomain: "vendor.example.com",
+			Type:        "unidirectional",
+			State:       "suspended",
+			LastRefresh: time.Now().Add(-1 * time.Hour),
+			CertCount:   1,
+		},
+	}
+
+	status := FederationStatus{
+		TotalDomains: len(domains),
+	}
+
+	var latestRefresh time.Time
+	for _, d := range domains {
+		switch d.State {
+		case "active":
+			status.ActiveDomains++
+		case "suspended":
+			status.SuspendedDomains++
+		default:
+			status.PendingDomains++
+		}
+		if d.LastRefresh.After(latestRefresh) {
+			latestRefresh = d.LastRefresh
+		}
+	}
+	status.LastRefresh = latestRefresh
+
+	if outputFmt == "json" {
+		return printJSON(status)
+	}
+
+	fmt.Println("Federation Status")
+	fmt.Println("=================")
+	fmt.Printf("Total Domains:     %d\n", status.TotalDomains)
+	fmt.Printf("Active:            %d\n", status.ActiveDomains)
+	fmt.Printf("Suspended:         %d\n", status.SuspendedDomains)
+	if status.PendingDomains > 0 {
+		fmt.Printf("Pending:           %d\n", status.PendingDomains)
+	}
+	fmt.Printf("Last Refresh:      %s\n", status.LastRefresh.Format(time.RFC3339))
+
+	return nil
+}
+
+// ============================================================================
+// Trust Commands
+// ============================================================================
+
+func newTrustCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "trust",
+		Short: "Manage trust relationships",
+		Long:  `View and manage federation trust relationships.`,
+	}
+
+	cmd.AddCommand(newTrustListCmd())
+
+	return cmd
+}
+
+func newTrustListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List federation trust relationships",
+		Long: `List all federated trust relationships with their current state.
+
+This is equivalent to 'kscorectl federation list'.
+
+Examples:
+  kscorectl federation trust list
+  kscorectl federation trust list -o json`,
+		RunE: listCmd.RunE,
+	}
+}
+
+// ============================================================================
+// Ping Command
+// ============================================================================
+
+func newPingCmd() *cobra.Command {
+	var region string
+
+	cmd := &cobra.Command{
+		Use:   "ping [trust-domain]",
+		Short: "Test connectivity to a federated domain",
+		Long: `Test connectivity to a federated domain by fetching its trust bundle endpoint.
+
+Specify a trust domain by name or use --region to identify it.
+
+Examples:
+  kscorectl federation ping partner.example.org
+  kscorectl federation ping --region eu-west`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			target := region
+			if len(args) > 0 {
+				target = args[0]
+			}
+			if target == "" {
+				return fmt.Errorf("specify a trust domain or use --region")
+			}
+			return runPing(target)
+		},
+	}
+
+	cmd.Flags().StringVar(&region, "region", "", "Region/trust domain name to ping")
+
+	return cmd
+}
+
+func runPing(target string) error {
+	endpoint := fmt.Sprintf("https://%s/.well-known/spiffe-bundle", target)
+
+	fmt.Printf("Pinging %s ...\n", target)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	start := time.Now()
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		fmt.Printf("FAIL: %s unreachable (%v)\n", target, err)
+		return fmt.Errorf("ping failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("OK: %s responded in %s (HTTP %d)\n", target, elapsed.Round(time.Millisecond), resp.StatusCode)
+	} else {
+		fmt.Printf("WARN: %s responded in %s (HTTP %d)\n", target, elapsed.Round(time.Millisecond), resp.StatusCode)
+	}
+
+	return nil
 }
 
 // ============================================================================

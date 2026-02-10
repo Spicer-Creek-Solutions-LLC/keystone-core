@@ -286,20 +286,22 @@ kscore-agent nats buffer flush
 kscore-agent nats buffer clear
 ```
 
-### Control Plane Debug Commands
+### Control Plane Diagnostic Commands
 
 ```bash
-# Connection debugging
-kscorectl debug nats status
-kscorectl debug nats events [--type TYPE] [--limit N]
-kscorectl debug nats timeline [--endpoint URL]
-kscorectl debug nats trace [--message-id ID] [--subject PATTERN]
+# NATS connection status
+kscorectl nats status
+kscorectl nats status --output json
 
-# Diagnostic report
-kscorectl debug nats diagnose [--output json|text]
+# Event inspection
+kscorectl events list --type TYPE --limit N
+kscorectl events export --format json --limit 1000
 
-# Export data
-kscorectl debug nats export [--format json] [--output FILE]
+# Audit timeline for incident investigation
+kscorectl audit timeline --from "2024-01-01T00:00:00Z" --to "2024-01-02T00:00:00Z"
+
+# Full diagnostic report
+kscorectl diagnostics collect --output-dir /tmp/nats-diag
 ```
 
 ### NATS CLI Commands

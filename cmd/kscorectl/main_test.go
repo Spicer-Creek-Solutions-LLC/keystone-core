@@ -264,7 +264,7 @@ func findSubcommand(root *cobra.Command, names ...string) *cobra.Command {
 func TestRootHasNewCommandGroups(t *testing.T) {
 	cmd := newRootCmd()
 
-	for _, name := range []string{"auth", "db", "diagnostics"} {
+	for _, name := range []string{"auth", "db", "diagnostics", "security", "nats"} {
 		sub := findSubcommand(cmd, name)
 		if sub == nil {
 			t.Errorf("expected %q subcommand on root", name)
@@ -743,5 +743,206 @@ func TestDiagnosticsHelp(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "collect") {
 		t.Errorf("expected help to list collect subcommand, got: %s", output)
+	}
+}
+
+// --- Security command tests ---
+
+func TestSecuritySubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	sec := findSubcommand(cmd, "security")
+	if sec == nil {
+		t.Fatal("security command not found")
+	}
+
+	if findSubcommand(sec, "scan") == nil {
+		t.Error("expected security scan subcommand")
+	}
+}
+
+func TestSecurityScan(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"security", "scan"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Security Scan") {
+		t.Errorf("expected scan header, got: %s", output)
+	}
+	if !strings.Contains(output, "Summary:") {
+		t.Errorf("expected summary in output, got: %s", output)
+	}
+}
+
+func TestSecurityScanFull(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"security", "scan", "--full"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "full") {
+		t.Errorf("expected full scan type, got: %s", output)
+	}
+	if !strings.Contains(output, "Vulnerability scan") {
+		t.Errorf("expected vulnerability scan in full mode, got: %s", output)
+	}
+}
+
+func TestSecurityScanJSON(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"security", "scan", "--output", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"scan_type"`) {
+		t.Errorf("expected JSON output with scan_type, got: %s", output)
+	}
+}
+
+func TestSecurityScanFlags(t *testing.T) {
+	cmd := newSecurityScanCmd()
+
+	flags := []string{"full", "output", "targets"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestSecurityScanResultStructure(t *testing.T) {
+	r := SecurityScanResult{
+		Timestamp: "2025-01-01T00:00:00Z",
+		ScanType:  "full",
+		Checks: []SecurityCheckItem{
+			{Name: "test", Category: "test", Status: "pass", Message: "ok"},
+		},
+		Summary: SecuritySummary{TotalChecks: 1, Passed: 1},
+	}
+
+	if r.ScanType != "full" {
+		t.Errorf("ScanType = %v, want full", r.ScanType)
+	}
+	if len(r.Checks) != 1 {
+		t.Errorf("Checks length = %d, want 1", len(r.Checks))
+	}
+}
+
+func TestSecurityHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"security", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "scan") {
+		t.Errorf("expected help to list scan subcommand, got: %s", output)
+	}
+}
+
+// --- NATS command tests ---
+
+func TestNATSSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	nats := findSubcommand(cmd, "nats")
+	if nats == nil {
+		t.Fatal("nats command not found")
+	}
+
+	for _, name := range []string{"rotate-credentials", "status"} {
+		if findSubcommand(nats, name) == nil {
+			t.Errorf("expected nats subcommand %q", name)
+		}
+	}
+}
+
+func TestNATSRotateCredentialsForce(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"nats", "rotate-credentials", "--force"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "NATS credentials rotated") {
+		t.Errorf("expected rotation message, got: %s", output)
+	}
+}
+
+func TestNATSStatus(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"nats", "status"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "NATS Status") {
+		t.Errorf("expected NATS status header, got: %s", output)
+	}
+}
+
+func TestNATSStatusJSON(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"nats", "status", "--output", "json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"connected"`) {
+		t.Errorf("expected JSON output with connected field, got: %s", output)
+	}
+}
+
+func TestNATSHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"nats", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "rotate-credentials") {
+		t.Errorf("expected help to list rotate-credentials, got: %s", output)
 	}
 }

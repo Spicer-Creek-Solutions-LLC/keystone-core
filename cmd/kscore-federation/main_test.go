@@ -27,7 +27,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "list", "add", "show", "suspend", "activate", "remove", "refresh", "bundle"}
+	expectedCommands := []string{"version", "list", "add", "show", "suspend", "activate", "remove", "refresh", "bundle", "status", "trust", "ping"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -389,6 +389,156 @@ func TestBundleInfo(t *testing.T) {
 
 	if info.SequenceNumber != 42 {
 		t.Errorf("expected SequenceNumber to be 42, got %d", info.SequenceNumber)
+	}
+}
+
+func TestStatusCommandExists(t *testing.T) {
+	cmd := newRootCmd()
+	statusCmd := findSubcommand(cmd, "status")
+	if statusCmd == nil {
+		t.Fatal("status subcommand not found")
+	}
+	if !strings.Contains(statusCmd.Short, "status") {
+		t.Errorf("expected Short to contain 'status', got %s", statusCmd.Short)
+	}
+}
+
+func TestStatusCommandHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"status", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("status --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+	}
+}
+
+func TestTrustSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	trustCmd := findSubcommand(cmd, "trust")
+	if trustCmd == nil {
+		t.Fatal("trust subcommand not found")
+	}
+
+	listSub := findSubcommand(trustCmd, "list")
+	if listSub == nil {
+		t.Fatal("trust list subcommand not found")
+	}
+	if !strings.Contains(listSub.Short, "List") {
+		t.Errorf("expected Short to contain 'List', got %s", listSub.Short)
+	}
+}
+
+func TestTrustListHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"trust", "list", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("trust list --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+	}
+}
+
+func TestPingCommandExists(t *testing.T) {
+	cmd := newRootCmd()
+	pingCmd := findSubcommand(cmd, "ping")
+	if pingCmd == nil {
+		t.Fatal("ping subcommand not found")
+	}
+	if !strings.Contains(pingCmd.Short, "connectivity") {
+		t.Errorf("expected Short to contain 'connectivity', got %s", pingCmd.Short)
+	}
+}
+
+func TestPingCommandFlags(t *testing.T) {
+	pingCmd := newPingCmd()
+	regionFlag := pingCmd.Flags().Lookup("region")
+	if regionFlag == nil {
+		t.Error("expected --region flag on ping command")
+	}
+}
+
+func TestPingRequiresTarget(t *testing.T) {
+	pingCmd := newPingCmd()
+	buf := new(bytes.Buffer)
+	pingCmd.SetOut(buf)
+	pingCmd.SetErr(buf)
+	pingCmd.SetArgs([]string{})
+
+	err := pingCmd.Execute()
+	if err == nil {
+		t.Error("expected error when no target specified")
+	}
+}
+
+func TestPingCommandHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"ping", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("ping --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+	}
+	if !strings.Contains(output, "region") {
+		t.Errorf("expected help to mention --region, got: %s", output)
+	}
+}
+
+func TestFederationStatusStruct(t *testing.T) {
+	status := FederationStatus{
+		TotalDomains:     3,
+		ActiveDomains:    2,
+		SuspendedDomains: 1,
+	}
+
+	if status.TotalDomains != 3 {
+		t.Errorf("expected TotalDomains to be 3, got %d", status.TotalDomains)
+	}
+	if status.ActiveDomains != 2 {
+		t.Errorf("expected ActiveDomains to be 2, got %d", status.ActiveDomains)
+	}
+}
+
+func TestNewSubcommandHelp(t *testing.T) {
+	subcmds := []string{"status", "trust", "ping"}
+	for _, subcmd := range subcmds {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := newRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetArgs([]string{subcmd, "--help"})
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("%s --help failed: %v", subcmd, err)
+			}
+
+			output := buf.String()
+			if !strings.Contains(output, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+			}
+		})
 	}
 }
 
