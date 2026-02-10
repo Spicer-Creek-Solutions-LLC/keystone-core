@@ -985,7 +985,7 @@ kscore-bootstrap --import --output /etc/keystone-core/imported/
 kscorectl backup create [--destination s3://bucket/path]
 kscorectl backup list [--destination s3://bucket/path]
 kscorectl backup show <backup-id>
-kscorectl backup download <backup-id> [--output file.tar.gz]
+kscorectl backup show <backup-id>              # shows backup details and file path
 kscorectl backup verify <backup-id>
 kscorectl backup delete <backup-id>
 kscorectl backup restore <backup-id> [--dry-run]
@@ -995,7 +995,7 @@ kscorectl backup restore <backup-id> [--dry-run]
 ```bash
 kscorectl upgrade check [--version x.y.z]
 kscorectl upgrade plan [--version x.y.z]
-kscorectl upgrade apply [--version x.y.z] [--strategy rolling]
+kscorectl upgrade execute --target x.y.z [--strategy rolling]
 kscorectl upgrade status
 kscorectl upgrade rollback
 kscorectl upgrade history
@@ -1003,11 +1003,10 @@ kscorectl upgrade history
 
 **T7.4: Self-Management CLI**
 ```bash
-kscorectl self status
-kscorectl self health
-kscorectl self drift
-kscorectl self apply [--dry-run]
-kscorectl self export [--output seed.yaml]
+kscorectl diagnostics collect               # system health and status
+kscorectl state check self-config.yaml      # detect configuration drift
+kscorectl state apply self-config.yaml [--dry-run]  # apply configuration
+kscorectl backup create [--output seed.tar.gz]      # export system state
 ```
 
 **T7.5: REST API**

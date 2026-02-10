@@ -227,11 +227,10 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - All referenced commands already exist: `files list/get/put/delete/info/sync`, `mirrors list/show/sync-status/sync/health/failover/latency/conflicts/resolve-conflict/history`, plus `cache` and `namespace` groups
   - TODO description was outdated; `cmd/kscore-files` has full implementation
 
-- [ ] **Epic 23 self-management doc references missing self/backup/upgrade commands**
-  - Resolution: code
-  - `epics/23-self-management.md` documents `kscorectl self status/health/drift/apply/export` and `kscorectl backup download`
-  - `kscorectl self` plugin does not exist and `cmd/kscore-backup` has no `download` subcommand
-  - Doc examples also use `kscorectl upgrade apply/rollback` but `cmd/kscore-upgrade` uses `execute` and has no rollback command
+- [x] **Epic 23 self-management doc references missing self/backup/upgrade commands** *(DONE - doc fix)*
+  - `backup download` → `backup show` (shows details/path)
+  - `upgrade apply` → `upgrade execute --target`
+  - `self status/health/drift/apply/export` → `diagnostics collect`, `state check/apply`, `backup create`
 
 - [ ] **Epic 25 blueprints doc references missing bundle/mirror/migrate/status commands**
   - Resolution: code
