@@ -647,8 +647,8 @@ go tool pprof heap.prof
 # Goroutine profile
 curl http://kscore:6060/debug/pprof/goroutine > goroutine.prof
 
-# Start CPU profiling via API
-kscorectl debug profile --type cpu --duration 30s --output cpu.prof
+# Start CPU profiling via API (saves locally)
+curl http://kscore:6060/debug/pprof/profile?seconds=30 > cpu.prof
 ```
 
 ### US7.8: Infrastructure State Visualization

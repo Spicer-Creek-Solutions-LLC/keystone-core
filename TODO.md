@@ -215,10 +215,8 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 - [x] **Epic 06 policy enforcement doc references policy/compliance commands not implemented** *(DONE)*
   - Added `eval`, `test`, `schedule create/list/delete`, `remediate`, `monitor`, and `compliance report` subcommands
 
-- [ ] **Epic 07 observability doc references missing debug profiling command**
-  - Resolution: code
-  - `epics/07-observability.md` documents `kscorectl debug profile`
-  - No `kscore-debug` plugin or `debug` command in `kscorectl`
+- [x] **Epic 07 observability doc references missing debug profiling command** *(DONE - doc fix)*
+  - Replaced `kscorectl debug profile` with curl-based pprof access, consistent with all other profiling docs
 
 - [ ] **Epic 08 multi-environment doc references missing inventory/discover/import/container/istio commands**
   - Resolution: code
