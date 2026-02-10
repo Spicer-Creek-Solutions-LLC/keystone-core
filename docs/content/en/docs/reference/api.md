@@ -1672,6 +1672,8 @@ POST /api/v1/runbook/interventions/{id}/cancel
 
 ### AgentService
 
+> **Status:** Generated stubs exist but no server implementation. Not registered in kscore-server. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+
 The AgentService defines the agent-to-control-plane communication protocol. This service is used by agents to register, send heartbeats, execute commands, and retrieve agent information.
 
 ```protobuf
@@ -1727,6 +1729,8 @@ service ControlPlaneService {
 
 ### StateService
 
+> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+
 ```protobuf
 service StateService {
   // ApplyState applies state declarations to one or more agents
@@ -1747,6 +1751,8 @@ service StateService {
 ```
 
 ### EventService
+
+> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
 
 ```protobuf
 service EventService {
@@ -1771,6 +1777,8 @@ service EventService {
 ```
 
 ### PolicyService
+
+> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
 
 ```protobuf
 service PolicyService {
@@ -1814,6 +1822,8 @@ service PolicyService {
 
 ### ClusterService
 
+> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+
 ```protobuf
 service ClusterService {
   // GetClusterStatus returns the overall cluster status
@@ -1855,6 +1865,8 @@ service ClusterService {
 ```
 
 ### CoordinationService (Server-to-Server)
+
+> **Status:** Generated stubs and server implementation exist but not registered in kscore-server. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
 
 The CoordinationService provides server-to-server coordination when NATS is unavailable. It requires mTLS authentication.
 

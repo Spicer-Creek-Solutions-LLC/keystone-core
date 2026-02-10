@@ -428,19 +428,14 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - No `kscore.api.v1` or `kscore.api.v2` references remain in docs
   - Reference: `docs/content/en/docs/reference/api.md` line 2300
 
-- [ ] **gRPC services documented but not generated/implemented**
-  - Resolution: code
-  - Docs list StateService, EventService, PolicyService, ClusterService RPCs
-  - Only agent/controlplane/coordination gRPC stubs are generated in `pkg/api/v1`
-  - No gRPC server implementations for state/event/policy/cluster
-  - Reference: `docs/content/en/docs/reference/api.md`, `api/proto/*.proto`, `pkg/api/v1/*`
+- [x] **gRPC services documented but not generated/implemented**
+  - Resolution: deferred to Epic 46 (`epics/46-grpc-service-implementation.md`)
+  - Created epic covering proto generation, server implementation, and registration for all 7 services
+  - Added status annotations to each gRPC service section in API docs
 
-- [ ] **gRPC services exist but are not registered in server**
-  - Resolution: code
-  - `kscore-server` only registers ControlPlaneService
-  - AgentService and CoordinationService are not registered on the gRPC server
-  - Update docs or wire services
-  - Reference: `cmd/kscore-server/main.go`, `pkg/api/v1/*`
+- [x] **gRPC services exist but are not registered in server**
+  - Resolution: deferred to Epic 46 (`epics/46-grpc-service-implementation.md`)
+  - Epic covers registering AgentService and CoordinationService in kscore-server (Phase 1)
 
 - [ ] **Docs reference REST endpoints that do not exist**
   - Resolution: both
