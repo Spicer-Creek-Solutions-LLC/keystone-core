@@ -223,10 +223,9 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - `container restart/logs/pull/prune` → `exec run "docker ..."` on targets
   - `istio inject/traffic-shift` → `exec run "istioctl ..."` on targets
 
-- [ ] **Epic 22 file distribution doc references missing CLI operations**
-  - Resolution: code
-  - `epics/22-file-distribution.md` documents `kscorectl files list/get/put/delete` and `kscorectl files mirrors ...`
-  - `cmd/kscore-files` only implements `serve` and `version`
+- [x] **Epic 22 file distribution doc references missing CLI operations** *(DONE - already implemented)*
+  - All referenced commands already exist: `files list/get/put/delete/info/sync`, `mirrors list/show/sync-status/sync/health/failover/latency/conflicts/resolve-conflict/history`, plus `cache` and `namespace` groups
+  - TODO description was outdated; `cmd/kscore-files` has full implementation
 
 - [ ] **Epic 23 self-management doc references missing self/backup/upgrade commands**
   - Resolution: code
@@ -1316,6 +1315,16 @@ These are CLI commands identified as worth implementing in a future epic:
 - [ ] **kscore-runbook test** - Test runbook with mock handlers (`--mock-file`)
 - [ ] **kscore-runbook audit list** - List runbook audit events (`--runbook`, `--start`, `--end`)
 - [ ] **kscore-runbook audit report** - Generate compliance report (`--format`, `--start`, `--end`)
+
+### CLI Plugin Command Routing
+
+- [ ] **Review and fix "double command" routing in kscorectl plugin dispatch**
+  - Resolution: code
+  - Several `kscore-*` plugins nest subcommands under a group that duplicates the plugin name
+  - Example: `kscore-files` has a `files` subcommand group, so `kscorectl files` dispatches to `kscore-files`, which then requires `files list` — resulting in `kscorectl files files list`
+  - Affected plugins need audit: `kscore-files` (`files`, `mirrors`, `cache`, `namespace`), and potentially others
+  - Options: flatten plugin commands so top-level subcommands are directly accessible, or add aliases at the root level
+  - Reference: `cmd/kscore-files/main.go`, `pkg/plugin/`
 
 ---
 
