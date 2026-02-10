@@ -168,62 +168,9 @@ health:
       minhealthy: 0.8               # 80% of agents must be healthy
 ```
 
-### Agent Management
-
-```yaml
-# Agent management settings
-agents:
-  heartbeat_interval: "30s"         # Expected heartbeat interval
-  heartbeat_timeout: "90s"          # Timeout before marking offline
-  metadata_refresh: "5m"            # Metadata refresh interval
-  max_concurrent_commands: 100      # Max concurrent command dispatches
-```
-
-### Command Execution
-
-```yaml
-# Remote execution settings
-execution:
-  default_timeout: "5m"             # Default command timeout
-  max_timeout: "1h"                 # Maximum allowed timeout
-  batch_size: 10                    # Default batch size
-  batch_delay: "5s"                 # Default batch delay
-  streaming_buffer: 1024            # Stream buffer size (lines)
-  result_retention: "7d"            # How long to keep results
-```
-
-### State Management
-
-```yaml
-# State management settings
-state:
-  default_timeout: "10m"            # Default state apply timeout
-  max_concurrent: 50                # Max concurrent state applies
-  drift_check_interval: "1h"        # Automatic drift check interval
-  result_retention: "30d"           # How long to keep results
-```
-
-### Event System
-
-```yaml
-# Event system settings
-events:
-  storage:
-    enabled: true
-    retention:
-      max_age: "30d"                # Delete events older than
-      max_count: 1000000            # Keep max events
-      min_severity: "info"          # Delete debug events after 7d
-    type_retention:                 # Per-type retention
-      "agent.heartbeat": "1d"
-      "state.drift": "90d"
-  publisher:
-    buffer_size: 1000               # Event buffer size
-    batch_size: 100                 # Batch publish size
-  subscriber:
-    buffer_size: 1000
-    ack_wait: "30s"                 # Ack timeout
-```
+<!-- Agent Management, Command Execution, State Management, Event System
+     config sections are planned for Epic 45 (control-plane-config-wiring).
+     These settings are not yet parsed by kscore-server. -->
 
 ### Policy Enforcement
 
@@ -246,36 +193,8 @@ policy:
         deny[msg] { input.resource.type == "ssh" }
 ```
 
-### GitOps Integration
-
-```yaml
-# GitOps integration settings
-gitops:
-  webhooks:
-    enabled: true
-    listen: "0.0.0.0:8090"
-    path: "/webhooks"
-    auth:
-      type: "hmac"                  # none, hmac, bearer
-      secret: "webhook-secret"
-    async: true
-    queue_size: 1000
-
-  git_sync:
-    enabled: true
-    repositories:
-      - name: "infrastructure-config"
-        url: "https://github.com/myorg/infrastructure-config"
-        branch: "main"
-        auth:
-          type: "ssh"
-          ssh_key_path: "/etc/keystone-core/id_rsa"
-        paths:
-          states: "states/"
-          reactors: "reactors/"
-          policies: "policies/"
-        sync_interval: "5m"
-```
+<!-- GitOps Integration config section is planned for Epic 45
+     (control-plane-config-wiring). Not yet parsed by kscore-server. -->
 
 ### Webhook Receiver
 
@@ -290,28 +209,8 @@ webhook:
   handlers: ["argocd", "flux", "github", "gitlab"]
 ```
 
-### Security
-
-```yaml
-# Security settings
-security:
-  authentication:
-    type: "api_key"                 # api_key, mtls, oauth2
-    api_keys:
-      - name: "admin"
-        key: "<your-api-key>"
-        permissions: ["*"]
-    mtls:
-      ca_file: "/etc/keystone-core/ca.crt"
-      verify_client: true
-
-  authorization:
-    enabled: true
-    default_deny: true
-    rbac:
-      enabled: true
-      policy_file: "/etc/keystone-core/rbac.yaml"
-```
+<!-- Security config section is planned for Epic 45
+     (control-plane-config-wiring). Not yet parsed by kscore-server. -->
 
 ### API Authentication (Control Plane)
 

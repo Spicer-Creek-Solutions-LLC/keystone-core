@@ -381,6 +381,7 @@ Implementation order:
 
 43. **Epic 43** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
 44. **Epic 44** (Cluster Join Tokens) - NOT STARTED - Depends on Epic 1, 11 - Secure join token system for cluster membership with durable storage (etcd/SQLite/PostgreSQL), configurable TTL and use limits, CLI commands, REST API, audit logging
+45. **Epic 45** (Control Plane Config Wiring) - NOT STARTED - Wire agents, execution, state, events, gitops, security config sections into `internal/config.Config` and `kscore-server`
 
 ### Future Epics (Not Yet Planned)
 

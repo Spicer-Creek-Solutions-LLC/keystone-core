@@ -284,19 +284,13 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - `state export` and `state restore` both exist in `cmd/kscore-state/main.go`
   - TODO description was outdated
 
-- [ ] **Control plane config docs include settings not in config structs**
-  - Resolution: code
-  - Sections for agent management, execution, state, events, gitops, security, cluster, identity are documented
-  - `internal/config.Config` has no corresponding fields for most of these
-  - Implement config struct fields for documented settings
-  - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/config/config.go`
+- [x] **Control plane config docs include settings not in config structs** *(DONE - moved to Epic 45)*
+  - Removed unsupported `agents`, `execution`, `state`, `events` config sections from configuration.md
+  - Implementation deferred to `epics/45-control-plane-config-wiring.md`
 
-- [ ] **GitOps and security config sections are not implemented**
-  - Resolution: code
-  - Docs show `gitops.*` and `security.*` blocks in server config
-  - No corresponding fields exist in `internal/config.Config`
-  - Implement gitops and security config struct fields
-  - Reference: `docs/content/en/docs/reference/configuration.md`
+- [x] **GitOps and security config sections are not implemented** *(DONE - moved to Epic 45)*
+  - Removed unsupported `gitops` and `security` config sections from configuration.md
+  - Implementation deferred to `epics/45-control-plane-config-wiring.md`
 
 - [ ] **`kscorectl config set` is referenced in docs but not implemented**
   - Resolution: code
