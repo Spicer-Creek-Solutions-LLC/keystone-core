@@ -238,10 +238,14 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - `mirror init/sync --with-deps` → removed; `kscorectl mirror` → `blueprint mirror` subcommands
   - Removed `blueprint migrate` (no equivalent; use `blueprint install <name>@<version>`)
 
-- [ ] **Epic 38 air-gapped deployments doc references missing airgap CLI**
-  - Resolution: code
-  - `epics/38-air-gapped-deployments.md` documents `kscorectl airgap ...`
-  - No `kscore-airgap` plugin or subcommands exist
+- [x] **Epic 38 air-gapped deployments doc references missing airgap CLI** *(DONE - doc fix)*
+  - Replaced 32 `kscorectl airgap` references with existing commands
+  - Package creation → `blueprint bundle create`, `module mirror`, `upgrade plan`
+  - Installation → `blueprint verify/bundle install`, `bootstrap seed`
+  - Registry → `blueprint mirror import/serve`, `module mirror --import`
+  - Upgrade → `upgrade check/execute/rollback`
+  - Export/import → `audit export`, `backup create/restore`
+  - Removed validation/sync sections (not needed)
 
 ### Reference Docs Drift
 

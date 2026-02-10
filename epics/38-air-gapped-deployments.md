@@ -423,8 +423,8 @@ sync:
 Tooling to verify deployment has no external dependencies:
 
 ```bash
-# Validate air-gap compliance
-kscorectl airgap validate
+# Validate air-gap compliance (check for external dependencies)
+kscorectl diagnostics collect --output airgap-report.yaml
 
 # Output:
 # Air-Gap Validation Report
@@ -774,136 +774,81 @@ diode:
 ### Package Creation
 
 ```bash
-# Create bootstrap package
-kscorectl airgap package create \
-  --platform linux/amd64 \
-  --version 1.0.0 \
-  --modules std/core,std/files,std/services \
-  --blueprints base-linux,security-hardening \
-  --include-docs \
-  --sign \
-  --output keystone-bootstrap-v1.0.0-linux-amd64.tar.gz
+# Create bootstrap bundle (blueprint + dependencies)
+kscorectl blueprint bundle create ./base-linux \
+  --sign
+
+# Create module bundle for offline transfer
+kscorectl module mirror --source std/core@1.0.0,std/files@1.0.0 \
+  --dest /mnt/export/modules/
 
 # Create upgrade package
-kscorectl airgap package upgrade \
-  --from-version 1.0.0 \
-  --to-version 1.1.0 \
-  --platform linux/amd64 \
-  --sign \
-  --output keystone-upgrade-v1.0.0-to-v1.1.0.tar.gz
-
-# Create module bundle
-kscorectl airgap package modules \
-  --modules std/core@1.0.0,std/files@1.0.0 \
-  --resolve-dependencies \
-  --sign \
-  --output modules-bundle.tar.gz
+kscorectl upgrade plan --target 1.1.0 --save upgrade-plan.yaml
 ```
 
 ### Installation
 
 ```bash
-# Verify package
-kscorectl airgap verify keystone-bootstrap-v1.0.0-linux-amd64.tar.gz
+# Verify package signatures
+kscorectl blueprint verify keystone-bootstrap-bundle.tar.gz
 
-# Install from package
-kscorectl airgap install keystone-bootstrap-v1.0.0-linux-amd64.tar.gz \
-  --config /path/to/config.yaml
+# Install bundle on air-gapped system
+kscorectl blueprint bundle install keystone-bootstrap-bundle.tar.gz
 
-# Unattended installation
-kscorectl airgap install keystone-bootstrap-v1.0.0-linux-amd64.tar.gz \
-  --unattended \
-  --server-address 10.0.0.1 \
-  --agent-mode
+# Bootstrap from seed config
+kscore-bootstrap seed /path/to/config.yaml
 ```
 
 ### Registry Management
 
 ```bash
-# Initialize local registry
-kscorectl airgap registry init --path /var/lib/keystone-core/registry
+# Import blueprints to local mirror
+kscorectl blueprint mirror import blueprint-export.tar.gz
 
-# Import modules to registry
-kscorectl airgap registry import modules-bundle.tar.gz
+# Import modules to local registry
+kscorectl module mirror --import --registry http://localhost:8080
 
-# List registry contents
-kscorectl airgap registry list
-kscorectl airgap registry list --type modules
-
-# Verify registry integrity
-kscorectl airgap registry verify
+# Serve local mirror for air-gapped clients
+kscorectl blueprint mirror serve --listen :8080
 ```
 
 ### Upgrade
 
 ```bash
-# Verify upgrade package
-kscorectl airgap upgrade verify keystone-upgrade-v1.0.0-to-v1.1.0.tar.gz
+# Check available upgrade
+kscorectl upgrade check --target 1.1.0
 
 # Dry-run upgrade
-kscorectl airgap upgrade apply keystone-upgrade-v1.0.0-to-v1.1.0.tar.gz --dry-run
+kscorectl upgrade execute --target 1.1.0 --dry-run
 
 # Apply upgrade
-kscorectl airgap upgrade apply keystone-upgrade-v1.0.0-to-v1.1.0.tar.gz
+kscorectl upgrade execute --target 1.1.0
 
 # Rollback if needed
-kscorectl airgap upgrade rollback
+kscorectl upgrade rollback
 ```
 
 ### Export/Import
 
 ```bash
 # Export audit logs
-kscorectl airgap export audit \
-  --since 2024-01-01 \
-  --until 2024-01-15 \
-  --encrypt-to "SIEM Import Key" \
-  --output /mnt/export/audit-jan.tar.gz.enc
-
-# Export metrics
-kscorectl airgap export metrics \
-  --last 7d \
-  --output /mnt/export/metrics-weekly.tar.gz
+kscorectl audit export --format json --since 2024-01-01
 
 # Export full backup
-kscorectl airgap export full \
-  --encrypt-to "Backup Key" \
-  --output /mnt/export/full-backup.tar.gz.enc
+kscorectl backup create --destination /mnt/export/full-backup.tar.gz
 
-# Import package
-kscorectl airgap import /mnt/import/modules-update.tar.gz
+# Import module updates on air-gapped system
+kscorectl module mirror --import --registry http://localhost:8080
 
-# Import with preview
-kscorectl airgap import /mnt/import/config-update.tar.gz --preview
+# Restore from backup
+kscorectl backup restore /mnt/import/full-backup.tar.gz
 ```
 
 ### Validation
 
 ```bash
-# Validate air-gap compliance
-kscorectl airgap validate
-
-# Validate with network monitoring
-kscorectl airgap validate --monitor-network --duration 24h
-
-# Generate compliance report
-kscorectl airgap validate --report --output compliance-report.pdf
-```
-
-### Sync Windows
-
-```bash
-# List sync windows
-kscorectl airgap sync list
-
-# Trigger sync manually
-kscorectl airgap sync trigger daily-maintenance
-
-# Show sync status
-kscorectl airgap sync status
-
-# Show sync history
-kscorectl airgap sync history --last 7d
+# Collect diagnostics to verify air-gap compliance
+kscorectl diagnostics collect --output airgap-report.yaml
 ```
 
 ## Technical Tasks
@@ -969,7 +914,7 @@ kscorectl airgap sync history --last 7d
 - [ ] Write verification tests
 
 #### Week 8: Registry CLI
-- [ ] Implement `kscorectl airgap registry` commands
+- [ ] Implement registry CLI (blueprint mirror, module mirror)
 - [ ] Add registry initialization
 - [ ] Create import/export commands
 - [ ] Add listing and search
@@ -1003,7 +948,7 @@ kscorectl airgap sync history --last 7d
 - [ ] Write verification and rollback tests
 
 #### Week 12: Upgrade CLI and Automation
-- [ ] Implement `kscorectl airgap upgrade` commands
+- [ ] Implement offline upgrade workflow (upgrade execute with local packages)
 - [ ] Add dry-run mode
 - [ ] Create upgrade scheduling
 - [ ] Implement staged rollout for agents
@@ -1037,8 +982,7 @@ kscorectl airgap sync history --last 7d
 - [ ] Write import framework tests
 
 #### Week 16: Export/Import CLI
-- [ ] Implement `kscorectl airgap export` commands
-- [ ] Implement `kscorectl airgap import` commands
+- [ ] Implement export/import workflows (audit export, backup create/restore)
 - [ ] Add scheduled export configuration
 - [ ] Create export retention management
 - [ ] Implement export splitting for media limits
