@@ -921,3 +921,9 @@ func (m *SSHDConfigModule) removeConfigValue(path, name string, backup bool) err
 	return os.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0o600)
 }
 
+func init() {
+	_ = RegisterModule(NewAuthorizedKeysModule())
+	_ = RegisterModule(NewKnownHostsModule())
+	_ = RegisterModule(NewSSHDConfigModule())
+}
+

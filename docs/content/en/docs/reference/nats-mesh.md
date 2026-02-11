@@ -7,226 +7,67 @@ description: >
 
 ## Configuration Reference
 
-### Server NATS Configuration
+The NATS configuration is shared between server and agent under the top-level `nats:` key in the Keystone Core config file.
+
+### NATS Configuration
 
 ```yaml
-server:
-  nats:
-    # Connection mode
-    mode: embedded | external | leaf
+nats:
+  # Connection mode: embedded, external, or leaf
+  mode: embedded
 
-    # NATS server URLs (external mode)
-    urls:
-      - nats://nats-1:4222
-      - nats://nats-2:4222
+  # NATS server URL (external or leaf mode)
+  # Supports nats://, tls://, and ws(s):// schemes
+  # For multiple servers, use comma-separated URLs
+  url: nats://nats.example.com:4222
 
-    # Cluster identifier for subject routing
-    cluster: production
+  # Embedded NATS server settings (used when mode=embedded or leaf)
+  embedded:
+    # Listen address in "host:port" format (overrides host/port if set)
+    listen: 0.0.0.0:4222
+    # Host address (default: 127.0.0.1; use "::" for all IPv6 interfaces)
+    host: 127.0.0.1
+    # Port for embedded NATS server
+    port: 4222
+    # Enable JetStream for embedded mode
+    enable_jetstream: true
+    # Storage directory for embedded NATS data
+    store_dir: /var/lib/keystone-core/nats
+    # Maximum memory in bytes (0 = unlimited)
+    max_memory: 1073741824
+    # Maximum number of client connections (0 = unlimited)
+    max_connections: 1000
+    # Leaf node parent URLs (for leaf mode)
+    leaf_node_urls:
+      - nats-leaf://hub.example.com:7422
+    # Address family preference: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+    address_family: prefer_ipv4
 
-    # Embedded NATS settings
-    embedded:
-      listen: 0.0.0.0:4222
-      http_port: 8222
-      store_dir: /var/lib/keystone-core/nats
-      max_memory: 1GB
-      max_file: 10GB
+  # JetStream settings
+  jetstream:
+    # Enable JetStream
+    enabled: true
+    # Storage directory
+    store_dir: /var/lib/keystone-core/jetstream
+    # Maximum storage size in bytes (0 = unlimited)
+    max_storage: 10737418240
 
-    # TLS configuration
-    tls:
-      enabled: true
-      cert: /etc/keystone-core/server.crt
-      key: /etc/keystone-core/server.key
-      ca: /etc/keystone-core/ca.crt
-      verify: true
-      min_version: "1.3"
+  # Connection settings
+  max_reconnects: -1        # -1 = unlimited reconnect attempts
+  reconnect_wait: 2s        # Wait time between reconnect attempts
 
-    # Leaf node hub configuration
-    leaf:
-      listen: 0.0.0.0:7422
-      tls:
-        cert: /etc/keystone-core/leaf.crt
-        key: /etc/keystone-core/leaf.key
-        ca: /etc/keystone-core/ca.crt
-
-    # Gateway configuration (supercluster)
-    gateway:
-      enabled: true
-      name: region-1
-      listen: 0.0.0.0:7222
-      remotes:
-        - name: region-2
-          urls:
-            - nats://gateway.region-2.example.com:7222
-
-    # WebSocket configuration
-    websocket:
-      listen: 0.0.0.0:443
-      path: /nats
-      tls:
-        cert: /etc/keystone-core/websocket.crt
-        key: /etc/keystone-core/websocket.key
-      compression: true
-      cors:
-        allowed_origins:
-          - https://console.example.com
-
-    # Routing configuration
-    routing:
-      prefer_local: true
-      cross_cluster_timeout: 5s
+  # Authentication (use one, not both)
+  token: ""                 # NATS authentication token
+  credential: ""            # Path to NATS credentials file (.creds)
 ```
 
-### Agent NATS Configuration
+### Configuration by Mode
 
-```yaml
-agent:
-  nats:
-    # Connection mode
-    mode: direct | leaf
+**Embedded mode** (`mode: embedded`): Starts an in-process NATS server. Configure `embedded.*` and `jetstream.*` settings. The `url` field is ignored.
 
-    # Single URL (simple)
-    urls:
-      - nats://nats:4222
+**External mode** (`mode: external`): Connects to an existing NATS cluster. Set `url` to the cluster address. The `embedded.*` settings are ignored except for leaf-related fields.
 
-    # Multiple endpoints with failover
-    endpoints:
-      - url: nats://nats-1:4222
-        priority: 1
-        strategy: direct
-        weight: 100
-      - url: nats://nats-2:4222
-        priority: 2
-        strategy: direct
-        weight: 100
-      - url: wss://nats-ws:443/nats
-        priority: 10
-        strategy: websocket
-        weight: 50
-
-    # TLS configuration
-    tls:
-      enabled: true
-      cert: /etc/keystone-core/agent.crt
-      key: /etc/keystone-core/agent.key
-      ca: /etc/keystone-core/ca.crt
-      skip_verify: false
-
-    # Connection settings
-    ping_interval: 30s
-    max_pings_out: 3
-    max_reconnects: -1
-    reconnect_wait: 2s
-    reconnect_jitter: 1s
-    reconnect_buf_size: 8MB
-    flush_timeout: 10s
-
-    # Routing settings
-    routing:
-      strategy: priority | round_robin | least_latency | weighted | random
-      health_check_interval: 10s
-      failback: true
-      failback_delay: 30s
-
-    # Leaf node settings
-    hub:
-      urls:
-        - nats-leaf://hub.example.com:7422
-      credentials: /etc/keystone-core/leaf.creds
-      tls:
-        ca: /etc/keystone-core/ca.crt
-        cert: /etc/keystone-core/leaf.crt
-        key: /etc/keystone-core/leaf.key
-
-    embedded:
-      listen: 127.0.0.1:4222
-      store_dir: /var/lib/keystone-core/nats
-
-    # Buffer settings
-    buffer:
-      enabled: true
-      max_size: 100MB
-      max_messages: 100000
-      max_age: 24h
-      persistence: true
-      persist_dir: /var/lib/keystone-core/buffer
-      overflow: drop_oldest | drop_newest | block
-
-    # WebSocket settings
-    websocket:
-      compression: true
-      handshake_timeout: 10s
-      headers:
-        X-Custom-Header: value
-      proxy:
-        url: http://proxy:8080
-        auth:
-          type: none | basic | digest | ntlm
-          username: user
-          password: pass
-        no_proxy:
-          - "*.internal.com"
-          - "10.0.0.0/8"
-
-    # Discovery settings
-    discovery:
-      dns:
-        service: _nats._tcp.example.com
-        refresh_interval: 60s
-      kubernetes:
-        service: nats
-        namespace: nats-system
-        port_name: client
-      consul:
-        address: consul:8500
-        service: nats
-        tags: [production]
-
-    # Circuit breaker settings
-    circuit_breaker:
-      failure_threshold: 5
-      success_threshold: 3
-      timeout: 30s
-      half_open_requests: 1
-
-    # Delivery settings
-    delivery:
-      mode: at_most_once | at_least_once | exactly_once
-      timeout: 30s
-      max_retries: 3
-      backoff:
-        initial: 100ms
-        multiplier: 2
-        max: 10s
-      dead_letter:
-        enabled: true
-        subject: kscore.dlq
-
-    # Deduplication settings
-    dedup:
-      enabled: true
-      window: 5m
-      max_entries: 100000
-      cleanup_interval: 1m
-
-    # Degradation settings
-    degradation:
-      enabled: true
-      health_check_interval: 10s
-      failure_threshold: 5
-      success_threshold: 3
-      modes:
-        normal:
-          allow: [critical, high, normal, low, background]
-        degraded:
-          allow: [critical, high, normal]
-          rate_limit: 100
-        limited:
-          allow: [critical, high]
-          rate_limit: 10
-        offline:
-          allow: [critical]
-          buffer: true
-```
+**Leaf mode** (`mode: leaf`): Starts an embedded NATS server that connects as a leaf node to a hub. Set `embedded.leaf_node_urls` to the hub addresses.
 
 ## Subject Reference
 
@@ -273,17 +114,11 @@ Examples:
 # Connection status
 kscore-agent nats status
 kscore-agent nats ping
+kscore-agent nats ping --count 5 --timeout 10s
 
-# Test endpoint
-kscore-agent nats test nats://nats:4222
-
-# Leaf node status
-kscore-agent nats leaf status
-
-# Buffer status
-kscore-agent nats buffer status
-kscore-agent nats buffer flush
-kscore-agent nats buffer clear
+# Run full connectivity test suite
+kscore-agent nats test
+kscore-agent nats test --verbose
 ```
 
 ### Control Plane Diagnostic Commands
@@ -330,31 +165,27 @@ nats consumer info STREAM_NAME CONSUMER_NAME
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `kscore_nats_connections_total` | Counter | endpoint, strategy, status | Total connection attempts |
-| `kscore_nats_connection_errors_total` | Counter | endpoint, error_type | Connection errors |
+| `kscore_nats_connection_errors_total` | Counter | endpoint, error | Connection errors |
 | `kscore_nats_reconnections_total` | Counter | endpoint | Reconnection count |
-| `kscore_nats_connection_latency_seconds` | Histogram | endpoint | Connection latency |
-| `kscore_nats_circuit_breaker_state` | Gauge | endpoint | 0=closed, 1=half-open, 2=open |
+| `kscore_nats_failovers_total` | Counter | from, to | Endpoint failovers |
 
 ### Message Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `kscore_nats_messages_total` | Counter | direction, type | Messages sent/received |
-| `kscore_nats_message_bytes_total` | Counter | direction, type | Message bytes |
+| `kscore_nats_messages_total` | Counter | direction, subject_prefix | Messages sent/received |
+| `kscore_nats_message_bytes_total` | Counter | direction | Message bytes |
 | `kscore_nats_delivery_acked_total` | Counter | | Acknowledged deliveries |
-| `kscore_nats_delivery_failed_total` | Counter | reason | Failed deliveries |
+| `kscore_nats_delivery_failed_total` | Counter | | Failed deliveries |
 | `kscore_nats_delivery_pending` | Gauge | | Pending deliveries |
-| `kscore_nats_delivery_retried_total` | Counter | | Retried deliveries |
-| `kscore_nats_duplicates_detected_total` | Counter | | Duplicate messages |
+| `kscore_nats_duplicates_detected_total` | Counter | | Duplicate messages detected |
 
 ### Buffer Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `kscore_nats_buffer_size` | Gauge | buffer_name | Current buffer size |
-| `kscore_nats_buffer_messages` | Gauge | buffer_name | Buffered message count |
-| `kscore_nats_buffer_overflow_total` | Counter | buffer_name | Buffer overflows |
-| `kscore_nats_buffer_flush_total` | Counter | buffer_name | Buffer flushes |
+| `kscore_nats_buffer_size` | Gauge | type | Current buffer size |
+| `kscore_nats_buffer_overflow_total` | Counter | | Buffer overflows |
 
 ### Topology Metrics
 
@@ -362,8 +193,6 @@ nats consumer info STREAM_NAME CONSUMER_NAME
 |--------|------|--------|-------------|
 | `kscore_nats_leaf_nodes_total` | Gauge | hub | Connected leaf nodes |
 | `kscore_nats_gateway_connections_total` | Gauge | local_cluster, remote_cluster | Gateway connections |
-| `kscore_nats_gateway_latency_seconds` | Histogram | local_cluster, remote_cluster | Gateway latency |
-| `kscore_nats_failovers_total` | Counter | from, to | Endpoint failovers |
 
 ### Bootstrap Metrics
 
@@ -381,34 +210,26 @@ nats consumer info STREAM_NAME CONSUMER_NAME
 
 ## Environment Variables
 
+These environment variables are read by the agent bootstrap process and override config file values.
+
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `KSCORE_NATS_MODE` | Connection mode (`embedded`, `external`, `leaf`) | `embedded` |
 | `KSCORE_NATS_URLS` | Comma-separated NATS URLs | `nats://localhost:4222` |
-| `KSCORE_NATS_TLS_CERT` | TLS certificate path | |
-| `KSCORE_NATS_TLS_KEY` | TLS key path | |
-| `KSCORE_NATS_TLS_CA` | TLS CA path | |
-| `KSCORE_NATS_CREDENTIALS` | NATS credentials file | |
-| `KSCORE_NATS_DEBUG` | Enable debug logging | `false` |
-| `KSCORE_NATS_CLUSTER` | Cluster name | `default` |
-| `KSCORE_NATS_MODE` | Connection mode | `direct` |
-| `KSCORE_NATS_BUFFER_SIZE` | Buffer size | `100MB` |
-| `KSCORE_NATS_BUFFER_DIR` | Buffer persistence directory | |
+| `KSCORE_NATS_CREDS_FILE` | Path to NATS credentials file | |
+| `KSCORE_NATS_USER` | NATS authentication username | |
+| `KSCORE_NATS_PASSWORD` | NATS authentication password | |
 
-## Error Codes
+## Common Errors
 
-| Code | Description | Resolution |
-|------|-------------|------------|
-| `NATS_CONN_REFUSED` | Connection refused | Check NATS server is running |
-| `NATS_AUTH_FAILED` | Authentication failed | Verify credentials |
-| `NATS_TLS_FAILED` | TLS handshake failed | Check certificates |
-| `NATS_TIMEOUT` | Connection timeout | Check network connectivity |
-| `NATS_NO_SERVERS` | No servers available | Check endpoint configuration |
-| `NATS_CIRCUIT_OPEN` | Circuit breaker open | Wait for recovery or check endpoint |
-| `NATS_BUFFER_FULL` | Buffer overflow | Increase buffer size or check connectivity |
-| `NATS_DEDUP_REJECTED` | Duplicate message | Expected behavior, message already processed |
-| `NATS_DELIVERY_FAILED` | Delivery failed | Check consumer status |
-| `NATS_LEAF_DISCONNECTED` | Leaf node disconnected | Check hub connectivity |
-| `NATS_GATEWAY_UNAVAILABLE` | Gateway unreachable | Check cross-cluster network |
+| Symptom | Description | Resolution |
+|---------|-------------|------------|
+| Connection refused | NATS server not reachable | Check NATS server is running and URL is correct |
+| Authentication failed | Invalid token or credentials | Verify `token` or `credential` config |
+| TLS handshake failed | Certificate mismatch | Check certificate paths and CA trust chain |
+| Connection timeout | Network unreachable | Check network connectivity and firewall rules |
+| No servers available | All configured servers down | Check NATS cluster health |
+| Leaf node disconnected | Hub server unreachable | Check hub connectivity and `leaf_node_urls` |
 
 ## Protocol Specification
 

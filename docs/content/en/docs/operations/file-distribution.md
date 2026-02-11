@@ -199,19 +199,16 @@ kscore-files backend status
 # Last Check: 2024-01-15T10:23:45Z
 ```
 
-### Garbage Collection
+### Storage Maintenance
 
-Remove orphaned content-addressed files:
+Check backend storage usage and health:
 
 ```bash
-# Dry run - show what would be deleted
-kscore-files backend gc --dry-run
+# Check backend health and connectivity
+kscore-files backend health
 
-# Execute garbage collection
-kscore-files backend gc
-
-# Schedule regular GC (cron)
-0 3 * * * /usr/bin/kscore-files backend gc --quiet
+# View backend status and storage details
+kscore-files backend status
 ```
 
 ## Mirror Group Operations
@@ -308,13 +305,13 @@ Mirror sync uses incremental comparisons (checksum, size, and modification time)
 
 ```bash
 # Check sync status
-kscore-files mirrors sync-status --group us-mirrors
+kscore-files mirrors sync-status us-mirrors
 
 # Trigger manual sync
-kscore-files mirrors sync --group us-mirrors
+kscore-files mirrors sync us-mirrors
 
-# Force full resync
-kscore-files mirrors sync --group us-mirrors --force
+# Dry-run sync (show what would be synchronized)
+kscore-files mirrors sync us-mirrors --dry-run
 
 # View sync history
 kscore-files mirrors history --group us-mirrors --limit 10
@@ -326,8 +323,8 @@ kscore-files mirrors history --group us-mirrors --limit 10
 # List conflicts
 kscore-files mirrors conflicts --group us-mirrors
 
-# View conflict details
-kscore-files mirrors conflicts --id conflict-123
+# View and resolve a specific conflict
+kscore-files mirrors resolve-conflict conflict-123 --dry-run
 
 # Resolve using source version
 kscore-files mirrors resolve-conflict conflict-123 --strategy source
@@ -520,7 +517,7 @@ groups:
 
 ```bash
 # Test backend connectivity
-kscore-files backend test
+kscore-files backend health
 
 # Check backend logs
 journalctl -u kscore-files -f | grep -i backend
@@ -536,23 +533,23 @@ gsutil ls gs://kscore-files-prod/
 
 ```bash
 # Check sync status
-kscore-files mirrors sync-status --group us-mirrors --verbose
+kscore-files mirrors sync-status us-mirrors
 
-# View sync errors
-kscore-files mirrors errors --group us-mirrors
+# View sync history for errors
+kscore-files mirrors history --group us-mirrors --limit 20
 
-# Force resync
-kscore-files mirrors sync --group us-mirrors --force
+# Trigger resync
+kscore-files mirrors sync us-mirrors
 
-# Check network connectivity between mirrors
-kscore-files mirrors ping --group us-mirrors
+# Check mirror health
+kscore-files mirrors health --group us-mirrors
 ```
 
 ### Performance Issues
 
 ```bash
-# Check backend latency
-kscore-files backend benchmark
+# Check backend health and status
+kscore-files backend health
 
 # Profile file operations
 kscore-files --debug get prod-configs/large-file.bin /dev/null

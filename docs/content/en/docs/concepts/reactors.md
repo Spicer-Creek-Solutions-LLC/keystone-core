@@ -644,17 +644,17 @@ if !result.Success {
 Check:
 
 ```bash
-# Verify reactor is registered
-kscorectl reactor list
+# Verify reactor config is loaded (reactors are defined in server YAML config)
+grep -A 20 "reactors:" /etc/keystone-core/server.yaml
 
-# Check reactor is enabled
-kscorectl reactor status drift_remediation
+# Check recent reactor events
+kscorectl events query "reactor_name == 'drift_remediation'" --limit 5
 
 # Test filter expression
-kscorectl event query "type == 'state.drift' and severity == 'critical'"
+kscorectl events query "type == 'state.drift' and severity == 'critical'"
 
-# Check throttle/debounce limits
-kscorectl reactor stats drift_remediation
+# Check reactor metrics (via Prometheus)
+curl -s http://localhost:9091/metrics | grep kscore_reactor
 ```
 
 ### Action Failures
@@ -664,11 +664,11 @@ kscorectl reactor stats drift_remediation
 Check:
 
 ```bash
-# View reactor execution history
-kscorectl reactor history drift_remediation --limit 10
+# View reactor execution history via events
+kscorectl events query "reactor_name == 'drift_remediation'" --limit 10
 
 # Check action logs
-kscorectl logs --filter "reactor_name == 'drift_remediation'"
+journalctl -u kscore-server | grep drift_remediation | tail -20
 
 # Test action manually
 kscorectl exec run "systemctl restart nginx" --target "web-01"

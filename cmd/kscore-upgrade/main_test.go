@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -155,8 +156,8 @@ func TestNewCancelCmd(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("newCancelCmd should not return nil")
 	}
-	if cmd.Use != "cancel" {
-		t.Errorf("Use = %v, want cancel", cmd.Use)
+	if cmd.Use != "cancel [upgrade-id]" {
+		t.Errorf("Use = %v, want 'cancel [upgrade-id]'", cmd.Use)
 	}
 
 	// Check flags exist
@@ -256,8 +257,8 @@ func TestNewLogsCmd(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("newLogsCmd should not return nil")
 	}
-	if cmd.Use != "logs" {
-		t.Errorf("Use = %v, want logs", cmd.Use)
+	if cmd.Use != "logs [upgrade-id]" {
+		t.Errorf("Use = %v, want 'logs [upgrade-id]'", cmd.Use)
 	}
 
 	// Check flags exist
@@ -634,5 +635,173 @@ func TestRunResumeWithID(t *testing.T) {
 	err := runResume(cfg, "upgrade-custom-id")
 	if err != nil {
 		t.Fatalf("runResume with ID failed: %v", err)
+	}
+}
+
+func TestCancelPositionalArg(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCancelCmd(cfg)
+
+	if cmd.Use != "cancel [upgrade-id]" {
+		t.Errorf("Use = %v, want 'cancel [upgrade-id]'", cmd.Use)
+	}
+
+	// Should accept a positional arg without error
+	cmd.SetArgs([]string{"--force", "my-upgrade-123"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelDefaultUpgradeID(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCancelCmd(cfg)
+	cmd.SetArgs([]string{"--force"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error with no positional arg: %v", err)
+	}
+}
+
+func TestLogsPositionalArg(t *testing.T) {
+	cfg := &Config{}
+	cmd := newLogsCmd(cfg)
+
+	if cmd.Use != "logs [upgrade-id]" {
+		t.Errorf("Use = %v, want 'logs [upgrade-id]'", cmd.Use)
+	}
+
+	// Should accept a positional arg without error
+	cmd.SetArgs([]string{"my-upgrade-456"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLogsPositionalArgOverridesFlag(t *testing.T) {
+	cfg := &Config{}
+	cmd := newLogsCmd(cfg)
+	cmd.SetArgs([]string{"--upgrade-id", "from-flag", "from-arg"})
+
+	// Positional arg should take precedence (overwrite upgradeID)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLogsRequiresUpgradeID(t *testing.T) {
+	cfg := &Config{}
+	cmd := newLogsCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no upgrade-id provided")
+	}
+}
+
+func TestCanaryPromoteConfirmFlag(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCanaryPromoteCmd(cfg)
+
+	if cmd.Flags().Lookup("confirm") == nil {
+		t.Fatal("expected --confirm flag on canary promote")
+	}
+
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--confirm"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Promoting canary deployment") {
+		t.Errorf("expected promote output, got:\n%s", out)
+	}
+}
+
+func TestCanaryPromoteRequiresConfirm(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCanaryPromoteCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --confirm not provided")
+	}
+}
+
+func TestCanaryRollbackConfirmFlag(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCanaryRollbackCmd(cfg)
+
+	if cmd.Flags().Lookup("confirm") == nil {
+		t.Fatal("expected --confirm flag on canary rollback")
+	}
+
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--confirm"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Rolling back canary deployment") {
+		t.Errorf("expected rollback output, got:\n%s", out)
+	}
+}
+
+func TestCanaryRollbackRequiresConfirm(t *testing.T) {
+	cfg := &Config{}
+	cmd := newCanaryRollbackCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --confirm not provided")
+	}
+}
+
+func TestHistoryStatusFilter(t *testing.T) {
+	cfg := &Config{}
+	cmd := newHistoryCmd(cfg)
+
+	if cmd.Flags().Lookup("status") == nil {
+		t.Fatal("expected --status flag on history command")
+	}
+}
+
+func TestRunHistoryStatusFilter(t *testing.T) {
+	cfg := &Config{OutputFormat: "json"}
+
+	// Filter for completed — should return 2 entries
+	err := runHistory(cfg, 0, "completed")
+	if err != nil {
+		t.Fatalf("runHistory with status filter failed: %v", err)
+	}
+
+	// Filter for rolled_back — should return 1 entry
+	err = runHistory(cfg, 0, "rolled_back")
+	if err != nil {
+		t.Fatalf("runHistory with rolled_back filter failed: %v", err)
+	}
+
+	// Filter for nonexistent status — should return empty
+	err = runHistory(cfg, 0, "nonexistent")
+	if err != nil {
+		t.Fatalf("runHistory with nonexistent filter failed: %v", err)
 	}
 }

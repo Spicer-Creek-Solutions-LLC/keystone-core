@@ -592,105 +592,71 @@ server:
   max_file_size: 1073741824           # 1GB max file size
   request_timeout: "5m"
 
-  rate_limit:
-    per_agent: 10485760               # 10MB/s per agent
-    global: 104857600                 # 100MB/s total
-    concurrent_transfers: 100
+# NATS connection
+nats:
+  url: "nats://localhost:4222"
+  token: ""                           # Auth token
+  username: ""                        # Username/password auth
+  password: ""
+  tls_cert_file: ""                   # mTLS client certificate
+  tls_key_file: ""                    # mTLS client key
+  tls_ca_file: ""                     # CA certificate
 
-# Storage backend
-backend:
-  type: "local"                       # local, s3, gcs, azure, git, nats
+# Storage backends (array — multiple backends can be configured)
+backends:
+  # Local filesystem backend
+  - name: "local-files"
+    type: "local"
+    root_path: "/var/lib/keystone-core/files"
+    paths: ["/configs", "/packages"]  # Optional: restrict to specific paths
+    read_only: false
 
-  local:
-    root: "/var/lib/keystone-core/files"
-    temp_dir: "/var/lib/keystone-core/tmp"
-    create_dirs: true
-    dir_mode: "0755"
-    file_mode: "0644"
-
-  s3:
-    bucket: ""
+  # S3 backend
+  - name: "s3-packages"
+    type: "s3"
+    bucket: "my-kscore-files"
     region: "us-east-1"
-    prefix: ""
+    prefix: "files/"
     endpoint: ""                      # For MinIO/compatible
     access_key_id: ""
     secret_access_key: ""
+    profile: ""                       # AWS profile name
     use_path_style: false
-    storage_class: "STANDARD"
-    server_side_encryption: ""        # AES256 or aws:kms
-    kms_key_id: ""
+    read_only: false
 
-  gcs:
-    bucket: ""
+  # GCS backend
+  - name: "gcs-assets"
+    type: "gcs"
+    bucket: "my-kscore-files"
+    prefix: "files/"
+    project: ""
+    credentials_file: ""              # Path to service account JSON
+
+  # Azure Blob backend
+  - name: "azure-configs"
+    type: "azure"
+    container: "kscore-files"
+    account_name: ""
+    account_key: ""
+    connection_string: ""             # Alternative to account_name/account_key
     prefix: ""
-    credentials_file: ""
-    project_id: ""
 
-  azure:
-    container: ""
-    account: ""
-    access_key: ""
-    prefix: ""
-
-  git:
-    url: ""
+  # Git backend
+  - name: "git-configs"
+    type: "git"
+    url: "https://github.com/myorg/configs.git"
     branch: "main"
     local_path: "/var/lib/keystone-core/git-files"
-    sync_interval: "5m"
-    auto_commit: true
-    commit_author: "Keystone Core <kscore@example.com>"
-    auth:
-      type: "none"                    # none, token, ssh-key, ssh-agent
-      token: ""
-      ssh_key_path: ""
-      ssh_key_password: ""
+    username: ""                      # HTTPS auth
+    password: ""
+    ssh_key_file: ""                  # SSH auth
+    auto_pull: true
+    pull_interval: "5m"
 
-  nats:
-    bucket: "kscore-files"
-    replicas: 1
-    ttl: "0"                          # 0 = no expiration
-    max_bytes: 0                      # 0 = unlimited
-    storage: "file"                   # file, memory
-
-# Access control
-access:
-  default_policy: "deny"              # allow, deny
-  namespaces:
-    - name: "public"
-      policy: "allow"
-      permissions:
-        - principal: "*"
-          actions: ["read", "list"]
-    - name: "internal"
-      policy: "deny"
-      permissions:
-        - principal: "role:admin"
-          actions: ["*"]
-        - principal: "role:ops"
-          actions: ["read", "write", "list"]
-
-# Mirror groups
-mirror_groups:
-  - id: "us-mirrors"
-    name: "US Region Mirrors"
-    read_strategy: "nearest"          # nearest, round-robin, failover, fastest
-    write_policy: "all"               # all, quorum, primary-only
-    mirrors:
-      - id: "us-west"
-        cluster_id: "cluster-west"
-        location: "37.7749,-122.4194"
-        is_primary: true
-      - id: "us-east"
-        cluster_id: "cluster-east"
-        location: "40.7128,-74.0060"
-
-# Caching
-cache:
-  enabled: true
-  path: "/var/cache/keystone-core/files"
-  max_size: "10GB"
-  ttl: "24h"
-  cleanup_interval: "1h"
+  # NATS object store backend
+  - name: "nats-store"
+    type: "nats"
+    bucket_name: "kscore-files"       # JetStream object store bucket
 ```
 
 ## Proxy Agent Configuration
@@ -783,71 +749,27 @@ credentials:
   file:
     path: "/etc/keystone-core/credentials.enc"
     encryption_key: "${CREDS_KEY}"
+
+  env:
+    prefix: "KSCORE_CRED"            # Default prefix for env vars
 ```
 
-### Device Discovery
+When using the `env` provider, credentials are read from environment variables derived from
+the device's `credential_ref`. For a ref of `router-creds` with the default prefix:
 
-```yaml
-# Discovery configuration (optional)
-discovery:
-  enabled: true
-  scan_interval: "1h"                 # Scan frequency
-  scan_timeout: "30s"                 # Per-scan timeout
-  max_concurrent: 50                  # Concurrent scans
+| Variable | Field |
+|----------|-------|
+| `KSCORE_CRED_ROUTER_CREDS_USERNAME` | Username |
+| `KSCORE_CRED_ROUTER_CREDS_PASSWORD` | Password |
+| `KSCORE_CRED_ROUTER_CREDS_TOKEN` | API/bearer token |
+| `KSCORE_CRED_ROUTER_CREDS_COMMUNITY` | SNMP community string |
+| `KSCORE_CRED_ROUTER_CREDS_TYPE` | Credential type override |
 
-  # Networks to scan
-  networks:
-    - "10.0.0.0/16"
-    - "192.168.0.0/24"
+The credential type is inferred from which variables are set (password, token, or snmp_community)
+unless explicitly overridden with `_TYPE`.
 
-  exclude_networks:
-    - "10.0.255.0/24"
-
-  exclude_hosts:
-    - "10.0.0.1"                      # Gateway
-
-  # Protocol-specific settings
-  ssh_port: 22
-  snmp_port: 161
-  snmp_community: "public"
-
-  # Auto-approval
-  auto_approve: false
-  auto_approve_profiles:
-    - "cisco-ios"
-    - "arista-eos"
-```
-
-### Device Profiles
-
-```yaml
-# Device profiles define interaction patterns
-profiles:
-  - id: "cisco-ios"
-    name: "Cisco IOS Devices"
-    vendor: "cisco"
-    protocol: "ssh"
-    prompts:
-      login: "Username:"
-      password: "Password:"
-      enable: ">"
-      privileged: "#"
-    commands:
-      show_version: "show version"
-      show_running: "show running-config"
-      save_config: "write memory"
-
-  - id: "arista-eos"
-    name: "Arista EOS Devices"
-    vendor: "arista"
-    protocol: "rest"
-    api:
-      base_url: "/command-api"
-      format: "json"
-      version: 1
-    authentication:
-      type: "basic"
-```
+Device discovery and device profiles are managed through the CLI (`kscorectl proxy discover`)
+and the vendor driver system respectively, not through the proxy agent configuration file.
 
 ## Agent Configuration
 

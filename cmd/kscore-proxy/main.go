@@ -1198,10 +1198,20 @@ func newDiscoverCmd() *cobra.Command {
 	return cmd
 }
 
+// scanOptions holds options for the discover scan command.
+type scanOptions struct {
+	network    string
+	subnet     string
+	networks   []string
+	protocols  []string
+	ports      []string
+	timeout    string
+	workers    int
+	debug      bool
+}
+
 func newDiscoverScanCmd() *cobra.Command {
-	var network string
-	var networks []string
-	var debug bool
+	opts := &scanOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "scan",
@@ -1210,45 +1220,74 @@ func newDiscoverScanCmd() *cobra.Command {
 
 Examples:
   kscorectl proxy discover scan --network 192.168.1.0/24
-  kscorectl proxy discover scan --networks 192.168.1.0/24,10.0.0.0/24`,
+  kscorectl proxy discover scan --subnet 192.168.1.0/24 --protocols ssh,snmp
+  kscorectl proxy discover scan --networks 192.168.1.0/24,10.0.0.0/24
+  kscorectl proxy discover scan --subnet 10.0.0.0/24 --ports 22,161,443`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDiscoverScan(network, networks, debug)
+			return runDiscoverScan(cmd, opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&network, "network", "", "Network to scan (CIDR)")
-	cmd.Flags().StringSliceVar(&networks, "networks", nil, "Multiple networks to scan")
-	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug output")
+	cmd.Flags().StringVar(&opts.network, "network", "", "Network to scan (CIDR)")
+	cmd.Flags().StringVar(&opts.subnet, "subnet", "", "Subnet to scan (CIDR, alias for --network)")
+	cmd.Flags().StringSliceVar(&opts.networks, "networks", nil, "Multiple networks to scan")
+	cmd.Flags().StringSliceVar(&opts.protocols, "protocols", nil, "Protocols to probe (ssh, snmp, rest, winrm)")
+	cmd.Flags().StringSliceVar(&opts.ports, "ports", nil, "Ports to scan")
+	cmd.Flags().StringVar(&opts.timeout, "timeout", "5s", "Scan timeout per host")
+	cmd.Flags().IntVar(&opts.workers, "workers", 20, "Number of parallel workers")
+	cmd.Flags().BoolVar(&opts.debug, "debug", false, "Enable debug output")
+	cmd.MarkFlagsMutuallyExclusive("network", "subnet")
 
 	return cmd
 }
 
-func runDiscoverScan(network string, networks []string, debug bool) error {
-	targetNetworks := networks
+func runDiscoverScan(cmd *cobra.Command, opts *scanOptions) error {
+	w := cmd.OutOrStdout()
+
+	// --subnet is an alias for --network
+	network := opts.network
+	if opts.subnet != "" {
+		network = opts.subnet
+	}
+
+	targetNetworks := opts.networks
 	if network != "" {
 		targetNetworks = append(targetNetworks, network)
 	}
 
 	if len(targetNetworks) == 0 {
-		return fmt.Errorf("specify --network or --networks")
+		return fmt.Errorf("specify --network, --subnet, or --networks")
 	}
 
-	fmt.Printf("Scanning networks: %s\n", strings.Join(targetNetworks, ", "))
-	fmt.Println()
+	fmt.Fprintf(w, "Scanning networks: %s\n", strings.Join(targetNetworks, ", "))
+	if len(opts.protocols) > 0 {
+		fmt.Fprintf(w, "Protocols: %s\n", strings.Join(opts.protocols, ", "))
+	}
+	if len(opts.ports) > 0 {
+		fmt.Fprintf(w, "Ports: %s\n", strings.Join(opts.ports, ", "))
+	}
+	fmt.Fprintf(w, "Timeout: %s, Workers: %d\n", opts.timeout, opts.workers)
+	fmt.Fprintln(w)
 
-	if debug {
-		fmt.Println("[DEBUG] Starting ICMP ping sweep...")
-		fmt.Println("[DEBUG] Starting SSH scan on port 22...")
-		fmt.Println("[DEBUG] Starting SNMP scan on port 161...")
-		fmt.Println()
+	if opts.debug {
+		fmt.Fprintln(w, "[DEBUG] Starting ICMP ping sweep...")
+		if len(opts.protocols) == 0 {
+			fmt.Fprintln(w, "[DEBUG] Starting SSH scan on port 22...")
+			fmt.Fprintln(w, "[DEBUG] Starting SNMP scan on port 161...")
+		} else {
+			for _, proto := range opts.protocols {
+				fmt.Fprintf(w, "[DEBUG] Starting %s scan...\n", strings.ToUpper(proto))
+			}
+		}
+		fmt.Fprintln(w)
 	}
 
-	fmt.Println("Scan Progress:")
-	fmt.Println("  Hosts scanned: 254")
-	fmt.Println("  Responding:    12")
-	fmt.Println("  Identified:    8")
-	fmt.Println()
-	fmt.Println("Discovered Devices:")
+	fmt.Fprintln(w, "Scan Progress:")
+	fmt.Fprintln(w, "  Hosts scanned: 254")
+	fmt.Fprintln(w, "  Responding:    12")
+	fmt.Fprintln(w, "  Identified:    8")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Discovered Devices:")
 
 	table := &output.Table{
 		Headers: []string{"ADDRESS", "HOSTNAME", "VENDOR", "MODEL", "PROFILE"},
@@ -1259,10 +1298,10 @@ func runDiscoverScan(network string, networks []string, debug bool) error {
 		[]string{"192.168.1.10", "switch-01", "cisco", "C3850", "cisco_ios"},
 		[]string{"192.168.1.254", "firewall-01", "pfsense", "SG-3100", "pfsense"})
 
-	output.WriteTable(os.Stdout, table)
+	output.WriteTable(w, table)
 
-	fmt.Println()
-	fmt.Println("3 new devices discovered. Use 'proxy discover list --status pending' to review.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "3 new devices discovered. Use 'proxy discover list --status pending' to review.")
 	return nil
 }
 
@@ -1734,6 +1773,7 @@ func newStateCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newStateApplyCmd())
+	cmd.AddCommand(newStateCheckCmd())
 	cmd.AddCommand(newStateLogsCmd())
 
 	return cmd
@@ -1779,6 +1819,60 @@ func runStateApply(device string, dryRun bool) error {
 	fmt.Println("  ✓ [ios_config] Configure logging")
 	fmt.Println()
 	fmt.Println("State application complete. 3 states applied, 0 failed.")
+	return nil
+}
+
+func newStateCheckCmd() *cobra.Command {
+	var (
+		device string
+		target string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "check <state-file>",
+		Short: "Check state compliance on devices",
+		Long: `Check whether devices comply with the desired state without applying changes.
+
+Examples:
+  kscorectl proxy state check network-baseline.yaml --device router-01
+  kscorectl proxy state check network-baseline.yaml --target "vendor:cisco"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStateCheck(cmd, args[0], device, target)
+		},
+	}
+
+	cmd.Flags().StringVar(&device, "device", "", "Check specific device")
+	cmd.Flags().StringVar(&target, "target", "", "Target expression for device selection")
+
+	return cmd
+}
+
+func runStateCheck(cmd *cobra.Command, stateFile, device, target string) error {
+	w := cmd.OutOrStdout()
+
+	fmt.Fprintf(w, "Checking compliance: %s\n", stateFile)
+	if device != "" {
+		fmt.Fprintf(w, "Device: %s\n", device)
+	}
+	if target != "" {
+		fmt.Fprintf(w, "Target: %s\n", target)
+	}
+	fmt.Fprintln(w)
+
+	table := &output.Table{
+		Headers: []string{"DEVICE", "STATE", "STATUS", "DETAILS"},
+	}
+
+	table.Rows = append(table.Rows,
+		[]string{"core-router-01", "hostname", "compliant", "-"},
+		[]string{"core-router-01", "ntp.server", "non-compliant", "expected 10.0.0.1, got 10.0.0.2"},
+		[]string{"core-router-01", "logging.host", "compliant", "-"})
+
+	output.WriteTable(w, table)
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Summary: 2 compliant, 1 non-compliant")
 	return nil
 }
 

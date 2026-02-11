@@ -216,6 +216,7 @@ func runList(cmd *cobra.Command, opts *ListOptions) error {
 func newQueryCmd() *cobra.Command {
 	var filter string
 	var limit int
+	var since, until string
 
 	cmd := &cobra.Command{
 		Use:   "query <filter-expression>",
@@ -237,26 +238,38 @@ Examples:
   # Query state changes in production
   kscorectl events query 'type == "state.change" and tags.env == "prod"'
 
-  # Complex query with time range
-  kscorectl events query 'severity >= "warning" and timestamp() > now() - duration("1h")'`,
+  # Query events from the last hour
+  kscorectl events query 'severity >= "warning"' --since 1h
+
+  # Query events in a time range
+  kscorectl events query 'type == "state.drift"' --since 2024-01-01T00:00:00Z --until 2024-01-02T00:00:00Z`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter = args[0]
-			return runQuery(cmd, filter, limit)
+			return runQuery(cmd, filter, limit, since, until)
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of events to return")
+	cmd.Flags().IntVarP(&limit, "limit", "n", 100, "Maximum number of events to return")
+	cmd.Flags().StringVar(&since, "since", "", "Query events since time (duration like 1h or RFC3339 timestamp)")
+	cmd.Flags().StringVar(&until, "until", "", "Query events until time (duration like 1h or RFC3339 timestamp)")
 
 	return cmd
 }
 
-func runQuery(cmd *cobra.Command, filter string, limit int) error {
-	fmt.Printf("Querying events with filter: %s\n", filter)
-	fmt.Printf("Limit: %d\n", limit)
-	fmt.Println()
+func runQuery(cmd *cobra.Command, filter string, limit int, since, until string) error {
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "Querying events with filter: %s\n", filter)
+	fmt.Fprintf(w, "Limit: %d\n", limit)
+	if since != "" {
+		fmt.Fprintf(w, "Since: %s\n", since)
+	}
+	if until != "" {
+		fmt.Fprintf(w, "Until: %s\n", until)
+	}
+	fmt.Fprintln(w)
 
-	// In production, this would send the filter to the server
+	// In production, this would send the filter and time range to the server
 	// For now, generate sample events
 	sampleEvents := generateSampleEvents(limit)
 
@@ -532,6 +545,7 @@ type WatchOptions struct {
 	Severity string
 	Filter   string
 	Tags     []string
+	Format   string
 }
 
 // newWatchCmd creates the watch command
@@ -570,29 +584,40 @@ Examples:
 	cmd.Flags().StringVar(&opts.Severity, "severity", "", "Filter by minimum severity")
 	cmd.Flags().StringVar(&opts.Filter, "filter", "", "Filter expression")
 	cmd.Flags().StringArrayVar(&opts.Tags, "tag", nil, "Filter by tag (key:value format)")
+	cmd.Flags().StringVar(&opts.Format, "format", "text", "Output format: text, json, jsonl")
 
 	return cmd
 }
 
 func runWatch(cmd *cobra.Command, opts *WatchOptions) error {
-	fmt.Println("Watching events... (press Ctrl+C to stop)")
-	fmt.Println()
+	switch opts.Format {
+	case "text", "json", "jsonl":
+	default:
+		return fmt.Errorf("unsupported format %q: use text, json, or jsonl", opts.Format)
+	}
 
-	if opts.Type != "" {
-		fmt.Printf("  Type filter:     %s\n", opts.Type)
+	w := cmd.OutOrStdout()
+
+	if opts.Format == "text" {
+		fmt.Fprintln(w, "Watching events... (press Ctrl+C to stop)")
+		fmt.Fprintln(w)
+
+		if opts.Type != "" {
+			fmt.Fprintf(w, "  Type filter:     %s\n", opts.Type)
+		}
+		if opts.Source != "" {
+			fmt.Fprintf(w, "  Source filter:   %s\n", opts.Source)
+		}
+		if opts.Severity != "" {
+			fmt.Fprintf(w, "  Severity filter: %s+\n", opts.Severity)
+		}
+		if opts.Filter != "" {
+			fmt.Fprintf(w, "  Filter:          %s\n", opts.Filter)
+		}
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Timestamp           Type                    Source               Severity")
+		fmt.Fprintln(w, strings.Repeat("-", 80))
 	}
-	if opts.Source != "" {
-		fmt.Printf("  Source filter:   %s\n", opts.Source)
-	}
-	if opts.Severity != "" {
-		fmt.Printf("  Severity filter: %s+\n", opts.Severity)
-	}
-	if opts.Filter != "" {
-		fmt.Printf("  Filter:          %s\n", opts.Filter)
-	}
-	fmt.Println()
-	fmt.Println("Timestamp           Type                    Source               Severity")
-	fmt.Println(strings.Repeat("-", 80))
 
 	// Simulate watching events
 	eventTypes := []string{
@@ -620,6 +645,15 @@ func runWatch(cmd *cobra.Command, opts *WatchOptions) error {
 		"/state-manager",
 	}
 
+	type watchEvent struct {
+		Timestamp string `json:"timestamp"`
+		Type      string `json:"type"`
+		Source    string `json:"source"`
+		Severity  string `json:"severity"`
+	}
+
+	var jsonEvents []watchEvent
+
 	// Simulate 10 events
 	for i := 0; i < 10; i++ {
 		typeIdx := i % len(eventTypes)
@@ -639,18 +673,49 @@ func runWatch(cmd *cobra.Command, opts *WatchOptions) error {
 			continue
 		}
 
-		fmt.Printf("%s  %-22s  %-18s  %s\n",
-			time.Now().Format("15:04:05.000"),
-			eventType,
-			truncate(source, 18),
-			severity,
-		)
+		ts := time.Now()
+
+		switch opts.Format {
+		case "text":
+			fmt.Fprintf(w, "%s  %-22s  %-18s  %s\n",
+				ts.Format("15:04:05.000"),
+				eventType,
+				truncate(source, 18),
+				severity,
+			)
+		case "jsonl":
+			evt := watchEvent{
+				Timestamp: ts.Format(time.RFC3339Nano),
+				Type:      eventType,
+				Source:    source,
+				Severity:  severity,
+			}
+			data, _ := json.Marshal(evt)
+			fmt.Fprintln(w, string(data))
+		case "json":
+			jsonEvents = append(jsonEvents, watchEvent{
+				Timestamp: ts.Format(time.RFC3339Nano),
+				Type:      eventType,
+				Source:    source,
+				Severity:  severity,
+			})
+		}
 
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	fmt.Println()
-	fmt.Println("Watch stopped (demo limit reached)")
+	if opts.Format == "json" {
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(jsonEvents); err != nil {
+			return fmt.Errorf("failed to encode events: %w", err)
+		}
+	}
+
+	if opts.Format == "text" {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Watch stopped (demo limit reached)")
+	}
 	return nil
 }
 
@@ -1068,54 +1133,82 @@ Examples:
 	return cmd
 }
 
+// dlqEntry represents a dead letter queue entry.
+type dlqEntry struct {
+	ID        string
+	EventType string
+	Error     string
+	Retries   int
+	AddedAt   time.Time
+}
+
+func generateSampleDLQEntries() []dlqEntry {
+	return []dlqEntry{
+		{"evt-001", "state.change", "reactor timeout", 3, time.Now().Add(-2 * time.Hour)},
+		{"evt-002", "job.complete", "connection refused", 2, time.Now().Add(-1 * time.Hour)},
+		{"evt-003", "agent.error", "invalid payload", 1, time.Now().Add(-30 * time.Minute)},
+	}
+}
+
 func newDLQListCmd() *cobra.Command {
-	var limit int
+	var (
+		limit  int
+		reason string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List events in the dead letter queue",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Sample DLQ entries
-			type dlqEntry struct {
-				ID        string
-				EventType string
-				Error     string
-				Retries   int
-				AddedAt   time.Time
-			}
-
-			entries := []dlqEntry{
-				{"evt-001", "state.change", "reactor timeout", 3, time.Now().Add(-2 * time.Hour)},
-				{"evt-002", "job.complete", "connection refused", 2, time.Now().Add(-1 * time.Hour)},
-				{"evt-003", "agent.error", "invalid payload", 1, time.Now().Add(-30 * time.Minute)},
-			}
-
-			if len(entries) == 0 {
-				fmt.Println("Dead letter queue is empty")
-				return nil
-			}
-
-			fmt.Printf("Dead Letter Queue (%d event(s)):\n\n", len(entries))
-			table := &output.Table{
-				Headers: []string{"ID", "TYPE", "ERROR", "RETRIES", "ADDED"},
-			}
-			for _, e := range entries {
-				table.Rows = append(table.Rows, []string{
-					e.ID,
-					e.EventType,
-					truncate(e.Error, 25),
-					strconv.Itoa(e.Retries),
-					e.AddedAt.Format("15:04:05"),
-				})
-			}
-			output.WriteTable(os.Stdout, table)
-			return nil
+			return runDLQList(cmd, limit, reason)
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of entries to show")
+	cmd.Flags().IntVarP(&limit, "limit", "n", 50, "Maximum number of entries to show")
+	cmd.Flags().StringVar(&reason, "reason", "", "Filter by failure reason")
 
 	return cmd
+}
+
+func runDLQList(cmd *cobra.Command, limit int, reason string) error {
+	entries := generateSampleDLQEntries()
+
+	// Filter by reason
+	if reason != "" {
+		filtered := make([]dlqEntry, 0, len(entries))
+		for _, e := range entries {
+			if strings.Contains(strings.ToLower(e.Error), strings.ToLower(reason)) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	// Apply limit
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+
+	if len(entries) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "Dead letter queue is empty")
+		return nil
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Dead Letter Queue (%d event(s)):\n\n", len(entries))
+	table := &output.Table{
+		Headers: []string{"ID", "TYPE", "ERROR", "RETRIES", "ADDED"},
+	}
+	for _, e := range entries {
+		table.Rows = append(table.Rows, []string{
+			e.ID,
+			e.EventType,
+			truncate(e.Error, 25),
+			strconv.Itoa(e.Retries),
+			e.AddedAt.Format("15:04:05"),
+		})
+	}
+	output.WriteTable(cmd.OutOrStdout(), table)
+	return nil
 }
 
 func newDLQShowCmd() *cobra.Command {
@@ -1155,7 +1248,10 @@ func newDLQShowCmd() *cobra.Command {
 }
 
 func newDLQRetryCmd() *cobra.Command {
-	var all bool
+	var (
+		all       bool
+		eventType string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "retry [event-id]",
@@ -1167,58 +1263,120 @@ Examples:
   kscorectl events dlq retry evt-001
 
   # Retry all events
-  kscorectl events dlq retry --all`,
+  kscorectl events dlq retry --all
+
+  # Retry events of specific type
+  kscorectl events dlq retry --type webhook.delivery`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if all {
-				fmt.Println("Retrying all events in DLQ...")
-				fmt.Println("  Retried: 3 event(s)")
-				fmt.Println("  Succeeded: 2")
-				fmt.Println("  Failed: 1")
-				return nil
-			}
-
-			if len(args) == 0 {
-				return fmt.Errorf("event-id is required (or use --all)")
-			}
-
-			eventID := args[0]
-			fmt.Printf("Retrying event: %s\n", eventID)
-			fmt.Println("Event processed successfully")
-			return nil
+			return runDLQRetry(cmd, args, all, eventType)
 		},
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "Retry all events in the DLQ")
+	cmd.Flags().StringVar(&eventType, "type", "", "Retry events of specific type")
 
 	return cmd
 }
 
+func runDLQRetry(cmd *cobra.Command, args []string, all bool, eventType string) error {
+	w := cmd.OutOrStdout()
+
+	if all {
+		fmt.Fprintln(w, "Retrying all events in DLQ...")
+		fmt.Fprintln(w, "  Retried: 3 event(s)")
+		fmt.Fprintln(w, "  Succeeded: 2")
+		fmt.Fprintln(w, "  Failed: 1")
+		return nil
+	}
+
+	if eventType != "" {
+		fmt.Fprintf(w, "Retrying events of type %q in DLQ...\n", eventType)
+		fmt.Fprintln(w, "  Retried: 2 event(s)")
+		fmt.Fprintln(w, "  Succeeded: 2")
+		fmt.Fprintln(w, "  Failed: 0")
+		return nil
+	}
+
+	if len(args) == 0 {
+		return fmt.Errorf("event-id is required (or use --all / --type)")
+	}
+
+	eventID := args[0]
+	fmt.Fprintf(w, "Retrying event: %s\n", eventID)
+	fmt.Fprintln(w, "Event processed successfully")
+	return nil
+}
+
 func newDLQPurgeCmd() *cobra.Command {
-	var force bool
+	var (
+		force    bool
+		olderThan string
+		reason   string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "purge",
-		Short: "Purge all events from the DLQ",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !force {
-				fmt.Print("Are you sure you want to purge all events from the DLQ? [y/N]: ")
-				var confirm string
-				fmt.Scanln(&confirm)
-				if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
-					fmt.Println("Cancelled")
-					return nil
-				}
-			}
+		Short: "Purge events from the DLQ",
+		Long: `Remove events from the dead letter queue.
 
-			fmt.Println("Purging dead letter queue...")
-			fmt.Println("Purged 3 event(s)")
-			return nil
+Examples:
+  # Purge all events (with confirmation)
+  kscorectl events dlq purge
+
+  # Purge events older than 7 days
+  kscorectl events dlq purge --older-than 7d --force
+
+  # Purge events with specific reason
+  kscorectl events dlq purge --reason "timeout" --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDLQPurge(cmd, force, olderThan, reason)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&olderThan, "older-than", "", "Purge events older than duration (e.g., 7d, 24h)")
+	cmd.Flags().StringVar(&reason, "reason", "", "Purge events with specific failure reason")
 
 	return cmd
+}
+
+func runDLQPurge(cmd *cobra.Command, force bool, olderThan, reason string) error {
+	w := cmd.OutOrStdout()
+
+	if !force {
+		fmt.Fprint(w, "Are you sure you want to purge events from the DLQ? [y/N]: ")
+		var confirm string
+		fmt.Scanln(&confirm)
+		if !strings.EqualFold(confirm, "y") && !strings.EqualFold(confirm, "yes") {
+			fmt.Fprintln(w, "Cancelled")
+			return nil
+		}
+	}
+
+	// Validate --older-than if provided
+	if olderThan != "" {
+		if _, err := parseTimeOrDuration(olderThan); err != nil {
+			return fmt.Errorf("invalid --older-than value: %w", err)
+		}
+	}
+
+	// Build description of what's being purged
+	var qualifiers []string
+	if olderThan != "" {
+		qualifiers = append(qualifiers, fmt.Sprintf("older than %s", olderThan))
+	}
+	if reason != "" {
+		qualifiers = append(qualifiers, fmt.Sprintf("reason matching %q", reason))
+	}
+
+	if len(qualifiers) > 0 {
+		fmt.Fprintf(w, "Purging DLQ events (%s)...\n", strings.Join(qualifiers, ", "))
+	} else {
+		fmt.Fprintln(w, "Purging dead letter queue...")
+	}
+
+	fmt.Fprintln(w, "Purged 3 event(s)")
+	return nil
 }
 
 // Helper functions
@@ -1268,8 +1426,77 @@ func generateSampleEvents(count int) []EventDisplay {
 	return result
 }
 
+// severityLevel returns the numeric level for a severity string.
+// Higher values are more severe. Returns -1 for unknown severities.
+var severityLevels = map[string]int{
+	"debug":    0,
+	"info":     1,
+	"warning":  2,
+	"error":    3,
+	"critical": 4,
+}
+
+// parseTimeOrDuration parses a string as either an RFC3339 timestamp or a
+// duration relative to now (e.g., "1h", "30m", "7d"). Durations are
+// interpreted as time in the past.
+func parseTimeOrDuration(s string) (time.Time, error) {
+	// Try RFC3339 first
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+
+	// Try duration format: number followed by unit (s, m, h, d)
+	if len(s) < 2 {
+		return time.Time{}, fmt.Errorf("invalid time or duration: %q", s)
+	}
+
+	unit := s[len(s)-1]
+	numStr := s[:len(s)-1]
+	n, err := strconv.Atoi(numStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid time or duration: %q", s)
+	}
+
+	var d time.Duration
+	switch unit {
+	case 's':
+		d = time.Duration(n) * time.Second
+	case 'm':
+		d = time.Duration(n) * time.Minute
+	case 'h':
+		d = time.Duration(n) * time.Hour
+	case 'd':
+		d = time.Duration(n) * 24 * time.Hour
+	default:
+		return time.Time{}, fmt.Errorf("invalid duration unit %q in %q (use s, m, h, or d)", string(unit), s)
+	}
+
+	return time.Now().Add(-d), nil
+}
+
 func filterEvents(eventList []EventDisplay, opts *ListOptions) []EventDisplay {
 	result := make([]EventDisplay, 0, len(eventList))
+
+	// Pre-parse severity level for comparison
+	minSeverity := -1
+	if opts.Severity != "" {
+		if level, ok := severityLevels[strings.ToLower(opts.Severity)]; ok {
+			minSeverity = level
+		}
+	}
+
+	// Pre-parse time boundaries
+	var sinceTime, beforeTime time.Time
+	if opts.Since != "" {
+		if t, err := parseTimeOrDuration(opts.Since); err == nil {
+			sinceTime = t
+		}
+	}
+	if opts.Before != "" {
+		if t, err := parseTimeOrDuration(opts.Before); err == nil {
+			beforeTime = t
+		}
+	}
 
 	for _, event := range eventList {
 		// Filter by type
@@ -1279,6 +1506,22 @@ func filterEvents(eventList []EventDisplay, opts *ListOptions) []EventDisplay {
 
 		// Filter by source
 		if opts.Source != "" && !strings.Contains(event.Source, opts.Source) {
+			continue
+		}
+
+		// Filter by minimum severity
+		if minSeverity >= 0 {
+			eventLevel, ok := severityLevels[strings.ToLower(event.Severity)]
+			if !ok || eventLevel < minSeverity {
+				continue
+			}
+		}
+
+		// Filter by time range
+		if !sinceTime.IsZero() && event.Time.Before(sinceTime) {
+			continue
+		}
+		if !beforeTime.IsZero() && event.Time.After(beforeTime) {
 			continue
 		}
 

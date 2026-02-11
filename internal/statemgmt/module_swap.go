@@ -630,3 +630,7 @@ func (m *SwapModule) GetSwapInfo(path string) (swapType string, size, used int64
 
 	return "", 0, 0, 0, fmt.Errorf("swap not found: %s", path)
 }
+
+func init() {
+	_ = RegisterModule(NewSwapModule())
+}

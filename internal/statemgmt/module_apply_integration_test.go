@@ -338,8 +338,8 @@ esac
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-	if !test1.Success {
-		t.Errorf("Expected Test to succeed after clone: %s", test1.Comment)
+	if !test1 {
+		t.Errorf("Expected Test to match after clone")
 	}
 }
 
@@ -434,8 +434,8 @@ esac
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-	if !test1.Success {
-		t.Errorf("Expected Test to succeed after creating container: %s", test1.Comment)
+	if !test1 {
+		t.Errorf("Expected Test to match after creating container")
 	}
 
 	// Stop container
@@ -453,8 +453,8 @@ esac
 	if err != nil {
 		t.Fatalf("Test stopped state failed: %v", err)
 	}
-	if !test2.Success {
-		t.Errorf("Expected Test to succeed for stopped state: %s", test2.Comment)
+	if !test2 {
+		t.Errorf("Expected Test to match for stopped state")
 	}
 
 	// Remove container
@@ -472,8 +472,8 @@ esac
 	if err != nil {
 		t.Fatalf("Test absent state failed: %v", err)
 	}
-	if !test3.Success {
-		t.Errorf("Expected Test to succeed for absent state: %s", test3.Comment)
+	if !test3 {
+		t.Errorf("Expected Test to match for absent state")
 	}
 }
 
@@ -797,8 +797,8 @@ func TestX509Module_ApplyTest_SelfSignedCert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-	if !test1.Success {
-		t.Errorf("Expected Test to succeed after creating cert: %s", test1.Comment)
+	if !test1 {
+		t.Errorf("Expected Test to match after creating cert")
 	}
 }
 

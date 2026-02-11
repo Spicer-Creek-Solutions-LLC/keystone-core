@@ -29,7 +29,7 @@ func TestRootCommand(t *testing.T) {
 	// Check that all expected subcommands exist (including deprecated ones)
 	expectedCommands := []string{
 		"version", "init", "validate", "lint", "test", "search", "info",
-		"install", "update", "remove", "bundle", "mirror", "applied",
+		"install", "apply", "update", "remove", "bundle", "mirror", "applied",
 		// Deprecated commands that still exist
 		"publish", "sign", "verify", "versions", "docs", "rollback", "snapshot",
 	}
@@ -247,7 +247,7 @@ func TestAppliedCommandExists(t *testing.T) {
 
 func TestSubcommandHelp(t *testing.T) {
 	// Test help for core subcommands
-	subcommands := []string{"init", "validate", "lint", "search", "info", "install", "update", "remove", "bundle", "mirror", "applied"}
+	subcommands := []string{"init", "validate", "lint", "search", "info", "install", "apply", "update", "remove", "bundle", "mirror", "applied"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {

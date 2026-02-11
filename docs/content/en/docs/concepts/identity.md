@@ -175,7 +175,7 @@ The agent will:
 
 ```bash
 # Check agent identity
-kscorectl agent show web-server-1
+kscorectl agents show web-server-1
 
 # Output:
 # Agent: web-server-1
@@ -405,7 +405,7 @@ When fallback is used, the attestation result includes which attestors were trie
 
 ```bash
 # Check agent attestation details
-kscorectl agent show web-server-1 --verbose
+kscorectl agents show web-server-1 --verbose
 
 # Output includes:
 # Attestation:
@@ -456,7 +456,7 @@ Force SVID renewal if needed:
 kscore-agent identity renew
 
 # Via control plane
-kscorectl agent renew-svid web-server-1
+kscorectl agents renew-svid web-server-1
 ```
 
 ## NATS mTLS Integration
@@ -658,8 +658,8 @@ kscorectl identity ca backup \
   --output /backup/ca-backup.json \
   --encrypt
 
-# List backups
-kscorectl identity ca backups list
+# List backup files
+ls -lh /backup/ca-backup*.json
 
 # Restore from backup
 kscorectl identity ca restore \
@@ -727,16 +727,11 @@ sequenceDiagram
 Monitor rotation metrics:
 
 ```bash
-# View rotation metrics
-kscorectl identity metrics
+# View identity status
+kscorectl identity status
 
-# Output:
-# Current State: idle
-# Total Rotations: 42
-# Successful Rotations: 41
-# Failed Rotations: 1
-# Retry Count: 3
-# Last Rotation: 2024-01-15T10:30:00Z
+# View rotation metrics via Prometheus
+curl -s http://localhost:9091/metrics | grep kscore_identity_rotation
 # Last Success: 2024-01-15T10:30:00Z
 ```
 
@@ -820,14 +815,8 @@ identity:
 Cache metrics:
 
 ```bash
-kscorectl identity cache stats
-
-# Output:
-# Cache Size: 1234
-# Hits: 98765
-# Misses: 1234
-# Hit Rate: 98.76%
-# Evictions: 100
+# View cache metrics via Prometheus
+curl -s http://localhost:9091/metrics | grep kscore_identity_cache
 ```
 
 #### Batch SVID Issuance

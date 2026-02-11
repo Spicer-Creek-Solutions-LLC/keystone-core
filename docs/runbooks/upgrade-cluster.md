@@ -53,7 +53,7 @@ kscore-cluster-backup create \
 kscorectl cluster health --verbose
 
 # Verify all agents connected
-TOTAL_AGENTS=$(kscorectl agent list --status | grep -c online)
+TOTAL_AGENTS=$(kscorectl agents list --status online -o json | jq length)
 echo "Total agents online: $TOTAL_AGENTS"
 
 # Verify no recent state failures (check logs)
@@ -124,7 +124,7 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_er
 watch -n 10 'kscorectl cluster health'
 
 # Monitor agent count
-watch -n 10 'kscorectl agent list --status | grep -c online'
+watch -n 10 'kscorectl agents list --status online -o json | jq length'
 ```
 
 ### Step 5: Verification
@@ -163,7 +163,7 @@ kscorectl upgrade agents --target 0.2.0
 kscorectl upgrade agents --status
 
 # Verify all agents upgraded
-kscorectl agent list --show-version | grep -v "0.2.0"
+kscorectl agents list --show-compatibility | grep -v "0.2.0"
 # Should be empty
 ```
 

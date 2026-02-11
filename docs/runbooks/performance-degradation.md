@@ -46,7 +46,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # Check agent health summary
-kscorectl agent list --status | sort | uniq -c
+kscorectl agents list -o json | jq -r '.[].status' | sort | uniq -c
 ```
 
 #### Step 1.2: Review Key Metrics
@@ -205,20 +205,25 @@ ss -s
 #### Remediation: High CPU
 
 ```bash
-# If CPU bound on API processing
-# Increase worker threads
-kscorectl config set server.workers 16
+# If CPU bound on API processing, increase worker threads
+# Edit /etc/keystone-core/server.yaml:
+#   server:
+#     workers: 16
 systemctl restart kscore-server
 
-# If CPU bound on state rendering
-# Enable template caching
-kscorectl config set state.template_cache.enabled true
+# If CPU bound on state rendering, enable template caching
+# Edit /etc/keystone-core/server.yaml:
+#   state:
+#     template_cache:
+#       enabled: true
 systemctl restart kscore-server
 
-# If CPU bound on policy evaluation
-# Reduce policy complexity or add caching
-kscorectl config set policy.cache.enabled true
-kscorectl config set policy.cache.ttl 1m
+# If CPU bound on policy evaluation, add caching
+# Edit /etc/keystone-core/server.yaml:
+#   policy:
+#     cache:
+#       enabled: true
+#       ttl: 1m
 ```
 
 #### Remediation: Memory Pressure
@@ -228,14 +233,19 @@ kscorectl config set policy.cache.ttl 1m
 kubectl patch deployment kscore-server -n kscore -p '{"spec":{"template":{"spec":{"containers":[{"name":"kscore-server","resources":{"limits":{"memory":"4Gi"}}}]}}}}'
 
 # Reduce in-memory caches
-kscorectl config set cache.max_size 256MB
+# Edit /etc/keystone-core/server.yaml:
+#   cache:
+#     max_size: 256MB
 systemctl restart kscore-server
 
 # Force garbage collection
 curl -X POST http://localhost:8080/debug/gc
 
 # If using embedded SQLite, reduce cache
-kscorectl config set database.sqlite.cache_size -32000
+# Edit /etc/keystone-core/server.yaml:
+#   database:
+#     sqlite:
+#       cache_size: -32000
 ```
 
 #### Remediation: Disk I/O
@@ -245,15 +255,18 @@ kscorectl config set database.sqlite.cache_size -32000
 # Or optimize write patterns
 
 # Enable write batching for database
-kscorectl config set database.write_batch_size 100
-kscorectl config set database.sync_interval 1s
+# Edit /etc/keystone-core/server.yaml:
+#   database:
+#     write_batch_size: 100
+#     sync_interval: 1s
+systemctl restart kscore-server
 
 # Move JetStream to faster storage
 nats-server --signal reload
 # Update jetstream.store_dir in config
 
-# Compact database
-kscorectl db compact
+# Compact SQLite database (if applicable)
+sqlite3 /var/lib/keystone-core/keystone.db "VACUUM;"
 ```
 
 #### Remediation: Database Slow Queries
@@ -284,7 +297,9 @@ sqlite3 /var/lib/keystone-core/keystone.db "PRAGMA optimize;"
 
 ```bash
 # Increase consumer workers
-kscorectl config set nats.consumer_workers 10
+# Edit /etc/keystone-core/server.yaml:
+#   nats:
+#     consumer_workers: 10
 systemctl restart kscore-server
 
 # If persistent backlog, consider purging old messages
@@ -324,8 +339,8 @@ watch -n 5 'curl -s -w "Total: %{time_total}s\n" -o /dev/null http://localhost:8
 # Verify through metrics
 curl -g 'http://prometheus:9090/api/v1/query?query=histogram_quantile(0.95,rate(kscore_api_request_duration_seconds_bucket[5m]))'
 
-# Run synthetic workload
-kscorectl benchmark --duration 1m --report
+# Run smoke tests as a basic validation
+kscore-test smoke
 
 # Verify no new errors
 journalctl -u kscore-server --since "10 minutes ago" | grep -i error
@@ -379,7 +394,7 @@ systemctl restart kscore-server
 kscorectl cluster health && echo "Healthy" || echo "UNHEALTHY"
 
 # Quick latency test
-time kscorectl agent list --limit 1 > /dev/null
+time kscorectl agents list --limit 1 > /dev/null
 
 # Check recent errors
 journalctl -u kscore-server --since "1 hour ago" -p err

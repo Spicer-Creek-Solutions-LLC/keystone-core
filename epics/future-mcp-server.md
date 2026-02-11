@@ -9,10 +9,14 @@ The MCP server acts as a thin translation layer between the MCP JSON-RPC protoco
 **Success Criteria**
 
 - Operators can connect any MCP-compatible AI client to a running Keystone Core deployment.
+- Delivery is staged against available Keystone APIs: MVP ships on currently wired endpoints; extended tools ship as dependent services are implemented.
 - All core operations are exposed: agent management, remote execution, state management, event querying, runbook execution, and blueprint deployment.
 - Authentication inherits existing RBAC — the AI can only do what the operator is authorized to do.
 - Streaming operations (batch execution, state apply) provide real-time progress to the AI client.
 - Read-only resources provide context without requiring tool invocations.
+- High-risk operations use a mandatory two-phase flow: plan -> human approval -> execute.
+- Tool calls are gated by policy and capability profiles (`read_only`, `ops_safe`, `ops_admin`).
+- Audit trails are forensically complete (principal, tool args hash, approval chain, correlation IDs, result).
 - Comprehensive tests with coverage targets met.
 - Documentation covers setup, configuration, and usage examples.
 
@@ -82,12 +86,42 @@ sequenceDiagram
 
 The MCP server inherits credentials from its configuration (TLS certs, API key, or JWT). The operator configures these once when setting up the MCP server, and all AI interactions are bounded by that principal's permissions.
 
+### Security and Tenancy Model
+
+- **Local mode (`stdio`)**: single-user trust boundary. Uses operator-local credentials and local filesystem protections.
+- **Shared mode (`http+sse`)**: multi-user trust boundary. Requires external user authentication and per-session principal mapping.
+- **No credential pooling across users**: each shared-mode session must resolve to an explicit Keystone principal.
+- **Default-deny mutating tools** unless explicitly enabled in config and permitted by policy.
+- **Untrusted output handling**: agent command output, event payloads, and runbook logs are marked untrusted and returned with trust metadata.
+
+### API Dependency Gating
+
+To avoid schedule risk and partial tool failure, implementation is split by backend readiness:
+
+- **Phase A (MVP)**: tools backed by currently stable endpoints (`ControlPlaneService` + existing REST paths).
+- **Phase B (Expanded)**: state/event/policy/cluster tools that depend on additional gRPC service implementation and registration.
+- **Phase C (Shared Server)**: HTTP+SSE with multi-user auth, rate limiting, and session isolation.
+
 ### Transport Modes
 
 | Mode | Use Case | Configuration |
 |------|----------|---------------|
 | **stdio** | Claude Desktop, Claude Code, Cursor | Default. Binary launched as subprocess. |
-| **HTTP+SSE** | Remote AI clients, shared team server | `--transport http --port 8090`. Requires additional auth layer. |
+| **HTTP+SSE** | Remote AI clients, shared team server | `--transport http --port 8090`. Requires explicit user auth, session identity mapping, and per-session authorization. |
+
+## Execution Contract for Mutating Tools
+
+Mutating tools (`exec_run`, `state_apply`, `runbook_execute`, `runbook_approve`, `blueprint_apply`) must follow a consistent contract:
+
+1. **Plan phase**
+   - Resolve targets, estimate blast radius, and summarize expected changes.
+   - Return risk metadata: target count, critical-role matches, policy warnings.
+2. **Approval phase**
+   - Require explicit approval token for operations above configurable risk thresholds.
+   - Approval token has short TTL and is bound to principal + tool args hash.
+3. **Execute phase**
+   - Execute with idempotency key, correlation ID, and streamed progress.
+   - On failures, return partial results plus recommended rollback options.
 
 ## MCP Tools (Actions)
 
@@ -160,6 +194,10 @@ Resources provide data that AI clients can read for context without invoking too
 | `keystone://runbooks` | Available runbook definitions |
 | `keystone://blueprints` | Available blueprint catalog |
 | `keystone://cluster/status` | Cluster health overview |
+| `keystone://approvals/pending` | Pending approval requests with risk summaries |
+| `keystone://policy/posture` | Current policy compliance posture summary |
+| `keystone://incidents/recent` | Recent error/failure incidents for operational context |
+| `keystone://ops/recommendations` | System-generated recommended next actions |
 
 ## Configuration
 
@@ -184,6 +222,27 @@ features:
   state_write: true       # allow state apply (not just check)
   runbook_approve: true   # allow approval responses
   max_target_count: 100   # safety limit on batch operations
+  require_plan_for_mutations: true
+  require_approval_above_risk: medium  # low, medium, high
+  default_profile: ops_safe            # read_only, ops_safe, ops_admin
+
+policy:
+  engine: cel                       # cel or opa
+  policy_path: /etc/kscore/mcp-policy.cel
+  command_allowlist:
+    - "^df -h$"
+    - "^systemctl status [a-zA-Z0-9_.@-]+$"
+  deny_target_labels:
+    - "tier=control-plane"
+  maintenance_window_enforced: true
+
+shared_server:
+  enabled: false
+  auth_mode: oidc                   # oidc, mtls, or header passthrough
+  issuer: "https://id.example.com/"
+  audience: "kscore-mcp"
+  per_session_rate_limit_rpm: 60
+  session_ttl: 30m
 ```
 
 ### Claude Desktop Integration
@@ -214,7 +273,7 @@ features:
 
 ## Technical Tasks
 
-### Week 1-2: Core MCP Framework
+### Week 1-2: Core MCP Framework (MVP Foundation)
 
 - Create `cmd/kscore-mcp/` binary with CLI flags (config, transport, server address, auth).
 - Implement MCP protocol handler (JSON-RPC over stdio).
@@ -222,6 +281,8 @@ features:
 - Add configuration file loading and validation.
 - Implement tool registration framework with input/output schema generation.
 - Add first tool: `agent_list` as proof of concept end-to-end.
+- Implement capability profiles (`read_only`, `ops_safe`, `ops_admin`) and feature gates.
+- Implement correlation IDs and idempotency key plumbing for mutating operations.
 
 ### Week 3-4: Agent and Execution Tools
 
@@ -230,13 +291,16 @@ features:
 - Implement `exec_status` and `exec_history` tools.
 - Add safety guardrails: confirmation prompts for destructive operations, target count limits.
 - Add structured error handling (permission denied, not found, timeout).
+- Implement mutating tool execution contract (plan -> approval -> execute).
+- Add blast-radius summaries for execution plans.
 
-### Week 5-6: State and Event Tools
+### Week 5-6: State and Event Tools (Dependent on Service Readiness)
 
 - Implement `state_apply`, `state_check`, `state_drift`, `state_history` tools.
 - Implement `event_query`, `event_subscribe`, `event_stats` tools.
 - Add streaming support for long-running operations (state apply progress, event subscriptions).
 - Implement MCP resources for read-only context.
+- If backend services are not yet implemented/registered, keep tools hidden and surface capability-not-available metadata.
 
 ### Week 7-8: Runbooks, Blueprints, and Cluster Tools
 
@@ -244,15 +308,25 @@ features:
 - Implement `blueprint_list`, `blueprint_apply`, `blueprint_status` tools.
 - Implement `cluster_status` tool.
 - Add HTTP+SSE transport mode for remote/shared deployments.
+- Implement pending-approvals and policy-posture resources.
 
 ### Week 9-10: Polish, Security, and Documentation
 
 - Security audit: verify RBAC enforcement on all tool paths.
 - Add rate limiting for AI-initiated operations.
 - Add audit logging for all MCP tool invocations.
+- Add shared-mode session auth and per-session identity mapping.
+- Add policy engine gate for tool invocations (CEL/OPA).
+- Add untrusted-output tagging and sanitization/redaction.
 - Write user documentation: setup guide, configuration reference, usage examples.
 - Write operator guide: security considerations, RBAC configuration for AI access.
 - Update AGENTS.md, CLI reference docs, and architecture diagrams.
+
+### Week 11-12: Standout Capabilities
+
+- Add `plan_and_prove` workflow helpers (explain intended action, risk, rollback path).
+- Add recommendation resources (`keystone://ops/recommendations`) seeded from recent incidents and drift history.
+- Add `permission_dry_run` and `why_denied` helper tools for operator troubleshooting.
 
 ## Dependencies
 
@@ -260,6 +334,7 @@ features:
 - **Existing gRPC client stubs**: `pkg/api/v1/` proto-generated code
 - **Existing auth package**: `pkg/api/auth/` for TLS/JWT/API key handling
 - **Existing REST handlers**: `pkg/api/` for runbook/blueprint operations
+- **Service readiness dependencies**: Expanded gRPC services from Epic 46 for full state/event/policy/cluster tool coverage
 
 ## Risks & Mitigations
 
@@ -269,8 +344,14 @@ features:
 - **Credential exposure**: MCP server holds control plane credentials.
   - Mitigation: Use least-privilege RBAC principal. Support read-only mode. Credentials stored with filesystem permissions.
 
+- **Shared-server identity confusion**: One MCP endpoint could accidentally execute under the wrong principal.
+  - Mitigation: Per-session identity binding with explicit auth mapping and deny-on-ambiguous identity.
+
 - **Prompt injection via agent output**: Command output from agents could contain text that manipulates the AI.
   - Mitigation: Mark all agent output as untrusted in tool responses. Document this risk for operators.
+
+- **Duplicate execution from retries/reconnects**: Transport retries can replay mutating operations.
+  - Mitigation: Require idempotency keys and tool argument hashing for mutating calls.
 
 - **Streaming complexity**: gRPC streaming (batch exec, state apply, event subscribe) must map cleanly to MCP protocol.
   - Mitigation: Use MCP progress notifications for streaming. Fall back to polling if streaming is unsupported by client.
@@ -286,27 +367,38 @@ features:
   - Configuration loading and validation.
   - Auth credential handling.
   - Resource URI parsing and data formatting.
+  - Capability profile and policy gate evaluation.
+  - Idempotency key handling and replay prevention.
+  - Risk scoring and approval-token verification.
 
 - **Integration tests**
   - Mock gRPC server with canned responses.
   - End-to-end tool invocations through the MCP protocol layer.
   - Streaming operation handling (progress, cancellation).
   - Error propagation (permission denied, not found, timeout).
+  - Two-phase mutating flow (plan -> approval -> execute).
+  - Shared-server session identity mapping and isolation.
+  - Partial stream failures, reconnect behavior, and cancellation race cases.
 
 - **Security tests**
   - RBAC enforcement: verify tools respect principal permissions.
   - Invalid/expired credentials handling.
   - Rate limit enforcement.
+  - Prompt-injection payload handling in command output and event bodies.
+  - Policy deny path coverage and default-deny fallback behavior.
+  - Audit completeness checks (principal, args hash, correlation ID, approval chain).
 
 ## Definition of Done
 
 - `kscore-mcp` binary builds and runs as stdio MCP server.
+- MVP tools ship with currently available backend APIs, and expanded toolsets are gated by service readiness.
 - All core tools implemented: agent, exec, state, event, runbook, blueprint, cluster.
 - MCP resources provide read-only context for AI clients.
 - HTTP+SSE transport available for remote deployments.
 - RBAC enforced on all operations.
-- Safety guardrails configured (target limits, rate limits, confirmation prompts).
-- Audit logging covers all MCP tool invocations.
+- Safety guardrails configured (target limits, rate limits, confirmation prompts, policy gates, capability profiles).
+- Mutating operations enforce plan -> approval -> execute with idempotency and correlation IDs.
+- Audit logging covers all MCP tool invocations with forensic metadata.
 - Documentation covers setup, configuration, security, and usage examples.
 - Test coverage meets package targets (>70% for core, >40% for CLI).
 - Works with Claude Desktop, Claude Code, and Cursor.

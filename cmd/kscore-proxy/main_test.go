@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 )
@@ -190,6 +191,132 @@ func TestNewDiscoverCmd(t *testing.T) {
 	}
 }
 
+func TestDiscoverScanFlags(t *testing.T) {
+	cmd := newDiscoverScanCmd()
+
+	expected := []string{"network", "subnet", "networks", "protocols", "ports", "timeout", "workers", "debug"}
+	for _, flag := range expected {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found on discover scan", flag)
+		}
+	}
+}
+
+func TestDiscoverScanWithNetwork(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"scan", "--network", "192.168.1.0/24"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "192.168.1.0/24") {
+		t.Errorf("output should contain the scanned network, got:\n%s", out)
+	}
+}
+
+func TestDiscoverScanWithSubnet(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"scan", "--subnet", "10.0.0.0/24"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "10.0.0.0/24") {
+		t.Errorf("output should contain the scanned subnet, got:\n%s", out)
+	}
+}
+
+func TestDiscoverScanWithProtocolsAndPorts(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"scan", "--network", "192.168.1.0/24", "--protocols", "ssh,snmp", "--ports", "22,161"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Protocols: ssh, snmp") {
+		t.Errorf("output should show protocols, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Ports: 22, 161") {
+		t.Errorf("output should show ports, got:\n%s", out)
+	}
+}
+
+func TestDiscoverScanShowsTimeoutAndWorkers(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"scan", "--network", "192.168.1.0/24", "--timeout", "10s", "--workers", "50"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Timeout: 10s") {
+		t.Errorf("output should show timeout, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Workers: 50") {
+		t.Errorf("output should show workers, got:\n%s", out)
+	}
+}
+
+func TestDiscoverScanDebugProtocols(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"scan", "--network", "192.168.1.0/24", "--protocols", "ssh,rest", "--debug"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "[DEBUG] Starting SSH scan") {
+		t.Errorf("debug output should list SSH protocol, got:\n%s", out)
+	}
+	if !strings.Contains(out, "[DEBUG] Starting REST scan") {
+		t.Errorf("debug output should list REST protocol, got:\n%s", out)
+	}
+}
+
+func TestDiscoverScanRequiresNetwork(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"scan"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no network specified")
+	}
+}
+
+func TestDiscoverScanSubnetNetworkMutuallyExclusive(t *testing.T) {
+	cmd := newDiscoverCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"scan", "--network", "192.168.1.0/24", "--subnet", "10.0.0.0/24"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when both --network and --subnet specified")
+	}
+}
+
 func TestNewDriftCmd(t *testing.T) {
 	cmd := newDriftCmd()
 
@@ -227,7 +354,7 @@ func TestNewStateCmd(t *testing.T) {
 	}
 
 	// Should have subcommands
-	subcommands := []string{"apply", "logs"}
+	subcommands := []string{"apply", "check", "logs"}
 	for _, sub := range subcommands {
 		found := false
 		for _, c := range cmd.Commands() {
@@ -239,6 +366,67 @@ func TestNewStateCmd(t *testing.T) {
 		if !found {
 			t.Errorf("expected subcommand %q not found", sub)
 		}
+	}
+}
+
+func TestStateCheckFlags(t *testing.T) {
+	cmd := newStateCheckCmd()
+
+	for _, flag := range []string{"device", "target"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found on state check", flag)
+		}
+	}
+}
+
+func TestStateCheckRequiresStateFile(t *testing.T) {
+	cmd := newStateCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"check"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no state file provided")
+	}
+}
+
+func TestStateCheckWithDevice(t *testing.T) {
+	cmd := newStateCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"check", "network-baseline.yaml", "--device", "router-01"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "network-baseline.yaml") {
+		t.Errorf("output should show state file name, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Device: router-01") {
+		t.Errorf("output should show device filter, got:\n%s", out)
+	}
+	if !strings.Contains(out, "compliant") {
+		t.Errorf("output should show compliance results, got:\n%s", out)
+	}
+}
+
+func TestStateCheckWithTarget(t *testing.T) {
+	cmd := newStateCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"check", "network-baseline.yaml", "--target", "vendor:cisco"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Target: vendor:cisco") {
+		t.Errorf("output should show target expression, got:\n%s", out)
 	}
 }
 

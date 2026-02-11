@@ -201,10 +201,10 @@ aws route53 change-resource-record-sets \
 ```bash
 # Agents should automatically reconnect if DNS is updated
 # Monitor agent reconnections
-watch -n 10 'kscorectl agent list --status | wc -l'
+watch -n 10 'kscorectl agents list -o json | jq length'
 
 # Check for agents that haven't reconnected
-kscorectl agent list --status | grep offline
+kscorectl agents list --status offline
 ```
 
 #### Step 4.3: Manual Agent Update (if needed)
@@ -226,7 +226,7 @@ systemctl restart kscore-agent
 kscorectl cluster health --verbose
 
 # Verify all agents connected
-kscorectl agent list --status
+kscorectl agents list
 
 # Verify state data by checking a known state file
 kscorectl state check /path/to/known-state.yaml
@@ -379,12 +379,12 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # Check agent distribution
-kscorectl agent list --group-by control-plane-node
+kscorectl agents list -o json | jq 'group_by(.control_plane_node) | .[] | {node: .[0].control_plane_node, count: length}'
 
 # Check for data divergence
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node agent count ==="
-  ssh $node "kscorectl agent list --count 2>/dev/null" || echo "unreachable"
+  ssh $node "kscorectl agents list -o json 2>/dev/null | jq length" || echo "unreachable"
 done
 ```
 
@@ -430,10 +430,9 @@ groups:
 
 ```bash
 # CRITICAL: Stop all write operations
-# On ALL nodes that might be accepting writes:
+# On ALL nodes, enable read-only mode in config then restart:
 for node in ks-server-1 ks-server-2 ks-server-3; do
-  ssh $node "kscorectl config set server.read_only true" 2>/dev/null || true
-  ssh $node "systemctl restart kscore-server" 2>/dev/null || true
+  ssh $node "sed -i 's/read_only: false/read_only: true/' /etc/keystone-core/server.yaml && systemctl restart kscore-server" 2>/dev/null || true
 done
 
 # Block agent connections temporarily (if needed)
@@ -488,7 +487,7 @@ done
 # Check agent counts
 for node in ks-server-1 ks-server-2 ks-server-3; do
   echo "=== $node agents ==="
-  ssh $node "kscorectl agent list --count 2>/dev/null" || echo "unreachable"
+  ssh $node "kscorectl agents list -o json 2>/dev/null | jq length" || echo "unreachable"
 done
 ```
 
@@ -687,8 +686,7 @@ grep "exec run" /tmp/split-data/var/log/keystone-core/*.log
 ```bash
 # Re-enable writes on all nodes
 for node in ks-server-1 ks-server-2 ks-server-3; do
-  ssh $node "kscorectl config set server.read_only false"
-  ssh $node "systemctl restart kscore-server"
+  ssh $node "sed -i 's/read_only: true/read_only: false/' /etc/keystone-core/server.yaml && systemctl restart kscore-server"
 done
 
 # Re-enable agent connections (if blocked)
@@ -698,26 +696,25 @@ iptables -D INPUT -p tcp --dport 4222 -j REJECT --reject-with tcp-reset
 ##### Step 5.2: Force Agent Re-registration
 
 ```bash
-# Agents connected to non-authoritative partition need to re-register
-kscorectl agent invalidate-sessions --stale-since "2024-01-15T10:00:00Z"
-
-# Agents will automatically reconnect and re-register
+# Agents connected to non-authoritative partition will auto-reconnect.
+# If agents are stuck, restart the agent service on affected nodes:
+# ssh agent-node "systemctl restart kscore-agent"
 
 # Monitor agent reconnection
-watch -n 5 'kscorectl agent list --status | grep -c connected'
+watch -n 5 'kscorectl agents list -o json | jq "[.[] | select(.status==\"online\")] | length"'
 ```
 
 ##### Step 5.3: Verify Agent State
 
 ```bash
 # Check all agents are connected
-kscorectl agent list --status disconnected
+kscorectl agents list --status offline
 
-# If agents stuck, force reconnect
-kscorectl agent reconnect --target "status=disconnected"
+# If agents are stuck, restart agent service on affected nodes:
+# ssh agent-node "systemctl restart kscore-agent"
 
 # Verify agent data is consistent
-kscorectl agent verify --sample 10
+kscorectl agents verify --sample 10
 ```
 
 ### Post-Recovery Checklist

@@ -19,36 +19,29 @@ This tutorial walks you through setting up secrets management, storing your firs
 Verify the secrets system is ready:
 
 ```bash
-kscorectl secrets health
+kscorectl secrets backends
 ```
 
 Expected output:
 
 ```
-Secrets System Health
-=====================
-Status: healthy
-Backends: 1 connected
-Cache: operational
-Lease Manager: active
+BACKEND    STATUS    LATENCY
+vault      healthy   12ms
 ```
 
 ## Step 2: Store Your First Secret
 
-Store a database password:
+Store a database password using your backend's native CLI:
 
 ```bash
-kscorectl secrets put database/production/password \
-  --value "super-secret-password-123"
+# Example using HashiCorp Vault
+vault kv put secret/database/production/password value="super-secret-password-123"
 ```
 
-Output:
+Verify it's accessible through Keystone Core:
 
-```
-Secret stored successfully
-  Path: database/production/password
-  Version: 1
-  Created: 2024-01-15T10:30:00Z
+```bash
+kscorectl secrets get database/production/password
 ```
 
 ## Step 3: Retrieve the Secret
@@ -70,11 +63,12 @@ Created  : 2024-01-15T10:30:00Z
 
 ## Step 4: Store Multiple Fields
 
-Store a secret with multiple fields (like database credentials):
+Store a secret with multiple fields using your backend's native CLI:
 
 ```bash
-kscorectl secrets put database/production/credentials \
-  --data '{"username": "app_user", "password": "secure-password", "host": "db.example.com", "port": "5432"}'
+# Example using HashiCorp Vault
+vault kv put secret/database/production/credentials \
+  username="app_user" password="secure-password" host="db.example.com" port="5432"
 ```
 
 Retrieve specific fields:
@@ -135,10 +129,10 @@ Check that the agent received the secrets:
 
 ```bash
 # Check environment variables
-kscorectl exec myapp -- env | grep DB_
+kscorectl exec run --target myapp -- env | grep DB_
 
 # Check the config file
-kscorectl exec myapp -- cat /etc/myapp/db-config.yaml
+kscorectl exec run --target myapp -- cat /etc/myapp/db-config.yaml
 ```
 
 Expected output for environment:
@@ -177,8 +171,8 @@ kscorectl state apply rotation.yaml
 Trigger a manual rotation:
 
 ```bash
-kscorectl secrets rotation start \
-  --path database/production/credentials \
+kscorectl secrets rotate start \
+  --secret database/production/credentials \
   --strategy blue_green
 ```
 
@@ -190,8 +184,8 @@ View secret access logs:
 # Recent accesses
 kscorectl secrets audit list --path "database/*" --since 1h
 
-# Access statistics
-kscorectl secrets stats --path "database/*"
+# Check cache hit rates
+kscorectl secrets cache status
 ```
 
 ## Complete Example: Full Application Setup
@@ -201,18 +195,15 @@ Here's a complete example deploying a web application with secrets:
 **1. Store application secrets:**
 
 ```bash
-# Database credentials
-kscorectl secrets put myapp/database \
-  --data '{"url": "postgresql://db.example.com:5432/myapp", "username": "myapp", "password": "db-secret-123"}'
+# Store secrets using your backend's native CLI (example: HashiCorp Vault)
+vault kv put secret/myapp/database \
+  url="postgresql://db.example.com:5432/myapp" username="myapp" password="db-secret-123"
 
-# API keys
-kscorectl secrets put myapp/api-keys \
-  --data '{"stripe": "sk_live_xxx", "sendgrid": "SG.xxx"}'
+vault kv put secret/myapp/api-keys \
+  stripe="sk_live_xxx" sendgrid="SG.xxx"
 
-# TLS certificate
-kscorectl secrets put myapp/tls \
-  --file-key cert --file /path/to/cert.pem \
-  --file-key key --file /path/to/key.pem
+vault kv put secret/myapp/tls \
+  cert=@/path/to/cert.pem key=@/path/to/key.pem
 ```
 
 **2. Create workload definition:**
@@ -257,8 +248,8 @@ kscorectl state apply myapp-workload.yaml
 **4. Verify:**
 
 ```bash
-# Check secrets are injected
-kscorectl secrets injection status --workload myapp-web
+# Verify secrets are accessible
+kscorectl secrets get myapp/database --field username
 
 # Test application
 curl https://myapp.example.com/health
@@ -282,8 +273,8 @@ kscorectl secrets get database/production/password --debug
 # Check access policy
 kscorectl secrets policy show database/production/password
 
-# Grant access
-kscorectl secrets policy allow \
+# Create an access policy
+kscorectl secrets policy create \
   --principal "workload:myapp" \
   --path "database/production/*" \
   --operations read
@@ -292,11 +283,11 @@ kscorectl secrets policy allow \
 ### Environment variable not set
 
 ```bash
-# Check injection status
-kscorectl secrets injection status --workload myapp
+# Check if secret is accessible
+kscorectl secrets get database/production/credentials --field password
 
-# Force refresh
-kscorectl secrets refresh --workload myapp
+# Clear cache to force re-fetch
+kscorectl secrets cache clear
 ```
 
 ## Next Steps

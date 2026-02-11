@@ -26,7 +26,7 @@ For managing devices in a single network segment:
 
 ```bash
 # Start proxy agent
-kscore-agent --proxy --config /etc/keystone-core/proxy-agent.yaml
+kscore-agent --config /etc/keystone-core/proxy-agent.yaml
 ```
 
 **Configuration (`/etc/keystone-core/proxy-agent.yaml`):**
@@ -120,22 +120,22 @@ Deploy as a DaemonSet or Deployment:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kscore-proxy-agent
+  name: kscore-agent-proxy
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: kscore-proxy-agent
+      app: kscore-agent-proxy
   template:
     metadata:
       labels:
-        app: kscore-proxy-agent
+        app: kscore-agent-proxy
     spec:
-      serviceAccountName: kscore-proxy-agent
+      serviceAccountName: kscore-agent-proxy
       containers:
-        - name: proxy-agent
+        - name: agent
           image: kscore/agent:latest
-          args: ["--proxy", "--config", "/etc/keystone-core/config.yaml"]
+          args: ["--config", "/etc/keystone-core/config.yaml"]
           env:
             - name: KSCORE_AGENT_ID
               valueFrom:
@@ -614,7 +614,7 @@ journalctl -u kscore-agent -f | grep "core-router-01"
 ssh -v admin@192.168.1.1
 
 # Check SSH connectivity from proxy agent container
-kubectl exec -it kscore-proxy-agent-xxx -- ssh -v admin@192.168.1.1
+kubectl exec -it kscore-agent-proxy-xxx -- ssh -v admin@192.168.1.1
 ```
 
 **SNMP:**
@@ -664,7 +664,7 @@ kscorectl proxy discover scan --networks 192.168.1.0/24 --debug
 journalctl -u kscore-agent | grep discovery
 
 # Verify network access from proxy agent
-kubectl exec -it kscore-proxy-agent-xxx -- ping 192.168.1.1
+kubectl exec -it kscore-agent-proxy-xxx -- ping 192.168.1.1
 ```
 
 ## Best Practices

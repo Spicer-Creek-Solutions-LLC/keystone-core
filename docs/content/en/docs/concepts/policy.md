@@ -1792,17 +1792,19 @@ policies:
 
 ### Using the Policy Library
 
-#### Import Policies
+#### Install Policies
 
 ```bash
-# Import CIS Level 1 policies
-kscorectl policy import https://policies.keystone-core.io/cis/level1-linux.yaml
+# Download and create CIS Level 1 policies
+curl -sSL -o /tmp/level1-linux.yaml https://policies.keystone-core.io/cis/level1-linux.yaml
+kscorectl policy create /tmp/level1-linux.yaml
 
-# Import SOC 2 policies
-kscorectl policy import https://policies.keystone-core.io/soc2/full.yaml
+# Download and create SOC 2 policies
+curl -sSL -o /tmp/soc2-full.yaml https://policies.keystone-core.io/soc2/full.yaml
+kscorectl policy create /tmp/soc2-full.yaml
 
-# Import from local file
-kscorectl policy import ./policies/hipaa-security.yaml
+# Create from local file
+kscorectl policy create ./policies/hipaa-security.yaml
 ```
 
 #### Create Policy Set
@@ -1851,24 +1853,17 @@ bindings:
 #### Generate Compliance Reports
 
 ```bash
-# Generate CIS compliance report
-kscorectl policy report \
-  --framework cis-level1 \
-  --format pdf \
-  --output cis-report.pdf
+# Generate compliance report for last 90 days
+kscorectl policy report --days 90
 
-# Generate SOC 2 evidence package
-kscorectl policy evidence \
-  --framework soc2 \
-  --from 2024-01-01 \
-  --to 2024-03-31 \
-  --output soc2-q1-evidence.zip
+# Generate report as JSON (for integration with GRC tools)
+kscorectl policy report --days 30 --output json > compliance-report.json
 
-# Export to GRC tool
-kscorectl policy export \
-  --format csv \
-  --include-violations \
-  --output compliance-data.csv
+# View current compliance dashboard
+kscorectl policy compliance
+
+# View policy violations
+kscorectl policy violations
 ```
 
 ## Troubleshooting
@@ -1883,11 +1878,8 @@ Check:
 # Verify policy is registered
 kscorectl policy list
 
-# Check policy bindings
-kscorectl policy bindings --policy ssh-hardening
-
 # Test policy evaluation
-kscorectl policy test ssh-hardening --input test-input.json
+kscorectl policy test policies/ssh-hardening.yaml --test-data test-input.json
 ```
 
 ### Policy Always Failing
@@ -1898,13 +1890,13 @@ Debug:
 
 ```bash
 # Test with sample input
-kscorectl policy test ssh-hardening --input sample.json --verbose
+kscorectl policy test policies/ssh-hardening.yaml --test-data sample.json --verbose
 
 # Check policy code syntax
-kscorectl policy validate ssh-hardening
+kscorectl policy validate policies/ssh-hardening.yaml
 
 # Review policy logic
-kscorectl policy show ssh-hardening
+kscorectl policy show policies/ssh-hardening.yaml ssh-hardening
 ```
 
 ### Compliance Score Incorrect
@@ -1914,14 +1906,14 @@ kscorectl policy show ssh-hardening
 Fix:
 
 ```bash
-# Re-evaluate all policies
-kscorectl policy evaluate --all --force
+# Refresh compliance data
+kscorectl policy compliance
 
 # Check audit data
 kscorectl policy audit --since 24h
 
 # Verify agent count
-kscorectl agent list | wc -l
+kscorectl agents list -o json | jq length
 ```
 
 ## Next Steps

@@ -140,7 +140,7 @@ kscorectl cluster members
 kscorectl cluster rebalance
 
 # Monitor rebalancing progress
-watch -n 5 'kscorectl agent list --group-by control-plane-node | head -20'
+watch -n 5 'kscorectl agents list -o json | jq "group_by(.control_plane_node) | .[] | {node: .[0].control_plane_node, count: length}"'
 ```
 
 ### Database Scaling
@@ -260,7 +260,10 @@ nats stream edit KSCORE_COMMANDS \
   --max-msgs 10000000
 
 # Add more consumers for parallel processing
-kscorectl config set nats.consumer_count 10
+# Edit /etc/keystone-core/server.yaml:
+#   nats:
+#     consumer_count: 10
+# Then restart: systemctl restart kscore-server
 ```
 
 ### Agent Capacity Planning
@@ -313,7 +316,7 @@ nats:
 
 ```bash
 # 1. Bootstrap new regional cluster
-kscore-bootstrap init \
+kscore-bootstrap seed \
   --cluster-name us-west \
   --region us-west-2
 

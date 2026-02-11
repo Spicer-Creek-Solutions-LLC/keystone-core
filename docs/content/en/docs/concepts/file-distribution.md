@@ -136,17 +136,15 @@ path := fmt.Sprintf("%s/%x", hash[:2], hash) // e.g., "ab/ab3def..."
 
 Files are organized into namespaces for access control:
 
-```yaml
+```bash
 # Create a namespace
-kscorectl files namespace create prod-configs --description "Production configs"
+kscorectl files namespace create prod-configs --backend local --path /data/prod-configs
 
 # Set access controls
-kscorectl files namespace access prod-configs \
-  --allow-user role:ops \
-  --read-write
+kscorectl files namespace access prod-configs --read-only
 
 # List files in namespace
-kscorectl files list prod-configs/
+kscorectl files list / --namespace prod-configs
 ```
 
 ### Namespace Permissions
@@ -252,22 +250,23 @@ files:
 
 ```bash
 # Upload a file
-kscorectl files put local-file.txt namespace/path/file.txt
+kscorectl files put local-file.txt /path/file.txt --namespace prod-configs
 
 # Download a file
-kscorectl files get namespace/path/file.txt local-file.txt
+kscorectl files get /path/file.txt --output local-file.txt --namespace prod-configs
 
 # List files
-kscorectl files list namespace/
+kscorectl files list / --namespace prod-configs
+kscorectl files list /configs --namespace prod-configs --recursive
 
 # Delete a file
-kscorectl files delete namespace/path/file.txt
+kscorectl files delete /path/file.txt --namespace prod-configs
 
 # Get file metadata
-kscorectl files info namespace/path/file.txt
+kscorectl files info /path/file.txt --namespace prod-configs
 
-# Get file hash (included in info output)
-kscorectl files info namespace/path/file.txt
+# Sync directories
+kscorectl files sync ./configs/ /configs/ --namespace prod-configs --dry-run
 ```
 
 ### Mirror Management

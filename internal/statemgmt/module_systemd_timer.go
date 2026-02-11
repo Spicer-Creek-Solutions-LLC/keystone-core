@@ -514,3 +514,7 @@ func (m *SystemdTimerModule) disableTimer(ctx context.Context, config *SystemdTi
 
 	return nil
 }
+
+func init() {
+	_ = RegisterModule(NewSystemdTimerModule())
+}

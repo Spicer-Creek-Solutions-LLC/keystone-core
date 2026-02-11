@@ -659,17 +659,17 @@ rollback_policy:
     - email://ops-team@example.com
 ```
 
-**Approve rollback**:
+**Approve rollback** (via deployment approvals):
 
 ```bash
-# List pending rollbacks
-kscorectl gitops rollbacklist --status pending
+# List pending deployment approvals
+kscorectl gitops deploy list
 
-# Approve
-kscorectl gitops rollbackapprove abc123 --message "Approved by ops team"
+# Approve a deployment rollback
+kscorectl gitops deploy approve <deployment-id>
 
-# Reject
-kscorectl gitops rollbackreject abc123 --message "False alarm, deployment is healthy"
+# Dry-run to preview rollback
+kscorectl gitops rollback --app myapp --strategy previous --dry-run
 ```
 
 ## Promotion Pipelines
@@ -775,7 +775,7 @@ rolling:
 **Manual**:
 
 ```bash
-kscorectl gitops promotemyapp --from staging --to production
+kscorectl gitops promote --pipeline prod-pipeline --from staging --to production
 ```
 
 **Automatic** (on verification success):
@@ -1030,13 +1030,13 @@ Result:         Runtime version 2 preserved, Git change queued
 
 ```bash
 # View pending conflicts
-kscorectl git-sync conflicts list
+kscorectl gitops git-sync conflicts list
 
 # Accept Git version
-kscorectl git-sync conflicts resolve nginx.yaml --accept-git
+kscorectl gitops git-sync conflicts resolve nginx.yaml --accept-git
 
 # Keep runtime version
-kscorectl git-sync conflicts resolve nginx.yaml --keep-runtime
+kscorectl gitops git-sync conflicts resolve nginx.yaml --keep-runtime
 ```
 
 #### Strategy: Manual
@@ -1069,10 +1069,10 @@ conflict_resolution:
 
 ```bash
 # List conflicts requiring resolution
-kscorectl git-sync conflicts list --status pending
+kscorectl gitops git-sync conflicts list --status pending
 
 # View conflict details
-kscorectl git-sync conflicts show policies/security.yaml
+kscorectl gitops git-sync conflicts show policies/security.yaml
 
 # Output:
 # Conflict: policies/security.yaml
@@ -1091,10 +1091,10 @@ kscorectl git-sync conflicts show policies/security.yaml
 #   --merge          Attempt merge
 
 # Resolve with merge
-kscorectl git-sync conflicts resolve policies/security.yaml --merge
+kscorectl gitops git-sync conflicts resolve policies/security.yaml --merge
 
 # Or choose a side
-kscorectl git-sync conflicts resolve policies/security.yaml --accept-git --reason "Git is authoritative"
+kscorectl gitops git-sync conflicts resolve policies/security.yaml --accept-git --reason "Git is authoritative"
 ```
 
 #### Strategy: Merge
@@ -1254,10 +1254,10 @@ All conflicts emit events for monitoring and alerting:
 
    ```bash
    # Lock a resource before manual editing
-   kscorectl git-sync lock states/nginx.yaml --reason "Emergency hotfix"
+   kscorectl gitops git-sync lock states/nginx.yaml --reason "Emergency hotfix"
 
    # Unlock after changes committed to Git
-   kscorectl git-sync unlock states/nginx.yaml
+   kscorectl gitops git-sync unlock states/nginx.yaml
    ```
 
 4. **Validation in CI Pipeline**
@@ -1277,44 +1277,44 @@ All conflicts emit events for monitoring and alerting:
 
    ```bash
    # View sync history with conflicts
-   kscorectl git-sync history --conflicts-only
+   kscorectl gitops git-sync history --conflicts-only
 
    # Export for compliance
-   kscorectl git-sync audit --format json > sync-audit.json
+   kscorectl gitops git-sync audit --format json > sync-audit.json
    ```
 
 #### Conflict Resolution CLI Commands
 
 ```bash
 # List all conflicts
-kscorectl git-sync conflicts list
+kscorectl gitops git-sync conflicts list
 
 # List pending (unresolved) conflicts
-kscorectl git-sync conflicts list --status pending
+kscorectl gitops git-sync conflicts list --status pending
 
 # Show conflict details
-kscorectl git-sync conflicts show <file-path>
+kscorectl gitops git-sync conflicts show <file-path>
 
 # Diff between versions
-kscorectl git-sync conflicts diff <file-path>
+kscorectl gitops git-sync conflicts diff <file-path>
 
 # Resolve conflict
-kscorectl git-sync conflicts resolve <file-path> \
+kscorectl gitops git-sync conflicts resolve <file-path> \
   --accept-git|--keep-runtime|--merge \
   --reason "Explanation for audit"
 
 # Bulk resolve (use with caution)
-kscorectl git-sync conflicts resolve-all --accept-git
+kscorectl gitops git-sync conflicts resolve-all --accept-git
 
 # Force sync (overwrite all runtime state)
-kscorectl git-sync force --repository infrastructure-config
+kscorectl gitops git-sync force --repository infrastructure-config
 
 # Lock/unlock resources
-kscorectl git-sync lock <file-path> --reason "Manual maintenance"
-kscorectl git-sync unlock <file-path>
+kscorectl gitops git-sync lock <file-path> --reason "Manual maintenance"
+kscorectl gitops git-sync unlock <file-path>
 
 # View lock status
-kscorectl git-sync locks
+kscorectl gitops git-sync locks
 ```
 
 #### Conflict Metrics
@@ -1969,23 +1969,19 @@ multi_platform_approval:
 
 ```bash
 # List pending approvals
-kscorectl runbook approvalslist --status pending
+kscorectl runbook approvals --state pending
 
 # Approve via CLI
-kscorectl runbook approvalsapprove <approval-id> \
-  --approver "admin@example.com" \
+kscorectl runbook approve <request-id> \
   --reason "Reviewed and tested in staging"
 
 # Reject via CLI
-kscorectl runbook approvalsreject <approval-id> \
-  --approver "admin@example.com" \
+kscorectl runbook reject <request-id> \
   --reason "Found regression in integration tests"
 
-# View approval history
-kscorectl runbook approvalshistory --application myapp --env production
-
-# Check approval requirements
-kscorectl runbook approvalsrequirements myapp --env production
+# View approval history (approved/rejected)
+kscorectl runbook approvals --state approved
+kscorectl runbook approvals --state rejected
 ```
 
 ### Approval Audit Trail
@@ -2135,10 +2131,10 @@ Debug:
 
 ```bash
 # Run verification manually
-kscorectl gitops verify run myapp-verification --namespace production
+kscorectl gitops verify workflows/myapp-verification.yaml
 
 # Check verification logs
-kscorectl gitops verify logs myapp-verification --limit 10
+journalctl -u kscore-server --grep "verify"
 
 # Test individual steps
 curl http://myapp.production.svc.cluster.local/health
@@ -2151,14 +2147,14 @@ curl http://myapp.production.svc.cluster.local/health
 Check:
 
 ```bash
-# Verify rollback policy is enabled
-kscorectl gitops rollbackpolicy show myapp
+# Dry-run rollback to check configuration
+kscorectl gitops rollback --app myapp --strategy previous --dry-run
 
-# Check rollback triggers
-kscorectl gitops rollbacktriggers myapp
+# Check deployment status
+kscorectl gitops status
 
 # Manual rollback
-kscorectl gitops rollbackexecute myapp --namespace production --strategy previous
+kscorectl gitops rollback --app myapp --namespace production --strategy previous
 ```
 
 ### Git Sync Not Working
@@ -2169,10 +2165,10 @@ Check:
 
 ```bash
 # Check Git sync status
-kscorectl git-sync status infrastructure-config
+kscorectl gitops git-sync status infrastructure-config
 
 # Manual sync
-kscorectl git-sync trigger infrastructure-config
+kscorectl gitops git-sync trigger infrastructure-config
 
 # Check authentication
 ssh -T git@github.com

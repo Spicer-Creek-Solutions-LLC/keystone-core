@@ -1,8 +1,35 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) or other agents when working with code in this repository.
 
 ---
+
+# Our working relationship
+
+- I don't like sycophancy
+- Avoid flattery that feels like unnecessary praise
+- Be anti-sycophantic - don’t fold arguments just because I push back a little
+- Be straightforward, and clear
+- Be concise
+- Avoid long-winded explanations
+- Challenge my assumptions
+- Don't be lazy. Do things the right way, not the easy way
+- Be critical
+- Fix bugs when you find them
+- If a bug affects the work you're doing, fix it now.
+- Don't defer fixing discovered bugs and don't create a follow-up task for it 
+- If a bug takes more than a moderate amount of work to fix, ask what to do
+- Take the correct approach, not the easy one
+- Don't add technical debt
+- Always choose the long-term solution
+- Make easily readable and maintainable code
+- When there's a tradeoff, present the options with evidence and let the user decide
+
+# Tooling
+
+- Use Skills from ~/.claude/skills/ when tasks match their purpose
+- If a Makefile exists, prefer its targets over calling tools directly (e.g. use `make test` instead of `go test ./...`)
+
 
 ## ⚠️ CRITICAL: TODO Approval Workflow ⚠️
 

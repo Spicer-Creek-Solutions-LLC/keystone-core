@@ -7,12 +7,16 @@ This runbook provides troubleshooting procedures for common Keystone Core issues
 ## Quick Diagnostics
 
 ```bash
-# Collect full diagnostics package
-kscorectl diagnostics collect --output /tmp/diagnostics-$(date +%Y%m%d).tar.gz
+# Collect diagnostics manually
+mkdir -p /tmp/diagnostics-$(date +%Y%m%d)
+journalctl -u kscore-server --since "24 hours ago" > /tmp/diagnostics-$(date +%Y%m%d)/server.log
+kscorectl cluster health > /tmp/diagnostics-$(date +%Y%m%d)/cluster-health.txt
+kscorectl agents list -o json > /tmp/diagnostics-$(date +%Y%m%d)/agents.json
+tar czf /tmp/diagnostics-$(date +%Y%m%d).tar.gz -C /tmp diagnostics-$(date +%Y%m%d)
 
 # Quick health check
 kscorectl cluster health
-kscorectl agent list --status | head -20
+kscorectl agents list --status online | head -20
 ```
 
 ## Issue Categories
@@ -223,10 +227,10 @@ ssh agent-node "ps aux --sort=-%cpu | head -10"
 
 ```bash
 # Check agent versions
-kscorectl agent list --show-version
+kscorectl agents list --show-compatibility
 
 # Group by version
-kscorectl agent list --show-version | awk '{print $NF}' | sort | uniq -c
+kscorectl agents list --show-compatibility | awk '{print $NF}' | sort | uniq -c
 ```
 
 **Resolution:**
@@ -444,8 +448,8 @@ kscorectl state diff my-state
 # Re-apply state to fix drift
 kscorectl state apply my-state.yaml
 
-# Or update state to match reality
-kscorectl state update my-state --from-actual
+# Or check current state to see actual vs desired
+kscorectl state check my-state.yaml
 ```
 
 ---
@@ -543,19 +547,20 @@ psql -c "VACUUM ANALYZE"
 When opening a support case, collect:
 
 ```bash
-# Full diagnostic bundle
-kscorectl diagnostics collect \
-  --include-logs \
-  --include-config \
-  --include-metrics \
-  --output /tmp/diagnostics.tar.gz
-
-# This includes:
-# - Server/agent logs (last 24h)
-# - Configuration files (redacted)
-# - Prometheus metrics snapshot
-# - Cluster state dump
-# - System info (uname, memory, disk)
+# Full diagnostic bundle (manual collection)
+mkdir -p /tmp/diagnostics
+journalctl -u kscore-server --since "24 hours ago" > /tmp/diagnostics/server.log
+journalctl -u kscore-agent --since "24 hours ago" > /tmp/diagnostics/agent.log 2>/dev/null
+cp /etc/keystone-core/server.yaml /tmp/diagnostics/server-config.yaml
+# Redact secrets from config copy
+sed -i 's/password:.*/password: REDACTED/g' /tmp/diagnostics/server-config.yaml
+curl -s http://localhost:9091/metrics > /tmp/diagnostics/metrics.txt
+kscorectl cluster health -o json > /tmp/diagnostics/cluster-health.json
+kscorectl agents list -o json > /tmp/diagnostics/agents.json
+uname -a > /tmp/diagnostics/system-info.txt
+free -h >> /tmp/diagnostics/system-info.txt
+df -h >> /tmp/diagnostics/system-info.txt
+tar czf /tmp/diagnostics.tar.gz -C /tmp diagnostics
 ```
 
 ## Getting Help

@@ -505,17 +505,21 @@ Built-in compliance reporting for:
 Generate compliance reports:
 
 ```bash
-kscorectl secrets compliance report \
-  --framework soc2 \
-  --period 30d \
-  --output report.json
+# View rotation policies and their status
+kscorectl secrets policy list
+
+# View rotation history for compliance evidence
+kscorectl secrets rotate history
+
+# Audit access to a specific secret
+kscorectl secrets audit secrets/production/db-password
 ```
 
-Report includes:
+Report data available from these commands includes:
 
-- Key inventory and rotation status
-- Access audit summary
-- Compliance check results
+- Key inventory and rotation status (via `policy list` and `rotate history`)
+- Access audit summary (via `audit <path>`)
+- Policy compliance status (via `policy show <policy-id>`)
 - Risk assessment
 
 ## Configuration Reference

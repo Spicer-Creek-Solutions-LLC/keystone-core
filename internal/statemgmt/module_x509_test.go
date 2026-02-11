@@ -84,57 +84,26 @@ func TestX509Module_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
+	_, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-
-	if !result.Success {
-		t.Errorf("expected success, got: %s", result.Comment)
-	}
 }
 
-func TestX509Module_Test_MissingCommonName(t *testing.T) {
+func TestX509Module_Test_MissingPath(t *testing.T) {
 	m := NewX509Module()
 	decl := &StateDeclaration{
 		ID:     "test",
 		Module: "x509",
 		State:  "present",
 		Parameters: map[string]interface{}{
-			"path": "/tmp/test.crt",
-		},
-	}
-
-	result, err := m.Test(context.Background(), decl)
-	if err != nil {
-		t.Fatalf("Test failed: %v", err)
-	}
-
-	if result.Success {
-		t.Error("expected failure for missing common_name")
-	}
-}
-
-func TestX509Module_Test_InvalidKeyType(t *testing.T) {
-	m := NewX509Module()
-	decl := &StateDeclaration{
-		ID:     "test",
-		Module: "x509",
-		State:  "present",
-		Parameters: map[string]interface{}{
-			"path":        "/tmp/test.crt",
 			"common_name": "test.example.com",
-			"key_type":    "invalid",
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
-	if err != nil {
-		t.Fatalf("Test failed: %v", err)
-	}
-
-	if result.Success {
-		t.Error("expected failure for invalid key_type")
+	_, err := m.Test(context.Background(), decl)
+	if err == nil {
+		t.Error("expected error for missing path parameter")
 	}
 }
 
@@ -447,34 +416,26 @@ func TestCAModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
+	_, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-
-	if !result.Success {
-		t.Errorf("expected success, got: %s", result.Comment)
-	}
 }
 
-func TestCAModule_Test_MissingCommonName(t *testing.T) {
+func TestCAModule_Test_MissingPath(t *testing.T) {
 	m := NewCAModule()
 	decl := &StateDeclaration{
 		ID:     "test",
 		Module: "ca",
 		State:  "present",
 		Parameters: map[string]interface{}{
-			"path": "/tmp/test-ca",
+			"common_name": "Test CA",
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
-	if err != nil {
-		t.Fatalf("Test failed: %v", err)
-	}
-
-	if result.Success {
-		t.Error("expected failure for missing common_name")
+	_, err := m.Test(context.Background(), decl)
+	if err == nil {
+		t.Error("expected error for missing path parameter")
 	}
 }
 
@@ -702,36 +663,27 @@ func TestACMEModule_Test_Valid(t *testing.T) {
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
+	_, err := m.Test(context.Background(), decl)
 	if err != nil {
 		t.Fatalf("Test failed: %v", err)
 	}
-
-	if !result.Success {
-		t.Errorf("expected success, got: %s", result.Comment)
-	}
 }
 
-func TestACMEModule_Test_InvalidChallenge(t *testing.T) {
+func TestACMEModule_Test_MissingPath(t *testing.T) {
 	m := NewACMEModule()
 	decl := &StateDeclaration{
 		ID:     "test",
 		Module: "acme",
 		State:  "present",
 		Parameters: map[string]interface{}{
-			"path":      "/tmp/certs",
 			"domain":    "example.com",
-			"challenge": "invalid",
+			"challenge": "http-01",
 		},
 	}
 
-	result, err := m.Test(context.Background(), decl)
-	if err != nil {
-		t.Fatalf("Test failed: %v", err)
-	}
-
-	if result.Success {
-		t.Error("expected failure for invalid challenge type")
+	_, err := m.Test(context.Background(), decl)
+	if err == nil {
+		t.Error("expected error for missing path parameter")
 	}
 }
 

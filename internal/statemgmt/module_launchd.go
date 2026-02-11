@@ -568,3 +568,7 @@ func (m *LaunchdModule) unloadJob(ctx context.Context, config *LaunchdConfig) er
 	}
 	return nil
 }
+
+func init() {
+	_ = RegisterModule(NewLaunchdModule())
+}

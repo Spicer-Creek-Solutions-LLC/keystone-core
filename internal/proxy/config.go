@@ -140,6 +140,15 @@ type CredentialsConfig struct {
 
 	// File configures file-based credentials.
 	File FileCredentialConfig `yaml:"file"`
+
+	// Env configures environment variable credentials.
+	Env EnvCredentialConfig `yaml:"env"`
+}
+
+// EnvCredentialConfig configures the environment variable credential provider.
+type EnvCredentialConfig struct {
+	// Prefix is the environment variable prefix (default: "KSCORE_CRED").
+	Prefix string `yaml:"prefix"`
 }
 
 // VaultCredentialConfig configures Vault credential provider.

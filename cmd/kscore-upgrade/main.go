@@ -694,7 +694,7 @@ func newCancelCmd(cfg *Config) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "cancel",
+		Use:   "cancel [upgrade-id]",
 		Short: "Cancel an in-progress upgrade",
 		Long: `Cancel an in-progress upgrade and optionally trigger rollback.
 
@@ -702,13 +702,21 @@ Examples:
   # Cancel current upgrade
   kscorectl upgrade cancel
 
+  # Cancel a specific upgrade
+  kscorectl upgrade cancel upgrade-20240115-100000
+
   # Force cancel without confirmation
   kscorectl upgrade cancel --force
 
   # Cancel and trigger immediate rollback
   kscorectl upgrade cancel --rollback`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCancel(cfg, force, rollback)
+			upgradeID := "upgrade-20240115-100000"
+			if len(args) > 0 {
+				upgradeID = args[0]
+			}
+			return runCancel(cfg, upgradeID, force, rollback)
 		},
 	}
 
@@ -718,8 +726,8 @@ Examples:
 	return cmd
 }
 
-func runCancel(cfg *Config, force, rollback bool) error {
-	fmt.Printf("Cancelling upgrade: upgrade-20240115-100000\n")
+func runCancel(cfg *Config, upgradeID string, force, rollback bool) error {
+	fmt.Printf("Cancelling upgrade: %s\n", upgradeID)
 	if rollback {
 		fmt.Printf("Status: Rollback initiated\n")
 		fmt.Printf("\nThe upgrade has been cancelled and rollback is in progress.\n")
@@ -748,6 +756,8 @@ func newCanaryCmd(cfg *Config) *cobra.Command {
 }
 
 func newCanaryPromoteCmd(cfg *Config) *cobra.Command {
+	var confirm bool
+
 	cmd := &cobra.Command{
 		Use:   "promote",
 		Short: "Promote canary to full rollout",
@@ -756,20 +766,27 @@ func newCanaryPromoteCmd(cfg *Config) *cobra.Command {
 This will complete the upgrade by rolling out to all remaining instances.
 
 Examples:
-  kscorectl upgrade canary promote`,
+  kscorectl upgrade canary promote --confirm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Promoting canary deployment...\n")
-			fmt.Printf("Status: Full rollout initiated\n")
-			fmt.Printf("\nThe canary deployment has been promoted to full rollout.\n")
-			fmt.Printf("Use 'kscorectl upgrade status' to monitor progress.\n")
+			if !confirm {
+				return fmt.Errorf("--confirm is required to promote canary deployment")
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Promoting canary deployment...\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Status: Full rollout initiated\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "\nThe canary deployment has been promoted to full rollout.\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Use 'kscorectl upgrade status' to monitor progress.\n")
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "Confirm promotion")
 
 	return cmd
 }
 
 func newCanaryRollbackCmd(cfg *Config) *cobra.Command {
+	var confirm bool
+
 	cmd := &cobra.Command{
 		Use:   "rollback",
 		Short: "Rollback canary deployment",
@@ -778,15 +795,20 @@ func newCanaryRollbackCmd(cfg *Config) *cobra.Command {
 This will stop the canary deployment and revert to the previous stable version.
 
 Examples:
-  kscorectl upgrade canary rollback`,
+  kscorectl upgrade canary rollback --confirm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Rolling back canary deployment...\n")
-			fmt.Printf("Status: Canary rollback initiated\n")
-			fmt.Printf("\nThe canary deployment is being rolled back.\n")
-			fmt.Printf("Use 'kscorectl upgrade status' to monitor progress.\n")
+			if !confirm {
+				return fmt.Errorf("--confirm is required to rollback canary deployment")
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Rolling back canary deployment...\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Status: Canary rollback initiated\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "\nThe canary deployment is being rolled back.\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Use 'kscorectl upgrade status' to monitor progress.\n")
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "Confirm rollback")
 
 	return cmd
 }
@@ -1078,7 +1100,10 @@ func runRollbackStatus(cfg *Config) error {
 }
 
 func newHistoryCmd(cfg *Config) *cobra.Command {
-	var limit int
+	var (
+		limit        int
+		statusFilter string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
@@ -1087,18 +1112,20 @@ func newHistoryCmd(cfg *Config) *cobra.Command {
 
 Examples:
   kscorectl upgrade history
-  kscorectl upgrade history --limit 10`,
+  kscorectl upgrade history --limit 10
+  kscorectl upgrade history --status completed`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runHistory(cfg, limit)
+			return runHistory(cfg, limit, statusFilter)
 		},
 	}
 
 	cmd.Flags().IntVarP(&limit, "limit", "n", 20, "Maximum number of entries")
+	cmd.Flags().StringVar(&statusFilter, "status", "", "Filter by status (e.g., completed, failed, rolled_back)")
 
 	return cmd
 }
 
-func runHistory(cfg *Config, limit int) error {
+func runHistory(cfg *Config, limit int, statusFilter string) error {
 	history := []UpgradeHistory{
 		{
 			UpgradeID:   "upgrade-20240115-100000",
@@ -1133,6 +1160,17 @@ func runHistory(cfg *Config, limit int) error {
 			Duration:    "25m",
 			InitiatedBy: "admin",
 		},
+	}
+
+	// Filter by status
+	if statusFilter != "" {
+		filtered := make([]UpgradeHistory, 0, len(history))
+		for _, h := range history {
+			if strings.EqualFold(h.Status, statusFilter) {
+				filtered = append(filtered, h)
+			}
+		}
+		history = filtered
 	}
 
 	if limit > 0 && len(history) > limit {
@@ -1178,25 +1216,36 @@ func newLogsCmd(cfg *Config) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "logs",
+		Use:   "logs [upgrade-id]",
 		Short: "Show upgrade logs",
 		Long: `Show logs from an upgrade operation.
 
+The upgrade ID can be specified as a positional argument or via --upgrade-id.
+
 Examples:
   # Show logs for specific upgrade
+  kscorectl upgrade logs abc123
+
+  # Using flag form
   kscorectl upgrade logs --upgrade-id abc123
 
   # Follow logs in real-time
-  kscorectl upgrade logs --upgrade-id abc123 --follow`,
+  kscorectl upgrade logs abc123 --follow`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				upgradeID = args[0]
+			}
+			if upgradeID == "" {
+				return fmt.Errorf("upgrade-id is required (as argument or --upgrade-id flag)")
+			}
 			return runLogs(cfg, upgradeID, follow, tail)
 		},
 	}
 
-	cmd.Flags().StringVar(&upgradeID, "upgrade-id", "", "Upgrade ID (required)")
+	cmd.Flags().StringVar(&upgradeID, "upgrade-id", "", "Upgrade ID")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs in real-time")
 	cmd.Flags().IntVar(&tail, "tail", 100, "Number of lines to show")
-	cmd.MarkFlagRequired("upgrade-id")
 
 	return cmd
 }

@@ -33,14 +33,12 @@ This runbook covers TLS certificate rotation for Keystone Core components.
 
 ```bash
 # Check all certificate expiry dates
-kscorectl certs status
-
-# Output example:
-# Certificate          Expires             Days Left  Status
-# CA                   2034-01-15          3650       OK
-# Server               2025-01-15          30         WARNING
-# Agent Template       2025-01-15          30         WARNING
-# etcd                 2025-02-15          61         OK
+for cert in /etc/keystone-core/certs/*.crt; do
+  echo "=== $(basename $cert) ==="
+  openssl x509 -in "$cert" -noout -subject -enddate
+  DAYS=$(( ($(date -d "$(openssl x509 -in "$cert" -noout -enddate | cut -d= -f2)" +%s) - $(date +%s)) / 86400 ))
+  echo "Days remaining: $DAYS"
+done
 
 # Check specific certificate
 openssl x509 -in /etc/keystone-core/certs/server.crt -noout -dates
@@ -60,43 +58,46 @@ ls -la /backup/certs-*/
 
 ### Step 3: Generate New Certificates
 
-#### Option A: Using Keystone Core CA
+#### Option A: Using Keystone Core Identity System
 
 ```bash
-# Rotate server certificate (uses existing CA)
-kscorectl certs rotate --component server
+# Rotate CA using the identity plugin
+kscorectl identity ca rotate --force
 
-# Rotate agent certificates
-kscorectl certs rotate --component agent
+# Regenerate all agent certificates
+kscorectl agents certificates regenerate --all --force
 ```
 
 #### Option B: Using External PKI
 
 ```bash
-# Generate CSR
-kscorectl certs csr --component server --output /tmp/server.csr
+# Generate CSR with openssl
+openssl req -new -newkey rsa:4096 -nodes \
+  -keyout /tmp/server.key -out /tmp/server.csr \
+  -subj "/CN=kscore-server"
 
 # Submit CSR to external CA
 # ... (external process)
 
-# Import signed certificate
-kscorectl certs import \
-  --component server \
-  --cert /path/to/new-server.crt \
-  --key /path/to/server.key
+# Install signed certificate
+cp /path/to/new-server.crt /etc/keystone-core/certs/server.crt
+cp /path/to/server.key /etc/keystone-core/certs/server.key
+chmod 600 /etc/keystone-core/certs/server.key
 ```
 
 #### Option C: Full CA Rotation
 
 ```bash
-# Generate new CA (careful - affects all certificates)
-kscorectl certs rotate-ca
+# Rotate CA (careful - affects all certificates)
+kscorectl identity ca rotate --force
 
 # This will:
 # 1. Generate new CA
-# 2. Re-issue all server certificates
-# 3. Re-issue all agent certificates
-# 4. Trigger rolling restart
+# 2. Trigger re-issuance of agent certificates
+# 3. Require rolling restart of all services
+
+# Regenerate all agent certificates with new CA
+kscorectl agents certificates regenerate --all --force
 ```
 
 ### Step 4: Distribute New Certificates
@@ -143,8 +144,8 @@ done
 # Agents need trust bundle update if CA changed
 # This is handled automatically via NATS
 
-# Verify agents have new trust bundle
-kscorectl agent list --show-cert-expiry
+# Verify agents have updated certificates
+kscorectl agents list -o wide
 
 # For manual agent update:
 # On each agent node:
@@ -156,7 +157,7 @@ ssh agent-node "sudo systemctl restart kscore-agent"
 
 ```bash
 # Verify new certificates
-kscorectl certs verify
+openssl verify -CAfile /etc/keystone-core/certs/ca.crt /etc/keystone-core/certs/server.crt
 
 # Test TLS connections
 for node in ks-server-1 ks-server-2 ks-server-3; do
@@ -166,7 +167,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # Verify agent connectivity
-kscorectl agent ping --all
+kscorectl agents verify --all
 ```
 
 ## Verification Checklist

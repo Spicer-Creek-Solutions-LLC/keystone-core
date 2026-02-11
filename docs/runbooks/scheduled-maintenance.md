@@ -49,7 +49,7 @@ kscore-cluster-backup verify /backup/pre-maintenance-*/latest.tar.gz
 # Record cluster state
 kscorectl cluster health > /tmp/pre-maintenance-health.txt
 kscorectl cluster members > /tmp/pre-maintenance-members.txt
-kscorectl agent list --status > /tmp/pre-maintenance-agents.txt
+kscorectl agents list > /tmp/pre-maintenance-agents.txt
 
 # Record version info
 kscorectl version > /tmp/pre-maintenance-version.txt
@@ -97,7 +97,7 @@ done
 ```bash
 # After each significant change:
 kscorectl cluster health
-kscorectl agent list --status | grep -c online
+kscorectl agents list --status online -o json | jq length
 ```
 
 ### Post-Maintenance
@@ -122,7 +122,7 @@ diff /tmp/pre-maintenance-members.txt <(kscorectl cluster members)
 
 # Verify all agents reconnected
 BEFORE=$(cat /tmp/pre-maintenance-agents.txt | grep -c online)
-AFTER=$(kscorectl agent list --status | grep -c online)
+AFTER=$(kscorectl agents list --status online -o json | jq length)
 echo "Agents before: $BEFORE, after: $AFTER"
 
 # Run smoke tests

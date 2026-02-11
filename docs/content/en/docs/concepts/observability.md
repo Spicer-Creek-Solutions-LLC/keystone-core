@@ -589,7 +589,11 @@ Track requests across components:
 **Query logs by correlation ID**:
 
 ```bash
-kscorectl logs --correlation-id job-abc123
+# Via journalctl (systemd)
+journalctl -u kscore-server -o json | jq 'select(.correlation_id == "job-abc123")'
+
+# Via Loki (LogQL)
+# {service="kscore-server"} |= "job-abc123"
 ```
 
 ### Log Configuration
@@ -1420,7 +1424,9 @@ Keystone Core provides Go clients for querying Loki and Jaeger programmatically:
 **Loki Client**:
 
 ```go
-import "github.com/shawnbutts/keystone-core/pkg/query"
+// internal/query provides Loki and Jaeger query clients.
+// These are internal APIs used by Keystone Core components.
+import "github.com/shawnbutts/keystone-core/internal/query"
 
 // Simple client
 client := query.NewLokiQuerier("http://loki:3100")
@@ -1455,7 +1461,7 @@ values, err := client.LabelValues(ctx, "service", start, end)
 **Jaeger Client**:
 
 ```go
-import "github.com/shawnbutts/keystone-core/pkg/query"
+import "github.com/shawnbutts/keystone-core/internal/query"
 
 // Simple client
 client := query.NewJaegerQuerier("http://jaeger-query:16686")
@@ -2209,7 +2215,7 @@ Check:
 
 ```bash
 # Check log output
-kscorectl logs --tail 100
+journalctl -u kscore-server -n 100
 
 # Check Loki connectivity
 curl http://loki:3100/ready
@@ -2226,7 +2232,7 @@ Check:
 
 ```bash
 # Verify trace context propagation
-kscorectl logs | grep trace_id
+journalctl -u kscore-server -o json | jq 'select(.trace_id != null)'
 
 # Check sampling rate
 curl http://control-plane:8080/health/status | jq '.tracing'

@@ -450,9 +450,9 @@ actions:
     wait: 60s
     target: "role:control-plane"
     command: |
-      kscorectl policy evaluate \
-        --framework {{ .event.data.framework }} \
-        --agent {{ .event.data.agent_id }}
+      kscorectl policy eval \
+        {{ .event.data.framework }} \
+        {{ .event.data.agent_id }}
 
   - name: notify_success
     type: event
@@ -477,19 +477,17 @@ actions:
 ### Step 5: Compliance Report Generation
 
 ```bash
-# Generate compliance report
-kscorectl compliance report \
-  --framework cis-level1 \
-  --target "environment:production" \
+# Generate compliance report for CIS framework
+kscorectl policy compliance report \
+  --framework cis \
   --format html \
   --output compliance-report.html
 
-# Generate multi-framework report
-kscorectl compliance report \
-  --framework cis-level1,soc2,pci-dss \
-  --target "environment:production" \
-  --format pdf \
-  --output compliance-report.pdf
+# Generate SOC2 compliance report as JSON
+kscorectl policy compliance report \
+  --framework soc2 \
+  --format json \
+  --output compliance-report.json
 ```
 
 ### Step 6: Compliance Dashboard Integration
@@ -541,27 +539,23 @@ prometheus_alerts:
 ### Run Compliance Scan
 
 ```bash
-# Scan all production servers
-kscorectl compliance scan \
-  --framework cis-level1 \
-  --target "environment:production"
+# Evaluate CIS baseline policy against production servers
+kscorectl policy eval cis-level1-baseline "environment:production"
 
 # Output:
-# Scanning 150 agents...
-# Framework: CIS Level 1 Linux Benchmark
+# Evaluating policy 'cis-level1-baseline' against target 'environment:production'
 #
-# SEVERITY   COUNT    PERCENTAGE
-# Critical   2        1.3%
-# High       15       10.0%
-# Medium     45       30.0%
-# Low        88       58.7%
+# RULE                                RESULT   DETAILS
+# --------------------------------------------------------------------------------
+# no-privileged-containers            PASS     No privileged containers found
+# ssh-root-login-disabled             FAIL     Container 'web-01' permits root login
+# password-expiration                 FAIL     12 agents exceed 365-day limit
+# source-routed-packets               PASS     All agents compliant
 #
-# Overall Compliance Score: 87.3%
-#
-# Top Violations:
-# 1. CIS-5.2.8: SSH PermitRootLogin (15 agents)
-# 2. CIS-5.4.1.1: Password expiration (12 agents)
-# 3. CIS-3.2.1: Source routed packets (8 agents)
+# Result: FAIL (2/4 rules passed, 2 failed)
+
+# View current violations
+kscorectl policy violations --limit 50
 ```
 
 ### Apply Security Baseline
@@ -582,14 +576,14 @@ kscorectl state apply states/security/cis-baseline.yaml \
 ### Generate Audit Report
 
 ```bash
-# Generate for specific date range
-kscorectl compliance report \
+# Generate SOC2 compliance report
+kscorectl policy compliance report \
   --framework soc2 \
-  --from "2024-01-01" \
-  --to "2024-01-31" \
-  --format pdf \
-  --include-evidence \
-  --output soc2-jan-2024.pdf
+  --format json \
+  --output soc2-report.json
+
+# Generate a compliance summary for the last 30 days
+kscorectl policy compliance --days 30 --output json
 ```
 
 ## Verification
@@ -597,29 +591,31 @@ kscorectl compliance report \
 ### Check Compliance Status
 
 ```bash
-# Overall status
-kscorectl compliance status
+# Overall compliance status
+kscorectl policy compliance
 
-# Per-framework status
-kscorectl compliance status --framework cis-level1
+# Per-framework report
+kscorectl policy compliance report --framework cis
 
-# Per-agent status
-kscorectl compliance status --agent web-01
+# Evaluate a specific policy against an agent
+kscorectl policy eval cis-level1-baseline web-01 --verbose
 ```
 
 ### Verify Remediation
 
 ```bash
-# Check specific control
-kscorectl compliance check \
-  --control CIS-5.2.8 \
-  --target web-01
+# Check a specific policy against an agent
+kscorectl policy check policies/cis/linux-level1.yaml \
+  --policy CIS-5.2.8 \
+  --input-file web-01-state.json
 
 # Output:
-# Control: CIS-5.2.8 - Ensure SSH root login is disabled
-# Agent: web-01
-# Status: PASS
-# Details: PermitRootLogin is set to 'no'
+# Policy: CIS-5.2.8 (CIS-5.2.8)
+# Type:   opa
+#
+# Result: ✓ ALLOWED
+#
+# Duration: 2.1ms
 ```
 
 ## Troubleshooting
@@ -627,23 +623,20 @@ kscorectl compliance check \
 ### Policy Evaluation Errors
 
 ```bash
-# Test policy locally
-kscorectl policy test policies/cis/linux-level1.rego \
-  --input test-data.json
+# Test policy syntax and structure
+kscorectl policy test policies/cis/linux-level1.yaml \
+  --test-data test-data.json
 
-# Debug policy
-kscorectl policy evaluate \
-  --framework cis-level1 \
-  --agent web-01 \
-  --verbose
+# Evaluate a policy against a target with verbose output
+kscorectl policy eval cis-level1-baseline web-01 --verbose
 ```
 
 ### Auto-Remediation Failures
 
 ```bash
-# Check remediation history
-kscorectl compliance remediation-history --agent web-01
+# Check recent policy violations for an agent
+kscorectl policy violations --limit 50
 
-# Check reactor logs
-kscorectl logs --reactor compliance-auto-remediation --tail 100
+# Check recent reactor events
+kscorectl events list --type "reactor.*" --limit 100
 ```

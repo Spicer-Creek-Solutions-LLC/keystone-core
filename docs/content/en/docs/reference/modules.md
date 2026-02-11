@@ -7,7 +7,9 @@ description: >
 
 ## Overview
 
-Keystone Core includes 93 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+Keystone Core includes 95 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+
+> **Note:** Kubernetes modules (`k8s_*`) require explicit registration with a configured Kubernetes client and are not available in the default module registry.
 
 **Core Modules**:
 

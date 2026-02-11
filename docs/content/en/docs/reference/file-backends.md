@@ -22,7 +22,7 @@ backends:
 
 > **Note**: The server expects a `backends` array, not a single `backend` object. Each backend requires a unique `name` and `type`.
 >
-> **Supported Types**: `filesystem` (alias: `local`), `s3`, `gcs`, `azure`, `git`, `nats` (alias: `nats-object-store`). Backend-specific options are set as flat fields alongside `name` and `type`.
+> **Supported Types**: `filesystem` (alias: `local`), `s3`, `gcs`, `azure`, `git`, `nats` (alias: `nats-object-store`), `http`. Backend-specific options are set as flat fields alongside `name` and `type`.
 
 ## Compression System
 
@@ -345,6 +345,75 @@ nats:
     - nats://nats3:4222
 ```
 
+## HTTP Backend
+
+Fetches files from a remote HTTP or HTTPS server. This is a read-only backend — `Put` and `Delete` operations are not supported.
+
+```yaml
+backends:
+  - name: http-packages
+    type: http
+    base_url: https://packages.example.com/files
+    timeout: 30s
+    headers:
+      X-Api-Key: ${HTTP_API_KEY}
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `http` |
+| `base_url` | string | Required | HTTP(S) server base URL |
+| `timeout` | duration | `30s` | HTTP request timeout |
+| `headers` | map[string]string | `{}` | Extra headers sent with every request |
+| `tls_insecure_skip_verify` | bool | `false` | Skip TLS certificate verification |
+| `username` | string | `""` | Username for HTTP Basic auth |
+| `password` | string | `""` | Password for HTTP Basic auth |
+| `bearer_token` | string | `""` | Token for Bearer auth |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+
+### Authentication
+
+```yaml
+# HTTP Basic authentication
+backends:
+  - name: http-basic
+    type: http
+    base_url: https://files.example.com
+    username: admin
+    password: ${HTTP_PASSWORD}
+
+# Bearer token authentication
+backends:
+  - name: http-bearer
+    type: http
+    base_url: https://api.example.com/v1/files
+    bearer_token: ${BEARER_TOKEN}
+
+# Custom header authentication
+backends:
+  - name: http-apikey
+    type: http
+    base_url: https://files.example.com
+    headers:
+      X-Api-Key: ${API_KEY}
+```
+
+### Features
+
+- **Conditional GET**: Supports `If-None-Match` (ETag) for efficient caching.
+- **Range requests**: Supports HTTP Range headers for partial file retrieval.
+- **Health checks**: HEAD request to the base URL; fails on 5xx responses.
+- **Metadata**: File size, content type, ETag, and modification time are extracted from HTTP response headers.
+
+### Limitations
+
+- **Read-only**: Cannot upload or delete files.
+- **No listing**: HTTP servers don't expose a standard directory listing API, so `List` operations return an error.
+- **Checksum**: SHA-256 checksums are not available from standard HTTP headers. Use `GetWithChecksum` (programmatic API) to compute a checksum by reading the full response body.
+
 ## Backend Selection Guide
 
 | Use Case | Recommended Backend |
@@ -355,6 +424,7 @@ nats:
 | Azure deployment | Azure |
 | GitOps workflows | Git |
 | NATS-centric architecture | NATS Object Store |
+| Existing HTTP file server | HTTP |
 | Hybrid/multi-cloud | S3 (with compatible storage) |
 
 ## Backend Interface

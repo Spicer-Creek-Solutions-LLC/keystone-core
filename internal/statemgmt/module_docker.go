@@ -120,24 +120,12 @@ func (m *DockerContainerModule) Apply(ctx context.Context, decl *StateDeclaratio
 }
 
 // Test runs the module in test mode.
-func (m *DockerContainerModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *DockerContainerModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s container '%s'", decl.State, getStringParameter(decl, "name", "")),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *DockerContainerModule) checkDockerAvailable(ctx context.Context) error {
@@ -540,28 +528,12 @@ func (m *DockerImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 }
 
 // Test runs the module in test mode.
-func (m *DockerImageModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *DockerImageModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	tag := getStringParameter(decl, "tag", "latest")
-	fullName := fmt.Sprintf("%s:%s", name, tag)
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s image '%s'", decl.State, fullName),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -713,25 +685,12 @@ func (m *DockerNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 }
 
 // Test runs the module in test mode.
-func (m *DockerNetworkModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *DockerNetworkModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s network '%s'", decl.State, name),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -886,25 +845,12 @@ func (m *DockerVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 }
 
 // Test runs the module in test mode.
-func (m *DockerVolumeModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *DockerVolumeModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s volume '%s'", decl.State, name),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func getDriverOpts(decl *StateDeclaration) map[string]string {
@@ -1243,24 +1189,12 @@ func (m *PodmanContainerModule) ensureAbsent(ctx context.Context, name string, d
 }
 
 // Test runs the module in test mode.
-func (m *PodmanContainerModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PodmanContainerModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s container '%s'", decl.State, getStringParameter(decl, "name", "")),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -1419,28 +1353,12 @@ func (m *PodmanImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 }
 
 // Test runs the module in test mode.
-func (m *PodmanImageModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PodmanImageModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	tag := getStringParameter(decl, "tag", "latest")
-	fullName := fmt.Sprintf("%s:%s", name, tag)
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s image '%s'", decl.State, fullName),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -1587,25 +1505,12 @@ func (m *PodmanNetworkModule) Apply(ctx context.Context, decl *StateDeclaration)
 }
 
 // Test runs the module in test mode.
-func (m *PodmanNetworkModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PodmanNetworkModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s network '%s'", decl.State, name),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -1758,25 +1663,12 @@ func (m *PodmanVolumeModule) Apply(ctx context.Context, decl *StateDeclaration) 
 }
 
 // Test runs the module in test mode.
-func (m *PodmanVolumeModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PodmanVolumeModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return &StateResult{
-			StateID: decl.ID,
-			Module:  m.Name(),
-			Success: false,
-			Comment: fmt.Sprintf("Check failed: %v", err),
-		}, nil
+		return false, err
 	}
-
-	name := getStringParameter(decl, "name", "")
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Would %s volume '%s'", decl.State, name),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -1878,3 +1770,14 @@ var (
 	_ = runtime.GOOS
 	_ = sort.Strings
 )
+
+func init() {
+	_ = RegisterModule(NewDockerContainerModule())
+	_ = RegisterModule(NewDockerImageModule())
+	_ = RegisterModule(NewDockerNetworkModule())
+	_ = RegisterModule(NewDockerVolumeModule())
+	_ = RegisterModule(NewPodmanContainerModule())
+	_ = RegisterModule(NewPodmanImageModule())
+	_ = RegisterModule(NewPodmanNetworkModule())
+	_ = RegisterModule(NewPodmanVolumeModule())
+}

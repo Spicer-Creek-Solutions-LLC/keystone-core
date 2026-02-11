@@ -352,39 +352,12 @@ func (m *X509Module) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 }
 
 // Test validates module parameters
-func (m *X509Module) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
-	result := &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
+func (m *X509Module) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return false, err
 	}
-
-	path := getStringParameter(decl, "path", "")
-	if path == "" {
-		result.Success = false
-		result.Comment = "path parameter is required"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	if decl.State == "present" {
-		cn := getStringParameter(decl, "common_name", "")
-		if cn == "" {
-			result.Success = false
-			result.Comment = "common_name parameter is required for present state"
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-
-		keyType := getStringParameter(decl, "key_type", "rsa")
-		validKeyTypes := map[string]bool{"rsa": true, "ecdsa": true, "ed25519": true}
-		if !validKeyTypes[keyType] {
-			result.Success = false
-			result.Comment = fmt.Sprintf("invalid key_type: %s (must be rsa, ecdsa, or ed25519)", keyType)
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-	}
-
-	result.Success = true
-	result.Comment = "X509 module parameters are valid"
-	return result, nil //nolint:nilerr // error captured in result.Error
+	return check.Matches, nil
 }
 
 // ============================================================================
@@ -646,31 +619,12 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 }
 
 // Test validates module parameters
-func (m *CAModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
-	result := &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
+func (m *CAModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return false, err
 	}
-
-	path := getStringParameter(decl, "path", "")
-	if path == "" {
-		result.Success = false
-		result.Comment = "path parameter is required"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	if decl.State == "present" {
-		cn := getStringParameter(decl, "common_name", "")
-		if cn == "" {
-			result.Success = false
-			result.Comment = "common_name parameter is required for present state"
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-	}
-
-	result.Success = true
-	result.Comment = "CA module parameters are valid"
-	return result, nil //nolint:nilerr // error captured in result.Error
+	return check.Matches, nil
 }
 
 // SignCertificate signs a certificate with this CA
@@ -924,39 +878,12 @@ func (m *ACMEModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 }
 
 // Test validates module parameters
-func (m *ACMEModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
-	result := &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
+func (m *ACMEModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return false, err
 	}
-
-	path := getStringParameter(decl, "path", "")
-	if path == "" {
-		result.Success = false
-		result.Comment = "path parameter is required"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	if decl.State != "absent" {
-		domain := getStringParameter(decl, "domain", "")
-		if domain == "" {
-			result.Success = false
-			result.Comment = "domain parameter is required for state " + decl.State
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-
-		challenge := getStringParameter(decl, "challenge", "http-01")
-		validChallenges := map[string]bool{"http-01": true, "dns-01": true, "tls-alpn-01": true}
-		if !validChallenges[challenge] {
-			result.Success = false
-			result.Comment = fmt.Sprintf("invalid challenge type: %s", challenge)
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-	}
-
-	result.Success = true
-	result.Comment = "ACME module parameters are valid (note: full ACME not yet implemented)"
-	return result, nil //nolint:nilerr // error captured in result.Error
+	return check.Matches, nil
 }
 
 // ============================================================================
@@ -989,4 +916,10 @@ func GenerateCSR(privateKey crypto.PrivateKey, cn string, sans []string, sanIPs 
 	var buf bytes.Buffer
 	pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
 	return buf.Bytes(), nil //nolint:nilerr // intentional
+}
+
+func init() {
+	_ = RegisterModule(NewX509Module())
+	_ = RegisterModule(NewCAModule())
+	_ = RegisterModule(NewACMEModule())
 }

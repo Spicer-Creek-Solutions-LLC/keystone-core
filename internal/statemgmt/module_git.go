@@ -293,39 +293,12 @@ func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRe
 }
 
 // Test validates module parameters
-func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
-	result := &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
+func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return false, err
 	}
-
-	// Check required parameters
-	dest := getStringParameter(decl, "dest", "")
-	if dest == "" {
-		result.Success = false
-		result.Comment = "dest parameter is required"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	if decl.State != "absent" {
-		repo := getStringParameter(decl, "repo", "")
-		if repo == "" {
-			result.Success = false
-			result.Comment = "repo parameter is required for state " + decl.State
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-	}
-
-	// Check if git is available
-	if _, err := exec.LookPath("git"); err != nil {
-		result.Success = false
-		result.Comment = "git command not found in PATH"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	result.Success = true
-	result.Comment = "Git module parameters are valid"
-	return result, nil //nolint:nilerr // error captured in result.Error
+	return check.Matches, nil
 }
 
 // Helper methods
@@ -550,48 +523,12 @@ func (m *GitConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 }
 
 // Test validates module parameters
-func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
-	result := &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
+func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return false, err
 	}
-
-	// Check required parameters
-	name := getStringParameter(decl, "name", "")
-	if name == "" {
-		result.Success = false
-		result.Comment = "name parameter is required"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	if decl.State == "present" {
-		value := getStringParameter(decl, "value", "")
-		if value == "" {
-			result.Success = false
-			result.Comment = "value parameter is required for state present"
-			return result, nil //nolint:nilerr // error captured in result.Error
-		}
-	}
-
-	// Validate scope
-	scope := getStringParameter(decl, "scope", "global")
-	validScopes := map[string]bool{"global": true, "system": true, "local": true, "worktree": true}
-	if !validScopes[scope] {
-		result.Success = false
-		result.Comment = fmt.Sprintf("invalid scope: %s (must be global, system, local, or worktree)", scope)
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	// Check if git is available
-	if _, err := exec.LookPath("git"); err != nil {
-		result.Success = false
-		result.Comment = "git command not found in PATH"
-		return result, nil //nolint:nilerr // error captured in result.Error
-	}
-
-	result.Success = true
-	result.Comment = "Git config module parameters are valid"
-	return result, nil //nolint:nilerr // error captured in result.Error
+	return check.Matches, nil
 }
 
 // Helper methods
@@ -698,4 +635,9 @@ func getGitConfigPath(scope string) string {
 	default:
 		return ""
 	}
+}
+
+func init() {
+	_ = RegisterModule(NewGitModule())
+	_ = RegisterModule(NewGitConfigModule())
 }

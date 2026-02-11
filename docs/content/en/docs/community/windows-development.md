@@ -64,7 +64,7 @@ keystone-core/
 │   ├── kscore-server/      # Control plane
 │   ├── kscorectl/          # Main CLI
 │   └── ...
-├── pkg/                    # Library packages
+├── internal/               # Implementation packages
 │   ├── agent/              # Agent core
 │   ├── statemgmt/          # State management
 │   └── ...
@@ -129,13 +129,13 @@ go test ./...
 ### Run Tests with Verbose Output
 
 ```powershell
-go test -v ./pkg/statemgmt/...
+go test -v ./internal/statemgmt/...
 ```
 
 ### Run Specific Test
 
 ```powershell
-go test -v -run "TestWinService" ./pkg/statemgmt/...
+go test -v -run "TestWinService" ./internal/statemgmt/...
 ```
 
 ### Run Tests with Coverage
@@ -154,8 +154,8 @@ Many Windows tests require actual Windows APIs and skip on other platforms:
 
 ```powershell
 # These tests run only on Windows
-go test -v -run "Windows" ./pkg/statemgmt/...
-go test -v -run "Win" ./pkg/agent/...
+go test -v -run "Windows" ./internal/statemgmt/...
+go test -v -run "Win" ./internal/agent/...
 ```
 
 ## Debugging
@@ -184,7 +184,7 @@ Create `.vscode/launch.json`:
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceFolder}/pkg/statemgmt",
+            "program": "${workspaceFolder}/internal/statemgmt",
             "args": ["-test.v", "-test.run", "TestWinService"]
         }
     ]
@@ -201,7 +201,7 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 dlv debug ./cmd/kscore-agent -- --config config/agent.yaml
 
 # Debug tests
-dlv test ./pkg/statemgmt -- -test.run TestWinService
+dlv test ./internal/statemgmt -- -test.run TestWinService
 ```
 
 ## Running the Agent Locally

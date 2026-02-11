@@ -111,8 +111,23 @@ func TestNewQueryCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	if cmd.Flags().Lookup("limit") == nil {
-		t.Error("expected flag 'limit' not found")
+	for _, flag := range []string{"limit", "since", "until"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+
+	// Check -n shorthand for --limit
+	f := cmd.Flags().ShorthandLookup("n")
+	if f == nil {
+		t.Error("expected shorthand -n for --limit not found")
+	} else if f.Name != "limit" {
+		t.Errorf("-n shorthand maps to %q, want 'limit'", f.Name)
+	}
+
+	// Check defaults
+	if cmd.Flags().Lookup("limit").DefValue != "100" {
+		t.Errorf("limit default = %v, want 100", cmd.Flags().Lookup("limit").DefValue)
 	}
 }
 
@@ -165,11 +180,17 @@ func TestNewWatchCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	flags := []string{"type", "source", "severity", "filter", "tag"}
+	flags := []string{"type", "source", "severity", "filter", "tag", "format"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag %q not found", flag)
 		}
+	}
+
+	// Check format flag default
+	f := cmd.Flags().Lookup("format")
+	if f.DefValue != "text" {
+		t.Errorf("format default = %v, want text", f.DefValue)
 	}
 }
 
@@ -221,6 +242,170 @@ func TestNewDLQCmd(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("expected subcommand %q not found", sub)
+		}
+	}
+}
+
+func TestDLQListReasonFilter(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"list", "--reason", "timeout"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "reactor timeout") {
+		t.Error("output should contain matching reason 'reactor timeout'")
+	}
+	if strings.Contains(out, "connection refused") {
+		t.Error("output should not contain non-matching reason 'connection refused'")
+	}
+	if strings.Contains(out, "invalid payload") {
+		t.Error("output should not contain non-matching reason 'invalid payload'")
+	}
+}
+
+func TestDLQListLimitShorthand(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"list", "-n", "1"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "1 event(s)") {
+		t.Errorf("output should show 1 event, got:\n%s", out)
+	}
+}
+
+func TestDLQListReasonNoMatch(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"list", "--reason", "nonexistent"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Dead letter queue is empty") {
+		t.Errorf("expected empty queue message, got:\n%s", out)
+	}
+}
+
+func TestDLQRetryByType(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"retry", "--type", "webhook.delivery"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, `"webhook.delivery"`) {
+		t.Errorf("output should mention the event type, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Retried: 2 event(s)") {
+		t.Errorf("output should show retry count, got:\n%s", out)
+	}
+}
+
+func TestDLQRetryRequiresArg(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"retry"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no event-id, --all, or --type provided")
+	}
+}
+
+func TestDLQPurgeOlderThan(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"purge", "--older-than", "7d", "--force"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "older than 7d") {
+		t.Errorf("output should describe the filter, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Purged") {
+		t.Errorf("output should confirm purge, got:\n%s", out)
+	}
+}
+
+func TestDLQPurgeReason(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"purge", "--reason", "timeout", "--force"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, `reason matching "timeout"`) {
+		t.Errorf("output should describe the reason filter, got:\n%s", out)
+	}
+}
+
+func TestDLQPurgeInvalidOlderThan(t *testing.T) {
+	cmd := newDLQCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"purge", "--older-than", "invalid", "--force"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --older-than value")
+	}
+}
+
+func TestDLQListFlags(t *testing.T) {
+	cmd := newDLQListCmd()
+	for _, flag := range []string{"limit", "reason"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+	if cmd.Flags().ShorthandLookup("n") == nil {
+		t.Error("expected -n shorthand for --limit")
+	}
+}
+
+func TestDLQRetryFlags(t *testing.T) {
+	cmd := newDLQRetryCmd()
+	for _, flag := range []string{"all", "type"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestDLQPurgeFlags(t *testing.T) {
+	cmd := newDLQPurgeCmd()
+	for _, flag := range []string{"force", "older-than", "reason"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
 		}
 	}
 }
@@ -319,6 +504,7 @@ func TestWatchOptionsStructure(t *testing.T) {
 		Severity: "warning",
 		Filter:   "tags.env == prod",
 		Tags:     []string{"env:prod"},
+		Format:   "jsonl",
 	}
 
 	if opts.Type != "agent.*" {
@@ -326,6 +512,91 @@ func TestWatchOptionsStructure(t *testing.T) {
 	}
 	if opts.Severity != "warning" {
 		t.Errorf("Severity = %v, want warning", opts.Severity)
+	}
+	if opts.Format != "jsonl" {
+		t.Errorf("Format = %v, want jsonl", opts.Format)
+	}
+}
+
+func TestRunWatchFormats(t *testing.T) {
+	tests := []struct {
+		name   string
+		format string
+		check  func(t *testing.T, output string)
+	}{
+		{
+			name:   "text format",
+			format: "text",
+			check: func(t *testing.T, output string) {
+				if !strings.Contains(output, "Watching events") {
+					t.Error("text output should contain header")
+				}
+				if !strings.Contains(output, "Watch stopped") {
+					t.Error("text output should contain footer")
+				}
+			},
+		},
+		{
+			name:   "jsonl format",
+			format: "jsonl",
+			check: func(t *testing.T, output string) {
+				lines := strings.Split(strings.TrimSpace(output), "\n")
+				if len(lines) == 0 {
+					t.Fatal("jsonl output should have lines")
+				}
+				for _, line := range lines {
+					var evt map[string]interface{}
+					if err := json.Unmarshal([]byte(line), &evt); err != nil {
+						t.Errorf("line is not valid JSON: %v", err)
+					}
+					if _, ok := evt["type"]; !ok {
+						t.Error("jsonl event should have type field")
+					}
+					if _, ok := evt["timestamp"]; !ok {
+						t.Error("jsonl event should have timestamp field")
+					}
+				}
+			},
+		},
+		{
+			name:   "json format",
+			format: "json",
+			check: func(t *testing.T, output string) {
+				var events []map[string]interface{}
+				if err := json.Unmarshal([]byte(output), &events); err != nil {
+					t.Fatalf("json output is not valid JSON array: %v", err)
+				}
+				if len(events) == 0 {
+					t.Error("json output should have events")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := newWatchCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs([]string{"--format", tt.format})
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			tt.check(t, buf.String())
+		})
+	}
+}
+
+func TestRunWatchInvalidFormat(t *testing.T) {
+	cmd := newWatchCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--format", "xml"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid format")
 	}
 }
 
@@ -369,6 +640,148 @@ func TestFilterEvents(t *testing.T) {
 		if event.Type != "agent.connect" {
 			t.Errorf("filtered event type = %v, want agent.connect", event.Type)
 		}
+	}
+}
+
+func TestFilterEventsBySeverity(t *testing.T) {
+	events := []EventDisplay{
+		{ID: "1", Severity: "debug", Time: time.Now()},
+		{ID: "2", Severity: "info", Time: time.Now()},
+		{ID: "3", Severity: "warning", Time: time.Now()},
+		{ID: "4", Severity: "error", Time: time.Now()},
+		{ID: "5", Severity: "critical", Time: time.Now()},
+	}
+
+	tests := []struct {
+		severity string
+		wantIDs  []string
+	}{
+		{"debug", []string{"1", "2", "3", "4", "5"}},
+		{"info", []string{"2", "3", "4", "5"}},
+		{"warning", []string{"3", "4", "5"}},
+		{"error", []string{"4", "5"}},
+		{"critical", []string{"5"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.severity, func(t *testing.T) {
+			opts := &ListOptions{Severity: tt.severity}
+			filtered := filterEvents(events, opts)
+			if len(filtered) != len(tt.wantIDs) {
+				t.Fatalf("severity=%q: got %d events, want %d", tt.severity, len(filtered), len(tt.wantIDs))
+			}
+			for i, e := range filtered {
+				if e.ID != tt.wantIDs[i] {
+					t.Errorf("severity=%q: event[%d].ID = %q, want %q", tt.severity, i, e.ID, tt.wantIDs[i])
+				}
+			}
+		})
+	}
+}
+
+func TestFilterEventsByTimeRange(t *testing.T) {
+	now := time.Now()
+	events := []EventDisplay{
+		{ID: "old", Time: now.Add(-3 * time.Hour)},
+		{ID: "mid", Time: now.Add(-1 * time.Hour)},
+		{ID: "new", Time: now.Add(-10 * time.Minute)},
+	}
+
+	// Since 2h ago should exclude old
+	opts := &ListOptions{Since: "2h"}
+	filtered := filterEvents(events, opts)
+	if len(filtered) != 2 {
+		t.Fatalf("since=2h: got %d events, want 2", len(filtered))
+	}
+	if filtered[0].ID != "mid" || filtered[1].ID != "new" {
+		t.Errorf("since=2h: got IDs %v, want [mid new]", []string{filtered[0].ID, filtered[1].ID})
+	}
+
+	// Before 30m ago should exclude new
+	opts = &ListOptions{Before: "30m"}
+	filtered = filterEvents(events, opts)
+	if len(filtered) != 2 {
+		t.Fatalf("before=30m: got %d events, want 2", len(filtered))
+	}
+	if filtered[0].ID != "old" || filtered[1].ID != "mid" {
+		t.Errorf("before=30m: got IDs %v, want [old mid]", []string{filtered[0].ID, filtered[1].ID})
+	}
+
+	// Combined since+before
+	opts = &ListOptions{Since: "2h", Before: "30m"}
+	filtered = filterEvents(events, opts)
+	if len(filtered) != 1 {
+		t.Fatalf("since=2h,before=30m: got %d events, want 1", len(filtered))
+	}
+	if filtered[0].ID != "mid" {
+		t.Errorf("since=2h,before=30m: got ID %q, want mid", filtered[0].ID)
+	}
+}
+
+func TestFilterEventsByRFC3339Time(t *testing.T) {
+	now := time.Now()
+	events := []EventDisplay{
+		{ID: "1", Time: now.Add(-2 * time.Hour)},
+		{ID: "2", Time: now.Add(-30 * time.Minute)},
+	}
+
+	since := now.Add(-1 * time.Hour).Format(time.RFC3339)
+	opts := &ListOptions{Since: since}
+	filtered := filterEvents(events, opts)
+	if len(filtered) != 1 {
+		t.Fatalf("RFC3339 since: got %d events, want 1", len(filtered))
+	}
+	if filtered[0].ID != "2" {
+		t.Errorf("RFC3339 since: got ID %q, want 2", filtered[0].ID)
+	}
+}
+
+func TestFilterEventsCombinedFilters(t *testing.T) {
+	now := time.Now()
+	events := []EventDisplay{
+		{ID: "1", Type: "agent.connect", Severity: "info", Source: "/agents/web-01", Time: now.Add(-30 * time.Minute)},
+		{ID: "2", Type: "agent.connect", Severity: "error", Source: "/agents/web-01", Time: now.Add(-30 * time.Minute)},
+		{ID: "3", Type: "state.change", Severity: "error", Source: "/agents/web-01", Time: now.Add(-30 * time.Minute)},
+		{ID: "4", Type: "agent.connect", Severity: "error", Source: "/agents/db-01", Time: now.Add(-3 * time.Hour)},
+	}
+
+	opts := &ListOptions{
+		Type:     "agent.connect",
+		Severity: "error",
+		Source:   "web-01",
+		Since:    "1h",
+	}
+	filtered := filterEvents(events, opts)
+	if len(filtered) != 1 {
+		t.Fatalf("combined: got %d events, want 1", len(filtered))
+	}
+	if filtered[0].ID != "2" {
+		t.Errorf("combined: got ID %q, want 2", filtered[0].ID)
+	}
+}
+
+func TestParseTimeOrDuration(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantErr bool
+	}{
+		{"1h", false},
+		{"30m", false},
+		{"7d", false},
+		{"60s", false},
+		{time.Now().Format(time.RFC3339), false},
+		{"invalid", true},
+		{"x", true},
+		{"10x", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			_, err := parseTimeOrDuration(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseTimeOrDuration(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
 	}
 }
 

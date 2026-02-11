@@ -1380,7 +1380,7 @@ kscorectl cluster health
 kscorectl agents list --status connected | wc -l
 
 # Run a test command
-kscorectl exec run --target '*' --limit 3 'hostname'
+kscorectl exec run --target '*' 'hostname'
 
 # Compare member list
 diff /backup/members-pre-upgrade.txt <(kscorectl cluster members)

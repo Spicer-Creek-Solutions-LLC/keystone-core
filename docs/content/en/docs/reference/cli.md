@@ -557,6 +557,8 @@ kscorectl exec run <command> --target <target-expression>
 - `--job-id string`: Custom batch job ID (auto-generated if not specified)
 - `--show-progress`: Show progress updates during execution (default: true)
 - `--show-results`: Show per-agent results at the end (default: true)
+- `--dry-run`: Preview matched agents and command without executing
+- `--shell string`: Shell to use for command execution (e.g., powershell, cmd, bash)
 
 **Target Expression Syntax**:
 
@@ -728,10 +730,9 @@ kscorectl exec shell <target-expression>
 
 **Flags**:
 
-- `--shell string`: Shell to use (default: /bin/sh)
-- `--term string`: Terminal type (default: xterm-256color)
-- `--rows int`: Terminal rows (default: 24)
-- `--cols int`: Terminal columns (default: 80)
+- `--user string`: User to run shell as
+- `--working-dir string`: Initial working directory
+- `--shell string`: Shell to use (default: agent's default shell)
 
 **Examples**:
 
@@ -739,11 +740,11 @@ kscorectl exec shell <target-expression>
 # Start shell on specific agent
 kscorectl exec shell "hostname:web-01"
 
-# Use bash shell
-kscorectl exec shell "id:abc123" --shell /bin/bash
+# Shell with specific user
+kscorectl exec shell "hostname:web-01" --user deploy
 
-# Custom terminal size
-kscorectl exec shell "hostname:db-01" --rows 40 --cols 120
+# Shell with specific working directory
+kscorectl exec shell "hostname:web-01" --working-dir /app
 ```
 
 **Notes**:
@@ -767,10 +768,15 @@ kscorectl exec script <target-expression> <script-file>
 
 **Flags**:
 
-- `--interpreter string`: Script interpreter (default: auto-detect from shebang)
+- `--interpreter, -i string`: Script interpreter (auto-detected from shebang if not specified)
 - `--args strings`: Arguments to pass to the script
 - `--concurrency int`: Number of concurrent executions (default: 10)
-- `--timeout duration`: Script execution timeout (default: 10m)
+- `--continue-on-failure`: Continue executing on other agents if some fail (default: true)
+- `--working-dir string`: Working directory for script execution
+- `--user string`: User to execute script as
+- `--timeout int`: Script timeout in seconds (default: 600)
+- `--env strings`: Environment variables (KEY=VALUE, can be repeated)
+- `--job-id string`: Custom batch job ID (auto-generated if not specified)
 
 **Examples**:
 
@@ -834,8 +840,17 @@ kscorectl exec cancel <job-id>
 
 **Examples**:
 
+**Flags**:
+
+- `--force, -f`: Skip confirmation prompt
+
+**Examples**:
+
 ```bash
 kscorectl exec cancel abc123
+
+# Force cancel without confirmation
+kscorectl exec cancel abc123 --force
 ```
 
 ### exec history
@@ -848,9 +863,11 @@ kscorectl exec history [flags]
 
 **Flags**:
 
-- `--limit int`: Maximum results (default: 50)
-- `--since duration`: Show jobs from this duration ago
+- `--limit int`: Maximum number of entries to show (default: 20)
 - `--target string`: Filter by target expression
+- `--status string`: Filter by status (pending, running, completed, failed)
+- `--since string`: Show history since (e.g., 1h, 24h, 7d)
+- `--before string`: Show history before (e.g., 1h, 24h, 7d)
 
 **Examples**:
 
@@ -875,8 +892,10 @@ kscorectl exec output <job-id>
 
 **Flags**:
 
-- `--agent string`: Show output for specific agent only
-- `--follow`: Stream output as it becomes available
+- `--agent, -a string`: Filter output by agent ID
+- `--follow, -f`: Follow output in real-time
+- `--tail int`: Show only the last N lines
+- `--output, -o string`: Output format (text, json) (default: text)
 
 **Examples**:
 
@@ -886,6 +905,95 @@ kscorectl exec output abc123
 
 # Get output for specific agent
 kscorectl exec output abc123 --agent web-01
+```
+
+### exec archive
+
+Archive completed batch jobs to free up active storage. Archived jobs are moved to long-term storage and no longer appear in the default list output.
+
+```bash
+kscorectl exec archive [flags]
+```
+
+**Flags**:
+
+- `--status string`: Archive jobs with this status (default: completed; values: completed, failed)
+- `--before string`: Archive jobs older than this duration (e.g., 24h, 7d)
+- `--dry-run`: Preview what would be archived without making changes
+
+**Examples**:
+
+```bash
+# Archive all completed jobs
+kscorectl exec archive --status completed
+
+# Archive jobs completed before 7 days ago
+kscorectl exec archive --status completed --before 7d
+
+# Dry run to preview what would be archived
+kscorectl exec archive --status completed --dry-run
+```
+
+### exec export
+
+Export batch job results to JSON or CSV format. If a job ID is provided, exports that specific job's results. Otherwise, exports all jobs matching the filter criteria.
+
+```bash
+kscorectl exec export [job-id] [flags]
+```
+
+**Arguments**:
+
+- `[job-id]`: Batch job ID (optional; if omitted, exports all matching jobs)
+
+**Flags**:
+
+- `--format, -f string`: Export format (json, csv) (default: json)
+- `--output, -o string`: Output file (default: stdout)
+- `--status string`: Filter by status when exporting all jobs
+
+**Examples**:
+
+```bash
+# Export a specific job's results to JSON
+kscorectl exec export abc123 --format json --output results.json
+
+# Export all completed jobs to JSON
+kscorectl exec export --status completed --output jobs.json
+
+# Export to stdout
+kscorectl exec export abc123 --format json
+```
+
+### exec cleanup
+
+Permanently remove old batch job records from storage. Use `--dry-run` to preview what would be deleted before running.
+
+```bash
+kscorectl exec cleanup [flags]
+```
+
+**Flags**:
+
+- `--older-than string`: Remove jobs older than this duration (required; e.g., 7d, 30d)
+- `--status string`: Only remove jobs with this status (completed, failed)
+- `--dry-run`: Preview what would be deleted without making changes
+- `--force, -f`: Skip confirmation prompt
+
+**Examples**:
+
+```bash
+# Remove completed jobs older than 30 days
+kscorectl exec cleanup --older-than 30d --status completed
+
+# Remove all completed and failed jobs older than 7 days
+kscorectl exec cleanup --older-than 7d
+
+# Preview what would be deleted
+kscorectl exec cleanup --older-than 7d --dry-run
+
+# Remove without confirmation
+kscorectl exec cleanup --older-than 30d --force
 ```
 
 ## kscore-state (State Management)
@@ -6627,11 +6735,30 @@ Run smoke, integration, and suite-based tests against a deployment.
 
 ### test smoke
 
+Run smoke tests to verify basic Keystone Core functionality.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--target, -t` | Target expression for agents | |
+| `--timeout` | Test timeout duration | `5m` |
+| `--tags` | Filter tests by tags (comma-separated) | |
+
 ```bash
 kscorectl test smoke --target "role:web" --timeout 5m
+kscorectl test smoke --tags quick,health
 ```
 
 ### test integration
+
+Run integration test suites (basic, recovery, cluster, state, execution, events, policy, gitops).
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--suite, -S` | Test suite to run (comma-separated for multiple) | `basic` |
+| `--target, -t` | Target expression for agents | |
+| `--timeout` | Test timeout duration | `30m` |
+| `--tags` | Filter tests by tags (comma-separated) | |
+| `--parallel` | Number of parallel test executions | `1` |
 
 ```bash
 kscorectl test integration --suite recovery --target "role:control-plane"
@@ -6640,24 +6767,110 @@ kscorectl test integration --suite basic,state --parallel 2
 
 ### test run
 
+Run a specific test suite with configurable options.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--suite, -S` | Test suite to run | `basic` |
+| `--target, -t` | Target expression for agents | |
+| `--timeout` | Test timeout duration | `30m` |
+| `--tags` | Filter tests by tags (comma-separated) | |
+| `--parallel` | Number of parallel test executions | `1` |
+| `--dry-run` | Show what would be executed without running | `false` |
+| `--fail-fast` | Stop on first failure | `false` |
+
 ```bash
 kscorectl test run --suite e2e --timeout 1h --parallel 4
 kscorectl test run --suite basic --dry-run
+kscorectl test run --suite state --fail-fast --tags core
 ```
 
-### test list / show / history
+### test list
+
+List available test suites.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--type, -t` | Filter by test type (smoke, integration, e2e) | |
+| `--tags` | Filter by tags (comma-separated) | |
 
 ```bash
 kscorectl test list
-kscorectl test show <test-id>
-kscorectl test history --limit 20
+kscorectl test list --type integration
+kscorectl test list --tags core,agent
 ```
 
-### test suite
+### test show
+
+Show detailed results of a specific test run.
+
+```bash
+kscorectl test show <test-id>
+```
+
+### test history
+
+Show history of test runs with filtering options.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--suite, -S` | Filter by suite name | |
+| `--limit, -n` | Maximum number of results | `20` |
+| `--status` | Filter by status (passed, failed) | |
+
+```bash
+kscorectl test history
+kscorectl test history --suite recovery --status failed
+kscorectl test history --limit 50
+```
+
+### test suite list
+
+List all test suites with optional filtering.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--type, -t` | Filter by suite type (smoke, integration, e2e) | |
+| `--tags` | Filter by tags (comma-separated) | |
 
 ```bash
 kscorectl test suite list
+kscorectl test suite list --type e2e --tags cluster
+```
+
+### test suite show
+
+Show details of a specific test suite.
+
+```bash
 kscorectl test suite show <suite-name>
+```
+
+### test suite create
+
+Create a new test suite definition.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--description, -d` | Suite description | |
+| `--type, -t` | Suite type (smoke, integration, e2e) | `integration` |
+| `--timeout` | Default timeout for tests | `30m` |
+| `--tags` | Tags for the suite (comma-separated) | |
+
+```bash
+kscorectl test suite create my-suite --type integration --description "Custom tests" --tags custom
+```
+
+### test suite delete
+
+Delete a test suite.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--force, -f` | Skip confirmation | `false` |
+
+```bash
+kscorectl test suite delete my-suite --force
 ```
 
 ## kscore-agent (Agent Daemon)
@@ -9125,9 +9338,11 @@ kscorectl events watch [flags]
 
 **Flags**:
 
-- `--type string`: Filter by event type pattern
+- `--type string`: Filter by event type pattern (supports wildcards)
 - `--severity string`: Minimum severity to show
 - `--source string`: Filter by source
+- `--filter string`: Filter expression
+- `--tag stringArray`: Filter by tag (key:value format, repeatable)
 - `--format string`: Output format: text, json, jsonl (default: text)
 
 **Examples**:
@@ -10307,20 +10522,26 @@ kscorectl proxy discover scan [flags]
 
 **Flags**:
 
-- `--subnet string`: Subnet to scan (CIDR notation)
+- `--network string`: Network to scan (CIDR notation)
+- `--subnet string`: Subnet to scan (CIDR notation, alias for --network)
+- `--networks strings`: Multiple networks to scan
 - `--protocols strings`: Protocols to probe (ssh, snmp, rest, winrm)
 - `--ports strings`: Ports to scan
-- `--timeout string`: Scan timeout (default: 5s)
+- `--timeout string`: Scan timeout per host (default: 5s)
 - `--workers int`: Number of parallel workers (default: 20)
+- `--debug`: Enable debug output
 
 **Examples**:
 
 ```bash
-# Scan subnet for SSH and SNMP devices
-kscorectl proxy discover scan --subnet 192.168.1.0/24 --protocols ssh,snmp
+# Scan a network for SSH and SNMP devices
+kscorectl proxy discover scan --network 192.168.1.0/24 --protocols ssh,snmp
 
 # Scan with custom ports
 kscorectl proxy discover scan --subnet 10.0.0.0/24 --ports 22,161,443
+
+# Scan multiple networks
+kscorectl proxy discover scan --networks 192.168.1.0/24,10.0.0.0/24
 ```
 
 #### proxy discover list

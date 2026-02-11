@@ -15,7 +15,8 @@
        e2e-allinone e2e-all-topologies \
        test-vm test-vm-demo test-vm-smoke repo-server \
        repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules \
-       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest
+       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest \
+       dev dev-server dev-agent dev-registry dev-gateway
 
 # Version information
 VERSION ?= dev
@@ -273,6 +274,51 @@ schedule:
 
 loadtest:
 	$(call build-binary,kscore-loadtest,kscore-loadtest)
+
+# =============================================================================
+# Hot-Reload Development
+# =============================================================================
+
+# DEV_BIN selects which binary to run with hot-reload (default: kscore-server).
+# Each binary gets its own air config and tmp dir, so multiple services can run
+# simultaneously in separate terminals:
+#   make dev                           # kscore-server (default)
+#   make dev DEV_BIN=kscore-agent      # agent in another terminal
+#   make dev-server                    # convenience alias
+#   make dev-agent                     # convenience alias
+DEV_BIN ?= kscore-server
+
+define AIR_CONFIG
+[build]
+  cmd = "go build -ldflags '$(LDFLAGS)' -o ./build/dev/$(DEV_BIN) ./cmd/$(DEV_BIN)"
+  bin = "./build/dev/$(DEV_BIN)"
+  include_ext = ["go"]
+  exclude_dir = ["build", "docs", "epics", "test", "deploy"]
+  delay = 1000
+
+[tmp]
+  dir = "build/dev/tmp-$(DEV_BIN)"
+endef
+export AIR_CONFIG
+
+dev:
+	@command -v air >/dev/null 2>&1 || { echo "air not found. Install with: go install github.com/air-verse/air@latest"; exit 1; }
+	@mkdir -p build/dev
+	@echo "$$AIR_CONFIG" > build/dev/.air.$(DEV_BIN).toml
+	@echo "Starting hot-reload for $(DEV_BIN)..."
+	air -c build/dev/.air.$(DEV_BIN).toml
+
+dev-server:
+	$(MAKE) dev DEV_BIN=kscore-server
+
+dev-agent:
+	$(MAKE) dev DEV_BIN=kscore-agent
+
+dev-registry:
+	$(MAKE) dev DEV_BIN=kscore-registry
+
+dev-gateway:
+	$(MAKE) dev DEV_BIN=kscore-telemetry-gateway
 
 # =============================================================================
 # Cross-Platform Builds

@@ -351,7 +351,7 @@ Sources = [
 2. Check trust federation:
 
    ```bash
-   kscorectl identity federation list
+   kscorectl federation list
    ```
 
 ## See Also

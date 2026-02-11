@@ -308,3 +308,7 @@ func (m *AtModule) removeJob(ctx context.Context, jobID string) error {
 	}
 	return nil
 }
+
+func init() {
+	_ = RegisterModule(NewAtModule())
+}

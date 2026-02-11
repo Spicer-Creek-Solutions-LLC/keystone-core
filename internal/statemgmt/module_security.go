@@ -736,3 +736,10 @@ func (m *AppArmorProfileModule) Test(ctx context.Context, decl *StateDeclaration
 	}
 	return result.Matches, nil
 }
+
+func init() {
+	_ = RegisterModule(NewSELinuxModule())
+	_ = RegisterModule(NewSELinuxBooleanModule())
+	_ = RegisterModule(NewAppArmorModule())
+	_ = RegisterModule(NewAppArmorProfileModule())
+}

@@ -100,27 +100,27 @@ curl -X POST https://events.pagerduty.com/v2/enqueue \
 **If credential compromise suspected**:
 
 ```bash
-# Revoke all API keys
-kscorectl auth revoke-all --type api-key --confirm
+# Rotate all TLS certificates
+kscorectl identity ca rotate --force
+kscorectl agents certificates regenerate --all --force
 
-# Force re-authentication for all sessions
-kscorectl auth sessions invalidate --all
-
-# Rotate control plane JWT signing key
-kscorectl auth rotate-signing-key --immediate
+# Restart control plane to invalidate all sessions
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  ssh $node "systemctl restart kscore-server"
+done
 ```
 
 **If agent compromise suspected**:
 
 ```bash
 # Identify suspicious agents
-kscorectl agent list --suspicious
+kscorectl agents list --suspicious
 
 # Quarantine specific agents
-kscorectl agent quarantine agent-123 --reason "Security incident investigation"
+kscorectl agents quarantine agent-123 --reason "Security incident investigation"
 
 # Block agent network access (if needed)
-for agent_ip in $(kscorectl agent show agent-123 --format json | jq -r '.ip'); do
+for agent_ip in $(kscorectl agents show agent-123 -o json | jq -r '.ip'); do
   iptables -A INPUT -s $agent_ip -j DROP
 done
 ```
@@ -245,14 +245,8 @@ grep -h "query" /var/log/dns/*.log | \
 #### Step 4.1: Remove Malicious Access
 
 ```bash
-# Remove compromised API keys
-kscorectl auth key revoke compromised-key-id
-
-# Remove unauthorized users
-kscorectl user delete malicious-user --force
-
 # Remove unauthorized agents
-kscorectl agent delete compromised-agent --force
+kscorectl agents delete compromised-agent --force
 
 # Remove unauthorized policies
 kscorectl policy delete malicious-policy
@@ -265,16 +259,15 @@ kscorectl policy delete malicious-policy
 kscorectl identity ca rotate --force
 
 # Regenerate all agent certificates
-kscorectl agent certificates regenerate --all
+kscorectl agents certificates regenerate --all --force
 
-# Rotate database credentials
-kscorectl db rotate-credentials
+# Rotate database credentials (manual - update config and restart)
+# Edit /etc/keystone-core/server.yaml with new database password
+# Then: systemctl restart kscore-server
 
-# Rotate NATS credentials
-kscorectl nats rotate-credentials
-
-# Rotate encryption keys
-kscorectl secrets rotate-keys
+# Rotate NATS credentials (manual - update NATS config and restart)
+# Edit NATS server config with new credentials
+# Then: systemctl restart nats-server && systemctl restart kscore-server
 ```
 
 #### Step 4.3: Rebuild Compromised Systems
@@ -294,7 +287,7 @@ curl -sSL https://install.keystone-core.io | sudo bash
 # 2. Re-register with new identity
 kscore-agent register \
   --server https://control-plane:8080 \
-  --token $(kscorectl agent token)
+  --token $(kscorectl agents token create --ttl 1h)
 ```
 
 ### Phase 5: Recovery (1-4 hours)
@@ -303,33 +296,28 @@ kscore-agent register \
 
 ```bash
 # Remove quarantine from verified-clean agents
-kscorectl agent unquarantine agent-456
+kscorectl agents unquarantine agent-456
 
 # Re-enable blocked IPs (after verification)
 iptables -D INPUT -s $agent_ip -j DROP
 
-# Restore API access
-kscorectl config set server.maintenance_mode false
-systemctl restart kscore-server
-
-# Issue new API keys to legitimate users
-kscorectl auth key create --name "restored-key" --ttl 30d
+# Restart control plane to restore normal operations
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  ssh $node "systemctl restart kscore-server"
+done
 ```
 
 #### Step 5.2: Verify System Integrity
 
 ```bash
-# Run integrity checks
-kscorectl verify --all
-
 # Check cluster health
 kscorectl cluster health --verbose
 
 # Verify all agents
-kscorectl agent verify --all
+kscorectl agents verify --all
 
-# Run security scan
-kscorectl security scan --full
+# Run policy compliance check
+kscorectl policy compliance
 ```
 
 ### Phase 6: Post-Incident (24-72 hours)
@@ -374,9 +362,8 @@ If containment measures cause operational issues:
 # Restore from known-good backup (see backup-restore.md)
 # Only after confirming backup is not compromised
 
-kscorectl backup restore \
-  --backup /backup/pre-incident.tar.gz \
-  --verify-before-restore
+kscore-bootstrap restore \
+  --backup /backup/pre-incident.tar.gz
 ```
 
 ## Post-Procedure

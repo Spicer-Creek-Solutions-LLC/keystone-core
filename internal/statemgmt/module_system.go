@@ -1343,3 +1343,12 @@ func (m *KernelModuleModule) removeFromModulesLoad(name string) error {
 	//nolint:gosec // G306: modules-load.d config files need to be readable by systemd
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 }
+
+func init() {
+	_ = RegisterModule(NewTimezoneModule())
+	_ = RegisterModule(NewLocaleModule())
+	_ = RegisterModule(NewHostnameModule())
+	_ = RegisterModule(NewHostsModule())
+	_ = RegisterModule(NewSysctlModule())
+	_ = RegisterModule(NewKernelModuleModule())
+}

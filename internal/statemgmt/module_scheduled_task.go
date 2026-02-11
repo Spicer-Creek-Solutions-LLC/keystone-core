@@ -456,3 +456,7 @@ func (m *ScheduledTaskModule) deleteTask(ctx context.Context, config *ScheduledT
 	}
 	return nil
 }
+
+func init() {
+	_ = RegisterModule(NewScheduledTaskModule())
+}

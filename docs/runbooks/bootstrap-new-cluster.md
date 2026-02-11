@@ -171,8 +171,8 @@ journalctl -u kscore-server -f
 # Test API
 curl -k https://localhost:8080/health/ready
 
-# Login and get token
-kscorectl auth login --username admin
+# Verify CLI connectivity
+kscorectl cluster health
 ```
 
 ---
@@ -803,7 +803,7 @@ security:
 
 - [ ] Service running: `systemctl status kscore-server`
 - [ ] API healthy: `curl -k https://localhost:8080/health/ready`
-- [ ] Admin login works: `kscorectl auth login --username admin`
+- [ ] CLI connected: `kscorectl cluster health`
 - [ ] Metrics available: `curl http://localhost:9091/metrics`
 - [ ] NATS healthy: `nats server check connection`
 
@@ -825,7 +825,7 @@ security:
 - [ ] Cross-region communication: `kscorectl federation ping --region eu-west`
 - [ ] OIDC authentication works: Test login via SSO
 - [ ] Audit logging active: `kscorectl audit search --limit 10`
-- [ ] Backups scheduled: `kscorectl backup status`
+- [ ] Backups scheduled: `kscore-cluster-backup list`
 
 ---
 

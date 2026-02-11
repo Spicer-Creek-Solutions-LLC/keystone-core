@@ -1132,7 +1132,7 @@ storage:
 
 ```bash
 sudo systemctl restart kscore-server
-kscorectl state list  # Verify state is accessible
+kscorectl state history  # Verify state is accessible
 ```
 
 ## Best Practices

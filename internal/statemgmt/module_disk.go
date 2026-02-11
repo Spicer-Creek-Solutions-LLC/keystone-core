@@ -767,3 +767,8 @@ func GetBlockDevices() ([]string, error) {
 
 	return devices, scanner.Err()
 }
+
+func init() {
+	_ = RegisterModule(NewDiskModule())
+	_ = RegisterModule(NewFilesystemModule())
+}

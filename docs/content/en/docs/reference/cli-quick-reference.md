@@ -114,9 +114,15 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 | `exec run <cmd> --target <t>` | Execute (alt syntax) | `exec run uptime --target "os:linux"` |
 | `exec async <target> -- <cmd>` | Async execution | `exec async "all" -- apt update` |
 | `exec status <job-id>` | Check job status | `exec status job-abc123` |
-| `exec cancel <job-id>` | Cancel job | `exec cancel job-abc123` |
-| `exec history` | List recent jobs | `exec history --limit 20` |
+| `exec list` | List batch jobs | `exec list --status completed` |
+| `exec cancel <job-id>` | Cancel job | `exec cancel job-abc123 --force` |
+| `exec history` | List recent jobs | `exec history --limit 20 --status completed` |
 | `exec output <job-id>` | Get job output | `exec output job-abc123 --agent web-01` |
+| `exec shell <target>` | Interactive shell | `exec shell "hostname:web-01" --user deploy` |
+| `exec script <target> <file>` | Execute script | `exec script "role:web" deploy.sh` |
+| `exec archive` | Archive old jobs | `exec archive --status completed --before 7d` |
+| `exec export [job-id]` | Export results | `exec export abc123 --format json -o results.json` |
+| `exec cleanup` | Remove old records | `exec cleanup --older-than 30d --status completed` |
 
 ### Target Expression Syntax
 
@@ -216,11 +222,8 @@ not role:db                 # Negation
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `module list` | List modules | `module list --installed` |
 | `module install <name>` | Install module | `module install stdlib/file@1.0.0` |
-| `module uninstall <name>` | Remove module | `module uninstall stdlib/file` |
-| `module update <name>` | Update module | `module update stdlib/file` |
-| `module show <name>` | Show details | `module show stdlib/file` |
+| `module update [name]` | Update dependencies | `module update stdlib/file` |
 
 ### Module Development
 
@@ -258,9 +261,13 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `test smoke` | Run smoke tests | `test smoke --target "role:web"` |
 | `test integration` | Run integration suites | `test integration --suite recovery` |
 | `test run` | Run suite | `test run --suite e2e --timeout 1h` |
-| `test list` | List test runs | `test list` |
-| `test show <id>` | Show test run | `test show test-123` |
-| `test suite list` | List suites | `test suite list` |
+| `test list` | List available test suites | `test list --type integration` |
+| `test show <id>` | Show test run details | `test show test-123` |
+| `test history` | Show test run history | `test history --suite basic --status failed` |
+| `test suite list` | List suites | `test suite list --type e2e` |
+| `test suite show <name>` | Show suite details | `test suite show core-agent` |
+| `test suite create <name>` | Create test suite | `test suite create my-suite --type integration` |
+| `test suite delete <name>` | Delete test suite | `test suite delete my-suite --force` |
 
 ---
 

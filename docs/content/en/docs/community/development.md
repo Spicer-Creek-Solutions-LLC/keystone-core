@@ -103,7 +103,7 @@ keystone-core/
 │   ├── kscore-exec/        # Remote execution plugin
 │   ├── kscore-monitor/     # TUI monitoring tool
 │   └── kscore-registry/    # Module registry server
-├── pkg/                    # Public packages
+├── internal/               # Implementation packages (not public API)
 │   ├── agent/              # Agent implementation
 │   ├── controlplane/       # Control plane services
 │   ├── state/              # State persistence
@@ -121,6 +121,7 @@ keystone-core/
 │   ├── cloud/              # Cloud provider integration
 │   ├── edge/               # Edge deployment support
 │   └── ...
+├── pkg/                    # Public API packages (unstable)
 ├── modules/                # Module system
 │   ├── sdk/                # Module SDKs (Rust, Go, C++)
 │   ├── stdlib/             # Standard library modules
@@ -173,21 +174,51 @@ make build VERSION=v0.1.0 COMMIT=$(git rev-parse HEAD)
 # kscore-server v0.1.0 (commit: abc123def)
 ```
 
+### Hot-Reload Development
+
+Run services with automatic rebuild on code changes using [air](https://github.com/air-verse/air):
+
+```bash
+# Install air (one-time)
+go install github.com/air-verse/air@latest
+
+# Run server with hot-reload
+make dev                              # kscore-server (default)
+make dev DEV_BIN=kscore-agent         # any binary by name
+
+# Convenience aliases
+make dev-server                       # kscore-server
+make dev-agent                        # kscore-agent
+make dev-registry                     # kscore-registry
+make dev-gateway                      # kscore-telemetry-gateway
+```
+
+Each service gets its own air config and temp directory, so you can run multiple services simultaneously in separate terminals.
+
 ### Cross-Compilation
 
 ```bash
-# Build for Linux
-GOOS=linux GOARCH=amd64 make build
-
-# Build for Windows
-GOOS=windows GOARCH=amd64 make build
-
-# Build for macOS ARM64
-GOOS=darwin GOARCH=arm64 make build
-
-# Build all platforms
-make build-all-platforms
+make build-linux           # Linux amd64 + arm64
+make build-darwin          # macOS amd64 + arm64
+make build-windows         # Windows amd64
+make build-all-platforms   # All of the above
 ```
+
+### Repository Generation
+
+Generate distribution repositories from built binaries:
+
+```bash
+make repos                 # Build all repositories (runs repo-gen first)
+make repo-gen              # Build the kscore-repo-gen tool
+make repos-dnf             # Generate DNF/RPM repository
+make repos-apt             # Generate APT/Debian repository
+make repos-windows         # Generate Windows repository
+make repos-blueprints      # Generate blueprints repository
+make repos-modules         # Generate modules repository
+```
+
+Repositories are output to `build/repos/`. The `VERSION` variable controls the package version (e.g., `make repos VERSION=v0.2.0`).
 
 ### Docker Build
 
@@ -215,11 +246,11 @@ make test-verbose
 make test-coverage
 
 # Run specific package tests
-go test ./pkg/state/...
-go test ./pkg/events/...
+go test ./internal/state/...
+go test ./internal/events/...
 
 # Run specific test
-go test -run TestAgentRegistration ./pkg/agent/
+go test -run TestAgentRegistration ./internal/agent/
 ```
 
 ### Integration Tests
@@ -265,10 +296,10 @@ go tool cover -func=coverage.out | grep total
 make benchmark
 
 # Run specific benchmark
-go test -bench=BenchmarkStateApply ./pkg/statemgmt/
+go test -bench=BenchmarkStateApply ./internal/statemgmt/
 
 # Run with memory profiling
-go test -bench=. -benchmem ./pkg/events/
+go test -bench=. -benchmem ./internal/events/
 ```
 
 ### E2E Tests
@@ -623,11 +654,11 @@ make dev
 dlv debug ./cmd/kscore-server -- --config configs/server-dev.yaml
 
 # Debug with breakpoint
-(dlv) break pkg/agent/manager.go:42
+(dlv) break internal/agent/manager.go:42
 (dlv) continue
 
 # Debug tests
-dlv test ./pkg/state/... -- -test.run TestStateApply
+dlv test ./internal/state/... -- -test.run TestStateApply
 ```
 
 **VS Code Configuration:**
@@ -653,7 +684,7 @@ dlv test ./pkg/state/... -- -test.run TestStateApply
       "type": "go",
       "request": "launch",
       "mode": "test",
-      "program": "${workspaceFolder}/pkg/state",
+      "program": "${workspaceFolder}/internal/state",
       "args": ["-test.run", "TestStateApply"]
     }
   ]
@@ -938,7 +969,7 @@ go mod tidy
 go test -race ./...
 
 # Run test multiple times
-go test -count=10 ./pkg/agent/...
+go test -count=10 ./internal/agent/...
 ```
 
 **Integration test failures:**
@@ -1010,6 +1041,6 @@ export LOG_PKG_NATS=trace
 ## Next Steps
 
 - **Start Contributing**: See [Contributing Guide](../contributing/)
-- **Explore the Codebase**: Read through `pkg/` directories
+- **Explore the Codebase**: Read through `internal/` directories
 - **Pick an Issue**: Browse [good first issues](https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue)
 - **Join the Community**: Start a [GitHub Discussion](https://github.com/shawnbutts/keystone-core/discussions)

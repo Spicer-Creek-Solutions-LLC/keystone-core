@@ -585,12 +585,6 @@ kscorectl blueprint test ./my-blueprint --dry-run
 kscorectl blueprint snapshot list vendor/nginx
 ```
 
-**Show Snapshot Details:**
-
-```bash
-kscorectl blueprint snapshot show vendor/nginx snap-123456
-```
-
 **Delete Snapshot:**
 
 ```bash

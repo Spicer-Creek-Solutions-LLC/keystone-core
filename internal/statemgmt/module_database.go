@@ -83,7 +83,11 @@ func (m *PostgresDatabaseModule) Check(ctx context.Context, decl *StateDeclarati
 }
 
 // Apply creates or removes the PostgreSQL database
-func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	host := getStringParameter(decl, "host", "localhost")
 	port := getIntParameter(decl, "port", 5432)
@@ -164,19 +168,12 @@ func (m *PostgresDatabaseModule) Apply(ctx context.Context, decl *StateDeclarati
 }
 
 // Test runs a dry-run check
-func (m *PostgresDatabaseModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PostgresDatabaseModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would %s database '%s'", map[bool]string{true: "create", false: "drop"}[decl.State == "present"], getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 func (m *PostgresDatabaseModule) buildConnArgs(host string, port int, user, _ /* password */, database string) []string {
@@ -262,7 +259,11 @@ func (m *PostgresUserModule) Check(ctx context.Context, decl *StateDeclaration) 
 }
 
 // Apply creates or removes the PostgreSQL user
-func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	host := getStringParameter(decl, "host", "localhost")
 	port := getIntParameter(decl, "port", 5432)
@@ -368,26 +369,12 @@ func (m *PostgresUserModule) Apply(ctx context.Context, decl *StateDeclaration, 
 }
 
 // Test runs a dry-run check
-func (m *PostgresUserModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PostgresUserModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	action := "create"
-	if decl.State == "absent" {
-		action = "drop"
-	} else if check.Present {
-		action = "update"
-	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would %s role '%s'", action, getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 // ============================================================================
@@ -454,7 +441,11 @@ func (m *PostgresExtensionModule) Check(ctx context.Context, decl *StateDeclarat
 }
 
 // Apply creates or removes the extension
-func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	database := getStringParameter(decl, "database", "")
 	host := getStringParameter(decl, "host", "localhost")
@@ -535,19 +526,12 @@ func (m *PostgresExtensionModule) Apply(ctx context.Context, decl *StateDeclarat
 }
 
 // Test runs a dry-run check
-func (m *PostgresExtensionModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *PostgresExtensionModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would %s extension '%s'", map[bool]string{true: "create", false: "drop"}[decl.State == "present"], getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 // ============================================================================
@@ -611,7 +595,11 @@ func (m *MySQLDatabaseModule) Check(ctx context.Context, decl *StateDeclaration)
 }
 
 // Apply creates or removes the MySQL database
-func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	connArgs := m.buildConnArgs(decl)
 
@@ -672,19 +660,12 @@ func (m *MySQLDatabaseModule) Apply(ctx context.Context, decl *StateDeclaration,
 }
 
 // Test runs a dry-run check
-func (m *MySQLDatabaseModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *MySQLDatabaseModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would %s database '%s'", map[bool]string{true: "create", false: "drop"}[decl.State == "present"], getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 func (m *MySQLDatabaseModule) buildConnArgs(decl *StateDeclaration) []string {
@@ -763,7 +744,11 @@ func (m *MySQLUserModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 }
 
 // Apply creates or removes the MySQL user
-func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	userHost := getStringParameter(decl, "host_name", "%")
 	connArgs := m.buildConnArgs(decl)
@@ -839,26 +824,12 @@ func (m *MySQLUserModule) Apply(ctx context.Context, decl *StateDeclaration, che
 }
 
 // Test runs a dry-run check
-func (m *MySQLUserModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *MySQLUserModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	action := "create"
-	if decl.State == "absent" {
-		action = "drop"
-	} else if check.Present {
-		action = "update"
-	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would %s user '%s'", action, getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 func (m *MySQLUserModule) buildConnArgs(decl *StateDeclaration) []string {
@@ -972,7 +943,11 @@ func (m *RedisModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 }
 
 // Apply sets or removes Redis configuration
-func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *ModuleCheckResult) (*StateResult, error) {
+func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		return nil, err
+	}
 	name := getStringParameter(decl, "name", "")
 	configType := getStringParameter(decl, "type", "config")
 	connArgs := m.buildConnArgs(decl)
@@ -1066,19 +1041,12 @@ func (m *RedisModule) Apply(ctx context.Context, decl *StateDeclaration, check *
 }
 
 // Test runs a dry-run check
-func (m *RedisModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *RedisModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	check, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !check.Matches,
-		Comment: fmt.Sprintf("Would update redis %s '%s'", getStringParameter(decl, "type", "config"), getStringParameter(decl, "name", "")),
-	}, nil
+	return check.Matches, nil
 }
 
 func (m *RedisModule) buildConnArgs(decl *StateDeclaration) []string {
@@ -1127,4 +1095,13 @@ func escapeMySQLString(s string) string {
 // escapeMySQLIdentifier escapes backticks for MySQL identifiers
 func escapeMySQLIdentifier(s string) string {
 	return strings.ReplaceAll(s, "`", "``")
+}
+
+func init() {
+	_ = RegisterModule(NewPostgresDatabaseModule())
+	_ = RegisterModule(NewPostgresUserModule())
+	_ = RegisterModule(NewPostgresExtensionModule())
+	_ = RegisterModule(NewMySQLDatabaseModule())
+	_ = RegisterModule(NewMySQLUserModule())
+	_ = RegisterModule(NewRedisModule())
 }

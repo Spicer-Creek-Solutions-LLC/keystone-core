@@ -771,3 +771,9 @@ func (m *LVMLVModule) GetLVInfo(ctx context.Context, vg, lv string) (size, attr 
 	}
 	return "", "", fmt.Errorf("unexpected output format")
 }
+
+func init() {
+	_ = RegisterModule(NewLVMPVModule())
+	_ = RegisterModule(NewLVMVGModule())
+	_ = RegisterModule(NewLVMLVModule())
+}

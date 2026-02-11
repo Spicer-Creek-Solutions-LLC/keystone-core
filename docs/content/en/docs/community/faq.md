@@ -299,7 +299,7 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 2. **Check for requisite failures**:
 
    ```bash
-   kscorectl state apply myconfig.yaml -v
+   kscorectl state apply myconfig.yaml
    ```
 
 3. **Verify module availability**:

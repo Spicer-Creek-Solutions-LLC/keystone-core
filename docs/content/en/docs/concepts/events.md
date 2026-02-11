@@ -398,10 +398,10 @@ kscorectl events list
 kscorectl events list --type agent.connect
 
 # Filter by time range
-kscorectl events list --since 1h --until now
+kscorectl events list --since 1h --before 30m
 
-# Filter by severity
-kscorectl events list --severity warning,error,critical
+# Filter by severity (minimum severity level)
+kscorectl events list --severity warning
 
 # Query with expression
 kscorectl events query "type == 'job.fail' and severity == 'error'"
@@ -601,13 +601,13 @@ Replay historical events for testing or recovery using the CLI:
 
 ```bash
 # Replay events from last hour
-kscorectl events replay --since 1h --until now
+kscorectl events replay --since 1h
 
 # Replay specific event types
 kscorectl events replay --type state.change --since 24h
 
-# Replay to a different target
-kscorectl events replay --since 1h --target webhook:https://example.com/events
+# Dry run to see what would be replayed
+kscorectl events replay --since 1h --dry-run
 ```
 
 **Use Cases**:

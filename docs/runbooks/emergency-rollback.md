@@ -44,7 +44,7 @@ kscorectl cluster health
 curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[5m])
 
 # Check agent status
-kscorectl agent list --status | grep -c offline
+kscorectl agents list --status offline -o json | jq length
 ```
 
 ### Step 2: Decision Point
@@ -87,7 +87,7 @@ watch -n 5 'kscorectl upgrade status'
 watch -n 10 'curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[1m]) | jq'
 
 # Monitor agent reconnections
-watch -n 10 'kscorectl agent list --status | grep -c online'
+watch -n 10 'kscorectl agents list --status online -o json | jq length'
 ```
 
 ### Step 5: Verification (5 minutes)
@@ -102,7 +102,7 @@ kscorectl cluster health
 # Expected: Status: healthy
 
 # Verify all agents reconnected
-kscorectl agent list --status | grep -c offline
+kscorectl agents list --status offline -o json | jq length
 # Expected: 0
 
 # Verify API functionality
@@ -158,7 +158,12 @@ kscore-bootstrap restore --backup /backup/pre-upgrade.tar.gz
 3. [ ] Collect diagnostic information:
 
    ```bash
-   kscorectl diagnostics collect --output /tmp/diagnostics-$(date +%Y%m%d).tar.gz
+   # Collect logs and system info manually
+   mkdir -p /tmp/diagnostics-$(date +%Y%m%d)
+   journalctl -u kscore-server --since "24 hours ago" > /tmp/diagnostics-$(date +%Y%m%d)/server.log
+   kscorectl cluster health > /tmp/diagnostics-$(date +%Y%m%d)/cluster-health.txt
+   kscorectl agents list -o json > /tmp/diagnostics-$(date +%Y%m%d)/agents.json
+   tar czf /tmp/diagnostics-$(date +%Y%m%d).tar.gz -C /tmp diagnostics-$(date +%Y%m%d)
    ```
 
 ### Within 24 hours

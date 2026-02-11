@@ -847,3 +847,7 @@ func (m *MountModule) getMountInfoDarwin(ctx context.Context, path string) (devi
 
 	return "", "", "", fmt.Errorf("mount point not found: %s", path)
 }
+
+func init() {
+	_ = RegisterModule(NewMountModule())
+}

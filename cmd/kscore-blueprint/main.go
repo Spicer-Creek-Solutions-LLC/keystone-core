@@ -30,6 +30,7 @@ Blueprint Lifecycle:
   info      - Show blueprint details
   versions  - List available versions
   install   - Install a blueprint
+  apply     - Apply a blueprint to targets
   update    - Update installed blueprints
   remove    - Remove an installed blueprint
   bundle    - Bundle blueprints into distributable archives
@@ -71,6 +72,7 @@ Examples:
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(installCmd)
+	rootCmd.AddCommand(newApplyCmd())
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(bundleCmd)

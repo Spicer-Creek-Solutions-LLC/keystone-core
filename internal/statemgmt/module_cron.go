@@ -367,3 +367,7 @@ func normalizeWhitespace(s string) string {
 	re := regexp.MustCompile(`\s+`)
 	return strings.TrimSpace(re.ReplaceAllString(s, " "))
 }
+
+func init() {
+	_ = RegisterModule(NewCronModule())
+}

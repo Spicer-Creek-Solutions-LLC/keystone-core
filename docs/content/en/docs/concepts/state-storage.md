@@ -283,38 +283,37 @@ Keystone Core provides automated migration tooling for moving from SQLite to Pos
 ```bash
 # Validate source and target
 kscorectl migrate validate \
-  --source sqlite:///var/lib/keystone/keystone.db \
-  --target postgres://keystone:pass@localhost/keystone
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone"
 
 # Run migration (dry-run first)
 kscorectl migrate run \
-  --source sqlite:///var/lib/keystone/keystone.db \
-  --target postgres://keystone:pass@localhost/keystone \
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone" \
   --dry-run
 
 # Execute migration
 kscorectl migrate run \
-  --source sqlite:///var/lib/keystone/keystone.db \
-  --target postgres://keystone:pass@localhost/keystone \
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone" \
   --batch-size 1000
 
-# Verify migration
+# Verify migration (compares record counts)
 kscorectl migrate validate \
-  --source sqlite:///var/lib/keystone/keystone.db \
-  --target postgres://keystone:pass@localhost/keystone \
-  --compare-counts
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone"
 ```
 
 ### Migration Options
 
 ```bash
 kscorectl migrate run \
-  --source <source-dsn> \
-  --target <target-dsn> \
+  --sqlite /path/to/keystone.db \
+  --postgres "postgres://user:pass@host/db" \
   --batch-size 1000       # Records per batch
-  --skip-existing         # Skip existing records
+  --skip-existing         # Skip records that already exist in target
+  --continue-on-error     # Continue even if some records fail
   --dry-run               # Show what would be migrated
-  --tables agents,commands # Migrate specific tables only
 ```
 
 ### Migration Process
@@ -441,7 +440,7 @@ default_pool_size = 25
 sqlite3 /var/lib/keystone/keystone.db ".backup /backup/keystone-$(date +%Y%m%d).db"
 
 # Or with kscorectl cluster-backup
-kscorectl cluster-backup create --type database
+kscorectl cluster-backup backup --output keystone-backup.bin
 ```
 
 ### PostgreSQL Backup
@@ -454,7 +453,7 @@ pg_dump -h localhost -U keystone -d keystone -F c -f keystone-backup.dump
 pg_basebackup -h localhost -U replication -D /backup/pg-base -Fp -Xs -P
 
 # Or with kscorectl cluster-backup
-kscorectl cluster-backup create --type database
+kscorectl cluster-backup backup --output keystone-backup.bin
 ```
 
 ## Best Practices
@@ -555,13 +554,15 @@ If migration fails:
 
 ```bash
 # Check for constraint violations
-kscorectl migrate validate --verbose
+kscorectl migrate validate -v \
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone"
 
-# Resume from checkpoint
-kscorectl migrate run --resume
-
-# Skip problematic records
-kscorectl migrate run --skip-errors --log-errors=/tmp/errors.log
+# Re-run migration, skipping already-migrated records
+kscorectl migrate run \
+  --sqlite /var/lib/keystone/keystone.db \
+  --postgres "postgres://keystone:pass@localhost/keystone" \
+  --skip-existing --continue-on-error
 ```
 
 ### Performance Issues
