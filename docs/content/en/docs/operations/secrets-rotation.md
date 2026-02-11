@@ -519,7 +519,7 @@ rotation:
   # Verify API access
   verification:
     type: health_check
-    endpoint: "/api/v1/health"
+    endpoint: "/health/ready"
     headers:
       X-API-Key: "{{ .api_key }}"
 ```

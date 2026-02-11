@@ -2491,8 +2491,8 @@ curl /api/v1/agents?status=connected
 
 ```bash
 # Before (v1)
-curl /api/v1/agents/web-01/execute \
-  -d '{"command": "hostname"}'
+curl /api/v1/exec \
+  -d '{"target": "web-01", "command": "hostname"}'
 
 # Hypothetical future version
 curl /api/v2/agents/web-01/commands \
@@ -2503,7 +2503,7 @@ curl /api/v2/agents/web-01/commands \
 
 | Current (v1) | Future (hypothetical) | Notes |
 |-----|-----|-------|
-| `/agents/{id}/execute` | `/agents/{id}/commands` | Possible endpoint rename |
+| `/exec` | `/agents/{id}/commands` | Possible endpoint rename |
 | `command` (string) | `command` (object) | Richer command spec |
 | Sync response | Async job | Always returns job ID |
 
@@ -2608,7 +2608,7 @@ Major API changes are documented in the changelog:
       description: "New endpoint for agent metrics"
     - type: deprecated
       path: "/api/v1/status"
-      description: "Use /api/v1/health instead"
+      description: "Use /api/status instead"
       sunset: "2026-01-15"
 
 - version: "v1.4.0"

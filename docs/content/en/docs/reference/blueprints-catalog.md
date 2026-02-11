@@ -25,32 +25,25 @@ Single-node demo deployment with embedded NATS + SQLite for evaluation and devel
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `admin_password` | string | (required) | Admin user password |
+| `hostname` | string | localhost | Hostname for the instance |
+| `admin_password` | string | (required) | Admin API password |
+| `enable_examples` | boolean | true | Deploy example states and agents |
+| `enable_dashboards` | boolean | true | Deploy Grafana dashboards |
 | `api_port` | integer | 8080 | API server port |
 | `metrics_port` | integer | 9090 | Metrics endpoint port |
 | `data_dir` | string | /var/lib/keystone-core | Data directory |
 | `log_level` | string | info | Log level (debug, info, warn, error) |
 
-**Features:**
-
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `sample_agents` | true | Deploy sample agent configurations |
-| `sample_states` | true | Deploy sample state files |
-| `web_ui` | false | Enable web UI (experimental) |
-
 **Usage:**
 
 ```yaml
 include:
-  - blueprint: kscore/demo@1.0.0
+  - blueprint: kscore/demo@0.1.0
     parameters:
       admin_password: !secret kscore/admin
       api_port: 8080
       log_level: debug
-    features:
-      sample_agents: true
-      sample_states: true
+      enable_examples: true
 ```
 
 **Quick Start:**
@@ -75,54 +68,53 @@ HA control plane deployment with external PostgreSQL and NATS cluster.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `cluster_name` | string | (required) | Cluster identifier |
-| `node_count` | integer | 3 | Number of control plane nodes |
+| `cluster_name` | string | keystone | Cluster identifier |
+| `node_role` | string | control-plane | Node role: control-plane, agent, both |
+| `control_plane_nodes` | array | (required) | Control plane node addresses |
+| `nats_mode` | string | embedded-cluster | NATS mode: embedded-cluster, external |
+| `nats_urls` | array | [] | External NATS URLs (if external mode) |
 | `postgres_host` | string | (required) | PostgreSQL host |
+| `postgres_replicas` | array | [] | PostgreSQL replica hosts |
 | `postgres_port` | integer | 5432 | PostgreSQL port |
-| `postgres_database` | string | kscore | Database name |
-| `postgres_user` | string | kscore | Database user |
-| `postgres_password` | string | (required) | Database password (sensitive) |
-| `postgres_sslmode` | string | require | SSL mode (disable, require, verify-full) |
-| `nats_urls` | array | (required) | NATS server URLs |
-| `nats_creds_file` | string | | NATS credentials file path |
-| `api_port` | integer | 8080 | API server port |
-| `grpc_port` | integer | 9090 | gRPC port |
-| `tls_mode` | string | auto | TLS mode (auto, manual, disabled) |
-| `tls_cert` | string | | TLS certificate (for manual mode) |
-| `tls_key` | string | | TLS private key (for manual mode) |
-| `ca_cert` | string | | CA certificate for client verification |
+| `postgres_database` | string | keystone | PostgreSQL database name |
+| `postgres_user` | string | keystone | PostgreSQL user |
+| `postgres_password` | string | (required) | PostgreSQL password (sensitive) |
+| `tls_mode` | string | generate | TLS mode: generate, provided, letsencrypt |
+| `tls_cert` | string | | TLS certificate path (provided mode) |
+| `tls_key` | string | | TLS key path (provided mode) |
+| `ca_cert` | string | | CA certificate path (provided mode) |
+| `backup_enabled` | boolean | true | Enable automated backups |
+| `backup_destination` | string | local | Backup destination |
 
 **Features:**
 
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `etcd_clustering` | true | Enable etcd-based leader election |
-| `auto_scaling` | false | Enable auto-scaling integration |
-| `backup` | true | Enable automated backups |
-| `monitoring` | true | Enable Prometheus metrics |
+| `nats_cluster` | true | Provision a managed NATS cluster |
+| `postgres_ha` | true | Provision PostgreSQL HA resources |
+| `monitoring` | false | Deploy the monitoring stack |
+| `security` | false | Apply security baseline hardening |
+| `gitops` | false | Configure GitOps integrations |
 
 **Usage:**
 
 ```yaml
 include:
-  - blueprint: kscore/production-cluster@2.0.0
+  - blueprint: kscore/production-cluster@0.1.0
     parameters:
       cluster_name: prod-us-east
-      node_count: 5
+      control_plane_nodes:
+        - cp-1.internal
+        - cp-2.internal
+        - cp-3.internal
       postgres_host: postgres.internal
       postgres_database: kscore_prod
       postgres_user: kscore
       postgres_password: !secret databases/postgres/kscore
-      postgres_sslmode: verify-full
-      nats_urls:
-        - nats://nats-1.internal:4222
-        - nats://nats-2.internal:4222
-        - nats://nats-3.internal:4222
-      nats_creds_file: /etc/keystone-core/nats.creds
-      tls_mode: auto
+      tls_mode: generate
     features:
-      etcd_clustering: true
-      backup: true
+      nats_cluster: true
+      postgres_ha: true
       monitoring: true
 ```
 
@@ -199,7 +191,7 @@ Multi-region enterprise deployment with federation, integrations, and advanced f
 
 ```yaml
 include:
-  - blueprint: kscore/enterprise-platform@3.0.0
+  - blueprint: kscore/enterprise-platform@0.1.0
     parameters:
       cluster_name: global-platform
       regions:
@@ -275,7 +267,7 @@ Standalone NATS cluster with JetStream for message streaming.
 
 ```yaml
 include:
-  - blueprint: kscore/nats-cluster@1.2.0
+  - blueprint: kscore/nats-cluster@0.1.0
     parameters:
       cluster_name: kscore-messaging
       node_count: 3
@@ -356,7 +348,7 @@ PostgreSQL HA cluster with streaming replication.
 
 ```yaml
 include:
-  - blueprint: kscore/postgres-ha@2.0.0
+  - blueprint: kscore/postgres-ha@0.1.0
     parameters:
       cluster_name: kscore-prod-db
       postgres_version: "15"
@@ -431,7 +423,7 @@ Complete monitoring stack with Prometheus, Grafana, Alertmanager, and exporters.
 
 ```yaml
 include:
-  - blueprint: kscore/monitoring-stack@2.0.0
+  - blueprint: kscore/monitoring-stack@0.1.0
     parameters:
       prometheus_retention: 30d
       prometheus_storage_size: 100GB
@@ -493,7 +485,7 @@ Lightweight Prometheus-only setup for minimal monitoring.
 
 ```yaml
 include:
-  - blueprint: kscore/metrics-only@1.0.0
+  - blueprint: kscore/metrics-only@0.1.0
     parameters:
       retention_time: 3d
       storage_size: 5GB
@@ -545,7 +537,7 @@ Host security hardening following CIS benchmarks.
 
 ```yaml
 include:
-  - blueprint: kscore/security-baseline@1.5.0
+  - blueprint: kscore/security-baseline@0.1.0
     parameters:
       cis_level: 2
       ssh_port: 2222
@@ -615,7 +607,7 @@ SPIFFE/SPIRE federation for multi-cluster trust.
 
 ```yaml
 include:
-  - blueprint: kscore/identity-federation@1.0.0
+  - blueprint: kscore/identity-federation@0.1.0
     parameters:
       trust_domain: cluster-a.example.com
       federation_domains:
@@ -673,7 +665,7 @@ GitOps workflow integration with ArgoCD or Flux.
 
 ```yaml
 include:
-  - blueprint: kscore/gitops-integration@1.2.0
+  - blueprint: kscore/gitops-integration@0.1.0
     parameters:
       gitops_tool: argocd
       repo_url: https://github.com/myorg/kscore-config
@@ -767,7 +759,7 @@ Proxy agent deployment for managing unmanaged devices.
 
 ```yaml
 include:
-  - blueprint: kscore/proxy-agents@1.0.0
+  - blueprint: kscore/proxy-agents@0.1.0
     parameters:
       proxy_agent_count: 2
       discovery_enabled: true
@@ -827,7 +819,7 @@ File distribution backend for large file management.
 
 ```yaml
 include:
-  - blueprint: kscore/file-distribution@1.0.0
+  - blueprint: kscore/file-distribution@0.1.0
     parameters:
       storage_backend: s3
       s3_bucket: kscore-files-prod
@@ -893,7 +885,7 @@ Kubernetes operator for managing Keystone Core via CRDs.
 
 ```yaml
 include:
-  - blueprint: kscore/kubernetes-operator@1.0.0
+  - blueprint: kscore/kubernetes-operator@0.1.0
     parameters:
       namespace: kscore-system
       replicas: 3
@@ -964,7 +956,7 @@ Lightweight edge node configuration for constrained environments.
 
 ```yaml
 include:
-  - blueprint: kscore/edge-deployment@1.0.0
+  - blueprint: kscore/edge-deployment@0.1.0
     parameters:
       control_plane_url: https://kscore.example.com:8080
       agent_labels:

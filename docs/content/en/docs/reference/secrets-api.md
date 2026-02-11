@@ -961,30 +961,6 @@ Response:
 
 ---
 
-## Health API
-
-### Secrets Health
-
-**REST:**
-
-```http
-GET /api/v1/health/secrets
-Authorization: Bearer <token>
-
-Response:
-{
-  "status": "healthy",
-  "backends": {
-    "vault": {"status": "healthy", "latency_ms": 12},
-    "aws": {"status": "healthy", "latency_ms": 45}
-  },
-  "lease_manager": {"status": "healthy", "active_leases": 150},
-  "cache": {"status": "healthy", "hit_rate": 0.85}
-}
-```
-
----
-
 ## Error Codes
 
 | Code | HTTP Status | Description |

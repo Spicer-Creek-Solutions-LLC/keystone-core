@@ -291,8 +291,8 @@ kscorectl state apply --dry-run mystate.yaml
 4. Check for memory leaks in custom modules
 
 ```bash
-# Check event storage
-curl http://localhost:8080/api/v1/events/stats
+# Check server status
+curl http://localhost:8080/api/status
 
 # Apply retention policy
 kscorectl events retention set --max-age 7d

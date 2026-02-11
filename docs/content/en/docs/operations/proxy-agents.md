@@ -631,7 +631,7 @@ snmpwalk -v3 -u snmpuser -l authPriv -a SHA -A authpass -x AES -X privpass 192.1
 
 ```bash
 # Test REST API
-curl -k -H "Authorization: Bearer $API_KEY" https://192.168.1.254/api/v1/status
+curl -k -H "Authorization: Bearer $API_KEY" https://192.168.1.254/api/status
 ```
 
 **WinRM:**

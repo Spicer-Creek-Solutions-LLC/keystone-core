@@ -43,3 +43,23 @@ parameters:
     type: boolean
     default: true
     description: Deploy Grafana dashboards
+
+  api_port:
+    type: integer
+    default: 8080
+    description: API server port
+
+  metrics_port:
+    type: integer
+    default: 9090
+    description: Metrics endpoint port
+
+  data_dir:
+    type: string
+    default: /var/lib/keystone-core
+    description: Data directory
+
+  log_level:
+    type: string
+    default: info
+    description: Log level (debug, info, warn, error)

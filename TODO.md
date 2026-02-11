@@ -437,32 +437,39 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Resolution: deferred to Epic 46 (`epics/46-grpc-service-implementation.md`)
   - Epic covers registering AgentService and CoordinationService in kscore-server (Phase 1)
 
-- [ ] **Docs reference REST endpoints that do not exist**
-  - Resolution: both
-  - `/api/v1/status` is referenced but server exposes `/api/status`
-  - `/api/v1/events/stats`, `/api/v1/events/stream` are documented but no handlers exist
-  - `/api/v1/agents/{id}/metrics` and `/api/v1/agents/{id}/execute` appear in API versioning examples
-  - `/api/v1/health` and `/api/v1/health/secrets` are referenced but only `/health/*` exists
-  - `/api/v1/exclusions` appears in Windows ops docs but no API handler exists
-  - References: `docs/content/en/docs/operations/proxy-agents.md`, `docs/content/en/docs/community/support.md`, `docs/content/en/docs/reference/sdk.md`, `docs/content/en/docs/operations/windows.md`, `docs/content/en/docs/operations/secrets-rotation.md`, `docs/content/en/docs/reference/secrets-api.md`
+- [x] **Docs reference REST endpoints that do not exist**
+  - Resolution: docs
+  - Fixed `/api/v1/status` → `/api/status` in proxy-agents.md
+  - Fixed `/api/v1/events/stats` → `/api/status` in support.md (events handler not wired)
+  - Fixed `/api/v1/agents/{id}/execute` → `/api/v1/exec` in api.md versioning example
+  - Fixed changelog deprecation note to reference `/api/status` instead of `/api/v1/health`
+  - Fixed `/api/v1/health` → `/health/ready` in secrets-rotation.md
+  - Removed `/api/v1/health/secrets` section from secrets-api.md (no handler exists)
+  - `/api/v1/exclusions` in windows.md is Trend Micro Apex One API, not Keystone (no change needed)
+  - `/api/v1/agents/{id}/metrics` already exists (no change needed)
 
 ### Blueprint Documentation
 
-- [ ] **Fix blueprint version references**
-  - Resolution: code
-  - Docs use: `kscore/demo@1.0.0`, `kscore/production-cluster@2.0.0`
-  - Actual: All blueprints are version `0.1.0`
+- [x] **Fix blueprint version references**
+  - Resolution: docs
+  - Fixed all 14 blueprint version references in blueprints-catalog.md to `@0.1.0`
+  - Corrected: demo, production-cluster, enterprise-platform, nats-cluster, postgres-ha, monitoring-stack, metrics-only, security-baseline, identity-federation, gitops-integration, proxy-agents, file-distribution, kubernetes-operator, edge-deployment
 
-- [ ] **Update kscore/demo parameters**
+- [x] **Update kscore/demo parameters**
   - Resolution: both
-  - Documented but not implemented: `api_port`, `metrics_port`, `data_dir`, `log_level`
-  - Implemented but not documented: `hostname`, `enable_examples`, `enable_dashboards`
+  - Added `api_port`, `metrics_port`, `data_dir`, `log_level` parameters to blueprint.yaml
+  - Added `hostname`, `enable_examples`, `enable_dashboards` to docs parameter table
+  - Removed non-existent features table (`sample_agents`, `sample_states`, `web_ui`)
+  - Updated usage example to use actual parameter names
 
-- [ ] **Update kscore/production-cluster parameters**
-  - Resolution: both
-  - Multiple default value mismatches
-  - Features don't match (docs: `etcd_clustering`, code: `nats_cluster`)
-  - `tls_mode` enum values differ
+- [x] **Update kscore/production-cluster parameters**
+  - Resolution: docs
+  - Rewrote parameter table to match all 17 actual blueprint.yaml parameters
+  - Fixed defaults: `cluster_name` (keystone), `postgres_database`/`postgres_user` (keystone), `nats_urls` (optional)
+  - Replaced `node_count` with actual `node_role` + `control_plane_nodes` parameters
+  - Fixed `tls_mode` enum: generate/provided/letsencrypt (not auto/manual/disabled)
+  - Replaced features: `etcd_clustering`/`auto_scaling` → `nats_cluster`/`postgres_ha`/`monitoring`/`security`/`gitops`
+  - Updated usage example with correct parameter and feature names
 
 ### Operations Documentation Gaps
 
