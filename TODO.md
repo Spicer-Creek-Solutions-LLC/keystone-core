@@ -473,12 +473,10 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### Operations Documentation Gaps
 
-- [ ] **Registry ops docs imply object storage backends not supported by code**
-  - Resolution: code
-  - Docs describe shared storage options including GCS/S3/Azure Files and S3 cross-region replication
-  - `kscore-registry` only reads/writes from a local filesystem data directory (no object storage integration or replication support)
-  - Update docs to clarify external replication only, or implement storage backend support
-  - Reference: `docs/content/en/docs/operations/registry.md`, `cmd/kscore-registry/main.go`
+- [x] **Registry ops docs imply object storage backends not supported by code**
+  - Resolution: deferred to Epic 47 (`epics/47-registry-storage-backends.md`)
+  - Created epic to implement pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry
+  - Reuses existing backend infrastructure from `internal/files/backend/`
 
 - [x] **API key CLI points to REST endpoints that are not implemented** *(DONE)*
   - Implemented `pkg/api/apikeys/` package with create/list/revoke handlers

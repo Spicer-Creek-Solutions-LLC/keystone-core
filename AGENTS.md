@@ -383,6 +383,7 @@ Implementation order:
 44. **Epic 44** (Cluster Join Tokens) - NOT STARTED - Depends on Epic 1, 11 - Secure join token system for cluster membership with durable storage (etcd/SQLite/PostgreSQL), configurable TTL and use limits, CLI commands, REST API, audit logging
 45. **Epic 45** (Control Plane Config Wiring) - NOT STARTED - Wire agents, execution, state, events, gitops, security config sections into `internal/config.Config` and `kscore-server`
 46. **Epic 46** (gRPC Service Implementation) - NOT STARTED - Depends on Epic 1, 3, 4, 6, 11 - Generate stubs and implement servers for StateService, EventService, PolicyService, ClusterService; register AgentService and CoordinationService in kscore-server
+47. **Epic 47** (Registry Storage Backends) - NOT STARTED - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry, reusing `internal/files/backend/` infrastructure
 
 ### Future Epics (Not Yet Planned)
 
