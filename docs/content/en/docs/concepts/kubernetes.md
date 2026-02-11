@@ -2,25 +2,27 @@
 title: "Kubernetes Integration"
 weight: 12
 description: >
-  Native Kubernetes support with CRDs, operators, and seamless integration for container orchestration environments.
+  Native Kubernetes support with CRDs, client wrapper, and planned operator controllers for container orchestration environments.
 ---
 
 ## Overview
 
-Keystone Core provides deep Kubernetes integration, enabling unified management of containerized workloads alongside traditional infrastructure. The integration includes Custom Resource Definitions (CRDs), operator controllers, and a comprehensive client wrapper for interacting with Kubernetes clusters.
+Keystone Core provides Kubernetes integration for unified management of containerized workloads alongside traditional infrastructure. The integration includes a comprehensive client wrapper for interacting with Kubernetes clusters, Custom Resource Definitions (CRDs) for Kubernetes-native resource representations, and scaffolded operator controllers that are planned for full implementation in a future epic.
+
+> **Implementation Status:** The Kubernetes client wrapper and CRD type definitions are fully implemented. The operator controllers (`RemoteExecutionController`, `StateConfigController`) have work queue scaffolding but reconciliation logic is not yet implemented — the `reconcile()` methods are no-ops. Informer-based watching, CRD status updates, and drift detection are planned for [Epic 48](/epics/48-kubernetes-operator.md). The CRD YAML manifests are defined but not yet generated via controller-gen or published as installable artifacts.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
     subgraph CP["Keystone Core Control Plane"]
-        KC["K8s Client<br>Wrapper"]
-        CT["Controllers<br>(Operators)"]
+        KC["K8s Client<br>Wrapper ✅"]
+        CT["Controllers<br>(Scaffolded, planned)"]
         KC --> API
-        CT --> API
+        CT -.->|planned| API
         API["Kubernetes API Server"]
-        API --> RE["RemoteExecution<br>CRD"]
-        API --> SC["StateConfig<br>CRD"]
+        API --> RE["RemoteExecution<br>CRD Types ✅"]
+        API --> SC["StateConfig<br>CRD Types ✅"]
     end
 ```
 
@@ -124,23 +126,24 @@ status:
     detected: false
 ```
 
-### Controllers (Operators)
+### Controllers (Planned)
 
-The Keystone Core operators reconcile CRD states:
+> **Status:** Controller scaffolding exists in `internal/k8s/controller.go` with work queues, worker goroutines, and an `OperatorManager`. However, the `reconcile()` methods are no-ops and there are no informers watching CRD resources. Full controller implementation is planned in [Epic 48](/epics/48-kubernetes-operator.md).
 
-**RemoteExecutionController**:
+The planned operator controllers will reconcile CRD states:
 
-- Watches RemoteExecution resources
-- Dispatches commands to target pods/nodes
-- Aggregates results and updates status
-- Handles retries and timeouts
+**RemoteExecutionController** (scaffolded):
 
-**StateConfigController**:
+- Work queue and worker goroutines implemented
+- `ExecuteRemoteExecution()` method implemented for direct invocation
+- Planned: informer-based watching of RemoteExecution resources
+- Planned: automatic dispatch, result aggregation, and status updates
 
-- Watches StateConfig resources
-- Applies state declarations to the cluster
-- Monitors for drift
-- Reports state compliance
+**StateConfigController** (scaffolded):
+
+- Work queue and worker goroutines implemented
+- Planned: informer-based watching of StateConfig resources
+- Planned: state application, drift monitoring, and compliance reporting
 
 ## Execution Modes
 
@@ -296,7 +299,7 @@ kubernetes:
   # CRD installation
   installCRDs: true
 
-  # Controller settings
+  # Controller settings (planned — controllers are scaffolded but not yet functional)
   controllers:
     remoteExecution:
       enabled: true
@@ -329,7 +332,9 @@ agent:
       tty: false
 ```
 
-## Deployment
+## Deployment (Planned)
+
+> **Status:** Helm charts, Kustomize manifests, and CRD installation artifacts are not yet published. The examples below show the planned deployment experience. See [Epic 48](/epics/48-kubernetes-operator.md) and [Epic 100](/epics/100-release-readiness-0.1.0.md).
 
 ### Helm Chart
 
@@ -417,9 +422,11 @@ When managing multiple clusters:
 3. Use cluster labels for targeting
 4. Implement network policies for cross-cluster communication
 
-### Drift Detection
+### Drift Detection (Planned)
 
-Enable drift detection for critical resources:
+> **Status:** Drift detection configuration is defined in the StateConfig CRD spec but is not yet implemented. See [Epic 48](/epics/48-kubernetes-operator.md).
+
+The planned drift detection will support severity-based configuration:
 
 ```yaml
 driftDetection:
@@ -451,7 +458,9 @@ kubectl apply -f https://github.com/shawnbutts/keystone-core/deploy/kubernetes/c
 
 ### Controller Not Reconciling
 
-Check controller logs:
+> **Note:** Controller reconciliation is not yet implemented. The controllers have work queue scaffolding but `reconcile()` is a no-op. Full implementation is planned in [Epic 48](/epics/48-kubernetes-operator.md).
+
+Once implemented, check controller logs:
 
 ```bash
 kubectl logs -n keystone-system deployment/keystone-server -c controller

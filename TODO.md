@@ -842,12 +842,12 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - K8s modules (12) remain unregistered — they require a client dependency; added doc note
   - Reference: `docs/content/en/docs/reference/modules.md`, `internal/statemgmt/*`
 
-- [ ] **Kubernetes concept docs overstate operator/CRD support**
-  - Resolution: doc
-  - Docs describe controllers that watch CRDs and reconcile RemoteExecution/StateConfig
-  - `internal/k8s/controller.go` is stubbed (no informers, reconcile is no-op) and there is no operator binary/deployment wiring
-  - Update docs or implement operator runtime and wiring
-  - Reference: `docs/content/en/docs/concepts/kubernetes.md`, `internal/k8s/controller.go`
+- [x] **Kubernetes concept docs overstate operator/CRD support**
+  - Resolution: doc + epic
+  - Added implementation status callouts throughout kubernetes.md marking controllers, drift detection, and deployment as planned/scaffolded
+  - Created Epic 48 (`epics/48-kubernetes-operator.md`) for full operator implementation: informers, reconciliation, drift detection, leader election, Helm/Kustomize deployment
+  - Updated AGENTS.md with Epic 48 in repo structure and planned epics list
+  - Reference: `docs/content/en/docs/concepts/kubernetes.md`, `epics/48-kubernetes-operator.md`, `AGENTS.md`
 
 - [ ] **Kubernetes concept docs claim context switching that is not implemented**
   - Resolution: doc
