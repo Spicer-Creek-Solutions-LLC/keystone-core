@@ -337,6 +337,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 43-secrets-api-implementation.md   # Secrets REST/gRPC API layer
     ├── 44-cluster-join-tokens.md          # Cluster join token management
     ├── 48-kubernetes-operator.md           # Kubernetes operator (informers, reconciliation, deployment)
+    ├── 49-rest-api-handler-wiring.md      # Wire remaining REST API handlers into kscore-server
     ├── 100-release-readiness-0.1.0.md     # 0.1.0 release readiness (future)
     ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
@@ -413,6 +414,7 @@ Implementation order:
 46. **Epic 46** (gRPC Service Implementation) - NOT STARTED - Depends on Epic 1, 3, 4, 6, 11 - Generate stubs and implement servers for StateService, EventService, PolicyService, ClusterService; register AgentService and CoordinationService in kscore-server
 47. **Epic 47** (Registry Storage Backends) - NOT STARTED - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry, reusing `internal/files/backend/` infrastructure
 48. **Epic 48** (Kubernetes Operator) - NOT STARTED - Depends on Epic 1, 2, 3, 8, 11 - Informer-based CRD watching, reconciliation, drift detection, leader election, Helm/Kustomize deployment
+49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers
 
 ### Future Epics (Not Yet Planned)
 

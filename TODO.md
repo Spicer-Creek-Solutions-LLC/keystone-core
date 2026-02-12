@@ -1242,19 +1242,7 @@ These are CLI commands identified as worth implementing in a future epic:
 
 - [x] **Review and fix "double command" routing in kscorectl plugin dispatch** — audited all 15 plugins; only kscore-files was affected (had `files` subcommand group under `kscore-files` root). Flattened file subcommands (list/get/put/delete/info/sync) directly onto root. Updated tests, docs, and help examples.
 
-- [ ] **Wire remaining REST API handlers into kscore-server**
-  - Resolution: code
-  - 8 handler packages have `RegisterRoutes()` but are NOT called in `cmd/kscore-server/main.go`
-  - **Cluster**: `pkg/api/cluster` — needs etcd coordinator dependency
-  - **Events**: `pkg/api/events` — needs event store dependency
-  - **Webhooks**: `pkg/api/webhooks` — needs webhook receiver dependency
-  - **Mirrors**: `internal/files/mirror` — needs mirror manager dependency
-  - **Discovery**: `internal/proxy/discovery` — needs discovery engine dependency
-  - **Policy**: `pkg/api/policy` — needs policy engine dependency
-  - **GitOps**: `pkg/api/gitops` — needs gitops verifier dependency
-  - **Runbook**: `pkg/api/runbook` — needs runbook store dependency
-  - Currently wired: agents, execution, state, maintenance, apikeys
-  - Reference: `cmd/kscore-server/main.go`, `pkg/api/*/handlers.go`, `internal/files/mirror/api.go`, `internal/proxy/discovery/api.go`
+- [x] **Wire remaining REST API handlers into kscore-server** — moved to Epic 49 (`epics/49-rest-api-handler-wiring.md`). Requires constructing real dependencies for 8 handler packages, with conditional registration for infrastructure-dependent handlers.
 
 - [ ] **Implement outbound webhook subscriptions**
   - Resolution: code
