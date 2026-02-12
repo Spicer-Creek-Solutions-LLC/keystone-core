@@ -1244,15 +1244,7 @@ These are CLI commands identified as worth implementing in a future epic:
 
 - [x] **Wire remaining REST API handlers into kscore-server** — moved to Epic 49 (`epics/49-rest-api-handler-wiring.md`). Requires constructing real dependencies for 8 handler packages, with conditional registration for infrastructure-dependent handlers.
 
-- [ ] **Implement outbound webhook subscriptions**
-  - Resolution: code
-  - Currently only inbound webhooks (receiving from ArgoCD/GitHub/etc.) are supported
-  - Implement outbound webhooks to send events to external systems:
-    - CRUD endpoints for webhook subscriptions (url, events filter, secret)
-    - Webhook dispatcher to deliver events to configured endpoints
-    - HMAC signature generation for outbound payloads
-    - Delivery tracking and retry logic
-  - Reference: `pkg/api/webhooks/handlers.go`, `internal/gitops/webhook/`
+- [x] **Implement outbound webhook subscriptions** — moved to Epic 50 (`epics/50-outbound-webhooks.md`). New subsystem: persistent subscriptions, event dispatcher, HMAC signing, retry logic, REST API, CLI commands.
 
 ---
 
