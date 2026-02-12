@@ -7,29 +7,35 @@ description: >
 
 ## Overview
 
-Keystone Core exposes 70+ Prometheus-compatible metrics for monitoring system health, performance, and operations.
+Keystone Core exposes Prometheus-compatible metrics for monitoring system health, performance, and operations. Metrics are collected across multiple subsystems, each with its own exporter.
 
-**Metrics Endpoint**: `http://control-plane:8080/metrics`
+**Metrics Endpoint**: `http://control-plane:8080/metrics` (when `metrics.enabled: true`)
 
 **Metric Categories**:
 
-- [Control Plane Metrics](#control-plane-metrics)
-- [Cluster Metrics](#cluster-metrics)
-- [Agent Metrics](#agent-metrics)
-- [Execution Metrics](#execution-metrics)
-- [State Management Metrics](#state-management-metrics)
-- [Event System Metrics](#event-system-metrics)
-- [Policy Metrics](#policy-metrics)
-- [GitOps Metrics](#gitops-metrics)
+- [Control Plane Metrics](#control-plane-metrics) - API, agents, commands, state, events, policy
+- [Agent Metrics](#agent-metrics) - Per-agent resource and operation metrics
+- [State Management Metrics](#state-management-metrics) - Resources, drift, changes
+- [GitOps Metrics](#gitops-metrics) - Webhooks, deployments, rollbacks
+- [Policy Metrics](#policy-metrics) - Evaluations, violations, compliance, remediations
+- [Network Metrics](#network-metrics) - Listeners, connections, IP version
+- [Cluster Metrics](#cluster-metrics) - Membership, leadership, rebalancing, etcd
+- [Event System Metrics](#event-system-metrics) - Event processing, reactors, actions, storage
+- [NATS Mesh Metrics](#nats-mesh-metrics) - Connections, messages, buffers, topology, delivery
+- [File Mirror Metrics](#file-mirror-metrics) - Mirror groups, reads, writes, sync
+- [File Distribution Metrics](#file-distribution-metrics) - Transfers, cache, backends
+- [Proxy Agent Metrics](#proxy-agent-metrics) - Devices, commands, state, drift, discovery
 
 ## Metric Types
 
-**Counter**: Cumulative value that only increases
+**Counter**: Cumulative value that only increases (use `rate()` or `increase()` in queries)
 **Gauge**: Current value that can go up or down
-**Histogram**: Distribution of observations (with buckets)
-**Summary**: Distribution with calculated quantiles
+**Histogram**: Distribution of observations (with configurable buckets)
+**Summary**: Distribution with pre-calculated quantiles
 
 ## Control Plane Metrics
+
+Source: `internal/metrics/collectors.go`
 
 ### API Server
 
@@ -38,96 +44,843 @@ Keystone Core exposes 70+ Prometheus-compatible metrics for monitoring system he
 - Type: Counter
 - Description: Total HTTP API requests
 - Labels:
-  - `method`: HTTP method (GET, POST, etc.)
-  - `path`: API path
+  - `method`: HTTP method (GET, POST, PUT, DELETE)
+  - `endpoint`: API endpoint path
   - `status`: HTTP status code
 - Example:
 
   ```
-  kscore_api_requests_total{method="POST",path="/api/v1/exec",status="200"} 1234
+  kscore_api_requests_total{method="POST",endpoint="/api/v1/exec",status="200"} 1234
   ```
 
 **kscore_api_request_duration_seconds**
 
-- Type: Summary
-- Description: API request duration
+- Type: Histogram
+- Description: API request duration in seconds
 - Labels:
   - `method`: HTTP method
-  - `path`: API path
-  - `quantile`: 0.5, 0.95, 0.99
+  - `endpoint`: API endpoint path
+- Buckets: default histogram buckets
 - Example:
 
   ```
-  kscore_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.95"} 0.150
+  kscore_api_request_duration_seconds_bucket{method="POST",endpoint="/api/v1/exec",le="0.1"} 1100
+  kscore_api_request_duration_seconds_sum{method="POST",endpoint="/api/v1/exec"} 85.5
+  kscore_api_request_duration_seconds_count{method="POST",endpoint="/api/v1/exec"} 1234
   ```
 
-**kscore_api_active_connections**
+### Agent Connections
+
+**kscore_agents_connected**
 
 - Type: Gauge
-- Description: Current active connections
+- Description: Number of currently connected agents
+- Labels:
+  - `datacenter`: Agent datacenter
+  - `role`: Agent role
 - Example:
 
   ```
-  kscore_api_active_connections 42
+  kscore_agents_connected{datacenter="us-east-1",role="web"} 50
   ```
 
-### NATS Message Bus
-
-**kscore_nats_messages_in_total**
+**kscore_agents_disconnected_total**
 
 - Type: Counter
-- Description: Messages received from NATS
+- Description: Total number of agent disconnections
 - Example:
 
   ```
-  kscore_nats_messages_in_total 1000000
+  kscore_agents_disconnected_total 25
   ```
 
-**kscore_nats_messages_out_total**
+### Command Execution
+
+**kscore_command_executions_total**
 
 - Type: Counter
-- Description: Messages sent to NATS
+- Description: Total number of command executions
+- Labels:
+  - `status`: Execution result (success, failed, timeout)
 - Example:
 
   ```
-  kscore_nats_messages_out_total 950000
+  kscore_command_executions_total{status="success"} 5000
   ```
 
-**kscore_nats_bytes_in_total**
+**kscore_command_execution_duration_seconds**
+
+- Type: Histogram
+- Description: Command execution duration in seconds
+- Labels:
+  - `status`: Execution result
+- Buckets: default histogram buckets
+- Example:
+
+  ```
+  kscore_command_execution_duration_seconds_bucket{status="success",le="1"} 4500
+  kscore_command_execution_duration_seconds_sum{status="success"} 2500.5
+  kscore_command_execution_duration_seconds_count{status="success"} 5000
+  ```
+
+### State Applications
+
+**kscore_state_applications_total**
 
 - Type: Counter
-- Description: Bytes received from NATS
+- Description: Total number of state applications
+- Labels:
+  - `status`: Application result (success, failed)
 - Example:
 
   ```
-  kscore_nats_bytes_in_total 10737418240
+  kscore_state_applications_total{status="success"} 1000
   ```
 
-**kscore_nats_bytes_out_total**
+**kscore_state_application_duration_seconds**
+
+- Type: Histogram
+- Description: State application duration in seconds
+- Labels:
+  - `status`: Application result
+- Buckets: default histogram buckets
+- Example:
+
+  ```
+  kscore_state_application_duration_seconds_bucket{status="success",le="10"} 950
+  kscore_state_application_duration_seconds_sum{status="success"} 5000.0
+  kscore_state_application_duration_seconds_count{status="success"} 1000
+  ```
+
+### Policy Evaluations
+
+**kscore_policy_evaluations_total**
 
 - Type: Counter
-- Description: Bytes sent to NATS
+- Description: Total number of policy evaluations
+- Labels:
+  - `policy`: Policy identifier
+  - `result`: Evaluation result (allowed, denied)
 - Example:
 
   ```
-  kscore_nats_bytes_out_total 9663676416
+  kscore_policy_evaluations_total{policy="ssh-hardening",result="allowed"} 900
   ```
 
-**kscore_nats_reconnections_total**
+### Events (Control Plane)
+
+**kscore_events_published_total**
 
 - Type: Counter
-- Description: NATS reconnection count
+- Description: Total number of events published
+- Labels:
+  - `type`: Event type
 - Example:
 
   ```
-  kscore_nats_reconnections_total 5
+  kscore_events_published_total{type="agent.connect"} 500
   ```
 
-### NATS Mesh (Epic 14)
+**kscore_events_processed_total**
 
-These metrics are collected by the NATS mesh communication layer for monitoring connections, message delivery, topology, and reliability across the distributed NATS infrastructure.
+- Type: Counter
+- Description: Total number of events processed
+- Labels:
+  - `type`: Event type
+- Example:
 
-#### Connection Metrics
+  ```
+  kscore_events_processed_total{type="job.complete"} 1000
+  ```
+
+## Agent Metrics
+
+Source: `internal/metrics/collectors.go`
+
+Per-agent metrics reported by the control plane based on agent data.
+
+**kscore_agent_heartbeat_seconds**
+
+- Type: Gauge
+- Description: Unix timestamp of last heartbeat from agent
+- Labels:
+  - `agent_id`: Agent identifier
+- Example:
+
+  ```
+  kscore_agent_heartbeat_seconds{agent_id="web-01"} 1707667200
+  ```
+
+**kscore_agent_cpu_usage_percent**
+
+- Type: Gauge
+- Description: Agent CPU usage percentage
+- Labels:
+  - `agent_id`: Agent identifier
+- Example:
+
+  ```
+  kscore_agent_cpu_usage_percent{agent_id="web-01"} 45.2
+  ```
+
+**kscore_agent_memory_usage_bytes**
+
+- Type: Gauge
+- Description: Agent memory usage in bytes
+- Labels:
+  - `agent_id`: Agent identifier
+- Example:
+
+  ```
+  kscore_agent_memory_usage_bytes{agent_id="web-01"} 4294967296
+  ```
+
+**kscore_agent_disk_usage_bytes**
+
+- Type: Gauge
+- Description: Agent disk usage in bytes
+- Labels:
+  - `agent_id`: Agent identifier
+- Example:
+
+  ```
+  kscore_agent_disk_usage_bytes{agent_id="web-01"} 21474836480
+  ```
+
+**kscore_agent_commands_executed_total**
+
+- Type: Counter
+- Description: Total number of commands executed on agent
+- Labels:
+  - `agent_id`: Agent identifier
+  - `status`: Execution result (success, failed)
+- Example:
+
+  ```
+  kscore_agent_commands_executed_total{agent_id="web-01",status="success"} 150
+  ```
+
+**kscore_agent_states_applied_total**
+
+- Type: Counter
+- Description: Total number of states applied on agent
+- Labels:
+  - `agent_id`: Agent identifier
+  - `status`: Application result (success, failed)
+- Example:
+
+  ```
+  kscore_agent_states_applied_total{agent_id="web-01",status="success"} 80
+  ```
+
+## State Management Metrics
+
+Source: `internal/metrics/collectors.go`
+
+### Resources
+
+**kscore_state_resources_total**
+
+- Type: Gauge
+- Description: Total number of state resources under management
+- Labels:
+  - `type`: Resource type (file, package, service, etc.)
+  - `status`: Resource status
+- Example:
+
+  ```
+  kscore_state_resources_total{type="file",status="compliant"} 500
+  kscore_state_resources_total{type="package",status="compliant"} 200
+  ```
+
+### Drift Detection
+
+**kscore_state_drift_detected_total**
+
+- Type: Counter
+- Description: Total number of drift detections
+- Labels:
+  - `resource`: Resource identifier
+- Example:
+
+  ```
+  kscore_state_drift_detected_total{resource="/etc/nginx/nginx.conf"} 3
+  ```
+
+### State Changes
+
+**kscore_state_changes_applied_total**
+
+- Type: Counter
+- Description: Total number of state changes applied
+- Labels:
+  - `module`: State module name
+- Example:
+
+  ```
+  kscore_state_changes_applied_total{module="file"} 150
+  ```
+
+## GitOps Metrics
+
+Source: `internal/metrics/collectors.go`
+
+**kscore_gitops_webhooks_received_total**
+
+- Type: Counter
+- Description: Total number of webhooks received
+- Labels:
+  - `source`: Webhook source (argocd, flux, github, gitlab)
+- Example:
+
+  ```
+  kscore_gitops_webhooks_received_total{source="argocd"} 500
+  ```
+
+**kscore_gitops_deployments_verified_total**
+
+- Type: Counter
+- Description: Total number of deployments verified
+- Labels:
+  - `status`: Verification result (success, failed)
+- Example:
+
+  ```
+  kscore_gitops_deployments_verified_total{status="success"} 450
+  ```
+
+**kscore_gitops_rollbacks_triggered_total**
+
+- Type: Counter
+- Description: Total number of rollbacks triggered
+- Example:
+
+  ```
+  kscore_gitops_rollbacks_triggered_total 10
+  ```
+
+## Policy Metrics
+
+Source: `internal/metrics/collectors.go`
+
+**kscore_policy_violations_total**
+
+- Type: Counter
+- Description: Total number of policy violations
+- Labels:
+  - `policy`: Policy identifier
+  - `severity`: Violation severity (low, medium, high, critical)
+- Example:
+
+  ```
+  kscore_policy_violations_total{policy="ssh-hardening",severity="high"} 15
+  ```
+
+**kscore_policy_remediations_total**
+
+- Type: Counter
+- Description: Total number of policy remediations
+- Labels:
+  - `policy`: Policy identifier
+  - `status`: Remediation result (success, failed)
+- Example:
+
+  ```
+  kscore_policy_remediations_total{policy="ssh-hardening",status="success"} 10
+  ```
+
+**kscore_compliance_score**
+
+- Type: Gauge
+- Description: Compliance score by framework (0-100)
+- Labels:
+  - `framework`: Compliance framework name
+- Example:
+
+  ```
+  kscore_compliance_score{framework="cis-benchmark"} 87.5
+  ```
+
+## Network Metrics
+
+Source: `internal/metrics/collectors.go`
+
+IPv6 and dual-stack networking metrics.
+
+**kscore_listeners_active**
+
+- Type: Gauge
+- Description: Number of active network listeners
+- Labels:
+  - `protocol`: Network protocol (tcp, udp)
+  - `ip_version`: IP version (v4, v6)
+  - `port`: Listen port
+- Example:
+
+  ```
+  kscore_listeners_active{protocol="tcp",ip_version="v6",port="4222"} 1
+  ```
+
+**kscore_connections_total**
+
+- Type: Counter
+- Description: Total number of connections established
+- Labels:
+  - `protocol`: Network protocol
+  - `ip_version`: IP version
+- Example:
+
+  ```
+  kscore_connections_total{protocol="tcp",ip_version="v4"} 5000
+  ```
+
+**kscore_connections_active**
+
+- Type: Gauge
+- Description: Number of currently active connections
+- Labels:
+  - `protocol`: Network protocol
+  - `ip_version`: IP version
+- Example:
+
+  ```
+  kscore_connections_active{protocol="tcp",ip_version="v4"} 42
+  ```
+
+**kscore_agents_by_ip_version**
+
+- Type: Gauge
+- Description: Number of agents by IP version
+- Labels:
+  - `ip_version`: IP version (v4, v6)
+- Example:
+
+  ```
+  kscore_agents_by_ip_version{ip_version="v4"} 80
+  kscore_agents_by_ip_version{ip_version="v6"} 20
+  ```
+
+## Cluster Metrics
+
+Source: `internal/metrics/collectors.go`
+
+### Membership
+
+**kscore_cluster_members_total**
+
+- Type: Gauge
+- Description: Total number of cluster members
+- Example:
+
+  ```
+  kscore_cluster_members_total 3
+  ```
+
+**kscore_cluster_members_healthy**
+
+- Type: Gauge
+- Description: Number of healthy cluster members
+- Example:
+
+  ```
+  kscore_cluster_members_healthy 3
+  ```
+
+**kscore_cluster_member_status**
+
+- Type: Gauge
+- Description: Individual member status (1=healthy, 0.5=degraded, 0=unhealthy)
+- Labels:
+  - `member_id`: Member identifier
+- Example:
+
+  ```
+  kscore_cluster_member_status{member_id="node-1"} 1
+  ```
+
+### Leadership
+
+**kscore_cluster_is_leader**
+
+- Type: Gauge
+- Description: Whether this node is the cluster leader (1=leader, 0=follower)
+- Example:
+
+  ```
+  kscore_cluster_is_leader 1
+  ```
+
+**kscore_cluster_has_quorum**
+
+- Type: Gauge
+- Description: Whether cluster has quorum (1=yes, 0=no)
+- Example:
+
+  ```
+  kscore_cluster_has_quorum 1
+  ```
+
+**kscore_cluster_leader_changes_total**
+
+- Type: Counter
+- Description: Total number of leader changes
+- Labels:
+  - `reason`: Change reason
+- Example:
+
+  ```
+  kscore_cluster_leader_changes_total{reason="election"} 5
+  ```
+
+**kscore_cluster_leader_election_duration_seconds**
+
+- Type: Histogram
+- Description: Leader election duration in seconds
+- Buckets: default histogram buckets
+- Example:
+
+  ```
+  kscore_cluster_leader_election_duration_seconds_bucket{le="0.1"} 4
+  kscore_cluster_leader_election_duration_seconds_bucket{le="0.5"} 5
+  kscore_cluster_leader_election_duration_seconds_sum 0.85
+  kscore_cluster_leader_election_duration_seconds_count 5
+  ```
+
+### Rebalancing
+
+**kscore_cluster_rebalance_total**
+
+- Type: Counter
+- Description: Total number of rebalance operations
+- Labels:
+  - `reason`: Rebalance reason
+- Example:
+
+  ```
+  kscore_cluster_rebalance_total{reason="member_join"} 12
+  ```
+
+**kscore_cluster_rebalance_duration_seconds**
+
+- Type: Histogram
+- Description: Rebalance operation duration in seconds
+- Buckets: default histogram buckets
+- Example:
+
+  ```
+  kscore_cluster_rebalance_duration_seconds_bucket{le="1"} 10
+  kscore_cluster_rebalance_duration_seconds_sum 8.5
+  kscore_cluster_rebalance_duration_seconds_count 12
+  ```
+
+**kscore_cluster_agents_moved_total**
+
+- Type: Counter
+- Description: Total agents moved during rebalancing
+- Example:
+
+  ```
+  kscore_cluster_agents_moved_total 45
+  ```
+
+### Health
+
+**kscore_cluster_heartbeat_latency_seconds**
+
+- Type: Summary
+- Description: Inter-member heartbeat latency in seconds
+- Labels:
+  - `member_id`: Target member identifier
+- Quantiles: 0.5, 0.9, 0.99
+- Example:
+
+  ```
+  kscore_cluster_heartbeat_latency_seconds{member_id="node-2",quantile="0.5"} 0.002
+  kscore_cluster_heartbeat_latency_seconds{member_id="node-2",quantile="0.99"} 0.015
+  kscore_cluster_heartbeat_latency_seconds_sum{member_id="node-2"} 8.5
+  kscore_cluster_heartbeat_latency_seconds_count{member_id="node-2"} 1000
+  ```
+
+### etcd Operations
+
+**kscore_cluster_etcd_operations_total**
+
+- Type: Counter
+- Description: Total etcd operations
+- Labels:
+  - `operation`: Operation type (get, put, delete, txn)
+  - `status`: Result status (success, failure)
+- Example:
+
+  ```
+  kscore_cluster_etcd_operations_total{operation="put",status="success"} 5000
+  ```
+
+**kscore_cluster_etcd_operation_duration_seconds**
+
+- Type: Histogram
+- Description: etcd operation duration in seconds
+- Labels:
+  - `operation`: Operation type
+- Buckets: default histogram buckets
+- Example:
+
+  ```
+  kscore_cluster_etcd_operation_duration_seconds_bucket{operation="get",le="0.001"} 45000
+  kscore_cluster_etcd_operation_duration_seconds_sum{operation="get"} 25.5
+  kscore_cluster_etcd_operation_duration_seconds_count{operation="get"} 50000
+  ```
+
+## Event System Metrics
+
+Source: `internal/events/prometheus.go`
+
+The event subsystem exports its own metrics via a dedicated Prometheus exporter covering event lifecycle, reactors, actions, and storage.
+
+### Event Lifecycle
+
+**kscore_events_published_total**
+
+- Type: Counter
+- Description: Total number of events published by type
+- Labels:
+  - `type`: Event type
+- Example:
+
+  ```
+  kscore_events_published_total{type="agent.connect"} 500
+  ```
+
+**kscore_events_received_total**
+
+- Type: Counter
+- Description: Total number of events received by type
+- Labels:
+  - `type`: Event type
+- Example:
+
+  ```
+  kscore_events_received_total{type="agent.connect"} 500
+  ```
+
+**kscore_events_processed_total**
+
+- Type: Counter
+- Description: Total number of events processed by type
+- Labels:
+  - `type`: Event type
+- Example:
+
+  ```
+  kscore_events_processed_total{type="job.complete"} 1000
+  ```
+
+**kscore_events_failed_total**
+
+- Type: Counter
+- Description: Total number of events that failed processing
+- Labels:
+  - `type`: Event type
+- Example:
+
+  ```
+  kscore_events_failed_total{type="state.drift"} 5
+  ```
+
+**kscore_events_severity_total**
+
+- Type: Counter
+- Description: Total number of events by severity level
+- Labels:
+  - `severity`: Severity level (debug, info, warning, error, critical)
+- Example:
+
+  ```
+  kscore_events_severity_total{severity="warning"} 250
+  ```
+
+### Publisher and Subscriber
+
+**kscore_publisher_errors_total**
+
+- Type: Counter
+- Description: Total number of publisher errors
+- Example:
+
+  ```
+  kscore_publisher_errors_total 3
+  ```
+
+**kscore_subscriber_errors_total**
+
+- Type: Counter
+- Description: Total number of subscriber errors
+- Example:
+
+  ```
+  kscore_subscriber_errors_total 1
+  ```
+
+**kscore_active_subscribers**
+
+- Type: Gauge
+- Description: Number of active event subscribers
+- Example:
+
+  ```
+  kscore_active_subscribers 12
+  ```
+
+### Reactors
+
+**kscore_reactor_executions_total**
+
+- Type: Counter
+- Description: Total number of reactor executions
+- Labels:
+  - `reactor`: Reactor identifier
+- Example:
+
+  ```
+  kscore_reactor_executions_total{reactor="auto_remediate_drift"} 50
+  ```
+
+**kscore_reactor_failures_total**
+
+- Type: Counter
+- Description: Total number of reactor failures
+- Labels:
+  - `reactor`: Reactor identifier
+- Example:
+
+  ```
+  kscore_reactor_failures_total{reactor="auto_remediate_drift"} 2
+  ```
+
+**kscore_reactor_duration_seconds**
+
+- Type: Summary
+- Description: Reactor execution duration in seconds
+- Labels:
+  - `reactor`: Reactor identifier
+- Quantiles: 0.5, 0.95, 0.99
+- Example:
+
+  ```
+  kscore_reactor_duration_seconds{reactor="auto_remediate_drift",quantile="0.95"} 5.0
+  kscore_reactor_duration_seconds_sum{reactor="auto_remediate_drift"} 120.5
+  kscore_reactor_duration_seconds_count{reactor="auto_remediate_drift"} 50
+  ```
+
+### Actions
+
+**kscore_action_executions_total**
+
+- Type: Counter
+- Description: Total number of reactor action executions
+- Labels:
+  - `type`: Action type (command, webhook, state, etc.)
+  - `name`: Action name
+- Example:
+
+  ```
+  kscore_action_executions_total{type="webhook",name="slack_notify"} 100
+  ```
+
+**kscore_action_failures_total**
+
+- Type: Counter
+- Description: Total number of reactor action failures
+- Labels:
+  - `type`: Action type
+  - `name`: Action name
+- Example:
+
+  ```
+  kscore_action_failures_total{type="webhook",name="slack_notify"} 3
+  ```
+
+### Storage
+
+**kscore_storage_operations_total**
+
+- Type: Counter
+- Description: Total number of event storage operations
+- Labels:
+  - `operation`: Operation type (store, query, delete)
+- Example:
+
+  ```
+  kscore_storage_operations_total{operation="store"} 500000
+  ```
+
+**kscore_storage_failures_total**
+
+- Type: Counter
+- Description: Total number of event storage failures
+- Labels:
+  - `operation`: Operation type
+- Example:
+
+  ```
+  kscore_storage_failures_total{operation="store"} 10
+  ```
+
+### Processing
+
+**kscore_event_processing_duration_seconds**
+
+- Type: Summary
+- Description: Event processing duration in seconds
+- Quantiles: 0.5, 0.95, 0.99
+- Example:
+
+  ```
+  kscore_event_processing_duration_seconds{quantile="0.5"} 0.001
+  kscore_event_processing_duration_seconds{quantile="0.95"} 0.010
+  kscore_event_processing_duration_seconds_sum 500.0
+  kscore_event_processing_duration_seconds_count 100000
+  ```
+
+### System
+
+**kscore_uptime_seconds**
+
+- Type: Gauge
+- Description: Event system uptime in seconds
+- Example:
+
+  ```
+  kscore_uptime_seconds 86400.00
+  ```
+
+**kscore_event_rate**
+
+- Type: Gauge
+- Description: Current events per second
+- Example:
+
+  ```
+  kscore_event_rate 15.50
+  ```
+
+**kscore_last_event_timestamp_seconds**
+
+- Type: Gauge
+- Description: Unix timestamp of last event received
+- Example:
+
+  ```
+  kscore_last_event_timestamp_seconds 1707667200
+  ```
+
+## NATS Mesh Metrics
+
+Source: `internal/nats/observability.go`
+
+All NATS mesh metrics use the `kscore_nats` prefix.
+
+### Connection Metrics
 
 **kscore_nats_connections_total**
 
@@ -141,21 +894,6 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
 
   ```
   kscore_nats_connections_total{endpoint="nats://server1:4222",strategy="tls",status="success"} 150
-  ```
-
-**kscore_nats_connection_latency_seconds**
-
-- Type: Histogram
-- Description: Connection establishment latency
-- Labels:
-  - `endpoint`: NATS server endpoint
-- Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
-
-  ```
-  kscore_nats_connection_latency_seconds_bucket{endpoint="nats://server1:4222",le="0.1"} 145
-  kscore_nats_connection_latency_seconds_sum{endpoint="nats://server1:4222"} 12.5
-  kscore_nats_connection_latency_seconds_count{endpoint="nats://server1:4222"} 150
   ```
 
 **kscore_nats_connection_errors_total**
@@ -196,12 +934,12 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
   kscore_nats_failovers_total{from="nats://server1:4222",to="nats://server2:4222"} 3
   ```
 
-#### Message Metrics
+### Message Metrics
 
 **kscore_nats_messages_total**
 
 - Type: Counter
-- Description: Total messages by direction and subject
+- Description: Total messages by direction and subject prefix
 - Labels:
   - `direction`: Message direction (sent, received)
   - `subject_prefix`: Subject prefix (kscore.agent, kscore.command, etc.)
@@ -225,7 +963,7 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
   kscore_nats_message_bytes_total{direction="received"} 2147483648
   ```
 
-#### Buffer Metrics
+### Buffer Metrics
 
 **kscore_nats_buffer_size**
 
@@ -249,7 +987,7 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
   kscore_nats_buffer_overflow_total 15
   ```
 
-#### Topology Metrics
+### Topology Metrics
 
 **kscore_nats_leaf_nodes_total**
 
@@ -261,7 +999,6 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
 
   ```
   kscore_nats_leaf_nodes_total{hub="hub-us-east-1"} 25
-  kscore_nats_leaf_nodes_total{hub="hub-us-west-2"} 18
   ```
 
 **kscore_nats_gateway_connections_total**
@@ -277,23 +1014,7 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
   kscore_nats_gateway_connections_total{local_cluster="us-east",remote_cluster="us-west"} 3
   ```
 
-**kscore_nats_gateway_latency_seconds**
-
-- Type: Histogram
-- Description: Cross-cluster gateway latency
-- Labels:
-  - `local_cluster`: Local cluster name
-  - `remote_cluster`: Remote cluster name
-- Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
-
-  ```
-  kscore_nats_gateway_latency_seconds_bucket{local_cluster="us-east",remote_cluster="us-west",le="0.1"} 950
-  kscore_nats_gateway_latency_seconds_sum{local_cluster="us-east",remote_cluster="us-west"} 45.5
-  kscore_nats_gateway_latency_seconds_count{local_cluster="us-east",remote_cluster="us-west"} 1000
-  ```
-
-#### Delivery Metrics
+### Delivery Metrics
 
 **kscore_nats_delivery_pending**
 
@@ -335,7 +1056,7 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
   kscore_nats_duplicates_detected_total 25
   ```
 
-#### Bootstrap Metrics
+### Bootstrap Metrics
 
 **kscore_nats_bootstrap_requests_total**
 
@@ -347,8 +1068,6 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
 
   ```
   kscore_nats_bootstrap_requests_total{status="approved"} 500
-  kscore_nats_bootstrap_requests_total{status="rejected"} 15
-  kscore_nats_bootstrap_requests_total{status="expired"} 8
   ```
 
 **kscore_nats_credentials_issued_total**
@@ -361,10 +1080,9 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
 
   ```
   kscore_nats_credentials_issued_total{type="nkey"} 450
-  kscore_nats_credentials_issued_total{type="token"} 50
   ```
 
-#### Coordination Metrics
+### Coordination Metrics
 
 **kscore_nats_coordination_rpcs_total**
 
@@ -377,29 +1095,23 @@ These metrics are collected by the NATS mesh communication layer for monitoring 
 
   ```
   kscore_nats_coordination_rpcs_total{method="ClusterHealth",status="success"} 10000
-  kscore_nats_coordination_rpcs_total{method="Heartbeat",status="success"} 50000
   ```
 
-**kscore_nats_coordination_latency_seconds**
+### Latency Metrics (via API)
 
-- Type: Histogram
-- Description: Coordination RPC latency
-- Labels:
-  - `method`: RPC method name
-- Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
+The following latency metrics are tracked internally and available via the NATS metrics API (`GetStats()`). They provide histogram-style statistics (count, sum, min, max, P50, P95, P99).
 
-  ```
-  kscore_nats_coordination_latency_seconds_bucket{method="Heartbeat",le="0.01"} 49500
-  kscore_nats_coordination_latency_seconds_sum{method="Heartbeat"} 250.5
-  kscore_nats_coordination_latency_seconds_count{method="Heartbeat"} 50000
-  ```
+- **Connection latency** (`connection_latency_seconds`): Per-endpoint connection establishment latency
+- **Gateway latency** (`gateway_latency_seconds`): Cross-cluster gateway latency
+- **Coordination latency** (`coordination_latency_seconds`): Per-method coordination RPC latency
 
-### File Mirror (Epic 22)
+## File Mirror Metrics
 
-Metrics for the file distribution mirror system, including mirror health, read/write operations, synchronization, and conflicts.
+Source: `internal/files/mirror/metrics.go`
 
-#### Group Metrics
+All file mirror metrics use the `kscore_mirror` prefix.
+
+### Group Metrics
 
 **kscore_mirror_groups_total**
 
@@ -423,10 +1135,9 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 
   ```
   kscore_mirror_health{group="us-east",mirror="mirror-1",state="healthy"} 1
-  kscore_mirror_health{group="us-east",mirror="mirror-2",state="degraded"} 0
   ```
 
-#### Read Metrics
+### Read Metrics
 
 **kscore_mirror_read_operations_total**
 
@@ -434,11 +1145,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total number of read operations
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_read_operations_total{group="us-east"} 150000
-  ```
 
 **kscore_mirror_read_bytes_total**
 
@@ -446,11 +1152,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total bytes read from mirrors
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_read_bytes_total{group="us-east"} 1073741824
-  ```
 
 **kscore_mirror_read_errors_total**
 
@@ -458,11 +1159,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total read errors
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_read_errors_total{group="us-east"} 15
-  ```
 
 **kscore_mirror_read_latency_seconds**
 
@@ -471,15 +1167,8 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Labels:
   - `group`: Mirror group ID
 - Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
 
-  ```
-  kscore_mirror_read_latency_seconds_bucket{group="us-east",le="0.01"} 140000
-  kscore_mirror_read_latency_seconds_bucket{group="us-east",le="0.1"} 149000
-  kscore_mirror_read_latency_seconds_bucket{group="us-east",le="+Inf"} 150000
-  ```
-
-#### Write Metrics
+### Write Metrics
 
 **kscore_mirror_write_operations_total**
 
@@ -487,11 +1176,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total number of write operations
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_write_operations_total{group="us-east"} 50000
-  ```
 
 **kscore_mirror_write_bytes_total**
 
@@ -499,11 +1183,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total bytes written to mirrors
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_write_bytes_total{group="us-east"} 536870912
-  ```
 
 **kscore_mirror_write_errors_total**
 
@@ -511,11 +1190,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total write errors
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_write_errors_total{group="us-east"} 5
-  ```
 
 **kscore_mirror_write_latency_seconds**
 
@@ -524,27 +1198,15 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Labels:
   - `group`: Mirror group ID
 - Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
 
-  ```
-  kscore_mirror_write_latency_seconds_bucket{group="us-east",le="0.1"} 45000
-  kscore_mirror_write_latency_seconds_bucket{group="us-east",le="1.0"} 49500
-  kscore_mirror_write_latency_seconds_bucket{group="us-east",le="+Inf"} 50000
-  ```
-
-#### Sync Metrics
+### Sync Metrics
 
 **kscore_mirror_sync_operations_total**
 
 - Type: Counter
-- Description: Total number of sync operations initiated
+- Description: Total sync operations initiated
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_operations_total{group="us-east"} 1000
-  ```
 
 **kscore_mirror_sync_operations_active**
 
@@ -552,11 +1214,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Currently active sync operations
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_operations_active{group="us-east"} 2
-  ```
 
 **kscore_mirror_sync_operations_succeeded_total**
 
@@ -564,11 +1221,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total successful sync operations
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_operations_succeeded_total{group="us-east"} 995
-  ```
 
 **kscore_mirror_sync_operations_failed_total**
 
@@ -576,11 +1228,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total failed sync operations
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_operations_failed_total{group="us-east"} 5
-  ```
 
 **kscore_mirror_sync_bytes_total**
 
@@ -588,11 +1235,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total bytes transferred during sync
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_bytes_total{group="us-east"} 10737418240
-  ```
 
 **kscore_mirror_sync_files_total**
 
@@ -600,11 +1242,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total files synchronized
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_files_total{group="us-east"} 25000
-  ```
 
 **kscore_mirror_sync_conflicts_total**
 
@@ -612,11 +1249,6 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Description: Total sync conflicts detected
 - Labels:
   - `group`: Mirror group ID
-- Example:
-
-  ```
-  kscore_mirror_sync_conflicts_total{group="us-east"} 12
-  ```
 
 **kscore_mirror_sync_latency_seconds**
 
@@ -625,858 +1257,321 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 - Labels:
   - `group`: Mirror group ID
 - Buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- Example:
 
-  ```
-  kscore_mirror_sync_latency_seconds_bucket{group="us-east",le="1.0"} 800
-  kscore_mirror_sync_latency_seconds_bucket{group="us-east",le="10.0"} 990
-  kscore_mirror_sync_latency_seconds_bucket{group="us-east",le="+Inf"} 1000
-  ```
+## File Distribution Metrics
 
-### Database
+Source: `internal/files/ha/metrics.go`
 
-**kscore_db_connections_active**
+All file distribution metrics use the `kscore_files` prefix and include `instance` and `hostname` labels.
 
-- Type: Gauge
-- Description: Active database connections
-- Example:
+### Transfer Metrics
 
-  ```
-  kscore_db_connections_active 15
-  ```
-
-**kscore_db_connections_idle**
-
-- Type: Gauge
-- Description: Idle database connections
-- Example:
-
-  ```
-  kscore_db_connections_idle 5
-  ```
-
-**kscore_db_query_duration_seconds**
-
-- Type: Summary
-- Description: Database query duration
-- Labels:
-  - `operation`: Query type (select, insert, update, delete)
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_db_query_duration_seconds{operation="select",quantile="0.95"} 0.005
-  ```
-
-## Cluster Metrics
-
-### Membership
-
-**kscore_cluster_members_total**
-
-- Type: Gauge
-- Description: Total cluster members
-- Example:
-
-  ```
-  kscore_cluster_members_total 3
-  ```
-
-**kscore_cluster_members_healthy**
-
-- Type: Gauge
-- Description: Healthy cluster members
-- Example:
-
-  ```
-  kscore_cluster_members_healthy 3
-  ```
-
-**kscore_cluster_member_status**
-
-- Type: Gauge
-- Description: Individual member status (1=healthy, 0=unhealthy)
-- Labels:
-  - `member_id`: Member identifier
-  - `address`: Member address
-- Example:
-
-  ```
-  kscore_cluster_member_status{member_id="node-1",address="10.0.0.1:7000"} 1
-  ```
-
-### Leadership
-
-**kscore_cluster_is_leader**
-
-- Type: Gauge
-- Description: Whether this node is the cluster leader (1=leader, 0=follower)
-- Example:
-
-  ```
-  kscore_cluster_is_leader 1
-  ```
-
-**kscore_cluster_has_quorum**
-
-- Type: Gauge
-- Description: Whether cluster has quorum (1=yes, 0=no)
-- Example:
-
-  ```
-  kscore_cluster_has_quorum 1
-  ```
-
-**kscore_cluster_leader_changes_total**
+**kscore_files_transfers_total**
 
 - Type: Counter
-- Description: Total leader elections
-- Example:
+- Description: Total number of file transfers
 
-  ```
-  kscore_cluster_leader_changes_total 5
-  ```
+**kscore_files_transfers_active**
 
-**kscore_cluster_leader_election_duration_seconds**
+- Type: Gauge
+- Description: Current number of active transfers
+
+**kscore_files_transfers_failed_total**
+
+- Type: Counter
+- Description: Total number of failed transfers
+
+**kscore_files_bytes_transferred_total**
+
+- Type: Counter
+- Description: Total bytes transferred
+
+**kscore_files_bytes_uploaded_total**
+
+- Type: Counter
+- Description: Total bytes uploaded
+
+**kscore_files_bytes_downloaded_total**
+
+- Type: Counter
+- Description: Total bytes downloaded
+
+**kscore_files_transfer_latency_seconds**
 
 - Type: Histogram
-- Description: Leader election duration
-- Example:
+- Description: Transfer latency distribution
+- Buckets: 10ms, 50ms, 100ms, 500ms, 1s, 5s, 10s
 
-  ```
-  kscore_cluster_leader_election_duration_seconds_bucket{le="0.1"} 4
-  kscore_cluster_leader_election_duration_seconds_bucket{le="0.5"} 5
-  kscore_cluster_leader_election_duration_seconds_sum 0.85
-  kscore_cluster_leader_election_duration_seconds_count 5
-  ```
+### Cache Metrics
 
-### Rebalancing
-
-**kscore_cluster_rebalance_total**
+**kscore_files_cache_hits_total**
 
 - Type: Counter
-- Description: Total rebalance operations
-- Example:
+- Description: Total cache hits
 
-  ```
-  kscore_cluster_rebalance_total 12
-  ```
-
-**kscore_cluster_rebalance_duration_seconds**
-
-- Type: Histogram
-- Description: Rebalance operation duration
-- Example:
-
-  ```
-  kscore_cluster_rebalance_duration_seconds_bucket{le="1"} 10
-  kscore_cluster_rebalance_duration_seconds_sum 8.5
-  kscore_cluster_rebalance_duration_seconds_count 12
-  ```
-
-**kscore_cluster_agents_moved_total**
+**kscore_files_cache_misses_total**
 
 - Type: Counter
-- Description: Total agents moved during rebalancing
-- Example:
+- Description: Total cache misses
 
-  ```
-  kscore_cluster_agents_moved_total 45
-  ```
-
-### Health
-
-**kscore_cluster_heartbeat_latency_seconds**
-
-- Type: Histogram
-- Description: Inter-member heartbeat latency
-- Labels:
-  - `target`: Target member
-- Example:
-
-  ```
-  kscore_cluster_heartbeat_latency_seconds_bucket{target="node-2",le="0.01"} 950
-  kscore_cluster_heartbeat_latency_seconds_bucket{target="node-2",le="0.05"} 1000
-  kscore_cluster_heartbeat_latency_seconds_sum{target="node-2"} 8.5
-  kscore_cluster_heartbeat_latency_seconds_count{target="node-2"} 1000
-  ```
-
-### etcd Operations
-
-**kscore_cluster_etcd_operations_total**
-
-- Type: Counter
-- Description: Total etcd operations
-- Labels:
-  - `operation`: Operation type (get, put, delete, txn)
-  - `status`: Result status (success, failure)
-- Example:
-
-  ```
-  kscore_cluster_etcd_operations_total{operation="put",status="success"} 5000
-  kscore_cluster_etcd_operations_total{operation="get",status="success"} 50000
-  ```
-
-**kscore_cluster_etcd_operation_duration_seconds**
-
-- Type: Histogram
-- Description: etcd operation duration
-- Labels:
-  - `operation`: Operation type (get, put, delete, txn)
-- Example:
-
-  ```
-  kscore_cluster_etcd_operation_duration_seconds_bucket{operation="get",le="0.001"} 45000
-  kscore_cluster_etcd_operation_duration_seconds_bucket{operation="get",le="0.01"} 50000
-  kscore_cluster_etcd_operation_duration_seconds_sum{operation="get"} 25.5
-  kscore_cluster_etcd_operation_duration_seconds_count{operation="get"} 50000
-  ```
-
-## Agent Metrics
-
-### Agent Status
-
-**kscore_agents_connected**
+**kscore_files_cache_size_bytes**
 
 - Type: Gauge
-- Description: Connected agents
-- Labels:
-  - `datacenter`: Agent datacenter
-  - `environment`: Agent environment
-  - `role`: Agent role
-- Example:
+- Description: Current cache size in bytes
 
-  ```
-  kscore_agents_connected{datacenter="us-east-1",environment="production",role="web"} 50
-  ```
-
-**kscore_agents_disconnected_total**
-
-- Type: Counter
-- Description: Total agent disconnections
-- Labels:
-  - `reason`: Disconnect reason (timeout, graceful, error)
-- Example:
-
-  ```
-  kscore_agents_disconnected_total{reason="timeout"} 25
-  ```
-
-**kscore_agent_heartbeat_received_total**
-
-- Type: Counter
-- Description: Heartbeats received
-- Example:
-
-  ```
-  kscore_agent_heartbeat_received_total 1000000
-  ```
-
-**kscore_agent_heartbeat_missed_total**
-
-- Type: Counter
-- Description: Missed heartbeats
-- Example:
-
-  ```
-  kscore_agent_heartbeat_missed_total 150
-  ```
-
-### Agent Resources
-
-**kscore_agent_cpu_usage_percent**
+**kscore_files_cache_entries**
 
 - Type: Gauge
-- Description: Agent CPU usage
+- Description: Current number of cache entries
+
+**kscore_files_cache_evictions_total**
+
+- Type: Counter
+- Description: Total cache evictions
+
+### Backend Metrics
+
+**kscore_files_backend_requests_total**
+
+- Type: Counter
+- Description: Total backend requests
 - Labels:
-  - `agent_id`: Agent identifier
-- Example:
+  - `backend`: Backend identifier (s3, nats, local, etc.)
 
-  ```
-  kscore_agent_cpu_usage_percent{agent_id="web-01"} 45.2
-  ```
+**kscore_files_backend_errors_total**
 
-**kscore_agent_memory_usage_bytes**
+- Type: Counter
+- Description: Total backend errors
+- Labels:
+  - `backend`: Backend identifier
+
+**kscore_files_backend_latency_avg_seconds**
 
 - Type: Gauge
-- Description: Agent memory usage
+- Description: Average backend latency in seconds
 - Labels:
-  - `agent_id`: Agent identifier
-- Example:
+  - `backend`: Backend identifier
 
-  ```
-  kscore_agent_memory_usage_bytes{agent_id="web-01"} 4294967296
-  ```
+### Queue and Rate Limiting
 
-**kscore_agent_memory_total_bytes**
+**kscore_files_rate_limited_total**
+
+- Type: Counter
+- Description: Total rate-limited requests
+
+**kscore_files_queued_transfers**
 
 - Type: Gauge
-- Description: Agent total memory
-- Labels:
-  - `agent_id`: Agent identifier
-- Example:
+- Description: Current number of queued transfers
 
-  ```
-  kscore_agent_memory_total_bytes{agent_id="web-01"} 8589934592
-  ```
+## Proxy Agent Metrics
 
-**kscore_agent_disk_usage_bytes**
+Source: `internal/proxy/observability/metrics.go`
 
-- Type: Gauge
-- Description: Agent disk usage
-- Labels:
-  - `agent_id`: Agent identifier
-  - `mount`: Mount point
-- Example:
+All proxy metrics use the `kscore_proxy` prefix.
 
-  ```
-  kscore_agent_disk_usage_bytes{agent_id="web-01",mount="/"} 21474836480
-  ```
+### Device Metrics
 
-**kscore_agent_disk_total_bytes**
+**kscore_proxy_devices_total**
 
 - Type: Gauge
-- Description: Agent total disk
-- Labels:
-  - `agent_id`: Agent identifier
-  - `mount`: Mount point
-- Example:
+- Description: Total number of proxied devices
 
-  ```
-  kscore_agent_disk_total_bytes{agent_id="web-01",mount="/"} 107374182400
-  ```
-
-## Execution Metrics
-
-### Commands
-
-**kscore_command_executions_total**
-
-- Type: Counter
-- Description: Commands executed
-- Labels:
-  - `status`: success, failed, timeout
-  - `datacenter`: Target datacenter
-- Example:
-
-  ```
-  kscore_command_executions_total{status="success",datacenter="us-east-1"} 5000
-  ```
-
-**kscore_command_duration_seconds**
-
-- Type: Summary
-- Description: Command execution duration
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_command_duration_seconds{quantile="0.95"} 2.5
-  ```
-
-**kscore_command_target_count**
-
-- Type: Histogram
-- Description: Number of targeted agents
-- Labels:
-  - `le`: Bucket upper bound
-- Example:
-
-  ```
-  kscore_command_target_count_bucket{le="10"} 500
-  kscore_command_target_count_bucket{le="50"} 800
-  ```
-
-### Batch Jobs
-
-**kscore_batch_jobs_total**
-
-- Type: Counter
-- Description: Batch jobs executed
-- Labels:
-  - `status`: completed, failed
-- Example:
-
-  ```
-  kscore_batch_jobs_total{status="completed"} 250
-  ```
-
-**kscore_batch_size**
-
-- Type: Summary
-- Description: Batch size distribution
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_batch_size{quantile="0.95"} 50
-  ```
-
-## State Management Metrics
-
-### State Applications
-
-**kscore_state_applications_total**
-
-- Type: Counter
-- Description: State applications
-- Labels:
-  - `status`: success, failed
-- Example:
-
-  ```
-  kscore_state_applications_total{status="success"} 1000
-  ```
-
-**kscore_state_application_duration_seconds**
-
-- Type: Summary
-- Description: State application duration
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_state_application_duration_seconds{quantile="0.95"} 30
-  ```
-
-### Resources
-
-**kscore_state_resources_total**
+**kscore_proxy_devices_healthy**
 
 - Type: Gauge
-- Description: Resources under management
-- Labels:
-  - `module`: State module (file, package, service, etc.)
-- Example:
+- Description: Number of healthy devices
 
-  ```
-  kscore_state_resources_total{module="file"} 500
-  kscore_state_resources_total{module="package"} 200
-  ```
-
-**kscore_state_changes_total**
-
-- Type: Counter
-- Description: State changes
-- Labels:
-  - `module`: State module
-- Example:
-
-  ```
-  kscore_state_changes_total{module="file"} 150
-  ```
-
-### Drift Detection
-
-**kscore_state_drift_detected_total**
-
-- Type: Counter
-- Description: Drift detections
-- Labels:
-  - `severity`: low, medium, high, critical
-- Example:
-
-  ```
-  kscore_state_drift_detected_total{severity="high"} 25
-  ```
-
-## Event System Metrics
-
-### Events
-
-**kscore_events_published_total**
-
-- Type: Counter
-- Description: Events published
-- Labels:
-  - `type`: Event type
-- Example:
-
-  ```
-  kscore_events_published_total{type="agent.connect"} 500
-  ```
-
-**kscore_events_processed_total**
-
-- Type: Counter
-- Description: Events processed
-- Labels:
-  - `type`: Event type
-- Example:
-
-  ```
-  kscore_events_processed_total{type="job.complete"} 1000
-  ```
-
-**kscore_events_failed_total**
-
-- Type: Counter
-- Description: Event processing failures
-- Labels:
-  - `type`: Event type
-- Example:
-
-  ```
-  kscore_events_failed_total{type="state.drift"} 5
-  ```
-
-**kscore_events_severity_total**
-
-- Type: Counter
-- Description: Events by severity
-- Labels:
-  - `severity`: debug, info, warning, error, critical
-- Example:
-
-  ```
-  kscore_events_severity_total{severity="warning"} 250
-  ```
-
-### Event Processing
-
-**kscore_event_processing_duration_seconds**
-
-- Type: Summary
-- Description: Event processing duration
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_event_processing_duration_seconds{quantile="0.95"} 0.010
-  ```
-
-**kscore_event_lag_seconds**
+**kscore_proxy_devices_degraded**
 
 - Type: Gauge
-- Description: Event processing lag
-- Example:
+- Description: Number of degraded devices
 
-  ```
-  kscore_event_lag_seconds 0.5
-  ```
-
-### Storage
-
-**kscore_events_stored_total**
-
-- Type: Counter
-- Description: Events stored to database
-- Example:
-
-  ```
-  kscore_events_stored_total 500000
-  ```
-
-**kscore_events_storage_errors_total**
-
-- Type: Counter
-- Description: Event storage errors
-- Example:
-
-  ```
-  kscore_events_storage_errors_total 10
-  ```
-
-**kscore_events_count**
+**kscore_proxy_devices_unhealthy**
 
 - Type: Gauge
-- Description: Current event count
-- Labels:
-  - `type`: Event type
-- Example:
+- Description: Number of unhealthy devices
 
-  ```
-  kscore_events_count{type="agent.connect"} 10000
-  ```
-
-### Reactors
-
-**kscore_reactor_executions_total**
-
-- Type: Counter
-- Description: Reactor executions
-- Labels:
-  - `reactor`: Reactor name
-- Example:
-
-  ```
-  kscore_reactor_executions_total{reactor="auto_remediate_drift"} 50
-  ```
-
-**kscore_reactor_failures_total**
-
-- Type: Counter
-- Description: Reactor failures
-- Labels:
-  - `reactor`: Reactor name
-- Example:
-
-  ```
-  kscore_reactor_failures_total{reactor="auto_remediate_drift"} 2
-  ```
-
-**kscore_reactor_duration_seconds**
-
-- Type: Summary
-- Description: Reactor execution duration
-- Labels:
-  - `reactor`: Reactor name
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_reactor_duration_seconds{reactor="auto_remediate_drift",quantile="0.95"} 5.0
-  ```
-
-**kscore_action_executions_total**
-
-- Type: Counter
-- Description: Reactor action executions
-- Labels:
-  - `type`: Action type (command, webhook, etc.)
-  - `name`: Action name
-- Example:
-
-  ```
-  kscore_action_executions_total{type="webhook",name="slack_notify"} 100
-  ```
-
-## Policy Metrics
-
-### Evaluations
-
-**kscore_policy_evaluations_total**
-
-- Type: Counter
-- Description: Policy evaluations
-- Labels:
-  - `policy`: Policy ID
-  - `result`: allowed, denied
-- Example:
-
-  ```
-  kscore_policy_evaluations_total{policy="ssh-hardening",result="allowed"} 900
-  ```
-
-**kscore_policy_evaluation_duration_seconds**
-
-- Type: Summary
-- Description: Policy evaluation duration
-- Labels:
-  - `policy`: Policy ID
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_policy_evaluation_duration_seconds{policy="ssh-hardening",quantile="0.95"} 0.005
-  ```
-
-### Violations
-
-**kscore_policy_violations_total**
-
-- Type: Counter
-- Description: Policy violations
-- Labels:
-  - `policy`: Policy ID
-  - `severity`: low, medium, high, critical
-- Example:
-
-  ```
-  kscore_policy_violations_total{policy="ssh-hardening",severity="high"} 15
-  ```
-
-**kscore_policy_violations_by_agent**
+**kscore_proxy_devices_unknown**
 
 - Type: Gauge
-- Description: Violations per agent
-- Labels:
-  - `agent`: Agent ID
-  - `policy`: Policy ID
-- Example:
+- Description: Number of devices with unknown status
 
-  ```
-  kscore_policy_violations_by_agent{agent="web-01",policy="ssh-hardening"} 2
-  ```
-
-### Compliance
-
-**kscore_policy_compliance_score**
+**kscore_proxy_devices_by_protocol**
 
 - Type: Gauge
-- Description: Compliance score (0-100)
+- Description: Devices by protocol
 - Labels:
-  - `policy_set`: Policy set ID
-  - `environment`: Environment
-- Example:
+  - `protocol`: Protocol type (ssh, snmp, rest, winrm)
 
-  ```
-  kscore_policy_compliance_score{policy_set="security-baseline",environment="production"} 87.5
-  ```
-
-**kscore_policy_compliant_agents**
+**kscore_proxy_devices_by_vendor**
 
 - Type: Gauge
-- Description: Compliant agent count
+- Description: Devices by vendor
 - Labels:
-  - `environment`: Environment
-- Example:
+  - `vendor`: Vendor name
 
-  ```
-  kscore_policy_compliant_agents{environment="production"} 45
-  ```
+### Connection Metrics
 
-### Remediations
-
-**kscore_policy_remediations_total**
+**kscore_proxy_connections_total**
 
 - Type: Counter
-- Description: Policy remediations
-- Labels:
-  - `policy`: Policy ID
-  - `status`: success, failed
-- Example:
+- Description: Total connection attempts
 
-  ```
-  kscore_policy_remediations_total{policy="ssh-hardening",status="success"} 10
-  ```
+**kscore_proxy_connections_active**
 
-## GitOps Metrics
+- Type: Gauge
+- Description: Active connections
 
-### Webhooks
-
-**kscore_gitops_webhooks_received_total**
+**kscore_proxy_connections_failed**
 
 - Type: Counter
-- Description: Webhooks received
-- Labels:
-  - `source`: argocd, flux, github, gitlab
-- Example:
+- Description: Failed connections
 
-  ```
-  kscore_gitops_webhooks_received_total{source="argocd"} 500
-  ```
+**kscore_proxy_connection_latency_avg_ms**
 
-**kscore_gitops_webhooks_failed_total**
+- Type: Gauge
+- Description: Average connection latency in milliseconds
 
-- Type: Counter
-- Description: Webhook processing failures
-- Labels:
-  - `source`: Webhook source
-- Example:
+### Command Metrics
 
-  ```
-  kscore_gitops_webhooks_failed_total{source="argocd"} 5
-  ```
-
-### Verifications
-
-**kscore_gitops_verifications_total**
+**kscore_proxy_commands_total**
 
 - Type: Counter
-- Description: Deployment verifications
-- Labels:
-  - `status`: success, failed
-- Example:
+- Description: Total commands executed
 
-  ```
-  kscore_gitops_verifications_total{status="success"} 450
-  ```
-
-**kscore_gitops_verification_duration_seconds**
-
-- Type: Summary
-- Description: Verification duration
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_gitops_verification_duration_seconds{quantile="0.95"} 60
-  ```
-
-### Rollbacks
-
-**kscore_gitops_rollbacks_total**
+**kscore_proxy_commands_succeeded**
 
 - Type: Counter
-- Description: Rollbacks triggered
-- Labels:
-  - `type`: argocd, flux, git, manual
-  - `status`: success, failed
-- Example:
+- Description: Successful commands
 
-  ```
-  kscore_gitops_rollbacks_total{type="argocd",status="success"} 10
-  ```
-
-**kscore_gitops_rollback_duration_seconds**
-
-- Type: Summary
-- Description: Rollback duration
-- Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_gitops_rollback_duration_seconds{quantile="0.95"} 30
-  ```
-
-### Promotions
-
-**kscore_gitops_promotions_total**
+**kscore_proxy_commands_failed**
 
 - Type: Counter
-- Description: Environment promotions
-- Labels:
-  - `pipeline`: Pipeline name
-  - `status`: success, failed
-- Example:
+- Description: Failed commands
 
-  ```
-  kscore_gitops_promotions_total{pipeline="myapp",status="success"} 25
-  ```
+**kscore_proxy_command_success_rate**
 
-### Git Sync
+- Type: Gauge
+- Description: Command success rate (percentage)
 
-**kscore_gitops_sync_total**
+**kscore_proxy_command_latency_avg_ms**
+
+- Type: Gauge
+- Description: Average command latency in milliseconds
+
+### Protocol-Specific Metrics
+
+**kscore_proxy_ssh_commands_total**
 
 - Type: Counter
-- Description: Git repository syncs
+- Description: Total SSH commands executed
+
+**kscore_proxy_snmp_requests_total**
+
+- Type: Counter
+- Description: Total SNMP requests
+
+**kscore_proxy_rest_requests_total**
+
+- Type: Counter
+- Description: Total REST requests
+
+**kscore_proxy_winrm_commands_total**
+
+- Type: Counter
+- Description: Total WinRM commands executed
+
+### State Metrics
+
+**kscore_proxy_states_applied_total**
+
+- Type: Counter
+- Description: Total states applied to proxied devices
+
+**kscore_proxy_states_succeeded_total**
+
+- Type: Counter
+- Description: Successful state applications
+
+**kscore_proxy_states_failed_total**
+
+- Type: Counter
+- Description: Failed state applications
+
+**kscore_proxy_states_changed_total**
+
+- Type: Counter
+- Description: States that made changes
+
+**kscore_proxy_state_success_rate**
+
+- Type: Gauge
+- Description: State success rate (percentage)
+
+**kscore_proxy_state_latency_avg_ms**
+
+- Type: Gauge
+- Description: Average state application latency in milliseconds
+
+### Drift Metrics
+
+**kscore_proxy_drift_checks_total**
+
+- Type: Counter
+- Description: Total drift checks performed
+
+**kscore_proxy_drift_detected_total**
+
+- Type: Counter
+- Description: Total drift detections
+
+**kscore_proxy_drift_by_severity_total**
+
+- Type: Counter
+- Description: Drift detections by severity
 - Labels:
-  - `repository`: Repository name
-  - `status`: success, failed
-- Example:
+  - `severity`: Severity level
 
-  ```
-  kscore_gitops_sync_total{repository="infrastructure-config",status="success"} 1000
-  ```
+### Discovery Metrics
 
-**kscore_gitops_sync_duration_seconds**
+**kscore_proxy_discovery_scans_total**
 
-- Type: Summary
-- Description: Git sync duration
+- Type: Counter
+- Description: Total discovery scans
+
+**kscore_proxy_discovered_devices_total**
+
+- Type: Counter
+- Description: Total discovered devices
+
+**kscore_proxy_approved_devices_total**
+
+- Type: Counter
+- Description: Total approved devices
+
+**kscore_proxy_rejected_devices_total**
+
+- Type: Counter
+- Description: Total rejected devices
+
+### Error Metrics
+
+**kscore_proxy_errors_total**
+
+- Type: Counter
+- Description: Total errors by type
 - Labels:
-  - `quantile`: 0.5, 0.95, 0.99
-- Example:
-
-  ```
-  kscore_gitops_sync_duration_seconds{quantile="0.95"} 2.0
-  ```
+  - `type`: Error type
 
 ## Query Examples
 
 ### Agent Monitoring
 
-**Agent availability**:
+**Connected agent count**:
 
 ```promql
-100 * sum(kscore_agents_connected) /
-      sum(kscore_agents_connected + kscore_agents_disconnected_total)
+sum(kscore_agents_connected)
 ```
 
 **High CPU agents**:
@@ -1485,11 +1580,10 @@ Metrics for the file distribution mirror system, including mirror health, read/w
 kscore_agent_cpu_usage_percent > 80
 ```
 
-**Low memory agents**:
+**Agent heartbeat staleness** (agents not reporting for >60s):
 
 ```promql
-kscore_agent_memory_usage_bytes /
-kscore_agent_memory_total_bytes > 0.9
+time() - kscore_agent_heartbeat_seconds > 60
 ```
 
 ### Command Execution
@@ -1504,7 +1598,7 @@ kscore_agent_memory_total_bytes > 0.9
 **P95 command latency**:
 
 ```promql
-kscore_command_duration_seconds{quantile="0.95"}
+histogram_quantile(0.95, sum(rate(kscore_command_execution_duration_seconds_bucket[5m])) by (le))
 ```
 
 **Commands per second**:
@@ -1522,16 +1616,16 @@ sum(rate(kscore_command_executions_total[1m]))
       sum(rate(kscore_state_applications_total[5m]))
 ```
 
-**Drift by severity**:
+**Drift detections per hour**:
 
 ```promql
-sum(increase(kscore_state_drift_detected_total[1h])) by (severity)
+sum(increase(kscore_state_drift_detected_total[1h]))
 ```
 
-**Resources per module**:
+**Resources per type**:
 
 ```promql
-sum(kscore_state_resources_total) by (module)
+sum(kscore_state_resources_total) by (type)
 ```
 
 ### Event System
@@ -1548,12 +1642,6 @@ sum(rate(kscore_events_published_total[1m]))
 sum(increase(kscore_events_published_total[1h])) by (type)
 ```
 
-**Event lag**:
-
-```promql
-kscore_event_lag_seconds
-```
-
 **Reactor success rate**:
 
 ```promql
@@ -1567,7 +1655,7 @@ kscore_event_lag_seconds
 **Overall compliance score**:
 
 ```promql
-avg(kscore_policy_compliance_score)
+avg(kscore_compliance_score)
 ```
 
 **Violations by severity**:
@@ -1584,24 +1672,62 @@ topk(10, sum(increase(kscore_policy_violations_total[24h])) by (policy))
 
 ### GitOps
 
-**Webhook failure rate**:
-
-```promql
-100 * sum(rate(kscore_gitops_webhooks_failed_total[5m])) /
-      sum(rate(kscore_gitops_webhooks_received_total[5m]))
-```
-
 **Verification success rate**:
 
 ```promql
-100 * sum(rate(kscore_gitops_verifications_total{status="success"}[5m])) /
-      sum(rate(kscore_gitops_verifications_total[5m]))
+100 * sum(rate(kscore_gitops_deployments_verified_total{status="success"}[5m])) /
+      sum(rate(kscore_gitops_deployments_verified_total[5m]))
 ```
 
 **Rollback frequency**:
 
 ```promql
-sum(increase(kscore_gitops_rollbacks_total[24h]))
+sum(increase(kscore_gitops_rollbacks_triggered_total[24h]))
+```
+
+### NATS Mesh
+
+**Message throughput**:
+
+```promql
+sum(rate(kscore_nats_messages_total[1m])) by (direction)
+```
+
+**Delivery failure rate**:
+
+```promql
+rate(kscore_nats_delivery_failed_total[5m]) /
+(rate(kscore_nats_delivery_acked_total[5m]) + rate(kscore_nats_delivery_failed_total[5m]))
+```
+
+### File Distribution
+
+**Transfer error rate**:
+
+```promql
+rate(kscore_files_transfers_failed_total[5m]) /
+rate(kscore_files_transfers_total[5m])
+```
+
+**Cache hit rate**:
+
+```promql
+rate(kscore_files_cache_hits_total[5m]) /
+(rate(kscore_files_cache_hits_total[5m]) + rate(kscore_files_cache_misses_total[5m]))
+```
+
+### Proxy Agents
+
+**Device health overview**:
+
+```promql
+kscore_proxy_devices_healthy / kscore_proxy_devices_total
+```
+
+**Proxy command success rate**:
+
+```promql
+kscore_proxy_command_success_rate
 ```
 
 ## Alert Examples
@@ -1626,12 +1752,12 @@ for: 5m
 severity: critical
 ```
 
-**Event processing lag**:
+**Cluster quorum lost**:
 
 ```yaml
-alert: HighEventLag
-expr: kscore_event_lag_seconds > 10
-for: 2m
+alert: ClusterQuorumLost
+expr: kscore_cluster_has_quorum == 0
+for: 1m
 severity: critical
 ```
 
@@ -1641,28 +1767,37 @@ severity: critical
 
 ```yaml
 alert: HighAPILatency
-expr: kscore_api_request_duration_seconds{quantile="0.95"} > 1.0
+expr: histogram_quantile(0.95, sum(rate(kscore_api_request_duration_seconds_bucket[5m])) by (le)) > 1.0
 for: 5m
 severity: warning
 ```
 
-**Low agent availability**:
+**High drift rate**:
 
 ```yaml
-alert: LowAgentAvailability
-expr: |
-  100 * sum(kscore_agents_connected) /
-  (sum(kscore_agents_connected) + sum(kscore_agents_disconnected_total)) < 80
+alert: HighDriftRate
+expr: rate(kscore_state_drift_detected_total[5m]) > 0.05
 for: 10m
 severity: warning
 ```
 
-**High drift detection**:
+**NATS delivery failures**:
 
 ```yaml
-alert: HighDriftRate
-expr: rate(kscore_state_drift_detected_total{severity=~"high|critical"}[5m]) > 0.05
-for: 10m
+alert: NATSDeliveryFailures
+expr: rate(kscore_nats_delivery_failed_total[5m]) > 0.01
+for: 5m
+severity: warning
+```
+
+**Low file cache hit rate**:
+
+```yaml
+alert: LowFileCacheHitRate
+expr: >
+  rate(kscore_files_cache_hits_total[5m]) /
+  (rate(kscore_files_cache_hits_total[5m]) + rate(kscore_files_cache_misses_total[5m])) < 0.5
+for: 15m
 severity: warning
 ```
 
@@ -1686,11 +1821,6 @@ groups:
   - name: kscore_aggregations
     interval: 1m
     rules:
-      - record: kscore:agent:availability
-        expr: |
-          100 * sum(kscore_agents_connected) /
-          (sum(kscore_agents_connected) + sum(kscore_agents_disconnected_total))
-
       - record: kscore:command:success_rate
         expr: |
           100 * sum(rate(kscore_command_executions_total{status="success"}[5m])) /
@@ -1698,6 +1828,9 @@ groups:
 
       - record: kscore:events:rate
         expr: sum(rate(kscore_events_published_total[1m]))
+
+      - record: kscore:compliance:avg
+        expr: avg(kscore_compliance_score)
 ```
 
 ## See Also

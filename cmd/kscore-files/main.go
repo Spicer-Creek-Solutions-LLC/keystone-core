@@ -57,7 +57,12 @@ files without requiring direct HTTP/S3 access from agents.`,
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	rootCmd.AddCommand(newServeCommand())
-	rootCmd.AddCommand(newFilesCmd())
+	rootCmd.AddCommand(newFilesListCmd())
+	rootCmd.AddCommand(newFilesGetCmd())
+	rootCmd.AddCommand(newFilesPutCmd())
+	rootCmd.AddCommand(newFilesDeleteCmd())
+	rootCmd.AddCommand(newFilesInfoCmd())
+	rootCmd.AddCommand(newFilesSyncCmd())
 	rootCmd.AddCommand(newCacheCmd())
 	rootCmd.AddCommand(newNamespaceCmd())
 	rootCmd.AddCommand(newVersionCommand())

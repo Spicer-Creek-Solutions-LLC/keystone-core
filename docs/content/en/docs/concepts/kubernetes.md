@@ -62,31 +62,36 @@ Keystone Core defines two primary CRDs for Kubernetes-native operations:
 Enables distributed command execution across Kubernetes clusters:
 
 ```yaml
-apiVersion: keystone.io/v1alpha1
+apiVersion: keystonecore.io/v1
 kind: RemoteExecution
 metadata:
   name: update-config
   namespace: default
 spec:
   target:
-    labelSelector:
-      matchLabels:
-        app: web-server
-    namespaces:
-      - production
+    namespace: production
+    labelSelector: "app=web-server"
   command:
-    shell: /bin/bash
-    script: |
-      kubectl rollout restart deployment/web-app
-  timeout: 300s
-  retries: 3
+    - kubectl
+    - rollout
+    - restart
+    - deployment/web-app
+  timeout: 5m0s
+  mode: pod
 status:
-  phase: Completed
-  completedAt: "2024-01-15T10:30:00Z"
+  phase: Succeeded
+  startTime: "2024-01-15T10:29:00Z"
+  completionTime: "2024-01-15T10:30:00Z"
+  podsExecuted: 1
+  podsSucceeded: 1
+  podsFailed: 0
+  message: "Successfully executed on 1 pods"
   results:
-    - pod: web-server-abc123
+    - podName: web-server-abc123
+      namespace: default
       exitCode: 0
       output: "deployment.apps/web-app restarted"
+      duration: 3s
 ```
 
 #### StateConfig CRD
@@ -94,36 +99,39 @@ status:
 Declarative state management for Kubernetes resources:
 
 ```yaml
-apiVersion: keystone.io/v1alpha1
+apiVersion: keystonecore.io/v1
 kind: StateConfig
 metadata:
   name: nginx-config
   namespace: default
 spec:
+  target:
+    namespace: default
+    labelSelector: "app=nginx"
   states:
-    - module: k8s_namespace
-      id: web-namespace
-      state: present
+    - name: web-namespace
+      module: k8s_namespace
       parameters:
         name: web-apps
         labels:
           team: platform
-    - module: k8s_deployment
-      id: nginx-deployment
-      state: present
+    - name: nginx-deployment
+      module: k8s_deployment
       parameters:
         name: nginx
         namespace: web-apps
         replicas: 3
         image: nginx:1.25
-  driftDetection:
-    enabled: true
-    interval: 5m
+      requisites:
+        require:
+          - web-namespace
 status:
   phase: Applied
   lastApplied: "2024-01-15T10:00:00Z"
-  drift:
-    detected: false
+  podsApplied: 1
+  podsSucceeded: 1
+  podsFailed: 0
+  driftDetected: false
 ```
 
 ### Controllers (Planned)

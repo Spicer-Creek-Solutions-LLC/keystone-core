@@ -5,6 +5,8 @@ description: >
   Offline-capable agents with local caching, connection resilience, and resource-constrained operation for edge deployments.
 ---
 
+> **Note:** The `kscorectl cache`, `kscorectl sync`, and `kscorectl connection` CLI commands shown throughout this document are planned but not yet implemented. The cache and sync concepts described here represent the target design for edge-specific tooling. Edge agents currently use NATS leaf mode with JetStream for connectivity resilience and message persistence. Use `kscorectl agents list --edge` to view edge agents.
+
 ## Overview
 
 Keystone Core supports edge computing scenarios where agents may operate with intermittent connectivity, limited resources, or complete network isolation. The edge subsystem provides local caching, automatic reconnection, and graceful degradation to ensure reliable operation in challenging environments.
@@ -908,14 +910,11 @@ metrics:
 ### Health Checks
 
 ```bash
-# Check edge agent status
-kscorectl agent status --edge
+# List edge agents
+kscorectl agents list --edge
 
-# View cache statistics
-kscorectl cache stats
-
-# Check sync status
-kscorectl sync status
+# Check agent details
+kscorectl agents show <agent-id>
 ```
 
 ## Best Practices

@@ -52,10 +52,18 @@ func (l *InMemoryLogsQuerier) Query(ctx context.Context, query *LogsQuery) (*Log
 
 	startTime := time.Now()
 
+	// Determine effective start time, using pagination cursor if provided
+	effectiveStart := query.Range.Start
+	if query.Start != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, query.Start); err == nil {
+			effectiveStart = parsed
+		}
+	}
+
 	// Filter entries by time range
 	filtered := make([]LogEntry, 0)
 	for _, entry := range l.entries {
-		if entry.Timestamp.After(query.Range.Start) && entry.Timestamp.Before(query.Range.End) {
+		if entry.Timestamp.After(effectiveStart) && entry.Timestamp.Before(query.Range.End) {
 			// Simple query matching - check if query string is in the line
 			if query.Query == "" || containsQuery(entry, query.Query) {
 				filtered = append(filtered, entry)
@@ -254,7 +262,13 @@ func (l *LokiQuerier) Query(ctx context.Context, query *LogsQuery) (*LogsResult,
 	// Build query parameters
 	params := url.Values{}
 	params.Set("query", query.Query)
-	params.Set("start", strconv.FormatInt(query.Range.Start.UnixNano(), 10))
+
+	// Use pagination cursor as start if provided, otherwise use range start
+	if query.Start != "" {
+		params.Set("start", query.Start)
+	} else {
+		params.Set("start", strconv.FormatInt(query.Range.Start.UnixNano(), 10))
+	}
 	params.Set("end", strconv.FormatInt(query.Range.End.UnixNano(), 10))
 
 	if query.Limit > 0 {

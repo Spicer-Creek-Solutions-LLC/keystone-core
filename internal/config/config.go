@@ -61,6 +61,7 @@ type Config struct {
 	Metrics   MetricsConfig
 	Tracing   TracingConfig
 	Health    HealthConfig
+	Profiling ProfilingConfig
 }
 
 // LoggingConfig contains logging settings
@@ -176,6 +177,18 @@ type TracingSamplingConfig struct {
 	Strategy string
 	// Ratio is the sampling ratio (0.0-1.0) when Strategy is "ratio"
 	Ratio float64
+}
+
+// ProfilingConfig contains pprof profiling settings
+type ProfilingConfig struct {
+	// Enabled controls whether profiling endpoints are enabled (default: false)
+	Enabled bool
+	// Listen address for profiling server (default: "localhost:6060")
+	Listen string
+	// BlockProfileRate controls the fraction of goroutine blocking events reported (0 = disabled)
+	BlockProfileRate int
+	// MutexProfileFraction controls the fraction of mutex contention events reported (0 = disabled)
+	MutexProfileFraction int
 }
 
 // HealthConfig contains health check settings
@@ -848,6 +861,12 @@ const (
 	DefaultTracingSamplingStrategy = "ratio"
 	DefaultTracingSamplingRatio    = 0.1
 
+	// Profiling defaults
+	DefaultProfilingEnabled          = false
+	DefaultProfilingListen           = "localhost:6060"
+	DefaultProfilingBlockProfileRate = 0
+	DefaultProfilingMutexFraction    = 0
+
 	// Health check defaults
 	DefaultHealthEnabled            = true
 	DefaultHealthStartupGracePeriod = 30 * time.Second
@@ -1102,6 +1121,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tracing.exporter", DefaultTracingExporter)
 	v.SetDefault("tracing.sampling.strategy", DefaultTracingSamplingStrategy)
 	v.SetDefault("tracing.sampling.ratio", DefaultTracingSamplingRatio)
+
+	// Profiling defaults
+	v.SetDefault("profiling.enabled", DefaultProfilingEnabled)
+	v.SetDefault("profiling.listen", DefaultProfilingListen)
+	v.SetDefault("profiling.blockprofilerate", DefaultProfilingBlockProfileRate)
+	v.SetDefault("profiling.mutexprofilefraction", DefaultProfilingMutexFraction)
 
 	// Health check defaults
 	v.SetDefault("health.enabled", DefaultHealthEnabled)
@@ -1360,6 +1385,13 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate profiling config
+	if c.Profiling.Enabled {
+		if c.Profiling.Listen == "" {
+			return fmt.Errorf("profiling listen address is required when profiling is enabled")
+		}
+	}
+
 	// Validate health check config
 	if c.Health.Enabled {
 		if c.Health.StartupGracePeriod < 0 {
@@ -1380,6 +1412,47 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// Redact returns a copy of the config with sensitive fields replaced by "[REDACTED]".
+// This is used when exposing config via the API to avoid leaking secrets.
+func (c *Config) Redact() Config {
+	redacted := *c
+
+	// Auth: JWT secret
+	if redacted.Auth.JWT.Secret != "" {
+		redacted.Auth.JWT.Secret = "[REDACTED]"
+	}
+
+	// Auth: API key map (keys are the secret values)
+	if len(redacted.Auth.APIKey.Keys) > 0 {
+		redactedKeys := make(map[string]APIKeyConfig, len(redacted.Auth.APIKey.Keys))
+		i := 0
+		for _, v := range redacted.Auth.APIKey.Keys {
+			key := fmt.Sprintf("[REDACTED-%d]", i)
+			redactedKeys[key] = v
+			i++
+		}
+		redacted.Auth.APIKey.Keys = redactedKeys
+	}
+
+	// NATS credentials
+	if redacted.NATS.Token != "" {
+		redacted.NATS.Token = "[REDACTED]"
+	}
+	if redacted.NATS.Credential != "" {
+		redacted.NATS.Credential = "[REDACTED]"
+	}
+
+	// Webhook secrets
+	if redacted.Webhook.HMACSecret != "" {
+		redacted.Webhook.HMACSecret = "[REDACTED]"
+	}
+	if redacted.Webhook.BearerToken != "" {
+		redacted.Webhook.BearerToken = "[REDACTED]"
+	}
+
+	return redacted
 }
 
 func validateTLSMinVersion(value, field string) error {

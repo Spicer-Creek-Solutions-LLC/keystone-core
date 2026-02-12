@@ -7,7 +7,7 @@ description: >
 
 The Query API provides a unified interface for querying observability data from various backends. It supports metrics (Prometheus), logs (Loki), and traces (Jaeger) through a consistent API.
 
-> **Note:** The Query API is an internal package (`internal/query`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. For external integrations, use the gRPC or REST API endpoints instead.
+> **Note:** The Query API is an internal package (`internal/query`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. External query API endpoints (REST/gRPC) are not yet available.
 
 ## Overview
 
@@ -470,10 +470,12 @@ result, err := querier.Query(ctx, query)
 
 ### Pagination
 
-For large result sets, use pagination:
+For large result sets, use pagination. The `Start` cursor format depends on the backend:
+- **LokiQuerier**: Nanosecond Unix timestamp string (passed directly to the Loki API `start` parameter)
+- **InMemoryLogsQuerier**: RFC 3339 Nano formatted timestamp
 
 ```go
-// Logs pagination
+// Logs pagination (Loki backend)
 var allEntries []query.LogEntry
 start := ""
 
@@ -494,8 +496,9 @@ for {
         break // No more results
     }
 
-    // Get cursor for next page from last entry
-    start = result.Entries[len(result.Entries)-1].Timestamp.String()
+    // Get cursor for next page from last entry timestamp
+    lastTS := result.Entries[len(result.Entries)-1].Timestamp
+    start = strconv.FormatInt(lastTS.UnixNano(), 10)
 }
 ```
 

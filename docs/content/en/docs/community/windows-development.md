@@ -209,12 +209,12 @@ dlv test ./internal/statemgmt -- -test.run TestWinService
 ### Console Mode (Development)
 
 ```powershell
-# Run agent in console mode (not as service)
-.\build\bin\kscore-agent.exe --config config\agent.yaml --console
+# Run agent in foreground (not as service)
+.\build\bin\kscore-agent.exe --config config\agent.yaml
 
 # With debug logging
 $env:KSCORE_LOG_LEVEL = 'debug'
-.\build\bin\kscore-agent.exe --console
+.\build\bin\kscore-agent.exe --config config\agent.yaml
 ```
 
 ### Service Mode (Testing)
@@ -323,7 +323,7 @@ go mod tidy
 2. Go to Settings > Go > GOROOT and verify Go installation
 3. Go to Settings > Go > Go Modules and enable
 4. Run Configuration:
-   - Program arguments: `--config config/agent.yaml --console`
+   - Program arguments: `--config config/agent.yaml`
    - Working directory: project root
 
 ## Contributing Windows Changes

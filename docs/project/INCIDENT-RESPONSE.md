@@ -217,7 +217,7 @@ Maintain an up-to-date contact list including:
 
    ```bash
    # Restore from known-good backup
-   kscorectl backup restore --backup-id <id> --target <agent-id>
+   kscorectl backup restore <backup-id> --target <agent-id>
 
    # Verify system integrity
    kscorectl state check --target "<restored-agents>"
@@ -344,7 +344,7 @@ Maintain an up-to-date contact list including:
 4. ERADICATE
    # Rotate all credentials
    # Restore from backup if needed
-   kscorectl backup restore --backup-id <known-good>
+   kscorectl backup restore <known-good>
 
 5. RECOVER
    # Re-issue all API keys
@@ -389,7 +389,7 @@ Maintain an up-to-date contact list including:
 
 2. CONTAIN
    # Remove affected module from registry and agents
-   kscorectl module verify <module-name>@<version>
+   kscorectl module verify <module-file.zip>
    # Manually remove the module version from the registry if compromised
 
    # Search audit logs for module activity

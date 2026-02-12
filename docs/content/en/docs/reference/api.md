@@ -1892,7 +1892,74 @@ service CoordinationService {
 }
 ```
 
-**RecoveryAction Types**:
+#### ClusterHealth
+
+Returns cluster health from the responding server's perspective.
+
+| Request Field | Type | Description |
+|---------------|------|-------------|
+| `request_id` | string | Correlation ID |
+| `include_members` | bool | Include per-member status details |
+| `include_nats` | bool | Include NATS connectivity status |
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `status` | ClusterHealthStatus | `HEALTHY`, `DEGRADED`, `UNHEALTHY`, `UNKNOWN` |
+| `healthy_members` | int32 | Number of healthy members |
+| `total_members` | int32 | Total member count |
+| `has_quorum` | bool | Whether the cluster has quorum |
+| `leader_id` | string | Current leader ID |
+| `members` | repeated MemberStatus | Per-member details (if requested) |
+| `nats_status` | NATSClusterStatus | NATS cluster details (if requested) |
+
+#### GetLeader
+
+Returns information about the current cluster leader.
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `has_leader` | bool | Whether a leader exists |
+| `leader_id` | string | Leader member ID |
+| `leader_address` | string | Leader address (host:port) |
+| `leader_term` | int64 | Leadership term/epoch |
+| `leader_since` | Timestamp | When leadership was acquired |
+
+#### NATSStatus
+
+Returns NATS connectivity status for the responding server.
+
+| Request Field | Type | Description |
+|---------------|------|-------------|
+| `requester_id` | string | Server ID making the request |
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `server_id` | string | Responding server ID |
+| `connection_status` | NATSConnectionStatus | `CONNECTED`, `CONNECTING`, `RECONNECTING`, `DISCONNECTED`, `CLOSED` |
+| `connected_urls` | repeated string | NATS server URLs currently connected to |
+| `jetstream_status` | JetStreamStatus | JetStream availability, domain, stream/consumer counts |
+| `last_publish` | Timestamp | Last successful publish |
+| `last_subscribe` | Timestamp | Last successful subscribe |
+| `error` | string | Error details if unhealthy |
+
+#### RecoveryCoordinate
+
+Coordinates NATS recovery actions across cluster servers.
+
+| Request Field | Type | Description |
+|---------------|------|-------------|
+| `initiator_id` | string | Server initiating recovery |
+| `action` | RecoveryAction | Recovery action to take |
+| `target_server` | string | Target NATS server (if applicable) |
+| `parameters` | map\<string,string\> | Action-specific parameters |
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `accepted` | bool | Whether the action was accepted |
+| `state` | RecoveryState | `IDLE`, `IN_PROGRESS`, `COMPLETED`, `FAILED` |
+| `error` | string | Error message if not accepted |
+
+**RecoveryAction values:**
 
 - `RESTART_EMBEDDED` - Restart the embedded NATS server (embedded mode only)
 - `RECONNECT` - Force reconnection to NATS servers
@@ -1901,13 +1968,142 @@ service CoordinationService {
 - `PAUSE` - Pause operations during recovery
 - `RESUME` - Resume normal operations
 
-**StateUpdateType Types**:
+#### Heartbeat
+
+Lightweight liveness check between servers.
+
+| Request Field | Type | Description |
+|---------------|------|-------------|
+| `sender_id` | string | Sending server ID |
+| `timestamp` | Timestamp | Sender's current time |
+| `sequence` | int64 | Sequence number for ordering |
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `responder_id` | string | Responding server ID |
+| `sequence` | int64 | Echoed sequence number |
+| `latency` | Duration | Round-trip latency measured by responder |
+
+#### PropagateState
+
+Propagates cluster state changes when NATS is unavailable.
+
+| Request Field | Type | Description |
+|---------------|------|-------------|
+| `sender_id` | string | Server sending the update |
+| `update_type` | StateUpdateType | Type of state update |
+| `state_data` | bytes | Serialized state payload |
+| `version` | int64 | State version/sequence |
+| `state_timestamp` | Timestamp | Original state change time |
+
+| Response Field | Type | Description |
+|----------------|------|-------------|
+| `applied` | bool | Whether the update was applied |
+| `current_version` | int64 | Current version on responding server |
+| `error` | string | Error message if not applied |
+
+**StateUpdateType values:**
 
 - `AGENT_REGISTER` - Agent registration propagation
 - `AGENT_HEARTBEAT` - Agent heartbeat propagation
 - `AGENT_DISCONNECT` - Agent disconnect propagation
 - `COMMAND_RESULT` - Command result propagation
 - `MEMBERSHIP_CHANGE` - Cluster membership change propagation
+
+### Streaming gRPC Methods
+
+Three gRPC methods use server-side streaming to push real-time updates to clients. All streaming RPCs return a long-lived stream that the server writes to as events occur. Clients should implement reconnection logic with backoff when the stream ends or errors.
+
+#### SubscribeEvents
+
+Subscribes to the event bus in real time. Supports filtering by type, source, severity, tags, and CEL expressions.
+
+**Request fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `types` | repeated string | Event type patterns (empty = all) |
+| `sources` | repeated string | Filter by event sources (empty = all) |
+| `min_severity` | EventSeverity | Minimum severity level |
+| `tags` | map\<string,string\> | All tags must match |
+| `filter` | string | CEL filter expression |
+| `replay_seconds` | int32 | Include historical events from the last N seconds (0 = real-time only) |
+| `queue_group` | string | Queue group name for load-balanced consumption |
+
+**Response:** stream of `Event` messages, each containing `id`, `type`, `source`, `severity`, `timestamp`, `data`, and `tags`.
+
+```python
+import grpc
+from kscore.proto import event_pb2, event_pb2_grpc
+
+channel = grpc.insecure_channel('control-plane:9090')
+stub = event_pb2_grpc.EventServiceStub(channel)
+
+request = event_pb2.SubscribeEventsRequest(
+    types=["agent.*", "exec.*"],
+    replay_seconds=60,
+)
+
+for event in stub.SubscribeEvents(request):
+    print(f"{event.timestamp} [{event.type}] {event.source}: {event.data}")
+```
+
+#### WatchMembership
+
+Watches for cluster membership changes (nodes joining, leaving, failing).
+
+**Request fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `types` | repeated MembershipEventType | Filter by event types (empty = all) |
+| `member_ids` | repeated string | Filter by member IDs (empty = all) |
+
+**MembershipEventType values:** `JOINED`, `LEFT`, `FAILED`, `RECOVERED`, `UPDATED`
+
+**Response:** stream of `MembershipEvent` messages, each containing `type`, `member` (with `id`, `name`, address, role, status), `timestamp`, and `reason`.
+
+```go
+stream, err := clusterClient.WatchMembership(ctx, &clusterpb.WatchMembershipRequest{
+    Types: []clusterpb.MembershipEventType{
+        clusterpb.MEMBERSHIP_EVENT_TYPE_JOINED,
+        clusterpb.MEMBERSHIP_EVENT_TYPE_FAILED,
+    },
+})
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    log.Printf("Member %s %s: %s", event.Member.Id, event.Type, event.Reason)
+}
+```
+
+#### WatchLeadership
+
+Watches for cluster leadership changes (elections, resignations, failovers).
+
+**Request fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `types` | repeated LeadershipEventType | Filter by event types (empty = all) |
+
+**LeadershipEventType values:** `ELECTED`, `RESIGNED`, `LOST`, `TRANSFERRED`
+
+**Response:** stream of `LeadershipEvent` messages, each containing `type`, `leader_id`, `previous_leader_id`, `timestamp`, and `reason`.
+
+```go
+stream, err := clusterClient.WatchLeadership(ctx, &clusterpb.WatchLeadershipRequest{})
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    log.Printf("Leadership %s: %s -> %s (%s)",
+        event.Type, event.PreviousLeaderId, event.LeaderId, event.Reason)
+}
+```
 
 ## Rate Limiting
 

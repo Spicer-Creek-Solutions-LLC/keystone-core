@@ -728,6 +728,83 @@ func TestExecuteCommand_NoArgs(t *testing.T) {
 	}
 }
 
+func TestExecuteCommand_InputFlag(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--input", "version=1.2.0", "--input", "env=prod"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute with --input: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Execution started:") {
+		t.Error("expected 'Execution started:' in output")
+	}
+	if !strings.Contains(out, "version = 1.2.0") {
+		t.Error("expected 'version' variable in output")
+	}
+	if !strings.Contains(out, "env = prod") {
+		t.Error("expected 'env' variable in output")
+	}
+}
+
+func TestExecuteCommand_InputFlagExists(t *testing.T) {
+	cmd := newRootCmd()
+	execCmd, _, err := cmd.Find([]string{"execute"})
+	if err != nil {
+		t.Fatalf("could not find execute command: %v", err)
+	}
+	if execCmd.Flags().Lookup("input") == nil {
+		t.Error("expected --input flag on execute command")
+	}
+}
+
+func TestExecuteCommand_MixedVarAndInput(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--var", "version=1.2.0", "--input", "env=prod"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute with mixed --var and --input: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "version = 1.2.0") {
+		t.Error("expected --var value in output")
+	}
+	if !strings.Contains(out, "env = prod") {
+		t.Error("expected --input value in output")
+	}
+}
+
+func TestExecuteCommand_InputDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"execute", "deploy-service", "--input", "version=2.0.0", "--dry-run"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute --input --dry-run: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Dry run:") {
+		t.Error("expected 'Dry run:' in output")
+	}
+	if !strings.Contains(out, "version = 2.0.0") {
+		t.Error("expected --input variable in dry run output")
+	}
+}
+
 // ============================================================================
 // Status Command Tests
 // ============================================================================
@@ -930,13 +1007,72 @@ func TestListExecutionsCommand_Limit(t *testing.T) {
 	}
 }
 
+func TestListExecutionsCommand_SinceFlagExists(t *testing.T) {
+	cmd := newRootCmd()
+	listExecCmd, _, err := cmd.Find([]string{"list-executions"})
+	if err != nil {
+		t.Fatalf("could not find list-executions command: %v", err)
+	}
+	if listExecCmd.Flags().Lookup("since") == nil {
+		t.Error("expected --since flag on list-executions command")
+	}
+}
+
+func TestListExecutionsCommand_SinceFilters(t *testing.T) {
+	// Sample data has dates in Jan 2025. A --since of "2025-01-14" should
+	// exclude entries before that date.
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"list-executions", "--since", "2025-01-14"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	// exec-j1k2l3 started 2025-01-13, should be excluded
+	if strings.Contains(out, "exec-j1k2l3") {
+		t.Error("expected exec-j1k2l3 (2025-01-13) to be filtered out by --since 2025-01-14")
+	}
+	// exec-a1b2c3 started 2025-01-15, should be included
+	if !strings.Contains(out, "exec-a1b2c3") {
+		t.Error("expected exec-a1b2c3 (2025-01-15) to be included")
+	}
+}
+
+func TestParseSinceValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"days shorthand", "7d", false},
+		{"hours duration", "24h", false},
+		{"date format", "2026-01-01", false},
+		{"minutes duration", "30m", false},
+		{"invalid", "foobar", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseSinceValue(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseSinceValue(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 // ============================================================================
 // Audit Command Tests
 // ============================================================================
 
-func TestAuditCommand(t *testing.T) {
+func TestAuditShowCommand(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "deploy-service"})
+	cmd.SetArgs([]string{"audit", "show", "deploy-service"})
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -958,9 +1094,9 @@ func TestAuditCommand(t *testing.T) {
 	}
 }
 
-func TestAuditCommand_NotFound(t *testing.T) {
+func TestAuditShowCommand_NotFound(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "nonexistent-runbook"})
+	cmd.SetArgs([]string{"audit", "show", "nonexistent-runbook"})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -968,9 +1104,9 @@ func TestAuditCommand_NotFound(t *testing.T) {
 	}
 }
 
-func TestAuditCommand_JSONOutput(t *testing.T) {
+func TestAuditShowCommand_JSONOutput(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "deploy-service", "-o", "json"})
+	cmd.SetArgs([]string{"audit", "show", "deploy-service", "-o", "json"})
 
 	err := cmd.Execute()
 	if err != nil {
@@ -978,9 +1114,9 @@ func TestAuditCommand_JSONOutput(t *testing.T) {
 	}
 }
 
-func TestAuditCommand_YAMLOutput(t *testing.T) {
+func TestAuditShowCommand_YAMLOutput(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "deploy-service", "-o", "yaml"})
+	cmd.SetArgs([]string{"audit", "show", "deploy-service", "-o", "yaml"})
 
 	err := cmd.Execute()
 	if err != nil {
@@ -988,9 +1124,9 @@ func TestAuditCommand_YAMLOutput(t *testing.T) {
 	}
 }
 
-func TestAuditCommand_Limit(t *testing.T) {
+func TestAuditShowCommand_Limit(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "deploy-service", "--limit", "2"})
+	cmd.SetArgs([]string{"audit", "show", "deploy-service", "--limit", "2"})
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -1006,13 +1142,244 @@ func TestAuditCommand_Limit(t *testing.T) {
 	}
 }
 
-func TestAuditCommand_NoArgs(t *testing.T) {
+func TestAuditShowCommand_NoArgs(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit"})
+	cmd.SetArgs([]string{"audit", "show"})
 
 	err := cmd.Execute()
 	if err == nil {
 		t.Error("expected error when no args provided")
+	}
+}
+
+func TestAuditListCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "list"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Runbook audit events") {
+		t.Error("expected 'Runbook audit events' header")
+	}
+	if !strings.Contains(out, "RUNBOOK") {
+		t.Error("expected RUNBOOK column header")
+	}
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected deploy-service in output")
+	}
+	if !strings.Contains(out, "rotate-credentials") {
+		t.Error("expected rotate-credentials in output")
+	}
+}
+
+func TestAuditListCommand_FilterByRunbook(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "list", "--runbook", "deploy-service"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deploy-service") {
+		t.Error("expected deploy-service in output")
+	}
+	if strings.Contains(out, "rotate-credentials") {
+		t.Error("should not contain rotate-credentials when filtered")
+	}
+}
+
+func TestAuditListCommand_FilterByRunbook_NotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "list", "--runbook", "nonexistent"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent runbook")
+	}
+}
+
+func TestAuditListCommand_Flags(t *testing.T) {
+	cmd := newRootCmd()
+	auditCmd, _, err := cmd.Find([]string{"audit", "list"})
+	if err != nil {
+		t.Fatalf("Find audit list: %v", err)
+	}
+
+	for _, flag := range []string{"runbook", "start", "end", "limit"} {
+		if auditCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag", flag)
+		}
+	}
+}
+
+func TestAuditListCommand_Limit(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "list", "--limit", "3"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Total: 3") {
+		t.Errorf("expected 'Total: 3' in output, got: %s", out)
+	}
+}
+
+func TestGenerateAllAuditEntries(t *testing.T) {
+	entries := generateAllAuditEntries()
+	if len(entries) == 0 {
+		t.Fatal("expected audit entries")
+	}
+	for _, e := range entries {
+		if e.Runbook == "" {
+			t.Error("expected Runbook field to be set")
+		}
+	}
+	// Should have entries for multiple runbooks
+	runbooks := make(map[string]bool)
+	for _, e := range entries {
+		runbooks[e.Runbook] = true
+	}
+	if len(runbooks) < 2 {
+		t.Errorf("expected entries from multiple runbooks, got %d", len(runbooks))
+	}
+}
+
+func TestAuditReportCommand(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "report"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Compliance Report") {
+		t.Error("expected 'Compliance Report' header")
+	}
+	if !strings.Contains(out, "Summary:") {
+		t.Error("expected 'Summary:' section")
+	}
+	if !strings.Contains(out, "Total events:") {
+		t.Error("expected 'Total events:' in summary")
+	}
+	if !strings.Contains(out, "By Runbook:") {
+		t.Error("expected 'By Runbook:' section")
+	}
+	if !strings.Contains(out, "By User:") {
+		t.Error("expected 'By User:' section")
+	}
+}
+
+func TestAuditReportCommand_DetailedFormat(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "report", "--format", "detailed"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Compliance Report") {
+		t.Error("expected 'Compliance Report' header")
+	}
+	if !strings.Contains(out, "All Events:") {
+		t.Error("expected 'All Events:' section in detailed format")
+	}
+	if !strings.Contains(out, "TIMESTAMP") {
+		t.Error("expected column headers in detailed format")
+	}
+}
+
+func TestAuditReportCommand_CSVFormat(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "report", "--format", "csv"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "timestamp,runbook,user,action,details") {
+		t.Error("expected CSV header row")
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) < 2 {
+		t.Errorf("expected at least header + 1 data row, got %d lines", len(lines))
+	}
+}
+
+func TestAuditReportCommand_FilterByRunbook(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "report", "--runbook", "deploy-service"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deploy-service:") {
+		t.Error("expected deploy-service in report")
+	}
+	if strings.Contains(out, "rotate-credentials:") {
+		t.Error("should not contain rotate-credentials when filtered")
+	}
+}
+
+func TestAuditReportCommand_InvalidFormat(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "report", "--format", "invalid"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid format")
+	}
+}
+
+func TestAuditReportCommand_Flags(t *testing.T) {
+	cmd := newRootCmd()
+	reportCmd, _, err := cmd.Find([]string{"audit", "report"})
+	if err != nil {
+		t.Fatalf("Find audit report: %v", err)
+	}
+
+	for _, flag := range []string{"format", "start", "end", "runbook"} {
+		if reportCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag", flag)
+		}
 	}
 }
 
@@ -1110,6 +1477,86 @@ func TestTestCommand_NoArgs(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Error("expected error when no args provided")
+	}
+}
+
+func TestTestCommand_MockFileFlagExists(t *testing.T) {
+	cmd := newRootCmd()
+	testCmd, _, err := cmd.Find([]string{"test"})
+	if err != nil {
+		t.Fatalf("Find test command: %v", err)
+	}
+
+	f := testCmd.Flags().Lookup("mock-file")
+	if f == nil {
+		t.Fatal("expected --mock-file flag")
+	}
+	if f.DefValue != "" {
+		t.Errorf("expected empty default, got %q", f.DefValue)
+	}
+}
+
+func TestTestCommand_WithMockFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockFile := filepath.Join(tmpDir, "mocks.json")
+	if err := os.WriteFile(mockFile, []byte(`[{"step":"deploy","response":{"status":"ok"}}]`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--mock-file", mockFile, "--verbose"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Mock handler validation") {
+		t.Error("expected 'Mock handler validation' in output")
+	}
+	if !strings.Contains(out, "1 mock handler(s)") {
+		t.Error("expected mock handler count in output")
+	}
+	if !strings.Contains(out, "[PASS]") {
+		t.Error("expected PASS for mock validation")
+	}
+}
+
+func TestTestCommand_MockFileNotFound(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--mock-file", "/nonexistent/mocks.json"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent mock file")
+	}
+}
+
+func TestTestCommand_MockFileInvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockFile := filepath.Join(tmpDir, "bad.json")
+	if err := os.WriteFile(mockFile, []byte(`not valid json`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"test", "deploy-service", "--mock-file", mockFile, "--verbose"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid JSON mock file")
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "[FAIL] Mock handler validation") {
+		t.Error("expected FAIL for mock validation with invalid JSON")
 	}
 }
 

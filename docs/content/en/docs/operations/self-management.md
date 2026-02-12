@@ -693,10 +693,7 @@ kscorectl cluster remove ks-server-2
 # 2. Provision replacement node
 
 # 3. Join new node to cluster
-# Use the join token from initial bootstrap or existing cluster config
-kscorectl bootstrap import \
-  --join https://ks-server-1:8080 \
-  --token $CLUSTER_JOIN_TOKEN
+kscorectl cluster join https://ks-server-1:8080 --token $CLUSTER_JOIN_TOKEN
 ```
 
 #### Complete Cluster Loss
@@ -729,9 +726,7 @@ kscorectl cluster health
 # 3. Restore network connectivity
 
 # 4. Re-join nodes from non-authoritative partition
-kscorectl bootstrap import \
-  --join https://authoritative-leader:8080 \
-  --force-rejoin
+kscorectl cluster join https://authoritative-leader:8080 --token $CLUSTER_JOIN_TOKEN
 ```
 
 ### Recovery Validation
@@ -741,7 +736,7 @@ kscorectl bootstrap import \
 kscorectl cluster health --verbose
 
 # Verify agent connectivity
-kscorectl agent list --status
+kscorectl agents list
 
 # Verify state integrity
 kscorectl state check /etc/keystone-core/states/*.yaml
@@ -761,13 +756,13 @@ kscorectl test integration --suite recovery
 3. Verify backup: `kscorectl cluster-backup verify /backup/pre-maintenance/...`
 
 ## During Maintenance
-4. Enable maintenance mode: `kscorectl maintenance enable`
+4. Start maintenance window: `kscorectl maintenance start <window-id>`
 5. Perform maintenance tasks
-6. Disable maintenance mode: `kscorectl maintenance disable`
+6. End maintenance window: `kscorectl maintenance end <window-id>`
 
 ## Post-Maintenance
 7. Verify cluster health: `kscorectl cluster health`
-8. Verify agent connectivity: `kscorectl agent list --status`
+8. Verify agent connectivity: `kscorectl agents list`
 9. Run smoke tests
 10. Notify stakeholders of completion
 ```
@@ -795,17 +790,16 @@ kscorectl test integration --suite recovery
 
 ```markdown
 ## Pre-Rotation
-1. Verify current cert expiry: `kscorectl certs status`
+1. Verify current cert expiry: `kscorectl identity ca status`
 2. Create backup: `kscorectl cluster-backup create --components certificates`
 
 ## Rotation
-3. Generate new certificates:
+3. Rotate CA certificates:
    ```bash
-   kscorectl certs rotate --component server
-   kscorectl certs rotate --component agent
+   kscorectl identity ca rotate --graceful
    ```
 
-1. Distribute new certificates:
+4. Distribute new certificates:
 
    ```bash
    kscorectl state apply /etc/keystone-core/states/certificates.yaml
@@ -813,8 +807,8 @@ kscorectl test integration --suite recovery
 
 ## Verification
 
-1. Verify new certificates: `kscorectl certs verify`
-2. Test connectivity: `kscorectl agent ping --all`
+5. Verify certificates: `kscorectl identity svid list`
+6. Verify agent connectivity: `kscorectl agents list`
 
 ```
 

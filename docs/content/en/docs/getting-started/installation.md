@@ -104,7 +104,7 @@ sudo systemctl start kscore-server
 |---------|----------|
 | `kscore-server` | Control plane server, systemd service, default config |
 | `kscore-agent` | Agent daemon, systemd service, default config |
-| `kscore-cli` | CLI tools (kscorectl, kscore-exec, kscore-state, kscore-monitor) |
+| `kscore-cli` | CLI dispatcher and all plugin binaries: kscorectl, kscore-agents, kscore-audit, kscore-backup, kscore-blueprint, kscore-blueprint-publish, kscore-blueprint-state, kscore-bootstrap, kscore-cluster, kscore-cluster-backup, kscore-events, kscore-exec, kscore-federation, kscore-files, kscore-files-storage, kscore-gitops, kscore-identity, kscore-migrate, kscore-module, kscore-monitor, kscore-policy, kscore-proxy, kscore-runbook, kscore-schedule, kscore-secrets, kscore-state, kscore-upgrade, kscore-webhook |
 
 ### Method 3: Build from Source
 

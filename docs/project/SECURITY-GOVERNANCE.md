@@ -205,11 +205,9 @@ All PRs are automatically labeled by CI based on files changed. PRs with securit
 
 **Security-Sensitive Areas** (require security review):
 
-- `pkg/security/*` - Security utilities
-- `pkg/auth/*` - Authentication
-- `pkg/authz/*` - Authorization
-- `pkg/crypto/*` - Cryptography
-- `pkg/audit/*` - Audit logging
+- `internal/security/*` - Security utilities
+- `internal/audit/*` - Audit logging
+- `pkg/api/auth/*` - API authentication
 - `cmd/*/exec*` - Command execution
 - `internal/policy/*` - Policy enforcement
 - Any file containing `password`, `secret`, `token`, `credential`

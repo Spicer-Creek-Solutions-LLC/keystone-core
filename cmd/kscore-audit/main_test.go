@@ -27,7 +27,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "log", "report", "export", "stats", "search", "analyze", "timeline"}
+	expectedCommands := []string{"version", "log", "report", "export", "stats", "search", "analyze", "timeline", "watch"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -227,7 +227,7 @@ func TestStatsCommandFlags(t *testing.T) {
 }
 
 func TestSubcommandHelp(t *testing.T) {
-	subcommands := []string{"log", "report", "export", "stats", "search", "analyze", "timeline"}
+	subcommands := []string{"log", "report", "export", "stats", "search", "analyze", "timeline", "watch"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {
@@ -334,11 +334,85 @@ func TestSearchCommandFlags(t *testing.T) {
 		t.Fatal("search subcommand not found")
 	}
 
-	flags := []string{"type", "status", "agent", "user", "since", "output", "hour", "count-by", "limit"}
+	flags := []string{"type", "status", "agent", "user", "api-key", "since", "output", "hour", "count-by", "limit"}
 	for _, flag := range flags {
 		if searchCmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag --%s on search command", flag)
 		}
+	}
+}
+
+func TestSearchCommandQueryAlias(t *testing.T) {
+	cmd := newRootCmd()
+	searchCmd := findSubcommand(cmd, "search")
+	if searchCmd == nil {
+		t.Fatal("search subcommand not found")
+	}
+
+	found := false
+	for _, alias := range searchCmd.Aliases {
+		if alias == "query" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected 'query' alias on search command")
+	}
+}
+
+func TestQueryAliasExecution(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"query", "--format", "json"})
+
+	// Command writes to os.Stdout; just verify it runs without error
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("query alias failed: %v", err)
+	}
+}
+
+func TestSearchAPIKeyFilter(t *testing.T) {
+	// Verify the filter logic directly
+	results := generateSampleSearchResults("", "", "", "")
+
+	// Apply api-key filter
+	filtered := make([]SearchResult, 0)
+	for i := range results {
+		if results[i].APIKey == "ops-key" {
+			filtered = append(filtered, results[i])
+		}
+	}
+
+	if len(filtered) == 0 {
+		t.Fatal("expected at least one result with api-key ops-key")
+	}
+	for _, r := range filtered {
+		if r.APIKey != "ops-key" {
+			t.Errorf("expected api_key ops-key, got %s", r.APIKey)
+		}
+	}
+
+	// Verify admin-key entries are excluded
+	for _, r := range filtered {
+		if r.APIKey == "admin-key" {
+			t.Error("should not contain admin-key entries")
+		}
+	}
+}
+
+func TestSearchAPIKeyFieldInResults(t *testing.T) {
+	results := generateSampleSearchResults("", "", "", "")
+
+	hasAPIKey := false
+	for _, r := range results {
+		if r.APIKey != "" {
+			hasAPIKey = true
+			break
+		}
+	}
+	if !hasAPIKey {
+		t.Error("expected some sample results to have APIKey set")
 	}
 }
 
@@ -441,5 +515,167 @@ func TestTimelineEntryStructure(t *testing.T) {
 	}
 	if e.Actor != "admin" {
 		t.Errorf("Actor = %v, want admin", e.Actor)
+	}
+}
+
+func TestWatchCommandFlags(t *testing.T) {
+	cmd := newRootCmd()
+	watchCmd := findSubcommand(cmd, "watch")
+	if watchCmd == nil {
+		t.Fatal("watch subcommand not found")
+	}
+
+	flags := []string{"type", "status", "agent", "user", "api-key", "interval"}
+	for _, flag := range flags {
+		if watchCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag --%s on watch command", flag)
+		}
+	}
+
+	intervalFlag := watchCmd.Flags().Lookup("interval")
+	if intervalFlag.DefValue != "2s" {
+		t.Errorf("expected interval default to be '2s', got %s", intervalFlag.DefValue)
+	}
+}
+
+func TestSampleWatchEvents(t *testing.T) {
+	events := sampleWatchEvents()
+	if len(events) == 0 {
+		t.Fatal("expected sample watch events")
+	}
+
+	hasAuth := false
+	hasExec := false
+	for _, e := range events {
+		if strings.HasPrefix(e.Type, "auth.") {
+			hasAuth = true
+		}
+		if strings.HasPrefix(e.Type, "exec.") {
+			hasExec = true
+		}
+	}
+	if !hasAuth {
+		t.Error("expected at least one auth event in sample pool")
+	}
+	if !hasExec {
+		t.Error("expected at least one exec event in sample pool")
+	}
+}
+
+func TestFilterWatchEvent(t *testing.T) {
+	tests := []struct {
+		name      string
+		event     SearchResult
+		eventType string
+		status    string
+		agent     string
+		user      string
+		apiKey    string
+		want      bool
+	}{
+		{
+			name:  "no filters matches all",
+			event: SearchResult{Type: "auth.login", Status: "success"},
+			want:  true,
+		},
+		{
+			name:      "type filter match",
+			event:     SearchResult{Type: "auth.login", Status: "success"},
+			eventType: "auth.*",
+			want:      true,
+		},
+		{
+			name:      "type filter no match",
+			event:     SearchResult{Type: "exec.command", Status: "success"},
+			eventType: "auth.*",
+			want:      false,
+		},
+		{
+			name:   "status filter match",
+			event:  SearchResult{Type: "auth.login", Status: "failed"},
+			status: "failed",
+			want:   true,
+		},
+		{
+			name:   "status filter no match",
+			event:  SearchResult{Type: "auth.login", Status: "success"},
+			status: "failed",
+			want:   false,
+		},
+		{
+			name:  "agent filter match",
+			event: SearchResult{Type: "exec.command", Agent: "web-001"},
+			agent: "web-001",
+			want:  true,
+		},
+		{
+			name:  "agent filter no match",
+			event: SearchResult{Type: "exec.command", Agent: "db-002"},
+			agent: "web-001",
+			want:  false,
+		},
+		{
+			name:  "user filter match",
+			event: SearchResult{Type: "auth.login", User: "admin"},
+			user:  "admin",
+			want:  true,
+		},
+		{
+			name:   "api-key filter match",
+			event:  SearchResult{Type: "auth.login", APIKey: "ops-key"},
+			apiKey: "ops-key",
+			want:   true,
+		},
+		{
+			name:   "api-key filter no match",
+			event:  SearchResult{Type: "auth.login", APIKey: "admin-key"},
+			apiKey: "ops-key",
+			want:   false,
+		},
+		{
+			name:      "multiple filters all match",
+			event:     SearchResult{Type: "auth.login", Status: "failed", User: "admin"},
+			eventType: "auth.*",
+			status:    "failed",
+			user:      "admin",
+			want:      true,
+		},
+		{
+			name:      "multiple filters one fails",
+			event:     SearchResult{Type: "auth.login", Status: "success", User: "admin"},
+			eventType: "auth.*",
+			status:    "failed",
+			user:      "admin",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterWatchEvent(&tt.event, tt.eventType, tt.status, tt.agent, tt.user, tt.apiKey)
+			if got != tt.want {
+				t.Errorf("filterWatchEvent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWatchCommandHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"watch", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("watch --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "real-time") {
+		t.Errorf("expected help to contain 'real-time', got: %s", output)
+	}
+	if !strings.Contains(output, "--interval") {
+		t.Errorf("expected help to contain '--interval', got: %s", output)
 	}
 }

@@ -2,6 +2,10 @@ package query
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -593,6 +597,131 @@ func TestLogsQuerierQueryDefaultLimit(t *testing.T) {
 	}
 }
 
+// Test pagination cursor for InMemoryLogsQuerier
+func TestLogsQuerierQueryPaginationCursor(t *testing.T) {
+	querier := NewInMemoryLogsQuerier()
+
+	now := time.Now().Truncate(time.Millisecond)
+
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-5 * time.Minute),
+		Line:      "Entry 1",
+	})
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-4 * time.Minute),
+		Line:      "Entry 2",
+	})
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-3 * time.Minute),
+		Line:      "Entry 3",
+	})
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-2 * time.Minute),
+		Line:      "Entry 4",
+	})
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-1 * time.Minute),
+		Line:      "Entry 5",
+	})
+
+	ctx := context.Background()
+	timeRange := TimeRange{
+		Start: now.Add(-10 * time.Minute),
+		End:   now,
+	}
+
+	// First page: get 2 entries
+	result, err := querier.Query(ctx, &LogsQuery{
+		Range:     timeRange,
+		Limit:     2,
+		Direction: "forward",
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Entries) != 2 {
+		t.Fatalf("Expected 2 entries, got %d", len(result.Entries))
+	}
+	if result.Entries[0].Line != "Entry 1" {
+		t.Errorf("Expected 'Entry 1', got '%s'", result.Entries[0].Line)
+	}
+	if result.Entries[1].Line != "Entry 2" {
+		t.Errorf("Expected 'Entry 2', got '%s'", result.Entries[1].Line)
+	}
+
+	// Second page: use last entry's timestamp as cursor
+	cursor := result.Entries[len(result.Entries)-1].Timestamp.Format(time.RFC3339Nano)
+	result, err = querier.Query(ctx, &LogsQuery{
+		Range:     timeRange,
+		Limit:     2,
+		Direction: "forward",
+		Start:     cursor,
+	})
+	if err != nil {
+		t.Fatalf("Query page 2 failed: %v", err)
+	}
+	if len(result.Entries) != 2 {
+		t.Fatalf("Expected 2 entries on page 2, got %d", len(result.Entries))
+	}
+	if result.Entries[0].Line != "Entry 3" {
+		t.Errorf("Expected 'Entry 3', got '%s'", result.Entries[0].Line)
+	}
+	if result.Entries[1].Line != "Entry 4" {
+		t.Errorf("Expected 'Entry 4', got '%s'", result.Entries[1].Line)
+	}
+
+	// Third page: last entry
+	cursor = result.Entries[len(result.Entries)-1].Timestamp.Format(time.RFC3339Nano)
+	result, err = querier.Query(ctx, &LogsQuery{
+		Range:     timeRange,
+		Limit:     2,
+		Direction: "forward",
+		Start:     cursor,
+	})
+	if err != nil {
+		t.Fatalf("Query page 3 failed: %v", err)
+	}
+	if len(result.Entries) != 1 {
+		t.Fatalf("Expected 1 entry on page 3, got %d", len(result.Entries))
+	}
+	if result.Entries[0].Line != "Entry 5" {
+		t.Errorf("Expected 'Entry 5', got '%s'", result.Entries[0].Line)
+	}
+}
+
+// Test pagination cursor with invalid format is ignored
+func TestLogsQuerierQueryPaginationCursorInvalid(t *testing.T) {
+	querier := NewInMemoryLogsQuerier()
+
+	now := time.Now()
+
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-5 * time.Minute),
+		Line:      "Entry 1",
+	})
+	querier.AddEntry(LogEntry{
+		Timestamp: now.Add(-3 * time.Minute),
+		Line:      "Entry 2",
+	})
+
+	ctx := context.Background()
+	result, err := querier.Query(ctx, &LogsQuery{
+		Range: TimeRange{
+			Start: now.Add(-10 * time.Minute),
+			End:   now,
+		},
+		Start: "not-a-valid-timestamp",
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+
+	// Invalid cursor should be ignored, returning all entries
+	if len(result.Entries) != 2 {
+		t.Errorf("Expected 2 entries (invalid cursor ignored), got %d", len(result.Entries))
+	}
+}
+
 // Test default direction (backward)
 func TestLogsQuerierQueryDefaultDirection(t *testing.T) {
 	querier := NewInMemoryLogsQuerier()
@@ -625,5 +754,71 @@ func TestLogsQuerierQueryDefaultDirection(t *testing.T) {
 	// With backward direction, newest should be first
 	if result.Entries[0].Line != "Newer" {
 		t.Errorf("Expected first entry to be 'Newer' (backward direction), got '%s'", result.Entries[0].Line)
+	}
+}
+
+// Test LokiQuerier passes pagination cursor as start parameter
+func TestLokiQuerierPaginationCursor(t *testing.T) {
+	var receivedStart string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedStart = r.URL.Query().Get("start")
+		resp := lokiQueryRangeResponse{Status: "success"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	querier := NewLokiQuerier(srv.URL)
+	ctx := context.Background()
+
+	now := time.Now()
+	cursor := "1706000000000000000" // nanosecond timestamp string
+
+	_, err := querier.Query(ctx, &LogsQuery{
+		Query: `{job="test"}`,
+		Range: TimeRange{
+			Start: now.Add(-1 * time.Hour),
+			End:   now,
+		},
+		Start: cursor,
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+
+	if receivedStart != cursor {
+		t.Errorf("Expected start param %q, got %q", cursor, receivedStart)
+	}
+}
+
+// Test LokiQuerier uses range start when no cursor is set
+func TestLokiQuerierNoCursor(t *testing.T) {
+	var receivedStart string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedStart = r.URL.Query().Get("start")
+		resp := lokiQueryRangeResponse{Status: "success"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	querier := NewLokiQuerier(srv.URL)
+	ctx := context.Background()
+
+	rangeStart := time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)
+	_, err := querier.Query(ctx, &LogsQuery{
+		Query: `{job="test"}`,
+		Range: TimeRange{
+			Start: rangeStart,
+			End:   rangeStart.Add(1 * time.Hour),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+
+	expected := fmt.Sprintf("%d", rangeStart.UnixNano())
+	if receivedStart != expected {
+		t.Errorf("Expected start param %q (from range), got %q", expected, receivedStart)
 	}
 }

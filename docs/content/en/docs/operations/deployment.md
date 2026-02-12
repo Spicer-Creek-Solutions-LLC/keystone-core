@@ -1100,23 +1100,20 @@ kscorectl agent list
 
 **1. Set up PostgreSQL** (see [PostgreSQL Setup](#postgresql-setup))
 
-**2. Export SQLite data:**
+**2. Run the migration:**
 
 ```bash
-kscorectl migrate export \
-  --source sqlite:///var/lib/keystone-core/state.db \
-  --output /tmp/state-export.sql
+kscorectl migrate run \
+  --sqlite /var/lib/keystone-core/state.db \
+  --postgres "postgres://kscore:password@localhost/kscore"
+
+# Validate migration completeness
+kscorectl migrate validate \
+  --sqlite /var/lib/keystone-core/state.db \
+  --postgres "postgres://kscore:password@localhost/kscore"
 ```
 
-**3. Import to PostgreSQL:**
-
-```bash
-kscorectl migrate import \
-  --input /tmp/state-export.sql \
-  --target postgres://kscore:password@localhost/kscore
-```
-
-**4. Update configuration:**
+**3. Update configuration:**
 
 ```yaml
 storage:

@@ -494,8 +494,13 @@ func TestConfigShow(t *testing.T) {
 	}
 
 	output := buf.String()
+	// Fallback loads local config and outputs JSON with the header
 	if !strings.Contains(output, "Configuration") {
-		t.Errorf("expected config output, got: %s", output)
+		t.Errorf("expected config header, got: %s", output)
+	}
+	// Should contain actual config JSON (at least the Server section)
+	if !strings.Contains(output, "Server") {
+		t.Errorf("expected Server config section in output, got: %s", output)
 	}
 }
 
@@ -510,10 +515,156 @@ func TestConfigShowIncludeDefaults(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should succeed and produce some output
 	output := buf.String()
 	if output == "" {
 		t.Error("expected some output from config show --include-defaults")
+	}
+	// Should contain actual config JSON
+	if !strings.Contains(output, "NATS") {
+		t.Errorf("expected NATS config section in output, got: %s", output)
+	}
+}
+
+// --- RBAC command tests ---
+
+func TestRBACListRoles(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"rbac", "list-roles"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// Should show the standard roles table
+	if !strings.Contains(output, "admin") {
+		t.Errorf("expected admin role in output, got: %s", output)
+	}
+	if !strings.Contains(output, "operator") {
+		t.Errorf("expected operator role in output, got: %s", output)
+	}
+	if !strings.Contains(output, "viewer") {
+		t.Errorf("expected viewer role in output, got: %s", output)
+	}
+	if !strings.Contains(output, "service") {
+		t.Errorf("expected service role in output, got: %s", output)
+	}
+	if !strings.Contains(output, "ROLE") {
+		t.Errorf("expected table header in output, got: %s", output)
+	}
+}
+
+func TestRBACListRolesShowPermissions(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"rbac", "list-roles", "--show-permissions"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// With --show-permissions, should show resource:action lines
+	if !strings.Contains(output, "agents:") {
+		t.Errorf("expected permission details in output, got: %s", output)
+	}
+	if !strings.Contains(output, "*:*") {
+		t.Errorf("expected admin wildcard permission in output, got: %s", output)
+	}
+}
+
+func TestRBACExportJSON(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(new(bytes.Buffer))
+	cmd.SetArgs([]string{"rbac", "export"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// Should be valid JSON with roles
+	if !strings.Contains(output, `"roles"`) {
+		t.Errorf("expected roles key in JSON output, got: %s", output)
+	}
+	if !strings.Contains(output, `"admin"`) {
+		t.Errorf("expected admin role in export, got: %s", output)
+	}
+	if !strings.Contains(output, `"principals"`) {
+		t.Errorf("expected principals key in JSON output, got: %s", output)
+	}
+}
+
+func TestRBACExportYAML(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(new(bytes.Buffer))
+	cmd.SetArgs([]string{"rbac", "export", "--format", "yaml"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// YAML should contain role definitions
+	if !strings.Contains(output, "roles:") {
+		t.Errorf("expected roles: key in YAML output, got: %s", output)
+	}
+	if !strings.Contains(output, "id: admin") {
+		t.Errorf("expected admin role in YAML export, got: %s", output)
+	}
+}
+
+func TestRBACExportToFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	outFile := tmpDir + "/rbac-export.json"
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(new(bytes.Buffer))
+	cmd.SetArgs([]string{"rbac", "export", "--output", outFile})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Output should confirm file was written
+	if !strings.Contains(buf.String(), outFile) {
+		t.Errorf("expected file path in output, got: %s", buf.String())
+	}
+
+	// File should exist and contain valid JSON
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("failed to read exported file: %v", err)
+	}
+	if !strings.Contains(string(data), `"roles"`) {
+		t.Errorf("exported file missing roles key: %s", string(data))
+	}
+}
+
+func TestRBACExportBadFormat(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"rbac", "export", "--format", "xml"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for unsupported format")
 	}
 }
 

@@ -3800,11 +3800,14 @@ kscorectl audit search [flags]
 - `--status string`: Filter by status (e.g., 'failed', 'success')
 - `--agent string`: Filter by agent ID
 - `--user string`: Filter by username
+- `--api-key string`: Filter by API key name
 - `--since string`: Show entries since duration (e.g., '7d', '24h')
 - `--output string`: Output file path (default: stdout)
 - `--hour string`: Filter by hour range (e.g., '0-6')
 - `--count-by string`: Count results by interval (hour, day)
 - `--limit int`: Maximum entries to return (0 for unlimited)
+
+**Aliases**: `query` — `kscorectl audit query` is equivalent to `kscorectl audit search`.
 
 **Examples**:
 
@@ -3814,6 +3817,9 @@ kscorectl audit search --type "auth.*" --status "failed" --since "7d"
 
 # Search for agent activity
 kscorectl audit search --type "agent.*" --agent "agent-123" --since "7d"
+
+# Query by API key (using query alias)
+kscorectl audit query --api-key "ops-key" --since "24h"
 
 # Count login events by hour
 kscorectl audit search --type "auth.login" --count-by hour
@@ -3871,6 +3877,45 @@ kscorectl audit timeline --from "2026-01-01T00:00:00Z" --to "2026-01-02T00:00:00
 
 # Output as HTML
 kscorectl audit timeline --from "2026-01-01T00:00:00Z" --to "2026-01-02T00:00:00Z" --output incident-timeline.html
+```
+
+### audit watch
+
+Monitor audit log events in real-time with optional filters. Press Ctrl+C to stop.
+
+```bash
+kscorectl audit watch [flags]
+```
+
+**Flags**:
+
+- `--type string`: Event type pattern (e.g., 'auth.\*', 'exec.\*')
+- `--status string`: Filter by status (e.g., 'failed', 'success')
+- `--agent string`: Filter by agent ID
+- `--user string`: Filter by username
+- `--api-key string`: Filter by API key name
+- `--interval duration`: Polling interval (default: 2s)
+
+**Examples**:
+
+```bash
+# Watch all audit events
+kscorectl audit watch
+
+# Watch only auth events
+kscorectl audit watch --type "auth.*"
+
+# Watch failed events only
+kscorectl audit watch --type "auth.*" --status "failed"
+
+# Watch events for a specific agent
+kscorectl audit watch --agent "web-001"
+
+# Watch with faster polling
+kscorectl audit watch --interval 500ms
+
+# Output as NDJSON for piping
+kscorectl audit watch --format json
 ```
 
 ## kscore-gitops (GitOps Management)
@@ -5245,8 +5290,8 @@ These flags apply to all kscore-identity commands:
 
 - `--server string`: Control plane server address (default: localhost:9090)
 - `-o, --output string`: Output format: table, text, json, yaml (default: table)
-- `--audit-level string`: Audit logging level: all, errors, none (default: errors)
-- `--audit-output string`: Audit log destination (default: system-dependent)
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none (default: auto)
 
 ### identity version
 
@@ -5302,37 +5347,40 @@ kscorectl identity token create [flags]
 
 **Flags**:
 
-- `--path string`: SPIFFE path for agents using this token (default: /agent/default)
-- `--ttl string`: Token time-to-live (default: 5m)
-- `--uses int`: Maximum number of uses, 0 for unlimited (default: 1)
+- `--agent-id string`: Agent ID for this token (required)
+- `--ttl duration`: Token time-to-live (default: 5m)
+- `--label string`: Labels to apply in key=value format (repeatable)
+- `--path string`: SPIFFE path prefix for the agent identity
+- `--uses int`: Maximum number of times this token can be used (default: 1)
 
 **Examples**:
 
 ```bash
-# Create a token with default settings
-kscorectl identity token create
+# Create a token for a specific agent
+kscorectl identity token create --agent-id web-server-1
 
-# Create a token with custom path and TTL
-kscorectl identity token create --path /agent/web --ttl 10m
+# Create a token with custom TTL and labels
+kscorectl identity token create --agent-id web-server-1 --ttl 10m --label role=web
 
 # Create a token that can be used 5 times
-kscorectl identity token create --path /agent/db --ttl 1h --uses 5
+kscorectl identity token create --agent-id db-server-1 --ttl 1h --uses 5
 ```
 
 **Output**:
 
 ```
-Token created successfully!
-Token:    Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
-Path:     /agent/web
-TTL:      10m
-Max Uses: 1
+Join Token Created
+==================
+Token:     Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
+Agent ID:  web-server-1
+Expires:   2024-01-15T10:35:00Z
+TTL:       10m0s
 
 Configure agent with:
   identity:
     attestation:
       type: join_token
-      token: "<your-join-token>"
+      token: "Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z"
 ```
 
 #### token list
@@ -5534,38 +5582,32 @@ kscorectl identity federation add <trust-domain> [flags]
 
 **Flags**:
 
-- `--endpoint string`: Bundle endpoint URL (required)
-- `--profile string`: Bundle endpoint profile (default: https_web)
+- `--bundle-endpoint string`: Bundle endpoint URL
 - `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
-- `--refresh-interval string`: Bundle refresh interval (default: 5m)
+- `--refresh-interval duration`: Trust bundle refresh interval (default: 5m)
 
 **Examples**:
 
 ```bash
 # Add bidirectional federation
 kscorectl identity federation add partner.example.org \
-  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
 
 # Add unidirectional federation with custom refresh interval
 kscorectl identity federation add vendor.example.com \
-  --endpoint https://vendor.example.com/.well-known/spiffe-bundle \
+  --bundle-endpoint https://vendor.example.com/.well-known/spiffe-bundle \
   --type unidirectional \
   --refresh-interval 1h
-
-# Add federation with SPIFFE bundle profile
-kscorectl identity federation add vendor.example.com \
-  --endpoint https://vendor.example.com/bundle \
-  --profile https_spiffe
 ```
 
 **Output**:
 
 ```
-Federation relationship added: partner.example.org
-Bundle Endpoint: https://partner.example.org/.well-known/spiffe-bundle
-Profile: https_web
+Federation added: partner.example.org
 Type: bidirectional
-Refresh Interval: 5m
+State: pending (requires approval)
+Bundle Endpoint: https://partner.example.org/.well-known/spiffe-bundle
+Refresh Interval: 5m0s
 
 To activate, run:
   kscorectl identity federation activate partner.example.org
@@ -5782,7 +5824,7 @@ TIME       TYPE                    DESCRIPTION
 
 ```bash
 # Create a join token
-kscorectl identity token create --path /agent/web-server-1 --ttl 10m
+kscorectl identity token create --agent-id web-server-1 --ttl 10m
 
 # Copy token to agent configuration
 # Start agent - it will use the token to register
@@ -5793,7 +5835,7 @@ kscorectl identity token create --path /agent/web-server-1 --ttl 10m
 ```bash
 # Add federation relationship
 kscorectl identity federation add partner.example.org \
-  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
 
 # Verify bundle was fetched
 kscorectl identity federation show partner.example.org
@@ -6664,6 +6706,58 @@ kscorectl agents certificates regenerate --all --force
 - `--all`: Regenerate certificates for all agents
 - `-f, --force`: Skip confirmation prompt
 
+### agents re-enroll
+
+Re-enroll an agent by invalidating its current credentials and issuing a new one-time enrollment token. Use this during security incidents when an agent's credentials may be compromised.
+
+```bash
+kscorectl agents re-enroll <agent-id> [flags]
+```
+
+**Flags**:
+
+- `-f, --force`: Skip confirmation prompt
+- `--reason string`: Reason for re-enrollment (recorded in audit log)
+
+**Examples**:
+
+```bash
+# Re-enroll an agent after credential compromise
+kscorectl agents re-enroll web-001 --reason "credential compromise"
+
+# Force re-enroll without confirmation
+kscorectl agents re-enroll web-001 --force --reason "routine rotation"
+
+# Output as JSON
+kscorectl agents re-enroll web-001 --force -o json
+```
+
+### agents revoke-credentials
+
+Revoke all credentials for an agent without deleting its registration. The agent is immediately locked out and quarantined. No new enrollment token is issued — use `agents re-enroll` to restore access later.
+
+```bash
+kscorectl agents revoke-credentials <agent-id> [flags]
+```
+
+**Flags**:
+
+- `-f, --force`: Skip confirmation prompt
+- `--reason string`: Reason for revocation (recorded in audit log)
+
+**Examples**:
+
+```bash
+# Revoke credentials for a compromised agent
+kscorectl agents revoke-credentials web-001 --reason "suspected compromise"
+
+# Force revoke without confirmation
+kscorectl agents revoke-credentials web-001 --force --reason "incident IR-2026-42"
+
+# Restore access later
+kscorectl agents re-enroll web-001 --reason "investigation complete"
+```
+
 ## kscore-loadtest (Load Testing Tool)
 
 Run load test scenarios for registration, heartbeats, and command execution.
@@ -7219,7 +7313,7 @@ Manage files in the distribution system.
 List files in a namespace.
 
 ```bash
-kscore-files files list <namespace> [flags]
+kscore-files list <namespace> [flags]
 ```
 
 **Flags:**
@@ -7234,13 +7328,13 @@ kscore-files files list <namespace> [flags]
 
 ```bash
 # List all files in packages namespace
-kscore-files files list packages
+kscore-files list packages
 
 # List files recursively with path filter
-kscore-files files list packages --path /myapp --recursive
+kscore-files list packages --path /myapp --recursive
 
 # Output as JSON
-kscore-files files list packages -o json
+kscore-files list packages -o json
 ```
 
 #### files put
@@ -7248,7 +7342,7 @@ kscore-files files list packages -o json
 Upload a file to a namespace.
 
 ```bash
-kscore-files files put <local-path> <namespace>/<remote-path> [flags]
+kscore-files put <local-path> <namespace>/<remote-path> [flags]
 ```
 
 **Flags:**
@@ -7263,10 +7357,10 @@ kscore-files files put <local-path> <namespace>/<remote-path> [flags]
 
 ```bash
 # Upload a file
-kscore-files files put ./myapp-1.0.0.tar.gz packages/myapp/v1.0.0.tar.gz
+kscore-files put ./myapp-1.0.0.tar.gz packages/myapp/v1.0.0.tar.gz
 
 # Upload with metadata
-kscore-files files put ./config.yaml configs/app/config.yaml --metadata '{"version":"1.0"}'
+kscore-files put ./config.yaml configs/app/config.yaml --metadata '{"version":"1.0"}'
 ```
 
 #### files get
@@ -7274,7 +7368,7 @@ kscore-files files put ./config.yaml configs/app/config.yaml --metadata '{"versi
 Download a file from a namespace.
 
 ```bash
-kscore-files files get <namespace>/<remote-path> <local-path> [flags]
+kscore-files get <namespace>/<remote-path> <local-path> [flags]
 ```
 
 **Flags:**
@@ -7287,7 +7381,7 @@ kscore-files files get <namespace>/<remote-path> <local-path> [flags]
 
 ```bash
 # Download a file
-kscore-files files get packages/myapp/v1.0.0.tar.gz ./myapp.tar.gz
+kscore-files get packages/myapp/v1.0.0.tar.gz ./myapp.tar.gz
 ```
 
 #### files delete
@@ -7295,7 +7389,7 @@ kscore-files files get packages/myapp/v1.0.0.tar.gz ./myapp.tar.gz
 Delete a file from a namespace.
 
 ```bash
-kscore-files files delete <namespace>/<path> [flags]
+kscore-files delete <namespace>/<path> [flags]
 ```
 
 **Flags:**
@@ -7310,7 +7404,7 @@ kscore-files files delete <namespace>/<path> [flags]
 Show detailed file information.
 
 ```bash
-kscore-files files info <namespace>/<path> [flags]
+kscore-files info <namespace>/<path> [flags]
 ```
 
 **Flags:**
@@ -11557,6 +11651,202 @@ kscorectl runbook respond int-456 --confirmed --comment "Looks good"
 
 # Acknowledge a manual wait
 kscorectl runbook respond int-789 --confirmed --comment "Verified manually"
+```
+
+### runbook execute
+
+Execute a runbook by name with optional variables.
+
+```bash
+kscorectl runbook execute <runbook-name> [flags]
+```
+
+**Arguments**:
+
+- `<runbook-name>`: Name of the runbook to execute (required)
+
+**Flags**:
+
+- `--var strings`: Set a variable (format: key=value, can be repeated)
+- `--input strings`: Set an input variable (format: key=value, alias for --var)
+- `--dry-run`: Preview execution without running
+- `--wait`: Wait for execution to complete
+- `--timeout string`: Execution timeout (default: 1h)
+
+**Examples**:
+
+```bash
+# Execute a runbook with variables
+kscorectl runbook execute deploy-service --var version=1.2.0
+
+# Execute with --input (alias for --var)
+kscorectl runbook execute deploy-service --input version=1.2.0 --input env=prod
+
+# Mix --var and --input
+kscorectl runbook execute deploy-service --var version=1.2.0 --input env=prod
+
+# Dry run to preview steps
+kscorectl runbook execute deploy-service --var version=1.2.0 --dry-run
+
+# Execute with timeout and wait for completion
+kscorectl runbook execute deploy-service --var version=1.2.0 --timeout 30m --wait
+```
+
+### runbook status
+
+Show the status of a runbook execution.
+
+```bash
+kscorectl runbook status <execution-id> [flags]
+```
+
+**Arguments**:
+
+- `<execution-id>`: Execution ID to check (required)
+
+**Examples**:
+
+```bash
+# View execution status
+kscorectl runbook status exec-a1b2c3
+
+# View status in JSON format
+kscorectl runbook status exec-a1b2c3 -o json
+```
+
+### runbook list-executions
+
+List recent runbook executions with optional filtering.
+
+```bash
+kscorectl runbook list-executions [flags]
+```
+
+**Flags**:
+
+- `--runbook string`: Filter by runbook name
+- `--state string`: Filter by state (pending, running, completed, failed)
+- `--since string`: Show executions since duration or date (e.g., '7d', '24h', '2026-01-01')
+- `--limit int`: Maximum number of results (default: 20)
+
+**Examples**:
+
+```bash
+# List all recent executions
+kscorectl runbook list-executions
+
+# Filter by runbook
+kscorectl runbook list-executions --runbook deploy-service
+
+# Filter by state
+kscorectl runbook list-executions --state running
+
+# Filter by time
+kscorectl runbook list-executions --since 7d
+kscorectl runbook list-executions --since 2026-01-01
+```
+
+### runbook test
+
+Validate a runbook by checking syntax, variables, step dependencies, and permissions. Optionally validate mock handler definitions.
+
+```bash
+kscorectl runbook test <runbook-name> [flags]
+```
+
+**Flags:**
+- `--var stringArray`: Set a variable for validation (format: key=value)
+- `--mock-file string`: Path to mock handler definitions (JSON)
+- `--verbose`: Show detailed test output
+
+**Examples:**
+```bash
+# Test a runbook
+kscorectl runbook test deploy-service
+
+# Test with variables
+kscorectl runbook test deploy-service --var version=1.2.0 --verbose
+
+# Test with mock handlers
+kscorectl runbook test deploy-service --mock-file mocks.json --verbose
+```
+
+### runbook audit show
+
+Show the audit trail for a specific runbook including executions, approvals, and modifications.
+
+```bash
+kscorectl runbook audit show <runbook-name> [flags]
+```
+
+**Flags:**
+- `--limit int`: Maximum number of entries (default: 20)
+
+**Examples:**
+```bash
+# View audit trail
+kscorectl runbook audit show deploy-service
+
+# Limit results
+kscorectl runbook audit show deploy-service --limit 10
+```
+
+### runbook audit list
+
+List runbook audit events across all runbooks with optional filtering.
+
+```bash
+kscorectl runbook audit list [flags]
+```
+
+**Flags:**
+- `--runbook string`: Filter by runbook name
+- `--start string`: Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')
+- `--end string`: End time filter (duration like '1d' or date 'YYYY-MM-DD')
+- `--limit int`: Maximum number of entries (default: 50)
+
+**Examples:**
+```bash
+# List all recent audit events
+kscorectl runbook audit list
+
+# Filter by runbook
+kscorectl runbook audit list --runbook deploy-service
+
+# Filter by date range
+kscorectl runbook audit list --start 2025-01-14 --end 2025-01-15
+
+# Use duration shorthand
+kscorectl runbook audit list --start 7d
+```
+
+### runbook audit report
+
+Generate a compliance report summarizing runbook audit events by action type, user, and runbook.
+
+```bash
+kscorectl runbook audit report [flags]
+```
+
+**Flags:**
+- `--format string`: Report format: summary, detailed, csv (default: summary)
+- `--start string`: Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')
+- `--end string`: End time filter (duration like '1d' or date 'YYYY-MM-DD')
+- `--runbook string`: Filter by runbook name
+
+**Examples:**
+```bash
+# Generate summary report
+kscorectl runbook audit report
+
+# Detailed report with all events
+kscorectl runbook audit report --format detailed
+
+# CSV export for a date range
+kscorectl runbook audit report --format csv --start 2025-01-14 --end 2025-01-15
+
+# Report for a specific runbook
+kscorectl runbook audit report --runbook deploy-service
 ```
 
 ## kscore-secrets (Secrets Management)

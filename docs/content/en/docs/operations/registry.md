@@ -619,42 +619,44 @@ spec:
 
 ## Monitoring
 
-### Prometheus Metrics
+> **Note:** `kscore-registry` does not currently expose a `/metrics` endpoint or Prometheus-format metrics. Monitor the registry using its `/health` endpoint and external tools.
 
-Add to your Prometheus scrape configuration:
+### Health Check Monitoring
+
+Use [blackbox_exporter](https://github.com/prometheus/blackbox_exporter) to probe the `/health` endpoint:
 
 ```yaml
 scrape_configs:
-  - job_name: 'kscore-registry'
+  - job_name: 'kscore-registry-health'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
     static_configs:
-      - targets: ['registry.example.com:8090']
-    metrics_path: /metrics
+      - targets:
+          - http://registry.example.com:8090/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
 ```
 
-### Health Check Alerts
+### Alerts
 
 ```yaml
-# alertmanager rules
 groups:
 - name: kscore-registry
   rules:
   - alert: RegistryDown
-    expr: up{job="kscore-registry"} == 0
+    expr: probe_success{job="kscore-registry-health"} == 0
     for: 1m
     labels:
       severity: critical
     annotations:
       summary: "Module registry is down"
       description: "{{ $labels.instance }} has been unreachable for 1 minute."
-
-  - alert: RegistryHighLatency
-    expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="kscore-registry"}[5m])) > 1
-    for: 5m
-    labels:
-      severity: warning
-    annotations:
-      summary: "Module registry high latency"
-      description: "95th percentile latency is above 1 second."
 
   - alert: RegistryDiskSpaceLow
     expr: node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"} < 0.1
@@ -665,19 +667,6 @@ groups:
       summary: "Registry disk space low"
       description: "Less than 10% disk space remaining."
 ```
-
-### Grafana Dashboard
-
-Key metrics to monitor:
-
-| Metric | Description |
-|--------|-------------|
-| `http_requests_total` | Total requests by method and status |
-| `http_request_duration_seconds` | Request latency histogram |
-| `registry_modules_total` | Total modules stored |
-| `registry_storage_bytes` | Storage usage |
-| `registry_downloads_total` | Module downloads |
-| `registry_uploads_total` | Module uploads |
 
 ## Backup and Recovery
 

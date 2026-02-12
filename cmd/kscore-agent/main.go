@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/config"
 	"github.com/shawnbutts/keystone-core/internal/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
+	"github.com/shawnbutts/keystone-core/internal/profiling"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -149,6 +152,28 @@ func runAgent(cmd *cobra.Command, args []string) {
 		return
 	}
 	logger.Info("NATS health check passed")
+
+	// Start profiling server if enabled
+	if cfg.Profiling.Enabled {
+		profServer := profiling.NewServer(&profiling.ProfileConfig{
+			Enabled:              true,
+			ListenAddr:           cfg.Profiling.Listen,
+			BlockProfileRate:     cfg.Profiling.BlockProfileRate,
+			MutexProfileFraction: cfg.Profiling.MutexProfileFraction,
+		})
+		if err := profServer.Start(context.Background()); err != nil {
+			logger.Error("Failed to start profiling server", logging.Error(err))
+			return
+		}
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := profServer.Stop(shutdownCtx); err != nil {
+				logger.Error("Error shutting down profiling server", logging.Error(err))
+			}
+		}()
+		logger.Info("Profiling server started", logging.String("listen", cfg.Profiling.Listen))
+	}
 
 	// Create agent
 	logger.Info("Creating agent instance")

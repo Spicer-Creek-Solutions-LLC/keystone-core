@@ -27,7 +27,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "serve", "files", "cache", "namespace", "backend", "mirrors"}
+	expectedCommands := []string{"version", "serve", "list", "get", "put", "delete", "info", "sync", "cache", "namespace", "backend", "mirrors"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -129,11 +129,12 @@ func TestServeCommandExists(t *testing.T) {
 	}
 }
 
-func TestFilesCommandExists(t *testing.T) {
+func TestFileSubcommandsExist(t *testing.T) {
 	cmd := newRootCmd()
-	filesCmd := findSubcommand(cmd, "files")
-	if filesCmd == nil {
-		t.Fatal("files subcommand not found")
+	for _, name := range []string{"list", "get", "put", "delete", "info", "sync"} {
+		if findSubcommand(cmd, name) == nil {
+			t.Errorf("file subcommand %q not found on root", name)
+		}
 	}
 }
 
@@ -170,7 +171,7 @@ func TestMirrorsCommandExists(t *testing.T) {
 }
 
 func TestSubcommandHelp(t *testing.T) {
-	subcommands := []string{"serve", "files", "cache", "namespace"}
+	subcommands := []string{"serve", "list", "cache", "namespace"}
 
 	for _, subcmd := range subcommands {
 		t.Run(subcmd, func(t *testing.T) {

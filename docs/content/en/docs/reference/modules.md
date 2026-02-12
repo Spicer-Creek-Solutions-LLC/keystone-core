@@ -10988,8 +10988,8 @@ Use the `kscorectl module` CLI to scaffold and manage custom modules:
 # Initialize a new Starlark module
 kscorectl module init myorg/custom-state
 
-# Initialize a Rust WASM module
-kscorectl module init --template rust myorg/custom-provider
+# Initialize a WASM module
+kscorectl module init --type wasm myorg/custom-provider
 ```
 
 This creates the module structure:

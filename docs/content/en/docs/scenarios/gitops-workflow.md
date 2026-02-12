@@ -81,44 +81,24 @@ infrastructure-repo/
 
 ### Step 2: Configure Webhook Receiver
 
-Enable the webhook receiver in Keystone Core:
+Enable the webhook receiver in Keystone Core. The `webhook:` section is a top-level config block in `server.yaml`:
 
 ```yaml
 # /etc/keystone-core/server.yaml
-gitops:
-  webhook:
-    enabled: true
-    path: /webhooks
-    secret: ${WEBHOOK_SECRET}
-    providers:
-      - github
-      - gitlab
-      - argocd
-      - flux
-
-  sync:
-    interval: 5m
-    repositories:
-      - name: infrastructure
-        url: git@github.com:myorg/infrastructure.git
-        branch: main
-        paths:
-          - environments/production/**
-        target_environment: production
-
-  verification:
-    enabled: true
-    timeout: 10m
-    strategies:
-      - type: http
-        endpoints:
-          - url: "https://{{ .app }}.example.com/health"
-            expected_status: 200
-      - type: metric
-        query: "rate(http_requests_total{status=~'5..'}[5m])"
-        threshold: 0.01
-        operator: "<"
+webhook:
+  enabled: true
+  port: 8082
+  path: /webhooks
+  auth_type: hmac
+  hmac_secret: ${WEBHOOK_SECRET}
+  handlers:
+    - github
+    - gitlab
+    - argocd
+    - flux
 ```
+
+> **Planned:** Repository sync scheduling (`sync:` config) and deployment verification strategies (`verification:` config) are not yet configurable via `server.yaml`. Repository management and verification are performed through the `kscorectl gitops repo` and `kscorectl gitops deploy` CLI commands respectively.
 
 ### Step 3: ArgoCD Integration
 

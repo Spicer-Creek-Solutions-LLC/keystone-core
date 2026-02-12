@@ -30,6 +30,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/metrics"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/policy"
+	"github.com/shawnbutts/keystone-core/internal/profiling"
 	"github.com/shawnbutts/keystone-core/internal/ratelimit"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	"github.com/shawnbutts/keystone-core/internal/state"
@@ -37,8 +38,10 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/api/agents"
 	apiapikeys "github.com/shawnbutts/keystone-core/pkg/api/apikeys"
 	"github.com/shawnbutts/keystone-core/pkg/api/auth"
+	apiconfig "github.com/shawnbutts/keystone-core/pkg/api/config"
 	"github.com/shawnbutts/keystone-core/pkg/api/execution"
 	"github.com/shawnbutts/keystone-core/pkg/api/maintenance"
+	apirbac "github.com/shawnbutts/keystone-core/pkg/api/rbac"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	apistate "github.com/shawnbutts/keystone-core/pkg/api/state"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
@@ -230,6 +233,28 @@ func runServer(cmd *cobra.Command, args []string) {
 		)
 	}
 
+	// Start profiling server if enabled
+	if cfg.Profiling.Enabled {
+		profServer := profiling.NewServer(&profiling.ProfileConfig{
+			Enabled:              true,
+			ListenAddr:           cfg.Profiling.Listen,
+			BlockProfileRate:     cfg.Profiling.BlockProfileRate,
+			MutexProfileFraction: cfg.Profiling.MutexProfileFraction,
+		})
+		if err := profServer.Start(ctx); err != nil {
+			logger.Error("Failed to start profiling server", logging.Error(err))
+			return
+		}
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := profServer.Stop(shutdownCtx); err != nil {
+				logger.Error("Error shutting down profiling server", logging.Error(err))
+			}
+		}()
+		logger.Info("Profiling server started", logging.String("listen", cfg.Profiling.Listen))
+	}
+
 	// Initialize gRPC API server
 	logger.Info("Initializing gRPC API server")
 
@@ -353,6 +378,8 @@ func runServer(cmd *cobra.Command, args []string) {
 	apistate.NewHandler().RegisterRoutes(httpMux)
 	maintenance.NewHandler(maintenance.NewMemoryStore()).RegisterRoutes(httpMux)
 	apiapikeys.NewHandler(apiapikeys.NewMemoryStore()).RegisterRoutes(httpMux)
+	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
+	apirbac.NewHandler().RegisterRoutes(httpMux)
 	logger.Info("REST API handlers registered")
 
 	// Register metrics endpoint if enabled

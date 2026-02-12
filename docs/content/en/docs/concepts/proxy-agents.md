@@ -394,8 +394,8 @@ credential_rotation:
 # Trigger immediate rotation for a credential
 kscorectl proxy credential rotate cisco-ssh
 
-# Check rotation status
-kscorectl proxy credential rotation-status cisco-ssh
+# Check credential details after rotation
+kscorectl proxy credential show cisco-ssh
 ```
 
 ## Discovery
@@ -474,19 +474,19 @@ Discovered devices require approval before management:
 
 ```bash
 # List pending devices
-kscorectl proxy discovery list --status pending
+kscorectl proxy discover list --status pending
 
 # Approve a device
-kscorectl proxy discovery approve device-id-123
+kscorectl proxy discover approve device-id-123
 
 # Approve by profile
-kscorectl proxy discovery approve --profile cisco_ios
+kscorectl proxy discover approve --profile cisco_ios
 
 # Reject a device
-kscorectl proxy discovery reject device-id-456
+kscorectl proxy discover reject device-id-456
 
 # Configure auto-approve for trusted profiles
-kscorectl proxy discovery auto-approve --profile cisco_ios,juniper_junos
+kscorectl proxy discover auto-approve --profile cisco_ios,juniper_junos
 ```
 
 ### Discovery Events
@@ -1043,7 +1043,7 @@ kscorectl proxy device ping device-id
 kscorectl proxy device status device-id
 
 # Test protocol adapter
-kscorectl proxy device test device-id --verbose
+kscorectl proxy device test device-id --debug
 ```
 
 ### Authentication Failures
@@ -1060,13 +1060,13 @@ kscorectl proxy device connect device-id --credential cisco-ssh-creds
 
 ```bash
 # Run manual discovery scan
-kscorectl proxy discovery scan --network 192.168.1.0/24 --verbose
+kscorectl proxy discover scan --network 192.168.1.0/24 --verbose
 
 # Check discovery logs
-kscorectl proxy discovery logs --tail 100
+kscorectl proxy discover logs --tail 100
 
 # List excluded hosts
-kscorectl proxy discovery config show
+kscorectl proxy discover config show
 ```
 
 ### State Application Failures

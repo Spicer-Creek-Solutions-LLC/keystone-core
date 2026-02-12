@@ -849,134 +849,143 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Updated AGENTS.md with Epic 48 in repo structure and planned epics list
   - Reference: `docs/content/en/docs/concepts/kubernetes.md`, `epics/48-kubernetes-operator.md`, `AGENTS.md`
 
-- [ ] **Kubernetes concept docs claim context switching that is not implemented**
-  - Resolution: doc
-  - Docs mention kubeconfig context switching; `ClusterConfig.Context` is never used in `NewClient`
-  - Update docs or implement context selection
-  - Reference: `docs/content/en/docs/concepts/kubernetes.md`, `internal/k8s/client.go`, `internal/k8s/types.go`
+- [x] **Kubernetes concept docs claim context switching that is not implemented**
+  - Resolution: code fix
+  - `NewClient` now uses `clientcmd.NewNonInteractiveDeferredLoadingClientConfig` with `ConfigOverrides.CurrentContext` to respect `ClusterConfig.Context`
+  - Added tests: context selection, invalid kubeconfig, invalid context
+  - Reference: `internal/k8s/client.go`, `internal/k8s/client_test.go`
 
-- [ ] **Kubernetes concept docs CRD schemas do not match code**
+- [x] **Kubernetes concept docs CRD schemas do not match code**
   - Resolution: doc
-  - RemoteExecution example uses `target.labelSelector.matchLabels`, `namespaces`, `command.shell/script`, `retries`; code expects `Target` as `PodSelector` and `Command` as `[]string` with no retries
-  - StateConfig example uses `id`, `state`, `driftDetection`; code expects `StateDeclaration{Name, Module, Parameters, Requisites}` and has no drift fields in CRD
-  - Update docs or adjust CRD types/controllers
-  - Reference: `docs/content/en/docs/concepts/kubernetes.md`, `internal/k8s/types.go`
+  - Rewrote RemoteExecution example: `keystonecore.io/v1` API group, flat `labelSelector` string, `command` as `[]string`, `mode` field, removed `retries`, fixed status field names
+  - Rewrote StateConfig example: `keystonecore.io/v1`, `name` instead of `id`, removed `state` field, removed `driftDetection` from spec, added `target`/`requisites`, flat `driftDetected` bool in status
+  - Reference: `docs/content/en/docs/concepts/kubernetes.md`
 
-- [ ] **Windows installation docs reference missing agent commands/flags**
+- [x] **Windows installation docs reference missing agent commands/flags**
   - Resolution: doc
-  - Docs use `kscore-agent.exe install`, `kscore-agent.exe uninstall`, and `--console`
-  - Agent CLI only supports `service-install`, `service-uninstall`, `service-start`, `service-stop`, `service-status`; no `install/uninstall` or `--console`
-  - Update docs or add aliases/flags
-  - Reference: `docs/content/en/docs/operations/windows-installation.md`, `cmd/kscore-agent/main.go`
+  - `windows-installation.md` already uses correct `service-install`/`service-uninstall` commands
+  - Removed nonexistent `--console` flag from `windows-development.md` (3 occurrences); agent runs in foreground by default when not detected as a Windows service
+  - Reference: `docs/content/en/docs/community/windows-development.md`
 
-- [ ] **Windows operations docs use unsupported exec flags**
-  - Resolution: doc
-  - Docs use `kscorectl exec run --shell powershell/pwsh`
-  - `exec run` has no `--shell` flag (only `exec shell` has `--shell`)
-  - Update docs or add flag
+- [x] **Windows operations docs use unsupported exec flags**
+  - Resolution: no change needed (invalid TODO)
+  - Docs use `-- powershell -Command` (command after `--` separator), not `--shell`
+  - `exec run` does have a `--shell` flag (line 282 of `cmd/kscore-exec/main.go`)
   - Reference: `docs/content/en/docs/operations/windows.md`, `cmd/kscore-exec/main.go`
 
-- [ ] **Registry ops docs reference metrics not exposed by registry**
+- [x] **Registry ops docs reference metrics not exposed by registry**
   - Resolution: doc
-  - Docs include Prometheus scrape config and `registry_storage_bytes`/HTTP latency metrics
-  - `kscore-registry` does not expose `/metrics` or registry-specific metrics
-  - Update docs or implement metrics endpoint
-  - Reference: `docs/content/en/docs/operations/registry.md`, `cmd/kscore-registry/main.go`
+  - Removed nonexistent Prometheus scrape config, latency alert, and Grafana metrics table
+  - Replaced with blackbox_exporter health probe config and note that `/metrics` is not yet implemented
+  - Kept disk space alert (uses node_exporter, not registry metrics)
+  - Reference: `docs/content/en/docs/operations/registry.md`
 
-- [ ] **CLI reference docs include non-existent flags/commands**
-  - Resolution: doc
-  - Docs mention `kscorectl config validate` and `kscorectl --show-deprecated` (not implemented)
-  - Docs suggest `exec batch` and Salt-style aliases that don't exist
-  - Update docs or implement commands/flags
-  - Reference: `docs/content/en/docs/reference/cli.md`
+- [x] **CLI reference docs include non-existent flags/commands**
+  - Resolution: no change needed (invalid TODO)
+  - `config validate` exists in `cmd/kscorectl/main.go` with tests
+  - `--show-deprecated` and `exec batch` are not referenced in cli.md
+  - Salt-style aliases appear only in migration table's "Old Command" column (correctly documenting removal)
+  - Reference: `docs/content/en/docs/reference/cli.md`, `cmd/kscorectl/main.go`
 
-- [ ] **Reference NATS mesh docs reference missing debug plugin**
-  - Resolution: doc
-  - Docs use `kscorectl debug nats ...` (no debug CLI)
-  - Update docs or implement debug plugin
+- [x] **Reference NATS mesh docs reference missing debug plugin**
+  - Resolution: no change needed (invalid TODO)
+  - No `kscorectl debug` references exist in nats-mesh.md or anywhere in docs/
   - Reference: `docs/content/en/docs/reference/nats-mesh.md`
 
-- [ ] **NATS mesh deployment ops docs use unsupported config/commands**
+- [x] **NATS mesh deployment ops docs use unsupported config/commands**
   - Resolution: doc
-  - Docs use `nats.urls` list in kscore config; code supports a single `nats.url`
-  - Docs reference `kscorectl agent update-config --nats-urls` (no such command)
-  - Update docs or implement config/CLI support
-  - Reference: `docs/content/en/docs/operations/nats-mesh-deployment.md`, `internal/config/config.go`, `cmd/kscore-agents/main.go`
+  - Changed 7 occurrences of `nats.urls:` (YAML list) to `nats.url:` (comma-separated string) matching `NATSConfig.URL string`
+  - Replaced nonexistent `kscorectl agent update-config --nats-urls` with config file edit + service restart
+  - Left `hub.urls` and `gateway.remotes[].urls` unchanged (those are `[]string` slices)
+  - Reference: `docs/content/en/docs/operations/nats-mesh-deployment.md`
 
-- [ ] **Query API reference docs mismatch with code package/export**
-  - Resolution: doc
-  - Docs reference `github.com/keystone-core/pkg/query` and public `PrometheusQuerier/LokiQuerier` APIs
-  - Code lives under `internal/query` (not exported as public SDK) and has no `pkg/query`
-  - Update docs or promote package to public API
-  - Reference: `docs/content/en/docs/reference/query-api.md`, `internal/query/*`
+- [x] **Query API reference docs mismatch with code package/export**
+  - Resolution: no change needed (invalid TODO)
+  - Doc already notes it's an internal package and uses correct `internal/query` import path
+  - No `pkg/query` references exist in the doc
+  - Reference: `docs/content/en/docs/reference/query-api.md`
 
-- [ ] **Query API docs describe HTTP API that is not implemented**
+- [x] **Query API docs describe HTTP API that is not implemented**
   - Resolution: doc
-  - No query endpoints in `kscore-server` or API handlers for metrics/logs/traces queries
-  - Update docs or add server/API routes
-  - Reference: `docs/content/en/docs/reference/query-api.md`, `cmd/kscore-server/main.go`
+  - Removed misleading "use the gRPC or REST API endpoints" from note on line 10
+  - Replaced with "External query API endpoints (REST/gRPC) are not yet available"
+  - Reference: `docs/content/en/docs/reference/query-api.md`
 
-- [ ] **Query API docs mention log pagination cursor not supported**
-  - Resolution: doc
-  - Docs describe `LogsQuery.start` cursor; Loki querier ignores it
-  - Update docs or implement pagination
+- [x] **Query API docs mention log pagination cursor not supported**
+  - Resolution: code
+  - Implemented pagination cursor support in both LokiQuerier and InMemoryLogsQuerier
+  - LokiQuerier: `LogsQuery.Start` overrides `start` query param when set
+  - InMemoryLogsQuerier: `LogsQuery.Start` parsed as RFC3339Nano, filters entries after cursor
+  - Updated docs pagination example with correct cursor format per backend
+  - Added 4 tests: InMemory pagination, invalid cursor, Loki cursor passthrough, Loki no-cursor
   - Reference: `docs/content/en/docs/reference/query-api.md`, `internal/query/logs.go`
 
-- [ ] **Metrics reference docs claim /metrics on control plane**
+- [x] **Metrics reference docs claim /metrics on control plane**
+  - Resolution: invalid
+  - `kscore-server` DOES expose `/metrics` when `metrics.enabled: true` (lines 358-378 of main.go)
+  - Configurable path via `metrics.path` (default `/metrics`), includes optional Go/process metrics
+  - Reference: `docs/content/en/docs/reference/metrics.md`, `cmd/kscore-server/main.go`
+
+- [x] **Profiling docs reference config/pprof endpoints not wired**
   - Resolution: code
-  - Control plane HTTP mux only exposes health and `/api/status` (no `/metrics`)
-  - Metrics collectors exist but are not wired to an HTTP endpoint in `kscore-server`
-  - Update docs or expose `/metrics`
-  - Reference: `docs/content/en/docs/reference/metrics.md`, `cmd/kscore-server/main.go`, `internal/metrics/*`
+  - Added `ProfilingConfig` to `internal/config` with `profiling.enabled`, `profiling.listen`, `profiling.blockprofilerate`, `profiling.mutexprofilefraction`
+  - Wired `internal/profiling.Server` start/stop into `kscore-server` (after tracing init) and `kscore-agent` (after NATS health check)
+  - Fixed observability concept doc: profiling port 8080 → 6060 (separate server)
+  - Added 3 config validation tests
+  - Reference: `internal/config/config.go`, `cmd/kscore-server/main.go`, `cmd/kscore-agent/main.go`
 
-- [ ] **Profiling docs reference config/pprof endpoints not wired**
+- [x] **Metrics catalog does not match implemented metrics**
   - Resolution: doc
-  - Docs describe `profiling:` config blocks and `/debug/pprof` endpoints for server/agent/gateway
-  - `internal/profiling` exists but is not integrated into configs or started by binaries
-  - Update docs or wire profiling server into binaries/config
-  - Reference: `docs/content/en/docs/operations/monitoring.md`, `docs/content/en/docs/concepts/observability.md`, `internal/profiling/*`, `internal/config/*`, `cmd/kscore-server/main.go`
+  - Rewrote `docs/content/en/docs/reference/metrics.md` to match all code-defined metrics
+  - Removed nonexistent metrics: DB (kscore_db_*), batch (kscore_batch_*), kscore_api_active_connections, kscore_agent_heartbeat_received/missed, kscore_agent_memory_total_bytes, kscore_agent_disk_total_bytes, kscore_event_lag_seconds, kscore_events_stored/count, kscore_policy_compliance_score (→ kscore_compliance_score), kscore_policy_compliant_agents, kscore_policy_violations_by_agent, kscore_gitops_verifications_total (→ kscore_gitops_deployments_verified_total), kscore_gitops_rollbacks_total (→ kscore_gitops_rollbacks_triggered_total), kscore_gitops_webhooks_failed/verification_duration/rollback_duration/promotions/sync
+  - Added undocumented metrics: event subsystem (received, failed, severity, publisher/subscriber errors, active_subscribers, action_failures, storage_operations/failures, uptime, event_rate, last_event_timestamp), network/IPv6 (listeners_active, connections_total/active, agents_by_ip_version), agent (heartbeat_seconds, commands_executed, states_applied), proxy (all kscore_proxy_*), file distribution (all kscore_files_*)
+  - Reference: `docs/content/en/docs/reference/metrics.md`
 
-- [ ] **Metrics catalog does not match implemented metrics**
-  - Resolution: doc
-  - Docs list many metrics not present in code (DB, batch, detailed NATS mesh, policy compliance, command target count, etc.)
-  - Code exports metrics not documented (e.g., `kscore_action_failures_total`, `kscore_active_subscribers`, `kscore_events_received_total`, `kscore_event_rate`, `kscore_proxy`, `kscore_files`)
-  - Update docs to match emitted metrics or implement missing metrics
-  - Reference: `docs/content/en/docs/reference/metrics.md`, `internal/metrics/*`, `internal/events/prometheus.go`, `internal/nats/observability.go`, `internal/proxy/observability/metrics.go`, `internal/files/*`
-
-- [ ] **Metrics reference types/labels don't match implementation**
-  - Resolution: doc
-  - Example: `kscore_api_request_duration_seconds` documented as Summary with `path` label; code defines Histogram with `endpoint`
-  - Review other metric type/label differences and align docs or code
+- [x] **Metrics reference types/labels don't match implementation**
+  - Resolution: doc (fixed as part of full metrics.md rewrite above)
+  - Fixed `kscore_api_request_duration_seconds`: Summary → Histogram, label `path` → `endpoint`
+  - Fixed `kscore_api_requests_total`: label `path` → `endpoint`
+  - Fixed `kscore_state_application_duration_seconds`: Summary → Histogram
+  - Fixed `kscore_cluster_heartbeat_latency_seconds`: Histogram → Summary, label `target` → `member_id`
+  - Fixed `kscore_agents_connected`: removed nonexistent `environment` label
+  - Fixed `kscore_agents_disconnected_total`: removed nonexistent `reason` label
+  - Fixed `kscore_command_executions_total`: removed nonexistent `datacenter` label
+  - Fixed `kscore_state_resources_total`: labels `module` → `type`, `status`
+  - Fixed `kscore_state_drift_detected_total`: label `severity` → `resource`
+  - Fixed `kscore_cluster_member_status`: removed nonexistent `address` label
+  - Fixed `kscore_agent_disk_usage_bytes`: removed nonexistent `mount` label
+  - Fixed command metric name: `kscore_command_duration_seconds` → `kscore_command_execution_duration_seconds`
+  - Fixed state changes name: `kscore_state_changes_total` → `kscore_state_changes_applied_total`
+  - Fixed compliance metric name: `kscore_policy_compliance_score` → `kscore_compliance_score`
+  - Fixed all query/alert examples to use correct metric names and histogram_quantile() syntax
   - Reference: `docs/content/en/docs/reference/metrics.md`, `internal/metrics/collectors.go`
 
-- [ ] **Visualization API docs reference server not wired into control plane**
+- [x] **Visualization API docs reference server not wired into control plane**
   - Resolution: doc
-  - Visualization server exists under `internal/visualization` but is not started by any binary
-  - Docs imply `/api/topology` and `/ws/topology` are available
-  - Update docs or wire visualization server into `kscore-server`
-  - Reference: `docs/content/en/docs/reference/visualization.md`, `internal/visualization/*`
+  - Added implementation status callout noting the server is not yet integrated into `kscore-server`
+  - Endpoints will become available in a future release; package can be used as library in custom builds
+  - Reference: `docs/content/en/docs/reference/visualization.md`
 
-- [ ] **Visualization docs reference non-existent Go package**
-  - Resolution: doc
-  - Docs import `github.com/keystone-core/pkg/visualization`
-  - Code is under `internal/visualization` (not exported)
-  - Update docs or promote package to public API
-  - Reference: `docs/content/en/docs/reference/visualization.md`, `internal/visualization/*`
+- [x] **Visualization docs reference non-existent Go package**
+  - Resolution: doc (already fixed)
+  - Docs already use correct import path `github.com/shawnbutts/keystone-core/internal/visualization`
+  - The earlier TODO description was inaccurate — the import was already correct in the doc
+  - Reference: `docs/content/en/docs/reference/visualization.md`
 
-- [ ] **Visualization docs include fields not present in API structs**
+- [x] **Visualization docs include fields not present in API structs**
   - Resolution: doc
-  - Example responses include `labels` on agents, but `internal/visualization.Agent` has no `Labels` field
-  - Update docs or extend visualization agent model
+  - Replaced `"labels": {"tier": "web", ...}` with `"tags": ["tier:web", ...]` in both agent response examples
+  - Fixed config type name from `VisualizationConfig` → `Config` to match `internal/visualization/types.go`
   - Reference: `docs/content/en/docs/reference/visualization.md`, `internal/visualization/types.go`
 
-- [ ] **CLI quick reference docs reference missing commands**
+- [x] **CLI quick reference docs reference missing commands**
   - Resolution: doc
   - Docs include `kscorectl config validate`, `agent status/quarantine/unquarantine/renew-svid`, `health check`, `event list --agent`, and `policy test`
   - CLI does not implement these commands/flags
   - Update docs or implement commands
   - Reference: `docs/content/en/docs/reference/cli-quick-reference.md`
 
-- [ ] **Additional scenarios reference missing exec/compliance/cluster flags**
+- [x] **Additional scenarios reference missing exec/compliance/cluster flags**
   - Resolution: doc
   - Compliance scenario uses `kscorectl compliance *` and `policy test/evaluate` plus `logs --reactor` (not implemented)
   - Database HA and multi-tier/hybrid scenarios use `kscorectl exec ... --cmd` shorthand (not implemented) and `blueprint apply` (missing)
@@ -985,14 +994,14 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Update docs or implement commands/aliases
   - Reference: `docs/content/en/docs/scenarios/compliance-automation.md`, `docs/content/en/docs/scenarios/database-ha.md`, `docs/content/en/docs/scenarios/multi-tier-webapp.md`, `docs/content/en/docs/scenarios/hybrid-infrastructure.md`, `docs/content/en/docs/scenarios/disaster-recovery.md`
 
-- [ ] **Edge deployment scenario uses unsupported agent config keys**
+- [x] **Edge deployment scenario uses unsupported agent config keys**
   - Resolution: doc
   - Scenario `agent.yaml` uses `server.urls`, `reconnect.*`, `cache.*`, `offline.*`, and `proxy.*`
   - `internal/config.AgentConfig` has no such fields (agent config only includes ID, heartbeat, timeouts, metadata interval, address family, labels, advertise_addrs)
   - Update scenario docs or implement config support
   - Reference: `docs/content/en/docs/scenarios/edge-deployment.md`, `internal/config/config.go`
 
-- [ ] **GitOps/event scenarios use config files not supported by control plane**
+- [x] **GitOps/event scenarios use config files not supported by control plane**
   - Resolution: doc
   - GitOps scenario uses `gitops.webhook/sync/verification` config blocks
   - Event-driven automation scenario defines `events:` schemas under `config/events/*.yaml`
@@ -1000,89 +1009,89 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Update scenarios or implement config support
   - Reference: `docs/content/en/docs/scenarios/gitops-workflow.md`, `docs/content/en/docs/scenarios/event-driven-automation.md`, `internal/config/config.go`
 
-- [ ] **Edge and proxy concept docs reference missing cache/sync/proxy commands**
+- [x] **Edge and proxy concept docs reference missing cache/sync/proxy commands**
   - Resolution: doc
   - Edge docs use `kscorectl cache *`, `kscorectl sync *`, `kscorectl connection test`, and `agent status --edge` (not implemented)
   - Proxy concept docs use `proxy credential create/verify`, `proxy discovery *` (CLI uses `proxy discover *`), `proxy device ping/status/connect/config show`, `proxy discovery logs/config show`, and `proxy state apply --device`
   - Update docs or implement commands/aliases
   - Reference: `docs/content/en/docs/concepts/edge.md`, `docs/content/en/docs/concepts/proxy-agents.md`
 
-- [ ] **Tutorial drift detection docs reference missing commands/flags**
+- [x] **Tutorial drift detection docs reference missing commands/flags**
   - Resolution: doc
   - Docs use `kscorectl apply` (no top-level apply; should be `state apply`)
   - Docs use `events list --last 24h` (CLI uses `--since`)
   - Update docs or implement aliases
   - Reference: `docs/content/en/docs/tutorials/drift-detection.md`
 
-- [ ] **Tutorial secrets quickstart docs reference missing secrets/exec commands**
+- [x] **Tutorial secrets quickstart docs reference missing secrets/exec commands**
   - Resolution: doc
   - Docs use `secrets health/put/get/list/audit/stats/policy/refresh/injection` and `secrets rotation ...` (not implemented; CLI uses `secrets rotate`)
   - Docs use `kscorectl exec <target> -- ...` (no exec shorthand; should be `exec run`)
   - Update docs or implement commands
   - Reference: `docs/content/en/docs/tutorials/secrets-quickstart.md`
 
-- [ ] **Self-management docs reference missing diagnostics/certs commands**
+- [x] **Self-management docs reference missing diagnostics/certs commands**
   - Resolution: doc
   - Docs use `kscorectl diagnostics collect` and `kscorectl certs status/rotate/verify`
   - No diagnostics/certs plugin found in codebase
   - Update docs or implement commands
   - Reference: `docs/content/en/docs/operations/self-management.md`
 
-- [ ] **Self-management docs reference missing cluster token command**
+- [x] **Self-management docs reference missing cluster token command**
   - Resolution: doc
   - Docs use `kscorectl cluster token` during bootstrap import
   - `kscore-cluster` has no `token` subcommand
   - Update docs or implement token command
   - Reference: `docs/content/en/docs/operations/self-management.md`
 
-- [ ] **Self-management docs reference missing agent ping command**
+- [x] **Self-management docs reference missing agent ping command**
   - Resolution: doc
   - Docs use `kscorectl agent ping --all`
   - `kscore-agents` has no `ping` subcommand
   - Update docs or implement ping
   - Reference: `docs/content/en/docs/operations/self-management.md`
 
-- [ ] **Deployment docs reference missing migrate export/import**
+- [x] **Deployment docs reference missing migrate export/import**
   - Resolution: doc
   - Docs use `kscorectl migrate export` and `kscorectl migrate import`
   - Code only implements `kscorectl migrate run` and `kscorectl migrate validate`
   - Update docs or implement subcommands
   - Reference: `docs/content/en/docs/operations/deployment.md`
 
-- [ ] **Deployment docs reference missing state list command**
+- [x] **Deployment docs reference missing state list command**
   - Resolution: doc
   - Docs use `kscorectl state list`
   - `kscore-state` has no `list` subcommand
   - Update docs or implement list
   - Reference: `docs/content/en/docs/operations/deployment.md`
 
-- [ ] **Deployment docs use unsupported NATS config keys**
+- [x] **Deployment docs use unsupported NATS config keys**
   - Resolution: doc
   - Example config uses `nats.embedded.jetstream.enabled` and `nats.embedded.jetstream.store_dir`
   - Code expects `nats.embedded.enable_jetstream` and separate `nats.jetstream.*` config
   - Update docs or add config alias support
   - Reference: `docs/content/en/docs/operations/deployment.md`, `internal/config/config.go`
 
-- [ ] **Incident response doc references missing or mismatched CLI commands**
+- [x] **Incident response doc references missing or mismatched CLI commands**
   - Resolution: doc
   - Commands not implemented: `api-key revoke-all`, `agent certificate rotate/regenerate`, `agent health`, `user reset-password`, `auth session invalidate-all`, `module block`, `module audit`
   - Commands/flags mismatched: `policy audit list --since` (no list subcommand or since filter), `audit query` (no query command), `files download` (CLI uses `files get`)
   - Update docs or implement commands/flags
   - Reference: `docs/project/INCIDENT-RESPONSE.md`, `cmd/kscorectl/main.go`, `cmd/kscore-agents/main.go`, `cmd/kscore-audit/main.go`, `cmd/kscore-policy/main.go`, `cmd/kscore-module/main.go`, `cmd/kscore-files/commands_files.go`
 
-- [ ] **Scenarios index references missing blueprint apply command**
+- [x] **Scenarios index references missing blueprint apply command**
   - Resolution: doc
   - `kscorectl blueprint apply` is used but no apply subcommand exists
   - Update docs or implement apply
   - Reference: `docs/content/en/docs/scenarios/_index.md`
 
-- [ ] **Module reference docs reference unsupported init template flag**
+- [x] **Module reference docs reference unsupported init template flag**
   - Resolution: doc
   - Docs use `kscorectl module init --template rust` but CLI only supports `--type` (starlark/wasm)
   - Update docs or implement template flag
   - Reference: `docs/content/en/docs/reference/modules.md`
 
-- [ ] **DNS module docs reference secret_ref/env credentials not supported**
+- [x] **DNS module docs reference secret_ref/env credentials not supported**
   - Resolution: doc
   - Docs show `credentials.secret_ref` and provider env vars for DNS records
   - DNS module only parses inline `api_key`/`api_token`/`account_id` and `credentials.extra`; no secret_ref/env resolution
@@ -1091,7 +1100,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### Packaging Documentation
 
-- [ ] **Update kscore-cli package contents**
+- [x] **Update kscore-cli package contents**
   - Resolution: doc
   - Docs list only 4 tools in the `kscore-cli` package
   - Actual package includes many plugin binaries (agents, audit, backup, cluster, gitops, identity, etc.)
@@ -1099,48 +1108,48 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### API Documentation Improvements
 
-- [ ] **Document streaming gRPC methods**
+- [x] **Document streaming gRPC methods**
   - Resolution: doc
   - `SubscribeEvents` (event streaming)
   - `WatchMembership` (cluster membership changes)
   - `WatchLeadership` (leadership changes)
 
-- [ ] **Document CoordinationService**
+- [x] **Document CoordinationService**
   - Resolution: doc
   - Server-to-server coordination when NATS unavailable
   - 6 RPCs: `ClusterHealth`, `GetLeader`, `NATSStatus`, etc.
 
 ### Identity CLI Docs vs Code
 
-- [ ] **Align kscore-identity token create flags and required args**
+- [x] **Align kscore-identity token create flags and required args**
   - Resolution: doc
   - Docs show `token create` flags: `--path`, `--ttl`, `--uses`
   - Code requires `--agent-id`, supports `--ttl` and `--label`, and does not implement `--path`/`--uses`
   - Update docs or implement missing flags
   - Reference: `docs/content/en/docs/reference/cli.md`, `cmd/kscore-identity/main.go`
 
-- [ ] **Fix kscore-identity CA output/fields mismatch**
+- [x] **Fix kscore-identity CA output/fields mismatch**
   - Resolution: doc
   - Docs list CA info fields like `SVIDs Issued`, `Last Rotation`, `Next Rotation`, `Auto-Rotation`
   - Code only prints Trust Domain + Root/Signing CA details
   - Update docs or implement additional fields
   - Reference: `docs/content/en/docs/reference/cli.md`, `cmd/kscore-identity/main.go`
 
-- [ ] **Align kscore-identity federation add flags**
+- [x] **Align kscore-identity federation add flags**
   - Resolution: doc
   - Docs include `--type` (bidirectional/unidirectional) and mark `--endpoint` as required
   - Code supports `--endpoint`, `--profile`, `--refresh-interval` and does not implement `--type` or enforce required endpoint
   - Update docs or add flag/validation
   - Reference: `docs/content/en/docs/reference/cli.md`, `cmd/kscore-identity/main.go`
 
-- [ ] **Align kscore-identity bundle export formats**
+- [x] **Align kscore-identity bundle export formats**
   - Resolution: doc
   - Docs list `pem`, `jwks`, and `spiffe` formats
   - Code only supports `pem` and `jwks`
   - Update docs or implement `spiffe`
   - Reference: `docs/content/en/docs/reference/cli.md`, `cmd/kscore-identity/main.go`
 
-- [ ] **Fix kscore-identity global defaults**
+- [x] **Fix kscore-identity global defaults**
   - Resolution: doc
   - Docs say `--audit-level` default is `errors` and `--audit-output` is system-dependent
   - Code defaults to `audit-level=all` and `audit-output=auto`
@@ -1149,7 +1158,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### Environment Variable Documentation
 
-- [ ] **Verify documented but not found env vars**
+- [x] **Verify documented but not found env vars**
   - Resolution: doc
   - `KSCORE_NATS_TLS_CERT`, `KSCORE_NATS_TLS_KEY`, `KSCORE_NATS_TLS_CA`
   - `KSCORE_NATS_DEBUG`, `KSCORE_NATS_CLUSTER`
@@ -1159,7 +1168,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - `KSCORE_NATS_BUFFER_SIZE`, `KSCORE_NATS_BUFFER_DIR`
   - `KSCORE_OUTPUT_FORMAT`
 
-- [ ] **Document test/development env vars**
+- [x] **Document test/development env vars**
   - Resolution: doc
   - `KSCORE_LOAD_TEST`, `KSCORE_AGENT_COUNT`, `KSCORE_TEST_DURATION`
   - `KSCORE_TEST_POSTGRES_DSN`, `KSCORE_PERF_TESTS`
@@ -1167,33 +1176,33 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### Project Documentation
 
-- [ ] **Project security docs reference missing public packages**
+- [x] **Project security docs reference missing public packages**
   - Resolution: doc
   - SECURITY-DESIGN and SECURITY-GOVERNANCE reference `pkg/security/*`, `pkg/auth/*`, `pkg/authz/*`, `pkg/crypto/*`, and `pkg/audit/*`
   - Code uses `internal/security` and `internal/audit`; auth/authz/crypto packages are not present
   - Update docs or export packages
   - Reference: `docs/project/SECURITY-DESIGN.md`, `docs/project/SECURITY-GOVERNANCE.md`, `internal/security/*`, `internal/audit/*`
 
-- [ ] **Design docs reference internal paths as pkg**
+- [x] **Design docs reference internal paths as pkg**
   - Resolution: doc
   - DESIGN.md references `pkg/security/tls.go` but file lives in `internal/security/tls.go`
   - Update docs or move code
   - Reference: `docs/project/DESIGN.md`, `internal/security/tls.go`
 
-- [ ] **Development docs use stale package paths**
+- [x] **Development docs use stale package paths**
   - Resolution: doc
   - Docs recommend `go test ./pkg/state/...` but `pkg/state` no longer exists (state code moved to `internal/state`)
   - Update docs or re-export packages
   - Reference: `docs/project/DEVELOPMENT.md`
 
-- [ ] **Roadmap docs reference non-existent deprecation package path**
+- [x] **Roadmap docs reference non-existent deprecation package path**
   - Resolution: doc
   - Roadmap claims `pkg/cli/deprecation/` exists
   - Deprecation framework lives under `internal/cli/deprecation`
   - Update docs or export package
   - Reference: `docs/content/en/docs/community/roadmap.md`, `internal/cli/deprecation/*`
 
-- [ ] **Incident response doc references many non-existent CLI commands**
+- [x] **Incident response doc references many non-existent CLI commands**
   - Resolution: doc
   - `kscorectl api-key revoke-all`, `kscorectl auth session invalidate-all`
   - `kscorectl agent certificate rotate/regenerate`, `kscorectl agent health`
@@ -1212,32 +1221,26 @@ These are CLI commands identified as worth implementing in a future epic:
 
 ### Admin & Security CLI Commands
 
-- [ ] **kscorectl config show** - Display current configuration with optional `--include-defaults` flag
-- [ ] **kscorectl rbac list-roles** - List RBAC roles with optional `--show-permissions` flag
-- [ ] **kscorectl rbac export** - Export RBAC configuration for backup/audit
-- [ ] **kscore-audit query** - Query audit logs with filters (`--type`, `--since`, `--api-key`, `--agent`)
-- [ ] **kscore-audit watch** - Real-time audit log monitoring with filters
-- [ ] **kscore-agents re-enroll** - Re-enroll agent with new credentials (for security incidents)
-- [ ] **kscore-agents revoke-credentials** - Revoke agent credentials without deletion
+- [x] **kscorectl config show** - Display current configuration with optional `--include-defaults` flag *(Done: added server-side GET /api/v1/config endpoint with secret redaction, improved CLI fallback to load and display local config when server unreachable)*
+- [x] **kscorectl rbac list-roles** - List RBAC roles with optional `--show-permissions` flag *(Done: added GET /api/v1/rbac/roles endpoint, kscorectl rbac list-roles command with table output and local fallback)*
+- [x] **kscorectl rbac export** - Export RBAC configuration for backup/audit *(Done: added GET /api/v1/rbac/export endpoint, kscorectl rbac export command with --format json/yaml and --output flags)*
+- [x] **kscore-audit query** - Query audit logs with filters (`--type`, `--since`, `--api-key`, `--agent`) — added `query` alias for `search` command and `--api-key` filter flag
+- [x] **kscore-audit watch** - Real-time audit log monitoring with filters — added watch subcommand with --type, --status, --agent, --user, --api-key, --interval flags and context-based cancellation
+- [x] **kscore-agents re-enroll** - Re-enroll agent with new credentials (for security incidents) — added re-enroll subcommand with --force, --reason flags; invalidates credentials and issues one-time enrollment token
+- [x] **kscore-agents revoke-credentials** - Revoke agent credentials without deletion — added revoke-credentials subcommand with --force, --reason flags; locks out agent with no new token, directs to re-enroll for recovery
 
 ### Runbook CLI Commands
 
-- [ ] **kscore-runbook execute** - Execute a runbook with inputs (`--input key=value`, `--dry-run`)
-- [ ] **kscore-runbook status** - Check execution status of a running/completed runbook
-- [ ] **kscore-runbook list-executions** - List runbook execution history (`--runbook`, `--since`)
-- [ ] **kscore-runbook test** - Test runbook with mock handlers (`--mock-file`)
-- [ ] **kscore-runbook audit list** - List runbook audit events (`--runbook`, `--start`, `--end`)
-- [ ] **kscore-runbook audit report** - Generate compliance report (`--format`, `--start`, `--end`)
+- [x] **kscore-runbook execute** - Execute a runbook with inputs (`--input key=value`, `--dry-run`) — command already existed with --var/--dry-run/--wait/--timeout; added --input as alias for --var
+- [x] **kscore-runbook status** - Check execution status of a running/completed runbook — command already existed with execution-id arg, state/progress/step display, json/yaml/table output; added docs
+- [x] **kscore-runbook list-executions** - List runbook execution history (`--runbook`, `--since`) — command already existed with --runbook/--state/--limit; added --since flag with duration and date parsing
+- [x] **kscore-runbook test** - Test runbook with mock handlers (`--mock-file`) — added --mock-file flag with JSON validation, mock handler count reporting, and PASS/FAIL results
+- [x] **kscore-runbook audit list** - List runbook audit events (`--runbook`, `--start`, `--end`) — restructured audit as parent command with show/list subcommands; list supports --runbook, --start, --end, --limit filters
+- [x] **kscore-runbook audit report** - Generate compliance report (`--format`, `--start`, `--end`) — added audit report subcommand with summary/detailed/csv formats, --start/--end/--runbook filters, aggregation by action/runbook/user
 
 ### CLI Plugin Command Routing
 
-- [ ] **Review and fix "double command" routing in kscorectl plugin dispatch**
-  - Resolution: code
-  - Several `kscore-*` plugins nest subcommands under a group that duplicates the plugin name
-  - Example: `kscore-files` has a `files` subcommand group, so `kscorectl files` dispatches to `kscore-files`, which then requires `files list` — resulting in `kscorectl files files list`
-  - Affected plugins need audit: `kscore-files` (`files`, `mirrors`, `cache`, `namespace`), and potentially others
-  - Options: flatten plugin commands so top-level subcommands are directly accessible, or add aliases at the root level
-  - Reference: `cmd/kscore-files/main.go`, `pkg/plugin/`
+- [x] **Review and fix "double command" routing in kscorectl plugin dispatch** — audited all 15 plugins; only kscore-files was affected (had `files` subcommand group under `kscore-files` root). Flattened file subcommands (list/get/put/delete/info/sync) directly onto root. Updated tests, docs, and help examples.
 
 - [ ] **Wire remaining REST API handlers into kscore-server**
   - Resolution: code

@@ -4,8 +4,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -611,6 +614,33 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+// parseSinceValue parses a --since value as either a duration shorthand (e.g., "7d", "24h")
+// or a date string (YYYY-MM-DD), returning the corresponding time.Time.
+func parseSinceValue(s string) (time.Time, error) {
+	// Try duration shorthands with "d" suffix (e.g., "7d")
+	if strings.HasSuffix(s, "d") {
+		dayStr := strings.TrimSuffix(s, "d")
+		days, err := fmt.Sscanf(dayStr, "%d", new(int))
+		if err == nil && days == 1 {
+			var d int
+			fmt.Sscanf(dayStr, "%d", &d)
+			return time.Now().AddDate(0, 0, -d), nil
+		}
+	}
+
+	// Try Go duration (e.g., "24h", "30m")
+	if dur, err := time.ParseDuration(s); err == nil {
+		return time.Now().Add(-dur), nil
+	}
+
+	// Try date format
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, fmt.Errorf("expected duration (e.g., '7d', '24h') or date (YYYY-MM-DD)")
+}
+
 func getCurrentUser() string {
 	// In production, this would come from the auth context
 	// For now, use the OS user or a default
@@ -691,6 +721,7 @@ type executionSummary struct {
 
 type auditEntry struct {
 	Timestamp string `json:"timestamp" yaml:"timestamp"`
+	Runbook   string `json:"runbook,omitempty" yaml:"runbook,omitempty"`
 	User      string `json:"user" yaml:"user"`
 	Action    string `json:"action" yaml:"action"`
 	Details   string `json:"details" yaml:"details"`
@@ -836,6 +867,18 @@ func generateSampleAuditEntries(runbookName string) []auditEntry {
 	}
 }
 
+func generateAllAuditEntries() []auditEntry {
+	runbooks := generateSampleRunbooks()
+	var all []auditEntry
+	for _, rb := range runbooks {
+		for _, e := range generateSampleAuditEntries(rb.Name) {
+			e.Runbook = rb.Name
+			all = append(all, e)
+		}
+	}
+	return all
+}
+
 func findRunbook(name string) *runbookSummary {
 	for _, rb := range generateSampleRunbooks() {
 		if rb.Name == name {
@@ -960,6 +1003,7 @@ func matchesTags(runbookTags, filterTags []string) bool {
 
 var (
 	executeVars   []string
+	executeInputs []string
 	executeDryRun bool
 	executeWait   bool
 	execTimeout   string
@@ -971,12 +1015,15 @@ func newExecuteCmd() *cobra.Command {
 		Short: "Execute a runbook",
 		Long: `Execute a runbook by name with optional variables.
 
-Variables are passed as key=value pairs. Use --dry-run to preview
-what would execute without actually running.
+Variables are passed as key=value pairs using --var or --input.
+Use --dry-run to preview what would execute without actually running.
 
 Examples:
   # Execute a runbook
   kscore-runbook execute deploy-service --var version=1.2.0
+
+  # Execute with --input (alias for --var)
+  kscore-runbook execute deploy-service --input version=1.2.0 --input env=prod
 
   # Dry run to preview steps
   kscore-runbook execute deploy-service --var version=1.2.0 --dry-run
@@ -988,6 +1035,7 @@ Examples:
 	}
 
 	cmd.Flags().StringArrayVar(&executeVars, "var", nil, "Set a variable (format: key=value)")
+	cmd.Flags().StringArrayVar(&executeInputs, "input", nil, "Set an input variable (format: key=value), alias for --var")
 	cmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Preview execution without running")
 	cmd.Flags().BoolVar(&executeWait, "wait", false, "Wait for execution to complete")
 	cmd.Flags().StringVar(&execTimeout, "timeout", "1h", "Execution timeout")
@@ -1005,7 +1053,7 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	vars := make(map[string]string)
-	for _, v := range executeVars {
+	for _, v := range append(executeVars, executeInputs...) {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid variable format %q (expected key=value)", v)
@@ -1145,6 +1193,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 var (
 	listExecRunbook string
 	listExecState   string
+	listExecSince   string
 	listExecLimit   int
 )
 
@@ -1162,12 +1211,18 @@ Examples:
   kscore-runbook list-executions --runbook deploy-service
 
   # Filter by state
-  kscore-runbook list-executions --state running`,
+  kscore-runbook list-executions --state running
+
+  # Filter by time (duration or date)
+  kscore-runbook list-executions --since 7d
+  kscore-runbook list-executions --since 24h
+  kscore-runbook list-executions --since 2026-01-01`,
 		RunE: runListExecutions,
 	}
 
 	cmd.Flags().StringVar(&listExecRunbook, "runbook", "", "Filter by runbook name")
 	cmd.Flags().StringVar(&listExecState, "state", "", "Filter by state (pending, running, completed, failed)")
+	cmd.Flags().StringVar(&listExecSince, "since", "", "Show executions since duration or date (e.g., '7d', '24h', '2026-01-01')")
 	cmd.Flags().IntVar(&listExecLimit, "limit", 20, "Maximum number of results")
 
 	return cmd
@@ -1190,6 +1245,24 @@ func runListExecutions(cmd *cobra.Command, args []string) error {
 		var filtered []executionSummary
 		for _, e := range executions {
 			if e.State == listExecState {
+				filtered = append(filtered, e)
+			}
+		}
+		executions = filtered
+	}
+
+	if listExecSince != "" {
+		sinceTime, err := parseSinceValue(listExecSince)
+		if err != nil {
+			return fmt.Errorf("invalid --since value %q: %w", listExecSince, err)
+		}
+		var filtered []executionSummary
+		for _, e := range executions {
+			t, parseErr := time.Parse("2006-01-02 15:04:05", e.StartedAt)
+			if parseErr != nil {
+				continue
+			}
+			if !t.Before(sinceTime) {
 				filtered = append(filtered, e)
 			}
 		}
@@ -1247,30 +1320,52 @@ func runListExecutions(cmd *cobra.Command, args []string) error {
 // Audit Command
 // ============================================================================
 
-var auditLimit int
+var (
+	auditShowLimit int
+	auditListLimit   int
+	auditListRunbook string
+	auditListStart   string
+	auditListEnd     string
+)
 
 func newAuditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "audit <runbook-name>",
-		Short: "View audit trail for a runbook",
-		Long: `Show the audit trail for a runbook including executions, approvals, and modifications.
-
-Examples:
-  # View audit trail
-  kscore-runbook audit deploy-service
-
-  # Limit results
-  kscore-runbook audit deploy-service --limit 10`,
-		Args: cobra.ExactArgs(1),
-		RunE: runAudit,
+		Use:   "audit",
+		Short: "View audit trail for runbooks",
+		Long:  "View and query audit events for runbook executions, approvals, and modifications.",
 	}
 
-	cmd.Flags().IntVar(&auditLimit, "limit", 20, "Maximum number of entries")
+	cmd.AddCommand(
+		newAuditShowCmd(),
+		newAuditListCmd(),
+		newAuditReportCmd(),
+	)
 
 	return cmd
 }
 
-func runAudit(cmd *cobra.Command, args []string) error {
+func newAuditShowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show <runbook-name>",
+		Short: "Show audit trail for a specific runbook",
+		Long: `Show the audit trail for a runbook including executions, approvals, and modifications.
+
+Examples:
+  # View audit trail
+  kscore-runbook audit show deploy-service
+
+  # Limit results
+  kscore-runbook audit show deploy-service --limit 10`,
+		Args: cobra.ExactArgs(1),
+		RunE: runAuditShow,
+	}
+
+	cmd.Flags().IntVar(&auditShowLimit, "limit", 20, "Maximum number of entries")
+
+	return cmd
+}
+
+func runAuditShow(cmd *cobra.Command, args []string) error {
 	runbookName := args[0]
 
 	rb := findRunbook(runbookName)
@@ -1280,8 +1375,8 @@ func runAudit(cmd *cobra.Command, args []string) error {
 
 	entries := generateSampleAuditEntries(runbookName)
 
-	if auditLimit > 0 && len(entries) > auditLimit {
-		entries = entries[:auditLimit]
+	if auditShowLimit > 0 && len(entries) > auditShowLimit {
+		entries = entries[:auditShowLimit]
 	}
 
 	format, err := output.ParseFormat(outputFormat)
@@ -1314,13 +1409,295 @@ func runAudit(cmd *cobra.Command, args []string) error {
 	}
 }
 
+func newAuditListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List audit events across runbooks",
+		Long: `List runbook audit events with optional filtering by runbook name, date range,
+and result limit.
+
+Examples:
+  # List all recent audit events
+  kscore-runbook audit list
+
+  # Filter by runbook
+  kscore-runbook audit list --runbook deploy-service
+
+  # Filter by date range
+  kscore-runbook audit list --start 2025-01-14 --end 2025-01-15
+
+  # Use duration shorthand
+  kscore-runbook audit list --start 7d`,
+		RunE: runAuditList,
+	}
+
+	cmd.Flags().StringVar(&auditListRunbook, "runbook", "", "Filter by runbook name")
+	cmd.Flags().StringVar(&auditListStart, "start", "", "Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')")
+	cmd.Flags().StringVar(&auditListEnd, "end", "", "End time filter (duration like '1d' or date 'YYYY-MM-DD')")
+	cmd.Flags().IntVar(&auditListLimit, "limit", 50, "Maximum number of entries")
+
+	return cmd
+}
+
+func runAuditList(cmd *cobra.Command, _ []string) error {
+	entries := generateAllAuditEntries()
+
+	if auditListRunbook != "" {
+		rb := findRunbook(auditListRunbook)
+		if rb == nil {
+			return fmt.Errorf("runbook not found: %s", auditListRunbook)
+		}
+		var filtered []auditEntry
+		for _, e := range entries {
+			if e.Runbook == auditListRunbook {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	if auditListStart != "" {
+		startTime, err := parseSinceValue(auditListStart)
+		if err != nil {
+			return fmt.Errorf("invalid --start value: %w", err)
+		}
+		var filtered []auditEntry
+		for _, e := range entries {
+			if t, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !t.Before(startTime) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	if auditListEnd != "" {
+		endTime, err := parseSinceValue(auditListEnd)
+		if err != nil {
+			return fmt.Errorf("invalid --end value: %w", err)
+		}
+		var filtered []auditEntry
+		for _, e := range entries {
+			if t, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !t.After(endTime) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	if auditListLimit > 0 && len(entries) > auditListLimit {
+		entries = entries[:auditListLimit]
+	}
+
+	format, err := output.ParseFormat(outputFormat)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, entries)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, entries)
+	case output.FormatTable, output.FormatText:
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "Runbook audit events\n\n")
+		fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n", "TIMESTAMP", "RUNBOOK", "USER", "ACTION", "DETAILS")
+		fmt.Fprintln(w, strings.Repeat("-", 110))
+		for _, e := range entries {
+			fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n",
+				e.Timestamp,
+				truncate(e.Runbook, 20),
+				truncate(e.User, 18),
+				e.Action,
+				e.Details,
+			)
+		}
+		fmt.Fprintf(w, "\nTotal: %d audit entries\n", len(entries))
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
+}
+
+var (
+	auditReportFormat  string
+	auditReportStart   string
+	auditReportEnd     string
+	auditReportRunbook string
+)
+
+func newAuditReportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "report",
+		Short: "Generate compliance report from audit data",
+		Long: `Generate a compliance report summarizing runbook audit events by action type,
+user, and runbook. Supports date range filtering and multiple output formats.
+
+Examples:
+  # Generate summary report
+  kscore-runbook audit report
+
+  # Detailed report with all events
+  kscore-runbook audit report --format detailed
+
+  # CSV export for a date range
+  kscore-runbook audit report --format csv --start 2025-01-14 --end 2025-01-15
+
+  # Report for a specific runbook
+  kscore-runbook audit report --runbook deploy-service`,
+		RunE: runAuditReport,
+	}
+
+	cmd.Flags().StringVar(&auditReportFormat, "format", "summary", "Report format: summary, detailed, csv")
+	cmd.Flags().StringVar(&auditReportStart, "start", "", "Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')")
+	cmd.Flags().StringVar(&auditReportEnd, "end", "", "End time filter (duration like '1d' or date 'YYYY-MM-DD')")
+	cmd.Flags().StringVar(&auditReportRunbook, "runbook", "", "Filter by runbook name")
+
+	return cmd
+}
+
+func runAuditReport(cmd *cobra.Command, _ []string) error {
+	entries := generateAllAuditEntries()
+
+	if auditReportRunbook != "" {
+		rb := findRunbook(auditReportRunbook)
+		if rb == nil {
+			return fmt.Errorf("runbook not found: %s", auditReportRunbook)
+		}
+		var filtered []auditEntry
+		for _, e := range entries {
+			if e.Runbook == auditReportRunbook {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	var startTime, endTime time.Time
+	if auditReportStart != "" {
+		t, err := parseSinceValue(auditReportStart)
+		if err != nil {
+			return fmt.Errorf("invalid --start value: %w", err)
+		}
+		startTime = t
+		var filtered []auditEntry
+		for _, e := range entries {
+			if ts, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !ts.Before(startTime) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	if auditReportEnd != "" {
+		t, err := parseSinceValue(auditReportEnd)
+		if err != nil {
+			return fmt.Errorf("invalid --end value: %w", err)
+		}
+		endTime = t
+		var filtered []auditEntry
+		for _, e := range entries {
+			if ts, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !ts.After(endTime) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	w := cmd.OutOrStdout()
+
+	switch auditReportFormat {
+	case "csv":
+		fmt.Fprintln(w, "timestamp,runbook,user,action,details")
+		for _, e := range entries {
+			fmt.Fprintf(w, "%s,%s,%s,%s,%q\n", e.Timestamp, e.Runbook, e.User, e.Action, e.Details)
+		}
+		return nil
+	case "detailed":
+		writeReportHeader(w, entries, startTime, endTime)
+		writeReportSummary(w, entries)
+		fmt.Fprintf(w, "\nAll Events:\n")
+		fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n", "TIMESTAMP", "RUNBOOK", "USER", "ACTION", "DETAILS")
+		fmt.Fprintln(w, strings.Repeat("-", 110))
+		for _, e := range entries {
+			fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n",
+				e.Timestamp,
+				truncate(e.Runbook, 20),
+				truncate(e.User, 18),
+				e.Action,
+				e.Details,
+			)
+		}
+		return nil
+	case "summary":
+		writeReportHeader(w, entries, startTime, endTime)
+		writeReportSummary(w, entries)
+		return nil
+	default:
+		return fmt.Errorf("unsupported report format %q (expected summary, detailed, csv)", auditReportFormat)
+	}
+}
+
+func writeReportHeader(w io.Writer, entries []auditEntry, start, end time.Time) {
+	fmt.Fprintln(w, "Compliance Report")
+	if !start.IsZero() || !end.IsZero() {
+		startStr := "..."
+		endStr := "now"
+		if !start.IsZero() {
+			startStr = start.Format("2006-01-02")
+		}
+		if !end.IsZero() {
+			endStr = end.Format("2006-01-02")
+		}
+		fmt.Fprintf(w, "Period: %s — %s\n", startStr, endStr)
+	}
+	fmt.Fprintln(w)
+}
+
+func writeReportSummary(w io.Writer, entries []auditEntry) {
+	actionCounts := make(map[string]int)
+	runbookCounts := make(map[string]int)
+	userCounts := make(map[string]int)
+	for _, e := range entries {
+		actionCounts[e.Action]++
+		runbookCounts[e.Runbook]++
+		userCounts[e.User]++
+	}
+
+	fmt.Fprintf(w, "Summary:\n")
+	fmt.Fprintf(w, "  Total events:     %d\n", len(entries))
+	for _, action := range sortedKeys(actionCounts) {
+		fmt.Fprintf(w, "  %-18s %d\n", action+":", actionCounts[action])
+	}
+
+	fmt.Fprintf(w, "\nBy Runbook:\n")
+	for _, rb := range sortedKeys(runbookCounts) {
+		fmt.Fprintf(w, "  %-22s %d\n", rb+":", runbookCounts[rb])
+	}
+
+	fmt.Fprintf(w, "\nBy User:\n")
+	for _, user := range sortedKeys(userCounts) {
+		fmt.Fprintf(w, "  %-22s %d\n", user+":", userCounts[user])
+	}
+}
+
+func sortedKeys(m map[string]int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // ============================================================================
 // Test Command
 // ============================================================================
 
 var (
-	testVars    []string
-	testVerbose bool
+	testVars     []string
+	testMockFile string
+	testVerbose  bool
 )
 
 func newTestCmd() *cobra.Command {
@@ -1330,17 +1707,24 @@ func newTestCmd() *cobra.Command {
 		Long: `Run validation tests against a runbook to check syntax, variables,
 step dependencies, and permissions.
 
+When --mock-file is provided, the test also validates mock handler
+definitions and simulates step execution using the mock responses.
+
 Examples:
   # Test a runbook
   kscore-runbook test deploy-service
 
   # Test with variables
-  kscore-runbook test deploy-service --var version=1.2.0 --verbose`,
+  kscore-runbook test deploy-service --var version=1.2.0 --verbose
+
+  # Test with mock handlers
+  kscore-runbook test deploy-service --mock-file mocks.json --verbose`,
 		Args: cobra.ExactArgs(1),
 		RunE: runTest,
 	}
 
 	cmd.Flags().StringArrayVar(&testVars, "var", nil, "Set a variable for validation (format: key=value)")
+	cmd.Flags().StringVar(&testMockFile, "mock-file", "", "Path to mock handler definitions (JSON/YAML)")
 	cmd.Flags().BoolVar(&testVerbose, "verbose", false, "Show detailed test output")
 
 	return cmd
@@ -1377,6 +1761,27 @@ func runTest(cmd *cobra.Command, args []string) error {
 		{name: "Variable validation", passed: true, details: fmt.Sprintf("All %d required variables defined", len(vars))},
 		{name: "Step dependency check", passed: true, details: fmt.Sprintf("All %d steps have valid dependencies", rb.StepCount)},
 		{name: "Permission check", passed: true, details: "Required permissions are available"},
+	}
+
+	if testMockFile != "" {
+		data, err := os.ReadFile(testMockFile)
+		if err != nil {
+			return fmt.Errorf("reading mock file: %w", err)
+		}
+		var mocks []map[string]interface{}
+		if err := json.Unmarshal(data, &mocks); err != nil {
+			results = append(results, testResult{
+				name:    "Mock handler validation",
+				passed:  false,
+				details: fmt.Sprintf("Invalid mock file JSON: %v", err),
+			})
+		} else {
+			results = append(results, testResult{
+				name:    "Mock handler validation",
+				passed:  true,
+				details: fmt.Sprintf("Loaded %d mock handler(s)", len(mocks)),
+			})
+		}
 	}
 
 	allPassed := true

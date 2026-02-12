@@ -44,8 +44,13 @@ func NewClient(cluster ClusterConfig) (*Client, error) {
 	var err error
 
 	if cluster.Kubeconfig != "" {
-		// Load from kubeconfig file
-		config, err = clientcmd.BuildConfigFromFlags("", cluster.Kubeconfig)
+		// Load from kubeconfig file, respecting context override if specified
+		loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: cluster.Kubeconfig}
+		overrides := &clientcmd.ConfigOverrides{}
+		if cluster.Context != "" {
+			overrides.CurrentContext = cluster.Context
+		}
+		config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
 		}

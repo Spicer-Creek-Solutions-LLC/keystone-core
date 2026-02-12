@@ -16,6 +16,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/plugin"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -63,6 +64,7 @@ implemented as separate binaries (kscore-*).`,
 	rootCmd.AddCommand(newDiagnosticsCmd())
 	rootCmd.AddCommand(newSecurityCmd())
 	rootCmd.AddCommand(newNATSCmd())
+	rootCmd.AddCommand(newRBACCmd())
 
 	// Discover and register plugins
 	discovery := plugin.NewDiscovery()
@@ -1841,13 +1843,8 @@ Examples:
 			client := &http.Client{Timeout: 10 * time.Second}
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "Current Configuration (local)")
-				fmt.Fprintln(cmd.OutOrStdout(), "=============================")
-				fmt.Fprintln(cmd.OutOrStdout(), "Note: Could not reach control plane. Showing local config.")
-				if configFile != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Config file: %s\n", configFile)
-				}
-				return nil
+				// Server unreachable — fall back to local config
+				return showLocalConfig(cmd, configFile, includeDefaults)
 			}
 			defer resp.Body.Close()
 
@@ -1870,6 +1867,24 @@ Examples:
 	cmd.Flags().BoolVar(&includeDefaults, "include-defaults", false, "Include default values")
 
 	return cmd
+}
+
+func showLocalConfig(cmd *cobra.Command, cfgFile string, includeDefaults bool) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "Current Configuration (local)")
+	fmt.Fprintln(cmd.OutOrStdout(), "=============================")
+	fmt.Fprintln(cmd.OutOrStdout(), "Note: Could not reach control plane. Showing local config.")
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	cfg, err := config.LoadConfig(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to load local config: %w", err)
+	}
+
+	redacted := cfg.Redact()
+
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(redacted)
 }
 
 // =============================================================================
@@ -2092,6 +2107,272 @@ func newAuthKeyCmd() *cobra.Command {
 	})
 
 	return cmd
+}
+
+// =============================================================================
+// RBAC Command
+// =============================================================================
+
+func newRBACCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rbac",
+		Short: "RBAC role and permission management",
+		Long:  "Manage Role-Based Access Control roles and permissions.",
+	}
+
+	cmd.AddCommand(newRBACListRolesCmd())
+	cmd.AddCommand(newRBACExportCmd())
+
+	return cmd
+}
+
+func newRBACListRolesCmd() *cobra.Command {
+	var showPermissions bool
+
+	cmd := &cobra.Command{
+		Use:   "list-roles",
+		Short: "List RBAC roles",
+		Long: `List all RBAC roles defined in the system.
+
+Examples:
+  kscorectl rbac list-roles
+  kscorectl rbac list-roles --show-permissions`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			apiURL := fmt.Sprintf("%s://%s/api/v1/rbac/roles", getAPIScheme(serverAddr), serverAddr)
+			if showPermissions {
+				apiURL += "?show_permissions=true"
+			}
+
+			req, err := http.NewRequestWithContext(ctx, "GET", apiURL, http.NoBody)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %w", err)
+			}
+
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(req)
+			if err != nil {
+				// Fallback: show standard roles locally
+				return showLocalRoles(cmd, showPermissions)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				respBody, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to list roles: %s - %s", resp.Status, string(respBody))
+			}
+
+			var roles []rbacRoleEntry
+			if err := json.NewDecoder(resp.Body).Decode(&roles); err != nil {
+				return fmt.Errorf("failed to decode response: %w", err)
+			}
+
+			printRoles(cmd, roles, showPermissions)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&showPermissions, "show-permissions", false, "Include permission details for each role")
+
+	return cmd
+}
+
+type rbacRoleEntry struct {
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description,omitempty"`
+	Priority    int              `json:"priority"`
+	Permissions []rbacPermission `json:"permissions,omitempty"`
+}
+
+type rbacPermission struct {
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+}
+
+func showLocalRoles(cmd *cobra.Command, showPermissions bool) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "Note: Could not reach control plane. Showing standard roles.")
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	roles := []rbacRoleEntry{
+		{ID: "admin", Name: "Administrator", Description: "Full access to all resources", Priority: 100,
+			Permissions: []rbacPermission{{Resource: "*", Action: "*"}}},
+		{ID: "operator", Name: "Operator", Description: "Can manage agents and execute commands", Priority: 50,
+			Permissions: []rbacPermission{
+				{Resource: "agents", Action: "*"},
+				{Resource: "commands", Action: "*"},
+				{Resource: "states", Action: "read"},
+				{Resource: "states", Action: "apply"},
+				{Resource: "events", Action: "read"},
+			}},
+		{ID: "service", Name: "Service Account", Description: "For automated services", Priority: 30,
+			Permissions: []rbacPermission{
+				{Resource: "agents", Action: "register"},
+				{Resource: "agents", Action: "heartbeat"},
+				{Resource: "commands", Action: "execute"},
+				{Resource: "events", Action: "publish"},
+			}},
+		{ID: "viewer", Name: "Viewer", Description: "Read-only access", Priority: 10,
+			Permissions: []rbacPermission{
+				{Resource: "agents", Action: "read"},
+				{Resource: "commands", Action: "read"},
+				{Resource: "states", Action: "read"},
+				{Resource: "events", Action: "read"},
+				{Resource: "policies", Action: "read"},
+			}},
+	}
+
+	printRoles(cmd, roles, showPermissions)
+	return nil
+}
+
+func printRoles(cmd *cobra.Command, roles []rbacRoleEntry, showPermissions bool) {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "%-12s %-20s %-10s %s\n", "ROLE", "NAME", "PRIORITY", "DESCRIPTION")
+	fmt.Fprintf(out, "%-12s %-20s %-10s %s\n", "----", "----", "--------", "-----------")
+
+	for _, role := range roles {
+		fmt.Fprintf(out, "%-12s %-20s %-10d %s\n", role.ID, role.Name, role.Priority, role.Description)
+		if showPermissions && len(role.Permissions) > 0 {
+			for _, perm := range role.Permissions {
+				fmt.Fprintf(out, "  %s:%s\n", perm.Resource, perm.Action)
+			}
+		}
+	}
+}
+
+func newRBACExportCmd() *cobra.Command {
+	var format string
+	var output string
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export RBAC configuration",
+		Long: `Export the full RBAC configuration (roles and principals) for backup or audit.
+
+Examples:
+  kscorectl rbac export
+  kscorectl rbac export --format yaml
+  kscorectl rbac export --format json --output rbac-backup.json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "json" && format != "yaml" {
+				return fmt.Errorf("unsupported format %q: use json or yaml", format)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			apiURL := fmt.Sprintf("%s://%s/api/v1/rbac/export", getAPIScheme(serverAddr), serverAddr)
+			req, err := http.NewRequestWithContext(ctx, "GET", apiURL, http.NoBody)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %w", err)
+			}
+
+			var exportData rbacExportData
+
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(req)
+			if err != nil {
+				// Fallback: export standard roles locally
+				fmt.Fprintln(cmd.ErrOrStderr(), "Note: Could not reach control plane. Exporting standard roles.")
+				exportData = localRBACExport()
+			} else {
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					respBody, _ := io.ReadAll(resp.Body)
+					return fmt.Errorf("failed to export: %s - %s", resp.Status, string(respBody))
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&exportData); err != nil {
+					return fmt.Errorf("failed to decode response: %w", err)
+				}
+			}
+
+			data, err := marshalExport(exportData, format)
+			if err != nil {
+				return err
+			}
+
+			if output != "" {
+				if err := os.WriteFile(output, data, 0o600); err != nil {
+					return fmt.Errorf("failed to write file: %w", err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "RBAC configuration exported to %s\n", output)
+				return nil
+			}
+
+			fmt.Fprint(cmd.OutOrStdout(), string(data))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&format, "format", "json", "Output format: json or yaml")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "Write to file instead of stdout")
+
+	return cmd
+}
+
+type rbacExportData struct {
+	Roles      []rbacExportRole      `json:"roles" yaml:"roles"`
+	Principals []rbacExportPrincipal `json:"principals" yaml:"principals"`
+}
+
+type rbacExportRole struct {
+	ID          string           `json:"id" yaml:"id"`
+	Name        string           `json:"name" yaml:"name"`
+	Description string           `json:"description,omitempty" yaml:"description,omitempty"`
+	Priority    int              `json:"priority" yaml:"priority"`
+	Permissions []rbacPermission `json:"permissions" yaml:"permissions"`
+}
+
+type rbacExportPrincipal struct {
+	ID    string   `json:"id" yaml:"id"`
+	Type  string   `json:"type" yaml:"type"`
+	Name  string   `json:"name,omitempty" yaml:"name,omitempty"`
+	Roles []string `json:"roles" yaml:"roles"`
+}
+
+func localRBACExport() rbacExportData {
+	return rbacExportData{
+		Roles: []rbacExportRole{
+			{ID: "admin", Name: "Administrator", Description: "Full access to all resources", Priority: 100,
+				Permissions: []rbacPermission{{Resource: "*", Action: "*"}}},
+			{ID: "operator", Name: "Operator", Description: "Can manage agents and execute commands", Priority: 50,
+				Permissions: []rbacPermission{
+					{Resource: "agents", Action: "*"},
+					{Resource: "commands", Action: "*"},
+					{Resource: "states", Action: "read"},
+					{Resource: "states", Action: "apply"},
+					{Resource: "events", Action: "read"},
+				}},
+			{ID: "service", Name: "Service Account", Description: "For automated services", Priority: 30,
+				Permissions: []rbacPermission{
+					{Resource: "agents", Action: "register"},
+					{Resource: "agents", Action: "heartbeat"},
+					{Resource: "commands", Action: "execute"},
+					{Resource: "events", Action: "publish"},
+				}},
+			{ID: "viewer", Name: "Viewer", Description: "Read-only access", Priority: 10,
+				Permissions: []rbacPermission{
+					{Resource: "agents", Action: "read"},
+					{Resource: "commands", Action: "read"},
+					{Resource: "states", Action: "read"},
+					{Resource: "events", Action: "read"},
+					{Resource: "policies", Action: "read"},
+				}},
+		},
+		Principals: []rbacExportPrincipal{},
+	}
+}
+
+func marshalExport(data rbacExportData, format string) ([]byte, error) {
+	switch format {
+	case "yaml":
+		return yaml.Marshal(data)
+	default:
+		return json.MarshalIndent(data, "", "  ")
+	}
 }
 
 // =============================================================================

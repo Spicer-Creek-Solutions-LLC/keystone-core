@@ -74,6 +74,7 @@ Examples:
 		newSearchCommand(),
 		newAnalyzeCommand(),
 		newTimelineCommand(),
+		newWatchCommand(),
 	)
 
 	return rootCmd
@@ -642,6 +643,7 @@ func newSearchCommand() *cobra.Command {
 		searchStatus string
 		searchAgent  string
 		searchUser   string
+		searchAPIKey string
 		searchSince  string
 		searchOutput string
 		searchHour   string
@@ -650,12 +652,15 @@ func newSearchCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search audit log entries",
+		Use:     "search",
+		Aliases: []string{"query"},
+		Short:   "Search audit log entries",
 		Long: `Search audit log entries with flexible filters.
 
-Supports filtering by event type, status, agent, user, and time range.
+Supports filtering by event type, status, agent, user, API key, and time range.
 Results can be output as JSON for piping to other tools.
+
+The "query" alias is also available: kscore-audit query ...
 
 Examples:
   # Search for failed auth events
@@ -663,6 +668,9 @@ Examples:
 
   # Search for agent activity
   kscore-audit search --type "agent.*" --agent "agent-123" --since "7d"
+
+  # Query by API key
+  kscore-audit query --api-key "ops-key" --since "24h"
 
   # Count events by hour
   kscore-audit search --type "auth.login" --count-by hour
@@ -673,7 +681,7 @@ Examples:
   # Limit results
   kscore-audit search --type "auth.login" --limit 10`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSearch(cmd, searchType, searchStatus, searchAgent, searchUser, searchSince, searchOutput, searchHour, countBy, limit)
+			return runSearch(cmd, searchType, searchStatus, searchAgent, searchUser, searchAPIKey, searchSince, searchOutput, searchHour, countBy, limit)
 		},
 	}
 
@@ -681,6 +689,7 @@ Examples:
 	cmd.Flags().StringVar(&searchStatus, "status", "", "Filter by status (e.g., 'failed', 'success')")
 	cmd.Flags().StringVar(&searchAgent, "agent", "", "Filter by agent ID")
 	cmd.Flags().StringVar(&searchUser, "user", "", "Filter by username")
+	cmd.Flags().StringVar(&searchAPIKey, "api-key", "", "Filter by API key name")
 	cmd.Flags().StringVar(&searchSince, "since", "", "Show entries since duration (e.g., '7d', '24h')")
 	cmd.Flags().StringVar(&searchOutput, "output", "", "Output file path (default: stdout)")
 	cmd.Flags().StringVar(&searchHour, "hour", "", "Filter by hour range (e.g., '0-6' for midnight to 6am)")
@@ -697,18 +706,29 @@ type SearchResult struct {
 	Status    string `json:"status"`
 	Agent     string `json:"agent,omitempty"`
 	User      string `json:"user,omitempty"`
+	APIKey    string `json:"api_key,omitempty"`
 	IP        string `json:"ip,omitempty"`
 	Command   string `json:"command,omitempty"`
 	Details   string `json:"details,omitempty"`
 }
 
-func runSearch(cmd *cobra.Command, eventType, status, agent, user, since, outputFile, hour, countBy string, limit int) error {
+func runSearch(cmd *cobra.Command, eventType, status, agent, user, apiKey, since, outputFile, hour, countBy string, limit int) error {
 	results := generateSampleSearchResults(eventType, status, agent, since)
 
 	if user != "" {
 		filtered := make([]SearchResult, 0)
 		for i := range results {
 			if results[i].User == user {
+				filtered = append(filtered, results[i])
+			}
+		}
+		results = filtered
+	}
+
+	if apiKey != "" {
+		filtered := make([]SearchResult, 0)
+		for i := range results {
+			if results[i].APIKey == apiKey {
 				filtered = append(filtered, results[i])
 			}
 		}
@@ -790,7 +810,7 @@ func runSearch(cmd *cobra.Command, eventType, status, agent, user, since, output
 		}
 	default:
 		tbl := &output.Table{
-			Headers: []string{"TIMESTAMP", "TYPE", "STATUS", "AGENT", "USER", "DETAILS"},
+			Headers: []string{"TIMESTAMP", "TYPE", "STATUS", "AGENT", "USER", "API_KEY", "DETAILS"},
 		}
 		for i := range results {
 			r := &results[i]
@@ -800,6 +820,7 @@ func runSearch(cmd *cobra.Command, eventType, status, agent, user, since, output
 				r.Status,
 				r.Agent,
 				r.User,
+				r.APIKey,
 				truncate(r.Details, 40),
 			})
 		}
@@ -816,14 +837,14 @@ func runSearch(cmd *cobra.Command, eventType, status, agent, user, since, output
 
 func generateSampleSearchResults(eventType, status, agent, since string) []SearchResult {
 	results := []SearchResult{
-		{Timestamp: time.Now().Add(-1 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "success", User: "admin", IP: "10.0.1.5", Details: "Login from admin console"},
-		{Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "failed", User: "admin", IP: "192.168.1.100", Details: "Invalid credentials"},
-		{Timestamp: time.Now().Add(-3 * time.Hour).Format(time.RFC3339), Type: "exec.command", Status: "success", Agent: "web-001", User: "ops", Command: "systemctl restart nginx", Details: "Remote execution"},
+		{Timestamp: time.Now().Add(-1 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "success", User: "admin", APIKey: "admin-key", IP: "10.0.1.5", Details: "Login from admin console"},
+		{Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "failed", User: "admin", APIKey: "admin-key", IP: "192.168.1.100", Details: "Invalid credentials"},
+		{Timestamp: time.Now().Add(-3 * time.Hour).Format(time.RFC3339), Type: "exec.command", Status: "success", Agent: "web-001", User: "ops", APIKey: "ops-key", Command: "systemctl restart nginx", Details: "Remote execution"},
 		{Timestamp: time.Now().Add(-4 * time.Hour).Format(time.RFC3339), Type: "agent.register", Status: "success", Agent: "db-002", Details: "New agent registered"},
-		{Timestamp: time.Now().Add(-5 * time.Hour).Format(time.RFC3339), Type: "secret.read", Status: "success", User: "deploy-bot", Details: "Read vault/secret/database/prod"},
+		{Timestamp: time.Now().Add(-5 * time.Hour).Format(time.RFC3339), Type: "secret.read", Status: "success", User: "deploy-bot", APIKey: "deploy-key", Details: "Read vault/secret/database/prod"},
 		{Timestamp: time.Now().Add(-6 * time.Hour).Format(time.RFC3339), Type: "policy.evaluate", Status: "denied", Agent: "web-001", Details: "security-no-root policy violation"},
 		{Timestamp: time.Now().Add(-8 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "failed", User: "unknown", IP: "203.0.113.50", Details: "Unknown user attempt"},
-		{Timestamp: time.Now().Add(-12 * time.Hour).Format(time.RFC3339), Type: "agent.delete", Status: "success", Agent: "old-001", User: "admin", Details: "Agent decommissioned"},
+		{Timestamp: time.Now().Add(-12 * time.Hour).Format(time.RFC3339), Type: "agent.delete", Status: "success", Agent: "old-001", User: "admin", APIKey: "admin-key", Details: "Agent decommissioned"},
 	}
 
 	if eventType != "" {
@@ -1111,6 +1132,159 @@ func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
 		fmt.Fprintf(os.Stderr, "Timeline written to %s\n", timelineOut)
 	}
 	return nil
+}
+
+// ============================================================================
+// Watch Command
+// ============================================================================
+
+func newWatchCommand() *cobra.Command {
+	var (
+		watchType    string
+		watchStatus  string
+		watchAgent   string
+		watchUser    string
+		watchAPIKey  string
+		watchInterval time.Duration
+	)
+
+	cmd := &cobra.Command{
+		Use:   "watch",
+		Short: "Real-time audit log monitoring",
+		Long: `Monitor audit log events in real-time with optional filters.
+
+Streams audit events as they occur, similar to 'tail -f' for audit logs.
+Press Ctrl+C to stop.
+
+Supports filtering by event type, status, agent, user, and API key.
+In JSON format, outputs one JSON object per line (NDJSON).
+
+Examples:
+  # Watch all events
+  kscore-audit watch
+
+  # Watch only auth events
+  kscore-audit watch --type "auth.*"
+
+  # Watch failed events only
+  kscore-audit watch --type "auth.*" --status "failed"
+
+  # Watch events for a specific agent
+  kscore-audit watch --agent "web-001"
+
+  # Watch with faster polling
+  kscore-audit watch --interval 500ms
+
+  # Output as NDJSON
+  kscore-audit watch --format json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runWatch(cmd, watchType, watchStatus, watchAgent, watchUser, watchAPIKey, watchInterval)
+		},
+	}
+
+	cmd.Flags().StringVar(&watchType, "type", "", "Event type pattern (e.g., 'auth.*', 'exec.*')")
+	cmd.Flags().StringVar(&watchStatus, "status", "", "Filter by status (e.g., 'failed', 'success')")
+	cmd.Flags().StringVar(&watchAgent, "agent", "", "Filter by agent ID")
+	cmd.Flags().StringVar(&watchUser, "user", "", "Filter by username")
+	cmd.Flags().StringVar(&watchAPIKey, "api-key", "", "Filter by API key name")
+	cmd.Flags().DurationVar(&watchInterval, "interval", 2*time.Second, "Polling interval (e.g., '1s', '500ms')")
+
+	return cmd
+}
+
+// sampleWatchEvents returns a pool of sample events for the watch stream.
+func sampleWatchEvents() []SearchResult {
+	return []SearchResult{
+		{Type: "auth.login", Status: "success", User: "admin", APIKey: "admin-key", IP: "10.0.1.5", Details: "Login from admin console"},
+		{Type: "auth.login", Status: "failed", User: "unknown", IP: "203.0.113.50", Details: "Invalid credentials"},
+		{Type: "exec.command", Status: "success", Agent: "web-001", User: "ops", APIKey: "ops-key", Details: "systemctl restart nginx"},
+		{Type: "agent.heartbeat", Status: "success", Agent: "db-002", Details: "Heartbeat received"},
+		{Type: "secret.read", Status: "success", User: "deploy-bot", APIKey: "deploy-key", Details: "Read vault/secret/database/prod"},
+		{Type: "policy.evaluate", Status: "denied", Agent: "web-001", Details: "security-no-root policy violation"},
+		{Type: "auth.logout", Status: "success", User: "admin", APIKey: "admin-key", Details: "Session ended"},
+		{Type: "agent.register", Status: "success", Agent: "edge-005", Details: "New agent registered"},
+		{Type: "exec.command", Status: "failed", Agent: "db-002", User: "ops", APIKey: "ops-key", Details: "Permission denied: drop database"},
+		{Type: "auth.token_refresh", Status: "success", User: "service-account", APIKey: "svc-key", Details: "Token refreshed"},
+	}
+}
+
+// filterWatchEvent returns true if the event matches all provided filters.
+func filterWatchEvent(e *SearchResult, eventType, status, agent, user, apiKey string) bool {
+	if eventType != "" {
+		pattern := strings.TrimSuffix(eventType, ".*")
+		if !strings.HasPrefix(e.Type, pattern) {
+			return false
+		}
+	}
+	if status != "" && e.Status != status {
+		return false
+	}
+	if agent != "" && e.Agent != agent {
+		return false
+	}
+	if user != "" && e.User != user {
+		return false
+	}
+	if apiKey != "" && e.APIKey != apiKey {
+		return false
+	}
+	return true
+}
+
+func runWatch(cmd *cobra.Command, eventType, status, agent, user, apiKey string, interval time.Duration) error {
+	ctx := cmd.Context()
+	out := cmd.OutOrStdout()
+	pool := sampleWatchEvents()
+
+	format, err := output.ParseFormat(outputFormat)
+	if err != nil {
+		return err
+	}
+
+	if format == output.FormatTable || format == output.FormatText {
+		fmt.Fprintf(out, "%-24s %-20s %-10s %-12s %-12s %s\n",
+			"TIMESTAMP", "TYPE", "STATUS", "AGENT", "USER", "DETAILS")
+		fmt.Fprintln(out, strings.Repeat("-", 100))
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	idx := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			event := pool[idx%len(pool)]
+			event.Timestamp = time.Now().Format(time.RFC3339)
+			idx++
+
+			if !filterWatchEvent(&event, eventType, status, agent, user, apiKey) {
+				continue
+			}
+
+			switch format {
+			case output.FormatJSON:
+				if err := output.WriteJSON(out, event); err != nil {
+					return err
+				}
+			case output.FormatYAML:
+				if err := output.WriteYAML(out, event); err != nil {
+					return err
+				}
+			default:
+				fmt.Fprintf(out, "%-24s %-20s %-10s %-12s %-12s %s\n",
+					event.Timestamp,
+					event.Type,
+					event.Status,
+					event.Agent,
+					event.User,
+					truncate(event.Details, 40),
+				)
+			}
+		}
+	}
 }
 
 // ============================================================================

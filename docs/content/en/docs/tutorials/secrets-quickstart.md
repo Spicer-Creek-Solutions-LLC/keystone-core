@@ -78,7 +78,7 @@ Retrieve specific fields:
 kscorectl secrets get database/production/credentials --field password
 
 # Get all fields as JSON
-kscorectl secrets get database/production/credentials --format json
+kscorectl secrets get database/production/credentials -o json
 ```
 
 ## Step 5: Create a Workload with Secrets
@@ -182,7 +182,7 @@ View secret access logs:
 
 ```bash
 # Recent accesses
-kscorectl secrets audit list --path "database/*" --since 1h
+kscorectl secrets audit "database/*"
 
 # Check cache hit rates
 kscorectl secrets cache status
@@ -261,10 +261,10 @@ curl https://myapp.example.com/health
 
 ```bash
 # Check if secret exists
-kscorectl secrets list --path "database/*"
+kscorectl secrets list "database/*"
 
 # Check path spelling
-kscorectl secrets get database/production/password --debug
+kscorectl secrets get database/production/password -v
 ```
 
 ### Permission denied

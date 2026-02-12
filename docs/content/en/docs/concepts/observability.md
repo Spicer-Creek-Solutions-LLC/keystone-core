@@ -2118,28 +2118,28 @@ kscorectl exec run "role:db" -- mysql -p secret123 -e 'SELECT *'
 
 ## Performance Profiling
 
-pprof endpoints for profiling:
+When `profiling.enabled: true` is set in the server or agent configuration, a dedicated pprof HTTP server starts on a separate port (default `localhost:6060`).
 
 ### Available Profiles
 
 ```bash
 # CPU profile
-curl http://control-plane:8080/debug/pprof/profile?seconds=30 > cpu.prof
+curl http://localhost:6060/debug/pprof/profile?seconds=30 > cpu.prof
 
 # Heap profile
-curl http://control-plane:8080/debug/pprof/heap > heap.prof
+curl http://localhost:6060/debug/pprof/heap > heap.prof
 
 # Goroutine profile
-curl http://control-plane:8080/debug/pprof/goroutine > goroutine.prof
+curl http://localhost:6060/debug/pprof/goroutine > goroutine.prof
 
 # Mutex profile
-curl http://control-plane:8080/debug/pprof/mutex > mutex.prof
+curl http://localhost:6060/debug/pprof/mutex > mutex.prof
 
 # Block profile
-curl http://control-plane:8080/debug/pprof/block > block.prof
+curl http://localhost:6060/debug/pprof/block > block.prof
 
 # Trace
-curl http://control-plane:8080/debug/pprof/trace?seconds=5 > trace.out
+curl http://localhost:6060/debug/pprof/trace?seconds=5 > trace.out
 ```
 
 ### Analyzing Profiles

@@ -60,53 +60,23 @@ flowchart TB
 
 ## Implementation
 
-### Step 1: Define Event Types
+### Step 1: Emit Custom Events
 
-Create custom event schemas:
+Custom events are emitted dynamically via the CLI or API — no schema pre-registration is required. Events carry a type, optional severity, tags, and a free-form JSON data payload:
 
-```yaml
-# config/events/custom-events.yaml
-events:
-  - name: deployment.started
-    schema:
-      type: object
-      required: [app, version, environment]
-      properties:
-        app:
-          type: string
-        version:
-          type: string
-        environment:
-          type: string
-        deployer:
-          type: string
-        commit_sha:
-          type: string
+```bash
+# Emit a deployment started event
+kscorectl events emit --type deployment.started \
+  --data '{"app":"webapp","version":"1.2.3","environment":"prod","deployer":"ci"}' \
+  --tag env:prod --tag app:webapp
 
-  - name: deployment.completed
-    schema:
-      type: object
-      required: [app, version, status]
-      properties:
-        app:
-          type: string
-        version:
-          type: string
-        status:
-          type: string
-          enum: [success, failed, rolled_back]
-        duration_seconds:
-          type: integer
+# Emit a deployment completed event
+kscorectl events emit --type deployment.completed \
+  --data '{"app":"webapp","version":"1.2.3","status":"success","duration_seconds":120}'
 
-  - name: alert.triggered
-    schema:
-      type: object
-      required: [alert_name, severity]
-      properties:
-        alert_name:
-          type: string
-        severity:
-          type: string
+# Emit an alert event
+kscorectl events emit --type alert.triggered --severity warning \
+  --data '{"alert_name":"high_cpu","severity":"warning"}'
           enum: [critical, high, medium, low]
         source:
           type: string

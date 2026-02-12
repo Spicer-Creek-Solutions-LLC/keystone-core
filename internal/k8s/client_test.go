@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -801,5 +803,96 @@ func TestJSONMarshalDeploymentInfo(t *testing.T) {
 
 	if decoded.AvailableReplicas != info.AvailableReplicas {
 		t.Errorf("expected available replicas %d, got %d", info.AvailableReplicas, decoded.AvailableReplicas)
+	}
+}
+
+func TestNewClient_ContextSelection(t *testing.T) {
+	// Write a kubeconfig with two contexts pointing to different servers
+	kubeconfig := `apiVersion: v1
+kind: Config
+current-context: ctx-a
+clusters:
+- cluster:
+    server: https://server-a:6443
+  name: cluster-a
+- cluster:
+    server: https://server-b:6443
+  name: cluster-b
+contexts:
+- context:
+    cluster: cluster-a
+    user: user-a
+  name: ctx-a
+- context:
+    cluster: cluster-b
+    user: user-b
+  name: ctx-b
+users:
+- name: user-a
+  user:
+    token: token-a
+- name: user-b
+  user:
+    token: token-b
+`
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "kubeconfig")
+	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	// Without context override: should use current-context (ctx-a → server-a)
+	clientA, err := NewClient(ClusterConfig{Kubeconfig: kubeconfigPath})
+	if err != nil {
+		t.Fatalf("NewClient without context override failed: %v", err)
+	}
+	if clientA.config.Host != "https://server-a:6443" {
+		t.Errorf("expected host https://server-a:6443, got %s", clientA.config.Host)
+	}
+
+	// With context override: should use ctx-b → server-b
+	clientB, err := NewClient(ClusterConfig{Kubeconfig: kubeconfigPath, Context: "ctx-b"})
+	if err != nil {
+		t.Fatalf("NewClient with context override failed: %v", err)
+	}
+	if clientB.config.Host != "https://server-b:6443" {
+		t.Errorf("expected host https://server-b:6443, got %s", clientB.config.Host)
+	}
+}
+
+func TestNewClient_InvalidKubeconfig(t *testing.T) {
+	_, err := NewClient(ClusterConfig{Kubeconfig: "/nonexistent/path/kubeconfig"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent kubeconfig, got nil")
+	}
+}
+
+func TestNewClient_InvalidContext(t *testing.T) {
+	kubeconfig := `apiVersion: v1
+kind: Config
+current-context: default
+clusters:
+- cluster:
+    server: https://localhost:6443
+  name: default
+contexts:
+- context:
+    cluster: default
+    user: default
+  name: default
+users:
+- name: default
+  user:
+    token: test
+`
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "kubeconfig")
+	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	_, err := NewClient(ClusterConfig{Kubeconfig: kubeconfigPath, Context: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent context, got nil")
 	}
 }

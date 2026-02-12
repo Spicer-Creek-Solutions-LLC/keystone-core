@@ -352,7 +352,7 @@ Keystone Core follows the same "simple → production" philosophy for security a
 
 **How it works:**
 
-- Static CA and certificates generated via `pkg/security/tls.go`
+- Static CA and certificates generated via `internal/security/tls.go`
 - Control plane generates CA on first startup
 - Agents receive signed certificates during registration
 - Certificates stored on disk, manually rotated

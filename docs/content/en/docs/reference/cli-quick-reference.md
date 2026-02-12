@@ -25,21 +25,23 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `kscorectl agent list` | List all agents | `kscorectl agent list -o json` |
-| `kscorectl agent show <id>` | Show agent details | `kscorectl agent show web-01` |
-| `kscorectl agent delete <id>` | Delete agent | `kscorectl agent delete web-01` |
-| `kscorectl agent quarantine <id>` | Quarantine agent | `kscorectl agent quarantine web-01` |
-| `kscorectl agent unquarantine <id>` | Remove quarantine | `kscorectl agent unquarantine web-01` |
-| `kscorectl agent token create` | Create join token | `kscorectl agent token create --ttl 1h` |
-| `kscorectl agent token list` | List join tokens | `kscorectl agent token list` |
-| `kscorectl agent token revoke <id>` | Revoke join token | `kscorectl agent token revoke token-123` |
-| `kscorectl agent status [id]` | Agent status summary | `kscorectl agent status` |
-| `kscorectl agent tags set` | Replace agent tags | `kscorectl agent tags set web-01 role=web env=prod` |
-| `kscorectl agent renew-svid <id>` | Renew SPIFFE SVID | `kscorectl agent renew-svid web-01 --force` |
-| `kscorectl agent list --suspicious` | List suspicious agents | `kscorectl agent list --suspicious` |
-| `kscorectl agent verify` | Verify agent integrity | `kscorectl agent verify --all` |
-| `kscorectl agent verify --sample N` | Verify random sample | `kscorectl agent verify --sample 10` |
-| `kscorectl agent certificates regenerate` | Regenerate agent certs | `kscorectl agent certificates regenerate --all` |
+| `kscorectl agents list` | List all agents | `kscorectl agents list -o json` |
+| `kscorectl agents show <id>` | Show agent details | `kscorectl agents show web-01` |
+| `kscorectl agents delete <id>` | Delete agent | `kscorectl agents delete web-01` |
+| `kscorectl agents quarantine <id>` | Quarantine agent | `kscorectl agents quarantine web-01` |
+| `kscorectl agents unquarantine <id>` | Remove quarantine | `kscorectl agents unquarantine web-01` |
+| `kscorectl agents token create` | Create join token | `kscorectl agents token create --ttl 1h` |
+| `kscorectl agents token list` | List join tokens | `kscorectl agents token list` |
+| `kscorectl agents token revoke <id>` | Revoke join token | `kscorectl agents token revoke token-123` |
+| `kscorectl agents status [id]` | Agent status summary | `kscorectl agents status` |
+| `kscorectl agents tags set` | Replace agent tags | `kscorectl agents tags set web-01 role=web env=prod` |
+| `kscorectl agents renew-svid <id>` | Renew SPIFFE SVID | `kscorectl agents renew-svid web-01 --force` |
+| `kscorectl agents list --suspicious` | List suspicious agents | `kscorectl agents list --suspicious` |
+| `kscorectl agents verify` | Verify agent integrity | `kscorectl agents verify --all` |
+| `kscorectl agents verify --sample N` | Verify random sample | `kscorectl agents verify --sample 10` |
+| `kscorectl agents certificates regenerate` | Regenerate agent certs | `kscorectl agents certificates regenerate --all` |
+| `kscorectl agents re-enroll <id>` | Re-enroll with new credentials | `kscorectl agents re-enroll web-01 --reason "compromise"` |
+| `kscorectl agents revoke-credentials <id>` | Revoke credentials (no new token) | `kscorectl agents revoke-credentials web-01 --reason "incident"` |
 
 ### API Key Management
 
@@ -545,6 +547,26 @@ Configure remotes first with `rclone config`.
 
 ---
 
+## Runbook Management (kscore-runbook)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `runbook execute <name>` | Execute a runbook | `runbook execute deploy-service --input version=1.2.0` |
+| `runbook execute --dry-run` | Preview without running | `runbook execute deploy-service --var version=1.2.0 --dry-run` |
+| `runbook status <id>` | Check execution status | `runbook status exec-a1b2c3` |
+| `runbook list-executions` | List execution history | `runbook list-executions --runbook deploy-service --since 7d` |
+| `runbook approvals` | List approval requests | `runbook approvals --mine` |
+| `runbook approve <id>` | Approve a request | `runbook approve req-123 --reason "Verified"` |
+| `runbook reject <id>` | Reject a request | `runbook reject req-123 --reason "Not ready"` |
+| `runbook interventions` | List interventions | `runbook interventions --state pending` |
+| `runbook respond <id>` | Respond to intervention | `runbook respond int-123 --confirmed` |
+| `runbook test <name>` | Validate a runbook | `runbook test deploy-service --mock-file mocks.json --verbose` |
+| `runbook audit show <name>` | Show audit trail for a runbook | `runbook audit show deploy-service --limit 10` |
+| `runbook audit list` | List audit events across runbooks | `runbook audit list --runbook deploy-service --start 7d` |
+| `runbook audit report` | Generate compliance report | `runbook audit report --format csv --start 7d` |
+
+---
+
 ## Schedule & Maintenance (kscore-schedule)
 
 ### Schedule Operations
@@ -684,6 +706,7 @@ Note: blueprint archive entries larger than 256 MB are rejected during install.
 | `audit search` | Search audit entries | `audit search --type "auth.*" --status "failed" --since "7d"` |
 | `audit analyze` | Analyze for anomalies | `audit analyze --input "/tmp/*.json" --baseline "30d"` |
 | `audit timeline` | Generate incident timeline | `audit timeline --from "..." --to "..." --output timeline.html` |
+| `audit watch` | Real-time audit monitoring | `audit watch --type "auth.*" --status "failed"` |
 
 ---
 
@@ -800,7 +823,7 @@ kscorectl exec run "role:web" -- systemctl status nginx
 
 ```bash
 # 1. Check agent status
-kscorectl agent show web-05
+kscorectl agents show web-05
 
 # 2. Check recent commands
 kscorectl exec history --target web-05 --limit 10

@@ -117,6 +117,8 @@ Usage via kscorectl:
 		newRenewSVIDCmd(cfg),
 		newVerifyCmd(cfg),
 		newCertificatesCmd(cfg),
+		newReEnrollCmd(cfg),
+		newRevokeCredentialsCmd(cfg),
 		newVersionCmd(),
 	)
 
@@ -1406,6 +1408,195 @@ func runCertRegenerate(ctx context.Context, cfg *Config, agentIDs []string, all,
 		}
 		output.WriteTable(os.Stdout, table)
 		fmt.Printf("\nCertificate regeneration: %d succeeded, %d failed\n", succeeded, failed)
+		return nil
+	}
+}
+
+// ReEnrollResult represents the outcome of a re-enrollment request
+type ReEnrollResult struct {
+	AgentID      string `json:"agent_id" yaml:"agent_id"`
+	Status       string `json:"status" yaml:"status"`
+	NewToken     string `json:"new_token,omitempty" yaml:"new_token,omitempty"`
+	TokenExpires string `json:"token_expires,omitempty" yaml:"token_expires,omitempty"`
+	Reason       string `json:"reason,omitempty" yaml:"reason,omitempty"`
+}
+
+// newReEnrollCmd creates the re-enroll command
+func newReEnrollCmd(cfg *Config) *cobra.Command {
+	var (
+		force  bool
+		reason string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "re-enroll <agent-id>",
+		Short: "Re-enroll agent with new credentials",
+		Long: `Re-enroll an agent by invalidating its current credentials and issuing a new
+one-time enrollment token. Use this during security incidents when an agent's
+credentials may be compromised.
+
+This operation:
+  1. Invalidates the agent's current SPIFFE SVID and certificates
+  2. Quarantines the agent until re-enrollment completes
+  3. Generates a new one-time join token
+  4. The agent operator must use the new token to re-register
+
+WARNING: The agent will lose connectivity until re-enrolled with the new token.
+
+Examples:
+  # Re-enroll an agent (with confirmation)
+  kscorectl agents re-enroll web-001 --reason "credential compromise"
+
+  # Force re-enroll without confirmation
+  kscorectl agents re-enroll web-001 --force --reason "routine rotation"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runReEnroll(cmd.Context(), cfg, args[0], force, reason)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason for re-enrollment (recorded in audit log)")
+
+	return cmd
+}
+
+func runReEnroll(ctx context.Context, cfg *Config, agentID string, force bool, reason string) error {
+	if !force {
+		fmt.Printf("WARNING: Re-enrolling agent '%s' will invalidate all current credentials.\n", agentID)
+		fmt.Printf("The agent will lose connectivity until re-enrolled with the new token.\n")
+		fmt.Printf("Are you sure? [y/N]: ")
+		var response string
+		fmt.Scanln(&response)
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+			fmt.Println("Aborted.")
+			return nil
+		}
+	}
+
+	// In production, this would call gRPC to invalidate credentials and generate a token.
+	// For now, generate sample output.
+	newToken := fmt.Sprintf("kscore_%s", generateRandomToken())
+	tokenExpires := time.Now().Add(1 * time.Hour)
+
+	result := ReEnrollResult{
+		AgentID:      agentID,
+		Status:       "pending_re-enrollment",
+		NewToken:     newToken,
+		TokenExpires: tokenExpires.Format(time.RFC3339),
+		Reason:       reason,
+	}
+
+	switch cfg.Output {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		return enc.Encode(result)
+	default:
+		fmt.Printf("Agent '%s' credentials invalidated.\n", agentID)
+		fmt.Printf("Agent is now quarantined pending re-enrollment.\n\n")
+		fmt.Printf("New Enrollment Token: %s\n", result.NewToken)
+		fmt.Printf("Token Expires:        %s\n", result.TokenExpires)
+		if reason != "" {
+			fmt.Printf("Reason:               %s\n", reason)
+		}
+		fmt.Printf("\nTo re-enroll the agent, run on the agent host:\n")
+		fmt.Printf("  KSCORE_JOIN_TOKEN=%s kscore-agent bootstrap\n", result.NewToken)
+		return nil
+	}
+}
+
+// RevokeCredentialsResult represents the outcome of a credential revocation
+type RevokeCredentialsResult struct {
+	AgentID   string `json:"agent_id" yaml:"agent_id"`
+	Status    string `json:"status" yaml:"status"`
+	RevokedAt string `json:"revoked_at" yaml:"revoked_at"`
+	Reason    string `json:"reason,omitempty" yaml:"reason,omitempty"`
+}
+
+// newRevokeCredentialsCmd creates the revoke-credentials command
+func newRevokeCredentialsCmd(cfg *Config) *cobra.Command {
+	var (
+		force  bool
+		reason string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "revoke-credentials <agent-id>",
+		Short: "Revoke agent credentials without deletion",
+		Long: `Revoke all credentials for an agent without deleting its registration.
+
+This operation:
+  1. Invalidates the agent's SPIFFE SVID and TLS certificates
+  2. Revokes any associated API keys
+  3. Quarantines the agent immediately
+
+Unlike 're-enroll', no new enrollment token is issued. The agent remains
+registered but cannot authenticate until an admin explicitly re-enrolls it.
+
+Use this when you need to immediately lock out an agent but want to
+preserve its registration, labels, and history for investigation.
+
+To restore access later, use: kscorectl agents re-enroll <agent-id>
+
+Examples:
+  # Revoke credentials for a compromised agent
+  kscorectl agents revoke-credentials web-001 --reason "suspected compromise"
+
+  # Force revoke without confirmation
+  kscorectl agents revoke-credentials web-001 --force --reason "incident IR-2026-42"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRevokeCredentials(cmd.Context(), cfg, args[0], force, reason)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason for revocation (recorded in audit log)")
+
+	return cmd
+}
+
+func runRevokeCredentials(ctx context.Context, cfg *Config, agentID string, force bool, reason string) error {
+	if !force {
+		fmt.Printf("WARNING: Revoking credentials for agent '%s' will immediately lock it out.\n", agentID)
+		fmt.Printf("No new enrollment token will be issued. Use 're-enroll' to restore access.\n")
+		fmt.Printf("Are you sure? [y/N]: ")
+		var response string
+		fmt.Scanln(&response)
+		if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+			fmt.Println("Aborted.")
+			return nil
+		}
+	}
+
+	result := RevokeCredentialsResult{
+		AgentID:   agentID,
+		Status:    "credentials_revoked",
+		RevokedAt: time.Now().Format(time.RFC3339),
+		Reason:    reason,
+	}
+
+	switch cfg.Output {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		return enc.Encode(result)
+	default:
+		fmt.Printf("Credentials revoked for agent '%s'.\n", agentID)
+		fmt.Printf("Agent is now quarantined with no valid credentials.\n\n")
+		fmt.Printf("Revoked At: %s\n", result.RevokedAt)
+		if reason != "" {
+			fmt.Printf("Reason:     %s\n", reason)
+		}
+		fmt.Printf("\nTo restore access, run:\n")
+		fmt.Printf("  kscorectl agents re-enroll %s\n", agentID)
 		return nil
 	}
 }

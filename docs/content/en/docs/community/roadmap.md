@@ -722,7 +722,7 @@ Comprehensive testing for the bootstrap experience:
 
 Restructured CLI commands to improve user experience by splitting oversized commands into focused, purpose-specific tools:
 
-- **Deprecation Framework**: Created `pkg/cli/deprecation/` with structured deprecation warnings, migration paths, and configurable suppression
+- **Deprecation Framework**: Created `internal/cli/deprecation/` with structured deprecation warnings, migration paths, and configurable suppression
 - **Blueprint Split**: `kscore-blueprint` → 3 focused commands
   - `kscore-blueprint` - Core lifecycle (reduced to 8 subcommands)
   - `kscore-blueprint-publish` - Publication workflow (publish, sign, verify, versions, docs)

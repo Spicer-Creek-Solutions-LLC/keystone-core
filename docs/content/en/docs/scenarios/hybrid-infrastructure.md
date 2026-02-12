@@ -210,16 +210,12 @@ dns:
 ## Verification
 
 ```bash
-# Check agents by provider
-kscorectl agents list --group-by provider
-
-# Output:
-# PROVIDER    CONNECTED    TOTAL    HEALTHY
-# aws         45           45       45
-# gcp         20           20       19
-# azure       15           15       15
-# vmware      30           30       30
-# bare_metal  10           10       10
+# Check agents filtered by provider label
+kscorectl agents list --label provider=aws
+kscorectl agents list --label provider=gcp
+kscorectl agents list --label provider=azure
+kscorectl agents list --label provider=vmware
+kscorectl agents list --label provider=bare_metal
 
 # Verify agent connectivity across all providers
 kscorectl agents verify --all

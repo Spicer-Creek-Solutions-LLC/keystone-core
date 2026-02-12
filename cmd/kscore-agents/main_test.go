@@ -36,6 +36,8 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		"renew-svid",
 		"verify",
 		"certificates",
+		"re-enroll",
+		"revoke-credentials",
 		"version",
 	}
 
@@ -469,6 +471,183 @@ func TestCertRegenerateResultStructure(t *testing.T) {
 	}
 	if !r.Renewed {
 		t.Error("Renewed should be true")
+	}
+}
+
+func TestNewReEnrollCmd(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newReEnrollCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newReEnrollCmd should not return nil")
+	}
+	if cmd.Use != "re-enroll <agent-id>" {
+		t.Errorf("Use = %v, want 're-enroll <agent-id>'", cmd.Use)
+	}
+}
+
+func TestReEnrollCommandFlags(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newReEnrollCmd(cfg)
+
+	flags := []string{"force", "reason"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestReEnrollRequiresAgentID(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newReEnrollCmd(cfg)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no agent ID specified")
+	}
+}
+
+func TestReEnrollHelp(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newReEnrollCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("re-enroll --help failed: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "security incidents") {
+		t.Errorf("expected help to mention 'security incidents', got: %s", out)
+	}
+	if !strings.Contains(out, "--reason") {
+		t.Errorf("expected help to mention '--reason', got: %s", out)
+	}
+}
+
+func TestReEnrollResultStructure(t *testing.T) {
+	r := ReEnrollResult{
+		AgentID:      "web-001",
+		Status:       "pending_re-enrollment",
+		NewToken:     "kscore_abc123",
+		TokenExpires: "2026-01-01T01:00:00Z",
+		Reason:       "credential compromise",
+	}
+
+	if r.AgentID != "web-001" {
+		t.Errorf("AgentID = %v, want web-001", r.AgentID)
+	}
+	if r.Status != "pending_re-enrollment" {
+		t.Errorf("Status = %v, want pending_re-enrollment", r.Status)
+	}
+	if r.Reason != "credential compromise" {
+		t.Errorf("Reason = %v, want 'credential compromise'", r.Reason)
+	}
+}
+
+func TestReEnrollForceSkipsConfirmation(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "json"}
+	cmd := newReEnrollCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"web-001", "--force", "--reason", "test rotation"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("re-enroll --force failed: %v", err)
+	}
+}
+
+func TestNewRevokeCredentialsCmd(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newRevokeCredentialsCmd(cfg)
+
+	if cmd == nil {
+		t.Fatal("newRevokeCredentialsCmd should not return nil")
+	}
+	if cmd.Use != "revoke-credentials <agent-id>" {
+		t.Errorf("Use = %v, want 'revoke-credentials <agent-id>'", cmd.Use)
+	}
+}
+
+func TestRevokeCredentialsFlags(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newRevokeCredentialsCmd(cfg)
+
+	flags := []string{"force", "reason"}
+	for _, flag := range flags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected flag %q not found", flag)
+		}
+	}
+}
+
+func TestRevokeCredentialsRequiresAgentID(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newRevokeCredentialsCmd(cfg)
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error when no agent ID specified")
+	}
+}
+
+func TestRevokeCredentialsHelp(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "table"}
+	cmd := newRevokeCredentialsCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("revoke-credentials --help failed: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "lock out") {
+		t.Errorf("expected help to mention 'lock out', got: %s", out)
+	}
+	if !strings.Contains(out, "re-enroll") {
+		t.Errorf("expected help to mention 're-enroll', got: %s", out)
+	}
+}
+
+func TestRevokeCredentialsForce(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090", Output: "json"}
+	cmd := newRevokeCredentialsCmd(cfg)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"web-001", "--force", "--reason", "incident IR-2026-42"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("revoke-credentials --force failed: %v", err)
+	}
+}
+
+func TestRevokeCredentialsResultStructure(t *testing.T) {
+	r := RevokeCredentialsResult{
+		AgentID:   "web-001",
+		Status:    "credentials_revoked",
+		RevokedAt: "2026-01-01T00:00:00Z",
+		Reason:    "suspected compromise",
+	}
+
+	if r.AgentID != "web-001" {
+		t.Errorf("AgentID = %v, want web-001", r.AgentID)
+	}
+	if r.Status != "credentials_revoked" {
+		t.Errorf("Status = %v, want credentials_revoked", r.Status)
+	}
+	if r.Reason != "suspected compromise" {
+		t.Errorf("Reason = %v, want 'suspected compromise'", r.Reason)
 	}
 }
 

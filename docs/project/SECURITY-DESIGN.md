@@ -370,7 +370,7 @@ The following MAY be logged with appropriate masking:
 
 ### During Development
 
-1. **Validate all input**: Use `pkg/security.Validate*` helpers for user input
+1. **Validate all input**: Use `internal/security.Validate*` helpers for user input
 2. **Handle errors securely**: Never expose internal errors to users
 3. **Use parameterized queries**: Never concatenate SQL strings
 4. **Avoid shell injection**: Never pass user input to `exec.Command` without validation

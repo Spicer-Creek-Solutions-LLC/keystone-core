@@ -53,6 +53,8 @@ Edge deployments present unique challenges:
 
 ### 1. Edge Agent Configuration
 
+> **Note:** Offline caching, command queuing, and proxy mode for downstream devices are planned for a future release. The configuration below covers the currently supported agent and NATS settings for edge deployments.
+
 ```yaml
 # edge-agent-config.yaml
 metadata:
@@ -66,36 +68,30 @@ file:
     name: /etc/keystone-core/agent.yaml
     contents: |
       # Edge-optimized agent configuration
-      server:
-        urls:
-          - "{{ .vars.control_plane_url }}"
+      agent:
+        id: "{{ .vars.site_id }}-agent"
+        heartbeat_interval: 60s
+        command_timeout: 10m
+        labels:
+          role: edge-proxy
+          site: "{{ .vars.site_id }}"
 
-      # Aggressive reconnection for intermittent connectivity
-      reconnect:
-        initial_delay: 1s
-        max_delay: 5m
-        multiplier: 2
+      # Leaf node mode connects to central NATS via leaf protocol
+      nats:
+        mode: leaf
+        maxreconnects: -1
+        reconnectwait: 5s
+        embedded:
+          port: 4222
+          listen: "0.0.0.0:4222"
+          leaf_node_urls:
+            - "{{ .vars.control_plane_url }}"
+          enablejetstream: true
+          storedir: /var/lib/keystone-core/nats
 
-      # Local state caching for offline operation
-      cache:
-        enabled: true
-        path: /var/lib/keystone-core/cache
-        max_size: 1GB
-        ttl: 24h
-
-      # Queue commands when disconnected
-      offline:
-        enabled: true
-        queue_size: 1000
-        persist_path: /var/lib/keystone-core/queue
-
-      # Proxy mode for downstream devices
-      proxy:
-        enabled: true
-        listen: "0.0.0.0:4222"
-        allowed_networks:
-          - "10.0.0.0/8"
-          - "192.168.0.0/16"
+      logging:
+        level: info
+        format: json
 ```
 
 ### 2. Edge Site State
@@ -193,37 +189,9 @@ cron:
     command: /usr/local/bin/discover-devices.sh
 ```
 
-### 4. Offline State Application
+### 4. Offline Behavior
 
-```yaml
-# edge-offline-policy.yaml
-apiVersion: v1
-kind: policy
-metadata:
-  name: edge-offline-policy
-
-spec:
-  # Apply cached state when disconnected
-  offline:
-    enabled: true
-    max_staleness: 24h
-    fallback_action: apply_cached
-
-  # Prioritize critical updates
-  priority:
-    - pattern: "security-*"
-      weight: 100
-    - pattern: "monitoring-*"
-      weight: 50
-    - pattern: "*"
-      weight: 10
-
-  # Sync strategy when reconnected
-  reconnect:
-    sync_mode: incremental
-    conflict_resolution: server_wins
-    report_drift: true
-```
+> **Planned Feature:** Dedicated offline policy configuration (cached state application, priority-based sync, and reconnect conflict resolution) is planned for a future release. Currently, edge agents using NATS leaf mode will automatically reconnect and resume normal operation when connectivity is restored. NATS JetStream ensures messages are persisted and delivered once the leaf node reconnects.
 
 ## Verification
 

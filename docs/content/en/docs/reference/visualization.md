@@ -9,6 +9,8 @@ The Visualization API provides infrastructure topology visualization through HTT
 
 > **Note:** The Visualization API is an internal package (`internal/visualization`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. For external integrations, use the HTTP and WebSocket endpoints directly.
 
+> **Implementation Status:** The visualization server is fully implemented in `internal/visualization/` but is not yet wired into `kscore-server`. The endpoints described below will become available once the server is integrated into the control plane in a future release. For now, the package can be used as a library in custom builds.
+
 ## Overview
 
 The Visualization API offers:
@@ -35,7 +37,7 @@ flowchart TB
 
 ## Server Configuration
 
-### VisualizationConfig
+### Config
 
 | Field | Type | Description | Default |
 |-------|------|-------------|---------|
@@ -52,7 +54,7 @@ import "github.com/shawnbutts/keystone-core/internal/visualization"
 config := visualization.DefaultConfig()
 
 // Or customize
-config := &visualization.VisualizationConfig{
+config := &visualization.Config{
     ListenAddr:      ":8080",
     EnableWebSocket: true,
     UpdateInterval:  5 * time.Second,
@@ -127,7 +129,7 @@ curl "http://localhost:8080/api/agents?status=healthy"
         "os": "linux",
         "arch": "amd64"
       },
-      "labels": {"tier": "web", "component": "frontend"},
+      "tags": ["tier:web", "component:frontend"],
       "datacenter": "us-west-2",
       "environment": "prod",
       "role": "web",
@@ -162,7 +164,7 @@ curl http://localhost:8080/api/agents/agent-001
     "cpu_cores": "8",
     "memory_gb": "32"
   },
-  "labels": {"tier": "web", "component": "frontend"},
+  "tags": ["tier:web", "component:frontend"],
   "datacenter": "us-west-2",
   "environment": "prod",
   "role": "web",

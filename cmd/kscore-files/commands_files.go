@@ -19,24 +19,6 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/files"
 )
 
-// newFilesCmd creates the files command group.
-func newFilesCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "files",
-		Short: "Manage files in the distribution system",
-		Long:  `Commands for listing, retrieving, uploading, and deleting files.`,
-	}
-
-	cmd.AddCommand(newFilesListCmd())
-	cmd.AddCommand(newFilesGetCmd())
-	cmd.AddCommand(newFilesPutCmd())
-	cmd.AddCommand(newFilesDeleteCmd())
-	cmd.AddCommand(newFilesInfoCmd())
-	cmd.AddCommand(newFilesSyncCmd())
-
-	return cmd
-}
-
 // newFilesListCmd creates the list command.
 func newFilesListCmd() *cobra.Command {
 	var (
@@ -51,9 +33,9 @@ func newFilesListCmd() *cobra.Command {
 		Long: `List files in a namespace or path.
 
 Examples:
-  kscore-files files list /
-  kscore-files files list /packages --namespace myapp
-  kscore-files files list /configs --recursive`,
+  kscore-files list /
+  kscore-files list /packages --namespace myapp
+  kscore-files list /configs --recursive`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/"
@@ -148,9 +130,9 @@ func newFilesGetCmd() *cobra.Command {
 Aliases: pull (for compatibility with kscorectl files pull)
 
 Examples:
-  kscore-files files get /packages/nginx-1.20.rpm
-  kscore-files files get /configs/app.yaml --output /etc/app/app.yaml
-  kscore-files files get /binaries/myapp --version v1.2.0
+  kscore-files get /packages/nginx-1.20.rpm
+  kscore-files get /configs/app.yaml --output /etc/app/app.yaml
+  kscore-files get /binaries/myapp --version v1.2.0
   kscorectl files pull /packages/nginx-1.20.rpm`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -249,9 +231,9 @@ func newFilesPutCmd() *cobra.Command {
 Aliases: push (for compatibility with kscorectl files push)
 
 Examples:
-  kscore-files files put ./nginx.rpm /packages/nginx-1.20.rpm
-  kscore-files files put ./configs/ /configs/ --recursive
-  kscore-files files put ./app.yaml /configs/app.yaml --namespace myapp
+  kscore-files put ./nginx.rpm /packages/nginx-1.20.rpm
+  kscore-files put ./configs/ /configs/ --recursive
+  kscore-files put ./app.yaml /configs/app.yaml --namespace myapp
   kscorectl files push ./nginx.rpm /packages/nginx-1.20.rpm`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -330,9 +312,9 @@ func newFilesDeleteCmd() *cobra.Command {
 		Long: `Delete a file or directory from the distribution system.
 
 Examples:
-  kscore-files files delete /packages/old-nginx.rpm
-  kscore-files files delete /temp/ --recursive
-  kscore-files files delete /configs/deprecated.yaml --force`,
+  kscore-files delete /packages/old-nginx.rpm
+  kscore-files delete /temp/ --recursive
+  kscore-files delete /configs/deprecated.yaml --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
@@ -396,8 +378,8 @@ func newFilesInfoCmd() *cobra.Command {
 		Long: `Get detailed information about a file.
 
 Examples:
-  kscore-files files info /packages/nginx-1.20.rpm
-  kscore-files files info /configs/app.yaml --output json`,
+  kscore-files info /packages/nginx-1.20.rpm
+  kscore-files info /configs/app.yaml --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
@@ -484,9 +466,9 @@ func newFilesSyncCmd() *cobra.Command {
 		Long: `Synchronize a local directory with a remote path.
 
 Examples:
-  kscore-files files sync ./configs/ /configs/
-  kscore-files files sync /packages/ ./local-packages/ --delete
-  kscore-files files sync ./app/ /app/ --dry-run`,
+  kscore-files sync ./configs/ /configs/
+  kscore-files sync /packages/ ./local-packages/ --delete
+  kscore-files sync ./app/ /app/ --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source := args[0]

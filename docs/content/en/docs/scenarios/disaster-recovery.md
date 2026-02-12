@@ -297,10 +297,9 @@ runbook:
           description: Send notification of failover
           commands:
             - |
-              kscorectl event emit dr.failover.completed \
-                --data region=us-west-2 \
-                --data reason="Primary region failure" \
-                --data timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              kscorectl events emit --type dr.failover.completed \
+                --data '{"region":"us-west-2","reason":"Primary region failure"}' \
+                --tag timestamp:"$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           expected_duration: "2 minutes"
 
     - name: data-corruption
@@ -503,7 +502,7 @@ aws route53 change-resource-record-sets \
   --change-batch file://dns-failover.json
 
 # 6. Verify
-kscorectl cluster status --endpoint https://cp-dr.us-west-2.example.com
+kscorectl cluster status --server cp-dr.us-west-2.example.com:9090
 ```
 
 ## Verification

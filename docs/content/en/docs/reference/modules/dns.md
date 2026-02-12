@@ -34,7 +34,7 @@ dns:
     provider: cloudflare
     zone: example.com
     credentials:
-      secret_ref: secret://dns/cloudflare
+      api_token: "your-api-token"
     state: present   # or: synced, absent
     records:
       - type: A
@@ -72,96 +72,73 @@ dns:
 
 ## Credentials Configuration
 
-DNS credentials are resolved through Keystone's secret management system. Each provider has specific credential requirements.
+Each provider has specific credential requirements. Credentials are provided inline in the state definition using the `credentials` block. Provider-specific fields can be set directly or under `credentials.extra`.
+
+> **Note:** Secret reference resolution (`secret_ref`) and environment variable passthrough are planned features. Currently, credentials must be provided inline.
 
 ### Cloudflare
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/cloudflare
-  # Or inline (not recommended for production):
   api_token: "your-api-token"
-  # Or legacy API key:
-  api_key: "your-api-key"
-  api_email: "your-email@example.com"
+  # Or legacy API key (via extra):
+  # api_key: "your-api-key"
 ```
-
-Environment variables: `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL`
 
 ### Amazon Route 53
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/route53
-  # Or inline:
-  access_key_id: "AKIAIOSFODNN7EXAMPLE"
-  secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-  region: "us-east-1"  # optional
+  extra:
+    access_key_id: "AKIAIOSFODNN7EXAMPLE"
+    secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    region: "us-east-1"  # optional
 ```
-
-Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
 
 ### Google Cloud DNS
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/gcp
-  # Or inline:
-  project_id: "my-project"
-  service_account_json: |
-    { "type": "service_account", ... }
+  account_id: "my-project"
+  extra:
+    service_account_json: |
+      { "type": "service_account", ... }
 ```
-
-Environment variables: `GOOGLE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS`
 
 ### Microsoft Azure DNS
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/azure
-  # Or inline:
-  subscription_id: "your-subscription-id"
-  resource_group: "your-resource-group"
-  tenant_id: "your-tenant-id"
-  client_id: "your-client-id"
-  client_secret: "your-client-secret"
+  extra:
+    subscription_id: "your-subscription-id"
+    resource_group: "your-resource-group"
+    tenant_id: "your-tenant-id"
+    client_id: "your-client-id"
+    client_secret: "your-client-secret"
 ```
-
-Environment variables: `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`
 
 ### DigitalOcean DNS
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/digitalocean
-  # Or inline:
   api_token: "your-do-token"
 ```
-
-Environment variable: `DIGITALOCEAN_TOKEN`
 
 ### DNSMadeEasy
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/dnsmadeeasy
-  # Or inline:
   api_key: "your-api-key"
-  secret_key: "your-secret-key"
+  extra:
+    secret_key: "your-secret-key"
 ```
-
-Environment variables: `DNSMADEEASY_API_KEY`, `DNSMADEEASY_SECRET_KEY`
 
 ### Hetzner DNS
 
 ```yaml
 credentials:
-  secret_ref: secret://dns/hetzner
-  # Or inline:
   api_token: "your-api-token"
 ```
-
-Environment variable: `HETZNER_DNS_API_TOKEN`
 
 ## Usage Examples
 
@@ -174,7 +151,7 @@ dns:
     provider: cloudflare
     zone: example.com
     credentials:
-      secret_ref: secret://dns/cloudflare
+      api_token: "your-api-token"
     state: present
     records:
       # Primary web server
@@ -204,7 +181,7 @@ dns:
     provider: cloudflare
     zone: example.com
     credentials:
-      secret_ref: secret://dns/cloudflare
+      api_token: "your-api-token"
     state: synced
     records:
       - type: A
@@ -217,7 +194,9 @@ dns:
     provider: route53
     zone: internal.example.com
     credentials:
-      secret_ref: secret://dns/route53
+      extra:
+        access_key_id: "AKIAIOSFODNN7EXAMPLE"
+        secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     state: present
     records:
       - type: A
@@ -234,7 +213,7 @@ dns:
     provider: cloudflare
     zone: example.com
     credentials:
-      secret_ref: secret://dns/cloudflare
+      api_token: "your-api-token"
     state: present
     records:
       # MX records with priority
@@ -273,7 +252,9 @@ dns:
     provider: route53
     zone: internal.example.com
     credentials:
-      secret_ref: secret://dns/route53
+      extra:
+        access_key_id: "AKIAIOSFODNN7EXAMPLE"
+        secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     state: present
     records:
       # SIP service
@@ -356,7 +337,7 @@ kscorectl state drift states/dns-records.yaml
 
 ### Best Practices
 
-1. **Use Secrets Management**: Never hardcode credentials in state files
+1. **Protect Credentials**: Avoid committing credentials to version control; use vars or templating to inject them
 2. **Prefer `present` Over `synced`**: Use `synced` only when you need to remove unknown records
 3. **Set Appropriate TTLs**: Lower TTLs during migrations, higher for stable records
 4. **Test with Dry-Run**: Always preview changes before applying
@@ -381,8 +362,8 @@ Error: provider authentication failed: invalid API token
 ```
 
 - Verify credentials are correct and have DNS zone permissions
-- Check environment variables are set if using env-based auth
-- Ensure secret references point to valid secrets
+- Ensure inline credential fields match the provider's expected keys
+- Check that provider-specific fields are under `credentials.extra` where required
 
 **Record Conflicts**
 

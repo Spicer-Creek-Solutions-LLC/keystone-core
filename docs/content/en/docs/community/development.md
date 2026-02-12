@@ -268,6 +268,12 @@ go test -tags=integration ./...
 go test -tags=integration -run TestFullWorkflow ./test/integration/
 ```
 
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSCORE_TEST_POSTGRES_DSN` | - | PostgreSQL DSN for database integration tests (e.g., `postgres://user:pass@localhost:5432/testdb?sslmode=disable`) |
+
 ### Test Coverage
 
 ```bash
@@ -301,6 +307,26 @@ go test -bench=BenchmarkStateApply ./internal/statemgmt/
 # Run with memory profiling
 go test -bench=. -benchmem ./internal/events/
 ```
+
+### Load Tests
+
+Load tests simulate large-scale agent deployments. They are skipped by default and must be explicitly enabled.
+
+```bash
+# Run load tests with 100 simulated agents
+KSCORE_LOAD_TEST=1 KSCORE_AGENT_COUNT=100 go test -v ./internal/loadtest/...
+
+# Run a specific load test scenario
+KSCORE_LOAD_TEST=1 KSCORE_AGENT_COUNT=50 go test -v -run TestLoad_Registration ./internal/loadtest/...
+```
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSCORE_LOAD_TEST` | - | Set to `1` to enable load tests |
+| `KSCORE_AGENT_COUNT` | `10` | Number of simulated agents |
+| `KSCORE_TEST_DURATION` | `30s` | Duration for sustained load tests |
 
 ### E2E Tests
 

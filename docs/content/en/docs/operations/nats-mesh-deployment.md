@@ -50,8 +50,7 @@ kscore-server --config keystone-core.yaml
 agent:
   id: agent-1
   nats:
-    urls:
-      - nats://server:4222
+    url: "nats://server:4222"
 ```
 
 ```bash
@@ -116,8 +115,7 @@ server:
   listen: 0.0.0.0:8080
   nats:
     mode: external
-    urls:
-      - nats://kscore:$NATS_PASSWORD@nats:4222
+    url: "nats://kscore:$NATS_PASSWORD@nats:4222"
   state:
     driver: postgresql
     url: postgres://user:pass@postgres:5432/kscore
@@ -130,8 +128,7 @@ server:
 agent:
   id: ${HOSTNAME}
   nats:
-    urls:
-      - nats://kscore:$NATS_PASSWORD@nats:4222
+    url: "nats://kscore:$NATS_PASSWORD@nats:4222"
     tls:
       enabled: true
       ca: /etc/keystone-core/ca.crt
@@ -211,10 +208,7 @@ server:
 
   nats:
     mode: external
-    urls:
-      - nats://nats-1:4222
-      - nats://nats-2:4222
-      - nats://nats-3:4222
+    url: "nats://nats-1:4222,nats://nats-2:4222,nats://nats-3:4222"
 
   cluster:
     enabled: true
@@ -527,9 +521,7 @@ server:
   nats:
     mode: external
     cluster: us-west
-    urls:
-      - nats://us-west-1:4222
-      - nats://us-west-2:4222
+    url: "nats://us-west-1:4222,nats://us-west-2:4222"
 
     gateway:
       enabled: true
@@ -694,7 +686,7 @@ agent:
 # remote-agent.yaml
 agent:
   nats:
-    urls: ["wss://hub.cloud.example.com:443/nats"]
+    url: "wss://hub.cloud.example.com:443/nats"
     websocket:
       compression: true
       proxy:
@@ -718,16 +710,14 @@ agent:
    server:
      nats:
        mode: external  # Changed from embedded
-       urls:
-         - nats://nats-1:4222
-         - nats://nats-2:4222
+       url: "nats://nats-1:4222,nats://nats-2:4222"
    ```
 
-3. **Rolling update agents**:
+3. **Rolling update agents**: Update each agent's `agent.yaml` to use the new NATS URL and restart:
 
    ```bash
-   # Update agent configuration
-   kscorectl agent update-config --nats-urls nats://nats-1:4222,nats://nats-2:4222
+   # Edit each agent's config to set nats.url, then restart
+   systemctl restart kscore-agent
    ```
 
 4. **Verify connectivity**:

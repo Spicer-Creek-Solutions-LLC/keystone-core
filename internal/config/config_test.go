@@ -1576,3 +1576,143 @@ func TestJetStreamConfig_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_Validate_ProfilingConfig(t *testing.T) {
+	base := func() *Config {
+		return &Config{
+			Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+			NATS:    NATSConfig{Mode: NATSModeEmbedded},
+			Storage: StorageConfig{Backend: StorageBackendSQLite},
+		}
+	}
+
+	t.Run("disabled by default is valid", func(t *testing.T) {
+		cfg := base()
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("enabled with listen address is valid", func(t *testing.T) {
+		cfg := base()
+		cfg.Profiling = ProfilingConfig{
+			Enabled: true,
+			Listen:  "localhost:6060",
+		}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("enabled without listen address is invalid", func(t *testing.T) {
+		cfg := base()
+		cfg.Profiling = ProfilingConfig{
+			Enabled: true,
+			Listen:  "",
+		}
+		err := cfg.Validate()
+		if err == nil {
+			t.Error("expected validation error for missing listen address")
+		}
+	})
+}
+
+func TestConfig_Redact(t *testing.T) {
+	cfg := &Config{
+		Auth: AuthConfig{
+			JWT: JWTAuthConfig{
+				Secret:   "super-secret-jwt-key",
+				Issuer:   "kscore",
+				Audience: "api",
+			},
+			APIKey: APIKeyAuthConfig{
+				HeaderName: "X-API-Key",
+				Keys: map[string]APIKeyConfig{
+					"real-api-key-1": {Name: "admin", Role: "admin", Enabled: true},
+					"real-api-key-2": {Name: "reader", Role: "readonly", Enabled: true},
+				},
+			},
+		},
+		NATS: NATSConfig{
+			Mode:       NATSModeEmbedded,
+			Token:      "nats-token-secret",
+			Credential: "nats-cred-file",
+		},
+		Webhook: WebhookConfig{
+			Enabled:     true,
+			HMACSecret:  "hmac-shared-secret",
+			BearerToken: "bearer-token-secret",
+		},
+		Server: ServerConfig{
+			ListenAddr: "0.0.0.0",
+			HTTPPort:   8080,
+		},
+	}
+
+	redacted := cfg.Redact()
+
+	// Sensitive fields should be redacted
+	if redacted.Auth.JWT.Secret != "[REDACTED]" {
+		t.Errorf("JWT secret not redacted: %s", redacted.Auth.JWT.Secret)
+	}
+	if redacted.NATS.Token != "[REDACTED]" {
+		t.Errorf("NATS token not redacted: %s", redacted.NATS.Token)
+	}
+	if redacted.NATS.Credential != "[REDACTED]" {
+		t.Errorf("NATS credential not redacted: %s", redacted.NATS.Credential)
+	}
+	if redacted.Webhook.HMACSecret != "[REDACTED]" {
+		t.Errorf("webhook HMAC secret not redacted: %s", redacted.Webhook.HMACSecret)
+	}
+	if redacted.Webhook.BearerToken != "[REDACTED]" {
+		t.Errorf("webhook bearer token not redacted: %s", redacted.Webhook.BearerToken)
+	}
+
+	// API keys: the actual key strings should not appear, count should be preserved
+	if len(redacted.Auth.APIKey.Keys) != 2 {
+		t.Errorf("expected 2 redacted API keys, got %d", len(redacted.Auth.APIKey.Keys))
+	}
+	for k := range redacted.Auth.APIKey.Keys {
+		if k == "real-api-key-1" || k == "real-api-key-2" {
+			t.Errorf("API key value not redacted: %s", k)
+		}
+	}
+
+	// Non-sensitive fields should be preserved
+	if redacted.Auth.JWT.Issuer != "kscore" {
+		t.Errorf("JWT issuer changed: %s", redacted.Auth.JWT.Issuer)
+	}
+	if redacted.Server.ListenAddr != "0.0.0.0" {
+		t.Errorf("server listen addr changed: %s", redacted.Server.ListenAddr)
+	}
+	if redacted.Server.HTTPPort != 8080 {
+		t.Errorf("server HTTP port changed: %d", redacted.Server.HTTPPort)
+	}
+	if redacted.Webhook.Enabled != true {
+		t.Error("webhook enabled changed")
+	}
+
+	// Original should not be modified
+	if cfg.Auth.JWT.Secret != "super-secret-jwt-key" {
+		t.Error("original config was modified by Redact()")
+	}
+	if cfg.NATS.Token != "nats-token-secret" {
+		t.Error("original NATS token was modified by Redact()")
+	}
+}
+
+func TestConfig_Redact_EmptySecrets(t *testing.T) {
+	cfg := &Config{}
+	redacted := cfg.Redact()
+
+	// Empty strings should stay empty, not become "[REDACTED]"
+	if redacted.Auth.JWT.Secret != "" {
+		t.Errorf("expected empty JWT secret to stay empty, got: %s", redacted.Auth.JWT.Secret)
+	}
+	if redacted.NATS.Token != "" {
+		t.Errorf("expected empty NATS token to stay empty, got: %s", redacted.NATS.Token)
+	}
+	if redacted.Webhook.HMACSecret != "" {
+		t.Errorf("expected empty HMAC secret to stay empty, got: %s", redacted.Webhook.HMACSecret)
+	}
+}
