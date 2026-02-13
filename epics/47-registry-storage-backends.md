@@ -24,17 +24,17 @@ Add pluggable storage backend support to `kscore-registry`, enabling cloud objec
 
 ## Success Criteria
 
-- [ ] Storage backend interface defined for registry operations
-- [ ] Filesystem backend (wrapping existing behavior)
-- [ ] S3 backend implementation
-- [ ] GCS backend implementation
-- [ ] Azure Blob Storage backend implementation
-- [ ] NATS Object Store backend (optional)
-- [ ] CLI flags for backend configuration (`--storage-backend`, `--storage-*`)
-- [ ] Backend health checks integrated into registry health endpoint
-- [ ] Tests with >70% coverage per backend
-- [ ] Documentation updated to reflect actual backend support
-- [ ] Migration guide for filesystem → cloud storage
+- [x] Storage backend interface defined for registry operations
+- [x] Filesystem backend (wrapping existing behavior)
+- [x] S3 backend implementation (via BackendAdapter wrapping internal/files/backend)
+- [x] GCS backend implementation (via BackendAdapter wrapping internal/files/backend)
+- [x] Azure Blob Storage backend implementation (via BackendAdapter wrapping internal/files/backend)
+- [x] NATS Object Store backend (via BackendAdapter wrapping internal/files/backend)
+- [x] CLI flags for backend configuration (`--storage-backend`, `--storage-*`)
+- [x] Backend health checks integrated into registry health endpoint
+- [x] Tests with >70% coverage per backend (compliance test suite)
+- [x] Documentation updated to reflect actual backend support
+- [x] Migration guide for filesystem → cloud storage
 
 ## Dependencies
 

@@ -311,6 +311,10 @@ linters:
       - linters:
           - gosec
         text: "G304:"
+        path: internal/registry/
+      - linters:
+          - gosec
+        text: "G304:"
         path: internal/repogen/
       - linters:
           - gosec

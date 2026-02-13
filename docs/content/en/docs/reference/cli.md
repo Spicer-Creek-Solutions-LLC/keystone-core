@@ -6270,6 +6270,36 @@ kscore-registry [flags]
 - `--max-upload-size int`: Maximum upload size in bytes (default: 100MB)
 - `--cors`: Enable CORS headers (requires --cors-origins)
 - `--cors-origins string`: Comma-separated list of allowed CORS origins (e.g., '<https://example.com,https://app.example.com>')
+- `--storage-backend string`: Storage backend type: filesystem, s3, gcs, azure, nats (default: filesystem)
+
+**S3 Backend Flags**:
+
+- `--s3-bucket string`: S3 bucket name
+- `--s3-region string`: AWS region
+- `--s3-endpoint string`: Custom S3 endpoint URL (for MinIO, etc.)
+- `--s3-prefix string`: Key prefix within the bucket
+- `--s3-path-style`: Use path-style addressing
+
+**GCS Backend Flags**:
+
+- `--gcs-bucket string`: GCS bucket name
+- `--gcs-project string`: GCP project ID
+- `--gcs-credentials-file string`: Path to service account JSON key
+- `--gcs-prefix string`: Object prefix within the bucket
+
+**Azure Backend Flags**:
+
+- `--azure-container string`: Blob container name
+- `--azure-account-name string`: Storage account name
+- `--azure-connection-string string`: Full connection string
+- `--azure-prefix string`: Blob prefix within the container
+
+**NATS Backend Flags**:
+
+- `--nats-url string`: NATS server URL
+- `--nats-bucket string`: Object store bucket name
+- `--nats-credentials string`: Path to NATS credentials file
+- `--nats-prefix string`: Key prefix within the bucket
 
 **Examples**:
 
@@ -6294,7 +6324,57 @@ kscore-registry --cors --cors-origins "https://example.com,https://app.example.c
 
 # Enable CORS with wildcard (use with caution)
 kscore-registry --cors --cors-origins "*"
+
+# Use S3 storage backend
+kscore-registry --storage-backend s3 --s3-bucket my-registry --s3-region us-east-1
+
+# Use S3-compatible storage (MinIO)
+kscore-registry --storage-backend s3 --s3-bucket registry \
+  --s3-endpoint http://minio:9000 --s3-path-style
+
+# Use GCS storage backend
+kscore-registry --storage-backend gcs --gcs-bucket my-registry --gcs-project my-project
+
+# Use Azure storage backend
+kscore-registry --storage-backend azure --azure-container my-registry \
+  --azure-account-name mystorageaccount
+
+# Use NATS Object Store backend
+kscore-registry --storage-backend nats --nats-url nats://localhost:4222 \
+  --nats-bucket registry
 ```
+
+### Migrating Storage
+
+Migrate modules between storage backends:
+
+```bash
+# Migrate from filesystem to S3
+kscore-registry migrate-storage \
+  --data /var/lib/keystone-core/modules \
+  --dest-backend s3 \
+  --dest-s3-bucket kscore-registry \
+  --dest-s3-region us-east-1
+
+# Dry run
+kscore-registry migrate-storage \
+  --data /var/lib/keystone-core/modules \
+  --dest-backend s3 \
+  --dest-s3-bucket kscore-registry \
+  --dest-s3-region us-east-1 \
+  --dry-run
+```
+
+**Migration Flags**:
+
+- `--dest-backend string`: Destination storage backend type (required)
+- `--dest-data string`: Destination data directory (for filesystem destination)
+- `--dest-s3-bucket string`: Destination S3 bucket
+- `--dest-s3-region string`: Destination S3 region
+- `--dest-s3-endpoint string`: Destination S3 endpoint
+- `--dest-s3-prefix string`: Destination S3 prefix
+- `--dest-s3-path-style`: Destination S3 path-style addressing
+- `--dry-run`: Preview what would be migrated without writing
 
 ### Version Information
 
@@ -6507,10 +6587,11 @@ The registry can be configured via environment variables:
 | Variable | Description |
 |----------|-------------|
 | `KSCORE_REGISTRY_API_KEY` | API key for write operations |
+| `KSCORE_REGISTRY_STORAGE_BACKEND` | Storage backend type (filesystem, s3, gcs, azure, nats) |
 
 ### Data Storage
 
-Modules are stored in a file-based structure:
+Modules are stored in a structured layout (paths are the same across all backends):
 
 ```
 data/

@@ -470,78 +470,197 @@ resource "aws_s3_bucket_replication_configuration" "registry" {
 }
 ```
 
-## Shared Storage Options
+## Storage Backends
 
-### NFS
+The registry supports pluggable storage backends. Use `--storage-backend` to select a backend. The default is `filesystem` (local disk).
 
-Suitable for on-premises deployments:
+| Backend | Flag Value | Use Case |
+|---------|-----------|----------|
+| Filesystem | `filesystem` | Single-node, development, small deployments |
+| AWS S3 | `s3` | Production on AWS, multi-region replication |
+| Google Cloud Storage | `gcs` | Production on GCP |
+| Azure Blob Storage | `azure` | Production on Azure |
+| NATS Object Store | `nats` | NATS-native deployments |
 
-```yaml
-# Kubernetes PersistentVolume
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: kscore-registry-nfs
-spec:
-  capacity:
-    storage: 100Gi
-  accessModes:
-    - ReadWriteMany
-  nfs:
-    server: nfs-server.example.com
-    path: /exports/kscore-registry
+### Filesystem (Default)
+
+Stores modules on local disk. Suitable for single-node deployments or when using a shared filesystem (NFS/EFS).
+
+```bash
+kscore-registry --storage-backend filesystem --data /var/lib/keystone-core/modules
 ```
 
-### AWS EFS
+### AWS S3
 
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: kscore-registry-efs
-spec:
-  capacity:
-    storage: 100Gi
-  accessModes:
-    - ReadWriteMany
-  csi:
-    driver: efs.csi.aws.com
-    volumeHandle: fs-12345678
+Stores modules in an S3 bucket. Supports S3-compatible services (MinIO, DigitalOcean Spaces, etc.) via `--s3-endpoint`.
+
+```bash
+kscore-registry --storage-backend s3 \
+  --s3-bucket kscore-registry \
+  --s3-region us-east-1 \
+  --s3-prefix modules/
+
+# S3-compatible (MinIO)
+kscore-registry --storage-backend s3 \
+  --s3-bucket kscore-registry \
+  --s3-endpoint http://minio:9000 \
+  --s3-path-style
 ```
 
-### Google Cloud Filestore
+**S3 Flags**:
 
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: kscore-registry-filestore
-spec:
-  capacity:
-    storage: 100Gi
-  accessModes:
-    - ReadWriteMany
-  nfs:
-    server: 10.0.0.2
-    path: /kscore_registry
+| Flag | Description |
+|------|-------------|
+| `--s3-bucket` | S3 bucket name (required) |
+| `--s3-region` | AWS region (required unless using `--s3-endpoint`) |
+| `--s3-endpoint` | Custom S3 endpoint URL |
+| `--s3-prefix` | Key prefix within the bucket |
+| `--s3-path-style` | Use path-style addressing (required for MinIO) |
+
+### Google Cloud Storage
+
+```bash
+kscore-registry --storage-backend gcs \
+  --gcs-bucket kscore-registry \
+  --gcs-project my-project \
+  --gcs-credentials-file /path/to/credentials.json
 ```
 
-### Azure Files
+**GCS Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--gcs-bucket` | GCS bucket name (required) |
+| `--gcs-project` | GCP project ID |
+| `--gcs-credentials-file` | Path to service account JSON key |
+| `--gcs-prefix` | Object prefix within the bucket |
+
+### Azure Blob Storage
+
+```bash
+kscore-registry --storage-backend azure \
+  --azure-container kscore-registry \
+  --azure-account-name mystorageaccount
+
+# Or with connection string
+kscore-registry --storage-backend azure \
+  --azure-container kscore-registry \
+  --azure-connection-string "DefaultEndpointsProtocol=https;..."
+```
+
+**Azure Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--azure-container` | Blob container name (required) |
+| `--azure-account-name` | Storage account name |
+| `--azure-connection-string` | Full connection string (alternative to account name) |
+| `--azure-prefix` | Blob prefix within the container |
+
+### NATS Object Store
+
+For deployments already running NATS JetStream.
+
+```bash
+kscore-registry --storage-backend nats \
+  --nats-url nats://nats:4222 \
+  --nats-bucket kscore-registry \
+  --nats-credentials /path/to/nats.creds
+```
+
+**NATS Flags**:
+
+| Flag | Description |
+|------|-------------|
+| `--nats-url` | NATS server URL (required) |
+| `--nats-bucket` | Object store bucket name (required) |
+| `--nats-credentials` | Path to NATS credentials file |
+| `--nats-prefix` | Key prefix within the bucket |
+
+### Migrating Between Backends
+
+Use the `migrate-storage` subcommand to copy all modules from one backend to another:
+
+```bash
+# Migrate from filesystem to S3
+kscore-registry migrate-storage \
+  --data /var/lib/keystone-core/modules \
+  --dest-backend s3 \
+  --dest-s3-bucket kscore-registry \
+  --dest-s3-region us-east-1
+
+# Dry run (preview what would be migrated)
+kscore-registry migrate-storage \
+  --data /var/lib/keystone-core/modules \
+  --dest-backend s3 \
+  --dest-s3-bucket kscore-registry \
+  --dest-s3-region us-east-1 \
+  --dry-run
+```
+
+The migration verifies hash integrity for each module version after copying. The source backend is not modified.
+
+### Kubernetes with Cloud Backends
+
+With native cloud storage backends, you no longer need shared filesystems (NFS/EFS) for multi-replica deployments:
 
 ```yaml
-apiVersion: v1
-kind: PersistentVolume
+# registry-deployment.yaml — multiple replicas with S3 backend
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: kscore-registry-azure
+  name: kscore-registry
+  namespace: kscore-system
 spec:
-  capacity:
-    storage: 100Gi
-  accessModes:
-    - ReadWriteMany
-  azureFile:
-    secretName: azure-storage-secret
-    shareName: kscore-registry
-    readOnly: false
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kscore-registry
+  template:
+    metadata:
+      labels:
+        app: kscore-registry
+    spec:
+      containers:
+      - name: registry
+        image: keystonecore/kscore-registry:latest
+        ports:
+        - containerPort: 8090
+          name: http
+        args:
+        - --storage-backend=s3
+        - --s3-bucket=$(S3_BUCKET)
+        - --s3-region=$(AWS_REGION)
+        - --listen=:8090
+        env:
+        - name: KSCORE_REGISTRY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kscore-registry-secrets
+              key: api-key
+        - name: S3_BUCKET
+          value: kscore-registry
+        - name: AWS_REGION
+          value: us-east-1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
 ```
 
 ## Security

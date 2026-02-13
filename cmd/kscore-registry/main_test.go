@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/internal/registry/storage"
 	"github.com/shawnbutts/keystone-core/pkg/module/registry"
 )
 
@@ -26,16 +27,19 @@ func createTestZip(content string) []byte {
 	return buf.Bytes()
 }
 
-func TestServer_Health(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
+func newTestServer(t *testing.T, config Config) *Server {
+	t.Helper()
+	store, err := storage.NewFilesystemBackend(config.DataDir)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("NewFilesystemBackend: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	t.Cleanup(func() { store.Close() })
+	return NewServer(config, store)
+}
 
-	server := NewServer(Config{
-		DataDir: tmpDir,
-	})
+func TestServer_Health(t *testing.T) {
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	rec := httptest.NewRecorder()
@@ -57,16 +61,8 @@ func TestServer_Health(t *testing.T) {
 }
 
 func TestServer_Index(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{
-		DataDir:  tmpDir,
-		ReadOnly: true,
-	})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir, ReadOnly: true})
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -91,11 +87,7 @@ func TestServer_Index(t *testing.T) {
 }
 
 func TestServer_ListVersions(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create module versions
 	for _, v := range []string{"1.0.0", "1.1.0", "2.0.0"} {
@@ -108,7 +100,7 @@ func TestServer_ListVersions(t *testing.T) {
 		}
 	}
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/test/mymodule/@v/list", nil)
 	rec := httptest.NewRecorder()
@@ -127,13 +119,8 @@ func TestServer_ListVersions(t *testing.T) {
 }
 
 func TestServer_ListVersions_NotFound(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{DataDir: tmpDir})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/nonexistent/@v/list", nil)
 	rec := httptest.NewRecorder()
@@ -146,11 +133,7 @@ func TestServer_ListVersions_NotFound(t *testing.T) {
 }
 
 func TestServer_GetInfo(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create module with info
 	versionDir := filepath.Join(tmpDir, "test", "mymodule", "1.0.0")
@@ -158,7 +141,7 @@ func TestServer_GetInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info := StoredModule{
+	info := storage.StoredModule{
 		Name:        "test/mymodule",
 		Version:     "1.0.0",
 		Hash:        "sha256:abc123",
@@ -171,7 +154,7 @@ func TestServer_GetInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/test/mymodule/@v/1.0.0.info", nil)
 	rec := httptest.NewRecorder()
@@ -197,11 +180,7 @@ func TestServer_GetInfo(t *testing.T) {
 }
 
 func TestServer_GetManifest(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create module with manifest
 	versionDir := filepath.Join(tmpDir, "test", "mymodule", "1.0.0")
@@ -214,7 +193,7 @@ func TestServer_GetManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/test/mymodule/@v/1.0.0.mod", nil)
 	rec := httptest.NewRecorder()
@@ -231,11 +210,7 @@ func TestServer_GetManifest(t *testing.T) {
 }
 
 func TestServer_Download(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create module
 	versionDir := filepath.Join(tmpDir, "test", "mymodule", "1.0.0")
@@ -248,7 +223,7 @@ func TestServer_Download(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("GET", "/test/mymodule/@v/1.0.0.zip", nil)
 	rec := httptest.NewRecorder()
@@ -269,13 +244,8 @@ func TestServer_Download(t *testing.T) {
 }
 
 func TestServer_Publish(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{DataDir: tmpDir})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	// Create multipart form with valid ZIP
 	body := &bytes.Buffer{}
@@ -322,11 +292,7 @@ func TestServer_Publish(t *testing.T) {
 }
 
 func TestServer_Publish_Conflict(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create existing version
 	versionDir := filepath.Join(tmpDir, "test", "existing", "1.0.0")
@@ -335,7 +301,7 @@ func TestServer_Publish_Conflict(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(versionDir, "module.zip"), []byte("existing"), 0644)
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	// Try to publish same version
 	body := &bytes.Buffer{}
@@ -357,11 +323,7 @@ func TestServer_Publish_Conflict(t *testing.T) {
 }
 
 func TestServer_Publish_Force(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create existing version with valid ZIP
 	versionDir := filepath.Join(tmpDir, "test", "existing", "1.0.0")
@@ -370,7 +332,7 @@ func TestServer_Publish_Force(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(versionDir, "module.zip"), createTestZip("old"), 0644)
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	// Force overwrite with valid ZIP
 	newZip := createTestZip("new content")
@@ -400,16 +362,8 @@ func TestServer_Publish_Force(t *testing.T) {
 }
 
 func TestServer_Publish_ReadOnly(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{
-		DataDir:  tmpDir,
-		ReadOnly: true,
-	})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir, ReadOnly: true})
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -430,16 +384,8 @@ func TestServer_Publish_ReadOnly(t *testing.T) {
 }
 
 func TestServer_Publish_AuthRequired(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{
-		DataDir: tmpDir,
-		APIKey:  "secret-key",
-	})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir, APIKey: "secret-key"})
 
 	zipContent := createTestZip("content")
 
@@ -482,11 +428,7 @@ func TestServer_Publish_AuthRequired(t *testing.T) {
 }
 
 func TestServer_Delete(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create module
 	versionDir := filepath.Join(tmpDir, "test", "todelete", "1.0.0")
@@ -495,7 +437,7 @@ func TestServer_Delete(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(versionDir, "module.zip"), []byte("content"), 0644)
 
-	server := NewServer(Config{DataDir: tmpDir})
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("DELETE", "/test/todelete/@v/1.0.0", nil)
 	rec := httptest.NewRecorder()
@@ -513,13 +455,8 @@ func TestServer_Delete(t *testing.T) {
 }
 
 func TestServer_Delete_NotFound(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{DataDir: tmpDir})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	req := httptest.NewRequest("DELETE", "/nonexistent/@v/1.0.0", nil)
 	rec := httptest.NewRecorder()
@@ -532,13 +469,8 @@ func TestServer_Delete_NotFound(t *testing.T) {
 }
 
 func TestServer_CORS(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{
 		DataDir:     tmpDir,
 		EnableCORS:  true,
 		CORSOrigins: "https://example.com",
@@ -561,13 +493,8 @@ func TestServer_CORS(t *testing.T) {
 }
 
 func TestServer_InvalidPath(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{DataDir: tmpDir})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	// Path without /@v/
 	req := httptest.NewRequest("GET", "/invalid/path/here", nil)
@@ -581,13 +508,8 @@ func TestServer_InvalidPath(t *testing.T) {
 }
 
 func TestServer_SignatureHandling(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "registry-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	server := NewServer(Config{DataDir: tmpDir})
+	tmpDir := t.TempDir()
+	server := newTestServer(t, Config{DataDir: tmpDir})
 
 	// Publish with signature using valid ZIP
 	body := &bytes.Buffer{}
@@ -621,7 +543,7 @@ func TestServer_SignatureHandling(t *testing.T) {
 
 func TestStoredModule_JSON(t *testing.T) {
 	now := time.Now()
-	stored := StoredModule{
+	stored := storage.StoredModule{
 		Name:        "test/module",
 		Version:     "1.0.0",
 		Hash:        "sha256:abc",
@@ -640,7 +562,7 @@ func TestStoredModule_JSON(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded StoredModule
+	var decoded storage.StoredModule
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}

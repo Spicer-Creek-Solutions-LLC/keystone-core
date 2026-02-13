@@ -3,20 +3,20 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/shawnbutts/keystone-core/internal/registry/storage"
 	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 	"github.com/shawnbutts/keystone-core/pkg/module/registry"
 	"github.com/shawnbutts/keystone-core/pkg/module/resolver"
@@ -54,36 +54,29 @@ type Config struct {
 
 	// CORSOrigins is a comma-separated list of allowed origins (default: none, requires explicit config)
 	CORSOrigins string
+
+	// StorageBackend selects the storage backend type (filesystem, s3, gcs, azure, nats)
+	StorageBackend string
+
+	// StorageConfig holds backend-specific configuration
+	StorageConfig storage.BackendConfig
 }
 
 // Server is the module registry HTTP server
 type Server struct {
-	config Config
-	mux    *http.ServeMux
-	mu     sync.RWMutex
-	hasher verify.HashVerifier
-}
-
-// StoredModule represents module metadata stored on disk
-type StoredModule struct {
-	Name         string            `json:"name"`
-	Version      string            `json:"version"`
-	Hash         string            `json:"hash"`
-	PublishedAt  time.Time         `json:"published_at"`
-	Size         int64             `json:"size"`
-	Description  string            `json:"description,omitempty"`
-	Dependencies map[string]string `json:"dependencies,omitempty"`
-	Signature    string            `json:"signature,omitempty"`
-	Tags         []string          `json:"tags,omitempty"`
-	ReleaseNotes string            `json:"release_notes,omitempty"`
+	config  Config
+	mux     *http.ServeMux
+	storage storage.Backend
+	hasher  verify.HashVerifier
 }
 
 // NewServer creates a new registry server
-func NewServer(config Config) *Server {
+func NewServer(config Config, store storage.Backend) *Server {
 	s := &Server{
-		config: config,
-		mux:    http.NewServeMux(),
-		hasher: verify.NewDefaultHashVerifier(),
+		config:  config,
+		mux:     http.NewServeMux(),
+		storage: store,
+		hasher:  verify.NewDefaultHashVerifier(),
 	}
 	s.setupRoutes()
 	return s
@@ -102,11 +95,19 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+
+	resp := map[string]interface{}{
 		"status": "healthy",
 		"time":   time.Now().Format(time.RFC3339),
-	})
+	}
+
+	if err := s.storage.Health(r.Context()); err != nil {
+		resp["status"] = "degraded"
+		resp["storage_error"] = err.Error()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 // handleRegistry routes requests to the appropriate handler
@@ -188,31 +189,11 @@ func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request, modu
 		return
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	moduleDir := filepath.Join(s.config.DataDir, moduleName)
-	entries, err := os.ReadDir(moduleDir)
+	versions, err := s.storage.ListVersions(r.Context(), moduleName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			s.writeError(w, http.StatusNotFound, registry.ErrCodeModuleNotFound,
-				fmt.Sprintf("Module not found: %s", moduleName))
-			return
-		}
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to list versions: %v", err))
+		status, code := mapStorageError(err)
+		s.writeError(w, status, code, fmt.Sprintf("Module not found: %s", moduleName))
 		return
-	}
-
-	var versions []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			// Verify it has module.zip
-			zipPath := filepath.Join(moduleDir, entry.Name(), "module.zip")
-			if _, err := os.Stat(zipPath); err == nil {
-				versions = append(versions, entry.Name())
-			}
-		}
 	}
 
 	// Sort versions in descending order (newest first)
@@ -232,18 +213,14 @@ func (s *Server) handleGetInfo(w http.ResponseWriter, r *http.Request, moduleNam
 		return
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	stored, err := s.loadStoredModule(moduleName, version)
+	stored, err := s.storage.GetInfo(r.Context(), moduleName, version)
 	if err != nil {
-		if os.IsNotExist(err) {
-			s.writeError(w, http.StatusNotFound, registry.ErrCodeVersionNotFound,
-				fmt.Sprintf("Version not found: %s@%s", moduleName, version))
-			return
+		status, code := mapStorageError(err)
+		if errors.Is(err, storage.ErrVersionNotFound) {
+			s.writeError(w, status, code, fmt.Sprintf("Version not found: %s@%s", moduleName, version))
+		} else {
+			s.writeError(w, status, code, fmt.Sprintf("Failed to load module info: %v", err))
 		}
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to load module info: %v", err))
 		return
 	}
 
@@ -269,32 +246,20 @@ func (s *Server) handleGetManifest(w http.ResponseWriter, r *http.Request, modul
 		return
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	manifestPath := filepath.Join(s.config.DataDir, moduleName, version, "module.yaml")
-	f, err := os.Open(manifestPath)
+	rc, _, err := s.storage.GetManifest(r.Context(), moduleName, version)
 	if err != nil {
-		if os.IsNotExist(err) {
-			s.writeError(w, http.StatusNotFound, registry.ErrCodeVersionNotFound,
-				fmt.Sprintf("Version not found: %s@%s", moduleName, version))
-			return
+		status, code := mapStorageError(err)
+		if errors.Is(err, storage.ErrVersionNotFound) {
+			s.writeError(w, status, code, fmt.Sprintf("Version not found: %s@%s", moduleName, version))
+		} else {
+			s.writeError(w, status, code, fmt.Sprintf("Failed to open manifest: %v", err))
 		}
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to open manifest: %v", err))
 		return
 	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to stat manifest: %v", err))
-		return
-	}
+	defer rc.Close()
 
 	w.Header().Set("Content-Type", "application/x-yaml")
-	http.ServeContent(w, r, filepath.Base(manifestPath), info.ModTime(), f)
+	io.Copy(w, rc)
 }
 
 // handleDownload returns the module ZIP file
@@ -304,35 +269,25 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request, moduleNa
 		return
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	zipPath := filepath.Join(s.config.DataDir, moduleName, version, "module.zip")
-	info, err := os.Stat(zipPath)
+	rc, size, err := s.storage.GetZip(r.Context(), moduleName, version)
 	if err != nil {
-		if os.IsNotExist(err) {
-			s.writeError(w, http.StatusNotFound, registry.ErrCodeVersionNotFound,
-				fmt.Sprintf("Version not found: %s@%s", moduleName, version))
-			return
+		status, code := mapStorageError(err)
+		if errors.Is(err, storage.ErrVersionNotFound) {
+			s.writeError(w, status, code, fmt.Sprintf("Version not found: %s@%s", moduleName, version))
+		} else {
+			s.writeError(w, status, code, fmt.Sprintf("Failed to open module: %v", err))
 		}
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to stat module: %v", err))
 		return
 	}
-
-	f, err := os.Open(zipPath)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to open module: %v", err))
-		return
-	}
-	defer f.Close()
+	defer rc.Close()
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s.zip",
 		strings.ReplaceAll(moduleName, "/", "-"), version))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
-	io.Copy(w, f)
+	if size > 0 {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+	}
+	io.Copy(w, rc)
 }
 
 // handlePublish handles module upload
@@ -406,112 +361,93 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Check if version already exists
-	versionDir := filepath.Join(s.config.DataDir, moduleName, version)
-	if _, err := os.Stat(versionDir); err == nil && !force {
-		s.writeError(w, http.StatusConflict, registry.ErrCodeVersionExists,
-			fmt.Sprintf("Version already exists: %s@%s", moduleName, version))
-		return
-	}
-
-	// Create directory
-	//nolint:gosec // G301: registry directory needs to be accessible by service user
-	if err := os.MkdirAll(versionDir, 0o755); err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to create directory: %v", err))
-		return
-	}
-
-	// Write module file
-	zipPath := filepath.Join(versionDir, "module.zip")
-	zipFile, err := os.Create(zipPath)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to create file: %v", err))
-		return
-	}
-
-	size, err := io.Copy(zipFile, moduleFile)
-	zipFile.Close()
-	if err != nil {
-		os.Remove(zipPath)
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to write file: %v", err))
-		return
-	}
-
-	// Compute hash if not provided
-	if hash == "" {
-		hash, err = s.hasher.ComputeHash(zipPath)
+	// Early conflict check: reject before expensive hash computation
+	if !force {
+		exists, err := s.storage.VersionExists(r.Context(), moduleName, version)
 		if err != nil {
-			os.RemoveAll(versionDir)
+			s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
+				fmt.Sprintf("Failed to check version: %v", err))
+			return
+		}
+		if exists {
+			s.writeError(w, http.StatusConflict, registry.ErrCodeVersionExists,
+				fmt.Sprintf("Version already exists: %s@%s", moduleName, version))
+			return
+		}
+	}
+
+	// Write upload to temp file for hash computation
+	tmpFile, err := os.CreateTemp("", "kscore-registry-upload-*.zip")
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
+			fmt.Sprintf("Failed to create temp file: %v", err))
+		return
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, moduleFile); err != nil {
+		tmpFile.Close()
+		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
+			fmt.Sprintf("Failed to write temp file: %v", err))
+		return
+	}
+	tmpFile.Close()
+
+	// Compute or verify hash
+	if hash == "" {
+		hash, err = s.hasher.ComputeHash(tmpPath)
+		if err != nil {
 			s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 				fmt.Sprintf("Failed to compute hash: %v", err))
 			return
 		}
 	} else {
-		// Verify provided hash
-		computedHash, err := s.hasher.ComputeHash(zipPath)
+		computedHash, err := s.hasher.ComputeHash(tmpPath)
 		if err != nil {
-			os.RemoveAll(versionDir)
 			s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
 				fmt.Sprintf("Failed to verify hash: %v", err))
 			return
 		}
 		if computedHash != hash {
-			os.RemoveAll(versionDir)
 			s.writeError(w, http.StatusBadRequest, registry.ErrCodeInvalidModule,
 				fmt.Sprintf("Hash mismatch: expected %s, got %s", hash, computedHash))
 			return
 		}
 	}
 
-	// Write manifest
-	manifestPath := filepath.Join(versionDir, "module.yaml")
-	//nolint:gosec // G306: module manifest needs to be readable by the registry
-	if err := os.WriteFile(manifestPath, []byte(manifestData), 0o644); err != nil {
-		os.RemoveAll(versionDir)
+	// Open temp file for storage backend
+	zipReader, err := os.Open(tmpPath)
+	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to write manifest: %v", err))
+			fmt.Sprintf("Failed to open temp file: %v", err))
 		return
 	}
+	defer zipReader.Close()
 
-	// Write signature if provided
-	if signature != "" {
-		sigPath := filepath.Join(versionDir, "module.sig")
-		//nolint:gosec // G306: signature files need to be readable for verification
-		if err := os.WriteFile(sigPath, []byte(signature), 0o644); err != nil {
-			os.RemoveAll(versionDir)
-			s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-				fmt.Sprintf("Failed to write signature: %v", err))
-			return
-		}
-	}
-
-	// Write module info
-	stored := StoredModule{
-		Name:         moduleName,
+	req := &storage.PublishRequest{
+		ModuleName:   moduleName,
 		Version:      version,
+		ZipData:      zipReader,
+		Manifest:     []byte(manifestData),
+		Signature:    signature,
 		Hash:         hash,
-		PublishedAt:  time.Now(),
-		Size:         size,
+		Force:        force,
 		Description:  m.Description,
 		Dependencies: m.Dependencies,
-		Signature:    signature,
 		Tags:         tags,
 		ReleaseNotes: releaseNotes,
 	}
 
-	infoPath := filepath.Join(versionDir, "module.info")
-	infoData, _ := json.MarshalIndent(stored, "", "  ")
-	//nolint:gosec // G306: module info needs to be readable by the registry
-	if err := os.WriteFile(infoPath, infoData, 0o644); err != nil {
-		os.RemoveAll(versionDir)
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to write info: %v", err))
+	pubResult, err := s.storage.Publish(r.Context(), req)
+	if err != nil {
+		status, code := mapStorageError(err)
+		if errors.Is(err, storage.ErrVersionExists) {
+			s.writeError(w, status, code,
+				fmt.Sprintf("Version already exists: %s@%s", moduleName, version))
+		} else {
+			s.writeError(w, status, code, fmt.Sprintf("Failed to publish: %v", err))
+		}
 		return
 	}
 
@@ -519,15 +455,15 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, moduleNam
 	result := registry.PublishResult{
 		ModuleName:  moduleName,
 		Version:     version,
-		Hash:        hash,
+		Hash:        pubResult.Hash,
 		URL:         fmt.Sprintf("/%s/@v/%s.zip", moduleName, version),
-		PublishedAt: stored.PublishedAt,
-		Size:        size,
+		PublishedAt: time.Now(),
+		Size:        pubResult.Size,
 	}
 
 	// Log upload
 	log.Printf("Published %s@%s (%d bytes, hash: %s) by %s",
-		moduleName, version, size, hash[:16]+"...", r.RemoteAddr)
+		moduleName, version, pubResult.Size, hash[:16]+"...", r.RemoteAddr)
 
 	// Also log original filename if available
 	if fileHeader != nil && fileHeader.Filename != "" {
@@ -558,47 +494,35 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request, moduleName
 		}
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	versionDir := filepath.Join(s.config.DataDir, moduleName, version)
-	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
-		s.writeError(w, http.StatusNotFound, registry.ErrCodeVersionNotFound,
-			fmt.Sprintf("Version not found: %s@%s", moduleName, version))
+	if err := s.storage.Delete(r.Context(), moduleName, version); err != nil {
+		status, code := mapStorageError(err)
+		if errors.Is(err, storage.ErrVersionNotFound) {
+			s.writeError(w, status, code,
+				fmt.Sprintf("Version not found: %s@%s", moduleName, version))
+		} else {
+			s.writeError(w, status, code, fmt.Sprintf("Failed to delete: %v", err))
+		}
 		return
-	}
-
-	if err := os.RemoveAll(versionDir); err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to delete: %v", err))
-		return
-	}
-
-	// Clean up empty module directory
-	moduleDir := filepath.Join(s.config.DataDir, moduleName)
-	entries, _ := os.ReadDir(moduleDir)
-	if len(entries) == 0 {
-		os.RemoveAll(moduleDir)
 	}
 
 	log.Printf("Deleted %s@%s by %s", moduleName, version, r.RemoteAddr)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// loadStoredModule loads module metadata from disk
-func (s *Server) loadStoredModule(moduleName, version string) (*StoredModule, error) {
-	infoPath := filepath.Join(s.config.DataDir, moduleName, version, "module.info")
-	data, err := os.ReadFile(infoPath)
-	if err != nil {
-		return nil, err
+// mapStorageError maps storage errors to HTTP status codes and error codes.
+func mapStorageError(err error) (status int, code string) {
+	switch {
+	case errors.Is(err, storage.ErrModuleNotFound):
+		return http.StatusNotFound, registry.ErrCodeModuleNotFound
+	case errors.Is(err, storage.ErrVersionNotFound):
+		return http.StatusNotFound, registry.ErrCodeVersionNotFound
+	case errors.Is(err, storage.ErrVersionExists):
+		return http.StatusConflict, registry.ErrCodeVersionExists
+	case errors.Is(err, storage.ErrHashMismatch):
+		return http.StatusBadRequest, registry.ErrCodeInvalidModule
+	default:
+		return http.StatusInternalServerError, registry.ErrCodeServerError
 	}
-
-	var stored StoredModule
-	if err := json.Unmarshal(data, &stored); err != nil {
-		return nil, err
-	}
-
-	return &stored, nil
 }
 
 // writeError writes a JSON error response
@@ -655,13 +579,60 @@ It provides a Go-mod style API for module discovery and distribution:
 		},
 	}
 
-	rootCmd.Flags().StringVar(&config.DataDir, "data", "./data", "Data directory for storing modules")
+	// General flags
+	rootCmd.Flags().StringVar(&config.DataDir, "data", "./data", "Data directory for filesystem storage")
 	rootCmd.Flags().StringVar(&config.ListenAddr, "listen", ":8090", "Address to listen on")
 	rootCmd.Flags().StringVar(&config.APIKey, "api-key", "", "API key for write operations (or KSCORE_REGISTRY_API_KEY env)")
 	rootCmd.Flags().BoolVar(&config.ReadOnly, "readonly", false, "Disable write operations")
 	rootCmd.Flags().Int64Var(&config.MaxUploadSize, "max-upload-size", 100<<20, "Maximum upload size in bytes (default 100MB)")
 	rootCmd.Flags().BoolVar(&config.EnableCORS, "cors", false, "Enable CORS headers (requires --cors-origins)")
 	rootCmd.Flags().StringVar(&config.CORSOrigins, "cors-origins", "", "Comma-separated list of allowed CORS origins (e.g., 'https://example.com,https://app.example.com')")
+
+	// Storage backend flags
+	rootCmd.Flags().StringVar(&config.StorageBackend, "storage-backend", "filesystem", "Storage backend type (filesystem, s3, gcs, azure, nats)")
+
+	// S3 flags
+	rootCmd.Flags().StringVar(&config.StorageConfig.S3Bucket, "s3-bucket", "", "S3 bucket name")
+	rootCmd.Flags().StringVar(&config.StorageConfig.S3Region, "s3-region", "", "S3 region")
+	rootCmd.Flags().StringVar(&config.StorageConfig.S3Endpoint, "s3-endpoint", "", "S3-compatible endpoint URL (for MinIO)")
+	rootCmd.Flags().StringVar(&config.StorageConfig.S3Prefix, "s3-prefix", "", "S3 key prefix")
+	rootCmd.Flags().BoolVar(&config.StorageConfig.S3PathStyle, "s3-path-style", false, "Use S3 path-style URLs")
+
+	// GCS flags
+	rootCmd.Flags().StringVar(&config.StorageConfig.GCSBucket, "gcs-bucket", "", "GCS bucket name")
+	rootCmd.Flags().StringVar(&config.StorageConfig.GCSProject, "gcs-project", "", "GCP project ID")
+	rootCmd.Flags().StringVar(&config.StorageConfig.GCSCredentialsFile, "gcs-credentials-file", "", "Path to GCS service account JSON")
+	rootCmd.Flags().StringVar(&config.StorageConfig.GCSPrefix, "gcs-prefix", "", "GCS object prefix")
+
+	// Azure flags
+	rootCmd.Flags().StringVar(&config.StorageConfig.AzureContainer, "azure-container", "", "Azure Blob container name")
+	rootCmd.Flags().StringVar(&config.StorageConfig.AzureAccountName, "azure-account-name", "", "Azure storage account name")
+	rootCmd.Flags().StringVar(&config.StorageConfig.AzureConnectionString, "azure-connection-string", "", "Azure connection string")
+	rootCmd.Flags().StringVar(&config.StorageConfig.AzurePrefix, "azure-prefix", "", "Azure blob prefix")
+
+	// NATS flags
+	rootCmd.Flags().StringVar(&config.StorageConfig.NATSUrl, "nats-url", "", "NATS server URL")
+	rootCmd.Flags().StringVar(&config.StorageConfig.NATSBucket, "nats-bucket", "", "NATS Object Store bucket name")
+	rootCmd.Flags().StringVar(&config.StorageConfig.NATSCredentials, "nats-credentials", "", "Path to NATS credentials file")
+	rootCmd.Flags().StringVar(&config.StorageConfig.NATSPrefix, "nats-prefix", "", "NATS object prefix")
+
+	// Migrate subcommand
+	migrateCmd := &cobra.Command{
+		Use:   "migrate-storage",
+		Short: "Migrate modules between storage backends",
+		Long:  "Migrate all modules from one storage backend to another. Supports dry-run mode.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMigrate(cmd, config)
+		},
+	}
+	migrateCmd.Flags().String("dest-backend", "", "Destination storage backend type")
+	migrateCmd.Flags().String("dest-data", "", "Destination data directory (for filesystem)")
+	migrateCmd.Flags().String("dest-s3-bucket", "", "Destination S3 bucket")
+	migrateCmd.Flags().String("dest-s3-region", "", "Destination S3 region")
+	migrateCmd.Flags().String("dest-s3-endpoint", "", "Destination S3 endpoint")
+	migrateCmd.Flags().String("dest-s3-prefix", "", "Destination S3 prefix")
+	migrateCmd.Flags().Bool("dry-run", false, "Show what would be migrated without actually doing it")
+	rootCmd.AddCommand(migrateCmd)
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -689,16 +660,21 @@ func runServer(config Config) error {
 		log.Printf("  Use --cors-origins to specify allowed origins.")
 	}
 
-	// Create data directory
-	//nolint:gosec // G301: data directory needs to be accessible by service user
-	if err := os.MkdirAll(config.DataDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create data directory: %w", err)
+	// Create storage backend
+	config.StorageConfig.DataDir = config.DataDir
+	store, err := storage.NewBackend(config.StorageBackend, &config.StorageConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create storage backend: %w", err)
 	}
+	defer store.Close()
 
-	handler := NewServer(config)
+	handler := NewServer(config, store)
 
 	log.Printf("Starting kscore-registry on %s", config.ListenAddr)
-	log.Printf("  Data directory: %s", config.DataDir)
+	log.Printf("  Storage backend: %s", config.StorageBackend)
+	if config.StorageBackend == "" || config.StorageBackend == "filesystem" || config.StorageBackend == "fs" {
+		log.Printf("  Data directory: %s", config.DataDir)
+	}
 	switch {
 	case config.ReadOnly:
 		log.Printf("  Mode: read-only")
@@ -718,4 +694,37 @@ func runServer(config Config) error {
 	}
 
 	return server.ListenAndServe()
+}
+
+func runMigrate(cmd *cobra.Command, srcConfig Config) error {
+	destBackendType, _ := cmd.Flags().GetString("dest-backend")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+	if destBackendType == "" {
+		return fmt.Errorf("--dest-backend is required")
+	}
+
+	// Create source backend
+	srcConfig.StorageConfig.DataDir = srcConfig.DataDir
+	source, err := storage.NewBackend(srcConfig.StorageBackend, &srcConfig.StorageConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create source backend: %w", err)
+	}
+	defer source.Close()
+
+	// Build destination config
+	destCfg := &storage.BackendConfig{}
+	destCfg.DataDir, _ = cmd.Flags().GetString("dest-data")
+	destCfg.S3Bucket, _ = cmd.Flags().GetString("dest-s3-bucket")
+	destCfg.S3Region, _ = cmd.Flags().GetString("dest-s3-region")
+	destCfg.S3Endpoint, _ = cmd.Flags().GetString("dest-s3-endpoint")
+	destCfg.S3Prefix, _ = cmd.Flags().GetString("dest-s3-prefix")
+
+	dest, err := storage.NewBackend(destBackendType, destCfg)
+	if err != nil {
+		return fmt.Errorf("failed to create destination backend: %w", err)
+	}
+	defer dest.Close()
+
+	return storage.Migrate(cmd.Context(), source, dest, &storage.MigrateOptions{DryRun: dryRun})
 }

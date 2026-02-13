@@ -145,6 +145,18 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 47 COMPLETE**: Registry Storage Backends:
+  - `internal/registry/storage/` package with `Backend` interface, `StoredModule`, `PublishRequest`, `PublishResult` types
+  - `FilesystemBackend`: wraps existing `os.*` operations with `sync.RWMutex` for concurrency
+  - `BackendAdapter`: wraps `internal/files/backend.Backend` → `storage.Backend` for S3/GCS/Azure/NATS
+  - Factory pattern: `NewBackend(backendType, cfg)` dispatches to filesystem/s3/gcs/azure/nats constructors
+  - Refactored `cmd/kscore-registry/main.go`: all handlers delegate to `storage.Backend`, removed direct `os.*` calls
+  - CLI flags: `--storage-backend`, `--s3-*`, `--gcs-*`, `--azure-*`, `--nats-*` (18 new flags)
+  - `migrate-storage` subcommand with dry-run support for filesystem → cloud migration
+  - Compliance test suite: `RunBackendCompliance(t, newBackend)` exercising 15 scenarios against both implementations
+  - Migration tests: dry-run, filesystem-to-filesystem, non-filesystem source error
+  - Documentation: operations/registry.md (storage backends section), cli.md (flags + migration), epic updated
+  - 64+ tests passing with race detector across storage and registry packages
 - **Epic 46 Phase 6 COMPLETE**: Documentation and Integration:
   - Updated API docs (`docs/content/en/docs/reference/api.md`): removed "Planned"/"Status" annotations from 6 services (Agent, State, Event, Policy, Cluster, Coordination)
   - Added client usage examples for AgentService, StateService, EventService, PolicyService, ClusterService
@@ -427,7 +439,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅ | Epic 47 COMPLETE ✅
 
 ## Repository Structure
 
@@ -554,7 +566,7 @@ Implementation order:
 44. **Epic 44** (Cluster Join Tokens) - ✅ COMPLETE - Depends on Epic 1, 11 - Token store/generation, REST API, join validation, audit logging, CLI commands, documentation
 45. **Epic 45** (Control Plane Config Wiring) - ✅ COMPLETE - AgentManagement, Execution, StateManagement config wired; Events, GitOps, Authorization config wired; Viper env bindings, docs, validation; E2E tests (T4.1-T4.3) with events config, webhook HMAC auth, policy enforcement modes; T4.4 deferred to Epic 51
 46. **Epic 46** (gRPC Service Implementation) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 11 - All 7 proto stubs generated, 7 server implementations (ControlPlane, Secrets, Agent, State, Event, Policy, Cluster), 6 registered in kscore-server (CoordinationService deferred to cluster mode), auth interceptor coverage, 76.3% test coverage
-47. **Epic 47** (Registry Storage Backends) - NOT STARTED - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry, reusing `internal/files/backend/` infrastructure
+47. **Epic 47** (Registry Storage Backends) - ✅ COMPLETE - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry via BackendAdapter wrapping `internal/files/backend/`, filesystem backend, compliance test suite, migration support, CLI flags for all backends
 48. **Epic 48** (Kubernetes Operator) - NOT STARTED - Depends on Epic 1, 2, 3, 8, 11 - Informer-based CRD watching, reconciliation, drift detection, leader election, Helm/Kustomize deployment
 49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers
 50. **Epic 50** (Outbound Webhooks) - NOT STARTED - Depends on Epic 1, 4 - Persistent outbound webhook subscriptions with event dispatcher, HMAC signing, retry logic, REST API, and CLI
