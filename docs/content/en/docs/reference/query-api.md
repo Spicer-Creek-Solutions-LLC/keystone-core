@@ -471,6 +471,7 @@ result, err := querier.Query(ctx, query)
 ### Pagination
 
 For large result sets, use pagination. The `Start` cursor format depends on the backend:
+
 - **LokiQuerier**: Nanosecond Unix timestamp string (passed directly to the Loki API `start` parameter)
 - **InMemoryLogsQuerier**: RFC 3339 Nano formatted timestamp
 

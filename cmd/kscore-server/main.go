@@ -1087,18 +1087,18 @@ func httpAuthMiddleware(next http.Handler, interceptorCfg *auth.InterceptorConfi
 		}
 
 		// Extract credentials from HTTP headers
-		credentials := ""
+		creds := ""
 
 		// Check Authorization: Bearer <token> header
 		if authHeader := r.Header.Get("Authorization"); authHeader != "" {
 			if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-				credentials = authHeader[7:] // len("Bearer ") == 7
+				creds = authHeader[7:] // len("Bearer ") == 7
 			}
 		}
 
 		// Fall back to X-API-Key header
-		if credentials == "" {
-			credentials = r.Header.Get(headerName)
+		if creds == "" {
+			creds = r.Header.Get(headerName)
 		}
 
 		// Check for mTLS client certificate
@@ -1110,7 +1110,7 @@ func httpAuthMiddleware(next http.Handler, interceptorCfg *auth.InterceptorConfi
 			}
 		}
 
-		if credentials == "" && !hasMTLS {
+		if creds == "" && !hasMTLS {
 			apierror.Write(w, http.StatusUnauthorized, "authentication required")
 			return
 		}
@@ -1131,7 +1131,7 @@ func httpAuthMiddleware(next http.Handler, interceptorCfg *auth.InterceptorConfi
 				}
 				continue
 			}
-			p, err := a.Authenticate(r.Context(), credentials)
+			p, err := a.Authenticate(r.Context(), creds)
 			if err == nil {
 				principal = p
 				break
@@ -1243,7 +1243,7 @@ type healthStatusResponse struct {
 
 // healthStatusHandler returns an http.HandlerFunc that returns component-level
 // health for the /health/status endpoint, matching the documented response format.
-func healthStatusHandler(cfg config.HealthConfig, startTime time.Time, nats healthChecker, db dbPinger, agents agentCounter) http.HandlerFunc {
+func healthStatusHandler(cfg config.HealthConfig, startTime time.Time, nats healthChecker, db dbPinger, agentCtr agentCounter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		components := make(map[string]componentHealth)
 		overallHealthy := true
@@ -1282,8 +1282,8 @@ func healthStatusHandler(cfg config.HealthConfig, startTime time.Time, nats heal
 
 		// Check agent pool
 		if cfg.Checks.Agents.Enabled {
-			total := agents.GetAgentCount()
-			online := agents.GetOnlineAgentCount()
+			total := agentCtr.GetAgentCount()
+			online := agentCtr.GetOnlineAgentCount()
 			agentStatus := "healthy"
 			if total > 0 && cfg.Checks.Agents.MinHealthy > 0 {
 				ratio := float64(online) / float64(total)

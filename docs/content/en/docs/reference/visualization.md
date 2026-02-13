@@ -8,7 +8,7 @@ description: >
 The Visualization API provides infrastructure topology visualization through HTTP and WebSocket endpoints. It enables dashboards and UIs to display agent relationships, hierarchical views, and real-time status updates.
 
 > **Note:** The Visualization API is an internal package (`internal/visualization`) and is not part of the public Go SDK. The Go examples below illustrate the internal implementation. For external integrations, use the HTTP and WebSocket endpoints directly.
-
+>
 > **Implementation Status:** The visualization server is fully implemented in `internal/visualization/` but is not yet wired into `kscore-server`. The endpoints described below will become available once the server is integrated into the control plane in a future release. For now, the package can be used as a library in custom builds.
 
 ## Overview

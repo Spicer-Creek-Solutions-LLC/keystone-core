@@ -1165,9 +1165,9 @@ func runHistory(cfg *Config, limit int, statusFilter string) error {
 	// Filter by status
 	if statusFilter != "" {
 		filtered := make([]UpgradeHistory, 0, len(history))
-		for _, h := range history {
-			if strings.EqualFold(h.Status, statusFilter) {
-				filtered = append(filtered, h)
+		for i := range history {
+			if strings.EqualFold(history[i].Status, statusFilter) {
+				filtered = append(filtered, history[i])
 			}
 		}
 		history = filtered

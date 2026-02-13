@@ -114,18 +114,16 @@ Examples:
 	return cmd
 }
 
-func dirStats(dir string) (int64, int) {
-	var size int64
-	var count int
+func dirStats(dir string) (totalSize int64, fileCount int) {
 	_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if !info.IsDir() {
-			size += info.Size()
-			count++
+			totalSize += info.Size()
+			fileCount++
 		}
 		return nil
 	})
-	return size, count
+	return totalSize, fileCount
 }

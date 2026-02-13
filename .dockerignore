@@ -43,3 +43,6 @@ tmp/
 # Large directories not needed for build
 epics/
 deploy/grafana/
+
+# Tool caches (security scanners, etc.)
+.cache/

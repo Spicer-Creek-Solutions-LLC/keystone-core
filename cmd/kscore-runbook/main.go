@@ -869,7 +869,7 @@ func generateSampleAuditEntries(runbookName string) []auditEntry {
 
 func generateAllAuditEntries() []auditEntry {
 	runbooks := generateSampleRunbooks()
-	var all []auditEntry
+	all := make([]auditEntry, 0, len(runbooks)*6)
 	for _, rb := range runbooks {
 		for _, e := range generateSampleAuditEntries(rb.Name) {
 			e.Runbook = rb.Name

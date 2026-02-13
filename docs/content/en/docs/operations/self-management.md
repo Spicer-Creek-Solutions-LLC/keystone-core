@@ -781,9 +781,9 @@ kscorectl test integration --suite recovery
 3. Verify rollback: `kscorectl cluster health`
 
 ## Post-Rollback
-4. Collect diagnostics: `kscorectl diagnostics collect`
-5. Create incident report
-6. Schedule post-mortem
+1. Collect diagnostics: `kscorectl diagnostics collect`
+1. Create incident report
+1. Schedule post-mortem
 ```
 
 ### Runbook: Certificate Rotation
@@ -799,7 +799,7 @@ kscorectl test integration --suite recovery
    kscorectl identity ca rotate --graceful
    ```
 
-4. Distribute new certificates:
+1. Distribute new certificates:
 
    ```bash
    kscorectl state apply /etc/keystone-core/states/certificates.yaml
@@ -807,8 +807,8 @@ kscorectl test integration --suite recovery
 
 ## Verification
 
-5. Verify certificates: `kscorectl identity svid list`
-6. Verify agent connectivity: `kscorectl agents list`
+1. Verify certificates: `kscorectl identity svid list`
+1. Verify agent connectivity: `kscorectl agents list`
 
 ```
 

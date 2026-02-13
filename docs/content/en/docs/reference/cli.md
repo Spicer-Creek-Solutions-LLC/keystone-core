@@ -11755,11 +11755,13 @@ kscorectl runbook test <runbook-name> [flags]
 ```
 
 **Flags:**
+
 - `--var stringArray`: Set a variable for validation (format: key=value)
 - `--mock-file string`: Path to mock handler definitions (JSON)
 - `--verbose`: Show detailed test output
 
 **Examples:**
+
 ```bash
 # Test a runbook
 kscorectl runbook test deploy-service
@@ -11780,9 +11782,11 @@ kscorectl runbook audit show <runbook-name> [flags]
 ```
 
 **Flags:**
+
 - `--limit int`: Maximum number of entries (default: 20)
 
 **Examples:**
+
 ```bash
 # View audit trail
 kscorectl runbook audit show deploy-service
@@ -11800,12 +11804,14 @@ kscorectl runbook audit list [flags]
 ```
 
 **Flags:**
+
 - `--runbook string`: Filter by runbook name
 - `--start string`: Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')
 - `--end string`: End time filter (duration like '1d' or date 'YYYY-MM-DD')
 - `--limit int`: Maximum number of entries (default: 50)
 
 **Examples:**
+
 ```bash
 # List all recent audit events
 kscorectl runbook audit list
@@ -11829,12 +11835,14 @@ kscorectl runbook audit report [flags]
 ```
 
 **Flags:**
+
 - `--format string`: Report format: summary, detailed, csv (default: summary)
 - `--start string`: Start time filter (duration like '7d'/'24h' or date 'YYYY-MM-DD')
 - `--end string`: End time filter (duration like '1d' or date 'YYYY-MM-DD')
 - `--runbook string`: Filter by runbook name
 
 **Examples:**
+
 ```bash
 # Generate summary report
 kscorectl runbook audit report

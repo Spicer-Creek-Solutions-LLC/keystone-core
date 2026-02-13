@@ -433,7 +433,7 @@ func TestPrereqCheckCommand(t *testing.T) {
 
 	outputFlag := cmd.Flags().Lookup("output")
 	if outputFlag == nil {
-		t.Error("expected --output flag on prereq-check command")
+		t.Fatal("expected --output flag on prereq-check command")
 	}
 	if outputFlag.DefValue != "text" {
 		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)

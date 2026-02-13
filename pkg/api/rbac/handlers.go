@@ -17,7 +17,7 @@ type Handler struct {
 // NewHandler creates a new RBAC API handler with standard roles pre-loaded.
 func NewHandler() *Handler {
 	store := policy.NewRBACStore()
-	policy.CreateStandardRoles(store)
+	_ = policy.CreateStandardRoles(store)
 	return &Handler{store: store}
 }
 

@@ -27,6 +27,7 @@ Keystone Core provides both REST and gRPC APIs for programmatic access to all fu
 Both REST and gRPC endpoints require authentication when `auth.enabled` is `true` in the server configuration. The auth type (`apikey`, `jwt`, `mtls`, or `multi`) determines which methods are accepted.
 
 **Unauthenticated endpoints** (always accessible without credentials):
+
 - `/health/ready`, `/health/status` — health checks for load balancers
 - `/api/status` — server status for monitoring tools
 

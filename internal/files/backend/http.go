@@ -78,7 +78,7 @@ func NewHTTPBackend(config *HTTPConfig) (*HTTPBackend, error) {
 		}
 	}
 
-	config.Config.ReadOnly = true
+	config.ReadOnly = true
 
 	return &HTTPBackend{
 		config: config,
@@ -108,7 +108,7 @@ func (b *HTTPBackend) BaseConfig() *Config {
 func (b *HTTPBackend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	reqURL := b.fileURL(filePath)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, &Error{Backend: b.config.Name, Op: "get", Path: filePath, Err: err}
 	}
@@ -187,7 +187,7 @@ func (b *HTTPBackend) Delete(_ context.Context, filePath string) error {
 func (b *HTTPBackend) Exists(ctx context.Context, filePath string) (bool, error) {
 	reqURL := b.fileURL(filePath)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, reqURL, http.NoBody)
 	if err != nil {
 		return false, &Error{Backend: b.config.Name, Op: "exists", Path: filePath, Err: err}
 	}
@@ -216,7 +216,7 @@ func (b *HTTPBackend) Exists(ctx context.Context, filePath string) (bool, error)
 func (b *HTTPBackend) Stat(ctx context.Context, filePath string) (*FileInfo, error) {
 	reqURL := b.fileURL(filePath)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, reqURL, http.NoBody)
 	if err != nil {
 		return nil, &Error{Backend: b.config.Name, Op: "stat", Path: filePath, Err: err}
 	}
@@ -270,7 +270,7 @@ func (b *HTTPBackend) List(_ context.Context, filePath string, _ *ListOptions) (
 
 // Health checks if the base URL is reachable via HTTP HEAD.
 func (b *HTTPBackend) Health(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, b.config.BaseURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, b.config.BaseURL, http.NoBody)
 	if err != nil {
 		return &Error{Backend: b.config.Name, Op: "health", Err: err}
 	}
