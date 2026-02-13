@@ -364,9 +364,8 @@ sudo kscore-bootstrap seed \
   --config /tmp/seed-ha.yaml \
   --node ks-server-1
 
-# Get join token from bootstrap output or cluster configuration
-# The token is generated during initial cluster seed and stored in cluster config
-JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # Set from bootstrap output or config file
+# Generate a join token on the seeded node (or use one from bootstrap output)
+JOIN_TOKEN=$(kscorectl cluster token generate --ttl 1h --max-uses 2 -o json | jq -r .token)
 echo "Join token: $JOIN_TOKEN"
 ```
 

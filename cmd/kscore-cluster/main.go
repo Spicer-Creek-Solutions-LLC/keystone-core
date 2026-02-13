@@ -62,6 +62,7 @@ Usage via kscorectl:
 		newRebalanceCommand(),
 		newMemberCommand(),
 		newElectionCommand(),
+		newTokenCommand(),
 		newVersionCmd(),
 	)
 

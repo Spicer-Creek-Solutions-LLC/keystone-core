@@ -461,6 +461,102 @@ func (c *ClusterClient) UndrainMember(ctx context.Context, memberID string) erro
 	return nil
 }
 
+// TokenInfo represents a join token returned by the API.
+type TokenInfo struct {
+	ID        string `json:"id"`
+	Token     string `json:"token,omitempty"`
+	Label     string `json:"label"`
+	ExpiresAt string `json:"expires_at"`
+	MaxUses   int    `json:"max_uses"`
+	UsedCount int    `json:"used_count"`
+	CreatedBy string `json:"created_by"`
+	Revoked   bool   `json:"revoked"`
+	CreatedAt string `json:"created_at"`
+	Valid     bool   `json:"valid"`
+}
+
+// GenerateToken creates a new cluster join token.
+func (c *ClusterClient) GenerateToken(ctx context.Context, label, ttl string, maxUses int) (*TokenInfo, error) {
+	payload := map[string]interface{}{
+		"label":    label,
+		"ttl":      ttl,
+		"max_uses": maxUses,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/tokens", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	var token TokenInfo
+	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &token, nil
+}
+
+// ListTokens returns all cluster join tokens.
+func (c *ClusterClient) ListTokens(ctx context.Context) ([]TokenInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/tokens", http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	var tokens []TokenInfo
+	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return tokens, nil
+}
+
+// RevokeToken revokes a cluster join token by ID.
+func (c *ClusterClient) RevokeToken(ctx context.Context, tokenID string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE",
+		fmt.Sprintf("%s/tokens/%s", c.baseURL, tokenID), http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+	return nil
+}
+
 // getAPIScheme returns "https" by default, "http" only for localhost addresses.
 // This ensures production deployments use TLS while allowing HTTP for local development.
 func getAPIScheme(addr string) string {

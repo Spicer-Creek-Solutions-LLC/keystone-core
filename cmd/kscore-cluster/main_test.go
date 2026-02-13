@@ -29,7 +29,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"status", "members", "leader", "add", "remove", "transfer-leader", "rebalance", "backup", "restore", "member", "election", "version"}
+	expectedCommands := []string{"status", "members", "leader", "add", "remove", "transfer-leader", "rebalance", "backup", "restore", "member", "election", "token", "version"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -581,6 +581,92 @@ func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+func TestTokenSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	tokenCmd := findSubcommand(cmd, "token")
+	if tokenCmd == nil {
+		t.Fatal("token subcommand not found")
+	}
+
+	expectedSubs := []string{"generate", "list", "revoke"}
+	for _, expected := range expectedSubs {
+		found := false
+		for _, sub := range tokenCmd.Commands() {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected token subcommand %s not found", expected)
+		}
+	}
+}
+
+func TestTokenGenerateCommandFlags(t *testing.T) {
+	tokenCmd := newTokenCommand()
+	genCmd := findSubcommand(tokenCmd, "generate")
+	if genCmd == nil {
+		t.Fatal("token generate subcommand not found")
+	}
+
+	labelFlag := genCmd.Flags().Lookup("label")
+	if labelFlag == nil {
+		t.Error("expected --label flag on token generate command")
+	}
+
+	ttlFlag := genCmd.Flags().Lookup("ttl")
+	if ttlFlag == nil {
+		t.Fatal("expected --ttl flag on token generate command")
+	}
+	if ttlFlag.DefValue != "24h" {
+		t.Errorf("expected ttl default '24h', got %s", ttlFlag.DefValue)
+	}
+
+	maxUsesFlag := genCmd.Flags().Lookup("max-uses")
+	if maxUsesFlag == nil {
+		t.Fatal("expected --max-uses flag on token generate command")
+	}
+	if maxUsesFlag.DefValue != "0" {
+		t.Errorf("expected max-uses default '0', got %s", maxUsesFlag.DefValue)
+	}
+}
+
+func TestTokenRevokeRequiresArg(t *testing.T) {
+	tokenCmd := newTokenCommand()
+	revokeCmd := findSubcommand(tokenCmd, "revoke")
+	if revokeCmd == nil {
+		t.Fatal("token revoke subcommand not found")
+	}
+	if revokeCmd.Args == nil {
+		t.Error("expected token revoke command to have Args validation")
+	}
+}
+
+func TestTokenSubcommandHelp(t *testing.T) {
+	subcmds := []string{"token generate", "token list", "token revoke"}
+	for _, subcmd := range subcmds {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := newRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			args := strings.Split(subcmd, " ")
+			args = append(args, "--help")
+			cmd.SetArgs(args)
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("%s --help failed: %v", subcmd, err)
+			}
+
+			output := buf.String()
+			if !strings.Contains(output, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+			}
+		})
+	}
 }
 
 // parseTestDuration parses a test duration string

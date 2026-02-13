@@ -42,6 +42,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/api/execution"
 	"github.com/shawnbutts/keystone-core/pkg/api/maintenance"
 	apirbac "github.com/shawnbutts/keystone-core/pkg/api/rbac"
+	apicluster "github.com/shawnbutts/keystone-core/pkg/api/cluster"
 	apisecrets "github.com/shawnbutts/keystone-core/pkg/api/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	apistate "github.com/shawnbutts/keystone-core/pkg/api/state"
@@ -385,6 +386,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
 	apirbac.NewHandler().RegisterRoutes(httpMux)
 	apisecrets.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
+	apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
 	logger.Info("REST API handlers registered")
 
 	// Register metrics endpoint if enabled

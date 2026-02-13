@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/internal/audit"
 	"github.com/shawnbutts/keystone-core/internal/cluster"
+	"github.com/shawnbutts/keystone-core/internal/cluster/token"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 )
 
@@ -23,6 +25,8 @@ type Handler struct {
 	config      *cluster.Config
 	shardStore  *cluster.ShardStore
 	configStore *cluster.ConfigStore
+	tokenStore  token.Store
+	auditLogger *audit.Logger
 }
 
 // NewHandler creates a new cluster API handler.
@@ -52,6 +56,16 @@ func (h *Handler) SetConfigStore(store *cluster.ConfigStore) {
 	h.configStore = store
 }
 
+// SetTokenStore sets the token store for join token management.
+func (h *Handler) SetTokenStore(s token.Store) {
+	h.tokenStore = s
+}
+
+// SetAuditLogger sets the audit logger for token operations.
+func (h *Handler) SetAuditLogger(l *audit.Logger) {
+	h.auditLogger = l
+}
+
 // RegisterRoutes registers the cluster API routes with the given mux.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/cluster/status", h.handleStatus)
@@ -62,6 +76,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/cluster/rebalance", h.handleRebalance)
 	mux.HandleFunc("/api/v1/cluster/backup", h.handleBackup)
 	mux.HandleFunc("/api/v1/cluster/restore", h.handleRestore)
+	mux.HandleFunc("/api/v1/cluster/tokens", h.handleTokens)
+	mux.HandleFunc("/api/v1/cluster/tokens/", h.handleTokenResource)
+	mux.HandleFunc("/api/v1/cluster/join", h.handleJoin)
 }
 
 // StatusResponse represents the cluster status API response.

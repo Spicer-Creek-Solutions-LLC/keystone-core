@@ -111,6 +111,40 @@ kscorectl cluster health
 #   kscore-3: all checks passed
 ```
 
+## Join Tokens
+
+Join tokens authorize new servers to join the cluster. When a token store is configured, nodes must present a valid token to join.
+
+### Generate a Token
+
+```bash
+# Generate with default settings (24h TTL, unlimited uses)
+kscorectl cluster token generate
+
+# Generate with options
+kscorectl cluster token generate --ttl 1h --max-uses 1 --label "add-server-4"
+```
+
+The token value is displayed only once. Store it securely.
+
+### List Tokens
+
+```bash
+kscorectl cluster token list
+```
+
+### Revoke a Token
+
+```bash
+kscorectl cluster token revoke <token-id>
+```
+
+### Join with a Token
+
+```bash
+kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN
+```
+
 ## Member Management
 
 ### Add a New Member
@@ -120,11 +154,14 @@ When scaling up the cluster:
 ```bash
 # 1. Prepare the new node with kscore-server installed
 
-# 2. Add member to cluster (run on existing member)
-kscorectl cluster add https://192.168.1.13:2380
+# 2. Generate a join token on an existing cluster member
+kscorectl cluster token generate --ttl 1h --max-uses 1
 
-# 3. Start kscore-server on new node with join config
-kscore-server --config /etc/keystone-core/server.yaml --join
+# 3. Join the new node to the cluster using the token
+kscorectl cluster join https://192.168.1.10:8080 --token $JOIN_TOKEN
+
+# 4. Alternatively, add member directly (run on existing member)
+kscorectl cluster add https://192.168.1.13:2380
 ```
 
 ### Remove a Member

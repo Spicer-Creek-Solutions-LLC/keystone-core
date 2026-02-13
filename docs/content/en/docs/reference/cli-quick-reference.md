@@ -356,6 +356,14 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `cluster member remove <id>` | Remove member (alias) | `cluster member remove server-3` |
 | `cluster election restart` | Restart leader election | `cluster election restart` |
 
+### Cluster Join Tokens
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `cluster token generate` | Generate join token | `cluster token generate --ttl 1h --max-uses 3` |
+| `cluster token list` | List join tokens | `cluster token list` |
+| `cluster token revoke <id>` | Revoke join token | `cluster token revoke abc123` |
+
 ### Backup & Restore
 
 | Command | Description | Example |

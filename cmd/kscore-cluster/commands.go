@@ -1154,3 +1154,203 @@ func runUndrain(memberID string, dryRun bool) error {
 	fmt.Printf("Successfully undrained %s\n", memberID)
 	return nil
 }
+
+// newTokenCommand creates the 'token' command group
+func newTokenCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "token",
+		Short: "Manage cluster join tokens",
+		Long: `Create, list, and revoke join tokens for cluster membership.
+
+Join tokens authorize new servers to join the cluster. Generated tokens
+are displayed only once at creation time.
+
+Examples:
+  kscorectl cluster token generate
+  kscorectl cluster token generate --ttl 1h --max-uses 1 --label "add-server-4"
+  kscorectl cluster token list
+  kscorectl cluster token revoke <token-id>`,
+	}
+
+	cmd.AddCommand(newTokenGenerateCommand())
+	cmd.AddCommand(newTokenListCommand())
+	cmd.AddCommand(newTokenRevokeCommand())
+
+	return cmd
+}
+
+func newTokenGenerateCommand() *cobra.Command {
+	var (
+		label   string
+		ttl     string
+		maxUses int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate a new join token",
+		Long: `Generate a new cluster join token.
+
+The token value is displayed only once at creation time. Store it securely.
+Tokens expire after the specified TTL (default 24h). Use --max-uses to
+limit how many nodes can join with this token.
+
+Examples:
+  kscorectl cluster token generate
+  kscorectl cluster token generate --ttl 1h
+  kscorectl cluster token generate --ttl 2h --max-uses 3 --label "staging-nodes"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTokenGenerate(label, ttl, maxUses)
+		},
+	}
+
+	cmd.Flags().StringVar(&label, "label", "", "Human-readable label for the token")
+	cmd.Flags().StringVar(&ttl, "ttl", "24h", "Token time-to-live (e.g. 1h, 30m, 24h)")
+	cmd.Flags().IntVar(&maxUses, "max-uses", 0, "Maximum number of joins allowed (0 = unlimited)")
+
+	return cmd
+}
+
+func runTokenGenerate(label, ttl string, maxUses int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	token, err := client.GenerateToken(ctx, label, ttl, maxUses)
+	if err != nil {
+		return fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	switch outputFormat {
+	case "json", "yaml":
+		return outputResult(token, outputFormat)
+	default:
+		fmt.Printf("Token ID:    %s\n", token.ID)
+		fmt.Printf("Token:       %s\n", token.Token)
+		if token.Label != "" {
+			fmt.Printf("Label:       %s\n", token.Label)
+		}
+		fmt.Printf("Expires At:  %s\n", token.ExpiresAt)
+		if token.MaxUses > 0 {
+			fmt.Printf("Max Uses:    %d\n", token.MaxUses)
+		} else {
+			fmt.Printf("Max Uses:    unlimited\n")
+		}
+		fmt.Println()
+		fmt.Println("Save this token — it will not be shown again.")
+		fmt.Println()
+		fmt.Printf("Use it to join a node:\n")
+		fmt.Printf("  kscorectl cluster join <address> --token %s\n", token.Token)
+		return nil
+	}
+}
+
+func newTokenListCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List join tokens",
+		Long: `List all cluster join tokens.
+
+Shows token ID, label, expiry, usage, and validity. Token values are
+never shown after initial creation.
+
+Examples:
+  kscorectl cluster token list
+  kscorectl cluster token list -o json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTokenList()
+		},
+	}
+
+	return cmd
+}
+
+func runTokenList() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	tokens, err := client.ListTokens(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list tokens: %w", err)
+	}
+
+	switch outputFormat {
+	case "json", "yaml":
+		return outputResult(tokens, outputFormat)
+	default:
+		if len(tokens) == 0 {
+			fmt.Println("No tokens found.")
+			return nil
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "ID\tLABEL\tEXPIRES\tUSES\tVALID\tREVOKED")
+		for i := range tokens {
+			t := &tokens[i]
+			uses := fmt.Sprintf("%d", t.UsedCount)
+			if t.MaxUses > 0 {
+				uses = fmt.Sprintf("%d/%d", t.UsedCount, t.MaxUses)
+			}
+			valid := "yes"
+			if !t.Valid {
+				valid = "no"
+			}
+			revoked := ""
+			if t.Revoked {
+				revoked = "yes"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				t.ID, t.Label, t.ExpiresAt, uses, valid, revoked)
+		}
+		return w.Flush()
+	}
+}
+
+func newTokenRevokeCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "revoke <token-id>",
+		Short: "Revoke a join token",
+		Long: `Revoke a cluster join token.
+
+Revoked tokens can no longer be used to join the cluster.
+The token remains in the list for audit purposes.
+
+Examples:
+  kscorectl cluster token revoke abc123def456`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTokenRevoke(args[0])
+		},
+	}
+
+	return cmd
+}
+
+func runTokenRevoke(tokenID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.RevokeToken(ctx, tokenID); err != nil {
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	fmt.Printf("Token %s revoked successfully\n", tokenID)
+	return nil
+}

@@ -4861,6 +4861,61 @@ kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN
 kscorectl cluster join https://ks-server-1:8080 --token $JOIN_TOKEN --advertise-addr 10.0.1.5
 ```
 
+### cluster token
+
+Manage cluster join tokens. Join tokens authorize new servers to join the cluster.
+
+#### cluster token generate
+
+Generate a new cluster join token. The token value is displayed only once at creation time.
+
+```bash
+kscorectl cluster token generate [flags]
+```
+
+**Flags**:
+
+- `--label string`: Human-readable label for the token
+- `--ttl string`: Token time-to-live (default: `24h`)
+- `--max-uses int`: Maximum number of joins allowed (0 = unlimited, default: `0`)
+
+**Example**:
+
+```bash
+kscorectl cluster token generate
+kscorectl cluster token generate --ttl 1h
+kscorectl cluster token generate --ttl 2h --max-uses 3 --label "staging-nodes"
+```
+
+#### cluster token list
+
+List all cluster join tokens. Token values are never shown after initial creation.
+
+```bash
+kscorectl cluster token list [flags]
+```
+
+**Example**:
+
+```bash
+kscorectl cluster token list
+kscorectl cluster token list -o json
+```
+
+#### cluster token revoke
+
+Revoke a cluster join token by ID. Revoked tokens can no longer be used to join the cluster.
+
+```bash
+kscorectl cluster token revoke <token-id>
+```
+
+**Example**:
+
+```bash
+kscorectl cluster token revoke abc123def456
+```
+
 ### cluster leave
 
 Remove this node from the cluster.
