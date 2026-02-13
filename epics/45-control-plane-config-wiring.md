@@ -80,6 +80,37 @@ Make the control plane configurable via these settings so operators can tune beh
 - Add inline comments with defaults
 - Update environment variable reference
 
+### Phase 4: E2E Test Infrastructure (Week 4)
+
+Once config wiring is complete, enable the currently-skipped E2E tests by updating the container test environment.
+
+**T4.1: Reactor E2E Configuration**
+- Add `events.reactors` section to `test/e2e/containers/config/server.yaml` with a simple reactor (e.g., log on agent connect)
+- Implement `TestEvent_ReactorTrigger`: emit event matching reactor filter, verify action executed
+
+**T4.2: Webhook E2E Configuration**
+- Add webhook receiver configuration to E2E server config (listen address, HMAC secret, bearer token)
+- Implement `TestGitOps_WebhookAuthHMAC`: send HMAC-signed webhook, verify acceptance
+- Implement `TestGitOps_WebhookAuthBearer`: send bearer-authenticated webhook, verify acceptance
+- Implement `TestGitOps_VerificationTrigger`: trigger verification workflow via webhook
+- Implement `TestGitOps_RollbackTrigger`: trigger rollback via webhook event
+- Implement `TestGitOps_RollbackApproval`: test rollback approval gating
+- Implement `TestGitOps_WebhookEventEmission`: verify webhooks emit events to the event bus
+
+**T4.3: Policy E2E Configuration**
+- Add full policy configuration to E2E server config (audit mode, warn mode, violation blocking, audit logging)
+- Implement `TestPolicy_EnforcementModeAudit`: execute command with audit-mode policy, verify audit log generated
+- Implement `TestPolicy_EnforcementModeWarn`: execute command with warn-mode policy, verify warning
+- Implement `TestPolicy_ViolationBlocking`: execute command that violates enforce-mode policy, verify blocked
+- Implement `TestPolicy_AuditLogging`: verify policy decisions are audit logged
+- Implement `TestPolicy_ComplianceReporting`: verify compliance report API endpoint returns data
+
+**T4.4: HA Cluster Infrastructure Tests**
+- Add separate NATS container to HA compose topology for `TestHACluster_NATSFailure`
+- Add separate etcd container to HA compose topology for `TestHACluster_EtcdFailure`
+- Add PostgreSQL primary/replica configuration for `TestHACluster_DatabaseFailover`
+- Add network partition tooling (iptables/tc) to containers for `TestHACluster_NetworkPartition` and `TestHACluster_SplitBrain`
+
 ## Dependencies
 
 - **Epic 1**: Core Infrastructure (NATS, agents, control plane)
@@ -91,6 +122,7 @@ Make the control plane configurable via these settings so operators can tune beh
 - Unit tests for default values
 - Unit tests for validation (invalid durations, out-of-range values)
 - Integration test: `kscore-server` starts with full config file
+- E2E tests: all 17 currently-skipped scenario and HA tests pass
 
 ## Definition of Done
 
@@ -99,4 +131,5 @@ Make the control plane configurable via these settings so operators can tune beh
 - [ ] Environment variable overrides work
 - [ ] Config validation covers new fields
 - [ ] Documentation matches implementation
+- [ ] All 17 E2E tests un-skipped and passing
 - [ ] Tests passing with race detector
