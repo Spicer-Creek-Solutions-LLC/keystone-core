@@ -47,21 +47,26 @@ const (
 
 // Config represents the complete Keystone Core configuration
 type Config struct {
-	Server    ServerConfig
-	NATS      NATSConfig
-	Storage   StorageConfig
-	Agent     AgentConfig
-	TLS       TLSConfig
-	Auth      AuthConfig
-	Webhook   WebhookConfig
-	Policy    PolicyConfig
-	Logging   LoggingConfig
-	CORS      CORSConfig
-	RateLimit RateLimitConfig
-	Metrics   MetricsConfig
-	Tracing   TracingConfig
-	Health    HealthConfig
-	Profiling ProfilingConfig
+	Server          ServerConfig
+	NATS            NATSConfig
+	Storage         StorageConfig
+	Agent           AgentConfig
+	AgentManagement AgentManagementConfig
+	Execution       ExecutionConfig
+	StateManagement StateManagementConfig
+	Events          EventsConfig
+	GitOps          GitOpsConfig
+	TLS             TLSConfig
+	Auth            AuthConfig
+	Webhook         WebhookConfig
+	Policy          PolicyConfig
+	Logging         LoggingConfig
+	CORS            CORSConfig
+	RateLimit       RateLimitConfig
+	Metrics         MetricsConfig
+	Tracing         TracingConfig
+	Health          HealthConfig
+	Profiling       ProfilingConfig
 }
 
 // LoggingConfig contains logging settings
@@ -232,7 +237,7 @@ type AgentHealthCheckConfig struct {
 	MinHealthy float64
 }
 
-// AuthConfig contains API authentication settings
+// AuthConfig contains API authentication and authorization settings
 type AuthConfig struct {
 	// Enabled controls whether authentication is required (default: true for security)
 	Enabled bool
@@ -244,6 +249,8 @@ type AuthConfig struct {
 	JWT JWTAuthConfig
 	// mTLS authentication settings (uses TLS config for certificates)
 	MTLS MTLSAuthConfig
+	// Authorization contains RBAC authorization settings
+	Authorization AuthorizationConfig
 	// Methods allowed to bypass authentication (for health checks, etc.)
 	// Format: "/package.Service/Method" e.g., "/kscore.v1.ControlPlaneService/HealthCheck"
 	BypassMethods []string
@@ -724,6 +731,220 @@ type AgentConfig struct {
 	Labels map[string]string
 }
 
+// AgentManagementConfig contains server-side agent management settings.
+// These control how the control plane monitors and manages connected agents.
+type AgentManagementConfig struct {
+	// HeartbeatInterval is the interval agents should send heartbeats.
+	// This value is sent to agents during registration.
+	HeartbeatInterval time.Duration
+	// HeartbeatTimeout is how long to wait before considering an agent stale.
+	HeartbeatTimeout time.Duration
+	// StaleThreshold is how many missed heartbeats before marking an agent offline.
+	StaleThreshold int
+	// MonitorInterval is how often the control plane checks agent health.
+	MonitorInterval time.Duration
+	// MetadataRefresh is the interval agents should refresh system metadata.
+	// This value is sent to agents during registration.
+	MetadataRefresh time.Duration
+	// MaxConcurrentCommands is the maximum number of concurrent commands per agent.
+	// 0 means unlimited.
+	MaxConcurrentCommands int
+}
+
+// Validate checks the agent management configuration.
+func (c *AgentManagementConfig) Validate() error {
+	if c.HeartbeatInterval < 0 {
+		return fmt.Errorf("agentmanagement.heartbeatinterval cannot be negative")
+	}
+	if c.HeartbeatTimeout < 0 {
+		return fmt.Errorf("agentmanagement.heartbeattimeout cannot be negative")
+	}
+	if c.HeartbeatTimeout > 0 && c.HeartbeatInterval > 0 && c.HeartbeatTimeout < c.HeartbeatInterval {
+		return fmt.Errorf("agentmanagement.heartbeattimeout (%v) must be >= heartbeatinterval (%v)", c.HeartbeatTimeout, c.HeartbeatInterval)
+	}
+	if c.StaleThreshold < 0 {
+		return fmt.Errorf("agentmanagement.stalethreshold cannot be negative")
+	}
+	if c.MonitorInterval < 0 {
+		return fmt.Errorf("agentmanagement.monitorinterval cannot be negative")
+	}
+	if c.MetadataRefresh < 0 {
+		return fmt.Errorf("agentmanagement.metadatarefresh cannot be negative")
+	}
+	if c.MaxConcurrentCommands < 0 {
+		return fmt.Errorf("agentmanagement.maxconcurrentcommands cannot be negative")
+	}
+	return nil
+}
+
+// ExecutionConfig contains command execution settings.
+type ExecutionConfig struct {
+	// DefaultTimeout is the default timeout for command execution.
+	DefaultTimeout time.Duration
+	// MaxTimeout is the maximum allowed timeout for command execution.
+	// Requests with timeout exceeding this value will be clamped.
+	MaxTimeout time.Duration
+	// BatchSize is the default number of agents to execute on concurrently in batch operations.
+	BatchSize int
+	// BatchDelay is the delay between starting execution on each batch group.
+	BatchDelay time.Duration
+	// StreamingBuffer is the buffer size for streaming command responses.
+	StreamingBuffer int
+	// ResultRetention is how long to retain command execution results.
+	ResultRetention time.Duration
+}
+
+// Validate checks the execution configuration.
+func (c *ExecutionConfig) Validate() error {
+	if c.DefaultTimeout < 0 {
+		return fmt.Errorf("execution.defaulttimeout cannot be negative")
+	}
+	if c.MaxTimeout < 0 {
+		return fmt.Errorf("execution.maxtimeout cannot be negative")
+	}
+	if c.MaxTimeout > 0 && c.DefaultTimeout > c.MaxTimeout {
+		return fmt.Errorf("execution.defaulttimeout (%v) cannot exceed maxtimeout (%v)", c.DefaultTimeout, c.MaxTimeout)
+	}
+	if c.BatchSize < 0 {
+		return fmt.Errorf("execution.batchsize cannot be negative")
+	}
+	if c.BatchDelay < 0 {
+		return fmt.Errorf("execution.batchdelay cannot be negative")
+	}
+	if c.StreamingBuffer < 0 {
+		return fmt.Errorf("execution.streamingbuffer cannot be negative")
+	}
+	if c.ResultRetention < 0 {
+		return fmt.Errorf("execution.resultretention cannot be negative")
+	}
+	return nil
+}
+
+// StateManagementConfig contains state management settings.
+type StateManagementConfig struct {
+	// DefaultTimeout is the default timeout for state apply operations.
+	DefaultTimeout time.Duration
+	// MaxConcurrent is the maximum number of concurrent state apply operations.
+	MaxConcurrent int
+	// DriftCheckInterval is how often to check for configuration drift.
+	// 0 disables automatic drift checking.
+	DriftCheckInterval time.Duration
+	// ResultRetention is how long to retain state apply results.
+	ResultRetention time.Duration
+}
+
+// Validate checks the state management configuration.
+func (c *StateManagementConfig) Validate() error {
+	if c.DefaultTimeout < 0 {
+		return fmt.Errorf("statemanagement.defaulttimeout cannot be negative")
+	}
+	if c.MaxConcurrent < 0 {
+		return fmt.Errorf("statemanagement.maxconcurrent cannot be negative")
+	}
+	if c.DriftCheckInterval < 0 {
+		return fmt.Errorf("statemanagement.driftcheckinterval cannot be negative")
+	}
+	if c.ResultRetention < 0 {
+		return fmt.Errorf("statemanagement.resultretention cannot be negative")
+	}
+	return nil
+}
+
+// EventsConfig contains event system settings.
+type EventsConfig struct {
+	// Enabled controls whether the event system is active (default: true).
+	Enabled bool
+	// Retention is the maximum age of stored events before they are discarded.
+	Retention time.Duration
+	// MaxBytes is the maximum total size of stored events in bytes.
+	// 0 means use JetStream default.
+	MaxBytes int64
+	// MaxMessages is the maximum number of stored events.
+	// 0 means use JetStream default.
+	MaxMessages int64
+	// PublisherBufferSize is the buffer size for the event publisher channel.
+	PublisherBufferSize int
+	// SubscriberBufferSize is the buffer size for event subscriber channels.
+	SubscriberBufferSize int
+	// SubscriberAckWait is how long to wait for a subscriber to acknowledge an event.
+	SubscriberAckWait time.Duration
+}
+
+// Validate checks the events configuration.
+func (c *EventsConfig) Validate() error {
+	if c.Retention < 0 {
+		return fmt.Errorf("events.retention cannot be negative")
+	}
+	if c.MaxBytes < 0 {
+		return fmt.Errorf("events.maxbytes cannot be negative")
+	}
+	if c.MaxMessages < 0 {
+		return fmt.Errorf("events.maxmessages cannot be negative")
+	}
+	if c.PublisherBufferSize < 0 {
+		return fmt.Errorf("events.publisherbuffersize cannot be negative")
+	}
+	if c.SubscriberBufferSize < 0 {
+		return fmt.Errorf("events.subscriberbuffersize cannot be negative")
+	}
+	if c.SubscriberAckWait < 0 {
+		return fmt.Errorf("events.subscriberrackwait cannot be negative")
+	}
+	return nil
+}
+
+// GitOpsConfig contains GitOps integration settings.
+type GitOpsConfig struct {
+	// GitSync configures automatic git repository synchronization.
+	GitSync GitSyncConfig
+}
+
+// GitSyncConfig contains git repository sync settings.
+type GitSyncConfig struct {
+	// Enabled controls whether git-sync is active.
+	Enabled bool
+	// Repositories lists git repositories to synchronize.
+	Repositories []GitSyncRepository
+}
+
+// GitSyncRepository defines a git repository to synchronize.
+type GitSyncRepository struct {
+	// URL is the git repository URL.
+	URL string
+	// Branch is the branch to track (default: main).
+	Branch string
+	// Interval is how often to poll for changes.
+	Interval time.Duration
+	// Path is the subdirectory within the repo to sync (empty = root).
+	Path string
+}
+
+// Validate checks the GitOps configuration.
+func (c *GitOpsConfig) Validate() error {
+	if c.GitSync.Enabled {
+		for i, repo := range c.GitSync.Repositories {
+			if repo.URL == "" {
+				return fmt.Errorf("gitops.gitsync.repositories[%d].url is required", i)
+			}
+			if repo.Interval < 0 {
+				return fmt.Errorf("gitops.gitsync.repositories[%d].interval cannot be negative", i)
+			}
+		}
+	}
+	return nil
+}
+
+// AuthorizationConfig contains RBAC authorization settings.
+type AuthorizationConfig struct {
+	// Enabled controls whether authorization (RBAC) checks are performed.
+	// When false, all authenticated requests are allowed regardless of role.
+	Enabled bool
+	// DefaultDeny controls behavior for unmapped methods.
+	// When true, requests to methods without explicit role mappings are denied.
+	// When false, requests to unmapped methods are allowed for any authenticated user.
+	DefaultDeny bool
+}
+
 // TLSConfig contains TLS/mTLS settings
 type TLSConfig struct {
 	// Enable mTLS
@@ -818,6 +1039,37 @@ const (
 	DefaultCommandTimeout    = 5 * time.Minute
 	DefaultMetadataInterval  = 5 * time.Minute
 
+	// Agent management defaults (server-side control plane settings)
+	DefaultAgentMgmtHeartbeatTimeout  = 60 * time.Second
+	DefaultAgentMgmtStaleThreshold    = 3
+	DefaultAgentMgmtMonitorInterval   = 10 * time.Second
+	DefaultAgentMgmtMaxConcurrentCmds = 0 // unlimited
+
+	// Execution defaults
+	DefaultExecDefaultTimeout  = 5 * time.Minute
+	DefaultExecMaxTimeout      = 1 * time.Hour
+	DefaultExecBatchSize       = 10
+	DefaultExecStreamingBuffer = 100
+	DefaultExecResultRetention = 24 * time.Hour
+
+	// State management defaults
+	DefaultStateMgmtDefaultTimeout  = 10 * time.Minute
+	DefaultStateMgmtMaxConcurrent   = 5
+	DefaultStateMgmtResultRetention = 7 * 24 * time.Hour // 7 days
+
+	// Event system defaults
+	DefaultEventsEnabled           = true
+	DefaultEventsRetention         = 7 * 24 * time.Hour   // 7 days
+	DefaultEventsMaxBytes    int64 = 10 * 1024 * 1024 * 1024 // 10GB
+	DefaultEventsMaxMessages int64 = 1000000                  // 1M messages
+	DefaultEventsPublisherBufferSize  = 256
+	DefaultEventsSubscriberBufferSize = 256
+	DefaultEventsSubscriberAckWait    = 30 * time.Second
+
+	// GitSync defaults
+	DefaultGitSyncBranch   = "main"
+	DefaultGitSyncInterval = 5 * time.Minute
+
 	DefaultWebhookPort = 8082
 	DefaultWebhookPath = "/webhooks"
 
@@ -825,8 +1077,10 @@ const (
 	DefaultPolicyEnforcementMode = "enforce"
 
 	// Auth defaults - secure by default
-	DefaultAuthEnabled = true
-	DefaultAuthType    = "apikey"
+	DefaultAuthEnabled       = true
+	DefaultAuthType          = "apikey"
+	DefaultAuthzEnabled      = true
+	DefaultAuthzDefaultDeny  = true
 	//nolint:gosec // G101: false positive - this is a header name, not a hardcoded secret
 	DefaultAPIKeyHeaderName = "X-API-Key"
 	DefaultAPIKeyMetadataKey = "x-api-key"
@@ -933,6 +1187,38 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	_ = v.BindEnv("logging.level", "KSCORE_LOG_LEVEL")
 	_ = v.BindEnv("logging.format", "KSCORE_LOG_FORMAT")
 	_ = v.BindEnv("logging.output", "KSCORE_LOG_OUTPUT")
+
+	// Agent management environment variable bindings (Epic 45 Phase 3)
+	_ = v.BindEnv("agentmanagement.heartbeatinterval", "KSCORE_AGENT_MGMT_HEARTBEAT_INTERVAL")
+	_ = v.BindEnv("agentmanagement.heartbeattimeout", "KSCORE_AGENT_MGMT_HEARTBEAT_TIMEOUT")
+	_ = v.BindEnv("agentmanagement.stalethreshold", "KSCORE_AGENT_MGMT_STALE_THRESHOLD")
+	_ = v.BindEnv("agentmanagement.monitorinterval", "KSCORE_AGENT_MGMT_MONITOR_INTERVAL")
+	_ = v.BindEnv("agentmanagement.metadatarefresh", "KSCORE_AGENT_MGMT_METADATA_REFRESH")
+	_ = v.BindEnv("agentmanagement.maxconcurrentcommands", "KSCORE_AGENT_MGMT_MAX_CONCURRENT_COMMANDS")
+
+	// Execution environment variable bindings (Epic 45 Phase 3)
+	_ = v.BindEnv("execution.defaulttimeout", "KSCORE_EXEC_DEFAULT_TIMEOUT")
+	_ = v.BindEnv("execution.maxtimeout", "KSCORE_EXEC_MAX_TIMEOUT")
+	_ = v.BindEnv("execution.batchsize", "KSCORE_EXEC_BATCH_SIZE")
+	_ = v.BindEnv("execution.batchdelay", "KSCORE_EXEC_BATCH_DELAY")
+	_ = v.BindEnv("execution.streamingbuffer", "KSCORE_EXEC_STREAMING_BUFFER")
+	_ = v.BindEnv("execution.resultretention", "KSCORE_EXEC_RESULT_RETENTION")
+
+	// State management environment variable bindings (Epic 45 Phase 3)
+	_ = v.BindEnv("statemanagement.defaulttimeout", "KSCORE_STATE_DEFAULT_TIMEOUT")
+	_ = v.BindEnv("statemanagement.maxconcurrent", "KSCORE_STATE_MAX_CONCURRENT")
+	_ = v.BindEnv("statemanagement.driftcheckinterval", "KSCORE_STATE_DRIFT_CHECK_INTERVAL")
+	_ = v.BindEnv("statemanagement.resultretention", "KSCORE_STATE_RESULT_RETENTION")
+
+	// Events environment variable bindings (Epic 45 Phase 3)
+	_ = v.BindEnv("events.enabled", "KSCORE_EVENTS_ENABLED")
+	_ = v.BindEnv("events.retention", "KSCORE_EVENTS_RETENTION")
+	_ = v.BindEnv("events.maxbytes", "KSCORE_EVENTS_MAX_BYTES")
+	_ = v.BindEnv("events.maxmessages", "KSCORE_EVENTS_MAX_MESSAGES")
+
+	// Authorization environment variable bindings (Epic 45 Phase 3)
+	_ = v.BindEnv("auth.authorization.enabled", "KSCORE_AUTHZ_ENABLED")
+	_ = v.BindEnv("auth.authorization.defaultdeny", "KSCORE_AUTHZ_DEFAULT_DENY")
 
 	// Read config file (optional)
 	if err := v.ReadInConfig(); err != nil {
@@ -1054,6 +1340,40 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("agent.metadatainterval", DefaultMetadataInterval)
 	v.SetDefault("agent.addressfamily", DefaultAddressFamily)
 
+	// Agent management defaults (server-side)
+	v.SetDefault("agentmanagement.heartbeatinterval", DefaultHeartbeatInterval)
+	v.SetDefault("agentmanagement.heartbeattimeout", DefaultAgentMgmtHeartbeatTimeout)
+	v.SetDefault("agentmanagement.stalethreshold", DefaultAgentMgmtStaleThreshold)
+	v.SetDefault("agentmanagement.monitorinterval", DefaultAgentMgmtMonitorInterval)
+	v.SetDefault("agentmanagement.metadatarefresh", DefaultMetadataInterval)
+	v.SetDefault("agentmanagement.maxconcurrentcommands", DefaultAgentMgmtMaxConcurrentCmds)
+
+	// Execution defaults
+	v.SetDefault("execution.defaulttimeout", DefaultExecDefaultTimeout)
+	v.SetDefault("execution.maxtimeout", DefaultExecMaxTimeout)
+	v.SetDefault("execution.batchsize", DefaultExecBatchSize)
+	v.SetDefault("execution.batchdelay", 0)
+	v.SetDefault("execution.streamingbuffer", DefaultExecStreamingBuffer)
+	v.SetDefault("execution.resultretention", DefaultExecResultRetention)
+
+	// State management defaults
+	v.SetDefault("statemanagement.defaulttimeout", DefaultStateMgmtDefaultTimeout)
+	v.SetDefault("statemanagement.maxconcurrent", DefaultStateMgmtMaxConcurrent)
+	v.SetDefault("statemanagement.driftcheckinterval", 0)
+	v.SetDefault("statemanagement.resultretention", DefaultStateMgmtResultRetention)
+
+	// Event system defaults
+	v.SetDefault("events.enabled", DefaultEventsEnabled)
+	v.SetDefault("events.retention", DefaultEventsRetention)
+	v.SetDefault("events.maxbytes", DefaultEventsMaxBytes)
+	v.SetDefault("events.maxmessages", DefaultEventsMaxMessages)
+	v.SetDefault("events.publisherbuffersize", DefaultEventsPublisherBufferSize)
+	v.SetDefault("events.subscriberbuffersize", DefaultEventsSubscriberBufferSize)
+	v.SetDefault("events.subscriberackwait", DefaultEventsSubscriberAckWait)
+
+	// GitOps defaults
+	v.SetDefault("gitops.gitsync.enabled", false)
+
 	// TLS defaults
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("tls.minversion", "1.3")
@@ -1061,6 +1381,8 @@ func setDefaults(v *viper.Viper) {
 	// Auth defaults - secure by default
 	v.SetDefault("auth.enabled", DefaultAuthEnabled)
 	v.SetDefault("auth.type", DefaultAuthType)
+	v.SetDefault("auth.authorization.enabled", DefaultAuthzEnabled)
+	v.SetDefault("auth.authorization.defaultdeny", DefaultAuthzDefaultDeny)
 	v.SetDefault("auth.apikey.headername", DefaultAPIKeyHeaderName)
 	v.SetDefault("auth.apikey.metadatakey", DefaultAPIKeyMetadataKey)
 	v.SetDefault("auth.jwt.roleclaim", DefaultJWTRoleClaim)
@@ -1159,6 +1481,31 @@ func (c *Config) Validate() error {
 	// Validate PostgreSQL DSN
 	if c.Storage.Backend == StorageBackendPostgreSQL && c.Storage.PostgreSQL.DSN == "" {
 		return fmt.Errorf("PostgreSQL DSN is required when backend is postgresql")
+	}
+
+	// Validate agent management config
+	if err := c.AgentManagement.Validate(); err != nil {
+		return err
+	}
+
+	// Validate execution config
+	if err := c.Execution.Validate(); err != nil {
+		return err
+	}
+
+	// Validate state management config
+	if err := c.StateManagement.Validate(); err != nil {
+		return err
+	}
+
+	// Validate events config
+	if err := c.Events.Validate(); err != nil {
+		return err
+	}
+
+	// Validate GitOps config
+	if err := c.GitOps.Validate(); err != nil {
+		return err
 	}
 
 	if err := validateTLSMinVersion(c.TLS.MinVersion, "tls.minversion"); err != nil {

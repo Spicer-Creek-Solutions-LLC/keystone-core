@@ -20,6 +20,11 @@ type RBACAuthorizer struct {
 	permissions map[string]Role
 	// Methods that bypass authorization entirely (e.g., health checks)
 	bypassMethods map[string]bool
+	// enabled controls whether authorization checks are performed
+	enabled bool
+	// defaultDeny controls behavior for unmapped methods:
+	// true = deny (require admin), false = allow any authenticated user
+	defaultDeny bool
 }
 
 // NewRBACAuthorizer creates a new RBAC authorizer with default permissions.
@@ -32,9 +37,18 @@ type RBACAuthorizer struct {
 // Agent endpoints use bypass (authenticated via mTLS/join tokens, not user RBAC).
 // Coordination endpoints use bypass (internal server-to-server, mTLS-only).
 func NewRBACAuthorizer(bypassMethods []string) *RBACAuthorizer {
+	return NewRBACAuthorizerWithConfig(bypassMethods, true, true)
+}
+
+// NewRBACAuthorizerWithConfig creates a new RBAC authorizer with configurable authorization behavior.
+// When enabled is false, all authorization checks are skipped (any authenticated user is allowed).
+// When defaultDeny is true, unmapped methods require admin role; when false, any authenticated user is allowed.
+func NewRBACAuthorizerWithConfig(bypassMethods []string, enabled, defaultDeny bool) *RBACAuthorizer {
 	auth := &RBACAuthorizer{
 		permissions:   make(map[string]Role),
 		bypassMethods: make(map[string]bool),
+		enabled:       enabled,
+		defaultDeny:   defaultDeny,
 	}
 
 	// Set up bypass methods
@@ -201,6 +215,11 @@ func (a *RBACAuthorizer) Authorize(ctx context.Context, principal *Principal, me
 		return nil
 	}
 
+	// If authorization is disabled, allow any authenticated user
+	if !a.enabled {
+		return nil
+	}
+
 	// Principal must exist
 	if principal == nil {
 		return ErrAuthRequired
@@ -212,9 +231,13 @@ func (a *RBACAuthorizer) Authorize(ctx context.Context, principal *Principal, me
 	a.mu.RUnlock()
 
 	if !ok {
-		// Default: require admin for unknown methods (secure by default)
-		// This ensures new methods are protected until explicitly configured
-		requiredRole = RoleAdmin
+		if a.defaultDeny {
+			// Default deny: require admin for unknown methods (secure by default)
+			requiredRole = RoleAdmin
+		} else {
+			// Default allow: any authenticated user can access unmapped methods
+			return nil
+		}
 	}
 
 	// Check if principal has required role

@@ -93,8 +93,8 @@ func NewInterceptorConfigFromConfig(cfg config.AuthConfig) (*InterceptorConfig, 
 		ic.Authenticators = []Authenticator{auth}
 	}
 
-	// Create authorizer
-	ic.Authorizer = NewRBACAuthorizer(cfg.BypassMethods)
+	// Create authorizer with authorization config
+	ic.Authorizer = NewRBACAuthorizerWithConfig(cfg.BypassMethods, cfg.Authorization.Enabled, cfg.Authorization.DefaultDeny)
 
 	// Create rate limiter with defaults (can be customized via SetRateLimiter)
 	ic.RateLimiter = NewRateLimiter(DefaultRateLimitConfig())

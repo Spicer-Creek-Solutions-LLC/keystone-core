@@ -187,9 +187,18 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	logger.Info("State storage initialized", logging.String("backend", string(cfg.Storage.Backend)))
 
-	// Initialize connection manager
+	// Initialize connection manager with config
 	logger.Info("Initializing connection manager")
-	connMgr := controlplane.NewConnectionManager(natsManager)
+	connMgrCfg := &controlplane.ConnectionManagerConfig{
+		HeartbeatTimeout:       cfg.AgentManagement.HeartbeatTimeout,
+		StaleThreshold:         cfg.AgentManagement.StaleThreshold,
+		MonitorInterval:        cfg.AgentManagement.MonitorInterval,
+		AgentHeartbeatInterval: cfg.AgentManagement.HeartbeatInterval,
+		AgentCommandTimeout:    cfg.Execution.DefaultTimeout,
+		AgentMetadataInterval:  cfg.AgentManagement.MetadataRefresh,
+		MaxConcurrentCommands:  cfg.AgentManagement.MaxConcurrentCommands,
+	}
+	connMgr := controlplane.NewConnectionManagerWithConfig(natsManager, connMgrCfg)
 
 	// Set state store for HA cluster support (allows loading agents from database)
 	connMgr.SetStateStore(&stateStoreAdapter{store: stateStore})
@@ -200,18 +209,28 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	defer connMgr.Stop()
 
-	// Initialize command dispatcher
+	// Initialize command dispatcher with config
 	logger.Info("Initializing command dispatcher")
-	dispatcher := controlplane.NewCommandDispatcher(connMgr, stateStore)
+	cmdDispCfg := &controlplane.CommandDispatcherConfig{
+		DefaultTimeout:  cfg.Execution.DefaultTimeout,
+		MaxTimeout:      cfg.Execution.MaxTimeout,
+		StreamingBuffer: cfg.Execution.StreamingBuffer,
+		ResultRetention: cfg.Execution.ResultRetention,
+	}
+	dispatcher := controlplane.NewCommandDispatcherWithConfig(connMgr, stateStore, cmdDispCfg)
 	if err := dispatcher.Start(); err != nil {
 		logger.Error("Failed to start command dispatcher", logging.Error(err))
 		return
 	}
 	defer dispatcher.Stop()
 
-	// Initialize batch dispatcher
+	// Initialize batch dispatcher with config
 	logger.Info("Initializing batch dispatcher")
-	batchDispatcher := controlplane.NewBatchDispatcher(connMgr, dispatcher, stateStore)
+	batchDispCfg := &controlplane.BatchDispatcherConfig{
+		DefaultBatchSize: cfg.Execution.BatchSize,
+		BatchDelay:       cfg.Execution.BatchDelay,
+	}
+	batchDispatcher := controlplane.NewBatchDispatcherWithConfig(connMgr, dispatcher, stateStore, batchDispCfg)
 
 	// Initialize tracing if enabled
 	if cfg.Tracing.Enabled {
@@ -573,7 +592,12 @@ func runServer(cmd *cobra.Command, args []string) {
 
 		var processor webhook.EventProcessor = &loggingEventProcessor{logger: logger}
 		if js := natsManager.JetStream(); js != nil {
-			publisher, err := events.NewJetStreamPublisher(js)
+			publisherCfg := &events.JetStreamPublisherConfig{
+				Retention:   cfg.Events.Retention,
+				MaxBytes:    cfg.Events.MaxBytes,
+				MaxMessages: cfg.Events.MaxMessages,
+			}
+			publisher, err := events.NewJetStreamPublisherWithConfig(js, publisherCfg)
 			if err != nil {
 				logger.Error("Failed to initialize webhook event publisher", logging.Error(err))
 			} else {
@@ -613,6 +637,29 @@ func runServer(cmd *cobra.Command, args []string) {
 		logging.String("storage", string(cfg.Storage.Backend)),
 		logging.Bool("auth_enabled", cfg.Auth.Enabled),
 	)
+	logger.Info("Agent management config",
+		logging.Duration("heartbeat_timeout", cfg.AgentManagement.HeartbeatTimeout),
+		logging.Int("stale_threshold", cfg.AgentManagement.StaleThreshold),
+		logging.Duration("monitor_interval", cfg.AgentManagement.MonitorInterval),
+	)
+	logger.Info("Execution config",
+		logging.Duration("default_timeout", cfg.Execution.DefaultTimeout),
+		logging.Duration("max_timeout", cfg.Execution.MaxTimeout),
+		logging.Int("batch_size", cfg.Execution.BatchSize),
+		logging.Int("streaming_buffer", cfg.Execution.StreamingBuffer),
+	)
+	logger.Info("Events config",
+		logging.Bool("enabled", cfg.Events.Enabled),
+		logging.Duration("retention", cfg.Events.Retention),
+		logging.Int64("max_bytes", cfg.Events.MaxBytes),
+		logging.Int64("max_messages", cfg.Events.MaxMessages),
+	)
+	if cfg.Auth.Enabled {
+		logger.Info("Authorization config",
+			logging.Bool("authz_enabled", cfg.Auth.Authorization.Enabled),
+			logging.Bool("default_deny", cfg.Auth.Authorization.DefaultDeny),
+		)
+	}
 	logger.Info("Waiting for agent connections")
 
 	// Status reporting loop

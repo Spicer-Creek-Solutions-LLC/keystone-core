@@ -13,12 +13,28 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// BatchDispatcherConfig holds configuration for the batch dispatcher.
+type BatchDispatcherConfig struct {
+	// DefaultBatchSize is the default concurrency for batch operations.
+	DefaultBatchSize int
+	// BatchDelay is the delay between starting execution on each batch group.
+	BatchDelay time.Duration
+}
+
+// DefaultBatchDispatcherConfig returns the default configuration.
+func DefaultBatchDispatcherConfig() *BatchDispatcherConfig {
+	return &BatchDispatcherConfig{
+		DefaultBatchSize: 10,
+	}
+}
+
 // BatchDispatcher handles batch command execution across multiple agents
 type BatchDispatcher struct {
 	connMgr  *ConnectionManager
 	cmdDsp   *CommandDispatcher
 	store    state.BatchJobStore
 	executor *targeting.BatchExecutor
+	config   *BatchDispatcherConfig
 
 	// Track batch jobs
 	mu        sync.RWMutex
@@ -77,19 +93,34 @@ func (a *connectionManagerAdapter) GetAgent(id string) (*targeting.AgentInfo, er
 	}, nil
 }
 
-// NewBatchDispatcher creates a new batch dispatcher
+// NewBatchDispatcher creates a new batch dispatcher with default configuration.
 func NewBatchDispatcher(connMgr *ConnectionManager, cmdDsp *CommandDispatcher, store state.BatchJobStore) *BatchDispatcher {
+	return NewBatchDispatcherWithConfig(connMgr, cmdDsp, store, nil)
+}
+
+// NewBatchDispatcherWithConfig creates a new batch dispatcher with custom configuration.
+func NewBatchDispatcherWithConfig(connMgr *ConnectionManager, cmdDsp *CommandDispatcher, store state.BatchJobStore, cfg *BatchDispatcherConfig) *BatchDispatcher {
+	if cfg == nil {
+		cfg = DefaultBatchDispatcherConfig()
+	}
+
 	// Create adapter for connection manager
 	adapter := &connectionManagerAdapter{connMgr: connMgr}
 
 	// Create batch executor using the command dispatcher
 	executor := targeting.NewBatchExecutor(cmdDsp, adapter)
 
+	// Apply default batch size from config
+	if cfg.DefaultBatchSize > 0 {
+		executor.SetConcurrency(cfg.DefaultBatchSize)
+	}
+
 	return &BatchDispatcher{
 		connMgr:   connMgr,
 		cmdDsp:    cmdDsp,
 		store:     store,
 		executor:  executor,
+		config:    cfg,
 		batchJobs: make(map[string]*BatchJob),
 	}
 }

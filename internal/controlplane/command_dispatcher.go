@@ -15,10 +15,33 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// CommandDispatcherConfig holds configuration for the command dispatcher.
+type CommandDispatcherConfig struct {
+	// DefaultTimeout is the default timeout for command execution.
+	DefaultTimeout time.Duration
+	// MaxTimeout is the maximum allowed timeout for command execution.
+	MaxTimeout time.Duration
+	// StreamingBuffer is the buffer size for streaming command responses.
+	StreamingBuffer int
+	// ResultRetention is how long to retain command execution results.
+	ResultRetention time.Duration
+}
+
+// DefaultCommandDispatcherConfig returns the default configuration.
+func DefaultCommandDispatcherConfig() *CommandDispatcherConfig {
+	return &CommandDispatcherConfig{
+		DefaultTimeout:  5 * time.Minute,
+		MaxTimeout:      time.Hour,
+		StreamingBuffer: 100,
+		ResultRetention: 24 * time.Hour,
+	}
+}
+
 // CommandDispatcher handles command execution and tracking
 type CommandDispatcher struct {
 	connMgr *ConnectionManager
 	store   state.CommandStore
+	config  *CommandDispatcherConfig
 
 	// Track in-flight commands
 	mu               sync.RWMutex
@@ -43,11 +66,20 @@ type CommandExecution struct {
 	Results   []*pb.ExecuteCommandResponse
 }
 
-// NewCommandDispatcher creates a new command dispatcher
+// NewCommandDispatcher creates a new command dispatcher with default configuration.
 func NewCommandDispatcher(connMgr *ConnectionManager, store state.CommandStore) *CommandDispatcher {
+	return NewCommandDispatcherWithConfig(connMgr, store, nil)
+}
+
+// NewCommandDispatcherWithConfig creates a new command dispatcher with custom configuration.
+func NewCommandDispatcherWithConfig(connMgr *ConnectionManager, store state.CommandStore, cfg *CommandDispatcherConfig) *CommandDispatcher {
+	if cfg == nil {
+		cfg = DefaultCommandDispatcherConfig()
+	}
 	return &CommandDispatcher{
 		connMgr:          connMgr,
 		store:            store,
+		config:           cfg,
 		pendingCommands:  make(map[string]*CommandExecution),
 		commandCallbacks: make(map[string][]chan *pb.ExecuteCommandResponse),
 	}
@@ -165,8 +197,21 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 	cd.pendingCommands[req.CommandId] = exec
 	cd.mu.Unlock()
 
-	// Create response channel
-	responseChan := make(chan *pb.ExecuteCommandResponse, 100)
+	// Apply default timeout if not specified
+	if req.Timeout == 0 && cd.config.DefaultTimeout > 0 {
+		req.Timeout = int32(cd.config.DefaultTimeout.Seconds()) //nolint:gosec // G115: timeout seconds bounded by config
+	}
+	// Clamp to max timeout if configured
+	if cd.config.MaxTimeout > 0 && req.Timeout > int32(cd.config.MaxTimeout.Seconds()) { //nolint:gosec // G115: timeout seconds bounded by config
+		req.Timeout = int32(cd.config.MaxTimeout.Seconds()) //nolint:gosec // G115: timeout seconds bounded by config
+	}
+
+	// Create response channel with configured buffer size
+	bufSize := cd.config.StreamingBuffer
+	if bufSize <= 0 {
+		bufSize = 100
+	}
+	responseChan := make(chan *pb.ExecuteCommandResponse, bufSize)
 	cd.mu.Lock()
 	cd.commandCallbacks[req.CommandId] = append(cd.commandCallbacks[req.CommandId], responseChan)
 	cd.mu.Unlock()

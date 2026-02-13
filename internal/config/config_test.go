@@ -1716,3 +1716,999 @@ func TestConfig_Redact_EmptySecrets(t *testing.T) {
 		t.Errorf("expected empty HMAC secret to stay empty, got: %s", redacted.Webhook.HMACSecret)
 	}
 }
+
+// Tests for AgentManagementConfig, ExecutionConfig, StateManagementConfig (Epic 45 Phase 1)
+
+func TestLoadConfig_Defaults_NewSections(t *testing.T) {
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load default config: %v", err)
+	}
+
+	// AgentManagement defaults
+	if cfg.AgentManagement.HeartbeatInterval != DefaultHeartbeatInterval {
+		t.Errorf("AgentManagement.HeartbeatInterval = %v, want %v", cfg.AgentManagement.HeartbeatInterval, DefaultHeartbeatInterval)
+	}
+	if cfg.AgentManagement.HeartbeatTimeout != DefaultAgentMgmtHeartbeatTimeout {
+		t.Errorf("AgentManagement.HeartbeatTimeout = %v, want %v", cfg.AgentManagement.HeartbeatTimeout, DefaultAgentMgmtHeartbeatTimeout)
+	}
+	if cfg.AgentManagement.StaleThreshold != DefaultAgentMgmtStaleThreshold {
+		t.Errorf("AgentManagement.StaleThreshold = %d, want %d", cfg.AgentManagement.StaleThreshold, DefaultAgentMgmtStaleThreshold)
+	}
+	if cfg.AgentManagement.MonitorInterval != DefaultAgentMgmtMonitorInterval {
+		t.Errorf("AgentManagement.MonitorInterval = %v, want %v", cfg.AgentManagement.MonitorInterval, DefaultAgentMgmtMonitorInterval)
+	}
+	if cfg.AgentManagement.MetadataRefresh != DefaultMetadataInterval {
+		t.Errorf("AgentManagement.MetadataRefresh = %v, want %v", cfg.AgentManagement.MetadataRefresh, DefaultMetadataInterval)
+	}
+	if cfg.AgentManagement.MaxConcurrentCommands != DefaultAgentMgmtMaxConcurrentCmds {
+		t.Errorf("AgentManagement.MaxConcurrentCommands = %d, want %d", cfg.AgentManagement.MaxConcurrentCommands, DefaultAgentMgmtMaxConcurrentCmds)
+	}
+
+	// Execution defaults
+	if cfg.Execution.DefaultTimeout != DefaultExecDefaultTimeout {
+		t.Errorf("Execution.DefaultTimeout = %v, want %v", cfg.Execution.DefaultTimeout, DefaultExecDefaultTimeout)
+	}
+	if cfg.Execution.MaxTimeout != DefaultExecMaxTimeout {
+		t.Errorf("Execution.MaxTimeout = %v, want %v", cfg.Execution.MaxTimeout, DefaultExecMaxTimeout)
+	}
+	if cfg.Execution.BatchSize != DefaultExecBatchSize {
+		t.Errorf("Execution.BatchSize = %d, want %d", cfg.Execution.BatchSize, DefaultExecBatchSize)
+	}
+	if cfg.Execution.StreamingBuffer != DefaultExecStreamingBuffer {
+		t.Errorf("Execution.StreamingBuffer = %d, want %d", cfg.Execution.StreamingBuffer, DefaultExecStreamingBuffer)
+	}
+	if cfg.Execution.ResultRetention != DefaultExecResultRetention {
+		t.Errorf("Execution.ResultRetention = %v, want %v", cfg.Execution.ResultRetention, DefaultExecResultRetention)
+	}
+
+	// StateManagement defaults
+	if cfg.StateManagement.DefaultTimeout != DefaultStateMgmtDefaultTimeout {
+		t.Errorf("StateManagement.DefaultTimeout = %v, want %v", cfg.StateManagement.DefaultTimeout, DefaultStateMgmtDefaultTimeout)
+	}
+	if cfg.StateManagement.MaxConcurrent != DefaultStateMgmtMaxConcurrent {
+		t.Errorf("StateManagement.MaxConcurrent = %d, want %d", cfg.StateManagement.MaxConcurrent, DefaultStateMgmtMaxConcurrent)
+	}
+	if cfg.StateManagement.DriftCheckInterval != 0 {
+		t.Errorf("StateManagement.DriftCheckInterval = %v, want 0", cfg.StateManagement.DriftCheckInterval)
+	}
+	if cfg.StateManagement.ResultRetention != DefaultStateMgmtResultRetention {
+		t.Errorf("StateManagement.ResultRetention = %v, want %v", cfg.StateManagement.ResultRetention, DefaultStateMgmtResultRetention)
+	}
+}
+
+func TestLoadConfig_FromFile_NewSections(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kscore-config-*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	configContent := `
+server:
+  listenaddr: "127.0.0.1"
+  grpcport: 9090
+  httpport: 8080
+nats:
+  mode: embedded
+storage:
+  backend: sqlite
+agentmanagement:
+  heartbeatinterval: 45s
+  heartbeattimeout: 90s
+  stalethreshold: 5
+  monitorinterval: 15s
+  metadatarefresh: 10m
+  maxconcurrentcommands: 20
+execution:
+  defaulttimeout: 10m
+  maxtimeout: 2h
+  batchsize: 25
+  batchdelay: 1s
+  streamingbuffer: 200
+  resultretention: 48h
+statemanagement:
+  defaulttimeout: 15m
+  maxconcurrent: 10
+  driftcheckinterval: 30m
+  resultretention: 168h
+`
+
+	if _, err := tmpFile.Write([]byte(configContent)); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+	tmpFile.Close()
+
+	cfg, err := LoadConfig(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to load config from file: %v", err)
+	}
+
+	// AgentManagement from file
+	if cfg.AgentManagement.HeartbeatInterval != 45*time.Second {
+		t.Errorf("AgentManagement.HeartbeatInterval = %v, want 45s", cfg.AgentManagement.HeartbeatInterval)
+	}
+	if cfg.AgentManagement.HeartbeatTimeout != 90*time.Second {
+		t.Errorf("AgentManagement.HeartbeatTimeout = %v, want 90s", cfg.AgentManagement.HeartbeatTimeout)
+	}
+	if cfg.AgentManagement.StaleThreshold != 5 {
+		t.Errorf("AgentManagement.StaleThreshold = %d, want 5", cfg.AgentManagement.StaleThreshold)
+	}
+	if cfg.AgentManagement.MonitorInterval != 15*time.Second {
+		t.Errorf("AgentManagement.MonitorInterval = %v, want 15s", cfg.AgentManagement.MonitorInterval)
+	}
+	if cfg.AgentManagement.MetadataRefresh != 10*time.Minute {
+		t.Errorf("AgentManagement.MetadataRefresh = %v, want 10m", cfg.AgentManagement.MetadataRefresh)
+	}
+	if cfg.AgentManagement.MaxConcurrentCommands != 20 {
+		t.Errorf("AgentManagement.MaxConcurrentCommands = %d, want 20", cfg.AgentManagement.MaxConcurrentCommands)
+	}
+
+	// Execution from file
+	if cfg.Execution.DefaultTimeout != 10*time.Minute {
+		t.Errorf("Execution.DefaultTimeout = %v, want 10m", cfg.Execution.DefaultTimeout)
+	}
+	if cfg.Execution.MaxTimeout != 2*time.Hour {
+		t.Errorf("Execution.MaxTimeout = %v, want 2h", cfg.Execution.MaxTimeout)
+	}
+	if cfg.Execution.BatchSize != 25 {
+		t.Errorf("Execution.BatchSize = %d, want 25", cfg.Execution.BatchSize)
+	}
+	if cfg.Execution.BatchDelay != 1*time.Second {
+		t.Errorf("Execution.BatchDelay = %v, want 1s", cfg.Execution.BatchDelay)
+	}
+	if cfg.Execution.StreamingBuffer != 200 {
+		t.Errorf("Execution.StreamingBuffer = %d, want 200", cfg.Execution.StreamingBuffer)
+	}
+	if cfg.Execution.ResultRetention != 48*time.Hour {
+		t.Errorf("Execution.ResultRetention = %v, want 48h", cfg.Execution.ResultRetention)
+	}
+
+	// StateManagement from file
+	if cfg.StateManagement.DefaultTimeout != 15*time.Minute {
+		t.Errorf("StateManagement.DefaultTimeout = %v, want 15m", cfg.StateManagement.DefaultTimeout)
+	}
+	if cfg.StateManagement.MaxConcurrent != 10 {
+		t.Errorf("StateManagement.MaxConcurrent = %d, want 10", cfg.StateManagement.MaxConcurrent)
+	}
+	if cfg.StateManagement.DriftCheckInterval != 30*time.Minute {
+		t.Errorf("StateManagement.DriftCheckInterval = %v, want 30m", cfg.StateManagement.DriftCheckInterval)
+	}
+	if cfg.StateManagement.ResultRetention != 168*time.Hour {
+		t.Errorf("StateManagement.ResultRetention = %v, want 168h", cfg.StateManagement.ResultRetention)
+	}
+}
+
+func TestConfig_Validate_AgentManagementConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+			NATS:    NATSConfig{Mode: NATSModeEmbedded},
+			Storage: StorageConfig{Backend: StorageBackendSQLite},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "negative heartbeat interval",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.HeartbeatInterval = -1 * time.Second
+			},
+			errContains: "heartbeatinterval cannot be negative",
+		},
+		{
+			name: "negative heartbeat timeout",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.HeartbeatTimeout = -1 * time.Second
+			},
+			errContains: "heartbeattimeout cannot be negative",
+		},
+		{
+			name: "timeout less than interval",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.HeartbeatInterval = 60 * time.Second
+				cfg.AgentManagement.HeartbeatTimeout = 30 * time.Second
+			},
+			errContains: "heartbeattimeout",
+		},
+		{
+			name: "negative stale threshold",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.StaleThreshold = -1
+			},
+			errContains: "stalethreshold cannot be negative",
+		},
+		{
+			name: "negative monitor interval",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.MonitorInterval = -1 * time.Second
+			},
+			errContains: "monitorinterval cannot be negative",
+		},
+		{
+			name: "negative metadata refresh",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.MetadataRefresh = -1 * time.Second
+			},
+			errContains: "metadatarefresh cannot be negative",
+		},
+		{
+			name: "negative max concurrent commands",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.MaxConcurrentCommands = -1
+			},
+			errContains: "maxconcurrentcommands cannot be negative",
+		},
+		{
+			name: "valid config",
+			config: func(cfg *Config) {
+				cfg.AgentManagement.HeartbeatInterval = 30 * time.Second
+				cfg.AgentManagement.HeartbeatTimeout = 60 * time.Second
+				cfg.AgentManagement.StaleThreshold = 3
+				cfg.AgentManagement.MonitorInterval = 10 * time.Second
+				cfg.AgentManagement.MetadataRefresh = 5 * time.Minute
+				cfg.AgentManagement.MaxConcurrentCommands = 10
+			},
+			errContains: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if tt.errContains == "" {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_ExecutionConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+			NATS:    NATSConfig{Mode: NATSModeEmbedded},
+			Storage: StorageConfig{Backend: StorageBackendSQLite},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "negative default timeout",
+			config: func(cfg *Config) {
+				cfg.Execution.DefaultTimeout = -1 * time.Second
+			},
+			errContains: "defaulttimeout cannot be negative",
+		},
+		{
+			name: "negative max timeout",
+			config: func(cfg *Config) {
+				cfg.Execution.MaxTimeout = -1 * time.Second
+			},
+			errContains: "maxtimeout cannot be negative",
+		},
+		{
+			name: "default exceeds max",
+			config: func(cfg *Config) {
+				cfg.Execution.DefaultTimeout = 2 * time.Hour
+				cfg.Execution.MaxTimeout = 1 * time.Hour
+			},
+			errContains: "cannot exceed maxtimeout",
+		},
+		{
+			name: "negative batch size",
+			config: func(cfg *Config) {
+				cfg.Execution.BatchSize = -1
+			},
+			errContains: "batchsize cannot be negative",
+		},
+		{
+			name: "negative batch delay",
+			config: func(cfg *Config) {
+				cfg.Execution.BatchDelay = -1 * time.Second
+			},
+			errContains: "batchdelay cannot be negative",
+		},
+		{
+			name: "negative streaming buffer",
+			config: func(cfg *Config) {
+				cfg.Execution.StreamingBuffer = -1
+			},
+			errContains: "streamingbuffer cannot be negative",
+		},
+		{
+			name: "negative result retention",
+			config: func(cfg *Config) {
+				cfg.Execution.ResultRetention = -1 * time.Hour
+			},
+			errContains: "resultretention cannot be negative",
+		},
+		{
+			name: "valid config",
+			config: func(cfg *Config) {
+				cfg.Execution.DefaultTimeout = 5 * time.Minute
+				cfg.Execution.MaxTimeout = 1 * time.Hour
+				cfg.Execution.BatchSize = 10
+				cfg.Execution.StreamingBuffer = 100
+				cfg.Execution.ResultRetention = 24 * time.Hour
+			},
+			errContains: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if tt.errContains == "" {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_StateManagementConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+			NATS:    NATSConfig{Mode: NATSModeEmbedded},
+			Storage: StorageConfig{Backend: StorageBackendSQLite},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "negative default timeout",
+			config: func(cfg *Config) {
+				cfg.StateManagement.DefaultTimeout = -1 * time.Second
+			},
+			errContains: "defaulttimeout cannot be negative",
+		},
+		{
+			name: "negative max concurrent",
+			config: func(cfg *Config) {
+				cfg.StateManagement.MaxConcurrent = -1
+			},
+			errContains: "maxconcurrent cannot be negative",
+		},
+		{
+			name: "negative drift check interval",
+			config: func(cfg *Config) {
+				cfg.StateManagement.DriftCheckInterval = -1 * time.Second
+			},
+			errContains: "driftcheckinterval cannot be negative",
+		},
+		{
+			name: "negative result retention",
+			config: func(cfg *Config) {
+				cfg.StateManagement.ResultRetention = -1 * time.Hour
+			},
+			errContains: "resultretention cannot be negative",
+		},
+		{
+			name: "valid config with drift check",
+			config: func(cfg *Config) {
+				cfg.StateManagement.DefaultTimeout = 15 * time.Minute
+				cfg.StateManagement.MaxConcurrent = 10
+				cfg.StateManagement.DriftCheckInterval = 30 * time.Minute
+				cfg.StateManagement.ResultRetention = 168 * time.Hour
+			},
+			errContains: "",
+		},
+		{
+			name: "valid config with drift check disabled",
+			config: func(cfg *Config) {
+				cfg.StateManagement.DriftCheckInterval = 0
+			},
+			errContains: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if tt.errContains == "" {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestAgentManagementConfig_Validate_Direct(t *testing.T) {
+	// Valid config
+	cfg := &AgentManagementConfig{
+		HeartbeatInterval: 30 * time.Second,
+		HeartbeatTimeout:  60 * time.Second,
+		StaleThreshold:    3,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid config failed: %v", err)
+	}
+
+	// Zero values are valid (use defaults)
+	cfg = &AgentManagementConfig{}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("zero-value config failed: %v", err)
+	}
+}
+
+func TestExecutionConfig_Validate_Direct(t *testing.T) {
+	// Zero max timeout means no limit - default can be anything
+	cfg := &ExecutionConfig{
+		DefaultTimeout: 10 * time.Minute,
+		MaxTimeout:     0,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("config with no max timeout limit failed: %v", err)
+	}
+
+	// Zero default timeout means no default applied
+	cfg = &ExecutionConfig{
+		DefaultTimeout: 0,
+		MaxTimeout:     1 * time.Hour,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("config with no default timeout failed: %v", err)
+	}
+}
+
+func TestStateManagementConfig_Validate_Direct(t *testing.T) {
+	cfg := &StateManagementConfig{
+		DefaultTimeout:     15 * time.Minute,
+		MaxConcurrent:      10,
+		DriftCheckInterval: 30 * time.Minute,
+		ResultRetention:    7 * 24 * time.Hour,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid config failed: %v", err)
+	}
+}
+
+// Phase 2 tests: Events, GitOps, Security/Authorization config
+
+func TestLoadConfig_Defaults_Phase2Sections(t *testing.T) {
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load default config: %v", err)
+	}
+
+	// Events defaults
+	if !cfg.Events.Enabled {
+		t.Error("Events.Enabled should default to true")
+	}
+	if cfg.Events.Retention != DefaultEventsRetention {
+		t.Errorf("Events.Retention = %v, want %v", cfg.Events.Retention, DefaultEventsRetention)
+	}
+	if cfg.Events.MaxBytes != DefaultEventsMaxBytes {
+		t.Errorf("Events.MaxBytes = %d, want %d", cfg.Events.MaxBytes, DefaultEventsMaxBytes)
+	}
+	if cfg.Events.MaxMessages != DefaultEventsMaxMessages {
+		t.Errorf("Events.MaxMessages = %d, want %d", cfg.Events.MaxMessages, DefaultEventsMaxMessages)
+	}
+	if cfg.Events.PublisherBufferSize != DefaultEventsPublisherBufferSize {
+		t.Errorf("Events.PublisherBufferSize = %d, want %d", cfg.Events.PublisherBufferSize, DefaultEventsPublisherBufferSize)
+	}
+	if cfg.Events.SubscriberBufferSize != DefaultEventsSubscriberBufferSize {
+		t.Errorf("Events.SubscriberBufferSize = %d, want %d", cfg.Events.SubscriberBufferSize, DefaultEventsSubscriberBufferSize)
+	}
+	if cfg.Events.SubscriberAckWait != DefaultEventsSubscriberAckWait {
+		t.Errorf("Events.SubscriberAckWait = %v, want %v", cfg.Events.SubscriberAckWait, DefaultEventsSubscriberAckWait)
+	}
+
+	// GitOps defaults
+	if cfg.GitOps.GitSync.Enabled {
+		t.Error("GitOps.GitSync.Enabled should default to false")
+	}
+
+	// Authorization defaults
+	if !cfg.Auth.Authorization.Enabled {
+		t.Error("Auth.Authorization.Enabled should default to true")
+	}
+	if !cfg.Auth.Authorization.DefaultDeny {
+		t.Error("Auth.Authorization.DefaultDeny should default to true")
+	}
+}
+
+func TestLoadConfig_FromFile_Phase2Sections(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kscore-config-phase2-*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	configContent := `
+server:
+  listenaddr: "127.0.0.1"
+  grpcport: 9090
+  httpport: 8080
+nats:
+  mode: embedded
+storage:
+  backend: sqlite
+events:
+  enabled: true
+  retention: 72h
+  maxbytes: 5368709120
+  maxmessages: 500000
+  publisherbuffersize: 512
+  subscriberbuffersize: 128
+  subscriberackwait: 60s
+gitops:
+  gitsync:
+    enabled: true
+    repositories:
+      - url: "https://github.com/org/repo.git"
+        branch: "production"
+        interval: 10m
+        path: "states/"
+      - url: "https://github.com/org/infra.git"
+        branch: "main"
+        interval: 5m
+auth:
+  enabled: false
+  authorization:
+    enabled: false
+    defaultdeny: false
+`
+
+	if _, err := tmpFile.Write([]byte(configContent)); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+	tmpFile.Close()
+
+	cfg, err := LoadConfig(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to load config from file: %v", err)
+	}
+
+	// Events from file
+	if !cfg.Events.Enabled {
+		t.Error("Events.Enabled should be true")
+	}
+	if cfg.Events.Retention != 72*time.Hour {
+		t.Errorf("Events.Retention = %v, want 72h", cfg.Events.Retention)
+	}
+	if cfg.Events.MaxBytes != 5368709120 {
+		t.Errorf("Events.MaxBytes = %d, want 5368709120", cfg.Events.MaxBytes)
+	}
+	if cfg.Events.MaxMessages != 500000 {
+		t.Errorf("Events.MaxMessages = %d, want 500000", cfg.Events.MaxMessages)
+	}
+	if cfg.Events.PublisherBufferSize != 512 {
+		t.Errorf("Events.PublisherBufferSize = %d, want 512", cfg.Events.PublisherBufferSize)
+	}
+	if cfg.Events.SubscriberBufferSize != 128 {
+		t.Errorf("Events.SubscriberBufferSize = %d, want 128", cfg.Events.SubscriberBufferSize)
+	}
+	if cfg.Events.SubscriberAckWait != 60*time.Second {
+		t.Errorf("Events.SubscriberAckWait = %v, want 60s", cfg.Events.SubscriberAckWait)
+	}
+
+	// GitOps from file
+	if !cfg.GitOps.GitSync.Enabled {
+		t.Error("GitOps.GitSync.Enabled should be true")
+	}
+	if len(cfg.GitOps.GitSync.Repositories) != 2 {
+		t.Fatalf("GitOps.GitSync.Repositories length = %d, want 2", len(cfg.GitOps.GitSync.Repositories))
+	}
+	repo := cfg.GitOps.GitSync.Repositories[0]
+	if repo.URL != "https://github.com/org/repo.git" {
+		t.Errorf("repo[0].URL = %q, want https://github.com/org/repo.git", repo.URL)
+	}
+	if repo.Branch != "production" {
+		t.Errorf("repo[0].Branch = %q, want production", repo.Branch)
+	}
+	if repo.Interval != 10*time.Minute {
+		t.Errorf("repo[0].Interval = %v, want 10m", repo.Interval)
+	}
+	if repo.Path != "states/" {
+		t.Errorf("repo[0].Path = %q, want states/", repo.Path)
+	}
+
+	// Authorization from file
+	if cfg.Auth.Authorization.Enabled {
+		t.Error("Auth.Authorization.Enabled should be false")
+	}
+	if cfg.Auth.Authorization.DefaultDeny {
+		t.Error("Auth.Authorization.DefaultDeny should be false")
+	}
+}
+
+func TestConfig_Validate_EventsConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*Config)
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid defaults",
+			modify:  func(c *Config) {},
+			wantErr: false,
+		},
+		{
+			name: "negative retention",
+			modify: func(c *Config) {
+				c.Events.Retention = -1 * time.Hour
+			},
+			wantErr: true,
+			errMsg:  "events.retention",
+		},
+		{
+			name: "negative max bytes",
+			modify: func(c *Config) {
+				c.Events.MaxBytes = -1
+			},
+			wantErr: true,
+			errMsg:  "events.maxbytes",
+		},
+		{
+			name: "negative max messages",
+			modify: func(c *Config) {
+				c.Events.MaxMessages = -1
+			},
+			wantErr: true,
+			errMsg:  "events.maxmessages",
+		},
+		{
+			name: "negative publisher buffer",
+			modify: func(c *Config) {
+				c.Events.PublisherBufferSize = -1
+			},
+			wantErr: true,
+			errMsg:  "events.publisherbuffersize",
+		},
+		{
+			name: "negative subscriber buffer",
+			modify: func(c *Config) {
+				c.Events.SubscriberBufferSize = -1
+			},
+			wantErr: true,
+			errMsg:  "events.subscriberbuffersize",
+		},
+		{
+			name: "negative ack wait",
+			modify: func(c *Config) {
+				c.Events.SubscriberAckWait = -1 * time.Second
+			},
+			wantErr: true,
+			errMsg:  "events.subscriberrackwait",
+		},
+		{
+			name: "zero values are valid",
+			modify: func(c *Config) {
+				c.Events.Retention = 0
+				c.Events.MaxBytes = 0
+				c.Events.MaxMessages = 0
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+				NATS:    NATSConfig{Mode: NATSModeEmbedded},
+				Storage: StorageConfig{Backend: StorageBackendSQLite},
+			}
+			tt.modify(cfg)
+			err := cfg.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errMsg)
+				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("error = %q, want containing %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_GitOpsConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*Config)
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "disabled is valid",
+			modify:  func(c *Config) {},
+			wantErr: false,
+		},
+		{
+			name: "enabled with valid repos",
+			modify: func(c *Config) {
+				c.GitOps.GitSync.Enabled = true
+				c.GitOps.GitSync.Repositories = []GitSyncRepository{
+					{URL: "https://github.com/org/repo.git", Branch: "main", Interval: 5 * time.Minute},
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "enabled with empty repo URL",
+			modify: func(c *Config) {
+				c.GitOps.GitSync.Enabled = true
+				c.GitOps.GitSync.Repositories = []GitSyncRepository{
+					{URL: "", Branch: "main"},
+				}
+			},
+			wantErr: true,
+			errMsg:  "url is required",
+		},
+		{
+			name: "negative repo interval",
+			modify: func(c *Config) {
+				c.GitOps.GitSync.Enabled = true
+				c.GitOps.GitSync.Repositories = []GitSyncRepository{
+					{URL: "https://github.com/org/repo.git", Interval: -1 * time.Minute},
+				}
+			},
+			wantErr: true,
+			errMsg:  "interval cannot be negative",
+		},
+		{
+			name: "enabled with no repos is valid",
+			modify: func(c *Config) {
+				c.GitOps.GitSync.Enabled = true
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+				NATS:    NATSConfig{Mode: NATSModeEmbedded},
+				Storage: StorageConfig{Backend: StorageBackendSQLite},
+			}
+			tt.modify(cfg)
+			err := cfg.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errMsg)
+				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("error = %q, want containing %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestEventsConfig_Validate_Direct(t *testing.T) {
+	cfg := &EventsConfig{
+		Enabled:              true,
+		Retention:            48 * time.Hour,
+		MaxBytes:             5 * 1024 * 1024 * 1024,
+		MaxMessages:          500000,
+		PublisherBufferSize:  512,
+		SubscriberBufferSize: 128,
+		SubscriberAckWait:    45 * time.Second,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid config failed: %v", err)
+	}
+}
+
+func TestGitOpsConfig_Validate_Direct(t *testing.T) {
+	cfg := &GitOpsConfig{
+		GitSync: GitSyncConfig{
+			Enabled: true,
+			Repositories: []GitSyncRepository{
+				{URL: "https://github.com/org/repo.git", Branch: "main", Interval: 5 * time.Minute},
+				{URL: "https://github.com/org/infra.git", Path: "deploy/"},
+			},
+		},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid config failed: %v", err)
+	}
+
+	// Disabled config with no repos should pass
+	cfg = &GitOpsConfig{}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("disabled config failed: %v", err)
+	}
+}
+
+func TestAuthorizationConfig_Defaults(t *testing.T) {
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load default config: %v", err)
+	}
+
+	// Authorization should default to enabled with default deny
+	if !cfg.Auth.Authorization.Enabled {
+		t.Error("Auth.Authorization.Enabled should default to true")
+	}
+	if !cfg.Auth.Authorization.DefaultDeny {
+		t.Error("Auth.Authorization.DefaultDeny should default to true")
+	}
+}
+
+func TestLoadConfig_EnvOverrides_AgentManagement(t *testing.T) {
+	t.Setenv("KSCORE_AGENT_MGMT_HEARTBEAT_INTERVAL", "45s")
+	t.Setenv("KSCORE_AGENT_MGMT_HEARTBEAT_TIMEOUT", "120s")
+	t.Setenv("KSCORE_AGENT_MGMT_STALE_THRESHOLD", "5")
+	t.Setenv("KSCORE_AGENT_MGMT_MONITOR_INTERVAL", "20s")
+	t.Setenv("KSCORE_AGENT_MGMT_METADATA_REFRESH", "10m")
+	t.Setenv("KSCORE_AGENT_MGMT_MAX_CONCURRENT_COMMANDS", "8")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.AgentManagement.HeartbeatInterval != 45*time.Second {
+		t.Errorf("HeartbeatInterval = %v, want 45s", cfg.AgentManagement.HeartbeatInterval)
+	}
+	if cfg.AgentManagement.HeartbeatTimeout != 120*time.Second {
+		t.Errorf("HeartbeatTimeout = %v, want 120s", cfg.AgentManagement.HeartbeatTimeout)
+	}
+	if cfg.AgentManagement.StaleThreshold != 5 {
+		t.Errorf("StaleThreshold = %d, want 5", cfg.AgentManagement.StaleThreshold)
+	}
+	if cfg.AgentManagement.MonitorInterval != 20*time.Second {
+		t.Errorf("MonitorInterval = %v, want 20s", cfg.AgentManagement.MonitorInterval)
+	}
+	if cfg.AgentManagement.MetadataRefresh != 10*time.Minute {
+		t.Errorf("MetadataRefresh = %v, want 10m", cfg.AgentManagement.MetadataRefresh)
+	}
+	if cfg.AgentManagement.MaxConcurrentCommands != 8 {
+		t.Errorf("MaxConcurrentCommands = %d, want 8", cfg.AgentManagement.MaxConcurrentCommands)
+	}
+}
+
+func TestLoadConfig_EnvOverrides_Execution(t *testing.T) {
+	t.Setenv("KSCORE_EXEC_DEFAULT_TIMEOUT", "10m")
+	t.Setenv("KSCORE_EXEC_MAX_TIMEOUT", "2h")
+	t.Setenv("KSCORE_EXEC_BATCH_SIZE", "25")
+	t.Setenv("KSCORE_EXEC_BATCH_DELAY", "2s")
+	t.Setenv("KSCORE_EXEC_STREAMING_BUFFER", "200")
+	t.Setenv("KSCORE_EXEC_RESULT_RETENTION", "48h")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.Execution.DefaultTimeout != 10*time.Minute {
+		t.Errorf("DefaultTimeout = %v, want 10m", cfg.Execution.DefaultTimeout)
+	}
+	if cfg.Execution.MaxTimeout != 2*time.Hour {
+		t.Errorf("MaxTimeout = %v, want 2h", cfg.Execution.MaxTimeout)
+	}
+	if cfg.Execution.BatchSize != 25 {
+		t.Errorf("BatchSize = %d, want 25", cfg.Execution.BatchSize)
+	}
+	if cfg.Execution.BatchDelay != 2*time.Second {
+		t.Errorf("BatchDelay = %v, want 2s", cfg.Execution.BatchDelay)
+	}
+	if cfg.Execution.StreamingBuffer != 200 {
+		t.Errorf("StreamingBuffer = %d, want 200", cfg.Execution.StreamingBuffer)
+	}
+	if cfg.Execution.ResultRetention != 48*time.Hour {
+		t.Errorf("ResultRetention = %v, want 48h", cfg.Execution.ResultRetention)
+	}
+}
+
+func TestLoadConfig_EnvOverrides_StateManagement(t *testing.T) {
+	t.Setenv("KSCORE_STATE_DEFAULT_TIMEOUT", "15m")
+	t.Setenv("KSCORE_STATE_MAX_CONCURRENT", "10")
+	t.Setenv("KSCORE_STATE_DRIFT_CHECK_INTERVAL", "30m")
+	t.Setenv("KSCORE_STATE_RESULT_RETENTION", "336h")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.StateManagement.DefaultTimeout != 15*time.Minute {
+		t.Errorf("DefaultTimeout = %v, want 15m", cfg.StateManagement.DefaultTimeout)
+	}
+	if cfg.StateManagement.MaxConcurrent != 10 {
+		t.Errorf("MaxConcurrent = %d, want 10", cfg.StateManagement.MaxConcurrent)
+	}
+	if cfg.StateManagement.DriftCheckInterval != 30*time.Minute {
+		t.Errorf("DriftCheckInterval = %v, want 30m", cfg.StateManagement.DriftCheckInterval)
+	}
+	if cfg.StateManagement.ResultRetention != 336*time.Hour {
+		t.Errorf("ResultRetention = %v, want 336h", cfg.StateManagement.ResultRetention)
+	}
+}
+
+func TestLoadConfig_EnvOverrides_Events(t *testing.T) {
+	t.Setenv("KSCORE_EVENTS_ENABLED", "false")
+	t.Setenv("KSCORE_EVENTS_RETENTION", "48h")
+	t.Setenv("KSCORE_EVENTS_MAX_BYTES", "5368709120")
+	t.Setenv("KSCORE_EVENTS_MAX_MESSAGES", "500000")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.Events.Enabled {
+		t.Error("Events.Enabled = true, want false")
+	}
+	if cfg.Events.Retention != 48*time.Hour {
+		t.Errorf("Retention = %v, want 48h", cfg.Events.Retention)
+	}
+	if cfg.Events.MaxBytes != 5368709120 {
+		t.Errorf("MaxBytes = %d, want 5368709120", cfg.Events.MaxBytes)
+	}
+	if cfg.Events.MaxMessages != 500000 {
+		t.Errorf("MaxMessages = %d, want 500000", cfg.Events.MaxMessages)
+	}
+}
+
+func TestLoadConfig_EnvOverrides_Authorization(t *testing.T) {
+	t.Setenv("KSCORE_AUTHZ_ENABLED", "false")
+	t.Setenv("KSCORE_AUTHZ_DEFAULT_DENY", "false")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.Auth.Authorization.Enabled {
+		t.Error("Authorization.Enabled = true, want false")
+	}
+	if cfg.Auth.Authorization.DefaultDeny {
+		t.Error("Authorization.DefaultDeny = true, want false")
+	}
+}

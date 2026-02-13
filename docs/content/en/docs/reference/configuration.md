@@ -168,9 +168,112 @@ health:
       minhealthy: 0.8               # 80% of agents must be healthy
 ```
 
-<!-- Agent Management, Command Execution, State Management, Event System
-     config sections are planned for Epic 45 (control-plane-config-wiring).
-     These settings are not yet parsed by kscore-server. -->
+### Agent Management
+
+Server-side settings for monitoring and managing connected agents.
+
+```yaml
+agentmanagement:
+  heartbeatinterval: "30s"           # Interval agents should send heartbeats
+  heartbeattimeout: "60s"            # Time before marking an agent stale
+  stalethreshold: 3                  # Missed heartbeats before marking offline
+  monitorinterval: "10s"             # Control plane agent health check interval
+  metadatarefresh: "5m"              # Agent system metadata refresh interval
+  maxconcurrentcommands: 0           # Max concurrent commands per agent (0 = unlimited)
+```
+
+| Setting | Default | Env Override |
+|---------|---------|-------------|
+| `heartbeatinterval` | `30s` | `KSCORE_AGENT_MGMT_HEARTBEAT_INTERVAL` |
+| `heartbeattimeout` | `60s` | `KSCORE_AGENT_MGMT_HEARTBEAT_TIMEOUT` |
+| `stalethreshold` | `3` | `KSCORE_AGENT_MGMT_STALE_THRESHOLD` |
+| `monitorinterval` | `10s` | `KSCORE_AGENT_MGMT_MONITOR_INTERVAL` |
+| `metadatarefresh` | `5m` | `KSCORE_AGENT_MGMT_METADATA_REFRESH` |
+| `maxconcurrentcommands` | `0` | `KSCORE_AGENT_MGMT_MAX_CONCURRENT_COMMANDS` |
+
+Validation rules:
+
+- `heartbeattimeout` must be >= `heartbeatinterval`
+- All duration and integer values must be non-negative
+
+### Command Execution
+
+Settings for remote command execution targeting agents.
+
+```yaml
+execution:
+  defaulttimeout: "5m"               # Default command timeout
+  maxtimeout: "1h"                   # Maximum allowed timeout (requests clamped)
+  batchsize: 10                      # Agents per batch in batch operations
+  batchdelay: "0s"                   # Delay between batch groups
+  streamingbuffer: 100               # Buffer size for streaming responses
+  resultretention: "24h"             # How long to keep execution results
+```
+
+| Setting | Default | Env Override |
+|---------|---------|-------------|
+| `defaulttimeout` | `5m` | `KSCORE_EXEC_DEFAULT_TIMEOUT` |
+| `maxtimeout` | `1h` | `KSCORE_EXEC_MAX_TIMEOUT` |
+| `batchsize` | `10` | `KSCORE_EXEC_BATCH_SIZE` |
+| `batchdelay` | `0s` | `KSCORE_EXEC_BATCH_DELAY` |
+| `streamingbuffer` | `100` | `KSCORE_EXEC_STREAMING_BUFFER` |
+| `resultretention` | `24h` | `KSCORE_EXEC_RESULT_RETENTION` |
+
+Validation rules:
+
+- `defaulttimeout` cannot exceed `maxtimeout`
+- All values must be non-negative
+
+### State Management
+
+Settings for declarative state management and drift detection.
+
+```yaml
+statemanagement:
+  defaulttimeout: "10m"              # Default state apply timeout
+  maxconcurrent: 5                   # Max concurrent state apply operations
+  driftcheckinterval: "0s"           # Automatic drift check interval (0 = disabled)
+  resultretention: "168h"            # How long to keep state apply results (7 days)
+```
+
+| Setting | Default | Env Override |
+|---------|---------|-------------|
+| `defaulttimeout` | `10m` | `KSCORE_STATE_DEFAULT_TIMEOUT` |
+| `maxconcurrent` | `5` | `KSCORE_STATE_MAX_CONCURRENT` |
+| `driftcheckinterval` | `0s` | `KSCORE_STATE_DRIFT_CHECK_INTERVAL` |
+| `resultretention` | `168h` | `KSCORE_STATE_RESULT_RETENTION` |
+
+Validation rules:
+
+- All values must be non-negative
+- Set `driftcheckinterval` to `0` to disable automatic drift detection
+
+### Event System
+
+JetStream-backed event bus settings for the reactor system.
+
+```yaml
+events:
+  enabled: true                      # Enable the event system
+  retention: "168h"                  # Max event age (7 days)
+  maxbytes: 10737418240              # Max event storage (10GB)
+  maxmessages: 1000000               # Max stored events (1M)
+  publisherbuffersize: 256           # Publisher channel buffer
+  subscriberbuffersize: 256          # Subscriber channel buffer
+  subscriberackwait: "30s"           # Subscriber acknowledgment timeout
+```
+
+| Setting | Default | Env Override |
+|---------|---------|-------------|
+| `enabled` | `true` | `KSCORE_EVENTS_ENABLED` |
+| `retention` | `168h` | `KSCORE_EVENTS_RETENTION` |
+| `maxbytes` | `10737418240` | `KSCORE_EVENTS_MAX_BYTES` |
+| `maxmessages` | `1000000` | `KSCORE_EVENTS_MAX_MESSAGES` |
+
+Validation rules:
+
+- All values must be non-negative
+- When `enabled: false`, no JetStream publisher is created
 
 ### Policy Enforcement
 
@@ -193,8 +296,25 @@ policy:
         deny[msg] { input.resource.type == "ssh" }
 ```
 
-<!-- GitOps Integration config section is planned for Epic 45
-     (control-plane-config-wiring). Not yet parsed by kscore-server. -->
+### GitOps Integration
+
+Automatic git repository synchronization for GitOps workflows.
+
+```yaml
+gitops:
+  gitsync:
+    enabled: false                   # Enable git-sync
+    repositories:
+      - url: "https://github.com/myorg/infra.git"
+        branch: "main"              # Branch to track (default: main)
+        interval: "5m"              # Poll interval (default: 5m)
+        path: ""                    # Subdirectory to sync (empty = root)
+```
+
+Validation rules:
+
+- When `gitsync.enabled: true`, each repository must have a non-empty `url`
+- `interval` must be non-negative
 
 ### Webhook Receiver
 
@@ -209,8 +329,25 @@ webhook:
   handlers: ["argocd", "flux", "github", "gitlab"]
 ```
 
-<!-- Security config section is planned for Epic 45
-     (control-plane-config-wiring). Not yet parsed by kscore-server. -->
+### Authorization
+
+RBAC authorization settings that control access to gRPC and REST API methods.
+
+```yaml
+auth:
+  authorization:
+    enabled: true                    # Enable RBAC checks (default: true)
+    defaultdeny: true                # Deny unmapped methods (default: true)
+```
+
+| Setting | Default | Env Override |
+|---------|---------|-------------|
+| `auth.authorization.enabled` | `true` | `KSCORE_AUTHZ_ENABLED` |
+| `auth.authorization.defaultdeny` | `true` | `KSCORE_AUTHZ_DEFAULT_DENY` |
+
+When `enabled: false`, all authenticated requests are allowed regardless of role.
+When `defaultdeny: false`, unmapped methods are allowed for any authenticated user.
+When `defaultdeny: true`, unmapped methods require admin role.
 
 ### API Authentication (Control Plane)
 
@@ -1197,6 +1334,38 @@ KSCORE_STORAGE_TYPE="postgresql"
 KSCORE_STORAGE_POSTGRES_HOST="postgres"
 KSCORE_LOG_LEVEL="info"
 KSCORE_LOG_FORMAT="json"
+
+# Agent management
+KSCORE_AGENT_MGMT_HEARTBEAT_INTERVAL="30s"
+KSCORE_AGENT_MGMT_HEARTBEAT_TIMEOUT="60s"
+KSCORE_AGENT_MGMT_STALE_THRESHOLD="3"
+KSCORE_AGENT_MGMT_MONITOR_INTERVAL="10s"
+KSCORE_AGENT_MGMT_METADATA_REFRESH="5m"
+KSCORE_AGENT_MGMT_MAX_CONCURRENT_COMMANDS="0"
+
+# Command execution
+KSCORE_EXEC_DEFAULT_TIMEOUT="5m"
+KSCORE_EXEC_MAX_TIMEOUT="1h"
+KSCORE_EXEC_BATCH_SIZE="10"
+KSCORE_EXEC_BATCH_DELAY="0s"
+KSCORE_EXEC_STREAMING_BUFFER="100"
+KSCORE_EXEC_RESULT_RETENTION="24h"
+
+# State management
+KSCORE_STATE_DEFAULT_TIMEOUT="10m"
+KSCORE_STATE_MAX_CONCURRENT="5"
+KSCORE_STATE_DRIFT_CHECK_INTERVAL="0s"
+KSCORE_STATE_RESULT_RETENTION="168h"
+
+# Event system
+KSCORE_EVENTS_ENABLED="true"
+KSCORE_EVENTS_RETENTION="168h"
+KSCORE_EVENTS_MAX_BYTES="10737418240"
+KSCORE_EVENTS_MAX_MESSAGES="1000000"
+
+# Authorization
+KSCORE_AUTHZ_ENABLED="true"
+KSCORE_AUTHZ_DEFAULT_DENY="true"
 ```
 
 ### Agent

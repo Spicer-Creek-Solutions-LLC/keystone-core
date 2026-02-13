@@ -150,6 +150,64 @@ func TestParseMethodName(t *testing.T) {
 	}
 }
 
+func TestRBACAuthorizerWithConfig_Disabled(t *testing.T) {
+	// When authorization is disabled, all authenticated requests should be allowed
+	auth := NewRBACAuthorizerWithConfig(nil, false, true)
+	ctx := context.Background()
+
+	// Even a readonly user should be able to access admin-only methods
+	principal := &Principal{Role: RoleReadonly}
+	err := auth.Authorize(ctx, principal, "/kscore.cluster.v1.ClusterService/Rebalance")
+	if err != nil {
+		t.Errorf("disabled authz should allow any role, got error: %v", err)
+	}
+
+	// Even unknown methods should be allowed
+	err = auth.Authorize(ctx, principal, "/unknown.Service/Unknown")
+	if err != nil {
+		t.Errorf("disabled authz should allow unknown methods, got error: %v", err)
+	}
+}
+
+func TestRBACAuthorizerWithConfig_DefaultAllow(t *testing.T) {
+	// When defaultDeny is false, unmapped methods should be allowed for any authenticated user
+	auth := NewRBACAuthorizerWithConfig(nil, true, false)
+	ctx := context.Background()
+
+	// Unknown method should be allowed for any authenticated user
+	principal := &Principal{Role: RoleReadonly}
+	err := auth.Authorize(ctx, principal, "/unknown.Service/Unknown")
+	if err != nil {
+		t.Errorf("default-allow should permit unknown methods, got error: %v", err)
+	}
+
+	// Known methods should still enforce RBAC
+	err = auth.Authorize(ctx, principal, "/kscore.cluster.v1.ClusterService/Rebalance")
+	if err == nil {
+		t.Error("default-allow should still enforce RBAC for mapped methods")
+	}
+}
+
+func TestRBACAuthorizerWithConfig_DefaultDeny(t *testing.T) {
+	// When defaultDeny is true, unmapped methods require admin
+	auth := NewRBACAuthorizerWithConfig(nil, true, true)
+	ctx := context.Background()
+
+	// Unknown method should require admin
+	principal := &Principal{Role: RoleOperator}
+	err := auth.Authorize(ctx, principal, "/unknown.Service/Unknown")
+	if err == nil {
+		t.Error("default-deny should deny operator on unknown methods")
+	}
+
+	// Admin should work
+	adminPrincipal := &Principal{Role: RoleAdmin}
+	err = auth.Authorize(ctx, adminPrincipal, "/unknown.Service/Unknown")
+	if err != nil {
+		t.Errorf("default-deny should allow admin on unknown methods, got error: %v", err)
+	}
+}
+
 func TestIsBypassMethod(t *testing.T) {
 	tests := []struct {
 		name          string

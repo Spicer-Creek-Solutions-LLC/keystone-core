@@ -105,11 +105,10 @@ Once config wiring is complete, enable the currently-skipped E2E tests by updati
 - Implement `TestPolicy_AuditLogging`: verify policy decisions are audit logged
 - Implement `TestPolicy_ComplianceReporting`: verify compliance report API endpoint returns data
 
-**T4.4: HA Cluster Infrastructure Tests**
-- Add separate NATS container to HA compose topology for `TestHACluster_NATSFailure`
-- Add separate etcd container to HA compose topology for `TestHACluster_EtcdFailure`
-- Add PostgreSQL primary/replica configuration for `TestHACluster_DatabaseFailover`
-- Add network partition tooling (iptables/tc) to containers for `TestHACluster_NetworkPartition` and `TestHACluster_SplitBrain`
+**T4.4: HA Cluster Infrastructure Tests** — *Deferred to Epic 51*
+- NATS node failure, etcd node failure, PostgreSQL failover, network partition, split-brain prevention
+- These tests require additional container infrastructure (dedicated NATS/etcd nodes, PostgreSQL replicas, iptables/tc tooling)
+- See `epics/51-ha-resilience-testing.md` for full scope
 
 ## Dependencies
 

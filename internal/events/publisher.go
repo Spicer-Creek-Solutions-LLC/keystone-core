@@ -23,25 +23,55 @@ const (
 	SubjectPrefix = "kscore.events"
 )
 
+// JetStreamPublisherConfig holds configuration for the JetStream event publisher.
+type JetStreamPublisherConfig struct {
+	// Retention is the maximum age of stored events.
+	Retention time.Duration
+	// MaxBytes is the maximum total size of stored events in bytes.
+	MaxBytes int64
+	// MaxMessages is the maximum number of stored events.
+	MaxMessages int64
+}
+
+// DefaultJetStreamPublisherConfig returns the default publisher configuration.
+func DefaultJetStreamPublisherConfig() *JetStreamPublisherConfig {
+	return &JetStreamPublisherConfig{
+		Retention:   7 * 24 * time.Hour,
+		MaxBytes:    10 * 1024 * 1024 * 1024, // 10GB
+		MaxMessages: 1000000,
+	}
+}
+
 // JetStreamPublisher implements EventPublisher using NATS JetStream
 type JetStreamPublisher struct {
 	js     nats.JetStreamContext
+	config *JetStreamPublisherConfig
 	mu     sync.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
 	closed bool
 }
 
-// NewJetStreamPublisher creates a new JetStream-based event publisher
+// NewJetStreamPublisher creates a new JetStream-based event publisher with default configuration.
 func NewJetStreamPublisher(js nats.JetStreamContext) (*JetStreamPublisher, error) {
+	return NewJetStreamPublisherWithConfig(js, nil)
+}
+
+// NewJetStreamPublisherWithConfig creates a new JetStream-based event publisher with custom configuration.
+func NewJetStreamPublisherWithConfig(js nats.JetStreamContext, cfg *JetStreamPublisherConfig) (*JetStreamPublisher, error) {
 	if js == nil {
 		return nil, fmt.Errorf("JetStream context is required")
+	}
+
+	if cfg == nil {
+		cfg = DefaultJetStreamPublisherConfig()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := &JetStreamPublisher{
 		js:     js,
+		config: cfg,
 		ctx:    ctx,
 		cancel: cancel,
 	}
@@ -64,15 +94,15 @@ func (p *JetStreamPublisher) ensureStream() error {
 		return nil
 	}
 
-	// Create the stream
+	// Create the stream using configuration values
 	streamConfig := &nats.StreamConfig{
 		Name:        StreamName,
 		Description: "Keystone Core event stream",
 		Subjects:    []string{StreamSubjects},
 		Retention:   nats.LimitsPolicy,
-		MaxAge:      7 * 24 * time.Hour,      // Keep events for 7 days
-		MaxBytes:    10 * 1024 * 1024 * 1024, // 10GB max storage
-		MaxMsgs:     1000000,                 // Max 1M messages
+		MaxAge:      p.config.Retention,
+		MaxBytes:    p.config.MaxBytes,
+		MaxMsgs:     p.config.MaxMessages,
 		Storage:     nats.FileStorage,
 		Replicas:    1,
 		Discard:     nats.DiscardOld,

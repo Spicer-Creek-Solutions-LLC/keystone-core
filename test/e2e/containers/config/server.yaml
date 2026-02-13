@@ -40,12 +40,21 @@ tls:
 auth:
   enabled: false
 
+# Event system configuration (Epic 45 Phase 2)
+events:
+  enabled: true
+  retention: "24h"
+  maxbytes: 1073741824
+  maxmessages: 100000
+
 # Webhook receiver for GitOps integration testing
 webhook:
   enabled: true
   port: 8082
   path: /webhooks
-  authtype: none
+  authtype: hmac
+  hmacsecret: "e2e-test-hmac-secret-key"
+  bearertoken: "e2e-test-bearer-token"
   handlers:
     - argocd
     - flux
@@ -107,3 +116,31 @@ policy:
         audit[msg] {
           msg := sprintf("Command executed: %s on agent %s", [input.command, input.agent_id])
         }
+
+    # Audit-mode policy for E2E testing
+    - id: audit-all-commands
+      name: Audit All Commands
+      description: Logs all command executions in audit mode
+      type: opa
+      category: operational
+      severity: low
+      enabled: true
+      enforcementmode: audit
+      code: |
+        package keystone.audit
+
+        audit[msg] {
+          msg := sprintf("Audit: command %s", [input.command])
+        }
+
+    # Warn-mode policy for E2E testing
+    - id: warn-long-commands
+      name: Warn Long Commands
+      description: Warns about commands with many arguments
+      type: cel
+      category: operational
+      severity: medium
+      enabled: true
+      enforcementmode: warn
+      code: |
+        size(resource.args) <= 10

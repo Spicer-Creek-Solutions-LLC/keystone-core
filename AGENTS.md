@@ -187,6 +187,37 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
   - Client methods: `GenerateToken`, `ListTokens`, `RevokeToken` in `cmd/kscore-cluster/client.go`
   - Documentation: cli.md, cli-quick-reference.md, cluster-management.md, bootstrap runbook updated
   - 5 new tests (subcommand structure, flags, args validation, help output)
+- **Epic 45 Phase 1 COMPLETE**: Config Struct Definitions and Wiring:
+  - `AgentManagementConfig`: HeartbeatInterval, HeartbeatTimeout, StaleThreshold, MonitorInterval, MetadataRefresh, MaxConcurrentCommands
+  - `ExecutionConfig`: DefaultTimeout, MaxTimeout, BatchSize, BatchDelay, StreamingBuffer, ResultRetention
+  - `StateManagementConfig`: DefaultTimeout, MaxConcurrent, DriftCheckInterval, ResultRetention
+- **Epic 45 Phase 2 COMPLETE**: Event, GitOps, and Security Config:
+  - `EventsConfig`: Enabled, Retention, MaxBytes, MaxMessages, PublisherBufferSize, SubscriberBufferSize, SubscriberAckWait
+  - `GitOpsConfig` with `GitSyncConfig`: Enabled, Repositories (URL, Branch, Interval, Path)
+  - `AuthorizationConfig`: Enabled, DefaultDeny — wired into `RBACAuthorizer` via `NewRBACAuthorizerWithConfig`
+  - `JetStreamPublisherConfig` and `NewJetStreamPublisherWithConfig` for configurable event stream settings
+  - Wired into `kscore-server`: events config → JetStreamPublisher, authorization config → auth interceptor
+  - All 3 sections added to `Config` struct with defaults, Viper bindings, and validation
+  - Wired `AgentManagement` → `ConnectionManagerConfig` → configurable registration response (heartbeat/metadata intervals, command timeout)
+  - Wired `Execution` → `CommandDispatcherConfig` (streaming buffer, default/max timeout clamping) and `BatchDispatcherConfig` (default batch size)
+  - Config-aware constructors: `NewConnectionManagerWithConfig`, `NewCommandDispatcherWithConfig`, `NewBatchDispatcherWithConfig`
+  - `kscore-server` reads all 3 config sections and passes to control plane components
+  - 51 config tests + all controlplane tests passing with race detector
+- **Epic 45 Phase 3 COMPLETE**: Viper Bindings, Validation, and Documentation:
+  - Explicit `BindEnv` calls for all Phase 1+2 config fields (22 env var bindings)
+  - Env vars: `KSCORE_AGENT_MGMT_*`, `KSCORE_EXEC_*`, `KSCORE_STATE_*`, `KSCORE_EVENTS_*`, `KSCORE_AUTHZ_*`
+  - `kscorectl config validate` already covers all new validators via `cfg.Validate()`
+  - Configuration reference documentation updated: 6 new sections (Agent Management, Command Execution, State Management, Event System, GitOps, Authorization) with YAML examples, defaults tables, env var mappings, and validation rules
+  - 5 env var override tests verifying all 22 bindings work end-to-end
+- **Epic 45 Phase 4 COMPLETE**: E2E Config Wiring Tests (T4.1-T4.3):
+  - Added events config (enabled, retention, maxbytes, maxmessages) to E2E server.yaml
+  - Updated webhook config with HMAC authentication (authtype=hmac, hmacsecret, bearertoken)
+  - Added audit-mode and warn-mode policies to E2E policy configuration
+  - Implemented `TestEvent_ReactorTrigger`: event pipeline verification with configured events settings
+  - Implemented 6 webhook tests: HMAC auth (valid/invalid/missing signature), bearer auth, verification trigger, rollback trigger, rollback approval, webhook event emission
+  - Implemented 5 policy tests: enforcement mode audit, warn, violation blocking, audit logging, compliance reporting
+  - Updated `sendWebhook` helpers with HMAC signature support (`sendSignedWebhook`, `computeHMACSignature`)
+  - T4.4 (HA infrastructure failure tests) deferred to Epic 51
 - **Epic 43 Phase 4 COMPLETE**: CLI Wiring (`kscore-secrets` → `pkg/secrets.Client`):
   - Replaced global vars with Config struct, added TLS persistent flags (tls, ca-cert, cert, key, skip-verify, server-name, min-version)
   - Added `createSecretsClient`, `buildTLSConfig`, `parseTLSMinVersion` helpers following kscore-exec pattern
@@ -336,7 +367,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅
 
 ## Repository Structure
 
@@ -388,6 +419,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 48-kubernetes-operator.md           # Kubernetes operator (informers, reconciliation, deployment)
     ├── 49-rest-api-handler-wiring.md      # Wire remaining REST API handlers into kscore-server
     ├── 50-outbound-webhooks.md            # Outbound webhook subscriptions
+    ├── 51-ha-resilience-testing.md        # HA infrastructure failure and network partition tests
     ├── 100-release-readiness-0.1.0.md     # 0.1.0 release readiness (future)
     ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
@@ -460,12 +492,13 @@ Implementation order:
 
 43. **Epic 43** (Secrets API Implementation) - IN PROGRESS (Phase 1-4 complete) - REST handlers ✅, gRPC service ✅, public client package ✅, CLI wiring ✅
 44. **Epic 44** (Cluster Join Tokens) - ✅ COMPLETE - Depends on Epic 1, 11 - Token store/generation, REST API, join validation, audit logging, CLI commands, documentation
-45. **Epic 45** (Control Plane Config Wiring) - NOT STARTED - Wire agents, execution, state, events, gitops, security config sections into `internal/config.Config` and `kscore-server`
+45. **Epic 45** (Control Plane Config Wiring) - ✅ COMPLETE - AgentManagement, Execution, StateManagement config wired; Events, GitOps, Authorization config wired; Viper env bindings, docs, validation; E2E tests (T4.1-T4.3) with events config, webhook HMAC auth, policy enforcement modes; T4.4 deferred to Epic 51
 46. **Epic 46** (gRPC Service Implementation) - NOT STARTED - Depends on Epic 1, 3, 4, 6, 11 - Generate stubs and implement servers for StateService, EventService, PolicyService, ClusterService; register AgentService and CoordinationService in kscore-server
 47. **Epic 47** (Registry Storage Backends) - NOT STARTED - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry, reusing `internal/files/backend/` infrastructure
 48. **Epic 48** (Kubernetes Operator) - NOT STARTED - Depends on Epic 1, 2, 3, 8, 11 - Informer-based CRD watching, reconciliation, drift detection, leader election, Helm/Kustomize deployment
 49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers
 50. **Epic 50** (Outbound Webhooks) - NOT STARTED - Depends on Epic 1, 4 - Persistent outbound webhook subscriptions with event dispatcher, HMAC signing, retry logic, REST API, and CLI
+51. **Epic 51** (HA Resilience Testing) - NOT STARTED - Depends on Epic 11, 45 - NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention E2E tests
 
 ### Future Epics (Not Yet Planned)
 

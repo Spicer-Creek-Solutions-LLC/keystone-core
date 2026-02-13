@@ -226,6 +226,51 @@ func TestPublisher_SubjectGeneration(t *testing.T) {
 	}
 }
 
+func TestNewJetStreamPublisherWithConfig(t *testing.T) {
+	_, _, js := startTestNATSServer(t)
+
+	cfg := &JetStreamPublisherConfig{
+		Retention:   48 * time.Hour,
+		MaxBytes:    5 * 1024 * 1024 * 1024,
+		MaxMessages: 500000,
+	}
+
+	publisher, err := NewJetStreamPublisherWithConfig(js, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, publisher)
+	defer publisher.Close()
+
+	// Verify stream was created with custom config
+	streamInfo, err := js.StreamInfo(StreamName)
+	require.NoError(t, err)
+	assert.Equal(t, 48*time.Hour, streamInfo.Config.MaxAge)
+	assert.Equal(t, int64(5*1024*1024*1024), streamInfo.Config.MaxBytes)
+	assert.Equal(t, int64(500000), streamInfo.Config.MaxMsgs)
+}
+
+func TestNewJetStreamPublisherWithConfig_NilConfig(t *testing.T) {
+	_, _, js := startTestNATSServer(t)
+
+	publisher, err := NewJetStreamPublisherWithConfig(js, nil)
+	require.NoError(t, err)
+	require.NotNil(t, publisher)
+	defer publisher.Close()
+
+	// Verify defaults were used
+	streamInfo, err := js.StreamInfo(StreamName)
+	require.NoError(t, err)
+	assert.Equal(t, 7*24*time.Hour, streamInfo.Config.MaxAge)
+	assert.Equal(t, int64(10*1024*1024*1024), streamInfo.Config.MaxBytes)
+	assert.Equal(t, int64(1000000), streamInfo.Config.MaxMsgs)
+}
+
+func TestDefaultJetStreamPublisherConfig(t *testing.T) {
+	cfg := DefaultJetStreamPublisherConfig()
+	assert.Equal(t, 7*24*time.Hour, cfg.Retention)
+	assert.Equal(t, int64(10*1024*1024*1024), cfg.MaxBytes)
+	assert.Equal(t, int64(1000000), cfg.MaxMessages)
+}
+
 func TestPublisher_Close(t *testing.T) {
 	_, _, js := startTestNATSServer(t)
 

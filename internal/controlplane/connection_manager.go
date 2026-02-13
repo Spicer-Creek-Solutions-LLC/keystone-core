@@ -81,14 +81,29 @@ type ConnectionManagerConfig struct {
 	StaleThreshold int
 	// MonitorInterval is how often to check agent health
 	MonitorInterval time.Duration
+	// AgentHeartbeatInterval is sent to agents during registration as the
+	// recommended heartbeat interval (seconds).
+	AgentHeartbeatInterval time.Duration
+	// AgentCommandTimeout is sent to agents during registration as the
+	// default command execution timeout (seconds).
+	AgentCommandTimeout time.Duration
+	// AgentMetadataInterval is sent to agents during registration as the
+	// recommended metadata refresh interval (seconds).
+	AgentMetadataInterval time.Duration
+	// MaxConcurrentCommands is the maximum number of concurrent commands per agent.
+	// 0 means unlimited.
+	MaxConcurrentCommands int
 }
 
 // DefaultConnectionManagerConfig returns the default configuration
 func DefaultConnectionManagerConfig() *ConnectionManagerConfig {
 	return &ConnectionManagerConfig{
-		HeartbeatTimeout: 60 * time.Second,
-		StaleThreshold:   3,
-		MonitorInterval:  10 * time.Second,
+		HeartbeatTimeout:       60 * time.Second,
+		StaleThreshold:         3,
+		MonitorInterval:        10 * time.Second,
+		AgentHeartbeatInterval: 30 * time.Second,
+		AgentCommandTimeout:    5 * time.Minute,
+		AgentMetadataInterval:  5 * time.Minute,
 	}
 }
 
@@ -111,6 +126,12 @@ type ConnectionManager struct {
 	heartbeatTimeout time.Duration
 	staleThreshold   int
 	monitorInterval  time.Duration
+
+	// Agent registration config (sent to agents)
+	agentHeartbeatInterval time.Duration
+	agentCommandTimeout    time.Duration
+	agentMetadataInterval  time.Duration
+	maxConcurrentCommands  int
 
 	// Event publishing
 	eventPublisher events.EventPublisher
@@ -144,16 +165,20 @@ func NewConnectionManagerWithConfig(natsManager *natsmgr.Manager, cfg *Connectio
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ConnectionManager{
-		nats:             natsManager,
-		agents:           make(map[string]*AgentInfo),
-		ctx:              ctx,
-		cancel:           cancel,
-		subjects:         natsmgr.NewSubjectBuilder(cluster),
-		cluster:          cluster,
-		serverID:         serverID,
-		heartbeatTimeout: cfg.HeartbeatTimeout,
-		staleThreshold:   cfg.StaleThreshold,
-		monitorInterval:  cfg.MonitorInterval,
+		nats:                   natsManager,
+		agents:                 make(map[string]*AgentInfo),
+		ctx:                    ctx,
+		cancel:                 cancel,
+		subjects:               natsmgr.NewSubjectBuilder(cluster),
+		cluster:                cluster,
+		serverID:               serverID,
+		heartbeatTimeout:       cfg.HeartbeatTimeout,
+		staleThreshold:         cfg.StaleThreshold,
+		monitorInterval:        cfg.MonitorInterval,
+		agentHeartbeatInterval: cfg.AgentHeartbeatInterval,
+		agentCommandTimeout:    cfg.AgentCommandTimeout,
+		agentMetadataInterval:  cfg.AgentMetadataInterval,
+		maxConcurrentCommands:  cfg.MaxConcurrentCommands,
 	}
 }
 
@@ -409,14 +434,28 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 		})
 	}
 
+	// Build agent config from connection manager settings
+	hbInterval := int32(cm.agentHeartbeatInterval.Seconds())
+	if hbInterval <= 0 {
+		hbInterval = 30 // fallback default
+	}
+	cmdTimeout := int32(cm.agentCommandTimeout.Seconds())
+	if cmdTimeout <= 0 {
+		cmdTimeout = 300 // fallback default
+	}
+	metaInterval := int32(cm.agentMetadataInterval.Seconds())
+	if metaInterval <= 0 {
+		metaInterval = 300 // fallback default
+	}
+
 	// Send registration response
 	resp := &pb.RegisterResponse{
 		AgentId:      req.AgentId,
 		RegisteredAt: timestamppb.New(info.RegisteredAt),
 		Config: &pb.AgentConfig{
-			HeartbeatInterval: 30,  // 30 seconds
-			CommandTimeout:    300, // 5 minutes
-			MetadataInterval:  300, // 5 minutes
+			HeartbeatInterval: hbInterval,
+			CommandTimeout:    cmdTimeout,
+			MetadataInterval:  metaInterval,
 		},
 	}
 
