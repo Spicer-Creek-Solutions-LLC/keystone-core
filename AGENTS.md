@@ -145,6 +145,29 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 43 Phase 1 COMPLETE**: Secrets REST API Handlers:
+  - 24+ HTTP endpoints for secrets CRUD, leases, rotations, transit encryption, compliance, audit, health
+  - Wired into `kscore-server` with nil deps (real wiring in Epic 45)
+- **Epic 43 Phase 2 COMPLETE**: Secrets gRPC Service Definition:
+  - `api/proto/secrets.proto` with 12 RPCs: GetSecret, ListSecrets, WriteSecret, DeleteSecret, GetLease, ListLeases, RenewLease, RevokeLease, Encrypt, Decrypt, Sign, Verify
+  - Generated `secrets.pb.go` and `secrets_grpc.pb.go` stubs
+  - `SecretsServer` implementation in `pkg/api/server/` following ControlPlaneServer pattern
+  - Error mapping from `SecretError.Code` and sentinel errors to gRPC status codes
+  - Registered in `kscore-server` with nil deps (real wiring in Epic 45)
+  - 44 test cases (26 top-level + 18 subtests) covering all RPCs, error paths, nil-dep cases
+- **Epic 43 Phase 3 COMPLETE**: Public Secrets Client Package:
+  - `pkg/secrets/` with `Client` wrapping gRPC `SecretsServiceClient`, 12 methods matching all RPCs
+  - Idiomatic Go types: `Secret`, `Lease`, `ListSecretsResult`, `EncryptResult`, `DecryptResult`, `SignResult`
+  - Error sentinels (9) with `grpcStatusToError` mapping gRPC status codes to public errors
+  - `NewClient(addr)` and `NewClientFromConn(conn)` constructors, proto ↔ Go conversion helpers
+  - 37 unit tests with mock gRPC client covering all methods, error mapping, type helpers
+- **Epic 43 Phase 4 COMPLETE**: CLI Wiring (`kscore-secrets` → `pkg/secrets.Client`):
+  - Replaced global vars with Config struct, added TLS persistent flags (tls, ca-cert, cert, key, skip-verify, server-name, min-version)
+  - Added `createSecretsClient`, `buildTLSConfig`, `parseTLSMinVersion` helpers following kscore-exec pattern
+  - Wired 10 commands to real gRPC calls: get, list, leases list/renew/revoke, encrypt, decrypt, dynamic get/list/revoke
+  - 6+ command groups remain stub/mock (backends, audit, rotate, schedule, policy, cache, template, rewrap, rotate-keys) — no gRPC RPCs exist
+  - Removed 5 display types and 4 mock generators replaced by real API calls
+  - 62 tests passing with race detector, TLS config tests, flag validation tests
 - **Epic 42 Phase 1 COMPLETE**: NETCONF Protocol Adapter (RFC 6241):
   - Core adapter: types, RPC encoding, SSH transport, session management, operations, capabilities, filters
   - Full RFC 6241 operation set with NETCONF 1.0/1.1 framing
@@ -287,7 +310,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 PLANNED
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅
 
 ## Repository Structure
 
@@ -409,7 +432,7 @@ Implementation order:
 
 ### Planned
 
-43. **Epic 43** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
+43. **Epic 43** (Secrets API Implementation) - IN PROGRESS (Phase 1-4 complete) - REST handlers ✅, gRPC service ✅, public client package ✅, CLI wiring ✅
 44. **Epic 44** (Cluster Join Tokens) - NOT STARTED - Depends on Epic 1, 11 - Secure join token system for cluster membership with durable storage (etcd/SQLite/PostgreSQL), configurable TTL and use limits, CLI commands, REST API, audit logging
 45. **Epic 45** (Control Plane Config Wiring) - NOT STARTED - Wire agents, execution, state, events, gitops, security config sections into `internal/config.Config` and `kscore-server`
 46. **Epic 46** (gRPC Service Implementation) - NOT STARTED - Depends on Epic 1, 3, 4, 6, 11 - Generate stubs and implement servers for StateService, EventService, PolicyService, ClusterService; register AgentService and CoordinationService in kscore-server

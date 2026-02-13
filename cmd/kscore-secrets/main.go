@@ -2,6 +2,9 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,18 +13,30 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/internal/secrets"
+	pkgsecrets "github.com/shawnbutts/keystone-core/pkg/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	serverAddr   string
-	outputFormat string
-	verbose      bool
-)
+// Config holds CLI configuration.
+type Config struct {
+	ServerAddr    string
+	OutputFormat  string
+	Verbose       bool
+	TLS           bool
+	TLSCACert     string
+	TLSCert       string
+	TLSKey        string
+	TLSSkipVerify bool
+	TLSServerName string
+	TLSMinVersion string
+}
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
@@ -31,6 +46,8 @@ func main() {
 }
 
 func newRootCmd() *cobra.Command {
+	cfg := &Config{}
+
 	rootCmd := &cobra.Command{
 		Use:   "kscore-secrets",
 		Short: "Keystone Core secrets management",
@@ -71,27 +88,36 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ServerAddr, "server", "s", "localhost:9090", "Control plane server address")
+	rootCmd.PersistentFlags().StringVarP(&cfg.OutputFormat, "output", "o", "table", "Output format (table, json, yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")
+
+	// TLS flags
+	rootCmd.PersistentFlags().BoolVar(&cfg.TLS, "tls", false, "Enable TLS for server connection")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSCACert, "tls-ca-cert", "", "Path to CA certificate for verifying the server")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSCert, "tls-cert", "", "Path to client certificate for mTLS authentication")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSKey, "tls-key", "", "Path to client private key for mTLS authentication")
+	rootCmd.PersistentFlags().BoolVar(&cfg.TLSSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification (INSECURE - for development only)")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSServerName, "tls-server-name", "", "Server name for TLS verification (defaults to server host)")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSMinVersion, "tls-min-version", "1.3", "Minimum TLS version (1.2 or 1.3)")
 
 	rootCmd.AddCommand(
 		newVersionCmd(),
-		newGetCmd(),
-		newListCmd(),
-		newBackendsCmd(),
-		newAuditCmd(),
-		newRotateCmd(),
-		newScheduleCmd(),
-		newPolicyCmd(),
-		newDynamicCmd(),
-		newLeasesCmd(),
-		newEncryptCmd(),
-		newDecryptCmd(),
-		newRewrapCmd(),
-		newTemplateCmd(),
-		newCacheCmd(),
-		newRotateKeysCmd(),
+		newGetCmd(cfg),
+		newListCmd(cfg),
+		newBackendsCmd(cfg),
+		newAuditCmd(cfg),
+		newRotateCmd(cfg),
+		newScheduleCmd(cfg),
+		newPolicyCmd(cfg),
+		newDynamicCmd(cfg),
+		newLeasesCmd(cfg),
+		newEncryptCmd(cfg),
+		newDecryptCmd(cfg),
+		newRewrapCmd(cfg),
+		newTemplateCmd(cfg),
+		newCacheCmd(cfg),
+		newRotateKeysCmd(cfg),
 	)
 
 	return rootCmd
@@ -109,10 +135,91 @@ func newVersionCmd() *cobra.Command {
 }
 
 // =============================================================================
-// Get Command
+// gRPC Client Helpers
 // =============================================================================
 
-func newGetCmd() *cobra.Command {
+// createSecretsClient creates a secrets gRPC client from the CLI config.
+func createSecretsClient(cfg *Config) (*pkgsecrets.Client, error) {
+	var opts []grpc.DialOption
+
+	if cfg.TLS || cfg.TLSCACert != "" || cfg.TLSCert != "" {
+		tlsConfig, err := buildTLSConfig(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure TLS: %w", err)
+		}
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	return pkgsecrets.NewClient(cfg.ServerAddr, opts...)
+}
+
+// buildTLSConfig builds a TLS configuration from the CLI flags.
+func buildTLSConfig(cfg *Config) (*tls.Config, error) {
+	minVersion, err := parseTLSMinVersion(cfg.TLSMinVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify allowed only when KSCORE_ALLOW_INSECURE_TLS=1 is set for dev/test
+		MinVersion: minVersion, // #nosec G402 -- validated to TLS 1.2+ defaults
+	}
+
+	if cfg.TLSSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("TLS skip verify requires KSCORE_ALLOW_INSECURE_TLS=1 for development/testing only")
+		}
+		fmt.Fprintln(os.Stderr, "WARNING: TLS certificate verification is disabled. This is insecure and should only be used for development.")
+		tlsConfig.InsecureSkipVerify = true // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS
+	}
+
+	if cfg.TLSServerName != "" {
+		tlsConfig.ServerName = cfg.TLSServerName
+	}
+
+	if cfg.TLSCACert != "" {
+		caCert, err := os.ReadFile(cfg.TLSCACert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	if cfg.TLSCert != "" || cfg.TLSKey != "" {
+		if cfg.TLSCert == "" || cfg.TLSKey == "" {
+			return nil, fmt.Errorf("both --tls-cert and --tls-key must be provided for mTLS")
+		}
+		cert, err := tls.LoadX509KeyPair(cfg.TLSCert, cfg.TLSKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	return tlsConfig, nil
+}
+
+func parseTLSMinVersion(value string) (uint16, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "1.3", "tls1.3", "tls13":
+		return tls.VersionTLS13, nil
+	case "1.2", "tls1.2", "tls12":
+		return tls.VersionTLS12, nil
+	default:
+		return 0, fmt.Errorf("unsupported TLS minimum version: %s", value)
+	}
+}
+
+// =============================================================================
+// Get Command (wired to gRPC)
+// =============================================================================
+
+func newGetCmd(cfg *Config) *cobra.Command {
 	var ver int
 	var field string
 
@@ -138,7 +245,12 @@ Examples:
   kscorectl secrets get vault/secret/database/prod -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(cmd, args[0], ver, field)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runGet(cmd, cfg, client, args[0], ver, field)
 		},
 	}
 
@@ -148,45 +260,53 @@ Examples:
 	return cmd
 }
 
-func runGet(cmd *cobra.Command, path string, ver int, field string) error {
-	s := generateSampleSecret(path, ver)
+func runGet(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, path string, ver int, field string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	s, err := client.GetSecret(ctx, path, ver)
+	if err != nil {
+		return fmt.Errorf("failed to get secret: %w", err)
+	}
 
 	if field != "" {
-		found := false
-		for _, k := range s.Keys {
-			if k == field {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("field %q not found in secret (available: %s)", field, strings.Join(s.Keys, ", "))
+		if _, ok := s.Data[field]; !ok {
+			keys := dataKeys(s.Data)
+			return fmt.Errorf("field %q not found in secret (available: %s)", field, strings.Join(keys, ", "))
 		}
 		fmt.Printf("****\n")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(s)
 	case "yaml":
 		return outputYAML(s)
 	default:
+		keys := dataKeys(s.Data)
+		createdAt := ""
+		if !s.CreatedAt.IsZero() {
+			createdAt = s.CreatedAt.Format(time.RFC3339)
+		}
+		expiresAt := ""
+		if !s.ExpiresAt.IsZero() {
+			expiresAt = s.ExpiresAt.Format(time.RFC3339)
+		}
 		table := &output.Table{
 			Headers: []string{"PATH", "VERSION", "CREATED", "EXPIRES", "KEYS"},
 		}
-		keys := strings.Join(s.Keys, ", ")
 		table.Rows = append(table.Rows, []string{
 			s.Path,
 			fmt.Sprintf("%d", s.Version),
-			s.CreatedAt,
-			s.ExpiresAt,
-			keys,
+			createdAt,
+			expiresAt,
+			strings.Join(keys, ", "),
 		})
 		output.WriteTable(os.Stdout, table)
 		fmt.Println()
 		fmt.Println("Values:")
-		for _, k := range s.Keys {
+		for _, k := range keys {
 			fmt.Printf("  %s: ****\n", k)
 		}
 	}
@@ -194,32 +314,11 @@ func runGet(cmd *cobra.Command, path string, ver int, field string) error {
 	return nil
 }
 
-func generateSampleSecret(path string, ver int) *secretDisplay {
-	v := ver
-	if v == 0 {
-		v = 3
-	}
-	return &secretDisplay{
-		Path:      path,
-		Version:   v,
-		Keys:      []string{"username", "password", "host", "port"},
-		CreatedAt: time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		CreatedBy: "admin",
-		Backend:   "vault",
-		Metadata: map[string]string{
-			"env":     "production",
-			"team":    "platform",
-			"managed": "true",
-		},
-	}
-}
-
 // =============================================================================
-// List Command
+// List Command (wired to gRPC)
 // =============================================================================
 
-func newListCmd() *cobra.Command {
+func newListCmd(cfg *Config) *cobra.Command {
 	var limit int
 	var showMetadata bool
 
@@ -247,7 +346,12 @@ Examples:
 			if len(args) > 0 {
 				prefix = args[0]
 			}
-			return runList(cmd, prefix, limit, showMetadata)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runList(cmd, cfg, client, prefix, limit, showMetadata)
 		},
 	}
 
@@ -257,109 +361,44 @@ Examples:
 	return cmd
 }
 
-func runList(cmd *cobra.Command, prefix string, limit int, showMetadata bool) error {
-	items := generateSampleSecretList(prefix, limit)
+func runList(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, prefix string, limit int, _ bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	if len(items) == 0 {
+	result, err := client.ListSecrets(ctx, "", prefix, int32(limit), "") //nolint:gosec // G115: limit is small
+	if err != nil {
+		return fmt.Errorf("failed to list secrets: %w", err)
+	}
+
+	if len(result.Keys) == 0 {
 		fmt.Println("No secrets found")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(items)
+		return outputJSON(result)
 	case "yaml":
-		return outputYAML(items)
+		return outputYAML(result)
 	default:
-		headers := []string{"PATH", "VERSIONS", "BACKEND", "LAST MODIFIED"}
-		if showMetadata {
-			headers = append(headers, "CREATED BY", "EXPIRES")
-		}
 		table := &output.Table{
-			Headers: headers,
+			Headers: []string{"PATH"},
 		}
-		for _, item := range items {
-			row := []string{
-				truncate(item.Path, 35),
-				fmt.Sprintf("%d", item.Versions),
-				item.Backend,
-				item.LastModified,
-			}
-			if showMetadata {
-				row = append(row, item.CreatedBy, item.ExpiresAt)
-			}
-			table.Rows = append(table.Rows, row)
+		for _, key := range result.Keys {
+			table.Rows = append(table.Rows, []string{key})
 		}
 		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d secret(s)\n", len(items))
+		fmt.Printf("\nTotal: %d secret(s)\n", len(result.Keys))
 	}
 
 	return nil
 }
 
-func generateSampleSecretList(prefix string, limit int) []*secretListItem {
-	allItems := []*secretListItem{
-		{
-			Path:         "vault/secret/database/prod",
-			Versions:     3,
-			Backend:      "vault",
-			LastModified: time.Now().Add(-2 * time.Hour).Format("Jan 02 15:04"),
-			CreatedBy:    "admin",
-			ExpiresAt:    time.Now().Add(30 * 24 * time.Hour).Format("Jan 02"),
-		},
-		{
-			Path:         "vault/secret/database/staging",
-			Versions:     5,
-			Backend:      "vault",
-			LastModified: time.Now().Add(-24 * time.Hour).Format("Jan 02 15:04"),
-			CreatedBy:    "ci-pipeline",
-			ExpiresAt:    time.Now().Add(15 * 24 * time.Hour).Format("Jan 02"),
-		},
-		{
-			Path:         "vault/secret/api/prod",
-			Versions:     2,
-			Backend:      "vault",
-			LastModified: time.Now().Add(-72 * time.Hour).Format("Jan 02 15:04"),
-			CreatedBy:    "admin",
-			ExpiresAt:    time.Now().Add(60 * 24 * time.Hour).Format("Jan 02"),
-		},
-		{
-			Path:         "aws-sm/production/payment-gateway",
-			Versions:     7,
-			Backend:      "aws-sm",
-			LastModified: time.Now().Add(-6 * time.Hour).Format("Jan 02 15:04"),
-			CreatedBy:    "rotation-bot",
-			ExpiresAt:    time.Now().Add(10 * 24 * time.Hour).Format("Jan 02"),
-		},
-		{
-			Path:         "azure-kv/certificates/tls-prod",
-			Versions:     12,
-			Backend:      "azure-kv",
-			LastModified: time.Now().Add(-168 * time.Hour).Format("Jan 02 15:04"),
-			CreatedBy:    "cert-manager",
-			ExpiresAt:    time.Now().Add(90 * 24 * time.Hour).Format("Jan 02"),
-		},
-	}
-
-	var filtered []*secretListItem
-	for _, item := range allItems {
-		if prefix != "" && !strings.HasPrefix(item.Path, prefix) {
-			continue
-		}
-		filtered = append(filtered, item)
-		if len(filtered) >= limit {
-			break
-		}
-	}
-
-	return filtered
-}
-
 // =============================================================================
-// Backends Command
+// Backends Command (stub — no gRPC RPC)
 // =============================================================================
 
-func newBackendsCmd() *cobra.Command {
+func newBackendsCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "backends",
 		Short: "List configured secret backends",
@@ -372,15 +411,15 @@ Examples:
   # List backends as JSON
   kscorectl secrets backends -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBackends(cmd)
+			return runBackends(cmd, cfg)
 		},
 	}
 }
 
-func runBackends(cmd *cobra.Command) error {
+func runBackends(cmd *cobra.Command, cfg *Config) error {
 	backends := generateSampleBackends()
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(backends)
 	case "yaml":
@@ -433,10 +472,10 @@ func generateSampleBackends() []*backendDisplay {
 }
 
 // =============================================================================
-// Audit Command
+// Audit Command (stub — no gRPC RPC)
 // =============================================================================
 
-func newAuditCmd() *cobra.Command {
+func newAuditCmd(cfg *Config) *cobra.Command {
 	var limit int
 
 	cmd := &cobra.Command{
@@ -455,7 +494,7 @@ Examples:
   kscorectl secrets audit vault/secret/database/prod -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAudit(cmd, args[0], limit)
+			return runAudit(cmd, cfg, args[0], limit)
 		},
 	}
 
@@ -464,7 +503,7 @@ Examples:
 	return cmd
 }
 
-func runAudit(cmd *cobra.Command, path string, limit int) error {
+func runAudit(cmd *cobra.Command, cfg *Config, path string, limit int) error {
 	entries := generateSampleAuditEntries(path, limit)
 
 	if len(entries) == 0 {
@@ -472,7 +511,7 @@ func runAudit(cmd *cobra.Command, path string, limit int) error {
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(entries)
 	case "yaml":
@@ -565,10 +604,10 @@ func generateSampleAuditEntries(path string, limit int) []*auditEntry {
 }
 
 // =============================================================================
-// Rotate Commands
+// Rotate Commands (stub — no gRPC RPCs)
 // =============================================================================
 
-func newRotateCmd() *cobra.Command {
+func newRotateCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "rotate",
 		Aliases: []string{"rot", "r"},
@@ -577,11 +616,11 @@ func newRotateCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newRotateListCmd(),
-		newRotateShowCmd(),
+		newRotateListCmd(cfg),
+		newRotateShowCmd(cfg),
 		newRotateStartCmd(),
-		newRotateStatusCmd(),
-		newRotateHistoryCmd(),
+		newRotateStatusCmd(cfg),
+		newRotateHistoryCmd(cfg),
 		newRotateTriggerCmd(),
 		newRotateRollbackCmd(),
 		newRotatePauseCmd(),
@@ -600,7 +639,7 @@ type RotateListOptions struct {
 	Limit    int
 }
 
-func newRotateListCmd() *cobra.Command {
+func newRotateListCmd(cfg *Config) *cobra.Command {
 	opts := &RotateListOptions{}
 
 	cmd := &cobra.Command{
@@ -619,7 +658,7 @@ Examples:
   # List blue-green strategy rotations
   kscorectl secrets rotate list --strategy blue-green`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRotateList(cmd, opts)
+			return runRotateList(cmd, cfg, opts)
 		},
 	}
 
@@ -631,7 +670,7 @@ Examples:
 	return cmd
 }
 
-func runRotateList(cmd *cobra.Command, opts *RotateListOptions) error {
+func runRotateList(cmd *cobra.Command, cfg *Config, opts *RotateListOptions) error {
 	rotations := generateSampleRotations()
 
 	var filtered []*rotationDisplay
@@ -650,7 +689,7 @@ func runRotateList(cmd *cobra.Command, opts *RotateListOptions) error {
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(filtered)
 	case "yaml":
@@ -680,18 +719,18 @@ func runRotateList(cmd *cobra.Command, opts *RotateListOptions) error {
 	return nil
 }
 
-func newRotateShowCmd() *cobra.Command {
+func newRotateShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <rotation-id>",
 		Short: "Show rotation details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRotateShow(cmd, args[0])
+			return runRotateShow(cmd, cfg, args[0])
 		},
 	}
 }
 
-func runRotateShow(cmd *cobra.Command, id string) error {
+func runRotateShow(cmd *cobra.Command, cfg *Config, id string) error {
 	r := &rotationDetail{
 		ID:              id,
 		SecretPath:      "vault/secret/database/prod",
@@ -713,7 +752,7 @@ func runRotateShow(cmd *cobra.Command, id string) error {
 		},
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(r)
 	case "yaml":
@@ -857,7 +896,6 @@ func runRotateStart(cmd *cobra.Command, opts *RotateStartOptions) error {
 		return nil
 	}
 
-	// In production, this would call the API
 	rotationID := fmt.Sprintf("rot-%s", randomID(8))
 	fmt.Printf("Started rotation '%s' for secret '%s'\n", rotationID, opts.SecretPath)
 	fmt.Printf("  Strategy:     %s\n", opts.Strategy)
@@ -866,7 +904,7 @@ func runRotateStart(cmd *cobra.Command, opts *RotateStartOptions) error {
 	return nil
 }
 
-func newRotateStatusCmd() *cobra.Command {
+func newRotateStatusCmd(cfg *Config) *cobra.Command {
 	var watch bool
 	var interval string
 
@@ -883,7 +921,7 @@ Examples:
   # Watch status continuously
   kscorectl secrets rotate status rot-123 --watch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRotateStatus(cmd, args[0], watch, interval)
+			return runRotateStatus(cmd, cfg, args[0], watch, interval)
 		},
 	}
 
@@ -893,8 +931,7 @@ Examples:
 	return cmd
 }
 
-func runRotateStatus(cmd *cobra.Command, id string, watch bool, interval string) error {
-	// Sample status for demonstration
+func runRotateStatus(cmd *cobra.Command, cfg *Config, id string, _ bool, _ string) error {
 	status := &rotationStatus{
 		ID:             id,
 		State:          secrets.RotationStateInProgress,
@@ -908,7 +945,7 @@ func runRotateStatus(cmd *cobra.Command, id string, watch bool, interval string)
 		LastUpdate:     time.Now().Add(-30 * time.Second).Format(time.RFC3339),
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(status)
 	case "yaml":
@@ -939,7 +976,6 @@ func printRotationStatus(status *rotationStatus) {
 	fmt.Printf("  Started:      %s\n", status.StartedAt)
 	fmt.Printf("  Last Update:  %s\n", status.LastUpdate)
 
-	// Progress bar
 	barWidth := 40
 	filled := int(float64(status.Percentage) / 100.0 * float64(barWidth))
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
@@ -952,7 +988,7 @@ type HistoryOptions struct {
 	Status string
 }
 
-func newRotateHistoryCmd() *cobra.Command {
+func newRotateHistoryCmd(cfg *Config) *cobra.Command {
 	opts := &HistoryOptions{}
 
 	cmd := &cobra.Command{
@@ -974,7 +1010,7 @@ Examples:
 			if len(args) > 0 {
 				secretPath = args[0]
 			}
-			return runRotateHistory(cmd, secretPath, opts)
+			return runRotateHistory(cmd, cfg, secretPath, opts)
 		},
 	}
 
@@ -984,10 +1020,10 @@ Examples:
 	return cmd
 }
 
-func runRotateHistory(cmd *cobra.Command, secretPath string, opts *HistoryOptions) error {
+func runRotateHistory(cmd *cobra.Command, cfg *Config, secretPath string, opts *HistoryOptions) error {
 	history := generateSampleHistory(secretPath, opts.Limit)
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(history)
 	case "yaml":
@@ -1111,10 +1147,10 @@ func newRotateCancelCmd() *cobra.Command {
 }
 
 // =============================================================================
-// Schedule Commands
+// Schedule Commands (stub — no gRPC RPCs)
 // =============================================================================
 
-func newScheduleCmd() *cobra.Command {
+func newScheduleCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "schedule",
 		Aliases: []string{"sched", "s"},
@@ -1123,8 +1159,8 @@ func newScheduleCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newScheduleListCmd(),
-		newScheduleShowCmd(),
+		newScheduleListCmd(cfg),
+		newScheduleShowCmd(cfg),
 		newScheduleCreateCmd(),
 		newScheduleEnableCmd(),
 		newScheduleDisableCmd(),
@@ -1134,7 +1170,7 @@ func newScheduleCmd() *cobra.Command {
 	return cmd
 }
 
-func newScheduleListCmd() *cobra.Command {
+func newScheduleListCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -1142,7 +1178,7 @@ func newScheduleListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			schedules := generateSampleSchedules()
 
-			switch outputFormat {
+			switch cfg.OutputFormat {
 			case "json":
 				return outputJSON(schedules)
 			case "yaml":
@@ -1172,7 +1208,7 @@ func newScheduleListCmd() *cobra.Command {
 	}
 }
 
-func newScheduleShowCmd() *cobra.Command {
+func newScheduleShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <schedule-id>",
 		Short: "Show schedule details",
@@ -1191,7 +1227,7 @@ func newScheduleShowCmd() *cobra.Command {
 				CreatedAt:  time.Now().Add(-30 * 24 * time.Hour).Format(time.RFC3339),
 			}
 
-			switch outputFormat {
+			switch cfg.OutputFormat {
 			case "json":
 				return outputJSON(s)
 			case "yaml":
@@ -1330,10 +1366,10 @@ func newScheduleDeleteCmd() *cobra.Command {
 }
 
 // =============================================================================
-// Policy Commands
+// Policy Commands (stub — no gRPC RPCs)
 // =============================================================================
 
-func newPolicyCmd() *cobra.Command {
+func newPolicyCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "policy",
 		Aliases: []string{"pol", "p"},
@@ -1342,8 +1378,8 @@ func newPolicyCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newPolicyListCmd(),
-		newPolicyShowCmd(),
+		newPolicyListCmd(cfg),
+		newPolicyShowCmd(cfg),
 		newPolicyCreateCmd(),
 		newPolicyDeleteCmd(),
 	)
@@ -1351,7 +1387,7 @@ func newPolicyCmd() *cobra.Command {
 	return cmd
 }
 
-func newPolicyListCmd() *cobra.Command {
+func newPolicyListCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -1359,7 +1395,7 @@ func newPolicyListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			policies := generateSamplePolicies()
 
-			switch outputFormat {
+			switch cfg.OutputFormat {
 			case "json":
 				return outputJSON(policies)
 			case "yaml":
@@ -1389,7 +1425,7 @@ func newPolicyListCmd() *cobra.Command {
 	}
 }
 
-func newPolicyShowCmd() *cobra.Command {
+func newPolicyShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <policy-id>",
 		Short: "Show policy details",
@@ -1408,7 +1444,7 @@ func newPolicyShowCmd() *cobra.Command {
 				CreatedAt:      time.Now().Add(-60 * 24 * time.Hour).Format(time.RFC3339),
 			}
 
-			switch outputFormat {
+			switch cfg.OutputFormat {
 			case "json":
 				return outputJSON(p)
 			case "yaml":
@@ -1514,10 +1550,10 @@ func newPolicyDeleteCmd() *cobra.Command {
 }
 
 // =============================================================================
-// Dynamic Commands
+// Dynamic Commands (wired to gRPC)
 // =============================================================================
 
-func newDynamicCmd() *cobra.Command {
+func newDynamicCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dynamic",
 		Short: "Manage dynamic secrets",
@@ -1525,15 +1561,15 @@ func newDynamicCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newDynamicListCmd(),
-		newDynamicGetCmd(),
-		newDynamicRevokeCmd(),
+		newDynamicListCmd(cfg),
+		newDynamicGetCmd(cfg),
+		newDynamicRevokeCmd(cfg),
 	)
 
 	return cmd
 }
 
-func newDynamicListCmd() *cobra.Command {
+func newDynamicListCmd(cfg *Config) *cobra.Command {
 	var backend string
 
 	cmd := &cobra.Command{
@@ -1547,7 +1583,12 @@ Examples:
   kscorectl secrets dynamic list --backend vault
   kscorectl secrets dynamic list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDynamicList(cmd, backend)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runDynamicList(cmd, cfg, client, backend)
 		},
 	}
 
@@ -1556,51 +1597,51 @@ Examples:
 	return cmd
 }
 
-func runDynamicList(cmd *cobra.Command, backend string) error {
-	items := generateSampleDynamicSecrets()
+func runDynamicList(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, backend string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	if backend != "" {
-		var filtered []*dynamicSecretDisplay
-		for _, item := range items {
-			if item.Backend == backend {
-				filtered = append(filtered, item)
-			}
-		}
-		items = filtered
+	result, err := client.ListLeases(ctx, "", backend, 100, "")
+	if err != nil {
+		return fmt.Errorf("failed to list dynamic secrets: %w", err)
 	}
 
-	if len(items) == 0 {
+	if len(result.Leases) == 0 {
 		fmt.Println("No active dynamic secrets found")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(items)
+		return outputJSON(result.Leases)
 	case "yaml":
-		return outputYAML(items)
+		return outputYAML(result.Leases)
 	default:
 		table := &output.Table{
-			Headers: []string{"LEASE ID", "PATH", "TYPE", "BACKEND", "TTL", "EXPIRES"},
+			Headers: []string{"LEASE ID", "SECRET PATH", "BACKEND", "STATE", "TTL", "EXPIRES"},
 		}
-		for _, item := range items {
+		for _, l := range result.Leases {
+			expiresAt := ""
+			if !l.ExpiresAt.IsZero() {
+				expiresAt = l.ExpiresAt.Format("15:04")
+			}
 			table.Rows = append(table.Rows, []string{
-				truncate(item.LeaseID, 16),
-				truncate(item.Path, 30),
-				item.Type,
-				item.Backend,
-				item.TTL,
-				item.ExpiresAt,
+				truncate(l.ID, 16),
+				truncate(l.SecretPath, 30),
+				l.Backend,
+				l.State,
+				l.TTL.String(),
+				expiresAt,
 			})
 		}
 		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d dynamic secret(s)\n", len(items))
+		fmt.Printf("\nTotal: %d dynamic secret(s)\n", len(result.Leases))
 	}
 
 	return nil
 }
 
-func newDynamicGetCmd() *cobra.Command {
+func newDynamicGetCmd(cfg *Config) *cobra.Command {
 	var ttl string
 
 	cmd := &cobra.Command{
@@ -1614,7 +1655,12 @@ Examples:
   kscorectl secrets dynamic get vault/aws/creds/deploy -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDynamicGet(cmd, args[0], ttl)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runDynamicGet(cmd, cfg, client, args[0], ttl)
 		},
 	}
 
@@ -1623,34 +1669,34 @@ Examples:
 	return cmd
 }
 
-func runDynamicGet(cmd *cobra.Command, path, ttl string) error {
-	leaseID := fmt.Sprintf("lease-%s", randomID(8))
-	result := &dynamicSecretResult{
-		LeaseID:   leaseID,
-		Path:      path,
-		TTL:       ttl,
-		Renewable: true,
-		Keys:      []string{"username", "password"},
-		IssuedAt:  time.Now().Format(time.RFC3339),
-		ExpiresAt: time.Now().Add(1 * time.Hour).Format(time.RFC3339),
+func runDynamicGet(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, path, _ string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	s, err := client.GetSecret(ctx, path, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic secret: %w", err)
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(result)
+		return outputJSON(s)
 	case "yaml":
-		return outputYAML(result)
+		return outputYAML(s)
 	default:
 		fmt.Printf("Generated dynamic secret:\n")
-		fmt.Printf("  Lease ID:   %s\n", result.LeaseID)
-		fmt.Printf("  Path:       %s\n", result.Path)
-		fmt.Printf("  TTL:        %s\n", result.TTL)
-		fmt.Printf("  Renewable:  %v\n", result.Renewable)
-		fmt.Printf("  Issued:     %s\n", result.IssuedAt)
-		fmt.Printf("  Expires:    %s\n", result.ExpiresAt)
+		fmt.Printf("  Lease ID:   %s\n", s.LeaseID)
+		fmt.Printf("  Path:       %s\n", s.Path)
+		fmt.Printf("  Renewable:  %v\n", s.Renewable)
+		if !s.CreatedAt.IsZero() {
+			fmt.Printf("  Issued:     %s\n", s.CreatedAt.Format(time.RFC3339))
+		}
+		if !s.ExpiresAt.IsZero() {
+			fmt.Printf("  Expires:    %s\n", s.ExpiresAt.Format(time.RFC3339))
+		}
 		fmt.Println()
 		fmt.Println("Values:")
-		for _, k := range result.Keys {
+		for k := range s.Data {
 			fmt.Printf("  %s: ****\n", k)
 		}
 	}
@@ -1658,7 +1704,7 @@ func runDynamicGet(cmd *cobra.Command, path, ttl string) error {
 	return nil
 }
 
-func newDynamicRevokeCmd() *cobra.Command {
+func newDynamicRevokeCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "revoke <lease-id>",
 		Short: "Revoke a dynamic secret",
@@ -1668,54 +1714,29 @@ Examples:
   kscorectl secrets dynamic revoke lease-abc12345`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := client.RevokeLease(ctx, args[0]); err != nil {
+				return fmt.Errorf("failed to revoke dynamic secret: %w", err)
+			}
 			fmt.Printf("Revoked dynamic secret (lease: %s)\n", args[0])
 			return nil
 		},
 	}
 }
 
-func generateSampleDynamicSecrets() []*dynamicSecretDisplay {
-	return []*dynamicSecretDisplay{
-		{
-			LeaseID:   "lease-db001",
-			Path:      "vault/database/creds/myapp",
-			Type:      "database",
-			Backend:   "vault",
-			TTL:       "1h",
-			ExpiresAt: time.Now().Add(45 * time.Minute).Format("15:04"),
-		},
-		{
-			LeaseID:   "lease-aws002",
-			Path:      "vault/aws/creds/deploy",
-			Type:      "cloud_iam",
-			Backend:   "vault",
-			TTL:       "12h",
-			ExpiresAt: time.Now().Add(10 * time.Hour).Format("15:04"),
-		},
-		{
-			LeaseID:   "lease-db003",
-			Path:      "vault/database/creds/analytics",
-			Type:      "database",
-			Backend:   "vault",
-			TTL:       "30m",
-			ExpiresAt: time.Now().Add(12 * time.Minute).Format("15:04"),
-		},
-		{
-			LeaseID:   "lease-gcp004",
-			Path:      "vault/gcp/token/compute",
-			Type:      "cloud_iam",
-			Backend:   "vault",
-			TTL:       "1h",
-			ExpiresAt: time.Now().Add(55 * time.Minute).Format("15:04"),
-		},
-	}
-}
-
 // =============================================================================
-// Leases Commands
+// Leases Commands (wired to gRPC)
 // =============================================================================
 
-func newLeasesCmd() *cobra.Command {
+func newLeasesCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "leases",
 		Aliases: []string{"lease"},
@@ -1724,15 +1745,15 @@ func newLeasesCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newLeasesListCmd(),
-		newLeasesRevokeCmd(),
-		newLeasesRenewCmd(),
+		newLeasesListCmd(cfg),
+		newLeasesRevokeCmd(cfg),
+		newLeasesRenewCmd(cfg),
 	)
 
 	return cmd
 }
 
-func newLeasesListCmd() *cobra.Command {
+func newLeasesListCmd(cfg *Config) *cobra.Command {
 	var backend string
 	var state string
 
@@ -1748,7 +1769,12 @@ Examples:
   kscorectl secrets leases list --state active
   kscorectl secrets leases list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLeasesList(cmd, backend, state)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runLeasesList(cmd, cfg, client, backend, state)
 		},
 	}
 
@@ -1758,62 +1784,63 @@ Examples:
 	return cmd
 }
 
-func runLeasesList(cmd *cobra.Command, backend, state string) error {
-	items := generateSampleLeases()
+func runLeasesList(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, backend, state string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	if backend != "" {
-		var filtered []*leaseDisplay
-		for _, item := range items {
-			if item.Backend == backend {
-				filtered = append(filtered, item)
-			}
-		}
-		items = filtered
+	result, err := client.ListLeases(ctx, "", backend, 100, "")
+	if err != nil {
+		return fmt.Errorf("failed to list leases: %w", err)
 	}
 
+	leases := result.Leases
 	if state != "" {
-		var filtered []*leaseDisplay
-		for _, item := range items {
-			if item.State == state {
-				filtered = append(filtered, item)
+		var filtered []*pkgsecrets.Lease
+		for _, l := range leases {
+			if l.State == state {
+				filtered = append(filtered, l)
 			}
 		}
-		items = filtered
+		leases = filtered
 	}
 
-	if len(items) == 0 {
+	if len(leases) == 0 {
 		fmt.Println("No leases found")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(items)
+		return outputJSON(leases)
 	case "yaml":
-		return outputYAML(items)
+		return outputYAML(leases)
 	default:
 		table := &output.Table{
 			Headers: []string{"LEASE ID", "SECRET PATH", "BACKEND", "STATE", "TTL", "RENEWALS", "EXPIRES"},
 		}
-		for _, item := range items {
+		for _, l := range leases {
+			expiresAt := ""
+			if !l.ExpiresAt.IsZero() {
+				expiresAt = l.ExpiresAt.Format("15:04")
+			}
 			table.Rows = append(table.Rows, []string{
-				truncate(item.LeaseID, 16),
-				truncate(item.SecretPath, 25),
-				item.Backend,
-				item.State,
-				item.TTL,
-				fmt.Sprintf("%d", item.RenewalCount),
-				item.ExpiresAt,
+				truncate(l.ID, 16),
+				truncate(l.SecretPath, 25),
+				l.Backend,
+				l.State,
+				l.TTL.String(),
+				fmt.Sprintf("%d", l.RenewalCount),
+				expiresAt,
 			})
 		}
 		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d lease(s)\n", len(items))
+		fmt.Printf("\nTotal: %d lease(s)\n", len(leases))
 	}
 
 	return nil
 }
 
-func newLeasesRevokeCmd() *cobra.Command {
+func newLeasesRevokeCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "revoke <lease-id>",
 		Short: "Revoke a lease",
@@ -1823,13 +1850,25 @@ Examples:
   kscorectl secrets leases revoke lease-abc12345`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := client.RevokeLease(ctx, args[0]); err != nil {
+				return fmt.Errorf("failed to revoke lease: %w", err)
+			}
 			fmt.Printf("Revoked lease %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newLeasesRenewCmd() *cobra.Command {
+func newLeasesRenewCmd(cfg *Config) *cobra.Command {
 	var increment string
 
 	cmd := &cobra.Command{
@@ -1842,7 +1881,25 @@ Examples:
   kscorectl secrets leases renew lease-abc12345 --increment 2h`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Renewed lease %s (increment: %s)\n", args[0], increment)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			dur, err := time.ParseDuration(increment)
+			if err != nil {
+				return fmt.Errorf("invalid increment duration: %w", err)
+			}
+
+			lease, err := client.RenewLease(ctx, args[0], dur)
+			if err != nil {
+				return fmt.Errorf("failed to renew lease: %w", err)
+			}
+			fmt.Printf("Renewed lease %s (new TTL: %s)\n", args[0], lease.TTL)
 			return nil
 		},
 	}
@@ -1852,52 +1909,11 @@ Examples:
 	return cmd
 }
 
-func generateSampleLeases() []*leaseDisplay {
-	return []*leaseDisplay{
-		{
-			LeaseID:      "lease-db001",
-			SecretPath:   "vault/database/creds/myapp",
-			Backend:      "vault",
-			State:        "active",
-			TTL:          "1h",
-			RenewalCount: 3,
-			ExpiresAt:    time.Now().Add(45 * time.Minute).Format("15:04"),
-		},
-		{
-			LeaseID:      "lease-aws002",
-			SecretPath:   "vault/aws/creds/deploy",
-			Backend:      "vault",
-			State:        "active",
-			TTL:          "12h",
-			RenewalCount: 0,
-			ExpiresAt:    time.Now().Add(10 * time.Hour).Format("15:04"),
-		},
-		{
-			LeaseID:      "lease-db003",
-			SecretPath:   "vault/database/creds/analytics",
-			Backend:      "vault",
-			State:        "expiring",
-			TTL:          "30m",
-			RenewalCount: 7,
-			ExpiresAt:    time.Now().Add(5 * time.Minute).Format("15:04"),
-		},
-		{
-			LeaseID:      "lease-gcp004",
-			SecretPath:   "vault/gcp/token/compute",
-			Backend:      "vault",
-			State:        "active",
-			TTL:          "1h",
-			RenewalCount: 1,
-			ExpiresAt:    time.Now().Add(55 * time.Minute).Format("15:04"),
-		},
-	}
-}
-
 // =============================================================================
-// Encrypt Command
+// Encrypt Command (wired to gRPC)
 // =============================================================================
 
-func newEncryptCmd() *cobra.Command {
+func newEncryptCmd(cfg *Config) *cobra.Command {
 	var key string
 	var transitContext string
 
@@ -1912,7 +1928,12 @@ Examples:
   kscorectl secrets encrypt "data" --key transit/mykey -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runEncrypt(cmd, args[0], key, transitContext)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runEncrypt(cmd, cfg, client, args[0], key, transitContext)
 		},
 	}
 
@@ -1923,26 +1944,28 @@ Examples:
 	return cmd
 }
 
-func runEncrypt(cmd *cobra.Command, plaintext, key, transitContext string) error {
-	encoded := base64.StdEncoding.EncodeToString([]byte(plaintext))
-	ciphertext := fmt.Sprintf("vault:v1:%s", encoded)
+func runEncrypt(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, plaintext, key, transitContext string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	result := &transitResult{
-		KeyName:    key,
-		Operation:  "encrypt",
-		Ciphertext: ciphertext,
-		KeyVersion: 1,
-		Context:    transitContext,
+	var aadContext []byte
+	if transitContext != "" {
+		aadContext = []byte(transitContext)
 	}
 
-	switch outputFormat {
+	result, err := client.Encrypt(ctx, key, []byte(plaintext), aadContext, 0)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt: %w", err)
+	}
+
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(result)
 	case "yaml":
 		return outputYAML(result)
 	default:
 		fmt.Printf("Ciphertext: %s\n", result.Ciphertext)
-		fmt.Printf("Key:        %s (v%d)\n", result.KeyName, result.KeyVersion)
+		fmt.Printf("Key:        %s (v%d)\n", key, result.KeyVersion)
 		if transitContext != "" {
 			fmt.Printf("Context:    %s\n", transitContext)
 		}
@@ -1952,10 +1975,10 @@ func runEncrypt(cmd *cobra.Command, plaintext, key, transitContext string) error
 }
 
 // =============================================================================
-// Decrypt Command
+// Decrypt Command (wired to gRPC)
 // =============================================================================
 
-func newDecryptCmd() *cobra.Command {
+func newDecryptCmd(cfg *Config) *cobra.Command {
 	var key string
 	var transitContext string
 
@@ -1970,7 +1993,12 @@ Examples:
   kscorectl secrets decrypt "vault:v1:..." --key transit/mykey -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDecrypt(cmd, args[0], key, transitContext)
+			client, err := createSecretsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to connect: %w", err)
+			}
+			defer client.Close()
+			return runDecrypt(cmd, cfg, client, args[0], key, transitContext)
 		},
 	}
 
@@ -1981,24 +2009,28 @@ Examples:
 	return cmd
 }
 
-func runDecrypt(cmd *cobra.Command, ciphertext, key, transitContext string) error {
-	result := &transitResult{
-		KeyName:    key,
-		Operation:  "decrypt",
-		Ciphertext: ciphertext,
-		Plaintext:  "****",
-		KeyVersion: 1,
-		Context:    transitContext,
+func runDecrypt(cmd *cobra.Command, cfg *Config, client *pkgsecrets.Client, ciphertext, key, transitContext string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var aadContext []byte
+	if transitContext != "" {
+		aadContext = []byte(transitContext)
 	}
 
-	switch outputFormat {
+	result, err := client.Decrypt(ctx, key, ciphertext, aadContext)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(result)
 	case "yaml":
 		return outputYAML(result)
 	default:
-		fmt.Printf("Plaintext:  %s\n", result.Plaintext)
-		fmt.Printf("Key:        %s (v%d)\n", result.KeyName, result.KeyVersion)
+		fmt.Printf("Plaintext:  %s\n", string(result.Plaintext))
+		fmt.Printf("Key:        %s (v%d)\n", key, result.KeyVersion)
 		if transitContext != "" {
 			fmt.Printf("Context:    %s\n", transitContext)
 		}
@@ -2008,10 +2040,10 @@ func runDecrypt(cmd *cobra.Command, ciphertext, key, transitContext string) erro
 }
 
 // =============================================================================
-// Rewrap Command
+// Rewrap Command (stub — no gRPC RPC)
 // =============================================================================
 
-func newRewrapCmd() *cobra.Command {
+func newRewrapCmd(cfg *Config) *cobra.Command {
 	var key string
 
 	cmd := &cobra.Command{
@@ -2027,7 +2059,7 @@ Examples:
   kscorectl secrets rewrap "vault:v1:..." --key transit/mykey -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRewrap(cmd, args[0], key)
+			return runRewrap(cmd, cfg, args[0], key)
 		},
 	}
 
@@ -2037,7 +2069,7 @@ Examples:
 	return cmd
 }
 
-func runRewrap(cmd *cobra.Command, ciphertext, key string) error {
+func runRewrap(cmd *cobra.Command, cfg *Config, ciphertext, key string) error {
 	parts := strings.SplitN(ciphertext, ":", 3)
 	var payload string
 	if len(parts) == 3 {
@@ -2055,7 +2087,7 @@ func runRewrap(cmd *cobra.Command, ciphertext, key string) error {
 		KeyVersion:    2,
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(result)
 	case "yaml":
@@ -2069,10 +2101,10 @@ func runRewrap(cmd *cobra.Command, ciphertext, key string) error {
 }
 
 // =============================================================================
-// Template Command
+// Template Command (stub — no gRPC RPC)
 // =============================================================================
 
-func newTemplateCmd() *cobra.Command {
+func newTemplateCmd(cfg *Config) *cobra.Command {
 	var outFile string
 	var dryRun bool
 
@@ -2090,7 +2122,7 @@ Examples:
   kscorectl secrets template config.tmpl --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTemplate(cmd, args[0], outFile, dryRun)
+			return runTemplate(cmd, cfg, args[0], outFile, dryRun)
 		},
 	}
 
@@ -2100,7 +2132,7 @@ Examples:
 	return cmd
 }
 
-func runTemplate(cmd *cobra.Command, templateFile, outputPath string, dryRun bool) error {
+func runTemplate(cmd *cobra.Command, cfg *Config, templateFile, outputPath string, dryRun bool) error {
 	refs := []templateSecretRef{
 		{Path: "vault/secret/database/prod", Field: "password", Line: 5},
 		{Path: "vault/secret/database/prod", Field: "username", Line: 6},
@@ -2116,7 +2148,7 @@ func runTemplate(cmd *cobra.Command, templateFile, outputPath string, dryRun boo
 	}
 
 	if dryRun {
-		switch outputFormat {
+		switch cfg.OutputFormat {
 		case "json":
 			return outputJSON(result)
 		case "yaml":
@@ -2132,7 +2164,7 @@ func runTemplate(cmd *cobra.Command, templateFile, outputPath string, dryRun boo
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(result)
 	case "yaml":
@@ -2150,10 +2182,10 @@ func runTemplate(cmd *cobra.Command, templateFile, outputPath string, dryRun boo
 }
 
 // =============================================================================
-// Cache Commands
+// Cache Commands (stub — no gRPC RPCs)
 // =============================================================================
 
-func newCacheCmd() *cobra.Command {
+func newCacheCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cache",
 		Short: "Manage the secret cache",
@@ -2161,15 +2193,15 @@ func newCacheCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newCacheStatusCmd(),
+		newCacheStatusCmd(cfg),
 		newCacheClearCmd(),
-		newCacheListCmd(),
+		newCacheListCmd(cfg),
 	)
 
 	return cmd
 }
 
-func newCacheStatusCmd() *cobra.Command {
+func newCacheStatusCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show cache statistics",
@@ -2179,12 +2211,12 @@ Examples:
   kscorectl secrets cache status
   kscorectl secrets cache status -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCacheStatus(cmd)
+			return runCacheStatus(cmd, cfg)
 		},
 	}
 }
 
-func runCacheStatus(cmd *cobra.Command) error {
+func runCacheStatus(cmd *cobra.Command, cfg *Config) error {
 	stats := &cacheStatusDisplay{
 		Entries:      47,
 		MaxEntries:   10000,
@@ -2198,7 +2230,7 @@ func runCacheStatus(cmd *cobra.Command) error {
 		Encrypted:    true,
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(stats)
 	case "yaml":
@@ -2234,7 +2266,7 @@ Examples:
 	}
 }
 
-func newCacheListCmd() *cobra.Command {
+func newCacheListCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -2245,12 +2277,12 @@ Examples:
   kscorectl secrets cache list
   kscorectl secrets cache list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCacheList(cmd)
+			return runCacheList(cmd, cfg)
 		},
 	}
 }
 
-func runCacheList(cmd *cobra.Command) error {
+func runCacheList(cmd *cobra.Command, cfg *Config) error {
 	items := generateSampleCacheEntries()
 
 	if len(items) == 0 {
@@ -2258,7 +2290,7 @@ func runCacheList(cmd *cobra.Command) error {
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
 		return outputJSON(items)
 	case "yaml":
@@ -2322,29 +2354,62 @@ func formatBytes(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
+// ============================================================================
+// Rotate Keys Command (stub — no gRPC RPC)
+// ============================================================================
+
+func newRotateKeysCmd(_ *Config) *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "rotate-keys",
+		Short: "Rotate encryption keys for all secrets backends",
+		Long: `Rotate the encryption keys used to protect secrets at rest.
+
+This is a security incident response action that:
+  - Generates new encryption keys for each secrets backend
+  - Re-encrypts all stored secrets with the new keys
+  - Archives old keys for decryption of existing backups
+  - Updates transit keys if transit encryption is enabled
+
+Examples:
+  # Rotate all encryption keys
+  kscorectl secrets rotate-keys
+
+  # Force rotation without confirmation
+  kscorectl secrets rotate-keys --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !force {
+				fmt.Fprint(cmd.OutOrStdout(), "Rotate ALL secrets encryption keys? This will re-encrypt all secrets. [y/N]: ")
+				var response string
+				fmt.Scanln(&response)
+				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
+					return nil
+				}
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "Rotating encryption keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Generating new master key...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting Vault backend secrets...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting KMS backend secrets...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Rotating transit encryption keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Archiving old keys...")
+			fmt.Fprintln(cmd.OutOrStdout(), "Encryption keys rotated")
+			fmt.Fprintln(cmd.OutOrStdout(), "  All secrets re-encrypted with new keys.")
+			fmt.Fprintln(cmd.OutOrStdout(), "  Old keys archived for backup decryption.")
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+
+	return cmd
+}
+
 // =============================================================================
 // Display Types
 // =============================================================================
-
-type secretDisplay struct {
-	Path      string            `json:"path" yaml:"path"`
-	Version   int               `json:"version" yaml:"version"`
-	Keys      []string          `json:"keys" yaml:"keys"`
-	CreatedAt string            `json:"created_at" yaml:"created_at"`
-	ExpiresAt string            `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
-	CreatedBy string            `json:"created_by" yaml:"created_by"`
-	Backend   string            `json:"backend" yaml:"backend"`
-	Metadata  map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-}
-
-type secretListItem struct {
-	Path         string `json:"path" yaml:"path"`
-	Versions     int    `json:"versions" yaml:"versions"`
-	Backend      string `json:"backend" yaml:"backend"`
-	LastModified string `json:"last_modified" yaml:"last_modified"`
-	CreatedBy    string `json:"created_by" yaml:"created_by"`
-	ExpiresAt    string `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
-}
 
 type backendDisplay struct {
 	Name        string `json:"name" yaml:"name"`
@@ -2459,35 +2524,6 @@ type policyDetail struct {
 	Enabled        bool                     `json:"enabled" yaml:"enabled"`
 	CreatedBy      string                   `json:"created_by" yaml:"created_by"`
 	CreatedAt      string                   `json:"created_at" yaml:"created_at"`
-}
-
-type dynamicSecretDisplay struct {
-	LeaseID   string `json:"lease_id" yaml:"lease_id"`
-	Path      string `json:"path" yaml:"path"`
-	Type      string `json:"type" yaml:"type"`
-	Backend   string `json:"backend" yaml:"backend"`
-	TTL       string `json:"ttl" yaml:"ttl"`
-	ExpiresAt string `json:"expires_at" yaml:"expires_at"`
-}
-
-type dynamicSecretResult struct {
-	LeaseID   string   `json:"lease_id" yaml:"lease_id"`
-	Path      string   `json:"path" yaml:"path"`
-	TTL       string   `json:"ttl" yaml:"ttl"`
-	Renewable bool     `json:"renewable" yaml:"renewable"`
-	Keys      []string `json:"keys" yaml:"keys"`
-	IssuedAt  string   `json:"issued_at" yaml:"issued_at"`
-	ExpiresAt string   `json:"expires_at" yaml:"expires_at"`
-}
-
-type leaseDisplay struct {
-	LeaseID      string `json:"lease_id" yaml:"lease_id"`
-	SecretPath   string `json:"secret_path" yaml:"secret_path"`
-	Backend      string `json:"backend" yaml:"backend"`
-	State        string `json:"state" yaml:"state"`
-	TTL          string `json:"ttl" yaml:"ttl"`
-	RenewalCount int    `json:"renewal_count" yaml:"renewal_count"`
-	ExpiresAt    string `json:"expires_at" yaml:"expires_at"`
 }
 
 type transitResult struct {
@@ -2701,60 +2737,15 @@ func randomID(length int) string {
 }
 
 func normalizeStrategy(s string) secrets.RotationStrategy {
-	// Accept both hyphenated (user-friendly) and underscored (internal) formats
 	normalized := strings.ReplaceAll(s, "-", "_")
 	return secrets.RotationStrategy(normalized)
 }
 
-// ============================================================================
-// Rotate Keys Command
-// ============================================================================
-
-func newRotateKeysCmd() *cobra.Command {
-	var force bool
-
-	cmd := &cobra.Command{
-		Use:   "rotate-keys",
-		Short: "Rotate encryption keys for all secrets backends",
-		Long: `Rotate the encryption keys used to protect secrets at rest.
-
-This is a security incident response action that:
-  - Generates new encryption keys for each secrets backend
-  - Re-encrypts all stored secrets with the new keys
-  - Archives old keys for decryption of existing backups
-  - Updates transit keys if transit encryption is enabled
-
-Examples:
-  # Rotate all encryption keys
-  kscorectl secrets rotate-keys
-
-  # Force rotation without confirmation
-  kscorectl secrets rotate-keys --force`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !force {
-				fmt.Fprint(cmd.OutOrStdout(), "Rotate ALL secrets encryption keys? This will re-encrypt all secrets. [y/N]: ")
-				var response string
-				fmt.Scanln(&response)
-				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
-					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
-					return nil
-				}
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), "Rotating encryption keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Generating new master key...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting Vault backend secrets...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting KMS backend secrets...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Rotating transit encryption keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Archiving old keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "Encryption keys rotated")
-			fmt.Fprintln(cmd.OutOrStdout(), "  All secrets re-encrypted with new keys.")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Old keys archived for backup decryption.")
-			return nil
-		},
+// dataKeys returns sorted keys from a map for stable output.
+func dataKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
 	}
-
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
-
-	return cmd
+	return keys
 }

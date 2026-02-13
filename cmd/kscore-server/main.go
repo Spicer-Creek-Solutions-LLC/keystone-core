@@ -42,6 +42,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/api/execution"
 	"github.com/shawnbutts/keystone-core/pkg/api/maintenance"
 	apirbac "github.com/shawnbutts/keystone-core/pkg/api/rbac"
+	apisecrets "github.com/shawnbutts/keystone-core/pkg/api/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	apistate "github.com/shawnbutts/keystone-core/pkg/api/state"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
@@ -325,6 +326,9 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
+	secretsServer := server.NewSecretsServer(nil, nil, nil)
+	pb.RegisterSecretsServiceServer(grpcServer, secretsServer)
+
 	// Start gRPC server with IPv6 support
 	grpcListenAddrs := cfg.Server.GetEffectiveListenAddrs()
 	grpcListenerCfg := &server.ListenerConfig{
@@ -380,6 +384,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiapikeys.NewHandler(apiapikeys.NewMemoryStore()).RegisterRoutes(httpMux)
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
 	apirbac.NewHandler().RegisterRoutes(httpMux)
+	apisecrets.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
 	logger.Info("REST API handlers registered")
 
 	// Register metrics endpoint if enabled
