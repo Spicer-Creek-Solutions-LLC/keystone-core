@@ -2445,6 +2445,180 @@ def verify_webhook(payload, signature, secret):
     return hmac.compare_digest(f"sha256={expected}", signature)
 ```
 
+## Outbound Webhook Subscriptions
+
+Manage outbound webhook subscriptions that deliver Keystone Core events to external HTTP endpoints. Requires `webhook.outbound.enabled: true` in configuration.
+
+### List Subscriptions
+
+```
+GET /api/v1/webhooks/subscriptions
+```
+
+**Response** `200 OK`:
+
+```json
+[
+  {
+    "id": "sub_1234567890",
+    "name": "slack-notifications",
+    "url": "https://hooks.slack.com/services/...",
+    "secret": "***",
+    "events": ["agent.*", "state.drift.*"],
+    "enabled": true,
+    "headers": {},
+    "max_retries": 3,
+    "timeout_secs": 10,
+    "created_at": "2026-02-13T10:00:00Z",
+    "updated_at": "2026-02-13T10:00:00Z"
+  }
+]
+```
+
+Secrets are always masked in responses (`***` when set, empty when not).
+
+### Create Subscription
+
+```
+POST /api/v1/webhooks/subscriptions
+```
+
+**Request Body**:
+
+```json
+{
+  "name": "slack-notifications",
+  "url": "https://hooks.slack.com/services/...",
+  "secret": "my-webhook-secret",
+  "events": ["agent.*", "state.drift.*"],
+  "headers": {"X-Custom": "value"},
+  "max_retries": 5,
+  "timeout_secs": 15
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | Yes | — | Subscription name |
+| `url` | Yes | — | Destination URL (must be valid) |
+| `events` | Yes | — | Event glob patterns (e.g., `agent.*`, `*`) |
+| `secret` | No | — | HMAC-SHA256 signing secret |
+| `headers` | No | `{}` | Custom headers sent with each delivery |
+| `max_retries` | No | `3` | Max retry attempts on failure |
+| `timeout_secs` | No | `10` | HTTP request timeout in seconds |
+
+**Response** `201 Created`: Returns the created subscription with masked secret.
+
+### Get Subscription
+
+```
+GET /api/v1/webhooks/subscriptions/{id}
+```
+
+**Response** `200 OK`: Returns the subscription with masked secret.
+
+**Response** `404 Not Found`: Subscription does not exist.
+
+### Update Subscription
+
+```
+PATCH /api/v1/webhooks/subscriptions/{id}
+```
+
+Partial update — only provided fields are changed.
+
+**Request Body**:
+
+```json
+{
+  "name": "updated-name",
+  "enabled": false
+}
+```
+
+All fields from create are supported. Fields not included in the request body are left unchanged.
+
+**Response** `200 OK`: Returns the updated subscription.
+
+**Response** `404 Not Found`: Subscription does not exist.
+
+### Delete Subscription
+
+```
+DELETE /api/v1/webhooks/subscriptions/{id}
+```
+
+Deletes the subscription and its delivery history.
+
+**Response** `204 No Content`: Subscription deleted.
+
+**Response** `404 Not Found`: Subscription does not exist.
+
+### Test Subscription
+
+```
+POST /api/v1/webhooks/subscriptions/{id}/test
+```
+
+Sends a test event to the subscription's URL synchronously and returns the result.
+
+**Response** `200 OK`:
+
+```json
+{
+  "delivery_id": "del_1234567890",
+  "status_code": 200,
+  "success": true
+}
+```
+
+If delivery fails, the response includes an `error` field.
+
+### List Deliveries
+
+```
+GET /api/v1/webhooks/subscriptions/{id}/deliveries?limit=50
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `limit` | `50` | Maximum number of delivery records to return |
+
+**Response** `200 OK`:
+
+```json
+[
+  {
+    "id": "del_1234567890",
+    "subscription_id": "sub_1234567890",
+    "event_type": "agent.connect",
+    "event_id": "evt_1234567890",
+    "status": "success",
+    "status_code": 200,
+    "attempt": 1,
+    "error": "",
+    "delivered_at": "2026-02-13T10:05:00Z"
+  }
+]
+```
+
+Delivery status values: `pending`, `success`, `failed`, `retrying`.
+
+### Outbound Webhook Payload Format
+
+Each delivery sends a JSON POST with these headers:
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `X-Webhook-ID` | Unique delivery ID |
+| `X-Webhook-Timestamp` | ISO 8601 delivery timestamp |
+| `X-Signature-256` | HMAC-SHA256 signature (`sha256=<hex>`) — only when secret is configured |
+
+Custom headers from the subscription are also included.
+
+The signature is computed as `sha256=HMAC-SHA256(secret, payload)` using the raw JSON body, compatible with GitHub's webhook signature format.
+
 ## Client Libraries
 
 Official client libraries:

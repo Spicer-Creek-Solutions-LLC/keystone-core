@@ -638,6 +638,67 @@ func TestConfig_Validate_WebhookConfig(t *testing.T) {
 	}
 }
 
+func TestConfig_Validate_OutboundWebhookConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server:  ServerConfig{GRPCPort: 9090, HTTPPort: 8080},
+			NATS:    NATSConfig{Mode: NATSModeEmbedded},
+			Storage: StorageConfig{Backend: StorageBackendSQLite},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "negative max retries",
+			config: func(cfg *Config) {
+				cfg.Webhook.Outbound.Enabled = true
+				cfg.Webhook.Outbound.MaxRetries = -1
+				cfg.Webhook.Outbound.Timeout = time.Second
+				cfg.Webhook.Outbound.MaxPayloadSize = 1024
+			},
+			errContains: "max_retries must be >= 0",
+		},
+		{
+			name: "zero timeout",
+			config: func(cfg *Config) {
+				cfg.Webhook.Outbound.Enabled = true
+				cfg.Webhook.Outbound.MaxRetries = 3
+				cfg.Webhook.Outbound.Timeout = 0
+				cfg.Webhook.Outbound.MaxPayloadSize = 1024
+			},
+			errContains: "timeout must be > 0",
+		},
+		{
+			name: "zero max payload size",
+			config: func(cfg *Config) {
+				cfg.Webhook.Outbound.Enabled = true
+				cfg.Webhook.Outbound.MaxRetries = 3
+				cfg.Webhook.Outbound.Timeout = time.Second
+				cfg.Webhook.Outbound.MaxPayloadSize = 0
+			},
+			errContains: "max_payload_size must be > 0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
 func TestConfig_Validate_PolicyConfig(t *testing.T) {
 	baseConfig := func() *Config {
 		return &Config{

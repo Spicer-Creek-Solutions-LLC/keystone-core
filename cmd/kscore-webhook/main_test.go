@@ -27,7 +27,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "list", "show", "test", "history", "secrets"}
+	expectedCommands := []string{"version", "list", "show", "test", "history", "secrets", "outbound"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -434,6 +434,136 @@ func TestGenerateSamplePayloadInvalidType(t *testing.T) {
 	}
 	if len(payload) != 0 {
 		t.Errorf("expected empty map for invalid type, got %d keys", len(payload))
+	}
+}
+
+func TestOutboundCommandSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	outboundCmd := findSubcommand(cmd, "outbound")
+	if outboundCmd == nil {
+		t.Fatal("outbound subcommand not found")
+	}
+
+	expectedSubcmds := []string{"list", "create", "show", "delete", "history", "test"}
+	for _, expected := range expectedSubcmds {
+		found := false
+		for _, sub := range outboundCmd.Commands() {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected outbound subcommand %s not found", expected)
+		}
+	}
+}
+
+func TestOutboundCreateFlags(t *testing.T) {
+	cmd := newRootCmd()
+	outboundCmd := findSubcommand(cmd, "outbound")
+	if outboundCmd == nil {
+		t.Fatal("outbound subcommand not found")
+	}
+
+	createCmd := findSubcommand(outboundCmd, "create")
+	if createCmd == nil {
+		t.Fatal("outbound create subcommand not found")
+	}
+
+	expectedFlags := []struct {
+		name     string
+		defValue string
+	}{
+		{"name", ""},
+		{"url", ""},
+		{"secret", ""},
+		{"max-retries", "3"},
+		{"timeout", "10"},
+	}
+
+	for _, ef := range expectedFlags {
+		f := createCmd.Flags().Lookup(ef.name)
+		if f == nil {
+			t.Errorf("expected --%s flag on outbound create", ef.name)
+			continue
+		}
+		if f.DefValue != ef.defValue {
+			t.Errorf("expected --%s default %q, got %q", ef.name, ef.defValue, f.DefValue)
+		}
+	}
+}
+
+func TestOutboundShowArgs(t *testing.T) {
+	cmd := newRootCmd()
+	outboundCmd := findSubcommand(cmd, "outbound")
+	if outboundCmd == nil {
+		t.Fatal("outbound subcommand not found")
+	}
+
+	showCmd := findSubcommand(outboundCmd, "show")
+	if showCmd == nil {
+		t.Fatal("outbound show subcommand not found")
+	}
+	if showCmd.Args == nil {
+		t.Error("expected outbound show command to have Args validation")
+	}
+}
+
+func TestOutboundDeleteArgs(t *testing.T) {
+	cmd := newRootCmd()
+	outboundCmd := findSubcommand(cmd, "outbound")
+	if outboundCmd == nil {
+		t.Fatal("outbound subcommand not found")
+	}
+
+	deleteCmd := findSubcommand(outboundCmd, "delete")
+	if deleteCmd == nil {
+		t.Fatal("outbound delete subcommand not found")
+	}
+	if deleteCmd.Args == nil {
+		t.Error("expected outbound delete command to have Args validation")
+	}
+}
+
+func TestOutboundHistoryFlags(t *testing.T) {
+	cmd := newRootCmd()
+	outboundCmd := findSubcommand(cmd, "outbound")
+	if outboundCmd == nil {
+		t.Fatal("outbound subcommand not found")
+	}
+
+	historyCmd := findSubcommand(outboundCmd, "history")
+	if historyCmd == nil {
+		t.Fatal("outbound history subcommand not found")
+	}
+
+	limitFlag := historyCmd.Flags().Lookup("limit")
+	if limitFlag == nil {
+		t.Fatal("expected --limit flag on outbound history command")
+	}
+	if limitFlag.DefValue != "50" {
+		t.Errorf("expected limit default '50', got %s", limitFlag.DefValue)
+	}
+}
+
+func TestOutboundHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"outbound", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("outbound --help failed: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "outbound") {
+		t.Errorf("expected help output to contain 'outbound', got: %s", out)
+	}
+	if !strings.Contains(out, "create") || !strings.Contains(out, "delete") {
+		t.Errorf("expected help output to list subcommands, got: %s", out)
 	}
 }
 

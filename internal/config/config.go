@@ -979,6 +979,24 @@ type WebhookConfig struct {
 	BearerToken string
 	// Enabled webhook handlers: argocd, flux, github, gitlab
 	Handlers []string
+	// Outbound webhook subscription settings
+	Outbound OutboundWebhookConfig
+}
+
+// OutboundWebhookConfig contains outbound webhook subscription settings.
+type OutboundWebhookConfig struct {
+	// Enable outbound webhook subscriptions
+	Enabled bool
+	// Default max retries per delivery
+	MaxRetries int
+	// Initial retry backoff duration (doubles each attempt)
+	RetryBackoff time.Duration
+	// HTTP timeout per delivery attempt
+	Timeout time.Duration
+	// Maximum payload size in bytes
+	MaxPayloadSize int
+	// How long to retain delivery history
+	DeliveryRetention time.Duration
 }
 
 // PolicyConfig contains policy engine settings
@@ -1308,6 +1326,14 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	_ = v.BindEnv("auth.authorization.enabled", "KSCORE_AUTHZ_ENABLED")
 	_ = v.BindEnv("auth.authorization.defaultdeny", "KSCORE_AUTHZ_DEFAULT_DENY")
 
+	// Outbound webhook environment variable bindings (Epic 50)
+	_ = v.BindEnv("webhook.outbound.enabled", "KSCORE_WEBHOOK_OUTBOUND_ENABLED")
+	_ = v.BindEnv("webhook.outbound.maxretries", "KSCORE_WEBHOOK_OUTBOUND_MAX_RETRIES")
+	_ = v.BindEnv("webhook.outbound.retrybackoff", "KSCORE_WEBHOOK_OUTBOUND_RETRY_BACKOFF")
+	_ = v.BindEnv("webhook.outbound.timeout", "KSCORE_WEBHOOK_OUTBOUND_TIMEOUT")
+	_ = v.BindEnv("webhook.outbound.maxpayloadsize", "KSCORE_WEBHOOK_OUTBOUND_MAX_PAYLOAD_SIZE")
+	_ = v.BindEnv("webhook.outbound.deliveryretention", "KSCORE_WEBHOOK_OUTBOUND_DELIVERY_RETENTION")
+
 	// Read config file (optional)
 	if err := v.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
@@ -1482,6 +1508,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("webhook.path", DefaultWebhookPath)
 	v.SetDefault("webhook.authtype", "none")
 	v.SetDefault("webhook.handlers", []string{"argocd", "flux", "github", "gitlab"})
+	v.SetDefault("webhook.outbound.enabled", false)
+	v.SetDefault("webhook.outbound.maxretries", 3)
+	v.SetDefault("webhook.outbound.retrybackoff", time.Second)
+	v.SetDefault("webhook.outbound.timeout", 10*time.Second)
+	v.SetDefault("webhook.outbound.maxpayloadsize", 1048576)
+	v.SetDefault("webhook.outbound.deliveryretention", 168*time.Hour)
 
 	// Policy defaults
 	v.SetDefault("policy.enabled", false)
@@ -1685,6 +1717,19 @@ func (c *Config) Validate() error {
 		}
 		if c.Webhook.AuthType == "bearer" && c.Webhook.BearerToken == "" {
 			return fmt.Errorf("bearer token required when auth type is bearer")
+		}
+	}
+
+	// Validate outbound webhook config
+	if c.Webhook.Outbound.Enabled {
+		if c.Webhook.Outbound.MaxRetries < 0 {
+			return fmt.Errorf("outbound webhook max_retries must be >= 0")
+		}
+		if c.Webhook.Outbound.Timeout <= 0 {
+			return fmt.Errorf("outbound webhook timeout must be > 0")
+		}
+		if c.Webhook.Outbound.MaxPayloadSize <= 0 {
+			return fmt.Errorf("outbound webhook max_payload_size must be > 0")
 		}
 	}
 

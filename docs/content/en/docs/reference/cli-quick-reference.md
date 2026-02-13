@@ -331,6 +331,17 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `gitops webhook status` | Webhook status | `gitops webhook status` |
 | `gitops webhook events` | Recent events | `gitops webhook events --since 1h` |
 
+### Outbound Webhook Subscriptions
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `webhook outbound list` | List outbound subscriptions | `webhook outbound list` |
+| `webhook outbound create` | Create subscription | `webhook outbound create --name alerts --url https://example.com/hook --events "agent.*"` |
+| `webhook outbound show <id>` | Show subscription details | `webhook outbound show sub_123` |
+| `webhook outbound delete <id>` | Delete subscription | `webhook outbound delete sub_123` |
+| `webhook outbound history <id>` | View delivery history | `webhook outbound history sub_123 --limit 20` |
+| `webhook outbound test <id>` | Send test event | `webhook outbound test sub_123` |
+
 ---
 
 ## Cluster Management (kscore-cluster)

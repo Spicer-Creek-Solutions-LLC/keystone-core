@@ -329,6 +329,36 @@ webhook:
   handlers: ["argocd", "flux", "github", "gitlab"]
 ```
 
+### Outbound Webhooks
+
+Outbound webhook subscriptions deliver internal events to external HTTP endpoints.
+
+```yaml
+webhook:
+  outbound:
+    enabled: false                     # Enable outbound webhook system
+    max_retries: 3                     # Default max retries per delivery
+    retry_backoff: 1s                  # Initial retry backoff duration
+    timeout: 10s                       # HTTP request timeout
+    max_payload_size: 1048576          # Max payload size in bytes (1MB)
+    delivery_retention: 168h           # Delivery history retention (7 days)
+```
+
+| Setting | Default | Env Override | Description |
+|---------|---------|-------------|-------------|
+| `webhook.outbound.enabled` | `false` | `KSCORE_WEBHOOK_OUTBOUND_ENABLED` | Enable outbound webhooks |
+| `webhook.outbound.max_retries` | `3` | `KSCORE_WEBHOOK_OUTBOUND_MAX_RETRIES` | Max delivery retry attempts |
+| `webhook.outbound.retry_backoff` | `1s` | `KSCORE_WEBHOOK_OUTBOUND_RETRY_BACKOFF` | Initial backoff between retries (exponential) |
+| `webhook.outbound.timeout` | `10s` | `KSCORE_WEBHOOK_OUTBOUND_TIMEOUT` | HTTP timeout for deliveries |
+| `webhook.outbound.max_payload_size` | `1048576` | `KSCORE_WEBHOOK_OUTBOUND_MAX_PAYLOAD_SIZE` | Maximum payload size in bytes |
+| `webhook.outbound.delivery_retention` | `168h` | `KSCORE_WEBHOOK_OUTBOUND_DELIVERY_RETENTION` | How long to keep delivery history |
+
+**Validation** (when `enabled: true`):
+
+- `max_retries` must be >= 0
+- `timeout` must be > 0
+- `max_payload_size` must be > 0
+
 ### Authorization
 
 RBAC authorization settings that control access to gRPC and REST API methods.

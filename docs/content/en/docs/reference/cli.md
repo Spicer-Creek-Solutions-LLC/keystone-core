@@ -4699,6 +4699,140 @@ kscorectl webhook secrets list
 kscorectl webhook secrets rotate github-webhook-secret
 ```
 
+### webhook outbound
+
+Manage outbound webhook subscriptions that deliver Keystone Core events to external HTTP endpoints.
+
+```bash
+kscorectl webhook outbound <command> [flags]
+```
+
+**Commands**:
+
+- `list`: List all outbound subscriptions
+- `create`: Create a new subscription
+- `show <id>`: Show subscription details
+- `delete <id>`: Delete a subscription
+- `history <id>`: View delivery history
+- `test <id>`: Send a test event
+
+#### webhook outbound list
+
+List all outbound webhook subscriptions.
+
+```bash
+kscorectl webhook outbound list [flags]
+```
+
+**Flags**:
+
+- `-o, --format string`: Output format: table, json (default: table)
+
+**Examples**:
+
+```bash
+# List subscriptions in table format
+kscorectl webhook outbound list
+
+# List as JSON
+kscorectl webhook outbound list --format json
+```
+
+#### webhook outbound create
+
+Create a new outbound webhook subscription.
+
+```bash
+kscorectl webhook outbound create [flags]
+```
+
+**Flags**:
+
+- `--name string`: Subscription name (required)
+- `--url string`: Destination URL (required)
+- `--events strings`: Event patterns to match (required, comma-separated)
+- `--secret string`: HMAC signing secret
+- `--max-retries int`: Max retry attempts (default: 3)
+- `--timeout int`: HTTP timeout in seconds (default: 10)
+
+**Examples**:
+
+```bash
+# Create a subscription for all agent events
+kscorectl webhook outbound create --name alerts --url https://hooks.slack.com/services/... --events "agent.*"
+
+# Create with signing secret and multiple event patterns
+kscorectl webhook outbound create --name monitoring \
+  --url https://example.com/webhook \
+  --events "agent.*,state.drift.*" \
+  --secret my-secret \
+  --max-retries 5
+```
+
+#### webhook outbound show
+
+Show details of an outbound webhook subscription.
+
+```bash
+kscorectl webhook outbound show <id>
+```
+
+**Examples**:
+
+```bash
+kscorectl webhook outbound show sub_1234567890
+```
+
+#### webhook outbound delete
+
+Delete an outbound webhook subscription and its delivery history.
+
+```bash
+kscorectl webhook outbound delete <id>
+```
+
+**Examples**:
+
+```bash
+kscorectl webhook outbound delete sub_1234567890
+```
+
+#### webhook outbound history
+
+View delivery history for a subscription.
+
+```bash
+kscorectl webhook outbound history <id> [flags]
+```
+
+**Flags**:
+
+- `--limit int`: Maximum entries to show (default: 50)
+
+**Examples**:
+
+```bash
+# View recent deliveries
+kscorectl webhook outbound history sub_1234567890
+
+# Limit to last 10 deliveries
+kscorectl webhook outbound history sub_1234567890 --limit 10
+```
+
+#### webhook outbound test
+
+Send a test event to a subscription's URL and display the result.
+
+```bash
+kscorectl webhook outbound test <id>
+```
+
+**Examples**:
+
+```bash
+kscorectl webhook outbound test sub_1234567890
+```
+
 ## kscore-cluster (Cluster Management)
 
 Manage high-availability cluster operations. Only available when running in HA cluster mode.

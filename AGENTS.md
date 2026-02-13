@@ -158,23 +158,33 @@ Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find detail
 | 48 | K8s operator | `internal/k8s/` | `epics/48*.md` |
 | 49 | REST handler wiring | `cmd/kscore-server/main.go` | `epics/49*.md` |
 
-### In Progress
+### Recently Completed
 
-- **Epic 43** (Secrets API) — Phase 1-4 complete (REST, gRPC, client, CLI). Phase 5 (real secret store wiring) not started.
+- **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands), configuration section, delivery history tracking
+
+- **Epic 47** (Registry Storage Backends) — COMPLETE — Pluggable S3/GCS/Azure/NATS backends via BackendAdapter, factory, migration tooling, CLI flags, docs
+- **Epic 48** (Kubernetes Operator) — COMPLETE — Dynamic CRD client, informers, controller wiring, StateConfig reconcile, drift detection, leader election, Helm RBAC
+- **Epic 49** (REST API Handler Wiring) — COMPLETE — All 15 REST handlers wired in kscore-server with real deps (events, policy, webhooks, gitops, runbook, mirror, discovery, cluster)
 
 ### Planned
 
-- **Epic 50** (Outbound Webhooks) - NOT STARTED - Persistent outbound webhook subscriptions, event dispatcher, HMAC signing, retry logic
-- **Epic 51** (HA Resilience Testing) - NOT STARTED - NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention
+- **Epic 51** (HA Resilience Testing) — NOT STARTED — NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention
 
-### Future (Not Yet Planned)
+### Future (Numbered)
 
-See `epics/` directory for full list. Key future work:
+- **Epic 38**: Air-Gapped Deployments (`epics/38-air-gapped-deployments.md`)
 - **Epic 100**: 0.1.0 Release Readiness (`epics/100-release-readiness-0.1.0.md`)
-- **Epic 38**: Air-Gapped Deployments
-- **MCP Server**: AI-assisted operations (`epics/future-mcp-server.md`)
-- **Web UI**: Management console (`epics/future-web-ui-management-console.md`)
-- Multi-Tenancy, Terraform Provider, ITSM Integration, Compliance Presets
+
+### Future (Unnumbered)
+
+- MCP Server (`epics/future-mcp-server.md`)
+- Web UI / Management Console (`epics/future-web-ui-management-console.md`)
+- Release & Distribution (`epics/future-release-distribution.md`)
+- Advanced State Orchestration (`epics/future-advanced-state-orchestration.md`)
+- Blueprint Marketplace (`epics/future-blueprint-marketplace.md`)
+- Simplification (`epics/future-simplification.md`)
+- Cross-Platform Testing (`epics/future-cross-platform-testing.md`)
+- Multi-Cloud Testing (`epics/future-multi-cloud-testing.md`)
 
 ## Architecture Overview
 

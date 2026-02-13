@@ -33,6 +33,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/gitops/verification"
 	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
 	k8soperator "github.com/shawnbutts/keystone-core/internal/k8s"
+	"github.com/shawnbutts/keystone-core/internal/webhook/outbound"
 	"github.com/shawnbutts/keystone-core/internal/logging"
 	"github.com/shawnbutts/keystone-core/internal/metrics"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
@@ -807,6 +808,39 @@ func runServer(cmd *cobra.Command, args []string) {
 		apiwebhooks.NewHandler(webhookReceiver, webhookRegistry).RegisterRoutes(httpMux)
 		logger.Info("Registered REST handler", logging.String("handler", "webhooks"))
 	}
+
+	// Outbound webhook subscriptions — event-driven delivery to external endpoints
+	if cfg.Webhook.Outbound.Enabled && eventSubscriber != nil {
+		outboundDBPath := deriveDataPath(cfg.Storage.SQLite.Path, "outbound-webhooks.db")
+		outboundDB, outboundErr := sql.Open("sqlite", outboundDBPath)
+		if outboundErr != nil {
+			logger.Error("Failed to open outbound webhook database", logging.Error(outboundErr))
+		} else {
+			defer outboundDB.Close()
+			if _, pragmaErr := outboundDB.ExecContext(ctx, "PRAGMA journal_mode=WAL"); pragmaErr != nil {
+				logger.Warn("Failed to enable WAL for outbound webhook DB", logging.Error(pragmaErr))
+			}
+			outboundStore, storeErr := outbound.NewSQLiteStore(outboundDB)
+			if storeErr != nil {
+				logger.Error("Failed to init outbound webhook store", logging.Error(storeErr))
+			} else {
+				outboundDispatcher := outbound.NewDispatcher(cfg.Webhook.Outbound.Timeout)
+				outboundMgr := outbound.NewManager(outboundStore, outboundDispatcher, eventSubscriber, outbound.ManagerConfig{
+					MaxRetries:   cfg.Webhook.Outbound.MaxRetries,
+					RetryBackoff: cfg.Webhook.Outbound.RetryBackoff,
+				})
+				if startErr := outboundMgr.Start(ctx); startErr != nil {
+					logger.Error("Failed to start outbound webhook manager", logging.Error(startErr))
+				} else {
+					defer outboundMgr.Stop()
+					logger.Info("Started outbound webhook manager")
+				}
+				outbound.NewAPIHandler(outboundStore).RegisterRoutes(httpMux)
+				logger.Info("Registered REST handler", logging.String("handler", "outbound-webhooks"))
+			}
+		}
+	}
+
 	apigitops.NewHandler(verification.NewEngine(), rollback.NewEngine()).RegisterRoutes(httpMux)
 	logger.Info("Registered REST handler", logging.String("handler", "gitops"))
 

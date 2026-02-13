@@ -15,7 +15,7 @@
 
 ## Status
 
-**NOT STARTED**
+**COMPLETE** (Phase 1-4: REST handlers, gRPC service, client package, CLI wiring)
 
 ## Success Criteria
 

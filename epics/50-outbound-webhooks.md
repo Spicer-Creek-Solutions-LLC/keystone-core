@@ -27,16 +27,16 @@ Implement a persistent outbound webhook subscription system that delivers intern
 
 ## Success Criteria
 
-- [ ] Subscription CRUD via REST API (create, list, get, update, delete)
-- [ ] Persistent storage of subscriptions (SQLite and PostgreSQL)
-- [ ] Event dispatcher subscribing to NATS and delivering to webhook URLs
-- [ ] HMAC-SHA256 payload signing with per-subscription secrets
-- [ ] Delivery history with status tracking (success, failed, retrying)
-- [ ] Configurable retry with exponential backoff
-- [ ] CLI commands: `webhook outbound list`, `create`, `show`, `delete`, `history`, `test`
-- [ ] Configuration section for outbound webhook defaults
-- [ ] Tests with >70% coverage
-- [ ] Documentation updated
+- [x] Subscription CRUD via REST API (create, list, get, update, delete)
+- [x] Persistent storage of subscriptions (SQLite and PostgreSQL)
+- [x] Event dispatcher subscribing to NATS and delivering to webhook URLs
+- [x] HMAC-SHA256 payload signing with per-subscription secrets
+- [x] Delivery history with status tracking (success, failed, retrying)
+- [x] Configurable retry with exponential backoff
+- [x] CLI commands: `webhook outbound list`, `create`, `show`, `delete`, `history`, `test`
+- [x] Configuration section for outbound webhook defaults
+- [x] Tests with >70% coverage
+- [x] Documentation updated
 
 ## Architecture
 
