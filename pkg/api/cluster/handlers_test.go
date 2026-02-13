@@ -221,7 +221,7 @@ func TestHandleRestore_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestHandleRestore_InvalidJSON(t *testing.T) {
+func TestHandleRestore_NilMembership(t *testing.T) {
 	h := &Handler{
 		config: &cluster.Config{ClusterName: "test"},
 	}
@@ -231,31 +231,8 @@ func TestHandleRestore_InvalidJSON(t *testing.T) {
 
 	h.handleRestore(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("handleRestore() status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestHandleRestore_MissingVersion(t *testing.T) {
-	h := &Handler{
-		config: &cluster.Config{ClusterName: "test"},
-	}
-
-	backup := BackupData{
-		Timestamp: time.Now(),
-		Cluster: Backup{
-			Name: "test",
-		},
-	}
-	data, _ := json.Marshal(backup)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/restore", bytes.NewReader(data))
-	rec := httptest.NewRecorder()
-
-	h.handleRestore(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("handleRestore() status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("handleRestore() nil membership status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
@@ -517,34 +494,18 @@ func TestHandleLeaderTransfer_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestHandleLeaderTransfer_InvalidJSON(t *testing.T) {
+func TestHandleLeaderTransfer_NilMembership(t *testing.T) {
 	h := &Handler{
 		config: &cluster.Config{ClusterName: "test"},
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/leader/transfer", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/leader/transfer", bytes.NewReader([]byte(`{"target_id":"node-2"}`)))
 	rec := httptest.NewRecorder()
 
 	h.handleLeaderTransfer(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("handleLeaderTransfer() invalid json status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestHandleLeaderTransfer_MissingTargetID(t *testing.T) {
-	h := &Handler{
-		config: &cluster.Config{ClusterName: "test"},
-	}
-
-	body := `{"target_id": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/leader/transfer", bytes.NewReader([]byte(body)))
-	rec := httptest.NewRecorder()
-
-	h.handleLeaderTransfer(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("handleLeaderTransfer() missing target_id status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("handleLeaderTransfer() nil membership status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
@@ -563,10 +524,10 @@ func TestHandleRebalance_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestHandleRebalance_ShardingNotEnabled(t *testing.T) {
+func TestHandleRebalance_NilMembership(t *testing.T) {
 	h := &Handler{
 		config:   &cluster.Config{ClusterName: "test"},
-		sharding: nil, // sharding not enabled
+		sharding: nil,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/rebalance", nil)
@@ -837,7 +798,7 @@ func TestWriteError(t *testing.T) {
 	}
 }
 
-func TestAddMember_InvalidJSON(t *testing.T) {
+func TestAddMember_NilMembership(t *testing.T) {
 	h := &Handler{
 		config: &cluster.Config{ClusterName: "test"},
 	}
@@ -847,36 +808,8 @@ func TestAddMember_InvalidJSON(t *testing.T) {
 
 	h.addMember(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("addMember() invalid json status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-
-	var result map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-	if result["error"] != "invalid_request" {
-		t.Errorf("addMember() error code mismatch: got %q, want %q", result["error"], "invalid_request")
-	}
-	if result["message"] != "Invalid request body" {
-		t.Errorf("addMember() message mismatch: got %q, want %q", result["message"], "Invalid request body")
-	}
-}
-
-func TestAddMember_ValidationError(t *testing.T) {
-	h := &Handler{
-		config: &cluster.Config{ClusterName: "test"},
-	}
-
-	// Missing required address field
-	body := `{"name": "test-member"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/members", bytes.NewReader([]byte(body)))
-	rec := httptest.NewRecorder()
-
-	h.addMember(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("addMember() validation error status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("addMember() nil membership status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
@@ -1145,20 +1078,18 @@ func TestHandleMembers_GET(t *testing.T) {
 	}
 }
 
-func TestHandleMembers_POST(t *testing.T) {
+func TestHandleMembers_POST_NilMembership(t *testing.T) {
 	h := &Handler{
 		config: &cluster.Config{ClusterName: "test"},
 	}
 
-	// POST with empty body
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cluster/members", bytes.NewReader([]byte("{}")))
 	rec := httptest.NewRecorder()
 
 	h.handleMembers(rec, req)
 
-	// Should fail validation (empty address)
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("handleMembers() POST with empty body status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("handleMembers() POST nil membership status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
 

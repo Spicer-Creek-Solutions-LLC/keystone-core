@@ -68,6 +68,7 @@ type Config struct {
 	Health          HealthConfig
 	Profiling       ProfilingConfig
 	Operator        KubernetesOperatorConfig
+	Cluster         ClusteringConfig
 }
 
 // LoggingConfig contains logging settings
@@ -1045,6 +1046,36 @@ func (c KubernetesOperatorConfig) Validate() error {
 	return nil
 }
 
+// ClusteringConfig contains HA clustering settings.
+type ClusteringConfig struct {
+	// Enabled enables clustering mode (requires etcd)
+	Enabled bool
+	// MemberID is the unique identifier for this cluster member
+	MemberID string
+	// ClusterName is the shared cluster name (all members must match)
+	ClusterName string
+	// AdvertiseAddress is the address this member advertises to peers
+	AdvertiseAddress string
+	// EtcdEndpoints is the list of etcd endpoints for cluster coordination
+	EtcdEndpoints []string
+	// EtcdPrefix is the key prefix in etcd for cluster data
+	EtcdPrefix string
+}
+
+// Validate checks the clustering configuration.
+func (c ClusteringConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.ClusterName == "" {
+		return fmt.Errorf("cluster name is required when clustering is enabled")
+	}
+	if len(c.EtcdEndpoints) == 0 {
+		return fmt.Errorf("at least one etcd endpoint is required when clustering is enabled")
+	}
+	return nil
+}
+
 // Default configuration values
 const (
 	// DefaultServerListenAddr defaults to loopback for security (requires TLS for non-loopback)
@@ -1264,6 +1295,14 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	_ = v.BindEnv("operator.leaderelectionid", "KSCORE_OPERATOR_LEADER_ELECTION_ID")
 	_ = v.BindEnv("operator.reconcileinterval", "KSCORE_OPERATOR_RECONCILE_INTERVAL")
 	_ = v.BindEnv("operator.maxconcurrentreconciles", "KSCORE_OPERATOR_MAX_CONCURRENT_RECONCILES")
+
+	// Clustering env bindings
+	_ = v.BindEnv("cluster.enabled", "KSCORE_CLUSTER_ENABLED")
+	_ = v.BindEnv("cluster.memberid", "KSCORE_CLUSTER_MEMBER_ID")
+	_ = v.BindEnv("cluster.clustername", "KSCORE_CLUSTER_NAME")
+	_ = v.BindEnv("cluster.advertiseaddress", "KSCORE_CLUSTER_ADVERTISE_ADDRESS")
+	_ = v.BindEnv("cluster.etcdendpoints", "KSCORE_CLUSTER_ETCD_ENDPOINTS")
+	_ = v.BindEnv("cluster.etcdprefix", "KSCORE_CLUSTER_ETCD_PREFIX")
 
 	// Authorization environment variable bindings (Epic 45 Phase 3)
 	_ = v.BindEnv("auth.authorization.enabled", "KSCORE_AUTHZ_ENABLED")
@@ -1507,6 +1546,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("operator.reconcileinterval", DefaultOperatorReconcileInterval)
 	v.SetDefault("operator.maxconcurrentreconciles", DefaultOperatorMaxConcurrentReconciles)
 
+	// Clustering defaults
+	v.SetDefault("cluster.enabled", false)
+	v.SetDefault("cluster.memberid", "")
+	v.SetDefault("cluster.clustername", "kscore")
+	v.SetDefault("cluster.advertiseaddress", "")
+	v.SetDefault("cluster.etcdendpoints", []string{})
+	v.SetDefault("cluster.etcdprefix", "/kscore")
+
 	// Health check defaults
 	v.SetDefault("health.enabled", DefaultHealthEnabled)
 	v.SetDefault("health.startupgraceperiod", DefaultHealthStartupGracePeriod)
@@ -1567,6 +1614,10 @@ func (c *Config) Validate() error {
 
 	// Validate operator config
 	if err := c.Operator.Validate(); err != nil {
+		return err
+	}
+
+	if err := c.Cluster.Validate(); err != nil {
 		return err
 	}
 

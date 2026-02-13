@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,17 +24,24 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/shawnbutts/keystone-core/internal/cluster"
 	"github.com/shawnbutts/keystone-core/internal/config"
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	"github.com/shawnbutts/keystone-core/internal/events"
-	k8soperator "github.com/shawnbutts/keystone-core/internal/k8s"
+	"github.com/shawnbutts/keystone-core/internal/files/mirror"
+	"github.com/shawnbutts/keystone-core/internal/gitops/rollback"
+	"github.com/shawnbutts/keystone-core/internal/gitops/verification"
 	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
+	k8soperator "github.com/shawnbutts/keystone-core/internal/k8s"
 	"github.com/shawnbutts/keystone-core/internal/logging"
 	"github.com/shawnbutts/keystone-core/internal/metrics"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/policy"
 	"github.com/shawnbutts/keystone-core/internal/profiling"
+	"github.com/shawnbutts/keystone-core/internal/proxy/discovery"
 	"github.com/shawnbutts/keystone-core/internal/ratelimit"
+	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
+	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/statemgmt"
@@ -41,10 +50,15 @@ import (
 	apiapikeys "github.com/shawnbutts/keystone-core/pkg/api/apikeys"
 	"github.com/shawnbutts/keystone-core/pkg/api/auth"
 	apiconfig "github.com/shawnbutts/keystone-core/pkg/api/config"
+	apievents "github.com/shawnbutts/keystone-core/pkg/api/events"
 	"github.com/shawnbutts/keystone-core/pkg/api/execution"
+	apigitops "github.com/shawnbutts/keystone-core/pkg/api/gitops"
 	"github.com/shawnbutts/keystone-core/pkg/api/maintenance"
+	apipolicy "github.com/shawnbutts/keystone-core/pkg/api/policy"
 	apirbac "github.com/shawnbutts/keystone-core/pkg/api/rbac"
+	apirunbook "github.com/shawnbutts/keystone-core/pkg/api/runbook"
 	apicluster "github.com/shawnbutts/keystone-core/pkg/api/cluster"
+	apiwebhooks "github.com/shawnbutts/keystone-core/pkg/api/webhooks"
 	apisecrets "github.com/shawnbutts/keystone-core/pkg/api/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	apistate "github.com/shawnbutts/keystone-core/pkg/api/state"
@@ -383,7 +397,21 @@ func runServer(cmd *cobra.Command, args []string) {
 			defer sub.Close()
 		}
 	}
-	eventServer := server.NewEventServer(nil, eventPublisher, eventSubscriber)
+	// Initialize SQLite event store for REST API and gRPC EventService
+	var eventStore events.EventStore
+	if cfg.Events.Enabled {
+		esCfg := events.DefaultEventStoreConfig()
+		esCfg.Path = deriveDataPath(cfg.Storage.SQLite.Path, "events.db")
+		store, storeErr := events.NewSQLiteEventStore(esCfg)
+		if storeErr != nil {
+			logger.Error("Failed to initialize event store", logging.Error(storeErr))
+		} else {
+			eventStore = store
+			defer store.Close()
+		}
+	}
+
+	eventServer := server.NewEventServer(eventStore, eventPublisher, eventSubscriber)
 	pb.RegisterEventServiceServer(grpcServer, eventServer)
 
 	// ClusterService registered with nil deps — returns Unavailable until cluster mode is wired
@@ -450,7 +478,27 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
 	apirbac.NewHandler().RegisterRoutes(httpMux)
 	apisecrets.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
-	apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
+	// Cluster handler: wired with real deps when clustering is enabled
+	if cfg.Cluster.Enabled {
+		clusterCfg := clusterConfigFromSettings(cfg.Cluster)
+		etcdClient, etcdErr := cluster.NewEtcdClient(clusterCfg.Etcd, clusterCfg.MemberID)
+		if etcdErr != nil {
+			logger.Error("Failed to create etcd client for cluster handler", logging.Error(etcdErr))
+			apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
+		} else {
+			defer etcdClient.Close()
+			membership, _ := cluster.NewMembershipManager(clusterCfg, etcdClient)
+			leader, _ := cluster.NewLeaderElector(clusterCfg, etcdClient, clusterCfg.MemberID)
+			var health *cluster.HealthMonitor
+			if membership != nil {
+				health, _ = cluster.NewHealthMonitor(clusterCfg, membership, etcdClient, clusterCfg.MemberID)
+			}
+			apicluster.NewHandler(membership, leader, nil, health, clusterCfg).RegisterRoutes(httpMux)
+			logger.Info("Registered REST handler", logging.String("handler", "cluster"), logging.Bool("enabled", true))
+		}
+	} else {
+		apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
+	}
 	logger.Info("REST API handlers registered")
 
 	// Register metrics endpoint if enabled
@@ -608,6 +656,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	policyServer := server.NewPolicyServer(policyRegistry, policyEngine, nil, nil)
 	pb.RegisterPolicyServiceServer(grpcServer, policyServer)
 
+	// Initialize policy auditor and compliance reporter for REST API
+	var policyAuditor *policy.Auditor
+	var complianceReporter *policy.ComplianceReporter
+	if cfg.Policy.Enabled {
+		policyAuditor = policy.NewAuditor(10000)
+		complianceReporter = policy.NewComplianceReporter(policyAuditor, policyRegistry)
+	}
+
 	// Initialize webhook receiver if enabled
 	var webhookReceiver *webhook.Receiver
 	if cfg.Webhook.Enabled {
@@ -671,6 +727,12 @@ func runServer(cmd *cobra.Command, args []string) {
 		defer webhookReceiver.Stop(context.Background())
 	}
 
+	// Initialize webhook handler registry for REST API
+	var webhookRegistry *webhook.HandlerRegistry
+	if cfg.Webhook.Enabled {
+		webhookRegistry = webhook.NewHandlerRegistry()
+	}
+
 	// Start Kubernetes operator if enabled
 	if cfg.Operator.Enabled {
 		logger.Info("Initializing Kubernetes operator")
@@ -730,6 +792,65 @@ func runServer(cmd *cobra.Command, args []string) {
 			logging.Duration("reconcile_interval", cfg.Operator.ReconcileInterval),
 		)
 	}
+
+	// Register additional REST API handlers whose dependencies are constructed above.
+	// These are registered after all infrastructure init (policy, webhooks, K8s operator).
+	if eventStore != nil {
+		apievents.NewHandler(eventStore, eventPublisher).RegisterRoutes(httpMux)
+		logger.Info("Registered REST handler", logging.String("handler", "events"))
+	}
+	if policyEngine != nil {
+		apipolicy.NewHandler(policyEngine, policyAuditor, complianceReporter).RegisterRoutes(httpMux)
+		logger.Info("Registered REST handler", logging.String("handler", "policy"))
+	}
+	if webhookReceiver != nil {
+		apiwebhooks.NewHandler(webhookReceiver, webhookRegistry).RegisterRoutes(httpMux)
+		logger.Info("Registered REST handler", logging.String("handler", "webhooks"))
+	}
+	apigitops.NewHandler(verification.NewEngine(), rollback.NewEngine()).RegisterRoutes(httpMux)
+	logger.Info("Registered REST handler", logging.String("handler", "gitops"))
+
+	// Runbook handler — dedicated SQLite DB for approval/intervention tables
+	runbookDBPath := deriveDataPath(cfg.Storage.SQLite.Path, "runbook.db")
+	runbookDB, err := sql.Open("sqlite", runbookDBPath)
+	if err != nil {
+		logger.Error("Failed to open runbook database", logging.Error(err))
+	} else {
+		defer runbookDB.Close()
+		if _, pragmaErr := runbookDB.ExecContext(ctx, "PRAGMA journal_mode=WAL"); pragmaErr != nil {
+			logger.Warn("Failed to enable WAL for runbook DB", logging.Error(pragmaErr))
+		}
+		approvalStore, aErr := approval.NewSQLiteStorage(runbookDB)
+		interventionStore, iErr := intervention.NewSQLiteStorage(runbookDB)
+		if aErr != nil {
+			logger.Error("Failed to init approval storage", logging.Error(aErr))
+		}
+		if iErr != nil {
+			logger.Error("Failed to init intervention storage", logging.Error(iErr))
+		}
+		if aErr == nil && iErr == nil {
+			approvalMgr := approval.NewManager(approvalStore)
+			interventionMgr := intervention.NewManager(interventionStore)
+			apirunbook.NewHandler(approvalStore, interventionStore, approvalMgr, interventionMgr).RegisterRoutes(httpMux)
+			logger.Info("Registered REST handler", logging.String("handler", "runbook"))
+		}
+	}
+
+	// Mirror handler — empty registry with default sync config
+	mirrorReg := mirror.NewRegistry()
+	mirrorSync := mirror.NewSyncEngine(mirrorReg, nil)
+	mirror.NewAPIHandler(mirrorReg, mirrorSync).RegisterRoutes(httpMux)
+	logger.Info("Registered REST handler", logging.String("handler", "mirror"))
+
+	// Discovery handler — default config, no-op until scanners are configured
+	discoveryCfg := discovery.Config{
+		ScanInterval:  5 * time.Minute,
+		ScanTimeout:   30 * time.Second,
+		MaxConcurrent: 10,
+	}
+	discoveryEngine := discovery.NewDiscovery(discoveryCfg)
+	discovery.NewAPI(discoveryEngine).RegisterRoutes(httpMux)
+	logger.Info("Registered REST handler", logging.String("handler", "discovery"))
 
 	// Build address list for logging
 	var grpcAddrs, httpAddrs []string
@@ -1475,4 +1596,33 @@ func healthStatusHandler(cfg config.HealthConfig, startTime time.Time, nats heal
 		}
 		writeJSONResponse(w, code, resp)
 	}
+}
+
+// clusterConfigFromSettings converts a config.ClusteringConfig to a full cluster.Config
+// by starting from cluster defaults and overriding user-supplied fields.
+func clusterConfigFromSettings(c config.ClusteringConfig) *cluster.Config {
+	cfg := cluster.DefaultConfig()
+	cfg.Enabled = c.Enabled
+	if c.MemberID != "" {
+		cfg.MemberID = c.MemberID
+	}
+	if c.ClusterName != "" {
+		cfg.ClusterName = c.ClusterName
+	}
+	if c.AdvertiseAddress != "" {
+		cfg.AdvertiseAddress = c.AdvertiseAddress
+	}
+	if len(c.EtcdEndpoints) > 0 {
+		cfg.Etcd.Mode = cluster.EtcdModeExternal
+		cfg.Etcd.Endpoints = c.EtcdEndpoints
+	}
+	if c.EtcdPrefix != "" {
+		cfg.Etcd.KeyPrefix = c.EtcdPrefix
+	}
+	return cfg
+}
+
+// deriveDataPath returns a file path in the same directory as mainDBPath with the given filename.
+func deriveDataPath(mainDBPath, filename string) string {
+	return filepath.Join(filepath.Dir(mainDBPath), filename)
 }

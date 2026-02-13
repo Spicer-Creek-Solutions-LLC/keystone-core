@@ -2354,8 +2354,6 @@ GET /api/v1/events?type=agent.disconnect&severity=warning
 Keystone Core receives inbound webhooks from GitOps tools (ArgoCD, Flux, GitHub, GitLab).
 The webhook source is auto-detected from request headers, or can be specified in the request body.
 
-> **Note**: These endpoints are not yet wired into `kscore-server`. The handler exists at `pkg/api/webhooks/` but requires the webhook receiver dependency to be instantiated first.
-
 ### Receive Webhook
 
 ```http

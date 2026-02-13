@@ -30,13 +30,13 @@ Wire the 8 remaining REST API handler packages into `kscore-server` so that thei
 
 ## Success Criteria
 
-- [ ] All 8 handler packages call `RegisterRoutes(httpMux)` in kscore-server
-- [ ] Each handler has real dependencies, not nil stubs
-- [ ] Handlers degrade gracefully if optional infrastructure (etcd, NATS JetStream) is unavailable
-- [ ] Server startup logs handler registration status
-- [ ] Integration tests verify routes are registered and return valid responses
-- [ ] Tests with >70% coverage for new wiring code
-- [ ] Documentation updated (configuration reference, API reference)
+- [x] All 8 handler packages call `RegisterRoutes(httpMux)` in kscore-server
+- [x] Each handler has real dependencies, not nil stubs
+- [x] Handlers degrade gracefully if optional infrastructure (etcd, NATS JetStream) is unavailable
+- [x] Server startup logs handler registration status
+- [x] Integration tests verify routes are registered and return valid responses
+- [x] Tests with >70% coverage for new wiring code
+- [x] Documentation updated (configuration reference, API reference)
 
 ## Dependencies
 
@@ -155,10 +155,10 @@ These handlers need infrastructure that may not be available in all deployments.
 
 ## Definition of Done
 
-- [ ] All 8 handler packages registered in kscore-server
-- [ ] Real dependencies constructed (not nil stubs)
-- [ ] Conditional registration for infrastructure-dependent handlers
-- [ ] Server logs handler registration status
-- [ ] Integration tests passing
-- [ ] Documentation updated
-- [ ] All existing tests still passing
+- [x] All 8 handler packages registered in kscore-server
+- [x] Real dependencies constructed (not nil stubs)
+- [x] Conditional registration for infrastructure-dependent handlers
+- [x] Server logs handler registration status
+- [x] Integration tests passing
+- [x] Documentation updated
+- [x] All existing tests still passing

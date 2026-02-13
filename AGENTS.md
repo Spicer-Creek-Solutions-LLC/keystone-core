@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) or other agents when
 
 - I don't like sycophancy
 - Avoid flattery that feels like unnecessary praise
-- Be anti-sycophantic - don’t fold arguments just because I push back a little
+- Be anti-sycophantic - don't fold arguments just because I push back a little
 - Be straightforward, and clear
 - Be concise
 - Avoid long-winded explanations
@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) or other agents when
 - Be critical
 - Fix bugs when you find them
 - If a bug affects the work you're doing, fix it now.
-- Don't defer fixing discovered bugs and don't create a follow-up task for it 
+- Don't defer fixing discovered bugs and don't create a follow-up task for it
 - If a bug takes more than a moderate amount of work to fix, ask what to do
 - Take the correct approach, not the easy one
 - Don't add technical debt
@@ -29,6 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) or other agents when
 
 - Use Skills from ~/.claude/skills/ when tasks match their purpose
 - If a Makefile exists, prefer its targets over calling tools directly (e.g. use `make test` instead of `go test ./...`)
+- Use `make build` for compiling binaries (outputs to `build/`), not bare `go build`
 
 
 ## ⚠️ CRITICAL: TODO Approval Workflow ⚠️
@@ -96,707 +97,145 @@ Tests should follow existing patterns in the codebase:
 
 ### State Machine Pattern Guidelines
 
-Use the `pkg/statemachine` library for components with complex state transitions:
+Use the `pkg/statemachine` library for components with complex state transitions. See `docs/content/en/docs/contributing/state-machines.md` for full documentation and examples.
 
-**When to use state machines:**
-- Components with 3+ distinct states
-- State transitions that require validation
-- Lifecycle management (init, start, run, stop)
-- Workflows with sequential steps
-- Retry/recovery logic with phases
+**When to use:** Components with 3+ states, lifecycle management, workflows with sequential steps, retry/recovery logic.
 
-**Implementation pattern:**
-```go
-// Define states and events as typed constants
-type ConnectionState string
-const (
-    StateDisconnected ConnectionState = "disconnected"
-    StateConnecting   ConnectionState = "connecting"
-    StateConnected    ConnectionState = "connected"
-)
-
-type ConnectionEvent string
-const (
-    EventConnect    ConnectionEvent = "connect"
-    EventConnected  ConnectionEvent = "connected"
-    EventDisconnect ConnectionEvent = "disconnect"
-)
-
-// Build machine with transitions and callbacks
-machine := statemachine.New[ConnectionState, ConnectionEvent](StateDisconnected).
-    AddTransition(StateDisconnected, EventConnect, StateConnecting).
-    AddTransition(StateConnecting, EventConnected, StateConnected).
-    WithHistory(100).
-    MustBuild()
-```
-
-**Required for state machine implementations:**
-- Document state diagram in markdown documentation (not in code comments) using Mermaid
-- Test all valid transitions
-- Test that invalid transitions are rejected
-- Use guards for conditional transitions
-- Use callbacks for side effects (logging, metrics, events)
-
-**Note:** Mermaid diagrams should only be placed in markdown files (`.md`), not in code comments. Code comments should use plain text descriptions of states and transitions.
-
-See `docs/content/en/docs/contributing/state-machines.md` for full documentation.
+**Required:** Mermaid state diagrams in markdown docs (not code comments), test all valid/invalid transitions, use guards and callbacks.
 
 ---
 
-## Recent Updates
-
-- **Epic 48 COMPLETE**: Kubernetes Operator Implementation:
-  - Phase 1: Dynamic CRD client (`internal/k8s/dynamic.go`) with GVR constants, Get/List/UpdateStatus for RemoteExecution and StateConfig, JSON round-trip conversion, `InformerManager` with `DynamicSharedInformerFactory`, `Client.RestConfig()` and `Client.Clientset()` accessors
-  - Phase 2: `RemoteExecutor` interface, reconcile fetches CRD via dynamic client, dispatches execution, updates status subresource, skips terminal phases (Succeeded/Failed)
-  - Phase 3: `StateExecutor` and `StateDriftChecker` interfaces, StateConfig reconcile (Applying → Applied/Failed), periodic drift detection on Applied resources, cycle-free `ConvertedStateFile` types to avoid `k8s → statemgmt → k8s` import cycle
-  - Phase 4: K8s Lease-based leader election (`LeaderElector`), `KubernetesOperatorConfig` in config.go with defaults/validation/env bindings (`KSCORE_OPERATOR_*`), wired into `kscore-server` with `--enable-operator` via config, standalone CRD YAML at `deploy/kubernetes/crds/`, Helm RBAC ClusterRole for `keystonecore.io` resources, Helm values `operator:` section, configuration reference docs, kubernetes.md updated (removed "planned" callouts)
-  - Files: 8 created (`dynamic.go`, `dynamic_test.go`, `informers.go`, `informers_test.go`, `conversion.go`, `conversion_test.go`, `leader.go`, `leader_test.go`, 2 CRD YAMLs), 6 modified (`controller.go`, `controller_test.go`, `client.go`, `config.go`, `main.go`, Helm RBAC/values)
-  - Tests: 50+ new tests across k8s and config packages, all passing with race detector
-- **Epic 47 COMPLETE**: Registry Storage Backends:
-  - `internal/registry/storage/` package with `Backend` interface, `StoredModule`, `PublishRequest`, `PublishResult` types
-  - `FilesystemBackend`: wraps existing `os.*` operations with `sync.RWMutex` for concurrency
-  - `BackendAdapter`: wraps `internal/files/backend.Backend` → `storage.Backend` for S3/GCS/Azure/NATS
-  - Factory pattern: `NewBackend(backendType, cfg)` dispatches to filesystem/s3/gcs/azure/nats constructors
-  - Refactored `cmd/kscore-registry/main.go`: all handlers delegate to `storage.Backend`, removed direct `os.*` calls
-  - CLI flags: `--storage-backend`, `--s3-*`, `--gcs-*`, `--azure-*`, `--nats-*` (18 new flags)
-  - `migrate-storage` subcommand with dry-run support for filesystem → cloud migration
-  - Compliance test suite: `RunBackendCompliance(t, newBackend)` exercising 15 scenarios against both implementations
-  - Migration tests: dry-run, filesystem-to-filesystem, non-filesystem source error
-  - Documentation: operations/registry.md (storage backends section), cli.md (flags + migration), epic updated
-  - 64+ tests passing with race detector across storage and registry packages
-- **Epic 46 Phase 6 COMPLETE**: Documentation and Integration:
-  - Updated API docs (`docs/content/en/docs/reference/api.md`): removed "Planned"/"Status" annotations from 6 services (Agent, State, Event, Policy, Cluster, Coordination)
-  - Added client usage examples for AgentService, StateService, EventService, PolicyService, ClusterService
-  - Integration test (`pkg/api/server/integration_test.go`): all 7 services registered on single gRPC server
-  - Auth interceptor coverage: unary and streaming RPCs rejected without valid API key across all services
-  - 20 integration test cases: 6 service registration, 7 unauthenticated rejection, invalid key, streaming auth
-  - Test coverage: 76.3% for `pkg/api/server/` (above 70% target)
-  - Epic 46 success criteria checked off (CoordinationService registration deferred — needs cluster mode)
-- **Epic 46 Phase 5 COMPLETE**: ClusterService Implementation:
-  - `ClusterServer` in `pkg/api/server/cluster_server.go` with `ClusterMembershipProvider`, `ClusterLeaderProvider`, `ClusterShardProvider` interfaces
-  - Cluster info: `GetClusterStatus` (name, version, quorum, member/healthy counts), `ListMembers` (status filter, pagination), `GetMember`
-  - Membership: `AddMember` (address/name/tags), `RemoveMember` (with force option)
-  - Leadership: `GetLeader`, `TransferLeader` (validates current leader before transfer)
-  - Operations: `Rebalance` (trigger shard rebalance), `CreateBackup` (JSON snapshot), `RestoreBackup` (Unimplemented — needs more infrastructure)
-  - Streaming: `WatchMembership` (observer→channel→stream), `WatchLeadership` (observer→channel→stream)
-  - Registered in `kscore-server` with nil deps (returns Unavailable until cluster mode wired)
-  - 36 tests passing with race detector covering all 12 RPCs, enum conversions, nil-dep guards
-- **Epic 46 Phase 4 COMPLETE**: PolicyService Implementation:
-  - `PolicyServer` in `pkg/api/server/policy_server.go` with `PolicyRegistry`, `PolicyEvaluator`, `PolicyAuditor`, `PolicyComplianceReporter` interfaces
-  - CRUD: `CreatePolicy`, `GetPolicy`, `ListPolicies` (filter by category/type/enabled/tags), `UpdatePolicy`, `DeletePolicy`
-  - Evaluation: `EvaluatePolicy` (single), `EvaluatePolicySet` (all policies in set with summary)
-  - Violations: `ListViolations` (filter by policy/severity/user/time, pagination)
-  - Compliance: `GetComplianceReport` (rate, per-policy stats, top violations, severity distribution)
-  - Audit: `GetAuditLog` (filter by policy/user/action/resource/allowed, pagination)
-  - Sets: `ListPolicySets` (filter by enabled), `GetPolicySet` (resolves policies in set)
-  - Enum converters: type/category/severity/enforcement mode bidirectional proto ↔ internal
-  - Registered in `kscore-server` with `policyRegistry` and `policyEngine` (nil when policy disabled)
-  - 48 tests covering all 12 RPCs, enum conversions, tag filtering, and pagination
-- **Epic 46 Phase 3 COMPLETE**: EventService Implementation:
-  - `EventServer` in `pkg/api/server/event_server.go` with `events.EventStore`, `EventPublisher`, `EventSubscriber` deps
-  - `ListEvents`: query store with type/source/severity/correlation filters, pagination via base64-encoded offset tokens
-  - `GetEvent`: single event lookup by ID, returns `codes.NotFound` when absent
-  - `EmitEvent`: builds event via `EventBuilder`, publishes to NATS, best-effort storage
-  - `SubscribeEvents`: server-side streaming via NATS subscription with `EventFilter`, channel-based forwarding
-  - `GetEventTypes`: returns 29 known event types with categories (agent, state, execution, policy, gitops, cluster, system)
-  - `GetEventStats`: counts events by type/severity, calculates events-per-second rate
-  - Registered in `kscore-server` with JetStream publisher/subscriber (when available), nil event store
-  - 21 tests covering all 6 RPCs, severity conversion, and streaming with race-free channel synchronization
-- **Epic 46 Phase 2 COMPLETE**: StateService Implementation:
-  - `StateServer` in `pkg/api/server/state_server.go` with `StateExecutor` and `StateDriftChecker` interfaces
-  - `ApplyState` (server-side streaming): loads state content/path, streams RUN_START → STATE_RESULT(s) → RUN_COMPLETE/RUN_FAILED
-  - `CheckState`: dry-run execution + validation, returns per-agent check results with would_change/would_fail counts
-  - `DetectDrift`: delegates to `StateDiffer.CheckDrift()`, converts `DriftReport` → proto with severity mapping
-  - `GetStateHistory` and `GetStateStatus`: return `codes.Unimplemented` (need persistent state history store)
-  - `driftSeverityToProto` maps `statemgmt.DriftSeverity` → `pb.DriftSeverity` enum
-  - Registered in `kscore-server` with real `statemgmt.Executor` and `statemgmt.StateDiffer`
-  - 15 tests covering all 5 RPCs: nil-dep, empty input, success, error, and severity conversion
-- **Epic 46 Phase 1 COMPLETE**: Proto Generation and Service Registration:
-  - Installed protoc v28.3 and ran `make proto` to generate Go stubs for all 8 proto files
-  - Fixed 5 proto name conflicts across shared package `keystone.core.v1`:
-    - Removed duplicate `OptionalBool` from `state.proto` (uses `policy.proto` definition via import)
-    - Renamed `GetLeaderRequest/Response` → `GetClusterLeaderRequest/Response` in `cluster.proto`
-    - Renamed `enum MemberStatus` → `ClusterMemberStatus` in `cluster.proto` (avoids conflict with `message MemberStatus` in `coordination.proto`)
-    - Renamed `message ClusterInfo` → `ClusterDetails` in `cluster.proto` (avoids conflict with `controlplane.proto`)
-  - Generated 8 new files: `state.pb.go`, `state_grpc.pb.go`, `event.pb.go`, `event_grpc.pb.go`, `policy.pb.go`, `policy_grpc.pb.go`, `cluster.pb.go`, `cluster_grpc.pb.go`
-  - Created `AgentServer` in `pkg/api/server/agent_server.go` with `AgentProvider` interface, nil-dep guards
-  - `GetAgentInfo` maps `controlplane.AgentInfo` → proto response; `Register`, `Heartbeat`, `ExecuteCommand` return `codes.Unimplemented` (NATS-based)
-  - Registered `AgentService` in `kscore-server` backed by `ConnectionManager`
-  - 7 new tests covering all 4 RPCs (valid agent, not found, nil provider, empty ID, 3 unimplemented)
-  - `CoordinationService` noted as available but not registered (requires cluster mode)
-- **Epic 43 Phase 1 COMPLETE**: Secrets REST API Handlers:
-  - 24+ HTTP endpoints for secrets CRUD, leases, rotations, transit encryption, compliance, audit, health
-  - Wired into `kscore-server` with nil deps (real wiring in Epic 45)
-- **Epic 43 Phase 2 COMPLETE**: Secrets gRPC Service Definition:
-  - `api/proto/secrets.proto` with 12 RPCs: GetSecret, ListSecrets, WriteSecret, DeleteSecret, GetLease, ListLeases, RenewLease, RevokeLease, Encrypt, Decrypt, Sign, Verify
-  - Generated `secrets.pb.go` and `secrets_grpc.pb.go` stubs
-  - `SecretsServer` implementation in `pkg/api/server/` following ControlPlaneServer pattern
-  - Error mapping from `SecretError.Code` and sentinel errors to gRPC status codes
-  - Registered in `kscore-server` with nil deps (real wiring in Epic 45)
-  - 44 test cases (26 top-level + 18 subtests) covering all RPCs, error paths, nil-dep cases
-- **Epic 43 Phase 3 COMPLETE**: Public Secrets Client Package:
-  - `pkg/secrets/` with `Client` wrapping gRPC `SecretsServiceClient`, 12 methods matching all RPCs
-  - Idiomatic Go types: `Secret`, `Lease`, `ListSecretsResult`, `EncryptResult`, `DecryptResult`, `SignResult`
-  - Error sentinels (9) with `grpcStatusToError` mapping gRPC status codes to public errors
-  - `NewClient(addr)` and `NewClientFromConn(conn)` constructors, proto ↔ Go conversion helpers
-  - 37 unit tests with mock gRPC client covering all methods, error mapping, type helpers
-- **Epic 44 Phase 1 COMPLETE**: Token Store and Generation:
-  - New `internal/cluster/token/` package for secure cluster join token management
-  - `JoinToken` struct with expiry, max uses, revocation, and validity checks
-  - `Store` interface: Create, GetByID, Lookup, List, Revoke, IncrementUses, DeleteExpired
-  - `EtcdStore` with CAS-based atomic IncrementUses (retry loop), JSON serialization, `EtcdBackend` interface for testability
-  - `SQLiteStore` with mutex protection, conditional UPDATE for IncrementUses, WAL mode, error discrimination
-  - Token generation: base62 rejection sampling via `crypto/rand`, salted SHA-256 hashing, `NewJoinToken` constructor
-  - `Cleaner` goroutine for periodic expired/revoked token removal with context-aware shutdown
-  - 57 tests passing with race detector across all 5 test files
-- **Epic 44 Phase 2 COMPLETE**: Token REST API, Join Validation, and Audit Logging:
-  - REST handlers in `pkg/api/cluster/token_handler.go` for token CRUD and cluster join validation
-  - POST/GET `/api/v1/cluster/tokens` for token generation and listing
-  - GET/DELETE `/api/v1/cluster/tokens/{id}` for token retrieval and revocation
-  - POST `/api/v1/cluster/join` with token validation, error mapping (expired→410, revoked→403, exhausted→403)
-  - Backward-compatible join: when tokenStore is nil, joins accepted without token
-  - Audit logging via `internal/audit.Logger` for create, revoke, and join operations (silently skipped when nil)
-  - `SetTokenStore` and `SetAuditLogger` setters following existing `SetShardStore` pattern
-  - Registered in `kscore-server` with nil deps (real wiring in Epic 45)
-  - 27 tests passing with race detector covering all endpoints, error paths, nil-dep handling, audit events
-- **Epic 44 Phase 3 COMPLETE**: CLI Commands and Documentation:
-  - `kscorectl cluster token generate [--ttl --max-uses --label]` — create join tokens via REST API
-  - `kscorectl cluster token list` — table/json/yaml output with validity, usage, revocation status
-  - `kscorectl cluster token revoke <id>` — revoke tokens by ID
-  - Client methods: `GenerateToken`, `ListTokens`, `RevokeToken` in `cmd/kscore-cluster/client.go`
-  - Documentation: cli.md, cli-quick-reference.md, cluster-management.md, bootstrap runbook updated
-  - 5 new tests (subcommand structure, flags, args validation, help output)
-- **Epic 45 Phase 1 COMPLETE**: Config Struct Definitions and Wiring:
-  - `AgentManagementConfig`: HeartbeatInterval, HeartbeatTimeout, StaleThreshold, MonitorInterval, MetadataRefresh, MaxConcurrentCommands
-  - `ExecutionConfig`: DefaultTimeout, MaxTimeout, BatchSize, BatchDelay, StreamingBuffer, ResultRetention
-  - `StateManagementConfig`: DefaultTimeout, MaxConcurrent, DriftCheckInterval, ResultRetention
-- **Epic 45 Phase 2 COMPLETE**: Event, GitOps, and Security Config:
-  - `EventsConfig`: Enabled, Retention, MaxBytes, MaxMessages, PublisherBufferSize, SubscriberBufferSize, SubscriberAckWait
-  - `GitOpsConfig` with `GitSyncConfig`: Enabled, Repositories (URL, Branch, Interval, Path)
-  - `AuthorizationConfig`: Enabled, DefaultDeny — wired into `RBACAuthorizer` via `NewRBACAuthorizerWithConfig`
-  - `JetStreamPublisherConfig` and `NewJetStreamPublisherWithConfig` for configurable event stream settings
-  - Wired into `kscore-server`: events config → JetStreamPublisher, authorization config → auth interceptor
-  - All 3 sections added to `Config` struct with defaults, Viper bindings, and validation
-  - Wired `AgentManagement` → `ConnectionManagerConfig` → configurable registration response (heartbeat/metadata intervals, command timeout)
-  - Wired `Execution` → `CommandDispatcherConfig` (streaming buffer, default/max timeout clamping) and `BatchDispatcherConfig` (default batch size)
-  - Config-aware constructors: `NewConnectionManagerWithConfig`, `NewCommandDispatcherWithConfig`, `NewBatchDispatcherWithConfig`
-  - `kscore-server` reads all 3 config sections and passes to control plane components
-  - 51 config tests + all controlplane tests passing with race detector
-- **Epic 45 Phase 3 COMPLETE**: Viper Bindings, Validation, and Documentation:
-  - Explicit `BindEnv` calls for all Phase 1+2 config fields (22 env var bindings)
-  - Env vars: `KSCORE_AGENT_MGMT_*`, `KSCORE_EXEC_*`, `KSCORE_STATE_*`, `KSCORE_EVENTS_*`, `KSCORE_AUTHZ_*`
-  - `kscorectl config validate` already covers all new validators via `cfg.Validate()`
-  - Configuration reference documentation updated: 6 new sections (Agent Management, Command Execution, State Management, Event System, GitOps, Authorization) with YAML examples, defaults tables, env var mappings, and validation rules
-  - 5 env var override tests verifying all 22 bindings work end-to-end
-- **Epic 45 Phase 4 COMPLETE**: E2E Config Wiring Tests (T4.1-T4.3):
-  - Added events config (enabled, retention, maxbytes, maxmessages) to E2E server.yaml
-  - Updated webhook config with HMAC authentication (authtype=hmac, hmacsecret, bearertoken)
-  - Added audit-mode and warn-mode policies to E2E policy configuration
-  - Implemented `TestEvent_ReactorTrigger`: event pipeline verification with configured events settings
-  - Implemented 6 webhook tests: HMAC auth (valid/invalid/missing signature), bearer auth, verification trigger, rollback trigger, rollback approval, webhook event emission
-  - Implemented 5 policy tests: enforcement mode audit, warn, violation blocking, audit logging, compliance reporting
-  - Updated `sendWebhook` helpers with HMAC signature support (`sendSignedWebhook`, `computeHMACSignature`)
-  - T4.4 (HA infrastructure failure tests) deferred to Epic 51
-- **Epic 43 Phase 4 COMPLETE**: CLI Wiring (`kscore-secrets` → `pkg/secrets.Client`):
-  - Replaced global vars with Config struct, added TLS persistent flags (tls, ca-cert, cert, key, skip-verify, server-name, min-version)
-  - Added `createSecretsClient`, `buildTLSConfig`, `parseTLSMinVersion` helpers following kscore-exec pattern
-  - Wired 10 commands to real gRPC calls: get, list, leases list/renew/revoke, encrypt, decrypt, dynamic get/list/revoke
-  - 6+ command groups remain stub/mock (backends, audit, rotate, schedule, policy, cache, template, rewrap, rotate-keys) — no gRPC RPCs exist
-  - Removed 5 display types and 4 mock generators replaced by real API calls
-  - 62 tests passing with race detector, TLS config tests, flag validation tests
-- **Epic 42 Phase 1 COMPLETE**: NETCONF Protocol Adapter (RFC 6241):
-  - Core adapter: types, RPC encoding, SSH transport, session management, operations, capabilities, filters
-  - Full RFC 6241 operation set with NETCONF 1.0/1.1 framing
-  - Extended `NetconfAdapter` interface, YANG model metadata, subtree/XPath filters
-  - 90 unit tests passing, documentation at `docs/content/en/docs/reference/netconf.md`
-- **Epic 42 Phase 2 COMPLETE**: RESTCONF Protocol Adapter (RFC 8040):
-  - Core adapter: types, error parsing, root path discovery, operations, SSE streams, adapter lifecycle
-  - Full RFC 8040 data operations (GET/POST/PUT/PATCH/DELETE), RPC invocation, query parameters
-  - SSE notification stream subscriptions, well-known root path discovery (RFC 6415)
-  - Extended `RestconfAdapter` interface with typed methods beyond generic `Execute()`
-  - Composes with REST adapter's `rest.Client` and `rest.Authenticator` infrastructure
-  - Registered in protocol adapter registry (both ProtocolAdapter and RestconfAdapter factories)
-  - 78 unit tests passing (92.3% coverage), documentation at `docs/content/en/docs/reference/restconf.md`
-- **Epic 42 Phase 3 COMPLETE**: Telnet Protocol Adapter (RFC 854/855):
-  - IAC negotiation state machine: WILL/WONT/DO/DONT, sub-negotiation (TermType, WindowSize)
-  - Security enforcer: IP allowlisting (CIDR), deprecation warnings, audit logging, session time limits
-  - Session management: expect-style I/O, prompt-based login, CR+LF line endings, IAC stripping
-  - Adapter lifecycle: Connect/Execute/Disconnect/HealthCheck, factory registration, SSHPasswordCredential reuse
-  - 56 unit tests passing (85.6% coverage), documentation at `docs/content/en/docs/reference/telnet.md`
-- **Epic 42 Phase 5 COMPLETE**: P0 Vendor Drivers (9 new network device platforms):
-  - HP/Aruba: ProCurve (`hp_procurve`), ArubaOS (`hp_arubaos`), AOS-CX (`hp_aoscx`) — SSH adapters with vendor-specific CLI patterns
-  - Dell: OS10 (`dell_os10`), OS9/FTOS (`dell_os9`), PowerSwitch (`dell_powerswitch`) — SSH adapters for modern and legacy Dell platforms
-  - Security vendors: FortiOS (`fortinet_fortios`) with config/edit/set/next/end CLI, PAN-OS (`paloalto_panos`) with transactional commits, F5 BIG-IP (`f5_bigip`) with tmsh shell
-  - 9 VendorType constants, 9 state config modules, factory auto-registration for all drivers
-  - 16 total vendor drivers now supported (up from 7)
-  - 125+ unit tests across all new vendor packages, documentation at `docs/content/en/docs/reference/vendor-drivers.md`
-- **Epic 42 Phase 4 COMPLETE**: gNMI Protocol Adapter (gRPC Network Management Interface):
-  - Core adapter: Connect/Execute/Disconnect/HealthCheck, Config, factory registration, init()
-  - Full gNMI RPC support: Capabilities, Get, Set, Subscribe with channel-based streaming
-  - mTLS + per-RPC metadata authentication via dedicated GNMICredential type
-  - OpenConfig path parsing with key selectors, origin prefixes, proto path round-trips
-  - Subscription modes: ONCE, STREAM, POLL; stream sub-modes: TARGET_DEFINED, ON_CHANGE, SAMPLE
-  - Execute command parser for scripting: capabilities, get, set (update/replace/delete), subscribe
-  - gNOI stubs (Reboot, Ping, Traceroute) for future openconfig/gnoi dependency
-- **Epic 42 Phase 6 COMPLETE**: P1/P2 Vendor Drivers (9 new network device platforms):
-  - P1: Check Point Gaia (clish), MikroTik RouterOS (path-based CLI), Ubiquiti EdgeOS (Vyatta), Extreme EXOS (direct commands)
-  - P2: Nokia SR OS (TiMOS/classic CLI), Huawei VRP (system-view/display), Mellanox/NVIDIA Onyx (IOS-like), Allied Telesis AlliedWare Plus (IOS-like), Ciena SAOS (noun-first commands)
-  - 9 VendorType constants, 9 vendor adapters with full test suites, 9 state modules, 9 discovery profiles
-  - Total vendor drivers: 25 (up from 16)
-  - 44 unit tests passing with race detector, documentation at `docs/content/en/docs/reference/gnmi.md`
-- **Epic 42 Phase 8 COMPLETE**: State Modules and Documentation:
-  - T8.1: NETCONF state modules (`netconf_interface`, `netconf_vlan`, `netconf_routing`, `netconf_acl`) using OpenConfig YANG models with candidate datastore lock/edit/validate/commit/unlock workflow
-  - T8.2: Vendor state modules (`fortios_policy`, `panos_rule`, `bigip_pool`, `bigip_virtual`, `checkpoint_rule`) using vendor REST/XML APIs
-  - T8.3: Documentation — proxy state modules reference, vendor configuration guide, protocol compatibility matrix, proxy troubleshooting guide
-  - 9 new module registrations in executor, 108+ tests passing with race detector
-- **Epic 42 Phase 7 COMPLETE**: Credential Rotation Framework:
-  - T7.1: Core rotation engine with state machine (Pending → Validating → Generating → Applying → Verifying → Storing → Cleanup → Completed), rollback on failure
-  - T7.2: Protocol providers — SSH (password/key), SNMP (v2c/v3), REST (basic/bearer/apikey/oauth2), Certificate (gNMI TLS)
-  - T7.3: Policy engine with age-based evaluation, cron scheduling via secrets.ParseCron, automatic rotation of due credentials
-  - Package: `internal/credentials/rotation/` with 16 files, 165+ tests passing with race detector
-- **Epic 100 DEFERRED**: 0.1.0 Release Readiness (moved to future epics):
-  - Phases 1-4 complete (signing, versions, repo gen, docs); Phase 5 (VM validation) remaining
-- **Epic 41 COMPLETE**: DNS Provider Management:
-  - Week 1-2: Core DNS package (`internal/dns/`) with types, diff logic, provider registry, sync engine
-  - Week 3-4: DNS state module for statemgmt integration, mock provider for testing
-  - Week 5-6: Observability with metrics collection and audit logging
-  - Week 7-8: Documentation and real provider implementations
-  - Supports A, AAAA, CNAME, TXT, MX, SRV, CAA, NS, ALIAS, PTR record types
-  - Real providers: Cloudflare, Route53, Google Cloud DNS, Azure DNS, DigitalOcean, DNSMadeEasy, Hetzner
-  - libdns adapter for easy provider integration
-- **Epic 37 COMPLETE**: Enhanced runbook automation system fully implemented across 6 phases (24 weeks):
-  - Phase 1: Core engine with YAML definitions, execution engine, 6 step handlers, SQLite storage
-  - Phase 2: Conditional logic with expression evaluator, if/switch/loop/parallel handlers
-  - Phase 3: Human-in-the-loop approvals with multi-approver support, escalation, notifications
-  - Phase 4: Advanced step handlers (state, deploy, rollback, script, plugin)
-  - Phase 5: Triggers (event, schedule, webhook) and ITSM integration (PagerDuty, Opsgenie, ServiceNow)
-  - Phase 6: Execution management (pause/resume/retry/skip), audit logging, metrics, performance benchmarks, documentation
-- **Epic 36 Week 22**: Release preparation - added KMS benchmarks, integration tests for real backends, migration guide, and changelog entry.
-- **Epic 39 COMPLETE**: State machine pattern refactoring finished with 15 components using explicit state machines and 150+ tests.
-- `make security` now runs tooling in Docker/Podman containers (no local installs required).
-- Added state machine library (`pkg/statemachine`) with generic, type-safe implementation for managing complex state transitions.
-- Added contributor documentation for state machine patterns at `docs/content/en/docs/contributing/state-machines.md`.
-- Expanded configuration reference coverage for control plane, auth, webhook, NATS, storage, and agent settings.
-- Documented module registry configuration and added CLI coverage for agent management, load testing, and test runner tools.
-- Aligned registry config documentation with CLI flags and added agent bootstrap env/flag reference plus blueprint registry/cache env variables.
-- Added Docsy Hugo module placeholder setup steps for local docs builds.
-- Replaced time.Sleep usage in tests with deterministic waits and time adjustments to reduce flakiness.
-- Made retry/backoff delays cancelable in REST client, storage failover, and observability backend paths.
-- Made blueprint and module registry retries cancelable with timeout-bounded waits.
-- Swapped polling sleeps for tickers with cancellation in cluster fencing and bootstrap health checks.
-- Made identity rotation retry waits cancelable and added coverage for early-stop behavior.
-- Made Kafka consumer retries and leaf buffer publish retries cancelable.
-- Made syslog reconnect waits cancelable and unblocked by Close.
-- Made mirror sync retries and bandwidth limiting waits cancelable.
-- Made SPIRE client stream retry waits cancelable with context-aware timers.
-- Made transaction rollback retry waits cancelable and cancel-aware.
-- Replaced execution kill timeout and upgrade health waits with timers.
-- Refactored Windows service wait loops to timer-based polling with tests.
-- Replaced profiling sleeps with timer-based waits and added coverage.
-- Refactored SSH shell pacing waits to timer-based pauses with context handling.
-- Replaced Loki pusher retry sleeps with timer-based backoff waits.
-- Added shared wait utilities in pkg/wait and refactored recent timing helpers to use them.
-- Added polling helpers to pkg/wait with coverage.
-- Reused pkg/wait polling/duration helpers in test helper packages.
-- Exposed configurable TLS min version defaults/validation across core config, syslog, etcd, and gateway, with docs updated.
-- Aligned TLS min_version examples in NATS and security docs with TLS 1.3 defaults.
-- Hardened exec TLS skip-verify gating, server/registry JSON responses, and doc generator templates; tightened compose and Kubernetes security examples; cleared TODO list.
-- Refactored retry delay helpers to use pkg/wait across REST, registry, storage, events, and SPIRE clients.
-- Added stop-channel wait helpers in pkg/wait and refactored retry delays to use them.
-- Reused pkg/wait helpers for schedule stop waits and SPIRE/statemgmt retry delays.
-- Reused pkg/wait helpers in retry/backoff and upgrade scheduling waits.
-- Reused pkg/wait for schedule retry delays and upgrade batch delays.
-- Reused pkg/wait in audit waits, event delays, and REST adapter rate limiting.
-- Reused pkg/wait in backpressure and plugin resource loops; tightened drop strategy CAS.
-- Reused pkg/wait in transfer throttling, proxy shutdown waits, and NATS ordering retries.
-- Reused pkg/wait in upgrade manager/rollback delays and network failover retries.
-- Reused pkg/wait in gitops promotion/verification delays and event bridge backoff.
-- Reused pkg/wait in gateway log/metric/trace retry backoffs.
-- Reused pkg/wait in cluster shutdown waits and coordination retries.
-- Reused pkg/wait in module test timeouts.
-- Moved most implementation packages from pkg/ to internal/ and marked public pkg APIs as unstable.
-
 ## Repository Purpose
 
-This is the **design documentation repository** for Keystone Core, a cloud-native runtime infrastructure control plane. Keystone Core is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.
+Keystone Core is a cloud-native runtime infrastructure control plane. Positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.
 
 **Key Concept**: "GitOps deploys it. We keep it running."
 
 ## Project Status
 
-This repository contains working implementations of **Epics 1-29**. The project has transitioned from design-only to a working implementation with:
+**Current Status**: Epics 1-32, 36-37, 39-49 COMPLETE ✅
 
-- Full NATS integration (embedded, external, and leaf modes)
-- Working agent system with registration, heartbeat, and command execution
-- SQLite-based state management
-- Git-style plugin architecture for CLI extensibility
-- Cross-platform remote execution with targeting
-- Declarative state management with drift detection and CLI
-- Event-driven automation with filtering, routing, enrichment, reactors
-- GitOps integration with webhooks, verification, rollback, promotion pipelines
-- Policy enforcement with OPA/CEL engines, auditing, compliance reporting
-- High availability clustering with etcd-based coordination
-- Telemetry gateway for aggregating metrics, logs, and traces
-- Proxy agents for managing unmanaged devices via SSH, SNMP, REST, WinRM
-- File distribution over NATS with multiple backends, mirror groups
-- Self-management workflows: bootstrap, backup/restore, upgrades
-- Standard deployment blueprints catalog
-- Single-binary bootstrap experience
-- Comprehensive test suite (>79% coverage across all core packages)
-- Explicit state machine patterns for 15 core components (150+ tests)
-- Full runbook automation system with triggers, approvals, ITSM integration, audit logging
+> For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅ | Epic 47 COMPLETE ✅ | Epic 48 COMPLETE ✅
+Working implementation with:
+- Full NATS integration (embedded, external, leaf modes) with JetStream
+- Agent system with registration, heartbeat, command execution
+- SQLite/PostgreSQL state management with drift detection
+- Git-style plugin CLI architecture (30 binaries)
+- Event-driven automation with reactors, GitOps webhooks, policy enforcement (OPA/CEL)
+- HA clustering with etcd, leader election, sharding
+- Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, NETCONF, RESTCONF, gNMI, Telnet — 25 vendor drivers)
+- File distribution, mirror groups, multiple storage backends (S3, GCS, Azure, NATS)
+- Runbook automation with triggers, approvals, ITSM integration
+- Secrets management (REST + gRPC API, client package, CLI)
+- Kubernetes operator (CRD watching, reconciliation, drift detection)
+- gRPC services: ControlPlane, Secrets, Agent, State, Event, Policy, Cluster
+- All 15 REST API handlers wired with real dependencies
+- Comprehensive test suite (>79% coverage), 15 state machine components
+- `pkg/wait` shared utilities for cancelable timers/polling across all packages
+- Default TLS 1.3 minimum with per-component overrides
 
-## Repository Structure
+## Epic Status
 
-```
-/
-├── docs/project/DESIGN.md             # Main design document
-└── epics/                             # Epic-level implementation plans
-    ├── 01-core-infrastructure.md      # NATS, agents, control plane
-    ├── 02-remote-execution.md         # Command execution system
-    ├── 03-state-management.md         # Declarative configuration
-    ├── 04-event-system.md             # Event-driven automation
-    ├── 05-gitops-integration.md       # ArgoCD/Flux integration
-    ├── 06-policy-enforcement.md       # OPA/CEL policy engine
-    ├── 07-observability.md            # Metrics, logging, tracing
-    ├── 08-multi-environment.md        # K8s, VMs, bare metal, edge
-    ├── 09-plugin-system.md            # Starlark/WASM plugin architecture
-    ├── 10-documentation.md            # Hugo + Docsy documentation
-    ├── 11-clustering.md               # High availability clustering
-    ├── 12-e2e-testing.md              # End-to-end & performance testing
-    ├── 13-cgo-removal.md              # Pure Go build
-    ├── 14-nats-mesh-communication.md  # NATS-only communication
-    ├── 15-observability-enhancements.md  # NATS telemetry, syslog, audit
-    ├── 16-stdlib-system-modules.md       # Cross-platform system modules
-    ├── 17-spiffe-identity.md             # SPIFFE/SPIRE identity
-    ├── 18-ipv6-support.md                # IPv6 and dual-stack
-    ├── 19-observability-gateway.md       # Telemetry gateway
-    ├── 20-windows-support.md             # Windows agent
-    ├── 21-proxy-agents.md                # Proxy agents
-    ├── 22-file-distribution.md           # File distribution over NATS
-    ├── 23-self-management.md             # Bootstrap, backup, upgrades
-    ├── 24-document-review.md             # Documentation review
-    ├── 25-blueprints.md                  # Reusable state collections
-    ├── 26-needswork-remediation.md       # Issue remediation
-    ├── 27-agent-bootstrap-experience.md  # Single-binary bootstrap
-    ├── 28-standard-deployment-blueprints.md  # Official blueprints
-    ├── 29-bootstrap-testing-infrastructure.md  # Bootstrap tests
-    ├── 30-cli-ux-restructuring.md        # CLI UX restructuring
-    ├── 31-nist-design-principles.md      # NIST design principles
-    ├── 32-advanced-networking.md         # Advanced networking (WiFi, 802.1X, etc.)
-    ├── 36-deep-secrets-management.md     # Deep secrets management integration
-    ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
-    ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
-    ├── 39-state-machine-refactoring.md   # State machine pattern refactoring
-    ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
-    ├── 41-dns-provider-management.md    # DNS record management via provider APIs
-    ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
-    ├── 43-secrets-api-implementation.md   # Secrets REST/gRPC API layer
-    ├── 44-cluster-join-tokens.md          # Cluster join token management
-    ├── 48-kubernetes-operator.md           # Kubernetes operator (informers, reconciliation, deployment)
-    ├── 49-rest-api-handler-wiring.md      # Wire remaining REST API handlers into kscore-server
-    ├── 50-outbound-webhooks.md            # Outbound webhook subscriptions
-    ├── 51-ha-resilience-testing.md        # HA infrastructure failure and network partition tests
-    ├── 100-release-readiness-0.1.0.md     # 0.1.0 release readiness (future)
-    ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
-    └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
-```
+### Completed
 
-## Architecture Overview
+Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find details:
 
-Keystone Core fills the gap between declarative GitOps tools and runtime operations:
+| Epic | Area | Key Packages | Details |
+|------|------|-------------|---------|
+| 1-3 | Core (NATS, execution, state) | `internal/controlplane/`, `internal/statemgmt/` | `epics/01-03*.md` |
+| 4-6 | Events, GitOps, Policy | `internal/events/`, `internal/gitops/`, `internal/policy/` | `epics/04-06*.md` |
+| 7,15,19 | Observability | `internal/metrics/`, `internal/tracing/`, `internal/gateway/` | `epics/07,15,19*.md` |
+| 11,14 | Clustering, NATS mesh | `internal/cluster/`, `internal/nats/` | `epics/11,14*.md` |
+| 21,42 | Proxy, protocols, vendors | `internal/proxy/`, `internal/credentials/rotation/` | `epics/21,42*.md` |
+| 36,43 | Secrets | `internal/secrets/`, `pkg/secrets/`, `pkg/api/secrets/` | `epics/36,43*.md` |
+| 37 | Runbooks | `internal/runbook/` | `epics/37*.md` |
+| 41 | DNS | `internal/dns/` | `epics/41*.md` |
+| 44 | Cluster join tokens | `internal/cluster/token/`, `pkg/api/cluster/` | `epics/44*.md` |
+| 45 | Config wiring | `internal/config/` | `epics/45*.md` |
+| 46 | gRPC services | `pkg/api/server/` | `epics/46*.md` |
+| 47 | Registry backends | `internal/registry/storage/` | `epics/47*.md` |
+| 48 | K8s operator | `internal/k8s/` | `epics/48*.md` |
+| 49 | REST handler wiring | `cmd/kscore-server/main.go` | `epics/49*.md` |
 
-**Core Architecture Components:**
-- **Control Plane**: API Server, State Manager, Event/Reactor Engine
-- **Message Bus**: NATS with three deployment modes:
-  - **Embedded mode**: In-process NATS for initial setups, small deployments (<100 nodes)
-  - **External cluster mode**: Dedicated NATS cluster for production (100+ nodes)
-  - **Hybrid mode**: Control plane uses external cluster, agents use embedded NATS as leaf nodes
-  - JetStream for event persistence (supported in all modes)
-- **Agents**: Lightweight Go binaries on managed nodes (K8s, VMs, bare metal, edge)
-- **State Storage**: SQLite or PostgreSQL for operational state
-  - **SQLite (embedded)**: Zero dependencies, for dev/testing/small deployments
-  - **PostgreSQL**: Production deployments, high availability (100+ nodes)
-  - Automated migration tooling from SQLite → PostgreSQL (`kscore-migrate` CLI)
+### In Progress
 
-**Key Design Decisions**:
-- Use NATS JetStream for events/messaging, but SQLite/PostgreSQL for state due to query patterns, indexing needs, and transactional semantics
-- SQLite for getting started (mirrors embedded NATS philosophy), PostgreSQL for production
-
-## Epic Dependencies
-
-Implementation order:
-1. **Epic 1** (Core Infrastructure) - ✅ COMPLETE
-2. **Epic 2** (Remote Execution) - ✅ COMPLETE
-3. **Epic 3** (State Management) - ✅ COMPLETE
-4. **Epic 4** (Event System) - ✅ COMPLETE - Depends on Epic 1
-5. **Epic 5** (GitOps Integration) - ✅ COMPLETE - Depends on Epic 2, 3, 4
-6. **Epic 6** (Policy Enforcement) - ✅ COMPLETE - Depends on Epic 2, 3, 4
-7. **Epic 7** (Observability) - ✅ COMPLETE - Instruments all epics
-8. **Epic 8** (Multi-Environment) - ✅ COMPLETE - Depends on Epic 1, 2, 3
-9. **Epic 9** (Plugin System) - ✅ COMPLETE - Depends on Epic 3, 4, 5, 6
-10. **Epic 10** (Documentation) - ✅ COMPLETE - Documents Epic 1-9
-11. **Epic 11** (Clustering) - ✅ COMPLETE - Depends on Epic 1, 7
-12. **Epic 12** (E2E Testing) - ✅ COMPLETE
-13. **Epic 13** (CGO Removal) - ✅ COMPLETE - Independent
-14. **Epic 14** (NATS Mesh Communication) - ✅ COMPLETE - Depends on Epic 1, 7, 11
-15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14
-16. **Epic 16** (Stdlib System Modules) - ✅ COMPLETE - Depends on Epic 3, 8
-17. **Epic 17** (SPIFFE Identity) - ✅ COMPLETE - Depends on Epic 1, 11, 14
-18. **Epic 18** (IPv6 Support) - ✅ COMPLETE - Depends on Epic 1, 11, 14
-19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15
-20. **Epic 20** (Windows Support) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 13
-21. **Epic 21** (Proxy Agents) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 4, 8, 14
-22. **Epic 22** (File Distribution) - ✅ COMPLETE - Depends on Epic 1, 4, 6, 14, 17, 21
-23. **Epic 23** (Self-Management) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22
-24. **Epic 24** (Document Review) - ✅ COMPLETE - Depends on Epic 10
-25. **Epic 25** (Blueprints) - ✅ COMPLETE - Depends on Epic 3, 4, 9, 22
-26. **Epic 26** (NEEDSWORK Remediation) - ✅ COMPLETE
-27. **Epic 27** (Agent Bootstrap Experience) - ✅ COMPLETE - Depends on Epic 23, 25
-28. **Epic 28** (Standard Deployment Blueprints) - ✅ COMPLETE - Depends on Epic 25, 27
-29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28
-30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
-31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
-32. **Epic 32** (Advanced Networking) - ✅ COMPLETE - WiFi, 802.1X, link settings, promiscuous mode
-36. **Epic 36** (Deep Secrets Management) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 17
-37. **Epic 37** (Enhanced Runbooks) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 4
-39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
-40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
-41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, DNSMadeEasy, Hetzner DNS
-42. **Epic 42** (Network Protocol Expansion) - ✅ COMPLETE - NETCONF, RESTCONF, Telnet, gNMI adapters + 25 vendor drivers + credential rotation + NETCONF/vendor state modules + documentation
+- **Epic 43** (Secrets API) — Phase 1-4 complete (REST, gRPC, client, CLI). Phase 5 (real secret store wiring) not started.
 
 ### Planned
 
-43. **Epic 43** (Secrets API Implementation) - IN PROGRESS (Phase 1-4 complete) - REST handlers ✅, gRPC service ✅, public client package ✅, CLI wiring ✅
-44. **Epic 44** (Cluster Join Tokens) - ✅ COMPLETE - Depends on Epic 1, 11 - Token store/generation, REST API, join validation, audit logging, CLI commands, documentation
-45. **Epic 45** (Control Plane Config Wiring) - ✅ COMPLETE - AgentManagement, Execution, StateManagement config wired; Events, GitOps, Authorization config wired; Viper env bindings, docs, validation; E2E tests (T4.1-T4.3) with events config, webhook HMAC auth, policy enforcement modes; T4.4 deferred to Epic 51
-46. **Epic 46** (gRPC Service Implementation) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 11 - All 7 proto stubs generated, 7 server implementations (ControlPlane, Secrets, Agent, State, Event, Policy, Cluster), 6 registered in kscore-server (CoordinationService deferred to cluster mode), auth interceptor coverage, 76.3% test coverage
-47. **Epic 47** (Registry Storage Backends) - ✅ COMPLETE - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry via BackendAdapter wrapping `internal/files/backend/`, filesystem backend, compliance test suite, migration support, CLI flags for all backends
-48. **Epic 48** (Kubernetes Operator) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 8, 11 - Dynamic CRD client, informers, reconciliation, drift detection, leader election, config wiring, Helm RBAC, documentation
-49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers
-50. **Epic 50** (Outbound Webhooks) - NOT STARTED - Depends on Epic 1, 4 - Persistent outbound webhook subscriptions with event dispatcher, HMAC signing, retry logic, REST API, and CLI
-51. **Epic 51** (HA Resilience Testing) - NOT STARTED - Depends on Epic 11, 45 - NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention E2E tests
+- **Epic 50** (Outbound Webhooks) - NOT STARTED - Persistent outbound webhook subscriptions, event dispatcher, HMAC signing, retry logic
+- **Epic 51** (HA Resilience Testing) - NOT STARTED - NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention
 
-### Future Epics (Not Yet Planned)
+### Future (Not Yet Planned)
 
-- **Epic 100: 0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation - See `epics/100-release-readiness-0.1.0.md`
+See `epics/` directory for full list. Key future work:
+- **Epic 100**: 0.1.0 Release Readiness (`epics/100-release-readiness-0.1.0.md`)
+- **Epic 38**: Air-Gapped Deployments
+- **MCP Server**: AI-assisted operations (`epics/future-mcp-server.md`)
+- **Web UI**: Management console (`epics/future-web-ui-management-console.md`)
+- Multi-Tenancy, Terraform Provider, ITSM Integration, Compliance Presets
 
-- **Epic 38: Air-Gapped Deployments** - USB/ISO bootstrap, offline registries, upgrade packages, data diodes (deferred until release infrastructure is established)
-- **Release & Distribution** - Release automation, package repos, artifact signing
-- **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration
-- **Interactive OIDC Signing** - OAuth 2.0 device flow or browser-based authorization for keyless signing without pre-provided tokens
-- **Scheduled Operations** - Centralized job scheduler, maintenance windows
-- **Web UI / Management Console** - Web-based dashboard, enterprise auth (2FA, SSO), user/group management - See `epics/future-web-ui-management-console.md`
-- **Mobile Monitoring App** - Native mobile app for monitoring and alerts
-- **MCP Server** - Model Context Protocol server (`kscore-mcp`) exposing Keystone Core operations to AI clients (Claude Desktop, Claude Code, Cursor) - See `epics/future-mcp-server.md`
-- **Automatic Drift Remediation** - Opt-in auto-fix, approval workflows
-- **Agent Self-Update** - Secure binary distribution, staged rollouts
-- **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS
-- **Network Discovery & Topology** - Automatic scanning, L2/L3 mapping
-- **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing - See `epics/future-advanced-state-orchestration.md`
-- **Simplification** - Aggressive refactor to minimal required code - See `epics/future-simplification.md`
-- **Terraform Provider** - Terraform provider for Keystone Core resources
-- **ITSM Integration** - ServiceNow integration, change requests, CMDB sync
+## Architecture Overview
 
-## Key Architectural Patterns
+**Core Components:**
+- **Control Plane**: API Server, State Manager, Event/Reactor Engine
+- **Message Bus**: NATS (embedded/external/hybrid modes) with JetStream
+- **Agents**: Lightweight Go binaries on managed nodes (K8s, VMs, bare metal, edge)
+- **State Storage**: SQLite (embedded) or PostgreSQL (production), with migration tooling
 
-### Salt Project-Like Features (Modernized)
-- Remote execution with flexible targeting
-- Declarative state management (idempotent)
-- Event-driven reactor system
-- Vars (configuration data) and Facts (agent metadata)
-
-### Cloud-Native Extensions
-- GitOps integration (ArgoCD, Flux) for deployment verification and rollback
-- Policy-as-code (OPA/CEL) for continuous compliance
-- Kubernetes operator mode with CRDs
-- Multi-cloud support (AWS, GCP, Azure)
-- Service mesh integration (Istio, Linkerd, Consul)
+**Key Design Decisions**:
+- NATS JetStream for events/messaging; SQLite/PostgreSQL for state (query patterns, indexing, transactions)
+- SQLite for getting started, PostgreSQL for production
 
 ### Technology Stack
 - **Language**: Go 1.25+
-- **Message Bus**: NATS 2.10+ with JetStream (embedded or external)
-- **State Storage**: SQLite 3.x (embedded) or PostgreSQL 14+ (production)
-- **API**: gRPC + REST (gRPC-gateway)
+- **Message Bus**: NATS 2.10+ with JetStream
+- **State Storage**: SQLite 3.x (modernc.org/sqlite, pure Go) or PostgreSQL 14+
+- **API**: gRPC + REST
 - **Observability**: Prometheus, OpenTelemetry, Grafana
 - **Policy**: OPA (Rego), CEL
-- **Modules**: Starlark runtime, WASM (wazero - pure Go), Cosign signatures
-- **SQLite**: modernc.org/sqlite (pure Go, no CGO)
+- **Modules**: Starlark, WASM (wazero), Cosign signatures
 
-### Module System Architecture
+### Module System
 
-Keystone Core's module system enables secure extensibility through versioned, dependency-managed packages:
-
-**Module Format:**
-- **module.yaml**: Manifest declaring dependencies, capabilities, limits, entrypoints
-- **module.lock**: Pinned dependency versions for reproducible builds
-- **Structured layout**: `states/` (Starlark), `providers/` (WASM), `tests/`, SBOM, provenance
-- **Namespaced**: Modules identified as `vendor/package` (e.g., `std/files`, `myorg/custom-state`)
-
-**Security Model - Capability-Based Access:**
-- **No Ambient Authority**: Modules can only access explicitly granted capabilities
-- **Sandboxed Execution**: Starlark and WASM runtimes prevent escape
-- **Cryptographic Verification**: Cosign signatures + SumDB-style transparency log
-- **Deterministic**: Modules are pure functions with no side effects
-
-**Host Capabilities** (minimal, audited interfaces):
-- `fs.read` / `fs.write` - Filesystem access (path-scoped)
-- `http.get` / `http.post` - HTTP requests (domain-scoped)
-- `exec` - Command execution (command allowlist)
-- `secrets.read` / `secrets.write` - Secret access (path-scoped)
-- `log` - Structured logging (rate-limited)
-- `time` - Time access (breaks determinism, rarely granted)
-- `kv` - Module key-value storage (namespace-scoped)
-
-## Working with Design Documents
-
-### Documentation Formatting Requirements
-
-**Diagrams must use Mermaid format.** All diagrams in documentation should be written in Mermaid syntax rather than ASCII art.
-
-Example Mermaid diagram:
-```mermaid
-flowchart LR
-    A[Agent] --> B[Control Plane]
-    B --> C[Database]
-    B --> D[NATS]
-```
-
-### Updating Epic Documents
-Each epic follows a consistent structure:
-- **Overview & Success Criteria**: High-level goals
-- **User Stories**: Feature requirements with acceptance criteria
-- **Technical Tasks**: Week-by-week implementation breakdown
-- **Dependencies**: Required epics and libraries
-- **Risks & Mitigations**: Known challenges
-- **Testing Strategy**: Unit, integration, performance tests
-- **Definition of Done**: Completion checklist
-
-### Cross-Epic Coordination
-Many features span multiple epics:
-- **Deployment Verification**: Epic 5 (GitOps) uses Epic 2 (Execution) and Epic 3 (State)
-- **Drift Detection**: Epic 3 (State) generates Epic 4 (Events) that trigger Epic 6 (Policy)
-- **Real-time Dashboards**: Epic 7 (Observability) visualizes data from all epics
-- **Plugin System**: Epic 9 extends Epic 3, 4, 5, and 6
-
-When updating one epic, check if related epics need updates.
+Capability-based security model with sandboxed execution. Modules identified as `vendor/package` (e.g., `std/files`). Host capabilities: `fs.read/write`, `http.get/post`, `exec`, `secrets.read/write`, `log`, `time`, `kv`. See module manifests (`module.yaml`, `module.lock`).
 
 ## CLI Architecture (Plugin Pattern)
 
-Keystone Core uses a Git-style plugin architecture for its CLI:
+Git-style plugin architecture: `kscorectl` dispatches to `kscore-*` binaries in `$PATH`.
 
-**Main CLI: `kscorectl`**
-- Lightweight dispatcher that discovers and executes `kscore-*` binaries
-- Similar to how `git` works with `git-*` plugins
-- All user-facing commands go through `kscorectl`
+**Server Daemons**: `kscore-server`, `kscore-agent`, `kscore-registry`, `kscore-telemetry-gateway`
 
-**Plugin Binaries: `kscore-*`**
-- `kscore-module` - Module management (init, build, sign, publish, resolve, install)
-- `kscore-state` - State management (apply, check, diff)
-- `kscore-exec` - Remote execution (run commands on agents)
-- Custom extensions can add `kscore-customtool` and it works as `kscorectl customtool`
+**CLI Plugins** (25 built-in): `kscore-exec`, `kscore-state`, `kscore-module`, `kscore-monitor`, `kscore-agents`, `kscore-policy`, `kscore-audit`, `kscore-gitops`, `kscore-webhook`, `kscore-cluster`, `kscore-cluster-backup`, `kscore-identity`, `kscore-federation`, `kscore-blueprint`, `kscore-blueprint-publish`, `kscore-blueprint-state`, `kscore-files`, `kscore-files-storage`, `kscore-proxy`, `kscore-backup`, `kscore-events`, `kscore-schedule`, `kscore-upgrade`, `kscore-migrate`, `kscore-bootstrap`
 
-**How it works:**
-```bash
-# User runs kscorectl command
-kscorectl module install vendor/pkg_apt
+**Dev/Test**: `kscore-loadtest`, `kscore-test`
 
-# kscorectl looks for kscore-module in $PATH
-# Executes: kscore-module install vendor/pkg_apt
+Third-party: any `kscore-<name>` in `$PATH` works as `kscorectl <name>`
 
-# Third-party plugins also work
-kscorectl custom-backup run  # Executes kscore-custom-backup run
-```
-
-**Server Binaries (not plugins):**
-- `kscore-server` - Control plane daemon
-- `kscore-agent` - Agent daemon on managed nodes
-- `kscore-registry` - Module registry server
-
-## Binary Summary
-
-### 1. **User-Facing CLI**
-- **`kscorectl`** - Main CLI tool (plugin dispatcher)
-
-### 2. **Server Daemons** (long-running services)
-- **`kscore-server`** - Control plane daemon
-- **`kscore-agent`** - Agent daemon on managed nodes
-- **`kscore-registry`** - Module registry server
-- **`kscore-telemetry-gateway`** - Telemetry aggregation gateway
-
-### 3. **CLI Plugins** (invoked via kscorectl)
-
-**Core Operations:**
-- **`kscore-exec`** - Remote execution
-- **`kscore-state`** - State management
-- **`kscore-module`** - Module management
-- **`kscore-monitor`** - Real-time TUI monitoring
-- **`kscore-agents`** - Agent management (list, show, delete, tags)
-
-**Policy & Compliance:**
-- **`kscore-policy`** - Policy enforcement
-- **`kscore-audit`** - Audit logs and compliance reporting
-
-**GitOps & Webhooks:**
-- **`kscore-gitops`** - GitOps integration
-- **`kscore-webhook`** - Webhook handler management
-
-**Cluster & Identity:**
-- **`kscore-cluster`** - Cluster management
-- **`kscore-cluster-backup`** - Cluster backup and restore
-- **`kscore-identity`** - SPIFFE identity management
-- **`kscore-federation`** - Trust federation management
-
-**Blueprints:**
-- **`kscore-blueprint`** - Blueprint management
-- **`kscore-blueprint-publish`** - Blueprint publishing
-- **`kscore-blueprint-state`** - Blueprint state operations
-
-**File Distribution:**
-- **`kscore-files`** - File distribution client/server
-- **`kscore-files-storage`** - File storage administration
-
-**Proxy & Devices:**
-- **`kscore-proxy`** - Proxy agent and device management
-
-**Operations & Maintenance:**
-- **`kscore-backup`** - Backup management
-- **`kscore-events`** - Event management
-- **`kscore-schedule`** - Schedule and maintenance windows
-- **`kscore-upgrade`** - Upgrade management
-- **`kscore-migrate`** - Database migration tool
-- **`kscore-bootstrap`** - Cluster bootstrap
-
-### 4. **Third-Party Plugins** (optional)
-- Any binary named `kscore-<name>` in $PATH automatically works as `kscorectl <name>`
-
-### 5. **Development/Testing Utilities**
-- **`kscore-loadtest`** - Load testing harness
-- **`kscore-test`** - Test runner
-
-**Total Core Binaries**: 30 (1 CLI + 4 servers + 25 built-in plugins)
+**Total**: 30 binaries (1 CLI + 4 servers + 25 plugins)
 
 ## Key Design Principles
 
-When implementing Keystone Core, follow these principles:
-
-1. **Zero Dependencies for Getting Started**:
-   - Embedded NATS mode (no external message broker required)
-   - Embedded SQLite storage (no external database required)
-   - Single binary deployment (`kscore-server`) runs everything
+1. **Zero Dependencies for Getting Started**: Embedded NATS + SQLite, single binary
 2. **Security by Default**: Capability-based access, signed plugins, policy enforcement
-3. **Determinism**: Plugins and operations should be reproducible (same input → same output)
-4. **Minimal Attack Surface**: Only grant necessary capabilities, sandbox all untrusted code
-5. **Auditability**: Comprehensive logging, transparency logs, policy decisions tracked
-6. **Performance**: <100ms command execution to 1000 nodes, <10ms plugin overhead
-7. **Hybrid Infrastructure**: Unified interface for K8s, VMs, bare metal, edge devices
-8. **Graceful Scaling**: Seamless migration paths as deployments grow:
-   - Embedded NATS → External NATS cluster
-   - SQLite → PostgreSQL
-   - Both with automated migration tooling
+3. **Determinism**: Reproducible plugin execution
+4. **Minimal Attack Surface**: Sandbox all untrusted code
+5. **Auditability**: Comprehensive logging, transparency logs
+6. **Performance**: <100ms command execution to 1000 nodes
+7. **Hybrid Infrastructure**: Unified K8s, VMs, bare metal, edge
+8. **Graceful Scaling**: Embedded → External NATS; SQLite → PostgreSQL
 
-## Recent Updates
+## Documentation Formatting
 
-- Default TLS minimum version set to 1.3 with per-component overrides (exec CLI, federation HTTP client, service mesh connection tests, and federation discovery).
+**Diagrams must use Mermaid format** in markdown files, not ASCII art or code comments.
+
+## Where to Find Details
+
+- **Design document**: `docs/project/DESIGN.md`
+- **Epic plans**: `epics/` directory (one file per epic)
+- **API reference**: `docs/content/en/docs/reference/api.md`
+- **Configuration reference**: `docs/content/en/docs/reference/configuration.md`
+- **CLI reference**: `docs/content/en/docs/reference/cli.md`
+- **State machines**: `docs/content/en/docs/contributing/state-machines.md`
+- **Git history**: `git log --oneline` for implementation details of any completed epic

@@ -398,10 +398,17 @@ tls:
 ```yaml
 # High availability cluster settings
 cluster:
-  enabled: true
-  node_id: ""                         # Auto-generated if empty
+  enabled: false                        # Enable clustering (default: false)
+  member_id: ""                         # Unique member ID (auto-generated if empty)
+  cluster_name: "kscore"                # Cluster name (all members must match)
+  advertise_address: ""                 # Address for other members (auto-detected if empty)
+  etcd_endpoints:                       # External etcd endpoints
+    - "etcd1.example.com:2379"
+    - "etcd2.example.com:2379"
+    - "etcd3.example.com:2379"
+  etcd_prefix: "/kscore"               # Key prefix in etcd
 
-  # etcd configuration
+  # Full etcd configuration (advanced)
   etcd:
     mode: "embedded"                  # embedded, external
     endpoints:                        # External etcd endpoints
@@ -436,6 +443,24 @@ cluster:
     virtual_nodes: 100                # Virtual nodes for consistent hashing
     rebalance_delay: "10s"            # Delay before rebalancing
 ```
+
+**Clustering defaults:**
+
+| Field | Default | Env Var |
+|-------|---------|---------|
+| `cluster.enabled` | `false` | `KSCORE_CLUSTER_ENABLED` |
+| `cluster.member_id` | `""` (auto-generated) | `KSCORE_CLUSTER_MEMBER_ID` |
+| `cluster.cluster_name` | `"kscore"` | `KSCORE_CLUSTER_NAME` |
+| `cluster.advertise_address` | `""` (auto-detected) | `KSCORE_CLUSTER_ADVERTISE_ADDRESS` |
+| `cluster.etcd_endpoints` | `[]` | `KSCORE_CLUSTER_ETCD_ENDPOINTS` |
+| `cluster.etcd_prefix` | `"/kscore"` | `KSCORE_CLUSTER_ETCD_PREFIX` |
+
+**Validation rules** (when `cluster.enabled=true`):
+
+- `cluster_name` is required
+- `etcd_endpoints` must have at least one entry
+
+When clustering is enabled, the cluster REST API handler (`/api/v1/cluster/*`) is wired with real etcd, membership, leader election, and health monitoring dependencies. When disabled, the handler returns `503 Service Unavailable` for all endpoints.
 
 ### Kubernetes Operator
 

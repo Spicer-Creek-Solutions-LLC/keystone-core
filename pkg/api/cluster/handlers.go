@@ -105,10 +105,22 @@ type MemberStatusResponse struct {
 	JobCount   int       `json:"job_count"`
 }
 
+// clusterRequired returns true if clustering deps are nil and writes a 503 response.
+func (h *Handler) clusterRequired(w http.ResponseWriter) bool {
+	if h.membership == nil {
+		apierror.Write(w, http.StatusServiceUnavailable, "clustering is not enabled")
+		return true
+	}
+	return false
+}
+
 // handleStatus handles GET /api/v1/cluster/status
 func (h *Handler) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.clusterRequired(w) {
 		return
 	}
 
@@ -165,6 +177,9 @@ func (h *Handler) handleMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getMembers(w http.ResponseWriter, r *http.Request) {
+	if h.clusterRequired(w) {
+		return
+	}
 	members := h.membership.ListMembers()
 	leaderID := h.leader.GetLeaderID()
 
@@ -192,6 +207,9 @@ func (h *Handler) getMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
+	if h.clusterRequired(w) {
+		return
+	}
 	var req cluster.AddMemberRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -249,6 +267,9 @@ func (h *Handler) handleMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getMember(w http.ResponseWriter, r *http.Request, memberID string) {
+	if h.clusterRequired(w) {
+		return
+	}
 	member, err := h.membership.GetMember(memberID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Member not found")
@@ -277,6 +298,9 @@ func (h *Handler) getMember(w http.ResponseWriter, r *http.Request, memberID str
 }
 
 func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request, memberID string) {
+	if h.clusterRequired(w) {
+		return
+	}
 	force := r.URL.Query().Get("force") == "true"
 
 	ctx := r.Context()
@@ -293,6 +317,9 @@ func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request, memberID 
 func (h *Handler) handleLeader(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.clusterRequired(w) {
 		return
 	}
 
@@ -332,6 +359,9 @@ func (h *Handler) handleLeader(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleLeaderTransfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.clusterRequired(w) {
 		return
 	}
 
@@ -379,6 +409,9 @@ func (h *Handler) handleRebalance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if h.clusterRequired(w) {
+		return
+	}
 
 	ctx := r.Context()
 
@@ -418,6 +451,9 @@ func (h *Handler) handleBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if h.clusterRequired(w) {
+		return
+	}
 
 	ctx := r.Context()
 
@@ -439,6 +475,9 @@ func (h *Handler) handleBackup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleRestore(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.clusterRequired(w) {
 		return
 	}
 
