@@ -34,6 +34,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/ratelimit"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	"github.com/shawnbutts/keystone-core/internal/state"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 	internaltracing "github.com/shawnbutts/keystone-core/internal/tracing"
 	"github.com/shawnbutts/keystone-core/pkg/api/agents"
 	apiapikeys "github.com/shawnbutts/keystone-core/pkg/api/apikeys"
@@ -349,6 +350,49 @@ func runServer(cmd *cobra.Command, args []string) {
 	secretsServer := server.NewSecretsServer(nil, nil, nil)
 	pb.RegisterSecretsServiceServer(grpcServer, secretsServer)
 
+	agentServer := server.NewAgentServer(connMgr)
+	pb.RegisterAgentServiceServer(grpcServer, agentServer)
+
+	stateExecutor := statemgmt.NewExecutor()
+	stateDiffer := statemgmt.NewStateDiffer()
+	stateServer := server.NewStateServer(stateExecutor, stateDiffer)
+	pb.RegisterStateServiceServer(grpcServer, stateServer)
+
+	// EventService — wire publisher and subscriber if JetStream is available
+	var eventPublisher events.EventPublisher
+	var eventSubscriber events.EventSubscriber
+	if js := natsManager.JetStream(); js != nil {
+		pubCfg := &events.JetStreamPublisherConfig{
+			Retention:   cfg.Events.Retention,
+			MaxBytes:    cfg.Events.MaxBytes,
+			MaxMessages: cfg.Events.MaxMessages,
+		}
+		pub, pubErr := events.NewJetStreamPublisherWithConfig(js, pubCfg)
+		if pubErr != nil {
+			logger.Error("Failed to initialize event publisher for EventService", logging.Error(pubErr))
+		} else {
+			eventPublisher = pub
+			defer pub.Close()
+		}
+		sub, subErr := events.NewJetStreamSubscriber(js)
+		if subErr != nil {
+			logger.Error("Failed to initialize event subscriber for EventService", logging.Error(subErr))
+		} else {
+			eventSubscriber = sub
+			defer sub.Close()
+		}
+	}
+	eventServer := server.NewEventServer(nil, eventPublisher, eventSubscriber)
+	pb.RegisterEventServiceServer(grpcServer, eventServer)
+
+	// ClusterService registered with nil deps — returns Unavailable until cluster mode is wired
+	clusterServer := server.NewClusterServer(nil, nil, nil)
+	pb.RegisterClusterServiceServer(grpcServer, clusterServer)
+
+	// CoordinationService requires clustering infrastructure (MembershipManager, etcd).
+	// It will be registered when cluster mode is enabled.
+	logger.Info("CoordinationService available but not registered (requires cluster mode)")
+
 	// Start gRPC server with IPv6 support
 	grpcListenAddrs := cfg.Server.GetEffectiveListenAddrs()
 	grpcListenerCfg := &server.ListenerConfig{
@@ -558,6 +602,10 @@ func runServer(cmd *cobra.Command, args []string) {
 		// Store policy engine in API server for use
 		apiServer.SetPolicyEngine(policyEngine)
 	}
+
+	// PolicyService — uses registry and engine (nil when policy is disabled)
+	policyServer := server.NewPolicyServer(policyRegistry, policyEngine, nil, nil)
+	pb.RegisterPolicyServiceServer(grpcServer, policyServer)
 
 	// Initialize webhook receiver if enabled
 	var webhookReceiver *webhook.Receiver

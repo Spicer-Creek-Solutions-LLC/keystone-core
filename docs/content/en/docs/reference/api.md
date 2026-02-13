@@ -1673,9 +1673,7 @@ POST /api/v1/runbook/interventions/{id}/cancel
 
 ### AgentService
 
-> **Status:** Generated stubs exist but no server implementation. Not registered in kscore-server. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
-
-The AgentService defines the agent-to-control-plane communication protocol. This service is used by agents to register, send heartbeats, execute commands, and retrieve agent information.
+The AgentService defines the agent-to-control-plane communication protocol. `GetAgentInfo` retrieves agent details via gRPC. `Register`, `Heartbeat`, and `ExecuteCommand` use NATS in the current architecture and return `Unimplemented` over gRPC.
 
 ```protobuf
 service AgentService {
@@ -1691,6 +1689,23 @@ service AgentService {
   // GetAgentInfo retrieves agent information
   rpc GetAgentInfo(GetAgentInfoRequest) returns (GetAgentInfoResponse);
 }
+```
+
+**Client usage example:**
+
+```go
+conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+if err != nil {
+    log.Fatal(err)
+}
+defer conn.Close()
+
+client := pb.NewAgentServiceClient(conn)
+resp, err := client.GetAgentInfo(ctx, &pb.GetAgentInfoRequest{AgentId: "agent-1"})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Agent: %s, Status: %s\n", resp.AgentId, resp.Status)
 ```
 
 ### ControlPlaneService
@@ -1730,7 +1745,7 @@ service ControlPlaneService {
 
 ### StateService
 
-> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+The StateService manages declarative state operations including apply, check (dry-run), drift detection, and history retrieval. Backed by `internal/state.Store` and `internal/statemgmt.Executor`.
 
 ```protobuf
 service StateService {
@@ -1751,9 +1766,32 @@ service StateService {
 }
 ```
 
+**Client usage example:**
+
+```go
+client := pb.NewStateServiceClient(conn)
+
+// Detect drift
+drift, err := client.DetectDrift(ctx, &pb.DetectDriftRequest{AgentId: "agent-1"})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Drift detected: %v, changes: %d\n", drift.DriftDetected, len(drift.Changes))
+
+// Check state (dry-run)
+check, err := client.CheckState(ctx, &pb.CheckStateRequest{
+    AgentId:      "agent-1",
+    Declarations: []*pb.StateDeclaration{{Module: "pkg_apt", Parameters: params}},
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Would change: %d resources\n", len(check.Results))
+```
+
 ### EventService
 
-> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+The EventService provides event querying, emission, and real-time subscription. `SubscribeEvents` uses server-side streaming to push events as they occur. Backed by `internal/events` and NATS JetStream.
 
 ```protobuf
 service EventService {
@@ -1777,9 +1815,35 @@ service EventService {
 }
 ```
 
+**Client usage example:**
+
+```go
+client := pb.NewEventServiceClient(conn)
+
+// Emit a custom event
+_, err := client.EmitEvent(ctx, &pb.EmitEventRequest{
+    Type:    "deployment.completed",
+    Source:  "ci-pipeline",
+    Payload: payload,
+})
+
+// Subscribe to events in real-time
+stream, err := client.SubscribeEvents(ctx, &pb.SubscribeEventsRequest{
+    Types:   []string{"deployment.*"},
+    Sources: []string{"ci-pipeline"},
+})
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    fmt.Printf("Event: %s from %s\n", event.Type, event.Source)
+}
+```
+
 ### PolicyService
 
-> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+The PolicyService provides full policy lifecycle management: CRUD, evaluation, violation tracking, compliance reporting, and audit logging. Backed by `internal/policy.Registry` and `internal/policy.Engine`.
 
 ```protobuf
 service PolicyService {
@@ -1821,9 +1885,39 @@ service PolicyService {
 }
 ```
 
+**Client usage example:**
+
+```go
+client := pb.NewPolicyServiceClient(conn)
+
+// Create a policy
+_, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+    Policy: &pb.Policy{
+        Id:              "require-tls",
+        Name:            "Require TLS",
+        Type:            pb.PolicyType_POLICY_TYPE_OPA,
+        EnforcementMode: pb.EnforcementMode_ENFORCEMENT_MODE_ENFORCING,
+        Code:            regoCode,
+    },
+})
+
+// Evaluate a policy
+result, err := client.EvaluatePolicy(ctx, &pb.EvaluatePolicyRequest{
+    PolicyId: "require-tls",
+    Input:    inputStruct,
+})
+fmt.Printf("Allowed: %v\n", result.Allowed)
+
+// Get compliance report
+report, err := client.GetComplianceReport(ctx, &pb.GetComplianceReportRequest{
+    Period: pb.ReportPeriod_REPORT_PERIOD_WEEKLY,
+})
+fmt.Printf("Compliance rate: %.1f%%\n", report.Report.ComplianceRate)
+```
+
 ### ClusterService
 
-> **Status:** Proto defined but code not generated. No server implementation. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
+The ClusterService manages cluster membership, leadership, and operations. `WatchMembership` and `WatchLeadership` use server-side streaming. `RestoreBackup` is not yet implemented. Requires cluster mode to be active; returns `Unavailable` otherwise. Backed by `internal/cluster.Coordinator`.
 
 ```protobuf
 service ClusterService {
@@ -1843,7 +1937,7 @@ service ClusterService {
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
 
   // GetLeader returns the current cluster leader
-  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+  rpc GetLeader(GetClusterLeaderRequest) returns (GetClusterLeaderResponse);
 
   // TransferLeader transfers leadership to another member
   rpc TransferLeader(TransferLeaderRequest) returns (TransferLeaderResponse);
@@ -1865,11 +1959,30 @@ service ClusterService {
 }
 ```
 
+**Client usage example:**
+
+```go
+client := pb.NewClusterServiceClient(conn)
+
+// Get cluster status
+status, err := client.GetClusterStatus(ctx, &pb.GetClusterStatusRequest{})
+fmt.Printf("Cluster: %s, Members: %d, Quorum: %v\n",
+    status.ClusterName, status.MemberCount, status.HasQuorum)
+
+// Watch for membership changes
+stream, err := client.WatchMembership(ctx, &pb.WatchMembershipRequest{})
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    fmt.Printf("Member %s: %s\n", event.Member.Id, event.Type)
+}
+```
+
 ### CoordinationService (Server-to-Server)
 
-> **Status:** Generated stubs and server implementation exist but not registered in kscore-server. See [Epic 46](../../../epics/46-grpc-service-implementation.md).
-
-The CoordinationService provides server-to-server coordination when NATS is unavailable. It requires mTLS authentication.
+The CoordinationService provides server-to-server coordination when NATS is unavailable. It requires mTLS authentication and cluster mode infrastructure (MembershipManager, etcd). Not registered in `kscore-server` by default — requires cluster mode to be enabled.
 
 ```protobuf
 service CoordinationService {

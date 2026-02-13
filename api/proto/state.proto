@@ -5,7 +5,7 @@ package keystone.core.v1;
 option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/struct.proto";
+import "policy.proto";
 
 // StateService provides state management operations
 service StateService {
@@ -446,10 +446,7 @@ message GetStateHistoryRequest {
   string page_token = 7;
 }
 
-// OptionalBool allows distinguishing unset from false
-message OptionalBool {
-  bool value = 1;
-}
+// OptionalBool is defined in policy.proto (shared package keystone.core.v1)
 
 // GetStateHistoryResponse returns state application history
 message GetStateHistoryResponse {

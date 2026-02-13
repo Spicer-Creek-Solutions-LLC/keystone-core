@@ -145,6 +145,66 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 46 Phase 6 COMPLETE**: Documentation and Integration:
+  - Updated API docs (`docs/content/en/docs/reference/api.md`): removed "Planned"/"Status" annotations from 6 services (Agent, State, Event, Policy, Cluster, Coordination)
+  - Added client usage examples for AgentService, StateService, EventService, PolicyService, ClusterService
+  - Integration test (`pkg/api/server/integration_test.go`): all 7 services registered on single gRPC server
+  - Auth interceptor coverage: unary and streaming RPCs rejected without valid API key across all services
+  - 20 integration test cases: 6 service registration, 7 unauthenticated rejection, invalid key, streaming auth
+  - Test coverage: 76.3% for `pkg/api/server/` (above 70% target)
+  - Epic 46 success criteria checked off (CoordinationService registration deferred — needs cluster mode)
+- **Epic 46 Phase 5 COMPLETE**: ClusterService Implementation:
+  - `ClusterServer` in `pkg/api/server/cluster_server.go` with `ClusterMembershipProvider`, `ClusterLeaderProvider`, `ClusterShardProvider` interfaces
+  - Cluster info: `GetClusterStatus` (name, version, quorum, member/healthy counts), `ListMembers` (status filter, pagination), `GetMember`
+  - Membership: `AddMember` (address/name/tags), `RemoveMember` (with force option)
+  - Leadership: `GetLeader`, `TransferLeader` (validates current leader before transfer)
+  - Operations: `Rebalance` (trigger shard rebalance), `CreateBackup` (JSON snapshot), `RestoreBackup` (Unimplemented — needs more infrastructure)
+  - Streaming: `WatchMembership` (observer→channel→stream), `WatchLeadership` (observer→channel→stream)
+  - Registered in `kscore-server` with nil deps (returns Unavailable until cluster mode wired)
+  - 36 tests passing with race detector covering all 12 RPCs, enum conversions, nil-dep guards
+- **Epic 46 Phase 4 COMPLETE**: PolicyService Implementation:
+  - `PolicyServer` in `pkg/api/server/policy_server.go` with `PolicyRegistry`, `PolicyEvaluator`, `PolicyAuditor`, `PolicyComplianceReporter` interfaces
+  - CRUD: `CreatePolicy`, `GetPolicy`, `ListPolicies` (filter by category/type/enabled/tags), `UpdatePolicy`, `DeletePolicy`
+  - Evaluation: `EvaluatePolicy` (single), `EvaluatePolicySet` (all policies in set with summary)
+  - Violations: `ListViolations` (filter by policy/severity/user/time, pagination)
+  - Compliance: `GetComplianceReport` (rate, per-policy stats, top violations, severity distribution)
+  - Audit: `GetAuditLog` (filter by policy/user/action/resource/allowed, pagination)
+  - Sets: `ListPolicySets` (filter by enabled), `GetPolicySet` (resolves policies in set)
+  - Enum converters: type/category/severity/enforcement mode bidirectional proto ↔ internal
+  - Registered in `kscore-server` with `policyRegistry` and `policyEngine` (nil when policy disabled)
+  - 48 tests covering all 12 RPCs, enum conversions, tag filtering, and pagination
+- **Epic 46 Phase 3 COMPLETE**: EventService Implementation:
+  - `EventServer` in `pkg/api/server/event_server.go` with `events.EventStore`, `EventPublisher`, `EventSubscriber` deps
+  - `ListEvents`: query store with type/source/severity/correlation filters, pagination via base64-encoded offset tokens
+  - `GetEvent`: single event lookup by ID, returns `codes.NotFound` when absent
+  - `EmitEvent`: builds event via `EventBuilder`, publishes to NATS, best-effort storage
+  - `SubscribeEvents`: server-side streaming via NATS subscription with `EventFilter`, channel-based forwarding
+  - `GetEventTypes`: returns 29 known event types with categories (agent, state, execution, policy, gitops, cluster, system)
+  - `GetEventStats`: counts events by type/severity, calculates events-per-second rate
+  - Registered in `kscore-server` with JetStream publisher/subscriber (when available), nil event store
+  - 21 tests covering all 6 RPCs, severity conversion, and streaming with race-free channel synchronization
+- **Epic 46 Phase 2 COMPLETE**: StateService Implementation:
+  - `StateServer` in `pkg/api/server/state_server.go` with `StateExecutor` and `StateDriftChecker` interfaces
+  - `ApplyState` (server-side streaming): loads state content/path, streams RUN_START → STATE_RESULT(s) → RUN_COMPLETE/RUN_FAILED
+  - `CheckState`: dry-run execution + validation, returns per-agent check results with would_change/would_fail counts
+  - `DetectDrift`: delegates to `StateDiffer.CheckDrift()`, converts `DriftReport` → proto with severity mapping
+  - `GetStateHistory` and `GetStateStatus`: return `codes.Unimplemented` (need persistent state history store)
+  - `driftSeverityToProto` maps `statemgmt.DriftSeverity` → `pb.DriftSeverity` enum
+  - Registered in `kscore-server` with real `statemgmt.Executor` and `statemgmt.StateDiffer`
+  - 15 tests covering all 5 RPCs: nil-dep, empty input, success, error, and severity conversion
+- **Epic 46 Phase 1 COMPLETE**: Proto Generation and Service Registration:
+  - Installed protoc v28.3 and ran `make proto` to generate Go stubs for all 8 proto files
+  - Fixed 5 proto name conflicts across shared package `keystone.core.v1`:
+    - Removed duplicate `OptionalBool` from `state.proto` (uses `policy.proto` definition via import)
+    - Renamed `GetLeaderRequest/Response` → `GetClusterLeaderRequest/Response` in `cluster.proto`
+    - Renamed `enum MemberStatus` → `ClusterMemberStatus` in `cluster.proto` (avoids conflict with `message MemberStatus` in `coordination.proto`)
+    - Renamed `message ClusterInfo` → `ClusterDetails` in `cluster.proto` (avoids conflict with `controlplane.proto`)
+  - Generated 8 new files: `state.pb.go`, `state_grpc.pb.go`, `event.pb.go`, `event_grpc.pb.go`, `policy.pb.go`, `policy_grpc.pb.go`, `cluster.pb.go`, `cluster_grpc.pb.go`
+  - Created `AgentServer` in `pkg/api/server/agent_server.go` with `AgentProvider` interface, nil-dep guards
+  - `GetAgentInfo` maps `controlplane.AgentInfo` → proto response; `Register`, `Heartbeat`, `ExecuteCommand` return `codes.Unimplemented` (NATS-based)
+  - Registered `AgentService` in `kscore-server` backed by `ConnectionManager`
+  - 7 new tests covering all 4 RPCs (valid agent, not found, nil provider, empty ID, 3 unimplemented)
+  - `CoordinationService` noted as available but not registered (requires cluster mode)
 - **Epic 43 Phase 1 COMPLETE**: Secrets REST API Handlers:
   - 24+ HTTP endpoints for secrets CRUD, leases, rotations, transit encryption, compliance, audit, health
   - Wired into `kscore-server` with nil deps (real wiring in Epic 45)
@@ -367,7 +427,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅
 
 ## Repository Structure
 
@@ -493,7 +553,7 @@ Implementation order:
 43. **Epic 43** (Secrets API Implementation) - IN PROGRESS (Phase 1-4 complete) - REST handlers ✅, gRPC service ✅, public client package ✅, CLI wiring ✅
 44. **Epic 44** (Cluster Join Tokens) - ✅ COMPLETE - Depends on Epic 1, 11 - Token store/generation, REST API, join validation, audit logging, CLI commands, documentation
 45. **Epic 45** (Control Plane Config Wiring) - ✅ COMPLETE - AgentManagement, Execution, StateManagement config wired; Events, GitOps, Authorization config wired; Viper env bindings, docs, validation; E2E tests (T4.1-T4.3) with events config, webhook HMAC auth, policy enforcement modes; T4.4 deferred to Epic 51
-46. **Epic 46** (gRPC Service Implementation) - NOT STARTED - Depends on Epic 1, 3, 4, 6, 11 - Generate stubs and implement servers for StateService, EventService, PolicyService, ClusterService; register AgentService and CoordinationService in kscore-server
+46. **Epic 46** (gRPC Service Implementation) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 11 - All 7 proto stubs generated, 7 server implementations (ControlPlane, Secrets, Agent, State, Event, Policy, Cluster), 6 registered in kscore-server (CoordinationService deferred to cluster mode), auth interceptor coverage, 76.3% test coverage
 47. **Epic 47** (Registry Storage Backends) - NOT STARTED - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry, reusing `internal/files/backend/` infrastructure
 48. **Epic 48** (Kubernetes Operator) - NOT STARTED - Depends on Epic 1, 2, 3, 8, 11 - Informer-based CRD watching, reconciliation, drift detection, leader election, Helm/Kustomize deployment
 49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers

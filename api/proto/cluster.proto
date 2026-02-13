@@ -24,7 +24,7 @@ service ClusterService {
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
 
   // GetLeader returns the current cluster leader
-  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+  rpc GetLeader(GetClusterLeaderRequest) returns (GetClusterLeaderResponse);
 
   // TransferLeader transfers leadership to another member
   rpc TransferLeader(TransferLeaderRequest) returns (TransferLeaderResponse);
@@ -45,14 +45,14 @@ service ClusterService {
   rpc WatchLeadership(WatchLeadershipRequest) returns (stream LeadershipEvent);
 }
 
-// MemberStatus represents the health status of a cluster member
-enum MemberStatus {
-  MEMBER_STATUS_UNSPECIFIED = 0;
-  MEMBER_STATUS_HEALTHY = 1;
-  MEMBER_STATUS_DEGRADED = 2;
-  MEMBER_STATUS_UNHEALTHY = 3;
-  MEMBER_STATUS_UNKNOWN = 4;
-  MEMBER_STATUS_LEAVING = 5;
+// ClusterMemberStatus represents the health status of a cluster member
+enum ClusterMemberStatus {
+  CLUSTER_MEMBER_STATUS_UNSPECIFIED = 0;
+  CLUSTER_MEMBER_STATUS_HEALTHY = 1;
+  CLUSTER_MEMBER_STATUS_DEGRADED = 2;
+  CLUSTER_MEMBER_STATUS_UNHEALTHY = 3;
+  CLUSTER_MEMBER_STATUS_UNKNOWN = 4;
+  CLUSTER_MEMBER_STATUS_LEAVING = 5;
 }
 
 // ClusterStatus represents the overall cluster health
@@ -108,7 +108,7 @@ message Member {
   string nats_address = 5;
 
   // Current health status
-  MemberStatus status = 6;
+  ClusterMemberStatus status = 6;
 
   // Whether this member is the current leader
   bool is_leader = 7;
@@ -132,8 +132,8 @@ message Member {
   int32 job_count = 13;
 }
 
-// ClusterInfo represents the current cluster state
-message ClusterInfo {
+// ClusterDetails represents the current cluster state
+message ClusterDetails {
   // Cluster name
   string name = 1;
 
@@ -309,7 +309,7 @@ message GetClusterStatusResponse {
 // ListMembersRequest requests member list
 message ListMembersRequest {
   // Filter by status (optional)
-  MemberStatus status = 1;
+  ClusterMemberStatus status = 1;
 
   // Pagination
   int32 page_size = 2;
@@ -382,11 +382,11 @@ message RemoveMemberResponse {
   bool removed = 1;
 }
 
-// GetLeaderRequest requests current leader
-message GetLeaderRequest {}
+// GetClusterLeaderRequest requests current leader
+message GetClusterLeaderRequest {}
 
-// GetLeaderResponse returns current leader
-message GetLeaderResponse {
+// GetClusterLeaderResponse returns current leader
+message GetClusterLeaderResponse {
   // Current leader
   Member leader = 1;
 }
