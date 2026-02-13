@@ -7,6 +7,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -18,9 +19,17 @@ type Controller interface {
 	Stop()
 }
 
+// RemoteExecutor abstracts the execution of a RemoteExecution resource.
+// Implementations must populate exec.Status before returning.
+type RemoteExecutor interface {
+	ExecuteRemoteExecution(ctx context.Context, exec *RemoteExecution) error
+}
+
 // RemoteExecutionController reconciles RemoteExecution resources
 type RemoteExecutionController struct {
 	client      *Client
+	crdClient   *CRDClient
+	executor    RemoteExecutor
 	config      OperatorConfig
 	queue       workqueue.RateLimitingInterface //nolint:staticcheck // SA1019: workqueue.RateLimitingInterface is deprecated but requires k8s API migration
 	stopCh      chan struct{}
@@ -28,14 +37,28 @@ type RemoteExecutionController struct {
 	reconciling sync.Map
 }
 
-// NewRemoteExecutionController creates a new RemoteExecution controller
-func NewRemoteExecutionController(client *Client, config OperatorConfig) *RemoteExecutionController {
-	return &RemoteExecutionController{
-		client: client,
-		config: config,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
-		stopCh: make(chan struct{}),
+// NewRemoteExecutionController creates a new RemoteExecution controller.
+// If executor is nil, the controller uses its own ExecuteRemoteExecution method.
+func NewRemoteExecutionController(client *Client, crdClient *CRDClient, config OperatorConfig) *RemoteExecutionController {
+	c := &RemoteExecutionController{
+		client:    client,
+		crdClient: crdClient,
+		config:    config,
+		queue:     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
+		stopCh:    make(chan struct{}),
 	}
+	c.executor = c // default: use self
+	return c
+}
+
+// SetExecutor overrides the RemoteExecutor used during reconciliation.
+func (c *RemoteExecutionController) SetExecutor(executor RemoteExecutor) {
+	c.executor = executor
+}
+
+// Enqueue adds a resource key to the work queue.
+func (c *RemoteExecutionController) Enqueue(key string) {
+	c.queue.Add(key)
 }
 
 // Start starts the controller
@@ -46,7 +69,7 @@ func (c *RemoteExecutionController) Start(ctx context.Context) error {
 		go c.worker(ctx)
 	}
 
-	// Start periodic reconciliation
+	// Start periodic reconciliation as safety net
 	c.wg.Add(1)
 	go c.periodicReconcile(ctx)
 
@@ -102,7 +125,7 @@ func (c *RemoteExecutionController) processNextItem(ctx context.Context) bool {
 	return true
 }
 
-// periodicReconcile triggers periodic reconciliation
+// periodicReconcile lists all RemoteExecution resources and enqueues non-terminal ones.
 func (c *RemoteExecutionController) periodicReconcile(ctx context.Context) {
 	defer c.wg.Done()
 
@@ -116,42 +139,106 @@ func (c *RemoteExecutionController) periodicReconcile(ctx context.Context) {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
-			// This would list all RemoteExecution resources and enqueue them
-			// Simplified implementation - actual would use informers
+			if c.crdClient == nil {
+				continue
+			}
+			items, err := c.crdClient.ListRemoteExecutions(ctx, c.config.Namespace)
+			if err != nil {
+				continue
+			}
+			for i := range items {
+				phase := items[i].Status.Phase
+				if phase == "Succeeded" || phase == "Failed" {
+					continue
+				}
+				key := items[i].Namespace + "/" + items[i].Name
+				c.queue.Add(key)
+			}
 		}
 	}
 }
 
 // reconcile reconciles a single RemoteExecution resource
 func (c *RemoteExecutionController) reconcile(ctx context.Context, key string) error {
-	// In a real implementation, this would:
-	// 1. Get the RemoteExecution resource from the API server
-	// 2. Check if it needs execution (based on schedule or one-time)
-	// 3. Execute commands in matching pods
-	// 4. Update status with results
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return nil //nolint:nilerr // bad key should not be requeued
+	}
 
-	// Simplified implementation for now
+	if c.crdClient == nil {
+		return nil
+	}
+
+	exec, err := c.crdClient.GetRemoteExecution(ctx, namespace, name)
+	if err != nil {
+		return fmt.Errorf("get remote execution: %w", err)
+	}
+
+	// Skip terminal phases
+	if exec.Status.Phase == "Succeeded" || exec.Status.Phase == "Failed" {
+		return nil
+	}
+
+	// Execute via the configured executor
+	if execErr := c.executor.ExecuteRemoteExecution(ctx, exec); execErr != nil {
+		return execErr
+	}
+
+	// Persist status
+	if updateErr := c.crdClient.UpdateRemoteExecutionStatus(ctx, namespace, name, &exec.Status); updateErr != nil {
+		return fmt.Errorf("update status: %w", updateErr)
+	}
+
 	return nil
+}
+
+// StateExecutor abstracts execution of a state file.
+type StateExecutor interface {
+	ExecuteStateFile(ctx context.Context, sc *StateConfig) error
+}
+
+// StateDriftChecker abstracts drift detection for a StateConfig resource.
+type StateDriftChecker interface {
+	CheckDrift(ctx context.Context, sc *StateConfig) (bool, error)
 }
 
 // StateConfigController reconciles StateConfig resources
 type StateConfigController struct {
-	client      *Client
-	config      OperatorConfig
-	queue       workqueue.RateLimitingInterface //nolint:staticcheck // SA1019: workqueue.RateLimitingInterface is deprecated but requires k8s API migration
-	stopCh      chan struct{}
-	wg          sync.WaitGroup
-	reconciling sync.Map
+	client       *Client
+	crdClient    *CRDClient
+	stateExec    StateExecutor
+	driftChecker StateDriftChecker
+	config       OperatorConfig
+	queue        workqueue.RateLimitingInterface //nolint:staticcheck // SA1019: workqueue.RateLimitingInterface is deprecated but requires k8s API migration
+	stopCh       chan struct{}
+	wg           sync.WaitGroup
+	reconciling  sync.Map
 }
 
 // NewStateConfigController creates a new StateConfig controller
-func NewStateConfigController(client *Client, config OperatorConfig) *StateConfigController {
+func NewStateConfigController(client *Client, crdClient *CRDClient, config OperatorConfig) *StateConfigController {
 	return &StateConfigController{
-		client: client,
-		config: config,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
-		stopCh: make(chan struct{}),
+		client:    client,
+		crdClient: crdClient,
+		config:    config,
+		queue:     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), //nolint:staticcheck // SA1019: workqueue.NewRateLimitingQueue is deprecated but requires k8s API migration
+		stopCh:    make(chan struct{}),
 	}
+}
+
+// SetStateExecutor overrides the StateExecutor used during reconciliation.
+func (c *StateConfigController) SetStateExecutor(exec StateExecutor) {
+	c.stateExec = exec
+}
+
+// SetDriftChecker overrides the StateDriftChecker used during periodic reconciliation.
+func (c *StateConfigController) SetDriftChecker(checker StateDriftChecker) {
+	c.driftChecker = checker
+}
+
+// Enqueue adds a resource key to the work queue.
+func (c *StateConfigController) Enqueue(key string) {
+	c.queue.Add(key)
 }
 
 // Start starts the controller
@@ -162,7 +249,7 @@ func (c *StateConfigController) Start(ctx context.Context) error {
 		go c.worker(ctx)
 	}
 
-	// Start periodic reconciliation
+	// Start periodic reconciliation as safety net
 	c.wg.Add(1)
 	go c.periodicReconcile(ctx)
 
@@ -218,7 +305,8 @@ func (c *StateConfigController) processNextItem(ctx context.Context) bool {
 	return true
 }
 
-// periodicReconcile triggers periodic reconciliation
+// periodicReconcile lists all StateConfig resources, runs drift detection on Applied ones,
+// and enqueues non-terminal or drifted resources.
 func (c *StateConfigController) periodicReconcile(ctx context.Context) {
 	defer c.wg.Done()
 
@@ -232,41 +320,153 @@ func (c *StateConfigController) periodicReconcile(ctx context.Context) {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
-			// This would list all StateConfig resources and enqueue them
-			// Simplified implementation - actual would use informers
+			if c.crdClient == nil {
+				continue
+			}
+			items, err := c.crdClient.ListStateConfigs(ctx, c.config.Namespace)
+			if err != nil {
+				continue
+			}
+			for i := range items {
+				phase := items[i].Status.Phase
+
+				// Run drift detection on Applied resources
+				if phase == "Applied" && !items[i].Status.DriftDetected && c.driftChecker != nil {
+					hasDrift, driftErr := c.driftChecker.CheckDrift(ctx, &items[i])
+					if driftErr != nil {
+						continue
+					}
+					if hasDrift {
+						items[i].Status.DriftDetected = true
+						_ = c.crdClient.UpdateStateConfigStatus(
+							ctx, items[i].Namespace, items[i].Name, &items[i].Status,
+						)
+					} else {
+						continue // no drift, skip
+					}
+				} else if phase == "Applied" && !items[i].Status.DriftDetected {
+					continue
+				}
+
+				key := items[i].Namespace + "/" + items[i].Name
+				c.queue.Add(key)
+			}
 		}
 	}
 }
 
 // reconcile reconciles a single StateConfig resource
 func (c *StateConfigController) reconcile(ctx context.Context, key string) error {
-	// In a real implementation, this would:
-	// 1. Get the StateConfig resource from the API server
-	// 2. Check for drift
-	// 3. Apply state declarations to matching pods
-	// 4. Update status with results
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return nil //nolint:nilerr // bad key should not be requeued
+	}
 
-	// Simplified implementation for now
+	if c.crdClient == nil {
+		return nil
+	}
+
+	sc, err := c.crdClient.GetStateConfig(ctx, namespace, name)
+	if err != nil {
+		return fmt.Errorf("get state config: %w", err)
+	}
+
+	// Skip Applied with no drift
+	if sc.Status.Phase == "Applied" && !sc.Status.DriftDetected {
+		return nil
+	}
+
+	if c.stateExec == nil {
+		return nil
+	}
+
+	// Set phase to Applying
+	sc.Status.Phase = "Applying"
+	sc.Status.DriftDetected = false
+	_ = c.crdClient.UpdateStateConfigStatus(ctx, namespace, name, &sc.Status)
+
+	// Execute the state
+	if execErr := c.stateExec.ExecuteStateFile(ctx, sc); execErr != nil {
+		sc.Status.Phase = "Failed"
+		sc.Status.Message = execErr.Error()
+		_ = c.crdClient.UpdateStateConfigStatus(ctx, namespace, name, &sc.Status)
+		return execErr
+	}
+
+	// Execution succeeded — update to Applied
+	now := metav1.Now()
+	sc.Status.Phase = "Applied"
+	sc.Status.LastApplied = &now
+	if err = c.crdClient.UpdateStateConfigStatus(ctx, namespace, name, &sc.Status); err != nil {
+		return fmt.Errorf("update status: %w", err)
+	}
+
 	return nil
 }
 
-// OperatorManager manages all controllers
+// OperatorManager manages all controllers and informers
 type OperatorManager struct {
-	client      *Client
-	config      OperatorConfig
-	controllers []Controller
-	stopCh      chan struct{}
-	wg          sync.WaitGroup
+	client        *Client
+	crdClient     *CRDClient
+	informerMgr   *InformerManager
+	leaderElector *LeaderElector
+	config        OperatorConfig
+	controllers   []Controller
+	stopCh        chan struct{}
+	wg            sync.WaitGroup
 }
 
 // NewOperatorManager creates a new operator manager
-func NewOperatorManager(client *Client, config OperatorConfig) *OperatorManager {
+func NewOperatorManager(client *Client, crdClient *CRDClient, config OperatorConfig) *OperatorManager {
 	return &OperatorManager{
 		client:      client,
+		crdClient:   crdClient,
 		config:      config,
 		controllers: make([]Controller, 0),
 		stopCh:      make(chan struct{}),
 	}
+}
+
+// SetInformerManager sets the informer manager and wires event handlers to controllers.
+func (m *OperatorManager) SetInformerManager(im *InformerManager) {
+	m.informerMgr = im
+
+	for _, ctrl := range m.controllers {
+		switch c := ctrl.(type) {
+		case *RemoteExecutionController:
+			im.SetRemoteExecutionHandler(cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					if key, err := KeyFromObject(obj); err == nil {
+						c.Enqueue(key)
+					}
+				},
+				UpdateFunc: func(_, newObj interface{}) {
+					if key, err := KeyFromObject(newObj); err == nil {
+						c.Enqueue(key)
+					}
+				},
+			})
+		case *StateConfigController:
+			im.SetStateConfigHandler(cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					if key, err := KeyFromObject(obj); err == nil {
+						c.Enqueue(key)
+					}
+				},
+				UpdateFunc: func(_, newObj interface{}) {
+					if key, err := KeyFromObject(newObj); err == nil {
+						c.Enqueue(key)
+					}
+				},
+			})
+		}
+	}
+}
+
+// SetLeaderElector sets the leader elector for HA deployments.
+// When set, controllers only start when this instance becomes leader.
+func (m *OperatorManager) SetLeaderElector(le *LeaderElector) {
+	m.leaderElector = le
 }
 
 // AddController adds a controller to the manager
@@ -274,25 +474,55 @@ func (m *OperatorManager) AddController(controller Controller) {
 	m.controllers = append(m.controllers, controller)
 }
 
-// Start starts all controllers
+// Start starts the operator. If a leader elector is set, controllers only
+// start when this instance becomes the leader. Start is non-blocking — it
+// launches goroutines and returns immediately.
 func (m *OperatorManager) Start(ctx context.Context) error {
-	for _, controller := range m.controllers {
-		if err := controller.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start controller: %w", err)
+	startControllers := func(ctx context.Context) error {
+		if m.informerMgr != nil {
+			if err := m.informerMgr.Start(ctx); err != nil {
+				return fmt.Errorf("start informers: %w", err)
+			}
 		}
+		for _, controller := range m.controllers {
+			if err := controller.Start(ctx); err != nil {
+				return fmt.Errorf("failed to start controller: %w", err)
+			}
+		}
+		return nil
 	}
 
-	// Wait for context cancellation
-	<-ctx.Done()
-	return ctx.Err()
+	if m.leaderElector != nil {
+		m.wg.Add(1)
+		go func() {
+			defer m.wg.Done()
+			m.leaderElector.Run(ctx, func(leaderCtx context.Context) {
+				if err := startControllers(leaderCtx); err != nil {
+					fmt.Printf("operator: failed to start controllers: %v\n", err)
+				}
+			}, func() {
+				m.stopControllers()
+			})
+		}()
+		return nil
+	}
+
+	return startControllers(ctx)
 }
 
-// Stop stops all controllers
-func (m *OperatorManager) Stop() {
-	close(m.stopCh)
+func (m *OperatorManager) stopControllers() {
 	for _, controller := range m.controllers {
 		controller.Stop()
 	}
+	if m.informerMgr != nil {
+		m.informerMgr.Stop()
+	}
+}
+
+// Stop stops all controllers and informers
+func (m *OperatorManager) Stop() {
+	close(m.stopCh)
+	m.stopControllers()
 	m.wg.Wait()
 }
 

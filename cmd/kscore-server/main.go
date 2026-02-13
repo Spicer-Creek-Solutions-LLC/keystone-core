@@ -25,6 +25,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/config"
 	"github.com/shawnbutts/keystone-core/internal/controlplane"
 	"github.com/shawnbutts/keystone-core/internal/events"
+	k8soperator "github.com/shawnbutts/keystone-core/internal/k8s"
 	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
 	"github.com/shawnbutts/keystone-core/internal/logging"
 	"github.com/shawnbutts/keystone-core/internal/metrics"
@@ -668,6 +669,66 @@ func runServer(cmd *cobra.Command, args []string) {
 			}
 		}()
 		defer webhookReceiver.Stop(context.Background())
+	}
+
+	// Start Kubernetes operator if enabled
+	if cfg.Operator.Enabled {
+		logger.Info("Initializing Kubernetes operator")
+		k8sClient, err := k8soperator.NewClient(k8soperator.ClusterConfig{})
+		if err != nil {
+			logger.Error("Failed to create Kubernetes client", logging.Error(err))
+			return
+		}
+
+		crdClient, err := k8soperator.NewCRDClient(k8sClient.RestConfig())
+		if err != nil {
+			logger.Error("Failed to create CRD client", logging.Error(err))
+			return
+		}
+
+		operatorCfg := k8soperator.OperatorConfig{
+			Namespace:               cfg.Operator.Namespace,
+			LeaderElection:          cfg.Operator.LeaderElection,
+			LeaderElectionID:        cfg.Operator.LeaderElectionID,
+			ReconcileInterval:       cfg.Operator.ReconcileInterval,
+			MaxConcurrentReconciles: cfg.Operator.MaxConcurrentReconciles,
+		}
+
+		operatorMgr := k8soperator.NewOperatorManager(k8sClient, crdClient, operatorCfg)
+
+		// Add controllers
+		reCtrl := k8soperator.NewRemoteExecutionController(k8sClient, crdClient, operatorCfg)
+		scCtrl := k8soperator.NewStateConfigController(k8sClient, crdClient, operatorCfg)
+		operatorMgr.AddController(reCtrl)
+		operatorMgr.AddController(scCtrl)
+
+		// Set up informers
+		ns := cfg.Operator.Namespace
+		im := k8soperator.NewInformerManager(crdClient.Dynamic(), ns, cfg.Operator.ReconcileInterval)
+		operatorMgr.SetInformerManager(im)
+
+		if cfg.Operator.LeaderElection {
+			leNs := cfg.Operator.Namespace
+			if leNs == "" {
+				leNs = "kscore-system"
+			}
+			leCfg := k8soperator.DefaultLeaderElectionConfig(leNs)
+			leCfg.LeaseName = cfg.Operator.LeaderElectionID
+			le := k8soperator.NewLeaderElector(k8sClient.Clientset(), leCfg)
+			operatorMgr.SetLeaderElector(le)
+		}
+
+		if err := operatorMgr.Start(ctx); err != nil {
+			logger.Error("Failed to start Kubernetes operator", logging.Error(err))
+			return
+		}
+		defer operatorMgr.Stop()
+
+		logger.Info("Kubernetes operator started",
+			logging.String("namespace", cfg.Operator.Namespace),
+			logging.Bool("leader_election", cfg.Operator.LeaderElection),
+			logging.Duration("reconcile_interval", cfg.Operator.ReconcileInterval),
+		)
 	}
 
 	// Build address list for logging

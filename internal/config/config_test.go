@@ -2712,3 +2712,119 @@ func TestLoadConfig_EnvOverrides_Authorization(t *testing.T) {
 		t.Error("Authorization.DefaultDeny = true, want false")
 	}
 }
+
+// Kubernetes operator config tests (Epic 48)
+
+func TestKubernetesOperatorConfig_Validate(t *testing.T) {
+	t.Run("disabled_skips_validation", func(t *testing.T) {
+		cfg := KubernetesOperatorConfig{Enabled: false}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("disabled config should not fail: %v", err)
+		}
+	})
+
+	t.Run("valid_config", func(t *testing.T) {
+		cfg := KubernetesOperatorConfig{
+			Enabled:                 true,
+			Namespace:               "kscore-system",
+			LeaderElection:          true,
+			LeaderElectionID:        "kscore-operator",
+			ReconcileInterval:       1 * time.Minute,
+			MaxConcurrentReconciles: 3,
+		}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("valid config failed: %v", err)
+		}
+	})
+
+	t.Run("reconcile_interval_too_short", func(t *testing.T) {
+		cfg := KubernetesOperatorConfig{
+			Enabled:                 true,
+			ReconcileInterval:       5 * time.Second,
+			MaxConcurrentReconciles: 1,
+		}
+		if err := cfg.Validate(); err == nil {
+			t.Error("expected error for short reconcile interval")
+		}
+	})
+
+	t.Run("zero_max_concurrent", func(t *testing.T) {
+		cfg := KubernetesOperatorConfig{
+			Enabled:                 true,
+			ReconcileInterval:       1 * time.Minute,
+			MaxConcurrentReconciles: 0,
+		}
+		if err := cfg.Validate(); err == nil {
+			t.Error("expected error for zero max concurrent")
+		}
+	})
+
+	t.Run("leader_election_without_id", func(t *testing.T) {
+		cfg := KubernetesOperatorConfig{
+			Enabled:                 true,
+			LeaderElection:          true,
+			LeaderElectionID:        "",
+			ReconcileInterval:       1 * time.Minute,
+			MaxConcurrentReconciles: 1,
+		}
+		if err := cfg.Validate(); err == nil {
+			t.Error("expected error for leader election without ID")
+		}
+	})
+}
+
+func TestLoadConfig_OperatorDefaults(t *testing.T) {
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load default config: %v", err)
+	}
+
+	if cfg.Operator.Enabled != DefaultOperatorEnabled {
+		t.Errorf("Operator.Enabled = %v, want %v", cfg.Operator.Enabled, DefaultOperatorEnabled)
+	}
+	if cfg.Operator.LeaderElection != DefaultOperatorLeaderElection {
+		t.Errorf("Operator.LeaderElection = %v, want %v", cfg.Operator.LeaderElection, DefaultOperatorLeaderElection)
+	}
+	if cfg.Operator.LeaderElectionID != DefaultOperatorLeaderElectionID {
+		t.Errorf("Operator.LeaderElectionID = %q, want %q", cfg.Operator.LeaderElectionID, DefaultOperatorLeaderElectionID)
+	}
+	if cfg.Operator.ReconcileInterval != DefaultOperatorReconcileInterval {
+		t.Errorf("Operator.ReconcileInterval = %v, want %v", cfg.Operator.ReconcileInterval, DefaultOperatorReconcileInterval)
+	}
+	if cfg.Operator.MaxConcurrentReconciles != DefaultOperatorMaxConcurrentReconciles {
+		t.Errorf("Operator.MaxConcurrentReconciles = %d, want %d", cfg.Operator.MaxConcurrentReconciles, DefaultOperatorMaxConcurrentReconciles)
+	}
+}
+
+func TestLoadConfig_OperatorEnvOverrides(t *testing.T) {
+	t.Setenv("KSCORE_OPERATOR_ENABLED", "true")
+	t.Setenv("KSCORE_OPERATOR_NAMESPACE", "test-ns")
+	t.Setenv("KSCORE_OPERATOR_LEADER_ELECTION", "false")
+	t.Setenv("KSCORE_OPERATOR_LEADER_ELECTION_ID", "custom-id")
+	t.Setenv("KSCORE_OPERATOR_RECONCILE_INTERVAL", "5m")
+	t.Setenv("KSCORE_OPERATOR_MAX_CONCURRENT_RECONCILES", "10")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if !cfg.Operator.Enabled {
+		t.Error("Operator.Enabled = false, want true")
+	}
+	if cfg.Operator.Namespace != "test-ns" {
+		t.Errorf("Operator.Namespace = %q, want %q", cfg.Operator.Namespace, "test-ns")
+	}
+	if cfg.Operator.LeaderElection {
+		t.Error("Operator.LeaderElection = true, want false")
+	}
+	if cfg.Operator.LeaderElectionID != "custom-id" {
+		t.Errorf("Operator.LeaderElectionID = %q, want %q", cfg.Operator.LeaderElectionID, "custom-id")
+	}
+	if cfg.Operator.ReconcileInterval != 5*time.Minute {
+		t.Errorf("Operator.ReconcileInterval = %v, want %v", cfg.Operator.ReconcileInterval, 5*time.Minute)
+	}
+	if cfg.Operator.MaxConcurrentReconciles != 10 {
+		t.Errorf("Operator.MaxConcurrentReconciles = %d, want %d", cfg.Operator.MaxConcurrentReconciles, 10)
+	}
+}

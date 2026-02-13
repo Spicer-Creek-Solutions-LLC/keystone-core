@@ -145,6 +145,13 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 48 COMPLETE**: Kubernetes Operator Implementation:
+  - Phase 1: Dynamic CRD client (`internal/k8s/dynamic.go`) with GVR constants, Get/List/UpdateStatus for RemoteExecution and StateConfig, JSON round-trip conversion, `InformerManager` with `DynamicSharedInformerFactory`, `Client.RestConfig()` and `Client.Clientset()` accessors
+  - Phase 2: `RemoteExecutor` interface, reconcile fetches CRD via dynamic client, dispatches execution, updates status subresource, skips terminal phases (Succeeded/Failed)
+  - Phase 3: `StateExecutor` and `StateDriftChecker` interfaces, StateConfig reconcile (Applying → Applied/Failed), periodic drift detection on Applied resources, cycle-free `ConvertedStateFile` types to avoid `k8s → statemgmt → k8s` import cycle
+  - Phase 4: K8s Lease-based leader election (`LeaderElector`), `KubernetesOperatorConfig` in config.go with defaults/validation/env bindings (`KSCORE_OPERATOR_*`), wired into `kscore-server` with `--enable-operator` via config, standalone CRD YAML at `deploy/kubernetes/crds/`, Helm RBAC ClusterRole for `keystonecore.io` resources, Helm values `operator:` section, configuration reference docs, kubernetes.md updated (removed "planned" callouts)
+  - Files: 8 created (`dynamic.go`, `dynamic_test.go`, `informers.go`, `informers_test.go`, `conversion.go`, `conversion_test.go`, `leader.go`, `leader_test.go`, 2 CRD YAMLs), 6 modified (`controller.go`, `controller_test.go`, `client.go`, `config.go`, `main.go`, Helm RBAC/values)
+  - Tests: 50+ new tests across k8s and config packages, all passing with race detector
 - **Epic 47 COMPLETE**: Registry Storage Backends:
   - `internal/registry/storage/` package with `Backend` interface, `StoredModule`, `PublishRequest`, `PublishResult` types
   - `FilesystemBackend`: wraps existing `os.*` operations with `sync.RWMutex` for concurrency
@@ -439,7 +446,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅ | Epic 47 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 Phase 1-4 COMPLETE ✅ | Epic 44 COMPLETE ✅ | Epic 45 COMPLETE ✅ | Epic 46 COMPLETE ✅ | Epic 47 COMPLETE ✅ | Epic 48 COMPLETE ✅
 
 ## Repository Structure
 
@@ -567,7 +574,7 @@ Implementation order:
 45. **Epic 45** (Control Plane Config Wiring) - ✅ COMPLETE - AgentManagement, Execution, StateManagement config wired; Events, GitOps, Authorization config wired; Viper env bindings, docs, validation; E2E tests (T4.1-T4.3) with events config, webhook HMAC auth, policy enforcement modes; T4.4 deferred to Epic 51
 46. **Epic 46** (gRPC Service Implementation) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 11 - All 7 proto stubs generated, 7 server implementations (ControlPlane, Secrets, Agent, State, Event, Policy, Cluster), 6 registered in kscore-server (CoordinationService deferred to cluster mode), auth interceptor coverage, 76.3% test coverage
 47. **Epic 47** (Registry Storage Backends) - ✅ COMPLETE - Depends on Epic 22 - Pluggable storage backends (S3, GCS, Azure, NATS) for kscore-registry via BackendAdapter wrapping `internal/files/backend/`, filesystem backend, compliance test suite, migration support, CLI flags for all backends
-48. **Epic 48** (Kubernetes Operator) - NOT STARTED - Depends on Epic 1, 2, 3, 8, 11 - Informer-based CRD watching, reconciliation, drift detection, leader election, Helm/Kustomize deployment
+48. **Epic 48** (Kubernetes Operator) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 8, 11 - Dynamic CRD client, informers, reconciliation, drift detection, leader election, config wiring, Helm RBAC, documentation
 49. **Epic 49** (REST API Handler Wiring) - NOT STARTED - Depends on Epic 1, 4, 5, 6, 11, 21, 22, 37 - Wire 8 remaining REST API handlers into kscore-server with real dependencies, conditional registration for infrastructure-dependent handlers
 50. **Epic 50** (Outbound Webhooks) - NOT STARTED - Depends on Epic 1, 4 - Persistent outbound webhook subscriptions with event dispatcher, HMAC signing, retry logic, REST API, and CLI
 51. **Epic 51** (HA Resilience Testing) - NOT STARTED - Depends on Epic 11, 45 - NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention E2E tests

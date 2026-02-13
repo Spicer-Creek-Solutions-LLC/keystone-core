@@ -33,4 +33,51 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kscore-server.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
+{{- if .Values.operator.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kscore-server.fullname" . }}-operator
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+rules:
+  # Keystone Core CRDs
+  - apiGroups: ["keystonecore.io"]
+    resources: ["remoteexecutions", "stateconfigs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["keystonecore.io"]
+    resources: ["remoteexecutions/status", "stateconfigs/status"]
+    verbs: ["get", "update", "patch"]
+  # Pods for remote execution
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  # Leases for operator leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Events for operator audit logging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kscore-server.fullname" . }}-operator
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kscore-server.fullname" . }}-operator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kscore-server.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
 {{- end }}

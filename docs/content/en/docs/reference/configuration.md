@@ -437,6 +437,28 @@ cluster:
     rebalance_delay: "10s"            # Delay before rebalancing
 ```
 
+### Kubernetes Operator
+
+```yaml
+# Kubernetes operator settings (watches CRDs, runs reconciliation)
+operator:
+  enabled: false                        # Enable the Kubernetes operator
+  namespace: ""                         # Restrict to a single namespace (empty = all)
+  leader_election: true                 # Enable leader election for HA
+  leader_election_id: "kscore-operator" # Lease name for leader election
+  reconcile_interval: "1m"              # Periodic reconciliation interval
+  max_concurrent_reconciles: 3          # Maximum parallel reconciliations
+```
+
+| Setting | Default | Env Var | Description |
+|---------|---------|---------|-------------|
+| `operator.enabled` | `false` | `KSCORE_OPERATOR_ENABLED` | Enable the Kubernetes operator |
+| `operator.namespace` | `""` | `KSCORE_OPERATOR_NAMESPACE` | Namespace restriction (empty = all) |
+| `operator.leader_election` | `true` | `KSCORE_OPERATOR_LEADER_ELECTION` | Enable leader election |
+| `operator.leader_election_id` | `kscore-operator` | `KSCORE_OPERATOR_LEADER_ELECTION_ID` | Lease name for leader election |
+| `operator.reconcile_interval` | `1m` | `KSCORE_OPERATOR_RECONCILE_INTERVAL` | Periodic reconciliation interval (min 10s) |
+| `operator.max_concurrent_reconciles` | `3` | `KSCORE_OPERATOR_MAX_CONCURRENT_RECONCILES` | Max parallel reconciliations (min 1) |
+
 ### Identity Configuration
 
 ```yaml
@@ -1366,6 +1388,14 @@ KSCORE_EVENTS_MAX_MESSAGES="1000000"
 # Authorization
 KSCORE_AUTHZ_ENABLED="true"
 KSCORE_AUTHZ_DEFAULT_DENY="true"
+
+# Kubernetes operator
+KSCORE_OPERATOR_ENABLED="false"
+KSCORE_OPERATOR_NAMESPACE=""
+KSCORE_OPERATOR_LEADER_ELECTION="true"
+KSCORE_OPERATOR_LEADER_ELECTION_ID="kscore-operator"
+KSCORE_OPERATOR_RECONCILE_INTERVAL="1m"
+KSCORE_OPERATOR_MAX_CONCURRENT_RECONCILES="3"
 ```
 
 ### Agent

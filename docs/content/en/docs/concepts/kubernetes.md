@@ -2,14 +2,12 @@
 title: "Kubernetes Integration"
 weight: 12
 description: >
-  Native Kubernetes support with CRDs, client wrapper, and planned operator controllers for container orchestration environments.
+  Native Kubernetes support with CRDs, client wrapper, and operator controllers for container orchestration environments.
 ---
 
 ## Overview
 
-Keystone Core provides Kubernetes integration for unified management of containerized workloads alongside traditional infrastructure. The integration includes a comprehensive client wrapper for interacting with Kubernetes clusters, Custom Resource Definitions (CRDs) for Kubernetes-native resource representations, and scaffolded operator controllers that are planned for full implementation in a future epic.
-
-> **Implementation Status:** The Kubernetes client wrapper and CRD type definitions are fully implemented. The operator controllers (`RemoteExecutionController`, `StateConfigController`) have work queue scaffolding but reconciliation logic is not yet implemented — the `reconcile()` methods are no-ops. Informer-based watching, CRD status updates, and drift detection are planned for [Epic 48](/epics/48-kubernetes-operator.md). The CRD YAML manifests are defined but not yet generated via controller-gen or published as installable artifacts.
+Keystone Core provides Kubernetes integration for unified management of containerized workloads alongside traditional infrastructure. The integration includes a comprehensive client wrapper for interacting with Kubernetes clusters, Custom Resource Definitions (CRDs) for Kubernetes-native resource representations, and operator controllers with informer-based watching, reconciliation, drift detection, and leader election.
 
 ## Architecture
 
@@ -17,9 +15,9 @@ Keystone Core provides Kubernetes integration for unified management of containe
 flowchart TB
     subgraph CP["Keystone Core Control Plane"]
         KC["K8s Client<br>Wrapper ✅"]
-        CT["Controllers<br>(Scaffolded, planned)"]
+        CT["Controllers ✅"]
         KC --> API
-        CT -.->|planned| API
+        CT --> API
         API["Kubernetes API Server"]
         API --> RE["RemoteExecution<br>CRD Types ✅"]
         API --> SC["StateConfig<br>CRD Types ✅"]
@@ -134,24 +132,30 @@ status:
   driftDetected: false
 ```
 
-### Controllers (Planned)
+### Controllers
 
-> **Status:** Controller scaffolding exists in `internal/k8s/controller.go` with work queues, worker goroutines, and an `OperatorManager`. However, the `reconcile()` methods are no-ops and there are no informers watching CRD resources. Full controller implementation is planned in [Epic 48](/epics/48-kubernetes-operator.md).
+The operator controllers reconcile CRD states using dynamic informers, work queues, and status subresource updates:
 
-The planned operator controllers will reconcile CRD states:
+**RemoteExecutionController**:
 
-**RemoteExecutionController** (scaffolded):
+- Informer-based watching of RemoteExecution CRDs via dynamic shared informers
+- Work queue with rate-limiting for reconciliation
+- Reconcile fetches CRD via dynamic client, dispatches execution, updates status
+- Skips terminal phases (Succeeded, Failed)
+- `RemoteExecutor` interface for testable execution abstraction
 
-- Work queue and worker goroutines implemented
-- `ExecuteRemoteExecution()` method implemented for direct invocation
-- Planned: informer-based watching of RemoteExecution resources
-- Planned: automatic dispatch, result aggregation, and status updates
+**StateConfigController**:
 
-**StateConfigController** (scaffolded):
+- Informer-based watching of StateConfig CRDs via dynamic shared informers
+- Reconcile sets phase to Applying, calls `StateExecutor`, updates to Applied/Failed
+- Periodic drift detection via `StateDriftChecker` on Applied resources
+- Cycle-free conversion from K8s CRD types to internal state types
 
-- Work queue and worker goroutines implemented
-- Planned: informer-based watching of StateConfig resources
-- Planned: state application, drift monitoring, and compliance reporting
+**Leader Election**:
+
+- K8s Lease-based leader election for HA multi-replica deployments
+- Configurable via `operator.leaderElection` and `operator.leaderElectionID`
+- Controllers only start on the leader instance; graceful handoff on loss
 
 ## Execution Modes
 
@@ -340,9 +344,7 @@ agent:
       tty: false
 ```
 
-## Deployment (Planned)
-
-> **Status:** Helm charts, Kustomize manifests, and CRD installation artifacts are not yet published. The examples below show the planned deployment experience. See [Epic 48](/epics/48-kubernetes-operator.md) and [Epic 100](/epics/100-release-readiness-0.1.0.md).
+## Deployment
 
 ### Helm Chart
 
@@ -430,11 +432,11 @@ When managing multiple clusters:
 3. Use cluster labels for targeting
 4. Implement network policies for cross-cluster communication
 
-### Drift Detection (Planned)
+### Drift Detection
 
-> **Status:** Drift detection configuration is defined in the StateConfig CRD spec but is not yet implemented. See [Epic 48](/epics/48-kubernetes-operator.md).
+The `StateConfigController` periodically checks Applied resources for drift using the `StateDriftChecker` interface. When drift is detected, the resource status is updated with `driftDetected: true` and the resource is re-enqueued for reconciliation.
 
-The planned drift detection will support severity-based configuration:
+Drift detection runs as part of `periodicReconcile` at the configured `reconcileInterval`. Future improvements may support severity-based configuration:
 
 ```yaml
 driftDetection:
@@ -466,9 +468,7 @@ kubectl apply -f https://github.com/shawnbutts/keystone-core/deploy/kubernetes/c
 
 ### Controller Not Reconciling
 
-> **Note:** Controller reconciliation is not yet implemented. The controllers have work queue scaffolding but `reconcile()` is a no-op. Full implementation is planned in [Epic 48](/epics/48-kubernetes-operator.md).
-
-Once implemented, check controller logs:
+If the operator is enabled but controllers are not reconciling, check:
 
 ```bash
 kubectl logs -n keystone-system deployment/keystone-server -c controller

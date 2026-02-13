@@ -79,6 +79,16 @@ func NewClient(cluster ClusterConfig) (*Client, error) {
 	}, nil
 }
 
+// RestConfig returns the underlying REST config, or nil if the client was created with NewClientWithInterface.
+func (c *Client) RestConfig() *rest.Config {
+	return c.config
+}
+
+// Clientset returns the underlying kubernetes.Interface for use with subsystems like leader election.
+func (c *Client) Clientset() kubernetes.Interface {
+	return c.clientset
+}
+
 // ExecInPod executes a command in a specific pod
 func (c *Client) ExecInPod(opts PodExecOptions) (*PodExecResult, error) {
 	startTime := time.Now()

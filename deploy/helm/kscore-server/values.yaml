@@ -249,6 +249,23 @@ webhook:
     tls: []
 
 # -----------------------------------------------------------------------------
+# Kubernetes Operator Configuration
+# -----------------------------------------------------------------------------
+operator:
+  # Enable the Kubernetes operator (watches CRDs, runs reconciliation)
+  enabled: false
+  # Restrict the operator to a single namespace (empty = all namespaces)
+  namespace: ""
+  # Enable leader election for HA deployments
+  leaderElection: true
+  # Lease name for leader election
+  leaderElectionID: "kscore-operator"
+  # How often periodic reconciliation runs
+  reconcileInterval: "1m"
+  # Maximum parallel reconciliations
+  maxConcurrentReconciles: 3
+
+# -----------------------------------------------------------------------------
 # Policy Engine Configuration
 # -----------------------------------------------------------------------------
 policy:

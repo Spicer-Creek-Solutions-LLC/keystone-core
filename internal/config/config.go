@@ -67,6 +67,7 @@ type Config struct {
 	Tracing         TracingConfig
 	Health          HealthConfig
 	Profiling       ProfilingConfig
+	Operator        KubernetesOperatorConfig
 }
 
 // LoggingConfig contains logging settings
@@ -1011,6 +1012,39 @@ type PolicyDefinition struct {
 	Enabled bool
 }
 
+// KubernetesOperatorConfig configures the Kubernetes operator mode.
+type KubernetesOperatorConfig struct {
+	// Enabled enables the Kubernetes operator (watches CRDs, runs reconciliation)
+	Enabled bool
+	// Namespace restricts the operator to a single namespace (empty = all namespaces)
+	Namespace string
+	// LeaderElection enables leader election for HA deployments
+	LeaderElection bool
+	// LeaderElectionID is the lease name for leader election
+	LeaderElectionID string
+	// ReconcileInterval is how often periodic reconciliation runs
+	ReconcileInterval time.Duration
+	// MaxConcurrentReconciles limits parallel reconciliations
+	MaxConcurrentReconciles int
+}
+
+// Validate checks the Kubernetes operator configuration.
+func (c KubernetesOperatorConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.ReconcileInterval < 10*time.Second {
+		return fmt.Errorf("operator reconcile interval must be >= 10s, got %s", c.ReconcileInterval)
+	}
+	if c.MaxConcurrentReconciles < 1 {
+		return fmt.Errorf("operator max concurrent reconciles must be >= 1, got %d", c.MaxConcurrentReconciles)
+	}
+	if c.LeaderElection && c.LeaderElectionID == "" {
+		return fmt.Errorf("operator leader election ID is required when leader election is enabled")
+	}
+	return nil
+}
+
 // Default configuration values
 const (
 	// DefaultServerListenAddr defaults to loopback for security (requires TLS for non-loopback)
@@ -1121,6 +1155,13 @@ const (
 	DefaultProfilingBlockProfileRate = 0
 	DefaultProfilingMutexFraction    = 0
 
+	// Kubernetes operator defaults
+	DefaultOperatorEnabled             = false
+	DefaultOperatorLeaderElection      = true
+	DefaultOperatorLeaderElectionID    = "kscore-operator"
+	DefaultOperatorReconcileInterval   = 1 * time.Minute
+	DefaultOperatorMaxConcurrentReconciles = 3
+
 	// Health check defaults
 	DefaultHealthEnabled            = true
 	DefaultHealthStartupGracePeriod = 30 * time.Second
@@ -1215,6 +1256,14 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	_ = v.BindEnv("events.retention", "KSCORE_EVENTS_RETENTION")
 	_ = v.BindEnv("events.maxbytes", "KSCORE_EVENTS_MAX_BYTES")
 	_ = v.BindEnv("events.maxmessages", "KSCORE_EVENTS_MAX_MESSAGES")
+
+	// Kubernetes operator environment variable bindings (Epic 48)
+	_ = v.BindEnv("operator.enabled", "KSCORE_OPERATOR_ENABLED")
+	_ = v.BindEnv("operator.namespace", "KSCORE_OPERATOR_NAMESPACE")
+	_ = v.BindEnv("operator.leaderelection", "KSCORE_OPERATOR_LEADER_ELECTION")
+	_ = v.BindEnv("operator.leaderelectionid", "KSCORE_OPERATOR_LEADER_ELECTION_ID")
+	_ = v.BindEnv("operator.reconcileinterval", "KSCORE_OPERATOR_RECONCILE_INTERVAL")
+	_ = v.BindEnv("operator.maxconcurrentreconciles", "KSCORE_OPERATOR_MAX_CONCURRENT_RECONCILES")
 
 	// Authorization environment variable bindings (Epic 45 Phase 3)
 	_ = v.BindEnv("auth.authorization.enabled", "KSCORE_AUTHZ_ENABLED")
@@ -1450,6 +1499,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("profiling.blockprofilerate", DefaultProfilingBlockProfileRate)
 	v.SetDefault("profiling.mutexprofilefraction", DefaultProfilingMutexFraction)
 
+	// Kubernetes operator defaults
+	v.SetDefault("operator.enabled", DefaultOperatorEnabled)
+	v.SetDefault("operator.namespace", "")
+	v.SetDefault("operator.leaderelection", DefaultOperatorLeaderElection)
+	v.SetDefault("operator.leaderelectionid", DefaultOperatorLeaderElectionID)
+	v.SetDefault("operator.reconcileinterval", DefaultOperatorReconcileInterval)
+	v.SetDefault("operator.maxconcurrentreconciles", DefaultOperatorMaxConcurrentReconciles)
+
 	// Health check defaults
 	v.SetDefault("health.enabled", DefaultHealthEnabled)
 	v.SetDefault("health.startupgraceperiod", DefaultHealthStartupGracePeriod)
@@ -1505,6 +1562,11 @@ func (c *Config) Validate() error {
 
 	// Validate GitOps config
 	if err := c.GitOps.Validate(); err != nil {
+		return err
+	}
+
+	// Validate operator config
+	if err := c.Operator.Validate(); err != nil {
 		return err
 	}
 
