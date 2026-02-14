@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-49 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-51 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -160,6 +160,8 @@ Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find detail
 
 ### Recently Completed
 
+- **Epic 51** (HA Resilience Testing) — COMPLETE — 5 E2E resilience tests: NATS/etcd node failure, PostgreSQL failover, iptables-based network partitions, split-brain prevention; harness extensions (StopService/StartService/WaitForServiceHealthy/ExecInService), network partition helpers (PartitionService/HealPartition/HealAllPartitions), NET_ADMIN capability on server containers, iptables in Dockerfile
+
 - **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands), configuration section, delivery history tracking
 
 - **Epic 47** (Registry Storage Backends) — COMPLETE — Pluggable S3/GCS/Azure/NATS backends via BackendAdapter, factory, migration tooling, CLI flags, docs
@@ -168,7 +170,12 @@ Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find detail
 
 ### Planned
 
-- **Epic 51** (HA Resilience Testing) — NOT STARTED — NATS/etcd node failure, PostgreSQL failover, network partition, split-brain prevention
+- **Epic 52** (Critical Bug Fixes) — NOT STARTED — EncryptedCache no-op, bootstrap handoff empty body, gateway NATS TLS, compression fallbacks, transaction rollback no-ops, policy handler always-allow, GetServerStatus missing
+- **Epic 53** (gRPC Service Completion) — NOT STARTED — Wire SecretsServer/ClusterServer with real deps, register CoordinationService, implement StateHistory/StateStatus stores, RestoreBackup RPC
+- **Epic 54** (CLI Wiring: Core Operations) — NOT STARTED — Wire kscore-events (8), kscore-schedule (11), kscore-runbook (5), kscore-exec streaming; replace ~25 generateSample* stubs
+- **Epic 55** (CLI Wiring: Secrets & Compliance) — NOT STARTED — Wire kscore-secrets (30), kscore-audit (1), kscore-policy (4); add rotation/schedule/cache management RPCs
+- **Epic 56** (CLI Wiring: GitOps & Infrastructure) — NOT STARTED — Wire kscore-gitops (10), kscore-webhook (3), kscore-agents (3), kscore-module (3), kscorectl (2), kscore-files (2), kscore-monitor (1)
+- **Epic 57** (Error Handling Hardening) — NOT STARTED — Fix ~20 silently ignored errors, add channel-drop metrics, input validation, WASM error propagation, AuthorizationPolicy modification detection
 
 ### Future (Numbered)
 

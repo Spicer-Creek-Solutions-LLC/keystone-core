@@ -28,7 +28,7 @@ FROM alpine:3.19
 
 # Install runtime dependencies, create user and directories
 # hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates tzdata && \
+RUN apk add --no-cache ca-certificates tzdata iptables && \
     addgroup -g 1000 kscore && \
     adduser -u 1000 -G kscore -D kscore && \
     mkdir -p /var/lib/keystone-core /etc/keystone-core && \

@@ -232,6 +232,8 @@ services:
     image: kscore-server:e2e-test
     container_name: kscore-server-1
     hostname: server-1
+    cap_add:
+      - NET_ADMIN
     depends_on:
       nats-1:
         condition: service_healthy
@@ -271,6 +273,8 @@ services:
     image: kscore-server:e2e-test
     container_name: kscore-server-2
     hostname: server-2
+    cap_add:
+      - NET_ADMIN
     depends_on:
       server-1:
         condition: service_healthy
@@ -298,6 +302,8 @@ services:
     image: kscore-server:e2e-test
     container_name: kscore-server-3
     hostname: server-3
+    cap_add:
+      - NET_ADMIN
     depends_on:
       server-1:
         condition: service_healthy

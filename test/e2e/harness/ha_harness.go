@@ -410,6 +410,74 @@ func (e *HAClusterEnvironment) KillServer(ctx context.Context, index int) error 
 	return e.runCompose(ctx, args...)
 }
 
+// StopService stops a named docker-compose service (e.g., "nats-1", "etcd-2", "postgres").
+func (e *HAClusterEnvironment) StopService(ctx context.Context, name string) error {
+	args := []string{
+		"-f", e.ComposeFile,
+		"-p", e.ProjectName,
+		"stop", name,
+	}
+	return e.runCompose(ctx, args...)
+}
+
+// StartService starts a named docker-compose service.
+func (e *HAClusterEnvironment) StartService(ctx context.Context, name string) error {
+	args := []string{
+		"-f", e.ComposeFile,
+		"-p", e.ProjectName,
+		"start", name,
+	}
+	return e.runCompose(ctx, args...)
+}
+
+// WaitForServiceHealthy polls docker-compose ps until a service reports healthy status.
+func (e *HAClusterEnvironment) WaitForServiceHealthy(ctx context.Context, name string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		args := []string{
+			"-f", e.ComposeFile,
+			"-p", e.ProjectName,
+			"ps", "--format", "{{.Health}}", name,
+		}
+		cmd := exec.CommandContext(ctx, "docker", append([]string{"compose"}, args...)...)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			status := strings.TrimSpace(string(out))
+			if status == "healthy" {
+				return nil
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+			continue
+		}
+	}
+	return fmt.Errorf("service %s did not become healthy within %s", name, timeout)
+}
+
+// ExecInService runs a command inside a running service container.
+func (e *HAClusterEnvironment) ExecInService(ctx context.Context, service string, cmd ...string) (string, error) {
+	args := make([]string, 0, 8+len(cmd))
+	args = append(args,
+		"compose",
+		"-f", e.ComposeFile,
+		"-p", e.ProjectName,
+		"exec", "-T", service,
+	)
+	args = append(args, cmd...)
+
+	c := exec.CommandContext(ctx, "docker", args...)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return string(out), fmt.Errorf("exec in %s failed: %w: %s", service, err, string(out))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // Logs prints logs from a specific service
 func (e *HAClusterEnvironment) Logs(ctx context.Context, service string) error {
 	fmt.Printf("\n=== Logs from %s (last 100 lines) ===\n", service)

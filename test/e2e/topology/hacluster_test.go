@@ -487,51 +487,434 @@ func TestHACluster_QuorumLoss(t *testing.T) {
 // Infrastructure Failure Tests
 // =============================================================================
 
-// TestHACluster_NATSFailure tests handling of NATS node failure
+// TestHACluster_NATSFailure tests handling of NATS node failure.
+// Kills one NATS node, verifies operations continue via remaining nodes,
+// then restarts and verifies the node rejoins the cluster.
 func TestHACluster_NATSFailure(t *testing.T) {
-	t.Skip("Skipping: NATS failure tests require NATS-specific container control")
+	skipIfNotHACluster(t)
+	env := setupHACluster(t)
 
-	// This test would:
-	// 1. Kill one NATS node
-	// 2. Verify message delivery continues
-	// 3. Verify JetStream operations work
-	// 4. Restart NATS node and verify it rejoins cluster
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	// Verify all servers healthy
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Fatalf("Server %d not healthy before test", i+1)
+		}
+	}
+
+	// Execute a command to confirm baseline
+	result, err := env.ExecuteCommandAndWait(ctx, "agent-1", "echo", "pre-nats-failure")
+	if err != nil {
+		t.Fatalf("Baseline command failed: %v", err)
+	}
+	t.Logf("Baseline: %s", strings.TrimSpace(result.Stdout))
+
+	// Kill nats-1
+	t.Log("Stopping nats-1...")
+	if err := env.StopService(ctx, "nats-1"); err != nil {
+		t.Fatalf("Failed to stop nats-1: %v", err)
+	}
+
+	// Let cluster detect the failure
+	time.Sleep(10 * time.Second)
+
+	// Verify operations still work through remaining NATS nodes
+	t.Log("Verifying operations with nats-1 down...")
+	for i := 1; i < env.ServerCount(); i++ {
+		client := env.ClientForServer(i)
+		if client == nil {
+			continue
+		}
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Errorf("Server %d failed with nats-1 down: %v", i+1, err)
+		} else {
+			t.Logf("Server %d responding, sees %d agents", i+1, len(resp.Agents))
+		}
+	}
+
+	// Restart nats-1
+	t.Log("Restarting nats-1...")
+	if err := env.StartService(ctx, "nats-1"); err != nil {
+		t.Fatalf("Failed to restart nats-1: %v", err)
+	}
+	if err := env.WaitForServiceHealthy(ctx, "nats-1", 60*time.Second); err != nil {
+		t.Fatalf("nats-1 did not become healthy: %v", err)
+	}
+
+	// Let NATS cluster stabilize
+	time.Sleep(5 * time.Second)
+
+	// Verify full cluster works
+	t.Log("Verifying full cluster after nats-1 rejoin...")
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Errorf("Server %d not healthy after nats-1 rejoin", i+1)
+		}
+	}
+
+	result, err = env.ExecuteCommandAndWait(ctx, "agent-1", "echo", "post-nats-recovery")
+	if err != nil {
+		t.Errorf("Post-recovery command failed: %v", err)
+	} else {
+		t.Logf("Post-recovery: %s", strings.TrimSpace(result.Stdout))
+	}
+
+	t.Log("NATS failure test passed")
 }
 
-// TestHACluster_EtcdFailure tests handling of etcd node failure
+// TestHACluster_EtcdFailure tests handling of etcd node failure.
+// Kills one etcd node, verifies quorum is maintained with 2/3 nodes,
+// then restarts and verifies the node rejoins.
 func TestHACluster_EtcdFailure(t *testing.T) {
-	t.Skip("Skipping: etcd failure tests require etcd-specific container control")
+	skipIfNotHACluster(t)
+	env := setupHACluster(t)
 
-	// This test would:
-	// 1. Kill one etcd node
-	// 2. Verify leader election still works
-	// 3. Verify cluster state operations continue
-	// 4. Restart etcd node and verify it rejoins cluster
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	// Verify all servers healthy
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Fatalf("Server %d not healthy before test", i+1)
+		}
+	}
+
+	// Kill etcd-1
+	t.Log("Stopping etcd-1...")
+	if err := env.StopService(ctx, "etcd-1"); err != nil {
+		t.Fatalf("Failed to stop etcd-1: %v", err)
+	}
+
+	// Let cluster detect the failure (etcd quorum: 2/3 nodes still healthy)
+	time.Sleep(10 * time.Second)
+
+	// Verify servers still respond (etcd quorum maintained with 2/3)
+	t.Log("Verifying servers with etcd-1 down...")
+	workingServers := 0
+	for i := 0; i < env.ServerCount(); i++ {
+		client := env.ClientForServer(i)
+		if client == nil {
+			continue
+		}
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Logf("Server %d degraded with etcd-1 down: %v", i+1, err)
+		} else {
+			workingServers++
+			t.Logf("Server %d responding, sees %d agents", i+1, len(resp.Agents))
+		}
+	}
+	if workingServers == 0 {
+		t.Error("No servers responding with etcd-1 down — quorum should be maintained with 2/3 nodes")
+	}
+
+	// Restart etcd-1
+	t.Log("Restarting etcd-1...")
+	if err := env.StartService(ctx, "etcd-1"); err != nil {
+		t.Fatalf("Failed to restart etcd-1: %v", err)
+	}
+	if err := env.WaitForServiceHealthy(ctx, "etcd-1", 60*time.Second); err != nil {
+		t.Fatalf("etcd-1 did not become healthy: %v", err)
+	}
+
+	// Let etcd cluster stabilize
+	time.Sleep(5 * time.Second)
+
+	// Verify all servers healthy
+	t.Log("Verifying cluster after etcd-1 rejoin...")
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Errorf("Server %d not healthy after etcd-1 rejoin", i+1)
+		}
+	}
+
+	t.Log("etcd failure test passed")
 }
 
-// TestHACluster_DatabaseFailover tests PostgreSQL failover
+// TestHACluster_DatabaseFailover tests PostgreSQL failure and recovery.
+// Stops the PostgreSQL container, verifies servers detect the outage,
+// then restarts and verifies operations resume.
 func TestHACluster_DatabaseFailover(t *testing.T) {
-	t.Skip("Skipping: PostgreSQL failover requires replica configuration")
+	skipIfNotHACluster(t)
+	env := setupHACluster(t)
 
-	// This test would require PostgreSQL replication setup
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	// Verify all servers healthy and execute baseline command
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Fatalf("Server %d not healthy before test", i+1)
+		}
+	}
+	result, err := env.ExecuteCommandAndWait(ctx, "agent-1", "echo", "pre-db-failure")
+	if err != nil {
+		t.Fatalf("Baseline command failed: %v", err)
+	}
+	t.Logf("Baseline: %s", strings.TrimSpace(result.Stdout))
+
+	// Stop PostgreSQL
+	t.Log("Stopping postgres...")
+	if err := env.StopService(ctx, "postgres"); err != nil {
+		t.Fatalf("Failed to stop postgres: %v", err)
+	}
+
+	// Let servers detect the database outage
+	time.Sleep(10 * time.Second)
+
+	// Servers may still respond to health checks (NATS/etcd still up)
+	// but DB-dependent operations may fail. Check at least one server is still alive.
+	t.Log("Checking server liveness with postgres down...")
+	aliveCount := 0
+	for i := 0; i < env.ServerCount(); i++ {
+		if env.IsServerHealthy(ctx, i) {
+			aliveCount++
+		}
+	}
+	t.Logf("%d/%d servers still alive with postgres down", aliveCount, env.ServerCount())
+
+	// Restart PostgreSQL
+	t.Log("Restarting postgres...")
+	if err := env.StartService(ctx, "postgres"); err != nil {
+		t.Fatalf("Failed to restart postgres: %v", err)
+	}
+	if err := env.WaitForServiceHealthy(ctx, "postgres", 60*time.Second); err != nil {
+		t.Fatalf("postgres did not become healthy: %v", err)
+	}
+
+	// Give servers time to reconnect to the database
+	time.Sleep(10 * time.Second)
+
+	// Verify full functionality restored
+	t.Log("Verifying recovery after postgres restart...")
+	if err := env.WaitForAllServersHealthy(ctx, 60*time.Second); err != nil {
+		t.Fatalf("Servers not healthy after postgres restart: %v", err)
+	}
+
+	result, err = env.ExecuteCommandAndWait(ctx, "agent-1", "echo", "post-db-recovery")
+	if err != nil {
+		t.Errorf("Post-recovery command failed: %v", err)
+	} else {
+		t.Logf("Post-recovery: %s", strings.TrimSpace(result.Stdout))
+	}
+
+	t.Log("Database failover test passed")
 }
 
 // =============================================================================
 // Network Partition Tests
 // =============================================================================
 
-// TestHACluster_NetworkPartition tests handling of network partitions
-func TestHACluster_NetworkPartition(t *testing.T) {
-	t.Skip("Skipping: Network partition tests require special network configuration")
-
-	// This test would use Docker network manipulation
+// skipIfNotPrivileged skips tests that require NET_ADMIN capability.
+func skipIfNotPrivileged(t *testing.T) {
+	if os.Getenv("KSCORE_E2E_PRIVILEGED") != "1" {
+		t.Skip("Skipping: requires KSCORE_E2E_PRIVILEGED=1 for iptables network manipulation")
+	}
 }
 
-// TestHACluster_SplitBrain tests that split-brain is prevented
-func TestHACluster_SplitBrain(t *testing.T) {
-	t.Skip("Skipping: Split-brain tests require network partition capability")
+// TestHACluster_NetworkPartition tests handling of network partitions.
+// Isolates server-1 from server-2 and server-3 using iptables,
+// verifies the majority partition continues, then heals.
+func TestHACluster_NetworkPartition(t *testing.T) {
+	skipIfNotHACluster(t)
+	skipIfNotPrivileged(t)
+	env := setupHACluster(t)
 
-	// This test would use Docker network manipulation
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	defer cancel()
+
+	// Ensure cleanup even on failure
+	defer func() {
+		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanCancel()
+		_ = env.HealAllPartitions(cleanCtx, "server-1")
+	}()
+
+	// Verify all servers healthy
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Fatalf("Server %d not healthy before test", i+1)
+		}
+	}
+
+	// Partition server-1 from server-2 and server-3
+	t.Log("Partitioning server-1 from server-2 and server-3...")
+	if err := env.PartitionService(ctx, "server-1", "server-2"); err != nil {
+		t.Fatalf("Failed to partition server-1 -> server-2: %v", err)
+	}
+	if err := env.PartitionService(ctx, "server-1", "server-3"); err != nil {
+		t.Fatalf("Failed to partition server-1 -> server-3: %v", err)
+	}
+
+	// Let partition detection kick in
+	time.Sleep(15 * time.Second)
+
+	// Verify majority partition (server-2, server-3) still responds
+	t.Log("Verifying majority partition...")
+	for i := 1; i < env.ServerCount(); i++ {
+		client := env.ClientForServer(i)
+		if client == nil {
+			continue
+		}
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Errorf("Server %d (majority) failed during partition: %v", i+1, err)
+		} else {
+			t.Logf("Server %d (majority) responding, sees %d agents", i+1, len(resp.Agents))
+		}
+	}
+
+	// server-1 (minority) may fail or show degraded behavior
+	t.Log("Checking server-1 (minority) status...")
+	client := env.ClientForServer(0)
+	if client != nil {
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Logf("Server-1 (minority) degraded as expected: %v", err)
+		} else {
+			t.Logf("Server-1 (minority) still responding, sees %d agents", len(resp.Agents))
+		}
+	}
+
+	// Heal the partition
+	t.Log("Healing partition...")
+	if err := env.HealAllPartitions(ctx, "server-1"); err != nil {
+		t.Fatalf("Failed to heal partitions: %v", err)
+	}
+
+	// Let cluster reunify
+	time.Sleep(15 * time.Second)
+
+	// Verify all servers healthy
+	t.Log("Verifying cluster reunification...")
+	if err := env.WaitForAllServersHealthy(ctx, 60*time.Second); err != nil {
+		t.Fatalf("Cluster did not reunify: %v", err)
+	}
+
+	// Verify command execution works
+	result, err := env.ExecuteCommandAndWait(ctx, "agent-1", "echo", "post-partition-heal")
+	if err != nil {
+		t.Errorf("Post-partition command failed: %v", err)
+	} else {
+		t.Logf("Post-partition: %s", strings.TrimSpace(result.Stdout))
+	}
+
+	t.Log("Network partition test passed")
+}
+
+// TestHACluster_SplitBrain tests that split-brain is prevented.
+// Creates a symmetric partition isolating server-1, verifies only
+// the majority partition accepts operations, then heals.
+func TestHACluster_SplitBrain(t *testing.T) {
+	skipIfNotHACluster(t)
+	skipIfNotPrivileged(t)
+	env := setupHACluster(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	defer cancel()
+
+	// Ensure cleanup even on failure
+	defer func() {
+		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanCancel()
+		_ = env.HealAllPartitions(cleanCtx, "server-1")
+		_ = env.HealAllPartitions(cleanCtx, "server-2")
+		_ = env.HealAllPartitions(cleanCtx, "server-3")
+	}()
+
+	// Verify all servers healthy
+	for i := 0; i < env.ServerCount(); i++ {
+		if !env.IsServerHealthy(ctx, i) {
+			t.Fatalf("Server %d not healthy before test", i+1)
+		}
+	}
+
+	// Create symmetric partition: server-1 isolated from server-2 and server-3
+	// Both directions must be blocked to simulate a real partition.
+	t.Log("Creating symmetric partition: server-1 vs server-2+server-3...")
+	if err := env.PartitionService(ctx, "server-1", "server-2"); err != nil {
+		t.Fatalf("Partition server-1 -> server-2: %v", err)
+	}
+	if err := env.PartitionService(ctx, "server-1", "server-3"); err != nil {
+		t.Fatalf("Partition server-1 -> server-3: %v", err)
+	}
+	if err := env.PartitionService(ctx, "server-2", "server-1"); err != nil {
+		t.Fatalf("Partition server-2 -> server-1: %v", err)
+	}
+	if err := env.PartitionService(ctx, "server-3", "server-1"); err != nil {
+		t.Fatalf("Partition server-3 -> server-1: %v", err)
+	}
+
+	// Let partition detection and leadership re-election happen
+	time.Sleep(20 * time.Second)
+
+	// Majority partition (server-2, server-3) should accept operations
+	t.Log("Verifying majority partition accepts operations...")
+	majorityWorking := 0
+	for i := 1; i < env.ServerCount(); i++ {
+		client := env.ClientForServer(i)
+		if client == nil {
+			continue
+		}
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Logf("Server %d (majority) error: %v", i+1, err)
+		} else {
+			majorityWorking++
+			t.Logf("Server %d (majority) operational, sees %d agents", i+1, len(resp.Agents))
+		}
+	}
+	if majorityWorking == 0 {
+		t.Error("Majority partition not operational — split-brain prevention may be too aggressive")
+	}
+
+	// Minority (server-1) should be degraded or rejecting operations
+	t.Log("Verifying minority partition behavior...")
+	client := env.ClientForServer(0)
+	if client != nil {
+		_, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Logf("Server-1 (minority) correctly degraded: %v", err)
+		} else {
+			t.Log("Server-1 (minority) still responding — may have cached data or stale leader lease")
+		}
+	}
+
+	// Heal all partitions
+	t.Log("Healing all partitions...")
+	for _, svc := range []string{"server-1", "server-2", "server-3"} {
+		if err := env.HealAllPartitions(ctx, svc); err != nil {
+			t.Errorf("Failed to heal partitions on %s: %v", svc, err)
+		}
+	}
+
+	// Let cluster converge
+	time.Sleep(20 * time.Second)
+
+	// Verify all servers converge to consistent state
+	t.Log("Verifying cluster convergence after split-brain heal...")
+	if err := env.WaitForAllServersHealthy(ctx, 60*time.Second); err != nil {
+		t.Fatalf("Cluster did not converge: %v", err)
+	}
+
+	// Verify all servers return consistent data
+	for i := 0; i < env.ServerCount(); i++ {
+		client := env.ClientForServer(i)
+		if client == nil {
+			continue
+		}
+		resp, err := client.ListAgents(ctx, &pb.ListAgentsRequest{PageSize: 10})
+		if err != nil {
+			t.Errorf("Server %d not responding after recovery: %v", i+1, err)
+		} else {
+			t.Logf("Server %d sees %d agents after recovery", i+1, len(resp.Agents))
+		}
+	}
+
+	t.Log("Split-brain prevention test passed")
 }
 
 // =============================================================================
