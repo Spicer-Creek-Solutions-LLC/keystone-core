@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-57 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-57, 100 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -139,7 +139,7 @@ Working implementation with:
 
 ### Completed
 
-Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find details:
+Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find details:
 
 | Epic | Area | Key Packages | Details |
 |------|------|-------------|---------|
@@ -161,6 +161,7 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
 | 51 | HA resilience testing | `test/e2e/` | `epics/51*.md` |
 | 52 | Critical bug fixes | Various | `epics/52*.md` |
 | 53 | gRPC service completion | `pkg/api/server/`, `internal/statemgmt/history/` | `epics/53*.md` |
+| 100 | 0.1.0 Release Readiness | `cmd/kscore-repo-gen/`, `internal/repogen/` | `epics/100*.md` |
 
 ### Recently Completed
 
@@ -204,7 +205,6 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
 ### Future (Numbered)
 
 - **Epic 38**: Air-Gapped Deployments (`epics/38-air-gapped-deployments.md`)
-- **Epic 100**: 0.1.0 Release Readiness (`epics/100-release-readiness-0.1.0.md`)
 
 ### Future (Unnumbered)
 
