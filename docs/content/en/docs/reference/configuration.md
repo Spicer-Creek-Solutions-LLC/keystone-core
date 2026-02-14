@@ -492,6 +492,33 @@ cluster:
 
 When clustering is enabled, the cluster REST API handler (`/api/v1/cluster/*`) is wired with real etcd, membership, leader election, and health monitoring dependencies. When disabled, the handler returns `503 Service Unavailable` for all endpoints.
 
+### Secrets
+
+```yaml
+# Secrets management settings
+secrets:
+  enabled: false                         # Enable secrets service (default: false)
+  default_backend: "vault"               # Default secrets backend name
+  cache_enabled: false                   # Enable in-memory secret caching
+  cache_ttl: "5m"                        # Cache entry TTL (default: 5m)
+```
+
+**Secrets defaults:**
+
+| Field | Default | Env Var |
+|-------|---------|---------|
+| `secrets.enabled` | `false` | `KSCORE_SECRETS_ENABLED` |
+| `secrets.default_backend` | `""` | `KSCORE_SECRETS_DEFAULT_BACKEND` |
+| `secrets.cache_enabled` | `false` | `KSCORE_SECRETS_CACHE_ENABLED` |
+| `secrets.cache_ttl` | `5m` | `KSCORE_SECRETS_CACHE_TTL` |
+
+**Validation rules** (when `secrets.enabled=true`):
+
+- `default_backend` is required
+- `cache_ttl` cannot be negative
+
+When secrets is enabled, the gRPC SecretsService is wired with a real `SecretBroker` built via `BrokerBuilder`. When disabled, SecretsService RPCs return `codes.Unavailable`.
+
 ### Kubernetes Operator
 
 ```yaml

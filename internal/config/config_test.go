@@ -2889,3 +2889,39 @@ func TestLoadConfig_OperatorEnvOverrides(t *testing.T) {
 		t.Errorf("Operator.MaxConcurrentReconciles = %d, want %d", cfg.Operator.MaxConcurrentReconciles, 10)
 	}
 }
+
+func TestSecretsConfig_Validate(t *testing.T) {
+	// Disabled config should pass
+	cfg := SecretsConfig{Enabled: false}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("disabled config failed: %v", err)
+	}
+
+	// Valid enabled config
+	cfg = SecretsConfig{
+		Enabled:        true,
+		DefaultBackend: "vault",
+		CacheEnabled:   true,
+		CacheTTL:       5 * time.Minute,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid config failed: %v", err)
+	}
+
+	// Enabled without default backend
+	cfg = SecretsConfig{Enabled: true}
+	if err := cfg.Validate(); err == nil {
+		t.Error("expected error for enabled without default_backend")
+	}
+
+	// Negative cache TTL
+	cfg = SecretsConfig{
+		Enabled:        true,
+		DefaultBackend: "vault",
+		CacheEnabled:   true,
+		CacheTTL:       -1 * time.Minute,
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Error("expected error for negative cache_ttl")
+	}
+}

@@ -69,6 +69,7 @@ type Config struct {
 	Profiling       ProfilingConfig
 	Operator        KubernetesOperatorConfig
 	Cluster         ClusteringConfig
+	Secrets         SecretsConfig
 }
 
 // LoggingConfig contains logging settings
@@ -1094,6 +1095,32 @@ func (c ClusteringConfig) Validate() error {
 	return nil
 }
 
+// SecretsConfig contains secrets management settings.
+type SecretsConfig struct {
+	// Enabled controls whether the secrets service is active (default: false).
+	Enabled bool
+	// DefaultBackend is the name of the default secrets backend.
+	DefaultBackend string
+	// CacheEnabled controls whether secret values are cached in memory.
+	CacheEnabled bool
+	// CacheTTL is how long cached secrets are valid.
+	CacheTTL time.Duration
+}
+
+// Validate checks the secrets configuration.
+func (c SecretsConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.DefaultBackend == "" {
+		return fmt.Errorf("secrets.default_backend is required when secrets is enabled")
+	}
+	if c.CacheEnabled && c.CacheTTL < 0 {
+		return fmt.Errorf("secrets.cache_ttl cannot be negative")
+	}
+	return nil
+}
+
 // Default configuration values
 const (
 	// DefaultServerListenAddr defaults to loopback for security (requires TLS for non-loopback)
@@ -1321,6 +1348,12 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	_ = v.BindEnv("cluster.advertiseaddress", "KSCORE_CLUSTER_ADVERTISE_ADDRESS")
 	_ = v.BindEnv("cluster.etcdendpoints", "KSCORE_CLUSTER_ETCD_ENDPOINTS")
 	_ = v.BindEnv("cluster.etcdprefix", "KSCORE_CLUSTER_ETCD_PREFIX")
+
+	// Secrets environment variable bindings (Epic 53)
+	_ = v.BindEnv("secrets.enabled", "KSCORE_SECRETS_ENABLED")
+	_ = v.BindEnv("secrets.defaultbackend", "KSCORE_SECRETS_DEFAULT_BACKEND")
+	_ = v.BindEnv("secrets.cacheenabled", "KSCORE_SECRETS_CACHE_ENABLED")
+	_ = v.BindEnv("secrets.cachettl", "KSCORE_SECRETS_CACHE_TTL")
 
 	// Authorization environment variable bindings (Epic 45 Phase 3)
 	_ = v.BindEnv("auth.authorization.enabled", "KSCORE_AUTHZ_ENABLED")
@@ -1586,6 +1619,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("cluster.etcdendpoints", []string{})
 	v.SetDefault("cluster.etcdprefix", "/kscore")
 
+	// Secrets defaults
+	v.SetDefault("secrets.enabled", false)
+	v.SetDefault("secrets.defaultbackend", "")
+	v.SetDefault("secrets.cacheenabled", false)
+	v.SetDefault("secrets.cachettl", 5*time.Minute)
+
 	// Health check defaults
 	v.SetDefault("health.enabled", DefaultHealthEnabled)
 	v.SetDefault("health.startupgraceperiod", DefaultHealthStartupGracePeriod)
@@ -1650,6 +1689,10 @@ func (c *Config) Validate() error {
 	}
 
 	if err := c.Cluster.Validate(); err != nil {
+		return err
+	}
+
+	if err := c.Secrets.Validate(); err != nil {
 		return err
 	}
 

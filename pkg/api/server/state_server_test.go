@@ -442,7 +442,7 @@ func TestStateServer_DetectDrift_CheckerError(t *testing.T) {
 	}
 }
 
-func TestStateServer_GetStateHistory_Unimplemented(t *testing.T) {
+func TestStateServer_GetStateHistory_NilStore(t *testing.T) {
 	srv := NewStateServer(nil, nil)
 
 	_, err := srv.GetStateHistory(context.Background(), &pb.GetStateHistoryRequest{})
@@ -453,8 +453,50 @@ func TestStateServer_GetStateHistory_Unimplemented(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected gRPC status error, got %v", err)
 	}
-	if st.Code() != codes.Unimplemented {
-		t.Errorf("got code %v, want Unimplemented", st.Code())
+	if st.Code() != codes.Unavailable {
+		t.Errorf("got code %v, want Unavailable", st.Code())
+	}
+}
+
+func TestStateServer_GetStateHistory_WithStore(t *testing.T) {
+	srv := NewStateServer(nil, nil)
+	now := time.Now()
+	store := &mockHistoryStore{
+		runs: []*StateHistoryRun{
+			{
+				RunID:     "run-1",
+				AgentID:   "agent-1",
+				StateFiles: []string{"/etc/state/web.yaml"},
+				Target:    "os:linux",
+				Success:   true,
+				Total:     5,
+				Succeeded: 4,
+				Failed:    1,
+				Changed:   3,
+				Unchanged: 2,
+				StartTime: now,
+				EndTime:   now.Add(10 * time.Second),
+				DurationMs: 10000,
+			},
+		},
+	}
+	srv.SetHistoryStore(store)
+
+	resp, err := srv.GetStateHistory(context.Background(), &pb.GetStateHistoryRequest{AgentId: "agent-1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Runs) != 1 {
+		t.Fatalf("expected 1 run, got %d", len(resp.Runs))
+	}
+	if resp.Runs[0].RunId != "run-1" {
+		t.Errorf("run_id = %q, want %q", resp.Runs[0].RunId, "run-1")
+	}
+	if resp.Runs[0].Summary == nil {
+		t.Fatal("expected summary")
+	}
+	if resp.Runs[0].Summary.Total != 5 {
+		t.Errorf("summary.total = %d, want 5", resp.Runs[0].Summary.Total)
 	}
 }
 
@@ -474,7 +516,7 @@ func TestStateServer_GetStateStatus_EmptyAgentID(t *testing.T) {
 	}
 }
 
-func TestStateServer_GetStateStatus_Unimplemented(t *testing.T) {
+func TestStateServer_GetStateStatus_NilStore(t *testing.T) {
 	srv := NewStateServer(nil, nil)
 
 	_, err := srv.GetStateStatus(context.Background(), &pb.GetStateStatusRequest{AgentId: "agent-1"})
@@ -485,9 +527,75 @@ func TestStateServer_GetStateStatus_Unimplemented(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected gRPC status error, got %v", err)
 	}
-	if st.Code() != codes.Unimplemented {
-		t.Errorf("got code %v, want Unimplemented", st.Code())
+	if st.Code() != codes.Unavailable {
+		t.Errorf("got code %v, want Unavailable", st.Code())
 	}
+}
+
+func TestStateServer_GetStateStatus_WithStore(t *testing.T) {
+	srv := NewStateServer(nil, nil)
+	now := time.Now()
+	store := &mockHistoryStore{
+		statuses: []*StateStatusEntry{
+			{
+				AgentID:      "agent-1",
+				StateID:      "pkg_nginx",
+				Module:       "pkg",
+				CurrentState: "installed",
+				DesiredState: "installed",
+				Compliant:    true,
+				LastApplied:  now,
+				LastChecked:  now,
+			},
+			{
+				AgentID:      "agent-1",
+				StateID:      "file_config",
+				Module:       "file",
+				CurrentState: "present",
+				DesiredState: "present",
+				Compliant:    true,
+				LastApplied:  now.Add(-time.Hour),
+				LastChecked:  now,
+			},
+		},
+	}
+	srv.SetHistoryStore(store)
+
+	resp, err := srv.GetStateStatus(context.Background(), &pb.GetStateStatusRequest{AgentId: "agent-1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.AgentId != "agent-1" {
+		t.Errorf("agent_id = %q, want %q", resp.AgentId, "agent-1")
+	}
+	if len(resp.States) != 2 {
+		t.Fatalf("expected 2 states, got %d", len(resp.States))
+	}
+	if !resp.States[0].Compliant {
+		t.Error("expected states[0].compliant = true")
+	}
+	if resp.LastChecked == nil {
+		t.Error("expected non-nil last_checked")
+	}
+}
+
+// mockHistoryStore implements StateHistoryStore for testing.
+type mockHistoryStore struct {
+	runs     []*StateHistoryRun
+	statuses []*StateStatusEntry
+	err      error
+}
+
+func (m *mockHistoryStore) SaveRun(_ context.Context, _ *StateHistoryRun) error {
+	return m.err
+}
+
+func (m *mockHistoryStore) ListRuns(_ context.Context, _ *StateHistoryFilter) ([]*StateHistoryRun, string, error) {
+	return m.runs, "", m.err
+}
+
+func (m *mockHistoryStore) GetStatus(_ context.Context, _, _ string) ([]*StateStatusEntry, error) {
+	return m.statuses, m.err
 }
 
 func TestDriftSeverityToProto(t *testing.T) {

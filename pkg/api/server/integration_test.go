@@ -275,3 +275,108 @@ func TestIntegration_AuthInterceptor_StreamingRPC(t *testing.T) {
 		}
 	}
 }
+
+// TestIntegration_StateHistory_WithStore verifies GetStateHistory returns data
+// when a history store is wired (instead of codes.Unavailable).
+func TestIntegration_StateHistory_WithStore(t *testing.T) {
+	conn, cleanup := startTestServerWithHistoryStore(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	client := pb.NewStateServiceClient(conn)
+
+	resp, err := client.GetStateHistory(ctx, &pb.GetStateHistoryRequest{})
+	if err != nil {
+		t.Fatalf("GetStateHistory: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	// Empty store, so no runs
+	if len(resp.Runs) != 0 {
+		t.Errorf("expected 0 runs, got %d", len(resp.Runs))
+	}
+}
+
+// TestIntegration_StateStatus_WithStore verifies GetStateStatus returns data
+// when a history store is wired.
+func TestIntegration_StateStatus_WithStore(t *testing.T) {
+	conn, cleanup := startTestServerWithHistoryStore(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	client := pb.NewStateServiceClient(conn)
+
+	resp, err := client.GetStateStatus(ctx, &pb.GetStateStatusRequest{AgentId: "agent-1"})
+	if err != nil {
+		t.Fatalf("GetStateStatus: %v", err)
+	}
+	if resp.AgentId != "agent-1" {
+		t.Errorf("agent_id = %q, want %q", resp.AgentId, "agent-1")
+	}
+}
+
+// startTestServerWithHistoryStore starts a gRPC server with StateServer wired
+// with a mock history store so GetStateHistory/GetStateStatus work.
+func startTestServerWithHistoryStore(t *testing.T) (*grpc.ClientConn, func()) {
+	t.Helper()
+
+	authCfg := config.APIKeyAuthConfig{
+		MetadataKey: "x-api-key",
+		Keys: map[string]config.APIKeyConfig{
+			testAPIKey: {Name: "test", Role: "admin", Enabled: true},
+		},
+	}
+	authenticator, err := auth.NewAPIKeyAuthenticator(authCfg)
+	if err != nil {
+		t.Fatalf("create authenticator: %v", err)
+	}
+	interceptorCfg := &auth.InterceptorConfig{
+		Authenticators: []auth.Authenticator{authenticator},
+		MetadataKey:    "x-api-key",
+	}
+
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.UnaryServerInterceptor(interceptorCfg)),
+		grpc.StreamInterceptor(auth.StreamServerInterceptor(interceptorCfg)),
+	)
+
+	stateServer := server.NewStateServer(nil, nil)
+	stateServer.SetHistoryStore(&emptyHistoryStore{})
+	pb.RegisterStateServiceServer(grpcServer, stateServer)
+
+	var lc net.ListenConfig
+	lis, lisErr := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if lisErr != nil {
+		t.Fatalf("listen: %v", lisErr)
+	}
+	go grpcServer.Serve(lis)
+
+	conn, connErr := grpc.NewClient(
+		lis.Addr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if connErr != nil {
+		grpcServer.Stop()
+		t.Fatalf("dial: %v", connErr)
+	}
+
+	cleanup := func() {
+		conn.Close()
+		grpcServer.Stop()
+	}
+	return conn, cleanup
+}
+
+// emptyHistoryStore is a no-op history store for integration tests.
+type emptyHistoryStore struct{}
+
+func (s *emptyHistoryStore) SaveRun(_ context.Context, _ *server.StateHistoryRun) error {
+	return nil
+}
+func (s *emptyHistoryStore) ListRuns(_ context.Context, _ *server.StateHistoryFilter) ([]*server.StateHistoryRun, string, error) {
+	return nil, "", nil
+}
+func (s *emptyHistoryStore) GetStatus(_ context.Context, _, _ string) ([]*server.StateStatusEntry, error) {
+	return nil, nil
+}

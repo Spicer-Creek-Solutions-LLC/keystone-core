@@ -313,7 +313,7 @@ func (s *ClusterServer) CreateBackup(_ context.Context, req *pb.CreateBackupRequ
 func (s *ClusterServer) RestoreBackup(_ context.Context, _ *pb.RestoreBackupRequest) (*pb.RestoreBackupResponse, error) {
 	// Cluster restore requires careful coordination with etcd, membership, and shard stores.
 	// This is a dangerous operation that needs more infrastructure than what's currently wired.
-	return nil, status.Error(codes.Unimplemented, "cluster restore not yet available — use kscore-cluster-backup CLI")
+	return nil, status.Error(codes.Unimplemented, "cluster restore via gRPC not yet available — use 'kscorectl cluster-backup restore' CLI")
 }
 
 // WatchMembership watches for membership changes via server-side streaming.

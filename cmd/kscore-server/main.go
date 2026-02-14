@@ -43,9 +43,11 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/ratelimit"
 	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
 	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
+	"github.com/shawnbutts/keystone-core/internal/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/internal/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt/history"
 	internaltracing "github.com/shawnbutts/keystone-core/internal/tracing"
 	"github.com/shawnbutts/keystone-core/pkg/api/agents"
 	apiapikeys "github.com/shawnbutts/keystone-core/pkg/api/apikeys"
@@ -363,7 +365,28 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
-	secretsServer := server.NewSecretsServer(nil, nil, nil)
+	// SecretsService — wire with real broker when secrets is enabled
+	var secretsBroker *secrets.SecretBroker
+	if cfg.Secrets.Enabled {
+		secretsCfg := &secrets.Config{
+			DefaultBackend: cfg.Secrets.DefaultBackend,
+		}
+		if cfg.Secrets.CacheEnabled {
+			secretsCfg.Cache = &secrets.CacheConfig{
+				Enabled:    true,
+				DefaultTTL: cfg.Secrets.CacheTTL,
+			}
+		}
+		broker, brokerErr := secrets.NewBrokerBuilder().
+			WithConfig(secretsCfg).
+			Build(context.Background())
+		if brokerErr != nil {
+			logger.Error("Failed to create secrets broker", logging.Error(brokerErr))
+		} else {
+			secretsBroker = broker
+		}
+	}
+	secretsServer := server.NewSecretsServer(secretsBroker, nil, nil)
 	pb.RegisterSecretsServiceServer(grpcServer, secretsServer)
 
 	agentServer := server.NewAgentServer(connMgr)
@@ -372,6 +395,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	stateExecutor := statemgmt.NewExecutor()
 	stateDiffer := statemgmt.NewStateDiffer()
 	stateServer := server.NewStateServer(stateExecutor, stateDiffer)
+	historyDBPath := deriveDataPath(cfg.Storage.SQLite.Path, "state-history.db")
+	historyStore, historyErr := history.NewSQLiteStore(historyDBPath)
+	if historyErr != nil {
+		logger.Error("Failed to create state history store", logging.Error(historyErr))
+	} else {
+		defer historyStore.Close()
+		stateServer.SetHistoryStore(&historyStoreAdapter{store: historyStore})
+	}
 	pb.RegisterStateServiceServer(grpcServer, stateServer)
 
 	// EventService — wire publisher and subscriber if JetStream is available
@@ -415,13 +446,57 @@ func runServer(cmd *cobra.Command, args []string) {
 	eventServer := server.NewEventServer(eventStore, eventPublisher, eventSubscriber)
 	pb.RegisterEventServiceServer(grpcServer, eventServer)
 
-	// ClusterService registered with nil deps — returns Unavailable until cluster mode is wired
-	clusterServer := server.NewClusterServer(nil, nil, nil)
+	// Cluster infrastructure — shared between gRPC ClusterService and REST cluster handler
+	var clusterMembership *cluster.MembershipManager
+	var clusterLeader *cluster.LeaderElector
+	var clusterHealth *cluster.HealthMonitor
+	var clusterEtcd *cluster.EtcdClient
+	var clusterCfg *cluster.Config
+
+	if cfg.Cluster.Enabled {
+		clusterCfg = clusterConfigFromSettings(cfg.Cluster)
+		var etcdErr error
+		clusterEtcd, etcdErr = cluster.NewEtcdClient(clusterCfg.Etcd, clusterCfg.MemberID)
+		if etcdErr != nil {
+			logger.Error("Failed to create etcd client for cluster services", logging.Error(etcdErr))
+		} else {
+			defer clusterEtcd.Close()
+			clusterMembership, _ = cluster.NewMembershipManager(clusterCfg, clusterEtcd)
+			clusterLeader, _ = cluster.NewLeaderElector(clusterCfg, clusterEtcd, clusterCfg.MemberID)
+			if clusterMembership != nil {
+				clusterHealth, _ = cluster.NewHealthMonitor(clusterCfg, clusterMembership, clusterEtcd, clusterCfg.MemberID)
+			}
+		}
+	}
+
+	// ClusterService — wire with real deps when cluster mode is enabled
+	var clusterShardProvider server.ClusterShardProvider
+	if clusterMembership != nil && clusterEtcd != nil {
+		shardStore, shardStoreErr := cluster.NewShardStore(clusterEtcd)
+		if shardStoreErr == nil {
+			shardMgr, shardMgrErr := cluster.NewShardManager(clusterCfg, clusterMembership, shardStore)
+			if shardMgrErr == nil {
+				clusterShardProvider = &shardManagerAdapter{mgr: shardMgr}
+			}
+		}
+	}
+	clusterServer := server.NewClusterServer(clusterMembership, clusterLeader, clusterShardProvider)
 	pb.RegisterClusterServiceServer(grpcServer, clusterServer)
 
-	// CoordinationService requires clustering infrastructure (MembershipManager, etcd).
-	// It will be registered when cluster mode is enabled.
-	logger.Info("CoordinationService available but not registered (requires cluster mode)")
+	// CoordinationService — register when cluster mode is enabled
+	if clusterMembership != nil {
+		coordServer, coordErr := cluster.NewCoordinationServer(
+			&cluster.CoordinationServerConfig{ServerID: clusterCfg.MemberID},
+			clusterMembership, clusterHealth, clusterLeader,
+			&natsStatusAdapter{mgr: natsManager},
+		)
+		if coordErr != nil {
+			logger.Error("Failed to create CoordinationServer", logging.Error(coordErr))
+		} else {
+			coordServer.Register(grpcServer)
+			logger.Info("Registered gRPC service", logging.String("service", "CoordinationService"))
+		}
+	}
 
 	// Start gRPC server with IPv6 support
 	grpcListenAddrs := cfg.Server.GetEffectiveListenAddrs()
@@ -479,24 +554,10 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
 	apirbac.NewHandler().RegisterRoutes(httpMux)
 	apisecrets.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
-	// Cluster handler: wired with real deps when clustering is enabled
-	if cfg.Cluster.Enabled {
-		clusterCfg := clusterConfigFromSettings(cfg.Cluster)
-		etcdClient, etcdErr := cluster.NewEtcdClient(clusterCfg.Etcd, clusterCfg.MemberID)
-		if etcdErr != nil {
-			logger.Error("Failed to create etcd client for cluster handler", logging.Error(etcdErr))
-			apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
-		} else {
-			defer etcdClient.Close()
-			membership, _ := cluster.NewMembershipManager(clusterCfg, etcdClient)
-			leader, _ := cluster.NewLeaderElector(clusterCfg, etcdClient, clusterCfg.MemberID)
-			var health *cluster.HealthMonitor
-			if membership != nil {
-				health, _ = cluster.NewHealthMonitor(clusterCfg, membership, etcdClient, clusterCfg.MemberID)
-			}
-			apicluster.NewHandler(membership, leader, nil, health, clusterCfg).RegisterRoutes(httpMux)
-			logger.Info("Registered REST handler", logging.String("handler", "cluster"), logging.Bool("enabled", true))
-		}
+	// Cluster handler: reuses shared cluster infrastructure created above
+	if clusterMembership != nil {
+		apicluster.NewHandler(clusterMembership, clusterLeader, nil, clusterHealth, clusterCfg).RegisterRoutes(httpMux)
+		logger.Info("Registered REST handler", logging.String("handler", "cluster"), logging.Bool("enabled", true))
 	} else {
 		apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
 	}
@@ -1027,6 +1088,104 @@ func (a *stateStoreAdapter) ListAgents(ctx context.Context, filter *controlplane
 		}
 	}
 	return result, nil
+}
+
+// shardManagerAdapter adapts cluster.ShardManager to server.ClusterShardProvider.
+type shardManagerAdapter struct {
+	mgr *cluster.ShardManager
+}
+
+func (a *shardManagerAdapter) TriggerRebalance(ctx context.Context, reason string) error {
+	_, err := a.mgr.Rebalance(ctx, reason)
+	return err
+}
+
+// natsStatusAdapter adapts natsmgr.Manager to cluster.NATSStatusProvider.
+type natsStatusAdapter struct {
+	mgr *natsmgr.Manager
+}
+
+func (a *natsStatusAdapter) IsConnected() bool {
+	return a.mgr.Health() == nil
+}
+
+func (a *natsStatusAdapter) ConnectedURLs() []string {
+	conn := a.mgr.Conn()
+	if conn == nil {
+		return nil
+	}
+	return conn.DiscoveredServers()
+}
+
+func (a *natsStatusAdapter) JetStreamAvailable() bool {
+	return a.mgr.JetStream() != nil
+}
+
+func (a *natsStatusAdapter) LastPublishTime() time.Time {
+	return time.Time{}
+}
+
+func (a *natsStatusAdapter) LastSubscribeTime() time.Time {
+	return time.Time{}
+}
+
+// historyStoreAdapter adapts history.SQLiteStore to server.StateHistoryStore.
+type historyStoreAdapter struct {
+	store *history.SQLiteStore
+}
+
+func (a *historyStoreAdapter) SaveRun(ctx context.Context, run *server.StateHistoryRun) error {
+	return a.store.SaveRun(ctx, &history.StateRunRecord{
+		RunID: run.RunID, AgentID: run.AgentID, StateFiles: run.StateFiles,
+		Target: run.Target, DryRun: run.DryRun, Success: run.Success,
+		Total: run.Total, Succeeded: run.Succeeded, Failed: run.Failed,
+		Changed: run.Changed, Unchanged: run.Unchanged,
+		StartTime: run.StartTime, EndTime: run.EndTime, DurationMs: run.DurationMs,
+		CorrelationID: run.CorrelationID, User: run.User,
+	})
+}
+
+func (a *historyStoreAdapter) ListRuns(ctx context.Context, filter *server.StateHistoryFilter) ([]*server.StateHistoryRun, string, error) {
+	var hf *history.ListFilter
+	if filter != nil {
+		hf = &history.ListFilter{
+			AgentID: filter.AgentID, StatePath: filter.StatePath,
+			Success: filter.Success, StartTime: filter.StartTime, EndTime: filter.EndTime,
+			PageSize: filter.PageSize, PageToken: filter.PageToken,
+		}
+	}
+	records, token, err := a.store.ListRuns(ctx, hf)
+	if err != nil {
+		return nil, "", err
+	}
+	runs := make([]*server.StateHistoryRun, len(records))
+	for i, r := range records {
+		runs[i] = &server.StateHistoryRun{
+			RunID: r.RunID, AgentID: r.AgentID, StateFiles: r.StateFiles,
+			Target: r.Target, DryRun: r.DryRun, Success: r.Success,
+			Total: r.Total, Succeeded: r.Succeeded, Failed: r.Failed,
+			Changed: r.Changed, Unchanged: r.Unchanged,
+			StartTime: r.StartTime, EndTime: r.EndTime, DurationMs: r.DurationMs,
+			CorrelationID: r.CorrelationID, User: r.User,
+		}
+	}
+	return runs, token, nil
+}
+
+func (a *historyStoreAdapter) GetStatus(ctx context.Context, agentID, statePath string) ([]*server.StateStatusEntry, error) {
+	records, err := a.store.GetStatus(ctx, agentID, statePath)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]*server.StateStatusEntry, len(records))
+	for i, r := range records {
+		entries[i] = &server.StateStatusEntry{
+			AgentID: r.AgentID, StateID: r.StateID, Module: r.Module,
+			CurrentState: r.CurrentState, DesiredState: r.DesiredState,
+			Compliant: r.Compliant, LastApplied: r.LastApplied, LastChecked: r.LastChecked,
+		}
+	}
+	return entries, nil
 }
 
 func (a *stateStoreAdapter) GetAgent(ctx context.Context, agentID string) (*controlplane.StoredAgent, error) {

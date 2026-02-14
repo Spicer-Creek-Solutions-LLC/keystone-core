@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-52 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-53 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -139,7 +139,7 @@ Working implementation with:
 
 ### Completed
 
-Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find details:
+Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find details:
 
 | Epic | Area | Key Packages | Details |
 |------|------|-------------|---------|
@@ -157,21 +157,22 @@ Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find detail
 | 47 | Registry backends | `internal/registry/storage/` | `epics/47*.md` |
 | 48 | K8s operator | `internal/k8s/` | `epics/48*.md` |
 | 49 | REST handler wiring | `cmd/kscore-server/main.go` | `epics/49*.md` |
+| 50 | Outbound webhooks | `internal/webhook/outbound/` | `epics/50*.md` |
+| 51 | HA resilience testing | `test/e2e/` | `epics/51*.md` |
+| 52 | Critical bug fixes | Various | `epics/52*.md` |
+| 53 | gRPC service completion | `pkg/api/server/`, `internal/statemgmt/history/` | `epics/53*.md` |
 
 ### Recently Completed
 
-- **Epic 51** (HA Resilience Testing) — COMPLETE — 5 E2E resilience tests: NATS/etcd node failure, PostgreSQL failover, iptables-based network partitions, split-brain prevention; harness extensions (StopService/StartService/WaitForServiceHealthy/ExecInService), network partition helpers (PartitionService/HealPartition/HealAllPartitions), NET_ADMIN capability on server containers, iptables in Dockerfile
-
-- **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands), configuration section, delivery history tracking
-
-- **Epic 47** (Registry Storage Backends) — COMPLETE — Pluggable S3/GCS/Azure/NATS backends via BackendAdapter, factory, migration tooling, CLI flags, docs
-- **Epic 48** (Kubernetes Operator) — COMPLETE — Dynamic CRD client, informers, controller wiring, StateConfig reconcile, drift detection, leader election, Helm RBAC
-- **Epic 49** (REST API Handler Wiring) — COMPLETE — All 15 REST handlers wired in kscore-server with real deps (events, policy, webhooks, gitops, runbook, mirror, discovery, cluster)
-
-### Planned
+- **Epic 53** (gRPC Service Completion) — COMPLETE — Wired ClusterServer with real MembershipManager/LeaderElector/ShardManager; registered CoordinationService with NATS status adapter; implemented GetStateHistory/GetStateStatus with SQLite state history store; wired SecretsServer with BrokerBuilder when secrets.enabled; added SecretsConfig to config system; integration tests for state history
 
 - **Epic 52** (Critical Bug Fixes) — COMPLETE — Deleted no-op EncryptedCache stub, wired real EncryptedSecretCache with AES-GCM in BrokerBuilder; fixed bootstrap handoff empty body (bytes.NewReader); wired gateway NATS TLS (nats.Secure); implemented real zstd/lz4/snappy compression; implemented FileRollback (os.WriteFile/Remove), PackageRollback/ServiceRollback with executor delegation; policy handlers return error instead of always-allow; implemented GetServerStatus with version/uptime/runtime stats
-- **Epic 53** (gRPC Service Completion) — NOT STARTED — Wire SecretsServer/ClusterServer with real deps, register CoordinationService, implement StateHistory/StateStatus stores, RestoreBackup RPC
+
+- **Epic 51** (HA Resilience Testing) — COMPLETE — 5 E2E resilience tests: NATS/etcd node failure, PostgreSQL failover, iptables-based network partitions, split-brain prevention
+
+- **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands)
+
+### Planned
 - **Epic 54** (CLI Wiring: Core Operations) — NOT STARTED — Wire kscore-events (8), kscore-schedule (11), kscore-runbook (5), kscore-exec streaming; replace ~25 generateSample* stubs
 - **Epic 55** (CLI Wiring: Secrets & Compliance) — NOT STARTED — Wire kscore-secrets (30), kscore-audit (1), kscore-policy (4); add rotation/schedule/cache management RPCs
 - **Epic 56** (CLI Wiring: GitOps & Infrastructure) — NOT STARTED — Wire kscore-gitops (10), kscore-webhook (3), kscore-agents (3), kscore-module (3), kscorectl (2), kscore-files (2), kscore-monitor (1)

@@ -1745,7 +1745,7 @@ service ControlPlaneService {
 
 ### StateService
 
-The StateService manages declarative state operations including apply, check (dry-run), drift detection, and history retrieval. Backed by `internal/state.Store` and `internal/statemgmt.Executor`.
+The StateService manages declarative state operations including apply, check (dry-run), drift detection, and history retrieval. Backed by `internal/statemgmt.Executor` and `internal/statemgmt/history.SQLiteStore` for persistent run history and per-agent state status.
 
 ```protobuf
 service StateService {
