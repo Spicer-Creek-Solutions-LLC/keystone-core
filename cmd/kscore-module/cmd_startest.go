@@ -61,6 +61,10 @@ func init() {
 }
 
 func testExecute(cmd *cobra.Command, args []string) error {
+	if testCoverage {
+		return fmt.Errorf("starlark code coverage tracking not yet implemented")
+	}
+
 	// Determine path
 	modulePath := "."
 	if len(args) > 0 {
@@ -168,10 +172,6 @@ func testExecute(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Skipped: %d\n", skipped)
 	}
 	fmt.Printf("Time:    %s\n", duration.Round(time.Millisecond))
-
-	if testCoverage {
-		fmt.Println("\n⚠ Coverage reporting not yet implemented")
-	}
 
 	if failed > 0 {
 		fmt.Println("\n✗ Tests failed!")

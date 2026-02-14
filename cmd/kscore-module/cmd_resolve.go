@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/registry"
 	"github.com/shawnbutts/keystone-core/pkg/module/resolver"
 )
 
@@ -19,6 +21,7 @@ var (
 	resolveTimeout  time.Duration
 	resolveCacheDir string
 	resolveOffline  bool
+	resolveRegistry string
 )
 
 var resolveCmd = &cobra.Command{
@@ -59,6 +62,7 @@ func init() {
 	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 5*time.Minute, "Resolution timeout")
 	resolveCmd.Flags().StringVar(&resolveCacheDir, "cache-dir", "", "Module cache directory")
 	resolveCmd.Flags().BoolVar(&resolveOffline, "offline", false, "Offline mode (cache only)")
+	resolveCmd.Flags().StringVar(&resolveRegistry, "registry", "", "Module registry URL (default: $KSCORE_REGISTRY or https://registry.keystonecore.io)")
 }
 
 func resolveExecute(cmd *cobra.Command, args []string) error {
@@ -104,11 +108,19 @@ func resolveExecute(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create resolver
-	// Note: In a full implementation, this would use a real registry client.
-	// For now, we use a mock that only works with local dependencies or existing lock file.
-	registryClient := &mockRegistryClient{
-		modules: make(map[string]map[string]*resolver.ModuleInfo),
+	// Create registry client
+	registryURL := resolveRegistry
+	if registryURL == "" {
+		registryURL = os.Getenv("KSCORE_REGISTRY")
+	}
+	if registryURL == "" {
+		registryURL = "https://registry.keystonecore.io"
+	}
+	registryURL = strings.TrimSuffix(registryURL, "/")
+
+	registryClient, err := registry.NewHTTPClient(registry.DefaultConfig(registryURL))
+	if err != nil {
+		return fmt.Errorf("failed to create registry client: %w", err)
 	}
 
 	// Use temp dir for cache if not specified
@@ -138,15 +150,6 @@ func resolveExecute(cmd *cobra.Command, args []string) error {
 	duration := time.Since(startTime)
 
 	if err != nil {
-		// Check if it's because we don't have a registry
-		if resolveOffline || registryClient.isEmpty() {
-			fmt.Println("\n⚠ Cannot resolve dependencies without registry access.")
-			fmt.Println("Options:")
-			fmt.Println("  1. Configure a module registry in your config")
-			fmt.Println("  2. Use --offline with a valid lock file")
-			fmt.Println("  3. Install dependencies manually to the cache")
-			return fmt.Errorf("dependency resolution failed: %w", err)
-		}
 		return fmt.Errorf("resolution failed: %w", err)
 	}
 
@@ -194,40 +197,3 @@ func resolveExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// mockRegistryClient is a placeholder for the real registry client.
-// In production, this would query the module registry.
-type mockRegistryClient struct {
-	modules map[string]map[string]*resolver.ModuleInfo
-}
-
-func (c *mockRegistryClient) isEmpty() bool {
-	return len(c.modules) == 0
-}
-
-func (c *mockRegistryClient) ListVersions(name string) ([]string, error) {
-	if versions, ok := c.modules[name]; ok {
-		result := make([]string, 0, len(versions))
-		for v := range versions {
-			result = append(result, v)
-		}
-		return result, nil
-	}
-	return nil, fmt.Errorf("module not found: %s (registry not configured)", name)
-}
-
-func (c *mockRegistryClient) GetModuleInfo(name, version string) (*resolver.ModuleInfo, error) {
-	if versions, ok := c.modules[name]; ok {
-		if info, ok := versions[version]; ok {
-			return info, nil
-		}
-	}
-	return nil, fmt.Errorf("module version not found: %s@%s (registry not configured)", name, version)
-}
-
-func (c *mockRegistryClient) GetModuleManifest(name, version string) (*manifest.Manifest, error) {
-	return nil, fmt.Errorf("module manifest not found: %s@%s (registry not configured)", name, version)
-}
-
-func (c *mockRegistryClient) DownloadModule(name, version, destPath string) error {
-	return fmt.Errorf("cannot download module: %s@%s (registry not configured)", name, version)
-}

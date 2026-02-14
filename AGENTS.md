@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-54 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-56 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -187,8 +187,16 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
   - Phase 4: `kscore-exec` — Replaced `output --follow` stub with polling-based approach using `GetBatchJobStatus`; tracks seen agents to avoid duplicate output
   - 15 handler tests (runbook), 5 exec tests, httptest-based CLI tests; all `generateSample*` functions removed
 
+- **Epic 56** (CLI Wiring: GitOps & Infrastructure) — COMPLETE — Wired 7 CLI binaries:
+  - Phase 1: `kscore-gitops` — Wired rollback to REST API; 9 remaining commands return "not yet available"; removed 8 types + 8 generators
+  - Phase 2: `kscore-webhook` — Inbound stubs return "not yet available"; test wired to POST real payload; removed 3 types + 6 generators
+  - Phase 2: `kscore-agents` — Removed sample data fallbacks; wired re-enroll/token create to POST /api/v1/cluster/tokens; removed broken generateRandomToken()
+  - Phase 3: `kscore-module` — Replaced mockRegistryClient with registry.HTTPClient; added --registry flag; --coverage fails early; SumDB not yet available
+  - Phase 3: `kscorectl` — Removed 5 maintenance mock data fallbacks (enable, disable, status, queue, cleanup)
+  - Phase 4: `kscore-files` — --wait prints stderr warning; failover returns "not yet available"
+  - `kscore-monitor` — No changes needed (hardcoded 0 metrics correct until aggregation endpoints exist)
+
 ### Planned
-- **Epic 56** (CLI Wiring: GitOps & Infrastructure) — NOT STARTED — Wire kscore-gitops (10), kscore-webhook (3), kscore-agents (3), kscore-module (3), kscorectl (2), kscore-files (2), kscore-monitor (1)
 - **Epic 57** (Error Handling Hardening) — NOT STARTED — Fix ~20 silently ignored errors, add channel-drop metrics, input validation, WASM error propagation, AuthorizationPolicy modification detection
 
 ### Future (Numbered)

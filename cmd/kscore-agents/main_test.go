@@ -2,6 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -331,18 +335,24 @@ func TestStatusToString(t *testing.T) {
 	}
 }
 
-func TestGenerateRandomToken(t *testing.T) {
-	token := generateRandomToken()
-
-	if len(token) != 32 {
-		t.Errorf("token length = %d, want 32", len(token))
+func TestGetAPIScheme(t *testing.T) {
+	tests := []struct {
+		addr     string
+		expected string
+	}{
+		{"localhost:9090", "http"},
+		{"127.0.0.1:9090", "http"},
+		{"[::1]:9090", "http"},
+		{"prod.example.com:9090", "https"},
+		{"10.0.0.1:9090", "https"},
 	}
-
-	// Token should only contain alphanumeric characters
-	for _, c := range token {
-		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
-			t.Errorf("token contains invalid character: %c", c)
-		}
+	for _, tt := range tests {
+		t.Run(tt.addr, func(t *testing.T) {
+			got := getAPIScheme(tt.addr)
+			if got != tt.expected {
+				t.Errorf("getAPIScheme(%q) = %q, want %q", tt.addr, got, tt.expected)
+			}
+		})
 	}
 }
 
@@ -551,13 +561,29 @@ func TestReEnrollResultStructure(t *testing.T) {
 }
 
 func TestReEnrollForceSkipsConfirmation(t *testing.T) {
-	cfg := &Config{ServerAddr: "localhost:9090", Output: "json"}
-	cmd := newReEnrollCmd(cfg)
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"web-001", "--force", "--reason", "test rotation"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/cluster/tokens" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(tokenResponse{
+			ID:        "tok-001",
+			Token:     "kscore_test_token_123",
+			Label:     "re-enroll: web-001",
+			ExpiresAt: time.Now().Add(time.Hour),
+			MaxUses:   1,
+			CreatedAt: time.Now(),
+		})
+	}))
+	defer srv.Close()
 
-	err := cmd.Execute()
+	// Extract host:port from test server URL (strip http://)
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	cfg := &Config{ServerAddr: addr, Output: "json"}
+
+	err := runReEnroll(context.Background(), cfg, "web-001", true, "test rotation")
 	if err != nil {
 		t.Fatalf("re-enroll --force failed: %v", err)
 	}
@@ -711,5 +737,82 @@ func TestIsSuspiciousAgent(t *testing.T) {
 				t.Errorf("isSuspiciousAgent() = %v, want %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCreateToken_Success(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/cluster/tokens" {
+			t.Errorf("expected /api/v1/cluster/tokens, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		if req["label"] != "test-label" {
+			t.Errorf("expected label test-label, got %v", req["label"])
+		}
+		if req["ttl"] != "1h" {
+			t.Errorf("expected ttl 1h, got %v", req["ttl"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(tokenResponse{
+			ID:        "tok-abc",
+			Token:     "kscore_generated_token",
+			Label:     "test-label",
+			ExpiresAt: now.Add(time.Hour),
+			MaxUses:   1,
+			CreatedAt: now,
+		})
+	}))
+	defer srv.Close()
+
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	resp, err := createToken(context.Background(), addr, "test-label", "1h", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.ID != "tok-abc" {
+		t.Errorf("expected ID tok-abc, got %s", resp.ID)
+	}
+	if resp.Token != "kscore_generated_token" {
+		t.Errorf("expected token kscore_generated_token, got %s", resp.Token)
+	}
+}
+
+func TestCreateToken_ServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("label is required"))
+	}))
+	defer srv.Close()
+
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	_, err := createToken(context.Background(), addr, "", "1h", 0)
+	if err == nil {
+		t.Fatal("expected error for 400 response")
+	}
+	if !strings.Contains(err.Error(), "token creation failed (400)") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateToken_ConnectionError(t *testing.T) {
+	_, err := createToken(context.Background(), "127.0.0.1:1", "test", "1h", 1)
+	if err == nil {
+		t.Fatal("expected connection error")
+	}
+	if !strings.Contains(err.Error(), "failed to connect") {
+		t.Errorf("expected connection error, got: %v", err)
 	}
 }

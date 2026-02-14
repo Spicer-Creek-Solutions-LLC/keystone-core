@@ -9,9 +9,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -225,14 +229,9 @@ func runListAgents(ctx context.Context, cfg *Config, status, filter string, labe
 		}
 	}
 
-	// Make request
 	resp, err := client.ListAgents(ctx, req)
 	if err != nil {
-		// Use sample data for demo
-		if cfg.Verbose {
-			fmt.Fprintf(os.Stderr, "Warning: could not connect to server, showing sample data: %v\n", err)
-		}
-		return outputSampleAgents(cfg, edge, showCompat, suspicious)
+		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
 	// Convert to display format
@@ -246,82 +245,6 @@ func runListAgents(ctx context.Context, cfg *Config, status, filter string, labe
 			continue
 		}
 		agents = append(agents, agent)
-	}
-
-	return outputAgents(cfg, agents, showCompat)
-}
-
-func outputSampleAgents(cfg *Config, edge, showCompat, suspicious bool) error {
-	agents := []AgentDisplay{
-		{
-			ID:            "web-001",
-			Hostname:      "web-server-001.example.com",
-			OS:            "linux",
-			Arch:          "amd64",
-			Status:        "online",
-			Version:       "0.1.0",
-			LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
-			RegisteredAt:  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-			Labels:        map[string]string{"role": "web", "env": "prod"},
-			IPAddresses:   []string{"10.0.1.10", "2001:db8::10"},
-			DualStack:     true,
-		},
-		{
-			ID:            "db-001",
-			Hostname:      "db-server-001.example.com",
-			OS:            "linux",
-			Arch:          "amd64",
-			Status:        "online",
-			Version:       "0.1.0",
-			LastHeartbeat: time.Now().Add(-15 * time.Second).Format(time.RFC3339),
-			RegisteredAt:  time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
-			Labels:        map[string]string{"role": "database", "env": "prod"},
-			IPAddresses:   []string{"10.0.2.20"},
-		},
-		{
-			ID:            "edge-001",
-			Hostname:      "edge-device-001",
-			OS:            "linux",
-			Arch:          "arm64",
-			Status:        "degraded",
-			Version:       "0.0.9",
-			LastHeartbeat: time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
-			RegisteredAt:  time.Now().Add(-7 * 24 * time.Hour).Format(time.RFC3339),
-			Labels:        map[string]string{"role": "edge", "location": "warehouse-a"},
-			IPAddresses:   []string{"192.168.1.100"},
-		},
-		{
-			ID:            "win-001",
-			Hostname:      "win-server-001",
-			OS:            "windows",
-			Arch:          "amd64",
-			Status:        "offline",
-			Version:       "0.1.0",
-			LastHeartbeat: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-			RegisteredAt:  time.Now().Add(-72 * time.Hour).Format(time.RFC3339),
-			Labels:        map[string]string{"role": "app", "env": "staging"},
-			IPAddresses:   []string{"10.0.3.30"},
-		},
-	}
-
-	if edge {
-		filtered := make([]AgentDisplay, 0)
-		for i := range agents {
-			if agents[i].Labels["role"] == "edge" {
-				filtered = append(filtered, agents[i])
-			}
-		}
-		agents = filtered
-	}
-
-	if suspicious {
-		filtered := make([]AgentDisplay, 0)
-		for i := range agents {
-			if isSuspiciousAgent(agents[i]) {
-				filtered = append(filtered, agents[i])
-			}
-		}
-		agents = filtered
 	}
 
 	return outputAgents(cfg, agents, showCompat)
@@ -434,38 +357,10 @@ func runShowAgent(ctx context.Context, cfg *Config, agentID string) error {
 	// Make request
 	resp, err := client.GetAgent(ctx, &pb.GetAgentRequest{AgentId: agentID})
 	if err != nil {
-		// Use sample data for demo
-		if cfg.Verbose {
-			fmt.Fprintf(os.Stderr, "Warning: could not connect to server, showing sample data: %v\n", err)
-		}
-		return outputSampleAgentDetail(cfg, agentID)
+		return fmt.Errorf("failed to get agent %s: %w", agentID, err)
 	}
 
 	agent := agentInfoToDisplay(resp.Agent)
-	return outputAgentDetail(cfg, agent)
-}
-
-func outputSampleAgentDetail(cfg *Config, agentID string) error {
-	agent := AgentDisplay{
-		ID:            agentID,
-		Hostname:      agentID + ".example.com",
-		OS:            "linux",
-		Arch:          "amd64",
-		Status:        "online",
-		Version:       "0.1.0",
-		LastHeartbeat: time.Now().Add(-30 * time.Second).Format(time.RFC3339),
-		RegisteredAt:  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-		Labels:        map[string]string{"role": "web", "env": "prod", "dc": "us-east-1"},
-		IPAddresses:   []string{"10.0.1.10", "2001:db8::10"},
-		DualStack:     true,
-		Metrics: &MetricsDisplay{
-			CPU:    25.5,
-			Memory: 45.2,
-			Disk:   62.8,
-			Load:   []float32{1.2, 0.8, 0.5},
-		},
-	}
-
 	return outputAgentDetail(cfg, agent)
 }
 
@@ -671,13 +566,14 @@ Examples:
 }
 
 func runTokenCreate(ctx context.Context, cfg *Config, ttl string, maxUses int, labels []string) error {
-	// Parse TTL
-	duration, err := time.ParseDuration(ttl)
+	label := strings.Join(labels, ", ")
+
+	resp, err := createToken(ctx, cfg.ServerAddr, label, ttl, maxUses)
 	if err != nil {
-		return fmt.Errorf("invalid TTL: %w", err)
+		return err
 	}
 
-	// Parse labels
+	// Parse labels for display
 	labelMap := make(map[string]string)
 	for _, l := range labels {
 		parts := strings.SplitN(l, "=", 2)
@@ -686,16 +582,15 @@ func runTokenCreate(ctx context.Context, cfg *Config, ttl string, maxUses int, l
 		}
 	}
 
-	// Generate sample token
 	token := TokenDisplay{
-		ID:        fmt.Sprintf("tok-%d", time.Now().Unix()),
-		Token:     fmt.Sprintf("kscore_%s", generateRandomToken()),
+		ID:        resp.ID,
+		Token:     resp.Token,
 		TTL:       ttl,
-		ExpiresAt: time.Now().Add(duration),
+		ExpiresAt: resp.ExpiresAt,
 		UsedCount: 0,
-		MaxUses:   maxUses,
+		MaxUses:   resp.MaxUses,
 		Labels:    labelMap,
-		CreatedAt: time.Now(),
+		CreatedAt: resp.CreatedAt,
 		CreatedBy: "admin",
 	}
 
@@ -1474,16 +1369,21 @@ func runReEnroll(ctx context.Context, cfg *Config, agentID string, force bool, r
 		}
 	}
 
-	// In production, this would call gRPC to invalidate credentials and generate a token.
-	// For now, generate sample output.
-	newToken := fmt.Sprintf("kscore_%s", generateRandomToken())
-	tokenExpires := time.Now().Add(1 * time.Hour)
+	label := fmt.Sprintf("re-enroll: %s", agentID)
+	if reason != "" {
+		label = fmt.Sprintf("re-enroll: %s (%s)", agentID, reason)
+	}
+
+	resp, err := createToken(ctx, cfg.ServerAddr, label, "1h", 1)
+	if err != nil {
+		return fmt.Errorf("failed to generate re-enrollment token: %w", err)
+	}
 
 	result := ReEnrollResult{
 		AgentID:      agentID,
 		Status:       "pending_re-enrollment",
-		NewToken:     newToken,
-		TokenExpires: tokenExpires.Format(time.RFC3339),
+		NewToken:     resp.Token,
+		TokenExpires: resp.ExpiresAt.Format(time.RFC3339),
 		Reason:       reason,
 	}
 
@@ -1689,12 +1589,62 @@ func formatLabels(labels map[string]string) string {
 	return strings.Join(parts, ",")
 }
 
-func generateRandomToken() string {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	result := make([]byte, 32)
-	for i := range result {
-		result[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(time.Nanosecond)
+// tokenResponse represents the JSON response from POST /api/v1/cluster/tokens.
+type tokenResponse struct {
+	ID        string    `json:"id"`
+	Token     string    `json:"token"`
+	Label     string    `json:"label"`
+	ExpiresAt time.Time `json:"expires_at"`
+	MaxUses   int       `json:"max_uses"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// createToken creates a join token via the cluster token REST API.
+func createToken(ctx context.Context, serverAddr, label, ttl string, maxUses int) (*tokenResponse, error) {
+	payload := map[string]interface{}{
+		"label":    label,
+		"ttl":      ttl,
+		"max_uses": maxUses,
 	}
-	return string(result)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s://%s/api/v1/cluster/tokens", getAPIScheme(serverAddr), serverAddr)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("token creation failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result tokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode token response: %w", err)
+	}
+	return &result, nil
+}
+
+// getAPIScheme returns "https" by default, "http" only for localhost addresses.
+func getAPIScheme(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return "http"
+	}
+	return "https"
 }

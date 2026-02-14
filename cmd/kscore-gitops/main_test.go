@@ -318,8 +318,6 @@ func TestCommandStructure(t *testing.T) {
 }
 
 func TestMultipleCommandCreations(t *testing.T) {
-	// Test that we can create multiple command instances
-	// This tests for state isolation between instances
 	for i := 0; i < 3; i++ {
 		cmd := newRootCmd()
 		buf := new(bytes.Buffer)
@@ -330,30 +328,6 @@ func TestMultipleCommandCreations(t *testing.T) {
 		if err != nil {
 			t.Fatalf("execution %d failed: %v", i, err)
 		}
-	}
-}
-
-func TestTruncate(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		maxLen   int
-		expected string
-	}{
-		{"short string", "hello", 10, "hello"},
-		{"exact length", "hello", 5, "hello"},
-		{"needs truncation", "hello world", 8, "hello..."},
-		{"very short max", "hello", 4, "h..."},
-		{"empty string", "", 10, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := truncate(tt.input, tt.maxLen)
-			if result != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, result)
-			}
-		})
 	}
 }
 
@@ -393,405 +367,117 @@ func TestGitSyncConflictsSubcommands(t *testing.T) {
 	}
 }
 
-func TestGitSyncStatusCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "status", "myrepo"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync status failed: %v", err)
+func TestGitSyncCommandsNotYetAvailable(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		errText string
+	}{
+		{"status", []string{"git-sync", "status", "myrepo"}, "sync status API not yet available"},
+		{"trigger", []string{"git-sync", "trigger", "myrepo"}, "sync trigger API not yet available"},
+		{"force", []string{"git-sync", "force"}, "force sync API not yet available"},
+		{"conflicts list", []string{"git-sync", "conflicts", "list"}, "conflict management API not yet available"},
+		{"conflicts show", []string{"git-sync", "conflicts", "show", "f.yaml"}, "conflict management API not yet available"},
+		{"conflicts diff", []string{"git-sync", "conflicts", "diff", "f.yaml"}, "conflict management API not yet available"},
+		{"conflicts resolve", []string{"git-sync", "conflicts", "resolve", "f.yaml"}, "conflict management API not yet available"},
+		{"conflicts resolve-all", []string{"git-sync", "conflicts", "resolve-all"}, "conflict management API not yet available"},
+		{"lock", []string{"git-sync", "lock", "f.yaml"}, "file locking API not yet available"},
+		{"unlock", []string{"git-sync", "unlock", "f.yaml"}, "file locking API not yet available"},
+		{"locks", []string{"git-sync", "locks"}, "file locking API not yet available"},
+		{"history", []string{"git-sync", "history"}, "sync history API not yet available"},
+		{"audit", []string{"git-sync", "audit"}, "sync audit API not yet available"},
 	}
 
-	out := buf.String()
-	if !strings.Contains(out, "myrepo") {
-		t.Errorf("expected output to contain 'myrepo', got: %s", out)
-	}
-	if !strings.Contains(out, "Status:") {
-		t.Errorf("expected output to contain 'Status:', got: %s", out)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := newRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs(tt.args)
 
-func TestGitSyncStatusJSON(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "status", "myrepo", "--output", "json"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync status --output json failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, `"repository"`) {
-		t.Errorf("expected JSON output with 'repository' field, got: %s", out)
-	}
-}
-
-func TestGitSyncTriggerCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "trigger", "myrepo"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync trigger failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "myrepo") {
-		t.Errorf("expected output to contain 'myrepo', got: %s", out)
-	}
-	if !strings.Contains(out, "Sync triggered") {
-		t.Errorf("expected output to contain 'Sync triggered', got: %s", out)
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatal("expected error for not-yet-available command")
+			}
+			if !strings.Contains(err.Error(), tt.errText) {
+				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			}
+		})
 	}
 }
 
-func TestGitSyncForceCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "force", "--repository", "myrepo"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync force failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Force sync") {
-		t.Errorf("expected output to contain 'Force sync', got: %s", out)
-	}
-}
-
-func TestGitSyncForceRequiresRepo(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"git-sync", "force"})
-
-	err := cmd.Execute()
+func TestStatusNotYetAvailable(t *testing.T) {
+	err := statusExecute(nil, nil)
 	if err == nil {
-		t.Fatal("expected error when --repository not specified")
+		t.Fatal("expected error for not-yet-available status command")
+	}
+	if !strings.Contains(err.Error(), "status API not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
-func TestGitSyncConflictsListCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "list"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync conflicts list failed: %v", err)
+func TestRepoCommandsNotYetAvailable(t *testing.T) {
+	funcs := map[string]func(*cobra.Command, []string) error{
+		"list":   repoListExecute,
+		"add":    repoAddExecute,
+		"remove": repoRemoveExecute,
+		"sync":   repoSyncExecute,
 	}
 
-	out := buf.String()
-	if !strings.Contains(out, "Sync Conflicts") {
-		t.Errorf("expected output to contain 'Sync Conflicts', got: %s", out)
-	}
-	if !strings.Contains(out, "nginx.yaml") {
-		t.Errorf("expected output to contain 'nginx.yaml', got: %s", out)
-	}
-}
-
-func TestGitSyncConflictsListFilter(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "list", "--status", "resolved"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync conflicts list --status failed: %v", err)
-	}
-
-	out := buf.String()
-	if strings.Contains(out, "nginx.yaml") {
-		t.Errorf("expected no conflicts with status=resolved, got: %s", out)
+	for name, fn := range funcs {
+		t.Run(name, func(t *testing.T) {
+			err := fn(nil, nil)
+			if err == nil {
+				t.Fatal("expected error for not-yet-available repo command")
+			}
+			if !strings.Contains(err.Error(), "not yet available") {
+				t.Errorf("expected 'not yet available' error, got: %v", err)
+			}
+		})
 	}
 }
 
-func TestGitSyncConflictsShowCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "show", "states/nginx.yaml"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync conflicts show failed: %v", err)
+func TestDeployCommandsNotYetAvailable(t *testing.T) {
+	funcs := map[string]func(*cobra.Command, []string) error{
+		"list":     deployListExecute,
+		"show":     deployShowExecute,
+		"rollback": deployRollbackExecute,
+		"approve":  deployApproveExecute,
 	}
 
-	out := buf.String()
-	if !strings.Contains(out, "states/nginx.yaml") {
-		t.Errorf("expected output to contain file path, got: %s", out)
-	}
-}
-
-func TestGitSyncConflictsDiffCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "diff", "states/nginx.yaml"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync conflicts diff failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "---") {
-		t.Errorf("expected diff output with ---, got: %s", out)
-	}
-	if !strings.Contains(out, "+++") {
-		t.Errorf("expected diff output with +++, got: %s", out)
+	for name, fn := range funcs {
+		t.Run(name, func(t *testing.T) {
+			err := fn(nil, nil)
+			if err == nil {
+				t.Fatal("expected error for not-yet-available deploy command")
+			}
+			if !strings.Contains(err.Error(), "not yet available") {
+				t.Errorf("expected 'not yet available' error, got: %v", err)
+			}
+		})
 	}
 }
 
-func TestGitSyncConflictsResolveAcceptGit(t *testing.T) {
-	cmd := newRootCmd()
+func TestPromoteNotYetAvailable(t *testing.T) {
+	saved := promoteOutput
+	promoteOutput = "json"
+	promoteDryRun = false
+	defer func() {
+		promoteOutput = saved
+		promoteDryRun = false
+	}()
+
+	dummyCmd := &cobra.Command{}
 	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve", "states/nginx.yaml", "--accept-git"})
+	dummyCmd.SetOut(buf)
 
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync conflicts resolve failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "accept-git") {
-		t.Errorf("expected output to contain 'accept-git', got: %s", out)
-	}
-	if !strings.Contains(out, "Conflict resolved") {
-		t.Errorf("expected output to contain 'Conflict resolved', got: %s", out)
-	}
-}
-
-func TestGitSyncConflictsResolveKeepRuntime(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve", "f.yaml", "--keep-runtime", "--reason", "override"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("resolve --keep-runtime failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "keep-runtime") {
-		t.Errorf("expected 'keep-runtime' in output, got: %s", out)
-	}
-	if !strings.Contains(out, "override") {
-		t.Errorf("expected reason in output, got: %s", out)
-	}
-}
-
-func TestGitSyncConflictsResolveNoStrategy(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve", "f.yaml"})
-
-	err := cmd.Execute()
+	err := promoteExecute(dummyCmd, nil)
 	if err == nil {
-		t.Fatal("expected error when no strategy specified")
+		t.Fatal("expected error for not-yet-available promote command")
 	}
-}
-
-func TestGitSyncConflictsResolveMultipleStrategies(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve", "f.yaml", "--accept-git", "--keep-runtime"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error when multiple strategies specified")
-	}
-}
-
-func TestGitSyncConflictsResolveAllAcceptGit(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve-all", "--accept-git"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("resolve-all --accept-git failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "accept-git") {
-		t.Errorf("expected 'accept-git' in output, got: %s", out)
-	}
-	if !strings.Contains(out, "2 conflicts resolved") {
-		t.Errorf("expected '2 conflicts resolved' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncConflictsResolveAllNoStrategy(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"git-sync", "conflicts", "resolve-all"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error when no strategy specified")
-	}
-}
-
-func TestGitSyncLockCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "lock", "states/nginx.yaml", "--reason", "maintenance"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync lock failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "states/nginx.yaml") {
-		t.Errorf("expected path in output, got: %s", out)
-	}
-	if !strings.Contains(out, "locked") {
-		t.Errorf("expected 'locked' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncUnlockCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "unlock", "states/nginx.yaml"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync unlock failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "unlocked") {
-		t.Errorf("expected 'unlocked' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncLocksCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "locks"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync locks failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Active Locks") {
-		t.Errorf("expected 'Active Locks' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncHistoryCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "history"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync history failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Sync History") {
-		t.Errorf("expected 'Sync History' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncHistoryConflictsOnly(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "history", "--conflicts-only"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync history --conflicts-only failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "conflict") {
-		t.Errorf("expected conflict entries in output, got: %s", out)
-	}
-	if strings.Contains(out, "sync-003") {
-		t.Errorf("expected non-conflict entry sync-003 to be filtered out, got: %s", out)
-	}
-}
-
-func TestGitSyncHistoryLimit(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "history", "--limit", "1"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync history --limit failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Total: 1 entries") {
-		t.Errorf("expected 'Total: 1 entries' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncAuditCommand(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "audit"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync audit failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Sync Audit Log") {
-		t.Errorf("expected 'Sync Audit Log' in output, got: %s", out)
-	}
-}
-
-func TestGitSyncAuditJSON(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"git-sync", "audit", "--format", "json"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("git-sync audit --format json failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, `"action"`) {
-		t.Errorf("expected JSON output with 'action' field, got: %s", out)
+	if !strings.Contains(err.Error(), "promotion API not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
@@ -819,6 +505,17 @@ func TestGitSyncHelp(t *testing.T) {
 				t.Errorf("expected help output to contain 'Usage:', got: %s", out)
 			}
 		})
+	}
+}
+
+func TestServerFlag(t *testing.T) {
+	cmd := newRootCmd()
+	flag := cmd.PersistentFlags().Lookup("server")
+	if flag == nil {
+		t.Fatal("expected --server persistent flag on root command")
+	}
+	if flag.DefValue != "http://localhost:8080" {
+		t.Errorf("expected default server to be 'http://localhost:8080', got %s", flag.DefValue)
 	}
 }
 

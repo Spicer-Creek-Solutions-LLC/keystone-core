@@ -669,6 +669,16 @@ func TestCreateBackendSupportedTypes(t *testing.T) {
 	}
 }
 
+func TestMirrorFailoverNotYetAvailable(t *testing.T) {
+	err := runFailover(nil, nil)
+	if err == nil {
+		t.Fatal("expected error from failover command")
+	}
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
+	}
+}
+
 // findSubcommand finds a subcommand by name
 func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 	for _, sub := range cmd.Commands() {

@@ -627,16 +627,7 @@ func runMaintenanceEnable(reason, duration string, force bool) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// If server not available, show mock success for demo
-		fmt.Println("Maintenance mode: enabled")
-		if reason != "" {
-			fmt.Printf("  Reason: %s\n", reason)
-		}
-		if duration != "" {
-			fmt.Printf("  Expected duration: %s\n", duration)
-		}
-		fmt.Printf("  Enabled at: %s\n", time.Now().Format(time.RFC3339))
-		return nil
+		return fmt.Errorf("failed to enable maintenance mode: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -693,10 +684,7 @@ func runMaintenanceDisable(force bool) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// If server not available, show mock success for demo
-		fmt.Println("Maintenance mode: disabled")
-		fmt.Println("  Queued commands will now be processed")
-		return nil
+		return fmt.Errorf("failed to disable maintenance mode: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -748,17 +736,7 @@ func runMaintenanceStatus(outputFormat string) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// If server not available, show mock status for demo
-		status := map[string]interface{}{
-			"enabled":       false,
-			"reason":        "",
-			"enabled_at":    nil,
-			"expected_end":  nil,
-			"enabled_by":    "",
-			"queued_jobs":   0,
-			"queued_events": 0,
-		}
-		return outputMaintenanceStatus(status, outputFormat)
+		return fmt.Errorf("failed to get maintenance status: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -847,19 +825,7 @@ func runMaintenanceQueue(showStatus bool) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// If server not available, show mock data for demo
-		if showStatus {
-			fmt.Println("Maintenance Queue Status")
-			fmt.Println("========================")
-			fmt.Println("  Total queued:    0")
-			fmt.Println("  Commands:        0")
-			fmt.Println("  State applies:   0")
-			fmt.Println("  Oldest entry:    N/A")
-			fmt.Println("  Queue size:      0 B")
-		} else {
-			fmt.Println("No commands queued")
-		}
-		return nil
+		return fmt.Errorf("failed to get maintenance queue: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -936,19 +902,7 @@ func runMaintenanceCleanup(olderThan string, dryRun bool) error {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// If server not available, show mock data for demo
-		if dryRun {
-			fmt.Printf("Dry run: Would clean up maintenance data older than %s\n", olderThan)
-			fmt.Println("  Maintenance logs:     5 entries")
-			fmt.Println("  Queue archives:       12 entries")
-			fmt.Println("  Total size to free:   2.3 MB")
-		} else {
-			fmt.Printf("Maintenance data older than %s cleaned up\n", olderThan)
-			fmt.Println("  Deleted maintenance logs: 5 entries")
-			fmt.Println("  Deleted queue archives:   12 entries")
-			fmt.Println("  Freed space:              2.3 MB")
-		}
-		return nil
+		return fmt.Errorf("failed to run maintenance cleanup: %w", err)
 	}
 	defer resp.Body.Close()
 

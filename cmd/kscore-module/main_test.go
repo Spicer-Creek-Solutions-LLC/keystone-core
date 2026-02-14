@@ -151,6 +151,11 @@ func TestResolveCommandExists(t *testing.T) {
 	if !strings.Contains(resolveCmd.Short, "Resolve") {
 		t.Errorf("expected Short to contain 'Resolve', got %s", resolveCmd.Short)
 	}
+
+	registryFlag := resolveCmd.Flags().Lookup("registry")
+	if registryFlag == nil {
+		t.Error("expected --registry flag on resolve command")
+	}
 }
 
 func TestTreeCommandFlags(t *testing.T) {
@@ -522,6 +527,20 @@ func TestDirStats(t *testing.T) {
 }
 
 // findSubcommand finds a subcommand by name
+func TestTestCoverageNotYetImplemented(t *testing.T) {
+	oldCoverage := testCoverage
+	testCoverage = true
+	defer func() { testCoverage = oldCoverage }()
+
+	err := testExecute(nil, []string{"."})
+	if err == nil {
+		t.Fatal("expected error when --coverage is used")
+	}
+	if !strings.Contains(err.Error(), "not yet implemented") {
+		t.Errorf("expected 'not yet implemented' error, got: %v", err)
+	}
+}
+
 func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 	for _, sub := range cmd.Commands() {
 		if sub.Name() == name {

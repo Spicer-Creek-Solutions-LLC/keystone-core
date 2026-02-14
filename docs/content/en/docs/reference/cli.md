@@ -1455,6 +1455,8 @@ Manage Keystone Core modules with dependency resolution, verification, and distr
 
 Keystone Core modules are versioned, capability-scoped packages that extend the system with custom state management, reactors, policies, and more. The CLI provides commands for the full module lifecycle: scaffolding, validation, building, testing, and distribution.
 
+> **API Status**: The `resolve` command uses the real registry HTTP client (configurable via `--registry` flag or `$KSCORE_REGISTRY`). The `verify` command performs signature verification locally but SumDB transparency log verification is not yet available. The `test --coverage` flag is not yet implemented.
+
 ### module init
 
 Initialize a new module from a template.
@@ -3885,6 +3887,8 @@ kscorectl audit watch [flags]
 
 Manage GitOps deployments, verifications, rollbacks, and promotions with ArgoCD, Flux, GitHub, and GitLab integrations.
 
+> **API Status**: The `rollback` command connects to the server REST API (`POST /api/v1/gitops/rollback`). The `verify` command runs locally. All other commands (`promote`, `status`, `repo *`, `deploy *`, `git-sync *`) require server-side API endpoints that are not yet implemented (Epic 49) and will return "not yet available" errors.
+
 ### gitops verify
 
 Execute a verification workflow to validate deployments.
@@ -4545,8 +4549,7 @@ Use 'kscorectl gitops deploy show deploy-003' to monitor status.
 
 Manage webhook handlers, test payloads, delivery history, and secrets for GitOps integrations.
 
-> **Note**: The CLI can return sample data when not connected to the control plane API.
-> Configure webhook endpoints on the control plane for production use.
+> **API Status**: Outbound webhook commands (`outbound list/create/show/delete/history/test`) are fully wired to the server REST API. Inbound webhook commands (`list`, `show`, `history`, `secrets list`, `secrets rotate`) require server-side inbound webhook management endpoints that are not yet implemented and will return "not yet available" errors. The `test` command sends a real HTTP POST to the configured webhook endpoint.
 
 ### Global Flags
 
@@ -6794,6 +6797,8 @@ tam
 ## kscore-agents (Agent Management Plugin)
 
 Manage agent inventory, tokens, tags, and status. Invoked via `kscorectl agents`.
+
+> **API Status**: `list` and `show` connect to gRPC AgentService (returns errors if server unavailable). `re-enroll` and `token create` use the cluster token REST API (`POST /api/v1/cluster/tokens`). Other commands (`delete`, `quarantine`, `tags`, `status`, etc.) require server-side RPCs that are not yet wired.
 
 ### Global Flags
 

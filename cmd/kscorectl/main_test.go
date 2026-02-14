@@ -1097,3 +1097,88 @@ func TestNATSHelp(t *testing.T) {
 		t.Errorf("expected help to list rotate-credentials, got: %s", output)
 	}
 }
+
+func TestMaintenanceSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	maint := findSubcommand(cmd, "maintenance")
+	if maint == nil {
+		t.Fatal("maintenance subcommand not found")
+	}
+
+	expected := []string{"enable", "disable", "status", "queue", "cleanup"}
+	for _, name := range expected {
+		if findSubcommand(maint, name) == nil {
+			t.Errorf("expected maintenance subcommand %q not found", name)
+		}
+	}
+}
+
+func TestMaintenanceEnableReturnsErrorWhenServerUnreachable(t *testing.T) {
+	old := serverAddr
+	serverAddr = "127.0.0.1:1"
+	defer func() { serverAddr = old }()
+
+	err := runMaintenanceEnable("test", "1h", true)
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+	if !strings.Contains(err.Error(), "failed to enable maintenance mode") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMaintenanceDisableReturnsErrorWhenServerUnreachable(t *testing.T) {
+	old := serverAddr
+	serverAddr = "127.0.0.1:1"
+	defer func() { serverAddr = old }()
+
+	err := runMaintenanceDisable(true)
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+	if !strings.Contains(err.Error(), "failed to disable maintenance mode") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMaintenanceStatusReturnsErrorWhenServerUnreachable(t *testing.T) {
+	old := serverAddr
+	serverAddr = "127.0.0.1:1"
+	defer func() { serverAddr = old }()
+
+	err := runMaintenanceStatus("table")
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+	if !strings.Contains(err.Error(), "failed to get maintenance status") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMaintenanceQueueReturnsErrorWhenServerUnreachable(t *testing.T) {
+	old := serverAddr
+	serverAddr = "127.0.0.1:1"
+	defer func() { serverAddr = old }()
+
+	err := runMaintenanceQueue(false)
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+	if !strings.Contains(err.Error(), "failed to get maintenance queue") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMaintenanceCleanupReturnsErrorWhenServerUnreachable(t *testing.T) {
+	old := serverAddr
+	serverAddr = "127.0.0.1:1"
+	defer func() { serverAddr = old }()
+
+	err := runMaintenanceCleanup("30d", false)
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+	if !strings.Contains(err.Error(), "failed to run maintenance cleanup") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

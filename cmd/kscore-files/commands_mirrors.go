@@ -577,7 +577,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if wait {
-		fmt.Println("Note: --wait is not implemented yet; returning after scheduling.")
+		fmt.Fprintln(os.Stderr, "Warning: --wait flag not yet implemented, sync initiated without waiting")
 	}
 
 	registry, syncEngine, err := getMirrorRegistry()
@@ -710,45 +710,8 @@ func runMirrorHealth(cmd *cobra.Command, args []string) error {
 	return w.Flush()
 }
 
-func runFailover(cmd *cobra.Command, args []string) error {
-	groupID := args[0]
-	targetMirror, _ := cmd.Flags().GetString("to")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-
-	if dryRun {
-		fmt.Printf("Dry run: would fail over group %s to mirror %s\n", groupID, targetMirror)
-		return nil
-	}
-
-	registry, _, err := getMirrorRegistry()
-	if err != nil {
-		return err
-	}
-
-	group, ok := registry.Get(groupID)
-	if !ok {
-		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror group not found: %s", groupID))
-	}
-
-	// Verify target mirror exists
-	mirrors := group.GetMirrors()
-	var found bool
-	for _, m := range mirrors {
-		if m.ID == targetMirror {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror not found in group: %s", targetMirror))
-	}
-
-	// Note: In a real implementation, this would update the group's routing
-	// to force traffic to the specified mirror. For now, we just print.
-	fmt.Printf("Failover initiated for group %s to mirror %s\n", groupID, targetMirror)
-	fmt.Println("Note: This is a placeholder. Full implementation requires routing updates.")
-
-	return nil
+func runFailover(_ *cobra.Command, _ []string) error {
+	return fmt.Errorf("mirror failover routing not yet available — requires server-side mirror routing API")
 }
 
 func runLatencyMatrix(cmd *cobra.Command, args []string) error {
