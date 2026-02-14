@@ -1251,7 +1251,7 @@ Examples:
 	return cmd
 }
 
-func outputExecute(cmd *cobra.Command, args []string, cfg *Config, opts *OutputOptions) error {
+func outputExecute(_ *cobra.Command, args []string, cfg *Config, opts *OutputOptions) error {
 	jobID := args[0]
 
 	client, conn, err := createClient(cfg)
@@ -1263,7 +1263,6 @@ func outputExecute(cmd *cobra.Command, args []string, cfg *Config, opts *OutputO
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	// Get job status to retrieve results
 	req := &pb.GetBatchJobStatusRequest{
 		BatchJobId: jobID,
 	}
@@ -1275,54 +1274,99 @@ func outputExecute(cmd *cobra.Command, args []string, cfg *Config, opts *OutputO
 
 	job := resp.Job
 
-	// Print job header
 	fmt.Printf("Job: %s\n", job.BatchJobId)
 	fmt.Printf("Command: %s %s\n", job.Command, strings.Join(job.Args, " "))
 	fmt.Printf("Status: %s\n", formatStatus(job.Status))
 	fmt.Println(strings.Repeat("=", 60))
 
-	if job.Summary == nil || len(job.Summary.AgentResults) == 0 {
-		if job.Status == pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING {
-			fmt.Println("\nJob is still running. Output will appear as agents complete.")
-			if opts.Follow {
-				fmt.Println("Streaming output is not yet implemented in this version.")
-			}
-		} else {
-			fmt.Println("\nNo output available")
-		}
-		return nil
+	if opts.Follow && isRunning(job.Status) {
+		return outputFollow(ctx, client, req, opts, job)
 	}
 
-	// Filter and display results
-	for _, result := range job.Summary.AgentResults {
-		// Filter by agent if specified
+	printAgentResults(job.Summary, opts)
+	return nil
+}
+
+func outputFollow(ctx context.Context, client pb.ControlPlaneServiceClient, req *pb.GetBatchJobStatusRequest, opts *OutputOptions, job *pb.BatchJobInfo) error {
+	seen := make(map[string]bool)
+	printNewResults(job.Summary, opts, seen)
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("\nTimeout reached")
+			return nil
+		case <-ticker.C:
+			resp, err := client.GetBatchJobStatus(ctx, req)
+			if err != nil {
+				return fmt.Errorf("poll error: %w", err)
+			}
+			job = resp.Job
+			printNewResults(job.Summary, opts, seen)
+
+			if !isRunning(job.Status) {
+				fmt.Printf("\nJob %s\n", formatStatus(job.Status))
+				return nil
+			}
+		}
+	}
+}
+
+func isRunning(status pb.BatchJobStatus) bool {
+	return status == pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING ||
+		status == pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING
+}
+
+func printAgentResults(summary *pb.BatchSummary, opts *OutputOptions) {
+	if summary == nil || len(summary.AgentResults) == 0 {
+		fmt.Println("\nNo output available")
+		return
+	}
+	for _, result := range summary.AgentResults {
 		if opts.AgentID != "" && result.AgentId != opts.AgentID {
 			continue
 		}
+		printAgentResult(result)
+	}
+}
 
-		status := "✓"
-		if !result.Success {
-			status = "✗"
+func printNewResults(summary *pb.BatchSummary, opts *OutputOptions, seen map[string]bool) {
+	if summary == nil {
+		return
+	}
+	for _, result := range summary.AgentResults {
+		if seen[result.AgentId] {
+			continue
 		}
-
-		fmt.Printf("\n%s Agent: %s (exit code: %d, duration: %dms)\n",
-			status, result.AgentId, result.ExitCode, result.DurationMs)
-		fmt.Println(strings.Repeat("-", 60))
-
-		switch {
-		case result.Error != "":
-			fmt.Printf("[ERROR] %s\n", result.Error)
-		case result.Success:
-			fmt.Println("Command completed successfully")
-		default:
-			fmt.Printf("Command failed with exit code: %d\n", result.ExitCode)
+		if opts.AgentID != "" && result.AgentId != opts.AgentID {
+			continue
 		}
+		seen[result.AgentId] = true
+		printAgentResult(result)
+	}
+}
 
-		// Note: Full stdout/stderr output requires streaming or server-side storage
-		// which is not available in the current batch job summary
+func printAgentResult(result *pb.BatchAgentResult) {
+	marker := "✓"
+	if !result.Success {
+		marker = "✗"
 	}
 
-	return nil
+	fmt.Printf("\n%s Agent: %s (exit code: %d, duration: %dms)\n",
+		marker, result.AgentId, result.ExitCode, result.DurationMs)
+	fmt.Println(strings.Repeat("-", 60))
+
+	switch {
+	case result.Error != "":
+		fmt.Printf("[ERROR] %s\n", result.Error)
+	case result.Success:
+		fmt.Println("Command completed successfully")
+	default:
+		fmt.Printf("Command failed with exit code: %d\n", result.ExitCode)
+	}
 }
 
 // ShellOptions holds shell command options

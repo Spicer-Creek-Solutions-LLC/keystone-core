@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"testing"
-
-	"github.com/shawnbutts/keystone-core/internal/schedule"
 )
 
 func TestNewRootCmd(t *testing.T) {
@@ -52,7 +50,6 @@ func TestNewVersionCmd(t *testing.T) {
 		t.Errorf("Use = %v, want version", cmd.Use)
 	}
 
-	// Test execution
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 	cmd.SetArgs([]string{})
@@ -67,7 +64,8 @@ func TestNewVersionCmd(t *testing.T) {
 }
 
 func TestNewScheduleCmd(t *testing.T) {
-	cmd := newScheduleCmd()
+	cfg := &Config{}
+	cmd := newScheduleCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newScheduleCmd should not return nil")
@@ -76,7 +74,6 @@ func TestNewScheduleCmd(t *testing.T) {
 		t.Errorf("Use = %v, want schedule", cmd.Use)
 	}
 
-	// Check aliases
 	expectedAliases := []string{"sched", "s"}
 	for _, alias := range expectedAliases {
 		found := false
@@ -91,7 +88,6 @@ func TestNewScheduleCmd(t *testing.T) {
 		}
 	}
 
-	// Should have subcommands
 	subcommands := []string{"list", "show", "create", "trigger", "pause", "resume", "enable", "disable", "delete", "history"}
 	for _, sub := range subcommands {
 		found := false
@@ -108,7 +104,8 @@ func TestNewScheduleCmd(t *testing.T) {
 }
 
 func TestNewScheduleListCmd(t *testing.T) {
-	cmd := newScheduleListCmd()
+	cfg := &Config{}
+	cmd := newScheduleListCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newScheduleListCmd should not return nil")
@@ -117,12 +114,10 @@ func TestNewScheduleListCmd(t *testing.T) {
 		t.Errorf("Use = %v, want list", cmd.Use)
 	}
 
-	// Check aliases
 	if len(cmd.Aliases) == 0 || cmd.Aliases[0] != "ls" {
 		t.Error("expected alias 'ls' not found")
 	}
 
-	// Check flags exist
 	flags := []string{"type", "status", "label", "limit"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
@@ -132,7 +127,8 @@ func TestNewScheduleListCmd(t *testing.T) {
 }
 
 func TestNewScheduleCreateCmd(t *testing.T) {
-	cmd := newScheduleCreateCmd()
+	cfg := &Config{}
+	cmd := newScheduleCreateCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newScheduleCreateCmd should not return nil")
@@ -141,7 +137,6 @@ func TestNewScheduleCreateCmd(t *testing.T) {
 		t.Errorf("Use = %v, want create", cmd.Use)
 	}
 
-	// Check flags exist
 	flags := []string{
 		"name", "description", "type", "cron", "interval", "timezone",
 		"target-all", "target-agent", "target-glob", "target-tags", "target-roles",
@@ -156,7 +151,8 @@ func TestNewScheduleCreateCmd(t *testing.T) {
 }
 
 func TestNewScheduleHistoryCmd(t *testing.T) {
-	cmd := newScheduleHistoryCmd()
+	cfg := &Config{}
+	cmd := newScheduleHistoryCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newScheduleHistoryCmd should not return nil")
@@ -165,7 +161,6 @@ func TestNewScheduleHistoryCmd(t *testing.T) {
 		t.Errorf("Use = %v, want 'history <schedule-id>'", cmd.Use)
 	}
 
-	// Check flags exist
 	flags := []string{"limit", "status"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
@@ -175,7 +170,8 @@ func TestNewScheduleHistoryCmd(t *testing.T) {
 }
 
 func TestNewMaintenanceCmd(t *testing.T) {
-	cmd := newMaintenanceCmd()
+	cfg := &Config{}
+	cmd := newMaintenanceCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newMaintenanceCmd should not return nil")
@@ -184,7 +180,6 @@ func TestNewMaintenanceCmd(t *testing.T) {
 		t.Errorf("Use = %v, want maintenance", cmd.Use)
 	}
 
-	// Check aliases
 	expectedAliases := []string{"maint", "m"}
 	for _, alias := range expectedAliases {
 		found := false
@@ -199,7 +194,6 @@ func TestNewMaintenanceCmd(t *testing.T) {
 		}
 	}
 
-	// Should have subcommands
 	subcommands := []string{"list", "show", "create", "start", "end", "cancel", "extend", "active", "upcoming", "conflicts", "delete"}
 	for _, sub := range subcommands {
 		found := false
@@ -216,7 +210,8 @@ func TestNewMaintenanceCmd(t *testing.T) {
 }
 
 func TestNewMaintenanceListCmd(t *testing.T) {
-	cmd := newMaintenanceListCmd()
+	cfg := &Config{}
+	cmd := newMaintenanceListCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newMaintenanceListCmd should not return nil")
@@ -225,7 +220,6 @@ func TestNewMaintenanceListCmd(t *testing.T) {
 		t.Errorf("Use = %v, want list", cmd.Use)
 	}
 
-	// Check flags exist
 	flags := []string{"status", "type", "label", "limit"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
@@ -235,7 +229,8 @@ func TestNewMaintenanceListCmd(t *testing.T) {
 }
 
 func TestNewMaintenanceCreateCmd(t *testing.T) {
-	cmd := newMaintenanceCreateCmd()
+	cfg := &Config{}
+	cmd := newMaintenanceCreateCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newMaintenanceCreateCmd should not return nil")
@@ -244,7 +239,6 @@ func TestNewMaintenanceCreateCmd(t *testing.T) {
 		t.Errorf("Use = %v, want create", cmd.Use)
 	}
 
-	// Check flags exist
 	flags := []string{
 		"name", "description", "type", "start", "end", "timezone",
 		"scope-all", "scope-agents", "scope-glob", "scope-tags", "scope-roles",
@@ -259,7 +253,8 @@ func TestNewMaintenanceCreateCmd(t *testing.T) {
 }
 
 func TestNewMaintenanceExtendCmd(t *testing.T) {
-	cmd := newMaintenanceExtendCmd()
+	cfg := &Config{}
+	cmd := newMaintenanceExtendCmd(cfg)
 
 	if cmd == nil {
 		t.Fatal("newMaintenanceExtendCmd should not return nil")
@@ -268,7 +263,6 @@ func TestNewMaintenanceExtendCmd(t *testing.T) {
 		t.Errorf("Use = %v, want 'extend <window-id>'", cmd.Use)
 	}
 
-	// Check flags exist
 	flags := []string{"end", "duration"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
@@ -378,138 +372,17 @@ func TestMaintenanceCreateOptionsStructure(t *testing.T) {
 	}
 }
 
-func TestScheduleDisplayStructure(t *testing.T) {
-	s := scheduleDisplay{
-		ID:      "sched-001",
-		Name:    "daily-backup",
-		Type:    schedule.TypeCommand,
-		Status:  schedule.StatusActive,
-		Cron:    "0 2 * * *",
-		NextRun: "02:00",
+func TestHistoryOptionsStructure(t *testing.T) {
+	opts := HistoryOptions{
+		Limit:  20,
+		Status: "completed",
 	}
 
-	if s.ID != "sched-001" {
-		t.Errorf("ID = %v, want sched-001", s.ID)
+	if opts.Limit != 20 {
+		t.Errorf("Limit = %d, want 20", opts.Limit)
 	}
-	if s.Type != schedule.TypeCommand {
-		t.Errorf("Type = %v, want command", s.Type)
-	}
-	if s.Status != schedule.StatusActive {
-		t.Errorf("Status = %v, want active", s.Status)
-	}
-}
-
-func TestScheduleDetailStructure(t *testing.T) {
-	s := scheduleDetail{
-		ID:              "sched-001",
-		Name:            "daily-backup",
-		Description:     "Daily backup of databases",
-		Type:            schedule.TypeCommand,
-		Status:          schedule.StatusActive,
-		Cron:            "0 2 * * *",
-		Timezone:        "UTC",
-		Priority:        10,
-		Timeout:         "1h",
-		RunCount:        100,
-		SuccessCount:    98,
-		FailureCount:    2,
-		RequireApproval: false,
-		CreatedBy:       "admin",
-	}
-
-	if s.ID != "sched-001" {
-		t.Errorf("ID = %v, want sched-001", s.ID)
-	}
-	if s.RunCount != 100 {
-		t.Errorf("RunCount = %d, want 100", s.RunCount)
-	}
-	if s.SuccessCount != 98 {
-		t.Errorf("SuccessCount = %d, want 98", s.SuccessCount)
-	}
-}
-
-func TestWindowDisplayStructure(t *testing.T) {
-	w := windowDisplay{
-		ID:         "maint-001",
-		Name:       "weekly-patching",
-		Type:       schedule.MaintenanceWindowTypePlanned,
-		Status:     schedule.MaintenanceWindowStatusScheduled,
-		StartTime:  "Jan 15 02:00",
-		EndTime:    "Jan 15 06:00",
-		ScopeAll:   false,
-		AgentCount: 15,
-	}
-
-	if w.ID != "maint-001" {
-		t.Errorf("ID = %v, want maint-001", w.ID)
-	}
-	if w.Type != schedule.MaintenanceWindowTypePlanned {
-		t.Errorf("Type = %v, want planned", w.Type)
-	}
-	if w.AgentCount != 15 {
-		t.Errorf("AgentCount = %d, want 15", w.AgentCount)
-	}
-}
-
-func TestWindowDetailStructure(t *testing.T) {
-	w := windowDetail{
-		ID:              "maint-001",
-		Name:            "weekly-patching",
-		Description:     "Weekly security patching",
-		Type:            schedule.MaintenanceWindowTypePlanned,
-		Status:          schedule.MaintenanceWindowStatusScheduled,
-		StartTime:       "2024-01-15T02:00:00Z",
-		EndTime:         "2024-01-15T06:00:00Z",
-		Timezone:        "UTC",
-		RequireApproval: true,
-		CreatedBy:       "admin",
-	}
-
-	if w.ID != "maint-001" {
-		t.Errorf("ID = %v, want maint-001", w.ID)
-	}
-	if !w.RequireApproval {
-		t.Error("RequireApproval should be true")
-	}
-}
-
-func TestBehaviorDisplayStructure(t *testing.T) {
-	b := behaviorDisplay{
-		SuppressAlerts:         true,
-		SuppressDriftDetection: true,
-		AllowOperations:        false,
-	}
-
-	if !b.SuppressAlerts {
-		t.Error("SuppressAlerts should be true")
-	}
-	if !b.SuppressDriftDetection {
-		t.Error("SuppressDriftDetection should be true")
-	}
-	if b.AllowOperations {
-		t.Error("AllowOperations should be false")
-	}
-}
-
-func TestExecutionDisplayStructure(t *testing.T) {
-	e := executionDisplay{
-		ID:           "exec-001",
-		Status:       "completed",
-		Trigger:      "scheduled",
-		StartTime:    "Jan 15 02:00",
-		Duration:     "5m30s",
-		SuccessCount: 10,
-		FailureCount: 0,
-	}
-
-	if e.ID != "exec-001" {
-		t.Errorf("ID = %v, want exec-001", e.ID)
-	}
-	if e.Status != "completed" {
-		t.Errorf("Status = %v, want completed", e.Status)
-	}
-	if e.SuccessCount != 10 {
-		t.Errorf("SuccessCount = %d, want 10", e.SuccessCount)
+	if opts.Status != "completed" {
+		t.Errorf("Status = %v, want completed", opts.Status)
 	}
 }
 
@@ -567,67 +440,44 @@ func TestParseLabels(t *testing.T) {
 	}
 }
 
-func TestGenerateSampleSchedules(t *testing.T) {
-	schedules := generateSampleSchedules()
-
-	if len(schedules) == 0 {
-		t.Error("generateSampleSchedules should return at least one schedule")
+func TestConfigDefaults(t *testing.T) {
+	cfg := &Config{
+		ServerAddr:   "localhost:9090",
+		OutputFormat: "table",
+		Verbose:      false,
 	}
 
-	for i, s := range schedules {
-		if s.ID == "" {
-			t.Errorf("schedule[%d] ID should not be empty", i)
-		}
-		if s.Name == "" {
-			t.Errorf("schedule[%d] Name should not be empty", i)
+	if cfg.ServerAddr != "localhost:9090" {
+		t.Errorf("ServerAddr = %v, want localhost:9090", cfg.ServerAddr)
+	}
+}
+
+func TestNewClient(t *testing.T) {
+	tests := []struct {
+		addr     string
+		wantBase string
+	}{
+		{"localhost:9090", "http://localhost:9090"},
+		{"http://localhost:9090", "http://localhost:9090"},
+		{"https://server.example.com", "https://server.example.com"},
+	}
+
+	for _, tt := range tests {
+		cfg := &Config{ServerAddr: tt.addr}
+		c := newClient(cfg)
+		if c.baseURL != tt.wantBase {
+			t.Errorf("newClient(%q).baseURL = %q, want %q", tt.addr, c.baseURL, tt.wantBase)
 		}
 	}
 }
 
-func TestGenerateSampleWindows(t *testing.T) {
-	windows := generateSampleWindows()
+func TestRootCmdFlags(t *testing.T) {
+	cmd := newRootCmd()
 
-	if len(windows) == 0 {
-		t.Error("generateSampleWindows should return at least one window")
-	}
-
-	for i, w := range windows {
-		if w.ID == "" {
-			t.Errorf("window[%d] ID should not be empty", i)
+	flags := []string{"server", "output", "verbose"}
+	for _, flag := range flags {
+		if cmd.PersistentFlags().Lookup(flag) == nil {
+			t.Errorf("expected persistent flag %q not found", flag)
 		}
-		if w.Name == "" {
-			t.Errorf("window[%d] Name should not be empty", i)
-		}
-	}
-}
-
-func TestGenerateSampleExecutions(t *testing.T) {
-	executions := generateSampleExecutions("sched-001", 5)
-
-	if len(executions) != 5 {
-		t.Errorf("generateSampleExecutions count = %d, want 5", len(executions))
-	}
-
-	for i, e := range executions {
-		if e.ID == "" {
-			t.Errorf("execution[%d] ID should not be empty", i)
-		}
-		if e.Status == "" {
-			t.Errorf("execution[%d] Status should not be empty", i)
-		}
-	}
-}
-
-func TestHistoryOptionsStructure(t *testing.T) {
-	opts := HistoryOptions{
-		Limit:  20,
-		Status: "completed",
-	}
-
-	if opts.Limit != 20 {
-		t.Errorf("Limit = %d, want 20", opts.Limit)
-	}
-	if opts.Status != "completed" {
-		t.Errorf("Status = %v, want completed", opts.Status)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
 	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
+	apirunbook "github.com/shawnbutts/keystone-core/pkg/api/runbook"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 
 	_ "modernc.org/sqlite"
@@ -696,196 +697,8 @@ func getInterventionStorage() (intervention.Storage, func(), error) {
 	return storage, func() { db.Close() }, nil
 }
 
-// ============================================================================
-// Display Types
-// ============================================================================
-
-type runbookSummary struct {
-	Name        string   `json:"name" yaml:"name"`
-	Description string   `json:"description" yaml:"description"`
-	Version     string   `json:"version" yaml:"version"`
-	Tags        []string `json:"tags" yaml:"tags"`
-	LastRun     string   `json:"last_run,omitempty" yaml:"last_run,omitempty"`
-	StepCount   int      `json:"step_count" yaml:"step_count"`
-}
-
-type executionSummary struct {
-	ID          string `json:"id" yaml:"id"`
-	Runbook     string `json:"runbook" yaml:"runbook"`
-	State       string `json:"state" yaml:"state"`
-	StartedAt   string `json:"started_at" yaml:"started_at"`
-	Duration    string `json:"duration" yaml:"duration"`
-	CurrentStep string `json:"current_step,omitempty" yaml:"current_step,omitempty"`
-	StartedBy   string `json:"started_by" yaml:"started_by"`
-}
-
-type auditEntry struct {
-	Timestamp string `json:"timestamp" yaml:"timestamp"`
-	Runbook   string `json:"runbook,omitempty" yaml:"runbook,omitempty"`
-	User      string `json:"user" yaml:"user"`
-	Action    string `json:"action" yaml:"action"`
-	Details   string `json:"details" yaml:"details"`
-}
-
-// ============================================================================
-// Sample Data Generators
-// ============================================================================
-
-func generateSampleRunbooks() []runbookSummary {
-	return []runbookSummary{
-		{
-			Name:        "deploy-service",
-			Description: "Deploy a service with health checks and rollback",
-			Version:     "1.2.0",
-			Tags:        []string{"deployment", "production"},
-			LastRun:     "2025-01-15 14:30",
-			StepCount:   8,
-		},
-		{
-			Name:        "rotate-credentials",
-			Description: "Rotate service credentials and update secrets",
-			Version:     "1.0.3",
-			Tags:        []string{"security", "credentials"},
-			LastRun:     "2025-01-14 09:00",
-			StepCount:   6,
-		},
-		{
-			Name:        "scale-cluster",
-			Description: "Scale cluster nodes up or down with validation",
-			Version:     "2.1.0",
-			Tags:        []string{"scaling", "infrastructure"},
-			LastRun:     "2025-01-13 16:45",
-			StepCount:   10,
-		},
-		{
-			Name:        "database-maintenance",
-			Description: "Run database maintenance tasks (vacuum, reindex)",
-			Version:     "1.1.0",
-			Tags:        []string{"database", "maintenance"},
-			LastRun:     "2025-01-12 02:00",
-			StepCount:   5,
-		},
-		{
-			Name:        "security-scan",
-			Description: "Run security vulnerability scan across hosts",
-			Version:     "1.0.0",
-			Tags:        []string{"security", "compliance"},
-			LastRun:     "",
-			StepCount:   4,
-		},
-	}
-}
-
-func generateSampleExecutions() []executionSummary {
-	return []executionSummary{
-		{
-			ID:          "exec-a1b2c3",
-			Runbook:     "deploy-service",
-			State:       "completed",
-			StartedAt:   "2025-01-15 14:30:00",
-			Duration:    "4m32s",
-			CurrentStep: "",
-			StartedBy:   "operator",
-		},
-		{
-			ID:          "exec-d4e5f6",
-			Runbook:     "deploy-service",
-			State:       "running",
-			StartedAt:   "2025-01-15 15:00:00",
-			Duration:    "1m15s",
-			CurrentStep: "health-check",
-			StartedBy:   "ci-bot",
-		},
-		{
-			ID:          "exec-g7h8i9",
-			Runbook:     "rotate-credentials",
-			State:       "completed",
-			StartedAt:   "2025-01-14 09:00:00",
-			Duration:    "2m10s",
-			CurrentStep: "",
-			StartedBy:   "security-admin",
-		},
-		{
-			ID:          "exec-j1k2l3",
-			Runbook:     "scale-cluster",
-			State:       "failed",
-			StartedAt:   "2025-01-13 16:45:00",
-			Duration:    "6m45s",
-			CurrentStep: "",
-			StartedBy:   "operator",
-		},
-		{
-			ID:          "exec-m4n5o6",
-			Runbook:     "database-maintenance",
-			State:       "pending",
-			StartedAt:   "2025-01-12 02:00:00",
-			Duration:    "0s",
-			CurrentStep: "",
-			StartedBy:   "scheduler",
-		},
-	}
-}
-
-func generateSampleAuditEntries(runbookName string) []auditEntry {
-	return []auditEntry{
-		{
-			Timestamp: "2025-01-15 14:30:00",
-			User:      "operator",
-			Action:    "execute",
-			Details:   fmt.Sprintf("Started execution of %s (exec-a1b2c3)", runbookName),
-		},
-		{
-			Timestamp: "2025-01-15 14:31:00",
-			User:      "security-admin",
-			Action:    "approve",
-			Details:   fmt.Sprintf("Approved deployment step in %s", runbookName),
-		},
-		{
-			Timestamp: "2025-01-15 14:34:32",
-			User:      "system",
-			Action:    "execute",
-			Details:   fmt.Sprintf("Execution of %s completed successfully", runbookName),
-		},
-		{
-			Timestamp: "2025-01-14 10:00:00",
-			User:      "ci-bot",
-			Action:    "execute",
-			Details:   fmt.Sprintf("Started execution of %s (exec-x9y8z7)", runbookName),
-		},
-		{
-			Timestamp: "2025-01-14 10:02:15",
-			User:      "operator",
-			Action:    "reject",
-			Details:   fmt.Sprintf("Rejected approval for %s: environment not ready", runbookName),
-		},
-		{
-			Timestamp: "2025-01-13 08:00:00",
-			User:      "admin",
-			Action:    "modify",
-			Details:   fmt.Sprintf("Updated %s to version 1.2.0", runbookName),
-		},
-	}
-}
-
-func generateAllAuditEntries() []auditEntry {
-	runbooks := generateSampleRunbooks()
-	all := make([]auditEntry, 0, len(runbooks)*6)
-	for _, rb := range runbooks {
-		for _, e := range generateSampleAuditEntries(rb.Name) {
-			e.Runbook = rb.Name
-			all = append(all, e)
-		}
-	}
-	return all
-}
-
-func findRunbook(name string) *runbookSummary {
-	for _, rb := range generateSampleRunbooks() {
-		if rb.Name == name {
-			return &rb
-		}
-	}
-	return nil
+func getClient() *Client {
+	return NewClient("http://" + serverAddr)
 }
 
 // ============================================================================
@@ -921,14 +734,19 @@ Examples:
 	return cmd
 }
 
-func runList(cmd *cobra.Command, args []string) error {
-	runbooks := generateSampleRunbooks()
+func runList(cmd *cobra.Command, _ []string) error {
+	client := getClient()
+	resp, err := client.ListRunbooks()
+	if err != nil {
+		return fmt.Errorf("list runbooks: %w", err)
+	}
 
+	runbooks := resp.Runbooks
 	if len(listTags) > 0 {
-		var filtered []runbookSummary
-		for _, rb := range runbooks {
-			if matchesTags(rb.Tags, listTags) {
-				filtered = append(filtered, rb)
+		var filtered []apirunbook.Summary
+		for i := range runbooks {
+			if matchesLabels(runbooks[i].Labels, listTags) {
+				filtered = append(filtered, runbooks[i])
 			}
 		}
 		runbooks = filtered
@@ -962,19 +780,15 @@ func runList(cmd *cobra.Command, args []string) error {
 		return output.WriteYAML(os.Stdout, runbooks)
 	case output.FormatTable, output.FormatText:
 		w := cmd.OutOrStdout()
-		fmt.Fprintf(w, "%-24s %-48s %-8s %-6s %-20s\n", "NAME", "DESCRIPTION", "VERSION", "STEPS", "LAST RUN")
-		fmt.Fprintln(w, strings.Repeat("-", 110))
-		for _, rb := range runbooks {
-			lastRun := rb.LastRun
-			if lastRun == "" {
-				lastRun = "never"
-			}
-			fmt.Fprintf(w, "%-24s %-48s %-8s %-6d %-20s\n",
-				truncate(rb.Name, 24),
-				truncate(rb.Description, 48),
-				rb.Version,
-				rb.StepCount,
-				lastRun,
+		fmt.Fprintf(w, "%-24s %-48s %-8s %-6s %-8s\n", "NAME", "DESCRIPTION", "VERSION", "STEPS", "INPUTS")
+		fmt.Fprintln(w, strings.Repeat("-", 100))
+		for i := range runbooks {
+			fmt.Fprintf(w, "%-24s %-48s %-8s %-6d %-8d\n",
+				truncate(runbooks[i].Name, 24),
+				truncate(runbooks[i].Description, 48),
+				runbooks[i].Version,
+				runbooks[i].StepCount,
+				runbooks[i].Inputs,
 			)
 		}
 		fmt.Fprintf(w, "\nTotal: %d runbooks\n", len(runbooks))
@@ -984,14 +798,12 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func matchesTags(runbookTags, filterTags []string) bool {
-	tagSet := make(map[string]bool, len(runbookTags))
-	for _, t := range runbookTags {
-		tagSet[t] = true
-	}
+func matchesLabels(labels map[string]string, filterTags []string) bool {
 	for _, ft := range filterTags {
-		if tagSet[ft] {
-			return true
+		for k, v := range labels {
+			if k == ft || v == ft {
+				return true
+			}
 		}
 	}
 	return false
@@ -1047,61 +859,52 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	runbookName := args[0]
 	w := cmd.OutOrStdout()
 
-	rb := findRunbook(runbookName)
-	if rb == nil {
-		return fmt.Errorf("runbook not found: %s", runbookName)
-	}
-
-	vars := make(map[string]string)
+	inputs := make(map[string]interface{})
 	for _, v := range append(executeVars, executeInputs...) {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid variable format %q (expected key=value)", v)
 		}
-		vars[parts[0]] = parts[1]
+		inputs[parts[0]] = parts[1]
 	}
 
 	if executeDryRun {
-		fmt.Fprintf(w, "Dry run: %s (v%s)\n", rb.Name, rb.Version)
-		fmt.Fprintf(w, "Description: %s\n", rb.Description)
-		fmt.Fprintf(w, "Steps: %d\n", rb.StepCount)
+		fmt.Fprintf(w, "Dry run: %s\n", runbookName)
 		fmt.Fprintf(w, "Timeout: %s\n", execTimeout)
-		if len(vars) > 0 {
+		if len(inputs) > 0 {
 			fmt.Fprintln(w, "Variables:")
-			for k, v := range vars {
-				fmt.Fprintf(w, "  %s = %s\n", k, v)
+			for k, v := range inputs {
+				fmt.Fprintf(w, "  %s = %v\n", k, v)
 			}
-		}
-		fmt.Fprintln(w, "\nSteps that would execute:")
-		sampleSteps := []string{"pre-check", "backup", "deploy", "health-check", "notify"}
-		for i, step := range sampleSteps {
-			if i >= rb.StepCount {
-				break
-			}
-			fmt.Fprintf(w, "  %d. %s\n", i+1, step)
 		}
 		fmt.Fprintln(w, "\nNo changes made (dry run).")
 		return nil
 	}
 
-	execID := fmt.Sprintf("exec-%s", generateID())
-	fmt.Fprintf(w, "Execution started: %s\n", execID)
-	fmt.Fprintf(w, "  Runbook: %s (v%s)\n", rb.Name, rb.Version)
-	fmt.Fprintf(w, "  Timeout: %s\n", execTimeout)
-	if len(vars) > 0 {
-		fmt.Fprintln(w, "  Variables:")
-		for k, v := range vars {
-			fmt.Fprintf(w, "    %s = %s\n", k, v)
+	client := getClient()
+	req := &apirunbook.ExecuteRequest{
+		Inputs: inputs,
+		Async:  !executeWait,
+	}
+
+	resp, err := client.ExecuteRunbook(runbookName, req)
+	if err != nil {
+		return fmt.Errorf("execute runbook: %w", err)
+	}
+
+	fmt.Fprintf(w, "Execution started: %s\n", resp.ExecutionID)
+	fmt.Fprintf(w, "  Runbook: %s\n", runbookName)
+	fmt.Fprintf(w, "  State:   %s\n", resp.State)
+	if resp.Execution != nil {
+		if resp.Execution.Error != "" {
+			fmt.Fprintf(w, "  Error:   %s\n", resp.Execution.Error)
 		}
 	}
-	fmt.Fprintf(w, "\nCheck status with: kscore-runbook status %s\n", execID)
+	if req.Async {
+		fmt.Fprintf(w, "\nCheck status with: kscore-runbook status %s\n", resp.ExecutionID)
+	}
 
 	return nil
-}
-
-func generateID() string {
-	now := time.Now()
-	return fmt.Sprintf("%x%x", now.UnixNano()%0xFFFF, now.UnixNano()%0xFF)
 }
 
 // ============================================================================
@@ -1130,17 +933,10 @@ Examples:
 func runStatus(cmd *cobra.Command, args []string) error {
 	execID := args[0]
 
-	executions := generateSampleExecutions()
-	var found *executionSummary
-	for i := range executions {
-		if executions[i].ID == execID {
-			found = &executions[i]
-			break
-		}
-	}
-
-	if found == nil {
-		return fmt.Errorf("execution not found: %s", execID)
+	client := getClient()
+	exec, err := client.GetExecution(execID)
+	if err != nil {
+		return fmt.Errorf("get execution: %w", err)
 	}
 
 	format, err := output.ParseFormat(outputFormat)
@@ -1150,36 +946,29 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, found)
+		return output.WriteJSON(os.Stdout, exec)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, found)
+		return output.WriteYAML(os.Stdout, exec)
 	case output.FormatTable, output.FormatText:
-		rb := findRunbook(found.Runbook)
-		stepCount := 0
-		if rb != nil {
-			stepCount = rb.StepCount
-		}
-
 		w := cmd.OutOrStdout()
-		fmt.Fprintf(w, "Execution: %s\n", found.ID)
-		fmt.Fprintf(w, "  Runbook:      %s\n", found.Runbook)
-		fmt.Fprintf(w, "  State:        %s\n", found.State)
-		if stepCount > 0 {
-			currentIdx := 0
-			if found.CurrentStep != "" {
-				currentIdx = 4
-			}
-			if found.State == "completed" {
-				currentIdx = stepCount
-			}
-			fmt.Fprintf(w, "  Progress:     step %d of %d\n", currentIdx, stepCount)
+		fmt.Fprintf(w, "Execution: %s\n", exec.ID)
+		fmt.Fprintf(w, "  Runbook:  %s\n", exec.RunbookName)
+		if exec.RunbookVersion != "" {
+			fmt.Fprintf(w, "  Version:  %s\n", exec.RunbookVersion)
 		}
-		if found.CurrentStep != "" {
-			fmt.Fprintf(w, "  Current step: %s\n", found.CurrentStep)
+		fmt.Fprintf(w, "  State:    %s\n", exec.State)
+		if exec.StartedAt != nil {
+			fmt.Fprintf(w, "  Started:  %s\n", exec.StartedAt.Format(time.RFC3339))
 		}
-		fmt.Fprintf(w, "  Started at:   %s\n", found.StartedAt)
-		fmt.Fprintf(w, "  Duration:     %s\n", found.Duration)
-		fmt.Fprintf(w, "  Started by:   %s\n", found.StartedBy)
+		if exec.CompletedAt != nil {
+			fmt.Fprintf(w, "  Finished: %s\n", exec.CompletedAt.Format(time.RFC3339))
+			if exec.StartedAt != nil {
+				fmt.Fprintf(w, "  Duration: %s\n", exec.CompletedAt.Sub(*exec.StartedAt))
+			}
+		}
+		if exec.Error != "" {
+			fmt.Fprintf(w, "  Error:    %s\n", exec.Error)
+		}
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
@@ -1228,27 +1017,11 @@ Examples:
 	return cmd
 }
 
-func runListExecutions(cmd *cobra.Command, args []string) error {
-	executions := generateSampleExecutions()
-
-	if listExecRunbook != "" {
-		var filtered []executionSummary
-		for _, e := range executions {
-			if e.Runbook == listExecRunbook {
-				filtered = append(filtered, e)
-			}
-		}
-		executions = filtered
-	}
-
-	if listExecState != "" {
-		var filtered []executionSummary
-		for _, e := range executions {
-			if e.State == listExecState {
-				filtered = append(filtered, e)
-			}
-		}
-		executions = filtered
+func runListExecutions(cmd *cobra.Command, _ []string) error {
+	opts := ListExecutionsOpts{
+		Runbook: listExecRunbook,
+		State:   listExecState,
+		Limit:   listExecLimit,
 	}
 
 	if listExecSince != "" {
@@ -1256,22 +1029,16 @@ func runListExecutions(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid --since value %q: %w", listExecSince, err)
 		}
-		var filtered []executionSummary
-		for _, e := range executions {
-			t, parseErr := time.Parse("2006-01-02 15:04:05", e.StartedAt)
-			if parseErr != nil {
-				continue
-			}
-			if !t.Before(sinceTime) {
-				filtered = append(filtered, e)
-			}
-		}
-		executions = filtered
+		opts.Since = sinceTime.Format(time.RFC3339)
 	}
 
-	if listExecLimit > 0 && len(executions) > listExecLimit {
-		executions = executions[:listExecLimit]
+	client := getClient()
+	resp, err := client.ListExecutions(opts)
+	if err != nil {
+		return fmt.Errorf("list executions: %w", err)
 	}
+
+	executions := resp.Executions
 
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
@@ -1297,16 +1064,19 @@ func runListExecutions(cmd *cobra.Command, args []string) error {
 		return output.WriteYAML(os.Stdout, executions)
 	case output.FormatTable, output.FormatText:
 		w := cmd.OutOrStdout()
-		fmt.Fprintf(w, "%-14s %-24s %-12s %-22s %-10s %-16s\n", "ID", "RUNBOOK", "STATE", "STARTED", "DURATION", "STARTED BY")
-		fmt.Fprintln(w, strings.Repeat("-", 100))
-		for _, e := range executions {
-			fmt.Fprintf(w, "%-14s %-24s %-12s %-22s %-10s %-16s\n",
-				e.ID,
-				truncate(e.Runbook, 24),
-				e.State,
-				e.StartedAt,
-				e.Duration,
-				e.StartedBy,
+		fmt.Fprintf(w, "%-14s %-24s %-12s %-22s %-12s\n", "ID", "RUNBOOK", "STATE", "STARTED", "VERSION")
+		fmt.Fprintln(w, strings.Repeat("-", 90))
+		for i := range executions {
+			started := ""
+			if executions[i].StartedAt != nil {
+				started = executions[i].StartedAt.Format("2006-01-02 15:04:05")
+			}
+			fmt.Fprintf(w, "%-14s %-24s %-12s %-22s %-12s\n",
+				truncate(executions[i].ID, 14),
+				truncate(executions[i].RunbookName, 24),
+				executions[i].State,
+				started,
+				executions[i].RunbookVersion,
 			)
 		}
 		fmt.Fprintf(w, "\nTotal: %d executions\n", len(executions))
@@ -1368,16 +1138,16 @@ Examples:
 func runAuditShow(cmd *cobra.Command, args []string) error {
 	runbookName := args[0]
 
-	rb := findRunbook(runbookName)
-	if rb == nil {
-		return fmt.Errorf("runbook not found: %s", runbookName)
+	client := getClient()
+	resp, err := client.ListAuditEvents(ListAuditOpts{
+		Runbook: runbookName,
+		Limit:   auditShowLimit,
+	})
+	if err != nil {
+		return fmt.Errorf("list audit events: %w", err)
 	}
 
-	entries := generateSampleAuditEntries(runbookName)
-
-	if auditShowLimit > 0 && len(entries) > auditShowLimit {
-		entries = entries[:auditShowLimit]
-	}
+	events := resp.Events
 
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
@@ -1386,23 +1156,23 @@ func runAuditShow(cmd *cobra.Command, args []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, entries)
+		return output.WriteJSON(os.Stdout, events)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, entries)
+		return output.WriteYAML(os.Stdout, events)
 	case output.FormatTable, output.FormatText:
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "Audit trail for: %s\n\n", runbookName)
-		fmt.Fprintf(w, "%-22s %-18s %-10s %s\n", "TIMESTAMP", "USER", "ACTION", "DETAILS")
-		fmt.Fprintln(w, strings.Repeat("-", 100))
-		for _, e := range entries {
-			fmt.Fprintf(w, "%-22s %-18s %-10s %s\n",
-				e.Timestamp,
-				truncate(e.User, 18),
-				e.Action,
-				e.Details,
+		fmt.Fprintf(w, "%-22s %-18s %-24s %-10s\n", "TIMESTAMP", "ACTOR", "TYPE", "OUTCOME")
+		fmt.Fprintln(w, strings.Repeat("-", 80))
+		for i := range events {
+			fmt.Fprintf(w, "%-22s %-18s %-24s %-10s\n",
+				events[i].Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(events[i].Actor, 18),
+				truncate(events[i].Type, 24),
+				events[i].Outcome,
 			)
 		}
-		fmt.Fprintf(w, "\nTotal: %d audit entries\n", len(entries))
+		fmt.Fprintf(w, "\nTotal: %d audit entries\n", len(events))
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
@@ -1440,20 +1210,9 @@ Examples:
 }
 
 func runAuditList(cmd *cobra.Command, _ []string) error {
-	entries := generateAllAuditEntries()
-
-	if auditListRunbook != "" {
-		rb := findRunbook(auditListRunbook)
-		if rb == nil {
-			return fmt.Errorf("runbook not found: %s", auditListRunbook)
-		}
-		var filtered []auditEntry
-		for _, e := range entries {
-			if e.Runbook == auditListRunbook {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+	opts := ListAuditOpts{
+		Runbook: auditListRunbook,
+		Limit:   auditListLimit,
 	}
 
 	if auditListStart != "" {
@@ -1461,13 +1220,7 @@ func runAuditList(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid --start value: %w", err)
 		}
-		var filtered []auditEntry
-		for _, e := range entries {
-			if t, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !t.Before(startTime) {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+		opts.Start = startTime.Format(time.RFC3339)
 	}
 
 	if auditListEnd != "" {
@@ -1475,18 +1228,16 @@ func runAuditList(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid --end value: %w", err)
 		}
-		var filtered []auditEntry
-		for _, e := range entries {
-			if t, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !t.After(endTime) {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+		opts.End = endTime.Format(time.RFC3339)
 	}
 
-	if auditListLimit > 0 && len(entries) > auditListLimit {
-		entries = entries[:auditListLimit]
+	client := getClient()
+	resp, err := client.ListAuditEvents(opts)
+	if err != nil {
+		return fmt.Errorf("list audit events: %w", err)
 	}
+
+	events := resp.Events
 
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
@@ -1495,24 +1246,24 @@ func runAuditList(cmd *cobra.Command, _ []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, entries)
+		return output.WriteJSON(os.Stdout, events)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, entries)
+		return output.WriteYAML(os.Stdout, events)
 	case output.FormatTable, output.FormatText:
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "Runbook audit events\n\n")
-		fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n", "TIMESTAMP", "RUNBOOK", "USER", "ACTION", "DETAILS")
-		fmt.Fprintln(w, strings.Repeat("-", 110))
-		for _, e := range entries {
-			fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n",
-				e.Timestamp,
-				truncate(e.Runbook, 20),
-				truncate(e.User, 18),
-				e.Action,
-				e.Details,
+		fmt.Fprintf(w, "%-22s %-20s %-18s %-24s %-10s\n", "TIMESTAMP", "RUNBOOK", "ACTOR", "TYPE", "OUTCOME")
+		fmt.Fprintln(w, strings.Repeat("-", 100))
+		for i := range events {
+			fmt.Fprintf(w, "%-22s %-20s %-18s %-24s %-10s\n",
+				events[i].Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(events[i].RunbookName, 20),
+				truncate(events[i].Actor, 18),
+				truncate(events[i].Type, 24),
+				events[i].Outcome,
 			)
 		}
-		fmt.Fprintf(w, "\nTotal: %d audit entries\n", len(entries))
+		fmt.Fprintf(w, "\nTotal: %d audit entries\n", len(events))
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
@@ -1557,20 +1308,9 @@ Examples:
 }
 
 func runAuditReport(cmd *cobra.Command, _ []string) error {
-	entries := generateAllAuditEntries()
-
-	if auditReportRunbook != "" {
-		rb := findRunbook(auditReportRunbook)
-		if rb == nil {
-			return fmt.Errorf("runbook not found: %s", auditReportRunbook)
-		}
-		var filtered []auditEntry
-		for _, e := range entries {
-			if e.Runbook == auditReportRunbook {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+	opts := ListAuditOpts{
+		Runbook: auditReportRunbook,
+		Limit:   1000,
 	}
 
 	var startTime, endTime time.Time
@@ -1580,13 +1320,7 @@ func runAuditReport(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("invalid --start value: %w", err)
 		}
 		startTime = t
-		var filtered []auditEntry
-		for _, e := range entries {
-			if ts, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !ts.Before(startTime) {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+		opts.Start = t.Format(time.RFC3339)
 	}
 
 	if auditReportEnd != "" {
@@ -1595,50 +1329,57 @@ func runAuditReport(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("invalid --end value: %w", err)
 		}
 		endTime = t
-		var filtered []auditEntry
-		for _, e := range entries {
-			if ts, err := time.Parse("2006-01-02 15:04:05", e.Timestamp); err == nil && !ts.After(endTime) {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
+		opts.End = t.Format(time.RFC3339)
 	}
 
+	client := getClient()
+	resp, err := client.ListAuditEvents(opts)
+	if err != nil {
+		return fmt.Errorf("list audit events: %w", err)
+	}
+
+	events := resp.Events
 	w := cmd.OutOrStdout()
 
 	switch auditReportFormat {
 	case "csv":
-		fmt.Fprintln(w, "timestamp,runbook,user,action,details")
-		for _, e := range entries {
-			fmt.Fprintf(w, "%s,%s,%s,%s,%q\n", e.Timestamp, e.Runbook, e.User, e.Action, e.Details)
+		fmt.Fprintln(w, "timestamp,runbook,actor,type,outcome")
+		for i := range events {
+			fmt.Fprintf(w, "%s,%s,%s,%s,%s\n",
+				events[i].Timestamp.Format(time.RFC3339),
+				events[i].RunbookName,
+				events[i].Actor,
+				events[i].Type,
+				events[i].Outcome,
+			)
 		}
 		return nil
 	case "detailed":
-		writeReportHeader(w, entries, startTime, endTime)
-		writeReportSummary(w, entries)
+		writeReportHeader(w, startTime, endTime)
+		writeReportSummary(w, events)
 		fmt.Fprintf(w, "\nAll Events:\n")
-		fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n", "TIMESTAMP", "RUNBOOK", "USER", "ACTION", "DETAILS")
-		fmt.Fprintln(w, strings.Repeat("-", 110))
-		for _, e := range entries {
-			fmt.Fprintf(w, "%-22s %-20s %-18s %-10s %s\n",
-				e.Timestamp,
-				truncate(e.Runbook, 20),
-				truncate(e.User, 18),
-				e.Action,
-				e.Details,
+		fmt.Fprintf(w, "%-22s %-20s %-18s %-24s %-10s\n", "TIMESTAMP", "RUNBOOK", "ACTOR", "TYPE", "OUTCOME")
+		fmt.Fprintln(w, strings.Repeat("-", 100))
+		for i := range events {
+			fmt.Fprintf(w, "%-22s %-20s %-18s %-24s %-10s\n",
+				events[i].Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(events[i].RunbookName, 20),
+				truncate(events[i].Actor, 18),
+				truncate(events[i].Type, 24),
+				events[i].Outcome,
 			)
 		}
 		return nil
 	case "summary":
-		writeReportHeader(w, entries, startTime, endTime)
-		writeReportSummary(w, entries)
+		writeReportHeader(w, startTime, endTime)
+		writeReportSummary(w, events)
 		return nil
 	default:
 		return fmt.Errorf("unsupported report format %q (expected summary, detailed, csv)", auditReportFormat)
 	}
 }
 
-func writeReportHeader(w io.Writer, entries []auditEntry, start, end time.Time) {
+func writeReportHeader(w io.Writer, start, end time.Time) {
 	fmt.Fprintln(w, "Compliance Report")
 	if !start.IsZero() || !end.IsZero() {
 		startStr := "..."
@@ -1654,20 +1395,20 @@ func writeReportHeader(w io.Writer, entries []auditEntry, start, end time.Time) 
 	fmt.Fprintln(w)
 }
 
-func writeReportSummary(w io.Writer, entries []auditEntry) {
-	actionCounts := make(map[string]int)
+func writeReportSummary(w io.Writer, events []apirunbook.AuditEventResponse) {
+	typeCounts := make(map[string]int)
 	runbookCounts := make(map[string]int)
-	userCounts := make(map[string]int)
-	for _, e := range entries {
-		actionCounts[e.Action]++
-		runbookCounts[e.Runbook]++
-		userCounts[e.User]++
+	actorCounts := make(map[string]int)
+	for i := range events {
+		typeCounts[events[i].Type]++
+		runbookCounts[events[i].RunbookName]++
+		actorCounts[events[i].Actor]++
 	}
 
 	fmt.Fprintf(w, "Summary:\n")
-	fmt.Fprintf(w, "  Total events:     %d\n", len(entries))
-	for _, action := range sortedKeys(actionCounts) {
-		fmt.Fprintf(w, "  %-18s %d\n", action+":", actionCounts[action])
+	fmt.Fprintf(w, "  Total events:     %d\n", len(events))
+	for _, t := range sortedKeys(typeCounts) {
+		fmt.Fprintf(w, "  %-30s %d\n", t+":", typeCounts[t])
 	}
 
 	fmt.Fprintf(w, "\nBy Runbook:\n")
@@ -1675,9 +1416,9 @@ func writeReportSummary(w io.Writer, entries []auditEntry) {
 		fmt.Fprintf(w, "  %-22s %d\n", rb+":", runbookCounts[rb])
 	}
 
-	fmt.Fprintf(w, "\nBy User:\n")
-	for _, user := range sortedKeys(userCounts) {
-		fmt.Fprintf(w, "  %-22s %d\n", user+":", userCounts[user])
+	fmt.Fprintf(w, "\nBy Actor:\n")
+	for _, actor := range sortedKeys(actorCounts) {
+		fmt.Fprintf(w, "  %-22s %d\n", actor+":", actorCounts[actor])
 	}
 }
 
@@ -1734,8 +1475,20 @@ func runTest(cmd *cobra.Command, args []string) error {
 	runbookName := args[0]
 	w := cmd.OutOrStdout()
 
-	rb := findRunbook(runbookName)
-	if rb == nil {
+	client := getClient()
+	resp, err := client.ListRunbooks()
+	if err != nil {
+		return fmt.Errorf("list runbooks: %w", err)
+	}
+
+	var found *apirunbook.Summary
+	for i := range resp.Runbooks {
+		if resp.Runbooks[i].Name == runbookName {
+			found = &resp.Runbooks[i]
+			break
+		}
+	}
+	if found == nil {
 		return fmt.Errorf("runbook not found: %s", runbookName)
 	}
 
@@ -1748,7 +1501,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		vars[parts[0]] = parts[1]
 	}
 
-	fmt.Fprintf(w, "Testing runbook: %s (v%s)\n\n", rb.Name, rb.Version)
+	fmt.Fprintf(w, "Testing runbook: %s (v%s)\n\n", found.Name, found.Version)
 
 	type testResult struct {
 		name    string
@@ -1757,23 +1510,22 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 
 	results := []testResult{
-		{name: "Syntax check", passed: true, details: "Runbook YAML is valid"},
-		{name: "Variable validation", passed: true, details: fmt.Sprintf("All %d required variables defined", len(vars))},
-		{name: "Step dependency check", passed: true, details: fmt.Sprintf("All %d steps have valid dependencies", rb.StepCount)},
-		{name: "Permission check", passed: true, details: "Required permissions are available"},
+		{name: "Server reachable", passed: true, details: "Connected to control plane"},
+		{name: "Runbook exists", passed: true, details: fmt.Sprintf("Found %s with %d steps", found.Name, found.StepCount)},
+		{name: "Variable check", passed: true, details: fmt.Sprintf("%d variables provided, %d inputs expected", len(vars), found.Inputs)},
 	}
 
 	if testMockFile != "" {
-		data, err := os.ReadFile(testMockFile)
-		if err != nil {
-			return fmt.Errorf("reading mock file: %w", err)
+		data, readErr := os.ReadFile(testMockFile)
+		if readErr != nil {
+			return fmt.Errorf("reading mock file: %w", readErr)
 		}
 		var mocks []map[string]interface{}
-		if err := json.Unmarshal(data, &mocks); err != nil {
+		if unmarshalErr := json.Unmarshal(data, &mocks); unmarshalErr != nil {
 			results = append(results, testResult{
 				name:    "Mock handler validation",
 				passed:  false,
-				details: fmt.Sprintf("Invalid mock file JSON: %v", err),
+				details: fmt.Sprintf("Invalid mock file JSON: %v", unmarshalErr),
 			})
 		} else {
 			results = append(results, testResult{

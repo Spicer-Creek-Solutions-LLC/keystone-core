@@ -43,6 +43,8 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/ratelimit"
 	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
 	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
+	rbstorage "github.com/shawnbutts/keystone-core/internal/runbook/storage"
+	internalschedule "github.com/shawnbutts/keystone-core/internal/schedule"
 	"github.com/shawnbutts/keystone-core/internal/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 	"github.com/shawnbutts/keystone-core/internal/state"
@@ -61,6 +63,7 @@ import (
 	apirbac "github.com/shawnbutts/keystone-core/pkg/api/rbac"
 	apirunbook "github.com/shawnbutts/keystone-core/pkg/api/runbook"
 	apicluster "github.com/shawnbutts/keystone-core/pkg/api/cluster"
+	apischedule "github.com/shawnbutts/keystone-core/pkg/api/schedule"
 	apiwebhooks "github.com/shawnbutts/keystone-core/pkg/api/webhooks"
 	apisecrets "github.com/shawnbutts/keystone-core/pkg/api/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
@@ -561,6 +564,34 @@ func runServer(cmd *cobra.Command, args []string) {
 	} else {
 		apicluster.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
 	}
+	// Schedule handler: requires cluster mode for etcd-backed store
+	if clusterEtcd != nil && clusterCfg != nil {
+		schedStore, schedStoreErr := internalschedule.NewEtcdStore(clusterEtcd, clusterCfg.MemberID)
+		if schedStoreErr != nil {
+			logger.Error("Failed to create schedule store", logging.Error(schedStoreErr))
+			apischedule.NewHandler(nil, nil).RegisterRoutes(httpMux)
+		} else {
+			schedMgr, schedMgrErr := internalschedule.NewManager(
+				&internalschedule.ManagerConfig{MemberID: clusterCfg.MemberID},
+				schedStore,
+			)
+			maintMgr, maintMgrErr := internalschedule.NewMaintenanceWindowManager(
+				&internalschedule.MaintenanceManagerConfig{MemberID: clusterCfg.MemberID},
+				schedStore,
+			)
+			if schedMgrErr != nil || maintMgrErr != nil {
+				logger.Error("Failed to create schedule managers",
+					logging.Error(schedMgrErr),
+				)
+				apischedule.NewHandler(nil, nil).RegisterRoutes(httpMux)
+			} else {
+				apischedule.NewHandler(schedMgr, maintMgr).RegisterRoutes(httpMux)
+				logger.Info("Registered REST handler", logging.String("handler", "schedule"), logging.Bool("enabled", true))
+			}
+		}
+	} else {
+		apischedule.NewHandler(nil, nil).RegisterRoutes(httpMux)
+	}
 	logger.Info("REST API handlers registered")
 
 	// Register metrics endpoint if enabled
@@ -926,7 +957,16 @@ func runServer(cmd *cobra.Command, args []string) {
 		if aErr == nil && iErr == nil {
 			approvalMgr := approval.NewManager(approvalStore)
 			interventionMgr := intervention.NewManager(interventionStore)
-			apirunbook.NewHandler(approvalStore, interventionStore, approvalMgr, interventionMgr).RegisterRoutes(httpMux)
+			rbHandler := apirunbook.NewHandler(approvalStore, interventionStore, approvalMgr, interventionMgr)
+			execStore, esErr := rbstorage.NewSQLiteStorage(runbookDBPath)
+			if esErr != nil {
+				logger.Warn("Failed to init runbook execution storage", logging.Error(esErr))
+			} else {
+				defer execStore.Close()
+				rbHandler.SetRunbookDeps(nil, execStore, nil, nil)
+				logger.Info("Wired runbook execution storage")
+			}
+			rbHandler.RegisterRoutes(httpMux)
 			logger.Info("Registered REST handler", logging.String("handler", "runbook"))
 		}
 	}

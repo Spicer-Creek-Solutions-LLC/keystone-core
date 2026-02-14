@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-53 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-54 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -172,8 +172,14 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
 
 - **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands)
 
+- **Epic 54** (CLI Wiring: Core Operations) — COMPLETE — Replaced all generateSample*() stubs with real API calls:
+  - Phase 1: `kscore-events` — 8 commands wired to EventService gRPC (list, query, emit, watch, subscribe, export, analyze, storage-stats); 11 not-yet-available commands return clear errors
+  - Phase 2: `kscore-schedule` — Created Schedule REST API (19 routes: 10 schedules + 9 maintenance windows) backed by `schedule.Manager`/`MaintenanceWindowManager`; wired all 21 CLI commands via REST client; registered in `kscore-server` when cluster mode enabled
+  - Phase 3: `kscore-runbook` — Extended runbook REST API with 5 new routes (list runbooks, list/get executions, execute, audit query); wired 8 stub commands (list, execute, status, list-executions, audit show/list/report, test) via REST client
+  - Phase 4: `kscore-exec` — Replaced `output --follow` stub with polling-based approach using `GetBatchJobStatus`; tracks seen agents to avoid duplicate output
+  - 15 handler tests (runbook), 5 exec tests, httptest-based CLI tests; all `generateSample*` functions removed
+
 ### Planned
-- **Epic 54** (CLI Wiring: Core Operations) — NOT STARTED — Wire kscore-events (8), kscore-schedule (11), kscore-runbook (5), kscore-exec streaming; replace ~25 generateSample* stubs
 - **Epic 55** (CLI Wiring: Secrets & Compliance) — NOT STARTED — Wire kscore-secrets (30), kscore-audit (1), kscore-policy (4); add rotation/schedule/cache management RPCs
 - **Epic 56** (CLI Wiring: GitOps & Infrastructure) — NOT STARTED — Wire kscore-gitops (10), kscore-webhook (3), kscore-agents (3), kscore-module (3), kscorectl (2), kscore-files (2), kscore-monitor (1)
 - **Epic 57** (Error Handling Hardening) — NOT STARTED — Fix ~20 silently ignored errors, add channel-drop metrics, input validation, WASM error propagation, AuthorizationPolicy modification detection

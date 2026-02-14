@@ -1433,9 +1433,217 @@ Redistributes agents across cluster members for better load balancing.
 }
 ```
 
+### Schedules (Cluster Mode Only)
+
+Schedule endpoints manage scheduled tasks and maintenance windows. These endpoints are only available when `cluster.enabled = true` (requires etcd).
+
+#### List Schedules
+
+```http
+GET /api/v1/schedules
+```
+
+**Query Parameters**:
+
+- `status` (string): Filter by status
+- `limit` (int): Maximum results (default: 50)
+- `offset` (int): Pagination offset
+
+#### Create Schedule
+
+```http
+POST /api/v1/schedules
+```
+
+**Request Body**:
+
+```json
+{
+  "name": "daily-backup",
+  "description": "Daily database backup",
+  "cron": "0 2 * * *",
+  "command": "backup",
+  "args": ["--full"],
+  "target": "role:db",
+  "enabled": true
+}
+```
+
+#### Get/Update/Delete Schedule
+
+```http
+GET    /api/v1/schedules/{id}
+PUT    /api/v1/schedules/{id}
+DELETE /api/v1/schedules/{id}
+```
+
+#### Schedule Actions
+
+```http
+POST /api/v1/schedules/{id}/trigger
+POST /api/v1/schedules/{id}/pause
+POST /api/v1/schedules/{id}/resume
+POST /api/v1/schedules/{id}/enable
+POST /api/v1/schedules/{id}/disable
+```
+
+#### Schedule Execution History
+
+```http
+GET /api/v1/schedules/{id}/history
+```
+
+**Query Parameters**:
+
+- `limit` (int): Maximum results (default: 50)
+- `offset` (int): Pagination offset
+
+#### List Maintenance Windows
+
+```http
+GET /api/v1/maintenance/windows
+```
+
+#### Create Maintenance Window
+
+```http
+POST /api/v1/maintenance/windows
+```
+
+**Request Body**:
+
+```json
+{
+  "name": "Q1 patching",
+  "start_time": "2026-03-01T02:00:00Z",
+  "end_time": "2026-03-01T06:00:00Z",
+  "targets": ["role:web"],
+  "description": "Quarterly security patches"
+}
+```
+
+#### Maintenance Window Actions
+
+```http
+GET    /api/v1/maintenance/windows/{id}
+DELETE /api/v1/maintenance/windows/{id}
+POST   /api/v1/maintenance/windows/{id}/start
+POST   /api/v1/maintenance/windows/{id}/end
+POST   /api/v1/maintenance/windows/{id}/cancel
+POST   /api/v1/maintenance/windows/{id}/extend
+GET    /api/v1/maintenance/windows/active
+```
+
 ### Runbooks
 
-Runbook endpoints manage approval requests and human-in-the-loop interventions during runbook execution.
+Runbook endpoints manage runbook listing, execution, audit queries, approval requests, and human-in-the-loop interventions.
+
+#### List Runbooks
+
+```http
+GET /api/v1/runbooks
+```
+
+**Response**:
+
+```json
+{
+  "runbooks": [
+    {
+      "name": "deploy-service",
+      "version": "1.2.0",
+      "description": "Deploy a service to production",
+      "labels": {"category": "deployment"},
+      "step_count": 8,
+      "inputs": 3,
+      "timeout": "30m"
+    }
+  ],
+  "total": 1
+}
+```
+
+Returns 503 if the runbook repository is not configured.
+
+#### Execute Runbook
+
+```http
+POST /api/v1/runbooks/{name}/execute
+```
+
+**Request Body**:
+
+```json
+{
+  "version": "1.2.0",
+  "inputs": {"service": "web", "replicas": 3},
+  "async": false
+}
+```
+
+**Response** (sync):
+
+```json
+{
+  "execution_id": "exec-abc123",
+  "state": "completed",
+  "execution": { ... }
+}
+```
+
+**Response** (async, HTTP 202):
+
+```json
+{
+  "execution_id": "exec-abc123",
+  "state": "pending"
+}
+```
+
+Returns 503 if the runbook repository or executor is not configured.
+
+#### List Executions
+
+```http
+GET /api/v1/runbooks/executions
+```
+
+**Query Parameters**:
+
+- `runbook` (string): Filter by runbook name
+- `state` (string): Filter by state (`pending`, `running`, `completed`, `failed`)
+- `since` (string): RFC3339 timestamp filter
+- `limit` (int): Maximum results (default: 50)
+- `offset` (int): Pagination offset
+
+#### Get Execution
+
+```http
+GET /api/v1/runbooks/executions/{id}
+```
+
+Returns 404 if the execution is not found. Returns 503 if execution storage is not configured.
+
+#### List Audit Events
+
+```http
+GET /api/v1/runbooks/audit
+```
+
+**Query Parameters**:
+
+- `execution_id` (string): Filter by execution ID
+- `runbook` (string): Filter by runbook name
+- `actor` (string): Filter by actor
+- `outcome` (string): Filter by outcome
+- `start` (string): RFC3339 start time
+- `end` (string): RFC3339 end time
+- `limit` (int): Maximum results (default: 50)
+- `offset` (int): Pagination offset
+
+Returns 503 if audit storage is not configured.
+
+#### List Approval Requests
 
 #### List Approval Requests
 

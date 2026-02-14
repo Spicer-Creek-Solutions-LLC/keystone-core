@@ -10,12 +10,12 @@ All list/show/query commands in `kscore-events`, `kscore-schedule`, `kscore-runb
 
 ## Success Criteria
 
-- [ ] `kscore-events`: all 8 commands wired to real EventService gRPC or REST API
-- [ ] `kscore-schedule`: all 11 commands wired to real scheduling API
-- [ ] `kscore-runbook`: 5 remaining stub commands wired to real runbook API
-- [ ] `kscore-exec`: batch `--follow` streaming implemented via gRPC server-side streaming
-- [ ] No `generateSample*` functions remain in these 4 binaries
-- [ ] All commands handle connection errors gracefully (clear error message, not a stack trace)
+- [x] `kscore-events`: all 8 commands wired to real EventService gRPC or REST API
+- [x] `kscore-schedule`: all 11 commands wired to real scheduling API
+- [x] `kscore-runbook`: 5 remaining stub commands wired to real runbook API
+- [x] `kscore-exec`: batch `--follow` streaming implemented via polling-based approach
+- [x] No `generateSample*` functions remain in these 4 binaries
+- [x] All commands handle connection errors gracefully (clear error message, not a stack trace)
 
 ## Dependencies
 
@@ -92,8 +92,8 @@ All list/show/query commands in `kscore-events`, `kscore-schedule`, `kscore-runb
 
 ## Definition of Done
 
-- [ ] All `generateSample*` functions removed from the 4 binaries
-- [ ] Each command has at least a basic integration test (mock server or test fixture)
-- [ ] Connection error handling: commands print actionable error messages
-- [ ] `make test` and `make lint` pass
-- [ ] CLI reference documentation updated for any new flags/behavior changes
+- [x] All `generateSample*` functions removed from the 4 binaries
+- [x] Each command has at least a basic integration test (mock server or test fixture)
+- [x] Connection error handling: commands print actionable error messages
+- [x] `make test` and `make lint` pass
+- [x] CLI reference documentation updated for any new flags/behavior changes

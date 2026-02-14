@@ -2,16 +2,44 @@
 package runbook
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	internalrunbook "github.com/shawnbutts/keystone-core/internal/runbook"
+	rbaudit "github.com/shawnbutts/keystone-core/internal/runbook/audit"
+	rbstorage "github.com/shawnbutts/keystone-core/internal/runbook/storage"
 	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
 	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
 	"github.com/shawnbutts/keystone-core/pkg/api/apierror"
 )
+
+// Repository provides access to runbook definitions.
+type Repository interface {
+	GetRunbook(name, version string) (*internalrunbook.Runbook, error)
+	ListRunbooks() ([]*internalrunbook.Runbook, error)
+}
+
+// ExecutionStorage provides access to runbook execution records.
+type ExecutionStorage interface {
+	GetExecution(ctx context.Context, id string) (*internalrunbook.Execution, error)
+	ListExecutions(ctx context.Context, opts rbstorage.ListOptions) ([]*internalrunbook.Execution, error)
+}
+
+// AuditQuerier provides access to audit events.
+type AuditQuerier interface {
+	Query(ctx context.Context, query *rbaudit.Query) ([]*rbaudit.Event, error)
+	Count(ctx context.Context, query *rbaudit.Query) (int64, error)
+}
+
+// Executor executes runbooks.
+type Executor interface {
+	Execute(ctx context.Context, rb *internalrunbook.Runbook, inputs map[string]interface{}) (*internalrunbook.Execution, error)
+	ExecuteAsync(ctx context.Context, rb *internalrunbook.Runbook, inputs map[string]interface{}) (string, error)
+}
 
 // Handler provides HTTP handlers for runbook API endpoints.
 type Handler struct {
@@ -19,6 +47,11 @@ type Handler struct {
 	interventionStorage intervention.Storage
 	approvalManager     *approval.Manager
 	interventionManager *intervention.Manager
+
+	runbookRepo  Repository
+	execStorage  ExecutionStorage
+	auditQuerier AuditQuerier
+	executor     Executor
 }
 
 // NewHandler creates a new runbook API handler.
@@ -36,6 +69,14 @@ func NewHandler(
 	}
 }
 
+// SetRunbookDeps sets optional dependencies for runbook CRUD, execution, and audit endpoints.
+func (h *Handler) SetRunbookDeps(repo Repository, execStorage ExecutionStorage, auditQuerier AuditQuerier, executor Executor) {
+	h.runbookRepo = repo
+	h.execStorage = execStorage
+	h.auditQuerier = auditQuerier
+	h.executor = executor
+}
+
 // RegisterRoutes registers the runbook API routes with the given mux.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Approval endpoints
@@ -45,6 +86,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Intervention endpoints
 	mux.HandleFunc("/api/v1/runbook/interventions", h.handleInterventions)
 	mux.HandleFunc("/api/v1/runbook/interventions/", h.handleIntervention)
+
+	// Runbook CRUD/execution endpoints
+	mux.HandleFunc("/api/v1/runbooks/executions/", h.handleExecution)
+	mux.HandleFunc("/api/v1/runbooks/executions", h.handleExecutions)
+	mux.HandleFunc("/api/v1/runbooks/audit", h.handleAudit)
+	mux.HandleFunc("/api/v1/runbooks/", h.handleRunbookAction)
+	mux.HandleFunc("/api/v1/runbooks", h.handleRunbooks)
 }
 
 // ============================================================================
@@ -582,6 +630,355 @@ func (h *Handler) cancelIntervention(w http.ResponseWriter, r *http.Request, id 
 }
 
 // ============================================================================
+// Runbook Response Types
+// ============================================================================
+
+// Summary represents a runbook in API responses.
+type Summary struct {
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	StepCount   int               `json:"step_count"`
+	Inputs      int               `json:"inputs"`
+	Timeout     string            `json:"timeout,omitempty"`
+}
+
+// SummaryList represents the list runbooks API response.
+type SummaryList struct {
+	Runbooks []Summary `json:"runbooks"`
+	Total    int               `json:"total"`
+}
+
+// ExecutionResponse represents a runbook execution in API responses.
+type ExecutionResponse struct {
+	ID             string                 `json:"id"`
+	RunbookName    string                 `json:"runbook_name"`
+	RunbookVersion string                 `json:"runbook_version,omitempty"`
+	State          string                 `json:"state"`
+	Inputs         map[string]interface{} `json:"inputs,omitempty"`
+	Outputs        map[string]interface{} `json:"outputs,omitempty"`
+	StartedAt      *time.Time             `json:"started_at,omitempty"`
+	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
+	Error          string                 `json:"error,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+}
+
+// ExecutionListResponse represents the list executions API response.
+type ExecutionListResponse struct {
+	Executions []ExecutionResponse `json:"executions"`
+	Total      int                 `json:"total"`
+}
+
+// ExecuteRequest represents the request body for executing a runbook.
+type ExecuteRequest struct {
+	Version string                 `json:"version,omitempty"`
+	Inputs  map[string]interface{} `json:"inputs,omitempty"`
+	Async   bool                   `json:"async,omitempty"`
+}
+
+// ExecuteResponse represents the response from executing a runbook.
+type ExecuteResponse struct {
+	ExecutionID string             `json:"execution_id"`
+	State       string             `json:"state"`
+	Execution   *ExecutionResponse `json:"execution,omitempty"`
+}
+
+// AuditEventResponse represents an audit event in API responses.
+type AuditEventResponse struct {
+	ID             string                 `json:"id"`
+	Timestamp      time.Time              `json:"timestamp"`
+	Type           string                 `json:"type"`
+	ExecutionID    string                 `json:"execution_id"`
+	RunbookName    string                 `json:"runbook_name"`
+	RunbookVersion string                 `json:"runbook_version,omitempty"`
+	StepName       string                 `json:"step_name,omitempty"`
+	Actor          string                 `json:"actor,omitempty"`
+	Details        map[string]interface{} `json:"details,omitempty"`
+	Outcome        string                 `json:"outcome,omitempty"`
+	Duration       string                 `json:"duration,omitempty"`
+	Error          string                 `json:"error,omitempty"`
+}
+
+// AuditListResponse represents the list audit events API response.
+type AuditListResponse struct {
+	Events []AuditEventResponse `json:"events"`
+	Total  int64                `json:"total"`
+}
+
+// ============================================================================
+// Runbook Handlers
+// ============================================================================
+
+func (h *Handler) handleRunbooks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.listRunbooks(w, r)
+}
+
+func (h *Handler) handleRunbookAction(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/runbooks/")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "Runbook name required")
+		return
+	}
+
+	parts := strings.SplitN(path, "/", 2)
+	name := parts[0]
+
+	if len(parts) == 2 && parts[1] == "execute" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.executeRunbook(w, r, name)
+		return
+	}
+
+	writeError(w, http.StatusNotFound, "Not found")
+}
+
+func (h *Handler) handleExecutions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.listExecutions(w, r)
+}
+
+func (h *Handler) handleExecution(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/runbooks/executions/")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "Execution ID required")
+		return
+	}
+	h.getExecution(w, r, id)
+}
+
+func (h *Handler) handleAudit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.listAuditEvents(w, r)
+}
+
+func (h *Handler) listRunbooks(w http.ResponseWriter, _ *http.Request) {
+	if h.runbookRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, "Runbook repository not available")
+		return
+	}
+
+	runbooks, err := h.runbookRepo.ListRunbooks()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to list runbooks: "+err.Error())
+		return
+	}
+
+	responses := make([]Summary, 0, len(runbooks))
+	for _, rb := range runbooks {
+		responses = append(responses, convertRunbook(rb))
+	}
+
+	writeJSON(w, http.StatusOK, SummaryList{
+		Runbooks: responses,
+		Total:    len(responses),
+	})
+}
+
+func (h *Handler) executeRunbook(w http.ResponseWriter, r *http.Request, name string) {
+	if h.runbookRepo == nil || h.executor == nil {
+		writeError(w, http.StatusServiceUnavailable, "Runbook execution not available")
+		return
+	}
+
+	var req ExecuteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
+		return
+	}
+
+	rb, err := h.runbookRepo.GetRunbook(name, req.Version)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Runbook not found: "+err.Error())
+		return
+	}
+
+	ctx := r.Context()
+
+	if req.Async {
+		execID, asyncErr := h.executor.ExecuteAsync(ctx, rb, req.Inputs)
+		if asyncErr != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to start execution: "+asyncErr.Error())
+			return
+		}
+		writeJSON(w, http.StatusAccepted, ExecuteResponse{
+			ExecutionID: execID,
+			State:       string(internalrunbook.ExecutionStatePending),
+		})
+		return
+	}
+
+	exec, execErr := h.executor.Execute(ctx, rb, req.Inputs)
+	if execErr != nil {
+		writeError(w, http.StatusInternalServerError, "Execution failed: "+execErr.Error())
+		return
+	}
+
+	execResp := convertExecution(exec)
+	writeJSON(w, http.StatusOK, ExecuteResponse{
+		ExecutionID: exec.ID,
+		State:       string(exec.State),
+		Execution:   &execResp,
+	})
+}
+
+func (h *Handler) listExecutions(w http.ResponseWriter, r *http.Request) {
+	if h.execStorage == nil {
+		writeError(w, http.StatusServiceUnavailable, "Execution storage not available")
+		return
+	}
+
+	query := r.URL.Query()
+	opts := rbstorage.ListOptions{}
+
+	if name := query.Get("runbook"); name != "" {
+		opts.RunbookName = name
+	}
+	if state := query.Get("state"); state != "" {
+		opts.State = internalrunbook.ExecutionState(state)
+	}
+	if limitStr := query.Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			opts.Limit = l
+		}
+	}
+	if opts.Limit == 0 {
+		opts.Limit = 50
+	}
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			opts.Offset = o
+		}
+	}
+	if sinceStr := query.Get("since"); sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			opts.Since = &t
+		}
+	}
+
+	ctx := r.Context()
+	executions, err := h.execStorage.ListExecutions(ctx, opts)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to list executions: "+err.Error())
+		return
+	}
+
+	responses := make([]ExecutionResponse, 0, len(executions))
+	for _, exec := range executions {
+		responses = append(responses, convertExecution(exec))
+	}
+
+	writeJSON(w, http.StatusOK, ExecutionListResponse{
+		Executions: responses,
+		Total:      len(responses),
+	})
+}
+
+func (h *Handler) getExecution(w http.ResponseWriter, r *http.Request, id string) {
+	if h.execStorage == nil {
+		writeError(w, http.StatusServiceUnavailable, "Execution storage not available")
+		return
+	}
+
+	ctx := r.Context()
+	exec, err := h.execStorage.GetExecution(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to get execution: "+err.Error())
+		return
+	}
+	if exec == nil {
+		writeError(w, http.StatusNotFound, "Execution not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, convertExecution(exec))
+}
+
+func (h *Handler) listAuditEvents(w http.ResponseWriter, r *http.Request) {
+	if h.auditQuerier == nil {
+		writeError(w, http.StatusServiceUnavailable, "Audit storage not available")
+		return
+	}
+
+	queryParams := r.URL.Query()
+	q := &rbaudit.Query{}
+
+	if execID := queryParams.Get("execution_id"); execID != "" {
+		q.ExecutionID = execID
+	}
+	if rbName := queryParams.Get("runbook"); rbName != "" {
+		q.RunbookName = rbName
+	}
+	if actor := queryParams.Get("actor"); actor != "" {
+		q.Actor = actor
+	}
+	if outcome := queryParams.Get("outcome"); outcome != "" {
+		q.Outcome = outcome
+	}
+	if limitStr := queryParams.Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			q.Limit = l
+		}
+	}
+	if q.Limit == 0 {
+		q.Limit = 50
+	}
+	if offsetStr := queryParams.Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			q.Offset = o
+		}
+	}
+	if startStr := queryParams.Get("start"); startStr != "" {
+		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			q.StartTime = &t
+		}
+	}
+	if endStr := queryParams.Get("end"); endStr != "" {
+		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			q.EndTime = &t
+		}
+	}
+
+	ctx := r.Context()
+	events, err := h.auditQuerier.Query(ctx, q)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to query audit events: "+err.Error())
+		return
+	}
+
+	total, _ := h.auditQuerier.Count(ctx, q)
+
+	responses := make([]AuditEventResponse, 0, len(events))
+	for _, ev := range events {
+		responses = append(responses, convertAuditEvent(ev))
+	}
+
+	writeJSON(w, http.StatusOK, AuditListResponse{
+		Events: responses,
+		Total:  total,
+	})
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -679,4 +1076,52 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	apierror.Write(w, status, message)
+}
+
+func convertRunbook(rb *internalrunbook.Runbook) Summary {
+	return Summary{
+		Name:        rb.Metadata.Name,
+		Namespace:   rb.Metadata.Namespace,
+		Version:     rb.Metadata.Version,
+		Description: rb.Metadata.Description,
+		Labels:      rb.Metadata.Labels,
+		StepCount:   len(rb.Spec.Steps),
+		Inputs:      len(rb.Spec.Inputs),
+		Timeout:     rb.Spec.Timeout,
+	}
+}
+
+func convertExecution(exec *internalrunbook.Execution) ExecutionResponse {
+	return ExecutionResponse{
+		ID:             exec.ID,
+		RunbookName:    exec.RunbookName,
+		RunbookVersion: exec.RunbookVersion,
+		State:          string(exec.State),
+		Inputs:         exec.Inputs,
+		Outputs:        exec.Outputs,
+		StartedAt:      exec.StartedAt,
+		CompletedAt:    exec.CompletedAt,
+		Error:          exec.Error,
+		CreatedAt:      exec.CreatedAt,
+	}
+}
+
+func convertAuditEvent(ev *rbaudit.Event) AuditEventResponse {
+	resp := AuditEventResponse{
+		ID:             ev.ID,
+		Timestamp:      ev.Timestamp,
+		Type:           string(ev.Type),
+		ExecutionID:    ev.ExecutionID,
+		RunbookName:    ev.RunbookName,
+		RunbookVersion: ev.RunbookVersion,
+		StepName:       ev.StepName,
+		Actor:          ev.Actor,
+		Details:        ev.Details,
+		Outcome:        ev.Outcome,
+		Error:          ev.Error,
+	}
+	if ev.Duration > 0 {
+		resp.Duration = ev.Duration.String()
+	}
+	return resp
 }

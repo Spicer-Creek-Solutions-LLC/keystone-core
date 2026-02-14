@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -335,4 +336,83 @@ func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+func TestOutputCommand_Flags(t *testing.T) {
+	root := newRootCmd()
+	outputCmd := findSubcommand(root, "output")
+	if outputCmd == nil {
+		t.Fatal("expected 'output' subcommand to exist")
+	}
+
+	follow := outputCmd.Flags().Lookup("follow")
+	if follow == nil {
+		t.Fatal("expected --follow flag to exist")
+	}
+	if follow.Shorthand != "f" {
+		t.Errorf("--follow shorthand = %q, want %q", follow.Shorthand, "f")
+	}
+
+	agent := outputCmd.Flags().Lookup("agent")
+	if agent == nil {
+		t.Fatal("expected --agent flag to exist")
+	}
+
+	tail := outputCmd.Flags().Lookup("tail")
+	if tail == nil {
+		t.Fatal("expected --tail flag to exist")
+	}
+}
+
+func TestIsRunning(t *testing.T) {
+	tests := []struct {
+		status pb.BatchJobStatus
+		want   bool
+	}{
+		{pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING, true},
+		{pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING, true},
+		{pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED, false},
+		{pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED, false},
+		{pb.BatchJobStatus_BATCH_JOB_STATUS_CANCELLED, false},
+	}
+	for _, tt := range tests {
+		if got := isRunning(tt.status); got != tt.want {
+			t.Errorf("isRunning(%v) = %v, want %v", tt.status, got, tt.want)
+		}
+	}
+}
+
+func TestPrintAgentResults_Nil(t *testing.T) {
+	// Should not panic with nil summary
+	printAgentResults(nil, &OutputOptions{})
+}
+
+func TestPrintAgentResults_FilterByAgent(t *testing.T) {
+	summary := &pb.BatchSummary{
+		AgentResults: []*pb.BatchAgentResult{
+			{AgentId: "agent-1", Success: true, ExitCode: 0, DurationMs: 100},
+			{AgentId: "agent-2", Success: false, ExitCode: 1, DurationMs: 200},
+		},
+	}
+	// Should not panic when filtering
+	printAgentResults(summary, &OutputOptions{AgentID: "agent-1"})
+}
+
+func TestPrintNewResults_TracksSeenAgents(t *testing.T) {
+	summary := &pb.BatchSummary{
+		AgentResults: []*pb.BatchAgentResult{
+			{AgentId: "agent-1", Success: true, ExitCode: 0},
+		},
+	}
+	seen := make(map[string]bool)
+	printNewResults(summary, &OutputOptions{}, seen)
+	if !seen["agent-1"] {
+		t.Error("expected agent-1 to be marked as seen")
+	}
+
+	// Calling again should not print agent-1 again (idempotent)
+	printNewResults(summary, &OutputOptions{}, seen)
+	if len(seen) != 1 {
+		t.Errorf("expected 1 seen agent, got %d", len(seen))
+	}
 }

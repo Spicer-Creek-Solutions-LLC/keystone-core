@@ -12,15 +12,16 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
-	"github.com/shawnbutts/keystone-core/internal/schedule"
+	apischedule "github.com/shawnbutts/keystone-core/pkg/api/schedule"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	serverAddr   string
-	outputFormat string
-	verbose      bool
-)
+// Config holds CLI configuration.
+type Config struct {
+	ServerAddr   string
+	OutputFormat string
+	Verbose      bool
+}
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
@@ -30,6 +31,8 @@ func main() {
 }
 
 func newRootCmd() *cobra.Command {
+	cfg := &Config{}
+
 	rootCmd := &cobra.Command{
 		Use:   "kscore-schedule",
 		Short: "Keystone Core schedule and maintenance window management",
@@ -51,14 +54,14 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ServerAddr, "server", "s", "localhost:9090", "Control plane server address")
+	rootCmd.PersistentFlags().StringVarP(&cfg.OutputFormat, "output", "o", "table", "Output format (table, json, yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")
 
 	rootCmd.AddCommand(
 		newVersionCmd(),
-		newScheduleCmd(),
-		newMaintenanceCmd(),
+		newScheduleCmd(cfg),
+		newMaintenanceCmd(cfg),
 	)
 
 	return rootCmd
@@ -75,11 +78,19 @@ func newVersionCmd() *cobra.Command {
 	}
 }
 
+func newClient(cfg *Config) *Client {
+	addr := cfg.ServerAddr
+	if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+		addr = "http://" + addr
+	}
+	return NewClient(addr)
+}
+
 // =============================================================================
 // Schedule Commands
 // =============================================================================
 
-func newScheduleCmd() *cobra.Command {
+func newScheduleCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "schedule",
 		Aliases: []string{"sched", "s"},
@@ -88,16 +99,16 @@ func newScheduleCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newScheduleListCmd(),
-		newScheduleShowCmd(),
-		newScheduleCreateCmd(),
-		newScheduleTriggerCmd(),
-		newSchedulePauseCmd(),
-		newScheduleResumeCmd(),
-		newScheduleEnableCmd(),
-		newScheduleDisableCmd(),
-		newScheduleDeleteCmd(),
-		newScheduleHistoryCmd(),
+		newScheduleListCmd(cfg),
+		newScheduleShowCmd(cfg),
+		newScheduleCreateCmd(cfg),
+		newScheduleTriggerCmd(cfg),
+		newSchedulePauseCmd(cfg),
+		newScheduleResumeCmd(cfg),
+		newScheduleEnableCmd(cfg),
+		newScheduleDisableCmd(cfg),
+		newScheduleDeleteCmd(cfg),
+		newScheduleHistoryCmd(cfg),
 	)
 
 	return cmd
@@ -111,7 +122,7 @@ type ScheduleListOptions struct {
 	Limit  int
 }
 
-func newScheduleListCmd() *cobra.Command {
+func newScheduleListCmd(cfg *Config) *cobra.Command {
 	opts := &ScheduleListOptions{}
 
 	cmd := &cobra.Command{
@@ -133,7 +144,7 @@ Examples:
   # Filter by labels
   kscorectl schedule list --label env:prod`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScheduleList(cmd, opts)
+			return runScheduleList(cmd, cfg, opts)
 		},
 	}
 
@@ -145,38 +156,32 @@ Examples:
 	return cmd
 }
 
-func runScheduleList(cmd *cobra.Command, opts *ScheduleListOptions) error {
-	schedules := generateSampleSchedules()
-
-	var filtered []*scheduleDisplay
-	for _, s := range schedules {
-		if opts.Type != "" && string(s.Type) != opts.Type {
-			continue
-		}
-		if opts.Status != "" && string(s.Status) != opts.Status {
-			continue
-		}
-		filtered = append(filtered, s)
+func runScheduleList(cmd *cobra.Command, cfg *Config, opts *ScheduleListOptions) error {
+	client := newClient(cfg)
+	resp, err := client.ListSchedules(opts.Type, opts.Status, opts.Limit)
+	if err != nil {
+		return err
 	}
 
-	if len(filtered) == 0 {
-		fmt.Println("No schedules found")
+	if len(resp.Schedules) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "No schedules found")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(filtered)
+		return outputJSON(cmd.OutOrStdout(), resp.Schedules)
 	case "yaml":
-		return outputYAML(filtered)
+		return outputYAML(cmd.OutOrStdout(), resp.Schedules)
 	default:
 		table := &output.Table{
 			Headers: []string{"ID", "NAME", "TYPE", "STATUS", "CRON/INTERVAL", "NEXT RUN"},
 		}
-		for _, s := range filtered {
+		for i := range resp.Schedules {
+			s := &resp.Schedules[i]
 			nextRun := "N/A"
-			if s.NextRun != "" {
-				nextRun = s.NextRun
+			if s.NextRun != nil {
+				nextRun = s.NextRun.Format(time.RFC3339)
 			}
 			cronOrInterval := s.Cron
 			if cronOrInterval == "" {
@@ -185,78 +190,78 @@ func runScheduleList(cmd *cobra.Command, opts *ScheduleListOptions) error {
 			table.Rows = append(table.Rows, []string{
 				truncate(s.ID, 8),
 				truncate(s.Name, 25),
-				string(s.Type),
-				string(s.Status),
+				s.Type,
+				s.Status,
 				cronOrInterval,
 				nextRun,
 			})
 		}
-		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d schedule(s)\n", len(filtered))
+		w := cmd.OutOrStdout()
+		output.WriteTable(w, table)
+		fmt.Fprintf(w, "\nTotal: %d schedule(s)\n", resp.Total)
 	}
 
 	return nil
 }
 
-func newScheduleShowCmd() *cobra.Command {
+func newScheduleShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <schedule-id>",
 		Short: "Show schedule details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScheduleShow(cmd, args[0])
+			return runScheduleShow(cmd, cfg, args[0])
 		},
 	}
 }
 
-func runScheduleShow(cmd *cobra.Command, id string) error {
-	// Sample schedule for demonstration
-	s := &scheduleDetail{
-		ID:          id,
-		Name:        "daily-backup",
-		Description: "Daily backup of all databases",
-		Type:        schedule.TypeCommand,
-		Status:      schedule.StatusActive,
-		Cron:        "0 2 * * *",
-		Timezone:    "UTC",
-		Priority:    10,
-		Timeout:     "1h",
-		Target: &targetDisplay{
-			All: false,
-			Tags: map[string]string{
-				"role": "database",
-			},
-		},
-		NextRun:         time.Now().Add(12 * time.Hour).Format(time.RFC3339),
-		LastRun:         time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
-		RunCount:        156,
-		SuccessCount:    154,
-		FailureCount:    2,
-		RequireApproval: false,
-		CreatedAt:       time.Now().Add(-30 * 24 * time.Hour).Format(time.RFC3339),
-		CreatedBy:       "admin",
+func runScheduleShow(cmd *cobra.Command, cfg *Config, id string) error {
+	client := newClient(cfg)
+	s, err := client.GetSchedule(id)
+	if err != nil {
+		return err
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(s)
+		return outputJSON(cmd.OutOrStdout(), s)
 	case "yaml":
-		return outputYAML(s)
+		return outputYAML(cmd.OutOrStdout(), s)
 	default:
-		fmt.Printf("Schedule: %s\n", s.Name)
-		fmt.Printf("  ID:           %s\n", s.ID)
-		fmt.Printf("  Type:         %s\n", s.Type)
-		fmt.Printf("  Status:       %s\n", s.Status)
-		fmt.Printf("  Description:  %s\n", s.Description)
-		fmt.Printf("  Cron:         %s\n", s.Cron)
-		fmt.Printf("  Timezone:     %s\n", s.Timezone)
-		fmt.Printf("  Priority:     %d\n", s.Priority)
-		fmt.Printf("  Timeout:      %s\n", s.Timeout)
-		fmt.Printf("  Next Run:     %s\n", s.NextRun)
-		fmt.Printf("  Last Run:     %s\n", s.LastRun)
-		fmt.Printf("  Run Count:    %d (success: %d, failure: %d)\n", s.RunCount, s.SuccessCount, s.FailureCount)
-		fmt.Printf("  Approval:     %v\n", s.RequireApproval)
-		fmt.Printf("  Created:      %s by %s\n", s.CreatedAt, s.CreatedBy)
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "Schedule: %s\n", s.Name)
+		fmt.Fprintf(w, "  ID:           %s\n", s.ID)
+		fmt.Fprintf(w, "  Type:         %s\n", s.Type)
+		fmt.Fprintf(w, "  Status:       %s\n", s.Status)
+		if s.Description != "" {
+			fmt.Fprintf(w, "  Description:  %s\n", s.Description)
+		}
+		if s.Cron != "" {
+			fmt.Fprintf(w, "  Cron:         %s\n", s.Cron)
+		}
+		if s.Interval != "" {
+			fmt.Fprintf(w, "  Interval:     %s\n", s.Interval)
+		}
+		if s.Timezone != "" {
+			fmt.Fprintf(w, "  Timezone:     %s\n", s.Timezone)
+		}
+		fmt.Fprintf(w, "  Priority:     %d\n", s.Priority)
+		if s.Timeout != "" {
+			fmt.Fprintf(w, "  Timeout:      %s\n", s.Timeout)
+		}
+		if s.NextRun != nil {
+			fmt.Fprintf(w, "  Next Run:     %s\n", s.NextRun.Format(time.RFC3339))
+		}
+		if s.LastRun != nil {
+			fmt.Fprintf(w, "  Last Run:     %s\n", s.LastRun.Format(time.RFC3339))
+		}
+		fmt.Fprintf(w, "  Run Count:    %d (success: %d, failure: %d)\n", s.RunCount, s.SuccessCount, s.FailureCount)
+		fmt.Fprintf(w, "  Approval:     %v\n", s.RequireApproval)
+		fmt.Fprintf(w, "  Created:      %s", s.CreatedAt.Format(time.RFC3339))
+		if s.CreatedBy != "" {
+			fmt.Fprintf(w, " by %s", s.CreatedBy)
+		}
+		fmt.Fprintln(w)
 	}
 
 	return nil
@@ -285,7 +290,7 @@ type ScheduleCreateOptions struct {
 	MaintenanceWindow string
 }
 
-func newScheduleCreateCmd() *cobra.Command {
+func newScheduleCreateCmd(cfg *Config) *cobra.Command {
 	opts := &ScheduleCreateOptions{}
 
 	cmd := &cobra.Command{
@@ -307,7 +312,7 @@ Examples:
     --cron "0 3 * * 0" --blueprint security-patches \
     --require-approval --target-tags env:prod`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScheduleCreate(cmd, opts)
+			return runScheduleCreate(cmd, cfg, opts)
 		},
 	}
 
@@ -336,7 +341,7 @@ Examples:
 	return cmd
 }
 
-func runScheduleCreate(cmd *cobra.Command, opts *ScheduleCreateOptions) error {
+func runScheduleCreate(cmd *cobra.Command, cfg *Config, opts *ScheduleCreateOptions) error {
 	if opts.Name == "" {
 		return fmt.Errorf("--name is required")
 	}
@@ -350,72 +355,111 @@ func runScheduleCreate(cmd *cobra.Command, opts *ScheduleCreateOptions) error {
 		return fmt.Errorf("at least one target option is required")
 	}
 
-	// In production, this would call the API
-	fmt.Printf("Created schedule '%s' (id: sched-%s)\n", opts.Name, randomID(8))
+	client := newClient(cfg)
+	req := &apischedule.CreateScheduleRequest{
+		Name:            opts.Name,
+		Description:     opts.Description,
+		Type:            opts.Type,
+		Cron:            opts.Cron,
+		Interval:        opts.Interval,
+		Timezone:        opts.Timezone,
+		Priority:        opts.Priority,
+		Timeout:         opts.Timeout,
+		RequireApproval: opts.RequireApproval,
+		Labels:          parseLabels(opts.Labels),
+	}
+
+	resp, err := client.CreateSchedule(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Created schedule '%s' (id: %s)\n", resp.Name, resp.ID)
 	return nil
 }
 
-func newScheduleTriggerCmd() *cobra.Command {
+func newScheduleTriggerCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "trigger <schedule-id>",
 		Short: "Trigger a schedule immediately",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Triggered schedule %s (execution: exec-%s)\n", args[0], randomID(8))
+			client := newClient(cfg)
+			exec, err := client.TriggerSchedule(args[0], "cli")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Triggered schedule %s (execution: %s)\n", args[0], exec.ID)
 			return nil
 		},
 	}
 }
 
-func newSchedulePauseCmd() *cobra.Command {
+func newSchedulePauseCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pause <schedule-id>",
 		Short: "Pause a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Paused schedule %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.PauseSchedule(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Paused schedule %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newScheduleResumeCmd() *cobra.Command {
+func newScheduleResumeCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "resume <schedule-id>",
 		Short: "Resume a paused schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Resumed schedule %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.ResumeSchedule(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Resumed schedule %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newScheduleEnableCmd() *cobra.Command {
+func newScheduleEnableCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "enable <schedule-id>",
 		Short: "Enable a disabled schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Enabled schedule %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.EnableSchedule(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Enabled schedule %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newScheduleDisableCmd() *cobra.Command {
+func newScheduleDisableCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "disable <schedule-id>",
 		Short: "Disable a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Disabled schedule %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.DisableSchedule(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Disabled schedule %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newScheduleDeleteCmd() *cobra.Command {
+func newScheduleDeleteCmd(cfg *Config) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
@@ -424,10 +468,14 @@ func newScheduleDeleteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !force {
-				fmt.Printf("Are you sure you want to delete schedule %s? (use --force to confirm)\n", args[0])
+				fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to delete schedule %s? (use --force to confirm)\n", args[0])
 				return nil
 			}
-			fmt.Printf("Deleted schedule %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.DeleteSchedule(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted schedule %s\n", args[0])
 			return nil
 		},
 	}
@@ -443,7 +491,7 @@ type HistoryOptions struct {
 	Status string
 }
 
-func newScheduleHistoryCmd() *cobra.Command {
+func newScheduleHistoryCmd(cfg *Config) *cobra.Command {
 	opts := &HistoryOptions{}
 
 	cmd := &cobra.Command{
@@ -451,7 +499,7 @@ func newScheduleHistoryCmd() *cobra.Command {
 		Short: "Show execution history for a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScheduleHistory(cmd, args[0], opts)
+			return runScheduleHistory(cmd, cfg, args[0], opts)
 		},
 	}
 
@@ -461,30 +509,49 @@ func newScheduleHistoryCmd() *cobra.Command {
 	return cmd
 }
 
-func runScheduleHistory(cmd *cobra.Command, scheduleID string, opts *HistoryOptions) error {
-	executions := generateSampleExecutions(scheduleID, opts.Limit)
+func runScheduleHistory(cmd *cobra.Command, cfg *Config, scheduleID string, opts *HistoryOptions) error {
+	client := newClient(cfg)
+	resp, err := client.GetHistory(scheduleID, opts.Status, opts.Limit)
+	if err != nil {
+		return err
+	}
 
-	switch outputFormat {
+	if len(resp.Executions) == 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "No executions found for schedule %s\n", scheduleID)
+		return nil
+	}
+
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(executions)
+		return outputJSON(cmd.OutOrStdout(), resp.Executions)
 	case "yaml":
-		return outputYAML(executions)
+		return outputYAML(cmd.OutOrStdout(), resp.Executions)
 	default:
 		table := &output.Table{
 			Headers: []string{"EXECUTION ID", "STATUS", "TRIGGER", "STARTED", "DURATION", "SUCCESS/FAIL"},
 		}
-		for _, e := range executions {
+		for i := range resp.Executions {
+			e := &resp.Executions[i]
+			startTime := "N/A"
+			if e.StartTime != nil {
+				startTime = e.StartTime.Format("Jan 02 15:04")
+			}
+			duration := "N/A"
+			if e.Duration != "" {
+				duration = e.Duration
+			}
 			table.Rows = append(table.Rows, []string{
 				truncate(e.ID, 12),
 				e.Status,
-				e.Trigger,
-				e.StartTime,
-				e.Duration,
+				e.TriggerType,
+				startTime,
+				duration,
 				fmt.Sprintf("%d/%d", e.SuccessCount, e.FailureCount),
 			})
 		}
-		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nShowing %d execution(s) for schedule %s\n", len(executions), scheduleID)
+		w := cmd.OutOrStdout()
+		output.WriteTable(w, table)
+		fmt.Fprintf(w, "\nShowing %d execution(s) for schedule %s\n", len(resp.Executions), scheduleID)
 	}
 
 	return nil
@@ -494,7 +561,7 @@ func runScheduleHistory(cmd *cobra.Command, scheduleID string, opts *HistoryOpti
 // Maintenance Commands
 // =============================================================================
 
-func newMaintenanceCmd() *cobra.Command {
+func newMaintenanceCmd(cfg *Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "maintenance",
 		Aliases: []string{"maint", "m"},
@@ -503,17 +570,17 @@ func newMaintenanceCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newMaintenanceListCmd(),
-		newMaintenanceShowCmd(),
-		newMaintenanceCreateCmd(),
-		newMaintenanceStartCmd(),
-		newMaintenanceEndCmd(),
-		newMaintenanceCancelCmd(),
-		newMaintenanceExtendCmd(),
-		newMaintenanceActiveCmd(),
-		newMaintenanceUpcomingCmd(),
-		newMaintenanceConflictsCmd(),
-		newMaintenanceDeleteCmd(),
+		newMaintenanceListCmd(cfg),
+		newMaintenanceShowCmd(cfg),
+		newMaintenanceCreateCmd(cfg),
+		newMaintenanceStartCmd(cfg),
+		newMaintenanceEndCmd(cfg),
+		newMaintenanceCancelCmd(cfg),
+		newMaintenanceExtendCmd(cfg),
+		newMaintenanceActiveCmd(cfg),
+		newMaintenanceUpcomingCmd(cfg),
+		newMaintenanceConflictsCmd(cfg),
+		newMaintenanceDeleteCmd(cfg),
 	)
 
 	return cmd
@@ -527,7 +594,7 @@ type MaintenanceListOptions struct {
 	Limit  int
 }
 
-func newMaintenanceListCmd() *cobra.Command {
+func newMaintenanceListCmd(cfg *Config) *cobra.Command {
 	opts := &MaintenanceListOptions{}
 
 	cmd := &cobra.Command{
@@ -546,7 +613,7 @@ Examples:
   # List emergency windows
   kscorectl maintenance list --type emergency`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMaintenanceList(cmd, opts)
+			return runMaintenanceList(cmd, cfg, opts)
 		},
 	}
 
@@ -558,114 +625,89 @@ Examples:
 	return cmd
 }
 
-func runMaintenanceList(cmd *cobra.Command, opts *MaintenanceListOptions) error {
-	windows := generateSampleWindows()
-
-	var filtered []*windowDisplay
-	for _, w := range windows {
-		if opts.Status != "" && string(w.Status) != opts.Status {
-			continue
-		}
-		if opts.Type != "" && string(w.Type) != opts.Type {
-			continue
-		}
-		filtered = append(filtered, w)
+func runMaintenanceList(cmd *cobra.Command, cfg *Config, opts *MaintenanceListOptions) error {
+	client := newClient(cfg)
+	resp, err := client.ListWindows(opts.Status, opts.Type, opts.Limit)
+	if err != nil {
+		return err
 	}
 
-	if len(filtered) == 0 {
-		fmt.Println("No maintenance windows found")
+	if len(resp.Windows) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "No maintenance windows found")
 		return nil
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(filtered)
+		return outputJSON(cmd.OutOrStdout(), resp.Windows)
 	case "yaml":
-		return outputYAML(filtered)
+		return outputYAML(cmd.OutOrStdout(), resp.Windows)
 	default:
 		table := &output.Table{
-			Headers: []string{"ID", "NAME", "TYPE", "STATUS", "START", "END", "SCOPE"},
+			Headers: []string{"ID", "NAME", "TYPE", "STATUS", "START", "END"},
 		}
-		for _, w := range filtered {
-			scope := "all"
-			if !w.ScopeAll {
-				scope = fmt.Sprintf("%d agents", w.AgentCount)
-			}
+		for i := range resp.Windows {
+			win := &resp.Windows[i]
 			table.Rows = append(table.Rows, []string{
-				truncate(w.ID, 8),
-				truncate(w.Name, 20),
-				string(w.Type),
-				string(w.Status),
-				w.StartTime,
-				w.EndTime,
-				scope,
+				truncate(win.ID, 8),
+				truncate(win.Name, 20),
+				win.Type,
+				win.Status,
+				win.StartTime.Format("Jan 02 15:04"),
+				win.EndTime.Format("Jan 02 15:04"),
 			})
 		}
-		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d window(s)\n", len(filtered))
+		w := cmd.OutOrStdout()
+		output.WriteTable(w, table)
+		fmt.Fprintf(w, "\nTotal: %d window(s)\n", resp.Total)
 	}
 
 	return nil
 }
 
-func newMaintenanceShowCmd() *cobra.Command {
+func newMaintenanceShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <window-id>",
 		Short: "Show maintenance window details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMaintenanceShow(cmd, args[0])
+			return runMaintenanceShow(cmd, cfg, args[0])
 		},
 	}
 }
 
-func runMaintenanceShow(cmd *cobra.Command, id string) error {
-	// Sample window for demonstration
-	w := &windowDetail{
-		ID:          id,
-		Name:        "weekly-patching",
-		Description: "Weekly security patching window",
-		Type:        schedule.MaintenanceWindowTypePlanned,
-		Status:      schedule.MaintenanceWindowStatusScheduled,
-		StartTime:   time.Now().Add(24 * time.Hour).Format(time.RFC3339),
-		EndTime:     time.Now().Add(28 * time.Hour).Format(time.RFC3339),
-		Timezone:    "UTC",
-		Scope: &scopeDisplay{
-			All: false,
-			Tags: map[string]string{
-				"env": "prod",
-			},
-		},
-		Behavior: &behaviorDisplay{
-			SuppressAlerts:         true,
-			SuppressDriftDetection: true,
-			AllowOperations:        false,
-		},
-		RequireApproval: true,
-		CreatedAt:       time.Now().Add(-7 * 24 * time.Hour).Format(time.RFC3339),
-		CreatedBy:       "admin",
+func runMaintenanceShow(cmd *cobra.Command, cfg *Config, id string) error {
+	client := newClient(cfg)
+	win, err := client.GetWindow(id)
+	if err != nil {
+		return err
 	}
 
-	switch outputFormat {
+	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(w)
+		return outputJSON(cmd.OutOrStdout(), win)
 	case "yaml":
-		return outputYAML(w)
+		return outputYAML(cmd.OutOrStdout(), win)
 	default:
-		fmt.Printf("Maintenance Window: %s\n", w.Name)
-		fmt.Printf("  ID:          %s\n", w.ID)
-		fmt.Printf("  Type:        %s\n", w.Type)
-		fmt.Printf("  Status:      %s\n", w.Status)
-		fmt.Printf("  Description: %s\n", w.Description)
-		fmt.Printf("  Start:       %s\n", w.StartTime)
-		fmt.Printf("  End:         %s\n", w.EndTime)
-		fmt.Printf("  Timezone:    %s\n", w.Timezone)
-		fmt.Printf("  Approval:    %v\n", w.RequireApproval)
-		fmt.Printf("  Created:     %s by %s\n", w.CreatedAt, w.CreatedBy)
-		fmt.Printf("  Behavior:\n")
-		fmt.Printf("    Suppress Alerts:         %v\n", w.Behavior.SuppressAlerts)
-		fmt.Printf("    Suppress Drift:          %v\n", w.Behavior.SuppressDriftDetection)
-		fmt.Printf("    Allow Operations:        %v\n", w.Behavior.AllowOperations)
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "Maintenance Window: %s\n", win.Name)
+		fmt.Fprintf(w, "  ID:          %s\n", win.ID)
+		fmt.Fprintf(w, "  Type:        %s\n", win.Type)
+		fmt.Fprintf(w, "  Status:      %s\n", win.Status)
+		if win.Description != "" {
+			fmt.Fprintf(w, "  Description: %s\n", win.Description)
+		}
+		fmt.Fprintf(w, "  Start:       %s\n", win.StartTime.Format(time.RFC3339))
+		fmt.Fprintf(w, "  End:         %s\n", win.EndTime.Format(time.RFC3339))
+		if win.Timezone != "" {
+			fmt.Fprintf(w, "  Timezone:    %s\n", win.Timezone)
+		}
+		fmt.Fprintf(w, "  Approval:    %v\n", win.RequireApproval)
+		fmt.Fprintf(w, "  Created:     %s", win.CreatedAt.Format(time.RFC3339))
+		if win.CreatedBy != "" {
+			fmt.Fprintf(w, " by %s", win.CreatedBy)
+		}
+		fmt.Fprintln(w)
 	}
 
 	return nil
@@ -693,7 +735,7 @@ type MaintenanceCreateOptions struct {
 	Labels                 []string
 }
 
-func newMaintenanceCreateCmd() *cobra.Command {
+func newMaintenanceCreateCmd(cfg *Config) *cobra.Command {
 	opts := &MaintenanceCreateOptions{}
 
 	cmd := &cobra.Command{
@@ -716,7 +758,7 @@ Examples:
     --start "2024-01-20T00:00:00Z" --end "2024-01-20T04:00:00Z" \
     --require-approval --scope-agents db-01,db-02`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMaintenanceCreate(cmd, opts)
+			return runMaintenanceCreate(cmd, cfg, opts)
 		},
 	}
 
@@ -746,7 +788,7 @@ Examples:
 	return cmd
 }
 
-func runMaintenanceCreate(cmd *cobra.Command, opts *MaintenanceCreateOptions) error {
+func runMaintenanceCreate(cmd *cobra.Command, cfg *Config, opts *MaintenanceCreateOptions) error {
 	if opts.Name == "" {
 		return fmt.Errorf("--name is required")
 	}
@@ -762,36 +804,65 @@ func runMaintenanceCreate(cmd *cobra.Command, opts *MaintenanceCreateOptions) er
 		return fmt.Errorf("at least one scope option is required")
 	}
 
-	// In production, this would call the API
-	fmt.Printf("Created maintenance window '%s' (id: maint-%s)\n", opts.Name, randomID(8))
+	startTime := opts.StartTime
+	if strings.EqualFold(startTime, "now") {
+		startTime = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	client := newClient(cfg)
+	req := &apischedule.CreateWindowRequest{
+		Name:            opts.Name,
+		Description:     opts.Description,
+		Type:            opts.Type,
+		StartTime:       startTime,
+		EndTime:         opts.EndTime,
+		Timezone:        opts.Timezone,
+		RequireApproval: opts.RequireApproval,
+		Labels:          parseLabels(opts.Labels),
+	}
+
+	resp, err := client.CreateWindow(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Created maintenance window '%s' (id: %s)\n", resp.Name, resp.ID)
 	return nil
 }
 
-func newMaintenanceStartCmd() *cobra.Command {
+func newMaintenanceStartCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start <window-id>",
 		Short: "Start a scheduled maintenance window",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Started maintenance window %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.StartWindow(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Started maintenance window %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newMaintenanceEndCmd() *cobra.Command {
+func newMaintenanceEndCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "end <window-id>",
 		Short: "End an active maintenance window",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Ended maintenance window %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.EndWindow(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Ended maintenance window %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-func newMaintenanceCancelCmd() *cobra.Command {
+func newMaintenanceCancelCmd(cfg *Config) *cobra.Command {
 	var reason string
 
 	cmd := &cobra.Command{
@@ -799,7 +870,11 @@ func newMaintenanceCancelCmd() *cobra.Command {
 		Short: "Cancel a maintenance window",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Cancelled maintenance window %s (reason: %s)\n", args[0], reason)
+			client := newClient(cfg)
+			if err := client.CancelWindow(args[0], reason); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Cancelled maintenance window %s\n", args[0])
 			return nil
 		},
 	}
@@ -809,7 +884,7 @@ func newMaintenanceCancelCmd() *cobra.Command {
 	return cmd
 }
 
-func newMaintenanceExtendCmd() *cobra.Command {
+func newMaintenanceExtendCmd(cfg *Config) *cobra.Command {
 	var newEndTime string
 	var duration string
 
@@ -818,14 +893,18 @@ func newMaintenanceExtendCmd() *cobra.Command {
 		Short: "Extend a maintenance window",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			switch {
-			case newEndTime != "":
-				fmt.Printf("Extended maintenance window %s to %s\n", args[0], newEndTime)
-			case duration != "":
-				fmt.Printf("Extended maintenance window %s by %s\n", args[0], duration)
-			default:
+			if newEndTime == "" && duration == "" {
 				return fmt.Errorf("either --end or --duration is required")
 			}
+			client := newClient(cfg)
+			req := &apischedule.ExtendWindowRequest{
+				EndTime:  newEndTime,
+				Duration: duration,
+			}
+			if err := client.ExtendWindow(args[0], req); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Extended maintenance window %s\n", args[0])
 			return nil
 		},
 	}
@@ -836,84 +915,73 @@ func newMaintenanceExtendCmd() *cobra.Command {
 	return cmd
 }
 
-func newMaintenanceActiveCmd() *cobra.Command {
+func newMaintenanceActiveCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "active",
 		Short: "List currently active maintenance windows",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			windows := generateSampleWindows()
-			var active []*windowDisplay
-			for _, w := range windows {
-				if w.Status == schedule.MaintenanceWindowStatusActive {
-					active = append(active, w)
-				}
+			client := newClient(cfg)
+			resp, err := client.GetActiveWindows()
+			if err != nil {
+				return err
 			}
 
-			if len(active) == 0 {
-				fmt.Println("No active maintenance windows")
+			if len(resp.Windows) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No active maintenance windows")
 				return nil
 			}
 
 			table := &output.Table{
-				Headers: []string{"ID", "NAME", "STARTED", "ENDS", "SCOPE"},
+				Headers: []string{"ID", "NAME", "STARTED", "ENDS"},
 			}
-			for _, w := range active {
-				scope := "all"
-				if !w.ScopeAll {
-					scope = fmt.Sprintf("%d agents", w.AgentCount)
-				}
+			for i := range resp.Windows {
+				win := &resp.Windows[i]
 				table.Rows = append(table.Rows, []string{
-					truncate(w.ID, 8),
-					truncate(w.Name, 20),
-					w.StartTime,
-					w.EndTime,
-					scope,
+					truncate(win.ID, 8),
+					truncate(win.Name, 20),
+					win.StartTime.Format("Jan 02 15:04"),
+					win.EndTime.Format("Jan 02 15:04"),
 				})
 			}
-			output.WriteTable(os.Stdout, table)
+			output.WriteTable(cmd.OutOrStdout(), table)
 			return nil
 		},
 	}
 }
 
-func newMaintenanceUpcomingCmd() *cobra.Command {
+func newMaintenanceUpcomingCmd(cfg *Config) *cobra.Command {
 	var within string
 
 	cmd := &cobra.Command{
 		Use:   "upcoming",
 		Short: "List upcoming maintenance windows",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			windows := generateSampleWindows()
-			var upcoming []*windowDisplay
-			for _, w := range windows {
-				if w.Status == schedule.MaintenanceWindowStatusScheduled {
-					upcoming = append(upcoming, w)
-				}
+			client := newClient(cfg)
+			resp, err := client.ListWindows("scheduled", "", 0)
+			if err != nil {
+				return err
 			}
 
+			upcoming := resp.Windows
 			if len(upcoming) == 0 {
-				fmt.Println("No upcoming maintenance windows")
+				fmt.Fprintln(cmd.OutOrStdout(), "No upcoming maintenance windows")
 				return nil
 			}
 
 			table := &output.Table{
-				Headers: []string{"ID", "NAME", "TYPE", "STARTS", "ENDS", "SCOPE"},
+				Headers: []string{"ID", "NAME", "TYPE", "STARTS", "ENDS"},
 			}
-			for _, w := range upcoming {
-				scope := "all"
-				if !w.ScopeAll {
-					scope = fmt.Sprintf("%d agents", w.AgentCount)
-				}
+			for i := range upcoming {
+				win := &upcoming[i]
 				table.Rows = append(table.Rows, []string{
-					truncate(w.ID, 8),
-					truncate(w.Name, 20),
-					string(w.Type),
-					w.StartTime,
-					w.EndTime,
-					scope,
+					truncate(win.ID, 8),
+					truncate(win.Name, 20),
+					win.Type,
+					win.StartTime.Format("Jan 02 15:04"),
+					win.EndTime.Format("Jan 02 15:04"),
 				})
 			}
-			output.WriteTable(os.Stdout, table)
+			output.WriteTable(cmd.OutOrStdout(), table)
 			return nil
 		},
 	}
@@ -923,20 +991,43 @@ func newMaintenanceUpcomingCmd() *cobra.Command {
 	return cmd
 }
 
-func newMaintenanceConflictsCmd() *cobra.Command {
+func newMaintenanceConflictsCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "conflicts <window-id>",
 		Short: "Check for conflicts with other windows",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Checking conflicts for window %s...\n\n", args[0])
-			fmt.Println("No conflicts found")
+			client := newClient(cfg)
+			conflicts, err := client.GetConflicts(args[0])
+			if err != nil {
+				return err
+			}
+
+			w := cmd.OutOrStdout()
+			fmt.Fprintf(w, "Checking conflicts for window %s...\n\n", args[0])
+			if len(conflicts) == 0 {
+				fmt.Fprintln(w, "No conflicts found")
+				return nil
+			}
+
+			table := &output.Table{
+				Headers: []string{"TYPE", "CONFLICTING WINDOW", "SEVERITY", "MESSAGE"},
+			}
+			for _, c := range conflicts {
+				table.Rows = append(table.Rows, []string{
+					c.ConflictType,
+					c.ConflictingID,
+					c.Severity,
+					c.Message,
+				})
+			}
+			output.WriteTable(w, table)
 			return nil
 		},
 	}
 }
 
-func newMaintenanceDeleteCmd() *cobra.Command {
+func newMaintenanceDeleteCmd(cfg *Config) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
@@ -945,10 +1036,14 @@ func newMaintenanceDeleteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !force {
-				fmt.Printf("Are you sure you want to delete window %s? (use --force to confirm)\n", args[0])
+				fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to delete window %s? (use --force to confirm)\n", args[0])
 				return nil
 			}
-			fmt.Printf("Deleted maintenance window %s\n", args[0])
+			client := newClient(cfg)
+			if err := client.DeleteWindow(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted maintenance window %s\n", args[0])
 			return nil
 		},
 	}
@@ -959,202 +1054,24 @@ func newMaintenanceDeleteCmd() *cobra.Command {
 }
 
 // =============================================================================
-// Display Types
-// =============================================================================
-
-type scheduleDisplay struct {
-	ID       string                  `json:"id" yaml:"id"`
-	Name     string                  `json:"name" yaml:"name"`
-	Type     schedule.Type   `json:"type" yaml:"type"`
-	Status   schedule.Status `json:"status" yaml:"status"`
-	Cron     string                  `json:"cron,omitempty" yaml:"cron,omitempty"`
-	Interval string                  `json:"interval,omitempty" yaml:"interval,omitempty"`
-	NextRun  string                  `json:"next_run,omitempty" yaml:"next_run,omitempty"`
-}
-
-type scheduleDetail struct {
-	ID              string                  `json:"id" yaml:"id"`
-	Name            string                  `json:"name" yaml:"name"`
-	Description     string                  `json:"description" yaml:"description"`
-	Type            schedule.Type   `json:"type" yaml:"type"`
-	Status          schedule.Status `json:"status" yaml:"status"`
-	Cron            string                  `json:"cron,omitempty" yaml:"cron,omitempty"`
-	Interval        string                  `json:"interval,omitempty" yaml:"interval,omitempty"`
-	Timezone        string                  `json:"timezone" yaml:"timezone"`
-	Priority        int                     `json:"priority" yaml:"priority"`
-	Timeout         string                  `json:"timeout" yaml:"timeout"`
-	Target          *targetDisplay          `json:"target" yaml:"target"`
-	NextRun         string                  `json:"next_run,omitempty" yaml:"next_run,omitempty"`
-	LastRun         string                  `json:"last_run,omitempty" yaml:"last_run,omitempty"`
-	RunCount        int64                   `json:"run_count" yaml:"run_count"`
-	SuccessCount    int64                   `json:"success_count" yaml:"success_count"`
-	FailureCount    int64                   `json:"failure_count" yaml:"failure_count"`
-	RequireApproval bool                    `json:"require_approval" yaml:"require_approval"`
-	CreatedAt       string                  `json:"created_at" yaml:"created_at"`
-	CreatedBy       string                  `json:"created_by" yaml:"created_by"`
-}
-
-type targetDisplay struct {
-	All      bool              `json:"all,omitempty" yaml:"all,omitempty"`
-	AgentIDs []string          `json:"agent_ids,omitempty" yaml:"agent_ids,omitempty"`
-	Glob     string            `json:"glob,omitempty" yaml:"glob,omitempty"`
-	Tags     map[string]string `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Roles    []string          `json:"roles,omitempty" yaml:"roles,omitempty"`
-}
-
-type executionDisplay struct {
-	ID           string `json:"id" yaml:"id"`
-	Status       string `json:"status" yaml:"status"`
-	Trigger      string `json:"trigger" yaml:"trigger"`
-	StartTime    string `json:"start_time" yaml:"start_time"`
-	Duration     string `json:"duration" yaml:"duration"`
-	SuccessCount int    `json:"success_count" yaml:"success_count"`
-	FailureCount int    `json:"failure_count" yaml:"failure_count"`
-}
-
-type windowDisplay struct {
-	ID         string                           `json:"id" yaml:"id"`
-	Name       string                           `json:"name" yaml:"name"`
-	Type       schedule.MaintenanceWindowType   `json:"type" yaml:"type"`
-	Status     schedule.MaintenanceWindowStatus `json:"status" yaml:"status"`
-	StartTime  string                           `json:"start_time" yaml:"start_time"`
-	EndTime    string                           `json:"end_time" yaml:"end_time"`
-	ScopeAll   bool                             `json:"scope_all" yaml:"scope_all"`
-	AgentCount int                              `json:"agent_count" yaml:"agent_count"`
-}
-
-type windowDetail struct {
-	ID              string                           `json:"id" yaml:"id"`
-	Name            string                           `json:"name" yaml:"name"`
-	Description     string                           `json:"description" yaml:"description"`
-	Type            schedule.MaintenanceWindowType   `json:"type" yaml:"type"`
-	Status          schedule.MaintenanceWindowStatus `json:"status" yaml:"status"`
-	StartTime       string                           `json:"start_time" yaml:"start_time"`
-	EndTime         string                           `json:"end_time" yaml:"end_time"`
-	Timezone        string                           `json:"timezone" yaml:"timezone"`
-	Scope           *scopeDisplay                    `json:"scope" yaml:"scope"`
-	Behavior        *behaviorDisplay                 `json:"behavior" yaml:"behavior"`
-	RequireApproval bool                             `json:"require_approval" yaml:"require_approval"`
-	CreatedAt       string                           `json:"created_at" yaml:"created_at"`
-	CreatedBy       string                           `json:"created_by" yaml:"created_by"`
-}
-
-type scopeDisplay struct {
-	All      bool              `json:"all,omitempty" yaml:"all,omitempty"`
-	AgentIDs []string          `json:"agent_ids,omitempty" yaml:"agent_ids,omitempty"`
-	Glob     string            `json:"glob,omitempty" yaml:"glob,omitempty"`
-	Tags     map[string]string `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Roles    []string          `json:"roles,omitempty" yaml:"roles,omitempty"`
-}
-
-type behaviorDisplay struct {
-	SuppressAlerts         bool `json:"suppress_alerts" yaml:"suppress_alerts"`
-	SuppressDriftDetection bool `json:"suppress_drift_detection" yaml:"suppress_drift_detection"`
-	AllowOperations        bool `json:"allow_operations" yaml:"allow_operations"`
-}
-
-// =============================================================================
 // Helpers
 // =============================================================================
 
-func generateSampleSchedules() []*scheduleDisplay {
-	return []*scheduleDisplay{
-		{
-			ID:      "sched-001",
-			Name:    "daily-backup",
-			Type:    schedule.TypeCommand,
-			Status:  schedule.StatusActive,
-			Cron:    "0 2 * * *",
-			NextRun: time.Now().Add(12 * time.Hour).Format("15:04"),
-		},
-		{
-			ID:       "sched-002",
-			Name:     "hourly-sync",
-			Type:     schedule.TypeState,
-			Status:   schedule.StatusActive,
-			Interval: "1h",
-			NextRun:  time.Now().Add(45 * time.Minute).Format("15:04"),
-		},
-		{
-			ID:      "sched-003",
-			Name:    "weekly-patching",
-			Type:    schedule.TypeBlueprint,
-			Status:  schedule.StatusPaused,
-			Cron:    "0 3 * * 0",
-			NextRun: "",
-		},
-	}
-}
-
-func generateSampleExecutions(scheduleID string, limit int) []*executionDisplay {
-	executions := make([]*executionDisplay, 0, limit)
-	statuses := []string{"completed", "completed", "completed", "failed", "completed"}
-
-	for i := 0; i < limit && i < 5; i++ {
-		executions = append(executions, &executionDisplay{
-			ID:           fmt.Sprintf("exec-%03d", i+1),
-			Status:       statuses[i%len(statuses)],
-			Trigger:      "scheduled",
-			StartTime:    time.Now().Add(-time.Duration(i*24) * time.Hour).Format("Jan 02 15:04"),
-			Duration:     fmt.Sprintf("%dm%ds", 2+i, 30+i*10),
-			SuccessCount: 10 - i,
-			FailureCount: i,
-		})
-	}
-
-	return executions
-}
-
-func generateSampleWindows() []*windowDisplay {
-	return []*windowDisplay{
-		{
-			ID:         "maint-001",
-			Name:       "weekly-patching",
-			Type:       schedule.MaintenanceWindowTypePlanned,
-			Status:     schedule.MaintenanceWindowStatusScheduled,
-			StartTime:  time.Now().Add(24 * time.Hour).Format("Jan 02 15:04"),
-			EndTime:    time.Now().Add(28 * time.Hour).Format("Jan 02 15:04"),
-			ScopeAll:   false,
-			AgentCount: 15,
-		},
-		{
-			ID:         "maint-002",
-			Name:       "db-migration",
-			Type:       schedule.MaintenanceWindowTypePlanned,
-			Status:     schedule.MaintenanceWindowStatusActive,
-			StartTime:  time.Now().Add(-1 * time.Hour).Format("Jan 02 15:04"),
-			EndTime:    time.Now().Add(3 * time.Hour).Format("Jan 02 15:04"),
-			ScopeAll:   false,
-			AgentCount: 3,
-		},
-		{
-			ID:         "maint-003",
-			Name:       "emergency-fix",
-			Type:       schedule.MaintenanceWindowTypeEmergency,
-			Status:     schedule.MaintenanceWindowStatusCompleted,
-			StartTime:  time.Now().Add(-48 * time.Hour).Format("Jan 02 15:04"),
-			EndTime:    time.Now().Add(-46 * time.Hour).Format("Jan 02 15:04"),
-			ScopeAll:   true,
-			AgentCount: 0,
-		},
-	}
-}
-
-func outputJSON(v interface{}) error {
+func outputJSON(w interface{ Write([]byte) (int, error) }, v interface{}) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	fmt.Println(string(data))
+	fmt.Fprintln(w, string(data))
 	return nil
 }
 
-func outputYAML(v interface{}) error {
+func outputYAML(w interface{ Write([]byte) (int, error) }, v interface{}) error {
 	data, err := yaml.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
-	fmt.Print(string(data))
+	fmt.Fprint(w, string(data))
 	return nil
 }
 
@@ -1163,16 +1080,6 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
-}
-
-func randomID(length int) string {
-	const chars = "abcdef0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(1 * time.Nanosecond)
-	}
-	return string(result)
 }
 
 func parseLabels(labels []string) map[string]string {

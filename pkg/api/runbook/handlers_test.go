@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +13,11 @@ import (
 	"testing"
 	"time"
 
+	internalrunbook "github.com/shawnbutts/keystone-core/internal/runbook"
 	"github.com/shawnbutts/keystone-core/internal/runbook/approval"
+	rbaudit "github.com/shawnbutts/keystone-core/internal/runbook/audit"
 	"github.com/shawnbutts/keystone-core/internal/runbook/intervention"
+	rbstorage "github.com/shawnbutts/keystone-core/internal/runbook/storage"
 
 	_ "modernc.org/sqlite"
 )
@@ -614,4 +618,498 @@ func TestRegisterRoutes(t *testing.T) {
 	h.RegisterRoutes(mux)
 
 	// Just verify registration doesn't panic
+}
+
+// ============================================================================
+// Mock implementations for new route tests
+// ============================================================================
+
+type mockRunbookRepo struct {
+	runbooks []*internalrunbook.Runbook
+	err      error
+}
+
+func (m *mockRunbookRepo) GetRunbook(name, version string) (*internalrunbook.Runbook, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	for _, rb := range m.runbooks {
+		if rb.Metadata.Name == name {
+			return rb, nil
+		}
+	}
+	return nil, fmt.Errorf("runbook %q not found", name)
+}
+
+func (m *mockRunbookRepo) ListRunbooks() ([]*internalrunbook.Runbook, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.runbooks, nil
+}
+
+type mockExecStorage struct {
+	executions []*internalrunbook.Execution
+	err        error
+}
+
+func (m *mockExecStorage) GetExecution(_ context.Context, id string) (*internalrunbook.Execution, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	for _, e := range m.executions {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockExecStorage) ListExecutions(_ context.Context, _ rbstorage.ListOptions) ([]*internalrunbook.Execution, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.executions, nil
+}
+
+type mockAuditQuerier struct {
+	events []*rbaudit.Event
+	count  int64
+	err    error
+}
+
+func (m *mockAuditQuerier) Query(_ context.Context, _ *rbaudit.Query) ([]*rbaudit.Event, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.events, nil
+}
+
+func (m *mockAuditQuerier) Count(_ context.Context, _ *rbaudit.Query) (int64, error) {
+	if m.err != nil {
+		return 0, m.err
+	}
+	return m.count, nil
+}
+
+type mockExecutor struct {
+	execution *internalrunbook.Execution
+	asyncID   string
+	err       error
+}
+
+func (m *mockExecutor) Execute(_ context.Context, _ *internalrunbook.Runbook, _ map[string]interface{}) (*internalrunbook.Execution, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.execution, nil
+}
+
+func (m *mockExecutor) ExecuteAsync(_ context.Context, _ *internalrunbook.Runbook, _ map[string]interface{}) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.asyncID, nil
+}
+
+// ============================================================================
+// Runbook listing tests
+// ============================================================================
+
+func TestListRunbooks_NilRepo(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestListRunbooks_Success(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	repo := &mockRunbookRepo{
+		runbooks: []*internalrunbook.Runbook{
+			{
+				Metadata: internalrunbook.Metadata{Name: "deploy", Version: "1.0", Description: "Deploy service"},
+				Spec:     internalrunbook.Spec{Steps: make([]internalrunbook.Step, 3), Inputs: make([]internalrunbook.InputDef, 2)},
+			},
+			{
+				Metadata: internalrunbook.Metadata{Name: "restart", Version: "2.0"},
+				Spec:     internalrunbook.Spec{Steps: make([]internalrunbook.Step, 1)},
+			},
+		},
+	}
+	h.SetRunbookDeps(repo, nil, nil, nil)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp SummaryList
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("Total = %d, want 2", resp.Total)
+	}
+	if resp.Runbooks[0].Name != "deploy" {
+		t.Errorf("Name = %q, want %q", resp.Runbooks[0].Name, "deploy")
+	}
+	if resp.Runbooks[0].StepCount != 3 {
+		t.Errorf("StepCount = %d, want 3", resp.Runbooks[0].StepCount)
+	}
+	if resp.Runbooks[0].Inputs != 2 {
+		t.Errorf("Inputs = %d, want 2", resp.Runbooks[0].Inputs)
+	}
+}
+
+func TestListRunbooks_MethodNotAllowed(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+// ============================================================================
+// Execution listing tests
+// ============================================================================
+
+func TestListExecutions_NilStorage(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/executions", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestListExecutions_Success(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	now := time.Now()
+	store := &mockExecStorage{
+		executions: []*internalrunbook.Execution{
+			{ID: "exec-1", RunbookName: "deploy", State: internalrunbook.ExecutionStateCompleted, StartedAt: &now, CreatedAt: now},
+			{ID: "exec-2", RunbookName: "restart", State: internalrunbook.ExecutionStateRunning, CreatedAt: now},
+		},
+	}
+	h.SetRunbookDeps(nil, store, nil, nil)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/executions?runbook=deploy&limit=10", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ExecutionListResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("Total = %d, want 2", resp.Total)
+	}
+}
+
+// ============================================================================
+// Get execution tests
+// ============================================================================
+
+func TestGetExecution_NilStorage(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/executions/exec-123", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestGetExecution_NotFound(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	store := &mockExecStorage{}
+	h.SetRunbookDeps(nil, store, nil, nil)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/executions/nonexistent", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestGetExecution_Success(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	now := time.Now()
+	store := &mockExecStorage{
+		executions: []*internalrunbook.Execution{
+			{ID: "exec-abc", RunbookName: "deploy", State: internalrunbook.ExecutionStateCompleted, CreatedAt: now},
+		},
+	}
+	h.SetRunbookDeps(nil, store, nil, nil)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/executions/exec-abc", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ExecutionResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ID != "exec-abc" {
+		t.Errorf("ID = %q, want %q", resp.ID, "exec-abc")
+	}
+}
+
+// ============================================================================
+// Execute runbook tests
+// ============================================================================
+
+func TestExecuteRunbook_NilDeps(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	body := bytes.NewBufferString(`{"inputs":{"service":"web"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks/deploy/execute", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestExecuteRunbook_Sync(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	now := time.Now()
+	repo := &mockRunbookRepo{
+		runbooks: []*internalrunbook.Runbook{
+			{Metadata: internalrunbook.Metadata{Name: "deploy", Version: "1.0"}},
+		},
+	}
+	exec := &mockExecutor{
+		execution: &internalrunbook.Execution{
+			ID:          "exec-xyz",
+			RunbookName: "deploy",
+			State:       internalrunbook.ExecutionStateCompleted,
+			CreatedAt:   now,
+		},
+	}
+	h.SetRunbookDeps(repo, nil, nil, exec)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	body := bytes.NewBufferString(`{"inputs":{"service":"web"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks/deploy/execute", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ExecuteResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ExecutionID != "exec-xyz" {
+		t.Errorf("ExecutionID = %q, want %q", resp.ExecutionID, "exec-xyz")
+	}
+}
+
+func TestExecuteRunbook_Async(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	repo := &mockRunbookRepo{
+		runbooks: []*internalrunbook.Runbook{
+			{Metadata: internalrunbook.Metadata{Name: "deploy"}},
+		},
+	}
+	exec := &mockExecutor{asyncID: "exec-async-1"}
+	h.SetRunbookDeps(repo, nil, nil, exec)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	body := bytes.NewBufferString(`{"async":true}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks/deploy/execute", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ExecuteResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ExecutionID != "exec-async-1" {
+		t.Errorf("ExecutionID = %q, want %q", resp.ExecutionID, "exec-async-1")
+	}
+	if resp.State != "pending" {
+		t.Errorf("State = %q, want %q", resp.State, "pending")
+	}
+}
+
+func TestExecuteRunbook_NotFound(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	repo := &mockRunbookRepo{runbooks: []*internalrunbook.Runbook{}}
+	exec := &mockExecutor{}
+	h.SetRunbookDeps(repo, nil, nil, exec)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	body := bytes.NewBufferString(`{}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks/nonexistent/execute", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+// ============================================================================
+// Audit event tests
+// ============================================================================
+
+func TestListAuditEvents_NilQuerier(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/audit", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestListAuditEvents_Success(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	now := time.Now()
+	querier := &mockAuditQuerier{
+		events: []*rbaudit.Event{
+			{ID: "evt-1", Timestamp: now, Type: rbaudit.EventExecutionStarted, RunbookName: "deploy", Actor: "admin", Outcome: "success"},
+			{ID: "evt-2", Timestamp: now, Type: rbaudit.EventExecutionCompleted, RunbookName: "deploy", Outcome: "success"},
+		},
+		count: 2,
+	}
+	h.SetRunbookDeps(nil, nil, querier, nil)
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/runbooks/audit?runbook=deploy&limit=10", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp AuditListResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("Total = %d, want 2", resp.Total)
+	}
+	if len(resp.Events) != 2 {
+		t.Errorf("Events len = %d, want 2", len(resp.Events))
+	}
+	if resp.Events[0].Actor != "admin" {
+		t.Errorf("Actor = %q, want %q", resp.Events[0].Actor, "admin")
+	}
+}
+
+func TestListAuditEvents_MethodNotAllowed(t *testing.T) {
+	h, cleanup := setupApprovalHandler(t)
+	defer cleanup()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/runbooks/audit", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
 }

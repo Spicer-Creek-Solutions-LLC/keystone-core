@@ -492,6 +492,8 @@ cluster:
 
 When clustering is enabled, the cluster REST API handler (`/api/v1/cluster/*`) is wired with real etcd, membership, leader election, and health monitoring dependencies. When disabled, the handler returns `503 Service Unavailable` for all endpoints.
 
+The Schedule REST API (`/api/v1/schedules/*` and `/api/v1/maintenance/windows/*`) also requires cluster mode. The schedule and maintenance window managers use the etcd-backed schedule store. When `cluster.enabled=false`, schedule endpoints return `503 Service Unavailable`.
+
 ### Secrets
 
 ```yaml
