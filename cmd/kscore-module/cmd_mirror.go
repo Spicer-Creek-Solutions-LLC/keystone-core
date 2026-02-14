@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	airgapreg "github.com/shawnbutts/keystone-core/internal/airgap/registry"
+	"github.com/shawnbutts/keystone-core/pkg/module/registry"
 )
 
 func newMirrorCmd() *cobra.Command {
@@ -79,46 +84,61 @@ func mirrorExportModules(cmd *cobra.Command, args []string, source, dest string,
 		return fmt.Errorf("invalid destination: %w", err)
 	}
 
+	modules := args
+	if len(modules) == 0 {
+		return fmt.Errorf("at least one module name is required (e.g., vendor/package)")
+	}
+
+	// Strip version suffixes for module names; versions are exported in full
+	var moduleNames []string
+	for _, m := range modules {
+		ref := strings.SplitN(m, "@", 2)
+		moduleNames = append(moduleNames, ref[0])
+	}
+
 	fmt.Fprintf(cmd.OutOrStdout(), "Mirror Export\n")
 	fmt.Fprintf(cmd.OutOrStdout(), "  Source:      %s\n", source)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Destination: %s\n", absDest)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Modules:     %s\n", strings.Join(moduleNames, ", "))
 	fmt.Fprintln(cmd.OutOrStdout())
 
-	modules := args
-	if len(modules) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "No modules specified, scanning module.yaml for dependencies...\n")
-		modules = []string{"(all dependencies from module.yaml)"}
-	}
-
 	if dryRun {
-		fmt.Fprintf(cmd.OutOrStdout(), "Dry run — would mirror:\n")
-		for _, m := range modules {
-			fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", m)
+		fmt.Fprintf(cmd.OutOrStdout(), "Dry run — would export:\n")
+		for _, m := range moduleNames {
+			fmt.Fprintf(cmd.OutOrStdout(), "  - %s (all versions)\n", m)
 		}
 		return nil
 	}
 
-	//nolint:gosec // G301: mirror directory needs to be accessible for transfer
-	if err := os.MkdirAll(absDest, 0o755); err != nil {
-		return fmt.Errorf("failed to create mirror directory: %w", err)
+	client, err := registry.NewHTTPClient(&registry.Config{
+		URL:           source,
+		Timeout:       60 * time.Second,
+		RetryAttempts: 3,
+		RetryDelay:    time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("create registry client: %w", err)
 	}
 
-	for _, m := range modules {
-		fmt.Fprintf(cmd.OutOrStdout(), "Mirroring %s...\n", m)
-		ref := strings.SplitN(m, "@", 2)
-		name := ref[0]
-		version := "latest"
-		if len(ref) > 1 {
-			version = ref[1]
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  %s@%s → %s\n", name, version, absDest)
+	result, err := airgapreg.Export(context.Background(), airgapreg.ExportConfig{
+		Modules:   moduleNames,
+		OutputDir: absDest,
+		Client:    client,
+	})
+	if err != nil {
+		return fmt.Errorf("export: %w", err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\nMirror export complete. Transfer %s to your air-gapped environment.\n", absDest)
+	fmt.Fprintf(cmd.OutOrStdout(), "Exported %d module(s), %d version(s)\n",
+		result.ModulesExported, result.VersionsExported)
+	for _, e := range result.Errors {
+		fmt.Fprintf(cmd.ErrOrStderr(), "  warning: %v\n", e)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "\nTransfer %s to your air-gapped environment.\n", absDest)
 	return nil
 }
 
-func mirrorImportModules(cmd *cobra.Command, importDir, registry string, dryRun bool) error {
+func mirrorImportModules(cmd *cobra.Command, importDir, registryDir string, dryRun bool) error {
 	absImport, err := filepath.Abs(importDir)
 	if err != nil {
 		return fmt.Errorf("invalid import path: %w", err)
@@ -128,42 +148,43 @@ func mirrorImportModules(cmd *cobra.Command, importDir, registry string, dryRun 
 		return fmt.Errorf("mirror directory does not exist: %s", absImport)
 	}
 
-	if registry == "" {
-		registry = os.Getenv("KSCORE_REGISTRY")
+	if registryDir == "" {
+		registryDir = os.Getenv("KSCORE_REGISTRY")
 	}
-	if registry == "" {
-		return fmt.Errorf("--registry is required for import mode")
+	if registryDir == "" {
+		return fmt.Errorf("--registry is required for import mode (path to offline registry)")
+	}
+
+	absRegistry, err := filepath.Abs(registryDir)
+	if err != nil {
+		return fmt.Errorf("invalid registry path: %w", err)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Mirror Import\n")
 	fmt.Fprintf(cmd.OutOrStdout(), "  Source:   %s\n", absImport)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Registry: %s\n", registry)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Registry: %s\n", absRegistry)
 	fmt.Fprintln(cmd.OutOrStdout())
 
 	if dryRun {
-		fmt.Fprintf(cmd.OutOrStdout(), "Dry run — would import modules from %s to %s\n", absImport, registry)
+		fmt.Fprintf(cmd.OutOrStdout(), "Dry run — would import modules from %s to %s\n", absImport, absRegistry)
 		return nil
 	}
 
-	entries, err := os.ReadDir(absImport)
+	reg, err := airgapreg.New(airgapreg.Config{RootDir: absRegistry, AutoIndex: true})
 	if err != nil {
-		return fmt.Errorf("failed to read mirror directory: %w", err)
+		return fmt.Errorf("open registry: %w", err)
+	}
+	defer reg.Close()
+
+	result, err := reg.ImportModulesFromDir(context.Background(), absImport)
+	if err != nil {
+		return fmt.Errorf("import: %w", err)
 	}
 
-	count := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".zip") {
-			continue
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  Importing %s...\n", entry.Name())
-		count++
+	fmt.Fprintf(cmd.OutOrStdout(), "Imported %d module(s), skipped %d\n",
+		result.ModulesImported, result.Skipped)
+	for _, e := range result.Errors {
+		fmt.Fprintf(cmd.ErrOrStderr(), "  warning: %v\n", e)
 	}
-
-	if count == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "No module archives found in %s\n", absImport)
-		return nil
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "\nImported %d module(s) to %s\n", count, registry)
 	return nil
 }

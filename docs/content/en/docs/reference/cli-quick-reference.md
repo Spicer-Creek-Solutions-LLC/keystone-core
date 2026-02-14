@@ -453,6 +453,27 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `bootstrap join` | Join existing cluster | `bootstrap join --server https://ks:8080 --token $TOKEN` |
 | `bootstrap prereq-check` | Check prerequisites | `bootstrap prereq-check` |
 | `bootstrap cert-gen` | Generate TLS certs | `bootstrap cert-gen --output /etc/keystone-core/certs/` |
+| `bootstrap package create` | Create air-gapped package | `bootstrap package create --version 0.1.0 --platform linux/amd64` |
+| `bootstrap package verify` | Verify package signatures | `bootstrap package verify package.tar.gz --trusted-key key.pub` |
+| `bootstrap package install` | Install from package | `bootstrap package install package.tar.gz` |
+| `bootstrap package inspect` | Inspect package manifest | `bootstrap package inspect package.tar.gz` |
+
+---
+
+## Offline Registry (kscore-registry offline)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `registry offline init` | Initialize offline registry | `registry offline init --dir /opt/registry` |
+| `registry offline list` | List modules/blueprints | `registry offline list --dir /opt/registry` |
+| `registry offline search` | Search registry | `registry offline search --dir /opt/registry dns` |
+| `registry offline import` | Import from package/dir | `registry offline import --dir /opt/registry ./mirror` |
+| `registry offline verify` | Verify signatures | `registry offline verify --dir /opt/registry --trust-dir /etc/trust` |
+| `registry offline gc` | Garbage collect old versions | `registry offline gc --dir /opt/registry --keep-versions 3` |
+| `registry offline reindex` | Regenerate index | `registry offline reindex --dir /opt/registry` |
+| `registry offline trust add` | Add trust root | `registry offline trust add --dir /opt/registry --name signer --key-file key.pub` |
+| `registry offline trust remove` | Remove trust root | `registry offline trust remove --dir /opt/registry --name signer` |
+| `registry offline trust list` | List trust roots | `registry offline trust list --dir /opt/registry` |
 
 ---
 

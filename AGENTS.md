@@ -199,12 +199,15 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
   - Phase 4: `kscore-files` — --wait prints stderr warning; failover returns "not yet available"
   - `kscore-monitor` — No changes needed (hardcoded 0 metrics correct until aggregation endpoints exist)
 
-### Planned
-(No planned epics currently)
+### In Progress
+
+- **Epic 38** (Air-Gapped Deployments) — Phase 1 & 2 complete:
+  - Phase 1: Bootstrap packages with manifest types, signing/verification, binary collection, archive builder, content bundling (modules, blueprints, policies, docs), config templates (server/agent YAML, install script), installer, CLI (`kscore-bootstrap package create|verify|install|inspect`), Makefile target
+  - Phase 2: Offline registry (`internal/airgap/registry/`) — filesystem-backed module registry wrapping `FilesystemBackend`; `LocalClient` implementing `resolver.RegistryClient`; JSON index with search; import from bootstrap packages or directories; export from online registries; garbage collection with version retention and max-age; Ed25519 trust store with signature verification; CLI wiring (`kscore-registry offline init|list|search|import|verify|gc|reindex|trust`; `module mirror` export/import)
 
 ### Future (Numbered)
 
-- **Epic 38**: Air-Gapped Deployments (`epics/38-air-gapped-deployments.md`)
+(No future numbered epics currently)
 
 ### Future (Unnumbered)
 

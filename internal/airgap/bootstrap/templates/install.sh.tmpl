@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Keystone Core Air-Gapped Installer v{{.Version}}
+# Platform: {{.Platform}}
+set -euo pipefail
+
+INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/keystone-core}"
+DATA_DIR="${DATA_DIR:-/var/lib/keystone-core}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Keystone Core Air-Gapped Installer v{{.Version}}"
+echo "================================================"
+echo "Install directory: ${INSTALL_DIR}"
+echo "Config directory:  ${CONFIG_DIR}"
+echo "Data directory:    ${DATA_DIR}"
+echo ""
+
+# Check root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root"
+    exit 1
+fi
+
+# Create directories
+mkdir -p "${INSTALL_DIR}" "${CONFIG_DIR}" "${DATA_DIR}"
+
+# Install binaries
+echo "Installing binaries..."
+for bin in "${SCRIPT_DIR}"/bin/*; do
+    if [ -f "${bin}" ]; then
+        name="$(basename "${bin}")"
+        cp "${bin}" "${INSTALL_DIR}/${name}"
+        chmod 0755 "${INSTALL_DIR}/${name}"
+        echo "  Installed ${name}"
+    fi
+done
+
+# Install config templates (don't overwrite existing)
+if [ -d "${SCRIPT_DIR}/config" ]; then
+    echo "Installing configuration templates..."
+    for tmpl in "${SCRIPT_DIR}"/config/*.tmpl; do
+        if [ -f "${tmpl}" ]; then
+            name="$(basename "${tmpl}" .tmpl)"
+            if [ ! -f "${CONFIG_DIR}/${name}" ]; then
+                cp "${tmpl}" "${CONFIG_DIR}/${name}"
+                echo "  Installed ${name}"
+            else
+                echo "  Skipped ${name} (already exists)"
+            fi
+        fi
+    done
+fi
+
+# Install modules
+if [ -d "${SCRIPT_DIR}/modules" ]; then
+    echo "Installing modules to local registry..."
+    mkdir -p "${DATA_DIR}/registry/modules"
+    cp -r "${SCRIPT_DIR}"/modules/* "${DATA_DIR}/registry/modules/" 2>/dev/null || true
+fi
+
+# Install blueprints
+if [ -d "${SCRIPT_DIR}/blueprints" ]; then
+    echo "Installing blueprints to local registry..."
+    mkdir -p "${DATA_DIR}/registry/blueprints"
+    cp -r "${SCRIPT_DIR}"/blueprints/* "${DATA_DIR}/registry/blueprints/" 2>/dev/null || true
+fi
+
+echo ""
+echo "Installation complete."
+echo "Next steps:"
+echo "  1. Review configuration in ${CONFIG_DIR}/"
+echo "  2. Start the server: kscore-server --config ${CONFIG_DIR}/server.yaml"
+echo "  3. Or use bootstrap: kscore-bootstrap seed <seed-config.yaml>"

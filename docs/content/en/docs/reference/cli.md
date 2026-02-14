@@ -2305,7 +2305,7 @@ kscorectl module mirror [module[@version]...] [flags]
 | `--source string` | Source registry URL |
 | `--dest string` | Destination directory for export |
 | `--import string` | Mirror directory to import from |
-| `--registry string` | Target registry URL for import |
+| `--registry string` | Target offline registry path for import |
 | `--dry-run` | Show what would be mirrored |
 | `--verify` | Verify module signatures during mirror (default: true) |
 
@@ -2317,9 +2317,9 @@ kscorectl module mirror vendor/pkg_apt@v1.2.3 \
   --source https://registry.keystonecore.io \
   --dest ./module-mirror
 
-# Import mirror into local registry
+# Import mirror into offline registry
 kscorectl module mirror --import ./module-mirror \
-  --registry localhost:5000
+  --registry /var/lib/keystone-core/registry
 ```
 
 ### module clean
@@ -6496,6 +6496,96 @@ Starting kscore-registry on :8090
   Mode: authenticated write (API key required)
 ```
 
+### Offline Registry Management
+
+Commands for managing air-gapped offline registries.
+
+#### Initialize
+
+```bash
+kscore-registry offline init --dir /path/to/registry
+```
+
+Creates the directory structure (modules/, blueprints/) and an empty index.
+
+#### List Contents
+
+```bash
+kscore-registry offline list --dir /path/to/registry
+```
+
+Lists all modules and blueprints in the offline registry.
+
+#### Search
+
+```bash
+kscore-registry offline search --dir /path/to/registry "networking"
+```
+
+Searches modules by name, description, or tags.
+
+#### Import
+
+```bash
+# Import from a bootstrap package
+kscore-registry offline import --dir /path/to/registry bootstrap-package.tar.gz
+
+# Import from a mirror directory
+kscore-registry offline import --dir /path/to/registry /path/to/mirror
+```
+
+Imports modules from bootstrap packages or exported mirror directories.
+
+#### Verify Signatures
+
+```bash
+kscore-registry offline verify --dir /path/to/registry \
+  --trust-dir /path/to/trust --require-signatures
+```
+
+Verifies module signatures against trusted signing keys.
+
+**Flags:**
+
+- `--trust-dir string`: Directory containing trust roots (trust.json)
+- `--require-signatures`: Reject unsigned modules
+
+#### Garbage Collection
+
+```bash
+kscore-registry offline gc --dir /path/to/registry \
+  --keep-versions 3 --dry-run
+```
+
+Removes old module versions based on retention policy.
+
+**Flags:**
+
+- `--keep-versions int`: Keep N most recent versions per module (0=all)
+- `--max-age duration`: Remove versions older than this (e.g., 720h)
+- `--dry-run`: Show what would be removed
+
+#### Reindex
+
+```bash
+kscore-registry offline reindex --dir /path/to/registry
+```
+
+Regenerates the registry index from the filesystem.
+
+#### Trust Management
+
+```bash
+# Add a trusted signing key
+kscore-registry offline trust add --dir /path/to/registry mykey public-key.pem
+
+# List trusted keys
+kscore-registry offline trust list --dir /path/to/registry
+
+# Remove a trusted key
+kscore-registry offline trust remove --dir /path/to/registry mykey
+```
+
 ### API Endpoints
 
 The registry provides a Go-mod style HTTP API:
@@ -8830,6 +8920,111 @@ kscore-bootstrap cert-gen \
 | `ca-key.pem` | CA private key |
 | `server.pem` | Server certificate |
 | `server-key.pem` | Server private key |
+
+### package
+
+Manage self-contained bootstrap packages for air-gapped deployments.
+
+#### package create
+
+Create a bootstrap package containing binaries, configuration templates,
+and optional content (modules, blueprints, policies, documentation).
+
+```bash
+# Create a basic package
+kscore-bootstrap package create --version 0.1.0 --platform linux/amd64 --build-dir build/bin
+
+# Create a signed package with all content
+kscore-bootstrap package create \
+  --version 0.1.0 \
+  --platform linux/amd64 \
+  --build-dir build/bin \
+  --signing-key key.pem \
+  --include-modules --modules-dir modules/ \
+  --include-blueprints --blueprints-dir blueprints/ \
+  --include-docs --docs-dir docs/
+
+# Create with custom output path
+kscore-bootstrap package create --version 0.1.0 --platform linux/arm64 --build-dir build/bin -o /tmp/ks-arm64.tar.gz
+```
+
+**Package Create Flags**:
+
+```
+--version string          Package version (required)
+--platform string         Target platform os/arch (default: linux/amd64)
+--build-dir string        Directory containing compiled binaries (default: build/bin)
+--signing-key string      Path to PEM private key for signing
+--include-modules         Include modules in the package
+--include-blueprints      Include blueprints in the package
+--include-docs            Include offline documentation
+--modules-dir string      Source directory for modules
+--blueprints-dir string   Source directory for blueprints
+--docs-dir string         Source directory for documentation
+--policies-dir string     Source directory for policy files (.rego, .cel)
+-o, --output string       Output archive path (default: auto-generated)
+--created-by string       Creator identifier for manifest metadata
+```
+
+#### package verify
+
+Verify the integrity and authenticity of a bootstrap package.
+
+```bash
+# Verify a signed package
+kscore-bootstrap package verify keystone-bootstrap-0.1.0-linux-amd64.tar.gz --trusted-key cosign.pub
+
+# Verify with multiple trusted keys
+kscore-bootstrap package verify package.tar.gz --trusted-key key1.pub --trusted-key key2.pub
+```
+
+**Package Verify Flags**:
+
+```
+--trusted-key strings     Path to trusted public key (repeatable)
+```
+
+#### package install
+
+Install a bootstrap package to the local system.
+
+```bash
+# Install with defaults
+kscore-bootstrap package install keystone-bootstrap-0.1.0-linux-amd64.tar.gz
+
+# Install with verification
+kscore-bootstrap package install --verify --trusted-key cosign.pub package.tar.gz
+
+# Install to custom directories
+kscore-bootstrap package install \
+  --target-dir /opt/keystone/bin \
+  --config-dir /opt/keystone/etc \
+  --data-dir /opt/keystone/data \
+  package.tar.gz
+
+# Install without modules/blueprints
+kscore-bootstrap package install --skip-modules package.tar.gz
+```
+
+**Package Install Flags**:
+
+```
+--verify                  Verify package signatures before installing
+--trusted-key strings     Path to trusted public key (repeatable)
+--target-dir string       Binary installation directory (default: /usr/local/bin)
+--config-dir string       Configuration directory (default: /etc/keystone-core)
+--data-dir string         Data directory (default: /var/lib/keystone-core)
+--unattended              Skip confirmation prompts
+--skip-modules            Skip module and blueprint installation
+```
+
+#### package inspect
+
+Display the manifest of a bootstrap package as JSON.
+
+```bash
+kscore-bootstrap package inspect keystone-bootstrap-0.1.0-linux-amd64.tar.gz
+```
 
 ## kscore-telemetry-gateway (Telemetry Aggregation Gateway)
 

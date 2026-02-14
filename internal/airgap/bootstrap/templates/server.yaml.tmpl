@@ -1,0 +1,33 @@
+# Keystone Core Server Configuration
+# Generated for air-gapped deployment v{{.Version}}
+
+server:
+  listen: "{{.ListenAddress}}"
+  data_dir: "{{.DataDir}}"
+
+  airgap:
+    enabled: true
+
+  nats:
+    mode: "{{.NATSMode}}"
+    data_dir: "{{.DataDir}}/nats"
+    jetstream: true
+
+  database:
+    type: "{{.DatabaseType}}"
+    path: "{{.DataDir}}/state.db"
+
+  registry:
+    mode: offline
+    path: "{{.DataDir}}/registry"
+
+  telemetry:
+    upload: false
+    local_storage: "{{.DataDir}}/telemetry"
+
+  tls:
+    enabled: true
+    auto_generate: true
+
+cluster:
+  name: "{{.ClusterName}}"

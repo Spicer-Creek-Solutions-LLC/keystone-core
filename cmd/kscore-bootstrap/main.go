@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	airgap "github.com/shawnbutts/keystone-core/internal/airgap/bootstrap"
 	"github.com/shawnbutts/keystone-core/internal/bootstrap"
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
@@ -83,6 +84,7 @@ This tool handles:
 	rootCmd.AddCommand(joinCmd())
 	rootCmd.AddCommand(prereqCheckCmd())
 	rootCmd.AddCommand(certGenCmd())
+	rootCmd.AddCommand(packageCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
@@ -564,6 +566,334 @@ func writePEM(path, blockType string, data []byte) error {
 	}
 	defer f.Close()
 	return pem.Encode(f, &pem.Block{Type: blockType, Bytes: data})
+}
+
+func packageCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "package",
+		Short: "Create, verify, install, or inspect air-gapped bootstrap packages",
+		Long: `Manage self-contained bootstrap packages for air-gapped deployments.
+
+Packages include binaries, config templates, modules, blueprints, and
+cryptographic signatures for offline installation.`,
+	}
+
+	cmd.AddCommand(packageCreateCmd())
+	cmd.AddCommand(packageVerifyCmd())
+	cmd.AddCommand(packageInstallCmd())
+	cmd.AddCommand(packageInspectCmd())
+
+	return cmd
+}
+
+func packageCreateCmd() *cobra.Command {
+	var (
+		pkgVersion        string
+		platform          string
+		buildDir          string
+		signingKey        string
+		includeModules    bool
+		includeBlueprints bool
+		includeDocs       bool
+		modulesDir        string
+		blueprintsDir     string
+		docsDir           string
+		policiesDir       string
+		outputPath        string
+		createdBy         string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a bootstrap package",
+		Long: `Create a self-contained bootstrap package for air-gapped deployment.
+
+The package includes binaries, configuration templates, and optionally
+modules, blueprints, policies, and documentation.
+
+Example:
+  kscore-bootstrap package create --version 0.1.0 --platform linux/amd64 --build-dir build/bin
+  kscore-bootstrap package create --version 0.1.0 --platform linux/amd64 --build-dir build/bin --signing-key key.pem
+  kscore-bootstrap package create --version 0.1.0 --platform linux/amd64 --build-dir build/bin --include-modules --modules-dir modules/`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p, err := airgap.ParsePlatform(platform)
+			if err != nil {
+				return fmt.Errorf("invalid platform: %w", err)
+			}
+
+			config := airgap.BuilderConfig{
+				Version:           pkgVersion,
+				Platform:          p,
+				BuildDir:          buildDir,
+				OutputPath:        outputPath,
+				CreatedBy:         createdBy,
+				IncludeModules:    includeModules,
+				IncludeBlueprints: includeBlueprints,
+				IncludeDocs:       includeDocs,
+				ModulesDir:        modulesDir,
+				BlueprintsDir:     blueprintsDir,
+				DocsDir:           docsDir,
+				PoliciesDir:       policiesDir,
+			}
+
+			if signingKey != "" {
+				keyData, err := os.ReadFile(signingKey) //nolint:gosec // G304: user-specified key file
+				if err != nil {
+					return fmt.Errorf("reading signing key: %w", err)
+				}
+				config.SigningKey = keyData
+			}
+
+			builder, err := airgap.NewBuilder(config)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			manifest, err := builder.Build(ctx)
+			if err != nil {
+				return fmt.Errorf("build failed: %w", err)
+			}
+
+			out := config.OutputPath
+			if out == "" {
+				out = fmt.Sprintf("keystone-bootstrap-%s-%s-%s.tar.gz",
+					config.Version, p.OS, p.Arch)
+			}
+
+			fmt.Printf("Package created: %s\n", out)
+			fmt.Printf("  Version:    %s\n", manifest.Version)
+			fmt.Printf("  Platform:   %s\n", manifest.Platform)
+			fmt.Printf("  Components: %d\n", len(manifest.Components))
+			if len(manifest.Modules) > 0 {
+				fmt.Printf("  Modules:    %d\n", len(manifest.Modules))
+			}
+			if len(manifest.Blueprints) > 0 {
+				fmt.Printf("  Blueprints: %d\n", len(manifest.Blueprints))
+			}
+			fmt.Printf("  Signed:     %t\n", manifest.RequiresVerification)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&pkgVersion, "version", "", "Package version (required)")
+	cmd.Flags().StringVar(&platform, "platform", "linux/amd64", "Target platform (os/arch)")
+	cmd.Flags().StringVar(&buildDir, "build-dir", "build/bin", "Directory containing compiled binaries")
+	cmd.Flags().StringVar(&signingKey, "signing-key", "", "Path to PEM private key for signing")
+	cmd.Flags().BoolVar(&includeModules, "include-modules", false, "Include modules in the package")
+	cmd.Flags().BoolVar(&includeBlueprints, "include-blueprints", false, "Include blueprints in the package")
+	cmd.Flags().BoolVar(&includeDocs, "include-docs", false, "Include offline documentation")
+	cmd.Flags().StringVar(&modulesDir, "modules-dir", "", "Source directory for modules")
+	cmd.Flags().StringVar(&blueprintsDir, "blueprints-dir", "", "Source directory for blueprints")
+	cmd.Flags().StringVar(&docsDir, "docs-dir", "", "Source directory for documentation")
+	cmd.Flags().StringVar(&policiesDir, "policies-dir", "", "Source directory for policy files")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output archive path (default: auto-generated)")
+	cmd.Flags().StringVar(&createdBy, "created-by", "", "Creator identifier for manifest metadata")
+	cmd.MarkFlagRequired("version")
+
+	return cmd
+}
+
+func packageVerifyCmd() *cobra.Command {
+	var trustedKeys []string
+
+	cmd := &cobra.Command{
+		Use:   "verify <package.tar.gz>",
+		Short: "Verify a bootstrap package",
+		Long: `Verify the integrity and authenticity of a bootstrap package.
+
+Checks cryptographic signatures and file checksums.
+
+Example:
+  kscore-bootstrap package verify keystone-bootstrap-0.1.0-linux-amd64.tar.gz --trusted-key cosign.pub`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			archivePath := args[0]
+
+			// Extract to temp dir
+			extractDir, err := os.MkdirTemp("", "kscore-verify-*")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(extractDir)
+
+			if err := airgap.ExtractArchive(archivePath, extractDir); err != nil {
+				return fmt.Errorf("extracting package: %w", err)
+			}
+
+			manifest, err := airgap.ReadManifest(filepath.Join(extractDir, "manifest.json"))
+			if err != nil {
+				return fmt.Errorf("reading manifest: %w", err)
+			}
+
+			// Load trusted keys
+			var pubKeys [][]byte
+			for _, keyPath := range trustedKeys {
+				keyData, err := os.ReadFile(keyPath) //nolint:gosec // G304: user-specified key file
+				if err != nil {
+					return fmt.Errorf("reading trusted key %s: %w", keyPath, err)
+				}
+				pubKeys = append(pubKeys, keyData)
+			}
+
+			verifier := airgap.NewPackageVerifier(pubKeys)
+
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			// Verify signature
+			fmt.Print("Verifying signature... ")
+			if err := verifier.VerifyManifestSignature(ctx, extractDir); err != nil {
+				fmt.Println("FAILED")
+				return fmt.Errorf("signature verification: %w", err)
+			}
+			fmt.Println("OK")
+
+			// Verify checksums
+			fmt.Print("Verifying checksums... ")
+			if err := verifier.VerifyChecksums(extractDir, manifest); err != nil {
+				fmt.Println("FAILED")
+				return fmt.Errorf("checksum verification: %w", err)
+			}
+			fmt.Println("OK")
+
+			fmt.Printf("\nPackage %s verified successfully.\n", archivePath)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringArrayVar(&trustedKeys, "trusted-key", nil, "Path to trusted public key (repeatable)")
+
+	return cmd
+}
+
+func packageInstallCmd() *cobra.Command {
+	var (
+		verify      bool
+		trustedKeys []string
+		targetDir   string
+		configDir   string
+		dataDir     string
+		unattended  bool
+		skipModules bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "install <package.tar.gz>",
+		Short: "Install a bootstrap package",
+		Long: `Install a bootstrap package to the local system.
+
+Extracts binaries, configuration templates, modules, and blueprints
+from the package archive.
+
+Example:
+  kscore-bootstrap package install keystone-bootstrap-0.1.0-linux-amd64.tar.gz
+  kscore-bootstrap package install --verify --trusted-key cosign.pub keystone-bootstrap-0.1.0-linux-amd64.tar.gz
+  kscore-bootstrap package install --target-dir /opt/keystone/bin --config-dir /opt/keystone/etc package.tar.gz`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var pubKeys [][]byte
+			for _, keyPath := range trustedKeys {
+				keyData, err := os.ReadFile(keyPath) //nolint:gosec // G304: user-specified key file
+				if err != nil {
+					return fmt.Errorf("reading trusted key %s: %w", keyPath, err)
+				}
+				pubKeys = append(pubKeys, keyData)
+			}
+
+			installer, err := airgap.NewInstaller(airgap.InstallOptions{
+				ArchivePath: args[0],
+				TargetDir:   targetDir,
+				ConfigDir:   configDir,
+				DataDir:     dataDir,
+				Verify:      verify,
+				TrustedKeys: pubKeys,
+				SkipModules: skipModules,
+				Unattended:  unattended,
+			})
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			result, err := installer.Install(ctx)
+			if err != nil {
+				return fmt.Errorf("installation failed: %w", err)
+			}
+
+			fmt.Println("Installation complete.")
+			fmt.Printf("  Binaries:    %d installed to %s\n", result.BinariesCount, targetDir)
+			fmt.Printf("  Configs:     %d installed to %s\n", result.ConfigsCount, configDir)
+			if result.ModulesCount > 0 {
+				fmt.Printf("  Modules:     %d\n", result.ModulesCount)
+			}
+			if result.BlueprintsCount > 0 {
+				fmt.Printf("  Blueprints:  %d\n", result.BlueprintsCount)
+			}
+			fmt.Println()
+			fmt.Println("Next steps:")
+			fmt.Printf("  1. Review configuration in %s/\n", configDir)
+			fmt.Printf("  2. Start the server: kscore-server --config %s/server.yaml.tmpl\n", configDir)
+			fmt.Printf("  3. Or use bootstrap: kscore-bootstrap seed <seed-config.yaml>\n")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&verify, "verify", false, "Verify package signatures before installing")
+	cmd.Flags().StringArrayVar(&trustedKeys, "trusted-key", nil, "Path to trusted public key (repeatable)")
+	cmd.Flags().StringVar(&targetDir, "target-dir", "/usr/local/bin", "Binary installation directory")
+	cmd.Flags().StringVar(&configDir, "config-dir", "/etc/keystone-core", "Configuration directory")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "/var/lib/keystone-core", "Data directory")
+	cmd.Flags().BoolVar(&unattended, "unattended", false, "Skip confirmation prompts")
+	cmd.Flags().BoolVar(&skipModules, "skip-modules", false, "Skip module and blueprint installation")
+
+	return cmd
+}
+
+func packageInspectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "inspect <package.tar.gz>",
+		Short: "Inspect a bootstrap package",
+		Long: `Display the manifest and contents of a bootstrap package.
+
+Example:
+  kscore-bootstrap package inspect keystone-bootstrap-0.1.0-linux-amd64.tar.gz`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			archivePath := args[0]
+
+			extractDir, err := os.MkdirTemp("", "kscore-inspect-*")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(extractDir)
+
+			if err := airgap.ExtractArchive(archivePath, extractDir); err != nil {
+				return fmt.Errorf("extracting package: %w", err)
+			}
+
+			manifest, err := airgap.ReadManifest(filepath.Join(extractDir, "manifest.json"))
+			if err != nil {
+				return fmt.Errorf("reading manifest: %w", err)
+			}
+
+			data, err := json.MarshalIndent(manifest, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshaling manifest: %w", err)
+			}
+
+			fmt.Println(string(data))
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 func versionCmd() *cobra.Command {

@@ -1,0 +1,14 @@
+# Keystone Core Agent Configuration
+# Generated for air-gapped deployment v{{.Version}}
+
+agent:
+  data_dir: "{{.DataDir}}"
+
+  server:
+    address: "{{.ServerAddress}}"
+
+  nats:
+    url: "{{.NATSUrl}}"
+
+  telemetry:
+    upload: false

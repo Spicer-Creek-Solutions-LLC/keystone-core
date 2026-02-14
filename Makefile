@@ -14,7 +14,7 @@
        e2e-ha-ipv6 e2e-ha-ipv6-up e2e-ha-ipv6-down e2e-ha-ipv6-logs \
        e2e-allinone e2e-all-topologies \
        test-vm test-vm-demo test-vm-smoke repo-server \
-       repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules \
+       repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules bootstrap-package \
        server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest \
        dev dev-server dev-agent dev-registry dev-gateway
 
@@ -57,7 +57,8 @@ BINARIES := \
 	kscore-webhook:kscore-webhook \
 	kscore-schedule:kscore-schedule \
 	kscore-loadtest:kscore-loadtest \
-	kscore-repo-gen:kscore-repo-gen
+	kscore-repo-gen:kscore-repo-gen \
+	kscore-bootstrap:kscore-bootstrap
 
 # Extract just the binary names for .PHONY
 BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))
@@ -442,6 +443,18 @@ repos-blueprints: repo-gen
 
 repos-modules: repo-gen
 	$(NATIVE_BIN_DIR)/kscore-repo-gen modules --output build/repos/modules
+
+# Bootstrap package for air-gapped deployments
+BOOTSTRAP_VERSION ?= $(VERSION)
+BOOTSTRAP_PLATFORM ?= $(NATIVE_OS)/$(NATIVE_ARCH)
+
+bootstrap-package: build
+	@echo "Creating bootstrap package $(BOOTSTRAP_VERSION) for $(BOOTSTRAP_PLATFORM)..."
+	$(NATIVE_BIN_DIR)/kscore-bootstrap package create \
+		--version $(BOOTSTRAP_VERSION) \
+		--platform $(BOOTSTRAP_PLATFORM) \
+		--build-dir build/bin \
+		--output build/keystone-bootstrap-$(BOOTSTRAP_VERSION)-$(subst /,-,$(BOOTSTRAP_PLATFORM)).tar.gz
 
 # Goreleaser binary (can be overridden: make GORELEASER=/path/to/goreleaser release-packages)
 GORELEASER ?= $(shell which goreleaser 2>/dev/null || echo "$(HOME)/go/bin/goreleaser")

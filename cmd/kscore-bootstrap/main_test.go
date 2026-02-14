@@ -30,6 +30,7 @@ from a seed configuration, restores from backup, or imports an existing installa
 	rootCmd.AddCommand(joinCmd())
 	rootCmd.AddCommand(prereqCheckCmd())
 	rootCmd.AddCommand(certGenCmd())
+	rootCmd.AddCommand(packageCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
@@ -54,7 +55,7 @@ func TestRootCommand(t *testing.T) {
 	}
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"version", "seed", "restore", "import", "validate", "status", "cleanup", "join", "prereq-check", "cert-gen"}
+	expectedCommands := []string{"version", "seed", "restore", "import", "validate", "status", "cleanup", "join", "prereq-check", "cert-gen", "package"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
@@ -559,6 +560,100 @@ func TestNewSubcommandHelp(t *testing.T) {
 			output := buf.String()
 			if !strings.Contains(output, "Usage:") {
 				t.Errorf("expected help output to contain 'Usage:', got: %s", output)
+			}
+		})
+	}
+}
+
+func TestPackageCommand(t *testing.T) {
+	cmd := packageCmd()
+	if cmd == nil {
+		t.Fatal("package command is nil")
+	}
+	if cmd.Use != "package" {
+		t.Errorf("expected Use to be 'package', got %s", cmd.Use)
+	}
+
+	expectedSubs := []string{"create", "verify", "install", "inspect"}
+	for _, expected := range expectedSubs {
+		found := false
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected subcommand %q not found", expected)
+		}
+	}
+}
+
+func TestPackageCreateFlags(t *testing.T) {
+	cmd := packageCreateCmd()
+	if cmd == nil {
+		t.Fatal("package create command is nil")
+	}
+
+	expectedFlags := []string{
+		"version", "platform", "build-dir", "signing-key",
+		"include-modules", "include-blueprints", "include-docs",
+		"modules-dir", "blueprints-dir", "docs-dir", "policies-dir",
+		"output", "created-by",
+	}
+	for _, flag := range expectedFlags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag on package create command", flag)
+		}
+	}
+}
+
+func TestPackageVerifyFlags(t *testing.T) {
+	cmd := packageVerifyCmd()
+	if cmd == nil {
+		t.Fatal("package verify command is nil")
+	}
+
+	if cmd.Flags().Lookup("trusted-key") == nil {
+		t.Error("expected --trusted-key flag on package verify command")
+	}
+}
+
+func TestPackageInstallFlags(t *testing.T) {
+	cmd := packageInstallCmd()
+	if cmd == nil {
+		t.Fatal("package install command is nil")
+	}
+
+	expectedFlags := []string{
+		"verify", "trusted-key", "target-dir", "config-dir",
+		"data-dir", "unattended", "skip-modules",
+	}
+	for _, flag := range expectedFlags {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag on package install command", flag)
+		}
+	}
+}
+
+func TestPackageSubcommandHelp(t *testing.T) {
+	subcmds := []string{"package", "package create", "package verify", "package install", "package inspect"}
+	for _, subcmd := range subcmds {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := createRootCmd()
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			args := append(strings.Fields(subcmd), "--help")
+			cmd.SetArgs(args)
+
+			err := cmd.Execute()
+			if err != nil {
+				t.Fatalf("%s --help failed: %v", subcmd, err)
+			}
+
+			out := buf.String()
+			if !strings.Contains(out, "Usage:") {
+				t.Errorf("expected help output to contain 'Usage:', got: %s", out)
 			}
 		})
 	}

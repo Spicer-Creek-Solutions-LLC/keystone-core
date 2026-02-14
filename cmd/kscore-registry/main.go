@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	airgapreg "github.com/shawnbutts/keystone-core/internal/airgap/registry"
 	"github.com/shawnbutts/keystone-core/internal/registry/storage"
 	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 	"github.com/shawnbutts/keystone-core/pkg/module/registry"
@@ -559,6 +561,365 @@ func (s *Server) isAllowedOrigin(origin string) bool {
 	return false
 }
 
+func newOfflineCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "offline",
+		Short: "Manage offline (air-gapped) registry",
+		Long:  "Commands for initializing, populating, and managing an offline module registry for air-gapped environments.",
+	}
+
+	var registryDir string
+	cmd.PersistentFlags().StringVar(&registryDir, "dir", "", "Offline registry directory (required)")
+
+	// offline init
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize an empty offline registry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			reg, err := airgapreg.Init(airgapreg.Config{RootDir: registryDir, AutoIndex: true})
+			if err != nil {
+				return err
+			}
+			reg.Close()
+			fmt.Fprintf(cmd.OutOrStdout(), "Initialized offline registry at %s\n", registryDir)
+			return nil
+		},
+	}
+	cmd.AddCommand(initCmd)
+
+	// offline list
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List modules and blueprints in the registry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			if err := reg.Reindex(); err != nil {
+				return err
+			}
+			idx := reg.Index()
+
+			if len(idx.Modules) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Modules:\n")
+				for _, m := range idx.Modules {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %-40s %s (%d versions)\n",
+						m.Name, m.LatestVersion, len(m.Versions))
+				}
+			}
+			if len(idx.Blueprints) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nBlueprints:\n")
+				for _, b := range idx.Blueprints {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", b.Name)
+				}
+			}
+			if len(idx.Modules) == 0 && len(idx.Blueprints) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Registry is empty\n")
+			}
+			return nil
+		},
+	}
+	cmd.AddCommand(listCmd)
+
+	// offline search
+	searchCmd := &cobra.Command{
+		Use:   "search <query>",
+		Short: "Search the registry index",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			if err := reg.Reindex(); err != nil {
+				return err
+			}
+
+			modules := reg.Index().Search(args[0])
+			if len(modules) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No modules matching %q\n", args[0])
+				return nil
+			}
+			for _, m := range modules {
+				fmt.Fprintf(cmd.OutOrStdout(), "  %-40s %s  %s\n", m.Name, m.LatestVersion, m.Description)
+			}
+			return nil
+		},
+	}
+	cmd.AddCommand(searchCmd)
+
+	// offline verify
+	verifyCmd := &cobra.Command{
+		Use:   "verify",
+		Short: "Verify module signatures in the registry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			trustDir, _ := cmd.Flags().GetString("trust-dir")
+			requireSigs, _ := cmd.Flags().GetBool("require-signatures")
+
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			ts, err := airgapreg.NewTrustStore(airgapreg.TrustConfig{
+				TrustDir:          trustDir,
+				RequireSignatures: requireSigs,
+			})
+			if err != nil {
+				return err
+			}
+
+			v := airgapreg.NewVerifier(ts)
+			results, err := v.VerifyAll(reg.ModulesDir())
+			if err != nil {
+				return err
+			}
+
+			var failed int
+			for _, r := range results {
+				status := "OK"
+				if !r.Valid {
+					status = "FAIL"
+					failed++
+				}
+				signer := r.SignedBy
+				if r.Error != nil {
+					signer = r.Error.Error()
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "  [%s] %s@%s  %s\n", status, r.Module, r.Version, signer)
+			}
+
+			if failed > 0 {
+				return fmt.Errorf("%d module(s) failed verification", failed)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "\nAll %d module(s) verified\n", len(results))
+			return nil
+		},
+	}
+	verifyCmd.Flags().String("trust-dir", "", "Trust root directory")
+	verifyCmd.Flags().Bool("require-signatures", false, "Require all modules to be signed")
+	cmd.AddCommand(verifyCmd)
+
+	// offline gc
+	gcCmd := &cobra.Command{
+		Use:   "gc",
+		Short: "Garbage collect old module versions",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			keepVersions, _ := cmd.Flags().GetInt("keep-versions")
+			maxAge, _ := cmd.Flags().GetDuration("max-age")
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir, AutoIndex: true})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			result, err := reg.GC(context.Background(), airgapreg.GCConfig{
+				KeepVersions: keepVersions,
+				MaxAge:       maxAge,
+				DryRun:       dryRun,
+			})
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				fmt.Fprintf(cmd.OutOrStdout(), "Dry run — would remove:\n")
+			}
+			for _, m := range result.RemovedModules {
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", m)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed %d version(s), reclaimed %d bytes\n",
+				len(result.RemovedModules), result.ReclaimedBytes)
+			return nil
+		},
+	}
+	gcCmd.Flags().Int("keep-versions", 0, "Keep N most recent versions per module (0=all)")
+	gcCmd.Flags().Duration("max-age", 0, "Remove versions older than this (e.g., 720h)")
+	gcCmd.Flags().Bool("dry-run", false, "Show what would be removed")
+	cmd.AddCommand(gcCmd)
+
+	// offline reindex
+	reindexCmd := &cobra.Command{
+		Use:   "reindex",
+		Short: "Regenerate the registry index",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			if err := reg.Reindex(); err != nil {
+				return err
+			}
+			idx := reg.Index()
+			fmt.Fprintf(cmd.OutOrStdout(), "Reindexed: %d modules, %d blueprints\n",
+				len(idx.Modules), len(idx.Blueprints))
+			return nil
+		},
+	}
+	cmd.AddCommand(reindexCmd)
+
+	// offline import
+	importCmd := &cobra.Command{
+		Use:   "import <source>",
+		Short: "Import modules from a bootstrap package or directory",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			source := args[0]
+
+			reg, err := airgapreg.New(airgapreg.Config{RootDir: registryDir, AutoIndex: true})
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			var result *airgapreg.ImportResult
+
+			if strings.HasSuffix(source, ".tar.gz") || strings.HasSuffix(source, ".tgz") {
+				result, err = reg.ImportFromBootstrap(context.Background(), source)
+			} else {
+				result, err = reg.ImportModulesFromDir(context.Background(), source)
+			}
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Imported %d module(s), %d blueprint(s), skipped %d\n",
+				result.ModulesImported, result.BlueprintsImported, result.Skipped)
+			for _, e := range result.Errors {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  warning: %v\n", e)
+			}
+			return nil
+		},
+	}
+	cmd.AddCommand(importCmd)
+
+	// offline trust
+	trustCmd := &cobra.Command{
+		Use:   "trust",
+		Short: "Manage trust roots for signature verification",
+	}
+
+	trustAddCmd := &cobra.Command{
+		Use:   "add <name> <public-key-file>",
+		Short: "Add a trusted signing key",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			trustDir := registryDir + "/trust"
+			ts, err := airgapreg.NewTrustStore(airgapreg.TrustConfig{TrustDir: trustDir})
+			if err != nil {
+				return err
+			}
+			if err := ts.Init(); err != nil {
+				return err
+			}
+
+			keyData, err := os.ReadFile(args[1]) //nolint:gosec // G304: user-provided key path
+			if err != nil {
+				return fmt.Errorf("read public key: %w", err)
+			}
+
+			if err := ts.AddRoot(airgapreg.TrustRoot{
+				Name:      args[0],
+				PublicKey: keyData,
+				Algorithm: "ed25519",
+			}); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Added trust root %q\n", args[0])
+			return nil
+		},
+	}
+
+	trustRemoveCmd := &cobra.Command{
+		Use:   "remove <name>",
+		Short: "Remove a trusted signing key",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			trustDir := registryDir + "/trust"
+			ts, err := airgapreg.NewTrustStore(airgapreg.TrustConfig{TrustDir: trustDir})
+			if err != nil {
+				return err
+			}
+			if err := ts.RemoveRoot(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed trust root %q\n", args[0])
+			return nil
+		},
+	}
+
+	trustListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List trusted signing keys",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if registryDir == "" {
+				return fmt.Errorf("--dir is required")
+			}
+			trustDir := registryDir + "/trust"
+			ts, err := airgapreg.NewTrustStore(airgapreg.TrustConfig{TrustDir: trustDir})
+			if err != nil {
+				return err
+			}
+			roots := ts.ListRoots()
+			if len(roots) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No trust roots configured\n")
+				return nil
+			}
+			for _, r := range roots {
+				expires := "never"
+				if r.ExpiresAt != nil {
+					expires = r.ExpiresAt.Format(time.RFC3339)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "  %-20s  algo=%-8s  added=%s  expires=%s\n",
+					r.Name, r.Algorithm, r.AddedAt.Format(time.RFC3339), expires)
+			}
+			return nil
+		},
+	}
+
+	trustCmd.AddCommand(trustAddCmd, trustRemoveCmd, trustListCmd)
+	cmd.AddCommand(trustCmd)
+
+	return cmd
+}
+
 func main() {
 	var config Config
 
@@ -642,6 +1003,7 @@ It provides a Go-mod style API for module discovery and distribution:
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(newOfflineCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
