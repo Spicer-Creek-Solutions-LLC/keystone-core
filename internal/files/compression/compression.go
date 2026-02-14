@@ -9,6 +9,10 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/golang/snappy"
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4/v4"
 )
 
 // Algorithm represents a compression algorithm
@@ -388,37 +392,53 @@ func (c *Compressor) decompressGzip(data []byte) ([]byte, error) {
 	return result, nil
 }
 
-// Placeholder implementations for other algorithms
-// In production, these would use actual compression libraries
-
 func (c *Compressor) compressZstd(data []byte) ([]byte, error) {
-	// Fallback to gzip if zstd not available
-	return c.compressGzip(data)
+	var buf bytes.Buffer
+	w, err := zstd.NewWriter(&buf)
+	if err != nil {
+		return nil, fmt.Errorf("zstd writer: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return nil, fmt.Errorf("zstd write: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("zstd close: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 func (c *Compressor) decompressZstd(data []byte) ([]byte, error) {
-	// Fallback to gzip if zstd not available
-	return c.decompressGzip(data)
+	r, err := zstd.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("zstd reader: %w", err)
+	}
+	defer r.Close()
+	return io.ReadAll(r)
 }
 
 func (c *Compressor) compressLZ4(data []byte) ([]byte, error) {
-	// Fallback to gzip if lz4 not available
-	return c.compressGzip(data)
+	var buf bytes.Buffer
+	w := lz4.NewWriter(&buf)
+	if _, err := w.Write(data); err != nil {
+		return nil, fmt.Errorf("lz4 write: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("lz4 close: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 func (c *Compressor) decompressLZ4(data []byte) ([]byte, error) {
-	// Fallback to gzip if lz4 not available
-	return c.decompressGzip(data)
+	r := lz4.NewReader(bytes.NewReader(data))
+	return io.ReadAll(r)
 }
 
 func (c *Compressor) compressSnappy(data []byte) ([]byte, error) {
-	// Fallback to gzip if snappy not available
-	return c.compressGzip(data)
+	return snappy.Encode(nil, data), nil
 }
 
 func (c *Compressor) decompressSnappy(data []byte) ([]byte, error) {
-	// Fallback to gzip if snappy not available
-	return c.decompressGzip(data)
+	return snappy.Decode(nil, data)
 }
 
 // Result contains the result of a compression operation

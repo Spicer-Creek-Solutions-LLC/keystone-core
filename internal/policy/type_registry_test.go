@@ -346,6 +346,12 @@ func TestOPAHandler(t *testing.T) {
 	if len(features) == 0 {
 		t.Error("expected some features")
 	}
+
+	// Evaluate must return error (handlers should not be called directly)
+	_, err := h.Evaluate(context.Background(), &Policy{}, nil)
+	if err == nil {
+		t.Error("OPAHandler.Evaluate should return error")
+	}
 }
 
 func TestCELHandler(t *testing.T) {
@@ -362,6 +368,12 @@ func TestCELHandler(t *testing.T) {
 	if h.Description() == "" {
 		t.Error("expected non-empty description")
 	}
+
+	// Evaluate must return error (handlers should not be called directly)
+	_, err := h.Evaluate(context.Background(), &Policy{}, nil)
+	if err == nil {
+		t.Error("CELHandler.Evaluate should return error")
+	}
 }
 
 func TestBuiltinHandler(t *testing.T) {
@@ -373,6 +385,12 @@ func TestBuiltinHandler(t *testing.T) {
 
 	if h.Name() == "" {
 		t.Error("expected non-empty name")
+	}
+
+	// Evaluate must return error (handlers should not be called directly)
+	_, err := h.Evaluate(context.Background(), &Policy{}, nil)
+	if err == nil {
+		t.Error("BuiltinHandler.Evaluate should return error")
 	}
 }
 

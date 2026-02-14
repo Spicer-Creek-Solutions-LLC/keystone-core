@@ -32,6 +32,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/gosnmp/gosnmp v1.43.1
 	github.com/hashicorp/mdns v1.0.5
+	github.com/klauspost/compress v1.18.4
 	github.com/lib/pq v1.10.9
 	github.com/libdns/azure v0.5.0
 	github.com/libdns/cloudflare v0.2.2
@@ -45,6 +46,8 @@ require (
 	github.com/nats-io/nats.go v1.48.0
 	github.com/nats-io/nkeys v0.4.12
 	github.com/open-policy-agent/opa v1.4.0
+	github.com/openconfig/gnmi v0.14.1
+	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/pkg/sftp v1.13.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -212,7 +215,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
@@ -239,14 +241,12 @@ require (
 	github.com/nats-io/jwt/v2 v2.8.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/openconfig/gnmi v0.14.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/patrickmn/go-cache v2.1.1-0.20191004192108-46f407853014+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect

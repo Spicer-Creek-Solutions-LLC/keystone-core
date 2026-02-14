@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"time"
 )
@@ -377,6 +378,7 @@ type BrokerBuilder struct {
 	factory       *BackendFactory
 	healthMonitor *HealthMonitor
 	config        *Config
+	encryptionKey []byte
 }
 
 // NewBrokerBuilder creates a new broker builder.
@@ -401,6 +403,13 @@ func (bb *BrokerBuilder) WithFactory(factory *BackendFactory) *BrokerBuilder {
 // WithHealthMonitor sets the health monitor.
 func (bb *BrokerBuilder) WithHealthMonitor(hm *HealthMonitor) *BrokerBuilder {
 	bb.healthMonitor = hm
+	return bb
+}
+
+// WithEncryptionKey sets the encryption key for the secret cache.
+// If not set, a random 256-bit key is generated when caching is enabled.
+func (bb *BrokerBuilder) WithEncryptionKey(key []byte) *BrokerBuilder {
+	bb.encryptionKey = key
 	return bb
 }
 
@@ -447,7 +456,19 @@ func (bb *BrokerBuilder) Build(ctx context.Context) (*SecretBroker, error) {
 
 	// Set up cache if configured
 	if bb.config.Cache != nil && bb.config.Cache.Enabled {
-		cache := NewEncryptedCache(bb.config.Cache)
+		key := bb.encryptionKey
+		if len(key) == 0 {
+			key = make([]byte, 32)
+			if _, err := rand.Read(key); err != nil {
+				_ = broker.Close()
+				return nil, fmt.Errorf("failed to generate cache encryption key: %w", err)
+			}
+		}
+		cache, err := NewEncryptedSecretCache(bb.config.Cache, key)
+		if err != nil {
+			_ = broker.Close()
+			return nil, fmt.Errorf("failed to create secret cache: %w", err)
+		}
 		broker.SetCache(cache)
 	}
 
@@ -537,51 +558,3 @@ func validateBackendConfig(name string, config *BackendConfig) error {
 	return nil
 }
 
-// EncryptedCache is a placeholder for the encrypted cache implementation.
-// The actual implementation is in cache.go.
-type EncryptedCache struct {
-	config *CacheConfig
-}
-
-// NewEncryptedCache creates a new encrypted cache.
-func NewEncryptedCache(config *CacheConfig) *EncryptedCache {
-	return &EncryptedCache{config: config}
-}
-
-// Get retrieves a secret from the cache.
-func (c *EncryptedCache) Get(ctx context.Context, path string) (*Secret, bool) {
-	return nil, false
-}
-
-// Put stores a secret in the cache.
-func (c *EncryptedCache) Put(ctx context.Context, secret *Secret, ttl time.Duration) error {
-	return nil
-}
-
-// Delete removes a secret from the cache.
-func (c *EncryptedCache) Delete(ctx context.Context, path string) error {
-	return nil
-}
-
-// DeleteByPrefix removes all secrets matching a path prefix.
-func (c *EncryptedCache) DeleteByPrefix(ctx context.Context, prefix string) (int, error) {
-	return 0, nil
-}
-
-// Clear removes all secrets from the cache.
-func (c *EncryptedCache) Clear(ctx context.Context) error {
-	return nil
-}
-
-// Stats returns cache statistics.
-func (c *EncryptedCache) Stats() *CacheStats {
-	return &CacheStats{}
-}
-
-// Close closes the cache.
-func (c *EncryptedCache) Close() error {
-	return nil
-}
-
-// Ensure EncryptedCache implements SecretCache.
-var _ SecretCache = (*EncryptedCache)(nil)

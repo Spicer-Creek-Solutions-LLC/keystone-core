@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"runtime"
 	"strconv"
+	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/policy"
 	"github.com/shawnbutts/keystone-core/internal/state"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 // parsePageToken decodes a page token to get the offset
@@ -50,6 +53,7 @@ type ControlPlaneServer struct {
 	batchDispatcher *controlplane.BatchDispatcher
 	store           state.ControlPlaneStore
 	policyEngine    *policy.PolicyEngine
+	startTime       time.Time
 }
 
 // NewControlPlaneServer creates a new control plane API server
@@ -59,6 +63,7 @@ func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *
 		dispatcher:      dispatcher,
 		batchDispatcher: batchDispatcher,
 		store:           store,
+		startTime:       time.Now(),
 	}
 }
 
@@ -70,6 +75,30 @@ func (s *ControlPlaneServer) SetPolicyEngine(engine *policy.PolicyEngine) {
 // GetPolicyEngine returns the policy engine (may be nil if not configured)
 func (s *ControlPlaneServer) GetPolicyEngine() *policy.PolicyEngine {
 	return s.policyEngine
+}
+
+// GetServerStatus returns server runtime status information.
+func (s *ControlPlaneServer) GetServerStatus(_ context.Context, _ *pb.GetServerStatusRequest) (*pb.GetServerStatusResponse, error) {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	connectedAgents := int32(0)
+	if s.connMgr != nil {
+		connectedAgents = int32(len(s.connMgr.ListAgents())) //nolint:gosec // agent count fits int32
+	}
+
+	return &pb.GetServerStatusResponse{
+		Status: &pb.ServerStatus{
+			Version:         version.Version,
+			UptimeSeconds:   int64(time.Since(s.startTime).Seconds()),
+			StartedAt:       timestamppb.New(s.startTime),
+			ConnectedAgents: connectedAgents,
+			TotalAgents:     connectedAgents,
+			GoroutineCount:  int32(runtime.NumGoroutine()), //nolint:gosec // goroutine count fits int32
+			MemoryUsageMb:   int64(memStats.Alloc / 1024 / 1024), //nolint:gosec // memory MB fits int64
+			Health:          pb.ServerHealth_SERVER_HEALTH_HEALTHY,
+		},
+	}, nil
 }
 
 // ListAgents lists all registered agents

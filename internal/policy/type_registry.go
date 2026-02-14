@@ -272,14 +272,10 @@ func (h *OPAHandler) SupportedFeatures() []Feature {
 	return []Feature{FeatureDryRun, FeatureExplainMode, FeatureDebug}
 }
 
-// Evaluate evaluates the policy against the input.
-func (h *OPAHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
-	// Delegate to the OPA compiler in engine.go
-	result := &EvaluationResult{
-		PolicyID: policy.ID,
-		Allowed:  true, // Placeholder - actual OPA evaluation happens in engine
-	}
-	return result, nil
+// Evaluate is not supported on TypeHandler directly — use Engine.Evaluate() instead.
+// The OPA evaluation logic lives in the Engine's OPAEvaluator.
+func (h *OPAHandler) Evaluate(_ context.Context, _ *Policy, _ interface{}) (*EvaluationResult, error) {
+	return nil, fmt.Errorf("OPA evaluation must go through Engine.Evaluate(), not TypeHandler directly")
 }
 
 // Validate validates the policy definition.
@@ -309,14 +305,10 @@ func (h *CELHandler) SupportedFeatures() []Feature {
 	return []Feature{FeatureDryRun, FeatureTemplating}
 }
 
-// Evaluate evaluates the policy against the input.
-func (h *CELHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
-	// Delegate to CEL evaluator in engine.go
-	result := &EvaluationResult{
-		PolicyID: policy.ID,
-		Allowed:  true, // Placeholder - actual CEL evaluation happens in engine
-	}
-	return result, nil
+// Evaluate is not supported on TypeHandler directly — use Engine.Evaluate() instead.
+// The CEL evaluation logic lives in the Engine's CELEvaluator.
+func (h *CELHandler) Evaluate(_ context.Context, _ *Policy, _ interface{}) (*EvaluationResult, error) {
+	return nil, fmt.Errorf("CEL evaluation must go through Engine.Evaluate(), not TypeHandler directly")
 }
 
 // Validate validates the policy definition.
@@ -344,14 +336,10 @@ func (h *BuiltinHandler) SupportedFeatures() []Feature {
 	return []Feature{FeatureDryRun, FeatureMetrics}
 }
 
-// Evaluate evaluates the policy against the input.
-func (h *BuiltinHandler) Evaluate(ctx context.Context, policy *Policy, input interface{}) (*EvaluationResult, error) {
-	// Delegate to builtin evaluator in engine.go
-	result := &EvaluationResult{
-		PolicyID: policy.ID,
-		Allowed:  true, // Placeholder
-	}
-	return result, nil
+// Evaluate is not supported on TypeHandler directly — use Engine.Evaluate() instead.
+// The builtin evaluation logic lives in the Engine's BuiltinEvaluator.
+func (h *BuiltinHandler) Evaluate(_ context.Context, _ *Policy, _ interface{}) (*EvaluationResult, error) {
+	return nil, fmt.Errorf("builtin evaluation must go through Engine.Evaluate(), not TypeHandler directly")
 }
 
 // Validate validates the policy definition.

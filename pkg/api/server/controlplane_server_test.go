@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"testing"
 )
 
@@ -60,5 +61,36 @@ func TestPageTokenRoundTrip(t *testing.T) {
 		if decoded != offset {
 			t.Errorf("round trip failed: offset=%d, token=%q, decoded=%d", offset, token, decoded)
 		}
+	}
+}
+
+func TestGetServerStatus(t *testing.T) {
+	srv := NewControlPlaneServer(nil, nil, nil, nil)
+	resp, err := srv.GetServerStatus(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("GetServerStatus failed: %v", err)
+	}
+
+	status := resp.Status
+	if status == nil {
+		t.Fatal("expected non-nil status")
+	}
+	if status.Version == "" {
+		t.Error("expected non-empty version")
+	}
+	if status.UptimeSeconds < 0 {
+		t.Errorf("uptime should be >= 0, got %d", status.UptimeSeconds)
+	}
+	if status.StartedAt == nil {
+		t.Error("expected non-nil started_at")
+	}
+	if status.GoroutineCount <= 0 {
+		t.Errorf("expected positive goroutine count, got %d", status.GoroutineCount)
+	}
+	if status.MemoryUsageMb < 0 {
+		t.Errorf("expected non-negative memory, got %d", status.MemoryUsageMb)
+	}
+	if status.ConnectedAgents != 0 {
+		t.Errorf("expected 0 connected agents with nil connMgr, got %d", status.ConnectedAgents)
 	}
 }

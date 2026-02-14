@@ -894,3 +894,77 @@ func TestMetrics_Concurrent(t *testing.T) {
 		t.Errorf("expected 10000 cache hits, got %d", snapshot.CacheHits)
 	}
 }
+
+func TestBrokerBuilder_CacheWiring(t *testing.T) {
+	// Build a broker with caching enabled — should create a real EncryptedSecretCache
+	broker, err := NewBrokerBuilder().
+		WithConfig(&Config{
+			Cache: &CacheConfig{
+				Enabled:    true,
+				MaxEntries: 100,
+				DefaultTTL: time.Minute,
+			},
+		}).
+		WithFactory(NewBackendFactory()).
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer broker.Close()
+
+	// Verify the cache was set (broker.cache should be non-nil EncryptedSecretCache)
+	if broker.cache == nil {
+		t.Fatal("expected cache to be set when caching is enabled")
+	}
+
+	// Verify it's the real encrypted cache, not a stub
+	if _, ok := broker.cache.(*EncryptedSecretCache); !ok {
+		t.Errorf("expected *EncryptedSecretCache, got %T", broker.cache)
+	}
+}
+
+func TestBrokerBuilder_CacheWiring_WithKey(t *testing.T) {
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i)
+	}
+
+	broker, err := NewBrokerBuilder().
+		WithConfig(&Config{
+			Cache: &CacheConfig{
+				Enabled:    true,
+				MaxEntries: 50,
+				DefaultTTL: time.Minute,
+			},
+		}).
+		WithFactory(NewBackendFactory()).
+		WithEncryptionKey(key).
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer broker.Close()
+
+	if broker.cache == nil {
+		t.Fatal("expected cache to be set")
+	}
+}
+
+func TestBrokerBuilder_NoCacheWhenDisabled(t *testing.T) {
+	broker, err := NewBrokerBuilder().
+		WithConfig(&Config{
+			Cache: &CacheConfig{
+				Enabled: false,
+			},
+		}).
+		WithFactory(NewBackendFactory()).
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer broker.Close()
+
+	if broker.cache != nil {
+		t.Error("expected no cache when disabled")
+	}
+}

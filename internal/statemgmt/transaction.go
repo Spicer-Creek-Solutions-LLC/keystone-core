@@ -3,6 +3,7 @@ package statemgmt
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -584,45 +585,66 @@ func (ss *SnapshotStore) ClearForState(module, stateID string) {
 	delete(ss.snapshots, module+":"+stateID)
 }
 
-// RollbackBuilder helps build rollback functions for common operations
-type RollbackBuilder struct{}
+// RollbackBuilder helps build rollback functions for common operations.
+// PackageExecutor and ServiceExecutor must be set for package/service rollbacks.
+type RollbackBuilder struct {
+	// PackageExecutor runs package operations. Arguments: ctx, action ("install"/"remove"), name, version.
+	PackageExecutor func(ctx context.Context, action, name, version string) error
+	// ServiceExecutor runs service operations. Arguments: ctx, action ("start"/"stop"/"enable"/"disable"), name.
+	ServiceExecutor func(ctx context.Context, action, name string) error
+}
 
 // NewRollbackBuilder creates a new rollback builder
 func NewRollbackBuilder() *RollbackBuilder {
 	return &RollbackBuilder{}
 }
 
-// FileRollback creates a rollback for file operations
+// FileRollback creates a rollback that restores a file to its previous state.
+// If the file did not exist before, it is removed. Otherwise its content is restored.
 func (rb *RollbackBuilder) FileRollback(path string, previousContent []byte, previousExists bool) RollbackFunc {
 	return func(ctx context.Context) error {
-		// This would need actual file system access
-		// Placeholder implementation
 		if !previousExists {
-			// File didn't exist before, delete it
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("rollback remove %s: %w", path, err)
+			}
 			return nil
 		}
-		// Restore previous content
+		if err := os.WriteFile(path, previousContent, 0o600); err != nil {
+			return fmt.Errorf("rollback restore %s: %w", path, err)
+		}
 		return nil
 	}
 }
 
-// PackageRollback creates a rollback for package operations
+// PackageRollback creates a rollback that restores a package to its previous state.
+// Requires PackageExecutor to be set on the builder.
 func (rb *RollbackBuilder) PackageRollback(name, previousVersion string, wasInstalled bool) RollbackFunc {
 	return func(ctx context.Context) error {
-		if !wasInstalled {
-			// Package wasn't installed, remove it
-			return nil
+		if rb.PackageExecutor == nil {
+			return fmt.Errorf("rollback package %s: package executor not configured", name)
 		}
-		// Reinstall previous version
-		return nil
+		if !wasInstalled {
+			return rb.PackageExecutor(ctx, "remove", name, "")
+		}
+		return rb.PackageExecutor(ctx, "install", name, previousVersion)
 	}
 }
 
-// ServiceRollback creates a rollback for service operations
+// ServiceRollback creates a rollback that restores a service to its previous state.
+// Requires ServiceExecutor to be set on the builder.
 func (rb *RollbackBuilder) ServiceRollback(name, previousState string, previousEnabled bool) RollbackFunc {
 	return func(ctx context.Context) error {
-		// Restore previous service state
-		return nil
+		if rb.ServiceExecutor == nil {
+			return fmt.Errorf("rollback service %s: service executor not configured", name)
+		}
+		if err := rb.ServiceExecutor(ctx, previousState, name); err != nil {
+			return fmt.Errorf("rollback service %s to %s: %w", name, previousState, err)
+		}
+		action := "disable"
+		if previousEnabled {
+			action = "enable"
+		}
+		return rb.ServiceExecutor(ctx, action, name)
 	}
 }
 

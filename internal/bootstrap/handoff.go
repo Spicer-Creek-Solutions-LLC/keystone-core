@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -268,7 +269,7 @@ func (h *HandoffManager) applyStateFile(ctx context.Context, path string) error 
 	}
 
 	url := fmt.Sprintf("https://%s/api/v1/states/apply", h.apiEndpoint)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -276,10 +277,7 @@ func (h *HandoffManager) applyStateFile(ctx context.Context, path string) error 
 	req.Header.Set("Content-Type", "application/x-yaml")
 	req.Header.Set("Authorization", "Bearer "+h.result.AdminToken)
 
-	// Note: In a real implementation, we'd send the data in the request body
-	// For now, we just log and return success
-	_ = data
-	h.logger.Info("state file would be applied", "path", path, "size", len(data))
+	h.logger.Info("applying state file", "path", path, "size", len(data))
 
 	resp, err := client.Do(req)
 	if err != nil {

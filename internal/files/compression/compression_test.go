@@ -411,6 +411,72 @@ func TestCompressor_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestCompressor_Zstd_RoundTrip(t *testing.T) {
+	cfg := &Config{Algorithm: AlgorithmZstd}
+	c := NewCompressor(cfg)
+	original := []byte(strings.Repeat("zstd round-trip test data ", 500))
+
+	result, err := c.Compress(original)
+	if err != nil {
+		t.Fatalf("Compress zstd failed: %v", err)
+	}
+	if result.Algorithm != AlgorithmZstd {
+		t.Errorf("Algorithm = %s, want zstd", result.Algorithm)
+	}
+
+	decompressed, err := c.Decompress(result.Data, result.Algorithm)
+	if err != nil {
+		t.Fatalf("Decompress zstd failed: %v", err)
+	}
+	if !bytes.Equal(decompressed, original) {
+		t.Error("Zstd round trip: decompressed data doesn't match original")
+	}
+}
+
+func TestCompressor_LZ4_RoundTrip(t *testing.T) {
+	cfg := &Config{Algorithm: AlgorithmLZ4}
+	c := NewCompressor(cfg)
+	original := []byte(strings.Repeat("lz4 round-trip test data ", 500))
+
+	result, err := c.Compress(original)
+	if err != nil {
+		t.Fatalf("Compress lz4 failed: %v", err)
+	}
+	if result.Algorithm != AlgorithmLZ4 {
+		t.Errorf("Algorithm = %s, want lz4", result.Algorithm)
+	}
+
+	decompressed, err := c.Decompress(result.Data, result.Algorithm)
+	if err != nil {
+		t.Fatalf("Decompress lz4 failed: %v", err)
+	}
+	if !bytes.Equal(decompressed, original) {
+		t.Error("LZ4 round trip: decompressed data doesn't match original")
+	}
+}
+
+func TestCompressor_Snappy_RoundTrip(t *testing.T) {
+	cfg := &Config{Algorithm: AlgorithmSnappy}
+	c := NewCompressor(cfg)
+	original := []byte(strings.Repeat("snappy round-trip test data ", 500))
+
+	result, err := c.Compress(original)
+	if err != nil {
+		t.Fatalf("Compress snappy failed: %v", err)
+	}
+	if result.Algorithm != AlgorithmSnappy {
+		t.Errorf("Algorithm = %s, want snappy", result.Algorithm)
+	}
+
+	decompressed, err := c.Decompress(result.Data, result.Algorithm)
+	if err != nil {
+		t.Fatalf("Decompress snappy failed: %v", err)
+	}
+	if !bytes.Equal(decompressed, original) {
+		t.Error("Snappy round trip: decompressed data doesn't match original")
+	}
+}
+
 func BenchmarkCompress(b *testing.B) {
 	c := NewCompressor(nil)
 	data := []byte(strings.Repeat("Benchmark compression test data ", 1000))

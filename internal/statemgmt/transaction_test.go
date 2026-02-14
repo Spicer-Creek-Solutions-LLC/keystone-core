@@ -3,6 +3,8 @@ package statemgmt
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -693,142 +695,144 @@ func TestSnapshotStore_GetPrevious_SingleSnapshot(t *testing.T) {
 func TestRollbackBuilder_FileRollback(t *testing.T) {
 	rb := NewRollbackBuilder()
 
-	tests := []struct {
-		name            string
-		path            string
-		previousContent []byte
-		previousExists  bool
-	}{
-		{
-			name:            "file previously existed",
-			path:            "/etc/nginx/nginx.conf",
-			previousContent: []byte("previous content"),
-			previousExists:  true,
-		},
-		{
-			name:            "file did not exist",
-			path:            "/tmp/newfile.txt",
-			previousContent: nil,
-			previousExists:  false,
-		},
-		{
-			name:            "file with empty content",
-			path:            "/etc/empty.conf",
-			previousContent: []byte{},
-			previousExists:  true,
-		},
-	}
+	t.Run("restore existing file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := dir + "/test.conf"
+		// Create file with "new" content
+		if err := os.WriteFile(path, []byte("new content"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		rollback := rb.FileRollback(path, []byte("previous content"), true)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != "previous content" {
+			t.Errorf("expected 'previous content', got %q", string(data))
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rollback := rb.FileRollback(tt.path, tt.previousContent, tt.previousExists)
-			if rollback == nil {
-				t.Fatal("expected non-nil rollback function")
-			}
+	t.Run("remove file that did not exist", func(t *testing.T) {
+		dir := t.TempDir()
+		path := dir + "/newfile.txt"
+		// Create file that shouldn't exist after rollback
+		if err := os.WriteFile(path, []byte("created"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		rollback := rb.FileRollback(path, nil, false)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Error("expected file to be removed")
+		}
+	})
 
-			// Execute the rollback - it's a placeholder so it should not error
-			err := rollback(context.Background())
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
+	t.Run("remove nonexistent file is not an error", func(t *testing.T) {
+		rollback := rb.FileRollback(t.TempDir()+"/nope.txt", nil, false)
+		if err := rollback(context.Background()); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 }
 
 func TestRollbackBuilder_PackageRollback(t *testing.T) {
-	rb := NewRollbackBuilder()
+	t.Run("nil executor returns error", func(t *testing.T) {
+		rb := NewRollbackBuilder()
+		rollback := rb.PackageRollback("nginx", "1.18.0", true)
+		err := rollback(context.Background())
+		if err == nil {
+			t.Fatal("expected error for nil executor")
+		}
+		if !strings.Contains(err.Error(), "package executor not configured") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
-	tests := []struct {
-		name            string
-		pkgName         string
-		previousVersion string
-		wasInstalled    bool
-	}{
-		{
-			name:            "package was installed",
-			pkgName:         "nginx",
-			previousVersion: "1.18.0",
-			wasInstalled:    true,
-		},
-		{
-			name:            "package was not installed",
-			pkgName:         "new-package",
-			previousVersion: "",
-			wasInstalled:    false,
-		},
-		{
-			name:            "package with specific version",
-			pkgName:         "python3",
-			previousVersion: "3.9.5",
-			wasInstalled:    true,
-		},
-	}
+	t.Run("reinstall previous version", func(t *testing.T) {
+		var called string
+		rb := &RollbackBuilder{
+			PackageExecutor: func(_ context.Context, action, name, version string) error {
+				called = fmt.Sprintf("%s %s %s", action, name, version)
+				return nil
+			},
+		}
+		rollback := rb.PackageRollback("nginx", "1.18.0", true)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called != "install nginx 1.18.0" {
+			t.Errorf("expected 'install nginx 1.18.0', got %q", called)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rollback := rb.PackageRollback(tt.pkgName, tt.previousVersion, tt.wasInstalled)
-			if rollback == nil {
-				t.Fatal("expected non-nil rollback function")
-			}
-
-			// Execute the rollback - it's a placeholder so it should not error
-			err := rollback(context.Background())
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
+	t.Run("remove new package", func(t *testing.T) {
+		var called string
+		rb := &RollbackBuilder{
+			PackageExecutor: func(_ context.Context, action, name, version string) error {
+				called = fmt.Sprintf("%s %s", action, name)
+				return nil
+			},
+		}
+		rollback := rb.PackageRollback("new-pkg", "", false)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called != "remove new-pkg" {
+			t.Errorf("expected 'remove new-pkg', got %q", called)
+		}
+	})
 }
 
 func TestRollbackBuilder_ServiceRollback(t *testing.T) {
-	rb := NewRollbackBuilder()
+	t.Run("nil executor returns error", func(t *testing.T) {
+		rb := NewRollbackBuilder()
+		rollback := rb.ServiceRollback("nginx", "running", true)
+		err := rollback(context.Background())
+		if err == nil {
+			t.Fatal("expected error for nil executor")
+		}
+		if !strings.Contains(err.Error(), "service executor not configured") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
-	tests := []struct {
-		name            string
-		serviceName     string
-		previousState   string
-		previousEnabled bool
-	}{
-		{
-			name:            "service was running and enabled",
-			serviceName:     "nginx",
-			previousState:   "running",
-			previousEnabled: true,
-		},
-		{
-			name:            "service was stopped and disabled",
-			serviceName:     "httpd",
-			previousState:   "stopped",
-			previousEnabled: false,
-		},
-		{
-			name:            "service was running but disabled",
-			serviceName:     "cron",
-			previousState:   "running",
-			previousEnabled: false,
-		},
-		{
-			name:            "service was stopped but enabled",
-			serviceName:     "mysql",
-			previousState:   "stopped",
-			previousEnabled: true,
-		},
-	}
+	t.Run("restore running and enabled", func(t *testing.T) {
+		var calls []string
+		rb := &RollbackBuilder{
+			ServiceExecutor: func(_ context.Context, action, name string) error {
+				calls = append(calls, fmt.Sprintf("%s %s", action, name))
+				return nil
+			},
+		}
+		rollback := rb.ServiceRollback("nginx", "running", true)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(calls) != 2 || calls[0] != "running nginx" || calls[1] != "enable nginx" {
+			t.Errorf("unexpected calls: %v", calls)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rollback := rb.ServiceRollback(tt.serviceName, tt.previousState, tt.previousEnabled)
-			if rollback == nil {
-				t.Fatal("expected non-nil rollback function")
-			}
-
-			// Execute the rollback - it's a placeholder so it should not error
-			err := rollback(context.Background())
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
+	t.Run("restore stopped and disabled", func(t *testing.T) {
+		var calls []string
+		rb := &RollbackBuilder{
+			ServiceExecutor: func(_ context.Context, action, name string) error {
+				calls = append(calls, fmt.Sprintf("%s %s", action, name))
+				return nil
+			},
+		}
+		rollback := rb.ServiceRollback("httpd", "stopped", false)
+		if err := rollback(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(calls) != 2 || calls[0] != "stopped httpd" || calls[1] != "disable httpd" {
+			t.Errorf("unexpected calls: %v", calls)
+		}
+	})
 }
 
 func TestRollbackBuilder_CompositeRollback_WithErrors(t *testing.T) {

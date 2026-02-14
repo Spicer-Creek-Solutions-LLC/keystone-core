@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-51 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-52 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -170,7 +170,7 @@ Epics 1-32, 36-37, 39-49 are all complete. Key packages and where to find detail
 
 ### Planned
 
-- **Epic 52** (Critical Bug Fixes) — NOT STARTED — EncryptedCache no-op, bootstrap handoff empty body, gateway NATS TLS, compression fallbacks, transaction rollback no-ops, policy handler always-allow, GetServerStatus missing
+- **Epic 52** (Critical Bug Fixes) — COMPLETE — Deleted no-op EncryptedCache stub, wired real EncryptedSecretCache with AES-GCM in BrokerBuilder; fixed bootstrap handoff empty body (bytes.NewReader); wired gateway NATS TLS (nats.Secure); implemented real zstd/lz4/snappy compression; implemented FileRollback (os.WriteFile/Remove), PackageRollback/ServiceRollback with executor delegation; policy handlers return error instead of always-allow; implemented GetServerStatus with version/uptime/runtime stats
 - **Epic 53** (gRPC Service Completion) — NOT STARTED — Wire SecretsServer/ClusterServer with real deps, register CoordinationService, implement StateHistory/StateStatus stores, RestoreBackup RPC
 - **Epic 54** (CLI Wiring: Core Operations) — NOT STARTED — Wire kscore-events (8), kscore-schedule (11), kscore-runbook (5), kscore-exec streaming; replace ~25 generateSample* stubs
 - **Epic 55** (CLI Wiring: Secrets & Compliance) — NOT STARTED — Wire kscore-secrets (30), kscore-audit (1), kscore-policy (4); add rotation/schedule/cache management RPCs

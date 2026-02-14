@@ -4,9 +4,12 @@ package gateway
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -165,7 +168,35 @@ func (s *Server) connectNATS() error {
 		}),
 	}
 
-	// TODO: Add TLS configuration when s.config.NATS.TLS.Enabled is true
+	// Add TLS configuration if enabled
+	if s.config.NATS.TLS.Enabled {
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS13}
+		if s.config.NATS.TLS.MinVersion == "1.2" {
+			tlsConfig.MinVersion = tls.VersionTLS12
+		}
+		if s.config.NATS.TLS.CertFile != "" && s.config.NATS.TLS.KeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(s.config.NATS.TLS.CertFile, s.config.NATS.TLS.KeyFile)
+			if err != nil {
+				return fmt.Errorf("loading NATS TLS certificate: %w", err)
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+		if s.config.NATS.TLS.CAFile != "" {
+			caCert, err := os.ReadFile(s.config.NATS.TLS.CAFile)
+			if err != nil {
+				return fmt.Errorf("reading NATS CA certificate: %w", err)
+			}
+			caPool := x509.NewCertPool()
+			if !caPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse NATS CA certificate")
+			}
+			tlsConfig.RootCAs = caPool
+		}
+		if s.config.NATS.TLS.Insecure {
+			tlsConfig.InsecureSkipVerify = true //nolint:gosec // user-configured insecure mode
+		}
+		opts = append(opts, nats.Secure(tlsConfig))
+	}
 
 	// Add credentials if configured
 	if s.config.NATS.CredentialsFile != "" {
