@@ -16,7 +16,7 @@ type ModuleVerifier struct {
 }
 
 // NewModuleVerifier creates a new module verifier
-func NewModuleVerifier(opts *VerificationOptions) *ModuleVerifier {
+func NewModuleVerifier(opts *VerificationOptions) (*ModuleVerifier, error) {
 	verifier := &ModuleVerifier{
 		hashVerifier: NewDefaultHashVerifier(),
 		sigVerifier:  NewSignatureVerifier(CosignFormat),
@@ -25,19 +25,28 @@ func NewModuleVerifier(opts *VerificationOptions) *ModuleVerifier {
 
 	// Add trusted keys from options
 	if opts != nil {
+		var errs []error
 		for i, keyPEM := range opts.TrustedKeys {
 			identity := fmt.Sprintf("key-%d", i)
-			_ = verifier.trustPolicy.AddTrustedKey(identity, keyPEM) //nolint:errcheck // keys from options are valid
+			if err := verifier.trustPolicy.AddTrustedKey(identity, keyPEM); err != nil {
+				errs = append(errs, fmt.Errorf("add trusted key %q: %w", identity, err))
+			}
 		}
 
 		for _, keyID := range opts.TrustedKeyIDs {
 			if policy, ok := verifier.trustPolicy.(*DefaultTrustPolicy); ok {
-				_ = policy.AddTrustedKeyID(keyID) //nolint:errcheck // key IDs from options are valid
+				if err := policy.AddTrustedKeyID(keyID); err != nil {
+					errs = append(errs, fmt.Errorf("add trusted key ID %q: %w", keyID, err))
+				}
 			}
+		}
+
+		if err := errors.Join(errs...); err != nil {
+			return nil, err
 		}
 	}
 
-	return verifier
+	return verifier, nil
 }
 
 // SetSumDB sets the SumDB client

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -32,6 +33,8 @@ type Server struct {
 	clientsMu sync.RWMutex
 	broadcast chan TopologyUpdate
 	stopCh    chan struct{}
+
+	updatesDropped atomic.Int64
 }
 
 // NewServer creates a new visualization server
@@ -112,8 +115,13 @@ func (s *Server) BroadcastUpdate(update TopologyUpdate) {
 	select {
 	case s.broadcast <- update:
 	default:
-		// Channel full, skip this update
+		s.updatesDropped.Add(1)
 	}
+}
+
+// UpdatesDropped returns the number of broadcast updates dropped due to a full channel.
+func (s *Server) UpdatesDropped() int64 {
+	return s.updatesDropped.Load()
 }
 
 // handleAgents handles GET /api/agents

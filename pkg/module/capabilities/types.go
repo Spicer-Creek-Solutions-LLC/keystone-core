@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -248,12 +249,16 @@ func (s *InMemorySecretsStore) Delete(path string) error {
 	return nil
 }
 
-// DefaultLogger is a simple logger
+// DefaultLogger is a simple logger that delegates to the standard log package
 type DefaultLogger struct{}
 
 // Log writes a log message
 func (l *DefaultLogger) Log(level, message string, fields map[string]interface{}) {
-	// Stub implementation
+	if len(fields) > 0 {
+		log.Printf("[%s] %s %v", level, message, fields)
+	} else {
+		log.Printf("[%s] %s", level, message)
+	}
 }
 
 // InMemoryKVStore is a simple in-memory KV store

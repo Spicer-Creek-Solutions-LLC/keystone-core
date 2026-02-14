@@ -356,3 +356,11 @@ func TestCapabilityInvoker_NoAuditor(t *testing.T) {
 		t.Fatalf("invocation failed: %v", err)
 	}
 }
+
+func TestDefaultLogger_ProducesOutput(t *testing.T) {
+	logger := &DefaultLogger{}
+
+	// Should not panic
+	logger.Log("info", "test message", nil)
+	logger.Log("error", "test error", map[string]interface{}{"key": "value"})
+}

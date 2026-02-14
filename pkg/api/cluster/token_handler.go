@@ -3,6 +3,7 @@ package cluster
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -315,7 +316,7 @@ func (h *Handler) auditTokenCreate(r *http.Request, jt *token.JoinToken) {
 	if h.auditLogger == nil {
 		return
 	}
-	_ = h.auditLogger.LogAdmin(r.Context(), audit.ActionCreate, audit.OutcomeSuccess,
+	if err := h.auditLogger.LogAdmin(r.Context(), audit.ActionCreate, audit.OutcomeSuccess,
 		&audit.Actor{Type: "api", IP: r.RemoteAddr},
 		&audit.Resource{Type: "cluster_join_token", ID: jt.ID},
 		map[string]interface{}{
@@ -323,18 +324,22 @@ func (h *Handler) auditTokenCreate(r *http.Request, jt *token.JoinToken) {
 			"max_uses":   jt.MaxUses,
 			"expires_at": jt.ExpiresAt.Format(time.RFC3339),
 		},
-	)
+	); err != nil {
+		log.Printf("ERROR: audit log failed: %v", err)
+	}
 }
 
 func (h *Handler) auditTokenRevoke(r *http.Request, tokenID string) {
 	if h.auditLogger == nil {
 		return
 	}
-	_ = h.auditLogger.LogAdmin(r.Context(), audit.ActionRevoke, audit.OutcomeSuccess,
+	if err := h.auditLogger.LogAdmin(r.Context(), audit.ActionRevoke, audit.OutcomeSuccess,
 		&audit.Actor{Type: "api", IP: r.RemoteAddr},
 		&audit.Resource{Type: "cluster_join_token", ID: tokenID},
 		nil,
-	)
+	); err != nil {
+		log.Printf("ERROR: audit log failed: %v", err)
+	}
 }
 
 func (h *Handler) auditJoin(r *http.Request, tokenID string, outcome audit.Outcome) {
@@ -347,8 +352,10 @@ func (h *Handler) auditJoin(r *http.Request, tokenID string, outcome audit.Outco
 	if tokenID != "" {
 		details["token_id"] = tokenID
 	}
-	_ = h.auditLogger.LogAuth(r.Context(), audit.ActionLogin, outcome,
+	if err := h.auditLogger.LogAuth(r.Context(), audit.ActionLogin, outcome,
 		&audit.Actor{Type: "node", IP: r.RemoteAddr},
 		details,
-	)
+	); err != nil {
+		log.Printf("ERROR: audit log failed: %v", err)
+	}
 }

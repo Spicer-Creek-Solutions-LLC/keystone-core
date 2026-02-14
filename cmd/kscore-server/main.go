@@ -558,7 +558,12 @@ func runServer(cmd *cobra.Command, args []string) {
 	maintenance.NewHandler(maintenance.NewMemoryStore()).RegisterRoutes(httpMux)
 	apiapikeys.NewHandler(apiapikeys.NewMemoryStore()).RegisterRoutes(httpMux)
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
-	apirbac.NewHandler().RegisterRoutes(httpMux)
+	rbacHandler, err := apirbac.NewHandler()
+	if err != nil {
+		logger.Error("Failed to initialize RBAC handler", logging.Error(err))
+		return
+	}
+	rbacHandler.RegisterRoutes(httpMux)
 	apisecrets.NewHandler(secretsBroker, nil, nil, nil, secretsAuditLogger).RegisterRoutes(httpMux)
 	// Cluster handler: reuses shared cluster infrastructure created above
 	if clusterMembership != nil {

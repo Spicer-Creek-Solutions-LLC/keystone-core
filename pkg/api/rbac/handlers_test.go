@@ -7,8 +7,27 @@ import (
 	"testing"
 )
 
+func mustNewHandler(t *testing.T) *Handler {
+	t.Helper()
+	h, err := NewHandler()
+	if err != nil {
+		t.Fatalf("NewHandler() unexpected error: %v", err)
+	}
+	return h
+}
+
+func TestNewHandler_ReturnsNoError(t *testing.T) {
+	h, err := NewHandler()
+	if err != nil {
+		t.Fatalf("NewHandler() returned error: %v", err)
+	}
+	if h == nil {
+		t.Fatal("NewHandler() returned nil handler")
+	}
+}
+
 func TestListRoles_Success(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rbac/roles", nil)
 	w := httptest.NewRecorder()
@@ -45,7 +64,7 @@ func TestListRoles_Success(t *testing.T) {
 }
 
 func TestListRoles_ShowPermissions(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rbac/roles?show_permissions=true", nil)
 	w := httptest.NewRecorder()
@@ -75,7 +94,7 @@ func TestListRoles_ShowPermissions(t *testing.T) {
 }
 
 func TestListRoles_MethodNotAllowed(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
 		t.Run(method, func(t *testing.T) {
@@ -92,7 +111,7 @@ func TestListRoles_MethodNotAllowed(t *testing.T) {
 }
 
 func TestListRoles_RegisterRoutes(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
@@ -106,7 +125,7 @@ func TestListRoles_RegisterRoutes(t *testing.T) {
 }
 
 func TestExport_Success(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rbac/export", nil)
 	w := httptest.NewRecorder()
@@ -140,7 +159,7 @@ func TestExport_Success(t *testing.T) {
 }
 
 func TestExport_MethodNotAllowed(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/rbac/export", nil)
 	w := httptest.NewRecorder()
@@ -153,7 +172,7 @@ func TestExport_MethodNotAllowed(t *testing.T) {
 }
 
 func TestExport_ViaRoutes(t *testing.T) {
-	h := NewHandler()
+	h := mustNewHandler(t)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 

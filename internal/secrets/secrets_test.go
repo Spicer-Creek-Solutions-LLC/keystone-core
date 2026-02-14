@@ -2019,6 +2019,24 @@ func TestChannelSecretAuditLogger_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestChannelSecretAuditLogger_DropCounter(t *testing.T) {
+	logger := NewChannelSecretAuditLogger(1)
+	defer logger.Close()
+
+	// Fill the buffer
+	_ = logger.LogSecretAccess(context.Background(), &SecretAccessEvent{SecretPath: "first"})
+
+	// This should be dropped
+	err := logger.LogSecretAccess(context.Background(), &SecretAccessEvent{SecretPath: "second"})
+	if err == nil {
+		t.Error("expected error when channel is full")
+	}
+
+	if logger.EventsDropped() != 1 {
+		t.Errorf("expected 1 event dropped, got %d", logger.EventsDropped())
+	}
+}
+
 func TestSecretType_String(t *testing.T) {
 	if SecretTypeStatic.String() != "static" {
 		t.Error("unexpected string for static")

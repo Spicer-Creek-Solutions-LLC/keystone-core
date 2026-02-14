@@ -4,6 +4,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -169,11 +170,15 @@ func (whf *WasmHostFunctions) createFSRead(c *capabilities.FSReadCapability) fun
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		data, err := c.ReadFile(capCtx, path)
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{"data": string(data)})
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{"data": string(data)}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -222,15 +227,19 @@ func (whf *WasmHostFunctions) createExec(c *capabilities.ExecCapability) func(co
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		result, err := c.Exec(capCtx, cmd, args...)        //nolint:contextcheck // Exec uses capability context
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{
 			"stdout":    result.Stdout,
 			"stderr":    result.Stderr,
 			"exit_code": result.ExitCode,
-		})
+		}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -247,7 +256,9 @@ func (whf *WasmHostFunctions) createHTTPGet(c *capabilities.HTTPGetCapability) f
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		resp, err := c.Get(capCtx, url, nil)
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
@@ -259,11 +270,13 @@ func (whf *WasmHostFunctions) createHTTPGet(c *capabilities.HTTPGetCapability) f
 			}
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{
 			"status_code": resp.StatusCode,
 			"body":        string(resp.Body),
 			"headers":     headers,
-		})
+		}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -283,7 +296,9 @@ func (whf *WasmHostFunctions) createHTTPPost(c *capabilities.HTTPPostCapability)
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		resp, err := c.Post(capCtx, url, []byte(body), map[string]string{"Content-Type": "application/json"})
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
@@ -295,11 +310,13 @@ func (whf *WasmHostFunctions) createHTTPPost(c *capabilities.HTTPPostCapability)
 			}
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{
 			"status_code": resp.StatusCode,
 			"body":        string(resp.Body),
 			"headers":     headers,
-		})
+		}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -335,14 +352,18 @@ func (whf *WasmHostFunctions) createKVGet(c *capabilities.KVCapability) func(con
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		value, err := c.Get(capCtx, key)
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{
 			"value":  value,
 			"exists": value != "",
-		})
+		}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -380,11 +401,15 @@ func (whf *WasmHostFunctions) createSecretGet(c *capabilities.SecretsReadCapabil
 		capCtx := createWasmCapabilityContext("") //nolint:contextcheck // WASM capability context created inline
 		value, err := c.ReadSecret(capCtx, path)
 		if err != nil {
-			_ = writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()})
+			if wErr := writeResult(mod, resultPtr, map[string]interface{}{"error": err.Error()}); wErr != nil {
+				return 1
+			}
 			return 1
 		}
 
-		_ = writeResult(mod, resultPtr, map[string]interface{}{"value": value})
+		if wErr := writeResult(mod, resultPtr, map[string]interface{}{"value": value}); wErr != nil {
+			return 1
+		}
 		return 0
 	}
 }
@@ -402,52 +427,60 @@ func (whf *WasmHostFunctions) createTimeNow(c *capabilities.TimeCapability) func
 // Note: This is a simplified version - in practice, host functions need to be registered before module instantiation
 // Uses safe type assertions to handle stub capabilities gracefully
 func (whf *WasmHostFunctions) RegisterWithWasmRuntime(rt *wasm.Runtime) error {
-	// Register each capability as a host function
+	var errs []error
+
+	registerFn := func(module, name string, fn interface{}) {
+		if err := rt.RegisterHostFunction(module, name, fn); err != nil {
+			errs = append(errs, fmt.Errorf("register %s.%s: %w", module, name, err))
+		}
+	}
+
 	if c, err := whf.registry.Get("fs.read"); err == nil && c != nil {
 		if fsCap, ok := c.(*capabilities.FSReadCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "fs_read", whf.createFSRead(fsCap))
+			registerFn("kscore", "fs_read", whf.createFSRead(fsCap))
 		}
 	}
 	if c, err := whf.registry.Get("fs.write"); err == nil && c != nil {
 		if fsCap, ok := c.(*capabilities.FSWriteCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "fs_write", whf.createFSWrite(fsCap))
+			registerFn("kscore", "fs_write", whf.createFSWrite(fsCap))
 		}
 	}
 	if c, err := whf.registry.Get("exec"); err == nil && c != nil {
 		if execCap, ok := c.(*capabilities.ExecCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "exec", whf.createExec(execCap))
+			registerFn("kscore", "exec", whf.createExec(execCap))
 		}
 	}
 	if c, err := whf.registry.Get("http.get"); err == nil && c != nil {
 		if httpCap, ok := c.(*capabilities.HTTPGetCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "http_get", whf.createHTTPGet(httpCap))
+			registerFn("kscore", "http_get", whf.createHTTPGet(httpCap))
 		}
 	}
 	if c, err := whf.registry.Get("http.post"); err == nil && c != nil {
 		if httpCap, ok := c.(*capabilities.HTTPPostCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "http_post", whf.createHTTPPost(httpCap))
+			registerFn("kscore", "http_post", whf.createHTTPPost(httpCap))
 		}
 	}
 	if c, err := whf.registry.Get("log"); err == nil && c != nil {
 		if logCap, ok := c.(*capabilities.LogCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "log", whf.createLog(logCap))
+			registerFn("kscore", "log", whf.createLog(logCap))
 		}
 	}
 	if c, err := whf.registry.Get("kv"); err == nil && c != nil {
 		if kvCap, ok := c.(*capabilities.KVCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "kv_get", whf.createKVGet(kvCap))
-			_ = rt.RegisterHostFunction("kscore", "kv_set", whf.createKVSet(kvCap))
+			registerFn("kscore", "kv_get", whf.createKVGet(kvCap))
+			registerFn("kscore", "kv_set", whf.createKVSet(kvCap))
 		}
 	}
 	if c, err := whf.registry.Get("secrets.read"); err == nil && c != nil {
 		if secretsCap, ok := c.(*capabilities.SecretsReadCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "secret_get", whf.createSecretGet(secretsCap))
+			registerFn("kscore", "secret_get", whf.createSecretGet(secretsCap))
 		}
 	}
 	if c, err := whf.registry.Get("time"); err == nil && c != nil {
 		if timeCap, ok := c.(*capabilities.TimeCapability); ok {
-			_ = rt.RegisterHostFunction("kscore", "time_now", whf.createTimeNow(timeCap))
+			registerFn("kscore", "time_now", whf.createTimeNow(timeCap))
 		}
 	}
-	return nil
+
+	return errors.Join(errs...)
 }

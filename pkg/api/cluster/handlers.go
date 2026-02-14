@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -506,7 +507,8 @@ func (h *Handler) handleRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	if err := h.performRestore(ctx, &backup, &options); err != nil {
+	restoreWarnings, err := h.performRestore(ctx, &backup, &options)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -516,6 +518,7 @@ func (h *Handler) handleRestore(w http.ResponseWriter, r *http.Request) {
 		Message:        "Cluster state restored successfully",
 		ShardsRestored: len(backup.Shards),
 		ConfigRestored: len(backup.Config),
+		Warnings:       restoreWarnings,
 	}
 
 	writeJSON(w, http.StatusOK, result)
@@ -645,17 +648,17 @@ func (h *Handler) validateBackup(backup *BackupData) error {
 }
 
 // performRestore executes the actual restore operation.
-func (h *Handler) performRestore(ctx context.Context, backup *BackupData, options *RestoreOptions) error {
+func (h *Handler) performRestore(ctx context.Context, backup *BackupData, options *RestoreOptions) ([]string, error) {
 	var warnings []string
 
 	// Safety check: don't restore to a healthy cluster unless forced
 	if !options.Force && h.membership.HasQuorum() {
-		return fmt.Errorf("cluster is healthy with quorum; use force=true to restore anyway")
+		return nil, fmt.Errorf("cluster is healthy with quorum; use force=true to restore anyway")
 	}
 
 	// Verify cluster name matches (prevent restoring wrong backup)
 	if backup.Cluster.Name != h.config.ClusterName {
-		return fmt.Errorf("backup cluster name '%s' does not match current cluster '%s'",
+		return nil, fmt.Errorf("backup cluster name '%s' does not match current cluster '%s'",
 			backup.Cluster.Name, h.config.ClusterName)
 	}
 
@@ -717,13 +720,11 @@ func (h *Handler) performRestore(ctx context.Context, backup *BackupData, option
 		}
 	}
 
-	// Log warnings if any
-	if len(warnings) > 0 {
-		// In a real implementation, we'd log these
-		_ = warnings
+	for _, w := range warnings {
+		log.Printf("WARN: cluster restore: %s", w)
 	}
 
-	return nil
+	return warnings, nil
 }
 
 // Helper functions

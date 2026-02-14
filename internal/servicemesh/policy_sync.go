@@ -104,6 +104,9 @@ type PolicyChangeEvent struct {
 	// OldPolicy is the previous policy (for modifications)
 	OldPolicy *MTLSPolicy `json:"old_policy,omitempty"`
 
+	// OldAuthPolicy is the previous authorization policy (for modifications)
+	OldAuthPolicy *AuthorizationPolicy `json:"old_auth_policy,omitempty"`
+
 	// Timestamp of the change
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -394,7 +397,7 @@ func (s *PolicySynchronizer) syncAuthorizationPolicies(ctx context.Context, name
 
 		// Detect changes
 		s.mu.RLock()
-		_, existed := s.knownAuthPolicies[key]
+		existing, existed := s.knownAuthPolicies[key]
 		s.mu.RUnlock()
 
 		if !existed {
@@ -404,8 +407,15 @@ func (s *PolicySynchronizer) syncAuthorizationPolicies(ctx context.Context, name
 				AuthPolicy:   policy,
 				Timestamp:    time.Now(),
 			})
+		} else if !authPoliciesEqual(existing, policy) {
+			s.emitPolicyChange(PolicyChangeEvent{
+				Type:          "modified",
+				ResourceType:  "Authorization",
+				AuthPolicy:    policy,
+				OldAuthPolicy: existing,
+				Timestamp:     time.Now(),
+			})
 		}
-		// TODO: Add modification detection for AuthorizationPolicy
 	}
 
 	return nil
@@ -523,4 +533,26 @@ func mtlsPoliciesEqual(a, b *MTLSPolicy) bool {
 		a.Namespace == b.Namespace &&
 		a.Service == b.Service &&
 		a.Mode == b.Mode
+}
+
+// authPoliciesEqual compares two authorization policies for equality
+func authPoliciesEqual(a, b *AuthorizationPolicy) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Name != b.Name || a.Namespace != b.Namespace || a.Action != b.Action {
+		return false
+	}
+	if len(a.Rules) != len(b.Rules) {
+		return false
+	}
+	if len(a.Selector) != len(b.Selector) {
+		return false
+	}
+	for k, v := range a.Selector {
+		if b.Selector[k] != v {
+			return false
+		}
+	}
+	return true
 }

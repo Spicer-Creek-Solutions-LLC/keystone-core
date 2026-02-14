@@ -95,7 +95,12 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			webhookType = webhook.Type(req.Type)
 			// Re-encode payload as body for handler
 			if req.Payload != nil {
-				body, _ = json.Marshal(req.Payload)
+				marshaledBody, marshalErr := json.Marshal(req.Payload)
+				if marshalErr != nil {
+					writeError(w, http.StatusInternalServerError, "failed to marshal webhook payload")
+					return
+				}
+				body = marshaledBody
 			}
 		} else {
 			writeError(w, http.StatusBadRequest, "Unable to detect webhook type. Provide 'type' field or appropriate headers")

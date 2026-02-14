@@ -3,7 +3,9 @@ package secrets
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -474,7 +476,8 @@ func (l *InMemorySecretAuditLogger) GetEventsFiltered(filter *SecretAuditFilter)
 
 // ChannelSecretAuditLogger sends audit events to a channel.
 type ChannelSecretAuditLogger struct {
-	ch chan *SecretAccessEvent
+	ch            chan *SecretAccessEvent
+	eventsDropped atomic.Int64
 }
 
 // NewChannelSecretAuditLogger creates a new channel-based audit logger.
@@ -495,9 +498,14 @@ func (l *ChannelSecretAuditLogger) LogSecretAccess(ctx context.Context, event *S
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		// Channel full, drop the event
-		return nil
+		l.eventsDropped.Add(1)
+		return fmt.Errorf("audit event dropped: channel full")
 	}
+}
+
+// EventsDropped returns the number of events dropped due to a full channel.
+func (l *ChannelSecretAuditLogger) EventsDropped() int64 {
+	return l.eventsDropped.Load()
 }
 
 // Events returns the event channel for consumption.

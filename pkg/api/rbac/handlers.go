@@ -3,6 +3,7 @@ package rbac
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/shawnbutts/keystone-core/internal/policy"
@@ -15,10 +16,12 @@ type Handler struct {
 }
 
 // NewHandler creates a new RBAC API handler with standard roles pre-loaded.
-func NewHandler() *Handler {
+func NewHandler() (*Handler, error) {
 	store := policy.NewRBACStore()
-	_ = policy.CreateStandardRoles(store)
-	return &Handler{store: store}
+	if err := policy.CreateStandardRoles(store); err != nil {
+		return nil, fmt.Errorf("failed to create standard RBAC roles: %w", err)
+	}
+	return &Handler{store: store}, nil
 }
 
 // RegisterRoutes registers the RBAC API routes with the given mux.

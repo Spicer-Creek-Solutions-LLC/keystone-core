@@ -415,11 +415,11 @@ func TestNATSOutputBuildSubject(t *testing.T) {
 
 func TestNATSOutputStats(t *testing.T) {
 	output := &NATSOutput{
-		messagesSent:    100,
-		messagesDropped: 5,
-		lastError:       nil,
-		lastErrorTime:   time.Time{},
+		lastError:     nil,
+		lastErrorTime: time.Time{},
 	}
+	output.messagesSent.Store(100)
+	output.messagesDropped.Store(5)
 
 	sent, dropped, lastErrTime, lastErr := output.Stats()
 
@@ -480,8 +480,8 @@ func TestNATSOutputWriteAsyncBufferFull(t *testing.T) {
 		t.Error("Expected error when buffer is full")
 	}
 
-	if output.messagesDropped != 1 {
-		t.Errorf("Expected messagesDropped 1, got %d", output.messagesDropped)
+	if output.messagesDropped.Load() != 1 {
+		t.Errorf("Expected messagesDropped 1, got %d", output.messagesDropped.Load())
 	}
 }
 

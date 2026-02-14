@@ -517,7 +517,8 @@ func (f *BackendConnectionFactory) Validate(ctx context.Context, conn Connection
 	return bc.backend.Healthy(ctx)
 }
 
-// Close closes the backend connection.
+// Close is a no-op — backend lifecycle is managed by the connection pool,
+// not by individual connections.
 func (c *BackendConnection) Close() error {
 	return nil
 }

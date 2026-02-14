@@ -646,8 +646,7 @@ func (l *DefaultModuleLoader) wireCapabilitiesToRuntime(rt runtime.Runtime) erro
 		return hostFuncs.RegisterWithWasmRuntime(typedRT)
 
 	default:
-		// Unknown runtime type - skip wiring
-		return nil
+		return fmt.Errorf("unsupported runtime type for capability wiring: %T", rt)
 	}
 }
 

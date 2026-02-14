@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-56 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-57 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -164,6 +164,8 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
 
 ### Recently Completed
 
+- **Epic 57** (Error Handling Hardening) — COMPLETE — Fixed ~16 silently ignored errors across 4 phases: API error handling (restore warnings, webhook marshal, lease parsing, RBAC init, audit logs), WASM error propagation (host function registration, writeResult), channel drop counters (NATS logging, SPIRE, secret audit, dashboard), ServiceMesh AuthorizationPolicy modification detection, wireCapabilities error return, DefaultLogger implementation
+
 - **Epic 53** (gRPC Service Completion) — COMPLETE — Wired ClusterServer with real MembershipManager/LeaderElector/ShardManager; registered CoordinationService with NATS status adapter; implemented GetStateHistory/GetStateStatus with SQLite state history store; wired SecretsServer with BrokerBuilder when secrets.enabled; added SecretsConfig to config system; integration tests for state history
 
 - **Epic 52** (Critical Bug Fixes) — COMPLETE — Deleted no-op EncryptedCache stub, wired real EncryptedSecretCache with AES-GCM in BrokerBuilder; fixed bootstrap handoff empty body (bytes.NewReader); wired gateway NATS TLS (nats.Secure); implemented real zstd/lz4/snappy compression; implemented FileRollback (os.WriteFile/Remove), PackageRollback/ServiceRollback with executor delegation; policy handlers return error instead of always-allow; implemented GetServerStatus with version/uptime/runtime stats
@@ -197,7 +199,7 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
   - `kscore-monitor` — No changes needed (hardcoded 0 metrics correct until aggregation endpoints exist)
 
 ### Planned
-- **Epic 57** (Error Handling Hardening) — NOT STARTED — Fix ~20 silently ignored errors, add channel-drop metrics, input validation, WASM error propagation, AuthorizationPolicy modification detection
+(No planned epics currently)
 
 ### Future (Numbered)
 

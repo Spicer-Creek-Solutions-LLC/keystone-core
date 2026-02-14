@@ -428,3 +428,27 @@ func TestHandleLeasesListInvalidBackend(t *testing.T) {
 		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestHandleLeasesListInvalidLimit(t *testing.T) {
+	mux, _ := setupLeasesHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/leases?limit=abc", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleLeasesListInvalidOffset(t *testing.T) {
+	mux, _ := setupLeasesHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/leases?offset=xyz", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}

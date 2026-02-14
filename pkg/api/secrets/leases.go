@@ -62,10 +62,20 @@ func (h *Handler) handleLeasesList(w http.ResponseWriter, r *http.Request) {
 	limit := 0
 	offset := 0
 	if v := query.Get("limit"); v != "" {
-		limit, _ = strconv.Atoi(v)
+		var parseErr error
+		limit, parseErr = strconv.Atoi(v)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid limit parameter")
+			return
+		}
 	}
 	if v := query.Get("offset"); v != "" {
-		offset, _ = strconv.Atoi(v)
+		var parseErr error
+		offset, parseErr = strconv.Atoi(v)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid offset parameter")
+			return
+		}
 	}
 
 	total := len(leases)

@@ -703,3 +703,56 @@ func TestPolicySynchronizer_OnSyncError(t *testing.T) {
 	_ = errors // Just verify we can access it
 	mu.Unlock()
 }
+
+func TestAuthPoliciesEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b *AuthorizationPolicy
+		want bool
+	}{
+		{
+			name: "both nil",
+			a:    nil,
+			b:    nil,
+			want: true,
+		},
+		{
+			name: "one nil",
+			a:    &AuthorizationPolicy{Name: "p1"},
+			b:    nil,
+			want: false,
+		},
+		{
+			name: "equal policies",
+			a:    &AuthorizationPolicy{Name: "p1", Namespace: "ns", Action: AuthorizationActionAllow, Selector: map[string]string{"app": "web"}},
+			b:    &AuthorizationPolicy{Name: "p1", Namespace: "ns", Action: AuthorizationActionAllow, Selector: map[string]string{"app": "web"}},
+			want: true,
+		},
+		{
+			name: "different action",
+			a:    &AuthorizationPolicy{Name: "p1", Action: AuthorizationActionAllow},
+			b:    &AuthorizationPolicy{Name: "p1", Action: AuthorizationActionDeny},
+			want: false,
+		},
+		{
+			name: "different rule count",
+			a:    &AuthorizationPolicy{Name: "p1", Rules: []AuthorizationRule{{}}},
+			b:    &AuthorizationPolicy{Name: "p1", Rules: nil},
+			want: false,
+		},
+		{
+			name: "different selector",
+			a:    &AuthorizationPolicy{Name: "p1", Selector: map[string]string{"app": "web"}},
+			b:    &AuthorizationPolicy{Name: "p1", Selector: map[string]string{"app": "api"}},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := authPoliciesEqual(tt.a, tt.b); got != tt.want {
+				t.Errorf("authPoliciesEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

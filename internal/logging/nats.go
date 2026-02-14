@@ -5,7 +5,9 @@ package logging
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -114,9 +116,9 @@ type NATSOutput struct {
 	mu        sync.RWMutex
 	closed    bool
 
-	// Stats
-	messagesSent    int64
-	messagesDropped int64
+	// Stats (atomic for lock-free access on hot path)
+	messagesSent    atomic.Int64
+	messagesDropped atomic.Int64
 	lastError       error
 	lastErrorTime   time.Time
 }
@@ -201,9 +203,10 @@ func (n *NATSOutput) Write(data []byte) error {
 			return nil
 		default:
 			// Buffer full, drop message
-			n.mu.Lock()
-			n.messagesDropped++
-			n.mu.Unlock()
+			dropped := n.messagesDropped.Add(1)
+			if dropped%100 == 1 {
+				log.Printf("WARN: NATS log buffer full, messages dropped (total: %d)", dropped)
+			}
 			return fmt.Errorf("NATS buffer full, message dropped")
 		}
 	}
@@ -236,9 +239,7 @@ func (n *NATSOutput) publish(data []byte) error {
 		return err
 	}
 
-	n.mu.Lock()
-	n.messagesSent++
-	n.mu.Unlock()
+	n.messagesSent.Add(1)
 
 	return nil
 }
@@ -292,7 +293,7 @@ func (n *NATSOutput) flushLoop() {
 func (n *NATSOutput) Stats() (sent, dropped int64, lastErrTime time.Time, lastErr error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return n.messagesSent, n.messagesDropped, n.lastErrorTime, n.lastError
+	return n.messagesSent.Load(), n.messagesDropped.Load(), n.lastErrorTime, n.lastError
 }
 
 // IsConnected returns whether NATS is connected.

@@ -178,7 +178,10 @@ func TestModuleVerifier_Basic(t *testing.T) {
 	opts.RequireSumDB = false     // Skip SumDB for this test
 	opts.RequireHashMatch = false // Skip hash matching since we don't provide expected hash
 
-	verifier := NewModuleVerifier(opts)
+	verifier, err := NewModuleVerifier(opts)
+	if err != nil {
+		t.Fatalf("NewModuleVerifier failed: %v", err)
+	}
 
 	// Verify module
 	result, err := verifier.Verify(modulePath, opts)
@@ -221,7 +224,10 @@ func TestModuleVerifier_WithArtifact(t *testing.T) {
 	opts.RequireSignature = false
 	opts.RequireSumDB = false
 
-	verifier := NewModuleVerifier(opts)
+	verifier, err := NewModuleVerifier(opts)
+	if err != nil {
+		t.Fatalf("NewModuleVerifier failed: %v", err)
+	}
 
 	// Verify artifact
 	report, err := verifier.VerifyArtifact(artifact, opts)
@@ -265,7 +271,10 @@ func TestModuleVerifier_HashMismatch(t *testing.T) {
 	opts.RequireSignature = false
 	opts.RequireSumDB = false
 
-	verifier := NewModuleVerifier(opts)
+	verifier, err := NewModuleVerifier(opts)
+	if err != nil {
+		t.Fatalf("NewModuleVerifier failed: %v", err)
+	}
 
 	// Verify artifact
 	report, err := verifier.VerifyArtifact(artifact, opts)
@@ -321,7 +330,10 @@ func TestModuleVerifier_WithSumDB(t *testing.T) {
 	opts.RequireSignature = false
 	opts.RequireSumDB = true
 
-	verifier := NewModuleVerifier(opts)
+	verifier, err := NewModuleVerifier(opts)
+	if err != nil {
+		t.Fatalf("NewModuleVerifier failed: %v", err)
+	}
 	verifier.SetSumDB(sumDB)
 
 	// Verify artifact
@@ -363,7 +375,10 @@ func TestVerificationOptions_Insecure(t *testing.T) {
 	opts.RequireSumDB = false
 	opts.AllowInsecure = true
 
-	verifier := NewModuleVerifier(opts)
+	verifier, err := NewModuleVerifier(opts)
+	if err != nil {
+		t.Fatalf("NewModuleVerifier failed: %v", err)
+	}
 
 	// Verify artifact
 	report, err := verifier.VerifyArtifact(artifact, opts)

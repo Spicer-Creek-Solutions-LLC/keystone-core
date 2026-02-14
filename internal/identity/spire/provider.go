@@ -3,7 +3,9 @@ package spire
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/identity"
@@ -22,6 +24,9 @@ type Provider struct {
 
 	// Callbacks
 	onTrustBundleUpdate identity.TrustBundleUpdateCallback
+
+	// Drop counters
+	trustBundleDropped atomic.Int64
 
 	// Health check
 	healthCheckCancel context.CancelFunc
@@ -244,7 +249,8 @@ func (p *Provider) WatchTrustBundle(ctx context.Context) (<-chan *identity.Trust
 		select {
 		case ch <- bundle:
 		default:
-			// Drop if channel is full
+			dropped := p.trustBundleDropped.Add(1)
+			log.Printf("WARN: trust bundle update dropped (channel full, total: %d)", dropped)
 		}
 		if oldCallback != nil {
 			oldCallback(bundle)
@@ -257,6 +263,7 @@ func (p *Provider) WatchTrustBundle(ctx context.Context) (<-chan *identity.Trust
 		select {
 		case ch <- bundle:
 		default:
+			p.trustBundleDropped.Add(1)
 		}
 	}
 
