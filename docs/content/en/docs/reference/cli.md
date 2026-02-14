@@ -3668,8 +3668,8 @@ Top Violations:
 
 Review policy evaluation logs, generate compliance reports, export audit data, and inspect trends.
 
-> **Note**: The CLI can operate against sample/in-memory data when the control plane API is not connected.
-> Use the control plane API for production audit history.
+> All commands connect to the control plane via gRPC PolicyService.
+> Use `--server` to specify the server address (default: localhost:9090).
 
 ### Global Flags
 
@@ -3788,7 +3788,7 @@ kscorectl audit stats --days 30 --format json
 
 ### audit search
 
-Search audit log entries with flexible filters.
+Search policy evaluation audit entries with flexible filters via PolicyService gRPC.
 
 ```bash
 kscorectl audit search [flags]
@@ -3796,36 +3796,27 @@ kscorectl audit search [flags]
 
 **Flags**:
 
-- `--type string`: Event type pattern (e.g., 'auth.\*', 'exec.\*', 'agent.\*')
-- `--status string`: Filter by status (e.g., 'failed', 'success')
-- `--agent string`: Filter by agent ID
+- `--policy string`: Filter by policy ID
 - `--user string`: Filter by username
-- `--api-key string`: Filter by API key name
+- `--action string`: Filter by action
 - `--since string`: Show entries since duration (e.g., '7d', '24h')
 - `--output string`: Output file path (default: stdout)
-- `--hour string`: Filter by hour range (e.g., '0-6')
-- `--count-by string`: Count results by interval (hour, day)
-- `--limit int`: Maximum entries to return (0 for unlimited)
+- `--denied`: Show only denied evaluations
+- `--limit int`: Maximum entries to return (default: 100)
 
 **Aliases**: `query` — `kscorectl audit query` is equivalent to `kscorectl audit search`.
 
 **Examples**:
 
 ```bash
-# Search for failed auth events
-kscorectl audit search --type "auth.*" --status "failed" --since "7d"
+# Search for denied evaluations
+kscorectl audit search --denied --since "7d"
 
-# Search for agent activity
-kscorectl audit search --type "agent.*" --agent "agent-123" --since "7d"
+# Search by policy and user
+kscorectl audit search --policy "security-no-root" --user "admin"
 
-# Query by API key (using query alias)
-kscorectl audit query --api-key "ops-key" --since "24h"
-
-# Count login events by hour
-kscorectl audit search --type "auth.login" --count-by hour
-
-# Export to file
-kscorectl audit search --type "exec.*" --output /tmp/commands.json
+# Query with output (using query alias)
+kscorectl audit query --policy "cis-benchmark" --output /tmp/results.json
 
 # Limit results
 kscorectl audit search --limit 10
@@ -3834,6 +3825,8 @@ kscorectl audit search --limit 10
 ### audit analyze
 
 Analyze audit data for anomalies against a historical baseline.
+
+> **Status**: Not yet available. Requires server-side analytics infrastructure.
 
 ```bash
 kscorectl audit analyze [flags]
@@ -3844,16 +3837,6 @@ kscorectl audit analyze [flags]
 - `--input string`: Input file glob pattern (e.g., '/tmp/\*.json')
 - `--baseline string`: Baseline period for comparison (default: 30d)
 - `--output string`: Output file for analysis results
-
-**Examples**:
-
-```bash
-# Analyze against 30-day baseline
-kscorectl audit analyze --input "/tmp/*.json" --baseline "30d"
-
-# Output anomalies to file
-kscorectl audit analyze --input "/tmp/*.json" --baseline "30d" --output anomalies.json
-```
 
 ### audit timeline
 
@@ -3883,40 +3866,20 @@ kscorectl audit timeline --from "2026-01-01T00:00:00Z" --to "2026-01-02T00:00:00
 
 Monitor audit log events in real-time with optional filters. Press Ctrl+C to stop.
 
+> **Status**: Not yet available. Requires streaming RPC infrastructure.
+
 ```bash
 kscorectl audit watch [flags]
 ```
 
 **Flags**:
 
-- `--type string`: Event type pattern (e.g., 'auth.\*', 'exec.\*')
-- `--status string`: Filter by status (e.g., 'failed', 'success')
+- `--type string`: Event type filter
+- `--status string`: Filter by status
 - `--agent string`: Filter by agent ID
 - `--user string`: Filter by username
 - `--api-key string`: Filter by API key name
 - `--interval duration`: Polling interval (default: 2s)
-
-**Examples**:
-
-```bash
-# Watch all audit events
-kscorectl audit watch
-
-# Watch only auth events
-kscorectl audit watch --type "auth.*"
-
-# Watch failed events only
-kscorectl audit watch --type "auth.*" --status "failed"
-
-# Watch events for a specific agent
-kscorectl audit watch --agent "web-001"
-
-# Watch with faster polling
-kscorectl audit watch --interval 500ms
-
-# Output as NDJSON for piping
-kscorectl audit watch --format json
-```
 
 ## kscore-gitops (GitOps Management)
 

@@ -45,6 +45,8 @@ func (h *Handler) handleTransit(w http.ResponseWriter, r *http.Request) {
 		h.handleTransitVerify(w, r, keyName)
 	case "hmac":
 		h.handleTransitHMAC(w, r, keyName)
+	case "rewrap":
+		h.handleTransitRewrap(w, r, keyName)
 	case "datakey":
 		writeError(w, http.StatusNotImplemented, "datakey operation is not supported")
 	default:
@@ -259,5 +261,31 @@ func (h *Handler) handleTransitHMAC(w http.ResponseWriter, r *http.Request, keyN
 
 	writeJSON(w, http.StatusOK, TransitHMACResponse{
 		HMAC: resp.HMAC,
+	})
+}
+
+func (h *Handler) handleTransitRewrap(w http.ResponseWriter, r *http.Request, keyName string) {
+	var req TransitRewrapRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	transitReq := &secrets.TransitRequest{
+		Operation:  secrets.TransitOperationRewrap,
+		KeyName:    keyName,
+		Ciphertext: req.Ciphertext,
+		Context:    req.Context,
+	}
+
+	resp, err := h.transit.Rewrap(r.Context(), transitReq)
+	if err != nil {
+		writeSecretError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, TransitRewrapResponse{
+		Ciphertext: resp.Ciphertext,
+		KeyVersion: resp.KeyVersion,
 	})
 }

@@ -1877,6 +1877,81 @@ POST /api/v1/runbook/interventions/{id}/cancel
 }
 ```
 
+### Secrets Management REST API
+
+Backend management, cache control, and rotation policy endpoints for the secrets subsystem. These complement the gRPC SecretsService (CRUD, leases, transit).
+
+#### List Backends
+
+```http
+GET /api/v1/secrets/backends
+```
+
+Returns all configured secret backends with health status.
+
+#### Get Backend
+
+```http
+GET /api/v1/secrets/backends/{name}
+```
+
+Returns details and health for a specific backend.
+
+#### Get Cache Stats
+
+```http
+GET /api/v1/secrets/cache/stats
+```
+
+Returns cache hit/miss statistics.
+
+#### Clear Cache
+
+```http
+DELETE /api/v1/secrets/cache
+```
+
+Clears the secrets cache. Returns 501 if not supported.
+
+#### List Rotations
+
+```http
+GET /api/v1/rotations
+```
+
+Returns all credential rotations with optional state/strategy filters.
+
+#### Pause/Resume/Trigger Rotation
+
+```http
+POST /api/v1/rotations/{id}/pause
+POST /api/v1/rotations/{id}/resume
+POST /api/v1/rotations/{id}/trigger
+```
+
+Manage rotation lifecycle. Start, cancel, rollback endpoints were pre-existing.
+
+#### Rotation Policies
+
+```http
+GET    /api/v1/secrets/rotation/policies
+POST   /api/v1/secrets/rotation/policies
+GET    /api/v1/secrets/rotation/policies/{id}
+DELETE /api/v1/secrets/rotation/policies/{id}
+POST   /api/v1/secrets/rotation/policies/{id}/enable
+POST   /api/v1/secrets/rotation/policies/{id}/disable
+```
+
+CRUD and lifecycle management for rotation policies (max age, cron schedules, health requirements).
+
+#### Scheduler Status
+
+```http
+GET /api/v1/secrets/rotation/scheduler
+```
+
+Returns the rotation scheduler status (running, paused, active policy count).
+
 ## gRPC Services
 
 ### AgentService

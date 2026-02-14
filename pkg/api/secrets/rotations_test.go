@@ -196,10 +196,14 @@ func TestHandleRotationsNilOrchestrator(t *testing.T) {
 		method string
 		path   string
 	}{
+		{"list", http.MethodGet, "/api/v1/rotations"},
 		{"start", http.MethodPost, "/api/v1/rotations"},
 		{"get", http.MethodGet, "/api/v1/rotations/test-id"},
 		{"cancel", http.MethodPost, "/api/v1/rotations/test-id/cancel"},
 		{"rollback", http.MethodPost, "/api/v1/rotations/test-id/rollback"},
+		{"pause", http.MethodPost, "/api/v1/rotations/test-id/pause"},
+		{"resume", http.MethodPost, "/api/v1/rotations/test-id/resume"},
+		{"trigger", http.MethodPost, "/api/v1/rotations/test-id/trigger"},
 	}
 
 	for _, tt := range tests {
@@ -225,7 +229,113 @@ func TestHandleRotationsNilOrchestrator(t *testing.T) {
 func TestHandleRotationsMethodNotAllowed(t *testing.T) {
 	mux, _ := setupRotationsHandler(t)
 
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rotations", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestHandleListRotations(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rotations", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp RotationListResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected 0 rotations, got %d", resp.Total)
+	}
+}
+
+func TestHandleListRotationsNilOrchestrator(t *testing.T) {
+	h := NewHandler(nil, nil, nil, nil, nil)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rotations", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestHandlePauseRotationNotFound(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/rotations/nonexistent/pause", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandleResumeRotationNotFound(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/rotations/nonexistent/resume", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandleTriggerRotationNotFound(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/rotations/nonexistent/trigger", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandlePauseRotationMethodNotAllowed(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rotations/test-id/pause", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestHandleResumeRotationMethodNotAllowed(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rotations/test-id/resume", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestHandleTriggerRotationMethodNotAllowed(t *testing.T) {
+	mux, _ := setupRotationsHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rotations/test-id/trigger", nil)
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
 

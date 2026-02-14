@@ -18,8 +18,15 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/internal/policy"
+	policyclient "github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
+
+var serverAddr string
+
+func createPolicyClient() (*policyclient.Client, error) {
+	return policyclient.NewClient(serverAddr)
+}
 
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -44,9 +51,10 @@ Examples:
   kscorectl policy check --policy security-no-root --input input.json
 
   # Generate compliance report
-  kscorectl policy report --days 7`,
+  kscorectl policy compliance --days 7`,
 	}
 
+	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
@@ -1211,39 +1219,41 @@ func init() {
 }
 
 func auditExecute(cmd *cobra.Command, args []string) error {
-	// Create a sample auditor (in production, this would connect to the control plane)
-	auditor := policy.NewAuditor(1000)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Build filter
-	filter := &policy.AuditFilter{
+	opts := policyclient.AuditLogOptions{
 		PolicyID:     auditPolicyID,
 		ResourceType: auditResourceType,
-		Limit:        auditLimit,
+		PageSize:     int32(auditLimit), //nolint:gosec // G115: limit is small
 	}
 
 	if auditDeniedOnly {
 		denied := false
-		filter.Allowed = &denied
+		opts.Allowed = &denied
 	}
 
-	// Get entries
-	entries := auditor.GetEntries(filter)
+	result, err := client.GetAuditLog(context.Background(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to get audit log: %w", err)
+	}
 
 	format, err := output.ParseFormat(auditOutputFmt)
 	if err != nil {
 		return err
 	}
 
-	if len(entries) == 0 {
+	if len(result.Entries) == 0 {
 		switch format {
 		case output.FormatJSON:
-			return output.WriteJSON(os.Stdout, entries)
+			return output.WriteJSON(os.Stdout, result.Entries)
 		case output.FormatYAML:
-			return output.WriteYAML(os.Stdout, entries)
+			return output.WriteYAML(os.Stdout, result.Entries)
 		case output.FormatTable, output.FormatText:
 			fmt.Println("No audit entries found.")
-			fmt.Println("\nNote: This CLI reads from an in-memory store.")
-			fmt.Println("For production audit logs, use the control plane API.")
 			return nil
 		default:
 			return fmt.Errorf("unsupported output format: %s", auditOutputFmt)
@@ -1252,28 +1262,28 @@ func auditExecute(cmd *cobra.Command, args []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, entries)
+		return output.WriteJSON(os.Stdout, result.Entries)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, entries)
+		return output.WriteYAML(os.Stdout, result.Entries)
 	case output.FormatTable, output.FormatText:
 		fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
 		fmt.Println(strings.Repeat("-", 85))
-		for i := range entries {
-			entry := &entries[i]
-			result := "ALLOWED"
+		for i := range result.Entries {
+			entry := &result.Entries[i]
+			entryResult := "ALLOWED"
 			if !entry.Allowed {
-				result = "DENIED"
+				entryResult = "DENIED"
 			}
 			fmt.Printf("%-20s %-25s %-15s %-10s %-10d\n",
 				entry.Timestamp.Format("2006-01-02 15:04:05"),
 				truncate(entry.PolicyID, 25),
 				truncate(entry.ResourceType, 15),
-				result,
+				entryResult,
 				len(entry.Violations),
 			)
 		}
 
-		fmt.Printf("\nTotal: %d entries\n", len(entries))
+		fmt.Printf("\nTotal: %d entries\n", len(result.Entries))
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", auditOutputFmt)
@@ -1312,20 +1322,24 @@ func init() {
 }
 
 func reportExecute(cmd *cobra.Command, args []string) error {
-	// Create sample components (in production, connect to control plane)
-	registry := policy.NewRegistry()
-	auditor := policy.NewAuditor(10000)
-	reporter := policy.NewComplianceReporter(auditor, registry)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Generate report
-	period := policy.ReportPeriod{
-		Start: time.Now().AddDate(0, 0, -reportDays),
-		End:   time.Now(),
+	now := time.Now()
+	start := now.AddDate(0, 0, -reportDays)
+
+	report, err := client.GetComplianceReport(context.Background(), policyclient.ComplianceReportOptions{
+		StartTime:         start,
+		EndTime:           now,
+		IncludeViolations: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get compliance report: %w", err)
 	}
 
-	report := reporter.GenerateReport(period)
-
-	// Output
 	format, err := output.ParseFormat(reportOutputFmt)
 	if err != nil {
 		return err
@@ -1338,13 +1352,10 @@ func reportExecute(cmd *cobra.Command, args []string) error {
 		return output.WriteYAML(os.Stdout, report)
 	case output.FormatTable:
 		summary := buildKeyValueTable([][2]string{
-			{"GENERATED", report.GeneratedAt.Format(time.RFC3339)},
-			{"PERIOD", fmt.Sprintf("%s to %s",
-				report.Period.Start.Format("2006-01-02"),
-				report.Period.End.Format("2006-01-02"))},
-			{"TOTAL POLICIES", fmt.Sprintf("%d", report.TotalPolicies)},
-			{"COMPLIANT", fmt.Sprintf("%d", report.CompliantPolicies)},
-			{"VIOLATING", fmt.Sprintf("%d", report.ViolatingPolicies)},
+			{"PERIOD", fmt.Sprintf("%s to %s", start.Format("2006-01-02"), now.Format("2006-01-02"))},
+			{"TOTAL EVALUATIONS", fmt.Sprintf("%d", report.TotalEvaluations)},
+			{"COMPLIANT", fmt.Sprintf("%d", report.CompliantEvaluations)},
+			{"NON-COMPLIANT", fmt.Sprintf("%d", report.NonCompliantEvaluations)},
 			{"COMPLIANCE RATE", fmt.Sprintf("%.1f%%", report.ComplianceRate)},
 		})
 		if err := output.WriteTable(os.Stdout, summary); err != nil {
@@ -1365,23 +1376,19 @@ func reportExecute(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if report.TotalPolicies == 0 {
-			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
-			fmt.Println("For production compliance reports, use the control plane API.")
+		if report.TotalEvaluations == 0 {
+			fmt.Println("\nNote: No policy evaluation data found.")
 		}
 		return nil
 	case output.FormatText:
 		fmt.Println("=== Compliance Report ===")
-		fmt.Printf("Generated: %s\n", report.GeneratedAt.Format(time.RFC3339))
-		fmt.Printf("Period:    %s to %s\n",
-			report.Period.Start.Format("2006-01-02"),
-			report.Period.End.Format("2006-01-02"))
+		fmt.Printf("Period:    %s to %s\n", start.Format("2006-01-02"), now.Format("2006-01-02"))
 		fmt.Println()
 
 		fmt.Println("Summary:")
-		fmt.Printf("  Total Policies:     %d\n", report.TotalPolicies)
-		fmt.Printf("  Compliant:          %d\n", report.CompliantPolicies)
-		fmt.Printf("  Violating:          %d\n", report.ViolatingPolicies)
+		fmt.Printf("  Total Evaluations:  %d\n", report.TotalEvaluations)
+		fmt.Printf("  Compliant:          %d\n", report.CompliantEvaluations)
+		fmt.Printf("  Non-Compliant:      %d\n", report.NonCompliantEvaluations)
 		fmt.Printf("  Compliance Rate:    %.1f%%\n", report.ComplianceRate)
 		fmt.Println()
 
@@ -1395,14 +1402,14 @@ func reportExecute(cmd *cobra.Command, args []string) error {
 
 		if len(report.TopViolations) > 0 {
 			fmt.Println("Top Violations:")
-			for i, v := range report.TopViolations {
+			for i := range report.TopViolations {
+				v := &report.TopViolations[i]
 				fmt.Printf("  %d. %s (%s) - %d violations\n", i+1, v.PolicyName, v.Severity, v.Count)
 			}
 		}
 
-		if report.TotalPolicies == 0 {
-			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
-			fmt.Println("For production compliance reports, use the control plane API.")
+		if report.TotalEvaluations == 0 {
+			fmt.Println("\nNote: No policy evaluation data found.")
 		}
 
 		return nil
@@ -1446,18 +1453,22 @@ func init() {
 }
 
 func complianceExecute(cmd *cobra.Command, args []string) error {
-	// Create sample components (in production, connect to control plane)
-	registry := policy.NewRegistry()
-	auditor := policy.NewAuditor(10000)
-	reporter := policy.NewComplianceReporter(auditor, registry)
-
-	// Generate report
-	period := policy.ReportPeriod{
-		Start: time.Now().AddDate(0, 0, -complianceDays),
-		End:   time.Now(),
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
 	}
+	defer client.Close()
 
-	report := reporter.GenerateReport(period)
+	now := time.Now()
+	start := now.AddDate(0, 0, -complianceDays)
+
+	report, err := client.GetComplianceReport(context.Background(), policyclient.ComplianceReportOptions{
+		StartTime: start,
+		EndTime:   now,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get compliance report: %w", err)
+	}
 
 	format, err := output.ParseFormat(complianceOutputFmt)
 	if err != nil {
@@ -1465,26 +1476,26 @@ func complianceExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	type ComplianceStatus struct {
-		GeneratedAt    time.Time `json:"generated_at" yaml:"generated_at"`
-		TotalPolicies  int       `json:"total_policies" yaml:"total_policies"`
-		CompliantCount int       `json:"compliant_count" yaml:"compliant_count"`
-		ViolatingCount int       `json:"violating_count" yaml:"violating_count"`
-		ComplianceRate float64   `json:"compliance_rate" yaml:"compliance_rate"`
-		OverallStatus  string    `json:"overall_status" yaml:"overall_status"`
+		Period           string  `json:"period" yaml:"period"`
+		TotalEvaluations int64   `json:"total_evaluations" yaml:"total_evaluations"`
+		CompliantCount   int64   `json:"compliant_count" yaml:"compliant_count"`
+		ViolatingCount   int64   `json:"violating_count" yaml:"violating_count"`
+		ComplianceRate   float64 `json:"compliance_rate" yaml:"compliance_rate"`
+		OverallStatus    string  `json:"overall_status" yaml:"overall_status"`
 	}
 
 	status := ComplianceStatus{
-		GeneratedAt:    report.GeneratedAt,
-		TotalPolicies:  report.TotalPolicies,
-		CompliantCount: report.CompliantPolicies,
-		ViolatingCount: report.ViolatingPolicies,
-		ComplianceRate: report.ComplianceRate,
+		Period:           fmt.Sprintf("Last %d days", complianceDays),
+		TotalEvaluations: report.TotalEvaluations,
+		CompliantCount:   report.CompliantEvaluations,
+		ViolatingCount:   report.NonCompliantEvaluations,
+		ComplianceRate:   report.ComplianceRate,
 	}
 
 	switch {
-	case report.ViolatingPolicies == 0 && report.TotalPolicies > 0:
+	case report.NonCompliantEvaluations == 0 && report.TotalEvaluations > 0:
 		status.OverallStatus = "COMPLIANT"
-	case report.ViolatingPolicies > 0:
+	case report.NonCompliantEvaluations > 0:
 		status.OverallStatus = "NON-COMPLIANT"
 	default:
 		status.OverallStatus = "UNKNOWN"
@@ -1500,14 +1511,12 @@ func complianceExecute(cmd *cobra.Command, args []string) error {
 		fmt.Println("=================")
 		fmt.Printf("Overall Status:   %s\n", status.OverallStatus)
 		fmt.Printf("Compliance Rate:  %.1f%%\n", status.ComplianceRate)
-		fmt.Printf("Total Policies:   %d\n", status.TotalPolicies)
+		fmt.Printf("Total Evaluations:%d\n", status.TotalEvaluations)
 		fmt.Printf("Compliant:        %d\n", status.CompliantCount)
 		fmt.Printf("Violating:        %d\n", status.ViolatingCount)
-		fmt.Printf("Generated:        %s\n", status.GeneratedAt.Format(time.RFC3339))
 
-		if status.TotalPolicies == 0 {
+		if status.TotalEvaluations == 0 {
 			fmt.Println("\nNote: No policy evaluation data found.")
-			fmt.Println("For production data, use the control plane API.")
 		}
 		return nil
 	default:
@@ -1648,36 +1657,34 @@ func init() {
 }
 
 func violationsExecute(cmd *cobra.Command, args []string) error {
-	// Create a sample auditor (in production, this would connect to the control plane)
-	auditor := policy.NewAuditor(1000)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Build filter - only show denied evaluations
-	denied := false
-	filter := &policy.AuditFilter{
+	result, err := client.ListViolations(context.Background(), policyclient.ViolationListOptions{
 		PolicyID:     violationsPolicyID,
 		ResourceType: violationsResourceType,
-		Limit:        violationsLimit,
-		Allowed:      &denied,
+		PageSize:     int32(violationsLimit), //nolint:gosec // G115: limit is small
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list violations: %w", err)
 	}
-
-	// Get entries
-	entries := auditor.GetEntries(filter)
 
 	format, err := output.ParseFormat(violationsOutputFmt)
 	if err != nil {
 		return err
 	}
 
-	if len(entries) == 0 {
+	if len(result.Records) == 0 {
 		switch format {
 		case output.FormatJSON:
-			return output.WriteJSON(os.Stdout, entries)
+			return output.WriteJSON(os.Stdout, result.Records)
 		case output.FormatYAML:
-			return output.WriteYAML(os.Stdout, entries)
+			return output.WriteYAML(os.Stdout, result.Records)
 		case output.FormatTable, output.FormatText:
 			fmt.Println("No policy violations found.")
-			fmt.Println("\nNote: This CLI reads from an in-memory store.")
-			fmt.Println("For production data, use the control plane API.")
 			return nil
 		default:
 			return fmt.Errorf("unsupported output format: %s", violationsOutputFmt)
@@ -1686,45 +1693,24 @@ func violationsExecute(cmd *cobra.Command, args []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, entries)
+		return output.WriteJSON(os.Stdout, result.Records)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, entries)
+		return output.WriteYAML(os.Stdout, result.Records)
 	case output.FormatTable, output.FormatText:
-		fmt.Printf("%-20s %-25s %-15s %-10s %s\n", "TIMESTAMP", "POLICY", "RESOURCE", "SEVERITY", "VIOLATIONS")
+		fmt.Printf("%-20s %-25s %-15s %-10s %s\n", "TIMESTAMP", "POLICY", "RESOURCE", "SEVERITY", "RULE")
 		fmt.Println(strings.Repeat("-", 90))
-		for i := range entries {
-			entry := &entries[i]
-			violationCount := len(entry.Violations)
-			var severity string
-			if len(entry.Violations) > 0 {
-				// Get the highest severity from violations
-				severity = "low"
-				for _, v := range entry.Violations {
-					sev := strings.ToLower(string(v.Severity))
-					switch sev {
-					case "critical":
-						severity = "critical"
-					case "high":
-						if severity != "critical" {
-							severity = "high"
-						}
-					case "medium":
-						if severity != "critical" && severity != "high" {
-							severity = "medium"
-						}
-					}
-				}
-			}
-			fmt.Printf("%-20s %-25s %-15s %-10s %d\n",
-				entry.Timestamp.Format("2006-01-02 15:04:05"),
-				truncate(entry.PolicyID, 25),
-				truncate(entry.ResourceType, 15),
-				severity,
-				violationCount,
+		for i := range result.Records {
+			rec := &result.Records[i]
+			fmt.Printf("%-20s %-25s %-15s %-10s %s\n",
+				rec.Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(rec.PolicyID, 25),
+				truncate(rec.ResourceType, 15),
+				rec.Violation.Severity,
+				rec.Violation.Rule,
 			)
 		}
 
-		fmt.Printf("\nTotal: %d violations\n", len(entries))
+		fmt.Printf("\nTotal: %d violations\n", result.TotalCount)
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", violationsOutputFmt)
@@ -1737,87 +1723,103 @@ func violationsExecute(cmd *cobra.Command, args []string) error {
 
 func newEvalCmd() *cobra.Command {
 	var (
-		evalDryRun  bool
-		evalVerbose bool
+		evalResource string
+		evalAction   string
+		evalUser     string
+		evalOutputFmt string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "eval <policy-name> <target>",
-		Short: "Evaluate a policy against a target",
-		Long: `Evaluate a named policy against a target and report PASS/FAIL results.
+		Use:   "eval <policy-id>",
+		Short: "Evaluate a policy against input via the control plane",
+		Long: `Evaluate a named policy against input data via the control plane API.
 
-The command evaluates each rule in the policy against the specified target
-and reports detailed results.
+The command sends the evaluation request to the server and reports the result.
 
 Examples:
-  # Evaluate a security policy against production targets
-  kscorectl policy eval security-baseline k8s:namespace=production
+  # Evaluate a security policy
+  kscorectl policy eval security-no-root --resource '{"name": "test-pod"}'
 
-  # Dry-run evaluation (no side effects)
-  kscorectl policy eval no-root-containers k8s:pod=nginx --dry-run
+  # Evaluate with action and user context
+  kscorectl policy eval security-no-root --resource '{"name": "test-pod"}' --action deploy --user admin
 
-  # Verbose evaluation with rule details
-  kscorectl policy eval encryption-at-rest aws:s3:* --verbose`,
-		Args: cobra.ExactArgs(2),
+  # Output as JSON
+  kscorectl policy eval security-no-root --resource '{"name": "test-pod"}' --output json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			policyName := args[0]
-			target := args[1]
+			policyID := args[0]
 
-			if evalDryRun {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] Evaluating policy '%s' against target '%s'\n\n", policyName, target)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Evaluating policy '%s' against target '%s'\n\n", policyName, target)
+			client, err := createPolicyClient()
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %w", err)
+			}
+			defer client.Close()
+
+			opts := policyclient.EvalOptions{
+				Action: evalAction,
+				User:   evalUser,
+			}
+			if evalResource != "" {
+				var resource map[string]interface{}
+				if jsonErr := json.Unmarshal([]byte(evalResource), &resource); jsonErr != nil {
+					return fmt.Errorf("invalid --resource JSON: %w", jsonErr)
+				}
+				opts.Resource = resource
 			}
 
-			type ruleResult struct {
-				Rule   string
-				Result string
-				Detail string
+			result, err := client.EvaluatePolicy(context.Background(), policyID, opts)
+			if err != nil {
+				return fmt.Errorf("policy evaluation failed: %w", err)
 			}
 
-			rules := []ruleResult{
-				{Rule: "no-privileged-containers", Result: "PASS", Detail: "No privileged containers found"},
-				{Rule: "resource-limits-set", Result: "PASS", Detail: "All containers have resource limits"},
-				{Rule: "run-as-non-root", Result: "FAIL", Detail: "Container 'debug-sidecar' runs as root (UID 0)"},
-				{Rule: "read-only-rootfs", Result: "PASS", Detail: "All containers use read-only root filesystem"},
+			format, fmtErr := output.ParseFormat(evalOutputFmt)
+			if fmtErr != nil {
+				return fmtErr
 			}
 
-			passed := 0
-			failed := 0
-
-			fmt.Fprintf(cmd.OutOrStdout(), "%-35s %-8s %s\n", "RULE", "RESULT", "DETAILS")
-			fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 80))
-
-			for _, r := range rules {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-35s %-8s %s\n", r.Rule, r.Result, r.Detail)
-				if r.Result == "PASS" {
-					passed++
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), result)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), result)
+			default:
+				if result.Allowed {
+					fmt.Fprintf(cmd.OutOrStdout(), "Result: ALLOWED\n")
 				} else {
-					failed++
+					fmt.Fprintf(cmd.OutOrStdout(), "Result: DENIED\n")
 				}
-				if evalVerbose {
-					fmt.Fprintf(cmd.OutOrStdout(), "  Target: %s\n", target)
-					fmt.Fprintf(cmd.OutOrStdout(), "  Policy: %s\n\n", policyName)
+				fmt.Fprintf(cmd.OutOrStdout(), "Policy: %s (%s)\n", result.PolicyName, result.PolicyID)
+				if result.Message != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "Message: %s\n", result.Message)
 				}
-			}
+				fmt.Fprintf(cmd.OutOrStdout(), "Duration: %dms\n", result.DurationMS)
 
-			fmt.Fprintln(cmd.OutOrStdout())
-			if failed == 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Result: PASS (%d/%d rules passed)\n", passed, passed+failed)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Result: FAIL (%d/%d rules passed, %d failed)\n", passed, passed+failed, failed)
-			}
+				if len(result.Violations) > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "\nViolations (%d):\n", len(result.Violations))
+					for i, v := range result.Violations {
+						fmt.Fprintf(cmd.OutOrStdout(), "  %d. [%s] %s\n", i+1, v.Severity, v.Message)
+						if v.Remediation != "" {
+							fmt.Fprintf(cmd.OutOrStdout(), "     Remediation: %s\n", v.Remediation)
+						}
+					}
+				}
 
-			if evalDryRun {
-				fmt.Fprintln(cmd.OutOrStdout(), "\n[dry-run] No changes were made.")
+				if len(result.Warnings) > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "\nWarnings (%d):\n", len(result.Warnings))
+					for _, w := range result.Warnings {
+						fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", w)
+					}
+				}
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&evalDryRun, "dry-run", false, "Simulate evaluation without side effects")
-	cmd.Flags().BoolVar(&evalVerbose, "verbose", false, "Show detailed rule evaluation results")
+	cmd.Flags().StringVar(&evalResource, "resource", "", "Resource to evaluate as JSON")
+	cmd.Flags().StringVar(&evalAction, "action", "", "Action being performed")
+	cmd.Flags().StringVar(&evalUser, "user", "", "User performing the action")
+	cmd.Flags().StringVarP(&evalOutputFmt, "output", "o", "text", "Output format (text, json, yaml)")
 
 	return cmd
 }
@@ -2040,27 +2042,8 @@ Examples:
 
   # Schedule a compliance check daily at midnight
   kscorectl policy schedule create --policy cis-benchmark --cron "0 0 * * *" --target all`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if schedPolicy == "" {
-				return fmt.Errorf("--policy is required")
-			}
-			if schedCron == "" {
-				return fmt.Errorf("--cron is required")
-			}
-			if schedTarget == "" {
-				return fmt.Errorf("--target is required")
-			}
-
-			schedID := fmt.Sprintf("sched-%d", time.Now().UnixNano()%100000)
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Schedule created successfully\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "  ID:     %s\n", schedID)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Policy: %s\n", schedPolicy)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Cron:   %s\n", schedCron)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Target: %s\n", schedTarget)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Status: active\n")
-
-			return nil
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return fmt.Errorf("policy schedule management requires server-side scheduling infrastructure not yet available")
 		},
 	}
 
@@ -2080,29 +2063,8 @@ func newScheduleListCmd() *cobra.Command {
 Examples:
   # List all schedules
   kscorectl policy schedule list`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			type scheduleEntry struct {
-				ID     string
-				Policy string
-				Cron   string
-				Target string
-				Status string
-			}
-
-			schedules := []scheduleEntry{
-				{ID: "sched-001", Policy: "security-baseline", Cron: "*/5 * * * *", Target: "k8s:production", Status: "active"},
-				{ID: "sched-002", Policy: "cis-benchmark", Cron: "0 0 * * *", Target: "all", Status: "active"},
-				{ID: "sched-003", Policy: "cost-limits", Cron: "0 */6 * * *", Target: "aws:*", Status: "active"},
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-25s %-20s %-20s %-10s\n", "ID", "POLICY", "CRON", "TARGET", "STATUS")
-			fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 95))
-			for _, s := range schedules {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-25s %-20s %-20s %-10s\n", s.ID, s.Policy, s.Cron, s.Target, s.Status)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d schedules\n", len(schedules))
-
-			return nil
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("policy schedule management requires server-side scheduling infrastructure not yet available")
 		},
 	}
 }
@@ -2117,10 +2079,8 @@ Examples:
   # Delete a schedule
   kscorectl policy schedule delete sched-001`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			schedID := args[0]
-			fmt.Fprintf(cmd.OutOrStdout(), "Schedule '%s' deleted successfully\n", schedID)
-			return nil
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("policy schedule management requires server-side scheduling infrastructure not yet available")
 		},
 	}
 }
@@ -2154,76 +2114,8 @@ Examples:
   # Force remediation without confirmation
   kscorectl policy remediate encryption-at-rest --target aws:s3:* --force`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			policyName := args[0]
-
-			if remediateDryRun {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] Scanning for violations of policy '%s'\n", policyName)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Scanning for violations of policy '%s'\n", policyName)
-			}
-
-			if remediateTarget != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Target: %s\n", remediateTarget)
-			}
-			fmt.Fprintln(cmd.OutOrStdout())
-
-			type remediation struct {
-				Resource  string
-				Violation string
-				Action    string
-				Status    string
-			}
-
-			remediations := []remediation{
-				{
-					Resource:  "pod/debug-sidecar",
-					Violation: "Container runs as root (UID 0)",
-					Action:    "Set securityContext.runAsNonRoot=true",
-					Status:    "applied",
-				},
-				{
-					Resource:  "pod/legacy-app",
-					Violation: "Missing resource limits",
-					Action:    "Add default resource limits (cpu: 500m, memory: 256Mi)",
-					Status:    "applied",
-				},
-				{
-					Resource:  "deployment/api-server",
-					Violation: "Privileged security context",
-					Action:    "Remove privileged=true from security context",
-					Status:    "applied",
-				},
-			}
-
-			if remediateDryRun {
-				for _, r := range remediations {
-					r.Status = "pending"
-				}
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "%-25s %-35s %-8s\n", "RESOURCE", "ACTION", "STATUS")
-			fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 75))
-			for _, r := range remediations {
-				status := r.Status
-				if remediateDryRun {
-					status = "pending"
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%-25s %-35s %-8s\n",
-					truncate(r.Resource, 25),
-					truncate(r.Action, 35),
-					status,
-				)
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout())
-			if remediateDryRun {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] %d remediation(s) would be applied.\n", len(remediations))
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%d remediation(s) applied successfully.\n", len(remediations))
-			}
-
-			return nil
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("automated policy remediation requires server-side remediation infrastructure not yet available")
 		},
 	}
 
@@ -2261,98 +2153,8 @@ Examples:
 
   # Monitor a specific target
   kscorectl policy monitor --target k8s:namespace=production`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "Policy Monitor")
-			fmt.Fprintln(cmd.OutOrStdout(), "==============")
-
-			if len(monitorPolicies) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Policies: %s\n", strings.Join(monitorPolicies, ", "))
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Policies: all")
-			}
-
-			if monitorTarget != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Target:   %s\n", monitorTarget)
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Target:   all")
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout())
-
-			type monitorEvent struct {
-				Timestamp string
-				Policy    string
-				Target    string
-				Result    string
-				Detail    string
-			}
-
-			now := time.Now()
-			events := []monitorEvent{
-				{
-					Timestamp: now.Add(-4 * time.Minute).Format("2006-01-02 15:04:05"),
-					Policy:    "security-baseline",
-					Target:    "k8s:pod/web-frontend",
-					Result:    "PASS",
-					Detail:    "All rules satisfied",
-				},
-				{
-					Timestamp: now.Add(-3 * time.Minute).Format("2006-01-02 15:04:05"),
-					Policy:    "no-root-containers",
-					Target:    "k8s:pod/debug-sidecar",
-					Result:    "FAIL",
-					Detail:    "Container runs as root (UID 0)",
-				},
-				{
-					Timestamp: now.Add(-2 * time.Minute).Format("2006-01-02 15:04:05"),
-					Policy:    "resource-limits",
-					Target:    "k8s:pod/api-server",
-					Result:    "PASS",
-					Detail:    "Resource limits configured",
-				},
-				{
-					Timestamp: now.Add(-1 * time.Minute).Format("2006-01-02 15:04:05"),
-					Policy:    "encryption-at-rest",
-					Target:    "aws:s3:my-bucket",
-					Result:    "PASS",
-					Detail:    "Encryption enabled (AES-256)",
-				},
-				{
-					Timestamp: now.Format("2006-01-02 15:04:05"),
-					Policy:    "cis-benchmark",
-					Target:    "k8s:node/worker-1",
-					Result:    "FAIL",
-					Detail:    "2 controls non-compliant",
-				},
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-22s %-25s %-6s %s\n", "TIMESTAMP", "POLICY", "TARGET", "RESULT", "DETAIL")
-			fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 100))
-
-			for _, e := range events {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-22s %-25s %-6s %s\n",
-					e.Timestamp,
-					truncate(e.Policy, 22),
-					truncate(e.Target, 25),
-					e.Result,
-					e.Detail,
-				)
-			}
-
-			passCount := 0
-			failCount := 0
-			for _, e := range events {
-				if e.Result == "PASS" {
-					passCount++
-				} else {
-					failCount++
-				}
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintf(cmd.OutOrStdout(), "Events: %d total, %d passed, %d failed\n", len(events), passCount, failCount)
-
-			return nil
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("real-time policy monitoring requires streaming RPC not yet available")
 		},
 	}
 
@@ -2467,16 +2269,16 @@ func buildWarningsTable(warnings []string) *output.Table {
 	}
 }
 
-func buildSeverityTable(severityCounts map[policy.Severity]int) *output.Table {
+func buildSeverityTable(severityCounts map[string]int64) *output.Table {
 	keys := make([]string, 0, len(severityCounts))
 	for severity := range severityCounts {
-		keys = append(keys, string(severity))
+		keys = append(keys, severity)
 	}
 	sort.Strings(keys)
 
 	rows := make([][]string, 0, len(keys))
 	for _, key := range keys {
-		rows = append(rows, []string{key, fmt.Sprintf("%d", severityCounts[policy.Severity(key)])})
+		rows = append(rows, []string{key, fmt.Sprintf("%d", severityCounts[key])})
 	}
 
 	return &output.Table{
@@ -2485,12 +2287,12 @@ func buildSeverityTable(severityCounts map[policy.Severity]int) *output.Table {
 	}
 }
 
-func buildTopViolationsTable(violations []policy.ViolationSummary) *output.Table {
+func buildTopViolationsTable(violations []policyclient.ViolationSummary) *output.Table {
 	rows := make([][]string, 0, len(violations))
 	for _, v := range violations {
 		rows = append(rows, []string{
 			v.PolicyName,
-			string(v.Severity),
+			v.Severity,
 			fmt.Sprintf("%d", v.Count),
 		})
 	}

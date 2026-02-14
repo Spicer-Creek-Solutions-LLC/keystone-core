@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +18,6 @@ func TestRootCommand(t *testing.T) {
 		t.Fatal("expected root command to not be nil")
 	}
 
-	// Check basic properties
 	if cmd.Use != "kscore-audit" {
 		t.Errorf("expected Use to be 'kscore-audit', got %s", cmd.Use)
 	}
@@ -26,7 +26,6 @@ func TestRootCommand(t *testing.T) {
 		t.Errorf("expected Short to contain 'audit', got %s", cmd.Short)
 	}
 
-	// Check that all expected subcommands exist
 	expectedCommands := []string{"version", "log", "report", "export", "stats", "search", "analyze", "timeline", "watch"}
 	for _, expected := range expectedCommands {
 		found := false
@@ -82,7 +81,6 @@ func TestHelpCommand(t *testing.T) {
 func TestGlobalFlags(t *testing.T) {
 	cmd := newRootCmd()
 
-	// Check server flag
 	serverFlag := cmd.PersistentFlags().Lookup("server")
 	if serverFlag == nil {
 		t.Fatal("expected --server flag")
@@ -91,7 +89,6 @@ func TestGlobalFlags(t *testing.T) {
 		t.Errorf("expected server default to be 'localhost:9090', got %s", serverFlag.DefValue)
 	}
 
-	// Check format flag
 	formatFlag := cmd.PersistentFlags().Lookup("format")
 	if formatFlag == nil {
 		t.Fatal("expected --format flag")
@@ -100,13 +97,11 @@ func TestGlobalFlags(t *testing.T) {
 		t.Errorf("expected format default to be 'table', got %s", formatFlag.DefValue)
 	}
 
-	// Check audit-level flag
 	auditLevelFlag := cmd.PersistentFlags().Lookup("audit-level")
 	if auditLevelFlag == nil {
 		t.Error("expected --audit-level flag")
 	}
 
-	// Check audit-output flag
 	auditOutputFlag := cmd.PersistentFlags().Lookup("audit-output")
 	if auditOutputFlag == nil {
 		t.Error("expected --audit-output flag")
@@ -120,7 +115,6 @@ func TestLogCommandFlags(t *testing.T) {
 		t.Fatal("log subcommand not found")
 	}
 
-	// Check that log flags exist
 	policyFlag := logCmd.Flags().Lookup("policy")
 	if policyFlag == nil {
 		t.Error("expected --policy flag on log command")
@@ -278,8 +272,6 @@ func TestCommandStructure(t *testing.T) {
 }
 
 func TestMultipleCommandCreations(t *testing.T) {
-	// Test that we can create multiple command instances
-	// This tests for state isolation between instances
 	for i := 0; i < 3; i++ {
 		cmd := newRootCmd()
 		buf := new(bytes.Buffer)
@@ -334,7 +326,7 @@ func TestSearchCommandFlags(t *testing.T) {
 		t.Fatal("search subcommand not found")
 	}
 
-	flags := []string{"type", "status", "agent", "user", "api-key", "since", "output", "hour", "count-by", "limit"}
+	flags := []string{"policy", "user", "action", "since", "output", "denied", "limit"}
 	for _, flag := range flags {
 		if searchCmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag --%s on search command", flag)
@@ -361,99 +353,6 @@ func TestSearchCommandQueryAlias(t *testing.T) {
 	}
 }
 
-func TestQueryAliasExecution(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"query", "--format", "json"})
-
-	// Command writes to os.Stdout; just verify it runs without error
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("query alias failed: %v", err)
-	}
-}
-
-func TestSearchAPIKeyFilter(t *testing.T) {
-	// Verify the filter logic directly
-	results := generateSampleSearchResults("", "", "", "")
-
-	// Apply api-key filter
-	filtered := make([]SearchResult, 0)
-	for i := range results {
-		if results[i].APIKey == "ops-key" {
-			filtered = append(filtered, results[i])
-		}
-	}
-
-	if len(filtered) == 0 {
-		t.Fatal("expected at least one result with api-key ops-key")
-	}
-	for _, r := range filtered {
-		if r.APIKey != "ops-key" {
-			t.Errorf("expected api_key ops-key, got %s", r.APIKey)
-		}
-	}
-
-	// Verify admin-key entries are excluded
-	for _, r := range filtered {
-		if r.APIKey == "admin-key" {
-			t.Error("should not contain admin-key entries")
-		}
-	}
-}
-
-func TestSearchAPIKeyFieldInResults(t *testing.T) {
-	results := generateSampleSearchResults("", "", "", "")
-
-	hasAPIKey := false
-	for _, r := range results {
-		if r.APIKey != "" {
-			hasAPIKey = true
-			break
-		}
-	}
-	if !hasAPIKey {
-		t.Error("expected some sample results to have APIKey set")
-	}
-}
-
-func TestSearchResultStructure(t *testing.T) {
-	r := SearchResult{
-		Timestamp: "2026-01-01T00:00:00Z",
-		Type:      "auth.login",
-		Status:    "failed",
-		User:      "admin",
-		IP:        "10.0.1.5",
-		Details:   "test",
-	}
-
-	if r.Type != "auth.login" {
-		t.Errorf("Type = %v, want auth.login", r.Type)
-	}
-}
-
-func TestGenerateSampleSearchResults(t *testing.T) {
-	results := generateSampleSearchResults("", "", "", "")
-	if len(results) == 0 {
-		t.Error("expected some sample results")
-	}
-
-	// Filter by type
-	authResults := generateSampleSearchResults("auth.*", "", "", "")
-	for _, r := range authResults {
-		if !strings.HasPrefix(r.Type, "auth") {
-			t.Errorf("expected auth type, got %s", r.Type)
-		}
-	}
-
-	// Filter by status
-	failedResults := generateSampleSearchResults("", "failed", "", "")
-	for _, r := range failedResults {
-		if r.Status != "failed" {
-			t.Errorf("expected failed status, got %s", r.Status)
-		}
-	}
-}
-
 func TestAnalyzeCommandFlags(t *testing.T) {
 	cmd := newRootCmd()
 	analyzeCmd := findSubcommand(cmd, "analyze")
@@ -469,23 +368,6 @@ func TestAnalyzeCommandFlags(t *testing.T) {
 	}
 }
 
-func TestAnalysisResultStructure(t *testing.T) {
-	r := AnalysisResult{
-		Timestamp:  "2026-01-01T00:00:00Z",
-		Baseline:   "30d",
-		InputFiles: "/tmp/*.json",
-		Anomalies:  []AnomalyEntry{{Type: "auth.brute_force", Severity: "high", Score: 0.92, Message: "test"}},
-		Summary:    AnalysisSummary{TotalEvents: 100, Anomalies: 1, High: 1},
-	}
-
-	if r.Baseline != "30d" {
-		t.Errorf("Baseline = %v, want 30d", r.Baseline)
-	}
-	if len(r.Anomalies) != 1 {
-		t.Errorf("Anomalies length = %d, want 1", len(r.Anomalies))
-	}
-}
-
 func TestTimelineCommandFlags(t *testing.T) {
 	cmd := newRootCmd()
 	timelineCmd := findSubcommand(cmd, "timeline")
@@ -498,23 +380,6 @@ func TestTimelineCommandFlags(t *testing.T) {
 		if timelineCmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag --%s on timeline command", flag)
 		}
-	}
-}
-
-func TestTimelineEntryStructure(t *testing.T) {
-	e := TimelineEntry{
-		Timestamp: "2026-01-01T00:00:00Z",
-		Type:      "auth.login",
-		Severity:  "info",
-		Actor:     "admin",
-		Summary:   "test event",
-	}
-
-	if e.Type != "auth.login" {
-		t.Errorf("Type = %v, want auth.login", e.Type)
-	}
-	if e.Actor != "admin" {
-		t.Errorf("Actor = %v, want admin", e.Actor)
 	}
 }
 
@@ -538,128 +403,6 @@ func TestWatchCommandFlags(t *testing.T) {
 	}
 }
 
-func TestSampleWatchEvents(t *testing.T) {
-	events := sampleWatchEvents()
-	if len(events) == 0 {
-		t.Fatal("expected sample watch events")
-	}
-
-	hasAuth := false
-	hasExec := false
-	for _, e := range events {
-		if strings.HasPrefix(e.Type, "auth.") {
-			hasAuth = true
-		}
-		if strings.HasPrefix(e.Type, "exec.") {
-			hasExec = true
-		}
-	}
-	if !hasAuth {
-		t.Error("expected at least one auth event in sample pool")
-	}
-	if !hasExec {
-		t.Error("expected at least one exec event in sample pool")
-	}
-}
-
-func TestFilterWatchEvent(t *testing.T) {
-	tests := []struct {
-		name      string
-		event     SearchResult
-		eventType string
-		status    string
-		agent     string
-		user      string
-		apiKey    string
-		want      bool
-	}{
-		{
-			name:  "no filters matches all",
-			event: SearchResult{Type: "auth.login", Status: "success"},
-			want:  true,
-		},
-		{
-			name:      "type filter match",
-			event:     SearchResult{Type: "auth.login", Status: "success"},
-			eventType: "auth.*",
-			want:      true,
-		},
-		{
-			name:      "type filter no match",
-			event:     SearchResult{Type: "exec.command", Status: "success"},
-			eventType: "auth.*",
-			want:      false,
-		},
-		{
-			name:   "status filter match",
-			event:  SearchResult{Type: "auth.login", Status: "failed"},
-			status: "failed",
-			want:   true,
-		},
-		{
-			name:   "status filter no match",
-			event:  SearchResult{Type: "auth.login", Status: "success"},
-			status: "failed",
-			want:   false,
-		},
-		{
-			name:  "agent filter match",
-			event: SearchResult{Type: "exec.command", Agent: "web-001"},
-			agent: "web-001",
-			want:  true,
-		},
-		{
-			name:  "agent filter no match",
-			event: SearchResult{Type: "exec.command", Agent: "db-002"},
-			agent: "web-001",
-			want:  false,
-		},
-		{
-			name:  "user filter match",
-			event: SearchResult{Type: "auth.login", User: "admin"},
-			user:  "admin",
-			want:  true,
-		},
-		{
-			name:   "api-key filter match",
-			event:  SearchResult{Type: "auth.login", APIKey: "ops-key"},
-			apiKey: "ops-key",
-			want:   true,
-		},
-		{
-			name:   "api-key filter no match",
-			event:  SearchResult{Type: "auth.login", APIKey: "admin-key"},
-			apiKey: "ops-key",
-			want:   false,
-		},
-		{
-			name:      "multiple filters all match",
-			event:     SearchResult{Type: "auth.login", Status: "failed", User: "admin"},
-			eventType: "auth.*",
-			status:    "failed",
-			user:      "admin",
-			want:      true,
-		},
-		{
-			name:      "multiple filters one fails",
-			event:     SearchResult{Type: "auth.login", Status: "success", User: "admin"},
-			eventType: "auth.*",
-			status:    "failed",
-			user:      "admin",
-			want:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := filterWatchEvent(&tt.event, tt.eventType, tt.status, tt.agent, tt.user, tt.apiKey)
-			if got != tt.want {
-				t.Errorf("filterWatchEvent() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestWatchCommandHelp(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
@@ -677,5 +420,39 @@ func TestWatchCommandHelp(t *testing.T) {
 	}
 	if !strings.Contains(output, "--interval") {
 		t.Errorf("expected help to contain '--interval', got: %s", output)
+	}
+}
+
+func TestParseDuration(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected time.Duration
+		wantErr  bool
+	}{
+		{"7d", 7 * 24 * time.Hour, false},
+		{"1d", 24 * time.Hour, false},
+		{"24h", 24 * time.Hour, false},
+		{"30m", 30 * time.Minute, false},
+		{"500ms", 500 * time.Millisecond, false},
+		{"bad", 0, true},
+		{"xd", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parseDuration(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for input %q", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for %q: %v", tt.input, err)
+			}
+			if got != tt.expected {
+				t.Errorf("parseDuration(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
 	}
 }

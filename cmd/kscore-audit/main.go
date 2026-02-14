@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
-	"github.com/shawnbutts/keystone-core/internal/policy"
+	policyclient "github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -101,8 +102,12 @@ func main() {
 	}
 }
 
+func createPolicyClient() (*policyclient.Client, error) {
+	return policyclient.NewClient(serverAddr)
+}
+
 // ============================================================================
-// Log Command (formerly "audit" in kscore-policy)
+// Log Command
 // ============================================================================
 
 var (
@@ -155,57 +160,57 @@ Examples:
 }
 
 func runLog(cmd *cobra.Command, args []string) error {
-	// Create auditor (in production, would connect to control plane)
-	auditor := policy.NewAuditor(1000)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Build filter
-	filter := &policy.AuditFilter{
+	opts := policyclient.AuditLogOptions{
 		PolicyID:     logPolicyID,
 		ResourceType: logResourceType,
-		Limit:        logLimit,
+		PageSize:     int32(logLimit), //nolint:gosec // G115: limit is small
 	}
 
 	if logDeniedOnly {
 		denied := false
-		filter.Allowed = &denied
+		opts.Allowed = &denied
 	}
 
-	// Parse time filters if provided
 	if logSince != "" {
-		t, err := time.Parse("2006-01-02", logSince)
-		if err != nil {
-			return fmt.Errorf("invalid --since date format (use YYYY-MM-DD): %w", err)
+		t, parseErr := time.Parse("2006-01-02", logSince)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --since date format (use YYYY-MM-DD): %w", parseErr)
 		}
-		filter.StartTime = t
+		opts.StartTime = t
 	}
 	if logUntil != "" {
-		t, err := time.Parse("2006-01-02", logUntil)
-		if err != nil {
-			return fmt.Errorf("invalid --until date format (use YYYY-MM-DD): %w", err)
+		t, parseErr := time.Parse("2006-01-02", logUntil)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --until date format (use YYYY-MM-DD): %w", parseErr)
 		}
-		// Set to end of day
 		t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		filter.EndTime = t
+		opts.EndTime = t
 	}
 
-	// Get entries
-	entries := auditor.GetEntries(filter)
+	result, err := client.GetAuditLog(context.Background(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to get audit log: %w", err)
+	}
 
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
 		return err
 	}
 
-	if len(entries) == 0 {
+	if len(result.Entries) == 0 {
 		switch format {
 		case output.FormatJSON:
-			return output.WriteJSON(os.Stdout, entries)
+			return output.WriteJSON(os.Stdout, result.Entries)
 		case output.FormatYAML:
-			return output.WriteYAML(os.Stdout, entries)
+			return output.WriteYAML(os.Stdout, result.Entries)
 		case output.FormatTable, output.FormatText:
 			fmt.Println("No audit entries found.")
-			fmt.Println("\nNote: This CLI reads from an in-memory store.")
-			fmt.Println("For production audit logs, use the control plane API.")
 			return nil
 		default:
 			return fmt.Errorf("unsupported output format: %s", outputFormat)
@@ -214,28 +219,28 @@ func runLog(cmd *cobra.Command, args []string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(os.Stdout, entries)
+		return output.WriteJSON(os.Stdout, result.Entries)
 	case output.FormatYAML:
-		return output.WriteYAML(os.Stdout, entries)
+		return output.WriteYAML(os.Stdout, result.Entries)
 	case output.FormatTable, output.FormatText:
 		fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
 		fmt.Println(strings.Repeat("-", 85))
-		for i := range entries {
-			entry := &entries[i]
-			result := "ALLOWED"
+		for i := range result.Entries {
+			entry := &result.Entries[i]
+			entryResult := "ALLOWED"
 			if !entry.Allowed {
-				result = "DENIED"
+				entryResult = "DENIED"
 			}
 			fmt.Printf("%-20s %-25s %-15s %-10s %-10d\n",
 				entry.Timestamp.Format("2006-01-02 15:04:05"),
 				truncate(entry.PolicyID, 25),
 				truncate(entry.ResourceType, 15),
-				result,
+				entryResult,
 				len(entry.Violations),
 			)
 		}
 
-		fmt.Printf("\nTotal: %d entries\n", len(entries))
+		fmt.Printf("\nTotal: %d entries\n", len(result.Entries))
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
@@ -287,20 +292,24 @@ Examples:
 }
 
 func runReport(cmd *cobra.Command, args []string) error {
-	// Create components (in production, connect to control plane)
-	registry := policy.NewRegistry()
-	auditor := policy.NewAuditor(10000)
-	reporter := policy.NewComplianceReporter(auditor, registry)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Generate report
-	period := policy.ReportPeriod{
-		Start: time.Now().AddDate(0, 0, -reportDays),
-		End:   time.Now(),
+	now := time.Now()
+	start := now.AddDate(0, 0, -reportDays)
+
+	report, err := client.GetComplianceReport(context.Background(), policyclient.ComplianceReportOptions{
+		StartTime:         start,
+		EndTime:           now,
+		IncludeViolations: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get compliance report: %w", err)
 	}
 
-	report := reporter.GenerateReport(period)
-
-	// Output
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
 		return err
@@ -313,13 +322,10 @@ func runReport(cmd *cobra.Command, args []string) error {
 		return output.WriteYAML(os.Stdout, report)
 	case output.FormatTable:
 		summary := buildKeyValueTable([][2]string{
-			{"GENERATED", report.GeneratedAt.Format(time.RFC3339)},
-			{"PERIOD", fmt.Sprintf("%s to %s",
-				report.Period.Start.Format("2006-01-02"),
-				report.Period.End.Format("2006-01-02"))},
-			{"TOTAL POLICIES", fmt.Sprintf("%d", report.TotalPolicies)},
-			{"COMPLIANT", fmt.Sprintf("%d", report.CompliantPolicies)},
-			{"VIOLATING", fmt.Sprintf("%d", report.ViolatingPolicies)},
+			{"PERIOD", fmt.Sprintf("%s to %s", start.Format("2006-01-02"), now.Format("2006-01-02"))},
+			{"TOTAL EVALUATIONS", fmt.Sprintf("%d", report.TotalEvaluations)},
+			{"COMPLIANT", fmt.Sprintf("%d", report.CompliantEvaluations)},
+			{"NON-COMPLIANT", fmt.Sprintf("%d", report.NonCompliantEvaluations)},
 			{"COMPLIANCE RATE", fmt.Sprintf("%.1f%%", report.ComplianceRate)},
 		})
 		if err := output.WriteTable(os.Stdout, summary); err != nil {
@@ -340,23 +346,19 @@ func runReport(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if report.TotalPolicies == 0 {
-			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
-			fmt.Println("For production compliance reports, use the control plane API.")
+		if report.TotalEvaluations == 0 {
+			fmt.Println("\nNote: No policy evaluation data found.")
 		}
 		return nil
 	case output.FormatText:
 		fmt.Println("=== Compliance Report ===")
-		fmt.Printf("Generated: %s\n", report.GeneratedAt.Format(time.RFC3339))
-		fmt.Printf("Period:    %s to %s\n",
-			report.Period.Start.Format("2006-01-02"),
-			report.Period.End.Format("2006-01-02"))
+		fmt.Printf("Period:    %s to %s\n", start.Format("2006-01-02"), now.Format("2006-01-02"))
 		fmt.Println()
 
 		fmt.Println("Summary:")
-		fmt.Printf("  Total Policies:     %d\n", report.TotalPolicies)
-		fmt.Printf("  Compliant:          %d\n", report.CompliantPolicies)
-		fmt.Printf("  Violating:          %d\n", report.ViolatingPolicies)
+		fmt.Printf("  Total Evaluations:  %d\n", report.TotalEvaluations)
+		fmt.Printf("  Compliant:          %d\n", report.CompliantEvaluations)
+		fmt.Printf("  Non-Compliant:      %d\n", report.NonCompliantEvaluations)
 		fmt.Printf("  Compliance Rate:    %.1f%%\n", report.ComplianceRate)
 		fmt.Println()
 
@@ -370,14 +372,14 @@ func runReport(cmd *cobra.Command, args []string) error {
 
 		if len(report.TopViolations) > 0 {
 			fmt.Println("Top Violations:")
-			for i, v := range report.TopViolations {
+			for i := range report.TopViolations {
+				v := &report.TopViolations[i]
 				fmt.Printf("  %d. %s (%s) - %d violations\n", i+1, v.PolicyName, v.Severity, v.Count)
 			}
 		}
 
-		if report.TotalPolicies == 0 {
-			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
-			fmt.Println("For production compliance reports, use the control plane API.")
+		if report.TotalEvaluations == 0 {
+			fmt.Println("\nNote: No policy evaluation data found.")
 		}
 
 		return nil
@@ -427,25 +429,25 @@ Examples:
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
-	// Create auditor (in production, connect to control plane)
-	auditor := policy.NewAuditor(10000)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Build filter with time range
 	since := time.Now().AddDate(0, 0, -exportDays)
-	filter := &policy.AuditFilter{
+	result, err := client.GetAuditLog(context.Background(), policyclient.AuditLogOptions{
 		StartTime: since,
-		Limit:     0, // No limit for export
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get audit log: %w", err)
 	}
 
-	// Get entries
-	entries := auditor.GetEntries(filter)
-
-	// Determine output destination
 	var out *os.File
 	if exportOutputFile != "" {
-		f, err := os.Create(exportOutputFile)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
+		f, createErr := os.Create(exportOutputFile)
+		if createErr != nil {
+			return fmt.Errorf("failed to create output file: %w", createErr)
 		}
 		defer f.Close()
 		out = f
@@ -453,28 +455,26 @@ func runExport(cmd *cobra.Command, args []string) error {
 		out = os.Stdout
 	}
 
-	// Export based on format
 	switch strings.ToLower(exportFormat) {
 	case "json":
-		if err := output.WriteJSON(out, entries); err != nil {
+		if err := output.WriteJSON(out, result.Entries); err != nil {
 			return err
 		}
 	case "yaml":
-		if err := output.WriteYAML(out, entries); err != nil {
+		if err := output.WriteYAML(out, result.Entries); err != nil {
 			return err
 		}
 	case "csv":
-		// Write CSV header
 		fmt.Fprintln(out, "timestamp,policy_id,resource_type,allowed,violations_count,duration_ms")
-		for i := range entries {
-			entry := &entries[i]
+		for i := range result.Entries {
+			entry := &result.Entries[i]
 			fmt.Fprintf(out, "%s,%s,%s,%t,%d,%d\n",
 				entry.Timestamp.Format(time.RFC3339),
 				entry.PolicyID,
 				entry.ResourceType,
 				entry.Allowed,
 				len(entry.Violations),
-				entry.Duration.Milliseconds(),
+				entry.DurationMS,
 			)
 		}
 	default:
@@ -482,7 +482,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	if exportOutputFile != "" {
-		fmt.Fprintf(os.Stderr, "Exported %d audit entries to %s\n", len(entries), exportOutputFile)
+		fmt.Fprintf(os.Stderr, "Exported %d audit entries to %s\n", len(result.Entries), exportOutputFile)
 	}
 
 	return nil
@@ -522,63 +522,53 @@ Examples:
 }
 
 func runStats(cmd *cobra.Command, args []string) error {
-	// Create auditor (in production, connect to control plane)
-	auditor := policy.NewAuditor(10000)
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-	// Build filter
-	since := time.Now().AddDate(0, 0, -statsDays)
-	filter := &policy.AuditFilter{
+	now := time.Now()
+	since := now.AddDate(0, 0, -statsDays)
+
+	report, err := client.GetComplianceReport(context.Background(), policyclient.ComplianceReportOptions{
 		StartTime: since,
+		EndTime:   now,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get compliance stats: %w", err)
 	}
 
-	// Get entries
-	entries := auditor.GetEntries(filter)
-
-	// Calculate statistics
-	totalEvaluations := len(entries)
-	allowedCount := 0
-	deniedCount := 0
-	policyEvaluations := make(map[string]int)
-	totalViolations := 0
-
-	for i := range entries {
-		entry := &entries[i]
-		if entry.Allowed {
-			allowedCount++
-		} else {
-			deniedCount++
-		}
-		policyEvaluations[entry.PolicyID]++
-		totalViolations += len(entry.Violations)
-	}
-
-	// Output statistics
 	format, err := output.ParseFormat(outputFormat)
 	if err != nil {
 		return err
 	}
 
-	stats := struct {
-		Period            string         `json:"period" yaml:"period"`
-		TotalEvaluations  int            `json:"total_evaluations" yaml:"total_evaluations"`
-		AllowedCount      int            `json:"allowed_count" yaml:"allowed_count"`
-		DeniedCount       int            `json:"denied_count" yaml:"denied_count"`
-		AllowRate         float64        `json:"allow_rate" yaml:"allow_rate"`
-		DenyRate          float64        `json:"deny_rate" yaml:"deny_rate"`
-		TotalViolations   int            `json:"total_violations" yaml:"total_violations"`
-		PolicyEvaluations map[string]int `json:"policy_evaluations" yaml:"policy_evaluations"`
-	}{
-		Period:            fmt.Sprintf("Last %d days", statsDays),
-		TotalEvaluations:  totalEvaluations,
-		AllowedCount:      allowedCount,
-		DeniedCount:       deniedCount,
-		TotalViolations:   totalViolations,
-		PolicyEvaluations: policyEvaluations,
+	allowRate := float64(0)
+	denyRate := float64(0)
+	if report.TotalEvaluations > 0 {
+		allowRate = float64(report.CompliantEvaluations) / float64(report.TotalEvaluations) * 100
+		denyRate = float64(report.NonCompliantEvaluations) / float64(report.TotalEvaluations) * 100
 	}
 
-	if totalEvaluations > 0 {
-		stats.AllowRate = float64(allowedCount) / float64(totalEvaluations) * 100
-		stats.DenyRate = float64(deniedCount) / float64(totalEvaluations) * 100
+	stats := struct {
+		Period            string                       `json:"period" yaml:"period"`
+		TotalEvaluations  int64                        `json:"total_evaluations" yaml:"total_evaluations"`
+		AllowedCount      int64                        `json:"allowed_count" yaml:"allowed_count"`
+		DeniedCount       int64                        `json:"denied_count" yaml:"denied_count"`
+		AllowRate         float64                      `json:"allow_rate" yaml:"allow_rate"`
+		DenyRate          float64                      `json:"deny_rate" yaml:"deny_rate"`
+		ComplianceRate    float64                      `json:"compliance_rate" yaml:"compliance_rate"`
+		PolicyStats       []policyclient.ComplianceStats `json:"policy_stats,omitempty" yaml:"policy_stats,omitempty"`
+	}{
+		Period:           fmt.Sprintf("Last %d days", statsDays),
+		TotalEvaluations: report.TotalEvaluations,
+		AllowedCount:     report.CompliantEvaluations,
+		DeniedCount:      report.NonCompliantEvaluations,
+		AllowRate:        allowRate,
+		DenyRate:         denyRate,
+		ComplianceRate:   report.ComplianceRate,
+		PolicyStats:      report.PolicyStats,
 	}
 
 	switch format {
@@ -590,29 +580,28 @@ func runStats(cmd *cobra.Command, args []string) error {
 		fmt.Printf("=== Audit Statistics (Last %d days) ===\n\n", statsDays)
 
 		fmt.Println("Evaluation Summary:")
-		fmt.Printf("  Total Evaluations: %d\n", totalEvaluations)
-		fmt.Printf("  Allowed:           %d (%.1f%%)\n", allowedCount, stats.AllowRate)
-		fmt.Printf("  Denied:            %d (%.1f%%)\n", deniedCount, stats.DenyRate)
-		fmt.Printf("  Total Violations:  %d\n", totalViolations)
+		fmt.Printf("  Total Evaluations: %d\n", stats.TotalEvaluations)
+		fmt.Printf("  Compliant:         %d (%.1f%%)\n", stats.AllowedCount, stats.AllowRate)
+		fmt.Printf("  Non-Compliant:     %d (%.1f%%)\n", stats.DeniedCount, stats.DenyRate)
+		fmt.Printf("  Compliance Rate:   %.1f%%\n", stats.ComplianceRate)
 		fmt.Println()
 
-		if len(policyEvaluations) > 0 {
+		if len(report.PolicyStats) > 0 {
 			fmt.Println("Evaluations by Policy:")
 
-			// Sort policies by count
 			type policyCount struct {
 				id    string
-				count int
+				count int64
 			}
-			sorted := make([]policyCount, 0, len(policyEvaluations))
-			for id, count := range policyEvaluations {
-				sorted = append(sorted, policyCount{id, count})
+			sorted := make([]policyCount, 0, len(report.PolicyStats))
+			for i := range report.PolicyStats {
+				s := &report.PolicyStats[i]
+				sorted = append(sorted, policyCount{s.PolicyName, s.TotalEvaluations})
 			}
 			sort.Slice(sorted, func(i, j int) bool {
 				return sorted[i].count > sorted[j].count
 			})
 
-			// Show top 10
 			limit := 10
 			if len(sorted) < limit {
 				limit = len(sorted)
@@ -622,9 +611,8 @@ func runStats(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if totalEvaluations == 0 {
+		if stats.TotalEvaluations == 0 {
 			fmt.Println("\nNote: No audit entries found in the specified period.")
-			fmt.Println("For production statistics, use the control plane API.")
 		}
 
 		return nil
@@ -639,15 +627,12 @@ func runStats(cmd *cobra.Command, args []string) error {
 
 func newSearchCommand() *cobra.Command {
 	var (
-		searchType   string
-		searchStatus string
-		searchAgent  string
+		searchPolicy string
 		searchUser   string
-		searchAPIKey string
+		searchAction string
 		searchSince  string
 		searchOutput string
-		searchHour   string
-		countBy      string
+		searchDenied bool
 		limit        int
 	)
 
@@ -657,138 +642,82 @@ func newSearchCommand() *cobra.Command {
 		Short:   "Search audit log entries",
 		Long: `Search audit log entries with flexible filters.
 
-Supports filtering by event type, status, agent, user, API key, and time range.
+Supports filtering by policy, user, action, and time range.
 Results can be output as JSON for piping to other tools.
 
 The "query" alias is also available: kscore-audit query ...
 
 Examples:
-  # Search for failed auth events
-  kscore-audit search --type "auth.*" --status "failed" --since "7d"
+  # Search for events related to a policy
+  kscore-audit search --policy "security-no-root" --since "7d"
 
-  # Search for agent activity
-  kscore-audit search --type "agent.*" --agent "agent-123" --since "7d"
+  # Search for denied evaluations
+  kscore-audit search --denied --since "24h"
 
-  # Query by API key
-  kscore-audit query --api-key "ops-key" --since "24h"
-
-  # Count events by hour
-  kscore-audit search --type "auth.login" --count-by hour
+  # Search by user
+  kscore-audit search --user "admin"
 
   # Output to file
-  kscore-audit search --type "exec.*" --output /tmp/commands.json
+  kscore-audit search --policy "sec-*" --output /tmp/results.json
 
   # Limit results
-  kscore-audit search --type "auth.login" --limit 10`,
+  kscore-audit search --limit 10`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSearch(cmd, searchType, searchStatus, searchAgent, searchUser, searchAPIKey, searchSince, searchOutput, searchHour, countBy, limit)
+			return runSearch(cmd, searchPolicy, searchUser, searchAction, searchSince, searchOutput, searchDenied, limit)
 		},
 	}
 
-	cmd.Flags().StringVar(&searchType, "type", "", "Event type pattern (e.g., 'auth.*', 'exec.*', 'agent.*')")
-	cmd.Flags().StringVar(&searchStatus, "status", "", "Filter by status (e.g., 'failed', 'success')")
-	cmd.Flags().StringVar(&searchAgent, "agent", "", "Filter by agent ID")
+	cmd.Flags().StringVar(&searchPolicy, "policy", "", "Filter by policy ID")
 	cmd.Flags().StringVar(&searchUser, "user", "", "Filter by username")
-	cmd.Flags().StringVar(&searchAPIKey, "api-key", "", "Filter by API key name")
+	cmd.Flags().StringVar(&searchAction, "action", "", "Filter by action")
 	cmd.Flags().StringVar(&searchSince, "since", "", "Show entries since duration (e.g., '7d', '24h')")
 	cmd.Flags().StringVar(&searchOutput, "output", "", "Output file path (default: stdout)")
-	cmd.Flags().StringVar(&searchHour, "hour", "", "Filter by hour range (e.g., '0-6' for midnight to 6am)")
-	cmd.Flags().StringVar(&countBy, "count-by", "", "Count results by interval (hour, day)")
+	cmd.Flags().BoolVar(&searchDenied, "denied", false, "Show only denied evaluations")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum entries to return (0 for unlimited)")
 
 	return cmd
 }
 
-// SearchResult represents a single audit search result
-type SearchResult struct {
-	Timestamp string `json:"timestamp"`
-	Type      string `json:"type"`
-	Status    string `json:"status"`
-	Agent     string `json:"agent,omitempty"`
-	User      string `json:"user,omitempty"`
-	APIKey    string `json:"api_key,omitempty"`
-	IP        string `json:"ip,omitempty"`
-	Command   string `json:"command,omitempty"`
-	Details   string `json:"details,omitempty"`
-}
+func runSearch(cmd *cobra.Command, policyFilter, user, action, since, outputFile string, denied bool, limit int) error {
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
 
-func runSearch(cmd *cobra.Command, eventType, status, agent, user, apiKey, since, outputFile, hour, countBy string, limit int) error {
-	results := generateSampleSearchResults(eventType, status, agent, since)
-
-	if user != "" {
-		filtered := make([]SearchResult, 0)
-		for i := range results {
-			if results[i].User == user {
-				filtered = append(filtered, results[i])
-			}
-		}
-		results = filtered
+	opts := policyclient.AuditLogOptions{
+		PolicyID: policyFilter,
+		User:     user,
+		Action:   action,
 	}
 
-	if apiKey != "" {
-		filtered := make([]SearchResult, 0)
-		for i := range results {
-			if results[i].APIKey == apiKey {
-				filtered = append(filtered, results[i])
-			}
-		}
-		results = filtered
+	if denied {
+		d := false
+		opts.Allowed = &d
 	}
 
-	if limit > 0 && limit < len(results) {
-		results = results[:limit]
+	if limit > 0 {
+		opts.PageSize = int32(limit) //nolint:gosec // G115: limit is small
 	}
 
-	if countBy != "" {
-		counts := make(map[string]int)
-		for i := range results {
-			ts, err := time.Parse(time.RFC3339, results[i].Timestamp)
-			if err != nil {
-				continue
-			}
-			var key string
-			switch countBy {
-			case "hour":
-				key = ts.Format("2006-01-02 15:00")
-			case "day":
-				key = ts.Format("2006-01-02")
-			default:
-				key = ts.Format("2006-01-02")
-			}
-			counts[key]++
+	if since != "" {
+		d, parseErr := parseDuration(since)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --since value: %w", parseErr)
 		}
+		opts.StartTime = time.Now().Add(-d)
+	}
 
-		// Sort keys and print
-		keys := make([]string, 0, len(counts))
-		for k := range counts {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		var out = os.Stdout
-		if outputFile != "" {
-			f, err := os.Create(outputFile)
-			if err != nil {
-				return fmt.Errorf("failed to create output file: %w", err)
-			}
-			defer f.Close()
-			out = f
-		}
-
-		for _, k := range keys {
-			fmt.Fprintf(out, "%s\t%d\n", k, counts[k])
-		}
-		if outputFile != "" {
-			fmt.Fprintf(os.Stderr, "Count results written to %s\n", outputFile)
-		}
-		return nil
+	result, err := client.GetAuditLog(context.Background(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to search audit log: %w", err)
 	}
 
 	var out = os.Stdout
 	if outputFile != "" {
-		f, err := os.Create(outputFile)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
+		f, createErr := os.Create(outputFile)
+		if createErr != nil {
+			return fmt.Errorf("failed to create output file: %w", createErr)
 		}
 		defer f.Close()
 		out = f
@@ -801,27 +730,30 @@ func runSearch(cmd *cobra.Command, eventType, status, agent, user, apiKey, since
 
 	switch format {
 	case output.FormatJSON:
-		if err := output.WriteJSON(out, results); err != nil {
+		if err := output.WriteJSON(out, result.Entries); err != nil {
 			return err
 		}
 	case output.FormatYAML:
-		if err := output.WriteYAML(out, results); err != nil {
+		if err := output.WriteYAML(out, result.Entries); err != nil {
 			return err
 		}
 	default:
 		tbl := &output.Table{
-			Headers: []string{"TIMESTAMP", "TYPE", "STATUS", "AGENT", "USER", "API_KEY", "DETAILS"},
+			Headers: []string{"TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "USER", "VIOLATIONS"},
 		}
-		for i := range results {
-			r := &results[i]
+		for i := range result.Entries {
+			e := &result.Entries[i]
+			entryResult := "ALLOWED"
+			if !e.Allowed {
+				entryResult = "DENIED"
+			}
 			tbl.Rows = append(tbl.Rows, []string{
-				r.Timestamp,
-				r.Type,
-				r.Status,
-				r.Agent,
-				r.User,
-				r.APIKey,
-				truncate(r.Details, 40),
+				e.Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(e.PolicyID, 25),
+				truncate(e.ResourceType, 15),
+				entryResult,
+				e.User,
+				fmt.Sprintf("%d", len(e.Violations)),
 			})
 		}
 		if err := output.WriteTable(out, tbl); err != nil {
@@ -830,55 +762,9 @@ func runSearch(cmd *cobra.Command, eventType, status, agent, user, apiKey, since
 	}
 
 	if outputFile != "" {
-		fmt.Fprintf(os.Stderr, "Exported %d audit entries to %s\n", len(results), outputFile)
+		fmt.Fprintf(os.Stderr, "Exported %d entries to %s\n", len(result.Entries), outputFile)
 	}
 	return nil
-}
-
-func generateSampleSearchResults(eventType, status, agent, since string) []SearchResult {
-	results := []SearchResult{
-		{Timestamp: time.Now().Add(-1 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "success", User: "admin", APIKey: "admin-key", IP: "10.0.1.5", Details: "Login from admin console"},
-		{Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "failed", User: "admin", APIKey: "admin-key", IP: "192.168.1.100", Details: "Invalid credentials"},
-		{Timestamp: time.Now().Add(-3 * time.Hour).Format(time.RFC3339), Type: "exec.command", Status: "success", Agent: "web-001", User: "ops", APIKey: "ops-key", Command: "systemctl restart nginx", Details: "Remote execution"},
-		{Timestamp: time.Now().Add(-4 * time.Hour).Format(time.RFC3339), Type: "agent.register", Status: "success", Agent: "db-002", Details: "New agent registered"},
-		{Timestamp: time.Now().Add(-5 * time.Hour).Format(time.RFC3339), Type: "secret.read", Status: "success", User: "deploy-bot", APIKey: "deploy-key", Details: "Read vault/secret/database/prod"},
-		{Timestamp: time.Now().Add(-6 * time.Hour).Format(time.RFC3339), Type: "policy.evaluate", Status: "denied", Agent: "web-001", Details: "security-no-root policy violation"},
-		{Timestamp: time.Now().Add(-8 * time.Hour).Format(time.RFC3339), Type: "auth.login", Status: "failed", User: "unknown", IP: "203.0.113.50", Details: "Unknown user attempt"},
-		{Timestamp: time.Now().Add(-12 * time.Hour).Format(time.RFC3339), Type: "agent.delete", Status: "success", Agent: "old-001", User: "admin", APIKey: "admin-key", Details: "Agent decommissioned"},
-	}
-
-	if eventType != "" {
-		pattern := strings.TrimSuffix(eventType, ".*")
-		filtered := make([]SearchResult, 0)
-		for i := range results {
-			if strings.HasPrefix(results[i].Type, pattern) {
-				filtered = append(filtered, results[i])
-			}
-		}
-		results = filtered
-	}
-
-	if status != "" {
-		filtered := make([]SearchResult, 0)
-		for i := range results {
-			if results[i].Status == status {
-				filtered = append(filtered, results[i])
-			}
-		}
-		results = filtered
-	}
-
-	if agent != "" {
-		filtered := make([]SearchResult, 0)
-		for i := range results {
-			if results[i].Agent == agent {
-				filtered = append(filtered, results[i])
-			}
-		}
-		results = filtered
-	}
-
-	return results
 }
 
 // ============================================================================
@@ -887,9 +773,9 @@ func generateSampleSearchResults(eventType, status, agent, since string) []Searc
 
 func newAnalyzeCommand() *cobra.Command {
 	var (
-		inputGlob    string
-		baseline     string
-		analyzeOut   string
+		inputGlob  string
+		baseline   string
+		analyzeOut string
 	)
 
 	cmd := &cobra.Command{
@@ -910,7 +796,7 @@ Examples:
   # Output anomalies to file
   kscore-audit analyze --input "/tmp/*.json" --baseline "30d" --output anomalies.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAnalyze(cmd, inputGlob, baseline, analyzeOut)
+			return fmt.Errorf("audit analysis requires server-side analytics not yet available")
 		},
 	}
 
@@ -919,98 +805,6 @@ Examples:
 	cmd.Flags().StringVar(&analyzeOut, "output", "", "Output file for analysis results")
 
 	return cmd
-}
-
-// AnalysisResult represents anomaly detection results
-type AnalysisResult struct {
-	Timestamp  string         `json:"timestamp"`
-	Baseline   string         `json:"baseline_period"`
-	InputFiles string         `json:"input_files"`
-	Anomalies  []AnomalyEntry `json:"anomalies"`
-	Summary    AnalysisSummary `json:"summary"`
-}
-
-// AnomalyEntry represents a detected anomaly
-type AnomalyEntry struct {
-	Type     string  `json:"type"`
-	Severity string  `json:"severity"`
-	Score    float64 `json:"score"`
-	Message  string  `json:"message"`
-}
-
-// AnalysisSummary provides analysis totals
-type AnalysisSummary struct {
-	TotalEvents int `json:"total_events"`
-	Anomalies   int `json:"anomalies_detected"`
-	Critical    int `json:"critical"`
-	High        int `json:"high"`
-	Medium      int `json:"medium"`
-	Low         int `json:"low"`
-}
-
-func runAnalyze(cmd *cobra.Command, inputGlob, baseline, analyzeOut string) error {
-	result := AnalysisResult{
-		Timestamp:  time.Now().Format(time.RFC3339),
-		Baseline:   baseline,
-		InputFiles: inputGlob,
-		Anomalies: []AnomalyEntry{
-			{Type: "auth.brute_force", Severity: "high", Score: 0.92, Message: "Multiple failed login attempts from 203.0.113.50 (7 failures in 1 hour)"},
-			{Type: "auth.impossible_travel", Severity: "medium", Score: 0.78, Message: "User 'admin' logged in from two locations 500km apart within 5 minutes"},
-			{Type: "exec.unusual_command", Severity: "low", Score: 0.65, Message: "Command 'curl' executed on web-001, not seen in baseline period"},
-		},
-		Summary: AnalysisSummary{
-			TotalEvents: 1247,
-			Anomalies:   3,
-			Critical:    0,
-			High:        1,
-			Medium:      1,
-			Low:         1,
-		},
-	}
-
-	var out = os.Stdout
-	if analyzeOut != "" {
-		f, err := os.Create(analyzeOut)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer f.Close()
-		out = f
-	}
-
-	format, err := output.ParseFormat(outputFormat)
-	if err != nil {
-		return err
-	}
-
-	switch format {
-	case output.FormatJSON:
-		if err := output.WriteJSON(out, result); err != nil {
-			return err
-		}
-	case output.FormatYAML:
-		if err := output.WriteYAML(out, result); err != nil {
-			return err
-		}
-	default:
-		fmt.Fprintln(out, "Audit Analysis Report")
-		fmt.Fprintln(out, "=====================")
-		fmt.Fprintf(out, "Baseline:     %s\n", baseline)
-		fmt.Fprintf(out, "Total Events: %d\n", result.Summary.TotalEvents)
-		fmt.Fprintf(out, "Anomalies:    %d\n", result.Summary.Anomalies)
-		fmt.Fprintln(out)
-
-		for i := range result.Anomalies {
-			a := &result.Anomalies[i]
-			fmt.Fprintf(out, "  [%s] %s (score: %.2f)\n", strings.ToUpper(a.Severity), a.Type, a.Score)
-			fmt.Fprintf(out, "    %s\n", a.Message)
-		}
-	}
-
-	if analyzeOut != "" {
-		fmt.Fprintf(os.Stderr, "Analysis results written to %s\n", analyzeOut)
-	}
-	return nil
 }
 
 // ============================================================================
@@ -1052,30 +846,39 @@ Examples:
 	return cmd
 }
 
-// TimelineEntry represents a single timeline event
-type TimelineEntry struct {
-	Timestamp string `json:"timestamp"`
-	Type      string `json:"type"`
-	Severity  string `json:"severity"`
-	Actor     string `json:"actor"`
-	Summary   string `json:"summary"`
-}
-
 func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
-	entries := []TimelineEntry{
-		{Timestamp: time.Now().Add(-6 * time.Hour).Format(time.RFC3339), Type: "auth.login", Severity: "info", Actor: "admin", Summary: "Admin login from 10.0.1.5"},
-		{Timestamp: time.Now().Add(-5 * time.Hour).Format(time.RFC3339), Type: "auth.login", Severity: "warning", Actor: "unknown", Summary: "Failed login attempt from 203.0.113.50"},
-		{Timestamp: time.Now().Add(-4 * time.Hour).Format(time.RFC3339), Type: "agent.quarantine", Severity: "high", Actor: "admin", Summary: "Agent web-001 quarantined"},
-		{Timestamp: time.Now().Add(-3 * time.Hour).Format(time.RFC3339), Type: "auth.revoke-all", Severity: "critical", Actor: "admin", Summary: "All API keys revoked"},
-		{Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339), Type: "credential.rotate", Severity: "high", Actor: "system", Summary: "NATS credentials rotated"},
-		{Timestamp: time.Now().Add(-1 * time.Hour).Format(time.RFC3339), Type: "agent.verify", Severity: "info", Actor: "admin", Summary: "All agents verified OK"},
+	client, err := createPolicyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	opts := policyclient.AuditLogOptions{}
+	if from != "" {
+		t, parseErr := time.Parse(time.RFC3339, from)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --from time (use RFC3339): %w", parseErr)
+		}
+		opts.StartTime = t
+	}
+	if to != "" {
+		t, parseErr := time.Parse(time.RFC3339, to)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --to time (use RFC3339): %w", parseErr)
+		}
+		opts.EndTime = t
+	}
+
+	result, err := client.GetAuditLog(context.Background(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to get audit log: %w", err)
 	}
 
 	var out = os.Stdout
 	if timelineOut != "" {
-		f, err := os.Create(timelineOut)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
+		f, createErr := os.Create(timelineOut)
+		if createErr != nil {
+			return fmt.Errorf("failed to create output file: %w", createErr)
 		}
 		defer f.Close()
 		out = f
@@ -1095,11 +898,15 @@ func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
 			fmt.Fprintf(out, "<p>From: %s To: %s</p>\n", from, to)
 		}
 		fmt.Fprintln(out, "<table border='1' cellpadding='4'>")
-		fmt.Fprintln(out, "<tr><th>Time</th><th>Type</th><th>Severity</th><th>Actor</th><th>Summary</th></tr>")
-		for i := range entries {
-			e := &entries[i]
+		fmt.Fprintln(out, "<tr><th>Time</th><th>Policy</th><th>Resource</th><th>Result</th><th>User</th></tr>")
+		for i := range result.Entries {
+			e := &result.Entries[i]
+			entryResult := "ALLOWED"
+			if !e.Allowed {
+				entryResult = "DENIED"
+			}
 			fmt.Fprintf(out, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-				e.Timestamp, e.Type, e.Severity, e.Actor, e.Summary)
+				e.Timestamp.Format(time.RFC3339), e.PolicyID, e.ResourceType, entryResult, e.User)
 		}
 		fmt.Fprintln(out, "</table></body></html>")
 		fmt.Fprintf(os.Stderr, "Timeline written to %s\n", timelineOut)
@@ -1108,9 +915,9 @@ func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
 
 	switch format {
 	case output.FormatJSON:
-		return output.WriteJSON(out, entries)
+		return output.WriteJSON(out, result.Entries)
 	case output.FormatYAML:
-		return output.WriteYAML(out, entries)
+		return output.WriteYAML(out, result.Entries)
 	default:
 		fmt.Fprintln(out, "Incident Timeline")
 		fmt.Fprintln(out, "=================")
@@ -1119,12 +926,15 @@ func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
 		}
 		fmt.Fprintln(out)
 
-		for i := range entries {
-			e := &entries[i]
-			severity := strings.ToUpper(e.Severity)
-			fmt.Fprintf(out, "  %s  [%s] %s\n", e.Timestamp, severity, e.Type)
-			fmt.Fprintf(out, "    Actor: %s\n", e.Actor)
-			fmt.Fprintf(out, "    %s\n\n", e.Summary)
+		for i := range result.Entries {
+			e := &result.Entries[i]
+			entryResult := "ALLOWED"
+			if !e.Allowed {
+				entryResult = "DENIED"
+			}
+			fmt.Fprintf(out, "  %s  [%s] %s\n", e.Timestamp.Format(time.RFC3339), entryResult, e.PolicyID)
+			fmt.Fprintf(out, "    User: %s\n", e.User)
+			fmt.Fprintf(out, "    Resource: %s\n\n", e.ResourceType)
 		}
 	}
 
@@ -1140,11 +950,11 @@ func runTimeline(cmd *cobra.Command, from, to, timelineOut string) error {
 
 func newWatchCommand() *cobra.Command {
 	var (
-		watchType    string
-		watchStatus  string
-		watchAgent   string
-		watchUser    string
-		watchAPIKey  string
+		watchType     string
+		watchStatus   string
+		watchAgent    string
+		watchUser     string
+		watchAPIKey   string
 		watchInterval time.Duration
 	)
 
@@ -1178,7 +988,7 @@ Examples:
   # Output as NDJSON
   kscore-audit watch --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWatch(cmd, watchType, watchStatus, watchAgent, watchUser, watchAPIKey, watchInterval)
+			return fmt.Errorf("real-time audit log streaming requires a streaming RPC not yet available")
 		},
 	}
 
@@ -1192,101 +1002,6 @@ Examples:
 	return cmd
 }
 
-// sampleWatchEvents returns a pool of sample events for the watch stream.
-func sampleWatchEvents() []SearchResult {
-	return []SearchResult{
-		{Type: "auth.login", Status: "success", User: "admin", APIKey: "admin-key", IP: "10.0.1.5", Details: "Login from admin console"},
-		{Type: "auth.login", Status: "failed", User: "unknown", IP: "203.0.113.50", Details: "Invalid credentials"},
-		{Type: "exec.command", Status: "success", Agent: "web-001", User: "ops", APIKey: "ops-key", Details: "systemctl restart nginx"},
-		{Type: "agent.heartbeat", Status: "success", Agent: "db-002", Details: "Heartbeat received"},
-		{Type: "secret.read", Status: "success", User: "deploy-bot", APIKey: "deploy-key", Details: "Read vault/secret/database/prod"},
-		{Type: "policy.evaluate", Status: "denied", Agent: "web-001", Details: "security-no-root policy violation"},
-		{Type: "auth.logout", Status: "success", User: "admin", APIKey: "admin-key", Details: "Session ended"},
-		{Type: "agent.register", Status: "success", Agent: "edge-005", Details: "New agent registered"},
-		{Type: "exec.command", Status: "failed", Agent: "db-002", User: "ops", APIKey: "ops-key", Details: "Permission denied: drop database"},
-		{Type: "auth.token_refresh", Status: "success", User: "service-account", APIKey: "svc-key", Details: "Token refreshed"},
-	}
-}
-
-// filterWatchEvent returns true if the event matches all provided filters.
-func filterWatchEvent(e *SearchResult, eventType, status, agent, user, apiKey string) bool {
-	if eventType != "" {
-		pattern := strings.TrimSuffix(eventType, ".*")
-		if !strings.HasPrefix(e.Type, pattern) {
-			return false
-		}
-	}
-	if status != "" && e.Status != status {
-		return false
-	}
-	if agent != "" && e.Agent != agent {
-		return false
-	}
-	if user != "" && e.User != user {
-		return false
-	}
-	if apiKey != "" && e.APIKey != apiKey {
-		return false
-	}
-	return true
-}
-
-func runWatch(cmd *cobra.Command, eventType, status, agent, user, apiKey string, interval time.Duration) error {
-	ctx := cmd.Context()
-	out := cmd.OutOrStdout()
-	pool := sampleWatchEvents()
-
-	format, err := output.ParseFormat(outputFormat)
-	if err != nil {
-		return err
-	}
-
-	if format == output.FormatTable || format == output.FormatText {
-		fmt.Fprintf(out, "%-24s %-20s %-10s %-12s %-12s %s\n",
-			"TIMESTAMP", "TYPE", "STATUS", "AGENT", "USER", "DETAILS")
-		fmt.Fprintln(out, strings.Repeat("-", 100))
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	idx := 0
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			event := pool[idx%len(pool)]
-			event.Timestamp = time.Now().Format(time.RFC3339)
-			idx++
-
-			if !filterWatchEvent(&event, eventType, status, agent, user, apiKey) {
-				continue
-			}
-
-			switch format {
-			case output.FormatJSON:
-				if err := output.WriteJSON(out, event); err != nil {
-					return err
-				}
-			case output.FormatYAML:
-				if err := output.WriteYAML(out, event); err != nil {
-					return err
-				}
-			default:
-				fmt.Fprintf(out, "%-24s %-20s %-10s %-12s %-12s %s\n",
-					event.Timestamp,
-					event.Type,
-					event.Status,
-					event.Agent,
-					event.User,
-					truncate(event.Details, 40),
-				)
-			}
-		}
-	}
-}
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -1296,6 +1011,18 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func parseDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		s = strings.TrimSuffix(s, "d")
+		var days int
+		if _, err := fmt.Sscanf(s, "%d", &days); err != nil {
+			return 0, fmt.Errorf("invalid duration: %s", s)
+		}
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
 }
 
 func buildKeyValueTable(pairs [][2]string) *output.Table {
@@ -1313,16 +1040,16 @@ func buildKeyValueTable(pairs [][2]string) *output.Table {
 	}
 }
 
-func buildSeverityTable(severityCounts map[policy.Severity]int) *output.Table {
+func buildSeverityTable(severityCounts map[string]int64) *output.Table {
 	keys := make([]string, 0, len(severityCounts))
 	for severity := range severityCounts {
-		keys = append(keys, string(severity))
+		keys = append(keys, severity)
 	}
 	sort.Strings(keys)
 
 	rows := make([][]string, 0, len(keys))
 	for _, key := range keys {
-		rows = append(rows, []string{key, fmt.Sprintf("%d", severityCounts[policy.Severity(key)])})
+		rows = append(rows, []string{key, fmt.Sprintf("%d", severityCounts[key])})
 	}
 
 	return &output.Table{
@@ -1331,12 +1058,13 @@ func buildSeverityTable(severityCounts map[policy.Severity]int) *output.Table {
 	}
 }
 
-func buildTopViolationsTable(violations []policy.ViolationSummary) *output.Table {
+func buildTopViolationsTable(violations []policyclient.ViolationSummary) *output.Table {
 	rows := make([][]string, 0, len(violations))
-	for _, v := range violations {
+	for i := range violations {
+		v := &violations[i]
 		rows = append(rows, []string{
 			v.PolicyName,
-			string(v.Severity),
+			v.Severity,
 			fmt.Sprintf("%d", v.Count),
 		})
 	}

@@ -370,6 +370,7 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	// SecretsService — wire with real broker when secrets is enabled
 	var secretsBroker *secrets.SecretBroker
+	var secretsAuditLogger *secrets.InMemorySecretAuditLogger
 	if cfg.Secrets.Enabled {
 		secretsCfg := &secrets.Config{
 			DefaultBackend: cfg.Secrets.DefaultBackend,
@@ -387,6 +388,8 @@ func runServer(cmd *cobra.Command, args []string) {
 			logger.Error("Failed to create secrets broker", logging.Error(brokerErr))
 		} else {
 			secretsBroker = broker
+			secretsAuditLogger = secrets.NewInMemorySecretAuditLogger(nil)
+			secretsBroker.SetAuditLogger(secretsAuditLogger)
 		}
 	}
 	secretsServer := server.NewSecretsServer(secretsBroker, nil, nil)
@@ -556,7 +559,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiapikeys.NewHandler(apiapikeys.NewMemoryStore()).RegisterRoutes(httpMux)
 	apiconfig.NewHandler(cfg).RegisterRoutes(httpMux)
 	apirbac.NewHandler().RegisterRoutes(httpMux)
-	apisecrets.NewHandler(nil, nil, nil, nil, nil).RegisterRoutes(httpMux)
+	apisecrets.NewHandler(secretsBroker, nil, nil, nil, secretsAuditLogger).RegisterRoutes(httpMux)
 	// Cluster handler: reuses shared cluster infrastructure created above
 	if clusterMembership != nil {
 		apicluster.NewHandler(clusterMembership, clusterLeader, nil, clusterHealth, clusterCfg).RegisterRoutes(httpMux)

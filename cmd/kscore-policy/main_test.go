@@ -295,88 +295,21 @@ func TestEvalCommandFlags(t *testing.T) {
 		t.Errorf("expected Short to contain 'Evaluate', got %s", evalCmd.Short)
 	}
 
-	dryRunFlag := evalCmd.Flags().Lookup("dry-run")
-	if dryRunFlag == nil {
-		t.Fatal("expected --dry-run flag on eval command")
-	}
-	if dryRunFlag.DefValue != "false" {
-		t.Errorf("expected dry-run default to be 'false', got %s", dryRunFlag.DefValue)
-	}
-
-	verboseFlag := evalCmd.Flags().Lookup("verbose")
-	if verboseFlag == nil {
-		t.Fatal("expected --verbose flag on eval command")
-	}
-	if verboseFlag.DefValue != "false" {
-		t.Errorf("expected verbose default to be 'false', got %s", verboseFlag.DefValue)
+	flags := []string{"resource", "action", "user", "output"}
+	for _, flag := range flags {
+		if evalCmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag on eval command", flag)
+		}
 	}
 
-	// Should require exactly 2 arguments
+	outputFlag := evalCmd.Flags().Lookup("output")
+	if outputFlag != nil && outputFlag.DefValue != "text" {
+		t.Errorf("expected output default to be 'text', got %s", outputFlag.DefValue)
+	}
+
+	// Should require exactly 1 argument
 	if evalCmd.Args == nil {
 		t.Error("expected eval command to have Args validation")
-	}
-}
-
-func TestEvalCommandExecution(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"eval", "security-baseline", "k8s:production"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("eval command failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Evaluating policy") {
-		t.Errorf("expected output to contain 'Evaluating policy', got: %s", out)
-	}
-	if !strings.Contains(out, "RULE") && !strings.Contains(out, "RESULT") {
-		t.Errorf("expected output to contain table headers, got: %s", out)
-	}
-	if !strings.Contains(out, "PASS") {
-		t.Errorf("expected output to contain PASS result, got: %s", out)
-	}
-}
-
-func TestEvalCommandDryRun(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"eval", "security-baseline", "k8s:production", "--dry-run"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("eval --dry-run command failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "[dry-run]") {
-		t.Errorf("expected output to contain '[dry-run]', got: %s", out)
-	}
-}
-
-func TestEvalCommandVerbose(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"eval", "security-baseline", "k8s:production", "--verbose"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("eval --verbose command failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Target:") {
-		t.Errorf("expected verbose output to contain 'Target:', got: %s", out)
-	}
-	if !strings.Contains(out, "Policy:") {
-		t.Errorf("expected verbose output to contain 'Policy:', got: %s", out)
 	}
 }
 
@@ -385,11 +318,11 @@ func TestEvalCommandMissingArgs(t *testing.T) {
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"eval", "only-one-arg"})
+	cmd.SetArgs([]string{"eval"})
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Fatal("expected error for eval with only one arg")
+		t.Fatal("expected error for eval with no args")
 	}
 }
 
@@ -518,7 +451,7 @@ func TestScheduleCreateFlags(t *testing.T) {
 	}
 }
 
-func TestScheduleCreateExecution(t *testing.T) {
+func TestScheduleCreateNotAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -526,46 +459,15 @@ func TestScheduleCreateExecution(t *testing.T) {
 	cmd.SetArgs([]string{"schedule", "create", "--policy", "security-baseline", "--cron", "*/5 * * * *", "--target", "k8s:production"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("schedule create command failed: %v", err)
+	if err == nil {
+		t.Fatal("expected error for schedule create")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Schedule created successfully") {
-		t.Errorf("expected output to contain 'Schedule created successfully', got: %s", out)
-	}
-	if !strings.Contains(out, "security-baseline") {
-		t.Errorf("expected output to contain policy name, got: %s", out)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
-func TestScheduleCreateMissingFlags(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-	}{
-		{"missing policy", []string{"schedule", "create", "--cron", "* * * * *", "--target", "all"}},
-		{"missing cron", []string{"schedule", "create", "--policy", "test", "--target", "all"}},
-		{"missing target", []string{"schedule", "create", "--policy", "test", "--cron", "* * * * *"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := newRootCmd()
-			buf := new(bytes.Buffer)
-			cmd.SetOut(buf)
-			cmd.SetErr(buf)
-			cmd.SetArgs(tt.args)
-
-			err := cmd.Execute()
-			if err == nil {
-				t.Fatalf("expected error for %s", tt.name)
-			}
-		})
-	}
-}
-
-func TestScheduleListExecution(t *testing.T) {
+func TestScheduleListNotAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -573,23 +475,15 @@ func TestScheduleListExecution(t *testing.T) {
 	cmd.SetArgs([]string{"schedule", "list"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("schedule list command failed: %v", err)
+	if err == nil {
+		t.Fatal("expected error for schedule list")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "ID") {
-		t.Errorf("expected output to contain header 'ID', got: %s", out)
-	}
-	if !strings.Contains(out, "POLICY") {
-		t.Errorf("expected output to contain header 'POLICY', got: %s", out)
-	}
-	if !strings.Contains(out, "sched-001") {
-		t.Errorf("expected output to contain sample schedule, got: %s", out)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
-func TestScheduleDeleteExecution(t *testing.T) {
+func TestScheduleDeleteNotAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -597,16 +491,11 @@ func TestScheduleDeleteExecution(t *testing.T) {
 	cmd.SetArgs([]string{"schedule", "delete", "sched-001"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("schedule delete command failed: %v", err)
+	if err == nil {
+		t.Fatal("expected error for schedule delete")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "sched-001") {
-		t.Errorf("expected output to contain schedule ID, got: %s", out)
-	}
-	if !strings.Contains(out, "deleted successfully") {
-		t.Errorf("expected output to contain 'deleted successfully', got: %s", out)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
@@ -661,7 +550,7 @@ func TestRemediateCommandFlags(t *testing.T) {
 	}
 }
 
-func TestRemediateCommandExecution(t *testing.T) {
+func TestRemediateCommandNotAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -669,55 +558,11 @@ func TestRemediateCommandExecution(t *testing.T) {
 	cmd.SetArgs([]string{"remediate", "secure-file-permissions"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("remediate command failed: %v", err)
+	if err == nil {
+		t.Fatal("expected error for remediate command")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Scanning for violations") {
-		t.Errorf("expected output to contain 'Scanning for violations', got: %s", out)
-	}
-	if !strings.Contains(out, "remediation(s) applied") {
-		t.Errorf("expected output to contain 'remediation(s) applied', got: %s", out)
-	}
-}
-
-func TestRemediateCommandDryRun(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"remediate", "secure-file-permissions", "--dry-run"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("remediate --dry-run command failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "[dry-run]") {
-		t.Errorf("expected output to contain '[dry-run]', got: %s", out)
-	}
-	if !strings.Contains(out, "would be applied") {
-		t.Errorf("expected output to contain 'would be applied', got: %s", out)
-	}
-}
-
-func TestRemediateCommandWithTarget(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"remediate", "secure-file-permissions", "--target", "k8s:production"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("remediate with target command failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Target: k8s:production") {
-		t.Errorf("expected output to contain 'Target: k8s:production', got: %s", out)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
@@ -756,7 +601,7 @@ func TestMonitorCommandFlags(t *testing.T) {
 	}
 }
 
-func TestMonitorCommandExecution(t *testing.T) {
+func TestMonitorCommandNotAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -764,55 +609,11 @@ func TestMonitorCommandExecution(t *testing.T) {
 	cmd.SetArgs([]string{"monitor"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("monitor command failed: %v", err)
+	if err == nil {
+		t.Fatal("expected error for monitor command")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Policy Monitor") {
-		t.Errorf("expected output to contain 'Policy Monitor', got: %s", out)
-	}
-	if !strings.Contains(out, "TIMESTAMP") {
-		t.Errorf("expected output to contain 'TIMESTAMP' header, got: %s", out)
-	}
-	if !strings.Contains(out, "Events:") {
-		t.Errorf("expected output to contain 'Events:' summary, got: %s", out)
-	}
-}
-
-func TestMonitorCommandWithPolicies(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"monitor", "--policy", "security-baseline", "--policy", "cis-benchmark"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("monitor command with policies failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "security-baseline, cis-benchmark") {
-		t.Errorf("expected output to contain policy names, got: %s", out)
-	}
-}
-
-func TestMonitorCommandWithTarget(t *testing.T) {
-	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"monitor", "--target", "k8s:namespace=production"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("monitor command with target failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "k8s:namespace=production") {
-		t.Errorf("expected output to contain target, got: %s", out)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 

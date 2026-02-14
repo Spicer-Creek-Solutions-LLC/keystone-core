@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/internal/secrets"
+	apisecrets "github.com/shawnbutts/keystone-core/pkg/api/secrets"
 	pkgsecrets "github.com/shawnbutts/keystone-core/pkg/secrets"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
@@ -27,6 +27,7 @@ import (
 // Config holds CLI configuration.
 type Config struct {
 	ServerAddr    string
+	RESTAddr      string // REST API address override (for testing)
 	OutputFormat  string
 	Verbose       bool
 	TLS           bool
@@ -100,6 +101,8 @@ Usage via kscorectl:
 	rootCmd.PersistentFlags().BoolVar(&cfg.TLSSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification (INSECURE - for development only)")
 	rootCmd.PersistentFlags().StringVar(&cfg.TLSServerName, "tls-server-name", "", "Server name for TLS verification (defaults to server host)")
 	rootCmd.PersistentFlags().StringVar(&cfg.TLSMinVersion, "tls-min-version", "1.3", "Minimum TLS version (1.2 or 1.3)")
+	rootCmd.PersistentFlags().StringVar(&cfg.RESTAddr, "rest-addr", "", "REST API address override")
+	_ = rootCmd.PersistentFlags().MarkHidden("rest-addr")
 
 	rootCmd.AddCommand(
 		newVersionCmd(),
@@ -213,6 +216,25 @@ func parseTLSMinVersion(value string) (uint16, error) {
 	default:
 		return 0, fmt.Errorf("unsupported TLS minimum version: %s", value)
 	}
+}
+
+// createRESTClient creates a REST client for the secrets REST API endpoints.
+// If RESTAddr is set (e.g. for testing), it's used directly. Otherwise the
+// address is derived from the gRPC server address with port 8443.
+func createRESTClient(cfg *Config) *RESTClient {
+	if cfg.RESTAddr != "" {
+		return NewRESTClient(cfg.RESTAddr)
+	}
+	scheme := "http"
+	host := cfg.ServerAddr
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	host += ":8443"
+	if cfg.TLS {
+		scheme = "https"
+	}
+	return NewRESTClient(scheme + "://" + host)
 }
 
 // =============================================================================
@@ -417,58 +439,42 @@ Examples:
 }
 
 func runBackends(cmd *cobra.Command, cfg *Config) error {
-	backends := generateSampleBackends()
+	client := createRESTClient(cfg)
+	resp, err := client.ListBackends()
+	if err != nil {
+		return fmt.Errorf("failed to list backends: %w", err)
+	}
+
+	if len(resp.Backends) == 0 {
+		fmt.Println("No backends configured")
+		return nil
+	}
 
 	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(backends)
+		return outputJSON(resp.Backends)
 	case "yaml":
-		return outputYAML(backends)
+		return outputYAML(resp.Backends)
 	default:
 		table := &output.Table{
-			Headers: []string{"NAME", "TYPE", "STATUS", "SECRETS"},
+			Headers: []string{"NAME", "TYPE", "HEALTHY"},
 		}
-		for _, b := range backends {
+		for _, b := range resp.Backends {
+			healthy := "yes"
+			if !b.Healthy {
+				healthy = "no"
+			}
 			table.Rows = append(table.Rows, []string{
 				b.Name,
 				b.Type,
-				b.Status,
-				fmt.Sprintf("%d", b.SecretCount),
+				healthy,
 			})
 		}
 		output.WriteTable(os.Stdout, table)
+		fmt.Printf("\nTotal: %d backend(s)\n", resp.Total)
 	}
 
 	return nil
-}
-
-func generateSampleBackends() []*backendDisplay {
-	return []*backendDisplay{
-		{
-			Name:        "vault",
-			Type:        "hashicorp-vault",
-			Status:      "healthy",
-			SecretCount: 142,
-			Address:     "https://vault.example.com:8200",
-			AuthMethod:  "approle",
-		},
-		{
-			Name:        "aws-sm",
-			Type:        "aws-secrets-manager",
-			Status:      "healthy",
-			SecretCount: 56,
-			Address:     "us-west-2",
-			AuthMethod:  "iam-role",
-		},
-		{
-			Name:        "azure-kv",
-			Type:        "azure-key-vault",
-			Status:      "degraded",
-			SecretCount: 23,
-			Address:     "https://myvault.vault.azure.net",
-			AuthMethod:  "managed-identity",
-		},
-	}
 }
 
 // =============================================================================
@@ -504,103 +510,44 @@ Examples:
 }
 
 func runAudit(cmd *cobra.Command, cfg *Config, path string, limit int) error {
-	entries := generateSampleAuditEntries(path, limit)
+	client := createRESTClient(cfg)
+	resp, err := client.ListAuditEntries(AuditListOpts{
+		Path:  path,
+		Limit: limit,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query audit log: %w", err)
+	}
 
-	if len(entries) == 0 {
+	if len(resp.Events) == 0 {
 		fmt.Println("No audit entries found")
 		return nil
 	}
 
 	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(entries)
+		return outputJSON(resp.Events)
 	case "yaml":
-		return outputYAML(entries)
+		return outputYAML(resp.Events)
 	default:
 		table := &output.Table{
-			Headers: []string{"TIMESTAMP", "ACTION", "PRINCIPAL", "SOURCE IP", "VERSION"},
+			Headers: []string{"TIMESTAMP", "ACTION", "AGENT", "SOURCE IP", "SUCCESS"},
 		}
-		for _, e := range entries {
+		for _, e := range resp.Events {
 			table.Rows = append(table.Rows, []string{
-				e.Timestamp,
+				e.Timestamp.Format(time.RFC3339),
 				e.Action,
-				e.Principal,
+				e.AgentID,
 				e.SourceIP,
-				fmt.Sprintf("%d", e.Version),
+				fmt.Sprintf("%v", e.Success),
 			})
 		}
 		output.WriteTable(os.Stdout, table)
 		fmt.Printf("\nPath: %s\n", path)
-		fmt.Printf("Showing %d audit entry(ies)\n", len(entries))
+		fmt.Printf("Showing %d audit entry(ies)\n", len(resp.Events))
 	}
 
 	return nil
-}
-
-func generateSampleAuditEntries(path string, limit int) []*auditEntry {
-	all := []*auditEntry{
-		{
-			Timestamp: time.Now().Add(-10 * time.Minute).Format(time.RFC3339),
-			Path:      path,
-			Action:    "read",
-			Principal: "agent/web-prod-01",
-			SourceIP:  "10.0.1.15",
-			Version:   3,
-		},
-		{
-			Timestamp: time.Now().Add(-35 * time.Minute).Format(time.RFC3339),
-			Path:      path,
-			Action:    "read",
-			Principal: "agent/web-prod-02",
-			SourceIP:  "10.0.1.16",
-			Version:   3,
-		},
-		{
-			Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-			Path:      path,
-			Action:    "rotate",
-			Principal: "system/rotation-scheduler",
-			SourceIP:  "10.0.0.5",
-			Version:   3,
-		},
-		{
-			Timestamp: time.Now().Add(-6 * time.Hour).Format(time.RFC3339),
-			Path:      path,
-			Action:    "read",
-			Principal: "user/admin",
-			SourceIP:  "10.0.0.1",
-			Version:   2,
-		},
-		{
-			Timestamp: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-			Path:      path,
-			Action:    "write",
-			Principal: "user/admin",
-			SourceIP:  "10.0.0.1",
-			Version:   2,
-		},
-		{
-			Timestamp: time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
-			Path:      path,
-			Action:    "read",
-			Principal: "agent/api-prod-01",
-			SourceIP:  "10.0.2.10",
-			Version:   1,
-		},
-		{
-			Timestamp: time.Now().Add(-72 * time.Hour).Format(time.RFC3339),
-			Path:      path,
-			Action:    "write",
-			Principal: "user/ci-pipeline",
-			SourceIP:  "10.0.0.50",
-			Version:   1,
-		},
-	}
-
-	if limit > len(all) {
-		limit = len(all)
-	}
-	return all[:limit]
 }
 
 // =============================================================================
@@ -618,14 +565,14 @@ func newRotateCmd(cfg *Config) *cobra.Command {
 	cmd.AddCommand(
 		newRotateListCmd(cfg),
 		newRotateShowCmd(cfg),
-		newRotateStartCmd(),
+		newRotateStartCmd(cfg),
 		newRotateStatusCmd(cfg),
 		newRotateHistoryCmd(cfg),
-		newRotateTriggerCmd(),
-		newRotateRollbackCmd(),
-		newRotatePauseCmd(),
-		newRotateResumeCmd(),
-		newRotateCancelCmd(),
+		newRotateTriggerCmd(cfg),
+		newRotateRollbackCmd(cfg),
+		newRotatePauseCmd(cfg),
+		newRotateResumeCmd(cfg),
+		newRotateCancelCmd(cfg),
 	)
 
 	return cmd
@@ -671,34 +618,48 @@ Examples:
 }
 
 func runRotateList(cmd *cobra.Command, cfg *Config, opts *RotateListOptions) error {
-	rotations := generateSampleRotations()
-
-	var filtered []*rotationDisplay
-	for _, r := range rotations {
-		if opts.State != "" && string(r.State) != opts.State {
-			continue
-		}
-		if opts.Strategy != "" && string(r.Strategy) != opts.Strategy {
-			continue
-		}
-		filtered = append(filtered, r)
+	client := createRESTClient(cfg)
+	resp, err := client.ListRotations()
+	if err != nil {
+		return fmt.Errorf("failed to list rotations: %w", err)
 	}
 
-	if len(filtered) == 0 {
+	rotations := resp.Rotations
+	if opts.State != "" {
+		var filtered []apisecrets.RotationResponse
+		for i := range rotations {
+			if rotations[i].State == opts.State {
+				filtered = append(filtered, rotations[i])
+			}
+		}
+		rotations = filtered
+	}
+	if opts.Strategy != "" {
+		var filtered []apisecrets.RotationResponse
+		for i := range rotations {
+			if rotations[i].Strategy == opts.Strategy {
+				filtered = append(filtered, rotations[i])
+			}
+		}
+		rotations = filtered
+	}
+
+	if len(rotations) == 0 {
 		fmt.Println("No rotations found")
 		return nil
 	}
 
 	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(filtered)
+		return outputJSON(rotations)
 	case "yaml":
-		return outputYAML(filtered)
+		return outputYAML(rotations)
 	default:
 		table := &output.Table{
 			Headers: []string{"ID", "SECRET PATH", "STRATEGY", "STATE", "PROGRESS", "STARTED"},
 		}
-		for _, r := range filtered {
+		for i := range rotations {
+			r := &rotations[i]
 			progress := fmt.Sprintf("%d/%d", r.UpdatedTargets, r.TotalTargets)
 			if r.TotalTargets > 0 {
 				progress = fmt.Sprintf("%s (%d%%)", progress, r.UpdatedTargets*100/r.TotalTargets)
@@ -706,14 +667,14 @@ func runRotateList(cmd *cobra.Command, cfg *Config, opts *RotateListOptions) err
 			table.Rows = append(table.Rows, []string{
 				truncate(r.ID, 12),
 				truncate(r.SecretPath, 25),
-				string(r.Strategy),
-				string(r.State),
+				r.Strategy,
+				r.State,
 				progress,
-				r.StartedAt,
+				r.StartedAt.Format(time.RFC3339),
 			})
 		}
 		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d rotation(s)\n", len(filtered))
+		fmt.Printf("\nTotal: %d rotation(s)\n", len(rotations))
 	}
 
 	return nil
@@ -731,25 +692,10 @@ func newRotateShowCmd(cfg *Config) *cobra.Command {
 }
 
 func runRotateShow(cmd *cobra.Command, cfg *Config, id string) error {
-	r := &rotationDetail{
-		ID:              id,
-		SecretPath:      "vault/secret/database/prod",
-		Strategy:        secrets.RotationStrategyBlueGreen,
-		State:           secrets.RotationStateInProgress,
-		TotalTargets:    10,
-		UpdatedTargets:  6,
-		FailedTargets:   0,
-		Percentage:      60,
-		StartedAt:       time.Now().Add(-15 * time.Minute).Format(time.RFC3339),
-		BatchSize:       2,
-		BatchDelay:      "30s",
-		HealthCheckType: "http",
-		HealthCheckURL:  "http://app:8080/health",
-		CreatedBy:       "admin",
-		Labels: map[string]string{
-			"env":  "prod",
-			"team": "platform",
-		},
+	client := createRESTClient(cfg)
+	r, err := client.GetRotation(id)
+	if err != nil {
+		return fmt.Errorf("failed to get rotation: %w", err)
 	}
 
 	switch cfg.OutputFormat {
@@ -762,18 +708,15 @@ func runRotateShow(cmd *cobra.Command, cfg *Config, id string) error {
 		fmt.Printf("  Secret Path:      %s\n", r.SecretPath)
 		fmt.Printf("  Strategy:         %s\n", r.Strategy)
 		fmt.Printf("  State:            %s\n", r.State)
-		fmt.Printf("  Progress:         %d/%d targets (%d%%)\n", r.UpdatedTargets, r.TotalTargets, r.Percentage)
+		pct := 0
+		if r.TotalTargets > 0 {
+			pct = r.UpdatedTargets * 100 / r.TotalTargets
+		}
+		fmt.Printf("  Progress:         %d/%d targets (%d%%)\n", r.UpdatedTargets, r.TotalTargets, pct)
 		fmt.Printf("  Failed Targets:   %d\n", r.FailedTargets)
-		fmt.Printf("  Batch Size:       %d\n", r.BatchSize)
-		fmt.Printf("  Batch Delay:      %s\n", r.BatchDelay)
-		fmt.Printf("  Health Check:     %s (%s)\n", r.HealthCheckType, r.HealthCheckURL)
-		fmt.Printf("  Started:          %s\n", r.StartedAt)
-		fmt.Printf("  Created By:       %s\n", r.CreatedBy)
-		if len(r.Labels) > 0 {
-			fmt.Printf("  Labels:\n")
-			for k, v := range r.Labels {
-				fmt.Printf("    %s: %s\n", k, v)
-			}
+		fmt.Printf("  Started:          %s\n", r.StartedAt.Format(time.RFC3339))
+		if r.Error != "" {
+			fmt.Printf("  Error:            %s\n", r.Error)
 		}
 	}
 
@@ -799,7 +742,7 @@ type RotateStartOptions struct {
 	Labels           []string
 }
 
-func newRotateStartCmd() *cobra.Command {
+func newRotateStartCmd(cfg *Config) *cobra.Command {
 	opts := &RotateStartOptions{}
 
 	cmd := &cobra.Command{
@@ -825,7 +768,7 @@ Examples:
   kscorectl secrets rotate start --secret vault/secret/db \
     --strategy blue-green --dry-run`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRotateStart(cmd, opts)
+			return runRotateStart(cmd, cfg, opts)
 		},
 	}
 
@@ -850,7 +793,7 @@ Examples:
 	return cmd
 }
 
-func runRotateStart(cmd *cobra.Command, opts *RotateStartOptions) error {
+func runRotateStart(cmd *cobra.Command, cfg *Config, opts *RotateStartOptions) error {
 	if opts.SecretPath == "" {
 		return fmt.Errorf("--secret is required")
 	}
@@ -897,9 +840,35 @@ func runRotateStart(cmd *cobra.Command, opts *RotateStartOptions) error {
 	}
 
 	rotationID := fmt.Sprintf("rot-%s", randomID(8))
-	fmt.Printf("Started rotation '%s' for secret '%s'\n", rotationID, opts.SecretPath)
-	fmt.Printf("  Strategy:     %s\n", opts.Strategy)
-	fmt.Printf("  Use 'kscorectl secrets rotate status %s' to monitor progress\n", rotationID)
+	batchDelay, _ := time.ParseDuration(opts.BatchDelay)
+
+	targets := make([]apisecrets.RotationTargetRequest, 0, len(opts.Targets))
+	for _, t := range opts.Targets {
+		targets = append(targets, apisecrets.RotationTargetRequest{
+			ID:      t,
+			AgentID: t,
+		})
+	}
+
+	client := createRESTClient(cfg)
+	resp, err := client.StartRotation(&apisecrets.StartRotationRequest{
+		ID:         rotationID,
+		SecretPath: opts.SecretPath,
+		Strategy:   string(strategy),
+		Targets:    targets,
+		Config: apisecrets.RotationConfigRequest{
+			Strategy:          string(strategy),
+			BatchSize:         opts.BatchSize,
+			BatchDelaySeconds: int64(batchDelay.Seconds()),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start rotation: %w", err)
+	}
+
+	fmt.Printf("Started rotation '%s' for secret '%s'\n", resp.ID, resp.SecretPath)
+	fmt.Printf("  Strategy:     %s\n", resp.Strategy)
+	fmt.Printf("  Use 'kscorectl secrets rotate status %s' to monitor progress\n", resp.ID)
 
 	return nil
 }
@@ -932,53 +901,50 @@ Examples:
 }
 
 func runRotateStatus(cmd *cobra.Command, cfg *Config, id string, _ bool, _ string) error {
-	status := &rotationStatus{
-		ID:             id,
-		State:          secrets.RotationStateInProgress,
-		TotalTargets:   10,
-		UpdatedTargets: 6,
-		FailedTargets:  0,
-		Percentage:     60,
-		CurrentBatch:   4,
-		TotalBatches:   5,
-		StartedAt:      time.Now().Add(-15 * time.Minute).Format(time.RFC3339),
-		LastUpdate:     time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+	client := createRESTClient(cfg)
+	r, err := client.GetRotation(id)
+	if err != nil {
+		return fmt.Errorf("failed to get rotation status: %w", err)
 	}
 
 	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(status)
+		return outputJSON(r)
 	case "yaml":
-		return outputYAML(status)
+		return outputYAML(r)
 	default:
-		printRotationStatus(status)
+		printRotationStatus(r)
 	}
 
 	return nil
 }
 
-func printRotationStatus(status *rotationStatus) {
-	stateIcon := "⏳"
-	switch status.State {
-	case secrets.RotationStateCompleted:
-		stateIcon = "✅"
-	case secrets.RotationStateFailed:
-		stateIcon = "❌"
-	case secrets.RotationStateRolledBack:
-		stateIcon = "⏪"
-	default:
+func printRotationStatus(r *apisecrets.RotationResponse) {
+	stateIcon := "..."
+	switch r.State {
+	case "completed":
+		stateIcon = "OK"
+	case "failed":
+		stateIcon = "FAIL"
+	case "rolled_back":
+		stateIcon = "ROLLBACK"
+	case "in_progress":
+		stateIcon = "RUNNING"
 	}
 
-	fmt.Printf("%s Rotation %s: %s\n", stateIcon, status.ID, status.State)
-	fmt.Printf("  Progress:     %d/%d targets (%d%%)\n", status.UpdatedTargets, status.TotalTargets, status.Percentage)
-	fmt.Printf("  Batch:        %d/%d\n", status.CurrentBatch, status.TotalBatches)
-	fmt.Printf("  Failed:       %d\n", status.FailedTargets)
-	fmt.Printf("  Started:      %s\n", status.StartedAt)
-	fmt.Printf("  Last Update:  %s\n", status.LastUpdate)
+	pct := 0
+	if r.TotalTargets > 0 {
+		pct = r.UpdatedTargets * 100 / r.TotalTargets
+	}
+
+	fmt.Printf("[%s] Rotation %s: %s\n", stateIcon, r.ID, r.State)
+	fmt.Printf("  Progress:     %d/%d targets (%d%%)\n", r.UpdatedTargets, r.TotalTargets, pct)
+	fmt.Printf("  Failed:       %d\n", r.FailedTargets)
+	fmt.Printf("  Started:      %s\n", r.StartedAt.Format(time.RFC3339))
 
 	barWidth := 40
-	filled := int(float64(status.Percentage) / 100.0 * float64(barWidth))
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	filled := int(float64(pct) / 100.0 * float64(barWidth))
+	bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
 	fmt.Printf("  [%s]\n", bar)
 }
 
@@ -1020,54 +986,28 @@ Examples:
 	return cmd
 }
 
-func runRotateHistory(cmd *cobra.Command, cfg *Config, secretPath string, opts *HistoryOptions) error {
-	history := generateSampleHistory(secretPath, opts.Limit)
-
-	switch cfg.OutputFormat {
-	case "json":
-		return outputJSON(history)
-	case "yaml":
-		return outputYAML(history)
-	default:
-		table := &output.Table{
-			Headers: []string{"ID", "SECRET PATH", "STRATEGY", "STATE", "TARGETS", "STARTED", "DURATION"},
-		}
-		for _, h := range history {
-			targets := fmt.Sprintf("%d/%d", h.UpdatedTargets, h.TotalTargets)
-			if h.FailedTargets > 0 {
-				targets = fmt.Sprintf("%s (%d failed)", targets, h.FailedTargets)
-			}
-			table.Rows = append(table.Rows, []string{
-				truncate(h.ID, 12),
-				truncate(h.SecretPath, 20),
-				string(h.Strategy),
-				string(h.State),
-				targets,
-				h.StartedAt,
-				h.Duration,
-			})
-		}
-		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nShowing %d rotation(s)\n", len(history))
-	}
-
-	return nil
+func runRotateHistory(_ *cobra.Command, _ *Config, _ string, _ *HistoryOptions) error {
+	return fmt.Errorf("rotation history requires persistent storage not yet available; use 'rotate list' to view active rotations")
 }
 
-func newRotateTriggerCmd() *cobra.Command {
+func newRotateTriggerCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "trigger <schedule-id>",
+		Use:   "trigger <rotation-id>",
 		Short: "Trigger a scheduled rotation immediately",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rotationID := fmt.Sprintf("rot-%s", randomID(8))
-			fmt.Printf("Triggered scheduled rotation %s (rotation: %s)\n", args[0], rotationID)
+			client := createRESTClient(cfg)
+			resp, err := client.TriggerRotation(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to trigger rotation: %w", err)
+			}
+			fmt.Printf("Triggered rotation %s (success: %v)\n", resp.RotationID, resp.Success)
 			return nil
 		},
 	}
 }
 
-func newRotateRollbackCmd() *cobra.Command {
+func newRotateRollbackCmd(cfg *Config) *cobra.Command {
 	var force bool
 	var reason string
 
@@ -1088,9 +1028,16 @@ Examples:
 				fmt.Printf("Are you sure you want to rollback rotation %s? (use --force to confirm)\n", args[0])
 				return nil
 			}
-			fmt.Printf("Rolling back rotation %s...\n", args[0])
-			fmt.Printf("  Reason: %s\n", reason)
-			fmt.Printf("Rollback initiated. Use 'kscorectl secrets rotate status %s' to monitor.\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.RollbackRotation(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to rollback rotation: %w", err)
+			}
+			fmt.Printf("Rollback initiated for rotation %s (success: %v)\n", resp.RotationID, resp.Success)
+			if reason != "" {
+				fmt.Printf("  Reason: %s\n", reason)
+			}
+			fmt.Printf("Use 'kscorectl secrets rotate status %s' to monitor.\n", args[0])
 			return nil
 		},
 	}
@@ -1101,31 +1048,41 @@ Examples:
 	return cmd
 }
 
-func newRotatePauseCmd() *cobra.Command {
+func newRotatePauseCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pause <rotation-id>",
 		Short: "Pause an in-progress rotation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Paused rotation %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.PauseRotation(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to pause rotation: %w", err)
+			}
+			fmt.Printf("Paused rotation %s (success: %v)\n", resp.RotationID, resp.Success)
 			return nil
 		},
 	}
 }
 
-func newRotateResumeCmd() *cobra.Command {
+func newRotateResumeCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "resume <rotation-id>",
 		Short: "Resume a paused rotation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Resumed rotation %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.ResumeRotation(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to resume rotation: %w", err)
+			}
+			fmt.Printf("Resumed rotation %s (success: %v)\n", resp.RotationID, resp.Success)
 			return nil
 		},
 	}
 }
 
-func newRotateCancelCmd() *cobra.Command {
+func newRotateCancelCmd(cfg *Config) *cobra.Command {
 	var reason string
 
 	cmd := &cobra.Command{
@@ -1133,7 +1090,12 @@ func newRotateCancelCmd() *cobra.Command {
 		Short: "Cancel an in-progress rotation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Cancelled rotation %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.CancelRotation(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to cancel rotation: %w", err)
+			}
+			fmt.Printf("Cancelled rotation %s (success: %v)\n", resp.RotationID, resp.Success)
 			if reason != "" {
 				fmt.Printf("  Reason: %s\n", reason)
 			}
@@ -1161,10 +1123,10 @@ func newScheduleCmd(cfg *Config) *cobra.Command {
 	cmd.AddCommand(
 		newScheduleListCmd(cfg),
 		newScheduleShowCmd(cfg),
-		newScheduleCreateCmd(),
-		newScheduleEnableCmd(),
-		newScheduleDisableCmd(),
-		newScheduleDeleteCmd(),
+		newScheduleCreateCmd(cfg),
+		newScheduleEnableCmd(cfg),
+		newScheduleDisableCmd(cfg),
+		newScheduleDeleteCmd(cfg),
 	)
 
 	return cmd
@@ -1176,29 +1138,38 @@ func newScheduleListCmd(cfg *Config) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List rotation schedules",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			schedules := generateSampleSchedules()
+			client := createRESTClient(cfg)
+			resp, err := client.ListRotationPolicies()
+			if err != nil {
+				return fmt.Errorf("failed to list schedules: %w", err)
+			}
+
+			if len(resp.Policies) == 0 {
+				fmt.Println("No schedules found")
+				return nil
+			}
 
 			switch cfg.OutputFormat {
 			case "json":
-				return outputJSON(schedules)
+				return outputJSON(resp.Policies)
 			case "yaml":
-				return outputYAML(schedules)
+				return outputYAML(resp.Policies)
 			default:
 				table := &output.Table{
-					Headers: []string{"ID", "SECRET PATH", "SCHEDULE", "STRATEGY", "ENABLED", "NEXT RUN"},
+					Headers: []string{"ID", "NAME", "SCHEDULE", "MAX AGE", "ENABLED"},
 				}
-				for _, s := range schedules {
+				for i := range resp.Policies {
+					p := &resp.Policies[i]
 					enabled := "No"
-					if s.Enabled {
+					if p.Enabled {
 						enabled = "Yes"
 					}
 					table.Rows = append(table.Rows, []string{
-						truncate(s.ID, 12),
-						truncate(s.SecretPath, 20),
-						s.Schedule,
-						string(s.Strategy),
+						truncate(p.ID, 12),
+						truncate(p.Name, 20),
+						p.Schedule,
+						p.MaxAge,
 						enabled,
-						s.NextRun,
 					})
 				}
 				output.WriteTable(os.Stdout, table)
@@ -1210,38 +1181,28 @@ func newScheduleListCmd(cfg *Config) *cobra.Command {
 
 func newScheduleShowCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <schedule-id>",
+		Use:   "show <policy-id>",
 		Short: "Show schedule details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			s := &scheduleDetail{
-				ID:         args[0],
-				SecretPath: "vault/secret/database/prod",
-				Schedule:   "0 2 * * *",
-				Strategy:   secrets.RotationStrategyBlueGreen,
-				Enabled:    true,
-				NextRun:    time.Now().Add(12 * time.Hour).Format(time.RFC3339),
-				LastRun:    time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
-				RunCount:   30,
-				CreatedBy:  "admin",
-				CreatedAt:  time.Now().Add(-30 * 24 * time.Hour).Format(time.RFC3339),
+			client := createRESTClient(cfg)
+			p, err := client.GetRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to get schedule: %w", err)
 			}
 
 			switch cfg.OutputFormat {
 			case "json":
-				return outputJSON(s)
+				return outputJSON(p)
 			case "yaml":
-				return outputYAML(s)
+				return outputYAML(p)
 			default:
-				fmt.Printf("Schedule: %s\n", s.ID)
-				fmt.Printf("  Secret Path:  %s\n", s.SecretPath)
-				fmt.Printf("  Schedule:     %s\n", s.Schedule)
-				fmt.Printf("  Strategy:     %s\n", s.Strategy)
-				fmt.Printf("  Enabled:      %v\n", s.Enabled)
-				fmt.Printf("  Next Run:     %s\n", s.NextRun)
-				fmt.Printf("  Last Run:     %s\n", s.LastRun)
-				fmt.Printf("  Run Count:    %d\n", s.RunCount)
-				fmt.Printf("  Created:      %s by %s\n", s.CreatedAt, s.CreatedBy)
+				fmt.Printf("Schedule: %s\n", p.ID)
+				fmt.Printf("  Name:         %s\n", p.Name)
+				fmt.Printf("  Schedule:     %s\n", p.Schedule)
+				fmt.Printf("  Max Age:      %s\n", p.MaxAge)
+				fmt.Printf("  Auto Rotate:  %v\n", p.AutoRotate)
+				fmt.Printf("  Enabled:      %v\n", p.Enabled)
 			}
 			return nil
 		},
@@ -1264,7 +1225,7 @@ type ScheduleCreateOptions struct {
 	Labels           []string
 }
 
-func newScheduleCreateCmd() *cobra.Command {
+func newScheduleCreateCmd(cfg *Config) *cobra.Command {
 	opts := &ScheduleCreateOptions{}
 
 	cmd := &cobra.Command{
@@ -1281,7 +1242,7 @@ Examples:
   kscorectl secrets schedule create --secret vault/secret/api \
     --schedule "0 3 * * 0" --strategy canary --canary-percentage 10`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScheduleCreate(cmd, opts)
+			return runScheduleCreate(cmd, cfg, opts)
 		},
 	}
 
@@ -1304,7 +1265,7 @@ Examples:
 	return cmd
 }
 
-func runScheduleCreate(cmd *cobra.Command, opts *ScheduleCreateOptions) error {
+func runScheduleCreate(_ *cobra.Command, cfg *Config, opts *ScheduleCreateOptions) error {
 	if opts.SecretPath == "" {
 		return fmt.Errorf("--secret is required")
 	}
@@ -1312,42 +1273,64 @@ func runScheduleCreate(cmd *cobra.Command, opts *ScheduleCreateOptions) error {
 		return fmt.Errorf("--schedule is required")
 	}
 
-	scheduleID := fmt.Sprintf("sched-%s", randomID(8))
-	fmt.Printf("Created rotation schedule '%s' for secret '%s'\n", scheduleID, opts.SecretPath)
-	fmt.Printf("  Schedule: %s\n", opts.Schedule)
-	fmt.Printf("  Strategy: %s\n", opts.Strategy)
+	policyID := fmt.Sprintf("sched-%s", randomID(8))
+	client := createRESTClient(cfg)
+	resp, err := client.CreateRotationPolicy(&apisecrets.CreateRotationPolicyRequest{
+		ID:         policyID,
+		Name:       opts.SecretPath,
+		MaxAge:     "90d",
+		Schedule:   opts.Schedule,
+		AutoRotate: true,
+		Enabled:    opts.Enabled,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create schedule: %w", err)
+	}
+
+	fmt.Printf("Created rotation schedule '%s' for '%s'\n", resp.ID, resp.Name)
+	fmt.Printf("  Schedule: %s\n", resp.Schedule)
 	return nil
 }
 
-func newScheduleEnableCmd() *cobra.Command {
+func newScheduleEnableCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "enable <schedule-id>",
+		Use:   "enable <policy-id>",
 		Short: "Enable a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Enabled schedule %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.EnableRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to enable schedule: %w", err)
+			}
+			fmt.Printf("Enabled schedule %s (success: %v)\n", resp.PolicyID, resp.Success)
 			return nil
 		},
 	}
 }
 
-func newScheduleDisableCmd() *cobra.Command {
+func newScheduleDisableCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "disable <schedule-id>",
+		Use:   "disable <policy-id>",
 		Short: "Disable a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Disabled schedule %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.DisableRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to disable schedule: %w", err)
+			}
+			fmt.Printf("Disabled schedule %s (success: %v)\n", resp.PolicyID, resp.Success)
 			return nil
 		},
 	}
 }
 
-func newScheduleDeleteCmd() *cobra.Command {
+func newScheduleDeleteCmd(cfg *Config) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <schedule-id>",
+		Use:   "delete <policy-id>",
 		Short: "Delete a schedule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1355,7 +1338,12 @@ func newScheduleDeleteCmd() *cobra.Command {
 				fmt.Printf("Are you sure you want to delete schedule %s? (use --force to confirm)\n", args[0])
 				return nil
 			}
-			fmt.Printf("Deleted schedule %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.DeleteRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to delete schedule: %w", err)
+			}
+			fmt.Printf("Deleted schedule %s (success: %v)\n", resp.PolicyID, resp.Success)
 			return nil
 		},
 	}
@@ -1380,8 +1368,8 @@ func newPolicyCmd(cfg *Config) *cobra.Command {
 	cmd.AddCommand(
 		newPolicyListCmd(cfg),
 		newPolicyShowCmd(cfg),
-		newPolicyCreateCmd(),
-		newPolicyDeleteCmd(),
+		newPolicyCreateCmd(cfg),
+		newPolicyDeleteCmd(cfg),
 	)
 
 	return cmd
@@ -1393,28 +1381,42 @@ func newPolicyListCmd(cfg *Config) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List rotation policies",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			policies := generateSamplePolicies()
+			client := createRESTClient(cfg)
+			resp, err := client.ListRotationPolicies()
+			if err != nil {
+				return fmt.Errorf("failed to list policies: %w", err)
+			}
+
+			if len(resp.Policies) == 0 {
+				fmt.Println("No policies found")
+				return nil
+			}
 
 			switch cfg.OutputFormat {
 			case "json":
-				return outputJSON(policies)
+				return outputJSON(resp.Policies)
 			case "yaml":
-				return outputYAML(policies)
+				return outputYAML(resp.Policies)
 			default:
 				table := &output.Table{
-					Headers: []string{"ID", "NAME", "SECRET PATTERN", "MAX AGE", "STRATEGY", "ENABLED"},
+					Headers: []string{"ID", "NAME", "MAX AGE", "SCHEDULE", "AUTO ROTATE", "ENABLED"},
 				}
-				for _, p := range policies {
+				for i := range resp.Policies {
+					p := &resp.Policies[i]
 					enabled := "No"
 					if p.Enabled {
 						enabled = "Yes"
 					}
+					autoRotate := "No"
+					if p.AutoRotate {
+						autoRotate = "Yes"
+					}
 					table.Rows = append(table.Rows, []string{
 						truncate(p.ID, 12),
 						truncate(p.Name, 20),
-						p.SecretPattern,
 						p.MaxAge,
-						string(p.Strategy),
+						p.Schedule,
+						autoRotate,
 						enabled,
 					})
 				}
@@ -1431,17 +1433,10 @@ func newPolicyShowCmd(cfg *Config) *cobra.Command {
 		Short: "Show policy details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p := &policyDetail{
-				ID:             args[0],
-				Name:           "database-rotation-policy",
-				SecretPattern:  "vault/secret/database/*",
-				MaxAge:         "90d",
-				Strategy:       secrets.RotationStrategyBlueGreen,
-				BatchSize:      2,
-				HealthRequired: true,
-				Enabled:        true,
-				CreatedBy:      "admin",
-				CreatedAt:      time.Now().Add(-60 * 24 * time.Hour).Format(time.RFC3339),
+			client := createRESTClient(cfg)
+			p, err := client.GetRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to get policy: %w", err)
 			}
 
 			switch cfg.OutputFormat {
@@ -1452,13 +1447,15 @@ func newPolicyShowCmd(cfg *Config) *cobra.Command {
 			default:
 				fmt.Printf("Policy: %s\n", p.Name)
 				fmt.Printf("  ID:              %s\n", p.ID)
-				fmt.Printf("  Secret Pattern:  %s\n", p.SecretPattern)
 				fmt.Printf("  Max Age:         %s\n", p.MaxAge)
-				fmt.Printf("  Strategy:        %s\n", p.Strategy)
-				fmt.Printf("  Batch Size:      %d\n", p.BatchSize)
-				fmt.Printf("  Health Required: %v\n", p.HealthRequired)
+				fmt.Printf("  Warning Age:     %s\n", p.WarningAge)
+				fmt.Printf("  Schedule:        %s\n", p.Schedule)
+				fmt.Printf("  Auto Rotate:     %v\n", p.AutoRotate)
+				fmt.Printf("  Rollback on Fail: %v\n", p.RollbackOnFail)
 				fmt.Printf("  Enabled:         %v\n", p.Enabled)
-				fmt.Printf("  Created:         %s by %s\n", p.CreatedAt, p.CreatedBy)
+				if len(p.CredentialTypes) > 0 {
+					fmt.Printf("  Credential Types: %s\n", strings.Join(p.CredentialTypes, ", "))
+				}
 			}
 			return nil
 		},
@@ -1476,7 +1473,7 @@ type PolicyCreateOptions struct {
 	Enabled        bool
 }
 
-func newPolicyCreateCmd() *cobra.Command {
+func newPolicyCreateCmd(cfg *Config) *cobra.Command {
 	opts := &PolicyCreateOptions{}
 
 	cmd := &cobra.Command{
@@ -1493,7 +1490,7 @@ Examples:
   kscorectl secrets policy create --name api-policy \
     --pattern "vault/secret/api/*" --max-age 30d --health-required`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPolicyCreate(cmd, opts)
+			return runPolicyCreate(cmd, cfg, opts)
 		},
 	}
 
@@ -1511,7 +1508,7 @@ Examples:
 	return cmd
 }
 
-func runPolicyCreate(cmd *cobra.Command, opts *PolicyCreateOptions) error {
+func runPolicyCreate(_ *cobra.Command, cfg *Config, opts *PolicyCreateOptions) error {
 	if opts.Name == "" {
 		return fmt.Errorf("--name is required")
 	}
@@ -1520,14 +1517,25 @@ func runPolicyCreate(cmd *cobra.Command, opts *PolicyCreateOptions) error {
 	}
 
 	policyID := fmt.Sprintf("pol-%s", randomID(8))
-	fmt.Printf("Created rotation policy '%s' (id: %s)\n", opts.Name, policyID)
-	fmt.Printf("  Pattern:  %s\n", opts.SecretPattern)
-	fmt.Printf("  Max Age:  %s\n", opts.MaxAge)
-	fmt.Printf("  Strategy: %s\n", opts.Strategy)
+	client := createRESTClient(cfg)
+	resp, err := client.CreateRotationPolicy(&apisecrets.CreateRotationPolicyRequest{
+		ID:             policyID,
+		Name:           opts.Name,
+		MaxAge:         opts.MaxAge,
+		RollbackOnFail: opts.HealthRequired,
+		Enabled:        opts.Enabled,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create policy: %w", err)
+	}
+
+	fmt.Printf("Created rotation policy '%s' (id: %s)\n", resp.Name, resp.ID)
+	fmt.Printf("  Max Age:  %s\n", resp.MaxAge)
+	fmt.Printf("  Enabled:  %v\n", resp.Enabled)
 	return nil
 }
 
-func newPolicyDeleteCmd() *cobra.Command {
+func newPolicyDeleteCmd(cfg *Config) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
@@ -1539,7 +1547,12 @@ func newPolicyDeleteCmd() *cobra.Command {
 				fmt.Printf("Are you sure you want to delete policy %s? (use --force to confirm)\n", args[0])
 				return nil
 			}
-			fmt.Printf("Deleted policy %s\n", args[0])
+			client := createRESTClient(cfg)
+			resp, err := client.DeleteRotationPolicy(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to delete policy: %w", err)
+			}
+			fmt.Printf("Deleted policy %s (success: %v)\n", resp.PolicyID, resp.Success)
 			return nil
 		},
 	}
@@ -2070,21 +2083,19 @@ Examples:
 }
 
 func runRewrap(cmd *cobra.Command, cfg *Config, ciphertext, key string) error {
-	parts := strings.SplitN(ciphertext, ":", 3)
-	var payload string
-	if len(parts) == 3 {
-		payload = parts[2]
-	} else {
-		payload = base64.StdEncoding.EncodeToString([]byte(ciphertext))
+	client := createRESTClient(cfg)
+	resp, err := client.TransitRewrap(key, &apisecrets.TransitRewrapRequest{
+		Ciphertext: ciphertext,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to rewrap: %w", err)
 	}
-	newCiphertext := fmt.Sprintf("vault:v2:%s", payload)
 
 	result := &transitResult{
-		KeyName:       key,
-		Operation:     "rewrap",
-		Ciphertext:    newCiphertext,
-		OldKeyVersion: 1,
-		KeyVersion:    2,
+		KeyName:    key,
+		Operation:  "rewrap",
+		Ciphertext: resp.Ciphertext,
+		KeyVersion: resp.KeyVersion,
 	}
 
 	switch cfg.OutputFormat {
@@ -2094,7 +2105,7 @@ func runRewrap(cmd *cobra.Command, cfg *Config, ciphertext, key string) error {
 		return outputYAML(result)
 	default:
 		fmt.Printf("Rewrapped ciphertext: %s\n", result.Ciphertext)
-		fmt.Printf("Key:                  %s (v%d -> v%d)\n", result.KeyName, result.OldKeyVersion, result.KeyVersion)
+		fmt.Printf("Key:                  %s (v%d)\n", result.KeyName, result.KeyVersion)
 	}
 
 	return nil
@@ -2132,53 +2143,8 @@ Examples:
 	return cmd
 }
 
-func runTemplate(cmd *cobra.Command, cfg *Config, templateFile, outputPath string, dryRun bool) error {
-	refs := []templateSecretRef{
-		{Path: "vault/secret/database/prod", Field: "password", Line: 5},
-		{Path: "vault/secret/database/prod", Field: "username", Line: 6},
-		{Path: "vault/secret/api/prod", Field: "api_key", Line: 12},
-	}
-
-	result := &templateResult{
-		TemplateFile: templateFile,
-		OutputFile:   outputPath,
-		DryRun:       dryRun,
-		SecretRefs:   refs,
-		RefCount:     len(refs),
-	}
-
-	if dryRun {
-		switch cfg.OutputFormat {
-		case "json":
-			return outputJSON(result)
-		case "yaml":
-			return outputYAML(result)
-		default:
-			fmt.Printf("Template: %s\n", templateFile)
-			fmt.Printf("Dry run - secrets that would be injected:\n\n")
-			for _, ref := range refs {
-				fmt.Printf("  Line %d: {{ secret %q %q }} -> ****\n", ref.Line, ref.Path, ref.Field)
-			}
-			fmt.Printf("\nTotal: %d secret reference(s)\n", len(refs))
-		}
-		return nil
-	}
-
-	switch cfg.OutputFormat {
-	case "json":
-		return outputJSON(result)
-	case "yaml":
-		return outputYAML(result)
-	default:
-		dest := "stdout"
-		if outputPath != "" {
-			dest = outputPath
-		}
-		fmt.Printf("Rendered template %s -> %s\n", templateFile, dest)
-		fmt.Printf("  Injected %d secret value(s)\n", len(refs))
-	}
-
-	return nil
+func runTemplate(_ *cobra.Command, _ *Config, _, _ string, _ bool) error {
+	return fmt.Errorf("template rendering requires server-side secret resolution not yet available")
 }
 
 // =============================================================================
@@ -2194,7 +2160,7 @@ func newCacheCmd(cfg *Config) *cobra.Command {
 
 	cmd.AddCommand(
 		newCacheStatusCmd(cfg),
-		newCacheClearCmd(),
+		newCacheClearCmd(cfg),
 		newCacheListCmd(cfg),
 	)
 
@@ -2217,17 +2183,10 @@ Examples:
 }
 
 func runCacheStatus(cmd *cobra.Command, cfg *Config) error {
-	stats := &cacheStatusDisplay{
-		Entries:      47,
-		MaxEntries:   10000,
-		HitRate:      87.3,
-		Hits:         1523,
-		Misses:       221,
-		Evictions:    12,
-		ExpiredCount: 34,
-		MemoryBytes:  245760,
-		DefaultTTL:   "5m",
-		Encrypted:    true,
+	client := createRESTClient(cfg)
+	stats, err := client.GetCacheStats()
+	if err != nil {
+		return fmt.Errorf("failed to get cache stats: %w", err)
 	}
 
 	switch cfg.OutputFormat {
@@ -2236,31 +2195,39 @@ func runCacheStatus(cmd *cobra.Command, cfg *Config) error {
 	case "yaml":
 		return outputYAML(stats)
 	default:
+		total := stats.Hits + stats.Misses
+		hitRate := 0.0
+		if total > 0 {
+			hitRate = float64(stats.Hits) / float64(total) * 100
+		}
 		fmt.Printf("Secret Cache Status:\n")
 		fmt.Printf("  Entries:      %d / %d\n", stats.Entries, stats.MaxEntries)
-		fmt.Printf("  Hit Rate:     %.1f%%\n", stats.HitRate)
+		fmt.Printf("  Hit Rate:     %.1f%%\n", hitRate)
 		fmt.Printf("  Hits:         %d\n", stats.Hits)
 		fmt.Printf("  Misses:       %d\n", stats.Misses)
 		fmt.Printf("  Evictions:    %d\n", stats.Evictions)
 		fmt.Printf("  Expired:      %d\n", stats.ExpiredCount)
 		fmt.Printf("  Memory:       %s\n", formatBytes(stats.MemoryBytes))
-		fmt.Printf("  Default TTL:  %s\n", stats.DefaultTTL)
-		fmt.Printf("  Encrypted:    %v\n", stats.Encrypted)
 	}
 
 	return nil
 }
 
-func newCacheClearCmd() *cobra.Command {
+func newCacheClearCmd(cfg *Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "clear",
-		Short: "Clear the local secret cache",
-		Long: `Clear all entries from the local secret cache.
+		Short: "Clear the secret cache",
+		Long: `Clear all entries from the secret cache on the server.
 
 Examples:
   kscorectl secrets cache clear`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("Cleared secret cache (47 entries removed)")
+			client := createRESTClient(cfg)
+			resp, err := client.ClearCache()
+			if err != nil {
+				return fmt.Errorf("failed to clear cache: %w", err)
+			}
+			fmt.Printf("Cleared secret cache (%d entries removed)\n", resp.Cleared)
 			return nil
 		},
 	}
@@ -2283,62 +2250,34 @@ Examples:
 }
 
 func runCacheList(cmd *cobra.Command, cfg *Config) error {
-	items := generateSampleCacheEntries()
+	client := createRESTClient(cfg)
+	stats, err := client.GetCacheStats()
+	if err != nil {
+		return fmt.Errorf("failed to get cache info: %w", err)
+	}
 
-	if len(items) == 0 {
+	if stats.Entries == 0 {
 		fmt.Println("Cache is empty")
 		return nil
 	}
 
 	switch cfg.OutputFormat {
 	case "json":
-		return outputJSON(items)
+		return outputJSON(stats)
 	case "yaml":
-		return outputYAML(items)
+		return outputYAML(stats)
 	default:
-		table := &output.Table{
-			Headers: []string{"PATH", "BACKEND", "CACHED AT", "TTL", "HITS"},
+		fmt.Printf("Cache contains %d entries (max %d)\n", stats.Entries, stats.MaxEntries)
+		fmt.Printf("  Hits:      %d\n", stats.Hits)
+		fmt.Printf("  Misses:    %d\n", stats.Misses)
+		fmt.Printf("  Evictions: %d\n", stats.Evictions)
+		fmt.Printf("  Expired:   %d\n", stats.ExpiredCount)
+		if stats.MemoryBytes > 0 {
+			fmt.Printf("  Memory:    %s\n", formatBytes(stats.MemoryBytes))
 		}
-		for _, item := range items {
-			table.Rows = append(table.Rows, []string{
-				truncate(item.Path, 35),
-				item.Backend,
-				item.CachedAt,
-				item.TTL,
-				fmt.Sprintf("%d", item.Hits),
-			})
-		}
-		output.WriteTable(os.Stdout, table)
-		fmt.Printf("\nTotal: %d cached entry(ies)\n", len(items))
 	}
 
 	return nil
-}
-
-func generateSampleCacheEntries() []*cacheEntryDisplay {
-	return []*cacheEntryDisplay{
-		{
-			Path:     "vault/secret/database/prod",
-			Backend:  "vault",
-			CachedAt: time.Now().Add(-2 * time.Minute).Format("15:04:05"),
-			TTL:      "3m",
-			Hits:     12,
-		},
-		{
-			Path:     "vault/secret/api/prod",
-			Backend:  "vault",
-			CachedAt: time.Now().Add(-1 * time.Minute).Format("15:04:05"),
-			TTL:      "4m",
-			Hits:     5,
-		},
-		{
-			Path:     "aws-sm/production/payment-gateway",
-			Backend:  "aws-sm",
-			CachedAt: time.Now().Add(-30 * time.Second).Format("15:04:05"),
-			TTL:      "4m30s",
-			Hits:     2,
-		},
-	}
 }
 
 func formatBytes(b int64) string {
@@ -2378,27 +2317,8 @@ Examples:
 
   # Force rotation without confirmation
   kscorectl secrets rotate-keys --force`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !force {
-				fmt.Fprint(cmd.OutOrStdout(), "Rotate ALL secrets encryption keys? This will re-encrypt all secrets. [y/N]: ")
-				var response string
-				fmt.Scanln(&response)
-				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
-					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
-					return nil
-				}
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), "Rotating encryption keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Generating new master key...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting Vault backend secrets...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Re-encrypting KMS backend secrets...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Rotating transit encryption keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Archiving old keys...")
-			fmt.Fprintln(cmd.OutOrStdout(), "Encryption keys rotated")
-			fmt.Fprintln(cmd.OutOrStdout(), "  All secrets re-encrypted with new keys.")
-			fmt.Fprintln(cmd.OutOrStdout(), "  Old keys archived for backup decryption.")
-			return nil
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("encryption key rotation requires server-side support not yet available")
 		},
 	}
 
@@ -2411,121 +2331,6 @@ Examples:
 // Display Types
 // =============================================================================
 
-type backendDisplay struct {
-	Name        string `json:"name" yaml:"name"`
-	Type        string `json:"type" yaml:"type"`
-	Status      string `json:"status" yaml:"status"`
-	SecretCount int    `json:"secret_count" yaml:"secret_count"`
-	Address     string `json:"address" yaml:"address"`
-	AuthMethod  string `json:"auth_method" yaml:"auth_method"`
-}
-
-type auditEntry struct {
-	Timestamp string `json:"timestamp" yaml:"timestamp"`
-	Path      string `json:"path" yaml:"path"`
-	Action    string `json:"action" yaml:"action"`
-	Principal string `json:"principal" yaml:"principal"`
-	SourceIP  string `json:"source_ip" yaml:"source_ip"`
-	Version   int    `json:"version" yaml:"version"`
-}
-
-type rotationDisplay struct {
-	ID             string                   `json:"id" yaml:"id"`
-	SecretPath     string                   `json:"secret_path" yaml:"secret_path"`
-	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State          secrets.RotationState    `json:"state" yaml:"state"`
-	TotalTargets   int                      `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets int                      `json:"updated_targets" yaml:"updated_targets"`
-	StartedAt      string                   `json:"started_at" yaml:"started_at"`
-}
-
-type rotationDetail struct {
-	ID              string                   `json:"id" yaml:"id"`
-	SecretPath      string                   `json:"secret_path" yaml:"secret_path"`
-	Strategy        secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State           secrets.RotationState    `json:"state" yaml:"state"`
-	TotalTargets    int                      `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets  int                      `json:"updated_targets" yaml:"updated_targets"`
-	FailedTargets   int                      `json:"failed_targets" yaml:"failed_targets"`
-	Percentage      int                      `json:"percentage" yaml:"percentage"`
-	StartedAt       string                   `json:"started_at" yaml:"started_at"`
-	BatchSize       int                      `json:"batch_size" yaml:"batch_size"`
-	BatchDelay      string                   `json:"batch_delay" yaml:"batch_delay"`
-	HealthCheckType string                   `json:"health_check_type,omitempty" yaml:"health_check_type,omitempty"`
-	HealthCheckURL  string                   `json:"health_check_url,omitempty" yaml:"health_check_url,omitempty"`
-	CreatedBy       string                   `json:"created_by" yaml:"created_by"`
-	Labels          map[string]string        `json:"labels,omitempty" yaml:"labels,omitempty"`
-}
-
-type rotationStatus struct {
-	ID             string                `json:"id" yaml:"id"`
-	State          secrets.RotationState `json:"state" yaml:"state"`
-	TotalTargets   int                   `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets int                   `json:"updated_targets" yaml:"updated_targets"`
-	FailedTargets  int                   `json:"failed_targets" yaml:"failed_targets"`
-	Percentage     int                   `json:"percentage" yaml:"percentage"`
-	CurrentBatch   int                   `json:"current_batch" yaml:"current_batch"`
-	TotalBatches   int                   `json:"total_batches" yaml:"total_batches"`
-	StartedAt      string                `json:"started_at" yaml:"started_at"`
-	LastUpdate     string                `json:"last_update" yaml:"last_update"`
-}
-
-type rotationHistory struct {
-	ID             string                   `json:"id" yaml:"id"`
-	SecretPath     string                   `json:"secret_path" yaml:"secret_path"`
-	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	State          secrets.RotationState    `json:"state" yaml:"state"`
-	TotalTargets   int                      `json:"total_targets" yaml:"total_targets"`
-	UpdatedTargets int                      `json:"updated_targets" yaml:"updated_targets"`
-	FailedTargets  int                      `json:"failed_targets" yaml:"failed_targets"`
-	StartedAt      string                   `json:"started_at" yaml:"started_at"`
-	Duration       string                   `json:"duration" yaml:"duration"`
-}
-
-type scheduleDisplay struct {
-	ID         string                   `json:"id" yaml:"id"`
-	SecretPath string                   `json:"secret_path" yaml:"secret_path"`
-	Schedule   string                   `json:"schedule" yaml:"schedule"`
-	Strategy   secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled    bool                     `json:"enabled" yaml:"enabled"`
-	NextRun    string                   `json:"next_run" yaml:"next_run"`
-}
-
-type scheduleDetail struct {
-	ID         string                   `json:"id" yaml:"id"`
-	SecretPath string                   `json:"secret_path" yaml:"secret_path"`
-	Schedule   string                   `json:"schedule" yaml:"schedule"`
-	Strategy   secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled    bool                     `json:"enabled" yaml:"enabled"`
-	NextRun    string                   `json:"next_run" yaml:"next_run"`
-	LastRun    string                   `json:"last_run" yaml:"last_run"`
-	RunCount   int                      `json:"run_count" yaml:"run_count"`
-	CreatedBy  string                   `json:"created_by" yaml:"created_by"`
-	CreatedAt  string                   `json:"created_at" yaml:"created_at"`
-}
-
-type policyDisplay struct {
-	ID            string                   `json:"id" yaml:"id"`
-	Name          string                   `json:"name" yaml:"name"`
-	SecretPattern string                   `json:"secret_pattern" yaml:"secret_pattern"`
-	MaxAge        string                   `json:"max_age" yaml:"max_age"`
-	Strategy      secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	Enabled       bool                     `json:"enabled" yaml:"enabled"`
-}
-
-type policyDetail struct {
-	ID             string                   `json:"id" yaml:"id"`
-	Name           string                   `json:"name" yaml:"name"`
-	SecretPattern  string                   `json:"secret_pattern" yaml:"secret_pattern"`
-	MaxAge         string                   `json:"max_age" yaml:"max_age"`
-	Strategy       secrets.RotationStrategy `json:"strategy" yaml:"strategy"`
-	BatchSize      int                      `json:"batch_size" yaml:"batch_size"`
-	HealthRequired bool                     `json:"health_required" yaml:"health_required"`
-	Enabled        bool                     `json:"enabled" yaml:"enabled"`
-	CreatedBy      string                   `json:"created_by" yaml:"created_by"`
-	CreatedAt      string                   `json:"created_at" yaml:"created_at"`
-}
-
 type transitResult struct {
 	KeyName       string `json:"key_name" yaml:"key_name"`
 	Operation     string `json:"operation" yaml:"operation"`
@@ -2536,170 +2341,10 @@ type transitResult struct {
 	Context       string `json:"context,omitempty" yaml:"context,omitempty"`
 }
 
-type templateSecretRef struct {
-	Path  string `json:"path" yaml:"path"`
-	Field string `json:"field" yaml:"field"`
-	Line  int    `json:"line" yaml:"line"`
-}
-
-type templateResult struct {
-	TemplateFile string              `json:"template_file" yaml:"template_file"`
-	OutputFile   string              `json:"output_file,omitempty" yaml:"output_file,omitempty"`
-	DryRun       bool                `json:"dry_run" yaml:"dry_run"`
-	SecretRefs   []templateSecretRef `json:"secret_refs" yaml:"secret_refs"`
-	RefCount     int                 `json:"ref_count" yaml:"ref_count"`
-}
-
-type cacheStatusDisplay struct {
-	Entries      int     `json:"entries" yaml:"entries"`
-	MaxEntries   int     `json:"max_entries" yaml:"max_entries"`
-	HitRate      float64 `json:"hit_rate" yaml:"hit_rate"`
-	Hits         int64   `json:"hits" yaml:"hits"`
-	Misses       int64   `json:"misses" yaml:"misses"`
-	Evictions    int64   `json:"evictions" yaml:"evictions"`
-	ExpiredCount int64   `json:"expired_count" yaml:"expired_count"`
-	MemoryBytes  int64   `json:"memory_bytes" yaml:"memory_bytes"`
-	DefaultTTL   string  `json:"default_ttl" yaml:"default_ttl"`
-	Encrypted    bool    `json:"encrypted" yaml:"encrypted"`
-}
-
-type cacheEntryDisplay struct {
-	Path     string `json:"path" yaml:"path"`
-	Backend  string `json:"backend" yaml:"backend"`
-	CachedAt string `json:"cached_at" yaml:"cached_at"`
-	TTL      string `json:"ttl" yaml:"ttl"`
-	Hits     int    `json:"hits" yaml:"hits"`
-}
 
 // =============================================================================
 // Helpers
 // =============================================================================
-
-func generateSampleRotations() []*rotationDisplay {
-	return []*rotationDisplay{
-		{
-			ID:             "rot-abc123",
-			SecretPath:     "vault/secret/database/prod",
-			Strategy:       secrets.RotationStrategyBlueGreen,
-			State:          secrets.RotationStateInProgress,
-			TotalTargets:   10,
-			UpdatedTargets: 6,
-			StartedAt:      time.Now().Add(-15 * time.Minute).Format("15:04"),
-		},
-		{
-			ID:             "rot-def456",
-			SecretPath:     "vault/secret/api/staging",
-			Strategy:       secrets.RotationStrategyCanary,
-			State:          secrets.RotationStateCompleted,
-			TotalTargets:   5,
-			UpdatedTargets: 5,
-			StartedAt:      time.Now().Add(-2 * time.Hour).Format("15:04"),
-		},
-		{
-			ID:             "rot-ghi789",
-			SecretPath:     "vault/secret/cache/prod",
-			Strategy:       secrets.RotationStrategyRolling,
-			State:          secrets.RotationStateFailed,
-			TotalTargets:   8,
-			UpdatedTargets: 3,
-			StartedAt:      time.Now().Add(-1 * time.Hour).Format("15:04"),
-		},
-	}
-}
-
-func generateSampleHistory(secretPath string, limit int) []*rotationHistory {
-	history := make([]*rotationHistory, 0, limit)
-	states := []secrets.RotationState{
-		secrets.RotationStateCompleted,
-		secrets.RotationStateCompleted,
-		secrets.RotationStateFailed,
-		secrets.RotationStateCompleted,
-		secrets.RotationStateRolledBack,
-	}
-
-	path := "vault/secret/database/prod"
-	if secretPath != "" {
-		path = secretPath
-	}
-
-	for i := 0; i < limit && i < 5; i++ {
-		h := &rotationHistory{
-			ID:             fmt.Sprintf("rot-%03d", i+1),
-			SecretPath:     path,
-			Strategy:       secrets.RotationStrategyBlueGreen,
-			State:          states[i%len(states)],
-			TotalTargets:   10,
-			UpdatedTargets: 10,
-			StartedAt:      time.Now().Add(-time.Duration(i*24) * time.Hour).Format("Jan 02 15:04"),
-			Duration:       fmt.Sprintf("%dm%ds", 5+i, 30+i*10),
-		}
-		if h.State == secrets.RotationStateFailed {
-			h.UpdatedTargets = 3
-			h.FailedTargets = 2
-		}
-		history = append(history, h)
-	}
-
-	return history
-}
-
-func generateSampleSchedules() []*scheduleDisplay {
-	return []*scheduleDisplay{
-		{
-			ID:         "sched-001",
-			SecretPath: "vault/secret/database/*",
-			Schedule:   "0 2 * * *",
-			Strategy:   secrets.RotationStrategyBlueGreen,
-			Enabled:    true,
-			NextRun:    time.Now().Add(12 * time.Hour).Format("Jan 02 15:04"),
-		},
-		{
-			ID:         "sched-002",
-			SecretPath: "vault/secret/api/*",
-			Schedule:   "0 3 * * 0",
-			Strategy:   secrets.RotationStrategyCanary,
-			Enabled:    true,
-			NextRun:    time.Now().Add(5 * 24 * time.Hour).Format("Jan 02 15:04"),
-		},
-		{
-			ID:         "sched-003",
-			SecretPath: "vault/secret/cache/*",
-			Schedule:   "0 0 1 * *",
-			Strategy:   secrets.RotationStrategyRolling,
-			Enabled:    false,
-			NextRun:    "",
-		},
-	}
-}
-
-func generateSamplePolicies() []*policyDisplay {
-	return []*policyDisplay{
-		{
-			ID:            "pol-001",
-			Name:          "database-rotation",
-			SecretPattern: "vault/secret/database/*",
-			MaxAge:        "90d",
-			Strategy:      secrets.RotationStrategyBlueGreen,
-			Enabled:       true,
-		},
-		{
-			ID:            "pol-002",
-			Name:          "api-rotation",
-			SecretPattern: "vault/secret/api/*",
-			MaxAge:        "30d",
-			Strategy:      secrets.RotationStrategyCanary,
-			Enabled:       true,
-		},
-		{
-			ID:            "pol-003",
-			Name:          "cache-rotation",
-			SecretPattern: "vault/secret/cache/*",
-			MaxAge:        "180d",
-			Strategy:      secrets.RotationStrategyRolling,
-			Enabled:       false,
-		},
-	}
-}
 
 func outputJSON(v interface{}) error {
 	data, err := json.MarshalIndent(v, "", "  ")

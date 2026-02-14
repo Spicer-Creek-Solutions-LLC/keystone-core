@@ -110,6 +110,59 @@ type RotationResponse struct {
 	Error          string    `json:"error,omitempty"`
 }
 
+// RotationListResponse is the response for GET /api/v1/rotations.
+type RotationListResponse struct {
+	Rotations []RotationResponse `json:"rotations"`
+	Total     int                `json:"total"`
+}
+
+// RotationActionResponse is the response for rotation action endpoints (pause, resume, trigger, cancel, rollback).
+type RotationActionResponse struct {
+	RotationID string `json:"rotation_id"`
+	Action     string `json:"action"`
+	Success    bool   `json:"success"`
+	Message    string `json:"message,omitempty"`
+}
+
+// RotationPolicyResponse is the response for rotation policy endpoints.
+type RotationPolicyResponse struct {
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	CredentialTypes []string `json:"credential_types"`
+	MaxAge         string   `json:"max_age"`
+	WarningAge     string   `json:"warning_age,omitempty"`
+	Schedule       string   `json:"schedule,omitempty"`
+	AutoRotate     bool     `json:"auto_rotate"`
+	RollbackOnFail bool     `json:"rollback_on_fail"`
+	Enabled        bool     `json:"enabled"`
+}
+
+// RotationPolicyListResponse is the response for GET /api/v1/secrets/rotation/policies.
+type RotationPolicyListResponse struct {
+	Policies []RotationPolicyResponse `json:"policies"`
+	Total    int                      `json:"total"`
+}
+
+// CreateRotationPolicyRequest is the request for creating a rotation policy.
+type CreateRotationPolicyRequest struct {
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	CredentialTypes []string `json:"credential_types"`
+	MaxAge         string   `json:"max_age"`
+	WarningAge     string   `json:"warning_age,omitempty"`
+	Schedule       string   `json:"schedule,omitempty"`
+	AutoRotate     bool     `json:"auto_rotate"`
+	RollbackOnFail bool     `json:"rollback_on_fail"`
+	Enabled        bool     `json:"enabled"`
+}
+
+// RotationPolicyActionResponse is the response for policy enable/disable/delete.
+type RotationPolicyActionResponse struct {
+	PolicyID string `json:"policy_id"`
+	Action   string `json:"action"`
+	Success  bool   `json:"success"`
+}
+
 // TransitEncryptRequest is the request body for transit encrypt.
 type TransitEncryptRequest struct {
 	Plaintext  []byte `json:"plaintext"`
@@ -191,6 +244,18 @@ type TransitHMACResponse struct {
 	HMAC string `json:"hmac"`
 }
 
+// TransitRewrapRequest is the request body for transit rewrap.
+type TransitRewrapRequest struct {
+	Ciphertext string `json:"ciphertext"`
+	Context    []byte `json:"context,omitempty"`
+}
+
+// TransitRewrapResponse is the response for rewrap operations.
+type TransitRewrapResponse struct {
+	Ciphertext string `json:"ciphertext"`
+	KeyVersion int    `json:"key_version,omitempty"`
+}
+
 // ComplianceReportRequest is the request for compliance report generation.
 type ComplianceReportRequest struct {
 	Type string `json:"type"`
@@ -233,4 +298,34 @@ type HealthResponse struct {
 	BackendCount  int             `json:"backend_count"`
 	CacheStats    interface{}     `json:"cache_stats,omitempty"`
 	LeaseStats    interface{}     `json:"lease_stats,omitempty"`
+}
+
+// BackendInfoResponse is the response for a single backend.
+type BackendInfoResponse struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Healthy bool   `json:"healthy"`
+}
+
+// BackendListResponse is the response for GET /api/v1/secrets/backends.
+type BackendListResponse struct {
+	Backends []*BackendInfoResponse `json:"backends"`
+	Total    int                    `json:"total"`
+}
+
+// CacheStatsResponse is the response for GET /api/v1/secrets/cache/stats.
+type CacheStatsResponse struct {
+	Entries      int   `json:"entries"`
+	MaxEntries   int   `json:"max_entries"`
+	Hits         int64 `json:"hits"`
+	Misses       int64 `json:"misses"`
+	Evictions    int64 `json:"evictions"`
+	ExpiredCount int64 `json:"expired_count"`
+	MemoryBytes  int64 `json:"memory_bytes"`
+}
+
+// CacheClearResponse is the response for DELETE /api/v1/secrets/cache.
+type CacheClearResponse struct {
+	Message string `json:"message"`
+	Cleared int    `json:"cleared"`
 }

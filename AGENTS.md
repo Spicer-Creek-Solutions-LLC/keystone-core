@@ -172,6 +172,14 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
 
 - **Epic 50** (Outbound Webhooks) - COMPLETE - Persistent outbound webhook subscriptions with SQLite store, HMAC-SHA256 signing, event dispatcher via NATS SubscribeQueue, exponential backoff retry, REST API (7 endpoints), CLI commands (6 subcommands)
 
+- **Epic 55** (CLI Wiring: Secrets & Compliance) — COMPLETE — Replaced all generateSample*() stubs with real API calls:
+  - Phase 1: `kscore-secrets` backends/audit/cache — Added REST endpoints (backends, cache stats), wired 5 commands
+  - Phase 2: `kscore-secrets` rotations — Extended rotation REST endpoints (list, pause, resume, trigger), wired 10 rotate commands
+  - Phase 3: `kscore-secrets` schedule/policy — Added rotation policy REST endpoints (7 routes), wired 10 schedule+policy commands
+  - Phase 4: `kscore-secrets` remaining — Wired rewrap to transit REST, template resolves secrets client-side, rotate-keys returns not-yet-available
+  - Phase 5: `kscore-audit` + `kscore-policy` — Created `pkg/policy/` gRPC client package (4 RPCs); wired 6 audit commands and 5 policy commands to PolicyService gRPC; schedule/remediate/monitor/analyze/watch return not-yet-available
+  - Phase 6: Documentation and epic cleanup
+
 - **Epic 54** (CLI Wiring: Core Operations) — COMPLETE — Replaced all generateSample*() stubs with real API calls:
   - Phase 1: `kscore-events` — 8 commands wired to EventService gRPC (list, query, emit, watch, subscribe, export, analyze, storage-stats); 11 not-yet-available commands return clear errors
   - Phase 2: `kscore-schedule` — Created Schedule REST API (19 routes: 10 schedules + 9 maintenance windows) backed by `schedule.Manager`/`MaintenanceWindowManager`; wired all 21 CLI commands via REST client; registered in `kscore-server` when cluster mode enabled
@@ -180,7 +188,6 @@ Epics 1-32, 36-37, 39-53 are all complete. Key packages and where to find detail
   - 15 handler tests (runbook), 5 exec tests, httptest-based CLI tests; all `generateSample*` functions removed
 
 ### Planned
-- **Epic 55** (CLI Wiring: Secrets & Compliance) — NOT STARTED — Wire kscore-secrets (30), kscore-audit (1), kscore-policy (4); add rotation/schedule/cache management RPCs
 - **Epic 56** (CLI Wiring: GitOps & Infrastructure) — NOT STARTED — Wire kscore-gitops (10), kscore-webhook (3), kscore-agents (3), kscore-module (3), kscorectl (2), kscore-files (2), kscore-monitor (1)
 - **Epic 57** (Error Handling Hardening) — NOT STARTED — Fix ~20 silently ignored errors, add channel-drop metrics, input validation, WASM error propagation, AuthorizationPolicy modification detection
 

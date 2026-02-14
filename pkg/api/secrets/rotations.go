@@ -9,19 +9,39 @@ import (
 	"github.com/shawnbutts/keystone-core/internal/secrets"
 )
 
-// handleRotationsList handles POST /api/v1/rotations (exact path).
+// handleRotationsList handles GET/POST /api/v1/rotations (exact path).
 func (h *Handler) handleRotationsList(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/rotations" {
 		h.handleRotationsRoute(w, r)
 		return
 	}
 
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodGet:
+		h.handleListRotations(w, r)
+	case http.MethodPost:
+		h.handleStartRotation(w, r)
+	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (h *Handler) handleListRotations(w http.ResponseWriter, _ *http.Request) {
+	if h.orchestrator == nil {
+		writeError(w, http.StatusServiceUnavailable, "rotation orchestrator not available")
 		return
 	}
 
-	h.handleStartRotation(w, r)
+	managed := h.orchestrator.ListRotations()
+	rotations := make([]RotationResponse, 0, len(managed))
+	for _, mr := range managed {
+		rotations = append(rotations, managedRotationToResponse(mr))
+	}
+
+	writeJSON(w, http.StatusOK, RotationListResponse{
+		Rotations: rotations,
+		Total:     len(rotations),
+	})
 }
 
 // handleRotationsRoute handles routes under /api/v1/rotations/{id}...
@@ -42,6 +62,15 @@ func (h *Handler) handleRotationsRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		case "rollback":
 			h.handleRollbackRotation(w, r, rotationID) //nolint:contextcheck // Rollback uses state machine internally
+			return
+		case "pause":
+			h.handlePauseRotation(w, r, rotationID)
+			return
+		case "resume":
+			h.handleResumeRotation(w, r, rotationID)
+			return
+		case "trigger":
+			h.handleTriggerRotation(w, r, rotationID)
 			return
 		}
 	}
@@ -132,9 +161,10 @@ func (h *Handler) handleCancelRotation(w http.ResponseWriter, r *http.Request, r
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"rotation_id": rotationID,
-		"cancelled":   true,
+	writeJSON(w, http.StatusOK, RotationActionResponse{
+		RotationID: rotationID,
+		Action:     "cancel",
+		Success:    true,
 	})
 }
 
@@ -154,10 +184,68 @@ func (h *Handler) handleRollbackRotation(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"rotation_id": rotationID,
-		"rolled_back": true,
+	writeJSON(w, http.StatusOK, RotationActionResponse{
+		RotationID: rotationID,
+		Action:     "rollback",
+		Success:    true,
 	})
+}
+
+func (h *Handler) handlePauseRotation(w http.ResponseWriter, r *http.Request, rotationID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if h.orchestrator == nil {
+		writeError(w, http.StatusServiceUnavailable, "rotation orchestrator not available")
+		return
+	}
+
+	if _, ok := h.orchestrator.GetRotation(rotationID); !ok {
+		writeError(w, http.StatusNotFound, "rotation not found")
+		return
+	}
+
+	writeError(w, http.StatusNotImplemented, "pause is not yet supported by the rotation engine")
+}
+
+func (h *Handler) handleResumeRotation(w http.ResponseWriter, r *http.Request, rotationID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if h.orchestrator == nil {
+		writeError(w, http.StatusServiceUnavailable, "rotation orchestrator not available")
+		return
+	}
+
+	if _, ok := h.orchestrator.GetRotation(rotationID); !ok {
+		writeError(w, http.StatusNotFound, "rotation not found")
+		return
+	}
+
+	writeError(w, http.StatusNotImplemented, "resume is not yet supported by the rotation engine")
+}
+
+func (h *Handler) handleTriggerRotation(w http.ResponseWriter, r *http.Request, rotationID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if h.orchestrator == nil {
+		writeError(w, http.StatusServiceUnavailable, "rotation orchestrator not available")
+		return
+	}
+
+	if _, ok := h.orchestrator.GetRotation(rotationID); !ok {
+		writeError(w, http.StatusNotFound, "rotation not found")
+		return
+	}
+
+	writeError(w, http.StatusNotImplemented, "trigger is not yet supported; rotation scheduler not wired")
 }
 
 // managedRotationToResponse builds a response using ManagedRotation's

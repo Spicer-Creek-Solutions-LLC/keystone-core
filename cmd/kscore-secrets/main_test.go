@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,71 +306,205 @@ func TestListCmd_Flags(t *testing.T) {
 }
 
 // =============================================================================
-// Backends Command Tests (stub — still uses mock data)
+// Backends Command Tests (wired to REST API)
 // =============================================================================
 
-func TestBackendsCmd_Table(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"backends"})
+func setupSecretsTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/secrets/backends", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"backends": []map[string]interface{}{
+				{"name": "vault", "type": "vault", "healthy": true},
+			},
+			"total": 1,
+		})
+	})
+	mux.HandleFunc("/api/v1/audit/logs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"events": []map[string]interface{}{
+				{"secret_path": "vault/secret/db", "action": "read", "success": true, "timestamp": "2025-01-01T00:00:00Z"},
+			},
+			"total": 1,
+		})
+	})
+	mux.HandleFunc("/api/v1/secrets/cache/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"entries": 5, "max_entries": 100, "hits": 50, "misses": 10,
+			"evictions": 2, "expired_count": 1, "memory_bytes": 1024,
+		})
+	})
+	mux.HandleFunc("/api/v1/secrets/cache", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "cache cleared", "cleared": 5,
+		})
+	})
+	mux.HandleFunc("/api/v1/rotations/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/rotations/")
+		parts := strings.SplitN(path, "/", 2)
+		rotID := parts[0]
+		if len(parts) == 2 {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"rotation_id": rotID, "action": parts[1], "success": true,
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": rotID, "secret_path": "vault/secret/db", "state": "in_progress",
+			"strategy": "rolling", "total_targets": 10, "updated_targets": 6,
+			"failed_targets": 0, "started_at": "2025-01-01T00:00:00Z",
+		})
+	})
+	mux.HandleFunc("/api/v1/rotations", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id": "rot-new123", "secret_path": "vault/secret/db", "state": "pending",
+				"strategy": "rolling", "total_targets": 1, "started_at": "2025-01-01T00:00:00Z",
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"rotations": []map[string]interface{}{
+				{"id": "rot-abc123", "secret_path": "vault/secret/db", "state": "in_progress",
+					"strategy": "rolling", "total_targets": 10, "updated_targets": 6,
+					"started_at": "2025-01-01T00:00:00Z"},
+			},
+			"total": 1,
+		})
+	})
+	mux.HandleFunc("/api/v1/transit/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ciphertext": "vault:v2:rewrapped", "key_version": 2,
+		})
+	})
+	mux.HandleFunc("/api/v1/secrets/rotation/policies/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/secrets/rotation/policies/")
+		parts := strings.SplitN(path, "/", 2)
+		policyID := parts[0]
+		if len(parts) == 2 {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"policy_id": policyID, "action": parts[1], "success": true,
+			})
+			return
+		}
+		if r.Method == http.MethodDelete {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"policy_id": policyID, "action": "delete", "success": true,
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": policyID, "name": "test-policy", "max_age": "90d",
+			"schedule": "0 2 * * *", "enabled": true, "auto_rotate": true,
+			"credential_types": []string{"password"},
+		})
+	})
+	mux.HandleFunc("/api/v1/secrets/rotation/policies", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id": "pol-new123", "name": "new-policy", "max_age": "90d",
+				"schedule": "0 2 * * *", "enabled": true,
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"policies": []map[string]interface{}{
+				{"id": "pol-001", "name": "db-policy", "max_age": "90d",
+					"schedule": "0 2 * * *", "enabled": true, "auto_rotate": true},
+			},
+			"total": 1,
+		})
+	})
+	return httptest.NewServer(mux)
+}
 
+func TestBackendsCmd_Table(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"backends", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestBackendsCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"backends", "-o", "json"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"backends", "-o", "json", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestBackendsCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"backends", "-o", "yaml"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"backends", "-o", "yaml", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 // =============================================================================
-// Audit Command Tests (stub — still uses mock data)
+// Audit Command Tests (wired to REST API)
 // =============================================================================
 
 func TestAuditCmd_Table(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "vault/secret/database/prod"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestAuditCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "-o", "json"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "-o", "json", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestAuditCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "-o", "yaml"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "-o", "yaml", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestAuditCmd_WithLimit(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "--limit", "3"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"audit", "vault/secret/database/prod", "--limit", "3", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -395,62 +531,6 @@ func TestAuditCmd_Flags(t *testing.T) {
 // =============================================================================
 // Display Type Tests (kept types)
 // =============================================================================
-
-func TestBackendDisplay_JSON(t *testing.T) {
-	b := &backendDisplay{
-		Name:        "vault",
-		Type:        "hashicorp-vault",
-		Status:      "healthy",
-		SecretCount: 42,
-		Address:     "https://vault.example.com",
-		AuthMethod:  "approle",
-	}
-
-	data, err := json.Marshal(b)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded backendDisplay
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.Name != "vault" {
-		t.Errorf("Name = %q, want %q", decoded.Name, "vault")
-	}
-	if decoded.SecretCount != 42 {
-		t.Errorf("SecretCount = %d, want 42", decoded.SecretCount)
-	}
-}
-
-func TestAuditEntry_JSON(t *testing.T) {
-	e := &auditEntry{
-		Timestamp: "2025-01-01T00:00:00Z",
-		Path:      "vault/secret/db",
-		Action:    "read",
-		Principal: "agent/web-01",
-		SourceIP:  "10.0.1.15",
-		Version:   3,
-	}
-
-	data, err := json.Marshal(e)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded auditEntry
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.Action != "read" {
-		t.Errorf("Action = %q, want %q", decoded.Action, "read")
-	}
-	if decoded.Version != 3 {
-		t.Errorf("Version = %d, want 3", decoded.Version)
-	}
-}
 
 func TestTransitResult_JSON(t *testing.T) {
 	tr := &transitResult{
@@ -479,164 +559,49 @@ func TestTransitResult_JSON(t *testing.T) {
 	}
 }
 
-func TestTemplateResult_JSON(t *testing.T) {
-	tr := &templateResult{
-		TemplateFile: "config.tmpl",
-		OutputFile:   "config.yaml",
-		DryRun:       true,
-		SecretRefs: []templateSecretRef{
-			{Path: "vault/secret/db", Field: "password", Line: 5},
-		},
-		RefCount: 1,
+func TestTransitResult_YAML(t *testing.T) {
+	tr := &transitResult{
+		KeyName:    "transit/mykey",
+		Operation:  "rewrap",
+		Ciphertext: "vault:v2:abc123",
+		KeyVersion: 2,
 	}
 
-	data, err := json.Marshal(tr)
+	data, err := yaml.Marshal(tr)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded templateResult
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	var decoded transitResult
+	if err := yaml.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if decoded.TemplateFile != "config.tmpl" {
-		t.Errorf("TemplateFile = %q, want %q", decoded.TemplateFile, "config.tmpl")
-	}
-	if decoded.RefCount != 1 {
-		t.Errorf("RefCount = %d, want 1", decoded.RefCount)
-	}
-	if len(decoded.SecretRefs) != 1 {
-		t.Errorf("SecretRefs count = %d, want 1", len(decoded.SecretRefs))
-	}
-}
-
-func TestCacheStatusDisplay_JSON(t *testing.T) {
-	cs := &cacheStatusDisplay{
-		Entries:      47,
-		MaxEntries:   10000,
-		HitRate:      87.3,
-		Hits:         1523,
-		Misses:       221,
-		Evictions:    12,
-		ExpiredCount: 34,
-		MemoryBytes:  245760,
-		DefaultTTL:   "5m",
-		Encrypted:    true,
-	}
-
-	data, err := json.Marshal(cs)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded cacheStatusDisplay
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.Entries != 47 {
-		t.Errorf("Entries = %d, want 47", decoded.Entries)
-	}
-	if decoded.HitRate != 87.3 {
-		t.Errorf("HitRate = %f, want 87.3", decoded.HitRate)
-	}
-	if !decoded.Encrypted {
-		t.Error("Encrypted should be true")
-	}
-}
-
-func TestCacheEntryDisplay_JSON(t *testing.T) {
-	ce := &cacheEntryDisplay{
-		Path:     "vault/secret/db",
-		Backend:  "vault",
-		CachedAt: "12:00:00",
-		TTL:      "5m",
-		Hits:     10,
-	}
-
-	data, err := json.Marshal(ce)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded cacheEntryDisplay
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.Hits != 10 {
-		t.Errorf("Hits = %d, want 10", decoded.Hits)
+	if decoded.Operation != "rewrap" {
+		t.Errorf("Operation = %q, want %q", decoded.Operation, "rewrap")
 	}
 }
 
 // =============================================================================
-// Sample Data Generator Tests (kept generators)
+// REST Client Helper Tests
 // =============================================================================
 
-func TestGenerateSampleBackends(t *testing.T) {
-	backends := generateSampleBackends()
-	if len(backends) != 3 {
-		t.Errorf("expected 3 backends, got %d", len(backends))
+func TestCreateRESTClient(t *testing.T) {
+	cfg := &Config{ServerAddr: "localhost:9090"}
+	client := createRESTClient(cfg)
+	if client == nil {
+		t.Fatal("expected non-nil client")
 	}
-
-	names := make(map[string]bool)
-	for _, b := range backends {
-		if b.Name == "" {
-			t.Error("expected non-empty Name")
-		}
-		if b.Type == "" {
-			t.Error("expected non-empty Type")
-		}
-		if b.Status == "" {
-			t.Error("expected non-empty Status")
-		}
-		names[b.Name] = true
-	}
-
-	for _, expected := range []string{"vault", "aws-sm", "azure-kv"} {
-		if !names[expected] {
-			t.Errorf("expected backend %q not found", expected)
-		}
+	if client.baseURL != "http://localhost:8443" {
+		t.Errorf("expected baseURL 'http://localhost:8443', got %q", client.baseURL)
 	}
 }
 
-func TestGenerateSampleAuditEntries(t *testing.T) {
-	entries := generateSampleAuditEntries("vault/secret/db", 20)
-	if len(entries) != 7 {
-		t.Errorf("expected 7 entries (sample set size), got %d", len(entries))
-	}
-
-	for _, e := range entries {
-		if e.Path != "vault/secret/db" {
-			t.Errorf("Path = %q, want %q", e.Path, "vault/secret/db")
-		}
-		if e.Action == "" {
-			t.Error("expected non-empty Action")
-		}
-		if e.Principal == "" {
-			t.Error("expected non-empty Principal")
-		}
-	}
-
-	entries = generateSampleAuditEntries("vault/secret/db", 3)
-	if len(entries) != 3 {
-		t.Errorf("expected 3 entries with limit=3, got %d", len(entries))
-	}
-}
-
-func TestGenerateSampleCacheEntries(t *testing.T) {
-	items := generateSampleCacheEntries()
-	if len(items) != 3 {
-		t.Errorf("expected 3 items, got %d", len(items))
-	}
-	for _, item := range items {
-		if item.Path == "" {
-			t.Error("expected non-empty Path")
-		}
-		if item.Backend == "" {
-			t.Error("expected non-empty Backend")
-		}
+func TestCreateRESTClient_TLS(t *testing.T) {
+	cfg := &Config{ServerAddr: "server.example.com:9090", TLS: true}
+	client := createRESTClient(cfg)
+	if client.baseURL != "https://server.example.com:8443" {
+		t.Errorf("expected baseURL 'https://server.example.com:8443', got %q", client.baseURL)
 	}
 }
 
@@ -904,27 +869,33 @@ func TestDecryptCmd_Flags(t *testing.T) {
 // =============================================================================
 
 func TestRewrapCmd_Table(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestRewrapCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey", "-o", "json"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey", "-o", "json", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestRewrapCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey", "-o", "yaml"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rewrap", "vault:v1:bXktc2VjcmV0", "--key", "transit/mykey", "-o", "yaml", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -959,9 +930,11 @@ func TestRewrapCmd_Flags(t *testing.T) {
 }
 
 func TestRewrapCmd_NoCipherPrefix(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"rewrap", "raw-ciphertext-data", "--key", "transit/mykey"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rewrap", "raw-ciphertext-data", "--key", "transit/mykey", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -971,66 +944,16 @@ func TestRewrapCmd_NoCipherPrefix(t *testing.T) {
 // Template Command Tests (stub — still uses mock data)
 // =============================================================================
 
-func TestTemplateCmd_Table(t *testing.T) {
+func TestTemplateCmd_NotYetAvailable(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"template", "config.tmpl"})
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for template (not yet available)")
 	}
-}
-
-func TestTemplateCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "-o", "json"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestTemplateCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "-o", "yaml"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestTemplateCmd_DryRun(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "--dry-run"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestTemplateCmd_DryRunJSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "--dry-run", "-o", "json"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestTemplateCmd_DryRunYAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "--dry-run", "-o", "yaml"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestTemplateCmd_WithOutFile(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"template", "config.tmpl", "--out-file", "config.yaml"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
@@ -1079,63 +1002,77 @@ func TestCacheCmd_HasSubcommands(t *testing.T) {
 }
 
 func TestCacheStatusCmd_Table(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "status"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "status", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheStatusCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "status", "-o", "json"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "status", "-o", "json", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheStatusCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "status", "-o", "yaml"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "status", "-o", "yaml", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheClearCmd(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "clear"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "clear", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheListCmd_Table(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "list"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "list", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheListCmd_JSON(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "list", "-o", "json"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "list", "-o", "json", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCacheListCmd_YAML(t *testing.T) {
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"cache", "list", "-o", "yaml"})
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
 
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"cache", "list", "-o", "yaml", "--rest-addr", ts.URL})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1146,6 +1083,156 @@ func TestCacheListCmd_Aliases(t *testing.T) {
 	cmd := newCacheListCmd(cfg)
 	if len(cmd.Aliases) == 0 || cmd.Aliases[0] != "ls" {
 		t.Error("expected alias 'ls' not found")
+	}
+}
+
+// =============================================================================
+// Rotate Command Tests (wired to REST API)
+// =============================================================================
+
+func TestRotateListCmd_Table(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "list", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateListCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "list", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateShowCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "show", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateStatusCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "status", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateStatusCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "status", "rot-abc123", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateStartCmd_DryRun(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "start", "--secret", "vault/secret/db", "--target", "agent-1", "--dry-run"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateStartCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "start", "--secret", "vault/secret/db", "--target", "agent-1", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateHistoryCmd(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "history"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for history (not yet available)")
+	}
+}
+
+func TestRotateCancelCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "cancel", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateRollbackCmd_NoForce(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "rollback", "rot-abc123"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateRollbackCmd_Force(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "rollback", "rot-abc123", "--force", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotatePauseCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "pause", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateResumeCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "resume", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRotateTriggerCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"rotate", "trigger", "rot-abc123", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -1168,20 +1255,16 @@ func TestNewRotateKeysCmd(t *testing.T) {
 	}
 }
 
-func TestRotateKeysForce(t *testing.T) {
+func TestRotateKeysNotYetAvailable(t *testing.T) {
 	cmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetArgs([]string{"rotate-keys", "--force"})
+	cmd.SetArgs([]string{"rotate-keys"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error for rotate-keys (not yet available)")
 	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Encryption keys rotated") {
-		t.Errorf("expected rotation message, got: %s", output)
+	if !strings.Contains(err.Error(), "not yet available") {
+		t.Errorf("expected 'not yet available' error, got: %v", err)
 	}
 }
 
@@ -1199,6 +1282,186 @@ func TestRotateKeysHelp(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "encryption keys") {
 		t.Errorf("expected help text about encryption keys, got: %s", output)
+	}
+}
+
+// =============================================================================
+// Schedule Command Tests (wired to REST API)
+// =============================================================================
+
+func TestScheduleListCmd_Table(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "list", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleListCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "list", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleShowCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "show", "pol-001", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleShowCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "show", "pol-001", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleCreateCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "create", "--secret", "vault/secret/db",
+		"--schedule", "0 2 * * *", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleEnableCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "enable", "pol-001", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleDisableCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "disable", "pol-001", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleDeleteCmd_NoForce(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "delete", "pol-001"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleDeleteCmd_Force(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"schedule", "delete", "pol-001", "--force", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// =============================================================================
+// Policy Command Tests (wired to REST API)
+// =============================================================================
+
+func TestPolicyListCmd_Table(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "list", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyListCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "list", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyShowCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "show", "pol-001", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyShowCmd_JSON(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "show", "pol-001", "-o", "json", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyCreateCmd(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "create", "--name", "db-policy",
+		"--pattern", "vault/secret/db/*", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyDeleteCmd_NoForce(t *testing.T) {
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "delete", "pol-001"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPolicyDeleteCmd_Force(t *testing.T) {
+	ts := setupSecretsTestServer(t)
+	defer ts.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"policy", "delete", "pol-001", "--force", "--rest-addr", ts.URL})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
