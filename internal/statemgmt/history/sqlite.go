@@ -23,6 +23,7 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	db.SetMaxOpenConns(1) // SQLite only supports one writer
 
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {

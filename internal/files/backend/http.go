@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -72,9 +73,13 @@ func NewHTTPBackend(config *HTTPConfig) (*HTTPBackend, error) {
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if config.TLSInsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("http backend: tls_insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
 		transport.TLSClientConfig = &tls.Config{
 			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: true, //nolint:gosec // user-configured opt-in
+			InsecureSkipVerify: true, //nolint:gosec // gated by KSCORE_ALLOW_INSECURE_TLS
 		}
 	}
 

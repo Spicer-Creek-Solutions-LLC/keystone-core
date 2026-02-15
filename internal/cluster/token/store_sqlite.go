@@ -47,6 +47,7 @@ func NewSQLiteStore(config *SQLiteStoreConfig) (*SQLiteStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+	db.SetMaxOpenConns(1) // SQLite only supports one writer
 
 	if err := db.PingContext(context.Background()); err != nil {
 		db.Close()

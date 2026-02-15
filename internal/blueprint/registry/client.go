@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -56,11 +57,16 @@ func NewHTTPClient(config *Config) (*HTTPClient, error) {
 	}
 
 	// Create HTTP client
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
+	transport := &http.Transport{}
+	if config.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("blueprint registry: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		transport.TLSClientConfig = &tls.Config{
 			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: config.InsecureSkipVerify, // #nosec G402 -- user-configured for development/testing
-		},
+			InsecureSkipVerify: true, // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS
+		}
 	}
 
 	client := &HTTPClient{

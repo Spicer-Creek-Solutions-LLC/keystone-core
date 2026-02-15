@@ -24,6 +24,7 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	db.SetMaxOpenConns(1) // SQLite only supports one writer
 
 	ctx := context.Background()
 	// Enable WAL mode for better concurrency

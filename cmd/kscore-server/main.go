@@ -917,6 +917,7 @@ func runServer(cmd *cobra.Command, args []string) {
 			logger.Error("Failed to open outbound webhook database", logging.Error(outboundErr))
 		} else {
 			defer outboundDB.Close()
+			outboundDB.SetMaxOpenConns(1) // SQLite only supports one writer
 			if _, pragmaErr := outboundDB.ExecContext(ctx, "PRAGMA journal_mode=WAL"); pragmaErr != nil {
 				logger.Warn("Failed to enable WAL for outbound webhook DB", logging.Error(pragmaErr))
 			}
@@ -951,6 +952,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Error("Failed to open runbook database", logging.Error(err))
 	} else {
 		defer runbookDB.Close()
+		runbookDB.SetMaxOpenConns(1) // SQLite only supports one writer
 		if _, pragmaErr := runbookDB.ExecContext(ctx, "PRAGMA journal_mode=WAL"); pragmaErr != nil {
 			logger.Warn("Failed to enable WAL for runbook DB", logging.Error(pragmaErr))
 		}

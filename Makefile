@@ -15,7 +15,8 @@
        e2e-allinone e2e-all-topologies \
        test-vm test-vm-demo test-vm-smoke repo-server \
        repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules bootstrap-package \
-       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest \
+       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule \
+       blueprint agents backup events files proxy runbook secrets transfer upgrade test-binary loadtest \
        dev dev-server dev-agent dev-registry dev-gateway
 
 # Version information
@@ -48,14 +49,25 @@ BINARIES := \
 	kscore-module:kscore-module \
 	kscore-identity:kscore-identity \
 	kscore-telemetry-gateway:kscore-telemetry-gateway \
+	kscore-blueprint:kscore-blueprint \
 	kscore-blueprint-publish:kscore-blueprint-publish \
 	kscore-blueprint-state:kscore-blueprint-state \
 	kscore-federation:kscore-federation \
 	kscore-cluster-backup:kscore-cluster-backup \
+	kscore-files:kscore-files \
 	kscore-files-storage:kscore-files-storage \
 	kscore-audit:kscore-audit \
 	kscore-webhook:kscore-webhook \
 	kscore-schedule:kscore-schedule \
+	kscore-agents:kscore-agents \
+	kscore-backup:kscore-backup \
+	kscore-events:kscore-events \
+	kscore-proxy:kscore-proxy \
+	kscore-runbook:kscore-runbook \
+	kscore-secrets:kscore-secrets \
+	kscore-transfer:kscore-transfer \
+	kscore-upgrade:kscore-upgrade \
+	kscore-test:kscore-test \
 	kscore-loadtest:kscore-loadtest \
 	kscore-repo-gen:kscore-repo-gen \
 	kscore-bootstrap:kscore-bootstrap
@@ -92,6 +104,19 @@ help:
 	@echo "    module           - Build kscore-module plugin"
 	@echo "    identity         - Build kscore-identity plugin"
 	@echo "    schedule         - Build kscore-schedule plugin"
+	@echo "    blueprint        - Build kscore-blueprint plugin"
+	@echo "    agents           - Build kscore-agents plugin"
+	@echo "    backup           - Build kscore-backup plugin"
+	@echo "    events           - Build kscore-events plugin"
+	@echo "    files            - Build kscore-files plugin"
+	@echo "    proxy            - Build kscore-proxy plugin"
+	@echo "    runbook          - Build kscore-runbook plugin"
+	@echo "    secrets          - Build kscore-secrets plugin"
+	@echo "    transfer         - Build kscore-transfer plugin"
+	@echo "    upgrade          - Build kscore-upgrade plugin"
+	@echo ""
+	@echo "  Dev/test:"
+	@echo "    test-binary      - Build kscore-test utility"
 	@echo "    loadtest         - Build kscore-loadtest utility"
 	@echo ""
 	@echo "  test               - Run tests"
@@ -272,6 +297,39 @@ gateway:
 
 schedule:
 	$(call build-binary,kscore-schedule,kscore-schedule)
+
+blueprint:
+	$(call build-binary,kscore-blueprint,kscore-blueprint)
+
+agents:
+	$(call build-binary,kscore-agents,kscore-agents)
+
+backup:
+	$(call build-binary,kscore-backup,kscore-backup)
+
+events:
+	$(call build-binary,kscore-events,kscore-events)
+
+files:
+	$(call build-binary,kscore-files,kscore-files)
+
+proxy:
+	$(call build-binary,kscore-proxy,kscore-proxy)
+
+runbook:
+	$(call build-binary,kscore-runbook,kscore-runbook)
+
+secrets:
+	$(call build-binary,kscore-secrets,kscore-secrets)
+
+transfer:
+	$(call build-binary,kscore-transfer,kscore-transfer)
+
+upgrade:
+	$(call build-binary,kscore-upgrade,kscore-upgrade)
+
+test-binary:
+	$(call build-binary,kscore-test,kscore-test)
 
 loadtest:
 	$(call build-binary,kscore-loadtest,kscore-loadtest)
