@@ -70,7 +70,8 @@ BINARIES := \
 	kscore-test:kscore-test \
 	kscore-loadtest:kscore-loadtest \
 	kscore-repo-gen:kscore-repo-gen \
-	kscore-bootstrap:kscore-bootstrap
+	kscore-bootstrap:kscore-bootstrap \
+	kscore-mcp:kscore-mcp
 
 # Extract just the binary names for .PHONY
 BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))

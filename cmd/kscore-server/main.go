@@ -340,11 +340,20 @@ func runServer(cmd *cobra.Command, args []string) {
 					logging.Error(authErr),
 				)
 			} else if principal != nil {
-				logger.Debug("Authentication allowed",
+				fields := []logging.Field{
 					logging.String("method", method),
 					logging.String("principal", principal.Name),
 					logging.String("role", string(principal.Role)),
-				)
+				}
+				if ct, ok := principal.Metadata["x-kscore-client-type"]; ok {
+					fields = append(fields,
+						logging.String("client_type", ct),
+						logging.String("mcp_tool", principal.Metadata["x-kscore-mcp-tool"]),
+						logging.String("mcp_session", principal.Metadata["x-kscore-mcp-session"]),
+						logging.String("mcp_ai_client", principal.Metadata["x-kscore-mcp-ai-client"]),
+					)
+				}
+				logger.Debug("Authentication allowed", fields...)
 			}
 		}
 

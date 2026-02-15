@@ -13031,6 +13031,102 @@ kscorectl bootstrap airgap-validate --binary-dir /usr/local/bin \
 | Module availability | module | Verifies required modules exist in local registry |
 | Network connections | network | Checks `/proc/net/tcp` for external connections (Linux only) |
 
+## kscore-mcp (MCP Server for AI Clients)
+
+Model Context Protocol server that exposes Keystone Core operations to AI clients
+(Claude Desktop, Claude Code, Cursor). Translates MCP JSON-RPC requests into gRPC
+calls using the operator's own credentials for authentication.
+
+### Usage
+
+```bash
+kscore-mcp [flags]
+kscore-mcp [command]
+```
+
+### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config string` | Path to MCP configuration file (YAML) | |
+| `-h, --help` | Show help | |
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `run` | Start the MCP server on stdio (default) |
+| `validate` | Validate configuration file |
+| `version` | Print version information |
+
+### Configuration File
+
+```yaml
+server:
+  address: "localhost:50051"         # gRPC server address
+  rest_base_url: "http://localhost:8080"  # REST API base URL (for runbooks)
+
+auth:
+  method: apikey                     # apikey, jwt, or mtls
+  api_key: "your-api-key"
+  # jwt_token: "your-jwt"
+  # tls_cert: "/path/to/cert.pem"
+  # tls_key: "/path/to/key.pem"
+  # tls_ca_cert: "/path/to/ca.pem"
+
+features:
+  default_profile: ops_safe          # read_only, ops_safe, ops_admin
+  max_target_count: 50               # Max agents for exec_run
+```
+
+### Tools
+
+The server exposes 16 tools organized by capability profile:
+
+**Read-only tools** (all profiles): `agent_list`, `agent_show`, `agent_health`,
+`exec_status`, `exec_history`, `state_check`, `state_drift`, `state_history`,
+`event_query`, `event_stats`, `runbook_list`, `runbook_status`, `cluster_status`
+
+**Operations tools** (ops_safe+): `exec_run`, `runbook_execute`
+
+**Admin tools** (ops_admin): `state_apply`
+
+### Resources
+
+| URI | Description |
+|-----|-------------|
+| `keystone://agents` | Current agent inventory |
+| `keystone://cluster/status` | Cluster health overview |
+| `keystone://events/recent` | Last 50 events |
+
+### Examples
+
+```bash
+# Validate configuration
+kscore-mcp validate --config mcp.yaml
+
+# Run MCP server (used by AI clients)
+kscore-mcp --config mcp.yaml
+
+# Print version
+kscore-mcp version
+```
+
+### Claude Desktop Configuration
+
+```json
+{
+  "mcpServers": {
+    "keystone": {
+      "command": "kscore-mcp",
+      "args": ["--config", "/path/to/mcp.yaml"]
+    }
+  }
+}
+```
+
+See the [MCP Setup Guide](../../guides/mcp-setup/) and [MCP Security Guide](../../guides/mcp-security/) for details.
+
 ## See Also
 
 - [API Reference](../api/) - REST/gRPC API

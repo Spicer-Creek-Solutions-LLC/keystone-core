@@ -262,6 +262,8 @@ func authenticate(ctx context.Context, cfg *InterceptorConfig) (*Principal, erro
 			if cfg.RateLimiter != nil {
 				cfg.RateLimiter.RecordSuccess(ClientIDFromContext(ctx))
 			}
+			// Capture MCP metadata for audit attribution
+			captureMCPMetadata(md, principal)
 			return principal, nil
 		}
 		lastErr = err
@@ -336,6 +338,29 @@ func isBypassMethod(method string, bypassMethods []string) bool {
 		}
 	}
 	return false
+}
+
+// mcpMetadataKeys is the whitelist of MCP metadata keys captured into Principal.Metadata.
+var mcpMetadataKeys = []string{
+	"x-kscore-client-type",
+	"x-kscore-mcp-tool",
+	"x-kscore-mcp-session",
+	"x-kscore-mcp-ai-client",
+}
+
+// captureMCPMetadata copies whitelisted MCP metadata headers into the principal.
+func captureMCPMetadata(md metadata.MD, principal *Principal) {
+	if md == nil || principal == nil {
+		return
+	}
+	for _, key := range mcpMetadataKeys {
+		if values := md.Get(key); len(values) > 0 {
+			if principal.Metadata == nil {
+				principal.Metadata = make(map[string]string)
+			}
+			principal.Metadata[key] = values[0]
+		}
+	}
 }
 
 // ChainUnaryServerInterceptors chains multiple unary interceptors

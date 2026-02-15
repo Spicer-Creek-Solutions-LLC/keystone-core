@@ -28,6 +28,10 @@ go.work.sum
 /t
 *.bak
 
+# Keystone Core binaries (built via make build into build/, but catch strays in root)
+/kscore-*
+/kscorectl
+
 # Keystone Core specific
 build/
 dist/

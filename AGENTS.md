@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-59 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-60 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -216,9 +216,15 @@ Epics 1-32, 36-59 are all complete. Key packages and where to find details:
   - Phase 4: Export/import for air-gapped data transfer (`internal/airgap/transfer/`) — ExportManifest with validation, DataCollector interface (EventCollector, AuditCollector, StateCollector) with paginated JSONL output; Exporter builds signed/encrypted tar.gz archives from collectors; Importer verifies signatures/checksums, decrypts .age packages, extracts with selective dataset filtering; CLI wiring (`kscore-transfer export|import|verify`)
   - Phase 5: Advanced features — sync window scheduling (`internal/airgap/sync/`) with state machine, cron-based scheduling, bandwidth limiter, priority operation queue; UDP data diode support (`internal/airgap/diode/`) with binary wire protocol, XOR parity FEC, sender/receiver; air-gap compliance validation (`internal/airgap/validate/`) scanning binaries, configs, modules, and network connections; CLI wiring (`kscore-transfer sync|diode`, `kscore-bootstrap airgap-validate`)
 
+- **Epic 60** (MCP Server for AI-Assisted Operations) — COMPLETE — MCP server binary (`kscore-mcp`) exposing Keystone Core operations to AI clients (Claude Desktop, Claude Code, Cursor):
+  - Phase 1: Foundation — `cmd/kscore-mcp` Cobra CLI, `internal/mcp/` config/server/gRPC client/profiles/metadata; server-side MCP metadata capture in auth interceptors; audit callback with MCP attribution; Makefile target
+  - Phase 2: MVP Tools — 7 tools (agent_list/show/health, exec_run/status/history, cluster_status) with mock-based tests via MCP SDK InMemoryTransport
+  - Phase 3: Extended Tools — 9 tools (state_check/drift/history/apply, event_query/stats, runbook_list/execute/status); 3 resources (keystone://agents, keystone://cluster/status, keystone://events/recent); httptest-based runbook tests
+  - Phase 4: Documentation — MCP setup guide, security guide, CLI reference entry
+  - Credential pass-through (operator's own creds), capability profiles (read_only/ops_safe/ops_admin), audit attribution via gRPC metadata headers, 116 tests total
+
 ### Future (Unnumbered)
 
-- MCP Server (`epics/future-mcp-server.md`)
 - Web UI / Management Console (`epics/future-web-ui-management-console.md`)
 - Release & Distribution (`epics/future-release-distribution.md`)
 - Blueprint Marketplace (`epics/future-blueprint-marketplace.md`)
@@ -256,13 +262,15 @@ Git-style plugin architecture: `kscorectl` dispatches to `kscore-*` binaries in 
 
 **Server Daemons**: `kscore-server`, `kscore-agent`, `kscore-registry`, `kscore-telemetry-gateway`
 
+**Companion Services**: `kscore-mcp` (MCP server for AI clients)
+
 **CLI Plugins** (26 built-in): `kscore-exec`, `kscore-state`, `kscore-module`, `kscore-monitor`, `kscore-agents`, `kscore-policy`, `kscore-audit`, `kscore-gitops`, `kscore-webhook`, `kscore-cluster`, `kscore-cluster-backup`, `kscore-identity`, `kscore-federation`, `kscore-blueprint`, `kscore-blueprint-publish`, `kscore-blueprint-state`, `kscore-files`, `kscore-files-storage`, `kscore-proxy`, `kscore-backup`, `kscore-events`, `kscore-schedule`, `kscore-upgrade`, `kscore-migrate`, `kscore-bootstrap`, `kscore-transfer`
 
 **Dev/Test**: `kscore-loadtest`, `kscore-test`
 
 Third-party: any `kscore-<name>` in `$PATH` works as `kscorectl <name>`
 
-**Total**: 31 binaries (1 CLI + 4 servers + 26 plugins)
+**Total**: 32 binaries (1 CLI + 4 servers + 1 companion + 26 plugins)
 
 ## Key Design Principles
 

@@ -353,6 +353,65 @@ func TestUnaryServerInterceptor_AuditLoggerAuthFailure(t *testing.T) {
 	}
 }
 
+func TestCaptureMCPMetadata(t *testing.T) {
+	t.Run("captures whitelisted keys", func(t *testing.T) {
+		md := metadata.MD{
+			"x-kscore-client-type":  []string{"mcp"},
+			"x-kscore-mcp-tool":     []string{"agent_list"},
+			"x-kscore-mcp-session":  []string{"sess-123"},
+			"x-kscore-mcp-ai-client": []string{"claude-desktop/1.0"},
+		}
+		p := &Principal{ID: "test", Name: "test", Role: RoleAdmin}
+		captureMCPMetadata(md, p)
+
+		if len(p.Metadata) != 4 {
+			t.Fatalf("expected 4 metadata entries, got %d", len(p.Metadata))
+		}
+		if p.Metadata["x-kscore-client-type"] != "mcp" {
+			t.Errorf("client-type = %q, want mcp", p.Metadata["x-kscore-client-type"])
+		}
+		if p.Metadata["x-kscore-mcp-tool"] != "agent_list" {
+			t.Errorf("mcp-tool = %q, want agent_list", p.Metadata["x-kscore-mcp-tool"])
+		}
+	})
+
+	t.Run("ignores non-whitelisted keys", func(t *testing.T) {
+		md := metadata.MD{
+			"x-kscore-client-type": []string{"mcp"},
+			"x-random-header":     []string{"should-not-appear"},
+		}
+		p := &Principal{ID: "test", Name: "test", Role: RoleAdmin}
+		captureMCPMetadata(md, p)
+
+		if len(p.Metadata) != 1 {
+			t.Fatalf("expected 1 metadata entry, got %d", len(p.Metadata))
+		}
+		if _, ok := p.Metadata["x-random-header"]; ok {
+			t.Error("non-whitelisted key was captured")
+		}
+	})
+
+	t.Run("nil metadata is safe", func(t *testing.T) {
+		p := &Principal{ID: "test", Name: "test", Role: RoleAdmin}
+		captureMCPMetadata(nil, p) // should not panic
+	})
+
+	t.Run("nil principal is safe", func(t *testing.T) {
+		md := metadata.MD{"x-kscore-client-type": []string{"mcp"}}
+		captureMCPMetadata(md, nil) // should not panic
+	})
+
+	t.Run("no MCP headers leaves metadata nil", func(t *testing.T) {
+		md := metadata.MD{"x-api-key": []string{"some-key"}}
+		p := &Principal{ID: "test", Name: "test", Role: RoleAdmin}
+		captureMCPMetadata(md, p)
+
+		if p.Metadata != nil {
+			t.Errorf("expected nil metadata, got %v", p.Metadata)
+		}
+	})
+}
+
 func TestUnaryServerInterceptor_AuditLoggerAuthzFailure(t *testing.T) {
 	cfg := &InterceptorConfig{
 		MetadataKey: "x-api-key",
