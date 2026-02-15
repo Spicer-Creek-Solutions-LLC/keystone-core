@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/shawnbutts/keystone-core/internal/airgap/bootstrap"
+	airgapupgrade "github.com/shawnbutts/keystone-core/internal/airgap/upgrade"
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/version"
@@ -88,6 +91,7 @@ Usage via kscorectl:
 		newLogsCmd(cfg),
 		newPathCmd(cfg),
 		newResumeCmd(cfg),
+		newPackageCmd(),
 		newVersionCmd(),
 	)
 
@@ -1437,6 +1441,445 @@ func runResume(cfg *Config, upgradeID string) error {
 		fmt.Printf("Resuming:   %s\n", status.CurrentStep)
 		fmt.Printf("\nUse 'kscorectl upgrade status --watch' to monitor progress.\n")
 	})
+}
+
+func newPackageCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "package",
+		Short: "Manage air-gapped upgrade packages",
+		Long: `Create, verify, apply, inspect, and rollback upgrade packages for air-gapped deployments.
+
+Upgrade packages contain new binaries, modules, migrations, and scripts needed
+to upgrade a Keystone Core installation without internet access.
+
+Examples:
+  # Create an upgrade package
+  kscorectl upgrade package create --from 1.0.0 --to 1.1.0 \
+    --build-dir ./build --output upgrade.tar.gz
+
+  # Verify an upgrade package
+  kscorectl upgrade package verify upgrade.tar.gz --trusted-key release.pub
+
+  # Inspect package contents
+  kscorectl upgrade package inspect upgrade.tar.gz
+
+  # Apply an upgrade package
+  kscorectl upgrade package apply upgrade.tar.gz \
+    --install-dir /usr/local/bin --backup-dir /var/backup
+
+  # Rollback from backup
+  kscorectl upgrade package rollback \
+    --backup-dir /var/backup/upgrade-backup-1.0.0-to-1.1.0-... \
+    --install-dir /usr/local/bin`,
+	}
+
+	cmd.AddCommand(
+		newPackageCreateCmd(),
+		newPackageVerifyCmd(),
+		newPackageInspectCmd(),
+		newPackageApplyCmd(),
+		newPackageRollbackCmd(),
+	)
+
+	return cmd
+}
+
+func newPackageCreateCmd() *cobra.Command {
+	var (
+		fromVersion     string
+		toVersion       string
+		platform        string
+		buildDir        string
+		outputPath      string
+		signingKey      string
+		modulesDir      string
+		migrationsDir   string
+		preScriptsDir   string
+		postScriptsDir  string
+		breakingChanges []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create an upgrade package",
+		Long: `Create an air-gapped upgrade package from a build directory.
+
+The build directory should contain binaries in {os}/{arch}/ layout
+(e.g., linux/amd64/kscore-server).
+
+Examples:
+  kscorectl upgrade package create --from 1.0.0 --to 1.1.0 \
+    --build-dir ./build --output upgrade.tar.gz
+
+  kscorectl upgrade package create --from 1.0.0 --to 1.1.0 \
+    --build-dir ./build --signing-key key.pem \
+    --modules-dir ./modules --migrations-dir ./migrations`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			plat, err := bootstrap.ParsePlatform(platform)
+			if err != nil {
+				return fmt.Errorf("invalid platform: %w", err)
+			}
+
+			cfg := airgapupgrade.BuilderConfig{
+				FromVersion:     fromVersion,
+				ToVersion:       toVersion,
+				Platform:        plat,
+				BuildDir:        buildDir,
+				OutputPath:      outputPath,
+				ModulesDir:      modulesDir,
+				MigrationsDir:   migrationsDir,
+				PreScriptsDir:   preScriptsDir,
+				PostScriptsDir:  postScriptsDir,
+				BreakingChanges: breakingChanges,
+			}
+
+			if signingKey != "" {
+				keyData, err := os.ReadFile(signingKey) //nolint:gosec // G304: user-provided key path
+				if err != nil {
+					return fmt.Errorf("reading signing key: %w", err)
+				}
+				cfg.SigningKey = keyData
+			}
+
+			builder, err := airgapupgrade.NewBuilder(cfg)
+			if err != nil {
+				return err
+			}
+
+			manifest, err := builder.Build(context.Background())
+			if err != nil {
+				return err
+			}
+
+			out := outputPath
+			if out == "" {
+				out = fmt.Sprintf("keystone-upgrade-%s-to-%s-%s-%s.tar.gz",
+					fromVersion, toVersion, plat.OS, plat.Arch)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Upgrade Package Created\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "  From:       %s\n", manifest.FromVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  To:         %s\n", manifest.ToVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Platform:   %s\n", manifest.Platform)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Components: %d\n", len(manifest.Components))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Modules:    %d\n", len(manifest.Modules))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Migrations: %d\n", len(manifest.Migrations))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Signed:     %v\n", manifest.RequiresVerification)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Output:     %s\n", out)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&fromVersion, "from", "", "Minimum source version (required)")
+	cmd.Flags().StringVar(&toVersion, "to", "", "Target version (required)")
+	cmd.Flags().StringVar(&platform, "platform", "linux/amd64", "Target platform (os/arch)")
+	cmd.Flags().StringVar(&buildDir, "build-dir", "", "Directory containing new binaries (required)")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output archive path")
+	cmd.Flags().StringVar(&signingKey, "signing-key", "", "Path to PEM private key for signing")
+	cmd.Flags().StringVar(&modulesDir, "modules-dir", "", "Directory with updated modules")
+	cmd.Flags().StringVar(&migrationsDir, "migrations-dir", "", "Directory with migration scripts")
+	cmd.Flags().StringVar(&preScriptsDir, "pre-scripts-dir", "", "Directory with pre-upgrade scripts")
+	cmd.Flags().StringVar(&postScriptsDir, "post-scripts-dir", "", "Directory with post-upgrade scripts")
+	cmd.Flags().StringSliceVar(&breakingChanges, "breaking-change", nil, "Breaking change descriptions")
+	_ = cmd.MarkFlagRequired("from")
+	_ = cmd.MarkFlagRequired("to")
+	_ = cmd.MarkFlagRequired("build-dir")
+
+	return cmd
+}
+
+func newPackageVerifyCmd() *cobra.Command {
+	var trustedKey string
+
+	cmd := &cobra.Command{
+		Use:   "verify <package.tar.gz>",
+		Short: "Verify an upgrade package",
+		Long: `Verify an upgrade package's signature, checksums, and manifest.
+
+Examples:
+  kscorectl upgrade package verify upgrade.tar.gz --trusted-key release.pub`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			packagePath := args[0]
+
+			extractDir, err := os.MkdirTemp("", "kscore-upgrade-verify-*")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(extractDir)
+
+			if err := bootstrap.ExtractArchive(packagePath, extractDir); err != nil {
+				return fmt.Errorf("extracting package: %w", err)
+			}
+
+			var trustedKeys [][]byte
+			if trustedKey != "" {
+				keyData, err := os.ReadFile(trustedKey) //nolint:gosec // G304: user-provided key path
+				if err != nil {
+					return fmt.Errorf("reading trusted key: %w", err)
+				}
+				trustedKeys = append(trustedKeys, keyData)
+			}
+
+			v := airgapupgrade.NewPackageVerifier(trustedKeys)
+			result, err := v.Verify(context.Background(), extractDir)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Package Verification\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "  File:      %s\n", packagePath)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Valid:     %v\n", result.Valid)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Manifest:  %v\n", result.ManifestValid)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Checksums: %v\n", result.ChecksumsValid)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Signed:    %v\n", result.SignaturePresent)
+			if result.Error != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  Error:     %v\n", result.Error)
+			}
+			for _, w := range result.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  Warning:   %s\n", w)
+			}
+			if result.Manifest != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "  From:      %s\n", result.Manifest.FromVersion)
+				fmt.Fprintf(cmd.OutOrStdout(), "  To:        %s\n", result.Manifest.ToVersion)
+			}
+
+			if !result.Valid {
+				return fmt.Errorf("verification failed")
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&trustedKey, "trusted-key", "", "Path to trusted public key (PEM)")
+
+	return cmd
+}
+
+func newPackageInspectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "inspect <package.tar.gz>",
+		Short: "Inspect upgrade package contents",
+		Long: `Show the manifest and contents of an upgrade package.
+
+Examples:
+  kscorectl upgrade package inspect upgrade.tar.gz`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			packagePath := args[0]
+
+			extractDir, err := os.MkdirTemp("", "kscore-upgrade-inspect-*")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(extractDir)
+
+			if err := bootstrap.ExtractArchive(packagePath, extractDir); err != nil {
+				return fmt.Errorf("extracting package: %w", err)
+			}
+
+			manifest, err := airgapupgrade.ReadManifest(fmt.Sprintf("%s/manifest.json", extractDir))
+			if err != nil {
+				return fmt.Errorf("reading manifest: %w", err)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Upgrade Package: %s\n", packagePath)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Schema:     %s\n", manifest.SchemaVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  From:       %s\n", manifest.FromVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  To:         %s\n", manifest.ToVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Platform:   %s\n", manifest.Platform)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Created:    %s\n", manifest.Created.Format(time.RFC3339))
+			if manifest.CreatedBy != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Created By: %s\n", manifest.CreatedBy)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  Signed:     %v\n", manifest.RequiresVerification)
+			fmt.Fprintln(cmd.OutOrStdout())
+
+			if len(manifest.Components) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Components (%d):\n", len(manifest.Components))
+				for _, c := range manifest.Components {
+					fmt.Fprintf(cmd.OutOrStdout(), "  - %s %s (%s)\n", c.Name, c.Version, c.Path)
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
+
+			if len(manifest.Modules) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Modules (%d):\n", len(manifest.Modules))
+				for _, m := range manifest.Modules {
+					fmt.Fprintf(cmd.OutOrStdout(), "  - %s (%s)\n", m.Name, m.Path)
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
+
+			if len(manifest.Migrations) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Migrations (%d):\n", len(manifest.Migrations))
+				for _, m := range manifest.Migrations {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %d. %s\n", m.Order, m.Name)
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
+
+			if len(manifest.BreakingChanges) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Breaking Changes:\n")
+				for _, bc := range manifest.BreakingChanges {
+					fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", bc)
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
+
+			if len(manifest.ConfigChanges) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Config Changes (%d):\n", len(manifest.ConfigChanges))
+				for _, cc := range manifest.ConfigChanges {
+					breaking := ""
+					if cc.Breaking {
+						breaking = " [BREAKING]"
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "  - %s: %s -> %s%s\n", cc.Key, cc.OldDefault, cc.NewDefault, breaking)
+				}
+			}
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func newPackageApplyCmd() *cobra.Command {
+	var (
+		installDir string
+		backupDir  string
+		dryRun     bool
+		skipBackup bool
+		skipScripts bool
+		trustedKey string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply <package.tar.gz>",
+		Short: "Apply an upgrade package",
+		Long: `Apply an upgrade package to the current installation.
+
+This will extract the package, verify its integrity, back up current binaries,
+and replace them with the new versions.
+
+Examples:
+  kscorectl upgrade package apply upgrade.tar.gz \
+    --install-dir /usr/local/bin --backup-dir /var/backup
+
+  kscorectl upgrade package apply upgrade.tar.gz --dry-run`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := airgapupgrade.InstallerConfig{
+				PackagePath: args[0],
+				InstallDir:  installDir,
+				BackupDir:   backupDir,
+				DryRun:      dryRun,
+				SkipBackup:  skipBackup,
+				SkipScripts: skipScripts,
+				ProgressFunc: func(phase string, progress int) {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[%3d%%] %s\n", progress, phase)
+				},
+			}
+
+			if trustedKey != "" {
+				keyData, err := os.ReadFile(trustedKey) //nolint:gosec // G304: user-provided key path
+				if err != nil {
+					return fmt.Errorf("reading trusted key: %w", err)
+				}
+				cfg.TrustedKeys = [][]byte{keyData}
+			}
+
+			inst, err := airgapupgrade.NewInstaller(cfg)
+			if err != nil {
+				return err
+			}
+
+			result, err := inst.Install(context.Background())
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "\nUpgrade %s\n", func() string {
+				if dryRun {
+					return "(Dry Run)"
+				}
+				return "Complete"
+			}())
+			fmt.Fprintf(cmd.OutOrStdout(), "  From:       %s\n", result.FromVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  To:         %s\n", result.ToVersion)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Components: %s\n", strings.Join(result.UpgradedComponents, ", "))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Migrations: %d\n", result.MigrationsRun)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Duration:   %s\n", result.Duration.Round(time.Millisecond))
+			if result.BackupPath != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Backup:     %s\n", result.BackupPath)
+			}
+			for _, w := range result.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  Warning:    %s\n", w)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&installDir, "install-dir", "/usr/local/bin", "Directory containing installed binaries")
+	cmd.Flags().StringVar(&backupDir, "backup-dir", "", "Directory for rollback backup")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
+	cmd.Flags().BoolVar(&skipBackup, "skip-backup", false, "Skip creating backup before upgrade")
+	cmd.Flags().BoolVar(&skipScripts, "skip-scripts", false, "Skip pre/post upgrade scripts")
+	cmd.Flags().StringVar(&trustedKey, "trusted-key", "", "Path to trusted public key (PEM)")
+
+	return cmd
+}
+
+func newPackageRollbackCmd() *cobra.Command {
+	var (
+		backupDir  string
+		installDir string
+		dryRun     bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "rollback",
+		Short: "Rollback from upgrade backup",
+		Long: `Restore binaries from a backup created during a previous upgrade.
+
+Examples:
+  kscorectl upgrade package rollback \
+    --backup-dir /var/backup/upgrade-backup-1.0.0-to-1.1.0-1234567890 \
+    --install-dir /usr/local/bin
+
+  kscorectl upgrade package rollback --backup-dir /var/backup/... --dry-run`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := airgapupgrade.Rollback(context.Background(), airgapupgrade.RollbackConfig{
+				BackupDir:  backupDir,
+				InstallDir: installDir,
+				DryRun:     dryRun,
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Rollback %s\n", func() string {
+				if dryRun {
+					return "(Dry Run)"
+				}
+				return "Complete"
+			}())
+			fmt.Fprintf(cmd.OutOrStdout(), "  Restored:  %s\n", strings.Join(result.RestoredComponents, ", "))
+			if len(result.SkippedComponents) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Skipped:   %s\n", strings.Join(result.SkippedComponents, ", "))
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  Duration:  %s\n", result.Duration.Round(time.Millisecond))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&backupDir, "backup-dir", "", "Backup directory from previous upgrade (required)")
+	cmd.Flags().StringVar(&installDir, "install-dir", "/usr/local/bin", "Directory containing installed binaries")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
+	_ = cmd.MarkFlagRequired("backup-dir")
+
+	return cmd
 }
 
 func newVersionCmd() *cobra.Command {

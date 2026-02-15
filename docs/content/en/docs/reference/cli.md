@@ -10693,6 +10693,161 @@ kscorectl upgrade logs [upgrade-id] [flags]
 - `--follow`: Follow log output
 - `--tail int`: Number of lines to show (default: 100)
 
+### upgrade package
+
+Manage air-gapped upgrade packages. These commands create, verify, inspect, apply, and rollback
+upgrade packages for environments without internet access.
+
+#### upgrade package create
+
+Create an upgrade package from a build directory.
+
+```bash
+kscorectl upgrade package create [flags]
+```
+
+**Flags:**
+
+- `--from string`: Minimum source version (required)
+- `--to string`: Target version (required)
+- `--build-dir string`: Directory containing new binaries (required)
+- `--platform string`: Target platform os/arch (default: linux/amd64)
+- `-o, --output string`: Output archive path
+- `--signing-key string`: Path to PEM private key for signing
+- `--modules-dir string`: Directory with updated modules
+- `--migrations-dir string`: Directory with migration scripts
+- `--pre-scripts-dir string`: Directory with pre-upgrade scripts
+- `--post-scripts-dir string`: Directory with post-upgrade scripts
+- `--breaking-change strings`: Breaking change descriptions
+
+**Examples:**
+
+```bash
+# Create an upgrade package
+kscorectl upgrade package create --from 1.0.0 --to 1.1.0 \
+  --build-dir ./build --output upgrade.tar.gz
+
+# Create a signed package with modules and migrations
+kscorectl upgrade package create --from 1.0.0 --to 1.1.0 \
+  --build-dir ./build --signing-key key.pem \
+  --modules-dir ./modules --migrations-dir ./migrations
+```
+
+#### upgrade package verify
+
+Verify an upgrade package's signature, checksums, and manifest.
+
+```bash
+kscorectl upgrade package verify <package.tar.gz> [flags]
+```
+
+**Flags:**
+
+- `--trusted-key string`: Path to trusted public key (PEM)
+
+**Examples:**
+
+```bash
+# Verify package integrity
+kscorectl upgrade package verify upgrade.tar.gz
+
+# Verify with trusted key
+kscorectl upgrade package verify upgrade.tar.gz --trusted-key release.pub
+```
+
+#### upgrade package inspect
+
+Show the manifest and contents of an upgrade package.
+
+```bash
+kscorectl upgrade package inspect <package.tar.gz>
+```
+
+**Examples:**
+
+```bash
+kscorectl upgrade package inspect upgrade.tar.gz
+```
+
+**Example Output:**
+
+```
+Upgrade Package: upgrade.tar.gz
+  Schema:     1.0
+  From:       1.0.0
+  To:         1.1.0
+  Platform:   linux/amd64
+  Created:    2024-01-15T10:00:00Z
+  Signed:     true
+
+Components (3):
+  - kscore-server v1.1.0 (bin/kscore-server)
+  - kscore-agent v1.1.0 (bin/kscore-agent)
+  - kscorectl v1.1.0 (bin/kscorectl)
+
+Migrations (2):
+  1. 001_add_index.sql
+  2. 002_alter_table.sql
+```
+
+#### upgrade package apply
+
+Apply an upgrade package to the current installation.
+
+```bash
+kscorectl upgrade package apply <package.tar.gz> [flags]
+```
+
+**Flags:**
+
+- `--install-dir string`: Directory containing installed binaries (default: /usr/local/bin)
+- `--backup-dir string`: Directory for rollback backup
+- `--dry-run`: Show what would be done without making changes
+- `--skip-backup`: Skip creating backup before upgrade
+- `--skip-scripts`: Skip pre/post upgrade scripts
+- `--trusted-key string`: Path to trusted public key (PEM)
+
+**Examples:**
+
+```bash
+# Apply upgrade with backup
+kscorectl upgrade package apply upgrade.tar.gz \
+  --install-dir /usr/local/bin --backup-dir /var/backup
+
+# Dry run to see what would happen
+kscorectl upgrade package apply upgrade.tar.gz --dry-run
+
+# Apply without backup (not recommended)
+kscorectl upgrade package apply upgrade.tar.gz --skip-backup
+```
+
+#### upgrade package rollback
+
+Restore binaries from a backup created during a previous upgrade.
+
+```bash
+kscorectl upgrade package rollback [flags]
+```
+
+**Flags:**
+
+- `--backup-dir string`: Backup directory from previous upgrade (required)
+- `--install-dir string`: Directory containing installed binaries (default: /usr/local/bin)
+- `--dry-run`: Show what would be done without making changes
+
+**Examples:**
+
+```bash
+# Rollback from backup
+kscorectl upgrade package rollback \
+  --backup-dir /var/backup/upgrade-backup-1.0.0-to-1.1.0-1234567890 \
+  --install-dir /usr/local/bin
+
+# Dry run rollback
+kscorectl upgrade package rollback \
+  --backup-dir /var/backup/upgrade-backup-1.0.0-to-1.1.0-1234567890 --dry-run
+```
+
 ## kscore-proxy (Proxy Agent and Device Management)
 
 Manage proxy agents that handle devices unable to run native Keystone Core agents, including network devices, legacy systems, and appliances via SSH, SNMP, REST, and WinRM protocols.
@@ -12682,6 +12837,199 @@ kscorectl secrets rotate-keys --force
 **Flags**:
 
 - `-f, --force`: Skip confirmation prompt
+
+## kscore-transfer (Air-Gapped Data Transfer)
+
+Export and import operational data across air-gapped boundaries. Packages are signed,
+optionally encrypted archives containing audit logs, events, state history, and other
+data suitable for transfer via USB, sneakernet, or data diode.
+
+### transfer export
+
+Export operational data as a signed, optionally encrypted archive.
+
+```bash
+# Export audit logs from the last 24 hours
+kscorectl transfer export --type audit --since 24h -O audit-export.tar.gz
+
+# Export everything, signed and encrypted
+kscorectl transfer export --type full --sign-key key.pem \
+  --encrypt-to age1recipient -O full-export.tar.gz
+
+# Export events with a specific time range
+kscorectl transfer export --type events --since 2024-01-15T00:00:00Z \
+  --until 2024-01-16T00:00:00Z --events-db /var/lib/kscore/events.db
+```
+
+**Flags**:
+
+- `--type` (required): Export type — `audit`, `events`, `state`, `full`
+- `--since`: Start of time range (duration like `24h` or RFC3339 timestamp)
+- `--until`: End of time range (RFC3339 timestamp; default: now)
+- `-O, --output`: Output archive path
+- `--sign-key`: PEM private key path for signing
+- `--encrypt-to`: age public key for encryption
+- `--created-by`: Creator identifier
+- `--events-db`: Path to events SQLite database (default: `events.db`)
+- `--state-db`: Path to state history SQLite database
+
+### transfer import
+
+Import and verify an export package, extracting data files.
+
+```bash
+# Preview package contents
+kscorectl transfer import package.tar.gz --preview
+
+# Import with signature verification
+kscorectl transfer import package.tar.gz --verify-key release.pub \
+  --output-dir ./imported
+
+# Import encrypted package
+kscorectl transfer import package.tar.gz.age \
+  --age-identity identity.txt --output-dir ./imported
+
+# Import only specific datasets
+kscorectl transfer import package.tar.gz \
+  --output-dir ./imported --datasets audit,events
+```
+
+**Flags**:
+
+- `--verify-key`: PEM public key path for signature verification
+- `--age-identity`: age identity file path for decryption
+- `--preview`: Preview contents without extracting
+- `--output-dir`: Extraction destination directory
+- `--datasets`: Comma-separated dataset filter
+
+### transfer verify
+
+Verify an export package's signatures, checksums, and manifest without extracting.
+
+```bash
+kscorectl transfer verify package.tar.gz --verify-key release.pub
+```
+
+**Flags**:
+
+- `--verify-key`: PEM public key path for signature verification
+
+### transfer sync
+
+Manage sync windows for periodic-connectivity environments. Sync windows define
+time-limited windows during which data can be transferred between air-gapped and
+connected networks, with bandwidth limiting and operation prioritization.
+
+> **Note:** Sync window management requires a running sync daemon. These commands
+> will be fully functional when daemon mode is available.
+
+```bash
+kscorectl transfer sync list
+kscorectl transfer sync show <name>
+kscorectl transfer sync trigger <name>
+kscorectl transfer sync pause <name>
+kscorectl transfer sync resume <name>
+kscorectl transfer sync cancel <name>
+kscorectl transfer sync history
+```
+
+**Subcommands**:
+
+| Command | Description |
+|---------|-------------|
+| `list` | List configured sync windows |
+| `show <name>` | Show sync window details |
+| `trigger <name>` | Trigger a sync window immediately |
+| `pause <name>` | Pause a running sync window |
+| `resume <name>` | Resume a paused sync window |
+| `cancel <name>` | Cancel a running sync window |
+| `history` | Show sync window execution history |
+
+### transfer diode
+
+Transfer data over a unidirectional UDP data diode connection. Data diodes provide
+hardware-enforced one-way data transfer, commonly used in classified and high-security
+environments.
+
+#### transfer diode send
+
+Send a file through a UDP data diode connection.
+
+```bash
+# Send a file
+kscorectl transfer diode send --address 10.0.0.2:9000 --file export.tar.gz
+
+# Send with FEC for packet loss recovery
+kscorectl transfer diode send --address 10.0.0.2:9000 --file data.bin --fec
+
+# Send with bandwidth limiting
+kscorectl transfer diode send --address 10.0.0.2:9000 --file data.bin --rate-limit 1048576
+```
+
+**Flags**:
+
+- `--address` (required): Destination address `host:port`
+- `--file` (required): File to send
+- `--packet-size`: UDP packet size in bytes (default: 1400)
+- `--rate-limit`: Bandwidth limit in bytes/sec (0 = unlimited)
+- `--fec`: Enable forward error correction
+- `--fec-redundancy`: FEC group size (default: 5)
+
+#### transfer diode receive
+
+Listen for incoming data diode transfers over UDP.
+
+```bash
+# Receive to a directory
+kscorectl transfer diode receive --listen :9000 --output-dir ./received
+
+# Receive with FEC recovery and custom timeout
+kscorectl transfer diode receive --listen :9000 --output-dir ./received --fec --timeout 60s
+```
+
+**Flags**:
+
+- `--listen`: Listen address `host:port` (default: `:9000`)
+- `--output-dir` (required): Output directory for received files
+- `--timeout`: Receive timeout (default: `30s`)
+- `--fec`: Enable forward error correction recovery
+
+### bootstrap airgap-validate
+
+Scan binaries, configuration files, module registries, and active network connections
+to identify external dependencies that would break air-gapped operation. Produces a
+compliance report with pass/warn/fail findings and remediation guidance. Exits with
+code 1 if the system is not air-gap compliant.
+
+```bash
+# Scan binaries and configuration
+kscorectl bootstrap airgap-validate --binary-dir /usr/local/bin --config-dir /etc/keystone-core
+
+# Scan with internal network allowlist
+kscorectl bootstrap airgap-validate --registry /opt/registry \
+  --internal-net 10.0.0.0/8 --internal-net 172.16.0.0/12
+
+# Write JSON report
+kscorectl bootstrap airgap-validate --binary-dir /usr/local/bin \
+  --config-dir /etc/keystone-core --output-file report.json
+```
+
+**Flags**:
+
+- `--binary-dir`: Directory containing `kscore-*` binaries to scan
+- `--config-dir`: Directory containing configuration files to scan
+- `--registry`: Local module registry directory
+- `--internal-net`: Internal network CIDR (repeatable, e.g. `10.0.0.0/8`)
+- `--output-file`: Write JSON report to file
+
+**Checks performed**:
+
+| Check | Category | Description |
+|-------|----------|-------------|
+| Binary URL scan | binary | Scans binaries for embedded external URLs |
+| Config external refs | configuration | Scans configs for external hostnames, registries, IPs |
+| Module availability | module | Verifies required modules exist in local registry |
+| Network connections | network | Checks `/proc/net/tcp` for external connections (Linux only) |
 
 ## See Also
 

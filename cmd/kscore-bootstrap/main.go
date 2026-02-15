@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	airgap "github.com/shawnbutts/keystone-core/internal/airgap/bootstrap"
+	"github.com/shawnbutts/keystone-core/internal/airgap/validate"
 	"github.com/shawnbutts/keystone-core/internal/bootstrap"
 	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/internal/cli/output"
@@ -85,6 +86,7 @@ This tool handles:
 	rootCmd.AddCommand(prereqCheckCmd())
 	rootCmd.AddCommand(certGenCmd())
 	rootCmd.AddCommand(packageCmd())
+	rootCmd.AddCommand(airgapValidateCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
@@ -892,6 +894,100 @@ Example:
 			return nil
 		},
 	}
+
+	return cmd
+}
+
+func airgapValidateCmd() *cobra.Command {
+	var (
+		binaryDir   string
+		configDir   string
+		registryDir string
+		internalNet []string
+		outputFile  string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "airgap-validate",
+		Short: "Validate air-gap compliance",
+		Long: `Scan binaries, configuration files, module registries, and active network
+connections to identify external dependencies that would break air-gapped operation.
+
+Produces a compliance report with pass/warn/fail findings and remediation guidance.
+Exits with code 1 if the system is not air-gap compliant.
+
+Example:
+  kscore-bootstrap airgap-validate --binary-dir /usr/local/bin --config-dir /etc/keystone-core
+  kscore-bootstrap airgap-validate --registry /opt/registry --internal-net 10.0.0.0/8 --internal-net 172.16.0.0/12
+  kscore-bootstrap airgap-validate --output-file report.json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v := validate.NewValidator()
+
+			if binaryDir != "" {
+				v.AddChecker(&validate.BinaryChecker{BinaryDir: binaryDir})
+			}
+			if configDir != "" {
+				var internalNets []*net.IPNet
+				for _, cidr := range internalNet {
+					_, ipNet, err := net.ParseCIDR(cidr)
+					if err != nil {
+						return fmt.Errorf("invalid --internal-net %q: %w", cidr, err)
+					}
+					internalNets = append(internalNets, ipNet)
+				}
+				v.AddChecker(&validate.ConfigChecker{
+					ConfigDir:    configDir,
+					InternalNets: internalNets,
+				})
+			}
+			if registryDir != "" {
+				v.AddChecker(&validate.ModuleChecker{RegistryDir: registryDir})
+			}
+			v.AddChecker(&validate.NetworkChecker{})
+
+			ctx, cancel := contextWithSignal()
+			defer cancel()
+
+			report, err := v.Validate(ctx)
+			if err != nil {
+				return fmt.Errorf("validation failed: %w", err)
+			}
+
+			if outputFile != "" {
+				if writeErr := validate.WriteReportToFile(report, outputFile); writeErr != nil {
+					return fmt.Errorf("writing report: %w", writeErr)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Report written to %s\n", outputFile)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Air-Gap Compliance Report\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "  Host:      %s\n", report.Hostname)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Timestamp: %s\n", report.Timestamp.Format(time.RFC3339))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Compliant: %t\n", report.Compliant)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Pass: %d  Warn: %d  Fail: %d\n",
+				report.PassCount, report.WarnCount, report.FailCount)
+			fmt.Fprintln(cmd.OutOrStdout())
+
+			for _, f := range report.Findings {
+				severity := strings.ToUpper(string(f.Severity))
+				fmt.Fprintf(cmd.OutOrStdout(), "  [%s] %s: %s\n", severity, f.Category, f.Message)
+				if f.Remediation != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "         → %s\n", f.Remediation)
+				}
+			}
+
+			if !report.Compliant {
+				return fmt.Errorf("system is not air-gap compliant (%d failures)", report.FailCount)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&binaryDir, "binary-dir", "", "Directory containing kscore-* binaries to scan")
+	cmd.Flags().StringVar(&configDir, "config-dir", "", "Directory containing configuration files to scan")
+	cmd.Flags().StringVar(&registryDir, "registry", "", "Local module registry directory")
+	cmd.Flags().StringArrayVar(&internalNet, "internal-net", nil, "Internal network CIDR (repeatable, e.g. 10.0.0.0/8)")
+	cmd.Flags().StringVar(&outputFile, "output-file", "", "Write JSON report to file")
 
 	return cmd
 }

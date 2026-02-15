@@ -457,6 +457,7 @@ Note: module archive entries larger than 256 MB are rejected during install.
 | `bootstrap package verify` | Verify package signatures | `bootstrap package verify package.tar.gz --trusted-key key.pub` |
 | `bootstrap package install` | Install from package | `bootstrap package install package.tar.gz` |
 | `bootstrap package inspect` | Inspect package manifest | `bootstrap package inspect package.tar.gz` |
+| `bootstrap airgap-validate` | Validate air-gap compliance | `bootstrap airgap-validate --binary-dir /usr/local/bin --config-dir /etc/keystone-core` |
 
 ---
 
@@ -672,6 +673,33 @@ Configure remotes first with `rclone config`.
 | `upgrade agents --status` | Agent upgrade status | `upgrade agents --status` |
 | `upgrade agents --retry` | Retry failed agent | `upgrade agents --retry agent-005` |
 | `upgrade agents --skip` | Skip failed agent | `upgrade agents --skip agent-005` |
+
+### Air-Gapped Upgrade Packages
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `upgrade package create` | Create upgrade package | `upgrade package create --from 1.0.0 --to 1.1.0 --build-dir ./build` |
+| `upgrade package verify` | Verify package integrity | `upgrade package verify upgrade.tar.gz --trusted-key release.pub` |
+| `upgrade package inspect` | Inspect package contents | `upgrade package inspect upgrade.tar.gz` |
+| `upgrade package apply` | Apply upgrade package | `upgrade package apply upgrade.tar.gz --install-dir /usr/local/bin --backup-dir /var/backup` |
+| `upgrade package rollback` | Rollback from backup | `upgrade package rollback --backup-dir /var/backup/... --install-dir /usr/local/bin` |
+
+### Air-Gapped Data Transfer
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `transfer export` | Export operational data | `transfer export --type audit --since 24h -O audit.tar.gz` |
+| `transfer import` | Import export package | `transfer import package.tar.gz --output-dir ./data` |
+| `transfer verify` | Verify package integrity | `transfer verify package.tar.gz --verify-key release.pub` |
+| `transfer sync list` | List sync windows | `transfer sync list` |
+| `transfer sync show <name>` | Show sync window details | `transfer sync show daily-sync` |
+| `transfer sync trigger <name>` | Trigger sync now | `transfer sync trigger daily-sync` |
+| `transfer sync pause <name>` | Pause running sync | `transfer sync pause daily-sync` |
+| `transfer sync resume <name>` | Resume paused sync | `transfer sync resume daily-sync` |
+| `transfer sync cancel <name>` | Cancel running sync | `transfer sync cancel daily-sync` |
+| `transfer sync history` | Sync execution history | `transfer sync history` |
+| `transfer diode send` | Send file via data diode | `transfer diode send --address 10.0.0.2:9000 --file data.tar.gz` |
+| `transfer diode receive` | Receive from data diode | `transfer diode receive --listen :9000 --output-dir ./received` |
 
 ---
 

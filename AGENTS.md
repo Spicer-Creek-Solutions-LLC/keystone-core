@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-37, 39-57, 100 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-38, 39-57, 100 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -199,11 +199,14 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
   - Phase 4: `kscore-files` — --wait prints stderr warning; failover returns "not yet available"
   - `kscore-monitor` — No changes needed (hardcoded 0 metrics correct until aggregation endpoints exist)
 
-### In Progress
+### Recently Completed (cont.)
 
-- **Epic 38** (Air-Gapped Deployments) — Phase 1 & 2 complete:
+- **Epic 38** (Air-Gapped Deployments) — COMPLETE:
   - Phase 1: Bootstrap packages with manifest types, signing/verification, binary collection, archive builder, content bundling (modules, blueprints, policies, docs), config templates (server/agent YAML, install script), installer, CLI (`kscore-bootstrap package create|verify|install|inspect`), Makefile target
   - Phase 2: Offline registry (`internal/airgap/registry/`) — filesystem-backed module registry wrapping `FilesystemBackend`; `LocalClient` implementing `resolver.RegistryClient`; JSON index with search; import from bootstrap packages or directories; export from online registries; garbage collection with version retention and max-age; Ed25519 trust store with signature verification; CLI wiring (`kscore-registry offline init|list|search|import|verify|gc|reindex|trust`; `module mirror` export/import)
+  - Phase 3: Upgrade packages (`internal/airgap/upgrade/`) — manifest with from/to versions, migrations, scripts, config changes; builder creates signed tar.gz archives with binaries/modules/migrations/scripts; scanner compares directories to detect changes; package verifier with signature/checksum/compatibility checks; installer with extract→verify→backup→replace→verify workflow; rollback from backup; CLI wiring (`kscore-upgrade package create|verify|inspect|apply|rollback`)
+  - Phase 4: Export/import for air-gapped data transfer (`internal/airgap/transfer/`) — ExportManifest with validation, DataCollector interface (EventCollector, AuditCollector, StateCollector) with paginated JSONL output; Exporter builds signed/encrypted tar.gz archives from collectors; Importer verifies signatures/checksums, decrypts .age packages, extracts with selective dataset filtering; CLI wiring (`kscore-transfer export|import|verify`)
+  - Phase 5: Advanced features — sync window scheduling (`internal/airgap/sync/`) with state machine, cron-based scheduling, bandwidth limiter, priority operation queue; UDP data diode support (`internal/airgap/diode/`) with binary wire protocol, XOR parity FEC, sender/receiver; air-gap compliance validation (`internal/airgap/validate/`) scanning binaries, configs, modules, and network connections; CLI wiring (`kscore-transfer sync|diode`, `kscore-bootstrap airgap-validate`)
 
 ### Future (Numbered)
 
@@ -251,13 +254,13 @@ Git-style plugin architecture: `kscorectl` dispatches to `kscore-*` binaries in 
 
 **Server Daemons**: `kscore-server`, `kscore-agent`, `kscore-registry`, `kscore-telemetry-gateway`
 
-**CLI Plugins** (25 built-in): `kscore-exec`, `kscore-state`, `kscore-module`, `kscore-monitor`, `kscore-agents`, `kscore-policy`, `kscore-audit`, `kscore-gitops`, `kscore-webhook`, `kscore-cluster`, `kscore-cluster-backup`, `kscore-identity`, `kscore-federation`, `kscore-blueprint`, `kscore-blueprint-publish`, `kscore-blueprint-state`, `kscore-files`, `kscore-files-storage`, `kscore-proxy`, `kscore-backup`, `kscore-events`, `kscore-schedule`, `kscore-upgrade`, `kscore-migrate`, `kscore-bootstrap`
+**CLI Plugins** (26 built-in): `kscore-exec`, `kscore-state`, `kscore-module`, `kscore-monitor`, `kscore-agents`, `kscore-policy`, `kscore-audit`, `kscore-gitops`, `kscore-webhook`, `kscore-cluster`, `kscore-cluster-backup`, `kscore-identity`, `kscore-federation`, `kscore-blueprint`, `kscore-blueprint-publish`, `kscore-blueprint-state`, `kscore-files`, `kscore-files-storage`, `kscore-proxy`, `kscore-backup`, `kscore-events`, `kscore-schedule`, `kscore-upgrade`, `kscore-migrate`, `kscore-bootstrap`, `kscore-transfer`
 
 **Dev/Test**: `kscore-loadtest`, `kscore-test`
 
 Third-party: any `kscore-<name>` in `$PATH` works as `kscorectl <name>`
 
-**Total**: 30 binaries (1 CLI + 4 servers + 25 plugins)
+**Total**: 31 binaries (1 CLI + 4 servers + 26 plugins)
 
 ## Key Design Principles
 
