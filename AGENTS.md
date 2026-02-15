@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-38, 39-58, 100 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-59 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -139,7 +139,7 @@ Working implementation with:
 
 ### Completed
 
-Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find details:
+Epics 1-32, 36-59 are all complete. Key packages and where to find details:
 
 | Epic | Area | Key Packages | Details |
 |------|------|-------------|---------|
@@ -161,7 +161,6 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
 | 51 | HA resilience testing | `test/e2e/` | `epics/51*.md` |
 | 52 | Critical bug fixes | Various | `epics/52*.md` |
 | 53 | gRPC service completion | `pkg/api/server/`, `internal/statemgmt/history/` | `epics/53*.md` |
-| 100 | 0.1.0 Release Readiness | `cmd/kscore-repo-gen/`, `internal/repogen/` | `epics/100*.md` |
 
 ### Recently Completed
 
@@ -203,6 +202,13 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
 
 ### Recently Completed (cont.)
 
+- **Epic 59** (Simplification) — COMPLETE — Inventory-driven codebase simplification:
+  - Phase 1: 5 parallel inventory agents (binaries, duplication, dead code, dependencies, golden paths)
+  - Phase 2: Makefile fix (11 missing binaries); removed 6 dead packages (~10,210 lines: federation, baremetal, dr, edge, visualization, transfer/throttle); removed dead `pkg/retry` (~987 lines)
+  - Phase 3: Fixed 6 SQLite stores missing `SetMaxOpenConns(1)`; created `pkg/dbutil` with `OpenSQLite()` factory; fixed 2 `InsecureSkipVerify` security gaps (blueprint registry, file HTTP backend)
+  - Phase 4: Investigated HTTP client factory, error standardization, config consolidation, build-tag gating — all deferred after analysis showed low ROI
+  - Total: ~11,197 lines removed, 8 bugs fixed
+
 - **Epic 38** (Air-Gapped Deployments) — COMPLETE:
   - Phase 1: Bootstrap packages with manifest types, signing/verification, binary collection, archive builder, content bundling (modules, blueprints, policies, docs), config templates (server/agent YAML, install script), installer, CLI (`kscore-bootstrap package create|verify|install|inspect`), Makefile target
   - Phase 2: Offline registry (`internal/airgap/registry/`) — filesystem-backed module registry wrapping `FilesystemBackend`; `LocalClient` implementing `resolver.RegistryClient`; JSON index with search; import from bootstrap packages or directories; export from online registries; garbage collection with version retention and max-age; Ed25519 trust store with signature verification; CLI wiring (`kscore-registry offline init|list|search|import|verify|gc|reindex|trust`; `module mirror` export/import)
@@ -210,21 +216,12 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
   - Phase 4: Export/import for air-gapped data transfer (`internal/airgap/transfer/`) — ExportManifest with validation, DataCollector interface (EventCollector, AuditCollector, StateCollector) with paginated JSONL output; Exporter builds signed/encrypted tar.gz archives from collectors; Importer verifies signatures/checksums, decrypts .age packages, extracts with selective dataset filtering; CLI wiring (`kscore-transfer export|import|verify`)
   - Phase 5: Advanced features — sync window scheduling (`internal/airgap/sync/`) with state machine, cron-based scheduling, bandwidth limiter, priority operation queue; UDP data diode support (`internal/airgap/diode/`) with binary wire protocol, XOR parity FEC, sender/receiver; air-gap compliance validation (`internal/airgap/validate/`) scanning binaries, configs, modules, and network connections; CLI wiring (`kscore-transfer sync|diode`, `kscore-bootstrap airgap-validate`)
 
-### Future (Numbered)
-
-(No future numbered epics currently)
-
-### Planned
-
-(No planned epics currently)
-
 ### Future (Unnumbered)
 
 - MCP Server (`epics/future-mcp-server.md`)
 - Web UI / Management Console (`epics/future-web-ui-management-console.md`)
 - Release & Distribution (`epics/future-release-distribution.md`)
 - Blueprint Marketplace (`epics/future-blueprint-marketplace.md`)
-- Simplification (`epics/future-simplification.md`)
 - Cross-Platform Testing (`epics/future-cross-platform-testing.md`)
 - Multi-Cloud Testing (`epics/future-multi-cloud-testing.md`)
 
