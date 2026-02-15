@@ -580,7 +580,18 @@ When refactoring existing code to use state machines:
 | `ErrMachineClosed` | Machine was closed |
 | `ErrNoInitialState` | Builder has no initial state |
 
+## Persistence and Advanced Patterns
+
+The base `Machine` is in-memory only — a process crash loses all state. For components that need crash recovery or multi-step rollback, two additional libraries are available:
+
+- **Checkpoint** (`pkg/statemachine/checkpoint`): Hooks into `OnTransition` to persist state after each transition. On restart, `Restore()` returns the last saved state. Best for long-running machines (bootstrap, upgrade, promotion) that need to survive restarts.
+
+- **Saga** (`pkg/saga`): Orchestrates multi-step workflows with compensating transactions. If a step fails, previously completed steps are rolled back in reverse order. Best for operations that modify external resources and need structured rollback.
+
+See [Orchestration Patterns](../orchestration-patterns/) for the full decision matrix, code examples, and migration guidance.
+
 ## Further Reading
 
+- [Orchestration Patterns](../orchestration-patterns/) — checkpoints, sagas, decision matrix
 - [Epic 39: State Machine Refactoring](/docs/community/roadmap/#epic-39-state-machine-refactoring)
 - [pkg/statemachine GoDoc](https://pkg.go.dev/github.com/shawnbutts/keystone-core/pkg/statemachine)

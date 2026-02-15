@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-38, 39-57, 100 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-38, 39-58, 100 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -165,6 +165,8 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
 
 ### Recently Completed
 
+- **Epic 58** (Advanced State Orchestration) — COMPLETE — Two reference libraries plus decision matrix: `pkg/saga/` generic saga coordinator with compensating transactions, memory/SQLite logs, resume support; `pkg/statemachine/checkpoint/` persistent checkpoint adapter with ~string type constraint, OnTransition hook, Restore pattern, memory/SQLite stores; integration examples (upgrade saga, bootstrap checkpoint); orchestration patterns doc with decision flowchart, migration guidance, pattern comparison table
+
 - **Epic 57** (Error Handling Hardening) — COMPLETE — Fixed ~16 silently ignored errors across 4 phases: API error handling (restore warnings, webhook marshal, lease parsing, RBAC init, audit logs), WASM error propagation (host function registration, writeResult), channel drop counters (NATS logging, SPIRE, secret audit, dashboard), ServiceMesh AuthorizationPolicy modification detection, wireCapabilities error return, DefaultLogger implementation
 
 - **Epic 53** (gRPC Service Completion) — COMPLETE — Wired ClusterServer with real MembershipManager/LeaderElector/ShardManager; registered CoordinationService with NATS status adapter; implemented GetStateHistory/GetStateStatus with SQLite state history store; wired SecretsServer with BrokerBuilder when secrets.enabled; added SecretsConfig to config system; integration tests for state history
@@ -212,12 +214,15 @@ Epics 1-32, 36-37, 39-53, 100 are all complete. Key packages and where to find d
 
 (No future numbered epics currently)
 
+### Planned
+
+(No planned epics currently)
+
 ### Future (Unnumbered)
 
 - MCP Server (`epics/future-mcp-server.md`)
 - Web UI / Management Console (`epics/future-web-ui-management-console.md`)
 - Release & Distribution (`epics/future-release-distribution.md`)
-- Advanced State Orchestration (`epics/future-advanced-state-orchestration.md`)
 - Blueprint Marketplace (`epics/future-blueprint-marketplace.md`)
 - Simplification (`epics/future-simplification.md`)
 - Cross-Platform Testing (`epics/future-cross-platform-testing.md`)
