@@ -12,23 +12,22 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 ## Project Status
 
 ---
->## 🚧 Early Preview / Not Production Ready
+>## Early Preview / Not Production Ready
 >
 > Keystone Core is under active development and **not yet suitable for production**.
 >
-> **We welcome early testers!**  
+> **We welcome early testers!**
 > Try it in your lab or homelab and please share feedback, open issues, or propose features
 ---
 
-
-| Status         | Description |
-|----------------|-------------|
-| **Epics 1-29** | COMPLETE |
-| **Epic 30-31** | PLANNED |
+| Status          | Description |
+|-----------------|-------------|
+| **Epics 1-32**  | COMPLETE |
+| **Epics 36-60** | COMPLETE |
 
 ### Completed Capabilities
 
-- **Core Infrastructure** - NATS messaging (embedded/external/leaf/supercluster), SQLite/PostgreSQL storage
+- **Core Infrastructure** - NATS messaging (embedded/external/leaf/supercluster), SQLite/PostgreSQL storage, default TLS 1.3
 - **Remote Execution** - Cross-platform command execution with flexible targeting and batch operations
 - **State Management** - Declarative configuration with 94 modules, drift detection, and remediation
 - **Event-Driven Automation** - Event bus, filtering, routing, reactors, external integration (Kafka, CloudEvents)
@@ -37,17 +36,25 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **Observability** - Prometheus metrics, structured logging, OpenTelemetry tracing, TUI monitor, Grafana dashboards
 - **Multi-Environment** - Kubernetes, VMs, bare metal, edge devices, cloud (AWS/GCP/Azure), service mesh
 - **Plugin System** - Starlark and WASM runtimes, capability-based security, cryptographic verification, SDKs
-- **HA Clustering** - etcd-based coordination, leader election, automatic failover, work distribution
+- **HA Clustering** - etcd-based coordination, leader election, automatic failover, work distribution, resilience testing
 - **NATS Mesh** - Superclusters, leaf nodes, WebSocket transport, NAT traversal, discovery
 - **SPIFFE Identity** - Embedded provider, SPIRE/cloud/mesh integration, trust federation
 - **Telemetry Gateway** - Aggregates metrics/logs/traces from isolated agents for Prometheus/Loki/Tempo
 - **Windows Support** - Native Windows agent, PowerShell execution, Windows state modules
 - **IPv6 Support** - Full dual-stack networking across all components
-- **Proxy Agents** - Manage unmanaged devices via SSH, SNMP, REST, WinRM; network device support (Cisco, Juniper, Arista)
+- **Proxy Agents** - Manage unmanaged devices via 8 protocols (SSH, SNMP, REST, WinRM, NETCONF, RESTCONF, gNMI, Telnet); 20 vendor drivers (Cisco, Juniper, Arista, Fortinet, Palo Alto, F5, and more)
 - **File Distribution** - NATS-based file server, multiple backends (S3/GCS/Azure/Git), mirror groups, proxy caching
 - **Self-Management** - Bootstrap from scratch, backup/restore, rolling/canary upgrades, self-management states, operational runbooks
-- **Document Review** - Documentation validation, example testing, gap analysis
 - **Blueprints** - Pre-packaged, reusable state collections with standard catalog
+- **Secrets Management** - REST + gRPC API, client package, CLI, encrypted cache (AES-GCM), rotation policies, multiple backends (Vault, K8s, encrypted file)
+- **Runbook Automation** - Trigger-based automation with approvals, ITSM integration, REST API, CLI
+- **Kubernetes Operator** - CRD watching, reconciliation, drift detection
+- **gRPC Services** - ControlPlane, Secrets, Agent, State, Event, Policy, Cluster services; 15 REST API handlers
+- **Outbound Webhooks** - Persistent subscriptions, HMAC-SHA256 signing, exponential backoff retry
+- **Air-Gapped Deployments** - Bootstrap packages, offline registry, upgrade packages, export/import data transfer, UDP data diode, compliance validation
+- **MCP Server** - AI-assisted operations via `kscore-mcp` for Claude Desktop, Claude Code, Cursor; capability profiles, audit attribution
+- **DNS Provider Management** - DNS record automation
+- **Saga Coordinator** - Multi-step workflows with compensating transactions, resume support
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Frequently Asked Questions (FAQ)
@@ -57,15 +64,16 @@ Existing automation tools either do too little or too much, or require heavy clo
 Also, "deploying a stack" and "maintaining a stack" are not the same thing. Neither should require large teams with complex incantations to complete.
 
 ### Q: Is this production-ready?
-Not yet. We're just getting stated. If you need something like this for production, setup Keystone Core in a home lab and give us some feedback.
-
-
-
-## Contributing
-Contributions are welcome. Issues, pull requests, and design discussions help steer the direction of the project. Please maintain clarity, functionality, and testability in all contributions.
+Not yet. We're just getting started. If you need something like this for production, set up Keystone Core in a home lab and give us some feedback.
 
 ### Q: Can I use AI-generated code or documentation?
-Yes. AI-generated contributions are welcome as long as they meet quality standards, follow our [Developer Certificate of Origin](docs/project/DCO.md),  [AI Contributions Policy](docs/project/AI-CONTRIBUTIONS.md), and other policies.  Of course, humans are still responsible for the consequences.
+Yes. AI-generated contributions are welcome as long as they meet quality standards, follow our [Developer Certificate of Origin](docs/project/DCO.md), [AI Contributions Policy](docs/project/AI-CONTRIBUTIONS.md), and other policies. Of course, humans are still responsible for the consequences.
+
+## Contributing
+
+Contributions are welcome. Issues, pull requests, and design discussions help steer the direction of the project. Please maintain clarity, functionality, and testability in all contributions.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution workflow.
 
 ## Quick Start
 
@@ -77,7 +85,7 @@ Yes. AI-generated contributions are welcome as long as they meet quality standar
 ### Build
 
 ```bash
-# Build all binaries
+# Build all binaries (outputs to build/bin/<os>/<arch>/)
 make build
 ```
 
@@ -85,87 +93,134 @@ make build
 
 ```bash
 # Run with embedded NATS + SQLite (no external services needed)
-./bin/kscore-server
+./build/bin/$(go env GOOS)/$(go env GOARCH)/kscore-server
 ```
 
 ### Run Agent
 
 ```bash
 # Run agent (connects to control plane)
-./bin/kscore-agent
+./build/bin/$(go env GOOS)/$(go env GOARCH)/kscore-agent
 ```
 
 ### Execute Commands
 
 ```bash
 # Run command on all Linux agents
-./bin/kscorectl exec run "uptime" --target "os:linux"
+kscorectl exec run "uptime" --target "os:linux"
 
 # Run on specific agents by glob pattern
-./bin/kscorectl exec run "df -h" --target "hostname:web-*"
+kscorectl exec run "df -h" --target "hostname:web-*"
 ```
 
 ### Apply State
 
 ```bash
 # Apply declarative state configuration
-./bin/kscorectl state apply /path/to/state.yaml
+kscorectl state apply /path/to/state.yaml
 
 # Check for drift without applying changes
-./bin/kscorectl state check /path/to/state.yaml
+kscorectl state check /path/to/state.yaml
 
 # Detect configuration drift
-./bin/kscorectl state drift /path/to/state.yaml
+kscorectl state drift /path/to/state.yaml
 ```
 
 ### Monitor System
 
 ```bash
 # Launch real-time TUI monitor
-./bin/kscorectl monitor
+kscorectl monitor
 ```
 
 ## CLI Tools
 
+Git-style plugin architecture: `kscorectl` dispatches to `kscore-*` binaries in `$PATH`.
+
+### Server Daemons
+
+| Binary                     | Description                                           |
+|----------------------------|-------------------------------------------------------|
+| `kscore-server`            | Control plane daemon                                  |
+| `kscore-agent`             | Agent daemon for managed nodes                        |
+| `kscore-registry`          | Module registry server                                |
+| `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents             |
+
+### Companion Services
+
+| Binary       | Description                                          |
+|--------------|------------------------------------------------------|
+| `kscore-mcp` | MCP server for AI clients (Claude Desktop, Cursor)   |
+
+### CLI Plugins (26 built-in)
+
 | Binary                     | Description                                    |
 |----------------------------|------------------------------------------------|
 | `kscorectl`                | Main CLI tool (plugin dispatcher, like git)    |
-| `kscore-server`            | Control plane daemon                           |
-| `kscore-agent`             | Agent daemon for managed nodes                 |
-| `kscore-exec`              | Remote execution plugin                        |
-| `kscore-state`             | State management plugin                        |
+| `kscore-exec`              | Remote execution                               |
+| `kscore-state`             | State management                               |
 | `kscore-monitor`           | Real-time TUI monitoring (8 views)             |
 | `kscore-module`            | Module management (init, build, sign, publish) |
+| `kscore-agents`            | Agent management and enrollment                |
 | `kscore-policy`            | Policy management and evaluation               |
+| `kscore-audit`             | Audit log operations                           |
 | `kscore-gitops`            | GitOps operations and webhooks                 |
+| `kscore-webhook`           | Webhook management (inbound/outbound)          |
 | `kscore-cluster`           | Cluster management and status                  |
+| `kscore-cluster-backup`    | Cluster backup operations                      |
 | `kscore-identity`          | SPIFFE identity and certificate management     |
-| `kscore-migrate`           | Database migration (SQLite → PostgreSQL)       |
-| `kscore-registry`          | Module registry server                         |
-| `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents      |
+| `kscore-federation`        | Federation management                          |
 | `kscore-blueprint`         | Blueprint management (init, install, publish)  |
-| `kscore-bootstrap`         | Cluster bootstrap and setup                    |
+| `kscore-blueprint-publish` | Blueprint publishing                           |
+| `kscore-blueprint-state`   | Blueprint state operations                     |
 | `kscore-files`             | File distribution management                   |
+| `kscore-files-storage`     | File storage backend management                |
+| `kscore-proxy`             | Proxy agent operations                         |
+| `kscore-backup`            | Backup and restore                             |
+| `kscore-events`            | Event management and queries                   |
+| `kscore-schedule`          | Schedule and maintenance window management     |
+| `kscore-secrets`           | Secrets management (backends, rotation, policies) |
+| `kscore-runbook`           | Runbook automation                             |
+| `kscore-upgrade`           | Upgrade package management                     |
+| `kscore-migrate`           | Database migration (SQLite to PostgreSQL)       |
+| `kscore-bootstrap`         | Cluster bootstrap and air-gap packaging        |
+| `kscore-transfer`          | Air-gapped data export/import                  |
+
+### Dev/Test
+
+| Binary           | Description          |
+|------------------|----------------------|
+| `kscore-loadtest` | Load testing utility |
+| `kscore-test`     | Test utility         |
+
+Third-party: any `kscore-<name>` in `$PATH` works as `kscorectl <name>`.
+
+**Total**: 37 binaries (1 CLI + 4 servers + 1 companion + 26 plugins + 2 dev/test + 3 internal tools)
 
 ## Architecture
 
 ```mermaid
 flowchart TB
     subgraph CP["Control Plane"]
-        API["API Server"]
+        API["API Server\n(REST + gRPC)"]
         State["State Manager"]
         Event["Event/Reactor"]
         Policy["Policy Engine"]
         GitOps["GitOps Bridge"]
+        Secrets["Secrets Manager"]
+        Runbook["Runbook Engine"]
     end
 
     NATS[("NATS\n(Embedded or External)")]
+    Store[("SQLite / PostgreSQL")]
 
     CP --> NATS
+    CP --> Store
 
     NATS --> A1["Agent (K8s)"]
     NATS --> A2["Agent (VM)"]
     NATS --> A3["Agent (Edge)"]
+    NATS --> P1["Proxy Agent\n(Network Devices)"]
 ```
 
 ## Key Features
@@ -188,6 +243,7 @@ flowchart TB
 - CEL-based event filtering and routing
 - Reactor system for automated responses
 - External integration: Kafka, CloudEvents, webhooks
+- Outbound webhook subscriptions with HMAC signing and retry
 
 ### Policy Enforcement
 - Dual engine support: OPA (Rego) and CEL
@@ -209,7 +265,7 @@ flowchart TB
 - Pre-built Grafana dashboards
 
 ### Multi-Environment Support
-- **Kubernetes**: CRDs, operators, pod execution
+- **Kubernetes**: CRDs, operator with reconciliation, pod execution, drift detection
 - **VMs**: Platform detection, cross-distro package/service management
 - **Bare Metal**: Hardware detection, BMC/IPMI integration
 - **Edge**: Offline mode, local caching, connection resilience
@@ -228,19 +284,41 @@ flowchart TB
 - **Automatic Failover**: Agent reassignment on control plane failure
 - **Work Distribution**: Consistent hashing for agent-to-server assignment
 - **NATS Superclusters**: Multi-region deployment with gateway routing
+- **Resilience Tested**: E2E tests for node failure, network partitions, split-brain prevention
 
 ### Identity & Security
 - **SPIFFE Identity**: Zero-config embedded provider or external SPIRE
 - **Trust Federation**: Cross-domain identity validation
 - **Cloud Integration**: AWS IAM, GCP Workload Identity, Azure MI
 - **Service Mesh**: Istio, Linkerd, Consul Connect identity extraction
+- **TLS 1.3**: Default minimum with per-component overrides
+
+### Secrets Management
+- **Multi-Backend**: Vault, Kubernetes secrets, encrypted file storage
+- **API Access**: REST and gRPC APIs with client packages
+- **Rotation**: Automated rotation policies with scheduling
+- **Encryption**: AES-GCM encrypted cache, transit operations
 
 ### Proxy Agents
-- **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM
-- **Network Device Support**: Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense
+- **8 Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM, NETCONF, RESTCONF, gNMI, Telnet
+- **20 Vendor Drivers**: Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, Fortinet, Palo Alto, F5, HP, Huawei, Dell, Nokia, Ubiquiti, MikroTik, VyOS, pfSense, OPNsense, and more
 - **Credential Management**: Vault, Kubernetes secrets, encrypted file storage
 - **Discovery**: Automatic device discovery with approval workflows
 - **State Modules**: Execute state configurations through proxy protocols
+
+### Air-Gapped Deployments
+- **Bootstrap Packages**: Signed archives with binaries, modules, policies, config templates
+- **Offline Registry**: Filesystem-backed module registry with trust store
+- **Upgrade Packages**: Versioned upgrades with migrations, rollback support
+- **Data Transfer**: Export/import with encryption and selective dataset filtering
+- **Data Diode**: UDP-based unidirectional transfer with FEC
+- **Compliance Validation**: Scans binaries, configs, modules, and network connections
+
+### AI-Assisted Operations (MCP)
+- **MCP Server**: `kscore-mcp` binary for Claude Desktop, Claude Code, Cursor
+- **16 Tools**: Agent, execution, cluster, state, event, and runbook operations
+- **Capability Profiles**: read_only, ops_safe, ops_admin
+- **Audit Attribution**: Credential pass-through with MCP metadata in audit logs
 
 ## Configuration
 
@@ -265,42 +343,43 @@ See `keystone-core.yaml.example` for all configuration options.
 
 ```
 keystone-core/
-├── cmd/                      # CLI tools and daemons
+├── cmd/                      # CLI tools and daemons (37 binaries)
 │   ├── kscore-server/        # Control plane daemon
 │   ├── kscore-agent/         # Agent daemon
 │   ├── kscorectl/            # Main CLI (plugin dispatcher)
-│   ├── kscore-*/             # CLI plugins (exec, state, monitor, module, policy, gitops, cluster, identity, migrate)
-│   ├── kscore-registry/      # Module registry server
-│   └── kscore-telemetry-gateway/  # Telemetry aggregation
-├── pkg/
-│   ├── agent/                # Agent implementation
+│   ├── kscore-mcp/           # MCP server for AI clients
+│   └── kscore-*/             # CLI plugins and utilities
+├── internal/                 # Private implementation packages
 │   ├── controlplane/         # Control plane services
-│   ├── state/                # SQLite/PostgreSQL storage
 │   ├── statemgmt/            # 94 state modules, drift detection
 │   ├── events/               # Event bus, reactors, storage
 │   ├── policy/               # OPA/CEL engines, enforcement
+│   ├── secrets/              # Secrets management
+│   ├── runbook/              # Runbook automation
 │   ├── gitops/               # Webhooks, verification, rollback
 │   ├── nats/                 # NATS mesh, discovery, WebSocket
 │   ├── cluster/              # HA clustering, etcd, leader election
 │   ├── identity/             # SPIFFE identity, federation
-│   ├── gateway/              # Telemetry gateway (metrics/logs/traces)
-│   ├── metrics/              # Prometheus metrics
-│   ├── logging/              # Structured logging, syslog
-│   ├── tracing/              # OpenTelemetry tracing
-│   ├── audit/                # CLI audit logging
-│   ├── health/               # Health checks, circuit breaker
-│   ├── k8s/                  # Kubernetes integration
-│   ├── platform/             # OS/distro detection
-│   ├── hardware/             # Hardware detection, IPMI
-│   ├── edge/                 # Edge mode, offline support
-│   ├── cloud/                # AWS, GCP, Azure integration
-│   ├── container/            # Docker, containerd detection
-│   ├── servicemesh/          # Istio, Linkerd, Consul
-│   ├── proxy/                # Proxy agents, device management, discovery
-│   ├── protocols/            # SSH, SNMP, REST, WinRM adapters
-│   ├── vendors/              # Cisco, Juniper, Arista, VyOS, pfSense adapters
-│   ├── credentials/          # Credential storage (Vault, K8s, encrypted file)
-│   └── module/               # Plugin system (runtime, capabilities, resolver, verify)
+│   ├── k8s/                  # Kubernetes operator
+│   ├── proxy/                # Proxy agents, device management
+│   ├── protocols/            # SSH, SNMP, REST, WinRM, NETCONF, RESTCONF, gNMI, Telnet
+│   ├── vendors/              # 20 network device vendor drivers
+│   ├── mcp/                  # MCP server implementation
+│   ├── airgap/               # Air-gapped deployment support
+│   ├── webhook/              # Outbound webhook subscriptions
+│   ├── dns/                  # DNS provider management
+│   ├── gateway/              # Telemetry gateway
+│   └── .../                  # ~40 more packages (agent, config, metrics, etc.)
+├── pkg/                      # Public library packages
+│   ├── api/                  # gRPC/REST API definitions and clients
+│   ├── module/               # Plugin system (runtime, capabilities, resolver, verify)
+│   ├── saga/                 # Saga coordinator for multi-step workflows
+│   ├── statemachine/         # State machine library with checkpoint support
+│   ├── secrets/              # Secrets client package
+│   ├── policy/               # Policy gRPC client
+│   ├── dbutil/               # SQLite connection factory
+│   ├── wait/                 # Cancelable timers/polling utilities
+│   └── .../                  # version, semver, plugin
 ├── modules/
 │   ├── sdk/                  # SDKs (Starlark, Rust, Go, C++)
 │   ├── stdlib/               # Standard library modules
@@ -346,13 +425,7 @@ go test -cover ./...
 
 ### Test Coverage
 
-Core packages maintain >75% test coverage. Key packages:
-- `pkg/state`: >90%
-- `pkg/config`: >95%
-- `pkg/controlplane`: >85%
-- `pkg/events`: >80%
-- `pkg/policy`: >79%
-- `pkg/identity`: >80% (332 tests)
+Core packages maintain >79% test coverage with 15 state machine components and E2E resilience tests.
 
 ### Building Documentation
 
@@ -364,30 +437,62 @@ hugo         # Build to docs/public/
 
 ## Roadmap
 
-| Epic  | Status   | Description                                                                                                        |
-|-------|----------|--------------------------------------------------------------------------------------------------------------------|
-| 1-11  | Complete | Core infrastructure, execution, state, events, GitOps, policy, observability, multi-env, plugins, docs, clustering |
-| 12-13 | Complete | E2E testing infrastructure, CGO removal (pure Go)                                                                  |
-| 14-15 | Complete | NATS mesh communication, observability enhancements                                                                |
-| 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework                                                                |
-| 18-20 | Complete | IPv6 support, telemetry gateway, Windows support                                                                   |
-| 21    | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters)                                       |
-| 22    | Complete | File distribution over NATS with multiple backends, mirror groups                                                  |
-| 23    | Complete | Self-management (bootstrap, backup/restore, state modules, validation, upgrades, runbooks)                         |
-| 24    | Complete | Documentation review, validation, example testing, gap analysis                                                    |
-| 25    | Complete | Blueprints - pre-packaged, reusable state collections (design)                                                     |
-| 26    | Complete | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements                           |
-| 27    | Complete | Agent bootstrap experience - single-binary TUI-guided bootstrap for all deployment modes                           |
-| 28    | Complete | Standard deployment blueprints - 14 official blueprints for demo/production/enterprise                             |
-| 29    | Complete | Bootstrap testing infrastructure - Docker-based validation across platforms        |
-| 30    | Planned  | CLI UX restructuring                                                                |
-| 31    | Planned  | NIST design principles - documentation only                                         |
+### Completed
 
-### Future Epics
+| Epic  | Description                                                                                                        |
+|-------|--------------------------------------------------------------------------------------------------------------------|
+| 1-11  | Core infrastructure, execution, state, events, GitOps, policy, observability, multi-env, plugins, docs, clustering |
+| 12-13 | E2E testing infrastructure, CGO removal (pure Go)                                                                  |
+| 14-15 | NATS mesh communication, observability enhancements                                                                |
+| 16-17 | 84 stdlib system modules, SPIFFE identity framework                                                                |
+| 18-20 | IPv6 support, telemetry gateway, Windows support                                                                   |
+| 21    | Proxy agents for unmanaged devices (8 protocols, 20 vendor drivers)                                                |
+| 22    | File distribution over NATS with multiple backends, mirror groups                                                  |
+| 23    | Self-management (bootstrap, backup/restore, state modules, validation, upgrades, runbooks)                         |
+| 24    | Documentation review, validation, example testing, gap analysis                                                    |
+| 25    | Blueprints - pre-packaged, reusable state collections                                                              |
+| 26    | NEEDSWORK remediation - security, API, testing, documentation, code quality                                        |
+| 27    | Agent bootstrap experience - single-binary TUI-guided bootstrap                                                    |
+| 28    | Standard deployment blueprints - 14 official blueprints                                                            |
+| 29    | Bootstrap testing infrastructure - Docker-based validation                                                         |
+| 30    | CLI UX restructuring                                                                                               |
+| 31    | NIST design principles documentation                                                                               |
+| 32    | Advanced networking                                                                                                |
+| 36    | Secrets management (deep)                                                                                          |
+| 37    | Runbook automation enhancements                                                                                    |
+| 38    | Air-gapped deployments (bootstrap, offline registry, upgrade, transfer, diode)                                     |
+| 39    | State machine refactoring                                                                                          |
+| 40    | Test coverage remediation                                                                                          |
+| 41    | DNS provider management                                                                                            |
+| 42    | Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet + vendor drivers)                                     |
+| 43    | Secrets API implementation (gRPC + REST)                                                                           |
+| 44    | Cluster join tokens                                                                                                |
+| 45    | Control plane config wiring                                                                                        |
+| 46    | gRPC service implementation                                                                                        |
+| 47    | Registry storage backends                                                                                          |
+| 48    | Kubernetes operator (CRDs, reconciliation, drift detection)                                                        |
+| 49    | REST API handler wiring (15 handlers)                                                                              |
+| 50    | Outbound webhooks (persistent subscriptions, HMAC signing)                                                         |
+| 51    | HA resilience testing (E2E: node failure, network partitions, split-brain)                                         |
+| 52    | Critical bug fixes                                                                                                 |
+| 53    | gRPC service completion                                                                                            |
+| 54    | CLI wiring: core operations (events, schedule, runbook, exec)                                                      |
+| 55    | CLI wiring: secrets and compliance                                                                                 |
+| 56    | CLI wiring: GitOps and infrastructure                                                                              |
+| 57    | Error handling hardening                                                                                           |
+| 58    | Advanced state orchestration (saga coordinator, checkpoint adapter)                                                |
+| 59    | Simplification (~11K lines removed, 8 bugs fixed)                                                                  |
+| 60    | MCP server for AI-assisted operations                                                                              |
 
-- **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
-- **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing (see `epics/future-advanced-state-orchestration.md`)
-- **Simplification** - Aggressive refactor to minimal required code (see `epics/future-simplification.md`)
+### Future
+
+| Epic                          | Description                                                   |
+|-------------------------------|---------------------------------------------------------------|
+| Web UI / Management Console   | Browser-based management interface                            |
+| Release & Distribution        | Release packaging, signing, distribution pipelines            |
+| Blueprint Marketplace         | Community marketplace for sharing blueprints                  |
+| Cross-Platform Testing        | Expanded platform coverage validation                         |
+| Multi-Cloud Testing           | Cloud provider integration testing                            |
 
 See `epics/` directory for detailed implementation plans.
 
@@ -406,17 +511,13 @@ See [AI-CONTRIBUTIONS.md](docs/project/AI-CONTRIBUTIONS.md) for details and [CON
 
 Apache 2.0
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution workflow.
-
 ## Compatibility & Support
 
 Keystone Core follows a predictable release cadence (every 6 months) with a 2-year support window. See [COMPATIBILITY.md](docs/project/COMPATIBILITY.md) for details on:
 
 - Versioning (SemVer) and release schedule
 - Support windows and upgrade paths
-- Controller ↔ Agent compatibility
+- Controller / Agent compatibility
 - Breaking change policies
 
 ### Governance (TL;DR)
