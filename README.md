@@ -19,7 +19,24 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 > **We welcome early testers!**
 > Try it in your lab or homelab and please share feedback, open issues, or propose features
 ---
+> ## AI Use in This Project (Transparency + Standards)
+>
+> Keystone-core was intentionally bootstrapped with AI assistance to accelerate early development (code, docs, scaffolding, and build tooling). The objective was speed-to-foundation: get to a working, reviewable baseline quickly—then spend sustained human effort on the last 10% (polish, scaling, validation, reliability, and maintainability).
+>
+> We’re upfront about this because “AI-assisted” should not imply “low quality.” The bar is the bar.
+>
+> **What we care about**
+> - Correctness, clarity, and maintainability over cleverness
+> - Reproducible builds and understandable architecture
+> - Tests and verification proportional to risk
+> - Security-minded changes and careful dependency choices
+> - Reviewable PRs and accountable maintainers
+>
+> AI-assisted contributions are welcome. Please disclose meaningful AI use in your PR description (e.g., “AI helped draft X; I verified Y”) and be prepared to explain/justify changes. See [CONTRIBUTING.md](CONTRIBUTING.md) for details. If you can’t confidently review it, it doesn’t belong in main.
+> ***Quality is enforced by process, not by origin.*** Contributions (human- or AI-assisted) are expected to meet the same standards: readable design, reproducible builds, tests where appropriate, security-minded changes, and reviewable diffs. Maintainers are responsible for what gets merged.
 
+
+---
 | Status          | Description |
 |-----------------|-------------|
 | **Epics 1-32**  | COMPLETE |
