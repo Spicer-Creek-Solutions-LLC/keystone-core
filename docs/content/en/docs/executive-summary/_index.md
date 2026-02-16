@@ -43,68 +43,68 @@ Modern infrastructure uses tools like Terraform and ArgoCD to *deploy* systems, 
 
 ## Current Status
 
-Epics 1-29 complete:
+Epics 1-32 and 36-60 complete:
 
 | Category | Status |
 |----------|--------|
-| Core Infrastructure | Complete |
+| Core Infrastructure | Complete (NATS embedded/external/leaf, SQLite/PostgreSQL, TLS 1.3 default) |
 | Remote Execution | Complete |
 | State Management | Complete (94 cross-platform modules) |
-| Event System | Complete |
+| Event System | Complete (outbound webhooks, HMAC signing, retry) |
 | GitOps Integration | Complete |
 | Policy Engine (OPA/CEL) | Complete |
 | Observability | Complete |
-| High Availability | Complete (etcd-based clustering) |
+| High Availability | Complete (etcd clustering, resilience tested) |
 | Plugin System | Complete (Starlark + WASM) |
-| Documentation | Complete |
 | SPIFFE Identity | Complete |
 | Windows Support | Complete |
+| Proxy Agents | Complete (8 protocols, 20 vendor drivers) |
+| File Distribution | Complete (S3/GCS/Azure/Git backends, mirror groups) |
+| Secrets Management | Complete (REST + gRPC API, rotation policies, encrypted cache) |
+| Runbook Automation | Complete (triggers, approvals, ITSM integration) |
+| Kubernetes Operator | Complete (CRDs, reconciliation, drift detection) |
+| gRPC/REST APIs | Complete (7 gRPC services, 15 REST handlers) |
+| Air-Gapped Deployments | Complete (bootstrap packages, offline registry, data diode) |
+| MCP Server | Complete (AI-assisted operations for Claude Desktop, Cursor) |
+| Scheduling | Complete (schedule REST API, maintenance windows) |
+| DNS Management | Complete |
+| CLI Wiring | Complete (all 26 plugins wired to real APIs) |
+| Documentation | Complete (Hugo + Docsy site) |
 
 ### Test Coverage
 
 | Test Type | Count |
 |-----------|-------|
-| **Total Test Functions** | 5,068 |
-| Unit Tests (pkg/) | 4,625 |
-| CLI Tests (cmd/) | 243 |
-| E2E Tests | 162 |
-| Bootstrap Tests (test/bootstrap) | 17 |
-| Benchmark Functions | 51 |
-| Subtests (t.Run) | 1,100 |
-| Test Files | 349 |
+| **Total Test Functions** | 12,015 |
+| Unit Tests (internal/ + pkg/) | 10,550 |
+| CLI Tests (cmd/) | 1,271 |
+| E2E Tests (test/e2e/) | 170 |
+| Bootstrap Tests (test/bootstrap/) | 21 |
+| Benchmark Functions | 137 |
+| Subtests (t.Run) | 3,010 |
+| Test Files | 785 |
 
-Counts are derived from repository-wide `*_test.go` scans (e.g., `rg -o "^func\\s+Test"` and `rg -o "\\bt\\.Run\\("`).
+Counts are derived from source directory `*_test.go` scans (e.g., `grep -r "^func Test" --include="*_test.go"`).
 
-## Remaining Roadmap
-
-### Planned Epics
-
-- **Epic 30**: CLI UX Restructuring
-- **Epic 31**: NIST Design Principles - documentation only
+## Roadmap
 
 ### Future Considerations
 
-- **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
-- **Simplification** - Aggressive refactor to minimize code and surface area
-
 | Category | Description |
 |----------|-------------|
+| **Web UI / Management Console** | Browser-based dashboard, topology visualization, state editor |
+| **Release & Distribution** | Release packaging, signing, distribution pipelines |
+| **Blueprint Marketplace** | Community marketplace for sharing blueprints |
+| **Cross-Platform Testing** | Expanded platform coverage validation |
+| **Multi-Cloud Testing** | Cloud provider integration testing |
 | **Multi-Tenancy** | Namespace isolation, per-tenant RBAC/quotas, SSO integration (OIDC/SAML) |
-| **Scheduled Operations** | Centralized job scheduler, maintenance windows, batch scheduling |
-| **Web UI** | Web-based dashboard, topology visualization, state editor |
 | **Automatic Drift Remediation** | Opt-in auto-fix, approval workflows, change management integration |
 | **Agent Self-Update** | Secure binary distribution, staged rollouts, automatic rollback |
 | **Compliance Presets** | CIS Benchmarks, SOC 2, HIPAA, PCI-DSS policy packs |
 | **Network Discovery** | Automatic scanning, L2/L3 mapping, dependency visualization |
-| **Advanced State Orchestration** | Statecharts, workflows, actors, event sourcing, saga coordination |
-| **Runbook Automation** | Multi-step orchestration, conditional branching, approval gates |
-| **Disaster Recovery** | Full backup/restore, state export/import, cross-region failover |
-| **Secrets Management** | HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager |
 | **Terraform Provider** | Terraform provider for Keystone Core resources |
-| **ITSM Integration** | ServiceNow integration, change request workflows, CMDB sync |
 | **Migration Tools** | Chef/Puppet to Keystone Core converters |
 | **Mobile Monitoring** | iOS/Android apps with push notifications |
-| **Natural Language** | AI-powered natural language commands |
 
 ## Quick Links
 
