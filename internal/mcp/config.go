@@ -1,3 +1,4 @@
+// Package mcp implements the MCP server for AI-assisted Keystone Core operations.
 package mcp
 
 import (
@@ -5,12 +6,13 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-// MCPConfig is the top-level configuration for the MCP server.
-type MCPConfig struct {
+// Config is the top-level configuration for the MCP server.
+type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Auth     AuthConfig     `yaml:"auth"`
 	Features FeaturesConfig `yaml:"features"`
@@ -38,13 +40,13 @@ type FeaturesConfig struct {
 	DefaultProfile string `yaml:"default_profile"`
 }
 
-// LoadConfig reads and validates an MCPConfig from a YAML file.
-func LoadConfig(path string) (*MCPConfig, error) {
-	data, err := os.ReadFile(path)
+// LoadConfig reads and validates a Config from a YAML file.
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
-	var cfg MCPConfig
+	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
@@ -55,7 +57,7 @@ func LoadConfig(path string) (*MCPConfig, error) {
 }
 
 // Validate checks that required fields are set and values are sane.
-func (c *MCPConfig) Validate() error {
+func (c *Config) Validate() error {
 	if c.Server.Address == "" {
 		return fmt.Errorf("server.address is required")
 	}
@@ -92,7 +94,7 @@ func (c *MCPConfig) Validate() error {
 }
 
 // Profile returns the parsed capability profile, defaulting to ops_safe.
-func (c *MCPConfig) Profile() Profile {
+func (c *Config) Profile() Profile {
 	if c.Features.DefaultProfile == "" {
 		return ProfileOpsSafe
 	}
@@ -101,7 +103,7 @@ func (c *MCPConfig) Profile() Profile {
 }
 
 // BuildTLSConfig constructs a TLS config from the auth settings.
-func (c *MCPConfig) BuildTLSConfig() (*tls.Config, error) {
+func (c *Config) BuildTLSConfig() (*tls.Config, error) {
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS13,
 	}

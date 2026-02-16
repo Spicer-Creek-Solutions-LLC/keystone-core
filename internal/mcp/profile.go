@@ -6,6 +6,7 @@ import "fmt"
 // defense-in-depth — server-side RBAC remains the authoritative enforcement.
 type Profile string
 
+// MCP capability profiles controlling tool availability.
 const (
 	ProfileReadOnly Profile = "read_only"
 	ProfileOpsSafe  Profile = "ops_safe"

@@ -22,14 +22,14 @@ type ToolRegistrar func(srv *sdkmcp.Server, profile Profile)
 // Server wraps the MCP SDK server and coordinates tool registration with
 // profile-based filtering.
 type Server struct {
-	config  *MCPConfig
+	config  *Config
 	client  *GRPCClient
 	profile Profile
 	sdk     *sdkmcp.Server
 }
 
 // NewServer creates an MCP server with tools filtered by the configured profile.
-func NewServer(cfg *MCPConfig, client *GRPCClient, registrars []ToolRegistrar, resources []ResourceRegistration) *Server {
+func NewServer(cfg *Config, client *GRPCClient, registrars []ToolRegistrar, resources []ResourceRegistration) *Server {
 	info := version.Get()
 	sdk := sdkmcp.NewServer(
 		&sdkmcp.Implementation{

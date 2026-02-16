@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -83,7 +84,7 @@ func stateRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 				ctx = client.WithTool(ctx, "state_history")
 				grpcReq := &pb.GetStateHistoryRequest{PageSize: 20}
 				if args.Limit > 0 {
-					grpcReq.PageSize = int32(args.Limit)
+					grpcReq.PageSize = clampInt32(args.Limit)
 				}
 				if args.AgentID != "" {
 					grpcReq.AgentId = args.AgentID
@@ -125,7 +126,7 @@ func stateRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 				var results []applyResult
 				for {
 					resp, err := stream.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					if err != nil {

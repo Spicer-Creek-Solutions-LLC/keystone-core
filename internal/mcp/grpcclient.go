@@ -68,7 +68,7 @@ type GRPCClient struct {
 
 // NewGRPCClient creates a gRPC connection to kscore-server using the operator's
 // credentials from the MCP config.
-func NewGRPCClient(cfg *MCPConfig, sessionID, aiClient string) (*GRPCClient, error) {
+func NewGRPCClient(cfg *Config, sessionID, aiClient string) (*GRPCClient, error) {
 	var dialOpts []grpc.DialOption
 
 	useTLS := cfg.Auth.TLSCACert != "" || cfg.Auth.TLSCert != "" || cfg.Auth.Method == "mtls"

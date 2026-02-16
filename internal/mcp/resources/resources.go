@@ -1,3 +1,4 @@
+// Package resources implements MCP resource handlers for Keystone Core.
 package resources
 
 import (

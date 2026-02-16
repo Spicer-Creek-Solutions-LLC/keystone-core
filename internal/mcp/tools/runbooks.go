@@ -33,7 +33,12 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("REST base URL not configured"))
 					return r, nil, nil
 				}
-				resp, err := http.Get(baseURL + "/api/v1/runbooks")
+				httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/runbooks", http.NoBody)
+				if err != nil {
+					r, _ := mcpserver.ErrorResult(fmt.Errorf("creating request: %w", err))
+					return r, nil, nil
+				}
+				resp, err := http.DefaultClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("requesting runbooks: %w", err))
 					return r, nil, nil
@@ -71,8 +76,14 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("REST base URL not configured"))
 					return r, nil, nil
 				}
-				url := fmt.Sprintf("%s/api/v1/runbooks/%s/execute", baseURL, args.RunbookID)
-				httpResp, err := http.Post(url, "application/json", nil)
+				execURL := fmt.Sprintf("%s/api/v1/runbooks/%s/execute", baseURL, args.RunbookID)
+				httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, execURL, http.NoBody)
+				if err != nil {
+					r, _ := mcpserver.ErrorResult(fmt.Errorf("creating request: %w", err))
+					return r, nil, nil
+				}
+				httpReq.Header.Set("Content-Type", "application/json")
+				httpResp, err := http.DefaultClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("executing runbook: %w", err))
 					return r, nil, nil
@@ -110,8 +121,13 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("REST base URL not configured"))
 					return r, nil, nil
 				}
-				url := fmt.Sprintf("%s/api/v1/runbooks/%s/executions/%s", baseURL, args.RunbookID, args.ExecutionID)
-				resp, err := http.Get(url)
+				statusURL := fmt.Sprintf("%s/api/v1/runbooks/%s/executions/%s", baseURL, args.RunbookID, args.ExecutionID)
+				httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, http.NoBody)
+				if err != nil {
+					r, _ := mcpserver.ErrorResult(fmt.Errorf("creating request: %w", err))
+					return r, nil, nil
+				}
+				resp, err := http.DefaultClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("checking runbook status: %w", err))
 					return r, nil, nil

@@ -1,3 +1,5 @@
+// Package main implements the kscore-mcp binary, an MCP server that exposes
+// Keystone Core operations to AI clients via the Model Context Protocol.
 package main
 
 import (

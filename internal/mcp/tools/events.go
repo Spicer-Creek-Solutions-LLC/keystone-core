@@ -29,7 +29,7 @@ func eventRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					grpcReq.Type = args.Type
 				}
 				if args.Limit > 0 {
-					grpcReq.PageSize = int32(args.Limit)
+					grpcReq.PageSize = clampInt32(args.Limit)
 				}
 				resp, err := client.Event.ListEvents(ctx, grpcReq)
 				if err != nil {

@@ -3,8 +3,10 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	mcpserver "github.com/shawnbutts/keystone-core/internal/mcp"
@@ -44,7 +46,7 @@ func execRegistrar(client *mcpserver.GRPCClient, maxTargetCount int) mcpserver.T
 					Command: args.Command,
 				}
 				if args.Timeout > 0 {
-					grpcReq.Timeout = int32(args.Timeout)
+					grpcReq.Timeout = clampInt32(args.Timeout)
 				}
 
 				stream, err := client.ControlPlane.BatchExecuteCommand(ctx, grpcReq)
@@ -64,7 +66,7 @@ func execRegistrar(client *mcpserver.GRPCClient, maxTargetCount int) mcpserver.T
 				var results []execResult
 				for {
 					resp, err := stream.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					if err != nil {
@@ -117,7 +119,7 @@ func execRegistrar(client *mcpserver.GRPCClient, maxTargetCount int) mcpserver.T
 
 				pageSize := int32(20)
 				if args.Limit > 0 {
-					pageSize = int32(args.Limit)
+					pageSize = clampInt32(args.Limit)
 				}
 
 				resp, err := client.ControlPlane.ListCommands(ctx, &pb.ListCommandsRequest{PageSize: pageSize})

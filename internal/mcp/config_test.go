@@ -68,47 +68,47 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     MCPConfig
+		cfg     Config
 		wantErr bool
 	}{
 		{
 			name: "valid apikey",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "apikey", APIKey: "key"},
 			},
 		},
 		{
 			name: "valid jwt",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "jwt", JWTToken: "token"},
 			},
 		},
 		{
 			name: "valid mtls",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "mtls", TLSCert: "/cert.pem", TLSKey: "/key.pem"},
 			},
 		},
 		{
 			name: "missing address",
-			cfg: MCPConfig{
+			cfg: Config{
 				Auth: AuthConfig{Method: "apikey", APIKey: "key"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "missing method",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "apikey without key",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "apikey"},
 			},
@@ -116,7 +116,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "jwt without token",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "jwt"},
 			},
@@ -124,7 +124,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "mtls without cert",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "mtls", TLSKey: "/key.pem"},
 			},
@@ -132,7 +132,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown method",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server: ServerConfig{Address: "localhost:9443"},
 				Auth:   AuthConfig{Method: "magic"},
 			},
@@ -140,7 +140,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "bad profile",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server:   ServerConfig{Address: "localhost:9443"},
 				Auth:     AuthConfig{Method: "apikey", APIKey: "key"},
 				Features: FeaturesConfig{DefaultProfile: "superadmin"},
@@ -149,7 +149,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "negative max_target_count",
-			cfg: MCPConfig{
+			cfg: Config{
 				Server:   ServerConfig{Address: "localhost:9443"},
 				Auth:     AuthConfig{Method: "apikey", APIKey: "key"},
 				Features: FeaturesConfig{MaxTargetCount: -1},
@@ -168,7 +168,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestProfile_Default(t *testing.T) {
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Server: ServerConfig{Address: "localhost:9443"},
 		Auth:   AuthConfig{Method: "apikey", APIKey: "key"},
 	}

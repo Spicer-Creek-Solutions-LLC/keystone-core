@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewServer_ProfileFiltering(t *testing.T) {
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Server:   ServerConfig{Address: "localhost:9443"},
 		Auth:     AuthConfig{Method: "apikey", APIKey: "key"},
 		Features: FeaturesConfig{DefaultProfile: "read_only"},
@@ -44,7 +44,7 @@ func TestNewServer_ProfileFiltering(t *testing.T) {
 }
 
 func TestNewServer_DefaultProfile(t *testing.T) {
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Server: ServerConfig{Address: "localhost:9443"},
 		Auth:   AuthConfig{Method: "apikey", APIKey: "key"},
 	}
@@ -55,7 +55,7 @@ func TestNewServer_DefaultProfile(t *testing.T) {
 }
 
 func TestNewServer_WithResources(t *testing.T) {
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Server: ServerConfig{Address: "localhost:9443"},
 		Auth:   AuthConfig{Method: "apikey", APIKey: "key"},
 	}
