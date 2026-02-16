@@ -475,6 +475,7 @@ hugo         # Build to docs/public/
 | 30    | CLI UX restructuring                                                                                               |
 | 31    | NIST design principles documentation                                                                               |
 | 32    | Advanced networking                                                                                                |
+| 33-35 | *(numbers reserved, never used)*                                                                                   |
 | 36    | Secrets management (deep)                                                                                          |
 | 37    | Runbook automation enhancements                                                                                    |
 | 38    | Air-gapped deployments (bootstrap, offline registry, upgrade, transfer, diode)                                     |
