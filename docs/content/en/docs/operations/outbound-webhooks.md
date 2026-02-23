@@ -154,6 +154,7 @@ Failed deliveries are retried with exponential backoff:
 Example with defaults: retry at 1s, 2s, 4s, then mark as `failed`.
 
 A delivery is considered failed if:
+
 - The HTTP response status is not 2xx
 - The connection times out
 - DNS resolution fails
