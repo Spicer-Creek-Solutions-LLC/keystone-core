@@ -15,6 +15,18 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ## Open Items
 
+### Upgrade gosec to fix lint panic with Go 1.26
+
+**Resolution:** code
+
+`gosec v2.23.0` panics in `RangeAnalyzer.isNonNegativeRecursive` when processing integer constants under Go 1.26 (`"10000 not an Int"`). This causes `make lint` to fail with a `golangci-lint` runner error. The crash originates in `go/constant.Int64Val` called from `analyzers/util.go:288`.
+
+**Tasks:**
+
+- [ ] Check for a fixed gosec release (track [securego/gosec](https://github.com/securego/gosec) issues)
+- [ ] Update `golangci-lint` to a version bundling the fix (or pin gosec version in `.golangci.yml`)
+- [ ] Verify `make lint` passes cleanly after the upgrade
+
 ### Migrate from raw protoc to buf v2
 
 **Resolution:** both
