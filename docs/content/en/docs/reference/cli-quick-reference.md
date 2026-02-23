@@ -993,6 +993,16 @@ sudo dnf install kscore-server kscore-agent
 
 ---
 
+## MCP Server (kscore-mcp)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscore-mcp --config <path>` | Start MCP server | `kscore-mcp --config mcp.yaml` |
+| `kscore-mcp validate --config <path>` | Validate config | `kscore-mcp validate --config mcp.yaml` |
+| `kscore-mcp version` | Print version | `kscore-mcp version` |
+
+---
+
 ## See Also
 
 - [Full CLI Reference](../cli/) - Detailed command documentation

@@ -134,6 +134,15 @@ Deploy and operate in disconnected environments:
 - **Data diode** - One-way UDP transfers for classified environments
 - **Compliance validation** - Verify no external dependencies
 
+### [Outbound Webhooks](outbound-webhooks/)
+
+Deliver internal events to external HTTP endpoints:
+
+- **Subscription management** - Create, list, test, and delete webhook subscriptions
+- **HMAC signing** - GitHub-compatible HMAC-SHA256 signature verification
+- **Delivery tracking** - Persistent delivery history with retry status
+- **Retry behavior** - Exponential backoff with configurable retries
+
 ### [Self-Management](self-management/)
 
 Keystone Core managing itself:
