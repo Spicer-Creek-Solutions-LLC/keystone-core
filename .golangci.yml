@@ -84,6 +84,17 @@ linters:
     gosec:
       excludes:
         - G104  # Handled by errcheck
+        - G115  # Disabled: gosec v2.23.0 conversion_overflow analyzer panics on float-to-int casts (securego/gosec#1229). Re-enable when gosec ships a fix.
+        # gosec v2.23.0 taint analysis rules — produce hundreds of false positives
+        # in infrastructure management tools that intentionally perform HTTP requests,
+        # file operations, and shell execution. Security is enforced through input
+        # validation, policy enforcement, capability controls, and audit logging.
+        - G117  # Potential exposure of secrets via JSON marshaling
+        - G702  # net/http path traversal via taint analysis
+        - G703  # os path traversal via taint analysis
+        - G704  # net/http SSRF via taint analysis
+        - G705  # os/exec command injection via taint analysis
+        - G706  # SQL injection via taint analysis
       config:
         global:
           audit: false

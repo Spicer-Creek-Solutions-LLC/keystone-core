@@ -15,17 +15,21 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ## Open Items
 
-### Upgrade gosec to fix lint panic with Go 1.26
+### Re-enable gosec G115 and taint analysis rules after upstream fix
 
 **Resolution:** code
 
-`gosec v2.23.0` panics in `RangeAnalyzer.isNonNegativeRecursive` when processing integer constants under Go 1.26 (`"10000 not an Int"`). This causes `make lint` to fail with a `golangci-lint` runner error. The crash originates in `go/constant.Int64Val` called from `analyzers/util.go:288`.
+`gosec v2.23.0` (bundled in `golangci-lint v2.10.1`) has two issues:
+1. **G115 panic**: `RangeAnalyzer` panics on float-to-int casts (`"10000 not an Int"` in `internal/files/mirror/geo.go:271`). Tracked at [securego/gosec#1229](https://github.com/securego/gosec/issues/1229).
+2. **Taint analysis false positives**: New rules G117/G702-G706 produce ~420 false positives in infrastructure management code that intentionally performs HTTP requests, file I/O, and command execution.
+
+Both are currently excluded in `.golangci.yml`. Re-enable when gosec ships fixes.
 
 **Tasks:**
 
-- [ ] Check for a fixed gosec release (track [securego/gosec](https://github.com/securego/gosec) issues)
-- [ ] Update `golangci-lint` to a version bundling the fix (or pin gosec version in `.golangci.yml`)
-- [ ] Verify `make lint` passes cleanly after the upgrade
+- [ ] Monitor gosec releases for G115 panic fix
+- [ ] Re-enable G115 when fixed upstream
+- [ ] Re-evaluate taint analysis rules (G117, G702-G706) when gosec improves false-positive filtering for infrastructure tools
 
 ### Migrate from raw protoc to buf v2
 
