@@ -122,6 +122,18 @@ Centralized telemetry aggregation:
 - **Tempo integration** - Distributed trace collection
 - **Backend configuration** - Remote write and export
 
+### [Air-Gapped Deployments](air-gapped-deployments/)
+
+Deploy and operate in disconnected environments:
+
+- **Bootstrap packages** - Initial installation via signed packages
+- **Offline registry** - Filesystem-backed module registry
+- **Upgrade packages** - Version upgrades without network access
+- **Data export/import** - Transfer audit logs, events, and state across boundaries
+- **Sync windows** - Scheduled connectivity for intermittent access
+- **Data diode** - One-way UDP transfers for classified environments
+- **Compliance validation** - Verify no external dependencies
+
 ### [Self-Management](self-management/)
 
 Keystone Core managing itself:

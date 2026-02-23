@@ -758,6 +758,74 @@ ha:
   shards: 1                           # Number of shards
 ```
 
+## MCP Server Configuration
+
+Configuration reference for `kscore-mcp`, the MCP server for AI-assisted operations.
+
+`kscore-mcp` is configured via a standalone YAML file passed with `--config`. It does not share the control plane's `server.yaml`.
+
+```yaml
+# mcp.yaml
+
+# Upstream kscore-server connection
+server:
+  address: "localhost:50051"              # gRPC address of kscore-server (required)
+  rest_base_url: "http://localhost:8080"  # REST base URL for HTTP-based tools
+
+# Authentication (operator's own credentials, passed through to kscore-server)
+auth:
+  method: "apikey"                        # apikey, jwt, or mtls (required)
+
+  # API key authentication (when method: apikey)
+  api_key: ""                             # API key value (required when method=apikey)
+
+  # JWT authentication (when method: jwt)
+  jwt_token: ""                           # JWT token (required when method=jwt)
+
+  # mTLS authentication (when method: mtls)
+  tls_cert: ""                            # Client certificate path (required when method=mtls)
+  tls_key: ""                             # Client key path (required when method=mtls)
+  tls_ca_cert: ""                         # CA certificate for server verification
+
+# Feature controls
+features:
+  default_profile: "ops_safe"             # Capability profile: read_only, ops_safe, ops_admin
+  max_target_count: 50                    # Max agents per exec_run call (0 = unlimited)
+```
+
+| Setting | Required | Default | Description |
+|---------|----------|---------|-------------|
+| `server.address` | Yes | — | gRPC address of the upstream `kscore-server` |
+| `server.rest_base_url` | No | `""` | REST base URL for HTTP-based tool calls |
+| `auth.method` | Yes | — | Authentication method: `apikey`, `jwt`, or `mtls` |
+| `auth.api_key` | When `apikey` | `""` | API key for authentication |
+| `auth.jwt_token` | When `jwt` | `""` | JWT token for authentication |
+| `auth.tls_cert` | When `mtls` | `""` | Client certificate file path |
+| `auth.tls_key` | When `mtls` | `""` | Client private key file path |
+| `auth.tls_ca_cert` | No | `""` | CA certificate for server TLS verification |
+| `features.default_profile` | No | `ops_safe` | Capability profile controlling tool visibility |
+| `features.max_target_count` | No | `0` | Maximum agents targeted per `exec_run` (0 = unlimited) |
+
+**Capability profiles** control which MCP tools are registered. Server-side RBAC remains authoritative regardless of profile.
+
+| Profile | Tools Available |
+|---------|----------------|
+| `read_only` | Agent list/show/health, exec status/history, state check/drift/history, event query/stats, runbook list/status, cluster status |
+| `ops_safe` | All `read_only` tools plus exec run, runbook execute |
+| `ops_admin` | All tools including state apply |
+
+**Validation rules:**
+
+- `server.address` is required
+- `auth.method` is required and must be `apikey`, `jwt`, or `mtls`
+- Credentials matching the auth method must be provided
+- `features.max_target_count` must be non-negative
+- `features.default_profile`, if set, must be `read_only`, `ops_safe`, or `ops_admin`
+
+TLS is enforced at minimum version 1.3 when `tls_ca_cert` or mTLS credentials are provided.
+
+See also: [MCP Setup Guide](../../guides/mcp-setup/), [MCP Security](../../guides/mcp-security/)
+
 ## Module Registry Configuration
 
 Configuration reference for `kscore-registry`.
@@ -1013,6 +1081,95 @@ unless explicitly overridden with `_TYPE`.
 
 Device discovery and device profiles are managed through the CLI (`kscorectl proxy discover`)
 and the vendor driver system respectively, not through the proxy agent configuration file.
+
+## Air-Gap Configuration
+
+Configuration reference for air-gapped deployment features. These settings are used by the `kscore-transfer sync` and `kscore-transfer diode` commands, not via `server.yaml`.
+
+### Sync Windows
+
+Sync windows define scheduled connectivity periods for environments with intermittent network access. Configure via `kscore-transfer sync` CLI flags or a sync config file.
+
+```yaml
+# sync-windows.yaml
+
+windows:
+  - name: "nightly-module-sync"
+    cron_schedule: "0 2 * * *"            # Daily at 2 AM
+    duration: "2h"                        # Max window duration
+    timezone: "America/New_York"          # Optional timezone (default: UTC)
+    bandwidth_limit: 10485760             # Bytes/sec (10 MB/s, 0 = unlimited)
+    enabled: true
+    operations:
+      - type: "pull_modules"              # pull_modules, pull_blueprints, push_audit_logs, push_metrics, full_sync
+        priority: 1                       # Lower = higher priority
+        endpoint: "https://registry.internal:8081"
+      - type: "push_audit_logs"
+        priority: 2
+        endpoint: "https://siem.internal:9200"
+
+  - name: "weekly-full-sync"
+    cron_schedule: "0 0 * * 0"            # Sundays at midnight
+    duration: "8h"
+    bandwidth_limit: 0                    # Unlimited
+    enabled: true
+    operations:
+      - type: "full_sync"
+        priority: 1
+        endpoint: "https://hub.internal:8080"
+```
+
+| Setting | Required | Default | Description |
+|---------|----------|---------|-------------|
+| `name` | Yes | — | Unique window identifier |
+| `cron_schedule` | Yes | — | Standard cron expression (5-field) |
+| `duration` | Yes | — | Maximum window duration |
+| `timezone` | No | UTC | IANA timezone name |
+| `bandwidth_limit` | No | `0` | Rate limit in bytes/sec (0 = unlimited) |
+| `enabled` | No | `false` | Whether the window is active |
+| `operations[].type` | Yes | — | `pull_modules`, `pull_blueprints`, `push_audit_logs`, `push_metrics`, `full_sync` |
+| `operations[].priority` | No | `0` | Execution priority (lower = first) |
+| `operations[].endpoint` | Yes | — | Target endpoint URL |
+
+**Validation rules:**
+
+- `name` and `cron_schedule` are required
+- `duration` must be positive
+- At least one operation is required per window
+- `cron_schedule` must be a valid cron expression
+- `timezone`, if set, must be a valid IANA timezone
+
+### Data Diode
+
+Data diode configuration for one-way UDP transfers in classified environments. Configure via `kscore-transfer diode send` / `diode receive` CLI flags.
+
+```yaml
+# diode.yaml
+
+address: "10.0.0.1:9999"                 # UDP address (sender: destination, receiver: listen)
+packet_size: 1400                         # UDP payload size in bytes
+rate_limit: 1048576                       # Bytes/sec (1 MB/s, 0 = unlimited)
+fec_enabled: true                         # Enable forward error correction
+fec_group_size: 5                         # Data packets per FEC parity group
+timeout: "30s"                            # Session timeout
+```
+
+| Setting | Required | Default | Description |
+|---------|----------|---------|-------------|
+| `address` | Yes | — | UDP address (`host:port`) |
+| `packet_size` | No | `1400` | UDP payload size in bytes |
+| `rate_limit` | No | `0` | Transmission rate limit in bytes/sec |
+| `fec_enabled` | No | `false` | Enable XOR parity forward error correction |
+| `fec_group_size` | No | `5` | Number of data packets per FEC group |
+| `timeout` | No | `30s` | Session timeout for sender/receiver |
+
+**Validation rules:**
+
+- `address` is required
+- `packet_size` must be non-negative
+- `fec_group_size` must be non-negative
+
+See also: [Air-Gapped Deployments](../../operations/air-gapped-deployments/)
 
 ## Agent Configuration
 
