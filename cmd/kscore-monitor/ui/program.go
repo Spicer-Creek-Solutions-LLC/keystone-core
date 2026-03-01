@@ -26,6 +26,7 @@ const (
 	ViewJobs
 	ViewLogs
 	ViewMetrics
+	ViewCluster
 )
 
 // Model is the main Bubble Tea model
@@ -54,6 +55,7 @@ type Model struct {
 	jobs             *JobsModel
 	logs             *LogsModel
 	metrics          *MetricsModel
+	cluster          *ClusterModel
 
 	// Shared state
 	statusMessage string
@@ -68,9 +70,9 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 		return nil, fmt.Errorf("failed to connect to control plane: %w", err)
 	}
 
-	// Determine initial view (config uses 1-8, View type uses 0-7)
+	// Determine initial view (config uses 1-based, View type uses 0-based)
 	initialView := ViewDashboard
-	if cfg.InitialView >= 1 && cfg.InitialView <= 8 {
+	if cfg.InitialView >= 1 && cfg.InitialView <= 9 {
 		initialView = View(cfg.InitialView - 1)
 	}
 
@@ -90,6 +92,7 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 	model.jobs = NewJobsModel(cfg, cli)
 	model.logs = NewLogsModel(cfg)
 	model.metrics = NewMetricsModel(cfg)
+	model.cluster = NewClusterModel(cfg, cli)
 
 	// Create program with options
 	p := tea.NewProgram(
@@ -143,6 +146,8 @@ func (m *Model) initCurrentView() tea.Cmd {
 		return m.logs.Init()
 	case ViewMetrics:
 		return m.metrics.Init()
+	case ViewCluster:
+		return m.cluster.Init()
 	default:
 		return m.dashboard.Init()
 	}
@@ -195,6 +200,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "8":
 			m.currentView = ViewMetrics
 			return m, m.metrics.Init()
+		case "9":
+			m.currentView = ViewCluster
+			return m, m.cluster.Init()
 		}
 
 	case tea.WindowSizeMsg:
@@ -251,6 +259,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd = m.logs.Update(msg)
 	case ViewMetrics:
 		_, cmd = m.metrics.Update(msg)
+	case ViewCluster:
+		_, cmd = m.cluster.Update(msg)
 	}
 	cmds = append(cmds, cmd)
 
@@ -285,6 +295,8 @@ func (m *Model) View() string {
 		content = m.logs.View()
 	case ViewMetrics:
 		content = m.metrics.View()
+	case ViewCluster:
+		content = m.cluster.View()
 	}
 
 	// Compose with header and footer
@@ -312,6 +324,7 @@ func (m *Model) renderHeader() string {
 		"6:Jobs",
 		"7:Logs",
 		"8:Metrics",
+		"9:Cluster",
 	}
 
 	items := make([]string, 0, len(views))
@@ -408,6 +421,8 @@ func (m *Model) refreshCurrentView() tea.Cmd {
 		return m.logs.Fetch()
 	case ViewMetrics:
 		return m.metrics.Fetch()
+	case ViewCluster:
+		return m.cluster.Fetch()
 	}
 	return nil
 }
@@ -425,6 +440,7 @@ func propagateSizeToViews(m *Model, msg tea.WindowSizeMsg) []tea.Cmd {
 		m.jobs,
 		m.logs,
 		m.metrics,
+		m.cluster,
 	}
 
 	cmds := make([]tea.Cmd, 0, len(views))
