@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
 	"github.com/shawnbutts/keystone-core/internal/events"
@@ -17,6 +18,7 @@ import (
 // EventsModel represents the events view
 type EventsModel struct {
 	config   *config.Config
+	client   *client.Client
 	viewport viewport.Model
 	filter   textinput.Model
 	width    int
@@ -28,13 +30,15 @@ type EventsModel struct {
 	mu             sync.RWMutex
 
 	// State
-	filterActive bool
-	paused       bool
-	ready        bool
+	filterActive    bool
+	paused          bool
+	ready           bool
+	correlationMode bool
+	correlationID   string
 }
 
 // NewEventsModel creates a new events model
-func NewEventsModel(cfg *config.Config) *EventsModel {
+func NewEventsModel(cfg *config.Config, cli *client.Client) *EventsModel {
 	vp := viewport.New(0, 0)
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
@@ -47,6 +51,7 @@ func NewEventsModel(cfg *config.Config) *EventsModel {
 
 	return &EventsModel{
 		config:         cfg,
+		client:         cli,
 		viewport:       vp,
 		filter:         ti,
 		allEvents:      make([]*events.Event, 0, cfg.EventBufferSize),
@@ -103,13 +108,23 @@ func (m *EventsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 				m.filter.Focus()
 				return m, textinput.Blink
 			case "c":
-				// Clear events
 				m.clearEvents()
 				return m, nil
 			case "p":
-				// Pause/resume
 				m.paused = !m.paused
 				return m, nil
+			case "enter":
+				if !m.correlationMode {
+					m.enterCorrelation()
+					return m, nil
+				}
+			case "esc":
+				if m.correlationMode {
+					m.correlationMode = false
+					m.correlationID = ""
+					m.applyFilter()
+					return m, nil
+				}
 			}
 		}
 
@@ -153,7 +168,12 @@ func (m *EventsModel) View() string {
 	if m.paused {
 		statusParts = append(statusParts, lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")).
-			Render("⏸ PAUSED"))
+			Render("PAUSED"))
+	}
+	if m.correlationMode {
+		statusParts = append(statusParts, lipgloss.NewStyle().
+			Foreground(lipgloss.Color("141")).
+			Render(fmt.Sprintf("Correlation: %s", m.correlationID[:min(8, len(m.correlationID))])))
 	}
 
 	stats := lipgloss.NewStyle().
@@ -280,6 +300,32 @@ func (m *EventsModel) updateViewport() {
 	}
 
 	m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+// enterCorrelation filters events by the selected event's correlation ID.
+func (m *EventsModel) enterCorrelation() {
+	// Find the event at the current viewport cursor position
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Look for an event with a correlation ID
+	for _, event := range m.filteredEvents {
+		if event.CorrelationID != "" {
+			m.correlationMode = true
+			m.correlationID = event.CorrelationID
+
+			// Filter to just correlated events
+			var correlated []*events.Event
+			for _, e := range m.allEvents {
+				if e.CorrelationID == m.correlationID {
+					correlated = append(correlated, e)
+				}
+			}
+			m.filteredEvents = correlated
+			m.updateViewport()
+			return
+		}
+	}
 }
 
 // formatEventDetailed formats an event with full details

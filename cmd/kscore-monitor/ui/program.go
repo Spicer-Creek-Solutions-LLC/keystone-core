@@ -96,7 +96,7 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 	// Initialize view models
 	model.dashboard = NewDashboardModel(cfg, cli)
 	model.agents = NewAgentsModel(cfg, cli)
-	model.events = NewEventsModel(cfg)
+	model.events = NewEventsModel(cfg, cli)
 	model.stateDrift = NewStateDriftModel(cfg, cli)
 	model.policyViolations = NewPolicyViolationsModel(cfg, cli)
 	model.jobs = NewJobsModel(cfg, cli)

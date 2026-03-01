@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,10 @@ type JobsModel struct {
 	viewMode string // "commands" or "batch"
 	loading  bool
 	err      error
+
+	// Detail mode
+	detailMode    bool
+	detailContent string
 }
 
 // Job messages
@@ -92,14 +97,26 @@ func (m *JobsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		m.height = msg.Height - 4
 		m.table.SetHeight(m.height - 5)
 
+	case jobDetailMsg:
+		if msg.err != nil {
+			m.detailContent = fmt.Sprintf("Error: %v", msg.err)
+		} else {
+			m.detailContent = msg.content
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "r":
-			// Refresh jobs
+			if m.detailMode {
+				return m, nil
+			}
 			cmd := m.Fetch()
 			return m, cmd
 		case "tab":
-			// Toggle between commands and batch jobs
+			if m.detailMode {
+				return m, nil
+			}
 			if m.viewMode == "commands" {
 				m.viewMode = "batch"
 				m.updateBatchJobsTable()
@@ -108,6 +125,16 @@ func (m *JobsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 				m.updateCommandsTable()
 			}
 			return m, nil
+		case "enter":
+			if !m.detailMode {
+				return m, m.enterJobDetail()
+			}
+		case "esc":
+			if m.detailMode {
+				m.detailMode = false
+				m.detailContent = ""
+				return m, nil
+			}
 		}
 
 	case jobStatsMsg:
@@ -147,6 +174,10 @@ func (m *JobsModel) View() string {
 		return fmt.Sprintf("Error loading jobs: %v\n\nPress 'r' to retry or '1' to return to dashboard", m.err)
 	}
 
+	if m.detailMode {
+		return m.renderJobDetail()
+	}
+
 	viewTitle := "Command Executions"
 	if m.viewMode == "batch" {
 		viewTitle = "Batch Jobs"
@@ -170,7 +201,7 @@ func (m *JobsModel) View() string {
 
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("↑/↓: Navigate • Tab: Toggle View • r: Refresh • 1: Dashboard • q: Quit")
+		Render("↑/↓: Navigate • Enter: Details • Tab: Toggle View • r: Refresh • 1: Dashboard • q: Quit")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -380,6 +411,99 @@ func formatBatchJobStatus(status pb.BatchJobStatus) string {
 	}
 
 	return lipgloss.NewStyle().Foreground(color).Render(text)
+}
+
+type jobDetailMsg struct {
+	content string
+	err     error
+}
+
+func (m *JobsModel) enterJobDetail() tea.Cmd {
+	selectedRow := m.table.SelectedRow()
+	if selectedRow == nil {
+		return nil
+	}
+
+	m.detailMode = true
+	m.detailContent = "Loading..."
+
+	if m.viewMode == "commands" {
+		cmdID := selectedRow[0]
+		return func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			resp, err := m.client.GetCommandStatus(ctx, cmdID)
+			if err != nil {
+				return jobDetailMsg{err: err}
+			}
+
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("Command ID: %s\n", resp.GetCommandId()))
+			sb.WriteString(fmt.Sprintf("Agent ID: %s\n", resp.GetAgentId()))
+			sb.WriteString(fmt.Sprintf("Command: %s\n", resp.GetCommand()))
+			sb.WriteString(fmt.Sprintf("Status: %s\n", resp.GetStatus()))
+			sb.WriteString(fmt.Sprintf("Exit Code: %d\n", resp.GetExitCode()))
+			if resp.GetStartedAt() != nil {
+				sb.WriteString(fmt.Sprintf("Started: %s\n", resp.GetStartedAt().AsTime().Format("2006-01-02 15:04:05")))
+			}
+			if resp.GetCompletedAt() != nil {
+				sb.WriteString(fmt.Sprintf("Completed: %s\n", resp.GetCompletedAt().AsTime().Format("2006-01-02 15:04:05")))
+			}
+			if resp.GetStdout() != "" {
+				sb.WriteString(fmt.Sprintf("\nStdout:\n%s\n", resp.GetStdout()))
+			}
+			if resp.GetStderr() != "" {
+				sb.WriteString(fmt.Sprintf("\nStderr:\n%s\n", resp.GetStderr()))
+			}
+
+			return jobDetailMsg{content: sb.String()}
+		}
+	}
+
+	// Batch job detail
+	jobID := selectedRow[0]
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		job, err := m.client.GetBatchJobStatus(ctx, jobID)
+		if err != nil {
+			return jobDetailMsg{err: err}
+		}
+
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Batch Job ID: %s\n", job.GetBatchJobId()))
+		sb.WriteString(fmt.Sprintf("Status: %s\n", job.GetStatus()))
+		sb.WriteString(fmt.Sprintf("Target: %s\n", job.GetTarget()))
+		if p := job.GetProgress(); p != nil {
+			sb.WriteString(fmt.Sprintf("Progress: %d/%d (failed: %d)\n", p.GetSuccessful(), p.GetTotal(), p.GetFailed()))
+		}
+		if job.GetStartedAt() != nil {
+			sb.WriteString(fmt.Sprintf("Started: %s\n", job.GetStartedAt().AsTime().Format("2006-01-02 15:04:05")))
+		}
+
+		return jobDetailMsg{content: sb.String()}
+	}
+}
+
+func (m *JobsModel) renderJobDetail() string {
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("62")).
+		Render("Job Details")
+
+	help := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Render("Esc: Back to list")
+
+	content := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(1).
+		Render(m.detailContent)
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", content, "", help)
 }
 
 // formatDuration formats a duration as "Xs" or "Xm Xs" or "Xh Xm"

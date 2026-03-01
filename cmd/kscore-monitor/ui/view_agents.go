@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +34,11 @@ type AgentsModel struct {
 	agents    map[string]*pb.AgentInfo // agent_id -> AgentInfo
 	agentList []*pb.AgentInfo          // sorted list for table
 	mu        sync.RWMutex
+
+	// Detail mode
+	detailMode    bool
+	selectedAgent *pb.AgentInfo
+	detailContent string
 
 	// State
 	loading bool
@@ -98,11 +104,34 @@ func (m *AgentsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		m.height = msg.Height - 4
 		m.table.SetHeight(m.height - 5) // Account for title and help text
 
+	case agentDetailMsg:
+		if msg.err != nil {
+			m.detailContent = fmt.Sprintf("Error loading details: %v", msg.err)
+		} else {
+			m.detailContent = msg.content
+		}
+		return m, nil
+
 	case tea.KeyMsg:
-		if msg.String() == "r" {
-			// Refresh agents
+		switch msg.String() {
+		case "r":
+			if m.detailMode {
+				return m, nil
+			}
 			cmd := m.Fetch()
 			return m, cmd
+		case "enter":
+			if !m.detailMode {
+				m.enterDetail()
+				return m, m.fetchDetail()
+			}
+		case "esc":
+			if m.detailMode {
+				m.detailMode = false
+				m.selectedAgent = nil
+				m.detailContent = ""
+				return m, nil
+			}
 		}
 
 	case agentStatsMsg:
@@ -148,6 +177,10 @@ func (m *AgentsModel) View() string {
 		return fmt.Sprintf("Error loading agents: %v\n\nPress 'r' to retry or '1' to return to dashboard", m.err)
 	}
 
+	if m.detailMode {
+		return m.renderDetail()
+	}
+
 	title := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("62")).
@@ -163,7 +196,7 @@ func (m *AgentsModel) View() string {
 
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("↑/↓: Navigate • r: Refresh • 1: Dashboard • q: Quit")
+		Render("↑/↓: Navigate • Enter: Details • r: Refresh • 1: Dashboard • q: Quit")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -174,6 +207,100 @@ func (m *AgentsModel) View() string {
 		"",
 		help,
 	)
+}
+
+type agentDetailMsg struct {
+	content string
+	err     error
+}
+
+func (m *AgentsModel) enterDetail() {
+	selectedRow := m.table.SelectedRow()
+	if selectedRow == nil {
+		return
+	}
+	agentID := selectedRow[0]
+	m.mu.RLock()
+	agent, ok := m.agents[agentID]
+	m.mu.RUnlock()
+	if ok {
+		m.detailMode = true
+		m.selectedAgent = agent
+		m.detailContent = "Loading..."
+	}
+}
+
+func (m *AgentsModel) fetchDetail() tea.Cmd {
+	if m.selectedAgent == nil || m.client == nil {
+		return nil
+	}
+	agent := m.selectedAgent
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Agent ID: %s\n", agent.GetAgentId()))
+		if md := agent.GetMetadata(); md != nil {
+			sb.WriteString(fmt.Sprintf("Hostname: %s\n", md.GetHostname()))
+			sb.WriteString(fmt.Sprintf("OS: %s\n", md.GetOs()))
+			sb.WriteString(fmt.Sprintf("Version: %s\n", md.GetAgentVersion()))
+			if len(md.GetIpAddresses()) > 0 {
+				sb.WriteString(fmt.Sprintf("IP Addresses: %s\n", strings.Join(md.GetIpAddresses(), ", ")))
+			}
+			if len(md.GetLabels()) > 0 {
+				sb.WriteString("Labels:\n")
+				for k, v := range md.GetLabels() {
+					sb.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
+				}
+			}
+		}
+		sb.WriteString(fmt.Sprintf("Status: %s\n", agent.GetStatus()))
+		if agent.GetLastHeartbeat() != nil {
+			sb.WriteString(fmt.Sprintf("Last Heartbeat: %s\n", agent.GetLastHeartbeat().AsTime().Format("2006-01-02 15:04:05")))
+		}
+
+		// Fetch recent state history
+		history, err := m.client.GetAgentStateHistory(ctx, agent.GetAgentId())
+		if err == nil && len(history.GetRuns()) > 0 {
+			sb.WriteString("\nRecent State Runs:\n")
+			for i, run := range history.GetRuns() {
+				if i >= 5 {
+					break
+				}
+				status := "OK"
+				if s := run.GetSummary(); s != nil && !s.GetSuccess() {
+					status = "FAILED"
+				}
+				started := ""
+				if run.GetStartTime() != nil {
+					started = run.GetStartTime().AsTime().Format("15:04:05")
+				}
+				sb.WriteString(fmt.Sprintf("  %s %s %s target=%s\n", started, run.GetRunId()[:8], status, run.GetTarget()))
+			}
+		}
+
+		return agentDetailMsg{content: sb.String()}
+	}
+}
+
+func (m *AgentsModel) renderDetail() string {
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("62")).
+		Render("Agent Details")
+
+	help := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Render("Esc: Back to list")
+
+	content := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(1).
+		Render(m.detailContent)
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", content, "", help)
 }
 
 // Fetch fetches agent data from the control plane
