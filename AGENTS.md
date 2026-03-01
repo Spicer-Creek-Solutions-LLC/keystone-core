@@ -225,6 +225,10 @@ Epics 1-32, 36-59 are all complete. Key packages and where to find details:
 
 - **Epic 61** (Monitor TUI Enhancements) — COMPLETE — Wired State Drift and Policy Violations stub views to real gRPC data; fixed hardcoded dashboard rates with sliding-window RateTracker; added 6 new views (Cluster Health, Secrets & Leases, Schedules & Maintenance, Runbooks, Webhooks); persistent alert bar aggregating offline agents/failed jobs/active drift; connection health indicator for gRPC/NATS in footer; drill-down detail views for agents (metadata + state history), jobs (stdout/stderr output), events (correlation filtering); Tab/Shift+Tab view cycling, updated help overlay; per-view refresh rates via config `ViewRefreshRates` map; expanded gRPC client with State, Policy, Event, Cluster, Secrets service clients plus REST for schedules/runbooks/webhooks; 13 views total accessible via number keys, letter shortcuts, and tab cycling
 
+### Planned
+
+- **Epic 62** (Vanity Import Path and Hosting Migration) — PLANNED — Adopt vanity Go import domain (TBD), rewrite ~1,370 imports across 795 files, migrate CI/CD from GitHub Actions, move container images off ghcr.io, replace google/go-github with Gitea SDK, update 40+ doc files, set up GitHub read-only mirror. 7 phases. See `epics/62-vanity-import-and-hosting-migration.md`
+
 ### Future (Unnumbered)
 
 - Web UI / Management Console (`epics/future-web-ui-management-console.md`)
