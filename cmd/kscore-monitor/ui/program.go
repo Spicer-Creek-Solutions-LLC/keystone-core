@@ -30,7 +30,45 @@ const (
 	ViewSecrets
 	ViewSchedules
 	ViewRunbooks
+	ViewWebhooks
 )
+
+// viewName returns the config key for a view's refresh rate.
+func viewName(v View) string {
+	switch v {
+	case ViewDashboard:
+		return "dashboard"
+	case ViewAgents:
+		return "agents"
+	case ViewEvents:
+		return "events"
+	case ViewStateDrift:
+		return "drift"
+	case ViewPolicyViolations:
+		return "policy"
+	case ViewJobs:
+		return "jobs"
+	case ViewLogs:
+		return "logs"
+	case ViewMetrics:
+		return "metrics"
+	case ViewCluster:
+		return "cluster"
+	case ViewSecrets:
+		return "secrets"
+	case ViewSchedules:
+		return "schedules"
+	case ViewRunbooks:
+		return "runbooks"
+	case ViewWebhooks:
+		return "webhooks"
+	default:
+		return "dashboard"
+	}
+}
+
+// maxView is the highest numbered view constant.
+const maxView = ViewWebhooks
 
 // Model is the main Bubble Tea model
 type Model struct {
@@ -62,6 +100,7 @@ type Model struct {
 	secrets          *SecretsModel
 	schedules        *ScheduleModel
 	runbooks         *RunbookModel
+	webhooks         *WebhookModel
 
 	// Alert bar and connection health
 	alertBar   *AlertBarModel
@@ -82,7 +121,7 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 
 	// Determine initial view (config uses 1-based, View type uses 0-based)
 	initialView := ViewDashboard
-	if cfg.InitialView >= 1 && cfg.InitialView <= 12 {
+	if cfg.InitialView >= 1 && cfg.InitialView <= 13 {
 		initialView = View(cfg.InitialView - 1)
 	}
 
@@ -106,6 +145,7 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 	model.secrets = NewSecretsModel(cfg, cli)
 	model.schedules = NewScheduleModel(cfg, cli)
 	model.runbooks = NewRunbookModel(cfg, cli)
+	model.webhooks = NewWebhookModel(cfg, cli)
 	model.alertBar = NewAlertBarModel()
 	model.connHealth = NewConnectionHealth()
 
@@ -137,9 +177,19 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.EnterAltScreen,
-		tickCmd(m.config.RefreshInterval),
+		viewTickCmd(m.currentView, m.viewRefreshSeconds(m.currentView)),
 		m.initCurrentView(),
 	)
+}
+
+// viewRefreshSeconds returns the configured refresh interval for a view.
+func (m *Model) viewRefreshSeconds(v View) int {
+	if m.config.ViewRefreshRates != nil {
+		if secs, ok := m.config.ViewRefreshRates[viewName(v)]; ok {
+			return secs
+		}
+	}
+	return m.config.RefreshInterval
 }
 
 // initCurrentView returns the Init command for the current view
@@ -169,6 +219,8 @@ func (m *Model) initCurrentView() tea.Cmd {
 		return m.schedules.Init()
 	case ViewRunbooks:
 		return m.runbooks.Init()
+	case ViewWebhooks:
+		return m.webhooks.Init()
 	default:
 		return m.dashboard.Init()
 	}
@@ -181,7 +233,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
+		key := msg.String()
+		switch key {
 		case "ctrl+c", "q":
 			// Clean up connections
 			if m.client != nil {
@@ -196,43 +249,47 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showHelp = !m.showHelp
 			return m, nil
 
-		// View navigation
+		// View navigation by number/letter
 		case "1":
-			m.currentView = ViewDashboard
-			return m, m.dashboard.Init()
+			return m, m.switchView(ViewDashboard)
 		case "2":
-			m.currentView = ViewAgents
-			return m, m.agents.Init()
+			return m, m.switchView(ViewAgents)
 		case "3":
-			m.currentView = ViewEvents
-			return m, m.events.Init()
+			return m, m.switchView(ViewEvents)
 		case "4":
-			m.currentView = ViewStateDrift
-			return m, m.stateDrift.Init()
+			return m, m.switchView(ViewStateDrift)
 		case "5":
-			m.currentView = ViewPolicyViolations
-			return m, m.policyViolations.Init()
+			return m, m.switchView(ViewPolicyViolations)
 		case "6":
-			m.currentView = ViewJobs
-			return m, m.jobs.Init()
+			return m, m.switchView(ViewJobs)
 		case "7":
-			m.currentView = ViewLogs
-			return m, m.logs.Init()
+			return m, m.switchView(ViewLogs)
 		case "8":
-			m.currentView = ViewMetrics
-			return m, m.metrics.Init()
+			return m, m.switchView(ViewMetrics)
 		case "9":
-			m.currentView = ViewCluster
-			return m, m.cluster.Init()
+			return m, m.switchView(ViewCluster)
 		case "0":
-			m.currentView = ViewSecrets
-			return m, m.secrets.Init()
+			return m, m.switchView(ViewSecrets)
 		case "s":
-			m.currentView = ViewSchedules
-			return m, m.schedules.Init()
+			return m, m.switchView(ViewSchedules)
 		case "b":
-			m.currentView = ViewRunbooks
-			return m, m.runbooks.Init()
+			return m, m.switchView(ViewRunbooks)
+		case "w":
+			return m, m.switchView(ViewWebhooks)
+
+		// Tab/shift-tab cycle through views
+		case "tab":
+			next := m.currentView + 1
+			if next > maxView {
+				next = ViewDashboard
+			}
+			return m, m.switchView(next)
+		case "shift+tab":
+			prev := m.currentView - 1
+			if prev < ViewDashboard {
+				prev = maxView
+			}
+			return m, m.switchView(prev)
 		}
 
 	case tea.WindowSizeMsg:
@@ -244,11 +301,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, propagateSizeToViews(m, msg)...)
 		return m, tea.Batch(cmds...)
 
-	case tickMsg:
-		m.lastRefresh = time.Time(msg)
+	case viewTickMsg:
+		// Discard ticks for inactive views
+		if msg.view != m.currentView {
+			return m, nil
+		}
+		m.lastRefresh = msg.time
 		m.updateAlertBar()
 		m.updateConnHealth()
-		cmds = append(cmds, tickCmd(m.config.RefreshInterval), m.refreshCurrentView())
+		secs := m.viewRefreshSeconds(m.currentView)
+		cmds = append(cmds, viewTickCmd(m.currentView, secs), m.refreshCurrentView())
 		return m, tea.Batch(cmds...)
 
 	case errMsg:
@@ -300,6 +362,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd = m.schedules.Update(msg)
 	case ViewRunbooks:
 		_, cmd = m.runbooks.Update(msg)
+	case ViewWebhooks:
+		_, cmd = m.webhooks.Update(msg)
 	}
 	cmds = append(cmds, cmd)
 
@@ -342,6 +406,8 @@ func (m *Model) View() string {
 		content = m.schedules.View()
 	case ViewRunbooks:
 		content = m.runbooks.View()
+	case ViewWebhooks:
+		content = m.webhooks.View()
 	}
 
 	// Compose with header, alert bar, content, and footer
@@ -374,6 +440,7 @@ func (m *Model) renderHeader() string {
 		"0:Secrets",
 		"s:Schedule",
 		"b:Runbooks",
+		"w:Webhooks",
 	}
 
 	items := make([]string, 0, len(views))
@@ -420,9 +487,11 @@ func (m *Model) renderHelp() string {
 	help := `Keystone Core Monitor - Keyboard Shortcuts
 
 Navigation:
-  1-8           Switch between views
-  ↑/↓ or j/k    Navigate lists
-  ←/→ or h/l    Navigate tabs
+  1-9,0,s,b,w  Switch between views (13 views)
+  Tab/Shift+Tab Cycle views forward/backward
+  j/k or ↑/↓   Navigate lists
+  G             Jump to end of list
+  ctrl+d/ctrl+u Page down/up
   Enter         Select/Expand item
   Esc           Go back
 
@@ -430,16 +499,21 @@ Commands:
   q             Quit
   ?             Toggle help
   /             Search/Filter
-  r             Refresh
+  r             Refresh current view
+
+Views:
+  1:Dashboard  2:Agents   3:Events    4:Drift
+  5:Policy     6:Jobs     7:Logs      8:Metrics
+  9:Cluster    0:Secrets  s:Schedules b:Runbooks
+  w:Webhooks
 
 View-Specific:
-  Dashboard:    Auto-refreshes every ` + fmt.Sprintf("%ds", m.config.RefreshInterval) + `
-  Agents:       Enter = Details, s = Sort
-  Events:       p = Pause/Resume, c = Clear, e = Export
-  State Drift:  a = Apply fix
-  Policy:       r = Remediate
-  Jobs:         k = Kill, r = Retry
-  Logs:         c = Clear
+  Agents:       Enter = Details
+  Events:       p = Pause, c = Clear, Enter = Correlation
+  Jobs:         Tab = Toggle Commands/Batch, Enter = Details
+  Schedules:    Tab = Toggle Schedules/Windows
+  Runbooks:     Tab = Toggle Executions/Approvals
+  Webhooks:     Tab = Toggle Subscriptions/Deliveries
 
 Press ? to close help`
 
@@ -479,6 +553,8 @@ func (m *Model) refreshCurrentView() tea.Cmd {
 		return m.schedules.Fetch()
 	case ViewRunbooks:
 		return m.runbooks.Fetch()
+	case ViewWebhooks:
+		return m.webhooks.Fetch()
 	}
 	return nil
 }
@@ -500,6 +576,7 @@ func propagateSizeToViews(m *Model, msg tea.WindowSizeMsg) []tea.Cmd {
 		m.secrets,
 		m.schedules,
 		m.runbooks,
+		m.webhooks,
 	}
 
 	cmds := make([]tea.Cmd, 0, len(views))
@@ -537,14 +614,30 @@ func (m *Model) updateConnHealth() {
 	}
 }
 
+// switchView changes the active view and starts its tick timer.
+func (m *Model) switchView(v View) tea.Cmd {
+	m.currentView = v
+	return tea.Batch(
+		m.initCurrentView(),
+		viewTickCmd(v, m.viewRefreshSeconds(v)),
+	)
+}
+
 // Messages
 
-type tickMsg time.Time
+type viewTickMsg struct {
+	view View
+	time time.Time
+}
 type errMsg error
 
-// tickCmd returns a command that sends a tick message after duration
-func tickCmd(seconds int) tea.Cmd {
+// viewTickCmd returns a command that sends a tick for a specific view.
+// If seconds == 0, no tick is scheduled (realtime / event-driven view).
+func viewTickCmd(view View, seconds int) tea.Cmd {
+	if seconds <= 0 {
+		return nil
+	}
 	return tea.Tick(time.Duration(seconds)*time.Second, func(t time.Time) tea.Msg {
-		return tickMsg(t)
+		return viewTickMsg{view: view, time: t}
 	})
 }

@@ -27,6 +27,11 @@ func TestViewConstants(t *testing.T) {
 		{"ViewJobs", ViewJobs, 5},
 		{"ViewLogs", ViewLogs, 6},
 		{"ViewMetrics", ViewMetrics, 7},
+		{"ViewCluster", ViewCluster, 8},
+		{"ViewSecrets", ViewSecrets, 9},
+		{"ViewSchedules", ViewSchedules, 10},
+		{"ViewRunbooks", ViewRunbooks, 11},
+		{"ViewWebhooks", ViewWebhooks, 12},
 	}
 
 	for _, tt := range tests {
@@ -35,6 +40,57 @@ func TestViewConstants(t *testing.T) {
 				t.Errorf("%s = %d, want %d", tt.name, tt.view, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMaxView(t *testing.T) {
+	if maxView != ViewWebhooks {
+		t.Errorf("maxView = %d, want %d (ViewWebhooks)", maxView, ViewWebhooks)
+	}
+}
+
+func TestViewName(t *testing.T) {
+	tests := []struct {
+		view     View
+		expected string
+	}{
+		{ViewDashboard, "dashboard"},
+		{ViewAgents, "agents"},
+		{ViewEvents, "events"},
+		{ViewStateDrift, "drift"},
+		{ViewPolicyViolations, "policy"},
+		{ViewJobs, "jobs"},
+		{ViewLogs, "logs"},
+		{ViewMetrics, "metrics"},
+		{ViewCluster, "cluster"},
+		{ViewSecrets, "secrets"},
+		{ViewSchedules, "schedules"},
+		{ViewRunbooks, "runbooks"},
+		{ViewWebhooks, "webhooks"},
+		{View(99), "dashboard"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			got := viewName(tt.view)
+			if got != tt.expected {
+				t.Errorf("viewName(%d) = %q, want %q", tt.view, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestViewTickCmd(t *testing.T) {
+	// Zero seconds should return nil (realtime)
+	cmd := viewTickCmd(ViewEvents, 0)
+	if cmd != nil {
+		t.Error("expected nil for 0-second tick")
+	}
+
+	// Positive seconds should return a command
+	cmd = viewTickCmd(ViewDashboard, 2)
+	if cmd == nil {
+		t.Error("expected non-nil command for 2-second tick")
 	}
 }
 
@@ -146,10 +202,10 @@ func TestModelViewNotReady(t *testing.T) {
 	}
 }
 
-func TestTickCmd(t *testing.T) {
-	cmd := tickCmd(1)
+func TestViewTickCmdOld(t *testing.T) {
+	cmd := viewTickCmd(ViewDashboard, 1)
 	if cmd == nil {
-		t.Error("expected tickCmd to return a non-nil command")
+		t.Error("expected viewTickCmd to return a non-nil command")
 	}
 }
 

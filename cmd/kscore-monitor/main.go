@@ -61,7 +61,7 @@ Features:
   - Job execution monitoring
   - Log streaming with search
 
-Navigate between views using number keys (1-8) or arrow keys.
+Navigate between views using number keys (1-9, 0, s, b, w) or Tab/Shift+Tab.
 Press 'q' to quit, '?' for help.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return initConfig(cmd, opts)
@@ -80,7 +80,7 @@ Press 'q' to quit, '?' for help.`,
 	rootCmd.Flags().StringVar(&opts.Theme, "theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
 	rootCmd.Flags().IntVar(&opts.Refresh, "refresh", 2, "Refresh interval in seconds")
 	rootCmd.Flags().BoolVar(&opts.NoColor, "no-color", false, "Disable colors")
-	rootCmd.Flags().IntVar(&opts.View, "view", 0, "Initial view (1-12): 1=Dashboard, 2=Agents, 3=Events, 4=Drift, 5=Policy, 6=Jobs, 7=Logs, 8=Metrics, 9=Cluster, 10=Secrets, 11=Schedules, 12=Runbooks")
+	rootCmd.Flags().IntVar(&opts.View, "view", 0, "Initial view (1-13): 1=Dashboard, 2=Agents, 3=Events, 4=Drift, 5=Policy, 6=Jobs, 7=Logs, 8=Metrics, 9=Cluster, 10=Secrets, 11=Schedules, 12=Runbooks, 13=Webhooks")
 
 	rootCmd.AddCommand(newVersionCmd())
 
@@ -126,10 +126,10 @@ func initConfig(cmd *cobra.Command, opts *Options) error {
 		opts.cfg.NoColor = opts.NoColor
 	}
 	if cmd.Flags().Changed("view") {
-		if opts.View >= 1 && opts.View <= 12 {
+		if opts.View >= 1 && opts.View <= 13 {
 			opts.cfg.InitialView = opts.View
 		} else if opts.View != 0 {
-			return fmt.Errorf("--view must be between 1 and 12")
+			return fmt.Errorf("--view must be between 1 and 13")
 		}
 	}
 	return nil

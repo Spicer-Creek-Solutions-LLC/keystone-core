@@ -113,7 +113,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane. Positioned
 
 ## Project Status
 
-**Current Status**: Epics 1-32, 36-60 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-61 COMPLETE ✅
 
 > For detailed implementation history of any epic, see `epics/<number>-*.md` and `git log`.
 
@@ -222,6 +222,8 @@ Epics 1-32, 36-59 are all complete. Key packages and where to find details:
   - Phase 3: Extended Tools — 9 tools (state_check/drift/history/apply, event_query/stats, runbook_list/execute/status); 3 resources (keystone://agents, keystone://cluster/status, keystone://events/recent); httptest-based runbook tests
   - Phase 4: Documentation — MCP setup guide, security guide, CLI reference entry
   - Credential pass-through (operator's own creds), capability profiles (read_only/ops_safe/ops_admin), audit attribution via gRPC metadata headers, 116 tests total
+
+- **Epic 61** (Monitor TUI Enhancements) — COMPLETE — Wired State Drift and Policy Violations stub views to real gRPC data; fixed hardcoded dashboard rates with sliding-window RateTracker; added 6 new views (Cluster Health, Secrets & Leases, Schedules & Maintenance, Runbooks, Webhooks); persistent alert bar aggregating offline agents/failed jobs/active drift; connection health indicator for gRPC/NATS in footer; drill-down detail views for agents (metadata + state history), jobs (stdout/stderr output), events (correlation filtering); Tab/Shift+Tab view cycling, updated help overlay; per-view refresh rates via config `ViewRefreshRates` map; expanded gRPC client with State, Policy, Event, Cluster, Secrets service clients plus REST for schedules/runbooks/webhooks; 13 views total accessible via number keys, letter shortcuts, and tab cycling
 
 ### Future (Unnumbered)
 

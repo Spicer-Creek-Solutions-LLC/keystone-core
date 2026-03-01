@@ -20,12 +20,13 @@ type Config struct {
 	Theme           string `yaml:"theme"`
 	RefreshInterval int    `yaml:"refresh_interval"` // seconds
 	NoColor         bool   `yaml:"no_color"`
-	InitialView     int    `yaml:"initial_view"` // 1-8, 0 means default (dashboard)
+	InitialView     int    `yaml:"initial_view"` // 1-13, 0 means default (dashboard)
 
 	// View settings
-	EventBufferSize int  `yaml:"event_buffer_size"`
-	LogBufferSize   int  `yaml:"log_buffer_size"`
-	AutoScroll      bool `yaml:"auto_scroll"`
+	EventBufferSize  int            `yaml:"event_buffer_size"`
+	LogBufferSize    int            `yaml:"log_buffer_size"`
+	AutoScroll       bool           `yaml:"auto_scroll"`
+	ViewRefreshRates map[string]int `yaml:"view_refresh_rates"` // per-view refresh in seconds; 0 = realtime (no polling)
 
 	// Filters (persistent across sessions)
 	DefaultFilters map[string]string `yaml:"default_filters"`
@@ -48,7 +49,22 @@ func Default() *Config {
 		EventBufferSize: 1000,
 		LogBufferSize:   1000,
 		AutoScroll:      true,
-		DefaultFilters:  make(map[string]string),
+		DefaultFilters: make(map[string]string),
+		ViewRefreshRates: map[string]int{
+			"dashboard": 2,
+			"agents":    5,
+			"events":    0,
+			"drift":     10,
+			"policy":    10,
+			"jobs":      5,
+			"logs":      0,
+			"metrics":   5,
+			"cluster":   10,
+			"secrets":   15,
+			"schedules": 15,
+			"runbooks":  10,
+			"webhooks":  15,
+		},
 		MaxFPS:          60,
 		DebounceDelay:   100 * time.Millisecond,
 		BackgroundFetch: true,
