@@ -57,6 +57,10 @@ type Model struct {
 	metrics          *MetricsModel
 	cluster          *ClusterModel
 
+	// Alert bar and connection health
+	alertBar   *AlertBarModel
+	connHealth *ConnectionHealth
+
 	// Shared state
 	statusMessage string
 	showHelp      bool
@@ -93,6 +97,8 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 	model.logs = NewLogsModel(cfg)
 	model.metrics = NewMetricsModel(cfg)
 	model.cluster = NewClusterModel(cfg, cli)
+	model.alertBar = NewAlertBarModel()
+	model.connHealth = NewConnectionHealth()
 
 	// Create program with options
 	p := tea.NewProgram(
@@ -209,12 +215,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
+		m.alertBar.SetWidth(msg.Width)
 		// Propagate size to all views
 		cmds = append(cmds, propagateSizeToViews(m, msg)...)
 		return m, tea.Batch(cmds...)
 
 	case tickMsg:
 		m.lastRefresh = time.Time(msg)
+		m.updateAlertBar()
+		m.updateConnHealth()
 		cmds = append(cmds, tickCmd(m.config.RefreshInterval), m.refreshCurrentView())
 		return m, tea.Batch(cmds...)
 
@@ -299,10 +308,11 @@ func (m *Model) View() string {
 		content = m.cluster.View()
 	}
 
-	// Compose with header and footer
+	// Compose with header, alert bar, content, and footer
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.renderHeader(),
+		m.alertBar.View(),
 		content,
 		m.renderFooter(),
 	)
@@ -350,8 +360,9 @@ func (m *Model) renderFooter() string {
 		Background(lipgloss.Color("235")).
 		Padding(0, 1)
 
-	status := fmt.Sprintf("q:Quit | ?:Help | Last refresh: %s",
-		m.lastRefresh.Format("15:04:05"))
+	status := fmt.Sprintf("q:Quit | ?:Help | Last refresh: %s | %s",
+		m.lastRefresh.Format("15:04:05"),
+		m.connHealth.View())
 
 	if m.statusMessage != "" {
 		status = m.statusMessage + " | " + status
@@ -450,6 +461,32 @@ func propagateSizeToViews(m *Model, msg tea.WindowSizeMsg) []tea.Cmd {
 	}
 
 	return cmds
+}
+
+// updateAlertBar aggregates counts from dashboard data into the alert bar.
+func (m *Model) updateAlertBar() {
+	d := m.dashboard
+	counts := AlertCounts{
+		OfflineAgents:  d.agentsTotal - d.agentsConnected - d.agentsDegraded,
+		FailedJobs:     d.jobsFailed,
+		ActiveDrift:    d.stateDriftCount,
+	}
+	if counts.OfflineAgents < 0 {
+		counts.OfflineAgents = 0
+	}
+	m.alertBar.SetCounts(counts)
+}
+
+// updateConnHealth checks the gRPC and NATS connection states.
+func (m *Model) updateConnHealth() {
+	if m.client != nil && m.client.Conn() != nil {
+		m.connHealth.UpdateFromGRPC(m.client.Conn().GetState())
+	}
+	if m.eventSubscriber != nil && m.eventSubscriber.IsConnected() {
+		m.connHealth.NATS = ConnConnected
+	} else {
+		m.connHealth.NATS = ConnDisconnected
+	}
 }
 
 // Messages
