@@ -697,7 +697,7 @@ Official blueprints for all deployment scenarios (implements Epic 25 blueprint r
 
 14 total blueprints with full documentation and parameter validation.
 
-**Status Update**: Implementation complete; publishing/testing deferred to Epic 100.
+**Status Update**: Implementation complete; publishing/testing deferred to future release readiness epic.
 
 ---
 
@@ -708,7 +708,7 @@ Official blueprints for all deployment scenarios (implements Epic 25 blueprint r
 Comprehensive testing for the bootstrap experience:
 
 - **Docker-Based Tests**: CI/CD integration, all bootstrap scenarios
-- **VM-Based Tests**: Deferred to Epic 100 (0.1.0 release readiness)
+- **VM-Based Tests**: Deferred to future release readiness epic
 - **Platform Matrix**: Ubuntu, Debian, RHEL, Rocky, Fedora, Alpine
 - **Cluster Tests**: Multi-node formation, join scenarios, failover
 - **Blueprint Tests**: All blueprints tested across platforms

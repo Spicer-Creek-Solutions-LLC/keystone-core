@@ -41,7 +41,7 @@ Implement full Kubernetes operator functionality for the RemoteExecution and Sta
 - [ ] CRD manifests generated via controller-gen (not hand-written strings) — deferred; standalone YAML files at `deploy/kubernetes/crds/`
 - [x] Operator runs embedded in kscore-server (standalone binary deferred)
 - [x] Helm chart with CRD RBAC (ClusterRole for keystonecore.io resources, pods, pods/exec, leases)
-- [ ] Kustomize base manifests — deferred to Epic 100
+- [ ] Kustomize base manifests — deferred to future release readiness epic
 - [x] >70% test coverage for controller logic
 - [x] Documentation updated to reflect implemented status
 

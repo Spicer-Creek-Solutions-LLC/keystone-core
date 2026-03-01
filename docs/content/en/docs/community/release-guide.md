@@ -556,7 +556,7 @@ tar -czvf releases/v0.1.0.tar.gz releases/v0.1.0/
 
 ### 9.4 Update Epic/Project Tracking
 
-Mark Epic 100 as complete and update any project tracking systems.
+Mark the release readiness epic as complete and update any project tracking systems.
 
 ---
 

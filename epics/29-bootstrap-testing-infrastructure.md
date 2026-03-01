@@ -2,7 +2,7 @@
 
 ## Overview
 
-Create a comprehensive testing infrastructure that validates the bootstrap experience across multiple deployment scenarios, platforms, and configurations. This epic focuses on containerized CI coverage; VM-based validation is deferred to Epic 100.
+Create a comprehensive testing infrastructure that validates the bootstrap experience across multiple deployment scenarios, platforms, and configurations. This epic focuses on containerized CI coverage; VM-based validation is deferred to the future release readiness epic.
 
 **Goal**: Ensure the bootstrap experience works reliably across all supported platforms and deployment modes through automated testing.
 
@@ -29,7 +29,7 @@ Create a comprehensive testing infrastructure that validates the bootstrap exper
 - Clear failure reporting
 
 ### US29.2: VM-Based Validation (Deferred)
-**Moved to Epic 100** as part of 0.1.0 release readiness. VM-based validation and provider integration are out of scope for Epic 29.
+**Deferred** to future release readiness epic. VM-based validation and provider integration are out of scope for Epic 29.
 
 ### US29.3: Platform Matrix Testing
 **As a** maintainer
@@ -376,7 +376,7 @@ func TestBootstrapJoinAsAgent(t *testing.T) {
 }
 ```
 
-### Phase 4: VM-Based Test Infrastructure (Weeks 9-12) — Deferred to Epic 100
+### Phase 4: VM-Based Test Infrastructure (Weeks 9-12) — Deferred to future release readiness epic
 
 #### T4.1: VM Configuration System
 ```yaml
@@ -795,7 +795,7 @@ jobs:
           go test -v ./test/bootstrap/scenarios/cluster_test.go \
             -timeout 45m
 
-  # VM tests run on self-hosted runners with VM access (moved to Epic 100)
+  # VM tests run on self-hosted runners with VM access (deferred to future release readiness epic)
   vm-tests:
     runs-on: self-hosted
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -897,7 +897,7 @@ This epic IS the testing strategy. Meta-testing includes:
 ## Definition of Done
 
 - [ ] Docker-based test framework implemented
-- [ ] VM-based test framework with SSH provider (moved to Epic 100)
+- [ ] VM-based test framework with SSH provider (deferred to future release readiness epic)
 - [ ] Test images for all supported platforms
 - [ ] Demo mode test suite passing
 - [ ] Production mode test suite passing
@@ -905,11 +905,11 @@ This epic IS the testing strategy. Meta-testing includes:
 - [ ] Blueprint application tests passing
 - [ ] Platform matrix tests passing (all distributions)
 - [ ] GitHub Actions workflow configured
-- [ ] VM test configuration documented (moved to Epic 100)
+- [ ] VM test configuration documented (deferred to future release readiness epic)
 
-## Deferred to Epic 100
+## Deferred to Future Release Readiness Epic
 
-The following items are moved to Epic 100 (0.1.0 Release Readiness):
+The following items are deferred to the future release readiness epic:
 - VM-based validation (SSH provider, VM scenarios, and self-hosted CI job)
 - [ ] Test documentation complete
 - [ ] Code review approved

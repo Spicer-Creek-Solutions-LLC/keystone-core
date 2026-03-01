@@ -19,7 +19,7 @@ const (
 )
 
 // TestDemoSingleNodeBootstrap tests the complete single-node demo bootstrap workflow.
-// This validates Phase 5 of Epic 100: VM Bootstrap Validation.
+// This validates VM Bootstrap Validation from the release readiness epic.
 //
 // Run with:
 //

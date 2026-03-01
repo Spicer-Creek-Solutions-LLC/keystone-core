@@ -121,7 +121,7 @@ Each item was investigated in depth. All deferred after analysis showed low ROI:
 
 ## Dependencies
 
-- Epic 100 (0.1.0 Release Readiness) for final validation scope.
+- Future release readiness epic for final validation scope.
 
 ## Risks & Mitigations
 

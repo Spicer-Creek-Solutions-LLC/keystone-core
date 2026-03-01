@@ -581,4 +581,4 @@ Lightweight edge deployment configuration.
 
 ## Deferred Work
 
-- Blueprint signing and registry verification are deferred to Epic 100 as part of the 0.1.0 release readiness pass.
+- Blueprint signing and registry verification are deferred to the future release readiness epic.

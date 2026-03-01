@@ -11,7 +11,7 @@ This epic consolidates and implements comprehensive cross-platform testing infra
 - macOS CI/CD testing (Intel and Apple Silicon)
 - Cross-platform module testing (stdlib modules)
 - Windows/macOS bootstrap testing
-- VM-based testing infrastructure (consolidating "Epic 100" references)
+- VM-based testing infrastructure (consolidating deferred release readiness references)
 - Cross-platform E2E test scenarios
 - Platform-specific installer testing (MSI, PKG)
 
@@ -36,7 +36,7 @@ Cross-platform testing appears in multiple TODO items across the project:
 | Epic 27 | Windows and macOS bootstrap support |
 | Epic 28 | Windows and macOS deployment blueprints |
 | Epic 29 | Windows and macOS bootstrap testing |
-| TODO.md | VM-based testing infrastructure (Epic 100) |
+| TODO.md | VM-based testing infrastructure (release readiness) |
 
 This fragmentation causes:
 1. **Inconsistent Coverage**: Some components tested on Windows, others not
