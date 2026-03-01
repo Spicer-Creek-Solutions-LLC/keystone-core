@@ -15,21 +15,21 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ## Open Items
 
-### Re-enable gosec G115 and taint analysis rules after upstream fix
+### Re-enable gosec G115 after golangci-lint upgrades gosec
 
 **Resolution:** code
 
-`gosec v2.23.0` (bundled in `golangci-lint v2.10.1`) has two issues:
-1. **G115 panic**: `RangeAnalyzer` panics on float-to-int casts (`"10000 not an Int"` in `internal/files/mirror/geo.go:271`). Tracked at [securego/gosec#1229](https://github.com/securego/gosec/issues/1229).
-2. **Taint analysis false positives**: New rules G117/G702-G706 produce ~420 false positives in infrastructure management code that intentionally performs HTTP requests, file I/O, and command execution.
+`gosec v2.23.0` (bundled in `golangci-lint v2.10.1`) panics on float-to-int casts (`"10000 not an Int"` in `internal/files/mirror/geo.go:271`). Fixed upstream in gosec v2.24.0 ([securego/gosec#1229](https://github.com/securego/gosec/issues/1229), [#1501](https://github.com/securego/gosec/issues/1501)), but golangci-lint v2.10.1 still bundles v2.23.0.
 
-Both are currently excluded in `.golangci.yml`. Re-enable when gosec ships fixes.
+G115 is excluded in `.golangci.yml`. Re-enable when golangci-lint ships a version bundling gosec >= v2.24.0.
+
+Taint analysis rules (G117, G702-G706) are **permanently excluded** — they flag legitimate infrastructure operations by design. See `.golangci.yml` comment.
 
 **Tasks:**
 
-- [ ] Monitor gosec releases for G115 panic fix
-- [ ] Re-enable G115 when fixed upstream
-- [ ] Re-evaluate taint analysis rules (G117, G702-G706) when gosec improves false-positive filtering for infrastructure tools
+- [x] Monitor gosec releases for G115 panic fix — fixed in gosec v2.24.0 (Feb 2026)
+- [ ] Re-enable G115 when golangci-lint bundles gosec >= v2.24.0
+- [x] Re-evaluate taint analysis rules (G117, G702-G706) — permanently excluded; these flag legitimate infrastructure operations
 
 ### Migrate from raw protoc to buf v2
 

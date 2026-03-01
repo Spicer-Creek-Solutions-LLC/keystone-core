@@ -84,11 +84,12 @@ linters:
     gosec:
       excludes:
         - G104  # Handled by errcheck
-        - G115  # Disabled: gosec v2.23.0 conversion_overflow analyzer panics on float-to-int casts (securego/gosec#1229). Re-enable when gosec ships a fix.
-        # gosec v2.23.0 taint analysis rules — produce hundreds of false positives
-        # in infrastructure management tools that intentionally perform HTTP requests,
-        # file operations, and shell execution. Security is enforced through input
-        # validation, policy enforcement, capability controls, and audit logging.
+        - G115  # gosec v2.23.0 RangeAnalyzer panics on float-to-int casts (securego/gosec#1229). Fixed in gosec v2.24.0 but golangci-lint v2.10.1 still bundles v2.23.0. Re-enable when golangci-lint upgrades gosec.
+        # Taint analysis rules: permanently excluded for this codebase.
+        # Keystone Core is an infrastructure management tool that intentionally
+        # performs HTTP requests, file I/O, and command execution. These rules
+        # flag legitimate operations by design. Security is enforced through
+        # input validation, policy enforcement, capability controls, and audit logging.
         - G117  # Potential exposure of secrets via JSON marshaling
         - G702  # net/http path traversal via taint analysis
         - G703  # os path traversal via taint analysis
