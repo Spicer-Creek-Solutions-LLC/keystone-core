@@ -1,36 +1,74 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
+
+// stateDriftMsg carries state history data to the view.
+type stateDriftMsg struct {
+	history *pb.GetStateHistoryResponse
+	err     error
+}
 
 // StateDriftModel represents the state drift view
 type StateDriftModel struct {
-	config   *config.Config
-	viewport viewport.Model
-	width    int
-	height   int
-	ready    bool
+	config  *config.Config
+	client  *client.Client
+	tbl     table.Model
+	width   int
+	height  int
+	ready   bool
+	loading bool
+	err     error
+	runs    []*pb.StateRun
 }
 
 // NewStateDriftModel creates a new state drift model
-func NewStateDriftModel(cfg *config.Config) *StateDriftModel {
-	vp := viewport.New(0, 0)
-	vp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(1)
+func NewStateDriftModel(cfg *config.Config, cli *client.Client) *StateDriftModel {
+	columns := []table.Column{
+		{Title: "Run ID", Width: 16},
+		{Title: "Target", Width: 20},
+		{Title: "Status", Width: 10},
+		{Title: "Succeeded", Width: 10},
+		{Title: "Failed", Width: 8},
+		{Title: "Changed", Width: 8},
+		{Title: "Started", Width: 20},
+	}
+
+	tbl := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(true)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	tbl.SetStyles(s)
 
 	return &StateDriftModel{
-		config:   cfg,
-		viewport: vp,
+		config: cfg,
+		client: cli,
+		tbl:    tbl,
 	}
 }
 
@@ -41,31 +79,32 @@ func (m *StateDriftModel) Init() tea.Cmd {
 
 // Update handles messages and updates the state drift model.
 func (m *StateDriftModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height - 4
+		m.ready = true
+		m.tbl.SetHeight(m.height - 8)
 
-		if !m.ready {
-			m.viewport.Width = m.width - 4
-			m.viewport.Height = m.height - 6
-			m.ready = true
-			m.updateViewport()
-		} else {
-			m.viewport.Width = m.width - 4
-			m.viewport.Height = m.height - 6
+	case stateDriftMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
 		}
+		m.err = nil
+		m.runs = msg.history.GetRuns()
+		m.updateTable()
+		return m, nil
 
 	case tea.KeyMsg:
 		if msg.String() == "r" {
-			cmd := m.Fetch()
-			return m, cmd
+			return m, m.Fetch()
 		}
 	}
 
-	m.viewport, cmd = m.viewport.Update(msg)
+	var cmd tea.Cmd
+	m.tbl, cmd = m.tbl.Update(msg)
 	return m, cmd
 }
 
@@ -80,6 +119,29 @@ func (m *StateDriftModel) View() string {
 		Foreground(lipgloss.Color("62")).
 		Render("State Drift Detection")
 
+	var status string
+	if m.loading {
+		status = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("Loading...")
+	} else if m.err != nil {
+		status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
+	} else {
+		driftCount := 0
+		for _, run := range m.runs {
+			if s := run.GetSummary(); s != nil && s.GetFailed() > 0 {
+				driftCount++
+			}
+		}
+		if driftCount > 0 {
+			status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).
+				Render(fmt.Sprintf("Drift detected in %d run(s)", driftCount))
+		} else {
+			status = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).
+				Render("No drift detected")
+		}
+		status += lipgloss.NewStyle().Foreground(lipgloss.Color("245")).
+			Render(fmt.Sprintf(" | Total runs: %d", len(m.runs)))
+	}
+
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
 		Render("↑/↓: Scroll • r: Refresh • 1: Dashboard • q: Quit")
@@ -87,8 +149,9 @@ func (m *StateDriftModel) View() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
+		status,
 		"",
-		m.viewport.View(),
+		m.tbl.View(),
 		"",
 		help,
 	)
@@ -96,58 +159,116 @@ func (m *StateDriftModel) View() string {
 
 // Fetch retrieves state drift data.
 func (m *StateDriftModel) Fetch() tea.Cmd {
-	return nil
+	if m.client == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		m.loading = true
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		history, err := m.client.GetStateHistory(ctx)
+		return stateDriftMsg{history: history, err: err}
+	}
 }
 
-func (m *StateDriftModel) updateViewport() {
-	content := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Render(`State Drift Detection
+func (m *StateDriftModel) updateTable() {
+	rows := make([]table.Row, 0, len(m.runs))
+	for _, run := range m.runs {
+		summary := run.GetSummary()
+		status := "OK"
+		if summary != nil && !summary.GetSuccess() {
+			status = "FAILED"
+		}
+		succeeded := int32(0)
+		failed := int32(0)
+		changed := int32(0)
+		started := ""
+		if summary != nil {
+			succeeded = summary.GetSucceeded()
+			failed = summary.GetFailed()
+			changed = summary.GetChanged()
+		}
+		if run.GetStartTime() != nil {
+			started = run.GetStartTime().AsTime().Format("2006-01-02 15:04:05")
+		}
 
-Monitor configuration drift across your infrastructure.
+		rows = append(rows, table.Row{
+			truncate(run.GetRunId(), 16),
+			truncate(run.GetTarget(), 20),
+			status,
+			fmt.Sprintf("%d", succeeded),
+			fmt.Sprintf("%d", failed),
+			fmt.Sprintf("%d", changed),
+			started,
+		})
+	}
+	m.tbl.SetRows(rows)
+}
 
-Status: No drift detected
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-1] + "…"
+}
 
-Recent Checks:
-• 2024-12-26 10:30:00 - All resources in sync
-• 2024-12-26 10:15:00 - All resources in sync
-• 2024-12-26 10:00:00 - All resources in sync
-
-This view will display:
-- Resources with detected drift
-- Severity levels (Low, Medium, High, Critical)
-- Drift details and differences
-- Affected resources and their current state
-- Recommended remediation actions
-
-Note: State drift detection requires the state management
-system to be configured with drift monitoring enabled.
-
-Press 'r' to refresh or '1' to return to dashboard.`)
-
-	m.viewport.SetContent(content)
+// policyViolationsMsg carries policy data to the view.
+type policyViolationsMsg struct {
+	violations *pb.ListViolationsResponse
+	compliance *pb.GetComplianceReportResponse
+	err        error
 }
 
 // PolicyViolationsModel represents the policy violations view
 type PolicyViolationsModel struct {
-	config   *config.Config
-	viewport viewport.Model
-	width    int
-	height   int
-	ready    bool
+	config          *config.Config
+	client          *client.Client
+	tbl             table.Model
+	width           int
+	height          int
+	ready           bool
+	loading         bool
+	err             error
+	violations      []*pb.ViolationRecord
+	complianceRate  float32
+	severityCounts  map[string]int64
 }
 
 // NewPolicyViolationsModel creates a new policy violations model
-func NewPolicyViolationsModel(cfg *config.Config) *PolicyViolationsModel {
-	vp := viewport.New(0, 0)
-	vp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(1)
+func NewPolicyViolationsModel(cfg *config.Config, cli *client.Client) *PolicyViolationsModel {
+	columns := []table.Column{
+		{Title: "Policy", Width: 18},
+		{Title: "Rule", Width: 18},
+		{Title: "Severity", Width: 10},
+		{Title: "Resource", Width: 16},
+		{Title: "Blocked", Width: 8},
+		{Title: "Timestamp", Width: 20},
+	}
+
+	tbl := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(true)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	tbl.SetStyles(s)
 
 	return &PolicyViolationsModel{
-		config:   cfg,
-		viewport: vp,
+		config:         cfg,
+		client:         cli,
+		tbl:            tbl,
+		severityCounts: make(map[string]int64),
 	}
 }
 
@@ -158,31 +279,38 @@ func (m *PolicyViolationsModel) Init() tea.Cmd {
 
 // Update handles messages and updates the policy violations model.
 func (m *PolicyViolationsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height - 4
+		m.ready = true
+		m.tbl.SetHeight(m.height - 8)
 
-		if !m.ready {
-			m.viewport.Width = m.width - 4
-			m.viewport.Height = m.height - 6
-			m.ready = true
-			m.updateViewport()
-		} else {
-			m.viewport.Width = m.width - 4
-			m.viewport.Height = m.height - 6
+	case policyViolationsMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
 		}
+		m.err = nil
+		if msg.violations != nil {
+			m.violations = msg.violations.GetRecords()
+		}
+		if msg.compliance != nil {
+			m.complianceRate = msg.compliance.GetComplianceRate()
+			m.severityCounts = msg.compliance.GetViolationsBySeverity()
+		}
+		m.updateTable()
+		return m, nil
 
 	case tea.KeyMsg:
 		if msg.String() == "r" {
-			cmd := m.Fetch()
-			return m, cmd
+			return m, m.Fetch()
 		}
 	}
 
-	m.viewport, cmd = m.viewport.Update(msg)
+	var cmd tea.Cmd
+	m.tbl, cmd = m.tbl.Update(msg)
 	return m, cmd
 }
 
@@ -197,9 +325,28 @@ func (m *PolicyViolationsModel) View() string {
 		Foreground(lipgloss.Color("62")).
 		Render("Policy Violations")
 
-	stats := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Render("Compliance Score: 100% | Violations: 0")
+	var statsStr string
+	if m.loading {
+		statsStr = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("Loading...")
+	} else if m.err != nil {
+		statsStr = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
+	} else {
+		scoreColor := "10" // green
+		if m.complianceRate < 80 {
+			scoreColor = "196" // red
+		} else if m.complianceRate < 95 {
+			scoreColor = "226" // yellow
+		}
+		statsStr = fmt.Sprintf(
+			"Compliance: %s | Violations: %d | Critical: %d | High: %d | Medium: %d | Low: %d",
+			lipgloss.NewStyle().Foreground(lipgloss.Color(scoreColor)).Render(fmt.Sprintf("%.1f%%", m.complianceRate)),
+			len(m.violations),
+			m.severityCounts["CRITICAL"],
+			m.severityCounts["HIGH"],
+			m.severityCounts["MEDIUM"],
+			m.severityCounts["LOW"],
+		)
+	}
 
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
@@ -208,9 +355,9 @@ func (m *PolicyViolationsModel) View() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
-		stats,
+		statsStr,
 		"",
-		m.viewport.View(),
+		m.tbl.View(),
 		"",
 		help,
 	)
@@ -218,41 +365,76 @@ func (m *PolicyViolationsModel) View() string {
 
 // Fetch retrieves policy violations data.
 func (m *PolicyViolationsModel) Fetch() tea.Cmd {
-	return nil
+	if m.client == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		m.loading = true
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		violations, vErr := m.client.ListViolations(ctx)
+		compliance, cErr := m.client.GetComplianceReport(ctx)
+
+		// Return whichever error occurred
+		var err error
+		if vErr != nil {
+			err = vErr
+		} else if cErr != nil {
+			err = cErr
+		}
+
+		return policyViolationsMsg{
+			violations: violations,
+			compliance: compliance,
+			err:        err,
+		}
+	}
 }
 
-func (m *PolicyViolationsModel) updateViewport() {
-	content := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("10")).
-		Render(`✓ No policy violations detected
+func (m *PolicyViolationsModel) updateTable() {
+	rows := make([]table.Row, 0, len(m.violations))
+	for _, rec := range m.violations {
+		rule := ""
+		severity := ""
+		if v := rec.GetViolation(); v != nil {
+			rule = v.GetRule()
+			severity = formatPolicySeverity(v.GetSeverity())
+		}
+		ts := ""
+		if rec.GetTimestamp() != nil {
+			ts = rec.GetTimestamp().AsTime().Format("2006-01-02 15:04:05")
+		}
+		blocked := "No"
+		if rec.GetBlocked() {
+			blocked = "Yes"
+		}
 
-All systems are compliant with defined policies.
+		rows = append(rows, table.Row{
+			truncate(rec.GetPolicyName(), 18),
+			truncate(rule, 18),
+			severity,
+			truncate(rec.GetResourceType(), 16),
+			blocked,
+			ts,
+		})
+	}
+	m.tbl.SetRows(rows)
+}
 
-Recent Policy Evaluations:
-• Security policies: PASSED
-• Compliance policies: PASSED
-• Operational policies: PASSED
-• Cost policies: PASSED
-
-This view will display:
-- Policy violations by severity (Critical, High, Medium, Low)
-- Affected resources and violation details
-- Remediation recommendations
-- Policy evaluation history
-- Compliance trends over time
-
-Policy types monitored:
-- Security: Access controls, encryption, authentication
-- Compliance: Regulatory requirements, audit trails
-- Operational: Resource limits, configuration standards
-- Cost: Budget constraints, resource optimization
-
-Note: Policy enforcement requires OPA/CEL policies to be
-configured in the policy engine.
-
-Press 'r' to refresh or '1' to return to dashboard.`)
-
-	m.viewport.SetContent(content)
+func formatPolicySeverity(s pb.PolicySeverity) string {
+	switch s {
+	case pb.PolicySeverity_POLICY_SEVERITY_CRITICAL:
+		return "CRITICAL"
+	case pb.PolicySeverity_POLICY_SEVERITY_HIGH:
+		return "HIGH"
+	case pb.PolicySeverity_POLICY_SEVERITY_MEDIUM:
+		return "MEDIUM"
+	case pb.PolicySeverity_POLICY_SEVERITY_LOW:
+		return "LOW"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 // LogsModel represents the logs view

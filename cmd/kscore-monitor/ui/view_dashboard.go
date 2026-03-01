@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
 	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
@@ -30,6 +31,7 @@ type DashboardModel struct {
 	goroutineCount   int
 	agentsConnected  int
 	agentsTotal      int
+	agentsDegraded   int
 	jobsRunning      int
 	jobsCompleted    int
 	jobsFailed       int
@@ -38,6 +40,9 @@ type DashboardModel struct {
 	policyViolations int
 	complianceScore  float64
 	recentEvents     []*events.Event
+
+	// Event rate tracking
+	eventRateTracker *monitorEvents.RateTracker
 
 	// Loading state
 	loading bool
@@ -49,8 +54,9 @@ const maxRecentEvents = 10
 // NewDashboardModel creates a new dashboard model
 func NewDashboardModel(cfg *config.Config, cli *client.Client) *DashboardModel {
 	return &DashboardModel{
-		config: cfg,
-		client: cli,
+		config:           cfg,
+		client:           cli,
+		eventRateTracker: monitorEvents.NewRateTracker(60),
 	}
 }
 
@@ -129,6 +135,11 @@ func (m *DashboardModel) View() string {
 		Width(m.width/2 - 4)
 
 	// System section
+	eventRate := m.eventProcessRate
+	if m.eventRateTracker != nil {
+		eventRate = m.eventRateTracker.Rate()
+	}
+
 	systemContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		titleStyle.Render("System"),
@@ -136,15 +147,14 @@ func (m *DashboardModel) View() string {
 		fmt.Sprintf("Version: %s", m.version),
 		"",
 		fmt.Sprintf("API Request Rate: %.1f req/s", m.apiRequestRate),
-		fmt.Sprintf("Event Process Rate: %.1f events/s", m.eventProcessRate),
+		fmt.Sprintf("Event Process Rate: %.1f events/s", eventRate),
 		fmt.Sprintf("Memory Usage: %.1f MB", m.memoryUsage),
 		fmt.Sprintf("Goroutines: %d", m.goroutineCount),
 	)
 	systemBox := boxStyle.Render(systemContent)
 
 	// Calculate agent stats
-	offline := m.agentsTotal - m.agentsConnected
-	degraded := "n/a"
+	offline := m.agentsTotal - m.agentsConnected - m.agentsDegraded
 
 	// Agents section
 	agentsContent := lipgloss.JoinVertical(
@@ -153,7 +163,7 @@ func (m *DashboardModel) View() string {
 		fmt.Sprintf("Connected: %d/%d", m.agentsConnected, m.agentsTotal),
 		fmt.Sprintf("Online: %d", m.agentsConnected),
 		fmt.Sprintf("Offline: %d", offline),
-		fmt.Sprintf("Degraded: %s", degraded),
+		fmt.Sprintf("Degraded: %d", m.agentsDegraded),
 	)
 	agentsBox := boxStyle.Render(agentsContent)
 
@@ -241,6 +251,11 @@ func (m *DashboardModel) Fetch() tea.Cmd {
 
 // AddEvent adds an event to the recent events list (rolling buffer)
 func (m *DashboardModel) AddEvent(event *events.Event) {
+	// Track event rate
+	if m.eventRateTracker != nil {
+		m.eventRateTracker.Increment()
+	}
+
 	// Prepend new event
 	m.recentEvents = append([]*events.Event{event}, m.recentEvents...)
 

@@ -18,10 +18,15 @@ import (
 
 // Client wraps the gRPC control plane client
 type Client struct {
-	conn        *grpc.ClientConn
-	client      pb.ControlPlaneServiceClient
-	ctx         context.Context
-	httpAddress string // HTTP address for status endpoint
+	conn          *grpc.ClientConn
+	client        pb.ControlPlaneServiceClient
+	stateClient   pb.StateServiceClient
+	policyClient  pb.PolicyServiceClient
+	eventClient   pb.EventServiceClient
+	clusterClient pb.ClusterServiceClient
+	secretsClient pb.SecretsServiceClient
+	ctx           context.Context
+	httpAddress   string // HTTP address for status endpoint
 }
 
 // New creates a new control plane client
@@ -42,10 +47,15 @@ func New(ctx context.Context, address string) (*Client, error) {
 	httpAddress := deriveHTTPAddress(address)
 
 	return &Client{
-		conn:        conn,
-		client:      pb.NewControlPlaneServiceClient(conn),
-		ctx:         ctx,
-		httpAddress: httpAddress,
+		conn:          conn,
+		client:        pb.NewControlPlaneServiceClient(conn),
+		stateClient:   pb.NewStateServiceClient(conn),
+		policyClient:  pb.NewPolicyServiceClient(conn),
+		eventClient:   pb.NewEventServiceClient(conn),
+		clusterClient: pb.NewClusterServiceClient(conn),
+		secretsClient: pb.NewSecretsServiceClient(conn),
+		ctx:           ctx,
+		httpAddress:   httpAddress,
 	}, nil
 }
 
@@ -306,6 +316,314 @@ func (c *Client) fetchServerStatus(ctx context.Context) (*serverStatusResponse, 
 	}
 
 	return &status, nil
+}
+
+// Conn returns the underlying gRPC connection
+func (c *Client) Conn() *grpc.ClientConn {
+	return c.conn
+}
+
+// GetStateHistory retrieves state run history
+func (c *Client) GetStateHistory(ctx context.Context) (*pb.GetStateHistoryResponse, error) {
+	resp, err := c.stateClient.GetStateHistory(ctx, &pb.GetStateHistoryRequest{
+		PageSize: 50,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get state history: %w", err)
+	}
+	return resp, nil
+}
+
+// GetStateStatus retrieves current state status for an agent
+func (c *Client) GetStateStatus(ctx context.Context) (*pb.GetStateStatusResponse, error) {
+	resp, err := c.stateClient.GetStateStatus(ctx, &pb.GetStateStatusRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get state status: %w", err)
+	}
+	return resp, nil
+}
+
+// ListViolations retrieves policy violations
+func (c *Client) ListViolations(ctx context.Context) (*pb.ListViolationsResponse, error) {
+	resp, err := c.policyClient.ListViolations(ctx, &pb.ListViolationsRequest{
+		PageSize: 100,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list violations: %w", err)
+	}
+	return resp, nil
+}
+
+// GetComplianceReport retrieves the compliance report
+func (c *Client) GetComplianceReport(ctx context.Context) (*pb.GetComplianceReportResponse, error) {
+	resp, err := c.policyClient.GetComplianceReport(ctx, &pb.GetComplianceReportRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compliance report: %w", err)
+	}
+	return resp, nil
+}
+
+// GetEventStats retrieves event statistics
+func (c *Client) GetEventStats(ctx context.Context) (*pb.GetEventStatsResponse, error) {
+	resp, err := c.eventClient.GetEventStats(ctx, &pb.GetEventStatsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get event stats: %w", err)
+	}
+	return resp, nil
+}
+
+// GetClusterStatus retrieves the cluster status
+func (c *Client) GetClusterStatus(ctx context.Context) (*pb.GetClusterStatusResponse, error) {
+	resp, err := c.clusterClient.GetClusterStatus(ctx, &pb.GetClusterStatusRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster status: %w", err)
+	}
+	return resp, nil
+}
+
+// ListMembers retrieves cluster members
+func (c *Client) ListMembers(ctx context.Context) (*pb.ListMembersResponse, error) {
+	resp, err := c.clusterClient.ListMembers(ctx, &pb.ListMembersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list members: %w", err)
+	}
+	return resp, nil
+}
+
+// GetLeader retrieves the current cluster leader
+func (c *Client) GetLeader(ctx context.Context) (*pb.GetClusterLeaderResponse, error) {
+	resp, err := c.clusterClient.GetLeader(ctx, &pb.GetClusterLeaderRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get leader: %w", err)
+	}
+	return resp, nil
+}
+
+// ListLeases retrieves secret leases
+func (c *Client) ListLeases(ctx context.Context) (*pb.ListLeasesResponse, error) {
+	resp, err := c.secretsClient.ListLeases(ctx, &pb.ListLeasesRequest{
+		PageSize: 100,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list leases: %w", err)
+	}
+	return resp, nil
+}
+
+// ListSecrets retrieves secret keys
+func (c *Client) ListSecrets(ctx context.Context) (*pb.ListSecretsResponse, error) {
+	resp, err := c.secretsClient.ListSecrets(ctx, &pb.ListSecretsRequest{
+		PageSize: 100,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+	return resp, nil
+}
+
+// doJSON performs an HTTP request and decodes the JSON response
+func (c *Client) doJSON(ctx context.Context, method, path string, result interface{}) error {
+	url := c.httpAddress + path
+	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if err := json.Unmarshal(body, result); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return nil
+}
+
+// ScheduleResponse represents a schedule from the REST API
+type ScheduleResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CronExpr  string `json:"cron_expression"`
+	Status    string `json:"status"`
+	LastRun   string `json:"last_run"`
+	NextRun   string `json:"next_run"`
+	CreatedAt string `json:"created_at"`
+}
+
+// MaintenanceWindowResponse represents a maintenance window
+type MaintenanceWindowResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+	Scope     string `json:"scope"`
+	Active    bool   `json:"active"`
+}
+
+// RunbookResponse represents a runbook
+type RunbookResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
+}
+
+// RunbookExecutionResponse represents a runbook execution
+type RunbookExecutionResponse struct {
+	ID         string `json:"id"`
+	RunbookID  string `json:"runbook_id"`
+	RunbookNm  string `json:"runbook_name"`
+	Status     string `json:"status"`
+	Step       string `json:"current_step"`
+	StartedAt  string `json:"started_at"`
+	Duration   string `json:"duration"`
+	Requester  string `json:"requester"`
+}
+
+// ApprovalResponse represents a pending approval
+type ApprovalResponse struct {
+	ID          string `json:"id"`
+	RunbookID   string `json:"runbook_id"`
+	RunbookName string `json:"runbook_name"`
+	Requester   string `json:"requester"`
+	RequestedAt string `json:"requested_at"`
+	Status      string `json:"status"`
+}
+
+// WebhookSubscriptionResponse represents an outbound webhook subscription
+type WebhookSubscriptionResponse struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	URL       string   `json:"url"`
+	Events    []string `json:"events"`
+	Status    string   `json:"status"`
+	CreatedAt string   `json:"created_at"`
+}
+
+// WebhookDeliveryResponse represents a webhook delivery attempt
+type WebhookDeliveryResponse struct {
+	ID             string `json:"id"`
+	SubscriptionID string `json:"subscription_id"`
+	EventType      string `json:"event_type"`
+	StatusCode     int    `json:"status_code"`
+	Success        bool   `json:"success"`
+	Attempt        int    `json:"attempt"`
+	DeliveredAt    string `json:"delivered_at"`
+}
+
+// ListSchedules retrieves schedules from the REST API
+func (c *Client) ListSchedules(ctx context.Context) ([]ScheduleResponse, error) {
+	var resp struct {
+		Schedules []ScheduleResponse `json:"schedules"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/schedules", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Schedules, nil
+}
+
+// GetActiveMaintenanceWindows retrieves active maintenance windows
+func (c *Client) GetActiveMaintenanceWindows(ctx context.Context) ([]MaintenanceWindowResponse, error) {
+	var resp struct {
+		Windows []MaintenanceWindowResponse `json:"windows"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/maintenance/windows", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Windows, nil
+}
+
+// ListRunbooks retrieves runbooks from the REST API
+func (c *Client) ListRunbooks(ctx context.Context) ([]RunbookResponse, error) {
+	var resp struct {
+		Runbooks []RunbookResponse `json:"runbooks"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/runbooks", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Runbooks, nil
+}
+
+// ListRunbookExecutions retrieves recent runbook executions
+func (c *Client) ListRunbookExecutions(ctx context.Context) ([]RunbookExecutionResponse, error) {
+	var resp struct {
+		Executions []RunbookExecutionResponse `json:"executions"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/runbooks/executions", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Executions, nil
+}
+
+// ListPendingApprovals retrieves pending runbook approvals
+func (c *Client) ListPendingApprovals(ctx context.Context) ([]ApprovalResponse, error) {
+	var resp struct {
+		Approvals []ApprovalResponse `json:"approvals"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/runbook/approvals", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Approvals, nil
+}
+
+// ListWebhookSubscriptions retrieves outbound webhook subscriptions
+func (c *Client) ListWebhookSubscriptions(ctx context.Context) ([]WebhookSubscriptionResponse, error) {
+	var resp struct {
+		Subscriptions []WebhookSubscriptionResponse `json:"subscriptions"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/webhooks/subscriptions", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Subscriptions, nil
+}
+
+// GetWebhookDeliveries retrieves deliveries for a webhook subscription
+func (c *Client) GetWebhookDeliveries(ctx context.Context, subscriptionID string) ([]WebhookDeliveryResponse, error) {
+	var resp struct {
+		Deliveries []WebhookDeliveryResponse `json:"deliveries"`
+	}
+	path := fmt.Sprintf("/api/v1/webhooks/subscriptions/%s/deliveries", subscriptionID)
+	if err := c.doJSON(ctx, http.MethodGet, path, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Deliveries, nil
+}
+
+// ListEventsByCorrelation retrieves events filtered by correlation ID
+func (c *Client) ListEventsByCorrelation(ctx context.Context, correlationID string) (*pb.ListEventsResponse, error) {
+	resp, err := c.eventClient.ListEvents(ctx, &pb.ListEventsRequest{
+		CorrelationId: correlationID,
+		PageSize:      100,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list events by correlation: %w", err)
+	}
+	return resp, nil
+}
+
+// GetAgentStateHistory retrieves state history for a specific agent
+func (c *Client) GetAgentStateHistory(ctx context.Context, agentID string) (*pb.GetStateHistoryResponse, error) {
+	resp, err := c.stateClient.GetStateHistory(ctx, &pb.GetStateHistoryRequest{
+		AgentId:  agentID,
+		PageSize: 20,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent state history: %w", err)
+	}
+	return resp, nil
 }
 
 // GetSystemStats retrieves system-wide statistics
