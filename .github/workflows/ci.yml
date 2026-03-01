@@ -263,26 +263,24 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
         with:
-          version: '25.x'
+          github_token: ${{ github.token }}
 
-      - name: Install Go protoc plugins
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Lint protos
+        run: buf lint
+
+      - name: Check for breaking changes
+        run: buf breaking --against 'https://github.com/shawnbutts/keystone-core.git#branch=main'
 
       - name: Check generated files are up to date
         run: |
-          # Regenerate proto files
           if [ -d "api/proto" ]; then
-            make proto 2>/dev/null || true
+            buf generate
           fi
-          # Check for uncommitted changes
           if [ -n "$(git status --porcelain)" ]; then
             echo "Generated files are out of date. Please run 'make proto' and commit changes."
             git diff
             exit 1
           fi
-        continue-on-error: true

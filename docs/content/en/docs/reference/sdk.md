@@ -572,11 +572,15 @@ python -m grpc_tools.protoc \
   api/proto/*.proto
 
 # Go (already generated in pkg/api/v1/ for core services)
-protoc \
-  -I./api/proto \
-  --go_out=./pkg/api/v1 --go_opt=paths=source_relative \
-  --go-grpc_out=./pkg/api/v1 --go-grpc_opt=paths=source_relative \
-  api/proto/*.proto
+# Preferred: uses buf with pinned remote plugins
+buf generate
+
+# Alternative: raw protoc (requires local plugin installs)
+# protoc \
+#   -I./api/proto \
+#   --go_out=./pkg/api/v1 --go_opt=paths=source_relative \
+#   --go-grpc_out=./pkg/api/v1 --go-grpc_opt=paths=source_relative \
+#   api/proto/*.proto
 ```
 
 ### Request/Response Patterns

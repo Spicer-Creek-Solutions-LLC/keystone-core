@@ -1,12 +1,17 @@
-version: v1
+version: v2
+clean: true
 managed:
   enabled: true
-  go_package_prefix:
-    default: github.com/shawnbutts/keystone-core/pkg/api
+  disable:
+    - file_option: go_package
 plugins:
-  - name: go
-    out: pkg/api
-    opt: paths=source_relative
-  - name: go-grpc
-    out: pkg/api
-    opt: paths=source_relative
+  - remote: buf.build/protocolbuffers/go
+    out: pkg/api/v1
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/go
+    out: pkg/api/v1
+    opt:
+      - paths=source_relative
+inputs:
+  - directory: api/proto

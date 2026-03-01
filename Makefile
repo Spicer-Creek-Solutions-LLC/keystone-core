@@ -222,11 +222,14 @@ deps:
 proto:
 	@echo "Generating protobuf code..."
 	@mkdir -p pkg/api/v1
-	protoc --go_out=pkg/api/v1 --go_opt=paths=source_relative \
-	       --go-grpc_out=pkg/api/v1 --go-grpc_opt=paths=source_relative \
-	       -I api/proto \
-	       api/proto/*.proto
+	buf generate
 	@echo "Protobuf code generated successfully"
+
+proto-lint:
+	buf lint
+
+proto-breaking:
+	buf breaking --against '.git#branch=main'
 
 # =============================================================================
 # Native Platform Build (current OS/ARCH)
