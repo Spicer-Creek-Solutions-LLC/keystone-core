@@ -31,21 +31,6 @@ Taint analysis rules (G117, G702-G706) are **permanently excluded** — they fla
 - [ ] Re-enable G115 when golangci-lint bundles gosec >= v2.24.0
 - [x] Re-evaluate taint analysis rules (G117, G702-G706) — permanently excluded; these flag legitimate infrastructure operations
 
-### Migrate from raw protoc to buf v2
-
-**Resolution:** both
-
-Migrate protobuf code generation from raw `protoc` invocations to `buf` using the v2 config format. The repo already has `buf.yaml` and `buf.gen.yaml` (v1 format, unused) — these need to be updated to v2 and wired into the build.
-
-**Tasks:**
-
-- [x] Update `buf.yaml` to v2 format (modules, deps, lint, breaking sections)
-- [x] Update `buf.gen.yaml` to v2 format with remote plugins (`buf.build/protocolbuffers/go`, `buf.build/grpc/go`), output to `pkg/api/v1`
-- [x] Replace `make proto` target to call `buf generate` instead of raw `protoc`
-- [x] Update CI workflow (`.github/workflows/ci.yml`) to use `bufbuild/buf-setup-action`, add `buf lint` and `buf breaking` checks, remove manual protoc/plugin installs
-- [x] Verify generated output is identical (no import changes needed)
-- [x] Update developer docs to reference `buf` instead of `protoc`
-
 ### Migrate primary hosting to Codeberg with GitHub mirror
 
 **Resolution:** both
