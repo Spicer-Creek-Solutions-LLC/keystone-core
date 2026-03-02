@@ -1,5 +1,6 @@
 .PHONY: help proto build test test-verbose test-coverage test-integration benchmark \
        fmt lint-fix check \
+       agents-check \
        clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
        docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
@@ -122,6 +123,7 @@ help:
 	@echo ""
 	@echo "  test               - Run tests"
 	@echo "  lint               - Run linters"
+	@echo "  agents-check       - Validate AGENTS.md policy coverage and drift guards"
 	@echo "  sdk-verify         - Build SDK examples (Go/Rust/C++)"
 	@echo "  clean              - Remove all build artifacts (build/)"
 	@echo "  deps               - Install/update dependencies"
@@ -447,6 +449,9 @@ lint-fix:
 
 check: fmt lint test
 	@echo "All checks passed."
+
+agents-check:
+	@./scripts/check_agents.sh AGENTS.md
 
 # =============================================================================
 # Cleanup

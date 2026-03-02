@@ -14,6 +14,16 @@ env:
   CGO_ENABLED: '1'  # Required for SQLite
 
 jobs:
+  agents:
+    name: AGENTS.md Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate AGENTS.md
+        run: make agents-check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
