@@ -535,29 +535,20 @@ func (f *FailoverManager) reassignJobs(ctx context.Context, op *FailoverOperatio
 		return 0, nil
 	}
 
-	// Get active jobs on failed member
-	activeJobs := f.jobs.GetActiveJobs()
-	reassigned := 0
+	// Use ReassignJobsFromMember which persists changes to etcd
+	reassigned, err := f.jobs.ReassignJobsFromMember(ctx, op.FailedMemberID)
+	if err != nil {
+		return reassigned, err
+	}
 
-	for _, job := range activeJobs {
-		if job.AssignedMemberID != op.FailedMemberID {
-			continue
-		}
-		// Reset job to pending for redistribution
-		job.Status = JobStatusPending
-		job.AssignedMemberID = ""
-		job.RetryCount++
-
-		// The job distributor will pick it up and reassign
-		reassigned++
-
+	if reassigned > 0 {
 		f.notifyObservers(FailoverEvent{
 			Type:        FailoverEventJobMoved,
 			OperationID: op.ID,
 			MemberID:    op.FailedMemberID,
 			Timestamp:   time.Now(),
 			Details: map[string]interface{}{
-				"job_id": job.ID,
+				"jobs_reassigned": reassigned,
 			},
 		})
 	}
