@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
+
+const maxStatusUpdateRetries = 3
 
 // GVR constants for Keystone Core CRDs.
 var (
@@ -77,22 +81,15 @@ func (c *CRDClient) ListRemoteExecutions(ctx context.Context, namespace string) 
 }
 
 // UpdateRemoteExecutionStatus updates the status subresource of a RemoteExecution.
+// Retries on 409 Conflict to handle concurrent updates.
 func (c *CRDClient) UpdateRemoteExecutionStatus(ctx context.Context, namespace, name string, status *RemoteExecutionStatus) error {
-	obj, err := c.client.Resource(RemoteExecutionGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get for status update: %w", err)
-	}
-
-	statusMap, err := statusToUnstructured(status)
-	if err != nil {
-		return fmt.Errorf("marshal status: %w", err)
-	}
-	if err := unstructured.SetNestedField(obj.Object, statusMap, "status"); err != nil {
-		return fmt.Errorf("set status field: %w", err)
-	}
-
-	_, err = c.client.Resource(RemoteExecutionGVR).Namespace(namespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{})
-	return err
+	return c.retryStatusUpdate(ctx, RemoteExecutionGVR, namespace, name, func(obj *unstructured.Unstructured) error {
+		statusMap, err := statusToUnstructured(status)
+		if err != nil {
+			return fmt.Errorf("marshal status: %w", err)
+		}
+		return unstructured.SetNestedField(obj.Object, statusMap, "status")
+	})
 }
 
 // GetStateConfig fetches a StateConfig resource by namespace and name.
@@ -122,22 +119,49 @@ func (c *CRDClient) ListStateConfigs(ctx context.Context, namespace string) ([]S
 }
 
 // UpdateStateConfigStatus updates the status subresource of a StateConfig.
+// Retries on 409 Conflict to handle concurrent updates.
 func (c *CRDClient) UpdateStateConfigStatus(ctx context.Context, namespace, name string, status *StateConfigStatus) error {
-	obj, err := c.client.Resource(StateConfigGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get for status update: %w", err)
-	}
+	return c.retryStatusUpdate(ctx, StateConfigGVR, namespace, name, func(obj *unstructured.Unstructured) error {
+		statusMap, err := statusToUnstructured(status)
+		if err != nil {
+			return fmt.Errorf("marshal status: %w", err)
+		}
+		return unstructured.SetNestedField(obj.Object, statusMap, "status")
+	})
+}
 
-	statusMap, err := statusToUnstructured(status)
-	if err != nil {
-		return fmt.Errorf("marshal status: %w", err)
-	}
-	if err := unstructured.SetNestedField(obj.Object, statusMap, "status"); err != nil {
-		return fmt.Errorf("set status field: %w", err)
-	}
+// retryStatusUpdate performs a Get-Modify-UpdateStatus cycle with retry on
+// 409 Conflict. This handles concurrent updates from other controllers or
+// external actors in HA deployments.
+func (c *CRDClient) retryStatusUpdate(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string, mutate func(*unstructured.Unstructured) error) error {
+	var lastErr error
+	for attempt := 0; attempt < maxStatusUpdateRetries; attempt++ {
+		obj, err := c.client.Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get for status update: %w", err)
+		}
 
-	_, err = c.client.Resource(StateConfigGVR).Namespace(namespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{})
-	return err
+		if err := mutate(obj); err != nil {
+			return err
+		}
+
+		_, err = c.client.Resource(gvr).Namespace(namespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+		if err == nil {
+			return nil
+		}
+		if !apierrors.IsConflict(err) {
+			return err
+		}
+		lastErr = err
+
+		// Brief pause before retry
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond * time.Duration(attempt+1)):
+		}
+	}
+	return fmt.Errorf("status update failed after %d retries: %w", maxStatusUpdateRetries, lastErr)
 }
 
 // unstructuredToRemoteExecution converts an unstructured object to a RemoteExecution via JSON round-trip.
