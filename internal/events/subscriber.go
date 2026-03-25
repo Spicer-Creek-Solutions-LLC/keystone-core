@@ -3,6 +3,7 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -79,7 +80,7 @@ func (s *JetStreamSubscriber) subscribe(subject, queue string, handler EventHand
 		var event Event
 		if err := json.Unmarshal(msg.Data, &event); err != nil {
 			// Log error but don't fail - ack the message to prevent redelivery
-			fmt.Printf("Failed to unmarshal event from %s: %v\n", msg.Subject, err)
+			slog.Error("failed to unmarshal event", "subject", msg.Subject, "error", err)
 			_ = msg.Ack() //nolint:errcheck // best-effort ack
 			return
 		}
@@ -87,7 +88,7 @@ func (s *JetStreamSubscriber) subscribe(subject, queue string, handler EventHand
 		// Call the event handler
 		if err := handler(&event); err != nil {
 			// Handler failed - don't ack, message will be redelivered
-			fmt.Printf("Event handler failed for %s: %v\n", event.ID, err)
+			slog.Error("event handler failed", "event_id", event.ID, "error", err)
 			_ = msg.Nak() //nolint:errcheck // best-effort nak
 			return
 		}
@@ -212,7 +213,7 @@ func (s *JetStreamSubscriber) Close() error {
 	var lastErr error
 	for _, sub := range subs {
 		if err := sub.Unsubscribe(); err != nil {
-			fmt.Printf("Error unsubscribing from %s: %v\n", sub.ID, err)
+			slog.Error("error unsubscribing", "subscription_id", sub.ID, "error", err)
 			lastErr = err
 		}
 	}

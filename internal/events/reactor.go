@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -490,7 +491,7 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 	defer atomic.AddInt32(&exec.activeCount, -1)
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("reactor %s action panic recovered: %v\n", reactor.ID, r)
+			slog.Error("reactor action panic recovered", "reactor_id", reactor.ID, "panic", r)
 			atomic.AddUint64(&e.metrics.ExecutionsFailed, 1)
 		}
 	}()
@@ -748,7 +749,7 @@ func (e *ReactorEngine) enqueueToDeadLetterQueue(reactor *Reactor, event *Event,
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := dlq.Enqueue(ctx, entry); err != nil {
-			fmt.Printf("WARNING: failed to enqueue to dead letter queue for reactor %s: %v\n", reactor.ID, err)
+			slog.Error("failed to enqueue to dead letter queue", "reactor_id", reactor.ID, "error", err)
 		}
 	}()
 }

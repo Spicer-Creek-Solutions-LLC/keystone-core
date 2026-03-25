@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -289,7 +290,7 @@ func (r *Router) RouteAsync(event *Event) {
 		go func() {
 			defer func() { <-asyncRouteSem }()
 			if err := r.Route(event); err != nil {
-				fmt.Printf("async routing error for event %s: %v\n", event.ID, err)
+				slog.Error("async routing error", "event_id", event.ID, "error", err)
 			}
 		}()
 	case <-r.ctx.Done():

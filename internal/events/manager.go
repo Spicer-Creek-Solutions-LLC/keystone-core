@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/nats-io/nats.go"
 )
@@ -71,12 +72,12 @@ func (m *Manager) Close() error {
 	var lastErr error
 
 	if err := m.subscriber.Close(); err != nil {
-		fmt.Printf("Error closing subscriber: %v\n", err)
+		slog.Error("error closing subscriber", "error", err)
 		lastErr = err
 	}
 
 	if err := m.publisher.Close(); err != nil {
-		fmt.Printf("Error closing publisher: %v\n", err)
+		slog.Error("error closing publisher", "error", err)
 		lastErr = err
 	}
 

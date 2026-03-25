@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"time"
@@ -26,7 +27,7 @@ func NewLogAction(name, message string) *LogAction {
 		name:    name,
 		message: message,
 		logger: func(format string, args ...interface{}) {
-			fmt.Printf(format, args...)
+			slog.Info(fmt.Sprintf(format, args...))
 		},
 	}
 }
