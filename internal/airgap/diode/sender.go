@@ -115,6 +115,9 @@ func (s *Sender) doSend(ctx context.Context, data []byte, filename string) error
 	// Send header 3 times for reliability
 	headerBytes := marshalHeader(header)
 	for i := 0; i < 3; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err := s.sendPacket(ctx, headerBytes); err != nil {
 			return fmt.Errorf("send header: %w", err)
 		}
@@ -186,6 +189,9 @@ func (s *Sender) doSend(ctx context.Context, data []byte, filename string) error
 	}
 	endBytes := marshalEnd(endPkt)
 	for i := 0; i < 3; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err := s.sendPacket(ctx, endBytes); err != nil {
 			return fmt.Errorf("send end: %w", err)
 		}
