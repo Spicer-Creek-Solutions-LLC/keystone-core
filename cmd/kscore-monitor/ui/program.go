@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -160,13 +161,13 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 	eventSub, err := monitorEvents.New(ctx, cfg.NATSURL, p)
 	if err != nil {
 		// Log warning but don't fail - events are optional
-		fmt.Printf("Warning: failed to create event subscriber: %v\n", err)
+		log.Printf("Warning: failed to create event subscriber: %v", err)
 	} else {
 		model.eventSubscriber = eventSub
 
 		// Subscribe to all events
 		if err := eventSub.Subscribe("*"); err != nil {
-			fmt.Printf("Warning: failed to subscribe to events: %v\n", err)
+			log.Printf("Warning: failed to subscribe to events: %v", err)
 		}
 	}
 
