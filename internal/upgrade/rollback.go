@@ -18,6 +18,7 @@ type RollbackManager struct {
 
 	mu              sync.Mutex
 	activeRollbacks map[string]*RollbackOperation
+	activeCancels   map[string]context.CancelFunc
 	history         []*RollbackOperation
 	maxHistory      int
 }
@@ -36,6 +37,7 @@ func NewRollbackManager(nodeManager NodeManager, versionProvider VersionProvider
 		logger:          logger,
 		config:          config,
 		activeRollbacks: make(map[string]*RollbackOperation),
+		activeCancels:   make(map[string]context.CancelFunc),
 		history:         make([]*RollbackOperation, 0),
 		maxHistory:      100,
 	}
@@ -97,7 +99,11 @@ func (m *RollbackManager) RollbackUpgrade(ctx context.Context, upgradeState *Sta
 		NodeStates:  make(map[string]*RollbackNodeState),
 	}
 
+	// Create a cancellable context so CancelRollback can stop this operation
+	rollbackCtx, rollbackCancel := context.WithCancel(ctx)
+
 	m.activeRollbacks[upgradeState.ID] = op
+	m.activeCancels[upgradeState.ID] = rollbackCancel
 	m.mu.Unlock()
 
 	m.logger.Info("Starting rollback",
@@ -110,10 +116,12 @@ func (m *RollbackManager) RollbackUpgrade(ctx context.Context, upgradeState *Sta
 	)
 
 	// Execute rollback
-	err := m.executeRollback(ctx, op, upgradeState)
+	err := m.executeRollback(rollbackCtx, op, upgradeState)
+	rollbackCancel() // clean up context resources
 
 	// Finish up
 	m.mu.Lock()
+	delete(m.activeCancels, upgradeState.ID)
 	now := time.Now()
 	op.EndTime = &now
 	if err != nil {
@@ -487,24 +495,20 @@ func (m *RollbackManager) PlanRollback(ctx context.Context, upgradeState *State)
 	return plan, nil
 }
 
-// CancelRollback cancels an in-progress rollback.
+// CancelRollback cancels an in-progress rollback by cancelling its context.
 func (m *RollbackManager) CancelRollback(upgradeID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	op, exists := m.activeRollbacks[upgradeID]
+	_, exists := m.activeRollbacks[upgradeID]
 	if !exists {
 		return fmt.Errorf("no active rollback for upgrade %s", upgradeID)
 	}
 
-	// Note: This doesn't actually cancel ongoing operations
-	// A proper implementation would use context cancellation
-	op.Status = StatusCancelled
-	now := time.Now()
-	op.EndTime = &now
-
-	delete(m.activeRollbacks, upgradeID)
-	m.addToHistory(op)
+	// Cancel the rollback's context to stop ongoing node operations
+	if cancel, ok := m.activeCancels[upgradeID]; ok {
+		cancel()
+	}
 
 	return nil
 }
