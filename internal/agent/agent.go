@@ -49,6 +49,7 @@ type Agent struct {
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	stopOnce sync.Once
+	cmdSub   *nats.Subscription
 
 	mu           sync.RWMutex
 	registered   bool
@@ -178,6 +179,10 @@ func (a *Agent) Start() error {
 func (a *Agent) Stop() error {
 	a.stopOnce.Do(func() {
 		a.logger.Info("stopping agent")
+		// Unsubscribe from commands first to stop accepting new work
+		if a.cmdSub != nil {
+			a.cmdSub.Unsubscribe()
+		}
 		a.cancel()
 		a.wg.Wait()
 		a.logger.Info("agent stopped")
@@ -347,15 +352,20 @@ func (a *Agent) subscribeToCommands() error {
 	// Subscribe to agent-specific commands
 	subject := a.subjects.AgentCommand(a.id)
 
-	_, err := a.nats.Subscribe(subject, func(msg *nats.Msg) {
-		a.handleCommandRequest(msg)
+	sub, err := a.nats.Subscribe(subject, func(msg *nats.Msg) {
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.handleCommandRequest(msg)
+		}()
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to commands: %w", err)
 	}
+	a.cmdSub = sub
 
-	fmt.Printf("Subscribed to commands on subject: %s\n", subject)
+	a.logger.Info("subscribed to commands", logging.Field{Key: "subject", Value: subject})
 	return nil
 }
 
