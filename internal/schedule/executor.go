@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shawnbutts/keystone-core/internal/logging"
 	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
@@ -70,6 +70,7 @@ type Executor struct {
 	handlers           map[Type]Handler
 	activeExecutions   map[string]*Execution
 	listeners          []ExecutorEventListener
+	logger             logging.Logger
 	mu                 sync.RWMutex
 	stopChan           chan struct{}
 	doneChan           chan struct{}
@@ -120,6 +121,7 @@ func NewExecutor(
 		handlers:           make(map[Type]Handler),
 		activeExecutions:   make(map[string]*Execution),
 		listeners:          make([]ExecutorEventListener, 0),
+		logger:             logging.WithFields(logging.Field{Key: "component", Value: "schedule-executor"}, logging.Field{Key: "member_id", Value: config.MemberID}),
 		stopChan:           make(chan struct{}),
 		doneChan:           make(chan struct{}),
 	}, nil
@@ -245,7 +247,7 @@ func (e *Executor) checkSchedules(ctx context.Context) {
 
 	schedules, err := e.scheduleManager.List(ctx, filter)
 	if err != nil {
-		log.Printf("[ERROR] Failed to list schedules: %v", err)
+		e.logger.Error("failed to list schedules", logging.Field{Key: "error", Value: err})
 		return
 	}
 
@@ -263,8 +265,9 @@ func (e *Executor) checkSchedules(ctx context.Context) {
 		e.mu.RUnlock()
 
 		if activeCount >= e.config.MaxConcurrentExecutions {
-			log.Printf("[WARN] Max concurrent executions reached (%d), skipping schedule %s",
-				e.config.MaxConcurrentExecutions, schedule.ID)
+			e.logger.Warn("max concurrent executions reached, skipping schedule",
+				logging.Field{Key: "max", Value: e.config.MaxConcurrentExecutions},
+				logging.Field{Key: "schedule_id", Value: schedule.ID})
 			continue
 		}
 
@@ -273,7 +276,7 @@ func (e *Executor) checkSchedules(ctx context.Context) {
 			_, inMaintenance, err := e.maintenanceManager.IsInMaintenance(ctx, "")
 			if err == nil && inMaintenance && schedule.MaintenanceWindowID == "" {
 				// Skip schedules not linked to maintenance during maintenance
-				log.Printf("[INFO] Skipping schedule %s due to active maintenance window", schedule.ID)
+				e.logger.Info("skipping schedule due to active maintenance window", logging.Field{Key: "schedule_id", Value: schedule.ID})
 				continue
 			}
 		}
@@ -289,17 +292,17 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 	lockID := fmt.Sprintf("schedule-exec-%s", schedule.ID)
 	acquired, err := e.store.AcquireLock(ctx, lockID, e.config.MemberID)
 	if err != nil {
-		log.Printf("[ERROR] Failed to acquire lock for schedule %s: %v", schedule.ID, err)
+		e.logger.Error("failed to acquire lock for schedule", logging.Field{Key: "schedule_id", Value: schedule.ID}, logging.Field{Key: "error", Value: err})
 		return
 	}
 	if !acquired {
-		log.Printf("[DEBUG] Lock not acquired for schedule %s, another instance is executing", schedule.ID)
+		e.logger.Debug("lock not acquired for schedule, another instance is executing", logging.Field{Key: "schedule_id", Value: schedule.ID})
 		return
 	}
 
 	defer func() {
 		if err := e.store.ReleaseLock(ctx, lockID, e.config.MemberID); err != nil {
-			log.Printf("[WARN] Failed to release lock for schedule %s: %v", schedule.ID, err)
+			e.logger.Warn("failed to release lock for schedule", logging.Field{Key: "schedule_id", Value: schedule.ID}, logging.Field{Key: "error", Value: err})
 		}
 	}()
 
@@ -320,7 +323,7 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 	if schedule.RequireApproval {
 		execution.Status = ExecutionStatusPending
 		if err := e.store.CreateExecution(ctx, execution); err != nil {
-			log.Printf("[ERROR] Failed to create execution record: %v", err)
+			e.logger.Error("failed to create execution record", logging.Field{Key: "error", Value: err})
 			return
 		}
 
@@ -336,7 +339,7 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 
 	// Save execution
 	if err := e.store.CreateExecution(ctx, execution); err != nil {
-		log.Printf("[ERROR] Failed to create execution record: %v", err)
+		e.logger.Error("failed to create execution record", logging.Field{Key: "error", Value: err})
 		return
 	}
 
@@ -420,7 +423,10 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 			break
 		}
 
-		log.Printf("[WARN] Execution attempt %d failed for schedule %s: %v", attempt+1, schedule.ID, execErr)
+		e.logger.Warn("execution attempt failed",
+			logging.Field{Key: "attempt", Value: attempt + 1},
+			logging.Field{Key: "schedule_id", Value: schedule.ID},
+			logging.Field{Key: "error", Value: execErr})
 	}
 
 	// Update execution status
@@ -447,7 +453,7 @@ func (e *Executor) executeSchedule(ctx context.Context, schedule *Schedule) {
 func (e *Executor) completeExecution(ctx context.Context, schedule *Schedule, execution *Execution) {
 	// Record result through manager
 	if err := e.scheduleManager.RecordExecutionResult(ctx, execution); err != nil {
-		log.Printf("[ERROR] Failed to record execution result: %v", err)
+		e.logger.Error("failed to record execution result", logging.Field{Key: "error", Value: err})
 	}
 
 	eventType := "execution.completed"
@@ -549,7 +555,7 @@ func (e *Executor) checkMaintenanceWindows(ctx context.Context) {
 		Status: []MaintenanceWindowStatus{MaintenanceWindowStatusScheduled},
 	})
 	if err != nil {
-		log.Printf("[ERROR] Failed to list maintenance windows: %v", err)
+		e.logger.Error("failed to list maintenance windows", logging.Field{Key: "error", Value: err})
 		return
 	}
 
@@ -557,7 +563,7 @@ func (e *Executor) checkMaintenanceWindows(ctx context.Context) {
 		// Check if window should start
 		if window.StartTime.Before(now) || window.StartTime.Equal(now) {
 			if err := e.maintenanceManager.Start(ctx, window.ID); err != nil {
-				log.Printf("[ERROR] Failed to start maintenance window %s: %v", window.ID, err)
+				e.logger.Error("failed to start maintenance window", logging.Field{Key: "window_id", Value: window.ID}, logging.Field{Key: "error", Value: err})
 			}
 		}
 	}
@@ -565,14 +571,14 @@ func (e *Executor) checkMaintenanceWindows(ctx context.Context) {
 	// Check for active windows that should end
 	activeWindows, err := e.maintenanceManager.GetActiveWindows(ctx)
 	if err != nil {
-		log.Printf("[ERROR] Failed to get active maintenance windows: %v", err)
+		e.logger.Error("failed to get active maintenance windows", logging.Field{Key: "error", Value: err})
 		return
 	}
 
 	for _, window := range activeWindows {
 		if window.EndTime.Before(now) {
 			if err := e.maintenanceManager.End(ctx, window.ID); err != nil {
-				log.Printf("[ERROR] Failed to end maintenance window %s: %v", window.ID, err)
+				e.logger.Error("failed to end maintenance window", logging.Field{Key: "window_id", Value: window.ID}, logging.Field{Key: "error", Value: err})
 			}
 		}
 	}
