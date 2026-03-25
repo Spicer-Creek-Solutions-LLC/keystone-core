@@ -598,3 +598,32 @@ func TestQueueStats(t *testing.T) {
 		t.Error("expected OldestPending to be set")
 	}
 }
+
+func TestGenerateID_ConcurrentUniqueness(t *testing.T) {
+	const goroutines = 50
+	const idsPerGoroutine = 20
+
+	ids := make(chan string, goroutines*idsPerGoroutine)
+	var wg sync.WaitGroup
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < idsPerGoroutine; j++ {
+				ids <- generateID()
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(ids)
+
+	seen := make(map[string]bool, goroutines*idsPerGoroutine)
+	for id := range ids {
+		if seen[id] {
+			t.Fatalf("duplicate ID generated: %s", id)
+		}
+		seen[id] = true
+	}
+}

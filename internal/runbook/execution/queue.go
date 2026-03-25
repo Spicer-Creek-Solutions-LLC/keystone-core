@@ -3,6 +3,7 @@ package execution
 import (
 	"container/heap"
 	"context"
+	"crypto/rand"
 	"errors"
 	"sync"
 	"time"
@@ -333,13 +334,16 @@ func generateID() string {
 	return time.Now().Format("20060102150405") + "-" + randomString(8)
 }
 
-// randomString generates a random string of specified length.
+// randomString generates a cryptographically random string of specified length.
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback should never happen; crypto/rand reads from OS entropy.
+		panic("crypto/rand failed: " + err.Error())
+	}
 	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
-		time.Sleep(time.Nanosecond)
+		b[i] = letters[b[i]%byte(len(letters))]
 	}
 	return string(b)
 }
