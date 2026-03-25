@@ -765,9 +765,10 @@ func (t *LeaseTracker) cleanup() {
 	}
 	t.mu.Unlock()
 
-	// Notify about expired leases outside the lock
+	// Notify about expired leases outside the lock, using the tracker's
+	// context so callbacks respect shutdown signals
 	for _, lease := range expired {
-		t.notifyCallbacks(context.Background(), lease, LeaseEventExpired)
+		t.notifyCallbacks(t.ctx, lease, LeaseEventExpired)
 	}
 }
 
