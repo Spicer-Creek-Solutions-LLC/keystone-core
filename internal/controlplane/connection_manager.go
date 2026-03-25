@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/shawnbutts/keystone-core/internal/events"
+	"github.com/shawnbutts/keystone-core/internal/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/internal/tracing"
 	"google.golang.org/protobuf/proto"
@@ -133,6 +134,13 @@ type ConnectionManager struct {
 	agentMetadataInterval  time.Duration
 	maxConcurrentCommands  int
 
+	// Logger
+	logger logging.Logger
+
+	// NATS subscriptions (for cleanup on Stop)
+	regSub *nats.Subscription
+	hbSub  *nats.Subscription
+
 	// Event publishing
 	eventPublisher events.EventPublisher
 
@@ -179,6 +187,7 @@ func NewConnectionManagerWithConfig(natsManager *natsmgr.Manager, cfg *Connectio
 		agentCommandTimeout:    cfg.AgentCommandTimeout,
 		agentMetadataInterval:  cfg.AgentMetadataInterval,
 		maxConcurrentCommands:  cfg.MaxConcurrentCommands,
+		logger:                 logging.WithFields(logging.Field{Key: "component", Value: "connection-manager"}, logging.Field{Key: "cluster", Value: cluster}),
 	}
 }
 
@@ -202,12 +211,12 @@ func (cm *ConnectionManager) ServerID() string {
 
 // Start starts the connection manager
 func (cm *ConnectionManager) Start() error {
-	fmt.Printf("Starting connection manager (cluster=%s, server=%s)...\n", cm.cluster, cm.serverID)
+	cm.logger.Info("starting connection manager", logging.Field{Key: "server_id", Value: cm.serverID})
 
 	// Load agents from database if state store is configured (for HA clusters)
 	if cm.stateStore != nil {
 		if err := cm.loadAgentsFromStore(); err != nil {
-			fmt.Printf("Warning: failed to load agents from database: %v\n", err)
+			cm.logger.Warn("failed to load agents from database", logging.Field{Key: "error", Value: err})
 			// Continue anyway - agents will register as they come online
 		}
 	}
@@ -226,7 +235,7 @@ func (cm *ConnectionManager) Start() error {
 	cm.wg.Add(1)
 	go cm.monitorAgents()
 
-	fmt.Println("Connection manager started")
+	cm.logger.Info("connection manager started")
 	return nil
 }
 
@@ -271,7 +280,7 @@ func (cm *ConnectionManager) loadAgentsFromStore() error {
 	}
 
 	if loaded > 0 {
-		fmt.Printf("Loaded %d agents from database\n", loaded)
+		cm.logger.Info("loaded agents from database", logging.Field{Key: "count", Value: loaded})
 	}
 
 	return nil
@@ -315,16 +324,22 @@ func (cm *ConnectionManager) tryLoadAgentFromStore(agentID string) error {
 	}
 
 	cm.agents[agentID] = info
-	fmt.Printf("Loaded agent %s from database (responding to heartbeat)\n", agentID)
+	cm.logger.Info("loaded agent from database (responding to heartbeat)", logging.Field{Key: "agent_id", Value: agentID})
 	return nil
 }
 
 // Stop stops the connection manager
 func (cm *ConnectionManager) Stop() error {
-	fmt.Println("Stopping connection manager...")
+	cm.logger.Info("stopping connection manager")
+	if cm.regSub != nil {
+		cm.regSub.Unsubscribe()
+	}
+	if cm.hbSub != nil {
+		cm.hbSub.Unsubscribe()
+	}
 	cm.cancel()
 	cm.wg.Wait()
-	fmt.Println("Connection manager stopped")
+	cm.logger.Info("connection manager stopped")
 	return nil
 }
 
@@ -332,15 +347,16 @@ func (cm *ConnectionManager) Stop() error {
 func (cm *ConnectionManager) subscribeToRegistrations() error {
 	subject := cm.subjects.AgentRegister()
 
-	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
+	sub, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleRegistration(msg)
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to %s: %w", subject, err)
 	}
+	cm.regSub = sub
 
-	fmt.Printf("Subscribed to agent registrations on %s\n", subject)
+	cm.logger.Info("subscribed to agent registrations", logging.Field{Key: "subject", Value: subject})
 	return nil
 }
 
@@ -348,15 +364,16 @@ func (cm *ConnectionManager) subscribeToRegistrations() error {
 func (cm *ConnectionManager) subscribeToHeartbeats() error {
 	subject := cm.subjects.AgentHeartbeat()
 
-	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
+	sub, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleHeartbeat(msg)
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to %s: %w", subject, err)
 	}
+	cm.hbSub = sub
 
-	fmt.Printf("Subscribed to agent heartbeats on %s\n", subject)
+	cm.logger.Info("subscribed to agent heartbeats", logging.Field{Key: "subject", Value: subject})
 	return nil
 }
 
@@ -370,7 +387,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 	// Parse registration request
 	var req pb.RegisterRequest
 	if err := proto.Unmarshal(msg.Data, &req); err != nil {
-		fmt.Printf("Failed to unmarshal registration request: %v\n", err)
+		cm.logger.Error("failed to unmarshal registration request", logging.Field{Key: "error", Value: err})
 		tracing.RecordError(span, err)
 		return
 	}
@@ -382,7 +399,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 		tracing.StringAttr(tracing.AttrAgentOS, req.Metadata.GetOs()),
 	)
 
-	fmt.Printf("Agent registration request: ID=%s, Hostname=%s\n", req.AgentId, req.Metadata.Hostname)
+	cm.logger.Info("agent registration request", logging.Field{Key: "agent_id", Value: req.AgentId}, logging.Field{Key: "hostname", Value: req.Metadata.Hostname})
 
 	// Register the agent
 	cm.mu.Lock()
@@ -393,9 +410,9 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 			RegisteredAt: time.Now(),
 		}
 		cm.agents[req.AgentId] = info
-		fmt.Printf("New agent registered: %s\n", req.AgentId)
+		cm.logger.Info("new agent registered", logging.Field{Key: "agent_id", Value: req.AgentId})
 	} else {
-		fmt.Printf("Agent re-registered: %s\n", req.AgentId)
+		cm.logger.Info("agent re-registered", logging.Field{Key: "agent_id", Value: req.AgentId})
 	}
 
 	info.Metadata = req.Metadata
@@ -418,7 +435,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 			LastSeen:     info.LastHeartbeat,
 		}
 		if err := cm.stateStore.SaveAgent(ctx, storedAgent); err != nil {
-			fmt.Printf("Warning: failed to save agent %s to database: %v\n", req.AgentId, err)
+			cm.logger.Warn("failed to save agent to database", logging.Field{Key: "agent_id", Value: req.AgentId}, logging.Field{Key: "error", Value: err})
 		}
 	}
 
@@ -461,7 +478,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 
 	data, err := proto.Marshal(resp)
 	if err != nil {
-		fmt.Printf("Failed to marshal registration response: %v\n", err)
+		cm.logger.Error("failed to marshal registration response", logging.Field{Key: "error", Value: err})
 		return
 	}
 
@@ -476,7 +493,7 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 		tracing.InjectTraceContext(ctx, replyMsg)
 
 		if err := cm.nats.Conn().PublishMsg(replyMsg); err != nil {
-			fmt.Printf("Failed to send registration response: %v\n", err)
+			cm.logger.Error("failed to send registration response", logging.Field{Key: "error", Value: err})
 			tracing.RecordError(span, err)
 		} else {
 			tracing.RecordSuccess(span, "agent registered successfully")
@@ -494,7 +511,7 @@ func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 	// Parse heartbeat request
 	var req pb.HeartbeatRequest
 	if err := proto.Unmarshal(msg.Data, &req); err != nil {
-		fmt.Printf("Failed to unmarshal heartbeat: %v\n", err)
+		cm.logger.Error("failed to unmarshal heartbeat", logging.Field{Key: "error", Value: err})
 		tracing.RecordError(span, err)
 		return
 	}
@@ -517,19 +534,19 @@ func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 				info, exists = cm.agents[req.AgentId]
 				if !exists {
 					cm.mu.Unlock()
-					fmt.Printf("Heartbeat from unknown agent (not in DB): %s\n", req.AgentId)
+					cm.logger.Warn("heartbeat from unknown agent (not in DB)", logging.Field{Key: "agent_id", Value: req.AgentId})
 					tracing.AddEvent(span, "unknown_agent")
 					return
 				}
 				// Fall through to update heartbeat
 			} else {
-				fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
+				cm.logger.Warn("heartbeat from unknown agent", logging.Field{Key: "agent_id", Value: req.AgentId})
 				tracing.AddEvent(span, "unknown_agent")
 				return
 			}
 		} else {
 			cm.mu.Unlock()
-			fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
+			cm.logger.Warn("heartbeat from unknown agent", logging.Field{Key: "agent_id", Value: req.AgentId})
 			tracing.AddEvent(span, "unknown_agent")
 			return
 		}
@@ -581,7 +598,7 @@ func (cm *ConnectionManager) checkAgentHealth() {
 
 			if info.HeartbeatMissed >= cm.staleThreshold {
 				if info.Status != pb.AgentStatus_AGENT_STATUS_OFFLINE {
-					fmt.Printf("Agent %s marked as OFFLINE (no heartbeat for %s)\n", id, timeSinceHeartbeat)
+					cm.logger.Warn("agent marked as OFFLINE", logging.Field{Key: "agent_id", Value: id}, logging.Field{Key: "time_since_heartbeat", Value: timeSinceHeartbeat})
 					previousStatus := info.Status
 					info.Status = pb.AgentStatus_AGENT_STATUS_OFFLINE
 
@@ -595,7 +612,7 @@ func (cm *ConnectionManager) checkAgentHealth() {
 					})
 				}
 			} else if info.Status != pb.AgentStatus_AGENT_STATUS_DEGRADED {
-				fmt.Printf("Agent %s marked as DEGRADED (heartbeat delayed)\n", id)
+				cm.logger.Warn("agent marked as DEGRADED", logging.Field{Key: "agent_id", Value: id})
 				info.Status = pb.AgentStatus_AGENT_STATUS_DEGRADED
 			}
 		}
@@ -727,7 +744,7 @@ func (cm *ConnectionManager) SendCommandWithContext(ctx context.Context, agentID
 		return err
 	}
 
-	fmt.Printf("Command %s sent to agent %s\n", command.CommandId, agentID)
+	cm.logger.Info("command sent to agent", logging.Field{Key: "command_id", Value: command.CommandId}, logging.Field{Key: "agent_id", Value: agentID})
 	tracing.RecordSuccess(span, "command dispatched to agent")
 	return nil
 }
@@ -765,6 +782,6 @@ func (cm *ConnectionManager) emitEvent(eventType events.EventType, severity even
 
 	// Use async publish to avoid blocking
 	if err := cm.eventPublisher.PublishAsync(event); err != nil {
-		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+		cm.logger.Warn("failed to emit event", logging.Field{Key: "event_type", Value: eventType}, logging.Field{Key: "error", Value: err})
 	}
 }
