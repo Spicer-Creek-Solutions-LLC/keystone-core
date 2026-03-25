@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ func DefaultLeaderElectionConfig(namespace string) LeaderElectionConfig {
 type LeaderElector struct {
 	clientset kubernetes.Interface
 	config    LeaderElectionConfig
-	isLeader  bool
+	isLeader  atomic.Bool
 }
 
 // NewLeaderElector creates a new leader elector.
@@ -52,7 +53,7 @@ func NewLeaderElector(clientset kubernetes.Interface, config LeaderElectionConfi
 
 // IsLeader returns whether this instance currently holds the leader lease.
 func (le *LeaderElector) IsLeader() bool {
-	return le.isLeader
+	return le.isLeader.Load()
 }
 
 // Run starts the leader election loop. It calls onStartedLeading when this
@@ -78,11 +79,11 @@ func (le *LeaderElector) Run(ctx context.Context, onStartedLeading func(context.
 		RetryPeriod:     le.config.RetryPeriod,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				le.isLeader = true
+				le.isLeader.Store(true)
 				onStartedLeading(ctx)
 			},
 			OnStoppedLeading: func() {
-				le.isLeader = false
+				le.isLeader.Store(false)
 				onStoppedLeading()
 			},
 			OnNewLeader: func(identity string) {
