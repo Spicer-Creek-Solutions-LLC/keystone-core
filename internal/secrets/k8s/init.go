@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -87,7 +88,7 @@ func (i *InitContainer) Run(ctx context.Context) error {
 	var lastErr error
 	for attempt := 0; attempt <= i.config.MaxRetries; attempt++ {
 		if attempt > 0 {
-			fmt.Printf("retrying secret injection (attempt %d/%d)\n", attempt, i.config.MaxRetries)
+			slog.Info("retrying secret injection", "attempt", attempt, "max_retries", i.config.MaxRetries)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -97,19 +98,19 @@ func (i *InitContainer) Run(ctx context.Context) error {
 
 		err := i.inject(ctx)
 		if err == nil {
-			fmt.Println("secrets injected successfully")
+			slog.Info("secrets injected successfully")
 			return nil
 		}
 
 		lastErr = err
-		fmt.Printf("injection failed: %v\n", err)
+		slog.Error("injection failed", "error", err)
 	}
 
 	if i.config.FailOnError {
 		return fmt.Errorf("failed to inject secrets after %d attempts: %w", i.config.MaxRetries, lastErr)
 	}
 
-	fmt.Printf("warning: failed to inject secrets, continuing anyway: %v\n", lastErr)
+	slog.Warn("failed to inject secrets, continuing anyway", "error", lastErr)
 	return nil
 }
 

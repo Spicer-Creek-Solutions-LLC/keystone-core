@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -257,7 +258,7 @@ func (d *CSIDriver) RefreshSecrets(ctx context.Context) error {
 	for _, mount := range mounts {
 		for _, secretMount := range mount.Secrets {
 			if err := d.writeSecret(ctx, mount.TargetPath, secretMount); err != nil {
-				fmt.Printf("failed to refresh secret %s: %v\n", secretMount.SecretPath, err)
+				slog.Error("failed to refresh secret", "secret_path", secretMount.SecretPath, "error", err)
 				lastErr = err
 			}
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -152,7 +153,7 @@ func (h *HealthServer) Start(ctx context.Context, config *HealthServerConfig) er
 
 	go func() {
 		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("health server error: %v\n", err)
+			slog.Error("health server error", "error", err)
 		}
 	}()
 

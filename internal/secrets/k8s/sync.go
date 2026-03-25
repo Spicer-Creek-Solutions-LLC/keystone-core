@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -114,7 +115,7 @@ func (s *SecretSync) Run(ctx context.Context) error {
 
 	// Initial sync
 	if err := s.sync(ctx); err != nil {
-		fmt.Printf("warning: initial sync failed: %v\n", err)
+		slog.Warn("initial sync failed", "error", err)
 	}
 
 	// Start sync loop
@@ -129,7 +130,7 @@ func (s *SecretSync) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			if err := s.sync(ctx); err != nil {
-				fmt.Printf("sync error: %v\n", err)
+				slog.Error("sync error", "error", err)
 				s.mu.Lock()
 				s.stats.SyncErrors++
 				s.mu.Unlock()
@@ -187,14 +188,14 @@ func (s *SecretSync) sync(ctx context.Context) error {
 		syncedThisRound[key] = true
 
 		if err := s.syncSecret(ctx, spec, namespace); err != nil {
-			fmt.Printf("failed to sync %s: %v\n", key, err)
+			slog.Error("failed to sync secret", "key", key, "error", err)
 		}
 	}
 
 	// Delete orphaned secrets if configured
 	if s.config.DeleteOrphans {
 		if err := s.deleteOrphans(ctx, syncedThisRound); err != nil {
-			fmt.Printf("failed to delete orphans: %v\n", err)
+			slog.Error("failed to delete orphans", "error", err)
 		}
 	}
 
@@ -272,7 +273,7 @@ func (s *SecretSync) syncSecret(ctx context.Context, spec SyncSecretSpec, namesp
 		s.stats.SecretsCreated++
 		s.syncedSecrets[key] = fmt.Sprintf("%d", secret.Version)
 		s.mu.Unlock()
-		fmt.Printf("created secret %s/%s\n", namespace, spec.DestName)
+		slog.Info("created secret", "namespace", namespace, "name", spec.DestName)
 	} else {
 		// Check if update is needed
 		existingVersion := existing.Annotations["secrets.keystone.io/version"]
@@ -286,7 +287,7 @@ func (s *SecretSync) syncSecret(ctx context.Context, spec SyncSecretSpec, namesp
 			s.stats.SecretsUpdated++
 			s.syncedSecrets[key] = currentVersion
 			s.mu.Unlock()
-			fmt.Printf("updated secret %s/%s\n", namespace, spec.DestName)
+			slog.Info("updated secret", "namespace", namespace, "name", spec.DestName)
 		}
 	}
 
@@ -327,13 +328,13 @@ func (s *SecretSync) deleteOrphans(ctx context.Context, synced map[string]bool) 
 		key := fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)
 		if !synced[key] {
 			if err := s.client.DeleteSecret(ctx, secret.Namespace, secret.Name); err != nil {
-				fmt.Printf("failed to delete orphan %s: %v\n", key, err)
+				slog.Error("failed to delete orphan", "key", key, "error", err)
 			} else {
 				s.mu.Lock()
 				s.stats.SecretsDeleted++
 				delete(s.syncedSecrets, key)
 				s.mu.Unlock()
-				fmt.Printf("deleted orphan secret %s\n", key)
+				slog.Info("deleted orphan secret", "key", key)
 			}
 		}
 	}

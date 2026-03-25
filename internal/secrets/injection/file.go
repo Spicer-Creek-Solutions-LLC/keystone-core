@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -74,7 +75,7 @@ func (f *FileInjector) Inject(ctx context.Context) ([]Result, error) {
 			if r.Success {
 				if err := f.sendNotification(ctx); err != nil {
 					// Log but don't fail - injection succeeded
-					fmt.Printf("warning: notification failed: %v\n", err)
+					slog.Warn("notification failed", "error", err)
 				}
 				break
 			}
@@ -384,14 +385,14 @@ func (f *FileInjector) watchLoop(ctx context.Context) {
 			// Re-inject all files
 			results, err := f.Inject(ctx)
 			if err != nil {
-				fmt.Printf("injection error: %v\n", err)
+				slog.Error("injection error", "error", err)
 				continue
 			}
 
 			// Log any failures
 			for _, r := range results {
 				if !r.Success {
-					fmt.Printf("injection failed for %s: %v\n", r.Target, r.Error)
+					slog.Error("injection failed", "target", r.Target, "error", r.Error)
 				}
 			}
 		}

@@ -3,6 +3,7 @@ package injection
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -196,13 +197,13 @@ func (e *EnvInjector) watchLoop(ctx context.Context) {
 		case <-ticker.C:
 			results, err := e.Inject(ctx)
 			if err != nil {
-				fmt.Printf("env injection error: %v\n", err)
+				slog.Error("env injection error", "error", err)
 				continue
 			}
 
 			for _, r := range results {
 				if !r.Success {
-					fmt.Printf("env injection failed for %s: %v\n", r.Target, r.Error)
+					slog.Error("env injection failed", "target", r.Target, "error", r.Error)
 				}
 			}
 		}

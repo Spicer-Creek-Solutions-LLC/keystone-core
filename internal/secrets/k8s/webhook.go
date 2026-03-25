@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -238,7 +239,7 @@ func (w *MutatingWebhook) Run(ctx context.Context) error {
 	// Start server in goroutine
 	errCh := make(chan error, 1)
 	go func() {
-		fmt.Printf("starting webhook server on port %d\n", w.config.Port)
+		slog.Info("starting webhook server", "port", w.config.Port)
 		if err := w.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -316,7 +317,7 @@ func (w *MutatingWebhook) handleMutate(rw http.ResponseWriter, r *http.Request) 
 	// Write response
 	rw.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(rw).Encode(review); err != nil {
-		fmt.Printf("failed to write response: %v\n", err)
+		slog.Error("failed to write response", "error", err)
 	}
 }
 

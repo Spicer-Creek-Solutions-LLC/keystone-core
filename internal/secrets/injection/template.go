@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +75,7 @@ func (t *TemplateInjector) Inject(ctx context.Context) ([]Result, error) {
 	// Send notification if configured and content changed
 	if t.notify != nil && anyChanged {
 		if err := t.sendNotification(ctx); err != nil {
-			fmt.Printf("warning: notification failed: %v\n", err)
+			slog.Warn("notification failed", "error", err)
 		}
 	}
 
@@ -382,13 +383,13 @@ func (t *TemplateInjector) watchLoop(ctx context.Context) {
 		case <-ticker.C:
 			results, err := t.Inject(ctx)
 			if err != nil {
-				fmt.Printf("template injection error: %v\n", err)
+				slog.Error("template injection error", "error", err)
 				continue
 			}
 
 			for _, r := range results {
 				if !r.Success {
-					fmt.Printf("template injection failed for %s: %v\n", r.Target, r.Error)
+					slog.Error("template injection failed", "target", r.Target, "error", r.Error)
 				}
 			}
 		}

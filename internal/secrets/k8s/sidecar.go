@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -141,7 +142,7 @@ func (s *Sidecar) Run(ctx context.Context) error {
 
 	// Initial injection
 	if err := s.refresh(ctx); err != nil {
-		fmt.Printf("warning: initial injection failed: %v\n", err)
+		slog.Warn("initial injection failed", "error", err)
 	}
 
 	// Setup signal handling for graceful shutdown
@@ -159,11 +160,11 @@ func (s *Sidecar) Run(ctx context.Context) error {
 		case <-s.stopCh:
 			return nil
 		case <-sigCh:
-			fmt.Println("received shutdown signal")
+			slog.Info("received shutdown signal")
 			return nil
 		case <-ticker.C:
 			if err := s.refresh(ctx); err != nil {
-				fmt.Printf("refresh error: %v\n", err)
+				slog.Error("refresh error", "error", err)
 				s.mu.Lock()
 				s.stats.RefreshErrors++
 				s.mu.Unlock()
@@ -303,7 +304,7 @@ func (s *Sidecar) refresh(ctx context.Context) error {
 					s.stats.SecretsInjected++
 					s.mu.Unlock()
 				} else if r.Error != nil {
-					fmt.Printf("file injection error for %s: %v\n", r.Target, r.Error)
+					slog.Error("file injection error", "target", r.Target, "error", r.Error)
 					lastErr = r.Error
 				}
 			}
@@ -322,7 +323,7 @@ func (s *Sidecar) refresh(ctx context.Context) error {
 					s.stats.TemplatesRendered++
 					s.mu.Unlock()
 				} else if r.Error != nil {
-					fmt.Printf("template injection error for %s: %v\n", r.Target, r.Error)
+					slog.Error("template injection error", "target", r.Target, "error", r.Error)
 					lastErr = r.Error
 				}
 			}
