@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -201,11 +202,12 @@ type PooledConnectionManager struct {
 	endpoints       []*EndpointState
 	activeConn      *nats.Conn
 	activeEndpoint  *Endpoint
-	mu              sync.RWMutex
-	ctx             context.Context
-	cancel          context.CancelFunc
-	healthCheckStop chan struct{}
-	closed          bool
+	mu                 sync.RWMutex
+	ctx                context.Context
+	cancel             context.CancelFunc
+	healthCheckStop    chan struct{}
+	closed             bool
+	failoverInProgress int32 // atomic
 }
 
 // NewPooledConnectionManager creates a new connection manager
@@ -598,19 +600,21 @@ func (m *PooledConnectionManager) checkHealth() {
 		}
 	}
 
-	// Check if current connection is healthy
+	// Check if current connection is healthy — only spawn one failover at a time
 	if m.activeConn != nil && !m.activeConn.IsConnected() && !m.closed {
-		// Capture callback and endpoint before releasing lock
-		onError := m.config.ConnectionCallbacks.OnError
-		endpoint := m.activeEndpoint
-		// Attempt failover outside the lock
-		go func() {
-			if err := m.Failover(); err != nil {
-				if onError != nil {
-					onError(endpoint, err)
+		if atomic.CompareAndSwapInt32(&m.failoverInProgress, 0, 1) {
+			// Capture callback and endpoint before releasing lock
+			onError := m.config.ConnectionCallbacks.OnError
+			endpoint := m.activeEndpoint
+			go func() {
+				defer atomic.StoreInt32(&m.failoverInProgress, 0)
+				if err := m.Failover(); err != nil {
+					if onError != nil {
+						onError(endpoint, err)
+					}
 				}
-			}
-		}()
+			}()
+		}
 	}
 }
 
