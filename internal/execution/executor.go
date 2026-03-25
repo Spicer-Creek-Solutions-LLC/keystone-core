@@ -136,9 +136,13 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteRequest, outputHandl
 			return result, err
 		}
 
-		// Wait before retry
+		// Wait before retry with exponential backoff
 		if req.RetryDelay > 0 {
-			if err := wait.ForContext(ctx, req.RetryDelay); err != nil {
+			backoff := req.RetryDelay * time.Duration(1<<uint(attempt-1))
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+			if err := wait.ForContext(ctx, backoff); err != nil {
 				result.Error = err
 				return result, err
 			}
