@@ -17,7 +17,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.28.0"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -222,11 +221,13 @@ func newOTLPExporter(cfg ExporterConfig) (sdktrace.SpanExporter, error) {
 		opts = append(opts, otlptracegrpc.WithCompressor("gzip"))
 	}
 
-	// Add dial options
-	opts = append(opts, otlptracegrpc.WithDialOption(grpc.WithBlock())) //nolint:staticcheck // SA1019: grpc.WithBlock is deprecated but supported throughout gRPC 1.x; migration to NewClient requires significant refactoring
-
+	// Connect lazily — do not use grpc.WithBlock() which can hang
+	// indefinitely if the collector is unreachable at startup
 	client := otlptracegrpc.NewClient(opts...)
-	return otlptrace.New(context.Background(), client)
+
+	connectCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return otlptrace.New(connectCtx, client)
 }
 
 // newOTLPHTTPExporter creates an OTLP HTTP exporter
