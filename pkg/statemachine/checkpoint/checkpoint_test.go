@@ -214,3 +214,61 @@ func TestSaveWithMetadata(t *testing.T) {
 		t.Errorf("metadata version: got %v, want 2.0", r.Metadata["version"])
 	}
 }
+
+// failingStore always returns an error on Save.
+type failingStore struct{ MemoryStore }
+
+func (s *failingStore) Save(_ context.Context, _ *Record) error {
+	return context.DeadlineExceeded
+}
+
+func TestOnSaveError_CalledOnFailure(t *testing.T) {
+	store := &failingStore{}
+	var callbackCalled bool
+	var callbackErr error
+
+	adapter := New[testState, testEvent](store, "fail-1", "test").
+		WithOnSaveError(func(machineID, state string, err error) {
+			callbackCalled = true
+			callbackErr = err
+			if machineID != "fail-1" {
+				t.Errorf("machineID: got %q, want %q", machineID, "fail-1")
+			}
+			if state != string(stateRunning) {
+				t.Errorf("state: got %q, want %q", state, stateRunning)
+			}
+		})
+
+	machine := buildTestMachine(stateInit, adapter)
+
+	// Transition should succeed even though checkpoint fails
+	if err := machine.Fire(eventStart); err != nil {
+		t.Fatalf("fire should succeed despite checkpoint failure: %v", err)
+	}
+
+	if !callbackCalled {
+		t.Fatal("OnSaveError callback was not called")
+	}
+	if callbackErr != context.DeadlineExceeded {
+		t.Errorf("callback err: got %v, want DeadlineExceeded", callbackErr)
+	}
+}
+
+func TestOnSaveError_NotCalledOnSuccess(t *testing.T) {
+	store := NewMemoryStore()
+	var callbackCalled bool
+
+	adapter := New[testState, testEvent](store, "ok-1", "test").
+		WithOnSaveError(func(string, string, error) {
+			callbackCalled = true
+		})
+
+	machine := buildTestMachine(stateInit, adapter)
+	if err := machine.Fire(eventStart); err != nil {
+		t.Fatalf("fire: %v", err)
+	}
+
+	if callbackCalled {
+		t.Error("OnSaveError should not be called on successful save")
+	}
+}

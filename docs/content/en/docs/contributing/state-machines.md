@@ -584,7 +584,14 @@ When refactoring existing code to use state machines:
 
 The base `Machine` is in-memory only — a process crash loses all state. For components that need crash recovery or multi-step rollback, two additional libraries are available:
 
-- **Checkpoint** (`pkg/statemachine/checkpoint`): Hooks into `OnTransition` to persist state after each transition. On restart, `Restore()` returns the last saved state. Best for long-running machines (bootstrap, upgrade, promotion) that need to survive restarts.
+- **Checkpoint** (`pkg/statemachine/checkpoint`): Hooks into `OnTransition` to persist state after each transition. On restart, `Restore()` returns the last saved state. Best for long-running machines (bootstrap, upgrade, promotion) that need to survive restarts. Checkpoint saves are best-effort — a save failure does not block the transition. Use `WithOnSaveError` to register a callback for alerting or metrics when persistence fails:
+  ```go
+  adapter := checkpoint.New[State, Event](store, id, name).
+      WithOnSaveError(func(machineID, state string, err error) {
+          log.Warn("checkpoint failed", "machine", machineID, "err", err)
+          metrics.CheckpointFailures.Inc()
+      })
+  ```
 
 - **Saga** (`pkg/saga`): Orchestrates multi-step workflows with compensating transactions. If a step fails, previously completed steps are rolled back in reverse order. Best for operations that modify external resources and need structured rollback.
 

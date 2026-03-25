@@ -42,6 +42,10 @@ type Store interface {
 	List(ctx context.Context, machineName string) ([]*Record, error)
 }
 
+// SaveErrorFunc is called when a checkpoint save fails. The transition has
+// already completed — this is a notification hook for alerting or metrics.
+type SaveErrorFunc func(machineID string, state string, err error)
+
 // Adapter connects a state machine to a checkpoint store.
 // The S and E type parameters must be ~string so that states can be
 // serialized to/from the string-typed Record.State field.
@@ -50,6 +54,7 @@ type Adapter[S ~string, E ~string] struct {
 	machineID   string
 	machineName string
 	logger      logging.Logger
+	onSaveError SaveErrorFunc
 }
 
 // New creates a checkpoint adapter for the given machine instance.
@@ -60,6 +65,13 @@ func New[S ~string, E ~string](store Store, machineID, machineName string) *Adap
 		machineName: machineName,
 		logger:      logging.WithFields(logging.Field{Key: "component", Value: "checkpoint"}, logging.Field{Key: "machine", Value: machineName}),
 	}
+}
+
+// WithOnSaveError registers a callback that fires when a checkpoint save
+// fails. The transition still proceeds — this is for alerting or metrics.
+func (a *Adapter[S, E]) WithOnSaveError(fn SaveErrorFunc) *Adapter[S, E] {
+	a.onSaveError = fn
+	return a
 }
 
 // Wrap adds an OnTransition callback to the builder that persists state
@@ -79,6 +91,9 @@ func (a *Adapter[S, E]) Wrap(builder *statemachine.Builder[S, E]) {
 				logging.Field{Key: "state", Value: string(to)},
 				logging.Field{Key: "error", Value: err},
 			)
+			if a.onSaveError != nil {
+				a.onSaveError(a.machineID, string(to), err)
+			}
 		}
 	})
 }
