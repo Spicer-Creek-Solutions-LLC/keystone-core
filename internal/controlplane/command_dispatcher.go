@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -93,7 +94,7 @@ func (cd *CommandDispatcher) Start() error {
 	sub, err := cd.connMgr.nats.Conn().Subscribe(subject, func(msg *nats.Msg) {
 		var resp pb.ExecuteCommandResponse
 		if err := proto.Unmarshal(msg.Data, &resp); err != nil {
-			fmt.Printf("Failed to unmarshal command response: %v\n", err)
+			slog.Error("failed to unmarshal command response", "error", err)
 			return
 		}
 		cd.HandleCommandResponse(&resp)
@@ -102,7 +103,7 @@ func (cd *CommandDispatcher) Start() error {
 		return fmt.Errorf("failed to subscribe to command responses: %w", err)
 	}
 	cd.responseSub = sub
-	fmt.Printf("Command dispatcher started, subscribed to command responses on %s\n", subject)
+	slog.Info("command dispatcher started", "subject", subject)
 	return nil
 }
 
@@ -243,7 +244,7 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 		"timeout":     req.Timeout,
 	})
 
-	fmt.Printf("Command %s dispatched to agent %s\n", req.CommandId, req.AgentId)
+	slog.Info("command dispatched", "command_id", req.CommandId, "agent_id", req.AgentId)
 
 	return responseChan, nil
 }
@@ -265,7 +266,7 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 	exec, exists := cd.pendingCommands[resp.CommandId]
 	if !exists {
 		cd.mu.Unlock()
-		fmt.Printf("Received response for unknown command: %s\n", resp.CommandId)
+		slog.Warn("received response for unknown command", "command_id", resp.CommandId)
 		tracing.AddEvent(span, "unknown_command")
 		return
 	}
@@ -347,7 +348,7 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 		)
 
 		if err := cd.store.UpdateCommandResult(ctx, resp.CommandId, result); err != nil {
-			fmt.Printf("Failed to update command result: %v\n", err)
+			slog.Error("failed to update command result", "error", err)
 			tracing.RecordError(span, err)
 		}
 
@@ -391,7 +392,7 @@ func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Contex
 			}
 		}
 
-		fmt.Printf("Command %s completed with status: %s\n", resp.CommandId, status)
+		slog.Info("command completed", "command_id", resp.CommandId, "status", status)
 	} else {
 		cd.mu.Unlock()
 	}
@@ -440,6 +441,6 @@ func (cd *CommandDispatcher) emitEvent(eventType events.EventType, severity even
 
 	// Use async publish to avoid blocking
 	if err := cd.eventPublisher.PublishAsync(event); err != nil {
-		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+		slog.Warn("failed to emit event", "event_type", eventType, "error", err)
 	}
 }
