@@ -47,10 +47,10 @@ api:
     allowcredentials: false
     maxage: 86400                   # Preflight cache max age (seconds)
   rate_limit:
-    enabled: true                   # Enable rate limiting
+    enabled: true                   # Enable rate limiting (HTTP and gRPC)
     requestsperminute: 100          # Requests per minute per key
     burst: 20                       # Burst capacity
-    keyextractor: "ip"              # ip, apikey, header
+    keyextractor: "ip"              # ip, apikey, header (HTTP only; gRPC always uses peer IP)
     headername: "X-API-Key"         # Header to use when keyextractor: header
 
 # Server settings (advanced)

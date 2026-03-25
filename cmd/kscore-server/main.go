@@ -22,7 +22,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	grpcpeer "google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"github.com/shawnbutts/keystone-core/internal/cluster"
 	"github.com/shawnbutts/keystone-core/internal/config"
@@ -303,6 +306,19 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	// Configure gRPC server options
 	var grpcOpts []grpc.ServerOption
+	var grpcUnaryInterceptors []grpc.UnaryServerInterceptor
+	var grpcStreamInterceptors []grpc.StreamServerInterceptor
+
+	// Create rate limiter (shared between HTTP and gRPC)
+	var rateLimiter *ratelimit.TokenBucket
+	if cfg.RateLimit.Enabled {
+		rateLimiter = newRateLimiterFromConfig(cfg.RateLimit)
+		grpcUnaryInterceptors = append(grpcUnaryInterceptors, grpcRateLimitInterceptor(rateLimiter))
+		logger.Info("gRPC rate limiting enabled",
+			logging.Int("requests_per_minute", cfg.RateLimit.RequestsPerMinute),
+			logging.Int("burst", cfg.RateLimit.Burst),
+		)
+	}
 
 	// Build TLS config for API servers if enabled
 	var serverTLSConfig *tls.Config
@@ -357,11 +373,9 @@ func runServer(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		// Add auth interceptors to gRPC server
-		grpcOpts = append(grpcOpts,
-			grpc.UnaryInterceptor(auth.UnaryServerInterceptor(authInterceptorCfg)),
-			grpc.StreamInterceptor(auth.StreamServerInterceptor(authInterceptorCfg)),
-		)
+		// Add auth interceptors to chain
+		grpcUnaryInterceptors = append(grpcUnaryInterceptors, auth.UnaryServerInterceptor(authInterceptorCfg))
+		grpcStreamInterceptors = append(grpcStreamInterceptors, auth.StreamServerInterceptor(authInterceptorCfg))
 
 		keyCount := len(cfg.Auth.APIKey.Keys)
 		logger.Info("API authentication enabled",
@@ -371,6 +385,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	} else {
 		logger.Warn("API authentication is DISABLED - all requests will be allowed")
 		logger.Warn("This is insecure for production use. Set auth.enabled=true in config.")
+	}
+
+	// Wire interceptor chains (rate limit runs before auth)
+	if len(grpcUnaryInterceptors) > 0 {
+		grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...))
+	}
+	if len(grpcStreamInterceptors) > 0 {
+		grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(grpcStreamInterceptors...))
 	}
 
 	grpcServer := grpc.NewServer(grpcOpts...)
@@ -648,10 +670,9 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Info("HTTP authentication middleware enabled")
 	}
 
-	// Wrap with rate limiting middleware if enabled
-	if cfg.RateLimit.Enabled {
-		limiter := newRateLimiterFromConfig(cfg.RateLimit)
-		httpHandler = rateLimitMiddleware(httpHandler, limiter, cfg.RateLimit)
+	// Wrap with rate limiting middleware if enabled (reuses shared limiter)
+	if cfg.RateLimit.Enabled && rateLimiter != nil {
+		httpHandler = rateLimitMiddleware(httpHandler, rateLimiter, cfg.RateLimit)
 		logger.Info("HTTP rate limiting enabled",
 			logging.Int("requests_per_minute", cfg.RateLimit.RequestsPerMinute),
 			logging.Int("burst", cfg.RateLimit.Burst),
@@ -1614,6 +1635,28 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// grpcRateLimitInterceptor returns a gRPC unary interceptor that rate-limits
+// by peer IP address using the same limiter as the HTTP middleware.
+func grpcRateLimitInterceptor(limiter ratelimit.Limiter) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		key := "ip:unknown"
+		if p, ok := grpcpeer.FromContext(ctx); ok && p.Addr != nil {
+			host, _, err := net.SplitHostPort(p.Addr.String())
+			if err == nil {
+				key = "ip:" + host
+			}
+		}
+		result, err := limiter.Allow(ctx, key)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "rate limiter error")
+		}
+		if !result.Allowed {
+			return nil, status.Error(codes.ResourceExhausted, "rate limit exceeded")
+		}
+		return handler(ctx, req)
+	}
 }
 
 // httpAuthBypassPaths are HTTP paths that do not require authentication.
