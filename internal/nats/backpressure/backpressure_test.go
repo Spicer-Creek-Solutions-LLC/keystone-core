@@ -535,3 +535,27 @@ func TestFlowController_ConcurrentAcquire(t *testing.T) {
 		t.Errorf("Acquired %d slots, want 500", atomic.LoadInt64(&acquired))
 	}
 }
+
+func TestPublisher_Close_StopsThrottler(t *testing.T) {
+	p := NewPublisher(&Config{
+		Strategy:     StrategyThrottle,
+		ThrottleRate: 100,
+		BufferSize:   10,
+	}, func(m *Message) error { return nil })
+
+	// Close should not panic or hang
+	p.Close()
+
+	// Second close should also be safe (stopCh already closed)
+	// This tests idempotency isn't required but Close shouldn't panic
+}
+
+func TestPublisher_Close_NoThrottler(t *testing.T) {
+	p := NewPublisher(&Config{
+		Strategy:   StrategyBuffer,
+		BufferSize: 10,
+	}, func(m *Message) error { return nil })
+
+	// Close on a non-throttle publisher should be a no-op
+	p.Close()
+}

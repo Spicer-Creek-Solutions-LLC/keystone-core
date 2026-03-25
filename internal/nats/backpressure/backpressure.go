@@ -93,6 +93,14 @@ type Event struct {
 // EventListener is called when backpressure events occur.
 type EventListener func(*Event)
 
+// Close releases resources held by the publisher. In particular, it stops
+// the throttler's background goroutine when StrategyThrottle is used.
+func (p *Publisher) Close() {
+	if p.throttler != nil {
+		p.throttler.stop()
+	}
+}
+
 // NewPublisher creates a new backpressure-aware publisher.
 func NewPublisher(config *Config, publishFn func(*Message) error) *Publisher {
 	if config == nil {
