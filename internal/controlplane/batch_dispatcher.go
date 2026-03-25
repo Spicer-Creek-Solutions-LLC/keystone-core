@@ -184,8 +184,10 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 
 	// Send batch start event
 	startTime := time.Now()
+	bd.mu.Lock()
 	job.StartedAt = &startTime
 	job.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING
+	bd.mu.Unlock()
 
 	// Update status in database
 	_ = bd.store.UpdateBatchJobStatus(ctx, job.ID, job.Status) //nolint:errcheck // best-effort persistence
@@ -216,8 +218,10 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 	if err != nil {
 		// Batch failed to start
 		now := time.Now()
+		bd.mu.Lock()
 		job.CompletedAt = &now
 		job.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
+		bd.mu.Unlock()
 		responseChan <- &pb.BatchExecuteCommandResponse{
 			BatchJobId: job.ID,
 			Type:       pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_FAILED,
@@ -229,8 +233,10 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 
 	// Update total count
 	total, _, _ := batch.Progress()
+	bd.mu.Lock()
 	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
 	job.Total = int32(total)
+	bd.mu.Unlock()
 
 	// Persist initial progress
 	//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
@@ -258,9 +264,11 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 				successful := completed - failed
 				successRate := batch.SuccessRate()
 
+				bd.mu.Lock()
 				job.Completed = int32(completed)   //nolint:gosec // G115: bounded by cluster size
 				job.Successful = int32(successful) //nolint:gosec // G115: bounded by cluster size
 				job.Failed = int32(failed)         //nolint:gosec // G115: bounded by cluster size
+				bd.mu.Unlock()
 
 				// Persist progress to database
 				//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
@@ -326,21 +334,21 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 		})
 	}
 
-	job.AgentResults = agentResults
-
 	// Calculate final stats
 	total, completed, failed := batch.Progress()
 	successful := completed - failed
 	successRate := batch.SuccessRate()
 
+	// Update job fields under lock to prevent data race with readers
+	completedTime := time.Now()
+	bd.mu.Lock()
+	job.AgentResults = agentResults
 	job.Completed = int32(completed)   //nolint:gosec // G115: bounded by cluster size
 	job.Successful = int32(successful) //nolint:gosec // G115: bounded by cluster size
 	job.Failed = int32(failed)         //nolint:gosec // G115: bounded by cluster size
-
-	// Send completion
-	completedTime := time.Now()
 	job.CompletedAt = &completedTime
 	job.Status = pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED
+	bd.mu.Unlock()
 
 	duration := completedTime.Sub(job.CreatedAt)
 
