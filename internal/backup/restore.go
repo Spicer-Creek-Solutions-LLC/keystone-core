@@ -442,12 +442,14 @@ type RestoreOptions struct {
 
 // RestoreWithOptions performs a restore with custom options
 func (rm *RestoreManager) RestoreWithOptions(ctx context.Context, opts RestoreOptions) (*RestoreInfo, error) {
-	// Override config with options
+	// Override config with options under lock to prevent data races
+	rm.mu.Lock()
 	if len(opts.Components) > 0 {
 		rm.config.Components = opts.Components
 	}
 	rm.config.VerifyIntegrity = opts.VerifyIntegrity
 	rm.config.DryRun = opts.DryRun
+	rm.mu.Unlock()
 
 	// Run pre-restore hook
 	if opts.PreRestoreHook != nil {
