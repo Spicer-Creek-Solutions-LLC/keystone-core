@@ -37,7 +37,7 @@ const (
 	ShutdownReasonMaintenance ShutdownReason = "maintenance"
 	ShutdownReasonUpgrade     ShutdownReason = "upgrade"
 	ShutdownReasonScaleDown   ShutdownReason = "scale_down"
-	ShutdownReasonHealthy     ShutdownReason = "unhealthy"
+	ShutdownReasonUnhealthy   ShutdownReason = "unhealthy"
 	ShutdownReasonSignal      ShutdownReason = "signal"
 )
 
@@ -191,12 +191,15 @@ func (g *GracefulShutdown) Initiate(ctx context.Context, reason ShutdownReason) 
 		Timestamp: time.Now(),
 	})
 
-	// Create timeout context
+	// Create timeout context — cancel is deferred inside the goroutine,
+	// not here, because Initiate returns immediately while shutdown runs async.
 	ctx, cancel := context.WithTimeout(ctx, g.config.ShutdownTimeout)
-	defer cancel()
 
 	// Run shutdown sequence
-	go g.executeShutdown(ctx, reason)
+	go func() {
+		defer cancel()
+		g.executeShutdown(ctx, reason)
+	}()
 
 	return nil
 }

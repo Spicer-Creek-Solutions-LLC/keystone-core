@@ -37,7 +37,7 @@ func TestShutdownReason_Constants(t *testing.T) {
 		{ShutdownReasonMaintenance, "maintenance"},
 		{ShutdownReasonUpgrade, "upgrade"},
 		{ShutdownReasonScaleDown, "scale_down"},
-		{ShutdownReasonHealthy, "unhealthy"},
+		{ShutdownReasonUnhealthy, "unhealthy"},
 		{ShutdownReasonSignal, "signal"},
 	}
 
