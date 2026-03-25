@@ -109,9 +109,10 @@ type ReactorEngine struct {
 	deadLetterQueue DeadLetterQueue
 
 	// Context for cancellation
-	ctx    context.Context
-	cancel context.CancelFunc
-	dlqWg  sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
+	dlqWg      sync.WaitGroup
+	debounceWg sync.WaitGroup
 }
 
 // reactorExecution tracks execution state for a reactor
@@ -259,7 +260,11 @@ func (e *ReactorEngine) AddReactor(reactor *Reactor) error {
 	// Set up debouncing if needed
 	if reactor.Conditions != nil && reactor.Conditions.Debounce > 0 {
 		exec.debouncedEvents = make(chan *Event, 100)
-		go e.debounceHandler(reactor.ID)
+		e.debounceWg.Add(1)
+		go func() {
+			defer e.debounceWg.Done()
+			e.debounceHandler(reactor.ID)
+		}()
 	}
 
 	e.reactors[reactor.ID] = reactor
@@ -631,14 +636,18 @@ func (e *ReactorEngine) debounceHandler(reactorID string) {
 				exec.debounceTimer.Stop()
 			}
 
+			// Capture the current event for the closure to avoid a data
+			// race between this goroutine writing lastEvent and the
+			// AfterFunc goroutine reading it.
+			capturedEvent := lastEvent
 			exec.debounceTimer = time.AfterFunc(reactor.Conditions.Debounce, func() {
-				if lastEvent != nil {
+				if capturedEvent != nil {
 					e.metrics.mu.RLock()
 					metrics := e.metrics.reactorMetrics[reactorID]
 					e.metrics.mu.RUnlock()
 					atomic.AddUint64(&metrics.Debounced, 1)
 
-					e.executeActions(reactor, lastEvent, exec)
+					e.executeActions(reactor, capturedEvent, exec)
 				}
 			})
 		case <-e.ctx.Done():
@@ -856,9 +865,10 @@ func (e *ReactorEngine) GetReactorMetrics(id string) (*ReactorExecutionMetrics, 
 	}, nil
 }
 
-// Close closes the reactor engine and waits for in-flight DLQ enqueues.
+// Close closes the reactor engine and waits for background goroutines.
 func (e *ReactorEngine) Close() error {
 	e.cancel()
+	e.debounceWg.Wait()
 	e.dlqWg.Wait()
 	return nil
 }
