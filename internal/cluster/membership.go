@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 
@@ -561,13 +562,14 @@ func (m *MembershipManager) AddObserver(observer MembershipObserver) {
 	m.observers = append(m.observers, observer)
 }
 
-// RemoveObserver removes a membership observer.
+// RemoveObserver removes a membership observer by comparing function pointers.
 func (m *MembershipManager) RemoveObserver(observer MembershipObserver) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	target := reflect.ValueOf(observer).Pointer()
 	for i, o := range m.observers {
-		if &o == &observer {
+		if reflect.ValueOf(o).Pointer() == target {
 			m.observers = append(m.observers[:i], m.observers[i+1:]...)
 			return
 		}

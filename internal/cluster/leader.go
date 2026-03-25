@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -272,13 +273,14 @@ func (l *LeaderElector) AddObserver(observer LeadershipObserver) {
 	l.observers = append(l.observers, observer)
 }
 
-// RemoveObserver removes a leadership observer.
+// RemoveObserver removes a leadership observer by comparing function pointers.
 func (l *LeaderElector) RemoveObserver(observer LeadershipObserver) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	target := reflect.ValueOf(observer).Pointer()
 	for i, o := range l.observers {
-		if &o == &observer {
+		if reflect.ValueOf(o).Pointer() == target {
 			l.observers = append(l.observers[:i], l.observers[i+1:]...)
 			return
 		}
