@@ -209,11 +209,10 @@ func runAgent(cmd *cobra.Command, args []string) {
 	<-sigChan
 	logger.Info("Received shutdown signal, shutting down gracefully")
 
-	// Graceful shutdown
+	// Graceful shutdown — agnt.Stop() is also deferred, but calling it
+	// explicitly here ensures ordering: agent stops before NATS shuts down.
 	logger.Info("Stopping agent")
-	if err := agnt.Stop(); err != nil {
-		logger.Error("Error stopping agent", logging.Error(err))
-	}
+	agnt.Stop()
 
 	logger.Info("Shutting down NATS manager")
 	if err := natsManager.Shutdown(); err != nil {

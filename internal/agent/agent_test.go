@@ -982,3 +982,27 @@ func TestAgent_HandleCommandRequest_CommandFailure(t *testing.T) {
 		}
 	}
 }
+
+func TestAgent_DoubleStop(t *testing.T) {
+	mgr := createTestNATSManager(t)
+	defer mgr.Shutdown()
+
+	agent, err := NewAgent("double-stop-agent", mgr, 100*time.Millisecond, 200*time.Millisecond, 30*time.Second)
+	if err != nil {
+		t.Fatalf("NewAgent failed: %v", err)
+	}
+
+	if err := agent.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// First stop
+	if err := agent.Stop(); err != nil {
+		t.Fatalf("First Stop failed: %v", err)
+	}
+
+	// Second stop should not panic or error
+	if err := agent.Stop(); err != nil {
+		t.Fatalf("Second Stop failed: %v", err)
+	}
+}

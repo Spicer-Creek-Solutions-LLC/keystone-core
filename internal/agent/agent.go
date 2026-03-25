@@ -43,9 +43,10 @@ type Agent struct {
 	subjects *natsmgr.SubjectBuilder
 	cluster  string
 
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	stopOnce sync.Once
 
 	mu           sync.RWMutex
 	registered   bool
@@ -170,12 +171,14 @@ func (a *Agent) Start() error {
 	return nil
 }
 
-// Stop stops the agent gracefully
+// Stop stops the agent gracefully. It is safe to call multiple times.
 func (a *Agent) Stop() error {
-	fmt.Println("Stopping agent...")
-	a.cancel()
-	a.wg.Wait()
-	fmt.Println("Agent stopped")
+	a.stopOnce.Do(func() {
+		fmt.Println("Stopping agent...")
+		a.cancel()
+		a.wg.Wait()
+		fmt.Println("Agent stopped")
+	})
 	return nil
 }
 
