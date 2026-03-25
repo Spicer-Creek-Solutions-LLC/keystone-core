@@ -197,7 +197,7 @@ func (a *Agent) ID() string {
 
 // register sends registration request to control plane
 func (a *Agent) register() error {
-	fmt.Printf("Registering agent with control plane...\n")
+	a.logger.Info("registering agent with control plane")
 
 	// Build registration request
 	req := &pb.RegisterRequest{
@@ -228,7 +228,7 @@ func (a *Agent) register() error {
 	if err != nil {
 		// If no response, we might be in development mode or control plane is not ready
 		// Don't fail, just warn
-		fmt.Printf("Warning: No response from control plane (may not be running): %v\n", err)
+		a.logger.Warn("no response from control plane (may not be running)", logging.Field{Key: "error", Value: err})
 		a.mu.Lock()
 		a.registered = true
 		a.mu.Unlock()
@@ -243,7 +243,7 @@ func (a *Agent) register() error {
 
 	// Update configuration from response
 	if resp.Config != nil {
-		fmt.Printf("Received configuration from control plane\n")
+		a.logger.Info("received configuration from control plane")
 		if resp.Config.HeartbeatInterval > 0 {
 			a.heartbeatInterval = time.Duration(resp.Config.HeartbeatInterval) * time.Second
 		}
@@ -256,7 +256,7 @@ func (a *Agent) register() error {
 	a.registered = true
 	a.mu.Unlock()
 
-	fmt.Printf("Agent registered successfully with ID: %s\n", resp.AgentId)
+	a.logger.Info("agent registered successfully", logging.Field{Key: "resp_agent_id", Value: resp.AgentId})
 	return nil
 }
 
@@ -374,12 +374,15 @@ func (a *Agent) handleCommandRequest(msg *nats.Msg) {
 	// Parse command request
 	var req pb.ExecuteCommandRequest
 	if err := proto.Unmarshal(msg.Data, &req); err != nil {
-		fmt.Printf("Failed to unmarshal command request: %v\n", err)
+		a.logger.Error("failed to unmarshal command request", logging.Field{Key: "error", Value: err})
 		a.sendCommandError(msg, "failed to unmarshal request", err)
 		return
 	}
 
-	fmt.Printf("Received command: %s %v (ID: %s)\n", req.Command, req.Args, req.CommandId)
+	a.logger.Info("received command",
+		logging.Field{Key: "command", Value: req.Command},
+		logging.Field{Key: "command_id", Value: req.CommandId},
+	)
 
 	// Security: Extract principal and signature from NATS headers
 	principal := "unknown"
@@ -393,14 +396,14 @@ func (a *Agent) handleCommandRequest(msg *nats.Msg) {
 
 	// Security: Check authorization
 	if err := a.security.AuthorizeCommand(principal, req.Command, signature); err != nil {
-		fmt.Printf("Authorization failed for command %s: %v\n", req.CommandId, err)
+		a.logger.Warn("authorization failed", logging.Field{Key: "command_id", Value: req.CommandId}, logging.Field{Key: "error", Value: err})
 		a.sendCommandError(msg, "authorization failed", err)
 		return
 	}
 
 	// Security: Validate command against filters
 	if err := a.security.ValidateCommand(req.Command, req.Args, req.Env, req.WorkingDir); err != nil {
-		fmt.Printf("Command validation failed for %s: %v\n", req.CommandId, err)
+		a.logger.Warn("command validation failed", logging.Field{Key: "command_id", Value: req.CommandId}, logging.Field{Key: "error", Value: err})
 		a.sendCommandError(msg, "command validation failed", err)
 		return
 	}
@@ -471,14 +474,14 @@ func (a *Agent) handleCommandRequest(msg *nats.Msg) {
 func (a *Agent) sendCommandResponse(originalMsg *nats.Msg, resp *pb.ExecuteCommandResponse) {
 	data, err := proto.Marshal(resp)
 	if err != nil {
-		fmt.Printf("Failed to marshal command response: %v\n", err)
+		a.logger.Error("failed to marshal command response", logging.Field{Key: "error", Value: err})
 		return
 	}
 
 	// Reply to the original message if it has a reply subject
 	if originalMsg.Reply != "" {
 		if err := a.nats.Publish(originalMsg.Reply, data); err != nil {
-			fmt.Printf("Failed to send command response: %v\n", err)
+			a.logger.Error("failed to send command response", logging.Field{Key: "error", Value: err})
 		}
 	}
 }
@@ -490,9 +493,15 @@ func (a *Agent) sendCommandError(originalMsg *nats.Msg, message string, err erro
 		"details": err.Error(),
 	}
 
-	data, _ := json.Marshal(errorResp)
+	data, marshalErr := json.Marshal(errorResp)
+	if marshalErr != nil {
+		a.logger.Error("failed to marshal error response", logging.Field{Key: "error", Value: marshalErr})
+		return
+	}
 
 	if originalMsg.Reply != "" {
-		a.nats.Publish(originalMsg.Reply, data)
+		if pubErr := a.nats.Publish(originalMsg.Reply, data); pubErr != nil {
+			a.logger.Error("failed to send error response", logging.Field{Key: "error", Value: pubErr})
+		}
 	}
 }
