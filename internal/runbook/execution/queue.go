@@ -176,7 +176,11 @@ func (q *Queue) EnqueueWithTimeout(rb *runbook.Runbook, inputs map[string]interf
 	if err != nil {
 		return nil, err
 	}
+	// Set timeout under the queue lock to prevent a data race with the
+	// processLoop goroutine which may dequeue and read exec.Timeout.
+	q.mu.Lock()
 	exec.Timeout = timeout
+	q.mu.Unlock()
 	return exec, nil
 }
 
