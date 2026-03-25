@@ -487,6 +487,12 @@ func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, ev
 func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *reactorExecution) {
 	// activeCount was already incremented before spawning goroutine
 	defer atomic.AddInt32(&exec.activeCount, -1)
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("reactor %s action panic recovered: %v\n", reactor.ID, r)
+			atomic.AddUint64(&e.metrics.ExecutionsFailed, 1)
+		}
+	}()
 
 	e.metrics.mu.RLock()
 	metrics := e.metrics.reactorMetrics[reactor.ID]
