@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -130,10 +131,11 @@ func (f *HTTPBundleFetcher) fetchHTTPSWeb(ctx context.Context, endpoint string) 
 }
 
 // fetchHTTPSSPIFFE fetches a trust bundle using SPIFFE authentication.
+// NOTE: Full mTLS authentication via SVID is not yet implemented.
+// This falls back to unauthenticated HTTPS with a warning.
 func (f *HTTPBundleFetcher) fetchHTTPSSPIFFE(ctx context.Context, endpoint string) (*identity.TrustBundle, error) {
-	// SPIFFE profile requires mutual TLS authentication
-	// For now, fall back to HTTPS Web
-	// Full implementation would use SVID for client authentication
+	slog.Warn("https_spiffe profile requested but mTLS not implemented; falling back to unauthenticated HTTPS",
+		"endpoint", endpoint)
 	return f.fetchHTTPSWeb(ctx, endpoint)
 }
 
@@ -177,6 +179,10 @@ func (f *HTTPBundleFetcher) parseBundleData(data []byte, contentType string) (*i
 		bundle, err := f.parseJSONBundle(data)
 		if err == nil {
 			return bundle, nil
+		}
+		// For explicit JSON content type, return the parse error directly
+		if contentType == "application/json" {
+			return nil, fmt.Errorf("parse JSON bundle: %w", err)
 		}
 	}
 
