@@ -110,6 +110,7 @@ type ReactorEngine struct {
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
+	dlqWg  sync.WaitGroup
 }
 
 // reactorExecution tracks execution state for a reactor
@@ -741,7 +742,9 @@ func (e *ReactorEngine) enqueueToDeadLetterQueue(reactor *Reactor, event *Event,
 	}
 
 	// Enqueue in background to not block execution
+	e.dlqWg.Add(1)
 	go func() {
+		defer e.dlqWg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := dlq.Enqueue(ctx, entry); err != nil {
@@ -852,9 +855,10 @@ func (e *ReactorEngine) GetReactorMetrics(id string) (*ReactorExecutionMetrics, 
 	}, nil
 }
 
-// Close closes the reactor engine
+// Close closes the reactor engine and waits for in-flight DLQ enqueues.
 func (e *ReactorEngine) Close() error {
 	e.cancel()
+	e.dlqWg.Wait()
 	return nil
 }
 
