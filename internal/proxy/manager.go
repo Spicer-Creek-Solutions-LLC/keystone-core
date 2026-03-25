@@ -83,11 +83,12 @@ type Manager struct {
 	healthChecker *HealthChecker
 
 	// Lifecycle management
-	ctx        context.Context
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
-	startMu    sync.Mutex
-	shutdownCh chan struct{}
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	startMu      sync.Mutex
+	shutdownCh   chan struct{}
+	shutdownOnce sync.Once
 }
 
 // NewManager creates a new proxy agent manager.
@@ -220,7 +221,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	}
 
 	m.state.Store(ProxyAgentStateStopped)
-	close(m.shutdownCh)
+	m.shutdownOnce.Do(func() { close(m.shutdownCh) })
 
 	return nil
 }
