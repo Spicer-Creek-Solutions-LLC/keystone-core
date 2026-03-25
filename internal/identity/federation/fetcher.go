@@ -186,6 +186,9 @@ func (f *HTTPBundleFetcher) parseBundleData(data []byte, contentType string) (*i
 	}
 
 	// Try to auto-detect
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty bundle response body")
+	}
 	if data[0] == '{' || data[0] == '[' {
 		return f.parseJSONBundle(data)
 	}
