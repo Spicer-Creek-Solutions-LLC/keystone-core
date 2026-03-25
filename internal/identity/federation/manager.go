@@ -21,6 +21,7 @@ type ManagerImpl struct {
 	federatedDomains map[string]*FederatedDomain
 	started          bool
 	stopCh           chan struct{}
+	wg               sync.WaitGroup
 }
 
 // NewManager creates a new federation manager.
@@ -378,17 +379,20 @@ func (m *ManagerImpl) Start(ctx context.Context) error {
 	}
 
 	// Start refresh loop
-	go m.refreshLoop() //nolint:contextcheck // background loop uses internal context
+	m.wg.Add(1)
+	go func() {
+		defer m.wg.Done()
+		m.refreshLoop()
+	}()
 
 	return nil
 }
 
-// Stop stops the federation manager.
+// Stop stops the federation manager and waits for the background goroutine to exit.
 func (m *ManagerImpl) Stop(ctx context.Context) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if !m.started {
+		m.mu.Unlock()
 		return nil
 	}
 	m.started = false
@@ -396,7 +400,10 @@ func (m *ManagerImpl) Stop(ctx context.Context) error {
 	if m.stopCh != nil {
 		close(m.stopCh)
 	}
+	m.mu.Unlock()
 
+	// Wait for the refresh goroutine to finish
+	m.wg.Wait()
 	return nil
 }
 
@@ -525,42 +532,46 @@ func (m *ManagerImpl) refreshLoop() {
 }
 
 func (m *ManagerImpl) refreshAllBundles() {
+	// Collect trust domains that need refresh while holding the read lock.
+	// Only copy the trust domain string — not the pointer — to avoid
+	// reading FederatedDomain fields after releasing the lock.
 	m.mu.RLock()
-	domains := make([]*FederatedDomain, 0, len(m.federatedDomains))
-	for _, d := range m.federatedDomains {
-		domains = append(domains, d)
-	}
-	m.mu.RUnlock()
-
-	for _, domain := range domains {
-		if !domain.IsActive() {
+	var toRefresh []string
+	for trustDomain, domain := range m.federatedDomains {
+		if !domain.IsActive() || domain.BundleEndpoint == "" {
 			continue
 		}
-		if domain.BundleEndpoint == "" {
-			continue
-		}
-
-		// Check if refresh is needed
 		if domain.TrustBundle != nil &&
 			time.Since(domain.TrustBundle.UpdatedAt) < domain.RefreshInterval {
 			continue
 		}
+		toRefresh = append(toRefresh, trustDomain)
+	}
+	m.mu.RUnlock()
 
+	for _, trustDomain := range toRefresh {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		_ = m.RefreshTrustBundle(ctx, domain.TrustDomain) // best-effort refresh, continue on error
+		_ = m.RefreshTrustBundle(ctx, trustDomain) // best-effort refresh
 		cancel()
 	}
 }
 
 func (m *ManagerImpl) checkExpirations() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	// Collect expired domains under lock, emit events after releasing
+	// to avoid potential deadlock if the callback re-enters the manager.
+	var expired []string
 
+	m.mu.Lock()
 	for trustDomain, domain := range m.federatedDomains {
 		if domain.State == StateActive && domain.IsExpired() {
 			domain.State = StateExpired
-			m.emitEvent(EventExpired, trustDomain, nil)
+			expired = append(expired, trustDomain)
 		}
+	}
+	m.mu.Unlock()
+
+	for _, trustDomain := range expired {
+		m.emitEvent(EventExpired, trustDomain, nil)
 	}
 }
 
