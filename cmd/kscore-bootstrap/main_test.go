@@ -354,9 +354,9 @@ func TestBuildKeyValueTable(t *testing.T) {
 	}
 }
 
-func TestCliLogger(t *testing.T) {
-	// Test the cliLogger implementation
-	logger := &cliLogger{verbose: true}
+func TestSlogLogger(t *testing.T) {
+	// Test the slogLogger implementation
+	logger := newSlogLogger(true)
 
 	// These should not panic
 	logger.Debug("debug message", "key", "value")
@@ -364,9 +364,9 @@ func TestCliLogger(t *testing.T) {
 	logger.Warn("warn message")
 	logger.Error("error message")
 
-	// With verbose false
-	logger = &cliLogger{verbose: false}
-	logger.Debug("this should not output") // Should be silent
+	// With verbose false (debug suppressed)
+	logger = newSlogLogger(false)
+	logger.Debug("this should not output") // Should be silent at info level
 	logger.Info("info message")
 }
 

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -1037,7 +1038,7 @@ func runSeed(cmd *cobra.Command, args []string) error {
 		Force:            force,
 	}
 
-	logger := &cliLogger{verbose: verbose}
+	logger := newSlogLogger(verbose)
 	bootstrapper, err := bootstrap.NewBootstrapper(opts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrapper: %w", err)
@@ -1096,7 +1097,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Force:            force,
 	}
 
-	logger := &cliLogger{verbose: verbose}
+	logger := newSlogLogger(verbose)
 	bootstrapper, err := bootstrap.NewBootstrapper(opts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrapper: %w", err)
@@ -1127,7 +1128,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		Force:            force,
 	}
 
-	logger := &cliLogger{verbose: verbose}
+	logger := newSlogLogger(verbose)
 	bootstrapper, err := bootstrap.NewBootstrapper(opts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrapper: %w", err)
@@ -1322,7 +1323,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		Force: force,
 	}
 
-	logger := &cliLogger{verbose: true}
+	logger := newSlogLogger(true)
 	bootstrapper, err := bootstrap.NewBootstrapper(opts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrapper: %w", err)
@@ -1380,52 +1381,27 @@ func contextWithSignal() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-// cliLogger implements the bootstrap.Logger interface for CLI output
-type cliLogger struct {
-	verbose bool
+// slogLogger adapts log/slog to the bootstrap.Logger interface.
+// Output goes to stderr (slog default) so it doesn't interfere with
+// structured command output on stdout.
+type slogLogger struct {
+	logger *slog.Logger
 }
 
-func (l *cliLogger) Debug(msg string, args ...any) {
-	if l.verbose {
-		fmt.Printf("[DEBUG] %s", msg)
-		for i := 0; i < len(args); i += 2 {
-			if i+1 < len(args) {
-				fmt.Printf(" %v=%v", args[i], args[i+1])
-			}
-		}
-		fmt.Println()
+func newSlogLogger(verbose bool) *slogLogger {
+	level := slog.LevelInfo
+	if verbose {
+		level = slog.LevelDebug
+	}
+	return &slogLogger{
+		logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
 	}
 }
 
-func (l *cliLogger) Info(msg string, args ...any) {
-	fmt.Printf("[INFO] %s", msg)
-	for i := 0; i < len(args); i += 2 {
-		if i+1 < len(args) {
-			fmt.Printf(" %v=%v", args[i], args[i+1])
-		}
-	}
-	fmt.Println()
-}
-
-func (l *cliLogger) Warn(msg string, args ...any) {
-	fmt.Printf("[WARN] %s", msg)
-	for i := 0; i < len(args); i += 2 {
-		if i+1 < len(args) {
-			fmt.Printf(" %v=%v", args[i], args[i+1])
-		}
-	}
-	fmt.Println()
-}
-
-func (l *cliLogger) Error(msg string, args ...any) {
-	fmt.Printf("[ERROR] %s", msg)
-	for i := 0; i < len(args); i += 2 {
-		if i+1 < len(args) {
-			fmt.Printf(" %v=%v", args[i], args[i+1])
-		}
-	}
-	fmt.Println()
-}
+func (l *slogLogger) Debug(msg string, args ...any) { l.logger.Debug(msg, args...) }
+func (l *slogLogger) Info(msg string, args ...any)   { l.logger.Info(msg, args...) }
+func (l *slogLogger) Warn(msg string, args ...any)   { l.logger.Warn(msg, args...) }
+func (l *slogLogger) Error(msg string, args ...any)  { l.logger.Error(msg, args...) }
 
 func buildKeyValueTable(pairs [][2]string) *output.Table {
 	rows := make([][]string, 0, len(pairs))
