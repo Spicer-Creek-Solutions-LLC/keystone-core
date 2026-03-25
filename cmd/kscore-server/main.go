@@ -313,6 +313,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	var rateLimiter *ratelimit.TokenBucket
 	if cfg.RateLimit.Enabled {
 		rateLimiter = newRateLimiterFromConfig(cfg.RateLimit)
+		defer rateLimiter.Stop()
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors, grpcRateLimitInterceptor(rateLimiter))
 		logger.Info("gRPC rate limiting enabled",
 			logging.Int("requests_per_minute", cfg.RateLimit.RequestsPerMinute),
