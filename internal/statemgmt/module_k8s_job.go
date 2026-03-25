@@ -35,7 +35,7 @@ func (m *K8sJobModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 	}
 
 	// Get job from cluster
-	job, err := m.client.GetJob(namespace, name)
+	job, err := m.client.GetJob(ctx, namespace, name)
 	if err != nil {
 		// Check if job doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -167,7 +167,7 @@ func (m *K8sJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 			}
 
 			// Create job
-			if err := m.client.CreateJob(namespace, spec); err != nil {
+			if err := m.client.CreateJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create job: %v", err)
 				result.Duration = time.Since(startTime)
@@ -208,7 +208,7 @@ func (m *K8sJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 				return result, fmt.Errorf("image is required to create a job")
 			}
 
-			if err := m.client.CreateJob(namespace, spec); err != nil {
+			if err := m.client.CreateJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create job: %v", err)
 				result.Duration = time.Since(startTime)
@@ -229,7 +229,7 @@ func (m *K8sJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	case "absent":
 		if checkResult.Present {
 			// Delete job
-			if err := m.client.DeleteJob(namespace, name); err != nil {
+			if err := m.client.DeleteJob(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete job: %v", err)
 				result.Duration = time.Since(startTime)

@@ -35,7 +35,7 @@ func (m *K8sDaemonSetModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Get daemonset from cluster
-	ds, err := m.client.GetDaemonSet(namespace, name)
+	ds, err := m.client.GetDaemonSet(ctx, namespace, name)
 	if err != nil {
 		// Check if daemonset doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -175,7 +175,7 @@ func (m *K8sDaemonSetModule) Apply(ctx context.Context, decl *StateDeclaration) 
 			}
 
 			// Create daemonset
-			if err := m.client.CreateDaemonSet(namespace, spec); err != nil {
+			if err := m.client.CreateDaemonSet(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create daemonset: %v", err)
 				result.Duration = time.Since(startTime)
@@ -187,7 +187,7 @@ func (m *K8sDaemonSetModule) Apply(ctx context.Context, decl *StateDeclaration) 
 			result.Comment = fmt.Sprintf("Created daemonset %s/%s", namespace, name)
 		} else {
 			// Update daemonset
-			if err := m.client.UpdateDaemonSet(namespace, spec); err != nil {
+			if err := m.client.UpdateDaemonSet(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update daemonset: %v", err)
 				result.Duration = time.Since(startTime)
@@ -210,7 +210,7 @@ func (m *K8sDaemonSetModule) Apply(ctx context.Context, decl *StateDeclaration) 
 	case "absent":
 		if checkResult.Present {
 			// Delete daemonset
-			if err := m.client.DeleteDaemonSet(namespace, name); err != nil {
+			if err := m.client.DeleteDaemonSet(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete daemonset: %v", err)
 				result.Duration = time.Since(startTime)

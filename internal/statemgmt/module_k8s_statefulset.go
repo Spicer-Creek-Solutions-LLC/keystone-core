@@ -35,7 +35,7 @@ func (m *K8sStatefulSetModule) Check(ctx context.Context, decl *StateDeclaration
 	}
 
 	// Get statefulset from cluster
-	sts, err := m.client.GetStatefulSet(namespace, name)
+	sts, err := m.client.GetStatefulSet(ctx, namespace, name)
 	if err != nil {
 		// Check if statefulset doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -196,7 +196,7 @@ func (m *K8sStatefulSetModule) Apply(ctx context.Context, decl *StateDeclaration
 			}
 
 			// Create statefulset
-			if err := m.client.CreateStatefulSet(namespace, spec); err != nil {
+			if err := m.client.CreateStatefulSet(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create statefulset: %v", err)
 				result.Duration = time.Since(startTime)
@@ -214,7 +214,7 @@ func (m *K8sStatefulSetModule) Apply(ctx context.Context, decl *StateDeclaration
 			result.Comment = fmt.Sprintf("Created statefulset %s/%s", namespace, name)
 		} else {
 			// Update statefulset
-			if err := m.client.UpdateStatefulSet(namespace, spec); err != nil {
+			if err := m.client.UpdateStatefulSet(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update statefulset: %v", err)
 				result.Duration = time.Since(startTime)
@@ -240,7 +240,7 @@ func (m *K8sStatefulSetModule) Apply(ctx context.Context, decl *StateDeclaration
 	case "absent":
 		if checkResult.Present {
 			// Delete statefulset
-			if err := m.client.DeleteStatefulSet(namespace, name); err != nil {
+			if err := m.client.DeleteStatefulSet(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete statefulset: %v", err)
 				result.Duration = time.Since(startTime)

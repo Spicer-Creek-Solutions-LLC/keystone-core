@@ -35,7 +35,7 @@ func (m *K8sCronJobModule) Check(ctx context.Context, decl *StateDeclaration) (*
 	}
 
 	// Get cronjob from cluster
-	cj, err := m.client.GetCronJob(namespace, name)
+	cj, err := m.client.GetCronJob(ctx, namespace, name)
 	if err != nil {
 		// Check if cronjob doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -220,7 +220,7 @@ func (m *K8sCronJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			}
 
 			// Create cronjob
-			if err := m.client.CreateCronJob(namespace, spec); err != nil {
+			if err := m.client.CreateCronJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create cronjob: %v", err)
 				result.Duration = time.Since(startTime)
@@ -233,7 +233,7 @@ func (m *K8sCronJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			result.Comment = fmt.Sprintf("Created cronjob %s/%s", namespace, name)
 		} else {
 			// Update cronjob
-			if err := m.client.UpdateCronJob(namespace, spec); err != nil {
+			if err := m.client.UpdateCronJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update cronjob: %v", err)
 				result.Duration = time.Since(startTime)
@@ -282,7 +282,7 @@ func (m *K8sCronJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 				return result, fmt.Errorf("image is required to create a cronjob")
 			}
 
-			if err := m.client.CreateCronJob(namespace, spec); err != nil {
+			if err := m.client.CreateCronJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create cronjob: %v", err)
 				result.Duration = time.Since(startTime)
@@ -297,7 +297,7 @@ func (m *K8sCronJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 				Name:    name,
 				Suspend: true,
 			}
-			if err := m.client.UpdateCronJob(namespace, spec); err != nil {
+			if err := m.client.UpdateCronJob(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to suspend cronjob: %v", err)
 				result.Duration = time.Since(startTime)
@@ -311,7 +311,7 @@ func (m *K8sCronJobModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 	case "absent":
 		if checkResult.Present {
 			// Delete cronjob
-			if err := m.client.DeleteCronJob(namespace, name); err != nil {
+			if err := m.client.DeleteCronJob(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete cronjob: %v", err)
 				result.Duration = time.Since(startTime)

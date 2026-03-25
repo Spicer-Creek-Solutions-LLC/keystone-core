@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -407,25 +408,25 @@ type StateConfigStatus struct {
 // ClientInterface defines the interface for Kubernetes client operations
 type ClientInterface interface {
 	// ExecInPod executes a command in a specific pod
-	ExecInPod(opts PodExecOptions) (*PodExecResult, error)
+	ExecInPod(ctx context.Context, opts PodExecOptions) (*PodExecResult, error)
 
 	// ExecInPods executes a command in multiple pods matching selector
-	ExecInPods(selector PodSelector, command []string) ([]PodExecResult, error)
+	ExecInPods(ctx context.Context, selector PodSelector, command []string) ([]PodExecResult, error)
 
 	// GetPod retrieves pod information
-	GetPod(namespace, name string) (*ResourceInfo, error)
+	GetPod(ctx context.Context, namespace, name string) (*ResourceInfo, error)
 
 	// ListPods lists pods matching selector
-	ListPods(selector PodSelector) ([]ResourceInfo, error)
+	ListPods(ctx context.Context, selector PodSelector) ([]ResourceInfo, error)
 
 	// GetDeployment retrieves deployment information
-	GetDeployment(namespace, name string) (*DeploymentInfo, error)
+	GetDeployment(ctx context.Context, namespace, name string) (*DeploymentInfo, error)
 
 	// GetService retrieves service information
-	GetService(namespace, name string) (*ServiceInfo, error)
+	GetService(ctx context.Context, namespace, name string) (*ServiceInfo, error)
 
 	// WatchPods watches for pod events
-	WatchPods(selector PodSelector) (<-chan WatchEvent, error)
+	WatchPods(ctx context.Context, selector PodSelector) (<-chan WatchEvent, error)
 
 	// CreateResource creates a Kubernetes resource
 	CreateResource(namespace string, manifest []byte) error
@@ -437,151 +438,151 @@ type ClientInterface interface {
 	DeleteResource(namespace, kind, name string) error
 
 	// GetClusterInfo returns information about the cluster
-	GetClusterInfo() (*ClusterInfo, error)
+	GetClusterInfo(ctx context.Context) (*ClusterInfo, error)
 
 	// GetNamespace retrieves namespace information
-	GetNamespace(name string) (*NamespaceInfo, error)
+	GetNamespace(ctx context.Context, name string) (*NamespaceInfo, error)
 
 	// ListNamespaces lists all namespaces
-	ListNamespaces() ([]NamespaceInfo, error)
+	ListNamespaces(ctx context.Context) ([]NamespaceInfo, error)
 
 	// CreateNamespace creates a new namespace
-	CreateNamespace(spec NamespaceSpec) error
+	CreateNamespace(ctx context.Context, spec NamespaceSpec) error
 
 	// UpdateNamespace updates a namespace's labels and annotations
-	UpdateNamespace(spec NamespaceSpec) error
+	UpdateNamespace(ctx context.Context, spec NamespaceSpec) error
 
 	// DeleteNamespace deletes a namespace
-	DeleteNamespace(name string) error
+	DeleteNamespace(ctx context.Context, name string) error
 
 	// CreateDeployment creates a new deployment
-	CreateDeployment(namespace string, spec DeploymentSpec) error
+	CreateDeployment(ctx context.Context, namespace string, spec DeploymentSpec) error
 
 	// UpdateDeployment updates a deployment
-	UpdateDeployment(namespace string, spec DeploymentSpec) error
+	UpdateDeployment(ctx context.Context, namespace string, spec DeploymentSpec) error
 
 	// DeleteDeployment deletes a deployment
-	DeleteDeployment(namespace, name string) error
+	DeleteDeployment(ctx context.Context, namespace, name string) error
 
 	// ScaleDeployment scales a deployment to specified replicas
-	ScaleDeployment(namespace, name string, replicas int32) error
+	ScaleDeployment(ctx context.Context, namespace, name string, replicas int32) error
 
 	// CreateService creates a new service
-	CreateService(namespace string, spec ServiceSpec) error
+	CreateService(ctx context.Context, namespace string, spec ServiceSpec) error
 
 	// UpdateService updates a service
-	UpdateService(namespace string, spec ServiceSpec) error
+	UpdateService(ctx context.Context, namespace string, spec ServiceSpec) error
 
 	// DeleteService deletes a service
-	DeleteService(namespace, name string) error
+	DeleteService(ctx context.Context, namespace, name string) error
 
 	// GetConfigMap retrieves configmap information
-	GetConfigMap(namespace, name string) (*ConfigMapInfo, error)
+	GetConfigMap(ctx context.Context, namespace, name string) (*ConfigMapInfo, error)
 
 	// CreateConfigMap creates a new configmap
-	CreateConfigMap(namespace string, spec ConfigMapSpec) error
+	CreateConfigMap(ctx context.Context, namespace string, spec ConfigMapSpec) error
 
 	// UpdateConfigMap updates a configmap
-	UpdateConfigMap(namespace string, spec ConfigMapSpec) error
+	UpdateConfigMap(ctx context.Context, namespace string, spec ConfigMapSpec) error
 
 	// DeleteConfigMap deletes a configmap
-	DeleteConfigMap(namespace, name string) error
+	DeleteConfigMap(ctx context.Context, namespace, name string) error
 
 	// GetSecret retrieves secret information
-	GetSecret(namespace, name string) (*SecretInfo, error)
+	GetSecret(ctx context.Context, namespace, name string) (*SecretInfo, error)
 
 	// CreateSecret creates a new secret
-	CreateSecret(namespace string, spec SecretSpec) error
+	CreateSecret(ctx context.Context, namespace string, spec SecretSpec) error
 
 	// UpdateSecret updates a secret
-	UpdateSecret(namespace string, spec SecretSpec) error
+	UpdateSecret(ctx context.Context, namespace string, spec SecretSpec) error
 
 	// DeleteSecret deletes a secret
-	DeleteSecret(namespace, name string) error
+	DeleteSecret(ctx context.Context, namespace, name string) error
 
 	// GetIngress retrieves ingress information
-	GetIngress(namespace, name string) (*IngressInfo, error)
+	GetIngress(ctx context.Context, namespace, name string) (*IngressInfo, error)
 
 	// CreateIngress creates a new ingress
-	CreateIngress(namespace string, spec IngressSpec) error
+	CreateIngress(ctx context.Context, namespace string, spec IngressSpec) error
 
 	// UpdateIngress updates an ingress
-	UpdateIngress(namespace string, spec IngressSpec) error
+	UpdateIngress(ctx context.Context, namespace string, spec IngressSpec) error
 
 	// DeleteIngress deletes an ingress
-	DeleteIngress(namespace, name string) error
+	DeleteIngress(ctx context.Context, namespace, name string) error
 
 	// GetStatefulSet retrieves statefulset information
-	GetStatefulSet(namespace, name string) (*StatefulSetInfo, error)
+	GetStatefulSet(ctx context.Context, namespace, name string) (*StatefulSetInfo, error)
 
 	// CreateStatefulSet creates a new statefulset
-	CreateStatefulSet(namespace string, spec StatefulSetSpec) error
+	CreateStatefulSet(ctx context.Context, namespace string, spec StatefulSetSpec) error
 
 	// UpdateStatefulSet updates a statefulset
-	UpdateStatefulSet(namespace string, spec StatefulSetSpec) error
+	UpdateStatefulSet(ctx context.Context, namespace string, spec StatefulSetSpec) error
 
 	// DeleteStatefulSet deletes a statefulset
-	DeleteStatefulSet(namespace, name string) error
+	DeleteStatefulSet(ctx context.Context, namespace, name string) error
 
 	// ScaleStatefulSet scales a statefulset to specified replicas
-	ScaleStatefulSet(namespace, name string, replicas int32) error
+	ScaleStatefulSet(ctx context.Context, namespace, name string, replicas int32) error
 
 	// GetDaemonSet retrieves daemonset information
-	GetDaemonSet(namespace, name string) (*DaemonSetInfo, error)
+	GetDaemonSet(ctx context.Context, namespace, name string) (*DaemonSetInfo, error)
 
 	// CreateDaemonSet creates a new daemonset
-	CreateDaemonSet(namespace string, spec DaemonSetSpec) error
+	CreateDaemonSet(ctx context.Context, namespace string, spec DaemonSetSpec) error
 
 	// UpdateDaemonSet updates a daemonset
-	UpdateDaemonSet(namespace string, spec DaemonSetSpec) error
+	UpdateDaemonSet(ctx context.Context, namespace string, spec DaemonSetSpec) error
 
 	// DeleteDaemonSet deletes a daemonset
-	DeleteDaemonSet(namespace, name string) error
+	DeleteDaemonSet(ctx context.Context, namespace, name string) error
 
 	// GetJob retrieves job information
-	GetJob(namespace, name string) (*JobInfo, error)
+	GetJob(ctx context.Context, namespace, name string) (*JobInfo, error)
 
 	// CreateJob creates a new job
-	CreateJob(namespace string, spec JobSpec) error
+	CreateJob(ctx context.Context, namespace string, spec JobSpec) error
 
 	// DeleteJob deletes a job
-	DeleteJob(namespace, name string) error
+	DeleteJob(ctx context.Context, namespace, name string) error
 
 	// GetCronJob retrieves cronjob information
-	GetCronJob(namespace, name string) (*CronJobInfo, error)
+	GetCronJob(ctx context.Context, namespace, name string) (*CronJobInfo, error)
 
 	// CreateCronJob creates a new cronjob
-	CreateCronJob(namespace string, spec CronJobSpec) error
+	CreateCronJob(ctx context.Context, namespace string, spec CronJobSpec) error
 
 	// UpdateCronJob updates a cronjob
-	UpdateCronJob(namespace string, spec CronJobSpec) error
+	UpdateCronJob(ctx context.Context, namespace string, spec CronJobSpec) error
 
 	// DeleteCronJob deletes a cronjob
-	DeleteCronJob(namespace, name string) error
+	DeleteCronJob(ctx context.Context, namespace, name string) error
 
 	// GetPVC retrieves persistent volume claim information
-	GetPVC(namespace, name string) (*PVCInfo, error)
+	GetPVC(ctx context.Context, namespace, name string) (*PVCInfo, error)
 
 	// CreatePVC creates a new persistent volume claim
-	CreatePVC(namespace string, spec PVCSpec) error
+	CreatePVC(ctx context.Context, namespace string, spec PVCSpec) error
 
 	// UpdatePVC updates a persistent volume claim
-	UpdatePVC(namespace string, spec PVCSpec) error
+	UpdatePVC(ctx context.Context, namespace string, spec PVCSpec) error
 
 	// DeletePVC deletes a persistent volume claim
-	DeletePVC(namespace, name string) error
+	DeletePVC(ctx context.Context, namespace, name string) error
 
 	// GetHPA retrieves horizontal pod autoscaler information
-	GetHPA(namespace, name string) (*HPAInfo, error)
+	GetHPA(ctx context.Context, namespace, name string) (*HPAInfo, error)
 
 	// CreateHPA creates a new horizontal pod autoscaler
-	CreateHPA(namespace string, spec HPASpec) error
+	CreateHPA(ctx context.Context, namespace string, spec HPASpec) error
 
 	// UpdateHPA updates a horizontal pod autoscaler
-	UpdateHPA(namespace string, spec HPASpec) error
+	UpdateHPA(ctx context.Context, namespace string, spec HPASpec) error
 
 	// DeleteHPA deletes a horizontal pod autoscaler
-	DeleteHPA(namespace, name string) error
+	DeleteHPA(ctx context.Context, namespace, name string) error
 }
 
 // ClusterInfo holds information about a Kubernetes cluster

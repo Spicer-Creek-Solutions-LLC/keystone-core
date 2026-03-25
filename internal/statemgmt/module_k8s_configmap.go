@@ -36,7 +36,7 @@ func (m *K8sConfigMapModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Get configmap from cluster
-	cm, err := m.client.GetConfigMap(namespace, name)
+	cm, err := m.client.GetConfigMap(ctx, namespace, name)
 	if err != nil {
 		// Check if configmap doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -161,7 +161,7 @@ func (m *K8sConfigMapModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 		if !checkResult.Present {
 			// Create configmap
-			if err := m.client.CreateConfigMap(namespace, spec); err != nil {
+			if err := m.client.CreateConfigMap(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create configmap: %v", err)
 				result.Duration = time.Since(startTime)
@@ -172,7 +172,7 @@ func (m *K8sConfigMapModule) Apply(ctx context.Context, decl *StateDeclaration) 
 			result.Comment = fmt.Sprintf("Created configmap %s/%s", namespace, name)
 		} else {
 			// Update configmap
-			if err := m.client.UpdateConfigMap(namespace, spec); err != nil {
+			if err := m.client.UpdateConfigMap(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update configmap: %v", err)
 				result.Duration = time.Since(startTime)
@@ -195,7 +195,7 @@ func (m *K8sConfigMapModule) Apply(ctx context.Context, decl *StateDeclaration) 
 	case "absent":
 		if checkResult.Present {
 			// Delete configmap
-			if err := m.client.DeleteConfigMap(namespace, name); err != nil {
+			if err := m.client.DeleteConfigMap(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete configmap: %v", err)
 				result.Duration = time.Since(startTime)

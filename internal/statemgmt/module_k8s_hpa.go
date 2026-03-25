@@ -35,7 +35,7 @@ func (m *K8sHPAModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 	}
 
 	// Get HPA from cluster
-	hpa, err := m.client.GetHPA(namespace, name)
+	hpa, err := m.client.GetHPA(ctx, namespace, name)
 	if err != nil {
 		// Check if HPA doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -225,7 +225,7 @@ func (m *K8sHPAModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 			}
 
 			// Create HPA
-			if err := m.client.CreateHPA(namespace, spec); err != nil {
+			if err := m.client.CreateHPA(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create HPA: %v", err)
 				result.Duration = time.Since(startTime)
@@ -242,7 +242,7 @@ func (m *K8sHPAModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 			result.Comment = fmt.Sprintf("Created HPA %s/%s", namespace, name)
 		} else {
 			// Update HPA
-			if err := m.client.UpdateHPA(namespace, spec); err != nil {
+			if err := m.client.UpdateHPA(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update HPA: %v", err)
 				result.Duration = time.Since(startTime)
@@ -271,7 +271,7 @@ func (m *K8sHPAModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	case "absent":
 		if checkResult.Present {
 			// Delete HPA
-			if err := m.client.DeleteHPA(namespace, name); err != nil {
+			if err := m.client.DeleteHPA(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete HPA: %v", err)
 				result.Duration = time.Since(startTime)

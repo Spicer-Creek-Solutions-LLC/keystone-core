@@ -537,7 +537,7 @@ func (c *RemoteExecutionController) ExecuteRemoteExecution(ctx context.Context, 
 	exec.Status.StartTime = &now
 
 	// List matching pods
-	pods, err := c.client.ListPods(exec.Spec.Target) //nolint:contextcheck // ListPods API doesn't take context
+	pods, err := c.client.ListPods(ctx, exec.Spec.Target)
 	if err != nil {
 		exec.Status.Phase = "Failed"
 		exec.Status.Message = fmt.Sprintf("Failed to list pods: %v", err)
@@ -562,7 +562,7 @@ func (c *RemoteExecutionController) ExecuteRemoteExecution(ctx context.Context, 
 			Timeout:   exec.Spec.Timeout.Duration,
 		}
 
-		result, err := c.client.ExecInPod(opts) //nolint:contextcheck // ExecInPod API doesn't take context
+		result, err := c.client.ExecInPod(ctx, opts)
 
 		podResult := PodExecutionResult{
 			PodName:   pod.Name,

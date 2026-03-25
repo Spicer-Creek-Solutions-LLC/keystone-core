@@ -38,7 +38,7 @@ func TestNamespaceCRUD(t *testing.T) {
 			Annotations: map[string]string{"description": "Test namespace"},
 		}
 
-		err := client.CreateNamespace(spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateNamespace(ctx, spec)
 		if err != nil {
 			t.Fatalf("CreateNamespace failed: %v", err)
 		}
@@ -55,7 +55,7 @@ func TestNamespaceCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetNamespace", func(t *testing.T) {
-		info, err := client.GetNamespace("test-ns")
+		info, err := client.GetNamespace(ctx, "test-ns")
 		if err != nil {
 			t.Fatalf("GetNamespace failed: %v", err)
 		}
@@ -74,11 +74,11 @@ func TestNamespaceCRUD(t *testing.T) {
 			Name:   "test-ns-2",
 			Labels: map[string]string{"env": "staging"},
 		}
-		if err := client.CreateNamespace(spec2); err != nil {
+		if err := client.CreateNamespace(ctx, spec2); err != nil {
 			t.Fatalf("CreateNamespace failed: %v", err)
 		}
 
-		namespaces, err := client.ListNamespaces()
+		namespaces, err := client.ListNamespaces(ctx)
 		if err != nil {
 			t.Fatalf("ListNamespaces failed: %v", err)
 		}
@@ -95,12 +95,12 @@ func TestNamespaceCRUD(t *testing.T) {
 			Annotations: map[string]string{"description": "Updated namespace"},
 		}
 
-		err := client.UpdateNamespace(spec)
+		err := client.UpdateNamespace(ctx, spec)
 		if err != nil {
 			t.Fatalf("UpdateNamespace failed: %v", err)
 		}
 
-		info, err := client.GetNamespace("test-ns")
+		info, err := client.GetNamespace(ctx, "test-ns")
 		if err != nil {
 			t.Fatalf("GetNamespace failed: %v", err)
 		}
@@ -111,13 +111,13 @@ func TestNamespaceCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteNamespace", func(t *testing.T) {
-		err := client.DeleteNamespace("test-ns")
+		err := client.DeleteNamespace(ctx, "test-ns")
 		if err != nil {
 			t.Fatalf("DeleteNamespace failed: %v", err)
 		}
 
 		// Verify deleted
-		_, err = client.GetNamespace("test-ns")
+		_, err = client.GetNamespace(ctx, "test-ns")
 		if err == nil {
 			t.Error("Expected error getting deleted namespace")
 		}
@@ -125,7 +125,7 @@ func TestNamespaceCRUD(t *testing.T) {
 
 	// Test GetNamespace not found
 	t.Run("GetNamespaceNotFound", func(t *testing.T) {
-		_, err := client.GetNamespace("nonexistent")
+		_, err := client.GetNamespace(ctx, "nonexistent")
 		if err == nil {
 			t.Error("Expected error for nonexistent namespace")
 		}
@@ -157,7 +157,7 @@ func TestDeploymentCRUD(t *testing.T) {
 			Selector:      map[string]string{"app": "nginx"},
 		}
 
-		err := client.CreateDeployment(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateDeployment(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateDeployment failed: %v", err)
 		}
@@ -174,7 +174,7 @@ func TestDeploymentCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetDeployment", func(t *testing.T) {
-		info, err := client.GetDeployment(namespace, "nginx")
+		info, err := client.GetDeployment(ctx, namespace, "nginx")
 		if err != nil {
 			t.Fatalf("GetDeployment failed: %v", err)
 		}
@@ -197,12 +197,12 @@ func TestDeploymentCRUD(t *testing.T) {
 			Selector:      map[string]string{"app": "nginx"},
 		}
 
-		err := client.UpdateDeployment(namespace, spec)
+		err := client.UpdateDeployment(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("UpdateDeployment failed: %v", err)
 		}
 
-		info, err := client.GetDeployment(namespace, "nginx")
+		info, err := client.GetDeployment(ctx, namespace, "nginx")
 		if err != nil {
 			t.Fatalf("GetDeployment failed: %v", err)
 		}
@@ -217,12 +217,12 @@ func TestDeploymentCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteDeployment", func(t *testing.T) {
-		err := client.DeleteDeployment(namespace, "nginx")
+		err := client.DeleteDeployment(ctx, namespace, "nginx")
 		if err != nil {
 			t.Fatalf("DeleteDeployment failed: %v", err)
 		}
 
-		_, err = client.GetDeployment(namespace, "nginx")
+		_, err = client.GetDeployment(ctx, namespace, "nginx")
 		if err == nil {
 			t.Error("Expected error getting deleted deployment")
 		}
@@ -255,7 +255,7 @@ func TestServiceCRUD(t *testing.T) {
 			Selector: map[string]string{"app": "nginx"},
 		}
 
-		err := client.CreateService(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateService(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateService failed: %v", err)
 		}
@@ -272,7 +272,7 @@ func TestServiceCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetService", func(t *testing.T) {
-		info, err := client.GetService(namespace, "nginx-svc")
+		info, err := client.GetService(ctx, namespace, "nginx-svc")
 		if err != nil {
 			t.Fatalf("GetService failed: %v", err)
 		}
@@ -300,12 +300,12 @@ func TestServiceCRUD(t *testing.T) {
 			Selector: map[string]string{"app": "nginx"},
 		}
 
-		err := client.UpdateService(namespace, spec)
+		err := client.UpdateService(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("UpdateService failed: %v", err)
 		}
 
-		info, err := client.GetService(namespace, "nginx-svc")
+		info, err := client.GetService(ctx, namespace, "nginx-svc")
 		if err != nil {
 			t.Fatalf("GetService failed: %v", err)
 		}
@@ -316,12 +316,12 @@ func TestServiceCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteService", func(t *testing.T) {
-		err := client.DeleteService(namespace, "nginx-svc")
+		err := client.DeleteService(ctx, namespace, "nginx-svc")
 		if err != nil {
 			t.Fatalf("DeleteService failed: %v", err)
 		}
 
-		_, err = client.GetService(namespace, "nginx-svc")
+		_, err = client.GetService(ctx, namespace, "nginx-svc")
 		if err == nil {
 			t.Error("Expected error getting deleted service")
 		}
@@ -352,7 +352,7 @@ func TestConfigMapCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateConfigMap(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateConfigMap(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateConfigMap failed: %v", err)
 		}
@@ -369,7 +369,7 @@ func TestConfigMapCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetConfigMap", func(t *testing.T) {
-		info, err := client.GetConfigMap(namespace, "app-config")
+		info, err := client.GetConfigMap(ctx, namespace, "app-config")
 		if err != nil {
 			t.Fatalf("GetConfigMap failed: %v", err)
 		}
@@ -392,12 +392,12 @@ func TestConfigMapCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.UpdateConfigMap(namespace, spec)
+		err := client.UpdateConfigMap(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("UpdateConfigMap failed: %v", err)
 		}
 
-		info, err := client.GetConfigMap(namespace, "app-config")
+		info, err := client.GetConfigMap(ctx, namespace, "app-config")
 		if err != nil {
 			t.Fatalf("GetConfigMap failed: %v", err)
 		}
@@ -408,12 +408,12 @@ func TestConfigMapCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteConfigMap", func(t *testing.T) {
-		err := client.DeleteConfigMap(namespace, "app-config")
+		err := client.DeleteConfigMap(ctx, namespace, "app-config")
 		if err != nil {
 			t.Fatalf("DeleteConfigMap failed: %v", err)
 		}
 
-		_, err = client.GetConfigMap(namespace, "app-config")
+		_, err = client.GetConfigMap(ctx, namespace, "app-config")
 		if err == nil {
 			t.Error("Expected error getting deleted configmap")
 		}
@@ -446,7 +446,7 @@ func TestSecretCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateSecret(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateSecret(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateSecret failed: %v", err)
 		}
@@ -463,7 +463,7 @@ func TestSecretCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetSecret", func(t *testing.T) {
-		info, err := client.GetSecret(namespace, "db-credentials")
+		info, err := client.GetSecret(ctx, namespace, "db-credentials")
 		if err != nil {
 			t.Fatalf("GetSecret failed: %v", err)
 		}
@@ -487,7 +487,7 @@ func TestSecretCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.UpdateSecret(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.UpdateSecret(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("UpdateSecret failed: %v", err)
 		}
@@ -504,12 +504,12 @@ func TestSecretCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteSecret", func(t *testing.T) {
-		err := client.DeleteSecret(namespace, "db-credentials")
+		err := client.DeleteSecret(ctx, namespace, "db-credentials")
 		if err != nil {
 			t.Fatalf("DeleteSecret failed: %v", err)
 		}
 
-		_, err = client.GetSecret(namespace, "db-credentials")
+		_, err = client.GetSecret(ctx, namespace, "db-credentials")
 		if err == nil {
 			t.Error("Expected error getting deleted secret")
 		}
@@ -541,7 +541,7 @@ func TestStatefulSetCRUD(t *testing.T) {
 			Selector:    map[string]string{"app": "redis"},
 		}
 
-		err := client.CreateStatefulSet(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateStatefulSet(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateStatefulSet failed: %v", err)
 		}
@@ -558,7 +558,7 @@ func TestStatefulSetCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetStatefulSet", func(t *testing.T) {
-		info, err := client.GetStatefulSet(namespace, "redis")
+		info, err := client.GetStatefulSet(ctx, namespace, "redis")
 		if err != nil {
 			t.Fatalf("GetStatefulSet failed: %v", err)
 		}
@@ -575,12 +575,12 @@ func TestStatefulSetCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteStatefulSet", func(t *testing.T) {
-		err := client.DeleteStatefulSet(namespace, "redis")
+		err := client.DeleteStatefulSet(ctx, namespace, "redis")
 		if err != nil {
 			t.Fatalf("DeleteStatefulSet failed: %v", err)
 		}
 
-		_, err = client.GetStatefulSet(namespace, "redis")
+		_, err = client.GetStatefulSet(ctx, namespace, "redis")
 		if err == nil {
 			t.Error("Expected error getting deleted statefulset")
 		}
@@ -610,7 +610,7 @@ func TestDaemonSetCRUD(t *testing.T) {
 			Selector: map[string]string{"app": "fluentd"},
 		}
 
-		err := client.CreateDaemonSet(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateDaemonSet(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateDaemonSet failed: %v", err)
 		}
@@ -627,7 +627,7 @@ func TestDaemonSetCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetDaemonSet", func(t *testing.T) {
-		info, err := client.GetDaemonSet(namespace, "fluentd")
+		info, err := client.GetDaemonSet(ctx, namespace, "fluentd")
 		if err != nil {
 			t.Fatalf("GetDaemonSet failed: %v", err)
 		}
@@ -638,12 +638,12 @@ func TestDaemonSetCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteDaemonSet", func(t *testing.T) {
-		err := client.DeleteDaemonSet(namespace, "fluentd")
+		err := client.DeleteDaemonSet(ctx, namespace, "fluentd")
 		if err != nil {
 			t.Fatalf("DeleteDaemonSet failed: %v", err)
 		}
 
-		_, err = client.GetDaemonSet(namespace, "fluentd")
+		_, err = client.GetDaemonSet(ctx, namespace, "fluentd")
 		if err == nil {
 			t.Error("Expected error getting deleted daemonset")
 		}
@@ -677,7 +677,7 @@ func TestJobCRUD(t *testing.T) {
 			RestartPolicy: "Never",
 		}
 
-		err := client.CreateJob(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateJob(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateJob failed: %v", err)
 		}
@@ -694,7 +694,7 @@ func TestJobCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetJob", func(t *testing.T) {
-		info, err := client.GetJob(namespace, "backup-job")
+		info, err := client.GetJob(ctx, namespace, "backup-job")
 		if err != nil {
 			t.Fatalf("GetJob failed: %v", err)
 		}
@@ -708,12 +708,12 @@ func TestJobCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteJob", func(t *testing.T) {
-		err := client.DeleteJob(namespace, "backup-job")
+		err := client.DeleteJob(ctx, namespace, "backup-job")
 		if err != nil {
 			t.Fatalf("DeleteJob failed: %v", err)
 		}
 
-		_, err = client.GetJob(namespace, "backup-job")
+		_, err = client.GetJob(ctx, namespace, "backup-job")
 		if err == nil {
 			t.Error("Expected error getting deleted job")
 		}
@@ -746,7 +746,7 @@ func TestCronJobCRUD(t *testing.T) {
 			RestartPolicy:     "OnFailure",
 		}
 
-		err := client.CreateCronJob(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateCronJob(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateCronJob failed: %v", err)
 		}
@@ -763,7 +763,7 @@ func TestCronJobCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetCronJob", func(t *testing.T) {
-		info, err := client.GetCronJob(namespace, "hourly-backup")
+		info, err := client.GetCronJob(ctx, namespace, "hourly-backup")
 		if err != nil {
 			t.Fatalf("GetCronJob failed: %v", err)
 		}
@@ -788,12 +788,12 @@ func TestCronJobCRUD(t *testing.T) {
 			RestartPolicy:     "OnFailure",
 		}
 
-		err := client.UpdateCronJob(namespace, spec)
+		err := client.UpdateCronJob(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("UpdateCronJob failed: %v", err)
 		}
 
-		info, err := client.GetCronJob(namespace, "hourly-backup")
+		info, err := client.GetCronJob(ctx, namespace, "hourly-backup")
 		if err != nil {
 			t.Fatalf("GetCronJob failed: %v", err)
 		}
@@ -804,12 +804,12 @@ func TestCronJobCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteCronJob", func(t *testing.T) {
-		err := client.DeleteCronJob(namespace, "hourly-backup")
+		err := client.DeleteCronJob(ctx, namespace, "hourly-backup")
 		if err != nil {
 			t.Fatalf("DeleteCronJob failed: %v", err)
 		}
 
-		_, err = client.GetCronJob(namespace, "hourly-backup")
+		_, err = client.GetCronJob(ctx, namespace, "hourly-backup")
 		if err == nil {
 			t.Error("Expected error getting deleted cronjob")
 		}
@@ -840,7 +840,7 @@ func TestPVCCRUD(t *testing.T) {
 			StorageSize:      "10Gi",
 		}
 
-		err := client.CreatePVC(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreatePVC(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreatePVC failed: %v", err)
 		}
@@ -857,7 +857,7 @@ func TestPVCCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetPVC", func(t *testing.T) {
-		info, err := client.GetPVC(namespace, "data-pvc")
+		info, err := client.GetPVC(ctx, namespace, "data-pvc")
 		if err != nil {
 			t.Fatalf("GetPVC failed: %v", err)
 		}
@@ -871,12 +871,12 @@ func TestPVCCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeletePVC", func(t *testing.T) {
-		err := client.DeletePVC(namespace, "data-pvc")
+		err := client.DeletePVC(ctx, namespace, "data-pvc")
 		if err != nil {
 			t.Fatalf("DeletePVC failed: %v", err)
 		}
 
-		_, err = client.GetPVC(namespace, "data-pvc")
+		_, err = client.GetPVC(ctx, namespace, "data-pvc")
 		if err == nil {
 			t.Error("Expected error getting deleted PVC")
 		}
@@ -927,7 +927,7 @@ func TestListPods(t *testing.T) {
 			LabelSelector: "app=nginx",
 		}
 
-		pods, err := client.ListPods(selector)
+		pods, err := client.ListPods(ctx, selector)
 		if err != nil {
 			t.Fatalf("ListPods failed: %v", err)
 		}
@@ -944,7 +944,7 @@ func TestListPods(t *testing.T) {
 			MaxPods:       2,
 		}
 
-		pods, err := client.ListPods(selector)
+		pods, err := client.ListPods(ctx, selector)
 		if err != nil {
 			t.Fatalf("ListPods failed: %v", err)
 		}
@@ -997,7 +997,7 @@ func TestGetPod(t *testing.T) {
 
 	// Test GetPod
 	t.Run("GetPod", func(t *testing.T) {
-		info, err := client.GetPod(namespace, "nginx-test")
+		info, err := client.GetPod(ctx, namespace, "nginx-test")
 		if err != nil {
 			t.Fatalf("GetPod failed: %v", err)
 		}
@@ -1014,7 +1014,7 @@ func TestGetPod(t *testing.T) {
 
 	// Test GetPod not found
 	t.Run("GetPodNotFound", func(t *testing.T) {
-		_, err := client.GetPod(namespace, "nonexistent")
+		_, err := client.GetPod(ctx, namespace, "nonexistent")
 		if err == nil {
 			t.Error("Expected error for nonexistent pod")
 		}
@@ -1045,7 +1045,7 @@ func TestClusterInfo(t *testing.T) {
 	}
 
 	t.Run("GetClusterInfo", func(t *testing.T) {
-		info, err := client.GetClusterInfo()
+		info, err := client.GetClusterInfo(ctx)
 		if err != nil {
 			t.Fatalf("GetClusterInfo failed: %v", err)
 		}
@@ -1086,7 +1086,7 @@ func TestIngressCRUD(t *testing.T) {
 			},
 		}
 
-		err := client.CreateIngress(namespace, spec) //nolint:contextcheck // test: method doesn't take context
+		err := client.CreateIngress(ctx, namespace, spec)
 		if err != nil {
 			t.Fatalf("CreateIngress failed: %v", err)
 		}
@@ -1103,7 +1103,7 @@ func TestIngressCRUD(t *testing.T) {
 
 	// Test Get
 	t.Run("GetIngress", func(t *testing.T) {
-		info, err := client.GetIngress(namespace, "app-ingress")
+		info, err := client.GetIngress(ctx, namespace, "app-ingress")
 		if err != nil {
 			t.Fatalf("GetIngress failed: %v", err)
 		}
@@ -1120,12 +1120,12 @@ func TestIngressCRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteIngress", func(t *testing.T) {
-		err := client.DeleteIngress(namespace, "app-ingress")
+		err := client.DeleteIngress(ctx, namespace, "app-ingress")
 		if err != nil {
 			t.Fatalf("DeleteIngress failed: %v", err)
 		}
 
-		_, err = client.GetIngress(namespace, "app-ingress")
+		_, err = client.GetIngress(ctx, namespace, "app-ingress")
 		if err == nil {
 			t.Error("Expected error getting deleted ingress")
 		}
@@ -1184,7 +1184,7 @@ func TestHPACRUD(t *testing.T) {
 		}
 
 		// Test Get
-		info, err := client.GetHPA(namespace, "nginx-hpa") //nolint:contextcheck // test: method doesn't take context
+		info, err := client.GetHPA(ctx, namespace, "nginx-hpa")
 		if err != nil {
 			t.Fatalf("GetHPA failed: %v", err)
 		}
@@ -1201,12 +1201,12 @@ func TestHPACRUD(t *testing.T) {
 
 	// Test Delete
 	t.Run("DeleteHPA", func(t *testing.T) {
-		err := client.DeleteHPA(namespace, "nginx-hpa")
+		err := client.DeleteHPA(ctx, namespace, "nginx-hpa")
 		if err != nil {
 			t.Fatalf("DeleteHPA failed: %v", err)
 		}
 
-		_, err = client.GetHPA(namespace, "nginx-hpa")
+		_, err = client.GetHPA(ctx, namespace, "nginx-hpa")
 		if err == nil {
 			t.Error("Expected error getting deleted HPA")
 		}

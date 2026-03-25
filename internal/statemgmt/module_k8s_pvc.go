@@ -35,7 +35,7 @@ func (m *K8sPVCModule) Check(ctx context.Context, decl *StateDeclaration) (*Modu
 	}
 
 	// Get PVC from cluster
-	pvc, err := m.client.GetPVC(namespace, name)
+	pvc, err := m.client.GetPVC(ctx, namespace, name)
 	if err != nil {
 		// Check if PVC doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -215,7 +215,7 @@ func (m *K8sPVCModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 			}
 
 			// Create PVC
-			if err := m.client.CreatePVC(namespace, spec); err != nil {
+			if err := m.client.CreatePVC(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create PVC: %v", err)
 				result.Duration = time.Since(startTime)
@@ -228,7 +228,7 @@ func (m *K8sPVCModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 			result.Comment = fmt.Sprintf("Created PVC %s/%s", namespace, name)
 		} else {
 			// Update PVC (limited - mainly storage expansion and metadata)
-			if err := m.client.UpdatePVC(namespace, spec); err != nil {
+			if err := m.client.UpdatePVC(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update PVC: %v", err)
 				result.Duration = time.Since(startTime)
@@ -251,7 +251,7 @@ func (m *K8sPVCModule) Apply(ctx context.Context, decl *StateDeclaration) (*Stat
 	case "absent":
 		if checkResult.Present {
 			// Delete PVC
-			if err := m.client.DeletePVC(namespace, name); err != nil {
+			if err := m.client.DeletePVC(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete PVC: %v", err)
 				result.Duration = time.Since(startTime)

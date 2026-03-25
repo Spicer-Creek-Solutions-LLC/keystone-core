@@ -36,7 +36,7 @@ func (m *K8sIngressModule) Check(ctx context.Context, decl *StateDeclaration) (*
 	}
 
 	// Get ingress from cluster
-	ingress, err := m.client.GetIngress(namespace, name)
+	ingress, err := m.client.GetIngress(ctx, namespace, name)
 	if err != nil {
 		// Check if ingress doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -203,7 +203,7 @@ func (m *K8sIngressModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 
 		if !checkResult.Present {
 			// Create ingress
-			if err := m.client.CreateIngress(namespace, spec); err != nil {
+			if err := m.client.CreateIngress(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create ingress: %v", err)
 				result.Duration = time.Since(startTime)
@@ -216,7 +216,7 @@ func (m *K8sIngressModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			result.Comment = fmt.Sprintf("Created ingress %s/%s", namespace, name)
 		} else {
 			// Update ingress
-			if err := m.client.UpdateIngress(namespace, spec); err != nil {
+			if err := m.client.UpdateIngress(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update ingress: %v", err)
 				result.Duration = time.Since(startTime)
@@ -248,7 +248,7 @@ func (m *K8sIngressModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 	case "absent":
 		if checkResult.Present {
 			// Delete ingress
-			if err := m.client.DeleteIngress(namespace, name); err != nil {
+			if err := m.client.DeleteIngress(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete ingress: %v", err)
 				result.Duration = time.Since(startTime)

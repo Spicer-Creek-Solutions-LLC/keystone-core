@@ -35,7 +35,7 @@ func (m *K8sServiceModule) Check(ctx context.Context, decl *StateDeclaration) (*
 	}
 
 	// Get service from cluster
-	service, err := m.client.GetService(namespace, name)
+	service, err := m.client.GetService(ctx, namespace, name)
 	if err != nil {
 		// Check if service doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -181,7 +181,7 @@ func (m *K8sServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			}
 
 			// Create service
-			if err := m.client.CreateService(namespace, spec); err != nil {
+			if err := m.client.CreateService(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create service: %v", err)
 				result.Duration = time.Since(startTime)
@@ -193,7 +193,7 @@ func (m *K8sServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 			result.Comment = fmt.Sprintf("Created service %s/%s", namespace, name)
 		} else {
 			// Update service
-			if err := m.client.UpdateService(namespace, spec); err != nil {
+			if err := m.client.UpdateService(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update service: %v", err)
 				result.Duration = time.Since(startTime)
@@ -219,7 +219,7 @@ func (m *K8sServiceModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 	case "absent":
 		if checkResult.Present {
 			// Delete service
-			if err := m.client.DeleteService(namespace, name); err != nil {
+			if err := m.client.DeleteService(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete service: %v", err)
 				result.Duration = time.Since(startTime)

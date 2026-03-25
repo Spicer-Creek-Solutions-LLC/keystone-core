@@ -36,7 +36,7 @@ func (m *K8sSecretModule) Check(ctx context.Context, decl *StateDeclaration) (*M
 	}
 
 	// Get secret from cluster
-	secret, err := m.client.GetSecret(namespace, name)
+	secret, err := m.client.GetSecret(ctx, namespace, name)
 	if err != nil {
 		// Check if secret doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -172,7 +172,7 @@ func (m *K8sSecretModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 
 		if !checkResult.Present {
 			// Create secret
-			if err := m.client.CreateSecret(namespace, spec); err != nil {
+			if err := m.client.CreateSecret(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create secret: %v", err)
 				result.Duration = time.Since(startTime)
@@ -184,7 +184,7 @@ func (m *K8sSecretModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 			result.Comment = fmt.Sprintf("Created secret %s/%s", namespace, name)
 		} else {
 			// Update secret
-			if err := m.client.UpdateSecret(namespace, spec); err != nil {
+			if err := m.client.UpdateSecret(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update secret: %v", err)
 				result.Duration = time.Since(startTime)
@@ -210,7 +210,7 @@ func (m *K8sSecretModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 	case "absent":
 		if checkResult.Present {
 			// Delete secret
-			if err := m.client.DeleteSecret(namespace, name); err != nil {
+			if err := m.client.DeleteSecret(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete secret: %v", err)
 				result.Duration = time.Since(startTime)

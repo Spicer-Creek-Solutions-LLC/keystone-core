@@ -35,7 +35,7 @@ func (m *K8sDeploymentModule) Check(ctx context.Context, decl *StateDeclaration)
 	}
 
 	// Get deployment from cluster
-	deployment, err := m.client.GetDeployment(namespace, name)
+	deployment, err := m.client.GetDeployment(ctx, namespace, name)
 	if err != nil {
 		// Check if deployment doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -171,7 +171,7 @@ func (m *K8sDeploymentModule) Apply(ctx context.Context, decl *StateDeclaration)
 			}
 
 			// Create deployment
-			if err := m.client.CreateDeployment(namespace, spec); err != nil {
+			if err := m.client.CreateDeployment(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create deployment: %v", err)
 				result.Duration = time.Since(startTime)
@@ -183,7 +183,7 @@ func (m *K8sDeploymentModule) Apply(ctx context.Context, decl *StateDeclaration)
 			result.Comment = fmt.Sprintf("Created deployment %s/%s", namespace, name)
 		} else {
 			// Update deployment
-			if err := m.client.UpdateDeployment(namespace, spec); err != nil {
+			if err := m.client.UpdateDeployment(ctx, namespace, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update deployment: %v", err)
 				result.Duration = time.Since(startTime)
@@ -206,7 +206,7 @@ func (m *K8sDeploymentModule) Apply(ctx context.Context, decl *StateDeclaration)
 	case "absent":
 		if checkResult.Present {
 			// Delete deployment
-			if err := m.client.DeleteDeployment(namespace, name); err != nil {
+			if err := m.client.DeleteDeployment(ctx, namespace, name); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete deployment: %v", err)
 				result.Duration = time.Since(startTime)

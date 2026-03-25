@@ -25,15 +25,15 @@ type MockK8sClient struct {
 	hpas         map[string]*k8s.HPAInfo         // key is "namespace/name"
 }
 
-func (m *MockK8sClient) ExecInPod(opts k8s.PodExecOptions) (*k8s.PodExecResult, error) {
+func (m *MockK8sClient) ExecInPod(_ context.Context, opts k8s.PodExecOptions) (*k8s.PodExecResult, error) {
 	return &k8s.PodExecResult{ExitCode: 0}, nil
 }
 
-func (m *MockK8sClient) ExecInPods(selector k8s.PodSelector, command []string) ([]k8s.PodExecResult, error) {
+func (m *MockK8sClient) ExecInPods(_ context.Context, selector k8s.PodSelector, command []string) ([]k8s.PodExecResult, error) {
 	return []k8s.PodExecResult{{ExitCode: 0}}, nil
 }
 
-func (m *MockK8sClient) GetPod(namespace, name string) (*k8s.ResourceInfo, error) {
+func (m *MockK8sClient) GetPod(_ context.Context, namespace, name string) (*k8s.ResourceInfo, error) {
 	return &k8s.ResourceInfo{
 		Kind:      "Pod",
 		Namespace: namespace,
@@ -42,7 +42,7 @@ func (m *MockK8sClient) GetPod(namespace, name string) (*k8s.ResourceInfo, error
 	}, nil
 }
 
-func (m *MockK8sClient) ListPods(selector k8s.PodSelector) ([]k8s.ResourceInfo, error) {
+func (m *MockK8sClient) ListPods(_ context.Context, selector k8s.PodSelector) ([]k8s.ResourceInfo, error) {
 	return []k8s.ResourceInfo{
 		{
 			Kind:      "Pod",
@@ -53,7 +53,7 @@ func (m *MockK8sClient) ListPods(selector k8s.PodSelector) ([]k8s.ResourceInfo, 
 	}, nil
 }
 
-func (m *MockK8sClient) GetDeployment(namespace, name string) (*k8s.DeploymentInfo, error) {
+func (m *MockK8sClient) GetDeployment(_ context.Context, namespace, name string) (*k8s.DeploymentInfo, error) {
 	if m.deployments == nil {
 		m.deployments = make(map[string]*k8s.DeploymentInfo)
 	}
@@ -65,7 +65,7 @@ func (m *MockK8sClient) GetDeployment(namespace, name string) (*k8s.DeploymentIn
 	return dep, nil
 }
 
-func (m *MockK8sClient) CreateDeployment(namespace string, spec k8s.DeploymentSpec) error {
+func (m *MockK8sClient) CreateDeployment(_ context.Context, namespace string, spec k8s.DeploymentSpec) error {
 	if m.deployments == nil {
 		m.deployments = make(map[string]*k8s.DeploymentInfo)
 	}
@@ -91,7 +91,7 @@ func (m *MockK8sClient) CreateDeployment(namespace string, spec k8s.DeploymentSp
 	return nil
 }
 
-func (m *MockK8sClient) UpdateDeployment(namespace string, spec k8s.DeploymentSpec) error {
+func (m *MockK8sClient) UpdateDeployment(_ context.Context, namespace string, spec k8s.DeploymentSpec) error {
 	if m.deployments == nil {
 		m.deployments = make(map[string]*k8s.DeploymentInfo)
 	}
@@ -122,7 +122,7 @@ func (m *MockK8sClient) UpdateDeployment(namespace string, spec k8s.DeploymentSp
 	return nil
 }
 
-func (m *MockK8sClient) DeleteDeployment(namespace, name string) error {
+func (m *MockK8sClient) DeleteDeployment(_ context.Context, namespace, name string) error {
 	if m.deployments == nil {
 		m.deployments = make(map[string]*k8s.DeploymentInfo)
 	}
@@ -134,7 +134,7 @@ func (m *MockK8sClient) DeleteDeployment(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) ScaleDeployment(namespace, name string, replicas int32) error {
+func (m *MockK8sClient) ScaleDeployment(_ context.Context, namespace, name string, replicas int32) error {
 	if m.deployments == nil {
 		m.deployments = make(map[string]*k8s.DeploymentInfo)
 	}
@@ -150,7 +150,7 @@ func (m *MockK8sClient) ScaleDeployment(namespace, name string, replicas int32) 
 	return nil
 }
 
-func (m *MockK8sClient) GetService(namespace, name string) (*k8s.ServiceInfo, error) {
+func (m *MockK8sClient) GetService(_ context.Context, namespace, name string) (*k8s.ServiceInfo, error) {
 	if m.services == nil {
 		m.services = make(map[string]*k8s.ServiceInfo)
 	}
@@ -162,7 +162,7 @@ func (m *MockK8sClient) GetService(namespace, name string) (*k8s.ServiceInfo, er
 	return svc, nil
 }
 
-func (m *MockK8sClient) CreateService(namespace string, spec k8s.ServiceSpec) error {
+func (m *MockK8sClient) CreateService(_ context.Context, namespace string, spec k8s.ServiceSpec) error {
 	if m.services == nil {
 		m.services = make(map[string]*k8s.ServiceInfo)
 	}
@@ -213,7 +213,7 @@ func (m *MockK8sClient) CreateService(namespace string, spec k8s.ServiceSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) UpdateService(namespace string, spec k8s.ServiceSpec) error {
+func (m *MockK8sClient) UpdateService(_ context.Context, namespace string, spec k8s.ServiceSpec) error {
 	if m.services == nil {
 		m.services = make(map[string]*k8s.ServiceInfo)
 	}
@@ -270,7 +270,7 @@ func (m *MockK8sClient) UpdateService(namespace string, spec k8s.ServiceSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) DeleteService(namespace, name string) error {
+func (m *MockK8sClient) DeleteService(_ context.Context, namespace, name string) error {
 	if m.services == nil {
 		m.services = make(map[string]*k8s.ServiceInfo)
 	}
@@ -282,7 +282,7 @@ func (m *MockK8sClient) DeleteService(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) GetConfigMap(namespace, name string) (*k8s.ConfigMapInfo, error) {
+func (m *MockK8sClient) GetConfigMap(_ context.Context, namespace, name string) (*k8s.ConfigMapInfo, error) {
 	if m.configmaps == nil {
 		m.configmaps = make(map[string]*k8s.ConfigMapInfo)
 	}
@@ -294,7 +294,7 @@ func (m *MockK8sClient) GetConfigMap(namespace, name string) (*k8s.ConfigMapInfo
 	return cm, nil
 }
 
-func (m *MockK8sClient) CreateConfigMap(namespace string, spec k8s.ConfigMapSpec) error {
+func (m *MockK8sClient) CreateConfigMap(_ context.Context, namespace string, spec k8s.ConfigMapSpec) error {
 	if m.configmaps == nil {
 		m.configmaps = make(map[string]*k8s.ConfigMapInfo)
 	}
@@ -318,7 +318,7 @@ func (m *MockK8sClient) CreateConfigMap(namespace string, spec k8s.ConfigMapSpec
 	return nil
 }
 
-func (m *MockK8sClient) UpdateConfigMap(namespace string, spec k8s.ConfigMapSpec) error {
+func (m *MockK8sClient) UpdateConfigMap(_ context.Context, namespace string, spec k8s.ConfigMapSpec) error {
 	if m.configmaps == nil {
 		m.configmaps = make(map[string]*k8s.ConfigMapInfo)
 	}
@@ -351,7 +351,7 @@ func (m *MockK8sClient) UpdateConfigMap(namespace string, spec k8s.ConfigMapSpec
 	return nil
 }
 
-func (m *MockK8sClient) DeleteConfigMap(namespace, name string) error {
+func (m *MockK8sClient) DeleteConfigMap(_ context.Context, namespace, name string) error {
 	if m.configmaps == nil {
 		m.configmaps = make(map[string]*k8s.ConfigMapInfo)
 	}
@@ -363,7 +363,7 @@ func (m *MockK8sClient) DeleteConfigMap(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) GetSecret(namespace, name string) (*k8s.SecretInfo, error) {
+func (m *MockK8sClient) GetSecret(_ context.Context, namespace, name string) (*k8s.SecretInfo, error) {
 	if m.secrets == nil {
 		m.secrets = make(map[string]*k8s.SecretInfo)
 	}
@@ -375,7 +375,7 @@ func (m *MockK8sClient) GetSecret(namespace, name string) (*k8s.SecretInfo, erro
 	return secret, nil
 }
 
-func (m *MockK8sClient) CreateSecret(namespace string, spec k8s.SecretSpec) error {
+func (m *MockK8sClient) CreateSecret(_ context.Context, namespace string, spec k8s.SecretSpec) error {
 	if m.secrets == nil {
 		m.secrets = make(map[string]*k8s.SecretInfo)
 	}
@@ -414,7 +414,7 @@ func (m *MockK8sClient) CreateSecret(namespace string, spec k8s.SecretSpec) erro
 	return nil
 }
 
-func (m *MockK8sClient) UpdateSecret(namespace string, spec k8s.SecretSpec) error {
+func (m *MockK8sClient) UpdateSecret(_ context.Context, namespace string, spec k8s.SecretSpec) error {
 	if m.secrets == nil {
 		m.secrets = make(map[string]*k8s.SecretInfo)
 	}
@@ -463,7 +463,7 @@ func (m *MockK8sClient) UpdateSecret(namespace string, spec k8s.SecretSpec) erro
 	return nil
 }
 
-func (m *MockK8sClient) DeleteSecret(namespace, name string) error {
+func (m *MockK8sClient) DeleteSecret(_ context.Context, namespace, name string) error {
 	if m.secrets == nil {
 		m.secrets = make(map[string]*k8s.SecretInfo)
 	}
@@ -475,7 +475,7 @@ func (m *MockK8sClient) DeleteSecret(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) GetIngress(namespace, name string) (*k8s.IngressInfo, error) {
+func (m *MockK8sClient) GetIngress(_ context.Context, namespace, name string) (*k8s.IngressInfo, error) {
 	if m.ingresses == nil {
 		m.ingresses = make(map[string]*k8s.IngressInfo)
 	}
@@ -487,7 +487,7 @@ func (m *MockK8sClient) GetIngress(namespace, name string) (*k8s.IngressInfo, er
 	return ingress, nil
 }
 
-func (m *MockK8sClient) CreateIngress(namespace string, spec k8s.IngressSpec) error {
+func (m *MockK8sClient) CreateIngress(_ context.Context, namespace string, spec k8s.IngressSpec) error {
 	if m.ingresses == nil {
 		m.ingresses = make(map[string]*k8s.IngressInfo)
 	}
@@ -515,7 +515,7 @@ func (m *MockK8sClient) CreateIngress(namespace string, spec k8s.IngressSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) UpdateIngress(namespace string, spec k8s.IngressSpec) error {
+func (m *MockK8sClient) UpdateIngress(_ context.Context, namespace string, spec k8s.IngressSpec) error {
 	if m.ingresses == nil {
 		m.ingresses = make(map[string]*k8s.IngressInfo)
 	}
@@ -564,7 +564,7 @@ func (m *MockK8sClient) UpdateIngress(namespace string, spec k8s.IngressSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) DeleteIngress(namespace, name string) error {
+func (m *MockK8sClient) DeleteIngress(_ context.Context, namespace, name string) error {
 	if m.ingresses == nil {
 		m.ingresses = make(map[string]*k8s.IngressInfo)
 	}
@@ -576,7 +576,7 @@ func (m *MockK8sClient) DeleteIngress(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) GetStatefulSet(namespace, name string) (*k8s.StatefulSetInfo, error) {
+func (m *MockK8sClient) GetStatefulSet(_ context.Context, namespace, name string) (*k8s.StatefulSetInfo, error) {
 	if m.statefulsets == nil {
 		m.statefulsets = make(map[string]*k8s.StatefulSetInfo)
 	}
@@ -588,7 +588,7 @@ func (m *MockK8sClient) GetStatefulSet(namespace, name string) (*k8s.StatefulSet
 	return sts, nil
 }
 
-func (m *MockK8sClient) CreateStatefulSet(namespace string, spec k8s.StatefulSetSpec) error {
+func (m *MockK8sClient) CreateStatefulSet(_ context.Context, namespace string, spec k8s.StatefulSetSpec) error {
 	if m.statefulsets == nil {
 		m.statefulsets = make(map[string]*k8s.StatefulSetInfo)
 	}
@@ -635,7 +635,7 @@ func (m *MockK8sClient) CreateStatefulSet(namespace string, spec k8s.StatefulSet
 	return nil
 }
 
-func (m *MockK8sClient) UpdateStatefulSet(namespace string, spec k8s.StatefulSetSpec) error {
+func (m *MockK8sClient) UpdateStatefulSet(_ context.Context, namespace string, spec k8s.StatefulSetSpec) error {
 	if m.statefulsets == nil {
 		m.statefulsets = make(map[string]*k8s.StatefulSetInfo)
 	}
@@ -681,7 +681,7 @@ func (m *MockK8sClient) UpdateStatefulSet(namespace string, spec k8s.StatefulSet
 	return nil
 }
 
-func (m *MockK8sClient) DeleteStatefulSet(namespace, name string) error {
+func (m *MockK8sClient) DeleteStatefulSet(_ context.Context, namespace, name string) error {
 	if m.statefulsets == nil {
 		m.statefulsets = make(map[string]*k8s.StatefulSetInfo)
 	}
@@ -693,7 +693,7 @@ func (m *MockK8sClient) DeleteStatefulSet(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) ScaleStatefulSet(namespace, name string, replicas int32) error {
+func (m *MockK8sClient) ScaleStatefulSet(_ context.Context, namespace, name string, replicas int32) error {
 	if m.statefulsets == nil {
 		m.statefulsets = make(map[string]*k8s.StatefulSetInfo)
 	}
@@ -711,7 +711,7 @@ func (m *MockK8sClient) ScaleStatefulSet(namespace, name string, replicas int32)
 
 // DaemonSet mock methods
 
-func (m *MockK8sClient) GetDaemonSet(namespace, name string) (*k8s.DaemonSetInfo, error) {
+func (m *MockK8sClient) GetDaemonSet(_ context.Context, namespace, name string) (*k8s.DaemonSetInfo, error) {
 	if m.daemonsets == nil {
 		m.daemonsets = make(map[string]*k8s.DaemonSetInfo)
 	}
@@ -723,7 +723,7 @@ func (m *MockK8sClient) GetDaemonSet(namespace, name string) (*k8s.DaemonSetInfo
 	return ds, nil
 }
 
-func (m *MockK8sClient) CreateDaemonSet(namespace string, spec k8s.DaemonSetSpec) error {
+func (m *MockK8sClient) CreateDaemonSet(_ context.Context, namespace string, spec k8s.DaemonSetSpec) error {
 	if m.daemonsets == nil {
 		m.daemonsets = make(map[string]*k8s.DaemonSetInfo)
 	}
@@ -750,7 +750,7 @@ func (m *MockK8sClient) CreateDaemonSet(namespace string, spec k8s.DaemonSetSpec
 	return nil
 }
 
-func (m *MockK8sClient) UpdateDaemonSet(namespace string, spec k8s.DaemonSetSpec) error {
+func (m *MockK8sClient) UpdateDaemonSet(_ context.Context, namespace string, spec k8s.DaemonSetSpec) error {
 	if m.daemonsets == nil {
 		m.daemonsets = make(map[string]*k8s.DaemonSetInfo)
 	}
@@ -777,7 +777,7 @@ func (m *MockK8sClient) UpdateDaemonSet(namespace string, spec k8s.DaemonSetSpec
 	return nil
 }
 
-func (m *MockK8sClient) DeleteDaemonSet(namespace, name string) error {
+func (m *MockK8sClient) DeleteDaemonSet(_ context.Context, namespace, name string) error {
 	if m.daemonsets == nil {
 		m.daemonsets = make(map[string]*k8s.DaemonSetInfo)
 	}
@@ -791,7 +791,7 @@ func (m *MockK8sClient) DeleteDaemonSet(namespace, name string) error {
 
 // Job mock methods
 
-func (m *MockK8sClient) GetJob(namespace, name string) (*k8s.JobInfo, error) {
+func (m *MockK8sClient) GetJob(_ context.Context, namespace, name string) (*k8s.JobInfo, error) {
 	if m.jobs == nil {
 		m.jobs = make(map[string]*k8s.JobInfo)
 	}
@@ -803,7 +803,7 @@ func (m *MockK8sClient) GetJob(namespace, name string) (*k8s.JobInfo, error) {
 	return job, nil
 }
 
-func (m *MockK8sClient) CreateJob(namespace string, spec k8s.JobSpec) error {
+func (m *MockK8sClient) CreateJob(_ context.Context, namespace string, spec k8s.JobSpec) error {
 	if m.jobs == nil {
 		m.jobs = make(map[string]*k8s.JobInfo)
 	}
@@ -833,7 +833,7 @@ func (m *MockK8sClient) CreateJob(namespace string, spec k8s.JobSpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) DeleteJob(namespace, name string) error {
+func (m *MockK8sClient) DeleteJob(_ context.Context, namespace, name string) error {
 	if m.jobs == nil {
 		m.jobs = make(map[string]*k8s.JobInfo)
 	}
@@ -847,7 +847,7 @@ func (m *MockK8sClient) DeleteJob(namespace, name string) error {
 
 // CronJob mock methods
 
-func (m *MockK8sClient) GetCronJob(namespace, name string) (*k8s.CronJobInfo, error) {
+func (m *MockK8sClient) GetCronJob(_ context.Context, namespace, name string) (*k8s.CronJobInfo, error) {
 	if m.cronjobs == nil {
 		m.cronjobs = make(map[string]*k8s.CronJobInfo)
 	}
@@ -859,7 +859,7 @@ func (m *MockK8sClient) GetCronJob(namespace, name string) (*k8s.CronJobInfo, er
 	return cj, nil
 }
 
-func (m *MockK8sClient) CreateCronJob(namespace string, spec k8s.CronJobSpec) error {
+func (m *MockK8sClient) CreateCronJob(_ context.Context, namespace string, spec k8s.CronJobSpec) error {
 	if m.cronjobs == nil {
 		m.cronjobs = make(map[string]*k8s.CronJobInfo)
 	}
@@ -885,7 +885,7 @@ func (m *MockK8sClient) CreateCronJob(namespace string, spec k8s.CronJobSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) UpdateCronJob(namespace string, spec k8s.CronJobSpec) error {
+func (m *MockK8sClient) UpdateCronJob(_ context.Context, namespace string, spec k8s.CronJobSpec) error {
 	if m.cronjobs == nil {
 		m.cronjobs = make(map[string]*k8s.CronJobInfo)
 	}
@@ -916,7 +916,7 @@ func (m *MockK8sClient) UpdateCronJob(namespace string, spec k8s.CronJobSpec) er
 	return nil
 }
 
-func (m *MockK8sClient) DeleteCronJob(namespace, name string) error {
+func (m *MockK8sClient) DeleteCronJob(_ context.Context, namespace, name string) error {
 	if m.cronjobs == nil {
 		m.cronjobs = make(map[string]*k8s.CronJobInfo)
 	}
@@ -930,7 +930,7 @@ func (m *MockK8sClient) DeleteCronJob(namespace, name string) error {
 
 // PVC mock methods
 
-func (m *MockK8sClient) GetPVC(namespace, name string) (*k8s.PVCInfo, error) {
+func (m *MockK8sClient) GetPVC(_ context.Context, namespace, name string) (*k8s.PVCInfo, error) {
 	if m.pvcs == nil {
 		m.pvcs = make(map[string]*k8s.PVCInfo)
 	}
@@ -942,7 +942,7 @@ func (m *MockK8sClient) GetPVC(namespace, name string) (*k8s.PVCInfo, error) {
 	return pvc, nil
 }
 
-func (m *MockK8sClient) CreatePVC(namespace string, spec k8s.PVCSpec) error {
+func (m *MockK8sClient) CreatePVC(_ context.Context, namespace string, spec k8s.PVCSpec) error {
 	if m.pvcs == nil {
 		m.pvcs = make(map[string]*k8s.PVCInfo)
 	}
@@ -970,7 +970,7 @@ func (m *MockK8sClient) CreatePVC(namespace string, spec k8s.PVCSpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) UpdatePVC(namespace string, spec k8s.PVCSpec) error {
+func (m *MockK8sClient) UpdatePVC(_ context.Context, namespace string, spec k8s.PVCSpec) error {
 	if m.pvcs == nil {
 		m.pvcs = make(map[string]*k8s.PVCInfo)
 	}
@@ -998,7 +998,7 @@ func (m *MockK8sClient) UpdatePVC(namespace string, spec k8s.PVCSpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) DeletePVC(namespace, name string) error {
+func (m *MockK8sClient) DeletePVC(_ context.Context, namespace, name string) error {
 	if m.pvcs == nil {
 		m.pvcs = make(map[string]*k8s.PVCInfo)
 	}
@@ -1012,7 +1012,7 @@ func (m *MockK8sClient) DeletePVC(namespace, name string) error {
 
 // HPA mock methods
 
-func (m *MockK8sClient) GetHPA(namespace, name string) (*k8s.HPAInfo, error) {
+func (m *MockK8sClient) GetHPA(_ context.Context, namespace, name string) (*k8s.HPAInfo, error) {
 	if m.hpas == nil {
 		m.hpas = make(map[string]*k8s.HPAInfo)
 	}
@@ -1024,7 +1024,7 @@ func (m *MockK8sClient) GetHPA(namespace, name string) (*k8s.HPAInfo, error) {
 	return hpa, nil
 }
 
-func (m *MockK8sClient) CreateHPA(namespace string, spec k8s.HPASpec) error {
+func (m *MockK8sClient) CreateHPA(_ context.Context, namespace string, spec k8s.HPASpec) error {
 	if m.hpas == nil {
 		m.hpas = make(map[string]*k8s.HPAInfo)
 	}
@@ -1053,7 +1053,7 @@ func (m *MockK8sClient) CreateHPA(namespace string, spec k8s.HPASpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) UpdateHPA(namespace string, spec k8s.HPASpec) error {
+func (m *MockK8sClient) UpdateHPA(_ context.Context, namespace string, spec k8s.HPASpec) error {
 	if m.hpas == nil {
 		m.hpas = make(map[string]*k8s.HPAInfo)
 	}
@@ -1086,7 +1086,7 @@ func (m *MockK8sClient) UpdateHPA(namespace string, spec k8s.HPASpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) DeleteHPA(namespace, name string) error {
+func (m *MockK8sClient) DeleteHPA(_ context.Context, namespace, name string) error {
 	if m.hpas == nil {
 		m.hpas = make(map[string]*k8s.HPAInfo)
 	}
@@ -1098,7 +1098,7 @@ func (m *MockK8sClient) DeleteHPA(namespace, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) WatchPods(selector k8s.PodSelector) (<-chan k8s.WatchEvent, error) {
+func (m *MockK8sClient) WatchPods(_ context.Context, selector k8s.PodSelector) (<-chan k8s.WatchEvent, error) {
 	ch := make(chan k8s.WatchEvent)
 	close(ch)
 	return ch, nil
@@ -1116,7 +1116,7 @@ func (m *MockK8sClient) DeleteResource(namespace, kind, name string) error {
 	return nil
 }
 
-func (m *MockK8sClient) GetClusterInfo() (*k8s.ClusterInfo, error) {
+func (m *MockK8sClient) GetClusterInfo(_ context.Context) (*k8s.ClusterInfo, error) {
 	return &k8s.ClusterInfo{
 		Version:    "v1.26.0",
 		Nodes:      3,
@@ -1125,7 +1125,7 @@ func (m *MockK8sClient) GetClusterInfo() (*k8s.ClusterInfo, error) {
 	}, nil
 }
 
-func (m *MockK8sClient) GetNamespace(name string) (*k8s.NamespaceInfo, error) {
+func (m *MockK8sClient) GetNamespace(_ context.Context, name string) (*k8s.NamespaceInfo, error) {
 	if m.namespaces == nil {
 		m.namespaces = make(map[string]*k8s.NamespaceInfo)
 		// Add default namespaces
@@ -1160,7 +1160,7 @@ func (m *MockK8sClient) GetNamespace(name string) (*k8s.NamespaceInfo, error) {
 	return ns, nil
 }
 
-func (m *MockK8sClient) ListNamespaces() ([]k8s.NamespaceInfo, error) {
+func (m *MockK8sClient) ListNamespaces(_ context.Context) ([]k8s.NamespaceInfo, error) {
 	if m.namespaces == nil {
 		m.namespaces = make(map[string]*k8s.NamespaceInfo)
 	}
@@ -1171,7 +1171,7 @@ func (m *MockK8sClient) ListNamespaces() ([]k8s.NamespaceInfo, error) {
 	return result, nil
 }
 
-func (m *MockK8sClient) CreateNamespace(spec k8s.NamespaceSpec) error {
+func (m *MockK8sClient) CreateNamespace(_ context.Context, spec k8s.NamespaceSpec) error {
 	if m.namespaces == nil {
 		m.namespaces = make(map[string]*k8s.NamespaceInfo)
 	}
@@ -1192,7 +1192,7 @@ func (m *MockK8sClient) CreateNamespace(spec k8s.NamespaceSpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) UpdateNamespace(spec k8s.NamespaceSpec) error {
+func (m *MockK8sClient) UpdateNamespace(_ context.Context, spec k8s.NamespaceSpec) error {
 	if m.namespaces == nil {
 		m.namespaces = make(map[string]*k8s.NamespaceInfo)
 	}
@@ -1217,7 +1217,7 @@ func (m *MockK8sClient) UpdateNamespace(spec k8s.NamespaceSpec) error {
 	return nil
 }
 
-func (m *MockK8sClient) DeleteNamespace(name string) error {
+func (m *MockK8sClient) DeleteNamespace(_ context.Context, name string) error {
 	if m.namespaces == nil {
 		m.namespaces = make(map[string]*k8s.NamespaceInfo)
 	}
@@ -3811,7 +3811,7 @@ func TestK8sIngressModule(t *testing.T) {
 		}
 
 		// Verify ingress was created
-		ingress, err := client.GetIngress("default", "my-ingress")
+		ingress, err := client.GetIngress(context.Background(), "default", "my-ingress")
 		if err != nil {
 			t.Fatalf("ingress not created: %v", err)
 		}
@@ -3895,7 +3895,7 @@ func TestK8sIngressModule(t *testing.T) {
 		}
 
 		// Verify ingress was updated
-		ingress, err := client.GetIngress("default", "my-ingress")
+		ingress, err := client.GetIngress(context.Background(), "default", "my-ingress")
 		if err != nil {
 			t.Fatalf("ingress not found: %v", err)
 		}
@@ -3942,7 +3942,7 @@ func TestK8sIngressModule(t *testing.T) {
 		}
 
 		// Verify ingress was deleted
-		_, err = client.GetIngress("default", "my-ingress")
+		_, err = client.GetIngress(context.Background(), "default", "my-ingress")
 		if err == nil {
 			t.Error("expected ingress to be deleted")
 		}
@@ -3974,7 +3974,7 @@ func TestK8sIngressModule(t *testing.T) {
 			t.Errorf("expected success, got failure: %s", result.Comment)
 		}
 
-		ingress, err := client.GetIngress("default", "default-backend-ingress")
+		ingress, err := client.GetIngress(context.Background(), "default", "default-backend-ingress")
 		if err != nil {
 			t.Fatalf("ingress not created: %v", err)
 		}

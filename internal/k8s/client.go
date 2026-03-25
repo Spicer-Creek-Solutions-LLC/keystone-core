@@ -90,12 +90,12 @@ func (c *Client) Clientset() kubernetes.Interface {
 }
 
 // ExecInPod executes a command in a specific pod
-func (c *Client) ExecInPod(opts PodExecOptions) (*PodExecResult, error) {
+func (c *Client) ExecInPod(ctx context.Context, opts PodExecOptions) (*PodExecResult, error) {
 	startTime := time.Now()
 
 	// Get pod to determine container
 	if opts.Container == "" {
-		pod, err := c.clientset.CoreV1().Pods(opts.Namespace).Get(context.Background(), opts.PodName, metav1.GetOptions{})
+		pod, err := c.clientset.CoreV1().Pods(opts.Namespace).Get(ctx, opts.PodName, metav1.GetOptions{})
 		if err != nil {
 			return &PodExecResult{Error: err}, err
 		}
@@ -128,8 +128,7 @@ func (c *Client) ExecInPod(opts PodExecOptions) (*PodExecResult, error) {
 	// Buffers for output
 	var stdout, stderr bytes.Buffer
 
-	// Create context with timeout
-	ctx := context.Background()
+	// Apply timeout if configured
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
@@ -163,9 +162,9 @@ func (c *Client) ExecInPod(opts PodExecOptions) (*PodExecResult, error) {
 }
 
 // ExecInPods executes a command in multiple pods matching selector
-func (c *Client) ExecInPods(selector PodSelector, command []string) ([]PodExecResult, error) {
+func (c *Client) ExecInPods(ctx context.Context, selector PodSelector, command []string) ([]PodExecResult, error) {
 	// List pods matching selector
-	pods, err := c.ListPods(selector)
+	pods, err := c.ListPods(ctx, selector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
@@ -187,7 +186,7 @@ func (c *Client) ExecInPods(selector PodSelector, command []string) ([]PodExecRe
 			Stderr:    true,
 		}
 
-		result, err := c.ExecInPod(opts)
+		result, err := c.ExecInPod(ctx, opts)
 		if err != nil {
 			// Continue with other pods even if one fails
 			result = &PodExecResult{
@@ -204,8 +203,8 @@ func (c *Client) ExecInPods(selector PodSelector, command []string) ([]PodExecRe
 }
 
 // GetPod retrieves pod information
-func (c *Client) GetPod(namespace, name string) (*ResourceInfo, error) {
-	pod, err := c.clientset.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetPod(ctx context.Context, namespace, name string) (*ResourceInfo, error) {
+	pod, err := c.clientset.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod: %w", err)
 	}
@@ -231,7 +230,7 @@ func (c *Client) GetPod(namespace, name string) (*ResourceInfo, error) {
 }
 
 // ListPods lists pods matching selector
-func (c *Client) ListPods(selector PodSelector) ([]ResourceInfo, error) {
+func (c *Client) ListPods(ctx context.Context, selector PodSelector) ([]ResourceInfo, error) {
 	namespace := selector.Namespace
 	if namespace == "" {
 		namespace = corev1.NamespaceAll
@@ -242,7 +241,7 @@ func (c *Client) ListPods(selector PodSelector) ([]ResourceInfo, error) {
 		FieldSelector: selector.FieldSelector,
 	}
 
-	podList, err := c.clientset.CoreV1().Pods(namespace).List(context.Background(), listOpts)
+	podList, err := c.clientset.CoreV1().Pods(namespace).List(ctx, listOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
@@ -286,8 +285,8 @@ func (c *Client) ListPods(selector PodSelector) ([]ResourceInfo, error) {
 }
 
 // GetDeployment retrieves deployment information
-func (c *Client) GetDeployment(namespace, name string) (*DeploymentInfo, error) {
-	deployment, err := c.clientset.AppsV1().Deployments(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetDeployment(ctx context.Context, namespace, name string) (*DeploymentInfo, error) {
+	deployment, err := c.clientset.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get deployment: %w", err)
 	}
@@ -317,8 +316,8 @@ func (c *Client) GetDeployment(namespace, name string) (*DeploymentInfo, error) 
 }
 
 // GetService retrieves service information
-func (c *Client) GetService(namespace, name string) (*ServiceInfo, error) {
-	service, err := c.clientset.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetService(ctx context.Context, namespace, name string) (*ServiceInfo, error) {
+	service, err := c.clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service: %w", err)
 	}
@@ -352,7 +351,7 @@ func (c *Client) GetService(namespace, name string) (*ServiceInfo, error) {
 }
 
 // WatchPods watches for pod events
-func (c *Client) WatchPods(selector PodSelector) (<-chan WatchEvent, error) {
+func (c *Client) WatchPods(ctx context.Context, selector PodSelector) (<-chan WatchEvent, error) {
 	namespace := selector.Namespace
 	if namespace == "" {
 		namespace = corev1.NamespaceAll
@@ -364,7 +363,7 @@ func (c *Client) WatchPods(selector PodSelector) (<-chan WatchEvent, error) {
 		Watch:         true,
 	}
 
-	watcher, err := c.clientset.CoreV1().Pods(namespace).Watch(context.Background(), listOpts)
+	watcher, err := c.clientset.CoreV1().Pods(namespace).Watch(ctx, listOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to watch pods: %w", err)
 	}
@@ -416,18 +415,18 @@ func (c *Client) DeleteResource(namespace, kind, name string) error {
 }
 
 // GetClusterInfo returns information about the cluster
-func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
+func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	version, err := c.clientset.Discovery().ServerVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server version: %w", err)
 	}
 
-	nodes, err := c.clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	nodes, err := c.clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	namespaces, err := c.clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	namespaces, err := c.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
@@ -471,8 +470,8 @@ func getTotalRestartCount(pod *corev1.Pod) int32 {
 }
 
 // GetNamespace retrieves namespace information
-func (c *Client) GetNamespace(name string) (*NamespaceInfo, error) {
-	ns, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetNamespace(ctx context.Context, name string) (*NamespaceInfo, error) {
+	ns, err := c.clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
@@ -501,8 +500,8 @@ func (c *Client) GetNamespace(name string) (*NamespaceInfo, error) {
 }
 
 // ListNamespaces lists all namespaces
-func (c *Client) ListNamespaces() ([]NamespaceInfo, error) {
-	nsList, err := c.clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+func (c *Client) ListNamespaces(ctx context.Context) ([]NamespaceInfo, error) {
+	nsList, err := c.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
@@ -537,7 +536,7 @@ func (c *Client) ListNamespaces() ([]NamespaceInfo, error) {
 }
 
 // CreateNamespace creates a new namespace
-func (c *Client) CreateNamespace(spec NamespaceSpec) error {
+func (c *Client) CreateNamespace(ctx context.Context, spec NamespaceSpec) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        spec.Name,
@@ -546,7 +545,7 @@ func (c *Client) CreateNamespace(spec NamespaceSpec) error {
 		},
 	}
 
-	_, err := c.clientset.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	_, err := c.clientset.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create namespace: %w", err)
 	}
@@ -555,9 +554,9 @@ func (c *Client) CreateNamespace(spec NamespaceSpec) error {
 }
 
 // UpdateNamespace updates a namespace's labels and annotations
-func (c *Client) UpdateNamespace(spec NamespaceSpec) error {
+func (c *Client) UpdateNamespace(ctx context.Context, spec NamespaceSpec) error {
 	// Get current namespace
-	ns, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), spec.Name, metav1.GetOptions{})
+	ns, err := c.clientset.CoreV1().Namespaces().Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get namespace for update: %w", err)
 	}
@@ -578,7 +577,7 @@ func (c *Client) UpdateNamespace(spec NamespaceSpec) error {
 		ns.Annotations[k] = v
 	}
 
-	_, err = c.clientset.CoreV1().Namespaces().Update(context.Background(), ns, metav1.UpdateOptions{})
+	_, err = c.clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update namespace: %w", err)
 	}
@@ -587,8 +586,8 @@ func (c *Client) UpdateNamespace(spec NamespaceSpec) error {
 }
 
 // DeleteNamespace deletes a namespace
-func (c *Client) DeleteNamespace(name string) error {
-	err := c.clientset.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteNamespace(ctx context.Context, name string) error {
+	err := c.clientset.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete namespace: %w", err)
 	}
@@ -608,7 +607,7 @@ func namespacePhaseToStatus(phase corev1.NamespacePhase) ResourceStatus {
 }
 
 // CreateDeployment creates a new deployment
-func (c *Client) CreateDeployment(namespace string, spec DeploymentSpec) error {
+func (c *Client) CreateDeployment(ctx context.Context, namespace string, spec DeploymentSpec) error {
 	// Build selector - use provided selector or fall back to labels
 	selector := spec.Selector
 	if len(selector) == 0 {
@@ -665,7 +664,7 @@ func (c *Client) CreateDeployment(namespace string, spec DeploymentSpec) error {
 		}
 	}
 
-	_, err := c.clientset.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
+	_, err := c.clientset.AppsV1().Deployments(namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create deployment: %w", err)
 	}
@@ -674,9 +673,9 @@ func (c *Client) CreateDeployment(namespace string, spec DeploymentSpec) error {
 }
 
 // UpdateDeployment updates a deployment's labels, annotations, and replicas
-func (c *Client) UpdateDeployment(namespace string, spec DeploymentSpec) error {
+func (c *Client) UpdateDeployment(ctx context.Context, namespace string, spec DeploymentSpec) error {
 	// Get current deployment
-	deployment, err := c.clientset.AppsV1().Deployments(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	deployment, err := c.clientset.AppsV1().Deployments(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get deployment for update: %w", err)
 	}
@@ -707,7 +706,7 @@ func (c *Client) UpdateDeployment(namespace string, spec DeploymentSpec) error {
 		deployment.Spec.Template.Spec.Containers[0].Image = spec.Image
 	}
 
-	_, err = c.clientset.AppsV1().Deployments(namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
+	_, err = c.clientset.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update deployment: %w", err)
 	}
@@ -716,8 +715,8 @@ func (c *Client) UpdateDeployment(namespace string, spec DeploymentSpec) error {
 }
 
 // DeleteDeployment deletes a deployment
-func (c *Client) DeleteDeployment(namespace, name string) error {
-	err := c.clientset.AppsV1().Deployments(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteDeployment(ctx context.Context, namespace, name string) error {
+	err := c.clientset.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete deployment: %w", err)
 	}
@@ -726,15 +725,15 @@ func (c *Client) DeleteDeployment(namespace, name string) error {
 }
 
 // ScaleDeployment scales a deployment to specified replicas
-func (c *Client) ScaleDeployment(namespace, name string, replicas int32) error {
-	scale, err := c.clientset.AppsV1().Deployments(namespace).GetScale(context.Background(), name, metav1.GetOptions{})
+func (c *Client) ScaleDeployment(ctx context.Context, namespace, name string, replicas int32) error {
+	scale, err := c.clientset.AppsV1().Deployments(namespace).GetScale(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get deployment scale: %w", err)
 	}
 
 	scale.Spec.Replicas = replicas
 
-	_, err = c.clientset.AppsV1().Deployments(namespace).UpdateScale(context.Background(), name, scale, metav1.UpdateOptions{})
+	_, err = c.clientset.AppsV1().Deployments(namespace).UpdateScale(ctx, name, scale, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to scale deployment: %w", err)
 	}
@@ -743,7 +742,7 @@ func (c *Client) ScaleDeployment(namespace, name string, replicas int32) error {
 }
 
 // CreateService creates a new Kubernetes service
-func (c *Client) CreateService(namespace string, spec ServiceSpec) error {
+func (c *Client) CreateService(ctx context.Context, namespace string, spec ServiceSpec) error {
 	// Build ports
 	ports := make([]corev1.ServicePort, len(spec.Ports))
 	for i, p := range spec.Ports {
@@ -786,7 +785,7 @@ func (c *Client) CreateService(namespace string, spec ServiceSpec) error {
 		},
 	}
 
-	_, err := c.clientset.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
+	_, err := c.clientset.CoreV1().Services(namespace).Create(ctx, service, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service: %w", err)
 	}
@@ -795,9 +794,9 @@ func (c *Client) CreateService(namespace string, spec ServiceSpec) error {
 }
 
 // UpdateService updates an existing Kubernetes service
-func (c *Client) UpdateService(namespace string, spec ServiceSpec) error {
+func (c *Client) UpdateService(ctx context.Context, namespace string, spec ServiceSpec) error {
 	// Get existing service
-	service, err := c.clientset.CoreV1().Services(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	service, err := c.clientset.CoreV1().Services(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get service: %w", err)
 	}
@@ -851,7 +850,7 @@ func (c *Client) UpdateService(namespace string, spec ServiceSpec) error {
 		service.Spec.Type = corev1.ServiceType(spec.Type)
 	}
 
-	_, err = c.clientset.CoreV1().Services(namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+	_, err = c.clientset.CoreV1().Services(namespace).Update(ctx, service, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update service: %w", err)
 	}
@@ -860,8 +859,8 @@ func (c *Client) UpdateService(namespace string, spec ServiceSpec) error {
 }
 
 // DeleteService deletes a Kubernetes service
-func (c *Client) DeleteService(namespace, name string) error {
-	err := c.clientset.CoreV1().Services(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteService(ctx context.Context, namespace, name string) error {
+	err := c.clientset.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete service: %w", err)
 	}
@@ -869,8 +868,8 @@ func (c *Client) DeleteService(namespace, name string) error {
 }
 
 // GetConfigMap retrieves configmap information
-func (c *Client) GetConfigMap(namespace, name string) (*ConfigMapInfo, error) {
-	cm, err := c.clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetConfigMap(ctx context.Context, namespace, name string) (*ConfigMapInfo, error) {
+	cm, err := c.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -890,7 +889,7 @@ func (c *Client) GetConfigMap(namespace, name string) (*ConfigMapInfo, error) {
 }
 
 // CreateConfigMap creates a new configmap
-func (c *Client) CreateConfigMap(namespace string, spec ConfigMapSpec) error {
+func (c *Client) CreateConfigMap(ctx context.Context, namespace string, spec ConfigMapSpec) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        spec.Name,
@@ -902,7 +901,7 @@ func (c *Client) CreateConfigMap(namespace string, spec ConfigMapSpec) error {
 		BinaryData: spec.BinaryData,
 	}
 
-	_, err := c.clientset.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+	_, err := c.clientset.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create configmap: %w", err)
 	}
@@ -910,9 +909,9 @@ func (c *Client) CreateConfigMap(namespace string, spec ConfigMapSpec) error {
 }
 
 // UpdateConfigMap updates a configmap
-func (c *Client) UpdateConfigMap(namespace string, spec ConfigMapSpec) error {
+func (c *Client) UpdateConfigMap(ctx context.Context, namespace string, spec ConfigMapSpec) error {
 	// Get existing configmap
-	cm, err := c.clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	cm, err := c.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get configmap for update: %w", err)
 	}
@@ -945,7 +944,7 @@ func (c *Client) UpdateConfigMap(namespace string, spec ConfigMapSpec) error {
 		cm.BinaryData = spec.BinaryData
 	}
 
-	_, err = c.clientset.CoreV1().ConfigMaps(namespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+	_, err = c.clientset.CoreV1().ConfigMaps(namespace).Update(ctx, cm, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update configmap: %w", err)
 	}
@@ -953,8 +952,8 @@ func (c *Client) UpdateConfigMap(namespace string, spec ConfigMapSpec) error {
 }
 
 // DeleteConfigMap deletes a configmap
-func (c *Client) DeleteConfigMap(namespace, name string) error {
-	err := c.clientset.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteConfigMap(ctx context.Context, namespace, name string) error {
+	err := c.clientset.CoreV1().ConfigMaps(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete configmap: %w", err)
 	}
@@ -962,8 +961,8 @@ func (c *Client) DeleteConfigMap(namespace, name string) error {
 }
 
 // GetSecret retrieves secret information
-func (c *Client) GetSecret(namespace, name string) (*SecretInfo, error) {
-	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetSecret(ctx context.Context, namespace, name string) (*SecretInfo, error) {
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -983,7 +982,7 @@ func (c *Client) GetSecret(namespace, name string) (*SecretInfo, error) {
 }
 
 // CreateSecret creates a new secret
-func (c *Client) CreateSecret(namespace string, spec SecretSpec) error {
+func (c *Client) CreateSecret(ctx context.Context, namespace string, spec SecretSpec) error {
 	secretType := corev1.SecretTypeOpaque
 	if spec.Type != "" {
 		secretType = corev1.SecretType(spec.Type)
@@ -1001,7 +1000,7 @@ func (c *Client) CreateSecret(namespace string, spec SecretSpec) error {
 		StringData: spec.StringData,
 	}
 
-	_, err := c.clientset.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err := c.clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
@@ -1009,9 +1008,9 @@ func (c *Client) CreateSecret(namespace string, spec SecretSpec) error {
 }
 
 // UpdateSecret updates a secret
-func (c *Client) UpdateSecret(namespace string, spec SecretSpec) error {
+func (c *Client) UpdateSecret(ctx context.Context, namespace string, spec SecretSpec) error {
 	// Get existing secret
-	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get secret for update: %w", err)
 	}
@@ -1056,7 +1055,7 @@ func (c *Client) UpdateSecret(namespace string, spec SecretSpec) error {
 		}
 	}
 
-	_, err = c.clientset.CoreV1().Secrets(namespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+	_, err = c.clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update secret: %w", err)
 	}
@@ -1064,8 +1063,8 @@ func (c *Client) UpdateSecret(namespace string, spec SecretSpec) error {
 }
 
 // DeleteSecret deletes a secret
-func (c *Client) DeleteSecret(namespace, name string) error {
-	err := c.clientset.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteSecret(ctx context.Context, namespace, name string) error {
+	err := c.clientset.CoreV1().Secrets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete secret: %w", err)
 	}
@@ -1073,8 +1072,8 @@ func (c *Client) DeleteSecret(namespace, name string) error {
 }
 
 // GetIngress retrieves ingress information
-func (c *Client) GetIngress(namespace, name string) (*IngressInfo, error) {
-	ingress, err := c.clientset.NetworkingV1().Ingresses(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetIngress(ctx context.Context, namespace, name string) (*IngressInfo, error) {
+	ingress, err := c.clientset.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -1162,7 +1161,7 @@ func (c *Client) GetIngress(namespace, name string) (*IngressInfo, error) {
 }
 
 // CreateIngress creates a new ingress
-func (c *Client) CreateIngress(namespace string, spec IngressSpec) error {
+func (c *Client) CreateIngress(ctx context.Context, namespace string, spec IngressSpec) error {
 	// Build rules
 	rules := make([]networkingv1.IngressRule, len(spec.Rules))
 	for i, rule := range spec.Rules {
@@ -1237,7 +1236,7 @@ func (c *Client) CreateIngress(namespace string, spec IngressSpec) error {
 		}
 	}
 
-	_, err := c.clientset.NetworkingV1().Ingresses(namespace).Create(context.Background(), ingress, metav1.CreateOptions{})
+	_, err := c.clientset.NetworkingV1().Ingresses(namespace).Create(ctx, ingress, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create ingress: %w", err)
 	}
@@ -1245,9 +1244,9 @@ func (c *Client) CreateIngress(namespace string, spec IngressSpec) error {
 }
 
 // UpdateIngress updates an ingress
-func (c *Client) UpdateIngress(namespace string, spec IngressSpec) error {
+func (c *Client) UpdateIngress(ctx context.Context, namespace string, spec IngressSpec) error {
 	// Get existing ingress
-	ingress, err := c.clientset.NetworkingV1().Ingresses(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	ingress, err := c.clientset.NetworkingV1().Ingresses(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get ingress for update: %w", err)
 	}
@@ -1339,7 +1338,7 @@ func (c *Client) UpdateIngress(namespace string, spec IngressSpec) error {
 		}
 	}
 
-	_, err = c.clientset.NetworkingV1().Ingresses(namespace).Update(context.Background(), ingress, metav1.UpdateOptions{})
+	_, err = c.clientset.NetworkingV1().Ingresses(namespace).Update(ctx, ingress, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update ingress: %w", err)
 	}
@@ -1347,8 +1346,8 @@ func (c *Client) UpdateIngress(namespace string, spec IngressSpec) error {
 }
 
 // DeleteIngress deletes an ingress
-func (c *Client) DeleteIngress(namespace, name string) error {
-	err := c.clientset.NetworkingV1().Ingresses(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteIngress(ctx context.Context, namespace, name string) error {
+	err := c.clientset.NetworkingV1().Ingresses(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete ingress: %w", err)
 	}
@@ -1356,8 +1355,8 @@ func (c *Client) DeleteIngress(namespace, name string) error {
 }
 
 // GetStatefulSet retrieves statefulset information
-func (c *Client) GetStatefulSet(namespace, name string) (*StatefulSetInfo, error) {
-	sts, err := c.clientset.AppsV1().StatefulSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetStatefulSet(ctx context.Context, namespace, name string) (*StatefulSetInfo, error) {
+	sts, err := c.clientset.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get statefulset: %w", err)
 	}
@@ -1404,7 +1403,7 @@ func (c *Client) GetStatefulSet(namespace, name string) (*StatefulSetInfo, error
 }
 
 // CreateStatefulSet creates a new statefulset
-func (c *Client) CreateStatefulSet(namespace string, spec StatefulSetSpec) error {
+func (c *Client) CreateStatefulSet(ctx context.Context, namespace string, spec StatefulSetSpec) error {
 	// Build selector - use provided selector or fall back to labels
 	selector := spec.Selector
 	if len(selector) == 0 {
@@ -1527,7 +1526,7 @@ func (c *Client) CreateStatefulSet(namespace string, spec StatefulSetSpec) error
 		sts.Spec.VolumeClaimTemplates = pvcs
 	}
 
-	_, err := c.clientset.AppsV1().StatefulSets(namespace).Create(context.Background(), sts, metav1.CreateOptions{})
+	_, err := c.clientset.AppsV1().StatefulSets(namespace).Create(ctx, sts, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create statefulset: %w", err)
 	}
@@ -1536,9 +1535,9 @@ func (c *Client) CreateStatefulSet(namespace string, spec StatefulSetSpec) error
 }
 
 // UpdateStatefulSet updates a statefulset's labels, annotations, and replicas
-func (c *Client) UpdateStatefulSet(namespace string, spec StatefulSetSpec) error {
+func (c *Client) UpdateStatefulSet(ctx context.Context, namespace string, spec StatefulSetSpec) error {
 	// Get current statefulset
-	sts, err := c.clientset.AppsV1().StatefulSets(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	sts, err := c.clientset.AppsV1().StatefulSets(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get statefulset for update: %w", err)
 	}
@@ -1579,7 +1578,7 @@ func (c *Client) UpdateStatefulSet(namespace string, spec StatefulSetSpec) error
 		}
 	}
 
-	_, err = c.clientset.AppsV1().StatefulSets(namespace).Update(context.Background(), sts, metav1.UpdateOptions{})
+	_, err = c.clientset.AppsV1().StatefulSets(namespace).Update(ctx, sts, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update statefulset: %w", err)
 	}
@@ -1587,8 +1586,8 @@ func (c *Client) UpdateStatefulSet(namespace string, spec StatefulSetSpec) error
 }
 
 // DeleteStatefulSet deletes a statefulset
-func (c *Client) DeleteStatefulSet(namespace, name string) error {
-	err := c.clientset.AppsV1().StatefulSets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteStatefulSet(ctx context.Context, namespace, name string) error {
+	err := c.clientset.AppsV1().StatefulSets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete statefulset: %w", err)
 	}
@@ -1596,15 +1595,15 @@ func (c *Client) DeleteStatefulSet(namespace, name string) error {
 }
 
 // ScaleStatefulSet scales a statefulset to specified replicas
-func (c *Client) ScaleStatefulSet(namespace, name string, replicas int32) error {
-	scale, err := c.clientset.AppsV1().StatefulSets(namespace).GetScale(context.Background(), name, metav1.GetOptions{})
+func (c *Client) ScaleStatefulSet(ctx context.Context, namespace, name string, replicas int32) error {
+	scale, err := c.clientset.AppsV1().StatefulSets(namespace).GetScale(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get statefulset scale: %w", err)
 	}
 
 	scale.Spec.Replicas = replicas
 
-	_, err = c.clientset.AppsV1().StatefulSets(namespace).UpdateScale(context.Background(), name, scale, metav1.UpdateOptions{})
+	_, err = c.clientset.AppsV1().StatefulSets(namespace).UpdateScale(ctx, name, scale, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to scale statefulset: %w", err)
 	}
@@ -1615,8 +1614,8 @@ func (c *Client) ScaleStatefulSet(namespace, name string, replicas int32) error 
 // ==================== DaemonSet Methods ====================
 
 // GetDaemonSet retrieves daemonset information
-func (c *Client) GetDaemonSet(namespace, name string) (*DaemonSetInfo, error) {
-	ds, err := c.clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetDaemonSet(ctx context.Context, namespace, name string) (*DaemonSetInfo, error) {
+	ds, err := c.clientset.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get daemonset: %w", err)
 	}
@@ -1654,7 +1653,7 @@ func (c *Client) GetDaemonSet(namespace, name string) (*DaemonSetInfo, error) {
 }
 
 // CreateDaemonSet creates a new daemonset
-func (c *Client) CreateDaemonSet(namespace string, spec DaemonSetSpec) error {
+func (c *Client) CreateDaemonSet(ctx context.Context, namespace string, spec DaemonSetSpec) error {
 	selector := spec.Selector
 	if len(selector) == 0 {
 		selector = spec.Labels
@@ -1713,7 +1712,7 @@ func (c *Client) CreateDaemonSet(namespace string, spec DaemonSetSpec) error {
 		ds.Spec.Template.Spec.NodeSelector = spec.NodeSelector
 	}
 
-	_, err := c.clientset.AppsV1().DaemonSets(namespace).Create(context.Background(), ds, metav1.CreateOptions{})
+	_, err := c.clientset.AppsV1().DaemonSets(namespace).Create(ctx, ds, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create daemonset: %w", err)
 	}
@@ -1721,8 +1720,8 @@ func (c *Client) CreateDaemonSet(namespace string, spec DaemonSetSpec) error {
 }
 
 // UpdateDaemonSet updates a daemonset
-func (c *Client) UpdateDaemonSet(namespace string, spec DaemonSetSpec) error {
-	ds, err := c.clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+func (c *Client) UpdateDaemonSet(ctx context.Context, namespace string, spec DaemonSetSpec) error {
+	ds, err := c.clientset.AppsV1().DaemonSets(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get daemonset for update: %w", err)
 	}
@@ -1754,7 +1753,7 @@ func (c *Client) UpdateDaemonSet(namespace string, spec DaemonSetSpec) error {
 		}
 	}
 
-	_, err = c.clientset.AppsV1().DaemonSets(namespace).Update(context.Background(), ds, metav1.UpdateOptions{})
+	_, err = c.clientset.AppsV1().DaemonSets(namespace).Update(ctx, ds, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update daemonset: %w", err)
 	}
@@ -1762,8 +1761,8 @@ func (c *Client) UpdateDaemonSet(namespace string, spec DaemonSetSpec) error {
 }
 
 // DeleteDaemonSet deletes a daemonset
-func (c *Client) DeleteDaemonSet(namespace, name string) error {
-	err := c.clientset.AppsV1().DaemonSets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string) error {
+	err := c.clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete daemonset: %w", err)
 	}
@@ -1773,8 +1772,8 @@ func (c *Client) DeleteDaemonSet(namespace, name string) error {
 // ==================== Job Methods ====================
 
 // GetJob retrieves job information
-func (c *Client) GetJob(namespace, name string) (*JobInfo, error) {
-	job, err := c.clientset.BatchV1().Jobs(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetJob(ctx context.Context, namespace, name string) (*JobInfo, error) {
+	job, err := c.clientset.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
@@ -1826,7 +1825,7 @@ func (c *Client) GetJob(namespace, name string) (*JobInfo, error) {
 }
 
 // CreateJob creates a new job
-func (c *Client) CreateJob(namespace string, spec JobSpec) error {
+func (c *Client) CreateJob(ctx context.Context, namespace string, spec JobSpec) error {
 	completions := spec.Completions
 	if completions == 0 {
 		completions = 1
@@ -1879,7 +1878,7 @@ func (c *Client) CreateJob(namespace string, spec JobSpec) error {
 		job.Spec.TTLSecondsAfterFinished = spec.TTLSecondsAfterFinished
 	}
 
-	_, err := c.clientset.BatchV1().Jobs(namespace).Create(context.Background(), job, metav1.CreateOptions{})
+	_, err := c.clientset.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create job: %w", err)
 	}
@@ -1887,9 +1886,9 @@ func (c *Client) CreateJob(namespace string, spec JobSpec) error {
 }
 
 // DeleteJob deletes a job
-func (c *Client) DeleteJob(namespace, name string) error {
+func (c *Client) DeleteJob(ctx context.Context, namespace, name string) error {
 	propagationPolicy := metav1.DeletePropagationBackground
-	err := c.clientset.BatchV1().Jobs(namespace).Delete(context.Background(), name, metav1.DeleteOptions{
+	err := c.clientset.BatchV1().Jobs(namespace).Delete(ctx, name, metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	})
 	if err != nil {
@@ -1901,8 +1900,8 @@ func (c *Client) DeleteJob(namespace, name string) error {
 // ==================== CronJob Methods ====================
 
 // GetCronJob retrieves cronjob information
-func (c *Client) GetCronJob(namespace, name string) (*CronJobInfo, error) {
-	cj, err := c.clientset.BatchV1().CronJobs(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetCronJob(ctx context.Context, namespace, name string) (*CronJobInfo, error) {
+	cj, err := c.clientset.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cronjob: %w", err)
 	}
@@ -1944,7 +1943,7 @@ func (c *Client) GetCronJob(namespace, name string) (*CronJobInfo, error) {
 }
 
 // CreateCronJob creates a new cronjob
-func (c *Client) CreateCronJob(namespace string, spec CronJobSpec) error {
+func (c *Client) CreateCronJob(ctx context.Context, namespace string, spec CronJobSpec) error {
 	concurrencyPolicy := batchv1.AllowConcurrent
 	switch spec.ConcurrencyPolicy {
 	case "Forbid":
@@ -1999,7 +1998,7 @@ func (c *Client) CreateCronJob(namespace string, spec CronJobSpec) error {
 		cj.Spec.StartingDeadlineSeconds = spec.StartingDeadlineSeconds
 	}
 
-	_, err := c.clientset.BatchV1().CronJobs(namespace).Create(context.Background(), cj, metav1.CreateOptions{})
+	_, err := c.clientset.BatchV1().CronJobs(namespace).Create(ctx, cj, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create cronjob: %w", err)
 	}
@@ -2007,8 +2006,8 @@ func (c *Client) CreateCronJob(namespace string, spec CronJobSpec) error {
 }
 
 // UpdateCronJob updates a cronjob
-func (c *Client) UpdateCronJob(namespace string, spec CronJobSpec) error {
-	cj, err := c.clientset.BatchV1().CronJobs(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+func (c *Client) UpdateCronJob(ctx context.Context, namespace string, spec CronJobSpec) error {
+	cj, err := c.clientset.BatchV1().CronJobs(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get cronjob for update: %w", err)
 	}
@@ -2048,7 +2047,7 @@ func (c *Client) UpdateCronJob(namespace string, spec CronJobSpec) error {
 		cj.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image = spec.Image
 	}
 
-	_, err = c.clientset.BatchV1().CronJobs(namespace).Update(context.Background(), cj, metav1.UpdateOptions{})
+	_, err = c.clientset.BatchV1().CronJobs(namespace).Update(ctx, cj, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update cronjob: %w", err)
 	}
@@ -2056,8 +2055,8 @@ func (c *Client) UpdateCronJob(namespace string, spec CronJobSpec) error {
 }
 
 // DeleteCronJob deletes a cronjob
-func (c *Client) DeleteCronJob(namespace, name string) error {
-	err := c.clientset.BatchV1().CronJobs(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteCronJob(ctx context.Context, namespace, name string) error {
+	err := c.clientset.BatchV1().CronJobs(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete cronjob: %w", err)
 	}
@@ -2067,8 +2066,8 @@ func (c *Client) DeleteCronJob(namespace, name string) error {
 // ==================== PVC Methods ====================
 
 // GetPVC retrieves persistent volume claim information
-func (c *Client) GetPVC(namespace, name string) (*PVCInfo, error) {
-	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetPVC(ctx context.Context, namespace, name string) (*PVCInfo, error) {
+	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pvc: %w", err)
 	}
@@ -2117,7 +2116,7 @@ func (c *Client) GetPVC(namespace, name string) (*PVCInfo, error) {
 }
 
 // CreatePVC creates a new persistent volume claim
-func (c *Client) CreatePVC(namespace string, spec PVCSpec) error {
+func (c *Client) CreatePVC(ctx context.Context, namespace string, spec PVCSpec) error {
 	accessModes := make([]corev1.PersistentVolumeAccessMode, len(spec.AccessModes))
 	for i, am := range spec.AccessModes {
 		switch am {
@@ -2176,7 +2175,7 @@ func (c *Client) CreatePVC(namespace string, spec PVCSpec) error {
 		pvc.Spec.VolumeMode = &mode
 	}
 
-	_, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	_, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(ctx, pvc, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pvc: %w", err)
 	}
@@ -2184,8 +2183,8 @@ func (c *Client) CreatePVC(namespace string, spec PVCSpec) error {
 }
 
 // UpdatePVC updates a persistent volume claim
-func (c *Client) UpdatePVC(namespace string, spec PVCSpec) error {
-	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+func (c *Client) UpdatePVC(ctx context.Context, namespace string, spec PVCSpec) error {
+	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get pvc for update: %w", err)
 	}
@@ -2216,7 +2215,7 @@ func (c *Client) UpdatePVC(namespace string, spec PVCSpec) error {
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = quantity
 	}
 
-	_, err = c.clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+	_, err = c.clientset.CoreV1().PersistentVolumeClaims(namespace).Update(ctx, pvc, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update pvc: %w", err)
 	}
@@ -2224,8 +2223,8 @@ func (c *Client) UpdatePVC(namespace string, spec PVCSpec) error {
 }
 
 // DeletePVC deletes a persistent volume claim
-func (c *Client) DeletePVC(namespace, name string) error {
-	err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeletePVC(ctx context.Context, namespace, name string) error {
+	err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete pvc: %w", err)
 	}
@@ -2235,8 +2234,8 @@ func (c *Client) DeletePVC(namespace, name string) error {
 // ==================== HPA Methods ====================
 
 // GetHPA retrieves horizontal pod autoscaler information
-func (c *Client) GetHPA(namespace, name string) (*HPAInfo, error) {
-	hpa, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (c *Client) GetHPA(ctx context.Context, namespace, name string) (*HPAInfo, error) {
+	hpa, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hpa: %w", err)
 	}
@@ -2286,7 +2285,7 @@ func (c *Client) GetHPA(namespace, name string) (*HPAInfo, error) {
 }
 
 // CreateHPA creates a new horizontal pod autoscaler
-func (c *Client) CreateHPA(namespace string, spec HPASpec) error {
+func (c *Client) CreateHPA(ctx context.Context, namespace string, spec HPASpec) error {
 	minReplicas := spec.MinReplicas
 	if minReplicas == 0 {
 		minReplicas = 1
@@ -2337,7 +2336,7 @@ func (c *Client) CreateHPA(namespace string, spec HPASpec) error {
 		})
 	}
 
-	_, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Create(context.Background(), hpa, metav1.CreateOptions{})
+	_, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Create(ctx, hpa, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create hpa: %w", err)
 	}
@@ -2345,8 +2344,8 @@ func (c *Client) CreateHPA(namespace string, spec HPASpec) error {
 }
 
 // UpdateHPA updates a horizontal pod autoscaler
-func (c *Client) UpdateHPA(namespace string, spec HPASpec) error {
-	hpa, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+func (c *Client) UpdateHPA(ctx context.Context, namespace string, spec HPASpec) error {
+	hpa, err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(ctx, spec.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get hpa for update: %w", err)
 	}
@@ -2396,7 +2395,7 @@ func (c *Client) UpdateHPA(namespace string, spec HPASpec) error {
 		}
 	}
 
-	_, err = c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Update(context.Background(), hpa, metav1.UpdateOptions{})
+	_, err = c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Update(ctx, hpa, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update hpa: %w", err)
 	}
@@ -2404,8 +2403,8 @@ func (c *Client) UpdateHPA(namespace string, spec HPASpec) error {
 }
 
 // DeleteHPA deletes a horizontal pod autoscaler
-func (c *Client) DeleteHPA(namespace, name string) error {
-	err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+func (c *Client) DeleteHPA(ctx context.Context, namespace, name string) error {
+	err := c.clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete hpa: %w", err)
 	}
@@ -2418,10 +2417,10 @@ func resourceQuantityFromString(size string) (resource.Quantity, error) {
 }
 
 // StreamExecOutput executes a command in a pod and streams output to provided writers
-func (c *Client) StreamExecOutput(opts PodExecOptions, stdout, stderr io.Writer) error {
+func (c *Client) StreamExecOutput(ctx context.Context, opts PodExecOptions, stdout, stderr io.Writer) error {
 	// Get pod to determine container
 	if opts.Container == "" {
-		pod, err := c.clientset.CoreV1().Pods(opts.Namespace).Get(context.Background(), opts.PodName, metav1.GetOptions{})
+		pod, err := c.clientset.CoreV1().Pods(opts.Namespace).Get(ctx, opts.PodName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -2451,8 +2450,7 @@ func (c *Client) StreamExecOutput(opts PodExecOptions, stdout, stderr io.Writer)
 		return err
 	}
 
-	// Create context with timeout
-	ctx := context.Background()
+	// Apply timeout if configured
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)

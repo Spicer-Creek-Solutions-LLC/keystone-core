@@ -34,7 +34,7 @@ func (m *K8sNamespaceModule) Check(ctx context.Context, decl *StateDeclaration) 
 	}
 
 	// Get the namespace from Kubernetes
-	nsInfo, err := m.client.GetNamespace(namespaceName)
+	nsInfo, err := m.client.GetNamespace(ctx, namespaceName)
 	if err != nil {
 		// Check if namespace doesn't exist (not found error)
 		if strings.Contains(err.Error(), "not found") {
@@ -163,7 +163,7 @@ func (m *K8sNamespaceModule) Apply(ctx context.Context, decl *StateDeclaration) 
 
 		if !checkResult.Present {
 			// Create namespace
-			if err := m.client.CreateNamespace(spec); err != nil {
+			if err := m.client.CreateNamespace(ctx, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to create namespace: %v", err)
 				result.Duration = time.Since(startTime)
@@ -173,7 +173,7 @@ func (m *K8sNamespaceModule) Apply(ctx context.Context, decl *StateDeclaration) 
 			result.Comment = fmt.Sprintf("Created namespace %s", namespaceName)
 		} else {
 			// Update namespace (labels, annotations, etc.)
-			if err := m.client.UpdateNamespace(spec); err != nil {
+			if err := m.client.UpdateNamespace(ctx, spec); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to update namespace: %v", err)
 				result.Duration = time.Since(startTime)
@@ -193,7 +193,7 @@ func (m *K8sNamespaceModule) Apply(ctx context.Context, decl *StateDeclaration) 
 	case "absent":
 		if checkResult.Present {
 			// Delete namespace
-			if err := m.client.DeleteNamespace(namespaceName); err != nil {
+			if err := m.client.DeleteNamespace(ctx, namespaceName); err != nil {
 				result.Success = false
 				result.Comment = fmt.Sprintf("Failed to delete namespace: %v", err)
 				result.Duration = time.Since(startTime)
