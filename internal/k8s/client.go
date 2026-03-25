@@ -372,13 +372,14 @@ func (c *Client) WatchPods(ctx context.Context, selector PodSelector) (<-chan Wa
 
 	go func() {
 		defer close(eventChan)
+		defer watcher.Stop()
 		for event := range watcher.ResultChan() {
 			pod, ok := event.Object.(*corev1.Pod)
 			if !ok {
 				continue
 			}
 
-			eventChan <- WatchEvent{
+			we := WatchEvent{
 				Type: string(event.Type),
 				Resource: ResourceInfo{
 					Kind:              "Pod",
@@ -390,6 +391,12 @@ func (c *Client) WatchPods(ctx context.Context, selector PodSelector) (<-chan Wa
 					CreationTimestamp: pod.CreationTimestamp.Time,
 				},
 				Timestamp: time.Now(),
+			}
+
+			select {
+			case eventChan <- we:
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
