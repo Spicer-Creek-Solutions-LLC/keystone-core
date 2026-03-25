@@ -103,6 +103,7 @@ type NetworkPolicySynchronizer struct {
 	mu             sync.RWMutex
 	running        bool
 	stopCh         chan struct{}
+	wg             sync.WaitGroup
 	lastSyncResult *NetworkPolicySyncResult
 	lastSyncError  error
 
@@ -166,12 +167,16 @@ func (s *NetworkPolicySynchronizer) Start(ctx context.Context) error {
 	s.mu.Unlock()
 
 	// Run initial sync
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		_, _ = s.SyncNow(ctx)
 	}()
 
 	// Start periodic sync
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		ticker := time.NewTicker(s.config.SyncInterval)
 		defer ticker.Stop()
 
@@ -190,17 +195,19 @@ func (s *NetworkPolicySynchronizer) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop stops the network policy synchronizer.
+// Stop stops the network policy synchronizer and waits for goroutines to exit.
 func (s *NetworkPolicySynchronizer) Stop() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if !s.running {
+		s.mu.Unlock()
 		return nil
 	}
 
 	close(s.stopCh)
 	s.running = false
+	s.mu.Unlock()
+
+	s.wg.Wait()
 	return nil
 }
 
