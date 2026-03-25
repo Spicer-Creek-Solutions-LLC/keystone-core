@@ -413,6 +413,7 @@ type OperatorManager struct {
 	config        OperatorConfig
 	controllers   []Controller
 	stopCh        chan struct{}
+	stopOnce      sync.Once
 	wg            sync.WaitGroup
 }
 
@@ -519,10 +520,12 @@ func (m *OperatorManager) stopControllers() {
 	}
 }
 
-// Stop stops all controllers and informers
+// Stop stops all controllers and informers. Safe to call multiple times.
 func (m *OperatorManager) Stop() {
-	close(m.stopCh)
-	m.stopControllers()
+	m.stopOnce.Do(func() {
+		close(m.stopCh)
+		m.stopControllers()
+	})
 	m.wg.Wait()
 }
 

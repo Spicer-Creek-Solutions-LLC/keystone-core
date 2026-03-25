@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/dynamic"
@@ -12,9 +13,10 @@ import (
 
 // InformerManager sets up and manages dynamic shared informers for CRD resources.
 type InformerManager struct {
-	factory dynamicinformer.DynamicSharedInformerFactory
-	stopCh  chan struct{}
-	synced  bool
+	factory  dynamicinformer.DynamicSharedInformerFactory
+	stopCh   chan struct{}
+	stopOnce sync.Once
+	synced   bool
 }
 
 // NewInformerManager creates an InformerManager that watches CRDs in the given namespace.
@@ -66,9 +68,9 @@ func (im *InformerManager) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop shuts down all informers.
+// Stop shuts down all informers. Safe to call multiple times.
 func (im *InformerManager) Stop() {
-	close(im.stopCh)
+	im.stopOnce.Do(func() { close(im.stopCh) })
 }
 
 // HasSynced returns true if all informer caches have synced.
