@@ -670,22 +670,39 @@ func (m *DefaultManager) verifyUpgrade(ctx context.Context, state *State) error 
 	return nil
 }
 
-// GetUpgradeStatus returns the current upgrade status.
+// GetUpgradeStatus returns a snapshot of the upgrade status. The returned
+// State is a shallow copy with a cloned NodeStates map so callers can read
+// it without racing against the background upgrade goroutine.
 func (m *DefaultManager) GetUpgradeStatus(ctx context.Context, upgradeID string) (*State, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	var src *State
 	if m.currentState != nil && m.currentState.ID == upgradeID {
-		return m.currentState, nil
-	}
-
-	for _, state := range m.history {
-		if state.ID == upgradeID {
-			return state, nil
+		src = m.currentState
+	} else {
+		for _, state := range m.history {
+			if state.ID == upgradeID {
+				src = state
+				break
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("upgrade %s not found", upgradeID)
+	if src == nil {
+		return nil, fmt.Errorf("upgrade %s not found", upgradeID)
+	}
+
+	// Return a snapshot to prevent data race on NodeStates
+	snapshot := *src
+	if src.NodeStates != nil {
+		snapshot.NodeStates = make(map[string]*NodeUpgradeState, len(src.NodeStates))
+		for k, v := range src.NodeStates {
+			ns := *v
+			snapshot.NodeStates[k] = &ns
+		}
+	}
+	return &snapshot, nil
 }
 
 // CancelUpgrade cancels an in-progress upgrade.
