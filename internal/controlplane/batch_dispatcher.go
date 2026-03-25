@@ -275,7 +275,8 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 
 				now := time.Now()
 				//nolint:gosec // G115: batch job agent counts are bounded by cluster size, fits in int32
-				responseChan <- &pb.BatchExecuteCommandResponse{
+				select {
+				case responseChan <- &pb.BatchExecuteCommandResponse{
 					BatchJobId: job.ID,
 					Type:       pb.BatchResponseType_BATCH_RESPONSE_TYPE_PROGRESS,
 					Progress: &pb.BatchProgress{
@@ -286,6 +287,10 @@ func (bd *BatchDispatcher) executeBatchJob(ctx context.Context, req *pb.BatchExe
 						SuccessRate: float32(successRate),
 					},
 					Timestamp: timestamppb.New(now),
+				}:
+				case <-ctx.Done():
+					close(done)
+					return
 				}
 			case <-ctx.Done():
 				close(done)
@@ -381,6 +386,34 @@ func (bd *BatchDispatcher) GetBatchJobStatus(batchJobID string) (*pb.BatchJobInf
 		return nil, fmt.Errorf("batch job not found: %s", batchJobID)
 	}
 
+	return bd.buildJobInfo(job), nil
+}
+
+// ListBatchJobs lists batch jobs with optional filtering
+func (bd *BatchDispatcher) ListBatchJobs(status pb.BatchJobStatus, limit int) []*pb.BatchJobInfo {
+	bd.mu.RLock()
+	defer bd.mu.RUnlock()
+
+	var jobs []*pb.BatchJobInfo
+	for _, job := range bd.batchJobs {
+		// Filter by status if specified
+		if status != pb.BatchJobStatus_BATCH_JOB_STATUS_UNSPECIFIED && job.Status != status {
+			continue
+		}
+
+		jobs = append(jobs, bd.buildJobInfo(job))
+
+		// Apply limit
+		if limit > 0 && len(jobs) >= limit {
+			break
+		}
+	}
+
+	return jobs
+}
+
+// buildJobInfo converts a BatchJob to BatchJobInfo. Caller must hold bd.mu.
+func (bd *BatchDispatcher) buildJobInfo(job *BatchJob) *pb.BatchJobInfo {
 	info := &pb.BatchJobInfo{
 		BatchJobId: job.ID,
 		Target:     job.Target,
@@ -405,7 +438,6 @@ func (bd *BatchDispatcher) GetBatchJobStatus(batchJobID string) (*pb.BatchJobInf
 		info.CompletedAt = timestamppb.New(*job.CompletedAt)
 		info.DurationMs = job.CompletedAt.Sub(job.CreatedAt).Milliseconds()
 
-		// Add summary if completed
 		info.Summary = &pb.BatchSummary{
 			Total:        job.Total,
 			Successful:   job.Successful,
@@ -416,33 +448,7 @@ func (bd *BatchDispatcher) GetBatchJobStatus(batchJobID string) (*pb.BatchJobInf
 		}
 	}
 
-	return info, nil
-}
-
-// ListBatchJobs lists batch jobs with optional filtering
-func (bd *BatchDispatcher) ListBatchJobs(status pb.BatchJobStatus, limit int) []*pb.BatchJobInfo {
-	bd.mu.RLock()
-	defer bd.mu.RUnlock()
-
-	var jobs []*pb.BatchJobInfo
-	for _, job := range bd.batchJobs {
-		// Filter by status if specified
-		if status != pb.BatchJobStatus_BATCH_JOB_STATUS_UNSPECIFIED && job.Status != status {
-			continue
-		}
-
-		info, _ := bd.GetBatchJobStatus(job.ID)
-		if info != nil {
-			jobs = append(jobs, info)
-		}
-
-		// Apply limit
-		if limit > 0 && len(jobs) >= limit {
-			break
-		}
-	}
-
-	return jobs
+	return info
 }
 
 // Helper functions
