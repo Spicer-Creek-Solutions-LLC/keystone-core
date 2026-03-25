@@ -157,6 +157,8 @@ func runServe(cfg *Config) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
+	// Stats goroutine — uses a stop channel so only main reads from sigCh
+	statsStop := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
@@ -184,14 +186,15 @@ func runServe(cfg *Config) error {
 						stats.Traces.MessagesRecv,
 						stats.Traces.BytesRecv)
 				}
-			case sig := <-sigCh:
-				log.Printf("Received signal %v, shutting down", sig)
+			case <-statsStop:
 				return
 			}
 		}
 	}()
 
-	<-sigCh
+	sig := <-sigCh
+	log.Printf("Received signal %v, shutting down", sig)
+	close(statsStop)
 
 	if err := server.Stop(); err != nil {
 		log.Printf("Error during shutdown: %v", err)
