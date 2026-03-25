@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -214,7 +215,7 @@ func (m *SnapshotManager) CreateSnapshot(agentID, blueprintName, blueprintVersio
 	// Enforce limits
 	if err := m.enforceSnapshotLimits(blueprintName, namespace); err != nil {
 		// Log but don't fail
-		fmt.Printf("Warning: failed to enforce snapshot limits: %v\n", err)
+		slog.Warn("failed to enforce snapshot limits", "error", err)
 	}
 
 	return snapshot, nil

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -169,7 +170,7 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 	// Try to load existing data
 	if err := t.Load(); err != nil && !os.IsNotExist(err) {
 		// Log warning but continue - we'll start fresh
-		fmt.Printf("Warning: failed to load tracker data: %v\n", err)
+		slog.Warn("failed to load tracker data", "error", err)
 	}
 
 	return t, nil

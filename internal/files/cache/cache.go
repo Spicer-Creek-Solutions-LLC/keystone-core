@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -186,7 +187,7 @@ func NewFileCache(config *Config) (*FileCache, error) {
 	// Load existing entries from disk
 	if err := cache.loadEntries(); err != nil {
 		// Non-fatal, just log and continue
-		fmt.Printf("cache: failed to load entries: %v\n", err)
+		slog.Warn("cache: failed to load entries", "error", err)
 	}
 
 	// Start cleanup goroutine

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"runtime"
@@ -83,7 +84,7 @@ func CollectMetadata() (*Metadata, error) {
 	networkInfo, err := CollectNetworkInfo()
 	if err != nil {
 		// Don't fail, just log warning
-		fmt.Printf("Warning: failed to get IP addresses: %v\n", err)
+		slog.Warn("failed to get IP addresses", "error", err)
 		networkInfo = &NetworkInfo{}
 	}
 	metadata.IPAddresses = networkInfo.AllAddresses // Backward compatibility
@@ -95,7 +96,7 @@ func CollectMetadata() (*Metadata, error) {
 	platformInfo, err := platform.Detect()
 	if err != nil {
 		// Don't fail, just log warning
-		fmt.Printf("Warning: failed to detect platform: %v\n", err)
+		slog.Warn("failed to detect platform", "error", err)
 	} else {
 		metadata.Distro = platformInfo.Distro.String()
 		metadata.DistroVersion = platformInfo.Version
@@ -112,7 +113,7 @@ func CollectMetadata() (*Metadata, error) {
 	hwInfo, err := hardware.Detect()
 	if err != nil {
 		// Don't fail, just log warning
-		fmt.Printf("Warning: failed to detect hardware: %v\n", err)
+		slog.Warn("failed to detect hardware", "error", err)
 	} else {
 		if hwInfo.CPU != nil {
 			metadata.CPUModel = hwInfo.CPU.Model

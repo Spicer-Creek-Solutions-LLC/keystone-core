@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"fmt"
+	"log/slog"
 	"runtime/debug"
 	"sync"
 )
@@ -18,7 +18,7 @@ func safeDispatchObservers[T any](observers []T, event any, call func(T, any)) {
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("observer panic recovered: %v\n%s\n", r, debug.Stack())
+					slog.Error("observer panic recovered", "panic", r, "stack", string(debug.Stack()))
 				}
 			}()
 			call(o, event)

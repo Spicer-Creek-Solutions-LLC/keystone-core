@@ -3,6 +3,7 @@ package statemgmt
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"time"
@@ -511,7 +512,7 @@ func (d *StateDiffer) emitDriftEvent(runID string, status *DriftStatus) {
 
 	// Use async publish to avoid blocking drift detection
 	if err := d.EventPublisher.PublishAsync(event); err != nil {
-		fmt.Printf("Warning: failed to emit drift event: %v\n", err)
+		slog.Warn("failed to emit drift event", "error", err)
 	}
 }
 

@@ -3,6 +3,7 @@ package statemgmt
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -393,7 +394,7 @@ func (e *Executor) emitEvent(eventType events.EventType, severity events.Severit
 	// Use async publish to avoid blocking state execution
 	if err := e.EventPublisher.PublishAsync(event); err != nil {
 		// Log error but don't fail state execution
-		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+		slog.Warn("failed to emit event", "event_type", eventType, "error", err)
 	}
 }
 
