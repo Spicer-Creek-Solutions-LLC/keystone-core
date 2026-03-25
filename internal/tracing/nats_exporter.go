@@ -213,22 +213,22 @@ func NewNATSSpanExporter(config *NATSExporterConfig) (*NATSSpanExporter, error) 
 	return exporter, nil
 }
 
-// ExportSpan exports a single span.
+// ExportSpan exports a single span. The lock is held across the closed
+// check and the channel send to prevent a race with Shutdown closing
+// the spans channel between the check and the send.
 func (e *NATSSpanExporter) ExportSpan(span *NATSSpan) error {
 	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if e.closed {
-		e.mu.Unlock()
 		return fmt.Errorf("exporter is closed")
 	}
-	e.mu.Unlock()
 
 	select {
 	case e.spans <- span:
 		return nil
 	default:
-		e.mu.Lock()
 		e.spansDropped++
-		e.mu.Unlock()
 		return fmt.Errorf("span buffer full, span dropped")
 	}
 }
