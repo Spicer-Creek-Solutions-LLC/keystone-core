@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/go-github/v57/github"
 	"golang.org/x/oauth2"
+
+	"github.com/shawnbutts/keystone-core/internal/gitops"
 )
 
 // Client is a GitHub API client
@@ -24,11 +26,12 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("GitHub token is required")
 	}
 
-	// Create OAuth2 token source
+	// Create OAuth2 token source with circuit breaker transport
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: config.Token},
 	)
 	tc := oauth2.NewClient(context.Background(), ts)
+	tc.Transport = gitops.NewCircuitBreakerTransport(tc.Transport, gitops.CircuitBreakerConfig{})
 
 	// Create GitHub client
 	client := github.NewClient(tc)

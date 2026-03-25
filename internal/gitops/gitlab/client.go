@@ -3,8 +3,11 @@ package gitlab
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/shawnbutts/keystone-core/internal/gitops"
 )
 
 // Client is a GitLab API client
@@ -23,8 +26,13 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("GitLab token is required")
 	}
 
-	// Create GitLab client
-	opts := []gitlab.ClientOptionFunc{}
+	// Create GitLab client with circuit breaker transport
+	cbTransport := gitops.NewCircuitBreakerTransport(http.DefaultTransport, gitops.CircuitBreakerConfig{})
+	httpClient := &http.Client{Transport: cbTransport}
+
+	opts := []gitlab.ClientOptionFunc{
+		gitlab.WithHTTPClient(httpClient),
+	}
 	if config.BaseURL != "" && config.BaseURL != "https://gitlab.com" {
 		opts = append(opts, gitlab.WithBaseURL(config.BaseURL))
 	}

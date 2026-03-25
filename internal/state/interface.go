@@ -37,6 +37,9 @@ type BatchJobStore interface {
 	UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error
 	UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error
 	SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error
+	// CompleteBatchJob atomically updates the batch job status and progress
+	// in a single transaction to prevent inconsistent state on partial failure.
+	CompleteBatchJob(ctx context.Context, batchJobID string, status pb.BatchJobStatus, progress *BatchJobProgress) error
 }
 
 // HealthStore defines the interface for health checks and lifecycle management.

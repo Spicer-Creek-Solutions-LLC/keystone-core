@@ -785,6 +785,50 @@ func (s *PostgreSQLStore) SaveBatchAgentResult(ctx context.Context, batchJobID s
 	return err
 }
 
+// CompleteBatchJob atomically updates the batch job status and progress in a
+// single transaction. This prevents partial writes if the process crashes
+// between the status and progress updates.
+func (s *PostgreSQLStore) CompleteBatchJob(ctx context.Context, batchJobID string, status pb.BatchJobStatus, progress *BatchJobProgress) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback is no-op after commit
+
+	statusQuery := `UPDATE batch_jobs SET status = $1 WHERE id = $2`
+	if _, err := tx.ExecContext(ctx, statusQuery, status, batchJobID); err != nil {
+		return fmt.Errorf("update status: %w", err)
+	}
+
+	progressQuery := `
+		UPDATE batch_jobs
+		SET total_agents = $1,
+		    completed_agents = $2,
+		    successful_agents = $3,
+		    failed_agents = $4,
+		    success_rate = $5,
+		    started_at = $6,
+		    completed_at = $7,
+		    duration_ms = $8
+		WHERE id = $9
+	`
+	if _, err := tx.ExecContext(ctx, progressQuery,
+		progress.TotalAgents,
+		progress.CompletedAgents,
+		progress.SuccessfulAgents,
+		progress.FailedAgents,
+		progress.SuccessRate,
+		progress.StartedAt,
+		progress.CompletedAt,
+		progress.DurationMs,
+		batchJobID,
+	); err != nil {
+		return fmt.Errorf("update progress: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // Ping checks database connectivity
 func (s *PostgreSQLStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)

@@ -648,3 +648,69 @@ func TestSQLiteStore_GetCommand_NotFound(t *testing.T) {
 		t.Error("Expected error when getting nonexistent command")
 	}
 }
+
+func TestSQLiteStore_CompleteBatchJob(t *testing.T) {
+	tmpFile := "/tmp/test-keystone-core-complete-batch-" + time.Now().Format("20060102150405") + ".db"
+	defer os.Remove(tmpFile)
+
+	config := &Config{
+		Backend:    "sqlite",
+		SQLitePath: tmpFile,
+		SQLiteWAL:  true,
+	}
+
+	store, err := NewSQLiteStore(config)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	now := time.Now()
+
+	// Create a batch job first
+	job := &BatchJobRecord{
+		ID:        "batch-txn-test",
+		Target:    "*",
+		Command:   "echo test",
+		Status:    pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING,
+		CreatedAt: now,
+	}
+	if err := store.SaveBatchJob(ctx, job); err != nil {
+		t.Fatalf("SaveBatchJob failed: %v", err)
+	}
+
+	// Complete it atomically
+	completedAt := now.Add(5 * time.Second)
+	progress := &BatchJobProgress{
+		TotalAgents:      10,
+		CompletedAgents:  10,
+		SuccessfulAgents: 8,
+		FailedAgents:     2,
+		SuccessRate:      80.0,
+		StartedAt:        &now,
+		CompletedAt:      &completedAt,
+		DurationMs:       5000,
+	}
+
+	err = store.CompleteBatchJob(ctx, "batch-txn-test", pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED, progress)
+	if err != nil {
+		t.Fatalf("CompleteBatchJob failed: %v", err)
+	}
+
+	// Verify both status and progress were written
+	result, err := store.GetBatchJob(ctx, "batch-txn-test")
+	if err != nil {
+		t.Fatalf("GetBatchJob failed: %v", err)
+	}
+
+	if result.Status != pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED {
+		t.Errorf("expected COMPLETED status, got %v", result.Status)
+	}
+	if result.TotalAgents != 10 {
+		t.Errorf("expected TotalAgents=10, got %d", result.TotalAgents)
+	}
+	if result.SuccessfulAgents != 8 {
+		t.Errorf("expected SuccessfulAgents=8, got %d", result.SuccessfulAgents)
+	}
+}

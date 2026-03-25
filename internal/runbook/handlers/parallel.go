@@ -133,7 +133,18 @@ func (h *ParallelHandler) Execute(ctx context.Context, step *runbook.Step, varCt
 
 		// Acquire semaphore if limited
 		if sem != nil {
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-execCtx.Done():
+				return &runbook.StepResult{
+					Success:  false,
+					Message:  "parallel execution cancelled waiting for semaphore",
+					Duration: time.Since(startTime),
+					Outputs: map[string]interface{}{
+						"results": results,
+					},
+				}, execCtx.Err()
+			}
 		}
 
 		wg.Add(1)

@@ -98,9 +98,15 @@ func (m *Manager) runAllChecks(ctx context.Context) {
 	}
 	m.mu.RUnlock()
 
+	// namedResult pairs a checker name with its result
+	type namedResult struct {
+		name   string
+		result CheckResult
+	}
+
 	// Run checks concurrently
 	var wg sync.WaitGroup
-	resultsCh := make(chan CheckResult, len(checkers))
+	resultsCh := make(chan namedResult, len(checkers))
 
 	for _, checker := range checkers {
 		wg.Add(1)
@@ -111,7 +117,7 @@ func (m *Manager) runAllChecks(ctx context.Context) {
 			defer cancel()
 
 			result := c.Check(checkCtx)
-			resultsCh <- result
+			resultsCh <- namedResult{name: c.Name(), result: result}
 		}(checker)
 	}
 
@@ -120,15 +126,8 @@ func (m *Manager) runAllChecks(ctx context.Context) {
 
 	// Collect results
 	m.mu.Lock()
-	for result := range resultsCh {
-		// Find checker name by matching result timestamp
-		for name, checker := range m.checkers {
-			testResult := checker.Check(ctx)
-			if testResult.Timestamp.Sub(result.Timestamp).Abs() < time.Millisecond {
-				m.results[name] = result
-				break
-			}
-		}
+	for nr := range resultsCh {
+		m.results[nr.name] = nr.result
 	}
 	m.mu.Unlock()
 

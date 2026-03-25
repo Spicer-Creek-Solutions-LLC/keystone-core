@@ -2,11 +2,28 @@ package health
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
+
+// countingChecker counts how many times Check is called.
+type countingChecker struct {
+	name  string
+	count atomic.Int32
+}
+
+func (c *countingChecker) Name() string { return c.name }
+func (c *countingChecker) Check(ctx context.Context) CheckResult {
+	c.count.Add(1)
+	return CheckResult{
+		Status:    StatusHealthy,
+		Message:   "ok",
+		Timestamp: time.Now(),
+	}
+}
 
 func TestNewManager(t *testing.T) {
 	m := NewManager(nil)
@@ -199,5 +216,37 @@ func TestManagerStartStop(t *testing.T) {
 	_, exists := m.GetCheckResult("test")
 	if !exists {
 		t.Error("Expected at least one check to have run")
+	}
+}
+
+func TestManagerRunAllChecks_NoDoubleInvocation(t *testing.T) {
+	m := NewManager(&Config{
+		CheckInterval: 1 * time.Hour,
+		CheckTimeout:  5 * time.Second,
+	})
+
+	c1 := &countingChecker{name: "checker-a"}
+	c2 := &countingChecker{name: "checker-b"}
+
+	m.RegisterChecker(c1)
+	m.RegisterChecker(c2)
+
+	m.runAllChecks(context.Background())
+
+	if got := c1.count.Load(); got != 1 {
+		t.Errorf("checker-a invoked %d times, want 1", got)
+	}
+	if got := c2.count.Load(); got != 1 {
+		t.Errorf("checker-b invoked %d times, want 1", got)
+	}
+
+	// Verify results are stored under the correct names
+	r1, ok1 := m.GetCheckResult("checker-a")
+	r2, ok2 := m.GetCheckResult("checker-b")
+	if !ok1 || !ok2 {
+		t.Fatalf("results not found: checker-a=%v, checker-b=%v", ok1, ok2)
+	}
+	if r1.Status != StatusHealthy || r2.Status != StatusHealthy {
+		t.Error("expected both results to be healthy")
 	}
 }
