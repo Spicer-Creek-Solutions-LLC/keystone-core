@@ -105,7 +105,7 @@ func (p *JetStreamPublisher) ensureStream() error {
 		MaxMsgs:     p.config.MaxMessages,
 		Storage:     nats.FileStorage,
 		Replicas:    1,
-		Discard:     nats.DiscardOld,
+		Discard:     nats.DiscardNew,
 	}
 
 	_, err = p.js.AddStream(streamConfig)
