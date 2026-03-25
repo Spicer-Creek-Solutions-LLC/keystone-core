@@ -191,10 +191,11 @@ func probeEndpoint(ctx context.Context, url string, opts *DiscoveryOptions) *End
 
 	start := time.Now()
 
-	// Create HTTP client
+	// Create HTTP client with transport cleanup
 	transport := &http.Transport{
 		TLSClientConfig: newDiscoveryTLSConfig(opts),
 	}
+	defer transport.CloseIdleConnections()
 
 	client := &http.Client{
 		Transport: transport,
