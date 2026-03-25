@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+// maxConcurrentSessions limits the number of in-progress receive sessions
+// to prevent memory exhaustion from malicious or misbehaving senders.
+const maxConcurrentSessions = 64
+
 // receiveSession tracks the state of an in-progress receive.
 type receiveSession struct {
 	header      *HeaderPacket
@@ -93,6 +97,10 @@ func (r *Receiver) Receive(ctx context.Context) (filename string, data []byte, e
 				continue
 			}
 			if _, exists := sessions[h.SessionID]; !exists {
+				// Cap concurrent sessions to prevent memory exhaustion
+				if len(sessions) >= maxConcurrentSessions {
+					continue
+				}
 				sess := &receiveSession{
 					header:    h,
 					chunks:    make(map[uint32][]byte),
