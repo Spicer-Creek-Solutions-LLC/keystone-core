@@ -278,14 +278,23 @@ func (r *Router) Route(event *Event) error {
 	return lastErr
 }
 
-// RouteAsync routes an event asynchronously
+// maxAsyncRoutes limits concurrent RouteAsync goroutines to prevent unbounded growth.
+var asyncRouteSem = make(chan struct{}, 100)
+
+// RouteAsync routes an event asynchronously. Concurrent async routes are
+// bounded to prevent unbounded goroutine growth under high event volume.
 func (r *Router) RouteAsync(event *Event) {
-	go func() {
-		if err := r.Route(event); err != nil {
-			// Log error but don't propagate
-			fmt.Printf("Async routing error: %v\n", err)
-		}
-	}()
+	select {
+	case asyncRouteSem <- struct{}{}:
+		go func() {
+			defer func() { <-asyncRouteSem }()
+			if err := r.Route(event); err != nil {
+				fmt.Printf("async routing error for event %s: %v\n", event.ID, err)
+			}
+		}()
+	case <-r.ctx.Done():
+		// Engine shutting down, drop the event
+	}
 }
 
 // GetRules returns all routing rules (copy)
