@@ -424,12 +424,7 @@ func (d *JobDistributor) storeJob(ctx context.Context, job *DistributedJob) erro
 
 // watchJobs watches for jobs assigned to this member.
 func (d *JobDistributor) watchJobs(ctx context.Context) {
-	defer func() {
-		select {
-		case d.doneChan <- struct{}{}:
-		default:
-		}
-	}()
+	defer close(d.doneChan)
 
 	localMember := d.membership.LocalMember()
 	if localMember == nil {
