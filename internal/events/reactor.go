@@ -533,7 +533,14 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 			if reactor.OnError == ErrorBehaviorStop {
 				break
 			} else if reactor.OnError == ErrorBehaviorRetry {
-				// Simple retry once
+				// Retry once after a short backoff
+				select {
+				case <-time.After(500 * time.Millisecond):
+				case <-ctx.Done():
+					lastErr = ctx.Err()
+					success = false
+					break
+				}
 				err = action.Execute(ctx, event)
 				if err == nil {
 					success = true
@@ -731,7 +738,9 @@ func (e *ReactorEngine) enqueueToDeadLetterQueue(reactor *Reactor, event *Event,
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = dlq.Enqueue(ctx, entry) //nolint:errcheck // fire-and-forget async enqueue
+		if err := dlq.Enqueue(ctx, entry); err != nil {
+			fmt.Printf("WARNING: failed to enqueue to dead letter queue for reactor %s: %v\n", reactor.ID, err)
+		}
 	}()
 }
 
