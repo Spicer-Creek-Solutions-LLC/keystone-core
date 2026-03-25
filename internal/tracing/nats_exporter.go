@@ -243,13 +243,20 @@ func (e *NATSSpanExporter) ExportSpans(ctx context.Context, spans []NATSSpan) er
 	return nil
 }
 
-// Flush forces a flush of buffered spans.
+// Flush forces a flush of buffered spans and waits for NATS to confirm delivery.
 func (e *NATSSpanExporter) Flush(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if len(e.batch) > 0 {
-		return e.sendBatch()
+		if err := e.sendBatch(); err != nil {
+			return err
+		}
+	}
+
+	// Ensure NATS has actually delivered the published data
+	if e.conn != nil && e.conn.IsConnected() {
+		return e.conn.FlushTimeout(5 * time.Second)
 	}
 	return nil
 }
