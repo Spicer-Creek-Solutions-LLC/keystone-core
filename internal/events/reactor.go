@@ -448,7 +448,11 @@ func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, ev
 
 		// Handle debounce
 		if reactor.Conditions.Debounce > 0 {
-			exec.debouncedEvents <- event
+			select {
+			case exec.debouncedEvents <- event:
+			case <-e.ctx.Done():
+				return e.ctx.Err()
+			}
 			return nil
 		}
 	}
@@ -599,24 +603,32 @@ func (e *ReactorEngine) debounceHandler(reactorID string) {
 	reactor := exec.reactor
 	var lastEvent *Event
 
-	for event := range exec.debouncedEvents {
-		lastEvent = event
-
-		// Reset timer
-		if exec.debounceTimer != nil {
-			exec.debounceTimer.Stop()
-		}
-
-		exec.debounceTimer = time.AfterFunc(reactor.Conditions.Debounce, func() {
-			if lastEvent != nil {
-				e.metrics.mu.RLock()
-				metrics := e.metrics.reactorMetrics[reactorID]
-				e.metrics.mu.RUnlock()
-				atomic.AddUint64(&metrics.Debounced, 1)
-
-				e.executeActions(reactor, lastEvent, exec)
+	for {
+		select {
+		case event, ok := <-exec.debouncedEvents:
+			if !ok {
+				return // channel closed by RemoveReactor
 			}
-		})
+			lastEvent = event
+
+			// Reset timer
+			if exec.debounceTimer != nil {
+				exec.debounceTimer.Stop()
+			}
+
+			exec.debounceTimer = time.AfterFunc(reactor.Conditions.Debounce, func() {
+				if lastEvent != nil {
+					e.metrics.mu.RLock()
+					metrics := e.metrics.reactorMetrics[reactorID]
+					e.metrics.mu.RUnlock()
+					atomic.AddUint64(&metrics.Debounced, 1)
+
+					e.executeActions(reactor, lastEvent, exec)
+				}
+			})
+		case <-e.ctx.Done():
+			return // engine closed
+		}
 	}
 }
 

@@ -116,3 +116,90 @@ func TestNewDispatcher_DefaultTimeout(t *testing.T) {
 	d := NewDispatcher(0)
 	assert.Equal(t, 10*time.Second, d.client.Timeout)
 }
+
+func TestDispatcher_CircuitBreaker_OpensAfterFailures(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	d := NewDispatcherWithConfig(5*time.Second, DispatcherConfig{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		OpenDuration:     1 * time.Second,
+	})
+	sub := &Subscription{URL: srv.URL}
+
+	// First 3 failures should go through (circuit closes after 3rd)
+	for i := 0; i < 3; i++ {
+		_, err := d.Deliver(context.Background(), sub, []byte("{}"), "del")
+		assert.Error(t, err)
+		assert.NotErrorIs(t, err, ErrCircuitOpen, "attempt %d should not be circuit-open yet", i)
+	}
+
+	// 4th call should be rejected by the circuit breaker
+	_, err := d.Deliver(context.Background(), sub, []byte("{}"), "del")
+	assert.ErrorIs(t, err, ErrCircuitOpen)
+}
+
+func TestDispatcher_CircuitBreaker_ReclosesAfterSuccess(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount <= 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	d := NewDispatcherWithConfig(5*time.Second, DispatcherConfig{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		OpenDuration:     50 * time.Millisecond,
+	})
+	sub := &Subscription{URL: srv.URL}
+
+	// Trip the circuit
+	for i := 0; i < 3; i++ {
+		d.Deliver(context.Background(), sub, []byte("{}"), "del")
+	}
+
+	// Should be open
+	_, err := d.Deliver(context.Background(), sub, []byte("{}"), "del")
+	assert.ErrorIs(t, err, ErrCircuitOpen)
+
+	// Wait for half-open transition
+	time.Sleep(60 * time.Millisecond)
+
+	// Next call should go through (half-open allows probe) and succeed
+	code, err := d.Deliver(context.Background(), sub, []byte("{}"), "del")
+	assert.NoError(t, err)
+	assert.Equal(t, 200, code)
+
+	// Circuit should now be closed — next call should work
+	code, err = d.Deliver(context.Background(), sub, []byte("{}"), "del")
+	assert.NoError(t, err)
+	assert.Equal(t, 200, code)
+}
+
+func TestDispatcher_CircuitBreaker_ClientErrorDoesNotTrip(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest) // 400 — client error, not server
+	}))
+	defer srv.Close()
+
+	d := NewDispatcherWithConfig(5*time.Second, DispatcherConfig{
+		FailureThreshold: 2,
+		OpenDuration:     1 * time.Second,
+	})
+	sub := &Subscription{URL: srv.URL}
+
+	// 4xx errors should NOT trip the circuit
+	for i := 0; i < 5; i++ {
+		_, err := d.Deliver(context.Background(), sub, []byte("{}"), "del")
+		assert.Error(t, err)
+		assert.NotErrorIs(t, err, ErrCircuitOpen)
+	}
+}

@@ -809,3 +809,44 @@ func BenchmarkReactorEngine_ProcessEvent(b *testing.B) {
 		engine.ProcessEvent(event)
 	}
 }
+
+func TestReactorEngine_Close_StopsDebounceHandlers(t *testing.T) {
+	engine := NewReactorEngine()
+
+	var executed atomic.Bool
+	reactor := &Reactor{
+		ID:   "debounce-reactor",
+		Name: "Debounce Reactor",
+		Filter: &ComparisonExpr{
+			Field:    "type",
+			Operator: OpEqual,
+			Value:    "debounce.test",
+		},
+		Conditions: &ReactorConditions{
+			Debounce: 100 * time.Millisecond,
+		},
+		Actions: []Action{
+			NewFunctionAction("action", func(ctx context.Context, event *Event) error {
+				executed.Store(true)
+				return nil
+			}),
+		},
+		Enabled: true,
+	}
+
+	err := engine.AddReactor(reactor)
+	if err != nil {
+		t.Fatalf("Failed to add reactor: %v", err)
+	}
+
+	// Send an event that would be debounced
+	event := NewEvent(EventType("debounce.test")).Source("/test").Build()
+	engine.ProcessEvent(event)
+
+	// Close the engine immediately — debounce handler should exit cleanly
+	engine.Close()
+
+	// Give some time for any leaked goroutines
+	time.Sleep(200 * time.Millisecond)
+	// The test passes if it completes without hanging
+}

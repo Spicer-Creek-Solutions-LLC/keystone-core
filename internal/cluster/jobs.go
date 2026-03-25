@@ -464,6 +464,8 @@ func (d *JobDistributor) watchJobs(ctx context.Context) {
 }
 
 // processExistingJobs processes any jobs already assigned to this member.
+// Jobs found in Running state are assumed to be from a previous crash and
+// are reset to Assigned so they get re-executed.
 func (d *JobDistributor) processExistingJobs(ctx context.Context, memberID string) {
 	jobs, err := d.ListJobsForMember(ctx, memberID)
 	if err != nil {
@@ -471,7 +473,14 @@ func (d *JobDistributor) processExistingJobs(ctx context.Context, memberID strin
 	}
 
 	for _, job := range jobs {
-		if job.Status == JobStatusAssigned {
+		switch job.Status {
+		case JobStatusRunning:
+			// Stale from a previous crash — reset to Assigned for re-execution
+			job.Status = JobStatusAssigned
+			job.StartedAt = nil
+			_ = d.storeJob(ctx, job) //nolint:errcheck // best-effort persistence
+			go d.executeJob(ctx, job)
+		case JobStatusAssigned:
 			go d.executeJob(ctx, job)
 		}
 	}

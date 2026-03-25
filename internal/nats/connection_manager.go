@@ -599,12 +599,15 @@ func (m *PooledConnectionManager) checkHealth() {
 	}
 
 	// Check if current connection is healthy
-	if m.activeConn != nil && !m.activeConn.IsConnected() {
-		// Attempt failover
+	if m.activeConn != nil && !m.activeConn.IsConnected() && !m.closed {
+		// Capture callback and endpoint before releasing lock
+		onError := m.config.ConnectionCallbacks.OnError
+		endpoint := m.activeEndpoint
+		// Attempt failover outside the lock
 		go func() {
 			if err := m.Failover(); err != nil {
-				if m.config.ConnectionCallbacks.OnError != nil {
-					m.config.ConnectionCallbacks.OnError(m.activeEndpoint, err)
+				if onError != nil {
+					onError(endpoint, err)
 				}
 			}
 		}()

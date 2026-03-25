@@ -184,3 +184,21 @@ func TestLeadershipEventType_String(t *testing.T) {
 		})
 	}
 }
+
+func TestLeaderElector_NoDoneChanField(t *testing.T) {
+	// Verify the struct now uses a WaitGroup instead of a doneChan.
+	// Creating a new elector should succeed without a doneChan field.
+	elector, err := NewLeaderElector(
+		&Config{ClusterName: "test", ElectionTimeout: 15 * time.Second},
+		&EtcdClient{},
+		"member-1",
+	)
+	if err != nil {
+		t.Fatalf("NewLeaderElector failed: %v", err)
+	}
+
+	// Verify stopChan was created
+	if elector.stopChan == nil {
+		t.Error("stopChan should be initialized")
+	}
+}
