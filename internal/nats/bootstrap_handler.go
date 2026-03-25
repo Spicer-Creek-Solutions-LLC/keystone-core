@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -127,7 +128,7 @@ func (h *BootstrapRegistrationHandler) Start(conn *nats.Conn) error {
 	}
 
 	h.sub = sub
-	fmt.Printf("Bootstrap registration handler started, listening on %s\n", subject)
+	slog.Info("bootstrap registration handler started", "subject", subject)
 
 	return nil
 }
@@ -150,7 +151,7 @@ func (h *BootstrapRegistrationHandler) handleMessage(msg *nats.Msg) {
 	// Parse subject to extract bootstrap ID
 	parsed := ParseSubject(msg.Subject)
 	if !parsed.IsValid || parsed.Category != CategoryBootstrap {
-		fmt.Printf("Ignoring invalid subject: %s\n", msg.Subject)
+		slog.Warn("ignoring invalid subject", "subject", msg.Subject)
 		return
 	}
 
@@ -241,7 +242,7 @@ func (h *BootstrapRegistrationHandler) handleRegistration(msg *nats.Msg, bootstr
 
 	// Record credential use
 	if err := h.credentialProvider.RecordUse(ctx, result.Claims.ID, req.AgentID); err != nil {
-		fmt.Printf("Warning: failed to record credential use: %v\n", err)
+		slog.Warn("failed to record credential use", "error", err)
 	}
 
 	// Log successful validation
@@ -266,14 +267,14 @@ func (h *BootstrapRegistrationHandler) handleRegistration(msg *nats.Msg, bootstr
 
 	respData, err := json.Marshal(resp)
 	if err != nil {
-		fmt.Printf("Failed to marshal response: %v\n", err)
+		slog.Error("failed to marshal bootstrap response", "error", err)
 		return
 	}
 
 	// Publish response to the bootstrap response subject
 	responseSubject := h.subjects.BootstrapResponse(bootstrapID)
 	if err := h.conn.Publish(responseSubject, respData); err != nil {
-		fmt.Printf("Failed to publish response: %v\n", err)
+		slog.Error("failed to publish bootstrap response", "error", err)
 		return
 	}
 
@@ -289,11 +290,11 @@ func (h *BootstrapRegistrationHandler) handleRegistration(msg *nats.Msg, bootstr
 
 	if callback != nil {
 		if err := callback(ctx, req.AgentID, req.Labels, credentials); err != nil {
-			fmt.Printf("Registration callback failed: %v\n", err)
+			slog.Error("registration callback failed", "error", err)
 		}
 	}
 
-	fmt.Printf("Agent %s registered successfully via bootstrap %s\n", req.AgentID, bootstrapID)
+	slog.Info("agent registered via bootstrap", "agent_id", req.AgentID, "bootstrap_id", bootstrapID)
 }
 
 // verifyIdentity verifies identity claims using configured verifiers
@@ -399,13 +400,13 @@ func (h *BootstrapRegistrationHandler) sendErrorResponse(msg *nats.Msg, bootstra
 
 	respData, err := json.Marshal(resp)
 	if err != nil {
-		fmt.Printf("Failed to marshal error response: %v\n", err)
+		slog.Error("failed to marshal error response", "error", err)
 		return
 	}
 
 	responseSubject := h.subjects.BootstrapResponse(bootstrapID)
 	if err := h.conn.Publish(responseSubject, respData); err != nil {
-		fmt.Printf("Failed to publish error response: %v\n", err)
+		slog.Error("failed to publish error response", "error", err)
 	}
 }
 
@@ -439,7 +440,7 @@ func (h *BootstrapRegistrationHandler) logAuditEvent(
 	}
 
 	if err := logger.Log(ctx, event); err != nil {
-		fmt.Printf("Failed to log audit event: %v\n", err)
+		slog.Warn("failed to log audit event", "error", err)
 	}
 }
 

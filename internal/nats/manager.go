@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"sync"
@@ -158,14 +159,14 @@ func (m *Manager) connect() error {
 		nats.ReconnectWait(m.config.ReconnectWait),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
 			if err != nil {
-				fmt.Printf("NATS disconnected: %v\n", err)
+				slog.Warn("NATS disconnected", "error", err)
 			}
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			fmt.Printf("NATS reconnected to %s\n", nc.ConnectedUrl())
+			slog.Info("NATS reconnected", "url", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
-			fmt.Println("NATS connection closed")
+			slog.Info("NATS connection closed")
 		}),
 	}
 
@@ -282,7 +283,7 @@ func (m *Manager) Shutdown() error {
 	// Run shutdown functions in reverse order
 	for i := len(m.shutdownFuncs) - 1; i >= 0; i-- {
 		if err := m.shutdownFuncs[i](); err != nil {
-			fmt.Printf("Error during shutdown: %v\n", err)
+			slog.Error("error during NATS shutdown", "error", err)
 		}
 	}
 

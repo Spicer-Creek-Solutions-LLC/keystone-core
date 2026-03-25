@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -405,7 +406,7 @@ func NewEnvelopeHandler(handler MessageHandler, dedupWindow time.Duration) *Enve
 func (h *EnvelopeHandler) Handle(msg *nats.Msg) {
 	env, err := FromNATSMsg(msg)
 	if err != nil {
-		fmt.Printf("Failed to parse envelope: %v\n", err)
+		slog.Error("failed to parse envelope", "error", err)
 		return
 	}
 
@@ -421,7 +422,7 @@ func (h *EnvelopeHandler) Handle(msg *nats.Msg) {
 
 	// Call the actual handler
 	if err := h.handler(env, msg); err != nil {
-		fmt.Printf("Handler error for message %s: %v\n", env.MessageID, err)
+		slog.Error("handler error for message", "message_id", env.MessageID, "error", err)
 	}
 }
 
