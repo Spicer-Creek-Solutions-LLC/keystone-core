@@ -73,6 +73,7 @@ type Executor struct {
 	mu                 sync.RWMutex
 	stopChan           chan struct{}
 	doneChan           chan struct{}
+	wg                 sync.WaitGroup
 	started            bool
 }
 
@@ -160,14 +161,26 @@ func (e *Executor) Start(ctx context.Context) error {
 	e.mu.Unlock()
 
 	// Start the main loop
-	go e.run(ctx)
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		e.run(ctx)
+	}()
 
 	// Start cleanup goroutine
-	go e.cleanupLoop(ctx)
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		e.cleanupLoop(ctx)
+	}()
 
 	// Start maintenance window checker
 	if e.maintenanceManager != nil {
-		go e.maintenanceLoop(ctx)
+		e.wg.Add(1)
+		go func() {
+			defer e.wg.Done()
+			e.maintenanceLoop(ctx)
+		}()
 	}
 
 	return nil
@@ -185,8 +198,13 @@ func (e *Executor) Stop(ctx context.Context) error {
 
 	close(e.stopChan)
 
-	// Wait for completion or timeout
-	wait.ForContextOrSignal(ctx, e.doneChan, 30*time.Second)
+	// Wait for all goroutines to finish (with timeout)
+	done := make(chan struct{})
+	go func() {
+		e.wg.Wait()
+		close(done)
+	}()
+	wait.ForContextOrSignal(ctx, done, 30*time.Second)
 
 	return nil
 }
