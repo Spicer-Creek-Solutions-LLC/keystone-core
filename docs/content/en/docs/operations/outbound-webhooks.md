@@ -143,6 +143,30 @@ def verify_signature(secret: bytes, body: bytes, header: str) -> bool:
     return hmac.compare_digest(expected, header)
 ```
 
+## Circuit Breaker
+
+Each endpoint URL has an independent circuit breaker that prevents hammering unresponsive endpoints. The breaker tracks consecutive failures and temporarily stops delivery attempts when an endpoint is down.
+
+**States:**
+
+| State | Behavior |
+|-------|----------|
+| **Closed** | Normal delivery. Failures are counted. |
+| **Open** | All deliveries rejected immediately with `circuit breaker open`. |
+| **Half-Open** | One probe delivery is allowed. Success recloses; failure reopens. |
+
+**Defaults:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Failure threshold | 5 | Consecutive failures (5xx or connection error) before opening |
+| Success threshold | 2 | Consecutive successes in half-open before reclosing |
+| Open duration | 30s | How long the circuit stays open before probing |
+
+Only server errors (HTTP 5xx) and connection failures trip the breaker. Client errors (4xx) do not — those indicate a payload or auth problem, not an endpoint outage.
+
+When the circuit is open, deliveries are not retried — they fail immediately. The retry loop will resume once the circuit transitions to half-open and a probe succeeds.
+
 ## Retry Behavior
 
 Failed deliveries are retried with exponential backoff:
@@ -158,6 +182,7 @@ A delivery is considered failed if:
 - The HTTP response status is not 2xx
 - The connection times out
 - DNS resolution fails
+- The circuit breaker is open for the target endpoint
 
 ## Configuration
 

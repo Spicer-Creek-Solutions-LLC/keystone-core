@@ -2035,6 +2035,21 @@ histogram_quantile(0.95, rate(kscore_approval_duration_seconds_bucket[1h]))
 kscore_approvals_total by (platform)  # slack, pagerduty, teams, cli
 ```
 
+## API Client Resilience
+
+The GitHub and GitLab API clients include a built-in HTTP-level circuit breaker that protects against provider outages. When the remote API returns repeated 5xx errors or becomes unreachable, the circuit opens and rejects further requests for a cooldown period before probing with a single request.
+
+**Behavior:**
+
+- **Failure threshold**: 5 consecutive server errors or connection failures open the circuit
+- **Open duration**: 30 seconds before transitioning to half-open
+- **Success threshold**: 2 consecutive successes in half-open reclose the circuit
+- Client errors (4xx) do not trip the circuit — they indicate auth or request issues, not provider outages
+
+This applies to all GitHub/GitLab API operations: PR creation, commit status updates, merge request management, and any other provider calls. No configuration is required — the circuit breaker is always active.
+
+When the circuit is open, operations that depend on the provider API (promotion, verification, status updates) will fail fast rather than blocking on a timeout.
+
 ## Best Practices
 
 ### Deployment Verification

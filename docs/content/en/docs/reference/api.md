@@ -2026,6 +2026,8 @@ service ControlPlaneService {
 }
 ```
 
+**Batch job completion**: When a batch job finishes, the final status and progress (total/succeeded/failed agent counts, duration, success rate) are written atomically in a single database transaction. This ensures that a crash during completion cannot leave the job in an inconsistent state where the status is `COMPLETED` but the progress counters are stale or missing.
+
 ### StateService
 
 The StateService manages declarative state operations including apply, check (dry-run), drift detection, and history retrieval. Backed by `internal/statemgmt.Executor` and `internal/statemgmt/history.SQLiteStore` for persistent run history and per-agent state status.

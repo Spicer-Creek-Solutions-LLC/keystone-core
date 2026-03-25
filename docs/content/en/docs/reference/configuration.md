@@ -342,6 +342,10 @@ webhook:
     timeout: 10s                       # HTTP request timeout
     max_payload_size: 1048576          # Max payload size in bytes (1MB)
     delivery_retention: 168h           # Delivery history retention (7 days)
+    circuit_breaker:
+      failure_threshold: 5             # Consecutive 5xx/errors before opening circuit
+      success_threshold: 2             # Consecutive successes in half-open to reclose
+      open_duration: 30s               # How long circuit stays open before probing
 ```
 
 | Setting | Default | Env Override | Description |
@@ -352,6 +356,9 @@ webhook:
 | `webhook.outbound.timeout` | `10s` | `KSCORE_WEBHOOK_OUTBOUND_TIMEOUT` | HTTP timeout for deliveries |
 | `webhook.outbound.max_payload_size` | `1048576` | `KSCORE_WEBHOOK_OUTBOUND_MAX_PAYLOAD_SIZE` | Maximum payload size in bytes |
 | `webhook.outbound.delivery_retention` | `168h` | `KSCORE_WEBHOOK_OUTBOUND_DELIVERY_RETENTION` | How long to keep delivery history |
+| `webhook.outbound.circuit_breaker.failure_threshold` | `5` | — | Consecutive failures before opening circuit |
+| `webhook.outbound.circuit_breaker.success_threshold` | `2` | — | Successes in half-open to reclose |
+| `webhook.outbound.circuit_breaker.open_duration` | `30s` | — | Duration circuit stays open before probe |
 
 **Validation** (when `enabled: true`):
 
