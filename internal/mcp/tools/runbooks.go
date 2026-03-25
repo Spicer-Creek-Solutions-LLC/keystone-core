@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	mcpserver "github.com/shawnbutts/keystone-core/internal/mcp"
 )
+
+// httpClient is a shared HTTP client with a reasonable timeout to prevent
+// hung connections when the server is unresponsive.
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 type runbookListArgs struct{}
 
@@ -38,7 +43,7 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("creating request: %w", err))
 					return r, nil, nil
 				}
-				resp, err := http.DefaultClient.Do(httpReq)
+				resp, err := httpClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("requesting runbooks: %w", err))
 					return r, nil, nil
@@ -83,7 +88,7 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					return r, nil, nil
 				}
 				httpReq.Header.Set("Content-Type", "application/json")
-				httpResp, err := http.DefaultClient.Do(httpReq)
+				httpResp, err := httpClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("executing runbook: %w", err))
 					return r, nil, nil
@@ -127,7 +132,7 @@ func runbookRegistrar(client *mcpserver.GRPCClient) mcpserver.ToolRegistrar {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("creating request: %w", err))
 					return r, nil, nil
 				}
-				resp, err := http.DefaultClient.Do(httpReq)
+				resp, err := httpClient.Do(httpReq)
 				if err != nil {
 					r, _ := mcpserver.ErrorResult(fmt.Errorf("checking runbook status: %w", err))
 					return r, nil, nil

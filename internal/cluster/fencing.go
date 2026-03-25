@@ -543,16 +543,16 @@ func (f *FenceGuard) SetLeaseValid(valid bool) {
 	}
 }
 
-// notifyObservers notifies all fence observers.
+// notifyObservers notifies all fence observers with panic recovery.
 func (f *FenceGuard) notifyObservers(event FenceEvent) {
 	f.mu.RLock()
 	observers := make([]FenceObserver, len(f.observers))
 	copy(observers, f.observers)
 	f.mu.RUnlock()
 
-	for _, observer := range observers {
-		go observer(event)
-	}
+	safeDispatchObservers(observers, event, func(o FenceObserver, e any) {
+		o(e.(FenceEvent))
+	})
 }
 
 // GetStats returns fencing statistics.

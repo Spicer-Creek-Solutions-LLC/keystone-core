@@ -26,6 +26,10 @@ var (
 	auditOutput  string
 )
 
+// httpClient is a shared HTTP client with a reasonable timeout to prevent
+// hung connections when the server is unresponsive.
+var httpClient = &http.Client{Timeout: 30 * time.Second}
+
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-webhook",
@@ -229,7 +233,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("failed to send test webhook to %s: %w", url, err)
 	}
@@ -375,7 +379,7 @@ func newOutboundListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -478,7 +482,7 @@ Examples:
 				return err
 			}
 			req.Header.Set("Content-Type", "application/json")
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -535,7 +539,7 @@ func newOutboundShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -585,7 +589,7 @@ func newOutboundDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -614,7 +618,7 @@ func newOutboundHistoryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -679,7 +683,7 @@ func newOutboundTestCmd() *cobra.Command {
 				return err
 			}
 			req.Header.Set("Content-Type", "application/json")
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("request failed: %w", err)
 			}

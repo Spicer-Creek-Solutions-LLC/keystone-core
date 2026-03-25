@@ -121,6 +121,7 @@ type GracefulShutdown struct {
 	mu           sync.RWMutex
 	shutdownChan chan struct{}
 	doneChan     chan struct{}
+	closeOnce    sync.Once
 	inProgress   bool
 }
 
@@ -247,7 +248,7 @@ func (g *GracefulShutdown) IsInProgress() bool {
 
 // executeShutdown runs the shutdown sequence.
 func (g *GracefulShutdown) executeShutdown(ctx context.Context, reason ShutdownReason) {
-	defer close(g.doneChan)
+	defer g.closeDone()
 
 	var err error
 
@@ -533,16 +534,16 @@ func (g *GracefulShutdown) completeShutdown() {
 	})
 }
 
-// notifyObservers notifies all shutdown observers.
+// notifyObservers notifies all shutdown observers with panic recovery.
 func (g *GracefulShutdown) notifyObservers(event ShutdownEvent) {
 	g.mu.RLock()
 	observers := make([]ShutdownObserver, len(g.observers))
 	copy(observers, g.observers)
 	g.mu.RUnlock()
 
-	for _, observer := range observers {
-		go observer(event)
-	}
+	safeDispatchObservers(observers, event, func(o ShutdownObserver, e any) {
+		o(e.(ShutdownEvent))
+	})
 }
 
 // ForceShutdown forcibly shuts down without draining.
@@ -565,8 +566,15 @@ func (g *GracefulShutdown) ForceShutdown(ctx context.Context) error {
 	// Deregister immediately
 	g.membership.Stop(ctx)
 
-	close(g.doneChan)
+	g.closeDone()
 	return nil
+}
+
+// closeDone safely closes doneChan exactly once, preventing double-close panics.
+func (g *GracefulShutdown) closeDone() {
+	g.closeOnce.Do(func() {
+		close(g.doneChan)
+	})
 }
 
 // DrainAndWait drains connections and waits with custom timeout.

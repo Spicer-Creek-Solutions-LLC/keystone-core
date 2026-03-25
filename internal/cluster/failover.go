@@ -643,16 +643,16 @@ func (f *FailoverManager) failStep(step *FailoverStep, err error) {
 	step.EndTime = &now
 }
 
-// notifyObservers notifies all failover observers.
+// notifyObservers notifies all failover observers with panic recovery.
 func (f *FailoverManager) notifyObservers(event FailoverEvent) {
 	f.mu.RLock()
 	observers := make([]FailoverObserver, len(f.observers))
 	copy(observers, f.observers)
 	f.mu.RUnlock()
 
-	for _, observer := range observers {
-		go observer(event)
-	}
+	safeDispatchObservers(observers, event, func(o FailoverObserver, e any) {
+		o(e.(FailoverEvent))
+	})
 }
 
 // GetFailoverStats returns failover statistics.

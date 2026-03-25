@@ -28,7 +28,7 @@ type LeaderElector struct {
 	isLeader  bool
 	leaderID  string
 	stopChan  chan struct{}
-	doneChan  chan struct{}
+	wg        sync.WaitGroup
 	started   bool
 }
 
@@ -49,7 +49,6 @@ func NewLeaderElector(config *Config, etcd *EtcdClient, memberID string) (*Leade
 		etcd:     etcd,
 		memberID: memberID,
 		stopChan: make(chan struct{}),
-		doneChan: make(chan struct{}),
 	}, nil
 }
 
@@ -85,6 +84,7 @@ func (l *LeaderElector) Start(ctx context.Context) error {
 	l.mu.Unlock()
 
 	// Start watching for leader changes
+	l.wg.Add(2)
 	go l.watchLeader(ctx)
 
 	// Start campaigning for leadership
@@ -118,8 +118,13 @@ func (l *LeaderElector) Stop(ctx context.Context) error {
 	}
 	l.mu.Unlock()
 
-	// Wait for goroutines to finish
-	wait.ForSignal(l.doneChan, 5*time.Second)
+	// Wait for goroutines to finish (with timeout)
+	done := make(chan struct{})
+	go func() {
+		l.wg.Wait()
+		close(done)
+	}()
+	wait.ForSignal(done, 5*time.Second)
 
 	return nil
 }
@@ -280,26 +285,21 @@ func (l *LeaderElector) RemoveObserver(observer LeadershipObserver) {
 	}
 }
 
-// notifyObservers notifies all observers of a leadership event.
+// notifyObservers notifies all observers of a leadership event with panic recovery.
 func (l *LeaderElector) notifyObservers(event LeadershipEvent) {
 	l.mu.RLock()
 	observers := make([]LeadershipObserver, len(l.observers))
 	copy(observers, l.observers)
 	l.mu.RUnlock()
 
-	for _, observer := range observers {
-		go observer(event)
-	}
+	safeDispatchObservers(observers, event, func(o LeadershipObserver, e any) {
+		o(e.(LeadershipEvent))
+	})
 }
 
 // campaignLoop continuously campaigns for leadership.
 func (l *LeaderElector) campaignLoop(ctx context.Context) {
-	defer func() {
-		select {
-		case l.doneChan <- struct{}{}:
-		default:
-		}
-	}()
+	defer l.wg.Done()
 
 	for {
 		select {
@@ -379,6 +379,8 @@ func (l *LeaderElector) campaignLoop(ctx context.Context) {
 
 // watchLeader watches for leader changes.
 func (l *LeaderElector) watchLeader(ctx context.Context) {
+	defer l.wg.Done()
+
 	l.mu.RLock()
 	election := l.election
 	l.mu.RUnlock()

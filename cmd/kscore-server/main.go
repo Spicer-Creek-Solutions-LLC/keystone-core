@@ -529,6 +529,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Start gRPC server on all configured listeners
 	for _, lr := range grpcListeners {
 		go func(listener *server.ListenerResult) {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("gRPC server panic recovered",
+						logging.String("address", listener.Address),
+						logging.String("panic", fmt.Sprintf("%v", r)),
+					)
+				}
+			}()
 			ipVersion := "IPv4"
 			if listener.IsIPv6 {
 				ipVersion = "IPv6"
@@ -686,6 +694,14 @@ func runServer(cmd *cobra.Command, args []string) {
 		httpServers = append(httpServers, httpServer)
 
 		go func(srv *http.Server, listener *server.ListenerResult) {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("HTTP server panic recovered",
+						logging.String("address", listener.Address),
+						logging.String("panic", fmt.Sprintf("%v", r)),
+					)
+				}
+			}()
 			ipVersion := "IPv4"
 			if listener.IsIPv6 {
 				ipVersion = "IPv6"
@@ -713,7 +729,9 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	defer func() {
 		for _, srv := range httpServers {
-			srv.Shutdown(context.Background())
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			srv.Shutdown(shutdownCtx)
+			shutdownCancel()
 		}
 	}()
 

@@ -602,16 +602,16 @@ func (r *RecoveryManager) completeRecovery(ctx context.Context) {
 	_ = r.etcd.Delete(deleteCtx, key) //nolint:errcheck // best-effort cleanup
 }
 
-// notifyObservers notifies all recovery observers.
+// notifyObservers notifies all recovery observers with panic recovery.
 func (r *RecoveryManager) notifyObservers(event RecoveryEvent) {
 	r.mu.RLock()
 	observers := make([]RecoveryObserver, len(r.observers))
 	copy(observers, r.observers)
 	r.mu.RUnlock()
 
-	for _, observer := range observers {
-		go observer(event)
-	}
+	safeDispatchObservers(observers, event, func(o RecoveryObserver, e any) {
+		o(e.(RecoveryEvent))
+	})
 }
 
 // IsRecovering returns true if recovery is in progress.
