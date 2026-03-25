@@ -390,7 +390,9 @@ func (rs *RotationScheduler) triggerRotation(schedule *ScheduledRotation) {
 		result.Error = err.Error()
 		result.Duration = time.Since(startTime)
 	} else {
-		// Wait for rotation to complete
+		// Wait for rotation to complete with a timeout
+		rotationTimeout := 5 * time.Minute
+		rotationDeadline := time.After(rotationTimeout)
 		for !rotation.IsTerminal() {
 			select {
 			case <-rs.ctx.Done():
@@ -398,8 +400,13 @@ func (rs *RotationScheduler) triggerRotation(schedule *ScheduledRotation) {
 				result.Error = "scheduler stopped"
 				result.Duration = time.Since(startTime)
 				goto done
-			default:
-				time.Sleep(100 * time.Millisecond)
+			case <-rotationDeadline:
+				result.Success = false
+				result.Error = fmt.Sprintf("rotation timed out after %s", rotationTimeout)
+				result.Duration = time.Since(startTime)
+				goto done
+			case <-time.After(100 * time.Millisecond):
+				// poll interval
 			}
 		}
 
