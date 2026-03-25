@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/shawnbutts/keystone-core/internal/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -42,6 +43,7 @@ type Agent struct {
 	// NATS subject management
 	subjects *natsmgr.SubjectBuilder
 	cluster  string
+	logger   logging.Logger
 
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -135,6 +137,7 @@ func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *Config) (*Agent, erro
 		commandTimeout:    cfg.CommandTimeout,
 		subjects:          natsmgr.NewSubjectBuilder(cluster),
 		cluster:           cluster,
+		logger:            logging.WithFields(logging.Field{Key: "component", Value: "agent"}, logging.Field{Key: "agent_id", Value: id}),
 		ctx:               ctx,
 		cancel:            cancel,
 	}, nil
@@ -147,7 +150,7 @@ func (a *Agent) Cluster() string {
 
 // Start starts the agent services
 func (a *Agent) Start() error {
-	fmt.Printf("Starting agent %s (cluster=%s)\n", a.id, a.cluster)
+	a.logger.Info("starting agent", logging.Field{Key: "cluster", Value: a.cluster})
 
 	// Register with control plane
 	if err := a.register(); err != nil {
@@ -167,17 +170,17 @@ func (a *Agent) Start() error {
 	a.wg.Add(1)
 	go a.metadataUpdateLoop()
 
-	fmt.Printf("Agent %s started successfully\n", a.id)
+	a.logger.Info("agent started successfully")
 	return nil
 }
 
 // Stop stops the agent gracefully. It is safe to call multiple times.
 func (a *Agent) Stop() error {
 	a.stopOnce.Do(func() {
-		fmt.Println("Stopping agent...")
+		a.logger.Info("stopping agent")
 		a.cancel()
 		a.wg.Wait()
-		fmt.Println("Agent stopped")
+		a.logger.Info("agent stopped")
 	})
 	return nil
 }
@@ -263,7 +266,7 @@ func (a *Agent) heartbeatLoop() {
 		select {
 		case <-ticker.C:
 			if err := a.sendHeartbeat(); err != nil {
-				fmt.Printf("Failed to send heartbeat: %v\n", err)
+				a.logger.Warn("failed to send heartbeat", logging.Field{Key: "error", Value: err})
 			}
 		case <-a.ctx.Done():
 			return
@@ -276,7 +279,7 @@ func (a *Agent) sendHeartbeat() error {
 	// Collect current metrics
 	metrics, err := CollectMetrics()
 	if err != nil {
-		fmt.Printf("Warning: failed to collect metrics: %v\n", err)
+		a.logger.Warn("failed to collect metrics", logging.Field{Key: "error", Value: err})
 		metrics = &SystemMetrics{}
 	}
 
@@ -329,7 +332,7 @@ func (a *Agent) metadataUpdateLoop() {
 func (a *Agent) updateMetadata() {
 	metadata, err := CollectMetadata()
 	if err != nil {
-		fmt.Printf("Warning: failed to update metadata: %v\n", err)
+		a.logger.Warn("failed to update metadata", logging.Field{Key: "error", Value: err})
 		return
 	}
 
