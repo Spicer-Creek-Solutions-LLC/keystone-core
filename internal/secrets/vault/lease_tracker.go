@@ -374,8 +374,9 @@ func (t *LeaseTracker) Renew(ctx context.Context, leaseID string, increment time
 
 	if lease.IsExpired() {
 		lease.State = secrets.LeaseStateExpired
+		leaseCopy := t.copyLease(lease)
 		t.mu.Unlock()
-		t.notifyCallbacks(ctx, lease, LeaseEventExpired)
+		t.notifyCallbacks(ctx, leaseCopy, LeaseEventExpired)
 		return nil, secrets.ErrLeaseExpired
 	}
 
@@ -400,13 +401,15 @@ func (t *LeaseTracker) Renew(ctx context.Context, leaseID string, increment time
 		t.failedRenewals++
 
 		if lease.RenewAttempts >= lease.MaxRenewAttempts {
+			leaseCopy := t.copyLease(lease)
 			t.mu.Unlock()
-			t.notifyCallbacks(ctx, lease, LeaseEventRenewError)
+			t.notifyCallbacks(ctx, leaseCopy, LeaseEventRenewError)
 			return nil, fmt.Errorf("max renewal attempts exceeded: %w", err)
 		}
 
+		leaseCopy := t.copyLease(lease)
 		t.mu.Unlock()
-		t.notifyCallbacks(ctx, lease, LeaseEventRenewError)
+		t.notifyCallbacks(ctx, leaseCopy, LeaseEventRenewError)
 		return nil, fmt.Errorf("renewal failed: %w", err)
 	}
 
