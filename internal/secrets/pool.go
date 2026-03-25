@@ -13,11 +13,12 @@ type ConnectionPool struct {
 	config  *PoolConfig
 	factory ConnectionFactory
 
-	mu          sync.Mutex
-	connections []*pooledConnection
-	available   chan *pooledConnection
-	created     int32
-	closed      bool
+	mu             sync.Mutex
+	connections    []*pooledConnection
+	available      chan *pooledConnection
+	created        int32
+	closed         bool
+	cancelMaintain context.CancelFunc
 
 	stats PoolStats
 }
@@ -170,8 +171,10 @@ func (p *ConnectionPool) Start(ctx context.Context) error {
 		p.available <- conn
 	}
 
-	// Start background maintenance
-	go p.maintenanceLoop(ctx)
+	// Start background maintenance with cancellable context
+	maintainCtx, cancel := context.WithCancel(ctx)
+	p.cancelMaintain = cancel
+	go p.maintenanceLoop(maintainCtx)
 
 	return nil
 }
@@ -306,6 +309,11 @@ func (p *ConnectionPool) Close() error {
 		return nil
 	}
 	p.closed = true
+
+	// Stop the maintenance goroutine
+	if p.cancelMaintain != nil {
+		p.cancelMaintain()
+	}
 
 	// Close all connections
 	close(p.available)
