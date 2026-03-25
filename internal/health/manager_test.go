@@ -25,6 +25,12 @@ func (c *countingChecker) Check(ctx context.Context) CheckResult {
 	}
 }
 
+// panickingChecker panics when Check is called.
+type panickingChecker struct{ name string }
+
+func (c *panickingChecker) Name() string                        { return c.name }
+func (c *panickingChecker) Check(ctx context.Context) CheckResult { panic("checker exploded") }
+
 func TestNewManager(t *testing.T) {
 	m := NewManager(nil)
 	if m == nil {
@@ -248,5 +254,36 @@ func TestManagerRunAllChecks_NoDoubleInvocation(t *testing.T) {
 	}
 	if r1.Status != StatusHealthy || r2.Status != StatusHealthy {
 		t.Error("expected both results to be healthy")
+	}
+}
+
+func TestManagerRunAllChecks_PanicRecovery(t *testing.T) {
+	m := NewManager(&Config{
+		CheckInterval: 1 * time.Hour,
+		CheckTimeout:  5 * time.Second,
+	})
+
+	m.RegisterChecker(&panickingChecker{name: "boom"})
+	m.RegisterChecker(NewAlwaysHealthyChecker("stable"))
+
+	// Should not panic
+	m.runAllChecks(context.Background())
+
+	// Panicking checker should produce an unhealthy result
+	r, ok := m.GetCheckResult("boom")
+	if !ok {
+		t.Fatal("expected result for panicking checker")
+	}
+	if r.Status != StatusUnhealthy {
+		t.Errorf("expected unhealthy status, got %v", r.Status)
+	}
+
+	// Healthy checker should still have run
+	r2, ok2 := m.GetCheckResult("stable")
+	if !ok2 {
+		t.Fatal("expected result for stable checker")
+	}
+	if r2.Status != StatusHealthy {
+		t.Errorf("expected healthy status, got %v", r2.Status)
 	}
 }

@@ -4,6 +4,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -112,6 +113,18 @@ func (m *Manager) runAllChecks(ctx context.Context) {
 		wg.Add(1)
 		go func(c Checker) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					resultsCh <- namedResult{
+						name: c.Name(),
+						result: CheckResult{
+							Status:    StatusUnhealthy,
+							Message:   fmt.Sprintf("checker panicked: %v", r),
+							Timestamp: time.Now(),
+						},
+					}
+				}
+			}()
 
 			checkCtx, cancel := context.WithTimeout(ctx, m.config.CheckTimeout)
 			defer cancel()
