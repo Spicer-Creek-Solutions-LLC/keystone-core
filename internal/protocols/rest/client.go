@@ -3,7 +3,9 @@ package rest
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -231,7 +233,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 			}
 			// Retry on network errors
 			if attempt < c.config.MaxRetries {
-				if err := waitForRetry(req.Context(), c.config.RetryDelay*time.Duration(attempt+1)); err != nil {
+				if err := waitForRetry(req.Context(), retryBackoff(c.config.RetryDelay, attempt)); err != nil {
 					return nil, err
 				}
 				continue
@@ -242,7 +244,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 		// Check if we should retry based on status code
 		if c.shouldRetry(resp.StatusCode) && attempt < c.config.MaxRetries {
 			resp.Body.Close()
-			if err := waitForRetry(req.Context(), c.config.RetryDelay*time.Duration(attempt+1)); err != nil {
+			if err := waitForRetry(req.Context(), retryBackoff(c.config.RetryDelay, attempt)); err != nil {
 				return nil, err
 			}
 			continue
@@ -256,6 +258,24 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 
 func waitForRetry(ctx context.Context, delay time.Duration) error {
 	return wait.ForContext(ctx, delay)
+}
+
+// retryBackoff computes an exponential backoff delay with ~10% jitter,
+// capped at 30 seconds.
+func retryBackoff(base time.Duration, attempt int) time.Duration {
+	delay := base * time.Duration(1<<uint(attempt))
+	if delay > 30*time.Second {
+		delay = 30 * time.Second
+	}
+	// Add up to 10% jitter
+	tenth := delay / 10
+	if tenth > 0 {
+		var buf [8]byte
+		_, _ = rand.Read(buf[:])
+		n := int64(binary.LittleEndian.Uint64(buf[:]) >> 1) //nolint:gosec // right-shift ensures positive int64
+		delay += time.Duration(n % int64(tenth))
+	}
+	return delay
 }
 
 // shouldRetry checks if the response status code should trigger a retry.
