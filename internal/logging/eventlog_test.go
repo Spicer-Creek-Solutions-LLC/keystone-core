@@ -1,4 +1,4 @@
-// Copyright 2024 Spicer Creek Solutions LLC
+// Copyright 2026 Spicer Creek Solutions LLC
 // SPDX-License-Identifier: Apache-2.0
 
 package logging
