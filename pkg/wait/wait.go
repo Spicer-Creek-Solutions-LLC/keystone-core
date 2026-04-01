@@ -1,4 +1,4 @@
-// Copyright 2024 Keystone Core Contributors
+// Copyright 2024 Spicer Creek Solutions LLC
 // SPDX-License-Identifier: Apache-2.0
 
 // Package wait provides cancellable timing helpers without using time.Sleep.

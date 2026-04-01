@@ -9,7 +9,7 @@ home: https://keystonecore.io
 sources:
   - https://github.com/shawnbutts/keystone-core
 maintainers:
-  - name: Keystone Core Team
+  - name: Spicer Creek Solutions LLC
     email: maintainers@keystonecore.io
 keywords:
   - keystone-core

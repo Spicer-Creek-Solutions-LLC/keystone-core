@@ -29,7 +29,7 @@ build:
 
 # Metadata
 metadata:
-  author: Keystone Core Contributors
+  author: Spicer Creek Solutions LLC
   license: MIT
   language: cpp
   sdk_version: "0.1.0"

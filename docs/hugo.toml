@@ -24,7 +24,7 @@ pygmentsUseClasses = true
     lineNumbersInTable = true
 
 [params]
-  copyright = "Keystone Core Project"
+  copyright = "Spicer Creek Solutions LLC"
   privacy_policy = ""
 
   # Local search with Lunr.js

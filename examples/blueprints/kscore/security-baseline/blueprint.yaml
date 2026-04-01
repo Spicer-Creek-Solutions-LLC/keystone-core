@@ -10,7 +10,7 @@ metadata:
     Security hardening blueprint implementing industry best practices including
     SSH hardening, firewall configuration, system hardening, and audit logging.
   maintainers:
-    - name: Keystone Core Team
+    - name: Spicer Creek Solutions LLC
       email: team@keystone-core.io
   license: Apache-2.0
   keywords:

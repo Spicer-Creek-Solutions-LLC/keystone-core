@@ -2,7 +2,7 @@
 name = "kscore-module-sdk"
 version = "0.1.0"
 edition = "2021"
-authors = ["Keystone Core Contributors"]
+authors = ["Spicer Creek Solutions LLC"]
 description = "SDK for building Keystone Core modules in Rust that compile to WebAssembly"
 license = "MIT"
 repository = "https://github.com/shawnbutts/keystone-core"

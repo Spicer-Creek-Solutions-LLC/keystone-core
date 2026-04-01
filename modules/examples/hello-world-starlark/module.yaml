@@ -20,6 +20,6 @@ entrypoint: states/main.star
 
 # Metadata
 metadata:
-  author: Keystone Core Contributors
+  author: Spicer Creek Solutions LLC
   license: MIT
   language: starlark

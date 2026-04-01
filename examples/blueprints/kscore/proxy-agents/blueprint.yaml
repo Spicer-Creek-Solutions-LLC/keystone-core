@@ -5,7 +5,7 @@ metadata:
   version: 0.1.0
   description: Proxy agents blueprint for unmanaged device integrations.
   maintainers:
-    - name: Keystone Core Team
+    - name: Spicer Creek Solutions LLC
       email: team@keystone-core.io
   license: Apache-2.0
   keywords:

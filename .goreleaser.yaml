@@ -380,7 +380,7 @@ nfpms:
       - kscore-server
     vendor: Keystone Core
     homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Keystone Core Team <team@keystonecore.io>
+    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
     description: |
       Keystone Core Control Plane Server
       A cloud-native runtime infrastructure control plane that bridges
@@ -423,7 +423,7 @@ nfpms:
       - kscore-agent
     vendor: Keystone Core
     homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Keystone Core Team <team@keystonecore.io>
+    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
     description: |
       Keystone Core Agent
       Lightweight agent for managed nodes that executes commands,
@@ -489,7 +489,7 @@ nfpms:
       - kscore-secrets
     vendor: Keystone Core
     homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Keystone Core Team <team@keystonecore.io>
+    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
     description: |
       Keystone Core CLI Tools
       Complete set of command-line tools for interacting with Keystone Core.

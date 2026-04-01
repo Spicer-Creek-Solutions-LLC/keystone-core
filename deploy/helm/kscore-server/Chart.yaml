@@ -15,7 +15,7 @@ home: https://github.com/shawnbutts/keystone-core
 sources:
   - https://github.com/shawnbutts/keystone-core
 maintainers:
-  - name: Keystone Core Team
+  - name: Spicer Creek Solutions LLC
 icon: https://raw.githubusercontent.com/keystone-core/keystone-core/main/docs/static/images/logo.png
 dependencies:
   - name: nats

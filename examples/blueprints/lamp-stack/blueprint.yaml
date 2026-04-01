@@ -8,7 +8,7 @@ metadata:
     Production-ready LAMP (Linux, Apache, MySQL, PHP) stack for web applications.
     Includes Apache web server, MySQL/MariaDB database, and PHP with common extensions.
   maintainers:
-    - name: Keystone Core Team
+    - name: Spicer Creek Solutions LLC
       email: team@example.com
   license: Apache-2.0
   keywords:
