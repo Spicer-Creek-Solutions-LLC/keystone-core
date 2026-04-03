@@ -5,7 +5,18 @@ description: >
   Step-by-step guide for creating, signing, and publishing Keystone Core releases
 ---
 
-This guide provides detailed instructions for creating a Keystone Core release. It covers the complete workflow from preparation through announcement.
+{{% alert title="Authoritative Process" color="warning" %}}
+The authoritative release process is defined in
+[RELEASE-PLAYBOOK.md](https://github.com/shawnbutts/keystone-core/blob/main/RELEASE-PLAYBOOK.md).
+All official releases **must** follow the offline multi-party signing ceremony
+described there. The guide below provides supplementary tooling reference but
+does not replace the playbook. Where this guide conflicts with the playbook,
+the playbook takes precedence.
+{{% /alert %}}
+
+This guide provides tooling reference for creating a Keystone Core release. The
+formal process — including quorum rules, air-gapped builds, multi-party
+signing, and publication voting — is defined in `RELEASE-PLAYBOOK.md`.
 
 ## Prerequisites
 
@@ -202,27 +213,30 @@ sha256sum -c dist/checksums.txt 2>/dev/null | grep kscore-server
 
 ### 3.2 Sign Checksums with GPG
 
-```bash
-# Sign the checksums file
-gpg --armor --detach-sign dist/checksums.txt
+{{% alert title="Multi-Party Signing Required" color="warning" %}}
+Official releases require multi-party signing on an air-gapped machine per
+`RELEASE-PLAYBOOK.md` Phase 6. The commands below are for reference only.
+Do not sign official releases with a single signer or on a networked machine.
+{{% /alert %}}
 
-# Verify signature
-gpg --verify dist/checksums.txt.asc dist/checksums.txt
+```bash
+# Each authorized signer signs the checksums file independently
+gpg --armor --detach-sign --output checksums.txt.sig.<SIGNER_ID> dist/checksums.txt
+
+# Each participant verifies every other signer's signature
+gpg --verify checksums.txt.sig.<SIGNER_ID> dist/checksums.txt
 ```
 
-### 3.3 Sign Binaries with Cosign
+### 3.3 Sign Container Images with Cosign (Key-Based)
+
+{{% alert title="No Keyless Signing" color="warning" %}}
+Official releases use key-based Cosign signing, not keyless/OIDC mode.
+See `RELEASE-PLAYBOOK.md` Phase 8 for the container signing ceremony.
+{{% /alert %}}
 
 ```bash
-# Keyless signing (recommended for open source)
-COSIGN_EXPERIMENTAL=1 cosign sign-blob \
-  --output-signature dist/kscore-server_linux_amd64.sig \
-  --output-certificate dist/kscore-server_linux_amd64.pem \
-  dist/keystone-core_0.1.0_linux_amd64.tar.gz
-
-# Or with a key
-cosign sign-blob --key cosign.key \
-  --output-signature dist/kscore-server_linux_amd64.sig \
-  dist/keystone-core_0.1.0_linux_amd64.tar.gz
+# Sign with project-controlled key (not keyless)
+cosign sign --key <KEY_REF> ghcr.io/kscore/kscore-server:<VERSION>@<DIGEST>
 ```
 
 ### 3.4 Generate SBOMs
@@ -650,6 +664,7 @@ dpkg -i --debug=2 package.deb
 
 ## See Also
 
+- [RELEASE-PLAYBOOK.md](https://github.com/shawnbutts/keystone-core/blob/main/RELEASE-PLAYBOOK.md) - Authoritative release process (multi-party signing ceremony)
 - [Release Checklist]({{< relref "release-checklist" >}}) - Pre-release verification checklist
 - [Release Notes]({{< relref "release-notes" >}}) - Version history and changes
 - [Development Guide]({{< relref "development" >}}) - Development setup and workflows

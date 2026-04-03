@@ -50,6 +50,22 @@ sudo mv kscore-* /usr/local/bin/
 sudo mv kscorectl /usr/local/bin/
 ```
 
+Verify artifact signatures and integrity before installing:
+
+```bash
+# Import the Keystone Core release public key
+gpg --import keys/release-pubkey.asc
+
+# Verify checksum signatures (check at least one signer)
+gpg --verify checksums.txt.sig.A checksums.txt
+
+# Verify downloaded artifact integrity
+sha256sum -c checksums.txt
+```
+
+See [RELEASE-PLAYBOOK.md]({{< relref "/community/release-playbook" >}}) Appendix A
+for full verification instructions, including container image verification.
+
 Verify installation:
 
 ```bash

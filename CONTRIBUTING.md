@@ -58,6 +58,10 @@ Keystone Core handles sensitive infrastructure operations. Security-conscious de
 
 **Reporting vulnerabilities:** See `SECURITY.md` for responsible disclosure procedures.
 
+**Release process:** Official releases follow a formal offline multi-party signing ceremony.
+If you are a maintainer involved in releases, see [RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md)
+for the complete process, key management, and quorum requirements.
+
 ## Getting Started
 
 If you’re new:

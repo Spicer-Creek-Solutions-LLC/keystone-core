@@ -529,6 +529,15 @@ See [AI-CONTRIBUTIONS.md](docs/project/AI-CONTRIBUTIONS.md) for details and [CON
 
 Apache 2.0
 
+## Release Integrity
+
+All official releases are produced through an offline multi-party signing
+ceremony. Every release includes signed checksums, SBOMs, and a public
+release record documenting the ceremony. See
+[RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md) for the complete process and
+[SECURITY.md](SECURITY.md#supply-chain-security--release-verification) for
+verification instructions.
+
 ## Compatibility & Support
 
 Keystone Core follows a predictable release cadence (every 6 months) with a 2-year support window. See [COMPATIBILITY.md](docs/project/COMPATIBILITY.md) for details on:

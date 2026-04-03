@@ -5,7 +5,15 @@ description: >
   Pre-release verification checklist for Keystone Core releases
 ---
 
-This checklist ensures release quality before publishing a new Keystone Core version.
+{{% alert title="Release Ceremony Required" color="warning" %}}
+This checklist covers pre-release code quality gates. The actual release
+process — including air-gapped builds, multi-party signing, quorum votes,
+and publication — is defined in
+[RELEASE-PLAYBOOK.md](https://github.com/shawnbutts/keystone-core/blob/main/RELEASE-PLAYBOOK.md).
+Use Appendix B of the playbook as the ceremony-day checklist.
+{{% /alert %}}
+
+This checklist ensures release quality before beginning the release ceremony.
 
 ## Version 0.1.0 Release Checklist
 
@@ -57,13 +65,22 @@ This checklist ensures release quality before publishing a new Keystone Core ver
 - [ ] DEB packages built
 - [ ] MSI installers built
 
-### Signing & Security
+### Signing & Security (performed during release ceremony)
 
-- [ ] Binary signatures generated (Cosign)
-- [ ] SBOM generated for all artifacts
-- [ ] Provenance attestations created
-- [ ] Blueprint bundles signed
-- [ ] Container images signed
+These items are completed during the offline release ceremony per
+`RELEASE-PLAYBOOK.md`. They are listed here for completeness but are
+tracked in the release record, not this checklist.
+
+- [ ] Release ceremony convened with quorum (Playbook Phase 1)
+- [ ] Source tree hash verified by all participants (Playbook Phase 2)
+- [ ] Dependency audit completed and voted on (Playbook Phase 3)
+- [ ] Air-gapped build completed, reproducibility verified (Playbook Phase 4)
+- [ ] Artifact smoke tests and vulnerability scan passed (Playbook Phase 5)
+- [ ] Checksums signed by majority of authorized signers (Playbook Phase 6)
+- [ ] SBOMs signed (Playbook Phase 6)
+- [ ] Container images built from signed binaries, scanned, and signed with Cosign (Playbook Phase 8)
+- [ ] Release record completed and signed by all participants
+- [ ] Publication approved per channel (Playbook Phase 9)
 
 ### Registry & Distribution
 
@@ -73,6 +90,7 @@ This checklist ensures release quality before publishing a new Keystone Core ver
 - [ ] Blueprint registry populated
 - [ ] Module registry populated
 - [ ] Download links verified
+- [ ] Post-release verification completed within 24 hours (Playbook Phase 10)
 
 ### Validation
 
@@ -136,12 +154,10 @@ This checklist ensures release quality before publishing a new Keystone Core ver
 
 ## Hotfix Release Process
 
-For critical security or stability fixes:
+For critical security or stability fixes, see `RELEASE-PLAYBOOK.md`
+Phase 14 (Emergency and Patch Releases). Key differences from standard releases:
 
-1. Branch from release tag
-2. Apply minimal fix only
-3. Full test suite must pass
-4. Security review for security fixes
-5. Expedited review process
-6. Tag and release within 24-48 hours
-7. Notify users of available fix
+1. Minimum 2 participants (reduced quorum, requires unanimous approval)
+2. Dependency audit may be scoped to changed dependencies only
+3. Reproducibility verification still required (2+ independent builds)
+4. All signing and verification requirements remain unchanged

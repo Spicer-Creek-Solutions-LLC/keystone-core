@@ -50,6 +50,38 @@ We aim to respond within 48 hours and will work with you to understand and addre
 - **SQL injection**: Parameterized queries used throughout
 - **Command injection**: User input never passed directly to shell commands
 
+## Supply Chain Security & Release Verification
+
+Keystone Core releases are produced through a formal offline multi-party
+signing ceremony. No release artifacts are built or signed in CI/CD. This
+is a deliberate choice to minimize the attack surface of the release process.
+
+Every release ships with:
+
+- **Signed checksums** — `checksums.txt` signed by multiple release signers (GPG detached signatures)
+- **SBOMs** — CycloneDX and SPDX format, signed
+- **Release record** — A full audit log of the ceremony, signed by all participants
+- **Container image signatures** — Cosign key-based signatures (not keyless)
+
+### Verifying Release Artifacts
+
+```bash
+# Import the release public key
+gpg --import keys/release-pubkey.asc
+
+# Verify checksums signature (check all signers)
+gpg --verify checksums.txt.sig.A checksums.txt
+
+# Verify artifact integrity
+sha256sum -c checksums.txt
+
+# Verify container images
+cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:<VERSION>
+```
+
+The complete release process, including key hierarchy, quorum rules, and
+threat model, is documented in [RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md).
+
 ## Security Scanning
 
 ### CI Pipeline

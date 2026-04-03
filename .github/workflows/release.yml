@@ -1,5 +1,17 @@
-# Keystone Core Release Workflow
-# Builds and publishes releases when tags are pushed
+# Keystone Core Release Workflow (DEPRECATED)
+#
+# IMPORTANT: This automated workflow is DEPRECATED for official releases.
+# Official releases MUST follow the offline multi-party signing ceremony
+# defined in RELEASE-PLAYBOOK.md. That process requires air-gapped builds,
+# multi-party verification, and offline GPG/Cosign signing — none of which
+# can be performed in CI/CD.
+#
+# This workflow remains available for:
+#   - Pre-release snapshot builds (alpha/beta/RC tags)
+#   - Generating unsigned development artifacts for internal testing
+#
+# DO NOT use artifacts produced by this workflow as official releases.
+# See: RELEASE-PLAYBOOK.md
 
 name: Release
 

@@ -262,6 +262,14 @@ See [security advisory](link) for details.
 
 ## Release Process
 
+{{% alert title="Offline Signing Ceremony Required" color="warning" %}}
+All releases — including security patch releases — must follow the offline
+multi-party signing ceremony defined in
+[RELEASE-PLAYBOOK.md](../../RELEASE-PLAYBOOK.md). Security patches use the
+expedited process (Playbook Phase 14) which allows a reduced quorum of 2
+participants but does not relax signing or verification requirements.
+{{% /alert %}}
+
 ### Coordinated Disclosure Timeline
 
 | Day | Action |
@@ -275,34 +283,25 @@ See [security advisory](link) for details.
 
 ### Release Steps
 
-1. **Tag Releases**
+Security patch releases follow `RELEASE-PLAYBOOK.md` Phase 14 (Emergency
+and Patch Releases). The process is identical to a standard release with
+these modifications:
 
-   ```bash
-   # For each supported version
-   git tag -s v1.4.3 -m "Security release v1.4.3"
-   git push origin v1.4.3
-   ```
+- **Reduced quorum**: Minimum 2 participants (one signer, one witness).
+  Requires unanimous approval among those present.
+- **Scoped dependency audit**: May audit only changed dependencies, but
+  `go mod verify` must still pass against the full tree.
+- **Reproducibility**: Still required (2+ independent builds must match).
 
-2. **Build Artifacts**
+Steps:
 
-   ```bash
-   make release VERSION=1.4.3
-   ```
-
-3. **Verify Artifacts**
-   - Check signatures
-   - Verify checksums
-   - Test installation from artifacts
-
-4. **Publish**
-   - Upload to release channels
-   - Update package repositories
-   - Update container registries
-
-5. **Announce**
-   - Publish security advisory
-   - Send to security mailing list
-   - Post to relevant channels
+1. **Convene ceremony** with at least 2 authorized participants
+2. **Verify source** per Playbook Phase 2
+3. **Build on air-gapped machine** per Playbook Phase 4
+4. **Sign artifacts** per Playbook Phase 6 (majority of present signers)
+5. **Publish** per Playbook Phase 9 (majority vote per channel)
+6. **Post-release verification** within 24 hours per Playbook Phase 10
+7. **Announce** via channels below
 
 ### Announcement Channels
 
@@ -414,6 +413,7 @@ When a vulnerability is in a dependency:
 
 ## References
 
+- [RELEASE-PLAYBOOK.md](../../RELEASE-PLAYBOOK.md) - Authoritative release process (multi-party signing ceremony)
 - [SECURITY.md](../../SECURITY.md) - Reporting vulnerabilities
 - [INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) - Incident handling
 - [CVSS Calculator](https://www.first.org/cvss/calculator/3.1)

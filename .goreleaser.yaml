@@ -586,5 +586,27 @@ release:
     ## Documentation
     Full documentation is available at https://docs.keystonecore.io
 
+    ## Verifying This Release
+
+    All release artifacts are signed offline by multiple parties.
+    See [RELEASE-PLAYBOOK.md](https://github.com/shawnbutts/keystone-core/blob/main/RELEASE-PLAYBOOK.md) for the full process.
+
+    ```bash
+    # Import release public key
+    gpg --import keys/release-pubkey.asc
+
+    # Verify checksum signatures
+    gpg --verify checksums.txt.sig.A checksums.txt
+
+    # Verify artifact integrity
+    sha256sum -c checksums.txt
+
+    # Verify container images
+    cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:{{ .Version }}
+    ```
+
+    The signed release record (`release-record-v{{ .Version }}.txt`) and
+    SBOMs are included with this release.
+
     ## Checksums
     SHA256 checksums are available in `checksums.txt`

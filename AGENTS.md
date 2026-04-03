@@ -100,6 +100,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Configuration reference: `docs/content/en/docs/reference/configuration.md`
 - State machine guidance: `docs/content/en/docs/contributing/state-machines.md`
 - Development workflow: `docs/project/DEVELOPMENT.md`
+- Release process and signing ceremony: `RELEASE-PLAYBOOK.md`
 
 ## 8) Maintenance Rule for This File
 
