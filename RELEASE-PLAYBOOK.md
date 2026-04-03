@@ -115,8 +115,12 @@ Root Key (offline, air-gapped, never on a networked machine)
   for key management lifecycle.
 - **Signing subkeys**: Ed25519. One per authorized signer. Stored on a
   hardware token (e.g., YubiKey with OpenPGP applet) or encrypted offline
-  media. Subkeys have a maximum validity period of 1 year and must be
-  rotated before expiry.
+  media. Subkeys have a maximum validity period of 26 months and must be
+  rotated before expiry. This duration allows adopters two full annual
+  planning cycles plus buffer to schedule the rotation ceremony, and is
+  within the 1-3 year cryptoperiod recommended by
+  [NIST SP 800-57](https://csrc.nist.gov/publications/detail/sp/800-57-part-1/rev-5/final)
+  for digital signature keys.
 
 ### Initial Key Generation Ceremony
 
@@ -131,7 +135,7 @@ This is performed once and whenever the root key must be regenerated.
    ```
 4. For each signer, generate a signing subkey:
    ```
-   gpg --quick-add-key <ROOT_FINGERPRINT> ed25519 sign 1y
+   gpg --quick-add-key <ROOT_FINGERPRINT> ed25519 sign 26m
    ```
 5. Export each subkey to the respective signer's hardware token or
    encrypted offline media.
@@ -699,7 +703,7 @@ quorum.
 
 ### Scheduled Rotation
 
-Signing subkeys have a 1-year maximum validity. Rotation must occur before
+Signing subkeys have a 26-month maximum validity. Rotation must occur before
 expiry:
 
 1. Convene a key ceremony (same requirements as initial generation).
