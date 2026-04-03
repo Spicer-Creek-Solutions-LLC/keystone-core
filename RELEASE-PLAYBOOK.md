@@ -245,10 +245,16 @@ known vulnerabilities.
 
 ### 6a. Dependency Inventory
 
-1. Generate the full dependency list:
+1. Generate the full dependency list. Note: `go list -m all` may fail in
+   repositories that transitively depend on `k8s.io/kubernetes` due to its
+   internal `replace` directives. Use `go mod graph` to extract the resolved
+   module set instead:
    ```
-   go list -m all > deps-full.txt
-   go list -m -json all > deps-full.json
+   # Extract unique modules from the dependency graph
+   go mod graph | awk '{print $2}' | sort -u > deps-full.txt
+
+   # Also capture the direct dependencies from go.mod for focused review
+   go list -m -mod=mod all 2>/dev/null > deps-direct.txt || true
    ```
 2. Diff against the dependency list from the previous release:
    ```
