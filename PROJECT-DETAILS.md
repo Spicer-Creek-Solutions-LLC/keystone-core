@@ -1593,7 +1593,7 @@ Build sequence for the rebuild. Each step has a clear "definition of done." Trac
 49. **Documentation pass — README, reference docs, RELEASE-PLAYBOOK, SECURITY**.
 50. **v1.0.0 release via goreleaser snapshot**.
 
-**Total: ~26 engineering-weeks for v1.0** (parallelizable; with 4-engineer team ~6-7 calendar weeks).
+**Total: ~38 engineering-weeks for v1.0** (parallelizable after Phase A; with a 4-engineer team and good parallelism, ~10-12 calendar weeks). The detailed per-epic estimates live in `new-epics/00-meta-reconstruction-plan.md`.
 
 ---
 
