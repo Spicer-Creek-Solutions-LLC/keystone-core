@@ -1,0 +1,73 @@
+# Epic 09: Identity & Auth (Embedded CA, mTLS, Join Tokens)
+
+**Phase**: F • **Estimate**: 2 weeks • **Depends on**: 02, 03 • **Blocks**: 10, 13 (mTLS for CoordinationService), 14 (capability auth)
+
+## Goal
+
+Real authentication and identity from day 1. Embedded CA + SVID issuer (SPIFFE-shaped from the start so v1.3 SPIRE swap-in is a provider change), API keys, mTLS, JWT, cluster join tokens, and the v1.0 minimum RBAC (admin/operator/readonly).
+
+## Scope (in)
+
+- `internal/identity/` — `Provider` interface (`Start/Stop`, `Health`, `TrustDomain`, `GetTrustBundle`, `WatchTrustBundle`, `Attest`, `IssueX509SVID`, `IssueJWTSVID`, `CreateJoinToken`, `ListJoinTokens`, `DeleteJoinToken`).
+- **EmbeddedProvider** — wraps CA manager, SVID issuer, attestation engine, token store. Default trust domain `kscore.local`. Default SPIFFE IDs: `spiffe://kscore.local/server/control-plane`, `spiffe://kscore.local/agent/{id}`, `spiffe://kscore.local/service/{name}`.
+- `internal/identity/ca.go` — `CAManager{rootCert, rootKey, signingCert, signingKey}`. Defaults: ECDSA-P256, 10y root TTL, 1y signing TTL, auto-rotate signing 30d before expiry. Methods: `Initialize`, `GetTrustChain`, `ShouldRotateSigningCA`, `RotateSigningCA`, `IssueCertificate(template, ttl)`.
+- **Cert auto-rotation at ~50% lifetime** (agent-driven).
+- TLS 1.3 default minimum; 1.2 opt-in for legacy.
+- Cluster join tokens: SHA-256 + salt stored, plaintext returned on creation only; defaults TTL 5m, max-uses 1, 24h max TTL; one-time-use by default; hourly cleanup on leader.
+- `kscore-identity` CLI: `token {create, list, revoke, cleanup}`, `ca {info, rotate-signing, export}`, `status`. v1.1 adds `federation {add-domain, list, fetch-bundle}`.
+- Integration with `pkg/api/auth` (Epic 03) — wire embedded provider as the v1.0 default identity source.
+
+## Scope (out / non-goals)
+
+- Full RBAC role/permission CRUD with per-resource permissions — v1.2.
+- Trust federation (bundle endpoint for cross-domain) — v1.1.
+- SPIRE integration (external SPIRE server + agent socket) — v1.3.
+- Cloud workload identity (AWS IAM/IRSA, GCP WI, Azure MI) — v2.0.
+- Service mesh integration (Istio/Linkerd/Consul) — v2.x.
+- Multi-party CA — v2.x.
+
+## Design summary
+
+See `PROJECT-DETAILS.md §4.10`.
+
+## Tasks
+
+1. **`SPIFFEID` type** — trust domain + path; helpers for agent/server/service paths.
+2. **`X509SVID{cert chain, private key, expiry, IssuedAt, Hint}`** + `Expired()` + `ShouldRotate()` (~50% lifetime).
+3. **`JWTSVID`** + signing + verification helpers.
+4. **`TrustBundle{X509Authorities, JWTAuthorities, RefreshHint, SequenceNumber}`**.
+5. **`CAManager`** — Initialize generates root + signing CAs, persists to configured storage path (with optional encryption key). `IssueCertificate` for end-entity certs with SPIFFE URI SAN.
+6. **CA rotation** — background loop checks `ShouldRotateSigningCA()` hourly; rotate generates new signing CA, retains old for grace period.
+7. **`EmbeddedProvider`** wiring — composes CA + SVID issuer + attestation + token store; implements `Provider` interface.
+8. **Attestation** — pluggable; v1.0 default is `join_token` attestor (validates token from store, returns SPIFFE ID + selectors).
+9. **`JoinToken`** types + storage (extends `internal/state.Store` with `JoinTokenStore` sub-interface or in-memory for dev).
+10. **`CreateJoinToken/Get/MarkUsed/Delete/List/Cleanup`** with TTL + max-uses enforcement.
+11. **Background token cleanup** loop (hourly on cluster leader; v1.0 single-server runs it always).
+12. **`kscore-identity` CLI** with `token`, `ca`, `status` subcommands.
+13. **Integration** with `pkg/api/auth.MTLSAuthenticator` for SPIFFE-aware peer extraction.
+14. **Integration with NATS bootstrap** (Epic 05) — bootstrap PSK validates against join token store; agent gets full credentials.
+
+## Acceptance criteria
+
+- [ ] `kscore-server run` initializes embedded CA on first run; `~/.kscore/identity/` (or configured path) contains root + signing certs.
+- [ ] `kscore-identity ca info` shows root + signing cert details, expiry, key type.
+- [ ] `kscore-identity token create --ttl 5m` returns plaintext token; only hash persisted.
+- [ ] Token honors `--max-uses 1` (rejects second use).
+- [ ] Cluster join uses token; receives SPIFFE-IDed agent cert; reconnects with full credentials.
+- [ ] CA signing cert auto-rotates 30d before expiry (test with short TTLs).
+- [ ] mTLS connections succeed with SPIFFE URI SAN on certs.
+- [ ] TLS 1.3 enforced on gRPC; 1.2 only when explicitly configured.
+- [ ] API key + JWT auth round-trip in integration test.
+- [ ] Coverage >85% on `internal/identity`; >80% on `pkg/api/auth`.
+
+## Risks
+
+- **Cert rotation under clock skew** — grace period must exceed expected fleet skew. Document NTP.
+- **API key timing attacks** — constant-time hash compare (use `crypto/subtle`).
+- **mTLS with NATS** — NATS leaf certs (v2.0) are separate from agent identity certs; v1.0 doesn't have leaf so this is documented for future.
+- **Token cleanup on cluster** — hourly cleanup runs on leader; v1.0 single-CP runs always; document.
+- **JWT role claim** — missing → readonly fallback (with warning); invalid string → reject (don't default).
+
+## References
+
+- PROJECT-DETAILS §4.10.
