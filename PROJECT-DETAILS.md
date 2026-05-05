@@ -107,6 +107,7 @@ kscore.{cluster}.discovery
 
 | Concern | Module | Notes |
 |---|---|---|
+| SemVer | `github.com/Masterminds/semver/v3` | Wrapped by `pkg/semver` facade; provides parsing, comparisons, and constraint grammar. |
 | Messaging | `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` | Both client and embedded server. NATS 2.10+ for leaf/gateway later. |
 | gRPC | `google.golang.org/grpc`, `google.golang.org/protobuf` | TLS, streaming. |
 | CLI | `spf13/cobra`, `spf13/viper` | Standard Go CLI stack. |
@@ -183,9 +184,9 @@ keystone-core/
 **Key types & responsibilities**:
 
 - `pkg/version.Info{Version, GitCommit, BuildDate}` — populated via `-ldflags -X` at build time.
-- `pkg/semver.Version` — full SemVer 2.0.0 parsing; `Parse`, `MustParse`, `NextMajor/Minor/Patch`, comparisons.
-- `pkg/semver.Constraint` (interface) — caret, tilde, wildcard, compound, OR; used by module resolver.
-- `pkg/semver.Diff` — major/minor/patch + direction (upgrade/downgrade) + `IsBreaking()`/`IsFeature()`/`IsBugFix()`. Drives plugin compatibility checks.
+- `pkg/semver.Version` — full SemVer 2.0.0 parsing; `Parse`, `MustParse`, `NextMajor/Minor/Patch`, comparisons. Implemented as a thin facade over `github.com/Masterminds/semver/v3` so callers don't import Masterminds directly.
+- `pkg/semver.Constraint` (interface) — caret, tilde, wildcard, compound, OR; used by module resolver. Backed by Masterminds' `Constraints`.
+- `pkg/semver.Diff{Kind, Direction}` — `DiffSame/Patch/Minor/Major/Prerelease` × `DirectionSame/Upgrade/Downgrade`, with `IsBreaking()`/`IsFeature()`/`IsBugFix()` predicates. Drives plugin compatibility checks. Project-specific (no Masterminds equivalent).
 - `pkg/wait.ForCondition(ctx, interval, fn)` — cancellable polling; replaces `for { time.Sleep() }` patterns.
 - `pkg/dbutil.OpenSQLite(path, opts...)` — WAL mode, busy-timeout, FK on, single writer.
 - `pkg/api/apierror.Response{Error, Message, Details map}` — standard JSON error body; `StatusCode()` maps codes to HTTP.

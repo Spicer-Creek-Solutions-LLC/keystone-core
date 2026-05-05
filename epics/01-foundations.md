@@ -42,7 +42,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 
 1. **Repo scaffold**: directory layout, `go.mod` (Go 1.25+), top-level files (`README.md`, `LICENSE` Apache 2.0, `NOTICE`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `AGENTS.md`).
 2. **`pkg/version`** + tests; build-time injection via Makefile LDFLAGS.
-3. **`pkg/semver`** + tests (Parse, comparisons, constraints, Diff, Sort).
+3. **`pkg/semver`** + tests — facade over `github.com/Masterminds/semver/v3`. Project-facing API: `Parse`, `MustParse`, comparisons, accessors, `NextMajor/Minor/Patch`, `Sort`, `Constraint` interface (caret/tilde/wildcard/compound/OR), and project-specific `Diff{Kind, Direction}` with `IsBreaking`/`IsFeature`/`IsBugFix` predicates. Decided in task 3 review to build on Masterminds rather than roll our own — only `Diff` is project-specific.
 4. **`pkg/wait`** + tests.
 5. **`pkg/dbutil.OpenSQLite`** + tests (WAL pragma verified, busy timeout, FK on, single writer).
 6. **`pkg/api/apierror`** + tests (status code mapping for both directions).
