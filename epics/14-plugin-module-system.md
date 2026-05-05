@@ -1,0 +1,156 @@
+# Epic 14: Plugin / Module System (Starlark + Cosign + Filesystem Registry)
+
+**Phase**: I • **Estimate**: 3 weeks • **Depends on**: 06, 08, 09, 10, 12 • **Blocks**: 15 (blueprint hooks may invoke modules)
+
+## Goal
+
+Salt-like extensibility on day 1. Sysadmins can author safe, sandboxed Starlark modules and ship them through a verified, reproducible distribution pipeline. **Strategic v1.0 scope decision**: Starlark-only + Cosign verification + filesystem registry — this delivers the *experience* of a real module system without the long tail of WASM/SumDB/cloud-backends.
+
+## Scope (in)
+
+### Manifest + lockfile
+
+- `pkg/module/manifest/` — `Manifest{Name (namespaced vendor/pkg), Version (semver), Type (starlark in v1.0; wasm v1.1), Entrypoint, Description, Author, License, Capabilities, Limits, Dependencies}`.
+- `CapabilityConfig` per capability: AllowedPaths, DeniedPaths, MaxFileSize, AllowedDomains, RateLimit, Timeout, AllowedCommands, AllowedSecretPaths, etc.
+- Resource Limits: Timeout, Memory (string), CPU (float64).
+- `LockFile{schemaVersion, modules map<name, LockedModule>}`; `LockedModule{version, hash}`.
+- YAML serialization; round-trip stable.
+
+### Capabilities (v1.0 — 9 core)
+
+- `fs.read`, `fs.write` (path globs + denials + max_file_size)
+- `http.get`, `http.post` (domain allowlists, request/response size limits, rate limits, timeouts)
+- `exec` (command allowlists, working_dir, timeout)
+- `secrets.read`, `secrets.write` (secret-path scoping)
+- `kv` (in-process key-value)
+- `log` (rate-limited)
+
+### Verification
+
+- `pkg/module/verify/`:
+  - SHA-256 content addressing; CAS storage `~/.kscore/modules/<hash>/`.
+  - Cosign signatures (RSA, ECDSA, Ed25519; KeyID-based key management).
+  - Trust policy: TLS-trusted registry + Cosign signature in v1.0.
+
+### Resolver
+
+- `pkg/module/resolver/`:
+  - Recursive dependency resolution against semver constraints (`>=1.0 <2.0`, `^1.5.0`, `~1.2.3`); prerelease-filter configurable.
+  - DAG with cycle detection.
+  - Conflict resolution: **Minimum Version Selection (MVS)** — Go modules pattern.
+  - Module cache (content-addressed; CacheConfig: Dir, MaxSize, MaxAge, Readonly).
+  - Lock file generation: topological sort + sorted by name.
+
+### Registry (v1.0 — filesystem-backed)
+
+- `pkg/module/registry/` + `cmd/kscore-registry/`.
+- Go-mod-style HTTP endpoints:
+  - `GET /<module>/@v/list`
+  - `GET /<module>/@v/<ver>.info`
+  - `GET /<module>/@v/<ver>.mod`
+  - `GET /<module>/@v/<ver>.zip`
+- Storage backend interface (`internal/registry/storage/`): `Get`, `Put`, `Delete`, `List`, `Exists`, `Stat`, `Health`. Filesystem backend in v1.0.
+
+### Loader
+
+- `pkg/module/loader/`:
+  - `ModuleLoader` interface: `Load(path, options) → LoadResult`; `Execute(result, options) → ExecuteResult`; `LoadAndExecute`.
+  - `LoadResult{Manifest, Runtime, VerificationResult, PolicyResult, CapabilityPolicyDecisions, RegisteredCapabilities, DeniedCapabilities, LoadDuration}`.
+  - 7-step pipeline: parse → verify → policy check → capability policy → capability lock check (vs PreviousCapabilities) → runtime init → register granted capabilities only.
+  - Module cache: load-time caching by path + content hash.
+  - Load events: telemetry hooks at each pipeline phase.
+
+### Runtime: Starlark
+
+- `pkg/module/runtime/starlark/`:
+  - `go.starlark.net`-backed.
+  - Deterministic mode: `random()`, `time.now()` disabled by default (capability-gated).
+  - Bytecode execution limits, recursion depth constraints, memory heap limits.
+
+### Audit
+
+- `pkg/module/audit/` — every capability invocation: `AuditEntry{Timestamp, Module, Version, Capability, Operation, Success, Duration, Details}`.
+- `CapabilityInvoker` wraps the call → emit entry → integrate with §4.12 audit log.
+
+### SDK
+
+- `modules/sdk/starlark/` — host capability bindings as Starlark builtins; example modules.
+
+### CLI
+
+- `cmd/kscore-module`: `init`, `build`, `validate`, `resolve`, `verify`, `sign`, `test`, `publish`, `install`, `update`, `clean`, `tree`.
+- Audit flags: `--audit-level`, `--audit-output`.
+
+### Plugin discovery
+
+- `pkg/plugin/`:
+  - `Discovery.Discover()` scans `$PATH` for `kscore-*` binaries; caches.
+  - `Executor.Execute()` runs them via `exec.Command`; stdin/stdout/stderr piping; context cancellation.
+- This is what makes `kscorectl <foo>` dispatch to `kscore-foo` (Git-style plugin pattern).
+
+## Scope (out / non-goals)
+
+- **WASM runtime** (`tetratelabs/wazero`, WASI, instruction metering, memory bounds) — v1.1.
+- Rust SDK, Go (TinyGo) SDK — v1.1.
+- C++ SDK — v2.0.
+- OCI registry backend — v1.1.
+- S3/GCS/Azure storage backends — v1.1.
+- `kscore-module mirror` air-gap — v1.1.
+- SumDB transparency log — v1.2.
+- Fine-grained capability model (per-syscall via seccomp/eBPF) — v1.2.
+- Module vulnerability scanning + SBOM generation — v1.2.
+- Federated module registries — v2.x.
+
+## Design summary
+
+See `PROJECT-DETAILS.md §4.18`.
+
+## Tasks
+
+1. **`Manifest` + `CapabilityConfig` + `LockFile`** types + YAML codec + tests.
+2. **Capability registry + invoker + audit emission**.
+3. **9 core capabilities** — pluggable backends (e.g., `SecretsStore`, `Logger`, `KVStore`, `HTTPClient`, `FSAccess`, `Executor`).
+4. **Cosign signature verifier** — accepts RSA/ECDSA/Ed25519; KeyID lookup against trust policy.
+5. **SHA-256 hasher + CAS storage**.
+6. **Resolver** — semver constraints, DAG, cycle detection, MVS.
+7. **Module cache** with CacheConfig.
+8. **Filesystem registry** — Go-mod HTTP endpoints; backend storage interface.
+9. **`cmd/kscore-registry`** server.
+10. **`ModuleLoader` 7-step pipeline** — full implementation with tests for each phase.
+11. **Starlark runtime** — sandboxed; deterministic mode.
+12. **Starlark capability builtins** — Go shims wrapping Capability backends.
+13. **`pkg/plugin`** Discovery + Executor; `kscorectl` integration.
+14. **`cmd/kscore-module`** CLI with all listed subcommands.
+15. **Module test framework** in `pkg/module/testing/` — Starlark unit-test runner.
+16. **3 example modules** in `modules/examples/` to validate the full author UX (init → build → sign → publish → install → execute).
+17. **Integration test**: end-to-end module flow with fake registry server.
+
+## Acceptance criteria
+
+- [ ] `kscore-module init my-module` scaffolds a Starlark module with manifest.
+- [ ] `kscore-module build` packages module as ZIP.
+- [ ] `kscore-module sign --key local.key` produces Cosign signature.
+- [ ] `kscore-module publish --registry http://localhost:8181` uploads + indexes.
+- [ ] `kscore-module install vendor/example@v1.0.0` resolves dependencies, downloads ZIPs, verifies signatures + hashes, populates lockfile.
+- [ ] `kscore-module test` runs Starlark unit tests.
+- [ ] Module attempting `fs.write` outside allowed paths fails with clear error + audit entry.
+- [ ] Module attempting unauthorized `exec` fails with audit entry.
+- [ ] Re-running install with same lockfile produces identical resolution (reproducible).
+- [ ] Cosign signature mismatch causes load to fail.
+- [ ] `kscorectl module` dispatches correctly to `kscore-module`.
+- [ ] Coverage >80% on `pkg/module/*`.
+
+## Risks
+
+- **Starlark sandbox escape** — defense in depth: runtime limits + capability scoping + policy + audit. Regular security review.
+- **Capability creep** — defaults are permissive for ergonomics; production policies tighten.
+- **Signature key rotation** — multiple trusted keys + transparency log (v1.2) for tamper detection.
+- **Determinism violations** — Starlark `random()` and `time.now()` disabled by default; capability gate.
+- **Module version conflicts** — MVS guarantees consistent resolution; lock file pins exact versions.
+- **Lock-file drift** — validate on every load; CI must check.
+- **Registry availability (SPoF)** — local cache deduplication mitigates; v1.1 mirror command.
+- **Namespace squatting** — registry enforces namespaced names; validation on publish.
+
+## References
+
+- PROJECT-DETAILS §4.18.

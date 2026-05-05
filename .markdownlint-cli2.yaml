@@ -1,0 +1,17 @@
+config:
+  default: true
+  MD013: false
+  MD033: false
+  MD024: false
+  MD036: false
+  MD040: false
+  MD060: false
+
+globs:
+  - "docs/**/*.md"
+
+ignores:
+  - "docs/themes/**"
+  - "docs/node_modules/**"
+  - "docs/resources/**"
+  - "docs/public/**"

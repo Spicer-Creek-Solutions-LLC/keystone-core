@@ -1,0 +1,71 @@
+# Gosec Security Scanner Configuration
+# https://github.com/securego/gosec
+#
+# This file configures gosec for Keystone Core CI security scanning.
+# All security findings are blocking by default. Use this file to explicitly
+# waive specific rules when the risk is accepted and documented.
+#
+# IMPORTANT: Any rule exclusion MUST be documented with:
+# 1. Justification for why the code is safe
+# 2. Issue/ticket reference for tracking
+# 3. Review date for periodic reassessment
+#
+# Alternatively, use inline annotations for specific lines:
+#   // #nosec G104 -- error return intentionally ignored for cleanup
+#
+# See: https://github.com/securego/gosec#configuration
+
+global:
+  # Audit mode shows all issues including informational
+  audit: false
+  # Concurrency for scanning
+  nosec: false
+  # Show the nosec ignore information in results
+  show-ignored: true
+
+# Rule-specific configuration
+rules:
+  # Uncomment and document rules to exclude globally
+  # Each exclusion requires justification in the comment above it
+  #
+  # Example format:
+  # # G104: Errors unhandled - excluded for specific pattern
+  # # Justification: Cleanup operations where errors cannot be meaningfully handled
+  # # Tracked: KSCORE-1234
+  # # Review: 2025-06-01
+  # - G104
+
+# Exclude specific files or directories from scanning
+# In addition to command-line -exclude-dir flags
+exclude:
+  # Test files are excluded via CLI flag
+  # Modules (third-party plugin examples) are excluded via CLI flag
+
+# Include or exclude specific rules
+# Default: all rules enabled
+# See: https://github.com/securego/gosec#available-rules
+#
+# High severity rules (should never be excluded without strong justification):
+# - G101: Hardcoded credentials
+# - G102: Bind to all interfaces
+# - G103: Audit use of unsafe block
+# - G104: Audit errors not checked
+# - G106: SSH InsecureIgnoreHostKey
+# - G107: URL provided to HTTP request as taint input
+# - G108: Profiling endpoint automatically exposed
+# - G109: Integer overflow conversion
+# - G110: Potential DoS via decompression bomb
+# - G111: Directory traversal
+# - G112: Potential slowloris attack
+# - G113: Usage of Rat.SetString in math/big
+# - G114: Use of net/http serve functions with non-hardcoded timeouts
+# - G201-G203: SQL injection risks
+# - G204: Subprocess launched with variable
+# - G301-G307: File permission issues
+# - G401-G406: Weak crypto algorithms
+# - G501-G505: Blocked import paths
+# - G601: Implicit memory aliasing
+# - G602: Slice access out of bounds
+
+# Current waivers (none - all rules enforced):
+# No rules are currently waived. All security issues must be fixed.

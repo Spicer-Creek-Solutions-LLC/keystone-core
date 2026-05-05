@@ -1,0 +1,26 @@
+# Lychee configuration for link checking
+
+verbose = "info"
+no_progress = true
+max_retries = 2
+timeout = 20
+include_mail = true
+scheme = ["https", "http", "mailto"]
+
+exclude = [
+  "http://localhost",
+  "http://localhost:1313",
+  "https://localhost",
+  "http://127.0.0.1",
+  "http://0.0.0.0",
+  "https://0.0.0.0",
+  "http://example.com",
+  "https://example.com"
+]
+
+exclude_path = [
+  "docs/themes",
+  "docs/node_modules",
+  "docs/resources",
+  "docs/public"
+]

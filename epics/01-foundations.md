@@ -1,0 +1,79 @@
+# Epic 01: Foundations
+
+**Phase**: A • **Estimate**: 2 weeks • **Depends on**: nothing • **Blocks**: everything
+
+## Goal
+
+Establish the build, config, logging, version, error, time/wait, and DB-utility primitives that every other domain depends on. Deliver a "hello world" that builds across linux/darwin/windows × amd64/arm64, parses YAML config, emits structured JSON logs, and reports its version.
+
+## Scope (in)
+
+- Repo scaffold matching `PROJECT-DETAILS.md §3.6` layout (`cmd/`, `internal/`, `pkg/`, `api/`, `Makefile`, `.golangci.yml`, `buf.{yaml,gen.yaml}`).
+- `pkg/version` — Version, GitCommit, BuildDate populated via `-ldflags -X`.
+- `pkg/semver` — full SemVer 2.0.0 (Parse, MustParse, comparisons, Constraint interface, Diff with breaking/feature/bugfix predicates, Sort).
+- `pkg/wait` — `ForCondition(ctx, interval, fn)` cancellable poller. No bare `time.Sleep` allowed elsewhere in the codebase.
+- `pkg/dbutil` — `OpenSQLite(path, opts...)` with WAL, busy timeout, FK on, single-writer.
+- `pkg/api/apierror` — `Response{Error, Message, Details map}`, `StatusCode()` HTTP↔gRPC mapping.
+- `internal/config` — Viper-based loader; YAML + env (`KSCORE_*` prefix); `Validate()` post-unmarshal; production warnings (embedded NATS / SQLite / TLS off in production).
+- `internal/logging` — `zap`-backed; JSON / logfmt / text formatters; correlation ID context helpers; stdout-only in v1.0.
+- `Makefile` targets per `PROJECT-DETAILS.md §3.4`: `proto`, `build`, `build-all-platforms`, `clean`, `deps`, `install-tools`, `test`, `test-coverage`, `test-integration`, `check`, `fmt`, `lint`, `lint-fix`, `proto-lint`, `proto-breaking`, `dev`, `release-snapshot`.
+- `.golangci.yml` v1.0 baseline lint set (errcheck, govet, ineffassign, staticcheck, unused, bodyclose, gosec). `.pb.go` files exempt.
+- `buf.yaml` STANDARD lint with documented exclusions; `buf.gen.yaml` configured for Go + gRPC plugins outputting to `pkg/api/v1/`.
+- `.pre-commit-config.yaml` — gofmt, golangci-lint, smoke-test.
+- `scripts/smoke-test.sh quick` — SQLite + embedded-NATS-ready smoke.
+- "Hello world" `kscore-server` and `kscore-agent` and `kscorectl` that:
+  - Parse a config file (`--config` flag).
+  - Print version on `--version`.
+  - Log a startup line in JSON.
+  - Exit cleanly on SIGTERM.
+
+## Scope (out / non-goals)
+
+- Real gRPC services, NATS, storage repositories, or business logic. Those land in later epics.
+- Hugo docs site — README + reference docs in v1.0; Hugo is v1.1.
+- Multi-party signing ceremony — v1.2.
+- Hot-reload dev server (`air`) — v1.0.x dot release.
+
+## Design summary
+
+See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
+
+## Tasks
+
+1. **Repo scaffold**: directory layout, `go.mod` (Go 1.25+), top-level files (`README.md`, `LICENSE` Apache 2.0, `NOTICE`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `AGENTS.md`).
+2. **`pkg/version`** + tests; build-time injection via Makefile LDFLAGS.
+3. **`pkg/semver`** + tests (Parse, comparisons, constraints, Diff, Sort).
+4. **`pkg/wait`** + tests.
+5. **`pkg/dbutil.OpenSQLite`** + tests (WAL pragma verified, busy timeout, FK on, single writer).
+6. **`pkg/api/apierror`** + tests (status code mapping for both directions).
+7. **`internal/config`** — root `Config` struct with all 16+ sub-configs from `PROJECT-DETAILS §4.4`; YAML+env loader; `Validate()`; production warnings function.
+8. **`internal/logging`** — `zap` factory; JSON/logfmt/text formatters; correlation ID context helpers; tests for each formatter.
+9. **`Makefile`** with all v1.0 targets.
+10. **`.golangci.yml`** baseline.
+11. **`buf.yaml` + `buf.gen.yaml`** with empty proto file to verify codegen wiring.
+12. **`.pre-commit-config.yaml`** + `scripts/smoke-test.sh` skeleton.
+13. **`cmd/kscore-server/main.go`, `cmd/kscore-agent/main.go`, `cmd/kscorectl/main.go`** — minimal Cobra commands with `--version`, `--config`, structured-log startup line, graceful SIGTERM exit.
+14. **CI (GitHub Actions or chosen)**: lint + test + smoke + cross-build matrix.
+15. **`.goreleaser.yaml`** — snapshot config for the three hello-world binaries.
+
+## Acceptance criteria
+
+- [ ] `make build` produces three binaries in `build/bin/$GOOS/$GOARCH/`.
+- [ ] `make build-all-platforms` produces linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 binaries with no CGO.
+- [ ] `kscore-server --version` prints version + commit + build date.
+- [ ] `kscore-server --config testdata/dev.yaml` parses and emits a JSON startup log line including correlation ID.
+- [ ] `make test` runs all unit tests; coverage >70% on `pkg/*`.
+- [ ] `make lint` passes the baseline rule set.
+- [ ] `make proto` round-trips an empty proto file successfully.
+- [ ] Pre-commit hook passes locally.
+- [ ] `make release-snapshot` produces multi-arch tarballs in `dist/`.
+
+## Risks
+
+- **Viper config quirks**: env-var binding is case-sensitive; document expected env keys.
+- **Cross-compilation surprises**: any accidentally CGO-dependent dep will break Windows + Alpine; CI matrix must catch immediately.
+- **Pre-commit overhead**: keep smoke fast (<10s) or contributors disable it.
+
+## References
+
+- PROJECT-DETAILS §3 (Tech Stack), §4.1 (Foundations), §5.4 (Build & Release).

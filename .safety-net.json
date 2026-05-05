@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kenryu42/claude-code-safety-net/main/assets/cc-safety-net.schema.json",
+  "version": 1,
+  "rules": [
+    {
+      "name": "block-git-add-all",
+      "command": "git",
+      "subcommand": "add",
+      "block_args": ["-A", "--all", "."],
+      "reason": "Use 'git add <specific-files>' to avoid committing secrets or large binaries."
+    },
+    {
+      "name": "block-git-push-force",
+      "command": "git",
+      "subcommand": "push",
+      "block_args": ["--force", "-f", "--force-with-lease"],
+      "reason": "Force push can overwrite upstream history. Use a normal push or ask the user first."
+    },
+    {
+      "name": "block-git-reset-hard",
+      "command": "git",
+      "subcommand": "reset",
+      "block_args": ["--hard"],
+      "reason": "Hard reset discards uncommitted changes. Use 'git stash' or ask the user first."
+    },
+    {
+      "name": "block-git-checkout-discard",
+      "command": "git",
+      "subcommand": "checkout",
+      "block_args": ["."],
+      "reason": "This discards all unstaged changes. Use 'git stash' or ask the user first."
+    },
+    {
+      "name": "block-git-restore-discard",
+      "command": "git",
+      "subcommand": "restore",
+      "block_args": ["."],
+      "reason": "This discards all unstaged changes. Use 'git stash' or ask the user first."
+    },
+    {
+      "name": "block-git-clean-force",
+      "command": "git",
+      "subcommand": "clean",
+      "block_args": ["-f", "--force"],
+      "reason": "git clean -f permanently deletes untracked files. Ask the user first."
+    },
+    {
+      "name": "block-git-branch-force-delete",
+      "command": "git",
+      "subcommand": "branch",
+      "block_args": ["-D"],
+      "reason": "Force-deleting a branch can lose unmerged work. Use 'git branch -d' or ask the user."
+    },
+    {
+      "name": "block-git-config-global",
+      "command": "git",
+      "subcommand": "config",
+      "block_args": ["--global", "--system"],
+      "reason": "Never modify global/system git config. Use project-local config or ask the user."
+    },
+    {
+      "name": "block-rm-recursive-force",
+      "command": "rm",
+      "block_args": ["-rf", "-fr"],
+      "reason": "Recursive force delete is destructive. Remove specific files or ask the user first."
+    },
+    {
+      "name": "block-go-clean-cache",
+      "command": "go",
+      "subcommand": "clean",
+      "block_args": ["-cache", "-testcache", "-modcache"],
+      "reason": "Clearing Go caches slows builds. Only do this if the user explicitly requests it."
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+# ---> Go
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+
+/t
+*.bak
+
+# Keystone Core binaries (built via make build into build/, but catch strays in root)
+/kscore-*
+/kscorectl
+
+# Keystone Core specific
+build/
+dist/
+docvalidation
+scripts/docvalidation/docvalidation
+data/
+*.db
+*.db-shm
+*.db-wal
+keystone-core.yaml
+kscore-agent.yaml
+*.creds
+*.pem
+*.key
+*.crt
+*.csr
+.DS_Store
+tmp/
+temp/
+*.tmp
+coverage.out
+.idea
+
+# Rust build artifacts
+**/target/
+Cargo.lock
+!modules/sdk/rust/Cargo.lock
+
+# C++ build artifacts
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/Makefile.cmake
+**/*.cmake
+!**/CMakeLists.txt
+
+# WASM build artifacts
+*.wasm
+*.wat
+
+# Hugo documentation
+docs/.hugo_build.lock
+docs/node_modules
+docs/package-lock.json
+docs/resources
+
+# E2E test reports
+test/e2e/performance/reports/
+/reports/
+/internal/loadtest/reports/
+/.python-version
+
+# Claude Code / AI session artifacts
+CHECKPOINT.md
+.claude-session-notes.md
+.claude/
+!.claude/commands/
+SESSION-SUMMARY*.md
+*_TEST_RESULTS.md
+*_SESSION*.md
+.claude-session-context.md
+tools/moddoc/moddoc
+
+# Build cache
+.cache/
