@@ -15,7 +15,7 @@ Establish the build, config, logging, version, error, time/wait, and DB-utility 
 - `pkg/dbutil` — `OpenSQLite(path, opts...)` with WAL, busy timeout, FK on, single-writer.
 - `pkg/api/apierror` — `Response{Error, Message, Details map}`, `StatusCode()` HTTP↔gRPC mapping.
 - `internal/config` — koanf-based loader; YAML + env (`KSCORE_` prefix); `Validate()` post-unmarshal; `ProductionWarnings()` (SQLite / TLS off in production; embedded NATS warning lands with Epic 05).
-- `internal/logging` — `zap`-backed; JSON / logfmt / text formatters; correlation ID context helpers; stdout-only in v1.0.
+- `internal/logging` — `log/slog`-backed; JSON / logfmt / text formatters; correlation ID context helpers; stdout-only in v1.0.
 - `Makefile` targets per `PROJECT-DETAILS.md §3.4`: `proto`, `build`, `build-all-platforms`, `clean`, `deps`, `install-tools`, `test`, `test-coverage`, `test-integration`, `check`, `fmt`, `lint`, `lint-fix`, `proto-lint`, `proto-breaking`, `dev`, `release-snapshot`.
 - `.golangci.yml` v1.0 baseline lint set (errcheck, govet, ineffassign, staticcheck, unused, bodyclose, gosec). `.pb.go` files exempt.
 - `buf.yaml` STANDARD lint with documented exclusions; `buf.gen.yaml` configured for Go + gRPC plugins outputting to `pkg/api/v1/`.
@@ -47,7 +47,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 5. **`pkg/dbutil.OpenSQLite`** + tests (WAL pragma verified, busy timeout, FK on, single writer).
 6. **`pkg/api/apierror`** + tests (status code mapping for both directions).
 7. **`internal/config`** — koanf-backed loader (YAML + `KSCORE_`-prefixed env), strict unmarshal, post-unmarshal `Validate()`, and `ProductionWarnings()`. Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; remaining domain sub-configs are added by their owning epics. Decided in task 7 review to use koanf over Viper for cleaner unmarshal semantics and lighter deps; Cobra remains for CLI parsing in task 13 with a small flag→koanf bridge.
-8. **`internal/logging`** — `zap` factory; JSON/logfmt/text formatters; correlation ID context helpers; tests for each formatter.
+8. **`internal/logging`** — `log/slog` factory; JSON/logfmt/text formatters; correlation-ID context helpers (auto-injected by a wrapping `slog.Handler`); tests for each formatter. Decided in task 8 review to use stdlib `log/slog` over `go.uber.org/zap`: zero new dep, idiomatic for new Go projects, native context awareness fits correlation IDs cleanly.
 9. **`Makefile`** with all v1.0 targets.
 10. **`.golangci.yml`** baseline.
 11. **`buf.yaml` + `buf.gen.yaml`** with empty proto file to verify codegen wiring.

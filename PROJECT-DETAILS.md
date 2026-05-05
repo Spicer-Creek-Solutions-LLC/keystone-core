@@ -112,7 +112,7 @@ kscore.{cluster}.discovery
 | gRPC | `google.golang.org/grpc`, `google.golang.org/protobuf` | TLS, streaming. |
 | CLI | `spf13/cobra` | Subcommand CLI for all binaries. |
 | Config | `knadh/koanf/v2` (+ parsers/yaml, providers/{file,env,structs}) | YAML + KSCORE_-env loader. Strict unmarshal. Chosen over Viper in epic 01 task 7 review for cleaner semantics and lighter deps; Cobra→koanf flag bridge added in task 13. |
-| Logging | `go.uber.org/zap` | Structured. |
+| Logging | `log/slog` (stdlib) | Structured. JSON, logfmt, and "text" (compact-time TextHandler) formats. Correlation IDs injected from context via a wrapping `slog.Handler`. |
 | Tracing | `go.opentelemetry.io/otel/*` | OTLP/Zipkin/stdout exporters. |
 | Metrics | `prometheus/client_golang` | Standard. |
 | Storage | `modernc.org/sqlite`, `lib/pq` | Pure-Go drivers. |
@@ -192,7 +192,7 @@ keystone-core/
 - `pkg/dbutil.OpenSQLite(path, opts...)` — WAL mode, busy-timeout, FK on, single writer.
 - `pkg/api/apierror.Response{Error, Message, Details map}` — standard JSON error body; `StatusCode()` maps codes to HTTP.
 - `internal/config.Config` — root struct loaded via koanf-based `Load(path)` from YAML + env (`KSCORE_` prefix). Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; later epics extend `Config` with their own sub-config struct + `Validate()` + production-warning entries. Single-word koanf keys (e.g., `grpcport`, `httpport`, `certfile`) keep env-var mapping unambiguous with a single-underscore separator (`KSCORE_SERVER_GRPCPORT`).
-- `internal/logging.StructuredLogger` — wraps `zap`; outputs JSON / logfmt / text; correlation IDs (request-scoped); v1.0 outputs to stdout only (syslog v1.1).
+- `internal/logging` — `slog`-backed logger via `New(Options{Level, Format, Output})` returning `*slog.Logger`. Three formats (json, logfmt, text — last is `TextHandler` with RFC3339 timestamps for terminals). Correlation IDs via `WithCorrelationID(ctx, id)` are auto-injected by a wrapping `slog.Handler` on every record whose ctx carries one. v1.0 outputs to stdout only (syslog v1.1).
 
 **Config validation rule**: validate **after** unmarshal. Each sub-config implements `Validate() error`; the root `Config.Validate()` calls them all. `Config.ProductionWarnings() []string` reports risky combinations (TLS disabled in production, SQLite in production, embedded NATS in production once Epic 05 lands).
 
@@ -1113,7 +1113,7 @@ cluster:
 **Purpose**: Logs, metrics, traces, health, and (eventually) a TUI single-pane-of-glass.
 
 **v1.0 layers**:
-- **Logging** (`internal/logging/`) — `zap`-backed; structured JSON default; logfmt and text formatters available. Outputs: stdout in v1.0 (syslog/journald/Windows Event Log/NATS in v1.2). Correlation IDs flow via context, request middleware, NATS message headers, span attributes.
+- **Logging** (`internal/logging/`) — `log/slog`-backed; structured JSON default; logfmt and text formatters available. Outputs: stdout in v1.0 (syslog/journald/Windows Event Log/NATS in v1.2). Correlation IDs flow via context, request middleware, NATS message headers, span attributes.
 - **Metrics** (`internal/metrics/`) — custom Prom registry; `Collector` interface (counter, gauge, histogram, summary); `MetricRegistry` with metric definitions; `Timer` utility; `cardinality.Limiter` enforces hard label-cardinality limits with drop/aggregate fallback. Endpoint `/metrics` Prometheus-exposition format.
 - **Tracing** (`internal/tracing/`) — OTel SDK; `TracerProvider`; samplers: `always_on/off`, `probabilistic`, `parent_based`, `rate_limiting`, `adaptive` (rebalances on observed error rate). Exporters: OTLP (gRPC + HTTP), Zipkin, stdout. Helper attribute functions: `AgentAttrs`, `JobAttrs`, `StateAttrs`, `EventAttrs`, `PolicyAttrs`. Batch processor.
 - **Health** (`internal/health/`) — `Checker` interface; concrete: NATS, DB, JetStream, custom. `Status` enum (healthy/degraded/unhealthy/unknown). Liveness, readiness, status endpoints. Startup grace period to avoid false-not-ready during boot.
@@ -1433,7 +1433,7 @@ modules:
 
 ### 5.2 Logging, Errors, Correlation
 
-- `internal/logging` produces `zap`-backed structured logs; correlation IDs flow via context, gRPC metadata, NATS headers, span attributes.
+- `internal/logging` produces `log/slog`-backed structured logs; correlation IDs flow via context, gRPC metadata, NATS headers, span attributes.
 - Errors use `pkg/api/apierror.Response` for REST and `status.Error(codes.X, msg)` for gRPC. `apierror.StatusCode()` translates between them; the two must stay in sync.
 - Sensitive data is masked at the log layer via a `LogMasker` regex set (secrets, tokens, API keys, passwords).
 - Audit log (§4.12) is the structured trail for sensitive ops; logs are for engineering ops.
@@ -1521,7 +1521,7 @@ Build sequence for the rebuild. Each step has a clear "definition of done." Trac
 1. **Project scaffold**: repo layout, `go.mod`, Makefile, Buf, golangci-lint, pre-commit. Hello-world for `kscore-server`, `kscore-agent`, `kscorectl`.
 2. **`pkg/version`, `pkg/semver`, `pkg/wait`, `pkg/dbutil`, `pkg/api/apierror`** — utility packages.
 3. **`internal/config`** — koanf-based loader; per-sub-config `Validate()`; `ProductionWarnings()`. Foundations ships `Mode`/`Server`/`Logging`/`Storage`; later epics extend.
-4. **`internal/logging`** — zap-backed; correlation IDs.
+4. **`internal/logging`** — `log/slog`-backed; correlation IDs via wrapping handler.
 5. **Storage layer** — `internal/state`, SQLite + Postgres backends; auto-DDL; basic CRUD for agents/commands.
 
 ### Phase B — API & wire format (weeks 3-4)

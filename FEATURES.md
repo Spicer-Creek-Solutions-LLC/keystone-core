@@ -44,7 +44,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Semver library** (`pkg/semver`: Parse, constraints, Diff). Source: `pkg/semver/`. _Reasoning: needed by module system and upgrade logic in v1._
 - **Cancelable wait/poll utilities** (`pkg/wait`). Source: `pkg/wait/`. _Reasoning: tiny, used everywhere._
 - **koanf-based config** (YAML + env vars, `KSCORE_` prefix). Source: `internal/config/`. _Reasoning: clean strict-unmarshal semantics, lighter deps than Viper. Cobra remains for CLI parsing._
-- **Structured logging** (zap, JSON/logfmt/text, correlation IDs). Source: `internal/logging/`. _Reasoning: zero-config observability baseline._
+- **Structured logging** (`log/slog`, JSON/logfmt/text, correlation IDs). Source: `internal/logging/`. _Reasoning: zero-config observability baseline; stdlib eliminates a third-party dep._
 - **Standard error model** (`pkg/api/apierror`: code, message, details). Source: `pkg/api/apierror/`. _Reasoning: REST + gRPC error consistency._
 - **Make targets**: `build`, `test`, `lint`, `proto`, `dev` (hot-reload), `e2e-up/down`, `release-snapshot`. Source: `Makefile`. _Reasoning: minimum dev loop._
 - **Goreleaser snapshot** (multi-arch tarballs). Source: `.goreleaser.yaml`. _Reasoning: distribution baseline._
@@ -540,7 +540,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.0 (in scope)
 
-- **Structured logging** (zap; JSON / logfmt / text; stdout default; correlation IDs; log levels). Source: `internal/logging/`. _Reasoning: zero-config baseline._
+- **Structured logging** (`log/slog`; JSON / logfmt / text; stdout default; correlation IDs; log levels). Source: `internal/logging/`. _Reasoning: zero-config baseline._
 - **Prometheus metrics registry** (custom; counters, gauges, histograms, summaries; cardinality limiter). Source: `internal/metrics/`. _Reasoning: standard ops integration._
 - **`/metrics` HTTP endpoint** (Prometheus exposition). _Reasoning: scrape target._
 - **OpenTelemetry tracing** (OTLP, Zipkin, stdout exporters; configurable sampling: probabilistic/parent-based/rate-limiting/adaptive). Source: `internal/tracing/`. _Reasoning: distributed-debug baseline._
