@@ -110,7 +110,8 @@ kscore.{cluster}.discovery
 | SemVer | `github.com/Masterminds/semver/v3` | Wrapped by `pkg/semver` facade; provides parsing, comparisons, and constraint grammar. |
 | Messaging | `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` | Both client and embedded server. NATS 2.10+ for leaf/gateway later. |
 | gRPC | `google.golang.org/grpc`, `google.golang.org/protobuf` | TLS, streaming. |
-| CLI | `spf13/cobra`, `spf13/viper` | Standard Go CLI stack. |
+| CLI | `spf13/cobra` | Subcommand CLI for all binaries. |
+| Config | `knadh/koanf/v2` (+ parsers/yaml, providers/{file,env,structs}) | YAML + KSCORE_-env loader. Strict unmarshal. Chosen over Viper in epic 01 task 7 review for cleaner semantics and lighter deps; Cobra→koanf flag bridge added in task 13. |
 | Logging | `go.uber.org/zap` | Structured. |
 | Tracing | `go.opentelemetry.io/otel/*` | OTLP/Zipkin/stdout exporters. |
 | Metrics | `prometheus/client_golang` | Standard. |
@@ -190,10 +191,10 @@ keystone-core/
 - `pkg/wait.ForCondition(ctx, interval, fn)` — cancellable polling; replaces `for { time.Sleep() }` patterns.
 - `pkg/dbutil.OpenSQLite(path, opts...)` — WAL mode, busy-timeout, FK on, single writer.
 - `pkg/api/apierror.Response{Error, Message, Details map}` — standard JSON error body; `StatusCode()` maps codes to HTTP.
-- `internal/config.Config` — root struct; ~16 subconfigs (Server, NATS, Storage, Auth, Logging, Policy, etc.); `LoadConfig(path)` from YAML + env (`KSCORE_*` prefix, Viper).
+- `internal/config.Config` — root struct loaded via koanf-based `Load(path)` from YAML + env (`KSCORE_` prefix). Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; later epics extend `Config` with their own sub-config struct + `Validate()` + production-warning entries. Single-word koanf keys (e.g., `grpcport`, `httpport`, `certfile`) keep env-var mapping unambiguous with a single-underscore separator (`KSCORE_SERVER_GRPCPORT`).
 - `internal/logging.StructuredLogger` — wraps `zap`; outputs JSON / logfmt / text; correlation IDs (request-scoped); v1.0 outputs to stdout only (syslog v1.1).
 
-**Config validation rule**: validate **after** unmarshal (Viper's Unmarshal does not validate). Emit production warnings on first run for: embedded NATS in production mode, SQLite in production mode, TLS disabled in production mode.
+**Config validation rule**: validate **after** unmarshal. Each sub-config implements `Validate() error`; the root `Config.Validate()` calls them all. `Config.ProductionWarnings() []string` reports risky combinations (TLS disabled in production, SQLite in production, embedded NATS in production once Epic 05 lands).
 
 **Error model rule**: REST → `apierror.Response` JSON; gRPC → `status.Error(codes.X, msg)`. The two must map (`apierror.StatusCode()` provides translation).
 
@@ -206,7 +207,7 @@ keystone-core/
 
 **Gotchas**:
 - Add a binary → update both `Makefile` `BINARIES` list and `.goreleaser.yaml`. Easy to forget.
-- Viper env-var binding is case-sensitive; use `KSCORE_LOGGING_LEVEL` (not `kscore_logging_level`).
+- koanf env-var mapping is case-insensitive (we lowercase before lookup) but our convention is uppercase: `KSCORE_LOGGING_LEVEL`.
 - Duration parsing is strict: `5m`, not `5min`.
 
 ### 4.2 NATS Messaging
@@ -312,7 +313,7 @@ type Store interface {
 **Purpose**: The `kscore-server` binary. Wires everything together with a strict, deterministic startup sequence and a clean shutdown sequence.
 
 **Startup sequence** (literal order — deviating breaks invariants):
-1. Parse + validate config (YAML + env via Viper).
+1. Parse + validate config (YAML + env via koanf).
 2. Initialize logger (level, format).
 3. Start NATS (embedded or external connect).
 4. Verify NATS + JetStream availability.
@@ -379,7 +380,7 @@ CORS  →  Rate-Limit  →  Auth  →  Handler
 - Service init order is critical. ConnectionManager must exist before gRPC services that reference it. State store must exist before any service that reads agents in HA mode.
 - Listener leaks on partial-init failure — defer Close() in setup function.
 - Nil-dependency panics — `if cluster != nil` guards before service registration.
-- Viper-unmarshal does not validate — call validators after.
+- Unmarshal does not validate — call `Config.Validate()` after.
 
 ### 4.5 API Surface
 
@@ -1425,9 +1426,9 @@ modules:
 
 ### 5.1 Configuration
 
-- Single `Config` struct with ~16 sub-configs (Server, NATS, Storage, Auth, Logging, Policy, GitOps, Secrets, Events, Execution, StateManagement, Webhook, CORS, RateLimit, Metrics, Tracing, Health, Profiling, Cluster, Operator).
-- Loaded via Viper from YAML + env (`KSCORE_*` prefix). Env keys are case-sensitive — `KSCORE_LOGGING_LEVEL` only, never lowercase.
-- Validation is **post-unmarshal** — Viper does not validate. Add `Validate()` on each sub-config; aggregate in `Config.Validate()`.
+- Single `Config` struct grown by epic. Foundations (Epic 01) ships `Mode`, `Server`, `Logging`, `Storage`. Each later epic adds its own sub-config (NATS, Auth, Policy, GitOps, Secrets, Events, Execution, StateManagement, Webhook, CORS, RateLimit, Metrics, Tracing, Health, Profiling, Cluster, Operator) with its own `Validate()` and production-warning entries.
+- Loaded via koanf from YAML + env (`KSCORE_` prefix). Single-word koanf keys (e.g., `grpcport`, `httpport`, `certfile`) keep env mapping unambiguous: `server.grpcport` ↔ `KSCORE_SERVER_GRPCPORT`.
+- Validation is **post-unmarshal**. Each sub-config implements `Validate() error`; the root `Config.Validate()` calls them all.
 - Production warnings emitted on startup for: embedded NATS in production mode, SQLite in production mode, TLS off in production mode, JetStream at default storage limits.
 
 ### 5.2 Logging, Errors, Correlation
@@ -1519,7 +1520,7 @@ Build sequence for the rebuild. Each step has a clear "definition of done." Trac
 ### Phase A — Foundations (weeks 1-2)
 1. **Project scaffold**: repo layout, `go.mod`, Makefile, Buf, golangci-lint, pre-commit. Hello-world for `kscore-server`, `kscore-agent`, `kscorectl`.
 2. **`pkg/version`, `pkg/semver`, `pkg/wait`, `pkg/dbutil`, `pkg/api/apierror`** — utility packages.
-3. **`internal/config`** — Viper-based loader; Validate hooks; production warnings.
+3. **`internal/config`** — koanf-based loader; per-sub-config `Validate()`; `ProductionWarnings()`. Foundations ships `Mode`/`Server`/`Logging`/`Storage`; later epics extend.
 4. **`internal/logging`** — zap-backed; correlation IDs.
 5. **Storage layer** — `internal/state`, SQLite + Postgres backends; auto-DDL; basic CRUD for agents/commands.
 

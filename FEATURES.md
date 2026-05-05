@@ -43,7 +43,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Build-time version injection** (`pkg/version`: Version, GitCommit, BuildDate). Source: `pkg/version/`, `Makefile` LDFLAGS. _Reasoning: support window + bug reports require it._
 - **Semver library** (`pkg/semver`: Parse, constraints, Diff). Source: `pkg/semver/`. _Reasoning: needed by module system and upgrade logic in v1._
 - **Cancelable wait/poll utilities** (`pkg/wait`). Source: `pkg/wait/`. _Reasoning: tiny, used everywhere._
-- **Viper-based config** (YAML + env vars, `KSCORE_*` prefix). Source: `internal/config/`. _Reasoning: standard practice; required for first-startup UX._
+- **koanf-based config** (YAML + env vars, `KSCORE_` prefix). Source: `internal/config/`. _Reasoning: clean strict-unmarshal semantics, lighter deps than Viper. Cobra remains for CLI parsing._
 - **Structured logging** (zap, JSON/logfmt/text, correlation IDs). Source: `internal/logging/`. _Reasoning: zero-config observability baseline._
 - **Standard error model** (`pkg/api/apierror`: code, message, details). Source: `pkg/api/apierror/`. _Reasoning: REST + gRPC error consistency._
 - **Make targets**: `build`, `test`, `lint`, `proto`, `dev` (hot-reload), `e2e-up/down`, `release-snapshot`. Source: `Makefile`. _Reasoning: minimum dev loop._

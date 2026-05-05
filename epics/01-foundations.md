@@ -14,7 +14,7 @@ Establish the build, config, logging, version, error, time/wait, and DB-utility 
 - `pkg/wait` — `ForCondition(ctx, interval, fn)` cancellable poller. No bare `time.Sleep` allowed elsewhere in the codebase.
 - `pkg/dbutil` — `OpenSQLite(path, opts...)` with WAL, busy timeout, FK on, single-writer.
 - `pkg/api/apierror` — `Response{Error, Message, Details map}`, `StatusCode()` HTTP↔gRPC mapping.
-- `internal/config` — Viper-based loader; YAML + env (`KSCORE_*` prefix); `Validate()` post-unmarshal; production warnings (embedded NATS / SQLite / TLS off in production).
+- `internal/config` — koanf-based loader; YAML + env (`KSCORE_` prefix); `Validate()` post-unmarshal; `ProductionWarnings()` (SQLite / TLS off in production; embedded NATS warning lands with Epic 05).
 - `internal/logging` — `zap`-backed; JSON / logfmt / text formatters; correlation ID context helpers; stdout-only in v1.0.
 - `Makefile` targets per `PROJECT-DETAILS.md §3.4`: `proto`, `build`, `build-all-platforms`, `clean`, `deps`, `install-tools`, `test`, `test-coverage`, `test-integration`, `check`, `fmt`, `lint`, `lint-fix`, `proto-lint`, `proto-breaking`, `dev`, `release-snapshot`.
 - `.golangci.yml` v1.0 baseline lint set (errcheck, govet, ineffassign, staticcheck, unused, bodyclose, gosec). `.pb.go` files exempt.
@@ -46,7 +46,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 4. **`pkg/wait`** + tests.
 5. **`pkg/dbutil.OpenSQLite`** + tests (WAL pragma verified, busy timeout, FK on, single writer).
 6. **`pkg/api/apierror`** + tests (status code mapping for both directions).
-7. **`internal/config`** — root `Config` struct with all 16+ sub-configs from `PROJECT-DETAILS §4.4`; YAML+env loader; `Validate()`; production warnings function.
+7. **`internal/config`** — koanf-backed loader (YAML + `KSCORE_`-prefixed env), strict unmarshal, post-unmarshal `Validate()`, and `ProductionWarnings()`. Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; remaining domain sub-configs are added by their owning epics. Decided in task 7 review to use koanf over Viper for cleaner unmarshal semantics and lighter deps; Cobra remains for CLI parsing in task 13 with a small flag→koanf bridge.
 8. **`internal/logging`** — `zap` factory; JSON/logfmt/text formatters; correlation ID context helpers; tests for each formatter.
 9. **`Makefile`** with all v1.0 targets.
 10. **`.golangci.yml`** baseline.
@@ -70,7 +70,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 
 ## Risks
 
-- **Viper config quirks**: env-var binding is case-sensitive; document expected env keys.
+- **koanf env-var convention**: single-word keys avoid env-mapping ambiguity (`grpcport` not `grpc_port`); document expected env keys.
 - **Cross-compilation surprises**: any accidentally CGO-dependent dep will break Windows + Alpine; CI matrix must catch immediately.
 - **Pre-commit overhead**: keep smoke fast (<10s) or contributors disable it.
 
