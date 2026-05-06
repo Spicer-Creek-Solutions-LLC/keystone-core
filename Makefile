@@ -39,7 +39,7 @@ export CGO_ENABLED := 0
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
         test test-verbose test-coverage test-integration check \
-        fmt lint lint-fix \
+        fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         security-secrets security-vulns security-sast
 
@@ -114,6 +114,9 @@ test-integration: ## Run integration tests (-tags=integration)
 	CGO_ENABLED=1 go test -race -tags=integration ./...
 
 check: lint test ## Run lint + tests
+
+smoke: ## Run quick smoke checks (compile + SQLite pragmas)
+	scripts/smoke-test.sh quick
 
 # ---- Lint / Format --------------------------------------------------------
 
