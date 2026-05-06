@@ -1,0 +1,44 @@
+# Woodpecker CI for the Codeberg mirror.
+#
+# All steps run through Make targets per PROJECT-DETAILS §5.4.
+# Steps with `depends_on: []` execute in parallel.
+#
+# Cross-build matrix lives in .woodpecker/build.yml — Woodpecker's
+# matrix scopes to a whole workflow, so the cross-build is split out
+# rather than re-running lint/test/smoke five times.
+
+when:
+  - event: push
+    branch: main
+  - event: pull_request
+
+steps:
+  lint:
+    image: golangci/golangci-lint:v2.10.1
+    depends_on: []
+    commands:
+      - make lint
+
+  test:
+    image: golang:1.26
+    depends_on: []
+    commands:
+      - make test-coverage
+
+  smoke:
+    image: golang:1.26
+    depends_on: []
+    commands:
+      - make smoke
+
+  proto:
+    image: golang:1.26
+    depends_on: []
+    commands:
+      - go install github.com/bufbuild/buf/cmd/buf@latest
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - export PATH=/go/bin:$PATH
+      - make proto-lint
+      - make proto
+      - git diff --exit-code

@@ -1,0 +1,32 @@
+# Woodpecker cross-build matrix for the Codeberg mirror.
+#
+# Five-cell matrix per epic 01 acceptance: linux/{amd64,arm64},
+# darwin/{amd64,arm64}, windows/amd64. Each cell is a parallel
+# pipeline running `make build` with GOOS/GOARCH overridden.
+
+when:
+  - event: push
+    branch: main
+  - event: pull_request
+
+matrix:
+  include:
+    - GOOS: linux
+      GOARCH: amd64
+    - GOOS: linux
+      GOARCH: arm64
+    - GOOS: darwin
+      GOARCH: amd64
+    - GOOS: darwin
+      GOARCH: arm64
+    - GOOS: windows
+      GOARCH: amd64
+
+steps:
+  build:
+    image: golang:1.26
+    environment:
+      GOOS: ${GOOS}
+      GOARCH: ${GOARCH}
+    commands:
+      - make build
