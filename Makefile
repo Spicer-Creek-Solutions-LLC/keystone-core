@@ -26,7 +26,7 @@ LDFLAGS    := -X $(MODULE)/pkg/version.Version=$(VERSION) \
 
 # ---- Cross-compile matrix --------------------------------------------------
 
-PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
 # ---- Project-wide flags ----------------------------------------------------
 
@@ -42,6 +42,7 @@ export CGO_ENABLED := 0
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         dev dev-server dev-agent \
+        release-snapshot release-dry-run \
         security-secrets security-vulns security-sast
 
 # ---- Help (default) -------------------------------------------------------
@@ -86,13 +87,14 @@ deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
 
-install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*)
+install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
 	@command -v buf >/dev/null || go install github.com/bufbuild/buf/cmd/buf@latest
 	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || { \
 		echo "WARN: gitleaks not installed (not go-installable)"; \
 		echo "  macOS:   brew install gitleaks"; \
@@ -160,6 +162,14 @@ dev-server: ## Run kscore-server against testdata/dev.yaml
 dev-agent: ## Run kscore-agent against testdata/dev.yaml
 	go run ./cmd/kscore-agent --config testdata/dev.yaml
 
+# ---- Release --------------------------------------------------------------
+
+release-snapshot: ## Build multi-arch snapshot tarballs to dist/
+	goreleaser release --snapshot --clean
+
+release-dry-run: ## Validate the goreleaser config without building
+	goreleaser check
+
 # ---- Security -------------------------------------------------------------
 
 security-secrets: ## Scan for committed secrets (gitleaks)
@@ -175,7 +185,6 @@ security-sast: ## Static analysis (gosec)
 # Targets added by later tasks/epics — intentionally NOT stubbed here so
 # `make help` reflects only what currently works.
 #
-#   release-snapshot, release-dry-run          -> task 15 (goreleaser)
 #   e2e-build, e2e-test, e2e-up, e2e-down,
 #     e2e-logs                                 -> Epic 19 (release / E2E hardening)
 # ---------------------------------------------------------------------------

@@ -1,5 +1,18 @@
-# Keystone Core GoReleaser Configuration
-# Documentation: https://goreleaser.com
+# GoReleaser configuration — v1.0 baseline (snapshot only).
+# https://goreleaser.com
+#
+# Scope: builds the three v1.0 hello-world binaries (kscore-server,
+# kscore-agent, kscorectl) for the v1.0 platform matrix and packages
+# them into per-platform tar.gz / zip archives with a checksums file.
+#
+# Out of scope until later epics:
+#   - nfpm (deb/rpm) packaging          -> epic 19 release-hardening
+#   - Docker images                     -> epic 19
+#   - Code signing / SBOM               -> v1.2 signing ceremony
+#                                          (RELEASE-PLAYBOOK.md)
+#   - Publishing to forge / homebrew    -> v1.0 is snapshot-only;
+#                                          v1.2 brings the offline
+#                                          multi-party ceremony.
 
 version: 2
 
@@ -8,605 +21,72 @@ project_name: keystone-core
 before:
   hooks:
     - go mod tidy
-    - go generate ./...
 
-# Build configuration for all binaries
+# Shared build settings. -s/-w strip debug + symbol tables; -X entries
+# inject build metadata into pkg/version (same path as the Makefile).
+# -trimpath in flags: required by RELEASE-PLAYBOOK.md §Build Environment.
+# Anchors live on the first build because goreleaser rejects unknown
+# top-level keys.
 builds:
-  # Server daemons
   - id: kscore-server
     binary: kscore-server
     main: ./cmd/kscore-server
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore:
-      - goos: windows
-        goarch: arm64
+    env: &env [CGO_ENABLED=0]
+    flags: &flags [-trimpath]
+    goos: &goos [linux, darwin, windows]
+    goarch: &goarch [amd64, arm64]
     ldflags: &ldflags
       - -s -w
-      - -X github.com/shawnbutts/keystone-core/pkg/version.Version={{.Version}}
-      - -X github.com/shawnbutts/keystone-core/pkg/version.GitCommit={{.ShortCommit}}
-      - -X github.com/shawnbutts/keystone-core/pkg/version.BuildDate={{.Date}}
+      - -X go.keystone-core.io/keystone-core/pkg/version.Version={{.Version}}
+      - -X go.keystone-core.io/keystone-core/pkg/version.GitCommit={{.ShortCommit}}
+      - -X go.keystone-core.io/keystone-core/pkg/version.BuildDate={{.Date}}
 
   - id: kscore-agent
     binary: kscore-agent
     main: ./cmd/kscore-agent
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
     ldflags: *ldflags
 
-  - id: kscore-registry
-    binary: kscore-registry
-    main: ./cmd/kscore-registry
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-telemetry-gateway
-    binary: kscore-telemetry-gateway
-    main: ./cmd/kscore-telemetry-gateway
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Main CLI
   - id: kscorectl
     binary: kscorectl
     main: ./cmd/kscorectl
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
     ldflags: *ldflags
 
-  # Core CLI plugins
-  - id: kscore-exec
-    binary: kscore-exec
-    main: ./cmd/kscore-exec
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-state
-    binary: kscore-state
-    main: ./cmd/kscore-state
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-monitor
-    binary: kscore-monitor
-    main: ./cmd/kscore-monitor
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-agents
-    binary: kscore-agents
-    main: ./cmd/kscore-agents
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-module
-    binary: kscore-module
-    main: ./cmd/kscore-module
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Policy & Compliance
-  - id: kscore-policy
-    binary: kscore-policy
-    main: ./cmd/kscore-policy
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-audit
-    binary: kscore-audit
-    main: ./cmd/kscore-audit
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # GitOps & Webhooks
-  - id: kscore-gitops
-    binary: kscore-gitops
-    main: ./cmd/kscore-gitops
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-webhook
-    binary: kscore-webhook
-    main: ./cmd/kscore-webhook
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Cluster & Identity
-  - id: kscore-cluster
-    binary: kscore-cluster
-    main: ./cmd/kscore-cluster
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-cluster-backup
-    binary: kscore-cluster-backup
-    main: ./cmd/kscore-cluster-backup
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-identity
-    binary: kscore-identity
-    main: ./cmd/kscore-identity
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-federation
-    binary: kscore-federation
-    main: ./cmd/kscore-federation
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Blueprints
-  - id: kscore-blueprint
-    binary: kscore-blueprint
-    main: ./cmd/kscore-blueprint
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-blueprint-publish
-    binary: kscore-blueprint-publish
-    main: ./cmd/kscore-blueprint-publish
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-blueprint-state
-    binary: kscore-blueprint-state
-    main: ./cmd/kscore-blueprint-state
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # File Distribution
-  - id: kscore-files
-    binary: kscore-files
-    main: ./cmd/kscore-files
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-files-storage
-    binary: kscore-files-storage
-    main: ./cmd/kscore-files-storage
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Proxy & Devices
-  - id: kscore-proxy
-    binary: kscore-proxy
-    main: ./cmd/kscore-proxy
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Operations & Maintenance
-  - id: kscore-backup
-    binary: kscore-backup
-    main: ./cmd/kscore-backup
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-events
-    binary: kscore-events
-    main: ./cmd/kscore-events
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-schedule
-    binary: kscore-schedule
-    main: ./cmd/kscore-schedule
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-upgrade
-    binary: kscore-upgrade
-    main: ./cmd/kscore-upgrade
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-migrate
-    binary: kscore-migrate
-    main: ./cmd/kscore-migrate
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-bootstrap
-    binary: kscore-bootstrap
-    main: ./cmd/kscore-bootstrap
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Runbooks & Secrets
-  - id: kscore-runbook
-    binary: kscore-runbook
-    main: ./cmd/kscore-runbook
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-secrets
-    binary: kscore-secrets
-    main: ./cmd/kscore-secrets
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  # Development/Testing Utilities
-  - id: kscore-loadtest
-    binary: kscore-loadtest
-    main: ./cmd/kscore-loadtest
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-  - id: kscore-test
-    binary: kscore-test
-    main: ./cmd/kscore-test
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
-    ignore: [{goos: windows, goarch: arm64}]
-    ldflags: *ldflags
-
-# Archive configuration
+# One archive per (goos, goarch) bundling all three binaries plus the
+# project-level legal/text files. Archive name matches the convention
+# in RELEASE-PLAYBOOK.md §Build Steps.
 archives:
-  - id: unix
-    formats:
-      - tar.gz
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- .Version }}_
-      {{- .Os }}_
-      {{- .Arch }}
+  - id: default
+    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     files:
-      - src: README.md
-        dst: README.md
-      - src: LICENSE
-        dst: LICENSE
-      - src: CHANGELOG.md
-        dst: CHANGELOG.md
-      - src: deploy/systemd/*
-        dst: systemd/
-  - id: windows
-    formats:
-      - zip
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- .Version }}_
-      {{- .Os }}_
-      {{- .Arch }}
-    files:
-      - src: README.md
-        dst: README.md
-      - src: LICENSE
-        dst: LICENSE
-      - src: CHANGELOG.md
-        dst: CHANGELOG.md
+      - LICENSE
+      - NOTICE
+      - README.md
 
-# Linux packages (RPM and DEB)
-nfpms:
-  # Server package
-  - id: kscore-server
-    package_name: kscore-server
-    ids:
-      - kscore-server
-    vendor: Keystone Core
-    homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
-    description: |
-      Keystone Core Control Plane Server
-      A cloud-native runtime infrastructure control plane that bridges
-      the gap between GitOps deployments and operational reality.
-    license: Apache-2.0
-    formats:
-      - deb
-      - rpm
-    bindir: /usr/bin
-    section: admin
-    priority: optional
-    contents:
-      - src: deploy/systemd/kscore-server.service
-        dst: /usr/lib/systemd/system/kscore-server.service
-        type: config
-      - src: deploy/config/server.yaml
-        dst: /etc/keystone-core/server.yaml
-        type: config|noreplace
-      - dst: /var/lib/keystone-core
-        type: dir
-        file_info:
-          mode: 0750
-      - dst: /var/log/keystone-core
-        type: dir
-        file_info:
-          mode: 0750
-    scripts:
-      postinstall: deploy/scripts/postinstall-server.sh
-      preremove: deploy/scripts/preremove-server.sh
-    overrides:
-      rpm:
-        dependencies: [systemd]
-      deb:
-        dependencies: [systemd]
-
-  # Agent package
-  - id: kscore-agent
-    package_name: kscore-agent
-    ids:
-      - kscore-agent
-    vendor: Keystone Core
-    homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
-    description: |
-      Keystone Core Agent
-      Lightweight agent for managed nodes that executes commands,
-      applies state configurations, and reports status to the control plane.
-    license: Apache-2.0
-    formats:
-      - deb
-      - rpm
-    bindir: /usr/bin
-    section: admin
-    priority: optional
-    contents:
-      - src: deploy/systemd/kscore-agent.service
-        dst: /usr/lib/systemd/system/kscore-agent.service
-        type: config
-      - src: deploy/config/agent.yaml
-        dst: /etc/keystone-core/agent.yaml
-        type: config|noreplace
-      - dst: /var/cache/keystone-core
-        type: dir
-        file_info:
-          mode: 0750
-    scripts:
-      postinstall: deploy/scripts/postinstall-agent.sh
-      preremove: deploy/scripts/preremove-agent.sh
-    overrides:
-      rpm:
-        dependencies: [systemd]
-      deb:
-        dependencies: [systemd]
-
-  # CLI tools package (includes all CLI plugins)
-  - id: kscore-cli
-    package_name: kscore-cli
-    ids:
-      - kscorectl
-      - kscore-exec
-      - kscore-state
-      - kscore-monitor
-      - kscore-agents
-      - kscore-module
-      - kscore-policy
-      - kscore-audit
-      - kscore-gitops
-      - kscore-webhook
-      - kscore-cluster
-      - kscore-cluster-backup
-      - kscore-identity
-      - kscore-federation
-      - kscore-blueprint
-      - kscore-blueprint-publish
-      - kscore-blueprint-state
-      - kscore-files
-      - kscore-files-storage
-      - kscore-proxy
-      - kscore-backup
-      - kscore-events
-      - kscore-schedule
-      - kscore-upgrade
-      - kscore-migrate
-      - kscore-bootstrap
-      - kscore-runbook
-      - kscore-secrets
-    vendor: Keystone Core
-    homepage: https://github.com/shawnbutts/keystone-core
-    maintainer: Spicer Creek Solutions LLC <team@keystonecore.io>
-    description: |
-      Keystone Core CLI Tools
-      Complete set of command-line tools for interacting with Keystone Core.
-      Includes kscorectl (main CLI) and all plugin commands.
-    license: Apache-2.0
-    formats:
-      - deb
-      - rpm
-    bindir: /usr/bin
-    section: admin
-    priority: optional
-    contents:
-      - src: deploy/completions/kscorectl.bash
-        dst: /usr/share/bash-completion/completions/kscorectl
-        type: config
-      - src: deploy/completions/kscorectl.zsh
-        dst: /usr/share/zsh/site-functions/_kscorectl
-        type: config
-
-# Checksum configuration
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
-# Snapshot configuration for development builds
 snapshot:
-  version_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
 
-# Changelog configuration
-changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^ci:'
-      - Merge pull request
-      - Merge branch
-  groups:
-    - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: Bug Fixes
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: Performance
-      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
-      order: 2
-    - title: Security
-      regexp: '^.*?security(\([[:word:]]+\))??!?:.+$'
-      order: 3
-    - title: Other
-      order: 999
-
-# Release configuration
+# v1.0 ships snapshot tarballs only. The signing ceremony + multi-party
+# publish process lands in v1.2 per RELEASE-PLAYBOOK.md. Disable so an
+# accidental `goreleaser release` (without --snapshot) doesn't try to
+# push anywhere.
 release:
-  github:
-    owner: kscore
-    name: keystone-core
-  draft: false
-  prerelease: auto
-  mode: replace
-  header: |
-    ## Keystone Core {{ .Version }}
+  disable: true
 
-    Welcome to Keystone Core {{ .Version }}! This release includes the following changes:
-  footer: |
-    ## Installation
-
-    ### Binary Installation
-    Download the appropriate archive for your platform from the assets below.
-
-    ### Package Installation (Linux)
-    ```bash
-    # Debian/Ubuntu
-    sudo dpkg -i kscore-server_{{ .Version }}_linux_amd64.deb
-    sudo dpkg -i kscore-agent_{{ .Version }}_linux_amd64.deb
-    sudo dpkg -i kscore-cli_{{ .Version }}_linux_amd64.deb
-
-    # RHEL/CentOS/Fedora
-    sudo rpm -i kscore-server-{{ .Version }}.x86_64.rpm
-    sudo rpm -i kscore-agent-{{ .Version }}.x86_64.rpm
-    sudo rpm -i kscore-cli-{{ .Version }}.x86_64.rpm
-    ```
-
-    ### Docker
-    ```bash
-    docker pull ghcr.io/kscore/kscore-server:{{ .Version }}
-    docker pull ghcr.io/kscore/kscore-agent:{{ .Version }}
-    ```
-
-    ## Documentation
-    Full documentation is available at https://docs.keystonecore.io
-
-    ## Verifying This Release
-
-    All release artifacts are signed offline by multiple parties.
-    See [RELEASE-PLAYBOOK.md](https://github.com/shawnbutts/keystone-core/blob/main/RELEASE-PLAYBOOK.md) for the full process.
-
-    ```bash
-    # Import release public key
-    gpg --import keys/release-pubkey.asc
-
-    # Verify checksum signatures
-    gpg --verify checksums.txt.sig.A checksums.txt
-
-    # Verify artifact integrity
-    sha256sum -c checksums.txt
-
-    # Verify container images
-    cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:{{ .Version }}
-    ```
-
-    The signed release record (`release-record-v{{ .Version }}.txt`) and
-    SBOMs are included with this release.
-
-    ## Checksums
-    SHA256 checksums are available in `checksums.txt`
+changelog:
+  disable: true
