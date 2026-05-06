@@ -44,15 +44,15 @@ See `PROJECT-DETAILS.md §4.3` (Storage Layer).
 
 ## Acceptance criteria
 
-- [ ] `Store` interface fully wired for both backends; all sub-interfaces stub-or-real.
-- [ ] Auto-DDL on first run; second run is a no-op (no errors).
-- [ ] Connection pools configured per backend.
+- [x] `Store` interface fully wired for both backends; all sub-interfaces stub-or-real.
+- [x] Auto-DDL on first run; second run is a no-op (no errors).
+- [x] Connection pools configured per backend.
 - [x] IPv6 DSN literals work (`postgres://user:pw@[::1]:5432/db`).
-- [ ] JSON unmarshal errors return errors, not empty maps.
+- [x] JSON unmarshal errors return errors, not empty maps.
 - [x] `kscore-migrate run --dry-run --sqlite ./test.db --postgres "postgres://..." --batch-size 100` produces accurate migration plan.
-- [ ] Real migration with 10k agents + 100k commands completes; `validate` reports identical row counts.
-- [ ] `--continue-on-error` records errors in txlog and continues.
-- [ ] Coverage >80% for `internal/state` and migrator.
+- [ ] Real migration with 10k agents + 100k commands completes; `validate` reports identical row counts. _(deferred to a manual stress run; the e2e CI test exercises the same code paths at 100 agents / 300 commands / 50 batch_jobs / 100 batch_agent_results — all four tables, multi-batch pagination, ValidateMigration PASS.)_
+- [x] `--continue-on-error` records errors in txlog and continues.
+- [x] Coverage >80% for `internal/state` and migrator. _(when integration tests run with `KSCORE_TEST_POSTGRES_DSN` set; SQLite-only path is ~50% by design — the Postgres impl + Migrator live behind the integration build tag.)_
 
 ## Risks
 
