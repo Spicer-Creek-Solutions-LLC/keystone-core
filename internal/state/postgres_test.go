@@ -18,9 +18,29 @@ func TestBuildPostgresDSN(t *testing.T) {
 			want: "postgres://x",
 		},
 		{
-			name: "struct fields with defaults",
-			cfg:  PostgreSQLConfig{Host: "h", Database: "d", User: "u", Password: "p"},
-			want: "host=h port=5432 user=u password=p dbname=d sslmode=require",
+			name: "hostname not bracketed",
+			cfg:  PostgreSQLConfig{Host: "db.example.com", Database: "d", User: "u", Password: "p"},
+			want: "postgres://u:p@db.example.com:5432/d?sslmode=require",
+		},
+		{
+			name: "IPv4 literal not bracketed",
+			cfg:  PostgreSQLConfig{Host: "10.0.0.1", Database: "d", User: "u", Password: "p"},
+			want: "postgres://u:p@10.0.0.1:5432/d?sslmode=require",
+		},
+		{
+			name: "IPv6 loopback bracketed",
+			cfg:  PostgreSQLConfig{Host: "::1", Database: "d", User: "u", Password: "p"},
+			want: "postgres://u:p@[::1]:5432/d?sslmode=require",
+		},
+		{
+			name: "IPv6 full address bracketed",
+			cfg:  PostgreSQLConfig{Host: "2001:db8::1", Database: "d", User: "u", Password: "p"},
+			want: "postgres://u:p@[2001:db8::1]:5432/d?sslmode=require",
+		},
+		{
+			name: "IPv6 link-local bracketed",
+			cfg:  PostgreSQLConfig{Host: "fe80::1", Database: "d", User: "u", Password: "p"},
+			want: "postgres://u:p@[fe80::1]:5432/d?sslmode=require",
 		},
 		{
 			name: "explicit port + sslmode",
@@ -28,14 +48,28 @@ func TestBuildPostgresDSN(t *testing.T) {
 				Host: "h", Port: 6543, Database: "d", User: "u", Password: "p",
 				SSLMode: "disable",
 			},
-			want: "host=h port=6543 user=u password=p dbname=d sslmode=disable",
+			want: "postgres://u:p@h:6543/d?sslmode=disable",
+		},
+		{
+			name: "special chars in password are URL-encoded",
+			cfg: PostgreSQLConfig{
+				Host: "h", Database: "d", User: "u", Password: "p@ss/w%rd",
+			},
+			want: "postgres://u:p%40ss%2Fw%25rd@h:5432/d?sslmode=require",
+		},
+		{
+			name: "special chars in user are URL-encoded",
+			cfg: PostgreSQLConfig{
+				Host: "h", Database: "d", User: "user@host", Password: "p",
+			},
+			want: "postgres://user%40host:p@h:5432/d?sslmode=require",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildPostgresDSN(&tt.cfg)
 			if got != tt.want {
-				t.Errorf("buildPostgresDSN = %q, want %q", got, tt.want)
+				t.Errorf("buildPostgresDSN =\n  got:  %q\n  want: %q", got, tt.want)
 			}
 		})
 	}

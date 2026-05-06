@@ -47,7 +47,7 @@ See `PROJECT-DETAILS.md §4.3` (Storage Layer).
 - [ ] `Store` interface fully wired for both backends; all sub-interfaces stub-or-real.
 - [ ] Auto-DDL on first run; second run is a no-op (no errors).
 - [ ] Connection pools configured per backend.
-- [ ] IPv6 DSN literals work (`postgres://user:pw@[::1]:5432/db`).
+- [x] IPv6 DSN literals work (`postgres://user:pw@[::1]:5432/db`).
 - [ ] JSON unmarshal errors return errors, not empty maps.
 - [ ] `kscore-migrate run --dry-run --sqlite ./test.db --postgres "postgres://..." --batch-size 100` produces accurate migration plan.
 - [ ] Real migration with 10k agents + 100k commands completes; `validate` reports identical row counts.

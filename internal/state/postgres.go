@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"time"
 
 	_ "github.com/lib/pq" // postgres driver
@@ -70,8 +73,21 @@ func (s *PostgreSQLStore) Ping(ctx context.Context) error {
 // ---- helpers (postgres-specific) ------------------------------------------
 
 // buildPostgresDSN returns cfg.DSN verbatim if set; otherwise builds a
-// basic key-value DSN from the struct fields. Task 6 replaces this
-// fallback with an IPv6-safe URL-form builder.
+// URL-form connection string from the struct fields:
+//
+//	postgres://user:password@host:port/database?sslmode=mode
+//
+// Special characters in user/password are URL-encoded via
+// url.UserPassword, and IPv6 literals are bracketed via net.JoinHostPort
+// per PROJECT-DETAILS §4.3:
+//
+//	postgres://u:p@[::1]:5432/db?sslmode=disable          // IPv6
+//	postgres://u:p@10.0.0.1:5432/db?sslmode=require       // IPv4
+//	postgres://u:p@db.example.com:5432/db?sslmode=require // hostname
+//
+// Hostnames and IPv4 literals are passed through unchanged; only IPv6
+// gets brackets, which is exactly what PROJECT-DETAILS §4.3 requires
+// ("brackets only for IPv6 literals, not hostnames or v4").
 func buildPostgresDSN(cfg *PostgreSQLConfig) string {
 	if cfg.DSN != "" {
 		return cfg.DSN
@@ -84,10 +100,15 @@ func buildPostgresDSN(cfg *PostgreSQLConfig) string {
 	if sslmode == "" {
 		sslmode = "require"
 	}
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, port, cfg.User, cfg.Password, cfg.Database, sslmode,
-	)
+
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(cfg.User, cfg.Password),
+		Host:     net.JoinHostPort(cfg.Host, strconv.Itoa(port)),
+		Path:     "/" + cfg.Database,
+		RawQuery: url.Values{"sslmode": {sslmode}}.Encode(),
+	}
+	return u.String()
 }
 
 // unmarshalJSONBytes is the []byte counterpart to unmarshalJSONColumn.
