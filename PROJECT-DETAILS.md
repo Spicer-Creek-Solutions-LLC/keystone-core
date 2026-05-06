@@ -206,7 +206,7 @@ keystone-core/
 ```
 
 **Gotchas**:
-- Add a binary → update both `Makefile` `BINARIES` list and `.goreleaser.yaml`. Easy to forget.
+- Add a binary → drop the directory under `cmd/`. The Makefile auto-detects it (`BINARIES := $(notdir $(wildcard cmd/*))`). `.goreleaser.yaml` (Task 15) mirrors the same convention.
 - koanf env-var mapping is case-insensitive (we lowercase before lookup) but our convention is uppercase: `KSCORE_LOGGING_LEVEL`.
 - Duration parsing is strict: `5m`, not `5min`.
 

@@ -48,7 +48,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 6. **`pkg/api/apierror`** + tests (status code mapping for both directions).
 7. **`internal/config`** — koanf-backed loader (YAML + `KSCORE_`-prefixed env), strict unmarshal, post-unmarshal `Validate()`, and `ProductionWarnings()`. Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; remaining domain sub-configs are added by their owning epics. Decided in task 7 review to use koanf over Viper for cleaner unmarshal semantics and lighter deps; Cobra remains for CLI parsing in task 13 with a small flag→koanf bridge.
 8. **`internal/logging`** — `log/slog` factory; JSON/logfmt/text formatters; correlation-ID context helpers (auto-injected by a wrapping `slog.Handler`); tests for each formatter. Decided in task 8 review to use stdlib `log/slog` over `go.uber.org/zap`: zero new dep, idiomatic for new Go projects, native context awareness fits correlation IDs cleanly.
-9. **`Makefile`** with all v1.0 targets.
+9. **`Makefile`** with the v1.0 targets that the foundation supports today: build/test/lint/security/help/clean/deps/install-tools/fmt/check + cross-compile matrix. Decisions recorded in task 9 review: BINARIES auto-detected from `cmd/` (eliminates the gotcha in PROJECT-DETAILS §4.1); `CGO_ENABLED=0` exported for builds, overridden to 1 for `go test -race`; deferred targets (`proto*`, `dev*`, `release*`, `e2e*`) omitted rather than stubbed — added by their owning tasks (11, 13, 15, Epic 19).
 10. **`.golangci.yml`** baseline.
 11. **`buf.yaml` + `buf.gen.yaml`** with empty proto file to verify codegen wiring.
 12. **`.pre-commit-config.yaml`** + `scripts/smoke-test.sh` skeleton.

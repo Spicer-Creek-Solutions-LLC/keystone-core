@@ -45,13 +45,13 @@ func OpenSQLite(path string, opts ...Option) (*sql.DB, error) {
 	}
 	for _, p := range pragmas {
 		if _, err := db.Exec(p); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("apply %q: %w", p, err)
 		}
 	}
 
 	if err := db.Ping(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("ping sqlite at %q: %w", path, err)
 	}
 
