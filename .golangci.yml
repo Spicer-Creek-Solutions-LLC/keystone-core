@@ -1,50 +1,28 @@
-# golangci-lint configuration
+# golangci-lint configuration — v1.0 baseline
 # https://golangci-lint.run/usage/configuration/
+#
+# Linter set per PROJECT-DETAILS.md §3.5 / epics/01-foundations.md task 10.
+# Deferred to v1.1: revive, exhaustive, gocritic, contextcheck, durationcheck,
+# rowserrcheck, sqlclosecheck. Owning epics add path-specific exclusions as
+# their packages land.
 
 version: "2"
 
 run:
   timeout: 5m
   modules-download-mode: readonly
-  skip-dirs:
-    - test
-    - modules
-    - docs
 
 linters:
   enable:
-    # Default linters
     - errcheck
     - govet
     - ineffassign
     - staticcheck
     - unused
-
-    # Additional security and quality linters
-    - bodyclose      # Check HTTP response body is closed
-    - contextcheck   # Check context.Context is passed properly
-    - durationcheck  # Check for multiplication of durations
-    - errname        # Check error names follow Go conventions
-    - errorlint      # Find code that may cause issues with Go 1.13 error wrapping
-    - exhaustive     # Check exhaustiveness of enum switch statements
-    - gocritic       # Highly extensible Go source code linter
-    - gosec          # Security-oriented linter
-    - makezero       # Find slice declarations with non-zero initial length
-    - nilerr         # Find code that returns nil even if it checks error is not nil
-    - noctx          # Find HTTP requests without context.Context
-    - prealloc       # Find slice declarations that could be preallocated
-    - predeclared    # Find shadowed predeclared identifiers
-    - reassign       # Check that package variables are not reassigned
-    - revive         # Fast, configurable, extensible linter
-    - rowserrcheck   # Check sql.Rows.Err is checked
-    - sqlclosecheck  # Check that sql.Rows and sql.Stmt are closed
-    - unconvert      # Remove unnecessary type conversions
-    - wastedassign   # Find wasted assignment statements
+    - bodyclose
+    - gosec
 
   settings:
-    exhaustive:
-      default-signifies-exhaustive: true
-
     errcheck:
       exclude-functions:
         # fmt.Print* to stdout/stderr rarely fail and are typically not checked
@@ -54,7 +32,6 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
-        - fmt.Scanln
         # Hash writes never fail
         - (hash.Hash).Write
         # String builder writes never fail
@@ -69,363 +46,28 @@ linters:
         # Close methods in defer are commonly unchecked
         - (*os.File).Close
         - (io.Closer).Close
-        - (*net.Conn).Close
-        - (*grpc.ClientConn).Close
-        # HTTP response body close
-        - (*net/http.Response).Body.Close
-        # Cleanup operations that are best-effort
-        - os.Remove
-        - os.RemoveAll
-        # Cobra command setup
-        - (*github.com/spf13/cobra.Command).MarkFlagRequired
-        - (*github.com/spf13/cobra.Command).MarkFlagsRequiredTogether
-        - (*github.com/spf13/cobra.Command).MarkFlagsMutuallyExclusive
 
     gosec:
       excludes:
         - G104  # Handled by errcheck
-        - G115  # gosec v2.23.0 RangeAnalyzer panics on float-to-int casts (securego/gosec#1229). Fixed in gosec v2.24.0 but golangci-lint v2.10.1 still bundles v2.23.0. Re-enable when golangci-lint upgrades gosec.
-        # Taint analysis rules: permanently excluded for this codebase.
-        # Keystone Core is an infrastructure management tool that intentionally
-        # performs HTTP requests, file I/O, and command execution. These rules
-        # flag legitimate operations by design. Security is enforced through
-        # input validation, policy enforcement, capability controls, and audit logging.
-        - G117  # Potential exposure of secrets via JSON marshaling
-        - G702  # net/http path traversal via taint analysis
-        - G703  # os path traversal via taint analysis
-        - G704  # net/http SSRF via taint analysis
-        - G705  # os/exec command injection via taint analysis
-        - G706  # SQL injection via taint analysis
-      config:
-        global:
-          audit: false
-        G204:
-          # Keystone Core is an infrastructure management tool that intentionally
-          # executes system commands. G204 is excluded for packages where command
-          # execution is a core feature. Security is enforced through:
-          # - Input validation at API boundaries
-          # - Policy enforcement (OPA/CEL)
-          # - Capability-based access control
-          # - Audit logging of all executions
-          audit: false
-
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
-      disabled-checks:
-        - hugeParam       # Too noisy for struct parameters
-        - filepathJoin    # False positives for Unix absolute paths like /etc
-
-    revive:
-      rules:
-        - name: blank-imports
-        - name: context-as-argument
-        - name: context-keys-type
-        - name: dot-imports
-        - name: error-return
-        - name: error-strings
-        - name: error-naming
-        - name: exported
-        - name: if-return
-        - name: increment-decrement
-        - name: var-naming
-        - name: var-declaration
-        - name: package-comments
-        - name: range
-        - name: receiver-naming
-        - name: time-naming
-        - name: unexported-return
-        - name: indent-error-flow
-        - name: errorf
-
-    staticcheck:
-      checks:
-        - all
+        - G115  # gosec v2.23.0 RangeAnalyzer panics on float-to-int casts
+                # (securego/gosec#1229). Fixed in gosec v2.24.0 but
+                # golangci-lint v2.10.1 still bundles v2.23.0. Re-enable when
+                # golangci-lint upgrades gosec.
 
   exclusions:
     rules:
-      # Test files can have longer functions and magic numbers
+      # Test files: exempt from gosec / errcheck (per PROJECT-DETAILS §3.5)
       - path: _test\.go
         linters:
-          - gocritic
           - gosec
           - errcheck
 
-      # Allow longer lines in generated files
+      # Generated proto: all linters disabled (per PROJECT-DETAILS §3.5)
       - path: \.pb\.go
         linters:
           - all
 
-      # G204 (Subprocess launched with variable) exclusions
-      # Keystone Core is an infrastructure management tool where command execution
-      # is intentional and a core feature. Security is enforced through input
-      # validation, policy enforcement, and audit logging - not by preventing
-      # command execution.
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/statemgmt/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/execution/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/backup/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/selfmgmt/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/runbook/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/secrets/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/events/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/gitops/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/registry/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/blueprint/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: internal/upgrade/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: pkg/module/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: pkg/plugin/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: scripts/
-      - linters:
-          - gosec
-        text: "G204:"
-        path: test/
-
-      # G304 (File path provided as taint input) exclusions
-      # Keystone Core is an infrastructure management tool where file operations
-      # with variable paths are intentional and a core feature. File paths come from:
-      # - User configuration (blueprints, modules, state definitions)
-      # - Bootstrap/restore operations with known paths
-      # - File distribution with validated paths
-      # Security is enforced through input validation, policy enforcement, capability
-      # controls, and path sanitization - not by preventing file access.
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/statemgmt/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/backup/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/blueprint/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/files/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/bootstrap/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/signing/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/identity/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/upgrade/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/selfmgmt/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/edge/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/platform/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/audit/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/container/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/security/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/protocols/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/state/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/secrets/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/runbook/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/proxy/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/nats/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/loadtest/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/credentials/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/registry/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: internal/repogen/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: pkg/module/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: cmd/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: scripts/
-      - linters:
-          - gosec
-        text: "G304:"
-        path: test/
-
-      # Common errcheck exclusions by pattern
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Close` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Shutdown` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Stop` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.WriteString` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.WriteTable` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `os\\.Remove"
-      - linters:
-          - errcheck
-        text: "Error return value of `os\\.RemoveAll"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Flush` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `os\\.Stdout\\.Write` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Encode` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Publish` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Drain` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Seek` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `io\\.Copy` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `filepath\\.Walk` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `fmt\\.Sscanf` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `json\\.Unmarshal` is not checked"
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Write\\b` is not checked"
-      # Command execution - often intentionally unchecked in fire-and-forget
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Run` is not checked"
-      # Database transaction rollback - often in defer
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Rollback` is not checked"
-      # NATS unsubscribe - cleanup operation
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Unsubscribe` is not checked"
-      # State machine fire - often intentional
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Fire` is not checked"
-      # Random read - crypto/rand.Read should be checked but often isn't
-      - linters:
-          - errcheck
-        text: "Error return value of `rand\\.Read` is not checked"
-      # Row.Scan - often used with row.Err() check after
-      - linters:
-          - errcheck
-        text: "Error return value of `.+\\.Scan` is not checked"
-
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
