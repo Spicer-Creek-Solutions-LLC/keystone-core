@@ -12,6 +12,16 @@ when:
     branch: main
   - event: pull_request
 
+# Sidecar Postgres for the integration step. Reachable from other steps
+# at hostname `postgres` on the default Postgres port.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: kscore
+      POSTGRES_PASSWORD: kscore
+      POSTGRES_DB: kscore_test
+
 steps:
   # Build golangci-lint with the runner's Go toolchain so the binary's
   # build-time Go version matches go.mod's `go` directive. Avoids the
@@ -30,6 +40,14 @@ steps:
     depends_on: []
     commands:
       - make test-coverage
+
+  integration:
+    image: golang:1.26
+    depends_on: []
+    environment:
+      KSCORE_TEST_POSTGRES_DSN: postgres://kscore:kscore@postgres:5432/kscore_test?sslmode=disable
+    commands:
+      - make test-integration
 
   smoke:
     image: golang:1.26

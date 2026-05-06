@@ -2,84 +2,123 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"time"
+
+	_ "github.com/lib/pq" // postgres driver
 )
 
 // PostgreSQLStore is the lib/pq-backed Store implementation.
 //
-// Stub for epic 02 task 1: every method returns ErrNotImplemented.
-// Real implementation lands in epic 02 task 4 (auto-DDL, CRUD, JSON
-// column handling, IPv6-safe DSN) per epics/02-storage-layer.md.
+// CRUD lives in postgres_agents.go, postgres_commands.go,
+// postgres_batchjobs.go. This file owns the constructor, Close, Ping,
+// and Postgres-specific helpers (DSN building, JSONB unmarshal).
 type PostgreSQLStore struct {
+	db  *sql.DB
 	cfg *Config
 }
 
-// newPostgreSQLStore constructs a PostgreSQLStore from a validated,
-// defaulted Config. Called by NewStore.
+// newPostgreSQLStore opens the connection at cfg.PostgreSQL.DSN (or the
+// DSN built from struct fields), applies pool settings, runs the v1.0
+// baseline schema, and returns a ready-to-use store.
 func newPostgreSQLStore(cfg *Config) (*PostgreSQLStore, error) {
-	return &PostgreSQLStore{cfg: cfg}, nil
+	db, err := sql.Open("postgres", buildPostgresDSN(&cfg.PostgreSQL))
+	if err != nil {
+		return nil, fmt.Errorf("state: open postgres: %w", err)
+	}
+
+	if cfg.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(cfg.MaxOpenConns)
+	}
+	if cfg.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(cfg.MaxIdleConns)
+	}
+	if cfg.ConnMaxLife > 0 {
+		db.SetConnMaxLifetime(cfg.ConnMaxLife)
+	}
+
+	// Surface unreachable Postgres immediately so callers see a clean
+	// connect failure rather than a deferred error on first query.
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("state: ping postgres: %w", err)
+	}
+
+	if err := applySchema(context.Background(), db, BackendPostgreSQL); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("state: %w", err)
+	}
+
+	return &PostgreSQLStore{db: db, cfg: cfg}, nil
 }
 
-func (s *PostgreSQLStore) Close() error { return nil }
-
-func (s *PostgreSQLStore) Ping(_ context.Context) error { return ErrNotImplemented }
-
-// AgentStore
-
-func (s *PostgreSQLStore) CreateAgent(_ context.Context, _ *AgentRecord) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) GetAgent(_ context.Context, _ string) (*AgentRecord, error) {
-	return nil, ErrNotImplemented
-}
-func (s *PostgreSQLStore) ListAgents(_ context.Context, _ AgentFilter) ([]*AgentRecord, error) {
-	return nil, ErrNotImplemented
-}
-func (s *PostgreSQLStore) UpdateAgent(_ context.Context, _ *AgentRecord) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) UpdateAgentHeartbeat(_ context.Context, _ string, _ time.Time) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) UpdateAgentStatus(_ context.Context, _ string, _ AgentStatus) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) DeleteAgent(_ context.Context, _ string) error {
-	return ErrNotImplemented
+// Close releases the underlying *sql.DB. Safe on nil receiver.
+func (s *PostgreSQLStore) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
 }
 
-// CommandStore
-
-func (s *PostgreSQLStore) CreateCommand(_ context.Context, _ *CommandRecord) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) GetCommand(_ context.Context, _ string) (*CommandRecord, error) {
-	return nil, ErrNotImplemented
-}
-func (s *PostgreSQLStore) ListCommands(_ context.Context, _ CommandFilter) ([]*CommandRecord, error) {
-	return nil, ErrNotImplemented
-}
-func (s *PostgreSQLStore) UpdateCommandResult(_ context.Context, _ string, _ CommandResult) error {
-	return ErrNotImplemented
+// Ping verifies the connection is usable.
+func (s *PostgreSQLStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
-// BatchJobStore
+// ---- helpers (postgres-specific) ------------------------------------------
 
-func (s *PostgreSQLStore) CreateBatchJob(_ context.Context, _ *BatchJobRecord) error {
-	return ErrNotImplemented
+// buildPostgresDSN returns cfg.DSN verbatim if set; otherwise builds a
+// basic key-value DSN from the struct fields. Task 6 replaces this
+// fallback with an IPv6-safe URL-form builder.
+func buildPostgresDSN(cfg *PostgreSQLConfig) string {
+	if cfg.DSN != "" {
+		return cfg.DSN
+	}
+	port := cfg.Port
+	if port == 0 {
+		port = 5432
+	}
+	sslmode := cfg.SSLMode
+	if sslmode == "" {
+		sslmode = "require"
+	}
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, port, cfg.User, cfg.Password, cfg.Database, sslmode,
+	)
 }
-func (s *PostgreSQLStore) GetBatchJob(_ context.Context, _ string) (*BatchJobRecord, error) {
-	return nil, ErrNotImplemented
+
+// unmarshalJSONBytes is the []byte counterpart to unmarshalJSONColumn.
+// JSONB columns scan into []byte under lib/pq; nil ([]byte zero value)
+// means SQL NULL — leave v unchanged.
+func unmarshalJSONBytes(b []byte, v any) error {
+	if len(b) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		return fmt.Errorf("state: unmarshal json: %w", err)
+	}
+	return nil
 }
-func (s *PostgreSQLStore) ListBatchJobs(_ context.Context, _ BatchJobFilter) ([]*BatchJobRecord, error) {
-	return nil, ErrNotImplemented
+
+// marshalJSONBytes is symmetric to unmarshalJSONBytes for the write side.
+// Used for INSERT/UPDATE on JSONB columns.
+func marshalJSONBytes(v any) ([]byte, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("state: marshal json: %w", err)
+	}
+	return b, nil
 }
-func (s *PostgreSQLStore) UpdateBatchJobCounts(_ context.Context, _ string, _, _, _ int) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) CreateBatchAgentResult(_ context.Context, _ *BatchAgentResultRecord) error {
-	return ErrNotImplemented
-}
-func (s *PostgreSQLStore) ListBatchAgentResults(_ context.Context, _ string) ([]*BatchAgentResultRecord, error) {
-	return nil, ErrNotImplemented
+
+// nullableTime converts a Go time.Time to sql.NullTime, mapping zero to
+// SQL NULL. Postgres stores TIMESTAMPTZ natively; lib/pq accepts both
+// time.Time and sql.NullTime.
+func nullableTime(t time.Time) sql.NullTime {
+	if t.IsZero() {
+		return sql.NullTime{}
+	}
+	return sql.NullTime{Time: t.UTC(), Valid: true}
 }
