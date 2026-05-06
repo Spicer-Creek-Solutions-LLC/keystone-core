@@ -110,7 +110,10 @@ test-coverage: ## Run tests with coverage profile and per-function output
 	@go tool cover -func=coverage.out
 
 test-integration: ## Run integration tests (-tags=integration)
-	CGO_ENABLED=1 go test -race -tags=integration ./...
+	# -p=1 forces test binaries to run sequentially. Integration tests
+	# in different packages share the KSCORE_TEST_POSTGRES_DSN target
+	# and would otherwise race on TRUNCATE / seed / read.
+	CGO_ENABLED=1 go test -race -tags=integration -p=1 ./...
 
 check: lint test ## Run lint + tests
 
