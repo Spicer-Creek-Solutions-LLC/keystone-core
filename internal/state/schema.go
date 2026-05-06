@@ -1,0 +1,208 @@
+package state
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+)
+
+// Schema returns the DDL statements (CREATE TABLE / CREATE INDEX) for
+// the v1.0 baseline schema for the given backend.
+//
+// Each statement is idempotent (CREATE ... IF NOT EXISTS) so applying
+// the slice twice is a clean no-op.
+//
+// Statements are ordered: tables first (in FK-dependency order), then
+// indexes. Tables: agents, commands, batch_jobs, batch_agent_results.
+//
+// Domain epics (events, secrets metadata, audit, policy, cluster) ship
+// their own schema in their owning packages and run it from their own
+// store constructors.
+//
+// Returns nil for an unknown backend.
+func Schema(backend Backend) []string {
+	switch backend {
+	case BackendSQLite:
+		return sqliteSchema
+	case BackendPostgreSQL:
+		return postgresSchema
+	default:
+		return nil
+	}
+}
+
+// applySchema runs every statement in Schema(backend) against db in
+// order. Used by SQLiteStore and PostgreSQLStore from their initSchema
+// methods. Each statement is idempotent — repeated calls are safe.
+func applySchema(ctx context.Context, db *sql.DB, backend Backend) error {
+	for _, stmt := range Schema(backend) {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("state: applySchema %q: %w",
+				schemaStmtSummary(stmt), err)
+		}
+	}
+	return nil
+}
+
+// schemaStmtSummary returns a short, single-line description of a DDL
+// statement for use in error messages: "CREATE TABLE IF NOT EXISTS agents"
+// instead of the full multi-line body.
+func schemaStmtSummary(stmt string) string {
+	for _, line := range strings.Split(stmt, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if i := strings.Index(line, "("); i > 0 {
+			return strings.TrimSpace(line[:i])
+		}
+		return line
+	}
+	return "<empty>"
+}
+
+// SQLite v1.0 baseline schema.
+//
+// JSON columns: TEXT (we marshal/unmarshal in Go).
+// Timestamps:   TEXT (RFC3339).
+// Booleans:     INTEGER (0/1).
+// Foreign keys: declared; enforcement requires PRAGMA foreign_keys=ON
+// which pkg/dbutil.OpenSQLite sets at connection time.
+var sqliteSchema = []string{
+	`CREATE TABLE IF NOT EXISTS agents (
+    id                TEXT PRIMARY KEY,
+    hostname          TEXT NOT NULL,
+    os                TEXT NOT NULL,
+    architecture      TEXT NOT NULL,
+    ip_addresses      TEXT NOT NULL,
+    platform_version  TEXT,
+    agent_version     TEXT,
+    labels            TEXT NOT NULL,
+    status            TEXT NOT NULL,
+    registered_at     TEXT NOT NULL,
+    last_heartbeat_at TEXT,
+    metrics           TEXT
+)`,
+	`CREATE TABLE IF NOT EXISTS commands (
+    id              TEXT PRIMARY KEY,
+    agent_id        TEXT NOT NULL REFERENCES agents(id),
+    command         TEXT NOT NULL,
+    args            TEXT NOT NULL,
+    env             TEXT NOT NULL,
+    working_dir     TEXT,
+    "user"          TEXT,
+    timeout_seconds INTEGER NOT NULL DEFAULT 0,
+    status          TEXT NOT NULL,
+    exit_code       INTEGER,
+    stdout          TEXT,
+    stderr          TEXT,
+    started_at      TEXT,
+    completed_at    TEXT
+)`,
+	`CREATE TABLE IF NOT EXISTS batch_jobs (
+    id                TEXT PRIMARY KEY,
+    target            TEXT NOT NULL,
+    command           TEXT NOT NULL,
+    args              TEXT NOT NULL,
+    status            TEXT NOT NULL,
+    concurrency       INTEGER NOT NULL DEFAULT 0,
+    total_agents      INTEGER NOT NULL DEFAULT 0,
+    completed_agents  INTEGER NOT NULL DEFAULT 0,
+    successful_agents INTEGER NOT NULL DEFAULT 0,
+    failed_agents     INTEGER NOT NULL DEFAULT 0,
+    created_at        TEXT NOT NULL,
+    started_at        TEXT,
+    completed_at      TEXT
+)`,
+	`CREATE TABLE IF NOT EXISTS batch_agent_results (
+    batch_job_id TEXT NOT NULL REFERENCES batch_jobs(id),
+    agent_id     TEXT NOT NULL REFERENCES agents(id),
+    success      INTEGER NOT NULL,
+    exit_code    INTEGER,
+    error        TEXT,
+    started_at   TEXT,
+    completed_at TEXT,
+    PRIMARY KEY (batch_job_id, agent_id)
+)`,
+	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
+	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
+	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
+	`CREATE INDEX IF NOT EXISTS commands_agent_id_idx ON commands (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS commands_started_at_idx ON commands (started_at)`,
+	`CREATE INDEX IF NOT EXISTS batch_jobs_status_idx ON batch_jobs (status)`,
+	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
+	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
+}
+
+// PostgreSQL v1.0 baseline schema.
+//
+// JSON columns: JSONB.
+// Timestamps:   TIMESTAMPTZ.
+// Booleans:     BOOLEAN.
+// Foreign keys: declared and natively enforced.
+var postgresSchema = []string{
+	`CREATE TABLE IF NOT EXISTS agents (
+    id                TEXT PRIMARY KEY,
+    hostname          TEXT NOT NULL,
+    os                TEXT NOT NULL,
+    architecture      TEXT NOT NULL,
+    ip_addresses      JSONB NOT NULL,
+    platform_version  TEXT,
+    agent_version     TEXT,
+    labels            JSONB NOT NULL,
+    status            TEXT NOT NULL,
+    registered_at     TIMESTAMPTZ NOT NULL,
+    last_heartbeat_at TIMESTAMPTZ,
+    metrics           JSONB
+)`,
+	`CREATE TABLE IF NOT EXISTS commands (
+    id              TEXT PRIMARY KEY,
+    agent_id        TEXT NOT NULL REFERENCES agents(id),
+    command         TEXT NOT NULL,
+    args            JSONB NOT NULL,
+    env             JSONB NOT NULL,
+    working_dir     TEXT,
+    "user"          TEXT,
+    timeout_seconds INTEGER NOT NULL DEFAULT 0,
+    status          TEXT NOT NULL,
+    exit_code       INTEGER,
+    stdout          TEXT,
+    stderr          TEXT,
+    started_at      TIMESTAMPTZ,
+    completed_at    TIMESTAMPTZ
+)`,
+	`CREATE TABLE IF NOT EXISTS batch_jobs (
+    id                TEXT PRIMARY KEY,
+    target            JSONB NOT NULL,
+    command           TEXT NOT NULL,
+    args              JSONB NOT NULL,
+    status            TEXT NOT NULL,
+    concurrency       INTEGER NOT NULL DEFAULT 0,
+    total_agents      INTEGER NOT NULL DEFAULT 0,
+    completed_agents  INTEGER NOT NULL DEFAULT 0,
+    successful_agents INTEGER NOT NULL DEFAULT 0,
+    failed_agents     INTEGER NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ NOT NULL,
+    started_at        TIMESTAMPTZ,
+    completed_at      TIMESTAMPTZ
+)`,
+	`CREATE TABLE IF NOT EXISTS batch_agent_results (
+    batch_job_id TEXT NOT NULL REFERENCES batch_jobs(id),
+    agent_id     TEXT NOT NULL REFERENCES agents(id),
+    success      BOOLEAN NOT NULL,
+    exit_code    INTEGER,
+    error        TEXT,
+    started_at   TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    PRIMARY KEY (batch_job_id, agent_id)
+)`,
+	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
+	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
+	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
+	`CREATE INDEX IF NOT EXISTS commands_agent_id_idx ON commands (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS commands_started_at_idx ON commands (started_at)`,
+	`CREATE INDEX IF NOT EXISTS batch_jobs_status_idx ON batch_jobs (status)`,
+	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
+	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
+}
