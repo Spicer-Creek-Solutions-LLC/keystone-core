@@ -1,0 +1,13 @@
+// Placeholder proto used to verify buf codegen wiring in epic 01 task 11.
+// Replaced by real service protos (agent, controlplane, state, event, policy,
+// secrets, cluster, coordination) in epic 03.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+// Placeholder is a stand-in message that exists solely to give the codegen
+// pipeline something to compile. It carries no fields and has no users.
+message Placeholder {}

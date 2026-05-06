@@ -1,0 +1,23 @@
+# Buf code generation configuration.
+# https://buf.build/docs/configuration/v2/buf-gen-yaml/
+#
+# Local plugins (protoc-gen-go, protoc-gen-go-grpc) — both installed via
+# `make install-tools`. No network dependency at codegen time.
+#
+# `module=...` strips the Go module prefix so generated files land at
+# pkg/api/v1/<file>.pb.go (matching go_package "...;v1") rather than under
+# a deep tree mirroring the proto package path.
+
+version: v2
+
+plugins:
+  - local: protoc-gen-go
+    out: .
+    opt:
+      - module=go.keystone-core.io/keystone-core
+
+  - local: protoc-gen-go-grpc
+    out: .
+    opt:
+      - module=go.keystone-core.io/keystone-core
+      - require_unimplemented_servers=true

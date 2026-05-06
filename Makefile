@@ -40,6 +40,7 @@ export CGO_ENABLED := 0
         build build-all-platforms clean deps install-tools \
         test test-verbose test-coverage test-integration check \
         fmt lint lint-fix \
+        proto proto-lint proto-breaking \
         security-secrets security-vulns security-sast
 
 # ---- Help (default) -------------------------------------------------------
@@ -84,10 +85,13 @@ deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
 
-install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck)
+install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
+	@command -v buf >/dev/null || go install github.com/bufbuild/buf/cmd/buf@latest
+	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	@command -v gitleaks >/dev/null || { \
 		echo "WARN: gitleaks not installed (not go-installable)"; \
 		echo "  macOS:   brew install gitleaks"; \
@@ -126,6 +130,17 @@ lint: ## Run golangci-lint
 lint-fix: ## Auto-fix lint issues where possible
 	golangci-lint run --fix ./...
 
+# ---- Proto ----------------------------------------------------------------
+
+proto: ## Generate Go + gRPC stubs from proto files
+	buf generate
+
+proto-lint: ## Lint proto files (buf STANDARD)
+	buf lint
+
+proto-breaking: ## Check protos for breaking changes vs. main
+	buf breaking --against '.git#branch=main'
+
 # ---- Security -------------------------------------------------------------
 
 security-secrets: ## Scan for committed secrets (gitleaks)
@@ -141,7 +156,6 @@ security-sast: ## Static analysis (gosec)
 # Targets added by later tasks/epics — intentionally NOT stubbed here so
 # `make help` reflects only what currently works.
 #
-#   proto, proto-lint, proto-breaking          -> task 11 (buf wiring)
 #   dev, dev-server, dev-agent (per binary)    -> task 13 (binaries + Cobra+koanf)
 #   release-snapshot, release-dry-run          -> task 15 (goreleaser)
 #   e2e-build, e2e-test, e2e-up, e2e-down,

@@ -1,0 +1,19 @@
+# Buf module configuration.
+# https://buf.build/docs/configuration/v2/buf-yaml/
+#
+# v1.0 baseline: STANDARD lint, FILE-level breaking detection, no exclusions
+# yet (placeholder proto only). Real service protos in epic 03 may need to
+# document specific exclusions (RPC_REQUEST_STANDARD_NAME, etc.).
+
+version: v2
+
+modules:
+  - path: api/proto
+
+lint:
+  use:
+    - STANDARD
+
+breaking:
+  use:
+    - FILE

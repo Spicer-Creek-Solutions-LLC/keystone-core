@@ -64,7 +64,7 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 - [ ] `kscore-server --config testdata/dev.yaml` parses and emits a JSON startup log line including correlation ID.
 - [ ] `make test` runs all unit tests; coverage >70% on `pkg/*`.
 - [ ] `make lint` passes the baseline rule set.
-- [ ] `make proto` round-trips an empty proto file successfully.
+- [x] `make proto` round-trips an empty proto file successfully.
 - [ ] Pre-commit hook passes locally.
 - [ ] `make release-snapshot` produces multi-arch tarballs in `dist/`.
 
