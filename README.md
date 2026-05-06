@@ -10,6 +10,15 @@ Keystone Core is the runtime operations control plane between deployment tooling
 
 Inspired by Salt Project's UX, built on a modern Go stack with cloud-native primitives — clusterable from day 1, security-real from day 1.
 
+## Public hosting
+
+- **Primary**: [`codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core)
+- **Mirror (code-only)**: [`github.com/Spicer-Creek-Solutions-LLC/keystone-core`](https://github.com/Spicer-Creek-Solutions-LLC/keystone-core)
+
+File issues, discussions, and contributions on Codeberg. The GitHub mirror exists for discoverability and is not where development happens.
+
+Project sponsor: **Spicer Creek Solutions LLC** ([`OWNERSHIP.md`](OWNERSHIP.md)).
+
 ## Project Status
 
 > **Pre-1.0. Reconstruction in progress. Not installable yet.**
@@ -19,6 +28,19 @@ This repository was reset to a v1.0 reconstruction baseline on 2026-05-05. The p
 The reset is deliberate: rather than carry forward technical debt from a sprawling pre-1.0 codebase, v1.0 is being rebuilt against a tight feature scope, a clear MVP definition, and an explicit anti-scope. The full rationale and per-epic plan live in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
+
+### Current state (epic 01 complete)
+
+The foundations layer is in place. What's in `main` today:
+
+- **Foundations packages**: `pkg/{version,semver,wait,dbutil,api/apierror}`, `internal/{config,logging,cli}`, `pkg/api/v1` (proto codegen pipeline).
+- **Three hello-world binaries**: `kscore-server`, `kscore-agent`, `kscorectl`. They parse `--config` (YAML + `KSCORE_`-env via koanf), print a structured JSON startup log with a per-process correlation ID, and exit cleanly on SIGTERM/SIGINT.
+- **Make-driven workflow**: `make build`, `test`, `lint`, `smoke`, `proto`, `release-snapshot`, etc. CI invokes Make targets exclusively.
+- **Cross-compile matrix**: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} — pure Go, no CGO.
+- **CI**: Forgejo Actions (`.github/workflows/`) and Codeberg Woodpecker (`.woodpecker/`) — same Make targets, two runners.
+- **Snapshot release**: `make release-snapshot` produces six tarballs/zips + a SHA-256 checksums file in `dist/`.
+
+This is enough to build, test, and ship a tarball — no business logic yet. Real services start landing in epic 02 (storage layer) and epic 03 (gRPC/REST API surface). Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
 
 ## What v1.0 commits to
 
