@@ -7,6 +7,10 @@ we make decisions as the project grows.
 This is not a legal document and not a contract. It's simply how we intend to operate in a way that
 keeps the project healthy, stable, and pleasant to contribute to.
 
+> **Project sponsor**: Keystone Core is a project of Spicer Creek Solutions LLC. SCS holds the
+> authority to appoint the BDFL described below but does not direct technical decisions. See
+> [`OWNERSHIP.md`](../../OWNERSHIP.md) for the full ownership and operational structure.
+
 ---
 
 ## Roles
