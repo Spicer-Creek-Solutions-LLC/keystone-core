@@ -13,10 +13,16 @@ when:
   - event: pull_request
 
 steps:
+  # Build golangci-lint with the runner's Go toolchain so the binary's
+  # build-time Go version matches go.mod's `go` directive. Avoids the
+  # "Go language version (goX.Y) used to build golangci-lint is lower
+  # than the targeted Go version" error from prebuilt binaries.
   lint:
-    image: golangci/golangci-lint:v2.10.1
+    image: golang:1.26
     depends_on: []
     commands:
+      - make install-tools
+      - export PATH=/go/bin:$PATH
       - make lint
 
   test:

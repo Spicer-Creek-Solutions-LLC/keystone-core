@@ -35,9 +35,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
+      # Build golangci-lint with the runner's Go toolchain so the binary's
+      # build-time Go version matches go.mod's `go` directive. Avoids the
+      # "Go language version (goX.Y) used to build golangci-lint is lower
+      # than the targeted Go version" error from prebuilt binaries.
+      - run: make install-tools
+      - run: make lint
 
   test:
     runs-on: ubuntu-latest
