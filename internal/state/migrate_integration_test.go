@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -251,48 +250,70 @@ func TestMigrator_ProgressCallback(t *testing.T) {
 	}
 }
 
+// TestMigrator_ContinueOnError exercises the documented contract for
+// ContinueOnError: per-row TARGET write failures are recorded in
+// stats.Errors and the run continues. Source-side read errors are not
+// covered by ContinueOnError — a malformed source row fails the whole
+// batch's ListX scan and aborts the run regardless of the flag. That
+// boundary is documented in migrate.go.
 func TestMigrator_ContinueOnError(t *testing.T) {
 	src, dst := migrateTestPair(t)
 	seedSource(t, src, 3)
 
-	// Corrupt one source row's labels JSON so the migrator can't read it.
-	if _, err := src.db.ExecContext(t.Context(),
-		`UPDATE agents SET labels = ? WHERE id = ?`,
-		"not-valid-json", "agent-001"); err != nil {
+	// Pre-populate target with an agent whose ID collides with one on
+	// source (different hostname so we can verify it's untouched).
+	// Without SkipExisting, the target INSERT for that ID will fail
+	// with a duplicate-key error — exactly the kind of per-row error
+	// ContinueOnError is designed to tolerate.
+	pre := sampleAgent("agent-001")
+	pre.Hostname = "pre-existing"
+	if err := dst.CreateAgent(t.Context(), pre); err != nil {
 		t.Fatal(err)
 	}
 
 	m := NewMigrator(src, dst)
-	_, err := m.Migrate(t.Context(), MigrationOptions{
-		ContinueOnError: false,
-	})
+
+	// Without ContinueOnError, the duplicate-key error aborts.
+	_, err := m.Migrate(t.Context(), MigrationOptions{})
 	if err == nil {
-		t.Error("expected migration to fail without ContinueOnError")
+		t.Error("expected migration to fail on duplicate key without ContinueOnError")
 	}
 
-	// Reset target and retry with ContinueOnError.
-	if _, err := dst.db.ExecContext(t.Context(),
-		`TRUNCATE TABLE batch_agent_results, batch_jobs, commands, agents RESTART IDENTITY CASCADE`,
-	); err != nil {
+	// Reset target and re-insert the colliding row so the second run
+	// hits the same conflict.
+	truncateAll(t, dst.db)
+	if err := dst.CreateAgent(t.Context(), pre); err != nil {
 		t.Fatal(err)
 	}
 
+	// With ContinueOnError, the duplicate is recorded but other rows
+	// migrate successfully.
 	stats, err := m.Migrate(t.Context(), MigrationOptions{
 		ContinueOnError: true,
 	})
-	// The migration overall succeeded even though one row failed.
 	if err != nil {
-		t.Errorf("Migrate with ContinueOnError: %v", err)
+		t.Fatalf("Migrate with ContinueOnError: %v", err)
 	}
-	// Some rows migrated; one failed.
 	if len(stats.Errors) == 0 {
-		t.Error("expected at least one error in stats.Errors")
-	}
-	if !errors.Is(stats.Errors[0].Err, stats.Errors[0].Err) { // sanity
-		t.FailNow()
+		t.Fatal("expected at least one error in stats.Errors")
 	}
 	if stats.Tables["agents"].Errored == 0 {
 		t.Errorf("expected agents.Errored > 0; got %+v", stats.Tables["agents"])
+	}
+	if stats.Tables["agents"].Written < 2 {
+		t.Errorf("expected at least 2 agents written (the non-conflicting ones); got %+v",
+			stats.Tables["agents"])
+	}
+	// At least one error should reference agents/agent-001.
+	var foundDup bool
+	for _, e := range stats.Errors {
+		if e.Table == "agents" && e.ID == "agent-001" {
+			foundDup = true
+			break
+		}
+	}
+	if !foundDup {
+		t.Errorf("expected duplicate-key error for agents/agent-001; got %+v", stats.Errors)
 	}
 }
 

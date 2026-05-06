@@ -15,8 +15,17 @@ type MigrationOptions struct {
 	// BatchSize is the number of source rows read per page. Default 100.
 	BatchSize int
 
-	// ContinueOnError keeps Migrate going past per-row errors. Each
-	// error is recorded in MigrationStats.Errors and the txlog.
+	// ContinueOnError keeps Migrate going past per-row TARGET write
+	// errors. Each error is recorded in MigrationStats.Errors and the
+	// txlog.
+	//
+	// Scope: this flag tolerates per-row write errors only (FK
+	// violations, duplicate keys without SkipExisting, NOT NULL
+	// rejections, etc.). It does NOT recover from source-side read
+	// failures — a corrupted source row makes its entire batch's
+	// ListX scan fail and aborts the run. v1.0 assumes source data is
+	// valid; surface source corruption with a separate validation
+	// pass before migrating.
 	ContinueOnError bool
 
 	// SkipExisting appends "ON CONFLICT (id) DO NOTHING" (or composite-PK
