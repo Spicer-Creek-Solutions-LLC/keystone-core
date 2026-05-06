@@ -517,15 +517,15 @@ backup:
 
     # GPG key ID or email
     recipients:
-      - backup@example.com
-      - security@example.com
+      - backup@keystone-core.io
+      - security@keystone-core.io
 
     # GPG home directory (if non-default)
     gnupg_home: /etc/keystone-core/gnupg
 
     # Signing key (optional)
     sign: true
-    signing_key: signing@example.com
+    signing_key: signing@keystone-core.io
 ```
 
 **GPG key setup**:
@@ -536,13 +536,13 @@ gpg --full-generate-key
 # Select: RSA and RSA, 4096 bits, never expires
 
 # Export public key (for encryption servers)
-gpg --armor --export backup@example.com > backup-pubkey.asc
+gpg --armor --export backup@keystone-core.io > backup-pubkey.asc
 
 # Import on backup servers
 gpg --import backup-pubkey.asc
 
 # Trust the key
-gpg --edit-key backup@example.com trust
+gpg --edit-key backup@keystone-core.io trust
 ```
 
 ### AES-256 Encryption (Passphrase)

@@ -566,6 +566,6 @@ tar czf /tmp/diagnostics.tar.gz -C /tmp diagnostics
 ## Getting Help
 
 - Documentation: <https://docs.keystone.io>
-- GitHub Issues: <https://github.com/shawnbutts/keystone-core/issues>
+- Issues: <https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/issues>
 - Community Slack: <https://keystone-community.slack.com>
 - Enterprise Support: <support@keystone.io>

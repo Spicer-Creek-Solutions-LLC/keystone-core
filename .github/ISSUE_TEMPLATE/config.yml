@@ -1,5 +1,7 @@
 blank_issues_enabled: true
 contact_links:
-  - name: GitHub Discussions
-    url: https://github.com/shawnbutts/keystone-core/discussions
-    about: Ask questions and discuss ideas with the community
+  - name: Codeberg Discussions
+    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/issues
+    about: |
+      Keystone Core is hosted on Codeberg; the GitHub presence is a
+      code-only mirror. File issues and questions on Codeberg.

@@ -448,7 +448,7 @@ Exceptions may be requested when:
 ```yaml
 exception_id: SEC-EXC-2025-001
 policy: Cryptographic Standards Policy
-requested_by: contributor@example.com
+requested_by: contributor@keystone-core.io
 approved_by: security-lead@keystone-core.io
 justification: |
   Legacy system integration requires TLS 1.0 support during

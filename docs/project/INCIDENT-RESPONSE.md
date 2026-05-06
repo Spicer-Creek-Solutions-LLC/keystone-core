@@ -460,7 +460,7 @@ What You Should Do:
 Timeline:
 [When discovered, when contained, when resolved]
 
-For questions, please contact: security@example.com
+For questions, please contact: security@keystone-core.io
 
 Sincerely,
 [Security Team]

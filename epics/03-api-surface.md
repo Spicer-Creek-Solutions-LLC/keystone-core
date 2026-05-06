@@ -39,7 +39,7 @@ See `PROJECT-DETAILS.md §4.5` (API Surface).
 
 ## Tasks
 
-1. **Author all 8 .proto files** with v1.0 RPC sets. Use `keystone.core.v1` package; `go_package = "github.com/<org>/keystone-core/pkg/api/v1"`.
+1. **Author all 8 .proto files** with v1.0 RPC sets. Use `keystone.core.v1` package; `go_package = "go.keystone-core.io/keystone-core/pkg/api/v1"`.
 2. **Buf lint + buf breaking config** — STANDARD with documented exclusions; `buf breaking` against `main`.
 3. **`make proto`** target verified end-to-end.
 4. **`pkg/api/auth/`** — Principal, Authenticator/Authorizer interfaces, three concrete authenticators, RBACAuthorizer with method map, RateLimiter, InterceptorConfig builder, gRPC unary + stream interceptors, HTTP middleware. Tests for each.

@@ -427,10 +427,10 @@ ss -tuanp | grep ESTABLISHED | grep -E ":(4444|1337|31337)"
 
 | Role | Contact | When to Notify |
 |------|---------|----------------|
-| Security Lead | <security@example.com> | All incidents |
-| On-call Engineer | <pager@example.com> | P1/P2 incidents |
-| Legal | <legal@example.com> | Data breaches |
-| Management | <ciso@example.com> | P1 incidents |
+| Security Lead | <security@keystone-core.io> | All incidents |
+| On-call Engineer | <pager@keystone-core.io> | P1/P2 incidents |
+| Legal | <legal@keystone-core.io> | Data breaches |
+| Management | <ciso@keystone-core.io> | P1 incidents |
 
 ## Appendix: Evidence Retention
 

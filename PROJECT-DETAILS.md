@@ -200,9 +200,9 @@ keystone-core/
 
 **Build-time metadata**:
 ```
--X github.com/<org>/keystone-core/pkg/version.Version=$(VERSION)
--X github.com/<org>/keystone-core/pkg/version.GitCommit=$(git rev-parse --short HEAD)
--X github.com/<org>/keystone-core/pkg/version.BuildDate=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+-X go.keystone-core.io/keystone-core/pkg/version.Version=$(VERSION)
+-X go.keystone-core.io/keystone-core/pkg/version.GitCommit=$(git rev-parse --short HEAD)
+-X go.keystone-core.io/keystone-core/pkg/version.BuildDate=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 ```
 
 **Gotchas**:

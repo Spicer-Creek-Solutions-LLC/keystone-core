@@ -13,12 +13,12 @@ Keystone Core.
 ## Setting Up Your Environment
 
 ```bash
-# Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/keystone-core.git
+# Fork the repository on Codeberg, then clone your fork
+git clone https://codeberg.org/YOUR_USERNAME/keystone-core.git
 cd keystone-core
 
 # Add upstream remote
-git remote add upstream https://github.com/shawnbutts/keystone-core.git
+git remote add upstream https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core.git
 
 # Install dependencies
 go mod download
@@ -157,7 +157,7 @@ return err
 Use structured logging with `internal/logging`. Note that this is an internal package:
 
 ```go
-import "github.com/shawnbutts/keystone-core/internal/logging"
+import "go.keystone-core.io/keystone-core/internal/logging"
 
 log := logging.NewLogger(logging.Config{
     Level: logging.Info,
