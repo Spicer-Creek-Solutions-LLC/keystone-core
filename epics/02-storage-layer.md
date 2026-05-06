@@ -49,7 +49,7 @@ See `PROJECT-DETAILS.md §4.3` (Storage Layer).
 - [ ] Connection pools configured per backend.
 - [x] IPv6 DSN literals work (`postgres://user:pw@[::1]:5432/db`).
 - [ ] JSON unmarshal errors return errors, not empty maps.
-- [ ] `kscore-migrate run --dry-run --sqlite ./test.db --postgres "postgres://..." --batch-size 100` produces accurate migration plan.
+- [x] `kscore-migrate run --dry-run --sqlite ./test.db --postgres "postgres://..." --batch-size 100` produces accurate migration plan.
 - [ ] Real migration with 10k agents + 100k commands completes; `validate` reports identical row counts.
 - [ ] `--continue-on-error` records errors in txlog and continues.
 - [ ] Coverage >80% for `internal/state` and migrator.
