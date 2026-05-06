@@ -55,6 +55,12 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    # Forgejo Actions runs each job inside a container by default, so
+    # the Postgres service is reachable on the workflow's Docker network
+    # at hostname `postgres`. Do NOT add `ports: [5432:5432]` — that
+    # binds to the host and collides if anything else holds port 5432
+    # (other runners, host-side Postgres, etc.). The hostname-based
+    # connection works equally well and is portable.
     services:
       postgres:
         image: postgres:16
@@ -62,14 +68,13 @@ jobs:
           POSTGRES_USER: kscore
           POSTGRES_PASSWORD: kscore
           POSTGRES_DB: kscore_test
-        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U kscore"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      KSCORE_TEST_POSTGRES_DSN: postgres://kscore:kscore@localhost:5432/kscore_test?sslmode=disable
+      KSCORE_TEST_POSTGRES_DSN: postgres://kscore:kscore@postgres:5432/kscore_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
