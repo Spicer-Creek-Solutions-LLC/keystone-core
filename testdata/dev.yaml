@@ -1,0 +1,14 @@
+mode: development
+
+server:
+  host: 127.0.0.1
+  grpcport: 9090
+  httpport: 8080
+
+logging:
+  level: info
+  format: json
+
+storage:
+  driver: sqlite
+  dsn: ./data/keystone.db

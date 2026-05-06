@@ -58,10 +58,10 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 
 ## Acceptance criteria
 
-- [ ] `make build` produces three binaries in `build/bin/$GOOS/$GOARCH/`.
-- [ ] `make build-all-platforms` produces linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 binaries with no CGO.
-- [ ] `kscore-server --version` prints version + commit + build date.
-- [ ] `kscore-server --config testdata/dev.yaml` parses and emits a JSON startup log line including correlation ID.
+- [x] `make build` produces three binaries in `build/bin/$GOOS/$GOARCH/`.
+- [x] `make build-all-platforms` produces linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 binaries with no CGO.
+- [x] `kscore-server --version` prints version + commit + build date.
+- [x] `kscore-server --config testdata/dev.yaml` parses and emits a JSON startup log line including correlation ID.
 - [ ] `make test` runs all unit tests; coverage >70% on `pkg/*`.
 - [ ] `make lint` passes the baseline rule set.
 - [x] `make proto` round-trips an empty proto file successfully.

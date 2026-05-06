@@ -41,6 +41,7 @@ export CGO_ENABLED := 0
         test test-verbose test-coverage test-integration check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
+        dev dev-server dev-agent \
         security-secrets security-vulns security-sast
 
 # ---- Help (default) -------------------------------------------------------
@@ -144,6 +145,21 @@ proto-lint: ## Lint proto files (buf STANDARD)
 proto-breaking: ## Check protos for breaking changes vs. main
 	buf breaking --against '.git#branch=main'
 
+# ---- Dev run --------------------------------------------------------------
+
+# `make dev` runs the binary named by DEV_BIN (default: kscore-server) against
+# testdata/dev.yaml. Override with: make dev DEV_BIN=kscorectl
+DEV_BIN ?= kscore-server
+
+dev: ## Run a binary in dev mode (DEV_BIN=kscore-server by default)
+	go run ./cmd/$(DEV_BIN) --config testdata/dev.yaml
+
+dev-server: ## Run kscore-server against testdata/dev.yaml
+	go run ./cmd/kscore-server --config testdata/dev.yaml
+
+dev-agent: ## Run kscore-agent against testdata/dev.yaml
+	go run ./cmd/kscore-agent --config testdata/dev.yaml
+
 # ---- Security -------------------------------------------------------------
 
 security-secrets: ## Scan for committed secrets (gitleaks)
@@ -159,7 +175,6 @@ security-sast: ## Static analysis (gosec)
 # Targets added by later tasks/epics — intentionally NOT stubbed here so
 # `make help` reflects only what currently works.
 #
-#   dev, dev-server, dev-agent (per binary)    -> task 13 (binaries + Cobra+koanf)
 #   release-snapshot, release-dry-run          -> task 15 (goreleaser)
 #   e2e-build, e2e-test, e2e-up, e2e-down,
 #     e2e-logs                                 -> Epic 19 (release / E2E hardening)
