@@ -52,12 +52,6 @@ jobs:
           cache: true
       - name: test (race + coverage)
         run: make test-coverage
-      - name: upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage.out
-          retention-days: 7
 
   smoke:
     runs-on: ubuntu-latest
@@ -119,8 +113,3 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: make build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: build/bin/${{ matrix.goos }}/${{ matrix.goarch }}/
-          retention-days: 7
