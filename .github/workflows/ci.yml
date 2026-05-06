@@ -103,11 +103,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - uses: bufbuild/buf-setup-action@v1
-      - name: install proto plugins
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      # Install buf + protoc-gen-go + protoc-gen-go-grpc via Make rather
+      # than bufbuild/buf-setup-action — the action isn't mirrored at
+      # data.forgejo.org (the Forgejo runner's default action registry)
+      # and `make install-tools` go-installs all three under the
+      # runner's Go toolchain anyway.
+      - run: make install-tools
       - run: make proto-lint
       - name: regenerate + verify clean
         run: |
