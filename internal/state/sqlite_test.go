@@ -2,7 +2,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -155,6 +157,62 @@ func TestLimitOffsetClause(t *testing.T) {
 			}
 		})
 	}
+}
+
+// corruptColumnSQLite UPDATEs <table>.<column> to bad JSON for the row
+// with the given id. Used by malformed-JSON regression tests across
+// every JSON column.
+func corruptColumnSQLite(t *testing.T, s *SQLiteStore, table, column, id, badJSON string) {
+	t.Helper()
+	q := fmt.Sprintf(`UPDATE %s SET %s = ? WHERE id = ?`, table, column)
+	if _, err := s.db.ExecContext(t.Context(), q, badJSON, id); err != nil {
+		t.Fatalf("corrupt %s.%s: %v", table, column, err)
+	}
+}
+
+// assertJSONUnmarshalError fails the test unless err is non-nil and
+// describes a JSON unmarshal failure. Used by both SQLite and Postgres
+// regression tests.
+func assertJSONUnmarshalError(t *testing.T, err error, label string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: expected unmarshal error, got nil", label)
+	}
+	if !strings.Contains(err.Error(), "unmarshal") &&
+		!strings.Contains(err.Error(), "json") {
+		t.Errorf("%s: expected unmarshal-related error; got: %v", label, err)
+	}
+}
+
+func TestUnmarshalJSONColumn(t *testing.T) {
+	t.Run("empty string is no-op", func(t *testing.T) {
+		var v map[string]string
+		if err := unmarshalJSONColumn("", &v); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if v != nil {
+			t.Errorf("v should be nil; got %v", v)
+		}
+	})
+	t.Run("valid json", func(t *testing.T) {
+		var v map[string]string
+		if err := unmarshalJSONColumn(`{"a":"b"}`, &v); err != nil {
+			t.Fatal(err)
+		}
+		if v["a"] != "b" {
+			t.Errorf("v = %v", v)
+		}
+	})
+	t.Run("malformed json surfaces", func(t *testing.T) {
+		var v map[string]string
+		err := unmarshalJSONColumn(`not-json`, &v)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !strings.Contains(err.Error(), "unmarshal") {
+			t.Errorf("error should describe unmarshal: %v", err)
+		}
+	})
 }
 
 func TestValidateSortColumn(t *testing.T) {

@@ -2,6 +2,7 @@ package state
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -287,28 +288,174 @@ func TestSQLiteStore_Agent_NullableFields(t *testing.T) {
 	}
 }
 
-// PROJECT-DETAILS §4.3 explicitly requires unmarshal errors to surface;
-// inject malformed JSON directly and verify GetAgent returns an error.
-func TestSQLiteStore_Agent_MalformedJSONSurfaces(t *testing.T) {
+// PROJECT-DETAILS §4.3 explicitly requires JSON unmarshal errors to
+// surface from every JSON column on every backend. Each subtest seeds
+// a fresh row, corrupts one column, and verifies the matching Get*
+// returns a wrapped unmarshal error.
+//
+// One row per column — corrupting one column on a shared row would
+// make the next subtest's Get fail on the *previous* column.
+func TestSQLiteStore_MalformedJSONSurfacesAllColumns(t *testing.T) {
 	s := newSQLiteStoreForTest(t)
 	ctx := t.Context()
 
-	if err := s.CreateAgent(ctx, sampleAgent("bad")); err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name   string
+		seed   func(id string)
+		table  string
+		column string
+		get    func(id string) error
+	}{
+		{
+			name:   "agents.ip_addresses",
+			seed:   func(id string) { mustCreateAgent(t, s, id) },
+			table:  "agents",
+			column: "ip_addresses",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name:   "agents.labels",
+			seed:   func(id string) { mustCreateAgent(t, s, id) },
+			table:  "agents",
+			column: "labels",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name:   "agents.metrics",
+			seed:   func(id string) { mustCreateAgent(t, s, id) },
+			table:  "agents",
+			column: "metrics",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name: "commands.args",
+			seed: func(id string) {
+				mustCreateAgent(t, s, "agent-"+id)
+				if err := s.CreateCommand(ctx, sampleCommand(id, "agent-"+id)); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "commands",
+			column: "args",
+			get:    func(id string) error { _, err := s.GetCommand(ctx, id); return err },
+		},
+		{
+			name: "commands.env",
+			seed: func(id string) {
+				mustCreateAgent(t, s, "agent-"+id)
+				if err := s.CreateCommand(ctx, sampleCommand(id, "agent-"+id)); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "commands",
+			column: "env",
+			get:    func(id string) error { _, err := s.GetCommand(ctx, id); return err },
+		},
+		{
+			name: "batch_jobs.target",
+			seed: func(id string) {
+				if err := s.CreateBatchJob(ctx, &BatchJobRecord{
+					ID:        id,
+					Target:    map[string]any{"role": "web"},
+					Command:   "uptime",
+					Args:      []string{},
+					Status:    BatchJobStatusPending,
+					CreatedAt: time.Now().UTC(),
+				}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "batch_jobs",
+			column: "target",
+			get:    func(id string) error { _, err := s.GetBatchJob(ctx, id); return err },
+		},
+		{
+			name: "batch_jobs.args",
+			seed: func(id string) {
+				if err := s.CreateBatchJob(ctx, &BatchJobRecord{
+					ID:        id,
+					Target:    map[string]any{"role": "web"},
+					Command:   "uptime",
+					Args:      []string{},
+					Status:    BatchJobStatusPending,
+					CreatedAt: time.Now().UTC(),
+				}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "batch_jobs",
+			column: "args",
+			get:    func(id string) error { _, err := s.GetBatchJob(ctx, id); return err },
+		},
 	}
-	if _, err := s.db.ExecContext(ctx,
-		`UPDATE agents SET labels = ? WHERE id = ?`,
-		`not-valid-json`, "bad",
-	); err != nil {
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id := fmt.Sprintf("bad-%d", i)
+			tc.seed(id)
+			corruptColumnSQLite(t, s, tc.table, tc.column, id, "not-valid-json")
+			assertJSONUnmarshalError(t, tc.get(id), tc.name)
+		})
+	}
+}
+
+func mustCreateAgent(t *testing.T, s *SQLiteStore, id string) {
+	t.Helper()
+	a := sampleAgent(id)
+	if err := s.CreateAgent(t.Context(), a); err != nil {
+		t.Fatalf("seed agent %q: %v", id, err)
+	}
+}
+
+// json.Marshal failures (e.g., chan/func values) must propagate from
+// Create/Update — not silently produce SQL NULL or "null".
+func TestSQLiteStore_Agent_MarshalErrorSurfaces(t *testing.T) {
+	s := newSQLiteStoreForTest(t)
+	a := sampleAgent("a-marshal")
+	a.Metrics = map[string]any{"unmarshalable": make(chan int)}
+
+	err := s.CreateAgent(t.Context(), a)
+	if err == nil {
+		t.Fatal("expected marshal error from Metrics chan; CreateAgent succeeded")
+	}
+	if !strings.Contains(err.Error(), "marshal") &&
+		!strings.Contains(err.Error(), "json") {
+		t.Errorf("expected marshal-related error; got: %v", err)
+	}
+}
+
+// Empty Go containers (not nil) round-trip through the JSON layer
+// without becoming nil — pins the contract for callers writing
+// "no labels" / "no IPs" rows.
+func TestSQLiteStore_Agent_EmptyContainerRoundTrip(t *testing.T) {
+	s := newSQLiteStoreForTest(t)
+	ctx := t.Context()
+
+	a := sampleAgent("empty")
+	a.IPAddresses = []string{}
+	a.Labels = map[string]string{}
+	a.Metrics = nil // nullable column: nil stays NULL
+
+	if err := s.CreateAgent(ctx, a); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := s.GetAgent(ctx, "bad")
-	if err == nil {
-		t.Fatal("expected unmarshal error")
+	got, err := s.GetAgent(ctx, "empty")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "unmarshal") &&
-		!strings.Contains(err.Error(), "json") {
-		t.Errorf("expected unmarshal-related error; got: %v", err)
+	// Empty []string{} encodes as "[]"; on read we get an empty
+	// (non-nil) slice. Same for map.
+	if got.IPAddresses == nil {
+		t.Error("IPAddresses should be empty slice, not nil")
+	}
+	if len(got.IPAddresses) != 0 {
+		t.Errorf("IPAddresses len = %d, want 0", len(got.IPAddresses))
+	}
+	if got.Labels == nil {
+		t.Error("Labels should be empty map, not nil")
+	}
+	if len(got.Labels) != 0 {
+		t.Errorf("Labels len = %d, want 0", len(got.Labels))
 	}
 }

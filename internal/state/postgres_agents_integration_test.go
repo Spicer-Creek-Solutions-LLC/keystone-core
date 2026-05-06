@@ -4,6 +4,7 @@ package state
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -207,33 +208,155 @@ func TestPg_Agent_NullableFields(t *testing.T) {
 	}
 }
 
-// PROJECT-DETAILS §4.3: malformed JSON on read must surface, not silently
-// produce an empty value.
-func TestPg_Agent_MalformedJSONSurfaces(t *testing.T) {
+// PROJECT-DETAILS §4.3: JSON unmarshal errors must surface from every
+// JSON column on every backend. Postgres-side regression mirror of
+// TestSQLiteStore_MalformedJSONSurfacesAllColumns.
+//
+// Note: Postgres rejects malformed JSONB at INSERT/UPDATE time, so we
+// can't write `not-valid-json` and re-read. Instead we write
+// well-formed JSON of the WRONG SHAPE — e.g., an array where Go
+// expects a map — which the Go side rejects on Unmarshal.
+func TestPg_MalformedJSONSurfacesAllColumns(t *testing.T) {
 	s := newPgStoreForTest(t)
 	ctx := t.Context()
 
-	if err := s.CreateAgent(ctx, sampleAgent("bad")); err != nil {
-		t.Fatal(err)
-	}
-	// Bypass JSONB validation by writing as text and casting; Postgres
-	// accepts e.g. '{"valid":true,"trailing":` without closing brace
-	// only if we trick it. Easier: drop a known-good row, then update
-	// directly with a sub-object that's well-formed JSON but the wrong
-	// shape for Labels.
-	if _, err := s.db.ExecContext(ctx,
-		`UPDATE agents SET labels = $1::jsonb WHERE id = $2`,
-		`["this","is","not","an","object"]`, "bad",
-	); err != nil {
-		t.Fatal(err)
+	const wrongShape = `["wrong","shape","for","scan"]`
+
+	cases := []struct {
+		name   string
+		seed   func(id string)
+		table  string
+		column string
+		get    func(id string) error
+	}{
+		{
+			name:   "agents.ip_addresses",
+			seed:   func(id string) { mustCreatePgAgent(t, s, id) },
+			table:  "agents",
+			column: "ip_addresses",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name: "agents.labels",
+			seed: func(id string) { mustCreatePgAgent(t, s, id) },
+			// Wrong shape: Labels is map[string]string; an array won't
+			// unmarshal into it.
+			table:  "agents",
+			column: "labels",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name:   "agents.metrics",
+			seed:   func(id string) { mustCreatePgAgent(t, s, id) },
+			table:  "agents",
+			column: "metrics",
+			get:    func(id string) error { _, err := s.GetAgent(ctx, id); return err },
+		},
+		{
+			name: "commands.args",
+			// commands.args is []string; an object would mismatch. The
+			// `wrongShape` array IS valid for []string{} (just strings),
+			// so flip to an object for this case.
+			seed: func(id string) {
+				mustCreatePgAgent(t, s, "agent-"+id)
+				if err := s.CreateCommand(ctx, sampleCommand(id, "agent-"+id)); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "commands",
+			column: "args",
+			get:    func(id string) error { _, err := s.GetCommand(ctx, id); return err },
+		},
+		{
+			name: "commands.env",
+			seed: func(id string) {
+				mustCreatePgAgent(t, s, "agent-"+id)
+				if err := s.CreateCommand(ctx, sampleCommand(id, "agent-"+id)); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "commands",
+			column: "env",
+			get:    func(id string) error { _, err := s.GetCommand(ctx, id); return err },
+		},
+		{
+			name: "batch_jobs.target",
+			seed: func(id string) {
+				if err := s.CreateBatchJob(ctx, &BatchJobRecord{
+					ID: id, Target: map[string]any{"r": "w"}, Command: "u",
+					Args: []string{}, Status: BatchJobStatusPending, CreatedAt: time.Now().UTC(),
+				}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "batch_jobs",
+			column: "target",
+			get:    func(id string) error { _, err := s.GetBatchJob(ctx, id); return err },
+		},
+		{
+			name: "batch_jobs.args",
+			seed: func(id string) {
+				if err := s.CreateBatchJob(ctx, &BatchJobRecord{
+					ID: id, Target: map[string]any{"r": "w"}, Command: "u",
+					Args: []string{}, Status: BatchJobStatusPending, CreatedAt: time.Now().UTC(),
+				}); err != nil {
+					t.Fatal(err)
+				}
+			},
+			table:  "batch_jobs",
+			column: "args",
+			get:    func(id string) error { _, err := s.GetBatchJob(ctx, id); return err },
+		},
 	}
 
-	_, err := s.GetAgent(ctx, "bad")
-	if err == nil {
-		t.Fatal("expected unmarshal error from wrong-shape JSON")
+	// agents.ip_addresses, commands.args, batch_jobs.args expect array
+	// types — `wrongShape` is itself a string array, which would
+	// successfully unmarshal. Override these cases to write an object
+	// (wrong shape for an array).
+	objectShape := `{"a":"b"}`
+	objectCases := map[string]bool{
+		"agents.ip_addresses": true,
+		"commands.args":       true,
+		"batch_jobs.args":     true,
 	}
-	if !strings.Contains(err.Error(), "unmarshal") &&
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id := fmt.Sprintf("bad-%d", i)
+			tc.seed(id)
+			shape := wrongShape
+			if objectCases[tc.name] {
+				shape = objectShape
+			}
+			q := fmt.Sprintf(`UPDATE %s SET %s = $1::jsonb WHERE id = $2`, tc.table, tc.column)
+			if _, err := s.db.ExecContext(ctx, q, shape, id); err != nil {
+				t.Fatalf("corrupt: %v", err)
+			}
+			assertJSONUnmarshalError(t, tc.get(id), tc.name)
+		})
+	}
+}
+
+func mustCreatePgAgent(t *testing.T, s *PostgreSQLStore, id string) {
+	t.Helper()
+	if err := s.CreateAgent(t.Context(), sampleAgent(id)); err != nil {
+		t.Fatalf("seed agent %q: %v", id, err)
+	}
+}
+
+// json.Marshal failures (e.g., chan/func values) must propagate from
+// Create/Update.
+func TestPg_Agent_MarshalErrorSurfaces(t *testing.T) {
+	s := newPgStoreForTest(t)
+	a := sampleAgent("a-marshal")
+	a.Metrics = map[string]any{"unmarshalable": make(chan int)}
+
+	err := s.CreateAgent(t.Context(), a)
+	if err == nil {
+		t.Fatal("expected marshal error; CreateAgent succeeded")
+	}
+	if !strings.Contains(err.Error(), "marshal") &&
 		!strings.Contains(err.Error(), "json") {
-		t.Errorf("unexpected error: %v", err)
+		t.Errorf("expected marshal-related error; got: %v", err)
 	}
 }
