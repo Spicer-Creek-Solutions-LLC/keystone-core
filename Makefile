@@ -87,7 +87,7 @@ deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
 
-install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser)
+install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser, gitleaks)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -95,11 +95,7 @@ install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govuln
 	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
-	@command -v gitleaks >/dev/null || { \
-		echo "WARN: gitleaks not installed (not go-installable)"; \
-		echo "  macOS:   brew install gitleaks"; \
-		echo "  Linux:   github.com/zricethezav/gitleaks/releases"; \
-	}
+	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 
 # ---- Test -----------------------------------------------------------------
 
