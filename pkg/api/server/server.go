@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -27,9 +26,16 @@ const DefaultStatusTickerInterval = 30 * time.Second
 const httpShutdownTimeout = 30 * time.Second
 
 // Addrs are the bound listener addresses, populated by New.
+//
+// GRPC and HTTP report the primary listener (index 0; IPv4 when the
+// configured Host implies dual-stack). AllGRPC and AllHTTP expose
+// every bound listener so callers and tests can verify dual-stack
+// configurations independently.
 type Addrs struct {
-	GRPC string
-	HTTP string
+	GRPC    string
+	HTTP    string
+	AllGRPC []string
+	AllHTTP []string
 }
 
 // Server orchestrates the kscore-server runtime per PROJECT-DETAILS
@@ -48,11 +54,11 @@ type Server struct {
 	cmdDispatcher   *controlplane.CommandDispatcher
 	batchDispatcher *controlplane.BatchDispatcher
 
-	grpcServer   *grpc.Server
-	grpcListener net.Listener
+	grpcServer    *grpc.Server
+	grpcListeners []net.Listener
 
-	httpServer   *http.Server
-	httpListener net.Listener
+	httpServer    *http.Server
+	httpListeners []net.Listener
 
 	addrs                Addrs
 	startedAt            time.Time
@@ -227,13 +233,13 @@ func (s *Server) initSteps9to13() error {
 	// step 12: register gRPC services (none yet — nil-guarded).
 	// Concrete impls land with their owning epics (06, 07, 09, …).
 
-	addr := net.JoinHostPort(s.cfg.Server.Host, strconv.Itoa(s.cfg.Server.GRPCPort))
-	ln, err := net.Listen("tcp", addr)
+	lns, err := listen(s.cfg.Server.Host, s.cfg.Server.GRPCPort)
 	if err != nil {
-		return fmt.Errorf("listen gRPC %s: %w", addr, err)
+		return fmt.Errorf("gRPC: %w", err)
 	}
-	s.grpcListener = ln
-	s.addrs.GRPC = ln.Addr().String()
+	s.grpcListeners = lns
+	s.addrs.AllGRPC = addrs(lns)
+	s.addrs.GRPC = s.addrs.AllGRPC[0]
 	return nil
 }
 
@@ -248,13 +254,13 @@ func (s *Server) initSteps15to18() error {
 	// wraps with CORS → rate-limit → auth.
 	var handler http.Handler = mux
 
-	addr := net.JoinHostPort(s.cfg.Server.Host, strconv.Itoa(s.cfg.Server.HTTPPort))
-	ln, err := net.Listen("tcp", addr)
+	lns, err := listen(s.cfg.Server.Host, s.cfg.Server.HTTPPort)
 	if err != nil {
-		return fmt.Errorf("listen HTTP %s: %w", addr, err)
+		return fmt.Errorf("HTTP: %w", err)
 	}
-	s.httpListener = ln
-	s.addrs.HTTP = ln.Addr().String()
+	s.httpListeners = lns
+	s.addrs.AllHTTP = addrs(lns)
+	s.addrs.HTTP = s.addrs.AllHTTP[0]
 
 	s.httpServer = &http.Server{
 		Handler:           handler,
@@ -271,17 +277,25 @@ func (s *Server) Start(ctx context.Context) error {
 	s.startOnce.Do(func() {
 		s.startedAt = s.now()
 
-		go func() {
-			if err := s.grpcServer.Serve(s.grpcListener); err != nil {
-				s.logger.Warn("server: gRPC serve exited", "err", err)
-			}
-		}()
-		go func() {
-			err := s.httpServer.Serve(s.httpListener)
-			if err != nil && !errors.Is(err, http.ErrServerClosed) {
-				s.logger.Warn("server: HTTP serve exited", "err", err)
-			}
-		}()
+		for _, ln := range s.grpcListeners {
+			ln := ln
+			go func() {
+				if err := s.grpcServer.Serve(ln); err != nil {
+					s.logger.Warn("server: gRPC serve exited",
+						"addr", ln.Addr().String(), "err", err)
+				}
+			}()
+		}
+		for _, ln := range s.httpListeners {
+			ln := ln
+			go func() {
+				err := s.httpServer.Serve(ln)
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
+					s.logger.Warn("server: HTTP serve exited",
+						"addr", ln.Addr().String(), "err", err)
+				}
+			}()
+		}
 
 		go s.runStatusTicker()
 
@@ -421,9 +435,7 @@ func (s *Server) unwindFromStep7(ctx context.Context) {
 }
 
 func (s *Server) unwindFromStep13(ctx context.Context) {
-	if s.grpcListener != nil {
-		_ = s.grpcListener.Close()
-	}
+	_ = closeAll(s.grpcListeners)
 	s.unwindFromStep7(ctx)
 }
 

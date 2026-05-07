@@ -41,7 +41,7 @@ See `PROJECT-DETAILS.md §4.4`.
 2. **`internal/controlplane/command_dispatcher.go`** ✅ — dispatch via NATS pub/sub (NATS lands in Epic 05; stub `NATSPublisher` interface here for tests).
 3. **`internal/controlplane/batch_dispatcher.go`** ✅ — see Epic 07 for the targeting + execution side; this epic provides the orchestrator + persistence.
 4. **`pkg/api/server/server.go`** ✅ — Server struct with Start/Stop methods. 21-step init.
-5. **Listener creation** with `ensureIPv6Brackets()` helper + dual-stack helper. Tests for both IPv4-only, IPv6-only, dual-stack configurations.
+5. **Listener creation** ✅ with `ensureIPv6Brackets()` helper + dual-stack helper. Tests for both IPv4-only, IPv6-only, dual-stack configurations.
 6. **Middleware chain** wired with auth from Epic 03.
 7. **Health endpoints**: `/health/live` (200 trivial), `/health/ready` (NATS + DB checks; respect `health.startup_grace_period` default 30s), `/health/status` (component latencies), `/api/status` (uptime, version, agent counts, memory, goroutines).
 8. **Graceful shutdown** sequence with deferred Close and 30s context timeout per HTTP listener.

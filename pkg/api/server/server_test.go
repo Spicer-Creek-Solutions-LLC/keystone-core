@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -292,6 +293,73 @@ func TestAPIStatus_ReportsAgentCounts(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q", ct)
 	}
+}
+
+func TestServer_DualStackBindsBothFamilies(t *testing.T) {
+	// Probe IPv6 availability via the same path as listener_test.
+	if probe, err := net.Listen("tcp6", "[::1]:0"); err != nil {
+		t.Skipf("IPv6 not available: %v", err)
+	} else {
+		probe.Close()
+	}
+
+	cfg := newTestConfig()
+	cfg.Server.Host = "0.0.0.0" // → dual-stack
+	srv, _ := newServer(t, func(o *server.Options) { o.Config = cfg })
+
+	if err := srv.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	}()
+
+	a := srv.Addrs()
+	if len(a.AllGRPC) != 2 || len(a.AllHTTP) != 2 {
+		t.Fatalf("dual-stack: AllGRPC=%v AllHTTP=%v", a.AllGRPC, a.AllHTTP)
+	}
+
+	// Primary is IPv4; secondary is IPv6.
+	if !strings.HasPrefix(a.AllGRPC[0], "0.0.0.0:") {
+		t.Errorf("AllGRPC[0] = %q, want IPv4 primary", a.AllGRPC[0])
+	}
+	if !strings.HasPrefix(a.AllGRPC[1], "[::]") {
+		t.Errorf("AllGRPC[1] = %q, want IPv6 secondary", a.AllGRPC[1])
+	}
+
+	// HTTP serves on both. Dial the IPv4 listener via 127.0.0.1 and the
+	// IPv6 listener via [::1] using the bound port from each.
+	v4Port := portFromAddr(t, a.AllHTTP[0])
+	v6Port := portFromAddr(t, a.AllHTTP[1])
+
+	for _, dial := range []string{
+		"127.0.0.1:" + itoa(v4Port),
+		"[::1]:" + itoa(v6Port),
+	} {
+		resp, err := http.Get("http://" + dial + "/health/live")
+		if err != nil {
+			t.Errorf("GET %s: %v", dial, err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s = %d", dial, resp.StatusCode)
+		}
+	}
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	out := []byte{}
+	for n > 0 {
+		out = append([]byte{byte('0' + n%10)}, out...)
+		n /= 10
+	}
+	return string(out)
 }
 
 func TestStop_BoundedByContext(t *testing.T) {
