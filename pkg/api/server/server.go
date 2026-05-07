@@ -22,9 +22,22 @@ import (
 // DefaultStatusTickerInterval matches PROJECT-DETAILS §4.4 step 21.
 const DefaultStatusTickerInterval = 30 * time.Second
 
-// httpShutdownTimeout is the per-listener deadline for http.Server.Shutdown.
-// Task 8 will tighten / configure this; for now we honor the spec's 30s.
-const httpShutdownTimeout = 30 * time.Second
+// Per-step shutdown timeouts. PROJECT-DETAILS §4.4 step 6 specifies
+// 30s for HTTP and step 7 specifies 5s for tracing/profiling; the
+// other ceilings are sized so the worst-case total stays within a
+// 30s top-level ctx (typical kscore-server invocation).
+//
+// Each helper uses contextWithTimeoutMin(parent, ceiling) so a stuck
+// step can't starve later ones, and the parent ctx can still cap
+// the total budget tighter than the sum of these ceilings.
+const (
+	grpcGraceTimeout         = 10 * time.Second
+	cmdDispatcherStopTimeout = 5 * time.Second
+	connMgrStopTimeout       = 5 * time.Second
+	natsShutdownTimeout      = 5 * time.Second
+	httpShutdownTimeout      = 30 * time.Second
+	tracingShutdownTimeout   = 5 * time.Second
+)
 
 // Addrs are the bound listener addresses, populated by New.
 //
@@ -338,78 +351,52 @@ func (s *Server) Start(ctx context.Context) error {
 	return startErr
 }
 
-// Stop runs the reverse-of-init shutdown sequence. Bounded by ctx.
-// Idempotent; safe to call before Start.
+// Stop runs the §4.4 reverse-of-init shutdown sequence:
+//
+//	1. log "shutdown begin"
+//	2. gRPC.GracefulStop  (forcible Stop fallback if it hangs)
+//	3. CommandDispatcher.Stop  (added: keeps the task-2 dispatcher's
+//	    retention/timeout loops from outliving the server)
+//	4. ConnectionManager.Stop
+//	5. Store.Close
+//	6. NATSManager.Shutdown
+//	7. HTTP.Shutdown (per spec: AFTER NATS so /health/ready signals
+//	    503 to load balancers before HTTP itself stops accepting)
+//	8. tracing/profiling cleanup placeholder (Epic 17 wires the real
+//	    teardown; the 5s budget is in place from day one)
+//	9. log "shutdown complete"
+//
+// Bounded by ctx; idempotent; safe to call before Start. Each step
+// uses contextWithTimeoutMin(ctx, stepCeiling) so a stuck step
+// can't starve later ones. The aggregated error is the FIRST error
+// encountered — subsequent failures still execute to keep the
+// teardown ordered.
 func (s *Server) Stop(ctx context.Context) error {
 	var stopErr error
 	s.stopOnce.Do(func() {
 		close(s.stopCh)
 		defer close(s.stopped)
 
-		// Step 14 reversed: stop accepting new gRPC RPCs and wait
-		// for in-flight ones.
-		if s.grpcServer != nil {
-			s.grpcServer.GracefulStop()
-		}
+		start := s.now()
+		s.logger.Info("server: shutdown begin")
 
-		// Symmetric reverse of step 7 (added — not in spec but
-		// matches the task-2 dispatcher's lifecycle).
-		if s.cmdDispatcher != nil {
-			if err := s.cmdDispatcher.Stop(ctx); err != nil {
-				s.logger.Warn("server: command dispatcher stop", "err", err)
-				if stopErr == nil {
-					stopErr = err
-				}
-			}
-		}
+		stopErr = firstErr(stopErr, s.stopGRPC(ctx))
+		stopErr = firstErr(stopErr, s.stopCmdDispatcher(ctx))
+		stopErr = firstErr(stopErr, s.stopConnMgr(ctx))
+		stopErr = firstErr(stopErr, s.stopStore())
+		stopErr = firstErr(stopErr, s.stopNATS(ctx))
+		stopErr = firstErr(stopErr, s.stopHTTP(ctx))
+		stopErr = firstErr(stopErr, s.stopTracing(ctx))
 
-		// Step 6 reversed.
-		if s.connMgr != nil {
-			if err := s.connMgr.Stop(ctx); err != nil {
-				s.logger.Warn("server: connection manager stop", "err", err)
-				if stopErr == nil {
-					stopErr = err
-				}
-			}
+		elapsed := s.now().Sub(start)
+		if stopErr != nil {
+			s.logger.Info("server: shutdown complete", "elapsed", elapsed, "err", stopErr)
+		} else {
+			s.logger.Info("server: shutdown complete", "elapsed", elapsed)
 		}
-
-		// Step 5 reversed.
-		if s.store != nil {
-			if err := s.store.Close(); err != nil {
-				s.logger.Warn("server: store close", "err", err)
-				if stopErr == nil {
-					stopErr = err
-				}
-			}
-		}
-
-		// Step 3 reversed.
-		if s.nats != nil {
-			if err := s.nats.Shutdown(ctx); err != nil {
-				s.logger.Warn("server: NATS shutdown", "err", err)
-				if stopErr == nil {
-					stopErr = err
-				}
-			}
-		}
-
-		// Step 18 reversed. Bounded by ctx OR httpShutdownTimeout,
-		// whichever is shorter.
-		if s.httpServer != nil {
-			httpCtx, cancel := contextWithTimeoutMin(ctx, httpShutdownTimeout)
-			if err := s.httpServer.Shutdown(httpCtx); err != nil {
-				s.logger.Warn("server: HTTP shutdown", "err", err)
-				if stopErr == nil {
-					stopErr = err
-				}
-			}
-			cancel()
-		}
-
-		// Tracing/profiling cleanup placeholder — task 8.
 	})
-	// If Stop is called twice, the second caller blocks until the
-	// first finishes, so callers see consistent ordering.
+	// Concurrent Stop callers block until the in-flight shutdown
+	// completes, then receive a stable error.
 	<-s.stopped
 	return stopErr
 }
@@ -454,6 +441,123 @@ func (s *Server) authMode() string {
 // invoked while serving (per gRPC's contract).
 func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.grpcServer.RegisterService(desc, impl)
+}
+
+// ---- per-step shutdown helpers ------------------------------------------
+
+// stopGRPC stops the gRPC server. Wraps GracefulStop in a goroutine
+// so we can fall back to forcible Stop() if the graceful path doesn't
+// return within grpcGraceTimeout (or the parent ctx, whichever is
+// shorter). Without the fallback, a single hung stream blocks
+// shutdown indefinitely.
+func (s *Server) stopGRPC(ctx context.Context) error {
+	if s.grpcServer == nil {
+		return nil
+	}
+	grpcCtx, cancel := contextWithTimeoutMin(ctx, grpcGraceTimeout)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		s.grpcServer.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-grpcCtx.Done():
+		s.logger.Warn("server: gRPC graceful stop timed out; forcing Stop()",
+			"timeout", grpcGraceTimeout)
+		s.grpcServer.Stop()
+		<-done // GracefulStop returns once Stop() unblocks it
+		return grpcCtx.Err()
+	}
+}
+
+func (s *Server) stopCmdDispatcher(ctx context.Context) error {
+	if s.cmdDispatcher == nil {
+		return nil
+	}
+	stepCtx, cancel := contextWithTimeoutMin(ctx, cmdDispatcherStopTimeout)
+	defer cancel()
+	if err := s.cmdDispatcher.Stop(stepCtx); err != nil {
+		s.logger.Warn("server: command dispatcher stop", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (s *Server) stopConnMgr(ctx context.Context) error {
+	if s.connMgr == nil {
+		return nil
+	}
+	stepCtx, cancel := contextWithTimeoutMin(ctx, connMgrStopTimeout)
+	defer cancel()
+	if err := s.connMgr.Stop(stepCtx); err != nil {
+		s.logger.Warn("server: connection manager stop", "err", err)
+		return err
+	}
+	return nil
+}
+
+// stopStore takes no ctx — state.Store.Close is non-blocking on
+// SQLite and bounded internally on Postgres. Wrapping in a ctx
+// without a Close-with-ctx storage API would only add complexity.
+func (s *Server) stopStore() error {
+	if s.store == nil {
+		return nil
+	}
+	if err := s.store.Close(); err != nil {
+		s.logger.Warn("server: store close", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (s *Server) stopNATS(ctx context.Context) error {
+	if s.nats == nil {
+		return nil
+	}
+	stepCtx, cancel := contextWithTimeoutMin(ctx, natsShutdownTimeout)
+	defer cancel()
+	if err := s.nats.Shutdown(stepCtx); err != nil {
+		s.logger.Warn("server: NATS shutdown", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (s *Server) stopHTTP(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+	stepCtx, cancel := contextWithTimeoutMin(ctx, httpShutdownTimeout)
+	defer cancel()
+	if err := s.httpServer.Shutdown(stepCtx); err != nil {
+		s.logger.Warn("server: HTTP shutdown", "err", err)
+		return err
+	}
+	return nil
+}
+
+// stopTracing is the §4.4 step 7 hook for tracing/profiling cleanup.
+// Epic 17 wires the real OTel + pprof teardown here; the 5s budget
+// is in place from day one so the integration point doesn't have to
+// thread its own timeout. No-op for v1.0 task 8.
+func (s *Server) stopTracing(ctx context.Context) error {
+	_, cancel := contextWithTimeoutMin(ctx, tracingShutdownTimeout)
+	defer cancel()
+	return nil
+}
+
+// firstErr returns prior if non-nil, otherwise next. Used by Stop to
+// keep the first error while still running every step (ordered
+// teardown matters more than failing fast on the first step).
+func firstErr(prior, next error) error {
+	if prior != nil {
+		return prior
+	}
+	return next
 }
 
 // ---- unwind helpers (used by New on partial-init failure) ---------------
