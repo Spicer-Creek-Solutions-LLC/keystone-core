@@ -17,6 +17,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
+	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
@@ -89,11 +90,16 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		}
 	}
 
+	natsManager, err := natsmgr.New(cfg.NATS, log)
+	if err != nil {
+		return fmt.Errorf("nats: %w", err)
+	}
+
 	srv, err := server.New(server.Options{
 		Config:          cfg,
 		Logger:          log,
 		Store:           store,
-		NATSManager:     server.NoopNATSManager{},
+		NATSManager:     natsManager,
 		AuthInterceptor: authInterceptor,
 	})
 	if err != nil {

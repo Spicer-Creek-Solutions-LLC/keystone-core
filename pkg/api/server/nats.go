@@ -4,9 +4,9 @@ import "context"
 
 // NATSManager is the narrow surface the Server needs from the NATS
 // transport: lifecycle, health, and a publish path used by the
-// CommandDispatcher. Epic 05's internal/nats.Manager will satisfy
-// this interface; until then, NoopNATSManager keeps Server bootable
-// in dev mode.
+// CommandDispatcher. internal/nats.Manager (Epic 05 task 1) is the
+// production implementation; NoopNATSManager remains as a test stub
+// so pkg/api/server tests do not depend on the embedded server.
 type NATSManager interface {
 	// Start brings the manager up (embedded server start, or external
 	// connect). Must be safe to call once; subsequent calls return nil.
@@ -25,9 +25,9 @@ type NATSManager interface {
 	Publish(ctx context.Context, subject string, data []byte) error
 }
 
-// NoopNATSManager is the v1.0 task-4 stub used while internal/nats is
-// not yet implemented. All operations succeed without doing anything.
-// Production deployments must swap in the real manager.
+// NoopNATSManager is a test stub. All operations succeed without
+// doing anything; cmd/kscore-server uses internal/nats.Manager in
+// production.
 type NoopNATSManager struct{}
 
 func (NoopNATSManager) Start(context.Context) error             { return nil }

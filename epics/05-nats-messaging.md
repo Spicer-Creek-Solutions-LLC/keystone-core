@@ -48,7 +48,7 @@ See `PROJECT-DETAILS.md §4.2`.
 
 ## Tasks
 
-1. **`Manager`** — embedded server lifecycle (Start, Shutdown) + external connection lifecycle via `nats.Connect()`.
+1. **`Manager`** — embedded server lifecycle (Start, Shutdown) + external connection lifecycle via `nats.Connect()`. _(landed: `internal/nats.Manager`, embedded uses `nats.InProcessServer`; cmd/kscore-server now constructs the real manager from `cfg.NATS`.)_
 2. **`ConnectionManager`** — multi-endpoint with health check, failover, circuit breaker. Tests with synthetic endpoints.
 3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count).
 4. **`SubjectBuilder`** with mandatory cluster prefix.

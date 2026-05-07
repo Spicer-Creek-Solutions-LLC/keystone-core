@@ -43,6 +43,7 @@ type Config struct {
 	Logging LoggingConfig `koanf:"logging"`
 	Storage StorageConfig `koanf:"storage"`
 	Health  HealthConfig  `koanf:"health"`
+	NATS    NATSConfig    `koanf:"nats"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -72,6 +73,24 @@ func defaultConfig() *Config {
 		Health: HealthConfig{
 			StartupGracePeriod: 30 * time.Second,
 			CheckTimeout:       2 * time.Second,
+		},
+		NATS: NATSConfig{
+			Mode:          NATSModeEmbedded,
+			ClusterName:   "default",
+			MaxReconnects: 60,
+			ReconnectWait: 2 * time.Second,
+			JetStream: JetStreamConfig{
+				Enabled:    true,
+				StoreDir:   "./data/jetstream",
+				MaxStorage: 10 * 1024 * 1024 * 1024, // 10 GiB
+			},
+			Embedded: EmbeddedNATSConfig{
+				Host:            "127.0.0.1",
+				Port:            4222,
+				MaxConnections:  0,
+				EnableJetStream: true,
+				MaxMemory:       0,
+			},
 		},
 	}
 }
@@ -128,6 +147,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Health.Validate(); err != nil {
 		return fmt.Errorf("health: %w", err)
+	}
+	if err := c.NATS.Validate(); err != nil {
+		return fmt.Errorf("nats: %w", err)
 	}
 	return nil
 }

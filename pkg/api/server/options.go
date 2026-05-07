@@ -43,7 +43,7 @@ func (o *Options) validate() error {
 		return errors.New("server: Options.Store is required")
 	}
 	if o.NATSManager == nil {
-		return errors.New("server: Options.NATSManager is required (use NoopNATSManager{} until Epic 05)")
+		return errors.New("server: Options.NATSManager is required (use NoopNATSManager{} for tests, internal/nats.Manager in production)")
 	}
 	if o.StatusTickerInterval < 0 {
 		return errors.New("server: StatusTickerInterval must be non-negative")

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,23 @@ import (
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 )
+
+// freeTCPPort returns a TCP port no other process currently holds.
+// Used so the embedded NATS server in test runs binds an ephemeral
+// port instead of the 4222 default (which would collide between
+// parallel tests and on shared CI hosts).
+func freeTCPPort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	if err := l.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	return port
+}
 
 func TestNewCommand(t *testing.T) {
 	cmd := newCommand()
@@ -28,17 +46,19 @@ func TestNewCommand(t *testing.T) {
 
 // TestRun_BootsServesAndShutsDownCleanly exercises the full
 // cmd/kscore-server boot path: build state.Store via the storage
-// config mapper, construct the Server with a NoopNATSManager, Start
-// serving, observe ctx.Done, run Stop within the shutdown ceiling.
+// config mapper, construct the Server with a real internal/nats
+// Manager (embedded mode on an ephemeral port), Start serving,
+// observe ctx.Done, run Stop within the shutdown ceiling.
 //
 // Distinct from pkg/api/server's TestIntegration_FullLifecycle: that
 // test drives the Server directly with real gRPC + HTTP clients.
 // This one proves the cmd-binary wiring around it (config mapper +
-// NoopNATSManager wire-up + signal-driven shutdown) works
-// end-to-end. We don't dial the bound ports here — they're 0-port
-// ephemeral and the cmd binary doesn't expose them.
+// NATSManager wire-up + signal-driven shutdown) works end-to-end.
+// We don't dial the bound ports here — they're 0-port ephemeral and
+// the cmd binary doesn't expose them.
 // runCfg returns a hermetic test config pointing at storePath.
-func runCfg(storePath string) *config.Config {
+func runCfg(t *testing.T, storePath string) *config.Config {
+	t.Helper()
 	return &config.Config{
 		Mode: config.ModeDevelopment,
 		Server: config.ServerConfig{
@@ -57,6 +77,22 @@ func runCfg(storePath string) *config.Config {
 		Health: config.HealthConfig{
 			StartupGracePeriod: time.Millisecond,
 			CheckTimeout:       time.Second,
+		},
+		NATS: config.NATSConfig{
+			Mode:          config.NATSModeEmbedded,
+			ClusterName:   "test",
+			MaxReconnects: 1,
+			ReconnectWait: 100 * time.Millisecond,
+			JetStream: config.JetStreamConfig{
+				Enabled:    true,
+				StoreDir:   filepath.Join(t.TempDir(), "jetstream"),
+				MaxStorage: 10 * 1024 * 1024,
+			},
+			Embedded: config.EmbeddedNATSConfig{
+				Host:            "127.0.0.1",
+				Port:            freeTCPPort(t),
+				EnableJetStream: true,
+			},
 		},
 	}
 }
@@ -109,7 +145,7 @@ func containsWarnLine(buf *bytes.Buffer, needle string) bool {
 }
 
 func TestRun_BootsServesAndShutsDownCleanly(t *testing.T) {
-	cfg := runCfg(filepath.Join(t.TempDir(), "store.db"))
+	cfg := runCfg(t, filepath.Join(t.TempDir(), "store.db"))
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -130,7 +166,7 @@ func TestRun_BootsServesAndShutsDownCleanly(t *testing.T) {
 }
 
 func TestRun_DevMode_GeneratesAPIKey(t *testing.T) {
-	cfg := runCfg(filepath.Join(t.TempDir(), "store.db"))
+	cfg := runCfg(t, filepath.Join(t.TempDir(), "store.db"))
 
 	buf := runWithLogs(t, cfg)
 	if !containsWarnLine(buf, "DEV API KEY GENERATED") {
@@ -140,7 +176,7 @@ func TestRun_DevMode_GeneratesAPIKey(t *testing.T) {
 
 func TestRun_DevMode_DoesNotRegenerateExistingKey(t *testing.T) {
 	storePath := filepath.Join(t.TempDir(), "store.db")
-	cfg := runCfg(storePath)
+	cfg := runCfg(t, storePath)
 
 	// Pre-create the dev key so EnsureDevKey takes the noop branch.
 	preStore, err := state.NewStore(&state.Config{
@@ -164,7 +200,7 @@ func TestRun_DevMode_DoesNotRegenerateExistingKey(t *testing.T) {
 }
 
 func TestRun_ProductionMode_DoesNotGenerateKey(t *testing.T) {
-	cfg := runCfg(filepath.Join(t.TempDir(), "store.db"))
+	cfg := runCfg(t, filepath.Join(t.TempDir(), "store.db"))
 	cfg.Mode = config.ModeProduction
 	// Production mode requires TLS configured to pass Validate, but
 	// we're not invoking config.Load here — the cfg goes straight to
