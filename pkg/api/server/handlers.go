@@ -59,19 +59,29 @@ func (s *Server) handleHealthStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIStatus serves /api/status. Includes the same per-component
 // latency snapshot as /health/status for operators inspecting the
-// auth'd surface. Task 9 layers on production warnings + auth_mode.
+// auth'd surface, plus the production-warning list and auth mode for
+// ops dashboards.
 func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 	counts := s.connMgr.Counts()
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	snap := s.healthChecker.Snapshot(r.Context())
 
+	// Always emit production_warnings as an array (never null) so
+	// dashboards can render conditionally without a nil-check.
+	warnings := s.ProductionWarnings()
+	if warnings == nil {
+		warnings = []string{}
+	}
+
 	writeJSON(w, map[string]any{
-		"version":    s.version,
-		"uptime":     s.now().Sub(s.startedAt).String(),
-		"started_at": s.startedAt.UTC().Format(time.RFC3339),
-		"ready":      snap.Ready,
-		"components": snap.Components,
+		"version":             s.version,
+		"uptime":              s.now().Sub(s.startedAt).String(),
+		"started_at":          s.startedAt.UTC().Format(time.RFC3339),
+		"ready":               snap.Ready,
+		"auth_mode":           s.authMode(),
+		"production_warnings": warnings,
+		"components":          snap.Components,
 		"agents": map[string]int{
 			"total":     counts.Total,
 			"connected": counts.Connected,

@@ -141,6 +141,15 @@ func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *tr
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	// New starts ConnectionManager + CommandDispatcher background
+	// goroutines. Tests that don't reach Stop would otherwise leak
+	// them and fail goleak. Stop is idempotent and safe to call
+	// before Start, so an unconditional cleanup is fine.
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
 	return srv, tn
 }
 

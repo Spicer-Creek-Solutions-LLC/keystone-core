@@ -134,6 +134,10 @@ func (c *Config) Validate() error {
 
 // ProductionWarnings returns human-readable warnings for risky combinations.
 // Empty if Mode != ModeProduction. Caller decides whether to log/print/fail.
+//
+// Server-state warnings (e.g., "auth disabled") are added on top by
+// pkg/api/server.Server.ProductionWarnings, which augments this list
+// with runtime-only signals.
 func (c *Config) ProductionWarnings() []string {
 	if c.Mode != ModeProduction {
 		return nil
@@ -144,6 +148,14 @@ func (c *Config) ProductionWarnings() []string {
 	}
 	if c.Storage.Driver == "sqlite" {
 		w = append(w, "SQLite is not recommended for production (use postgres for HA)")
+	}
+	if c.Server.CORS.Enabled {
+		for _, o := range c.Server.CORS.AllowedOrigins {
+			if o == "*" {
+				w = append(w, "CORS allows all origins (*) in production")
+				break
+			}
+		}
 	}
 	return w
 }

@@ -45,7 +45,7 @@ See `PROJECT-DETAILS.md §4.4`.
 6. **Middleware chain** ✅ wired with auth from Epic 03.
 7. **Health endpoints** ✅: `/health/live` (200 trivial), `/health/ready` (NATS + DB checks; respect `health.startup_grace_period` default 30s), `/health/status` (component latencies), `/api/status` (uptime, version, agent counts, memory, goroutines).
 8. **Graceful shutdown** ✅ sequence with deferred Close and 30s context timeout per HTTP listener.
-9. **Production warnings** — `Config.ProductionWarnings()` returns the list; logged at startup; exposed via `/api/status` for ops dashboards.
+9. **Production warnings** ✅ — `Config.ProductionWarnings()` returns the list; logged at startup; exposed via `/api/status` for ops dashboards.
 10. **Integration test**: spawn full server with test config (SQLite, embedded NATS via stub, auth disabled), gRPC client calls GetServerStatus, REST client calls /health/ready, trigger SIGTERM, verify clean exit and no leaks.
 
 ## Acceptance criteria

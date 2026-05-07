@@ -176,11 +176,24 @@ func TestProductionWarnings_DevModeNone(t *testing.T) {
 	}
 }
 
+// safeCORS narrows the default-config wildcard origins so a single
+// production-warning test only asserts on its own subject. CORS-
+// specific cases use the wildcard explicitly.
+func safeCORS() CORSConfig {
+	return CORSConfig{
+		Enabled:        true,
+		AllowedOrigins: []string{"https://app.example.com"},
+		AllowedMethods: []string{"GET", "POST"},
+		AllowedHeaders: []string{"Authorization"},
+	}
+}
+
 func TestProductionWarnings_TLSDisabled(t *testing.T) {
 	cfg := defaultConfig()
 	cfg.Mode = ModeProduction
 	cfg.Storage.Driver = "postgres"
 	cfg.Server.TLS.Enabled = false
+	cfg.Server.CORS = safeCORS()
 	w := cfg.ProductionWarnings()
 	if len(w) != 1 {
 		t.Fatalf("warnings = %v, want 1 (TLS disabled)", w)
@@ -197,9 +210,59 @@ func TestProductionWarnings_SQLiteInProd(t *testing.T) {
 	cfg.Server.TLS.CertFile = "/c"
 	cfg.Server.TLS.KeyFile = "/k"
 	cfg.Storage.Driver = "sqlite"
+	cfg.Server.CORS = safeCORS()
 	w := cfg.ProductionWarnings()
 	if len(w) != 1 {
 		t.Fatalf("warnings = %v, want 1 (SQLite)", w)
+	}
+}
+
+func TestProductionWarnings_CORSWildcardInProd(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	// CORS=* is the default — leave it.
+
+	w := cfg.ProductionWarnings()
+	if len(w) != 1 {
+		t.Fatalf("warnings = %v, want 1 (CORS *)", w)
+	}
+	if w[0] != "CORS allows all origins (*) in production" {
+		t.Errorf("warning = %q", w[0])
+	}
+}
+
+func TestProductionWarnings_CORSExplicitOriginsOK(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
+
+	if w := cfg.ProductionWarnings(); len(w) != 0 {
+		t.Errorf("warnings = %v, want none", w)
+	}
+}
+
+func TestProductionWarnings_CORSDisabledOK(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = CORSConfig{Enabled: false, AllowedOrigins: []string{"*"}}
+
+	if w := cfg.ProductionWarnings(); len(w) != 0 {
+		t.Errorf("warnings = %v, want none (CORS disabled)", w)
 	}
 }
 
@@ -211,6 +274,7 @@ func TestProductionWarnings_AllSafe(t *testing.T) {
 	cfg.Server.TLS.KeyFile = "/k"
 	cfg.Storage.Driver = "postgres"
 	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
 	if w := cfg.ProductionWarnings(); len(w) != 0 {
 		t.Errorf("warnings = %v, want none in fully safe prod", w)
 	}

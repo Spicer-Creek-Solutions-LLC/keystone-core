@@ -344,8 +344,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 		s.logger.Info(banner(
 			version.Get(), s.addrs,
-			s.authMode(), string(s.cfg.Storage.Driver),
-			s.cfg.ProductionWarnings(),
+			s.authMode(), s.cfg.Storage.Driver,
+			s.ProductionWarnings(),
 		))
 	})
 	return startErr
@@ -429,6 +429,22 @@ func (s *Server) authMode() string {
 		return "disabled"
 	}
 	return "enabled"
+}
+
+// ProductionWarnings returns the union of config-level warnings
+// (Config.ProductionWarnings) and server-state warnings that aren't
+// observable from config alone — currently just "auth is disabled in
+// production" when no AuthInterceptor was wired into Options.
+//
+// Empty when Mode != production. Used by the startup banner and the
+// /api/status payload so operators see the same warning set in both
+// surfaces.
+func (s *Server) ProductionWarnings() []string {
+	w := s.cfg.ProductionWarnings()
+	if s.cfg.Mode == config.ModeProduction && s.authInterceptor == nil {
+		w = append(w, "auth is disabled in production (no AuthInterceptor wired)")
+	}
+	return w
 }
 
 // RegisterService registers a gRPC service against the underlying
