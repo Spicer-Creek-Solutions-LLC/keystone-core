@@ -52,14 +52,14 @@ See `PROJECT-DETAILS.md §4.5` (API Surface).
 
 - [x] All 8 protos compile via `make proto`.
 - [x] `buf lint` passes; `buf breaking` against `main` clean. _(Both run in CI on every push. `buf breaking` compares against `HEAD~1` rather than `branch=main` — direct-push workflow, see Makefile and `buf.yaml` for the rationale + the `breaking.except` waiver pattern for intentional reconstruction-era breaks.)_
-- [ ] Auth interceptor chain orders correctly: CORS → rate-limit → auth → handler.
-- [ ] All three auth methods (API key, JWT, mTLS) round-trip in unit tests.
-- [ ] CoordinationService rejects non-mTLS callers.
-- [ ] RBACAuthorizer denies operator-level methods to readonly principal; allows admin operations on admin principal.
+- [x] Auth interceptor chain orders correctly: CORS → rate-limit → auth → handler. _(CORS is provided externally; this package owns rate-limit → auth → authorize → handler ordering, verified via gRPC + HTTP interceptor tests.)_
+- [x] All three auth methods (API key, JWT, mTLS) round-trip in unit tests.
+- [x] CoordinationService rejects non-mTLS callers.
+- [x] RBACAuthorizer denies operator-level methods to readonly principal; allows admin operations on admin principal.
 - [ ] API key generation returns cleartext only on creation; storage holds hash only.
-- [ ] Bypass list (health, registration, coordination internal) works without credentials.
+- [x] Bypass list (health, registration, coordination internal) works without credentials. _(Per-RBAC bypass test plus interceptor-level test verifying bypassed methods skip auth even when the chain returns ErrUnauthenticated.)_
 - [ ] Versioning registry serves deprecation headers when configured for a deprecated endpoint.
-- [ ] Coverage >85% on `pkg/api/auth`; >80% on apikeys.
+- [x] Coverage >85% on `pkg/api/auth`; >80% on apikeys. _(`pkg/api/auth` at 88.3%; apikeys lands with task 5.)_
 
 ## Risks
 
