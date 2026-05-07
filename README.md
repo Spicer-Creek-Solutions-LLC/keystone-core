@@ -29,18 +29,24 @@ The reset is deliberate: rather than carry forward technical debt from a sprawli
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
 
-### Current state (epic 01 complete)
+### Current state (epics 01–04 complete)
 
-The foundations layer is in place. What's in `main` today:
+What's in `main` today:
 
-- **Foundations packages**: `pkg/{version,semver,wait,dbutil,api/apierror}`, `internal/{config,logging,cli}`, `pkg/api/v1` (proto codegen pipeline).
-- **Three hello-world binaries**: `kscore-server`, `kscore-agent`, `kscorectl`. They parse `--config` (YAML + `KSCORE_`-env via koanf), print a structured JSON startup log with a per-process correlation ID, and exit cleanly on SIGTERM/SIGINT.
-- **Make-driven workflow**: `make build`, `test`, `lint`, `smoke`, `proto`, `release-snapshot`, etc. CI invokes Make targets exclusively.
+- **Foundations** (epic 01): `pkg/{version,semver,wait,dbutil}`, `internal/{config,logging,cli}`, `pkg/api/{apierror,v1}` (proto codegen).
+- **Storage layer** (epic 02): `internal/state` with SQLite + PostgreSQL backends. `Store` interface composes per-domain sub-interfaces (Agent, Command, BatchJob, APIKey, Health). Migrator runs on `Open`.
+- **API surface** (epic 03): proto schemas + auth chain (`pkg/api/auth`: APIKey / JWT / mTLS authenticators, RBAC authorizer, sliding-window rate limiter). Per-domain REST handler stubs return 501 until their owning epic ships. OpenAPI 3.0 spec lints in CI.
+- **Control plane** (epic 04): `kscore-server` is a real daemon now.
+  - `internal/controlplane`: `ConnectionManager` (heartbeat monitor + stale eviction), `CommandDispatcher` (NATS-publish stub + retention/timeout loops), `BatchDispatcher` (state machine + persistence).
+  - `pkg/api/server`: 21-step deterministic init, dual-stack IPv4 + IPv6 listeners, CORS → auth middleware chain, `/health/{live,ready,status}` + `/api/status`, graceful shutdown with per-step timeouts.
+  - On first run in dev mode, `kscore-server` auto-generates an admin API key and logs the cleartext **once** at WARN — store it from the boot output; it cannot be recovered. Subsequent runs are idempotent. Production mode requires manual key provisioning via `/api/v1/apikeys`.
+- **Three binaries** that boot cleanly under SIGTERM/SIGINT: `kscore-server`, `kscore-agent` (still scaffold), `kscorectl` (still scaffold).
+- **Make-driven workflow**: `make build`, `test`, `lint`, `smoke`, `proto`, `release-snapshot`. CI invokes Make targets exclusively.
 - **Cross-compile matrix**: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} — pure Go, no CGO.
 - **CI**: Forgejo Actions (`.github/workflows/`) and Codeberg Woodpecker (`.woodpecker/`) — same Make targets, two runners.
 - **Snapshot release**: `make release-snapshot` produces six tarballs/zips + a SHA-256 checksums file in `dist/`.
 
-This is enough to build, test, and ship a tarball — no business logic yet. Real services start landing in epic 02 (storage layer) and epic 03 (gRPC/REST API surface). Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
+NATS messaging, the agent runtime, and the concrete gRPC service implementations land in epics 05–08. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
 
 ## What v1.0 commits to
 

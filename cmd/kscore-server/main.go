@@ -18,6 +18,8 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
+	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
 )
 
@@ -57,11 +59,42 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		}
 	}()
 
+	// Auth chain: API key (Bearer token) → RBAC → rate-limit. The
+	// cmd binary wires this unconditionally; integrators wanting auth
+	// disabled build their own server.Options with AuthInterceptor=nil.
+	verifier := apikeys.NewStoreVerifier(store)
+	authInterceptor := &auth.InterceptorConfig{
+		Authenticator: auth.NewAPIKeyAuthenticator(verifier),
+		Authorizer:    auth.NewRBACAuthorizer(),
+		RateLimiter:   auth.NewRateLimiter(auth.RateLimitConfig{}),
+	}
+
+	// Dev-mode bootstrap: ensure a default admin API key exists so
+	// out-of-the-box `kscore-server run` is immediately usable. The
+	// cleartext is logged exactly once at WARN — store it now; it
+	// cannot be recovered. Production mode skips this — operators
+	// must provision keys via /api/v1/apikeys.
+	if cfg.Mode == config.ModeDevelopment {
+		cleartext, generated, err := apikeys.EnsureDevKey(ctx, store)
+		if err != nil {
+			return fmt.Errorf("dev key bootstrap: %w", err)
+		}
+		if generated {
+			log.WarnContext(ctx,
+				"DEV API KEY GENERATED — store this now; it cannot be recovered",
+				"name", apikeys.DevKeyName,
+				"role", "admin",
+				"key", cleartext,
+			)
+		}
+	}
+
 	srv, err := server.New(server.Options{
-		Config:      cfg,
-		Logger:      log,
-		Store:       store,
-		NATSManager: server.NoopNATSManager{},
+		Config:          cfg,
+		Logger:          log,
+		Store:           store,
+		NATSManager:     server.NoopNATSManager{},
+		AuthInterceptor: authInterceptor,
 	})
 	if err != nil {
 		return fmt.Errorf("server init: %w", err)
