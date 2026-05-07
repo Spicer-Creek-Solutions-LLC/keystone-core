@@ -143,8 +143,12 @@ proto: ## Generate Go + gRPC stubs from proto files
 proto-lint: ## Lint proto files (buf STANDARD)
 	buf lint
 
-proto-breaking: ## Check protos for breaking changes vs. main
-	buf breaking --against '.git#branch=main'
+proto-breaking: ## Check protos for breaking changes vs. previous commit
+	# Compare against HEAD~1 rather than `branch=main`: this project
+	# pushes directly to main, so on push `branch=main` resolves to
+	# the just-pushed commit (i.e., self vs. self — no diff). HEAD~1
+	# is the right semantic for "what was this before this push?".
+	buf breaking --against '.git#ref=HEAD~1'
 
 # ---- Dev run --------------------------------------------------------------
 

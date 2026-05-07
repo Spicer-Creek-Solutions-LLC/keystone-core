@@ -1,9 +1,32 @@
 # Buf module configuration.
 # https://buf.build/docs/configuration/v2/buf-yaml/
 #
-# v1.0 baseline: STANDARD lint, FILE-level breaking detection, no exclusions
-# yet (placeholder proto only). Real service protos in epic 03 may need to
-# document specific exclusions (RPC_REQUEST_STANDARD_NAME, etc.).
+# Lint posture: STANDARD with no exclusions. Epic 03 task 1 resolved the
+# natural method-name collisions in keystone.core.v1 (SubmitCommandStream,
+# NodeHeartbeat, LookupLeader) by renaming rather than weakening the
+# baseline. Future protos should follow the same approach — pick a unique
+# method name rather than add a `lint.except` entry.
+#
+# Breaking posture: FILE-level detection vs. the previous commit (see
+# Makefile `proto-breaking`). FILE-level catches removed services,
+# methods, fields, type changes, and field-number reassignments — the
+# right strictness for v1.0 contract stability.
+#
+# Handling intentional breaking changes:
+#   - The cleanest path is the v2-package mechanism (epic 03 task 6's
+#     versioning registry); land the new shape under keystone.core.v2.
+#   - For v1.0 reconstruction-era cleanups, a temporary single-commit
+#     waiver via `breaking.except` is acceptable. Pattern:
+#
+#       breaking:
+#         use: [FILE]
+#         except:
+#           - keystone/core/v1/<file>.proto  # waiver: <reason>; remove next commit
+#
+#     Land the waivered commit, then remove the `except` line in the
+#     immediately-following commit so the waiver doesn't outlive its
+#     reason. This stays disciplined without forcing v2-package overhead
+#     for non-shipping reconstruction churn.
 
 version: v2
 

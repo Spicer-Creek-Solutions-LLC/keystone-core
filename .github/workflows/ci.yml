@@ -114,6 +114,8 @@ jobs:
         run: |
           make proto
           git diff --exit-code
+      - name: breaking-changes check vs previous commit
+        run: make proto-breaking
 
   build:
     runs-on: ubuntu-latest

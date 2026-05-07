@@ -66,3 +66,4 @@ steps:
       - make proto-lint
       - make proto
       - git diff --exit-code
+      - make proto-breaking
