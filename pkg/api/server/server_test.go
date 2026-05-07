@@ -86,6 +86,16 @@ func newTestConfig() *config.Config {
 		},
 		Logging: config.LoggingConfig{Level: "info", Format: "json"},
 		Storage: config.StorageConfig{Driver: "sqlite", DSN: "ignored-by-server"},
+		Health: config.HealthConfig{
+			// Tests expect /health/ready to return 200 quickly; the
+			// 30s production default would force every test through a
+			// full grace period. Tight grace + tight timeout keeps
+			// the suite snappy without hiding the grace-period
+			// behavior — tests that need to assert grace explicitly
+			// override these.
+			StartupGracePeriod: time.Millisecond,
+			CheckTimeout:       time.Second,
+		},
 	}
 }
 
@@ -298,6 +308,84 @@ func TestAPIStatus_ReportsAgentCounts(t *testing.T) {
 	}
 	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q", ct)
+	}
+}
+
+func TestHealthReady_RespectsGracePeriod(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.Health.StartupGracePeriod = 30 * time.Second
+	srv, _ := newServer(t, func(o *server.Options) { o.Config = cfg })
+	if err := srv.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	}()
+
+	resp, err := http.Get("http://" + srv.Addrs().HTTP + "/health/ready")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503 (in grace)", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"in_grace_period":true`) {
+		t.Errorf("body missing in_grace_period flag: %s", body)
+	}
+}
+
+func TestHealthReady_OKAfterGrace(t *testing.T) {
+	srv, _ := newServer(t)
+	if err := srv.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	}()
+
+	// newTestConfig sets a 1ms grace period — wait for it.
+	time.Sleep(20 * time.Millisecond)
+	resp, err := http.Get("http://" + srv.Addrs().HTTP + "/health/ready")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Errorf("status = %d, want 200; body=%s", resp.StatusCode, body)
+	}
+}
+
+func TestHealthStatus_AlwaysReturns200WithSnapshot(t *testing.T) {
+	srv, _ := newServer(t)
+	if err := srv.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	}()
+
+	resp, err := http.Get("http://" + srv.Addrs().HTTP + "/health/status")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	for _, want := range []string{`"components"`, `"started_at"`, `"uptime_seconds"`} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("body missing %q: %s", want, body)
+		}
 	}
 }
 

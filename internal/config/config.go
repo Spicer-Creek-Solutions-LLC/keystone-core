@@ -7,6 +7,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
@@ -41,6 +42,7 @@ type Config struct {
 	Server  ServerConfig  `koanf:"server"`
 	Logging LoggingConfig `koanf:"logging"`
 	Storage StorageConfig `koanf:"storage"`
+	Health  HealthConfig  `koanf:"health"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -66,6 +68,10 @@ func defaultConfig() *Config {
 		Storage: StorageConfig{
 			Driver: "sqlite",
 			DSN:    "./data/keystone.db",
+		},
+		Health: HealthConfig{
+			StartupGracePeriod: 30 * time.Second,
+			CheckTimeout:       2 * time.Second,
 		},
 	}
 }
@@ -119,6 +125,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Storage.Validate(); err != nil {
 		return fmt.Errorf("storage: %w", err)
+	}
+	if err := c.Health.Validate(); err != nil {
+		return fmt.Errorf("health: %w", err)
 	}
 	return nil
 }

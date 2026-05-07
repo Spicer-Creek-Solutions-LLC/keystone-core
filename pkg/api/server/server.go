@@ -62,6 +62,8 @@ type Server struct {
 	httpServer    *http.Server
 	httpListeners []net.Listener
 
+	healthChecker *healthChecker
+
 	addrs                Addrs
 	startedAt            time.Time
 	statusTickerInterval time.Duration
@@ -145,6 +147,17 @@ func New(opts Options) (*Server, error) {
 		s.unwindFromStep13(initCtx)
 		return nil, fmt.Errorf("server: HTTP bind: %w", err)
 	}
+
+	// startedAt is fixed when New returns successfully so the health
+	// grace period covers from "ready to serve" rather than "Start
+	// goroutine launched" (a few ms earlier — irrelevant in practice
+	// but keeps the semantic stable across test fixtures).
+	s.startedAt = s.now()
+	s.healthChecker = newHealthChecker(
+		s.nats, s.store, s.startedAt,
+		s.cfg.Health.StartupGracePeriod, s.cfg.Health.CheckTimeout,
+		s.now, s.logger,
+	)
 	return s, nil
 }
 
@@ -293,8 +306,7 @@ func (s *Server) initSteps15to18() error {
 func (s *Server) Start(ctx context.Context) error {
 	var startErr error
 	s.startOnce.Do(func() {
-		s.startedAt = s.now()
-
+		// startedAt is set in New; Start does not overwrite it.
 		for _, ln := range s.grpcListeners {
 			ln := ln
 			go func() {

@@ -22,8 +22,9 @@ import (
 )
 
 // registerHealthEndpoints wires the §4.4 unauthenticated /health/*
-// endpoints. Task 4 ships placeholders that always return 200 (or
-// trivial payloads); task 7 replaces these with real readiness checks.
+// endpoints. /health/live is trivial; /health/ready and
+// /health/status delegate to healthChecker (task 7) which pings NATS
+// + DB and applies the startup grace period.
 //
 // /api/status is registered separately on the auth'd mux by
 // buildHTTPHandler — it's an operator-only endpoint with goroutine /
@@ -32,28 +33,45 @@ func (s *Server) registerHealthEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) {
-		// task 7: actual NATS + DB checks + grace period
-		w.WriteHeader(http.StatusOK)
-	})
-	mux.HandleFunc("GET /health/status", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, map[string]any{
-			"status":     "ok",
-			"checked_at": s.now().UTC().Format(time.RFC3339),
-		})
-	})
+	mux.HandleFunc("GET /health/ready", s.handleHealthReady)
+	mux.HandleFunc("GET /health/status", s.handleHealthStatus)
 }
 
-// handleAPIStatus serves /api/status. Task 9 extends with production
-// warnings; task 7 fleshes out per-component latencies.
-func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
+// handleHealthReady runs the configured checks and returns 200 only
+// when every component is OK and the startup grace period has
+// elapsed. Otherwise returns 503 with the same JSON body so ops
+// tooling can inspect why.
+func (s *Server) handleHealthReady(w http.ResponseWriter, r *http.Request) {
+	snap := s.healthChecker.Snapshot(r.Context())
+	w.Header().Set("Content-Type", "application/json")
+	if !snap.Ready {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	_ = json.NewEncoder(w).Encode(snap)
+}
+
+// handleHealthStatus returns 200 with the snapshot regardless of
+// readiness — it's a diagnostic endpoint, not a probe.
+func (s *Server) handleHealthStatus(w http.ResponseWriter, r *http.Request) {
+	snap := s.healthChecker.Snapshot(r.Context())
+	writeJSON(w, snap)
+}
+
+// handleAPIStatus serves /api/status. Includes the same per-component
+// latency snapshot as /health/status for operators inspecting the
+// auth'd surface. Task 9 layers on production warnings + auth_mode.
+func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 	counts := s.connMgr.Counts()
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
+	snap := s.healthChecker.Snapshot(r.Context())
 
 	writeJSON(w, map[string]any{
-		"version":  s.version,
-		"uptime":   s.now().Sub(s.startedAt).String(),
+		"version":    s.version,
+		"uptime":     s.now().Sub(s.startedAt).String(),
+		"started_at": s.startedAt.UTC().Format(time.RFC3339),
+		"ready":      snap.Ready,
+		"components": snap.Components,
 		"agents": map[string]int{
 			"total":     counts.Total,
 			"connected": counts.Connected,
@@ -61,10 +79,10 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 			"disabled":  counts.Disabled,
 		},
 		"runtime": map[string]any{
-			"goroutines":   runtime.NumGoroutine(),
-			"alloc_bytes":  mem.Alloc,
-			"sys_bytes":    mem.Sys,
-			"num_gc":       mem.NumGC,
+			"goroutines":  runtime.NumGoroutine(),
+			"alloc_bytes": mem.Alloc,
+			"sys_bytes":   mem.Sys,
+			"num_gc":      mem.NumGC,
 		},
 	})
 }
