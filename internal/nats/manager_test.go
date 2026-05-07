@@ -170,8 +170,37 @@ func TestManager_PublishPreStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if err := m.Publish(context.Background(), "x", []byte("y")); err == nil {
+	// Use a valid subject so the failure surfaces from the started
+	// gate, not from the prefix interceptor — this test asserts the
+	// pre-Start contract specifically.
+	if err := m.Publish(context.Background(), "kscore.test.preStart", []byte("y")); err == nil {
 		t.Error("Publish pre-Start = nil, want error")
+	}
+}
+
+func TestManager_PublishRejectsUnprefixed(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+
+	cases := []string{
+		"",
+		"random.subject",
+		"kscore.other.agent.register",      // wrong cluster
+		"kscoredev.test.x",                 // wrong root
+		"kscore.test.agent.*",              // wildcard
+		"kscore.test.agent.>",              // wildcard
+		"kscore.test.agent foo",            // whitespace
+	}
+	for _, subject := range cases {
+		err := m.Publish(context.Background(), subject, []byte("ok"))
+		if err == nil {
+			t.Errorf("Publish(%q) = nil, want error", subject)
+		}
+	}
+
+	// And a positive control: the typed constructor result publishes
+	// without error.
+	if err := m.Publish(context.Background(), m.Subjects().AgentHeartbeat(), []byte("hb")); err != nil {
+		t.Errorf("Publish(AgentHeartbeat) = %v, want nil", err)
 	}
 }
 

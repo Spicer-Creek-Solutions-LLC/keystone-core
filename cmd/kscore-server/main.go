@@ -100,6 +100,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Logger:          log,
 		Store:           store,
 		NATSManager:     natsManager,
+		Subjects:        natsManager.Subjects(),
 		AuthInterceptor: authInterceptor,
 	})
 	if err != nil {

@@ -61,6 +61,7 @@ type Server struct {
 	logger          *slog.Logger
 	store           state.Store
 	nats            NATSManager
+	subjects        controlplane.Subjects
 	authInterceptor *auth.InterceptorConfig
 	now             func() time.Time
 	version         string
@@ -123,6 +124,7 @@ func New(opts Options) (*Server, error) {
 		logger:               opts.Logger,
 		store:                opts.Store,
 		nats:                 opts.NATSManager,
+		subjects:             opts.Subjects,
 		authInterceptor:      opts.AuthInterceptor,
 		now:                  clock,
 		version:              version.Get().Version,
@@ -210,6 +212,7 @@ func (s *Server) initStep7(ctx context.Context) error {
 		Store:     s.store,
 		Agents:    s.connMgr,
 		Publisher: natsPublisherAdapter{s.nats},
+		Subjects:  s.subjects,
 		Logger:    s.logger,
 		Clock:     s.now,
 	})

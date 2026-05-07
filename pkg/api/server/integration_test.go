@@ -46,6 +46,7 @@ func TestIntegration_FullLifecycle(t *testing.T) {
 		Logger:      log,
 		Store:       newTestStore(t),
 		NATSManager: server.NoopNATSManager{},
+		Subjects:    fakeSubjects{cluster: "default"},
 		// AuthInterceptor intentionally nil — task-10 spec specifies
 		// "auth disabled" so /api/status is reachable without creds.
 	})

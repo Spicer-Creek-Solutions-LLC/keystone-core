@@ -51,7 +51,7 @@ See `PROJECT-DETAILS.md §4.2`.
 1. **`Manager`** — embedded server lifecycle (Start, Shutdown) + external connection lifecycle via `nats.Connect()`. _(landed: `internal/nats.Manager`, embedded uses `nats.InProcessServer`; cmd/kscore-server now constructs the real manager from `cfg.NATS`.)_
 2. **`ConnectionManager`** — multi-endpoint with health check, failover, circuit breaker. Tests with synthetic endpoints. _(landed combined with task 3: external mode delegates to `ConnectionManager`; v1.0 leans on nats.go native multi-URL failover with per-endpoint observability layered via callbacks. `Breaker` interface in place; real state machine arrives in task 7.)_
 3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count). _(landed with task 2: `internal/nats/endpoint.go`; latency P50/P99 from a 64-sample ring buffer fed by 5s RTT probes.)_
-4. **`SubjectBuilder`** with mandatory cluster prefix.
+4. **`SubjectBuilder`** with mandatory cluster prefix. _(landed: `internal/nats/subject.go` owns the v1.0 hierarchy via typed constructors; `Manager.Publish` calls `Validate(subject)` and rejects anything not under `kscore.{cluster}.…` or that contains a wildcard / whitespace; `controlplane.CommandDispatcher` now consumes a narrow `Subjects` interface threaded through `server.Options.Subjects`.)_
 5. **`Envelope`** wrapper + JSON codec.
 6. **Dedup** — SHA-256 keyed sliding window in memory; cleanup loop.
 7. **Circuit breaker** state machine + tests.
@@ -66,7 +66,7 @@ See `PROJECT-DETAILS.md §4.2`.
 
 - [ ] Embedded mode: `kscore-server` boots with NATS in-process; agents connect via `nats://localhost:4222`.
 - [ ] External mode: multi-endpoint config with failover; killing one endpoint causes circuit breaker to open then half-open recovery.
-- [ ] All published subjects use `kscore.{cluster}.…` prefix; verified by interceptor in tests.
+- [x] All published subjects use `kscore.{cluster}.…` prefix; verified by interceptor in tests. _(task 4 — `SubjectBuilder.Validate` is invoked from `Manager.Publish`; `TestManager_PublishRejectsUnprefixed` asserts wildcard/whitespace/wrong-cluster rejection plus a positive-control publish via the typed constructor.)_
 - [ ] Envelope MessageID dedup discards duplicates within window.
 - [ ] Bootstrap registration end-to-end: agent with bootstrap credential → server validates → full credentials issued → agent reconnects → publishes on agent-specific subject.
 - [ ] Health() reports unhealthy when NATS down; recovers when up.

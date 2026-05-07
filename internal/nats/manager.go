@@ -31,8 +31,9 @@ const embeddedReadyTimeout = 10 * time.Second
 // It satisfies pkg/api/server.NATSManager. Methods are safe to call
 // concurrently; Start and Shutdown are idempotent.
 type Manager struct {
-	cfg config.NATSConfig
-	log *slog.Logger
+	cfg      config.NATSConfig
+	log      *slog.Logger
+	subjects *SubjectBuilder
 
 	mu       sync.Mutex
 	started  bool
@@ -48,11 +49,21 @@ func New(cfg config.NATSConfig, log *slog.Logger) (*Manager, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("nats: invalid config: %w", err)
 	}
+	subjects, err := NewSubjectBuilder(cfg.ClusterName)
+	if err != nil {
+		return nil, err
+	}
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Manager{cfg: cfg, log: log}, nil
+	return &Manager{cfg: cfg, log: log, subjects: subjects}, nil
 }
+
+// Subjects returns the SubjectBuilder that owns the v1.0 subject
+// hierarchy. Higher-level callers (CommandDispatcher, future
+// bootstrap handler) must use this for construction so the cluster
+// prefix is never typo'd inline.
+func (m *Manager) Subjects() *SubjectBuilder { return m.subjects }
 
 // Start brings the transport up. For embedded mode it boots the
 // in-process server (creating the JetStream store dir if needed) and
@@ -265,9 +276,15 @@ func (m *Manager) Health(ctx context.Context) error {
 
 // Publish sends data on subject. External mode routes through
 // ConnectionManager so per-endpoint state tracks publish outcomes;
-// embedded mode publishes directly on the in-process conn. Subject
-// validation and cluster prefixing come from SubjectBuilder in Task 4.
+// embedded mode publishes directly on the in-process conn. The
+// SubjectBuilder interceptor (Task 4) rejects non-prefixed subjects
+// before they reach NATS — the strict-typed constructors are the
+// recommended construction path; this is the safety net.
 func (m *Manager) Publish(ctx context.Context, subject string, data []byte) error {
+	if err := m.subjects.Validate(subject); err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	stopped := m.stopped
 	started := m.started

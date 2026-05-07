@@ -15,10 +15,10 @@ import (
 )
 
 // Dispatcher defaults align with PROJECT-DETAILS §4.4 step 7 (retention
-// loop) and §4.7 (per-command timeout). Cluster name defaults to
-// "default" — the v1.0 single-cluster trial profile.
+// loop) and §4.7 (per-command timeout). Cluster name comes from the
+// Subjects builder (Task 4); the v1.0 single-cluster default lives in
+// internal/config.NATSConfig.
 const (
-	DefaultClusterName            = "default"
 	DefaultCommandTimeoutSeconds  = 300
 	DefaultRetentionWindow        = 7 * 24 * time.Hour
 	DefaultRetentionInterval      = time.Hour
@@ -39,6 +39,16 @@ var terminalCommandStatuses = []state.CommandStatus{
 // fake. Keeping the interface narrow lets task 2 land before NATS does.
 type NATSPublisher interface {
 	Publish(ctx context.Context, subject string, data []byte) error
+}
+
+// Subjects is the narrow subject-construction surface the dispatcher
+// needs. internal/nats.SubjectBuilder satisfies it structurally so
+// controlplane stays free of NATS imports. Future epics that add
+// new dispatcher subjects extend this interface here, not by
+// importing internal/nats.
+type Subjects interface {
+	AgentCommand(agentID string) string
+	Cluster() string
 }
 
 // AgentLookup reads the agent registry. ConnectionManager (task 1)
@@ -62,14 +72,15 @@ type DispatchRequest struct {
 	TimeoutSeconds int // 0 → DispatcherConfig.DefaultTimeoutSeconds
 }
 
-// DispatcherConfig configures a CommandDispatcher. Store, Agents, and
-// Publisher are required; everything else has a default.
+// DispatcherConfig configures a CommandDispatcher. Store, Agents,
+// Publisher, and Subjects are required; everything else has a
+// default.
 type DispatcherConfig struct {
 	Store                 state.CommandStore
 	Agents                AgentLookup
 	Publisher             NATSPublisher
+	Subjects              Subjects
 	Logger                *slog.Logger
-	ClusterName           string
 	DefaultTimeoutSeconds int
 	RetentionWindow       time.Duration
 	RetentionInterval     time.Duration
@@ -104,8 +115,8 @@ type CommandDispatcher struct {
 	store                 state.CommandStore
 	agents                AgentLookup
 	publisher             NATSPublisher
+	subjects              Subjects
 	logger                *slog.Logger
-	clusterName           string
 	defaultTimeoutSeconds int
 	retentionWindow       time.Duration
 	retentionInterval     time.Duration
@@ -136,6 +147,9 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 	if cfg.Publisher == nil {
 		return nil, errors.New("controlplane: dispatcher Publisher is required")
 	}
+	if cfg.Subjects == nil {
+		return nil, errors.New("controlplane: dispatcher Subjects is required")
+	}
 	if cfg.RetentionWindow < 0 {
 		return nil, fmt.Errorf("controlplane: RetentionWindow must be >= 0, got %s", cfg.RetentionWindow)
 	}
@@ -149,9 +163,6 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 		return nil, fmt.Errorf("controlplane: DefaultTimeoutSeconds must be >= 0, got %d", cfg.DefaultTimeoutSeconds)
 	}
 
-	if cfg.ClusterName == "" {
-		cfg.ClusterName = DefaultClusterName
-	}
 	if cfg.DefaultTimeoutSeconds == 0 {
 		cfg.DefaultTimeoutSeconds = DefaultCommandTimeoutSeconds
 	}
@@ -178,8 +189,8 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 		store:                 cfg.Store,
 		agents:                cfg.Agents,
 		publisher:             cfg.Publisher,
+		subjects:              cfg.Subjects,
 		logger:                cfg.Logger,
-		clusterName:           cfg.ClusterName,
 		defaultTimeoutSeconds: cfg.DefaultTimeoutSeconds,
 		retentionWindow:       cfg.RetentionWindow,
 		retentionInterval:     cfg.RetentionInterval,
@@ -208,7 +219,7 @@ func (d *CommandDispatcher) Start(ctx context.Context) error {
 
 		go d.runLoops(loopCtx)
 		d.logger.Info("controlplane: command dispatcher started",
-			"cluster", d.clusterName,
+			"cluster", d.subjects.Cluster(),
 			"retention_window", d.retentionWindow,
 			"retention_interval", d.retentionInterval,
 			"timeout_check_interval", d.timeoutCheckInterval,
@@ -291,7 +302,7 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 		return "", fmt.Errorf("controlplane: persist command: %w", err)
 	}
 
-	subject := commandSubject(d.clusterName, req.AgentID)
+	subject := d.subjects.AgentCommand(req.AgentID)
 	payload, err := json.Marshal(commandMessage{
 		ID:             id,
 		Command:        req.Command,
@@ -461,10 +472,6 @@ func (d *CommandDispatcher) runRetention(ctx context.Context) {
 	if n > 0 {
 		d.logger.Info("controlplane: retention sweep", "deleted", n, "cutoff", cutoff)
 	}
-}
-
-func commandSubject(cluster, agentID string) string {
-	return "kscore." + cluster + ".agent." + agentID + ".command"
 }
 
 func isTerminal(s state.CommandStatus) bool {

@@ -14,6 +14,20 @@ import (
 	"go.keystone-core.io/keystone-core/internal/state"
 )
 
+// fakeSubjects is a hand-rolled subject builder used by dispatcher
+// tests. Mirrors the v1.0 hierarchy that internal/nats.SubjectBuilder
+// produces so existing assertions on captured subject strings
+// (e.g., "kscore.default.agent.agent-1.command") keep passing.
+type fakeSubjects struct {
+	cluster string
+}
+
+func (f fakeSubjects) AgentCommand(agentID string) string {
+	return "kscore." + f.cluster + ".agent." + agentID + ".command"
+}
+
+func (f fakeSubjects) Cluster() string { return f.cluster }
+
 // fakePublisher captures every Publish call for inspection. It is
 // goroutine-safe so concurrent dispatcher tests can still assert on
 // the captured stream.
@@ -83,7 +97,7 @@ func newDispatcherFixture(t *testing.T, opts ...func(*controlplane.DispatcherCon
 		Store:                store,
 		Agents:               mgr,
 		Publisher:            pub,
-		ClusterName:          "default",
+		Subjects:             fakeSubjects{cluster: "default"},
 		DefaultTimeoutSeconds: 60,
 		RetentionWindow:      time.Hour,
 		RetentionInterval:    time.Hour,
@@ -128,24 +142,26 @@ func TestNewDispatcher_Validation(t *testing.T) {
 	defer stopOK(t, mgr)
 	pub := &fakePublisher{}
 
+	subj := fakeSubjects{cluster: "default"}
 	cases := []struct {
 		name string
 		cfg  controlplane.DispatcherConfig
 	}{
-		{"nil store", controlplane.DispatcherConfig{Agents: mgr, Publisher: pub}},
-		{"nil agents", controlplane.DispatcherConfig{Store: store, Publisher: pub}},
-		{"nil publisher", controlplane.DispatcherConfig{Store: store, Agents: mgr}},
+		{"nil store", controlplane.DispatcherConfig{Agents: mgr, Publisher: pub, Subjects: subj}},
+		{"nil agents", controlplane.DispatcherConfig{Store: store, Publisher: pub, Subjects: subj}},
+		{"nil publisher", controlplane.DispatcherConfig{Store: store, Agents: mgr, Subjects: subj}},
+		{"nil subjects", controlplane.DispatcherConfig{Store: store, Agents: mgr, Publisher: pub}},
 		{"negative retention window", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, RetentionWindow: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, RetentionWindow: -time.Second,
 		}},
 		{"negative retention interval", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, RetentionInterval: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, RetentionInterval: -time.Second,
 		}},
 		{"negative timeout check interval", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, TimeoutCheckInterval: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, TimeoutCheckInterval: -time.Second,
 		}},
 		{"negative default timeout", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, DefaultTimeoutSeconds: -1,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, DefaultTimeoutSeconds: -1,
 		}},
 	}
 	for _, tc := range cases {
@@ -158,7 +174,7 @@ func TestNewDispatcher_Validation(t *testing.T) {
 
 	// All defaults applied — should succeed.
 	if _, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store: store, Agents: mgr, Publisher: pub,
+		Store: store, Agents: mgr, Publisher: pub, Subjects: subj,
 	}); err != nil {
 		t.Errorf("default cfg: %v", err)
 	}
@@ -465,6 +481,7 @@ func TestStop_IdempotentAndBoundedByCtx(t *testing.T) {
 
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
 		Store: store, Agents: mgr, Publisher: pub,
+		Subjects:             fakeSubjects{cluster: "default"},
 		RetentionInterval:    time.Hour,
 		TimeoutCheckInterval: time.Hour,
 	})
@@ -497,6 +514,7 @@ func TestDispatch_BeforeStartFails(t *testing.T) {
 	mgr := mustNew(t, controlplane.Config{Store: store, HeartbeatInterval: time.Hour})
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
 		Store: store, Agents: mgr, Publisher: &fakePublisher{},
+		Subjects: fakeSubjects{cluster: "default"},
 	})
 	if err != nil {
 		t.Fatalf("NewDispatcher: %v", err)

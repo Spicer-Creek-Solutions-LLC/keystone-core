@@ -6,17 +6,24 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
 
 // Options is the constructor input for New. Required fields: Config,
-// Logger, Store, NATSManager. Everything else has a default.
+// Logger, Store, NATSManager, Subjects. Everything else has a default.
 type Options struct {
 	Config      *config.Config
 	Logger      *slog.Logger
 	Store       state.Store
 	NATSManager NATSManager
+
+	// Subjects is the SubjectBuilder threaded into the
+	// CommandDispatcher (Epic 05 task 4). cmd/kscore-server pulls this
+	// off internal/nats.Manager via Manager.Subjects(). Tests pass a
+	// hand-rolled fake.
+	Subjects controlplane.Subjects
 
 	// AuthInterceptor wires the gRPC auth chain when non-nil. v1.0
 	// task 4 leaves this optional; task 6 pins it on by default.
@@ -44,6 +51,9 @@ func (o *Options) validate() error {
 	}
 	if o.NATSManager == nil {
 		return errors.New("server: Options.NATSManager is required (use NoopNATSManager{} for tests, internal/nats.Manager in production)")
+	}
+	if o.Subjects == nil {
+		return errors.New("server: Options.Subjects is required (Manager.Subjects() in production; a hand-rolled fake in tests)")
 	}
 	if o.StatusTickerInterval < 0 {
 		return errors.New("server: StatusTickerInterval must be non-negative")

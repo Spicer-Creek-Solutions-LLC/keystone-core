@@ -125,6 +125,18 @@ func iAtoi(s string, out *int) (int, error) {
 	return v, nil
 }
 
+// fakeSubjects mirrors the v1.0 hierarchy that
+// internal/nats.SubjectBuilder produces. Lives here so every
+// pkg/api/server test can construct Options without coupling to
+// internal/nats.
+type fakeSubjects struct{ cluster string }
+
+func (f fakeSubjects) AgentCommand(agentID string) string {
+	return "kscore." + f.cluster + ".agent." + agentID + ".command"
+}
+
+func (f fakeSubjects) Cluster() string { return f.cluster }
+
 func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *trackingNATS) {
 	t.Helper()
 	tn := &trackingNATS{}
@@ -133,6 +145,7 @@ func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *tr
 		Logger:      slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		Store:       newTestStore(t),
 		NATSManager: tn,
+		Subjects:    fakeSubjects{cluster: "default"},
 	}
 	for _, fn := range opts {
 		fn(&o)
@@ -154,14 +167,16 @@ func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *tr
 }
 
 func TestNew_ValidationRejectsMissingDeps(t *testing.T) {
+	subj := fakeSubjects{cluster: "default"}
 	cases := []struct {
 		name string
 		opts server.Options
 	}{
-		{"nil config", server.Options{Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}}},
-		{"nil logger", server.Options{Config: newTestConfig(), Store: newTestStore(t), NATSManager: &trackingNATS{}}},
-		{"nil store", server.Options{Config: newTestConfig(), Logger: slog.Default(), NATSManager: &trackingNATS{}}},
-		{"nil nats", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t)}},
+		{"nil config", server.Options{Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj}},
+		{"nil logger", server.Options{Config: newTestConfig(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj}},
+		{"nil store", server.Options{Config: newTestConfig(), Logger: slog.Default(), NATSManager: &trackingNATS{}, Subjects: subj}},
+		{"nil nats", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), Subjects: subj}},
+		{"nil subjects", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -202,6 +217,7 @@ func TestNew_TLSEnabledRefused(t *testing.T) {
 	cfg.Server.TLS = config.TLSConfig{Enabled: true, CertFile: "/tmp/c", KeyFile: "/tmp/k"}
 	_, err := server.New(server.Options{
 		Config: cfg, Logger: slog.Default(), Store: store, NATSManager: tn,
+		Subjects: fakeSubjects{cluster: "default"},
 	})
 	if err == nil {
 		t.Fatal("TLS-enabled config should fail in task 4")
