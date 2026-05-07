@@ -216,8 +216,11 @@ func TestMigrator_TxLog(t *testing.T) {
 	if insertCount == 0 {
 		t.Error("expected insert entries in txlog")
 	}
-	if checkpoints != 4 {
-		t.Errorf("expected 4 checkpoints (one per table); got %d", checkpoints)
+	// One checkpoint per migrationTables entry (5 in v1.0:
+	// agents, commands, batch_jobs, batch_agent_results, apikeys).
+	if checkpoints != len(migrationTables) {
+		t.Errorf("expected %d checkpoints (one per table); got %d",
+			len(migrationTables), checkpoints)
 	}
 }
 

@@ -223,6 +223,9 @@ func (m *Migrator) migrateAgents(ctx context.Context, opts MigrationOptions, sta
 		offset += len(agents)
 	}
 
+	// Emit a final progress event so every table reports at least once
+	// (empty tables would otherwise never fire Update via the loop).
+	reporter.Update(table, ts.Read)
 	checkpoint(txlog, table, lastIDOf(stats, table))
 	return nil
 }
@@ -265,6 +268,7 @@ func (m *Migrator) migrateCommands(ctx context.Context, opts MigrationOptions, s
 		offset += len(cmds)
 	}
 
+	reporter.Update(table, ts.Read)
 	checkpoint(txlog, table, "")
 	return nil
 }
@@ -307,6 +311,7 @@ func (m *Migrator) migrateBatchJobs(ctx context.Context, opts MigrationOptions, 
 		offset += len(jobs)
 	}
 
+	reporter.Update(table, ts.Read)
 	checkpoint(txlog, table, "")
 	return nil
 }
@@ -349,6 +354,7 @@ func (m *Migrator) migrateAPIKeys(ctx context.Context, opts MigrationOptions, st
 		offset += len(keys)
 	}
 
+	reporter.Update(table, ts.Read)
 	checkpoint(txlog, table, "")
 	return nil
 }
@@ -409,6 +415,7 @@ func (m *Migrator) migrateBatchAgentResults(ctx context.Context, opts MigrationO
 		jobOffset += len(jobs)
 	}
 
+	reporter.Update(table, ts.Read)
 	checkpoint(txlog, table, "")
 	return nil
 }
