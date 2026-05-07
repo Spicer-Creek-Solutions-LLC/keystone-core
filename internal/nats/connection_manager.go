@@ -79,7 +79,7 @@ func NewConnectionManager(cfg config.NATSConfig, log *slog.Logger) (*ConnectionM
 	}
 	for _, e := range cm.endpoints {
 		cm.states[e.URL] = newEndpointState(e.URL)
-		cm.breakers[e.URL] = newBreaker()
+		cm.breakers[e.URL] = newBreaker(cfg.CircuitBreaker, cm.now)
 	}
 	return cm, nil
 }
@@ -216,7 +216,11 @@ func (cm *ConnectionManager) Shutdown(_ context.Context) error {
 
 // Health returns nil iff the connection is currently usable. A nil
 // error means at least one endpoint is in EndpointStatusConnected
-// AND the underlying conn reports IsConnected.
+// AND the underlying conn reports IsConnected. Additionally, the
+// breaker gating (Task 7): if every endpoint's circuit breaker is
+// OPEN we return an error even if the conn is currently connected,
+// because OPEN breakers signal sustained failure that /health/ready
+// should surface as 503.
 func (cm *ConnectionManager) Health(_ context.Context) error {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -230,7 +234,26 @@ func (cm *ConnectionManager) Health(_ context.Context) error {
 	if !cm.conn.IsConnected() {
 		return fmt.Errorf("nats: not connected (status=%s)", cm.conn.Status())
 	}
+	if cm.allBreakersOpenLocked() {
+		return errors.New("nats: all endpoint circuit breakers are open")
+	}
 	return nil
+}
+
+// allBreakersOpenLocked reports whether every configured endpoint's
+// breaker is in OPEN state. Returns false on an empty endpoint list
+// (no breakers means we don't have a degraded-route signal).
+// Caller holds cm.mu (read or write).
+func (cm *ConnectionManager) allBreakersOpenLocked() bool {
+	if len(cm.endpoints) == 0 {
+		return false
+	}
+	for _, e := range cm.endpoints {
+		if cm.breakers[e.URL].Status() != CircuitOpen {
+			return false
+		}
+	}
+	return true
 }
 
 // publishBytes sends pre-validated bytes on subject through the

@@ -338,6 +338,59 @@ func TestEndpointsFromConfig_PrefersEndpointsOverURLs(t *testing.T) {
 	}
 }
 
+func TestConnectionManager_HealthDegradesWhenAllBreakersOpen(t *testing.T) {
+	url := startSyntheticEndpoint(t)
+	cfg := externalCfg([]string{url})
+	cfg.CircuitBreaker = config.CircuitBreakerConfig{
+		Enabled:             true,
+		FailureThreshold:    1, // trip on a single failure for test speed
+		SuccessThreshold:    1,
+		OpenDuration:        time.Hour, // keep open for the duration of this test
+		HalfOpenMaxAttempts: 1,
+	}
+	cm := startConnMgr(t, cfg)
+
+	if err := cm.Health(context.Background()); err != nil {
+		t.Fatalf("Health pre-trip = %v, want nil", err)
+	}
+
+	// Drive the breaker for the active endpoint to OPEN.
+	cm.recordFailure(url, errSynthetic)
+
+	err := cm.Health(context.Background())
+	if err == nil {
+		t.Fatal("Health = nil after all breakers open, want error")
+	}
+	if !contains(err.Error(), "circuit breakers") {
+		t.Errorf("Health err = %v, want containing 'circuit breakers'", err)
+	}
+}
+
+func TestConnectionManager_HealthOKWhenSomeBreakersClosed(t *testing.T) {
+	live := startSyntheticEndpoint(t)
+	dead := "nats://127.0.0.1:1"
+	cfg := externalCfg([]string{live, dead})
+	cfg.CircuitBreaker = config.CircuitBreakerConfig{
+		Enabled:             true,
+		FailureThreshold:    1,
+		SuccessThreshold:    1,
+		OpenDuration:        time.Hour,
+		HalfOpenMaxAttempts: 1,
+	}
+	cm := startConnMgr(t, cfg)
+
+	// Trip the dead endpoint's breaker but leave the live one closed.
+	cm.recordFailure(dead, errSynthetic)
+
+	if err := cm.Health(context.Background()); err != nil {
+		t.Errorf("Health = %v, want nil with one breaker closed", err)
+	}
+}
+
+// errSynthetic is a small sentinel for tests that need to feed an
+// arbitrary error into the breaker callbacks.
+var errSynthetic = errors.New("synthetic")
+
 func TestConnectionManager_EndpointsCopy(t *testing.T) {
 	url := startSyntheticEndpoint(t)
 	cm := startConnMgr(t, externalCfg([]string{url}))

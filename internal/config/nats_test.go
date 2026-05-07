@@ -268,6 +268,58 @@ func TestDedupConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestCircuitBreakerConfig_Validate(t *testing.T) {
+	good := CircuitBreakerConfig{
+		Enabled:             true,
+		FailureThreshold:    5,
+		SuccessThreshold:    2,
+		OpenDuration:        30 * time.Second,
+		HalfOpenMaxAttempts: 3,
+	}
+	tests := []struct {
+		name    string
+		mut     func(*CircuitBreakerConfig)
+		wantErr string
+	}{
+		{"defaults ok", func(*CircuitBreakerConfig) {}, ""},
+		{"disabled skips checks", func(c *CircuitBreakerConfig) {
+			c.Enabled = false
+			c.FailureThreshold = 0
+			c.SuccessThreshold = 0
+			c.OpenDuration = 0
+			c.HalfOpenMaxAttempts = 0
+		}, ""},
+		{"failure threshold zero", func(c *CircuitBreakerConfig) { c.FailureThreshold = 0 }, "failurethreshold"},
+		{"failure threshold negative", func(c *CircuitBreakerConfig) { c.FailureThreshold = -1 }, "failurethreshold"},
+		{"success threshold zero", func(c *CircuitBreakerConfig) { c.SuccessThreshold = 0 }, "successthreshold"},
+		{"open duration zero", func(c *CircuitBreakerConfig) { c.OpenDuration = 0 }, "openduration"},
+		{"half-open max zero", func(c *CircuitBreakerConfig) { c.HalfOpenMaxAttempts = 0 }, "halfopenmaxattempts"},
+		{"half-open max less than success threshold", func(c *CircuitBreakerConfig) {
+			c.HalfOpenMaxAttempts = 1
+			c.SuccessThreshold = 2
+		}, "halfopenmaxattempts"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := good
+			tt.mut(&cfg)
+			err := cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate = nil, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestNATSConfig_Defaults(t *testing.T) {
 	cfg, err := Load("")
 	if err != nil {
@@ -311,6 +363,21 @@ func TestNATSConfig_Defaults(t *testing.T) {
 	}
 	if cfg.NATS.Dedup.CleanupInterval != 30*time.Second {
 		t.Errorf("Dedup.CleanupInterval = %s, want 30s", cfg.NATS.Dedup.CleanupInterval)
+	}
+	if !cfg.NATS.CircuitBreaker.Enabled {
+		t.Error("CircuitBreaker.Enabled = false, want true")
+	}
+	if cfg.NATS.CircuitBreaker.FailureThreshold != 5 {
+		t.Errorf("FailureThreshold = %d, want 5", cfg.NATS.CircuitBreaker.FailureThreshold)
+	}
+	if cfg.NATS.CircuitBreaker.SuccessThreshold != 2 {
+		t.Errorf("SuccessThreshold = %d, want 2", cfg.NATS.CircuitBreaker.SuccessThreshold)
+	}
+	if cfg.NATS.CircuitBreaker.OpenDuration != 30*time.Second {
+		t.Errorf("OpenDuration = %s, want 30s", cfg.NATS.CircuitBreaker.OpenDuration)
+	}
+	if cfg.NATS.CircuitBreaker.HalfOpenMaxAttempts != 3 {
+		t.Errorf("HalfOpenMaxAttempts = %d, want 3", cfg.NATS.CircuitBreaker.HalfOpenMaxAttempts)
 	}
 }
 

@@ -31,9 +31,30 @@ type NATSConfig struct {
 	ReconnectWait time.Duration    `koanf:"reconnectwait"`
 	ClusterName   string           `koanf:"clustername"`
 
-	JetStream JetStreamConfig    `koanf:"jetstream"`
-	Embedded  EmbeddedNATSConfig `koanf:"embedded"`
-	Dedup     DedupConfig        `koanf:"dedup"`
+	JetStream      JetStreamConfig      `koanf:"jetstream"`
+	Embedded       EmbeddedNATSConfig   `koanf:"embedded"`
+	Dedup          DedupConfig          `koanf:"dedup"`
+	CircuitBreaker CircuitBreakerConfig `koanf:"circuitbreaker"`
+}
+
+// CircuitBreakerConfig configures the per-endpoint circuit breaker
+// (Epic 05 task 7). State machine: closed → open → half-open →
+// closed. PROJECT-DETAILS §4.2.
+//
+// v1.0 wiring: each endpoint owns one breaker. ConnectionManager
+// drives transitions via the disconnect/reconnect callbacks already
+// in place from task 2; Health degrades to error when every endpoint
+// is OPEN. Active dial-time eviction (skipping OPEN endpoints when
+// nats.go picks the next reconnect target) is deferred to v1.x —
+// it requires replacing nats.go's native multi-URL failover with a
+// per-endpoint dial loop, which is a substantial refactor for
+// marginal v1.0 benefit.
+type CircuitBreakerConfig struct {
+	Enabled             bool          `koanf:"enabled"`
+	FailureThreshold    int           `koanf:"failurethreshold"`
+	SuccessThreshold    int           `koanf:"successthreshold"`
+	OpenDuration        time.Duration `koanf:"openduration"`
+	HalfOpenMaxAttempts int           `koanf:"halfopenmaxattempts"`
 }
 
 // DedupConfig configures producer-side message dedup (Epic 05 task
@@ -135,10 +156,39 @@ func (n NATSConfig) Validate() error {
 	if err := n.Dedup.Validate(); err != nil {
 		return fmt.Errorf("dedup: %w", err)
 	}
+	if err := n.CircuitBreaker.Validate(); err != nil {
+		return fmt.Errorf("circuitbreaker: %w", err)
+	}
 	if n.Mode == NATSModeEmbedded {
 		if err := n.Embedded.Validate(); err != nil {
 			return fmt.Errorf("embedded: %w", err)
 		}
+	}
+	return nil
+}
+
+// Validate enforces positive thresholds and a positive OpenDuration
+// when enabled. Disabled config skips checks since the values are
+// unused.
+func (c CircuitBreakerConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.FailureThreshold <= 0 {
+		return fmt.Errorf("failurethreshold: must be positive when enabled, got %d", c.FailureThreshold)
+	}
+	if c.SuccessThreshold <= 0 {
+		return fmt.Errorf("successthreshold: must be positive when enabled, got %d", c.SuccessThreshold)
+	}
+	if c.OpenDuration <= 0 {
+		return fmt.Errorf("openduration: must be positive when enabled, got %s", c.OpenDuration)
+	}
+	if c.HalfOpenMaxAttempts <= 0 {
+		return fmt.Errorf("halfopenmaxattempts: must be positive when enabled, got %d", c.HalfOpenMaxAttempts)
+	}
+	if c.HalfOpenMaxAttempts < c.SuccessThreshold {
+		return fmt.Errorf("halfopenmaxattempts (%d) must be >= successthreshold (%d) so the breaker can close",
+			c.HalfOpenMaxAttempts, c.SuccessThreshold)
 	}
 	return nil
 }

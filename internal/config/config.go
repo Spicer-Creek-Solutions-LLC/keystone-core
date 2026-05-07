@@ -97,6 +97,13 @@ func defaultConfig() *Config {
 				MaxEntries:      100_000,
 				CleanupInterval: 30 * time.Second,
 			},
+			CircuitBreaker: CircuitBreakerConfig{
+				Enabled:             true,
+				FailureThreshold:    5,
+				SuccessThreshold:    2,
+				OpenDuration:        30 * time.Second,
+				HalfOpenMaxAttempts: 3,
+			},
 		},
 	}
 }
