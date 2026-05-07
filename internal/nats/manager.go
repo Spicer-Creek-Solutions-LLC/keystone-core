@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,8 +25,8 @@ const embeddedReadyTimeout = 10 * time.Second
 //
 //   - embedded: starts a nats-server/v2 in-process and dials it with
 //     nats.InProcessServer (no loopback socket round-trip).
-//   - external: opens a single nats.Connect against the configured URL
-//     list, with reconnect handled by nats.go.
+//   - external: delegates to ConnectionManager (Task 2) which handles
+//     multi-endpoint failover and per-endpoint state tracking.
 //
 // It satisfies pkg/api/server.NATSManager. Methods are safe to call
 // concurrently; Start and Shutdown are idempotent.
@@ -39,7 +38,8 @@ type Manager struct {
 	started  bool
 	stopped  bool
 	embedded *natsserver.Server // nil in external mode
-	conn     *nats.Conn         // nil before Start, after Shutdown
+	conn     *nats.Conn         // embedded mode only
+	connMgr  *ConnectionManager // external mode only
 }
 
 // New constructs a Manager from validated config. It does not open
@@ -75,7 +75,7 @@ func (m *Manager) Start(ctx context.Context) error {
 			return err
 		}
 	case config.NATSModeExternal:
-		if err := m.startExternal(); err != nil {
+		if err := m.startExternal(ctx); err != nil {
 			return err
 		}
 	default:
@@ -149,16 +149,15 @@ func (m *Manager) startEmbedded(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) startExternal() error {
-	url := strings.Join(m.cfg.URLs, ",")
-	conn, err := nats.Connect(url, buildClientOptions(m.cfg)...)
+func (m *Manager) startExternal(ctx context.Context) error {
+	cm, err := NewConnectionManager(m.cfg, m.log)
 	if err != nil {
-		return fmt.Errorf("nats: connect %q: %w", url, err)
+		return fmt.Errorf("nats: connection manager: %w", err)
 	}
-	m.conn = conn
-	m.log.Info("nats external connection established",
-		"urls", m.cfg.URLs,
-	)
+	if err := cm.Start(ctx); err != nil {
+		return err
+	}
+	m.connMgr = cm
 	return nil
 }
 
@@ -193,6 +192,15 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		return nil
 	}
 
+	if m.connMgr != nil {
+		if err := m.connMgr.Shutdown(ctx); err != nil {
+			m.connMgr = nil
+			m.stopped = true
+			return err
+		}
+		m.connMgr = nil
+	}
+
 	if m.conn != nil {
 		m.conn.Close()
 		m.conn = nil
@@ -222,19 +230,31 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 // Health reports nil when the transport is currently usable. Pre-Start
 // or post-Shutdown returns an error so /health/ready flips to 503
-// cleanly during boot and shutdown windows.
-func (m *Manager) Health(_ context.Context) error {
+// cleanly during boot and shutdown windows. External mode delegates
+// to ConnectionManager.Health; embedded mode checks the in-process
+// conn directly.
+func (m *Manager) Health(ctx context.Context) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	stopped := m.stopped
+	started := m.started
+	cm := m.connMgr
+	conn := m.conn
+	m.mu.Unlock()
 
-	if m.stopped {
+	if stopped {
 		return errors.New("nats: shut down")
 	}
-	if !m.started || m.conn == nil {
+	if !started {
 		return errors.New("nats: not started")
 	}
-	if !m.conn.IsConnected() {
-		return fmt.Errorf("nats: not connected (status=%s)", m.conn.Status())
+	if cm != nil {
+		return cm.Health(ctx)
+	}
+	if conn == nil {
+		return errors.New("nats: not started")
+	}
+	if !conn.IsConnected() {
+		return fmt.Errorf("nats: not connected (status=%s)", conn.Status())
 	}
 	// Embedded readiness is verified during Start; once running, we
 	// trust the conn-level state. ReadyForConnections(0) returns false
@@ -243,20 +263,28 @@ func (m *Manager) Health(_ context.Context) error {
 	return nil
 }
 
-// Publish sends data on subject. Subject validation and the cluster
-// prefix come from SubjectBuilder in Task 4; this method passes the
-// subject through unchanged so the dispatcher controls naming.
-func (m *Manager) Publish(_ context.Context, subject string, data []byte) error {
+// Publish sends data on subject. External mode routes through
+// ConnectionManager so per-endpoint state tracks publish outcomes;
+// embedded mode publishes directly on the in-process conn. Subject
+// validation and cluster prefixing come from SubjectBuilder in Task 4.
+func (m *Manager) Publish(ctx context.Context, subject string, data []byte) error {
 	m.mu.Lock()
-	conn := m.conn
 	stopped := m.stopped
 	started := m.started
+	cm := m.connMgr
+	conn := m.conn
 	m.mu.Unlock()
 
 	if stopped {
 		return errors.New("nats: shut down")
 	}
-	if !started || conn == nil {
+	if !started {
+		return errors.New("nats: not started")
+	}
+	if cm != nil {
+		return cm.Publish(ctx, subject, data)
+	}
+	if conn == nil {
 		return errors.New("nats: not started")
 	}
 	if err := conn.Publish(subject, data); err != nil {
@@ -265,18 +293,41 @@ func (m *Manager) Publish(_ context.Context, subject string, data []byte) error 
 	return nil
 }
 
-// ClientURL returns the URL clients should use to connect. For embedded
-// mode it's the local nats-server address; for external mode it's the
-// first configured URL. Used by tests; production code should not need
-// it directly.
+// ClientURL returns the URL clients should use to connect. For
+// embedded mode it's the local nats-server address. For external mode
+// it's the active endpoint when connected, or the highest-priority
+// endpoint URL otherwise. Used by tests; production code should not
+// need it directly.
 func (m *Manager) ClientURL() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.embedded != nil {
 		return m.embedded.ClientURL()
 	}
+	if m.connMgr != nil {
+		if active, ok := m.connMgr.ActiveEndpoint(); ok {
+			return active
+		}
+		eps := m.connMgr.Endpoints()
+		if len(eps) > 0 {
+			return eps[0].URL
+		}
+	}
 	if len(m.cfg.URLs) > 0 {
 		return m.cfg.URLs[0]
 	}
 	return ""
+}
+
+// EndpointSnapshots returns the per-endpoint snapshot in external
+// mode, or nil for embedded mode. Used by /api/status (Task 11
+// wiring) and by tests.
+func (m *Manager) EndpointSnapshots() []EndpointSnapshot {
+	m.mu.Lock()
+	cm := m.connMgr
+	m.mu.Unlock()
+	if cm == nil {
+		return nil
+	}
+	return cm.Snapshot()
 }

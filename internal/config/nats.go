@@ -15,21 +15,36 @@ const (
 	NATSModeExternal NATSMode = "external"
 )
 
-// NATSConfig configures the v1.0 NATS transport. Multi-endpoint
-// failover, circuit breakers, and bootstrap registration are wired
-// in later Epic 05 tasks; this struct only carries fields needed to
-// stand up a single embedded server or open a single client connection.
+// NATSConfig configures the v1.0 NATS transport.
+//
+// Endpoints (Task 2/3) supersedes URLs for richer config (priority,
+// weight, tags). Both are accepted for ergonomics: simple deployments
+// list URLs; HA deployments use Endpoints. They are mutually exclusive
+// in external mode — populating both is rejected at Validate.
 type NATSConfig struct {
-	Mode          NATSMode      `koanf:"mode"`
-	URLs          []string      `koanf:"urls"`
-	Token         string        `koanf:"token"`
-	Credential    string        `koanf:"credential"`
-	MaxReconnects int           `koanf:"maxreconnects"`
-	ReconnectWait time.Duration `koanf:"reconnectwait"`
-	ClusterName   string        `koanf:"clustername"`
+	Mode          NATSMode         `koanf:"mode"`
+	URLs          []string         `koanf:"urls"`
+	Endpoints     []EndpointConfig `koanf:"endpoints"`
+	Token         string           `koanf:"token"`
+	Credential    string           `koanf:"credential"`
+	MaxReconnects int              `koanf:"maxreconnects"`
+	ReconnectWait time.Duration    `koanf:"reconnectwait"`
+	ClusterName   string           `koanf:"clustername"`
 
 	JetStream JetStreamConfig    `koanf:"jetstream"`
 	Embedded  EmbeddedNATSConfig `koanf:"embedded"`
+}
+
+// EndpointConfig is the structured form of a single NATS endpoint
+// consumed by ConnectionManager. Priority orders the connect-attempt
+// list (higher first). Weight is reserved for v1.3+ load distribution
+// and ignored today. Tags are operator labels passed through to
+// EndpointSnapshot for observability.
+type EndpointConfig struct {
+	URL      string   `koanf:"url"`
+	Priority int      `koanf:"priority"`
+	Weight   int      `koanf:"weight"`
+	Tags     []string `koanf:"tags"`
 }
 
 // JetStreamConfig governs JetStream enablement on the embedded server
@@ -58,13 +73,24 @@ func (n NATSConfig) Validate() error {
 		if len(n.URLs) != 0 {
 			return fmt.Errorf("urls: must be empty when mode=embedded")
 		}
+		if len(n.Endpoints) != 0 {
+			return fmt.Errorf("endpoints: must be empty when mode=embedded")
+		}
 	case NATSModeExternal:
-		if len(n.URLs) == 0 {
-			return fmt.Errorf("urls: must be non-empty when mode=external")
+		if len(n.URLs) == 0 && len(n.Endpoints) == 0 {
+			return fmt.Errorf("urls/endpoints: at least one must be set when mode=external")
+		}
+		if len(n.URLs) > 0 && len(n.Endpoints) > 0 {
+			return fmt.Errorf("urls/endpoints: mutually exclusive; pick one form")
 		}
 		for i, u := range n.URLs {
 			if u == "" {
 				return fmt.Errorf("urls[%d]: must not be empty", i)
+			}
+		}
+		for i, e := range n.Endpoints {
+			if err := e.Validate(); err != nil {
+				return fmt.Errorf("endpoints[%d]: %w", i, err)
 			}
 		}
 	default:
@@ -88,6 +114,19 @@ func (n NATSConfig) Validate() error {
 		if err := n.Embedded.Validate(); err != nil {
 			return fmt.Errorf("embedded: %w", err)
 		}
+	}
+	return nil
+}
+
+// Validate rejects empty URLs and negative weights. Priority can be
+// any int (higher wins); weight 0 is allowed and treated as "use
+// default" by ConnectionManager.
+func (e EndpointConfig) Validate() error {
+	if e.URL == "" {
+		return fmt.Errorf("url: must not be empty")
+	}
+	if e.Weight < 0 {
+		return fmt.Errorf("weight: must not be negative, got %d", e.Weight)
 	}
 	return nil
 }

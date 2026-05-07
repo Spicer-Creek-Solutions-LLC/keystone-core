@@ -140,6 +140,58 @@ func TestNATSConfig_Validate(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"endpoints accepted in external mode",
+			func(c *NATSConfig) {
+				c.Mode = NATSModeExternal
+				c.URLs = nil
+				c.Endpoints = []EndpointConfig{{URL: "nats://a:4222", Priority: 10}}
+			},
+			"",
+		},
+		{
+			"urls and endpoints mutually exclusive",
+			func(c *NATSConfig) {
+				c.Mode = NATSModeExternal
+				c.URLs = []string{"nats://a:4222"}
+				c.Endpoints = []EndpointConfig{{URL: "nats://b:4222"}}
+			},
+			"mutually exclusive",
+		},
+		{
+			"external requires urls or endpoints",
+			func(c *NATSConfig) {
+				c.Mode = NATSModeExternal
+				c.URLs = nil
+				c.Endpoints = nil
+			},
+			"at least one",
+		},
+		{
+			"embedded forbids endpoints",
+			func(c *NATSConfig) {
+				c.Endpoints = []EndpointConfig{{URL: "nats://x:4222"}}
+			},
+			"endpoints",
+		},
+		{
+			"endpoint URL empty rejected",
+			func(c *NATSConfig) {
+				c.Mode = NATSModeExternal
+				c.URLs = nil
+				c.Endpoints = []EndpointConfig{{URL: ""}}
+			},
+			"url",
+		},
+		{
+			"endpoint weight negative rejected",
+			func(c *NATSConfig) {
+				c.Mode = NATSModeExternal
+				c.URLs = nil
+				c.Endpoints = []EndpointConfig{{URL: "nats://a", Weight: -1}}
+			},
+			"weight",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

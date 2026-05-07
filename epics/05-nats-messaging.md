@@ -49,8 +49,8 @@ See `PROJECT-DETAILS.md §4.2`.
 ## Tasks
 
 1. **`Manager`** — embedded server lifecycle (Start, Shutdown) + external connection lifecycle via `nats.Connect()`. _(landed: `internal/nats.Manager`, embedded uses `nats.InProcessServer`; cmd/kscore-server now constructs the real manager from `cfg.NATS`.)_
-2. **`ConnectionManager`** — multi-endpoint with health check, failover, circuit breaker. Tests with synthetic endpoints.
-3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count).
+2. **`ConnectionManager`** — multi-endpoint with health check, failover, circuit breaker. Tests with synthetic endpoints. _(landed combined with task 3: external mode delegates to `ConnectionManager`; v1.0 leans on nats.go native multi-URL failover with per-endpoint observability layered via callbacks. `Breaker` interface in place; real state machine arrives in task 7.)_
+3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count). _(landed with task 2: `internal/nats/endpoint.go`; latency P50/P99 from a 64-sample ring buffer fed by 5s RTT probes.)_
 4. **`SubjectBuilder`** with mandatory cluster prefix.
 5. **`Envelope`** wrapper + JSON codec.
 6. **Dedup** — SHA-256 keyed sliding window in memory; cleanup loop.
