@@ -93,6 +93,15 @@ jobs:
           cache: true
       - run: make smoke
 
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The Forgejo Actions runner image (node:22-bookworm) has npm/npx
+      # preinstalled. The job runs make openapi-lint, which uses
+      # `npx --yes` to fetch redocly without persisting node_modules.
+      - run: make openapi-lint
+
   proto:
     runs-on: ubuntu-latest
     steps:

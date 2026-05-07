@@ -41,6 +41,7 @@ export CGO_ENABLED := 0
         test test-verbose test-coverage test-integration check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
+        openapi-lint \
         dev dev-server dev-agent \
         release-snapshot release-dry-run \
         security-secrets security-vulns security-sast
@@ -149,6 +150,15 @@ proto-breaking: ## Check protos for breaking changes vs. previous commit
 	# the just-pushed commit (i.e., self vs. self — no diff). HEAD~1
 	# is the right semantic for "what was this before this push?".
 	buf breaking --against '.git#ref=HEAD~1'
+
+# ---- OpenAPI --------------------------------------------------------------
+
+openapi-lint: ## Lint api/openapi/openapi-spec.yaml via redocly
+	@command -v npx >/dev/null || { \
+		echo "ERROR: openapi-lint needs npm/npx (install Node.js)"; \
+		exit 1; \
+	}
+	npx --yes @redocly/cli@latest lint api/openapi/openapi-spec.yaml
 
 # ---- Dev run --------------------------------------------------------------
 

@@ -1,0 +1,1277 @@
+# Keystone Core REST API — v1.0 OpenAPI specification.
+#
+# Hand-maintained per PROJECT-DETAILS §4.5 (auto-generation deferred
+# to v2.0). Discipline: every new RPC ships its REST handler in the
+# same PR; every new REST handler ships its OpenAPI entry in the
+# same PR. CI runs `make openapi-lint` on every push.
+#
+# Detail level: scaffold-grade. Summaries, parameter shapes, and
+# response codes; request/response bodies $ref the shared schemas in
+# `components.schemas`. Owning epics extend operation-specific detail
+# (validation, sub-fields beyond the canonical shapes) when their
+# handlers land.
+#
+# Per-domain ownership:
+#   agents      epic 06    apikeys     epic 03 task 5
+#   auth        epic 03 task 4
+#   cluster     epic 13    events      epic 11
+#   execution   epic 07    gitops      epic 16
+#   maintenance v1.1       policy      epic 12
+#   runbook     epic 15    schedule    v1.1
+#   secrets     epic 10    state       epic 08
+#   webhooks    epic 14
+
+openapi: 3.0.3
+
+info:
+  title: Keystone Core API
+  description: |
+    Runtime operations control plane between deployment tooling
+    (GitOps/IaC) and day-2 operations.
+
+    This spec covers the REST surface; gRPC contracts live in
+    `api/proto/keystone/core/v1/`. The two surfaces should stay in
+    sync — every gRPC method has a corresponding REST endpoint.
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev server (default kscore-server HTTP port)
+  - url: https://{host}
+    description: Production
+    variables:
+      host:
+        default: kscore.example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: agents
+    description: Registered control-plane agents
+  - name: apikeys
+    description: API key lifecycle (create, list, delete)
+  - name: cluster
+    description: Cluster topology + backup/restore
+  - name: events
+    description: Event log + subscription
+  - name: execution
+    description: Remote command + batch dispatch
+  - name: gitops
+    description: GitOps repo wiring + webhook ingest
+  - name: maintenance
+    description: Maintenance windows (v1.1)
+  - name: policy
+    description: Audit-mode policy evaluation + violations
+  - name: runbook
+    description: Runbook catalog + execution
+  - name: schedule
+    description: Scheduled jobs (v1.1)
+  - name: secrets
+    description: KV + leases + transit (encrypt/decrypt/sign/verify)
+  - name: state
+    description: Declarative state apply / drift / history
+  - name: webhooks
+    description: Outbound webhook subscriptions
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: api-key|jwt
+      description: |
+        API key (`Authorization: Bearer <key>`) or JWT
+        (`Authorization: Bearer <jwt>`). Both are validated by
+        pkg/api/auth's chain.
+
+        Note: `CoordinationService` (server↔server) requires mTLS at
+        the transport layer and is NOT part of this REST surface.
+        OpenAPI 3.0 has no `mutualTLS` security scheme; the
+        coordination methods are gRPC-only by design.
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+
+    AgentStatus:
+      type: string
+      enum: [unspecified, pending, connected, stale, disabled]
+
+    CommandStatus:
+      type: string
+      enum: [unspecified, pending, running, completed, failed, timeout, cancelled]
+
+    BatchJobStatus:
+      type: string
+      enum: [unspecified, pending, running, completed, failed, partial, cancelled]
+
+    Agent:
+      type: object
+      properties:
+        id: { type: string }
+        hostname: { type: string }
+        os: { type: string }
+        architecture: { type: string }
+        ip_addresses:
+          type: array
+          items: { type: string }
+        platform_version: { type: string }
+        agent_version: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        status: { $ref: "#/components/schemas/AgentStatus" }
+        registered_at: { type: string, format: date-time }
+        last_heartbeat_at: { type: string, format: date-time }
+        metrics:
+          type: object
+          additionalProperties: { type: string }
+
+    Command:
+      type: object
+      properties:
+        id: { type: string }
+        agent_id: { type: string }
+        command: { type: string }
+        args:
+          type: array
+          items: { type: string }
+        env:
+          type: object
+          additionalProperties: { type: string }
+        working_dir: { type: string }
+        user: { type: string }
+        timeout_seconds: { type: integer }
+        status: { $ref: "#/components/schemas/CommandStatus" }
+        exit_code: { type: integer }
+        stdout: { type: string }
+        stderr: { type: string }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+
+    Target:
+      description: |
+        Selectors are AND'd; an empty target matches no agents.
+      type: object
+      properties:
+        agent_ids:
+          type: array
+          items: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        hostname_pattern: { type: string }
+
+    BatchJob:
+      type: object
+      properties:
+        id: { type: string }
+        target: { $ref: "#/components/schemas/Target" }
+        command: { type: string }
+        args:
+          type: array
+          items: { type: string }
+        status: { $ref: "#/components/schemas/BatchJobStatus" }
+        concurrency: { type: integer }
+        total_agents: { type: integer }
+        completed_agents: { type: integer }
+        successful_agents: { type: integer }
+        failed_agents: { type: integer }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+
+    BatchAgentResult:
+      type: object
+      properties:
+        batch_job_id: { type: string }
+        agent_id: { type: string }
+        success: { type: boolean }
+        exit_code: { type: integer }
+        error: { type: string }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        source: { type: string }
+        severity:
+          type: string
+          enum: [unspecified, debug, info, warn, error, critical]
+        at: { type: string, format: date-time }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+        message: { type: string }
+        correlation_id: { type: string }
+
+    Policy:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        engine:
+          type: string
+          enum: [unspecified, opa, cel]
+        source:
+          type: string
+          description: OPA Rego or CEL expression text.
+        status:
+          type: string
+          enum: [unspecified, audit, enforce, disabled]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PolicyViolation:
+      type: object
+      properties:
+        id: { type: string }
+        policy_id: { type: string }
+        resource_type: { type: string }
+        resource_id: { type: string }
+        detail: { type: string }
+        detected_at: { type: string, format: date-time }
+
+    SecretMetadata:
+      description: Non-sensitive metadata; cleartext is never returned in lists.
+      type: object
+      properties:
+        path: { type: string }
+        version: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+
+    Lease:
+      type: object
+      properties:
+        id: { type: string }
+        secret_path: { type: string }
+        holder: { type: string }
+        issued_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        renewable: { type: boolean }
+
+    ClusterMember:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        address: { type: string }
+        role:
+          type: string
+          enum: [unspecified, leader, follower, learner]
+        status:
+          type: string
+          enum: [unspecified, healthy, degraded, unreachable, left]
+        version: { type: string }
+        joined_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+
+    APIKeyMetadata:
+      description: |
+        Public shape of an API key. Cleartext appears ONLY in the
+        201 response of POST /api/v1/apikeys; never in subsequent
+        reads.
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role:
+          type: string
+          enum: [admin, operator, readonly]
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_used: { type: string, format: date-time }
+
+    APIKeyCreated:
+      allOf:
+        - $ref: "#/components/schemas/APIKeyMetadata"
+        - type: object
+          properties:
+            key:
+              type: string
+              description: |
+                Cleartext API key. **Returned exactly once on
+                creation; never persisted; never surfaced again.**
+                Operators must capture this value immediately.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but lacks required role.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: Invalid request body or query parameters.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotImplemented:
+      description: |
+        Endpoint is registered but the concrete handler hasn't
+        landed yet. v1.0 scaffold returns 501 from every per-domain
+        stub until its owning epic ships.
+      content:
+        text/plain:
+          schema: { type: string }
+    Gone:
+      description: Endpoint retired (versioning registry sunset).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  parameters:
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 1000 }
+      description: Server may cap at a smaller value.
+    PageToken:
+      name: page_token
+      in: query
+      schema: { type: string }
+
+paths:
+  # ---- agents -----------------------------------------------------------
+  /api/v1/agents:
+    get:
+      tags: [agents]
+      summary: List agents
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - in: query
+          name: status
+          schema: { $ref: "#/components/schemas/AgentStatus" }
+        - in: query
+          name: label_key
+          schema: { type: string }
+        - in: query
+          name: label_value
+          schema: { type: string }
+      responses:
+        "200":
+          description: Page of agents.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Agent" }
+                  next_page_token: { type: string }
+                  total_count: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/agents/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [agents]
+      summary: Get one agent
+      responses:
+        "200":
+          description: Agent record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Agent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [agents]
+      summary: Unregister an agent
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- apikeys ----------------------------------------------------------
+  /api/v1/apikeys:
+    get:
+      tags: [apikeys]
+      summary: List API keys (metadata only)
+      responses:
+        "200":
+          description: All keys; cleartext NEVER included.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apikeys:
+                    type: array
+                    items: { $ref: "#/components/schemas/APIKeyMetadata" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [apikeys]
+      summary: Create an API key
+      description: |
+        Returns the cleartext key in the response body. The cleartext
+        is never persisted — only the SHA-256 hash. Capture the value
+        immediately; subsequent reads return metadata only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role]
+              properties:
+                name: { type: string }
+                role:
+                  type: string
+                  enum: [admin, operator, readonly]
+                expires_at: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Key created; cleartext returned once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/APIKeyCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/apikeys/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [apikeys]
+      summary: Get one API key (metadata only)
+      responses:
+        "200":
+          description: Key metadata.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/APIKeyMetadata" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [apikeys]
+      summary: Revoke an API key
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---- cluster ----------------------------------------------------------
+  /api/v1/cluster/status:
+    get:
+      tags: [cluster]
+      summary: Cluster status snapshot
+      responses:
+        "200":
+          description: Cluster summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cluster_id: { type: string }
+                  leader_id: { type: string }
+                  member_count: { type: integer }
+                  healthy_count: { type: integer }
+                  quorum: { type: boolean }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/cluster/leader:
+    get:
+      tags: [cluster]
+      summary: Get current leader
+      responses:
+        "200":
+          description: Current leader.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leader: { $ref: "#/components/schemas/ClusterMember" }
+                  term: { type: integer }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/cluster/members:
+    get:
+      tags: [cluster]
+      summary: List cluster members
+      responses:
+        "200":
+          description: Members.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ClusterMember" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [cluster]
+      summary: Add a member (cluster join)
+      responses:
+        "201": { description: Member added. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/cluster/members/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [cluster]
+      summary: Get member
+      responses:
+        "200":
+          description: Member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClusterMember" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [cluster]
+      summary: Remove a member
+      responses:
+        "204": { description: Removed. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/cluster/backup:
+    post:
+      tags: [cluster]
+      summary: Create a cluster backup
+      responses:
+        "201":
+          description: Backup created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backup_id: { type: string }
+                  location: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/cluster/restore:
+    post:
+      tags: [cluster]
+      summary: Restore from a backup
+      responses:
+        "200": { description: Restore complete. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- events -----------------------------------------------------------
+  /api/v1/events:
+    get:
+      tags: [events]
+      summary: List events
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: Page of events.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  next_page_token: { type: string }
+                  total_count: { type: integer }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [events]
+      summary: Emit an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Event" }
+      responses:
+        "201":
+          description: Event recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event_id: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/events/types:
+    get:
+      tags: [events]
+      summary: List known event types
+      responses:
+        "200":
+          description: Event-type catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  types:
+                    type: array
+                    items: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/events/stats:
+    get:
+      tags: [events]
+      summary: Event counts by type and severity
+      responses:
+        "200":
+          description: Aggregated counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  by_type:
+                    type: object
+                    additionalProperties: { type: integer }
+                  by_severity:
+                    type: object
+                    additionalProperties: { type: integer }
+                  total: { type: integer }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/events/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [events]
+      summary: Get one event
+      responses:
+        "200":
+          description: Event.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- execution --------------------------------------------------------
+  /api/v1/execution/commands:
+    get:
+      tags: [execution]
+      summary: List command history
+      responses:
+        "200":
+          description: Command page.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commands:
+                    type: array
+                    items: { $ref: "#/components/schemas/Command" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [execution]
+      summary: Dispatch a command to one agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, command]
+              properties:
+                agent_id: { type: string }
+                command: { type: string }
+                args:
+                  type: array
+                  items: { type: string }
+                env:
+                  type: object
+                  additionalProperties: { type: string }
+                working_dir: { type: string }
+                user: { type: string }
+                timeout_seconds: { type: integer }
+      responses:
+        "202":
+          description: Command queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  command_id: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/execution/batch:
+    post:
+      tags: [execution]
+      summary: Dispatch a command to multiple agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target, command]
+              properties:
+                target: { $ref: "#/components/schemas/Target" }
+                command: { type: string }
+                args:
+                  type: array
+                  items: { type: string }
+                concurrency: { type: integer }
+                continue_on_failure: { type: boolean }
+      responses:
+        "202":
+          description: Batch queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch_job_id: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/execution/commands/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [execution]
+      summary: Command status
+      responses:
+        "200":
+          description: Command.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Command" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [execution]
+      summary: Cancel a command
+      responses:
+        "204": { description: Cancellation requested. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- gitops -----------------------------------------------------------
+  /api/v1/gitops/repos:
+    get:
+      tags: [gitops]
+      summary: List wired GitOps repos
+      responses:
+        "200": { description: Repo list. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [gitops]
+      summary: Wire a new repo
+      responses:
+        "201": { description: Repo registered. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/gitops/repos/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [gitops]
+      summary: Unregister a repo
+      responses:
+        "204": { description: Deleted. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/gitops/sync:
+    post:
+      tags: [gitops]
+      summary: Trigger a manual sync
+      responses:
+        "202": { description: Sync queued. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/gitops/webhook:
+    post:
+      tags: [gitops]
+      summary: Inbound GitHub/GitLab/Argo webhook receiver
+      security: []  # webhook signature verification, not bearer auth
+      responses:
+        "204": { description: Webhook accepted. }
+        "401": { description: Bad signature. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- maintenance (v1.1) ----------------------------------------------
+  /api/v1/maintenance/windows:
+    get:
+      tags: [maintenance]
+      summary: List maintenance windows
+      responses:
+        "200": { description: Windows. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [maintenance]
+      summary: Create a maintenance window
+      responses:
+        "201": { description: Created. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/maintenance/windows/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [maintenance]
+      summary: Get a maintenance window
+      responses:
+        "200": { description: Window. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [maintenance]
+      summary: Cancel a maintenance window
+      responses:
+        "204": { description: Cancelled. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- policy -----------------------------------------------------------
+  /api/v1/policies:
+    get:
+      tags: [policy]
+      summary: List policies
+      responses:
+        "200":
+          description: Policy list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Policy" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/policies/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [policy]
+      summary: Get a policy
+      responses:
+        "200":
+          description: Policy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/policies/evaluate:
+    post:
+      tags: [policy]
+      summary: Evaluate a policy against an input document
+      responses:
+        "200":
+          description: Decision.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_id: { type: string }
+                  allowed: { type: boolean }
+                  reason: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/policies/violations:
+    get:
+      tags: [policy]
+      summary: List policy violations
+      responses:
+        "200":
+          description: Violations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PolicyViolation" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/policies/compliance:
+    get:
+      tags: [policy]
+      summary: Compliance report
+      responses:
+        "200": { description: Report. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/policies/audit:
+    get:
+      tags: [policy]
+      summary: Policy audit log
+      responses:
+        "200": { description: Audit entries. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- runbook ----------------------------------------------------------
+  /api/v1/runbooks:
+    get:
+      tags: [runbook]
+      summary: List runbooks
+      responses:
+        "200": { description: Runbook list. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [runbook]
+      summary: Register a runbook
+      responses:
+        "201": { description: Created. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/runbooks/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [runbook]
+      summary: Get a runbook
+      responses:
+        "200": { description: Runbook. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [runbook]
+      summary: Delete a runbook
+      responses:
+        "204": { description: Deleted. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/runbooks/{id}/run:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [runbook]
+      summary: Execute a runbook
+      responses:
+        "202":
+          description: Runbook execution queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- schedule (v1.1) -------------------------------------------------
+  /api/v1/schedules:
+    get:
+      tags: [schedule]
+      summary: List scheduled jobs
+      responses:
+        "200": { description: Schedule list. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [schedule]
+      summary: Create a scheduled job
+      responses:
+        "201": { description: Created. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/schedules/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [schedule]
+      summary: Get a scheduled job
+      responses:
+        "200": { description: Schedule. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [schedule]
+      summary: Delete a scheduled job
+      responses:
+        "204": { description: Deleted. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- secrets ----------------------------------------------------------
+  /api/v1/secrets/{path}:
+    parameters:
+      - in: path
+        name: path
+        required: true
+        schema: { type: string }
+        description: |
+          Hierarchical secret path like `production/db/postgres`.
+          The Go ServeMux pattern uses `{path...}` (multi-segment
+          wildcard); this OpenAPI form treats it as one parameter for
+          documentation purposes.
+    get:
+      tags: [secrets]
+      summary: Read a secret (cleartext for authorized callers)
+      responses:
+        "200":
+          description: Secret cleartext + metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metadata: { $ref: "#/components/schemas/SecretMetadata" }
+                  data:
+                    type: object
+                    additionalProperties: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    put:
+      tags: [secrets]
+      summary: Write a secret
+      responses:
+        "201":
+          description: Stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecretMetadata" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [secrets]
+      summary: Delete a secret
+      responses:
+        "204": { description: Deleted. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/leases:
+    get:
+      tags: [secrets]
+      summary: List leases
+      responses:
+        "200":
+          description: Leases.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Lease" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/leases/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [secrets]
+      summary: Get a lease
+      responses:
+        "200":
+          description: Lease.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lease" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/leases/{id}/renew:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [secrets]
+      summary: Renew a lease
+      responses:
+        "200":
+          description: Lease renewed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lease" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/leases/{id}/revoke:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [secrets]
+      summary: Revoke a lease
+      responses:
+        "204": { description: Revoked. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/transit/encrypt:
+    post:
+      tags: [secrets]
+      summary: Encrypt with a managed key
+      responses:
+        "200": { description: Ciphertext. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/transit/decrypt:
+    post:
+      tags: [secrets]
+      summary: Decrypt with a managed key
+      responses:
+        "200": { description: Plaintext. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/transit/sign:
+    post:
+      tags: [secrets]
+      summary: Sign a message
+      responses:
+        "200": { description: Signature. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/transit/verify:
+    post:
+      tags: [secrets]
+      summary: Verify a signature
+      responses:
+        "200":
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- state ------------------------------------------------------------
+  /api/v1/state/apply:
+    post:
+      tags: [state]
+      summary: Apply a state document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_id: { type: string }
+                target: { $ref: "#/components/schemas/Target" }
+                dry_run: { type: boolean }
+      responses:
+        "202":
+          description: Run queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/state/check:
+    post:
+      tags: [state]
+      summary: Check a state document without applying
+      responses:
+        "200": { description: Diff results. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/state/drift:
+    post:
+      tags: [state]
+      summary: Detect drift on an agent
+      responses:
+        "200": { description: Drift report. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/state/runs:
+    get:
+      tags: [state]
+      summary: List state runs
+      responses:
+        "200": { description: Run history. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/state/runs/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [state]
+      summary: Get a state run's status + per-agent results
+      responses:
+        "200": { description: Run status. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  # ---- webhooks ---------------------------------------------------------
+  /api/v1/webhooks:
+    get:
+      tags: [webhooks]
+      summary: List outbound webhook subscriptions
+      responses:
+        "200": { description: Webhooks. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [webhooks]
+      summary: Create a webhook subscription
+      responses:
+        "201": { description: Created. }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/webhooks/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [webhooks]
+      summary: Get one webhook subscription
+      responses:
+        "200": { description: Webhook. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    delete:
+      tags: [webhooks]
+      summary: Delete a webhook subscription
+      responses:
+        "204": { description: Deleted. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /api/v1/webhooks/{id}/test:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [webhooks]
+      summary: Send a test payload to a webhook
+      responses:
+        "204": { description: Test dispatched. }
+        "501": { $ref: "#/components/responses/NotImplemented" }

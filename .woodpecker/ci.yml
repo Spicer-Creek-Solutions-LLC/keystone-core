@@ -55,6 +55,15 @@ steps:
     commands:
       - make smoke
 
+  openapi:
+    image: node:22-alpine
+    depends_on: []
+    commands:
+      # alpine doesn't ship `make` by default; install it for the
+      # openapi-lint Make target invocation.
+      - apk add --no-cache make
+      - make openapi-lint
+
   proto:
     image: golang:1.26
     depends_on: []
