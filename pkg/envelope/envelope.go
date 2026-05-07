@@ -9,6 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// ErrDuplicate is the sentinel returned by a publish path that has
+// already seen the envelope's MessageID within the active dedup
+// window (Epic 05 task 6). Dedup is producer-side and a defensive
+// safety net; ErrDuplicate from PublishEnvelope means "the system
+// already has this message — your retry was suppressed."
+//
+// Lives here rather than in internal/nats so callers above the NATS
+// layer (controlplane, future SDK consumers) can errors.Is against
+// it without importing internal/nats.
+var ErrDuplicate = errors.New("envelope: duplicate message")
+
 // Priority is the wire-level message priority. v1.0 carries it as
 // metadata only — routing/queueing by priority is reserved for a
 // future epic. The four-value enum matches PROJECT-DETAILS §4.2.
@@ -112,9 +123,23 @@ func (e Envelope) TTL() time.Duration {
 // Validate returns an error if any required field is missing or
 // invalid. Marshal calls Validate so a malformed envelope cannot
 // reach the wire even if a caller skips the constructor.
+//
+// MessageID and CorrelationID are restricted to printable ASCII as
+// defense-in-depth against dedup-cache hash-input ambiguity. UUIDs
+// are hex; this is a tighter check than necessary but cheap and
+// blocks a malicious WithMessageID caller from injecting bytes that
+// could collide with a crafted subject in dedup keying.
 func (e Envelope) Validate() error {
 	if e.MessageID == "" {
 		return errors.New("envelope: message_id must not be empty")
+	}
+	if err := validatePrintable("message_id", e.MessageID); err != nil {
+		return err
+	}
+	if e.CorrelationID != "" {
+		if err := validatePrintable("correlation_id", e.CorrelationID); err != nil {
+			return err
+		}
 	}
 	if err := e.Priority.Validate(); err != nil {
 		return err
@@ -124,6 +149,19 @@ func (e Envelope) Validate() error {
 	}
 	if e.ClusterPrefix == "" {
 		return errors.New("envelope: cluster_prefix must not be empty")
+	}
+	return nil
+}
+
+// validatePrintable rejects any byte outside printable ASCII
+// (0x21-0x7E). Whitespace and control bytes are out so the field
+// is unambiguous in concatenation and safe to log without escaping.
+func validatePrintable(field, s string) error {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c <= 0x20 || c >= 0x7F {
+			return fmt.Errorf("envelope: %s contains non-printable byte at index %d", field, i)
+		}
 	}
 	return nil
 }

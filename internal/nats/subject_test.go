@@ -95,9 +95,12 @@ func TestSubjectBuilder_Validate(t *testing.T) {
 		{"adjacent prefix is not a child", "kscore.production", "must start with"},
 		{"contains star", "kscore.prod.agent.*", "wildcard"},
 		{"contains gt", "kscore.prod.agent.>", "wildcard"},
-		{"contains space", "kscore.prod.agent foo", "whitespace"},
-		{"contains tab", "kscore.prod.agent\tfoo", "whitespace"},
-		{"contains newline", "kscore.prod.agent\nfoo", "whitespace"},
+		{"contains space", "kscore.prod.agent foo", "non-printable"},
+		{"contains tab", "kscore.prod.agent\tfoo", "non-printable"},
+		{"contains newline", "kscore.prod.agent\nfoo", "non-printable"},
+		{"contains null byte", "kscore.prod.agent\x00foo", "non-printable"},
+		{"contains DEL", "kscore.prod.agent\x7ffoo", "non-printable"},
+		{"contains high bit", "kscore.prod.agent\x80foo", "non-printable"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

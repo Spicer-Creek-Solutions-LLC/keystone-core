@@ -33,6 +33,28 @@ type NATSConfig struct {
 
 	JetStream JetStreamConfig    `koanf:"jetstream"`
 	Embedded  EmbeddedNATSConfig `koanf:"embedded"`
+	Dedup     DedupConfig        `koanf:"dedup"`
+}
+
+// DedupConfig configures producer-side message dedup (Epic 05 task
+// 6). Defaults follow PROJECT-DETAILS §4.2: 5m window, large but
+// bounded entry cap. Per-subject overrides let operators shrink the
+// window for low-RTT subjects (heartbeats) or enlarge it for high-
+// retry ones.
+type DedupConfig struct {
+	Enabled             bool              `koanf:"enabled"`
+	WindowDuration      time.Duration     `koanf:"windowduration"`
+	MaxEntries          int               `koanf:"maxentries"`
+	CleanupInterval     time.Duration     `koanf:"cleanupinterval"`
+	PerSubjectOverrides []SubjectOverride `koanf:"persubjectoverrides"`
+}
+
+// SubjectOverride applies a non-default WindowDuration to subjects
+// matching Prefix (longest prefix wins; equality counts as a
+// prefix match).
+type SubjectOverride struct {
+	Prefix         string        `koanf:"prefix"`
+	WindowDuration time.Duration `koanf:"windowduration"`
 }
 
 // EndpointConfig is the structured form of a single NATS endpoint
@@ -110,9 +132,39 @@ func (n NATSConfig) Validate() error {
 	if err := n.JetStream.Validate(); err != nil {
 		return fmt.Errorf("jetstream: %w", err)
 	}
+	if err := n.Dedup.Validate(); err != nil {
+		return fmt.Errorf("dedup: %w", err)
+	}
 	if n.Mode == NATSModeEmbedded {
 		if err := n.Embedded.Validate(); err != nil {
 			return fmt.Errorf("embedded: %w", err)
+		}
+	}
+	return nil
+}
+
+// Validate enforces non-negative durations, a positive MaxEntries
+// when enabled, and well-formed per-subject overrides. Disabled
+// dedup skips structural checks since the values won't be used.
+func (d DedupConfig) Validate() error {
+	if !d.Enabled {
+		return nil
+	}
+	if d.WindowDuration <= 0 {
+		return fmt.Errorf("windowduration: must be positive when enabled, got %s", d.WindowDuration)
+	}
+	if d.MaxEntries <= 0 {
+		return fmt.Errorf("maxentries: must be positive when enabled, got %d", d.MaxEntries)
+	}
+	if d.CleanupInterval <= 0 {
+		return fmt.Errorf("cleanupinterval: must be positive when enabled, got %s", d.CleanupInterval)
+	}
+	for i, o := range d.PerSubjectOverrides {
+		if o.Prefix == "" {
+			return fmt.Errorf("persubjectoverrides[%d].prefix: must not be empty", i)
+		}
+		if o.WindowDuration <= 0 {
+			return fmt.Errorf("persubjectoverrides[%d].windowduration: must be positive, got %s", i, o.WindowDuration)
 		}
 	}
 	return nil

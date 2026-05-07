@@ -35,6 +35,7 @@ type Manager struct {
 	cfg      config.NATSConfig
 	log      *slog.Logger
 	subjects *SubjectBuilder
+	dedup    *Dedup // nil when cfg.NATS.Dedup.Enabled is false
 
 	mu       sync.Mutex
 	started  bool
@@ -57,7 +58,12 @@ func New(cfg config.NATSConfig, log *slog.Logger) (*Manager, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Manager{cfg: cfg, log: log, subjects: subjects}, nil
+	return &Manager{
+		cfg:      cfg,
+		log:      log,
+		subjects: subjects,
+		dedup:    NewDedup(cfg.Dedup, log),
+	}, nil
 }
 
 // Subjects returns the SubjectBuilder that owns the v1.0 subject
@@ -94,6 +100,7 @@ func (m *Manager) Start(ctx context.Context) error {
 		return fmt.Errorf("nats: unknown mode %q", string(m.cfg.Mode))
 	}
 
+	m.dedup.Start()
 	m.started = true
 	return nil
 }
@@ -204,6 +211,8 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		return nil
 	}
 
+	m.dedup.Stop()
+
 	if m.connMgr != nil {
 		if err := m.connMgr.Shutdown(ctx); err != nil {
 			m.connMgr = nil
@@ -287,6 +296,13 @@ func (m *Manager) Health(ctx context.Context) error {
 // constructed against a different cluster's SubjectBuilder, which
 // would publish to the right subject but carry the wrong routing
 // metadata — a footgun worth catching at the boundary.
+//
+// Dedup (Task 6, when enabled): IsDuplicate is checked before the
+// publish; on hit we return envelope.ErrDuplicate without touching
+// NATS. On a successful publish, Record stamps the (subject,
+// MessageID) pair into the cache so a retry within the window is
+// suppressed. We record after publish so a network failure doesn't
+// leave a phantom entry that suppresses the legitimate retry.
 func (m *Manager) PublishEnvelope(ctx context.Context, subject string, env envelope.Envelope) error {
 	if err := m.subjects.Validate(subject); err != nil {
 		return err
@@ -295,11 +311,20 @@ func (m *Manager) PublishEnvelope(ctx context.Context, subject string, env envel
 		return fmt.Errorf("nats: envelope cluster_prefix %q does not match manager prefix %q",
 			env.ClusterPrefix, m.subjects.Prefix())
 	}
+	if m.dedup != nil && m.dedup.IsDuplicate(subject, env.MessageID) {
+		return envelope.ErrDuplicate
+	}
 	data, err := env.Marshal()
 	if err != nil {
 		return err
 	}
-	return m.publishBytes(ctx, subject, data)
+	if err := m.publishBytes(ctx, subject, data); err != nil {
+		return err
+	}
+	if m.dedup != nil {
+		m.dedup.Record(subject, env.MessageID)
+	}
+	return nil
 }
 
 // publishBytes is the post-validation publish path shared by

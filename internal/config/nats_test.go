@@ -214,6 +214,60 @@ func TestNATSConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestDedupConfig_Validate(t *testing.T) {
+	good := DedupConfig{
+		Enabled:         true,
+		WindowDuration:  5 * time.Minute,
+		MaxEntries:      100,
+		CleanupInterval: 30 * time.Second,
+	}
+	tests := []struct {
+		name    string
+		mut     func(*DedupConfig)
+		wantErr string
+	}{
+		{"defaults ok", func(*DedupConfig) {}, ""},
+		{"disabled skips checks", func(c *DedupConfig) {
+			c.Enabled = false
+			c.WindowDuration = 0
+			c.MaxEntries = 0
+			c.CleanupInterval = 0
+		}, ""},
+		{"window zero", func(c *DedupConfig) { c.WindowDuration = 0 }, "windowduration"},
+		{"window negative", func(c *DedupConfig) { c.WindowDuration = -time.Second }, "windowduration"},
+		{"maxentries zero", func(c *DedupConfig) { c.MaxEntries = 0 }, "maxentries"},
+		{"cleanup zero", func(c *DedupConfig) { c.CleanupInterval = 0 }, "cleanupinterval"},
+		{"override empty prefix", func(c *DedupConfig) {
+			c.PerSubjectOverrides = []SubjectOverride{{Prefix: "", WindowDuration: time.Second}}
+		}, "prefix"},
+		{"override zero window", func(c *DedupConfig) {
+			c.PerSubjectOverrides = []SubjectOverride{{Prefix: "kscore.x.", WindowDuration: 0}}
+		}, "windowduration"},
+		{"valid override", func(c *DedupConfig) {
+			c.PerSubjectOverrides = []SubjectOverride{{Prefix: "kscore.x.", WindowDuration: time.Second}}
+		}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := good
+			tt.mut(&cfg)
+			err := cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate = nil, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestNATSConfig_Defaults(t *testing.T) {
 	cfg, err := Load("")
 	if err != nil {
@@ -245,6 +299,18 @@ func TestNATSConfig_Defaults(t *testing.T) {
 	}
 	if cfg.NATS.ReconnectWait != 2*time.Second {
 		t.Errorf("ReconnectWait = %s, want 2s", cfg.NATS.ReconnectWait)
+	}
+	if !cfg.NATS.Dedup.Enabled {
+		t.Error("Dedup.Enabled = false, want true (PROJECT-DETAILS §4.2)")
+	}
+	if cfg.NATS.Dedup.WindowDuration != 5*time.Minute {
+		t.Errorf("Dedup.WindowDuration = %s, want 5m", cfg.NATS.Dedup.WindowDuration)
+	}
+	if cfg.NATS.Dedup.MaxEntries != 100_000 {
+		t.Errorf("Dedup.MaxEntries = %d, want 100000", cfg.NATS.Dedup.MaxEntries)
+	}
+	if cfg.NATS.Dedup.CleanupInterval != 30*time.Second {
+		t.Errorf("Dedup.CleanupInterval = %s, want 30s", cfg.NATS.Dedup.CleanupInterval)
 	}
 }
 

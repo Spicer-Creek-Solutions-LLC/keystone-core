@@ -90,6 +90,10 @@ func TestEnvelope_Validate(t *testing.T) {
 		{"negative ttl", func(e *Envelope) { e.TTLMillis = -1 }, "ttl_ms"},
 		{"correlation optional", func(e *Envelope) { e.CorrelationID = "" }, ""},
 		{"payload optional", func(e *Envelope) { e.Payload = nil }, ""},
+		{"message id with null byte", func(e *Envelope) { e.MessageID = "abc\x00def" }, "message_id"},
+		{"message id with whitespace", func(e *Envelope) { e.MessageID = "abc def" }, "message_id"},
+		{"message id with high bit", func(e *Envelope) { e.MessageID = "abc\x80def" }, "message_id"},
+		{"correlation id with null byte", func(e *Envelope) { e.CorrelationID = "abc\x00def" }, "correlation_id"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

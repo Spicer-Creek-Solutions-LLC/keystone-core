@@ -53,7 +53,7 @@ See `PROJECT-DETAILS.md §4.2`.
 3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count). _(landed with task 2: `internal/nats/endpoint.go`; latency P50/P99 from a 64-sample ring buffer fed by 5s RTT probes.)_
 4. **`SubjectBuilder`** with mandatory cluster prefix. _(landed: `internal/nats/subject.go` owns the v1.0 hierarchy via typed constructors; `Manager.Publish` calls `Validate(subject)` and rejects anything not under `kscore.{cluster}.…` or that contains a wildcard / whitespace; `controlplane.CommandDispatcher` now consumes a narrow `Subjects` interface threaded through `server.Options.Subjects`.)_
 5. **`Envelope`** wrapper + JSON codec. _(landed: `pkg/envelope.Envelope{MessageID, CorrelationID, Priority, TTLMillis, ClusterPrefix, Payload}` with JSON codec; `Manager.PublishEnvelope` is the only publish path — byte-level Publish retired; `CommandDispatcher` now stamps `CorrelationID = command.ID` so responses can match without a separate lookup. `MessageID` is the dedup key consumed by Task 6.)_
-6. **Dedup** — SHA-256 keyed sliding window in memory; cleanup loop.
+6. **Dedup** — SHA-256 keyed sliding window in memory; cleanup loop. _(landed: producer-side dedup in `internal/nats.Dedup` with length-prefixed `sha256(subject || messageID)` keys (defense against separator-byte hash-collision suppression attacks); list+map storage; longest-prefix `PerSubjectOverrides`; cleanup goroutine purges expired. `Manager.PublishEnvelope` checks before publish, records on success — failed publishes leave no phantom entry. `envelope.ErrDuplicate` is the sentinel; `SubjectBuilder.Validate` and `envelope.Validate` reject non-printable ASCII as defense-in-depth.)_
 7. **Circuit breaker** state machine + tests.
 8. **JetStream stream definitions** for events + commands (defaults: 7d, 10GB, 1M msgs, DiscardNew).
 9. **Bootstrap registration server-side handler** — listens on `kscore.{cluster}.bootstrap.>`; validates evidence (PSK in v1.0; pluggable for future SPIFFE).
@@ -67,7 +67,7 @@ See `PROJECT-DETAILS.md §4.2`.
 - [ ] Embedded mode: `kscore-server` boots with NATS in-process; agents connect via `nats://localhost:4222`.
 - [ ] External mode: multi-endpoint config with failover; killing one endpoint causes circuit breaker to open then half-open recovery.
 - [x] All published subjects use `kscore.{cluster}.…` prefix; verified by interceptor in tests. _(task 4 — `SubjectBuilder.Validate` is invoked from `Manager.Publish`; `TestManager_PublishRejectsUnprefixed` asserts wildcard/whitespace/wrong-cluster rejection plus a positive-control publish via the typed constructor.)_
-- [ ] Envelope MessageID dedup discards duplicates within window.
+- [x] Envelope MessageID dedup discards duplicates within window. _(task 6 — `Manager.PublishEnvelope` returns `envelope.ErrDuplicate` for repeats inside `WindowDuration`; `TestManager_PublishEnvelopeRejectsDuplicate` covers the round-trip plus per-subject overrides.)_
 - [ ] Bootstrap registration end-to-end: agent with bootstrap credential → server validates → full credentials issued → agent reconnects → publishes on agent-specific subject.
 - [ ] Health() reports unhealthy when NATS down; recovers when up.
 - [ ] IPv6 endpoints work (`nats://[::1]:4222`).

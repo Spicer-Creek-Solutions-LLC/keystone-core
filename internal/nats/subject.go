@@ -128,12 +128,19 @@ func (b *SubjectBuilder) Discovery() string {
 	return b.prefix + ".discovery"
 }
 
-// Validate enforces three rules on a publish subject:
+// Validate enforces four rules on a publish subject:
 //
 //  1. Subject is non-empty.
 //  2. Subject equals Prefix() exactly OR begins with Prefix() + ".".
 //  3. Subject contains no NATS subscriber wildcards ('*' or '>') —
 //     those are legal in subscribe patterns, never in publish.
+//  4. Subject contains only printable ASCII (0x20–0x7E) and is free
+//     of whitespace. The "no non-printable" rule is defense-in-depth
+//     against hash-input ambiguity in the dedup cache (Task 6) — a
+//     subject containing 0x00 could collide with a different
+//     (subject, messageID) pair under naive concatenation. Length-
+//     prefixed hashing makes this safe regardless, but rejecting
+//     malformed subjects at the boundary is the right place.
 //
 // This is the interceptor referenced in epic 05's acceptance bullet:
 // any caller bypassing the typed constructors fails here at Publish.
@@ -147,8 +154,11 @@ func (b *SubjectBuilder) Validate(subject string) error {
 	if strings.ContainsAny(subject, "*>") {
 		return fmt.Errorf("nats: subject %q contains wildcard ('*' or '>'); illegal in publish", subject)
 	}
-	if strings.ContainsAny(subject, " \t\r\n") {
-		return fmt.Errorf("nats: subject %q contains whitespace", subject)
+	for i := 0; i < len(subject); i++ {
+		c := subject[i]
+		if c <= 0x20 || c >= 0x7F {
+			return fmt.Errorf("nats: subject %q contains non-printable byte at index %d", subject, i)
+		}
 	}
 	return nil
 }

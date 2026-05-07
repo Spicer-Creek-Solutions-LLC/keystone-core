@@ -91,6 +91,12 @@ func defaultConfig() *Config {
 				EnableJetStream: true,
 				MaxMemory:       0,
 			},
+			Dedup: DedupConfig{
+				Enabled:         true,
+				WindowDuration:  5 * time.Minute, // PROJECT-DETAILS §4.2 default
+				MaxEntries:      100_000,
+				CleanupInterval: 30 * time.Second,
+			},
 		},
 	}
 }

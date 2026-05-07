@@ -72,6 +72,12 @@ func embeddedConfig(t *testing.T) config.NATSConfig {
 			Port:            freePort(t),
 			EnableJetStream: true,
 		},
+		Dedup: config.DedupConfig{
+			Enabled:         true,
+			WindowDuration:  time.Minute,
+			MaxEntries:      1024,
+			CleanupInterval: time.Hour, // long; tests don't need cleanup ticks
+		},
 	}
 }
 
@@ -219,6 +225,56 @@ func TestManager_PublishRejectsUnprefixed(t *testing.T) {
 	// without error.
 	if err := m.PublishEnvelope(context.Background(), m.Subjects().AgentHeartbeat(), mkEnv([]byte("hb"))); err != nil {
 		t.Errorf("PublishEnvelope(AgentHeartbeat) = %v, want nil", err)
+	}
+}
+
+func TestManager_PublishEnvelopeRejectsDuplicate(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+	subj := m.Subjects().AgentHeartbeat()
+
+	env := envelope.New([]byte(`"ping"`), m.Subjects().Prefix(),
+		envelope.WithMessageID("hb-fixed-1"))
+	if err := m.PublishEnvelope(context.Background(), subj, env); err != nil {
+		t.Fatalf("first PublishEnvelope: %v", err)
+	}
+	// Second publish with the same MessageID must be suppressed.
+	err := m.PublishEnvelope(context.Background(), subj, env)
+	if !errors.Is(err, envelope.ErrDuplicate) {
+		t.Errorf("second PublishEnvelope: err = %v, want envelope.ErrDuplicate", err)
+	}
+}
+
+func TestManager_DedupDifferentMessageIDsBothPublish(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+	subj := m.Subjects().AgentHeartbeat()
+
+	for i := 0; i < 3; i++ {
+		env := envelope.New([]byte(`"ping"`), m.Subjects().Prefix())
+		if err := m.PublishEnvelope(context.Background(), subj, env); err != nil {
+			t.Errorf("PublishEnvelope[%d]: %v", i, err)
+		}
+	}
+}
+
+func TestManager_DedupNotRecordedOnPublishFailure(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+	subj := m.Subjects().AgentHeartbeat()
+
+	// Force a publish failure: shut the manager down and try to
+	// publish. The publish path errors out before recording.
+	if err := m.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	env := envelope.New([]byte(`"ping"`), m.Subjects().Prefix(),
+		envelope.WithMessageID("hb-fixed-2"))
+	if err := m.PublishEnvelope(context.Background(), subj, env); err == nil {
+		t.Fatal("expected publish failure on shut-down manager")
+	}
+	// Even after the failed publish, the MessageID is not in the
+	// dedup cache (cache was Stop'd, but if it weren't, the failed
+	// publish path would have skipped Record anyway).
+	if m.dedup != nil && m.dedup.IsDuplicate(subj, "hb-fixed-2") {
+		t.Error("MessageID was recorded despite publish failure")
 	}
 }
 
