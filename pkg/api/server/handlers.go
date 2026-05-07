@@ -21,9 +21,13 @@ import (
 	"go.keystone-core.io/keystone-core/pkg/api/webhooks"
 )
 
-// registerHealthEndpoints wires the four §4.4 health/status endpoints.
-// Task 4 ships placeholders that always return 200 (or trivial
-// payloads); task 7 replaces these with real readiness checks.
+// registerHealthEndpoints wires the §4.4 unauthenticated /health/*
+// endpoints. Task 4 ships placeholders that always return 200 (or
+// trivial payloads); task 7 replaces these with real readiness checks.
+//
+// /api/status is registered separately on the auth'd mux by
+// buildHTTPHandler — it's an operator-only endpoint with goroutine /
+// memory metrics and shouldn't ride the public health surface.
 func (s *Server) registerHealthEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -32,13 +36,12 @@ func (s *Server) registerHealthEndpoints(mux *http.ServeMux) {
 		// task 7: actual NATS + DB checks + grace period
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("GET /health/status", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"status":     "ok",
 			"checked_at": s.now().UTC().Format(time.RFC3339),
 		})
 	})
-	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
 }
 
 // handleAPIStatus serves /api/status. Task 9 extends with production

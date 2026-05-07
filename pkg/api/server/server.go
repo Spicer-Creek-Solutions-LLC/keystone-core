@@ -15,6 +15,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/version"
 )
 
@@ -43,12 +44,13 @@ type Addrs struct {
 // not yet serving); Start executes step 14 + serving + step 21
 // (status ticker); Stop runs the reverse-of-init shutdown.
 type Server struct {
-	cfg     *config.Config
-	logger  *slog.Logger
-	store   state.Store
-	nats    NATSManager
-	now     func() time.Time
-	version string
+	cfg             *config.Config
+	logger          *slog.Logger
+	store           state.Store
+	nats            NATSManager
+	authInterceptor *auth.InterceptorConfig
+	now             func() time.Time
+	version         string
 
 	connMgr         *controlplane.ConnectionManager
 	cmdDispatcher   *controlplane.CommandDispatcher
@@ -106,6 +108,7 @@ func New(opts Options) (*Server, error) {
 		logger:               opts.Logger,
 		store:                opts.Store,
 		nats:                 opts.NATSManager,
+		authInterceptor:      opts.AuthInterceptor,
 		now:                  clock,
 		version:              version.Get().Version,
 		statusTickerInterval: tick,
@@ -226,9 +229,25 @@ func (s *Server) initSteps9to13() error {
 		return errors.New("server.TLS.Enabled is not yet supported (Epic 13)")
 	}
 
-	// step 10/11: middleware chain placeholder. Task 6 builds the real
-	// chain (CORS → rate-limit → auth) using AuthInterceptor from
-	// Options; for now the gRPC server has no interceptors.
+	// step 10/11: chain rate-limit → auth → authorize via the auth
+	// package's InterceptorConfig. CORS doesn't apply to gRPC (binary
+	// HTTP/2; browser clients use grpc-web through a separate gateway
+	// in v2.x). When AuthInterceptor is nil, the server runs with no
+	// auth — appropriate for dev, surfaced in the banner.
+	if s.authInterceptor != nil {
+		unary, err := s.authInterceptor.UnaryServerInterceptor()
+		if err != nil {
+			return fmt.Errorf("server: gRPC unary interceptor: %w", err)
+		}
+		stream, err := s.authInterceptor.StreamServerInterceptor()
+		if err != nil {
+			return fmt.Errorf("server: gRPC stream interceptor: %w", err)
+		}
+		grpcOpts = append(grpcOpts,
+			grpc.UnaryInterceptor(unary),
+			grpc.StreamInterceptor(stream),
+		)
+	}
 	s.grpcServer = grpc.NewServer(grpcOpts...)
 	// step 12: register gRPC services (none yet — nil-guarded).
 	// Concrete impls land with their owning epics (06, 07, 09, …).
@@ -246,13 +265,12 @@ func (s *Server) initSteps9to13() error {
 // initSteps15to18: HTTP mux, health endpoints, REST handler
 // registration, middleware wrap, bind HTTP listener.
 func (s *Server) initSteps15to18() error {
-	mux := http.NewServeMux()
-	s.registerHealthEndpoints(mux)
-	s.registerDomainHandlers(mux)
-
-	// step 17: middleware chain is a passthrough for task 4; task 6
-	// wraps with CORS → rate-limit → auth.
-	var handler http.Handler = mux
+	// step 15-17: build the routing tree (CORS → router → auth → mux).
+	// See middleware.go.
+	handler, err := s.buildHTTPHandler()
+	if err != nil {
+		return err
+	}
 
 	lns, err := listen(s.cfg.Server.Host, s.cfg.Server.HTTPPort)
 	if err != nil {
@@ -408,9 +426,22 @@ func (s *Server) runStatusTicker() {
 }
 
 func (s *Server) authMode() string {
-	// Task 6 will populate based on AuthInterceptor; for now report
-	// disabled when no interceptor is wired.
-	return "disabled"
+	if s.authInterceptor == nil {
+		return "disabled"
+	}
+	return "enabled"
+}
+
+// RegisterService registers a gRPC service against the underlying
+// *grpc.Server. Mirrors grpc.Server.RegisterService so concrete
+// services (Epic 06's AgentService, Epic 07's ControlPlaneService,
+// etc.) can wire themselves through the Server type without dropping
+// down to the raw gRPC handle.
+//
+// MUST be called between New and Start — RegisterService panics if
+// invoked while serving (per gRPC's contract).
+func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	s.grpcServer.RegisterService(desc, impl)
 }
 
 // ---- unwind helpers (used by New on partial-init failure) ---------------

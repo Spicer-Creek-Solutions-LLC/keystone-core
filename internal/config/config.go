@@ -52,6 +52,12 @@ func defaultConfig() *Config {
 			GRPCPort: 9090,
 			HTTPPort: 8080,
 			TLS:      TLSConfig{Enabled: false},
+			CORS: CORSConfig{
+				Enabled:        true,
+				AllowedOrigins: []string{"*"},
+				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+				AllowedHeaders: []string{"Authorization", "Content-Type"},
+			},
 		},
 		Logging: LoggingConfig{
 			Level:  "info",

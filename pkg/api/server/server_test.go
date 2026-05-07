@@ -77,6 +77,12 @@ func newTestConfig() *config.Config {
 			Host:     "127.0.0.1",
 			GRPCPort: 0, // ephemeral
 			HTTPPort: 0,
+			CORS: config.CORSConfig{
+				Enabled:        true,
+				AllowedOrigins: []string{"*"},
+				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+				AllowedHeaders: []string{"Authorization", "Content-Type"},
+			},
 		},
 		Logging: config.LoggingConfig{Level: "info", Format: "json"},
 		Storage: config.StorageConfig{Driver: "sqlite", DSN: "ignored-by-server"},
