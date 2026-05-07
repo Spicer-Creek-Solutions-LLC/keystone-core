@@ -1,0 +1,196 @@
+// ClusterService — operator-facing RPCs for cluster topology and
+// backup/restore. Refined in epic 13 (Clustering / HA).
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service ClusterService {
+  rpc GetClusterStatus(GetClusterStatusRequest) returns (GetClusterStatusResponse);
+
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+  rpc TransferLeader(TransferLeaderRequest) returns (TransferLeaderResponse);
+
+  rpc Rebalance(RebalanceRequest) returns (RebalanceResponse);
+
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+
+  // WatchMembership streams membership change events until cancelled.
+  rpc WatchMembership(WatchMembershipRequest) returns (stream WatchMembershipResponse);
+
+  // WatchLeadership streams leadership change events until cancelled.
+  rpc WatchLeadership(WatchLeadershipRequest) returns (stream WatchLeadershipResponse);
+}
+
+// ---- Cluster types --------------------------------------------------------
+
+message ClusterMember {
+  string id = 1;
+  string name = 2;
+  string address = 3; // host:port
+  ClusterMemberRole role = 4;
+  ClusterMemberStatus status = 5;
+  string version = 6;
+  google.protobuf.Timestamp joined_at = 7;
+  google.protobuf.Timestamp last_seen_at = 8;
+}
+
+enum ClusterMemberRole {
+  CLUSTER_MEMBER_ROLE_UNSPECIFIED = 0;
+  CLUSTER_MEMBER_ROLE_LEADER = 1;
+  CLUSTER_MEMBER_ROLE_FOLLOWER = 2;
+  CLUSTER_MEMBER_ROLE_LEARNER = 3;
+}
+
+enum ClusterMemberStatus {
+  CLUSTER_MEMBER_STATUS_UNSPECIFIED = 0;
+  CLUSTER_MEMBER_STATUS_HEALTHY = 1;
+  CLUSTER_MEMBER_STATUS_DEGRADED = 2;
+  CLUSTER_MEMBER_STATUS_UNREACHABLE = 3;
+  CLUSTER_MEMBER_STATUS_LEFT = 4;
+}
+
+// ---- GetClusterStatus -----------------------------------------------------
+
+message GetClusterStatusRequest {}
+
+message GetClusterStatusResponse {
+  string cluster_id = 1;
+  string leader_id = 2;
+  int32 member_count = 3;
+  int32 healthy_count = 4;
+  bool quorum = 5;
+  google.protobuf.Timestamp last_election_at = 6;
+}
+
+// ---- ListMembers / GetMember / AddMember / RemoveMember -------------------
+
+message ListMembersRequest {
+  ClusterMemberStatus status = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListMembersResponse {
+  repeated ClusterMember members = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetMemberRequest {
+  string member_id = 1;
+}
+
+message GetMemberResponse {
+  ClusterMember member = 1;
+}
+
+message AddMemberRequest {
+  string name = 1;
+  string address = 2;
+  string join_token = 3;
+}
+
+message AddMemberResponse {
+  ClusterMember member = 1;
+}
+
+message RemoveMemberRequest {
+  string member_id = 1;
+  bool force = 2;
+}
+
+message RemoveMemberResponse {}
+
+// ---- GetLeader / TransferLeader -------------------------------------------
+
+message GetLeaderRequest {}
+
+message GetLeaderResponse {
+  ClusterMember leader = 1;
+  int32 term = 2;
+}
+
+message TransferLeaderRequest {
+  string target_member_id = 1;
+}
+
+message TransferLeaderResponse {
+  ClusterMember new_leader = 1;
+}
+
+// ---- Rebalance ------------------------------------------------------------
+
+message RebalanceRequest {
+  bool dry_run = 1;
+}
+
+message RebalanceResponse {
+  int32 reassigned_agents = 1;
+  string detail = 2;
+}
+
+// ---- CreateBackup / RestoreBackup -----------------------------------------
+
+message CreateBackupRequest {
+  string description = 1;
+  // Empty = use cluster-default destination.
+  string destination = 2;
+}
+
+message CreateBackupResponse {
+  string backup_id = 1;
+  string location = 2;
+  google.protobuf.Timestamp created_at = 3;
+  int64 size_bytes = 4;
+}
+
+message RestoreBackupRequest {
+  string backup_id = 1;
+  // Optional alternate location override.
+  string location = 2;
+  bool dry_run = 3;
+}
+
+message RestoreBackupResponse {
+  bool success = 1;
+  string detail = 2;
+}
+
+// ---- WatchMembership / WatchLeadership ------------------------------------
+
+message WatchMembershipRequest {
+  // Empty = watch all members; non-empty = filter to this set.
+  repeated string member_ids = 1;
+}
+
+message WatchMembershipResponse {
+  ClusterMember member = 1;
+  ClusterMembershipChangeKind kind = 2;
+  google.protobuf.Timestamp at = 3;
+}
+
+enum ClusterMembershipChangeKind {
+  CLUSTER_MEMBERSHIP_CHANGE_KIND_UNSPECIFIED = 0;
+  CLUSTER_MEMBERSHIP_CHANGE_KIND_JOINED = 1;
+  CLUSTER_MEMBERSHIP_CHANGE_KIND_LEFT = 2;
+  CLUSTER_MEMBERSHIP_CHANGE_KIND_STATUS_CHANGED = 3;
+}
+
+message WatchLeadershipRequest {}
+
+message WatchLeadershipResponse {
+  ClusterMember leader = 1;
+  int32 term = 2;
+  google.protobuf.Timestamp at = 3;
+}

@@ -1,0 +1,188 @@
+// Common types shared across every Keystone Core gRPC service.
+//
+// Field/message conventions are tuned for buf STANDARD lint:
+// - enum values prefixed with the enum name (in upper snake case);
+// - the first value of every enum is *_UNSPECIFIED = 0;
+// - all field names are lower_snake_case;
+// - all timestamps use google.protobuf.Timestamp.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+// ---- Agent ----------------------------------------------------------------
+
+// Agent is a registered control-plane agent. Maps to the agents table
+// in the storage layer (internal/state.AgentRecord).
+message Agent {
+  string id = 1;
+  string hostname = 2;
+  string os = 3;
+  string architecture = 4;
+  repeated string ip_addresses = 5;
+  string platform_version = 6;
+  string agent_version = 7;
+  map<string, string> labels = 8;
+  AgentStatus status = 9;
+  google.protobuf.Timestamp registered_at = 10;
+  google.protobuf.Timestamp last_heartbeat_at = 11;
+  map<string, string> metrics = 12;
+}
+
+// AgentStatus is an agent's lifecycle state. Transition rules are
+// enforced at the control-plane lifecycle layer (epic 04+), not here.
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_PENDING = 1;
+  AGENT_STATUS_CONNECTED = 2;
+  AGENT_STATUS_STALE = 3;
+  AGENT_STATUS_DISABLED = 4;
+}
+
+// ---- Command --------------------------------------------------------------
+
+// Command is one execution of a shell command on an agent. Maps to
+// internal/state.CommandRecord.
+message Command {
+  string id = 1;
+  string agent_id = 2;
+  string command = 3;
+  repeated string args = 4;
+  map<string, string> env = 5;
+  string working_dir = 6;
+  string user = 7;
+  int32 timeout_seconds = 8;
+  CommandStatus status = 9;
+  int32 exit_code = 10;
+  string stdout = 11;
+  string stderr = 12;
+  google.protobuf.Timestamp started_at = 13;
+  google.protobuf.Timestamp completed_at = 14;
+}
+
+enum CommandStatus {
+  COMMAND_STATUS_UNSPECIFIED = 0;
+  COMMAND_STATUS_PENDING = 1;
+  COMMAND_STATUS_RUNNING = 2;
+  COMMAND_STATUS_COMPLETED = 3;
+  COMMAND_STATUS_FAILED = 4;
+  COMMAND_STATUS_TIMEOUT = 5;
+  COMMAND_STATUS_CANCELLED = 6;
+}
+
+// CommandOutputChunk is one stdout/stderr fragment streamed back from
+// an agent during command execution.
+message CommandOutputChunk {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  google.protobuf.Timestamp at = 3;
+}
+
+// CommandCompletion is the terminal event in a command execution
+// stream. Sent at most once per stream.
+message CommandCompletion {
+  CommandStatus status = 1;
+  int32 exit_code = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  string error = 4;
+}
+
+// ---- Batch ----------------------------------------------------------------
+
+// Target selects agents for a batch operation. Selectors are AND'd; an
+// empty target matches no agents.
+message Target {
+  // Exact agent IDs.
+  repeated string agent_ids = 1;
+  // Match agents whose labels contain every (key, value) pair below.
+  map<string, string> labels = 2;
+  // Glob pattern over agent.hostname (e.g., "web-*"). Empty = no filter.
+  string hostname_pattern = 3;
+}
+
+// BatchJob is a multi-agent command dispatch. Maps to
+// internal/state.BatchJobRecord.
+message BatchJob {
+  string id = 1;
+  Target target = 2;
+  string command = 3;
+  repeated string args = 4;
+  BatchJobStatus status = 5;
+  int32 concurrency = 6;
+  int32 total_agents = 7;
+  int32 completed_agents = 8;
+  int32 successful_agents = 9;
+  int32 failed_agents = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+}
+
+enum BatchJobStatus {
+  BATCH_JOB_STATUS_UNSPECIFIED = 0;
+  BATCH_JOB_STATUS_PENDING = 1;
+  BATCH_JOB_STATUS_RUNNING = 2;
+  BATCH_JOB_STATUS_COMPLETED = 3;
+  BATCH_JOB_STATUS_FAILED = 4;
+  BATCH_JOB_STATUS_PARTIAL = 5;
+  BATCH_JOB_STATUS_CANCELLED = 6;
+}
+
+// BatchAgentResult is one agent's outcome within a BatchJob. PK is
+// (batch_job_id, agent_id).
+message BatchAgentResult {
+  string batch_job_id = 1;
+  string agent_id = 2;
+  bool success = 3;
+  int32 exit_code = 4;
+  string error = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+}
+
+// BatchAgentLifecycle marks the start/end of a single agent within a
+// batch dispatch stream. See PROJECT-DETAILS §4.5 streaming patterns.
+message BatchAgentLifecycle {
+  string agent_id = 1;
+  BatchAgentLifecycleKind kind = 2;
+  google.protobuf.Timestamp at = 3;
+  string error = 4; // populated on AGENT_FAILED
+}
+
+enum BatchAgentLifecycleKind {
+  BATCH_AGENT_LIFECYCLE_KIND_UNSPECIFIED = 0;
+  BATCH_AGENT_LIFECYCLE_KIND_AGENT_START = 1;
+  BATCH_AGENT_LIFECYCLE_KIND_AGENT_COMPLETE = 2;
+  BATCH_AGENT_LIFECYCLE_KIND_AGENT_FAILED = 3;
+}
+
+// BatchTerminal marks the end of a batch dispatch stream.
+message BatchTerminal {
+  BatchJobStatus status = 1;
+  google.protobuf.Timestamp at = 2;
+  string error = 3; // populated on BATCH_FAILED
+}
+
+// ---- Auth -----------------------------------------------------------------
+
+// Principal is the authenticated identity attached to an inbound RPC.
+// Populated by the auth interceptor (epic 03 task 4).
+message Principal {
+  string id = 1;
+  string name = 2;
+  string role = 3; // admin | operator | readonly
+  AuthMethod auth_method = 4;
+  map<string, string> metadata = 5;
+  google.protobuf.Timestamp authenticated_at = 6;
+}
+
+enum AuthMethod {
+  AUTH_METHOD_UNSPECIFIED = 0;
+  AUTH_METHOD_API_KEY = 1;
+  AUTH_METHOD_JWT = 2;
+  AUTH_METHOD_MTLS = 3;
+}

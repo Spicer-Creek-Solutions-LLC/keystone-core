@@ -1,0 +1,114 @@
+// CoordinationService — server↔server-only RPCs. mTLS-required: the
+// auth interceptor (epic 03 task 4) rejects non-mTLS callers per
+// PROJECT-DETAILS §4.5 ("CoordinationService requires mTLS"). Refined
+// in epic 13 (Clustering / HA).
+//
+// Naming note: NodeHeartbeat and LookupLeader rather than the
+// spec-natural Heartbeat / GetLeader to keep message-type names unique
+// within keystone.core.v1 (AgentService owns Heartbeat,
+// ClusterService owns GetLeader).
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service CoordinationService {
+  rpc ClusterHealth(ClusterHealthRequest) returns (ClusterHealthResponse);
+  rpc LookupLeader(LookupLeaderRequest) returns (LookupLeaderResponse);
+  rpc NATSStatus(NATSStatusRequest) returns (NATSStatusResponse);
+  rpc RecoveryCoordinate(RecoveryCoordinateRequest) returns (RecoveryCoordinateResponse);
+  rpc NodeHeartbeat(NodeHeartbeatRequest) returns (NodeHeartbeatResponse);
+  rpc PropagateState(PropagateStateRequest) returns (PropagateStateResponse);
+}
+
+// ---- ClusterHealth --------------------------------------------------------
+
+message ClusterHealthRequest {
+  string from_node_id = 1;
+}
+
+message ClusterHealthResponse {
+  string node_id = 1;
+  string node_version = 2;
+  bool nats_healthy = 3;
+  bool storage_healthy = 4;
+  google.protobuf.Timestamp at = 5;
+}
+
+// ---- LookupLeader ---------------------------------------------------------
+
+message LookupLeaderRequest {}
+
+message LookupLeaderResponse {
+  string leader_id = 1;
+  string leader_address = 2;
+  int32 term = 3;
+}
+
+// ---- NATSStatus -----------------------------------------------------------
+
+message NATSStatusRequest {}
+
+message NATSStatusResponse {
+  bool connected = 1;
+  string url = 2;
+  int64 in_msgs = 3;
+  int64 out_msgs = 4;
+  int64 in_bytes = 5;
+  int64 out_bytes = 6;
+  int32 reconnects = 7;
+}
+
+// ---- RecoveryCoordinate ---------------------------------------------------
+
+// RecoveryCoordinate communicates phase transitions in the
+// recovery-state machine documented in PROJECT-DETAILS §4.13.
+message RecoveryCoordinateRequest {
+  string from_node_id = 1;
+  RecoveryPhase phase = 2;
+}
+
+message RecoveryCoordinateResponse {
+  bool acknowledged = 1;
+}
+
+enum RecoveryPhase {
+  RECOVERY_PHASE_UNSPECIFIED = 0;
+  RECOVERY_PHASE_STARTING = 1;
+  RECOVERY_PHASE_CONNECTING = 2;
+  RECOVERY_PHASE_SYNCING = 3;
+  RECOVERY_PHASE_VERIFYING = 4;
+  RECOVERY_PHASE_REJOINING = 5;
+  RECOVERY_PHASE_RECLAIMING = 6;
+  RECOVERY_PHASE_COMPLETED = 7;
+}
+
+// ---- NodeHeartbeat --------------------------------------------------------
+
+message NodeHeartbeatRequest {
+  string from_node_id = 1;
+  google.protobuf.Timestamp at = 2;
+}
+
+message NodeHeartbeatResponse {
+  google.protobuf.Timestamp server_time = 1;
+}
+
+// ---- PropagateState -------------------------------------------------------
+
+// PropagateState is the inter-node fan-out for cluster snapshot
+// updates. Payload is a serialized snapshot blob; format is internal
+// to the cluster epic.
+message PropagateStateRequest {
+  string from_node_id = 1;
+  bytes snapshot = 2;
+  int64 version = 3;
+}
+
+message PropagateStateResponse {
+  bool accepted = 1;
+}

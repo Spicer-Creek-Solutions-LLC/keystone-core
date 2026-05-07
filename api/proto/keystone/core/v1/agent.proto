@@ -1,0 +1,112 @@
+// AgentService — RPCs called BY agents into the control plane.
+//
+// AgentService.SubmitCommandStream is the per-command bidi stream over
+// which agents receive command dispatches and return output + final
+// status. See PROJECT-DETAILS §4.5 (streaming patterns).
+//
+// Naming note: SubmitCommandStream rather than ExecuteCommand to keep
+// message-type names unique within keystone.core.v1 (ControlPlaneService
+// owns the operator-facing ExecuteCommand). See epic 03 task 1 commit
+// for details.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+import "keystone/core/v1/common.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service AgentService {
+  // Register an agent with the control plane. First call from a fresh
+  // agent; subsequent reconnects use the issued session token.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Heartbeat updates the agent's last-seen timestamp and metrics.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // SubmitCommandStream is a bidi stream the agent opens per command:
+  // - agent -> server: zero or more SubmitCommandStreamRequest messages
+  //   carrying CommandOutputChunk(s) and a terminal CommandCompletion
+  // - server -> agent: dispatch acks and any out-of-band notifications
+  rpc SubmitCommandStream(stream SubmitCommandStreamRequest)
+      returns (stream SubmitCommandStreamResponse);
+
+  // GetAgentInfo returns the agent's own current view of itself
+  // as recorded by the control plane.
+  rpc GetAgentInfo(GetAgentInfoRequest) returns (GetAgentInfoResponse);
+}
+
+// ---- Register -------------------------------------------------------------
+
+message RegisterRequest {
+  string id = 1;
+  string hostname = 2;
+  string os = 3;
+  string architecture = 4;
+  repeated string ip_addresses = 5;
+  string platform_version = 6;
+  string agent_version = 7;
+  map<string, string> labels = 8;
+}
+
+message RegisterResponse {
+  Agent agent = 1;
+  // Session token returned to the agent for subsequent reconnects.
+  string session_token = 2;
+}
+
+// ---- Heartbeat ------------------------------------------------------------
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  AgentStatus status = 2;
+  map<string, string> metrics = 3;
+}
+
+message HeartbeatResponse {
+  google.protobuf.Timestamp server_time = 1;
+}
+
+// ---- SubmitCommandStream --------------------------------------------------
+
+message SubmitCommandStreamRequest {
+  oneof event {
+    SubmitCommandInit init = 1;
+    CommandOutputChunk output = 2;
+    CommandCompletion completion = 3;
+  }
+}
+
+message SubmitCommandInit {
+  string agent_id = 1;
+  string command_id = 2;
+  google.protobuf.Timestamp started_at = 3;
+}
+
+message SubmitCommandStreamResponse {
+  oneof event {
+    SubmitCommandAck ack = 1;
+    SubmitCommandCancel cancel = 2;
+  }
+}
+
+message SubmitCommandAck {
+  string command_id = 1;
+}
+
+message SubmitCommandCancel {
+  string command_id = 1;
+  string reason = 2;
+}
+
+// ---- GetAgentInfo ---------------------------------------------------------
+
+message GetAgentInfoRequest {
+  string agent_id = 1;
+}
+
+message GetAgentInfoResponse {
+  Agent agent = 1;
+}

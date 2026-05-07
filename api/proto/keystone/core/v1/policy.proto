@@ -1,0 +1,210 @@
+// PolicyService — policy evaluation + read-side metadata. v1.0 ships
+// audit-mode evaluation; CRUD methods declared but the server returns
+// Unimplemented until v1.8 enables policy enforcement (per epic 03
+// scope and PROJECT-DETAILS §4.12). Detailed schemas refined in
+// epic 12.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service PolicyService {
+  rpc EvaluatePolicy(EvaluatePolicyRequest) returns (EvaluatePolicyResponse);
+  rpc EvaluatePolicySet(EvaluatePolicySetRequest) returns (EvaluatePolicySetResponse);
+
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+  rpc ListPolicySets(ListPolicySetsRequest) returns (ListPolicySetsResponse);
+  rpc ListBindings(ListBindingsRequest) returns (ListBindingsResponse);
+  rpc ListViolations(ListViolationsRequest) returns (ListViolationsResponse);
+
+  rpc GetComplianceReport(GetComplianceReportRequest) returns (GetComplianceReportResponse);
+  rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse);
+}
+
+// ---- Policy types (placeholders; refined in epic 12) ----------------------
+
+message Policy {
+  string id = 1;
+  string name = 2;
+  PolicyEngine engine = 3;
+  string source = 4; // OPA Rego or CEL expression
+  PolicyStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+enum PolicyEngine {
+  POLICY_ENGINE_UNSPECIFIED = 0;
+  POLICY_ENGINE_OPA = 1;
+  POLICY_ENGINE_CEL = 2;
+}
+
+enum PolicyStatus {
+  POLICY_STATUS_UNSPECIFIED = 0;
+  POLICY_STATUS_AUDIT = 1;
+  POLICY_STATUS_ENFORCE = 2;
+  POLICY_STATUS_DISABLED = 3;
+}
+
+message PolicySet {
+  string id = 1;
+  string name = 2;
+  repeated string policy_ids = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+// PolicyBinding attaches a Policy or PolicySet to a target (resource
+// type, label selector, etc.).
+message PolicyBinding {
+  string id = 1;
+  string policy_id = 2;
+  string policy_set_id = 3;
+  string resource_type = 4;
+  map<string, string> selector = 5;
+}
+
+message PolicyDecision {
+  string policy_id = 1;
+  bool allowed = 2;
+  string reason = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+message PolicyViolation {
+  string id = 1;
+  string policy_id = 2;
+  string resource_type = 3;
+  string resource_id = 4;
+  string detail = 5;
+  google.protobuf.Timestamp detected_at = 6;
+}
+
+// ---- EvaluatePolicy / EvaluatePolicySet -----------------------------------
+
+message EvaluatePolicyRequest {
+  string policy_id = 1;
+  // Free-form input doc passed to the policy engine. Schema is policy-
+  // engine-specific; see epic 12.
+  map<string, string> input = 2;
+}
+
+message EvaluatePolicyResponse {
+  PolicyDecision decision = 1;
+}
+
+message EvaluatePolicySetRequest {
+  string policy_set_id = 1;
+  map<string, string> input = 2;
+}
+
+message EvaluatePolicySetResponse {
+  repeated PolicyDecision decisions = 1;
+}
+
+// ---- List* ----------------------------------------------------------------
+
+message ListPoliciesRequest {
+  PolicyStatus status = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListPoliciesResponse {
+  repeated Policy policies = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message ListPolicySetsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListPolicySetsResponse {
+  repeated PolicySet policy_sets = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message ListBindingsRequest {
+  string resource_type = 1; // empty = all
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListBindingsResponse {
+  repeated PolicyBinding bindings = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message ListViolationsRequest {
+  string policy_id = 1;
+  string resource_type = 2;
+  google.protobuf.Timestamp since = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListViolationsResponse {
+  repeated PolicyViolation violations = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ---- GetComplianceReport / GetAuditLog ------------------------------------
+
+message GetComplianceReportRequest {
+  // Compliance framework (e.g., "CIS", "SOC2", "NIST-800-53").
+  string framework = 1;
+}
+
+message GetComplianceReportResponse {
+  string framework = 1;
+  google.protobuf.Timestamp generated_at = 2;
+  repeated ComplianceControl controls = 3;
+}
+
+message ComplianceControl {
+  string id = 1;
+  string title = 2;
+  string severity = 3; // critical | high | medium | low
+  ComplianceStatus status = 4;
+  repeated string policy_ids = 5;
+}
+
+enum ComplianceStatus {
+  COMPLIANCE_STATUS_UNSPECIFIED = 0;
+  COMPLIANCE_STATUS_PASSING = 1;
+  COMPLIANCE_STATUS_FAILING = 2;
+  COMPLIANCE_STATUS_NOT_APPLICABLE = 3;
+}
+
+message GetAuditLogRequest {
+  string actor = 1;
+  string action = 2;
+  google.protobuf.Timestamp since = 3;
+  google.protobuf.Timestamp until = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message GetAuditLogResponse {
+  repeated AuditEntry entries = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message AuditEntry {
+  string id = 1;
+  string actor = 2;
+  string action = 3;
+  string resource_type = 4;
+  string resource_id = 5;
+  google.protobuf.Timestamp at = 6;
+  map<string, string> attributes = 7;
+}

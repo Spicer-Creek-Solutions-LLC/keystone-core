@@ -1,0 +1,150 @@
+// StateService — declarative state management RPCs. Detailed schemas
+// (StateModule, StateRun, etc.) are placeholders here; epic 08 (State
+// Management) refines them.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+import "keystone/core/v1/common.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service StateService {
+  // ApplyState applies a declarative state document to one or more
+  // agents. Stream emits per-agent results; closes with a terminal
+  // event. See PROJECT-DETAILS §4.5 streaming patterns.
+  rpc ApplyState(ApplyStateRequest) returns (stream ApplyStateResponse);
+
+  rpc CheckState(CheckStateRequest) returns (CheckStateResponse);
+  rpc DetectDrift(DetectDriftRequest) returns (DetectDriftResponse);
+  rpc GetStateHistory(GetStateHistoryRequest) returns (GetStateHistoryResponse);
+  rpc GetStateStatus(GetStateStatusRequest) returns (GetStateStatusResponse);
+}
+
+// ---- StateModule (placeholder; refined in epic 08) ------------------------
+
+// StateModule is one declared resource in a state document. Field set
+// is intentionally minimal in v1.0 task 1; epic 08 owns the full model
+// (file, package, service, user, ...).
+message StateModule {
+  string id = 1;
+  string kind = 2; // file | package | service | user | ...
+  string name = 3;
+  map<string, string> params = 4;
+  repeated string require = 5; // ids of modules this depends on
+}
+
+message StateDocument {
+  string id = 1;
+  string version = 2;
+  repeated StateModule modules = 3;
+}
+
+message StateResult {
+  string module_id = 1;
+  StateResultKind kind = 2;
+  string detail = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+enum StateResultKind {
+  STATE_RESULT_KIND_UNSPECIFIED = 0;
+  STATE_RESULT_KIND_OK = 1;
+  STATE_RESULT_KIND_CHANGED = 2;
+  STATE_RESULT_KIND_FAILED = 3;
+  STATE_RESULT_KIND_SKIPPED = 4;
+}
+
+// StateRun summarizes one apply/check/drift operation.
+message StateRun {
+  string id = 1;
+  string document_id = 2;
+  Target target = 3;
+  StateRunStatus status = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+}
+
+enum StateRunStatus {
+  STATE_RUN_STATUS_UNSPECIFIED = 0;
+  STATE_RUN_STATUS_PENDING = 1;
+  STATE_RUN_STATUS_RUNNING = 2;
+  STATE_RUN_STATUS_COMPLETED = 3;
+  STATE_RUN_STATUS_FAILED = 4;
+  STATE_RUN_STATUS_PARTIAL = 5;
+}
+
+// ---- ApplyState -----------------------------------------------------------
+
+message ApplyStateRequest {
+  StateDocument document = 1;
+  Target target = 2;
+  bool dry_run = 3;
+}
+
+message ApplyStateResponse {
+  oneof event {
+    string run_id = 1; // first event in stream
+    BatchAgentLifecycle lifecycle = 2;
+    StateAgentResult agent_result = 3;
+    BatchTerminal terminal = 4;
+  }
+}
+
+message StateAgentResult {
+  string agent_id = 1;
+  StateResult result = 2;
+}
+
+// ---- CheckState -----------------------------------------------------------
+
+message CheckStateRequest {
+  StateDocument document = 1;
+  Target target = 2;
+}
+
+message CheckStateResponse {
+  string run_id = 1;
+  repeated StateAgentResult results = 2;
+}
+
+// ---- DetectDrift ----------------------------------------------------------
+
+message DetectDriftRequest {
+  string agent_id = 1;
+  string document_id = 2;
+}
+
+message DetectDriftResponse {
+  bool drifted = 1;
+  repeated StateResult differences = 2;
+}
+
+// ---- GetStateHistory ------------------------------------------------------
+
+message GetStateHistoryRequest {
+  string agent_id = 1;
+  google.protobuf.Timestamp since = 2;
+  google.protobuf.Timestamp until = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message GetStateHistoryResponse {
+  repeated StateRun runs = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ---- GetStateStatus -------------------------------------------------------
+
+message GetStateStatusRequest {
+  string run_id = 1;
+}
+
+message GetStateStatusResponse {
+  StateRun run = 1;
+  repeated StateAgentResult results = 2;
+}

@@ -1,0 +1,148 @@
+// ControlPlaneService — operator-facing RPCs (kscorectl, dashboards,
+// scripts).
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+import "keystone/core/v1/common.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service ControlPlaneService {
+  rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse);
+
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+
+  // ExecuteCommand dispatches a single command to one agent and
+  // streams CommandOutputChunk(s) followed by a CommandCompletion.
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
+
+  // BatchExecuteCommand dispatches one command to multiple agents
+  // selected by Target. Stream emits per-agent lifecycle events
+  // interleaved with output chunks; closes with BatchTerminal.
+  // See PROJECT-DETAILS §4.5 streaming patterns.
+  rpc BatchExecuteCommand(BatchExecuteCommandRequest) returns (stream BatchExecuteCommandResponse);
+
+  rpc GetCommandStatus(GetCommandStatusRequest) returns (GetCommandStatusResponse);
+  rpc ListCommandHistory(ListCommandHistoryRequest) returns (ListCommandHistoryResponse);
+}
+
+// ---- ServerStatus ---------------------------------------------------------
+
+message ServerStatusRequest {}
+
+message ServerStatusResponse {
+  string version = 1;
+  string commit = 2;
+  google.protobuf.Timestamp build_date = 3;
+  google.protobuf.Timestamp started_at = 4;
+  int32 connected_agents = 5;
+  bool nats_healthy = 6;
+  bool storage_healthy = 7;
+  string mode = 8; // "development" | "production"
+}
+
+// ---- ListAgents -----------------------------------------------------------
+
+message ListAgentsRequest {
+  AgentStatus status = 1; // UNSPECIFIED = no filter
+  string label_key = 2;
+  string label_value = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ---- GetAgent -------------------------------------------------------------
+
+message GetAgentRequest {
+  string agent_id = 1;
+}
+
+message GetAgentResponse {
+  Agent agent = 1;
+}
+
+// ---- ExecuteCommand -------------------------------------------------------
+
+message ExecuteCommandRequest {
+  string agent_id = 1;
+  string command = 2;
+  repeated string args = 3;
+  map<string, string> env = 4;
+  string working_dir = 5;
+  string user = 6;
+  int32 timeout_seconds = 7;
+}
+
+message ExecuteCommandResponse {
+  oneof event {
+    string command_id = 1; // emitted first; identifies the dispatched command
+    CommandOutputChunk output = 2;
+    CommandCompletion completion = 3;
+  }
+}
+
+// ---- BatchExecuteCommand --------------------------------------------------
+
+message BatchExecuteCommandRequest {
+  Target target = 1;
+  string command = 2;
+  repeated string args = 3;
+  map<string, string> env = 4;
+  string working_dir = 5;
+  string user = 6;
+  int32 timeout_seconds = 7;
+  int32 concurrency = 8;
+  bool continue_on_failure = 9;
+}
+
+message BatchExecuteCommandResponse {
+  oneof event {
+    string batch_job_id = 1;
+    BatchAgentLifecycle lifecycle = 2;
+    BatchAgentOutput output = 3;
+    BatchTerminal terminal = 4;
+  }
+}
+
+// BatchAgentOutput is one agent's output chunk within a batch stream.
+message BatchAgentOutput {
+  string agent_id = 1;
+  CommandOutputChunk output = 2;
+}
+
+// ---- GetCommandStatus -----------------------------------------------------
+
+message GetCommandStatusRequest {
+  string command_id = 1;
+}
+
+message GetCommandStatusResponse {
+  Command command = 1;
+}
+
+// ---- ListCommandHistory ---------------------------------------------------
+
+message ListCommandHistoryRequest {
+  string agent_id = 1; // empty = all agents
+  CommandStatus status = 2;
+  google.protobuf.Timestamp since = 3;
+  google.protobuf.Timestamp until = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListCommandHistoryResponse {
+  repeated Command commands = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}

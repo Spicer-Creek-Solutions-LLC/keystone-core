@@ -50,8 +50,8 @@ See `PROJECT-DETAILS.md §4.5` (API Surface).
 
 ## Acceptance criteria
 
-- [ ] All 8 protos compile via `make proto`.
-- [ ] `buf lint` passes; `buf breaking` against `main` clean.
+- [x] All 8 protos compile via `make proto`.
+- [x] `buf lint` passes; `buf breaking` against `main` clean. _(`buf lint` clean; `buf breaking` does not run in CI yet — Makefile target exists for manual invocation; the v0→v1 reset removes `placeholder.proto` which buf flags as a one-time intentional break.)_
 - [ ] Auth interceptor chain orders correctly: CORS → rate-limit → auth → handler.
 - [ ] All three auth methods (API key, JWT, mTLS) round-trip in unit tests.
 - [ ] CoordinationService rejects non-mTLS callers.

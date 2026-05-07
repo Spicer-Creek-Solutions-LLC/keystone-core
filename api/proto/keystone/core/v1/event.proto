@@ -1,0 +1,130 @@
+// EventService — fan-in event log + subscription stream. Refined in
+// epic 11 (Events).
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service EventService {
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+  rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+
+  // SubscribeEvents streams events matching the filter. Optional
+  // historical replay (last N seconds) is followed by realtime events
+  // until the client cancels. See PROJECT-DETAILS §4.5.
+  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream SubscribeEventsResponse);
+
+  rpc GetEventTypes(GetEventTypesRequest) returns (GetEventTypesResponse);
+  rpc GetEventStats(GetEventStatsRequest) returns (GetEventStatsResponse);
+}
+
+// ---- Event ----------------------------------------------------------------
+
+// Event is one record in the event log. Source identifies the emitter
+// (e.g., "agent/abc-123", "controlplane", "policy"); type is a stable
+// dotted name (e.g., "agent.connected", "command.completed").
+message Event {
+  string id = 1;
+  string type = 2;
+  string source = 3;
+  EventSeverity severity = 4;
+  google.protobuf.Timestamp at = 5;
+  map<string, string> attributes = 6;
+  string message = 7;
+  string correlation_id = 8;
+}
+
+enum EventSeverity {
+  EVENT_SEVERITY_UNSPECIFIED = 0;
+  EVENT_SEVERITY_DEBUG = 1;
+  EVENT_SEVERITY_INFO = 2;
+  EVENT_SEVERITY_WARN = 3;
+  EVENT_SEVERITY_ERROR = 4;
+  EVENT_SEVERITY_CRITICAL = 5;
+}
+
+// EventFilter narrows event lookups and subscriptions.
+message EventFilter {
+  repeated string types = 1;
+  repeated string sources = 2;
+  EventSeverity min_severity = 3;
+  google.protobuf.Timestamp since = 4;
+  google.protobuf.Timestamp until = 5;
+}
+
+// ---- ListEvents -----------------------------------------------------------
+
+message ListEventsRequest {
+  EventFilter filter = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ---- GetEvent -------------------------------------------------------------
+
+message GetEventRequest {
+  string event_id = 1;
+}
+
+message GetEventResponse {
+  Event event = 1;
+}
+
+// ---- EmitEvent ------------------------------------------------------------
+
+message EmitEventRequest {
+  Event event = 1;
+}
+
+message EmitEventResponse {
+  string event_id = 1;
+}
+
+// ---- SubscribeEvents ------------------------------------------------------
+
+message SubscribeEventsRequest {
+  EventFilter filter = 1;
+  // Replay events from the last N seconds before switching to realtime.
+  // 0 = no replay.
+  int32 replay_seconds = 2;
+  // Optional NATS-style queue group for load-balanced consumers.
+  string queue_group = 3;
+}
+
+message SubscribeEventsResponse {
+  Event event = 1;
+}
+
+// ---- GetEventTypes --------------------------------------------------------
+
+message GetEventTypesRequest {}
+
+message GetEventTypesResponse {
+  repeated string types = 1;
+}
+
+// ---- GetEventStats --------------------------------------------------------
+
+message GetEventStatsRequest {
+  google.protobuf.Timestamp since = 1;
+  google.protobuf.Timestamp until = 2;
+}
+
+message GetEventStatsResponse {
+  // Counts keyed by event type.
+  map<string, int64> by_type = 1;
+  // Counts keyed by severity name.
+  map<string, int64> by_severity = 2;
+  int64 total = 3;
+}
