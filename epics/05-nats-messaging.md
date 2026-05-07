@@ -52,7 +52,7 @@ See `PROJECT-DETAILS.md §4.2`.
 2. **`ConnectionManager`** — multi-endpoint with health check, failover, circuit breaker. Tests with synthetic endpoints. _(landed combined with task 3: external mode delegates to `ConnectionManager`; v1.0 leans on nats.go native multi-URL failover with per-endpoint observability layered via callbacks. `Breaker` interface in place; real state machine arrives in task 7.)_
 3. **`Endpoint` + `EndpointState`** types; per-endpoint health tracking (state, latency P50/P99, failure count). _(landed with task 2: `internal/nats/endpoint.go`; latency P50/P99 from a 64-sample ring buffer fed by 5s RTT probes.)_
 4. **`SubjectBuilder`** with mandatory cluster prefix. _(landed: `internal/nats/subject.go` owns the v1.0 hierarchy via typed constructors; `Manager.Publish` calls `Validate(subject)` and rejects anything not under `kscore.{cluster}.…` or that contains a wildcard / whitespace; `controlplane.CommandDispatcher` now consumes a narrow `Subjects` interface threaded through `server.Options.Subjects`.)_
-5. **`Envelope`** wrapper + JSON codec.
+5. **`Envelope`** wrapper + JSON codec. _(landed: `pkg/envelope.Envelope{MessageID, CorrelationID, Priority, TTLMillis, ClusterPrefix, Payload}` with JSON codec; `Manager.PublishEnvelope` is the only publish path — byte-level Publish retired; `CommandDispatcher` now stamps `CorrelationID = command.ID` so responses can match without a separate lookup. `MessageID` is the dedup key consumed by Task 6.)_
 6. **Dedup** — SHA-256 keyed sliding window in memory; cleanup loop.
 7. **Circuit breaker** state machine + tests.
 8. **JetStream stream definitions** for events + commands (defaults: 7d, 10GB, 1M msgs, DiscardNew).

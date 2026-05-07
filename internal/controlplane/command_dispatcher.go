@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // Dispatcher defaults align with PROJECT-DETAILS §4.4 step 7 (retention
@@ -35,10 +36,12 @@ var terminalCommandStatuses = []state.CommandStatus{
 }
 
 // NATSPublisher is the minimal NATS publish surface the dispatcher
-// needs. internal/nats.Manager satisfies it in Epic 05; tests use a
-// fake. Keeping the interface narrow lets task 2 land before NATS does.
+// needs. internal/nats.Manager (via the pkg/api/server adapter)
+// satisfies it; tests use a fake. PROJECT-DETAILS §4.2 mandates an
+// Envelope around every published message — Task 5 retired the
+// byte-level publish path in favor of PublishEnvelope.
 type NATSPublisher interface {
-	Publish(ctx context.Context, subject string, data []byte) error
+	PublishEnvelope(ctx context.Context, subject string, env envelope.Envelope) error
 }
 
 // Subjects is the narrow subject-construction surface the dispatcher
@@ -46,9 +49,15 @@ type NATSPublisher interface {
 // controlplane stays free of NATS imports. Future epics that add
 // new dispatcher subjects extend this interface here, not by
 // importing internal/nats.
+//
+// Prefix returns "kscore.{cluster}" — the value stamped into every
+// envelope's ClusterPrefix field. The publish path (Manager.
+// PublishEnvelope) cross-checks this against its own builder and
+// rejects mismatches, so a wrong-cluster envelope cannot leak.
 type Subjects interface {
 	AgentCommand(agentID string) string
 	Cluster() string
+	Prefix() string
 }
 
 // AgentLookup reads the agent registry. ConnectionManager (task 1)
@@ -324,7 +333,10 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 		return "", fmt.Errorf("controlplane: marshal command: %w", err)
 	}
 
-	if err := d.publisher.Publish(ctx, subject, payload); err != nil {
+	env := envelope.New(payload, d.subjects.Prefix(),
+		envelope.WithCorrelationID(id),
+	)
+	if err := d.publisher.PublishEnvelope(ctx, subject, env); err != nil {
 		_ = d.store.UpdateCommandResult(ctx, id, state.CommandResult{
 			Status:      state.CommandStatusFailed,
 			ExitCode:    -1,

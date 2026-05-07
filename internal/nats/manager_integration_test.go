@@ -9,6 +9,8 @@ import (
 	"time"
 
 	natsclient "github.com/nats-io/nats.go"
+
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // TestManager_EmbeddedFullRoundTrip is the integration smoke for Task 1:
@@ -39,8 +41,10 @@ func TestManager_EmbeddedFullRoundTrip(t *testing.T) {
 		t.Fatalf("flush: %v", err)
 	}
 
-	if err := m.Publish(context.Background(), "kscore.test.integration", []byte("ping")); err != nil {
-		t.Fatalf("Publish: %v", err)
+	wantInner := []byte(`"ping"`)
+	env := envelope.New(wantInner, "kscore.test")
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.integration", env); err != nil {
+		t.Fatalf("PublishEnvelope: %v", err)
 	}
 
 	done := make(chan struct{})
@@ -50,7 +54,11 @@ func TestManager_EmbeddedFullRoundTrip(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("subscriber did not receive message within 2s")
 	}
-	if string(got) != "ping" {
-		t.Errorf("payload = %q, want ping", got)
+	gotEnv, err := envelope.Unmarshal(got)
+	if err != nil {
+		t.Fatalf("subscriber decode: %v (raw=%s)", err, got)
+	}
+	if string(gotEnv.Payload) != string(wantInner) {
+		t.Errorf("inner payload = %s, want %s", gotEnv.Payload, wantInner)
 	}
 }

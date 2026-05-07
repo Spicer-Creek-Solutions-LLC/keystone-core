@@ -16,6 +16,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 	"go.keystone-core.io/keystone-core/pkg/version"
 )
 
@@ -608,12 +609,12 @@ func (s *Server) unwindFromStep13(ctx context.Context) {
 // ---- adapters -----------------------------------------------------------
 
 // natsPublisherAdapter satisfies controlplane.NATSPublisher by
-// delegating to NATSManager.Publish. Avoids leaking the broader
-// NATSManager interface into the controlplane package.
+// delegating to NATSManager.PublishEnvelope. Avoids leaking the
+// broader NATSManager interface into the controlplane package.
 type natsPublisherAdapter struct{ m NATSManager }
 
-func (a natsPublisherAdapter) Publish(ctx context.Context, subject string, data []byte) error {
-	return a.m.Publish(ctx, subject, data)
+func (a natsPublisherAdapter) PublishEnvelope(ctx context.Context, subject string, env envelope.Envelope) error {
+	return a.m.PublishEnvelope(ctx, subject, env)
 }
 
 // contextWithTimeoutMin returns a child context bounded by the smaller

@@ -12,6 +12,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // fakeSubjects is a hand-rolled subject builder used by dispatcher
@@ -28,6 +29,8 @@ func (f fakeSubjects) AgentCommand(agentID string) string {
 
 func (f fakeSubjects) Cluster() string { return f.cluster }
 
+func (f fakeSubjects) Prefix() string { return "kscore." + f.cluster }
+
 // fakePublisher captures every Publish call for inspection. It is
 // goroutine-safe so concurrent dispatcher tests can still assert on
 // the captured stream.
@@ -39,20 +42,23 @@ type fakePublisher struct {
 }
 
 type publishCall struct {
-	subject string
-	data    []byte
+	subject  string
+	envelope envelope.Envelope
 }
 
-func (p *fakePublisher) Publish(_ context.Context, subject string, data []byte) error {
+func (p *fakePublisher) PublishEnvelope(_ context.Context, subject string, env envelope.Envelope) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.failNext {
 		p.failNext = false
 		return p.failErr
 	}
-	cp := make([]byte, len(data))
-	copy(cp, data)
-	p.calls = append(p.calls, publishCall{subject: subject, data: cp})
+	// Deep-copy the payload so later test mutations cannot retroactively
+	// edit recorded history.
+	cp := make([]byte, len(env.Payload))
+	copy(cp, env.Payload)
+	env.Payload = cp
+	p.calls = append(p.calls, publishCall{subject: subject, envelope: env})
 	return nil
 }
 
@@ -204,8 +210,23 @@ func TestDispatch_HappyPath(t *testing.T) {
 	if want := "kscore.default.agent.agent-1.command"; calls[0].subject != want {
 		t.Errorf("subject = %q, want %q", calls[0].subject, want)
 	}
+
+	// Envelope-level assertions: CorrelationID == command ID, cluster
+	// prefix matches the configured cluster, MessageID stamped.
+	got := calls[0].envelope
+	if got.CorrelationID != "cmd-1" {
+		t.Errorf("CorrelationID = %q, want cmd-1", got.CorrelationID)
+	}
+	if got.ClusterPrefix != "kscore.default" {
+		t.Errorf("ClusterPrefix = %q, want kscore.default", got.ClusterPrefix)
+	}
+	if got.MessageID == "" {
+		t.Error("MessageID empty")
+	}
+
+	// Inner payload assertions: the commandMessage shape is preserved.
 	var msg map[string]any
-	if err := json.Unmarshal(calls[0].data, &msg); err != nil {
+	if err := json.Unmarshal(got.Payload, &msg); err != nil {
 		t.Fatalf("payload not JSON: %v", err)
 	}
 	if msg["id"] != "cmd-1" || msg["command"] != "uptime" {

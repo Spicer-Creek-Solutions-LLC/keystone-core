@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // stubNATS is the minimal NATSManager surface the checker exercises.
@@ -17,7 +19,7 @@ type stubNATS struct{ healthErr error }
 func (s stubNATS) Start(context.Context) error    { return nil }
 func (s stubNATS) Shutdown(context.Context) error { return nil }
 func (s stubNATS) Health(context.Context) error   { return s.healthErr }
-func (s stubNATS) Publish(context.Context, string, []byte) error {
+func (s stubNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
 
@@ -39,7 +41,7 @@ func (n slowNATS) Health(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
-func (n slowNATS) Publish(context.Context, string, []byte) error {
+func (n slowNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
 

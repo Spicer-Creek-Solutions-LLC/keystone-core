@@ -233,9 +233,12 @@ func (cm *ConnectionManager) Health(_ context.Context) error {
 	return nil
 }
 
-// Publish sends data on subject through the active conn. Subject
-// validation and cluster prefixing land in Task 4 (SubjectBuilder).
-func (cm *ConnectionManager) Publish(_ context.Context, subject string, data []byte) error {
+// publishBytes sends pre-validated bytes on subject through the
+// active conn. Package-private — Manager.PublishEnvelope is the
+// public path, and ConnectionManager-direct publishes are not part
+// of the v1.0 contract. Records per-endpoint success/failure for
+// observability.
+func (cm *ConnectionManager) publishBytes(_ context.Context, subject string, data []byte) error {
 	cm.mu.RLock()
 	conn := cm.conn
 	stopped := cm.stopped

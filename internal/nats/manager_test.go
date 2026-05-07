@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -15,7 +16,24 @@ import (
 	natsclient "github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
+
+// mkEnv builds a default envelope wrapping data for the test cluster
+// prefix ("kscore.test"). The bytes are treated as a JSON string
+// literal — envelope.Payload is json.RawMessage, so the inner shape
+// must be valid JSON. Tests that need a structured payload should
+// build the envelope inline with json.Marshal'd bytes.
+func mkEnv(data []byte) envelope.Envelope {
+	if data == nil {
+		return envelope.New(nil, "kscore.test")
+	}
+	quoted, err := json.Marshal(string(data))
+	if err != nil {
+		panic("mkEnv: json.Marshal: " + err.Error())
+	}
+	return envelope.New(quoted, "kscore.test")
+}
 
 // freePort returns a TCP port no other process is currently bound to.
 // Race window is small; tests retry once via fresh manager construction
@@ -102,7 +120,7 @@ func TestManager_EmbeddedStartHealthPublishShutdown(t *testing.T) {
 		t.Errorf("Health after Start = %v, want nil", err)
 	}
 
-	if err := m.Publish(context.Background(), "kscore.test.ping", []byte("hi")); err != nil {
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.ping", mkEnv([]byte("hi"))); err != nil {
 		t.Errorf("Publish = %v, want nil", err)
 	}
 
@@ -113,7 +131,7 @@ func TestManager_EmbeddedStartHealthPublishShutdown(t *testing.T) {
 	if err := m.Health(context.Background()); err == nil {
 		t.Error("Health after Shutdown = nil, want error")
 	}
-	if err := m.Publish(context.Background(), "kscore.test.ping", []byte("hi")); err == nil {
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.ping", mkEnv([]byte("hi"))); err == nil {
 		t.Error("Publish after Shutdown = nil, want error")
 	}
 }
@@ -173,7 +191,7 @@ func TestManager_PublishPreStart(t *testing.T) {
 	// Use a valid subject so the failure surfaces from the started
 	// gate, not from the prefix interceptor — this test asserts the
 	// pre-Start contract specifically.
-	if err := m.Publish(context.Background(), "kscore.test.preStart", []byte("y")); err == nil {
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.preStart", mkEnv([]byte("y"))); err == nil {
 		t.Error("Publish pre-Start = nil, want error")
 	}
 }
@@ -191,16 +209,29 @@ func TestManager_PublishRejectsUnprefixed(t *testing.T) {
 		"kscore.test.agent foo",            // whitespace
 	}
 	for _, subject := range cases {
-		err := m.Publish(context.Background(), subject, []byte("ok"))
+		err := m.PublishEnvelope(context.Background(), subject, mkEnv([]byte("ok")))
 		if err == nil {
-			t.Errorf("Publish(%q) = nil, want error", subject)
+			t.Errorf("PublishEnvelope(%q) = nil, want error", subject)
 		}
 	}
 
 	// And a positive control: the typed constructor result publishes
 	// without error.
-	if err := m.Publish(context.Background(), m.Subjects().AgentHeartbeat(), []byte("hb")); err != nil {
-		t.Errorf("Publish(AgentHeartbeat) = %v, want nil", err)
+	if err := m.PublishEnvelope(context.Background(), m.Subjects().AgentHeartbeat(), mkEnv([]byte("hb"))); err != nil {
+		t.Errorf("PublishEnvelope(AgentHeartbeat) = %v, want nil", err)
+	}
+}
+
+func TestManager_PublishEnvelopeRejectsClusterMismatch(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+	// Envelope built for a *different* cluster than the manager's.
+	wrong := envelope.New([]byte("hi"), "kscore.somewhere-else")
+	err := m.PublishEnvelope(context.Background(), m.Subjects().AgentHeartbeat(), wrong)
+	if err == nil {
+		t.Fatal("PublishEnvelope: expected error for cluster_prefix mismatch")
+	}
+	if !strings.Contains(err.Error(), "cluster_prefix") {
+		t.Errorf("err = %v, want containing 'cluster_prefix'", err)
 	}
 }
 
@@ -227,7 +258,7 @@ func TestManager_ExternalConnect(t *testing.T) {
 	if err := m.Health(context.Background()); err != nil {
 		t.Errorf("external Health = %v, want nil", err)
 	}
-	if err := m.Publish(context.Background(), "kscore.test.ext", []byte("ok")); err != nil {
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.ext", mkEnv([]byte("ok"))); err != nil {
 		t.Errorf("external Publish = %v, want nil", err)
 	}
 }
@@ -272,8 +303,12 @@ func TestManager_ExternalSubscribeRoundTrip(t *testing.T) {
 	}
 	m := startManager(t, cfg)
 
-	want := []byte("payload")
-	if err := m.Publish(context.Background(), "kscore.test.rt", want); err != nil {
+	// Inner payload is JSON because envelope.Payload is json.RawMessage;
+	// build directly (mkEnv wraps as a JSON string literal, which is
+	// not what we want here).
+	wantInner := []byte(`{"msg":"hello"}`)
+	env := envelope.New(wantInner, "kscore.test")
+	if err := m.PublishEnvelope(context.Background(), "kscore.test.rt", env); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 
@@ -284,8 +319,16 @@ func TestManager_ExternalSubscribeRoundTrip(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("subscriber timed out waiting for message")
 	}
-	if string(got) != string(want) {
-		t.Errorf("payload = %q, want %q", got, want)
+
+	gotEnv, err := envelope.Unmarshal(got)
+	if err != nil {
+		t.Fatalf("subscriber decode: %v (raw=%s)", err, got)
+	}
+	if string(gotEnv.Payload) != string(wantInner) {
+		t.Errorf("inner payload = %s, want %s", gotEnv.Payload, wantInner)
+	}
+	if gotEnv.ClusterPrefix != "kscore.test" {
+		t.Errorf("ClusterPrefix = %q, want kscore.test", gotEnv.ClusterPrefix)
 	}
 }
 

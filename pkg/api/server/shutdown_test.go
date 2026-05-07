@@ -17,6 +17,7 @@ import (
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 
 	"go.keystone-core.io/keystone-core/pkg/api/server"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // orderingNATS records when Shutdown is invoked and returns instantly,
@@ -31,7 +32,7 @@ type orderingNATS struct {
 
 func (n *orderingNATS) Start(context.Context) error             { n.startCalled.Store(true); return nil }
 func (n *orderingNATS) Health(context.Context) error            { return n.healthErr }
-func (n *orderingNATS) Publish(context.Context, string, []byte) error {
+func (n *orderingNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	n.publishCalled.Add(1)
 	return nil
 }
@@ -51,7 +52,9 @@ func (n *hangingNATS) Start(context.Context) error { return nil }
 func (n *hangingNATS) Health(context.Context) error {
 	return nil
 }
-func (n *hangingNATS) Publish(context.Context, string, []byte) error { return nil }
+func (n *hangingNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
+	return nil
+}
 func (n *hangingNATS) Shutdown(ctx context.Context) error {
 	select {
 	case <-n.released:

@@ -81,7 +81,7 @@ func TestConnectionManager_StartHealthPublish(t *testing.T) {
 	if err := cm.Health(context.Background()); err != nil {
 		t.Errorf("Health = %v, want nil", err)
 	}
-	if err := cm.Publish(context.Background(), "kscore.test.cm", []byte("ok")); err != nil {
+	if err := cm.publishBytes(context.Background(), "kscore.test.cm", []byte("ok")); err != nil {
 		t.Errorf("Publish = %v, want nil", err)
 	}
 
@@ -202,7 +202,7 @@ func TestConnectionManager_ConcurrentPublish(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < messages; i++ {
-				if err := cm.Publish(context.Background(), "kscore.test.concurrent", []byte("x")); err != nil {
+				if err := cm.publishBytes(context.Background(), "kscore.test.concurrent", []byte("x")); err != nil {
 					t.Errorf("Publish: %v", err)
 					return
 				}
@@ -224,7 +224,7 @@ func TestConnectionManager_HealthPreStart(t *testing.T) {
 	if err := cm.Health(context.Background()); err == nil {
 		t.Error("Health pre-Start = nil, want error")
 	}
-	if err := cm.Publish(context.Background(), "x", []byte("y")); err == nil {
+	if err := cm.publishBytes(context.Background(), "x", []byte("y")); err == nil {
 		t.Error("Publish pre-Start = nil, want error")
 	}
 	if _, ok := cm.ActiveEndpoint(); ok {
@@ -244,7 +244,7 @@ func TestConnectionManager_ShutdownIdempotent(t *testing.T) {
 	if err := cm.Health(context.Background()); err == nil {
 		t.Error("Health post-Shutdown = nil, want error")
 	}
-	if err := cm.Publish(context.Background(), "x", []byte("y")); err == nil {
+	if err := cm.publishBytes(context.Background(), "x", []byte("y")); err == nil {
 		t.Error("Publish post-Shutdown = nil, want error")
 	}
 }
@@ -297,7 +297,7 @@ func TestConnectionManager_PublishReflectsInSubscriber(t *testing.T) {
 		t.Fatalf("flush: %v", err)
 	}
 
-	if err := cm.Publish(context.Background(), "kscore.test.cm.rt", []byte("hello")); err != nil {
+	if err := cm.publishBytes(context.Background(), "kscore.test.cm.rt", []byte("hello")); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 

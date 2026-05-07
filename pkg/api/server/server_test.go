@@ -18,6 +18,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // TestMain isolates server lifecycle tests under goleak so runaway
@@ -50,7 +51,7 @@ func (n *trackingNATS) Shutdown(context.Context) error {
 	return nil
 }
 func (n *trackingNATS) Health(context.Context) error { return n.healthErr }
-func (n *trackingNATS) Publish(_ context.Context, _ string, _ []byte) error {
+func (n *trackingNATS) PublishEnvelope(_ context.Context, _ string, _ envelope.Envelope) error {
 	n.publishCalled.Add(1)
 	return nil
 }
@@ -136,6 +137,7 @@ func (f fakeSubjects) AgentCommand(agentID string) string {
 }
 
 func (f fakeSubjects) Cluster() string { return f.cluster }
+func (f fakeSubjects) Prefix() string  { return "kscore." + f.cluster }
 
 func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *trackingNATS) {
 	t.Helper()

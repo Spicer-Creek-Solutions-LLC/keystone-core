@@ -13,6 +13,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // embeddedReadyTimeout bounds how long Manager.Start waits for the
@@ -274,17 +275,39 @@ func (m *Manager) Health(ctx context.Context) error {
 	return nil
 }
 
-// Publish sends data on subject. External mode routes through
-// ConnectionManager so per-endpoint state tracks publish outcomes;
-// embedded mode publishes directly on the in-process conn. The
-// SubjectBuilder interceptor (Task 4) rejects non-prefixed subjects
-// before they reach NATS — the strict-typed constructors are the
-// recommended construction path; this is the safety net.
-func (m *Manager) Publish(ctx context.Context, subject string, data []byte) error {
+// PublishEnvelope marshals env and publishes on subject. The
+// SubjectBuilder interceptor (Task 4) rejects non-prefixed subjects;
+// envelope.Marshal validates required fields (MessageID, Priority,
+// ClusterPrefix). PROJECT-DETAILS §4.2 mandates an Envelope around
+// every published payload — this is the only publish path Manager
+// exposes (the byte-level Publish was retired in Task 5).
+//
+// PublishEnvelope additionally requires env.ClusterPrefix to match
+// the manager's configured prefix; a mismatch indicates an envelope
+// constructed against a different cluster's SubjectBuilder, which
+// would publish to the right subject but carry the wrong routing
+// metadata — a footgun worth catching at the boundary.
+func (m *Manager) PublishEnvelope(ctx context.Context, subject string, env envelope.Envelope) error {
 	if err := m.subjects.Validate(subject); err != nil {
 		return err
 	}
+	if env.ClusterPrefix != m.subjects.Prefix() {
+		return fmt.Errorf("nats: envelope cluster_prefix %q does not match manager prefix %q",
+			env.ClusterPrefix, m.subjects.Prefix())
+	}
+	data, err := env.Marshal()
+	if err != nil {
+		return err
+	}
+	return m.publishBytes(ctx, subject, data)
+}
 
+// publishBytes is the post-validation publish path shared by
+// PublishEnvelope (and, in later tasks, the bootstrap registration
+// handler). External mode routes through ConnectionManager so per-
+// endpoint state tracks publish outcomes; embedded mode publishes
+// directly on the in-process conn.
+func (m *Manager) publishBytes(ctx context.Context, subject string, data []byte) error {
 	m.mu.Lock()
 	stopped := m.stopped
 	started := m.started
@@ -299,7 +322,7 @@ func (m *Manager) Publish(ctx context.Context, subject string, data []byte) erro
 		return errors.New("nats: not started")
 	}
 	if cm != nil {
-		return cm.Publish(ctx, subject, data)
+		return cm.publishBytes(ctx, subject, data)
 	}
 	if conn == nil {
 		return errors.New("nats: not started")
