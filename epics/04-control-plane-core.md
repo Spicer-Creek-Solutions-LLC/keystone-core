@@ -46,20 +46,20 @@ See `PROJECT-DETAILS.md §4.4`.
 7. **Health endpoints** ✅: `/health/live` (200 trivial), `/health/ready` (NATS + DB checks; respect `health.startup_grace_period` default 30s), `/health/status` (component latencies), `/api/status` (uptime, version, agent counts, memory, goroutines).
 8. **Graceful shutdown** ✅ sequence with deferred Close and 30s context timeout per HTTP listener.
 9. **Production warnings** ✅ — `Config.ProductionWarnings()` returns the list; logged at startup; exposed via `/api/status` for ops dashboards.
-10. **Integration test**: spawn full server with test config (SQLite, embedded NATS via stub, auth disabled), gRPC client calls GetServerStatus, REST client calls /health/ready, trigger SIGTERM, verify clean exit and no leaks.
+10. **Integration test** ✅ : spawn full server with test config (SQLite, embedded NATS via stub, auth disabled), gRPC client calls GetServerStatus, REST client calls /health/ready, trigger SIGTERM, verify clean exit and no leaks.
 
 ## Acceptance criteria
 
-- [ ] `kscore-server run --config dev.yaml` starts in <2s on a laptop.
-- [ ] First-run banner includes versions, ports, auth mode, production warnings.
-- [ ] All 7 v1.0 gRPC services register (with nil-guarded conditional services for cluster/policy/etc.).
-- [ ] All v1.0 REST handler routes registered (with nil-guard for not-yet-implemented domains).
-- [ ] `/health/live` → 200 always.
-- [ ] `/health/ready` → 503 during grace period, 200 after when deps healthy, 503 if NATS or DB unreachable.
-- [ ] CORS preflight does not consume rate-limit budget.
-- [ ] Auth interceptor logs denials and includes principal info on accepted requests.
-- [ ] SIGTERM produces ordered shutdown logs; integration test verifies no goroutine leaks (`goleak` package).
-- [ ] Coverage >75% on `internal/controlplane`, `pkg/api/server`.
+- [x] `kscore-server run --config dev.yaml` starts in <2s on a laptop. _(measured locally; integration test boots in well under that.)_
+- [x] First-run banner includes versions, ports, auth mode, production warnings. _(task 4 + 9.)_
+- [ ] All 7 v1.0 gRPC services register (with nil-guarded conditional services for cluster/policy/etc.). _(plumbing in place via `Server.RegisterService`; concrete services land with their owning epics 06/07/09/etc.)_
+- [x] All v1.0 REST handler routes registered (with nil-guard for not-yet-implemented domains). _(epic 03 task 7 stubs return 501; task 4 wires them.)_
+- [x] `/health/live` → 200 always. _(task 4.)_
+- [x] `/health/ready` → 503 during grace period, 200 after when deps healthy, 503 if NATS or DB unreachable. _(task 7.)_
+- [x] CORS preflight does not consume rate-limit budget. _(task 6 — CORS short-circuits OPTIONS before auth.)_
+- [x] Auth interceptor logs denials and includes principal info on accepted requests. _(epic 03 auth package; task 6 wiring.)_
+- [x] SIGTERM produces ordered shutdown logs; integration test verifies no goroutine leaks (`goleak` package). _(task 8 + task 10.)_
+- [x] Coverage >75% on `internal/controlplane`, `pkg/api/server`. _(86.6% + 88.3%.)_
 
 ## Risks
 
