@@ -202,6 +202,73 @@ func TestSQLiteStore_BatchAgentResults(t *testing.T) {
 	}
 }
 
+func TestSQLiteStore_BatchJob_Lifecycle(t *testing.T) {
+	s := newSQLiteStoreForTest(t)
+	ctx := t.Context()
+
+	if err := s.CreateBatchJob(ctx, sampleBatchJob("b-1")); err != nil {
+		t.Fatalf("CreateBatchJob: %v", err)
+	}
+
+	startedAt := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	if err := s.MarkBatchJobRunning(ctx, "b-1", startedAt); err != nil {
+		t.Fatalf("MarkBatchJobRunning: %v", err)
+	}
+	got, err := s.GetBatchJob(ctx, "b-1")
+	if err != nil {
+		t.Fatalf("GetBatchJob: %v", err)
+	}
+	if got.Status != BatchJobStatusRunning {
+		t.Errorf("Status = %q, want running", got.Status)
+	}
+	if !got.StartedAt.Equal(startedAt) {
+		t.Errorf("StartedAt = %v, want %v", got.StartedAt, startedAt)
+	}
+
+	completedAt := startedAt.Add(time.Minute)
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusCompleted, completedAt); err != nil {
+		t.Fatalf("FinalizeBatchJob: %v", err)
+	}
+	got, err = s.GetBatchJob(ctx, "b-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != BatchJobStatusCompleted {
+		t.Errorf("Status = %q, want completed", got.Status)
+	}
+	if !got.CompletedAt.Equal(completedAt) {
+		t.Errorf("CompletedAt = %v, want %v", got.CompletedAt, completedAt)
+	}
+}
+
+func TestSQLiteStore_BatchJob_LifecycleValidation(t *testing.T) {
+	s := newSQLiteStoreForTest(t)
+	ctx := t.Context()
+	if err := s.CreateBatchJob(ctx, sampleBatchJob("b-1")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.MarkBatchJobRunning(ctx, "b-1", time.Time{}); err == nil {
+		t.Error("zero startedAt should error")
+	}
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusCompleted, time.Time{}); err == nil {
+		t.Error("zero completedAt should error")
+	}
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusPending, time.Now()); err == nil {
+		t.Error("non-terminal status should error")
+	}
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusRunning, time.Now()); err == nil {
+		t.Error("non-terminal status (running) should error")
+	}
+
+	if err := s.MarkBatchJobRunning(ctx, "ghost", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Errorf("MarkBatchJobRunning missing: %v, want ErrNotFound", err)
+	}
+	if err := s.FinalizeBatchJob(ctx, "ghost", BatchJobStatusCompleted, time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Errorf("FinalizeBatchJob missing: %v, want ErrNotFound", err)
+	}
+}
+
 func TestSQLiteStore_BatchAgentResult_ForeignKeyEnforced(t *testing.T) {
 	s := newSQLiteStoreForTest(t)
 	r := &BatchAgentResultRecord{

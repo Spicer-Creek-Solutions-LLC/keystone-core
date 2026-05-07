@@ -60,6 +60,18 @@ const (
 	BatchJobStatusCancelled BatchJobStatus = "cancelled"
 )
 
+// isTerminalBatchStatus reports whether s is one of the terminal
+// BatchJobStatus values (completed, failed, partial, cancelled).
+// Used by FinalizeBatchJob to refuse non-terminal targets.
+func isTerminalBatchStatus(s BatchJobStatus) bool {
+	switch s {
+	case BatchJobStatusCompleted, BatchJobStatusFailed,
+		BatchJobStatusPartial, BatchJobStatusCancelled:
+		return true
+	}
+	return false
+}
+
 // ---- Records --------------------------------------------------------------
 
 // AgentRecord is the persistent shape of a registered agent.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const batchJobSelect = `SELECT
@@ -116,6 +117,37 @@ WHERE id = ?`,
 		completed, successful, failed, id)
 	if err != nil {
 		return fmt.Errorf("state: UpdateBatchJobCounts: %w", err)
+	}
+	return affectsRow(res)
+}
+
+func (s *SQLiteStore) MarkBatchJobRunning(ctx context.Context, id string, startedAt time.Time) error {
+	if startedAt.IsZero() {
+		return fmt.Errorf("state: MarkBatchJobRunning: startedAt must be non-zero")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE batch_jobs SET status = ?, started_at = ? WHERE id = ?`,
+		string(BatchJobStatusRunning), tsArgRequired(startedAt), id,
+	)
+	if err != nil {
+		return fmt.Errorf("state: MarkBatchJobRunning: %w", err)
+	}
+	return affectsRow(res)
+}
+
+func (s *SQLiteStore) FinalizeBatchJob(ctx context.Context, id string, status BatchJobStatus, completedAt time.Time) error {
+	if !isTerminalBatchStatus(status) {
+		return fmt.Errorf("state: FinalizeBatchJob: %q is not a terminal status", status)
+	}
+	if completedAt.IsZero() {
+		return fmt.Errorf("state: FinalizeBatchJob: completedAt must be non-zero")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE batch_jobs SET status = ?, completed_at = ? WHERE id = ?`,
+		string(status), tsArgRequired(completedAt), id,
+	)
+	if err != nil {
+		return fmt.Errorf("state: FinalizeBatchJob: %w", err)
 	}
 	return affectsRow(res)
 }

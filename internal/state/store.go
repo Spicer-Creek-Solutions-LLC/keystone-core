@@ -45,6 +45,19 @@ type BatchJobStore interface {
 	GetBatchJob(ctx context.Context, id string) (*BatchJobRecord, error)
 	ListBatchJobs(ctx context.Context, filter BatchJobFilter) ([]*BatchJobRecord, error)
 	UpdateBatchJobCounts(ctx context.Context, id string, completed, successful, failed int) error
+
+	// MarkBatchJobRunning sets status='running' and started_at=startedAt.
+	// Used by controlplane.BatchDispatcher's state machine on the
+	// pending → running transition. The storage layer does not enforce
+	// the previous status — caller is responsible for guard rails.
+	MarkBatchJobRunning(ctx context.Context, id string, startedAt time.Time) error
+
+	// FinalizeBatchJob sets status to one of the terminal values
+	// (completed, failed, partial, cancelled) and stamps completed_at.
+	// As with MarkBatchJobRunning, the storage layer does not enforce
+	// transitions; the dispatcher's state machine does.
+	FinalizeBatchJob(ctx context.Context, id string, status BatchJobStatus, completedAt time.Time) error
+
 	CreateBatchAgentResult(ctx context.Context, r *BatchAgentResultRecord) error
 	ListBatchAgentResults(ctx context.Context, batchJobID string) ([]*BatchAgentResultRecord, error)
 }

@@ -178,6 +178,56 @@ func TestPg_BatchAgentResults(t *testing.T) {
 	}
 }
 
+func TestPg_BatchJob_Lifecycle(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+
+	if err := s.CreateBatchJob(ctx, sampleBatchJob("b-1")); err != nil {
+		t.Fatalf("CreateBatchJob: %v", err)
+	}
+
+	startedAt := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	if err := s.MarkBatchJobRunning(ctx, "b-1", startedAt); err != nil {
+		t.Fatalf("MarkBatchJobRunning: %v", err)
+	}
+	got, err := s.GetBatchJob(ctx, "b-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != BatchJobStatusRunning {
+		t.Errorf("Status = %q", got.Status)
+	}
+	if !got.StartedAt.Equal(startedAt) {
+		t.Errorf("StartedAt = %v, want %v", got.StartedAt, startedAt)
+	}
+
+	completedAt := startedAt.Add(time.Minute)
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusPartial, completedAt); err != nil {
+		t.Fatalf("FinalizeBatchJob: %v", err)
+	}
+	got, err = s.GetBatchJob(ctx, "b-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != BatchJobStatusPartial {
+		t.Errorf("Status = %q, want partial", got.Status)
+	}
+	if !got.CompletedAt.Equal(completedAt) {
+		t.Errorf("CompletedAt = %v, want %v", got.CompletedAt, completedAt)
+	}
+
+	// Validation matrix.
+	if err := s.MarkBatchJobRunning(ctx, "b-1", time.Time{}); err == nil {
+		t.Error("zero startedAt should error")
+	}
+	if err := s.FinalizeBatchJob(ctx, "b-1", BatchJobStatusRunning, time.Now()); err == nil {
+		t.Error("non-terminal status should error")
+	}
+	if err := s.MarkBatchJobRunning(ctx, "ghost", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing: %v, want ErrNotFound", err)
+	}
+}
+
 func TestPg_BatchAgentResult_ForeignKeyEnforced(t *testing.T) {
 	s := newPgStoreForTest(t)
 	r := &BatchAgentResultRecord{

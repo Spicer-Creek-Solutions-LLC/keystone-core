@@ -39,7 +39,7 @@ See `PROJECT-DETAILS.md §4.4`.
 
 1. **`internal/controlplane/connection_manager.go`** ✅ — agent registration, in-memory + DB-persisted state, heartbeat monitor goroutine, stale eviction.
 2. **`internal/controlplane/command_dispatcher.go`** ✅ — dispatch via NATS pub/sub (NATS lands in Epic 05; stub `NATSPublisher` interface here for tests).
-3. **`internal/controlplane/batch_dispatcher.go`** — see Epic 07 for the targeting + execution side; this epic provides the orchestrator + persistence.
+3. **`internal/controlplane/batch_dispatcher.go`** ✅ — see Epic 07 for the targeting + execution side; this epic provides the orchestrator + persistence.
 4. **`pkg/api/server/server.go`** — Server struct with Start/Stop methods. 21-step init.
 5. **Listener creation** with `ensureIPv6Brackets()` helper + dual-stack helper. Tests for both IPv4-only, IPv6-only, dual-stack configurations.
 6. **Middleware chain** wired with auth from Epic 03.

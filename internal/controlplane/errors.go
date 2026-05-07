@@ -40,4 +40,20 @@ var (
 	// ErrInvalidDispatch is returned when DispatchRequest is missing
 	// required fields (AgentID, Command).
 	ErrInvalidDispatch = errors.New("controlplane: invalid dispatch request")
+
+	// ErrBatchNotFound is returned when a batch ID is unknown.
+	ErrBatchNotFound = errors.New("controlplane: batch not found")
+
+	// ErrBatchInvalidState is returned when a state transition is
+	// attempted from a status that disallows it (e.g., RecordAgentResult
+	// on a pending batch, MarkRunning on an already-running batch).
+	ErrBatchInvalidState = errors.New("controlplane: batch in invalid state for operation")
+
+	// ErrBatchFinalized is returned when an operation is attempted on a
+	// batch that has already reached a terminal status.
+	ErrBatchFinalized = errors.New("controlplane: batch already finalized")
+
+	// ErrInvalidBatchRequest is returned when BatchRequest is missing
+	// required fields (Command, TotalAgents > 0).
+	ErrInvalidBatchRequest = errors.New("controlplane: invalid batch request")
 )

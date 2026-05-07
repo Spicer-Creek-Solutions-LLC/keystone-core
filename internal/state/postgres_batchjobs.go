@@ -122,6 +122,37 @@ WHERE id = $4`,
 	return affectsRow(res)
 }
 
+func (s *PostgreSQLStore) MarkBatchJobRunning(ctx context.Context, id string, startedAt time.Time) error {
+	if startedAt.IsZero() {
+		return fmt.Errorf("state: MarkBatchJobRunning: startedAt must be non-zero")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE batch_jobs SET status = $1, started_at = $2 WHERE id = $3`,
+		string(BatchJobStatusRunning), startedAt.UTC(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("state: MarkBatchJobRunning: %w", err)
+	}
+	return affectsRow(res)
+}
+
+func (s *PostgreSQLStore) FinalizeBatchJob(ctx context.Context, id string, status BatchJobStatus, completedAt time.Time) error {
+	if !isTerminalBatchStatus(status) {
+		return fmt.Errorf("state: FinalizeBatchJob: %q is not a terminal status", status)
+	}
+	if completedAt.IsZero() {
+		return fmt.Errorf("state: FinalizeBatchJob: completedAt must be non-zero")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE batch_jobs SET status = $1, completed_at = $2 WHERE id = $3`,
+		string(status), completedAt.UTC(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("state: FinalizeBatchJob: %w", err)
+	}
+	return affectsRow(res)
+}
+
 func (s *PostgreSQLStore) CreateBatchAgentResult(ctx context.Context, r *BatchAgentResultRecord) error {
 	if r == nil {
 		return fmt.Errorf("state: CreateBatchAgentResult: nil record")
