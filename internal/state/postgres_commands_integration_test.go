@@ -152,3 +152,67 @@ func TestPg_ListCommands_Filters(t *testing.T) {
 		}
 	})
 }
+
+func TestPg_DeleteCommandsBefore(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+	pgPreCommandAgent(t, s, "agent-d")
+
+	old := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	cutoff := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	mkTerminal := func(id string, completedAt time.Time, status CommandStatus) *CommandRecord {
+		c := sampleCommand(id, "agent-d")
+		c.Status = status
+		c.StartedAt = completedAt.Add(-time.Minute)
+		c.CompletedAt = completedAt
+		c.ExitCode = 0
+		return c
+	}
+	mkPending := func(id string) *CommandRecord {
+		c := sampleCommand(id, "agent-d")
+		c.Status = CommandStatusPending
+		c.StartedAt = old.Add(-time.Hour)
+		c.CompletedAt = time.Time{}
+		return c
+	}
+
+	for _, c := range []*CommandRecord{
+		mkTerminal("old-completed", old, CommandStatusCompleted),
+		mkTerminal("old-failed", old, CommandStatusFailed),
+		mkTerminal("recent-completed", recent, CommandStatusCompleted),
+		mkPending("pending-very-old"),
+	} {
+		if err := s.CreateCommand(ctx, c); err != nil {
+			t.Fatalf("seed %s: %v", c.ID, err)
+		}
+	}
+
+	if _, err := s.DeleteCommandsBefore(ctx, cutoff, nil); err == nil {
+		t.Error("nil statuses should error")
+	}
+	if _, err := s.DeleteCommandsBefore(ctx, time.Time{}, []CommandStatus{CommandStatusCompleted}); err == nil {
+		t.Error("zero cutoff should error")
+	}
+
+	n, err := s.DeleteCommandsBefore(ctx, cutoff, []CommandStatus{
+		CommandStatusCompleted, CommandStatusFailed, CommandStatusTimeout, CommandStatusCancelled,
+	})
+	if err != nil {
+		t.Fatalf("DeleteCommandsBefore: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("deleted = %d, want 2", n)
+	}
+	for _, id := range []string{"recent-completed", "pending-very-old"} {
+		if _, err := s.GetCommand(ctx, id); err != nil {
+			t.Errorf("expected %s preserved: %v", id, err)
+		}
+	}
+	for _, id := range []string{"old-completed", "old-failed"} {
+		if _, err := s.GetCommand(ctx, id); !errors.Is(err, ErrNotFound) {
+			t.Errorf("expected %s deleted, got err=%v", id, err)
+		}
+	}
+}

@@ -183,3 +183,95 @@ func TestSQLiteStore_ListCommands_Filters(t *testing.T) {
 		}
 	})
 }
+
+func TestSQLiteStore_DeleteCommandsBefore(t *testing.T) {
+	s := newSQLiteStoreForTest(t)
+	ctx := t.Context()
+	preCommandAgent(t, s, "agent-d")
+
+	old := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	cutoff := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	mkTerminal := func(id string, completedAt time.Time, status CommandStatus) *CommandRecord {
+		c := sampleCommand(id, "agent-d")
+		c.Status = status
+		c.StartedAt = completedAt.Add(-time.Minute)
+		c.CompletedAt = completedAt
+		c.ExitCode = 0
+		return c
+	}
+	mkPending := func(id string) *CommandRecord {
+		c := sampleCommand(id, "agent-d")
+		c.Status = CommandStatusPending
+		c.StartedAt = old.Add(-time.Hour) // very old, but no CompletedAt
+		c.CompletedAt = time.Time{}
+		return c
+	}
+
+	for _, c := range []*CommandRecord{
+		mkTerminal("old-completed", old, CommandStatusCompleted),
+		mkTerminal("old-failed", old, CommandStatusFailed),
+		mkTerminal("old-cancelled", old, CommandStatusCancelled),
+		mkTerminal("recent-completed", recent, CommandStatusCompleted),
+		mkPending("pending-very-old"),
+	} {
+		if err := s.CreateCommand(ctx, c); err != nil {
+			t.Fatalf("seed %s: %v", c.ID, err)
+		}
+	}
+
+	t.Run("rejects empty status list", func(t *testing.T) {
+		if _, err := s.DeleteCommandsBefore(ctx, cutoff, nil); err == nil {
+			t.Error("nil statuses should error")
+		}
+	})
+
+	t.Run("rejects zero cutoff", func(t *testing.T) {
+		if _, err := s.DeleteCommandsBefore(ctx, time.Time{}, []CommandStatus{CommandStatusCompleted}); err == nil {
+			t.Error("zero cutoff should error")
+		}
+	})
+
+	t.Run("deletes only matching terminal rows", func(t *testing.T) {
+		n, err := s.DeleteCommandsBefore(ctx, cutoff, []CommandStatus{
+			CommandStatusCompleted, CommandStatusFailed, CommandStatusTimeout, CommandStatusCancelled,
+		})
+		if err != nil {
+			t.Fatalf("DeleteCommandsBefore: %v", err)
+		}
+		if n != 3 {
+			t.Errorf("deleted = %d, want 3", n)
+		}
+
+		// Recent and pending must remain.
+		for _, id := range []string{"recent-completed", "pending-very-old"} {
+			if _, err := s.GetCommand(ctx, id); err != nil {
+				t.Errorf("expected %s preserved: %v", id, err)
+			}
+		}
+		// Old terminal rows must be gone.
+		for _, id := range []string{"old-completed", "old-failed", "old-cancelled"} {
+			if _, err := s.GetCommand(ctx, id); !errors.Is(err, ErrNotFound) {
+				t.Errorf("expected %s deleted, got err=%v", id, err)
+			}
+		}
+	})
+
+	t.Run("status allowlist narrows matches", func(t *testing.T) {
+		// Re-seed.
+		_ = s.CreateCommand(ctx, mkTerminal("only-completed", old, CommandStatusCompleted))
+		_ = s.CreateCommand(ctx, mkTerminal("only-failed", old, CommandStatusFailed))
+
+		n, err := s.DeleteCommandsBefore(ctx, cutoff, []CommandStatus{CommandStatusFailed})
+		if err != nil {
+			t.Fatalf("DeleteCommandsBefore: %v", err)
+		}
+		if n != 1 {
+			t.Errorf("deleted = %d, want 1", n)
+		}
+		if _, err := s.GetCommand(ctx, "only-completed"); err != nil {
+			t.Errorf("status-allowlisted-out row was deleted: %v", err)
+		}
+	})
+}

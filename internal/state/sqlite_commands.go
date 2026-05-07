@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const commandSelect = `SELECT
@@ -110,6 +111,39 @@ func (s *SQLiteStore) ListCommands(ctx context.Context, filter CommandFilter) ([
 		return nil, fmt.Errorf("state: ListCommands iterate: %w", err)
 	}
 	return out, nil
+}
+
+func (s *SQLiteStore) DeleteCommandsBefore(ctx context.Context, cutoff time.Time, statuses []CommandStatus) (int, error) {
+	if len(statuses) == 0 {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: statuses required")
+	}
+	if cutoff.IsZero() {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: cutoff must be non-zero")
+	}
+
+	args := make([]any, 0, len(statuses)+1)
+	args = append(args, tsArgRequired(cutoff))
+
+	var sb strings.Builder
+	sb.WriteString(`DELETE FROM commands WHERE completed_at IS NOT NULL AND completed_at < ? AND status IN (`)
+	for i, st := range statuses {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("?")
+		args = append(args, string(st))
+	}
+	sb.WriteString(")")
+
+	res, err := s.db.ExecContext(ctx, sb.String(), args...)
+	if err != nil {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore RowsAffected: %w", err)
+	}
+	return int(n), nil
 }
 
 func (s *SQLiteStore) UpdateCommandResult(ctx context.Context, id string, result CommandResult) error {

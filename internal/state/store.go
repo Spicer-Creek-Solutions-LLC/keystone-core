@@ -22,6 +22,20 @@ type CommandStore interface {
 	GetCommand(ctx context.Context, id string) (*CommandRecord, error)
 	ListCommands(ctx context.Context, filter CommandFilter) ([]*CommandRecord, error)
 	UpdateCommandResult(ctx context.Context, id string, result CommandResult) error
+
+	// DeleteCommandsBefore removes terminal command rows whose
+	// CompletedAt is strictly older than cutoff and whose status is in
+	// the supplied allowlist. Returns the number of rows removed.
+	//
+	// statuses MUST be non-empty — empty would imply "delete every row
+	// older than cutoff regardless of status," which would silently
+	// drop pending/running rows during retention sweeps. Backends
+	// reject the empty case.
+	//
+	// Rows whose CompletedAt is the zero value (never finalized) are
+	// never matched. Used by controlplane.CommandDispatcher's
+	// retention loop (see PROJECT-DETAILS §4.4 step 7).
+	DeleteCommandsBefore(ctx context.Context, cutoff time.Time, statuses []CommandStatus) (deleted int, err error)
 }
 
 // BatchJobStore manages batch (multi-agent) command jobs and their

@@ -19,4 +19,25 @@ var (
 	// ErrNotStarted is returned when a method that depends on the
 	// monitor loop is called before Start.
 	ErrNotStarted = errors.New("controlplane: connection manager not started")
+
+	// ErrAgentUnreachable is returned by CommandDispatcher.Dispatch
+	// when the target agent is unknown, disabled, or otherwise
+	// ineligible to receive commands. Stale agents are NOT rejected —
+	// the timeout backstop catches the no-response case so recovery
+	// scenarios still flow.
+	ErrAgentUnreachable = errors.New("controlplane: agent unreachable")
+
+	// ErrCommandNotFound is returned by RecordResult and Cancel when
+	// the command ID is unknown to the dispatcher.
+	ErrCommandNotFound = errors.New("controlplane: command not found")
+
+	// ErrCommandFinalized is returned when RecordResult is invoked on
+	// a command that has already reached a terminal status. Late
+	// duplicate results from the agent are common (retries during a
+	// network blip); callers may choose to ignore this error.
+	ErrCommandFinalized = errors.New("controlplane: command already finalized")
+
+	// ErrInvalidDispatch is returned when DispatchRequest is missing
+	// required fields (AgentID, Command).
+	ErrInvalidDispatch = errors.New("controlplane: invalid dispatch request")
 )

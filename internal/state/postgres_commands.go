@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const commandSelectPg = `SELECT
@@ -111,6 +112,42 @@ func (s *PostgreSQLStore) ListCommands(ctx context.Context, filter CommandFilter
 		return nil, fmt.Errorf("state: ListCommands iterate: %w", err)
 	}
 	return out, nil
+}
+
+func (s *PostgreSQLStore) DeleteCommandsBefore(ctx context.Context, cutoff time.Time, statuses []CommandStatus) (int, error) {
+	if len(statuses) == 0 {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: statuses required")
+	}
+	if cutoff.IsZero() {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: cutoff must be non-zero")
+	}
+
+	ph := newPlaceholderGen()
+	args := make([]any, 0, len(statuses)+1)
+	args = append(args, cutoff.UTC())
+
+	var sb strings.Builder
+	sb.WriteString(`DELETE FROM commands WHERE completed_at IS NOT NULL AND completed_at < `)
+	sb.WriteString(ph.next())
+	sb.WriteString(` AND status IN (`)
+	for i, st := range statuses {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(ph.next())
+		args = append(args, string(st))
+	}
+	sb.WriteString(")")
+
+	res, err := s.db.ExecContext(ctx, sb.String(), args...)
+	if err != nil {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("state: DeleteCommandsBefore RowsAffected: %w", err)
+	}
+	return int(n), nil
 }
 
 func (s *PostgreSQLStore) UpdateCommandResult(ctx context.Context, id string, result CommandResult) error {
