@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"go.keystone-core.io/keystone-core/internal/state"
 )
 
 func TestStorageConfig_Validate(t *testing.T) {
@@ -33,4 +35,30 @@ func TestStorageConfig_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStorageConfig_ToStateConfig(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) {
+		got, err := StorageConfig{Driver: "sqlite", DSN: "/tmp/x.db"}.ToStateConfig()
+		if err != nil {
+			t.Fatalf("ToStateConfig: %v", err)
+		}
+		if got.Backend != state.BackendSQLite || got.SQLite.Path != "/tmp/x.db" {
+			t.Errorf("got %+v", got)
+		}
+	})
+	t.Run("postgres", func(t *testing.T) {
+		got, err := StorageConfig{Driver: "postgres", DSN: "postgres://localhost/db"}.ToStateConfig()
+		if err != nil {
+			t.Fatalf("ToStateConfig: %v", err)
+		}
+		if got.Backend != state.BackendPostgreSQL || got.PostgreSQL.DSN != "postgres://localhost/db" {
+			t.Errorf("got %+v", got)
+		}
+	})
+	t.Run("unknown driver", func(t *testing.T) {
+		if _, err := (StorageConfig{Driver: "mysql", DSN: "x"}).ToStateConfig(); err == nil {
+			t.Error("expected error")
+		}
+	})
 }

@@ -1,20 +1,29 @@
 // kscore-server is the Keystone Core control-plane daemon.
 //
-// v1.0 hello-world: parses --config, emits a JSON startup log line, blocks
-// until SIGTERM/SIGINT, and exits cleanly. The full startup sequence
-// (NATS, store, gRPC, HTTP, …) lands with epic 04.
+// Wires the runtime pieces from internal/cli + internal/config +
+// internal/state + pkg/api/server into a daemon that runs the §4.4
+// 21-step init, serves until SIGTERM/SIGINT, and shuts down in
+// reverse-of-init.
 package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/pkg/api/server"
 )
+
+// shutdownTimeout matches PROJECT-DETAILS §4.4 — 30s ceiling on graceful
+// shutdown. Task 8 may make this configurable.
+const shutdownTimeout = 30 * time.Second
 
 func main() {
 	if err := newCommand().Execute(); err != nil {
@@ -30,7 +39,42 @@ func newCommand() *cobra.Command {
 	})
 }
 
-func run(ctx context.Context, _ *config.Config, _ *slog.Logger) error {
+func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
+	stateCfg, err := cfg.Storage.ToStateConfig()
+	if err != nil {
+		return fmt.Errorf("storage config: %w", err)
+	}
+	store, err := state.NewStore(stateCfg)
+	if err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+	// store.Close runs inside server.Stop; the local defer is the
+	// safety net for the case where New fails after store creation.
+	storeClosed := false
+	defer func() {
+		if !storeClosed {
+			_ = store.Close()
+		}
+	}()
+
+	srv, err := server.New(server.Options{
+		Config:      cfg,
+		Logger:      log,
+		Store:       store,
+		NATSManager: server.NoopNATSManager{},
+	})
+	if err != nil {
+		return fmt.Errorf("server init: %w", err)
+	}
+	storeClosed = true // server.Stop now owns the store
+
+	if err := srv.Start(ctx); err != nil {
+		return fmt.Errorf("server start: %w", err)
+	}
+
 	<-ctx.Done()
-	return nil
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	return srv.Stop(stopCtx)
 }
