@@ -56,7 +56,7 @@ See `PROJECT-DETAILS.md §4.5` (API Surface).
 - [x] All three auth methods (API key, JWT, mTLS) round-trip in unit tests.
 - [x] CoordinationService rejects non-mTLS callers.
 - [x] RBACAuthorizer denies operator-level methods to readonly principal; allows admin operations on admin principal.
-- [ ] API key generation returns cleartext only on creation; storage holds hash only.
+- [x] API key generation returns cleartext only on creation; storage holds hash only.
 - [x] Bypass list (health, registration, coordination internal) works without credentials. _(Per-RBAC bypass test plus interceptor-level test verifying bypassed methods skip auth even when the chain returns ErrUnauthenticated.)_
 - [ ] Versioning registry serves deprecation headers when configured for a deprecated endpoint.
 - [x] Coverage >85% on `pkg/api/auth`; >80% on apikeys. _(`pkg/api/auth` at 88.3%; apikeys lands with task 5.)_
