@@ -40,11 +40,11 @@ func newPgStoreForTest(t *testing.T) *PostgreSQLStore {
 	return s
 }
 
-// truncateAll empties all four v1.0 tables in FK-safe order.
+// truncateAll empties all v1.0 tables in FK-safe order.
 func truncateAll(t *testing.T, db *sql.DB) {
 	t.Helper()
 	const stmt = `TRUNCATE TABLE
-        batch_agent_results, batch_jobs, commands, agents
+        batch_agent_results, batch_jobs, commands, agents, apikeys
         RESTART IDENTITY CASCADE`
 	if _, err := db.ExecContext(t.Context(), stmt); err != nil {
 		t.Fatalf("truncate: %v", err)

@@ -40,6 +40,21 @@ type HealthStore interface {
 	Ping(ctx context.Context) error
 }
 
+// APIKeyStore manages API key records used by pkg/api/apikeys.
+//
+// GetAPIKeyByHash powers the auth verifier — callers SHA-256-hash the
+// inbound cleartext, then look up the row by that hash. Storage holds
+// only the hash; cleartext exists only at creation time and is
+// returned exactly once.
+type APIKeyStore interface {
+	CreateAPIKey(ctx context.Context, k *APIKeyRecord) error
+	GetAPIKey(ctx context.Context, id string) (*APIKeyRecord, error)
+	GetAPIKeyByHash(ctx context.Context, keyHash string) (*APIKeyRecord, error)
+	ListAPIKeys(ctx context.Context, filter APIKeyFilter) ([]*APIKeyRecord, error)
+	UpdateAPIKeyLastUsed(ctx context.Context, id string, t time.Time) error
+	DeleteAPIKey(ctx context.Context, id string) error
+}
+
 // Store is the root persistence interface composing all v1.0 sub-interfaces.
 //
 // Other domains add their own sub-interfaces in their respective epics
@@ -50,6 +65,7 @@ type Store interface {
 	AgentStore
 	CommandStore
 	BatchJobStore
+	APIKeyStore
 	HealthStore
 
 	// Close releases resources held by the backend. Safe to call on a

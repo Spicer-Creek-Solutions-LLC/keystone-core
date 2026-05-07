@@ -71,7 +71,7 @@ func truncatePostgres(t *testing.T, dsn string) {
 	}
 	defer func() { _ = db.Close() }()
 	const stmt = `TRUNCATE TABLE
-        batch_agent_results, batch_jobs, commands, agents
+        batch_agent_results, batch_jobs, commands, agents, apikeys
         RESTART IDENTITY CASCADE`
 	if _, err := db.ExecContext(t.Context(), stmt); err != nil {
 		t.Fatalf("truncate: %v", err)

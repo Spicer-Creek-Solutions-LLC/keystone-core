@@ -28,6 +28,7 @@ func TestSchema_ContainsExpectedTables(t *testing.T) {
 		"commands",
 		"batch_jobs",
 		"batch_agent_results",
+		"apikeys",
 	}
 
 	for _, backend := range []Backend{BackendSQLite, BackendPostgreSQL} {
@@ -62,7 +63,7 @@ func TestApplySchema_SQLite_CreatesTables(t *testing.T) {
 		t.Fatalf("applySchema: %v", err)
 	}
 
-	for _, table := range []string{"agents", "commands", "batch_jobs", "batch_agent_results"} {
+	for _, table := range []string{"agents", "commands", "batch_jobs", "batch_agent_results", "apikeys"} {
 		var name string
 		err := db.QueryRowContext(ctx,
 			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
@@ -81,6 +82,7 @@ func TestApplySchema_SQLite_CreatesTables(t *testing.T) {
 		"batch_jobs_status_idx",
 		"batch_jobs_created_at_idx",
 		"batch_agent_results_agent_id_idx",
+		"apikeys_role_idx",
 	} {
 		var name string
 		err := db.QueryRowContext(ctx,

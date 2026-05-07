@@ -131,6 +131,7 @@ func (m *Migrator) Migrate(ctx context.Context, opts MigrationOptions) (*Migrati
 		m.migrateCommands,
 		m.migrateBatchJobs,
 		m.migrateBatchAgentResults,
+		m.migrateAPIKeys,
 	}
 
 	for _, stage := range stages {
@@ -176,9 +177,10 @@ func (m *Migrator) ValidateMigration(ctx context.Context) (*ValidationResult, er
 }
 
 // migrationTables in FK order; used by Migrate (and ValidateMigration
-// for consistent table ordering).
+// for consistent table ordering). apikeys has no FK dependency on the
+// other tables and is migrated last for clarity.
 var migrationTables = []string{
-	"agents", "commands", "batch_jobs", "batch_agent_results",
+	"agents", "commands", "batch_jobs", "batch_agent_results", "apikeys",
 }
 
 // ---- per-table migrations -------------------------------------------------
@@ -307,6 +309,58 @@ func (m *Migrator) migrateBatchJobs(ctx context.Context, opts MigrationOptions, 
 
 	checkpoint(txlog, table, "")
 	return nil
+}
+
+func (m *Migrator) migrateAPIKeys(ctx context.Context, opts MigrationOptions, stats *MigrationStats, txlog *TransactionLog, reporter *progressReporter) error {
+	const table = "apikeys"
+
+	total, err := m.countSource(ctx, table)
+	if err != nil {
+		return err
+	}
+	reporter.Start(table, total)
+
+	ts := TableStats{}
+	defer func() { stats.Tables[table] = ts }()
+
+	offset := 0
+	for {
+		keys, err := m.src.ListAPIKeys(ctx, APIKeyFilter{
+			SortColumn: "id", SortDesc: false,
+			Limit: opts.BatchSize, Offset: offset,
+		})
+		if err != nil {
+			return fmt.Errorf("state: read source apikeys at offset %d: %w", offset, err)
+		}
+		if len(keys) == 0 {
+			break
+		}
+
+		for _, k := range keys {
+			ts.Read++
+			if err := m.processAPIKey(ctx, k, opts, &ts, txlog); err != nil {
+				stats.Errors = append(stats.Errors, MigrationError{Table: table, ID: k.ID, Err: err})
+				if !opts.ContinueOnError {
+					return err
+				}
+			}
+		}
+		reporter.Update(table, ts.Read)
+		offset += len(keys)
+	}
+
+	checkpoint(txlog, table, "")
+	return nil
+}
+
+func (m *Migrator) processAPIKey(ctx context.Context, k *APIKeyRecord, opts MigrationOptions, ts *TableStats, txlog *TransactionLog) error {
+	if opts.DryRun {
+		ts.Written++
+		appendTxLog(txlog, "apikeys", "insert", k.ID, "dryrun", nil)
+		return nil
+	}
+	written, err := m.insertAPIKeyTarget(ctx, k, opts.SkipExisting)
+	return handleInsertResult(txlog, "apikeys", k.ID, written, err, ts)
 }
 
 func (m *Migrator) migrateBatchAgentResults(ctx context.Context, opts MigrationOptions, stats *MigrationStats, txlog *TransactionLog, reporter *progressReporter) error {
@@ -448,6 +502,13 @@ const migrateInsertBatchAgentResultSQL = `INSERT INTO batch_agent_results (
     batch_job_id, agent_id, success, exit_code, error, started_at, completed_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
+// gosec G101 false-positive: SQL fragment, not a credential.
+//
+//nolint:gosec
+const migrateInsertAPIKeySQL = `INSERT INTO apikeys (
+    id, name, key_hash, role, created_at, expires_at, last_used
+) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
 // insertAgentTarget writes a single AgentRecord to dst. Returns
 // written=true if a row was inserted, false if SkipExisting suppressed
 // it.
@@ -548,6 +609,24 @@ func (m *Migrator) insertBatchAgentResultTarget(ctx context.Context, r *BatchAge
 		nullableExitCodeForBatch(r.ExitCode, r.Success),
 		nullableString(r.Error),
 		nullableTime(r.StartedAt), nullableTime(r.CompletedAt),
+	)
+	if err != nil {
+		return false, err
+	}
+	return wasWritten(res), nil
+}
+
+func (m *Migrator) insertAPIKeyTarget(ctx context.Context, k *APIKeyRecord, skipExisting bool) (bool, error) {
+	sql := migrateInsertAPIKeySQL
+	if skipExisting {
+		sql += ` ON CONFLICT (id) DO NOTHING`
+	}
+
+	res, err := m.dst.db.ExecContext(ctx, sql,
+		k.ID, k.Name, k.KeyHash, k.Role,
+		k.CreatedAt.UTC(),
+		nullableTime(k.ExpiresAt),
+		nullableTime(k.LastUsed),
 	)
 	if err != nil {
 		return false, err

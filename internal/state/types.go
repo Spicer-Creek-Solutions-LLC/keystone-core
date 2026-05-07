@@ -144,6 +144,24 @@ type BatchAgentResultRecord struct {
 	CompletedAt time.Time
 }
 
+// APIKeyRecord is the persistent shape of an API key. KeyHash is the
+// hex-encoded SHA-256 of the cleartext value generated at creation
+// time; cleartext is never stored — it's returned to the operator
+// once on creation and discarded.
+//
+// Role is held as a string ("admin" | "operator" | "readonly") to
+// keep the storage layer free of pkg/api/auth dependencies; the auth
+// adapter parses it on read.
+type APIKeyRecord struct {
+	ID        string
+	Name      string
+	KeyHash   string
+	Role      string
+	CreatedAt time.Time
+	ExpiresAt time.Time // zero = never expires
+	LastUsed  time.Time // zero = never used
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.
@@ -184,6 +202,15 @@ type BatchJobFilter struct {
 	SortDesc   bool
 }
 
+// APIKeyFilter narrows an APIKeyStore.ListAPIKeys query.
+type APIKeyFilter struct {
+	Role       string // empty = no filter
+	Limit      int
+	Offset     int
+	SortColumn string
+	SortDesc   bool
+}
+
 // AllowedAgentSortColumns is the allowlist of column names usable in
 // AgentFilter.SortColumn. Backends reject any value not in this set.
 var AllowedAgentSortColumns = []string{
@@ -198,4 +225,9 @@ var AllowedCommandSortColumns = []string{
 // AllowedBatchJobSortColumns is the allowlist for BatchJobFilter.SortColumn.
 var AllowedBatchJobSortColumns = []string{
 	"id", "status", "created_at", "started_at", "completed_at",
+}
+
+// AllowedAPIKeySortColumns is the allowlist for APIKeyFilter.SortColumn.
+var AllowedAPIKeySortColumns = []string{
+	"id", "name", "role", "created_at", "expires_at", "last_used",
 }

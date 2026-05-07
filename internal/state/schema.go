@@ -125,6 +125,15 @@ var sqliteSchema = []string{
     completed_at TEXT,
     PRIMARY KEY (batch_job_id, agent_id)
 )`,
+	`CREATE TABLE IF NOT EXISTS apikeys (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    key_hash   TEXT NOT NULL UNIQUE,
+    role       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    last_used  TEXT
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -133,6 +142,7 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS batch_jobs_status_idx ON batch_jobs (status)`,
 	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
 	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS apikeys_role_idx ON apikeys (role)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -197,6 +207,15 @@ var postgresSchema = []string{
     completed_at TIMESTAMPTZ,
     PRIMARY KEY (batch_job_id, agent_id)
 )`,
+	`CREATE TABLE IF NOT EXISTS apikeys (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    key_hash   TEXT NOT NULL UNIQUE,
+    role       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ,
+    last_used  TIMESTAMPTZ
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -205,4 +224,5 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS batch_jobs_status_idx ON batch_jobs (status)`,
 	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
 	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS apikeys_role_idx ON apikeys (role)`,
 }
