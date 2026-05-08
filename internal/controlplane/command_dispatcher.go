@@ -56,6 +56,8 @@ type NATSPublisher interface {
 // rejects mismatches, so a wrong-cluster envelope cannot leak.
 type Subjects interface {
 	AgentCommand(agentID string) string
+	BootstrapRegisterPattern() string
+	BootstrapResponse(agentID string) string
 	Cluster() string
 	Prefix() string
 }

@@ -17,6 +17,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/controlplane"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
@@ -95,14 +96,34 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("nats: %w", err)
 	}
 
-	srv, err := server.New(server.Options{
+	opts := server.Options{
 		Config:          cfg,
 		Logger:          log,
 		Store:           store,
 		NATSManager:     natsManager,
 		Subjects:        natsManager.Subjects(),
 		AuthInterceptor: authInterceptor,
-	})
+	}
+
+	if cfg.NATS.Bootstrap.Enabled {
+		entries, err := controlplane.DecodeConfigPSKs(toConfigPSKs(cfg.NATS.Bootstrap.PSKs))
+		if err != nil {
+			return fmt.Errorf("bootstrap psk decode: %w", err)
+		}
+		issuer, err := controlplane.NewAPIKeyIssuer(controlplane.APIKeyIssuerConfig{
+			Keys: store,
+		})
+		if err != nil {
+			return fmt.Errorf("bootstrap issuer: %w", err)
+		}
+		opts.Subscriber = natsSubscriberAdapter{m: natsManager}
+		opts.BootstrapValidator = controlplane.NewPSKValidator(controlplane.PSKValidatorConfig{
+			Entries: entries,
+		})
+		opts.CredentialIssuer = issuer
+	}
+
+	srv, err := server.New(opts)
 	if err != nil {
 		return fmt.Errorf("server init: %w", err)
 	}
@@ -117,4 +138,34 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	return srv.Stop(stopCtx)
+}
+
+// natsSubscriberAdapter bridges internal/nats.Manager (which uses
+// internal/nats.MessageHandler / Subscription) into controlplane's
+// equivalent named types. Function-type aliases don't unify across
+// packages in Go interfaces, so we adapt explicitly.
+type natsSubscriberAdapter struct{ m *natsmgr.Manager }
+
+func (a natsSubscriberAdapter) Subscribe(subject string, h controlplane.MessageHandler) (controlplane.Subscription, error) {
+	sub, err := a.m.Subscribe(subject, natsmgr.MessageHandler(h))
+	if err != nil {
+		return nil, err
+	}
+	return sub, nil // *natsSubscription satisfies controlplane.Subscription via its Unsubscribe method
+}
+
+// toConfigPSKs translates from the config-shaped BootstrapPSK to the
+// controlplane-shaped ConfigPSK. Internal/controlplane stays free of
+// internal/config imports; this binary is the wiring layer that
+// crosses both sides.
+func toConfigPSKs(in []config.BootstrapPSK) []controlplane.ConfigPSK {
+	out := make([]controlplane.ConfigPSK, 0, len(in))
+	for _, p := range in {
+		out = append(out, controlplane.ConfigPSK{
+			AgentID:   p.AgentID,
+			Secret:    p.Secret,
+			ExpiresAt: p.ExpiresAt,
+		})
+	}
+	return out
 }

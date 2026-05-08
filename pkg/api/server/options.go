@@ -25,6 +25,24 @@ type Options struct {
 	// hand-rolled fake.
 	Subjects controlplane.Subjects
 
+	// Subscriber is the inbound NATS surface used by the bootstrap
+	// handler (Epic 05 task 9). Optional — when nil OR
+	// cfg.NATS.Bootstrap.Enabled is false, the handler is not
+	// started. cmd/kscore-server passes internal/nats.Manager.
+	Subscriber controlplane.Subscriber
+
+	// BootstrapValidator validates agent identity proofs. Optional —
+	// only consulted when bootstrap is enabled. Production wiring
+	// passes an in-memory PSKValidator constructed from
+	// cfg.NATS.Bootstrap.PSKs.
+	BootstrapValidator controlplane.BootstrapValidator
+
+	// CredentialIssuer mints "full credentials" once a PSK is
+	// consumed. Optional — only consulted when bootstrap is enabled.
+	// Production wiring passes an APIKeyIssuer over the API key
+	// store.
+	CredentialIssuer controlplane.CredentialIssuer
+
 	// AuthInterceptor wires the gRPC auth chain when non-nil. v1.0
 	// task 4 leaves this optional; task 6 pins it on by default.
 	AuthInterceptor *auth.InterceptorConfig
@@ -57,6 +75,17 @@ func (o *Options) validate() error {
 	}
 	if o.StatusTickerInterval < 0 {
 		return errors.New("server: StatusTickerInterval must be non-negative")
+	}
+	if o.Config.NATS.Bootstrap.Enabled {
+		if o.Subscriber == nil {
+			return errors.New("server: Options.Subscriber is required when NATS bootstrap is enabled")
+		}
+		if o.BootstrapValidator == nil {
+			return errors.New("server: Options.BootstrapValidator is required when NATS bootstrap is enabled")
+		}
+		if o.CredentialIssuer == nil {
+			return errors.New("server: Options.CredentialIssuer is required when NATS bootstrap is enabled")
+		}
 	}
 	return nil
 }

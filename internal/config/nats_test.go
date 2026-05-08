@@ -270,6 +270,70 @@ func TestDedupConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestBootstrapConfig_Validate(t *testing.T) {
+	exp := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	good := BootstrapConfig{
+		Enabled: true,
+		PSKs: []BootstrapPSK{
+			{AgentID: "agent-1", Secret: "deadbeef", ExpiresAt: exp},
+		},
+	}
+	tests := []struct {
+		name    string
+		mut     func(*BootstrapConfig)
+		wantErr string
+	}{
+		{"defaults ok", func(*BootstrapConfig) {}, ""},
+		{"disabled skips checks", func(c *BootstrapConfig) {
+			c.Enabled = false
+			c.PSKs[0].AgentID = "" // would fail when enabled, but we're not
+		}, ""},
+		{"empty psks ok when enabled", func(c *BootstrapConfig) {
+			c.PSKs = nil
+		}, ""},
+		{"agentid empty", func(c *BootstrapConfig) {
+			c.PSKs[0].AgentID = ""
+		}, "agentid"},
+		{"secret empty", func(c *BootstrapConfig) {
+			c.PSKs[0].Secret = ""
+		}, "secret"},
+		{"secret not hex", func(c *BootstrapConfig) {
+			c.PSKs[0].Secret = "not-hex-zzz"
+		}, "not hex"},
+		{"expires zero", func(c *BootstrapConfig) {
+			c.PSKs[0].ExpiresAt = time.Time{}
+		}, "expiresat"},
+		{"duplicate agent ID", func(c *BootstrapConfig) {
+			c.PSKs = []BootstrapPSK{
+				{AgentID: "agent-1", Secret: "deadbeef", ExpiresAt: exp},
+				{AgentID: "agent-1", Secret: "cafebabe", ExpiresAt: exp},
+			}
+		}, "duplicate"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := BootstrapConfig{
+				Enabled: good.Enabled,
+				PSKs:    append([]BootstrapPSK(nil), good.PSKs...),
+			}
+			tt.mut(&cfg)
+			err := cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate = nil, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestJetStreamConfig_StreamDefaults(t *testing.T) {
 	good := JetStreamConfig{
 		Enabled:        true,

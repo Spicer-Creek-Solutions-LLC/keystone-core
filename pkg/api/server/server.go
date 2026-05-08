@@ -58,18 +58,22 @@ type Addrs struct {
 // not yet serving); Start executes step 14 + serving + step 21
 // (status ticker); Stop runs the reverse-of-init shutdown.
 type Server struct {
-	cfg             *config.Config
-	logger          *slog.Logger
-	store           state.Store
-	nats            NATSManager
-	subjects        controlplane.Subjects
-	authInterceptor *auth.InterceptorConfig
-	now             func() time.Time
-	version         string
+	cfg                *config.Config
+	logger             *slog.Logger
+	store              state.Store
+	nats               NATSManager
+	subjects           controlplane.Subjects
+	subscriber         controlplane.Subscriber
+	bootstrapValidator controlplane.BootstrapValidator
+	credentialIssuer   controlplane.CredentialIssuer
+	authInterceptor    *auth.InterceptorConfig
+	now                func() time.Time
+	version            string
 
-	connMgr         *controlplane.ConnectionManager
-	cmdDispatcher   *controlplane.CommandDispatcher
-	batchDispatcher *controlplane.BatchDispatcher
+	connMgr          *controlplane.ConnectionManager
+	cmdDispatcher    *controlplane.CommandDispatcher
+	batchDispatcher  *controlplane.BatchDispatcher
+	bootstrapHandler *controlplane.BootstrapHandler
 
 	grpcServer    *grpc.Server
 	grpcListeners []net.Listener
@@ -126,6 +130,9 @@ func New(opts Options) (*Server, error) {
 		store:                opts.Store,
 		nats:                 opts.NATSManager,
 		subjects:             opts.Subjects,
+		subscriber:           opts.Subscriber,
+		bootstrapValidator:   opts.BootstrapValidator,
+		credentialIssuer:     opts.CredentialIssuer,
 		authInterceptor:      opts.AuthInterceptor,
 		now:                  clock,
 		version:              version.Get().Version,
@@ -150,6 +157,10 @@ func New(opts Options) (*Server, error) {
 	if err := s.initStep7(initCtx); err != nil {
 		s.unwindFromStep7(initCtx)
 		return nil, fmt.Errorf("server: command dispatcher: %w", err)
+	}
+	if err := s.initStep7b(initCtx); err != nil {
+		s.unwindFromStep7(initCtx)
+		return nil, fmt.Errorf("server: bootstrap handler: %w", err)
 	}
 	if err := s.initStep8(); err != nil {
 		s.unwindFromStep7(initCtx)
@@ -224,6 +235,32 @@ func (s *Server) initStep7(ctx context.Context) error {
 		return err
 	}
 	s.cmdDispatcher = disp
+	return nil
+}
+
+// initStep7b: BootstrapHandler (Epic 05 task 9). Skipped when
+// cfg.NATS.Bootstrap.Enabled is false — operator opt-in.
+func (s *Server) initStep7b(ctx context.Context) error {
+	if !s.cfg.NATS.Bootstrap.Enabled {
+		return nil
+	}
+	h, err := controlplane.NewBootstrapHandler(controlplane.BootstrapHandlerConfig{
+		Subjects:   s.subjects,
+		Subscriber: s.subscriber,
+		Publisher:  natsPublisherAdapter{s.nats},
+		Store:      s.store,
+		Validator:  s.bootstrapValidator,
+		Issuer:     s.credentialIssuer,
+		Logger:     s.logger,
+		Clock:      s.now,
+	})
+	if err != nil {
+		return err
+	}
+	if err := h.Start(ctx); err != nil {
+		return err
+	}
+	s.bootstrapHandler = h
 	return nil
 }
 
@@ -385,6 +422,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		s.logger.Info("server: shutdown begin")
 
 		stopErr = firstErr(stopErr, s.stopGRPC(ctx))
+		stopErr = firstErr(stopErr, s.stopBootstrap(ctx))
 		stopErr = firstErr(stopErr, s.stopCmdDispatcher(ctx))
 		stopErr = firstErr(stopErr, s.stopConnMgr(ctx))
 		stopErr = firstErr(stopErr, s.stopStore())
@@ -507,6 +545,19 @@ func (s *Server) stopCmdDispatcher(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) stopBootstrap(ctx context.Context) error {
+	if s.bootstrapHandler == nil {
+		return nil
+	}
+	stepCtx, cancel := contextWithTimeoutMin(ctx, cmdDispatcherStopTimeout)
+	defer cancel()
+	if err := s.bootstrapHandler.Stop(stepCtx); err != nil {
+		s.logger.Warn("server: bootstrap handler stop", "err", err)
+		return err
+	}
+	return nil
+}
+
 func (s *Server) stopConnMgr(ctx context.Context) error {
 	if s.connMgr == nil {
 		return nil
@@ -595,6 +646,9 @@ func (s *Server) unwindFromStep6(ctx context.Context) {
 }
 
 func (s *Server) unwindFromStep7(ctx context.Context) {
+	if s.bootstrapHandler != nil {
+		_ = s.bootstrapHandler.Stop(ctx)
+	}
 	if s.cmdDispatcher != nil {
 		_ = s.cmdDispatcher.Stop(ctx)
 	}

@@ -121,6 +121,16 @@ func (b *SubjectBuilder) BootstrapResponse(agentID string) string {
 	return b.prefix + ".bootstrap." + agentID + ".response"
 }
 
+// BootstrapRegisterPattern is the wildcard subject the server-side
+// bootstrap handler subscribes to. Per-agent register publishes
+// (kscore.{cluster}.bootstrap.{id}.register) fan in here.
+//
+// '*' is a NATS subscriber wildcard — legal in subscribe patterns,
+// rejected in publish by SubjectBuilder.Validate.
+func (b *SubjectBuilder) BootstrapRegisterPattern() string {
+	return b.prefix + ".bootstrap.*.register"
+}
+
 // Discovery is the cluster-wide discovery subject (peer enumeration,
 // endpoint advertisement). Reserved for v1.3+ K8s discovery; the
 // subject exists today so subscribers can register without churn.

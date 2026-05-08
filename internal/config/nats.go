@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
 )
@@ -35,6 +36,33 @@ type NATSConfig struct {
 	Embedded       EmbeddedNATSConfig   `koanf:"embedded"`
 	Dedup          DedupConfig          `koanf:"dedup"`
 	CircuitBreaker CircuitBreakerConfig `koanf:"circuitbreaker"`
+	Bootstrap      BootstrapConfig      `koanf:"bootstrap"`
+}
+
+// BootstrapConfig governs the v1.0 server-side bootstrap registration
+// handler (Epic 05 task 9). Defaults to disabled — operators opt in
+// by setting Enabled=true and populating PSKs. A "default on with no
+// PSKs" stance would be a footgun (looks permissive, actually
+// rejects everything); explicit opt-in surfaces the dependency.
+//
+// PSKs are config-listed in v1.0; consumed PSKs are tracked in-
+// memory so a server restart wipes the consumption record.
+// Operators are expected to rotate PSKs (issue fresh ones per
+// agent, don't reuse). v1.x will persist consumption in the state
+// DB and add an API endpoint to issue PSKs.
+type BootstrapConfig struct {
+	Enabled bool           `koanf:"enabled"`
+	PSKs    []BootstrapPSK `koanf:"psks"`
+}
+
+// BootstrapPSK describes one operator-issued bootstrap credential.
+// Secret is hex-encoded so config files stay copy-pasteable; the
+// validator hex-decodes once at construction. ExpiresAt is the
+// hard cutoff after which Validate rejects the PSK.
+type BootstrapPSK struct {
+	AgentID   string    `koanf:"agentid"`
+	Secret    string    `koanf:"secret"` //nolint:gosec // PSK hex string from config — flagged false-positive on field-name pattern
+	ExpiresAt time.Time `koanf:"expiresat"`
 }
 
 // CircuitBreakerConfig configures the per-endpoint circuit breaker
@@ -171,9 +199,42 @@ func (n NATSConfig) Validate() error {
 	if err := n.CircuitBreaker.Validate(); err != nil {
 		return fmt.Errorf("circuitbreaker: %w", err)
 	}
+	if err := n.Bootstrap.Validate(); err != nil {
+		return fmt.Errorf("bootstrap: %w", err)
+	}
 	if n.Mode == NATSModeEmbedded {
 		if err := n.Embedded.Validate(); err != nil {
 			return fmt.Errorf("embedded: %w", err)
+		}
+	}
+	return nil
+}
+
+// Validate accepts disabled config without checking PSK structure
+// (operators may want to populate PSKs first then flip Enabled
+// later). When enabled, every PSK must have a non-empty AgentID, a
+// hex-decodable Secret, and a non-zero ExpiresAt.
+func (b BootstrapConfig) Validate() error {
+	if !b.Enabled {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for i, psk := range b.PSKs {
+		if psk.AgentID == "" {
+			return fmt.Errorf("psks[%d].agentid: must not be empty", i)
+		}
+		if _, dup := seen[psk.AgentID]; dup {
+			return fmt.Errorf("psks[%d].agentid: duplicate %q", i, psk.AgentID)
+		}
+		seen[psk.AgentID] = struct{}{}
+		if psk.Secret == "" {
+			return fmt.Errorf("psks[%d].secret: must not be empty", i)
+		}
+		if _, err := hex.DecodeString(psk.Secret); err != nil {
+			return fmt.Errorf("psks[%d].secret: not hex: %w", i, err)
+		}
+		if psk.ExpiresAt.IsZero() {
+			return fmt.Errorf("psks[%d].expiresat: must not be zero", i)
 		}
 	}
 	return nil

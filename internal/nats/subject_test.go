@@ -66,6 +66,7 @@ func TestSubjectBuilder_Patterns(t *testing.T) {
 		{b.BootstrapRegister("agent-7"), "kscore.prod.bootstrap.agent-7.register"},
 		{b.BootstrapResponse("agent-7"), "kscore.prod.bootstrap.agent-7.response"},
 		{b.Discovery(), "kscore.prod.discovery"},
+		{b.BootstrapRegisterPattern(), "kscore.prod.bootstrap.*.register"},
 	}
 	for _, tt := range tests {
 		if tt.got != tt.want {
