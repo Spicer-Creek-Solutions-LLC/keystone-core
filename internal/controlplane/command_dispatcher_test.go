@@ -39,6 +39,15 @@ func (f fakeSubjects) Cluster() string { return f.cluster }
 
 func (f fakeSubjects) Prefix() string { return "kscore." + f.cluster }
 
+// fakeSigner is a deterministic signer for dispatcher tests.
+// Returns "fake-sig-<MessageID>" so assertions can verify the
+// signer ran without coupling to real HMAC math.
+type fakeSigner struct{}
+
+func (fakeSigner) SignCommand(msg controlplane.CommandMessage) string {
+	return "fake-sig-" + msg.MessageID
+}
+
 // fakePublisher captures every Publish call for inspection. It is
 // goroutine-safe so concurrent dispatcher tests can still assert on
 // the captured stream.
@@ -112,6 +121,7 @@ func newDispatcherFixture(t *testing.T, opts ...func(*controlplane.DispatcherCon
 		Agents:               mgr,
 		Publisher:            pub,
 		Subjects:             fakeSubjects{cluster: "default"},
+		Signer:               fakeSigner{},
 		DefaultTimeoutSeconds: 60,
 		RetentionWindow:      time.Hour,
 		RetentionInterval:    time.Hour,
@@ -157,25 +167,27 @@ func TestNewDispatcher_Validation(t *testing.T) {
 	pub := &fakePublisher{}
 
 	subj := fakeSubjects{cluster: "default"}
+	sgn := fakeSigner{}
 	cases := []struct {
 		name string
 		cfg  controlplane.DispatcherConfig
 	}{
-		{"nil store", controlplane.DispatcherConfig{Agents: mgr, Publisher: pub, Subjects: subj}},
-		{"nil agents", controlplane.DispatcherConfig{Store: store, Publisher: pub, Subjects: subj}},
-		{"nil publisher", controlplane.DispatcherConfig{Store: store, Agents: mgr, Subjects: subj}},
-		{"nil subjects", controlplane.DispatcherConfig{Store: store, Agents: mgr, Publisher: pub}},
+		{"nil store", controlplane.DispatcherConfig{Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn}},
+		{"nil agents", controlplane.DispatcherConfig{Store: store, Publisher: pub, Subjects: subj, Signer: sgn}},
+		{"nil publisher", controlplane.DispatcherConfig{Store: store, Agents: mgr, Subjects: subj, Signer: sgn}},
+		{"nil subjects", controlplane.DispatcherConfig{Store: store, Agents: mgr, Publisher: pub, Signer: sgn}},
+		{"nil signer", controlplane.DispatcherConfig{Store: store, Agents: mgr, Publisher: pub, Subjects: subj}},
 		{"negative retention window", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, RetentionWindow: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn, RetentionWindow: -time.Second,
 		}},
 		{"negative retention interval", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, RetentionInterval: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn, RetentionInterval: -time.Second,
 		}},
 		{"negative timeout check interval", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, TimeoutCheckInterval: -time.Second,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn, TimeoutCheckInterval: -time.Second,
 		}},
 		{"negative default timeout", controlplane.DispatcherConfig{
-			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, DefaultTimeoutSeconds: -1,
+			Store: store, Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn, DefaultTimeoutSeconds: -1,
 		}},
 	}
 	for _, tc := range cases {
@@ -188,7 +200,7 @@ func TestNewDispatcher_Validation(t *testing.T) {
 
 	// All defaults applied — should succeed.
 	if _, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store: store, Agents: mgr, Publisher: pub, Subjects: subj,
+		Store: store, Agents: mgr, Publisher: pub, Subjects: subj, Signer: sgn,
 	}); err != nil {
 		t.Errorf("default cfg: %v", err)
 	}
@@ -232,13 +244,18 @@ func TestDispatch_HappyPath(t *testing.T) {
 		t.Error("MessageID empty")
 	}
 
-	// Inner payload assertions: the commandMessage shape is preserved.
+	// Inner payload assertions: CommandMessage shape preserved
+	// (Task 5 wire format) — message_id, command, signature
+	// surfaced; signer ran (fakeSigner returns "fake-sig-<id>").
 	var msg map[string]any
 	if err := json.Unmarshal(got.Payload, &msg); err != nil {
 		t.Fatalf("payload not JSON: %v", err)
 	}
-	if msg["id"] != "cmd-1" || msg["command"] != "uptime" {
+	if msg["message_id"] != "cmd-1" || msg["command"] != "uptime" {
 		t.Errorf("payload = %v", msg)
+	}
+	if msg["signature"] != "fake-sig-cmd-1" {
+		t.Errorf("signature = %v, want fake-sig-cmd-1 (signer didn't run)", msg["signature"])
 	}
 	if msg["timeout_seconds"].(float64) != 30 {
 		t.Errorf("timeout_seconds = %v", msg["timeout_seconds"])
@@ -511,6 +528,7 @@ func TestStop_IdempotentAndBoundedByCtx(t *testing.T) {
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
 		Store: store, Agents: mgr, Publisher: pub,
 		Subjects:             fakeSubjects{cluster: "default"},
+		Signer:               fakeSigner{},
 		RetentionInterval:    time.Hour,
 		TimeoutCheckInterval: time.Hour,
 	})
@@ -544,6 +562,7 @@ func TestDispatch_BeforeStartFails(t *testing.T) {
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
 		Store: store, Agents: mgr, Publisher: &fakePublisher{},
 		Subjects: fakeSubjects{cluster: "default"},
+		Signer:   fakeSigner{},
 	})
 	if err != nil {
 		t.Fatalf("NewDispatcher: %v", err)

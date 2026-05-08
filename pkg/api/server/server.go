@@ -63,6 +63,7 @@ type Server struct {
 	store              state.Store
 	nats               NATSManager
 	subjects           controlplane.Subjects
+	signer             controlplane.Signer
 	subscriber         controlplane.Subscriber
 	bootstrapValidator controlplane.BootstrapValidator
 	credentialIssuer   controlplane.CredentialIssuer
@@ -130,6 +131,7 @@ func New(opts Options) (*Server, error) {
 		store:                opts.Store,
 		nats:                 opts.NATSManager,
 		subjects:             opts.Subjects,
+		signer:               opts.Signer,
 		subscriber:           opts.Subscriber,
 		bootstrapValidator:   opts.BootstrapValidator,
 		credentialIssuer:     opts.CredentialIssuer,
@@ -225,6 +227,7 @@ func (s *Server) initStep7(ctx context.Context) error {
 		Agents:    s.connMgr,
 		Publisher: natsPublisherAdapter{s.nats},
 		Subjects:  s.subjects,
+		Signer:    s.signer,
 		Logger:    s.logger,
 		Clock:     s.now,
 	})

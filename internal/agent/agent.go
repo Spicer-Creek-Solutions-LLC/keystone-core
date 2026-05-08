@@ -67,19 +67,20 @@ const (
 // request — all goroutines under a WaitGroup. State protected by
 // sync.RWMutex.
 //
-// Tasks 4–11 fill in the bodies of the command handler:
-//   - Task 4 wires SecurityEnforcer (HMAC, allowlists).
-//   - Task 5 wires full command-response (validate → exec → publish).
-//
-// Tasks 1 + 3 (this code, with metrics) ship the lifecycle skeleton
-// with real heartbeat / metadata payloads via MetricsCollector;
-// command handler still logs-and-discards.
+// Task 5 wires the full command flow: handleCommand parses the
+// inbound CommandRequest, validates via SecurityEnforcer, executes
+// via Executor, and publishes a CommandResponse on the response
+// subject (with CorrelationID = inbound MessageID). Rejection paths
+// publish a Rejected=true response so the dispatcher sees a clear
+// reason rather than waiting for a timeout.
 type Agent struct {
-	cfg      Config
-	log      *slog.Logger
-	nats     NATSClient
-	subjects Subjects
-	metrics  MetricsCollector
+	cfg       Config
+	log       *slog.Logger
+	nats      NATSClient
+	subjects  Subjects
+	metrics   MetricsCollector
+	executor  *Executor
+	enforcer  *SecurityEnforcer
 
 	mu      sync.Mutex
 	started bool
@@ -92,7 +93,7 @@ type Agent struct {
 // New validates cfg and returns an unstarted Agent. AgentID is
 // required; the bootstrap engine (Task 6) persists it. Other fields
 // fall back to §4.6 defaults when zero.
-func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollector, log *slog.Logger) (*Agent, error) {
+func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollector, executor *Executor, enforcer *SecurityEnforcer, log *slog.Logger) (*Agent, error) {
 	if cfg.AgentID == "" {
 		return nil, errors.New("agent: AgentID is required")
 	}
@@ -104,6 +105,12 @@ func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollecto
 	}
 	if metrics == nil {
 		return nil, errors.New("agent: MetricsCollector is required")
+	}
+	if executor == nil {
+		return nil, errors.New("agent: Executor is required")
+	}
+	if enforcer == nil {
+		return nil, errors.New("agent: SecurityEnforcer is required")
 	}
 	if log == nil {
 		log = slog.Default()
@@ -123,6 +130,8 @@ func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollecto
 		nats:     nats,
 		subjects: subjects,
 		metrics:  metrics,
+		executor: executor,
+		enforcer: enforcer,
 	}, nil
 }
 
@@ -277,17 +286,80 @@ func (a *Agent) publishMetadata(ctx context.Context) {
 	}
 }
 
-// handleCommand is the v1.0 stub: log the receipt and discard.
-// Tasks 2/4/5 wire HMAC validation (SecurityEnforcer) → Executor →
-// response publication. The handler intentionally does not error
-// out on stubbed receipts so the test surface stays narrow.
-func (a *Agent) handleCommand(_ context.Context, subject string, env envelope.Envelope) error {
-	a.log.Info("agent: command received (stub handler — Task 5 wires response)",
-		"subject", subject,
-		"message_id", env.MessageID,
-		"correlation_id", env.CorrelationID,
-		"payload_bytes", len(env.Payload),
-	)
+// handleCommand is the §4.6 command flow: parse → SecurityEnforcer.
+// Validate → Executor.Execute → publish CommandResponse on the
+// response subject. CorrelationID on the response Envelope = the
+// inbound MessageID so the control plane's dispatcher can match.
+//
+// Rejection paths (HMAC, allowlist, args-too-long) publish a
+// Rejected=true response so the dispatcher surfaces a clean reason
+// rather than waiting for a timeout. Errors returned to the caller
+// are warnings only — pub/sub is fire-and-forget at this layer.
+func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.Envelope) error {
+	var req CommandRequest
+	if err := json.Unmarshal(env.Payload, &req); err != nil {
+		a.log.Warn("agent: command unmarshal",
+			"subject", subject, "message_id", env.MessageID, "err", err)
+		return nil
+	}
+	// Envelope MessageID is authoritative; it's part of the HMAC
+	// canonical input. If the message wasn't published with the same
+	// MessageID stamped on the envelope, the signature won't verify.
+	req.MessageID = env.MessageID
+
+	if err := a.enforcer.Validate(ctx, req); err != nil {
+		a.publishResponse(ctx, env.MessageID, &CommandResponse{
+			MessageID:    env.MessageID,
+			AgentID:      a.cfg.AgentID,
+			ExitCode:     -1,
+			Rejected:     true,
+			RejectReason: err.Error(),
+		})
+		return nil
+	}
+
+	timeout := time.Duration(req.TimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = a.cfg.CommandTimeout
+	}
+	result := a.executor.Execute(ctx, ExecuteRequest{
+		Command:    req.Command,
+		Args:       req.Args,
+		Env:        a.enforcer.AppliedEnv(req),
+		WorkingDir: req.WorkingDir,
+		User:       req.User,
+		Timeout:    timeout,
+	})
+
+	a.publishResponse(ctx, env.MessageID, &CommandResponse{
+		MessageID:       env.MessageID,
+		AgentID:         a.cfg.AgentID,
+		ExitCode:        result.ExitCode,
+		Stdout:          result.Stdout,
+		Stderr:          result.Stderr,
+		DurationMs:      result.Duration.Milliseconds(),
+		TimedOut:        result.TimedOut,
+		StdoutTruncated: result.StdoutTruncated,
+		StderrTruncated: result.StderrTruncated,
+		Error:           result.Error,
+	})
 	return nil
+}
+
+func (a *Agent) publishResponse(ctx context.Context, correlationID string, resp *CommandResponse) {
+	payload, err := json.Marshal(resp)
+	if err != nil {
+		a.log.Warn("agent: response marshal",
+			"agent_id", a.cfg.AgentID, "message_id", correlationID, "err", err)
+		return
+	}
+	respEnv := envelope.New(payload, a.subjects.Prefix(),
+		envelope.WithCorrelationID(correlationID),
+	)
+	subject := a.subjects.AgentResponse(a.cfg.AgentID)
+	if err := a.nats.PublishEnvelope(ctx, subject, respEnv); err != nil {
+		a.log.Warn("agent: response publish",
+			"agent_id", a.cfg.AgentID, "message_id", correlationID, "err", err)
+	}
 }
 

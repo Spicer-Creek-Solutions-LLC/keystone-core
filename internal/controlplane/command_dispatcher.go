@@ -80,17 +80,49 @@ type DispatchRequest struct {
 	Env            map[string]string
 	WorkingDir     string
 	User           string
-	TimeoutSeconds int // 0 → DispatcherConfig.DefaultTimeoutSeconds
+	Principal      string // who issued the command (auth context); fed into HMAC canonical
+	TimeoutSeconds int    // 0 → DispatcherConfig.DefaultTimeoutSeconds
+}
+
+// Signer signs the canonical-encoded fields of a CommandMessage and
+// returns the hex HMAC. internal/agent.SecurityEnforcer satisfies
+// this via its ComputeHMAC method (using a small adapter at the
+// wiring layer in pkg/api/server). Empty implementation can return
+// "" — the agent's escape-hatch path accepts unsigned messages
+// when its own HMACSecret is empty.
+type Signer interface {
+	SignCommand(msg CommandMessage) string
+}
+
+// CommandMessage is the wire-format payload published on the
+// agent's command subject. Mirrors internal/agent.CommandRequest
+// — the same struct the agent unmarshals and feeds into
+// SecurityEnforcer.Validate. Defined here to keep
+// internal/controlplane import-free of internal/agent;
+// internal/agent.CommandRequest is the canonical name on the
+// receive side, but the field set is identical so signers
+// produce HMACs the agent verifies.
+type CommandMessage struct {
+	MessageID      string            `json:"message_id"`
+	Principal      string            `json:"principal"`
+	Command        string            `json:"command"`
+	Args           []string          `json:"args,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	WorkingDir     string            `json:"working_dir,omitempty"`
+	User           string            `json:"user,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds"`
+	Signature      string            `json:"signature"`
 }
 
 // DispatcherConfig configures a CommandDispatcher. Store, Agents,
-// Publisher, and Subjects are required; everything else has a
-// default.
+// Publisher, Subjects, and Signer are required; everything else has
+// a default.
 type DispatcherConfig struct {
 	Store                 state.CommandStore
 	Agents                AgentLookup
 	Publisher             NATSPublisher
 	Subjects              Subjects
+	Signer                Signer
 	Logger                *slog.Logger
 	DefaultTimeoutSeconds int
 	RetentionWindow       time.Duration
@@ -98,19 +130,6 @@ type DispatcherConfig struct {
 	TimeoutCheckInterval  time.Duration
 	Clock                 func() time.Time
 	NewID                 func() string
-}
-
-// commandMessage is the wire shape published on the agent's command
-// subject. Epic 05 wraps this in nats.Envelope when it integrates;
-// task 2 publishes the raw JSON so the dispatcher can ship before NATS.
-type commandMessage struct {
-	ID             string            `json:"id"`
-	Command        string            `json:"command"`
-	Args           []string          `json:"args,omitempty"`
-	Env            map[string]string `json:"env,omitempty"`
-	WorkingDir     string            `json:"working_dir,omitempty"`
-	User           string            `json:"user,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds"`
 }
 
 // inFlightCommand tracks an in-progress command for timeout
@@ -127,6 +146,7 @@ type CommandDispatcher struct {
 	agents                AgentLookup
 	publisher             NATSPublisher
 	subjects              Subjects
+	signer                Signer
 	logger                *slog.Logger
 	defaultTimeoutSeconds int
 	retentionWindow       time.Duration
@@ -160,6 +180,9 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 	}
 	if cfg.Subjects == nil {
 		return nil, errors.New("controlplane: dispatcher Subjects is required")
+	}
+	if cfg.Signer == nil {
+		return nil, errors.New("controlplane: dispatcher Signer is required")
 	}
 	if cfg.RetentionWindow < 0 {
 		return nil, fmt.Errorf("controlplane: RetentionWindow must be >= 0, got %s", cfg.RetentionWindow)
@@ -201,6 +224,7 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 		agents:                cfg.Agents,
 		publisher:             cfg.Publisher,
 		subjects:              cfg.Subjects,
+		signer:                cfg.Signer,
 		logger:                cfg.Logger,
 		defaultTimeoutSeconds: cfg.DefaultTimeoutSeconds,
 		retentionWindow:       cfg.RetentionWindow,
@@ -314,15 +338,18 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 	}
 
 	subject := d.subjects.AgentCommand(req.AgentID)
-	payload, err := json.Marshal(commandMessage{
-		ID:             id,
+	msg := CommandMessage{
+		MessageID:      id,
+		Principal:      req.Principal,
 		Command:        req.Command,
 		Args:           req.Args,
 		Env:            req.Env,
 		WorkingDir:     req.WorkingDir,
 		User:           req.User,
 		TimeoutSeconds: timeoutSecs,
-	})
+	}
+	msg.Signature = d.signer.SignCommand(msg)
+	payload, err := json.Marshal(msg)
 	if err != nil {
 		// JSON marshal cannot fail for these scalar/string types,
 		// but if it ever did the command must not stay pending.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -103,6 +104,25 @@ func (f *fakeNATSClient) deliver(t *testing.T, subject string, env envelope.Enve
 	return h(context.Background(), subject, env)
 }
 
+// collectFor polls until at least n envelopes arrive on subject or
+// the deadline lapses. Returns a copy of the captured slice. Used by
+// command-flow tests to assert on the published response.
+func (f *fakeNATSClient) collectFor(t *testing.T, subject string, n int, timeout time.Duration) []envelope.Envelope {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		got := append([]envelope.Envelope(nil), f.publishes[subject]...)
+		f.mu.Unlock()
+		if len(got) >= n {
+			return got
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("subject %q: got %d envelopes within %s, want >=%d", subject, f.publishCount(subject), timeout, n)
+	return nil
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -139,6 +159,32 @@ func (f *fakeMetricsCollector) Metadata(_ context.Context, agentID string, label
 	}
 }
 
+// testEnforcer returns a SecurityEnforcer with HMAC disabled
+// (empty secret) and DefaultPolicy=allow — friendly defaults for
+// agent-lifecycle tests that aren't exercising the security gate.
+// Tests that assert reject paths construct their own enforcer.
+func testEnforcer(t *testing.T) *SecurityEnforcer {
+	t.Helper()
+	enf, err := NewSecurityEnforcer(SecurityPolicy{
+		DefaultPolicy: PolicyAllow,
+	}, testLogger())
+	if err != nil {
+		t.Fatalf("NewSecurityEnforcer: %v", err)
+	}
+	return enf
+}
+
+// testExecutor returns an Executor with tight timeouts so tests
+// don't pay for the production 5m default.
+func testExecutor(t *testing.T) *Executor {
+	t.Helper()
+	return NewExecutor(ExecutorConfig{
+		Logger:         testLogger(),
+		KillGrace:      50 * time.Millisecond,
+		DefaultTimeout: 2 * time.Second,
+	})
+}
+
 func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient, fakeSubjects) {
 	t.Helper()
 	cfg := Config{
@@ -153,7 +199,7 @@ func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient,
 	nats := newFakeNATS()
 	subjects := fakeSubjects{cluster: "test"}
 	metrics := &fakeMetricsCollector{cpu: 12.5, mem: 33.0, host: "test-host"}
-	a, err := New(cfg, nats, subjects, metrics, testLogger())
+	a, err := New(cfg, nats, subjects, metrics, testExecutor(t), testEnforcer(t), testLogger())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -161,29 +207,39 @@ func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient,
 }
 
 func TestNew_RequiresFields(t *testing.T) {
+	type deps struct {
+		nats     NATSClient
+		subjects Subjects
+		metrics  MetricsCollector
+		executor *Executor
+		enforcer *SecurityEnforcer
+	}
+	good := func(t *testing.T) deps {
+		return deps{
+			nats:     newFakeNATS(),
+			subjects: fakeSubjects{cluster: "test"},
+			metrics:  &fakeMetricsCollector{},
+			executor: testExecutor(t),
+			enforcer: testEnforcer(t),
+		}
+	}
 	cases := []struct {
 		name string
-		mut  func(*Config) (NATSClient, Subjects, MetricsCollector)
+		mut  func(*Config, *deps)
 	}{
-		{"nil agent id", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
-			c.AgentID = ""
-			return newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}
-		}},
-		{"nil nats", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
-			return nil, fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}
-		}},
-		{"nil subjects", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
-			return newFakeNATS(), nil, &fakeMetricsCollector{}
-		}},
-		{"nil metrics", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
-			return newFakeNATS(), fakeSubjects{cluster: "test"}, nil
-		}},
+		{"nil agent id", func(c *Config, _ *deps) { c.AgentID = "" }},
+		{"nil nats", func(_ *Config, d *deps) { d.nats = nil }},
+		{"nil subjects", func(_ *Config, d *deps) { d.subjects = nil }},
+		{"nil metrics", func(_ *Config, d *deps) { d.metrics = nil }},
+		{"nil executor", func(_ *Config, d *deps) { d.executor = nil }},
+		{"nil enforcer", func(_ *Config, d *deps) { d.enforcer = nil }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := Config{AgentID: "agent-1"}
-			nats, subj, metrics := tc.mut(&cfg)
-			if _, err := New(cfg, nats, subj, metrics, testLogger()); err == nil {
+			d := good(t)
+			tc.mut(&cfg, &d)
+			if _, err := New(cfg, d.nats, d.subjects, d.metrics, d.executor, d.enforcer, testLogger()); err == nil {
 				t.Errorf("expected error for %s", tc.name)
 			}
 		})
@@ -191,14 +247,14 @@ func TestNew_RequiresFields(t *testing.T) {
 }
 
 func TestNew_NilLoggerDefaults(t *testing.T) {
-	_, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, nil)
+	_, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, testExecutor(t), testEnforcer(t), nil)
 	if err != nil {
 		t.Errorf("New with nil logger: %v", err)
 	}
 }
 
 func TestNew_DefaultsAppliedWhenZero(t *testing.T) {
-	a, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, testLogger())
+	a, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, testExecutor(t), testEnforcer(t), testLogger())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -426,10 +482,201 @@ func TestAgent_CommandHandlerInvokedOnDelivery(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
 
-	env := envelope.New([]byte(`{"command":"uptime"}`), subj.Prefix(),
-		envelope.WithMessageID("cmd-1"))
+	// Send a malformed payload; handler should not error and should
+	// NOT publish a response (unmarshal failure logs and drops).
+	env := envelope.New([]byte(`not-json`), subj.Prefix(),
+		envelope.WithMessageID("cmd-bad"))
 	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
 		t.Errorf("handler returned error: %v", err)
+	}
+	if got := nats.publishCount(subj.AgentResponse("agent-1")); got != 0 {
+		t.Errorf("response published for malformed payload: count=%d", got)
+	}
+}
+
+// newAgentWithEnforcer constructs an agent whose SecurityEnforcer
+// uses the supplied policy. Used by command-flow tests that exercise
+// HMAC, allowlists, etc.
+func newAgentWithEnforcer(t *testing.T, policy SecurityPolicy) (*Agent, *fakeNATSClient, fakeSubjects, *SecurityEnforcer) {
+	t.Helper()
+	enf, err := NewSecurityEnforcer(policy, testLogger())
+	if err != nil {
+		t.Fatalf("NewSecurityEnforcer: %v", err)
+	}
+	cfg := Config{
+		AgentID:           "agent-1",
+		HeartbeatInterval: 10 * time.Second, // long; we want command tests to drive the handler explicitly
+		MetadataInterval:  10 * time.Second,
+		CommandTimeout:    2 * time.Second,
+	}
+	nats := newFakeNATS()
+	subjects := fakeSubjects{cluster: "test"}
+	metrics := &fakeMetricsCollector{}
+	a, err := New(cfg, nats, subjects, metrics, testExecutor(t), enf, testLogger())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return a, nats, subjects, enf
+}
+
+func TestAgent_CommandFlow_SuccessRoundTrip(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sh; runs unix only in v1.0")
+	}
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		HMACSecret:    []byte("secret-1"),
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	req := CommandRequest{
+		MessageID:      "cmd-success",
+		Principal:      "admin",
+		Command:        "/bin/sh",
+		Args:           []string{"-c", "echo hello"},
+		TimeoutSeconds: 2,
+	}
+	req.Signature = enf.ComputeHMAC(req)
+
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-success"))
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	envs := nats.collectFor(t, subj.AgentResponse("agent-1"), 1, time.Second)
+	var resp CommandResponse
+	if err := json.Unmarshal(envs[0].Payload, &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if resp.Rejected {
+		t.Errorf("Rejected = true, want false (RejectReason=%q)", resp.RejectReason)
+	}
+	if resp.ExitCode != 0 {
+		t.Errorf("ExitCode = %d, want 0", resp.ExitCode)
+	}
+	if string(resp.Stdout) != "hello\n" {
+		t.Errorf("Stdout = %q, want hello\\n", resp.Stdout)
+	}
+	if resp.MessageID != "cmd-success" {
+		t.Errorf("MessageID = %q, want cmd-success", resp.MessageID)
+	}
+	if envs[0].CorrelationID != "cmd-success" {
+		t.Errorf("Envelope CorrelationID = %q, want cmd-success", envs[0].CorrelationID)
+	}
+}
+
+func TestAgent_CommandFlow_HMACInvalidPublishesRejection(t *testing.T) {
+	a, nats, subj, _ := newAgentWithEnforcer(t, SecurityPolicy{
+		HMACSecret:    []byte("secret-1"),
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	req := CommandRequest{
+		MessageID: "cmd-bad-sig",
+		Principal: "admin",
+		Command:   "/bin/echo",
+		Args:      []string{"hi"},
+		Signature: "not-a-real-signature",
+	}
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-bad-sig"))
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	envs := nats.collectFor(t, subj.AgentResponse("agent-1"), 1, time.Second)
+	var resp CommandResponse
+	if err := json.Unmarshal(envs[0].Payload, &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !resp.Rejected {
+		t.Error("Rejected = false, want true")
+	}
+	if resp.RejectReason == "" {
+		t.Error("RejectReason empty")
+	}
+	if resp.ExitCode != -1 {
+		t.Errorf("ExitCode = %d, want -1 on rejection", resp.ExitCode)
+	}
+}
+
+func TestAgent_CommandFlow_AllowlistBlocksPublishesRejection(t *testing.T) {
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		DefaultPolicy: PolicyDeny, // nothing allowed unless explicitly listed
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	req := CommandRequest{
+		MessageID: "cmd-blocked",
+		Principal: "admin",
+		Command:   "/bin/echo",
+	}
+	req.Signature = enf.ComputeHMAC(req)
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-blocked"))
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	envs := nats.collectFor(t, subj.AgentResponse("agent-1"), 1, time.Second)
+	var resp CommandResponse
+	if err := json.Unmarshal(envs[0].Payload, &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !resp.Rejected {
+		t.Errorf("Rejected = false, want true (DefaultPolicy=deny)")
+	}
+}
+
+func TestAgent_CommandFlow_TimeoutSurfacesInResponse(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sleep; runs unix only in v1.0")
+	}
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	req := CommandRequest{
+		MessageID:      "cmd-timeout",
+		Command:        "/bin/sleep",
+		Args:           []string{"5"},
+		TimeoutSeconds: 0, // falls back to Agent.cfg.CommandTimeout (2s in test) — actually we want to override
+	}
+	// Force a tight per-command timeout via the request field.
+	req.TimeoutSeconds = 1
+	req.Signature = enf.ComputeHMAC(req)
+
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-timeout"))
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	envs := nats.collectFor(t, subj.AgentResponse("agent-1"), 1, 3*time.Second)
+	var resp CommandResponse
+	if err := json.Unmarshal(envs[0].Payload, &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !resp.TimedOut {
+		t.Errorf("TimedOut = false, want true")
+	}
+	if resp.ExitCode != -1 {
+		t.Errorf("ExitCode = %d, want -1 on signal-kill", resp.ExitCode)
 	}
 }
 

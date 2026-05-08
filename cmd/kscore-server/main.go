@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/agent"
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
@@ -96,12 +97,18 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("nats: %w", err)
 	}
 
+	enforcer, err := agent.NewSecurityEnforcer(securityPolicyFromConfig(cfg.Security), log)
+	if err != nil {
+		return fmt.Errorf("security enforcer: %w", err)
+	}
+
 	opts := server.Options{
 		Config:          cfg,
 		Logger:          log,
 		Store:           store,
 		NATSManager:     natsManager,
 		Subjects:        natsManager.Subjects(),
+		Signer:          commandSignerAdapter{enf: enforcer},
 		AuthInterceptor: authInterceptor,
 	}
 
@@ -138,6 +145,50 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	return srv.Stop(stopCtx)
+}
+
+// commandSignerAdapter bridges internal/agent.SecurityEnforcer
+// into controlplane.Signer. The enforcer's ComputeHMAC takes an
+// agent.CommandRequest; the dispatcher's Signer takes a
+// controlplane.CommandMessage. Same field set, different package
+// — adapter is one line.
+type commandSignerAdapter struct{ enf *agent.SecurityEnforcer }
+
+func (a commandSignerAdapter) SignCommand(msg controlplane.CommandMessage) string {
+	return a.enf.ComputeHMAC(agent.CommandRequest{
+		MessageID:      msg.MessageID,
+		Principal:      msg.Principal,
+		Command:        msg.Command,
+		Args:           msg.Args,
+		Env:            msg.Env,
+		WorkingDir:     msg.WorkingDir,
+		User:           msg.User,
+		TimeoutSeconds: msg.TimeoutSeconds,
+	})
+}
+
+// securityPolicyFromConfig translates internal/config.SecurityConfig
+// into the internal/agent.SecurityPolicy shape.
+func securityPolicyFromConfig(c config.SecurityConfig) agent.SecurityPolicy {
+	policy := agent.SecurityPolicy{
+		HMACSecret:         c.DecodedHMACSecret(),
+		PrincipalAllowlist: c.PrincipalAllowlist,
+		CommandRules: agent.CommandRules{
+			AllowGlobs:   c.CommandAllowGlobs,
+			AllowRegexes: c.CommandAllowRegexes,
+			DenyGlobs:    c.CommandDenyGlobs,
+			DenyRegexes:  c.CommandDenyRegexes,
+		},
+		EnvVarAllowlist: c.EnvVarAllowlist,
+		MaxArgsBytes:    c.MaxArgsBytes,
+	}
+	switch c.DefaultPolicy {
+	case "allow":
+		policy.DefaultPolicy = agent.PolicyAllow
+	case "deny":
+		policy.DefaultPolicy = agent.PolicyDeny
+	}
+	return policy
 }
 
 // natsSubscriberAdapter bridges internal/nats.Manager (which uses

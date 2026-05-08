@@ -78,13 +78,22 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		}
 	}()
 
+	enforcer, err := agent.NewSecurityEnforcer(securityPolicyFromConfig(cfg.Security), log)
+	if err != nil {
+		return fmt.Errorf("security enforcer: %w", err)
+	}
+	executor := agent.NewExecutor(agent.ExecutorConfig{
+		Logger:         log,
+		DefaultTimeout: cfg.Agent.CommandTimeout,
+	})
+
 	a, err := agent.New(agent.Config{
 		AgentID:           cfg.Agent.AgentID,
 		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
 		MetadataInterval:  cfg.Agent.MetadataInterval,
 		CommandTimeout:    cfg.Agent.CommandTimeout,
 		Labels:            cfg.Agent.Labels,
-	}, natsAdapter{m: natsManager}, natsManager.Subjects(), agent.NewGopsutilCollector(log), log)
+	}, natsAdapter{m: natsManager}, natsManager.Subjects(), agent.NewGopsutilCollector(log), executor, enforcer, log)
 	if err != nil {
 		return fmt.Errorf("agent: %w", err)
 	}
@@ -130,4 +139,31 @@ func (a natsAdapter) Subscribe(subject string, h agent.MessageHandler) (agent.Su
 
 func (a natsAdapter) Health(ctx context.Context) error {
 	return a.m.Health(ctx)
+}
+
+// securityPolicyFromConfig translates internal/config.SecurityConfig
+// into the internal/agent.SecurityPolicy shape. Same translator
+// lives in cmd/kscore-server — both binaries read the same
+// security.* section of the config so the HMAC secret + rules stay
+// in lockstep.
+func securityPolicyFromConfig(c config.SecurityConfig) agent.SecurityPolicy {
+	policy := agent.SecurityPolicy{
+		HMACSecret:         c.DecodedHMACSecret(),
+		PrincipalAllowlist: c.PrincipalAllowlist,
+		CommandRules: agent.CommandRules{
+			AllowGlobs:   c.CommandAllowGlobs,
+			AllowRegexes: c.CommandAllowRegexes,
+			DenyGlobs:    c.CommandDenyGlobs,
+			DenyRegexes:  c.CommandDenyRegexes,
+		},
+		EnvVarAllowlist: c.EnvVarAllowlist,
+		MaxArgsBytes:    c.MaxArgsBytes,
+	}
+	switch c.DefaultPolicy {
+	case "allow":
+		policy.DefaultPolicy = agent.PolicyAllow
+	case "deny":
+		policy.DefaultPolicy = agent.PolicyDeny
+	}
+	return policy
 }

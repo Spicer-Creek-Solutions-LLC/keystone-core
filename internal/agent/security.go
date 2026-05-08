@@ -27,7 +27,9 @@ const (
 
 // CommandRequest is the parsed inbound command shape — what the
 // control plane sends inside the envelope payload. SecurityEnforcer
-// validates it before the Executor (Task 2) sees it.
+// validates it before the Executor (Task 2) sees it. The same struct
+// is the wire format consumed by both the agent (parses) and the
+// control plane (signs + publishes).
 //
 // MessageID comes from the wrapping envelope.MessageID; it's part
 // of the HMAC canonical input so a captured-and-replayed command on
@@ -37,13 +39,15 @@ const (
 // request fields under the configured secret. Excluded from the
 // canonical itself (it's the output, not the input).
 type CommandRequest struct {
-	MessageID string            `json:"message_id"`
-	Principal string            `json:"principal"`
-	Command   string            `json:"command"`
-	Args      []string          `json:"args,omitempty"`
-	Env       map[string]string `json:"env,omitempty"`
-	User      string            `json:"user,omitempty"`
-	Signature string            `json:"signature"`
+	MessageID      string            `json:"message_id"`
+	Principal      string            `json:"principal"`
+	Command        string            `json:"command"`
+	Args           []string          `json:"args,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	WorkingDir     string            `json:"working_dir,omitempty"`
+	User           string            `json:"user,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds"`
+	Signature      string            `json:"signature"`
 }
 
 // CommandRules govern the deny / allow / default decision against
@@ -320,8 +324,12 @@ func canonical(req CommandRequest) []byte {
 	buf.WriteString(req.Principal)
 	buf.WriteString("\nCommand:")
 	buf.WriteString(req.Command)
+	buf.WriteString("\nWorkingDir:")
+	buf.WriteString(req.WorkingDir)
 	buf.WriteString("\nUser:")
 	buf.WriteString(req.User)
+	buf.WriteString("\nTimeoutSeconds:")
+	writeUint32(&buf, uint32(req.TimeoutSeconds))
 
 	buf.WriteString("\nArgs:")
 	writeUint32(&buf, uint32(len(req.Args)))

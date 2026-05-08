@@ -16,6 +16,7 @@ import (
 	"go.uber.org/goleak"
 
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
@@ -149,6 +150,13 @@ func (f fakeSubjects) BootstrapResponse(agentID string) string {
 func (f fakeSubjects) Cluster() string { return f.cluster }
 func (f fakeSubjects) Prefix() string  { return "kscore." + f.cluster }
 
+// fakeSigner is a deterministic test stub for controlplane.Signer.
+// Production wiring uses internal/agent.SecurityEnforcer adapted via
+// commandSignerAdapter; tests don't need real HMAC math.
+type fakeSigner struct{}
+
+func (fakeSigner) SignCommand(_ controlplane.CommandMessage) string { return "test-sig" }
+
 func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *trackingNATS) {
 	t.Helper()
 	tn := &trackingNATS{}
@@ -158,6 +166,7 @@ func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *tr
 		Store:       newTestStore(t),
 		NATSManager: tn,
 		Subjects:    fakeSubjects{cluster: "default"},
+		Signer:      fakeSigner{},
 	}
 	for _, fn := range opts {
 		fn(&o)
@@ -180,15 +189,17 @@ func newServer(t *testing.T, opts ...func(*server.Options)) (*server.Server, *tr
 
 func TestNew_ValidationRejectsMissingDeps(t *testing.T) {
 	subj := fakeSubjects{cluster: "default"}
+	sgn := fakeSigner{}
 	cases := []struct {
 		name string
 		opts server.Options
 	}{
-		{"nil config", server.Options{Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj}},
-		{"nil logger", server.Options{Config: newTestConfig(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj}},
-		{"nil store", server.Options{Config: newTestConfig(), Logger: slog.Default(), NATSManager: &trackingNATS{}, Subjects: subj}},
-		{"nil nats", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), Subjects: subj}},
-		{"nil subjects", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}}},
+		{"nil config", server.Options{Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj, Signer: sgn}},
+		{"nil logger", server.Options{Config: newTestConfig(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj, Signer: sgn}},
+		{"nil store", server.Options{Config: newTestConfig(), Logger: slog.Default(), NATSManager: &trackingNATS{}, Subjects: subj, Signer: sgn}},
+		{"nil nats", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), Subjects: subj, Signer: sgn}},
+		{"nil subjects", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Signer: sgn}},
+		{"nil signer", server.Options{Config: newTestConfig(), Logger: slog.Default(), Store: newTestStore(t), NATSManager: &trackingNATS{}, Subjects: subj}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -230,6 +241,7 @@ func TestNew_TLSEnabledRefused(t *testing.T) {
 	_, err := server.New(server.Options{
 		Config: cfg, Logger: slog.Default(), Store: store, NATSManager: tn,
 		Subjects: fakeSubjects{cluster: "default"},
+		Signer:   fakeSigner{},
 	})
 	if err == nil {
 		t.Fatal("TLS-enabled config should fail in task 4")

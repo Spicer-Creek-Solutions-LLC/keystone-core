@@ -25,6 +25,12 @@ type Options struct {
 	// hand-rolled fake.
 	Subjects controlplane.Subjects
 
+	// Signer is the HMAC signer threaded into the CommandDispatcher
+	// (Epic 06 task 5). cmd/kscore-server constructs an
+	// internal/agent.SecurityEnforcer from cfg.Security and adapts
+	// it to controlplane.Signer. Tests pass a fake.
+	Signer controlplane.Signer
+
 	// Subscriber is the inbound NATS surface used by the bootstrap
 	// handler (Epic 05 task 9). Optional — when nil OR
 	// cfg.NATS.Bootstrap.Enabled is false, the handler is not
@@ -72,6 +78,9 @@ func (o *Options) validate() error {
 	}
 	if o.Subjects == nil {
 		return errors.New("server: Options.Subjects is required (Manager.Subjects() in production; a hand-rolled fake in tests)")
+	}
+	if o.Signer == nil {
+		return errors.New("server: Options.Signer is required (Epic 06 task 5; constructs from cfg.Security in production)")
 	}
 	if o.StatusTickerInterval < 0 {
 		return errors.New("server: StatusTickerInterval must be non-negative")

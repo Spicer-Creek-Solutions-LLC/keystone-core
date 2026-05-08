@@ -38,13 +38,14 @@ func (m Mode) Validate() error {
 // Foundation sub-configs (Server, Logging, Storage) are defined here; later
 // epics extend Config with their own domain sub-configs.
 type Config struct {
-	Mode    Mode          `koanf:"mode"`
-	Server  ServerConfig  `koanf:"server"`
-	Logging LoggingConfig `koanf:"logging"`
-	Storage StorageConfig `koanf:"storage"`
-	Health  HealthConfig  `koanf:"health"`
-	NATS    NATSConfig    `koanf:"nats"`
-	Agent   AgentConfig   `koanf:"agent"`
+	Mode     Mode           `koanf:"mode"`
+	Server   ServerConfig   `koanf:"server"`
+	Logging  LoggingConfig  `koanf:"logging"`
+	Storage  StorageConfig  `koanf:"storage"`
+	Health   HealthConfig   `koanf:"health"`
+	NATS     NATSConfig     `koanf:"nats"`
+	Agent    AgentConfig    `koanf:"agent"`
+	Security SecurityConfig `koanf:"security"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -114,6 +115,10 @@ func defaultConfig() *Config {
 			MetadataInterval:  60 * time.Second, // §4.6 default
 			CommandTimeout:    5 * time.Minute,
 		},
+		Security: SecurityConfig{
+			MaxArgsBytes:  64 * 1024, // §4.7 default
+			DefaultPolicy: "deny",    // safer baseline; operators explicitly allow
+		},
 	}
 }
 
@@ -175,6 +180,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Agent.Validate(); err != nil {
 		return fmt.Errorf("agent: %w", err)
+	}
+	if err := c.Security.Validate(); err != nil {
+		return fmt.Errorf("security: %w", err)
 	}
 	return nil
 }
