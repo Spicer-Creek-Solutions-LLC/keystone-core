@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -106,6 +107,38 @@ func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// fakeMetricsCollector returns deterministic canned values so the
+// agent_test publishes can be asserted on payload contents (Task 3).
+// Production wiring uses gopsutilCollector instead.
+type fakeMetricsCollector struct {
+	cpu    float64
+	mem    float64
+	host   string
+	labels map[string]string
+}
+
+func (f *fakeMetricsCollector) Heartbeat(_ context.Context, agentID string) HeartbeatMetrics {
+	return HeartbeatMetrics{
+		AgentID:    agentID,
+		TS:         time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+		CPUPercent: f.cpu,
+		MemPercent: f.mem,
+	}
+}
+
+func (f *fakeMetricsCollector) Metadata(_ context.Context, agentID string, labels map[string]string) AgentMetadata {
+	if labels == nil {
+		labels = f.labels
+	}
+	return AgentMetadata{
+		AgentID:  agentID,
+		TS:       time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+		Hostname: f.host,
+		OS:       "linux",
+		Labels:   labels,
+	}
+}
+
 func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient, fakeSubjects) {
 	t.Helper()
 	cfg := Config{
@@ -119,7 +152,8 @@ func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient,
 	}
 	nats := newFakeNATS()
 	subjects := fakeSubjects{cluster: "test"}
-	a, err := New(cfg, nats, subjects, testLogger())
+	metrics := &fakeMetricsCollector{cpu: 12.5, mem: 33.0, host: "test-host"}
+	a, err := New(cfg, nats, subjects, metrics, testLogger())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -129,24 +163,27 @@ func newTestAgent(t *testing.T, opts ...func(*Config)) (*Agent, *fakeNATSClient,
 func TestNew_RequiresFields(t *testing.T) {
 	cases := []struct {
 		name string
-		mut  func(*Config) (NATSClient, Subjects)
+		mut  func(*Config) (NATSClient, Subjects, MetricsCollector)
 	}{
-		{"nil agent id", func(c *Config) (NATSClient, Subjects) {
+		{"nil agent id", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
 			c.AgentID = ""
-			return newFakeNATS(), fakeSubjects{cluster: "test"}
+			return newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}
 		}},
-		{"nil nats", func(c *Config) (NATSClient, Subjects) {
-			return nil, fakeSubjects{cluster: "test"}
+		{"nil nats", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
+			return nil, fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}
 		}},
-		{"nil subjects", func(c *Config) (NATSClient, Subjects) {
-			return newFakeNATS(), nil
+		{"nil subjects", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
+			return newFakeNATS(), nil, &fakeMetricsCollector{}
+		}},
+		{"nil metrics", func(c *Config) (NATSClient, Subjects, MetricsCollector) {
+			return newFakeNATS(), fakeSubjects{cluster: "test"}, nil
 		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := Config{AgentID: "agent-1"}
-			nats, subj := tc.mut(&cfg)
-			if _, err := New(cfg, nats, subj, testLogger()); err == nil {
+			nats, subj, metrics := tc.mut(&cfg)
+			if _, err := New(cfg, nats, subj, metrics, testLogger()); err == nil {
 				t.Errorf("expected error for %s", tc.name)
 			}
 		})
@@ -154,14 +191,14 @@ func TestNew_RequiresFields(t *testing.T) {
 }
 
 func TestNew_NilLoggerDefaults(t *testing.T) {
-	_, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, nil)
+	_, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, nil)
 	if err != nil {
 		t.Errorf("New with nil logger: %v", err)
 	}
 }
 
 func TestNew_DefaultsAppliedWhenZero(t *testing.T) {
-	a, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, testLogger())
+	a, err := New(Config{AgentID: "agent-1"}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, testLogger())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -245,6 +282,79 @@ func TestAgent_StartFailsOnSubscribeError(t *testing.T) {
 	nats.subErr = errors.New("synthetic subscribe failure")
 	if err := a.Start(context.Background()); err == nil {
 		t.Fatal("Start: nil, want error")
+	}
+}
+
+func TestAgent_HeartbeatPayloadContainsMetrics(t *testing.T) {
+	a, nats, subj := newTestAgent(t)
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if nats.publishCount(subj.AgentHeartbeat()) >= 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	nats.mu.Lock()
+	envs := append([]envelope.Envelope(nil), nats.publishes[subj.AgentHeartbeat()]...)
+	nats.mu.Unlock()
+	if len(envs) == 0 {
+		t.Fatal("no heartbeat envelope captured within 500ms")
+	}
+
+	var hb HeartbeatMetrics
+	if err := json.Unmarshal(envs[0].Payload, &hb); err != nil {
+		t.Fatalf("Unmarshal: %v (raw=%s)", err, envs[0].Payload)
+	}
+	if hb.AgentID != "agent-1" {
+		t.Errorf("AgentID = %q, want agent-1", hb.AgentID)
+	}
+	if hb.CPUPercent != 12.5 {
+		t.Errorf("CPUPercent = %v, want 12.5 (canned)", hb.CPUPercent)
+	}
+	if hb.MemPercent != 33.0 {
+		t.Errorf("MemPercent = %v, want 33.0 (canned)", hb.MemPercent)
+	}
+}
+
+func TestAgent_MetadataPayloadContainsHostFields(t *testing.T) {
+	a, nats, subj := newTestAgent(t)
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Shutdown(context.Background()) })
+
+	stateSubject := subj.AgentState("agent-1")
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if nats.publishCount(stateSubject) >= 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	nats.mu.Lock()
+	envs := append([]envelope.Envelope(nil), nats.publishes[stateSubject]...)
+	nats.mu.Unlock()
+	if len(envs) == 0 {
+		t.Fatal("no metadata envelope captured within 500ms")
+	}
+
+	var md AgentMetadata
+	if err := json.Unmarshal(envs[0].Payload, &md); err != nil {
+		t.Fatalf("Unmarshal: %v (raw=%s)", err, envs[0].Payload)
+	}
+	if md.AgentID != "agent-1" {
+		t.Errorf("AgentID = %q, want agent-1", md.AgentID)
+	}
+	if md.Hostname != "test-host" {
+		t.Errorf("Hostname = %q, want test-host (canned)", md.Hostname)
+	}
+	if md.OS != "linux" {
+		t.Errorf("OS = %q, want linux", md.OS)
 	}
 }
 

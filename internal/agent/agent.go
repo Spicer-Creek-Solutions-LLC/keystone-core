@@ -67,20 +67,19 @@ const (
 // request — all goroutines under a WaitGroup. State protected by
 // sync.RWMutex.
 //
-// Tasks 2–11 fill in the bodies of the loops + command handler:
-//   - Task 2 wires Executor for command exec.
-//   - Task 3 wires MetadataCollector (gopsutil) for the heartbeat /
-//     metadata payloads.
+// Tasks 4–11 fill in the bodies of the command handler:
 //   - Task 4 wires SecurityEnforcer (HMAC, allowlists).
 //   - Task 5 wires full command-response (validate → exec → publish).
 //
-// Task 1 (this code) ships the lifecycle skeleton with stub payloads.
+// Tasks 1 + 3 (this code, with metrics) ship the lifecycle skeleton
+// with real heartbeat / metadata payloads via MetricsCollector;
+// command handler still logs-and-discards.
 type Agent struct {
 	cfg      Config
 	log      *slog.Logger
 	nats     NATSClient
 	subjects Subjects
-	now      func() time.Time
+	metrics  MetricsCollector
 
 	mu      sync.Mutex
 	started bool
@@ -93,7 +92,7 @@ type Agent struct {
 // New validates cfg and returns an unstarted Agent. AgentID is
 // required; the bootstrap engine (Task 6) persists it. Other fields
 // fall back to §4.6 defaults when zero.
-func New(cfg Config, nats NATSClient, subjects Subjects, log *slog.Logger) (*Agent, error) {
+func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollector, log *slog.Logger) (*Agent, error) {
 	if cfg.AgentID == "" {
 		return nil, errors.New("agent: AgentID is required")
 	}
@@ -102,6 +101,9 @@ func New(cfg Config, nats NATSClient, subjects Subjects, log *slog.Logger) (*Age
 	}
 	if subjects == nil {
 		return nil, errors.New("agent: Subjects is required")
+	}
+	if metrics == nil {
+		return nil, errors.New("agent: MetricsCollector is required")
 	}
 	if log == nil {
 		log = slog.Default()
@@ -120,7 +122,7 @@ func New(cfg Config, nats NATSClient, subjects Subjects, log *slog.Logger) (*Age
 		log:      log,
 		nats:     nats,
 		subjects: subjects,
-		now:      time.Now,
+		metrics:  metrics,
 	}, nil
 }
 
@@ -211,9 +213,9 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 // runHeartbeatLoop ticks every HeartbeatInterval. Standard
 // time.Ticker semantics — first fire happens after the interval, so
 // the control plane has a registration window before the first
-// heartbeat. Task 3 swaps the stub payload for real gopsutil-backed
-// metrics; Task 5 may add registration on Start to populate the
-// agent registry before the first tick.
+// heartbeat. Payload comes from MetricsCollector.Heartbeat (gopsutil
+// in production); Task 5 may add registration on Start to populate
+// the agent registry before the first tick.
 func (a *Agent) runHeartbeatLoop(ctx context.Context) {
 	defer a.wg.Done()
 	t := time.NewTicker(a.cfg.HeartbeatInterval)
@@ -229,10 +231,8 @@ func (a *Agent) runHeartbeatLoop(ctx context.Context) {
 }
 
 func (a *Agent) publishHeartbeat(ctx context.Context) {
-	payload, err := json.Marshal(heartbeatPayload{
-		AgentID: a.cfg.AgentID,
-		TS:      a.now().UTC(),
-	})
+	hb := a.metrics.Heartbeat(ctx, a.cfg.AgentID)
+	payload, err := json.Marshal(hb)
 	if err != nil {
 		a.log.Warn("agent: heartbeat marshal", "err", err)
 		return
@@ -247,8 +247,8 @@ func (a *Agent) publishHeartbeat(ctx context.Context) {
 	}
 }
 
-// runMetadataLoop ticks every MetadataInterval. Stub payload for
-// Task 1; Task 3 wires the gopsutil-backed metadata collector.
+// runMetadataLoop ticks every MetadataInterval and publishes the
+// full per-host metadata snapshot via MetricsCollector.Metadata.
 func (a *Agent) runMetadataLoop(ctx context.Context) {
 	defer a.wg.Done()
 	t := time.NewTicker(a.cfg.MetadataInterval)
@@ -264,10 +264,8 @@ func (a *Agent) runMetadataLoop(ctx context.Context) {
 }
 
 func (a *Agent) publishMetadata(ctx context.Context) {
-	payload, err := json.Marshal(metadataPayload{
-		AgentID: a.cfg.AgentID,
-		Labels:  a.cfg.Labels,
-	})
+	md := a.metrics.Metadata(ctx, a.cfg.AgentID, a.cfg.Labels)
+	payload, err := json.Marshal(md)
 	if err != nil {
 		a.log.Warn("agent: metadata marshal", "err", err)
 		return
@@ -293,16 +291,3 @@ func (a *Agent) handleCommand(_ context.Context, subject string, env envelope.En
 	return nil
 }
 
-// heartbeatPayload is the v1.0 stub. Task 3 swaps this for a
-// gopsutil-backed struct (CPU%, memory%, disk%).
-type heartbeatPayload struct {
-	AgentID string    `json:"agent_id"`
-	TS      time.Time `json:"ts"`
-}
-
-// metadataPayload is the v1.0 stub. Task 3 swaps this for a
-// gopsutil-backed full metadata struct (distro, kernel, NICs, etc.).
-type metadataPayload struct {
-	AgentID string            `json:"agent_id"`
-	Labels  map[string]string `json:"labels,omitempty"`
-}
