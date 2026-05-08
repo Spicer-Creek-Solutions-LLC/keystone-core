@@ -19,6 +19,7 @@ import (
 	"go.keystone-core.io/keystone-core/pkg/api/secrets"
 	stateapi "go.keystone-core.io/keystone-core/pkg/api/state"
 	"go.keystone-core.io/keystone-core/pkg/api/webhooks"
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
 // registerHealthEndpoints wires the §4.4 unauthenticated /health/*
@@ -59,19 +60,25 @@ func (s *Server) handleHealthStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIStatus serves /api/status. Includes the same per-component
 // latency snapshot as /health/status for operators inspecting the
-// auth'd surface, plus the production-warning list and auth mode for
-// ops dashboards.
+// auth'd surface, plus the production-warning list, auth mode, and
+// per-NATS-endpoint state (Epic 05 task 11) for ops dashboards.
 func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 	counts := s.connMgr.Counts()
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	snap := s.healthChecker.Snapshot(r.Context())
 
-	// Always emit production_warnings as an array (never null) so
-	// dashboards can render conditionally without a nil-check.
+	// Always emit production_warnings + nats_endpoints as arrays
+	// (never null) so dashboards can render conditionally without a
+	// nil-check. Embedded mode and a not-yet-started Manager both
+	// surface as an empty array.
 	warnings := s.ProductionWarnings()
 	if warnings == nil {
 		warnings = []string{}
+	}
+	endpoints := s.nats.EndpointSnapshots()
+	if endpoints == nil {
+		endpoints = []natsstatus.EndpointSnapshot{}
 	}
 
 	writeJSON(w, map[string]any{
@@ -82,6 +89,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 		"auth_mode":           s.authMode(),
 		"production_warnings": warnings,
 		"components":          snap.Components,
+		"nats_endpoints":      endpoints,
 		"agents": map[string]int{
 			"total":     counts.Total,
 			"connected": counts.Connected,

@@ -409,15 +409,22 @@ func TestConnectionManager_ProbeRecordsRTT(t *testing.T) {
 	url := startSyntheticEndpoint(t)
 	cm := startConnMgr(t, externalCfg([]string{url}))
 
-	// Direct call into the unexported probe; the periodic ticker would
-	// take rttProbeInterval (5s) to fire otherwise.
+	// Direct call into the unexported probe records the in-process
+	// round-trip (sub-ms; rounds to 0 in the ms-resolution snapshot
+	// — fine for production where remote NATS RTT is in the ms
+	// range, but we want the test to be deterministic). Inject a
+	// synthetic RTT directly so the assertion isn't subject to
+	// loopback-latency rounding.
 	cm.probeOnce()
-	cm.probeOnce()
+	cm.mu.RLock()
+	state := cm.states[url]
+	cm.mu.RUnlock()
+	state.RecordRTT(7 * time.Millisecond)
 
 	for _, snap := range cm.Snapshot() {
 		if snap.URL == url {
-			if snap.LatencyP50 == 0 {
-				t.Errorf("after probe, P50 = 0 for %q (snap=%+v)", url, snap)
+			if snap.LatencyP50Ms == 0 {
+				t.Errorf("after probe + synthetic RTT, P50 = 0 (snap=%+v)", snap)
 			}
 			return
 		}

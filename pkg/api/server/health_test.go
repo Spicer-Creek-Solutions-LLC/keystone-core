@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/pkg/envelope"
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
 // stubNATS is the minimal NATSManager surface the checker exercises.
@@ -22,6 +23,7 @@ func (s stubNATS) Health(context.Context) error   { return s.healthErr }
 func (s stubNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
+func (s stubNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
 
 // stubHealthStore satisfies state.HealthStore.
 type stubHealthStore struct{ pingErr error }
@@ -44,6 +46,7 @@ func (n slowNATS) Health(ctx context.Context) error {
 func (n slowNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
+func (n slowNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -121,6 +124,65 @@ func TestHealthChecker_NATSFailureMarksNotReady(t *testing.T) {
 	}
 	if c := snap.Components["nats"]; c.Status != "fail" {
 		t.Errorf("nats = %+v, want fail", c)
+	}
+}
+
+// togglingNATS flips its Health() return between an error and nil
+// based on a swappable function so a single Snapshot run sees the
+// toggle without races. Drives the down→up recovery test.
+type togglingNATS struct {
+	mu  sync.Mutex
+	err error
+}
+
+func (n *togglingNATS) Start(context.Context) error    { return nil }
+func (n *togglingNATS) Shutdown(context.Context) error { return nil }
+func (n *togglingNATS) Health(context.Context) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.err
+}
+func (n *togglingNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
+	return nil
+}
+func (n *togglingNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
+
+func (n *togglingNATS) set(err error) {
+	n.mu.Lock()
+	n.err = err
+	n.mu.Unlock()
+}
+
+// TestHealthChecker_NATSDownThenUpRecovery exercises the §4.2
+// acceptance bullet: "Health() reports unhealthy when NATS down;
+// recovers when up." The toggling stub flips state between
+// snapshots so a single test verifies the full transition matrix.
+func TestHealthChecker_NATSDownThenUpRecovery(t *testing.T) {
+	now := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	nats := &togglingNATS{}
+	hc := newHealthChecker(nats, stubHealthStore{},
+		now.Add(-time.Minute), 30*time.Second, time.Second, clock, discardLogger())
+
+	// Phase 1: healthy.
+	if snap := hc.Snapshot(context.Background()); !snap.Ready {
+		t.Fatalf("phase 1: Ready = false (snap=%+v)", snap)
+	}
+
+	// Phase 2: NATS goes down.
+	nats.set(errors.New("disconnected"))
+	if snap := hc.Snapshot(context.Background()); snap.Ready {
+		t.Errorf("phase 2: Ready = true with NATS down (snap=%+v)", snap)
+	} else if c := snap.Components["nats"]; c.Status != "fail" {
+		t.Errorf("phase 2: nats = %+v, want fail", c)
+	}
+
+	// Phase 3: NATS recovers.
+	nats.set(nil)
+	if snap := hc.Snapshot(context.Background()); !snap.Ready {
+		t.Errorf("phase 3 (recovery): Ready = false after NATS recovered (snap=%+v)", snap)
+	} else if c := snap.Components["nats"]; c.Status != "ok" {
+		t.Errorf("phase 3 (recovery): nats = %+v, want ok", c)
 	}
 }
 

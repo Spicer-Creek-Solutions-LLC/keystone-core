@@ -18,6 +18,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/pkg/api/server"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
 // orderingNATS records when Shutdown is invoked and returns instantly,
@@ -36,6 +37,7 @@ func (n *orderingNATS) PublishEnvelope(context.Context, string, envelope.Envelop
 	n.publishCalled.Add(1)
 	return nil
 }
+func (n *orderingNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
 func (n *orderingNATS) Shutdown(context.Context) error {
 	n.shutdownAt.Store(time.Now().UnixNano())
 	return nil
@@ -55,6 +57,7 @@ func (n *hangingNATS) Health(context.Context) error {
 func (n *hangingNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
+func (n *hangingNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
 func (n *hangingNATS) Shutdown(ctx context.Context) error {
 	select {
 	case <-n.released:

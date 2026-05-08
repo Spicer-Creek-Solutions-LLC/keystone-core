@@ -4,29 +4,33 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
-// EndpointStatus is the per-endpoint reachability state observed by
-// ConnectionManager. It is purely descriptive — the breaker (Task 7)
-// owns the eviction decision.
-type EndpointStatus string
-
-const (
-	EndpointStatusUnknown      EndpointStatus = "unknown"
-	EndpointStatusConnecting   EndpointStatus = "connecting"
-	EndpointStatusConnected    EndpointStatus = "connected"
-	EndpointStatusDisconnected EndpointStatus = "disconnected"
-	EndpointStatusFailed       EndpointStatus = "failed"
+// Public type aliases (Task 11). EndpointSnapshot, EndpointStatus,
+// and CircuitStatus moved to pkg/natsstatus so /api/status and
+// future SDK consumers can render them without crossing
+// internal-package boundaries. Aliases keep the internal callers
+// (ConnectionManager, breaker) writing the short name.
+type (
+	EndpointStatus   = natsstatus.EndpointStatus
+	CircuitStatus    = natsstatus.CircuitStatus
+	EndpointSnapshot = natsstatus.EndpointSnapshot
 )
 
-// CircuitStatus mirrors the breaker state machine landed in Task 7.
-// Until then noopBreaker reports CircuitClosed unconditionally.
-type CircuitStatus string
-
+// Re-export the enum constants so internal/nats consumers don't
+// have to import natsstatus too.
 const (
-	CircuitClosed   CircuitStatus = "closed"
-	CircuitOpen     CircuitStatus = "open"
-	CircuitHalfOpen CircuitStatus = "half-open"
+	EndpointStatusUnknown      = natsstatus.EndpointStatusUnknown
+	EndpointStatusConnecting   = natsstatus.EndpointStatusConnecting
+	EndpointStatusConnected    = natsstatus.EndpointStatusConnected
+	EndpointStatusDisconnected = natsstatus.EndpointStatusDisconnected
+	EndpointStatusFailed       = natsstatus.EndpointStatusFailed
+
+	CircuitClosed   = natsstatus.CircuitClosed
+	CircuitOpen     = natsstatus.CircuitOpen
+	CircuitHalfOpen = natsstatus.CircuitHalfOpen
 )
 
 // Endpoint describes one NATS server reachable by the
@@ -72,21 +76,6 @@ type EndpointState struct {
 	rttCount       int
 }
 
-// EndpointSnapshot is the lock-free, copy-on-export view of an
-// EndpointState. ConnectionManager.Snapshot returns a slice of these;
-// pkg/api/server's /api/status surface (Task 11 wiring) renders them.
-type EndpointSnapshot struct {
-	URL            string
-	Status         EndpointStatus
-	Circuit        CircuitStatus
-	LastConnected  time.Time
-	LastDisconnect time.Time
-	LastError      string
-	FailureCount   int64
-	SuccessCount   int64
-	LatencyP50     time.Duration
-	LatencyP99     time.Duration
-}
 
 func newEndpointState(url string) *EndpointState {
 	return &EndpointState{
@@ -155,22 +144,32 @@ func (s *EndpointState) RecordRTT(d time.Duration) {
 
 // Snapshot returns a stable point-in-time view. Percentile computation
 // happens here (not on every RecordRTT) to keep the hot path cheap.
+//
+// LastConnected / LastDisconnect are pointer-or-nil so the JSON
+// renderer can omit unset timestamps cleanly.
 func (s *EndpointState) Snapshot() EndpointSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	p50, p99 := percentilesLocked(s.rtts, s.rttCount)
-	return EndpointSnapshot{
-		URL:            s.URL,
-		Status:         s.status,
-		Circuit:        s.circuit,
-		LastConnected:  s.lastConnected,
-		LastDisconnect: s.lastDisconnect,
-		LastError:      s.lastError,
-		FailureCount:   s.failureCount,
-		SuccessCount:   s.successCount,
-		LatencyP50:     p50,
-		LatencyP99:     p99,
+	snap := EndpointSnapshot{
+		URL:          s.URL,
+		Status:       s.status,
+		Circuit:      s.circuit,
+		LastError:    s.lastError,
+		FailureCount: s.failureCount,
+		SuccessCount: s.successCount,
+		LatencyP50Ms: p50.Milliseconds(),
+		LatencyP99Ms: p99.Milliseconds(),
 	}
+	if !s.lastConnected.IsZero() {
+		t := s.lastConnected
+		snap.LastConnected = &t
+	}
+	if !s.lastDisconnect.IsZero() {
+		t := s.lastDisconnect
+		snap.LastDisconnect = &t
+	}
+	return snap
 }
 
 // percentilesLocked returns approximate P50/P99 of the populated

@@ -113,11 +113,19 @@ func TestIntegration_FullLifecycle(t *testing.T) {
 			"version", "uptime", "started_at", "ready",
 			"auth_mode", "production_warnings",
 			"components", "agents", "runtime",
+			"nats_endpoints",
 		}
 		for _, k := range want {
 			if _, ok := payload[k]; !ok {
 				t.Errorf("/api/status missing %q field", k)
 			}
+		}
+		// nats_endpoints must be an array (never null) — dashboards
+		// rely on this to render conditionally.
+		if endpoints, ok := payload["nats_endpoints"].([]any); !ok {
+			t.Errorf("/api/status nats_endpoints = %T, want []any", payload["nats_endpoints"])
+		} else if endpoints == nil {
+			t.Error("/api/status nats_endpoints is nil; want empty array")
 		}
 	})
 

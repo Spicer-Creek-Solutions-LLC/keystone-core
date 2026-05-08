@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.keystone-core.io/keystone-core/pkg/envelope"
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
 // NATSManager is the narrow surface the Server needs from the NATS
@@ -32,6 +33,12 @@ type NATSManager interface {
 	// implementation is responsible for subject-prefix and envelope
 	// validation; callers do not pre-marshal.
 	PublishEnvelope(ctx context.Context, subject string, env envelope.Envelope) error
+
+	// EndpointSnapshots returns the per-endpoint observability view
+	// for /api/status (Epic 05 task 11). Embedded mode returns nil
+	// (no endpoints to snapshot); external mode returns one entry
+	// per configured endpoint.
+	EndpointSnapshots() []natsstatus.EndpointSnapshot
 }
 
 // NoopNATSManager is a test stub. All operations succeed without
@@ -45,3 +52,4 @@ func (NoopNATSManager) Health(context.Context) error   { return nil }
 func (NoopNATSManager) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	return nil
 }
+func (NoopNATSManager) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }

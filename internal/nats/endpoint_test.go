@@ -15,8 +15,8 @@ func TestEndpointState_StatusTransitions(t *testing.T) {
 	if snap.Status != EndpointStatusConnecting {
 		t.Errorf("Status = %q", snap.Status)
 	}
-	if !snap.LastConnected.IsZero() {
-		t.Error("LastConnected should be zero before first connect")
+	if snap.LastConnected != nil {
+		t.Error("LastConnected should be nil before first connect")
 	}
 
 	connectAt := now.Add(time.Second)
@@ -24,17 +24,17 @@ func TestEndpointState_StatusTransitions(t *testing.T) {
 	if snap = s.Snapshot(); snap.Status != EndpointStatusConnected {
 		t.Errorf("Status = %q", snap.Status)
 	}
-	if !snap.LastConnected.Equal(connectAt) {
+	if snap.LastConnected == nil || !snap.LastConnected.Equal(connectAt) {
 		t.Errorf("LastConnected = %v, want %v", snap.LastConnected, connectAt)
 	}
 
 	disconnectAt := connectAt.Add(time.Second)
 	s.SetStatus(EndpointStatusDisconnected, disconnectAt)
-	if snap = s.Snapshot(); !snap.LastDisconnect.Equal(disconnectAt) {
+	if snap = s.Snapshot(); snap.LastDisconnect == nil || !snap.LastDisconnect.Equal(disconnectAt) {
 		t.Errorf("LastDisconnect = %v, want %v", snap.LastDisconnect, disconnectAt)
 	}
 	// LastConnected must NOT regress when a later disconnect lands.
-	if !snap.LastConnected.Equal(connectAt) {
+	if snap.LastConnected == nil || !snap.LastConnected.Equal(connectAt) {
 		t.Errorf("LastConnected after disconnect = %v, want %v", snap.LastConnected, connectAt)
 	}
 }
@@ -84,18 +84,18 @@ func TestEndpointState_RTTPercentiles(t *testing.T) {
 	}
 	// Ring buffer is 64 wide, so the surviving samples are i=37..100.
 	snap := s.Snapshot()
-	if snap.LatencyP50 == 0 {
+	if snap.LatencyP50Ms == 0 {
 		t.Error("P50 = 0 with 100 samples loaded")
 	}
-	if snap.LatencyP99 < snap.LatencyP50 {
-		t.Errorf("P99 (%s) < P50 (%s)", snap.LatencyP99, snap.LatencyP50)
+	if snap.LatencyP99Ms < snap.LatencyP50Ms {
+		t.Errorf("P99 (%dms) < P50 (%dms)", snap.LatencyP99Ms, snap.LatencyP50Ms)
 	}
 }
 
 func TestEndpointState_RTTNegativeIgnored(t *testing.T) {
 	s := newEndpointState("nats://a:4222")
 	s.RecordRTT(-1)
-	if s.Snapshot().LatencyP50 != 0 {
+	if s.Snapshot().LatencyP50Ms != 0 {
 		t.Error("negative RTT was accepted")
 	}
 }
@@ -103,8 +103,8 @@ func TestEndpointState_RTTNegativeIgnored(t *testing.T) {
 func TestEndpointState_RTTEmpty(t *testing.T) {
 	s := newEndpointState("nats://a:4222")
 	snap := s.Snapshot()
-	if snap.LatencyP50 != 0 || snap.LatencyP99 != 0 {
-		t.Errorf("zero-sample percentiles = (%s, %s), want (0, 0)", snap.LatencyP50, snap.LatencyP99)
+	if snap.LatencyP50Ms != 0 || snap.LatencyP99Ms != 0 {
+		t.Errorf("zero-sample percentiles = (%dms, %dms), want (0, 0)", snap.LatencyP50Ms, snap.LatencyP99Ms)
 	}
 }
 

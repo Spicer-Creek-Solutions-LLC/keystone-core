@@ -19,6 +19,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
+	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
 
 // TestMain isolates server lifecycle tests under goleak so runaway
@@ -55,6 +56,7 @@ func (n *trackingNATS) PublishEnvelope(_ context.Context, _ string, _ envelope.E
 	n.publishCalled.Add(1)
 	return nil
 }
+func (n *trackingNATS) EndpointSnapshots() []natsstatus.EndpointSnapshot { return nil }
 
 func newTestStore(t *testing.T) state.Store {
 	t.Helper()
