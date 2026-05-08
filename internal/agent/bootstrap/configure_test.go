@@ -66,3 +66,45 @@ func TestStaticConfigurer_NilConfigErrors(t *testing.T) {
 		t.Error("Configure(nil): expected error")
 	}
 }
+
+func TestValidateForV10(t *testing.T) {
+	good := &Configuration{
+		Mode:        ModeDemo,
+		ClusterName: "default",
+		AgentID:     "agent-1",
+		ConfigPath:  "/etc/keystone-core/keystone-core-agent.yaml",
+	}
+	tests := []struct {
+		name    string
+		mut     func(*Configuration) *Configuration
+		wantErr string
+	}{
+		{"demo accepted", func(c *Configuration) *Configuration { return c }, ""},
+		{"production rejected", func(c *Configuration) *Configuration { c.Mode = ModeProduction; return c }, "v1.x"},
+		{"enterprise rejected", func(c *Configuration) *Configuration { c.Mode = ModeEnterprise; return c }, "v1.x"},
+		{"nil rejected", func(*Configuration) *Configuration { return nil }, "nil"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := tt.mut(&Configuration{
+				Mode:        good.Mode,
+				ClusterName: good.ClusterName,
+				AgentID:     good.AgentID,
+				ConfigPath:  good.ConfigPath,
+			})
+			err := ValidateForV10(cfg)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("err = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("err = nil, want containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}

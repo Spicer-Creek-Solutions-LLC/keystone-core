@@ -38,6 +38,11 @@ type Configuration struct {
 // Validator (the phase) repeats some of these checks alongside
 // reachability probes; this is the cheap front-loaded pass that
 // runs before Validate spends time dialing.
+//
+// Validate accepts all three modes — production / enterprise are
+// rejected separately by ValidateForV10 so the v1.x deferral
+// message can be surfaced cleanly by the TUI + CLI before the
+// Engine spends time on Validate / Install.
 func (c Configuration) Validate() error {
 	switch c.Mode {
 	case ModeDemo, ModeProduction, ModeEnterprise:
@@ -54,6 +59,25 @@ func (c Configuration) Validate() error {
 	}
 	if c.ConfigPath == "" {
 		return errors.New("config_path: must not be empty")
+	}
+	return nil
+}
+
+// ValidateForV10 is the runtime gate every Configurer (TUI + CLI)
+// runs before handing a Configuration to the Engine. It rejects
+// production / enterprise modes with a v1.x deferral message —
+// production needs TLS cert collection (Epic 11) and enterprise
+// needs blueprint selection (Epic 14 + 17). Tracked in
+// docs/project/V1X-BACKLOG.md.
+//
+// Drop this function (or change it to a no-op) when those epics
+// land and the deferral lifts.
+func ValidateForV10(c *Configuration) error {
+	if c == nil {
+		return errors.New("bootstrap: configuration is nil")
+	}
+	if c.Mode != ModeDemo {
+		return fmt.Errorf("bootstrap: %s mode is reserved for v1.x (see docs/project/V1X-BACKLOG.md); use demo mode for v1.0", string(c.Mode))
 	}
 	return nil
 }

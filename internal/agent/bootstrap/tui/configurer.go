@@ -95,16 +95,13 @@ func (c *Configurer) Configure(ctx context.Context, detection *bootstrap.Detecti
 }
 
 // configurationFromValues runs the post-form gate: blocks
-// non-demo modes (deferred to v1.x) and validates the
-// Configuration. Lifted out of Configure so unit tests can
-// exercise the gate without driving an interactive form.
+// non-demo modes (deferred to v1.x via bootstrap.ValidateForV10)
+// and validates the Configuration. Lifted out of Configure so
+// unit tests can exercise the gate without driving an
+// interactive form.
 func configurationFromValues(v formValues) (*bootstrap.Configuration, error) {
-	mode := bootstrap.Mode(v.Mode)
-	if mode != bootstrap.ModeDemo {
-		return nil, fmt.Errorf("bootstrap: %s mode is reserved for v1.x (see docs/project/V1X-BACKLOG.md); use demo mode for v1.0", v.Mode)
-	}
 	cfg := &bootstrap.Configuration{
-		Mode:        mode,
+		Mode:        bootstrap.Mode(v.Mode),
 		ClusterName: v.ClusterName,
 		AgentID:     v.AgentID,
 		NodeRole:    v.NodeRole,
@@ -112,6 +109,9 @@ func configurationFromValues(v formValues) (*bootstrap.Configuration, error) {
 		JoinToken:   v.JoinToken,
 		ConfigPath:  v.ConfigPath,
 		DryRun:      v.DryRun,
+	}
+	if err := bootstrap.ValidateForV10(cfg); err != nil {
+		return nil, err
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("tui: configuration invalid: %w", err)

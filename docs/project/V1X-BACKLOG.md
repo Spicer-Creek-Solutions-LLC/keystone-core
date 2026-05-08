@@ -219,11 +219,17 @@ These don't move to a future version — they document where v1.0 *is* shipping 
 - **Why now**: Per-agent keys need a key-distribution mechanism that's still being designed.
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
 
-#### TUI bootstrap: demo mode only
-- **What**: `kscore-agent bootstrap` wizard supports demo mode end-to-end. Production/enterprise modes appear in the Mode select but a post-form gate (`tui.configurationFromValues`) rejects them with a v1.x deferral message before the Engine reaches Validate.
+#### Bootstrap: demo mode only (TUI + non-interactive)
+- **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
 - **Why now**: Production mode needs TLS cert collection (gates on Epic 11 — Identity & Auth); enterprise mode needs blueprint selection (gates on Epic 14 + Epic 17). Both are post-v1.0.
-- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise). Drop the post-form gate.
-- **References**: Epic 06 task 7 `_(landed)_`; `internal/agent/bootstrap/tui/configurer.go` (search `configurationFromValues`).
+- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise); equivalent `--generate-certs` / `--apply-blueprint` CLI flags wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10`.
+- **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
+
+#### Bootstrap CLI flags dropped from v1.0 surface
+- **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
+- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.0. `--generate-certs` gates on Epic 11; `--apply-blueprint` gates on Epic 14 + 17.
+- **Acceptance for unblock**: Per-flag — when its blocking epic lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
+- **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
 
 #### Bootstrap wizard: storage backend + blueprint selection screens
 - **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on Epic 14 + 17.
