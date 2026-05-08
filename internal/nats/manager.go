@@ -100,13 +100,20 @@ func (m *Manager) Start(ctx context.Context) error {
 		return fmt.Errorf("nats: unknown mode %q", string(m.cfg.Mode))
 	}
 
+	if m.cfg.JetStream.Enabled {
+		if err := m.ensureStreams(ctx, m.activeConnLocked()); err != nil {
+			return err
+		}
+	}
+
 	m.dedup.Start()
 	m.started = true
 	return nil
 }
 
 func (m *Manager) startEmbedded(ctx context.Context) error {
-	if m.cfg.Embedded.EnableJetStream && m.cfg.JetStream.StoreDir != "" {
+	jsEnabled := m.cfg.JetStream.Enabled
+	if jsEnabled && m.cfg.JetStream.StoreDir != "" {
 		if err := os.MkdirAll(m.cfg.JetStream.StoreDir, 0o750); err != nil {
 			return fmt.Errorf("nats: jetstream store dir: %w", err)
 		}
@@ -117,7 +124,7 @@ func (m *Manager) startEmbedded(ctx context.Context) error {
 		Host:       m.cfg.Embedded.Host,
 		Port:       m.cfg.Embedded.Port,
 		MaxConn:    m.cfg.Embedded.MaxConnections,
-		JetStream:  m.cfg.Embedded.EnableJetStream,
+		JetStream:  jsEnabled,
 		StoreDir:   m.cfg.JetStream.StoreDir,
 		// Suppress nats-server's default signal handlers — kscore-server
 		// owns the signal pipeline.
@@ -125,7 +132,7 @@ func (m *Manager) startEmbedded(ctx context.Context) error {
 		// Quiet by default; the kscore slog logger surfaces health.
 		NoLog: true,
 	}
-	if m.cfg.Embedded.EnableJetStream {
+	if jsEnabled {
 		opts.JetStreamMaxMemory = m.cfg.Embedded.MaxMemory
 		opts.JetStreamMaxStore = m.cfg.JetStream.MaxStorage
 	}
@@ -163,7 +170,7 @@ func (m *Manager) startEmbedded(ctx context.Context) error {
 	m.log.InfoContext(ctx, "nats embedded server started",
 		"host", m.cfg.Embedded.Host,
 		"port", m.cfg.Embedded.Port,
-		"jetstream", m.cfg.Embedded.EnableJetStream,
+		"jetstream", jsEnabled,
 	)
 	return nil
 }

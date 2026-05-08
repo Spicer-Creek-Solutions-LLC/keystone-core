@@ -80,16 +80,19 @@ func defaultConfig() *Config {
 			MaxReconnects: 60,
 			ReconnectWait: 2 * time.Second,
 			JetStream: JetStreamConfig{
-				Enabled:    true,
-				StoreDir:   "./data/jetstream",
-				MaxStorage: 10 * 1024 * 1024 * 1024, // 10 GiB
+				Enabled:        true,
+				StoreDir:       "./data/jetstream",
+				MaxStorage:     10 * 1024 * 1024 * 1024, // 10 GiB server-level cap
+				StreamMaxAge:   7 * 24 * time.Hour,      // §4.2 default
+				StreamMaxBytes: 10 * 1024 * 1024 * 1024, // 10 GiB per stream
+				StreamMaxMsgs:  1_000_000,
+				StreamReplicas: 1, // single-node v1.0; epic 13 raises for HA
 			},
 			Embedded: EmbeddedNATSConfig{
-				Host:            "127.0.0.1",
-				Port:            4222,
-				MaxConnections:  0,
-				EnableJetStream: true,
-				MaxMemory:       0,
+				Host:           "127.0.0.1",
+				Port:           4222,
+				MaxConnections: 0,
+				MaxMemory:      0,
 			},
 			Dedup: DedupConfig{
 				Enabled:         true,

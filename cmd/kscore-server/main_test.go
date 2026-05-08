@@ -84,22 +84,27 @@ func runCfg(t *testing.T, storePath string) *config.Config {
 			MaxReconnects: 1,
 			ReconnectWait: 100 * time.Millisecond,
 			JetStream: config.JetStreamConfig{
-				Enabled:    true,
-				StoreDir:   filepath.Join(t.TempDir(), "jetstream"),
-				MaxStorage: 10 * 1024 * 1024,
+				Enabled:        true,
+				StoreDir:       filepath.Join(t.TempDir(), "jetstream"),
+				MaxStorage:     10 * 1024 * 1024,
+				StreamMaxAge:   time.Hour,
+				StreamMaxBytes: 1024 * 1024,
+				StreamMaxMsgs:  10_000,
+				StreamReplicas: 1,
 			},
 			Embedded: config.EmbeddedNATSConfig{
-				Host:            "127.0.0.1",
-				Port:            freeTCPPort(t),
-				EnableJetStream: true,
+				Host: "127.0.0.1",
+				Port: freeTCPPort(t),
 			},
 		},
 	}
 }
 
 // runWithLogs invokes run() with a buffer-backed slog handler, lets
-// it serve for ~100ms, then cancels and waits for clean return.
-// Returns the captured logs for assertions.
+// it serve for ~750ms (long enough for embedded NATS boot +
+// ensureStreams + dev-key bootstrap under heavy parallel test load),
+// then cancels and waits for clean return. Returns the captured
+// logs for assertions.
 func runWithLogs(t *testing.T, cfg *config.Config) *bytes.Buffer {
 	t.Helper()
 	buf := &bytes.Buffer{}
@@ -109,7 +114,7 @@ func runWithLogs(t *testing.T, cfg *config.Config) *bytes.Buffer {
 	done := make(chan error, 1)
 	go func() { done <- run(ctx, cfg, log) }()
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 	cancel()
 
 	select {
@@ -152,7 +157,7 @@ func TestRun_BootsServesAndShutsDownCleanly(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- run(ctx, cfg, log) }()
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 	cancel()
 
 	select {

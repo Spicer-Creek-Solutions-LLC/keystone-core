@@ -13,14 +13,17 @@ func validNATS() NATSConfig {
 		MaxReconnects: 60,
 		ReconnectWait: 2 * time.Second,
 		JetStream: JetStreamConfig{
-			Enabled:    true,
-			StoreDir:   "./data/jetstream",
-			MaxStorage: 1024,
+			Enabled:        true,
+			StoreDir:       "./data/jetstream",
+			MaxStorage:     1024,
+			StreamMaxAge:   7 * 24 * time.Hour,
+			StreamMaxBytes: 10 * 1024 * 1024 * 1024,
+			StreamMaxMsgs:  1_000_000,
+			StreamReplicas: 1,
 		},
 		Embedded: EmbeddedNATSConfig{
-			Host:            "127.0.0.1",
-			Port:            4222,
-			EnableJetStream: true,
+			Host: "127.0.0.1",
+			Port: 4222,
 		},
 	}
 }
@@ -101,7 +104,6 @@ func TestNATSConfig_Validate(t *testing.T) {
 			func(c *NATSConfig) {
 				c.JetStream.Enabled = false
 				c.JetStream.StoreDir = ""
-				c.Embedded.EnableJetStream = false
 			},
 			"",
 		},
@@ -268,6 +270,66 @@ func TestDedupConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestJetStreamConfig_StreamDefaults(t *testing.T) {
+	good := JetStreamConfig{
+		Enabled:        true,
+		StoreDir:       "/tmp/js",
+		MaxStorage:     1024,
+		StreamMaxAge:   time.Hour,
+		StreamMaxBytes: 1024,
+		StreamMaxMsgs:  1024,
+		StreamReplicas: 1,
+	}
+	tests := []struct {
+		name    string
+		mut     func(*JetStreamConfig)
+		wantErr string
+	}{
+		{"defaults ok", func(*JetStreamConfig) {}, ""},
+		{"streammaxage zero", func(c *JetStreamConfig) { c.StreamMaxAge = 0 }, "streammaxage"},
+		{"streammaxbytes zero", func(c *JetStreamConfig) { c.StreamMaxBytes = 0 }, "streammaxbytes"},
+		{"streammaxmsgs zero", func(c *JetStreamConfig) { c.StreamMaxMsgs = 0 }, "streammaxmsgs"},
+		{"streamreplicas zero", func(c *JetStreamConfig) { c.StreamReplicas = 0 }, "streamreplicas"},
+		{"streamreplicas too high", func(c *JetStreamConfig) { c.StreamReplicas = 6 }, "streamreplicas"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := good
+			tt.mut(&cfg)
+			err := cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate = nil, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestJetStreamSafeName(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"default", "default"},
+		{"prod-east", "prod-east"},
+		{"alpha_1", "alpha_1"},
+		{"prod.east", "prod_east"},
+		{"prod east", "prod_east"},
+		{"prod>east", "prod_east"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := JetStreamSafeName(tt.in); got != tt.want {
+			t.Errorf("JetStreamSafeName(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestCircuitBreakerConfig_Validate(t *testing.T) {
 	good := CircuitBreakerConfig{
 		Enabled:             true,
@@ -345,6 +407,18 @@ func TestNATSConfig_Defaults(t *testing.T) {
 	}
 	if cfg.NATS.JetStream.MaxStorage != 10*1024*1024*1024 {
 		t.Errorf("JetStream.MaxStorage = %d, want 10 GiB", cfg.NATS.JetStream.MaxStorage)
+	}
+	if cfg.NATS.JetStream.StreamMaxAge != 7*24*time.Hour {
+		t.Errorf("JetStream.StreamMaxAge = %s, want 7d", cfg.NATS.JetStream.StreamMaxAge)
+	}
+	if cfg.NATS.JetStream.StreamMaxBytes != 10*1024*1024*1024 {
+		t.Errorf("JetStream.StreamMaxBytes = %d, want 10 GiB", cfg.NATS.JetStream.StreamMaxBytes)
+	}
+	if cfg.NATS.JetStream.StreamMaxMsgs != 1_000_000 {
+		t.Errorf("JetStream.StreamMaxMsgs = %d, want 1M", cfg.NATS.JetStream.StreamMaxMsgs)
+	}
+	if cfg.NATS.JetStream.StreamReplicas != 1 {
+		t.Errorf("JetStream.StreamReplicas = %d, want 1", cfg.NATS.JetStream.StreamReplicas)
 	}
 	if cfg.NATS.MaxReconnects != 60 {
 		t.Errorf("MaxReconnects = %d, want 60", cfg.NATS.MaxReconnects)

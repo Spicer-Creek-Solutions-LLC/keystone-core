@@ -63,14 +63,17 @@ func embeddedConfig(t *testing.T) config.NATSConfig {
 		MaxReconnects: 1,
 		ReconnectWait: 100 * time.Millisecond,
 		JetStream: config.JetStreamConfig{
-			Enabled:    true,
-			StoreDir:   filepath.Join(t.TempDir(), "jetstream"),
-			MaxStorage: 10 * 1024 * 1024,
+			Enabled:        true,
+			StoreDir:       filepath.Join(t.TempDir(), "jetstream"),
+			MaxStorage:     10 * 1024 * 1024,
+			StreamMaxAge:   time.Hour,
+			StreamMaxBytes: 1024 * 1024,
+			StreamMaxMsgs:  10_000,
+			StreamReplicas: 1,
 		},
 		Embedded: config.EmbeddedNATSConfig{
-			Host:            "127.0.0.1",
-			Port:            freePort(t),
-			EnableJetStream: true,
+			Host: "127.0.0.1",
+			Port: freePort(t),
 		},
 		Dedup: config.DedupConfig{
 			Enabled:         true,
@@ -397,6 +400,13 @@ func TestManager_ShutdownContextCanceled(t *testing.T) {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Errorf("Shutdown(canceled) = %v, want nil or context.Canceled", err)
 	}
+	// The watchdog returned but the embedded server's Shutdown +
+	// WaitForShutdown goroutine is still running. With JetStream
+	// streams now persisting to disk (Task 8), that goroutine
+	// continues writing to t.TempDir() after Shutdown returns,
+	// racing with Go's TempDir cleanup. Brief wait gives the
+	// orphan time to flush before TempDir rm-rf.
+	time.Sleep(500 * time.Millisecond)
 }
 
 func TestManager_ExternalUnreachableFails(t *testing.T) {

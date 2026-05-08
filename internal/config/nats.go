@@ -90,22 +90,34 @@ type EndpointConfig struct {
 	Tags     []string `koanf:"tags"`
 }
 
-// JetStreamConfig governs JetStream enablement on the embedded server
-// and (later, Task 8) the stream definitions used by external mode.
+// JetStreamConfig governs JetStream enablement and per-stream
+// defaults. v1.0 streams (commands + events) inherit StreamMaxAge,
+// StreamMaxBytes, StreamMaxMsgs, and StreamReplicas; per-stream
+// overrides are reserved for v1.x.
+//
+// Enabled is the single switch — when true, the embedded server (if
+// running) starts with JetStream and Manager auto-creates the
+// commands/events streams. When false, no streams are touched and
+// the embedded server runs without JetStream.
 type JetStreamConfig struct {
-	Enabled    bool   `koanf:"enabled"`
-	StoreDir   string `koanf:"storedir"`
-	MaxStorage int64  `koanf:"maxstorage"`
+	Enabled        bool          `koanf:"enabled"`
+	StoreDir       string        `koanf:"storedir"`
+	MaxStorage     int64         `koanf:"maxstorage"`
+	StreamMaxAge   time.Duration `koanf:"streammaxage"`
+	StreamMaxBytes int64         `koanf:"streammaxbytes"`
+	StreamMaxMsgs  int64         `koanf:"streammaxmsgs"`
+	StreamReplicas int           `koanf:"streamreplicas"`
 }
 
 // EmbeddedNATSConfig configures the in-process nats-server/v2 instance
-// started when Mode == NATSModeEmbedded.
+// started when Mode == NATSModeEmbedded. JetStream is gated by
+// JetStreamConfig.Enabled — there is no separate embedded toggle so
+// the two flags can never disagree.
 type EmbeddedNATSConfig struct {
-	Host            string `koanf:"host"`
-	Port            int    `koanf:"port"`
-	MaxConnections  int    `koanf:"maxconnections"`
-	EnableJetStream bool   `koanf:"enablejetstream"`
-	MaxMemory       int64  `koanf:"maxmemory"`
+	Host           string `koanf:"host"`
+	Port           int    `koanf:"port"`
+	MaxConnections int    `koanf:"maxconnections"`
+	MaxMemory      int64  `koanf:"maxmemory"`
 }
 
 // Validate returns an error if any NATS field is invalid. Mode/URLs
@@ -234,14 +246,30 @@ func (e EndpointConfig) Validate() error {
 }
 
 // Validate enforces non-negative storage and a non-empty store dir
-// whenever JetStream is enabled. The directory is created on Manager
-// start; missing-dir-on-disk is not an error here.
+// whenever JetStream is enabled, plus positive per-stream defaults
+// (Task 8). The directory is created on Manager start; missing-dir-
+// on-disk is not an error here.
 func (j JetStreamConfig) Validate() error {
 	if j.MaxStorage < 0 {
 		return fmt.Errorf("maxstorage: must not be negative, got %d", j.MaxStorage)
 	}
-	if j.Enabled && j.StoreDir == "" {
+	if !j.Enabled {
+		return nil
+	}
+	if j.StoreDir == "" {
 		return fmt.Errorf("storedir: must not be empty when enabled=true")
+	}
+	if j.StreamMaxAge <= 0 {
+		return fmt.Errorf("streammaxage: must be positive when enabled, got %s", j.StreamMaxAge)
+	}
+	if j.StreamMaxBytes <= 0 {
+		return fmt.Errorf("streammaxbytes: must be positive when enabled, got %d", j.StreamMaxBytes)
+	}
+	if j.StreamMaxMsgs <= 0 {
+		return fmt.Errorf("streammaxmsgs: must be positive when enabled, got %d", j.StreamMaxMsgs)
+	}
+	if j.StreamReplicas < 1 || j.StreamReplicas > 5 {
+		return fmt.Errorf("streamreplicas: must be in [1,5], got %d", j.StreamReplicas)
 	}
 	return nil
 }
@@ -263,4 +291,26 @@ func (e EmbeddedNATSConfig) Validate() error {
 		return fmt.Errorf("maxmemory: must not be negative, got %d", e.MaxMemory)
 	}
 	return nil
+}
+
+// JetStreamSafeName returns name with characters that are illegal in
+// JetStream stream names replaced with underscores. NATS allows
+// [A-Za-z0-9_-]; cluster names already pass the SubjectBuilder
+// validator (alphanum + dash + underscore), so this is a defensive
+// pass-through with explicit intent.
+func JetStreamSafeName(name string) string {
+	out := make([]byte, len(name))
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c >= 'A' && c <= 'Z',
+			c >= 'a' && c <= 'z',
+			c >= '0' && c <= '9',
+			c == '_', c == '-':
+			out[i] = c
+		default:
+			out[i] = '_'
+		}
+	}
+	return string(out)
 }
