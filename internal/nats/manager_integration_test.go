@@ -4,6 +4,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -209,3 +210,126 @@ func intStr(n int) string {
 // suppress unused-import warning when the file compiles with only one
 // of the helpers active under different test selections.
 var _ = filepath.Join
+
+// TestManager_JetStreamRoundTrip is the Task 13 acceptance test:
+// the full Epic 05 wire path exercised end-to-end. Drives every
+// landed component in one flow:
+//
+//   - SubjectBuilder produces the agent command subject
+//   - envelope.New stamps a fresh MessageID + the manager's prefix
+//   - Manager.PublishEnvelope marshals + dedups + publishes
+//   - JetStream stream KSCORE_COMMANDS_test (created by Task 8)
+//     captures the message
+//   - A push-consumer pulls the message back and decodes the
+//     envelope
+//   - A second publish with the same MessageID returns
+//     envelope.ErrDuplicate (Task 6 dedup interceptor)
+//   - Ack the message; confirm the consumer doesn't redeliver
+//
+// Push consumer because it's the simpler test pattern; agent
+// runtime (Epic 06) will use pull consumers.
+func TestManager_JetStreamRoundTrip(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+
+	conn := m.activeConnLocked()
+	if conn == nil {
+		t.Fatal("activeConnLocked = nil")
+	}
+	js, err := conn.JetStream()
+	if err != nil {
+		t.Fatalf("JetStream: %v", err)
+	}
+
+	const agentID = "agent-7"
+	subject := m.Subjects().AgentCommand(agentID)
+	payload := []byte(`{"cmd":"uptime"}`)
+
+	// Channel-based receiver so t.Run sub-blocks share the message.
+	msgs := make(chan *natsclient.Msg, 4)
+	sub, err := js.Subscribe(subject, func(msg *natsclient.Msg) {
+		msgs <- msg
+	})
+	if err != nil {
+		t.Fatalf("js.Subscribe: %v", err)
+	}
+	defer func() { _ = sub.Unsubscribe() }()
+
+	publishedEnv := envelope.New(payload, m.Subjects().Prefix(),
+		envelope.WithMessageID("e2e-msg-1"),
+		envelope.WithCorrelationID("e2e-corr-1"),
+	)
+
+	t.Run("publish reaches JetStream consumer", func(t *testing.T) {
+		if err := m.PublishEnvelope(context.Background(), subject, publishedEnv); err != nil {
+			t.Fatalf("PublishEnvelope: %v", err)
+		}
+		select {
+		case msg := <-msgs:
+			t.Cleanup(func() {
+				// Ack here so subsequent sub-blocks see a stable
+				// consumer state.
+				_ = msg.AckSync()
+			})
+			gotEnv, err := envelope.Unmarshal(msg.Data)
+			if err != nil {
+				t.Fatalf("Unmarshal: %v (raw=%s)", err, msg.Data)
+			}
+			t.Run("envelope round-trips intact", func(t *testing.T) {
+				if gotEnv.MessageID != publishedEnv.MessageID {
+					t.Errorf("MessageID = %q, want %q", gotEnv.MessageID, publishedEnv.MessageID)
+				}
+				if gotEnv.CorrelationID != publishedEnv.CorrelationID {
+					t.Errorf("CorrelationID = %q, want %q", gotEnv.CorrelationID, publishedEnv.CorrelationID)
+				}
+				if gotEnv.ClusterPrefix != m.Subjects().Prefix() {
+					t.Errorf("ClusterPrefix = %q, want %q", gotEnv.ClusterPrefix, m.Subjects().Prefix())
+				}
+				if string(gotEnv.Payload) != string(payload) {
+					t.Errorf("Payload = %s, want %s", gotEnv.Payload, payload)
+				}
+			})
+		case <-time.After(2 * time.Second):
+			t.Fatal("consumer did not receive message within 2s")
+		}
+	})
+
+	t.Run("dedup interceptor rejects same MessageID", func(t *testing.T) {
+		// Re-publishing the identical envelope must be suppressed
+		// by the producer-side dedup cache (Task 6).
+		err := m.PublishEnvelope(context.Background(), subject, publishedEnv)
+		if !errors.Is(err, envelope.ErrDuplicate) {
+			t.Errorf("re-publish: err = %v, want envelope.ErrDuplicate", err)
+		}
+		// And the consumer must not see a second message — the
+		// duplicate was suppressed before reaching NATS.
+		select {
+		case msg := <-msgs:
+			t.Errorf("consumer received duplicate after ErrDuplicate: %s", msg.Subject)
+		case <-time.After(200 * time.Millisecond):
+			// expected — no redelivery
+		}
+	})
+
+	t.Run("fresh MessageID publishes through", func(t *testing.T) {
+		// A second publish with a *new* MessageID succeeds.
+		fresh := envelope.New(payload, m.Subjects().Prefix(),
+			envelope.WithCorrelationID("e2e-corr-2"),
+		)
+		if err := m.PublishEnvelope(context.Background(), subject, fresh); err != nil {
+			t.Fatalf("fresh PublishEnvelope: %v", err)
+		}
+		select {
+		case msg := <-msgs:
+			_ = msg.AckSync()
+			gotEnv, err := envelope.Unmarshal(msg.Data)
+			if err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			if gotEnv.CorrelationID != "e2e-corr-2" {
+				t.Errorf("CorrelationID = %q, want e2e-corr-2", gotEnv.CorrelationID)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("consumer did not receive fresh message within 2s")
+		}
+	})
+}
