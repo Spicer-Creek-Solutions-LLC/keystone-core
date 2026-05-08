@@ -90,6 +90,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Project overview/status: `README.md`
 - Why this project exists: `docs/project/PROBLEM-STATEMENT.md`
 - v1.0 feature inventory + version tags: `FEATURES.md`
+- Implementation-time deferrals → v1.x: `docs/project/V1X-BACKLOG.md` (update whenever a task narrows scope mid-implementation)
 - Implementation reconstruction guide: `PROJECT-DETAILS.md`
 - Epic plans: `epics/` (start at `00-meta-reconstruction-plan.md`)
 - High-level design: `docs/project/DESIGN.md`

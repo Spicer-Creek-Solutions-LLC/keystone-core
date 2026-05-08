@@ -1,0 +1,262 @@
+# v1.x Backlog — Implementation-Time Deferrals
+
+Single source of truth for scope **narrowed during implementation** of v1.0. Distinct from `FEATURES.md` (up-front product scope) and `PROJECT-DETAILS.md §6.2` (release roadmap) — those capture what was *planned*. This file captures what was *cut* once contact with the code revealed friction, so v1.x epics can pick the work back up without archaeology through `(landed: …)` annotations.
+
+## How to use this file
+
+- **When deferring scope mid-task**: add an entry under the target version. Cite the epic + task that produced the deferral and the source-of-truth file/line where the placeholder was committed.
+- **When picking up a v1.x epic**: grep this file for the version tag — every implementation-time narrowing for that release is here.
+- **When the deferred work lands**: move the entry to a `### Done` block under the version with a one-line "landed in commit/PR" note, or delete it if cleanup is obvious from the diff.
+
+Format: each entry is a `####` heading; body has **What / Why deferred / Acceptance / References** lines.
+
+---
+
+## v1.1
+
+#### Replay protection on agent commands
+- **What**: Timestamp window + nonce dedup in `internal/agent.SecurityEnforcer.Validate`. Today HMAC alone gates command execution.
+- **Why deferred**: HMAC covers v1.0 trial scope. Nonce store needs a persistence layer + TTL eviction; not worth the complexity for the v1.0 ship date.
+- **Acceptance**: Replayed `CommandRequest` (same nonce within window) is rejected with a typed error and audit log; legitimate commands inside the window pass.
+- **References**: Epic 06 task 4 `_(landed)_` annotation; PROJECT-DETAILS §4.10; `internal/agent/security.go`.
+
+#### Schema versioning via `golang-migrate`
+- **What**: Replace auto-DDL on startup with versioned migrations.
+- **Why deferred**: v1.0 schema is new and stable; auto-DDL is fine until the first breaking change.
+- **Acceptance**: `kscore-migrate up/down` cycles cleanly across at least one breaking schema change; CI runs migrations against PostgreSQL + SQLite.
+- **References**: PROJECT-DETAILS §4.3 (line 301); Epic 02 scope-out.
+
+#### Reactor engine + event lifecycle tracking
+- **What**: Filter→action chains with throttle/debounce/DLQ + lifecycle states (created/published/routed/processing/processed/failed/expired).
+- **Why deferred**: v1.0 ships passive event system (emit/subscribe/query). Reactors need runbook + policy boundaries to be settled.
+- **Acceptance**: `LogAction` / `EventAction` / `WebhookAction` reactors fire on event match with throttle + DLQ semantics.
+- **References**: PROJECT-DETAILS §4.9 (lines 679-681).
+
+#### Trust federation (cross-domain bundle endpoint)
+- **What**: SPIFFE federation — fetch + verify trust bundles from peer domains.
+- **Why deferred**: v1.0 ships single-domain embedded CA; federation needs bundle distribution protocol.
+- **Acceptance**: `kscore-identity federation add-domain/list/fetch-bundle` works against a second cluster.
+- **References**: Epic 09 scope-out (line 23); PROJECT-DETAILS §4.10.
+
+#### Maintenance + Schedule gRPC
+- **What**: gRPC handlers for `MaintenanceService` and `ScheduleService` (REST is in v1.0).
+- **Why deferred**: gRPC + REST land together at v1.1 per design.
+- **Acceptance**: gRPC clients call `MaintenanceService.{Plan,Apply,Status}` and `ScheduleService.{Create,List,Run}`.
+- **References**: Epic 03 scope-out (line 33); `pkg/api/maintenance/handler.go:5`.
+
+#### Windows agent (native service)
+- **What**: kscore-agent on Windows with `service install/uninstall/start/stop/status` subcommands and SCM integration.
+- **Why deferred**: v1.0 platform target = Linux amd64+arm64. Windows needs separate stdlib (`win_feature`, `win_firewall`, etc.) and user-switching — `internal/agent/exec_user_windows.go:15` is a stub returning `not supported in v1.0`.
+- **Acceptance**: kscore-agent runs as a Windows service; SIGTERM equivalent triggers clean shutdown; user switching works via `LogonUser` / `CreateProcessAsUser`.
+- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619); `internal/agent/exec_user_windows.go`.
+
+#### WASM module runtime
+- **What**: Wazero-based module execution alongside the v1.0 Starlark runtime.
+- **Why deferred**: Starlark covers v1.0 module needs; WASM adds a second runtime to maintain.
+- **Acceptance**: `pkg/plugin/runtime/wasm` loads + runs a signed wasm module via the same `Runtime` interface as Starlark.
+- **References**: Epic 00 deferred list (line 69).
+
+## v1.2
+
+#### TUI monitor (`kscore-monitor`)
+- **What**: Bubble Tea single-pane-of-glass — 8 base views (dashboard/agents/events/state/policy/jobs/logs/metrics), 13 with enhancements (cluster/secrets/leases/schedules/runbooks/webhooks).
+- **Why deferred**: v1.0 ships Grafana dashboards + CLI. TUI needs gRPC-multiplex client + NATS subscriber. Not blocking trial.
+- **Acceptance**: `kscore-monitor` opens, navigates between views, refreshes live.
+- **References**: PROJECT-DETAILS §4.16 (line 1123); Epic 17.
+
+#### Full RBAC role/permission CRUD
+- **What**: `Role`/`Permission` CRUD with per-resource permissions + dynamic policy. v1.0 ships fixed admin/operator/readonly.
+- **Why deferred**: 3-role model covers trial scope; full CRUD needs UI affordances we don't have yet.
+- **Acceptance**: Operators define custom roles via `kscorectl roles create`; bindings to principals enforce on API calls.
+- **References**: Epic 09 scope-out (line 22); PROJECT-DETAILS §4.10 (line 737).
+
+#### Multi-table transaction wrapper
+- **What**: A `state.Tx` type that batches mutations across tables atomically.
+- **Why deferred**: v1.0 stores can serialize through caller-side coordination; full transaction wrapper needs careful error-handling design.
+- **Acceptance**: Cross-table writes (agent + apikey + audit) commit/rollback atomically; tests verify rollback on mid-batch failure.
+- **References**: Epic 02 scope-out (line 24); `internal/controlplane/bootstrap.go:270` (API key issuance currently non-transactional).
+
+#### macOS agent
+- **What**: kscore-agent on macOS with launchd integration.
+- **Why deferred**: Linux is v1.0 target; macOS adds `launchd` stdlib + Keychain integration.
+- **Acceptance**: kscore-agent runs under launchd; agent identity stored in Keychain.
+- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619).
+
+#### Percentage-based / rolling batch execution
+- **What**: `kscorectl exec run --rolling 25%` for staged rollouts.
+- **Why deferred**: v1.0 ships full-fanout + concurrency-cap; rolling needs progress-pause/resume semantics.
+- **Acceptance**: A 100-target batch with `--rolling 10%` runs in 10 waves; failure-rate threshold halts the rollout.
+- **References**: Epic 07 scope-out (line 29).
+
+## v1.3
+
+#### Auto-rotation of in-memory NATS creds
+- **What**: Agent rotates NATS credentials without restart.
+- **Why deferred**: Gates on SPIRE provider (v1.3). v1.0 rotation = restart.
+- **Acceptance**: Agent re-issues NATS creds on cert rotation event without dropping the connection.
+- **References**: Epic 06 scope-out (line 33); PROJECT-DETAILS §4.6 (line 482).
+
+#### SPIRE-backed identity provider
+- **What**: Swap embedded CA for external SPIRE server + agent socket.
+- **Why deferred**: Embedded CA covers v1.0; SPIRE needs operational tooling.
+- **Acceptance**: `IdentityProvider` interface backed by SPIRE socket; SVID rotation is automatic.
+- **References**: Epic 09 scope-out (line 24); PROJECT-DETAILS §4.10 (line 695).
+
+#### K8s operator
+- **What**: CRDs + reconciler for declarative Keystone Core management.
+- **Why deferred**: K8s is one deployment target; v1.0 ships standalone-binary baseline.
+- **Acceptance**: `Cluster`, `Agent`, `Blueprint` CRDs reconcile against a live cluster.
+- **References**: Epic 00 deferred list (line 73).
+
+#### Weighted endpoint load distribution + K8s endpoint discovery
+- **What**: `cfg.NATS.Endpoints[].Weight` actually distributes load; K8s service-name endpoint discovery.
+- **Why deferred**: v1.0 uses priority-only endpoint selection; weight is reserved in the schema. K8s discovery is part of the operator work.
+- **Acceptance**: Load measurably distributes proportionally to weights; `nats.urls = ["k8s://service-name"]` resolves through discovery.
+- **References**: `internal/config/nats.go:113`; `internal/nats/subject.go:135`.
+
+## v1.4
+
+#### Rotation orchestrator
+- **What**: Strategies (blue-green, rolling, canary, immediate) with health checks + auto-rollback.
+- **Why deferred**: v1.0 secrets ship with manual rotation; orchestration is its own domain.
+- **Acceptance**: `kscore-secrets rotate` invokes a strategy, runs health checks, rolls back on failure.
+- **References**: Epic 00 deferred list (line 77); PROJECT-DETAILS §4.11 (line 765).
+
+#### Telemetry gateway
+- **What**: `kscore-telemetry-gateway` — standalone collector for logs/metrics/traces over NATS subjects.
+- **Why deferred**: v1.0 emits OTel/Prom directly to operator-supplied backends.
+- **Acceptance**: Gateway aggregates from N agents; forwards to Loki/Prom/Jaeger.
+- **References**: PROJECT-DETAILS §4.16 (line 1152); Epic 17.
+
+#### Output archival to object storage cold-tier
+- **What**: Long-running batch results overflow to S3/GCS/Azure cold tier.
+- **Why deferred**: v1.0 keeps results in PostgreSQL with size cap.
+- **Acceptance**: Outputs > N MiB archive to operator-configured bucket; `kscorectl exec show` fetches from cold tier.
+- **References**: Epic 07 scope-out (line 30).
+
+## v1.5
+
+#### Encryption at rest (`KeyProvider`)
+- **What**: Pluggable `KeyProvider` (file/age/Vault/Cloud KMS) encrypts secrets + audit logs at rest.
+- **Why deferred**: PostgreSQL TDE + filesystem encryption cover v1.0 trial. Full implementation gates on cloud KMS work.
+- **Acceptance**: `cfg.storage.encryption.provider = age|vault|aws-kms` round-trips encrypted blobs; key rotation re-wraps.
+- **References**: Epic 02 scope-out (line 23); PROJECT-DETAILS §4.3 (line 303); §4.11.
+
+#### Saga/checkpoint advanced features
+- **What**: Resume from checkpoint, cross-state compensation graphs.
+- **Why deferred**: v1.0 ships saga coordinator scaffolding only.
+- **Acceptance**: A 10-step saga survives a crash mid-step 5, resumes from checkpoint, completes the remainder.
+- **References**: PROJECT-DETAILS §4.8 (line 625).
+
+#### File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution
+- **What**: Multi-backend file dist with mirror groups, sync engine, conflict resolution strategies.
+- **Why deferred**: v1.0 ships local FS + S3.
+- **Acceptance**: Mirror group spans 3 backends; conflict resolution (newest-wins/largest-wins/primary-wins/manual) is operator-selectable.
+- **References**: Epic 18 scope-out (lines 69-73).
+
+#### Backup orchestration features
+- **What**: Automated scheduling, rolling upgrades, drift detection on self-config, self-healing, DR test harness.
+- **Why deferred**: v1.0 ships manual `kscore-backup` only.
+- **Acceptance**: `kscore-backup schedule add` registers a cron; rolling upgrade verifies health between waves.
+- **References**: Epic 18 scope-out (lines 61-65).
+
+## v1.7
+
+#### Air-gap baseline
+- **What**: Offline registry, bootstrap packages, upgrade archives, full security scanning suite, signed module bundles, signing ceremony.
+- **Why deferred**: v1.0 assumes online package repos.
+- **Acceptance**: Operator installs Keystone Core in a fully air-gapped network; module updates flow through offline registry.
+- **References**: PROJECT-DETAILS §6.2 (line 1496).
+
+## v1.8
+
+#### Policy enforcement (Enforce + Warn modes)
+- **What**: Flip `policy.enforcement_enabled=true`. v1.0 ships policy engine in audit-mode-only.
+- **Why deferred**: A misconfigured policy blocks the fleet. Audit-mode lets operators build confidence first.
+- **Acceptance**: Policy in Enforce mode blocks command exec; Warn mode logs and allows.
+- **References**: Epic 03 task 6; Epic 12 (audit/policy); PROJECT-DETAILS §4.12 (line 859).
+
+#### Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)
+- **What**: Server-side mutating endpoints for policies (today returns Unimplemented).
+- **Why deferred**: Mutations gate on enforcement going GA so operators can author policies that actually run.
+- **Acceptance**: gRPC clients author policies via the API; CLI subcommands `create|update|delete|activate|deactivate|remediate|monitor` wire to the new endpoints.
+- **References**: Epic 03 task spec (line 16); `pkg/api/policy/handler.go:5`; `pkg/api/v1/policy.pb.go:3`.
+
+## v2.0
+
+#### Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket
+- **What**: Agents run embedded nats-servers; cluster forms via leaf-node mesh; reverse-leaf NAT traversal for agents behind firewalls; WebSocket transport for browser-side ops.
+- **Why deferred**: v1.0 ships agent-as-NATS-client only; hybrid topology + WebSocket multiply test surface.
+- **Acceptance**: Agent runs embedded NATS; reverse-leaf publishes its endpoint; supercluster gateway federates two clusters.
+- **References**: Epic 05 scope-out (lines 38-42); Epic 06 scope-out (lines 27-28).
+
+#### Active dial-time circuit breaker eviction
+- **What**: Skip OPEN endpoints when nats.go picks the next reconnect target.
+- **Why deferred**: Requires replacing nats.go's native multi-URL failover with a per-endpoint dial loop — substantial refactor for marginal v1.0 benefit.
+- **Acceptance**: An endpoint with breaker OPEN is skipped during reconnect attempts until the breaker half-opens.
+- **References**: Epic 05 task 7 `_(landed)_`; `internal/nats/breaker.go:20`.
+
+#### Cloud workload identity (AWS IRSA, GCP WI, Azure MI)
+- **What**: Cloud-native identity binding without static credentials.
+- **Why deferred**: v1.0 ships embedded CA + JWT/PSK; cloud bindings need per-provider integration.
+- **Acceptance**: Agent on EC2 with IRSA receives identity from instance metadata.
+- **References**: Epic 09 scope-out (line 25).
+
+#### gRPC-gateway annotation-driven REST + OpenAPI auto-gen
+- **What**: REST + OpenAPI generated from proto annotations.
+- **Why deferred**: v1.0 hand-codes both for control and simplicity (the v0 reset traced its complexity in part to grpc-gateway tooling friction).
+- **Acceptance**: A new gRPC method automatically gets REST + OpenAPI without hand-edits.
+- **References**: Epic 03 scope-out (line 30); PROJECT-DETAILS §4.5 (line 426).
+
+---
+
+## Implementation-time narrowings inside delivered v1.0 features
+
+These don't move to a future version — they document where v1.0 *is* shipping but with reduced scope. Useful for release notes + "what's new in v1.x" planning.
+
+#### Cluster-wide HMAC secret (vs per-agent)
+- **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from bootstrap exchange land in v1.x (no specific version targeted yet).
+- **Why now**: Per-agent keys need a key-distribution mechanism that's still being designed.
+- **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
+
+#### TUI bootstrap: demo mode only
+- **What**: `kscore-agent bootstrap` wizard supports demo mode end-to-end. Production/enterprise modes display a "v1.0 supports demo only" message and exit.
+- **Why now**: Production mode needs TLS cert collection (gates on Epic 11 — Identity & Auth); enterprise mode needs blueprint selection (gates on Epic 14 + Epic 17). Both are post-v1.0.
+- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise).
+- **References**: Epic 06 task 7; `internal/agent/bootstrap/tui/`.
+
+#### Bootstrap: no rollback / transactional revert
+- **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
+- **Why now**: Rollback semantics need install-step inversion + snapshot tracking.
+- **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback` (v1.x).
+- **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
+
+#### Glob matching: no `**` (double-star)
+- **What**: `internal/agent.SecurityEnforcer` uses `path.Match` (single-star only). gobwas/glob with double-star semantics is reserved for v1.x.
+- **Why now**: stdlib `path.Match` covers the v1.0 command-allowlist use cases.
+- **References**: `internal/agent/security.go:59`.
+
+#### API key issuance: non-transactional
+- **What**: `internal/controlplane.BootstrapHandler` issues credentials via separate write paths (not a single transaction).
+- **Why now**: v1.0 doesn't have multi-table tx wrapper (see v1.2 entry above).
+- **References**: `internal/controlplane/bootstrap.go:270`.
+
+#### Migration journal: no per-table checkpoint resume
+- **What**: `kscore-migrate` records per-table checkpoints in the txlog but recovery from a partial migration restarts from the last full-table boundary, not the row-level checkpoint.
+- **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred to v1.2) would unlock.
+- **References**: `internal/state/migrate_txlog.go:25`.
+
+#### Batch dispatcher: no orphan-job recovery
+- **What**: Jobs in RUNNING state at process start are not auto-recovered; operators must inspect + retry.
+- **Why now**: Orphan recovery needs ownership semantics (which CP node owns the job?) clarified by Epic 13 (clustering).
+- **References**: `internal/controlplane/batch_dispatcher.go:72`.
+
+#### Config: no per-endpoint TLS overrides
+- **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
+- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies are post-v1.0.
+- **References**: `internal/config/nats.go:126`.
+
+#### Boostrap PSK consumption: in-memory tracking only
+- **What**: Used PSKs are tracked in-memory. Server restart re-permits a previously-used PSK.
+- **Why now**: Persistence path lands in v1.x with the bootstrap-state-store work.
+- **References**: `internal/config/nats.go:53`; Epic 05 task 9 `_(landed)_`.
