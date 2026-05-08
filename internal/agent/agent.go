@@ -74,20 +74,21 @@ const (
 // publish a Rejected=true response so the dispatcher sees a clear
 // reason rather than waiting for a timeout.
 type Agent struct {
-	cfg       Config
-	log       *slog.Logger
-	nats      NATSClient
-	subjects  Subjects
-	metrics   MetricsCollector
-	executor  *Executor
-	enforcer  *SecurityEnforcer
+	cfg      Config
+	log      *slog.Logger
+	nats     NATSClient
+	subjects Subjects
+	metrics  MetricsCollector
+	executor *Executor
+	enforcer *SecurityEnforcer
 
-	mu      sync.Mutex
-	started bool
-	stopped bool
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	sub     Subscription
+	mu         sync.Mutex
+	started    bool
+	stopped    bool
+	cancel     context.CancelFunc
+	commandCtx context.Context // shared by handleCommand goroutines; cancel() ends them
+	wg         sync.WaitGroup  // tracks heartbeat + metadata loops + in-flight commands
+	sub        Subscription
 }
 
 // New validates cfg and returns an unstarted Agent. AgentID is
@@ -157,6 +158,11 @@ func (a *Agent) Start(_ context.Context) error {
 
 	loopCtx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
+	// commandCtx shares the same root cancel so handleCommand
+	// observes Shutdown via ctx.Done() and Executor.waitWithKill-
+	// Protocol's SIGTERM-grace-then-SIGKILL kicks in for in-flight
+	// child processes. PROJECT-DETAILS §4.6 graceful shutdown.
+	a.commandCtx = loopCtx
 
 	a.wg.Add(2)
 	go a.runHeartbeatLoop(loopCtx)
@@ -172,10 +178,18 @@ func (a *Agent) Start(_ context.Context) error {
 	return nil
 }
 
-// Shutdown unsubscribes, cancels the loop ctx, and waits for the
-// loop goroutines to exit. Bounded by ctx — if the wait exceeds the
-// caller's deadline, Shutdown returns ctx.Err() but the goroutines
-// continue draining in the background.
+// Shutdown unsubscribes, cancels the loop+command ctx, and waits
+// for every tracked goroutine (heartbeat loop, metadata loop, in-
+// flight command handlers — Task 11) to exit. Bounded by ctx — if
+// the wait exceeds the caller's deadline, Shutdown emits a WARN
+// log and returns ctx.Err() but the goroutines continue draining
+// in the background. Operators see the WARN in journalctl and
+// know in-flight commands didn't drain cleanly.
+//
+// Order: stop-flag → unsubscribe → cancel → wait. The stop-flag
+// flip happens under mutex BEFORE Unsubscribe; new callbacks
+// arriving in the race window between Unsubscribe and
+// acquireCommandSlot see stopped=true and short-circuit.
 //
 // Idempotent; safe to call before Start.
 func (a *Agent) Shutdown(ctx context.Context) error {
@@ -210,6 +224,15 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	select {
 	case <-done:
 	case <-ctx.Done():
+		// Drain timed out. Operators reading journalctl after a
+		// hung shutdown need a clear signal that in-flight work
+		// may still be running — the goroutines continue in the
+		// background until the process exits. PROJECT-DETAILS §4.6
+		// "Bootstrap idempotency / fd leaks" risk.
+		a.log.Warn("agent: command drain timed out",
+			"agent_id", a.cfg.AgentID,
+			"err", ctx.Err(),
+		)
 		if firstErr == nil {
 			firstErr = fmt.Errorf("agent: shutdown wait: %w", ctx.Err())
 		}
@@ -295,7 +318,22 @@ func (a *Agent) publishMetadata(ctx context.Context) {
 // Rejected=true response so the dispatcher surfaces a clean reason
 // rather than waiting for a timeout. Errors returned to the caller
 // are warnings only — pub/sub is fire-and-forget at this layer.
-func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.Envelope) error {
+//
+// Shutdown semantics (Task 11): handleCommand registers itself in
+// the agent's WaitGroup before doing real work, then uses
+// a.commandCtx (cancelled by Shutdown) instead of the param ctx
+// from nats.go's subscription callback (which is context.Background).
+// This way Executor.waitWithKillProtocol's SIGTERM grace fires on
+// shutdown, in-flight commands drain, and the wg.Wait in Shutdown
+// blocks until they exit. The param `ctx` is kept in the signature
+// for MessageHandler conformance but not used for cancellable work.
+func (a *Agent) handleCommand(_ context.Context, subject string, env envelope.Envelope) error {
+	cmdCtx, ok := a.acquireCommandSlot(subject, env.MessageID)
+	if !ok {
+		return nil
+	}
+	defer a.wg.Done()
+
 	var req CommandRequest
 	if err := json.Unmarshal(env.Payload, &req); err != nil {
 		a.log.Warn("agent: command unmarshal",
@@ -307,8 +345,8 @@ func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.
 	// MessageID stamped on the envelope, the signature won't verify.
 	req.MessageID = env.MessageID
 
-	if err := a.enforcer.Validate(ctx, req); err != nil {
-		a.publishResponse(ctx, env.MessageID, &CommandResponse{
+	if err := a.enforcer.Validate(cmdCtx, req); err != nil {
+		a.publishResponse(cmdCtx, env.MessageID, &CommandResponse{
 			MessageID:    env.MessageID,
 			AgentID:      a.cfg.AgentID,
 			ExitCode:     -1,
@@ -322,7 +360,7 @@ func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.
 	if timeout <= 0 {
 		timeout = a.cfg.CommandTimeout
 	}
-	result := a.executor.Execute(ctx, ExecuteRequest{
+	result := a.executor.Execute(cmdCtx, ExecuteRequest{
 		Command:    req.Command,
 		Args:       req.Args,
 		Env:        a.enforcer.AppliedEnv(req),
@@ -331,7 +369,7 @@ func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.
 		Timeout:    timeout,
 	})
 
-	a.publishResponse(ctx, env.MessageID, &CommandResponse{
+	a.publishResponse(cmdCtx, env.MessageID, &CommandResponse{
 		MessageID:       env.MessageID,
 		AgentID:         a.cfg.AgentID,
 		ExitCode:        result.ExitCode,
@@ -344,6 +382,31 @@ func (a *Agent) handleCommand(ctx context.Context, subject string, env envelope.
 		Error:           result.Error,
 	})
 	return nil
+}
+
+// acquireCommandSlot is the lock-protected entry section that
+// keeps in-flight commands counted by wg AND refuses new work
+// after Shutdown started. The race we're guarding: nats.go has
+// already invoked the subscription callback for a message, but
+// Shutdown's stopped=true flip + Unsubscribe interleave with
+// us. By doing the check + wg.Add under the same mutex Shutdown
+// uses, we guarantee handleCommand either:
+//
+//   - Sees stopped=false, increments wg, and Shutdown's wg.Wait
+//     blocks for it to finish (drain), OR
+//   - Sees stopped=true, returns early, no wg increment.
+//
+// Returns the cancellable command ctx + ok=true on success.
+func (a *Agent) acquireCommandSlot(subject, messageID string) (context.Context, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.stopped || !a.started {
+		a.log.Debug("agent: command rejected; agent shut down",
+			"subject", subject, "message_id", messageID)
+		return nil, false
+	}
+	a.wg.Add(1)
+	return a.commandCtx, true
 }
 
 func (a *Agent) publishResponse(ctx context.Context, correlationID string, resp *CommandResponse) {

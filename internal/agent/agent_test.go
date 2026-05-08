@@ -7,9 +7,12 @@ import (
 	"io"
 	"log/slog"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"go.uber.org/goleak"
 
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
@@ -696,4 +699,250 @@ func TestAgent_HeartbeatPublishErrorLogged(t *testing.T) {
 	time.Sleep(60 * time.Millisecond)
 	// No assertion beyond "doesn't panic" — this is a smoke test for
 	// the publish-error handling path.
+}
+
+// TestAgent_ShutdownDrainsInFlightCommand: a command lands, its
+// executor goroutine starts a /bin/sleep, Shutdown is called.
+// The kill protocol (SIGTERM grace then SIGKILL) fires via
+// commandCtx cancellation; Shutdown waits until the in-flight
+// goroutine exits. Asserts: Shutdown returned within budget, no
+// ctx-err returned, and a CommandResponse with TimedOut=true was
+// published before Shutdown completed.
+func TestAgent_ShutdownDrainsInFlightCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sleep; unix only")
+	}
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	req := CommandRequest{
+		MessageID:      "cmd-shutdown-drain",
+		Command:        "/bin/sleep",
+		Args:           []string{"30"}, // would block well past test budget
+		TimeoutSeconds: 60,              // big enough that the per-command timeout doesn't kick in
+	}
+	req.Signature = enf.ComputeHMAC(req)
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-shutdown-drain"))
+
+	// Deliver in a goroutine — handleCommand runs synchronously
+	// (blocks on executor.Execute waiting for /bin/sleep).
+	delivered := make(chan struct{})
+	go func() {
+		_ = nats.deliver(t, subj.AgentCommand("agent-1"), env)
+		close(delivered)
+	}()
+
+	// Give the executor a moment to start the child process so
+	// the "in-flight at shutdown" condition is real, not a race.
+	time.Sleep(75 * time.Millisecond)
+
+	shutdownStart := time.Now()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := a.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	shutdownDur := time.Since(shutdownStart)
+	if shutdownDur > 2*time.Second {
+		t.Errorf("Shutdown took %s; expected to drain quickly via SIGTERM grace", shutdownDur)
+	}
+
+	// deliver goroutine must have completed — handleCommand
+	// should have published its response before returning.
+	select {
+	case <-delivered:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("deliver goroutine still running after Shutdown returned")
+	}
+
+	envs := nats.collectFor(t, subj.AgentResponse("agent-1"), 1, 200*time.Millisecond)
+	var resp CommandResponse
+	if err := json.Unmarshal(envs[0].Payload, &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !resp.TimedOut {
+		t.Errorf("response.TimedOut = false; expected true (kill protocol fired)")
+	}
+}
+
+// TestAgent_ShutdownRefusesNewCommandsAfterStop: post-shutdown
+// commands delivered via the fake NATS short-circuit cleanly.
+// We assert no executor invocation happened — the published-
+// responses count stays at zero.
+func TestAgent_ShutdownRefusesNewCommandsAfterStop(t *testing.T) {
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if err := a.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	req := CommandRequest{
+		MessageID: "cmd-after-shutdown",
+		Command:   "/bin/true",
+	}
+	req.Signature = enf.ComputeHMAC(req)
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-after-shutdown"))
+
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+	// Brief settling window; if the handler didn't short-circuit,
+	// a response would be published.
+	time.Sleep(50 * time.Millisecond)
+	if c := nats.publishCount(subj.AgentResponse("agent-1")); c != 0 {
+		t.Errorf("published responses after shutdown = %d; want 0", c)
+	}
+}
+
+// TestAgent_ShutdownBudgetExceeded: the shutdown ctx expires
+// before the in-flight command finishes (we use a hung sleep
+// AND a short shutdown budget). Asserts: Shutdown returns the
+// ctx error, the WARN log fires, and the goroutine continues
+// until the per-command timeout cleans up.
+func TestAgent_ShutdownBudgetExceeded(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sleep; unix only")
+	}
+	// Capture log output to verify the WARN fires.
+	var logBuf safeLogBuffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+
+	enf, err := NewSecurityEnforcer(SecurityPolicy{DefaultPolicy: PolicyAllow}, logger)
+	if err != nil {
+		t.Fatalf("NewSecurityEnforcer: %v", err)
+	}
+	// Use a kill grace longer than the shutdown budget so the
+	// budget expires first (proves the WARN path), but short
+	// enough that the post-test cleanup is fast: SIGKILL fires
+	// 300ms after cancel.
+	exec := NewExecutor(ExecutorConfig{
+		Logger:         logger,
+		KillGrace:      300 * time.Millisecond,
+		DefaultTimeout: 10 * time.Second,
+	})
+	a, err := New(Config{
+		AgentID:           "agent-1",
+		HeartbeatInterval: 10 * time.Second,
+		MetadataInterval:  10 * time.Second,
+		CommandTimeout:    10 * time.Second,
+	}, newFakeNATS(), fakeSubjects{cluster: "test"}, &fakeMetricsCollector{}, exec, enf, logger)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	// SIGTERM-trapping shell loop — ignores TERM so the kill
+	// grace fully elapses. Without this, /bin/sleep exits on
+	// SIGTERM and Shutdown drains within the 100ms budget.
+	req := CommandRequest{
+		MessageID:      "cmd-budget",
+		Command:        "/bin/sh",
+		Args:           []string{"-c", `trap "" TERM; while :; do sleep 0.1; done`},
+		TimeoutSeconds: 30,
+	}
+	req.Signature = enf.ComputeHMAC(req)
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, "kscore.test", envelope.WithMessageID("cmd-budget"))
+
+	go func() {
+		_ = a.handleCommand(context.Background(), "kscore.test.agent.agent-1.command", env)
+	}()
+	time.Sleep(75 * time.Millisecond)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	err = a.Shutdown(shutdownCtx)
+	if err == nil {
+		t.Fatal("Shutdown returned nil; expected ctx-deadline error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Shutdown err = %v; want DeadlineExceeded", err)
+	}
+	if !logBuf.contains("agent: command drain timed out") {
+		t.Errorf("expected drain-timeout WARN in log; got:\n%s", logBuf.String())
+	}
+
+	// Wait for the rogue goroutine to clean up after SIGKILL
+	// (kill grace = 300ms above) so the test runner doesn't
+	// inherit the orphan child.
+	time.Sleep(500 * time.Millisecond)
+}
+
+// TestAgent_NoGoroutineLeak_AfterShutdown: spin Start, send a
+// short command through the full happy path, Shutdown, then
+// verify no goroutines linger. Catches the Epic 06 fd-leak risk.
+func TestAgent_NoGoroutineLeak_AfterShutdown(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/true; unix only")
+	}
+	defer goleak.VerifyNone(t,
+		// slog's default handler may park goroutines briefly on
+		// log emission; ignore. None of these are agent-spawned.
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+	)
+	a, nats, subj, enf := newAgentWithEnforcer(t, SecurityPolicy{
+		DefaultPolicy: PolicyAllow,
+	})
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	req := CommandRequest{
+		MessageID:      "cmd-leak-check",
+		Command:        "/bin/true",
+		TimeoutSeconds: 5,
+	}
+	req.Signature = enf.ComputeHMAC(req)
+	body, _ := json.Marshal(req)
+	env := envelope.New(body, subj.Prefix(), envelope.WithMessageID("cmd-leak-check"))
+
+	if err := nats.deliver(t, subj.AgentCommand("agent-1"), env); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+	// Wait for the response to confirm the command finished.
+	_ = nats.collectFor(t, subj.AgentResponse("agent-1"), 1, 2*time.Second)
+
+	if err := a.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	// Brief grace for goroutine teardown observability — Shutdown
+	// already wg.Wait'd, but goleak inspects a snapshot.
+	time.Sleep(20 * time.Millisecond)
+}
+
+// safeLogBuffer is a goroutine-safe wrapper around bytes.Buffer
+// for tests that capture slog output. slog handlers can write
+// from background goroutines; a plain bytes.Buffer races.
+type safeLogBuffer struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (b *safeLogBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, p...)
+	return len(p), nil
+}
+
+func (b *safeLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
+}
+
+func (b *safeLogBuffer) contains(s string) bool {
+	return strings.Contains(b.String(), s)
 }
