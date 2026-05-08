@@ -49,6 +49,7 @@ See `PROJECT-DETAILS.md §4.6`.
    - Validate (DNS, network, storage backend reachable, certs ready).
    - Install (package repo setup, binary + systemd install, certs, schema migration, service enable).
    - Verify (services up, NATS reachable, DB reachable, cluster joined).
+   _(landed: `internal/agent/bootstrap` package with the full Detect → Configure → Validate → Install → Verify FSM. State persisted to `/var/lib/keystone-core/bootstrap.json` (atomic temp+rename, 0o600) with explicit schema version + `LastError` so re-runs resume from the last successful checkpoint and operators can diagnose failures from the state file alone. Phase impls are interfaces (`Detector`, `Configurer`, `Validator`, `Installer`, `Verifier`) so Tasks 7 (TUI) and 8 (non-interactive flags) can swap impls without touching the engine. Default impls: gopsutil-backed host detect + `/etc/os-release` parse + init-system / package-manager probe; `StaticConfigurer` (non-interactive — Task 8 will wrap CLI flags); validator runs `Configuration.Validate` + TCP-dial of `JoinURL` + parent-dir creatable check; installer renders `internal/config.AgentConfig` to YAML, atomic-writes 0o640, byte-compares for idempotency (Created/Updated flags), `DryRun` skips write; verifier round-trips `internal/config.Load` against the rendered file + dials `JoinURL`. Cluster-wide HMAC secret in v1.0 — bootstrap-derived per-agent keys deferred to v1.x. CLI/TUI wiring is Tasks 7 + 8.)_
 7. **TUI bootstrap** with Bubble Tea — multi-screen wizard, mode selection, cluster details, node role, storage backend, NATS config, TLS strategy, blueprint selection.
 8. **Non-interactive bootstrap** with full flag/env coverage; errors out on ambiguous config.
 9. **Systemd unit template** + install/uninstall logic.
@@ -67,7 +68,7 @@ See `PROJECT-DETAILS.md §4.6`.
 - [x] Allowlist-blocked command rejected; audit logged. _(task 5 — `TestAgent_CommandFlow_AllowlistBlocksPublishesRejection` covers default-deny enforcement → audit WARN → CommandResponse{Rejected: true} published.)_
 - [ ] Bootstrap TUI walks through demo mode in <5 minutes (manual test).
 - [ ] Non-interactive `kscore-agent bootstrap --non-interactive --mode demo --cluster-name x --join nats://server:4222` succeeds end-to-end in CI.
-- [ ] Re-running bootstrap is idempotent (no duplicate systemd units, no broken state).
+- [x] Re-running bootstrap is idempotent (no duplicate systemd units, no broken state). _(task 6 — `TestEngine_ReRunAfterDoneIsNoOp` covers PhaseDone short-circuit; `TestDefaultInstaller_Idempotent` + `TestDefaultInstaller_DetectsChange` cover byte-compare config rewrite; `TestEngine_ResumeSkipsCompletedPhases` + `TestEngine_ResumeAfterFailureContinuesFromCheckpoint` cover mid-flow checkpoint resume. Systemd unit installation is Task 9.)_
 - [ ] SIGTERM produces clean unsubscribe + exit.
 - [ ] Coverage >75% on `internal/agent`.
 
