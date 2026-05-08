@@ -237,6 +237,30 @@ These don't move to a future version — they document where v1.0 *is* shipping 
 - **Acceptance for unblock**: For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens. For blueprints — Epic 14 + 17 land, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step.
 - **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
 
+#### Bootstrap auto-installs systemd unit (production mode)
+- **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
+- **Why now**: Production mode is itself deferred (see "Bootstrap: demo mode only"), and v1.0's two-step flow (`bootstrap` then `service install`) is a clean explicit invocation that maps to the demo-mode-only world.
+- **Acceptance for unblock**: When Epic 11 + 14 + 17 land and `bootstrap.ValidateForV10` lifts, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
+
+#### `kscore-agent service start|stop` subcommands
+- **What**: PROJECT-DETAILS §4.6 lists `service install|uninstall|start|stop|status`. v1.0 ships `install|uninstall|status` only.
+- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Punted unless a specific operator workflow surfaces a need.
+- **Acceptance for unblock**: A documented use case where `kscore-agent service start` is genuinely better than `systemctl start kscore-agent` (e.g. cross-platform script that needs the same command shape on Windows v1.1's SCM).
+- **References**: Epic 06 task 9 `_(landed)_`; PROJECT-DETAILS §4.6 (line 473).
+
+#### Dedicated `keystone-core` system user auto-creation
+- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
+- **Why now**: User creation belongs in package-mgmt territory (Epic 18 — rpm/deb post-install scripts via `useradd --system`). Doing it in `service install` would duplicate the package-mgmt path and split responsibility.
+- **Acceptance for unblock**: Epic 18 packaging work creates the `keystone-core` system user as part of `apt install kscore-agent` / `dnf install kscore-agent`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
+- **References**: Epic 06 task 9 `_(landed)_`; Epic 18 (file dist + package mgmt).
+
+#### Type=notify systemd integration (sd_notify)
+- **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
+- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, which adds the dep we explicitly skipped for v1.0. Re-evaluate when v1.4 telemetry-gateway work surfaces a real consumer.
+- **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
+
 #### Bootstrap: no rollback / transactional revert
 - **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
 - **Why now**: Rollback semantics need install-step inversion + snapshot tracking.

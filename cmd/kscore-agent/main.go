@@ -5,15 +5,13 @@
 // commands, exits cleanly on SIGTERM/SIGINT.
 //
 // Subcommands:
-//   - bootstrap — interactive TUI wizard that drives the
-//     Detect → Configure → Validate → Install → Verify FSM
-//     and writes a usable agent config. v1.0 supports demo mode
-//     end-to-end; production / enterprise modes are deferred to
-//     v1.x (see docs/project/V1X-BACKLOG.md).
-//
-// Subsequent tasks layer on top:
-//   - Task 8: --non-interactive flag set covering CLI-only bootstrap.
-//   - Task 9: systemd unit install.
+//   - bootstrap — interactive TUI wizard or `--non-interactive`
+//     flag set that drives the Detect → Configure → Validate →
+//     Install → Verify FSM and writes a usable agent config.
+//     v1.0 supports demo mode end-to-end; production / enterprise
+//     modes are deferred to v1.x (see docs/project/V1X-BACKLOG.md).
+//   - service install|uninstall|status — manage the
+//     keystone-core-agent systemd unit. Linux-only in v1.0.
 package main
 
 import (
@@ -58,6 +56,7 @@ func newCommand() *cobra.Command {
 		Run:   run,
 	})
 	root.AddCommand(newBootstrapCommand())
+	root.AddCommand(newServiceCommand())
 	return root
 }
 
