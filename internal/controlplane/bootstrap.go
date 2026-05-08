@@ -273,7 +273,7 @@ func (h *BootstrapHandler) handle(ctx context.Context, subject string, env envel
 		return err
 	}
 
-	respPayload, err := json.Marshal(creds)
+	respPayload, err := json.Marshal(creds) //nolint:gosec // marshaling AgentCredentials.APIKey to the bootstrap response is the load-bearing point of the protocol — agent gets the cleartext exactly once
 	if err != nil {
 		h.logger.Error("controlplane: bootstrap: response marshal",
 			"agent_id", req.AgentID, "err", err)
