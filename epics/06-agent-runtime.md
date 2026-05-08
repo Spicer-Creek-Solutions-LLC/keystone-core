@@ -38,7 +38,7 @@ See `PROJECT-DETAILS.md §4.6`.
 
 ## Tasks
 
-1. **`Agent` struct + lifecycle** in `internal/agent/agent.go`. Start spawns heartbeat (default 30s) + metadata (default 60s) loops; subscribes to command topic; runs until SIGTERM.
+1. **`Agent` struct + lifecycle** in `internal/agent/agent.go`. Start spawns heartbeat (default 30s) + metadata (default 60s) loops; subscribes to command topic; runs until SIGTERM. _(landed: `internal/agent.Agent` with narrow `NATSClient`/`Subjects`/`MessageHandler`/`Subscription` interfaces (mirrors the `internal/controlplane` pattern — internal/agent stays free of internal/nats imports). Heartbeat + metadata payloads are minimal stubs (`{agent_id, ts}` / `{agent_id, labels}`); Task 3 swaps them for gopsutil-backed metrics. Command-subscription handler logs receipt; Tasks 4 + 5 wire SecurityEnforcer + Executor + response publication. cmd/kscore-agent now constructs an external-mode Manager + Agent + adapter (mirrors cmd/kscore-server's pattern); rejects embedded-mode and empty AgentID. `internal/config.AgentConfig` added with §4.6 defaults (heartbeat 30s, metadata 60s, command timeout 5m).)_
 2. **`Executor`** with `os/exec` wrapping; signal grace; output capture; user switching (Linux uid/gid).
 3. **`MetadataCollector`** via `gopsutil` (CPU, memory, disk %, virt detection, NICs incl IPv4 + IPv6 separated, dual-stack flagged).
 4. **`SecurityEnforcer`** with all v1.0 protections.

@@ -44,6 +44,7 @@ type Config struct {
 	Storage StorageConfig `koanf:"storage"`
 	Health  HealthConfig  `koanf:"health"`
 	NATS    NATSConfig    `koanf:"nats"`
+	Agent   AgentConfig   `koanf:"agent"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -108,6 +109,11 @@ func defaultConfig() *Config {
 				HalfOpenMaxAttempts: 3,
 			},
 		},
+		Agent: AgentConfig{
+			HeartbeatInterval: 30 * time.Second, // §4.6 default
+			MetadataInterval:  60 * time.Second, // §4.6 default
+			CommandTimeout:    5 * time.Minute,
+		},
 	}
 }
 
@@ -166,6 +172,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.NATS.Validate(); err != nil {
 		return fmt.Errorf("nats: %w", err)
+	}
+	if err := c.Agent.Validate(); err != nil {
+		return fmt.Errorf("agent: %w", err)
 	}
 	return nil
 }
