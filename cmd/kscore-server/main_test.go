@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -100,21 +100,25 @@ func runCfg(t *testing.T, storePath string) *config.Config {
 	}
 }
 
-// runWithLogs invokes run() with a buffer-backed slog handler, lets
-// it serve for ~750ms (long enough for embedded NATS boot +
-// ensureStreams + dev-key bootstrap under heavy parallel test load),
-// then cancels and waits for clean return. Returns the captured
-// logs for assertions.
+// runWithLogs invokes run() with a buffer-backed slog handler,
+// polls the buffer for the §4.4 step-20 startup banner (canonical
+// "boot complete" signal), then cancels and waits for clean
+// return. Polling instead of a wall-clock sleep makes the test
+// robust under heavy parallel load (embedded NATS boot +
+// ensureStreams + dev-key bootstrap can take a couple seconds
+// when the rest of the suite is competing for CPU).
+//
+// Returns the captured logs for assertions.
 func runWithLogs(t *testing.T, cfg *config.Config) *bytes.Buffer {
 	t.Helper()
-	buf := &bytes.Buffer{}
+	buf := newSafeBuffer()
 	log := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- run(ctx, cfg, log) }()
 
-	time.Sleep(750 * time.Millisecond)
+	waitForBanner(t, buf, 10*time.Second)
 	cancel()
 
 	select {
@@ -125,7 +129,59 @@ func runWithLogs(t *testing.T, cfg *config.Config) *bytes.Buffer {
 	case <-time.After(35 * time.Second):
 		t.Fatal("run did not return after cancel")
 	}
-	return buf
+	return buf.unwrap()
+}
+
+// safeBuffer wraps bytes.Buffer with a mutex so the slog goroutine
+// (writing log records) can't race with the test goroutine
+// (polling for the banner). Standard bytes.Buffer is not safe for
+// concurrent use.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func newSafeBuffer() *safeBuffer { return &safeBuffer{} }
+
+func (b *safeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *safeBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// unwrap returns the internal buffer for the existing
+// containsWarnLine helper, which expects *bytes.Buffer. The buffer
+// is no longer being written to by the time unwrap is called
+// (cancel + done has settled).
+func (b *safeBuffer) unwrap() *bytes.Buffer {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := &bytes.Buffer{}
+	out.Write(b.buf.Bytes())
+	return out
+}
+
+// waitForBanner polls buf for the §4.4 step-20 banner log line
+// ("kscore-server <version>...") which fires only after the full
+// init sequence completes — including the dev-key bootstrap, NATS
+// Start, and JetStream stream creation. t.Fatal if the banner
+// doesn't appear within timeout.
+func waitForBanner(t *testing.T, buf *safeBuffer, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(buf.String(), "kscore-server") {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("startup banner did not appear within %s; buf=%s", timeout, buf.String())
 }
 
 // containsWarnLine reports whether buf has a JSON log record matching
@@ -151,23 +207,10 @@ func containsWarnLine(buf *bytes.Buffer, needle string) bool {
 
 func TestRun_BootsServesAndShutsDownCleanly(t *testing.T) {
 	cfg := runCfg(t, filepath.Join(t.TempDir(), "store.db"))
-	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- run(ctx, cfg, log) }()
-
-	time.Sleep(750 * time.Millisecond)
-	cancel()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Errorf("run: %v", err)
-		}
-	case <-time.After(35 * time.Second):
-		t.Fatal("run did not return after cancel")
-	}
+	// runWithLogs polls for the startup banner before cancelling, so
+	// this test inherits the same robustness against slow-CI parallel
+	// load.
+	_ = runWithLogs(t, cfg)
 }
 
 func TestRun_DevMode_GeneratesAPIKey(t *testing.T) {
