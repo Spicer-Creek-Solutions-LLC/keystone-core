@@ -1,16 +1,18 @@
 // kscore-agent is the Keystone Core agent daemon.
 //
-// v1.0 Epic 06 task 1: lifecycle skeleton. Constructs an external-
-// mode NATS Manager from cfg.NATS, builds an Agent (subscribed to
-// kscore.{cluster}.agent.{id}.command, heartbeat + metadata loops
-// running), serves until SIGTERM/SIGINT, and shuts down in reverse.
+// Default invocation runs the daemon: connects to the cluster's
+// NATS, registers, runs heartbeat + metadata loops, executes
+// commands, exits cleanly on SIGTERM/SIGINT.
+//
+// Subcommands:
+//   - bootstrap — interactive TUI wizard that drives the
+//     Detect → Configure → Validate → Install → Verify FSM
+//     and writes a usable agent config. v1.0 supports demo mode
+//     end-to-end; production / enterprise modes are deferred to
+//     v1.x (see docs/project/V1X-BACKLOG.md).
 //
 // Subsequent tasks layer on top:
-//   - Task 2: Executor (real os/exec).
-//   - Task 3: MetadataCollector (gopsutil).
-//   - Task 4: SecurityEnforcer (HMAC, allowlists).
-//   - Task 5: full command-response handler.
-//   - Task 6/7/8: bootstrap subcommand + TUI + non-interactive flags.
+//   - Task 8: --non-interactive flag set covering CLI-only bootstrap.
 //   - Task 9: systemd unit install.
 package main
 
@@ -20,13 +22,18 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/agent"
+	"go.keystone-core.io/keystone-core/internal/agent/bootstrap"
+	"go.keystone-core.io/keystone-core/internal/agent/bootstrap/tui"
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/logging"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
@@ -44,11 +51,13 @@ func main() {
 }
 
 func newCommand() *cobra.Command {
-	return cli.RootCommand(cli.Options{
+	root := cli.RootCommand(cli.Options{
 		Name:  "kscore-agent",
 		Short: "Keystone Core agent daemon",
 		Run:   run,
 	})
+	root.AddCommand(newBootstrapCommand())
+	return root
 }
 
 func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
@@ -166,4 +175,87 @@ func securityPolicyFromConfig(c config.SecurityConfig) agent.SecurityPolicy {
 		policy.DefaultPolicy = agent.PolicyDeny
 	}
 	return policy
+}
+
+// newBootstrapCommand builds the `kscore-agent bootstrap`
+// subcommand. It runs the bootstrap FSM (Task 6) with the TUI
+// Configurer (Task 7) + default Detector / Validator / Installer
+// / Verifier. Non-interactive flag coverage (Task 8) layers on
+// top; the v1.0-demo-only mode-gate lives in tui.Configurer.
+//
+// We don't reuse cli.RootCommand's daemon RunE — bootstrap has
+// its own lifecycle (no NATS, no heartbeat). Config + logger +
+// signal handling are loaded inline; the duplication is small
+// and keeps cli's surface clean.
+func newBootstrapCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:           "bootstrap",
+		Short:         "Interactive bootstrap wizard (demo mode)",
+		Long:          "Walks through the Detect → Configure → Validate → Install → Verify state machine and writes a usable agent config. v1.0 supports demo mode; production and enterprise modes are deferred (see docs/project/V1X-BACKLOG.md).",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfgPath, err := cmd.Flags().GetString("config")
+			if err != nil {
+				return fmt.Errorf("flag: %w", err)
+			}
+			cfg, err := config.Load(cfgPath)
+			if err != nil {
+				return fmt.Errorf("config: %w", err)
+			}
+			log, err := logging.New(logging.Options{
+				Level:  cfg.Logging.Level,
+				Format: cfg.Logging.Format,
+				Output: cmd.ErrOrStderr(), // stdout is the TUI's canvas
+			})
+			if err != nil {
+				return fmt.Errorf("logger: %w", err)
+			}
+			ctx, cancel := signal.NotifyContext(cmd.Context(),
+				os.Interrupt, syscall.SIGTERM)
+			defer cancel()
+
+			defaults := tui.Defaults{
+				ClusterName: cfg.NATS.ClusterName,
+				AgentID:     cfg.Agent.AgentID,
+				JoinURL:     firstURL(cfg.NATS.URLs),
+			}
+			configurer := tui.NewConfigurer(defaults, log)
+
+			engine, err := bootstrap.NewEngine(bootstrap.EngineConfig{
+				Logger:     log,
+				Detector:   bootstrap.NewDefaultDetector(log),
+				Configurer: configurer,
+				Validator:  bootstrap.NewDefaultValidator(log),
+				Installer:  bootstrap.NewDefaultInstaller(log),
+				Verifier:   bootstrap.NewDefaultVerifier(log),
+			})
+			if err != nil {
+				return fmt.Errorf("bootstrap engine: %w", err)
+			}
+			state, runErr := engine.Run(ctx)
+			if runErr != nil {
+				return fmt.Errorf("bootstrap: %w", runErr)
+			}
+			log.InfoContext(ctx, "bootstrap complete",
+				"phase", string(state.Phase),
+				"config_path", configPathFromState(state),
+			)
+			return nil
+		},
+	}
+}
+
+func firstURL(urls []string) string {
+	if len(urls) == 0 {
+		return ""
+	}
+	return urls[0]
+}
+
+func configPathFromState(state *bootstrap.State) string {
+	if state == nil || state.Config == nil {
+		return ""
+	}
+	return state.Config.ConfigPath
 }

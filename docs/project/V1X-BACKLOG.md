@@ -220,10 +220,16 @@ These don't move to a future version — they document where v1.0 *is* shipping 
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
 
 #### TUI bootstrap: demo mode only
-- **What**: `kscore-agent bootstrap` wizard supports demo mode end-to-end. Production/enterprise modes display a "v1.0 supports demo only" message and exit.
+- **What**: `kscore-agent bootstrap` wizard supports demo mode end-to-end. Production/enterprise modes appear in the Mode select but a post-form gate (`tui.configurationFromValues`) rejects them with a v1.x deferral message before the Engine reaches Validate.
 - **Why now**: Production mode needs TLS cert collection (gates on Epic 11 — Identity & Auth); enterprise mode needs blueprint selection (gates on Epic 14 + Epic 17). Both are post-v1.0.
-- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise).
-- **References**: Epic 06 task 7; `internal/agent/bootstrap/tui/`.
+- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise). Drop the post-form gate.
+- **References**: Epic 06 task 7 `_(landed)_`; `internal/agent/bootstrap/tui/configurer.go` (search `configurationFromValues`).
+
+#### Bootstrap wizard: storage backend + blueprint selection screens
+- **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on Epic 14 + 17.
+- **Why now**: Agents don't run a database, so the storage prompts had no destination. Blueprint apply needs the plugin/module system + blueprint runtime, neither of which ship in v1.0.
+- **Acceptance for unblock**: For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens. For blueprints — Epic 14 + 17 land, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step.
+- **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
 
 #### Bootstrap: no rollback / transactional revert
 - **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
