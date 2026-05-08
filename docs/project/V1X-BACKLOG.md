@@ -114,6 +114,12 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: Load measurably distributes proportionally to weights; `nats.urls = ["k8s://service-name"]` resolves through discovery.
 - **References**: `internal/config/nats.go:113`; `internal/nats/subject.go:135`.
 
+#### AWS decorrelated jitter for fleet-scale reconnect storms
+- **What**: Replace symmetric exp-jitter (`reconnectDelay` in `internal/nats/backoff.go`) with AWS decorrelated jitter — `delay = min(max, random(base, prev_delay * 3))`. Better herd-avoidance properties at >500-agent scale.
+- **Why deferred**: Symmetric jitter is adequate for v1.0 trial fleets (≤500 agents per design). Decorrelated needs careful per-call state tracking and is harder to test deterministically.
+- **Acceptance**: `reconnectDelay` (or a sibling) implements decorrelated jitter; benchmark/sim shows tighter reconnect-time distribution at 1000+ agent scale; opt-in via a config knob (`reconnectjitterstrategy: symmetric|decorrelated`).
+- **References**: Epic 06 task 10 `_(landed)_`; `internal/nats/backoff.go`.
+
 ## v1.4
 
 #### Rotation orchestrator

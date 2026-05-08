@@ -87,6 +87,39 @@ func TestNATSConfig_Validate(t *testing.T) {
 			"reconnectwait",
 		},
 		{
+			"max reconnect delay negative",
+			func(c *NATSConfig) { c.MaxReconnectDelay = -time.Second },
+			"maxreconnectdelay",
+		},
+		{
+			"max reconnect delay below base",
+			func(c *NATSConfig) {
+				c.ReconnectWait = 5 * time.Second
+				c.MaxReconnectDelay = 1 * time.Second
+			},
+			"maxreconnectdelay",
+		},
+		{
+			"jitter below zero",
+			func(c *NATSConfig) { c.ReconnectJitter = -0.1 },
+			"reconnectjitter",
+		},
+		{
+			"jitter above one",
+			func(c *NATSConfig) { c.ReconnectJitter = 1.5 },
+			"reconnectjitter",
+		},
+		{
+			"jitter exactly zero ok",
+			func(c *NATSConfig) { c.ReconnectJitter = 0 },
+			"",
+		},
+		{
+			"jitter exactly one ok",
+			func(c *NATSConfig) { c.ReconnectJitter = 1 },
+			"",
+		},
+		{
 			"jetstream maxstorage negative",
 			func(c *NATSConfig) { c.JetStream.MaxStorage = -1 },
 			"jetstream",
@@ -572,6 +605,12 @@ func TestNATSConfig_Defaults(t *testing.T) {
 	}
 	if cfg.NATS.ReconnectWait != 2*time.Second {
 		t.Errorf("ReconnectWait = %s, want 2s", cfg.NATS.ReconnectWait)
+	}
+	if cfg.NATS.MaxReconnectDelay != 30*time.Second {
+		t.Errorf("MaxReconnectDelay = %s, want 30s", cfg.NATS.MaxReconnectDelay)
+	}
+	if cfg.NATS.ReconnectJitter != 0.2 {
+		t.Errorf("ReconnectJitter = %v, want 0.2", cfg.NATS.ReconnectJitter)
 	}
 	if !cfg.NATS.Dedup.Enabled {
 		t.Error("Dedup.Enabled = false, want true (PROJECT-DETAILS §4.2)")

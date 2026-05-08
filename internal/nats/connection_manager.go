@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,10 @@ type ConnectionManager struct {
 	selector  StrategySelector
 	log       *slog.Logger
 	now       func() time.Time
+	// rng feeds reconnectDelay's jitter calculation. nil-safe;
+	// reconnectDelay falls back to un-jittered when nil. Tests
+	// inject a deterministic *rand.Rand.
+	rng *rand.Rand
 
 	mu       sync.RWMutex
 	started  bool
@@ -74,6 +79,9 @@ func NewConnectionManager(cfg config.NATSConfig, log *slog.Logger) (*ConnectionM
 		selector:  NewStrategySelector(nil),
 		log:       log,
 		now:       time.Now,
+		// math/rand/v2 is correct here — backoff jitter doesn't need
+		// cryptographic entropy. crypto/rand would be wasteful.
+		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0xDEADBEEF)), //nolint:gosec // G404: jitter, not security
 		states:    make(map[string]*EndpointState, len(endpoints)),
 		breakers:  make(map[string]Breaker, len(endpoints)),
 	}
@@ -155,6 +163,26 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 		}),
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			cm.onClosed()
+		}),
+		// CustomReconnectDelay supersedes nats.ReconnectWait (the
+		// constant). nats.go calls this with attempts ∈ [1, ∞) on
+		// every reconnect try, so we log every attempt + emit an
+		// exp-backoff-with-jitter delay. Epic 06 task 10.
+		nats.CustomReconnectDelay(func(attempts int) time.Duration {
+			d := reconnectDelay(attempts, cm.cfg.ReconnectWait, cm.cfg.MaxReconnectDelay, cm.cfg.ReconnectJitter, cm.rng)
+			cm.log.Info("nats reconnect attempt",
+				"attempt", attempts,
+				"delay_ms", d.Milliseconds(),
+				"max_reconnects", cm.cfg.MaxReconnects,
+			)
+			return d
+		}),
+		// ReconnectErrHandler fires on each *failed* reconnect
+		// attempt — without this, operators only see "disconnected"
+		// + "reconnected" with no visibility into the per-attempt
+		// failure between them.
+		nats.ReconnectErrHandler(func(_ *nats.Conn, err error) {
+			cm.log.Warn("nats reconnect attempt failed", "err", err)
 		}),
 	)
 	// Pass the joined list as a single Endpoint URL so the strategy

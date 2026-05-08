@@ -31,8 +31,30 @@ type NATSConfig struct {
 	Token         string           `koanf:"token"`
 	Credential    string           `koanf:"credential"`
 	MaxReconnects int              `koanf:"maxreconnects"`
-	ReconnectWait time.Duration    `koanf:"reconnectwait"`
-	ClusterName   string           `koanf:"clustername"`
+
+	// ReconnectWait is the *base* of the exponential-backoff
+	// curve. Epic 06 task 10 replaced the constant-delay
+	// nats.ReconnectWait with nats.CustomReconnectDelay using
+	// reconnectDelay(attempt, ReconnectWait, MaxReconnectDelay,
+	// ReconnectJitter) — so this field still names the floor,
+	// but actual delays grow per attempt up to MaxReconnectDelay
+	// with ±ReconnectJitter spread.
+	ReconnectWait time.Duration `koanf:"reconnectwait"`
+
+	// MaxReconnectDelay caps the exponential-backoff curve.
+	// 30s default — fast enough that a recovered CP draws agents
+	// back inside half a minute, slow enough that a flapping CP
+	// doesn't get hammered once base*2^N reaches the cap.
+	MaxReconnectDelay time.Duration `koanf:"maxreconnectdelay"`
+
+	// ReconnectJitter is the ±factor symmetric jitter applied
+	// to each backoff delay. 0.2 default (20%) — fleet-scale
+	// reconnect-storm protection against 1000-agent lock-step
+	// reconnects (Epic 06 risk). AWS decorrelated jitter is the
+	// gold standard at >500-agent scale; tracked in V1X-BACKLOG.
+	ReconnectJitter float64 `koanf:"reconnectjitter"`
+
+	ClusterName string `koanf:"clustername"`
 
 	JetStream      JetStreamConfig      `koanf:"jetstream"`
 	Embedded       EmbeddedNATSConfig   `koanf:"embedded"`
@@ -193,6 +215,16 @@ func (n NATSConfig) Validate() error {
 	}
 	if n.ReconnectWait < 0 {
 		return fmt.Errorf("reconnectwait: must not be negative, got %s", n.ReconnectWait)
+	}
+	if n.MaxReconnectDelay < 0 {
+		return fmt.Errorf("maxreconnectdelay: must not be negative, got %s", n.MaxReconnectDelay)
+	}
+	if n.MaxReconnectDelay > 0 && n.MaxReconnectDelay < n.ReconnectWait {
+		return fmt.Errorf("maxreconnectdelay (%s) must be >= reconnectwait (%s); cap can't be lower than base",
+			n.MaxReconnectDelay, n.ReconnectWait)
+	}
+	if n.ReconnectJitter < 0 || n.ReconnectJitter > 1 {
+		return fmt.Errorf("reconnectjitter: %v (must be in [0, 1])", n.ReconnectJitter)
 	}
 
 	if err := n.JetStream.Validate(); err != nil {

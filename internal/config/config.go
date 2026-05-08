@@ -77,10 +77,12 @@ func defaultConfig() *Config {
 			CheckTimeout:       2 * time.Second,
 		},
 		NATS: NATSConfig{
-			Mode:          NATSModeEmbedded,
-			ClusterName:   "default",
-			MaxReconnects: 60,
-			ReconnectWait: 2 * time.Second,
+			Mode:              NATSModeEmbedded,
+			ClusterName:       "default",
+			MaxReconnects:     60,
+			ReconnectWait:     2 * time.Second,
+			MaxReconnectDelay: 30 * time.Second,
+			ReconnectJitter:   0.2,
 			JetStream: JetStreamConfig{
 				Enabled:        true,
 				StoreDir:       "./data/jetstream",

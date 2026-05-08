@@ -5,7 +5,9 @@ package nats
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -210,6 +212,144 @@ func intStr(n int) string {
 // suppress unused-import warning when the file compiles with only one
 // of the helpers active under different test selections.
 var _ = filepath.Join
+
+// recordingHandler captures slog records into a slice so tests can
+// assert log emissions. Thread-safe — nats.go reconnect callbacks
+// fire from a background goroutine.
+type recordingHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *recordingHandler) Enabled(_ context.Context, _ slog.Level) bool { return true }
+func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+func (h *recordingHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+func (h *recordingHandler) WithGroup(_ string) slog.Handler      { return h }
+
+func (h *recordingHandler) snapshot() []slog.Record {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]slog.Record, len(h.records))
+	copy(out, h.records)
+	return out
+}
+
+// TestManager_LogsEveryReconnectAttempt verifies Epic 06 task 10's
+// "logs every reconnect attempt" requirement. Setup mirrors
+// TestManager_HealthDownThenUpRecovery: standalone NATS up →
+// connect Manager → kill NATS → wait for ≥2 reconnect attempts to
+// fire → assert the log lines are present with attempt+delay_ms
+// fields.
+//
+// We never bring NATS back up — the test is about the reconnect
+// loop firing, not recovery. ReconnectWait is set tight (50ms) so
+// multiple attempts happen inside the test budget.
+func TestManager_LogsEveryReconnectAttempt(t *testing.T) {
+	port := freePort(t)
+	_, stop := startStandaloneNATS(t, port)
+
+	cap := &recordingHandler{}
+	logger := slog.New(cap)
+
+	cfg := config.NATSConfig{
+		Mode:              config.NATSModeExternal,
+		URLs:              []string{"nats://127.0.0.1:" + intStr(port)},
+		ClusterName:       "test",
+		MaxReconnects:     -1, // infinite — keep trying
+		ReconnectWait:     50 * time.Millisecond,
+		MaxReconnectDelay: 200 * time.Millisecond, // fast cap → multiple attempts in <2s
+		ReconnectJitter:   0.1,
+		JetStream:         config.JetStreamConfig{Enabled: false},
+		Dedup:             config.DedupConfig{Enabled: false},
+		CircuitBreaker:    config.CircuitBreakerConfig{Enabled: false},
+	}
+	m, err := New(cfg, logger)
+	if err != nil {
+		stop()
+		t.Fatalf("New: %v", err)
+	}
+	if err := m.Start(context.Background()); err != nil {
+		stop()
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = m.Shutdown(stopCtx)
+	})
+
+	// Kill NATS so reconnect loop fires.
+	stop()
+
+	// Wait for at least 2 reconnect attempts.
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if attempts := countReconnectAttempts(cap.snapshot()); attempts >= 2 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	records := cap.snapshot()
+	attempts := collectReconnectAttempts(records)
+	if len(attempts) < 2 {
+		t.Fatalf("got %d reconnect-attempt log lines; want >= 2 (records: %s)",
+			len(attempts), summarize(records))
+	}
+	// Attempt numbers should be monotonically increasing.
+	for i, a := range attempts {
+		if a.attempt != int64(i+1) {
+			t.Errorf("attempts[%d].attempt = %d, want %d", i, a.attempt, i+1)
+		}
+		if a.delayMs <= 0 {
+			t.Errorf("attempts[%d].delay_ms = %d, want > 0", i, a.delayMs)
+		}
+	}
+}
+
+type reconnectAttemptLog struct {
+	attempt int64
+	delayMs int64
+}
+
+func countReconnectAttempts(records []slog.Record) int {
+	return len(collectReconnectAttempts(records))
+}
+
+func collectReconnectAttempts(records []slog.Record) []reconnectAttemptLog {
+	var out []reconnectAttemptLog
+	for _, r := range records {
+		if r.Message != "nats reconnect attempt" {
+			continue
+		}
+		var entry reconnectAttemptLog
+		r.Attrs(func(a slog.Attr) bool {
+			switch a.Key {
+			case "attempt":
+				entry.attempt = a.Value.Int64()
+			case "delay_ms":
+				entry.delayMs = a.Value.Int64()
+			}
+			return true
+		})
+		out = append(out, entry)
+	}
+	return out
+}
+
+func summarize(records []slog.Record) string {
+	var b strings.Builder
+	for _, r := range records {
+		b.WriteString(r.Message)
+		b.WriteString(" | ")
+	}
+	return b.String()
+}
 
 // TestManager_JetStreamRoundTrip is the Task 13 acceptance test:
 // the full Epic 05 wire path exercised end-to-end. Drives every
