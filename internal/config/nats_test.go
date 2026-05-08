@@ -270,6 +270,89 @@ func TestDedupConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestValidateExternalURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr string
+	}{
+		{"localhost with port", "nats://localhost:4222", ""},
+		{"ipv4 with port", "nats://127.0.0.1:4222", ""},
+		{"ipv4 no port", "nats://127.0.0.1", ""},
+		{"hostname no port", "nats://localhost", ""},
+		{"ipv6 bracketed with port", "nats://[::1]:4222", ""},
+		{"ipv6 bracketed no port", "nats://[::1]", ""},
+		{"ipv6 zone id", "nats://[fe80::1%25eth0]:4222", ""},
+		{"tls scheme accepted", "tls://nats.example.com:4222", ""},
+
+		{"empty", "", "missing host"},
+		{"unbracketed ipv6 with port", "nats://::1:4222", "unbracketed IPv6"},
+		{"unbracketed ipv6 multi-segment", "nats://2001:db8::1:4222", "unbracketed IPv6"},
+		{"unbracketed all-zeros", "nats://::1:4222", "unbracketed IPv6"},
+		{"missing host", "nats://", "missing host"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateExternalURL(tt.raw)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("validateExternalURL(%q) = %v, want nil", tt.raw, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("validateExternalURL(%q) = nil, want error containing %q", tt.raw, tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("err = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestNATSConfig_RejectsUnbracketedIPv6URL(t *testing.T) {
+	cfg := validNATS()
+	cfg.Mode = NATSModeExternal
+	cfg.URLs = []string{"nats://::1:4222"}
+	cfg.Endpoints = nil
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate accepted unbracketed IPv6 URL")
+	}
+	if !strings.Contains(err.Error(), "unbracketed IPv6") {
+		t.Errorf("err = %v, want containing 'unbracketed IPv6'", err)
+	}
+}
+
+func TestNATSConfig_AcceptsBracketedIPv6URL(t *testing.T) {
+	cfg := validNATS()
+	cfg.Mode = NATSModeExternal
+	cfg.URLs = []string{"nats://[::1]:4222"}
+	cfg.Endpoints = nil
+
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Validate = %v, want nil for bracketed IPv6", err)
+	}
+}
+
+func TestNATSConfig_RejectsUnbracketedIPv6Endpoint(t *testing.T) {
+	cfg := validNATS()
+	cfg.Mode = NATSModeExternal
+	cfg.URLs = nil
+	cfg.Endpoints = []EndpointConfig{
+		{URL: "nats://2001:db8::1:4222"},
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate accepted endpoint with unbracketed IPv6")
+	}
+	if !strings.Contains(err.Error(), "unbracketed IPv6") {
+		t.Errorf("err = %v, want containing 'unbracketed IPv6'", err)
+	}
+}
+
 func TestBootstrapConfig_Validate(t *testing.T) {
 	exp := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 	good := BootstrapConfig{

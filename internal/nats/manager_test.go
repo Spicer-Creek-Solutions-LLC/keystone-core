@@ -51,6 +51,22 @@ func freePort(t *testing.T) int {
 	return port
 }
 
+// freeIPv6Port returns a TCP port the IPv6 loopback can bind. Calls
+// t.Skip when the runner has no IPv6 stack — some CI environments
+// disable IPv6 entirely. Used by the Task 12 IPv6 acceptance tests.
+func freeIPv6Port(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "[::1]:0")
+	if err != nil {
+		t.Skipf("no IPv6 loopback available: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	if err := l.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	return port
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -456,4 +472,83 @@ func TestManager_ClientURLExternalReturnsFirst(t *testing.T) {
 	if got := m.ClientURL(); got != "nats://a:4222" {
 		t.Errorf("ClientURL = %q, want nats://a:4222", got)
 	}
+}
+
+// TestManager_EmbeddedIPv6Host exercises the §4.2 IPv6 acceptance
+// bullet at the embedded-mode level. Binds to ::1 and verifies the
+// reported ClientURL bracket-formats correctly, plus a publish round-
+// trip works through the IPv6 loopback.
+func TestManager_EmbeddedIPv6Host(t *testing.T) {
+	port := freeIPv6Port(t)
+	cfg := embeddedConfig(t)
+	cfg.Embedded.Host = "::1"
+	cfg.Embedded.Port = port
+	m := startManager(t, cfg)
+
+	got := m.ClientURL()
+	if !strings.Contains(got, "[::1]") {
+		t.Errorf("ClientURL = %q, want bracketed [::1] form", got)
+	}
+
+	subject := m.Subjects().AgentHeartbeat()
+	env := envelope.New([]byte(`"v6"`), m.Subjects().Prefix())
+	if err := m.PublishEnvelope(context.Background(), subject, env); err != nil {
+		t.Errorf("PublishEnvelope over IPv6: %v", err)
+	}
+}
+
+// TestManager_ExternalIPv6URL exercises the §4.2 IPv6 acceptance
+// bullet at the external-mode level. Spins an embedded NATS bound
+// to ::1, then connects an external Manager via the bracketed URL
+// form and round-trips a publish.
+func TestManager_ExternalIPv6URL(t *testing.T) {
+	port := freeIPv6Port(t)
+	hubCfg := embeddedConfig(t)
+	hubCfg.Embedded.Host = "::1"
+	hubCfg.Embedded.Port = port
+	hub := startManager(t, hubCfg)
+	_ = hub // keep hub alive for the duration of the test (cleanup runs via t.Cleanup)
+
+	url := "nats://[::1]:" + intToStr(port)
+	cfg := config.NATSConfig{
+		Mode:          config.NATSModeExternal,
+		URLs:          []string{url},
+		ClusterName:   "test",
+		MaxReconnects: 1,
+		ReconnectWait: 100 * time.Millisecond,
+		JetStream:     config.JetStreamConfig{Enabled: false},
+	}
+	m := startManager(t, cfg)
+
+	subject := m.Subjects().AgentHeartbeat()
+	env := envelope.New([]byte(`"v6"`), m.Subjects().Prefix())
+	if err := m.PublishEnvelope(context.Background(), subject, env); err != nil {
+		t.Errorf("PublishEnvelope over IPv6 URL %q: %v", url, err)
+	}
+}
+
+// intToStr is the same int→string used by the integration recovery
+// test; duplicated here so the unit test file stays import-minimal
+// (no strconv).
+func intToStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	const digits = "0123456789"
+	var buf [11]byte
+	i := len(buf)
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	for n > 0 {
+		i--
+		buf[i] = digits[n%10]
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
 }

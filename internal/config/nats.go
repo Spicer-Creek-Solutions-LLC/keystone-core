@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/hex"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -170,6 +172,9 @@ func (n NATSConfig) Validate() error {
 			if u == "" {
 				return fmt.Errorf("urls[%d]: must not be empty", i)
 			}
+			if err := validateExternalURL(u); err != nil {
+				return fmt.Errorf("urls[%d]: %w", i, err)
+			}
 		}
 		for i, e := range n.Endpoints {
 			if err := e.Validate(); err != nil {
@@ -293,15 +298,61 @@ func (d DedupConfig) Validate() error {
 	return nil
 }
 
-// Validate rejects empty URLs and negative weights. Priority can be
-// any int (higher wins); weight 0 is allowed and treated as "use
-// default" by ConnectionManager.
+// Validate rejects empty URLs, malformed bracketing, and negative
+// weights. Priority can be any int (higher wins); weight 0 is
+// allowed and treated as "use default" by ConnectionManager.
 func (e EndpointConfig) Validate() error {
 	if e.URL == "" {
 		return fmt.Errorf("url: must not be empty")
 	}
+	if err := validateExternalURL(e.URL); err != nil {
+		return fmt.Errorf("url: %w", err)
+	}
 	if e.Weight < 0 {
 		return fmt.Errorf("weight: must not be negative, got %d", e.Weight)
+	}
+	return nil
+}
+
+// validateExternalURL rejects two common operator errors:
+//
+//  1. Unbracketed IPv6 addresses (`nats://::1:4222`) — ambiguous
+//     because the trailing :4222 is indistinguishable from a port
+//     when not bracketed. PROJECT-DETAILS §4.2 calls this out
+//     explicitly: "[::]:4222, not :4222 or ::4222."
+//  2. Garbage that url.Parse cannot decode at all.
+//
+// The IPv6 check runs *before* url.Parse because url.Parse rejects
+// "nats://::1:4222" with a generic "invalid port" error that
+// doesn't tell the operator what to do; surfacing the bracket fix
+// inline is the whole point.
+//
+// We intentionally do NOT validate the scheme (nats / tls / etc.)
+// here — StrategySelector dispatches on scheme, and unknown schemes
+// fall back to Direct. Operators get a clean nats-level error if
+// the scheme is wrong.
+func validateExternalURL(raw string) error {
+	// Extract the host portion manually for the IPv6 check.
+	afterScheme := raw
+	if i := strings.Index(raw, "://"); i >= 0 {
+		afterScheme = raw[i+3:]
+	}
+	if i := strings.IndexAny(afterScheme, "/?#"); i >= 0 {
+		afterScheme = afterScheme[:i]
+	}
+	// Hostnames / IPv4 have at most one colon (the port separator).
+	// Anything with two or more colons and no opening bracket is an
+	// IPv6 address typed without brackets — the §4.2 footgun.
+	if !strings.HasPrefix(afterScheme, "[") && strings.Count(afterScheme, ":") > 1 {
+		return fmt.Errorf("unbracketed IPv6 address %q (use nats://[::1]:port — see PROJECT-DETAILS §4.2)", raw)
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("not a valid URL %q: %w", raw, err)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("missing host: %q", raw)
 	}
 	return nil
 }
