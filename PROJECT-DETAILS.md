@@ -500,7 +500,8 @@ Bootstrap is **transactional with rollback**. Re-runs must be idempotent.
 - **Server-side only** — agents never see expressions; CP filters then dispatches.
 
 **Execution layer** (`internal/execution/`):
-- `Executor.Execute(ExecuteRequest) → CommandResult` — wraps `os/exec`; timeout via context; capture stdout/stderr to `bytes.Buffer`; configurable kill-grace (5s default) → SIGTERM → SIGKILL.
+- The `os/exec` wrapper itself lives at `internal/agent.Executor` (§4.6); `internal/execution` defines an `Executor` interface that the agent type satisfies, so the lifecycle primitives below are decoupled from agent specifics.
+- `Executor` interface: `Execute(ctx, ExecuteRequest) ExecuteResult` — system-level errors live in `Result.Error` rather than a Go error return.
 - `ManagedExecution` — wraps Execute with the state machine (PENDING → RUNNING → RETRYING/COMPLETED/FAILED/TIMEOUT/CANCELLED).
 - `Callbacks{OnStarted, OnCompleted, OnFailed, OnTimeout, OnCancelled, OnRetrying, OnRetry}` — observable transitions.
 - `Pipeline` (sequential stages with output piping, optional fail-fast, optional Transform per stage). v1.0 includes; rarely used externally but underlies blueprint apply.
