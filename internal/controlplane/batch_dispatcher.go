@@ -49,11 +49,11 @@ type BatchDispatcherConfig struct {
 }
 
 // BatchDispatcher is the v1.0 batch state machine + persistence
-// orchestrator. Per PROJECT-DETAILS §4.4 step 8 it has NO startup
-// goroutine — execution is driven externally (Epic 07's runner). This
-// type just enforces transitions and centralizes count bookkeeping
-// against a per-batch mutex so concurrent agent results don't race the
-// underlying UpdateBatchJobCounts read-modify-write.
+// orchestrator. Epic 04 task 3 shipped the bookkeeping primitives
+// (CreateBatch / MarkRunning / RecordAgentResult / Finalize / Cancel);
+// Epic 07 task 8 added ExecuteBatch on top to drive the per-agent
+// dispatch loop with semaphore concurrency, a 500ms progress ticker,
+// and result aggregation per §4.7.
 type BatchDispatcher struct {
 	store              state.BatchJobStore
 	logger             *slog.Logger
@@ -63,6 +63,8 @@ type BatchDispatcher struct {
 
 	mu       sync.Mutex
 	counters map[string]*batchCounter
+	cancels  map[string]context.CancelFunc // per-running-batch orchestrator cancels
+	wg       sync.WaitGroup                // tracks orchestration goroutines for shutdown
 }
 
 // batchCounter holds in-memory live counts for a single batch, guarded
@@ -108,6 +110,7 @@ func NewBatchDispatcher(cfg BatchDispatcherConfig) (*BatchDispatcher, error) {
 		now:                cfg.Clock,
 		newID:              cfg.NewID,
 		counters:           make(map[string]*batchCounter),
+		cancels:            make(map[string]context.CancelFunc),
 	}, nil
 }
 
@@ -304,7 +307,12 @@ func (d *BatchDispatcher) Cancel(ctx context.Context, id string) error {
 
 	d.mu.Lock()
 	delete(d.counters, id)
+	cancel := d.cancels[id]
+	delete(d.cancels, id)
 	d.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	return nil
 }
 
