@@ -231,17 +231,21 @@ func TestDispatch_HappyPath(t *testing.T) {
 		t.Errorf("subject = %q, want %q", calls[0].subject, want)
 	}
 
-	// Envelope-level assertions: CorrelationID == command ID, cluster
-	// prefix matches the configured cluster, MessageID stamped.
+	// Envelope-level assertions: MessageID + CorrelationID both ==
+	// command ID. The agent's HMAC verify recomputes
+	// canonical(req with MessageID = env.MessageID); without
+	// MessageID == id the signature mismatches and the agent
+	// rejects every dispatched command. Surfaced by Epic 06 task
+	// 12's full-wire integration test.
 	got := calls[0].envelope
+	if got.MessageID != "cmd-1" {
+		t.Errorf("MessageID = %q, want cmd-1 (must equal command ID for HMAC verify)", got.MessageID)
+	}
 	if got.CorrelationID != "cmd-1" {
 		t.Errorf("CorrelationID = %q, want cmd-1", got.CorrelationID)
 	}
 	if got.ClusterPrefix != "kscore.default" {
 		t.Errorf("ClusterPrefix = %q, want kscore.default", got.ClusterPrefix)
-	}
-	if got.MessageID == "" {
-		t.Error("MessageID empty")
 	}
 
 	// Inner payload assertions: CommandMessage shape preserved

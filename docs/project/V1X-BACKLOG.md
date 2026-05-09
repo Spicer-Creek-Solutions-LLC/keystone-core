@@ -56,6 +56,16 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: `pkg/plugin/runtime/wasm` loads + runs a signed wasm module via the same `Runtime` interface as Starlark.
 - **References**: Epic 00 deferred list (line 69).
 
+#### Server-side heartbeat / metadata NATS subscriber → agent registry
+- **What**: kscore-server has `internal/controlplane.ConnectionManager.Heartbeat(ctx, id)` and `UpdateAgent` plumbing, but nothing in v1.0 subscribes to `kscore.{cluster}.agent.heartbeat` / `kscore.{cluster}.agent.{id}.state` and feeds those payloads into the registry. Agents publish heartbeats and metadata into the void; the server's agent registry stays empty.
+- **Why deferred**: Epic 06 owns the agent side (publishing) — it shipped. The consumer side is a server-runtime concern that fits naturally with Epic 07 (remote execution targeting reads from the registry) or Epic 13 (clustering / agent registry HA). Either of those epics will land the bridge.
+- **Acceptance**: Three Epic 06 acceptance bullets that gate on this consumer flip to ✓ once the bridge lands —
+    1. "Agent registers with control plane on startup (visible in `kscorectl agents list`)"
+    2. "Heartbeat every 30s; control plane marks stale after 3 missed"
+    3. "Metadata published on startup + every 60s; visible via `kscorectl agents show <id>`"
+  Plus: a server-side integration test driving an agent → server registry visible round-trip.
+- **References**: Epic 06 task 12 `_(landed)_` surfaced the gap; `internal/controlplane/connection_manager.go:218` (Heartbeat method waiting for a caller); agent publishes at `internal/agent/agent.go` (`runHeartbeatLoop`, `runMetadataLoop`).
+
 ## v1.2
 
 #### TUI monitor (`kscore-monitor`)

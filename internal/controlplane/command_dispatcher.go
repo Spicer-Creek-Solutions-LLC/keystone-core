@@ -362,7 +362,14 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 		return "", fmt.Errorf("controlplane: marshal command: %w", err)
 	}
 
+	// envelope.MessageID == command ID == inner CommandMessage.MessageID.
+	// The agent's HMAC verify recomputes over the inner request with
+	// req.MessageID = env.MessageID — without WithMessageID, envelope.New
+	// stamps a random UUID and the verify always fails. Setting both
+	// keeps the wire-level identifier unified with the logical command
+	// ID (also a debugging win — one ID across logs / journal).
 	env := envelope.New(payload, d.subjects.Prefix(),
+		envelope.WithMessageID(id),
 		envelope.WithCorrelationID(id),
 	)
 	if err := d.publisher.PublishEnvelope(ctx, subject, env); err != nil {
