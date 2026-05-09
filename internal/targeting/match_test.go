@@ -36,6 +36,64 @@ func TestMatchValue(t *testing.T) {
 	}
 }
 
+func TestMatchValue_Slice(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		value   any
+		pattern string
+		want    bool
+	}{
+		{name: "string slice hit", value: []string{"10.0.1.5", "127.0.0.1"}, pattern: "10.0.1.5", want: true},
+		{name: "string slice miss", value: []string{"10.0.1.5"}, pattern: "192.168.1.1", want: false},
+		{name: "string slice glob hit", value: []string{"db-01", "web-01"}, pattern: "web-*", want: true},
+		{name: "empty slice", value: []string{}, pattern: "anything", want: false},
+		{name: "any slice hit", value: []any{"a", "b", "c"}, pattern: "b", want: true},
+		{name: "any slice miss", value: []any{1, 2, 3}, pattern: "9", want: false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := matchValue(tc.value, tc.pattern); got != tc.want {
+				t.Errorf("matchValue(%v, %q) = %v, want %v", tc.value, tc.pattern, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMatchValue_CIDR(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		value   any
+		pattern string
+		want    bool
+	}{
+		{name: "ipv4 hit", value: "10.0.1.5", pattern: "10.0.0.0/8", want: true},
+		{name: "ipv4 miss", value: "192.168.1.5", pattern: "10.0.0.0/8", want: false},
+		{name: "ipv4 narrow hit", value: "10.0.1.5", pattern: "10.0.1.0/24", want: true},
+		{name: "ipv4 narrow miss", value: "10.0.2.5", pattern: "10.0.1.0/24", want: false},
+		{name: "ipv6 hit", value: "fe80::1", pattern: "fe80::/10", want: true},
+		{name: "ipv6 miss", value: "2001:db8::1", pattern: "fe80::/10", want: false},
+		{name: "non-ip value", value: "not-an-ip", pattern: "10.0.0.0/8", want: false},
+		{name: "literal ip no slash falls through", value: "10.0.0.1", pattern: "10.0.0.1", want: true},
+		{name: "slice hits any element", value: []string{"127.0.0.1", "10.0.1.5"}, pattern: "10.0.0.0/8", want: true},
+		{name: "slice misses all elements", value: []string{"127.0.0.1", "192.168.1.1"}, pattern: "10.0.0.0/8", want: false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := matchValue(tc.value, tc.pattern); got != tc.want {
+				t.Errorf("matchValue(%v, %q) = %v, want %v", tc.value, tc.pattern, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestMatchValue_BadGlob(t *testing.T) {
 	t.Parallel()
 	// Unmatched `[` produces a glob-compile error; matchValue must not

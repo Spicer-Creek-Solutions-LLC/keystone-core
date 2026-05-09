@@ -2,6 +2,7 @@ package targeting
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 
@@ -18,12 +19,44 @@ type globEntry struct {
 	err error
 }
 
-// matchValue reports whether value matches pattern. Patterns without
-// glob metacharacters use string equality; patterns with metachars are
-// compiled once via gobwas/glob and cached. A pattern that fails to
-// compile evaluates to false (logged at the call site by the matcher
-// in task 3 — for task 1 we simply do not panic).
+// matchValue reports whether value matches pattern. Three modes,
+// chosen in this order:
+//
+//  1. Slice value — return true if any element matches the pattern
+//     (recursive call). Used for AgentRecord.IPAddresses, where a
+//     multi-homed agent should match if any address satisfies the
+//     pattern.
+//  2. CIDR pattern (`net.ParseCIDR` succeeds) — parse the stringified
+//     value as an IP and test containment. Non-IP values evaluate to
+//     false rather than panic.
+//  3. Otherwise — literal equality, or `gobwas/glob` match if the
+//     pattern contains a glob metacharacter. Compiled globs are
+//     cached package-wide; a single batch dispatch reuses them across
+//     every agent.
 func matchValue(value any, pattern string) bool {
+	switch v := value.(type) {
+	case []string:
+		for _, s := range v {
+			if matchValue(s, pattern) {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, e := range v {
+			if matchValue(e, pattern) {
+				return true
+			}
+		}
+		return false
+	}
+	if _, ipNet, err := net.ParseCIDR(pattern); err == nil {
+		ip := net.ParseIP(stringify(value))
+		if ip == nil {
+			return false
+		}
+		return ipNet.Contains(ip)
+	}
 	s := stringify(value)
 	if !hasGlobMeta(pattern) {
 		return s == pattern

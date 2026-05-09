@@ -27,7 +27,7 @@ var envSchema = map[string]any{
 	"os":       "",
 	"arch":     "",
 	"status":   "",
-	"ip":       "",
+	"ip":       []string{},
 	"labels":   map[string]string{},
 }
 

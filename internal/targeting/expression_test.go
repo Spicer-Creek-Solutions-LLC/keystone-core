@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/expr-lang/expr"
+
+	"go.keystone-core.io/keystone-core/internal/state"
 )
 
 func TestCompile_OK(t *testing.T) {
@@ -106,6 +108,59 @@ func TestCompile_Eval(t *testing.T) {
 		{in: "labels.env:prod", want: true},
 	}
 
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.in, func(t *testing.T) {
+			t.Parallel()
+			te, err := Compile(tc.in)
+			if err != nil {
+				t.Fatalf("Compile(%q): %v", tc.in, err)
+			}
+			out, err := expr.Run(te.Program, env)
+			if err != nil {
+				t.Fatalf("Run(%q): %v", tc.in, err)
+			}
+			got, ok := out.(bool)
+			if !ok {
+				t.Fatalf("Run(%q) returned %T, want bool", tc.in, out)
+			}
+			if got != tc.want {
+				t.Errorf("Run(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCompile_RunAgainstFlattened wires Compile + Flatten end-to-end
+// against a state.AgentRecord. Task 3's Matcher is the canonical
+// surface; this test catches mismatches between envSchema and Flatten.
+func TestCompile_RunAgainstFlattened(t *testing.T) {
+	t.Parallel()
+
+	rec := state.AgentRecord{
+		ID:           "web-01",
+		Hostname:     "web-prod-01",
+		OS:           "linux",
+		Architecture: "amd64",
+		IPAddresses:  []string{"10.0.1.5", "fe80::1"},
+		Labels:       map[string]string{"role": "web", "env": "prod"},
+		Status:       state.AgentStatusConnected,
+	}
+	env := Flatten(rec)
+
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{in: "status:online", want: true}, // connected → online
+		{in: "status:stale", want: false},
+		{in: "ip:10.0.0.0/8", want: true},  // CIDR hit on IPv4 element
+		{in: "ip:192.168.0.0/16", want: false}, // CIDR miss
+		{in: "ip:fe80::/10", want: true},   // CIDR hit on IPv6 element
+		{in: "ip:10.0.1.5", want: true},    // literal hit on a single element
+		{in: "role:web AND env:prod", want: true},
+		{in: "id:web-* AND status:online AND ip:10.0.0.0/8", want: true},
+	}
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.in, func(t *testing.T) {
