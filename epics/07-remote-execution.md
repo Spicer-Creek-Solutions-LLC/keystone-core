@@ -38,7 +38,7 @@ See `PROJECT-DETAILS.md §4.7`.
 
 1. ~~**`TargetExpression` + parser** using `expr-lang/expr`. Inject `match()` custom function for glob-pattern eval.~~ ✅ (`internal/targeting/{expression,parse,match}.go`; shorthand → expr-source translator; `gobwas/glob`-backed cached `match()`; non-builtin fields desugar to `labels.<name>`.)
 2. ~~**Agent metadata flattener** (id, hostname, os, arch, labels.*, ip, status) for matcher input.~~ ✅ (`internal/targeting/flatten.go`; `state.AgentRecord` → env map; `connected` normalized to `online`; `match()` extended for `[]string` slices and CIDR patterns so `ip:10.0.0.0/8` resolves against `IPAddresses`.)
-3. **`Matcher.Match(agent)`** + extensive table tests (positive + negative cases, compound expressions).
+3. ~~**`Matcher.Match(agent)`** + extensive table tests (positive + negative cases, compound expressions).~~ ✅ (`internal/targeting/matcher.go`; thin wrapper around `expr.Run` against `Flatten`'d agent records; extensive table covers all builtins, status normalization, IPv4/IPv6 CIDR, label sugar, AND/OR/NOT compounds, parens, nil-safety, run-error and non-bool result paths.)
 4. **`Executor.Execute`** + state-machine wrapper + callbacks. Tests for retry, timeout, cancel.
 5. **`Pipeline` sequential executor** + tests (rare external use; underlies blueprint apply).
 6. **Shell abstraction** + per-platform tests (Linux runs bash/sh; Windows skipped in v1.0 — covered by v1.1).
