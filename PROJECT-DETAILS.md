@@ -506,7 +506,7 @@ Bootstrap is **transactional with rollback**. Re-runs must be idempotent.
 - `Callbacks{OnStarted, OnCompleted, OnFailed, OnTimeout, OnCancelled, OnRetrying, OnRetry}` — observable transitions.
 - `Pipeline` (sequential stages with output piping, optional fail-fast, optional Transform per stage). v1.0 includes; rarely used externally but underlies blueprint apply.
 - **Shell abstraction**: `Shell` interface (`Bash`, `Sh`, `Powershell`, `Cmd`, `Default`) — `GetDefaultShell()` from `runtime.GOOS`; `IsAvailable()` via `exec.LookPath`.
-- **Command policy** (`Strict`/`Normal`/`Permissive` modes; `AllowedCommands`, `AllowedPatterns`, `BlockedCommands`, `BlockedPatterns`, `AllowShellExecution`, `MaxCommandLength` 64KB default). Default mode: `Normal`. `ValidateForShell()` is stricter (blocks shell metacharacters: `;`, `&`, `|`, backtick).
+- **Command policy** (`Strict`/`Normal`/`Permissive` modes; `AllowedCommands`, `AllowedPatterns`, `BlockedCommands`, `BlockedPatterns`, `AllowShellExecution`, `MaxCommandLength` 64KB default). Default mode: `Normal`. `ValidateNoShell()` (renamed in Epic 07 task 7 from `ValidateForShell()` — the original name read backwards) is stricter than `Validate()`: it blocks shell metacharacters `;`, `&`, `|`, backtick. Use `ValidateNoShell` for direct-exec (no shell), `Validate` for shell-mode.
 
 **Batch dispatch** (`internal/controlplane/batch_dispatcher.go`, `internal/targeting/batch.go`):
 - `BatchDispatcher.ExecuteBatch(req) → batchID, error` — creates job (UUID or supplied), spawns async goroutine.
