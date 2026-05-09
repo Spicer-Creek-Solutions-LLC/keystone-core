@@ -123,6 +123,7 @@ kscore.{cluster}.discovery
 | K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (v1.3) and K8s exec. |
 | Cloud | AWS SDK v2, GCP, Azure SDKs | Initially used by secrets+identity; broader v2.0. |
 | TUI | `charmbracelet/bubbletea`, `lipgloss` | Monitor binary (v1.1). |
+| Targeting | `github.com/expr-lang/expr`, `github.com/gobwas/glob` | Compiled-VM expressions for `--target` selectors with a `match()` glob function. Chosen in Epic 07 task 1 over CEL (heavy, proto-centric) and a custom RD parser. |
 
 ### 3.3 Build Outputs
 
