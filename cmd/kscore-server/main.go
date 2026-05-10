@@ -24,6 +24,7 @@ import (
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
+	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
 // shutdownTimeout matches PROJECT-DETAILS §4.4 — 30s ceiling on graceful
@@ -135,6 +136,27 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("server init: %w", err)
 	}
 	storeClosed = true // server.Stop now owns the store
+
+	batchDisp, err := controlplane.NewBatchDispatcher(controlplane.BatchDispatcherConfig{
+		Store:  store,
+		Logger: log,
+	})
+	if err != nil {
+		return fmt.Errorf("batch dispatcher: %w", err)
+	}
+	cpGRPC, err := controlplane.NewGRPCServer(controlplane.GRPCServerConfig{
+		Dispatcher: batchDisp,
+		Store:      store,
+		Logger:     log,
+		// Executor: nil — task 9d / 12 wires the NATS-backed runner.
+		// Until then, ExecuteCommand / BatchExecuteCommand respond
+		// with codes.Unavailable. ServerStatus / list RPCs continue
+		// to surface as Unimplemented (owned by other epics).
+	})
+	if err != nil {
+		return fmt.Errorf("controlplane grpc: %w", err)
+	}
+	srv.RegisterService(&v1.ControlPlaneService_ServiceDesc, cpGRPC)
 
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("server start: %w", err)
