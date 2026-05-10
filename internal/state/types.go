@@ -146,14 +146,23 @@ type BatchJobRecord struct {
 // BatchAgentResultRecord is one row in the per-agent results table for a
 // batch job. Maps to `batch_agent_results`; primary key is
 // (BatchJobID, AgentID).
+//
+// Stdout / Stderr carry the agent's captured output post-truncation;
+// the *Truncated flags signal the agent's execution-time output-cap
+// hit (see PROJECT-DETAILS §4.7 output truncation defaults: stdout
+// 1 MiB / stderr 256 KiB).
 type BatchAgentResultRecord struct {
-	BatchJobID  string
-	AgentID     string
-	Success     bool
-	ExitCode    int
-	Error       string
-	StartedAt   time.Time
-	CompletedAt time.Time
+	BatchJobID      string
+	AgentID         string
+	Success         bool
+	ExitCode        int
+	Error           string
+	Stdout          []byte
+	Stderr          []byte
+	StdoutTruncated bool
+	StderrTruncated bool
+	StartedAt       time.Time
+	CompletedAt     time.Time
 }
 
 // APIKeyRecord is the persistent shape of an API key. KeyHash is the

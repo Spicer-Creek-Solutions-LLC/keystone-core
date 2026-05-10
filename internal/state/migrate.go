@@ -506,8 +506,10 @@ const migrateInsertBatchJobSQL = `INSERT INTO batch_jobs (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 
 const migrateInsertBatchAgentResultSQL = `INSERT INTO batch_agent_results (
-    batch_job_id, agent_id, success, exit_code, error, started_at, completed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+    batch_job_id, agent_id, success, exit_code, error,
+    stdout, stderr, stdout_truncated, stderr_truncated,
+    started_at, completed_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 // gosec G101 false-positive: SQL fragment, not a credential.
 //
@@ -615,6 +617,7 @@ func (m *Migrator) insertBatchAgentResultTarget(ctx context.Context, r *BatchAge
 		r.BatchJobID, r.AgentID, r.Success,
 		nullableExitCodeForBatch(r.ExitCode, r.Success),
 		nullableString(r.Error),
+		r.Stdout, r.Stderr, r.StdoutTruncated, r.StderrTruncated,
 		nullableTime(r.StartedAt), nullableTime(r.CompletedAt),
 	)
 	if err != nil {

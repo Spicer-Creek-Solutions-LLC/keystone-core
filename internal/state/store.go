@@ -59,6 +59,7 @@ type BatchJobStore interface {
 	FinalizeBatchJob(ctx context.Context, id string, status BatchJobStatus, completedAt time.Time) error
 
 	CreateBatchAgentResult(ctx context.Context, r *BatchAgentResultRecord) error
+	GetBatchAgentResult(ctx context.Context, batchJobID, agentID string) (*BatchAgentResultRecord, error)
 	ListBatchAgentResults(ctx context.Context, batchJobID string) ([]*BatchAgentResultRecord, error)
 }
 

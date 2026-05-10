@@ -228,6 +228,55 @@ func TestPg_BatchJob_Lifecycle(t *testing.T) {
 	}
 }
 
+func TestPg_BatchAgentResult_OutputRoundTrip(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+	if err := s.CreateAgent(ctx, sampleAgent("agent-out")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateBatchJob(ctx, sampleBatchJob("job-out")); err != nil {
+		t.Fatal(err)
+	}
+	stdout := []byte("hello\nworld\n")
+	stderr := []byte("warning: x\n")
+	r := &BatchAgentResultRecord{
+		BatchJobID:      "job-out",
+		AgentID:         "agent-out",
+		Success:         true,
+		Stdout:          stdout,
+		Stderr:          stderr,
+		StdoutTruncated: false,
+		StderrTruncated: true,
+		StartedAt:       time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC),
+		CompletedAt:     time.Date(2026, 5, 10, 14, 0, 1, 0, time.UTC),
+	}
+	if err := s.CreateBatchAgentResult(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetBatchAgentResult(ctx, "job-out", "agent-out")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got.Stdout) != string(stdout) {
+		t.Errorf("Stdout = %q, want %q", got.Stdout, stdout)
+	}
+	if string(got.Stderr) != string(stderr) {
+		t.Errorf("Stderr = %q", got.Stderr)
+	}
+	if got.StdoutTruncated || !got.StderrTruncated {
+		t.Errorf("truncation flags: stdout=%v stderr=%v",
+			got.StdoutTruncated, got.StderrTruncated)
+	}
+}
+
+func TestPg_GetBatchAgentResult_NotFound(t *testing.T) {
+	s := newPgStoreForTest(t)
+	_, err := s.GetBatchAgentResult(t.Context(), "missing", "missing")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestPg_BatchAgentResult_ForeignKeyEnforced(t *testing.T) {
 	s := newPgStoreForTest(t)
 	r := &BatchAgentResultRecord{

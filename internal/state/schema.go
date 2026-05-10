@@ -116,13 +116,17 @@ var sqliteSchema = []string{
     completed_at      TEXT
 )`,
 	`CREATE TABLE IF NOT EXISTS batch_agent_results (
-    batch_job_id TEXT NOT NULL REFERENCES batch_jobs(id),
-    agent_id     TEXT NOT NULL REFERENCES agents(id),
-    success      INTEGER NOT NULL,
-    exit_code    INTEGER,
-    error        TEXT,
-    started_at   TEXT,
-    completed_at TEXT,
+    batch_job_id     TEXT NOT NULL REFERENCES batch_jobs(id),
+    agent_id         TEXT NOT NULL REFERENCES agents(id),
+    success          INTEGER NOT NULL,
+    exit_code        INTEGER,
+    error            TEXT,
+    stdout           BLOB,
+    stderr           BLOB,
+    stdout_truncated INTEGER NOT NULL DEFAULT 0,
+    stderr_truncated INTEGER NOT NULL DEFAULT 0,
+    started_at       TEXT,
+    completed_at     TEXT,
     PRIMARY KEY (batch_job_id, agent_id)
 )`,
 	`CREATE TABLE IF NOT EXISTS apikeys (
@@ -198,13 +202,17 @@ var postgresSchema = []string{
     completed_at      TIMESTAMPTZ
 )`,
 	`CREATE TABLE IF NOT EXISTS batch_agent_results (
-    batch_job_id TEXT NOT NULL REFERENCES batch_jobs(id),
-    agent_id     TEXT NOT NULL REFERENCES agents(id),
-    success      BOOLEAN NOT NULL,
-    exit_code    INTEGER,
-    error        TEXT,
-    started_at   TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
+    batch_job_id     TEXT NOT NULL REFERENCES batch_jobs(id),
+    agent_id         TEXT NOT NULL REFERENCES agents(id),
+    success          BOOLEAN NOT NULL,
+    exit_code        INTEGER,
+    error            TEXT,
+    stdout           BYTEA,
+    stderr           BYTEA,
+    stdout_truncated BOOLEAN NOT NULL DEFAULT FALSE,
+    stderr_truncated BOOLEAN NOT NULL DEFAULT FALSE,
+    started_at       TIMESTAMPTZ,
+    completed_at     TIMESTAMPTZ,
     PRIMARY KEY (batch_job_id, agent_id)
 )`,
 	`CREATE TABLE IF NOT EXISTS apikeys (

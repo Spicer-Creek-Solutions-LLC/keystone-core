@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ FROM batch_jobs`
 const batchAgentResultSelectPg = `SELECT
     batch_job_id, agent_id, success,
     exit_code, COALESCE(error, ''),
+    stdout, stderr, stdout_truncated, stderr_truncated,
     started_at, completed_at
 FROM batch_agent_results`
 
@@ -159,17 +161,34 @@ func (s *PostgreSQLStore) CreateBatchAgentResult(ctx context.Context, r *BatchAg
 	}
 
 	_, err := s.db.ExecContext(ctx, `INSERT INTO batch_agent_results (
-    batch_job_id, agent_id, success, exit_code, error, started_at, completed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    batch_job_id, agent_id, success, exit_code, error,
+    stdout, stderr, stdout_truncated, stderr_truncated,
+    started_at, completed_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		r.BatchJobID, r.AgentID, r.Success,
 		sql.NullInt64{Int64: int64(r.ExitCode), Valid: r.ExitCode != 0 || !r.Success},
 		nullableString(r.Error),
+		r.Stdout, r.Stderr, r.StdoutTruncated, r.StderrTruncated,
 		nullableTime(r.StartedAt), nullableTime(r.CompletedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("state: CreateBatchAgentResult: %w", err)
 	}
 	return nil
+}
+
+func (s *PostgreSQLStore) GetBatchAgentResult(ctx context.Context, batchJobID, agentID string) (*BatchAgentResultRecord, error) {
+	row := s.db.QueryRowContext(ctx,
+		batchAgentResultSelectPg+` WHERE batch_job_id = $1 AND agent_id = $2`,
+		batchJobID, agentID)
+	r, err := scanBatchAgentResultPg(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("state: GetBatchAgentResult: %w", err)
+	}
+	return r, nil
 }
 
 func (s *PostgreSQLStore) ListBatchAgentResults(ctx context.Context, batchJobID string) ([]*BatchAgentResultRecord, error) {
@@ -242,6 +261,7 @@ func scanBatchAgentResultPg(r rowLike) (*BatchAgentResultRecord, error) {
 	if err := r.Scan(
 		&out.BatchJobID, &out.AgentID, &out.Success,
 		&exitCode, &out.Error,
+		&out.Stdout, &out.Stderr, &out.StdoutTruncated, &out.StderrTruncated,
 		&startedAt, &doneAt,
 	); err != nil {
 		return nil, err
