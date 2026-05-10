@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/cli"
+	"go.keystone-core.io/keystone-core/internal/cli/exec"
 	"go.keystone-core.io/keystone-core/internal/config"
 )
 
@@ -23,11 +24,13 @@ func main() {
 }
 
 func newCommand() *cobra.Command {
-	return cli.RootCommand(cli.Options{
+	root := cli.RootCommand(cli.Options{
 		Name:  "kscorectl",
 		Short: "Keystone Core operator CLI",
 		Run:   run,
 	})
+	root.AddCommand(exec.NewCommand(exec.Deps{}))
+	return root
 }
 
 // run is a no-op for the v1.0 hello-world: kscorectl is a client, not a
