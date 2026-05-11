@@ -106,3 +106,16 @@ func TestModuleNames_IncludesUser(t *testing.T) {
 		t.Error("user module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesPackage(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "package" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("package module missing from stdlib")
+	}
+}

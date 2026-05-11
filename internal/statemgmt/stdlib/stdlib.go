@@ -27,16 +27,18 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/group"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
 )
 
 // modules is the canonical name → factory map. Adding a new stdlib
 // module is a one-line addition here.
 var modules = map[string]statemgmt.Factory{
-	"cmd":   cmd.New,
-	"file":  file.New,
-	"group": group.New,
-	"user":  user.New,
+	"cmd":     cmd.New,
+	"file":    file.New,
+	"group":   group.New,
+	"package": pkg.New,
+	"user":    user.New,
 }
 
 // RegisterAll registers every stdlib module into reg. Pass nil to
