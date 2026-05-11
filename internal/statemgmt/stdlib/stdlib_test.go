@@ -80,3 +80,16 @@ func TestModuleNames_IncludesCmd(t *testing.T) {
 		t.Error("cmd module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesGroup(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "group" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("group module missing from stdlib")
+	}
+}
