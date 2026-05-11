@@ -19,6 +19,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
@@ -155,12 +156,14 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	srv.RegisterService(&v1.ControlPlaneService_ServiceDesc, cpGRPC)
 
-	// Epic 08: StateService. Registry stays at the package-level
-	// DefaultRegistry — Task 11 (the 40-module stdlib) will register
-	// concrete modules into it at init time. Until then the engine
-	// is wired but ApplyState/CheckState/DetectDrift will return
-	// validation errors for any module the test harness has not
-	// explicitly registered.
+	// Epic 08: register stdlib modules into DefaultRegistry, then
+	// wire StateService. Task 11a ships the `file` module;
+	// subsequent 11b/c/d PRs add the rest of the ~40-module
+	// stdlib. RegisterAll(nil) targets DefaultRegistry, which is
+	// what NewStateGRPCServer reads when its own Registry is nil.
+	if err := stdlib.RegisterAll(nil); err != nil {
+		return fmt.Errorf("stdlib register: %w", err)
+	}
 	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
 	srv.RegisterService(&v1.StateService_ServiceDesc, stateGRPC)
 
