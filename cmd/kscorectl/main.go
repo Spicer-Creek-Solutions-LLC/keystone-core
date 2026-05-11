@@ -14,6 +14,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/cli/exec"
+	"go.keystone-core.io/keystone-core/internal/cli/state"
 	"go.keystone-core.io/keystone-core/internal/config"
 )
 
@@ -30,6 +31,7 @@ func newCommand() *cobra.Command {
 		Run:   run,
 	})
 	root.AddCommand(exec.NewCommand(exec.Deps{}))
+	root.AddCommand(state.NewCommand(state.Deps{}))
 	return root
 }
 
