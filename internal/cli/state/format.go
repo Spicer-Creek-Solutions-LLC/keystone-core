@@ -6,10 +6,24 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
+
+func modeLabel(m v1.StateRunMode) string {
+	switch m {
+	case v1.StateRunMode_STATE_RUN_MODE_APPLY:
+		return "apply"
+	case v1.StateRunMode_STATE_RUN_MODE_CHECK:
+		return "check"
+	case v1.StateRunMode_STATE_RUN_MODE_DRIFT:
+		return "drift"
+	default:
+		return "unknown"
+	}
+}
 
 // outcomeBadge returns the short tag that prefixes a decl row in
 // table output.
@@ -249,6 +263,145 @@ func printVars(out io.Writer, format string, vars map[string]any, key string) er
 		fmt.Fprintf(out, "%s=%v\n", k, vars[k])
 	}
 	return nil
+}
+
+// ---- History --------------------------------------------------------
+
+// printHistory renders the list of past runs returned by
+// GetStateHistory. Table format includes the headline counters
+// inline so an operator scanning history sees outcome at a glance.
+func printHistory(out io.Writer, format string, runs []*v1.StateRun) error {
+	if format == FormatJSON {
+		return writeJSON(out, runs)
+	}
+	if len(runs) == 0 {
+		fmt.Fprintln(out, "no state runs found")
+		return nil
+	}
+	fmt.Fprintln(out, "RUN ID                                MODE   STATUS    AGENT            STARTED                  DURATION  COUNTS")
+	for _, r := range runs {
+		fmt.Fprintf(out, "%-36s  %-5s  %-9s %-16s %-23s  %-8s  %s\n",
+			r.GetId(),
+			modeLabel(r.GetMode()),
+			statusLabel(r.GetStatus()),
+			truncate(r.GetAgentId(), 16),
+			formatTimestamp(r.GetStartedAt()),
+			formatDuration(r.GetStartedAt(), r.GetEndedAt()),
+			countsSummary(r.GetAggregates()))
+	}
+	return nil
+}
+
+// ---- Show -----------------------------------------------------------
+
+// printShow renders one full GetStateStatusResponse.
+func printShow(out io.Writer, format string, resp *v1.GetStateStatusResponse) error {
+	if format == FormatJSON {
+		return writeJSON(out, resp)
+	}
+	if resp == nil || resp.Run == nil {
+		fmt.Fprintln(out, "no run data")
+		return nil
+	}
+	r := resp.Run
+	fmt.Fprintf(out, "Run %s\n", r.GetId())
+	fmt.Fprintf(out, "  Mode:      %s\n", modeLabel(r.GetMode()))
+	fmt.Fprintf(out, "  Status:    %s\n", statusLabel(r.GetStatus()))
+	fmt.Fprintf(out, "  Source:    %s\n", r.GetSource())
+	if r.GetClusterId() != "" {
+		fmt.Fprintf(out, "  Cluster:   %s\n", r.GetClusterId())
+	}
+	if r.GetAgentId() != "" {
+		fmt.Fprintf(out, "  Agent:     %s\n", r.GetAgentId())
+	}
+	fmt.Fprintf(out, "  Started:   %s\n", formatTimestamp(r.GetStartedAt()))
+	if r.GetEndedAt() != nil {
+		fmt.Fprintf(out, "  Ended:     %s (%s)\n", formatTimestamp(r.GetEndedAt()),
+			formatDuration(r.GetStartedAt(), r.GetEndedAt()))
+	} else {
+		fmt.Fprintln(out, "  Ended:     (still running)")
+	}
+	fmt.Fprintf(out, "  Counts:    %s\n", countsSummary(r.GetAggregates()))
+	if r.GetErrorMessage() != "" {
+		fmt.Fprintf(out, "  Error:     %s\n", r.GetErrorMessage())
+	}
+	if len(resp.GetDeclarations()) > 0 {
+		fmt.Fprintln(out, "\nDeclarations:")
+		for _, d := range resp.GetDeclarations() {
+			detail := pickShowDetail(d)
+			fmt.Fprintf(out, "  [%s] %-32s %s\n", outcomeBadge(d.GetOutcome()), d.GetDeclId(), detail)
+		}
+	}
+	return nil
+}
+
+// pickShowDetail returns the most useful per-decl annotation: the
+// apply diff, then the check diff, then the error message.
+func pickShowDetail(d *v1.StateDeclarationResult) string {
+	switch {
+	case d.GetApplyDiff() != "":
+		return "applied (" + d.GetApplyDiff() + ")"
+	case d.GetCheckDiff() != "":
+		return d.GetCheckDiff()
+	case d.GetErrorMessage() != "":
+		return d.GetErrorMessage()
+	default:
+		return ""
+	}
+}
+
+// countsSummary collapses the 6 aggregate counters into a compact
+// "T=N C=N U=N F=N S=N D=N" string. Zeros stay visible so an
+// operator can tell at a glance whether all dimensions are zero.
+func countsSummary(a *v1.StateRunAggregates) string {
+	if a == nil {
+		return "(no counts)"
+	}
+	return fmt.Sprintf("T=%d C=%d U=%d F=%d S=%d D=%d",
+		a.GetTotal(), a.GetChanged(), a.GetUnchanged(),
+		a.GetFailed(), a.GetSkipped(), a.GetDrifted())
+}
+
+// formatTimestamp pulls a *timestamppb.Timestamp into a stable
+// "YYYY-MM-DD HH:MM:SS UTC" string. Empty timestamp returns "(none)".
+func formatTimestamp(ts interface{ AsTime() time.Time }) string {
+	if ts == nil {
+		return "(none)"
+	}
+	t := ts.AsTime()
+	if t.IsZero() {
+		return "(none)"
+	}
+	return t.UTC().Format("2006-01-02 15:04:05 UTC")
+}
+
+// formatDuration renders started→ended as a milliseconds string. If
+// ended is zero we return "—".
+func formatDuration(started, ended interface{ AsTime() time.Time }) string {
+	if started == nil || ended == nil {
+		return "—"
+	}
+	startT := started.AsTime()
+	endT := ended.AsTime()
+	if startT.IsZero() || endT.IsZero() {
+		return "—"
+	}
+	d := endT.Sub(startT)
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return d.Truncate(time.Millisecond).String()
+}
+
+// truncate shortens s to at most n bytes, suffixing "…" if cut.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return s[:n-1] + "…"
 }
 
 // writeJSON is the centralised JSON writer — newline-terminated so

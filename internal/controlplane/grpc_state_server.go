@@ -244,6 +244,98 @@ func (s *StateGRPCServer) GetStateHistory(ctx context.Context, req *v1.GetStateH
 	return out, nil
 }
 
+// RollbackState re-applies the declarations from a previously-stored
+// run. The proto path is server-driven so the client doesn't have to
+// reconstruct YAML from per-decl history. New run_id; new state_runs
+// row; the stream shape matches ApplyState's so the CLI's drain loop
+// is identical.
+func (s *StateGRPCServer) RollbackState(req *v1.RollbackStateRequest, stream grpc.ServerStreamingServer[v1.ApplyStateResponse]) error {
+	if req.GetRunId() == "" {
+		return status.Error(codes.InvalidArgument, "run_id is required")
+	}
+
+	// Load the historical record; surface NotFound cleanly.
+	header, _, err := s.Store.GetStateRun(stream.Context(), req.GetRunId())
+	if err != nil {
+		if errors.Is(err, state.ErrNotFound) {
+			return status.Errorf(codes.NotFound, "state run %q not found", req.GetRunId())
+		}
+		return status.Errorf(codes.Internal, "get state run: %v", err)
+	}
+	decls, err := unmarshalDeclarations(header.DeclarationsJSON)
+	if err != nil {
+		return status.Errorf(codes.Internal, "decode declarations: %v", err)
+	}
+	if len(decls) == 0 {
+		return status.Errorf(codes.FailedPrecondition, "state run %q has no declarations to roll back", req.GetRunId())
+	}
+
+	// Re-validate against the current Registry — guards against
+	// modules removed/renamed since the original run. Skip render
+	// (decls are already rendered) but redo Resolver to ensure topo
+	// order is current.
+	reg := s.resolveRegistry()
+	fake := &statemgmt.StateFile{Declarations: decls}
+	if err := statemgmt.NewValidator(reg).Validate(fake); err != nil {
+		return status.Errorf(codes.FailedPrecondition, "validate: %v", err)
+	}
+	ordered, err := statemgmt.NewResolver().Resolve(fake)
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "resolve: %v", err)
+	}
+
+	// Choose source/agent/cluster: request overrides win; otherwise
+	// inherit from the original run.
+	source := req.GetSource()
+	if source == "" {
+		source = "rollback-of-" + req.GetRunId()
+	}
+	agentID := req.GetAgentId()
+	if agentID == "" {
+		agentID = header.AgentID
+	}
+	clusterID := req.GetClusterId()
+	if clusterID == "" {
+		clusterID = header.ClusterID
+	}
+
+	mode := state.StateRunModeApply
+	if req.GetDryRun() {
+		mode = state.StateRunModeCheck
+	}
+	runID := uuid.NewString()
+	if err := s.openRun(stream.Context(), runID, mode, source, clusterID, agentID, ordered); err != nil {
+		return err
+	}
+
+	if err := stream.Send(&v1.ApplyStateResponse{Event: &v1.ApplyStateResponse_RunId{RunId: runID}}); err != nil {
+		return err
+	}
+
+	obs := &streamObserver{stream: stream, store: s.Store, runID: runID}
+	runner := &statemgmt.Runner{Registry: reg, Observer: obs}
+
+	var report *statemgmt.RunReport
+	var runErr error
+	if req.GetDryRun() {
+		report, runErr = runner.Check(stream.Context(), ordered)
+	} else {
+		report, runErr = runner.Run(stream.Context(), ordered)
+	}
+
+	finalErrMsg := obsErrors(obs, runErr)
+	finalStatus := state.StateRunStatusCompleted
+	if runErr != nil {
+		finalStatus = state.StateRunStatusFailed
+	}
+	end := reportAggregatesToEnd(finalStatus, nowOr(s.now()), finalErrMsg, report)
+	if err := s.Store.FinalizeStateRun(stream.Context(), runID, end); err != nil {
+		_ = stream.Send(terminalEvent(runID, recordStatusToProto(finalStatus), reportAggregatesToProto(report), fmt.Sprintf("finalize: %v", err)))
+		return status.Errorf(codes.Internal, "finalize state run: %v", err)
+	}
+	return stream.Send(terminalEvent(runID, recordStatusToProto(finalStatus), reportAggregatesToProto(report), finalErrMsg))
+}
+
 func (s *StateGRPCServer) GetStateStatus(ctx context.Context, req *v1.GetStateStatusRequest) (*v1.GetStateStatusResponse, error) {
 	if req.GetRunId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "run_id is required")

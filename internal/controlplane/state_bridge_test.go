@@ -375,3 +375,45 @@ func TestDeclarationsToJSON_Empty(t *testing.T) {
 	}
 }
 
+func TestUnmarshalDeclarations_RoundTrip(t *testing.T) {
+	t.Parallel()
+	in := []*statemgmt.Declaration{
+		{ID: "file:/x", Module: "file", Name: "/x", State: "present"},
+		{ID: "package:nginx", Module: "package", Name: "nginx", State: "installed"},
+	}
+	s, err := declarationsToJSON(in)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	out, err := unmarshalDeclarations(s)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("len = %d, want 2", len(out))
+	}
+	if out[0].ID != "file:/x" || out[1].Module != "package" {
+		t.Errorf("round-trip lost data: %+v", out)
+	}
+}
+
+func TestUnmarshalDeclarations_EmptyForms(t *testing.T) {
+	t.Parallel()
+	for _, in := range []string{"", "[]"} {
+		out, err := unmarshalDeclarations(in)
+		if err != nil {
+			t.Errorf("unmarshalDeclarations(%q): %v", in, err)
+		}
+		if out != nil {
+			t.Errorf("unmarshalDeclarations(%q) = %v, want nil", in, out)
+		}
+	}
+}
+
+func TestUnmarshalDeclarations_Malformed(t *testing.T) {
+	t.Parallel()
+	if _, err := unmarshalDeclarations("not json"); err == nil {
+		t.Error("expected error on malformed input")
+	}
+}
+

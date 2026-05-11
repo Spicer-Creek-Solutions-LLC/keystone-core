@@ -32,6 +32,7 @@ const (
 	StateService_DetectDrift_FullMethodName     = "/keystone.core.v1.StateService/DetectDrift"
 	StateService_GetStateHistory_FullMethodName = "/keystone.core.v1.StateService/GetStateHistory"
 	StateService_GetStateStatus_FullMethodName  = "/keystone.core.v1.StateService/GetStateStatus"
+	StateService_RollbackState_FullMethodName   = "/keystone.core.v1.StateService/RollbackState"
 )
 
 // StateServiceClient is the client API for StateService service.
@@ -54,6 +55,13 @@ type StateServiceClient interface {
 	// GetStateStatus returns one run's header plus all its per-decl
 	// results.
 	GetStateStatus(ctx context.Context, in *GetStateStatusRequest, opts ...grpc.CallOption) (*GetStateStatusResponse, error)
+	// RollbackState re-applies a previously-stored run's declarations.
+	// The server reads its own state_runs record (which carries the
+	// rendered declarations from the original run) and pipes them
+	// through Validator → Resolver → Runner. Streams progress the
+	// same shape as ApplyState. v1.0 trust model: rollback is itself
+	// an apply, so caller must have apply privileges.
+	RollbackState(ctx context.Context, in *RollbackStateRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ApplyStateResponse], error)
 }
 
 type stateServiceClient struct {
@@ -123,6 +131,25 @@ func (c *stateServiceClient) GetStateStatus(ctx context.Context, in *GetStateSta
 	return out, nil
 }
 
+func (c *stateServiceClient) RollbackState(ctx context.Context, in *RollbackStateRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ApplyStateResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &StateService_ServiceDesc.Streams[1], StateService_RollbackState_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[RollbackStateRequest, ApplyStateResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StateService_RollbackStateClient = grpc.ServerStreamingClient[ApplyStateResponse]
+
 // StateServiceServer is the server API for StateService service.
 // All implementations must embed UnimplementedStateServiceServer
 // for forward compatibility.
@@ -143,6 +170,13 @@ type StateServiceServer interface {
 	// GetStateStatus returns one run's header plus all its per-decl
 	// results.
 	GetStateStatus(context.Context, *GetStateStatusRequest) (*GetStateStatusResponse, error)
+	// RollbackState re-applies a previously-stored run's declarations.
+	// The server reads its own state_runs record (which carries the
+	// rendered declarations from the original run) and pipes them
+	// through Validator → Resolver → Runner. Streams progress the
+	// same shape as ApplyState. v1.0 trust model: rollback is itself
+	// an apply, so caller must have apply privileges.
+	RollbackState(*RollbackStateRequest, grpc.ServerStreamingServer[ApplyStateResponse]) error
 	mustEmbedUnimplementedStateServiceServer()
 }
 
@@ -167,6 +201,9 @@ func (UnimplementedStateServiceServer) GetStateHistory(context.Context, *GetStat
 }
 func (UnimplementedStateServiceServer) GetStateStatus(context.Context, *GetStateStatusRequest) (*GetStateStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetStateStatus not implemented")
+}
+func (UnimplementedStateServiceServer) RollbackState(*RollbackStateRequest, grpc.ServerStreamingServer[ApplyStateResponse]) error {
+	return status.Error(codes.Unimplemented, "method RollbackState not implemented")
 }
 func (UnimplementedStateServiceServer) mustEmbedUnimplementedStateServiceServer() {}
 func (UnimplementedStateServiceServer) testEmbeddedByValue()                      {}
@@ -272,6 +309,17 @@ func _StateService_GetStateStatus_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StateService_RollbackState_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RollbackStateRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StateServiceServer).RollbackState(m, &grpc.GenericServerStream[RollbackStateRequest, ApplyStateResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StateService_RollbackStateServer = grpc.ServerStreamingServer[ApplyStateResponse]
+
 // StateService_ServiceDesc is the grpc.ServiceDesc for StateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -300,6 +348,11 @@ var StateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ApplyState",
 			Handler:       _StateService_ApplyState_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "RollbackState",
+			Handler:       _StateService_RollbackState_Handler,
 			ServerStreams: true,
 		},
 	},

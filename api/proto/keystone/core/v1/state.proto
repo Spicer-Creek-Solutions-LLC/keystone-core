@@ -36,6 +36,14 @@ service StateService {
   // GetStateStatus returns one run's header plus all its per-decl
   // results.
   rpc GetStateStatus(GetStateStatusRequest) returns (GetStateStatusResponse);
+
+  // RollbackState re-applies a previously-stored run's declarations.
+  // The server reads its own state_runs record (which carries the
+  // rendered declarations from the original run) and pipes them
+  // through Validator → Resolver → Runner. Streams progress the
+  // same shape as ApplyState. v1.0 trust model: rollback is itself
+  // an apply, so caller must have apply privileges.
+  rpc RollbackState(RollbackStateRequest) returns (stream ApplyStateResponse);
 }
 
 // ---- Enums ----------------------------------------------------------
@@ -238,4 +246,14 @@ message GetStateStatusRequest {
 message GetStateStatusResponse {
   StateRun run                                  = 1;
   repeated StateDeclarationResult declarations  = 2;
+}
+
+// ---- RollbackState --------------------------------------------------
+
+message RollbackStateRequest {
+  string run_id     = 1;
+  bool dry_run      = 2; // route to Check path instead of full Apply
+  string source     = 3; // optional label override; defaults to "rollback-of-<run_id>"
+  string agent_id   = 4; // optional override; defaults to original run's agent_id
+  string cluster_id = 5; // optional override; defaults to original run's cluster_id
 }

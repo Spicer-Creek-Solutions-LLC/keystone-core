@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -20,15 +21,24 @@ import (
 
 type fakeClient struct {
 	v1.StateServiceClient
-	applyStream  *fakeApplyStream
-	applyErr     error
-	checkResp    *v1.CheckStateResponse
-	checkErr     error
-	driftResp    *v1.DetectDriftResponse
-	driftErr     error
-	applyReqs    []*v1.ApplyStateRequest
-	checkReqs    []*v1.CheckStateRequest
-	driftReqs    []*v1.DetectDriftRequest
+	applyStream     *fakeApplyStream
+	applyErr        error
+	checkResp       *v1.CheckStateResponse
+	checkErr        error
+	driftResp       *v1.DetectDriftResponse
+	driftErr        error
+	historyResp     *v1.GetStateHistoryResponse
+	historyErr      error
+	statusResp      *v1.GetStateStatusResponse
+	statusErr       error
+	rollbackStream  *fakeApplyStream
+	rollbackErr     error
+	applyReqs       []*v1.ApplyStateRequest
+	checkReqs       []*v1.CheckStateRequest
+	driftReqs       []*v1.DetectDriftRequest
+	historyReqs     []*v1.GetStateHistoryRequest
+	statusReqs      []*v1.GetStateStatusRequest
+	rollbackReqs    []*v1.RollbackStateRequest
 }
 
 func (c *fakeClient) ApplyState(_ context.Context, req *v1.ApplyStateRequest, _ ...grpc.CallOption) (v1.StateService_ApplyStateClient, error) {
@@ -47,6 +57,24 @@ func (c *fakeClient) CheckState(_ context.Context, req *v1.CheckStateRequest, _ 
 func (c *fakeClient) DetectDrift(_ context.Context, req *v1.DetectDriftRequest, _ ...grpc.CallOption) (*v1.DetectDriftResponse, error) {
 	c.driftReqs = append(c.driftReqs, req)
 	return c.driftResp, c.driftErr
+}
+
+func (c *fakeClient) GetStateHistory(_ context.Context, req *v1.GetStateHistoryRequest, _ ...grpc.CallOption) (*v1.GetStateHistoryResponse, error) {
+	c.historyReqs = append(c.historyReqs, req)
+	return c.historyResp, c.historyErr
+}
+
+func (c *fakeClient) GetStateStatus(_ context.Context, req *v1.GetStateStatusRequest, _ ...grpc.CallOption) (*v1.GetStateStatusResponse, error) {
+	c.statusReqs = append(c.statusReqs, req)
+	return c.statusResp, c.statusErr
+}
+
+func (c *fakeClient) RollbackState(_ context.Context, req *v1.RollbackStateRequest, _ ...grpc.CallOption) (v1.StateService_RollbackStateClient, error) {
+	c.rollbackReqs = append(c.rollbackReqs, req)
+	if c.rollbackErr != nil {
+		return nil, c.rollbackErr
+	}
+	return c.rollbackStream, nil
 }
 
 // fakeApplyStream serves a fixed slice of events then io.EOF.
@@ -452,5 +480,262 @@ func TestReadInputYAML_RequiresArg(t *testing.T) {
 	_, _, err := readInputYAML(nil)
 	if err == nil {
 		t.Error("expected required-arg error")
+	}
+}
+
+// ---- history ------------------------------------------------------
+
+func TestHistory_ListsRunsAndPropagatesFilters(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{historyResp: &v1.GetStateHistoryResponse{
+		Runs: []*v1.StateRun{
+			{Id: "r-1", Mode: v1.StateRunMode_STATE_RUN_MODE_APPLY, Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED, AgentId: "web-1"},
+			{Id: "r-2", Mode: v1.StateRunMode_STATE_RUN_MODE_CHECK, Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED, AgentId: "web-1"},
+		},
+	}}
+	root := NewCommand(dialFor(client))
+	out, err := runCmd(t, root, "history",
+		"--agent", "web-1",
+		"--mode", "apply",
+		"--status", "completed",
+		"--limit", "10",
+	)
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if !strings.Contains(out, "r-1") || !strings.Contains(out, "r-2") {
+		t.Errorf("missing rows; got:\n%s", out)
+	}
+	if len(client.historyReqs) != 1 {
+		t.Fatalf("got %d requests, want 1", len(client.historyReqs))
+	}
+	req := client.historyReqs[0]
+	if req.AgentId != "web-1" {
+		t.Errorf("AgentId = %q, want web-1", req.AgentId)
+	}
+	if req.Mode != v1.StateRunMode_STATE_RUN_MODE_APPLY {
+		t.Errorf("Mode = %v, want APPLY", req.Mode)
+	}
+	if req.Status != v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED {
+		t.Errorf("Status = %v, want COMPLETED", req.Status)
+	}
+	if req.PageSize != 10 {
+		t.Errorf("PageSize = %d, want 10", req.PageSize)
+	}
+}
+
+func TestHistory_EmptyResult(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{historyResp: &v1.GetStateHistoryResponse{}}
+	root := NewCommand(dialFor(client))
+	out, err := runCmd(t, root, "history")
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if !strings.Contains(out, "no state runs") {
+		t.Errorf("expected empty hint; got:\n%s", out)
+	}
+}
+
+func TestHistory_BadModeRejected(t *testing.T) {
+	t.Parallel()
+	root := NewCommand(dialFor(&fakeClient{}))
+	_, err := runCmd(t, root, "history", "--mode", "nope")
+	if err == nil || !strings.Contains(err.Error(), "expected apply") {
+		t.Errorf("want mode-rejected error, got %v", err)
+	}
+}
+
+func TestHistory_BadStatusRejected(t *testing.T) {
+	t.Parallel()
+	root := NewCommand(dialFor(&fakeClient{}))
+	_, err := runCmd(t, root, "history", "--status", "weird")
+	if err == nil || !strings.Contains(err.Error(), "expected running") {
+		t.Errorf("want status-rejected error, got %v", err)
+	}
+}
+
+func TestHistory_SinceDuration(t *testing.T) {
+	t.Parallel()
+	before := time.Now().UTC().Add(-2 * time.Hour)
+	client := &fakeClient{historyResp: &v1.GetStateHistoryResponse{}}
+	root := NewCommand(dialFor(client))
+	if _, err := runCmd(t, root, "history", "--since", "2h"); err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	since := client.historyReqs[0].Since
+	if since == nil {
+		t.Fatal("Since should be set")
+	}
+	got := since.AsTime()
+	// Allow a generous window (test scheduling).
+	if got.Before(before.Add(-time.Minute)) || got.After(before.Add(time.Minute)) {
+		t.Errorf("Since = %v, want close to %v", got, before)
+	}
+}
+
+func TestHistory_SinceRFC3339(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{historyResp: &v1.GetStateHistoryResponse{}}
+	root := NewCommand(dialFor(client))
+	if _, err := runCmd(t, root, "history", "--since", "2026-05-01T00:00:00Z"); err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	got := client.historyReqs[0].Since.AsTime()
+	want, _ := time.Parse(time.RFC3339, "2026-05-01T00:00:00Z")
+	if !got.Equal(want) {
+		t.Errorf("Since = %v, want %v", got, want)
+	}
+}
+
+func TestHistory_SinceGarbage(t *testing.T) {
+	t.Parallel()
+	root := NewCommand(dialFor(&fakeClient{}))
+	_, err := runCmd(t, root, "history", "--since", "garbage")
+	if err == nil || !strings.Contains(err.Error(), "--since") {
+		t.Errorf("want --since parse error, got %v", err)
+	}
+}
+
+// ---- show ---------------------------------------------------------
+
+func TestShow_RendersHeaderAndDeclarations(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{statusResp: &v1.GetStateStatusResponse{
+		Run: &v1.StateRun{
+			Id:     "r-1",
+			Mode:   v1.StateRunMode_STATE_RUN_MODE_APPLY,
+			Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
+			Source: "webserver.yaml",
+			Aggregates: &v1.StateRunAggregates{Total: 3, Changed: 1, Unchanged: 2},
+		},
+		Declarations: []*v1.StateDeclarationResult{
+			{DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED, ApplyDiff: "mode change"},
+			{DeclId: "file:/b", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_UNCHANGED},
+		},
+	}}
+	root := NewCommand(dialFor(client))
+	out, err := runCmd(t, root, "show", "r-1")
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if !strings.Contains(out, "Run r-1") || !strings.Contains(out, "Source:") {
+		t.Errorf("missing header; got:\n%s", out)
+	}
+	if !strings.Contains(out, "file:/a") || !strings.Contains(out, "file:/b") {
+		t.Errorf("missing decl rows; got:\n%s", out)
+	}
+	if !strings.Contains(out, "mode change") {
+		t.Errorf("missing diff detail; got:\n%s", out)
+	}
+	if len(client.statusReqs) != 1 || client.statusReqs[0].RunId != "r-1" {
+		t.Errorf("RunId not propagated: %+v", client.statusReqs)
+	}
+}
+
+func TestShow_ErrorBubblesUp(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{statusErr: errors.New("not found")}
+	root := NewCommand(dialFor(client))
+	_, err := runCmd(t, root, "show", "ghost")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Errorf("want underlying error, got %v", err)
+	}
+}
+
+// ---- rollback -----------------------------------------------------
+
+func TestRollback_StreamsAndPropagatesFlags(t *testing.T) {
+	t.Parallel()
+	stream := &fakeApplyStream{events: []*v1.ApplyStateResponse{
+		{Event: &v1.ApplyStateResponse_RunId{RunId: "r-new"}},
+		{Event: &v1.ApplyStateResponse_DeclResult{DeclResult: &v1.StateDeclarationResult{
+			DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED,
+		}}},
+		{Event: &v1.ApplyStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
+			RunId: "r-new", Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
+			Aggregates: &v1.StateRunAggregates{Total: 1, Changed: 1},
+		}}},
+	}}
+	client := &fakeClient{rollbackStream: stream}
+	root := NewCommand(dialFor(client))
+	out, err := runCmd(t, root, "rollback", "r-old",
+		"--dry-run",
+		"--source", "manual",
+		"--agent", "web-2",
+		"--cluster", "prod",
+	)
+	if err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if !strings.Contains(out, "rollback of: r-old") {
+		t.Errorf("missing prefix; got:\n%s", out)
+	}
+	if !strings.Contains(out, "run-id: r-new") {
+		t.Errorf("missing new run id; got:\n%s", out)
+	}
+	if !strings.Contains(out, "[change]") {
+		t.Errorf("missing decl row; got:\n%s", out)
+	}
+	if len(client.rollbackReqs) != 1 {
+		t.Fatalf("rollback called %d times, want 1", len(client.rollbackReqs))
+	}
+	req := client.rollbackReqs[0]
+	if req.RunId != "r-old" || !req.DryRun || req.Source != "manual" || req.AgentId != "web-2" || req.ClusterId != "prod" {
+		t.Errorf("flags lost in request: %+v", req)
+	}
+}
+
+func TestRollback_FailingTerminalReturnsError(t *testing.T) {
+	t.Parallel()
+	stream := &fakeApplyStream{events: []*v1.ApplyStateResponse{
+		{Event: &v1.ApplyStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
+			Status: v1.StateRunStatus_STATE_RUN_STATUS_FAILED,
+			Aggregates: &v1.StateRunAggregates{},
+		}}},
+	}}
+	client := &fakeClient{rollbackStream: stream}
+	root := NewCommand(dialFor(client))
+	_, err := runCmd(t, root, "rollback", "r-old")
+	if err == nil || !strings.Contains(err.Error(), "failed") {
+		t.Errorf("want failure error, got %v", err)
+	}
+}
+
+func TestRollback_StreamErrorBubblesUp(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{rollbackErr: errors.New("not found")}
+	root := NewCommand(dialFor(client))
+	_, err := runCmd(t, root, "rollback", "ghost")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Errorf("want underlying error, got %v", err)
+	}
+}
+
+// ---- time + format helpers ----------------------------------------
+
+func TestParseTimeBound(t *testing.T) {
+	t.Parallel()
+	zero, err := parseTimeBound("")
+	if err != nil || !zero.IsZero() {
+		t.Errorf("empty: got %v err=%v, want zero/nil", zero, err)
+	}
+	d, err := parseTimeBound("2h")
+	if err != nil {
+		t.Fatalf("duration: %v", err)
+	}
+	target := time.Now().UTC().Add(-2 * time.Hour)
+	if d.Before(target.Add(-time.Minute)) || d.After(target.Add(time.Minute)) {
+		t.Errorf("duration: got %v, want ~%v", d, target)
+	}
+	abs, err := parseTimeBound("2026-05-11T10:00:00Z")
+	if err != nil {
+		t.Fatalf("rfc3339: %v", err)
+	}
+	if abs.Year() != 2026 || abs.Month() != 5 || abs.Day() != 11 {
+		t.Errorf("rfc3339: got %v", abs)
+	}
+	if _, err := parseTimeBound("notatime"); err == nil {
+		t.Error("expected error on garbage input")
 	}
 }

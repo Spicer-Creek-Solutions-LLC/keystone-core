@@ -384,3 +384,17 @@ func declarationsToJSON(decls []*statemgmt.Declaration) (string, error) {
 	}
 	return string(bytes), nil
 }
+
+// unmarshalDeclarations is the inverse of declarationsToJSON. Used by
+// RollbackState to reconstitute the original run's rendered
+// declarations from StateRunRecord.DeclarationsJSON.
+func unmarshalDeclarations(s string) ([]*statemgmt.Declaration, error) {
+	if s == "" || s == "[]" {
+		return nil, nil
+	}
+	var out []*statemgmt.Declaration
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -90,4 +91,22 @@ func resolveSource(flagValue, defaultName string) string {
 		return flagValue
 	}
 	return defaultName
+}
+
+// parseTimeBound accepts either a Go duration ("2h", "30m", "1d-ish
+// → 24h") or an RFC3339 timestamp. Empty input yields the zero time
+// (the proto field stays unset). Duration is interpreted as an
+// offset back from now.
+func parseTimeBound(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	if d, err := time.ParseDuration(s); err == nil {
+		return time.Now().UTC().Add(-d), nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("expected duration (e.g. 2h) or RFC3339 timestamp; got %q", s)
+	}
+	return t.UTC(), nil
 }

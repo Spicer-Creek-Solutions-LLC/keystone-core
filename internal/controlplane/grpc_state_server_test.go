@@ -511,6 +511,196 @@ func TestStateGRPCServer_RejectsUnknownModule(t *testing.T) {
 
 // ---- Variable overrides + facts ------------------------------------
 
+// ---- RollbackState -------------------------------------------------
+
+func TestStateGRPCServer_RollbackState_ReappliesStoredDeclarations(t *testing.T) {
+	t.Parallel()
+	f := newStateFixture(t)
+	mod := f.installModule("file", func(m *fixtureModule) {
+		m.checkMatches = true
+	})
+
+	// 1. Seed: run an Apply so we have a stored run with persisted
+	//    DeclarationsJSON.
+	yaml := []byte("file:\n  /etc/hosts:\n    state: present\n")
+	stream, err := f.client.ApplyState(t.Context(), &v1.ApplyStateRequest{
+		YamlContent: yaml, AgentId: "web-1", Source: "original.yaml",
+	})
+	if err != nil {
+		t.Fatalf("seed ApplyState: %v", err)
+	}
+	originalEvents := receiveAll(t, stream)
+	originalRunID := originalEvents[0].GetRunId()
+	if originalRunID == "" {
+		t.Fatal("no run_id from seed apply")
+	}
+
+	mod.checkCalls.Store(0) // reset so rollback's invocation is unambiguous
+
+	// 2. Rollback. New run; new id; Check fires on the test module
+	//    (matches → unchanged → no Apply).
+	rollbackStream, err := f.client.RollbackState(t.Context(), &v1.RollbackStateRequest{
+		RunId: originalRunID,
+	})
+	if err != nil {
+		t.Fatalf("RollbackState: %v", err)
+	}
+	events := receiveAll(t, rollbackStream)
+	if len(events) < 3 {
+		t.Fatalf("event count = %d, want >= 3", len(events))
+	}
+	rollbackRunID := events[0].GetRunId()
+	if rollbackRunID == "" {
+		t.Fatal("rollback didn't emit run_id event")
+	}
+	if rollbackRunID == originalRunID {
+		t.Errorf("rollback run_id must be new; got same as original %q", originalRunID)
+	}
+
+	var term *v1.StateRunTerminal
+	for _, e := range events {
+		if t2 := e.GetTerminal(); t2 != nil {
+			term = t2
+		}
+	}
+	if term == nil || term.Status != v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED {
+		t.Errorf("rollback terminal = %+v, want COMPLETED", term)
+	}
+	if mod.checkCalls.Load() != 1 {
+		t.Errorf("Check called %d times during rollback, want 1", mod.checkCalls.Load())
+	}
+	if mod.applyCalls.Load() != 0 {
+		t.Errorf("Apply called %d times during rollback (Check matched, shouldn't fire)", mod.applyCalls.Load())
+	}
+
+	// 3. Persistence: the rollback's stored run inherits agent from
+	//    the original, has the default rollback-of-<id> source.
+	header, _, err := f.store.GetStateRun(t.Context(), rollbackRunID)
+	if err != nil {
+		t.Fatalf("GetStateRun(rollback): %v", err)
+	}
+	if header.AgentID != "web-1" {
+		t.Errorf("rollback AgentID = %q, want inherited web-1", header.AgentID)
+	}
+	if header.Source != "rollback-of-"+originalRunID {
+		t.Errorf("rollback Source = %q, want default rollback-of-<id>", header.Source)
+	}
+	if header.Mode != state.StateRunModeApply {
+		t.Errorf("rollback Mode = %v, want apply (no --dry-run)", header.Mode)
+	}
+}
+
+func TestStateGRPCServer_RollbackState_DryRunSkipsApply(t *testing.T) {
+	t.Parallel()
+	f := newStateFixture(t)
+	mod := f.installModule("file", func(m *fixtureModule) {
+		// Original run: drift detected then applied.
+		m.checkMatches = false
+		m.applyChanged = true
+	})
+
+	yaml := []byte("file:\n  /etc/hosts:\n    state: present\n")
+	stream, err := f.client.ApplyState(t.Context(), &v1.ApplyStateRequest{YamlContent: yaml})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	seedEvents := receiveAll(t, stream)
+	originalRunID := seedEvents[0].GetRunId()
+
+	// Reset counters; flip the module to "still drifted" for the
+	// rollback's check path.
+	mod.checkCalls.Store(0)
+	mod.applyCalls.Store(0)
+
+	rs, err := f.client.RollbackState(t.Context(), &v1.RollbackStateRequest{
+		RunId:  originalRunID,
+		DryRun: true,
+	})
+	if err != nil {
+		t.Fatalf("RollbackState: %v", err)
+	}
+	receiveAll(t, rs)
+	if mod.applyCalls.Load() != 0 {
+		t.Errorf("Apply called %d times during dry-run rollback; want 0", mod.applyCalls.Load())
+	}
+	// Verify Mode is check.
+	headers, err := f.store.ListStateRuns(t.Context(), state.StateRunFilter{Mode: state.StateRunModeCheck})
+	if err != nil {
+		t.Fatalf("ListStateRuns: %v", err)
+	}
+	if len(headers) == 0 {
+		t.Error("no check-mode runs persisted from dry-run rollback")
+	}
+}
+
+func TestStateGRPCServer_RollbackState_OverridesApply(t *testing.T) {
+	t.Parallel()
+	f := newStateFixture(t)
+	f.installModule("file", func(m *fixtureModule) { m.checkMatches = true })
+
+	stream, err := f.client.ApplyState(t.Context(), &v1.ApplyStateRequest{
+		YamlContent: []byte("file:\n  /a:\n    state: present\n"),
+		AgentId:     "original-agent",
+		ClusterId:   "original-cluster",
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	originalRunID := receiveAll(t, stream)[0].GetRunId()
+
+	rs, err := f.client.RollbackState(t.Context(), &v1.RollbackStateRequest{
+		RunId:     originalRunID,
+		Source:    "explicit-rollback",
+		AgentId:   "new-agent",
+		ClusterId: "new-cluster",
+	})
+	if err != nil {
+		t.Fatalf("RollbackState: %v", err)
+	}
+	rollbackRunID := receiveAll(t, rs)[0].GetRunId()
+	header, _, err := f.store.GetStateRun(t.Context(), rollbackRunID)
+	if err != nil {
+		t.Fatalf("GetStateRun: %v", err)
+	}
+	if header.Source != "explicit-rollback" {
+		t.Errorf("Source = %q, want explicit-rollback", header.Source)
+	}
+	if header.AgentID != "new-agent" {
+		t.Errorf("AgentID = %q, want new-agent", header.AgentID)
+	}
+	if header.ClusterID != "new-cluster" {
+		t.Errorf("ClusterID = %q, want new-cluster", header.ClusterID)
+	}
+}
+
+func TestStateGRPCServer_RollbackState_NotFound(t *testing.T) {
+	t.Parallel()
+	f := newStateFixture(t)
+	stream, err := f.client.RollbackState(t.Context(), &v1.RollbackStateRequest{RunId: "ghost"})
+	if err != nil {
+		t.Fatalf("RollbackState: %v", err)
+	}
+	_, err = stream.Recv()
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("code = %v, want NotFound", status.Code(err))
+	}
+}
+
+func TestStateGRPCServer_RollbackState_EmptyRunID(t *testing.T) {
+	t.Parallel()
+	f := newStateFixture(t)
+	stream, err := f.client.RollbackState(t.Context(), &v1.RollbackStateRequest{})
+	if err != nil {
+		t.Fatalf("RollbackState: %v", err)
+	}
+	_, err = stream.Recv()
+	if status.Code(err) != codes.InvalidArgument {
+		t.Errorf("code = %v, want InvalidArgument", status.Code(err))
+	}
+}
+
+// ---- variable overrides + facts (existing) ------------------------
+
 func TestStateGRPCServer_VariableOverridesApplied(t *testing.T) {
 	t.Parallel()
 	f := newStateFixture(t)

@@ -262,6 +262,113 @@ func TestPrintVars_MissingKey(t *testing.T) {
 	}
 }
 
+func TestPrintHistory_Table(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	runs := []*v1.StateRun{
+		{Id: "r-1", Mode: v1.StateRunMode_STATE_RUN_MODE_APPLY, Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED, AgentId: "web-1",
+			Aggregates: &v1.StateRunAggregates{Total: 3, Changed: 1, Unchanged: 2}},
+		{Id: "r-2", Mode: v1.StateRunMode_STATE_RUN_MODE_CHECK, Status: v1.StateRunStatus_STATE_RUN_STATUS_FAILED, AgentId: "db-1"},
+	}
+	if err := printHistory(&buf, FormatTable, runs); err != nil {
+		t.Fatalf("printHistory: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "RUN ID") {
+		t.Errorf("missing header row; got:\n%s", out)
+	}
+	if !strings.Contains(out, "r-1") || !strings.Contains(out, "r-2") {
+		t.Errorf("missing rows; got:\n%s", out)
+	}
+	if !strings.Contains(out, "T=3 C=1 U=2") {
+		t.Errorf("missing counts; got:\n%s", out)
+	}
+}
+
+func TestPrintHistory_Empty(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	if err := printHistory(&buf, FormatTable, nil); err != nil {
+		t.Fatalf("printHistory: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no state runs") {
+		t.Errorf("missing empty hint; got %q", buf.String())
+	}
+}
+
+func TestPrintShow_Full(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	resp := &v1.GetStateStatusResponse{
+		Run: &v1.StateRun{
+			Id:           "r-1",
+			Mode:         v1.StateRunMode_STATE_RUN_MODE_APPLY,
+			Status:       v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
+			Source:       "test.yaml",
+			AgentId:      "web-1",
+			ErrorMessage: "",
+			Aggregates: &v1.StateRunAggregates{Total: 2, Changed: 1, Unchanged: 1},
+		},
+		Declarations: []*v1.StateDeclarationResult{
+			{DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED, ApplyDiff: "mode 0600→0644"},
+			{DeclId: "file:/b", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_UNCHANGED},
+		},
+	}
+	if err := printShow(&buf, FormatTable, resp); err != nil {
+		t.Fatalf("printShow: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Run r-1") {
+		t.Errorf("missing header; got:\n%s", out)
+	}
+	for _, want := range []string{"Mode:", "Status:", "Source:", "Agent:", "Counts:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in header; got:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(out, "applied (mode 0600→0644)") {
+		t.Errorf("missing apply detail; got:\n%s", out)
+	}
+}
+
+func TestPrintShow_NilSafe(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	if err := printShow(&buf, FormatTable, nil); err != nil {
+		t.Errorf("printShow(nil): %v", err)
+	}
+	if err := printShow(&buf, FormatTable, &v1.GetStateStatusResponse{}); err != nil {
+		t.Errorf("printShow(empty): %v", err)
+	}
+	if !strings.Contains(buf.String(), "no run data") {
+		t.Errorf("missing empty hint; got %q", buf.String())
+	}
+}
+
+func TestCountsSummary(t *testing.T) {
+	t.Parallel()
+	if got := countsSummary(nil); got != "(no counts)" {
+		t.Errorf("nil: got %q", got)
+	}
+	a := &v1.StateRunAggregates{Total: 5, Changed: 1, Unchanged: 2, Failed: 1, Skipped: 1, Drifted: 0}
+	if got := countsSummary(a); got != "T=5 C=1 U=2 F=1 S=1 D=0" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	t.Parallel()
+	if got := truncate("hello world", 5); got != "hell…" {
+		t.Errorf("got %q", got)
+	}
+	if got := truncate("hi", 10); got != "hi" {
+		t.Errorf("short input got %q", got)
+	}
+	if got := truncate("anything", 1); got != "…" {
+		t.Errorf("n=1 got %q", got)
+	}
+}
+
 func TestParamSummary_OnlyRequisites(t *testing.T) {
 	t.Parallel()
 	got := paramSummary(map[string]any{

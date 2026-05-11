@@ -70,6 +70,9 @@ func NewCommand(deps Deps) *cobra.Command {
 	cmd.AddCommand(driftCmd(g))
 	cmd.AddCommand(compileCmd(g))
 	cmd.AddCommand(varsCmd(g))
+	cmd.AddCommand(historyCmd(g))
+	cmd.AddCommand(showCmd(g))
+	cmd.AddCommand(rollbackCmd(g))
 
 	return cmd
 }
