@@ -20,6 +20,7 @@ type dispatchFlags struct {
 	User              string
 	Env               []string // K=V strings; parsed by envMap()
 	JobID             string
+	DryRun            bool
 }
 
 func bindDispatchFlags(fs *pflag.FlagSet, f *dispatchFlags) {
@@ -41,6 +42,8 @@ func bindDispatchFlags(fs *pflag.FlagSet, f *dispatchFlags) {
 		"K=V env var (repeatable)")
 	fs.StringVar(&f.JobID, "job-id", "",
 		"override the generated batch job ID (must be unique)")
+	fs.BoolVar(&f.DryRun, "dry-run", false,
+		"resolve target and print matched agents without dispatching")
 }
 
 // envMap parses --env entries into a map. Reject duplicate keys and

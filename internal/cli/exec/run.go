@@ -69,6 +69,7 @@ func runDispatch(cmd *cobra.Command, g *globals, flags *dispatchFlags, command s
 		TimeoutSeconds:    int32(flags.CommandTimeout.Seconds()),
 		Concurrency:       int32(flags.Concurrency),
 		ContinueOnFailure: flags.ContinueOnFailure,
+		DryRun:            flags.DryRun,
 	}
 	if flags.Shell != "" {
 		req.Command, req.Args = wrapWithShell(flags.Shell, command, args)
@@ -77,6 +78,10 @@ func runDispatch(cmd *cobra.Command, g *globals, flags *dispatchFlags, command s
 	stream, err := client.BatchExecuteCommand(ctx, req)
 	if err != nil {
 		return fmt.Errorf("exec: BatchExecuteCommand: %w", err)
+	}
+
+	if flags.DryRun {
+		return RenderPreviewStream(cmd.OutOrStdout(), stream.Recv, g.Output)
 	}
 
 	if asyncMode {

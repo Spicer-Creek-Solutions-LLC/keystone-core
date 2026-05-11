@@ -63,6 +63,10 @@ func NewCommand(deps Deps) *cobra.Command {
 	cmd.AddCommand(runCmd(g))
 	cmd.AddCommand(asyncCmd(g))
 	cmd.AddCommand(scriptCmd(g))
+	cmd.AddCommand(statusCmd(g))
+	cmd.AddCommand(listCmd(g))
+	cmd.AddCommand(cancelCmd(g))
+	cmd.AddCommand(outputCmd(g))
 
 	return cmd
 }

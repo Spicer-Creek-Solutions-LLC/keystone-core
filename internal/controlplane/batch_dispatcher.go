@@ -331,6 +331,20 @@ func (d *BatchDispatcher) ListAgentResults(ctx context.Context, batchID string) 
 	return d.store.ListBatchAgentResults(ctx, batchID)
 }
 
+// GetAgentResult is a read passthrough that maps state.ErrNotFound to
+// the dispatcher's ErrBatchNotFound sentinel so callers can use one
+// errors.Is check across the surface.
+func (d *BatchDispatcher) GetAgentResult(ctx context.Context, batchID, agentID string) (*state.BatchAgentResultRecord, error) {
+	r, err := d.store.GetBatchAgentResult(ctx, batchID, agentID)
+	if err != nil {
+		if errors.Is(err, state.ErrNotFound) {
+			return nil, ErrBatchNotFound
+		}
+		return nil, fmt.Errorf("controlplane: get agent result: %w", err)
+	}
+	return r, nil
+}
+
 // ---- helpers --------------------------------------------------------------
 
 func (d *BatchDispatcher) getBatch(ctx context.Context, id string) (*state.BatchJobRecord, error) {

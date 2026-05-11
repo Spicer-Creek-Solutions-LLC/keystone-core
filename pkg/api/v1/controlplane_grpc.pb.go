@@ -22,13 +22,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlPlaneService_ServerStatus_FullMethodName        = "/keystone.core.v1.ControlPlaneService/ServerStatus"
-	ControlPlaneService_ListAgents_FullMethodName          = "/keystone.core.v1.ControlPlaneService/ListAgents"
-	ControlPlaneService_GetAgent_FullMethodName            = "/keystone.core.v1.ControlPlaneService/GetAgent"
-	ControlPlaneService_ExecuteCommand_FullMethodName      = "/keystone.core.v1.ControlPlaneService/ExecuteCommand"
-	ControlPlaneService_BatchExecuteCommand_FullMethodName = "/keystone.core.v1.ControlPlaneService/BatchExecuteCommand"
-	ControlPlaneService_GetCommandStatus_FullMethodName    = "/keystone.core.v1.ControlPlaneService/GetCommandStatus"
-	ControlPlaneService_ListCommandHistory_FullMethodName  = "/keystone.core.v1.ControlPlaneService/ListCommandHistory"
+	ControlPlaneService_ServerStatus_FullMethodName          = "/keystone.core.v1.ControlPlaneService/ServerStatus"
+	ControlPlaneService_ListAgents_FullMethodName            = "/keystone.core.v1.ControlPlaneService/ListAgents"
+	ControlPlaneService_GetAgent_FullMethodName              = "/keystone.core.v1.ControlPlaneService/GetAgent"
+	ControlPlaneService_ExecuteCommand_FullMethodName        = "/keystone.core.v1.ControlPlaneService/ExecuteCommand"
+	ControlPlaneService_BatchExecuteCommand_FullMethodName   = "/keystone.core.v1.ControlPlaneService/BatchExecuteCommand"
+	ControlPlaneService_GetCommandStatus_FullMethodName      = "/keystone.core.v1.ControlPlaneService/GetCommandStatus"
+	ControlPlaneService_ListCommandHistory_FullMethodName    = "/keystone.core.v1.ControlPlaneService/ListCommandHistory"
+	ControlPlaneService_GetBatchJob_FullMethodName           = "/keystone.core.v1.ControlPlaneService/GetBatchJob"
+	ControlPlaneService_ListBatchJobs_FullMethodName         = "/keystone.core.v1.ControlPlaneService/ListBatchJobs"
+	ControlPlaneService_CancelBatchJob_FullMethodName        = "/keystone.core.v1.ControlPlaneService/CancelBatchJob"
+	ControlPlaneService_ListBatchAgentResults_FullMethodName = "/keystone.core.v1.ControlPlaneService/ListBatchAgentResults"
+	ControlPlaneService_GetBatchAgentResult_FullMethodName   = "/keystone.core.v1.ControlPlaneService/GetBatchAgentResult"
 )
 
 // ControlPlaneServiceClient is the client API for ControlPlaneService service.
@@ -48,6 +53,18 @@ type ControlPlaneServiceClient interface {
 	BatchExecuteCommand(ctx context.Context, in *BatchExecuteCommandRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BatchExecuteCommandResponse], error)
 	GetCommandStatus(ctx context.Context, in *GetCommandStatusRequest, opts ...grpc.CallOption) (*GetCommandStatusResponse, error)
 	ListCommandHistory(ctx context.Context, in *ListCommandHistoryRequest, opts ...grpc.CallOption) (*ListCommandHistoryResponse, error)
+	// GetBatchJob returns the current persisted state of a batch.
+	GetBatchJob(ctx context.Context, in *GetBatchJobRequest, opts ...grpc.CallOption) (*GetBatchJobResponse, error)
+	// ListBatchJobs paginates batches with optional status / time-window
+	// filters. v1.0 uses offset/limit; cursor-based paging is v1.x.
+	ListBatchJobs(ctx context.Context, in *ListBatchJobsRequest, opts ...grpc.CallOption) (*ListBatchJobsResponse, error)
+	// CancelBatchJob signals an in-flight batch to stop; in-flight
+	// per-agent goroutines drain naturally.
+	CancelBatchJob(ctx context.Context, in *CancelBatchJobRequest, opts ...grpc.CallOption) (*CancelBatchJobResponse, error)
+	// ListBatchAgentResults returns every per-agent result for a batch.
+	ListBatchAgentResults(ctx context.Context, in *ListBatchAgentResultsRequest, opts ...grpc.CallOption) (*ListBatchAgentResultsResponse, error)
+	// GetBatchAgentResult fetches a single (batch, agent) result row.
+	GetBatchAgentResult(ctx context.Context, in *GetBatchAgentResultRequest, opts ...grpc.CallOption) (*GetBatchAgentResultResponse, error)
 }
 
 type controlPlaneServiceClient struct {
@@ -146,6 +163,56 @@ func (c *controlPlaneServiceClient) ListCommandHistory(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *controlPlaneServiceClient) GetBatchJob(ctx context.Context, in *GetBatchJobRequest, opts ...grpc.CallOption) (*GetBatchJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBatchJobResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_GetBatchJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) ListBatchJobs(ctx context.Context, in *ListBatchJobsRequest, opts ...grpc.CallOption) (*ListBatchJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBatchJobsResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_ListBatchJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) CancelBatchJob(ctx context.Context, in *CancelBatchJobRequest, opts ...grpc.CallOption) (*CancelBatchJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelBatchJobResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_CancelBatchJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) ListBatchAgentResults(ctx context.Context, in *ListBatchAgentResultsRequest, opts ...grpc.CallOption) (*ListBatchAgentResultsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBatchAgentResultsResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_ListBatchAgentResults_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) GetBatchAgentResult(ctx context.Context, in *GetBatchAgentResultRequest, opts ...grpc.CallOption) (*GetBatchAgentResultResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBatchAgentResultResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_GetBatchAgentResult_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlPlaneServiceServer is the server API for ControlPlaneService service.
 // All implementations must embed UnimplementedControlPlaneServiceServer
 // for forward compatibility.
@@ -163,6 +230,18 @@ type ControlPlaneServiceServer interface {
 	BatchExecuteCommand(*BatchExecuteCommandRequest, grpc.ServerStreamingServer[BatchExecuteCommandResponse]) error
 	GetCommandStatus(context.Context, *GetCommandStatusRequest) (*GetCommandStatusResponse, error)
 	ListCommandHistory(context.Context, *ListCommandHistoryRequest) (*ListCommandHistoryResponse, error)
+	// GetBatchJob returns the current persisted state of a batch.
+	GetBatchJob(context.Context, *GetBatchJobRequest) (*GetBatchJobResponse, error)
+	// ListBatchJobs paginates batches with optional status / time-window
+	// filters. v1.0 uses offset/limit; cursor-based paging is v1.x.
+	ListBatchJobs(context.Context, *ListBatchJobsRequest) (*ListBatchJobsResponse, error)
+	// CancelBatchJob signals an in-flight batch to stop; in-flight
+	// per-agent goroutines drain naturally.
+	CancelBatchJob(context.Context, *CancelBatchJobRequest) (*CancelBatchJobResponse, error)
+	// ListBatchAgentResults returns every per-agent result for a batch.
+	ListBatchAgentResults(context.Context, *ListBatchAgentResultsRequest) (*ListBatchAgentResultsResponse, error)
+	// GetBatchAgentResult fetches a single (batch, agent) result row.
+	GetBatchAgentResult(context.Context, *GetBatchAgentResultRequest) (*GetBatchAgentResultResponse, error)
 	mustEmbedUnimplementedControlPlaneServiceServer()
 }
 
@@ -193,6 +272,21 @@ func (UnimplementedControlPlaneServiceServer) GetCommandStatus(context.Context, 
 }
 func (UnimplementedControlPlaneServiceServer) ListCommandHistory(context.Context, *ListCommandHistoryRequest) (*ListCommandHistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCommandHistory not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) GetBatchJob(context.Context, *GetBatchJobRequest) (*GetBatchJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBatchJob not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) ListBatchJobs(context.Context, *ListBatchJobsRequest) (*ListBatchJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBatchJobs not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) CancelBatchJob(context.Context, *CancelBatchJobRequest) (*CancelBatchJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelBatchJob not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) ListBatchAgentResults(context.Context, *ListBatchAgentResultsRequest) (*ListBatchAgentResultsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBatchAgentResults not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) GetBatchAgentResult(context.Context, *GetBatchAgentResultRequest) (*GetBatchAgentResultResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBatchAgentResult not implemented")
 }
 func (UnimplementedControlPlaneServiceServer) mustEmbedUnimplementedControlPlaneServiceServer() {}
 func (UnimplementedControlPlaneServiceServer) testEmbeddedByValue()                             {}
@@ -327,6 +421,96 @@ func _ControlPlaneService_ListCommandHistory_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlPlaneService_GetBatchJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBatchJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).GetBatchJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_GetBatchJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).GetBatchJob(ctx, req.(*GetBatchJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_ListBatchJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBatchJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).ListBatchJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_ListBatchJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).ListBatchJobs(ctx, req.(*ListBatchJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_CancelBatchJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelBatchJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).CancelBatchJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_CancelBatchJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).CancelBatchJob(ctx, req.(*CancelBatchJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_ListBatchAgentResults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBatchAgentResultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).ListBatchAgentResults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_ListBatchAgentResults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).ListBatchAgentResults(ctx, req.(*ListBatchAgentResultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_GetBatchAgentResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBatchAgentResultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).GetBatchAgentResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_GetBatchAgentResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).GetBatchAgentResult(ctx, req.(*GetBatchAgentResultRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlPlaneService_ServiceDesc is the grpc.ServiceDesc for ControlPlaneService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -353,6 +537,26 @@ var ControlPlaneService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListCommandHistory",
 			Handler:    _ControlPlaneService_ListCommandHistory_Handler,
+		},
+		{
+			MethodName: "GetBatchJob",
+			Handler:    _ControlPlaneService_GetBatchJob_Handler,
+		},
+		{
+			MethodName: "ListBatchJobs",
+			Handler:    _ControlPlaneService_ListBatchJobs_Handler,
+		},
+		{
+			MethodName: "CancelBatchJob",
+			Handler:    _ControlPlaneService_CancelBatchJob_Handler,
+		},
+		{
+			MethodName: "ListBatchAgentResults",
+			Handler:    _ControlPlaneService_ListBatchAgentResults_Handler,
+		},
+		{
+			MethodName: "GetBatchAgentResult",
+			Handler:    _ControlPlaneService_GetBatchAgentResult_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

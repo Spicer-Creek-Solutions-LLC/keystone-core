@@ -28,6 +28,23 @@ service ControlPlaneService {
 
   rpc GetCommandStatus(GetCommandStatusRequest) returns (GetCommandStatusResponse);
   rpc ListCommandHistory(ListCommandHistoryRequest) returns (ListCommandHistoryResponse);
+
+  // GetBatchJob returns the current persisted state of a batch.
+  rpc GetBatchJob(GetBatchJobRequest) returns (GetBatchJobResponse);
+
+  // ListBatchJobs paginates batches with optional status / time-window
+  // filters. v1.0 uses offset/limit; cursor-based paging is v1.x.
+  rpc ListBatchJobs(ListBatchJobsRequest) returns (ListBatchJobsResponse);
+
+  // CancelBatchJob signals an in-flight batch to stop; in-flight
+  // per-agent goroutines drain naturally.
+  rpc CancelBatchJob(CancelBatchJobRequest) returns (CancelBatchJobResponse);
+
+  // ListBatchAgentResults returns every per-agent result for a batch.
+  rpc ListBatchAgentResults(ListBatchAgentResultsRequest) returns (ListBatchAgentResultsResponse);
+
+  // GetBatchAgentResult fetches a single (batch, agent) result row.
+  rpc GetBatchAgentResult(GetBatchAgentResultRequest) returns (GetBatchAgentResultResponse);
 }
 
 // ---- ServerStatus ---------------------------------------------------------
@@ -103,6 +120,10 @@ message BatchExecuteCommandRequest {
   int32 timeout_seconds = 7;
   int32 concurrency = 8;
   bool continue_on_failure = 9;
+  // dry_run resolves the Target and emits a single BatchPreview event
+  // followed by a Completed BatchTerminal without persisting a batch
+  // row or dispatching commands.
+  bool dry_run = 10;
 }
 
 message BatchExecuteCommandResponse {
@@ -111,6 +132,9 @@ message BatchExecuteCommandResponse {
     BatchAgentLifecycle lifecycle = 2;
     BatchAgentOutput output = 3;
     BatchTerminal terminal = 4;
+    // preview is emitted only on dry_run dispatches and carries the
+    // resolved agent set without any execution lifecycle.
+    BatchPreview preview = 5;
   }
 }
 
@@ -118,6 +142,57 @@ message BatchExecuteCommandResponse {
 message BatchAgentOutput {
   string agent_id = 1;
   CommandOutputChunk output = 2;
+}
+
+// BatchPreview lists agent IDs that would be dispatched, emitted by
+// dry_run BatchExecuteCommand requests.
+message BatchPreview {
+  repeated string agent_ids = 1;
+}
+
+// ---- Batch job lifecycle (task 11b) ---------------------------------------
+
+message GetBatchJobRequest {
+  string batch_job_id = 1;
+}
+
+message GetBatchJobResponse {
+  BatchJob batch = 1;
+}
+
+message ListBatchJobsRequest {
+  BatchJobStatus status = 1; // UNSPECIFIED = no filter
+  google.protobuf.Timestamp since = 2;
+  google.protobuf.Timestamp until = 3;
+  int32 limit = 4;  // 0 = server default; capped server-side
+  int32 offset = 5;
+}
+
+message ListBatchJobsResponse {
+  repeated BatchJob batches = 1;
+}
+
+message CancelBatchJobRequest {
+  string batch_job_id = 1;
+}
+
+message CancelBatchJobResponse {}
+
+message ListBatchAgentResultsRequest {
+  string batch_job_id = 1;
+}
+
+message ListBatchAgentResultsResponse {
+  repeated BatchAgentResult results = 1;
+}
+
+message GetBatchAgentResultRequest {
+  string batch_job_id = 1;
+  string agent_id = 2;
+}
+
+message GetBatchAgentResultResponse {
+  BatchAgentResult result = 1;
 }
 
 // ---- GetCommandStatus -----------------------------------------------------

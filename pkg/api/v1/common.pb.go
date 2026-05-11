@@ -939,16 +939,23 @@ func (x *BatchJob) GetCompletedAt() *timestamppb.Timestamp {
 // BatchAgentResult is one agent's outcome within a BatchJob. PK is
 // (batch_job_id, agent_id).
 type BatchAgentResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	BatchJobId    string                 `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
-	AgentId       string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Success       bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	ExitCode      int32                  `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	BatchJobId  string                 `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
+	AgentId     string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Success     bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	ExitCode    int32                  `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	Error       string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	StartedAt   *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	CompletedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	// Captured agent output, post-truncation. *_truncated signals the
+	// agent's execution-time output-cap hit (PROJECT-DETAILS §4.7
+	// defaults: stdout 1 MiB / stderr 256 KiB).
+	Stdout          []byte `protobuf:"bytes,8,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stderr          []byte `protobuf:"bytes,9,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	StdoutTruncated bool   `protobuf:"varint,10,opt,name=stdout_truncated,json=stdoutTruncated,proto3" json:"stdout_truncated,omitempty"`
+	StderrTruncated bool   `protobuf:"varint,11,opt,name=stderr_truncated,json=stderrTruncated,proto3" json:"stderr_truncated,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *BatchAgentResult) Reset() {
@@ -1028,6 +1035,34 @@ func (x *BatchAgentResult) GetCompletedAt() *timestamppb.Timestamp {
 		return x.CompletedAt
 	}
 	return nil
+}
+
+func (x *BatchAgentResult) GetStdout() []byte {
+	if x != nil {
+		return x.Stdout
+	}
+	return nil
+}
+
+func (x *BatchAgentResult) GetStderr() []byte {
+	if x != nil {
+		return x.Stderr
+	}
+	return nil
+}
+
+func (x *BatchAgentResult) GetStdoutTruncated() bool {
+	if x != nil {
+		return x.StdoutTruncated
+	}
+	return false
+}
+
+func (x *BatchAgentResult) GetStderrTruncated() bool {
+	if x != nil {
+		return x.StderrTruncated
+	}
+	return false
 }
 
 // BatchAgentLifecycle marks the start/end of a single agent within a
@@ -1325,7 +1360,7 @@ const file_keystone_core_v1_common_proto_rawDesc = "" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
-	"\fcompleted_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"\x96\x02\n" +
+	"\fcompleted_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"\x9c\x03\n" +
 	"\x10BatchAgentResult\x12 \n" +
 	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
 	"batchJobId\x12\x19\n" +
@@ -1335,7 +1370,12 @@ const file_keystone_core_v1_common_proto_rawDesc = "" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x129\n" +
 	"\n" +
 	"started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
-	"\fcompleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"\xb1\x01\n" +
+	"\fcompleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x16\n" +
+	"\x06stdout\x18\b \x01(\fR\x06stdout\x12\x16\n" +
+	"\x06stderr\x18\t \x01(\fR\x06stderr\x12)\n" +
+	"\x10stdout_truncated\x18\n" +
+	" \x01(\bR\x0fstdoutTruncated\x12)\n" +
+	"\x10stderr_truncated\x18\v \x01(\bR\x0fstderrTruncated\"\xb1\x01\n" +
 	"\x13BatchAgentLifecycle\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12=\n" +
 	"\x04kind\x18\x02 \x01(\x0e2).keystone.core.v1.BatchAgentLifecycleKindR\x04kind\x12*\n" +

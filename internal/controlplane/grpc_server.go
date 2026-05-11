@@ -154,6 +154,32 @@ func (s *GRPCServer) BatchExecuteCommand(
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "resolve target: %v", err)
 	}
+	agentIDs := make([]string, 0, len(agents))
+	for _, a := range agents {
+		agentIDs = append(agentIDs, a.ID)
+	}
+
+	// Dry-run short-circuits before CreateBatch. Emit the resolved
+	// agent set then a Completed terminal; no batch row, no executor
+	// call. Empty target is fine — preview with zero agents.
+	if req.GetDryRun() {
+		if err := stream.Send(&v1.BatchExecuteCommandResponse{
+			Event: &v1.BatchExecuteCommandResponse_Preview{
+				Preview: &v1.BatchPreview{AgentIds: agentIDs},
+			},
+		}); err != nil {
+			return err
+		}
+		return stream.Send(&v1.BatchExecuteCommandResponse{
+			Event: &v1.BatchExecuteCommandResponse_Terminal{
+				Terminal: &v1.BatchTerminal{
+					Status: v1.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED,
+					At:     timestamppb.Now(),
+				},
+			},
+		})
+	}
+
 	if len(agents) == 0 {
 		// Zero matches is a clean Completed batch-of-zero — emit a
 		// synthetic terminal so clients always see a stream close
@@ -166,11 +192,6 @@ func (s *GRPCServer) BatchExecuteCommand(
 				},
 			},
 		})
-	}
-
-	agentIDs := make([]string, 0, len(agents))
-	for _, a := range agents {
-		agentIDs = append(agentIDs, a.ID)
 	}
 
 	events := make(chan batchEvent, 100) // §4.7 buffer = 100

@@ -142,6 +142,13 @@ message BatchAgentResult {
   string error = 5;
   google.protobuf.Timestamp started_at = 6;
   google.protobuf.Timestamp completed_at = 7;
+  // Captured agent output, post-truncation. *_truncated signals the
+  // agent's execution-time output-cap hit (PROJECT-DETAILS §4.7
+  // defaults: stdout 1 MiB / stderr 256 KiB).
+  bytes stdout = 8;
+  bytes stderr = 9;
+  bool stdout_truncated = 10;
+  bool stderr_truncated = 11;
 }
 
 // BatchAgentLifecycle marks the start/end of a single agent within a
