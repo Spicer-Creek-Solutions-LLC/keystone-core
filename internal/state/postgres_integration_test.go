@@ -44,6 +44,7 @@ func newPgStoreForTest(t *testing.T) *PostgreSQLStore {
 func truncateAll(t *testing.T, db *sql.DB) {
 	t.Helper()
 	const stmt = `TRUNCATE TABLE
+        state_run_results, state_runs,
         batch_agent_results, batch_jobs, commands, agents, apikeys
         RESTART IDENTITY CASCADE`
 	if _, err := db.ExecContext(t.Context(), stmt); err != nil {

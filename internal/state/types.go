@@ -1,6 +1,9 @@
 package state
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 // ---- Status enums ---------------------------------------------------------
 
@@ -165,6 +168,112 @@ type BatchAgentResultRecord struct {
 	CompletedAt     time.Time
 }
 
+// StateRunMode tags whether a stored run was an apply, a dry-run
+// check, or a drift sweep. Mirrors statemgmt.RunMode + drift mode
+// without importing statemgmt — the storage layer stays foundational.
+type StateRunMode string
+
+const (
+	StateRunModeApply StateRunMode = "apply"
+	StateRunModeCheck StateRunMode = "check"
+	StateRunModeDrift StateRunMode = "drift"
+)
+
+// StateRunStatus is the lifecycle status of a stored run.
+//
+// Intended transitions:
+//
+//	running --> completed | failed | cancelled
+type StateRunStatus string
+
+const (
+	StateRunStatusRunning   StateRunStatus = "running"
+	StateRunStatusCompleted StateRunStatus = "completed"
+	StateRunStatusFailed    StateRunStatus = "failed"
+	StateRunStatusCancelled StateRunStatus = "cancelled"
+)
+
+// StateRunOutcome mirrors statemgmt.Outcome as the storage string
+// enum. The bridge that translates statemgmt.RunReport into
+// StateRun* records (lives elsewhere — gRPC service or CLI helper)
+// maps the in-memory enum to these strings.
+type StateRunOutcome string
+
+const (
+	StateRunOutcomeUnchanged     StateRunOutcome = "unchanged"
+	StateRunOutcomeChanged       StateRunOutcome = "changed"
+	StateRunOutcomeNoOp          StateRunOutcome = "no-op"
+	StateRunOutcomeFailed        StateRunOutcome = "failed"
+	StateRunOutcomeDriftDetected StateRunOutcome = "drift-detected"
+	StateRunOutcomeSkipped       StateRunOutcome = "skipped"
+)
+
+// StateRunRecord is the persistent shape of one state-management run.
+// Maps to the `state_runs` table.
+//
+// DeclarationsJSON carries the rendered declaration list that was
+// attempted, JSON-encoded. The `kscorectl state rollback <id>` flow
+// (Task 10) re-applies the previous successful run's declarations,
+// so this column must round-trip the post-render Declaration shape.
+//
+// AgentID is the target the run was scoped to; "" means the run was
+// not agent-scoped (e.g., compile-only operations).
+type StateRunRecord struct {
+	ID               string
+	Mode             StateRunMode
+	Source           string
+	ClusterID        string
+	AgentID          string
+	StartedAt        time.Time
+	EndedAt          time.Time // zero until finalized
+	Status           StateRunStatus
+	ErrorMessage     string
+	Total            int
+	Changed          int
+	Unchanged        int
+	Failed           int
+	Skipped          int
+	Drifted          int
+	DeclarationsJSON string
+}
+
+// StateRunResultRecord is one row in the per-declaration results
+// table for a state run. Maps to `state_run_results`; primary key is
+// (RunID, DeclID).
+//
+// CheckMatches / ApplyChanged / TestResult are tri-state: Valid=false
+// signals the corresponding phase did not run (e.g., ApplyChanged is
+// Valid=false when Check matched and Apply was skipped).
+type StateRunResultRecord struct {
+	RunID        string
+	DeclID       string
+	Module       string
+	Outcome      StateRunOutcome
+	CheckMatches sql.NullBool
+	CheckDiff    string
+	ApplyChanged sql.NullBool
+	ApplyDiff    string
+	ApplyComment string
+	TestResult   sql.NullBool
+	ErrorMessage string
+	StartedAt    time.Time
+	DurationMS   int64
+}
+
+// StateRunEnd carries the terminal fields stamped when a run
+// finishes, regardless of outcome.
+type StateRunEnd struct {
+	Status       StateRunStatus
+	EndedAt      time.Time
+	ErrorMessage string
+	Total        int
+	Changed      int
+	Unchanged    int
+	Failed       int
+	Skipped      int
+	Drifted      int
+}
+
 // APIKeyRecord is the persistent shape of an API key. KeyHash is the
 // hex-encoded SHA-256 of the cleartext value generated at creation
 // time; cleartext is never stored — it's returned to the operator
@@ -223,6 +332,21 @@ type BatchJobFilter struct {
 	SortDesc   bool
 }
 
+// StateRunFilter narrows a StateHistoryStore.ListStateRuns query.
+// Zero-value scalar fields are ignored; zero times are interpreted
+// as "no bound".
+type StateRunFilter struct {
+	AgentID    string
+	Mode       StateRunMode
+	Status     StateRunStatus
+	After      time.Time
+	Before     time.Time
+	Limit      int
+	Offset     int
+	SortColumn string
+	SortDesc   bool
+}
+
 // APIKeyFilter narrows an APIKeyStore.ListAPIKeys query.
 type APIKeyFilter struct {
 	Role       string // empty = no filter
@@ -251,4 +375,9 @@ var AllowedBatchJobSortColumns = []string{
 // AllowedAPIKeySortColumns is the allowlist for APIKeyFilter.SortColumn.
 var AllowedAPIKeySortColumns = []string{
 	"id", "name", "role", "created_at", "expires_at", "last_used",
+}
+
+// AllowedStateRunSortColumns is the allowlist for StateRunFilter.SortColumn.
+var AllowedStateRunSortColumns = []string{
+	"id", "mode", "status", "agent_id", "started_at", "ended_at",
 }

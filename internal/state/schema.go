@@ -14,7 +14,8 @@ import (
 // the slice twice is a clean no-op.
 //
 // Statements are ordered: tables first (in FK-dependency order), then
-// indexes. Tables: agents, commands, batch_jobs, batch_agent_results.
+// indexes. Tables: agents, commands, batch_jobs, batch_agent_results,
+// apikeys, state_runs, state_run_results.
 //
 // Domain epics (events, secrets metadata, audit, policy, cluster) ship
 // their own schema in their owning packages and run it from their own
@@ -138,6 +139,40 @@ var sqliteSchema = []string{
     expires_at TEXT,
     last_used  TEXT
 )`,
+	`CREATE TABLE IF NOT EXISTS state_runs (
+    id                TEXT PRIMARY KEY,
+    mode              TEXT NOT NULL,
+    source            TEXT NOT NULL,
+    cluster_id        TEXT NOT NULL DEFAULT '',
+    agent_id          TEXT NOT NULL DEFAULT '',
+    started_at        TEXT NOT NULL,
+    ended_at          TEXT,
+    status            TEXT NOT NULL,
+    error_message     TEXT NOT NULL DEFAULT '',
+    total_count       INTEGER NOT NULL DEFAULT 0,
+    changed_count     INTEGER NOT NULL DEFAULT 0,
+    unchanged_count   INTEGER NOT NULL DEFAULT 0,
+    failed_count      INTEGER NOT NULL DEFAULT 0,
+    skipped_count     INTEGER NOT NULL DEFAULT 0,
+    drifted_count     INTEGER NOT NULL DEFAULT 0,
+    declarations_json TEXT NOT NULL DEFAULT '[]'
+)`,
+	`CREATE TABLE IF NOT EXISTS state_run_results (
+    run_id        TEXT NOT NULL REFERENCES state_runs(id) ON DELETE CASCADE,
+    decl_id       TEXT NOT NULL,
+    module        TEXT NOT NULL,
+    outcome       TEXT NOT NULL,
+    check_matches INTEGER,
+    check_diff    TEXT NOT NULL DEFAULT '',
+    apply_changed INTEGER,
+    apply_diff    TEXT NOT NULL DEFAULT '',
+    apply_comment TEXT NOT NULL DEFAULT '',
+    test_result   INTEGER,
+    error_message TEXT NOT NULL DEFAULT '',
+    started_at    TEXT NOT NULL,
+    duration_ms   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (run_id, decl_id)
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -147,6 +182,9 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
 	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
 	`CREATE INDEX IF NOT EXISTS apikeys_role_idx ON apikeys (role)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_started_at_idx ON state_runs (started_at)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_agent_id_idx ON state_runs (agent_id, started_at)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -224,6 +262,40 @@ var postgresSchema = []string{
     expires_at TIMESTAMPTZ,
     last_used  TIMESTAMPTZ
 )`,
+	`CREATE TABLE IF NOT EXISTS state_runs (
+    id                TEXT PRIMARY KEY,
+    mode              TEXT NOT NULL,
+    source            TEXT NOT NULL,
+    cluster_id        TEXT NOT NULL DEFAULT '',
+    agent_id          TEXT NOT NULL DEFAULT '',
+    started_at        TIMESTAMPTZ NOT NULL,
+    ended_at          TIMESTAMPTZ,
+    status            TEXT NOT NULL,
+    error_message     TEXT NOT NULL DEFAULT '',
+    total_count       INTEGER NOT NULL DEFAULT 0,
+    changed_count     INTEGER NOT NULL DEFAULT 0,
+    unchanged_count   INTEGER NOT NULL DEFAULT 0,
+    failed_count      INTEGER NOT NULL DEFAULT 0,
+    skipped_count     INTEGER NOT NULL DEFAULT 0,
+    drifted_count     INTEGER NOT NULL DEFAULT 0,
+    declarations_json JSONB NOT NULL DEFAULT '[]'::jsonb
+)`,
+	`CREATE TABLE IF NOT EXISTS state_run_results (
+    run_id        TEXT NOT NULL REFERENCES state_runs(id) ON DELETE CASCADE,
+    decl_id       TEXT NOT NULL,
+    module        TEXT NOT NULL,
+    outcome       TEXT NOT NULL,
+    check_matches BOOLEAN,
+    check_diff    TEXT NOT NULL DEFAULT '',
+    apply_changed BOOLEAN,
+    apply_diff    TEXT NOT NULL DEFAULT '',
+    apply_comment TEXT NOT NULL DEFAULT '',
+    test_result   BOOLEAN,
+    error_message TEXT NOT NULL DEFAULT '',
+    started_at    TIMESTAMPTZ NOT NULL,
+    duration_ms   BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (run_id, decl_id)
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -233,4 +305,7 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS batch_jobs_created_at_idx ON batch_jobs (created_at)`,
 	`CREATE INDEX IF NOT EXISTS batch_agent_results_agent_id_idx ON batch_agent_results (agent_id)`,
 	`CREATE INDEX IF NOT EXISTS apikeys_role_idx ON apikeys (role)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_started_at_idx ON state_runs (started_at)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_agent_id_idx ON state_runs (agent_id, started_at)`,
+	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
 }

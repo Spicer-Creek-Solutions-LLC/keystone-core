@@ -83,6 +83,57 @@ type APIKeyStore interface {
 	DeleteAPIKey(ctx context.Context, id string) error
 }
 
+// StateHistoryStore persists the past-runs record used by
+// `kscorectl state history` + `kscorectl state rollback`. PROJECT-
+// DETAILS §4.8 specifies this sub-interface; Epic 08 task 8 ships
+// the SQLite + Postgres implementations.
+//
+// CreateStateRun + FinalizeStateRun are split so a long-running
+// apply can stream per-decl rows into state_run_results as they
+// complete (AddStateRunResult per decl), then stamp terminal
+// status + aggregates at the end. An interrupted run leaves
+// partial-but-recoverable rows on disk.
+type StateHistoryStore interface {
+	// CreateStateRun inserts the header row. Caller sets ID
+	// (typically UUID); StartedAt is recorded.
+	CreateStateRun(ctx context.Context, r *StateRunRecord) error
+
+	// FinalizeStateRun stamps the terminal Status, EndedAt,
+	// ErrorMessage, and aggregate counters. Returns ErrNotFound
+	// when id does not match a stored run. Callers MAY call
+	// FinalizeStateRun more than once (e.g., on retry); the latest
+	// call wins.
+	FinalizeStateRun(ctx context.Context, id string, end StateRunEnd) error
+
+	// AddStateRunResult inserts one per-declaration result row.
+	// PRIMARY KEY (run_id, decl_id) guards against duplicates;
+	// re-insertion of the same row returns an error.
+	AddStateRunResult(ctx context.Context, runID string, r *StateRunResultRecord) error
+
+	// GetStateRun returns the header plus all result rows for
+	// runID. Results are ordered by started_at ASC (the runner's
+	// execution order). Returns ErrNotFound when the header is
+	// missing.
+	GetStateRun(ctx context.Context, id string) (*StateRunRecord, []*StateRunResultRecord, error)
+
+	// ListStateRuns returns headers only (NOT results) matching
+	// filter. Result-row hydration is GetStateRun's job — the list
+	// query stays fast for the CLI `state history` table view.
+	ListStateRuns(ctx context.Context, filter StateRunFilter) ([]*StateRunRecord, error)
+
+	// DeleteStateRunsBefore removes state_runs rows whose EndedAt
+	// is strictly older than cutoff and whose Status is in
+	// statuses. Cascading FK drops dependent state_run_results
+	// rows.
+	//
+	// statuses MUST be non-empty — empty would imply "delete every
+	// run older than cutoff regardless of status," which would
+	// silently drop running rows during retention sweeps. Backends
+	// reject the empty case. Rows whose EndedAt is the zero value
+	// (still running) are never matched.
+	DeleteStateRunsBefore(ctx context.Context, cutoff time.Time, statuses []StateRunStatus) (deleted int, err error)
+}
+
 // Store is the root persistence interface composing all v1.0 sub-interfaces.
 //
 // Other domains add their own sub-interfaces in their respective epics
@@ -94,6 +145,7 @@ type Store interface {
 	CommandStore
 	BatchJobStore
 	APIKeyStore
+	StateHistoryStore
 	HealthStore
 
 	// Close releases resources held by the backend. Safe to call on a
