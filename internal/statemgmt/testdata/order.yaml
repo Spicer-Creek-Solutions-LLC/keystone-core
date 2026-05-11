@@ -1,0 +1,15 @@
+service:
+  zeta:
+    state: running
+  alpha:
+    state: running
+
+package:
+  middle:
+    state: installed
+
+file:
+  /tmp/last:
+    state: present
+  /tmp/first:
+    state: present

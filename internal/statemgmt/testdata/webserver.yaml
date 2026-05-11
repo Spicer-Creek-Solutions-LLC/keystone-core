@@ -1,0 +1,32 @@
+metadata:
+  name: webserver-setup
+  version: "1.0"
+
+variables:
+  nginx_user: www-data
+  port: 8080
+
+includes:
+  - common/base.yaml
+  - common/security.yaml
+
+package:
+  nginx:
+    state: installed
+    version: ">=1.20"
+
+file:
+  /etc/nginx/nginx.conf:
+    state: present
+    source: /etc/nginx/nginx.conf.tmpl
+    user: root
+    mode: "0644"
+    require: [{ package: nginx }]
+    watch: [{ package: nginx }]
+
+service:
+  nginx:
+    state: running
+    enable: true
+    require: [{ file: /etc/nginx/nginx.conf }]
+    watch: [{ file: /etc/nginx/nginx.conf }]
