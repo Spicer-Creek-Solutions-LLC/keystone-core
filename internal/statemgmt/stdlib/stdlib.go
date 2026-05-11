@@ -24,12 +24,14 @@ import (
 	"sort"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 )
 
 // modules is the canonical name → factory map. Adding a new stdlib
 // module is a one-line addition here.
 var modules = map[string]statemgmt.Factory{
+	"cmd":  cmd.New,
 	"file": file.New,
 }
 

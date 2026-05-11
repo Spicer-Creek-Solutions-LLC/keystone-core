@@ -67,3 +67,16 @@ func TestModuleNames_IncludesFile(t *testing.T) {
 		t.Error("file module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesCmd(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "cmd" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("cmd module missing from stdlib")
+	}
+}
