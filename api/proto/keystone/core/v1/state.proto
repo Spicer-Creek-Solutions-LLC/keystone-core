@@ -1,6 +1,10 @@
-// StateService — declarative state management RPCs. Detailed schemas
-// (StateModule, StateRun, etc.) are placeholders here; epic 08 (State
-// Management) refines them.
+// StateService — declarative state management RPCs. Epic 08 (State
+// Management & Stdlib) ships these.
+//
+// Wire format: clients submit raw YAML via yaml_content; the server
+// compiles via the statemgmt pipeline (Parse → Render → Validate →
+// Resolve → Run / Check / Drift). Includes in the YAML are rejected
+// in v1.0 — server-side library directories are a v1.x extension.
 
 syntax = "proto3";
 
@@ -12,139 +16,226 @@ import "keystone/core/v1/common.proto";
 option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
 
 service StateService {
-  // ApplyState applies a declarative state document to one or more
-  // agents. Stream emits per-agent results; closes with a terminal
-  // event. See PROJECT-DETAILS §4.5 streaming patterns.
+  // ApplyState compiles + applies a YAML state file. Streams per-
+  // declaration outcomes as the runner progresses, then closes with
+  // a terminal event.
   rpc ApplyState(ApplyStateRequest) returns (stream ApplyStateResponse);
 
+  // CheckState compiles the file and runs the Check phase only.
+  // Returns drift / unchanged per declaration without mutating.
   rpc CheckState(CheckStateRequest) returns (CheckStateResponse);
+
+  // DetectDrift compiles the file, runs Check, and adds per-decl
+  // severity classification + aggregate severity.
   rpc DetectDrift(DetectDriftRequest) returns (DetectDriftResponse);
+
+  // GetStateHistory lists past runs (headers only, no per-decl
+  // results). Use GetStateStatus to hydrate a specific run.
   rpc GetStateHistory(GetStateHistoryRequest) returns (GetStateHistoryResponse);
+
+  // GetStateStatus returns one run's header plus all its per-decl
+  // results.
   rpc GetStateStatus(GetStateStatusRequest) returns (GetStateStatusResponse);
 }
 
-// ---- StateModule (placeholder; refined in epic 08) ------------------------
+// ---- Enums ----------------------------------------------------------
 
-// StateModule is one declared resource in a state document. Field set
-// is intentionally minimal in v1.0 task 1; epic 08 owns the full model
-// (file, package, service, user, ...).
-message StateModule {
-  string id = 1;
-  string kind = 2; // file | package | service | user | ...
-  string name = 3;
-  map<string, string> params = 4;
-  repeated string require = 5; // ids of modules this depends on
-}
-
-message StateDocument {
-  string id = 1;
-  string version = 2;
-  repeated StateModule modules = 3;
-}
-
-message StateResult {
-  string module_id = 1;
-  StateResultKind kind = 2;
-  string detail = 3;
-  google.protobuf.Timestamp at = 4;
-}
-
-enum StateResultKind {
-  STATE_RESULT_KIND_UNSPECIFIED = 0;
-  STATE_RESULT_KIND_OK = 1;
-  STATE_RESULT_KIND_CHANGED = 2;
-  STATE_RESULT_KIND_FAILED = 3;
-  STATE_RESULT_KIND_SKIPPED = 4;
-}
-
-// StateRun summarizes one apply/check/drift operation.
-message StateRun {
-  string id = 1;
-  string document_id = 2;
-  Target target = 3;
-  StateRunStatus status = 4;
-  google.protobuf.Timestamp started_at = 5;
-  google.protobuf.Timestamp completed_at = 6;
-}
-
+// StateRunStatus is the lifecycle status of a stored run.
 enum StateRunStatus {
   STATE_RUN_STATUS_UNSPECIFIED = 0;
-  STATE_RUN_STATUS_PENDING = 1;
-  STATE_RUN_STATUS_RUNNING = 2;
-  STATE_RUN_STATUS_COMPLETED = 3;
-  STATE_RUN_STATUS_FAILED = 4;
-  STATE_RUN_STATUS_PARTIAL = 5;
+  STATE_RUN_STATUS_RUNNING     = 1;
+  STATE_RUN_STATUS_COMPLETED   = 2;
+  STATE_RUN_STATUS_FAILED      = 3;
+  STATE_RUN_STATUS_CANCELLED   = 4;
 }
 
-// ---- ApplyState -----------------------------------------------------------
+// StateRunMode tags whether a run was an apply, a dry-run check, or
+// a drift sweep.
+enum StateRunMode {
+  STATE_RUN_MODE_UNSPECIFIED = 0;
+  STATE_RUN_MODE_APPLY       = 1;
+  STATE_RUN_MODE_CHECK       = 2;
+  STATE_RUN_MODE_DRIFT       = 3;
+}
+
+// StateRunOutcome classifies what happened to one declaration in a
+// run. Mirrors statemgmt.Outcome.
+enum StateRunOutcome {
+  STATE_RUN_OUTCOME_UNSPECIFIED     = 0;
+  STATE_RUN_OUTCOME_UNCHANGED       = 1; // Check matched; Apply skipped
+  STATE_RUN_OUTCOME_CHANGED         = 2; // Apply succeeded with Changed=true
+  STATE_RUN_OUTCOME_NO_OP           = 3; // Apply succeeded with Changed=false
+  STATE_RUN_OUTCOME_FAILED          = 4; // Error in Check / Apply / Test
+  STATE_RUN_OUTCOME_DRIFT_DETECTED  = 5; // Check mode: Check showed drift
+  STATE_RUN_OUTCOME_SKIPPED         = 6; // Cascade after earlier failure
+}
+
+// DriftSeverity classifies how bad one drifted declaration is.
+// Engine default for unannotated drift is MEDIUM.
+enum DriftSeverity {
+  DRIFT_SEVERITY_UNSPECIFIED = 0;
+  DRIFT_SEVERITY_NONE        = 1;
+  DRIFT_SEVERITY_LOW         = 2;
+  DRIFT_SEVERITY_MEDIUM      = 3;
+  DRIFT_SEVERITY_HIGH        = 4;
+  DRIFT_SEVERITY_CRITICAL    = 5;
+}
+
+// DriftState classifies what the detector observed for one
+// declaration. Severity is meaningful only when state == DRIFTED.
+enum DriftState {
+  DRIFT_STATE_UNSPECIFIED = 0;
+  DRIFT_STATE_IN_SYNC     = 1;
+  DRIFT_STATE_DRIFTED     = 2;
+  DRIFT_STATE_ERROR       = 3;
+  DRIFT_STATE_SKIPPED     = 4;
+}
+
+// ---- Shared messages ------------------------------------------------
+
+// StateRunAggregates is the per-run counter block.
+message StateRunAggregates {
+  int32 total      = 1;
+  int32 changed    = 2;
+  int32 unchanged  = 3;
+  int32 failed     = 4;
+  int32 skipped    = 5;
+  int32 drifted    = 6;
+}
+
+// StateDeclarationResult is the per-declaration outcome from
+// Apply or Check. apply_* fields are zero when Apply wasn't reached
+// (Check matched, or Check / Apply errored, or run was skipped).
+message StateDeclarationResult {
+  string decl_id                       = 1;
+  string module                        = 2;
+  StateRunOutcome outcome              = 3;
+  string check_diff                    = 4;
+  bool apply_changed                   = 5;
+  string apply_diff                    = 6;
+  string apply_comment                 = 7;
+  string error_message                 = 8;
+  google.protobuf.Timestamp started_at = 9;
+  int64 duration_ms                    = 10;
+}
+
+// StateRun is the header summary of one stored run.
+message StateRun {
+  string id                                 = 1;
+  StateRunMode mode                         = 2;
+  string source                             = 3;
+  string cluster_id                         = 4;
+  string agent_id                           = 5;
+  google.protobuf.Timestamp started_at      = 6;
+  google.protobuf.Timestamp ended_at        = 7;
+  StateRunStatus status                     = 8;
+  string error_message                      = 9;
+  StateRunAggregates aggregates             = 10;
+}
+
+// DriftDeclaration is one row of a DetectDriftResponse.
+message DriftDeclaration {
+  string decl_id            = 1;
+  string module             = 2;
+  DriftState state          = 3;
+  DriftSeverity severity    = 4; // valid iff state == DRIFTED
+  string diff               = 5;
+  string error_message      = 6;
+}
+
+// StateRunTerminal closes an ApplyState stream.
+message StateRunTerminal {
+  string run_id                 = 1;
+  StateRunStatus status         = 2;
+  StateRunAggregates aggregates = 3;
+  string error_message          = 4;
+}
+
+// ---- ApplyState -----------------------------------------------------
 
 message ApplyStateRequest {
-  StateDocument document = 1;
-  Target target = 2;
-  bool dry_run = 3;
+  bytes yaml_content                       = 1;
+  Target target                            = 2;
+  bool dry_run                             = 3; // server routes to CheckState path when true
+  map<string, string> facts                = 4;
+  map<string, string> variable_overrides   = 5;
+  string source                            = 6; // logical name for history (e.g., "webserver.yaml")
+  string cluster_id                        = 7;
+  string agent_id                          = 8;
 }
 
 message ApplyStateResponse {
   oneof event {
-    string run_id = 1; // first event in stream
-    BatchAgentLifecycle lifecycle = 2;
-    StateAgentResult agent_result = 3;
-    BatchTerminal terminal = 4;
+    string run_id                        = 1; // first event in stream
+    StateDeclarationResult decl_result   = 2; // per-decl as runner progresses
+    StateRunTerminal terminal            = 3; // last event
   }
 }
 
-message StateAgentResult {
-  string agent_id = 1;
-  StateResult result = 2;
-}
-
-// ---- CheckState -----------------------------------------------------------
+// ---- CheckState -----------------------------------------------------
 
 message CheckStateRequest {
-  StateDocument document = 1;
-  Target target = 2;
+  bytes yaml_content                     = 1;
+  Target target                          = 2;
+  map<string, string> facts              = 3;
+  map<string, string> variable_overrides = 4;
+  string source                          = 5;
+  string cluster_id                      = 6;
+  string agent_id                        = 7;
 }
 
 message CheckStateResponse {
-  string run_id = 1;
-  repeated StateAgentResult results = 2;
+  string run_id                                  = 1;
+  StateRunStatus status                          = 2;
+  StateRunAggregates aggregates                  = 3;
+  repeated StateDeclarationResult declarations   = 4;
+  string error_message                           = 5;
 }
 
-// ---- DetectDrift ----------------------------------------------------------
+// ---- DetectDrift ----------------------------------------------------
 
 message DetectDriftRequest {
-  string agent_id = 1;
-  string document_id = 2;
+  bytes yaml_content                     = 1;
+  Target target                          = 2;
+  map<string, string> facts              = 3;
+  map<string, string> variable_overrides = 4;
+  string source                          = 5;
+  string cluster_id                      = 6;
+  string agent_id                        = 7;
 }
 
 message DetectDriftResponse {
-  bool drifted = 1;
-  repeated StateResult differences = 2;
+  string run_id                                = 1;
+  StateRunStatus status                        = 2;
+  DriftSeverity aggregate_severity             = 3;
+  StateRunAggregates aggregates                = 4;
+  repeated DriftDeclaration statuses           = 5;
+  string error_message                         = 6;
 }
 
-// ---- GetStateHistory ------------------------------------------------------
+// ---- GetStateHistory ------------------------------------------------
 
 message GetStateHistoryRequest {
-  string agent_id = 1;
-  google.protobuf.Timestamp since = 2;
-  google.protobuf.Timestamp until = 3;
-  int32 page_size = 4;
-  string page_token = 5;
+  string agent_id                       = 1;
+  StateRunMode mode                     = 2;
+  StateRunStatus status                 = 3;
+  google.protobuf.Timestamp since       = 4;
+  google.protobuf.Timestamp until       = 5;
+  int32 page_size                       = 6;
+  int32 page_offset                     = 7;
 }
 
 message GetStateHistoryResponse {
   repeated StateRun runs = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
 }
 
-// ---- GetStateStatus -------------------------------------------------------
+// ---- GetStateStatus -------------------------------------------------
 
 message GetStateStatusRequest {
   string run_id = 1;
 }
 
 message GetStateStatusResponse {
-  StateRun run = 1;
-  repeated StateAgentResult results = 2;
+  StateRun run                                  = 1;
+  repeated StateDeclarationResult declarations  = 2;
 }

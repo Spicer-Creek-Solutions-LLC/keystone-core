@@ -155,6 +155,15 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	srv.RegisterService(&v1.ControlPlaneService_ServiceDesc, cpGRPC)
 
+	// Epic 08: StateService. Registry stays at the package-level
+	// DefaultRegistry — Task 11 (the 40-module stdlib) will register
+	// concrete modules into it at init time. Until then the engine
+	// is wired but ApplyState/CheckState/DetectDrift will return
+	// validation errors for any module the test harness has not
+	// explicitly registered.
+	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
+	srv.RegisterService(&v1.StateService_ServiceDesc, stateGRPC)
+
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("server start: %w", err)
 	}
