@@ -29,24 +29,29 @@ The reset is deliberate: rather than carry forward technical debt from a sprawli
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
 
-### Current state (epics 01–04 complete)
+### Current state (epics 01–07 complete)
 
 What's in `main` today:
 
 - **Foundations** (epic 01): `pkg/{version,semver,wait,dbutil}`, `internal/{config,logging,cli}`, `pkg/api/{apierror,v1}` (proto codegen).
 - **Storage layer** (epic 02): `internal/state` with SQLite + PostgreSQL backends. `Store` interface composes per-domain sub-interfaces (Agent, Command, BatchJob, APIKey, Health). Migrator runs on `Open`.
 - **API surface** (epic 03): proto schemas + auth chain (`pkg/api/auth`: APIKey / JWT / mTLS authenticators, RBAC authorizer, sliding-window rate limiter). Per-domain REST handler stubs return 501 until their owning epic ships. OpenAPI 3.0 spec lints in CI.
-- **Control plane** (epic 04): `kscore-server` is a real daemon now.
-  - `internal/controlplane`: `ConnectionManager` (heartbeat monitor + stale eviction), `CommandDispatcher` (NATS-publish stub + retention/timeout loops), `BatchDispatcher` (state machine + persistence).
-  - `pkg/api/server`: 21-step deterministic init, dual-stack IPv4 + IPv6 listeners, CORS → auth middleware chain, `/health/{live,ready,status}` + `/api/status`, graceful shutdown with per-step timeouts.
-  - On first run in dev mode, `kscore-server` auto-generates an admin API key and logs the cleartext **once** at WARN — store it from the boot output; it cannot be recovered. Subsequent runs are idempotent. Production mode requires manual key provisioning via `/api/v1/apikeys`.
-- **Three binaries** that boot cleanly under SIGTERM/SIGINT: `kscore-server`, `kscore-agent` (still scaffold), `kscorectl` (still scaffold).
-- **Make-driven workflow**: `make build`, `test`, `lint`, `smoke`, `proto`, `release-snapshot`. CI invokes Make targets exclusively.
+- **Control plane** (epic 04): `kscore-server` is a real daemon. `internal/controlplane`: `ConnectionManager`, `CommandDispatcher`, `BatchDispatcher`. `pkg/api/server`: 21-step deterministic init, dual-stack listeners, auth middleware chain, `/health/{live,ready,status}` + `/api/status`. Dev mode auto-generates an admin API key once at boot.
+- **NATS messaging** (epic 05): `internal/nats.Manager` (external client + embedded server modes), `SubjectBuilder` with `kscore.{cluster}.…` prefix enforced both sides, `Envelope` wire format with length-prefixed dedup, per-endpoint circuit breakers, JetStream stream provisioning, server-side bootstrap registration handler with PSK validator + API-key issuer.
+- **Agent runtime** (epic 06): `kscore-agent` is real. Subscribes to its command subject; runs `Executor` (os/exec wrap with SIGTERM-grace-then-SIGKILL, hard-cap output truncation, optional uid switch), `MetadataCollector` (gopsutil-backed; distro / kernel / NIC / virt / CPU / memory / disk), `SecurityEnforcer` (HMAC-SHA-256 + principal/command allowlists + env filter). Drains in-flight commands on SIGTERM. systemd unit + non-interactive bootstrap flags.
+- **Remote execution & targeting** (epic 07): operator-facing dispatch end-to-end.
+  - `internal/targeting`: shorthand expression compiler (`expr-lang/expr` + `gobwas/glob`) → `Matcher.Match(AgentRecord)` against flattened metadata. AND-of-labels-plus-hostname-glob today; `os:` / `OR` / `NOT` server-side compile is v1.x.
+  - `internal/execution`: `Executor` interface + `ManagedExecution` (PENDING / RUNNING / COMPLETED / FAILED / TIMEOUT / CANCELLED / RETRYING with `Callbacks` + `RetryPolicy`), `Pipeline` (sequential stages with stdout-piping), `Shell` (bash / sh / powershell / cmd selectors), `CommandPolicy` (`Validate` / `ValidateNoShell` modes — block shell metachars in direct-exec).
+  - `internal/controlplane`: `BatchDispatcher.ExecuteBatch` (semaphore concurrency, 500ms progress ticker, async orchestration detached from request ctx), `ResponseRouter` + `NATSBatchExecutor` (per-CorrelationID waiters fed by an `agent.*.response` subscriber), `GRPCServer` implementing `ExecuteCommand` / `BatchExecuteCommand` (streaming) + `GetBatchJob` / `ListBatchJobs` / `CancelBatchJob` / `ListBatchAgentResults` / `GetBatchAgentResult` + dry-run.
+  - `kscorectl exec`: `run` / `async` / `script` / `status` / `list` / `cancel` / `output` subcommands with `--dry-run`; table / json / yaml formatters; `--raw` mode for pipe-friendly single-agent output.
+  - In-process integration test exercises a 5-agent fleet with a target matching 3, with sub-second single-agent and sub-2s 5-agent latency.
+- **Three binaries** that boot cleanly under SIGTERM/SIGINT: `kscore-server`, `kscore-agent`, `kscorectl`.
+- **Make-driven workflow**: `make build`, `test`, `lint`, `proto`, `release-snapshot`. CI invokes Make targets exclusively.
 - **Cross-compile matrix**: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} — pure Go, no CGO.
 - **CI**: Forgejo Actions (`.github/workflows/`) and Codeberg Woodpecker (`.woodpecker/`) — same Make targets, two runners.
 - **Snapshot release**: `make release-snapshot` produces six tarballs/zips + a SHA-256 checksums file in `dist/`.
 
-NATS messaging, the agent runtime, and the concrete gRPC service implementations land in epics 05–08. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
+State management (epic 08), identity/auth (epic 09), and the rest land in epics 08+. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). Implementation-time deferrals to v1.x live in [`docs/project/V1X-BACKLOG.md`](docs/project/V1X-BACKLOG.md).
 
 ## What v1.0 commits to
 

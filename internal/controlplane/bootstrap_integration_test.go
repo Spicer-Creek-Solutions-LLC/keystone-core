@@ -206,6 +206,7 @@ func (n natsPublisherFromManager) PublishEnvelope(ctx context.Context, subject s
 type managerSubjects struct{ m *natsmgr.Manager }
 
 func (s managerSubjects) AgentCommand(agentID string) string { return s.m.Subjects().AgentCommand(agentID) }
+func (s managerSubjects) AgentResponsePattern() string       { return s.m.Subjects().AgentResponsePattern() }
 func (s managerSubjects) BootstrapRegisterPattern() string   { return s.m.Subjects().BootstrapRegisterPattern() }
 func (s managerSubjects) BootstrapResponse(agentID string) string {
 	return s.m.Subjects().BootstrapResponse(agentID)

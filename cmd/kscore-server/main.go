@@ -148,10 +148,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Dispatcher: batchDisp,
 		Store:      store,
 		Logger:     log,
-		// Executor: nil — task 9d / 12 wires the NATS-backed runner.
-		// Until then, ExecuteCommand / BatchExecuteCommand respond
-		// with codes.Unavailable. ServerStatus / list RPCs continue
-		// to surface as Unimplemented (owned by other epics).
+		// Executor injected after Start once CommandDispatcher exists.
 	})
 	if err != nil {
 		return fmt.Errorf("controlplane grpc: %w", err)
@@ -161,6 +158,32 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("server start: %w", err)
 	}
+
+	// Task 12 — response router + NATS-backed BatchExecutor wired
+	// post-Start so the CommandDispatcher exists. ExecuteCommand /
+	// BatchExecuteCommand flip from Unavailable to live here.
+	router, err := controlplane.NewResponseRouter(controlplane.ResponseRouterConfig{
+		Subscriber: natsSubscriberAdapter{m: natsManager},
+		Subjects:   natsManager.Subjects(),
+		Dispatcher: srv.CommandDispatcher(),
+		Logger:     log,
+	})
+	if err != nil {
+		return fmt.Errorf("response router: %w", err)
+	}
+	if err := router.Start(ctx); err != nil {
+		return fmt.Errorf("response router start: %w", err)
+	}
+	defer func() { _ = router.Stop() }()
+
+	natsExec, err := controlplane.NewNATSBatchExecutor(controlplane.NATSBatchExecutorConfig{
+		Dispatcher: srv.CommandDispatcher(),
+		Router:     router,
+	})
+	if err != nil {
+		return fmt.Errorf("nats batch executor: %w", err)
+	}
+	cpGRPC.SetExecutor(natsExec)
 
 	<-ctx.Done()
 

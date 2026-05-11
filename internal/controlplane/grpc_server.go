@@ -41,6 +41,14 @@ type GRPCServer struct {
 	log        *slog.Logger
 }
 
+// SetExecutor injects (or replaces) the BatchExecutor after
+// construction. Used by cmd/kscore-server to wire the NATS-backed
+// runner once the response router + command dispatcher are ready
+// (task 12). Calling with nil reverts to the Unavailable-stub mode.
+func (s *GRPCServer) SetExecutor(exec BatchExecutor) {
+	s.executor = exec
+}
+
 // NewGRPCServer validates cfg and returns a ControlPlaneService impl.
 func NewGRPCServer(cfg GRPCServerConfig) (*GRPCServer, error) {
 	if cfg.Dispatcher == nil {

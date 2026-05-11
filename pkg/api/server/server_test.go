@@ -139,6 +139,10 @@ func (f fakeSubjects) AgentCommand(agentID string) string {
 	return "kscore." + f.cluster + ".agent." + agentID + ".command"
 }
 
+func (f fakeSubjects) AgentResponsePattern() string {
+	return "kscore." + f.cluster + ".agent.*.response"
+}
+
 func (f fakeSubjects) BootstrapRegisterPattern() string {
 	return "kscore." + f.cluster + ".bootstrap.*.register"
 }

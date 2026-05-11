@@ -504,6 +504,14 @@ func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.grpcServer.RegisterService(desc, impl)
 }
 
+// CommandDispatcher exposes the dispatcher built in init step 7 so
+// callers (e.g., cmd/kscore-server) can wire downstream consumers
+// like the response router. Available after New; populated during
+// Start. Nil before Start.
+func (s *Server) CommandDispatcher() *controlplane.CommandDispatcher {
+	return s.cmdDispatcher
+}
+
 // ---- per-step shutdown helpers ------------------------------------------
 
 // stopGRPC stops the gRPC server. Wraps GracefulStop in a goroutine

@@ -82,6 +82,13 @@ func (b *SubjectBuilder) AgentResponse(agentID string) string {
 	return b.prefix + ".agent." + agentID + ".response"
 }
 
+// AgentResponsePattern is the wildcard form of AgentResponse — the
+// server-side response subscriber (Epic 07 task 12 / 9d) fans every
+// agent's responses into a correlation map keyed by CorrelationID.
+func (b *SubjectBuilder) AgentResponsePattern() string {
+	return b.prefix + ".agent.*.response"
+}
+
 // AgentState is the per-agent state-publication subject (status,
 // resource snapshot). Agents publish; observers subscribe.
 func (b *SubjectBuilder) AgentState(agentID string) string {
