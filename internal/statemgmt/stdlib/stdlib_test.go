@@ -93,3 +93,16 @@ func TestModuleNames_IncludesGroup(t *testing.T) {
 		t.Error("group module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesUser(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "user" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("user module missing from stdlib")
+	}
+}
