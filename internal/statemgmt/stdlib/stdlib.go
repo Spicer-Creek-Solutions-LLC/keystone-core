@@ -27,10 +27,12 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/group"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/hostname"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/kmod"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/sysctl"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timezone"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
 )
 
@@ -40,10 +42,12 @@ var modules = map[string]statemgmt.Factory{
 	"cmd":           cmd.New,
 	"file":          file.New,
 	"group":         group.New,
+	"hostname":      hostname.New,
 	"kernel_module": kmod.New,
 	"package":       pkg.New,
 	"service":       service.New,
 	"sysctl":        sysctl.New,
+	"timezone":      timezone.New,
 	"user":          user.New,
 }
 

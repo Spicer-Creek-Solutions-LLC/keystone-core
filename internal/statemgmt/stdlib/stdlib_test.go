@@ -158,3 +158,29 @@ func TestModuleNames_IncludesKernelModule(t *testing.T) {
 		t.Error("kernel_module module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesHostname(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "hostname" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("hostname module missing from stdlib")
+	}
+}
+
+func TestModuleNames_IncludesTimezone(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "timezone" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("timezone module missing from stdlib")
+	}
+}
