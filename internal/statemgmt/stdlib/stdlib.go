@@ -37,6 +37,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/kmod"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/link"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/mount"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/nftables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pki"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
@@ -64,6 +65,7 @@ var modules = map[string]statemgmt.Factory{
 	"kernel_module": kmod.New,
 	"link":          link.New,
 	"mount":         mount.New,
+	"nftables":      nftables.New,
 	"package":       pkg.New,
 	"service":       service.New,
 	"ssh":           ssh.New,

@@ -340,3 +340,16 @@ func TestModuleNames_IncludesIptables(t *testing.T) {
 		t.Error("iptables module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesNftables(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "nftables" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("nftables module missing from stdlib")
+	}
+}
