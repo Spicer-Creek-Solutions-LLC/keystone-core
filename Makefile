@@ -118,7 +118,7 @@ test-integration: ## Run integration tests (-tags=integration)
 	# and would otherwise race on TRUNCATE / seed / read.
 	CGO_ENABLED=1 go test -race -tags=integration -p=1 ./...
 
-check: lint test ## Run lint + tests
+check: lint docs-lint test ## Run lint + docs-lint + tests
 
 smoke: ## Run quick smoke checks (compile + SQLite pragmas)
 	scripts/smoke-test.sh quick
