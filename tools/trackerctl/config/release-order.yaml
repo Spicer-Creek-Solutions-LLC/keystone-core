@@ -41,6 +41,7 @@ v1.1:
   - "`systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs"
   - "`config` stdlib module — more formats, separators, uncomment-aware updates"
   - "`archive` stdlib module — absent state, clean mode, safe symlinks, more formats"
+  - "`at` stdlib module — replace-on-change, per-user queues, batch"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

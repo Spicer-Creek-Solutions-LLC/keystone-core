@@ -262,3 +262,16 @@ func TestModuleNames_IncludesArchive(t *testing.T) {
 		t.Error("archive module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesAt(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "at" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("at module missing from stdlib")
+	}
+}

@@ -25,6 +25,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 	archivemod "go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/archive"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/at"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
 	configmod "go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/config"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cron"
@@ -46,6 +47,7 @@ import (
 // module is a one-line addition here.
 var modules = map[string]statemgmt.Factory{
 	"archive":       archivemod.New,
+	"at":            at.New,
 	"cmd":           cmd.New,
 	"config":        configmod.New,
 	"cron":          cron.New,
