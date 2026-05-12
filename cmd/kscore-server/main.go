@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,9 +20,10 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
-	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
+	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
@@ -157,11 +159,13 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	srv.RegisterService(&v1.ControlPlaneService_ServiceDesc, cpGRPC)
 
 	// Epic 08: register stdlib modules into DefaultRegistry, then
-	// wire StateService. Task 11a ships the `file` module;
-	// subsequent 11b/c/d PRs add the rest of the ~40-module
-	// stdlib. RegisterAll(nil) targets DefaultRegistry, which is
-	// what NewStateGRPCServer reads when its own Registry is nil.
-	if err := stdlib.RegisterAll(nil); err != nil {
+	// wire StateService. RegisterAll(nil) targets DefaultRegistry,
+	// which is what NewStateGRPCServer reads when its own Registry
+	// is nil. DefaultRegistry is process-global, so a re-entrant
+	// run() (the in-process test harness calls run() once per case)
+	// finds the modules already registered — that is fine, not an
+	// error.
+	if err := stdlib.RegisterAll(nil); err != nil && !errors.Is(err, statemgmt.ErrDuplicateModule) {
 		return fmt.Errorf("stdlib register: %w", err)
 	}
 	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
