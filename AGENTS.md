@@ -93,6 +93,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Implementation-time deferrals → v1.x: `docs/project/V1X-BACKLOG.md` (update whenever a task narrows scope mid-implementation)
 - Implementation reconstruction guide: `PROJECT-DETAILS.md`
 - Epic plans: `epics/` (start at `00-meta-reconstruction-plan.md`)
+- Issue tracker conventions (labels, milestones, tracker issues, ticket lifecycle): `docs/project/ISSUE-TRACKING.md`
 - High-level design: `docs/project/DESIGN.md`
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`
 - Security policy: `SECURITY.md`, `docs/project/SECURITY-*.md`
