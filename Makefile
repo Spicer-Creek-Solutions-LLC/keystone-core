@@ -83,6 +83,7 @@ build-all-platforms: ## Cross-compile all binaries for the v1.0 platform matrix
 clean: ## Remove build artifacts
 	rm -rf build/ dist/
 	rm -f coverage.out
+	rm -f trackerctl
 
 deps: ## Download and verify Go module dependencies
 	go mod download
@@ -124,7 +125,7 @@ smoke: ## Run quick smoke checks (compile + SQLite pragmas)
 # ---- Lint / Format --------------------------------------------------------
 
 fmt: ## Format Go code and tidy go.mod
-	@dirs="$(wildcard pkg internal cmd api)"; \
+	@dirs="$(wildcard pkg internal cmd api tools)"; \
 	if [ -n "$$dirs" ]; then \
 		find $$dirs -name '*.go' -print0 | xargs -0 -r gofmt -w; \
 	fi
