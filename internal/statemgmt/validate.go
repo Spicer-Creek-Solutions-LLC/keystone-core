@@ -237,9 +237,11 @@ func (v *Validator) checkDeclaration(d *Declaration, idSet map[string]int, reg *
 		}
 	}
 
-	// 10: opt-in per-module validation.
+	// 10: opt-in per-module validation. Modules see Params without
+	// the engine-reserved requisite keys (those are the resolver's
+	// concern, not theirs).
 	if vm, ok := mod.(ValidatableModule); ok {
-		if err := vm.Validate(d); err != nil {
+		if err := vm.Validate(d.moduleView()); err != nil {
 			issues = append(issues, ValidationIssue{
 				DeclID:  d.ID,
 				Field:   "Params",

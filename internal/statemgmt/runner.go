@@ -236,9 +236,13 @@ func (r *Runner) runOne(ctx context.Context, decl *Declaration, mode RunMode, re
 		return res
 	}
 
+	// Modules see Params without the engine-reserved requisite keys;
+	// observers still receive the original decl for graph context.
+	mdecl := decl.moduleView()
+
 	// --- Check phase ---
 	checkCtx, cancel := r.declContext(ctx)
-	check, checkErr := mod.Check(checkCtx, decl)
+	check, checkErr := mod.Check(checkCtx, mdecl)
 	cancel()
 	if checkErr != nil {
 		res.Outcome = OutcomeFailed
@@ -271,7 +275,7 @@ func (r *Runner) runOne(ctx context.Context, decl *Declaration, mode RunMode, re
 	}
 
 	applyCtx, cancel := r.declContext(ctx)
-	applyResult, applyErr := mod.Apply(applyCtx, decl)
+	applyResult, applyErr := mod.Apply(applyCtx, mdecl)
 	cancel()
 	if applyErr != nil {
 		res.Outcome = OutcomeFailed
@@ -287,7 +291,7 @@ func (r *Runner) runOne(ctx context.Context, decl *Declaration, mode RunMode, re
 
 	// --- Test phase ---
 	testCtx, cancel := r.declContext(ctx)
-	testOK, testErr := mod.Test(testCtx, decl)
+	testOK, testErr := mod.Test(testCtx, mdecl)
 	cancel()
 	if testErr != nil {
 		res.Outcome = OutcomeFailed

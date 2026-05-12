@@ -44,3 +44,41 @@ type StateResult struct {
 	Comment  string
 	Duration time.Duration
 }
+
+// moduleView returns the Declaration a Module should see at
+// Check / Apply / Test / Validate time: a shallow copy whose Params
+// map omits the engine-reserved requisite keys (require, watch,
+// prereq, onchanges and their *_in forms). Those keys describe the
+// declaration's place in the dependency graph — the resolver's
+// concern, not the module's — and stdlib modules reject unknown
+// Params keys as a typo-defense measure, so they must never observe
+// them. The "severity" key is intentionally retained: modules may
+// surface it via the DriftSeverity opt-in.
+//
+// When the Declaration carries no requisite keys (the common case)
+// the receiver is returned unchanged to avoid a needless allocation.
+func (d *Declaration) moduleView() *Declaration {
+	if d == nil || len(d.Params) == 0 {
+		return d
+	}
+	hasReq := false
+	for _, k := range RequisiteKeys {
+		if _, ok := d.Params[k]; ok {
+			hasReq = true
+			break
+		}
+	}
+	if !hasReq {
+		return d
+	}
+	clean := make(map[string]any, len(d.Params))
+	for k, v := range d.Params {
+		clean[k] = v
+	}
+	for _, k := range RequisiteKeys {
+		delete(clean, k)
+	}
+	cp := *d
+	cp.Params = clean
+	return &cp
+}

@@ -10,6 +10,13 @@ import "context"
 // Module implementations MUST be safe to call concurrently across
 // different Declarations. Sharing the same Declaration across
 // goroutines is the runner's responsibility and is not supported.
+//
+// The Declaration passed to Check / Apply / Test (and to the
+// optional Validate / DriftSeverity hooks) has its engine-reserved
+// requisite keys (require, watch, prereq, onchanges and their *_in
+// forms) stripped from Params — those describe graph edges, not
+// module parameters. Modules may therefore reject any unrecognised
+// Params key as a typo without special-casing requisites.
 type Module interface {
 	// Name returns the module's registry name, e.g. "file". It must
 	// be stable and match the name passed to RegisterModule.

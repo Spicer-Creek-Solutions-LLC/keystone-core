@@ -189,7 +189,7 @@ func (defaultSeverityResolver) Resolve(decl *Declaration, mod Module, check *Mod
 		}
 	}
 	if dsm, ok := mod.(DriftSeverityModule); ok {
-		return dsm.DriftSeverity(decl, check)
+		return dsm.DriftSeverity(decl.moduleView(), check)
 	}
 	return DriftSeverityMedium
 }
