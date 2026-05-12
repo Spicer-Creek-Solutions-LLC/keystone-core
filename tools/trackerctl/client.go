@@ -5,63 +5,151 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
+const (
+	// maxAttempts is the total number of tries (1 initial + retries) for a
+	// request that hits a rate limit (429) or a transient server error.
+	maxAttempts = 5
+	// maxRetryWait caps how long a single Retry-After / backoff sleep can be,
+	// so a misbehaving server can't wedge the tool indefinitely.
+	maxRetryWait = 60 * time.Second
+)
+
 // client is a minimal Forgejo (Gitea-compatible) REST client scoped to one repo.
 type client struct {
-	base  string // e.g. http://192.168.10.21:3000
-	repo  string // owner/name
-	token string
-	http  *http.Client
+	base     string // e.g. https://codeberg.org
+	repo     string // owner/name
+	token    string
+	http     *http.Client
+	throttle time.Duration // optional pause before each mutating request (POST/PATCH/DELETE)
 }
 
-func newClient(host, repo, token string) *client {
+func newClient(host, repo, token string, throttle time.Duration) *client {
 	return &client{
-		base:  strings.TrimRight(host, "/"),
-		repo:  repo,
-		token: token,
-		http:  &http.Client{Timeout: 30 * time.Second},
+		base:     strings.TrimRight(host, "/"),
+		repo:     repo,
+		token:    token,
+		http:     &http.Client{Timeout: 30 * time.Second},
+		throttle: throttle,
 	}
 }
 
+// retryableStatus reports whether an HTTP status warrants a retry: 429 (rate
+// limited) or a transient upstream/server error.
+func retryableStatus(code int) bool {
+	return code == http.StatusTooManyRequests ||
+		code == http.StatusBadGateway ||
+		code == http.StatusServiceUnavailable ||
+		code == http.StatusGatewayTimeout
+}
+
+// retryWait picks how long to sleep before the next attempt: honour a
+// Retry-After header if the server sent one, otherwise exponential backoff with
+// jitter. Capped by maxRetryWait.
+func retryWait(resp *http.Response, attempt int) time.Duration {
+	if resp != nil {
+		if ra := strings.TrimSpace(resp.Header.Get("Retry-After")); ra != "" {
+			if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
+				return capDuration(time.Duration(secs) * time.Second)
+			}
+			if t, err := http.ParseTime(ra); err == nil {
+				if d := time.Until(t); d > 0 {
+					return capDuration(d)
+				}
+				return 0
+			}
+		}
+	}
+	base := time.Duration(1<<uint(attempt)) * 500 * time.Millisecond // 0.5s, 1s, 2s, 4s, …
+	// #nosec G404 -- retry-backoff jitter; cryptographic randomness is not needed or wanted here.
+	jitter := time.Duration(rand.Int63n(int64(500 * time.Millisecond)))
+	return capDuration(base + jitter)
+}
+
+func capDuration(d time.Duration) time.Duration {
+	if d > maxRetryWait {
+		return maxRetryWait
+	}
+	return d
+}
+
 func (c *client) do(method, path string, body, out any) error {
-	var rdr io.Reader
+	var bodyBytes []byte
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return err
 		}
-		rdr = bytes.NewReader(b)
+		bodyBytes = b
 	}
 	u := c.base + "/api/v1/repos/" + c.repo + path
-	// #nosec G704 -- the target host is the operator-supplied --host flag; this is a CLI admin tool, not a server handling untrusted input.
-	req, err := http.NewRequest(method, u, rdr)
-	if err != nil {
-		return err
+	mutating := method != http.MethodGet && method != http.MethodHead
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if mutating && c.throttle > 0 {
+			time.Sleep(c.throttle)
+		}
+		var rdr io.Reader
+		if bodyBytes != nil {
+			rdr = bytes.NewReader(bodyBytes)
+		}
+		// #nosec G704 -- the target host is the operator-supplied --host flag; this is a CLI admin tool, not a server handling untrusted input.
+		req, err := http.NewRequest(method, u, rdr)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "token "+c.token)
+		req.Header.Set("Accept", "application/json")
+		if bodyBytes != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		// #nosec G704 -- request URL derives from the operator-supplied --host flag (see above).
+		resp, err := c.http.Do(req)
+		if err != nil {
+			// network-level failure: retry a couple of times with backoff.
+			lastErr = err
+			if attempt < maxAttempts-1 {
+				wait := retryWait(nil, attempt)
+				fmt.Fprintf(os.Stderr, "trackerctl: %s %s failed (%v); retrying in %s (attempt %d/%d)\n", method, u, err, wait.Round(time.Millisecond), attempt+2, maxAttempts)
+				time.Sleep(wait)
+				continue
+			}
+			return lastErr
+		}
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if retryableStatus(resp.StatusCode) && attempt < maxAttempts-1 {
+			wait := retryWait(resp, attempt)
+			reason := "rate limited"
+			if resp.StatusCode != http.StatusTooManyRequests {
+				reason = fmt.Sprintf("server returned %s", resp.Status)
+			}
+			fmt.Fprintf(os.Stderr, "trackerctl: %s — backing off %s then retrying %s %s (attempt %d/%d)\n", reason, wait.Round(time.Millisecond), method, u, attempt+2, maxAttempts)
+			time.Sleep(wait)
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("%s %s: %s: %s", method, u, resp.Status, strings.TrimSpace(string(data)))
+		}
+		if out != nil && len(data) > 0 {
+			return json.Unmarshal(data, out)
+		}
+		return nil
 	}
-	req.Header.Set("Authorization", "token "+c.token)
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if lastErr != nil {
+		return lastErr
 	}
-	// #nosec G704 -- request URL derives from the operator-supplied --host flag (see above).
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s %s: %s: %s", method, u, resp.Status, strings.TrimSpace(string(data)))
-	}
-	if out != nil && len(data) > 0 {
-		return json.Unmarshal(data, out)
-	}
-	return nil
+	return fmt.Errorf("%s %s: still rate limited / failing after %d attempts", method, u, maxAttempts)
 }
 
 // getPaged fetches a paginated collection, appending each page into out via the

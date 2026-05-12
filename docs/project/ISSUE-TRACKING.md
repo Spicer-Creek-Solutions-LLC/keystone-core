@@ -1,13 +1,16 @@
 # Issue Tracking Conventions
 
-How work is organised in the Forgejo issue tracker (`http://192.168.10.21:3000/sbutts/keystone-core`,
-mirrored to Codeberg/GitHub). This document is the convention; the planning documents it references
-remain the content source of truth.
+How work is organised in the project's Forgejo issue tracker — a self-hosted Forgejo during
+reconstruction, moving to Codeberg at public launch (the GitHub repo stays a code-only mirror; issues
+live only on the canonical Forgejo). This document is the convention; the planning documents it
+references remain the content source of truth.
 
 > **Tooling note**: the `fj` CLI (forgejo-cli) can create/edit/search/close issues and manage labels,
 > but has **no** milestone or project commands — milestones and the roadmap board are managed via the
-> web UI or the REST API. `fj` against this instance needs `-H http://192.168.10.21:3000` and
-> `-r sbutts/keystone-core` (a wrapper function in the maintainer's shell injects the host).
+> web UI or the REST API (or `tools/trackerctl`, which wraps the API). Point `fj` at the repo with
+> `-r <owner>/<repo>`, and pass `-H <base-url>` when the instance isn't plain HTTPS on the default
+> port (a self-hosted dev instance may serve plain HTTP on a custom port; a shell wrapper can inject
+> it). Codeberg needs no `-H`.
 
 ---
 

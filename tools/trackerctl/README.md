@@ -1,16 +1,17 @@
 # trackerctl
 
 Provisions the keystone-core Forgejo issue tracker from configuration checked
-into this directory. It is idempotent and host-parameterized, so the same
-invocations that set up the internal test server are what set up the production
-server at announcement time.
+into this directory. It is idempotent and host-parameterized (`--host` /
+`--repo`), so the same invocations that bootstrap one instance bootstrap any
+other — the public tracker on Codeberg, or a self-hosted Forgejo used during
+reconstruction.
 
-Cutover model: **(b) clean regeneration** — production is rebuilt from this
-config and from `docs/project/V1X-BACKLOG.md`, not migrated from the test
-repo. Issue numbers therefore differ between servers; nothing should hard-code
-`#N` cross-references that need to survive the cutover. The canonical execution
-order lives in `config/release-order.yaml` (mirrored into each release's tracker
-issue by `gen-tracker`) — see `docs/project/ISSUE-TRACKING.md`.
+Cutover model: **(b) clean regeneration** — a new instance is rebuilt from this
+config and from `docs/project/V1X-BACKLOG.md`, not migrated from another repo.
+Issue numbers therefore differ between instances; nothing should hard-code `#N`
+cross-references that need to survive a cutover. The canonical execution order
+lives in `config/release-order.yaml` (mirrored into each release's tracker issue
+by `gen-tracker`) — see `docs/project/ISSUE-TRACKING.md`.
 
 ## What it manages
 
@@ -47,35 +48,45 @@ for the same release.
 
 ## Usage
 
+`FORGEJO_TOKEN` must hold an application token with repo scope. `FORGE_URL`
+below is the instance base URL — the public tracker is `https://codeberg.org`;
+a self-hosted Forgejo uses its own URL (and if it serves plain HTTP, give the
+`http://` URL with the port, e.g. `http://forge.internal:3000`). `--repo`
+defaults to the canonical `owner/repo`; pass it when targeting somewhere else.
+Run from the repo root so the default `--backlog` path resolves.
+
 ```sh
 export FORGEJO_TOKEN=<application token with repo scope>
+export FORGE_URL=https://codeberg.org      # or your self-hosted Forgejo URL
 
 # dry-run (default): prints a plan, changes nothing
-go run ./tools/trackerctl --host http://192.168.10.21:3000 sync
-go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-issues --versions v1.1
-go run ./tools/trackerctl --host http://192.168.10.21:3000 reconcile-issues
-go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-tracker --version v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" sync
+go run ./tools/trackerctl --host "$FORGE_URL" gen-issues --versions v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" reconcile-issues
+go run ./tools/trackerctl --host "$FORGE_URL" gen-tracker --version v1.1
 
 # apply (one release at a time)
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply sync
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1,v1.0-narrowing
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply reconcile-issues   # after editing V1X-BACKLOG.md
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-tracker --version v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" --apply sync
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions v1.1,v1.0-narrowing
+go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after editing V1X-BACKLOG.md
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-tracker --version v1.1
+
+# bulk create against a rate-limited host (e.g. Codeberg): pace the writes
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms gen-issues --versions v1.1
 ```
 
-Flags: `--host` (required), `--repo` (default `sbutts/keystone-core`),
+Flags: `--host` (required), `--repo` (default the canonical `owner/repo`),
 `--apply` (default off), `--backlog` (default `docs/project/V1X-BACKLOG.md`),
 `--versions` (gen-issues / reconcile-issues: comma-separated version tags to
 limit to, e.g. `v1.1` or `v1.1,v1.0-narrowing`; empty = all entries),
 `--version` (gen-tracker: the single release whose tracker issue to
-create/update, e.g. `v1.1` — required). `FORGEJO_TOKEN` must be set. Run from
-the repo root so the default `--backlog` path resolves.
+create/update, e.g. `v1.1` — required), `--throttle` (duration; pause before
+each create/update request — see "rate limiting" below; default 0).
 
-> The local test instance is plain HTTP on port 3000; pass the `http://` URL
-> explicitly. The `fj` CLI has the same requirement (see the maintainer's shell
-> wrapper) — `trackerctl` does not use `fj`, it calls the Forgejo REST API
-> directly.
+> `trackerctl` calls the Forgejo REST API directly — it does not shell out to
+> `fj`, so it isn't affected by `fj`'s plain-HTTP-vs-HTTPS quirk; just give
+> `--host` the right scheme and port for the instance.
 
 ## Notes / limitations
 
@@ -100,6 +111,15 @@ the repo root so the default `--backlog` path resolves.
   discussion in issue comments, not the body. It omits, with a warning, any
   release-order entry that has no corresponding issue yet — run `gen-issues` for
   that release first.
+- **Rate limiting.** A `429 Too Many Requests` (or a transient `502/503/504`) is
+  retried automatically — up to 5 attempts total, honouring the server's
+  `Retry-After` header when present, otherwise exponential backoff with jitter
+  (capped at 60s); each backoff prints a one-line notice to stderr. A request
+  that never network-connects is retried the same way. On a host that throttles
+  bursts of writes (Codeberg does), `--throttle 200ms`–`500ms` paces the
+  create/update calls during a bulk `gen-issues` so the retries don't have to do
+  all the work; GET/list calls are never throttled. Everything is idempotent, so
+  a run that ultimately errors out mid-bulk can just be re-run.
 - **No project/board management** — the "Roadmap" Forgejo Project is maintained
   in the web UI; `trackerctl` only touches labels, milestones, and issues.
 - **Not a release artifact** — this lives under `tools/`, outside `cmd/`, so it

@@ -42,12 +42,13 @@ import (
 )
 
 func main() {
-	host := flag.String("host", "", "Forgejo base URL, e.g. http://192.168.10.21:3000 (required)")
+	host := flag.String("host", "", "Forgejo base URL, e.g. https://codeberg.org (required)")
 	repo := flag.String("repo", "sbutts/keystone-core", "target repository, owner/name")
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
 	backlog := flag.String("backlog", "docs/project/V1X-BACKLOG.md", "path to V1X-BACKLOG.md (gen-issues)")
 	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated version tags to limit to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
 	version := flag.String("version", "", "gen-tracker: the release whose tracker issue to create/update, e.g. v1.1 (required)")
+	throttle := flag.Duration("throttle", 0, "pause before each create/update request, e.g. 250ms — useful for rate-limited hosts during bulk gen-issues (rate-limit responses are retried with backoff regardless)")
 	flag.Parse()
 
 	cmd := flag.Arg(0)
@@ -61,8 +62,11 @@ func main() {
 	if token == "" {
 		fail("FORGEJO_TOKEN environment variable is required")
 	}
+	if *throttle < 0 {
+		fail("--throttle must not be negative")
+	}
 
-	c := newClient(*host, *repo, token)
+	c := newClient(*host, *repo, token, *throttle)
 
 	var err error
 	switch cmd {
