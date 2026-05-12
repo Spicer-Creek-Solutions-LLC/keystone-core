@@ -22,7 +22,11 @@ see `docs/project/ISSUE-TRACKING.md`).
 | `gen-issues` | `docs/project/V1X-BACKLOG.md` | create one leaf issue per `####` entry not already present, labelled + assigned to its version milestone |
 
 Issue creation (`gen-issues`) is intentionally separate from `sync`: labels and
-milestones are cheap to converge, issues are not.
+milestones are cheap to converge, issues are not. `config/milestones.yaml`
+carries every roadmap version (v1.1…v2.0) as a milestone, but you almost always
+want to create *tickets* one release at a time — use `gen-issues --versions
+v1.1`. Without `--versions`, `gen-issues` would create every backlog entry whose
+milestone exists, which is now all of them.
 
 ## Usage
 
@@ -31,17 +35,20 @@ export FORGEJO_TOKEN=<application token with repo scope>
 
 # dry-run (default): prints a plan, changes nothing
 go run ./tools/trackerctl --host http://192.168.10.21:3000 sync
-go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-issues
+go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-issues --versions v1.1
 
 # apply
 go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply sync
-go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues
+go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1
+go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1,v1.0-narrowing
 ```
 
 Flags: `--host` (required), `--repo` (default `sbutts/keystone-core`),
-`--apply` (default off), `--backlog` (default `docs/project/V1X-BACKLOG.md`).
-`FORGEJO_TOKEN` must be set. Run from the repo root so the default `--backlog`
-path resolves.
+`--apply` (default off), `--backlog` (default `docs/project/V1X-BACKLOG.md`),
+`--versions` (gen-issues: comma-separated version tags to limit creation to,
+e.g. `v1.1` or `v1.1,v1.0-narrowing`; empty = every entry whose milestone
+exists). `FORGEJO_TOKEN` must be set. Run from the repo root so the default
+`--backlog` path resolves.
 
 > The local test instance is plain HTTP on port 3000; pass the `http://` URL
 > explicitly. The `fj` CLI has the same requirement (see the maintainer's shell

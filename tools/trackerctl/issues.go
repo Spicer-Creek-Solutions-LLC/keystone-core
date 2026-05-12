@@ -88,7 +88,34 @@ func issueBody(e backlogEntry) string {
 	return b.String()
 }
 
-func genIssues(c *client, backlogPath string, apply bool, out io.Writer) error {
+// narrowingsVersionTag is the synthetic version selector for the
+// "Implementation-time narrowings" section, which has no real version.
+const narrowingsVersionTag = "v1.0-narrowing"
+
+// selectEntries restricts entries to the requested version tags. An empty
+// versions slice means "all". The narrowings section is selected with the
+// synthetic tag narrowingsVersionTag.
+func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
+	if len(versions) == 0 {
+		return entries
+	}
+	want := make(map[string]bool, len(versions))
+	for _, v := range versions {
+		want[v] = true
+	}
+	var out []backlogEntry
+	for _, e := range entries {
+		switch {
+		case e.Narrowing && want[narrowingsVersionTag]:
+			out = append(out, e)
+		case !e.Narrowing && want[e.Version]:
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func genIssues(c *client, backlogPath string, versions []string, apply bool, out io.Writer) error {
 	f, err := os.Open(backlogPath)
 	if err != nil {
 		return err
@@ -97,6 +124,11 @@ func genIssues(c *client, backlogPath string, apply bool, out io.Writer) error {
 	entries, err := parseBacklog(f)
 	if err != nil {
 		return err
+	}
+	entries = selectEntries(entries, versions)
+	if len(entries) == 0 {
+		fmt.Fprintf(out, "no backlog entries match the requested versions %v\n", versions)
+		return nil
 	}
 
 	issues, err := c.listIssues()

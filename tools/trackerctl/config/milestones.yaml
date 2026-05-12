@@ -1,11 +1,91 @@
 # Forgejo milestones for keystone-core, consumed by `trackerctl sync-milestones`.
 #
 # One milestone per target version. `due_on` is optional (RFC3339 timestamp);
-# omit it for no due date. Decompose a version into leaf issues only when it
-# becomes the active or next release (see docs/project/ISSUE-TRACKING.md §3).
+# omit it for no due date.
+#
+# Having a milestone here does NOT mean its tickets should exist yet: decompose
+# a version into leaf issues only when it becomes the active or next release
+# (docs/project/ISSUE-TRACKING.md §3). `trackerctl gen-issues --versions v1.1`
+# controls which versions actually get issues created.
+#
+# Themes/major adds below summarise PROJECT-DETAILS.md §6.2 — that table is the
+# authoritative roadmap; this file just mirrors it into Forgejo.
 
 - title: v1.1
   description: >-
     First post-v1.0 release. Implementation-time deferrals tagged v1.1 in
     docs/project/V1X-BACKLOG.md, plus any FEATURES.md items slated for v1.1.
     See docs/project/ISSUE-TRACKING.md for conventions.
+
+- title: v1.2
+  description: >-
+    Theme: TUI + advanced runbooks. Adds the kscore-monitor TUI, runbook
+    control flow (if/switch/loop/parallel/sub-runbook), container detection +
+    container stdlib, SumDB transparency log, fine-grained capabilities, and an
+    advanced linting set. See PROJECT-DETAILS.md §6.2 and the `## v1.2` section
+    of docs/project/V1X-BACKLOG.md.
+
+- title: v1.3
+  description: >-
+    Theme: Kubernetes + SPIRE + runbook approvals. Adds the K8s operator + CRDs
+    + the k8s_* stdlib module set, SPIRE-backed identity + trust federation,
+    runbook approvals/interventions/ITSM hooks, and certificate auto-rotation.
+    See PROJECT-DETAILS.md §6.2 and the `## v1.3` section of
+    docs/project/V1X-BACKLOG.md.
+
+- title: v1.4
+  description: >-
+    Theme: telemetry gateway + cloud metadata + saga resume. Adds the telemetry
+    gateway and NATS telemetry transport, full AWS/GCP/Azure cloud metadata,
+    saga checkpoint resume, audit anomaly detection, secrets rotation
+    orchestration, and Loki/Prometheus/Tempo query backends. See
+    PROJECT-DETAILS.md §6.2 and the `## v1.4` section of
+    docs/project/V1X-BACKLOG.md.
+
+- title: v1.5
+  description: >-
+    Theme: catalog expansion + scaling. Adds the full standard blueprint
+    catalog, a CEL custom-function library, file-distribution mirror groups +
+    NATS Object Store, automated backups + rolling upgrades, a quota system, and
+    load-test scenarios. See PROJECT-DETAILS.md §6.2 and the `## v1.5` section of
+    docs/project/V1X-BACKLOG.md.
+
+- title: v1.6
+  description: >-
+    Theme: compliance scans + database stdlib. Adds a continuous compliance-scan
+    scheduler, SIEM/CEF/LEEF export, extended database stdlib
+    (postgres/mysql/redis admin), and encryption-at-rest scaffolding. See
+    PROJECT-DETAILS.md §6.2. (No `## v1.6` section in
+    docs/project/V1X-BACKLOG.md yet — add one when a deferral targets it.)
+
+- title: v1.7
+  description: >-
+    Theme: air-gap + supply chain. Adds the air-gap baseline (offline registry,
+    bootstrap packages, upgrade archives, transfer), the full security-scanning
+    suite, signed module bundles, and the signing ceremony. See
+    PROJECT-DETAILS.md §6.2 and the `## v1.7` section of
+    docs/project/V1X-BACKLOG.md.
+
+- title: v1.8
+  description: >-
+    Theme: policy enforcement. Adds OPA/CEL enforcement modes (Enforce + Warn
+    active blocking), full policy CRUD, pre/post-execution hooks, policy
+    approval workflows, and simulation mode. See PROJECT-DETAILS.md §6.2 and the
+    `## v1.8` section of docs/project/V1X-BACKLOG.md.
+
+- title: v1.9
+  description: >-
+    Theme: platform polish. Adds the macOS agent, BMC/IPMI integration, an edge
+    baseline, and advanced state stdlib (niche storage/network modules). See
+    PROJECT-DETAILS.md §6.2. (No `## v1.9` section in
+    docs/project/V1X-BACKLOG.md yet.)
+
+- title: v2.0
+  description: >-
+    Theme: federation, multi-region, supercluster, cloud KMS. Adds NATS
+    supercluster + leaf nodes + WebSocket + auto-discovery, cross-domain
+    federation, cloud KMS for secrets (AWS Secrets Manager / Azure Key Vault /
+    GCP Secret Manager backends), DNS provider management, expanded K8s stdlib,
+    advanced networking, the proxy-agent core (SSH/SNMP/REST + initial vendors),
+    and an MCP server. See PROJECT-DETAILS.md §6.2 and the `## v2.0` section of
+    docs/project/V1X-BACKLOG.md.

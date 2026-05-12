@@ -18,6 +18,10 @@
 //	sync             sync-labels then sync-milestones
 //	gen-issues       create leaf issues from docs/project/V1X-BACKLOG.md (skips ones that already exist)
 //
+// gen-issues defaults to every backlog entry whose target milestone exists;
+// pass --versions to restrict it, e.g. --versions v1.1 (the recommended way to
+// add tickets one release at a time) or --versions v1.1,v1.0-narrowing.
+//
 // Without --apply the tool reports what it would do and changes nothing.
 package main
 
@@ -25,6 +29,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -32,6 +37,7 @@ func main() {
 	repo := flag.String("repo", "sbutts/keystone-core", "target repository, owner/name")
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
 	backlog := flag.String("backlog", "docs/project/V1X-BACKLOG.md", "path to V1X-BACKLOG.md (gen-issues)")
+	versions := flag.String("versions", "", "gen-issues: comma-separated version tags to limit creation to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
 	flag.Parse()
 
 	cmd := flag.Arg(0)
@@ -59,7 +65,7 @@ func main() {
 			err = syncMilestones(c, *apply, os.Stdout)
 		}
 	case "gen-issues":
-		err = genIssues(c, *backlog, *apply, os.Stdout)
+		err = genIssues(c, *backlog, splitCSV(*versions), *apply, os.Stdout)
 	default:
 		fail("unknown command %q", cmd)
 	}
@@ -69,6 +75,16 @@ func main() {
 	if !*apply {
 		fmt.Fprintln(os.Stderr, "(dry-run — re-run with --apply to perform these changes)")
 	}
+}
+
+func splitCSV(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func fail(format string, args ...any) {

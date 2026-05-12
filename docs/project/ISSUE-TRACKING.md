@@ -161,12 +161,15 @@ planning document wins on content and the ticket wins on state; reconcile toward
 
 ## 7. First adoption
 
-Do not mint every backlog/feature/roadmap item at once. Bring up v1.1 first: create the `source/*`,
-`kind/*`, and `area/*` label sets and the `v1.1` milestone; mint the v1.1 leaf tickets from
-`V1X-BACKLOG.md` (the ~21 entries under `## v1.1`); build the `v1.1 — release tracker`. Add v1.2+
-milestones with epic placeholders only, and decompose each into tickets when it becomes the next
-release. The "v1.0 narrowings" section of `V1X-BACKLOG.md` is not version-tagged — park those under
-a `v1.0-narrowing` label and triage them into real versions later.
+Do not mint every backlog/feature/roadmap item at once. The full set of roadmap milestones
+(v1.1…v2.0, per `PROJECT-DETAILS.md §6.2`) exists in `tools/trackerctl/config/milestones.yaml` so
+they are visible and assignable — but creating *tickets* is gated separately: `trackerctl gen-issues
+--versions v1.1` only decomposes v1.1. Bring up v1.1 first: run `trackerctl sync` (labels +
+milestones), then `trackerctl gen-issues --versions v1.1` to mint the ~21 leaf tickets under
+`## v1.1`, then build the `v1.1 — release tracker`. Decompose v1.2+ only when each becomes the next
+release (re-run `gen-issues --versions v1.2`, etc.). The "v1.0 narrowings" section of
+`V1X-BACKLOG.md` is not version-tagged — its tickets carry the `v1.0-narrowing` label, are created
+with `gen-issues --versions v1.0-narrowing`, and get triaged into real versions later.
 
 ---
 
@@ -176,11 +179,14 @@ The label set, milestones, and the v1.x leaf issues are not hand-clicked — the
 `tools/trackerctl` from configuration in the repo:
 
 - `tools/trackerctl/config/labels.yaml` — the label set (consumed by `trackerctl sync-labels`).
-- `tools/trackerctl/config/milestones.yaml` — the milestones (`trackerctl sync-milestones`).
-- `docs/project/V1X-BACKLOG.md` — the leaf-issue source (`trackerctl gen-issues`).
+- `tools/trackerctl/config/milestones.yaml` — every roadmap milestone v1.1…v2.0 (`trackerctl
+  sync-milestones`).
+- `docs/project/V1X-BACKLOG.md` — the leaf-issue source (`trackerctl gen-issues --versions vX.Y`,
+  one release at a time).
 
-All three operations are idempotent and host-parameterized (`--host`, `--repo`, `--apply`,
-`FORGEJO_TOKEN`). See `tools/trackerctl/README.md`.
+All operations are idempotent and host-parameterized (`--host`, `--repo`, `--apply`,
+`FORGEJO_TOKEN`); `gen-issues` additionally takes `--versions` to control which release(s) get
+tickets. See `tools/trackerctl/README.md`.
 
 **Cutover model: (b) clean regeneration.** When the project is announced, the production tracker is
 built by re-running `trackerctl` against the production Forgejo — not by migrating the internal test
