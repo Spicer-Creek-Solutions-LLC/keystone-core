@@ -1,0 +1,11 @@
+# Forgejo milestones for keystone-core, consumed by `trackerctl sync-milestones`.
+#
+# One milestone per target version. `due_on` is optional (RFC3339 timestamp);
+# omit it for no due date. Decompose a version into leaf issues only when it
+# becomes the active or next release (see docs/project/ISSUE-TRACKING.md §3).
+
+- title: v1.1
+  description: >-
+    First post-v1.0 release. Implementation-time deferrals tagged v1.1 in
+    docs/project/V1X-BACKLOG.md, plus any FEATURES.md items slated for v1.1.
+    See docs/project/ISSUE-TRACKING.md for conventions.

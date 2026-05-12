@@ -1,0 +1,99 @@
+# Forgejo issue-tracker label set for keystone-core.
+#
+# Authoritative definition consumed by `trackerctl sync-labels`. Editing this
+# file and re-running the sync is how the label set evolves — on the test
+# server now, on the production server at announcement time (cutover model b:
+# prod is a clean regeneration from this config, not a repo migration).
+#
+# `exclusive: true` on a namespaced (`foo/bar`) label tells Forgejo to enforce
+# at most one label from that namespace per issue.
+#
+# See docs/project/ISSUE-TRACKING.md for what these mean and when to apply them.
+
+# --- source/* : which planning document owns the work (drives close-out) ---
+- name: source/v1x-backlog
+  color: "1d76db"
+  exclusive: true
+  description: Originated from docs/project/V1X-BACKLOG.md
+- name: source/features
+  color: "1d76db"
+  exclusive: true
+  description: Originated from FEATURES.md
+- name: source/roadmap
+  color: "1d76db"
+  exclusive: true
+  description: Originated from PROJECT-DETAILS.md §6.2 / roadmap
+- name: source/epic-task
+  color: "1d76db"
+  exclusive: true
+  description: Tracked by an epics/NN-*.md task
+- name: source/triage
+  color: "1d76db"
+  exclusive: true
+  description: Filed directly (bug or idea), not from a planning doc
+
+# --- kind/* : the shape of the issue ---
+- name: kind/epic
+  color: "5319e7"
+  exclusive: true
+  description: "Epic tracker issue: ordered task list of child tickets"
+- name: kind/release-tracker
+  color: "5319e7"
+  exclusive: true
+  description: "Per-release tracker issue: ordered list of epics + tickets"
+- name: kind/feature
+  color: "5319e7"
+  exclusive: true
+  description: Feature work
+- name: kind/bug
+  color: "5319e7"
+  exclusive: true
+  description: Bug fix
+- name: kind/chore
+  color: "5319e7"
+  exclusive: true
+  description: Chore / maintenance
+- name: kind/docs
+  color: "5319e7"
+  exclusive: true
+  description: Documentation
+
+# --- area/* : the part of the system (not exclusive) ---
+- name: area/statemgmt
+  color: "0e8a16"
+  description: "Area: state management & stdlib"
+- name: area/agent
+  color: "0e8a16"
+  description: "Area: agent"
+- name: area/nats
+  color: "0e8a16"
+  description: "Area: NATS transport"
+- name: area/server
+  color: "0e8a16"
+  description: "Area: server / gRPC"
+- name: area/schema
+  color: "0e8a16"
+  description: "Area: database schema & migrations"
+- name: area/bootstrap
+  color: "0e8a16"
+  description: "Area: bootstrap"
+- name: area/cli
+  color: "0e8a16"
+  description: "Area: CLI"
+- name: area/security
+  color: "0e8a16"
+  description: "Area: security / identity / trust"
+- name: area/policy
+  color: "0e8a16"
+  description: "Area: policy engine"
+- name: area/observability
+  color: "0e8a16"
+  description: "Area: observability"
+
+# --- umbrellas ---
+- name: v1x-backlog
+  color: "fbca04"
+  description: Item minted from docs/project/V1X-BACKLOG.md
+- name: v1.0-narrowing
+  color: "d93f0b"
+  description: v1.0 implementation-time narrowing; not yet version-tagged
