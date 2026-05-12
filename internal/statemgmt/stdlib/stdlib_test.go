@@ -249,3 +249,16 @@ func TestModuleNames_IncludesConfig(t *testing.T) {
 		t.Error("config module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesArchive(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "archive" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("archive module missing from stdlib")
+	}
+}

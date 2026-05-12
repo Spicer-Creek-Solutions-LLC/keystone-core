@@ -190,6 +190,21 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: `case_insensitive: true` matches `Key`/`key`; `separator: " "` round-trips an `sshd_config` directive; an inline `# comment` survives a value change; setting a directive that exists only as `#directive ...` rewrites the comment line in place.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/config/config.go` package comment; `internal/statemgmt/stdlib/config/format.go`.
 
+#### `archive` stdlib module — absent state, clean mode, safe symlinks, more formats
+
+- **What**: Epic 08 task 11 ships the `archive` module (extract tar/tar.gz/tar.bz2/zip into `target`, `present` only, idempotent via a `creates` path or a size+mtime sentinel, path-escape defense, symlink/hardlink entries skipped). Reserved for v1.x:
+  - `state: absent` — needs an extraction manifest (which files came from the archive) to remove only those; for now use `file: <target>` `state: absent`.
+  - `clean: true` — remove `target` before extracting (Salt's `archive.extracted` clean mode).
+  - Safe symlink / hardlink extraction (create them only when the link target stays within `target`).
+  - `.tar.xz` / `.tar.zst` / `.7z` and other formats (need a third-party decompressor dep).
+  - sha-based source identity instead of size+mtime (so a `touch` of the archive doesn't trigger a needless re-extract).
+  - `owner` / `group` chown of the extracted tree; mtime preservation of extracted files.
+  - Extraction size / entry-count limits (zip-bomb hardening) — `max_extracted_bytes` / `max_entries`.
+  - `skip_existing` (don't overwrite files already present in `target`).
+- **Why deferred**: "extract a release tarball once" — the v1.0 scope — is the dominant case, and `state: absent` plus the security/format extensions each carry real design weight (manifest tracking, decompressor deps, symlink-resolution policy). The `extract.go` core + the `format` param + the `Provider`-less direct-fs shape extend cleanly.
+- **Acceptance**: `state: absent` removes exactly the previously-extracted entries; `clean: true` wipes `target` first; a `.tar.xz` archive extracts; a symlink entry pointing inside `target` is created while one pointing outside is rejected; a zip bomb is refused once it exceeds the configured cap.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/archive/archive.go` package comment; `internal/statemgmt/stdlib/archive/extract.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.
