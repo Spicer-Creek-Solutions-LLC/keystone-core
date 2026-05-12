@@ -288,3 +288,16 @@ func TestModuleNames_IncludesX509(t *testing.T) {
 		t.Error("x509 module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesMount(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "mount" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("mount module missing from stdlib")
+	}
+}
