@@ -241,6 +241,17 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: changing `opts` on a `mounted` declaration triggers a `mount -o remount`; a mount point with a space round-trips through fstab and /proc/mounts; a `noauto` `mounted` entry isn't flagged drifted while down; an encrypted device coordinates with crypttab.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/mount/mount.go` package comment; `internal/statemgmt/stdlib/mount/fstab.go`.
 
+#### `swap` stdlib module — UUID sources, resize, fallocate, custom opts
+
+- **What**: Epic 08 task 11 ships the `swap` module (manage a swapfile/partition + its fstab entry + its live swapon state; states `on` / `present` / `off` / `absent`; a not-yet-existing swapfile is created with `dd`). Reserved for v1.x:
+  - `UUID=` / `LABEL=` swap sources — v1.0 requires the source to be an absolute path (swapfile or device).
+  - Enforcing/changing the size of an *existing* swapfile (`size:` only governs creation today); `fallocate`-based fast swapfile creation (v1.0 uses `dd`, slow for large files).
+  - Custom fstab options for swap (`nofail`, `discard`, …) beyond `defaults` + `pri=N`; `mkswap -L <label>` / `-f`.
+  - Not rotating a swap *partition*'s UUID when re-activating (v1.0 runs `mkswap` before `swapon` on a not-active source, which re-initialises a pre-existing swap area); btrfs (NOCOW) swapfiles; zram / dphys-swapfile flavours.
+- **Why deferred**: "create a swapfile (or use a partition), enable it, put it in fstab" is the v1.0 scope; `UUID=`/`LABEL=` need the same identifier-resolution work as `mount`, swapfile resize needs a swapoff/recreate/mkswap/swapon cycle, and the `mkswap`-on-re-activate UUID-rotation concern wants an `IsSwapArea` probe (`blkid`/`swaplabel`) to skip `mkswap` when the area is already valid. The pure `fstab.go` editor and the `Provider` (`Lookup` / `MakeSwap` / `SwapOn` / `SwapOff` / `CreateSwapfile`) extend cleanly.
+- **Acceptance**: a `UUID=…` swap source resolves and is managed; changing `size:` on an existing swapfile resizes it (swapoff → recreate → mkswap → swapon); `fallocate` creates a large swapfile instantly; `nofail` lands in the fstab opts; re-activating a partition doesn't change its UUID.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/swap/swap.go` package comment; `internal/statemgmt/stdlib/swap/fstab.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

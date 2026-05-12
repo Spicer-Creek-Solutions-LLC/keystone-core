@@ -44,6 +44,7 @@ v1.1:
   - "`at` stdlib module — replace-on-change, per-user queues, batch"
   - "`x509` stdlib module — combined PEM, encrypted keys, more issuance options"
   - "`mount` stdlib module — remount-on-change, escaping, swap, crypttab"
+  - "`swap` stdlib module — UUID sources, resize, fallocate, custom opts"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

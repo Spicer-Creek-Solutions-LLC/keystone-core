@@ -301,3 +301,16 @@ func TestModuleNames_IncludesMount(t *testing.T) {
 		t.Error("mount module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesSwap(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "swap" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("swap module missing from stdlib")
+	}
+}
