@@ -64,6 +64,15 @@ steps:
       - apk add --no-cache make
       - make openapi-lint
 
+  docs:
+    image: node:22-alpine
+    depends_on: []
+    commands:
+      # alpine doesn't ship `make`; install it for the docs-lint target.
+      # docs-lint runs markdownlint-cli2 via `npx --yes`.
+      - apk add --no-cache make
+      - make docs-lint
+
   proto:
     image: golang:1.26
     depends_on: []

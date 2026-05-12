@@ -102,6 +102,14 @@ jobs:
       # `npx --yes` to fetch redocly without persisting node_modules.
       - run: make openapi-lint
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # make docs-lint runs markdownlint-cli2 via `npx --yes` (runner image
+      # has npm/npx; rules + globs live in .markdownlint-cli2.yaml).
+      - run: make docs-lint
+
   proto:
     runs-on: ubuntu-latest
     steps:

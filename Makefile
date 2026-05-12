@@ -42,6 +42,7 @@ export CGO_ENABLED := 0
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
+        docs-lint docs-lint-fix docs-lint-container \
         dev dev-server dev-agent \
         release-snapshot release-dry-run \
         security-secrets security-vulns security-sast
@@ -160,6 +161,34 @@ openapi-lint: ## Lint api/openapi/openapi-spec.yaml via redocly
 		exit 1; \
 	}
 	npx --yes @redocly/cli@latest lint api/openapi/openapi-spec.yaml
+
+# ---- Docs -----------------------------------------------------------------
+
+# markdownlint-cli2 reads .markdownlint-cli2.yaml (rules + the docs/**/*.md
+# glob). docs-lint needs Node locally; docs-lint-container runs the same thing
+# in node:22-alpine for hosts without Node (CI runs docs-lint directly).
+
+docs-lint: ## Lint Markdown docs via markdownlint-cli2 (.markdownlint-cli2.yaml)
+	@command -v npx >/dev/null || { \
+		echo "ERROR: docs-lint needs npm/npx (install Node.js), or run 'make docs-lint-container'"; \
+		exit 1; \
+	}
+	npx --yes markdownlint-cli2
+
+docs-lint-fix: ## Auto-fix Markdown lint issues where possible
+	@command -v npx >/dev/null || { \
+		echo "ERROR: docs-lint-fix needs npm/npx (install Node.js)"; \
+		exit 1; \
+	}
+	npx --yes markdownlint-cli2 --fix
+
+docs-lint-container: ## Lint Markdown docs in a node:22-alpine container (no local Node needed)
+	@cre="$$(command -v docker || command -v podman)"; \
+	if [ -z "$$cre" ]; then \
+		echo "ERROR: docs-lint-container needs docker or podman; use 'make docs-lint' if you have Node"; \
+		exit 1; \
+	fi; \
+	"$$cre" run --rm -v "$(CURDIR)":/repo:ro -w /repo node:22-alpine npx --yes markdownlint-cli2
 
 # ---- Dev run --------------------------------------------------------------
 

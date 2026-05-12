@@ -1,10 +1,12 @@
 config:
   default: true
-  MD013: false
-  MD033: false
-  MD024: false
-  MD036: false
-  MD040: false
+  MD013: false # line length — long prose lines are fine
+  MD033: false # inline HTML
+  MD024: false # duplicate headings (e.g. repeated "### Done" / "### Targeted: …" subsections)
+  MD036: false # emphasis used instead of a heading (we use **bold** lead-ins in list items deliberately)
+  MD037: false # spaces inside emphasis markers — false-positives on prose with literal `*` (e.g. `state.*`, `--postgres-*`)
+  MD040: false # fenced code language
+  MD001: false # heading-increment — V1X-BACKLOG.md deliberately nests `#### entry` directly under `## vX.Y`
   MD060: false
 
 globs:
