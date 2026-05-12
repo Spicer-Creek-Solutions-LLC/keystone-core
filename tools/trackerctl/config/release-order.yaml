@@ -42,6 +42,7 @@ v1.1:
   - "`config` stdlib module — more formats, separators, uncomment-aware updates"
   - "`archive` stdlib module — absent state, clean mode, safe symlinks, more formats"
   - "`at` stdlib module — replace-on-change, per-user queues, batch"
+  - "`x509` stdlib module — combined PEM, encrypted keys, more issuance options"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

@@ -275,3 +275,16 @@ func TestModuleNames_IncludesAt(t *testing.T) {
 		t.Error("at module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesX509(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "x509" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("x509 module missing from stdlib")
+	}
+}

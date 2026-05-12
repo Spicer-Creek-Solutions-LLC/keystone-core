@@ -36,6 +36,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/kmod"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/link"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pki"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/sysctl"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timer"
@@ -63,6 +64,7 @@ var modules = map[string]statemgmt.Factory{
 	"systemd_timer": timer.New,
 	"timezone":      timezone.New,
 	"user":          user.New,
+	"x509":          pki.New,
 }
 
 // RegisterAll registers every stdlib module into reg. Pass nil to
