@@ -25,6 +25,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cron"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/git"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/group"
@@ -34,6 +35,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/sysctl"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timer"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timezone"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
 )
@@ -42,6 +44,7 @@ import (
 // module is a one-line addition here.
 var modules = map[string]statemgmt.Factory{
 	"cmd":           cmd.New,
+	"cron":          cron.New,
 	"file":          file.New,
 	"git":           git.New,
 	"group":         group.New,
@@ -51,6 +54,7 @@ var modules = map[string]statemgmt.Factory{
 	"package":       pkg.New,
 	"service":       service.New,
 	"sysctl":        sysctl.New,
+	"systemd_timer": timer.New,
 	"timezone":      timezone.New,
 	"user":          user.New,
 }

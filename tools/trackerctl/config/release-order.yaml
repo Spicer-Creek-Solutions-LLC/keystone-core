@@ -37,6 +37,8 @@ v1.1:
   - "`package` stdlib module — dnf, apk, zypper, pacman backends"
   - "`git` stdlib module — authentication, submodules, advanced clone"
   - "`link` stdlib module — relative-target normalisation"
+  - "`cron` stdlib module — per-field schedule, cron.d, env lines"
+  - "`systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

@@ -155,6 +155,28 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Why deferred**: Verbatim compare is unambiguous and matches what the operator wrote; canonicalisation has surprising corner cases (symlink chains, the link's own directory not existing yet) that deserve their own design pass. Low impact — operators who want absolute behaviour write absolute targets.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/link/link.go` package comment.
 
+#### `cron` stdlib module — per-field schedule, cron.d, env lines
+
+- **What**: Epic 08 task 11 ships the `cron` module (per-user crontab entries via `crontab(1)`, states `present` / `absent`, identified by a `# keystone-cron: <name>` marker comment). v1.0 takes one `schedule` string (five fields or an `@`-shortcut) and validates only its shape (field count / known shortcut). Reserved for v1.x:
+  - Salt-style separate `minute` / `hour` / `day_of_month` / `month` / `day_of_week` params.
+  - `/etc/cron.d` drop-in mode (a `cron_d: true` switch, or a separate module) — for now the `file` module manages those.
+  - Environment-variable lines (`KEY=value`) in the crontab.
+  - Deep cron-field syntax validation (ranges, steps, month/day names).
+- **Why deferred**: One `schedule` string covers the common case ergonomically; the rest are scope-trims to keep the v1.0 module reviewable. The marker-comment design and the `Provider` (`Read`/`Write`) seam accommodate all of it.
+- **Acceptance**: `minute: "*/5"` etc. compose into a schedule; `cron_d: true` writes `/etc/cron.d/<name>` with a `user` column; an `env:` map emits `KEY=value` lines above the entry; malformed fields are rejected at validate time.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/cron/cron.go` package comment; `internal/statemgmt/stdlib/cron/params.go` `validateSchedule`.
+
+#### `systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs
+
+- **What**: Epic 08 task 11 ships the `systemd_timer` module — generates a `.timer` unit from `on_calendar` (+ optional `persistent`) and manages its enabled/active state; the triggered `.service` is the operator's job (compose with `file` + `service`, or point `service:` at an existing unit). Reserved for v1.x:
+  - Also generate the paired `.service` unit (an `exec_start:` / `user:` / `working_dir:` param set).
+  - `--user` (per-user) timers.
+  - `on_boot_sec` / `on_unit_active_sec` / `on_startup_sec` / `randomized_delay_sec` and other `[Timer]` directives (v1.0 takes `OnCalendar` + `Persistent`).
+  - Calendar-expression validation (v1.0 lets `systemctl enable` reject malformed expressions at apply time).
+- **Why deferred**: Composing with the `file`/`service` modules is the Unix-y v1.0 path and keeps the module small; the `[Timer]` knob set and the generated-service feature each warrant their own design pass. The `Provider` interface (unit-file ops + the systemctl verbs) extends cleanly.
+- **Acceptance**: `exec_start:` + `user:` generate a paired `<name>.service`; `on_boot_sec:` emits `OnBootSec=`; a `user: true` timer lands under `~/.config/systemd/user/`; a malformed `on_calendar` is rejected before any file is written.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/timer/timer.go` package comment; `internal/statemgmt/stdlib/timer/unit.go` `renderTimerUnit`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

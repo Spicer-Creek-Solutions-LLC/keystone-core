@@ -210,3 +210,29 @@ func TestModuleNames_IncludesGit(t *testing.T) {
 		t.Error("git module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesCron(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "cron" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("cron module missing from stdlib")
+	}
+}
+
+func TestModuleNames_IncludesSystemdTimer(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "systemd_timer" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("systemd_timer module missing from stdlib")
+	}
+}
