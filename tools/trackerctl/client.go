@@ -211,3 +211,9 @@ func (c *client) createIssue(p issuePayload) (issue, error) {
 	err := c.do(http.MethodPost, "/issues", p, &is)
 	return is, err
 }
+
+func (c *client) editIssueBody(index int64, body string) (issue, error) {
+	var is issue
+	err := c.do(http.MethodPatch, fmt.Sprintf("/issues/%d", index), map[string]string{"body": body}, &is)
+	return is, err
+}

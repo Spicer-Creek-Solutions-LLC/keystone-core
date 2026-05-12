@@ -17,10 +17,15 @@
 //	sync-milestones  create/update milestones from config/milestones.yaml
 //	sync             sync-labels then sync-milestones
 //	gen-issues       create leaf issues from docs/project/V1X-BACKLOG.md (skips ones that already exist)
+//	gen-tracker      create/update the "vX.Y — release tracker" issue (--version required)
 //
 // gen-issues defaults to every backlog entry whose target milestone exists;
 // pass --versions to restrict it, e.g. --versions v1.1 (the recommended way to
 // add tickets one release at a time) or --versions v1.1,v1.0-narrowing.
+//
+// gen-tracker orders the release's leaf issues per config/release-order.yaml
+// (falling back to backlog file order) and preserves ticked checkboxes on
+// re-run.
 //
 // Without --apply the tool reports what it would do and changes nothing.
 package main
@@ -38,11 +43,12 @@ func main() {
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
 	backlog := flag.String("backlog", "docs/project/V1X-BACKLOG.md", "path to V1X-BACKLOG.md (gen-issues)")
 	versions := flag.String("versions", "", "gen-issues: comma-separated version tags to limit creation to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
+	version := flag.String("version", "", "gen-tracker: the release whose tracker issue to create/update, e.g. v1.1 (required)")
 	flag.Parse()
 
 	cmd := flag.Arg(0)
 	if cmd == "" {
-		fail("a command is required: sync-labels | sync-milestones | sync | gen-issues")
+		fail("a command is required: sync-labels | sync-milestones | sync | gen-issues | gen-tracker")
 	}
 	if *host == "" {
 		fail("--host is required")
@@ -66,6 +72,8 @@ func main() {
 		}
 	case "gen-issues":
 		err = genIssues(c, *backlog, splitCSV(*versions), *apply, os.Stdout)
+	case "gen-tracker":
+		err = genTracker(c, *backlog, strings.TrimSpace(*version), *apply, os.Stdout)
 	default:
 		fail("unknown command %q", cmd)
 	}

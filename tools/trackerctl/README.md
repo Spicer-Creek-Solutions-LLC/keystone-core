@@ -8,9 +8,9 @@ server at announcement time.
 Cutover model: **(b) clean regeneration** — production is rebuilt from this
 config and from `docs/project/V1X-BACKLOG.md`, not migrated from the test
 repo. Issue numbers therefore differ between servers; nothing should hard-code
-`#N` cross-references that need to survive the cutover (the canonical execution
-order lives in `docs/project/V1X-BACKLOG.md` and the per-release tracker issue —
-see `docs/project/ISSUE-TRACKING.md`).
+`#N` cross-references that need to survive the cutover. The canonical execution
+order lives in `config/release-order.yaml` (mirrored into each release's tracker
+issue by `gen-tracker`) — see `docs/project/ISSUE-TRACKING.md`.
 
 ## What it manages
 
@@ -20,6 +20,7 @@ see `docs/project/ISSUE-TRACKING.md`).
 | `sync-milestones` | `config/milestones.yaml` | create/update milestones |
 | `sync` | both of the above | `sync-labels` then `sync-milestones` |
 | `gen-issues` | `docs/project/V1X-BACKLOG.md` | create one leaf issue per `####` entry not already present, labelled + assigned to its version milestone |
+| `gen-tracker` | `config/release-order.yaml` (+ existing issues) | create/update the `vX.Y — release tracker` issue: an ordered checklist of that release's leaf issues; `--version` required |
 
 Issue creation (`gen-issues`) is intentionally separate from `sync`: labels and
 milestones are cheap to converge, issues are not. `config/milestones.yaml`
@@ -27,6 +28,13 @@ carries every roadmap version (v1.1…v2.0) as a milestone, but you almost alway
 want to create *tickets* one release at a time — use `gen-issues --versions
 v1.1`. Without `--versions`, `gen-issues` would create every backlog entry whose
 milestone exists, which is now all of them.
+
+`gen-tracker` orders the release's leaf issues by `config/release-order.yaml`
+(falling back to `V1X-BACKLOG.md` file order for any version or entry not listed
+there), and on re-run **preserves ticked checkboxes** — the rest of the tracker
+body is regenerated, so reorder via `release-order.yaml`, not by hand-editing
+the issue, and don't keep notes in the tracker body. Run it after `gen-issues`
+for the same release.
 
 ## Usage
 
@@ -36,19 +44,22 @@ export FORGEJO_TOKEN=<application token with repo scope>
 # dry-run (default): prints a plan, changes nothing
 go run ./tools/trackerctl --host http://192.168.10.21:3000 sync
 go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-issues --versions v1.1
+go run ./tools/trackerctl --host http://192.168.10.21:3000 gen-tracker --version v1.1
 
-# apply
+# apply (one release at a time)
 go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply sync
 go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1
 go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-issues --versions v1.1,v1.0-narrowing
+go run ./tools/trackerctl --host http://192.168.10.21:3000 --apply gen-tracker --version v1.1
 ```
 
 Flags: `--host` (required), `--repo` (default `sbutts/keystone-core`),
 `--apply` (default off), `--backlog` (default `docs/project/V1X-BACKLOG.md`),
 `--versions` (gen-issues: comma-separated version tags to limit creation to,
 e.g. `v1.1` or `v1.1,v1.0-narrowing`; empty = every entry whose milestone
-exists). `FORGEJO_TOKEN` must be set. Run from the repo root so the default
-`--backlog` path resolves.
+exists), `--version` (gen-tracker: the single release whose tracker issue to
+create/update, e.g. `v1.1` — required). `FORGEJO_TOKEN` must be set. Run from
+the repo root so the default `--backlog` path resolves.
 
 > The local test instance is plain HTTP on port 3000; pass the `http://` URL
 > explicitly. The `fj` CLI has the same requirement (see the maintainer's shell
@@ -69,6 +80,11 @@ exists). `FORGEJO_TOKEN` must be set. Run from the repo root so the default
   matching their `## vX.Y` heading; if it doesn't exist yet the issue is skipped
   with a warning (run `sync-milestones` first). Narrowings get no milestone (they
   carry `v1.0-narrowing` instead, pending triage into a real version).
+- **`gen-tracker` body is machine-managed** — it regenerates the whole tracker
+  body except the checkbox states (which it carries over by matching `#N`). Keep
+  discussion in issue comments, not the body. It omits, with a warning, any
+  release-order entry that has no corresponding issue yet — run `gen-issues` for
+  that release first.
 - **No project/board management** — the "Roadmap" Forgejo Project is maintained
   in the web UI; `trackerctl` only touches labels, milestones, and issues.
 - **Not a release artifact** — this lives under `tools/`, outside `cmd/`, so it
