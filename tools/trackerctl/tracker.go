@@ -100,6 +100,7 @@ func genTracker(c *client, backlogPath, version string, apply bool, out io.Write
 		return fmt.Errorf("gen-tracker requires --version (e.g. --version v1.1)")
 	}
 
+	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (see gen-issues); this is a CLI admin tool.
 	f, err := os.Open(backlogPath)
 	if err != nil {
 		return err

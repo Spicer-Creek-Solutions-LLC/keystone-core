@@ -55,6 +55,7 @@ func managedLabelDelta(wantNames, currentNames []string) (add, remove []string) 
 // backlog (e.g. moving a narrowing under a `### Targeted: vX.Y` heading);
 // gen-issues only ever creates, never updates.
 func reconcileIssues(c *client, backlogPath string, versions []string, apply bool, out io.Writer) error {
+	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (see gen-issues); this is a CLI admin tool.
 	f, err := os.Open(backlogPath)
 	if err != nil {
 		return err

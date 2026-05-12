@@ -38,6 +38,7 @@ func (c *client) do(method, path string, body, out any) error {
 		rdr = bytes.NewReader(b)
 	}
 	u := c.base + "/api/v1/repos/" + c.repo + path
+	// #nosec G704 -- the target host is the operator-supplied --host flag; this is a CLI admin tool, not a server handling untrusted input.
 	req, err := http.NewRequest(method, u, rdr)
 	if err != nil {
 		return err
@@ -47,6 +48,7 @@ func (c *client) do(method, path string, body, out any) error {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	// #nosec G704 -- request URL derives from the operator-supplied --host flag (see above).
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err

@@ -126,6 +126,7 @@ func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 }
 
 func genIssues(c *client, backlogPath string, versions []string, apply bool, out io.Writer) error {
+	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (defaults to docs/project/V1X-BACKLOG.md); this is a CLI admin tool.
 	f, err := os.Open(backlogPath)
 	if err != nil {
 		return err
