@@ -119,3 +119,16 @@ func TestModuleNames_IncludesPackage(t *testing.T) {
 		t.Error("package module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesService(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "service" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("service module missing from stdlib")
+	}
+}

@@ -28,6 +28,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/group"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
 )
 
@@ -38,6 +39,7 @@ var modules = map[string]statemgmt.Factory{
 	"file":    file.New,
 	"group":   group.New,
 	"package": pkg.New,
+	"service": service.New,
 	"user":    user.New,
 }
 
