@@ -132,3 +132,29 @@ func TestModuleNames_IncludesService(t *testing.T) {
 		t.Error("service module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesSysctl(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "sysctl" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("sysctl module missing from stdlib")
+	}
+}
+
+func TestModuleNames_IncludesKernelModule(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "kernel_module" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("kernel_module module missing from stdlib")
+	}
+}
