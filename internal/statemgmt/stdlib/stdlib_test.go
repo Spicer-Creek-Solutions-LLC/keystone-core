@@ -184,3 +184,29 @@ func TestModuleNames_IncludesTimezone(t *testing.T) {
 		t.Error("timezone module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesLink(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "link" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("link module missing from stdlib")
+	}
+}
+
+func TestModuleNames_IncludesGit(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "git" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("git module missing from stdlib")
+	}
+}

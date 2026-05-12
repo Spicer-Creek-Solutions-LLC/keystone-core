@@ -121,6 +121,22 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: dnf + apk backends added (with appropriate command-line parsers); auto-detect picks the right backend per host; the Epic 08 cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9, Alpine 3.19) passes the `package` module's idempotency tests.
 - **References**: Epic 08 task 11e; `internal/statemgmt/stdlib/pkg/detect_linux.go` `defaultProvider`; `internal/statemgmt/stdlib/pkg/apt.go` as the template.
 
+#### `git` stdlib module — authentication, submodules, advanced clone
+- **What**: Epic 08 task 11 ships the `git` module (states `present` / `latest` / `absent`) relying on whatever the agent's existing git / SSH configuration provides for auth. Reserved for v1.x:
+    - Deploy keys / per-repo SSH identity files, credential-helper configuration, token-in-URL rotation, SSH known-hosts management.
+    - Submodules (`--recurse-submodules` and submodule sync on `latest`).
+    - Sparse checkout, partial clone (`--filter`), bare repos.
+    - Branch tracking on `latest` (v1.0 updates whatever ref is currently checked out to the fetched commit; it does not switch branches or maintain a named local tracking branch).
+    - Reliable shallow clone + arbitrary-SHA checkout (v1.0 falls back to a full clone then `git checkout <sha>`, which can fail on a shallow clone).
+- **Why deferred**: Auth in particular is a security-sensitive surface (key-material handling, host-key TOFU policy) better designed alongside Epic 09/10; the other items are scope-trims to keep the v1.0 module reviewable. The Provider interface (`Inspect` / `RemoteSHA` / `Clone` / `Sync` / `Remove`) is the extension point.
+- **Acceptance**: a `credentials:` / `identity_file:` param flows an SSH key or credential helper into the clone/fetch; `submodules: true` recurses; the integration test clones a private repo over SSH with a deploy key.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/git/git.go` package comment; `internal/statemgmt/stdlib/git/gitcli.go`.
+
+#### `link` stdlib module — relative-target normalisation
+- **What**: Epic 08 task 11 ships the `link` module (symlink + hard link, states `present` / `absent`). Symlink targets are compared and stored verbatim — a relative target is not canonicalised against the link's directory, so `target: ../foo` and `target: /abs/foo` are treated as distinct even when they resolve to the same path. v1.x: an opt-in canonicalising compare (resolve relative targets, optionally chase intermediate symlinks) and Windows link support.
+- **Why deferred**: Verbatim compare is unambiguous and matches what the operator wrote; canonicalisation has surprising corner cases (symlink chains, the link's own directory not existing yet) that deserve their own design pass. Low impact — operators who want absolute behaviour write absolute targets.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/link/link.go` package comment.
+
 #### `state.apply.skip` event taxonomy + wiring
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.
 - **Why deferred**: The statemgmt task adds the observer hook; the event system itself lives in Epic 11. Updating §4.9's taxonomy now would predict an event Epic 11 hasn't shipped.
