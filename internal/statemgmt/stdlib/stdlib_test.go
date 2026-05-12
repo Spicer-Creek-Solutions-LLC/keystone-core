@@ -314,3 +314,16 @@ func TestModuleNames_IncludesSwap(t *testing.T) {
 		t.Error("swap module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesSSH(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "ssh" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("ssh module missing from stdlib")
+	}
+}

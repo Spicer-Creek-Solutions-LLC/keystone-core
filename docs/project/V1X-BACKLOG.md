@@ -252,6 +252,17 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a `UUID=…` swap source resolves and is managed; changing `size:` on an existing swapfile resizes it (swapoff → recreate → mkswap → swapon); `fallocate` creates a large swapfile instantly; `nofail` lands in the fstab opts; re-activating a partition doesn't change its UUID.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/swap/swap.go` package comment; `internal/statemgmt/stdlib/swap/fstab.go`.
 
+#### `ssh` stdlib module — key validation, options-set compare, whole-file management
+
+- **What**: Epic 08 task 11 ships the `ssh` module (manage one entry in a user's ~/.ssh/authorized_keys; states `present` / `absent`; matched by key material). Reserved for v1.x:
+  - Validating the key blob as a well-formed SSH public key (via `golang.org/x/crypto/ssh.ParseAuthorizedKey`) — v1.0 only charset-checks the `<keytype> <blob>` pair, to avoid promoting `golang.org/x/crypto` to a direct dependency.
+  - Quote-aware comma-splitting / set-comparison of the options field (v1.0 compares it verbatim, after collapsing whitespace) — so `no-pty,no-X11-forwarding` and `no-X11-forwarding,no-pty` aren't treated as equal.
+  - An `authorized_keys2` / custom-path override; whole-file management (`ssh_auth_file.managed`-style — declare the complete key set, removing unmanaged keys).
+  - `AuthorizedKeysCommand` / SSH certificate (`*-cert-v01@openssh.com`) handling; per-line `from=` / `environment=` / `tunnel=` helpers; `ssh_known_hosts` management; sshd_config tweaks (overlaps with the `config` module today).
+- **Why deferred**: "ensure this public key is in <user>'s authorized_keys (with these options/comment)" is the v1.0 scope; full key parsing wants the x/crypto dep promoted (a deliberate hold), and options-set comparison needs a quote-aware splitter, and whole-file management is a different (and more dangerous — it removes keys) operation. The pure `authkeys.go` line editor and the `key` / `options` / `comment` params extend cleanly.
+- **Acceptance**: a malformed key blob is rejected at validate time; `options: [no-pty, no-X11-forwarding]` matches an existing line with those options in any order; a `manage_file: true` declaration replaces the whole file; a cert-type key (`ssh-ed25519-cert-v01@openssh.com`) is handled.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/ssh/ssh.go` package comment; `internal/statemgmt/stdlib/ssh/authkeys.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

@@ -45,6 +45,7 @@ v1.1:
   - "`x509` stdlib module — combined PEM, encrypted keys, more issuance options"
   - "`mount` stdlib module — remount-on-change, escaping, swap, crypttab"
   - "`swap` stdlib module — UUID sources, resize, fallocate, custom opts"
+  - "`ssh` stdlib module — key validation, options-set compare, whole-file management"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
