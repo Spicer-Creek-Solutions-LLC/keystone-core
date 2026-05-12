@@ -263,6 +263,17 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a malformed key blob is rejected at validate time; `options: [no-pty, no-X11-forwarding]` matches an existing line with those options in any order; a `manage_file: true` declaration replaces the whole file; a cert-type key (`ssh-ed25519-cert-v01@openssh.com`) is handled.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/ssh/ssh.go` package comment; `internal/statemgmt/stdlib/ssh/authkeys.go`.
 
+#### `iptables` stdlib module — structured rules, ordering, both-family, distro persistence
+
+- **What**: Epic 08 task 11 ships the `iptables` module (manage a single iptables/ip6tables rule via `iptables -C`/`-A`/`-I`/`-D`; states `present` / `absent`; optional `save: <path>` for `iptables-save` output). Reserved for v1.x:
+  - `family: both` (apply the rule to both iptables and ip6tables, requiring it in both); structured rule params (`proto`/`dport`/`source`/`jump`/… à la Salt) as an alternative to the raw `rule` string; rule *position* / ordering management (re-place a rule that exists but is in the wrong spot — v1.0 never moves an existing rule).
+  - Quote-aware rule parsing (`--comment "with spaces"` — v1.0 splits on whitespace, so multi-word comments need the list form or a single word).
+  - Distro-aware persistence (Debian `netfilter-persistent` / `/etc/iptables/rules.v4`, RHEL the `iptables` service / `/etc/sysconfig/iptables`) and whole-rules-file management, beyond the plain `save: <path>`; `iptables-nft` vs `iptables-legacy` backend selection; chain creation (`-N`) and chain policy (`-P`).
+  - `nftables` is its own separate module.
+- **Why deferred**: "ensure this one rule is (not) in this chain" is the v1.0 scope; `family: both` doubles the bookkeeping, structured params explode the surface (iptables has dozens of match options), ordering management needs `iptables -S`/handle bookkeeping, and persistence is genuinely distro-divergent. The `Provider` (`HasRule` / `AddRule` / `DeleteRule` / `Save`, parameterised by family) and the `rule` parsing extend cleanly.
+- **Acceptance**: `family: both` keeps the rule in both ruleset families; `proto: tcp, dport: 22, jump: ACCEPT` builds the rule; a rule that exists at the wrong position is moved when a `position:` is declared; `--comment "two words"` round-trips; on Debian the rule survives a reboot via `netfilter-persistent`; an `iptables-nft` host is detected.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/iptables/iptables.go` package comment; `internal/statemgmt/stdlib/iptables/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

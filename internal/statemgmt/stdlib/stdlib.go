@@ -33,6 +33,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/git"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/group"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/hostname"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/iptables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/kmod"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/link"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/mount"
@@ -59,6 +60,7 @@ var modules = map[string]statemgmt.Factory{
 	"git":           git.New,
 	"group":         group.New,
 	"hostname":      hostname.New,
+	"iptables":      iptables.New,
 	"kernel_module": kmod.New,
 	"link":          link.New,
 	"mount":         mount.New,
