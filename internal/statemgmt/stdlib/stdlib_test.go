@@ -236,3 +236,16 @@ func TestModuleNames_IncludesSystemdTimer(t *testing.T) {
 		t.Error("systemd_timer module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesConfig(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "config" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("config module missing from stdlib")
+	}
+}

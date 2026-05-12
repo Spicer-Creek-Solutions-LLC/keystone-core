@@ -177,6 +177,19 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: `exec_start:` + `user:` generate a paired `<name>.service`; `on_boot_sec:` emits `OnBootSec=`; a `user: true` timer lands under `~/.config/systemd/user/`; a malformed `on_calendar` is rejected before any file is written.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/timer/timer.go` package comment; `internal/statemgmt/stdlib/timer/unit.go` `renderTimerUnit`.
 
+#### `config` stdlib module — more formats, separators, uncomment-aware updates
+
+- **What**: Epic 08 task 11 ships the `config` module (one key/value in a config file, formats `keyvalue` + `ini`, both `=`-delimited, case-sensitive keys, full-line comments only). Reserved for v1.x:
+  - Case-insensitive key matching (a `case_insensitive: true` switch) — INI and sshd-style configs often want it.
+  - Configurable separator (`separator: " "` for sshd-style `Key Value`, `": "` for YAML-ish, etc.) — v1.0 is `=`-only.
+  - Inline / trailing comments preservation (`key=value # note`) — v1.0 treats `# note` as part of the value unless `#`/`;` starts the line.
+  - Uncomment-aware updates (`#PermitRootLogin yes` → set the real directive) — v1.0 just appends a new line.
+  - Repeated-key directives (multiple `HostKey` lines), multi-line values / continuation lines, indentation-aware insertion under `[section]` headers, duplicate `[section]` headers.
+  - TOML / YAML / JSON / XML formats; creating parent directories for a new file.
+- **Why deferred**: `keyvalue` + `ini` cover the bulk of day-to-day "set this one directive" needs; the rest each carry parsing/round-trip subtleties (especially inline comments and multi-line values) that warrant their own design pass. The line-oriented `format.go` core + the `format` param extend cleanly.
+- **Acceptance**: `case_insensitive: true` matches `Key`/`key`; `separator: " "` round-trips an `sshd_config` directive; an inline `# comment` survives a value change; setting a directive that exists only as `#directive ...` rewrites the comment line in place.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/config/config.go` package comment; `internal/statemgmt/stdlib/config/format.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.
