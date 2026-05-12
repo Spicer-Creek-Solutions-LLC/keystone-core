@@ -38,10 +38,22 @@ const sampleBacklog = `# v1.x Backlog
 
 ## Implementation-time narrowings inside delivered v1.0 features
 
-These are not version-tagged.
+Intro prose.
+
+### Targeted: v1.1
+
+#### Service start/stop subcommands
+- **What**: add them.
+
+### Targeted: v2.0
 
 #### Cluster-wide HMAC secret (vs per-agent)
-- **What**: one secret for the cluster.
+- **What**: per-agent keys.
+
+### Unscheduled
+
+#### Some unscheduled narrowing
+- **What**: TBD.
 `
 
 func TestParseBacklog(t *testing.T) {
@@ -57,7 +69,9 @@ func TestParseBacklog(t *testing.T) {
 		"Agent-side cancel propagation",
 		"Schema versioning via golang-migrate",
 		"TUI monitor",
+		"Service start/stop subcommands",
 		"Cluster-wide HMAC secret (vs per-agent)",
+		"Some unscheduled narrowing",
 	}
 	if len(entries) != len(want) {
 		t.Fatalf("got %d entries %v, want %d %v", len(entries), titles, len(want), want)
@@ -81,8 +95,14 @@ func TestParseBacklog(t *testing.T) {
 	if e := byTitle["TUI monitor"]; e.Version != "v1.2" {
 		t.Errorf("TUI monitor: version=%q, want v1.2", e.Version)
 	}
-	if e := byTitle["Cluster-wide HMAC secret (vs per-agent)"]; !e.Narrowing || e.Version != "" {
-		t.Errorf("HMAC secret: narrowing=%v version=%q, want true/empty", e.Narrowing, e.Version)
+	if e := byTitle["Service start/stop subcommands"]; !e.Narrowing || e.Version != "v1.1" {
+		t.Errorf("service subcommands: narrowing=%v version=%q, want true/v1.1", e.Narrowing, e.Version)
+	}
+	if e := byTitle["Cluster-wide HMAC secret (vs per-agent)"]; !e.Narrowing || e.Version != "v2.0" {
+		t.Errorf("HMAC secret: narrowing=%v version=%q, want true/v2.0", e.Narrowing, e.Version)
+	}
+	if e := byTitle["Some unscheduled narrowing"]; !e.Narrowing || e.Version != "" {
+		t.Errorf("unscheduled narrowing: narrowing=%v version=%q, want true/empty", e.Narrowing, e.Version)
 	}
 	if _, ok := byTitle["Already landed thing"]; ok {
 		t.Error("entry under ### Done should have been skipped")

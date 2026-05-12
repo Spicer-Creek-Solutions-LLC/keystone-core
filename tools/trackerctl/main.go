@@ -17,11 +17,15 @@
 //	sync-milestones  create/update milestones from config/milestones.yaml
 //	sync             sync-labels then sync-milestones
 //	gen-issues       create leaf issues from docs/project/V1X-BACKLOG.md (skips ones that already exist)
+//	reconcile-issues update existing issues' milestone + managed labels to match the backlog
 //	gen-tracker      create/update the "vX.Y — release tracker" issue (--version required)
 //
-// gen-issues defaults to every backlog entry whose target milestone exists;
-// pass --versions to restrict it, e.g. --versions v1.1 (the recommended way to
-// add tickets one release at a time) or --versions v1.1,v1.0-narrowing.
+// gen-issues and reconcile-issues default to every backlog entry; pass
+// --versions to restrict them, e.g. --versions v1.1 (the recommended way to add
+// tickets one release at a time) or --versions v1.1,v1.0-narrowing.
+// reconcile-issues is the counterpart to gen-issues: gen-issues only creates,
+// reconcile-issues only updates (milestone + source/kind/umbrella labels;
+// area/* labels are left alone). Run it after editing V1X-BACKLOG.md.
 //
 // gen-tracker orders the release's leaf issues per config/release-order.yaml
 // (falling back to backlog file order) and preserves ticked checkboxes on
@@ -42,13 +46,13 @@ func main() {
 	repo := flag.String("repo", "sbutts/keystone-core", "target repository, owner/name")
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
 	backlog := flag.String("backlog", "docs/project/V1X-BACKLOG.md", "path to V1X-BACKLOG.md (gen-issues)")
-	versions := flag.String("versions", "", "gen-issues: comma-separated version tags to limit creation to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
+	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated version tags to limit to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
 	version := flag.String("version", "", "gen-tracker: the release whose tracker issue to create/update, e.g. v1.1 (required)")
 	flag.Parse()
 
 	cmd := flag.Arg(0)
 	if cmd == "" {
-		fail("a command is required: sync-labels | sync-milestones | sync | gen-issues | gen-tracker")
+		fail("a command is required: sync-labels | sync-milestones | sync | gen-issues | reconcile-issues | gen-tracker")
 	}
 	if *host == "" {
 		fail("--host is required")
@@ -72,6 +76,8 @@ func main() {
 		}
 	case "gen-issues":
 		err = genIssues(c, *backlog, splitCSV(*versions), *apply, os.Stdout)
+	case "reconcile-issues":
+		err = reconcileIssues(c, *backlog, splitCSV(*versions), *apply, os.Stdout)
 	case "gen-tracker":
 		err = genTracker(c, *backlog, strings.TrimSpace(*version), *apply, os.Stdout)
 	default:

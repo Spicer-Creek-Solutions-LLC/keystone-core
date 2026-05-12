@@ -53,20 +53,26 @@ func inferAreas(text string) []string {
 	return areas
 }
 
-// labelsFor returns the label names to attach to the issue generated from e,
-// restricted to those that actually exist in the repo.
-func labelsFor(e backlogEntry, have map[string]int64) []int64 {
-	var names []string
-	names = append(names, "v1x-backlog", "source/v1x-backlog")
+// labelNamesFor returns the label names that issue for e should carry:
+// the umbrella + source labels, the `v1.0-narrowing` marker for narrowings,
+// a `kind/*`, and any confidently-inferred `area/*`.
+func labelNamesFor(e backlogEntry) []string {
+	names := []string{"v1x-backlog", "source/v1x-backlog"}
 	if e.Narrowing {
-		names = append(names, "v1.0-narrowing", "kind/chore")
-	} else {
-		names = append(names, "kind/feature")
+		names = append(names, "v1.0-narrowing")
 	}
-	names = append(names, inferAreas(e.Title+"\n"+e.Body)...)
+	if e.Version != "" {
+		names = append(names, "kind/feature")
+	} else {
+		names = append(names, "kind/chore")
+	}
+	return append(names, inferAreas(e.Title+"\n"+e.Body)...)
+}
 
+// labelsFor is labelNamesFor restricted to labels that exist in the repo.
+func labelsFor(e backlogEntry, have map[string]int64) []int64 {
 	var ids []int64
-	for _, n := range names {
+	for _, n := range labelNamesFor(e) {
 		if id, ok := have[n]; ok {
 			ids = append(ids, id)
 		}
@@ -78,23 +84,27 @@ func issueBody(e backlogEntry) string {
 	var b strings.Builder
 	b.WriteString(e.Body)
 	b.WriteString("\n\n---\n")
-	if e.Narrowing {
-		b.WriteString("Source: `docs/project/V1X-BACKLOG.md` — section *Implementation-time narrowings inside delivered v1.0 features*. ")
-	} else {
-		b.WriteString("Source: `docs/project/V1X-BACKLOG.md` — section `## " + e.Version + "`. ")
+	switch {
+	case e.Narrowing && e.Version != "":
+		fmt.Fprintf(&b, "Source: `docs/project/V1X-BACKLOG.md` — *Implementation-time narrowings* → `### Targeted: %s`. ", e.Version)
+	case e.Narrowing:
+		b.WriteString("Source: `docs/project/V1X-BACKLOG.md` — *Implementation-time narrowings* (unscheduled). ")
+	default:
+		fmt.Fprintf(&b, "Source: `docs/project/V1X-BACKLOG.md` — section `## %s`. ", e.Version)
 	}
 	b.WriteString("That file holds the authoritative entry; on completion update it per `docs/project/ISSUE-TRACKING.md` §6.\n")
 	b.WriteString("\n_Filed by `tools/trackerctl gen-issues`._")
 	return b.String()
 }
 
-// narrowingsVersionTag is the synthetic version selector for the
-// "Implementation-time narrowings" section, which has no real version.
+// narrowingsVersionTag is the synthetic selector that matches every entry in
+// the "Implementation-time narrowings" section regardless of its target.
 const narrowingsVersionTag = "v1.0-narrowing"
 
-// selectEntries restricts entries to the requested version tags. An empty
-// versions slice means "all". The narrowings section is selected with the
-// synthetic tag narrowingsVersionTag.
+// selectEntries restricts entries to the requested selectors. An empty slice
+// means "all". A selector of the form vX.Y matches any entry whose target
+// version is vX.Y (including narrowings targeted there); narrowingsVersionTag
+// matches every narrowing.
 func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 	if len(versions) == 0 {
 		return entries
@@ -106,9 +116,9 @@ func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 	var out []backlogEntry
 	for _, e := range entries {
 		switch {
-		case e.Narrowing && want[narrowingsVersionTag]:
+		case e.Version != "" && want[e.Version]:
 			out = append(out, e)
-		case !e.Narrowing && want[e.Version]:
+		case e.Narrowing && want[narrowingsVersionTag]:
 			out = append(out, e)
 		}
 	}
@@ -165,7 +175,7 @@ func genIssues(c *client, backlogPath string, versions []string, apply bool, out
 			continue
 		}
 		var mid int64
-		if !e.Narrowing {
+		if e.Version != "" {
 			id, ok := mileID[e.Version]
 			if !ok {
 				fmt.Fprintf(out, "! skip %q: milestone %q does not exist (run sync-milestones)\n", e.Title, e.Version)
@@ -193,20 +203,8 @@ func genIssues(c *client, backlogPath string, versions []string, apply bool, out
 }
 
 func milestoneName(e backlogEntry) string {
-	if e.Narrowing {
+	if e.Version == "" {
 		return "(none)"
 	}
 	return e.Version
-}
-
-// labelNamesFor mirrors labelsFor for display purposes (does not filter by
-// repo existence).
-func labelNamesFor(e backlogEntry) []string {
-	names := []string{"v1x-backlog", "source/v1x-backlog"}
-	if e.Narrowing {
-		names = append(names, "v1.0-narrowing", "kind/chore")
-	} else {
-		names = append(names, "kind/feature")
-	}
-	return append(names, inferAreas(e.Title+"\n"+e.Body)...)
 }

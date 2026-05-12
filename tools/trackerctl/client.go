@@ -217,3 +217,17 @@ func (c *client) editIssueBody(index int64, body string) (issue, error) {
 	err := c.do(http.MethodPatch, fmt.Sprintf("/issues/%d", index), map[string]string{"body": body}, &is)
 	return is, err
 }
+
+// editIssueMilestone sets (milestoneID > 0) or clears (milestoneID == 0) an
+// issue's milestone.
+func (c *client) editIssueMilestone(index, milestoneID int64) error {
+	return c.do(http.MethodPatch, fmt.Sprintf("/issues/%d", index), map[string]int64{"milestone": milestoneID}, nil)
+}
+
+func (c *client) addIssueLabels(index int64, ids []int64) error {
+	return c.do(http.MethodPost, fmt.Sprintf("/issues/%d/labels", index), map[string][]int64{"labels": ids}, nil)
+}
+
+func (c *client) removeIssueLabel(index, labelID int64) error {
+	return c.do(http.MethodDelete, fmt.Sprintf("/issues/%d/labels/%d", index, labelID), nil, nil)
+}

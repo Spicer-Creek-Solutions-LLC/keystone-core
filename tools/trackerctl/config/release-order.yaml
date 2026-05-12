@@ -24,6 +24,7 @@ v1.1:
   # dispatch / batch / streaming
   - "Unified single + batch dispatch persistence"
   - "Batch job retention (DeleteBatchJobsBefore + cascading FK)"
+  - "Batch dispatcher: no orphan-job recovery"        # v1.0-narrowing targeted at v1.1
   - "Live mid-execution stdout / stderr streaming"
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
   # agent transport / identity
@@ -37,6 +38,7 @@ v1.1:
   - "`git` stdlib module — authentication, submodules, advanced clone"
   - "`link` stdlib module — relative-target normalisation"
   # platform reach
+  - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
   - "WASM module runtime"
   # doc cleanup — do whenever

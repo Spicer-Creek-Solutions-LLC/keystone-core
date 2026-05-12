@@ -99,10 +99,17 @@ func TestLabelNamesFor(t *testing.T) {
 		t.Errorf("labelNamesFor(feature) = %v, want %v", got, want)
 	}
 
-	narrow := backlogEntry{Title: "Bootstrap auto-installs systemd unit", Narrowing: true}
-	got = labelNamesFor(narrow)
+	unscheduled := backlogEntry{Title: "Bootstrap auto-installs systemd unit", Narrowing: true}
+	got = labelNamesFor(unscheduled)
 	want = []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/chore", "area/bootstrap"}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("labelNamesFor(narrowing) = %v, want %v", got, want)
+		t.Errorf("labelNamesFor(unscheduled narrowing) = %v, want %v", got, want)
+	}
+
+	scheduled := backlogEntry{Title: "Batch dispatcher: no orphan-job recovery", Version: "v1.1", Narrowing: true}
+	got = labelNamesFor(scheduled)
+	want = []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/feature", "area/server"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("labelNamesFor(scheduled narrowing) = %v, want %v", got, want)
 	}
 }

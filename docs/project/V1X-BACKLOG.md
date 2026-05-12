@@ -317,87 +317,114 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 
 ## Implementation-time narrowings inside delivered v1.0 features
 
-These don't move to a future version — they document where v1.0 *is* shipping but with reduced scope. Useful for release notes + "what's new in v1.x" planning.
+v1.0 shipped with reduced scope in these areas. Each is tracked as a `v1.0-narrowing`-labelled issue
+(`source/v1x-backlog`) and is slotted under a `### Targeted: vX.Y` subsection. The slotting rule:
+if closing the gap is a non-breaking change it is spread across the v1.x line; if it is a breaking
+change — agent↔server protocol/auth, config schema, or default behaviour an in-place upgrade can't
+absorb — it lands in v2.0 alongside the other breaking work. These `### Targeted:` headings are the
+source of truth for those issues' milestones (`trackerctl reconcile-issues` reads them); entries
+also feed each release's tracker via `release-order.yaml` once that release is decomposed. A
+`### Unscheduled` subsection (none at present) would hold narrowings with no agreed target yet.
 
-#### Cluster-wide HMAC secret (vs per-agent)
-- **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from bootstrap exchange land in v1.x (no specific version targeted yet).
-- **Why now**: Per-agent keys need a key-distribution mechanism that's still being designed.
-- **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
-
-#### Bootstrap: demo mode only (TUI + non-interactive)
-- **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
-- **Why now**: Production mode needs TLS cert collection (gates on Epic 11 — Identity & Auth); enterprise mode needs blueprint selection (gates on Epic 14 + Epic 17). Both are post-v1.0.
-- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); blueprint picker (enterprise); equivalent `--generate-certs` / `--apply-blueprint` CLI flags wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10`.
-- **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
-
-#### Bootstrap CLI flags dropped from v1.0 surface
-- **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
-- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.0. `--generate-certs` gates on Epic 11; `--apply-blueprint` gates on Epic 14 + 17.
-- **Acceptance for unblock**: Per-flag — when its blocking epic lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
-- **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
-
-#### Bootstrap wizard: storage backend + blueprint selection screens
-- **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on Epic 14 + 17.
-- **Why now**: Agents don't run a database, so the storage prompts had no destination. Blueprint apply needs the plugin/module system + blueprint runtime, neither of which ship in v1.0.
-- **Acceptance for unblock**: For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens. For blueprints — Epic 14 + 17 land, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step.
-- **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
-
-#### Bootstrap auto-installs systemd unit (production mode)
-- **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
-- **Why now**: Production mode is itself deferred (see "Bootstrap: demo mode only"), and v1.0's two-step flow (`bootstrap` then `service install`) is a clean explicit invocation that maps to the demo-mode-only world.
-- **Acceptance for unblock**: When Epic 11 + 14 + 17 land and `bootstrap.ValidateForV10` lifts, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
-- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
+### Targeted: v1.1
 
 #### `kscore-agent service start|stop` subcommands
 - **What**: PROJECT-DETAILS §4.6 lists `service install|uninstall|start|stop|status`. v1.0 ships `install|uninstall|status` only.
-- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Punted unless a specific operator workflow surfaces a need.
-- **Acceptance for unblock**: A documented use case where `kscore-agent service start` is genuinely better than `systemctl start kscore-agent` (e.g. cross-platform script that needs the same command shape on Windows v1.1's SCM).
+- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Picked up in v1.1 because the Windows agent's SCM integration needs the same command shape and makes the wrapper worthwhile.
+- **Acceptance for unblock**: `kscore-agent service start|stop` exist and proxy to the platform service manager; documented as the cross-platform form. Additive — no change to existing subcommands.
 - **References**: Epic 06 task 9 `_(landed)_`; PROJECT-DETAILS §4.6 (line 473).
 
-#### Dedicated `keystone-core` system user auto-creation
-- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
-- **Why now**: User creation belongs in package-mgmt territory (Epic 18 — rpm/deb post-install scripts via `useradd --system`). Doing it in `service install` would duplicate the package-mgmt path and split responsibility.
-- **Acceptance for unblock**: Epic 18 packaging work creates the `keystone-core` system user as part of `apt install kscore-agent` / `dnf install kscore-agent`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
-- **References**: Epic 06 task 9 `_(landed)_`; Epic 18 (file dist + package mgmt).
+#### Batch dispatcher: no orphan-job recovery
+- **What**: Jobs in RUNNING state at process start are not auto-recovered; operators must inspect + retry.
+- **Why now**: Orphan recovery needs ownership semantics (which CP node owns the job?) which settle once clustering has shipped — so the first post-v1.0 cleanup release.
+- **Acceptance for unblock**: On startup the dispatcher reclaims/retries jobs it owns that were RUNNING; additive, no API change.
+- **References**: `internal/controlplane/batch_dispatcher.go:72`.
 
-#### Type=notify systemd integration (sd_notify)
-- **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
-- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, which adds the dep we explicitly skipped for v1.0. Re-evaluate when v1.4 telemetry-gateway work surfaces a real consumer.
-- **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
-- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
-
-#### Bootstrap: no rollback / transactional revert
-- **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
-- **Why now**: Rollback semantics need install-step inversion + snapshot tracking.
-- **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback` (v1.x).
-- **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
+### Targeted: v1.2
 
 #### Glob matching: no `**` (double-star)
 - **What**: `internal/agent.SecurityEnforcer` uses `path.Match` (single-star only). gobwas/glob with double-star semantics is reserved for v1.x.
-- **Why now**: stdlib `path.Match` covers the v1.0 command-allowlist use cases.
+- **Why now**: stdlib `path.Match` covers the v1.0 command-allowlist use cases. Small, self-contained; folded into v1.2's linting/capabilities work. Note: broadening allowlist matching is a behaviour change to watch in review, but not a compatibility break.
 - **References**: `internal/agent/security.go:59`.
 
 #### API key issuance: non-transactional
 - **What**: `internal/controlplane.BootstrapHandler` issues credentials via separate write paths (not a single transaction).
-- **Why now**: v1.0 doesn't have multi-table tx wrapper (see v1.2 entry above).
+- **Why now**: v1.0 doesn't have a multi-table tx wrapper (the v1.2 backlog entry above) — this is a pure consumer of that, so it tracks v1.2. Internal refactor, no external surface change.
 - **References**: `internal/controlplane/bootstrap.go:270`.
 
 #### Migration journal: no per-table checkpoint resume
 - **What**: `kscore-migrate` records per-table checkpoints in the txlog but recovery from a partial migration restarts from the last full-table boundary, not the row-level checkpoint.
-- **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred to v1.2) would unlock.
+- **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred to v1.2) would unlock. Improvement to recovery only; no compatibility break.
 - **References**: `internal/state/migrate_txlog.go:25`.
 
-#### Batch dispatcher: no orphan-job recovery
-- **What**: Jobs in RUNNING state at process start are not auto-recovered; operators must inspect + retry.
-- **Why now**: Orphan recovery needs ownership semantics (which CP node owns the job?) clarified by Epic 13 (clustering).
-- **References**: `internal/controlplane/batch_dispatcher.go:72`.
+### Targeted: v1.3
 
-#### Config: no per-endpoint TLS overrides
-- **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
-- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies are post-v1.0.
-- **References**: `internal/config/nats.go:126`.
+#### Bootstrap: demo mode only (TUI + non-interactive)
+- **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
+- **Why now**: Production mode needs TLS cert collection (gates on Identity/cert tooling); enterprise mode needs blueprint selection. Production-mode unblock lands in the v1.3 SPIRE/cert-rotation cycle; enterprise/blueprint pieces (the wizard screens) trail into v1.5 — see that entry. Lifting the gate is purely additive for existing demo-mode users.
+- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); equivalent `--generate-certs` CLI flag wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10` for production.
+- **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
+
+#### Bootstrap CLI flags dropped from v1.0 surface
+- **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
+- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.0. `--generate-certs` re-appears with the v1.3 cert tooling; `--apply-blueprint` trails to v1.5 with the blueprint runtime. All additive flag additions.
+- **Acceptance for unblock**: Per-flag — when its blocking work lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
+- **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
+
+#### Bootstrap auto-installs systemd unit (production mode)
+- **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
+- **Why now**: Downstream of production mode (above); rides the same v1.3 cycle. Convenience chaining, additive — the explicit two-step flow still works.
+- **Acceptance for unblock**: When `bootstrap.ValidateForV10` lifts for production, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
 
 #### Boostrap PSK consumption: in-memory tracking only
 - **What**: Used PSKs are tracked in-memory. Server restart re-permits a previously-used PSK.
-- **Why now**: Persistence path lands in v1.x with the bootstrap-state-store work.
+- **Why now**: Persistence path needs the bootstrap-state-store work, which rides the v1.3 bootstrap-hardening cycle. Bug-fix-shaped (makes restart behaviour correct), not a compatibility break.
 - **References**: `internal/config/nats.go:53`; Epic 05 task 9 `_(landed)_`.
+
+### Targeted: v1.4
+
+#### Type=notify systemd integration (sd_notify)
+- **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
+- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, the dep explicitly skipped for v1.0. The v1.4 telemetry-gateway work is the first real consumer of agent readiness signalling. New unit + daemon ship together, so no break for existing installs.
+- **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
+
+### Targeted: v1.5
+
+#### Bootstrap wizard: storage backend + blueprint selection screens
+- **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on the blueprint runtime.
+- **Why now**: Blueprint apply needs the plugin/module system + the full blueprint catalogue, which is v1.5's headline. Storage screens still wait on the unified binary (no committed release) and may slip further. Additive wizard screens — existing wizard flows unchanged.
+- **Acceptance for unblock**: For blueprints — the blueprint runtime lands, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step. For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens.
+- **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
+
+### Targeted: v1.6
+
+#### Bootstrap: no rollback / transactional revert
+- **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
+- **Why now**: Rollback semantics need install-step inversion + snapshot tracking. Slotted in v1.6 with the compliance/scan-scheduler cycle's general hardening; new `--rollback` flag is additive.
+- **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
+- **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
+
+### Targeted: v1.7
+
+#### Dedicated `keystone-core` system user auto-creation
+- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
+- **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the v1.7 air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
+- **Acceptance for unblock**: Packaging creates the `keystone-core` system user as part of `apt install` / `dnf install`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
+- **References**: Epic 06 task 9 `_(landed)_`; v1.7 packaging work.
+
+### Targeted: v1.9
+
+#### Config: no per-endpoint TLS overrides
+- **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
+- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies become relevant alongside the v2.0 multi-region work, but the override fields already exist and wiring them is additive (existing configs keep working), so it slots into v1.9 platform-polish rather than waiting for v2.0.
+- **References**: `internal/config/nats.go:126`.
+
+### Targeted: v2.0
+
+#### Cluster-wide HMAC secret (vs per-agent)
+- **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from the bootstrap exchange replace it.
+- **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands in v2.0 with the other auth/security infra changes (cloud KMS, federation).
+- **Acceptance for unblock**: Bootstrap exchange establishes a per-agent key; server authenticates inbound by agent identity; cluster-wide secret removed (or relegated to a legacy compatibility window decided at design time).
+- **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.

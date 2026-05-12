@@ -87,6 +87,15 @@ small).
 Umbrella label on every issue minted from `V1X-BACKLOG.md`, so they are distinguishable from
 regular tracker traffic. (Equivalent umbrella labels may be added for other bulk imports.)
 
+### `v1.0-narrowing`
+
+Marks an issue that came from the *Implementation-time narrowings* section of `V1X-BACKLOG.md` —
+i.e. somewhere v1.0 shipped with deliberately reduced scope. It stays on the issue after the gap is
+scheduled (it's a useful "what's new since v1.0" filter for release notes), so a `v1.0-narrowing`
+issue normally also has a `kind/feature` and a milestone. The unscheduled ones (none at present)
+carry `kind/chore` and no milestone instead; their target lives in the `### Targeted: vX.Y` headings
+in `V1X-BACKLOG.md` and is pushed onto the issues by `trackerctl reconcile-issues`.
+
 ### Version
 
 Version is **not** a label and **not** part of the title — it is the **milestone**. Re-slotting work
@@ -176,9 +185,12 @@ they are visible and assignable — but creating *tickets* is gated separately: 
 milestones), then `trackerctl gen-issues --versions v1.1` to mint the ~21 leaf tickets under
 `## v1.1`, then `trackerctl gen-tracker --version v1.1` to build the `v1.1 — release tracker`.
 Decompose v1.2+ only when each becomes the next release (`gen-issues --versions v1.2` then
-`gen-tracker --version v1.2`, after adding a `v1.2:` block to `release-order.yaml`). The "v1.0 narrowings" section of
-`V1X-BACKLOG.md` is not version-tagged — its tickets carry the `v1.0-narrowing` label, are created
-with `gen-issues --versions v1.0-narrowing`, and get triaged into real versions later.
+`gen-tracker --version v1.2`, after adding a `v1.2:` block to `release-order.yaml`). The
+*Implementation-time narrowings* section of `V1X-BACKLOG.md` has its own one-time bootstrap —
+`gen-issues --versions v1.0-narrowing` to create those tickets — and is triaged by editing the
+`### Targeted: vX.Y` headings in that section and running `reconcile-issues --apply`, which pushes
+each one's milestone and `kind/*` onto the live issue (and a narrowing targeted at vX.Y then shows
+up in that release's tracker, since `gen-tracker --version vX.Y` picks it up too).
 
 ---
 
@@ -190,13 +202,15 @@ The label set, milestones, and the v1.x leaf issues are not hand-clicked — the
 - `tools/trackerctl/config/labels.yaml` — the label set (`trackerctl sync-labels`).
 - `tools/trackerctl/config/milestones.yaml` — every roadmap milestone v1.1…v2.0 (`trackerctl
   sync-milestones`).
-- `docs/project/V1X-BACKLOG.md` — the leaf-issue source (`trackerctl gen-issues --versions vX.Y`,
-  one release at a time).
+- `docs/project/V1X-BACKLOG.md` — the leaf-issue source. `trackerctl gen-issues --versions vX.Y`
+  creates them (one release at a time); `trackerctl reconcile-issues` pushes any later edits
+  (re-slotting, label fixes) onto the already-created issues — it updates milestone + `source/*` /
+  `kind/*` / umbrella labels and never touches `area/*`.
 - `tools/trackerctl/config/release-order.yaml` — execution order per release (`trackerctl
   gen-tracker --version vX.Y`, which creates/updates the `vX.Y — release tracker` issue).
 
 All operations are idempotent and host-parameterized (`--host`, `--repo`, `--apply`,
-`FORGEJO_TOKEN`); `gen-issues` takes `--versions` to control which release(s) get tickets and
+`FORGEJO_TOKEN`); `gen-issues` and `reconcile-issues` take `--versions` to scope to release(s),
 `gen-tracker` takes `--version` for the tracker issue. See `tools/trackerctl/README.md`.
 
 **Cutover model: (b) clean regeneration.** When the project is announced, the production tracker is

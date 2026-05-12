@@ -10,7 +10,7 @@ import (
 // backlogEntry is one `####` heading parsed out of docs/project/V1X-BACKLOG.md.
 type backlogEntry struct {
 	Title     string // the heading text
-	Version   string // "v1.1", "v1.2", … — empty for the v1.0-narrowings section
+	Version   string // target version, e.g. "v1.2"; empty if unscheduled
 	Narrowing bool   // true if from "Implementation-time narrowings inside delivered v1.0 features"
 	Body      string // markdown lines under the heading (trimmed)
 }
@@ -19,11 +19,14 @@ var (
 	versionHeadingRe   = regexp.MustCompile(`^##\s+(v\d+\.\d+)\s*$`)
 	narrowingHeadingRe = regexp.MustCompile(`(?i)^##\s+Implementation-time narrowings`)
 	doneHeadingRe      = regexp.MustCompile(`(?i)^###\s+Done`)
+	targetedHeadingRe  = regexp.MustCompile(`(?i)^###\s+Targeted:\s*(v\d+\.\d+)\s*$`)
 )
 
 // parseBacklog extracts every actionable `####` entry. Entries under
 // "## How to use this file", under a "### Done" subsection, or under any other
-// non-version `##` heading are skipped.
+// non-version `##` heading are skipped. Inside the narrowings section the entry
+// version comes from the enclosing "### Targeted: vX.Y" subsection (empty under
+// "### Unscheduled" or no subsection).
 func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -32,6 +35,7 @@ func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 		entries    []backlogEntry
 		curVersion string
 		narrowing  bool
+		narrowTgt  string
 		inDone     bool
 		cur        *backlogEntry
 		body       []string
@@ -48,7 +52,7 @@ func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 		switch {
 		case strings.HasPrefix(line, "## "):
 			flush()
-			inDone = false
+			inDone, narrowTgt = false, ""
 			if m := versionHeadingRe.FindStringSubmatch(line); m != nil {
 				curVersion, narrowing = m[1], false
 			} else if narrowingHeadingRe.MatchString(line) {
@@ -58,14 +62,30 @@ func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 			}
 		case strings.HasPrefix(line, "### "):
 			flush()
-			inDone = doneHeadingRe.MatchString(line)
+			switch {
+			case doneHeadingRe.MatchString(line):
+				inDone = true
+			case narrowing:
+				inDone = false
+				if m := targetedHeadingRe.FindStringSubmatch(line); m != nil {
+					narrowTgt = m[1]
+				} else {
+					narrowTgt = "" // e.g. "### Unscheduled"
+				}
+			default:
+				inDone = false
+			}
 		case strings.HasPrefix(line, "#### "):
 			flush()
 			if inDone || (curVersion == "" && !narrowing) {
 				continue
 			}
+			version := curVersion
+			if narrowing {
+				version = narrowTgt
+			}
 			title := strings.TrimSpace(strings.TrimPrefix(line, "####"))
-			cur = &backlogEntry{Title: title, Version: curVersion, Narrowing: narrowing}
+			cur = &backlogEntry{Title: title, Version: version, Narrowing: narrowing}
 		default:
 			if cur != nil {
 				body = append(body, line)

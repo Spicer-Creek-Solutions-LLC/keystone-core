@@ -12,6 +12,7 @@ func TestSelectEntries(t *testing.T) {
 		{Title: "c", Version: "v1.1"},
 		{Title: "d", Narrowing: true},
 		{Title: "e", Narrowing: true},
+		{Title: "f", Version: "v1.1", Narrowing: true}, // narrowing targeted at v1.1
 	}
 	titles := func(es []backlogEntry) []string {
 		var out []string
@@ -26,11 +27,11 @@ func TestSelectEntries(t *testing.T) {
 		versions []string
 		want     []string
 	}{
-		{"empty means all", nil, []string{"a", "b", "c", "d", "e"}},
-		{"single version", []string{"v1.1"}, []string{"a", "c"}},
-		{"multiple versions", []string{"v1.1", "v1.2"}, []string{"a", "b", "c"}},
-		{"narrowings tag", []string{narrowingsVersionTag}, []string{"d", "e"}},
-		{"version plus narrowings", []string{"v1.2", narrowingsVersionTag}, []string{"b", "d", "e"}},
+		{"empty means all", nil, []string{"a", "b", "c", "d", "e", "f"}},
+		{"single version pulls in narrowing targeted there", []string{"v1.1"}, []string{"a", "c", "f"}},
+		{"multiple versions", []string{"v1.1", "v1.2"}, []string{"a", "b", "c", "f"}},
+		{"narrowings tag matches every narrowing", []string{narrowingsVersionTag}, []string{"d", "e", "f"}},
+		{"version plus narrowings tag", []string{"v1.2", narrowingsVersionTag}, []string{"b", "d", "e", "f"}},
 		{"unknown version", []string{"v9.9"}, nil},
 	}
 	for _, tt := range tests {
