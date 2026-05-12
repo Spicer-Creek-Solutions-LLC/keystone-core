@@ -31,6 +31,7 @@ go.work.sum
 # Keystone Core binaries (built via make build into build/, but catch strays in root)
 /kscore-*
 /kscorectl
+/trackerctl
 
 # Keystone Core specific
 build/
