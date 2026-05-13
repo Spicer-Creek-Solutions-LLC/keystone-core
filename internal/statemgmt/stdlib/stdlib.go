@@ -38,6 +38,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/iptables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/kmod"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/link"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/lvm"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/mount"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/nftables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
@@ -70,6 +71,7 @@ var modules = map[string]statemgmt.Factory{
 	"iptables":      iptables.New,
 	"kernel_module": kmod.New,
 	"link":          link.New,
+	"lvm":           lvm.New,
 	"mount":         mount.New,
 	"nftables":      nftables.New,
 	"package":       pkg.New,

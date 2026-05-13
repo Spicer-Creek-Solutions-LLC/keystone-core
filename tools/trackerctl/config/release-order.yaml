@@ -52,6 +52,7 @@ v1.1:
   - "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion"
   - "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics"
   - "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale"
+  - "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
