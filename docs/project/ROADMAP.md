@@ -56,20 +56,20 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules
 
 - **Priority**: gate-v0.5 (rich-rule canonicalisation); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `firewalld` module (manage one item — a `service`, a `port`, or a `rich_rule` — in an existing firewalld zone via `firewall-cmd --permanent --zone=Z --query-/add-/remove-…`; states `present` / `absent`; runs `--reload` after a change unless `reload: false`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `firewalld` module (manage one item — a `service`, a `port`, or a `rich_rule` — in an existing firewalld zone via `firewall-cmd --permanent --zone=Z --query-/add-/remove-…`; states `present` / `absent`; runs `--reload` after a change unless `reload: false`). Reserved for v0.x:
   - Whole-zone management (declare the complete set of services / ports / rich rules / sources / interfaces on a zone and prune the rest) and zone creation; binding interfaces or source addresses to a zone; default-zone management; per-zone target (`ACCEPT`/`REJECT`/`DROP`).
   - Toggles for masquerade, ICMP-block (and ICMP-block-inversion), forward ports, ICMP types, and protocol items; `--direct` rules; ipset management; lockdown / panic mode.
   - Runtime-only (non-permanent) changes (v1.0 always operates on `--permanent` so changes survive a reboot).
   - Canonical-form rich-rule comparison (`--query-rich-rule` matches against firewalld's stored, normalised form — whitespace and attribute order may not survive verbatim; v1.0 documents this; canonicalise-before-compare is the follow-up).
   - `firewall` is its own (planned) abstraction module that dispatches across iptables / nftables / firewalld; firewalld is its own backend here.
-- **Why deferred**: "enable / disable this one service / port / rich rule on this zone" is the v1.0 scope; whole-zone management needs a diffing pass over multiple `--list-…` outputs, masquerade / forward-ports / direct rules each have their own flag families and corner cases, and the rich-rule canonicaliser is a real grammar parse. The `Provider` (`Has` / `Add` / `Remove` / `Reload`) and the `Item` (`Kind` + `Value`) types extend cleanly.
+- **Why deferred**: "enable / disable this one service / port / rich rule on this zone" is the v0.1 scope; whole-zone management needs a diffing pass over multiple `--list-…` outputs, masquerade / forward-ports / direct rules each have their own flag families and corner cases, and the rich-rule canonicaliser is a real grammar parse. The `Provider` (`Has` / `Add` / `Remove` / `Reload`) and the `Item` (`Kind` + `Value`) types extend cleanly.
 - **Acceptance**: a `manage_zone: true` declaration replaces the zone's full service/port/rich-rule/source/interface set; `masquerade: true` toggles masquerade; `forward_port: { port: 80, proto: tcp, to_port: 8080 }` round-trips; a `direct_rule:` declaration round-trips; a re-formatted rich rule (different whitespace or attribute order) still matches the stored one; a stopped firewalld → permanent change persists, reload reports clearly.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/firewalld/firewalld.go` package comment; `internal/statemgmt/stdlib/firewalld/params.go`.
 
 #### `firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion
 
 - **Priority**: gate-v0.5 (IPv6 on iptables + service-catalog expansion); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `firewall` cross-backend abstraction (one declaration → "allow this service / port inbound", auto-detected backend, hard-coded standard inbound chain / `public` zone / IPv4 — see `internal/statemgmt/stdlib/firewall/firewall.go` for the full translation table). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `firewall` cross-backend abstraction (one declaration → "allow this service / port inbound", auto-detected backend, hard-coded standard inbound chain / `public` zone / IPv4 — see `internal/statemgmt/stdlib/firewall/firewall.go` for the full translation table). Reserved for v0.x:
   - `action: deny` (v1.0 is allow-only — translate to `-j DROP` / `drop` / a firewalld deny rich-rule).
   - `family: both` (or implicit dual-stack) on the iptables backend — v1.0 manages IPv4 only; for IPv6 coverage operators currently pin `backend: nftables` (which uses `inet`, both families) or `backend: firewalld` (also both). The abstraction should run TWO iptables sub-applies (v4 + v6) and aggregate the results when dual-stack is asked for.
   - `chain` / `table` / `family` overrides on the iptables / nftables backends (v1.0 hard-codes filter+INPUT+ipv4 / inet+filter+input). Operators who need a different chain currently bypass the abstraction and use the backend module directly.
@@ -77,14 +77,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - Per-source filtering (`source: 10.0.0.0/8`) and richer rich-rule-style matches — v1.0 abstraction is allow-port-from-anywhere only.
   - nftables backend chain creation — v1.0 requires `inet filter input` to already exist (see the nftables module's V1X entry).
   - Backend attribution in `StateResult.Comment` (e.g. "applied via firewalld") — v1.0 passes the backend's Comment through verbatim.
-- **Why deferred**: "allow one service / port on the standard inbound" is the v1.0 scope; the rest each open a meaningful design surface (`action: deny` cascades into iptables vs firewalld rich-rule asymmetry; dual-stack iptables needs two backend invocations and result-merging; catalog expansion needs a firewalld-services parser or a hand-curated multi-port table). The `Module` + `BackendDetector` + `buildSubDecl` shape extends cleanly.
+- **Why deferred**: "allow one service / port on the standard inbound" is the v0.1 scope; the rest each open a meaningful design surface (`action: deny` cascades into iptables vs firewalld rich-rule asymmetry; dual-stack iptables needs two backend invocations and result-merging; catalog expansion needs a firewalld-services parser or a hand-curated multi-port table). The `Module` + `BackendDetector` + `buildSubDecl` shape extends cleanly.
 - **Acceptance**: `action: deny` round-trips on every backend; `firewall.service: ssh` opens both v4 and v6 on every backend by default; `chain: custom` / `family: ipv6` on the iptables backend round-trips; the catalog accepts `dhcpv6-client` (firewalld backend) and `samba` (every backend, expanding to 4 sub-rules); `source: 10.0.0.0/8` filters the allow on every backend; the StateResult Comment carries `via <backend>`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/firewall/firewall.go` package comment; `internal/statemgmt/stdlib/firewall/services.go`.
 
 #### `security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics
 
 - **Priority**: gate-v0.5 (AppArmor); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `security` module (SELinux-only in v1.0: `mode: enforcing|permissive|disabled` for the global SELinux mode — persistent via `/etc/selinux/config` + runtime via `setenforce`; `boolean: NAME` + `value: on|off` for SELinux booleans via `setsebool -P`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `security` module (SELinux-only in v1.0: `mode: enforcing|permissive|disabled` for the global SELinux mode — persistent via `/etc/selinux/config` + runtime via `setenforce`; `boolean: NAME` + `value: on|off` for SELinux booleans via `setsebool -P`). Reserved for v0.x:
   - **AppArmor** in any form — per-profile `enforce|complain|disable` modes (`aa-enforce` / `aa-complain` / `aa-disable`), framework on/off, profile load/reload (`apparmor_parser`). The module is structured with a Provider interface so a second `AppArmorProvider` + a backend selector slot in cleanly.
   - SELinux file contexts (`semanage fcontext -a -t TYPE PATTERN` + `restorecon -R PATH`) — by far the deepest SELinux daily-ops surface beyond booleans.
   - SELinux port labels (`semanage port -a -t TYPE -p PROTO PORT`); SELinux policy module install (`semodule -i / -r`); SELinux login / user mappings (`semanage login`).
@@ -98,48 +98,48 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale
 
 - **Priority**: gate-v0.5 (cross-distro reboot detection + reboot disconnect-tolerance); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `system` module with three operations (exactly one per declaration): `banner: motd|issue|issue_net` + `content`; `reboot: true` + `when_file` (default `/var/run/reboot-required`) + `delay` (0–60 min, default 1); `locale: <LANG>`. Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `system` module with three operations (exactly one per declaration): `banner: motd|issue|issue_net` + `content`; `reboot: true` + `when_file` (default `/var/run/reboot-required`) + `delay` (0–60 min, default 1); `locale: <LANG>`. Reserved for v0.x:
   - **Reboot result delivery across the disconnect** — v1.0 launches `shutdown -r +<delay>` asynchronously and returns; for `delay: 0` the kscore-agent's RPC reply may not reach the controller before kernel kill. The Comment documents this; a robust solution coordinates with the agent's reconnect to deliver a "rebooted, marker cleared" follow-up event.
   - **Cross-distro reboot-needed detection** — v1.0 is Debian-flavoured (marker file gate). RHEL needs `dnf needs-restarting -r` (exit code 1 = reboot needed); Arch has `checkservices` / `needrestart`; Alpine has its own pattern. A platform-detected detector would centralise this.
   - **Unconditional reboot** (`force: true`) — v1.0 requires a marker so every Apply is gated. A forced-reboot escape hatch is sometimes needed (e.g. after a manual config change with no marker to set).
   - **Debian's `/etc/default/locale` dual-file** — v1.0 writes `/etc/locale.conf` only (the systemd canonical path). Debian (and downstream Ubuntu) historically uses `/etc/default/locale`; pre-systemd hosts and some images still read that. A dual-write or platform-detected target path is V1X.
   - **Per-`LC_*` overrides** (`LC_ALL`, `LC_MESSAGES`, etc.) and console keymap / X11 keyboard layout management (`vconsole.conf`, `00-keyboard.conf`).
   - **`absent` semantics for `reboot`** (cancel a scheduled reboot via `shutdown -c`) and for `locale` (revert to the compile-time default — ambiguous, may simply mean removing the LANG= line).
-- **Why deferred**: "manage these three settings idempotently" is the v1.0 scope; reboot-across-the-disconnect needs a follow-up-event mechanism the engine doesn't yet have, RHEL-flavoured reboot detection involves a different tool and exit-code dance, and the locale dual-file is a small but real distro divergence. The op-dispatch in `Module.Check`/`Apply` and the `Provider` interface extend cleanly — each V1X item is roughly one more method or one more branch.
+- **Why deferred**: "manage these three settings idempotently" is the v0.1 scope; reboot-across-the-disconnect needs a follow-up-event mechanism the engine doesn't yet have, RHEL-flavoured reboot detection involves a different tool and exit-code dance, and the locale dual-file is a small but real distro divergence. The op-dispatch in `Module.Check`/`Apply` and the `Provider` interface extend cleanly — each V1X item is roughly one more method or one more branch.
 - **Acceptance**: a `reboot: true` decl on RHEL 9 detects need via `dnf needs-restarting -r` exit code without an `/var/run/reboot-required` marker; a `reboot: true` with `force: true` reboots unconditionally; a `locale: en_US.UTF-8` decl on Debian writes both `/etc/locale.conf` and `/etc/default/locale`; an `lc_all:` param round-trips into `LC_ALL=` in the locale conf; the agent delivers a `system.rebooted` event after a reboot Apply, with the boot-ID change as proof; `state: absent` for `reboot` cancels a pending `shutdown -r`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/system/system.go` package comment; `internal/statemgmt/stdlib/system/params.go`.
 
 #### `lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot
 
 - **Priority**: gate-v0.5 (LV resize + VG PV-set mgmt); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `lvm` module with three ops (exactly one per decl): `pv: <device>` (`pvcreate` / `pvremove`); `vg: <name>` + `pvs: [<device>, …]` (`vgcreate` / `vgremove -y`); `lv: <name>` + `vg: <vgname>` + `size: <human>` xor `extents: <N>%{FREE|VG|PVS|ORIGIN}` (`lvcreate -y -n <lv> {-L size|-l extents} <vg>` / `lvremove -y <vg>/<lv>`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `lvm` module with three ops (exactly one per decl): `pv: <device>` (`pvcreate` / `pvremove`); `vg: <name>` + `pvs: [<device>, …]` (`vgcreate` / `vgremove -y`); `lv: <name>` + `vg: <vgname>` + `size: <human>` xor `extents: <N>%{FREE|VG|PVS|ORIGIN}` (`lvcreate -y -n <lv> {-L size|-l extents} <vg>` / `lvremove -y <vg>/<lv>`). Reserved for v0.x:
   - **Existing-VG PV-set management** — `vgextend` (add a PV to an existing VG) and `vgreduce` (remove a PV); `vgchange` allocation policy; missing-PV cleanup. v1.0 only verifies the VG exists by name; the declared `pvs:` list is used solely at create time.
   - **Existing-LV resize** — `lvextend` and `lvresize --resizefs`; `lvreduce` (fundamentally dangerous — filesystem must support shrink). v1.0 errors out on a mismatched-size existing LV by way of doing nothing about it (we report exists=true and don't reconcile size).
   - **LV metadata**: tags, allocation policy, stripes / mirror / RAID levels, thin pools + thin volumes, cache origin / pool, snapshots (origin + snapshot LV pair).
   - **PV metadata**: `--metadatasize`, allocation tags, restore from a backup.
   - **Filesystem creation on an LV** — v1.0 punts to the `disk` module on the resulting device, or `cmd` with `mkfs.X`; an `lvm` `mkfs:` shortcut would land cleanly.
-- **Why deferred**: "create/remove an LVM object" is the v1.0 scope; PV-set mgmt on existing VGs needs a diffing pass over `vgs -o pv_name`, LV resize needs filesystem coordination, and thin / cache / RAID each open their own option family. The Provider (`HasPV`/`CreatePV`/…/`RemoveLV`) and the Op-dispatch extend cleanly — each V1X item is roughly one more Provider method or one more branch in `applyVG`/`applyLV`.
+- **Why deferred**: "create/remove an LVM object" is the v0.1 scope; PV-set mgmt on existing VGs needs a diffing pass over `vgs -o pv_name`, LV resize needs filesystem coordination, and thin / cache / RAID each open their own option family. The Provider (`HasPV`/`CreatePV`/…/`RemoveLV`) and the Op-dispatch extend cleanly — each V1X item is roughly one more Provider method or one more branch in `applyVG`/`applyLV`.
 - **Acceptance**: a `vg:` decl with a different `pvs:` set than the live VG reconciles (extends or reduces) idempotently; an `lv:` decl with a new size larger than the live LV runs `lvextend` (with `--resizefs` when the FS supports it); `tags: [app=web]` on an LV round-trips; a thin-pool `lv:` decl creates the pool + the thin volume; a snapshot `lv:` declares an origin and creates the COW LV.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/lvm/lvm.go` package comment; `internal/statemgmt/stdlib/lvm/params.go`.
 
 #### `disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion
 
 - **Priority**: gate-v0.5 (filesystem resize); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `disk` module (single op: ensure `device:` has filesystem `fstype:` — `present` or `absent` — gated by an explicit `force: true` for any apply that would destroy existing data; mkfs binary resolved per fstype from a curated 9-entry catalog: ext2/3/4, xfs, btrfs, f2fs, vfat, exfat, swap). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `disk` module (single op: ensure `device:` has filesystem `fstype:` — `present` or `absent` — gated by an explicit `force: true` for any apply that would destroy existing data; mkfs binary resolved per fstype from a curated 9-entry catalog: ext2/3/4, xfs, btrfs, f2fs, vfat, exfat, swap). Reserved for v0.x:
   - **Partition management** via parted / sgdisk: create / remove / resize partitions, partition flags (boot, lvm, raid, esp), label types (GPT vs MBR), partition labels. Partitioning is destructive enough to deserve its own module (`partition`?) — co-existing with `disk` (filesystem layer) once both ship.
   - **Filesystem resize** without destroying data: `resize2fs` (ext2/3/4), `xfs_growfs` (xfs), `btrfs filesystem resize`, `f2fs_resize`.
   - **Filesystem label and UUID** management (no re-format): `tune2fs -L <label> -U <uuid>` (ext), `xfs_admin -L -U`, `btrfs filesystem label`, `swaplabel -L -U` (swap), `dosfslabel` (vfat).
   - **Encryption** (LUKS via cryptsetup) — `luksFormat`, `luksOpen`/`Close`, key slot management, passphrase rotation; integration with `mount` for opening at boot.
   - **fstype catalog expansion**: ntfs (`mkfs.ntfs` via ntfs-3g), zfs (zpool create), bcachefs, reiserfs (legacy), jfs (legacy), tmpfs (it's a mount-time fs, but a `disk` shortcut could be useful).
   - **Re-format on mismatch without explicit `force: true`** — a per-decl policy like `on_mismatch: reformat|error|warn` would let operators opt into more permissive defaults; v1.0 always errors on mismatch unless `force: true`.
-- **Why deferred**: "ensure this device has this filesystem" is the v1.0 scope; partitioning is a different (more dangerous) operation surface, fs-resize is per-fstype and per-fs-state, encryption introduces a key-management dimension, and the catalog expansion is mostly more `mkfs.<fstype>` mappings + signature handling. The Provider (`GetFilesystem`/`MakeFilesystem`/`WipeFilesystem`) extends cleanly with `ResizeFilesystem`, `RelabelFilesystem`, etc.
+- **Why deferred**: "ensure this device has this filesystem" is the v0.1 scope; partitioning is a different (more dangerous) operation surface, fs-resize is per-fstype and per-fs-state, encryption introduces a key-management dimension, and the catalog expansion is mostly more `mkfs.<fstype>` mappings + signature handling. The Provider (`GetFilesystem`/`MakeFilesystem`/`WipeFilesystem`) extends cleanly with `ResizeFilesystem`, `RelabelFilesystem`, etc.
 - **Acceptance**: a `partition:` decl (in a new `partition` module, sibling to `disk`) creates `/dev/sdb1` at the declared start/size/type, idempotent against `parted -m print`; a `disk` decl with `resize_fs: true` extends the fs to fill the partition; a `label: mylabel` decl on an existing ext4 device updates the label without re-format; a `luks: { passphrase: …, key_slot: 0 }` decl initialises LUKS on the device; `fstype: ntfs` round-trips via ntfs-3g; `on_mismatch: warn` reports the drift in the StateResult Comment but doesn't error.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/disk/disk.go` package comment; `internal/statemgmt/stdlib/disk/params.go`.
 
 #### `network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt
 
 - **Priority**: gate-v0.5 (boot-survive via netplan + networkd); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `network` module (single op: reconcile one interface's *runtime* state via iproute2 — `addresses: [...]`, `mtu:`, `up: <bool>` — via `ip -j addr show` for Check and `ip addr add/del` / `ip link set mtu/up/down` for Apply). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `network` module (single op: reconcile one interface's *runtime* state via iproute2 — `addresses: [...]`, `mtu:`, `up: <bool>` — via `ip -j addr show` for Check and `ip addr add/del` / `ip link set mtu/up/down` for Apply). Reserved for v0.x:
   - **Boot-survive / persistent configuration** rendered to the host's actual network manager: systemd-networkd `*.network` units, NetworkManager `system-connections/`, netplan YAML, Debian `/etc/network/interfaces`, RHEL `ifcfg-*` scripts. Each is its own distro-aware renderer; a `persist: networkd|nm|netplan|ifupdown|sysconfig|auto` knob with auto-detect would be the natural surface.
   - **Per-family address management** — declare IPv4 and IPv6 sets independently (`ipv4_addresses: [...]` + `ipv6_addresses: [...]`); v1.0 merges them into one `addresses:` list.
   - **Address scope, valid_lft, preferred_lft, broadcast, peer** per `ip addr add` options.
@@ -147,14 +147,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - **Wireless** (`wpa_supplicant`, NM Wi-Fi), 802.1X, **WireGuard / OpenVPN / IPsec** — vendor / protocol modules.
   - **Interface creation / removal** for physical NICs (impossible) and SR-IOV VFs (possible); v1.0 errors out with `ErrInterfaceNotFound` if the interface doesn't exist. Virtual-interface creation is the `bond` / `bridge` / `vlan` modules' job.
   - **Address-removal safety** — v1.0 will happily strip an in-use IP that the operator forgot to declare; a `dry_run_safety: true` mode would surface the in-use-IP risk before applying.
-- **Why deferred**: "ensure this interface has these addresses, this MTU, this admin state right now" is the v1.0 scope — the runtime layer is what the operator most often needs in day-2 ops (container hosts, transient overlays, troubleshooting). Persistent config is a distro-render problem that adds ~5× the surface; per-family + scope + lft attributes are V1X polish on top. The Provider (`GetInterface` / `AddAddress` / `DelAddress` / `SetMTU` / `SetLinkUp`) extends cleanly along all of those axes.
+- **Why deferred**: "ensure this interface has these addresses, this MTU, this admin state right now" is the v0.1 scope — the runtime layer is what the operator most often needs in day-2 ops (container hosts, transient overlays, troubleshooting). Persistent config is a distro-render problem that adds ~5× the surface; per-family + scope + lft attributes are V1X polish on top. The Provider (`GetInterface` / `AddAddress` / `DelAddress` / `SetMTU` / `SetLinkUp`) extends cleanly along all of those axes.
 - **Acceptance**: a `persist: networkd` decl writes a syntactically-valid `*.network` file matching the runtime config and survives a reboot; `ipv4_addresses:` + `ipv6_addresses:` round-trip independently; `valid_lft: 3600` on an address is preserved by Check; `dns_resolvers: [1.1.1.1, …]` writes the host's resolver config (systemd-resolved or /etc/resolv.conf); a `dry_run_safety: true` mode logs the planned removals without applying them.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/network/network.go` package comment; `internal/statemgmt/stdlib/network/params.go`.
 
 #### `route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath
 
 - **Priority**: gate-v0.5 (persistent configuration); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `route` module (one routing-table entry per declaration via `ip route replace` / `ip route del`; identity keyed on `(destination, metric, table)`; `gateway:` + `interface:` are reconciled). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `route` module (one routing-table entry per declaration via `ip route replace` / `ip route del`; identity keyed on `(destination, metric, table)`; `gateway:` + `interface:` are reconciled). Reserved for v0.x:
   - **Boot-survive / persistent configuration** rendered to the host's network manager: networkd `[Route]`, NetworkManager static-routes, /etc/sysconfig/network-scripts/route-*, netplan `routes:`, /etc/network/interfaces `post-up ip route add …`.
   - **Route attributes**: `proto` (boot / dhcp / static / kernel), `scope` (link / host / global), `src` (source IP for the route), `mtu`, `advmss`, `pref` (high / medium / low), `onlink`, `realms`, `congctl`.
   - **Multipath nexthops** — `nexthop via X weight 1 nexthop via Y weight 2` style ECMP routes.
@@ -162,45 +162,45 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - **VRF awareness** beyond the `table:` knob (the `vrf` interface type + L3 master).
   - **IPv6 specific**: `expires` (lifetime), `pref` med/high/low (RA preference).
   - **Default-table inference from metric** (some operator workflows imply a table from a metric range — v1.0 keeps them orthogonal).
-- **Why deferred**: "ensure this one route exists / doesn't" via the modern `ip route replace` idempotency is the v1.0 scope; persistence is the same distro-renderer problem the `network` module faces; attributes are an option-by-option extension; multipath nexthops + policy rules are meaningful new surfaces. The Provider (`GetRoute` / `ReplaceRoute` / `DelRoute`) extends cleanly with extra `RouteSpec` / `RouteEntry` fields.
+- **Why deferred**: "ensure this one route exists / doesn't" via the modern `ip route replace` idempotency is the v0.1 scope; persistence is the same distro-renderer problem the `network` module faces; attributes are an option-by-option extension; multipath nexthops + policy rules are meaningful new surfaces. The Provider (`GetRoute` / `ReplaceRoute` / `DelRoute`) extends cleanly with extra `RouteSpec` / `RouteEntry` fields.
 - **Acceptance**: a `persist: networkd|nm|netplan|…` decl renders a syntactically-valid route entry in the host's config; `proto: static` + `scope: link` + `src: 10.0.0.5` round-trip; a `nexthop:` list creates a multipath route; a separate `rule` module declares a `from 10.0.0.0/24 lookup vpn` policy rule and the `route` module's `table: vpn` declarations populate that table.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/route/route.go` package comment; `internal/statemgmt/stdlib/route/params.go`.
 
 #### `bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes
 
 - **Priority**: gate-v0.5 (persistent configuration); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `bond` module (create / delete a Linux bonding interface at runtime via `ip link add … type bond mode … [miimon N]` + `ip link set <member> master <bond>`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `bond` module (create / delete a Linux bonding interface at runtime via `ip link add … type bond mode … [miimon N]` + `ip link set <member> master <bond>`). Reserved for v0.x:
   - **In-place attribute reconciliation** on an existing bond: `mode`, `miimon`, `xmit_hash_policy`, `lacp_rate`, `ad_select`, `primary`, `primary_reselect`, `fail_over_mac`, `num_grat_arp`, `all_slaves_active`, etc. v1.0 considers an existing bond converged regardless of attrs (operators delete + recreate to change).
   - **Member-set reconciliation** on an existing bond — adding / removing slaves without destroying the bond. v1.0 enslaves declared members only at create time.
   - **Persistent / boot-survive configuration** rendered to the host's network manager (see the `network` module's V1X entry).
   - **Slave-level attributes**: per-slave queue id, priority.
-- **Why deferred**: "create or delete this bond" is the v1.0 scope; changing bond mode on a live aggregation has subtle implications (LACP renegotiation, traffic interruption, slave release/reattach) that operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBond` / `DeleteLink` / `SetMaster`) extends cleanly with `SetBondAttr` / `ClearMaster` methods for the V1X path.
+- **Why deferred**: "create or delete this bond" is the v0.1 scope; changing bond mode on a live aggregation has subtle implications (LACP renegotiation, traffic interruption, slave release/reattach) that operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBond` / `DeleteLink` / `SetMaster`) extends cleanly with `SetBondAttr` / `ClearMaster` methods for the V1X path.
 - **Acceptance**: a `mode:` change on a live bond reconciles via `echo <mode> > /sys/class/net/<bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members: [eth0, eth1, eth2]` against a live bond with `eth0, eth1` adds eth2; `members: [eth0]` against `eth0, eth1` removes eth1 (`ip link set eth1 nomaster`); a `persist: networkd` decl renders a `*.netdev` + `*.network` pair.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bond/bond.go` package comment; `internal/statemgmt/stdlib/bond/params.go`.
 
 #### `bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration
 
 - **Priority**: gate-v0.5 (persistent configuration); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `bridge` module (create / delete a Linux bridge interface at runtime via `ip link add … type bridge [stp_state 1]` + `ip link set <member> master <bridge>`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `bridge` module (create / delete a Linux bridge interface at runtime via `ip link add … type bridge [stp_state 1]` + `ip link set <member> master <bridge>`). Reserved for v0.x:
   - **In-place attribute reconciliation** on an existing bridge: stp_state, forward_delay, hello_time, max_age, ageing_time, vlan_filtering, vlan_default_pvid, mcast_snooping, mcast_querier, group_fwd_mask.
   - **Port-set reconciliation** on an existing bridge — adding / removing ports without destroying it. v1.0 attaches declared ports only at create time.
   - **Per-port bridge attributes**: state (disabled / listening / learning / forwarding), priority, path-cost, pvid, learning, unicast_flood, mcast_flood, mcast_router, neigh_suppress.
   - **VLAN-aware bridge** filtering (`bridge vlan add vid 10 dev port`) — a separate `bridge_vlan` op or sub-module would land cleanly.
   - **Persistent / boot-survive configuration** rendered to the host's network manager.
-- **Why deferred**: "create or delete this bridge" is the v1.0 scope; live-bridge attribute changes (especially stp_state) interrupt connected traffic and operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBridge` / `DeleteLink` / `SetMaster`) extends cleanly along these axes.
+- **Why deferred**: "create or delete this bridge" is the v0.1 scope; live-bridge attribute changes (especially stp_state) interrupt connected traffic and operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBridge` / `DeleteLink` / `SetMaster`) extends cleanly along these axes.
 - **Acceptance**: a `members:` change on a live bridge attaches/detaches ports without re-creating; `stp: true` on a live STP-disabled bridge enables STP and reports the change; `port_pvid: { eth0: 10, eth1: 20 }` round-trips; a `vlan_filtering: true` bridge takes a list of `bridge_vlan:` declarations that populate the VLAN table.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bridge/bridge.go` package comment; `internal/statemgmt/stdlib/bridge/params.go`.
 
 #### `vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration
 
 - **Priority**: gate-v0.5 (persistent configuration); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `vlan` module (create / delete an 802.1Q VLAN interface at runtime via `ip link add link <parent> name <name> type vlan id <id>`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `vlan` module (create / delete an 802.1Q VLAN interface at runtime via `ip link add link <parent> name <name> type vlan id <id>`). Reserved for v0.x:
   - **In-place attribute reconciliation** on an existing VLAN: `id`, `parent`, ingress-qos-map, egress-qos-map, reorder_hdr, gvrp, mvrp, loose_binding.
   - **QinQ / 802.1ad** stacked-VLAN tagging (`proto 802.1ad`).
   - **VLAN ranges** — declare 100-200 in one decl that creates that many subinterfaces.
   - **Bridge VLAN filtering** (`bridge vlan add vid 10 dev port`) — see the `bridge` module's V1X scope.
   - **Persistent / boot-survive configuration** rendered to the host's network manager.
-- **Why deferred**: "create or delete this VLAN" is the v1.0 scope; the in-place attribute change has subtle implications (VLAN id change effectively reroutes the L2 segment), and QinQ + VLAN ranges open new param-shape questions (a range op would have a different `name:` semantic). The Provider (`GetLink` / `CreateVLAN` / `DeleteLink`) extends cleanly.
+- **Why deferred**: "create or delete this VLAN" is the v0.1 scope; the in-place attribute change has subtle implications (VLAN id change effectively reroutes the L2 segment), and QinQ + VLAN ranges open new param-shape questions (a range op would have a different `name:` semantic). The Provider (`GetLink` / `CreateVLAN` / `DeleteLink`) extends cleanly.
 - **Acceptance**: an `id:` change on a live VLAN reports drift and reconciles via delete-and-recreate (or `ip link set <vlan> type vlan id <new>` if the kernel supports it); `proto: 802.1ad` round-trips; `id_range: 100-200` creates 101 VLAN interfaces in one Apply; a `persist: networkd` decl renders a `*.network` for the VLAN.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/vlan/vlan.go` package comment; `internal/statemgmt/stdlib/vlan/params.go`.
 
@@ -210,7 +210,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: When `CancelBatchJob` fires server-side, also signal the affected agents over NATS so any in-flight `os/exec` process is SIGTERM'd. v1.0 cancel persists CANCELLED status server-side; agent-side in-flight processes keep running until they exit naturally.
-- **Why deferred**: Needs a new NATS cancel-command message type (subject scheme, envelope shape, signing) and an agent-side handler that maps inbound cancels to per-command context.CancelFuncs in the executor. Each piece is small but together they're a meaningful surface. v1.0 trial scope tolerates the gap — long-running commands time out via agent.ExecutorConfig.DefaultTimeout.
+- **Why deferred**: Needs a new NATS cancel-command message type (subject scheme, envelope shape, signing) and an agent-side handler that maps inbound cancels to per-command context.CancelFuncs in the executor. Each piece is small but together they're a meaningful surface. v0.x trial scope tolerates the gap — long-running commands time out via agent.ExecutorConfig.DefaultTimeout.
 - **Acceptance**: `kscorectl exec cancel <id>` mid-batch results in agent-side processes receiving SIGTERM (then SIGKILL after KillGrace); per-agent batch_agent_result rows record the cancelled state.
 - **References**: Epic 07 task 12 acceptance bullet ("agent receives SIGTERM"); `internal/agent/executor.go` for the SIGTERM-then-SIGKILL kill protocol that already exists.
 
@@ -242,7 +242,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: Timestamp window + nonce dedup in `internal/agent.SecurityEnforcer.Validate`. Today HMAC alone gates command execution.
-- **Why deferred**: HMAC covers v1.0 trial scope. Nonce store needs a persistence layer + TTL eviction; not worth the complexity for the v1.0 ship date.
+- **Why deferred**: HMAC covers v0.x trial scope. Nonce store needs a persistence layer + TTL eviction; not worth the complexity for the v1.0 ship date.
 - **Acceptance**: Replayed `CommandRequest` (same nonce within window) is rejected with a typed error and audit log; legitimate commands inside the window pass.
 - **References**: Epic 06 task 4 `_(landed)_` annotation; PROJECT-DETAILS §4.10; `internal/agent/security.go`.
 
@@ -273,7 +273,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### Server-side heartbeat / metadata NATS subscriber → agent registry
 
 - **Priority**: gate-v1.0
-- **What**: kscore-server has `internal/controlplane.ConnectionManager.Heartbeat(ctx, id)` and `UpdateAgent` plumbing, but nothing in v1.0 subscribes to `kscore.{cluster}.agent.heartbeat` / `kscore.{cluster}.agent.{id}.state` and feeds those payloads into the registry. Agents publish heartbeats and metadata into the void; the server's agent registry stays empty.
+- **What**: kscore-server has `internal/controlplane.ConnectionManager.Heartbeat(ctx, id)` and `UpdateAgent` plumbing, but nothing in v0.1 subscribes to `kscore.{cluster}.agent.heartbeat` / `kscore.{cluster}.agent.{id}.state` and feeds those payloads into the registry. Agents publish heartbeats and metadata into the void; the server's agent registry stays empty.
 - **Why deferred**: Epic 06 owns the agent side (publishing) — it shipped. The consumer side is a server-runtime concern that fits naturally with Epic 07 (remote execution targeting reads from the registry) or Epic 13 (clustering / agent registry HA). Either of those epics will land the bridge.
 - **Acceptance**: Three Epic 06 acceptance bullets that gate on this consumer flip to ✓ once the bridge lands —
     1. "Agent registers with control plane on startup (visible in `kscorectl agents list`)"
@@ -294,7 +294,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: The Epic 08 dependency resolver applies a **uniform direction rule** to all eight requisite keys: `<key>: [B]` on A puts B before A; `<key>_in: [B]` puts A before B. Salt's actual `prereq` semantic is the opposite — Salt reads `prereq: [B]` on A as "A is a prerequisite for B" (A first). Keystone's rule deviates so all eight keys teach the same way.
-- **Why deferred**: One rule is much easier to teach + remember than a per-key direction table. v1.0 trial scope hasn't surfaced a real workflow that needs Salt-faithful prereq; if it does, we add a per-key direction policy in the resolver and surface it on the DSL.
+- **Why deferred**: One rule is much easier to teach + remember than a per-key direction table. v0.x trial scope hasn't surfaced a real workflow that needs Salt-faithful prereq; if it does, we add a per-key direction policy in the resolver and surface it on the DSL.
 - **Acceptance**: Resolver applies a per-key direction policy where `prereq` and `prereq_in` use the Salt-faithful convention while keeping `require` / `watch` / `onchanges` (and their `_in` variants) on the existing uniform rule; docs in PROJECT-DETAILS §4.8 reflect the per-key directions explicitly.
 - **References**: Epic 08 task 5; `internal/statemgmt/resolve.go` package comment; PROJECT-DETAILS §4.8.
 
@@ -334,7 +334,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: Pluggable `KeyProvider` (file/age/Vault/Cloud KMS) encrypts secrets + audit logs at rest.
-- **Why deferred**: PostgreSQL TDE + filesystem encryption cover v1.0 trial. Full implementation gates on cloud KMS work.
+- **Why deferred**: PostgreSQL TDE + filesystem encryption cover v0.x trial. Full implementation gates on cloud KMS work.
 - **Acceptance**: `cfg.storage.encryption.provider = age|vault|aws-kms` round-trips encrypted blobs; key rotation re-wraps.
 - **References**: Epic 02 scope-out (line 23); PROJECT-DETAILS §4.3 (line 303); §4.11.
 
@@ -491,14 +491,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: v0.x
 - **What**: Slog hooks (or counters) for `match()` calls that swallow a malformed glob or an unparseable IP-vs-CIDR comparison. Today both fall through to `false` silently.
-- **Why deferred**: The match function lives in a hot path (one call per agent per term per batch). Per-Matcher logger threading needs either a closure-built program per dispatch or a context plumbed through `expr.Run`; both add overhead the v1.0 trial doesn't need. Operators get a clear *parse* error from `Compile`; the gap is only at runtime.
+- **Why deferred**: The match function lives in a hot path (one call per agent per term per batch). Per-Matcher logger threading needs either a closure-built program per dispatch or a context plumbed through `expr.Run`; both add overhead the v0.x trial doesn't need. Operators get a clear *parse* error from `Compile`; the gap is only at runtime.
 - **Acceptance**: A target expression with a literal-asterisk pattern (`role:*`-with-meta-on-empty-value) or a bad CIDR logs once per dispatch with the offending pattern, evaluation count, and target-expression raw form; no per-agent log spam.
 - **References**: Epic 07 task 3; `internal/targeting/match.go` `matchValue`.
 
 #### `git` stdlib module — authentication, submodules, advanced clone
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `git` module (states `present` / `latest` / `absent`) relying on whatever the agent's existing git / SSH configuration provides for auth. Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `git` module (states `present` / `latest` / `absent`) relying on whatever the agent's existing git / SSH configuration provides for auth. Reserved for v0.x:
   - Deploy keys / per-repo SSH identity files, credential-helper configuration, token-in-URL rotation, SSH known-hosts management.
   - Submodules (`--recurse-submodules` and submodule sync on `latest`).
   - Sparse checkout, partial clone (`--filter`), bare repos.
@@ -518,7 +518,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `cron` stdlib module — per-field schedule, cron.d, env lines
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `cron` module (per-user crontab entries via `crontab(1)`, states `present` / `absent`, identified by a `# keystone-cron: <name>` marker comment). v1.0 takes one `schedule` string (five fields or an `@`-shortcut) and validates only its shape (field count / known shortcut). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `cron` module (per-user crontab entries via `crontab(1)`, states `present` / `absent`, identified by a `# keystone-cron: <name>` marker comment). v1.0 takes one `schedule` string (five fields or an `@`-shortcut) and validates only its shape (field count / known shortcut). Reserved for v0.x:
   - Salt-style separate `minute` / `hour` / `day_of_month` / `month` / `day_of_week` params.
   - `/etc/cron.d` drop-in mode (a `cron_d: true` switch, or a separate module) — for now the `file` module manages those.
   - Environment-variable lines (`KEY=value`) in the crontab.
@@ -530,7 +530,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `systemd_timer` module — generates a `.timer` unit from `on_calendar` (+ optional `persistent`) and manages its enabled/active state; the triggered `.service` is the operator's job (compose with `file` + `service`, or point `service:` at an existing unit). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `systemd_timer` module — generates a `.timer` unit from `on_calendar` (+ optional `persistent`) and manages its enabled/active state; the triggered `.service` is the operator's job (compose with `file` + `service`, or point `service:` at an existing unit). Reserved for v0.x:
   - Also generate the paired `.service` unit (an `exec_start:` / `user:` / `working_dir:` param set).
   - `--user` (per-user) timers.
   - `on_boot_sec` / `on_unit_active_sec` / `on_startup_sec` / `randomized_delay_sec` and other `[Timer]` directives (v1.0 takes `OnCalendar` + `Persistent`).
@@ -542,7 +542,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `config` stdlib module — more formats, separators, uncomment-aware updates
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `config` module (one key/value in a config file, formats `keyvalue` + `ini`, both `=`-delimited, case-sensitive keys, full-line comments only). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `config` module (one key/value in a config file, formats `keyvalue` + `ini`, both `=`-delimited, case-sensitive keys, full-line comments only). Reserved for v0.x:
   - Case-insensitive key matching (a `case_insensitive: true` switch) — INI and sshd-style configs often want it.
   - Configurable separator (`separator: " "` for sshd-style `Key Value`, `": "` for YAML-ish, etc.) — v1.0 is `=`-only.
   - Inline / trailing comments preservation (`key=value # note`) — v1.0 treats `# note` as part of the value unless `#`/`;` starts the line.
@@ -556,7 +556,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `archive` stdlib module — absent state, clean mode, safe symlinks, more formats
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `archive` module (extract tar/tar.gz/tar.bz2/zip into `target`, `present` only, idempotent via a `creates` path or a size+mtime sentinel, path-escape defense, symlink/hardlink entries skipped). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `archive` module (extract tar/tar.gz/tar.bz2/zip into `target`, `present` only, idempotent via a `creates` path or a size+mtime sentinel, path-escape defense, symlink/hardlink entries skipped). Reserved for v0.x:
   - `state: absent` — needs an extraction manifest (which files came from the archive) to remove only those; for now use `file: <target>` `state: absent`.
   - `clean: true` — remove `target` before extracting (Salt's `archive.extracted` clean mode).
   - Safe symlink / hardlink extraction (create them only when the link target stays within `target`).
@@ -565,108 +565,108 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - `owner` / `group` chown of the extracted tree; mtime preservation of extracted files.
   - Extraction size / entry-count limits (zip-bomb hardening) — `max_extracted_bytes` / `max_entries`.
   - `skip_existing` (don't overwrite files already present in `target`).
-- **Why deferred**: "extract a release tarball once" — the v1.0 scope — is the dominant case, and `state: absent` plus the security/format extensions each carry real design weight (manifest tracking, decompressor deps, symlink-resolution policy). The `extract.go` core + the `format` param + the `Provider`-less direct-fs shape extend cleanly.
+- **Why deferred**: "extract a release tarball once" — the v0.1 scope — is the dominant case, and `state: absent` plus the security/format extensions each carry real design weight (manifest tracking, decompressor deps, symlink-resolution policy). The `extract.go` core + the `format` param + the `Provider`-less direct-fs shape extend cleanly.
 - **Acceptance**: `state: absent` removes exactly the previously-extracted entries; `clean: true` wipes `target` first; a `.tar.xz` archive extracts; a symlink entry pointing inside `target` is created while one pointing outside is rejected; a zip bomb is refused once it exceeds the configured cap.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/archive/archive.go` package comment; `internal/statemgmt/stdlib/archive/extract.go`.
 
 #### `at` stdlib module — replace-on-change, per-user queues, batch
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `at` module (one-shot scheduled jobs via the `at` toolchain, tagged with a `# keystone-at: <name>` marker comment, `present` / `absent`, matched by name only). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `at` module (one-shot scheduled jobs via the `at` toolchain, tagged with a `# keystone-at: <name>` marker comment, `present` / `absent`, matched by name only). Reserved for v0.x:
   - Replace-on-change — detect a queued job whose command or time differs from the declaration and re-queue it (v1.0 leaves an existing tagged job untouched; you change the declaration name or `atrm` it first).
   - Per-user `at` queues — submit/list/remove as another user (via su); v1.0 manages the agent's own queue.
   - The `batch` low-load variant (the `batch` command, or `at -b`).
   - Queue-letter scoping of the queue scan (`atq -q <letter>`); richer multi-line-script handling and submit-time-environment control.
-- **Why deferred**: "queue this command once at a given time" is the v1.0 scope; `at`'s fire-once model makes replace-on-change and recurring semantics genuinely ambiguous (re-resolving a relative time spec like "now + 1 hour" never equals the daemon's frozen timestamp), so they want their own design pass. The `Provider` (`ListJobs` / `JobScript` / `Submit` / `Remove`) and the marker-comment identity extend cleanly.
+- **Why deferred**: "queue this command once at a given time" is the v0.1 scope; `at`'s fire-once model makes replace-on-change and recurring semantics genuinely ambiguous (re-resolving a relative time spec like "now + 1 hour" never equals the daemon's frozen timestamp), so they want their own design pass. The `Provider` (`ListJobs` / `JobScript` / `Submit` / `Remove`) and the marker-comment identity extend cleanly.
 - **Acceptance**: a `present` declaration whose command changed re-queues the job (old one removed); a `user:` param queues a job for that user; `batch: true` submits via `batch`; the queue scan can be limited to one queue letter.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/at/at.go` package comment; `internal/statemgmt/stdlib/at/provider_linux.go`.
 
 #### `x509` stdlib module — combined PEM, encrypted keys, more issuance options
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `x509` module (Go package `pki`; manage a TLS cert + private-key pair with crypto/x509, self-signed or CA-signed, RSA/ECDSA/Ed25519, `present` / `absent`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `x509` module (Go package `pki`; manage a TLS cert + private-key pair with crypto/x509, self-signed or CA-signed, RSA/ECDSA/Ed25519, `present` / `absent`). Reserved for v0.x:
   - Combined cert+key PEM in a single file (HAProxy-style) — v1.0 requires `key_path` ≠ the cert path.
   - OpenSSL-style SAN prefixes (`IP:` / `DNS:` / `email:` / `URI:`) — v1.0 auto-detects IP vs DNS and never emits email/URI SANs.
   - More Subject fields (Country, Locality, State, OU, …); encrypted (passphrase-protected) private keys.
   - Explicit key/cert file mode + owner params (v1.0: new key 0600, new cert 0644; rewrites preserve the mode).
   - Key reuse policy on regeneration (v1.0 keeps a still-valid key); CRL / OCSP / AIA / Name-Constraints extensions; `MaxPathLen` for CA certs.
   - PKCS#12 (`.p12` / `.pfx`) bundles; CSR generation (`x509.private_key_managed` + `x509.csr` split à la Salt); ACME / external issuer integration.
-- **Why deferred**: "generate a server cert for this host (self- or CA-signed) and renew it before it expires" is the dominant case and the v1.0 scope; the rest each carry their own format/protocol weight (combined PEM round-tripping, encrypted-key passphrase handling, PKCS#12, ACME). The pure-Go `cert.go` core (`generateKey` / `loadPrivateKey` / `loadCertificate` / `checkState` / `buildTemplate` / `signCert`) and the param set extend cleanly.
+- **Why deferred**: "generate a server cert for this host (self- or CA-signed) and renew it before it expires" is the dominant case and the v0.1 scope; the rest each carry their own format/protocol weight (combined PEM round-tripping, encrypted-key passphrase handling, PKCS#12, ACME). The pure-Go `cert.go` core (`generateKey` / `loadPrivateKey` / `loadCertificate` / `checkState` / `buildTemplate` / `signCert`) and the param set extend cleanly.
 - **Acceptance**: a combined cert+key file round-trips; a `key_passphrase` decrypts/encrypts the key on disk; `country: US` etc. land in the Subject; a `.p12` bundle is produced; a CSR is emitted for an external CA.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/pki/x509.go` package comment; `internal/statemgmt/stdlib/pki/cert.go`.
 
 #### `mount` stdlib module — remount-on-change, escaping, swap, crypttab
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `mount` module (manage an /etc/fstab entry + the live mount via /proc/mounts + mount(8)/umount(8); states `mounted` / `present` / `unmounted` / `absent`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `mount` module (manage an /etc/fstab entry + the live mount via /proc/mounts + mount(8)/umount(8); states `mounted` / `present` / `unmounted` / `absent`). Reserved for v0.x:
   - Remount-on-change — `mount -o remount` when the fstab options change for an already-mounted filesystem; reconcile a live device change (v1.0 updates fstab but doesn't touch a stale live mount, and doesn't re-verify the live device against the declaration because the kernel resolves UUID=/LABEL= to a real device).
   - fstab `\040` escaping for whitespace in mount points / devices / options — v1.0 rejects whitespace in those fields.
   - `findmnt`-based inspection (richer than /proc/mounts); `noauto` / `nofail` awareness so a `mounted` declaration on a `noauto` entry isn't reported drifted just because it isn't mounted at the moment.
   - swap-type fstab entries (`swap` is the `swap` module's job); loop-device / encrypted (crypttab) coordination; per-mount fsck/dump heuristics for the default `pass`/`dump`.
   - `unmounted` with `persist: true` (also drop the fstab entry — v1.0: use `absent`); bind/move/rbind helpers beyond putting `bind` in `opts`.
-- **Why deferred**: "ensure this device is mounted here with these options, and the fstab agrees" is the v1.0 scope; remount-on-change and the live-device reconciliation need the UUID/LABEL-resolution problem solved (resolve the declared identifier to a kernel device before comparing), and fstab escaping / crypttab / swap each carry their own format weight. The pure `fstab.go` editor and the `Provider` (`Lookup` / `Mount` / `Unmount`) extend cleanly.
+- **Why deferred**: "ensure this device is mounted here with these options, and the fstab agrees" is the v0.1 scope; remount-on-change and the live-device reconciliation need the UUID/LABEL-resolution problem solved (resolve the declared identifier to a kernel device before comparing), and fstab escaping / crypttab / swap each carry their own format weight. The pure `fstab.go` editor and the `Provider` (`Lookup` / `Mount` / `Unmount`) extend cleanly.
 - **Acceptance**: changing `opts` on a `mounted` declaration triggers a `mount -o remount`; a mount point with a space round-trips through fstab and /proc/mounts; a `noauto` `mounted` entry isn't flagged drifted while down; an encrypted device coordinates with crypttab.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/mount/mount.go` package comment; `internal/statemgmt/stdlib/mount/fstab.go`.
 
 #### `swap` stdlib module — UUID sources, resize, fallocate, custom opts
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `swap` module (manage a swapfile/partition + its fstab entry + its live swapon state; states `on` / `present` / `off` / `absent`; a not-yet-existing swapfile is created with `dd`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `swap` module (manage a swapfile/partition + its fstab entry + its live swapon state; states `on` / `present` / `off` / `absent`; a not-yet-existing swapfile is created with `dd`). Reserved for v0.x:
   - `UUID=` / `LABEL=` swap sources — v1.0 requires the source to be an absolute path (swapfile or device).
   - Enforcing/changing the size of an *existing* swapfile (`size:` only governs creation today); `fallocate`-based fast swapfile creation (v1.0 uses `dd`, slow for large files).
   - Custom fstab options for swap (`nofail`, `discard`, …) beyond `defaults` + `pri=N`; `mkswap -L <label>` / `-f`.
   - Not rotating a swap *partition*'s UUID when re-activating (v1.0 runs `mkswap` before `swapon` on a not-active source, which re-initialises a pre-existing swap area); btrfs (NOCOW) swapfiles; zram / dphys-swapfile flavours.
-- **Why deferred**: "create a swapfile (or use a partition), enable it, put it in fstab" is the v1.0 scope; `UUID=`/`LABEL=` need the same identifier-resolution work as `mount`, swapfile resize needs a swapoff/recreate/mkswap/swapon cycle, and the `mkswap`-on-re-activate UUID-rotation concern wants an `IsSwapArea` probe (`blkid`/`swaplabel`) to skip `mkswap` when the area is already valid. The pure `fstab.go` editor and the `Provider` (`Lookup` / `MakeSwap` / `SwapOn` / `SwapOff` / `CreateSwapfile`) extend cleanly.
+- **Why deferred**: "create a swapfile (or use a partition), enable it, put it in fstab" is the v0.1 scope; `UUID=`/`LABEL=` need the same identifier-resolution work as `mount`, swapfile resize needs a swapoff/recreate/mkswap/swapon cycle, and the `mkswap`-on-re-activate UUID-rotation concern wants an `IsSwapArea` probe (`blkid`/`swaplabel`) to skip `mkswap` when the area is already valid. The pure `fstab.go` editor and the `Provider` (`Lookup` / `MakeSwap` / `SwapOn` / `SwapOff` / `CreateSwapfile`) extend cleanly.
 - **Acceptance**: a `UUID=…` swap source resolves and is managed; changing `size:` on an existing swapfile resizes it (swapoff → recreate → mkswap → swapon); `fallocate` creates a large swapfile instantly; `nofail` lands in the fstab opts; re-activating a partition doesn't change its UUID.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/swap/swap.go` package comment; `internal/statemgmt/stdlib/swap/fstab.go`.
 
 #### `ssh` stdlib module — key validation, options-set compare, whole-file management
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `ssh` module (manage one entry in a user's ~/.ssh/authorized_keys; states `present` / `absent`; matched by key material). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `ssh` module (manage one entry in a user's ~/.ssh/authorized_keys; states `present` / `absent`; matched by key material). Reserved for v0.x:
   - Validating the key blob as a well-formed SSH public key (via `golang.org/x/crypto/ssh.ParseAuthorizedKey`) — v1.0 only charset-checks the `<keytype> <blob>` pair, to avoid promoting `golang.org/x/crypto` to a direct dependency.
   - Quote-aware comma-splitting / set-comparison of the options field (v1.0 compares it verbatim, after collapsing whitespace) — so `no-pty,no-X11-forwarding` and `no-X11-forwarding,no-pty` aren't treated as equal.
   - An `authorized_keys2` / custom-path override; whole-file management (`ssh_auth_file.managed`-style — declare the complete key set, removing unmanaged keys).
   - `AuthorizedKeysCommand` / SSH certificate (`*-cert-v01@openssh.com`) handling; per-line `from=` / `environment=` / `tunnel=` helpers; `ssh_known_hosts` management; sshd_config tweaks (overlaps with the `config` module today).
-- **Why deferred**: "ensure this public key is in <user>'s authorized_keys (with these options/comment)" is the v1.0 scope; full key parsing wants the x/crypto dep promoted (a deliberate hold), and options-set comparison needs a quote-aware splitter, and whole-file management is a different (and more dangerous — it removes keys) operation. The pure `authkeys.go` line editor and the `key` / `options` / `comment` params extend cleanly.
+- **Why deferred**: "ensure this public key is in <user>'s authorized_keys (with these options/comment)" is the v0.1 scope; full key parsing wants the x/crypto dep promoted (a deliberate hold), and options-set comparison needs a quote-aware splitter, and whole-file management is a different (and more dangerous — it removes keys) operation. The pure `authkeys.go` line editor and the `key` / `options` / `comment` params extend cleanly.
 - **Acceptance**: a malformed key blob is rejected at validate time; `options: [no-pty, no-X11-forwarding]` matches an existing line with those options in any order; a `manage_file: true` declaration replaces the whole file; a cert-type key (`ssh-ed25519-cert-v01@openssh.com`) is handled.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/ssh/ssh.go` package comment; `internal/statemgmt/stdlib/ssh/authkeys.go`.
 
 #### `iptables` stdlib module — structured rules, ordering, both-family, distro persistence
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `iptables` module (manage a single iptables/ip6tables rule via `iptables -C`/`-A`/`-I`/`-D`; states `present` / `absent`; optional `save: <path>` for `iptables-save` output). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `iptables` module (manage a single iptables/ip6tables rule via `iptables -C`/`-A`/`-I`/`-D`; states `present` / `absent`; optional `save: <path>` for `iptables-save` output). Reserved for v0.x:
   - `family: both` (apply the rule to both iptables and ip6tables, requiring it in both); structured rule params (`proto`/`dport`/`source`/`jump`/… à la Salt) as an alternative to the raw `rule` string; rule *position* / ordering management (re-place a rule that exists but is in the wrong spot — v1.0 never moves an existing rule).
   - Quote-aware rule parsing (`--comment "with spaces"` — v1.0 splits on whitespace, so multi-word comments need the list form or a single word).
   - Distro-aware persistence (Debian `netfilter-persistent` / `/etc/iptables/rules.v4`, RHEL the `iptables` service / `/etc/sysconfig/iptables`) and whole-rules-file management, beyond the plain `save: <path>`; `iptables-nft` vs `iptables-legacy` backend selection; chain creation (`-N`) and chain policy (`-P`).
   - `nftables` is its own separate module.
-- **Why deferred**: "ensure this one rule is (not) in this chain" is the v1.0 scope; `family: both` doubles the bookkeeping, structured params explode the surface (iptables has dozens of match options), ordering management needs `iptables -S`/handle bookkeeping, and persistence is genuinely distro-divergent. The `Provider` (`HasRule` / `AddRule` / `DeleteRule` / `Save`, parameterised by family) and the `rule` parsing extend cleanly.
+- **Why deferred**: "ensure this one rule is (not) in this chain" is the v0.1 scope; `family: both` doubles the bookkeeping, structured params explode the surface (iptables has dozens of match options), ordering management needs `iptables -S`/handle bookkeeping, and persistence is genuinely distro-divergent. The `Provider` (`HasRule` / `AddRule` / `DeleteRule` / `Save`, parameterised by family) and the `rule` parsing extend cleanly.
 - **Acceptance**: `family: both` keeps the rule in both ruleset families; `proto: tcp, dport: 22, jump: ACCEPT` builds the rule; a rule that exists at the wrong position is moved when a `position:` is declared; `--comment "two words"` round-trips; on Debian the rule survives a reboot via `netfilter-persistent`; an `iptables-nft` host is detected.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/iptables/iptables.go` package comment; `internal/statemgmt/stdlib/iptables/params.go`.
 
 #### `nftables` stdlib module — structured rules, ordering, table/chain management, comment matching
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `nftables` module (manage a single nft rule in an existing table/chain: list the chain with `nft --handle list chain`, match on the rule's canonical text, `nft add rule` / `nft insert rule … index N` / `nft delete rule … handle N`; states `present` / `absent`; optional `save: <path>` for `nft list ruleset` output). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `nftables` module (manage a single nft rule in an existing table/chain: list the chain with `nft --handle list chain`, match on the rule's canonical text, `nft add rule` / `nft insert rule … index N` / `nft delete rule … handle N`; states `present` / `absent`; optional `save: <path>` for `nft list ruleset` output). Reserved for v0.x:
   - Structured rule params (`proto`/`dport`/`saddr`/`jump`/… à la Salt) as an alternative to the raw `rule` expression; rule ordering / re-placement (re-place a rule that exists but is in the wrong spot — v1.0 never moves an existing rule); matching a rule by its `comment "…"` or by handle instead of by canonical text (so a rule whose body nft has re-normalised — service names, abbreviations — still matches and isn't re-added).
   - Quote-aware rule parsing (`comment "with spaces"` — v1.0 splits on whitespace, so a multi-word comment needs the list form with the quotes embedded).
   - Managing tables and chains themselves (`nft add table|chain`, base-chain `type … hook … priority …; policy …;`), named sets / maps / flowtables, and atomic whole-ruleset file management / `nftables.service` persistence beyond the plain `save: <path>`.
   - `iptables` is its own separate module.
-- **Why deferred**: "ensure this one rule is (not) in this chain" is the v1.0 scope; structured params explode the surface (nft's expression grammar is large), ordering management needs handle/index bookkeeping, and table/chain/set management is a meaningfully different (and more destructive) operation. The `Provider` (`ListRuleHandles` / `AddRule` / `DeleteRule` / `SaveRuleset`) and the `rule` parsing extend cleanly; the canonical-text matcher is the obvious place to add comment/handle matching.
+- **Why deferred**: "ensure this one rule is (not) in this chain" is the v0.1 scope; structured params explode the surface (nft's expression grammar is large), ordering management needs handle/index bookkeeping, and table/chain/set management is a meaningfully different (and more destructive) operation. The `Provider` (`ListRuleHandles` / `AddRule` / `DeleteRule` / `SaveRuleset`) and the `rule` parsing extend cleanly; the canonical-text matcher is the obvious place to add comment/handle matching.
 - **Acceptance**: `proto: tcp, dport: 22, jump: accept` builds the rule; a rule that exists at the wrong index is moved when an `index:` is declared; `tcp dport ssh accept` matches the stored `tcp dport 22 accept` (canonicalised before comparison); `comment "two words"` round-trips; a `manage_table: true` / `manage_chain: true` declaration creates the table/chain with the declared hook+policy; a saved ruleset is reloadable via `nft -f`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/nftables/nftables.go` package comment; `internal/statemgmt/stdlib/nftables/params.go`.
 
 #### `langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems
 
 - **Priority**: v0.x
-- **What**: Epic 08 task 11 ships the `langpkg` module (one package per declaration via `manager: pip|npm|gem`, with optional strict-equality `version:` pin; global / system-wide installs only — `pip install`, `npm install -g`, `gem install`). Reserved for v1.x:
+- **What**: Epic 08 task 11 ships the `langpkg` module (one package per declaration via `manager: pip|npm|gem`, with optional strict-equality `version:` pin; global / system-wide installs only — `pip install`, `npm install -g`, `gem install`). Reserved for v0.x:
   - **Per-user / per-project installs**: pip `--user` + venv + pipx; npm non-global / `--prefix`; gem `--user-install` + Bundler. A `working_dir:` param + a `user:` param give operators the per-project / per-user mode they need without leaving the abstraction.
   - **PEP-668 `--break-system-packages`** opt-in for pip on modern Debian / Ubuntu / etc. where system-wide pip is blocked by default. v1.0 lets pip's own error surface to the operator; the eventual flag (`pep668_override: true`?) keeps the override explicit and decl-local.
   - **Lockfile-driven installs**: `npm ci` against package-lock.json; `pip install -r requirements.txt`; `bundle install --deployment` against Gemfile.lock. These would be a separate op ("install from lockfile") in the same module, mutually exclusive with `name:`.
   - **Semver / version-range matching**: `>= 1.2`, `~> 2.5`, `^3.0.0`. v1.0 is strict equality — a manifest like `version: ">=2"` is rejected at validate.
   - **Manager-options pass-through** (`mkfs_options`-style list): arbitrary install flags — `--index-url`, `--registry`, `--no-cache`, `--registry-mirror`, env vars (`NPM_CONFIG_REGISTRY=…`), proxy configuration.
   - **Additional managers**: `cargo` (Rust), `composer` (PHP), `mvn` / `gradle` (Java), `go install` (Go binaries — somewhat self-referential but useful), `cpan` / `cpanm` (Perl).
-- **Why deferred**: "install / remove this package globally" is the v1.0 scope; per-project mode opens working-directory + cwd + permission concerns; lockfile installs need a different `name`-free op shape; semver ranges need a per-manager constraint parser (or a vendored library); the catalog expansion is mostly more Provider methods. The Provider (3 methods × 3 managers) extends cleanly along both axes.
+- **Why deferred**: "install / remove this package globally" is the v0.1 scope; per-project mode opens working-directory + cwd + permission concerns; lockfile installs need a different `name`-free op shape; semver ranges need a per-manager constraint parser (or a vendored library); the catalog expansion is mostly more Provider methods. The Provider (3 methods × 3 managers) extends cleanly along both axes.
 - **Acceptance**: a `working_dir: /opt/app` + `user: app` decl installs `gunicorn` into the app user's venv; a `lockfile: package-lock.json` decl runs `npm ci` and is idempotent against the lockfile hash; `version: ">=2,<3"` matches any 2.x version; `manager_options: ["--index-url=https://internal.pypi/"]` round-trips; `manager: cargo` installs a Rust binary via `cargo install`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/langpkg/langpkg.go` package comment; `internal/statemgmt/stdlib/langpkg/params.go`.
 
@@ -780,7 +780,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: v1.x
 - **What**: Replace symmetric exp-jitter (`reconnectDelay` in `internal/nats/backoff.go`) with AWS decorrelated jitter — `delay = min(max, random(base, prev_delay * 3))`. Better herd-avoidance properties at >500-agent scale.
-- **Why deferred**: Symmetric jitter is adequate for v1.0 trial fleets (≤500 agents per design). Decorrelated needs careful per-call state tracking and is harder to test deterministically.
+- **Why deferred**: Symmetric jitter is adequate for v0.x trial fleets (≤500 agents per design). Decorrelated needs careful per-call state tracking and is harder to test deterministically.
 - **Acceptance**: `reconnectDelay` (or a sibling) implements decorrelated jitter; benchmark/sim shows tighter reconnect-time distribution at 1000+ agent scale; opt-in via a config knob (`reconnectjitterstrategy: symmetric|decorrelated`).
 - **References**: Epic 06 task 10 `_(landed)_`; `internal/nats/backoff.go`.
 

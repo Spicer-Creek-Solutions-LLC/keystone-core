@@ -102,7 +102,7 @@ There is **no pre-allocated table of v0.2 contents, v0.3 contents, etc.** Pre-al
 
 Instead:
 
-- One ranked roadmap in [`docs/project/ROADMAP.md`](ROADMAP.md) (replaces `V1X-BACKLOG.md`).
+- One ranked roadmap in [`docs/project/ROADMAP.md`](ROADMAP.md) (replaces `ROADMAP.md`).
 - Each entry carries a **priority**: `gate-v0.5` | `gate-v1.0` | `v0.x` | `v2.x+`.
 - v0.x minor releases are cut when natural feature sets land. A `v0.3.0` might close one epic; a `v0.4.0` might close two and ship a renderer; the boundaries fall where they fall.
 - The v0.5 gate is the only intermediate stop where the version specifically *waits* for a checklist.

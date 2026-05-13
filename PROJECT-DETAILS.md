@@ -301,7 +301,7 @@ type Store interface {
 
 **Schema versioning**: deferred to v1.1. Auto-DDL is fine for v1.0 since the schema is new and stable. Add `golang-migrate` when first breaking schema change is needed.
 
-**Encryption at rest**: `KeyProvider` interface scaffolding may exist in v1.0 but real implementation deferred to v1.5 (with cloud KMS support gating on §4.11 secrets v2 work).
+**Encryption at rest**: `KeyProvider` interface scaffolding may exist in v0.1 but real implementation deferred to v1.5 (with cloud KMS support gating on §4.11 secrets v2 work).
 
 **Gotchas**:
 - Don't swallow `json.Unmarshal` errors silently (fix in rebuild).
@@ -417,7 +417,7 @@ CORS  →  Rate-Limit  →  Auth  →  Handler
 
 **REST handlers** (hand-coded in `pkg/api/<domain>/handlers.go` — NOT grpc-gateway in v1.0):
 - v1.0 wired: `agents`, `execution`, `state`, `secrets`, `policy` (audit), `cluster`, `apikeys`, `auth`, `runbook`, `gitops`, `webhooks` (outbound).
-- v1.1 wired: `events` (REST is in v1.0 for /events; the *gRPC* endpoint is in v1.0 too — both shipped), `maintenance`, `schedule`.
+- v1.1 wired: `events` (REST is in v0.1 for /events; the *gRPC* endpoint is in v0.1 too — both shipped), `maintenance`, `schedule`.
 - v2.0 wired: `mirror`, `discovery`.
 
 **Versioning registry** (`pkg/api/versioning`): tracks `Status{current, supported, deprecated, retired, beta, alpha}` plus `ReleasedAt`, `DeprecatedAt`, `SunsetAt`. Used to emit deprecation headers and refuse retired endpoints.
@@ -549,7 +549,7 @@ kscorectl exec script <target> <file>
 2. **Template render** — `text/template` with custom filters (`upper`, `lower`, `title`, `trim`, `join`, `split`, `default`); vars + facts as render context.
 3. **Validate** — syntax, module existence, parameter validation.
 4. **Resolve dependencies** — DAG from requisites (`require`, `require_in`, `watch`, `watch_in`, `prereq`, `prereq_in`, `onchanges`, `onchanges_in`); cycle detection with cycle-path error.
-5. **Topological sort** — execution order; independent states run in parallel (limited; sequential default in v1.0 for stability — parallel exec is v1.1).
+5. **Topological sort** — execution order; independent states run in parallel (limited; sequential default in v0.1 for stability — parallel exec is v1.1).
 6. **Check phase** — `Module.Check(ctx, decl) → ModuleCheckResult{Matches, Diff}`.
 7. **Apply phase** — for `Matches=false`: `Module.Apply(ctx, decl) → StateResult{Success, Changed, Diff, Comment, Duration}`. Idempotent.
 8. **Test phase** — `Module.Test(ctx, decl)` verifies post-apply.
@@ -631,7 +631,7 @@ services:
 - Requisite cycles — detect at resolve time; report with full cycle path.
 - Template injection — vars/facts from agents may contain template syntax; document as untrusted.
 - Drift false positives — exclude transient attributes (mtime, SELinux contexts where not relevant); compare content hash for files.
-- Two state files managing the same resource in v1.0 will conflict — no resource locking. Document; consider state namespacing for v1.1.
+- Two state files managing the same resource in v0.1 will conflict — no resource locking. Document; consider state namespacing for v1.1.
 
 ### 4.9 Event System
 
@@ -664,7 +664,7 @@ Event{
 - `user.{login, command, error}` (3)
 - `policy.{pass, violation}` (2) — audit-mode only in v1.0
 
-**Filter expressions**: in v1.0 we **adopt `google/cel-go`** (existing project rolls a homegrown parser; rebuild should use cel-go from the start — saves ongoing maintenance and gives a richer feature set for free). Filter on: type, source, severity, time range, tags.*, data.* (nested JSON path), regex, glob.
+**Filter expressions**: in v0.1 we **adopt `google/cel-go`** (existing project rolls a homegrown parser; rebuild should use cel-go from the start — saves ongoing maintenance and gives a richer feature set for free). Filter on: type, source, severity, time range, tags.*, data.* (nested JSON path), regex, glob.
 
 **EventPublisher** (sync `Publish`, async `PublishAsync`, `Close`); **EventSubscriber** (`Subscribe(pattern)`, `SubscribeQueue(pattern, group)`, `SubscribeWithFilter(pattern, filter)`).
 
@@ -880,7 +880,7 @@ secrets:
 - CEL is dynamically typed — type errors surface at eval, not compile.
 - Policy-set semantics are **all-or-nothing AND**. Document; consider adding OR/threshold semantics for compliance-style sets in v1.5.
 - v1.0→v1.8 enforcement flip is a behavior-changing release; release notes must call it out loudly.
-- SQLite audit table can grow fast — retention policy MUST be set in v1.0 defaults.
+- SQLite audit table can grow fast — retention policy MUST be set in v0.1 defaults.
 - Redaction regex must be reviewed before prod (overly broad patterns = false positives in audit data).
 
 ### 4.13 GitOps Integration
@@ -987,7 +987,7 @@ webhook:
 - Secret in API responses **always masked** (`***`); cleartext returned only on creation.
 - Slow receivers — circuit-breaker mitigates; delivery timeout caps.
 - Filter perf at high event volume — glob patterns are evaluated per event per subscription (no precompilation in v1.0). Cache compiled glob in v1.1 if profiling shows hot spot.
-- Delivery history growth — `DeleteOldDeliveries(retention)` exists but auto-invocation in v1.0.x (trivial fix).
+- Delivery history growth — `DeleteOldDeliveries(retention)` exists but auto-invocation in v0.1.x (trivial fix).
 - Circuit-breaker false positives — network timeouts count as failures; transient issues can flip a healthy receiver to `open` briefly. Acceptable.
 
 ### 4.15 Clustering & HA
@@ -1226,7 +1226,7 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 
 **Purpose**: Salt-like extensibility on day 1. Lets sysadmins author safe, sandboxed modules in Starlark and ship them through a verified, reproducible distribution pipeline.
 
-**v1.0 scope decision**: Starlark-only + Cosign verification + filesystem registry. WASM, OCI, SumDB, S3 deferred. This delivers the *experience* of a real module system without the long tail.
+**v0.1 scope decision**: Starlark-only + Cosign verification + filesystem registry. WASM, OCI, SumDB, S3 deferred. This delivers the *experience* of a real module system without the long tail.
 
 **Manifest format** (`pkg/module/manifest/`):
 ```yaml
@@ -1379,7 +1379,7 @@ modules:
 
 ### 4.20 Specialized & Extension Domains
 
-**v1.0 in scope**:
+**v0.1 in scope**:
 
 **File distribution (basic)** (`internal/files/`, `cmd/kscore-files/`):
 - `FileRequest`, `FileMetadata{Path, Size, Hash, ContentType, CreatedAt, Version, Tags}`, `FileChunk{ID, FileID, Index, Total, Data, Hash}`.

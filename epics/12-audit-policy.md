@@ -97,7 +97,7 @@ See `PROJECT-DETAILS.md §4.12`.
 
 ## Risks
 
-- **Audit table growth** — retention policy MUST be set in v1.0 defaults; without it, disk fills. Monitor `kscore_audit_table_size_bytes`.
+- **Audit table growth** — retention policy MUST be set in v0.1 defaults; without it, disk fills. Monitor `kscore_audit_table_size_bytes`.
 - **Redaction regex complexity** — overly broad patterns produce false positives. Document; recommend explicit pattern review before prod.
 - **OPA default query assumption** — `data.<package>.allow` requires policies declare a package and `allow` rule. Provide templates.
 - **CEL type errors at eval time** (dynamic typing) — `ValidatePolicy()` does syntax check but not full type validation. Test with realistic inputs.

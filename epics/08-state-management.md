@@ -49,7 +49,7 @@ Per `PROJECT-DETAILS.md §4.8` — categorized:
 - DNS provider modules — v2.0.
 - Niche networking (`promisc`, `wifi`, `dot1x`) — v2.x.
 - Vendor-specific modules — v2.x.
-- Parallel execution of independent states — v1.1 (sequential default in v1.0 for stability).
+- Parallel execution of independent states — v1.1 (sequential default in v0.1 for stability).
 - Resource locking across state files — v1.1.
 - Saga checkpoint resume — v1.4.
 

@@ -123,7 +123,7 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 - **Rollback storms** — no cooldown in v1.0; rely on approval gates and operator judgment.
 - **Slow receivers** — circuit breaker mitigates; per-delivery timeout caps.
 - **Filter perf at high event volume** — glob patterns evaluated per event per subscription. Cache compiled glob in v1.1 if hot.
-- **Delivery history growth** — `DeleteOldDeliveries` exists; auto-invocation in v1.0.x dot release.
+- **Delivery history growth** — `DeleteOldDeliveries` exists; auto-invocation in v0.1.x dot release.
 
 ## References
 

@@ -1,8 +1,10 @@
 # FEATURES.md
 
-Complete feature inventory for Keystone Core, organized by domain. Each feature carries a tentative version tag (`v1.0`, `v1.x`, `v2`, `v3+/future`) and a one-line reasoning note. The version tags are revisited and finalized in Phase 4 — see PROJECT-DETAILS.md §6 for the version-strategy summary.
+Complete feature inventory for Keystone Core, organized by domain. Each feature carries a tentative version tag (`v1.0`, `v1.x`, `v2`, `v3+/future`) and a one-line reasoning note.
 
-> **MVP target.** v1.0 must be **clusterable** and **commercial-trial-ready** for sysadmin/IT-admin users — i.e. ~90% of what they need for day-to-day work. This drives several capabilities (plugin/module system, base stdlib, real auth, audit, HA, observability) into v1.0 that a leaner control-plane MVP would defer.
+> **Versioning note.** This file's `v1.0` and `v1.x` tags predate the v0.x release scheme (see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). In the current model, "v1.0" here means "shipping in the v0.x → v1.0 line as part of the MVP scope" and "v1.x" means "post-v1.0 feature additions on the stable line". The granular feature inventory below has not been re-tagged — when the difference matters, defer to the priority buckets in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md). See PROJECT-DETAILS.md §6 for the version-strategy summary.
+
+> **MVP target.** v1.0 must be **clusterable** and **commercial-trial-ready** for sysadmin/IT-admin users — i.e. ~90% of what they need for day-to-day work. This drives several capabilities (plugin/module system, base stdlib, real auth, audit, HA, observability) into v1.0 that a leaner control-plane MVP would defer. The work lands incrementally across the v0.x line; v1.0 is the SemVer stability commitment at the end.
 
 > **Source paths** are relative to the existing Keystone Core repo. They identify where the *current* implementation lives, not where the new build will put it.
 
@@ -56,7 +58,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 - **Syslog logging output** [v1.1]. _Reasoning: ops nice-to-have; stdout suffices for trial users on systemd/k8s._
 - **Documentation site** (Hugo + Docsy + PDF). Source: `docs/`. **[v1.1]**. _Reasoning: README + reference docs sufficient for v1.0; Hugo site adds tooling burden._
-- **HA / IPv6 / HA+IPv6 E2E topologies** [v1.1]. _Reasoning: clustering ships in v1.0 but full topology matrix can land iteratively._
+- **HA / IPv6 / HA+IPv6 E2E topologies** [v1.1]. _Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively._
 - **Hot-reload dev server (`air`)** [v1.0.x]. _Reasoning: dev-only, ship with v1.0 dot release._
 - **Repository generation (DNF/APT/Windows MSI)** [v1.2]. _Reasoning: tarballs cover trial users; package repos require infra commitment._
 - **VM bootstrap test harness** [v1.2]. _Reasoning: container E2E sufficient for v1.0._
@@ -174,7 +176,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **ScheduleService** (job scheduling API) **[v1.1]**. _Reasoning: same._
 - **RunbookService gRPC** **[v1.0]** (REST wired in v1.0). _Reasoning: keep both for v1._
 - **WebhookService** (REST handler exists, not wired) **[v1.0 outbound]** + **[v1.1 inbound non-GitOps]**. _Reasoning: outbound is in v1.0; non-GitOps inbound subscriptions slide to v1.1._
-- **GitOps webhook REST handlers wiring** **[v1.0]**. _Reasoning: GitOps domain — included in v1.0._
+- **GitOps webhook REST handlers wiring** **[v1.0]**. _Reasoning: GitOps domain — included in v0.1._
 - **MirrorService / DiscoveryService** (proxy-related) **[v2.x]**. _Reasoning: see Specialized._
 - **Full RBAC (`pkg/api/rbac`)** **[v1.2]**. _Reasoning: simple admin/operator/readonly hierarchy ships v1.0; full RBAC is a separate epic._
 - **gRPC-gateway adoption** (auto-generated REST) **[v2.0]**. _Reasoning: hand-coded handlers work for v1; reduces churn during initial implementation._
@@ -402,7 +404,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **OPA Rego evaluator** (`open-policy-agent/opa`). _Reasoning: standard policy language for compliance shops._
 - **CEL evaluator** (`google/cel-go`; `input`/`resource`/`action`/`user`/`context` variables). _Reasoning: lighter-weight inline policies._
 - **Builtin policies** (require-labels, require-owner, allowed-environments, allowed-actions, deny-privileged, time-window, no-root-execution, etc.). _Reasoning: ship with sensible defaults._
-- **`Policy{ID, Name, Type, Category, Severity, EnforcementMode, Code, Enabled, Tags}`** model. _Reasoning: full schema in v1.0 even if enforcement is gated._
+- **`Policy{ID, Name, Type, Category, Severity, EnforcementMode, Code, Enabled, Tags}`** model. _Reasoning: full schema in v0.1 even if enforcement is gated._
 - **`PolicySet`** (groups; set-level enforcement override). _Reasoning: same._
 - **`Bindings`** (attach policies to resource types, optional action/selector). _Reasoning: same._
 - **Policy evaluation API** (single + set + by-resource-type). _Reasoning: callers can evaluate; v1.0 just doesn't *block* on results._
@@ -449,7 +451,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.1 (deferred — automation)
 
-- **Multi-env promotion pipelines** (sequential dev → staging → prod with approvals). **[v1.1]**. _Reasoning: powerful; needs design time. Foundational rollback works in v1.0._
+- **Multi-env promotion pipelines** (sequential dev → staging → prod with approvals). **[v1.1]**. _Reasoning: powerful; needs design time. Foundational rollback works in v0.1._
 - **Promotion state machine + REST API**. **[v1.1]**. _Reasoning: same._
 - **Basic remediation strategies** (rollback action). **[v1.1]**. _Reasoning: paired with promotion._
 
@@ -555,7 +557,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **TUI extras** (cluster, secrets/leases, schedules, runbooks, webhooks views — 13 total) **[v1.2]**.
 - **Drill-downs, vim navigation, alert bar, connection health indicators, themes, search filters** **[v1.2]**.
 - **NATS telemetry transport** (logs/metrics/traces over NATS subjects so isolated agents don't need outbound HTTP). **[v1.4]**. _Reasoning: paired with telemetry gateway._
-- **CLI audit logging to syslog/journald** **[v1.2]**. _Reasoning: ships with TUI work; audit infra in v1.0 already._
+- **CLI audit logging to syslog/journald** **[v1.2]**. _Reasoning: ships with TUI work; audit infra in v0.1 already._
 
 ### v1.4 (deferred — telemetry gateway)
 
@@ -618,7 +620,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.0 (in scope — Starlark + Cosign + filesystem registry)
 
-> **Decision**: Per user direction, plugin/module system ships in v1.0. To make that achievable, v1.0 is **Starlark-only** with **filesystem-backed registry** and **Cosign-only verification** (no SumDB transparency log, no WASM, no cloud-backed registry yet). This delivers Salt-like extensibility on day 1 without doubling v1.0 scope.
+> **Decision**: Per user direction, plugin/module system ships in v1.0. To make that achievable, v1.0 is **Starlark-only** with **filesystem-backed registry** and **Cosign-only verification** (no SumDB transparency log, no WASM, no cloud-backed registry yet). This delivers Salt-like extensibility on day 1 without doubling v0.1 scope.
 
 - **Starlark runtime** (Python-like sandboxed scripting via `go.starlark.net`; deterministic mode with random/time disabled by default). Source: `pkg/module/runtime/starlark/`. _Reasoning: pure Go, simpler than WASM, sufficient for trial extensibility._
 - **Module manifest format** (`module.yaml`: name namespaced `vendor/pkg`, version semver, type, entrypoint, capabilities, limits, dependencies). Source: `pkg/module/manifest/`. _Reasoning: schema is shared with v1.1 WASM modules._

@@ -65,7 +65,7 @@ See `PROJECT-DETAILS.md §4.5` (API Surface).
 
 - **gRPC vs REST drift**: enforce in code review — every new RPC ships its REST handler in the same PR.
 - **Streaming reconnection**: clients must implement exp backoff; document in client package READMEs.
-- **mTLS chicken-and-egg in CI**: tests use in-memory CA from Epic 09 (placeholder helper in v1.0 test util until Epic 09 lands).
+- **mTLS chicken-and-egg in CI**: tests use in-memory CA from Epic 09 (placeholder helper in v0.1 test util until Epic 09 lands).
 - **Hand-maintained OpenAPI drift**: every new gRPC method requires a manual OpenAPI update in same PR. Add CI check that fails if proto changes without OpenAPI changes (best-effort heuristic).
 
 ## References

@@ -77,7 +77,7 @@ Production-grade observability baseline: structured logs (already in Epic 01), P
 - **NATS telemetry transport** (logs/metrics/traces over NATS subjects) — v1.4.
 - **Telemetry gateway** (`kscore-telemetry-gateway` standalone service) — v1.4.
 - HA gateway with queue groups + leader election — v1.4.
-- CLI audit logging to syslog/journald — v1.2 (audit infra in v1.0 already).
+- CLI audit logging to syslog/journald — v1.2 (audit infra in v0.1 already).
 - Adaptive sampling tied to error metrics — v2.0.
 - pprof visualization UI — v2.x.
 - SIEM export (CEF/LEEF) — v2.0.

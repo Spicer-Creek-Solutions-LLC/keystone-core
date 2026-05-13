@@ -95,7 +95,7 @@ added for other bulk imports.)
 ### `v1.0-narrowing` (legacy, no new emissions)
 
 Historically marked an issue that came from the *Implementation-time narrowings* section of the
-old `V1X-BACKLOG.md` — somewhere v1.0 shipped with deliberately reduced scope. That section was
+old `ROADMAP.md` — somewhere v1.0 shipped with deliberately reduced scope. That section was
 retired in the v0.x rename (narrowings are now mixed into the priority buckets directly), so
 new issues no longer carry this label. The label is **kept** in `isManagedLabel` so old Forgejo
 issues that still carry it reconcile cleanly; `reconcile-issues` doesn't strip it from issues

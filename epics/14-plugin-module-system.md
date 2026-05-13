@@ -4,7 +4,7 @@
 
 ## Goal
 
-Salt-like extensibility on day 1. Sysadmins can author safe, sandboxed Starlark modules and ship them through a verified, reproducible distribution pipeline. **Strategic v1.0 scope decision**: Starlark-only + Cosign verification + filesystem registry — this delivers the *experience* of a real module system without the long tail of WASM/SumDB/cloud-backends.
+Salt-like extensibility on day 1. Sysadmins can author safe, sandboxed Starlark modules and ship them through a verified, reproducible distribution pipeline. **Strategic v0.1 scope decision**: Starlark-only + Cosign verification + filesystem registry — this delivers the *experience* of a real module system without the long tail of WASM/SumDB/cloud-backends.
 
 ## Scope (in)
 
