@@ -61,8 +61,8 @@ Apache 2.0.
 Day-to-day technical direction is set by the project's **BDFL** (Benevolent
 Dictator for Life) and its **maintainers**, per `docs/project/GOVERNANCE.md`.
 SCS holds the authority to appoint the BDFL but does not direct technical
-decisions. In practice, during the v1.0 reconstruction, the BDFL role is
-held by an officer of SCS.
+decisions. In practice, during the v0.x → v1.0 reconstruction, the BDFL role
+is held by an officer of SCS.
 
 Maintainers are nominated and added per the process described in
 `docs/project/GOVERNANCE.md` and `docs/project/MAINTAINERS.md`.

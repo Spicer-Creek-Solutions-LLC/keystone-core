@@ -1,7 +1,7 @@
 # Keystone Core
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Pre--1.0_reconstruction-orange)](epics/00-meta-reconstruction-plan.md)
+[![Status](https://img.shields.io/badge/Status-v0.1_reconstruction-orange)](docs/project/VERSIONING.md)
 [![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](docs/project/AI-CONTRIBUTIONS.md)
 
 **GitOps deploys it. We keep it running.**
@@ -23,9 +23,9 @@ Project sponsor: **Spicer Creek Solutions LLC** ([`OWNERSHIP.md`](OWNERSHIP.md))
 
 > **Pre-1.0. Reconstruction in progress. Not installable yet.**
 
-This repository was reset to a v1.0 reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent v1.0 — is preserved on the `archive/v0` branch (tag `archive/v0-final`).
+This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is preserved on the `archive/v0` branch (tag `archive/v0-final`).
 
-The reset is deliberate: rather than carry forward technical debt from a sprawling pre-1.0 codebase, v1.0 is being rebuilt against a tight feature scope, a clear MVP definition, and an explicit anti-scope. The full rationale and per-epic plan live in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md).
+The reset is deliberate: rather than carry forward technical debt, the codebase is being rebuilt against a tight feature scope, a clear MVP definition, and an explicit anti-scope. The full rationale and per-epic plan live in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md); the versioning scheme — three milestone tiers `v0.1` → `v0.5` (external-tester ready, all Linux) → `v1.0` (all 19 epics + SemVer stability) — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
 
@@ -40,7 +40,7 @@ What's in `main` today:
 - **NATS messaging** (epic 05): `internal/nats.Manager` (external client + embedded server modes), `SubjectBuilder` with `kscore.{cluster}.…` prefix enforced both sides, `Envelope` wire format with length-prefixed dedup, per-endpoint circuit breakers, JetStream stream provisioning, server-side bootstrap registration handler with PSK validator + API-key issuer.
 - **Agent runtime** (epic 06): `kscore-agent` is real. Subscribes to its command subject; runs `Executor` (os/exec wrap with SIGTERM-grace-then-SIGKILL, hard-cap output truncation, optional uid switch), `MetadataCollector` (gopsutil-backed; distro / kernel / NIC / virt / CPU / memory / disk), `SecurityEnforcer` (HMAC-SHA-256 + principal/command allowlists + env filter). Drains in-flight commands on SIGTERM. systemd unit + non-interactive bootstrap flags.
 - **Remote execution & targeting** (epic 07): operator-facing dispatch end-to-end.
-  - `internal/targeting`: shorthand expression compiler (`expr-lang/expr` + `gobwas/glob`) → `Matcher.Match(AgentRecord)` against flattened metadata. AND-of-labels-plus-hostname-glob today; `os:` / `OR` / `NOT` server-side compile is v1.x.
+  - `internal/targeting`: shorthand expression compiler (`expr-lang/expr` + `gobwas/glob`) → `Matcher.Match(AgentRecord)` against flattened metadata. AND-of-labels-plus-hostname-glob today; `os:` / `OR` / `NOT` server-side compile is on the v0.x roadmap.
   - `internal/execution`: `Executor` interface + `ManagedExecution` (PENDING / RUNNING / COMPLETED / FAILED / TIMEOUT / CANCELLED / RETRYING with `Callbacks` + `RetryPolicy`), `Pipeline` (sequential stages with stdout-piping), `Shell` (bash / sh / powershell / cmd selectors), `CommandPolicy` (`Validate` / `ValidateNoShell` modes — block shell metachars in direct-exec).
   - `internal/controlplane`: `BatchDispatcher.ExecuteBatch` (semaphore concurrency, 500ms progress ticker, async orchestration detached from request ctx), `ResponseRouter` + `NATSBatchExecutor` (per-CorrelationID waiters fed by an `agent.*.response` subscriber), `GRPCServer` implementing `ExecuteCommand` / `BatchExecuteCommand` (streaming) + `GetBatchJob` / `ListBatchJobs` / `CancelBatchJob` / `ListBatchAgentResults` / `GetBatchAgentResult` + dry-run.
   - `kscorectl exec`: `run` / `async` / `script` / `status` / `list` / `cancel` / `output` subcommands with `--dry-run`; table / json / yaml formatters; `--raw` mode for pipe-friendly single-agent output.
@@ -51,15 +51,15 @@ What's in `main` today:
 - **CI**: Forgejo Actions (`.github/workflows/`) and Codeberg Woodpecker (`.woodpecker/`) — same Make targets, two runners.
 - **Snapshot release**: `make release-snapshot` produces six tarballs/zips + a SHA-256 checksums file in `dist/`.
 
-State management (epic 08), identity/auth (epic 09), and the rest land in epics 08+. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). Implementation-time deferrals to v1.x live in [`docs/project/V1X-BACKLOG.md`](docs/project/V1X-BACKLOG.md).
+State management (epic 08) is in progress; identity/auth (epic 09) and the rest follow. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The ranked v0.x backlog (entries gated on v0.5, v1.0, or further out) lives in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
 
 ## What v1.0 commits to
 
-A trial-ready release in which a single binary, in a small lab environment, demonstrates that one system can:
+The full success bar — all 19 epics complete, contracts frozen, SemVer stability begins — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The headline commitment: a release in which a single binary, in a small lab environment, demonstrates that one system can:
 
 - Manage heterogeneous Linux fleets (VMs, bare metal, mixed distros) via a single agent over NATS.
 - Run remote commands with rich targeting, batch concurrency, and streaming output.
-- Apply declarative state through ~40 universal Linux modules with drift detection and remediation.
+- Apply declarative state through 35 universal Linux modules with drift detection and remediation.
 - Run highly available out of the box — 3-node cluster, embedded etcd, leader election under 3 seconds, failover under 10.
 - Issue real identity from day 1 — embedded SPIFFE-shaped CA, mTLS, join tokens, API keys, JWT.
 - Broker secrets via encrypted-file or HashiCorp Vault backends.
@@ -71,18 +71,20 @@ A trial-ready release in which a single binary, in a small lab environment, demo
 
 Full success criteria: [`docs/project/PROBLEM-STATEMENT.md`](docs/project/PROBLEM-STATEMENT.md).
 
-## What v1.0 explicitly does NOT include
+## What v0.x is *not*
 
-To keep the timebox honest, the following are deferred to later versions (each tagged in [`PROJECT-DETAILS.md §6`](PROJECT-DETAILS.md)):
+Keystone Core is on the `v0.x` line. SemVer permits breaking changes between v0.x releases; expect them. CLI shapes, state-file params, gRPC contracts, DB migrations — all fair game until v1.0.
+
+To keep the v1.0 timebox honest, the following are explicitly post-v1.0:
 
 - WASM module runtime, Windows agent, macOS agent
 - Kubernetes operator embedding
 - Full SPIRE integration
-- Policy *enforcement* (v1.0 is audit-mode only)
+- Policy *enforcement* (the v0.x → v1.0 line is audit-mode only)
 - Federation, NATS supercluster / leaf nodes
 - Web UI, blueprint marketplace, telemetry gateway
 
-If you need any of these from a v1.0 release, Keystone Core is not yet your tool. If your interest is in trying a new day-2 control plane in a homelab during the v1.0 trial window, please follow along.
+If you need any of these now, Keystone Core is not yet your tool. **If you'd like to test the v0.5 milestone** (external-tester-ready cross-Linux release) when it lands, please follow along.
 
 ## Reading order
 
@@ -110,7 +112,7 @@ Contributions are welcome. During the reboot phase the epics are tightly sequenc
 
 ## Transparency: AI use in this project
 
-Keystone Core was originally bootstrapped with substantial AI assistance, and the v1.0 reconstruction continues that practice openly. The objective is speed-to-foundation: get to a reviewable baseline quickly, then spend sustained human effort on correctness, scaling, and reliability.
+Keystone Core was originally bootstrapped with substantial AI assistance, and this reconstruction continues that practice openly. The objective is speed-to-foundation: get to a reviewable baseline quickly, then spend sustained human effort on correctness, scaling, and reliability.
 
 Quality is enforced by process, not by origin. AI-assisted contributions are expected to meet the same standards as human-authored ones: readable design, reproducible builds, tests proportional to risk, security-minded changes, reviewable diffs. Maintainers are responsible for what gets merged. AI involvement must be disclosed in commits per [`docs/project/AI-CONTRIBUTIONS.md`](docs/project/AI-CONTRIBUTIONS.md).
 

@@ -1484,34 +1484,39 @@ modules:
 - **No breaking changes within v1.x**. Anything that breaks compatibility waits for v2.0.
 - Deprecation: `pkg/api/versioning` registry tracks `Status{current, supported, deprecated, retired}` + `DeprecatedAt`, `SunsetAt`. Min one minor-release of warning before retirement.
 
-### 6.2 v1.x Release Roadmap (the headline)
+### 6.2 Release Roadmap (the headline)
 
-| Release | Theme | Major adds |
+**The versioning scheme + per-milestone gate definitions live in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)** — that's the canonical reference. This section summarises the headline progression.
+
+| Line | Identity | What's in it |
 |---|---|---|
-| **v1.0** | **Commercial-trial-ready MVP, clusterable + Salt-shaped** | All 15 v1.0 domains: control plane + agent + exec + state (40-mod base stdlib) + events + identity (embedded CA + RBAC) + secrets (file + Vault + leases + transit) + audit + GitOps webhook reconcile + outbound webhooks + clustering/HA + observability (logs/metrics/traces/Grafana) + blueprints (6) + runbooks (basic) + plugin/module system (Starlark + filesystem registry + Cosign) + file dist (basic) + self-mgmt (bootstrap + backup) + rate limit |
-| v1.1 | Windows + WASM | Windows agent, Windows stdlib, WASM runtime, Rust SDK, Go (TinyGo) SDK, OCI registry, S3/GCS/Azure storage backends, schedule + maintenance windows |
-| v1.2 | TUI + advanced runbooks | TUI monitor (`kscore-monitor`), runbook conditionals (if/switch/loop/parallel/sub-runbook), container detection + container stdlib, SumDB transparency log, fine-grained capabilities, advanced linting set |
-| v1.3 | K8s + SPIRE + runbook approvals | K8s operator + CRDs + 12 k8s_* stdlib modules, SPIRE identity + trust federation, runbook approvals + interventions + ITSM hooks, cert auto-rotation |
-| v1.4 | Telemetry gateway + cloud metadata + saga resume | Telemetry gateway, NATS telemetry transport, full cloud metadata (AWS/GCP/Azure), saga checkpoint resume, anomaly detection on audit, secrets rotation orchestration, query backends (Loki/Prom/Tempo) |
-| v1.5 | Catalog expansion + scaling | Full standard blueprint catalog (14), CEL custom function library, file dist mirror groups + NATS Object Store, automated backups + rolling upgrades, quota system, loadtest scenarios |
-| v1.6 | Compliance scans + DB stdlib | Continuous compliance scan scheduler, SIEM/CEF/LEEF export, extended DB stdlib (postgres/mysql/redis admin), encryption-at-rest scaffolding |
-| v1.7 | Air-gap + supply chain | Air-gap baseline (offline registry, bootstrap pkgs, upgrade archives, transfer), full security scanning suite, signed module bundles, signing ceremony |
-| **v1.8** | **Policy enforcement** (per user direction) | OPA/CEL **enforcement modes** (Enforce + Warn active blocking), full policy CRUD, pre/post-execution hooks, policy approval workflows, simulation mode |
-| v1.9 | Platform polish | macOS agent, BMC/IPMI integration, edge baseline, advanced state stdlib (storage/network niche modules) |
-| **v2.0** | **Federation, multi-region, supercluster, cloud KMS** | NATS supercluster + leaf nodes + WebSocket + auto-discovery, federation, cloud KMS for secrets, AWS Secrets Manager + Azure Key Vault + GCP Secret Manager backends, DNS provider mgmt, K8s 12-module stdlib expanded, advanced networking, proxy agents core (SSH+SNMP+REST + 6 vendors), MCP server |
-| v2.x | Specialization | Remaining proxy protocols (WinRM/NETCONF/RESTCONF/gNMI/Telnet) + 14 more vendors, service mesh integration, edge agent mode |
-| **v3.0+** | **Marketplace, Web UI, multi-cloud** | Blueprint marketplace, browser-based management console, multi-cloud test matrix, UDP data diode |
+| **`v0.1.x`** | First public release. **Linux-only, internal-quality.** | Epics 01–08 complete (control plane + agent + exec + state engine + 35-module base stdlib + saga + integration test). Breaking changes between patches permitted. |
+| **`v0.2.x` – `v0.4.x`** | Incremental, release-as-ready. | Closes one or more epics each. Identity/auth, secrets, events, audit/policy, clustering/HA — order driven by ranked [ROADMAP.md](docs/project/ROADMAP.md), not pre-allocation. |
+| **`v0.5.x`** | **External-tester milestone.** | All major Linux distro families pass the cross-distro CI matrix. Persistence renderers (netplan + networkd minimum). All four firewall backends solid on their native distros. apt + dnf + apk in `package`. AppArmor in `security`. Cross-distro reboot detection. Filesystem-resize + LV resize. Epics 09 + 11 minimum. Full v0.5 checklist in VERSIONING.md. |
+| **`v0.6.x` – `v0.9.x`** | Polish + remaining epic work toward v1.0. | Epics 14–19 land here in some order. Breaking changes possible but rare; each documented. Renderers expand (NetworkManager, RHEL ifcfg). zypper added. SUSE support solidifies. |
+| **`v1.0.0`** | **SemVer stability commitment.** | All 19 epics complete and acceptance-tested. API + CLI + state-file YAML + gRPC frozen for one full v0.x cycle prior. Cross-distro CI green on the full applicable-module set. Performance + security baselines. Hugo docs site live. Migration tooling from v0.x. Full v1.0 checklist in VERSIONING.md. |
+| **`v1.x`** | Feature additions on the stable v1.0 line. | Windows agent, WASM runtime, TUI, K8s operator + CRDs, SPIRE identity, runbook approvals, telemetry gateway + cloud metadata + saga checkpoint-resume, catalog expansion, compliance scans + DB stdlib, air-gap + supply chain, policy enforcement modes, macOS / BMC / edge baseline. Order driven by post-v1.0 priorities. |
+| **`v2.0` / `v2.x`** | **Federation, multi-region, supercluster, cloud KMS.** | NATS supercluster + leaf nodes + WebSocket + auto-discovery, federation, cloud KMS for secrets, AWS Secrets Manager + Azure Key Vault + GCP Secret Manager, DNS provider mgmt, advanced networking, proxy agents core (SSH+SNMP+REST + 6 vendors), MCP server. Remaining proxy protocols + 14 more vendors, service mesh, edge agent mode in v2.x. |
+| **`v3.0+`** | **Marketplace, Web UI, multi-cloud.** | Blueprint marketplace, browser-based management console, multi-cloud test matrix, UDP data diode. |
 
-### 6.3 Why v1.0 Is What It Is — MVP Reasoning Recap
+**Why this shape:** the original roadmap pre-allocated every minor release of v1.x (v1.1 = Windows+WASM, v1.2 = TUI, ...). That commitment hardens decisions that should still be revocable. The post-v0.5, pre-v1.0 work is now a single ranked backlog; v1.x post-v1.0 reorders as priorities shift. v2.0+ identity stays anchored because federation + marketplace are architectural commitments.
+
+### 6.3 Why v0.1 / v0.5 / v1.0 Are What They Are — MVP Reasoning Recap
+
+**v0.1 — internal-quality first release** is what's landing now and through the next several v0.x cuts. The shape it has:
 
 1. **Sysadmin/IT-admin trial users**, not platform engineers. They need to feel at home: `kscorectl exec 'uptime' --target role:web` works; state files apply with familiar primitives (file/package/service/user); blueprints look like Salt formulas; modules can be authored without a build chain.
-2. **~90% of daily sysadmin work covered**: 40+ stdlib modules across system/scheduling/storage/network/firewall/SSH/system-config/files/certs.
-3. **Clusterable, not single-server**. 3-node HA from day 1; embedded etcd; consistent-hash shards; sub-5s failover. *This is the commercial-trial differentiator.*
-4. **Audit + secrets + identity are real on day 1**, not stubs. Compliance-curious users will run an audit query in week one. Embedded CA + API keys + mTLS + JWT cover real deployments.
-5. **Plugin/module system in v1.0** (Starlark-only). Salt's extensibility on day 1 is the user's explicit ask. Starlark-only keeps scope sane (~8 weeks engineering vs 14+ for full stack).
-6. **Policy enforcement is v1.8** (per user). v1.0 ships audit-mode-only. The engine, policies, evaluators, audit log, compliance reports all work — the engine just doesn't *block*. v1.8 flips the switch with the workflow infra ready.
-7. **Observability minimum** = Prom metrics + OTel traces + structured logs + Grafana JSONs. TUI ships v1.2; telemetry gateway v1.4 — neither blocks first trial.
-8. **Defer platform breadth, not depth**. Linux + IPv6 universal in v1.0; Windows v1.1; K8s operator v1.3; macOS v1.2. The state engine is universal; the platforms come in waves.
+2. **~90% of daily sysadmin work covered**: 35 stdlib modules across system/scheduling/storage/network/firewall/SSH/system-config/files/certs. Many ship in their *minimum useful* form (runtime-only network, apt-only package, SELinux-only security, etc.); the remaining backends + persistence land en route to v0.5.
+3. **Clusterable, not single-server**. 3-node HA from day 1 (Epic 13); embedded etcd; consistent-hash shards; sub-5s failover. *This is the commercial-trial differentiator.*
+4. **Audit + secrets + identity are real, not stubs** — Epics 09 (identity/auth), 10 (secrets), 12 (audit/policy). Compliance-curious users running v0.5+ can audit-query in week one. Embedded CA + API keys + mTLS + JWT cover real deployments.
+5. **Plugin/module system** (Epic 14, Starlark-only). Salt's extensibility on day 1 is the explicit ask. Starlark-only keeps scope sane (~8 weeks engineering vs 14+ for full stack); WASM/OCI/SumDB defer to v1.x.
+6. **Policy enforcement is post-v1.0** (per direction). The v0.x → v1.0 line ships audit-mode-only. The engine, policies, evaluators, audit log, compliance reports all work — the engine just doesn't *block*. Enforcement modes flip the switch in v1.x with workflow infra ready.
+7. **Observability minimum** (Epic 17) = Prom metrics + OTel traces + structured logs + Grafana JSONs. TUI + telemetry gateway are post-v1.0.
+8. **Defer platform breadth, not depth**. Linux + IPv6 universal in v0.1 → v1.0; Windows / K8s operator / macOS all land post-v1.0 in v1.x. The state engine is universal; the platforms come in waves.
+
+**v0.5 narrows the gap** between "Linux works at all" (v0.1) and "Linux works for external testers" (v0.5): cross-distro CI matrix green, persistence renderers in place, all firewall backends solid, cross-distro reboot detection. See [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) for the explicit gate.
+
+**v1.0 is the SemVer stability commitment** — all 19 epics complete, contracts frozen, full test matrix, security audit, migration tooling. Once cut, breaking changes require a v2.0.
 
 ---
 

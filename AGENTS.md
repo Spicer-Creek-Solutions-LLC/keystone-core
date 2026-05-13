@@ -20,7 +20,7 @@ Operational guidance for AI coding agents in this repository. Keep this file pol
 
 ## 3) Non-Negotiable Workflow: Epic Tasks
 
-This repo is being reconstructed from scratch toward a v1.0 MVP. All work flows through the epics in `epics/` (start at `epics/00-meta-reconstruction-plan.md`).
+This repo is being reconstructed from scratch toward an eventual v1.0 SemVer-stable release; the current line is `v0.x` (see `docs/project/VERSIONING.md`). All work flows through the epics in `epics/` (start at `epics/00-meta-reconstruction-plan.md`).
 
 Before starting any epic task, you MUST:
 
@@ -65,7 +65,7 @@ Coverage targets (per `epics/00-meta-reconstruction-plan.md`):
 
 ### Required docs
 
-Every code change must update the documentation it affects. Until the v1.1 Hugo site lands, the canonical doc surfaces are:
+Every code change must update the documentation it affects. Until the Hugo site lands (post-v1.0), the canonical doc surfaces are:
 
 - `README.md` — project overview / status / quickstart
 - `epics/NN-*.md` — mark task acceptance criteria as met when work lands
@@ -79,7 +79,7 @@ Keystone Core is the runtime operations control plane between deployment tooling
 
 Positioning: "GitOps deploys it. We keep it running."
 
-This repository was reset to a v1.0 reconstruction baseline. The prior implementation is preserved at branch `archive/v0` and tag `archive/v0-final`. Do not import or copy from the archive without explicit user approval — the reset was intentional.
+This repository was reset to a clean reconstruction baseline. The prior implementation is preserved at branch `archive/v0` and tag `archive/v0-final`. Do not import or copy from the archive without explicit user approval — the reset was intentional.
 
 Do not duplicate volatile inventories (epic counts, feature matrices, binary lists) in this file. Those drift quickly.
 
@@ -88,9 +88,10 @@ Do not duplicate volatile inventories (epic counts, feature matrices, binary lis
 Use these files instead of expanding AGENTS with mutable detail:
 
 - Project overview/status: `README.md`
+- Versioning scheme + v0.5 + v1.0 gates: `docs/project/VERSIONING.md`
 - Why this project exists: `docs/project/PROBLEM-STATEMENT.md`
-- v1.0 feature inventory + version tags: `FEATURES.md`
-- Implementation-time deferrals → v1.x: `docs/project/V1X-BACKLOG.md` (update whenever a task narrows scope mid-implementation)
+- Feature inventory + version tags: `FEATURES.md`
+- Ranked v0.x backlog (implementation-time deferrals): `docs/project/ROADMAP.md` (update whenever a task narrows scope mid-implementation)
 - Implementation reconstruction guide: `PROJECT-DETAILS.md`
 - Epic plans: `epics/` (start at `00-meta-reconstruction-plan.md`)
 - Issue tracker conventions (labels, milestones, tracker issues, ticket lifecycle): `docs/project/ISSUE-TRACKING.md`
