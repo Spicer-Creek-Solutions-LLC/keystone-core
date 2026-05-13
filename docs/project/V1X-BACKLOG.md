@@ -403,6 +403,17 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a `persist: networkd|nm|netplan|…` decl renders a syntactically-valid route entry in the host's config; `proto: static` + `scope: link` + `src: 10.0.0.5` round-trip; a `nexthop:` list creates a multipath route; a separate `rule` module declares a `from 10.0.0.0/24 lookup vpn` policy rule and the `route` module's `table: vpn` declarations populate that table.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/route/route.go` package comment; `internal/statemgmt/stdlib/route/params.go`.
 
+#### `bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes
+
+- **What**: Epic 08 task 11 ships the `bond` module (create / delete a Linux bonding interface at runtime via `ip link add … type bond mode … [miimon N]` + `ip link set <member> master <bond>`). Reserved for v1.x:
+  - **In-place attribute reconciliation** on an existing bond: `mode`, `miimon`, `xmit_hash_policy`, `lacp_rate`, `ad_select`, `primary`, `primary_reselect`, `fail_over_mac`, `num_grat_arp`, `all_slaves_active`, etc. v1.0 considers an existing bond converged regardless of attrs (operators delete + recreate to change).
+  - **Member-set reconciliation** on an existing bond — adding / removing slaves without destroying the bond. v1.0 enslaves declared members only at create time.
+  - **Persistent / boot-survive configuration** rendered to the host's network manager (see the `network` module's V1X entry).
+  - **Slave-level attributes**: per-slave queue id, priority.
+- **Why deferred**: "create or delete this bond" is the v1.0 scope; changing bond mode on a live aggregation has subtle implications (LACP renegotiation, traffic interruption, slave release/reattach) that operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBond` / `DeleteLink` / `SetMaster`) extends cleanly with `SetBondAttr` / `ClearMaster` methods for the V1X path.
+- **Acceptance**: a `mode:` change on a live bond reconciles via `echo <mode> > /sys/class/net/<bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members: [eth0, eth1, eth2]` against a live bond with `eth0, eth1` adds eth2; `members: [eth0]` against `eth0, eth1` removes eth1 (`ip link set eth1 nomaster`); a `persist: networkd` decl renders a `*.netdev` + `*.network` pair.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bond/bond.go` package comment; `internal/statemgmt/stdlib/bond/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

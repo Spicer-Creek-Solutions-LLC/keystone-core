@@ -470,3 +470,16 @@ func TestModuleNames_IncludesRoute(t *testing.T) {
 		t.Error("route module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesBond(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "bond" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("bond module missing from stdlib")
+	}
+}

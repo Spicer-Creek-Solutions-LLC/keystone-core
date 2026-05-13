@@ -57,6 +57,7 @@ v1.1:
   - "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems"
   - "`network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt"
   - "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath"
+  - "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
