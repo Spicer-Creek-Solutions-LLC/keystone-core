@@ -1,0 +1,23 @@
+# Epic 08 task 13 — requisite cycle fixture.
+#
+# Three file decls form a chain A → B → C → A. The Resolver MUST
+# refuse to topologically sort this and surface the full cycle path
+# in the error so an operator can fix their YAML. The integration
+# test asserts the path appears verbatim in the gRPC error message.
+
+file:
+  ${ROOT}/cycle-a:
+    state: present
+    content: "a\n"
+    require:
+      - file: ${ROOT}/cycle-c
+  ${ROOT}/cycle-b:
+    state: present
+    content: "b\n"
+    require:
+      - file: ${ROOT}/cycle-a
+  ${ROOT}/cycle-c:
+    state: present
+    content: "c\n"
+    require:
+      - file: ${ROOT}/cycle-b

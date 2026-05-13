@@ -1,0 +1,74 @@
+# Epic 08 task 13 — 10-declaration mixed-module integration fixture.
+#
+# Every Name uses ${ROOT} so the integration test can substitute its
+# t.TempDir() before sending the YAML to the server. Only tempdir-safe
+# modules (file / link / cmd / config) appear here — modules that
+# mutate live system state (package / service / user / network /
+# firewall / …) are covered by the v0.5 cross-distro Docker matrix,
+# not this in-process test.
+#
+# Decl count = 10. Mixed requisites cross module boundaries so the
+# Resolver's topo sort is genuinely exercised.
+
+metadata:
+  name: epic-08-state-integration
+  version: "0.1"
+
+file:
+  ${ROOT}/dirA:
+    state: directory
+    mode: "0755"
+  ${ROOT}/dirB:
+    state: directory
+    mode: "0755"
+  ${ROOT}/dirA/hello.txt:
+    state: present
+    content: "hello epic 08\n"
+    mode: "0644"
+    require:
+      - file: ${ROOT}/dirA
+  ${ROOT}/dirB/extra.txt:
+    state: present
+    content: "extra content\n"
+    require:
+      - file: ${ROOT}/dirB
+  ${ROOT}/dirA/final.txt:
+    state: present
+    content: "final\n"
+    require:
+      - file: ${ROOT}/dirA/hello.txt
+  ${ROOT}/dirA/marker-out.txt:
+    state: present
+    content: "from-cmd-marker\n"
+    require:
+      - cmd: cmd-emit-marker
+
+link:
+  ${ROOT}/dirB/hello-link:
+    state: present
+    kind: symlink
+    target: ${ROOT}/dirA/hello.txt
+    require:
+      - file: ${ROOT}/dirA/hello.txt
+
+cmd:
+  cmd-emit-marker:
+    state: run
+    command: "echo ok > ${ROOT}/dirA/marker.txt"
+    creates: ${ROOT}/dirA/marker.txt
+    require:
+      - file: ${ROOT}/dirA
+
+config:
+  ${ROOT}/dirA/app.conf:
+    state: present
+    key: log_level
+    value: "info"
+    require:
+      - file: ${ROOT}/dirA
+  ${ROOT}/dirB/app.conf:
+    state: present
+    key: max_connections
+    value: "100"
+    require:
+      - file: ${ROOT}/dirB
