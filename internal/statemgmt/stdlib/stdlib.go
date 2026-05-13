@@ -47,6 +47,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/ssh"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/swap"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/sysctl"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/system"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timer"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timezone"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
@@ -77,6 +78,7 @@ var modules = map[string]statemgmt.Factory{
 	"ssh":           ssh.New,
 	"swap":          swap.New,
 	"sysctl":        sysctl.New,
+	"system":        system.New,
 	"systemd_timer": timer.New,
 	"timezone":      timezone.New,
 	"user":          user.New,

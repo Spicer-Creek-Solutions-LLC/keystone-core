@@ -51,6 +51,7 @@ v1.1:
   - "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules"
   - "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion"
   - "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics"
+  - "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

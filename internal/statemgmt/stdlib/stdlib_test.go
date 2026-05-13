@@ -392,3 +392,16 @@ func TestModuleNames_IncludesSecurity(t *testing.T) {
 		t.Error("security module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesSystem(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "system" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("system module missing from stdlib")
+	}
+}
