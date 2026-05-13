@@ -803,10 +803,10 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### Saga/checkpoint advanced features
 
 - **Priority**: v1.x
-- **What**: Resume from checkpoint, cross-state compensation graphs.
-- **Why deferred**: v1.0 ships saga coordinator scaffolding only.
-- **Acceptance**: A 10-step saga survives a crash mid-step 5, resumes from checkpoint, completes the remainder.
-- **References**: PROJECT-DETAILS §4.8 (line 625).
+- **What**: SQLite-backed `pkg/saga/log_sqlite` (today's v0.1 ships `NewInMemoryLog` only); checkpoint-resume (re-load a crashed saga and continue from the last completed step with the pre-step Data restored); cross-state compensation graphs (compensation by dependency graph instead of strict reverse-linear); richer multi-failure aggregation reporting; gRPC `StateService.RollbackStateSaga` (saga-driven rollback, distinct from today's whole-run rollback CLI).
+- **Why deferred**: v0.1 ships the minimal scaffold per Epic 08 task 12 — forward-execute steps, on first error walk completed steps in reverse with aggregate-and-continue compensation semantics, in-memory log, `Runner.RunSaga(History)` integration that re-applies the most recent prior `StateRunRecord` per decl. Persistent log + resume-from-checkpoint is a real durability surface (atomic transitions, recovery-on-startup hook, integration with `kscore-server` lifecycle); cross-state compensation graphs reshape the algorithm; the v0.1 minimum is enough for the trial use case where a saga either finishes or is restartable from the top.
+- **Acceptance**: A 10-step saga survives a crash mid-step 5, resumes from checkpoint, completes the remainder; a cross-state compensation graph compensates step 3 before step 2 when the graph dictates; `kscorectl state rollback-saga <run-id>` reconstructs the saga from history and walks the compensation graph.
+- **References**: PROJECT-DETAILS §4.17 (saga coordinator block, v1.x line 1197); Epic 08 task 12 *(landed)*; `pkg/saga/doc.go` package overview.
 
 #### Air-gap baseline
 

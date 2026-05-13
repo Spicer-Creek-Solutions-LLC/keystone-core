@@ -79,6 +79,13 @@ func (o Outcome) String() string {
 // run. Check / Apply / Test pointers are nil when the corresponding
 // phase was not reached (e.g. Apply is nil if Check matched, or if
 // Check itself returned an error).
+//
+// Compensated and CompensateError are set only by [Runner.RunSaga]
+// during the reverse-walk that follows a failed apply. Compensated
+// is true when the runner attempted to roll this declaration back —
+// even when no prior state exists (and so the rollback was a no-op).
+// CompensateError is non-nil when the rollback Apply itself failed.
+// Regular [Runner.Run] / [Runner.Check] never set these fields.
 type DeclarationResult struct {
 	DeclID    string
 	Module    string
@@ -89,6 +96,9 @@ type DeclarationResult struct {
 	Error     error // non-nil iff Outcome == OutcomeFailed
 	StartedAt time.Time
 	Duration  time.Duration
+
+	Compensated     bool
+	CompensateError error
 }
 
 // RunReport is the aggregate output of one Runner.Run or Runner.Check
