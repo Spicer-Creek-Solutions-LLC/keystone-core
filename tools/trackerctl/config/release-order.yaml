@@ -50,6 +50,7 @@ v1.1:
   - "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching"
   - "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules"
   - "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion"
+  - "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

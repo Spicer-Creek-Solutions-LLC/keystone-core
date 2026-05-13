@@ -379,3 +379,16 @@ func TestModuleNames_IncludesFirewall(t *testing.T) {
 		t.Error("firewall module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesSecurity(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "security" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("security module missing from stdlib")
+	}
+}
