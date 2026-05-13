@@ -444,3 +444,16 @@ func TestModuleNames_IncludesLangpkg(t *testing.T) {
 		t.Error("langpkg module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesNetwork(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "network" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("network module missing from stdlib")
+	}
+}
