@@ -7,26 +7,27 @@ import (
 	"strings"
 )
 
-// backlogEntry is one `####` heading parsed out of docs/project/V1X-BACKLOG.md.
+// backlogEntry is one `####` heading parsed out of docs/project/ROADMAP.md.
 type backlogEntry struct {
 	Title     string // the heading text
-	Version   string // target version, e.g. "v1.2"; empty if unscheduled
-	Narrowing bool   // true if from "Implementation-time narrowings inside delivered v1.0 features"
+	Version   string // priority bucket: "gate-v0.5", "gate-v1.0", "v0.x", "v1.x", "v2.x+"; empty if outside a recognised section
+	Narrowing bool   // legacy field — always false post-versioning-rename; kept so callers don't break
 	Body      string // markdown lines under the heading (trimmed)
 }
 
 var (
-	versionHeadingRe   = regexp.MustCompile(`^##\s+(v\d+\.\d+)\s*$`)
-	narrowingHeadingRe = regexp.MustCompile(`(?i)^##\s+Implementation-time narrowings`)
-	doneHeadingRe      = regexp.MustCompile(`(?i)^###\s+Done`)
-	targetedHeadingRe  = regexp.MustCompile(`(?i)^###\s+Targeted:\s*(v\d+\.\d+)\s*$`)
+	// versionHeadingRe matches a priority-section heading. Captures the
+	// bucket name (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`); the
+	// rest of the heading text (`— blocks …`) is allowed but ignored.
+	versionHeadingRe = regexp.MustCompile(`^##\s+(gate-v\d+\.\d+|v\d+\.x\+?|v\d+\.\d+)(?:\s+—.*)?\s*$`)
+	doneHeadingRe    = regexp.MustCompile(`(?i)^###\s+Done`)
 )
 
 // parseBacklog extracts every actionable `####` entry. Entries under
 // "## How to use this file", under a "### Done" subsection, or under any other
-// non-version `##` heading are skipped. Inside the narrowings section the entry
-// version comes from the enclosing "### Targeted: vX.Y" subsection (empty under
-// "### Unscheduled" or no subsection).
+// non-priority `##` heading are skipped. The pre-rename "## Implementation-time
+// narrowings" section was retired in the v0.x scheme — narrowings are now
+// mixed into the priority buckets directly.
 func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -34,8 +35,6 @@ func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 	var (
 		entries    []backlogEntry
 		curVersion string
-		narrowing  bool
-		narrowTgt  string
 		inDone     bool
 		cur        *backlogEntry
 		body       []string
@@ -52,40 +51,22 @@ func parseBacklog(r io.Reader) ([]backlogEntry, error) {
 		switch {
 		case strings.HasPrefix(line, "## "):
 			flush()
-			inDone, narrowTgt = false, ""
+			inDone = false
 			if m := versionHeadingRe.FindStringSubmatch(line); m != nil {
-				curVersion, narrowing = m[1], false
-			} else if narrowingHeadingRe.MatchString(line) {
-				curVersion, narrowing = "", true
+				curVersion = m[1]
 			} else {
-				curVersion, narrowing = "", false // e.g. "## How to use this file"
+				curVersion = "" // e.g. "## How to use this file"
 			}
 		case strings.HasPrefix(line, "### "):
 			flush()
-			switch {
-			case doneHeadingRe.MatchString(line):
-				inDone = true
-			case narrowing:
-				inDone = false
-				if m := targetedHeadingRe.FindStringSubmatch(line); m != nil {
-					narrowTgt = m[1]
-				} else {
-					narrowTgt = "" // e.g. "### Unscheduled"
-				}
-			default:
-				inDone = false
-			}
+			inDone = doneHeadingRe.MatchString(line)
 		case strings.HasPrefix(line, "#### "):
 			flush()
-			if inDone || (curVersion == "" && !narrowing) {
+			if inDone || curVersion == "" {
 				continue
 			}
-			version := curVersion
-			if narrowing {
-				version = narrowTgt
-			}
 			title := strings.TrimSpace(strings.TrimPrefix(line, "####"))
-			cur = &backlogEntry{Title: title, Version: version, Narrowing: narrowing}
+			cur = &backlogEntry{Title: title, Version: curVersion}
 		default:
 			if cur != nil {
 				body = append(body, line)

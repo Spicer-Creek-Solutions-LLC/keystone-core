@@ -9,7 +9,7 @@ import (
 )
 
 func TestCheckedNumbers(t *testing.T) {
-	body := `Execution order for v1.1.
+	body := `Execution order for gate-v1.0.
 
 - [x] #8 Schema versioning via ` + "`golang-migrate`" + `
 - [ ] #9 Reactor engine
@@ -61,7 +61,7 @@ func TestOrderEntries(t *testing.T) {
 }
 
 func TestBuildTrackerBody(t *testing.T) {
-	body := buildTrackerBody("v1.1", []trackerItem{
+	body := buildTrackerBody("gate-v1.0", []trackerItem{
 		{number: 8, title: "Schema versioning", checked: true},
 		{number: 9, title: "Reactor engine", checked: false},
 	})
@@ -71,8 +71,8 @@ func TestBuildTrackerBody(t *testing.T) {
 	if !strings.Contains(body, "- [ ] #9 Reactor engine") {
 		t.Errorf("missing unchecked line; body:\n%s", body)
 	}
-	if !strings.Contains(body, "v1.1") {
-		t.Error("body should mention the version")
+	if !strings.Contains(body, "gate-v1.0") {
+		t.Error("body should mention the bucket")
 	}
 	// round-trip: rebuilding from the previous body preserves the tick
 	if got := checkedNumbers(body); !got[8] || got[9] {
@@ -81,15 +81,22 @@ func TestBuildTrackerBody(t *testing.T) {
 }
 
 func TestLoadReleaseOrder(t *testing.T) {
-	order, err := loadReleaseOrder("v1.1")
+	order, err := loadReleaseOrder("gate-v1.0")
 	if err != nil {
 		t.Fatalf("loadReleaseOrder: %v", err)
 	}
 	if len(order) == 0 {
-		t.Fatal("expected a v1.1 release order")
+		t.Fatal("expected a gate-v1.0 release order")
 	}
-	if order[0] != "Schema versioning via `golang-migrate`" {
-		t.Errorf("first v1.1 item = %q, want the golang-migrate entry", order[0])
+	found := false
+	for _, title := range order {
+		if title == "Schema versioning via `golang-migrate`" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("gate-v1.0 list missing the golang-migrate entry; got: %v", order)
 	}
 	if got, _ := loadReleaseOrder("v9.9"); got != nil {
 		t.Errorf("loadReleaseOrder(v9.9) = %v, want nil", got)
@@ -97,9 +104,9 @@ func TestLoadReleaseOrder(t *testing.T) {
 }
 
 func TestReleaseOrderTitlesMatchBacklog(t *testing.T) {
-	// Every title listed for v1.1 must correspond to a real `####` heading in
-	// V1X-BACKLOG.md, or gen-tracker would silently drop it.
-	f, err := os.Open("../../docs/project/V1X-BACKLOG.md")
+	// Every title listed in release-order.yaml must correspond to a real
+	// `####` heading in ROADMAP.md, or gen-tracker would silently drop it.
+	f, err := os.Open("../../docs/project/ROADMAP.md")
 	if err != nil {
 		t.Fatalf("open backlog: %v", err)
 	}
@@ -108,26 +115,28 @@ func TestReleaseOrderTitlesMatchBacklog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseBacklog: %v", err)
 	}
-	have := map[string]bool{}
-	for _, e := range selectEntries(parsed, []string{"v1.1"}) {
-		have[e.Title] = true
-	}
-	order, _ := loadReleaseOrder("v1.1")
-	for _, title := range order {
-		if !have[title] {
-			t.Errorf("release-order.yaml v1.1 lists %q, which is not a v1.1 backlog entry", title)
+	for _, bucket := range []string{"gate-v0.5", "gate-v1.0", "v0.x", "v1.x", "v2.x+"} {
+		have := map[string]bool{}
+		for _, e := range selectEntries(parsed, []string{bucket}) {
+			have[e.Title] = true
 		}
-	}
-	for title := range have {
-		found := false
-		for _, o := range order {
-			if o == title {
-				found = true
-				break
+		order, _ := loadReleaseOrder(bucket)
+		for _, title := range order {
+			if !have[title] {
+				t.Errorf("release-order.yaml %s lists %q, which is not a %s backlog entry", bucket, title, bucket)
 			}
 		}
-		if !found {
-			t.Errorf("v1.1 backlog entry %q is missing from release-order.yaml", title)
+		for title := range have {
+			found := false
+			for _, o := range order {
+				if o == title {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("%s backlog entry %q is missing from release-order.yaml", bucket, title)
+			}
 		}
 	}
 }

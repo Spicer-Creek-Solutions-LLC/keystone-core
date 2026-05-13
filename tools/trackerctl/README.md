@@ -7,7 +7,7 @@ other — the public tracker on Codeberg, or a self-hosted Forgejo used during
 reconstruction.
 
 Cutover model: **(b) clean regeneration** — a new instance is rebuilt from this
-config and from `docs/project/V1X-BACKLOG.md`, not migrated from another repo.
+config and from `docs/project/ROADMAP.md`, not migrated from another repo.
 Issue numbers therefore differ between instances; nothing should hard-code `#N`
 cross-references that need to survive a cutover. The canonical execution order
 lives in `config/release-order.yaml` (mirrored into each release's tracker issue
@@ -20,31 +20,38 @@ by `gen-tracker`) — see `docs/project/ISSUE-TRACKING.md`.
 | `sync-labels` | `config/labels.yaml` | create/update the label set (never deletes; reports extras) |
 | `sync-milestones` | `config/milestones.yaml` | create/update milestones |
 | `sync` | both of the above | `sync-labels` then `sync-milestones` |
-| `gen-issues` | `docs/project/V1X-BACKLOG.md` | create one leaf issue per `####` entry not already present, labelled + assigned to its version milestone |
-| `reconcile-issues` | `docs/project/V1X-BACKLOG.md` | update *existing* issues' milestone and managed labels (`source/*`, `kind/*`, `v1x-backlog`, `v1.0-narrowing`) to match the backlog; never creates, never touches `area/*` |
-| `gen-tracker` | `config/release-order.yaml` (+ existing issues) | create/update the `vX.Y — release tracker` issue: an ordered checklist of that release's leaf issues; `--version` required |
+| `gen-issues` | `docs/project/ROADMAP.md` | create one leaf issue per `####` entry not already present, labelled + assigned to its priority-bucket milestone |
+| `reconcile-issues` | `docs/project/ROADMAP.md` | update *existing* issues' milestone and managed labels (`source/*`, `kind/*`, `v1x-backlog`, `v1.0-narrowing`) to match the backlog; never creates, never touches `area/*` |
+| `gen-tracker` | `config/release-order.yaml` (+ existing issues) | create/update the `<bucket> — tracker` issue: an ordered checklist of that bucket's leaf issues; `--version <bucket>` required |
 
 Issue creation (`gen-issues`) is intentionally separate from `sync`: labels and
 milestones are cheap to converge, issues are not. `config/milestones.yaml`
-carries every roadmap version (v1.1…v2.0) as a milestone, but you almost always
-want to create *tickets* one release at a time — use `gen-issues --versions
-v1.1`. Without `--versions`, `gen-issues` would create every backlog entry whose
-milestone exists, which is now all of them.
+carries every priority bucket (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`,
+`v2.x+`) as a milestone, but you almost always want to create *tickets* one
+bucket at a time — use `gen-issues --versions gate-v0.5`. Without `--versions`,
+`gen-issues` would create every backlog entry whose milestone exists.
 
 `gen-issues` and `reconcile-issues` are the two halves of issue management:
-`gen-issues` only ever **creates** (skips anything already present), `reconcile-issues`
-only ever **updates** (milestone + the deterministic labels; it leaves `area/*`
-and any other hand-added label alone). Workflow: after editing `V1X-BACKLOG.md`
-— e.g. moving a `v1.0-narrowing` entry under a different `### Targeted: vX.Y`
-heading — run `reconcile-issues --apply` to push the change to the live issues.
-Both take `--versions` to scope to a release.
+`gen-issues` only ever **creates** (skips anything already present),
+`reconcile-issues` only ever **updates** (milestone + the deterministic labels;
+it leaves `area/*` and any other hand-added label alone). Workflow: after
+editing `ROADMAP.md` — e.g. moving an entry between priority buckets — run
+`reconcile-issues --apply` to push the change to the live issues. Both take
+`--versions` to scope to one or more buckets.
 
-`gen-tracker` orders the release's leaf issues by `config/release-order.yaml`
-(falling back to `V1X-BACKLOG.md` file order for any version or entry not listed
+> **Legacy label note.** The `v1x-backlog` umbrella label and the
+> `v1.0-narrowing` marker label predate the v0.x rename. They're kept in
+> `isManagedLabel` so old Forgejo issues that carry them reconcile cleanly,
+> but new issues no longer emit `v1.0-narrowing`. Renaming `v1x-backlog` →
+> `v0x-backlog` on the Forgejo side is a separate operator task tracked in
+> ROADMAP.md.
+
+`gen-tracker` orders the bucket's leaf issues by `config/release-order.yaml`
+(falling back to `ROADMAP.md` file order for any bucket or entry not listed
 there), and on re-run **preserves ticked checkboxes** — the rest of the tracker
 body is regenerated, so reorder via `release-order.yaml`, not by hand-editing
 the issue, and don't keep notes in the tracker body. Run it after `gen-issues`
-for the same release.
+for the same bucket.
 
 ## Usage
 
@@ -61,28 +68,28 @@ export FORGE_URL=https://codeberg.org      # or your self-hosted Forgejo URL
 
 # dry-run (default): prints a plan, changes nothing
 go run ./tools/trackerctl --host "$FORGE_URL" sync
-go run ./tools/trackerctl --host "$FORGE_URL" gen-issues --versions v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" gen-issues --versions gate-v0.5
 go run ./tools/trackerctl --host "$FORGE_URL" reconcile-issues
-go run ./tools/trackerctl --host "$FORGE_URL" gen-tracker --version v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" gen-tracker --version gate-v0.5
 
-# apply (one release at a time)
+# apply (one bucket at a time)
 go run ./tools/trackerctl --host "$FORGE_URL" --apply sync
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions v1.1
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions v1.1,v1.0-narrowing
-go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after editing V1X-BACKLOG.md
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-tracker --version v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions gate-v0.5
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions gate-v0.5,gate-v1.0
+go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after editing ROADMAP.md
+go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-tracker --version gate-v0.5
 
 # bulk create against a rate-limited host (e.g. Codeberg): pace the writes
-go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms gen-issues --versions v1.1
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms gen-issues --versions gate-v0.5
 ```
 
 Flags: `--host` (required), `--repo` (default the canonical `owner/repo`),
-`--apply` (default off), `--backlog` (default `docs/project/V1X-BACKLOG.md`),
-`--versions` (gen-issues / reconcile-issues: comma-separated version tags to
-limit to, e.g. `v1.1` or `v1.1,v1.0-narrowing`; empty = all entries),
-`--version` (gen-tracker: the single release whose tracker issue to
-create/update, e.g. `v1.1` — required), `--throttle` (duration; pause before
-each create/update request — see "rate limiting" below; default 0).
+`--apply` (default off), `--backlog` (default `docs/project/ROADMAP.md`),
+`--versions` (gen-issues / reconcile-issues: comma-separated priority buckets
+to limit to, e.g. `gate-v0.5` or `gate-v0.5,gate-v1.0`; empty = all entries),
+`--version` (gen-tracker: the single priority bucket whose tracker issue to
+create/update, e.g. `gate-v0.5` — required), `--throttle` (duration; pause
+before each create/update request — see "rate limiting" below; default 0).
 
 > `trackerctl` calls the Forgejo REST API directly — it does not shell out to
 > `fj`, so it isn't affected by `fj`'s plain-HTTP-vs-HTTPS quirk; just give
@@ -98,14 +105,13 @@ each create/update request — see "rate limiting" below; default 0).
   otherwise it leaves area off for a human to add. `reconcile-issues` never
   touches `area/*`, so curating those by hand (web UI or `fj issue edit`) is
   safe.
-- **`kind/*` and milestones follow the backlog.** An entry with a target version
-  (a `## vX.Y` section, or a `### Targeted: vX.Y` heading inside the narrowings
-  section) gets `kind/feature` and that milestone; a narrowing with no target
-  gets `kind/chore` and no milestone. Narrowings also keep the `v1.0-narrowing`
-  marker after they're scheduled. `gen-issues` skips (with a warning) anything
-  whose milestone doesn't exist yet — run `sync-milestones` first. To re-slot an
-  already-created issue, move its entry in `V1X-BACKLOG.md` and run
-  `reconcile-issues --apply`.
+- **`kind/*` and milestones follow the backlog.** An entry under a priority
+  section (`## gate-v0.5`, `## gate-v1.0`, `## v0.x`, `## v1.x`, `## v2.x+`)
+  gets `kind/feature` and that bucket's milestone; an entry outside any
+  priority section gets `kind/chore` and no milestone. `gen-issues` skips (with
+  a warning) anything whose milestone doesn't exist yet — run
+  `sync-milestones` first. To re-slot an already-created issue, move its entry
+  between sections in `ROADMAP.md` and run `reconcile-issues --apply`.
 - **`gen-tracker` body is machine-managed** — it regenerates the whole tracker
   body except the checkbox states (which it carries over by matching `#N`). Keep
   discussion in issue comments, not the body. It omits, with a warning, any

@@ -1,6 +1,6 @@
 // Command trackerctl provisions the keystone-core Forgejo issue tracker from
 // the configuration checked into this directory: label set, milestones, and
-// (for the active release) leaf issues generated from docs/project/V1X-BACKLOG.md.
+// (for the active bucket) leaf issues generated from docs/project/ROADMAP.md.
 //
 // It is idempotent and host-parameterized: the same invocation that set up the
 // internal test server is what sets up the production server at announcement
@@ -16,19 +16,19 @@
 //	sync-labels      create/update labels from config/labels.yaml
 //	sync-milestones  create/update milestones from config/milestones.yaml
 //	sync             sync-labels then sync-milestones
-//	gen-issues       create leaf issues from docs/project/V1X-BACKLOG.md (skips ones that already exist)
+//	gen-issues       create leaf issues from docs/project/ROADMAP.md (skips ones that already exist)
 //	reconcile-issues update existing issues' milestone + managed labels to match the backlog
-//	gen-tracker      create/update the "vX.Y — release tracker" issue (--version required)
+//	gen-tracker      create/update the "<bucket> — tracker" issue (--version required)
 //
 // gen-issues and reconcile-issues default to every backlog entry; pass
-// --versions to restrict them, e.g. --versions v1.1 (the recommended way to add
-// tickets one release at a time) or --versions v1.1,v1.0-narrowing.
+// --versions to restrict them, e.g. --versions gate-v0.5 (the recommended way
+// to add tickets one bucket at a time) or --versions gate-v0.5,gate-v1.0.
 // reconcile-issues is the counterpart to gen-issues: gen-issues only creates,
 // reconcile-issues only updates (milestone + source/kind/umbrella labels;
-// area/* labels are left alone). Run it after editing V1X-BACKLOG.md.
+// area/* labels are left alone). Run it after editing ROADMAP.md.
 //
-// gen-tracker orders the release's leaf issues per config/release-order.yaml
-// (falling back to backlog file order) and preserves ticked checkboxes on
+// gen-tracker orders the bucket's leaf issues per config/release-order.yaml
+// (falling back to ROADMAP.md file order) and preserves ticked checkboxes on
 // re-run.
 //
 // Without --apply the tool reports what it would do and changes nothing.
@@ -45,9 +45,9 @@ func main() {
 	host := flag.String("host", "", "Forgejo base URL, e.g. https://codeberg.org (required)")
 	repo := flag.String("repo", "sbutts/keystone-core", "target repository, owner/name")
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
-	backlog := flag.String("backlog", "docs/project/V1X-BACKLOG.md", "path to V1X-BACKLOG.md (gen-issues)")
-	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated version tags to limit to, e.g. v1.1 or v1.1,v1.0-narrowing (empty = all)")
-	version := flag.String("version", "", "gen-tracker: the release whose tracker issue to create/update, e.g. v1.1 (required)")
+	backlog := flag.String("backlog", "docs/project/ROADMAP.md", "path to ROADMAP.md (gen-issues)")
+	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated priority buckets to limit to, e.g. gate-v0.5 or gate-v0.5,gate-v1.0 (empty = all)")
+	version := flag.String("version", "", "gen-tracker: the priority bucket whose tracker issue to create/update, e.g. gate-v0.5 (required)")
 	throttle := flag.Duration("throttle", 0, "pause before each create/update request, e.g. 250ms — useful for rate-limited hosts during bulk gen-issues (rate-limit responses are retried with backoff regardless)")
 	flag.Parse()
 

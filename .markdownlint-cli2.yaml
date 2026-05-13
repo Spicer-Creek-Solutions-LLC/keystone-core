@@ -6,7 +6,7 @@ config:
   MD036: false # emphasis used instead of a heading (we use **bold** lead-ins in list items deliberately)
   MD037: false # spaces inside emphasis markers — false-positives on prose with literal `*` (e.g. `state.*`, `--postgres-*`)
   MD040: false # fenced code language
-  MD001: false # heading-increment — V1X-BACKLOG.md deliberately nests `#### entry` directly under `## vX.Y`
+  MD001: false # heading-increment — ROADMAP.md deliberately nests `#### entry` directly under `## <bucket>`
   MD060: false
 
 globs:

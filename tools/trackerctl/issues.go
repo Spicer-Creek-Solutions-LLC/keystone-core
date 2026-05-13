@@ -54,13 +54,13 @@ func inferAreas(text string) []string {
 }
 
 // labelNamesFor returns the label names that issue for e should carry:
-// the umbrella + source labels, the `v1.0-narrowing` marker for narrowings,
-// a `kind/*`, and any confidently-inferred `area/*`.
+// the umbrella + source labels, a `kind/*`, and any confidently-inferred
+// `area/*`. The label names retain `v1x-backlog`/`source/v1x-backlog`
+// across the v0.x rename to avoid a Forgejo-side label migration; rename
+// to `v0x-backlog` is a separate operator task tracked as a v0.x backlog
+// item.
 func labelNamesFor(e backlogEntry) []string {
 	names := []string{"v1x-backlog", "source/v1x-backlog"}
-	if e.Narrowing {
-		names = append(names, "v1.0-narrowing")
-	}
 	if e.Version != "" {
 		names = append(names, "kind/feature")
 	} else {
@@ -84,27 +84,15 @@ func issueBody(e backlogEntry) string {
 	var b strings.Builder
 	b.WriteString(e.Body)
 	b.WriteString("\n\n---\n")
-	switch {
-	case e.Narrowing && e.Version != "":
-		fmt.Fprintf(&b, "Source: `docs/project/V1X-BACKLOG.md` — *Implementation-time narrowings* → `### Targeted: %s`. ", e.Version)
-	case e.Narrowing:
-		b.WriteString("Source: `docs/project/V1X-BACKLOG.md` — *Implementation-time narrowings* (unscheduled). ")
-	default:
-		fmt.Fprintf(&b, "Source: `docs/project/V1X-BACKLOG.md` — section `## %s`. ", e.Version)
-	}
+	fmt.Fprintf(&b, "Source: `docs/project/ROADMAP.md` — section `## %s`. ", e.Version)
 	b.WriteString("That file holds the authoritative entry; on completion update it per `docs/project/ISSUE-TRACKING.md` §6.\n")
 	b.WriteString("\n_Filed by `tools/trackerctl gen-issues`._")
 	return b.String()
 }
 
-// narrowingsVersionTag is the synthetic selector that matches every entry in
-// the "Implementation-time narrowings" section regardless of its target.
-const narrowingsVersionTag = "v1.0-narrowing"
-
 // selectEntries restricts entries to the requested selectors. An empty slice
-// means "all". A selector of the form vX.Y matches any entry whose target
-// version is vX.Y (including narrowings targeted there); narrowingsVersionTag
-// matches every narrowing.
+// means "all". A selector matches any entry whose priority bucket equals it
+// (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`).
 func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 	if len(versions) == 0 {
 		return entries
@@ -115,10 +103,7 @@ func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 	}
 	var out []backlogEntry
 	for _, e := range entries {
-		switch {
-		case e.Version != "" && want[e.Version]:
-			out = append(out, e)
-		case e.Narrowing && want[narrowingsVersionTag]:
+		if e.Version != "" && want[e.Version] {
 			out = append(out, e)
 		}
 	}
@@ -126,7 +111,7 @@ func selectEntries(entries []backlogEntry, versions []string) []backlogEntry {
 }
 
 func genIssues(c *client, backlogPath string, versions []string, apply bool, out io.Writer) error {
-	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (defaults to docs/project/V1X-BACKLOG.md); this is a CLI admin tool.
+	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (defaults to docs/project/ROADMAP.md); this is a CLI admin tool.
 	f, err := os.Open(backlogPath)
 	if err != nil {
 		return err

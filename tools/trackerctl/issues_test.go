@@ -7,12 +7,12 @@ import (
 
 func TestSelectEntries(t *testing.T) {
 	entries := []backlogEntry{
-		{Title: "a", Version: "v1.1"},
-		{Title: "b", Version: "v1.2"},
-		{Title: "c", Version: "v1.1"},
-		{Title: "d", Narrowing: true},
-		{Title: "e", Narrowing: true},
-		{Title: "f", Version: "v1.1", Narrowing: true}, // narrowing targeted at v1.1
+		{Title: "a", Version: "gate-v0.5"},
+		{Title: "b", Version: "gate-v1.0"},
+		{Title: "c", Version: "gate-v0.5"},
+		{Title: "d", Version: "v0.x"},
+		{Title: "e", Version: "v1.x"},
+		{Title: "f", Version: "v2.x+"},
 	}
 	titles := func(es []backlogEntry) []string {
 		var out []string
@@ -28,11 +28,10 @@ func TestSelectEntries(t *testing.T) {
 		want     []string
 	}{
 		{"empty means all", nil, []string{"a", "b", "c", "d", "e", "f"}},
-		{"single version pulls in narrowing targeted there", []string{"v1.1"}, []string{"a", "c", "f"}},
-		{"multiple versions", []string{"v1.1", "v1.2"}, []string{"a", "b", "c", "f"}},
-		{"narrowings tag matches every narrowing", []string{narrowingsVersionTag}, []string{"d", "e", "f"}},
-		{"version plus narrowings tag", []string{"v1.2", narrowingsVersionTag}, []string{"b", "d", "e", "f"}},
-		{"unknown version", []string{"v9.9"}, nil},
+		{"single bucket", []string{"gate-v0.5"}, []string{"a", "c"}},
+		{"multiple buckets", []string{"gate-v0.5", "gate-v1.0"}, []string{"a", "b", "c"}},
+		{"post-v1.0 buckets", []string{"v1.x", "v2.x+"}, []string{"e", "f"}},
+		{"unknown bucket", []string{"v9.9"}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,9 +49,9 @@ func TestSplitCSV(t *testing.T) {
 		want []string
 	}{
 		{"", nil},
-		{"v1.1", []string{"v1.1"}},
-		{"v1.1,v1.2", []string{"v1.1", "v1.2"}},
-		{" v1.1 , , v1.2 ,", []string{"v1.1", "v1.2"}},
+		{"gate-v0.5", []string{"gate-v0.5"}},
+		{"gate-v0.5,gate-v1.0", []string{"gate-v0.5", "gate-v1.0"}},
+		{" gate-v0.5 , , gate-v1.0 ,", []string{"gate-v0.5", "gate-v1.0"}},
 	}
 	for _, tt := range tests {
 		if got := splitCSV(tt.in); !reflect.DeepEqual(got, tt.want) {

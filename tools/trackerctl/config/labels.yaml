@@ -14,7 +14,7 @@
 - name: source/v1x-backlog
   color: "1d76db"
   exclusive: true
-  description: Originated from docs/project/V1X-BACKLOG.md
+  description: Originated from docs/project/ROADMAP.md
 - name: source/features
   color: "1d76db"
   exclusive: true
@@ -93,7 +93,7 @@
 # --- umbrellas ---
 - name: v1x-backlog
   color: "fbca04"
-  description: Item minted from docs/project/V1X-BACKLOG.md
+  description: Item minted from docs/project/ROADMAP.md
 - name: v1.0-narrowing
   color: "d93f0b"
   description: v1.0 implementation-time narrowing; not yet version-tagged

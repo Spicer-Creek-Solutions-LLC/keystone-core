@@ -32,7 +32,12 @@ func TestManagedLabelDelta(t *testing.T) {
 			current: []string{"area/agent", "kind/feature", "source/v1x-backlog", "v1x-backlog"},
 		},
 		{
-			name:         "schedule a narrowing: drop kind/chore, add kind/feature; v1.0-narrowing stays; area untouched",
+			// Back-compat scenario: `v1.0-narrowing` is still in isManagedLabel
+			// (so old Forgejo issues that carry it are reconciled cleanly), but
+			// labelNamesFor no longer emits it post-v0.x rename. The delta
+			// must keep the existing v1.0-narrowing label when both want and
+			// current carry it.
+			name:         "preserve legacy v1.0-narrowing label when both sides carry it",
 			want:         []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/feature", "area/server"},
 			current:      []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/chore", "area/server", "area/agent"},
 			expectAdd:    []string{"kind/feature"},

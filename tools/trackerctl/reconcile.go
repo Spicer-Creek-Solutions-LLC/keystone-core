@@ -12,6 +12,10 @@ import (
 // label. The `source/*`, `kind/*`, and umbrella labels are derived from the
 // backlog and reconciled to match it; `area/*` and anything else are left
 // alone so human curation (and the heuristic's near-misses) survive.
+//
+// `v1.0-narrowing` is retained as a managed label name so old Forgejo issues
+// that still carry it get cleaned up on reconcile (no current entries emit
+// it after the v0.x rename — the section it referenced no longer exists).
 func isManagedLabel(name string) bool {
 	return strings.HasPrefix(name, "source/") ||
 		strings.HasPrefix(name, "kind/") ||
@@ -51,9 +55,9 @@ func managedLabelDelta(wantNames, currentNames []string) (add, remove []string) 
 }
 
 // reconcileIssues brings existing issues' milestone and managed labels in line
-// with what docs/project/V1X-BACKLOG.md now says. Use it after editing the
-// backlog (e.g. moving a narrowing under a `### Targeted: vX.Y` heading);
-// gen-issues only ever creates, never updates.
+// with what docs/project/ROADMAP.md now says. Use it after editing the
+// roadmap (e.g. moving an entry between priority buckets); gen-issues only
+// ever creates, never updates.
 func reconcileIssues(c *client, backlogPath string, versions []string, apply bool, out io.Writer) error {
 	// #nosec G304 -- backlogPath is the operator-supplied --backlog flag (see gen-issues); this is a CLI admin tool.
 	f, err := os.Open(backlogPath)

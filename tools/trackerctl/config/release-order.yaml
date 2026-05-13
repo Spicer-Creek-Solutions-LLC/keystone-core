@@ -1,40 +1,71 @@
-# Execution order for per-release tracker issues, consumed by
-# `trackerctl gen-tracker --version vX.Y`.
+# Execution order for per-bucket tracker issues, consumed by
+# `trackerctl gen-tracker --version <bucket>`.
 #
-# Keys are version tags; values are backlog `####` entry titles in the order
-# they should appear in that release's tracker issue (first = work on next).
-# Titles must match the headings in docs/project/V1X-BACKLOG.md exactly.
+# Keys are priority buckets (matching docs/project/ROADMAP.md section
+# headings and the per-entry `Priority:` field); values are backlog `####`
+# entry titles in the order they should appear in that bucket's tracker
+# issue (first = work on next). Titles must match the headings in
+# docs/project/ROADMAP.md exactly.
 #
-# A version absent here falls back to backlog file order. A backlog entry for
-# the version that is missing from its list is appended at the end with a
+# A bucket absent here falls back to ROADMAP.md file order. A backlog entry
+# for the bucket that is missing from its list is appended at the end with a
 # warning. A title here that matches no backlog entry is reported and ignored.
 #
 # This is the canonical execution order referenced by docs/project/ISSUE-TRACKING.md §5;
-# reorder here (or in the `## vX.Y` section of V1X-BACKLOG.md) and re-run gen-tracker.
+# reorder here (or in the `## <bucket>` section of ROADMAP.md) and re-run gen-tracker.
 
-v1.1:
-  # foundations first — schema/event/resolver infra other items build on
-  - "Schema versioning via `golang-migrate`"
-  - "Reactor engine + event lifecycle tracking"
-  - "`state.apply.skip` event taxonomy + wiring"
-  - "Salt-faithful `prereq` direction in statemgmt resolver"
-  # targeting
-  - "Server-side target expression compile (proto extension)"
-  - "Eval-time observability for malformed targeting patterns"
-  # dispatch / batch / streaming
-  - "Unified single + batch dispatch persistence"
-  - "Batch job retention (DeleteBatchJobsBefore + cascading FK)"
-  - "Batch dispatcher: no orphan-job recovery"        # v1.0-narrowing targeted at v1.1
-  - "Live mid-execution stdout / stderr streaming"
-  - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
-  # agent transport / identity
-  - "Replay protection on agent commands"
-  - "Server-side heartbeat / metadata NATS subscriber → agent registry"
-  - "Maintenance + Schedule gRPC"
-  - "Trust federation (cross-domain bundle endpoint)"
-  # stdlib module catalogue
+gate-v0.5:
   - "`service` stdlib module — OpenRC / sysvinit / launchd backends"
   - "`package` stdlib module — dnf, apk, zypper, pacman backends"
+  - "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules"
+  - "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion"
+  - "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics"
+  - "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale"
+  - "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot"
+  - "`disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion"
+  - "`network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt"
+  - "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath"
+  - "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes"
+  - "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration"
+  - "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration"
+
+gate-v1.0:
+  - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
+  - "Unified single + batch dispatch persistence"
+  - "Server-side target expression compile (proto extension)"
+  - "Batch job retention (DeleteBatchJobsBefore + cascading FK)"
+  - "Replay protection on agent commands"
+  - "Schema versioning via `golang-migrate`"
+  - "Reactor engine + event lifecycle tracking"
+  - "Maintenance + Schedule gRPC"
+  - "Server-side heartbeat / metadata NATS subscriber → agent registry"
+  - "`state.apply.skip` event taxonomy + wiring"
+  - "Salt-faithful `prereq` direction in statemgmt resolver"
+  - "Full RBAC role/permission CRUD"
+  - "Multi-table transaction wrapper"
+  - "Auto-rotation of in-memory NATS creds"
+  - "Rotation orchestrator"
+  - "Encryption at rest (`KeyProvider`)"
+  - "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution"
+  - "Backup orchestration features"
+  - "Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)"
+  - "`kscore-agent service start|stop` subcommands"
+  - "Batch dispatcher: no orphan-job recovery"
+  - "API key issuance: non-transactional"
+  - "Bootstrap: demo mode only (TUI + non-interactive)"
+  - "Bootstrap CLI flags dropped from v1.0 surface"
+  - "Bootstrap auto-installs systemd unit (production mode)"
+  - "Boostrap PSK consumption: in-memory tracking only"
+  - "Type=notify systemd integration (sd_notify)"
+  - "Bootstrap wizard: storage backend + blueprint selection screens"
+  - "Bootstrap: no rollback / transactional revert"
+  - "Dedicated `keystone-core` system user auto-creation"
+  - "Config: no per-endpoint TLS overrides"
+  - "Cluster-wide HMAC secret (vs per-agent)"
+
+v0.x:
+  - "Live mid-execution stdout / stderr streaming"
+  - "Eval-time observability for malformed targeting patterns"
   - "`git` stdlib module — authentication, submodules, advanced clone"
   - "`link` stdlib module — relative-target normalisation"
   - "`cron` stdlib module — per-field schedule, cron.d, env lines"
@@ -48,21 +79,31 @@ v1.1:
   - "`ssh` stdlib module — key validation, options-set compare, whole-file management"
   - "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence"
   - "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching"
-  - "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules"
-  - "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion"
-  - "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics"
-  - "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale"
-  - "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot"
-  - "`disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion"
   - "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems"
-  - "`network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt"
-  - "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath"
-  - "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes"
-  - "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration"
-  - "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration"
-  # platform reach
-  - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
+  - "PROJECT-DETAILS §4.8 DSL example uses plural module keys"
+  - "Percentage-based / rolling batch execution"
+  - "Active dial-time circuit breaker eviction"
+  - "Glob matching: no `**` (double-star)"
+  - "Migration journal: no per-table checkpoint resume"
+
+v1.x:
+  - "Trust federation (cross-domain bundle endpoint)"
   - "Windows agent (native service)"
   - "WASM module runtime"
-  # doc cleanup — do whenever
-  - "PROJECT-DETAILS §4.8 DSL example uses plural module keys"
+  - "TUI monitor (`kscore-monitor`)"
+  - "macOS agent"
+  - "SPIRE-backed identity provider"
+  - "K8s operator"
+  - "Weighted endpoint load distribution + K8s endpoint discovery"
+  - "AWS decorrelated jitter for fleet-scale reconnect storms"
+  - "Telemetry gateway"
+  - "Output archival to object storage cold-tier"
+  - "Saga/checkpoint advanced features"
+  - "Air-gap baseline"
+  - "Policy enforcement (Enforce + Warn modes)"
+  - "Cloud workload identity (AWS IRSA, GCP WI, Azure MI)"
+  - "gRPC-gateway annotation-driven REST + OpenAPI auto-gen"
+
+v2.x+:
+  - "Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket"
+
