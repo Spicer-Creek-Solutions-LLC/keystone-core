@@ -483,3 +483,16 @@ func TestModuleNames_IncludesBond(t *testing.T) {
 		t.Error("bond module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesBridge(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "bridge" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("bridge module missing from stdlib")
+	}
+}

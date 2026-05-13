@@ -414,6 +414,18 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a `mode:` change on a live bond reconciles via `echo <mode> > /sys/class/net/<bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members: [eth0, eth1, eth2]` against a live bond with `eth0, eth1` adds eth2; `members: [eth0]` against `eth0, eth1` removes eth1 (`ip link set eth1 nomaster`); a `persist: networkd` decl renders a `*.netdev` + `*.network` pair.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bond/bond.go` package comment; `internal/statemgmt/stdlib/bond/params.go`.
 
+#### `bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration
+
+- **What**: Epic 08 task 11 ships the `bridge` module (create / delete a Linux bridge interface at runtime via `ip link add … type bridge [stp_state 1]` + `ip link set <member> master <bridge>`). Reserved for v1.x:
+  - **In-place attribute reconciliation** on an existing bridge: stp_state, forward_delay, hello_time, max_age, ageing_time, vlan_filtering, vlan_default_pvid, mcast_snooping, mcast_querier, group_fwd_mask.
+  - **Port-set reconciliation** on an existing bridge — adding / removing ports without destroying it. v1.0 attaches declared ports only at create time.
+  - **Per-port bridge attributes**: state (disabled / listening / learning / forwarding), priority, path-cost, pvid, learning, unicast_flood, mcast_flood, mcast_router, neigh_suppress.
+  - **VLAN-aware bridge** filtering (`bridge vlan add vid 10 dev port`) — a separate `bridge_vlan` op or sub-module would land cleanly.
+  - **Persistent / boot-survive configuration** rendered to the host's network manager.
+- **Why deferred**: "create or delete this bridge" is the v1.0 scope; live-bridge attribute changes (especially stp_state) interrupt connected traffic and operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBridge` / `DeleteLink` / `SetMaster`) extends cleanly along these axes.
+- **Acceptance**: a `members:` change on a live bridge attaches/detaches ports without re-creating; `stp: true` on a live STP-disabled bridge enables STP and reports the change; `port_pvid: { eth0: 10, eth1: 20 }` round-trips; a `vlan_filtering: true` bridge takes a list of `bridge_vlan:` declarations that populate the VLAN table.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bridge/bridge.go` package comment; `internal/statemgmt/stdlib/bridge/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.
