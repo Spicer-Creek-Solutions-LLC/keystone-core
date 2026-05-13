@@ -29,6 +29,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cmd"
 	configmod "go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/config"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/cron"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/disk"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/file"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/firewall"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/firewalld"
@@ -62,6 +63,7 @@ var modules = map[string]statemgmt.Factory{
 	"cmd":           cmd.New,
 	"config":        configmod.New,
 	"cron":          cron.New,
+	"disk":          disk.New,
 	"file":          file.New,
 	"firewall":      firewall.New,
 	"firewalld":     firewalld.New,

@@ -418,3 +418,16 @@ func TestModuleNames_IncludesLVM(t *testing.T) {
 		t.Error("lvm module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesDisk(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "disk" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("disk module missing from stdlib")
+	}
+}
