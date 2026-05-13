@@ -29,6 +29,7 @@ gate-v0.5:
   - "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration"
   - "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration"
   - "Cross-distro state stdlib docker matrix harness"
+  - "Encrypt CA material at rest"
 
 gate-v1.0:
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"

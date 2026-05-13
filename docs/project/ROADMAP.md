@@ -212,6 +212,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: every row in `test/e2e/state/README.md`'s distro matrix is ticked ✓; `make test-cross-distro` runs all five services green on a Docker-equipped host; smoke.sh runs the full module set applicable to each distro (the `package` module against apt / dnf / apk, the `service` module against systemd + OpenRC, etc.) — gated by the per-module gate-v0.5 entries above so the matrix expansion lands alongside the backend implementations.
 - **References**: `test/e2e/state/README.md`; `test/e2e/state/run.sh`; the per-module gate-v0.5 entries above for `package`, `service`, `firewall`, `firewalld`, `security`, `system`, `lvm`, `disk`, `network`, `route`, `bond`, `bridge`, `vlan` — those entries name the per-distro acceptance their module must clear inside this harness.
 
+#### Encrypt CA material at rest
+
+- **Priority**: gate-v0.5
+- **What**: Epic 09 task 5 ships `internal/identity.FileCAStorage` as plaintext PEM (cert `0644`, key `0600`) under a `0700` directory — the v0.1 surface for the embedded provider's two-tier root + signing CA. PROJECT-DETAILS §4.10 calls for "optional encryption key" on persisted CA material; v0.1 defers that to a separate task because it pulls in key-management questions of its own (where does the encryption key live — config file, env var, KDF from a passphrase, OS keyring?). The `CAStorage` interface is stable; encryption is a wrapping layer.
+- **Why deferred**: encryption-at-rest needs a real key-management story that's its own scope (which is why §4.10 phrases it as "optional"). v0.1 ships the filesystem-permission baseline + the interface seam; an `EncryptedFileCAStorage` lands ahead of v0.5 alongside Epic 10 (Secrets) which will share the master-key resolver.
+- **Acceptance**: an `EncryptedFileCAStorage` (AES-256-GCM or NaCl secretbox; key sourced via a documented resolver shared with Epic 10) round-trips with `FileCAStorage`; existing plaintext deployments migrate via an explicit `kscore-identity ca encrypt` command; the v0.5 gate test boots a clean embedded provider with encryption enabled end-to-end.
+- **References**: `internal/identity/ca_storage.go` `FileCAStorage`; PROJECT-DETAILS §4.10 ("with optional encryption key"); Epic 10 (Secrets) for the master-key resolver this shares.
+
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
 #### Agent-side cancel propagation (SIGTERM to in-flight commands)
