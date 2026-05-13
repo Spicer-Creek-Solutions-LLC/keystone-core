@@ -204,6 +204,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: an `id:` change on a live VLAN reports drift and reconciles via delete-and-recreate (or `ip link set <vlan> type vlan id <new>` if the kernel supports it); `proto: 802.1ad` round-trips; `id_range: 100-200` creates 101 VLAN interfaces in one Apply; a `persist: networkd` decl renders a `*.network` for the VLAN.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/vlan/vlan.go` package comment; `internal/statemgmt/stdlib/vlan/params.go`.
 
+#### Cross-distro state stdlib docker matrix harness
+
+- **Priority**: gate-v0.5
+- **What**: Epic 08 task 13 Layer C ships the test harness under `test/e2e/state/` (`run.sh` + `docker-compose.yml` + `smoke.sh` + `smoke.yaml`) with one distro (`debian-12`) wired up and Docker auto-skip on hosts that don't have it. The remaining v0.5 matrix entries (Ubuntu 22.04, Ubuntu 24.04, Rocky 9, Alpine 3.19) are scaffolded but commented out, and the smoke probe today only exercises the hermetic stdlib subset (file / link / cmd / config) — not the modules that touch live system state.
+- **Why deferred**: Adding each distro is a real per-image dance (Rocky needs a `Dockerfile.rocky-9` that installs Go on top of `rockylinux:9`; Alpine needs `golang:1.23-alpine3.19` plus the OpenRC `service` backend the `service` stdlib ROADMAP entry covers separately). Wiring the modules that actually need root-owned system state (`package`, `service`, `user`, `hostname`, `mount`, `sysctl`, …) needs a per-module idempotency check per distro × per backend. v0.5 closes this end-to-end; v0.1 ships the scaffolding so the entry sites are reviewable.
+- **Acceptance**: every row in `test/e2e/state/README.md`'s distro matrix is ticked ✓; `make test-cross-distro` runs all five services green on a Docker-equipped host; smoke.sh runs the full module set applicable to each distro (the `package` module against apt / dnf / apk, the `service` module against systemd + OpenRC, etc.) — gated by the per-module gate-v0.5 entries above so the matrix expansion lands alongside the backend implementations.
+- **References**: `test/e2e/state/README.md`; `test/e2e/state/run.sh`; the per-module gate-v0.5 entries above for `package`, `service`, `firewall`, `firewalld`, `security`, `system`, `lvm`, `disk`, `network`, `route`, `bond`, `bridge`, `vlan` — those entries name the per-distro acceptance their module must clear inside this harness.
+
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
 #### Agent-side cancel propagation (SIGTERM to in-flight commands)
