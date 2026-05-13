@@ -12,11 +12,17 @@ import (
 type fakeProvider struct {
 	cur      string
 	set      bool
+	curErr   error
 	setErr   error
 	setCalls []string
 }
 
-func (f *fakeProvider) Current() (string, bool, error) { return f.cur, f.set, nil }
+func (f *fakeProvider) Current() (string, bool, error) {
+	if f.curErr != nil {
+		return "", false, f.curErr
+	}
+	return f.cur, f.set, nil
+}
 func (f *fakeProvider) Set(_ context.Context, h string) error {
 	f.setCalls = append(f.setCalls, h)
 	if f.setErr != nil {
@@ -113,6 +119,35 @@ func TestNew_DefaultProvider(t *testing.T) {
 	}
 }
 
+func TestNewWithProvider_Wires(t *testing.T) {
+	t.Parallel()
+	m := NewWithProvider(&fakeProvider{cur: "web-1", set: true})
+	if m == nil {
+		t.Fatal("nil")
+	}
+	ok, err := m.Test(context.Background(), declFor("web-1", nil))
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if !ok {
+		t.Error("Test on matching fake should be true")
+	}
+}
+
+func TestModule_Validate(t *testing.T) {
+	t.Parallel()
+	m := &Module{}
+	if err := m.Validate(declFor("web-1", nil)); err != nil {
+		t.Errorf("good hostname rejected: %v", err)
+	}
+	if err := m.Validate(declFor("with space", nil)); err == nil {
+		t.Error("bad hostname accepted")
+	}
+	if err := m.Validate(declFor("web-1", map[string]any{"unknown": "x"})); err == nil {
+		t.Error("unknown param accepted")
+	}
+}
+
 // ---- Check -------------------------------------------------------
 
 func TestCheck_NotSet(t *testing.T) {
@@ -145,6 +180,45 @@ func TestCheck_Mismatch(t *testing.T) {
 	}
 	if !strings.Contains(res.Diff, "old") || !strings.Contains(res.Diff, "new") {
 		t.Errorf("diff should cite both; got %q", res.Diff)
+	}
+}
+
+func TestCheck_ProviderError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{curErr: errors.New("read /etc/hostname: permission denied")})
+	_, err := m.Check(context.Background(), declFor("web-1", nil))
+	if err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("err = %v, want provider error", err)
+	}
+}
+
+func TestCheck_ParseError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "web-1", set: true})
+	_, err := m.Check(context.Background(), declFor("web-1", map[string]any{"unknown": "x"}))
+	if err == nil || !strings.Contains(err.Error(), "unknown param") {
+		t.Errorf("err = %v, want unknown-param", err)
+	}
+}
+
+func TestCheck_ValidateError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "web-1", set: true})
+	_, err := m.Check(context.Background(), declFor("with space", nil))
+	if err == nil {
+		t.Error("invalid hostname should fail Check")
+	}
+}
+
+func TestTest_PropagatesError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{curErr: errors.New("boom")})
+	ok, err := m.Test(context.Background(), declFor("web-1", nil))
+	if err == nil {
+		t.Error("Test should bubble up Check error")
+	}
+	if ok {
+		t.Error("Test on error should return false")
 	}
 }
 
@@ -189,6 +263,37 @@ func TestApply_SetError_Propagates(t *testing.T) {
 	}
 	if res.Success {
 		t.Error("Success should be false")
+	}
+}
+
+func TestApply_PreCheckError(t *testing.T) {
+	t.Parallel()
+	f := &fakeProvider{curErr: errors.New("read failed")}
+	m := newModuleWith(f)
+	res, err := m.Apply(context.Background(), declFor("web-1", nil))
+	if err == nil {
+		t.Fatal("Apply should propagate pre-check error")
+	}
+	if res == nil || res.Success {
+		t.Errorf("res = %+v, want non-nil Success=false", res)
+	}
+}
+
+func TestApply_ParamError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "web-1", set: true})
+	_, err := m.Apply(context.Background(), declFor("web-1", map[string]any{"bad": 1}))
+	if err == nil {
+		t.Error("Apply should fail on unknown param")
+	}
+}
+
+func TestApply_ValidateError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "web-1", set: true})
+	_, err := m.Apply(context.Background(), declFor("with space", nil))
+	if err == nil {
+		t.Error("Apply should fail on invalid hostname")
 	}
 }
 

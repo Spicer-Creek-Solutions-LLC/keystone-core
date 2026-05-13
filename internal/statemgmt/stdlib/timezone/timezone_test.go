@@ -12,11 +12,17 @@ import (
 type fakeProvider struct {
 	cur      string
 	set      bool
+	curErr   error
 	setErr   error
 	setCalls []string
 }
 
-func (f *fakeProvider) Current() (string, bool, error) { return f.cur, f.set, nil }
+func (f *fakeProvider) Current() (string, bool, error) {
+	if f.curErr != nil {
+		return "", false, f.curErr
+	}
+	return f.cur, f.set, nil
+}
 func (f *fakeProvider) Set(_ context.Context, z string) error {
 	f.setCalls = append(f.setCalls, z)
 	if f.setErr != nil {
@@ -114,6 +120,38 @@ func TestNew_DefaultProvider(t *testing.T) {
 	}
 }
 
+func TestNewWithProvider_Wires(t *testing.T) {
+	t.Parallel()
+	m := NewWithProvider(&fakeProvider{cur: "UTC", set: true})
+	if m == nil {
+		t.Fatal("nil")
+	}
+	// And it must talk to the injected provider, not the OS default.
+	ok, err := m.Test(context.Background(), declFor("UTC", nil))
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if !ok {
+		t.Error("Test on matching fake should be true")
+	}
+}
+
+func TestModule_Validate(t *testing.T) {
+	t.Parallel()
+	m := &Module{}
+	if err := m.Validate(declFor("UTC", nil)); err != nil {
+		t.Errorf("good zone rejected: %v", err)
+	}
+	if err := m.Validate(declFor("evil zone", nil)); err == nil {
+		t.Error("bad zone accepted")
+	}
+	// parseParams error path (unknown key) also routes through
+	// Validate, exercising the early return.
+	if err := m.Validate(declFor("UTC", map[string]any{"unknown": "x"})); err == nil {
+		t.Error("unknown param accepted")
+	}
+}
+
 // ---- Check -------------------------------------------------------
 
 func TestCheck_NotSet(t *testing.T) {
@@ -146,6 +184,45 @@ func TestCheck_Mismatch(t *testing.T) {
 	}
 	if !strings.Contains(res.Diff, "UTC") || !strings.Contains(res.Diff, "America/New_York") {
 		t.Errorf("diff should cite both; got %q", res.Diff)
+	}
+}
+
+func TestCheck_ProviderError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{curErr: errors.New("readlink: permission denied")})
+	_, err := m.Check(context.Background(), declFor("UTC", nil))
+	if err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("err = %v, want provider error", err)
+	}
+}
+
+func TestCheck_ParseError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "UTC", set: true})
+	_, err := m.Check(context.Background(), declFor("UTC", map[string]any{"unknown": "x"}))
+	if err == nil || !strings.Contains(err.Error(), "unknown param") {
+		t.Errorf("err = %v, want unknown-param", err)
+	}
+}
+
+func TestCheck_ValidateError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "UTC", set: true})
+	_, err := m.Check(context.Background(), declFor("evil zone", nil))
+	if err == nil {
+		t.Error("invalid zone should fail Check")
+	}
+}
+
+func TestTest_PropagatesError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{curErr: errors.New("boom")})
+	ok, err := m.Test(context.Background(), declFor("UTC", nil))
+	if err == nil {
+		t.Error("Test should bubble up Check error")
+	}
+	if ok {
+		t.Error("Test on error should return false")
 	}
 }
 
@@ -200,6 +277,39 @@ func TestApply_ZoneNotFound_Propagates(t *testing.T) {
 	_, err := m.Apply(context.Background(), declFor("Made/Up", nil))
 	if !errors.Is(err, ErrZoneNotFound) {
 		t.Errorf("err = %v, want ErrZoneNotFound", err)
+	}
+}
+
+func TestApply_PreCheckError(t *testing.T) {
+	t.Parallel()
+	// provider.Current errors → check() bubbles → Apply returns the
+	// error wrapped in a non-success StateResult.
+	f := &fakeProvider{curErr: errors.New("readlink failed")}
+	m := newModuleWith(f)
+	res, err := m.Apply(context.Background(), declFor("UTC", nil))
+	if err == nil {
+		t.Fatal("Apply should propagate pre-check error")
+	}
+	if res == nil || res.Success {
+		t.Errorf("res = %+v, want non-nil Success=false", res)
+	}
+}
+
+func TestApply_ParamError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "UTC", set: true})
+	_, err := m.Apply(context.Background(), declFor("UTC", map[string]any{"bad": 1}))
+	if err == nil {
+		t.Error("Apply should fail on unknown param")
+	}
+}
+
+func TestApply_ValidateError(t *testing.T) {
+	t.Parallel()
+	m := newModuleWith(&fakeProvider{cur: "UTC", set: true})
+	_, err := m.Apply(context.Background(), declFor("../etc/passwd", nil))
+	if err == nil {
+		t.Error("Apply should fail on path-traversal zone")
 	}
 }
 

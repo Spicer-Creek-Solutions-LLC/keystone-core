@@ -49,3 +49,68 @@ func TestLinuxProvider_AddDelegatesToGroupadd(t *testing.T) {
 		t.Errorf("err = %v, want \"groupadd\" cited", err)
 	}
 }
+
+func TestLinuxProvider_AddWithGIDAndSystem(t *testing.T) {
+	t.Parallel()
+	// Confirms the gid + system branches of Add wire through to
+	// groupadd's argv. groupadd will refuse without root; we assert
+	// the wrapped error path fired (proving args were assembled and
+	// the binary executed).
+	p := linuxProvider{}
+	gid := 1
+	err := p.Add(context.Background(), "kscore-coverage-test-system", &gid, true)
+	if err == nil {
+		t.Fatal("groupadd as non-root should fail")
+	}
+	if !strings.Contains(err.Error(), "groupadd") {
+		t.Errorf("err = %v, want \"groupadd\" cited", err)
+	}
+}
+
+func TestLinuxProvider_ModDelegatesToGroupmod(t *testing.T) {
+	t.Parallel()
+	// groupmod on a group that almost certainly doesn't exist will
+	// exit non-zero; the wrapped error must cite groupmod so the
+	// dispatch + error-format path is exercised.
+	p := linuxProvider{}
+	err := p.Mod(context.Background(), "zzz-no-such-group-zzz", 12345)
+	if err == nil {
+		t.Fatal("groupmod on missing group should fail")
+	}
+	if !strings.Contains(err.Error(), "groupmod") {
+		t.Errorf("err = %v, want \"groupmod\" cited", err)
+	}
+}
+
+func TestLinuxProvider_DelDelegatesToGroupdel(t *testing.T) {
+	t.Parallel()
+	p := linuxProvider{}
+	err := p.Del(context.Background(), "zzz-no-such-group-zzz")
+	if err == nil {
+		t.Fatal("groupdel on missing group should fail")
+	}
+	if !strings.Contains(err.Error(), "groupdel") {
+		t.Errorf("err = %v, want \"groupdel\" cited", err)
+	}
+}
+
+func TestLinuxProvider_LookupNotFound(t *testing.T) {
+	t.Parallel()
+	// linuxProvider embeds osLookup; this round-trips the embedding
+	// in case future restructuring shadows Lookup.
+	p := linuxProvider{}
+	info, err := p.Lookup("zzz-no-such-group-zzz")
+	if err != nil {
+		t.Fatalf("Lookup: %v", err)
+	}
+	if info != nil {
+		t.Errorf("expected nil for missing group; got %+v", info)
+	}
+}
+
+func TestDefaultProvider_ReturnsLinuxProvider(t *testing.T) {
+	t.Parallel()
+	if defaultProvider() == nil {
+		t.Fatal("nil")
+	}
+}
