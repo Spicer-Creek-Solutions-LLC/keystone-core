@@ -457,3 +457,16 @@ func TestModuleNames_IncludesNetwork(t *testing.T) {
 		t.Error("network module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesRoute(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "route" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("route module missing from stdlib")
+	}
+}

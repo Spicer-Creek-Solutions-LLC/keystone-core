@@ -46,6 +46,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/nftables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pkg"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/pki"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/route"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/security"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/service"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/ssh"
@@ -81,6 +82,7 @@ var modules = map[string]statemgmt.Factory{
 	"network":       network.New,
 	"nftables":      nftables.New,
 	"package":       pkg.New,
+	"route":         route.New,
 	"security":      security.New,
 	"service":       service.New,
 	"ssh":           ssh.New,

@@ -389,6 +389,20 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a `persist: networkd` decl writes a syntactically-valid `*.network` file matching the runtime config and survives a reboot; `ipv4_addresses:` + `ipv6_addresses:` round-trip independently; `valid_lft: 3600` on an address is preserved by Check; `dns_resolvers: [1.1.1.1, …]` writes the host's resolver config (systemd-resolved or /etc/resolv.conf); a `dry_run_safety: true` mode logs the planned removals without applying them.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/network/network.go` package comment; `internal/statemgmt/stdlib/network/params.go`.
 
+#### `route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath
+
+- **What**: Epic 08 task 11 ships the `route` module (one routing-table entry per declaration via `ip route replace` / `ip route del`; identity keyed on `(destination, metric, table)`; `gateway:` + `interface:` are reconciled). Reserved for v1.x:
+  - **Boot-survive / persistent configuration** rendered to the host's network manager: networkd `[Route]`, NetworkManager static-routes, /etc/sysconfig/network-scripts/route-*, netplan `routes:`, /etc/network/interfaces `post-up ip route add …`.
+  - **Route attributes**: `proto` (boot / dhcp / static / kernel), `scope` (link / host / global), `src` (source IP for the route), `mtu`, `advmss`, `pref` (high / medium / low), `onlink`, `realms`, `congctl`.
+  - **Multipath nexthops** — `nexthop via X weight 1 nexthop via Y weight 2` style ECMP routes.
+  - **Source-routing policy rules** via `ip rule add` — a separate `rule` module that pairs with `route` and the `table:` knob this module already exposes.
+  - **VRF awareness** beyond the `table:` knob (the `vrf` interface type + L3 master).
+  - **IPv6 specific**: `expires` (lifetime), `pref` med/high/low (RA preference).
+  - **Default-table inference from metric** (some operator workflows imply a table from a metric range — v1.0 keeps them orthogonal).
+- **Why deferred**: "ensure this one route exists / doesn't" via the modern `ip route replace` idempotency is the v1.0 scope; persistence is the same distro-renderer problem the `network` module faces; attributes are an option-by-option extension; multipath nexthops + policy rules are meaningful new surfaces. The Provider (`GetRoute` / `ReplaceRoute` / `DelRoute`) extends cleanly with extra `RouteSpec` / `RouteEntry` fields.
+- **Acceptance**: a `persist: networkd|nm|netplan|…` decl renders a syntactically-valid route entry in the host's config; `proto: static` + `scope: link` + `src: 10.0.0.5` round-trip; a `nexthop:` list creates a multipath route; a separate `rule` module declares a `from 10.0.0.0/24 lookup vpn` policy rule and the `route` module's `table: vpn` declarations populate that table.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/route/route.go` package comment; `internal/statemgmt/stdlib/route/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.
