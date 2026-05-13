@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (sysctl
 // semantics differ on BSD/macOS; v1.0 is Linux-only).
-var ErrUnsupportedOS = errors.New("sysctl: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("sysctl: unsupported OS for v0.1 (Linux only)")
 
 // ErrKeyNotFound is returned by the module's Check/Apply when the
 // declared sysctl key doesn't exist in /proc/sys (e.g., a module

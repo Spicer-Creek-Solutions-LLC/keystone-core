@@ -27,7 +27,7 @@
 // device change isn't detected — only the fstab entry is. If
 // /etc/fstab is missing it is created on first write.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Remount-on-change (`mount -o remount` when fstab opts change
 //     for a mounted fs; reconcile a live device change).
 //   - fstab `\040` escaping for whitespace in paths / options.

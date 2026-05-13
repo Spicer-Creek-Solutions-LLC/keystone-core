@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (the v1.0
 // disk module is Linux-only).
-var ErrUnsupportedOS = errors.New("disk: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("disk: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBlkid is returned when `blkid` is not on PATH.
 var ErrNoBlkid = errors.New("disk: the blkid binary was not found on PATH")

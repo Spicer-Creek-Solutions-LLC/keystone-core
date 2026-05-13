@@ -17,7 +17,7 @@
 // Each Provider call is independently testable; partial changes
 // fire only the relevant call.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - macOS via `dscl`
 //   - Password / SSH key management (separate modules)
 //   - Account expiration (`chage`)

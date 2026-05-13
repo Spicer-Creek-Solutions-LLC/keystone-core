@@ -29,7 +29,7 @@
 // tokens, attributes in their canonical order). Canonicalise-before-
 // compare is the V1X follow-up.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Whole-zone management (declare the complete service / port /
 //     rich-rule set and prune the rest) and zone creation; binding
 //     interfaces or source addresses to a zone; default-zone

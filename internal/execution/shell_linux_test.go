@@ -13,7 +13,7 @@ func TestShell_IsAvailable_Linux(t *testing.T) {
 		t.Error("ShellSh.IsAvailable() = false on linux; sh must be present")
 	}
 	if !ShellBash.IsAvailable() {
-		t.Error("ShellBash.IsAvailable() = false on linux; bash must be present in v1.0 platform target")
+		t.Error("ShellBash.IsAvailable() = false on linux; bash must be present in v0.1 platform target")
 	}
 	if ShellCmd.IsAvailable() {
 		t.Error("ShellCmd.IsAvailable() = true on linux; cmd is windows-only")

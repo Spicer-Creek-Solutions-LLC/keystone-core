@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (LVM is
 // Linux-only).
-var ErrUnsupportedOS = errors.New("lvm: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("lvm: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoLVM is returned when one of the LVM tools required by an
 // operation (`pvcreate` / `pvremove` / `pvs` / `vgcreate` / `vgremove`

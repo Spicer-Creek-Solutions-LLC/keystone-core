@@ -25,7 +25,7 @@
 // The module shells out to the `git` binary via a Provider; when git
 // is not installed, mutating operations fail with ErrGitNotFound.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Authentication: deploy keys, credential helpers, token-in-URL
 //     rotation, SSH host-key management (v1.0 relies on whatever the
 //     agent's git/SSH config already provides).

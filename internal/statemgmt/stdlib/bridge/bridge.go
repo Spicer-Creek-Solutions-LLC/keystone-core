@@ -22,7 +22,7 @@
 // DriftSeverity HIGH — a missing bridge typically means VM / container
 // traffic can't reach its uplink. MEDIUM nil.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - In-place reconciliation of stp + members + other bridge attrs
 //     (forward_delay, hello_time, max_age, vlan_filtering,
 //     vlan_default_pvid, mcast_snooping, …).

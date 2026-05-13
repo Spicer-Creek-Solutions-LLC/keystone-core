@@ -21,7 +21,7 @@
 // these are settings, not items; an `absent` semantics ("ensure NOT
 // this value") is ambiguous and is V1X.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - **AppArmor** in any form — per-profile `enforce|complain|disable`
 //     modes (`aa-enforce`/`aa-complain`/`aa-disable`), framework
 //     on/off. The module is structured so a second Provider can be

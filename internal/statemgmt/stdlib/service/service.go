@@ -11,9 +11,9 @@
 // Backends:
 //
 //	v1.0: systemd
-//	v1.x (V1X-BACKLOG): OpenRC, sysvinit, launchd (macOS)
+//	v1.x (ROADMAP): OpenRC, sysvinit, launchd (macOS)
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - OpenRC / sysvinit / Upstart / launchd backends
 //   - mask / unmask separately from disable / enable
 //   - reload (`systemctl reload`) — useful for watch handlers

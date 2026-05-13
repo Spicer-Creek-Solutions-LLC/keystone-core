@@ -32,7 +32,7 @@
 // systemctl-backed operations fail with ErrNoBackend; on non-Linux,
 // ErrUnsupportedOS.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Generating the paired `.service` unit (currently the
 //     operator's job).
 //   - `--user` (per-user) timers.

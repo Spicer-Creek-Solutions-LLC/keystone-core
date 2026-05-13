@@ -52,7 +52,7 @@ type Params struct {
 	// User and Group are optional. When empty, systemd runs the
 	// service as root. v1.0 documents `keystone-core` as the
 	// recommended dedicated user once the operator creates one
-	// (no auto-creation in v1.0; tracked in V1X-BACKLOG).
+	// (no auto-creation in v1.0; tracked in ROADMAP).
 	User  string
 	Group string
 
@@ -135,7 +135,7 @@ func Render(p Params) ([]byte, error) {
 // Params.ReadWritePaths when state dirs land outside /var/lib.
 //
 // Type=exec (not notify) — sd_notify integration would require
-// the daemon to call SdNotifyReady. Tracked in V1X-BACKLOG; flip
+// the daemon to call SdNotifyReady. Tracked in ROADMAP; flip
 // when sd_notify lands.
 var unitTmpl = template.Must(template.New("unit").Parse(`[Unit]
 Description={{.Description}}

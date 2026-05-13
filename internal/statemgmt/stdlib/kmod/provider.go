@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (no
 // kernel-module concept).
-var ErrUnsupportedOS = errors.New("kernel_module: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("kernel_module: unsupported OS for v0.1 (Linux only)")
 
 // Provider abstracts the OS-level kernel-module operations.
 type Provider interface {

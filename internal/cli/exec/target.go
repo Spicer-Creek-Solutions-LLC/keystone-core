@@ -11,8 +11,8 @@ import (
 // ErrTargetUnsupported is returned for shorthand that the v1.0 proto
 // Target shape can't express (os: / arch: / status: / ip:, OR, NOT,
 // parens, glob-on-id). v1.x will add a server-side compile via a
-// proto string field; the V1X-BACKLOG entry tracks the gap.
-var ErrTargetUnsupported = errors.New("exec: target expression not yet supported in v1.0 proto (use AND of id / hostname / label clauses)")
+// proto string field; the ROADMAP entry tracks the gap.
+var ErrTargetUnsupported = errors.New("exec: target expression not yet supported in v0.1 proto (use AND of id / hostname / label clauses)")
 
 // ParseTarget translates the v1.0-subset of the targeting shorthand
 // into a v1.Target proto.
@@ -30,7 +30,7 @@ var ErrTargetUnsupported = errors.New("exec: target expression not yet supported
 //
 //	OR, NOT, parens
 //	id:web-*               (glob on id — proto AgentIDs is exact-match)
-//	os: / arch: / status: / ip:  (built-in fields not in v1.0 proto Target)
+//	os: / arch: / status: / ip:  (built-in fields not in v0.1 proto Target)
 //
 // Empty input returns (nil, nil) so callers can treat "no target" as
 // the server-side "match nothing" contract.
@@ -81,7 +81,7 @@ func ParseTarget(raw string) (*v1.Target, error) {
 			t.HostnamePattern = value
 			hostnameSet = true
 		case "os", "arch", "status", "ip":
-			return nil, fmt.Errorf("%w: %s: (built-in field not in v1.0 proto Target)",
+			return nil, fmt.Errorf("%w: %s: (built-in field not in v0.1 proto Target)",
 				ErrTargetUnsupported, field)
 		default:
 			// Label clause. Reject duplicate keys — server semantic

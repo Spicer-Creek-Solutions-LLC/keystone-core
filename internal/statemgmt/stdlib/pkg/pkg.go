@@ -9,13 +9,13 @@
 // Backends:
 //
 //	v1.0: apt (Debian / Ubuntu)
-//	v1.x (V1X-BACKLOG): dnf, apk, zypper, pacman
+//	v1.x (ROADMAP): dnf, apk, zypper, pacman
 //
 // The Go directory + package is `pkg` because `package` is a Go
 // keyword; the stdlib registers under the operator-facing name
 // "package". Salt convention.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - `latest` state (cache-refresh logic)
 //   - `refresh: true` for explicit `apt-get update`
 //   - Package holds / pinning (`apt-mark hold`)

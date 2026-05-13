@@ -49,7 +49,7 @@ var runnerFactory = func() systemd.Runner { return systemd.NewDefaultRunner() }
 // PROJECT-DETAILS §4.6 lists `service start|stop|status` too;
 // v1.0 ships only `install|uninstall|status` — start/stop add
 // no value over native `systemctl start/stop`. Tracked in
-// docs/project/V1X-BACKLOG.md.
+// docs/project/ROADMAP.md.
 func newServiceCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "service",

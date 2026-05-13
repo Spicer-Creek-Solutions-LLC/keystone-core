@@ -25,7 +25,7 @@ var areaKeywords = []struct{ kw, area string }{
 	{"schema versioning", "area/schema"},
 	{"foreign key", "area/schema"},
 	{"bootstrap", "area/bootstrap"},
-	{"boostrap", "area/bootstrap"}, // matches the typo'd heading in V1X-BACKLOG.md
+	{"boostrap", "area/bootstrap"}, // matches the typo'd heading in ROADMAP.md
 	{"policy", "area/policy"},
 	{"grpc", "area/server"},
 	{"dispatch", "area/server"},

@@ -16,7 +16,7 @@
 // v1.0 ships demo mode + a separate `kscore-agent service install`
 // CLI step. Production-mode bootstrap auto-installs the unit (via
 // Install here) when Epic 11/14/17 land and the demo-only gate
-// lifts — see docs/project/V1X-BACKLOG.md.
+// lifts — see docs/project/ROADMAP.md.
 //
 // Linux-only. Windows agent (v1.1) ships a service install via
 // SCM; macOS (v1.2) via launchd. Both swap this package for a

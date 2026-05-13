@@ -15,7 +15,7 @@
 //	absent  — the certificate file and the key file are removed
 //	          (like `file: <path>` `state: absent`).
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Combined cert+key PEM in a single file.
 //   - OpenSSL-style SAN prefixes (`IP:` / `DNS:` / `email:` / `URI:`)
 //     — v1.0 auto-detects IP vs DNS; email/URI SANs are not emitted.

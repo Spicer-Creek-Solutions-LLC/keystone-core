@@ -30,7 +30,7 @@
 // Managing another user's keys needs root (or running the agent as
 // that user) — the chown step surfaces an EPERM with a hint.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Validating the key blob as a well-formed SSH public key (via
 //     golang.org/x/crypto/ssh) — v1.0 only charset-checks it, to
 //     avoid a new direct dependency.

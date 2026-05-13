@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 ships
 // systemd only).
-var ErrUnsupportedOS = errors.New("service: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("service: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned on a Linux host where no supported init
 // system was detected. v1.0 ships systemd; OpenRC / sysvinit /

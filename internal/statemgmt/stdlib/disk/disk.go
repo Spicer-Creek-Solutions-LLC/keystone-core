@@ -6,7 +6,7 @@
 // `/dev/` path) has the filesystem signature named by `fstype:`
 // (states `present`) or has no signature at all (state `absent`).
 // v1.0 does not manage partitions, labels, UUIDs, encryption, or
-// resize — see the V1X-BACKLOG entry.
+// resize — see the ROADMAP entry.
 //
 // Idempotency: Check runs `blkid -o value -s TYPE <device>` and
 // compares to the declared fstype. Apply only invokes
@@ -29,7 +29,7 @@
 // Each element is charset-validated (no shell metacharacters,
 // whitespace, or control characters).
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Partition creation / removal / label / flags via parted /
 //     sgdisk (GPT or MBR). Partitioning is destructive enough that
 //     it deserves its own module.

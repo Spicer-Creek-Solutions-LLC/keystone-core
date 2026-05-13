@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 manages
 // `at` jobs via the Linux `at` toolchain).
-var ErrUnsupportedOS = errors.New("at: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("at: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoAt is returned by mutating operations on a host where the
 // `at` binary is not on PATH (the at daemon / package isn't

@@ -138,7 +138,7 @@ func (s *GRPCServer) ExecuteCommand(
 //	{batch_job_id} → AGENT_START* → AGENT_COMPLETE | AGENT_FAILED*
 //	             → BatchTerminal
 //
-// BatchAgentOutput chunks are reserved for v1.x (see V1X-BACKLOG); the
+// BatchAgentOutput chunks are reserved for v1.x (see ROADMAP); the
 // v1.0 agent returns stdout/stderr buffered in CommandResponse and
 // the bridge into the batch_agent_results row is task 12.
 func (s *GRPCServer) BatchExecuteCommand(

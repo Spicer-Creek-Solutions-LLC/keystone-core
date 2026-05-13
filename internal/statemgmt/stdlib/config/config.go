@@ -30,7 +30,7 @@
 // Key matching is case-sensitive in v1.0. `present` updates the first
 // occurrence of the key; `absent` removes all occurrences.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Case-insensitive keys.
 //   - Configurable separator (sshd-style "Key Value", "KEY: value",
 //     …) — v1.0 is '='-delimited.

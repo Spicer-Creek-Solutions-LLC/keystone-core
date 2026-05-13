@@ -9,7 +9,7 @@
 //     flag set that drives the Detect → Configure → Validate →
 //     Install → Verify FSM and writes a usable agent config.
 //     v1.0 supports demo mode end-to-end; production / enterprise
-//     modes are deferred to v1.x (see docs/project/V1X-BACKLOG.md).
+//     modes are deferred to v0.x (see docs/project/ROADMAP.md).
 //   - service install|uninstall|status — manage the
 //     keystone-core-agent systemd unit. Linux-only in v1.0.
 package main
@@ -203,7 +203,7 @@ type bootstrapFlags struct {
 //
 // v1.0 ships demo mode end-to-end. Production / enterprise modes
 // are rejected by bootstrap.ValidateForV10 in both paths — see
-// docs/project/V1X-BACKLOG.md.
+// docs/project/ROADMAP.md.
 //
 // We don't reuse cli.RootCommand's daemon RunE — bootstrap has
 // its own lifecycle (no NATS, no heartbeat). Config + logger +
@@ -213,7 +213,7 @@ func newBootstrapCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "bootstrap",
 		Short:         "Bootstrap the agent (interactive wizard or --non-interactive flags)",
-		Long:          "Walks through the Detect → Configure → Validate → Install → Verify state machine and writes a usable agent config. Default is the TUI wizard; pass --non-interactive (or set KSCORE_BOOTSTRAP_NON_INTERACTIVE=1) to drive entirely from flags / env vars. v1.0 supports demo mode; production and enterprise modes are deferred (see docs/project/V1X-BACKLOG.md).",
+		Long:          "Walks through the Detect → Configure → Validate → Install → Verify state machine and writes a usable agent config. Default is the TUI wizard; pass --non-interactive (or set KSCORE_BOOTSTRAP_NON_INTERACTIVE=1) to drive entirely from flags / env vars. v1.0 supports demo mode; production and enterprise modes are deferred (see docs/project/ROADMAP.md).",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {

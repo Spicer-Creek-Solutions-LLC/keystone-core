@@ -35,7 +35,7 @@
 // DriftSeverity HIGH (a missing or misconfigured aggregation =
 // reduced link redundancy / unreachable host). MEDIUM nil.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - **In-place attribute reconciliation**: mode, miimon,
 //     xmit_hash_policy, lacp_rate, ad_select, primary, primary_reselect,
 //     fail_over_mac, num_grat_arp, all_slaves_active, …

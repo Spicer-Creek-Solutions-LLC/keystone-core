@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 manages
 // swap via /proc/swaps + mkswap(8)/swapon(8)/swapoff(8)).
-var ErrUnsupportedOS = errors.New("swap: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("swap: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoSwapTools is returned by mutating operations on a host where
 // the mkswap / swapon / swapoff binaries are not on PATH.

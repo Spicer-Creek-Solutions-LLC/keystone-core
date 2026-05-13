@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (the v1.0
 // security backends are Linux-only).
-var ErrUnsupportedOS = errors.New("security: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("security: unsupported OS for v0.1 (Linux only)")
 
 // ErrSELinuxUnavailable is returned when the SELinux user-space tools
 // (`getenforce` / `setenforce` / `getsebool` / `setsebool`) or the

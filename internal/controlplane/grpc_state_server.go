@@ -380,7 +380,7 @@ func (s *StateGRPCServer) compile(yaml []byte, vars, facts map[string]any) ([]*s
 		return nil, status.Errorf(codes.InvalidArgument, "parse: %v", err)
 	}
 	if len(sf.Includes) > 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "includes not supported in v1.0 yaml_content path; submit a fully-resolved state file")
+		return nil, status.Errorf(codes.InvalidArgument, "includes not supported in v0.1 yaml_content path; submit a fully-resolved state file")
 	}
 	if len(vars) > 0 {
 		if sf.Variables == nil {

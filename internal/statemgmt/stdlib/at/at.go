@@ -29,7 +29,7 @@
 // own at queue; on a host without the `at` binary, mutating
 // operations fail with ErrNoAt.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Replace-on-change (detect a queued job whose command/time
 //     differs from the declaration and re-queue) — v1.0 matches by
 //     name only.

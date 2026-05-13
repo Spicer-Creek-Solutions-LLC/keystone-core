@@ -25,7 +25,7 @@
 // -j ACCEPT" (a string is whitespace-split; a list of args is used
 // as-is). `table` defaults to "filter"; `family` to "ipv4".
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - `family: both`; structured rule params (proto/dport/jump/… à
 //     la Salt) instead of a raw `rule`; rule position / ordering
 //     management; quote-aware rule parsing (--comment "with spaces").

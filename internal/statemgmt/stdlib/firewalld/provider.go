@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (firewalld is
 // Linux-only).
-var ErrUnsupportedOS = errors.New("firewalld: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("firewalld: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoFirewallCmd is returned when the `firewall-cmd` binary is not
 // on PATH.

@@ -25,7 +25,7 @@
 // (tbz2/tbz), zip. `format: auto` (the default) infers from the
 // filename extension.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - `state: absent` (needs an extraction manifest to remove only
 //     what was extracted — use `file: <target>` `state: absent`).
 //   - `clean: true` (remove `target` before extracting).

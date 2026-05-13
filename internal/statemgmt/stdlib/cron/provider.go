@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 manages
 // crontabs via the Linux `crontab(1)` binary).
-var ErrUnsupportedOS = errors.New("cron: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("cron: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoCrontab is returned by mutating operations on a host where the
 // `crontab` binary is not on PATH.

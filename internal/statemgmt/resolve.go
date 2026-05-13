@@ -17,7 +17,7 @@ import (
 // "prereq: [B] on A" reads "A is prerequisite for B" — A first). One
 // rule for all eight keys is easier to teach than per-key direction
 // tables; if a real use case demands Salt-faithful prereq we'll add a
-// per-key direction policy in v1.x (tracked in V1X-BACKLOG).
+// per-key direction policy in v1.x (tracked in ROADMAP).
 //
 // Runtime semantics of watch / onchanges / prereq (extra-handler
 // triggers, conditional firing) are runner concerns. The Resolver

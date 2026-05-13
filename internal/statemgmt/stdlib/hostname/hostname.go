@@ -9,7 +9,7 @@
 // and execs hostname(1) — Alpine / OpenRC hosts manage hostname via
 // the file anyway. Non-Linux → ErrUnsupportedOS.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - pretty hostname (/etc/machine-info)
 //   - transient-only mode
 //   - divergent running-vs-static hostname repair

@@ -6,7 +6,7 @@ import (
 )
 
 // ErrUnsupportedOS is returned on non-Linux platforms.
-var ErrUnsupportedOS = errors.New("network: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("network: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoIP is returned when the `ip` (iproute2) binary is not on
 // PATH.

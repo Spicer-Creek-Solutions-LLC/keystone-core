@@ -24,7 +24,7 @@
 //	          when Name is a regular file (a swapfile) it is also
 //	          removed (a device is left alone).
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - UUID=/LABEL= swap sources.
 //   - Enforcing/changing the size of an *existing* swapfile (`size`
 //     only governs creation).

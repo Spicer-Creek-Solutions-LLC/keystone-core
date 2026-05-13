@@ -68,7 +68,7 @@ func (c Configuration) Validate() error {
 // production / enterprise modes with a v1.x deferral message —
 // production needs TLS cert collection (Epic 11) and enterprise
 // needs blueprint selection (Epic 14 + 17). Tracked in
-// docs/project/V1X-BACKLOG.md.
+// docs/project/ROADMAP.md.
 //
 // Drop this function (or change it to a no-op) when those epics
 // land and the deferral lifts.
@@ -77,7 +77,7 @@ func ValidateForV10(c *Configuration) error {
 		return errors.New("bootstrap: configuration is nil")
 	}
 	if c.Mode != ModeDemo {
-		return fmt.Errorf("bootstrap: %s mode is reserved for v1.x (see docs/project/V1X-BACKLOG.md); use demo mode for v1.0", string(c.Mode))
+		return fmt.Errorf("bootstrap: %s mode is reserved for v1.x (see docs/project/ROADMAP.md); use demo mode for v1.0", string(c.Mode))
 	}
 	return nil
 }

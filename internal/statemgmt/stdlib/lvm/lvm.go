@@ -38,7 +38,7 @@
 // mounted LV will fail. Operators must clear blockers (unmount,
 // remove children) themselves before the relevant Apply.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Existing-VG PV-set management (`vgextend` / `vgreduce`,
 //     `vgchange` allocation policy, missing-PV cleanup).
 //   - Existing-LV resize (`lvextend` / `lvreduce` /

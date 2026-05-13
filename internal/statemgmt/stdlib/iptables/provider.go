@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (iptables is
 // Linux-only).
-var ErrUnsupportedOS = errors.New("iptables: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("iptables: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoIptables is returned when the binary for the requested family
 // (iptables / ip6tables, and the matching *-save tool for `save:`)

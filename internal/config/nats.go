@@ -51,7 +51,7 @@ type NATSConfig struct {
 	// to each backoff delay. 0.2 default (20%) — fleet-scale
 	// reconnect-storm protection against 1000-agent lock-step
 	// reconnects (Epic 06 risk). AWS decorrelated jitter is the
-	// gold standard at >500-agent scale; tracked in V1X-BACKLOG.
+	// gold standard at >500-agent scale; tracked in ROADMAP.
 	ReconnectJitter float64 `koanf:"reconnectjitter"`
 
 	ClusterName string `koanf:"clustername"`
@@ -97,7 +97,7 @@ type BootstrapPSK struct {
 // drives transitions via the disconnect/reconnect callbacks already
 // in place from task 2; Health degrades to error when every endpoint
 // is OPEN. Active dial-time eviction (skipping OPEN endpoints when
-// nats.go picks the next reconnect target) is deferred to v1.x —
+// nats.go picks the next reconnect target) is deferred to v0.x —
 // it requires replacing nats.go's native multi-URL failover with a
 // per-endpoint dial loop, which is a substantial refactor for
 // marginal v1.0 benefit.

@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned by detect on platforms where v1.0
 // doesn't ship any package-manager backend (i.e., not Linux).
-var ErrUnsupportedOS = errors.New("pkg: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("pkg: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned by Apply paths when no supported
 // package manager binary was detected on the host. v1.0 ships apt

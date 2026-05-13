@@ -10,7 +10,7 @@
 // and writes /etc/timezone — which is what Alpine / Debian without
 // systemd expect anyway. Non-Linux → ErrUnsupportedOS.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - NTP-sync coupling (timedatectl set-ntp)
 //   - localtime: copy mode (copy the zoneinfo file instead of
 //     symlinking)

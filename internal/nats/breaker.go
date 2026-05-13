@@ -17,7 +17,7 @@ import (
 // every endpoint's breaker is OPEN. Active dial-time eviction
 // (skipping OPEN endpoints when picking the next reconnect target)
 // requires replacing nats.go's native multi-URL failover with a
-// per-endpoint dial loop — a substantial refactor deferred to v1.x.
+// per-endpoint dial loop — a substantial refactor deferred to v0.x.
 type Breaker interface {
 	// Allow reports whether ConnectionManager should attempt this
 	// endpoint right now. Closed → true; Open → false until

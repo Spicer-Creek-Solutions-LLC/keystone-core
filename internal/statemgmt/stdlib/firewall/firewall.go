@@ -36,7 +36,7 @@
 // (services.go) so every backend agrees on the port — firewalld's
 // own service catalog and `/etc/services` would otherwise diverge.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - `action: deny` (v1.0 is allow-only).
 //   - `family: both` for iptables (v1.0 manages IPv4 only on the
 //     iptables backend — for IPv6 coverage use `backend: nftables`

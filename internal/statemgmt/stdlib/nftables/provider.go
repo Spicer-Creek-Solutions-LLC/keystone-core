@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (nftables is
 // Linux-only).
-var ErrUnsupportedOS = errors.New("nftables: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("nftables: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoNft is returned when the `nft` binary is not on PATH.
 var ErrNoNft = errors.New("nftables: the nft binary was not found on PATH")

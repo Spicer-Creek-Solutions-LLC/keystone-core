@@ -40,7 +40,7 @@
 // DriftSeverity HIGH — a missing default route is no egress; a
 // stale route can hairpin traffic into a black hole. MEDIUM nil.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - **Boot-survive / persistent configuration** rendered to the
 //     host's network manager (see the `network` module's V1X entry).
 //   - **Route attributes**: `proto`, `scope`, `src`, `mtu`,

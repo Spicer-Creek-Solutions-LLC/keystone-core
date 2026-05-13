@@ -15,7 +15,7 @@ const (
 
 // ErrUnsupportedOS is returned by the default detector on non-Linux
 // platforms (the v1.0 stdlib firewall backends are all Linux-only).
-var ErrUnsupportedOS = errors.New("firewall: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("firewall: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoFirewall is returned when no firewall backend is present —
 // none of `firewall-cmd`, `iptables`, or `nft` are on PATH.

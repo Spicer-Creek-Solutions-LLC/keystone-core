@@ -76,7 +76,7 @@ func NewConfigurer(d Defaults, log *slog.Logger) *Configurer {
 // blueprint selection (Epic 14 + 17). The wizard surfaces the
 // modes as visibly-disabled options with a description pointing
 // at the deferral, and aborts cleanly if the operator picks one.
-// Tracked in docs/project/V1X-BACKLOG.md.
+// Tracked in docs/project/ROADMAP.md.
 func (c *Configurer) Configure(ctx context.Context, detection *bootstrap.DetectionResult) (*bootstrap.Configuration, error) {
 	values := c.seedValues(detection)
 	form := c.buildForm(detection, &values)
@@ -95,7 +95,7 @@ func (c *Configurer) Configure(ctx context.Context, detection *bootstrap.Detecti
 }
 
 // configurationFromValues runs the post-form gate: blocks
-// non-demo modes (deferred to v1.x via bootstrap.ValidateForV10)
+// non-demo modes (deferred to v0.x via bootstrap.ValidateForV10)
 // and validates the Configuration. Lifted out of Configure so
 // unit tests can exercise the gate without driving an
 // interactive form.
@@ -161,7 +161,7 @@ func (c *Configurer) buildForm(detection *bootstrap.DetectionResult, v *formValu
 	intro := buildIntroNote(detection)
 	modeSelect := huh.NewSelect[string]().
 		Title("Mode").
-		Description("Demo is the only mode available in v1.0. Production + enterprise are deferred — see docs/project/V1X-BACKLOG.md.").
+		Description("Demo is the only mode available in v1.0. Production + enterprise are deferred — see docs/project/ROADMAP.md.").
 		Options(
 			huh.NewOption("demo (recommended for v1.0)", string(bootstrap.ModeDemo)),
 			huh.NewOption("production [v1.x — needs TLS cert collection]", string(bootstrap.ModeProduction)),

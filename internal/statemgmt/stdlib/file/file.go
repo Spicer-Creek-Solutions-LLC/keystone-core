@@ -9,7 +9,7 @@
 //	directory — directory at path with declared mode + owner + group
 //	symlink   — symlink at path pointing to declared target
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - HTTP/HTTPS source URLs (content / source are local-only)
 //   - Recursive directory state (set perms across a tree)
 //   - Backup-on-overwrite (.bak files)

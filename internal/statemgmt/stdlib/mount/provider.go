@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 manages
 // mounts via /proc/mounts + mount(8)/umount(8)).
-var ErrUnsupportedOS = errors.New("mount: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("mount: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoMountTools is returned by mount/unmount operations on a host
 // where the `mount` or `umount` binary is not on PATH.

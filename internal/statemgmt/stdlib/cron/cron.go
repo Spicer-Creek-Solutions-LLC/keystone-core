@@ -20,7 +20,7 @@
 // (default "root"). The module shells out to `crontab(1)`; when that
 // binary is absent, mutating operations fail with ErrNoCrontab.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Separate minute/hour/day-of-month/month/day-of-week params
 //     (Salt-style) — v1.0 takes one `schedule` string.
 //   - /etc/cron.d drop-in mode (use the `file` module for those).

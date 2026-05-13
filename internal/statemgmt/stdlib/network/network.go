@@ -41,7 +41,7 @@
 // DriftSeverity HIGH (wrong network = unreachable host). Nil →
 // MEDIUM.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - **Persistent / boot-survive configuration** rendered to the
 //     host's network manager: networkd, NetworkManager, netplan,
 //     /etc/network/interfaces, RHEL ifcfg. Each is its own

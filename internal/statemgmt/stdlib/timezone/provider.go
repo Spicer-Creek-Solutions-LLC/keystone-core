@@ -6,7 +6,7 @@ import (
 )
 
 // ErrUnsupportedOS is returned on non-Linux platforms.
-var ErrUnsupportedOS = errors.New("timezone: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("timezone: unsupported OS for v0.1 (Linux only)")
 
 // ErrZoneNotFound is returned by Set when the declared zone has no
 // /usr/share/zoneinfo/<zone> entry on the agent. (Can't be checked

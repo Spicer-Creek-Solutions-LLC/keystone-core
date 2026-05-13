@@ -12,7 +12,7 @@
 // (net/ipv4/ip_forward) notation; the module normalises slashes →
 // dots so both map to the same persistence file.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - One consolidated keystone /etc/sysctl.d file instead of one
 //     file per key
 //   - `sysctl --system` reload after writing config (v1.0 sets the

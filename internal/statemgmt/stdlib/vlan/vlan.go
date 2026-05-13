@@ -21,7 +21,7 @@
 // DriftSeverity HIGH — a missing tagged interface is a downed L2
 // segment. MEDIUM nil.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - In-place reconciliation of the VLAN's `id`, `parent`, ingress
 //     / egress QoS maps (`ingress-qos-map` / `egress-qos-map`),
 //     `reorder_hdr`, `gvrp`, `mvrp`, `loose_binding`.

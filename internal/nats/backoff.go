@@ -17,8 +17,8 @@ import (
 // across the backoff window instead of marching in unison.
 //
 // AWS decorrelated jitter is the gold standard at >500-agent scale;
-// symmetric jitter is adequate for v1.0 trial fleets and tracked in
-// docs/project/V1X-BACKLOG.md for future optimization.
+// symmetric jitter is adequate for v0.x trial fleets and tracked in
+// docs/project/ROADMAP.md for future optimization.
 //
 // rng is injected so tests can drive deterministic sequences;
 // production callers pass a real *rand.Rand. nil rng returns the

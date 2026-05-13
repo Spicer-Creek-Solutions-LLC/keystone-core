@@ -10,7 +10,7 @@
 // modes display a "v1.0 supports demo only" notice and abort —
 // they gate on Epic 11 (Identity & Auth) for TLS cert collection
 // and Epic 14 + 17 for blueprint selection. Tracked in
-// docs/project/V1X-BACKLOG.md.
+// docs/project/ROADMAP.md.
 //
 // The TUI never invokes the bootstrap engine itself; the caller
 // (cmd/kscore-agent's bootstrap subcommand) wires this Configurer

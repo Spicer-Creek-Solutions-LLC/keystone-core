@@ -15,7 +15,7 @@
 // internal form) so /proc/modules comparisons and persist filenames
 // are stable.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - modprobe options / module load-time parameters
 //     (modprobe <name> opt=val)
 //   - /etc/modprobe.d blacklist management

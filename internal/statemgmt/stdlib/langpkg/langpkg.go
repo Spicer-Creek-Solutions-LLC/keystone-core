@@ -32,7 +32,7 @@
 // (pm2, gunicorn, bundler, …); a missing or wrong-version package
 // breaks the service that depends on it.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - **Per-user / per-project installs**: `working_dir:`, `user:`,
 //     pip `--user` and venv, pipx, npm `--prefix` / non-global, gem
 //     `--user-install` / Bundler. v1.0 is global-only.

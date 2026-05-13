@@ -6,7 +6,7 @@ import (
 )
 
 // ErrUnsupportedOS is returned on non-Linux platforms.
-var ErrUnsupportedOS = errors.New("langpkg: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("langpkg: unsupported OS for v0.1 (Linux only)")
 
 // Per-backend sentinels for missing tools.
 var (

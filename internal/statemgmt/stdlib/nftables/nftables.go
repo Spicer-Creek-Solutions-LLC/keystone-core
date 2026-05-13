@@ -33,7 +33,7 @@
 // some operators, so e.g. `tcp dport ssh accept` will not match the
 // stored `tcp dport 22 accept` and would be re-added on every run.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - Structured rule params (proto/dport/saddr/jump/… à la Salt)
 //     instead of a raw `rule`; rule ordering / re-placement; matching
 //     by handle or by rule comment instead of by canonical text;

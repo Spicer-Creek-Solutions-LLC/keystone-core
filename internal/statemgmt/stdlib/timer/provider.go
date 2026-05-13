@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (v1.0 ships a
 // systemd backend only).
-var ErrUnsupportedOS = errors.New("systemd_timer: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("systemd_timer: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned by the systemctl-backed operations on a
 // Linux host where `systemctl` is not on PATH (no systemd).

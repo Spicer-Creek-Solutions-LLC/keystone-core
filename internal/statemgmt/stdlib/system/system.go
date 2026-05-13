@@ -32,7 +32,7 @@
 // returns `["present","absent"]`; per-op validation rejects `absent`
 // for reboot and locale.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - `absent` semantics for `reboot` (cancel a scheduled reboot via
 //     `shutdown -c`) and for `locale` (revert to compile-time
 //     default; ambiguous).

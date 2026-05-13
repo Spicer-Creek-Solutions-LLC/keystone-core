@@ -13,7 +13,7 @@
 // module is genuinely a Linux v1.0 surface and we don't pretend
 // otherwise.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - macOS via `dscl` (different beast; needs a parallel provider)
 //   - `force` deletion when the group is a user's primary group
 //   - `members:` (better handled by user.groups:)

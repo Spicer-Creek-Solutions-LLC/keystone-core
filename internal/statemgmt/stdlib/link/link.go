@@ -20,7 +20,7 @@
 //
 // Symlink targets are compared and stored verbatim — a relative
 // target is not resolved against Name's directory. v1.0 out of
-// scope (V1X candidates):
+// scope (v0.x candidates):
 //   - Relative-target normalisation / canonicalisation
 //   - owner/group on the link itself (use the `file` module's
 //     symlink state when link ownership matters)

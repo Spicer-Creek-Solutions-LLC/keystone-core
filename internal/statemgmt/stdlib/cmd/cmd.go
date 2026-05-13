@@ -17,7 +17,7 @@
 // want to run a command every time can opt in with
 // `onlyif: /bin/true`.
 //
-// v1.0 out of scope (V1X candidates):
+// v0.1 out of scope (v0.x candidates):
 //   - state: wait (runs only when triggered by a watch requisite)
 //   - runas (run as a different user)
 //   - non-POSIX shells (only /bin/sh in v1.0)

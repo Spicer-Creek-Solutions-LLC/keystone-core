@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-var ErrUnsupportedOS = errors.New("vlan: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("vlan: unsupported OS for v0.1 (Linux only)")
 var ErrNoIP = errors.New("vlan: the ip (iproute2) binary was not found on PATH")
 
 func IsUnsupportedOS(err error) bool { return errors.Is(err, ErrUnsupportedOS) }

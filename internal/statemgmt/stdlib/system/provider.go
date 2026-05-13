@@ -7,7 +7,7 @@ import (
 
 // ErrUnsupportedOS is returned on non-Linux platforms (the v1.0
 // system module is Linux-only).
-var ErrUnsupportedOS = errors.New("system: unsupported OS for v1.0 (Linux only)")
+var ErrUnsupportedOS = errors.New("system: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoShutdown is returned when the reboot op is invoked but
 // `shutdown` is not on PATH.

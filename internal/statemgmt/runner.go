@@ -119,7 +119,7 @@ type RunReport struct {
 //	Drift  → state.drift
 //	Change → state.change
 //	Done   → state.apply.done (Outcome != Failed) OR state.apply.fail (Outcome == Failed)
-//	Skip   → state.apply.skip   (new — see V1X-BACKLOG for taxonomy sync)
+//	Skip   → state.apply.skip   (new — see ROADMAP for taxonomy sync)
 //
 // Skip exists because cascade-skipped declarations are part of the
 // observability picture: an external subscriber (alerting, audit,
