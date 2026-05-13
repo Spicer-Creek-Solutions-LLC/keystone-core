@@ -285,6 +285,18 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: `proto: tcp, dport: 22, jump: accept` builds the rule; a rule that exists at the wrong index is moved when an `index:` is declared; `tcp dport ssh accept` matches the stored `tcp dport 22 accept` (canonicalised before comparison); `comment "two words"` round-trips; a `manage_table: true` / `manage_chain: true` declaration creates the table/chain with the declared hook+policy; a saved ruleset is reloadable via `nft -f`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/nftables/nftables.go` package comment; `internal/statemgmt/stdlib/nftables/params.go`.
 
+#### `firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules
+
+- **What**: Epic 08 task 11 ships the `firewalld` module (manage one item — a `service`, a `port`, or a `rich_rule` — in an existing firewalld zone via `firewall-cmd --permanent --zone=Z --query-/add-/remove-…`; states `present` / `absent`; runs `--reload` after a change unless `reload: false`). Reserved for v1.x:
+  - Whole-zone management (declare the complete set of services / ports / rich rules / sources / interfaces on a zone and prune the rest) and zone creation; binding interfaces or source addresses to a zone; default-zone management; per-zone target (`ACCEPT`/`REJECT`/`DROP`).
+  - Toggles for masquerade, ICMP-block (and ICMP-block-inversion), forward ports, ICMP types, and protocol items; `--direct` rules; ipset management; lockdown / panic mode.
+  - Runtime-only (non-permanent) changes (v1.0 always operates on `--permanent` so changes survive a reboot).
+  - Canonical-form rich-rule comparison (`--query-rich-rule` matches against firewalld's stored, normalised form — whitespace and attribute order may not survive verbatim; v1.0 documents this; canonicalise-before-compare is the follow-up).
+  - `firewall` is its own (planned) abstraction module that dispatches across iptables / nftables / firewalld; firewalld is its own backend here.
+- **Why deferred**: "enable / disable this one service / port / rich rule on this zone" is the v1.0 scope; whole-zone management needs a diffing pass over multiple `--list-…` outputs, masquerade / forward-ports / direct rules each have their own flag families and corner cases, and the rich-rule canonicaliser is a real grammar parse. The `Provider` (`Has` / `Add` / `Remove` / `Reload`) and the `Item` (`Kind` + `Value`) types extend cleanly.
+- **Acceptance**: a `manage_zone: true` declaration replaces the zone's full service/port/rich-rule/source/interface set; `masquerade: true` toggles masquerade; `forward_port: { port: 80, proto: tcp, to_port: 8080 }` round-trips; a `direct_rule:` declaration round-trips; a re-formatted rich rule (different whitespace or attribute order) still matches the stored one; a stopped firewalld → permanent change persists, reload reports clearly.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/firewalld/firewalld.go` package comment; `internal/statemgmt/stdlib/firewalld/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

@@ -353,3 +353,16 @@ func TestModuleNames_IncludesNftables(t *testing.T) {
 		t.Error("nftables module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesFirewalld(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "firewalld" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("firewalld module missing from stdlib")
+	}
+}

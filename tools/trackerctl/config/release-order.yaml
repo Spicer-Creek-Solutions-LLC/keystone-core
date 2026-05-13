@@ -48,6 +48,7 @@ v1.1:
   - "`ssh` stdlib module — key validation, options-set compare, whole-file management"
   - "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence"
   - "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching"
+  - "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
