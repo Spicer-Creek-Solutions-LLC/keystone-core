@@ -33,6 +33,7 @@ See `PROJECT-DETAILS.md §4.10`.
 ## Tasks
 
 1. **`SPIFFEID` type** — trust domain + path; helpers for agent/server/service paths.
+   _(landed: `internal/identity.SPIFFEID` wraps [`github.com/spiffe/go-spiffe/v2/spiffeid`](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffeid) for canonical SPIFFE-ID grammar compliance. Public surface: `ParseSPIFFEID` / `MustParseSPIFFEID` / `NewSPIFFEID`; accessors `TrustDomain` / `Path` / `Segments` / `URI` / `String` / `IsZero` / `Equal` / `MemberOf`; `MarshalText` + `UnmarshalText`; JSON support with zero-value → `null` semantics. Standard-path helpers `AgentID(td, id)` / `ServerID(td, name)` / `ServiceID(td, name)` against the §4.10 path scheme (`/agent/<id>`, `/server/<name>`, `/service/<name>`). Default trust domain `kscore.local` exposed as `DefaultTrustDomain`. Every grammar rejection wraps `ErrInvalidSPIFFEID` so callers can branch with `errors.Is`. Note: per RFC 3986 + SPIFFE-ID spec, path segments are case-preserving (`Agent` is a valid segment); trust domains are lowercase-only. 100% test coverage.)_
 2. **`X509SVID{cert chain, private key, expiry, IssuedAt, Hint}`** + `Expired()` + `ShouldRotate()` (~50% lifetime).
 3. **`JWTSVID`** + signing + verification helpers.
 4. **`TrustBundle{X509Authorities, JWTAuthorities, RefreshHint, SequenceNumber}`**.

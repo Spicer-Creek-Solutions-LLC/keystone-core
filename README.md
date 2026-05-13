@@ -29,7 +29,7 @@ The reset is deliberate: rather than carry forward technical debt, the codebase 
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
 
-### Current state (epics 01–07 complete)
+### Current state (epics 01–08 complete)
 
 What's in `main` today:
 
@@ -51,7 +51,9 @@ What's in `main` today:
 - **CI**: Forgejo Actions (`.github/workflows/`) and Codeberg Woodpecker (`.woodpecker/`) — same Make targets, two runners.
 - **Snapshot release**: `make release-snapshot` produces six tarballs/zips + a SHA-256 checksums file in `dist/`.
 
-State management (epic 08) is in progress; identity/auth (epic 09) and the rest follow. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The ranked v0.x backlog (entries gated on v0.5, v1.0, or further out) lives in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
+- **State management** (epic 08): `internal/statemgmt` ships the engine (parse → render → validate → resolve → check / apply / test) plus 35 stdlib modules across nine categories (system & core / scheduled tasks / storage / network base / firewall / SSH & security / system config / files & VCS / certificates). `pkg/saga` provides aggregate-and-continue compensation that `Runner.RunSaga` wires into the state runner against the `StateHistoryStore`. `StateGRPCServer` implements `ApplyState` (streaming), `CheckState`, `DetectDrift`, `GetStateHistory`, `RollbackState`, `GetStateStatus`. End-to-end integration test exercises five paths (apply / idempotency / drift / rollback / saga compensation / requisite-cycle error) over `bufconn`; a `test/e2e/state/` scaffold parks the v0.5 cross-distro Docker matrix.
+
+Identity & auth (epic 09) is in progress; secrets, events, audit, clustering, and the rest follow. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The ranked v0.x backlog (entries gated on v0.5, v1.0, or further out) lives in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
 
 ## What v1.0 commits to
 
