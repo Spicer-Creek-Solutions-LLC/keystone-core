@@ -431,3 +431,16 @@ func TestModuleNames_IncludesDisk(t *testing.T) {
 		t.Error("disk module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesLangpkg(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "langpkg" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("langpkg module missing from stdlib")
+	}
+}

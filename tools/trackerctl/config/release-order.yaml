@@ -54,6 +54,7 @@ v1.1:
   - "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale"
   - "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot"
   - "`disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion"
+  - "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"
