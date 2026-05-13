@@ -496,3 +496,16 @@ func TestModuleNames_IncludesBridge(t *testing.T) {
 		t.Error("bridge module missing from stdlib")
 	}
 }
+
+func TestModuleNames_IncludesVLAN(t *testing.T) {
+	t.Parallel()
+	found := false
+	for _, name := range ModuleNames() {
+		if name == "vlan" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("vlan module missing from stdlib")
+	}
+}

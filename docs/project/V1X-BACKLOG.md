@@ -426,6 +426,18 @@ Format: each entry is a `####` heading; body has **What / Why deferred / Accepta
 - **Acceptance**: a `members:` change on a live bridge attaches/detaches ports without re-creating; `stp: true` on a live STP-disabled bridge enables STP and reports the change; `port_pvid: { eth0: 10, eth1: 20 }` round-trips; a `vlan_filtering: true` bridge takes a list of `bridge_vlan:` declarations that populate the VLAN table.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bridge/bridge.go` package comment; `internal/statemgmt/stdlib/bridge/params.go`.
 
+#### `vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration
+
+- **What**: Epic 08 task 11 ships the `vlan` module (create / delete an 802.1Q VLAN interface at runtime via `ip link add link <parent> name <name> type vlan id <id>`). Reserved for v1.x:
+  - **In-place attribute reconciliation** on an existing VLAN: `id`, `parent`, ingress-qos-map, egress-qos-map, reorder_hdr, gvrp, mvrp, loose_binding.
+  - **QinQ / 802.1ad** stacked-VLAN tagging (`proto 802.1ad`).
+  - **VLAN ranges** — declare 100-200 in one decl that creates that many subinterfaces.
+  - **Bridge VLAN filtering** (`bridge vlan add vid 10 dev port`) — see the `bridge` module's V1X scope.
+  - **Persistent / boot-survive configuration** rendered to the host's network manager.
+- **Why deferred**: "create or delete this VLAN" is the v1.0 scope; the in-place attribute change has subtle implications (VLAN id change effectively reroutes the L2 segment), and QinQ + VLAN ranges open new param-shape questions (a range op would have a different `name:` semantic). The Provider (`GetLink` / `CreateVLAN` / `DeleteLink`) extends cleanly.
+- **Acceptance**: an `id:` change on a live VLAN reports drift and reconciles via delete-and-recreate (or `ip link set <vlan> type vlan id <new>` if the kernel supports it); `proto: 802.1ad` round-trips; `id_range: 100-200` creates 101 VLAN interfaces in one Apply; a `persist: networkd` decl renders a `*.network` for the VLAN.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/vlan/vlan.go` package comment; `internal/statemgmt/stdlib/vlan/params.go`.
+
 #### `state.apply.skip` event taxonomy + wiring
 
 - **What**: Epic 08 task 6 ships a `RunObserver.Skip` callback for cascade-skipped declarations (an earlier failure aborted the run; subsequent decls don't execute but are surfaced via the observer so external subscribers — alerting, audit, dashboards — see them). The statemgmt runner does not own event-subject naming; that's Epic 11. The corresponding event type `state.apply.skip` is therefore NOT yet listed in PROJECT-DETAILS §4.9's event taxonomy ("agent 5 / job 4 / state 5 / system 3 / user 3 / policy 2 = 22 types"). It needs to be added when Epic 11 wires the runner observer to the NATS event bus.

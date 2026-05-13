@@ -59,6 +59,7 @@ v1.1:
   - "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath"
   - "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes"
   - "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration"
+  - "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration"
   # platform reach
   - "`kscore-agent service start|stop` subcommands"   # v1.0-narrowing targeted at v1.1
   - "Windows agent (native service)"

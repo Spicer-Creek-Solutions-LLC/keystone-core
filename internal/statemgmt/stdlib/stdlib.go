@@ -58,6 +58,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timer"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/timezone"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/user"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/vlan"
 )
 
 // modules is the canonical name → factory map. Adding a new stdlib
@@ -96,6 +97,7 @@ var modules = map[string]statemgmt.Factory{
 	"systemd_timer": timer.New,
 	"timezone":      timezone.New,
 	"user":          user.New,
+	"vlan":          vlan.New,
 	"x509":          pki.New,
 }
 
