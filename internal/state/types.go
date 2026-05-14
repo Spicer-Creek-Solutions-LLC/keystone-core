@@ -313,6 +313,57 @@ type JoinTokenRecord struct {
 	Metadata  map[string]string
 }
 
+// LeaseStoreRecord is the persisted shape of a tracked Vault / dynamic
+// secret lease. Maps to the `secret_leases` table. Epic 10 task 6's
+// LeaseManager owns the lifecycle: the broker's IssueDynamicSecret
+// inserts a row via the manager; the scheduler updates / cleans up.
+//
+// State + Strategy are stored as the canonical lowercase strings
+// produced by [secrets.LeaseState.String] / [secrets.RenewStrategy.String]
+// (e.g. "active" / "expired" / "eager" / "lazy" / "on_demand") so
+// `sqlite3` + `psql` reads stay human-readable.
+//
+// RevokedAt is non-nil only after a successful revocation. The row
+// stays in the table after revoke so audit can still answer
+// "what was this lease, when did it die" — DeleteExpiredLeases is
+// the operator hook for retention.
+//
+// Metadata is operator-supplied free-form tags persisted as JSON.
+type LeaseStoreRecord struct {
+	ID            string
+	Backend       string
+	SecretPath    string
+	IssuedAt      time.Time
+	ExpiresAt     time.Time
+	Duration      time.Duration
+	Renewable     bool
+	MaxTTL        time.Duration // 0 = unbounded
+	State         string
+	Strategy      string
+	IssuedFor     string    // SPIFFE ID or empty
+	LastRenewedAt time.Time // zero = never renewed
+	RenewCount    int
+	RevokedAt     time.Time // zero = unrevoked
+	Metadata      map[string]string
+}
+
+// LeaseFilter narrows a LeaseStore.ListLeases query.
+//
+// Zero-value fields are ignored. `PathPrefix` (when non-empty) does
+// SQL `LIKE 'prefix%'` against `secret_path`. `IncludeRevoked`
+// defaults to false — operators rarely want revoked rows in routine
+// queries; the audit-mode CLI sets it to surface them.
+type LeaseFilter struct {
+	Backend        string
+	State          string // exact match
+	PathPrefix     string
+	IncludeRevoked bool
+	Limit          int
+	Offset         int
+	SortColumn     string
+	SortDesc       bool
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.
@@ -423,4 +474,10 @@ var AllowedJoinTokenSortColumns = []string{
 // AllowedStateRunSortColumns is the allowlist for StateRunFilter.SortColumn.
 var AllowedStateRunSortColumns = []string{
 	"id", "mode", "status", "agent_id", "started_at", "ended_at",
+}
+
+// AllowedLeaseSortColumns is the allowlist for LeaseFilter.SortColumn.
+var AllowedLeaseSortColumns = []string{
+	"id", "backend", "secret_path", "state", "strategy",
+	"issued_at", "expires_at", "last_renewed_at",
 }

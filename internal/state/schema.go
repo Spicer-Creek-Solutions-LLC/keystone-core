@@ -187,6 +187,23 @@ var sqliteSchema = []string{
     used_count INTEGER NOT NULL DEFAULT 0,
     metadata   TEXT NOT NULL DEFAULT '{}'
 )`,
+	`CREATE TABLE IF NOT EXISTS secret_leases (
+    id              TEXT PRIMARY KEY,
+    backend         TEXT NOT NULL,
+    secret_path     TEXT NOT NULL,
+    issued_at       TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    duration_ns     INTEGER NOT NULL DEFAULT 0,
+    renewable       INTEGER NOT NULL DEFAULT 0,
+    max_ttl_ns      INTEGER NOT NULL DEFAULT 0,
+    state           TEXT NOT NULL,
+    strategy        TEXT NOT NULL,
+    issued_for      TEXT NOT NULL DEFAULT '',
+    last_renewed_at TEXT,
+    renew_count     INTEGER NOT NULL DEFAULT 0,
+    revoked_at      TEXT,
+    metadata        TEXT NOT NULL DEFAULT '{}'
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -201,6 +218,9 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
 	`CREATE INDEX IF NOT EXISTS join_tokens_agent_id_idx ON join_tokens (agent_id)`,
 	`CREATE INDEX IF NOT EXISTS join_tokens_expires_at_idx ON join_tokens (expires_at)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_expires_at_idx ON secret_leases (expires_at)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_backend_idx ON secret_leases (backend)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_state_idx ON secret_leases (state)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -326,6 +346,23 @@ var postgresSchema = []string{
     used_count INTEGER NOT NULL DEFAULT 0,
     metadata   JSONB NOT NULL DEFAULT '{}'::jsonb
 )`,
+	`CREATE TABLE IF NOT EXISTS secret_leases (
+    id              TEXT PRIMARY KEY,
+    backend         TEXT NOT NULL,
+    secret_path     TEXT NOT NULL,
+    issued_at       TIMESTAMPTZ NOT NULL,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    duration_ns     BIGINT NOT NULL DEFAULT 0,
+    renewable       BOOLEAN NOT NULL DEFAULT FALSE,
+    max_ttl_ns      BIGINT NOT NULL DEFAULT 0,
+    state           TEXT NOT NULL,
+    strategy        TEXT NOT NULL,
+    issued_for      TEXT NOT NULL DEFAULT '',
+    last_renewed_at TIMESTAMPTZ,
+    renew_count     INTEGER NOT NULL DEFAULT 0,
+    revoked_at      TIMESTAMPTZ,
+    metadata        JSONB NOT NULL DEFAULT '{}'::jsonb
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -340,4 +377,7 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
 	`CREATE INDEX IF NOT EXISTS join_tokens_agent_id_idx ON join_tokens (agent_id)`,
 	`CREATE INDEX IF NOT EXISTS join_tokens_expires_at_idx ON join_tokens (expires_at)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_expires_at_idx ON secret_leases (expires_at)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_backend_idx ON secret_leases (backend)`,
+	`CREATE INDEX IF NOT EXISTS secret_leases_state_idx ON secret_leases (state)`,
 }

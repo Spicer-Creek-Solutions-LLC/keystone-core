@@ -160,6 +160,31 @@ type StateHistoryStore interface {
 	DeleteStateRunsBefore(ctx context.Context, cutoff time.Time, statuses []StateRunStatus) (deleted int, err error)
 }
 
+// LeaseStore manages the persistent record of tracked dynamic-secret
+// leases per PROJECT-DETAILS §4.11. Epic 10 task 6's LeaseManager wraps
+// this store + a background scheduler + lifecycle callbacks.
+//
+// CreateLease wraps state.ErrDuplicate on a PRIMARY KEY collision so
+// callers branch with errors.Is. UpdateLease is a full-row replace
+// (the scheduler stamps every field at once after a renewal); it
+// returns state.ErrNotFound when no row matches the supplied ID.
+// DeleteExpiredLeases is the operator-facing retention hook; the
+// LeaseManager's lifecycle loop fires it on a configurable cadence.
+type LeaseStore interface {
+	CreateLease(ctx context.Context, r *LeaseStoreRecord) error
+	GetLease(ctx context.Context, id string) (*LeaseStoreRecord, error)
+	UpdateLease(ctx context.Context, r *LeaseStoreRecord) error
+	ListLeases(ctx context.Context, filter LeaseFilter) ([]*LeaseStoreRecord, error)
+	DeleteLease(ctx context.Context, id string) error
+
+	// DeleteExpiredLeases removes every lease whose ExpiresAt is at
+	// or before `before` AND whose State is not "active" (the
+	// scheduler may still be actively trying to renew an
+	// up-against-the-wire active lease). Returns the number of
+	// records removed.
+	DeleteExpiredLeases(ctx context.Context, before time.Time) (int, error)
+}
+
 // Store is the root persistence interface composing all v1.0 sub-interfaces.
 //
 // Other domains add their own sub-interfaces in their respective epics
@@ -172,6 +197,7 @@ type Store interface {
 	BatchJobStore
 	APIKeyStore
 	JoinTokenStore
+	LeaseStore
 	StateHistoryStore
 	HealthStore
 

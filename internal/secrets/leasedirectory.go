@@ -4,12 +4,19 @@ import "sync"
 
 // LeaseRecord is the slim metadata the [Broker] needs to route a
 // `RenewLease` / `RevokeLease` request back to the issuing backend
-// and invalidate the cache on revoke. Task 6's `LeaseManager` will
-// carry a richer [Lease] / [LeaseInfo] record; this is the routing
+// and invalidate the cache on revoke. Task 6's [LeaseManager] carries
+// a richer [Lease] / [LeaseInfo] record; this is the routing
 // projection.
+//
+// Strategy, when non-zero, lets the recording caller pin a specific
+// renewal cadence (the lease manager interprets [RenewStrategyUnknown]
+// = 0 as "use the manager's [LeaseManagerConfig.DefaultStrategy]").
+// The in-memory directory does not look at this field; it's a hint
+// the persistent manager honours when it shadows the call.
 type LeaseRecord struct {
-	Backend string
-	Path    string
+	Backend  string
+	Path     string
+	Strategy RenewStrategy
 }
 
 // LeaseDirectory is the seam the [Broker] consults to route
