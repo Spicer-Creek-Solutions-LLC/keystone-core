@@ -530,14 +530,11 @@ func TestEmbeddedProvider_IssueJWTSVID_BeforeStart(t *testing.T) {
 
 // ---- Stub methods (tasks 8-11) -----------------------------------
 
-func TestEmbeddedProvider_Attest_NotImplemented(t *testing.T) {
-	t.Parallel()
-	p := newStartedProvider(t)
-	_, err := p.Attest(context.Background(), AttestRequest{Type: AttestorTypeJoinToken})
-	if !errors.Is(err, ErrNotImplementedYet) {
-		t.Errorf("err = %v, want ErrNotImplementedYet", err)
-	}
-}
+// Note: Attest's "no attestors configured" behavior (still
+// ErrNotImplementedYet) and "dispatch by type" behavior are
+// covered by TestEmbeddedProvider_Attest_NoAttestorsConfigured +
+// TestEmbeddedProvider_Attest_DispatchByType in
+// join_token_attestor_test.go, which were added by task 8.
 
 func TestEmbeddedProvider_CreateJoinToken_NotImplemented(t *testing.T) {
 	t.Parallel()

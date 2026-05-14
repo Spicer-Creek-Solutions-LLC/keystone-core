@@ -495,6 +495,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
+#### Join-token "any agent" mode (AgentID-less binding)
+
+- **Priority**: v0.x
+- **What**: Epic 09 task 8's `JoinTokenAttestor` REQUIRES the stored `JoinToken.AgentID` to be non-empty — empty AgentID is rejected at attestation with a `v0.x` mention. The §4.10 spec describes `AgentID` as an optional bind ("Metadata"); v0.1 makes it required so the attestor always returns a deterministic SPIFFE ID. v0.x adds an "any-agent" mode where the new agent supplies its claimed ID in the `AttestRequest` and the attestor binds the claimed AgentID at `MarkUsed` time.
+- **Why deferred**: avoids two interaction loops (the agent-claims-then-server-binds dance + what happens if two agents present the same token concurrently with different claims) that aren't on the v0.5 gate critical path. Operators today either issue one token per agent or use the `MaxUses > 1` mode with explicit AgentIDs per cohort.
+- **Acceptance**: a `kscore-identity token create --any-agent` creates a token with empty `AgentID`; agents pass `--agent-id agent-1` on attestation; the attestor binds the claimed AgentID atomically at `MarkUsed` time and returns the right SPIFFE ID; concurrent agents-with-different-claims see exactly one success per `MaxUses` slot.
+- **References**: `internal/identity/join_token_attestor.go` `JoinTokenAttestor.Attest` (the v0.1 empty-AgentID rejection); Epic 09 task 8 (landed); the §4.10 spec's "optional bind" phrasing.
+
 #### Live mid-execution stdout / stderr streaming
 
 - **Priority**: v0.x

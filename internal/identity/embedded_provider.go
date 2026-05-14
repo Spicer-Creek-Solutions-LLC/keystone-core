@@ -40,8 +40,9 @@ import (
 type EmbeddedProvider struct {
 	cfg EmbeddedProviderConfig
 
-	manager *CAManager
-	rotator *CARotator
+	manager   *CAManager
+	rotator   *CARotator
+	attestors map[AttestorType]Attestor
 
 	mu       sync.RWMutex
 	bundle   *TrustBundle
@@ -61,6 +62,15 @@ type EmbeddedProviderConfig struct {
 	RotatorInterval time.Duration  // optional; defaults to DefaultCARotatorInterval
 	Clock           func() time.Time // optional; defaults to time.Now
 	Logger          *slog.Logger    // optional; defaults to slog.Default
+
+	// Attestors is the v0.1 pluggable attestation registry.
+	// Each entry handles one [AttestorType]; duplicates are
+	// rejected at construction. Leave empty (or nil) to leave
+	// [EmbeddedProvider.Attest] returning [ErrNotImplementedYet]
+	// — the v0.1 default until the operator wires
+	// [NewJoinTokenAttestor] (task 8) once tasks 9-11 ship the
+	// concrete [JoinTokenStore].
+	Attestors []Attestor
 }
 
 // Compile-time interface assertion.
@@ -89,11 +99,36 @@ func NewEmbeddedProvider(cfg EmbeddedProviderConfig) (*EmbeddedProvider, error) 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidProvider, err)
 	}
+	attestors, err := buildAttestorRegistry(cfg.Attestors)
+	if err != nil {
+		return nil, err
+	}
 	return &EmbeddedProvider{
-		cfg:      cfg,
-		manager:  manager,
-		watchers: make(map[chan *TrustBundle]struct{}),
+		cfg:       cfg,
+		manager:   manager,
+		attestors: attestors,
+		watchers:  make(map[chan *TrustBundle]struct{}),
 	}, nil
+}
+
+// buildAttestorRegistry validates the Attestors slice and indexes
+// it by Type. Rejects nil entries + duplicate types.
+func buildAttestorRegistry(in []Attestor) (map[AttestorType]Attestor, error) {
+	out := make(map[AttestorType]Attestor, len(in))
+	for i, a := range in {
+		if a == nil {
+			return nil, fmt.Errorf("%w: Attestors[%d] is nil", ErrInvalidProvider, i)
+		}
+		typ := a.Type()
+		if typ == "" {
+			return nil, fmt.Errorf("%w: Attestors[%d].Type() is empty", ErrInvalidProvider, i)
+		}
+		if _, dup := out[typ]; dup {
+			return nil, fmt.Errorf("%w: Attestors[%d] duplicates type %q", ErrInvalidProvider, i, typ)
+		}
+		out[typ] = a
+	}
+	return out, nil
 }
 
 // Start initializes the CA + builds the initial trust bundle +
@@ -287,11 +322,24 @@ func (p *EmbeddedProvider) IssueJWTSVID(_ context.Context, req IssueJWTSVIDReque
 
 // ---- placeholder methods (filled in by tasks 8-11) --------------
 
-// Attest is filled in by task 8. v0.1 returns
-// [ErrNotImplementedYet] so downstream code can branch via
-// [errors.Is] during the transitional window.
-func (p *EmbeddedProvider) Attest(context.Context, AttestRequest) (*AttestResult, error) {
-	return nil, ErrNotImplementedYet
+// Attest dispatches the request to the registered [Attestor]
+// whose Type matches. Returns [ErrNotImplementedYet] when no
+// attestors are configured (the no-op default that preserves
+// task-7 behavior). Returns [ErrAttestorNotConfigured] when
+// attestors are configured but none handle the requested type.
+// Returns [ErrProviderNotRunning] before Start / after Stop.
+func (p *EmbeddedProvider) Attest(ctx context.Context, req AttestRequest) (*AttestResult, error) {
+	if !p.started.Load() || p.stopped.Load() {
+		return nil, ErrProviderNotRunning
+	}
+	if len(p.attestors) == 0 {
+		return nil, ErrNotImplementedYet
+	}
+	att, ok := p.attestors[req.Type]
+	if !ok {
+		return nil, fmt.Errorf("%w: type=%q", ErrAttestorNotConfigured, req.Type)
+	}
+	return att.Attest(ctx, req.Data)
 }
 
 // CreateJoinToken is filled in by tasks 9-11.

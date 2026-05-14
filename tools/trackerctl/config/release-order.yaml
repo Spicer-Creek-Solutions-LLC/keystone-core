@@ -66,6 +66,7 @@ gate-v1.0:
   - "Cluster-wide HMAC secret (vs per-agent)"
 
 v0.x:
+  - "Join-token \"any agent\" mode (AgentID-less binding)"
   - "Live mid-execution stdout / stderr streaming"
   - "Eval-time observability for malformed targeting patterns"
   - "`git` stdlib module — authentication, submodules, advanced clone"
