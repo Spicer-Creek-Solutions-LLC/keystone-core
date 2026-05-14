@@ -12,6 +12,21 @@ type ServerConfig struct {
 }
 
 // TLSConfig configures TLS termination for the listeners.
+//
+// Three modes:
+//
+//   - Enabled=false: plain TCP. Insecure; only appropriate for dev
+//     loopback or behind a TLS-terminating ingress.
+//   - Enabled=true + CertFile/KeyFile both set: file-sourced cert/key.
+//     Conventional production setup with externally-provisioned PKI.
+//   - Enabled=true + CertFile/KeyFile both empty: identity-provider
+//     sourced. The embedded provider (Epic 09) issues a server SVID
+//     for `spiffe://<td>/server/control-plane` and refreshes it on
+//     each signing-CA rotation. Requires Identity.Enabled=true.
+//
+// Both modes enforce TLS 1.3 minimum + mTLS request semantics
+// (ClientAuth = tls.VerifyClientCertIfGiven so API-key clients can
+// still authenticate over TLS without a peer cert).
 type TLSConfig struct {
 	Enabled  bool   `koanf:"enabled"`
 	CertFile string `koanf:"certfile"`
@@ -60,16 +75,23 @@ func (c CORSConfig) Validate() error {
 	return nil
 }
 
-// Validate returns an error if TLS is enabled but cert/key paths are unset.
+// Validate returns an error if TLS is enabled with a partial
+// cert/key pair (exactly one of CertFile/KeyFile set). Both-set
+// (file-sourced) and both-empty (identity-provider sourced) are
+// both valid configurations.
 func (t TLSConfig) Validate() error {
 	if !t.Enabled {
 		return nil
 	}
-	if t.CertFile == "" {
-		return fmt.Errorf("certfile: required when tls is enabled")
-	}
-	if t.KeyFile == "" {
-		return fmt.Errorf("keyfile: required when tls is enabled")
+	if (t.CertFile == "") != (t.KeyFile == "") {
+		return fmt.Errorf("certfile/keyfile: both must be set OR both empty (identity-provider mode)")
 	}
 	return nil
+}
+
+// SourcedFromFiles reports whether the operator configured an
+// explicit cert/key file pair. False means "derive from identity
+// provider."
+func (t TLSConfig) SourcedFromFiles() bool {
+	return t.Enabled && t.CertFile != "" && t.KeyFile != ""
 }

@@ -107,6 +107,33 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("security enforcer: %w", err)
 	}
 
+	// Epic 09 task 12 — start identity provider BEFORE the server
+	// builds its Options so the provider can supply the server cert
+	// when cfg.Server.TLS.Enabled (task 13). The provider stop
+	// runs after server.Stop on shutdown.
+	var identityProvider *identity.EmbeddedProvider
+	if cfg.Identity.Enabled {
+		identityProvider, err = startIdentityProvider(ctx, cfg.Identity, store, log)
+		if err != nil {
+			return fmt.Errorf("identity provider: %w", err)
+		}
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			_ = identityProvider.Stop(stopCtx)
+		}()
+	}
+
+	// Epic 09 task 13 — derive *tls.Config from the identity
+	// provider when cfg.Server.TLS.Enabled. Returns (nil, nop, nil)
+	// when TLS is off; cancel terminates the watcher goroutine that
+	// rebuilds the cert + bundle on signing-CA rotation.
+	tlsConfig, tlsCancel, err := buildIdentityTLSConfig(ctx, cfg.Server, identityProvider, log)
+	if err != nil {
+		return fmt.Errorf("identity tls config: %w", err)
+	}
+	defer tlsCancel()
+
 	opts := server.Options{
 		Config:          cfg,
 		Logger:          log,
@@ -115,6 +142,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Subjects:        natsManager.Subjects(),
 		Signer:          commandSignerAdapter{enf: enforcer},
 		AuthInterceptor: authInterceptor,
+		TLSConfig:       tlsConfig,
 	}
 
 	if cfg.NATS.Bootstrap.Enabled {
@@ -172,20 +200,10 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
 	srv.RegisterService(&v1.StateService_ServiceDesc, stateGRPC)
 
-	// Epic 09 task 12 — embedded identity provider + IdentityService
-	// gRPC. Disabled when cfg.Identity.Enabled is false (operators
-	// running their own SPIRE or a future external IdP).
-	var identityProvider *identity.EmbeddedProvider
-	if cfg.Identity.Enabled {
-		identityProvider, err = startIdentityProvider(ctx, cfg.Identity, store, log)
-		if err != nil {
-			return fmt.Errorf("identity provider: %w", err)
-		}
-		defer func() {
-			stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-			defer cancel()
-			_ = identityProvider.Stop(stopCtx)
-		}()
+	// Epic 09 task 12 — register IdentityService gRPC. The provider
+	// itself is started above (so it can supply TLS material for
+	// task 13's --tls.enabled path); we just bind the gRPC service.
+	if identityProvider != nil {
 		identityGRPC := controlplane.NewIdentityGRPCServer(identityProvider)
 		srv.RegisterService(&v1.IdentityService_ServiceDesc, identityGRPC)
 	}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
@@ -68,6 +70,7 @@ type Server struct {
 	bootstrapValidator controlplane.BootstrapValidator
 	credentialIssuer   controlplane.CredentialIssuer
 	authInterceptor    *auth.InterceptorConfig
+	tlsConfig          *tls.Config
 	now                func() time.Time
 	version            string
 
@@ -136,6 +139,7 @@ func New(opts Options) (*Server, error) {
 		bootstrapValidator:   opts.BootstrapValidator,
 		credentialIssuer:     opts.CredentialIssuer,
 		authInterceptor:      opts.AuthInterceptor,
+		tlsConfig:            opts.TLSConfig,
 		now:                  clock,
 		version:              version.Get().Version,
 		statusTickerInterval: tick,
@@ -294,9 +298,19 @@ func (s *Server) initStep8() error {
 func (s *Server) initSteps9to13() error {
 	var grpcOpts []grpc.ServerOption
 	if s.cfg.Server.TLS.Enabled {
-		// task 4 deliberately fails closed: TLS configured but not
-		// yet wireable from this package. Task 8 / Epic 13 land it.
-		return errors.New("server.TLS.Enabled is not yet supported (Epic 13)")
+		// Epic 09 task 13 — TLS wired via the identity provider OR
+		// a file-sourced cert/key pair. Either way the operator
+		// passes a fully-built *tls.Config through Options.TLSConfig;
+		// the cmd/kscore-server boot is responsible for choosing
+		// between the two sources.
+		if s.tlsConfig == nil {
+			return errors.New("server: TLS.Enabled=true but Options.TLSConfig is nil")
+		}
+		grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(s.tlsConfig)))
+		s.logger.Info("grpc TLS enabled",
+			"min_version", s.tlsConfig.MinVersion,
+			"client_auth", s.tlsConfig.ClientAuth,
+		)
 	}
 
 	// step 10/11: chain rate-limit → auth → authorize via the auth

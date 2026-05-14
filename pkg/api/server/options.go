@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"log/slog"
 	"time"
@@ -52,6 +53,12 @@ type Options struct {
 	// AuthInterceptor wires the gRPC auth chain when non-nil. v1.0
 	// task 4 leaves this optional; task 6 pins it on by default.
 	AuthInterceptor *auth.InterceptorConfig
+
+	// TLSConfig wires gRPC TLS / mTLS when non-nil (Epic 09 task 13).
+	// Required when cfg.Server.TLS.Enabled. cmd/kscore-server
+	// derives this from the identity provider; tests inject a
+	// purpose-built tls.Config.
+	TLSConfig *tls.Config
 
 	// Clock is injectable for tests (uptime, status-ticker timing).
 	// Defaults to time.Now.

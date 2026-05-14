@@ -4,6 +4,8 @@ server:
   host: 127.0.0.1
   grpcport: 9090
   httpport: 8080
+  tls:
+    enabled: false  # dev fixture opts out per Epic 09 task 13
 
 logging:
   level: info

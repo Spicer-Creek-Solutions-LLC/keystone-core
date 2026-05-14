@@ -57,7 +57,12 @@ func defaultConfig() *Config {
 			Host:     "0.0.0.0",
 			GRPCPort: 9090,
 			HTTPPort: 8080,
-			TLS:      TLSConfig{Enabled: false},
+			// Epic 09 task 13: TLS defaults on — a fresh
+			// kscore-server boots with mTLS-aware TLS, deriving
+			// the server cert from the identity provider. Dev
+			// fixtures (testdata/dev.yaml) explicitly opt out
+			// via `server: { tls: { enabled: false } }`.
+			TLS: TLSConfig{Enabled: true},
 			CORS: CORSConfig{
 				Enabled:        true,
 				AllowedOrigins: []string{"*"},
