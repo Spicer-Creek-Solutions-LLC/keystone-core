@@ -265,6 +265,38 @@ func TestSecretsConfig_LeaseValidation(t *testing.T) {
 	}
 }
 
+func TestSecretsConfig_AuditValidation(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		audit   SecretsAuditConfig
+		wantSub string
+	}{
+		{"negative buffer", SecretsAuditConfig{BufferSize: -1}, "buffer_size"},
+		{"sampling negative", SecretsAuditConfig{SamplingFraction: -0.1}, "sampling_fraction"},
+		{"sampling too high", SecretsAuditConfig{SamplingFraction: 1.5}, "sampling_fraction"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := SecretsConfig{
+				Enabled: true,
+				Backends: []SecretsBackendConfig{
+					{Name: "file", Type: "encrypted_file", File: &SecretsFileBackendConfig{Path: "p", MasterKey: "k"}},
+				},
+				Audit: tc.audit,
+			}
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatalf("Validate = nil err, want %q", tc.wantSub)
+			}
+			if !strings.Contains(err.Error(), tc.wantSub) {
+				t.Errorf("err = %q, want substring %q", err.Error(), tc.wantSub)
+			}
+		})
+	}
+}
+
 func TestSecretsConfig_HappyPath(t *testing.T) {
 	t.Parallel()
 	cfg := SecretsConfig{

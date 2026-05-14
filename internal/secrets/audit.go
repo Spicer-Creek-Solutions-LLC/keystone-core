@@ -2,7 +2,10 @@ package secrets
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"math/rand/v2"
+	"sync"
 	"time"
 )
 
@@ -163,3 +166,173 @@ var _ Auditor = (*LogAuditor)(nil)
 // [BrokerConfig] zero values resolve to a known no-op without a
 // per-broker allocation.
 func DefaultAuditor() Auditor { return NoopAuditor{} }
+
+// MultiAuditor fans an event out to every wrapped [Auditor] in
+// registration order. Operators wire `MultiAuditor{LogAuditor,
+// BufferedAuditor, …}` so an event reaches the operator log + the
+// in-memory ring + (when Epic 12 ships) the persistent SQLite store
+// from one broker emission.
+//
+// Inner auditors are independent — a slow / failing inner doesn't
+// block or short-circuit the rest. Errors aren't surfaced (the
+// [Auditor.Emit] contract is fire-and-forget; per-auditor failure
+// modes are the auditor's own problem).
+type MultiAuditor struct {
+	auditors []Auditor
+}
+
+// NewMultiAuditor returns a MultiAuditor wrapping every supplied
+// auditor. Nil entries are silently skipped — convenient when an
+// optional auditor (e.g. an Epic 12 store that's not yet wired)
+// shows up as nil in the operator's config.
+func NewMultiAuditor(auditors ...Auditor) *MultiAuditor {
+	filtered := make([]Auditor, 0, len(auditors))
+	for _, a := range auditors {
+		if a != nil {
+			filtered = append(filtered, a)
+		}
+	}
+	return &MultiAuditor{auditors: filtered}
+}
+
+// Emit fans the event to every inner auditor.
+func (m *MultiAuditor) Emit(ctx context.Context, event SecretAccessEvent) {
+	for _, a := range m.auditors {
+		a.Emit(ctx, event)
+	}
+}
+
+// Len returns the count of wrapped auditors. Operator-friendly for
+// `/api/status` reflection of which sinks are configured.
+func (m *MultiAuditor) Len() int { return len(m.auditors) }
+
+// Compile-time assertion.
+var _ Auditor = (*MultiAuditor)(nil)
+
+// BufferedAuditor holds the most recent N events in a FIFO ring.
+// Matches PROJECT-DETAILS §4.12's "Auditor (in-memory circular
+// buffer; configurable size)" description — Epic 12's audit query
+// API will read from this buffer for the recent-events view.
+//
+// Eviction policy: oldest-first when at capacity. The buffer is
+// goroutine-safe via a [sync.Mutex]. [BufferedAuditor.Snapshot]
+// returns a defensive copy.
+type BufferedAuditor struct {
+	mu       sync.Mutex
+	capacity int
+	events   []SecretAccessEvent
+}
+
+// NewBufferedAuditor returns a buffer with the requested capacity.
+// Capacity must be > 0; otherwise returns a wrapped
+// [ErrInvalidBackend].
+func NewBufferedAuditor(capacity int) (*BufferedAuditor, error) {
+	if capacity <= 0 {
+		return nil, fmt.Errorf("%w: BufferedAuditor: capacity must be > 0", ErrInvalidBackend)
+	}
+	return &BufferedAuditor{
+		capacity: capacity,
+		events:   make([]SecretAccessEvent, 0, capacity),
+	}, nil
+}
+
+// Emit appends the event; when the buffer is at capacity, drops the
+// oldest entry. O(N) per emit on eviction because the slice
+// shifts; v1.0 deployments don't push enough audit volume for the
+// per-op shift cost to matter. A ring with a head/tail index would
+// shave the cost; v1.x territory if the buffer becomes a bottleneck.
+func (b *BufferedAuditor) Emit(_ context.Context, event SecretAccessEvent) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.events) >= b.capacity {
+		// Shift left by one — drops the oldest entry. Reuses the
+		// underlying array; no reallocation.
+		copy(b.events, b.events[1:])
+		b.events = b.events[:b.capacity-1]
+	}
+	b.events = append(b.events, event)
+}
+
+// Snapshot returns a defensive copy of the currently-buffered
+// events in FIFO order (oldest first). Caller may mutate freely.
+func (b *BufferedAuditor) Snapshot() []SecretAccessEvent {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]SecretAccessEvent, len(b.events))
+	copy(out, b.events)
+	return out
+}
+
+// Len returns the number of currently-buffered events. May be less
+// than [BufferedAuditor.Capacity] if the buffer hasn't filled yet.
+func (b *BufferedAuditor) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.events)
+}
+
+// Capacity returns the configured capacity. Constant for the
+// lifetime of the buffer.
+func (b *BufferedAuditor) Capacity() int { return b.capacity }
+
+// Compile-time assertion.
+var _ Auditor = (*BufferedAuditor)(nil)
+
+// SamplingAuditor wraps an inner [Auditor] and drops a fraction of
+// successful events to manage volume. Fraction is the probability
+// each successful event passes through — 1.0 = no sampling, 0.0 =
+// drop every success. `Allowed == false` events ALWAYS pass through
+// regardless of fraction (the §4.11 "failure to log = bug" invariant
+// — sampling is for volume, not for compliance loss).
+//
+// PRNG is `math/rand/v2` (jitter-grade, NOT cryptographic). Sampling
+// decisions are independent per event.
+type SamplingAuditor struct {
+	inner    Auditor
+	fraction float64
+	mu       sync.Mutex
+	rng      *rand.Rand
+}
+
+// NewSamplingAuditor wraps inner with the given fraction. Fraction
+// must be in `[0, 1]`; out-of-range returns a wrapped
+// [ErrInvalidBackend]. Inner MUST be non-nil.
+func NewSamplingAuditor(inner Auditor, fraction float64) (*SamplingAuditor, error) {
+	if inner == nil {
+		return nil, fmt.Errorf("%w: SamplingAuditor: inner is required", ErrInvalidBackend)
+	}
+	if fraction < 0 || fraction > 1 {
+		return nil, fmt.Errorf("%w: SamplingAuditor: fraction %v out of [0, 1]", ErrInvalidBackend, fraction)
+	}
+	return &SamplingAuditor{
+		inner:    inner,
+		fraction: fraction,
+		rng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0x5a11)), // #nosec G404 -- sampling, not cryptographic
+	}, nil
+}
+
+// Emit passes the event through the sampling gate. Failures
+// (`Allowed == false`) always emit; successes emit with probability
+// `fraction`.
+func (s *SamplingAuditor) Emit(ctx context.Context, event SecretAccessEvent) {
+	if !event.Allowed {
+		s.inner.Emit(ctx, event)
+		return
+	}
+	if s.fraction >= 1 {
+		s.inner.Emit(ctx, event)
+		return
+	}
+	if s.fraction <= 0 {
+		return
+	}
+	s.mu.Lock()
+	roll := s.rng.Float64()
+	s.mu.Unlock()
+	if roll < s.fraction {
+		s.inner.Emit(ctx, event)
+	}
+}
+
+// Compile-time assertion.
+var _ Auditor = (*SamplingAuditor)(nil)

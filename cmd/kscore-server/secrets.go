@@ -24,6 +24,12 @@ type secretsRuntime struct {
 	LeaseMgr *secrets.LeaseManager
 	Cache    *secrets.SecretCache
 	Backends []secrets.SecretBackend
+
+	// AuditBuffer is the Epic 10 task-11 in-memory ring buffer when
+	// configured (cfg.Audit.BufferSize > 0). Epic 12's audit-query
+	// API (or operator-facing `/api/v1/secrets/audit/recent` REST
+	// endpoint) reads from this. Nil when buffering is disabled.
+	AuditBuffer *secrets.BufferedAuditor
 }
 
 // stop tears down the runtime in reverse order. Logs every error +
@@ -139,9 +145,17 @@ func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Sto
 		cache = sc
 	}
 
-	// Auditor — v1.0 fallback is the slog-backed log auditor; the
-	// SQLite audit store ships with Epic 12.
-	auditor := secrets.NewLogAuditor(log)
+	// Auditor pipeline — v1.0 assembly is:
+	//   LogAuditor (always)
+	//   → optional SamplingAuditor wrapper (when sampling_fraction < 1.0)
+	//   → MultiAuditor fanning out to BufferedAuditor (when buffer_size > 0)
+	// Epic 12's SQLite AuditStore will join the MultiAuditor when it
+	// ships.
+	auditor, auditBuffer, err := buildAuditor(cfg.Audit, log)
+	if err != nil {
+		return nil, fmt.Errorf("secrets: audit: %w", err)
+	}
+	rt.AuditBuffer = auditBuffer
 
 	broker, err := secrets.NewBroker(secrets.BrokerConfig{
 		Router:           router,
@@ -261,4 +275,43 @@ func extractSecretsPrincipal(ctx context.Context) secrets.Principal {
 // hang the whole shutdown.
 func stopSecretsCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
+}
+
+// buildAuditor assembles the v1.0 audit pipeline from
+// [config.SecretsAuditConfig]:
+//
+//   - Always: a slog-backed [secrets.LogAuditor].
+//   - Optional wrap: [secrets.SamplingAuditor] when SamplingFraction
+//     ∈ (0, 1). Fraction = 0 or 1 leaves the log auditor bare.
+//   - Optional fan-out: a [secrets.BufferedAuditor] (PROJECT-DETAILS
+//     §4.12 "in-memory circular buffer") when BufferSize > 0.
+//
+// Returns the assembled [secrets.Auditor] + the buffer instance
+// (nil when buffering disabled) so the caller can expose it for
+// audit-query endpoints.
+func buildAuditor(cfg config.SecretsAuditConfig, log *slog.Logger) (secrets.Auditor, *secrets.BufferedAuditor, error) {
+	logA := secrets.NewLogAuditor(log)
+
+	var primary secrets.Auditor = logA
+	if cfg.SamplingFraction > 0 && cfg.SamplingFraction < 1 {
+		sampler, err := secrets.NewSamplingAuditor(logA, cfg.SamplingFraction)
+		if err != nil {
+			return nil, nil, fmt.Errorf("sampling: %w", err)
+		}
+		primary = sampler
+	}
+
+	var buffer *secrets.BufferedAuditor
+	if cfg.BufferSize > 0 {
+		b, err := secrets.NewBufferedAuditor(cfg.BufferSize)
+		if err != nil {
+			return nil, nil, fmt.Errorf("buffer: %w", err)
+		}
+		buffer = b
+	}
+
+	if buffer == nil {
+		return primary, nil, nil
+	}
+	return secrets.NewMultiAuditor(primary, buffer), buffer, nil
 }

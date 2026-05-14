@@ -38,6 +38,24 @@ type SecretsConfig struct {
 	Routing        []SecretsRouteConfig   `koanf:"routing"`
 	Cache          SecretsCacheConfig     `koanf:"cache"`
 	Lease          SecretsLeaseConfig     `koanf:"lease"`
+	Audit          SecretsAuditConfig     `koanf:"audit"`
+}
+
+// SecretsAuditConfig drives the audit-emission infrastructure
+// (Epic 10 task 11). Wires `LogAuditor` (always) + `BufferedAuditor`
+// (when BufferSize > 0) + an optional `SamplingAuditor` wrapping the
+// log auditor when SamplingFraction < 1.0. Epic 12's `AuditStore`
+// will plug in here once it ships.
+type SecretsAuditConfig struct {
+	// BufferSize is the in-memory ring-buffer capacity (the
+	// PROJECT-DETAILS §4.12 "Auditor circular buffer"). 0 disables
+	// the buffer; positive enables. Default 10000.
+	BufferSize int `koanf:"buffer_size"`
+
+	// SamplingFraction is the probability each successful event
+	// reaches the log auditor (in `[0, 1]`). 1.0 = no sampling
+	// (default). Failures + cap-refusals always emit regardless.
+	SamplingFraction float64 `koanf:"sampling_fraction"`
 }
 
 // SecretsBackendConfig is one operator-declared backend instance.
@@ -178,6 +196,12 @@ func (c *SecretsConfig) Validate() error {
 	}
 	if c.Lease.Jitter < 0 || c.Lease.Jitter > 0.5 {
 		return fmt.Errorf("secrets: lease.jitter = %v, must be in [0, 0.5]", c.Lease.Jitter)
+	}
+	if c.Audit.BufferSize < 0 {
+		return fmt.Errorf("secrets: audit.buffer_size = %d, must be >= 0", c.Audit.BufferSize)
+	}
+	if c.Audit.SamplingFraction != 0 && (c.Audit.SamplingFraction < 0 || c.Audit.SamplingFraction > 1) {
+		return fmt.Errorf("secrets: audit.sampling_fraction = %v, must be in [0, 1]", c.Audit.SamplingFraction)
 	}
 	if c.Lease.DefaultStrategy != "" {
 		switch c.Lease.DefaultStrategy {
