@@ -784,6 +784,30 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Secrets transit batch API on the wire
+
+- **Priority**: v1.x
+- **What**: Epic 10 task 7's `TransitBackend` interface supports batch ops (each method takes `Items []…Input`), but the v1.0 `pkg/api/v1/secrets.proto` `EncryptRequest` / `DecryptRequest` / `SignRequest` / `VerifyRequest` are singleton-only (one plaintext per call). Operators with bulk-transit workloads can drive the in-process `TransitBackend` directly but can't reach batch over gRPC/REST.
+- **Why deferred**: a proto change is the right tool — adding a `BatchEncrypt` RPC with a `repeated EncryptItem` shape is additive but needs the buf-breaking pipeline run and the gRPC service stubs regenerated. Operator demand for batch over the wire isn't pressing at trial scale; the in-process API serves the only known caller.
+- **Acceptance**: `pkg/api/v1/secrets.proto` adds `BatchEncrypt` / `BatchDecrypt` / `BatchSign` / `BatchVerify` RPCs with `repeated …Item` requests and per-item-error responses; the gRPC service implementation routes them through `secrets.TransitBackend.{Encrypt,Decrypt,Sign,Verify}` directly (no item-by-item loop on the server side); REST handlers gain `POST /api/v1/transit/{op}/batch` endpoints.
+- **References**: `internal/secrets/transit.go` `TransitBackend`; `pkg/api/v1/secrets.proto`; Epic 10 task 9 (landed).
+
+#### Secrets transit GenerateDataKey on the wire
+
+- **Priority**: v1.x
+- **What**: Epic 10 task 7 added `TransitBackend.GenerateDataKey` (envelope encryption — returns a plaintext key + the Vault-wrapped form). v1.0's proto + REST surface doesn't expose it; operators can only reach it via the in-process API.
+- **Why deferred**: envelope encryption is a specialist pattern; the v1.0 audience (`Encrypt` / `Decrypt` / `Sign` / `Verify` for app-layer integration) doesn't depend on it. Adding a proto RPC + REST endpoint is straightforward but uses proto-breaking pipeline time.
+- **Acceptance**: `pkg/api/v1/secrets.proto` adds `GenerateDataKey` RPC with a `Mode` enum field (`PLAINTEXT` / `WRAPPED`) + `bits` + `context`; the gRPC service forwards to `TransitBackend.GenerateDataKey`; `POST /api/v1/transit/datakey/{plaintext|wrapped}/{key}` REST endpoint mirrors it.
+- **References**: `internal/secrets/transit.go` `TransitBackend.GenerateDataKey`; `pkg/api/v1/secrets.proto`; Epic 10 task 9 (landed).
+
+#### Encrypted-file per-secret TTL expiry
+
+- **Priority**: v1.x
+- **What**: Epic 10 task 9's gRPC + REST `WriteSecret` accepts a `ttl_seconds` field (per the proto declared in Epic 03). The current behavior stores the value as `Metadata["ttl_seconds"]` so backends that honor it natively (Vault KV v2 via lease TTLs on dynamic mounts) can read it, but the encrypted-file backend (task 4) doesn't auto-expire entries past their TTL — the metadata is observational only.
+- **Why deferred**: per-secret expiry on the file backend needs an additional disk sweep alongside the existing CAS / atomic-rewrite logic; not a v0.5 / v1.0 gating need. Operators that want per-secret TTL today use the cache TTL (Epic 10 task 8) or the Vault backend.
+- **Acceptance**: encrypted-file backend reaps entries whose `Metadata["ttl_seconds"]` has elapsed since `UpdatedAt`; `GetSecret` on an expired path returns `ErrSecretNotFound` even without an explicit `DeleteSecret`; a configurable background sweep runs at a default 1m cadence; rewrite-on-expiry is atomic.
+- **References**: `internal/secrets/file/backend.go`; `pkg/api/v1/secrets.proto` `WriteSecretRequest.ttl_seconds`; Epic 10 task 9 (landed).
+
 #### kscore-identity federation subcommands
 
 - **Priority**: v1.x

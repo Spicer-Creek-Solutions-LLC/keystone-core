@@ -47,6 +47,7 @@ type Config struct {
 	Agent    AgentConfig    `koanf:"agent"`
 	Security SecurityConfig `koanf:"security"`
 	Identity IdentityConfig `koanf:"identity"`
+	Secrets  SecretsConfig  `koanf:"secrets"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -197,6 +198,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Security.Validate(); err != nil {
 		return fmt.Errorf("security: %w", err)
+	}
+	if err := c.Secrets.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

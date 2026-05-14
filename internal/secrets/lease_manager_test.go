@@ -513,6 +513,26 @@ func TestLeaseManager_PreExpiredMarksOnTick(t *testing.T) {
 	}
 }
 
+func TestLeaseManager_GetLease(t *testing.T) {
+	t.Parallel()
+	lm, _ := newLeaseManagerForTest(t)
+	ctx := context.Background()
+
+	_ = lm.RecordWithError(ctx, "g-1", LeaseRecord{Backend: "vault", Path: "database/creds/app"})
+
+	got, err := lm.GetLease(ctx, "g-1")
+	if err != nil {
+		t.Fatalf("GetLease: %v", err)
+	}
+	if got.ID != "g-1" || got.Backend != "vault" || got.SecretPath != "database/creds/app" {
+		t.Errorf("GetLease mismatch: %#v", got)
+	}
+
+	if _, err := lm.GetLease(ctx, "missing"); !errors.Is(err, state.ErrNotFound) {
+		t.Errorf("GetLease(missing) err = %v, want state.ErrNotFound", err)
+	}
+}
+
 func TestLeaseManager_List(t *testing.T) {
 	t.Parallel()
 	lm, _ := newLeaseManagerForTest(t)

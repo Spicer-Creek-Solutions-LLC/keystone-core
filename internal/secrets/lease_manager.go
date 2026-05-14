@@ -337,6 +337,17 @@ func (lm *LeaseManager) Forget(leaseID string) {
 
 // ---- Operator-facing CLI surface ---------------------------------
 
+// GetLease returns a single lease by ID, projected to the public
+// [Lease] shape. Returns [state.ErrNotFound] on miss. Used by the
+// REST `GET /api/v1/leases/{id}` handler + the gRPC `GetLease` RPC.
+func (lm *LeaseManager) GetLease(ctx context.Context, leaseID string) (Lease, error) {
+	rec, err := lm.cfg.Store.GetLease(ctx, leaseID)
+	if err != nil {
+		return Lease{}, err
+	}
+	return leaseFromRecord(rec), nil
+}
+
 // List returns leases matching filter, projected to the public
 // [Lease] shape (which embeds [LeaseInfo]).
 func (lm *LeaseManager) List(ctx context.Context, filter state.LeaseFilter) ([]Lease, error) {

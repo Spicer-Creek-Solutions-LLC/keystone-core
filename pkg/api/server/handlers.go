@@ -120,7 +120,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	policy.NewHandler().Register(mux)
 	runbook.NewHandler().Register(mux)
 	schedule.NewHandler().Register(mux)
-	secrets.NewHandler().Register(mux)
+	secrets.NewHandler(s.secretsBroker, s.secretsTransit, s.secretsLeases).Register(mux)
 	stateapi.NewHandler().Register(mux)
 	webhooks.NewHandler().Register(mux)
 }

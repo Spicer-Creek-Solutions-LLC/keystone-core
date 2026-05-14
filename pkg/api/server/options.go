@@ -8,6 +8,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
@@ -66,6 +67,19 @@ type Options struct {
 
 	// StatusTickerInterval overrides the 30s default from §4.4 step 21.
 	StatusTickerInterval time.Duration
+
+	// SecretsBroker is the Epic 10 task-3 broker — optional, nil when
+	// `secrets.enabled: false`. When non-nil, the REST + gRPC
+	// secrets surface is wired against it.
+	SecretsBroker *secrets.Broker
+
+	// SecretsTransit is the Epic 10 task-7 transit backend —
+	// typically the Vault backend instance also referenced via
+	// SecretsBroker.Backends. Optional.
+	SecretsTransit secrets.TransitBackend
+
+	// SecretsLeases is the Epic 10 task-6 LeaseManager. Optional.
+	SecretsLeases *secrets.LeaseManager
 }
 
 // validate returns an error if required fields are missing or

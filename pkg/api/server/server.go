@@ -16,6 +16,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
@@ -73,6 +74,10 @@ type Server struct {
 	tlsConfig          *tls.Config
 	now                func() time.Time
 	version            string
+
+	secretsBroker  *secrets.Broker
+	secretsTransit secrets.TransitBackend
+	secretsLeases  *secrets.LeaseManager
 
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
@@ -143,6 +148,9 @@ func New(opts Options) (*Server, error) {
 		now:                  clock,
 		version:              version.Get().Version,
 		statusTickerInterval: tick,
+		secretsBroker:        opts.SecretsBroker,
+		secretsTransit:       opts.SecretsTransit,
+		secretsLeases:        opts.SecretsLeases,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}

@@ -134,6 +134,19 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	defer tlsCancel()
 
+	// Epic 10 task 9 — start the secrets runtime when enabled.
+	// Returns nil + nil error when secrets.enabled is false; the
+	// SecretsService gRPC + REST surface then returns Unavailable.
+	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, log)
+	if err != nil {
+		return fmt.Errorf("secrets: %w", err)
+	}
+	defer func() {
+		stopCtx, stopCancel := stopSecretsCtx()
+		defer stopCancel()
+		secretsRT.stop(stopCtx, log)
+	}()
+
 	opts := server.Options{
 		Config:          cfg,
 		Logger:          log,
@@ -143,6 +156,11 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Signer:          commandSignerAdapter{enf: enforcer},
 		AuthInterceptor: authInterceptor,
 		TLSConfig:       tlsConfig,
+	}
+	if secretsRT != nil {
+		opts.SecretsBroker = secretsRT.Broker
+		opts.SecretsTransit = secretsRT.Transit
+		opts.SecretsLeases = secretsRT.LeaseMgr
 	}
 
 	if cfg.NATS.Bootstrap.Enabled {
@@ -239,6 +257,16 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if identityProvider != nil {
 		identityGRPC := controlplane.NewIdentityGRPCServer(identityProvider)
 		srv.RegisterService(&v1.IdentityService_ServiceDesc, identityGRPC)
+	}
+
+	// Epic 10 task 9 — register SecretsService gRPC. The broker /
+	// transit / lease manager are started by startSecrets above; we
+	// just bind the gRPC service. When secretsRT is nil (operator
+	// opt-out), the SecretsService isn't registered and clients
+	// reach Unimplemented.
+	if secretsRT != nil {
+		secretsGRPC := controlplane.NewSecretsGRPCServer(secretsRT.Broker, secretsRT.Transit, secretsRT.LeaseMgr)
+		srv.RegisterService(&v1.SecretsService_ServiceDesc, secretsGRPC)
 	}
 
 	if err := srv.Start(ctx); err != nil {
