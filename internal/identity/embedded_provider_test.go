@@ -536,32 +536,10 @@ func TestEmbeddedProvider_IssueJWTSVID_BeforeStart(t *testing.T) {
 // TestEmbeddedProvider_Attest_DispatchByType in
 // join_token_attestor_test.go, which were added by task 8.
 
-func TestEmbeddedProvider_CreateJoinToken_NotImplemented(t *testing.T) {
-	t.Parallel()
-	p := newStartedProvider(t)
-	_, err := p.CreateJoinToken(context.Background(), CreateJoinTokenRequest{})
-	if !errors.Is(err, ErrNotImplementedYet) {
-		t.Errorf("err = %v", err)
-	}
-}
-
-func TestEmbeddedProvider_ListJoinTokens_NotImplemented(t *testing.T) {
-	t.Parallel()
-	p := newStartedProvider(t)
-	_, err := p.ListJoinTokens(context.Background(), ListJoinTokensFilter{})
-	if !errors.Is(err, ErrNotImplementedYet) {
-		t.Errorf("err = %v", err)
-	}
-}
-
-func TestEmbeddedProvider_DeleteJoinToken_NotImplemented(t *testing.T) {
-	t.Parallel()
-	p := newStartedProvider(t)
-	err := p.DeleteJoinToken(context.Background(), "any-id")
-	if !errors.Is(err, ErrNotImplementedYet) {
-		t.Errorf("err = %v", err)
-	}
-}
+// Note: task 10 replaced the *_NotImplemented stub-tests with the
+// CreateJoinToken / ListJoinTokens / DeleteJoinToken end-to-end
+// tests in embedded_provider_jointokens_test.go. The four
+// "no store configured" boundaries are asserted there too.
 
 // ---- CARotator OnRotateSuccess wiring ----------------------------
 

@@ -90,6 +90,7 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "Unbiased base62 for join-token generation"
   - "Trust federation (cross-domain bundle endpoint)"
   - "Windows agent (native service)"
   - "WASM module runtime"

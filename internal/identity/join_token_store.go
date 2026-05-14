@@ -25,6 +25,29 @@ const JoinTokenPrefixLen = len(JoinTokenScheme) + 8
 // `JoinTokenScheme + JoinTokenRandomMinLen` characters.
 const JoinTokenRandomMinLen = 32
 
+// Defaults + cap per PROJECT-DETAILS §4.10:
+//
+//   - Default TTL 5m (short enough that an unused token doesn't
+//     linger past an operator's attention span).
+//   - Max TTL 24h (long enough to issue a token in the morning
+//     and have a remote agent claim it before EOD).
+//   - One-time-use by default; MaxUses > 1 supports cohort
+//     rollouts.
+const (
+	DefaultJoinTokenTTL     = 5 * time.Minute
+	MaxJoinTokenTTL         = 24 * time.Hour
+	DefaultJoinTokenMaxUses = 1
+)
+
+// ErrJoinTokenStoreNotConfigured is returned by the
+// [EmbeddedProvider] join-token methods when called before the
+// operator wires a [JoinTokenStore] into
+// [EmbeddedProviderConfig.JoinTokenStore]. Distinct from
+// [ErrNotImplementedYet] (which task 7 returned before task 10
+// landed) — this sentinel means the surface IS implemented; the
+// operator just hasn't enabled the storage backend.
+var ErrJoinTokenStoreNotConfigured = errors.New("identity: provider has no JoinTokenStore configured")
+
 // ErrJoinTokenNotFound is returned by [JoinTokenStore.Lookup]
 // when no record matches the given prefix.
 var ErrJoinTokenNotFound = errors.New("identity: join token not found")

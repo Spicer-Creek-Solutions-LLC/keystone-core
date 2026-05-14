@@ -736,6 +736,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Unbiased base62 for join-token generation
+
+- **Priority**: v1.x
+- **What**: Epic 09 task 10's `randomBase62` (in `internal/identity/join_token_generate.go`) uses `byte % 62` for the cleartext-token body. `256 mod 62 = 8`, so values 0-7 are slightly more likely than the rest (≈4.3% vs ≈3.5%). At `joinTokenBodyLen = 40` chars the residual entropy is ≈ 235 bits — well above v0.1's threat model for one-time tokens — but a strict security audit would prefer rejection sampling for deterministic uniformity. Drop-in replacement; no wire-format change.
+- **Why deferred**: real-world attack surface is dominated by the raw entropy of the output, not the alphabet ratio. v0.1 ships the simpler implementation; v1.x replaces it during a routine hardening pass alongside other crypto-shape improvements.
+- **Acceptance**: `randomBase62` uses rejection sampling (`crypto/rand.Int(rand.Reader, big.NewInt(62))`) per character; a statistical test over 1M samples shows no per-character bias > 0.1%; the existing alphabet + length tests continue to pass.
+- **References**: `internal/identity/join_token_generate.go` `randomBase62`; Epic 09 task 10 (landed).
+
 #### Trust federation (cross-domain bundle endpoint)
 
 - **Priority**: v1.x

@@ -2,11 +2,14 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // EmbeddedProvider is the v0.1 default [Provider] implementation.
@@ -43,6 +46,7 @@ type EmbeddedProvider struct {
 	manager   *CAManager
 	rotator   *CARotator
 	attestors map[AttestorType]Attestor
+	tokens    JoinTokenStore
 
 	mu       sync.RWMutex
 	bundle   *TrustBundle
@@ -71,6 +75,15 @@ type EmbeddedProviderConfig struct {
 	// [NewJoinTokenAttestor] (task 8) once tasks 9-11 ship the
 	// concrete [JoinTokenStore].
 	Attestors []Attestor
+
+	// JoinTokenStore backs the CreateJoinToken / ListJoinTokens /
+	// DeleteJoinToken methods (task 10). Leave nil to leave those
+	// methods returning [ErrJoinTokenStoreNotConfigured] —
+	// suitable for read-only / SVID-issuance-only deployments.
+	// v0.1 typically wires [NewInMemoryJoinTokenStore]; multi-CP
+	// HA (Epic 13) wires [NewStateJoinTokenStore] against the
+	// cluster's [state.Store].
+	JoinTokenStore JoinTokenStore
 }
 
 // Compile-time interface assertion.
@@ -107,6 +120,7 @@ func NewEmbeddedProvider(cfg EmbeddedProviderConfig) (*EmbeddedProvider, error) 
 		cfg:       cfg,
 		manager:   manager,
 		attestors: attestors,
+		tokens:    cfg.JoinTokenStore, // may be nil
 		watchers:  make(map[chan *TrustBundle]struct{}),
 	}, nil
 }
@@ -342,19 +356,111 @@ func (p *EmbeddedProvider) Attest(ctx context.Context, req AttestRequest) (*Atte
 	return att.Attest(ctx, req.Data)
 }
 
-// CreateJoinToken is filled in by tasks 9-11.
-func (p *EmbeddedProvider) CreateJoinToken(context.Context, CreateJoinTokenRequest) (JoinToken, error) {
-	return JoinToken{}, ErrNotImplementedYet
+// CreateJoinToken mints a fresh cleartext token, persists the
+// salted hash via the configured [JoinTokenStore], and returns
+// the [JoinToken] with the cleartext `Token` set. **The cleartext
+// is returned ONLY this once** — subsequent Get / List / Lookup
+// calls return records with Token cleared. Defaults per §4.10:
+// TTL [DefaultJoinTokenTTL] (5m), MaxUses [DefaultJoinTokenMaxUses]
+// (1). Hard cap: TTL ≤ [MaxJoinTokenTTL] (24h).
+//
+// Returns [ErrProviderNotRunning] before Start / after Stop;
+// [ErrJoinTokenStoreNotConfigured] when no store is wired;
+// [ErrInvalidProvider] on TTL-out-of-bounds; the store's error
+// otherwise.
+func (p *EmbeddedProvider) CreateJoinToken(ctx context.Context, req CreateJoinTokenRequest) (JoinToken, error) {
+	if !p.started.Load() || p.stopped.Load() {
+		return JoinToken{}, ErrProviderNotRunning
+	}
+	if p.tokens == nil {
+		return JoinToken{}, ErrJoinTokenStoreNotConfigured
+	}
+
+	ttl := req.TTL
+	if ttl <= 0 {
+		ttl = DefaultJoinTokenTTL
+	}
+	if ttl > MaxJoinTokenTTL {
+		return JoinToken{}, fmt.Errorf("%w: TTL %s exceeds max %s", ErrInvalidProvider, ttl, MaxJoinTokenTTL)
+	}
+	maxUses := req.MaxUses
+	if maxUses <= 0 {
+		maxUses = DefaultJoinTokenMaxUses
+	}
+
+	body, err := randomBase62(joinTokenBodyLen)
+	if err != nil {
+		return JoinToken{}, fmt.Errorf("%w: %v", ErrInvalidProvider, err)
+	}
+	cleartext := JoinTokenScheme + body
+	prefix := cleartext[:JoinTokenPrefixLen]
+	salt, err := randomSalt()
+	if err != nil {
+		return JoinToken{}, fmt.Errorf("%w: %v", ErrInvalidProvider, err)
+	}
+	hash := saltedHash(salt, cleartext)
+
+	now := p.cfg.Clock()
+	token := JoinToken{
+		ID:        uuid.NewString(),
+		Token:     cleartext, // returned to caller — store will wipe before persist
+		Hash:      hash,
+		Salt:      salt,
+		Prefix:    prefix,
+		AgentID:   req.AgentID,
+		TTL:       ttl,
+		CreatedAt: now,
+		ExpiresAt: now.Add(ttl),
+		MaxUses:   maxUses,
+		Metadata:  req.Metadata,
+	}
+	if err := p.tokens.Create(ctx, token); err != nil {
+		return JoinToken{}, fmt.Errorf("%w: %w", ErrInvalidProvider, err)
+	}
+	return token, nil
 }
 
-// ListJoinTokens is filled in by tasks 9-11.
-func (p *EmbeddedProvider) ListJoinTokens(context.Context, ListJoinTokensFilter) ([]JoinToken, error) {
-	return nil, ErrNotImplementedYet
+// ListJoinTokens returns matching join-token records (with
+// `Token` cleartext cleared, as the store guarantees). Delegates
+// to [JoinTokenStore.List].
+func (p *EmbeddedProvider) ListJoinTokens(ctx context.Context, filter ListJoinTokensFilter) ([]JoinToken, error) {
+	if !p.started.Load() || p.stopped.Load() {
+		return nil, ErrProviderNotRunning
+	}
+	if p.tokens == nil {
+		return nil, ErrJoinTokenStoreNotConfigured
+	}
+	ptrs, err := p.tokens.List(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidProvider, err)
+	}
+	out := make([]JoinToken, 0, len(ptrs))
+	for _, p := range ptrs {
+		if p != nil {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
 }
 
-// DeleteJoinToken is filled in by tasks 9-11.
-func (p *EmbeddedProvider) DeleteJoinToken(context.Context, string) error {
-	return ErrNotImplementedYet
+// DeleteJoinToken removes a join-token record by ID. Propagates
+// [ErrJoinTokenNotFound] verbatim so callers can branch with
+// [errors.Is].
+func (p *EmbeddedProvider) DeleteJoinToken(ctx context.Context, id string) error {
+	if !p.started.Load() || p.stopped.Load() {
+		return ErrProviderNotRunning
+	}
+	if p.tokens == nil {
+		return ErrJoinTokenStoreNotConfigured
+	}
+	err := p.tokens.Delete(ctx, id)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrJoinTokenNotFound) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrInvalidProvider, err)
 }
 
 // ---- helpers -----------------------------------------------------
