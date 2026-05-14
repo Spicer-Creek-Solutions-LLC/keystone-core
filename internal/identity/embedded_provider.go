@@ -48,9 +48,10 @@ type EmbeddedProvider struct {
 	attestors map[AttestorType]Attestor
 	tokens    JoinTokenStore
 
-	mu       sync.RWMutex
-	bundle   *TrustBundle
-	watchers map[chan *TrustBundle]struct{}
+	mu        sync.RWMutex
+	bundle    *TrustBundle
+	watchers  map[chan *TrustBundle]struct{}
+	startedAt time.Time // wall-clock of last Start; reported via Status
 
 	started atomic.Bool
 	stopped atomic.Bool
@@ -164,6 +165,7 @@ func (p *EmbeddedProvider) Start(ctx context.Context) error {
 	}
 	p.mu.Lock()
 	p.bundle = bundle
+	p.startedAt = p.cfg.Clock()
 	p.mu.Unlock()
 
 	rot, err := NewCARotator(CARotatorConfig{
@@ -511,6 +513,67 @@ func signingKID(serial []byte) string {
 		serial = serial[:truncTo]
 	}
 	return fmt.Sprintf("ks-signing-%x", serial)
+}
+
+// RotateSigningCA forces an immediate signing-CA rotation,
+// bypassing the CARotator's normal "ShouldRotate" predicate.
+// Persists the new signing CA, rebuilds the trust bundle, and
+// notifies every watcher. Operators reach this via the
+// IdentityService gRPC (task 12). Old leaves continue to verify —
+// their chain still includes the old signing CA cert under the
+// unchanged root.
+//
+// Returns [ErrProviderNotRunning] before Start / after Stop; the
+// manager's error wrapped in [ErrInvalidProvider] otherwise.
+func (p *EmbeddedProvider) RotateSigningCA(ctx context.Context) error {
+	if !p.started.Load() || p.stopped.Load() {
+		return ErrProviderNotRunning
+	}
+	if err := p.manager.RotateSigningCA(ctx); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidProvider, err)
+	}
+	p.rebuildAndNotify()
+	return nil
+}
+
+// Manager returns the underlying [*CAManager]. The
+// IdentityService gRPC server (task 12) uses this for the
+// `GetCAInfo` + `ExportCA` paths that need to read the root +
+// signing certs directly.
+//
+// Returns nil before [EmbeddedProvider.Start] has run successfully.
+func (p *EmbeddedProvider) Manager() *CAManager {
+	if !p.started.Load() || p.stopped.Load() {
+		return nil
+	}
+	return p.manager
+}
+
+// JoinTokens returns the configured [JoinTokenStore]. Used by the
+// IdentityService gRPC `GetStatus` path to surface token counts.
+// nil before Start, when no store is configured, or after Stop.
+func (p *EmbeddedProvider) JoinTokens() JoinTokenStore {
+	if !p.started.Load() || p.stopped.Load() {
+		return nil
+	}
+	return p.tokens
+}
+
+// WatcherCount returns the live trust-bundle subscriber count.
+// Surfaced via the IdentityService `GetStatus` RPC.
+func (p *EmbeddedProvider) WatcherCount() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.watchers)
+}
+
+// StartedAt returns the wall-clock time of the last successful
+// [EmbeddedProvider.Start]. Zero before Start. Surfaced via the
+// IdentityService `GetStatus` RPC for uptime calculation.
+func (p *EmbeddedProvider) StartedAt() time.Time {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.startedAt
 }
 
 // rebuildAndNotify is the CARotator OnRotateSuccess callback —

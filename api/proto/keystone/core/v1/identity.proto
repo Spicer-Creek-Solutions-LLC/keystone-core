@@ -1,0 +1,205 @@
+// IdentityService — operator-facing surface for the Epic 09 identity
+// provider. Wraps internal/identity.Provider + JoinTokenStore + CAManager
+// so the kscore-identity CLI (and any other operator tooling) can mint
+// join tokens, query the CA, and check provider health remotely.
+//
+// v0.1 ships every method needed by `kscore-identity {token,ca,status}`.
+// `federation` RPCs (add-domain / list / fetch-bundle) are post-v1.0 per
+// §4.10 and ship under their own ROADMAP entry.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service IdentityService {
+  // CreateJoinToken mints a new join token. The cleartext value is
+  // returned exactly once in the response's `token` field; storage
+  // keeps only the salted hash + prefix. Operators present the
+  // cleartext to a new agent during bootstrap.
+  rpc CreateJoinToken(CreateJoinTokenRequest) returns (CreateJoinTokenResponse);
+
+  // ListJoinTokens returns metadata for existing tokens. The
+  // cleartext is NEVER returned — only ID + Prefix + AgentID +
+  // expiry + use-count + metadata.
+  rpc ListJoinTokens(ListJoinTokensRequest) returns (ListJoinTokensResponse);
+
+  // DeleteJoinToken revokes a token by ID. Idempotent — deleting a
+  // missing token returns NotFound but is safe to retry.
+  rpc DeleteJoinToken(DeleteJoinTokenRequest) returns (DeleteJoinTokenResponse);
+
+  // CleanupJoinTokens deletes every token whose ExpiresAt is at or
+  // before `now`. The hourly background loop (Epic 09 task 11)
+  // does this automatically; this RPC exists for ad-hoc operator
+  // use.
+  rpc CleanupJoinTokens(CleanupJoinTokensRequest) returns (CleanupJoinTokensResponse);
+
+  // GetCAInfo returns the current trust domain + root + signing CA
+  // details (subject, expiry, key type, kid). The kid matches the
+  // current trust bundle's JWT authority key.
+  rpc GetCAInfo(GetCAInfoRequest) returns (GetCAInfoResponse);
+
+  // RotateSigningCA forces an immediate signing-CA rotation. The
+  // provider mints a fresh signing CA, persists it, rebuilds the
+  // trust bundle, and notifies every watcher. Old leaves continue
+  // to verify (their chain still includes the old signing CA under
+  // the unchanged root).
+  rpc RotateSigningCA(RotateSigningCARequest) returns (RotateSigningCAResponse);
+
+  // ExportCA returns PEM-encoded CA material. `what` selects which
+  // material: ROOT (root cert), SIGNING (signing CA cert), BUNDLE
+  // (full SPIFFE JWKS-format trust bundle).
+  rpc ExportCA(ExportCARequest) returns (ExportCAResponse);
+
+  // GetStatus returns provider health + on-disk + runtime metadata.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}
+
+// ---- token messages ------------------------------------------------
+
+message CreateJoinTokenRequest {
+  // AgentID binds the token to a specific agent identifier.
+  // Required in v0.1; "any-agent" mode is a v0.x ROADMAP item.
+  string agent_id = 1;
+
+  // TTL is the token's lifetime. 0 → DefaultJoinTokenTTL (5m).
+  // Values above MaxJoinTokenTTL (24h) are rejected.
+  int64 ttl_seconds = 2;
+
+  // MaxUses caps how many agents may use the token. 0 →
+  // DefaultJoinTokenMaxUses (1).
+  int32 max_uses = 3;
+
+  // Metadata is operator-supplied free-form tags surfaced through
+  // ListJoinTokens + the attestor's selectors. Keys + values are
+  // both strings.
+  map<string, string> metadata = 4;
+}
+
+message CreateJoinTokenResponse {
+  // The minted JoinToken. The `token` cleartext is populated ONLY
+  // in this response; subsequent ListJoinTokens calls return the
+  // record with `token` cleared.
+  JoinToken token = 1;
+}
+
+message ListJoinTokensRequest {
+  // AgentID filter — empty means "any agent."
+  string agent_id = 1;
+  // unused = only tokens whose UsedCount < MaxUses.
+  bool unused = 2;
+  // unexpired_at — if non-zero, only tokens whose ExpiresAt > this.
+  google.protobuf.Timestamp unexpired_at = 3;
+}
+
+message ListJoinTokensResponse {
+  repeated JoinToken tokens = 1;
+}
+
+message DeleteJoinTokenRequest {
+  string id = 1;
+}
+
+message DeleteJoinTokenResponse {}
+
+message CleanupJoinTokensRequest {}
+
+message CleanupJoinTokensResponse {
+  int32 removed = 1;
+}
+
+// JoinToken is the wire shape of internal/identity.JoinToken. The
+// cleartext `token` field is populated only in
+// CreateJoinTokenResponse — every other RPC returns it empty.
+message JoinToken {
+  string id = 1;
+  // token is the cleartext token. Populated ONLY in
+  // CreateJoinTokenResponse.token; List / status responses never
+  // return it.
+  string token = 2;
+  bytes hash = 3;
+  bytes salt = 4;
+  string prefix = 5;
+  string agent_id = 6;
+  int64 ttl_seconds = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  google.protobuf.Timestamp used_at = 10; // nil when never used
+  int32 max_uses = 11;
+  int32 used_count = 12;
+  map<string, string> metadata = 13;
+}
+
+// ---- CA messages ---------------------------------------------------
+
+message GetCAInfoRequest {}
+
+message GetCAInfoResponse {
+  string trust_domain = 1;
+  CACertInfo root = 2;
+  CACertInfo signing = 3;
+  // jwt_kid is the kid the provider uses when signing JWT-SVIDs.
+  // Derived from the signing CA's serial — rotates with it.
+  string jwt_kid = 4;
+}
+
+// CACertInfo is the subset of x509.Certificate fields operators
+// need to evaluate CA health (subject, expiry, key type). PEM is
+// available separately via ExportCA.
+message CACertInfo {
+  string subject = 1;
+  string serial = 2; // big.Int.Text(16) — short hex form
+  google.protobuf.Timestamp not_before = 3;
+  google.protobuf.Timestamp not_after = 4;
+  // key_type is the human-readable algorithm (e.g. "ECDSA-P256",
+  // "RSA-2048").
+  string key_type = 5;
+}
+
+message RotateSigningCARequest {}
+
+message RotateSigningCAResponse {
+  CACertInfo new_signing = 1;
+  string new_jwt_kid = 2;
+}
+
+message ExportCARequest {
+  enum What {
+    WHAT_UNSPECIFIED = 0;
+    WHAT_ROOT        = 1;
+    WHAT_SIGNING     = 2;
+    WHAT_BUNDLE      = 3; // SPIFFE JWKS-format trust bundle
+  }
+  What what = 1;
+}
+
+message ExportCAResponse {
+  // pem holds the requested material as PEM bytes (for ROOT /
+  // SIGNING) or as JWKS JSON bytes (for BUNDLE — operators that
+  // need PEM derive it via ROOT).
+  bytes pem = 1;
+}
+
+// ---- status messages -----------------------------------------------
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  bool started = 1;
+  string trust_domain = 2;
+  google.protobuf.Timestamp started_at = 3;
+  // root_expires_at + signing_expires_at — same fields as
+  // GetCAInfo, surfaced here for one-call health checks.
+  google.protobuf.Timestamp root_expires_at = 4;
+  google.protobuf.Timestamp signing_expires_at = 5;
+  // watcher_count is the live trust-bundle subscriber count.
+  int32 watcher_count = 6;
+  // token_total / unused / expired snapshot the store state at the
+  // moment of the call.
+  int32 token_total = 7;
+  int32 token_unused = 8;
+  int32 token_expired = 9;
+}
