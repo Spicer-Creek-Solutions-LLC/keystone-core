@@ -292,6 +292,27 @@ type APIKeyRecord struct {
 	LastUsed  time.Time // zero = never used
 }
 
+// JoinTokenRecord is the persisted shape of an identity join token.
+// Epic 09 task 9 — the cleartext Token field is NEVER stored; only
+// Hash + Salt are. The Prefix is the operator-visible identifier
+// used as the lookup key by the JoinTokenAttestor.
+//
+// Metadata is operator-supplied free-form tags persisted as JSON.
+type JoinTokenRecord struct {
+	ID        string
+	Hash      []byte
+	Salt      []byte
+	Prefix    string
+	AgentID   string
+	TTL       time.Duration
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	UsedAt    time.Time // zero = never used
+	MaxUses   int
+	UsedCount int
+	Metadata  map[string]string
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.
@@ -356,6 +377,22 @@ type APIKeyFilter struct {
 	SortDesc   bool
 }
 
+// JoinTokenFilter narrows a JoinTokenStore.ListJoinTokens query.
+//
+// Zero-value fields are ignored. `Unused` (when true) restricts to
+// tokens whose UsedCount < MaxUses. `UnexpiredAt` (when non-zero)
+// restricts to tokens whose ExpiresAt > UnexpiredAt — useful for
+// excluding already-expired records without first running Cleanup.
+type JoinTokenFilter struct {
+	AgentID     string
+	Unused      bool
+	UnexpiredAt time.Time
+	Limit       int
+	Offset      int
+	SortColumn  string
+	SortDesc    bool
+}
+
 // AllowedAgentSortColumns is the allowlist of column names usable in
 // AgentFilter.SortColumn. Backends reject any value not in this set.
 var AllowedAgentSortColumns = []string{
@@ -375,6 +412,12 @@ var AllowedBatchJobSortColumns = []string{
 // AllowedAPIKeySortColumns is the allowlist for APIKeyFilter.SortColumn.
 var AllowedAPIKeySortColumns = []string{
 	"id", "name", "role", "created_at", "expires_at", "last_used",
+}
+
+// AllowedJoinTokenSortColumns is the allowlist for
+// JoinTokenFilter.SortColumn.
+var AllowedJoinTokenSortColumns = []string{
+	"id", "prefix", "agent_id", "created_at", "expires_at", "used_at",
 }
 
 // AllowedStateRunSortColumns is the allowlist for StateRunFilter.SortColumn.

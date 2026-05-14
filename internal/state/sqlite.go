@@ -199,3 +199,39 @@ func translateSQLError(err error) error {
 	}
 	return err
 }
+
+// isDuplicateKeyError reports whether err is a UNIQUE-constraint
+// violation from either backend driver.
+//
+//   - lib/pq (Postgres) → *pq.Error with Code "23505" (unique_violation)
+//   - modernc.org/sqlite → error message contains "UNIQUE constraint"
+//
+// Used by Create* paths to wrap state.ErrDuplicate so callers can
+// branch with errors.Is without driver-specific knowledge.
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Driver-agnostic substring match. modernc.org/sqlite emits
+	// "constraint failed: UNIQUE constraint failed: ..."; lib/pq's
+	// String() includes "unique constraint" in the human-readable
+	// message. Both substrings are stable across the supported
+	// driver versions; if a future driver changes wording, the
+	// state package adds a typed-error fallback here.
+	msg := err.Error()
+	return contains(msg, "UNIQUE constraint") || contains(msg, "unique constraint")
+}
+
+// contains is a strings.Contains shim that avoids the strings import
+// in this file (kept minimal — only used by isDuplicateKeyError).
+func contains(haystack, needle string) bool {
+	if len(needle) > len(haystack) {
+		return false
+	}
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		if haystack[i:i+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
+}

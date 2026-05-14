@@ -173,6 +173,20 @@ var sqliteSchema = []string{
     duration_ms   INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (run_id, decl_id)
 )`,
+	`CREATE TABLE IF NOT EXISTS join_tokens (
+    id         TEXT PRIMARY KEY,
+    hash       BLOB NOT NULL,
+    salt       BLOB NOT NULL,
+    prefix     TEXT NOT NULL UNIQUE,
+    agent_id   TEXT NOT NULL DEFAULT '',
+    ttl_ns     INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT,
+    max_uses   INTEGER NOT NULL DEFAULT 1,
+    used_count INTEGER NOT NULL DEFAULT 0,
+    metadata   TEXT NOT NULL DEFAULT '{}'
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -185,6 +199,8 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS state_runs_started_at_idx ON state_runs (started_at)`,
 	`CREATE INDEX IF NOT EXISTS state_runs_agent_id_idx ON state_runs (agent_id, started_at)`,
 	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
+	`CREATE INDEX IF NOT EXISTS join_tokens_agent_id_idx ON join_tokens (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS join_tokens_expires_at_idx ON join_tokens (expires_at)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -296,6 +312,20 @@ var postgresSchema = []string{
     duration_ms   BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (run_id, decl_id)
 )`,
+	`CREATE TABLE IF NOT EXISTS join_tokens (
+    id         TEXT PRIMARY KEY,
+    hash       BYTEA NOT NULL,
+    salt       BYTEA NOT NULL,
+    prefix     TEXT NOT NULL UNIQUE,
+    agent_id   TEXT NOT NULL DEFAULT '',
+    ttl_ns     BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ,
+    max_uses   INTEGER NOT NULL DEFAULT 1,
+    used_count INTEGER NOT NULL DEFAULT 0,
+    metadata   JSONB NOT NULL DEFAULT '{}'::jsonb
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -308,4 +338,6 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS state_runs_started_at_idx ON state_runs (started_at)`,
 	`CREATE INDEX IF NOT EXISTS state_runs_agent_id_idx ON state_runs (agent_id, started_at)`,
 	`CREATE INDEX IF NOT EXISTS state_runs_status_idx ON state_runs (status)`,
+	`CREATE INDEX IF NOT EXISTS join_tokens_agent_id_idx ON join_tokens (agent_id)`,
+	`CREATE INDEX IF NOT EXISTS join_tokens_expires_at_idx ON join_tokens (expires_at)`,
 }

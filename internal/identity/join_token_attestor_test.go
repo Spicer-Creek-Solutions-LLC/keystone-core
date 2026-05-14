@@ -52,6 +52,26 @@ func (f *fakeJoinTokenStore) MarkUsed(_ context.Context, id string, now time.Tim
 	return f.markUsedErr
 }
 
+// The attestor only calls Lookup + MarkUsed; the other methods
+// exist solely to satisfy the full JoinTokenStore interface
+// added by task 9. They are NOT exercised by the attestor tests.
+
+func (f *fakeJoinTokenStore) Create(context.Context, JoinToken) error {
+	return errors.New("fakeJoinTokenStore: Create not used by attestor tests")
+}
+func (f *fakeJoinTokenStore) Get(context.Context, string) (*JoinToken, error) {
+	return nil, errors.New("fakeJoinTokenStore: Get not used by attestor tests")
+}
+func (f *fakeJoinTokenStore) List(context.Context, ListJoinTokensFilter) ([]*JoinToken, error) {
+	return nil, errors.New("fakeJoinTokenStore: List not used by attestor tests")
+}
+func (f *fakeJoinTokenStore) Delete(context.Context, string) error {
+	return errors.New("fakeJoinTokenStore: Delete not used by attestor tests")
+}
+func (f *fakeJoinTokenStore) Cleanup(context.Context, time.Time) (int, error) {
+	return 0, errors.New("fakeJoinTokenStore: Cleanup not used by attestor tests")
+}
+
 // ---- helper: build a valid token + matching record --------------
 
 // validTokenAndRecord generates a cleartext token + a JoinToken

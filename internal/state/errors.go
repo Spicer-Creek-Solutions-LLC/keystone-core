@@ -13,4 +13,10 @@ var (
 	// ErrNotImplemented is returned by stub methods on backends whose real
 	// implementation is still pending. Real backends never return this.
 	ErrNotImplemented = errors.New("state: not implemented")
+
+	// ErrDuplicate is returned by Create* paths when a unique
+	// constraint would be violated by the insert. Backends MUST wrap
+	// this sentinel so callers can branch with errors.Is rather than
+	// string-matching driver-specific error messages.
+	ErrDuplicate = errors.New("state: duplicate record")
 )

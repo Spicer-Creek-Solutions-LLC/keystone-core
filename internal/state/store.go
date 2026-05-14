@@ -83,6 +83,32 @@ type APIKeyStore interface {
 	DeleteAPIKey(ctx context.Context, id string) error
 }
 
+// JoinTokenStore manages cluster-join token records used by the
+// identity provider's join-token attestor (Epic 09 task 8) +
+// CreateJoinToken / ListJoinTokens / DeleteJoinToken methods
+// (Epic 09 task 10). Background cleanup (Epic 09 task 11) calls
+// DeleteExpiredJoinTokens hourly on the cluster leader.
+//
+// Storage MUST persist only Hash + Salt — never cleartext Token.
+// LookupJoinTokenByPrefix narrows the search; the caller (the
+// attestor) MUST verify the salted hash before trusting the record.
+//
+// MarkJoinTokenUsed MUST be atomic — concurrent attestation attempts
+// against a max-uses=1 token MUST see exactly one success.
+type JoinTokenStore interface {
+	CreateJoinToken(ctx context.Context, r *JoinTokenRecord) error
+	GetJoinToken(ctx context.Context, id string) (*JoinTokenRecord, error)
+	LookupJoinTokenByPrefix(ctx context.Context, prefix string) (*JoinTokenRecord, error)
+	ListJoinTokens(ctx context.Context, filter JoinTokenFilter) ([]*JoinTokenRecord, error)
+	MarkJoinTokenUsed(ctx context.Context, id string, now time.Time) error
+	DeleteJoinToken(ctx context.Context, id string) error
+
+	// DeleteExpiredJoinTokens removes every token whose ExpiresAt is
+	// at or before `before`. Returns the number of records removed.
+	// Hourly cleanup loop (Epic 09 task 11) is the production caller.
+	DeleteExpiredJoinTokens(ctx context.Context, before time.Time) (int, error)
+}
+
 // StateHistoryStore persists the past-runs record used by
 // `kscorectl state history` + `kscorectl state rollback`. PROJECT-
 // DETAILS §4.8 specifies this sub-interface; Epic 08 task 8 ships
@@ -145,6 +171,7 @@ type Store interface {
 	CommandStore
 	BatchJobStore
 	APIKeyStore
+	JoinTokenStore
 	StateHistoryStore
 	HealthStore
 

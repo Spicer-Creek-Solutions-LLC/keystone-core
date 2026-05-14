@@ -36,23 +36,51 @@ var ErrJoinTokenNotFound = errors.New("identity: join token not found")
 // MarkUsed stays narrow.
 var ErrJoinTokenExhausted = errors.New("identity: join token exhausted")
 
-// JoinTokenStore is the narrow read surface the
-// [JoinTokenAttestor] needs from the join-token persistence
-// layer. Task 9 extends this interface with the write side
-// (Create / Delete / List / Cleanup); task 8 ships only what
-// attestation reads, so concrete store implementations can land
-// independently in task 9 without ripping up the attestor.
+// ErrJoinTokenInvalid wraps every Create-time shape rejection
+// (empty ID / Prefix / Hash / Salt; zero ExpiresAt; zero
+// MaxUses). Distinct from [ErrJoinTokenNotFound] +
+// [ErrJoinTokenExhausted] so call sites branch on whether the
+// input was malformed vs. the store state.
+var ErrJoinTokenInvalid = errors.New("identity: invalid join token")
+
+// ErrJoinTokenDuplicate is returned by [JoinTokenStore.Create]
+// when the new record's ID or Prefix collides with an existing
+// record.
+var ErrJoinTokenDuplicate = errors.New("identity: join token already exists")
+
+// JoinTokenStore is the full persistence surface for join tokens.
+// Task 8 shipped the narrow Lookup + MarkUsed half (what the
+// attestor reads); task 9 extends with the write side that the
+// EmbeddedProvider's CreateJoinToken / ListJoinTokens /
+// DeleteJoinToken methods (task 10) + the background cleanup
+// loop (task 11) need.
 //
 // Implementations MUST be goroutine-safe — the attestor may be
 // called concurrently from multiple gRPC handlers, and
 // [JoinTokenStore.MarkUsed] in particular MUST be atomic so the
 // MaxUses contract isn't violated under contention.
+//
+// Implementations MUST persist only the hash + salt — never
+// cleartext Token. Get / List / Lookup MUST always return records
+// with Token == "".
 type JoinTokenStore interface {
+	// Create persists a new join token. Validates ID / Prefix /
+	// Hash / Salt are non-empty; ExpiresAt > 0; MaxUses > 0.
+	// Stores the record with Token forcibly cleared. Returns
+	// ErrJoinTokenDuplicate when ID or Prefix collides.
+	Create(ctx context.Context, token JoinToken) error
+
+	// Get returns a token by ID. ErrJoinTokenNotFound when absent.
+	Get(ctx context.Context, id string) (*JoinToken, error)
+
 	// Lookup finds a join-token record by its [JoinToken.Prefix].
 	// Returns [ErrJoinTokenNotFound] when absent. Lookup does NOT
 	// authenticate — the caller MUST verify the full salted hash
 	// against the presented cleartext before trusting the record.
 	Lookup(ctx context.Context, prefix string) (*JoinToken, error)
+
+	// List returns tokens matching filter, oldest-first by default.
+	List(ctx context.Context, filter ListJoinTokensFilter) ([]*JoinToken, error)
 
 	// MarkUsed atomically increments UsedCount and sets UsedAt
 	// to `now`. Returns [ErrJoinTokenExhausted] when the
@@ -60,4 +88,14 @@ type JoinTokenStore interface {
 	// is what makes the "single-use" semantics safe under
 	// concurrent attestation attempts.
 	MarkUsed(ctx context.Context, id string, now time.Time) error
+
+	// Delete removes a token by ID. Returns [ErrJoinTokenNotFound]
+	// when absent; callers that want idempotent delete branch on
+	// errors.Is(err, ErrJoinTokenNotFound).
+	Delete(ctx context.Context, id string) error
+
+	// Cleanup removes every token whose ExpiresAt is at or
+	// before `before`. Returns the count removed. Task 11's
+	// hourly cleanup loop is the production caller.
+	Cleanup(ctx context.Context, before time.Time) (int, error)
 }
