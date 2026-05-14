@@ -68,6 +68,13 @@ type CARotatorConfig struct {
 	// regardless of whether a rotation fired. Tests subscribe to
 	// observe loop progress race-free; production leaves it nil.
 	OnTick func()
+
+	// OnRotateSuccess is called (non-blocking) only after a
+	// rotation completes without error. EmbeddedProvider (task 7)
+	// hooks this to rebuild + republish the trust bundle to its
+	// watchers. nil in rotators that don't need a post-rotation
+	// hook.
+	OnRotateSuccess func()
 }
 
 // NewCARotator validates cfg and returns a stopped rotator. Call
@@ -181,4 +188,7 @@ func (r *CARotator) tick(ctx context.Context) {
 	r.cfg.Logger.Info("ca rotation succeeded",
 		"now", now,
 	)
+	if r.cfg.OnRotateSuccess != nil {
+		r.cfg.OnRotateSuccess()
+	}
 }
