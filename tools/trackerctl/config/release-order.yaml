@@ -32,6 +32,7 @@ gate-v0.5:
   - "Encrypt CA material at rest"
 
 gate-v1.0:
+  - "Pre-rotation signing-CA retention in the bootstrap trust bundle"
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
   - "Unified single + batch dispatch persistence"
   - "Server-side target expression compile (proto extension)"
@@ -66,6 +67,7 @@ gate-v1.0:
   - "Cluster-wide HMAC secret (vs per-agent)"
 
 v0.x:
+  - "Bootstrap protocol versioning"
   - "Direct signing-cert accessor on CAManager"
   - "Join-token \"any agent\" mode (AgentID-less binding)"
   - "Live mid-execution stdout / stderr streaming"

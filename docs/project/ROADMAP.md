@@ -222,6 +222,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
+#### Pre-rotation signing-CA retention in the bootstrap trust bundle
+
+- **Priority**: gate-v1.0
+- **What**: Epic 09 task 14's `SVIDBootstrapIssuer` populates `AgentCredentials.TrustBundlePEM` from `provider.GetTrustBundle().X509Authorities()` — which in v0.1 is just the root cert. `CAManager.RotateSigningCA` doesn't retain the previous signing CA cert, so an agent that bootstrapped before a rotation but disconnects through it needs to refresh its bundle from the server before its cached SVID chain verifies (the leaf still chains to a now-discarded signing CA whose public material the bundle no longer advertises). Acceptable for v0.5 single-CP (rotation rare, agents reconnect fast); multi-CP HA needs a grace window of retained signing CAs in the bundle.
+- **Why deferred**: v0.5 single-CP single-server doesn't experience the disconnect-across-rotation scenario at scale (rotation is hourly-poll + 50%-of-lifetime). Multi-CP HA (Epic 13) introduces wider clock skew + more aggressive rotation; that's the natural place to land the retention window.
+- **Acceptance**: `CAManager.RotateSigningCA` records prior signing CAs into a retention list; `BuildTrustBundle` includes the active root + retained pre-rotation signing CAs; retention window is config-driven (default 24h, matching MaxSVIDTTL); `SVIDBootstrapIssuer` and `BuildServerTLSConfig` both benefit transparently.
+- **References**: `internal/identity/ca.go` CAManager; `internal/identity/embedded_provider.go` buildBundle; `internal/controlplane/bootstrap_jointoken.go` SVIDBootstrapIssuer; Epic 09 task 14 (landed); Epic 13 (clustering).
+
 #### Agent-side cancel propagation (SIGTERM to in-flight commands)
 
 - **Priority**: gate-v1.0
@@ -494,6 +502,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
+
+#### Bootstrap protocol versioning
+
+- **Priority**: v0.x
+- **What**: Epic 09 task 14 extended `controlplane.AgentCredentials` from three JSON fields to six (added `cert_chain_pem`, `private_key_pem`, `trust_bundle_pem`). All new fields use `omitempty` so older agents reading the JSON ignore them, but a formal `protocol_version` field would make compatibility explicit + give operators a clean knob for opt-in protocol upgrades down the line.
+- **Why deferred**: cosmetic. Both wire shapes (Epic 05 task 9 three-field form + Epic 09 task 14 six-field form) round-trip cleanly through `encoding/json` and the agent runtime treats new fields as additive. Adding explicit versioning is forward-thinking but not v0.5-blocking.
+- **Acceptance**: `AgentCredentials.ProtocolVersion uint32` field; bootstrap response carries the current version; agents check + log on mismatch.
+- **References**: `internal/controlplane/bootstrap.go` AgentCredentials; Epic 09 task 14 (landed).
 
 #### Direct signing-cert accessor on CAManager
 

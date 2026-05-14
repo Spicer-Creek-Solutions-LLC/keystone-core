@@ -29,7 +29,7 @@ The reset is deliberate: rather than carry forward technical debt, the codebase 
 
 If you were following the previous codebase: it isn't gone, it just isn't `main` anymore. `git fetch && git checkout archive/v0` to read it.
 
-### Current state (epics 01–08 complete)
+### Current state (epics 01–09 complete)
 
 What's in `main` today:
 
@@ -53,7 +53,7 @@ What's in `main` today:
 
 - **State management** (epic 08): `internal/statemgmt` ships the engine (parse → render → validate → resolve → check / apply / test) plus 35 stdlib modules across nine categories (system & core / scheduled tasks / storage / network base / firewall / SSH & security / system config / files & VCS / certificates). `pkg/saga` provides aggregate-and-continue compensation that `Runner.RunSaga` wires into the state runner against the `StateHistoryStore`. `StateGRPCServer` implements `ApplyState` (streaming), `CheckState`, `DetectDrift`, `GetStateHistory`, `RollbackState`, `GetStateStatus`. End-to-end integration test exercises five paths (apply / idempotency / drift / rollback / saga compensation / requisite-cycle error) over `bufconn`; a `test/e2e/state/` scaffold parks the v0.5 cross-distro Docker matrix.
 
-- **Identity & auth** (epic 09): embedded SPIFFE-shaped CA, mTLS-ready join tokens, `kscore-identity` operator CLI. `internal/identity`: two-tier root + signing CA with auto-rotation; `JoinTokenStore` (in-memory + state-backed); `JoinTokenAttestor` with constant-time hash + max-uses + expiry checks; `EmbeddedProvider` composes everything behind the `Provider` interface (`SPIFFEID`, `X509SVID`, `JWTSVID`, `TrustBundle`, `WatchTrustBundle`). `IdentityService` gRPC exposes the operator surface; the new `kscore-identity` binary ships `token {create,list,revoke,cleanup}` + `ca {info,rotate-signing,export}` + `status`. Tasks 13-14 (mTLS / NATS bootstrap wiring) close the epic.
+- **Identity & auth** (epic 09): embedded SPIFFE-shaped CA, mTLS-ready join tokens, `kscore-identity` operator CLI, mTLS-on-gRPC default-on. `internal/identity` ships the full surface — `SPIFFEID` / `X509SVID` / `JWTSVID` / `TrustBundle`, two-tier root + signing CA with auto-rotation, `JoinTokenStore` (in-memory + state-backed) with constant-time hash + atomic MaxUses, `JoinTokenAttestor`, `EmbeddedProvider` composing everything behind the `Provider` interface. `IdentityService` gRPC exposes `token {create,list,revoke,cleanup}` + `ca {info,rotate-signing,export}` + `status` for the new `kscore-identity` binary. Server-side mTLS (`BuildServerTLSConfig`) derives from the running provider with auto-refresh on signing-CA rotation; `defaultConfig().Server.TLS.Enabled = true` so fresh boots get TLS by default. NATS bootstrap upgrades the Epic-05 PSK path to a SPIFFE-aware `JoinTokenBootstrapValidator` + `SVIDBootstrapIssuer` that hands the joining agent a complete `tls.X509KeyPair`-ready set of credentials (cleartext API key + leaf chain + private key + trust bundle).
 
 Secrets, events, audit, clustering, and the rest follow. Track progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The ranked v0.x backlog (entries gated on v0.5, v1.0, or further out) lives in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
 

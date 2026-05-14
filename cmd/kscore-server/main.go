@@ -146,21 +146,54 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 
 	if cfg.NATS.Bootstrap.Enabled {
-		entries, err := controlplane.DecodeConfigPSKs(toConfigPSKs(cfg.NATS.Bootstrap.PSKs))
-		if err != nil {
-			return fmt.Errorf("bootstrap psk decode: %w", err)
-		}
-		issuer, err := controlplane.NewAPIKeyIssuer(controlplane.APIKeyIssuerConfig{
+		apiKeyIssuer, err := controlplane.NewAPIKeyIssuer(controlplane.APIKeyIssuerConfig{
 			Keys: store,
 		})
 		if err != nil {
 			return fmt.Errorf("bootstrap issuer: %w", err)
 		}
+
+		// Epic 09 task 14 — when identity is enabled, validate
+		// bootstrap requests against the join-token store + issue
+		// X509SVIDs alongside the API key. When identity is off,
+		// fall back to the Epic 05 PSK path so v0.1 operators
+		// running without identity keep working.
+		var (
+			bootstrapValidator controlplane.BootstrapValidator
+			credentialIssuer  controlplane.CredentialIssuer
+		)
+		if identityProvider != nil {
+			attestor, err := identity.NewJoinTokenAttestor(identity.JoinTokenAttestorConfig{
+				Store:       identityProvider.JoinTokens(),
+				TrustDomain: cfg.Identity.TrustDomain,
+			})
+			if err != nil {
+				return fmt.Errorf("bootstrap join-token attestor: %w", err)
+			}
+			bootstrapValidator, err = controlplane.NewJoinTokenBootstrapValidator(attestor, cfg.Identity.TrustDomain)
+			if err != nil {
+				return fmt.Errorf("bootstrap join-token validator: %w", err)
+			}
+			credentialIssuer, err = controlplane.NewSVIDBootstrapIssuer(identityProvider, apiKeyIssuer, 0)
+			if err != nil {
+				return fmt.Errorf("bootstrap svid issuer: %w", err)
+			}
+			log.Info("bootstrap configured for join-token + SVID")
+		} else {
+			entries, err := controlplane.DecodeConfigPSKs(toConfigPSKs(cfg.NATS.Bootstrap.PSKs))
+			if err != nil {
+				return fmt.Errorf("bootstrap psk decode: %w", err)
+			}
+			bootstrapValidator = controlplane.NewPSKValidator(controlplane.PSKValidatorConfig{
+				Entries: entries,
+			})
+			credentialIssuer = apiKeyIssuer
+			log.Info("bootstrap configured for PSK + API-key (identity disabled)")
+		}
+
 		opts.Subscriber = natsSubscriberAdapter{m: natsManager}
-		opts.BootstrapValidator = controlplane.NewPSKValidator(controlplane.PSKValidatorConfig{
-			Entries: entries,
-		})
-		opts.CredentialIssuer = issuer
+		opts.BootstrapValidator = bootstrapValidator
+		opts.CredentialIssuer = credentialIssuer
 	}
 
 	srv, err := server.New(opts)

@@ -66,10 +66,37 @@ type CredentialIssuer interface {
 // AgentCredentials is the wire-format payload returned to the agent
 // on the bootstrap response subject. APIKey is the cleartext —
 // surfaced exactly once, never persisted.
+//
+// Epic 09 task 14 adds the three SVID-related fields. Older
+// CredentialIssuer impls (APIKeyIssuer) leave them empty; agents
+// MUST check `len(creds.CertChainPEM) > 0` before decoding.
+//
+// Wire-shape stability: the new fields use `omitempty` so the
+// JSON payload an Epic-05 task-9 agent decodes is byte-identical
+// to the v1.0 baseline when the issuer is API-key-only. SVID-aware
+// agents see them populated when the server runs
+// [SVIDBootstrapIssuer] (task 14's preferred path when
+// cfg.Identity.Enabled).
 type AgentCredentials struct {
 	APIKey   string    `json:"api_key"` //nolint:gosec // legitimate cleartext credential carried in-memory only
 	AgentID  string    `json:"agent_id"`
 	IssuedAt time.Time `json:"issued_at"`
+
+	// CertChainPEM is the issued X509SVID's chain (leaf →
+	// signing CA, in that order) as PEM-encoded CERTIFICATE
+	// blocks. Empty when the issuer is API-key-only.
+	CertChainPEM string `json:"cert_chain_pem,omitempty"`
+
+	// PrivateKeyPEM is the leaf's private key, PKCS#8-encoded
+	// inside a PEM block. The cleartext is surfaced exactly once
+	// — the server never persists it.
+	PrivateKeyPEM string `json:"private_key_pem,omitempty"` //nolint:gosec // legitimate cleartext key
+
+	// TrustBundlePEM is the concatenated PEM-encoded X509
+	// authorities from the provider's current trust bundle.
+	// Agents load these into their RootCAs pool to verify the
+	// server's TLS cert.
+	TrustBundlePEM string `json:"trust_bundle_pem,omitempty"`
 }
 
 // bootstrapRequest is the inbound register payload. Agent metadata
