@@ -100,6 +100,33 @@ func TestRenewStrategy_Threshold(t *testing.T) {
 	}
 }
 
+func TestRenewStrategy_JSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	for _, s := range []RenewStrategy{RenewStrategyEager, RenewStrategyLazy, RenewStrategyOnDemand} {
+		b, err := s.MarshalText()
+		if err != nil {
+			t.Fatalf("MarshalText(%v): %v", s, err)
+		}
+		var out RenewStrategy
+		if err := out.UnmarshalText(b); err != nil {
+			t.Fatalf("UnmarshalText(%q): %v", b, err)
+		}
+		if out != s {
+			t.Errorf("round-trip lost value: got %v want %v", out, s)
+		}
+	}
+
+	// Empty bytes decode to Unknown.
+	var s RenewStrategy
+	if err := s.UnmarshalText(nil); err != nil {
+		t.Errorf("UnmarshalText(nil): %v", err)
+	}
+	if s != RenewStrategyUnknown {
+		t.Errorf("empty text -> %v, want RenewStrategyUnknown", s)
+	}
+}
+
 func TestRenewStrategy_ParseAliases(t *testing.T) {
 	t.Parallel()
 
