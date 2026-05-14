@@ -495,6 +495,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
+#### Direct signing-cert accessor on CAManager
+
+- **Priority**: v0.x
+- **What**: Epic 09 task 12's `IdentityGRPCServer.ExportCA WHAT_SIGNING` and `GetStatus SigningExpiresAt` paths currently issue a throwaway 1-minute probe cert to reach the signing CA's cert (`issued.Chain[1]`). Works, but it's awkward — every probe consumes a serial number + briefly bloats the on-disk metadata. Add `CAManager.SigningCACert() *x509.Certificate` (and `SigningCAExpiresAt() time.Time` for the status path) so the server reads the in-memory state directly.
+- **Why deferred**: cosmetic. The probe-issue path is correct + tested; the cleanup is an internal refactor with no external behavior change.
+- **Acceptance**: `IdentityGRPCServer.ExportCA WHAT_SIGNING` returns the same PEM without invoking `IssueCertificate`; `GetStatus.SigningExpiresAt` reads from `SigningCAExpiresAt()`; the throwaway-probe path is removed.
+- **References**: `internal/controlplane/grpc_identity_server.go` ExportCA + GetStatus; `internal/identity/ca.go` CAManager.
+
 #### Join-token "any agent" mode (AgentID-less binding)
 
 - **Priority**: v0.x
@@ -735,6 +743,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 ### Targeted: v1.3
 
 ## v1.x — post-v1.0 feature additions
+
+#### kscore-identity federation subcommands
+
+- **Priority**: v1.x
+- **What**: Epic 09 task 12's `kscore-identity` CLI ships seven subcommands (`token {create,list,revoke,cleanup}` + `ca {info,rotate-signing,export}` + `status`). PROJECT-DETAILS §4.10 names a fourth top-level group — `federation {add-domain, list, fetch-bundle}` — for cross-trust-domain operation. v0.1 explicitly defers it (the spec marks it "v1.1+"). The CLI + gRPC service + EmbeddedProvider would gain `FederatedTrustDomain` records, a bundle-endpoint exposure, and per-domain refresh hints; lands alongside the Provider trust-federation work itself.
+- **Why deferred**: federation needs a wire protocol for bundle distribution + cross-domain trust policy + a federated `Attest` path — its own design pass. v0.1 ships single-domain only.
+- **Acceptance**: `kscore-identity federation add-domain spiffe://peer.example.org/` registers + fetches the peer bundle; `kscore-identity federation list` shows registered domains + last-refresh timestamps; `kscore-identity federation fetch-bundle <domain>` retrieves it ad-hoc; the existing trust-federation v1.x ROADMAP entry covers the underlying provider work.
+- **References**: Epic 09 scope-out (line 23); `internal/cli/identity` (current CLI surface); the existing "Trust federation (cross-domain bundle endpoint)" entry below.
 
 #### Unbiased base62 for join-token generation
 

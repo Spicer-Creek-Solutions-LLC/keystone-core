@@ -46,6 +46,7 @@ type Config struct {
 	NATS     NATSConfig     `koanf:"nats"`
 	Agent    AgentConfig    `koanf:"agent"`
 	Security SecurityConfig `koanf:"security"`
+	Identity IdentityConfig `koanf:"identity"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -120,6 +121,12 @@ func defaultConfig() *Config {
 		Security: SecurityConfig{
 			MaxArgsBytes:  64 * 1024, // §4.7 default
 			DefaultPolicy: "deny",    // safer baseline; operators explicitly allow
+		},
+		Identity: IdentityConfig{
+			Enabled:     true,
+			TrustDomain: "kscore.local",
+			StoragePath: "./data/identity",
+			KeyType:     "ecdsa-p256",
 		},
 	}
 }

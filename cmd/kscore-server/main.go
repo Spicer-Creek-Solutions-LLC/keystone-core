@@ -20,6 +20,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/identity"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
@@ -170,6 +171,24 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
 	srv.RegisterService(&v1.StateService_ServiceDesc, stateGRPC)
+
+	// Epic 09 task 12 — embedded identity provider + IdentityService
+	// gRPC. Disabled when cfg.Identity.Enabled is false (operators
+	// running their own SPIRE or a future external IdP).
+	var identityProvider *identity.EmbeddedProvider
+	if cfg.Identity.Enabled {
+		identityProvider, err = startIdentityProvider(ctx, cfg.Identity, store, log)
+		if err != nil {
+			return fmt.Errorf("identity provider: %w", err)
+		}
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			_ = identityProvider.Stop(stopCtx)
+		}()
+		identityGRPC := controlplane.NewIdentityGRPCServer(identityProvider)
+		srv.RegisterService(&v1.IdentityService_ServiceDesc, identityGRPC)
+	}
 
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("server start: %w", err)

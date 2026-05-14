@@ -66,6 +66,7 @@ gate-v1.0:
   - "Cluster-wide HMAC secret (vs per-agent)"
 
 v0.x:
+  - "Direct signing-cert accessor on CAManager"
   - "Join-token \"any agent\" mode (AgentID-less binding)"
   - "Live mid-execution stdout / stderr streaming"
   - "Eval-time observability for malformed targeting patterns"
@@ -90,6 +91,7 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "kscore-identity federation subcommands"
   - "Unbiased base62 for join-token generation"
   - "Trust federation (cross-domain bundle endpoint)"
   - "Windows agent (native service)"
