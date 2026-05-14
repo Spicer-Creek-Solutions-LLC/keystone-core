@@ -354,6 +354,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-secrets rotate` invokes a strategy, runs health checks, rolls back on failure.
 - **References**: Epic 00 deferred list (line 77); PROJECT-DETAILS §4.11 (line 765).
 
+#### Vault AWS IAM auth method
+
+- **Priority**: gate-v1.0
+- **What**: Epic 10 task 5 ships the Vault backend with Token / AppRole / Kubernetes / LDAP auth methods. AWS IAM auth (`vault/api/auth/aws`) is detected via the config-validation rejection path but not wired, because that sub-package pulls in `github.com/aws/aws-sdk-go-v2/credentials/stscreds` for the STS request-signing. AWS-EC2-hosted Vault deployments that prefer instance-profile auth are blocked on this.
+- **Why deferred**: aws-sdk-go-v2 weight is real — adding it to v1.0 ships a heavier binary for every operator regardless of whether they use AWS. Trial-scope deployments (the v0.5 target) typically use Token or AppRole; production AWS deployments are the natural v1.0 audience for IAM.
+- **Acceptance**: `Auth.Method=aws` with an `AWSAuthConfig{Role, Region, IAMServerIDHeader, ...}` round-trips against a `vault dev` server with the AWS auth method enabled; the AWS SDK dep is brought in only when AWS auth is configured (build tag or explicit constructor).
+- **References**: `internal/secrets/vault/config.go` AuthConfig (current four-method enum); `github.com/hashicorp/vault/api/auth/aws` (the SDK helper); Epic 10 task 5 (landed).
+
 #### Encrypted-file backend master-key rotation tooling
 
 - **Priority**: gate-v1.0
@@ -510,6 +518,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
+
+#### Vault auto re-authentication on token expiry
+
+- **Priority**: v0.x
+- **What**: Epic 10 task 5's `tokenRenewer` keeps the Vault auth token alive by calling `auth/token/renew-self` shortly before expiry. If renewal fails (network glitch, Vault restart, policy change), the renewer logs WARN and the backend's `Health` reports unhealthy — operators must restart the server to recover, since the renewer doesn't try to re-login from the stored credentials. For unattended trial deployments this means a transient Vault outage can require manual intervention.
+- **Why deferred**: re-login from stored credentials needs careful thought about credential lifecycle. AppRole SecretIDs can be single-use, in which case re-login fails the same way; Token auth credentials don't change. The right behavior is method-aware and adds enough complexity to deserve its own task.
+- **Acceptance**: On `auth/token/renew-self` failure, the renewer re-invokes the configured auth method to obtain a fresh token and resumes the renewal loop on success; method-specific lockout heuristics (skip re-login if the previous N attempts failed) prevent runaway login storms.
+- **References**: `internal/secrets/vault/token_renewer.go`; `internal/secrets/vault/client.go` authenticate; Epic 10 task 5 (landed).
 
 #### Bootstrap protocol versioning
 

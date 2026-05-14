@@ -48,6 +48,7 @@ gate-v1.0:
   - "Multi-table transaction wrapper"
   - "Auto-rotation of in-memory NATS creds"
   - "Rotation orchestrator"
+  - "Vault AWS IAM auth method"
   - "Encrypted-file backend master-key rotation tooling"
   - "Encryption at rest (`KeyProvider`)"
   - "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution"
@@ -68,6 +69,7 @@ gate-v1.0:
   - "Cluster-wide HMAC secret (vs per-agent)"
 
 v0.x:
+  - "Vault auto re-authentication on token expiry"
   - "Bootstrap protocol versioning"
   - "Direct signing-cert accessor on CAManager"
   - "Join-token \"any agent\" mode (AgentID-less binding)"
