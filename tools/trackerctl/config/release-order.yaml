@@ -48,6 +48,7 @@ gate-v1.0:
   - "Multi-table transaction wrapper"
   - "Auto-rotation of in-memory NATS creds"
   - "Rotation orchestrator"
+  - "Encrypted-file backend master-key rotation tooling"
   - "Encryption at rest (`KeyProvider`)"
   - "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution"
   - "Backup orchestration features"

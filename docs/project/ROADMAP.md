@@ -354,6 +354,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-secrets rotate` invokes a strategy, runs health checks, rolls back on failure.
 - **References**: Epic 00 deferred list (line 77); PROJECT-DETAILS §4.11 (line 765).
 
+#### Encrypted-file backend master-key rotation tooling
+
+- **Priority**: gate-v1.0
+- **What**: Epic 10 task 4 ships the encrypted-file backend with `ResolveMasterKey` (env / file / inline schemes). The on-disk envelope carries a key fingerprint so a wrong-key boot fails with a recognisable mismatch error, but there is no first-class way to rotate the master key without operator surgery: v0.1 procedure is stop server → decrypt with the old key via a one-off Go program → re-encrypt with the new key → start with new key. PROJECT-DETAILS §4.11 explicitly lists "Master key rotation breaks cache; mitigate via dual-key window" as a gotcha. A `kscore-secrets rotate-master-key --from <old-source> --to <new-source>` subcommand makes this a first-class operation.
+- **Why deferred**: v0.5 single-CP single-server deployments tolerate the manual procedure (rotation is uncommon at trial scale); the dual-key window the gotcha calls for needs the broker-side cache (task 8) to honour two fingerprints simultaneously during a rotation window, which is a wider design than task 4 covers. v1.0 SemVer stability should not lock in a master-key story that has no rotation path.
+- **Acceptance**: `kscore-secrets rotate-master-key` decrypts the state file under the old key, re-encrypts under the new key, persists atomically via the existing `writeAtomic`; the broker's running backends pick up the new key without process restart; the cache holds entries under both fingerprints during a configurable grace window then evicts the old.
+- **References**: `internal/secrets/file/master_key.go` `ResolveMasterKey`; `internal/secrets/file/storage.go` envelope (`FingerprintLen` keyID); PROJECT-DETAILS §4.11 ("Master key rotation breaks cache; mitigate via dual-key window"); Epic 10 task 4 (landed); future Epic 10 task 8 cache.
+
 #### Encryption at rest (`KeyProvider`)
 
 - **Priority**: gate-v1.0
