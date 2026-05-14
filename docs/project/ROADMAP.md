@@ -784,6 +784,46 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### kscore-secrets backends subcommand
+
+- **Priority**: v1.x
+- **What**: Epic 10 task 10 ships the `kscore-secrets` CLI with seven subcommand groups (get / put / delete / list / leases / transit / leases-leaf-cmds). PROJECT-DETAILS §4.11 also lists `backends` — list configured backends + capabilities — which v1.0 defers because the gRPC service has no `ListBackends` RPC yet. Operators today can read this from the server's YAML config or the `/api/status` payload, but a CLI surface would be friendlier.
+- **Why deferred**: needs either a new gRPC method (`SecretsService.ListBackends() → BackendInfo[]`) or an extension of `/api/status`'s payload. v1.0 trial workflows can read the YAML directly.
+- **Acceptance**: `kscore-secrets backends` prints one row per configured backend with name + type + capabilities; gRPC method (or REST endpoint) populates the data.
+- **References**: PROJECT-DETAILS §4.11 CLI list; `pkg/api/v1/secrets.proto` (no ListBackends); Epic 10 task 10 (landed).
+
+#### kscore-secrets audit subcommand
+
+- **Priority**: v1.x
+- **What**: `kscore-secrets audit` queries the secrets-domain audit log — every `secret.access` event the broker fires on every op. v1.0 emits events via the slog-backed `LogAuditor` (Epic 10 task 3); Epic 12 ships the SQLite `AuditStore` + `AuditService` gRPC that this subcommand queries.
+- **Why deferred**: depends on Epic 12's audit-query API which is a separate epic.
+- **Acceptance**: `kscore-secrets audit --action=get_secret --since=1h` returns matching audit rows; flags include `--principal`, `--path`, `--allowed`, `--limit`, `--page-token`.
+- **References**: PROJECT-DETAILS §4.11 + §4.12; Epic 12 (Audit & Policy); Epic 10 task 10 (landed).
+
+#### kscore-secrets dynamic subcommand
+
+- **Priority**: v1.x
+- **What**: `kscore-secrets dynamic <path>` issues a dynamic credential through the broker. v1.0 lacks an `IssueDynamicSecret` RPC — operators can drive this through the in-process API but not over gRPC.
+- **Why deferred**: requires adding a new proto RPC `IssueDynamicSecret(path, role, ttl, params) → Secret`. Additive but uses proto-breaking-pipeline time + needs careful thought on the `params` shape (map<string, string> vs google.protobuf.Struct for arbitrary types like PKI `alt_names`).
+- **Acceptance**: proto adds `IssueDynamicSecret` RPC; CLI subcommand exists; ENG round-trips an actual Vault DB credential round-trip in the integration test.
+- **References**: `pkg/api/v1/secrets.proto`; `internal/secrets/backend.go` `IssueDynamicSecret`; Epic 10 task 10 (landed).
+
+#### kscore-secrets cache subcommand
+
+- **Priority**: v1.x
+- **What**: `kscore-secrets cache stats` reports hit-rate / entry count / memory bytes; `kscore-secrets cache clear` drops every entry (operator-driven post-rotation). Epic 10 task 8's `SecretCache` exposes both internally; v1.0 doesn't expose them over the wire.
+- **Why deferred**: needs new proto RPCs `GetCacheStats` + `ClearCache` (or a REST `/api/v1/secrets/cache` endpoint). Operator demand at trial scale is low; `kscore-server` log lines emit cache stats on a regular cadence.
+- **Acceptance**: `kscore-secrets cache stats` prints hit/miss/eviction counters; `kscore-secrets cache clear` empties the cache + the next operator request observes a cache miss.
+- **References**: `internal/secrets/secret_cache.go` `SecretCache.{Stats,Clear}`; Epic 10 task 8 (landed); Epic 10 task 10 (landed).
+
+#### kscore-secrets template subcommand
+
+- **Priority**: v1.x
+- **What**: Consul-template-style config rendering. Operators write a config template with `{{ secret "kv/app/db" "password" }}` placeholders; the subcommand fetches every referenced secret and renders the output. Common pattern for app-config integration where the app doesn't natively talk to the secrets API.
+- **Why deferred**: substantial feature — needs a template language pick (Go text/template + custom funcmap is the obvious starting point), file output / atomic-rewrite semantics, optional watch mode that re-renders on secret changes (depends on Epic 11 events), and security review of what placeholder syntax is permitted.
+- **Acceptance**: `kscore-secrets template -i /etc/app/config.tmpl -o /etc/app/config` renders the template, atomically replaces the output, exits 0; missing-secret references fail-fast with a clear error; `--watch` re-renders on a SIGUSR1 (or Epic 11 event when ready).
+- **References**: PROJECT-DETAILS §4.11 CLI list; analogous to `consul-template` / `vault agent`; Epic 10 task 10 (landed); Epic 11 (Events) for the watch path.
+
 #### Secrets transit batch API on the wire
 
 - **Priority**: v1.x

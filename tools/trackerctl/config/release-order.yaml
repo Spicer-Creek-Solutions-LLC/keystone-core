@@ -96,6 +96,11 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "kscore-secrets backends subcommand"
+  - "kscore-secrets audit subcommand"
+  - "kscore-secrets dynamic subcommand"
+  - "kscore-secrets cache subcommand"
+  - "kscore-secrets template subcommand"
   - "Secrets transit batch API on the wire"
   - "Secrets transit GenerateDataKey on the wire"
   - "Encrypted-file per-secret TTL expiry"
