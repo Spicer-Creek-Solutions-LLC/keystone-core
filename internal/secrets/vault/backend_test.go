@@ -83,8 +83,8 @@ func TestBackend_Capabilities(t *testing.T) {
 			t.Errorf("missing capability %s", want)
 		}
 	}
-	if secrets.HasCapability(caps, secrets.CapTransit) {
-		t.Errorf("CapTransit advertised; transit lands in task 7")
+	if !secrets.HasCapability(caps, secrets.CapTransit) {
+		t.Errorf("missing CapTransit (task 7)")
 	}
 }
 

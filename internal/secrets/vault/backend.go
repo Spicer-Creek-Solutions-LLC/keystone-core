@@ -56,7 +56,7 @@ func NewBackend(cfg Config) (*Backend, error) {
 func (b *Backend) Name() string { return b.name }
 
 // Capabilities reports the v1.0 Vault backend's surface: KV + list +
-// dynamic + lease renew/revoke. Transit lands in task 7.
+// dynamic + lease renew/revoke + transit.
 func (b *Backend) Capabilities() []secrets.BackendCapability {
 	return []secrets.BackendCapability{
 		secrets.CapKV,
@@ -64,6 +64,7 @@ func (b *Backend) Capabilities() []secrets.BackendCapability {
 		secrets.CapDynamic,
 		secrets.CapLeaseRenew,
 		secrets.CapLeaseRevoke,
+		secrets.CapTransit,
 	}
 }
 
@@ -229,5 +230,9 @@ func (b *Backend) internalClient() *vaultapi.Client {
 	return b.client
 }
 
-// Compile-time interface assertion.
-var _ secrets.SecretBackend = (*Backend)(nil)
+// Compile-time interface assertions — the Vault backend satisfies
+// both the KV/lease surface and the transit surface.
+var (
+	_ secrets.SecretBackend  = (*Backend)(nil)
+	_ secrets.TransitBackend = (*Backend)(nil)
+)

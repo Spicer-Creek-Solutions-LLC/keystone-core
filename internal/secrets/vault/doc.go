@@ -16,12 +16,10 @@
 //     `pki/issue/role`). The backend is engine-agnostic at v1.0.
 //   - [secrets.CapLeaseRenew] / [secrets.CapLeaseRevoke]: via
 //     `sys/leases/renew` and `sys/leases/revoke`. Idempotent revoke.
-//
-// What it does NOT support and explicitly returns
-// [secrets.ErrInvalidBackend] for:
-//
-//   - Transit (encrypt/decrypt/sign/verify) — task 7's
-//     [secrets.TransitBackend] will wrap the same Vault client.
+//   - [secrets.CapTransit]: encryption-as-a-service per
+//     [secrets.TransitBackend] — encrypt / decrypt / sign / verify /
+//     HMAC / rewrap / data-key generation, each with single + batch
+//     variants and convergent / key-version support.
 //
 // Auth methods deferred to ROADMAP:
 //

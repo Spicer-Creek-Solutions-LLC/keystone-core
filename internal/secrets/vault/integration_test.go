@@ -95,6 +95,115 @@ func TestVaultBackend_Integration_KVRoundTrip(t *testing.T) {
 	}
 }
 
+// skipIfNoTransit gates the transit integration tests on a second
+// env var so operators have to opt in even when KSCORE_TEST_VAULT_ADDR
+// is set — transit needs separate Vault setup
+// (`vault secrets enable transit` + `vault write -f
+// transit/keys/kscore-test`).
+func skipIfNoTransit(t *testing.T) {
+	t.Helper()
+	if os.Getenv("KSCORE_TEST_VAULT_TRANSIT") != "1" {
+		t.Skip("KSCORE_TEST_VAULT_TRANSIT not set to 1 — see integration_test.go header for setup")
+	}
+}
+
+func TestVaultBackend_Integration_TransitRoundTrip(t *testing.T) {
+	addr, token := skipIfNoVault(t)
+	skipIfNoTransit(t)
+
+	b, err := NewBackend(Config{
+		Address: addr,
+		Auth:    AuthConfig{Method: AuthMethodToken, Token: &TokenAuthConfig{Token: token}},
+	})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := b.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stopCancel()
+		_ = b.Stop(stopCtx)
+	})
+
+	const key = "kscore-test"
+	plaintext := []byte("hello-from-keystone-task-7")
+
+	enc, err := b.Encrypt(ctx, secrets.EncryptRequest{
+		Key:   key,
+		Items: []secrets.EncryptInput{{Plaintext: plaintext}},
+	})
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	if enc.Results[0].Ciphertext == "" {
+		t.Fatalf("encrypt returned empty ciphertext")
+	}
+
+	dec, err := b.Decrypt(ctx, secrets.DecryptRequest{
+		Key:   key,
+		Items: []secrets.DecryptInput{{Ciphertext: enc.Results[0].Ciphertext}},
+	})
+	if err != nil {
+		t.Fatalf("Decrypt: %v", err)
+	}
+	if string(dec.Results[0].Plaintext) != string(plaintext) {
+		t.Errorf("round-trip mismatch: got %q want %q", dec.Results[0].Plaintext, plaintext)
+	}
+}
+
+func TestVaultBackend_Integration_TransitSignVerify(t *testing.T) {
+	addr, token := skipIfNoVault(t)
+	skipIfNoTransit(t)
+
+	b, err := NewBackend(Config{
+		Address: addr,
+		Auth:    AuthConfig{Method: AuthMethodToken, Token: &TokenAuthConfig{Token: token}},
+	})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := b.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stopCancel()
+		_ = b.Stop(stopCtx)
+	})
+
+	const key = "kscore-test-sig" // separate transit key created as a signing key
+	input := []byte("payload")
+
+	sig, err := b.Sign(ctx, secrets.SignRequest{
+		Key:           key,
+		HashAlgorithm: "sha2-256",
+		Items:         []secrets.SignInput{{Input: input}},
+	})
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+
+	v, err := b.Verify(ctx, secrets.VerifyRequest{
+		Key:           key,
+		HashAlgorithm: "sha2-256",
+		Items: []secrets.VerifyInput{
+			{Input: input, Signature: sig.Results[0].Signature},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if !v.Results[0].Valid {
+		t.Errorf("Verify: valid=false on freshly-signed payload")
+	}
+}
+
 func TestVaultBackend_Integration_CAS(t *testing.T) {
 	addr, token := skipIfNoVault(t)
 
