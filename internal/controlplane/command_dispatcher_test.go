@@ -624,3 +624,149 @@ func TestConcurrentDispatchAndRecordResult(t *testing.T) {
 		t.Errorf("InFlight = %d, want 0", f.disp.InFlight())
 	}
 }
+
+// ---- OnCommandTerminal audit hook tests ---------------------------
+
+type terminalCall struct {
+	principal string
+	recordID  string
+	command   string
+	status    state.CommandStatus
+}
+
+func captureTerminal(captured *[]terminalCall, mu *sync.Mutex) controlplane.TerminalCommandFunc {
+	return func(_ context.Context, principal string, rec *state.CommandRecord, result state.CommandResult) {
+		mu.Lock()
+		defer mu.Unlock()
+		id := ""
+		cmd := ""
+		if rec != nil {
+			id = rec.ID
+			cmd = rec.Command
+		}
+		*captured = append(*captured, terminalCall{
+			principal: principal,
+			recordID:  id,
+			command:   cmd,
+			status:    result.Status,
+		})
+	}
+}
+
+func TestDispatcher_OnCommandTerminal_RecordResult(t *testing.T) {
+	var (
+		captured []terminalCall
+		mu       sync.Mutex
+	)
+	f := newDispatcherFixture(t, func(c *controlplane.DispatcherConfig) {
+		c.OnCommandTerminal = captureTerminal(&captured, &mu)
+	})
+
+	id, err := f.disp.Dispatch(context.Background(), controlplane.DispatchRequest{
+		AgentID: "agent-1", Command: "ls", Principal: "user:alice",
+	})
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if err := f.disp.RecordResult(context.Background(), id, state.CommandResult{
+		Status: state.CommandStatusCompleted, ExitCode: 0,
+	}); err != nil {
+		t.Fatalf("RecordResult: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1", len(captured))
+	}
+	if captured[0].recordID != id || captured[0].command != "ls" {
+		t.Errorf("captured = %+v", captured[0])
+	}
+	if captured[0].status != state.CommandStatusCompleted {
+		t.Errorf("status = %v", captured[0].status)
+	}
+}
+
+func TestDispatcher_OnCommandTerminal_PublishFailure(t *testing.T) {
+	var (
+		captured []terminalCall
+		mu       sync.Mutex
+	)
+	f := newDispatcherFixture(t, func(c *controlplane.DispatcherConfig) {
+		c.OnCommandTerminal = captureTerminal(&captured, &mu)
+	})
+	f.publisher.mu.Lock()
+	f.publisher.failNext = true
+	f.publisher.failErr = errors.New("nats down")
+	f.publisher.mu.Unlock()
+
+	_, err := f.disp.Dispatch(context.Background(), controlplane.DispatchRequest{
+		AgentID: "agent-1", Command: "ls", Principal: "user:alice",
+	})
+	if err == nil {
+		t.Fatalf("Dispatch should have failed")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1", len(captured))
+	}
+	if captured[0].status != state.CommandStatusFailed {
+		t.Errorf("status = %v, want Failed", captured[0].status)
+	}
+	if captured[0].principal != "user:alice" {
+		t.Errorf("principal = %q, want user:alice", captured[0].principal)
+	}
+}
+
+func TestDispatcher_OnCommandTerminal_Timeout(t *testing.T) {
+	var (
+		captured []terminalCall
+		mu       sync.Mutex
+	)
+	f := newDispatcherFixture(t, func(c *controlplane.DispatcherConfig) {
+		c.OnCommandTerminal = captureTerminal(&captured, &mu)
+	})
+	id, err := f.disp.Dispatch(context.Background(), controlplane.DispatchRequest{
+		AgentID: "agent-1", Command: "sleep", TimeoutSeconds: 1,
+	})
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	// Advance clock past deadline; sweep tick fires.
+	f.clk.Advance(2 * time.Second)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		got := len(captured)
+		mu.Unlock()
+		if got >= 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1 (timeout)", len(captured))
+	}
+	if captured[0].recordID != id || captured[0].status != state.CommandStatusTimeout {
+		t.Errorf("captured = %+v", captured[0])
+	}
+}
+
+func TestDispatcher_OnCommandTerminal_NilCallbackNoOp(t *testing.T) {
+	// No OnCommandTerminal configured.
+	f := newDispatcherFixture(t)
+	id, err := f.disp.Dispatch(context.Background(), controlplane.DispatchRequest{
+		AgentID: "agent-1", Command: "ls", Principal: "user:alice",
+	})
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if err := f.disp.RecordResult(context.Background(), id, state.CommandResult{
+		Status: state.CommandStatusCompleted,
+	}); err != nil {
+		t.Fatalf("RecordResult: %v", err)
+	}
+	// Must not panic.
+}

@@ -115,6 +115,18 @@ type CommandMessage struct {
 	Signature      string            `json:"signature"`
 }
 
+// TerminalCommandFunc is invoked once per command that reaches a
+// terminal state (Completed / Failed / Timeout / Cancelled). Boot
+// wiring uses it to emit Epic 12 audit entries for command exec
+// (§4.12 "every sensitive op MUST emit"). Fire-and-forget: the
+// callback's return value is ignored.
+//
+// principal is the dispatch-time issuer (gRPC auth principal, agent
+// SPIFFE ID, etc.) — empty string when the dispatch path didn't
+// carry one (e.g. internal server-side timeouts). record is the
+// persisted command shape; result is the terminal CommandResult.
+type TerminalCommandFunc func(ctx context.Context, principal string, record *state.CommandRecord, result state.CommandResult)
+
 // DispatcherConfig configures a CommandDispatcher. Store, Agents,
 // Publisher, Subjects, and Signer are required; everything else has
 // a default.
@@ -131,6 +143,10 @@ type DispatcherConfig struct {
 	TimeoutCheckInterval  time.Duration
 	Clock                 func() time.Time
 	NewID                 func() string
+
+	// OnCommandTerminal is invoked once per command reaching a
+	// terminal state. Optional — nil disables audit emission.
+	OnCommandTerminal TerminalCommandFunc
 }
 
 // inFlightCommand tracks an in-progress command for timeout
@@ -155,6 +171,7 @@ type CommandDispatcher struct {
 	timeoutCheckInterval  time.Duration
 	now                   func() time.Time
 	newID                 func() string
+	onTerminal            TerminalCommandFunc
 
 	mu       sync.Mutex
 	inflight map[string]inFlightCommand
@@ -227,6 +244,7 @@ func NewDispatcher(cfg DispatcherConfig) (*CommandDispatcher, error) {
 		subjects:              cfg.Subjects,
 		signer:                cfg.Signer,
 		logger:                cfg.Logger,
+		onTerminal:            cfg.OnCommandTerminal,
 		defaultTimeoutSeconds: cfg.DefaultTimeoutSeconds,
 		retentionWindow:       cfg.RetentionWindow,
 		retentionInterval:     cfg.RetentionInterval,
@@ -354,12 +372,14 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 	if err != nil {
 		// JSON marshal cannot fail for these scalar/string types,
 		// but if it ever did the command must not stay pending.
-		_ = d.store.UpdateCommandResult(ctx, id, state.CommandResult{
+		marshalResult := state.CommandResult{
 			Status:      state.CommandStatusFailed,
 			ExitCode:    -1,
 			Stderr:      "dispatch: marshal: " + err.Error(),
 			CompletedAt: d.now(),
-		})
+		}
+		_ = d.store.UpdateCommandResult(ctx, id, marshalResult)
+		d.notifyTerminal(ctx, req.Principal, rec, marshalResult)
 		return "", fmt.Errorf("controlplane: marshal command: %w", err)
 	}
 
@@ -374,12 +394,14 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 		envelope.WithCorrelationID(id),
 	)
 	if err := d.publisher.PublishEnvelope(ctx, subject, env); err != nil {
-		_ = d.store.UpdateCommandResult(ctx, id, state.CommandResult{
+		publishResult := state.CommandResult{
 			Status:      state.CommandStatusFailed,
 			ExitCode:    -1,
 			Stderr:      "dispatch: publish: " + err.Error(),
 			CompletedAt: d.now(),
-		})
+		}
+		_ = d.store.UpdateCommandResult(ctx, id, publishResult)
+		d.notifyTerminal(ctx, req.Principal, rec, publishResult)
 		return "", fmt.Errorf("%w: publish: %v", ErrAgentUnreachable, err)
 	}
 
@@ -438,6 +460,12 @@ func (d *CommandDispatcher) RecordResult(ctx context.Context, id string, result 
 	d.mu.Lock()
 	delete(d.inflight, id)
 	d.mu.Unlock()
+	// Principal is empty for the agent-reported path — the dispatch
+	// principal isn't persisted on CommandRecord (v0.x ROADMAP entry
+	// tracks adding a principal column). For now the audit row's
+	// User field is filled from CommandRecord.User where present, or
+	// stays empty for kernel-initiated commands.
+	d.notifyTerminal(ctx, "", cur, result)
 	return nil
 }
 
@@ -493,12 +521,13 @@ func (d *CommandDispatcher) sweepTimeouts(ctx context.Context) {
 	d.mu.Unlock()
 
 	for _, id := range expired {
-		err := d.store.UpdateCommandResult(ctx, id, state.CommandResult{
+		timeoutResult := state.CommandResult{
 			Status:      state.CommandStatusTimeout,
 			ExitCode:    -1,
 			Stderr:      "dispatch: agent did not reply within timeout",
 			CompletedAt: now,
-		})
+		}
+		err := d.store.UpdateCommandResult(ctx, id, timeoutResult)
 		if err != nil {
 			d.logger.Warn("controlplane: mark timeout failed",
 				"command_id", id, "err", err)
@@ -508,7 +537,26 @@ func (d *CommandDispatcher) sweepTimeouts(ctx context.Context) {
 		delete(d.inflight, id)
 		d.mu.Unlock()
 		d.logger.Info("controlplane: command timed out", "command_id", id)
+		if d.onTerminal != nil {
+			// Fetch the record on the audit path so the callback has
+			// command / args context — sweepTimeouts only keeps
+			// deadline+agent in its inflight map.
+			rec, err := d.store.GetCommand(ctx, id)
+			if err == nil {
+				d.notifyTerminal(ctx, "", rec, timeoutResult)
+			}
+		}
 	}
+}
+
+// notifyTerminal invokes the OnCommandTerminal callback if
+// configured. Safe to call with a nil callback or nil record (no-ops
+// in those cases) so callers don't need to defensive-check.
+func (d *CommandDispatcher) notifyTerminal(ctx context.Context, principal string, rec *state.CommandRecord, result state.CommandResult) {
+	if d.onTerminal == nil || rec == nil {
+		return
+	}
+	d.onTerminal(ctx, principal, rec, result)
 }
 
 func (d *CommandDispatcher) runRetention(ctx context.Context) {

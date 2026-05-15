@@ -346,6 +346,137 @@ func TestPrincipalIDOrPeerIP(t *testing.T) {
 
 func dummyHandler(_ context.Context, _ any) (any, error) { return "ok", nil }
 
+type capturedDecision struct {
+	method    string
+	principal *auth.Principal
+	allowed   bool
+	reason    error
+}
+
+func TestUnaryInterceptor_OnAuthDecision_SuccessEmits(t *testing.T) {
+	var captured []capturedDecision
+	cfg := &auth.InterceptorConfig{
+		Authenticator: &stubAuthenticator{principal: &auth.Principal{ID: "u-1", Role: auth.RoleAdmin}},
+		Authorizer:    &stubAuthorizerForInterceptor{},
+		OnAuthDecision: func(_ context.Context, m string, p *auth.Principal, allowed bool, reason error) {
+			captured = append(captured, capturedDecision{m, p, allowed, reason})
+		},
+	}
+	interceptor, _ := cfg.UnaryServerInterceptor()
+	_, err := interceptor(context.Background(), nil,
+		&grpc.UnaryServerInfo{FullMethod: "/svc/Foo"},
+		func(ctx context.Context, req any) (any, error) { return nil, nil })
+	if err != nil {
+		t.Fatalf("interceptor err: %v", err)
+	}
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1", len(captured))
+	}
+	if !captured[0].allowed || captured[0].method != "/svc/Foo" || captured[0].principal.ID != "u-1" {
+		t.Errorf("captured: %+v", captured[0])
+	}
+}
+
+func TestUnaryInterceptor_OnAuthDecision_AuthFailureEmits(t *testing.T) {
+	var captured []capturedDecision
+	cfg := &auth.InterceptorConfig{
+		Authenticator: &stubAuthenticator{err: auth.ErrUnauthenticated},
+		Authorizer:    &stubAuthorizerForInterceptor{},
+		OnAuthDecision: func(_ context.Context, m string, p *auth.Principal, allowed bool, reason error) {
+			captured = append(captured, capturedDecision{m, p, allowed, reason})
+		},
+	}
+	interceptor, _ := cfg.UnaryServerInterceptor()
+	_, err := interceptor(context.Background(), nil,
+		&grpc.UnaryServerInfo{FullMethod: "/svc/Foo"},
+		func(ctx context.Context, req any) (any, error) { return nil, nil })
+	if status.Code(err) != codes.Unauthenticated {
+		t.Errorf("err code = %v, want Unauthenticated", status.Code(err))
+	}
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1", len(captured))
+	}
+	if captured[0].allowed {
+		t.Errorf("allowed = true on auth failure")
+	}
+	if captured[0].principal != nil {
+		t.Errorf("principal non-nil on auth failure: %+v", captured[0].principal)
+	}
+	if captured[0].reason == nil {
+		t.Errorf("reason nil on denial")
+	}
+}
+
+func TestUnaryInterceptor_OnAuthDecision_AuthzFailureEmits(t *testing.T) {
+	var captured []capturedDecision
+	cfg := &auth.InterceptorConfig{
+		Authenticator: &stubAuthenticator{principal: &auth.Principal{ID: "u-1", Role: auth.RoleReadonly}},
+		Authorizer:    &stubAuthorizerForInterceptor{allowed: map[string]auth.Role{"/svc/AdminOp": auth.RoleAdmin}},
+		OnAuthDecision: func(_ context.Context, m string, p *auth.Principal, allowed bool, reason error) {
+			captured = append(captured, capturedDecision{m, p, allowed, reason})
+		},
+	}
+	interceptor, _ := cfg.UnaryServerInterceptor()
+	_, err := interceptor(context.Background(), nil,
+		&grpc.UnaryServerInfo{FullMethod: "/svc/AdminOp"},
+		func(ctx context.Context, req any) (any, error) { return nil, nil })
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("err code = %v, want PermissionDenied", status.Code(err))
+	}
+	if len(captured) != 1 || captured[0].allowed {
+		t.Fatalf("captured = %+v", captured)
+	}
+	if captured[0].principal == nil || captured[0].principal.ID != "u-1" {
+		t.Errorf("principal lost: %+v", captured[0].principal)
+	}
+}
+
+func TestUnaryInterceptor_OnAuthDecision_BypassEmitsAllowed(t *testing.T) {
+	var captured []capturedDecision
+	cfg := &auth.InterceptorConfig{
+		Authenticator: &stubAuthenticator{err: auth.ErrUnauthenticated},
+		Authorizer: &stubAuthorizerForInterceptor{
+			bypass: map[string]bool{"/svc/Health": true},
+		},
+		OnAuthDecision: func(_ context.Context, m string, p *auth.Principal, allowed bool, reason error) {
+			captured = append(captured, capturedDecision{m, p, allowed, reason})
+		},
+	}
+	interceptor, _ := cfg.UnaryServerInterceptor()
+	_, err := interceptor(context.Background(), nil,
+		&grpc.UnaryServerInfo{FullMethod: "/svc/Health"},
+		func(ctx context.Context, req any) (any, error) { return nil, nil })
+	if err != nil {
+		t.Fatalf("bypass blocked: %v", err)
+	}
+	if len(captured) != 1 {
+		t.Fatalf("captured = %d, want 1 (bypass still emits)", len(captured))
+	}
+	if !captured[0].allowed {
+		t.Errorf("bypass should report allowed=true")
+	}
+	// Reason surfaces ErrUnauthenticated as context (no principal,
+	// auth.Authenticate failed but Authorize admitted).
+	if !errors.Is(captured[0].reason, auth.ErrUnauthenticated) {
+		t.Errorf("reason = %v, want ErrUnauthenticated wrapped", captured[0].reason)
+	}
+}
+
+func TestUnaryInterceptor_OnAuthDecision_NilCallbackOK(t *testing.T) {
+	// Nil callback must not panic.
+	cfg := &auth.InterceptorConfig{
+		Authenticator:  &stubAuthenticator{principal: &auth.Principal{ID: "u", Role: auth.RoleAdmin}},
+		Authorizer:     &stubAuthorizerForInterceptor{},
+		OnAuthDecision: nil,
+	}
+	interceptor, _ := cfg.UnaryServerInterceptor()
+	if _, err := interceptor(context.Background(), nil,
+		&grpc.UnaryServerInfo{FullMethod: "/svc/Foo"},
+		func(ctx context.Context, req any) (any, error) { return nil, nil }); err != nil {
+		t.Errorf("%v", err)
+	}
+}
+
 type fakeStream struct {
 	ctx context.Context
 }

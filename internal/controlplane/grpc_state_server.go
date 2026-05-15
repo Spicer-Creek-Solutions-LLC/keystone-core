@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
@@ -36,6 +37,12 @@ type StateGRPCServer struct {
 	// Clock returns "now" — defaults to time.Now in NewStateGRPCServer
 	// but tests override it for deterministic timestamps.
 	Clock func() time.Time
+
+	// Auditor is the Epic 12 task 4 audit emission seam. When non-nil,
+	// ApplyState wraps the per-run streamObserver with a
+	// audit.StateApplyObserver so every applied declaration emits one
+	// audit entry. Production wiring assigns auditRT.FanOut.
+	Auditor audit.Auditor
 }
 
 // NewStateGRPCServer returns a server backed by registry + store.
@@ -79,10 +86,18 @@ func (s *StateGRPCServer) ApplyState(req *v1.ApplyStateRequest, stream grpc.Serv
 		return err
 	}
 
-	obs := &streamObserver{
+	innerObs := &streamObserver{
 		stream: stream,
 		store:  s.Store,
 		runID:  runID,
+	}
+	var obs statemgmt.RunObserver = innerObs
+	if s.Auditor != nil {
+		// Wrap the per-request stream observer with audit emission.
+		// audit.StateApplyObserver chains through to innerObs on
+		// every method so the streamed wire output is unaffected;
+		// Done additionally emits one audit entry per declaration.
+		obs = audit.NewStateApplyObserver(innerObs, s.Auditor)
 	}
 
 	runner := &statemgmt.Runner{Registry: s.resolveRegistry(), Observer: obs}
@@ -99,7 +114,7 @@ func (s *StateGRPCServer) ApplyState(req *v1.ApplyStateRequest, stream grpc.Serv
 	// AddStateRunResult errors land in obs.persistErrs). They don't
 	// abort the RPC — the wire client sees the per-decl event
 	// regardless — but they do show up in the run's error_message.
-	finalErrMsg := obsErrors(obs, runErr)
+	finalErrMsg := obsErrors(innerObs, runErr)
 	finalStatus := state.StateRunStatusCompleted
 	if runErr != nil {
 		finalStatus = state.StateRunStatusFailed

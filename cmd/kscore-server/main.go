@@ -164,10 +164,41 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		eventsAuditor = newSecretsAuditEventBridge(eventsRT.AuditEmitter, log)
 	}
 
+	// Epic 12 task 4 — start the audit runtime. Wraps the SQL state
+	// store as an audit.AuditStore + MultiAuditor fan-out
+	// (StoreAuditor + BufferedAuditor). All sensitive ops (auth /
+	// secrets / state apply / command exec) emit through auditRT
+	// .FanOut so every operation lands in the 90d forensic SQL
+	// audit log alongside the realtime/7d events bus.
+	auditRT, err := startAudit(ctx, store, log)
+	if err != nil {
+		return fmt.Errorf("audit: %w", err)
+	}
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		auditRT.stop(stopCtx, log)
+	}()
+
+	// Secrets-side bridge: translates secrets.SecretAccessEvent →
+	// audit.AuditEntry → auditRT.FanOut. Joins the secrets
+	// MultiAuditor alongside the events-bus bridge.
+	var auditStoreAuditor secrets.Auditor
+	if auditRT != nil {
+		auditStoreAuditor = newSecretsAuditStoreBridge(auditRT.FanOut)
+	}
+
+	// Auth decision hook: emit one audit entry per Authorize result
+	// (both allow + deny). Empty principal => bypass-path call;
+	// surface that as actor=anonymous in the audit row.
+	if auditRT != nil {
+		authInterceptor.OnAuthDecision = newAuthDecisionEmitter(auditRT.FanOut)
+	}
+
 	// Epic 10 task 9 — start the secrets runtime when enabled.
 	// Returns nil + nil error when secrets.enabled is false; the
 	// SecretsService gRPC + REST surface then returns Unavailable.
-	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, eventsAuditor, log)
+	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, eventsAuditor, auditStoreAuditor, log)
 	if err != nil {
 		return fmt.Errorf("secrets: %w", err)
 	}
@@ -186,6 +217,10 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Signer:          commandSignerAdapter{enf: enforcer},
 		AuthInterceptor: authInterceptor,
 		TLSConfig:       tlsConfig,
+	}
+	if auditRT != nil {
+		opts.CommandTerminalHook = newCommandTerminalEmitter(auditRT.FanOut)
+		opts.StateAuditor = auditRT.FanOut
 	}
 	if secretsRT != nil {
 		opts.SecretsBroker = secretsRT.Broker
@@ -284,6 +319,9 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("stdlib register: %w", err)
 	}
 	stateGRPC := controlplane.NewStateGRPCServer(nil, store)
+	if auditRT != nil {
+		stateGRPC.Auditor = auditRT.FanOut
+	}
 	srv.RegisterService(&v1.StateService_ServiceDesc, stateGRPC)
 
 	// Epic 09 task 12 — register IdentityService gRPC. The provider

@@ -17,6 +17,26 @@ import (
 // principal ID when authenticated, peer IP otherwise.
 type ClientKeyFunc func(ctx context.Context, principal *Principal) string
 
+// AuthDecisionFunc is called once per Authorize result on the gRPC
+// path — both successful authorizations AND denials. Use it from boot
+// wiring to emit audit entries (Epic 12 task 4's "every sensitive op
+// MUST emit" rule). Returning is fire-and-forget; the interceptor
+// does not check or propagate any error.
+//
+// Arguments:
+//
+//   - method:     full gRPC method ("/svc/method"). Always set.
+//   - principal:  nil if Authenticate failed; non-nil on success.
+//   - allowed:    true iff BOTH Authenticate AND Authorize succeeded.
+//   - reason:     denial reason when !allowed; nil on allowed=true.
+//                 Wraps ErrUnauthenticated / authorizer rejection.
+//
+// Bypass-list calls (auth-skipped methods) still invoke the callback
+// with allowed=true and principal=nil — the audit row records "no
+// authentication required for this method," which is the right
+// signal for compliance review.
+type AuthDecisionFunc func(ctx context.Context, method string, principal *Principal, allowed bool, reason error)
+
 // InterceptorConfig wires the auth chain into gRPC + HTTP handlers.
 //
 // Chain order (PROJECT-DETAILS §4.5 acceptance criterion):
@@ -40,6 +60,12 @@ type InterceptorConfig struct {
 	// ClientKeyFunc derives the rate-limit bucket key. Optional —
 	// defaults to PrincipalIDOrPeerIP.
 	ClientKeyFunc ClientKeyFunc
+
+	// OnAuthDecision is invoked exactly once per Authorize result
+	// (success + failure). Optional — nil disables audit emission.
+	// Boot wiring constructs the callback so this package keeps
+	// zero internal-package dependencies.
+	OnAuthDecision AuthDecisionFunc
 }
 
 // validate ensures required fields are set.
@@ -143,13 +169,26 @@ func (c *InterceptorConfig) runAuthChain(
 	// authorizer's bypass list lets unauthenticated calls through to
 	// the handler when the method is on the bypass set; mTLS-required
 	// methods reject any non-mTLS principal here.
-	if err := c.Authorizer.Authorize(ctx, principal, method); err != nil {
+	authzErr := c.Authorizer.Authorize(ctx, principal, method)
+	allowed := authzErr == nil
+	// Audit-emission hook fires once per Authorize result on both
+	// success AND failure (§4.12 "every sensitive op MUST emit").
+	if c.OnAuthDecision != nil {
+		reason := authzErr
+		if reason == nil && authErr != nil && principal == nil {
+			// Bypass paths: Authenticate may have failed but Authorize
+			// admitted the call. Surface the auth error as context.
+			reason = authErr
+		}
+		c.OnAuthDecision(ctx, method, principal, allowed, reason)
+	}
+	if authzErr != nil {
 		// Auth failure on a non-bypass method: surface with the right
 		// gRPC code. ErrUnauthorized -> PermissionDenied.
 		if errors.Is(authErr, ErrUnauthenticated) || principal == nil {
-			return nil, status.Error(codes.Unauthenticated, err.Error())
+			return nil, status.Error(codes.Unauthenticated, authzErr.Error())
 		}
-		return nil, status.Error(codes.PermissionDenied, err.Error())
+		return nil, status.Error(codes.PermissionDenied, authzErr.Error())
 	}
 
 	if principal != nil {

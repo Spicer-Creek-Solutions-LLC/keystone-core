@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
@@ -96,6 +97,19 @@ type Options struct {
 	// Optional; nil disables the SubscribeEvents server-streaming
 	// RPC.
 	EventSubscriber events.EventSubscriber
+
+	// CommandTerminalHook is Epic 12 task 4's audit-emission hook
+	// for the command exec sensitive op. The server passes it into
+	// CommandDispatcher as OnCommandTerminal. Optional — nil
+	// disables audit emission for command terminal states.
+	CommandTerminalHook controlplane.TerminalCommandFunc
+
+	// StateAuditor is Epic 12 task 4's audit-emission seam for the
+	// state apply sensitive op. The server hands it to the
+	// StateGRPCServer where ApplyState wraps the per-request
+	// streamObserver with audit.StateApplyObserver. Optional — nil
+	// disables audit emission for state apply.
+	StateAuditor audit.Auditor
 }
 
 // validate returns an error if required fields are missing or

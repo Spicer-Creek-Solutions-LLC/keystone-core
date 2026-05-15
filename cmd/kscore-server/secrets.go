@@ -66,7 +66,7 @@ func (r *secretsRuntime) stop(ctx context.Context, log *slog.Logger) {
 // [secrets.SamplingAuditor] chain so every [secrets.SecretAccessEvent]
 // is also published as an [events.Event] on the bus. Boot wiring in
 // main.go constructs this from the events runtime's AuditEmitter.
-func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Store, eventsAuditor secrets.Auditor, log *slog.Logger) (*secretsRuntime, error) {
+func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Store, eventsAuditor, auditStoreAuditor secrets.Auditor, log *slog.Logger) (*secretsRuntime, error) {
 	if !cfg.Enabled {
 		log.LogAttrs(ctx, slog.LevelInfo, "secrets: disabled in config; skipping")
 		return nil, nil
@@ -161,7 +161,7 @@ func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Sto
 	//     the events bus alongside the slog + buffer auditors.
 	// Epic 12's SQLite AuditStore will join the MultiAuditor when it
 	// ships.
-	auditor, auditBuffer, err := buildAuditor(cfg.Audit, eventsAuditor, log)
+	auditor, auditBuffer, err := buildAuditor(cfg.Audit, eventsAuditor, auditStoreAuditor, log)
 	if err != nil {
 		return nil, fmt.Errorf("secrets: audit: %w", err)
 	}
@@ -303,7 +303,7 @@ func stopSecretsCtx() (context.Context, context.CancelFunc) {
 // Returns the assembled [secrets.Auditor] + the buffer instance
 // (nil when buffering disabled) so the caller can expose it for
 // audit-query endpoints.
-func buildAuditor(cfg config.SecretsAuditConfig, eventsAuditor secrets.Auditor, log *slog.Logger) (secrets.Auditor, *secrets.BufferedAuditor, error) {
+func buildAuditor(cfg config.SecretsAuditConfig, eventsAuditor, auditStoreAuditor secrets.Auditor, log *slog.Logger) (secrets.Auditor, *secrets.BufferedAuditor, error) {
 	logA := secrets.NewLogAuditor(log)
 
 	var primary secrets.Auditor = logA
@@ -324,21 +324,24 @@ func buildAuditor(cfg config.SecretsAuditConfig, eventsAuditor secrets.Auditor, 
 		buffer = b
 	}
 
-	// Single-fan-out: just the primary (log or sampler) if the
-	// buffer + events bridge are both absent.
-	if buffer == nil && eventsAuditor == nil {
+	// Single-fan-out: just the primary (log or sampler) if every
+	// optional fan-out target is absent.
+	if buffer == nil && eventsAuditor == nil && auditStoreAuditor == nil {
 		return primary, nil, nil
 	}
 
-	// Build the MultiAuditor fan-out: primary always present;
-	// buffer + events bridge optional.
-	auditors := make([]secrets.Auditor, 0, 3)
+	// Build the MultiAuditor fan-out: primary always present; buffer
+	// + events bridge + Epic 12 SQL audit-store bridge optional.
+	auditors := make([]secrets.Auditor, 0, 4)
 	auditors = append(auditors, primary)
 	if buffer != nil {
 		auditors = append(auditors, buffer)
 	}
 	if eventsAuditor != nil {
 		auditors = append(auditors, eventsAuditor)
+	}
+	if auditStoreAuditor != nil {
+		auditors = append(auditors, auditStoreAuditor)
 	}
 	return secrets.NewMultiAuditor(auditors...), buffer, nil
 }

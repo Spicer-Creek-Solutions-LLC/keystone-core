@@ -18,6 +18,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/secrets"
+	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
@@ -83,6 +84,9 @@ type Server struct {
 	eventStore      events.EventStore
 	eventPublisher  events.EventPublisher
 	eventSubscriber events.EventSubscriber //nolint:unused // wired for the gRPC handler when SubscribeEvents lands in main.go
+
+	commandTerminalHook controlplane.TerminalCommandFunc
+	stateAuditor        audit.Auditor
 
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
@@ -159,6 +163,8 @@ func New(opts Options) (*Server, error) {
 		eventStore:           opts.EventStore,
 		eventPublisher:       opts.EventPublisher,
 		eventSubscriber:      opts.EventSubscriber,
+		commandTerminalHook:  opts.CommandTerminalHook,
+		stateAuditor:         opts.StateAuditor,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}
@@ -243,13 +249,14 @@ func (s *Server) initStep6(ctx context.Context) error {
 // initStep7: CommandDispatcher + retention + timeout loops.
 func (s *Server) initStep7(ctx context.Context) error {
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store:     s.store,
-		Agents:    s.connMgr,
-		Publisher: natsPublisherAdapter{s.nats},
-		Subjects:  s.subjects,
-		Signer:    s.signer,
-		Logger:    s.logger,
-		Clock:     s.now,
+		Store:             s.store,
+		Agents:            s.connMgr,
+		Publisher:         natsPublisherAdapter{s.nats},
+		Subjects:          s.subjects,
+		Signer:            s.signer,
+		Logger:            s.logger,
+		Clock:             s.now,
+		OnCommandTerminal: s.commandTerminalHook,
 	})
 	if err != nil {
 		return err
