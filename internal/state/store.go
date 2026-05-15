@@ -185,12 +185,54 @@ type LeaseStore interface {
 	DeleteExpiredLeases(ctx context.Context, before time.Time) (int, error)
 }
 
+// EventStore manages the persistent record of emitted events per
+// PROJECT-DETAILS §4.9. Epic 11 task 3's JetStreamPublisher fans every
+// successful publish through CreateEvent (or CreateEventsBatch for
+// buffered emit); the retention enforcer (Epic 11 task 8) calls
+// ApplyEventsRetention hourly on the cluster leader once Epic 13
+// leader election lands.
+//
+// CreateEvent wraps state.ErrDuplicate on a PRIMARY KEY collision so
+// callers branch with errors.Is — re-emitting the same event ID
+// against an at-least-once delivery is the canonical retry case.
+//
+// CreateEventsBatch is atomic: either every record lands or none do
+// (SQLite via transaction; Postgres via single multi-row INSERT).
+// All-or-nothing keeps the publisher's idempotency story simple — a
+// failed batch is retried whole.
+//
+// ListEvents pages through events in id order (k-sortable UUIDv7 ==
+// time-order). Cursor is the last seen id; first page passes "".
+//
+// ApplyEventsRetention applies every policy in order, returning the
+// total number of rows deleted. Per-type policies remove rows of the
+// matching type that are either older than MaxAge OR (after applying
+// MaxAge) beyond the newest MaxCount. A policy with empty Type is the
+// catch-all; targeted policies take effect in addition to (not instead
+// of) the catch-all because retention is monotonic — a row deleted by
+// one policy is gone for subsequent policies.
+type EventStore interface {
+	CreateEvent(ctx context.Context, r *EventStoreRecord) error
+	CreateEventsBatch(ctx context.Context, recs []*EventStoreRecord) error
+	GetEvent(ctx context.Context, id string) (*EventStoreRecord, error)
+	ListEvents(ctx context.Context, filter EventFilter) ([]*EventStoreRecord, error)
+	CountEvents(ctx context.Context, filter EventFilter) (int, error)
+	DeleteEvent(ctx context.Context, id string) error
+
+	// ApplyEventsRetention applies the given policies and returns the
+	// number of rows removed. An empty policy slice is a no-op
+	// returning (0, nil). The reference time is the wall clock at call
+	// time; callers wanting reproducible cutoffs should freeze time at
+	// the policy layer (Epic 11 task 8).
+	ApplyEventsRetention(ctx context.Context, policies []EventsRetentionPolicy) (int, error)
+}
+
 // Store is the root persistence interface composing all v1.0 sub-interfaces.
 //
 // Other domains add their own sub-interfaces in their respective epics
-// (EventStore §4.9, SecretsStore §4.11, AuditStore §4.12, PolicyStore
-// §4.12, ClusterStore §4.13). Each owning epic appends its sub-interface
-// to this composition.
+// (SecretsStore §4.11, AuditStore §4.12, PolicyStore §4.12,
+// ClusterStore §4.13). Each owning epic appends its sub-interface to
+// this composition.
 type Store interface {
 	AgentStore
 	CommandStore
@@ -198,6 +240,7 @@ type Store interface {
 	APIKeyStore
 	JoinTokenStore
 	LeaseStore
+	EventStore
 	StateHistoryStore
 	HealthStore
 

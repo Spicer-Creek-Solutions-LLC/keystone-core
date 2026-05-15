@@ -364,6 +364,85 @@ type LeaseFilter struct {
 	SortDesc       bool
 }
 
+// EventStoreRecord is the DB-shape value for an event row per PROJECT-
+// DETAILS §4.9. Mirrors `internal/events.Event` exactly, with
+// strings/time.Time on the wire so the state package stays free of
+// the events package import (and reverse). `internal/events/sql_store.go`
+// translates between them.
+//
+// Time is always UTC after a successful round trip. Severity is the
+// canonical lowercase name from `internal/events.Severity.String()`.
+// Type is the canonical `<category>.<subtype>` string. CorrelationID
+// and Subject default to "" in the schema; nil-tag and nil-data round
+// trip as nil (NOT the empty map) so test assertions read cleanly.
+type EventStoreRecord struct {
+	ID            string
+	Type          string
+	Source        string
+	Time          time.Time
+	Severity      string
+	CorrelationID string
+	Tags          map[string]string
+	Data          map[string]any
+	Subject       string
+}
+
+// EventFilter narrows an EventStore.ListEvents or EventStore.CountEvents
+// query.
+//
+// Zero-value fields are ignored. Cursor pagination is keyed on the
+// `id` column (PRIMARY KEY) — because `internal/events.NewEvent` stamps
+// `uuid.NewV7()`, sort order by id is also time order. Cursor MAY be
+// empty for the first page; subsequent pages pass the last returned
+// row's ID.
+//
+//   - Type / TypePrefix: mutually exclusive. Type is exact-match;
+//     TypePrefix does SQL `LIKE 'prefix%'`. The events-package wrapper
+//     converts `EventQuery.Category` into a `TypePrefix = "<cat>."`.
+//   - Severities: IN-clause filter; canonical lowercase names. The
+//     wrapper translates `EventQuery.MinSeverity` into the closed-set
+//     "at or above" slice (e.g. `MinSeverity=warn` → ["warn",
+//     "error", "critical"]).
+//   - Tags: ANDed exact-match filter on the JSON tag map. SQLite uses
+//     `json_extract(tags, '$.key') = ?`; Postgres uses
+//     `tags->>'key' = $n`. Unindexed in v1.0 — scans the filtered
+//     time/type subset.
+//   - Since / Until: half-open `[Since, Until)`. Either or both zero
+//     means unbounded on that side.
+//   - Cursor + Descending: cursor is interpreted as
+//     `id > ?` (ascending, default) or `id < ?` (descending).
+//   - Limit: caller-supplied cap; 0 means "no limit imposed here"
+//     (the events-package wrapper applies a default before reaching
+//     the store).
+type EventFilter struct {
+	Type          string
+	TypePrefix    string
+	Source        string
+	Severities    []string
+	Tags          map[string]string
+	CorrelationID string
+	Since         time.Time
+	Until         time.Time
+	Cursor        string
+	Limit         int
+	Descending    bool
+}
+
+// EventsRetentionPolicy is one row in the retention enforcer's
+// per-type policy table. Mirrors `internal/events.RetentionPolicy`;
+// the type field is the canonical `<category>.<subtype>` string and
+// is empty for the catch-all "applies to every type" rule.
+//
+// Either MaxAge or MaxCount (or both) must be > 0 for the policy to
+// remove anything — a zero-zero policy is a no-op. The enforcer
+// (Epic 11 task 8) typically ships several policies in one call:
+// one global catch-all, plus targeted overrides for high-volume types.
+type EventsRetentionPolicy struct {
+	Type     string
+	MaxAge   time.Duration
+	MaxCount int
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.

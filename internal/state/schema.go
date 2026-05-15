@@ -204,6 +204,17 @@ var sqliteSchema = []string{
     revoked_at      TEXT,
     metadata        TEXT NOT NULL DEFAULT '{}'
 )`,
+	`CREATE TABLE IF NOT EXISTS events (
+    id              TEXT PRIMARY KEY,
+    type            TEXT NOT NULL,
+    source          TEXT NOT NULL,
+    time            TEXT NOT NULL,
+    severity        TEXT NOT NULL,
+    correlation_id  TEXT NOT NULL DEFAULT '',
+    tags            TEXT NOT NULL DEFAULT '{}',
+    data            TEXT NOT NULL DEFAULT '{}',
+    subject         TEXT NOT NULL DEFAULT ''
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -221,6 +232,11 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS secret_leases_expires_at_idx ON secret_leases (expires_at)`,
 	`CREATE INDEX IF NOT EXISTS secret_leases_backend_idx ON secret_leases (backend)`,
 	`CREATE INDEX IF NOT EXISTS secret_leases_state_idx ON secret_leases (state)`,
+	`CREATE INDEX IF NOT EXISTS events_type_idx ON events (type)`,
+	`CREATE INDEX IF NOT EXISTS events_source_idx ON events (source)`,
+	`CREATE INDEX IF NOT EXISTS events_time_idx ON events (time DESC)`,
+	`CREATE INDEX IF NOT EXISTS events_severity_idx ON events (severity)`,
+	`CREATE INDEX IF NOT EXISTS events_correlation_id_idx ON events (correlation_id)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -363,6 +379,17 @@ var postgresSchema = []string{
     revoked_at      TIMESTAMPTZ,
     metadata        JSONB NOT NULL DEFAULT '{}'::jsonb
 )`,
+	`CREATE TABLE IF NOT EXISTS events (
+    id              TEXT PRIMARY KEY,
+    type            TEXT NOT NULL,
+    source          TEXT NOT NULL,
+    time            TIMESTAMPTZ NOT NULL,
+    severity        TEXT NOT NULL,
+    correlation_id  TEXT NOT NULL DEFAULT '',
+    tags            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    data            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    subject         TEXT NOT NULL DEFAULT ''
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -380,4 +407,9 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS secret_leases_expires_at_idx ON secret_leases (expires_at)`,
 	`CREATE INDEX IF NOT EXISTS secret_leases_backend_idx ON secret_leases (backend)`,
 	`CREATE INDEX IF NOT EXISTS secret_leases_state_idx ON secret_leases (state)`,
+	`CREATE INDEX IF NOT EXISTS events_type_idx ON events (type)`,
+	`CREATE INDEX IF NOT EXISTS events_source_idx ON events (source)`,
+	`CREATE INDEX IF NOT EXISTS events_time_idx ON events (time DESC)`,
+	`CREATE INDEX IF NOT EXISTS events_severity_idx ON events (severity)`,
+	`CREATE INDEX IF NOT EXISTS events_correlation_id_idx ON events (correlation_id)`,
 }
