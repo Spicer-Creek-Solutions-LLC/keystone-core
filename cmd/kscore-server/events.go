@@ -22,6 +22,7 @@ type eventsRuntime struct {
 	Store      events.EventStore
 	Publisher  events.EventPublisher
 	Subscriber events.EventSubscriber
+	Retention  *events.RetentionEnforcer
 }
 
 // stop tears down the runtime in reverse order. Logs every error +
@@ -38,6 +39,11 @@ func (r *eventsRuntime) stop(ctx context.Context, log *slog.Logger) {
 	if r.Publisher != nil {
 		if err := r.Publisher.Stop(ctx); err != nil {
 			log.LogAttrs(ctx, slog.LevelWarn, "events: publisher stop", slog.String("err", err.Error()))
+		}
+	}
+	if r.Retention != nil {
+		if err := r.Retention.Stop(ctx); err != nil {
+			log.LogAttrs(ctx, slog.LevelWarn, "events: retention stop", slog.String("err", err.Error()))
 		}
 	}
 	if r.Store != nil {
@@ -118,9 +124,49 @@ func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NA
 		rt.Subscriber = sub
 	}
 
+	if cfg.Retention.Enabled {
+		policies := make([]events.RetentionPolicy, 0, len(cfg.Retention.Policies))
+		for _, p := range cfg.Retention.Policies {
+			policies = append(policies, events.RetentionPolicy{
+				Type:     events.EventType(p.Type),
+				MaxAge:   p.MaxAge,
+				MaxCount: p.MaxCount,
+			})
+		}
+		enforcer, err := events.NewRetentionEnforcer(
+			events.WithRetentionStore(rt.Store),
+			events.WithRetentionPolicies(policies),
+			events.WithRetentionInterval(cfg.Retention.Interval),
+			events.WithRetentionJitter(cfg.Retention.Jitter),
+			events.WithRetentionLogger(log),
+			// Epic 13 swaps this for a real leader-election check.
+			// v1.0 single-node runs the enforcer unconditionally.
+		)
+		if err != nil {
+			if rt.Subscriber != nil {
+				_ = rt.Subscriber.Stop(ctx)
+			}
+			if rt.Publisher != nil {
+				_ = rt.Publisher.Stop(ctx)
+			}
+			return nil, fmt.Errorf("events: retention: %w", err)
+		}
+		if err := enforcer.Start(ctx); err != nil {
+			if rt.Subscriber != nil {
+				_ = rt.Subscriber.Stop(ctx)
+			}
+			if rt.Publisher != nil {
+				_ = rt.Publisher.Stop(ctx)
+			}
+			return nil, fmt.Errorf("events: retention start: %w", err)
+		}
+		rt.Retention = enforcer
+	}
+
 	log.LogAttrs(ctx, slog.LevelInfo, "events: enabled",
 		slog.Bool("publisher_enabled", cfg.Publisher.Enabled),
 		slog.Bool("subscriber_enabled", cfg.Subscriber.Enabled),
+		slog.Bool("retention_enabled", cfg.Retention.Enabled),
 		slog.Bool("store_first", cfg.Publisher.StoreFirst),
 		slog.String("cluster", clusterName),
 	)

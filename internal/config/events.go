@@ -30,6 +30,47 @@ type EventsConfig struct {
 	Enabled    bool                   `koanf:"enabled"`
 	Publisher  EventsPublisherConfig  `koanf:"publisher"`
 	Subscriber EventsSubscriberConfig `koanf:"subscriber"`
+	Retention  EventsRetentionConfig  `koanf:"retention"`
+}
+
+// EventsRetentionConfig drives the Epic 11 task 8 retention
+// enforcer — the hourly scheduler that calls
+// `events.EventStore.ApplyRetention` to bound store growth.
+//
+// Defaults to enabled with a built-in catch-all policy matching the
+// §4.9 JetStream stream defaults (7 days / 1M events). Operators
+// either keep the catch-all and add per-type overrides, or set
+// `events.retention.enabled: false` to opt out entirely.
+//
+//	events:
+//	  retention:
+//	    enabled: true
+//	    interval: 1h
+//	    jitter: 0.1
+//	    policies:
+//	      - type: ""              # catch-all
+//	        max_age: 168h         # 7 days
+//	        max_count: 1000000
+//	      - type: agent.heartbeat
+//	        max_age: 24h
+//	      - type: job.output
+//	        max_age: 720h         # 30 days
+type EventsRetentionConfig struct {
+	Enabled  bool                    `koanf:"enabled"`
+	Interval time.Duration           `koanf:"interval"`
+	Jitter   float64                 `koanf:"jitter"`
+	Policies []EventsRetentionPolicy `koanf:"policies"`
+}
+
+// EventsRetentionPolicy is one row in the retention table. Type
+// empty is the catch-all rule (applies to every event type not
+// matched by a more-specific policy). Each policy must have at
+// least one limit (MaxAge > 0 OR MaxCount > 0) — zero-zero is
+// rejected by validation as a no-op typo.
+type EventsRetentionPolicy struct {
+	Type     string        `koanf:"type"`
+	MaxAge   time.Duration `koanf:"max_age"`
+	MaxCount int           `koanf:"max_count"`
 }
 
 // EventsPublisherConfig drives the JetStreamPublisher (Epic 11 task 3).
@@ -70,6 +111,16 @@ func applyEventsDefaults(c *EventsConfig) {
 	c.Publisher.StoreFirst = true
 	c.Subscriber.Enabled = true
 	c.Subscriber.DedupSize = 1000
+	c.Retention.Enabled = true
+	c.Retention.Interval = time.Hour
+	c.Retention.Jitter = 0.1
+	// Default catch-all matches the §4.9 JetStream stream defaults.
+	// Operators with custom policies typically keep this as the
+	// trailing entry and add type-specific rules ahead of it; the
+	// enforcer applies every policy in the list.
+	c.Retention.Policies = []EventsRetentionPolicy{
+		{Type: "", MaxAge: 7 * 24 * time.Hour, MaxCount: 1_000_000},
+	}
 }
 
 // Validate enforces structural invariants and cross-field
@@ -95,6 +146,37 @@ func (c *EventsConfig) Validate(nats NATSConfig) error {
 	}
 	if c.Subscriber.DedupSize < 0 {
 		return fmt.Errorf("events.subscriber.dedup_size must be non-negative, got %d", c.Subscriber.DedupSize)
+	}
+	if err := c.Retention.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Validate enforces retention-config invariants. Disabled is always
+// OK. When enabled: Interval > 0, Jitter ∈ [0, 0.5], and every
+// policy must have at least one limit set (zero-zero policies are
+// no-op typos and rejected loudly).
+func (c *EventsRetentionConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.Interval <= 0 {
+		return fmt.Errorf("events.retention.interval must be > 0 when enabled, got %v", c.Interval)
+	}
+	if c.Jitter < 0 || c.Jitter > 0.5 {
+		return fmt.Errorf("events.retention.jitter must be in [0, 0.5], got %f", c.Jitter)
+	}
+	for i, p := range c.Policies {
+		if p.MaxAge < 0 {
+			return fmt.Errorf("events.retention.policies[%d].max_age must be non-negative, got %v", i, p.MaxAge)
+		}
+		if p.MaxCount < 0 {
+			return fmt.Errorf("events.retention.policies[%d].max_count must be non-negative, got %d", i, p.MaxCount)
+		}
+		if p.MaxAge == 0 && p.MaxCount == 0 {
+			return fmt.Errorf("events.retention.policies[%d] (type=%q) has neither max_age nor max_count; remove the entry or set at least one limit", i, p.Type)
+		}
 	}
 	return nil
 }
