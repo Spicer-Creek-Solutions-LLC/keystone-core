@@ -443,6 +443,82 @@ type EventsRetentionPolicy struct {
 	MaxCount int
 }
 
+// AuditEntryStoreRecord is the DB-shape value for an audit row per
+// PROJECT-DETAILS §4.12. Mirrors `internal/audit.AuditEntry` exactly,
+// with strings/time.Time on the wire so the state package stays free
+// of the audit package import. `internal/audit/sql_store.go`
+// translates between them.
+//
+// Timestamp is always UTC after a successful round trip. Severity,
+// EnforcementMode, PolicyType are the canonical lowercase strings
+// from the audit-package enums. Violations + Metadata are
+// JSON-encoded.
+type AuditEntryStoreRecord struct {
+	ID              string
+	Timestamp       time.Time
+	PolicyID        string
+	PolicyName      string
+	PolicyType      string // "opa" | "cel" | "builtin" | ""
+	ResourceType    string
+	Allowed         bool
+	DurationNS      int64
+	Violations      []byte // JSON array of [{rule, message, severity, ...}]
+	EnforcementMode string // "audit" | "warn" | "enforce"
+	Severity        string // "low" | "medium" | "high" | "critical"
+	User            string
+	Action          string
+	Metadata        map[string]string
+}
+
+// AuditEntryFilter narrows an AuditStore.ListAuditEntries or
+// AuditStore.CountAuditEntries query. Task 2 ships the preview shape;
+// task 3 enriches it.
+//
+// Zero-value fields are ignored. Cursor pagination keys on the `id`
+// PRIMARY KEY (UUIDv7 — time-ordered).
+//
+//   - PolicyID / User / ResourceType / Action: exact-match filters.
+//   - Severities: IN-clause filter; canonical lowercase names. The
+//     audit-package wrapper translates `AuditQuery.MinSeverity` into
+//     the closed-set "at or above" slice (e.g. `MinSeverity=high` →
+//     ["high", "critical"]).
+//   - Allowed: pointer so callers can distinguish "allowed=false
+//     wanted" from "field not set" (the latter doesn't filter).
+//   - Since / Until: half-open `[Since, Until)`.
+//   - Cursor + Descending: `id > ?` or `id < ?`.
+//   - Limit: 0 means "no limit imposed here" (audit wrapper applies
+//     a default).
+type AuditEntryFilter struct {
+	PolicyID     string
+	User         string
+	ResourceType string
+	Action       string
+	Severities   []string
+	Allowed      *bool
+	Since        time.Time
+	Until        time.Time
+	Cursor       string
+	Limit        int
+	Descending   bool
+}
+
+// AuditRetentionPolicy is the single retention rule applied by the
+// audit retention enforcer per §4.12 default 90d / 100k / 1h.
+//
+// MinSeverity exempts entries at or above the threshold from
+// deletion — operators keep `critical` audit forever even when
+// MaxAge / MaxCount would otherwise prune them. Empty MinSeverity
+// = no exemption (every entry subject to retention).
+//
+// Either MaxAge or MaxCount (or both) must be > 0 for the policy
+// to remove anything; the audit-package validator rejects
+// zero-zero.
+type AuditRetentionPolicy struct {
+	MaxAge      time.Duration
+	MaxCount    int
+	MinSeverity string // "low" | "medium" | "high" | "critical" | ""
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.

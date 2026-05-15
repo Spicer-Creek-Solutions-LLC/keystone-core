@@ -227,12 +227,50 @@ type EventStore interface {
 	ApplyEventsRetention(ctx context.Context, policies []EventsRetentionPolicy) (int, error)
 }
 
+// AuditStore manages the persistent record of audit entries per
+// PROJECT-DETAILS §4.12. Epic 12 task 4's emission hooks fan every
+// SecretAccessEvent / auth decision / state-apply result / command-
+// exec result / policy evaluation through CreateAuditEntry (or
+// CreateAuditEntriesBatch for buffered emit); the retention
+// enforcer (Epic 12 task 2's AuditRetentionEnforcer) calls
+// ApplyAuditRetention hourly on the cluster leader once Epic 13
+// leader election lands.
+//
+// CreateAuditEntry wraps state.ErrDuplicate on PRIMARY KEY
+// collision so emitters branch with errors.Is — re-emitting the
+// same entry ID against an at-least-once delivery is the canonical
+// retry case.
+//
+// CreateAuditEntriesBatch is atomic: every record lands or none do
+// (SQLite via transaction; Postgres via single multi-row INSERT).
+//
+// ListAuditEntries pages through entries in id order (UUIDv7 ==
+// time-order). Cursor is the last seen id.
+//
+// ApplyAuditRetention applies the single policy and returns the
+// number of rows deleted. Entries at or above MinSeverity are
+// exempt from deletion — operators keep critical audit forever
+// even when MaxAge / MaxCount would prune them.
+type AuditStore interface {
+	CreateAuditEntry(ctx context.Context, r *AuditEntryStoreRecord) error
+	CreateAuditEntriesBatch(ctx context.Context, recs []*AuditEntryStoreRecord) error
+	GetAuditEntry(ctx context.Context, id string) (*AuditEntryStoreRecord, error)
+	ListAuditEntries(ctx context.Context, filter AuditEntryFilter) ([]*AuditEntryStoreRecord, error)
+	CountAuditEntries(ctx context.Context, filter AuditEntryFilter) (int, error)
+	DeleteAuditEntry(ctx context.Context, id string) error
+
+	// ApplyAuditRetention applies the policy and returns the number
+	// of rows removed. A policy with both MaxAge and MaxCount zero
+	// is a no-op returning (0, nil). The reference time is the wall
+	// clock at call time.
+	ApplyAuditRetention(ctx context.Context, policy AuditRetentionPolicy) (int, error)
+}
+
 // Store is the root persistence interface composing all v1.0 sub-interfaces.
 //
 // Other domains add their own sub-interfaces in their respective epics
-// (SecretsStore §4.11, AuditStore §4.12, PolicyStore §4.12,
-// ClusterStore §4.13). Each owning epic appends its sub-interface to
-// this composition.
+// (SecretsStore §4.11, PolicyStore §4.12, ClusterStore §4.13). Each
+// owning epic appends its sub-interface to this composition.
 type Store interface {
 	AgentStore
 	CommandStore
@@ -241,6 +279,7 @@ type Store interface {
 	JoinTokenStore
 	LeaseStore
 	EventStore
+	AuditStore
 	StateHistoryStore
 	HealthStore
 

@@ -215,6 +215,22 @@ var sqliteSchema = []string{
     data            TEXT NOT NULL DEFAULT '{}',
     subject         TEXT NOT NULL DEFAULT ''
 )`,
+	`CREATE TABLE IF NOT EXISTS audit_entries (
+    id               TEXT PRIMARY KEY,
+    timestamp        TEXT NOT NULL,
+    policy_id        TEXT NOT NULL DEFAULT '',
+    policy_name      TEXT NOT NULL DEFAULT '',
+    policy_type      TEXT NOT NULL DEFAULT '',
+    resource_type    TEXT NOT NULL DEFAULT '',
+    allowed          INTEGER NOT NULL DEFAULT 0,
+    duration_ns      INTEGER NOT NULL DEFAULT 0,
+    violations       TEXT NOT NULL DEFAULT '[]',
+    enforcement_mode TEXT NOT NULL,
+    severity         TEXT NOT NULL,
+    "user"           TEXT NOT NULL DEFAULT '',
+    action           TEXT NOT NULL,
+    metadata         TEXT NOT NULL DEFAULT '{}'
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -237,6 +253,12 @@ var sqliteSchema = []string{
 	`CREATE INDEX IF NOT EXISTS events_time_idx ON events (time DESC)`,
 	`CREATE INDEX IF NOT EXISTS events_severity_idx ON events (severity)`,
 	`CREATE INDEX IF NOT EXISTS events_correlation_id_idx ON events (correlation_id)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_policy_id_idx ON audit_entries (policy_id)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_user_idx ON audit_entries ("user")`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_resource_type_idx ON audit_entries (resource_type)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_timestamp_idx ON audit_entries (timestamp DESC)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_severity_idx ON audit_entries (severity)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_allowed_idx ON audit_entries (allowed)`,
 }
 
 // PostgreSQL v1.0 baseline schema.
@@ -390,6 +412,22 @@ var postgresSchema = []string{
     data            JSONB NOT NULL DEFAULT '{}'::jsonb,
     subject         TEXT NOT NULL DEFAULT ''
 )`,
+	`CREATE TABLE IF NOT EXISTS audit_entries (
+    id               TEXT PRIMARY KEY,
+    timestamp        TIMESTAMPTZ NOT NULL,
+    policy_id        TEXT NOT NULL DEFAULT '',
+    policy_name      TEXT NOT NULL DEFAULT '',
+    policy_type      TEXT NOT NULL DEFAULT '',
+    resource_type    TEXT NOT NULL DEFAULT '',
+    allowed          BOOLEAN NOT NULL DEFAULT FALSE,
+    duration_ns      BIGINT NOT NULL DEFAULT 0,
+    violations       JSONB NOT NULL DEFAULT '[]'::jsonb,
+    enforcement_mode TEXT NOT NULL,
+    severity         TEXT NOT NULL,
+    "user"           TEXT NOT NULL DEFAULT '',
+    action           TEXT NOT NULL,
+    metadata         JSONB NOT NULL DEFAULT '{}'::jsonb
+)`,
 	`CREATE INDEX IF NOT EXISTS agents_status_idx ON agents (status)`,
 	`CREATE INDEX IF NOT EXISTS agents_last_heartbeat_at_idx ON agents (last_heartbeat_at)`,
 	`CREATE INDEX IF NOT EXISTS commands_status_idx ON commands (status)`,
@@ -412,4 +450,10 @@ var postgresSchema = []string{
 	`CREATE INDEX IF NOT EXISTS events_time_idx ON events (time DESC)`,
 	`CREATE INDEX IF NOT EXISTS events_severity_idx ON events (severity)`,
 	`CREATE INDEX IF NOT EXISTS events_correlation_id_idx ON events (correlation_id)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_policy_id_idx ON audit_entries (policy_id)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_user_idx ON audit_entries ("user")`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_resource_type_idx ON audit_entries (resource_type)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_timestamp_idx ON audit_entries (timestamp DESC)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_severity_idx ON audit_entries (severity)`,
+	`CREATE INDEX IF NOT EXISTS audit_entries_allowed_idx ON audit_entries (allowed)`,
 }
