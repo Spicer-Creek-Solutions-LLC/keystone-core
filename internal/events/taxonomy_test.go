@@ -70,6 +70,167 @@ func TestCanonicalEventTypes_FreshSliceEachCall(t *testing.T) {
 	}
 }
 
+func TestEventTypesForCategory_KnownCategories(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		cat  Category
+		want []EventType
+	}{
+		{CategoryAgent, []EventType{
+			EventTypeAgentConnect,
+			EventTypeAgentDisconnect,
+			EventTypeAgentHeartbeat,
+			EventTypeAgentHeartbeatFailed,
+			EventTypeAgentError,
+		}},
+		{CategoryJob, []EventType{
+			EventTypeJobStart,
+			EventTypeJobComplete,
+			EventTypeJobFail,
+			EventTypeJobOutput,
+		}},
+		{CategoryState, []EventType{
+			EventTypeStateApplyStart,
+			EventTypeStateApplyDone,
+			EventTypeStateApplyFail,
+			EventTypeStateChange,
+			EventTypeStateDrift,
+		}},
+		{CategorySystem, []EventType{
+			EventTypeSystemStartup,
+			EventTypeSystemShutdown,
+			EventTypeSystemError,
+		}},
+		{CategoryUser, []EventType{
+			EventTypeUserLogin,
+			EventTypeUserCommand,
+			EventTypeUserError,
+		}},
+		{CategoryPolicy, []EventType{
+			EventTypePolicyPass,
+			EventTypePolicyViolation,
+		}},
+	}
+	for _, c := range cases {
+		t.Run(string(c.cat), func(t *testing.T) {
+			t.Parallel()
+			got := EventTypesForCategory(c.cat)
+			if len(got) != len(c.want) {
+				t.Fatalf("len = %d, want %d (got %v)", len(got), len(c.want), got)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("[%d] = %s, want %s", i, got[i], c.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestEventTypesForCategory_UnknownCategory(t *testing.T) {
+	t.Parallel()
+	cases := []Category{"", "audit", "metric", "Agent", " agent"}
+	for _, c := range cases {
+		if got := EventTypesForCategory(c); got != nil {
+			t.Errorf("EventTypesForCategory(%q) = %v, want nil", c, got)
+		}
+	}
+}
+
+func TestEventTypesForCategory_FreshSliceEachCall(t *testing.T) {
+	t.Parallel()
+	first := EventTypesForCategory(CategoryAgent)
+	first[0] = EventType("mutated")
+	again := EventTypesForCategory(CategoryAgent)
+	if again[0] != EventTypeAgentConnect {
+		t.Errorf("returned slice aliased — first call's mutation leaked: %s", again[0])
+	}
+}
+
+func TestCountForCategory(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		cat  Category
+		want int
+	}{
+		{CategoryAgent, 5},
+		{CategoryJob, 4},
+		{CategoryState, 5},
+		{CategorySystem, 3},
+		{CategoryUser, 3},
+		{CategoryPolicy, 2},
+		{Category("bogus"), 0},
+		{Category(""), 0},
+	}
+	for _, c := range cases {
+		got := CountForCategory(c.cat)
+		want := len(EventTypesForCategory(c.cat))
+		if got != c.want {
+			t.Errorf("CountForCategory(%s) = %d, want %d", c.cat, got, c.want)
+		}
+		if got != want {
+			t.Errorf("CountForCategory(%s) = %d but len(EventTypesForCategory) = %d (must match)", c.cat, got, want)
+		}
+	}
+}
+
+func TestAllCategoriesWithCounts(t *testing.T) {
+	t.Parallel()
+	got := AllCategoriesWithCounts()
+	want := map[Category]int{
+		CategoryAgent:  5,
+		CategoryJob:    4,
+		CategoryState:  5,
+		CategorySystem: 3,
+		CategoryUser:   3,
+		CategoryPolicy: 2,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)
+	}
+	total := 0
+	for cat, n := range want {
+		if got[cat] != n {
+			t.Errorf("%s = %d, want %d", cat, got[cat], n)
+		}
+		total += n
+	}
+	if total != 22 {
+		t.Errorf("sum = %d, want 22 (§4.9 canonical taxonomy size)", total)
+	}
+
+	// Returned map is fresh per call — mutating the result must
+	// not affect the source.
+	got[CategoryAgent] = 99
+	again := AllCategoriesWithCounts()
+	if again[CategoryAgent] != 5 {
+		t.Errorf("returned map aliased — mutation leaked: %d", again[CategoryAgent])
+	}
+}
+
+func TestEventTypesForCategory_PartitionsCanonical(t *testing.T) {
+	t.Parallel()
+	// Every canonical type must appear in EXACTLY one category's
+	// per-category slice; the union must equal CanonicalEventTypes.
+	seen := make(map[EventType]Category, 22)
+	for _, c := range KnownCategories() {
+		for _, typ := range EventTypesForCategory(c) {
+			if prev, ok := seen[typ]; ok {
+				t.Errorf("%s seen in both %s and %s", typ, prev, c)
+			}
+			seen[typ] = c
+		}
+	}
+	if len(seen) != 22 {
+		t.Errorf("partition size = %d, want 22", len(seen))
+	}
+	for _, typ := range CanonicalEventTypes() {
+		if _, ok := seen[typ]; !ok {
+			t.Errorf("canonical %s not in any category partition", typ)
+		}
+	}
+}
+
 func TestCanonicalEventTypes_ExactSpellings(t *testing.T) {
 	t.Parallel()
 	// Lock in the spec spellings — particularly the heartbeat_failed

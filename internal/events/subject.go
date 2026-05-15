@@ -49,6 +49,64 @@ func SubjectFor(clusterName string, typ EventType) (string, error) {
 	}, "."), nil
 }
 
+// SubjectPatternForCategory returns the NATS subject pattern that
+// fans in every event in a single category at the canonical
+// one-level depth: `kscore.<cluster>.events.<cat>.*`. The `*`
+// matches exactly one subject token — correct for 19 of the 22
+// canonical types (e.g. `agent.connect`, `job.start`, `system.error`).
+//
+// **Important**: the `state.apply.start` / `state.apply.done` /
+// `state.apply.fail` types have multi-segment subtypes and do NOT
+// match the single-`*` form. Operators wanting full state-category
+// fan-in use [SubjectDeepPatternForCategory] instead.
+//
+// Errors wrap [ErrInvalidEvent]: empty / malformed cluster name
+// (NATS subject-token rules) or unknown category.
+func SubjectPatternForCategory(clusterName string, c Category) (string, error) {
+	if err := validateClusterToken(clusterName); err != nil {
+		return "", err
+	}
+	if !c.IsKnown() {
+		return "", fmt.Errorf("%w: unknown category %q (known: %v)", ErrInvalidEvent, c, KnownCategories())
+	}
+	return strings.Join([]string{
+		SubjectPrefix,
+		clusterName,
+		subjectEventsSegment,
+		string(c),
+		"*",
+	}, "."), nil
+}
+
+// SubjectDeepPatternForCategory returns the NATS subject pattern
+// that fans in every event in a category at ANY depth:
+// `kscore.<cluster>.events.<cat>.>`. The `>` is the multi-token
+// wildcard — required for the [CategoryState] subtree because the
+// `state.apply.*` family has two-token subtypes that the single-`*`
+// pattern would miss.
+//
+// For categories with only one-token subtypes (everything except
+// state), either pattern works — [SubjectPatternForCategory] is
+// marginally more specific (won't accidentally match a future
+// nested subtype an operator introduces).
+//
+// Errors wrap [ErrInvalidEvent].
+func SubjectDeepPatternForCategory(clusterName string, c Category) (string, error) {
+	if err := validateClusterToken(clusterName); err != nil {
+		return "", err
+	}
+	if !c.IsKnown() {
+		return "", fmt.Errorf("%w: unknown category %q (known: %v)", ErrInvalidEvent, c, KnownCategories())
+	}
+	return strings.Join([]string{
+		SubjectPrefix,
+		clusterName,
+		subjectEventsSegment,
+		string(c),
+		">",
+	}, "."), nil
+}
+
 // validateClusterToken enforces the NATS subject-token rules on the
 // cluster name segment: non-empty, no whitespace, no `.`, no `*`
 // or `>` (the NATS wildcards). The set of allowed characters

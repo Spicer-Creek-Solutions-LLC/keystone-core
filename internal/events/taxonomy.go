@@ -84,6 +84,80 @@ func IsCanonical(t EventType) bool {
 	return ok
 }
 
+// canonicalByCategory groups the 22 canonical constants by their
+// owning [Category] in §4.9 documentation order. Built once at
+// package init via the loop in [canonicalByCategoryInit]; queried
+// by [EventTypesForCategory] / [CountForCategory] /
+// [AllCategoriesWithCounts].
+var canonicalByCategory = canonicalByCategoryInit()
+
+// canonicalByCategoryInit walks [CanonicalEventTypes] in order,
+// grouping by [EventType.Category]. The package-init pattern keeps
+// the data the single source of truth — adding a constant to the
+// list automatically lands it in the right category bucket.
+func canonicalByCategoryInit() map[Category][]EventType {
+	out := make(map[Category][]EventType, len(knownCategorySet))
+	// Initialise every known category to an empty slice so
+	// EventTypesForCategory returns a non-nil empty list (rather
+	// than nil) when the category is known but has zero canonical
+	// types in v1.0 — currently impossible but defensive against
+	// future taxonomy churn.
+	for c := range knownCategorySet {
+		out[c] = nil
+	}
+	for _, typ := range CanonicalEventTypes() {
+		c := typ.Category()
+		out[c] = append(out[c], typ)
+	}
+	return out
+}
+
+// EventTypesForCategory returns the canonical event types belonging
+// to c in §4.9 documentation order. Unknown / empty category
+// returns nil — callers can treat `len(...)==0` as "no canonical
+// types for this category."
+//
+// Returned slice is a fresh copy per call; callers may mutate
+// without affecting subsequent calls or other consumers.
+//
+// Note on multi-segment subtypes: `state.apply.start` /
+// `state.apply.done` / `state.apply.fail` all belong to
+// [CategoryState] — their first-dot-split puts `state` in the
+// category slot and `apply.<verb>` in the subtype slot. The
+// returned list reflects that grouping.
+func EventTypesForCategory(c Category) []EventType {
+	src, ok := canonicalByCategory[c]
+	if !ok || len(src) == 0 {
+		return nil
+	}
+	out := make([]EventType, len(src))
+	copy(out, src)
+	return out
+}
+
+// CountForCategory returns the number of canonical event types in c.
+// Sugar around `len(EventTypesForCategory(c))` for callers sizing
+// a buffer without copying — the gRPC handler's GetEventStats uses
+// it to size the per-category counts map up-front.
+//
+// Unknown category returns 0.
+func CountForCategory(c Category) int {
+	return len(canonicalByCategory[c])
+}
+
+// AllCategoriesWithCounts returns a fresh map of every known
+// category → its canonical event count. Sums to 22 across all 6
+// v1.0 categories. Useful for CLI/operator-facing taxonomy
+// summary surfaces (the deferred `kscore-events types --by-category`
+// flag).
+func AllCategoriesWithCounts() map[Category]int {
+	out := make(map[Category]int, len(canonicalByCategory))
+	for c, types := range canonicalByCategory {
+		out[c] = len(types)
+	}
+	return out
+}
+
 // CanonicalEventTypes returns the 22 v1.0 constants in the
 // documentation order from §4.9. Consumed by
 // `EventService.GetEventTypes` (task 9) and by the CLI's `list`
