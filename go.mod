@@ -9,6 +9,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/cel-go v0.28.1
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/approle v0.12.0
@@ -34,7 +35,9 @@ require (
 )
 
 require (
+	cel.dev/expr v0.25.1 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
@@ -94,11 +97,13 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
