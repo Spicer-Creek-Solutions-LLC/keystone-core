@@ -824,6 +824,30 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-secrets template -i /etc/app/config.tmpl -o /etc/app/config` renders the template, atomically replaces the output, exits 0; missing-secret references fail-fast with a clear error; `--watch` re-renders on a SIGUSR1 (or Epic 11 event when ready).
 - **References**: PROJECT-DETAILS §4.11 CLI list; analogous to `consul-template` / `vault agent`; Epic 10 task 10 (landed); Epic 11 (Events) for the watch path.
 
+#### kscore-events retention subcommand
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.9 lists `retention` in the kscore-events CLI surface — operator-driven manual application of retention policies + inspection of recent retention runs. The v1.0 retention enforcer (Epic 11 task 8) runs hourly on the cluster leader; operators have no CLI surface to trigger an ad-hoc run, inspect the current policy table, or audit recent retention deletions.
+- **Why deferred**: needs new gRPC RPCs `ApplyRetention(policies) → (deleted_count)` + `GetRetentionPolicy() → []RetentionPolicy` + `GetRetentionHistory(limit) → []RetentionRun`. The retention enforcer itself (Epic 11 task 8) ships the scheduling; the CLI is the operator-facing manual hook on top.
+- **Acceptance**: `kscore-events retention show` prints the active policy table; `kscore-events retention apply --type agent.heartbeat --max-age 24h --max-count 10000` invokes a one-shot retention pass against that policy; `kscore-events retention history --limit 10` shows recent runs with timestamp + rows-deleted.
+- **References**: PROJECT-DETAILS §4.9 CLI list; `pkg/api/v1/event.proto`; Epic 11 task 7 (kscore-events CLI; landed); Epic 11 task 8 (retention enforcer; pending).
+
+#### kscore-events analyze subcommand
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.9 lists `analyze` as an operator analysis tool over the event stream. The spec is fuzzy — likely something like top-N event types by frequency, error-rate over a window, source-distribution histograms, or anomaly detection. Defer until we know the concrete operator pain points it should solve.
+- **Why deferred**: spec is intentionally fuzzy in §4.9 ("analyze" without acceptance criteria). v1.0's `stats` subcommand covers the simple total + per-type + per-severity case; everything else needs operator demand data to scope. `query` (deferred separately) covers ad-hoc filtered exploration.
+- **Acceptance**: TBD — gather operator pain points from v0.x trial deployments first; likely lands as one or more sub-subcommands under `kscore-events analyze`.
+- **References**: PROJECT-DETAILS §4.9 CLI list; Epic 11 task 7 (kscore-events CLI; landed).
+
+#### kscore-events query subcommand (CEL post-filter)
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.9 lists `query` alongside `list`. The intended distinction was a CEL-filtered post-fetch query — `kscore-events query --filter "tags.role == 'web' && severity.at_least('warn')"` runs ListEvents with the indexed filters, then applies the CEL filter client-side, then emits matching events. v1.0 task 7 ships `list` (structural filters) + `subscribe --replay <window>` (CEL on the streaming path); the standalone `query` subcommand is subsumed by `subscribe --replay <large-window>` for ad-hoc work.
+- **Why deferred**: 80%+ of `query`'s use cases are covered by `subscribe --replay`. A dedicated subcommand only adds value when (1) operators want a non-streaming, bounded-output exit-when-done flow against CEL, or (2) CEL push-down to SQL is implemented so the filter narrows the query rather than running post-fetch. Until either lands, the subcommand is sugar.
+- **Acceptance**: `kscore-events query --filter "..."` iterates ListEvents pages, applies CEL filter client-side, emits matching events as JSON lines, exits when the bound is exhausted. CEL syntax: `severity.at_least('warn')` form per Epic 11 task 5.
+- **References**: PROJECT-DETAILS §4.9 CLI list; `internal/events/filter.go` (CompileFilter, landed); Epic 11 task 7 (kscore-events CLI; landed).
+
 #### Secrets transit batch API on the wire
 
 - **Priority**: v1.x
