@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -152,6 +153,67 @@ func TestVaultBackend_Integration_TransitRoundTrip(t *testing.T) {
 	}
 	if string(dec.Results[0].Plaintext) != string(plaintext) {
 		t.Errorf("round-trip mismatch: got %q want %q", dec.Results[0].Plaintext, plaintext)
+	}
+}
+
+// TestVaultBackend_Integration_BatchEncryptUnder1s pins the §4.11
+// acceptance criterion "batch encrypt 100 plaintexts in <1s with
+// Vault." Gated like the other transit tests — needs an operator-
+// provided `vault dev` + the transit engine + a `kscore-test` key.
+func TestVaultBackend_Integration_BatchEncryptUnder1s(t *testing.T) {
+	addr, token := skipIfNoVault(t)
+	skipIfNoTransit(t)
+
+	b, err := NewBackend(Config{
+		Address: addr,
+		Auth:    AuthConfig{Method: AuthMethodToken, Token: &TokenAuthConfig{Token: token}},
+	})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := b.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stopCancel()
+		_ = b.Stop(stopCtx)
+	})
+
+	const (
+		key = "kscore-test"
+		n   = 100
+	)
+	items := make([]secrets.EncryptInput, n)
+	for i := 0; i < n; i++ {
+		items[i] = secrets.EncryptInput{Plaintext: []byte("payload-" + strconv.Itoa(i))}
+	}
+
+	start := time.Now()
+	resp, err := b.Encrypt(ctx, secrets.EncryptRequest{Key: key, Items: items})
+	if err != nil {
+		t.Fatalf("batch Encrypt: %v", err)
+	}
+	elapsed := time.Since(start)
+
+	if len(resp.Results) != n {
+		t.Fatalf("results = %d, want %d", len(resp.Results), n)
+	}
+	for i, r := range resp.Results {
+		if r.Err != "" {
+			t.Errorf("result[%d] errored: %q", i, r.Err)
+		}
+		if r.Ciphertext == "" {
+			t.Errorf("result[%d] missing ciphertext", i)
+		}
+	}
+
+	if elapsed >= time.Second {
+		t.Errorf("batch encrypt of %d plaintexts took %v, want < 1s (§4.11 acceptance)", n, elapsed)
+	} else {
+		t.Logf("batch encrypt of %d plaintexts: %v (well under 1s acceptance bar)", n, elapsed)
 	}
 }
 
