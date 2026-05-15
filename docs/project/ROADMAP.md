@@ -848,6 +848,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-events query --filter "..."` iterates ListEvents pages, applies CEL filter client-side, emits matching events as JSON lines, exits when the bound is exhausted. CEL syntax: `severity.at_least('warn')` form per Epic 11 task 5.
 - **References**: PROJECT-DETAILS §4.9 CLI list; `internal/events/filter.go` (CompileFilter, landed); Epic 11 task 7 (kscore-events CLI; landed).
 
+#### Strict audit-on-access via Auditor.Emit error return
+
+- **Priority**: v1.x
+- **What**: §4.11's "failure to log = bug" invariant currently can't fail the in-flight secrets op when the events-bridge audit publish fails — `secrets.Auditor.Emit` has no error return (deliberately, per the v1.0 contract "fire and forget; never error back to the caller"). The Epic 11 task 10 bridge (`cmd/kscore-server/audit_bridge.go`) logs publish failures at WARN and bumps `events.AuditEmitter.FailedPublishes`, but the broker continues regardless. Stronger consistency requires the Auditor interface to surface errors so the broker can fail the op (or fail-open with a configurable policy).
+- **Why deferred**: changing `secrets.Auditor.Emit` to return an error is a broad refactor — every existing implementation (LogAuditor, BufferedAuditor, SamplingAuditor, MultiAuditor, NoopAuditor, every test fake) updates; the broker grows policy code for "what to do when emit fails" (fail-open vs fail-closed, configurable). Operator demand at v0.x trial scale is "log + alert when it fails," which the current bridge already provides via the FailedPublishes counter + ERROR slog line.
+- **Acceptance**: `secrets.Auditor.Emit` returns `error`; the broker has an `AuditFailurePolicy` config (`fail_open` / `fail_closed`); the bridge propagates publish errors; integration test confirms a denied publish under `fail_closed` causes the secrets op to error.
+- **References**: PROJECT-DETAILS §4.11 "failure to log = bug"; `internal/secrets/audit.go` Auditor interface; `cmd/kscore-server/audit_bridge.go`; Epic 11 task 10 (landed).
+
 #### Secrets transit batch API on the wire
 
 - **Priority**: v1.x

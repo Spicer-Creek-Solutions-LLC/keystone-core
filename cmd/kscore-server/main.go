@@ -21,6 +21,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	"go.keystone-core.io/keystone-core/internal/secrets"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
@@ -134,24 +135,15 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	defer tlsCancel()
 
-	// Epic 10 task 9 — start the secrets runtime when enabled.
-	// Returns nil + nil error when secrets.enabled is false; the
-	// SecretsService gRPC + REST surface then returns Unavailable.
-	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, log)
-	if err != nil {
-		return fmt.Errorf("secrets: %w", err)
-	}
-	defer func() {
-		stopCtx, stopCancel := stopSecretsCtx()
-		defer stopCancel()
-		secretsRT.stop(stopCtx, log)
-	}()
-
 	// Epic 11 task 6 — start the events runtime when enabled.
 	// Returns nil + nil error when events.enabled is false; the
 	// EventService gRPC + REST surface then returns Unavailable.
 	// Depends on the NATS manager being started above so JetStream
 	// is reachable.
+	//
+	// Boot order: events BEFORE secrets per Epic 11 task 10 so the
+	// secrets audit pipeline can fan out through the events bus.
+	// Events depends only on state + NATS (no secrets dep).
 	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, log)
 	if err != nil {
 		return fmt.Errorf("events: %w", err)
@@ -160,6 +152,29 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		stopCtx, stopCancel := stopEventsCtx()
 		defer stopCancel()
 		eventsRT.stop(stopCtx, log)
+	}()
+
+	// Epic 11 task 10 — bridge construct: when events is enabled,
+	// build the secrets.Auditor that publishes SecretAccessEvent
+	// through the AuditEmitter onto the events bus. Passed into
+	// startSecrets so it joins the MultiAuditor fan-out alongside
+	// LogAuditor / BufferedAuditor / SamplingAuditor.
+	var eventsAuditor secrets.Auditor
+	if eventsRT != nil && eventsRT.AuditEmitter != nil {
+		eventsAuditor = newSecretsAuditEventBridge(eventsRT.AuditEmitter, log)
+	}
+
+	// Epic 10 task 9 — start the secrets runtime when enabled.
+	// Returns nil + nil error when secrets.enabled is false; the
+	// SecretsService gRPC + REST surface then returns Unavailable.
+	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, eventsAuditor, log)
+	if err != nil {
+		return fmt.Errorf("secrets: %w", err)
+	}
+	defer func() {
+		stopCtx, stopCancel := stopSecretsCtx()
+		defer stopCancel()
+		secretsRT.stop(stopCtx, log)
 	}()
 
 	opts := server.Options{

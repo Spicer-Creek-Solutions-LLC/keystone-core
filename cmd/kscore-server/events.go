@@ -23,6 +23,13 @@ type eventsRuntime struct {
 	Publisher  events.EventPublisher
 	Subscriber events.EventSubscriber
 	Retention  *events.RetentionEnforcer
+
+	// AuditEmitter is the canonical entry point any in-process
+	// emitter (the secrets audit bridge, Epic 12's policy engine
+	// when it lands) uses to publish audit-shaped events through
+	// the events bus. Nil when the publisher is disabled — callers
+	// must check before constructing emitters.
+	AuditEmitter *events.AuditEmitter
 }
 
 // stop tears down the runtime in reverse order. Logs every error +
@@ -106,6 +113,17 @@ func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NA
 			return nil, fmt.Errorf("events: publisher start: %w", err)
 		}
 		rt.Publisher = pub
+
+		// Epic 11 task 10 — construct the audit emitter once the
+		// publisher is live. Secrets boot wires its audit bridge
+		// against this emitter; Epic 12's policy / user-action
+		// audit emitter will plug in here too.
+		emitter, err := events.NewAuditEmitter(pub, log)
+		if err != nil {
+			_ = pub.Stop(ctx)
+			return nil, fmt.Errorf("events: audit emitter: %w", err)
+		}
+		rt.AuditEmitter = emitter
 	}
 
 	if cfg.Subscriber.Enabled {
