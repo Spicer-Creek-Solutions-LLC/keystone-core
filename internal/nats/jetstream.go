@@ -31,7 +31,15 @@ type StreamDef struct {
 // DefaultStreamDefs returns the v1.0 stream set:
 //
 //	KSCORE_COMMANDS_<cluster>  capturing kscore.<cluster>.agent.*.command
-//	KSCORE_EVENTS_<cluster>    capturing kscore.<cluster>.agent.*.events
+//	KSCORE_EVENTS_<cluster>    capturing kscore.<cluster>.events.>
+//
+// The events-stream subject pattern matches PROJECT-DETAILS §4.9 —
+// the project-wide event bus addresses events as
+// `kscore.<cluster>.events.<category>.<subtype>`, so the stream
+// captures the whole `events.>` subtree under the cluster prefix.
+// Epic 11 task 3 (events.JetStreamPublisher) is the canonical
+// producer; future subscribers (Epic 11 task 4) durable-consume from
+// here.
 //
 // Both streams share the per-stream limits from JetStreamConfig
 // (StreamMaxAge / StreamMaxBytes / StreamMaxMsgs / StreamReplicas).
@@ -61,8 +69,8 @@ func DefaultStreamDefs(subjects *SubjectBuilder, cfg config.JetStreamConfig) []S
 			Name: streamEventsPrefix + "_" + suffix,
 			Config: nats.StreamConfig{
 				Name:        streamEventsPrefix + "_" + suffix,
-				Description: "Keystone Core events stream (Epic 05 task 8)",
-				Subjects:    []string{prefix + ".agent.*.events"},
+				Description: "Keystone Core events stream (Epic 11 task 3) — kscore.<cluster>.events.>",
+				Subjects:    []string{prefix + ".events.>"},
 				Retention:   nats.LimitsPolicy,
 				MaxAge:      cfg.StreamMaxAge,
 				MaxBytes:    cfg.StreamMaxBytes,

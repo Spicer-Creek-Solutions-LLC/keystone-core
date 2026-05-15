@@ -95,12 +95,6 @@ func (b *SubjectBuilder) AgentState(agentID string) string {
 	return b.prefix + ".agent." + agentID + ".state"
 }
 
-// AgentEvents is the per-agent event-stream subject (audit log,
-// arbitrary structured events).
-func (b *SubjectBuilder) AgentEvents(agentID string) string {
-	return b.prefix + ".agent." + agentID + ".events"
-}
-
 // ServerAnnounce is the server-to-server announcement subject (Epic
 // 13 clustering). v1.0 single-server installs publish here on boot
 // for future-proofing the subject layout.

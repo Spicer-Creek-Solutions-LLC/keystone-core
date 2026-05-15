@@ -35,7 +35,7 @@ func TestDefaultStreamDefs_Names(t *testing.T) {
 	if got, want := defs[0].Config.Subjects, []string{"kscore.prod-east.agent.*.command"}; !equalStrSlice(got, want) {
 		t.Errorf("commands subjects = %v, want %v", got, want)
 	}
-	if got, want := defs[1].Config.Subjects, []string{"kscore.prod-east.agent.*.events"}; !equalStrSlice(got, want) {
+	if got, want := defs[1].Config.Subjects, []string{"kscore.prod-east.events.>"}; !equalStrSlice(got, want) {
 		t.Errorf("events subjects = %v, want %v", got, want)
 	}
 }
