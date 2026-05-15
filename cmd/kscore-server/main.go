@@ -147,6 +147,21 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		secretsRT.stop(stopCtx, log)
 	}()
 
+	// Epic 11 task 6 — start the events runtime when enabled.
+	// Returns nil + nil error when events.enabled is false; the
+	// EventService gRPC + REST surface then returns Unavailable.
+	// Depends on the NATS manager being started above so JetStream
+	// is reachable.
+	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, log)
+	if err != nil {
+		return fmt.Errorf("events: %w", err)
+	}
+	defer func() {
+		stopCtx, stopCancel := stopEventsCtx()
+		defer stopCancel()
+		eventsRT.stop(stopCtx, log)
+	}()
+
 	opts := server.Options{
 		Config:          cfg,
 		Logger:          log,
@@ -161,6 +176,11 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		opts.SecretsBroker = secretsRT.Broker
 		opts.SecretsTransit = secretsRT.Transit
 		opts.SecretsLeases = secretsRT.LeaseMgr
+	}
+	if eventsRT != nil {
+		opts.EventStore = eventsRT.Store
+		opts.EventPublisher = eventsRT.Publisher
+		opts.EventSubscriber = eventsRT.Subscriber
 	}
 
 	if cfg.NATS.Bootstrap.Enabled {
@@ -267,6 +287,16 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if secretsRT != nil {
 		secretsGRPC := controlplane.NewSecretsGRPCServer(secretsRT.Broker, secretsRT.Transit, secretsRT.LeaseMgr)
 		srv.RegisterService(&v1.SecretsService_ServiceDesc, secretsGRPC)
+	}
+
+	// Epic 11 task 6 — register EventService gRPC. The store /
+	// publisher / subscriber are started by startEvents above; we
+	// just bind the gRPC service. When eventsRT is nil (operator
+	// opt-out), the EventService isn't registered and clients reach
+	// Unimplemented.
+	if eventsRT != nil {
+		eventsGRPC := controlplane.NewEventsGRPCServer(eventsRT.Store, eventsRT.Publisher, eventsRT.Subscriber)
+		srv.RegisterService(&v1.EventService_ServiceDesc, eventsGRPC)
 	}
 
 	if err := srv.Start(ctx); err != nil {

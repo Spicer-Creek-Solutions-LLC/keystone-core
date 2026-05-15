@@ -48,11 +48,12 @@ type Config struct {
 	Security SecurityConfig `koanf:"security"`
 	Identity IdentityConfig `koanf:"identity"`
 	Secrets  SecretsConfig  `koanf:"secrets"`
+	Events   EventsConfig   `koanf:"events"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
 func defaultConfig() *Config {
-	return &Config{
+	c := &Config{
 		Mode: ModeDevelopment,
 		Server: ServerConfig{
 			Host:     "0.0.0.0",
@@ -135,6 +136,8 @@ func defaultConfig() *Config {
 			KeyType:     "ecdsa-p256",
 		},
 	}
+	applyEventsDefaults(&c.Events)
+	return c
 }
 
 // Load reads YAML at path (pass "" to skip), applies defaults, overlays
@@ -200,6 +203,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("security: %w", err)
 	}
 	if err := c.Secrets.Validate(); err != nil {
+		return err
+	}
+	if err := c.Events.Validate(c.NATS); err != nil {
 		return err
 	}
 	return nil

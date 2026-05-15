@@ -1,10 +1,13 @@
-// EventService — fan-in event log + subscription stream. Refined in
-// epic 11 (Events).
+// EventService — fan-in event log + subscription stream per
+// PROJECT-DETAILS §4.9. v1.0 ships the passive surface (emit +
+// list + get + subscribe + types + stats); the reactor engine,
+// lifecycle tracking, and DLQ land in v1.1.
 
 syntax = "proto3";
 
 package keystone.core.v1;
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
@@ -16,7 +19,9 @@ service EventService {
 
   // SubscribeEvents streams events matching the filter. Optional
   // historical replay (last N seconds) is followed by realtime events
-  // until the client cancels. See PROJECT-DETAILS §4.5.
+  // until the client cancels. CEL filter expression (optional)
+  // narrows the stream client-side; structural filters in
+  // EventFilter narrow server-side (indexed columns).
   rpc SubscribeEvents(SubscribeEventsRequest) returns (stream SubscribeEventsResponse);
 
   rpc GetEventTypes(GetEventTypesRequest) returns (GetEventTypesResponse);
@@ -25,18 +30,20 @@ service EventService {
 
 // ---- Event ----------------------------------------------------------------
 
-// Event is one record in the event log. Source identifies the emitter
-// (e.g., "agent/abc-123", "controlplane", "policy"); type is a stable
-// dotted name (e.g., "agent.connected", "command.completed").
+// Event mirrors `internal/events.Event` per §4.9. `tags` is the
+// indexable string-map; `data` is the typed payload (google.protobuf.Struct
+// so any JSON shape round-trips). `subject` is the NATS subject the
+// event was (or will be) published on — `kscore.<cluster>.events.<cat>.<sub>`.
 message Event {
   string id = 1;
   string type = 2;
   string source = 3;
   EventSeverity severity = 4;
-  google.protobuf.Timestamp at = 5;
-  map<string, string> attributes = 6;
-  string message = 7;
-  string correlation_id = 8;
+  google.protobuf.Timestamp time = 5;
+  string correlation_id = 6;
+  map<string, string> tags = 7;
+  google.protobuf.Struct data = 8;
+  string subject = 9;
 }
 
 enum EventSeverity {
@@ -48,27 +55,52 @@ enum EventSeverity {
   EVENT_SEVERITY_CRITICAL = 5;
 }
 
-// EventFilter narrows event lookups and subscriptions.
+// EventFilter narrows event lookups and subscriptions on the
+// indexed columns. CEL expressions (subscribe only) handle ad-hoc
+// shape — tags / data introspection / regex / etc.
 message EventFilter {
-  repeated string types = 1;
-  repeated string sources = 2;
-  EventSeverity min_severity = 3;
-  google.protobuf.Timestamp since = 4;
-  google.protobuf.Timestamp until = 5;
+  // Exact type match. Mutually exclusive with categories.
+  string type = 1;
+
+  // Category fan-in (e.g., "agent" → matches every agent.*). Maps
+  // to SQL LIKE 'agent.%' on the store side.
+  repeated string categories = 2;
+
+  // Exact source match.
+  string source = 3;
+
+  // Minimum severity inclusive (UNSPECIFIED = no threshold).
+  EventSeverity min_severity = 4;
+
+  // Exact correlation_id match.
+  string correlation_id = 5;
+
+  // Half-open time range [since, until).
+  google.protobuf.Timestamp since = 6;
+  google.protobuf.Timestamp until = 7;
+
+  // Tag predicates — ANDed exact-match. Operators can also supply
+  // a CEL filter_expression on SubscribeEventsRequest for richer
+  // matching (regex, contains, etc.).
+  map<string, string> tags = 8;
 }
 
 // ---- ListEvents -----------------------------------------------------------
 
 message ListEventsRequest {
   EventFilter filter = 1;
-  int32 page_size = 2;
-  string page_token = 3;
+  // Cursor pagination keyed on Event.id (UUIDv7 → k-sortable by
+  // time). First page passes empty; subsequent pages pass the
+  // previous response's next_page_token.
+  string page_token = 2;
+  int32 page_size = 3;
+  // When true, return events in descending id order (newest first).
+  bool descending = 4;
 }
 
 message ListEventsResponse {
   repeated Event events = 1;
   string next_page_token = 2;
-  int32 total_count = 3;
 }
 
 // ---- GetEvent -------------------------------------------------------------
@@ -83,6 +115,10 @@ message GetEventResponse {
 
 // ---- EmitEvent ------------------------------------------------------------
 
+// EmitEventRequest accepts a partially-populated event. The server
+// stamps id (if empty), time (if zero), and subject; severity must
+// be set; type + source are required. Returns the canonical id of
+// the persisted + published event.
 message EmitEventRequest {
   Event event = 1;
 }
@@ -94,12 +130,22 @@ message EmitEventResponse {
 // ---- SubscribeEvents ------------------------------------------------------
 
 message SubscribeEventsRequest {
+  // Structural narrowing (subject pattern derived from
+  // filter.categories / filter.type; remaining fields applied as
+  // server-side predicates).
   EventFilter filter = 1;
-  // Replay events from the last N seconds before switching to realtime.
-  // 0 = no replay.
-  int32 replay_seconds = 2;
-  // Optional NATS-style queue group for load-balanced consumers.
-  string queue_group = 3;
+
+  // CEL expression for client-side filtering. Compiled per the
+  // events package's CompileFilter; empty = no CEL filter.
+  // Example: `tags.role == 'web' && severity.at_least('warn')`.
+  string filter_expression = 2;
+
+  // Replay events from the last N seconds before switching to
+  // realtime. 0 = no replay.
+  int32 replay_seconds = 3;
+
+  // Optional NATS queue group for load-balanced consumers.
+  string queue_group = 4;
 }
 
 message SubscribeEventsResponse {
@@ -111,6 +157,9 @@ message SubscribeEventsResponse {
 message GetEventTypesRequest {}
 
 message GetEventTypesResponse {
+  // The 22 canonical v1.0 types from §4.9. Operator-defined
+  // subtypes within known categories are also valid emissions but
+  // not returned here.
   repeated string types = 1;
 }
 
@@ -124,7 +173,7 @@ message GetEventStatsRequest {
 message GetEventStatsResponse {
   // Counts keyed by event type.
   map<string, int64> by_type = 1;
-  // Counts keyed by severity name.
+  // Counts keyed by severity name (canonical lowercase).
   map<string, int64> by_severity = 2;
   int64 total = 3;
 }

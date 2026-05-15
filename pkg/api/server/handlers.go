@@ -113,7 +113,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	agents.NewHandler().Register(mux)
 	apikeys.NewHandler(s.store).Register(mux)
 	cluster.NewHandler().Register(mux)
-	events.NewHandler().Register(mux)
+	events.NewHandler(s.eventStore, s.eventPublisher).Register(mux)
 	execution.NewHandler().Register(mux)
 	gitops.NewHandler().Register(mux)
 	maintenance.NewHandler().Register(mux)

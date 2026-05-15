@@ -16,6 +16,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
@@ -78,6 +79,10 @@ type Server struct {
 	secretsBroker  *secrets.Broker
 	secretsTransit secrets.TransitBackend
 	secretsLeases  *secrets.LeaseManager
+
+	eventStore      events.EventStore
+	eventPublisher  events.EventPublisher
+	eventSubscriber events.EventSubscriber //nolint:unused // wired for the gRPC handler when SubscribeEvents lands in main.go
 
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
@@ -151,6 +156,9 @@ func New(opts Options) (*Server, error) {
 		secretsBroker:        opts.SecretsBroker,
 		secretsTransit:       opts.SecretsTransit,
 		secretsLeases:        opts.SecretsLeases,
+		eventStore:           opts.EventStore,
+		eventPublisher:       opts.EventPublisher,
+		eventSubscriber:      opts.EventSubscriber,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}

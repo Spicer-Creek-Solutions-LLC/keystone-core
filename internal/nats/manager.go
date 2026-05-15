@@ -365,6 +365,27 @@ func (m *Manager) publishBytes(ctx context.Context, subject string, data []byte)
 	return nil
 }
 
+// JetStream returns a JetStream context against the manager's
+// active connection. Used by cmd/kscore-server/events.go (Epic 11
+// task 6) to construct the events runtime; the JetStream stream
+// itself is created by ensureStreams during Start.
+//
+// Returns an error if the manager isn't started or JetStream isn't
+// enabled in the config.
+func (m *Manager) JetStream() (nats.JetStreamContext, error) {
+	m.mu.Lock()
+	conn := m.activeConnLocked()
+	m.mu.Unlock()
+	if conn == nil {
+		return nil, errors.New("nats: JetStream: manager not started")
+	}
+	js, err := conn.JetStream()
+	if err != nil {
+		return nil, fmt.Errorf("nats: JetStream: %w", err)
+	}
+	return js, nil
+}
+
 // ClientURL returns the URL clients should use to connect. For
 // embedded mode it's the local nats-server address. For external mode
 // it's the active endpoint when connected, or the highest-priority

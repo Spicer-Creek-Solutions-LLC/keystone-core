@@ -8,6 +8,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
@@ -80,6 +81,21 @@ type Options struct {
 
 	// SecretsLeases is the Epic 10 task-6 LeaseManager. Optional.
 	SecretsLeases *secrets.LeaseManager
+
+	// EventStore is the Epic 11 task-2 SQL-backed event store —
+	// optional, nil when `events.enabled: false`. When non-nil, the
+	// REST + gRPC EventService surface is wired against it.
+	EventStore events.EventStore
+
+	// EventPublisher is the Epic 11 task-3 JetStream publisher.
+	// Optional; nil disables the EmitEvent surface (returns
+	// Unavailable / 503).
+	EventPublisher events.EventPublisher
+
+	// EventSubscriber is the Epic 11 task-4 JetStream subscriber.
+	// Optional; nil disables the SubscribeEvents server-streaming
+	// RPC.
+	EventSubscriber events.EventSubscriber
 }
 
 // validate returns an error if required fields are missing or
