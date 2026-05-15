@@ -115,6 +115,36 @@ func (s *sqlAuditStore) ApplyRetention(ctx context.Context, policy RetentionPoli
 	return s.backing.ApplyAuditRetention(ctx, stPolicy)
 }
 
+func (s *sqlAuditStore) Summarize(ctx context.Context, q AuditQuery) (AuditSummary, error) {
+	if err := q.Validate(); err != nil {
+		return AuditSummary{}, err
+	}
+	filter := filterFromQuery(q, 0)
+	rec, err := s.backing.SummarizeAuditEntries(ctx, filter)
+	if err != nil {
+		return AuditSummary{}, err
+	}
+	out := AuditSummary{
+		TotalEvaluations:   rec.TotalEvaluations,
+		AllowedCount:       rec.AllowedCount,
+		DeniedCount:        rec.DeniedCount,
+		ViolationsByPolicy: rec.ViolationsByPolicy,
+		Range:              TimeRange{Start: rec.RangeStart, End: rec.RangeEnd},
+	}
+	if len(rec.ViolationsBySeverity) > 0 {
+		bySev := make(map[Severity]int, len(rec.ViolationsBySeverity))
+		for name, n := range rec.ViolationsBySeverity {
+			sev, err := ParseSeverity(name)
+			if err != nil {
+				return AuditSummary{}, fmt.Errorf("audit: Summarize: unknown severity %q in result: %w", name, err)
+			}
+			bySev[sev] = n
+		}
+		out.ViolationsBySeverity = bySev
+	}
+	return out, nil
+}
+
 func (s *sqlAuditStore) Close() error {
 	// The SQL pool is owned by the process-wide state composite.
 	return nil

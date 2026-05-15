@@ -163,3 +163,80 @@ func TestPg_DeleteAuditEntry(t *testing.T) {
 		t.Errorf("after delete err = %v", err)
 	}
 }
+
+func TestPg_SummarizeAuditEntries_Empty(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{})
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if got.TotalEvaluations != 0 || !got.RangeStart.IsZero() {
+		t.Errorf("non-zero on empty set: %+v", got)
+	}
+}
+
+func TestPg_SummarizeAuditEntries_Mixed(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+
+	seed := []*AuditEntryStoreRecord{
+		{ID: "pg-s-01", Timestamp: now.Add(-30 * time.Minute), PolicyID: "p-a", User: "alice", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "get", Violations: []byte("[]")},
+		{ID: "pg-s-02", Timestamp: now.Add(-25 * time.Minute), PolicyID: "p-a", User: "bob", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "get", Violations: []byte("[]")},
+		{ID: "pg-s-03", Timestamp: now.Add(-20 * time.Minute), PolicyID: "p-a", User: "carol", Allowed: false, Severity: "medium", EnforcementMode: "enforce", Action: "delete", Violations: []byte("[]")},
+		{ID: "pg-s-04", Timestamp: now.Add(-15 * time.Minute), PolicyID: "p-a", User: "dave", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "delete", Violations: []byte("[]")},
+		{ID: "pg-s-05", Timestamp: now.Add(-10 * time.Minute), PolicyID: "p-b", User: "eve", Allowed: false, Severity: "critical", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+		{ID: "pg-s-06", Timestamp: now.Add(-5 * time.Minute), PolicyID: "p-b", User: "frank", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+		{ID: "pg-s-07", Timestamp: now, PolicyID: "p-b", User: "grace", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+	}
+	for _, r := range seed {
+		if err := s.CreateAuditEntry(ctx, r); err != nil {
+			t.Fatalf("seed %s: %v", r.ID, err)
+		}
+	}
+
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{})
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if got.TotalEvaluations != 7 || got.AllowedCount != 2 || got.DeniedCount != 5 {
+		t.Errorf("counts wrong: total=%d allowed=%d denied=%d",
+			got.TotalEvaluations, got.AllowedCount, got.DeniedCount)
+	}
+	if got.ViolationsByPolicy["p-a"] != 2 || got.ViolationsByPolicy["p-b"] != 3 {
+		t.Errorf("by-policy wrong: %+v", got.ViolationsByPolicy)
+	}
+	if got.ViolationsBySeverity["high"] != 3 ||
+		got.ViolationsBySeverity["medium"] != 1 ||
+		got.ViolationsBySeverity["critical"] != 1 {
+		t.Errorf("by-severity wrong: %+v", got.ViolationsBySeverity)
+	}
+	if _, has := got.ViolationsBySeverity["low"]; has {
+		t.Errorf("low leaked to violations: %+v", got.ViolationsBySeverity)
+	}
+	if !got.RangeStart.Equal(seed[0].Timestamp) || !got.RangeEnd.Equal(seed[len(seed)-1].Timestamp) {
+		t.Errorf("time range wrong: %v..%v", got.RangeStart, got.RangeEnd)
+	}
+}
+
+func TestPg_SummarizeAuditEntries_FilterNarrows(t *testing.T) {
+	s := newPgStoreForTest(t)
+	ctx := t.Context()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+
+	seed := []*AuditEntryStoreRecord{
+		{ID: "pg-f-01", Timestamp: now.Add(-5 * time.Minute), PolicyID: "p-a", User: "alice", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "x", Violations: []byte("[]")},
+		{ID: "pg-f-02", Timestamp: now.Add(-4 * time.Minute), PolicyID: "p-b", User: "alice", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "x", Violations: []byte("[]")},
+		{ID: "pg-f-03", Timestamp: now.Add(-3 * time.Minute), PolicyID: "p-a", User: "bob", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "x", Violations: []byte("[]")},
+	}
+	for _, r := range seed {
+		if err := s.CreateAuditEntry(ctx, r); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	got, _ := s.SummarizeAuditEntries(ctx, AuditEntryFilter{User: "alice"})
+	if got.TotalEvaluations != 2 || got.DeniedCount != 2 {
+		t.Errorf("user=alice: total=%d denied=%d", got.TotalEvaluations, got.DeniedCount)
+	}
+}

@@ -259,6 +259,11 @@ type AuditStore interface {
 	CountAuditEntries(ctx context.Context, filter AuditEntryFilter) (int, error)
 	DeleteAuditEntry(ctx context.Context, id string) error
 
+	// SummarizeAuditEntries aggregates over the filter set. Cursor /
+	// Limit / Descending are ignored — the caller wants counts, not
+	// pages. Returns zero counts and zero time-range on empty match.
+	SummarizeAuditEntries(ctx context.Context, filter AuditEntryFilter) (AuditEntrySummaryRecord, error)
+
 	// ApplyAuditRetention applies the policy and returns the number
 	// of rows removed. A policy with both MaxAge and MaxCount zero
 	// is a no-op returning (0, nil). The reference time is the wall

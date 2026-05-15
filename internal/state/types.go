@@ -519,6 +519,26 @@ type AuditRetentionPolicy struct {
 	MinSeverity string // "low" | "medium" | "high" | "critical" | ""
 }
 
+// AuditEntrySummaryRecord is the DB-shape aggregation result for
+// SummarizeAuditEntries per §4.12 `AuditSummary` shape. Filter +
+// time-range semantics match AuditEntryFilter (Cursor/Limit ignored;
+// pagination doesn't apply to aggregations).
+//
+// ViolationsByPolicy and ViolationsBySeverity count DENIED entries
+// only (allowed=false) — they answer "what is failing policy" not
+// "what was evaluated". RangeStart / RangeEnd report the actual
+// min/max timestamp of the filtered set; both are zero when no
+// rows match.
+type AuditEntrySummaryRecord struct {
+	TotalEvaluations     int
+	AllowedCount         int
+	DeniedCount          int
+	ViolationsByPolicy   map[string]int // policy_id → denied count
+	ViolationsBySeverity map[string]int // canonical lowercase severity → denied count
+	RangeStart           time.Time      // min(timestamp); zero on empty
+	RangeEnd             time.Time      // max(timestamp); zero on empty
+}
+
 // ---- Filters --------------------------------------------------------------
 
 // AgentFilter narrows an AgentStore.ListAgents query.

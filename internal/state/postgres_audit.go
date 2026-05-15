@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -191,6 +192,83 @@ func (s *PostgreSQLStore) CountAuditEntries(ctx context.Context, filter AuditEnt
 		return 0, fmt.Errorf("state: CountAuditEntries: %w", err)
 	}
 	return n, nil
+}
+
+// SummarizeAuditEntries aggregates over the filter set. Three
+// sequential queries: totals + time-range, denied-by-policy_id,
+// denied-by-severity. Cursor / Limit / Descending fields are ignored.
+func (s *PostgreSQLStore) SummarizeAuditEntries(ctx context.Context, filter AuditEntryFilter) (AuditEntrySummaryRecord, error) {
+	var (
+		summary AuditEntrySummaryRecord
+		args    []any
+		conds   []string
+	)
+	pruned := filter
+	pruned.Cursor = ""
+	pruned.Limit = 0
+	pruned.Descending = false
+	conds, args, _ = appendAuditConditionsPostgres(conds, args, 0, pruned)
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
+	}
+
+	var (
+		total, allowedCnt, deniedCnt int
+		minTs, maxTs                 sql.NullTime
+	)
+	// #nosec G202 -- `where` is composed of static "field = $n" /
+	// "field IN ($n,...)" / "id (>|<) $n" fragments built by
+	// appendAuditConditionsPostgres from a closed set of filter fields;
+	// no user input enters the SQL string.
+	q1 := `SELECT
+        COUNT(*),
+        COALESCE(SUM(CASE WHEN allowed THEN 1 ELSE 0 END), 0),
+        COALESCE(SUM(CASE WHEN NOT allowed THEN 1 ELSE 0 END), 0),
+        MIN(timestamp),
+        MAX(timestamp)
+    FROM audit_entries` + where
+	if err := s.db.QueryRowContext(ctx, q1, args...).Scan(
+		&total, &allowedCnt, &deniedCnt, &minTs, &maxTs,
+	); err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries totals: %w", err)
+	}
+	summary.TotalEvaluations = total
+	summary.AllowedCount = allowedCnt
+	summary.DeniedCount = deniedCnt
+	if minTs.Valid {
+		summary.RangeStart = minTs.Time.UTC()
+	}
+	if maxTs.Valid {
+		summary.RangeEnd = maxTs.Time.UTC()
+	}
+
+	if total == 0 {
+		return summary, nil
+	}
+	deniedWhere := where
+	if deniedWhere == "" {
+		deniedWhere = " WHERE NOT allowed"
+	} else {
+		deniedWhere += " AND NOT allowed"
+	}
+	// #nosec G202 -- see q1 justification.
+	q2 := `SELECT policy_id, COUNT(*) FROM audit_entries` + deniedWhere + ` GROUP BY policy_id`
+	byPolicy, err := scanGroupCounts(ctx, s.db, q2, args)
+	if err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries by policy: %w", err)
+	}
+	summary.ViolationsByPolicy = byPolicy
+
+	// #nosec G202 -- see q1 justification.
+	q3 := `SELECT severity, COUNT(*) FROM audit_entries` + deniedWhere + ` GROUP BY severity`
+	bySev, err := scanGroupCounts(ctx, s.db, q3, args)
+	if err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries by severity: %w", err)
+	}
+	summary.ViolationsBySeverity = bySev
+
+	return summary, nil
 }
 
 func (s *PostgreSQLStore) DeleteAuditEntry(ctx context.Context, id string) error {

@@ -44,6 +44,9 @@ func (s *retentionStubStore) ApplyRetention(_ context.Context, p RetentionPolicy
 	}
 	return deleted, err
 }
+func (s *retentionStubStore) Summarize(context.Context, AuditQuery) (AuditSummary, error) {
+	return AuditSummary{}, nil
+}
 func (s *retentionStubStore) Close() error { return nil }
 
 func (s *retentionStubStore) calls() int {

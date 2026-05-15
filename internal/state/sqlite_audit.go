@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -194,6 +195,134 @@ func (s *SQLiteStore) CountAuditEntries(ctx context.Context, filter AuditEntryFi
 		return 0, fmt.Errorf("state: CountAuditEntries: %w", err)
 	}
 	return n, nil
+}
+
+// SummarizeAuditEntries aggregates over the filter set. Three
+// sequential queries: (1) totals + time-range, (2) denied entries
+// grouped by policy_id, (3) denied entries grouped by severity.
+// Cursor / Limit / Descending fields are ignored — pagination
+// doesn't apply to aggregations.
+func (s *SQLiteStore) SummarizeAuditEntries(ctx context.Context, filter AuditEntryFilter) (AuditEntrySummaryRecord, error) {
+	var (
+		summary AuditEntrySummaryRecord
+		args    []any
+		conds   []string
+	)
+	pruned := filter
+	pruned.Cursor = ""
+	pruned.Limit = 0
+	pruned.Descending = false
+	conds, args = appendAuditConditionsSQLite(conds, args, pruned)
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
+	}
+
+	// (1) Totals + time range.
+	var (
+		total, allowedCnt, deniedCnt int
+		minTs, maxTs                 sql.NullString
+	)
+	// #nosec G202 -- `where` is composed of static "field = ?" /
+	// "field IN (?...)" / "id (>|<) ?" fragments built by
+	// appendAuditConditionsSQLite from a closed set of filter fields;
+	// no user input enters the SQL string.
+	q1 := `SELECT
+        COUNT(*),
+        COALESCE(SUM(CASE WHEN allowed = 1 THEN 1 ELSE 0 END), 0),
+        COALESCE(SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END), 0),
+        MIN(timestamp),
+        MAX(timestamp)
+    FROM audit_entries` + where
+	if err := s.db.QueryRowContext(ctx, q1, args...).Scan(
+		&total, &allowedCnt, &deniedCnt, &minTs, &maxTs,
+	); err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries totals: %w", err)
+	}
+	summary.TotalEvaluations = total
+	summary.AllowedCount = allowedCnt
+	summary.DeniedCount = deniedCnt
+	if minTs.Valid {
+		t, err := tsParseRequired(minTs.String)
+		if err != nil {
+			return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries min ts: %w", err)
+		}
+		summary.RangeStart = t
+	}
+	if maxTs.Valid {
+		t, err := tsParseRequired(maxTs.String)
+		if err != nil {
+			return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries max ts: %w", err)
+		}
+		summary.RangeEnd = t
+	}
+
+	// (2) Denied entries grouped by policy_id. Skip when total = 0
+	// (no rows to group).
+	if total == 0 {
+		return summary, nil
+	}
+	deniedWhere := where
+	if deniedWhere == "" {
+		deniedWhere = " WHERE allowed = 0"
+	} else {
+		deniedWhere += " AND allowed = 0"
+	}
+	// #nosec G202 -- see q1 justification; deniedWhere extends `where`
+	// with a constant `allowed = 0` clause.
+	q2 := `SELECT policy_id, COUNT(*) FROM audit_entries` + deniedWhere + ` GROUP BY policy_id`
+	byPolicy, err := scanGroupCounts(ctx, s.db, q2, args)
+	if err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries by policy: %w", err)
+	}
+	summary.ViolationsByPolicy = byPolicy
+
+	// (3) Denied entries grouped by severity.
+	// #nosec G202 -- see q1 justification.
+	q3 := `SELECT severity, COUNT(*) FROM audit_entries` + deniedWhere + ` GROUP BY severity`
+	bySev, err := scanGroupCounts(ctx, s.db, q3, args)
+	if err != nil {
+		return AuditEntrySummaryRecord{}, fmt.Errorf("state: SummarizeAuditEntries by severity: %w", err)
+	}
+	summary.ViolationsBySeverity = bySev
+
+	return summary, nil
+}
+
+// scanGroupCounts executes a `SELECT key, COUNT(*)` group-by query
+// and returns the result as a map. Used by SummarizeAuditEntries for
+// the policy_id and severity aggregations on both SQLite and
+// Postgres (each call passes its own placeholder style).
+func scanGroupCounts(ctx context.Context, db sqlQueryContext, query string, args []any) (map[string]int, error) {
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[string]int)
+	for rows.Next() {
+		var (
+			key string
+			n   int
+		)
+		if err := rows.Scan(&key, &n); err != nil {
+			return nil, err
+		}
+		out[key] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// sqlQueryContext is the minimal interface scanGroupCounts needs;
+// satisfied by both *sql.DB and *sql.Tx.
+type sqlQueryContext interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
 // DeleteAuditEntry removes a single entry by id. Returns

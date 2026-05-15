@@ -519,6 +519,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
+#### `service` stdlib module — make systemdRunDir test-mutable without a package-level global
+
+- **Priority**: v0.x
+- **What**: `internal/statemgmt/stdlib/service/detect_linux.go` reads `systemdRunDir` as a package-level variable; `systemd_test.go` mutates it inside `t.Parallel()` tests to simulate "/run/systemd/system" missing. The race detector flags this when other parallel tests in the same package call `defaultProvider()` concurrently. Stable on `go test` without `-race`; `-race` reports a write/read race in `make test` and CI.
+- **Why deferred**: discovered during Epic 12 task 3 closure (`make test` runs with `-race`). The race is pre-existing — present at commit `3f490c11` (Epic 12 task 2 baseline) — and unrelated to the audit work. The fix is a small refactor (thread `systemdRunDir` through `defaultProvider(rundir string)` or guard the global with `sync.Mutex` + accessor) but lives in Epic 08 module surface, outside the touched scope.
+- **Acceptance**: `go test -race ./internal/statemgmt/stdlib/service/...` clean; `systemdRunDir` is no longer a writable package-level global or is accessed through a mutex-guarded accessor; tests that need to simulate "run dir missing" use the parameterized entry point.
+- **References**: `internal/statemgmt/stdlib/service/detect_linux.go:26`; `internal/statemgmt/stdlib/service/systemd_test.go:282` (`TestDetect_SystemdRunDirMissing_FallsBackToLookPath`).
+
 #### Vault auto re-authentication on token expiry
 
 - **Priority**: v0.x

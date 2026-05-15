@@ -420,3 +420,143 @@ func equalAuditIDs(recs []*AuditEntryStoreRecord, want []string) bool {
 	}
 	return true
 }
+
+func TestSQLite_SummarizeAuditEntries_Empty(t *testing.T) {
+	t.Parallel()
+	s := newSQLiteStoreForTest(t)
+	ctx := context.Background()
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{})
+	if err != nil {
+		t.Fatalf("Summarize empty: %v", err)
+	}
+	if got.TotalEvaluations != 0 || got.AllowedCount != 0 || got.DeniedCount != 0 {
+		t.Errorf("non-zero counts on empty set: %+v", got)
+	}
+	if !got.RangeStart.IsZero() || !got.RangeEnd.IsZero() {
+		t.Errorf("non-zero time range on empty set: %v..%v", got.RangeStart, got.RangeEnd)
+	}
+	if got.ViolationsByPolicy != nil || got.ViolationsBySeverity != nil {
+		t.Errorf("non-nil aggregation maps on empty set: %+v / %+v",
+			got.ViolationsByPolicy, got.ViolationsBySeverity)
+	}
+}
+
+func TestSQLite_SummarizeAuditEntries_Mixed(t *testing.T) {
+	t.Parallel()
+	s := newSQLiteStoreForTest(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+
+	// 2 allowed + 5 denied across 2 policies and 3 severities.
+	seed := []*AuditEntryStoreRecord{
+		{ID: "s-01", Timestamp: now.Add(-30 * time.Minute), PolicyID: "p-a", User: "alice", ResourceType: "secret", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "get", Violations: []byte("[]")},
+		{ID: "s-02", Timestamp: now.Add(-25 * time.Minute), PolicyID: "p-a", User: "bob", ResourceType: "secret", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "get", Violations: []byte("[]")},
+		{ID: "s-03", Timestamp: now.Add(-20 * time.Minute), PolicyID: "p-a", User: "carol", ResourceType: "secret", Allowed: false, Severity: "medium", EnforcementMode: "enforce", Action: "delete", Violations: []byte("[]")},
+		{ID: "s-04", Timestamp: now.Add(-15 * time.Minute), PolicyID: "p-a", User: "dave", ResourceType: "secret", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "delete", Violations: []byte("[]")},
+		{ID: "s-05", Timestamp: now.Add(-10 * time.Minute), PolicyID: "p-b", User: "eve", ResourceType: "lease", Allowed: false, Severity: "critical", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+		{ID: "s-06", Timestamp: now.Add(-5 * time.Minute), PolicyID: "p-b", User: "frank", ResourceType: "lease", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+		{ID: "s-07", Timestamp: now, PolicyID: "p-b", User: "grace", ResourceType: "lease", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "renew", Violations: []byte("[]")},
+	}
+	for _, r := range seed {
+		if err := s.CreateAuditEntry(ctx, r); err != nil {
+			t.Fatalf("seed %s: %v", r.ID, err)
+		}
+	}
+
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{})
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if got.TotalEvaluations != 7 {
+		t.Errorf("Total = %d, want 7", got.TotalEvaluations)
+	}
+	if got.AllowedCount != 2 {
+		t.Errorf("AllowedCount = %d, want 2", got.AllowedCount)
+	}
+	if got.DeniedCount != 5 {
+		t.Errorf("DeniedCount = %d, want 5", got.DeniedCount)
+	}
+	if got.ViolationsByPolicy["p-a"] != 2 {
+		t.Errorf("p-a denied = %d, want 2", got.ViolationsByPolicy["p-a"])
+	}
+	if got.ViolationsByPolicy["p-b"] != 3 {
+		t.Errorf("p-b denied = %d, want 3", got.ViolationsByPolicy["p-b"])
+	}
+	if got.ViolationsBySeverity["high"] != 3 {
+		t.Errorf("high denied = %d, want 3", got.ViolationsBySeverity["high"])
+	}
+	if got.ViolationsBySeverity["medium"] != 1 {
+		t.Errorf("medium denied = %d, want 1", got.ViolationsBySeverity["medium"])
+	}
+	if got.ViolationsBySeverity["critical"] != 1 {
+		t.Errorf("critical denied = %d, want 1", got.ViolationsBySeverity["critical"])
+	}
+	if _, has := got.ViolationsBySeverity["low"]; has {
+		t.Errorf("low present in by-severity (allowed entries leaked): %+v", got.ViolationsBySeverity)
+	}
+	// Range spans first..last seeded.
+	if !got.RangeStart.Equal(seed[0].Timestamp) {
+		t.Errorf("RangeStart = %v, want %v", got.RangeStart, seed[0].Timestamp)
+	}
+	if !got.RangeEnd.Equal(seed[len(seed)-1].Timestamp) {
+		t.Errorf("RangeEnd = %v, want %v", got.RangeEnd, seed[len(seed)-1].Timestamp)
+	}
+}
+
+func TestSQLite_SummarizeAuditEntries_FilterNarrows(t *testing.T) {
+	t.Parallel()
+	s := newSQLiteStoreForTest(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+
+	seed := []*AuditEntryStoreRecord{
+		{ID: "f-01", Timestamp: now.Add(-5 * time.Minute), PolicyID: "p-a", User: "alice", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "x", Violations: []byte("[]")},
+		{ID: "f-02", Timestamp: now.Add(-4 * time.Minute), PolicyID: "p-b", User: "alice", Allowed: false, Severity: "high", EnforcementMode: "enforce", Action: "x", Violations: []byte("[]")},
+		{ID: "f-03", Timestamp: now.Add(-3 * time.Minute), PolicyID: "p-a", User: "bob", Allowed: true, Severity: "low", EnforcementMode: "audit", Action: "x", Violations: []byte("[]")},
+	}
+	for _, r := range seed {
+		if err := s.CreateAuditEntry(ctx, r); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{User: "alice"})
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if got.TotalEvaluations != 2 {
+		t.Errorf("user=alice total = %d, want 2", got.TotalEvaluations)
+	}
+	if got.DeniedCount != 2 {
+		t.Errorf("user=alice denied = %d, want 2", got.DeniedCount)
+	}
+	if got.ViolationsByPolicy["p-a"] != 1 || got.ViolationsByPolicy["p-b"] != 1 {
+		t.Errorf("by-policy split wrong: %+v", got.ViolationsByPolicy)
+	}
+}
+
+func TestSQLite_SummarizeAuditEntries_IgnoresCursorAndLimit(t *testing.T) {
+	t.Parallel()
+	s := newSQLiteStoreForTest(t)
+	ctx := context.Background()
+	for i := 0; i < 5; i++ {
+		r := sampleAuditRecord(fmt.Sprintf("i-%02d", i), "x")
+		r.Allowed = false
+		r.Severity = "high"
+		if err := s.CreateAuditEntry(ctx, r); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	// Cursor + Limit + Descending should all be ignored.
+	got, err := s.SummarizeAuditEntries(ctx, AuditEntryFilter{
+		Cursor:     "i-02",
+		Limit:      1,
+		Descending: true,
+	})
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if got.TotalEvaluations != 5 {
+		t.Errorf("Total = %d, want 5 (cursor/limit must be ignored)", got.TotalEvaluations)
+	}
+}

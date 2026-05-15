@@ -59,6 +59,11 @@ type AuditStore interface {
 	// number of rows removed.
 	ApplyRetention(ctx context.Context, policy RetentionPolicy) (int, error)
 
+	// Summarize aggregates the filter set into totals + denied
+	// breakdowns + time range. Cursor / Limit / Descending fields
+	// of the query are ignored.
+	Summarize(ctx context.Context, q AuditQuery) (AuditSummary, error)
+
 	// Close releases resources held by the store implementation.
 	// Idempotent.
 	Close() error
@@ -103,6 +108,28 @@ func (q AuditQuery) Validate() error {
 type AuditPage struct {
 	Entries    []AuditEntry
 	NextCursor string
+}
+
+// TimeRange is the [time.Time] half-open interval reported by
+// [AuditSummary]. Start is the minimum timestamp of the filtered
+// set, End is the maximum. Both are zero when no rows match.
+type TimeRange struct {
+	Start time.Time
+	End   time.Time
+}
+
+// AuditSummary is the §4.12 aggregation of the filtered audit set.
+// Counts are over the full filtered set; ViolationsByPolicy and
+// ViolationsBySeverity count DENIED entries only (allowed=false) —
+// they answer "what is failing policy" not "what was evaluated".
+// Range reports min/max timestamp of the matched rows.
+type AuditSummary struct {
+	TotalEvaluations     int
+	AllowedCount         int
+	DeniedCount          int
+	ViolationsByPolicy   map[string]int
+	ViolationsBySeverity map[Severity]int
+	Range                TimeRange
 }
 
 // RetentionPolicy is the §4.12 retention rule applied by the
