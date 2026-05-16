@@ -16,10 +16,10 @@ package main
 // or drops an emission site, the matching sub-test fails and the
 // "Failure to log = bug" invariant catches it.
 //
-// Policy eval is NOT covered here. The Engine that emits for policy
-// eval lands in tasks 5+9 (Epic 12); task 4 deliberately doesn't
-// stub an emission site for it. When task 9 lands, this file should
-// gain a fifth sub-test PolicyEval_EmitsAudit.
+// Policy eval is the 5th sensitive op — wired in Epic 12 task 12
+// (PolicyGRPCServer.EvaluatePolicy emits via the engine, which
+// landed across tasks 5-9). TestAuditEmissionContract_PolicyEval_*
+// below exercises the boot-wired path.
 
 import (
 	"context"
@@ -28,10 +28,13 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/audit"
+	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
+	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
 // recorder is a recording auditor + helper that asserts on entries
@@ -242,18 +245,44 @@ func TestAuditEmissionContract_CommandExec_FailedRaisesSeverity(t *testing.T) {
 	}
 }
 
-func TestAuditEmissionContract_PolicyEval_DeferredToTask9(t *testing.T) {
-	// AuditEmissionContract: policy eval (deferred to tasks 5+9)
+func TestAuditEmissionContract_PolicyEval_EmitsAudit(t *testing.T) {
+	// AuditEmissionContract: policy eval (the 5th sensitive op)
 	//
-	// This test asserts the seam exists in the audit package
-	// (Severity, Violations, PolicyType enums) but does NOT
-	// exercise an emission site — there isn't one yet. When task 9
-	// ships Engine.Evaluate, replace this with a real emission test.
+	// Exercises the boot-wired path: PolicyGRPCServer.EvaluatePolicy
+	// runs the engine AND emits one audit entry through the
+	// configured Auditor (§4.12 "every sensitive op MUST emit").
 	t.Parallel()
-	if !audit.PolicyTypeOPA.IsKnown() {
-		t.Errorf("policy-eval seam regressed: PolicyTypeOPA unknown")
+	rec := &emissionRecorder{}
+	reg := policy.NewRegistry()
+	if err := reg.RegisterPolicy(&policy.Policy{
+		ID: "p", Name: "p", Type: audit.PolicyTypeBuiltin,
+		Category: policy.CategorySecurity, Severity: audit.SeverityHigh,
+		EnforcementMode: audit.EnforcementModeAudit, Enabled: true,
+		Code: `{"rule":"allowed-actions","allowed":["read"]}`,
+	}); err != nil {
+		t.Fatalf("RegisterPolicy: %v", err)
 	}
-	if audit.SeverityHigh.String() == "" {
-		t.Errorf("severity enum regressed")
+	eng, err := policy.NewEngine(reg,
+		policy.WithEvaluator(audit.PolicyTypeBuiltin, policy.NewBuiltinEvaluator()))
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	srv := controlplane.NewPolicyGRPCServer(eng, nil, nil, rec)
+
+	if _, err := srv.EvaluatePolicy(context.Background(), &v1.EvaluatePolicyRequest{
+		PolicyId: "p",
+		Input:    &v1.EvaluationInput{Action: "delete", User: "alice"},
+	}); err != nil {
+		t.Fatalf("EvaluatePolicy: %v", err)
+	}
+	if len(rec.got) != 1 {
+		t.Fatalf("policy-eval emissions = %d, want 1", len(rec.got))
+	}
+	e := rec.got[0]
+	if e.Action != "policy.evaluate" || e.PolicyID != "p" {
+		t.Errorf("entry shape: action=%q policy_id=%q", e.Action, e.PolicyID)
+	}
+	if e.Allowed {
+		t.Errorf("allowed=true; delete should be denied by allowed-actions[read]")
 	}
 }

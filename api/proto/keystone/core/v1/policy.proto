@@ -1,122 +1,183 @@
-// PolicyService — policy evaluation + read-side metadata. v1.0 ships
-// audit-mode evaluation; CRUD methods declared but the server returns
-// Unimplemented until v1.8 enables policy enforcement (per epic 03
-// scope and PROJECT-DETAILS §4.12). Detailed schemas refined in
-// epic 12.
+// PolicyService — Epic 12 policy engine surface. v1.0 ships
+// audit-mode evaluation + read-side metadata + compliance reporting.
+// The CRUD methods (CreatePolicy / UpdatePolicy / DeletePolicy) are
+// declared but the server leaves them on the generated
+// UnimplementedPolicyServiceServer base, so they return
+// codes.Unimplemented until v1.8 enables policy mutation
+// (PROJECT-DETAILS §4.12; the in-memory Registry has no
+// Update/Deregister in v1.0 by design).
+//
+// String enums (type / category / severity / enforcement_mode /
+// framework) carry the canonical lowercase names the audit JSON
+// wire already uses, so DTO mapping is enum.String() / Parse*.
 
 syntax = "proto3";
 
 package keystone.core.v1;
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
 
 service PolicyService {
+  // Evaluation (audit-mode in v1.0 — the Enforcer never blocks).
   rpc EvaluatePolicy(EvaluatePolicyRequest) returns (EvaluatePolicyResponse);
   rpc EvaluatePolicySet(EvaluatePolicySetRequest) returns (EvaluatePolicySetResponse);
 
+  // Read-side metadata.
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
   rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+  rpc GetPolicySet(GetPolicySetRequest) returns (GetPolicySetResponse);
   rpc ListPolicySets(ListPolicySetsRequest) returns (ListPolicySetsResponse);
-  rpc ListBindings(ListBindingsRequest) returns (ListBindingsResponse);
   rpc ListViolations(ListViolationsRequest) returns (ListViolationsResponse);
 
+  // Compliance + audit.
   rpc GetComplianceReport(GetComplianceReportRequest) returns (GetComplianceReportResponse);
   rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse);
+
+  // v1.8-gated CRUD. Server returns codes.Unimplemented in v1.0.
+  rpc CreatePolicy(CreatePolicyRequest) returns (CreatePolicyResponse);
+  rpc UpdatePolicy(UpdatePolicyRequest) returns (UpdatePolicyResponse);
+  rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
 }
 
-// ---- Policy types (placeholders; refined in epic 12) ----------------------
+// ---- Domain messages ------------------------------------------------------
 
+// Policy mirrors internal/policy.Policy. type ∈ {opa,cel,builtin};
+// category ∈ {security,compliance,operational,cost,custom};
+// severity ∈ {low,medium,high,critical}; enforcement_mode ∈
+// {audit,warn,enforce}.
 message Policy {
   string id = 1;
   string name = 2;
-  PolicyEngine engine = 3;
-  string source = 4; // OPA Rego or CEL expression
-  PolicyStatus status = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp updated_at = 7;
+  string type = 3;
+  string category = 4;
+  string severity = 5;
+  string enforcement_mode = 6;
+  string code = 7;
+  bool enabled = 8;
+  repeated string tags = 9;
+  map<string, string> metadata = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
 }
 
-enum PolicyEngine {
-  POLICY_ENGINE_UNSPECIFIED = 0;
-  POLICY_ENGINE_OPA = 1;
-  POLICY_ENGINE_CEL = 2;
-}
-
-enum PolicyStatus {
-  POLICY_STATUS_UNSPECIFIED = 0;
-  POLICY_STATUS_AUDIT = 1;
-  POLICY_STATUS_ENFORCE = 2;
-  POLICY_STATUS_DISABLED = 3;
-}
-
+// PolicySet mirrors internal/policy.PolicySet. enforcement_override
+// is the optional set-level mode ("" = no override; members keep
+// their own mode).
 message PolicySet {
   string id = 1;
   string name = 2;
   repeated string policy_ids = 3;
-  google.protobuf.Timestamp created_at = 4;
+  string enforcement_override = 4;
+  bool enabled = 5;
+  repeated string tags = 6;
+  map<string, string> metadata = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
 }
 
-// PolicyBinding attaches a Policy or PolicySet to a target (resource
-// type, label selector, etc.).
-message PolicyBinding {
-  string id = 1;
-  string policy_id = 2;
-  string policy_set_id = 3;
-  string resource_type = 4;
-  map<string, string> selector = 5;
+// Violation mirrors internal/audit.Violation.
+message Violation {
+  string rule = 1;
+  string message = 2;
+  string severity = 3;
+  string path = 4;
+  string expected = 5;
+  string actual = 6;
+  string remediation = 7;
 }
 
-message PolicyDecision {
+// EvaluationInput mirrors internal/policy.EvaluationInput. resource
+// and context are free-form docs (google.protobuf.Struct).
+message EvaluationInput {
+  google.protobuf.Struct resource = 1;
+  string action = 2;
+  string user = 3;
+  google.protobuf.Struct context = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// EvaluationResult mirrors internal/policy.EvaluationResult.
+message EvaluationResult {
   string policy_id = 1;
-  bool allowed = 2;
-  string reason = 3;
-  google.protobuf.Timestamp at = 4;
+  string policy_name = 2;
+  bool allowed = 3;
+  repeated Violation violations = 4;
+  repeated string warnings = 5;
+  string message = 6;
+  int64 duration_ns = 7;
+  google.protobuf.Timestamp evaluated_at = 8;
 }
 
-message PolicyViolation {
+// AuditEntry mirrors internal/audit.AuditEntry (the §4.12 record).
+message AuditEntry {
   string id = 1;
-  string policy_id = 2;
-  string resource_type = 3;
-  string resource_id = 4;
-  string detail = 5;
-  google.protobuf.Timestamp detected_at = 6;
+  google.protobuf.Timestamp timestamp = 2;
+  string policy_id = 3;
+  string policy_name = 4;
+  string policy_type = 5;
+  string resource_type = 6;
+  bool allowed = 7;
+  int64 duration_ns = 8;
+  repeated Violation violations = 9;
+  string enforcement_mode = 10;
+  string severity = 11;
+  string user = 12;
+  string action = 13;
+  map<string, string> metadata = 14;
 }
 
-// ---- EvaluatePolicy / EvaluatePolicySet -----------------------------------
+// ---- Evaluate -------------------------------------------------------------
 
 message EvaluatePolicyRequest {
   string policy_id = 1;
-  // Free-form input doc passed to the policy engine. Schema is policy-
-  // engine-specific; see epic 12.
-  map<string, string> input = 2;
+  EvaluationInput input = 2;
 }
 
 message EvaluatePolicyResponse {
-  PolicyDecision decision = 1;
+  EvaluationResult result = 1;
 }
 
 message EvaluatePolicySetRequest {
   string policy_set_id = 1;
-  map<string, string> input = 2;
+  EvaluationInput input = 2;
 }
 
 message EvaluatePolicySetResponse {
-  repeated PolicyDecision decisions = 1;
+  repeated EvaluationResult results = 1;
+  // allowed_all is the §4.12 all-or-nothing AND verdict over results.
+  bool allowed_all = 2;
 }
 
-// ---- List* ----------------------------------------------------------------
+// ---- Get / List -----------------------------------------------------------
+
+message GetPolicyRequest {
+  string id = 1;
+}
+
+message GetPolicyResponse {
+  Policy policy = 1;
+}
 
 message ListPoliciesRequest {
-  PolicyStatus status = 1;
-  int32 page_size = 2;
-  string page_token = 3;
+  int32 page_size = 1;
+  string page_token = 2;
 }
 
 message ListPoliciesResponse {
   repeated Policy policies = 1;
   string next_page_token = 2;
   int32 total_count = 3;
+}
+
+message GetPolicySetRequest {
+  string id = 1;
+}
+
+message GetPolicySetResponse {
+  PolicySet policy_set = 1;
 }
 
 message ListPolicySetsRequest {
@@ -130,81 +191,110 @@ message ListPolicySetsResponse {
   int32 total_count = 3;
 }
 
-message ListBindingsRequest {
-  string resource_type = 1; // empty = all
-  int32 page_size = 2;
-  string page_token = 3;
-}
-
-message ListBindingsResponse {
-  repeated PolicyBinding bindings = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
-}
-
+// ListViolations reads the audit store for denied entries
+// (allowed=false), cursor-paginated by the k-sortable entry ID.
 message ListViolationsRequest {
   string policy_id = 1;
   string resource_type = 2;
-  google.protobuf.Timestamp since = 3;
-  int32 page_size = 4;
-  string page_token = 5;
+  string user = 3;
+  google.protobuf.Timestamp since = 4;
+  google.protobuf.Timestamp until = 5;
+  int32 limit = 6;
+  string cursor = 7;
 }
 
 message ListViolationsResponse {
-  repeated PolicyViolation violations = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  repeated AuditEntry entries = 1;
+  string next_cursor = 2;
 }
 
-// ---- GetComplianceReport / GetAuditLog ------------------------------------
+// ---- Compliance -----------------------------------------------------------
 
+message PolicyStat {
+  string policy_id = 1;
+  int32 evaluations = 2;
+  int32 passed = 3;
+  int32 failed = 4;
+  double rate = 5;
+}
+
+message ViolationCount {
+  string policy_id = 1;
+  int32 count = 2;
+}
+
+message TrendPoint {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  int32 total_evaluations = 3;
+  int32 compliant_evaluations = 4;
+  int32 non_compliant_evaluations = 5;
+  double compliance_rate = 6;
+}
+
+// GetComplianceReportRequest mirrors internal/policy.ReportQuery.
+// framework ∈ {cis,soc2,nist-800-53,hipaa,pci-dss,gdpr,iso-27001,
+// custom} or "" for unscoped.
 message GetComplianceReportRequest {
-  // Compliance framework (e.g., "CIS", "SOC2", "NIST-800-53").
-  string framework = 1;
+  google.protobuf.Timestamp since = 1;
+  google.protobuf.Timestamp until = 2;
+  string framework = 3;
+  int64 bucket_interval_ns = 4;
+  int32 top_n = 5;
 }
 
 message GetComplianceReportResponse {
-  string framework = 1;
-  google.protobuf.Timestamp generated_at = 2;
-  repeated ComplianceControl controls = 3;
+  google.protobuf.Timestamp period_start = 1;
+  google.protobuf.Timestamp period_end = 2;
+  double compliance_rate = 3;
+  int32 total_evaluations = 4;
+  int32 compliant_evaluations = 5;
+  int32 non_compliant_evaluations = 6;
+  repeated PolicyStat policy_stats = 7;
+  repeated ViolationCount top_violations = 8;
+  map<string, int32> violations_by_severity = 9;
+  repeated TrendPoint trend = 10;
 }
 
-message ComplianceControl {
-  string id = 1;
-  string title = 2;
-  string severity = 3; // critical | high | medium | low
-  ComplianceStatus status = 4;
-  repeated string policy_ids = 5;
-}
-
-enum ComplianceStatus {
-  COMPLIANCE_STATUS_UNSPECIFIED = 0;
-  COMPLIANCE_STATUS_PASSING = 1;
-  COMPLIANCE_STATUS_FAILING = 2;
-  COMPLIANCE_STATUS_NOT_APPLICABLE = 3;
-}
+// ---- Audit log ------------------------------------------------------------
 
 message GetAuditLogRequest {
-  string actor = 1;
-  string action = 2;
-  google.protobuf.Timestamp since = 3;
-  google.protobuf.Timestamp until = 4;
-  int32 page_size = 5;
-  string page_token = 6;
+  string policy_id = 1;
+  string user = 2;
+  string resource_type = 3;
+  string action = 4;
+  string min_severity = 5;
+  google.protobuf.Timestamp since = 6;
+  google.protobuf.Timestamp until = 7;
+  int32 limit = 8;
+  string cursor = 9;
 }
 
 message GetAuditLogResponse {
   repeated AuditEntry entries = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  string next_cursor = 2;
 }
 
-message AuditEntry {
-  string id = 1;
-  string actor = 2;
-  string action = 3;
-  string resource_type = 4;
-  string resource_id = 5;
-  google.protobuf.Timestamp at = 6;
-  map<string, string> attributes = 7;
+// ---- v1.8-gated CRUD (Unimplemented in v1.0) ------------------------------
+
+message CreatePolicyRequest {
+  Policy policy = 1;
 }
+
+message CreatePolicyResponse {
+  Policy policy = 1;
+}
+
+message UpdatePolicyRequest {
+  Policy policy = 1;
+}
+
+message UpdatePolicyResponse {
+  Policy policy = 1;
+}
+
+message DeletePolicyRequest {
+  string id = 1;
+}
+
+message DeletePolicyResponse {}

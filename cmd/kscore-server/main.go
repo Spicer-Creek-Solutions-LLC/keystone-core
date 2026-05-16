@@ -195,6 +195,18 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		authInterceptor.OnAuthDecision = newAuthDecisionEmitter(auditRT.FanOut)
 	}
 
+	// Epic 12 task 12 — policy engine (Registry + OPA/CEL/Builtin
+	// evaluators + ReportGenerator over the audit store). nil when
+	// the audit store is unavailable; PolicyService then isn't
+	// registered (clients reach Unimplemented).
+	var policyRT *policyRuntime
+	if auditRT != nil {
+		policyRT, err = startPolicy(ctx, auditRT.Store, auditRT.FanOut, log)
+		if err != nil {
+			return fmt.Errorf("policy: %w", err)
+		}
+	}
+
 	// Epic 10 task 9 — start the secrets runtime when enabled.
 	// Returns nil + nil error when secrets.enabled is false; the
 	// SecretsService gRPC + REST surface then returns Unavailable.
@@ -350,6 +362,18 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if eventsRT != nil {
 		eventsGRPC := controlplane.NewEventsGRPCServer(eventsRT.Store, eventsRT.Publisher, eventsRT.Subscriber)
 		srv.RegisterService(&v1.EventService_ServiceDesc, eventsGRPC)
+	}
+
+	// Epic 12 task 12 — register PolicyService gRPC. v1.0 is
+	// audit-mode (the Enforcer never blocks); CRUD methods return
+	// Unimplemented (v1.8). When policyRT is nil (no audit store),
+	// the service isn't registered and clients reach Unimplemented.
+	if policyRT != nil {
+		// policyRT != nil implies auditRT != nil (startPolicy is only
+		// called with a non-nil audit store).
+		policyGRPC := controlplane.NewPolicyGRPCServer(
+			policyRT.Engine, policyRT.Reports, auditRT.Store, auditRT.FanOut)
+		srv.RegisterService(&v1.PolicyService_ServiceDesc, policyGRPC)
 	}
 
 	if err := srv.Start(ctx); err != nil {

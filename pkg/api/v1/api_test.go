@@ -34,7 +34,7 @@ var (
 	_ proto.Message = (*v1.ListAgentsRequest)(nil)
 	_ proto.Message = (*v1.ApplyStateResponse)(nil)
 	_ proto.Message = (*v1.SubscribeEventsResponse)(nil)
-	_ proto.Message = (*v1.PolicyDecision)(nil)
+	_ proto.Message = (*v1.EvaluationResult)(nil)
 	_ proto.Message = (*v1.SecretMetadata)(nil)
 	_ proto.Message = (*v1.ClusterMember)(nil)
 	_ proto.Message = (*v1.ClusterHealthResponse)(nil)
