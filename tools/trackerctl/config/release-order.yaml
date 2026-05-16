@@ -107,6 +107,8 @@ v1.x:
   - "kscore-events retention subcommand"
   - "kscore-events analyze subcommand"
   - "kscore-events query subcommand (CEL post-filter)"
+  - "kscore-policy check / test subcommands"
+  - "kscore-audit search / analyze / timeline / watch subcommands"
   - "Strict audit-on-access via Auditor.Emit error return"
   - "Secrets transit batch API on the wire"
   - "Secrets transit GenerateDataKey on the wire"

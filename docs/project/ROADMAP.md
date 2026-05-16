@@ -872,6 +872,22 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-events query --filter "..."` iterates ListEvents pages, applies CEL filter client-side, emits matching events as JSON lines, exits when the bound is exhausted. CEL syntax: `severity.at_least('warn')` form per Epic 11 task 5.
 - **References**: PROJECT-DETAILS §4.9 CLI list; `internal/events/filter.go` (CompileFilter, landed); Epic 11 task 7 (kscore-events CLI; landed).
 
+#### kscore-policy check / test subcommands
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.12's CLI v1.0 list includes `check` and `test` alongside `list|validate|show|eval|compliance|violations`. Epic 12 task 14 shipped the latter six; `check` and `test` were deferred. `check` is plausibly a fold of `validate` + a dry-run against a sample input (overlaps `eval`); `test` is a policy unit-test harness (a testdata directory of input→expected-verdict cases, à la `opa test`). Both are policy-authoring conveniences with no acceptance criteria in the epic.
+- **Why deferred**: §4.12 gives neither an acceptance line nor a concrete shape (mirrors the kscore-events `analyze` deferral). v1.0's `validate` (compile-check) + `eval` (run against `--input`) already cover the authoring loop; `check`/`test` only earn their keep once operators define the testdata/assertion format they want (likely `opa test`-compatible for the OPA case). Scoping needs trial-deployment demand.
+- **Acceptance**: TBD — gather authoring-workflow pain from v0.x trials; `test` likely lands as `kscore-policy test <dir>` running a fixtures directory of `{input, expect_allowed, expect_violations}` cases with a non-zero exit on mismatch; `check` likely folds into `validate --input`.
+- **References**: PROJECT-DETAILS §4.12 CLI v1.0 list; `internal/cli/policy` (validate/eval landed); Epic 12 task 14 (landed).
+
+#### kscore-audit search / analyze / timeline / watch subcommands
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.12's `kscore-audit` v1.0 list is `log|report|export|stats|search|analyze|timeline|watch`. Epic 12 task 14 shipped `log|report|stats`; `export` is owned by task 15 (formatters + redaction). The remaining four are deferred: **search** (richer ad-hoc filtered query — subsumed by `log`'s filter flags for v1.0); **analyze** (fuzzy operator-analysis tool, no acceptance criteria — same shape as the deferred kscore-events `analyze`); **timeline** (all evaluations for a single resource over time — maps to `policy.ReportGenerator.ResourceAuditTrail`, which has **no gRPC RPC** on PolicyService); **watch** (live audit tail — needs an audit-tail **streaming RPC** + the `audit.BufferedAuditor` exposed over the wire; neither exists in v1.0).
+- **Why deferred**: `search` is sugar over `log` until a distinct query model is demanded; `analyze` is fuzzy-spec (gather demand first); `timeline` and `watch` require new server surface (a `ResourceAuditTrail` unary RPC and an audit-tail server-stream respectively) that is out of task 14's scope and not on the v1.0 critical path.
+- **Acceptance**: `timeline` — add `PolicyService.GetResourceAuditTrail` (or an audit-service RPC) wrapping `ReportGenerator.ResourceAuditTrail`, then `kscore-audit timeline <resource-type> --since …` renders it oldest-first. `watch` — add an audit-tail server-streaming RPC fed by `audit.BufferedAuditor`, then `kscore-audit watch` tails it like `kscore-events watch`. `search`/`analyze` — TBD from trial demand.
+- **References**: PROJECT-DETAILS §4.12 `kscore-audit` CLI list; `internal/policy/compliance.go` `ResourceAuditTrail` (landed, no RPC); `internal/audit` `BufferedAuditor` (landed, not wire-exposed); Epic 12 task 14 (landed).
+
 #### Strict audit-on-access via Auditor.Emit error return
 
 - **Priority**: v1.x
