@@ -4,21 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.keystone-core.io/keystone-core/internal/audit"
 )
 
 // ErrNoEvaluator is returned by the Engine.Evaluate* methods when no
-// Evaluator is registered for a policy's type. In task 5 this is the
-// expected result for every call — the OPA / CEL / Builtin
-// evaluators land in tasks 6-8 and the dispatch logic in task 9.
-// Defining the methods now keeps the public surface stable for the
-// gRPC / REST / CLI wiring (tasks 12-14) to compile against.
+// Evaluator is registered for a policy's type (the OPA / CEL /
+// Builtin evaluators are wired via WithEvaluator at boot).
 var ErrNoEvaluator = errors.New("policy: no evaluator registered for policy type")
 
 // ErrEngineMisconfigured is returned by NewEngine when required
 // wiring is missing (nil registry).
 var ErrEngineMisconfigured = errors.New("policy: engine misconfigured")
+
+// ErrPolicyDisabled is returned by Engine.Evaluate when the named
+// policy is registered but Enabled=false. The caller asked for this
+// policy by ID, so the disabled state is surfaced distinctly rather
+// than masked as a clean allow. Bulk evaluation
+// (EvaluatePolicySet / EvaluateForResource) silently skips disabled
+// members instead — a disabled member just doesn't contribute.
+var ErrPolicyDisabled = errors.New("policy: policy is disabled")
 
 // Engine is the §4.12 policy coordinator. It owns the Registry and
 // routes each policy to the Evaluator matching its
@@ -26,10 +32,9 @@ var ErrEngineMisconfigured = errors.New("policy: engine misconfigured")
 // Enforcer (task 10) ignores the verdict; evaluation + audit still
 // happen.
 //
-// Task 5 builds the shell: Registry + evaluator slots + the
-// Evaluate* method signatures. Tasks 6-8 supply the evaluators via
-// WithEvaluator; task 9 fills the Evaluate* dispatch + result
-// aggregation logic. Until then Evaluate* return ErrNoEvaluator.
+// Evaluators are supplied via WithEvaluator at construction (OPA /
+// CEL / Builtin from Epic 12 tasks 6-8). The Evaluate* dispatch +
+// aggregation is the task-9 implementation below.
 type Engine struct {
 	registry   *Registry
 	evaluators map[audit.PolicyType]Evaluator
@@ -82,43 +87,150 @@ func (e *Engine) Evaluator(pt audit.PolicyType) (Evaluator, bool) {
 	return ev, ok
 }
 
-// Evaluate runs a single registered policy against input.
-//
-// Task 5: returns ErrNoEvaluator (no evaluators wired yet). Task 9
-// implements: resolve policyID → Policy, route by Policy.Type to
-// the matching Evaluator, stamp input.Timestamp, return its result.
+// stampTime sets input.Timestamp to now (UTC) only when the caller
+// left it zero, so every member of a set / resource fan-out sees
+// the same instant (time-window builtin consistency). A
+// caller-supplied timestamp — e.g. historical replay — is
+// respected.
+func stampTime(input EvaluationInput) EvaluationInput {
+	if input.Timestamp.IsZero() {
+		input.Timestamp = time.Now().UTC()
+	}
+	return input
+}
+
+// dispatch routes an already-resolved, enabled policy to its
+// evaluator. Timestamp is assumed already stamped by the caller.
+func (e *Engine) dispatch(ctx context.Context, p *Policy, input EvaluationInput) (EvaluationResult, error) {
+	ev, ok := e.evaluators[p.Type]
+	if !ok {
+		return EvaluationResult{}, fmt.Errorf("%w: %q (policy %q)", ErrNoEvaluator, p.Type, p.ID)
+	}
+	return ev.Evaluate(ctx, p, input)
+}
+
+// Evaluate runs a single registered policy against input. Resolves
+// policyID (ErrNotFound if absent), rejects a disabled policy with
+// ErrPolicyDisabled (the caller asked for it by name), routes by
+// Policy.Type (ErrNoEvaluator if no evaluator is wired for that
+// type), and returns the evaluator's result/error unchanged.
 func (e *Engine) Evaluate(ctx context.Context, policyID string, input EvaluationInput) (EvaluationResult, error) {
 	p, err := e.registry.GetPolicy(policyID)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	_, ok := e.evaluators[p.Type]
-	if !ok {
-		return EvaluationResult{}, fmt.Errorf("%w: %q (policy %q)", ErrNoEvaluator, p.Type, policyID)
+	if !p.Enabled {
+		return EvaluationResult{}, fmt.Errorf("%w: %q", ErrPolicyDisabled, policyID)
 	}
-	// Dispatch lands in task 9.
-	return EvaluationResult{}, fmt.Errorf("%w: Engine.Evaluate dispatch lands in Epic 12 task 9", ErrNoEvaluator)
+	return e.dispatch(ctx, p, stampTime(input))
 }
 
-// EvaluatePolicySet runs every member policy of setID against input
-// and aggregates the results.
+// EvaluatePolicySet runs every enabled member policy of setID
+// against input and returns the per-member results in member order.
 //
-// Task 5: returns ErrNoEvaluator. Task 9 implements the per-member
-// fan-out + aggregation (EnforcementOverride applied via
-// PolicySet.EffectiveMode).
+// A disabled set, or any disabled member, is silently skipped
+// (bulk evaluation — a disabled member just doesn't contribute; a
+// disabled set contributes nothing). Set verdict is the §4.12
+// "all-or-nothing AND" — use AllowedAll on the returned slice.
+//
+// Fail-fast: the first member whose evaluator returns an error
+// (malformed Rego/CEL/JSON config) aborts the fan-out and the error
+// is returned wrapped with the offending policy ID — an evaluator
+// error is a misconfiguration that must be loud, and the set
+// verdict is genuinely unknown so no result is fabricated.
+//
+// EnforcementOverride (PolicySet.EffectiveMode) has no observable
+// v1.0 effect — EvaluationResult carries no mode and the v1.0
+// Enforcer (task 10) ignores mode — so it is deliberately not
+// applied here; the Enforcer re-derives the effective mode from
+// policy + set where it matters.
 func (e *Engine) EvaluatePolicySet(ctx context.Context, setID string, input EvaluationInput) ([]EvaluationResult, error) {
-	if _, err := e.registry.GetPolicySet(setID); err != nil {
+	set, err := e.registry.GetPolicySet(setID)
+	if err != nil {
 		return nil, err
 	}
-	return nil, fmt.Errorf("%w: Engine.EvaluatePolicySet dispatch lands in Epic 12 task 9", ErrNoEvaluator)
+	if !set.Enabled {
+		return nil, nil
+	}
+	input = stampTime(input)
+	var results []EvaluationResult
+	for _, pid := range set.PolicyIDs {
+		p, err := e.registry.GetPolicy(pid)
+		if err != nil {
+			// A set member that no longer resolves is a registry
+			// integrity failure (RegisterPolicySet rejected dangling
+			// refs, so this only happens if registration invariants
+			// were bypassed). Surface it loudly.
+			return nil, fmt.Errorf("policy set %q: member %q: %w", setID, pid, err)
+		}
+		if !p.Enabled {
+			continue
+		}
+		res, err := e.dispatch(ctx, p, input)
+		if err != nil {
+			return nil, fmt.Errorf("policy set %q: member %q: %w", setID, pid, err)
+		}
+		results = append(results, res)
+	}
+	return results, nil
 }
 
-// EvaluateForResource resolves every binding matching resourceType
-// (+ action + labels) and evaluates the bound policies/sets.
+// EvaluateForResource resolves every enabled binding matching
+// resourceType (+ action + labels) and evaluates the bound policy
+// or policy-set, flattening all results into one slice.
 //
-// Task 5: returns ErrNoEvaluator. Task 9 implements binding
-// resolution → per-policy/set evaluation → aggregation.
+// Bindings are evaluated in the registry's deterministic order; a
+// policy referenced by multiple bindings (or by a binding plus a
+// set member) is evaluated once per occurrence — no dedup, since
+// bindings are intentional attachments and the caller should see
+// exactly which binding produced which result.
+//
+// No matched bindings → empty slice, nil error: a resource with no
+// policy attached is allow-by-default, not an error. Fail-fast on
+// any evaluator-internal error (same rationale as
+// EvaluatePolicySet).
 func (e *Engine) EvaluateForResource(ctx context.Context, resourceType, action string, labels map[string]string, input EvaluationInput) ([]EvaluationResult, error) {
-	_ = e.registry.BindingsForResource(resourceType, action, labels)
-	return nil, fmt.Errorf("%w: Engine.EvaluateForResource dispatch lands in Epic 12 task 9", ErrNoEvaluator)
+	bindings := e.registry.BindingsForResource(resourceType, action, labels)
+	if len(bindings) == 0 {
+		return nil, nil
+	}
+	input = stampTime(input)
+	var results []EvaluationResult
+	for _, b := range bindings {
+		if b.TargetsSet() {
+			setRes, err := e.EvaluatePolicySet(ctx, b.PolicySetID, input)
+			if err != nil {
+				return nil, fmt.Errorf("binding %q: %w", b.ID, err)
+			}
+			results = append(results, setRes...)
+			continue
+		}
+		p, err := e.registry.GetPolicy(b.PolicyID)
+		if err != nil {
+			return nil, fmt.Errorf("binding %q: %w", b.ID, err)
+		}
+		if !p.Enabled {
+			continue
+		}
+		res, err := e.dispatch(ctx, p, input)
+		if err != nil {
+			return nil, fmt.Errorf("binding %q: policy %q: %w", b.ID, b.PolicyID, err)
+		}
+		results = append(results, res)
+	}
+	return results, nil
+}
+
+// AllowedAll reports the §4.12 "all-or-nothing AND" policy-set
+// verdict: true iff every result allowed. An empty slice is
+// vacuously allowed (no policy attached → allow-by-default). Task
+// 10's Enforcer + the gRPC/REST handlers use this for the combined
+// decision without re-implementing the fold.
+func AllowedAll(results []EvaluationResult) bool {
+	for _, r := range results {
+		if !r.Allowed {
+			return false
+		}
+	}
+	return true
 }
