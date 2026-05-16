@@ -118,7 +118,7 @@ kscore.{cluster}.discovery
 | Storage | `modernc.org/sqlite`, `lib/pq` | Pure-Go drivers. |
 | Cluster | `go.etcd.io/etcd/client/v3`, `server/v3` | Embedded etcd for HA. |
 | GitOps | `go-git/go-git/v5`, `argoproj/argo-cd/v3` | Webhook + reconcile. |
-| Policy | `open-policy-agent/opa`, `google/cel-go` | Dual engine, audit-mode v1. |
+| Policy | `open-policy-agent/opa` (v1.16.2), `google/cel-go` | Dual engine, audit-mode v1. OPA added Epic 12 task 6: embedded `opa/v1/rego` SDK (in-process; no subprocess/sidecar — only credible embeddable Rego engine in Go). Rego v1 syntax; fixed package `keystone.policy` (query `data.keystone.policy.{allow,violations,warnings}`); restricted capability set denies `http.send`/`net.*`/`opa.runtime` (operator-supplied policies must be pure decision logic — SSRF/exfil guard); compiled queries cached by `policyID+sha256(Code)`. |
 | WASM | `tetratelabs/wazero` | Pure-Go WASM runtime. |
 | K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (v1.3) and K8s exec. |
 | Cloud | AWS SDK v2, GCP, Azure SDKs | Initially used by secrets+identity; broader v2.0. |
@@ -848,7 +848,7 @@ secrets:
 - `PolicySet` — group of policies; set-level enforcement override.
 - `Bindings` — attach policies/sets to resource types (with optional action/selector).
 - **Evaluators**:
-  - `OPAEvaluator` — wraps `open-policy-agent/opa/rego`; queries `data.<package>.allow`; extracts violations from result bindings (best-effort, look for `violations` binding).
+  - `OPAEvaluator` — wraps `open-policy-agent/opa/v1/rego` (v1.16.2). **v1.0 conventions (Epic 12 task 6)**: Rego v1 syntax; **fixed package `keystone.policy`** (queries the whole `data.keystone.policy` object and reads `allow` / `violations` / `warnings` keys — predictable, no module parsing); undefined/non-bool `allow` → `Allowed=false` + a synthetic `audit.Violation` (fail-closed but surfaces the misconfig in the audit trail; not an engine error); `violations` best-effort (string → message, object → rule/message/severity/path/expected/actual/remediation); restricted capability set strips `http.send`/`net.*`/`opa.runtime` builtins (a policy referencing them fails to compile); compiled `PreparedEvalQuery` cached by `policyID+sha256(Code)`; per-eval timeout (default 5s) guards pathological policies.
   - `CELEvaluator` — wraps `google/cel-go`; vars `input`, `resource`, `action`, `user`, `context`.
   - `BuiltinEvaluator` — hardcoded rules: `require-labels`, `require-owner`, `allowed-environments`, `allowed-actions`, `deny-privileged`, `allowed-users`, `time-window`, `no-root-execution`, `require-approval`, `max-concurrent`, `resource-quota`, `pattern-allow`, `pattern-deny`. Config via JSON in policy `Code`.
 - `EvaluationInput{Resource, Action, User, Context, Timestamp}`.
@@ -876,7 +876,7 @@ secrets:
 - CLI v1.0: `kscore-audit log|report|export|stats|search|analyze|timeline|watch`.
 
 **Gotchas**:
-- OPA default query `data.<package>.allow` requires policies declare a package and an `allow` rule. Document templates.
+- OPA policies MUST declare `package keystone.policy` and an `allow` rule (undefined `allow` is fail-closed-with-violation, not an error). `http.send`/`net.*`/`opa.runtime` are unavailable by default — policies are pure decision logic. Document templates + the restricted-builtin list.
 - CEL is dynamically typed — type errors surface at eval, not compile.
 - Policy-set semantics are **all-or-nothing AND**. Document; consider adding OR/threshold semantics for compliance-style sets in v1.5.
 - v1.0→v1.8 enforcement flip is a behavior-changing release; release notes must call it out loudly.

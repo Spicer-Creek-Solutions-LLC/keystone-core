@@ -401,7 +401,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Audit export** (JSON / JSONL / CSV). _Reasoning: hand-off to SIEM tools._
 - **`kscore-audit` CLI** (`log`, `report`, `export`, `stats`, `search`, `analyze`, `timeline`, `watch`). _Reasoning: ops surface._
 - **Policy engine infrastructure** (Engine + Registry + 3 evaluators: OPA, CEL, Builtin). Source: `internal/policy/`. _Reasoning: shipping the engine in audit-mode is cheap; v1.8 just flips the enforce flag._
-- **OPA Rego evaluator** (`open-policy-agent/opa`). _Reasoning: standard policy language for compliance shops._
+- **OPA Rego evaluator** (`open-policy-agent/opa` v1.16.2, embedded `v1/rego`; Rego v1 syntax; fixed `package keystone.policy`; `http.send`/`net.*`/`opa.runtime` builtins denied; compiled-query cache). _Reasoning: standard policy language for compliance shops; restricted builtins keep operator-supplied policies pure decision logic._
 - **CEL evaluator** (`google/cel-go`; `input`/`resource`/`action`/`user`/`context` variables). _Reasoning: lighter-weight inline policies._
 - **Builtin policies** (require-labels, require-owner, allowed-environments, allowed-actions, deny-privileged, time-window, no-root-execution, etc.). _Reasoning: ship with sensible defaults._
 - **`Policy{ID, Name, Type, Category, Severity, EnforcementMode, Code, Enabled, Tags}`** model. _Reasoning: full schema in v0.1 even if enforcement is gated._
