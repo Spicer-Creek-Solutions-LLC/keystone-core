@@ -10,6 +10,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
@@ -110,6 +111,16 @@ type Options struct {
 	// streamObserver with audit.StateApplyObserver. Optional — nil
 	// disables audit emission for state apply.
 	StateAuditor audit.Auditor
+
+	// Policy* are the Epic 12 task-13 policy REST surface backings
+	// (built by cmd/kscore-server startPolicy). Any may be nil; the
+	// dependent /api/v1/policies routes then return 503. PolicyAuditLog
+	// also backs the gRPC PolicyService; PolicyAuditor receives the
+	// per-evaluation audit entry.
+	PolicyEngine   *policy.Engine
+	PolicyReports  *policy.ReportGenerator
+	PolicyAuditLog audit.AuditStore
+	PolicyAuditor  audit.Auditor
 }
 
 // validate returns an error if required fields are missing or

@@ -117,7 +117,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	execution.NewHandler().Register(mux)
 	gitops.NewHandler().Register(mux)
 	maintenance.NewHandler().Register(mux)
-	policy.NewHandler().Register(mux)
+	policy.NewHandler(s.policyEngine, s.policyReports, s.policyAuditLog, s.policyAuditor).Register(mux)
 	runbook.NewHandler().Register(mux)
 	schedule.NewHandler().Register(mux)
 	secrets.NewHandler(s.secretsBroker, s.secretsTransit, s.secretsLeases).Register(mux)

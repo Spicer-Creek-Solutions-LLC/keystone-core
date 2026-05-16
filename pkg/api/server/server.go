@@ -17,6 +17,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
@@ -87,6 +88,11 @@ type Server struct {
 
 	commandTerminalHook controlplane.TerminalCommandFunc
 	stateAuditor        audit.Auditor
+
+	policyEngine   *policy.Engine
+	policyReports  *policy.ReportGenerator
+	policyAuditLog audit.AuditStore
+	policyAuditor  audit.Auditor
 
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
@@ -165,6 +171,10 @@ func New(opts Options) (*Server, error) {
 		eventSubscriber:      opts.EventSubscriber,
 		commandTerminalHook:  opts.CommandTerminalHook,
 		stateAuditor:         opts.StateAuditor,
+		policyEngine:         opts.PolicyEngine,
+		policyReports:        opts.PolicyReports,
+		policyAuditLog:       opts.PolicyAuditLog,
+		policyAuditor:        opts.PolicyAuditor,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}

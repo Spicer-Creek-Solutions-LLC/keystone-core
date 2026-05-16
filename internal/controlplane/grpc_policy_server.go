@@ -115,27 +115,11 @@ func (s *PolicyGRPCServer) EvaluatePolicySet(ctx context.Context, req *v1.Evalua
 // Best-effort: a build/emit failure must not fail the RPC (the
 // Auditor is fire-and-forget; matches the task-4 hooks).
 func (s *PolicyGRPCServer) emitPolicyAudit(ctx context.Context, policyID string, in policy.EvaluationInput, res policy.EvaluationResult) {
-	sev := audit.SeverityLow
-	for _, v := range res.Violations {
-		if v.Severity.AtLeast(sev) {
-			sev = v.Severity
-		}
-	}
 	var ptype audit.PolicyType
 	if p, err := s.Engine.Registry().GetPolicy(policyID); err == nil {
 		ptype = p.Type
 	}
-	entry, err := audit.NewAuditEntry(audit.AuditEntryInput{
-		PolicyID:     policyID,
-		PolicyName:   res.PolicyName,
-		PolicyType:   ptype,
-		Allowed:      res.Allowed,
-		Duration:     res.Duration,
-		Violations:   res.Violations,
-		Severity:     sev,
-		User:         in.User,
-		Action:       "policy.evaluate",
-	})
+	entry, err := policy.EvaluationAuditEntry(ptype, res, in.User)
 	if err != nil {
 		return
 	}

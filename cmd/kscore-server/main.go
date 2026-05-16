@@ -234,6 +234,14 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		opts.CommandTerminalHook = newCommandTerminalEmitter(auditRT.FanOut)
 		opts.StateAuditor = auditRT.FanOut
 	}
+	// Epic 12 task 13 — policy REST surface backings. policyRT != nil
+	// implies auditRT != nil (startPolicy needs the audit store).
+	if policyRT != nil {
+		opts.PolicyEngine = policyRT.Engine
+		opts.PolicyReports = policyRT.Reports
+		opts.PolicyAuditLog = auditRT.Store
+		opts.PolicyAuditor = auditRT.FanOut
+	}
 	if secretsRT != nil {
 		opts.SecretsBroker = secretsRT.Broker
 		opts.SecretsTransit = secretsRT.Transit
