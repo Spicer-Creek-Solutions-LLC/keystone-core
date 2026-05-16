@@ -800,6 +800,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Policy enforcement side-effects (Warn events + Enforce violation handlers)
+
+- **Priority**: v1.x
+- **What**: Epic 12 task 10's `policy.Enforcer` ships the v1.0 audit-mode gate plus the v1.8 allow/deny *gate switch* behind `WithEnforcementEnabled` (Audit/Warn → allow, Enforce → block on a denying verdict). PROJECT-DETAILS §4.12's v1.8 spec also requires the **side-effects**: `Warn` mode must emit a warn-level policy event; `Enforce` mode must invoke registered violation handlers before denying. v1.0 implements only the gate decision — the side-effects are deferred because they need infrastructure that does not exist yet (a policy-violation event type on the Epic 11 bus + a violation-handler registration/dispatch mechanism on the Enforcer).
+- **Why deferred**: v1.0 ships the policy engine in audit-mode-only; enforcement is hardcoded off (`policy.enforcement_enabled=false`). The gate logic is testable today and proves the v1.8 shape; the side-effects have no v1.0 consumer and would be untested speculative infra. The v1.8 enforcement flip is a separately-tracked behavior-changing release.
+- **Acceptance**: `policy.enforcement_enabled=true` is operator-settable (config plumbing); `Warn` mode emits a `policy.warn` (or §4.9-canonical) event through the events bus on a denying verdict and still allows; `Enforce` mode invokes each registered violation handler (new `Enforcer.RegisterViolationHandler` seam) before returning `Allowed=false`; release notes call out the enforcement behavior change loudly.
+- **References**: `internal/policy/enforcer.go` (`Enforce` gate switch — the `// Side-effects ... deferred` comment); PROJECT-DETAILS §4.12 "v1.8 changes"; Epic 12 task 10 (landed).
+
 #### kscore-secrets backends subcommand
 
 - **Priority**: v1.x

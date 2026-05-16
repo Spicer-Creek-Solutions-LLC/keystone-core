@@ -98,6 +98,7 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "Policy enforcement side-effects (Warn events + Enforce violation handlers)"
   - "kscore-secrets backends subcommand"
   - "kscore-secrets audit subcommand"
   - "kscore-secrets dynamic subcommand"
