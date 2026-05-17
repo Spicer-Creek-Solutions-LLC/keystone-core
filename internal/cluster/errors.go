@@ -63,6 +63,11 @@ var (
 	// CAS operations (AssignIf/DeleteIf) when the stored version
 	// no longer matches the expected one.
 	ErrVersionConflict = errors.New("cluster: shard version conflict")
+
+	// ErrNoEligibleMembers is returned by ShardManager when the
+	// ring is empty (no HEALTHY/DEGRADED members), so an agent
+	// cannot be assigned an owner.
+	ErrNoEligibleMembers = errors.New("cluster: no eligible members")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".

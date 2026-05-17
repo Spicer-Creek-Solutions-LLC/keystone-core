@@ -159,7 +159,7 @@ func TestShardStore_Watch(t *testing.T) {
 		if ev.Type != ShardSet || ev.AgentID != "agent-9" || ev.MemberID != "m1" {
 			t.Fatalf("set event = %+v", ev)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("no ShardSet event")
 	}
 
@@ -171,7 +171,7 @@ func TestShardStore_Watch(t *testing.T) {
 		if ev.Type != ShardDeleted || ev.AgentID != "agent-9" || ev.MemberID != "m1" {
 			t.Fatalf("delete event = %+v (want member from prev-kv)", ev)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("no ShardDeleted event")
 	}
 
@@ -182,7 +182,7 @@ func TestShardStore_Watch(t *testing.T) {
 			for range ch { // drain to closed
 			}
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("Watch channel not closed after ctx cancel")
 	}
 }

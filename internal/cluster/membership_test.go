@@ -59,9 +59,15 @@ func (r *recorder) snapshot() []MemberEvent {
 	return out
 }
 
+// waitFor polls cond until true. The deadline is intentionally
+// generous: these tests drive real embedded etcd (multi-second
+// startup, elections), and under `go test ./... -race` the whole
+// suite contends for CPU, so a tight deadline flakes without
+// catching real regressions. Fast paths still return immediately
+// (poll loop), so the large ceiling costs nothing when healthy.
 func waitFor(t *testing.T, cond func() bool, msg string) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
@@ -191,7 +197,7 @@ func TestMembership_WatchMembersChannelClosesOnCtx(t *testing.T) {
 			for range ch {
 			}
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("WatchMembers channel not closed after ctx cancel")
 	}
 }

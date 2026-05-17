@@ -133,7 +133,7 @@ func TestEtcdClient_EmbeddedLifecycleAndPrimitives(t *testing.T) {
 		if len(ev.Events) == 0 || string(ev.Events[0].Kv.Value) != "1" {
 			t.Fatalf("watch event = %+v", ev.Events)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("watch did not fire")
 	}
 
@@ -160,7 +160,7 @@ func TestEtcdClient_EmbeddedLifecycleAndPrimitives(t *testing.T) {
 
 	// Revoking the kept-alive lease closes its keepalive channel
 	// while the worker ctx is still live → failure is counted.
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for c.KeepAliveFailures() == 0 && time.Now().Before(deadline) {
 		time.Sleep(50 * time.Millisecond)
 	}

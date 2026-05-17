@@ -28,6 +28,7 @@ import (
 //	    recampaign_delay: 1s
 //	  shard:
 //	    virtual_nodes: 150
+//	    rebalance_cooldown: 5s
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -43,14 +44,20 @@ type ClusterConfig struct {
 	Shard      ClusterShardConfig      `koanf:"shard"`
 }
 
-// ClusterShardConfig is the operator-facing consistent-hash config
-// (Epic 13 task 4). The runtime equivalent is the cluster.HashRing
-// vnode count; boot wiring (later task) maps onto it.
+// ClusterShardConfig is the operator-facing consistent-hash +
+// rebalance config (Epic 13 tasks 4/6). The runtime equivalents
+// are the cluster.HashRing vnode count and the ShardManager
+// cooldown; boot wiring (later task) maps onto them.
 type ClusterShardConfig struct {
 	// VirtualNodes is the number of ring points per member. More
 	// vnodes = smoother key distribution + less rebalancing churn,
 	// at a higher ring-rebuild cost. §4.15 default 150.
 	VirtualNodes int `koanf:"virtual_nodes"`
+	// RebalanceCooldown is the minimum spacing between
+	// topology-driven rebalances; rapid member join/leave flaps
+	// coalesce into one rebalance after the window. §4.15 default
+	// 5s.
+	RebalanceCooldown time.Duration `koanf:"rebalance_cooldown"`
 }
 
 // ClusterElectionConfig is the operator-facing leader-election
@@ -180,6 +187,10 @@ func (c *ClusterConfig) Validate() error {
 	if c.Shard.VirtualNodes < 1 {
 		return fmt.Errorf("cluster.shard.virtual_nodes must be >= 1, got %d", c.Shard.VirtualNodes)
 	}
+	if c.Shard.RebalanceCooldown < 0 {
+		return fmt.Errorf("cluster.shard.rebalance_cooldown must be non-negative, got %v",
+			c.Shard.RebalanceCooldown)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -218,6 +229,7 @@ func applyClusterDefaults(c *ClusterConfig) {
 		ReCampaignDelay:   1 * time.Second,
 	}
 	c.Shard = ClusterShardConfig{
-		VirtualNodes: 150, // §4.15 default
+		VirtualNodes:      150,             // §4.15 default
+		RebalanceCooldown: 5 * time.Second, // §4.15 default
 	}
 }
