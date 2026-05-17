@@ -21,7 +21,7 @@ func TestRootHelp(t *testing.T) {
 		t.Fatalf("--help err: %v", err)
 	}
 	got := buf.String()
-	for _, want := range []string{"log", "report", "stats", "--server", "--api-key", "--output"} {
+	for _, want := range []string{"log", "report", "stats", "export", "--server", "--api-key", "--output"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("--help missing %q\n%s", want, got)
 		}

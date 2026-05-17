@@ -4,17 +4,17 @@
 //	log    — paginated audit-log query (GetAuditLog)
 //	report — compliance report (GetComplianceReport)
 //	stats  — headline counts over a window (GetComplianceReport)
+//	export — stream the audit log as JSON / JSONL / CSV with
+//	         redaction applied on export (Epic 12 task 15)
 //
 // All subcommands talk to the PolicyService gRPC on a running
 // kscore-server (default `localhost:9090`; override via
 // `--server host:port`). API-key auth via `--api-key` or
 // `KSCORE_API_KEY`.
 //
-// Deferred:
+// Deferred to v1.x ROADMAP:
 //
-//	export — owned end-to-end by Epic 12 task 15 (JSON/JSONL/CSV
-//	         formatters + redaction-on-export).
-//	search   — subsumed by `log` filters (v1.x ROADMAP).
+//	search   — subsumed by `log` filters.
 //	analyze  — fuzzy §4.12 spec, no acceptance criteria (v1.x ROADMAP).
 //	timeline — needs a ResourceAuditTrail RPC not on PolicyService (v1.x ROADMAP).
 //	watch    — needs an audit-tail streaming RPC + BufferedAuditor
@@ -74,6 +74,7 @@ func NewCommand(deps Deps) *cobra.Command {
 	cmd.AddCommand(logCmd(g))
 	cmd.AddCommand(reportCmd(g))
 	cmd.AddCommand(statsCmd(g))
+	cmd.AddCommand(exportCmd(g))
 
 	return cmd
 }

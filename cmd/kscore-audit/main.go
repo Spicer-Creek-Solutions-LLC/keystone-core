@@ -6,15 +6,15 @@
 //	log    — paginated audit-log query
 //	report — compliance report (rate, top violations, trend)
 //	stats  — headline counts over a window
+//	export — stream JSON / JSONL / CSV with redaction on export
 //
 // All commands talk to the PolicyService gRPC on the running
 // kscore-server (default `localhost:9090`; override via
 // `--server host:port`). API-key auth via `--api-key` or
 // `KSCORE_API_KEY`.
 //
-// Deferred: `export` is owned by Epic 12 task 15 (JSON/JSONL/CSV
-// formatters + redaction). search / analyze / timeline / watch are
-// v1.x ROADMAP (no RPC / fuzzy spec).
+// Deferred to v1.x ROADMAP (no RPC / fuzzy spec): search / analyze /
+// timeline / watch.
 package main
 
 import (

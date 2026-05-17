@@ -888,6 +888,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `timeline` — add `PolicyService.GetResourceAuditTrail` (or an audit-service RPC) wrapping `ReportGenerator.ResourceAuditTrail`, then `kscore-audit timeline <resource-type> --since …` renders it oldest-first. `watch` — add an audit-tail server-streaming RPC fed by `audit.BufferedAuditor`, then `kscore-audit watch` tails it like `kscore-events watch`. `search`/`analyze` — TBD from trial demand.
 - **References**: PROJECT-DETAILS §4.12 `kscore-audit` CLI list; `internal/policy/compliance.go` `ResourceAuditTrail` (landed, no RPC); `internal/audit` `BufferedAuditor` (landed, not wire-exposed); Epic 12 task 14 (landed).
 
+#### kscore-audit export `--redaction-config` file
+
+- **Priority**: v1.x
+- **What**: Epic 12 task 15 ships `kscore-audit export` with redaction driven by repeatable flags (`--redact-key`, `--redact-pattern`, `--redact-user`, `--redact-replacement`). Add a `--redaction-config <file>` that unmarshals a YAML/JSON `audit.RedactionConfigInput` so a vetted redaction policy is reusable + reviewable in source control rather than retyped as flags per invocation.
+- **Why deferred**: the flag form satisfies the §4.12 acceptance bar (`--redact-pattern 'password=\S+'`) and the export path already takes a `*RedactionConfig` (the file would just be a second constructor of the same struct). §4.12's risk note ("redaction regex must be reviewed before prod") makes a checked-in config the prod-grade ergonomic, but it's additive over a complete v1.0 redaction path — no behavior gap, pure convenience.
+- **Acceptance**: `kscore-audit export --redaction-config redaction.yaml` loads `{redact_metadata_keys, redact_patterns, redact_user, replacement}` into `audit.NewRedactionConfig`; flags, when also given, layer over / override the file; a malformed file or bad regex fails loudly before the first entry is written.
+- **References**: `internal/cli/audit/export.go` (flag-driven `RedactionConfigInput`); `internal/audit/redaction.go` `NewRedactionConfig` (landed); Epic 12 task 15 (landed).
+
 #### Strict audit-on-access via Auditor.Emit error return
 
 - **Priority**: v1.x
