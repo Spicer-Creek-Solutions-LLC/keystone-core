@@ -18,7 +18,12 @@ func testMembershipCfg(t *testing.T, ec *EtcdClient, name string) MembershipConf
 		MemberIDFile:      filepath.Join(t.TempDir(), "member-id"),
 		KeyPrefix:         "/kscore/test",
 		HeartbeatInterval: 250 * time.Millisecond,
-		LeaseTTL:          time.Second, // ≥ 3× heartbeat, ≥ 1s etcd granularity
+		// 10s (not 1s): under `go test ./... -race` CPU contention
+		// the lease-keepalive goroutine can be starved > 1s, which
+		// would spuriously expire the member (→ false MemberLeft →
+		// ring churn) during heavier tests. Anti-flap only needs
+		// TTL ≥ 3× heartbeat; this stays well above that.
+		LeaseTTL: 10 * time.Second,
 	}
 }
 
@@ -208,7 +213,7 @@ func TestMembership_StableMemberIDPersisted(t *testing.T) {
 
 	cfg := MembershipConfig{
 		Etcd: ec, MemberName: "n", MemberIDFile: idFile,
-		KeyPrefix: "/kscore/test", HeartbeatInterval: 250 * time.Millisecond, LeaseTTL: time.Second,
+		KeyPrefix: "/kscore/test", HeartbeatInterval: 250 * time.Millisecond, LeaseTTL: 10 * time.Second,
 	}
 	m1, err := NewMembershipManager(cfg)
 	if err != nil {

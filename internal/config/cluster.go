@@ -29,6 +29,10 @@ import (
 //	  shard:
 //	    virtual_nodes: 150
 //	    rebalance_cooldown: 5s
+//	  health:
+//	    check_interval: 5s
+//	    failure_threshold: 3
+//	    latency_window: 100
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -42,6 +46,22 @@ type ClusterConfig struct {
 	Membership ClusterMembershipConfig `koanf:"membership"`
 	Election   ClusterElectionConfig   `koanf:"election"`
 	Shard      ClusterShardConfig      `koanf:"shard"`
+	Health     ClusterHealthConfig     `koanf:"health"`
+}
+
+// ClusterHealthConfig is the operator-facing health-monitor config
+// (Epic 13 task 7). The runtime equivalent is
+// cluster.HealthMonitorConfig; boot wiring (later task) maps onto
+// it.
+type ClusterHealthConfig struct {
+	// CheckInterval is how often the registered checkers run.
+	CheckInterval time.Duration `koanf:"check_interval"`
+	// FailureThreshold is the consecutive-failure count at which a
+	// checker is considered failing. §4.15 default 3.
+	FailureThreshold int `koanf:"failure_threshold"`
+	// LatencyWindow is how many recent check durations are kept
+	// per checker for P50/P99.
+	LatencyWindow int `koanf:"latency_window"`
 }
 
 // ClusterShardConfig is the operator-facing consistent-hash +
@@ -191,6 +211,18 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.shard.rebalance_cooldown must be non-negative, got %v",
 			c.Shard.RebalanceCooldown)
 	}
+	if c.Health.CheckInterval <= 0 {
+		return fmt.Errorf("cluster.health.check_interval must be > 0, got %v",
+			c.Health.CheckInterval)
+	}
+	if c.Health.FailureThreshold < 1 {
+		return fmt.Errorf("cluster.health.failure_threshold must be >= 1, got %d",
+			c.Health.FailureThreshold)
+	}
+	if c.Health.LatencyWindow < 1 {
+		return fmt.Errorf("cluster.health.latency_window must be >= 1, got %d",
+			c.Health.LatencyWindow)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -231,5 +263,10 @@ func applyClusterDefaults(c *ClusterConfig) {
 	c.Shard = ClusterShardConfig{
 		VirtualNodes:      150,             // §4.15 default
 		RebalanceCooldown: 5 * time.Second, // §4.15 default
+	}
+	c.Health = ClusterHealthConfig{
+		CheckInterval:    5 * time.Second,
+		FailureThreshold: 3, // §4.15 default
+		LatencyWindow:    100,
 	}
 }

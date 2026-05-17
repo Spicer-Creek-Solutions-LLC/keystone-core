@@ -68,6 +68,9 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"election negative recampaign", func(c *ClusterConfig) { c.Election.ReCampaignDelay = -time.Second }, "recampaign_delay must be non-negative"},
 		{"shard virtual_nodes too low", func(c *ClusterConfig) { c.Shard.VirtualNodes = 0 }, "virtual_nodes must be >= 1"},
 		{"shard negative rebalance_cooldown", func(c *ClusterConfig) { c.Shard.RebalanceCooldown = -time.Second }, "rebalance_cooldown must be non-negative"},
+		{"health check_interval zero", func(c *ClusterConfig) { c.Health.CheckInterval = 0 }, "check_interval must be > 0"},
+		{"health failure_threshold too low", func(c *ClusterConfig) { c.Health.FailureThreshold = 0 }, "failure_threshold must be >= 1"},
+		{"health latency_window too low", func(c *ClusterConfig) { c.Health.LatencyWindow = 0 }, "latency_window must be >= 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
