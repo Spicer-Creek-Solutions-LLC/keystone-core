@@ -54,6 +54,15 @@ var (
 	// ErrNoLeader is returned by LeaderElector.LeaderID when the
 	// election currently has no leader.
 	ErrNoLeader = errors.New("cluster: no leader")
+
+	// ErrShardNotFound is returned by ShardStore.Get when no
+	// assignment exists for the requested agent.
+	ErrShardNotFound = errors.New("cluster: shard assignment not found")
+
+	// ErrVersionConflict is returned by the ShardStore optimistic
+	// CAS operations (AssignIf/DeleteIf) when the stored version
+	// no longer matches the expected one.
+	ErrVersionConflict = errors.New("cluster: shard version conflict")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".
