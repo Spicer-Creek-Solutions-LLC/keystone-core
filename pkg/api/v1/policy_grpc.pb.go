@@ -3,7 +3,7 @@
 // The CRUD methods (CreatePolicy / UpdatePolicy / DeletePolicy) are
 // declared but the server leaves them on the generated
 // UnimplementedPolicyServiceServer base, so they return
-// codes.Unimplemented until v1.8 enables policy mutation
+// codes.Unimplemented until a later (v1.x) release enables policy mutation
 // (PROJECT-DETAILS §4.12; the in-memory Registry has no
 // Update/Deregister in v1.0 by design).
 //
@@ -62,7 +62,7 @@ type PolicyServiceClient interface {
 	// Compliance + audit.
 	GetComplianceReport(ctx context.Context, in *GetComplianceReportRequest, opts ...grpc.CallOption) (*GetComplianceReportResponse, error)
 	GetAuditLog(ctx context.Context, in *GetAuditLogRequest, opts ...grpc.CallOption) (*GetAuditLogResponse, error)
-	// v1.8-gated CRUD. Server returns codes.Unimplemented in v1.0.
+	// Enforcement-era CRUD (post-v1.0). Server returns codes.Unimplemented through v1.0.
 	CreatePolicy(ctx context.Context, in *CreatePolicyRequest, opts ...grpc.CallOption) (*CreatePolicyResponse, error)
 	UpdatePolicy(ctx context.Context, in *UpdatePolicyRequest, opts ...grpc.CallOption) (*UpdatePolicyResponse, error)
 	DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*DeletePolicyResponse, error)
@@ -212,7 +212,7 @@ type PolicyServiceServer interface {
 	// Compliance + audit.
 	GetComplianceReport(context.Context, *GetComplianceReportRequest) (*GetComplianceReportResponse, error)
 	GetAuditLog(context.Context, *GetAuditLogRequest) (*GetAuditLogResponse, error)
-	// v1.8-gated CRUD. Server returns codes.Unimplemented in v1.0.
+	// Enforcement-era CRUD (post-v1.0). Server returns codes.Unimplemented through v1.0.
 	CreatePolicy(context.Context, *CreatePolicyRequest) (*CreatePolicyResponse, error)
 	UpdatePolicy(context.Context, *UpdatePolicyRequest) (*UpdatePolicyResponse, error)
 	DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error)

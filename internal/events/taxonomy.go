@@ -2,7 +2,7 @@ package events
 
 // The 22 v1.0 event type constants per PROJECT-DETAILS §4.9. These
 // are the documented spellings — [IsCanonical] reports whether a
-// given [EventType] matches one of them. Operators and v1.4 plugins
+// given [EventType] matches one of them. Operators and post-v1.0 plugins
 // (Epic 14) MAY emit other subtypes within a known [Category]
 // without modifying this file; the canonical set is the
 // recommendation, not the enforced limit.

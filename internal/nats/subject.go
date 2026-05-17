@@ -133,7 +133,7 @@ func (b *SubjectBuilder) BootstrapRegisterPattern() string {
 }
 
 // Discovery is the cluster-wide discovery subject (peer enumeration,
-// endpoint advertisement). Reserved for v1.3+ K8s discovery; the
+// endpoint advertisement). Reserved for post-v1.0 K8s discovery; the
 // subject exists today so subscribers can register without churn.
 func (b *SubjectBuilder) Discovery() string {
 	return b.prefix + ".discovery"

@@ -70,7 +70,7 @@ type CommandRules struct {
 // SecurityPolicy is the v1.0 protection bundle. v1.0 takes the
 // HMAC secret via config; v1.x can derive from the bootstrap-
 // issued credential. Replay protection (timestamp window + nonce
-// dedup) is a v1.1 addition per PROJECT-DETAILS §4.10 — v1.0 trusts
+// dedup) is a post-v1.0 addition per PROJECT-DETAILS §4.10 — v1.0 trusts
 // the HMAC alone. Manager.PublishEnvelope's producer-side dedup
 // (Task 6) catches identical MessageIDs on the legitimate path;
 // replay from a captured wire is an acknowledged v1.0 trust

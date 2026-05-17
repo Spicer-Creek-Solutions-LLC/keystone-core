@@ -1,7 +1,7 @@
 // Package secrets is the v0.x reconstruction of Keystone Core's
 // secrets surface per PROJECT-DETAILS §4.11. The epic-10 design is
 // backend-pluggable by construction: every concrete store (encrypted
-// file, HashiCorp Vault, future AWS/Azure/GCP — v2.0) implements
+// file, HashiCorp Vault, future AWS/Azure/GCP — v2.x+) implements
 // [SecretBackend], and a single [SecretBroker] routes by path-prefix
 // (longest-match-first; tasks 2-3) so higher layers — the REST/gRPC
 // service, the `kscore-secrets` CLI, the in-process consumers in
@@ -23,7 +23,7 @@
 //     secrets; [RenewStrategy] (`eager` 50% TTL, `lazy` 90% TTL,
 //     `on_demand`) drives the scheduler that arrives in task 6.
 //   - [RotationPolicy] — v1.0 placeholder; full rotation orchestration
-//     is v1.4 per `epics/10-secrets.md` Scope-out + `docs/project/ROADMAP.md`.
+//     is post-v1.0 per `epics/10-secrets.md` Scope-out + `docs/project/ROADMAP.md`.
 //   - [BackendCapability] — backends declare which interface methods
 //     they meaningfully implement; the broker (task 3) uses this to
 //     refuse routes a backend can't serve.

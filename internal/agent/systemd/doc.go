@@ -18,7 +18,7 @@
 // Install here) when Epic 11/14/17 land and the demo-only gate
 // lifts — see docs/project/ROADMAP.md.
 //
-// Linux-only. Windows agent (v1.1) ships a service install via
-// SCM; macOS (v1.2) via launchd. Both swap this package for a
+// Linux-only. The Windows agent (post-v1.0) ships a service install
+// via SCM; macOS (post-v1.0) via launchd. Both swap this package for a
 // platform-specific equivalent.
 package systemd

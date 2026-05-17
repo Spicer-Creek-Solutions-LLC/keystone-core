@@ -290,7 +290,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: gRPC handlers for `MaintenanceService` and `ScheduleService` (REST is in v1.0).
-- **Why deferred**: gRPC + REST land together at v1.1 per design.
+- **Why deferred**: gRPC + REST land together post-v1.0 per design.
 - **Acceptance**: gRPC clients call `MaintenanceService.{Plan,Apply,Status}` and `ScheduleService.{Create,List,Run}`.
 - **References**: Epic 03 scope-out (line 33); `pkg/api/maintenance/handler.go:5`.
 
@@ -342,7 +342,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: Agent rotates NATS credentials without restart.
-- **Why deferred**: Gates on SPIRE provider (v1.3). v1.0 rotation = restart.
+- **Why deferred**: Gates on the SPIRE provider (post-v1.0). v1.0 rotation = restart.
 - **Acceptance**: Agent re-issues NATS creds on cert rotation event without dropping the connection.
 - **References**: Epic 06 scope-out (line 33); PROJECT-DETAILS §4.6 (line 482).
 
@@ -406,7 +406,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: PROJECT-DETAILS §4.6 lists `service install|uninstall|start|stop|status`. v1.0 ships `install|uninstall|status` only.
-- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Picked up in v1.1 because the Windows agent's SCM integration needs the same command shape and makes the wrapper worthwhile.
+- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Picked up post-v1.0 because the Windows agent's SCM integration needs the same command shape and makes the wrapper worthwhile.
 - **Acceptance for unblock**: `kscore-agent service start|stop` exist and proxy to the platform service manager; documented as the cross-platform form. Additive — no change to existing subcommands.
 - **References**: Epic 06 task 9 `_(landed)_`; PROJECT-DETAILS §4.6 (line 473).
 
@@ -418,20 +418,18 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: On startup the dispatcher reclaims/retries jobs it owns that were RUNNING; additive, no API change.
 - **References**: `internal/controlplane/batch_dispatcher.go:72`.
 
-### Targeted: v1.2
-
 #### API key issuance: non-transactional
 
 - **Priority**: gate-v1.0
 - **What**: `internal/controlplane.BootstrapHandler` issues credentials via separate write paths (not a single transaction).
-- **Why now**: v1.0 doesn't have a multi-table tx wrapper (the v1.2 backlog entry above) — this is a pure consumer of that, so it tracks v1.2. Internal refactor, no external surface change.
+- **Why now**: v1.0 doesn't have a multi-table tx wrapper (the multi-table-tx backlog entry above) — this is a pure consumer of that, so it tracks that work. Internal refactor, no external surface change.
 - **References**: `internal/controlplane/bootstrap.go:270`.
 
 #### Bootstrap: demo mode only (TUI + non-interactive)
 
 - **Priority**: gate-v1.0
 - **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
-- **Why now**: Production mode needs TLS cert collection (gates on Identity/cert tooling); enterprise mode needs blueprint selection. Production-mode unblock lands in the v1.3 SPIRE/cert-rotation cycle; enterprise/blueprint pieces (the wizard screens) trail into v1.5 — see that entry. Lifting the gate is purely additive for existing demo-mode users.
+- **Why now**: Production mode needs TLS cert collection (gates on Identity/cert tooling); enterprise mode needs blueprint selection. Production-mode unblock lands with the SPIRE/cert-rotation cycle; enterprise/blueprint pieces (the wizard screens) trail into the blueprint-runtime cycle — see that entry. Lifting the gate is purely additive for existing demo-mode users.
 - **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); equivalent `--generate-certs` CLI flag wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10` for production.
 - **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
 
@@ -439,7 +437,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
-- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.0. `--generate-certs` re-appears with the v1.3 cert tooling; `--apply-blueprint` trails to v1.5 with the blueprint runtime. All additive flag additions.
+- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.x+. `--generate-certs` re-appears with the cert tooling; `--apply-blueprint` trails to the blueprint runtime. All additive flag additions.
 - **Acceptance for unblock**: Per-flag — when its blocking work lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
 - **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
 
@@ -447,7 +445,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
-- **Why now**: Downstream of production mode (above); rides the same v1.3 cycle. Convenience chaining, additive — the explicit two-step flow still works.
+- **Why now**: Downstream of production mode (above); rides the same SPIRE/cert-rotation cycle. Convenience chaining, additive — the explicit two-step flow still works.
 - **Acceptance for unblock**: When `bootstrap.ValidateForV10` lifts for production, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
 - **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
 
@@ -455,65 +453,53 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v1.0
 - **What**: Used PSKs are tracked in-memory. Server restart re-permits a previously-used PSK.
-- **Why now**: Persistence path needs the bootstrap-state-store work, which rides the v1.3 bootstrap-hardening cycle. Bug-fix-shaped (makes restart behaviour correct), not a compatibility break.
+- **Why now**: Persistence path needs the bootstrap-state-store work, which rides the bootstrap-hardening cycle. Bug-fix-shaped (makes restart behaviour correct), not a compatibility break.
 - **References**: `internal/config/nats.go:53`; Epic 05 task 9 `_(landed)_`.
-
-### Targeted: v1.4
 
 #### Type=notify systemd integration (sd_notify)
 
 - **Priority**: gate-v1.0
 - **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
-- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, the dep explicitly skipped for v1.0. The v1.4 telemetry-gateway work is the first real consumer of agent readiness signalling. New unit + daemon ship together, so no break for existing installs.
+- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, the dep explicitly skipped for v1.0. The telemetry-gateway work is the first real consumer of agent readiness signalling. New unit + daemon ship together, so no break for existing installs.
 - **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
 - **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
-
-### Targeted: v1.5
 
 #### Bootstrap wizard: storage backend + blueprint selection screens
 
 - **Priority**: gate-v1.0
 - **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on the blueprint runtime.
-- **Why now**: Blueprint apply needs the plugin/module system + the full blueprint catalogue, which is v1.5's headline. Storage screens still wait on the unified binary (no committed release) and may slip further. Additive wizard screens — existing wizard flows unchanged.
+- **Why now**: Blueprint apply needs the plugin/module system + the full blueprint catalogue, which is the blueprint-runtime cycle's headline. Storage screens still wait on the unified binary (no committed release) and may slip further. Additive wizard screens — existing wizard flows unchanged.
 - **Acceptance for unblock**: For blueprints — the blueprint runtime lands, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step. For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens.
 - **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
-
-### Targeted: v1.6
 
 #### Bootstrap: no rollback / transactional revert
 
 - **Priority**: gate-v1.0
 - **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
-- **Why now**: Rollback semantics need install-step inversion + snapshot tracking. Slotted in v1.6 with the compliance/scan-scheduler cycle's general hardening; new `--rollback` flag is additive.
+- **Why now**: Rollback semantics need install-step inversion + snapshot tracking. Slotted with the compliance/scan-scheduler cycle's general hardening; new `--rollback` flag is additive.
 - **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
 - **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
-
-### Targeted: v1.7
 
 #### Dedicated `keystone-core` system user auto-creation
 
 - **Priority**: gate-v1.0
 - **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
-- **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the v1.7 air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
+- **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
 - **Acceptance for unblock**: Packaging creates the `keystone-core` system user as part of `apt install` / `dnf install`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
-- **References**: Epic 06 task 9 `_(landed)_`; v1.7 packaging work.
-
-### Targeted: v1.9
+- **References**: Epic 06 task 9 `_(landed)_`; the air-gap / supply-chain packaging work.
 
 #### Config: no per-endpoint TLS overrides
 
 - **Priority**: gate-v1.0
 - **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
-- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies become relevant alongside the v2.0 multi-region work, but the override fields already exist and wiring them is additive (existing configs keep working), so it slots into v1.9 platform-polish rather than waiting for v2.0.
+- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies become relevant alongside the v2.x+ multi-region work, but the override fields already exist and wiring them is additive (existing configs keep working), so it slots into later platform-polish rather than waiting for that v2.x+ work.
 - **References**: `internal/config/nats.go:126`.
-
-### Targeted: v2.0
 
 #### Cluster-wide HMAC secret (vs per-agent)
 
 - **Priority**: gate-v1.0
 - **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from the bootstrap exchange replace it.
-- **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands in v2.0 with the other auth/security infra changes (cloud KMS, federation).
+- **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands with the v2.x+ auth/security infra changes (cloud KMS, federation).
 - **Acceptance for unblock**: Bootstrap exchange establishes a per-agent key; server authenticates inbound by agent identity; cluster-wide secret removed (or relegated to a legacy compatibility window decided at design time).
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
 
@@ -786,27 +772,25 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: v0.x
 - **What**: `internal/agent.SecurityEnforcer` uses `path.Match` (single-star only). gobwas/glob with double-star semantics is reserved for v1.x.
-- **Why now**: stdlib `path.Match` covers the v1.0 command-allowlist use cases. Small, self-contained; folded into v1.2's linting/capabilities work. Note: broadening allowlist matching is a behaviour change to watch in review, but not a compatibility break.
+- **Why now**: stdlib `path.Match` covers the v1.0 command-allowlist use cases. Small, self-contained; folded into the linting/capabilities work. Note: broadening allowlist matching is a behaviour change to watch in review, but not a compatibility break.
 - **References**: `internal/agent/security.go:59`.
 
 #### Migration journal: no per-table checkpoint resume
 
 - **Priority**: v0.x
 - **What**: `kscore-migrate` records per-table checkpoints in the txlog but recovery from a partial migration restarts from the last full-table boundary, not the row-level checkpoint.
-- **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred to v1.2) would unlock. Improvement to recovery only; no compatibility break.
+- **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred post-v1.0) would unlock. Improvement to recovery only; no compatibility break.
 - **References**: `internal/state/migrate_txlog.go:25`.
-
-### Targeted: v1.3
 
 ## v1.x — post-v1.0 feature additions
 
 #### Policy enforcement side-effects (Warn events + Enforce violation handlers)
 
 - **Priority**: v1.x
-- **What**: Epic 12 task 10's `policy.Enforcer` ships the v1.0 audit-mode gate plus the v1.8 allow/deny *gate switch* behind `WithEnforcementEnabled` (Audit/Warn → allow, Enforce → block on a denying verdict). PROJECT-DETAILS §4.12's v1.8 spec also requires the **side-effects**: `Warn` mode must emit a warn-level policy event; `Enforce` mode must invoke registered violation handlers before denying. v1.0 implements only the gate decision — the side-effects are deferred because they need infrastructure that does not exist yet (a policy-violation event type on the Epic 11 bus + a violation-handler registration/dispatch mechanism on the Enforcer).
-- **Why deferred**: v1.0 ships the policy engine in audit-mode-only; enforcement is hardcoded off (`policy.enforcement_enabled=false`). The gate logic is testable today and proves the v1.8 shape; the side-effects have no v1.0 consumer and would be untested speculative infra. The v1.8 enforcement flip is a separately-tracked behavior-changing release.
+- **What**: Epic 12 task 10's `policy.Enforcer` ships the v1.0 audit-mode gate plus the post-v1.0 allow/deny *gate switch* behind `WithEnforcementEnabled` (Audit/Warn → allow, Enforce → block on a denying verdict). PROJECT-DETAILS §4.12's enforcement spec also requires the **side-effects**: `Warn` mode must emit a warn-level policy event; `Enforce` mode must invoke registered violation handlers before denying. v1.0 implements only the gate decision — the side-effects are deferred because they need infrastructure that does not exist yet (a policy-violation event type on the Epic 11 bus + a violation-handler registration/dispatch mechanism on the Enforcer).
+- **Why deferred**: v1.0 ships the policy engine in audit-mode-only; enforcement is hardcoded off (`policy.enforcement_enabled=false`). The gate logic is testable today and proves the post-v1.0 shape; the side-effects have no v1.0 consumer and would be untested speculative infra. The enforcement flip is a separately-tracked behavior-changing release.
 - **Acceptance**: `policy.enforcement_enabled=true` is operator-settable (config plumbing); `Warn` mode emits a `policy.warn` (or §4.9-canonical) event through the events bus on a denying verdict and still allows; `Enforce` mode invokes each registered violation handler (new `Enforcer.RegisterViolationHandler` seam) before returning `Allowed=false`; release notes call out the enforcement behavior change loudly.
-- **References**: `internal/policy/enforcer.go` (`Enforce` gate switch — the `// Side-effects ... deferred` comment); PROJECT-DETAILS §4.12 "v1.8 changes"; Epic 12 task 10 (landed).
+- **References**: `internal/policy/enforcer.go` (`Enforce` gate switch — the `// Side-effects ... deferred` comment); PROJECT-DETAILS §4.12 "enforcement changes"; Epic 12 task 10 (landed).
 
 #### kscore-secrets backends subcommand
 
@@ -931,7 +915,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### kscore-identity federation subcommands
 
 - **Priority**: v1.x
-- **What**: Epic 09 task 12's `kscore-identity` CLI ships seven subcommands (`token {create,list,revoke,cleanup}` + `ca {info,rotate-signing,export}` + `status`). PROJECT-DETAILS §4.10 names a fourth top-level group — `federation {add-domain, list, fetch-bundle}` — for cross-trust-domain operation. v0.1 explicitly defers it (the spec marks it "v1.1+"). The CLI + gRPC service + EmbeddedProvider would gain `FederatedTrustDomain` records, a bundle-endpoint exposure, and per-domain refresh hints; lands alongside the Provider trust-federation work itself.
+- **What**: Epic 09 task 12's `kscore-identity` CLI ships seven subcommands (`token {create,list,revoke,cleanup}` + `ca {info,rotate-signing,export}` + `status`). PROJECT-DETAILS §4.10 names a fourth top-level group — `federation {add-domain, list, fetch-bundle}` — for cross-trust-domain operation. v0.1 explicitly defers it (the spec marks it post-v1.0). The CLI + gRPC service + EmbeddedProvider would gain `FederatedTrustDomain` records, a bundle-endpoint exposure, and per-domain refresh hints; lands alongside the Provider trust-federation work itself.
 - **Why deferred**: federation needs a wire protocol for bundle distribution + cross-domain trust policy + a federated `Attest` path — its own design pass. v0.1 ships single-domain only.
 - **Acceptance**: `kscore-identity federation add-domain spiffe://peer.example.org/` registers + fetches the peer bundle; `kscore-identity federation list` shows registered domains + last-refresh timestamps; `kscore-identity federation fetch-bundle <domain>` retrieves it ad-hoc; the existing trust-federation v1.x ROADMAP entry covers the underlying provider work.
 - **References**: Epic 09 scope-out (line 23); `internal/cli/identity` (current CLI surface); the existing "Trust federation (cross-domain bundle endpoint)" entry below.

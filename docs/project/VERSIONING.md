@@ -10,9 +10,9 @@ Keystone Core follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 | Version line | What it means |
 |---|---|
-| **`v0.1.x`** | First public release. **Linux-only**. Epics 01–08 complete. Internal-quality. **Breaking changes between patch releases are permitted** but minimised. Not yet ready for non-developer testers. |
-| **`v0.2.x` – `v0.4.x`** | Incremental releases as features land. Each release closes one or more epics in some form. Cadence is **release-as-ready** — no calendar-pre-allocated scope. Breaking changes between minor versions are expected. |
-| **`v0.5.x`** | **External-tester milestone.** Cross-Linux-distribution support solid; persistence renderers for the things early adopters actually need (networking, firewall backends); enough of Epics 09–13 to be usable as a multi-user/multi-host control plane. The first release we hand to operators outside the dev loop. |
+| **`v0.1.x`** | First public release. **Linux-only**. Epics 01–08 complete. **Genuinely try-able**: curious operators and early adopters are explicitly invited to install it, run it, and give feedback — expect rough edges and **breaking changes between patch releases** (minimised, always with a migration note). It is *not* the formal external-tester hand-off — that bar is the v0.5 checklist below — but it should be useful and interesting enough to attract people to the project. |
+| **`v0.2.x` – `v0.4.x`** | Incremental releases as features land. Each release closes one or more epics in some form. Cadence is **release-as-ready** — no calendar-pre-allocated scope. Breaking changes between minor versions are expected. The v0.x line stays attractive and try-able throughout. |
+| **`v0.5.x`** | **Formal external-tester milestone** (a checklist, not a calendar point — see the v0.5 gate below). Cross-Linux-distribution support solid; persistence renderers for the things early adopters actually need (networking, firewall backends); enough of Epics 09–13 to be usable as a multi-user/multi-host control plane. The first release we *formally* hand to operators outside the dev loop with a "what works / what doesn't" guarantee. |
 | **`v0.6.x` – `v0.9.x`** | Polish + remaining epic work toward v1.0. Same release-as-ready cadence. Breaking changes possible but rare; each is documented with a migration note. |
 | **`v1.0.0`** | **All 19 epics complete and acceptance-tested. API + CLI + state-file YAML + gRPC frozen.** SemVer stability commitment begins here: post-v1.0 minor releases add features, never break existing ones. |
 | **`v1.x`** | Feature additions on the stable v1.0 line. |
@@ -91,7 +91,7 @@ The v1.0 milestone is the SemVer stability commitment. Once cut, breaking change
 4. **Engine coverage >85%, module coverage >80%** across the board (same standard as v0.5; verified at v1.0).
 5. **Performance + load test baseline** passing (per Epic 19's harden-and-release acceptance).
 6. **Security review + audit complete** (per Epics 12 + 19).
-7. **Documentation site live** (Hugo docs site per the v1.1 spec, advanced for v1.0).
+7. **Documentation site live** (Hugo docs site — the post-v1.0 docs-site work, advanced to land by v1.0).
 8. **Migration tooling** for any state-file or schema changes between v0.x and v1.0 — operators can move data forward without a manual rewrite.
 9. **Outstanding "must-haves" from external testers addressed** — the v0.5+ tester feedback loop closes before v1.0 cut.
 10. **CHANGELOG + RELEASE-PLAYBOOK ready** for the long-term v1.x cadence.
@@ -103,7 +103,7 @@ There is **no pre-allocated table of v0.2 contents, v0.3 contents, etc.** Pre-al
 Instead:
 
 - One ranked roadmap in [`docs/project/ROADMAP.md`](ROADMAP.md) (replaces `ROADMAP.md`).
-- Each entry carries a **priority**: `gate-v0.5` | `gate-v1.0` | `v0.x` | `v2.x+`.
+- Each entry carries a **priority**: `gate-v0.5` | `gate-v1.0` | `v0.x` | `v1.x` | `v2.x+` (the taxonomy in [`docs/project/ROADMAP.md`](ROADMAP.md) and `tools/trackerctl`).
 - v0.x minor releases are cut when natural feature sets land. A `v0.3.0` might close one epic; a `v0.4.0` might close two and ship a renderer; the boundaries fall where they fall.
 - The v0.5 gate is the only intermediate stop where the version specifically *waits* for a checklist.
 

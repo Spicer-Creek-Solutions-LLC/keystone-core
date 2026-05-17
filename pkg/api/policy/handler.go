@@ -1,7 +1,7 @@
 // Package policy exposes REST routes for the policy domain
 // (Epic 12 task 13).
 //
-// Routes (all sync; streaming/CRUD stays gRPC-only / v1.8):
+// Routes (all sync; streaming/CRUD stays gRPC-only / post-v1.0):
 //
 //	GET  /api/v1/policies                 list (?page_size=&page_token=)
 //	GET  /api/v1/policies/{id}            get one
@@ -15,7 +15,7 @@
 // JSON DTOs serialise enums as the canonical lowercase name (the
 // events/secrets REST convention); the gRPC PolicyService carries
 // the same string values. v1.0 is audit-mode (the Enforcer never
-// blocks); CRUD is v1.8 (gRPC returns Unimplemented; not routed
+// blocks); CRUD is post-v1.0 (gRPC returns Unimplemented; not routed
 // here). When a backing component is nil the affected routes return
 // HTTP 503.
 //

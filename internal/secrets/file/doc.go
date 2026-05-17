@@ -15,7 +15,7 @@
 //
 // Master-key resolution lives in [ResolveMasterKey]; v1.0 schemes are
 // `env:`, `file:`, `inline:`. Cloud KMS schemes (`gcp-kms:` /
-// `aws-kms:` / `azure-kv:`) are detected and rejected with a v2.0
+// `aws-kms:` / `azure-kv:`) are detected and rejected with a v2.x+
 // pointer per FEATURES.md.
 //
 // What this backend supports:

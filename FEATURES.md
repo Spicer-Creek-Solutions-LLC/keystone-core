@@ -1,8 +1,14 @@
 # FEATURES.md
 
-Complete feature inventory for Keystone Core, organized by domain. Each feature carries a tentative version tag (`v1.0`, `v1.x`, `v2`, `v3+/future`) and a one-line reasoning note.
+Complete feature inventory for Keystone Core, organized by domain. Each feature carries a **priority-bucket** tag (`v1.0`, `v1.x`, `v2.x+`, `v3.x+/future`) and a one-line reasoning note.
 
-> **Versioning note.** This file's `v1.0` and `v1.x` tags predate the v0.x release scheme (see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). In the current model, "v1.0" here means "shipping in the v0.x → v1.0 line as part of the MVP scope" and "v1.x" means "post-v1.0 feature additions on the stable line". The granular feature inventory below has not been re-tagged — when the difference matters, defer to the priority buckets in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md). See PROJECT-DETAILS.md §6 for the version-strategy summary.
+> **Versioning note.** Tags here are **priority buckets, not pinned minor releases.** [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) is canonical: there is deliberately *no* pre-allocated table of v0.2/v0.3/v1.1/v1.8 contents. Bucket meanings:
+> - **`v1.0`** — in the v0.x → v1.0 MVP scope; lands incrementally across the v0.x line, frozen at the v1.0 SemVer commitment.
+> - **`v1.x`** — post-v1.0 additive features on the stable line. Not scheduled to a specific minor.
+> - **`v2.x+`** — architectural post-v1.0 (federation, multi-region, supercluster, cloud KMS).
+> - **`v3.x+/future`** — marketplace, web UI, multi-cloud.
+>
+> When precise sequencing matters, defer to the ranked entries in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) (`gate-v0.5` | `gate-v1.0` | `v0.x` | `v1.x` | `v2.x+`). See PROJECT-DETAILS.md §6 for the version-strategy summary.
 
 > **MVP target.** v1.0 must be **clusterable** and **commercial-trial-ready** for sysadmin/IT-admin users — i.e. ~90% of what they need for day-to-day work. This drives several capabilities (plugin/module system, base stdlib, real auth, audit, HA, observability) into v1.0 that a leaner control-plane MVP would defer. The work lands incrementally across the v0.x line; v1.0 is the SemVer stability commitment at the end.
 
@@ -56,16 +62,16 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.x (deferred)
 
-- **Syslog logging output** [v1.1]. _Reasoning: ops nice-to-have; stdout suffices for trial users on systemd/k8s._
-- **Documentation site** (Hugo + Docsy + PDF). Source: `docs/`. **[v1.1]**. _Reasoning: README + reference docs sufficient for v1.0; Hugo site adds tooling burden._
-- **HA / IPv6 / HA+IPv6 E2E topologies** [v1.1]. _Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively._
+- **Syslog logging output** [v1.x]. _Reasoning: ops nice-to-have; stdout suffices for trial users on systemd/k8s._
+- **Documentation site** (Hugo + Docsy + PDF). Source: `docs/`. **[v1.x]**. _Reasoning: README + reference docs sufficient for v1.0; Hugo site adds tooling burden._
+- **HA / IPv6 / HA+IPv6 E2E topologies** [v1.x]. _Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively._
 - **Hot-reload dev server (`air`)** [v1.0.x]. _Reasoning: dev-only, ship with v1.0 dot release._
-- **Repository generation (DNF/APT/Windows MSI)** [v1.2]. _Reasoning: tarballs cover trial users; package repos require infra commitment._
-- **VM bootstrap test harness** [v1.2]. _Reasoning: container E2E sufficient for v1.0._
-- **Full security scanning suite** (semgrep, trivy, syft, grype, hadolint) [v1.1]. _Reasoning: gitleaks + govulncheck + gosec sufficient for v1.0._
-- **Goreleaser signing ceremony / multi-party release** [v1.2]. _Reasoning: heavy ceremony documented in current `RELEASE-PLAYBOOK.md`; single-signer release acceptable for v1.0._
-- **Benchmark suite** [v1.2]. _Reasoning: not commercial-trial-blocking._
-- **Air-gapped repo packaging (`kscore-bootstrap`)** [v1.7+]. _Reasoning: see Specialized domain._
+- **Repository generation (DNF/APT/Windows MSI)** [v1.x]. _Reasoning: tarballs cover trial users; package repos require infra commitment._
+- **VM bootstrap test harness** [v1.x]. _Reasoning: container E2E sufficient for v1.0._
+- **Full security scanning suite** (semgrep, trivy, syft, grype, hadolint) [v1.x]. _Reasoning: gitleaks + govulncheck + gosec sufficient for v1.0._
+- **Goreleaser signing ceremony / multi-party release** [v1.x]. _Reasoning: heavy ceremony documented in current `RELEASE-PLAYBOOK.md`; single-signer release acceptable for v1.0._
+- **Benchmark suite** [v1.x]. _Reasoning: not commercial-trial-blocking._
+- **Air-gapped repo packaging (`kscore-bootstrap`)** [v1.x]. _Reasoning: see Specialized domain._
 
 ---
 
@@ -86,14 +92,14 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Static endpoint configuration**. _Reasoning: simple ops path; auto-discovery deferred._
 - **Health check hooks** (Manager.Health, ConnectionManager.Health). _Reasoning: drives `/health/ready`._
 
-### v1.x / v2 (deferred)
+### v1.x (deferred)
 
-- **Leaf node mode** (edge / hierarchical). **[v2.0]**. _Reasoning: edge use case isn't a trial-day-1 feature; deployment matrix grows considerably._
-- **Supercluster / gateway** (multi-region). **[v2.0]**. _Reasoning: same; multi-region is post-trial._
-- **WebSocket / WSS transport** (firewall traversal). **[v2.0]**. _Reasoning: NAT traversal via TLS-on-443 mostly suffices for v1; WSS is for strict-firewall enterprises._
-- **Auto-discovery** (DNS-SRV, mDNS, K8s, Consul, etcd). **[v1.3]**. _Reasoning: static config workable at trial scale; K8s discovery lands when K8s operator does (v1.3)._
-- **NAT traversal via reverse leaf** [v2.0]. _Reasoning: niche._
-- **Exactly-once delivery** [v2.x]. _Reasoning: at-least-once + dedup window covers vast majority of cases._
+- **Leaf node mode** (edge / hierarchical). **[v2.x+]**. _Reasoning: edge use case isn't a trial-day-1 feature; deployment matrix grows considerably._
+- **Supercluster / gateway** (multi-region). **[v2.x+]**. _Reasoning: same; multi-region is post-trial._
+- **WebSocket / WSS transport** (firewall traversal). **[v2.x+]**. _Reasoning: NAT traversal via TLS-on-443 mostly suffices for v1; WSS is for strict-firewall enterprises._
+- **Auto-discovery** (DNS-SRV, mDNS, K8s, Consul, etcd). **[v1.x]**. _Reasoning: static config workable at trial scale; K8s discovery lands when K8s operator does (v1.x)._
+- **NAT traversal via reverse leaf** [v2.x+]. _Reasoning: niche._
+- **Exactly-once delivery** [v2.x+]. _Reasoning: at-least-once + dedup window covers vast majority of cases._
 
 ---
 
@@ -113,14 +119,14 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Migration features**: dry-run, batch-size, txlog, progress reporter, validation. _Reasoning: production-grade migration is table stakes._
 - **IPv6-safe DSN building** (Postgres). _Reasoning: dual-stack v1 requirement._
 
-### v1.x / v2 (deferred)
+### v1.x (deferred)
 
-- **Schema versioning / golang-migrate** **[v1.1]**. _Reasoning: v1 schema is new and stable; auto-DDL fine; add when first breaking change is needed._
-- **Encryption at rest** (KeyProvider, AES-GCM/CBC/ChaCha20) **[v1.5]**. _Reasoning: KeyProvider scaffolding may exist sooner, but full data-at-rest encryption with key rotation is a real project; commercial buyers expect it but not on day 1._
-- **Multi-table transaction wrapper (`Tx`)** **[v1.2]**. _Reasoning: current per-method transactions cover the only multi-step op (CompleteBatchJob); add when consistency bugs surface._
+- **Schema versioning / golang-migrate** **[v1.x]**. _Reasoning: v1 schema is new and stable; auto-DDL fine; add when first breaking change is needed._
+- **Encryption at rest** (KeyProvider, AES-GCM/CBC/ChaCha20) **[v1.x]**. _Reasoning: KeyProvider scaffolding may exist sooner, but full data-at-rest encryption with key rotation is a real project; commercial buyers expect it but not on day 1._
+- **Multi-table transaction wrapper (`Tx`)** **[v1.x]**. _Reasoning: current per-method transactions cover the only multi-step op (CompleteBatchJob); add when consistency bugs surface._
 - **Backup/restore as Store API methods** **[v1.x]**. _Reasoning: external `kscore-backup` CLI is fine for v1; integration is convenience._
-- **Query backends — Loki/Prometheus/Jaeger integration** **[v1.4]** (lands with Telemetry Gateway). _Reasoning: in-memory stubs sufficient for unit testing v1._
-- **Cloud KMS for storage encryption keys** **[v2.0]**. _Reasoning: depends on cloud KMS work in secrets domain._
+- **Query backends — Loki/Prometheus/Jaeger integration** **[v1.x]** (lands with Telemetry Gateway). _Reasoning: in-memory stubs sufficient for unit testing v1._
+- **Cloud KMS for storage encryption keys** **[v2.x+]**. _Reasoning: depends on cloud KMS work in secrets domain._
 
 ---
 
@@ -144,8 +150,8 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 ### v1.x (deferred)
 
 - **gRPC reflection / channelz** **[v1.0.x]**. _Reasoning: ship with first dot release; trivial to add._
-- **Webhook receiver port (8081)** **[v1.1]**. _Reasoning: see Webhooks domain — outbound is v1.0, inbound non-GitOps webhooks v1.1._
-- **K8s operator wiring** **[v1.3]**. _Reasoning: gates on operator domain; not v1.0._
+- **Webhook receiver port (8081)** **[v1.x]**. _Reasoning: see Webhooks domain — outbound is v1.0, inbound non-GitOps webhooks v1.x._
+- **K8s operator wiring** **[v1.x]**. _Reasoning: gates on operator domain; not v1.0._
 - **Profiling endpoint defaults-on** **[never]**. _Reasoning: leave opt-in; security default._
 
 ---
@@ -172,15 +178,15 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.x (deferred)
 
-- **MaintenanceService** (maintenance windows API) **[v1.1]**. _Reasoning: scheduling domain — see v1.1._
-- **ScheduleService** (job scheduling API) **[v1.1]**. _Reasoning: same._
+- **MaintenanceService** (maintenance windows API) **[v1.x]**. _Reasoning: scheduling domain — see v1.x._
+- **ScheduleService** (job scheduling API) **[v1.x]**. _Reasoning: same._
 - **RunbookService gRPC** **[v1.0]** (REST wired in v1.0). _Reasoning: keep both for v1._
-- **WebhookService** (REST handler exists, not wired) **[v1.0 outbound]** + **[v1.1 inbound non-GitOps]**. _Reasoning: outbound is in v1.0; non-GitOps inbound subscriptions slide to v1.1._
+- **WebhookService** (REST handler exists, not wired) **[v1.0 outbound]** + **[v1.x inbound non-GitOps]**. _Reasoning: outbound is in v1.0; non-GitOps inbound subscriptions slide to v1.x._
 - **GitOps webhook REST handlers wiring** **[v1.0]**. _Reasoning: GitOps domain — included in v0.1._
-- **MirrorService / DiscoveryService** (proxy-related) **[v2.x]**. _Reasoning: see Specialized._
-- **Full RBAC (`pkg/api/rbac`)** **[v1.2]**. _Reasoning: simple admin/operator/readonly hierarchy ships v1.0; full RBAC is a separate epic._
-- **gRPC-gateway adoption** (auto-generated REST) **[v2.0]**. _Reasoning: hand-coded handlers work for v1; reduces churn during initial implementation._
-- **OpenAPI auto-generation from protos** **[v2.0]**. _Reasoning: hand-maintained YAML acceptable for v1._
+- **MirrorService / DiscoveryService** (proxy-related) **[v2.x+]**. _Reasoning: see Specialized._
+- **Full RBAC (`pkg/api/rbac`)** **[v1.x]**. _Reasoning: simple admin/operator/readonly hierarchy ships v1.0; full RBAC is a separate epic._
+- **gRPC-gateway adoption** (auto-generated REST) **[v2.x+]**. _Reasoning: hand-coded handlers work for v1; reduces churn during initial implementation._
+- **OpenAPI auto-generation from protos** **[v2.x+]**. _Reasoning: hand-maintained YAML acceptable for v1._
 
 ---
 
@@ -207,13 +213,13 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.x (deferred)
 
-- **Embedded NATS / hybrid mode (agent as host or leaf)** **[v2.0]**. Source: `internal/agent/nats_server.go`, hybrid_mode_state_machine. _Reasoning: edge / disconnected scenarios; v1 assumes control plane is reachable. Carries significant FSM complexity._
-- **Endpoint advertiser + reverse-leaf NAT traversal** **[v2.0]**. _Reasoning: same — niche._
-- **Windows agent** (native service) **[v1.1]**. _Reasoning: deferred per state-mgmt categorization; Windows stdlib lands together in v1.1._
-- **macOS agent** **[v1.2]**. _Reasoning: low trial-population; defer behind Windows._
+- **Embedded NATS / hybrid mode (agent as host or leaf)** **[v2.x+]**. Source: `internal/agent/nats_server.go`, hybrid_mode_state_machine. _Reasoning: edge / disconnected scenarios; v1 assumes control plane is reachable. Carries significant FSM complexity._
+- **Endpoint advertiser + reverse-leaf NAT traversal** **[v2.x+]**. _Reasoning: same — niche._
+- **Windows agent** (native service) **[v1.x]**. _Reasoning: deferred per state-mgmt categorization; Windows stdlib lands together in v1.x._
+- **macOS agent** **[v1.x]**. _Reasoning: low trial-population; defer behind Windows._
 - **Interactive shell sessions** **[v1.x]**. _Reasoning: nice-to-have, not core._
-- **VM-based bootstrap test harness** **[v1.2]**. _Reasoning: Docker CI sufficient for v1.0._
-- **Auto-rotation of NATS creds in memory** **[v1.3]**. _Reasoning: gates on SPIRE/identity rotation._
+- **VM-based bootstrap test harness** **[v1.x]**. _Reasoning: Docker CI sufficient for v1.0._
+- **Auto-rotation of NATS creds in memory** **[v1.x]**. _Reasoning: gates on SPIRE/identity rotation._
 
 ---
 
@@ -238,9 +244,9 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.x (deferred)
 
-- **Fact-based selectors** (`facts.memory > 16Gi`) **[v1.1]**. _Reasoning: requires stable agent fact schema first; expression engine already supports it once facts land in metadata._
-- **Percentage-based / rolling batches** (`--batch 10%`) **[v1.2]**. _Reasoning: nice-to-have; concurrency limit covers most use cases._
-- **Output archival to object storage (S3/GCS) cold-tier** **[v1.4]**. _Reasoning: cost optimization; v1 stores in DB._
+- **Fact-based selectors** (`facts.memory > 16Gi`) **[v1.x]**. _Reasoning: requires stable agent fact schema first; expression engine already supports it once facts land in metadata._
+- **Percentage-based / rolling batches** (`--batch 10%`) **[v1.x]**. _Reasoning: nice-to-have; concurrency limit covers most use cases._
+- **Output archival to object storage (S3/GCS) cold-tier** **[v1.x]**. _Reasoning: cost optimization; v1 stores in DB._
 - **Interactive shell over stream** **[v1.x]**. _Reasoning: see Agent Runtime._
 
 ---
@@ -260,7 +266,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Audit + event emission per state apply**. _Reasoning: compliance trail._
 - **History store** (SQLite-backed; query past runs). _Reasoning: rollback + audit._
 - **State runner pipeline** (parse → validate → resolve → check → apply → test → report). _Reasoning: deterministic, debuggable engine._
-- **Saga / checkpoint integration** (Epic 58 — minimal v1; advanced v1.5). _Reasoning: long-running multi-step state needs ordered compensation._
+- **Saga / checkpoint integration** (Epic 58 — minimal v1; advanced v1.x). _Reasoning: long-running multi-step state needs ordered compensation._
 
 ### v1.0 (in scope — base stdlib, ~40 modules)
 
@@ -276,20 +282,20 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadmin trial users can replace Salt formulas / Ansible playbooks for their core workflow._
 
-### v1.1 (deferred — Linux extended + Windows + containers + DBs)
+### v1.x (deferred — Linux extended + Windows + containers + DBs)
 
-- **Windows-native modules**: `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`. _Reasoning: ships with Windows agent in v1.1._
+- **Windows-native modules**: `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`. _Reasoning: ships with Windows agent in v1.x._
 - **Container modules**: `docker_container`, `docker_image`, `docker_network`, `docker_volume`. _Reasoning: ops feature; not blocking sysadmin trial._
 - **Web servers**: `web` (nginx/Apache abstraction). _Reasoning: same._
 - **Database admin**: `postgres_database`, `mysql_database`, `redis`. _Reasoning: same._
-- **macOS-specific scheduling**: `launchd`. _Reasoning: macOS agent is v1.2._
+- **macOS-specific scheduling**: `launchd`. _Reasoning: macOS agent is v1.x._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Kubernetes modules** (`k8s_deployment`, `k8s_statefulset`, `k8s_daemonset`, `k8s_job`, `k8s_cronjob`, `k8s_service`, `k8s_ingress`, `k8s_configmap`, `k8s_secret`, `k8s_namespace`, `k8s_pvc`, `k8s_hpa`). **[v2.0]**. _Reasoning: cloud-native; depends on K8s operator (v1.3) maturing first._
-- **DNS provider modules** (Route53, CloudFlare, Hetzner, etc.). **[v2.0]**. _Reasoning: see DNS provider domain._
-- **Niche networking** (`promisc`, `wifi`, `dot1x`, `scheduled_task` Windows). **[v2.0]**. _Reasoning: niche._
-- **Vendor-specific modules** (Cisco IOS, Juniper, etc.). **[v2.x]**. _Reasoning: proxy-agent territory._
+- **Kubernetes modules** (`k8s_deployment`, `k8s_statefulset`, `k8s_daemonset`, `k8s_job`, `k8s_cronjob`, `k8s_service`, `k8s_ingress`, `k8s_configmap`, `k8s_secret`, `k8s_namespace`, `k8s_pvc`, `k8s_hpa`). **[v2.x+]**. _Reasoning: cloud-native; depends on K8s operator (v1.x) maturing first._
+- **DNS provider modules** (Route53, CloudFlare, Hetzner, etc.). **[v2.x+]**. _Reasoning: see DNS provider domain._
+- **Niche networking** (`promisc`, `wifi`, `dot1x`, `scheduled_task` Windows). **[v2.x+]**. _Reasoning: niche._
+- **Vendor-specific modules** (Cisco IOS, Juniper, etc.). **[v2.x+]**. _Reasoning: proxy-agent territory._
 
 ---
 
@@ -310,20 +316,20 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Correlation IDs** (group related events; passed through gRPC contexts). _Reasoning: tracing across multi-step ops._
 - **Severity levels** (debug/info/warn/error/critical). _Reasoning: filtering + alerting._
 
-### v1.1 (deferred — automation layer)
+### v1.x (deferred — automation layer)
 
-- **Reactor engine** (filter → action; LogAction/EventAction/WebhookAction; throttle/debounce). **[v1.1]**. _Reasoning: valuable but overlaps with runbooks/policy; hold one release for clean separation of concerns._
-- **Lifecycle tracking** (created → published → routed → processing → processed/failed/expired). **[v1.1]**. _Reasoning: debugging tool; ships with reactors._
-- **Enrichment pipeline** (tag/data/conditional enrichers). **[v1.1]**. _Reasoning: paired with reactors._
-- **Dead-letter queue** (failed reactor exec retry). **[v1.1]**. _Reasoning: paired with reactors._
+- **Reactor engine** (filter → action; LogAction/EventAction/WebhookAction; throttle/debounce). **[v1.x]**. _Reasoning: valuable but overlaps with runbooks/policy; hold one release for clean separation of concerns._
+- **Lifecycle tracking** (created → published → routed → processing → processed/failed/expired). **[v1.x]**. _Reasoning: debugging tool; ships with reactors._
+- **Enrichment pipeline** (tag/data/conditional enrichers). **[v1.x]**. _Reasoning: paired with reactors._
+- **Dead-letter queue** (failed reactor exec retry). **[v1.x]**. _Reasoning: paired with reactors._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Kafka integration** (sarama producer; CloudEvents serialization). **[v2.0]**. _Reasoning: enterprise integration; not blocking._
-- **CloudEvents 1.0 marshaling**. **[v2.0]**. _Reasoning: standard adoption._
-- **Inbound webhook receiver for events** (HMAC, signature). **[v1.1]**. _Reasoning: minor scope._
-- **Object-storage archival (S3/GCS)**. **[v2.0]**. _Reasoning: cost optimization._
-- **Multi-region replication**. **[v3+]**. _Reasoning: post-supercluster._
+- **Kafka integration** (sarama producer; CloudEvents serialization). **[v2.x+]**. _Reasoning: enterprise integration; not blocking._
+- **CloudEvents 1.0 marshaling**. **[v2.x+]**. _Reasoning: standard adoption._
+- **Inbound webhook receiver for events** (HMAC, signature). **[v1.x]**. _Reasoning: minor scope._
+- **Object-storage archival (S3/GCS)**. **[v2.x+]**. _Reasoning: cost optimization._
+- **Multi-region replication**. **[v3.x+]**. _Reasoning: post-supercluster._
 
 ---
 
@@ -335,11 +341,11 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **API key rotation + revocation**. _Reasoning: real auth lifecycle._
 - **mTLS** (X.509 v3 with SPIFFE URI SANs, TLS 1.3 default min). Source: `internal/security/`, `pkg/api/auth/`. _Reasoning: server-to-server + agent identity._
 - **Embedded CA** (root CA 10y default + signing CA 1y, auto-rotate at 30d before expiry). Source: `internal/identity/ca.go`, `internal/pki/`. _Reasoning: zero-config UX; defers SPIRE complexity._
-- **SPIFFE-shaped identities from day 1** (trust domain default `kscore.local`; agent/server/service paths). Source: `internal/identity/`. _Reasoning: cheap to do at start; expensive to retrofit. v1.3 SPIRE swap-in is then near-trivial._
+- **SPIFFE-shaped identities from day 1** (trust domain default `kscore.local`; agent/server/service paths). Source: `internal/identity/`. _Reasoning: cheap to do at start; expensive to retrofit. v1.x SPIRE swap-in is then near-trivial._
 - **Embedded identity provider** (CA + SVID issuer + attestation engine + token store). _Reasoning: trial-day-1 zero-deps._
 - **JWT** (HS/RS/ES family; configurable role claim). _Reasoning: integration with external IdPs._
 - **Cluster join tokens** (SHA-256 stored, TTL default 5m, max-uses, leader-issued). Source: `internal/identity/`, Epic 44, `cmd/kscore-identity/token`. _Reasoning: secure cluster bootstrap._
-- **RBAC** (admin/operator/readonly hierarchy; method→role map; bypass list). Source: `pkg/api/rbac/`. _Reasoning: minimum viable RBAC; full role/permission CRUD ships v1.2._
+- **RBAC** (admin/operator/readonly hierarchy; method→role map; bypass list). Source: `pkg/api/rbac/`. _Reasoning: minimum viable RBAC; full role/permission CRUD ships v1.x._
 - **Auth interceptor chain** (gRPC unary + stream; rate-limit on failure with exp backoff; audit logging). _Reasoning: enforcement entry point._
 - **`kscore-identity` CLI** (token CRUD, CA info/rotate/export, status). Source: `cmd/kscore-identity/`. _Reasoning: ops admin needs visibility._
 - **Cert auto-rotation at ~50% lifetime** (agent-driven). _Reasoning: zero-touch cert lifecycle._
@@ -347,15 +353,15 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.x (deferred)
 
-- **Full RBAC role/permission CRUD with per-resource permissions** **[v1.2]**. _Reasoning: trio (admin/operator/readonly) covers ~80% of trials; full RBAC is a real epic._
-- **Trust federation** (bundle endpoint for cross-domain trust) **[v1.1]**. _Reasoning: multi-site adoption follows trial._
-- **SPIRE integration** (external SPIRE server, agent-socket attestation, K8s SAT/AWS IID/etc.) **[v1.3]**. _Reasoning: SPIRE adds 3+ ops setup steps; trial users use embedded provider._
+- **Full RBAC role/permission CRUD with per-resource permissions** **[v1.x]**. _Reasoning: trio (admin/operator/readonly) covers ~80% of trials; full RBAC is a real epic._
+- **Trust federation** (bundle endpoint for cross-domain trust) **[v1.x]**. _Reasoning: multi-site adoption follows trial._
+- **SPIRE integration** (external SPIRE server, agent-socket attestation, K8s SAT/AWS IID/etc.) **[v1.x]**. _Reasoning: SPIRE adds 3+ ops setup steps; trial users use embedded provider._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Cloud workload identity** (AWS IAM/IRSA, GCP WI, Azure MI). **[v2.0]**. _Reasoning: multi-cloud follows mature single-domain._
-- **Service mesh integration** (Istio, Linkerd, Consul Connect identity extraction). **[v2.x]**. _Reasoning: adds CNI/injector deps; post-trial._
-- **Multi-party CA / certificate issuance** **[v2.x]**. _Reasoning: governance overhead; single-signer is fine for v1._
+- **Cloud workload identity** (AWS IAM/IRSA, GCP WI, Azure MI). **[v2.x+]**. _Reasoning: multi-cloud follows mature single-domain._
+- **Service mesh integration** (Istio, Linkerd, Consul Connect identity extraction). **[v2.x+]**. _Reasoning: adds CNI/injector deps; post-trial._
+- **Multi-party CA / certificate issuance** **[v2.x+]**. _Reasoning: governance overhead; single-signer is fine for v1._
 
 ---
 
@@ -376,18 +382,18 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.x (deferred)
 
-- **Rotation orchestration with strategies** (blue-green / rolling / canary / immediate; health checks; auto-rollback) **[v1.4]**. Source: `internal/secrets/rotation.go`. _Reasoning: powerful but complex; ship after v1.0 stabilizes; depends on healthy verification framework (GitOps domain v1.2 features)._
-- **Cron-based rotation scheduling + Slack/PagerDuty notifications** **[v1.4]**. _Reasoning: ships with rotation orchestrator._
-- **Compliance reports + anomaly detection** **[v1.4]**. _Reasoning: paired with rotation; same release._
+- **Rotation orchestration with strategies** (blue-green / rolling / canary / immediate; health checks; auto-rollback) **[v1.x]**. Source: `internal/secrets/rotation.go`. _Reasoning: powerful but complex; ship after v1.0 stabilizes; depends on healthy verification framework (GitOps domain v1.x features)._
+- **Cron-based rotation scheduling + Slack/PagerDuty notifications** **[v1.x]**. _Reasoning: ships with rotation orchestrator._
+- **Compliance reports + anomaly detection** **[v1.x]**. _Reasoning: paired with rotation; same release._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **AWS Secrets Manager backend** **[v2.0]**. _Reasoning: cloud-vendor backend; ships with cloud KMS work._
-- **Azure Key Vault backend** **[v2.0]**. _Reasoning: same._
-- **GCP Secret Manager backend** **[v2.0]**. _Reasoning: same._
-- **Cloud KMS for master keys** (AWS KMS / Azure HSM / GCP KMS, envelope encryption) **[v2.0]**. _Reasoning: depends on cloud SDKs; v1 master keys are file-based or Vault-transit-derived._
-- **Hardware HSM support** (PKCS#11, Thales Luna, AWS CloudHSM) **[v2.x]**. _Reasoning: enterprise compliance; niche._
-- **L2 KMS-backed cache** **[v2.0]**. _Reasoning: ships with cloud KMS._
+- **AWS Secrets Manager backend** **[v2.x+]**. _Reasoning: cloud-vendor backend; ships with cloud KMS work._
+- **Azure Key Vault backend** **[v2.x+]**. _Reasoning: same._
+- **GCP Secret Manager backend** **[v2.x+]**. _Reasoning: same._
+- **Cloud KMS for master keys** (AWS KMS / Azure HSM / GCP KMS, envelope encryption) **[v2.x+]**. _Reasoning: depends on cloud SDKs; v1 master keys are file-based or Vault-transit-derived._
+- **Hardware HSM support** (PKCS#11, Thales Luna, AWS CloudHSM) **[v2.x+]**. _Reasoning: enterprise compliance; niche._
+- **L2 KMS-backed cache** **[v2.x+]**. _Reasoning: ships with cloud KMS._
 
 ---
 
@@ -400,7 +406,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Audit query API** (`AuditFilter` — actor, resource, time range, severity; pagination). _Reasoning: ops investigation UX._
 - **Audit export** (JSON / JSONL / CSV). _Reasoning: hand-off to SIEM tools._
 - **`kscore-audit` CLI** (`log`, `report`, `export`, `stats`, `search`, `analyze`, `timeline`, `watch`). _Reasoning: ops surface._
-- **Policy engine infrastructure** (Engine + Registry + 3 evaluators: OPA, CEL, Builtin). Source: `internal/policy/`. _Reasoning: shipping the engine in audit-mode is cheap; v1.8 just flips the enforce flag._
+- **Policy engine infrastructure** (Engine + Registry + 3 evaluators: OPA, CEL, Builtin). Source: `internal/policy/`. _Reasoning: shipping the engine in audit-mode is cheap; v1.x just flips the enforce flag._
 - **OPA Rego evaluator** (`open-policy-agent/opa` v1.16.2, embedded `v1/rego`; Rego v1 syntax; fixed `package keystone.policy`; `http.send`/`net.*`/`opa.runtime` builtins denied; compiled-query cache). _Reasoning: standard policy language for compliance shops; restricted builtins keep operator-supplied policies pure decision logic._
 - **CEL evaluator** (`google/cel-go`; `input`/`resource`/`action`/`user`/`context` variables). _Reasoning: lighter-weight inline policies._
 - **Builtin policies** (require-labels, require-owner, allowed-environments, allowed-actions, deny-privileged, time-window, no-root-execution, etc.). _Reasoning: ship with sensible defaults._
@@ -413,20 +419,20 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **`PolicyService` gRPC** (Evaluate, EvaluatePolicySet, ListViolations, GetComplianceReport, GetAuditLog). _Reasoning: full RPC surface; CRUD methods present but server returns Unimplemented._
 - **`kscore-policy` CLI v1.0 subset** (`list`, `validate`, `check`, `show`, `eval`, `test`, `compliance`, `violations`). _Reasoning: ops trial UX._
 
-### v1.8 (deferred — full enforcement)
+### v1.x (deferred — full enforcement)
 
-- **Enforcement modes: Enforce + Warn (active blocking)** **[v1.8 per user direction]**. _Reasoning: misconfigured policy can break a fleet — needs proven audit-mode track record + simulation tooling first._
-- **Enforcement actions** (Block, Warn, Audit, Remediate). **[v1.8]**. _Reasoning: blocking semantics belong with approval workflow infra._
-- **Pre/post-execution hooks** (state apply + command dispatch interception). **[v1.8]**. _Reasoning: depends on enforcement._
-- **Approval workflows for policy violations**. **[v1.8]**. _Reasoning: human-in-the-loop._
-- **`kscore-policy create|update|delete|activate|deactivate|remediate|monitor`**. **[v1.8]**. _Reasoning: full CRUD ships with enforcement._
-- **Policy persistence** (etcd or Postgres; dynamic reload). **[v1.8]**. _Reasoning: in-memory registry is fine for v1.0 audit-only._
+- **Enforcement modes: Enforce + Warn (active blocking)** **[v1.x per user direction]**. _Reasoning: misconfigured policy can break a fleet — needs proven audit-mode track record + simulation tooling first._
+- **Enforcement actions** (Block, Warn, Audit, Remediate). **[v1.x]**. _Reasoning: blocking semantics belong with approval workflow infra._
+- **Pre/post-execution hooks** (state apply + command dispatch interception). **[v1.x]**. _Reasoning: depends on enforcement._
+- **Approval workflows for policy violations**. **[v1.x]**. _Reasoning: human-in-the-loop._
+- **`kscore-policy create|update|delete|activate|deactivate|remediate|monitor`**. **[v1.x]**. _Reasoning: full CRUD ships with enforcement._
+- **Policy persistence** (etcd or Postgres; dynamic reload). **[v1.x]**. _Reasoning: in-memory registry is fine for v1.0 audit-only._
 
 ### v1.x other
 
-- **Continuous compliance scan scheduler** **[v1.5]**. _Reasoning: cron-based eval; depends on schedule infrastructure._
-- **CEL custom function library** **[v1.5]**. _Reasoning: power-user feature._
-- **Anomaly detection (audit log analysis)** **[v1.4]**. _Reasoning: ships with rotation/security work._
+- **Continuous compliance scan scheduler** **[v1.x]**. _Reasoning: cron-based eval; depends on schedule infrastructure._
+- **CEL custom function library** **[v1.x]**. _Reasoning: power-user feature._
+- **Anomaly detection (audit log analysis)** **[v1.x]**. _Reasoning: ships with rotation/security work._
 
 ---
 
@@ -440,7 +446,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **GitHub webhook handler** (deployment, deployment_status, workflow_run, push). _Reasoning: trial users use GitHub._
 - **GitLab webhook handler** (push, deployment, pipeline). _Reasoning: GitLab is common in EU._
 - **Webhook authentication** (HMAC-SHA256, Bearer token). _Reasoning: secure-by-default._
-- **Event normalization** (provider events → unified `webhook.Event` → emit on Keystone event bus as `gitops.{argocd|flux|github|gitlab}.*`). _Reasoning: consumed by reactors (v1.1) and audit._
+- **Event normalization** (provider events → unified `webhook.Event` → emit on Keystone event bus as `gitops.{argocd|flux|github|gitlab}.*`). _Reasoning: consumed by reactors (v1.x) and audit._
 - **Verification engine** (HTTP, gRPC, command verifiers; sequential or parallel; retries + timeout per step). Source: `internal/gitops/verification/`. _Reasoning: deployment verification is the Keystone runtime-control-plane value prop._
 - **Verification workflow execution** (`Verifier` interface + plugin registration). _Reasoning: extension point._
 - **Manual rollback API + CLI** (REST `/api/v1/gitops/rollback`, `kscore-gitops rollback`). _Reasoning: must-have for "verify then rollback" trial story._
@@ -449,22 +455,22 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Verification result storage + REST list/get** (`/api/v1/gitops/verifications`). _Reasoning: history + audit._
 - **`kscore-gitops` CLI** (`verify`, `rollback`). _Reasoning: trial UX._
 
-### v1.1 (deferred — automation)
+### v1.x (deferred — automation)
 
-- **Multi-env promotion pipelines** (sequential dev → staging → prod with approvals). **[v1.1]**. _Reasoning: powerful; needs design time. Foundational rollback works in v0.1._
-- **Promotion state machine + REST API**. **[v1.1]**. _Reasoning: same._
-- **Basic remediation strategies** (rollback action). **[v1.1]**. _Reasoning: paired with promotion._
+- **Multi-env promotion pipelines** (sequential dev → staging → prod with approvals). **[v1.x]**. _Reasoning: powerful; needs design time. Foundational rollback works in v0.1._
+- **Promotion state machine + REST API**. **[v1.x]**. _Reasoning: same._
+- **Basic remediation strategies** (rollback action). **[v1.x]**. _Reasoning: paired with promotion._
 
-### v1.2+ (deferred — progressive delivery)
+### v1.x (deferred — progressive delivery)
 
-- **Canary deployments** (weight-based progression: 5/25/50/100, dwell time, threshold eval). **[v1.2]**. _Reasoning: depends on observability metrics + healthy verification framework._
-- **Threshold evaluation per canary step**. **[v1.2]**. _Reasoning: same._
-- **Advanced remediation** (scale-down, traffic shift, custom workflows). **[v1.3]**. _Reasoning: cluster integration heavy._
-- **Diagnostic collection on remediation**. **[v1.3]**. _Reasoning: same._
-- **Git sync orchestration + multi-repo coordination** **[v1.4]**. _Reasoning: separate from webhook ingest; specialized._
-- **Helm/Kustomize-native integration** **[v1.5]**. _Reasoning: extension._
-- **Deployment dependency graph** **[v1.5]**. _Reasoning: complex to design correctly._
-- **Webhook timestamp validation + nonce dedup** **[v1.1]**. _Reasoning: defense-in-depth; current HMAC-only is acceptable for v1.0._
+- **Canary deployments** (weight-based progression: 5/25/50/100, dwell time, threshold eval). **[v1.x]**. _Reasoning: depends on observability metrics + healthy verification framework._
+- **Threshold evaluation per canary step**. **[v1.x]**. _Reasoning: same._
+- **Advanced remediation** (scale-down, traffic shift, custom workflows). **[v1.x]**. _Reasoning: cluster integration heavy._
+- **Diagnostic collection on remediation**. **[v1.x]**. _Reasoning: same._
+- **Git sync orchestration + multi-repo coordination** **[v1.x]**. _Reasoning: separate from webhook ingest; specialized._
+- **Helm/Kustomize-native integration** **[v1.x]**. _Reasoning: extension._
+- **Deployment dependency graph** **[v1.x]**. _Reasoning: complex to design correctly._
+- **Webhook timestamp validation + nonce dedup** **[v1.x]**. _Reasoning: defense-in-depth; current HMAC-only is acceptable for v1.0._
 
 ---
 
@@ -486,11 +492,11 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **NATS event-bus consumer** (`>` subject; pattern-matches; async fan-out per subscription). _Reasoning: integration with Domain 9._
 - **Manager-driven async delivery** (WaitGroup, bounded goroutines for back-pressure). _Reasoning: scales._
 
-### v1.1 (deferred)
+### v1.x (deferred)
 
-- **Inbound webhooks for non-GitOps event sources** (custom payload ingestion + event emission). **[v1.1]**. _Reasoning: complementary to outbound; not blocking trial._
-- **Webhook body templating** (Handlebars/Jinja2-style). **[v1.1]**. _Reasoning: nice-to-have; hardcoded JSON serialization works for v1._
-- **Per-destination rate limiting**. **[v1.1]**. _Reasoning: most receivers handle bursts; explicit RL is power-user feature._
+- **Inbound webhooks for non-GitOps event sources** (custom payload ingestion + event emission). **[v1.x]**. _Reasoning: complementary to outbound; not blocking trial._
+- **Webhook body templating** (Handlebars/Jinja2-style). **[v1.x]**. _Reasoning: nice-to-have; hardcoded JSON serialization works for v1._
+- **Per-destination rate limiting**. **[v1.x]**. _Reasoning: most receivers handle bursts; explicit RL is power-user feature._
 - **Auto-cleanup of old delivery history** (currently manual). **[v1.0.x]**. _Reasoning: trivial; ship with first dot release._
 
 ---
@@ -525,16 +531,16 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.x (deferred)
 
-- **Backup automation/scheduling** **[v1.1]**. _Reasoning: manual backup works; scheduling adds infra._
-- **Comprehensive HA dashboard** **[v1.2]**. _Reasoning: basic status sufficient; rich dashboard is observability work._
-- **Read-only replicas** **[v1.4]**. _Reasoning: niche._
-- **Auto-scaling** (auto-add/remove members based on metrics) **[v1.5]**. _Reasoning: complex._
+- **Backup automation/scheduling** **[v1.x]**. _Reasoning: manual backup works; scheduling adds infra._
+- **Comprehensive HA dashboard** **[v1.x]**. _Reasoning: basic status sufficient; rich dashboard is observability work._
+- **Read-only replicas** **[v1.x]**. _Reasoning: niche._
+- **Auto-scaling** (auto-add/remove members based on metrics) **[v1.x]**. _Reasoning: complex._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Multi-region clustering / federation** (cross-DC, gateway routing) **[v2.0]**. _Reasoning: ships with NATS supercluster._
-- **Dynamic shard splitting under load** **[v2.x]**. _Reasoning: speculative._
-- **Advanced topology (gateway / proxy members)** **[v2.x]**. _Reasoning: same._
+- **Multi-region clustering / federation** (cross-DC, gateway routing) **[v2.x+]**. _Reasoning: ships with NATS supercluster._
+- **Dynamic shard splitting under load** **[v2.x+]**. _Reasoning: speculative._
+- **Advanced topology (gateway / proxy members)** **[v2.x+]**. _Reasoning: same._
 
 ---
 
@@ -551,26 +557,26 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **pprof profiling endpoints** (CPU, memory, goroutine, mutex; opt-in via config). Source: `internal/profiling/`. _Reasoning: standard Go ops tool._
 - **Correlation ID propagation** (gRPC metadata, NATS headers, log entries, span attributes). _Reasoning: traceable cross-service flows._
 
-### v1.2 (deferred — TUI + NATS telemetry transport)
+### v1.x (deferred — TUI + NATS telemetry transport)
 
-- **`kscore-monitor` TUI** (Bubble Tea; 8 base views: dashboard, agents, events, state, policy, jobs, logs, metrics). **[v1.2]**. _Reasoning: powerful ops UX but not blocking trial; needs gRPC-multiplex client + NATS subscriber. v1.0 ships READable web dashboards (Grafana) + CLI._
-- **TUI extras** (cluster, secrets/leases, schedules, runbooks, webhooks views — 13 total) **[v1.2]**.
-- **Drill-downs, vim navigation, alert bar, connection health indicators, themes, search filters** **[v1.2]**.
-- **NATS telemetry transport** (logs/metrics/traces over NATS subjects so isolated agents don't need outbound HTTP). **[v1.4]**. _Reasoning: paired with telemetry gateway._
-- **CLI audit logging to syslog/journald** **[v1.2]**. _Reasoning: ships with TUI work; audit infra in v0.1 already._
+- **`kscore-monitor` TUI** (Bubble Tea; 8 base views: dashboard, agents, events, state, policy, jobs, logs, metrics). **[v1.x]**. _Reasoning: powerful ops UX but not blocking trial; needs gRPC-multiplex client + NATS subscriber. v1.0 ships READable web dashboards (Grafana) + CLI._
+- **TUI extras** (cluster, secrets/leases, schedules, runbooks, webhooks views — 13 total) **[v1.x]**.
+- **Drill-downs, vim navigation, alert bar, connection health indicators, themes, search filters** **[v1.x]**.
+- **NATS telemetry transport** (logs/metrics/traces over NATS subjects so isolated agents don't need outbound HTTP). **[v1.x]**. _Reasoning: paired with telemetry gateway._
+- **CLI audit logging to syslog/journald** **[v1.x]**. _Reasoning: ships with TUI work; audit infra in v0.1 already._
 
-### v1.4 (deferred — telemetry gateway)
+### v1.x (deferred — telemetry gateway)
 
-- **`kscore-telemetry-gateway` standalone service** (subscribes to NATS telemetry subjects; aggregates; exposes Prom scrape, Loki push, OTLP traces). Source: `internal/gateway/`, `cmd/kscore-telemetry-gateway/`. **[v1.4]**. _Reasoning: enables agents-behind-NAT topology; not needed for v1.0 connected trial._
-- **HA gateway** (queue groups + leader election) **[v1.4]**.
-- **Helm chart for gateway** **[v1.4]**.
+- **`kscore-telemetry-gateway` standalone service** (subscribes to NATS telemetry subjects; aggregates; exposes Prom scrape, Loki push, OTLP traces). Source: `internal/gateway/`, `cmd/kscore-telemetry-gateway/`. **[v1.x]**. _Reasoning: enables agents-behind-NAT topology; not needed for v1.0 connected trial._
+- **HA gateway** (queue groups + leader election) **[v1.x]**.
+- **Helm chart for gateway** **[v1.x]**.
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Adaptive sampling tied to error metrics** **[v2.0]**. _Reasoning: refinement._
-- **pprof visualization UI** **[v2.x]**. _Reasoning: niche._
-- **SIEM export (CEF/LEEF)** **[v2.0]**. _Reasoning: enterprise integration._
-- **Real-time alerting from TUI** **[v2.x]**. _Reasoning: niche._
+- **Adaptive sampling tied to error metrics** **[v2.x+]**. _Reasoning: refinement._
+- **pprof visualization UI** **[v2.x+]**. _Reasoning: niche._
+- **SIEM export (CEF/LEEF)** **[v2.x+]**. _Reasoning: enterprise integration._
+- **Real-time alerting from TUI** **[v2.x+]**. _Reasoning: niche._
 
 ---
 
@@ -593,26 +599,26 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **StateMachine library** (`pkg/statemachine`: generic FSM with guards, callbacks, history, optional checkpoint). _Reasoning: used by runbook/promotion/rollback engines._
 - **Runbook + blueprint storage** (SQLite). _Reasoning: persistence + history._
 
-### v1.1 (deferred — scheduling)
+### v1.x (deferred — scheduling)
 
-- **`kscore-schedule` CLI + ScheduleService** (cron + interval; time windows; agent/role/tag targeting; retry policy). **[v1.1]**. _Reasoning: high-value but separate concern; ships with Maintenance Service._
-- **Maintenance windows + change-window awareness** **[v1.1]**.
-- **Schedule + maintenance gRPC + REST APIs** **[v1.1]**.
+- **`kscore-schedule` CLI + ScheduleService** (cron + interval; time windows; agent/role/tag targeting; retry policy). **[v1.x]**. _Reasoning: high-value but separate concern; ships with Maintenance Service._
+- **Maintenance windows + change-window awareness** **[v1.x]**.
+- **Schedule + maintenance gRPC + REST APIs** **[v1.x]**.
 
-### v1.2-v1.3 (deferred — runbook power features)
+### v1.x (deferred — runbook power features)
 
-- **Runbook conditional steps** (`if`, `switch`, `loop`, `parallel`, `sub-runbook`). **[v1.2]**. _Reasoning: real workflow power; deferred so the v1.0 step engine ships solid._
-- **Per-step approvals + delegations** (with timeout, Slack/email/PagerDuty notifications). **[v1.3]**. _Reasoning: ITSM integration weight._
-- **Manual interventions** (`prompt`, `wait-manual`, `confirm` step types). **[v1.3]**. _Reasoning: paired with approvals._
-- **Runbook dry-run mode** **[v1.2]**. _Reasoning: ships with conditionals._
-- **Rollback step type with auto-compensation** **[v1.3]**. _Reasoning: deepens saga integration._
+- **Runbook conditional steps** (`if`, `switch`, `loop`, `parallel`, `sub-runbook`). **[v1.x]**. _Reasoning: real workflow power; deferred so the v1.0 step engine ships solid._
+- **Per-step approvals + delegations** (with timeout, Slack/email/PagerDuty notifications). **[v1.x]**. _Reasoning: ITSM integration weight._
+- **Manual interventions** (`prompt`, `wait-manual`, `confirm` step types). **[v1.x]**. _Reasoning: paired with approvals._
+- **Runbook dry-run mode** **[v1.x]**. _Reasoning: ships with conditionals._
+- **Rollback step type with auto-compensation** **[v1.x]**. _Reasoning: deepens saga integration._
 
-### v1.4 (deferred — full catalog + saga advanced)
+### v1.x (deferred — full catalog + saga advanced)
 
-- **Standard catalog expansion** (full 14: + `enterprise-platform`, `kubernetes-operator`, `identity-federation`, `gitops-integration`, `proxy-agents`, `file-distribution`, `edge-deployment`, `metrics-only`). **[v1.4]**. _Reasoning: rich catalog drives adoption._
-- **Saga checkpoint resume** (`pkg/saga/log_sqlite` advanced; resume from interruption). **[v1.4]**. _Reasoning: production resilience._
-- **Blueprint signature + signed bundles** (`kscore-blueprint sign|verify|publish`). **[v1.5]**. _Reasoning: supply chain hardening._
-- **Blueprint mirror for air-gap** **[v1.5]**.
+- **Standard catalog expansion** (full 14: + `enterprise-platform`, `kubernetes-operator`, `identity-federation`, `gitops-integration`, `proxy-agents`, `file-distribution`, `edge-deployment`, `metrics-only`). **[v1.x]**. _Reasoning: rich catalog drives adoption._
+- **Saga checkpoint resume** (`pkg/saga/log_sqlite` advanced; resume from interruption). **[v1.x]**. _Reasoning: production resilience._
+- **Blueprint signature + signed bundles** (`kscore-blueprint sign|verify|publish`). **[v1.x]**. _Reasoning: supply chain hardening._
+- **Blueprint mirror for air-gap** **[v1.x]**.
 
 ---
 
@@ -623,42 +629,42 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 > **Decision**: Per user direction, plugin/module system ships in v1.0. To make that achievable, v1.0 is **Starlark-only** with **filesystem-backed registry** and **Cosign-only verification** (no SumDB transparency log, no WASM, no cloud-backed registry yet). This delivers Salt-like extensibility on day 1 without doubling v0.1 scope.
 
 - **Starlark runtime** (Python-like sandboxed scripting via `go.starlark.net`; deterministic mode with random/time disabled by default). Source: `pkg/module/runtime/starlark/`. _Reasoning: pure Go, simpler than WASM, sufficient for trial extensibility._
-- **Module manifest format** (`module.yaml`: name namespaced `vendor/pkg`, version semver, type, entrypoint, capabilities, limits, dependencies). Source: `pkg/module/manifest/`. _Reasoning: schema is shared with v1.1 WASM modules._
-- **Capability-based security (7 core capabilities)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. _Reasoning: covers ~90% of use cases. Per-syscall granularity is v1.2._
+- **Module manifest format** (`module.yaml`: name namespaced `vendor/pkg`, version semver, type, entrypoint, capabilities, limits, dependencies). Source: `pkg/module/manifest/`. _Reasoning: schema is shared with v1.x WASM modules._
+- **Capability-based security (7 core capabilities)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. _Reasoning: covers ~90% of use cases. Per-syscall granularity is v1.x._
 - **Capability scoping** (path globs, domain allowlists, command allowlists, secret-path scoping, rate limits, timeouts). _Reasoning: not just on/off — actually safe defaults._
 - **Cosign signature verification** (RSA, ECDSA, Ed25519; KeyID-based key management). Source: `pkg/module/verify/`. _Reasoning: cryptographic supply chain baseline._
 - **SHA-256 content addressing** (CAS storage in `~/.kscore/modules/<hash>/`). _Reasoning: dedup + integrity._
 - **Module resolver** (semver constraints; DAG with cycle detection; minimum-version-selection conflict resolution). Source: `pkg/module/resolver/`. _Reasoning: reproducible builds._
 - **Module lockfile** (`module.lock`: pinned versions + hashes; reproducible across team). _Reasoning: avoid "works on my machine"._
-- **Filesystem-backed registry** (Go-mod-style HTTP endpoints: `/@v/list`, `/@v/{ver}.info`, `/@v/{ver}.mod`, `/@v/{ver}.zip`). Source: `pkg/module/registry/`, `cmd/kscore-registry/`. _Reasoning: simple, proven pattern (matches Go modules); cloud backends slip to v1.1._
+- **Filesystem-backed registry** (Go-mod-style HTTP endpoints: `/@v/list`, `/@v/{ver}.info`, `/@v/{ver}.mod`, `/@v/{ver}.zip`). Source: `pkg/module/registry/`, `cmd/kscore-registry/`. _Reasoning: simple, proven pattern (matches Go modules); cloud backends slip to v1.x._
 - **Module loader pipeline** (parse manifest → verify → policy check → capability validation → runtime init → register granted capabilities). Source: `pkg/module/loader/`. _Reasoning: clear lifecycle._
 - **Module audit logging** (every capability invocation: module, version, capability, op, success/failure, duration). Source: `pkg/module/audit/`. _Reasoning: compliance._
 - **Plugin discovery** (`kscore-*` binaries in `$PATH`; git-style dispatch via `kscorectl`). Source: `pkg/plugin/`. _Reasoning: extension model from day 1._
 - **Starlark SDK** (host capability bindings; Go shims). Source: `modules/sdk/starlark/`. _Reasoning: enables module authors._
 - **`kscore-module` CLI** (`init`, `build`, `validate`, `resolve`, `verify`, `sign`, `test`, `publish`, `install`, `update`, `clean`, `tree`). _Reasoning: full author UX._
 - **Module test framework** (Starlark unit-test harness). _Reasoning: authors need test/run loop._
-- **Module policy hooks** (audit-mode in v1.0; OPA/CEL evaluation gated on `module load`). _Reasoning: enforces capability policy at load time even though policy enforcement is v1.8._
+- **Module policy hooks** (audit-mode in v1.0; OPA/CEL evaluation gated on `module load`). _Reasoning: enforces capability policy at load time even though policy enforcement is v1.x._
 
-### v1.1 (deferred — WASM + cloud backends)
+### v1.x (deferred — WASM + cloud backends)
 
-- **WASM runtime** (wazero; WASI; instruction metering; memory bounds). **[v1.1]**. _Reasoning: enables Rust/Go/C++ modules; pure Go runtime so no CGO regression._
-- **Rust SDK** (Cargo crate with WASI bindings). **[v1.1]**. _Reasoning: top-tier perf-language for module authors._
-- **Go (TinyGo) SDK** **[v1.1]**. _Reasoning: same._
-- **OCI registry backend** (Harbor, ECR, GCR, ACR; modules as OCI artifacts). **[v1.1]**. _Reasoning: enterprise registry compatibility._
-- **S3/GCS/Azure storage backends** for filesystem registry **[v1.1]**. _Reasoning: cloud-native scaling._
-- **`kscore-module mirror`** (export/import for air-gap) **[v1.1]**.
-- **`kscore-module update`** with auto-upgrade-compatible-versions **[v1.1]**.
+- **WASM runtime** (wazero; WASI; instruction metering; memory bounds). **[v1.x]**. _Reasoning: enables Rust/Go/C++ modules; pure Go runtime so no CGO regression._
+- **Rust SDK** (Cargo crate with WASI bindings). **[v1.x]**. _Reasoning: top-tier perf-language for module authors._
+- **Go (TinyGo) SDK** **[v1.x]**. _Reasoning: same._
+- **OCI registry backend** (Harbor, ECR, GCR, ACR; modules as OCI artifacts). **[v1.x]**. _Reasoning: enterprise registry compatibility._
+- **S3/GCS/Azure storage backends** for filesystem registry **[v1.x]**. _Reasoning: cloud-native scaling._
+- **`kscore-module mirror`** (export/import for air-gap) **[v1.x]**.
+- **`kscore-module update`** with auto-upgrade-compatible-versions **[v1.x]**.
 
-### v1.2 (deferred — fine-grained security + supply chain)
+### v1.x (deferred — fine-grained security + supply chain)
 
-- **SumDB transparency log** (Merkle proofs, append-only log, tamper detection). **[v1.2]**. _Reasoning: regulatory/audit value above and beyond signature; not blocking._
-- **Fine-grained capability model** (per-syscall grants via seccomp/eBPF on Linux). **[v1.2]**. _Reasoning: defense-in-depth refinement._
-- **Module vulnerability scanning + SBOM generation** **[v1.2]**. _Reasoning: supply-chain hardening._
+- **SumDB transparency log** (Merkle proofs, append-only log, tamper detection). **[v1.x]**. _Reasoning: regulatory/audit value above and beyond signature; not blocking._
+- **Fine-grained capability model** (per-syscall grants via seccomp/eBPF on Linux). **[v1.x]**. _Reasoning: defense-in-depth refinement._
+- **Module vulnerability scanning + SBOM generation** **[v1.x]**. _Reasoning: supply-chain hardening._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **C++ SDK** (Emscripten/WASI SDK). **[v2.0]**. _Reasoning: niche audience; Rust/Go/Starlark cover most._
-- **Federated module registries** (cross-trust-domain) **[v2.x]**.
+- **C++ SDK** (Emscripten/WASI SDK). **[v2.x+]**. _Reasoning: niche audience; Rust/Go/Starlark cover most._
+- **Federated module registries** (cross-trust-domain) **[v2.x+]**.
 
 ---
 
@@ -672,30 +678,30 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **IPv6 dual-stack on all listeners** (control plane gRPC/HTTP, NATS, etcd, Postgres). _Reasoning: per Epic 18; non-negotiable for modern infra._
 - **Address family preference** (`prefer_ipv4`, `prefer_ipv6`, `ipv4_only`, `ipv6_only`). _Reasoning: deterministic selection._
 - **IPv6 bracketing helpers** (`[::]:8080`, `[::1]:9090`, IPv6-aware DSN building for Postgres). _Reasoning: real-world bug source._
-- **Cloud metadata stub** (AWS IMDSv2 token, GCP metadata header, Azure MSI — minimal probe; full metadata extraction v1.4). _Reasoning: detect "running in cloud" vs not is useful day 1._
+- **Cloud metadata stub** (AWS IMDSv2 token, GCP metadata header, Azure MSI — minimal probe; full metadata extraction v1.x). _Reasoning: detect "running in cloud" vs not is useful day 1._
 
-### v1.1 (deferred)
+### v1.x (deferred)
 
-- **Windows agent** (native service via SCM, Event Log, PowerShell exec, registry, Chocolatey/winget). **[v1.1]**. _Reasoning: paired with Windows stdlib in state mgmt; meaningful subset of trial users._
-- **macOS agent** **[v1.2]**. _Reasoning: low population; defer behind Windows._
-- **Container runtime detection** (Docker/containerd/Podman/CRI-O via socket + cgroup parsing). **[v1.2]**. _Reasoning: paired with v1.1 container stdlib modules._
+- **Windows agent** (native service via SCM, Event Log, PowerShell exec, registry, Chocolatey/winget). **[v1.x]**. _Reasoning: paired with Windows stdlib in state mgmt; meaningful subset of trial users._
+- **macOS agent** **[v1.x]**. _Reasoning: low population; defer behind Windows._
+- **Container runtime detection** (Docker/containerd/Podman/CRI-O via socket + cgroup parsing). **[v1.x]**. _Reasoning: paired with v1.x container stdlib modules._
 
-### v1.3 (deferred)
+### v1.x (deferred)
 
-- **Kubernetes operator** (RemoteExecution + StateConfig CRDs; informer-based reconciliation; drift detection; pod exec). Source: `internal/k8s/`, Epic 48. **[v1.3]**. _Reasoning: complex; depends on mature core; CRDs + reconciliation framework is its own epic._
-- **`k8s_*` stdlib modules** (12 modules — see State Management §8). **[v1.3]**.
+- **Kubernetes operator** (RemoteExecution + StateConfig CRDs; informer-based reconciliation; drift detection; pod exec). Source: `internal/k8s/`, Epic 48. **[v1.x]**. _Reasoning: complex; depends on mature core; CRDs + reconciliation framework is its own epic._
+- **`k8s_*` stdlib modules** (12 modules — see State Management §8). **[v1.x]**.
 
-### v1.4 (deferred)
+### v1.x (deferred)
 
-- **Full cloud metadata extraction** (AWS region, AZ, instance ID, type, VPC, subnet, IAM; GCP project, zone, instance, K8s SA; Azure RG, VM, MI). **[v1.4]**. _Reasoning: deeper integration; enables labels-from-metadata targeting._
-- **Container metadata extraction** (image, labels, env, volumes, network). **[v1.4]**. _Reasoning: pairs with cloud metadata._
+- **Full cloud metadata extraction** (AWS region, AZ, instance ID, type, VPC, subnet, IAM; GCP project, zone, instance, K8s SA; Azure RG, VM, MI). **[v1.x]**. _Reasoning: deeper integration; enables labels-from-metadata targeting._
+- **Container metadata extraction** (image, labels, env, volumes, network). **[v1.x]**. _Reasoning: pairs with cloud metadata._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Service mesh integration** (Istio, Linkerd, Consul; SPIFFE extraction; proxy config; mTLS). **[v2.x]**. _Reasoning: post-trial enterprise feature._
-- **Edge agent mode** (local NATS leaf; offline buffer; resource-constrained ARM; low-power telemetry). **[v2.0]**. _Reasoning: niche; ships with NATS leaf v2.0._
-- **DNS provider management** (libdns: Route53/CloudFlare/Hetzner/Azure DNS/etc.; declarative records). **[v2.0]**. _Reasoning: see Specialized §20._
-- **Advanced networking** (WiFi, 802.1X, link speed control, promiscuous mode, BMC/IPMI). **[v2.x]**. _Reasoning: niche._
+- **Service mesh integration** (Istio, Linkerd, Consul; SPIFFE extraction; proxy config; mTLS). **[v2.x+]**. _Reasoning: post-trial enterprise feature._
+- **Edge agent mode** (local NATS leaf; offline buffer; resource-constrained ARM; low-power telemetry). **[v2.x+]**. _Reasoning: niche; ships with NATS leaf v2.x+._
+- **DNS provider management** (libdns: Route53/CloudFlare/Hetzner/Azure DNS/etc.; declarative records). **[v2.x+]**. _Reasoning: see Specialized §20._
+- **Advanced networking** (WiFi, 802.1X, link speed control, promiscuous mode, BMC/IPMI). **[v2.x+]**. _Reasoning: niche._
 
 ---
 
@@ -703,34 +709,34 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 ### v1.0 (in scope — minimum)
 
-- **File distribution (basic)**: NATS-based file server with chunked transfer (1 MB chunks, SHA-256 per chunk, resume); local filesystem + S3-compatible backends; proxy caching with LRU+TTL. Source: `internal/files/`, `cmd/kscore-files/`. _Reasoning: agents need to fetch packages, configs, blueprints — this is operational table-stakes. Mirror groups + advanced sync defer to v1.5._
-- **Self-management (basic)**: bootstrap from seed YAML (`kscore-bootstrap --seed`); full system backup (Postgres dump + JetStream + etcd + config + secrets, age-encrypted); restore from backup; `kscore-backup` CLI. Source: `internal/selfmgmt/`, `internal/backup/`, `cmd/kscore-backup/`. _Reasoning: ops-day-1 capability — disaster recovery has to work, period. Automated scheduling + rolling upgrades are v1.5._
+- **File distribution (basic)**: NATS-based file server with chunked transfer (1 MB chunks, SHA-256 per chunk, resume); local filesystem + S3-compatible backends; proxy caching with LRU+TTL. Source: `internal/files/`, `cmd/kscore-files/`. _Reasoning: agents need to fetch packages, configs, blueprints — this is operational table-stakes. Mirror groups + advanced sync defer to v1.x._
+- **Self-management (basic)**: bootstrap from seed YAML (`kscore-bootstrap --seed`); full system backup (Postgres dump + JetStream + etcd + config + secrets, age-encrypted); restore from backup; `kscore-backup` CLI. Source: `internal/selfmgmt/`, `internal/backup/`, `cmd/kscore-backup/`. _Reasoning: ops-day-1 capability — disaster recovery has to work, period. Automated scheduling + rolling upgrades are v1.x._
 - **Basic rate limiting** (token bucket per IP / API key / header; per-route configurable). Source: `internal/ratelimit/`. _Reasoning: protects against agent storms; trivial cost._
 
-### v1.5 (deferred)
+### v1.x (deferred)
 
-- **File distribution: NATS Object Store + Git backend + mirror groups (geographic redundancy with read strategies + write policies)** **[v1.5]**. _Reasoning: operational scaling._
-- **Self-management: automated scheduled backups + rolling upgrades + drift detection on self-config** **[v1.5]**. _Reasoning: ops automation._
-- **Quota system** (per-namespace resource quotas: agents, secrets, configs, etc.) **[v1.5]**. _Reasoning: multi-tenant safety._
-- **`kscore-loadtest` benchmarking** (registration / heartbeat / exec / state-apply scenarios; metric reports). **[v1.5]**. _Reasoning: capacity planning + regression testing._
+- **File distribution: NATS Object Store + Git backend + mirror groups (geographic redundancy with read strategies + write policies)** **[v1.x]**. _Reasoning: operational scaling._
+- **Self-management: automated scheduled backups + rolling upgrades + drift detection on self-config** **[v1.x]**. _Reasoning: ops automation._
+- **Quota system** (per-namespace resource quotas: agents, secrets, configs, etc.) **[v1.x]**. _Reasoning: multi-tenant safety._
+- **`kscore-loadtest` benchmarking** (registration / heartbeat / exec / state-apply scenarios; metric reports). **[v1.x]**. _Reasoning: capacity planning + regression testing._
 
-### v2.0+ (deferred)
+### v2.x+ (deferred)
 
-- **Proxy agents** (Epic 21, 42 — manage unmanaged devices over SSH, SNMP v2c/v3, REST/HTTP, WinRM, NETCONF, RESTCONF, gNMI, Telnet). Source: `internal/proxy/`, `internal/protocols/`, `internal/vendors/`. **[v2.0 SSH+SNMP+REST core; v2.x extends]**. _Reasoning: large surface (8 protocols × 20 vendors); not blocking commercial trial of "manage Linux/K8s fleet"; ships in waves._
-  - **v2.0**: SSH, SNMP, REST/HTTP adapters; vendor adapters for Cisco IOS, Juniper JUNOS, Arista EOS, pfSense, OPNsense, VyOS.
-  - **v2.x**: WinRM, NETCONF, RESTCONF, gNMI, Telnet; remaining 14 vendor drivers.
-- **Air-gapped deployments** (offline registry, bootstrap packages, upgrade archives, transfer tooling, UDP data diode). Source: `internal/airgap/`, `cmd/kscore-bootstrap`, `cmd/kscore-transfer/`. **[v1.7 baseline; v3+ data diode]**. _Reasoning: regulated/government use case; depends on registry + upgrade maturity._
-- **Federation** (SPIFFE trust-domain federation, multi-cluster trust bundles). **[v2.0]**. _Reasoning: multi-cluster._
-- **MCP server** (`kscore-mcp` for Claude Desktop / Claude Code / Cursor; 16 tools across capability profiles; audit attribution). Source: `internal/mcp/`, `cmd/kscore-mcp/`. **[v2.0]**. _Reasoning: AI-assisted ops is great differentiator but not commercial-trial-blocking; depends on stable APIs._
-- **Saga checkpoint resume** **[v1.4]** — already noted in Blueprints/Runbooks domain.
+- **Proxy agents** (Epic 21, 42 — manage unmanaged devices over SSH, SNMP v2c/v3, REST/HTTP, WinRM, NETCONF, RESTCONF, gNMI, Telnet). Source: `internal/proxy/`, `internal/protocols/`, `internal/vendors/`. **[v2.x+]**. _Reasoning: large surface (8 protocols × 20 vendors); SSH+SNMP+REST core first, more protocols/vendors in later waves; not blocking commercial trial of "manage Linux/K8s fleet"._
+  - **v2.x+**: SSH, SNMP, REST/HTTP adapters; vendor adapters for Cisco IOS, Juniper JUNOS, Arista EOS, pfSense, OPNsense, VyOS.
+  - **v2.x+**: WinRM, NETCONF, RESTCONF, gNMI, Telnet; remaining 14 vendor drivers.
+- **Air-gapped deployments** (offline registry, bootstrap packages, upgrade archives, transfer tooling, UDP data diode). Source: `internal/airgap/`, `cmd/kscore-bootstrap`, `cmd/kscore-transfer/`. **[v1.x baseline; v3.x+ data diode]**. _Reasoning: regulated/government use case; depends on registry + upgrade maturity._
+- **Federation** (SPIFFE trust-domain federation, multi-cluster trust bundles). **[v2.x+]**. _Reasoning: multi-cluster._
+- **MCP server** (`kscore-mcp` for Claude Desktop / Claude Code / Cursor; 16 tools across capability profiles; audit attribution). Source: `internal/mcp/`, `cmd/kscore-mcp/`. **[v2.x+]**. _Reasoning: AI-assisted ops is great differentiator but not commercial-trial-blocking; depends on stable APIs._
+- **Saga checkpoint resume** **[v1.x]** — already noted in Blueprints/Runbooks domain.
 
-### v3+ / future (deferred)
+### v3.x+ / future (deferred)
 
-- **Web UI / Management Console** (browser-based). **[v3+]**. _Reasoning: TUI + Grafana cover ops UX in v1; web UI is post-product-market-fit work._
-- **Blueprint marketplace** (community sharing). **[v3+]**. _Reasoning: depends on adoption._
-- **Multi-cloud test matrix** (real-AWS / real-GCP / real-Azure CI). **[v3+]**. _Reasoning: cost-heavy; mocks suffice for v1._
-- **Cross-platform expanded test matrix** (BSDs, Solaris, etc.). **[v3+]**. _Reasoning: niche._
-- **UDP data diode** (one-way transfer with FEC). **[v3+]**. _Reasoning: military / classified-network use case._
+- **Web UI / Management Console** (browser-based). **[v3.x+]**. _Reasoning: TUI + Grafana cover ops UX in v1; web UI is post-product-market-fit work._
+- **Blueprint marketplace** (community sharing). **[v3.x+]**. _Reasoning: depends on adoption._
+- **Multi-cloud test matrix** (real-AWS / real-GCP / real-Azure CI). **[v3.x+]**. _Reasoning: cost-heavy; mocks suffice for v1._
+- **Cross-platform expanded test matrix** (BSDs, Solaris, etc.). **[v3.x+]**. _Reasoning: niche._
+- **UDP data diode** (one-way transfer with FEC). **[v3.x+]**. _Reasoning: military / classified-network use case._
 
 ---
 

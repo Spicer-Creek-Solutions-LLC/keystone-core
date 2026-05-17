@@ -34,7 +34,7 @@ const (
 	SeverityMedium
 
 	// SeverityHigh signals an operation was rejected by a serious
-	// policy or that the system would block under v1.8 enforcement.
+	// policy or that the system would block under post-v1.0 enforcement.
 	SeverityHigh
 
 	// SeverityCritical is the operator-attention level — security-
@@ -138,7 +138,7 @@ func AllSeverities() []Severity {
 
 // EnforcementMode is the §4.12 policy-enforcement intent. v1.0
 // records the value on every [AuditEntry] but the [internal/policy.
-// Enforcer] stub ignores it (always returns `Allowed=true`); v1.8
+// Enforcer] stub ignores it (always returns `Allowed=true`); post-v1.0
 // honours [Enforce] (block) + [Warn] (log loudly) per §4.12.
 type EnforcementMode uint8
 
@@ -151,10 +151,10 @@ const (
 	// always allow.
 	EnforcementModeAudit
 
-	// EnforcementModeWarn (v1.8) — log loudly, but still allow.
+	// EnforcementModeWarn (post-v1.0) — log loudly, but still allow.
 	EnforcementModeWarn
 
-	// EnforcementModeEnforce (v1.8) — block on policy denial.
+	// EnforcementModeEnforce (post-v1.0) — block on policy denial.
 	EnforcementModeEnforce
 )
 

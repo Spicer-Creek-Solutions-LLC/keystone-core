@@ -41,7 +41,7 @@ var (
 //     does not resolve.
 //
 // There is intentionally no Deregister in v1.0 — policy lifecycle
-// CRUD is v1.8 (gRPC CreatePolicy / DeletePolicy are Unimplemented
+// CRUD is post-v1.0 (gRPC CreatePolicy / DeletePolicy are Unimplemented
 // in task 12). Removing a policy a set/binding depends on would
 // need cascade rules that aren't on the v1.0 critical path.
 type Registry struct {

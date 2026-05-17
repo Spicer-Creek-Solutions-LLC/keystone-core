@@ -11,7 +11,7 @@ import (
 
 // ConnectionStrategy abstracts the mechanism used to open a connection
 // to a single endpoint. v1.0 ships Direct (plain) and TLS; WebSocket
-// and LeafNode are deferred to v2.0 (PROJECT-DETAILS §4.2).
+// and LeafNode are deferred to v2.x+ (PROJECT-DETAILS §4.2).
 type ConnectionStrategy interface {
 	// Connect dials the endpoint with the supplied client options
 	// (Name, MaxReconnects, etc. from buildClientOptions). Strategy-

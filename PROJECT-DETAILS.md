@@ -120,9 +120,9 @@ kscore.{cluster}.discovery
 | GitOps | `go-git/go-git/v5`, `argoproj/argo-cd/v3` | Webhook + reconcile. |
 | Policy | `open-policy-agent/opa` (v1.16.2), `google/cel-go` | Dual engine, audit-mode v1. OPA added Epic 12 task 6: embedded `opa/v1/rego` SDK (in-process; no subprocess/sidecar — only credible embeddable Rego engine in Go). Rego v1 syntax; fixed package `keystone.policy` (query `data.keystone.policy.{allow,violations,warnings}`); restricted capability set denies `http.send`/`net.*`/`opa.runtime` (operator-supplied policies must be pure decision logic — SSRF/exfil guard); compiled queries cached by `policyID+sha256(Code)`. |
 | WASM | `tetratelabs/wazero` | Pure-Go WASM runtime. |
-| K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (v1.3) and K8s exec. |
-| Cloud | AWS SDK v2, GCP, Azure SDKs | Initially used by secrets+identity; broader v2.0. |
-| TUI | `charmbracelet/bubbletea`, `lipgloss` | Monitor binary (v1.1). |
+| K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (post-v1.0) and K8s exec. |
+| Cloud | AWS SDK v2, GCP, Azure SDKs | Initially used by secrets+identity; broader v2.x+. |
+| TUI | `charmbracelet/bubbletea`, `lipgloss` | Monitor binary (post-v1.0). |
 | Targeting | `github.com/expr-lang/expr`, `github.com/gobwas/glob` | Compiled-VM expressions for `--target` selectors with a `match()` glob function. Chosen in Epic 07 task 1 over CEL (heavy, proto-centric) and a custom RD parser. |
 
 ### 3.3 Build Outputs
@@ -145,20 +145,20 @@ kscore.{cluster}.discovery
 
 ### 3.5 Linting Baseline (.golangci.yml)
 
-Enabled: `errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused`, `bodyclose`, `gosec`. Defer to v1.1: `revive`, `exhaustive`, `gocritic`, `contextcheck`, `durationcheck`, `rowserrcheck`, `sqlclosecheck`. Test files exempt from `gosec`/`gocritic`/`errcheck`. `.pb.go` linters all disabled.
+Enabled: `errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused`, `bodyclose`, `gosec`. Defer to post-v1.0: `revive`, `exhaustive`, `gocritic`, `contextcheck`, `durationcheck`, `rowserrcheck`, `sqlclosecheck`. Test files exempt from `gosec`/`gocritic`/`errcheck`. `.pb.go` linters all disabled.
 
 ### 3.6 Project Layout (target for rebuild)
 
 ```
 keystone-core/
 ├── api/proto/                # 8 .proto files (agent, controlplane, state, event, policy, secrets, cluster, coordination)
-├── api/openapi/              # hand-maintained openapi-spec.yaml (v1.0); generated v2.0
+├── api/openapi/              # hand-maintained openapi-spec.yaml (v1.0); generated v2.x+
 ├── pkg/api/                  # gRPC stubs (v1) + per-domain REST handlers + clients + auth/rbac/apierror/versioning
 ├── pkg/version/              # build-time version info
 ├── pkg/semver/               # semver parsing, constraints, diff
 ├── pkg/wait/                 # cancelable wait/poll
 ├── pkg/dbutil/               # SQLite WAL setup
-├── pkg/saga/                 # saga coordinator (v1.0 minimal; v1.5 advanced)
+├── pkg/saga/                 # saga coordinator (v1.0 minimal; post-v1.0 advanced)
 ├── pkg/statemachine/         # generic FSM library
 ├── pkg/secrets/              # secrets client lib
 ├── pkg/policy/               # policy client lib
@@ -168,7 +168,7 @@ keystone-core/
 ├── internal/                 # private packages — see §4
 ├── modules/                  # plugin SDKs + stdlib + examples
 ├── deploy/                   # Helm + K8s manifests + Grafana dashboards
-├── docs/                     # Hugo + Docsy (v1.1)
+├── docs/                     # Hugo + Docsy (post-v1.0)
 ├── test/e2e/                 # docker-compose topologies
 ├── epics/                # this rebuild's planning docs
 ├── Makefile / .goreleaser.yaml / buf.{yaml,gen.yaml} / .golangci.yml / .pre-commit-config.yaml
@@ -193,7 +193,7 @@ keystone-core/
 - `pkg/dbutil.OpenSQLite(path, opts...)` — WAL mode, busy-timeout, FK on, single writer.
 - `pkg/api/apierror.Response{Error, Message, Details map}` — standard JSON error body; `StatusCode()` maps codes to HTTP.
 - `internal/config.Config` — root struct loaded via koanf-based `Load(path)` from YAML + env (`KSCORE_` prefix). Foundations ships 3 sub-configs (`Server`, `Logging`, `Storage`) plus a top-level `Mode`; later epics extend `Config` with their own sub-config struct + `Validate()` + production-warning entries. Single-word koanf keys (e.g., `grpcport`, `httpport`, `certfile`) keep env-var mapping unambiguous with a single-underscore separator (`KSCORE_SERVER_GRPCPORT`).
-- `internal/logging` — `slog`-backed logger via `New(Options{Level, Format, Output})` returning `*slog.Logger`. Three formats (json, logfmt, text — last is `TextHandler` with RFC3339 timestamps for terminals). Correlation IDs via `WithCorrelationID(ctx, id)` are auto-injected by a wrapping `slog.Handler` on every record whose ctx carries one. v1.0 outputs to stdout only (syslog v1.1).
+- `internal/logging` — `slog`-backed logger via `New(Options{Level, Format, Output})` returning `*slog.Logger`. Three formats (json, logfmt, text — last is `TextHandler` with RFC3339 timestamps for terminals). Correlation IDs via `WithCorrelationID(ctx, id)` are auto-injected by a wrapping `slog.Handler` on every record whose ctx carries one. v1.0 outputs to stdout only (syslog post-v1.0).
 
 **Config validation rule**: validate **after** unmarshal. Each sub-config implements `Validate() error`; the root `Config.Validate()` calls them all. `Config.ProductionWarnings() []string` reports risky combinations (TLS disabled in production, SQLite in production, embedded NATS in production once Epic 05 lands).
 
@@ -299,9 +299,9 @@ type Store interface {
 
 **Migration order**: agents → commands → batch_jobs → batch_agent_results (FK order). Use INSERT ... ON CONFLICT DO NOTHING when `SkipExisting`.
 
-**Schema versioning**: deferred to v1.1. Auto-DDL is fine for v1.0 since the schema is new and stable. Add `golang-migrate` when first breaking schema change is needed.
+**Schema versioning**: deferred to post-v1.0. Auto-DDL is fine for v1.0 since the schema is new and stable. Add `golang-migrate` when first breaking schema change is needed.
 
-**Encryption at rest**: `KeyProvider` interface scaffolding may exist in v0.1 but real implementation deferred to v1.5 (with cloud KMS support gating on §4.11 secrets v2 work).
+**Encryption at rest**: `KeyProvider` interface scaffolding may exist in v0.1 but real implementation deferred to post-v1.0 (with cloud KMS support gating on §4.11 secrets v2 work).
 
 **Gotchas**:
 - Don't swallow `json.Unmarshal` errors silently (fix in rebuild).
@@ -417,14 +417,14 @@ CORS  →  Rate-Limit  →  Auth  →  Handler
 
 **REST handlers** (hand-coded in `pkg/api/<domain>/handlers.go` — NOT grpc-gateway in v1.0):
 - v1.0 wired: `agents`, `execution`, `state`, `secrets`, `policy` (audit), `cluster`, `apikeys`, `auth`, `runbook`, `gitops`, `webhooks` (outbound).
-- v1.1 wired: `events` (REST is in v0.1 for /events; the *gRPC* endpoint is in v0.1 too — both shipped), `maintenance`, `schedule`.
-- v2.0 wired: `mirror`, `discovery`.
+- post-v1.0 wired: `events` (REST is in v0.1 for /events; the *gRPC* endpoint is in v0.1 too — both shipped), `maintenance`, `schedule`.
+- v2.x+ wired: `mirror`, `discovery`.
 
 **Versioning registry** (`pkg/api/versioning`): tracks `Status{current, supported, deprecated, retired, beta, alpha}` plus `ReleasedAt`, `DeprecatedAt`, `SunsetAt`. Used to emit deprecation headers and refuse retired endpoints.
 
 **Codegen flow**: `make proto` → `buf generate` → outputs to `pkg/api/v1/{domain}.pb.go` and `{domain}_grpc.pb.go`. `buf lint` enforces STANDARD rules (with documented exclusions). `buf breaking` checks against `main`.
 
-**OpenAPI**: hand-maintained `api/openapi/openapi-spec.yaml` in v1.0. Auto-gen from protos deferred to v2.0.
+**OpenAPI**: hand-maintained `api/openapi/openapi-spec.yaml` in v1.0. Auto-gen from protos deferred to v2.x+.
 
 **Gotchas**:
 - gRPC ↔ REST drift: REST handlers can lag gRPC. Discipline: every new RPC ships its REST handler in the same PR.
@@ -440,7 +440,7 @@ CORS  →  Rate-Limit  →  Auth  →  Handler
 
 **Core subsystems**:
 - **Core Agent** (`internal/agent/agent.go`) — owns lifecycle; spawns heartbeat + metadata loops; subscribes to command topic.
-- **NATS Client Manager** — connection lifecycle; v1.0 client mode only (embedded/leaf modes deferred to v2.0).
+- **NATS Client Manager** — connection lifecycle; v1.0 client mode only (embedded/leaf modes deferred to v2.x+).
 - **Executor** (`internal/agent/executor.go`) — wraps `os/exec`; timeout via context; user switching; SIGTERM 5s grace then SIGKILL.
 - **Metadata Collector** (`internal/agent/metadata.go`) — `gopsutil`-backed; periodic refresh (default 60s) of distro, kernel, IPv4/IPv6 (separated, dual-stack flagged), CPU/memory/disk, virtualization detection.
 - **Security Enforcer** (`internal/agent/security.go`) — HMAC signature on commands, principal allowlist, command allowlist/blocklist (glob + regex), env-var filter, max arg length.
@@ -471,21 +471,21 @@ Bootstrap is **transactional with rollback**. Re-runs must be idempotent.
 
 **Agent config (top-level keys)**: `agent.{id, cluster, heartbeat_interval, metadata_interval, command_timeout, labels}`, `nats.{mode, urls, embedded.*, tls.*}`, `security.{authorization, command_filter}`.
 
-**Agent CLI** (`kscore-agent`): root daemon mode + subcommands `config enable-embedded-nats|disable-embedded-nats`, `bootstrap`, `identity`, `nats` (diagnostics), `service install|uninstall|start|stop|status` (Windows v1.1).
+**Agent CLI** (`kscore-agent`): root daemon mode + subcommands `config enable-embedded-nats|disable-embedded-nats`, `bootstrap`, `identity`, `nats` (diagnostics), `service install|uninstall|start|stop|status` (Windows post-v1.0).
 
 **Signals**: `SIGTERM`, `os.Interrupt` → unsubscribe, cancel contexts, drain pending, exit cleanly.
 
-**No HTTP health endpoint on the agent** — health is signaled via heartbeat absence. (Endpoint advertiser publishes health via NATS in v2.0 with embedded mode.)
+**No HTTP health endpoint on the agent** — health is signaled via heartbeat absence. (Endpoint advertiser publishes health via NATS in v2.x+ with embedded mode.)
 
 **Gotchas**:
 - Reconnect storms: exponential backoff is non-negotiable on connection loss.
 - Clock skew: heartbeats are timestamped; recommend NTP sync in install docs; trust window in CP must exceed expected skew.
-- Cert rotation: agent does not auto-rotate in-memory creds in v1.0 (rotation = restart). Auto-rotation in v1.3 with SPIRE.
+- Cert rotation: agent does not auto-rotate in-memory creds in v1.0 (rotation = restart). Auto-rotation in post-v1.0 with SPIRE.
 - Fact collection cost: full metadata collection (DMI, NIC enumeration) is expensive — heartbeats carry only lightweight metrics; full metadata refresh on slower interval.
 - Bootstrap idempotency: every phase has a checkpoint. Re-running must not break existing state. Tests must hammer this.
 - File-descriptor leaks in long-lived agents — every command-execution goroutine must defer-cleanup.
 
-**v1.0 platform target**: Linux amd64 + arm64. Windows agent v1.1, macOS v1.2.
+**v1.0 platform target**: Linux amd64 + arm64. Windows agent post-v1.0, macOS post-v1.0.
 
 ### 4.7 Remote Execution & Targeting
 
@@ -549,7 +549,7 @@ kscorectl exec script <target> <file>
 2. **Template render** — `text/template` with custom filters (`upper`, `lower`, `title`, `trim`, `join`, `split`, `default`); vars + facts as render context.
 3. **Validate** — syntax, module existence, parameter validation.
 4. **Resolve dependencies** — DAG from requisites (`require`, `require_in`, `watch`, `watch_in`, `prereq`, `prereq_in`, `onchanges`, `onchanges_in`); cycle detection with cycle-path error.
-5. **Topological sort** — execution order; independent states run in parallel (limited; sequential default in v0.1 for stability — parallel exec is v1.1).
+5. **Topological sort** — execution order; independent states run in parallel (limited; sequential default in v0.1 for stability — parallel exec is post-v1.0).
 6. **Check phase** — `Module.Check(ctx, decl) → ModuleCheckResult{Matches, Diff}`.
 7. **Apply phase** — for `Matches=false`: `Module.Apply(ctx, decl) → StateResult{Success, Changed, Diff, Comment, Duration}`. Idempotent.
 8. **Test phase** — `Module.Test(ctx, decl)` verifies post-apply.
@@ -618,20 +618,20 @@ services:
 | Files & VCS | `git`, `config`, `archive`, `langpkg` (pip/npm/gem) |
 | Certificates | `x509` |
 
-**v1.1 stdlib additions** (Windows agent + extended Linux): `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`, `docker_container`, `docker_image`, `docker_network`, `docker_volume`, `web` (nginx/Apache abstraction), `postgres_database`, `mysql_database`, `redis`, `launchd` (macOS).
+**post-v1.0 stdlib additions** (Windows agent + extended Linux): `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`, `docker_container`, `docker_image`, `docker_network`, `docker_volume`, `web` (nginx/Apache abstraction), `postgres_database`, `mysql_database`, `redis`, `launchd` (macOS).
 
-**v2.0 stdlib additions**: `k8s_*` family (12 modules); DNS provider modules; niche networking (`promisc`, `wifi`, `dot1x`); vendor-specific.
+**v2.x+ stdlib additions**: `k8s_*` family (12 modules); DNS provider modules; niche networking (`promisc`, `wifi`, `dot1x`); vendor-specific.
 
 **CLI** (`kscorectl state`): `apply`, `check`, `drift [--fix]`, `compile`, `show`, `test`, `history`, `rollback`, `export`, `restore`; `kscorectl vars get`.
 
-**Saga/checkpoint integration** (`pkg/saga`, `pkg/statemachine`): minimal v1.0 — saga coordinator scaffolding for multi-step state with compensating transactions; advanced features (resume from checkpoint, cross-state compensation graphs) ship in v1.5.
+**Saga/checkpoint integration** (`pkg/saga`, `pkg/statemachine`): minimal v1.0 — saga coordinator scaffolding for multi-step state with compensating transactions; advanced features (resume from checkpoint, cross-state compensation graphs) ship in post-v1.0.
 
 **Gotchas**:
 - Idempotency — modules MUST diff before applying; `Check`-`Apply`-`Test` pattern is mandatory.
 - Requisite cycles — detect at resolve time; report with full cycle path.
 - Template injection — vars/facts from agents may contain template syntax; document as untrusted.
 - Drift false positives — exclude transient attributes (mtime, SELinux contexts where not relevant); compare content hash for files.
-- Two state files managing the same resource in v0.1 will conflict — no resource locking. Document; consider state namespacing for v1.1.
+- Two state files managing the same resource in v0.1 will conflict — no resource locking. Document; consider state namespacing for post-v1.0.
 
 ### 4.9 Event System
 
@@ -676,14 +676,14 @@ Event{
 - `GetEventTypes`
 - `GetEventStats` (counts/breakdown)
 
-**CLI** (`kscore-events`): `list`, `query`, `emit`, `subscribe`, `watch`, `replay`, `retention`, `dlq` (v1.1), `storage-stats`, `analyze`.
+**CLI** (`kscore-events`): `list`, `query`, `emit`, `subscribe`, `watch`, `replay`, `retention`, `dlq` (post-v1.0), `storage-stats`, `analyze`.
 
-**Reactor engine** — **v1.1 not v1.0**. Filter→action chains; throttle/debounce; bounded concurrency; DLQ on failure; retry-with-exp-backoff. Actions: `LogAction`, `EventAction`, `WebhookAction` initially. _Reasoning: v1.0 ships a passive event system (emit + subscribe + query); reactors land in v1.1 once core is proven and runbook/policy boundaries are clear._
+**Reactor engine** — **post-v1.0 not v1.0**. Filter→action chains; throttle/debounce; bounded concurrency; DLQ on failure; retry-with-exp-backoff. Actions: `LogAction`, `EventAction`, `WebhookAction` initially. _Reasoning: v1.0 ships a passive event system (emit + subscribe + query); reactors land in post-v1.0 once core is proven and runbook/policy boundaries are clear._
 
-**Lifecycle tracking** — **v1.1**. Events transition through: created → published → routed → processing → processed/failed/expired. Ships with reactors.
+**Lifecycle tracking** — **post-v1.0**. Events transition through: created → published → routed → processing → processed/failed/expired. Ships with reactors.
 
 **Gotchas**:
-- Reactor loops (v1.1) — filters matching own emitted events. No automatic detection in v1.1; throttle/debounce mitigate.
+- Reactor loops (post-v1.0) — filters matching own emitted events. No automatic detection in post-v1.0; throttle/debounce mitigate.
 - Slow consumers — handler blocks; messages redelivered after 30s. RouteAsync bounded to 100 goroutines.
 - Replay window — JetStream retention is the floor for live replay; older events come from EventStore SQL query (slower).
 - Clock skew between sources — ordering is per-source, not global.
@@ -694,7 +694,7 @@ Event{
 
 **Two-mode design**:
 1. **Embedded provider (v1.0)** — built-in CA, SVID issuer, attestation engine, token store. Zero external deps.
-2. **SPIRE (v1.3)** — external SPIRE server, agent socket, federation. Pluggable via `Provider` interface.
+2. **SPIRE (post-v1.0)** — external SPIRE server, agent socket, federation. Pluggable via `Provider` interface.
 
 **Identity package** (`internal/identity/`):
 - `Provider` interface — `Start/Stop`, `Health`, `TrustDomain`, `GetTrustBundle`, `WatchTrustBundle`, `Attest`, `IssueX509SVID`, `IssueJWTSVID`, `CreateJoinToken`, `ListJoinTokens`, `DeleteJoinToken`.
@@ -733,23 +733,23 @@ Event{
 - Lifecycle: leader generates → operator presents token to new server via `kscorectl cluster join --token X` → server validates (not expired/used/over-max) → store increments use count → revoke on max-use.
 - Background cleanup: hourly on leader.
 
-**RBAC (v1.0 minimum, full v1.2)**:
+**RBAC (v1.0 minimum, full post-v1.0)**:
 - v1.0: three roles — `admin > operator > readonly` — with hardcoded method→required-role map.
 - v1.0: bypass methods list (health, registration, coordination).
-- v1.2: full Role/Permission CRUD, principal bindings, dynamic policy.
+- post-v1.0: full Role/Permission CRUD, principal bindings, dynamic policy.
 
 **Config keys**: `identity.enabled`, `identity.provider.type` (`embedded|spire|aws|gcp|azure`), `identity.trust_domain`, `identity.ca.{key_type, root_ca_ttl, signing_ca_ttl, rotate_signing_ca_before}`, `identity.svid.{default_ttl, max_ttl}`, `identity.attestation.allowed_attestors`, `identity.nats.require_mtls`, `security.min_tls_version`.
 
-**CLI** (`kscore-identity`): `token {create, list, revoke, cleanup}`, `ca {info, rotate-signing, export}`, `federation {add-domain, list, fetch-bundle}` (v1.1+), `status`.
+**CLI** (`kscore-identity`): `token {create, list, revoke, cleanup}`, `ca {info, rotate-signing, export}`, `federation {add-domain, list, fetch-bundle}` (post-v1.0), `status`.
 
 **Gotchas**:
 - Cert rotation under clock skew — grace period must exceed expected skew across fleet.
 - API key timing attacks — use constant-time comparison.
-- mTLS with NATS leaf nodes (v2.0) — leaf certs are separate from agent identity certs; rotate independently.
+- mTLS with NATS leaf nodes (v2.x+) — leaf certs are separate from agent identity certs; rotate independently.
 - SPIRE socket availability — no auto-fallback; missing socket = attestation failure (must surface clearly).
 - JWT role claim — missing → readonly fallback (with warning); invalid string → reject (don't default).
 
-**Why SPIFFE-shaped from day 1**: even v1.0 with embedded CA uses SPIFFE IDs in URI SANs. v1.3 SPIRE swap-in is a provider implementation change; nothing else moves.
+**Why SPIFFE-shaped from day 1**: even v1.0 with embedded CA uses SPIFFE IDs in URI SANs. post-v1.0 SPIRE swap-in is a provider implementation change; nothing else moves.
 
 ---
 
@@ -764,7 +764,7 @@ Event{
   - `eager` — renew at 50% of TTL.
   - `lazy` — renew at 90% of TTL.
   - `on_demand` — renew only when client asks.
-- `RotationOrchestrator` (v1.4) — strategies (blue-green, rolling, canary, immediate); health checks; auto-rollback.
+- `RotationOrchestrator` (post-v1.0) — strategies (blue-green, rolling, canary, immediate); health checks; auto-rollback.
 - `TransitBackend` — encryption-as-a-service (Vault transit engine); encrypt/decrypt/sign/verify/HMAC; batch ops; key versioning; convergent option.
 - `SecretCache` — in-memory L1, AES-GCM at-rest, TTL eviction (default 5m), prefix-deletion on revoke; bounded-LRU eviction.
 - `SecretAuditLogger` — every access emits an event with agent ID, SPIFFE ID, action, path, timestamp, duration; sensitive data is masked via `LogMasker` regex set.
@@ -773,7 +773,7 @@ Event{
 1. **Encrypted-file** (`internal/secrets/file/`) — AES-GCM, JSON, no external deps. Ideal for dev, air-gap demo.
 2. **HashiCorp Vault** (`internal/secrets/vault/`) — KV v1/v2, dynamic secrets (DB, IAM, PKI, SSH), transit, namespace support, all auth methods.
 
-**v2.0 backends**: AWS Secrets Manager, Azure Key Vault, GCP Secret Manager (all already implemented; just gated to v2 for SDK weight).
+**v2.x+ backends**: AWS Secrets Manager, Azure Key Vault, GCP Secret Manager (all already implemented; just gated to v2 for SDK weight).
 
 **Lease lifecycle**:
 ```
@@ -797,7 +797,7 @@ Pending → Active → Renewing → Active (loop)
 
 **REST**: `/api/v1/secrets/{path}` (CRUD), `/api/v1/leases/{id}/renew|revoke`, `/api/v1/transit/{op}/{key}` (encrypt/decrypt/sign/verify/datakey/batch-*).
 
-**CLI** (`kscore-secrets`): `get`, `list`, `backends`, `audit`, `dynamic`, `leases`, `cache`, `encrypt`, `decrypt`, `template`. Rotation subcommands ship in v1.4.
+**CLI** (`kscore-secrets`): `get`, `list`, `backends`, `audit`, `dynamic`, `leases`, `cache`, `encrypt`, `decrypt`, `template`. Rotation subcommands ship in post-v1.0.
 
 **Config**:
 ```yaml
@@ -827,9 +827,9 @@ secrets:
 
 ### 4.12 Audit & Policy
 
-**Purpose**: Two related concerns shipped together — **audit log of all sensitive ops** (full v1.0) and **policy engine** (audit-mode-only v1.0; full enforcement v1.8).
+**Purpose**: Two related concerns shipped together — **audit log of all sensitive ops** (full v1.0) and **policy engine** (audit-mode-only v1.0; full enforcement post-v1.0).
 
-**Why split this way**: Audit is non-negotiable for compliance-curious users. Full policy enforcement carries breaking-change risk (a misconfigured policy blocks the fleet). v1.0 ships the engine in audit-mode so users can run real policies against real workloads, see what *would* have been blocked, and build confidence. v1.8 flips `policy.enforcement_enabled=true` and turns the audit-mode auditor into a true gate.
+**Why split this way**: Audit is non-negotiable for compliance-curious users. Full policy enforcement carries breaking-change risk (a misconfigured policy blocks the fleet). v1.0 ships the engine in audit-mode so users can run real policies against real workloads, see what *would* have been blocked, and build confidence. post-v1.0 flips `policy.enforcement_enabled=true` and turns the audit-mode auditor into a true gate.
 
 **Audit log infrastructure (full v1.0)**:
 - `Auditor` (in-memory circular buffer; configurable size).
@@ -858,7 +858,7 @@ secrets:
 
 **v1.0 enforcement gate**: `Enforcer` exists but **always returns `Allowed=true` regardless of evaluation result**. Policies still evaluate, audit, and report — they just don't block. Config `policy.enforcement_enabled=false` (hardcoded false in v1.0).
 
-**v1.8 changes**: `policy.enforcement_enabled=true` becomes available; `Enforcer` honors `EnforcementMode` per policy:
+**Enforcement changes (post-v1.0)**: `policy.enforcement_enabled=true` becomes available; `Enforcer` honors `EnforcementMode` per policy:
 - `Audit` — log only (v1.0 default behavior).
 - `Warn` — log + emit warn event; allow operation.
 - `Enforce` — log + invoke violation handlers; deny operation.
@@ -870,22 +870,22 @@ secrets:
 - `ResourceAuditTrail` — all evaluations for a single resource over time.
 
 **APIs**:
-- `PolicyService` gRPC: `EvaluatePolicy`, `EvaluatePolicySet`, `ListPolicies`, `GetPolicy`, `CreatePolicy` *(v1.8)*, `UpdatePolicy` *(v1.8)*, `DeletePolicy` *(v1.8)*, `ListViolations`, `GetComplianceReport`, `GetAuditLog`, `ListPolicySets`, `GetPolicySet`. v1.0 server returns `Unimplemented` for v1.8-gated CRUD methods.
+- `PolicyService` gRPC: `EvaluatePolicy`, `EvaluatePolicySet`, `ListPolicies`, `GetPolicy`, `CreatePolicy` *(post-v1.0)*, `UpdatePolicy` *(post-v1.0)*, `DeletePolicy` *(post-v1.0)*, `ListViolations`, `GetComplianceReport`, `GetAuditLog`, `ListPolicySets`, `GetPolicySet`. v1.0 server returns `Unimplemented` for post-v1.0-gated CRUD methods.
 - REST: `/api/v1/policies` (list, evaluate, violations, compliance, audit-log).
-- CLI v1.0 subset: `kscore-policy list|validate|check|show|eval|test|compliance|violations`. (`create|update|delete|activate|deactivate|remediate|monitor` are v1.8.)
+- CLI v1.0 subset: `kscore-policy list|validate|check|show|eval|test|compliance|violations`. (`create|update|delete|activate|deactivate|remediate|monitor` are post-v1.0.)
 - CLI v1.0: `kscore-audit log|report|export|stats|search|analyze|timeline|watch`.
 
 **Gotchas**:
 - OPA policies MUST declare `package keystone.policy` and an `allow` rule (undefined `allow` is fail-closed-with-violation, not an error). `http.send`/`net.*`/`opa.runtime` are unavailable by default — policies are pure decision logic. Document templates + the restricted-builtin list.
 - CEL is dynamically typed — type errors surface at eval, not compile.
-- Policy-set semantics are **all-or-nothing AND**. Document; consider adding OR/threshold semantics for compliance-style sets in v1.5.
-- v1.0→v1.8 enforcement flip is a behavior-changing release; release notes must call it out loudly.
+- Policy-set semantics are **all-or-nothing AND**. Document; consider adding OR/threshold semantics for compliance-style sets in post-v1.0.
+- The enforcement flip is a behavior-changing release; release notes must call it out loudly.
 - SQLite audit table can grow fast — retention policy MUST be set in v0.1 defaults.
 - Redaction regex must be reviewed before prod (overly broad patterns = false positives in audit data).
 
 ### 4.13 GitOps Integration
 
-**Purpose**: Bridge GitOps deployers (ArgoCD/Flux) and Git providers (GitHub/GitLab) to Keystone Core's runtime control plane. v1.0 ships the basics: ingest, verify, manual rollback. Promotion + canary slip to v1.1/v1.2.
+**Purpose**: Bridge GitOps deployers (ArgoCD/Flux) and Git providers (GitHub/GitLab) to Keystone Core's runtime control plane. v1.0 ships the basics: ingest, verify, manual rollback. Promotion + canary slip to post-v1.0/post-v1.0.
 
 **Webhook ingest** (`internal/gitops/webhook/`):
 - HTTP server (default `:8080/webhooks`).
@@ -893,31 +893,31 @@ secrets:
 - `Authenticator` interface — `HMACAuthenticator` (SHA-256 HMAC; secret per source), `BearerAuthenticator`, `NoneAuthenticator`.
 - Source auto-detection by header (`X-GitHub-Event`, `X-Gitlab-Event`, `X-Argo-CD-Webhook`, `X-Flux-Event`).
 - Event normalization → unified `webhook.Event{webhookID, provider, application, namespace, revision, status, raw}`. `ToKscoreEvent()` emits on Keystone event bus as `gitops.{argocd|flux|github|gitlab}.*`.
-- Replay protection in v1.0: HMAC-only. Timestamp-window + nonce dedup land v1.1.
+- Replay protection in v1.0: HMAC-only. Timestamp-window + nonce dedup land post-v1.0.
 
 **Verification engine** (`internal/gitops/verification/`):
 - `Verifier` interface — `Type()`, `Verify(step) → Result`.
-- v1.0 verifiers: HTTP, gRPC, command/script. v1.1 adds Kubernetes (resource ready), Prometheus (metric query), log analysis.
+- v1.0 verifiers: HTTP, gRPC, command/script. post-v1.0 adds Kubernetes (resource ready), Prometheus (metric query), log analysis.
 - `Workflow{Steps, Parallel, Timeout, OnFailure}` — sequential default; parallel via goroutines.
 - `Result{Success, Message, Data, Duration, Error, Retries}`. Per-step retries + timeout.
 - Optional steps don't fail the workflow on individual failure.
 
 **Rollback engine** (`internal/gitops/rollback/`):
 - `Executor` interface — `Type()`, `Execute(ctx, config, req) → Result`, `GetPreviousRevision()`, `GetLastKnownGood()`.
-- v1.0 executors: Git revert, ArgoCD sync-to-revision, K8s rollout undo. v1.2+ adds Flux suspend.
+- v1.0 executors: Git revert, ArgoCD sync-to-revision, K8s rollout undo. post-v1.0 adds Flux suspend.
 - `Engine` — `RegisterExecutor`, `Execute`, `ApproveRollback`, `GetRollback`, `ListRollbacks`. Optional approval gates.
 - State machine: `Pending → (Approved|Rejected) → InProgress → (Completed|Failed) → (Verifying → Verified|VerificationFailed)`.
 
-**Promotion engine (v1.1+)**:
+**Promotion engine (post-v1.0)**:
 - `Pipeline{Name, Application, Environments[], Strategy (blue-green|canary|rolling|immediate), CanarySteps, Thresholds, Remediation}`.
 - `Environment{Name, AutoPromote, RequireApproval, VerificationWorkflow, Thresholds override}`.
 - `CanaryStep{Weight (5/25/50/100), Duration, VerificationWorkflow, Thresholds override}`.
 - State machine: `Pending → (WaitingApproval | InProgress) → (Verifying | RollingOut) → (Completed | RollingBack) → (RolledBack | Completed)`.
-- Remediation strategies (v1.2+): rollback, scale-down, traffic-shift, custom.
+- Remediation strategies (post-v1.0): rollback, scale-down, traffic-shift, custom.
 
 **APIs (v1.0)**:
 - REST: `/api/v1/gitops/verifications` (GET list, get), `/api/v1/gitops/rollback` (POST), `/api/v1/gitops/rollbacks` (GET list, get), `/api/v1/gitops/rollbacks/{id}/approve` (POST).
-- CLI: `kscore-gitops verify <workflow-file>` (flags: --parallel, --timeout, --output), `kscore-gitops rollback --app X --strategy previous|specific|last-known-good --revision Y --reason Z`. v1.1 adds `promote`, `status`, `repo`, `deploy`, `git-sync`.
+- CLI: `kscore-gitops verify <workflow-file>` (flags: --parallel, --timeout, --output), `kscore-gitops rollback --app X --strategy previous|specific|last-known-good --revision Y --reason Z`. post-v1.0 adds `promote`, `status`, `repo`, `deploy`, `git-sync`.
 
 **External clients**:
 - `argocd.Client` — gRPC; sync, rollback, get app status.
@@ -926,11 +926,11 @@ secrets:
 - `gitsync.Syncer` — go-git; clone, pull, commit, branch, MR/PR creation.
 
 **Gotchas**:
-- Webhook signed-replay: HMAC only — capture+replay is possible. v1.1 adds timestamp window + nonce dedup.
+- Webhook signed-replay: HMAC only — capture+replay is possible. post-v1.0 adds timestamp window + nonce dedup.
 - Secret rotation: single secret per auth method in v1.0; rotation requires restart.
 - Rollback storms: no cooldown in v1.0; rely on approval gates and operator judgment.
-- Canary-fail mid-weight (v1.2): traffic shift to 0% must be atomic with rollback.
-- Approval timeout: not enforced in v1.1; operator must intervene. v1.3 adds default expiry.
+- Canary-fail mid-weight (post-v1.0): traffic shift to 0% must be atomic with rollback.
+- Approval timeout: not enforced in post-v1.0; operator must intervene. post-v1.0 adds default expiry.
 - Verification timeout: per-step config; default conservative.
 
 ### 4.14 Outbound Webhooks
@@ -986,7 +986,7 @@ webhook:
 **Gotchas**:
 - Secret in API responses **always masked** (`***`); cleartext returned only on creation.
 - Slow receivers — circuit-breaker mitigates; delivery timeout caps.
-- Filter perf at high event volume — glob patterns are evaluated per event per subscription (no precompilation in v1.0). Cache compiled glob in v1.1 if profiling shows hot spot.
+- Filter perf at high event volume — glob patterns are evaluated per event per subscription (no precompilation in v1.0). Cache compiled glob in post-v1.0 if profiling shows hot spot.
 - Delivery history growth — `DeleteOldDeliveries(retention)` exists but auto-invocation in v0.1.x (trivial fix).
 - Circuit-breaker false positives — network timeouts count as failures; transient issues can flip a healthy receiver to `open` briefly. Acceptable.
 
@@ -997,7 +997,7 @@ webhook:
 **Topology (v1.0)**:
 - 3 × `kscore-server`, each with embedded etcd (single binary deploy).
 - 1 × Postgres (shared state).
-- 1 × NATS cluster (or embedded NATS in each server with leaf links — v2.0 enhancement).
+- 1 × NATS cluster (or embedded NATS in each server with leaf links — v2.x+ enhancement).
 - Production scaling path: 5 × `kscore-server` + external 3-node etcd + Postgres replica + external NATS cluster.
 
 **Core components** (`internal/cluster/`):
@@ -1115,16 +1115,16 @@ cluster:
 **Purpose**: Logs, metrics, traces, health, and (eventually) a TUI single-pane-of-glass.
 
 **v1.0 layers**:
-- **Logging** (`internal/logging/`) — `log/slog`-backed; structured JSON default; logfmt and text formatters available. Outputs: stdout in v1.0 (syslog/journald/Windows Event Log/NATS in v1.2). Correlation IDs flow via context, request middleware, NATS message headers, span attributes.
+- **Logging** (`internal/logging/`) — `log/slog`-backed; structured JSON default; logfmt and text formatters available. Outputs: stdout in v1.0 (syslog/journald/Windows Event Log/NATS in post-v1.0). Correlation IDs flow via context, request middleware, NATS message headers, span attributes.
 - **Metrics** (`internal/metrics/`) — custom Prom registry; `Collector` interface (counter, gauge, histogram, summary); `MetricRegistry` with metric definitions; `Timer` utility; `cardinality.Limiter` enforces hard label-cardinality limits with drop/aggregate fallback. Endpoint `/metrics` Prometheus-exposition format.
 - **Tracing** (`internal/tracing/`) — OTel SDK; `TracerProvider`; samplers: `always_on/off`, `probabilistic`, `parent_based`, `rate_limiting`, `adaptive` (rebalances on observed error rate). Exporters: OTLP (gRPC + HTTP), Zipkin, stdout. Helper attribute functions: `AgentAttrs`, `JobAttrs`, `StateAttrs`, `EventAttrs`, `PolicyAttrs`. Batch processor.
 - **Health** (`internal/health/`) — `Checker` interface; concrete: NATS, DB, JetStream, custom. `Status` enum (healthy/degraded/unhealthy/unknown). Liveness, readiness, status endpoints. Startup grace period to avoid false-not-ready during boot.
 - **Profiling** (`internal/profiling/`) — pprof endpoints (CPU, memory, goroutine, mutex). Default off; opt-in.
 - **Grafana dashboards** (`deploy/grafana/dashboards/`) — JSON exports for: Control Plane Health, Agent Fleet, State Mgmt, Policy Compliance, GitOps Ops, NATS, Audit, Module System, Event System, Secrets, Remote Execution, Multi-Env. Datasource templating (env, datacenter).
 
-**v1.2 — TUI monitor** (`cmd/kscore-monitor/`):
+**post-v1.0 — TUI monitor** (`cmd/kscore-monitor/`):
 - Bubble Tea / lipgloss / bubbles.
-- Views (8 base in v1.2 baseline; 13 once enhancements ship): dashboard, agents, events, state-drift, policy-violations, jobs, logs, metrics. v1.2 enhancements: cluster, secrets/leases, schedules, runbooks, webhooks.
+- Views (8 base in post-v1.0 baseline; 13 once enhancements ship): dashboard, agents, events, state-drift, policy-violations, jobs, logs, metrics. post-v1.0 enhancements: cluster, secrets/leases, schedules, runbooks, webhooks.
 - Drill-downs (agent detail, job output streaming, event correlation).
 - Vim navigation (`j`/`k`/`gg`/`G`/`Ctrl-d`/`Ctrl-u`); Tab/Shift-Tab between views; `?` help; `/` search; themes (dark/light/solarized/monokai).
 - Persistent alert bar at top with critical counts.
@@ -1132,14 +1132,14 @@ cluster:
 - gRPC client multiplexed across 6 services; NATS subscriber for realtime; REST for runbooks/schedules/webhooks. Per-view refresh rate.
 - Optional `--export` mode for capture-and-exit pipelines.
 
-**v1.4 — Telemetry gateway** (`cmd/kscore-telemetry-gateway/`, `internal/gateway/`):
+**post-v1.0 — Telemetry gateway** (`cmd/kscore-telemetry-gateway/`, `internal/gateway/`):
 - Subscribes to NATS subjects: `kscore.{cluster}.telemetry.metrics.>`, `.logs.>`, `.traces.>`, `.audit.>`.
 - Aggregates into in-memory store; exposes Prom `/metrics` + remote-write + Loki push + OTLP traces.
 - HA via JetStream queue groups + leader election; deduplicates on remote-write.
 - Helm chart for K8s deployment.
 - Rationale: enables agents-behind-NAT or air-gapped fleets to feed observability backends without inbound HTTP.
 
-**Subject hierarchy (v1.2+ NATS telemetry)**:
+**Subject hierarchy (post-v1.0 NATS telemetry)**:
 ```
 kscore.{cluster}.telemetry.logs.{source}.{level}
 kscore.{cluster}.telemetry.metrics.{source}
@@ -1151,7 +1151,7 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 - Cardinality explosion is real — limiter is mandatory, monitor `kscore_metrics_cardinality_total`.
 - Sampling at 100% adds 5-10% latency at scale. Default to `probabilistic 0.1` with per-span rules upgrading on errors.
 - Health check timeouts must be tight; circular dependencies (a check that calls into the component being checked) deadlock.
-- TUI rendering at 10k+ agents needs pagination/lazy load (in v1.2 design).
+- TUI rendering at 10k+ agents needs pagination/lazy load (in post-v1.0 design).
 - NATS telemetry buffer overflow policy: default `drop_oldest` — surface buffer-depth metric.
 
 ### 4.17 Blueprints & Runbooks
@@ -1177,14 +1177,14 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 - `postgres-ha` — Postgres + WAL replication + monitoring.
 - `nats-cluster` — NATS cluster with JetStream.
 
-**v1.4 catalog expansion**: + `enterprise-platform`, `kubernetes-operator`, `identity-federation`, `gitops-integration`, `proxy-agents`, `file-distribution`, `edge-deployment`, `metrics-only` → 14 total.
+**post-v1.0 catalog expansion**: + `enterprise-platform`, `kubernetes-operator`, `identity-federation`, `gitops-integration`, `proxy-agents`, `file-distribution`, `edge-deployment`, `metrics-only` → 14 total.
 
 **Runbooks** (`internal/runbook/`):
 - `Runbook{Metadata{Name, Namespace, Version, Labels, Annotations}, Spec{Inputs, Steps, OnSuccess, OnFailure, Timeout, MaxRetries}}`.
 - `Step{Type, Name, Description, DependsOn, Condition, Timeout, Retries, Config}`.
 - **v1.0 step types** (subset, ~9): `command`, `api`, `state`, `notification`, `wait`, `noop`, `fail`, `script`, `query`.
-- **v1.2 step types**: `if`, `switch`, `loop`, `parallel`, `sub-runbook`, `dryrun`.
-- **v1.3 step types**: `approval`, `prompt`, `wait-manual`, `confirm`, `rollback`.
+- **post-v1.0 step types**: `if`, `switch`, `loop`, `parallel`, `sub-runbook`, `dryrun`.
+- **post-v1.0 step types**: `approval`, `prompt`, `wait-manual`, `confirm`, `rollback`.
 - Variable templating between steps: `{{ steps.<name>.outputs.<field> }}`.
 - Step dependency DAG; cycle detection; conditional pre-execution.
 - Retries with exponential backoff per step.
@@ -1194,13 +1194,13 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 - `Step{Name, Action func(ctx, data) → (data, error), Compensate func(ctx, data) → error}`.
 - `Execution{ID, Name, Status, Data, Steps[], StartedAt, EndedAt, Error}`.
 - v1.0: forward-execute steps; on first error, walk completed steps in **reverse** invoking `Compensate`. In-memory or SQLite log.
-- v1.4 advanced: checkpoint-resume (`pkg/saga/log_sqlite` persists between steps); compensation aggregation on multi-step failure.
+- post-v1.0 advanced: checkpoint-resume (`pkg/saga/log_sqlite` persists between steps); compensation aggregation on multi-step failure.
 
 **StateMachine library** (`pkg/statemachine/`):
 - `Machine[S, E]{Builder, States, Transitions, Guards, Callbacks (OnEnter, OnExit, OnTransition), History, Metrics, Checkpointer (optional)}`.
 - Used internally by: rollback engine, promotion engine, schedule executor, runbook executor.
 
-**Schedules** (`internal/schedule/`, **v1.1**):
+**Schedules** (`internal/schedule/`, **post-v1.0**):
 - `Schedule{Type (command|state|blueprint|reactor|custom), Cron|Interval, Timezone, TimeWindow{days, hours, excludes}, Target{agents, roles, tags, regions}, Payload, Status, Priority, MaxConcurrent, Timeout, RetryPolicy, MaintenanceWindowID, RequireApproval, NotifyBefore, Channels, StartDate, EndDate, Labels}`.
 - `Execution{ID, ScheduleID, Status, TriggerType, ScheduledTime, StartTime, EndTime, AgentResults, Approvals}`.
 - Two state machines: `ScheduleStateMachine` (active/paused/disabled/expired); `ExecutionStateMachine` (pending → approved → running → completed/failed/cancelled/timeout).
@@ -1208,16 +1208,16 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 
 **APIs (v1.0)**:
 - `kscore-blueprint` CLI: `init`, `validate`, `lint`, `info`, `install`, `apply`, `update`, `remove`, `applied`, `rollback`, `bundle`.
-- `kscore-runbook` CLI: `list`, `execute`, `status`, `list-executions`, `audit`, `test`. (v1.3 adds `approvals`, `approve`, `reject`, `delegate`, `interventions`, `respond`.)
-- REST (v1.0): `GET/POST /api/v1/runbooks`, `GET /api/v1/executions/{id}`. (v1.3 adds approvals/interventions.)
-- Schedule APIs ship in v1.1.
+- `kscore-runbook` CLI: `list`, `execute`, `status`, `list-executions`, `audit`, `test`. (post-v1.0 adds `approvals`, `approve`, `reject`, `delegate`, `interventions`, `respond`.)
+- REST (v1.0): `GET/POST /api/v1/runbooks`, `GET /api/v1/executions/{id}`. (post-v1.0 adds approvals/interventions.)
+- Schedule APIs ship in post-v1.0.
 
 **Gotchas**:
 - Blueprint dependency cycles — detect at resolve time.
 - Param coercion — invalid input must surface clearly, not silently coerce to zero value.
 - Sensitive params — never log; mask in audit.
 - Runbook variable scope — explicit reference required (`{{ steps.X.outputs.Y }}`); silent variables don't cross steps.
-- Approval timeouts — must enforce or executions hang (v1.3 adds default expiry).
+- Approval timeouts — must enforce or executions hang (post-v1.0 adds default expiry).
 - DST/timezone math in schedules — `time/tzdata` or fail at config-validate time.
 - Multi-instance namespacing — collision detection between namespaced and unnamespaced state names.
 - Saga compensation ordering — reverse of completion order; failure of compensation = aggregate-and-continue (don't abort).
@@ -1232,7 +1232,7 @@ kscore.{cluster}.telemetry.audit.{source}.{action_type}
 ```yaml
 name: vendor/pkg_apt          # namespaced
 version: 1.2.3                # semver
-type: starlark                # v1.0; wasm v1.1
+type: starlark                # v1.0; wasm post-v1.0
 entrypoint: main.star
 description: APT package management
 author: vendor
@@ -1255,12 +1255,12 @@ dependencies:
   vendor/pkg_common: ^1.0.0
 ```
 
-**Capabilities (v1.0 — 9 core)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. Each scoped (paths, domains, commands, secret-paths, rate limits, timeouts). v1.2 adds per-syscall granularity via seccomp/eBPF on Linux.
+**Capabilities (v1.0 — 9 core)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. Each scoped (paths, domains, commands, secret-paths, rate limits, timeouts). post-v1.0 adds per-syscall granularity via seccomp/eBPF on Linux.
 
 **Verification pipeline** (`pkg/module/verify/`):
 - Hash: SHA-256 content addressing; CAS storage `~/.kscore/modules/<hash>/`.
 - Cosign signature: `cosign_test.go`-shaped; RSA, ECDSA, Ed25519; `KeyID` for rotation.
-- Trust policy (v1.0 baseline): TLS-trusted registry + Cosign signature. v1.2 adds SumDB transparency log.
+- Trust policy (v1.0 baseline): TLS-trusted registry + Cosign signature. post-v1.0 adds SumDB transparency log.
 
 **Resolver** (`pkg/module/resolver/`):
 - Recursive dependency resolution against semver constraints (`>=1.0 <2.0`, `^1.5.0`, `~1.2.3`).
@@ -1286,8 +1286,8 @@ modules:
   - `GET /<module>/@v/<ver>.info` — version metadata (`{Version, Time}`).
   - `GET /<module>/@v/<ver>.mod` — manifest YAML.
   - `GET /<module>/@v/<ver>.zip` — module ZIP.
-- Storage backend interface (filesystem in v1.0; S3, OCI, NATS Object Store in v1.1).
-- v1.2 adds `GET /sumdb/lookup/<module>@<ver>` for transparency log.
+- Storage backend interface (filesystem in v1.0; S3, OCI, NATS Object Store in post-v1.0).
+- post-v1.0 adds `GET /sumdb/lookup/<module>@<ver>` for transparency log.
 
 **Loader pipeline** (`pkg/module/loader/`):
 1. Parse manifest.
@@ -1305,12 +1305,12 @@ modules:
 **SDK (v1.0)**:
 - Starlark — `modules/sdk/starlark/`. Host capability bindings exposed as Starlark builtins. Examples included.
 
-**SDK (v1.1+)**:
+**SDK (post-v1.0)**:
 - Rust — `modules/sdk/rust/` Cargo crate (WASI bindings).
 - Go (TinyGo) — `modules/sdk/go/`.
-- C++ — v2.0 (`modules/sdk/cpp/`).
+- C++ — v2.x+ (`modules/sdk/cpp/`).
 
-**CLI** (`cmd/kscore-module`): `init`, `build`, `validate`, `resolve`, `verify`, `sign`, `test`, `publish`, `install`, `update`, `clean`, `tree`. v1.1 adds `mirror` for air-gap.
+**CLI** (`cmd/kscore-module`): `init`, `build`, `validate`, `resolve`, `verify`, `sign`, `test`, `publish`, `install`, `update`, `clean`, `tree`. post-v1.0 adds `mirror` for air-gap.
 
 **Plugin discovery** (`pkg/plugin/`):
 - `Discovery.Discover()` scans `$PATH` for `kscore-*` binaries.
@@ -1320,10 +1320,10 @@ modules:
 **Gotchas**:
 - Sandbox escape — defense in depth: runtime limits + capability scoping + policy + audit.
 - Capability creep — defaults are permissive for ergonomics. Production policies tighten.
-- Signature key rotation — multiple trusted keys + transparency log (v1.2) for tamper detection.
+- Signature key rotation — multiple trusted keys + transparency log (post-v1.0) for tamper detection.
 - Determinism violations — Starlark `random()` and `time.now()` disabled by default (capability gate).
 - Lock-file drift — validate on every load; CI/CD must check.
-- WASM (v1.1) — Go-WASM modules share Go heap; consider OOM blast radius.
+- WASM (post-v1.0) — Go-WASM modules share Go heap; consider OOM blast radius.
 - Namespace squatting — registry enforces namespaced names; validation on publish.
 
 ### 4.19 Multi-Environment
@@ -1335,20 +1335,20 @@ modules:
 - `internal/hardware/` — `Detector{Detect}`. `CPUInfo`, `MemoryInfo`, `DiskInfo`, `NetworkInfo`, `SystemInfo`, `BMCInfo`. `gopsutil`-backed.
 - `internal/netutil/` — `ParseAddress(s)`, `ParseURL(s)`, `AddressFamily` enum (`IPv4`, `IPv6`, `DualStack`), `AddressFamilyPreference` (`prefer_ipv4|prefer_ipv6|ipv4_only|ipv6_only`).
 - IPv6 bracketing — server / agent / NATS / etcd / Postgres all use `[::]:<port>` or `[::1]:<port>` consistently. Helper functions in `netutil` ensure correctness.
-- `internal/cloud/` (stub in v1.0) — minimal "are we in cloud?" probe via AWS IMDSv2 / GCP `Metadata-Flavor: Google` / Azure MSI; full metadata extraction in v1.4.
+- `internal/cloud/` (stub in v1.0) — minimal "are we in cloud?" probe via AWS IMDSv2 / GCP `Metadata-Flavor: Google` / Azure MSI; full metadata extraction in post-v1.0.
 
-**v1.1 (Windows agent)**:
+**post-v1.0 (Windows agent)**:
 - Native service via SCM; auto-start; recovery options.
 - Windows Event Log integration (`golang.org/x/sys/windows/svc/eventlog`).
 - PowerShell 5.1+ and 7+ execution; script bypass policy where allowed.
 - Registry management (read/write keys with type coercion).
 - Windows-specific stdlib modules (see §4.8): `win_service`, `win_feature`, `win_firewall`, `win_registry`, `win_package`.
 
-**v1.2 (container runtime detection)**:
+**post-v1.0 (container runtime detection)**:
 - `internal/container/` — `Detector` identifies Docker/containerd/CRI-O/Podman via socket query + cgroup parsing.
 - `Metadata{ContainerID, Image, Labels, Env, Volumes, NetworkConfig}`, `ResourceLimits`, `HealthStatus`.
 
-**v1.3 (Kubernetes operator)** (`internal/k8s/`, Epic 48):
+**post-v1.0 (Kubernetes operator)** (`internal/k8s/`, Epic 48):
 - CRDs: `RemoteExecution{Spec{Targets, Command, Schedule (cron)}, Status{Phase, AgentResults}}`, `StateConfig{Spec{State YAML, ReconcileInterval, AutoRemediate}, Status{DriftDetected, LastReconcile}}`.
 - Controllers: `RemoteExecutionController`, `StateConfigController` — work-queue + informers + periodic safety-net reconcile.
 - `ClientInterface` wraps `k8s.io/client-go`; pod exec with streaming output; pod selectors (labels/fields/names).
@@ -1356,14 +1356,14 @@ modules:
 - Embedded into `kscore-server` via config `operator.enabled=true` OR standalone operator binary.
 - Runs alongside cluster-mode CP; one-leader-runs-operator pattern.
 
-**v1.4 (full cloud metadata)** (`internal/cloud/`):
+**post-v1.0 (full cloud metadata)** (`internal/cloud/`):
 - AWS: IMDSv2 token; instance ID/type, region, AZ, VPC, subnet, IAM, tags. Watch out: 21-byte max PUT body.
 - GCP: `Metadata-Flavor: Google` header required; project, zone, instance, K8s SA.
 - Azure: MSI token endpoint; RG, VM, MI.
 - `K8sMetadata` (pod, namespace, SA from downward API + env), `ContainerMetadata` (image, ECS task def), `ServerlessMetadata` (Lambda function, version, runtime).
 - Drives label-from-metadata targeting (`labels.cloud.region:us-east-1`).
 
-**v2.0 (service mesh, edge, DNS, advanced networking)**:
+**v2.x+ (service mesh, edge, DNS, advanced networking)**:
 - `internal/servicemesh/` — `Detector` identifies Istio/Linkerd/Consul Connect/Kuma/OSM via well-known label/env patterns; SPIFFE extraction; proxy admin/health/stats; mTLS cert paths + min-version + provider.
 - Edge agent mode (NATS leaf node + offline buffer + low-power telemetry).
 - `internal/dns/` — `Record{Type, Name, Value, TTL, Priority, Proxied}`, `Metadata{Zone, Provider, Desired, Detected}`, `Diff{Create, Update, Delete, NoOp}`. Backed by `libdns/*` (Cloudflare, Route53, GCP DNS, Azure DNS, DigitalOcean, Hetzner, etc.).
@@ -1386,39 +1386,39 @@ modules:
 - Chunked streaming (1 MB default); SHA-256 per chunk; resume on interrupt.
 - v1.0 backends: local filesystem, S3-compatible (AWS / MinIO).
 - Proxy caching (LRU + TTL on agents).
-- v1.5: NATS Object Store, Git, Azure Blob, GCS; mirror groups; sync engine.
+- post-v1.0: NATS Object Store, Git, Azure Blob, GCS; mirror groups; sync engine.
 
 **Self-management (basic)** (`internal/selfmgmt/`, `internal/backup/`, `cmd/kscore-backup/`, `cmd/kscore-bootstrap/`):
 - `SeedConfig` — YAML for bootstrap-from-scratch (`kscore-bootstrap --seed config.yaml`). Installs binaries, forms cluster, hands off to self-management state.
 - `BackupManager` — full snapshot: Postgres dump + JetStream + etcd + config + secrets, age-encrypted (master key from env or KMS).
 - `RestoreManager` — portable artifact verification + partial restore + schema-compatibility check.
 - `kscore-backup create|list|restore|verify` CLI.
-- v1.5: scheduled backup, rolling upgrades, drift detection on self-config, self-healing.
+- post-v1.0: scheduled backup, rolling upgrades, drift detection on self-config, self-healing.
 
 **Basic rate limiting** (`internal/ratelimit/`):
 - Token bucket; per-IP / per-API-key / per-header configurable.
 - Rate-limit response headers (`Retry-After`).
 - Wired into middleware chain (§4.4).
 
-**v2.0+ deferred**:
+**v2.x+ deferred**:
 
 **Proxy agents** (`internal/proxy/`, `internal/protocols/`, `internal/vendors/`, `cmd/kscore-proxy/`):
 - `ProtocolAdapter` interface — `Connect`, `Execute`, `Disconnect`, `Health`.
-- Protocols (v2.0): SSH, SNMP v2c/v3, REST/HTTP. (v2.x: WinRM, NETCONF, RESTCONF, gNMI, Telnet.)
-- Vendor adapters (v2.0): Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, pfSense, OPNsense, VyOS. (v2.x: 14 more.)
+- Protocols (v2.x+): SSH, SNMP v2c/v3, REST/HTTP. (v2.x: WinRM, NETCONF, RESTCONF, gNMI, Telnet.)
+- Vendor adapters (v2.x+): Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, pfSense, OPNsense, VyOS. (v2.x: 14 more.)
 - Device discovery (SNMP/SSH/LLDP/CDP).
 - 100+ devices per proxy with sub-500ms command latency target.
 - Credential proxy via NATS with X25519-encrypted exchange.
 
 **Air-gapped deployments** (`internal/airgap/`, `cmd/kscore-transfer/`):
-- v1.7 baseline: offline registry, bootstrap packages, upgrade archives.
+- post-v1.0 baseline: offline registry, bootstrap packages, upgrade archives.
 - v3+: UDP data diode (one-way + FEC) for classified networks.
 
 **Federation** (`internal/sync/`, `cmd/kscore-federation/`):
-- v2.0: SPIFFE trust-domain federation; trust bundle exchange; cross-domain identity validation.
+- v2.x+: SPIFFE trust-domain federation; trust bundle exchange; cross-domain identity validation.
 
 **MCP server** (`internal/mcp/`, `cmd/kscore-mcp/`):
-- v2.0: 16 tools (agent_list, exec_run, state_check, runbook_execute, etc.); 3 resources (agents, cluster, events).
+- v2.x+: 16 tools (agent_list, exec_run, state_check, runbook_execute, etc.); 3 resources (agents, cluster, events).
 - Capability profiles: `read_only` (13), `ops_safe` (+exec/runbook), `ops_admin` (+state apply).
 - Credential pass-through; MCP metadata in audit log (client_type, tool, session, ai_client) for accountability.
 
@@ -1454,15 +1454,15 @@ modules:
 - `Makefile` is the orchestrator. CI never runs raw `go test`/`go build` — always Make targets.
 - All builds `CGO_ENABLED=0`. Pure-Go SQLite (`modernc.org/sqlite`) and Postgres (`lib/pq`).
 - Version metadata injected via `-ldflags -X`: `pkg/version.Version`, `.GitCommit`, `.BuildDate`.
-- Goreleaser snapshot for v1.0 (multi-arch tarballs). v1.2: signing ceremony + multi-party process per `RELEASE-PLAYBOOK.md`. v1.1: DNF/APT/MSI repos.
+- Goreleaser snapshot for v1.0 (multi-arch tarballs). post-v1.0: signing ceremony + multi-party process per `RELEASE-PLAYBOOK.md`. post-v1.0: DNF/APT/MSI repos.
 - Buf: `buf.yaml` STANDARD lint with documented exclusions; `buf breaking` against `main`; `buf generate` outputs to `pkg/api/v1/`.
 - Pre-commit: gofmt, golangci-lint, smoke test.
-- Security baseline (v1.0): gitleaks (secrets), govulncheck (CVE), gosec (SAST). v1.1 adds semgrep, trivy, syft (SBOM), grype, hadolint.
+- Security baseline (v1.0): gitleaks (secrets), govulncheck (CVE), gosec (SAST). post-v1.0 adds semgrep, trivy, syft (SBOM), grype, hadolint.
 
 ### 5.5 Documentation
 
 - v1.0: README + reference docs (CLI, API, configuration) + RELEASE-PLAYBOOK + SECURITY + AGENTS.
-- v1.1: Hugo + Docsy site (`docs/` build to `docs/public/`).
+- post-v1.0: Hugo + Docsy site (`docs/` build to `docs/public/`).
 - Glossary, governance, RFC process, AI-contributions policy, DCO — port forward as-is.
 
 ### 5.6 Governance Carry-Overs
@@ -1499,7 +1499,7 @@ modules:
 | **`v2.0` / `v2.x`** | **Federation, multi-region, supercluster, cloud KMS.** | NATS supercluster + leaf nodes + WebSocket + auto-discovery, federation, cloud KMS for secrets, AWS Secrets Manager + Azure Key Vault + GCP Secret Manager, DNS provider mgmt, advanced networking, proxy agents core (SSH+SNMP+REST + 6 vendors), MCP server. Remaining proxy protocols + 14 more vendors, service mesh, edge agent mode in v2.x. |
 | **`v3.0+`** | **Marketplace, Web UI, multi-cloud.** | Blueprint marketplace, browser-based management console, multi-cloud test matrix, UDP data diode. |
 
-**Why this shape:** the original roadmap pre-allocated every minor release of v1.x (v1.1 = Windows+WASM, v1.2 = TUI, ...). That commitment hardens decisions that should still be revocable. The post-v0.5, pre-v1.0 work is now a single ranked backlog; v1.x post-v1.0 reorders as priorities shift. v2.0+ identity stays anchored because federation + marketplace are architectural commitments.
+**Why this shape:** the original roadmap pre-allocated every minor release of v1.x (v1.1 = Windows+WASM, v1.2 = TUI, ...). That commitment hardens decisions that should still be revocable. The post-v0.5, pre-v1.0 work is now a single ranked backlog; v1.x post-v1.0 reorders as priorities shift. v2.x+ identity stays anchored because federation + marketplace are architectural commitments.
 
 ### 6.3 Why v0.1 / v0.5 / v1.0 Are What They Are — MVP Reasoning Recap
 

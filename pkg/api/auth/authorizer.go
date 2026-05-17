@@ -22,7 +22,7 @@ var ErrUnauthorized = errors.New("auth: unauthorized")
 //
 // v1.0 ships a hardcoded method map matching the eight services in
 // keystone.core.v1. Tests may override individual methods via the
-// Set/Add helpers; epic 03 task 6 (versioning registry) and v1.2
+// Set/Add helpers; epic 03 task 6 (versioning registry) and post-v1.0
 // (full Role/Permission CRUD) extend this.
 type RBACAuthorizer struct {
 	methodRequirements  map[string]Role

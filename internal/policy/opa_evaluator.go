@@ -56,7 +56,7 @@ var deniedBuiltinPrefixes = []string{
 // registration (no Deregister in v1.0). The evaluator lazily
 // compiles a [rego.PreparedEvalQuery] on first use and caches it
 // keyed by policyID + sha256(Code); a re-registered policy whose
-// Code changed (v1.8 CRUD) gets a fresh cache entry naturally
+// Code changed (post-v1.0 CRUD) gets a fresh cache entry naturally
 // because the hash is part of the key, so no explicit invalidation
 // is needed.
 type OPAEvaluator struct {
@@ -211,7 +211,7 @@ func (e *OPAEvaluator) Evaluate(ctx context.Context, policy *Policy, input Evalu
 
 // prepared returns the cached PreparedEvalQuery for policy, compiling
 // + caching on first use. Key = policyID + sha256(Code) so a changed
-// Code (v1.8 re-register) transparently re-compiles.
+// Code (post-v1.0 re-register) transparently re-compiles.
 func (e *OPAEvaluator) prepared(ctx context.Context, policy *Policy) (rego.PreparedEvalQuery, error) {
 	sum := sha256.Sum256([]byte(policy.Code))
 	key := policy.ID + ":" + hex.EncodeToString(sum[:])

@@ -340,7 +340,7 @@ func (s *subscription) dispatch(msg *nats.Msg) {
 // JetStream delivery counter (1-based: the initial delivery is 1).
 // Schedule: 1s → 5s → 15s. Beyond the third redelivery, JetStream's
 // MaxDeliver caps the redelivery loop entirely; the message becomes
-// undeliverable and (for v1.1) lands in the DLQ.
+// undeliverable and (for post-v1.0) lands in the DLQ.
 func backoffForDelivery(msg *nats.Msg) time.Duration {
 	meta, err := msg.Metadata()
 	if err != nil || meta == nil {

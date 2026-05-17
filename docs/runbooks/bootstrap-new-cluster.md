@@ -864,8 +864,10 @@ sudo systemctl stop kscore-server
 sudo cp -r /var/lib/keystone-core /var/lib/keystone-core.bak
 sudo cp -r /etc/keystone-core /etc/keystone-core.bak
 
-# Download previous version
-curl -LO https://releases.keystone-core.io/v1.4.0/kscore-server-linux-amd64
+# Download the known-good previous version (substitute the exact patch
+# version you are rolling back to — pin an exact version pre-v1.0, never @latest;
+# see docs/project/VERSIONING.md)
+curl -LO https://releases.keystone-core.io/<previous-version>/kscore-server-linux-amd64
 sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 sudo chmod +x /usr/local/bin/kscore-server
 

@@ -20,7 +20,7 @@ import (
 // audit entry but the Enforcer never blocks. The CRUD methods
 // (CreatePolicy / UpdatePolicy / DeletePolicy) are intentionally
 // left on the embedded UnimplementedPolicyServiceServer base, so
-// they return codes.Unimplemented until v1.8 (the in-memory
+// they return codes.Unimplemented until post-v1.0 (the in-memory
 // Registry has no Update/Deregister in v1.0 by design).
 //
 // Each backing component is independently nilable; the RPC group

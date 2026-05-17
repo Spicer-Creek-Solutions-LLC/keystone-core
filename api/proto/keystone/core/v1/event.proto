@@ -1,7 +1,7 @@
 // EventService — fan-in event log + subscription stream per
 // PROJECT-DETAILS §4.9. v1.0 ships the passive surface (emit +
 // list + get + subscribe + types + stats); the reactor engine,
-// lifecycle tracking, and DLQ land in v1.1.
+// lifecycle tracking, and DLQ land post-v1.0 (v1.x).
 
 syntax = "proto3";
 

@@ -132,7 +132,7 @@ type SubjectOverride struct {
 
 // EndpointConfig is the structured form of a single NATS endpoint
 // consumed by ConnectionManager. Priority orders the connect-attempt
-// list (higher first). Weight is reserved for v1.3+ load distribution
+// list (higher first). Weight is reserved for post-v1.0 load distribution
 // and ignored today. Tags are operator labels passed through to
 // EndpointSnapshot for observability.
 type EndpointConfig struct {

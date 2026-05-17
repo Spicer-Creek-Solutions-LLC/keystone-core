@@ -187,7 +187,7 @@ func applyServiceEnvFallback(cmd *cobra.Command, f *serviceFlags) error {
 // internal/agent/exec_user_windows.go.
 func linuxOnlyGuard() error {
 	if runtime.GOOS != "linux" {
-		return errors.New("service subcommands are Linux-only in v1.0 (Windows agent v1.1, macOS v1.2)")
+		return errors.New("service subcommands are Linux-only in v1.0 (Windows agent post-v1.0, macOS post-v1.0)")
 	}
 	return nil
 }

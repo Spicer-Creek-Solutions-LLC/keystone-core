@@ -374,7 +374,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 
 	// Epic 12 task 12 — register PolicyService gRPC. v1.0 is
 	// audit-mode (the Enforcer never blocks); CRUD methods return
-	// Unimplemented (v1.8). When policyRT is nil (no audit store),
+	// Unimplemented (post-v1.0). When policyRT is nil (no audit store),
 	// the service isn't registered and clients reach Unimplemented.
 	if policyRT != nil {
 		// policyRT != nil implies auditRT != nil (startPolicy is only

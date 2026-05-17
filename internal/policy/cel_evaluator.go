@@ -28,7 +28,7 @@ import (
 //
 // Compilation is cached the same way as OPAEvaluator: a cel.Program
 // keyed policyID + sha256(Code) under a mutex. Code is immutable per
-// registration (no Deregister in v1.0); a v1.8 re-register with
+// registration (no Deregister in v1.0); a post-v1.0 re-register with
 // changed Code gets a fresh key naturally, so no invalidation.
 type CELEvaluator struct {
 	mu    sync.Mutex

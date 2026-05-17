@@ -180,7 +180,7 @@ type RevokeLeaseRequest struct {
 }
 
 // SecretBackend is the seam every concrete secret store implements:
-// encrypted-file (task 4), HashiCorp Vault (task 5), and the v2.0
+// encrypted-file (task 4), HashiCorp Vault (task 5), and the v2.x+
 // cloud backends (AWS Secrets Manager / Azure Key Vault / GCP Secret
 // Manager) once they're un-gated. The broker (task 3), the gRPC
 // service (task 9), and the CLI (task 10) depend only on this

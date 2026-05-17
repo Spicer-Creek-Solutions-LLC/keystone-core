@@ -1,30 +1,36 @@
-# Policy & Audit (v1.0)
+# Policy & Audit
 
 Keystone Core's audit log and policy engine ship together (Epic 12,
 [`PROJECT-DETAILS.md §4.12`](../../PROJECT-DETAILS.md)). This document is the
-operator-facing guide to **how policy behaves in v1.0**, **what changes at
-v1.8**, and the **gotchas** you must know before relying on either in
-production.
+operator-facing guide to **how policy behaves through the v1.0 line**, **what
+changes when enforcement is enabled in a later release**, and the **gotchas**
+you must know before relying on either in production.
+
+Version policy: this guide pins behavior to *buckets*, not minor releases. The
+enforcement flip is a deliberately unscheduled, behavior-changing post-v1.0
+(`v1.x`) step — see [`docs/project/VERSIONING.md`](VERSIONING.md) and the
+[`ROADMAP.md`](ROADMAP.md) `v1.x` entries. There is no committed "v1.N" for it.
 
 ## TL;DR
 
-- The audit log is **fully live in v1.0**: every sensitive operation (auth
+- The audit log is **fully live**: every sensitive operation (auth
   decision, secret access, command exec, state apply, policy evaluation) writes
   an `AuditEntry`.
-- The policy engine is **audit-mode-only in v1.0**: policies evaluate, audit,
-  and report — **a denying policy never blocks the operation**.
-- v1.8 flips enforcement on. That is a **behavior-changing release** — see
-  [Migration: v1.0 → v1.8](#migration-v10--v18).
+- The policy engine is **audit-mode-only through v1.0**: policies evaluate,
+  audit, and report — **a denying policy never blocks the operation**.
+- A later release flips enforcement on. That is a **behavior-changing
+  release** — see [Migration: enabling enforcement](#migration-enabling-enforcement).
 
-## Audit-mode-only — the v1.0 contract
+## Audit-mode-only — the shipped contract
 
-> **v1.0 critical:** even when a policy returns `Allowed=false`, the operation
-> still proceeds. Policy is *observability*, not *control*, until v1.8.
+> **Critical:** even when a policy returns `Allowed=false`, the operation
+> still proceeds. Policy is *observability*, not *control*, until enforcement
+> is explicitly enabled in a future release.
 
-In v1.0 the `Enforcer` (`internal/policy/enforcer.go`) **always returns
+Through v1.0 the `Enforcer` (`internal/policy/enforcer.go`) **always returns
 `Allowed=true`**, regardless of the evaluation verdict or the policy's declared
 `EnforcementMode`. The config knob `policy.enforcement_enabled` is **hardcoded
-`false`** and is not operator-settable in v1.0.
+`false`** and is not operator-settable.
 
 What you still get:
 
@@ -33,34 +39,34 @@ What you still get:
   (`!AllowedAll(results)`). Compliance reporting and the audit trail surface
   `WouldDeny` so you can **see exactly what would have been blocked** if
   enforcement were on. Run real policies against real workloads and build
-  confidence before the v1.8 flip.
+  confidence before the enforcement flip.
 
 Why this design: full enforcement carries breaking-change risk — a
-misconfigured policy could block the fleet. v1.0 lets you observe first.
+misconfigured policy could block the fleet. Audit-mode lets you observe first.
 
-## Migration: v1.0 → v1.8
+## Migration: enabling enforcement
 
-v1.8 makes `policy.enforcement_enabled=true` available and the `Enforcer`
-honors each policy's `EnforcementMode`:
+A later (`v1.x`) release makes `policy.enforcement_enabled=true` available and
+the `Enforcer` honors each policy's `EnforcementMode`:
 
-| Mode      | v1.0 behavior        | v1.8 behavior (enforcement enabled)               |
+| Mode      | Audit-mode behavior  | Enforcement-enabled behavior                      |
 |-----------|----------------------|---------------------------------------------------|
 | `audit`   | log only             | log only (unchanged)                              |
 | `warn`    | log only             | log + emit a warn event; **operation allowed**    |
 | `enforce` | log only             | log + invoke violation handlers; **operation denied** |
 
-This is a **behavior-changing release**. Before upgrading to v1.8:
+This is a **behavior-changing release**. Before enabling enforcement:
 
 1. Review every registered policy's `EnforcementMode`. Anything left at
    `enforce` will start **blocking** once `enforcement_enabled=true`.
-2. Use the v1.0 audit trail / `WouldDeny` data to find policies that would have
+2. Use the audit trail / `WouldDeny` data to find policies that would have
    denied real traffic. Fix or downgrade them to `warn`/`audit` first.
-3. The v1.8 release notes will call this out loudly; treat the flip as a
+3. That release's notes will call this out loudly; treat the flip as a
    staged rollout, not a silent minor bump.
 
-The v1.8 *gate logic* is already implemented and tested behind the
-`WithEnforcementEnabled` seam; the v1.8 **side-effects** (warn-event emission,
-violation-handler dispatch) are tracked on the v1.x ROADMAP
+The enforcement *gate logic* is already implemented and tested behind the
+`WithEnforcementEnabled` seam; the enforcement **side-effects** (warn-event
+emission, violation-handler dispatch) are tracked on the `v1.x` ROADMAP
 ([`docs/project/ROADMAP.md`](ROADMAP.md): "Policy enforcement side-effects").
 
 ## Gotchas
@@ -106,7 +112,7 @@ violation-handler dispatch) are tracked on the v1.x ROADMAP
 
 ## CLI quickstart
 
-`kscore-policy` — authoring + read surface (audit-mode in v1.0):
+`kscore-policy` — authoring + read surface (audit-mode):
 
 ```text
 # Local (no server) — author + CI-gate a policy file:
@@ -133,7 +139,7 @@ Both CLIs default to `--server localhost:9090`; auth via `--api-key` or
 `KSCORE_API_KEY`. `kscore-policy eval`/`validate` are local and need no server.
 Deferred subcommands (`kscore-policy check|test`,
 `kscore-audit search|analyze|timeline|watch`, the export
-`--redaction-config` file) are tracked on the v1.x ROADMAP.
+`--redaction-config` file) are tracked on the `v1.x` ROADMAP.
 
 ## See also
 
@@ -142,4 +148,6 @@ Deferred subcommands (`kscore-policy check|test`,
 - [`epics/12-audit-policy.md`](../../epics/12-audit-policy.md) — per-task
   implementation notes.
 - [`docs/project/ROADMAP.md`](ROADMAP.md) — deferred policy/audit work
-  (v1.8 enforcement side-effects, deferred CLI subcommands).
+  (post-v1.0 enforcement side-effects, deferred CLI subcommands).
+- [`docs/project/VERSIONING.md`](VERSIONING.md) — why the enforcement flip is
+  bucketed, not pinned to a minor.

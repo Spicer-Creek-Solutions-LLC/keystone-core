@@ -9,7 +9,7 @@
 //  2. Policy engine in audit-mode-only — full evaluator (OPA + CEL +
 //     13 builtins) lands in v1.0; the [internal/policy.Enforcer]
 //     stub always returns `Allowed=true` regardless of evaluation
-//     result. v1.8 flips one config flag.
+//     result. post-v1.0 flips one config flag.
 //
 // Why types-first: audit records cross every domain boundary that
 // matters for compliance, and the shape is consumed by the policy
@@ -58,6 +58,6 @@
 //   - Task 13 — REST handlers.
 //   - Task 14 — `kscore-policy` + `kscore-audit` CLIs.
 //   - Task 15 — JSON / JSONL / CSV export formatters.
-//   - Task 16 — Documentation + integration test + v1.0→v1.8
-//     enforcement-flip release notes.
+//   - Task 16 — Documentation + integration test +
+//     audit-mode→enforcement flip release notes.
 package audit

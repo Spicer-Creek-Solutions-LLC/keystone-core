@@ -9,7 +9,7 @@ import "context"
 // inline encrypt / decrypt / sign / verify / HMAC.
 //
 // v1.0 ships one implementation: Vault's transit engine (see
-// internal/secrets/vault). Cloud KMS backends are v2.0 per FEATURES.md.
+// internal/secrets/vault). Cloud KMS backends are v2.x+ per FEATURES.md.
 // The encrypted-file backend (task 4) deliberately does NOT implement
 // TransitBackend — a future "file transit" would need its own
 // AES-GCM key-management story.

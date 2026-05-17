@@ -2,7 +2,7 @@
 // identity surface per PROJECT-DETAILS §4.10. The epic-09 design is
 // two-mode by construction: an **embedded** provider ships in v0.1
 // (built-in CA, SVID issuer, attestation engine, join-token store);
-// a **SPIRE** provider lands in v1.3 and swaps in behind the same
+// a **SPIRE** provider lands in post-v1.0 and swaps in behind the same
 // [Provider] interface (tasks 7-8). Higher layers — the API auth
 // pipeline, gRPC interceptors, NATS bootstrap, mTLS peer extraction
 // — depend only on this package's types and never on a specific
@@ -11,7 +11,7 @@
 // Why SPIFFE-shaped from day 1: even with the embedded backend, every
 // x509 SVID carries a SPIFFE URI SAN, every JWT SVID carries a SPIFFE
 // audience, every join token records the SPIFFE ID it will issue.
-// When v1.3 brings SPIRE, the consumer types do not move — only the
+// When post-v1.0 brings SPIRE, the consumer types do not move — only the
 // [Provider] implementation changes.
 //
 // Task 1 lands the [SPIFFEID] value type that the rest of the epic

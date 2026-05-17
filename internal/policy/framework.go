@@ -147,7 +147,7 @@ func (c *ComplianceControl) Clone() *ComplianceControl {
 // registry. Safe for concurrent use; mirrors Registry's shape
 // (RWMutex, deep-clone in AND out, sentinels ErrDuplicateID /
 // ErrNotFound reused from registry.go). No Deregister in v1.0 —
-// control CRUD is v1.8 (like policy CRUD).
+// control CRUD is post-v1.0 (like policy CRUD).
 type ControlMapping struct {
 	mu       sync.RWMutex
 	controls map[string]*ComplianceControl

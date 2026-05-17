@@ -1,7 +1,7 @@
 // Package schedule exposes REST routes for the scheduled-jobs
 // domain.
 //
-// v1.0 scaffold — concrete handlers ship in v1.1 (per
+// v1.0 scaffold — concrete handlers ship in post-v1.0 (per
 // PROJECT-DETAILS §4.5). The stub directory exists at v1.0 so the
 // route surface is reserved.
 package schedule

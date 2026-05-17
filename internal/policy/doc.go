@@ -11,7 +11,7 @@
 //	task 7  — CELEvaluator     (wraps google/cel-go)
 //	task 8  — BuiltinEvaluator (13 hardcoded rules)
 //	task 9  — Engine.Evaluate* dispatch + aggregation + tests
-//	task 10 — Enforcer (v1.0 always allows; v1.8 honors EnforcementMode)
+//	task 10 — Enforcer (v1.0 always allows; post-v1.0 honors EnforcementMode)
 //
 // Dependency direction: policy → audit (shared Severity /
 // EnforcementMode / PolicyType enums + the Violation type). audit

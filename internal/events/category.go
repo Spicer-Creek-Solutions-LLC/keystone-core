@@ -7,11 +7,11 @@ import (
 
 // Category is the closed enum of v1.0 event categories per
 // PROJECT-DETAILS §4.9. The set is closed by design: downstream
-// routing (the audit pipeline in epic 12, the v1.1 reactor engine,
+// routing (the audit pipeline in epic 12, the post-v1.0 reactor engine,
 // retention policy in task 8) switches exhaustively on category, so
 // new categories require a deliberate code change rather than
 // runtime extension. Subtypes within a category remain free-form so
-// operators and v1.4 plugins (Epic 14) can introduce new signals
+// operators and post-v1.0 plugins (Epic 14) can introduce new signals
 // without core changes.
 type Category string
 

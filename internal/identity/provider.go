@@ -28,7 +28,7 @@ var ErrProviderNotRunning = errors.New("identity: provider not running")
 var ErrNotImplementedYet = errors.New("identity: provider method not implemented yet (Epic 09 in flight)")
 
 // Provider is the top-level v0.1 identity surface. The embedded
-// CA provider (this epic) and the future SPIRE provider (v1.3)
+// CA provider (this epic) and the future SPIRE provider (post-v1.0)
 // both implement it. The interface is the single seam every
 // consumer (pkg/api/auth, NATS bootstrap, the agent runtime, the
 // kscore-identity CLI) talks to — nothing else imports

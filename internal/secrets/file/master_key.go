@@ -111,8 +111,8 @@ func MasterKeyFromBytes(b []byte) (MasterKey, error) {
 //     scheme resolves so operators don't ship `inline:` to production
 //     unnoticed.
 //
-// Cloud KMS schemes are detected and rejected with a v2.0 pointer
-// per FEATURES.md ("Cloud KMS for master keys — v2.0"). Unknown
+// Cloud KMS schemes are detected and rejected with a v2.x+ pointer
+// per FEATURES.md ("Cloud KMS for master keys — v2.x+"). Unknown
 // schemes return [secrets.ErrInvalidBackend] with the scheme name
 // in the message.
 //
@@ -136,7 +136,7 @@ func ResolveMasterKey(source string) (MasterKey, error) {
 	case "inline":
 		return decodeKeyMaterial(value, "inline")
 	case "gcp-kms", "aws-kms", "azure-kv":
-		return MasterKey{}, fmt.Errorf("%w: master key scheme %q is v2.0 (cloud KMS); v1.0 supports env, file, inline schemes", secrets.ErrInvalidBackend, scheme)
+		return MasterKey{}, fmt.Errorf("%w: master key scheme %q is v2.x+ (cloud KMS); v1.0 supports env, file, inline schemes", secrets.ErrInvalidBackend, scheme)
 	default:
 		return MasterKey{}, fmt.Errorf("%w: unknown master key scheme %q (expected env:, file:, or inline:)", secrets.ErrInvalidBackend, scheme)
 	}

@@ -15,7 +15,7 @@ import (
 //
 // Mode is the effective enforcement mode the caller supplied
 // (recorded, and acted on only when enforcement is enabled —
-// v1.8). Results is the evaluated set passed through so callers /
+// post-v1.0). Results is the evaluated set passed through so callers /
 // audit emission don't have to re-thread it.
 type EnforcementDecision struct {
 	Allowed   bool
@@ -28,11 +28,11 @@ type EnforcementDecision struct {
 // audit-mode-only: policies evaluate, audit, and report, but the
 // Enforcer NEVER blocks (Allowed is always true). enforcement is
 // hardcoded off; the WithEnforcementEnabled seam exists so the
-// v1.8 gate path is tested + wiring-ready (mirrors Epic 11's
+// post-v1.0 gate path is tested + wiring-ready (mirrors Epic 11's
 // RetentionEnforcer leader-check seam: real mechanism, v1.0-safe
 // default).
 //
-// v1.8 flips enforcement on and honors EnforcementMode per policy.
+// A later (v1.x) release flips enforcement on and honors EnforcementMode per policy.
 // The allow/deny GATE for all three modes is implemented now (small
 // + testable); the Warn-event emission and Enforce violation-handler
 // SIDE-EFFECTS are deferred to a v1.x ROADMAP entry — they need
@@ -46,7 +46,7 @@ type EnforcerOption func(*Enforcer)
 
 // WithEnforcementEnabled toggles real enforcement. v1.0 leaves this
 // false (the §4.12 "hardcoded false in v1.0"); operator config
-// plumbing for it is v1.8. Tests use it to exercise the v1.8 gate.
+// plumbing for it is post-v1.0. Tests use it to exercise the post-v1.0 gate.
 func WithEnforcementEnabled(enabled bool) EnforcerOption {
 	return func(e *Enforcer) { e.enforcementEnabled = enabled }
 }
@@ -62,7 +62,7 @@ func NewEnforcer(opts ...EnforcerOption) *Enforcer {
 }
 
 // Enabled reports whether real enforcement is on. Always false in
-// v1.0 wiring; true only when a caller (tests, v1.8) opted in via
+// v1.0 wiring; true only when a caller (tests, post-v1.0) opted in via
 // WithEnforcementEnabled.
 func (e *Enforcer) Enabled() bool { return e.enforcementEnabled }
 
@@ -76,7 +76,7 @@ func (e *Enforcer) Enabled() bool { return e.enforcementEnabled }
 //
 //   - Enforcement disabled (v1.0): Allowed is ALWAYS true regardless
 //     of WouldDeny or mode — audit-mode-only.
-//   - Enforcement enabled (v1.8 path): Audit / Warn → allow (Warn's
+//   - Enforcement enabled (post-v1.0 path): Audit / Warn → allow (Warn's
 //     warn-event is a deferred side-effect); Enforce → block on a
 //     denying verdict (Allowed = !WouldDeny), violation-handler
 //     invocation is a deferred side-effect.
@@ -92,7 +92,7 @@ func (e *Enforcer) Enforce(ctx context.Context, mode audit.EnforcementMode, resu
 		d.Allowed = true
 		return d
 	}
-	// v1.8 gate (seam): block only in Enforce mode on a denying
+	// post-v1.0 gate (seam): block only in Enforce mode on a denying
 	// verdict. Side-effects (warn events, violation handlers) are
 	// deferred — see the v1.x ROADMAP entry.
 	switch mode {

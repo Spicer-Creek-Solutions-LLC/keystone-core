@@ -67,7 +67,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if cfg.NATS.Mode != config.NATSModeExternal {
 		// v1.0 agents always run in external mode — they connect to
 		// the control plane's NATS, never embed their own. Embedded
-		// mode would be a v2.0 hybrid topology.
+		// mode would be a v2.x+ hybrid topology.
 		return fmt.Errorf("agent: NATS mode must be external, got %q", string(cfg.NATS.Mode))
 	}
 

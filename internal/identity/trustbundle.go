@@ -252,7 +252,7 @@ func (b *TrustBundle) ClearSequenceNumber() { b.inner.ClearSequenceNumber() }
 // [x509bundle.Source] so it plugs directly into
 // [github.com/spiffe/go-spiffe/v2/svid/x509svid.Verify]. Returns an
 // error wrapping [ErrInvalidTrustBundle] when td is foreign — this
-// is a single-domain bundle (federation is v1.1 — see the epic's
+// is a single-domain bundle (federation is post-v1.0 — see the epic's
 // out-of-scope list).
 func (b *TrustBundle) GetX509BundleForTrustDomain(td spiffeid.TrustDomain) (*x509bundle.Bundle, error) {
 	if td.Compare(b.inner.TrustDomain()) != 0 {

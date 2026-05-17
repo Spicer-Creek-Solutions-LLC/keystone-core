@@ -12,7 +12,7 @@
 //
 // v1.0 ships the engine in audit-mode-only: policies evaluate and
 // record but the Enforcer (task 10) always allows. Full enforcement
-// is v1.8.
+// is post-v1.0.
 package policy
 
 import (
@@ -120,8 +120,8 @@ func AllCategories() []Category {
 // differ (a single policy can yield violations of mixed severity).
 //
 // EnforcementMode is recorded on every evaluation's audit entry
-// but the v1.0 Enforcer (task 10) ignores it (always allows). v1.8
-// honors it.
+// but the v1.0 Enforcer (task 10) ignores it (always allows); a later
+// (v1.x) release honors it.
 type Policy struct {
 	ID              string
 	Name            string

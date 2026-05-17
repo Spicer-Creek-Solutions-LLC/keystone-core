@@ -15,7 +15,7 @@ import (
 // non-empty (and may itself contain further dots — e.g.
 // `state.apply.start` has category `state` and subtype `apply.start`).
 //
-// Subtypes are deliberately not closed: operators and v1.4 plugins
+// Subtypes are deliberately not closed: operators and post-v1.0 plugins
 // (Epic 14) extend the taxonomy by emitting new subtypes within a
 // known category without modifying core. [IsCanonical] reports
 // whether a value matches one of the 22 v1.0 documented spellings;

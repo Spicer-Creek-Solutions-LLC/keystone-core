@@ -14,7 +14,7 @@ import (
 // v0.1 ships exactly one Attestor — [JoinTokenAttestor] —
 // because it's the only attestation strategy the embedded
 // provider needs to satisfy the §4.10 acceptance bar. Future
-// attestors are v1.1+ scope.
+// attestors are post-v1.0 scope.
 type Attestor interface {
 	// Type identifies the AttestRequest.Type values this attestor
 	// handles. Two attestors registered with the provider MUST

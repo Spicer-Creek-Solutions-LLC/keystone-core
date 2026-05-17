@@ -1,8 +1,8 @@
 // Package maintenance exposes REST routes for the maintenance-window
 // domain.
 //
-// v1.0 scaffold — concrete handlers ship in v1.1 (per
-// PROJECT-DETAILS §4.5 the gRPC + REST land together at v1.1). The
+// v1.0 scaffold — concrete handlers ship in post-v1.0 (per
+// PROJECT-DETAILS §4.5 the gRPC + REST land together at post-v1.0). The
 // stub directory exists at v1.0 so the route surface is reserved.
 package maintenance
 

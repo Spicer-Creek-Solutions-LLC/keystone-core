@@ -3,7 +3,7 @@
 // The CRUD methods (CreatePolicy / UpdatePolicy / DeletePolicy) are
 // declared but the server leaves them on the generated
 // UnimplementedPolicyServiceServer base, so they return
-// codes.Unimplemented until v1.8 enables policy mutation
+// codes.Unimplemented until a later (v1.x) release enables policy mutation
 // (PROJECT-DETAILS §4.12; the in-memory Registry has no
 // Update/Deregister in v1.0 by design).
 //

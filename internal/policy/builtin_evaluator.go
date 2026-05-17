@@ -33,7 +33,7 @@ import (
 // Config is parsed + the rule "compiled" (globs/time-window
 // pre-built) once and cached keyed policyID + sha256(Code) under a
 // mutex. Code is immutable per registration (no Deregister in
-// v1.0); a v1.8 re-register with changed Code gets a fresh key.
+// v1.0); a post-v1.0 re-register with changed Code gets a fresh key.
 type BuiltinEvaluator struct {
 	mu    sync.Mutex
 	cache map[string]compiledRule

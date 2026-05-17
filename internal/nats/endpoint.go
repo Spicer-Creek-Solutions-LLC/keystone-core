@@ -36,10 +36,10 @@ const (
 // Endpoint describes one NATS server reachable by the
 // ConnectionManager. URL is canonical; Scheme is parsed from the URL
 // for StrategySelector dispatch. Priority/Weight govern selection
-// order — higher Priority is preferred; Weight tunes the v1.3+
+// order — higher Priority is preferred; Weight tunes the post-v1.0
 // load-distribution path (today only the highest-priority bucket is
 // used). Tags are operator-supplied labels (region, role) that
-// surface in Snapshot for observability and are reserved for v2.0
+// surface in Snapshot for observability and are reserved for v2.x+
 // supercluster routing.
 type Endpoint struct {
 	URL      string
