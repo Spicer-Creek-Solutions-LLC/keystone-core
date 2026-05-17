@@ -84,7 +84,7 @@ To keep the v1.0 timebox honest, the following are explicitly post-v1.0:
 - WASM module runtime, Windows agent, macOS agent
 - Kubernetes operator embedding
 - Full SPIRE integration
-- Policy *enforcement* (the v0.x → v1.0 line is audit-mode only)
+- Policy *enforcement* — the `v0.x → v1.0` line is **audit-mode only**: policies evaluate + audit but never block (see [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md))
 - Federation, NATS supercluster / leaf nodes
 - Web UI, blueprint marketplace, telemetry gateway
 
