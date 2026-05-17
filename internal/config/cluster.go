@@ -26,6 +26,8 @@ import (
 //	  election:
 //	    session_ttl_seconds: 3
 //	    recampaign_delay: 1s
+//	  shard:
+//	    virtual_nodes: 150
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -38,6 +40,17 @@ type ClusterConfig struct {
 	Etcd       ClusterEtcdConfig       `koanf:"etcd"`
 	Membership ClusterMembershipConfig `koanf:"membership"`
 	Election   ClusterElectionConfig   `koanf:"election"`
+	Shard      ClusterShardConfig      `koanf:"shard"`
+}
+
+// ClusterShardConfig is the operator-facing consistent-hash config
+// (Epic 13 task 4). The runtime equivalent is the cluster.HashRing
+// vnode count; boot wiring (later task) maps onto it.
+type ClusterShardConfig struct {
+	// VirtualNodes is the number of ring points per member. More
+	// vnodes = smoother key distribution + less rebalancing churn,
+	// at a higher ring-rebuild cost. §4.15 default 150.
+	VirtualNodes int `koanf:"virtual_nodes"`
 }
 
 // ClusterElectionConfig is the operator-facing leader-election
@@ -164,6 +177,9 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.election.recampaign_delay must be non-negative, got %v",
 			c.Election.ReCampaignDelay)
 	}
+	if c.Shard.VirtualNodes < 1 {
+		return fmt.Errorf("cluster.shard.virtual_nodes must be >= 1, got %d", c.Shard.VirtualNodes)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -200,5 +216,8 @@ func applyClusterDefaults(c *ClusterConfig) {
 	c.Election = ClusterElectionConfig{
 		SessionTTLSeconds: 3, // §4.15 "<3s leader" SLO target
 		ReCampaignDelay:   1 * time.Second,
+	}
+	c.Shard = ClusterShardConfig{
+		VirtualNodes: 150, // §4.15 default
 	}
 }
