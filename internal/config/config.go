@@ -49,6 +49,7 @@ type Config struct {
 	Identity IdentityConfig `koanf:"identity"`
 	Secrets  SecretsConfig  `koanf:"secrets"`
 	Events   EventsConfig   `koanf:"events"`
+	Cluster  ClusterConfig  `koanf:"cluster"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -137,6 +138,7 @@ func defaultConfig() *Config {
 		},
 	}
 	applyEventsDefaults(&c.Events)
+	applyClusterDefaults(&c.Cluster)
 	return c
 }
 
@@ -208,6 +210,9 @@ func (c *Config) Validate() error {
 	if err := c.Events.Validate(c.NATS); err != nil {
 		return err
 	}
+	if err := c.Cluster.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -227,6 +232,13 @@ func (c *Config) ProductionWarnings() []string {
 	}
 	if c.Storage.Driver == "sqlite" {
 		w = append(w, "SQLite is not recommended for production (use postgres for HA)")
+	}
+	// Single-node (clustering disabled) is a supported topology,
+	// not a misconfiguration — no warning for it. Only the
+	// embedded-etcd scaling caveat is worth surfacing when the
+	// operator has opted into clustering.
+	if c.Cluster.Enabled && c.Cluster.Etcd.Mode == clusterModeEmbedded {
+		w = append(w, "embedded etcd is fine for ≤3 members; use external etcd for 5+ member production clusters")
 	}
 	if c.Server.CORS.Enabled {
 		for _, o := range c.Server.CORS.AllowedOrigins {

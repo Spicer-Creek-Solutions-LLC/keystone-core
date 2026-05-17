@@ -1,0 +1,128 @@
+package config
+
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func validEmbeddedCluster() ClusterConfig {
+	c := ClusterConfig{}
+	applyClusterDefaults(&c)
+	c.Enabled = true
+	return c
+}
+
+func TestClusterConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*ClusterConfig)
+		wantErr string
+	}{
+		{"disabled is always ok", func(c *ClusterConfig) { c.Enabled = false; c.Etcd.Mode = "garbage" }, ""},
+		{"valid embedded defaults", func(c *ClusterConfig) {}, ""},
+		{
+			"valid external",
+			func(c *ClusterConfig) {
+				c.Etcd.Mode = "external"
+				c.Etcd.Endpoints = []string{"http://10.0.0.1:2379"}
+			},
+			"",
+		},
+		{"bad mode", func(c *ClusterConfig) { c.Etcd.Mode = "raft" }, "mode must be"},
+		{"embedded missing name", func(c *ClusterConfig) { c.Etcd.Name = "" }, "name is required"},
+		{"embedded missing data_dir", func(c *ClusterConfig) { c.Etcd.DataDir = "" }, "data_dir is required"},
+		{"embedded missing client_urls", func(c *ClusterConfig) { c.Etcd.ClientURLs = nil }, "client_urls is required"},
+		{"embedded missing peer_urls", func(c *ClusterConfig) { c.Etcd.PeerURLs = nil }, "peer_urls is required"},
+		{
+			"external missing endpoints",
+			func(c *ClusterConfig) { c.Etcd.Mode = "external"; c.Etcd.Endpoints = nil },
+			"endpoints is required",
+		},
+		{"lease ttl too low", func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 0 }, "lease_ttl_seconds must be >="},
+		{"negative dial timeout", func(c *ClusterConfig) { c.Etcd.DialTimeout = -time.Second }, "dial_timeout must be non-negative"},
+		{"negative autosync", func(c *ClusterConfig) { c.Etcd.AutoSyncInterval = -time.Second }, "auto_sync_interval must be non-negative"},
+		{
+			"tls enabled without files",
+			func(c *ClusterConfig) { c.Etcd.TLS.Enabled = true },
+			"tls requires certfile and keyfile",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := validEmbeddedCluster()
+			tt.mutate(&c)
+			err := c.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Validate() = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestApplyClusterDefaults(t *testing.T) {
+	var c ClusterConfig
+	applyClusterDefaults(&c)
+	if c.Enabled {
+		t.Error("clustering must default to disabled (opt-in)")
+	}
+	if c.Etcd.Mode != clusterModeEmbedded {
+		t.Errorf("default mode = %q, want embedded", c.Etcd.Mode)
+	}
+	if c.Etcd.LeaseTTLSeconds != 15 {
+		t.Errorf("default lease ttl = %d, want 15", c.Etcd.LeaseTTLSeconds)
+	}
+	if len(c.Etcd.ClientURLs) == 0 || len(c.Etcd.PeerURLs) == 0 {
+		t.Error("default embedded URLs must be populated")
+	}
+	// Defaults must themselves validate once enabled.
+	c.Enabled = true
+	if err := c.Validate(); err != nil {
+		t.Fatalf("defaulted cluster config invalid: %v", err)
+	}
+}
+
+func TestDefaultConfig_ClusterDisabled(t *testing.T) {
+	c := defaultConfig()
+	if c.Cluster.Enabled {
+		t.Fatal("defaultConfig must leave clustering disabled")
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("default config invalid: %v", err)
+	}
+}
+
+func TestProductionWarnings_Cluster(t *testing.T) {
+	c := defaultConfig()
+	c.Mode = ModeProduction
+	// Single-node (clustering disabled) is supported — no warning.
+	if containsSubstr(c.ProductionWarnings(), "clustering") || containsSubstr(c.ProductionWarnings(), "etcd") {
+		t.Errorf("disabled clustering must not warn, got %v", c.ProductionWarnings())
+	}
+
+	c.Cluster.Enabled = true // embedded by default
+	if !containsSubstr(c.ProductionWarnings(), "embedded etcd") {
+		t.Error("expected an embedded-etcd production warning when clustering enabled")
+	}
+
+	c.Cluster.Etcd.Mode = "external"
+	c.Cluster.Etcd.Endpoints = []string{"http://10.0.0.1:2379"}
+	if containsSubstr(c.ProductionWarnings(), "embedded etcd") {
+		t.Error("external etcd must not trigger the embedded warning")
+	}
+}
+
+func containsSubstr(ss []string, sub string) bool {
+	for _, s := range ss {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}

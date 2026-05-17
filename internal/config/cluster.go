@@ -1,0 +1,125 @@
+package config
+
+import (
+	"fmt"
+	"time"
+)
+
+// ClusterConfig drives the Epic 13 clustering/HA boot in
+// kscore-server (PROJECT-DETAILS §4.15).
+//
+//	cluster:
+//	  enabled: false
+//	  etcd:
+//	    mode: embedded            # embedded | external
+//	    name: kscore-1
+//	    data_dir: ./data/etcd
+//	    client_urls: ["http://127.0.0.1:2379"]
+//	    peer_urls:   ["http://127.0.0.1:2380"]
+//	    endpoints:   []           # external mode only
+//	    lease_ttl_seconds: 15
+//	    dial_timeout: 5s
+//	    auto_sync_interval: 5m
+//
+// Enabled defaults to false: the single-node path stays the default
+// and clustering is strictly opt-in. When disabled, no etcd is
+// started and the ClusterService/CoordinationService are not
+// registered (later Epic 13 tasks). The wiring that translates this
+// into a running internal/cluster.EtcdClient lands with a later
+// Epic 13 task; Task 1 ships the config surface + validation.
+type ClusterConfig struct {
+	Enabled bool                `koanf:"enabled"`
+	Etcd    ClusterEtcdConfig   `koanf:"etcd"`
+}
+
+// ClusterEtcdConfig is the operator-facing etcd backend config.
+// internal/cluster owns the runtime equivalent (cluster.EtcdConfig);
+// boot wiring (later task) maps this onto it.
+type ClusterEtcdConfig struct {
+	Mode             string        `koanf:"mode"`
+	Name             string        `koanf:"name"`
+	DataDir          string        `koanf:"data_dir"`
+	ClientURLs       []string      `koanf:"client_urls"`
+	PeerURLs         []string      `koanf:"peer_urls"`
+	Endpoints        []string      `koanf:"endpoints"`
+	LeaseTTLSeconds  int           `koanf:"lease_ttl_seconds"`
+	DialTimeout      time.Duration `koanf:"dial_timeout"`
+	AutoSyncInterval time.Duration `koanf:"auto_sync_interval"`
+	TLS              TLSConfig     `koanf:"tls"`
+}
+
+const (
+	clusterModeEmbedded = "embedded"
+	clusterModeExternal = "external"
+
+	// minLeaseTTLSeconds is a conservative floor. The heartbeat /
+	// lease-TTL ratio that prevents leader flapping (TTL ≥ 3×
+	// heartbeat, per the Epic 13 risk list) is enforced when the
+	// MembershipManager lands (Task 2); Task 1 only guards against
+	// a zero/negative TTL that etcd would reject outright.
+	minLeaseTTLSeconds = 1
+)
+
+// Validate enforces structural invariants. Disabled is always OK.
+// Self-contained (no sibling config needed) so the cluster block
+// stays table-driven-testable.
+func (c *ClusterConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	switch c.Etcd.Mode {
+	case clusterModeEmbedded:
+		if c.Etcd.Name == "" {
+			return fmt.Errorf("cluster.etcd.name is required in embedded mode")
+		}
+		if c.Etcd.DataDir == "" {
+			return fmt.Errorf("cluster.etcd.data_dir is required in embedded mode")
+		}
+		if len(c.Etcd.ClientURLs) == 0 {
+			return fmt.Errorf("cluster.etcd.client_urls is required in embedded mode")
+		}
+		if len(c.Etcd.PeerURLs) == 0 {
+			return fmt.Errorf("cluster.etcd.peer_urls is required in embedded mode")
+		}
+	case clusterModeExternal:
+		if len(c.Etcd.Endpoints) == 0 {
+			return fmt.Errorf("cluster.etcd.endpoints is required in external mode")
+		}
+	default:
+		return fmt.Errorf("cluster.etcd.mode must be %q or %q, got %q",
+			clusterModeEmbedded, clusterModeExternal, c.Etcd.Mode)
+	}
+	if c.Etcd.LeaseTTLSeconds < minLeaseTTLSeconds {
+		return fmt.Errorf("cluster.etcd.lease_ttl_seconds must be >= %d, got %d",
+			minLeaseTTLSeconds, c.Etcd.LeaseTTLSeconds)
+	}
+	if c.Etcd.DialTimeout < 0 {
+		return fmt.Errorf("cluster.etcd.dial_timeout must be non-negative, got %v", c.Etcd.DialTimeout)
+	}
+	if c.Etcd.AutoSyncInterval < 0 {
+		return fmt.Errorf("cluster.etcd.auto_sync_interval must be non-negative, got %v", c.Etcd.AutoSyncInterval)
+	}
+	if c.Etcd.TLS.Enabled && (c.Etcd.TLS.CertFile == "" || c.Etcd.TLS.KeyFile == "") {
+		return fmt.Errorf("cluster.etcd.tls requires certfile and keyfile when enabled")
+	}
+	return nil
+}
+
+// applyClusterDefaults seeds the etcd sub-config. Cluster stays
+// disabled by default; the defaults only take effect once an
+// operator flips cluster.enabled: true (or overrides individual
+// fields), matching the disabled-by-default opt-in contract.
+func applyClusterDefaults(c *ClusterConfig) {
+	c.Enabled = false
+	c.Etcd = ClusterEtcdConfig{
+		Mode:             clusterModeEmbedded,
+		Name:             "kscore-1",
+		DataDir:          "./data/etcd",
+		ClientURLs:       []string{"http://127.0.0.1:2379"},
+		PeerURLs:         []string{"http://127.0.0.1:2380"},
+		Endpoints:        nil,
+		LeaseTTLSeconds:  15, // §4.15 default
+		DialTimeout:      5 * time.Second,
+		AutoSyncInterval: 5 * time.Minute,
+	}
+}

@@ -116,7 +116,7 @@ kscore.{cluster}.discovery
 | Tracing | `go.opentelemetry.io/otel/*` | OTLP/Zipkin/stdout exporters. |
 | Metrics | `prometheus/client_golang` | Standard. |
 | Storage | `modernc.org/sqlite`, `lib/pq` | Pure-Go drivers. |
-| Cluster | `go.etcd.io/etcd/client/v3`, `server/v3` | Embedded etcd for HA. |
+| Cluster | `go.etcd.io/etcd/{client/v3,server/v3,api/v3}` (v3.6.11) | Embedded etcd for HA. Added Epic 13 task 1: `internal/cluster.EtcdClient` wraps etcd v3 in **embedded** (in-process server via `server/v3/embed`, client wired straight to it with `etcdserver/api/v3client` — no network hop) or **external** mode; owns lifecycle + lease (grant/keepalive/revoke) + thin KV/Watch/Txn passthrough; `Client()` exposes `*clientv3.Client` so the Task 3 LeaderElector layers `concurrency.Election` without re-dialing. Only credible embeddable strongly-consistent (Raft quorum) coordination backend in Go — gossip (serf/memberlist) can't satisfy the split-brain/fencing acceptance criteria. Clustering is opt-in (`cluster.enabled: false` default). |
 | GitOps | `go-git/go-git/v5`, `argoproj/argo-cd/v3` | Webhook + reconcile. |
 | Policy | `open-policy-agent/opa` (v1.16.2), `google/cel-go` | Dual engine, audit-mode v1. OPA added Epic 12 task 6: embedded `opa/v1/rego` SDK (in-process; no subprocess/sidecar — only credible embeddable Rego engine in Go). Rego v1 syntax; fixed package `keystone.policy` (query `data.keystone.policy.{allow,violations,warnings}`); restricted capability set denies `http.send`/`net.*`/`opa.runtime` (operator-supplied policies must be pure decision logic — SSRF/exfil guard); compiled queries cached by `policyID+sha256(Code)`. |
 | WASM | `tetratelabs/wazero` | Pure-Go WASM runtime. |
