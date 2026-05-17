@@ -23,6 +23,9 @@ import (
 //	  membership:
 //	    heartbeat_interval: 5s
 //	    key_prefix: /kscore/cluster
+//	  election:
+//	    session_ttl_seconds: 3
+//	    recampaign_delay: 1s
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -34,6 +37,26 @@ type ClusterConfig struct {
 	Enabled    bool                    `koanf:"enabled"`
 	Etcd       ClusterEtcdConfig       `koanf:"etcd"`
 	Membership ClusterMembershipConfig `koanf:"membership"`
+	Election   ClusterElectionConfig   `koanf:"election"`
+}
+
+// ClusterElectionConfig is the operator-facing leader-election
+// config (Epic 13 task 3). The runtime equivalent is
+// cluster.ElectionConfig; boot wiring (later task) maps onto it.
+//
+// The election session lease is separate from the membership lease:
+// it is tuned to the "first/new leader < 3s" failover SLO, not the
+// membership 3×-heartbeat anti-flap rule. SLO verification + any
+// tuning is Epic 13 task 18.
+type ClusterElectionConfig struct {
+	// SessionTTLSeconds is the etcd concurrency-session TTL; a
+	// dead leader's lock expires within ~this long, so it bounds
+	// failover time. §4.15 SLO target default 3s.
+	SessionTTLSeconds int `koanf:"session_ttl_seconds"`
+	// ReCampaignDelay is how long TransferLeadership waits after
+	// resigning before re-campaigning, so a peer reliably takes
+	// over rather than the resigner immediately winning again.
+	ReCampaignDelay time.Duration `koanf:"recampaign_delay"`
 }
 
 // ClusterMembershipConfig is the operator-facing membership config
@@ -133,6 +156,14 @@ func (c *ClusterConfig) Validate() error {
 	if c.Membership.KeyPrefix == "" {
 		return fmt.Errorf("cluster.membership.key_prefix is required")
 	}
+	if c.Election.SessionTTLSeconds < minLeaseTTLSeconds {
+		return fmt.Errorf("cluster.election.session_ttl_seconds must be >= %d, got %d",
+			minLeaseTTLSeconds, c.Election.SessionTTLSeconds)
+	}
+	if c.Election.ReCampaignDelay < 0 {
+		return fmt.Errorf("cluster.election.recampaign_delay must be non-negative, got %v",
+			c.Election.ReCampaignDelay)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -165,5 +196,9 @@ func applyClusterDefaults(c *ClusterConfig) {
 	c.Membership = ClusterMembershipConfig{
 		HeartbeatInterval: 5 * time.Second, // §4.15 default
 		KeyPrefix:         "/kscore/cluster",
+	}
+	c.Election = ClusterElectionConfig{
+		SessionTTLSeconds: 3, // §4.15 "<3s leader" SLO target
+		ReCampaignDelay:   1 * time.Second,
 	}
 }

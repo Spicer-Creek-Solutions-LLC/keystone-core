@@ -64,6 +64,8 @@ func TestClusterConfig_Validate(t *testing.T) {
 			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 2; c.Membership.HeartbeatInterval = 900 * time.Millisecond },
 			"must be >= 3x", // 900ms rounds to 1s → need ttl ≥ 3
 		},
+		{"election session_ttl too low", func(c *ClusterConfig) { c.Election.SessionTTLSeconds = 0 }, "session_ttl_seconds must be >="},
+		{"election negative recampaign", func(c *ClusterConfig) { c.Election.ReCampaignDelay = -time.Second }, "recampaign_delay must be non-negative"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

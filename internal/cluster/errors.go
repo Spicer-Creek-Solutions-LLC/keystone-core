@@ -50,6 +50,10 @@ var (
 	// ErrInvalidTransition is returned when a member status change
 	// is not a permitted edge of the lifecycle state machine.
 	ErrInvalidTransition = errors.New("cluster: invalid member status transition")
+
+	// ErrNoLeader is returned by LeaderElector.LeaderID when the
+	// election currently has no leader.
+	ErrNoLeader = errors.New("cluster: no leader")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".
