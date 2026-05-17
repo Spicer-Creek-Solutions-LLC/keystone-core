@@ -38,6 +38,18 @@ var (
 	// ErrLeaseNotFound is returned when a lease ID is unknown to
 	// etcd (expired or never granted).
 	ErrLeaseNotFound = errors.New("cluster: lease not found")
+
+	// ErrMemberNotFound is returned by MembershipManager.GetMember
+	// when no member record exists for the requested ID.
+	ErrMemberNotFound = errors.New("cluster: member not found")
+
+	// ErrNotRegistered is returned by membership operations that
+	// require Register to have been called first.
+	ErrNotRegistered = errors.New("cluster: not registered")
+
+	// ErrInvalidTransition is returned when a member status change
+	// is not a permitted edge of the lifecycle state machine.
+	ErrInvalidTransition = errors.New("cluster: invalid member status transition")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".

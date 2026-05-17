@@ -47,6 +47,23 @@ func TestClusterConfig_Validate(t *testing.T) {
 			func(c *ClusterConfig) { c.Etcd.TLS.Enabled = true },
 			"tls requires certfile and keyfile",
 		},
+		{"heartbeat zero", func(c *ClusterConfig) { c.Membership.HeartbeatInterval = 0 }, "heartbeat_interval must be > 0"},
+		{"empty key prefix", func(c *ClusterConfig) { c.Membership.KeyPrefix = "" }, "key_prefix is required"},
+		{
+			"anti-flap: ttl < 3x heartbeat",
+			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 10; c.Membership.HeartbeatInterval = 5 * time.Second },
+			"must be >= 3x",
+		},
+		{
+			"anti-flap: ttl exactly 3x heartbeat ok",
+			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 15; c.Membership.HeartbeatInterval = 5 * time.Second },
+			"",
+		},
+		{
+			"anti-flap: sub-second heartbeat rounds up",
+			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 2; c.Membership.HeartbeatInterval = 900 * time.Millisecond },
+			"must be >= 3x", // 900ms rounds to 1s → need ttl ≥ 3
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

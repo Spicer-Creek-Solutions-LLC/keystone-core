@@ -20,6 +20,9 @@ import (
 //	    lease_ttl_seconds: 15
 //	    dial_timeout: 5s
 //	    auto_sync_interval: 5m
+//	  membership:
+//	    heartbeat_interval: 5s
+//	    key_prefix: /kscore/cluster
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -28,8 +31,21 @@ import (
 // into a running internal/cluster.EtcdClient lands with a later
 // Epic 13 task; Task 1 ships the config surface + validation.
 type ClusterConfig struct {
-	Enabled bool                `koanf:"enabled"`
-	Etcd    ClusterEtcdConfig   `koanf:"etcd"`
+	Enabled    bool                    `koanf:"enabled"`
+	Etcd       ClusterEtcdConfig       `koanf:"etcd"`
+	Membership ClusterMembershipConfig `koanf:"membership"`
+}
+
+// ClusterMembershipConfig is the operator-facing membership config
+// (Epic 13 task 2). The runtime equivalent is
+// cluster.MembershipConfig; boot wiring (later task) maps onto it.
+type ClusterMembershipConfig struct {
+	// HeartbeatInterval is how often a member refreshes its
+	// observable liveness. §4.15 default 5s.
+	HeartbeatInterval time.Duration `koanf:"heartbeat_interval"`
+	// KeyPrefix roots the etcd keyspace for this cluster's member
+	// records (and, later, shard/leader keys).
+	KeyPrefix string `koanf:"key_prefix"`
 }
 
 // ClusterEtcdConfig is the operator-facing etcd backend config.
@@ -52,12 +68,20 @@ const (
 	clusterModeEmbedded = "embedded"
 	clusterModeExternal = "external"
 
-	// minLeaseTTLSeconds is a conservative floor. The heartbeat /
-	// lease-TTL ratio that prevents leader flapping (TTL ≥ 3×
-	// heartbeat, per the Epic 13 risk list) is enforced when the
-	// MembershipManager lands (Task 2); Task 1 only guards against
-	// a zero/negative TTL that etcd would reject outright.
+	// minLeaseTTLSeconds is a conservative floor against a
+	// zero/negative TTL that etcd would reject outright. The
+	// stronger anti-flap rule (lease TTL ≥ 3× heartbeat) is
+	// enforced as a cross-field check below — see
+	// minLeaseHeartbeatRatio.
 	minLeaseTTLSeconds = 1
+
+	// minLeaseHeartbeatRatio is the Epic 13 leader-flap guard:
+	// lease_ttl_seconds must be at least 3× the heartbeat
+	// interval. A tighter ratio causes a transient missed
+	// heartbeat to expire the lease and trigger spurious
+	// failover/leader churn. The risk list is explicit that CI
+	// must not allow tighter.
+	minLeaseHeartbeatRatio = 3
 )
 
 // Validate enforces structural invariants. Disabled is always OK.
@@ -102,6 +126,22 @@ func (c *ClusterConfig) Validate() error {
 	if c.Etcd.TLS.Enabled && (c.Etcd.TLS.CertFile == "" || c.Etcd.TLS.KeyFile == "") {
 		return fmt.Errorf("cluster.etcd.tls requires certfile and keyfile when enabled")
 	}
+	if c.Membership.HeartbeatInterval <= 0 {
+		return fmt.Errorf("cluster.membership.heartbeat_interval must be > 0, got %v",
+			c.Membership.HeartbeatInterval)
+	}
+	if c.Membership.KeyPrefix == "" {
+		return fmt.Errorf("cluster.membership.key_prefix is required")
+	}
+	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
+	// Compare in seconds (etcd lease granularity); round the
+	// heartbeat up so sub-second intervals can't sneak under.
+	hbSeconds := int((c.Membership.HeartbeatInterval + time.Second - 1) / time.Second)
+	if c.Etcd.LeaseTTLSeconds < minLeaseHeartbeatRatio*hbSeconds {
+		return fmt.Errorf(
+			"cluster.etcd.lease_ttl_seconds (%d) must be >= %dx cluster.membership.heartbeat_interval (%v ≈ %ds) to avoid leader flapping",
+			c.Etcd.LeaseTTLSeconds, minLeaseHeartbeatRatio, c.Membership.HeartbeatInterval, hbSeconds)
+	}
 	return nil
 }
 
@@ -118,8 +158,12 @@ func applyClusterDefaults(c *ClusterConfig) {
 		ClientURLs:       []string{"http://127.0.0.1:2379"},
 		PeerURLs:         []string{"http://127.0.0.1:2380"},
 		Endpoints:        nil,
-		LeaseTTLSeconds:  15, // §4.15 default
+		LeaseTTLSeconds:  15, // §4.15 default (exactly 3× the 5s heartbeat)
 		DialTimeout:      5 * time.Second,
 		AutoSyncInterval: 5 * time.Minute,
+	}
+	c.Membership = ClusterMembershipConfig{
+		HeartbeatInterval: 5 * time.Second, // §4.15 default
+		KeyPrefix:         "/kscore/cluster",
 	}
 }

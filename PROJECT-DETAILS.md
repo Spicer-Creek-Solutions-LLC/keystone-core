@@ -1005,7 +1005,7 @@ webhook:
 | Component | Purpose |
 |---|---|
 | `EtcdClient` | Wraps `etcd v3 client`; embedded or external; lease + watch; auto-sync. |
-| `MembershipManager` | Ephemeral keys (lease TTL 15s); 5s heartbeat; member metadata; observers. |
+| `MembershipManager` | Ephemeral keys (lease TTL 15s); 5s heartbeat; member metadata; observers. **Landed Epic 13 task 2** (`internal/cluster/membership.go`): ephemeral-lease registration + keepalive, heartbeat loop, `LoadMembers`/`GetMember`, single shared `WithPrevKV` watch → `MemberEvent{Joined,Updated,Left}` observer fan-out + `WatchMembers` channel adapter, validated `MemberStatus` state machine (HEALTHY/LEAVING owned here; DEGRADED/UNHEALTHY are HealthMonitor/task 7), stable UUIDv7 member ID persisted across restarts (RecoveryManager/task 10 shard reclaim). Anti-flap guard enforced in `config.ClusterConfig.Validate`: `lease_ttl_seconds ≥ 3× membership.heartbeat_interval` (default 15s/5s). |
 | `LeaderElector` | `concurrency.Election` primitives; campaign loop; resignation; transfer; observers. |
 | `ShardManager` (consistent hash ring) | Configurable virtual nodes (default 150); agent → member by `hash(agentID)`; rebalance on topology change. |
 | `ShardStore` | etcd-backed `agentID → memberID` mapping, versioned for optimistic locking. |
