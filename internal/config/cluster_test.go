@@ -76,6 +76,9 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"failover job_batch too low", func(c *ClusterConfig) { c.Failover.JobBatch = 0 }, "job_batch must be >= 1"},
 		{"recovery connect_timeout zero", func(c *ClusterConfig) { c.Recovery.ConnectTimeout = 0 }, "connect_timeout must be > 0"},
 		{"recovery connect_retries too low", func(c *ClusterConfig) { c.Recovery.ConnectRetries = 0 }, "connect_retries must be >= 1"},
+		{"fencing bad mode", func(c *ClusterConfig) { c.Fencing.Mode = "halt" }, "fencing.mode must be"},
+		{"fencing strict ok", func(c *ClusterConfig) { c.Fencing.Mode = "strict" }, ""},
+		{"fencing graceful ok", func(c *ClusterConfig) { c.Fencing.Mode = "graceful" }, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

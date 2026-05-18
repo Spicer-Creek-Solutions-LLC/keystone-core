@@ -68,6 +68,11 @@ var (
 	// ring is empty (no HEALTHY/DEGRADED members), so an agent
 	// cannot be assigned an owner.
 	ErrNoEligibleMembers = errors.New("cluster: no eligible members")
+
+	// ErrFenced is returned by FencingManager.Guard when an
+	// operation is blocked because this node is fenced (in a
+	// minority partition or running under a stale epoch).
+	ErrFenced = errors.New("cluster: operation fenced (split-brain protection)")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".

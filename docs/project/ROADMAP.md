@@ -222,6 +222,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
+#### Fencing guard wired around server write paths
+
+- **Priority**: gate-v1.0
+- **What**: Epic 13 task 11 ships `FencingManager` with `Guard(OpType) (release, error)` + `ValidEpoch(e)` — the split-brain enforcement (minority/stale-epoch nodes block writes). The mechanism is built and reactive (HealthMonitor quorum signal + etcd epoch watch), but it is **not yet invoked around the actual server write paths** (gRPC state/command writes in `cmd/kscore-server` / `pkg/api`). Until wired, a minority/stale node detects + self-fences but still *accepts* write RPCs — correctness for shared state is still protected by etcd quorum at the storage layer, but the fast (<1s) application-level rejection the acceptance criterion wants is not in force.
+- **Why deferred**: same root as the leader-check boot wiring — there is no cluster→kscore-server boot wiring yet (deferred since Epic 13 task 1); the `Guard` call sites are server-request middleware, landing with the server-lifecycle/boot integration (Epic 13 task 14 or a dedicated boot task) so all clustering wiring happens in one coherent place.
+- **Acceptance for unblock**: write-bearing gRPC/REST handlers acquire `FencingManager.Guard(OpWrite)` (release on completion) and epoch-fenced operations check `ValidEpoch` before commit; the HA E2E suite (task 17) verifies a minority partition rejects writes within 1s while the majority serves.
+- **References**: `internal/cluster/fencing.go` (`Guard`/`ValidEpoch`/`Fenced`); Epic 13 task 11; companion of "Cluster leader-check boot wiring (kscore-server)".
+
 #### Cluster leader-check boot wiring (kscore-server)
 
 - **Priority**: gate-v1.0

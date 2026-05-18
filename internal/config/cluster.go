@@ -40,6 +40,8 @@ import (
 //	  recovery:
 //	    connect_timeout: 5s
 //	    connect_retries: 3
+//	  fencing:
+//	    mode: read_only           # strict | read_only | graceful
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -56,6 +58,20 @@ type ClusterConfig struct {
 	Health     ClusterHealthConfig     `koanf:"health"`
 	Failover   ClusterFailoverConfig   `koanf:"failover"`
 	Recovery   ClusterRecoveryConfig   `koanf:"recovery"`
+	Fencing    ClusterFencingConfig    `koanf:"fencing"`
+}
+
+// ClusterFencingConfig is the operator-facing split-brain fencing
+// config (Epic 13 task 11). The runtime equivalent is
+// cluster.FencingManagerConfig; boot wiring (later task) maps onto
+// it.
+type ClusterFencingConfig struct {
+	// Mode is how hard a fenced (minority / stale-epoch) node
+	// blocks operations: "strict" (block all), "read_only" (allow
+	// reads, block writes) or "graceful" (finish in-flight, block
+	// new). §4.15 acceptance ("minority blocks writes, reads
+	// continue") = read_only, the default.
+	Mode string `koanf:"mode"`
 }
 
 // ClusterRecoveryConfig is the operator-facing restart-recovery
@@ -184,6 +200,10 @@ const (
 	// failover/leader churn. The risk list is explicit that CI
 	// must not allow tighter.
 	minLeaseHeartbeatRatio = 3
+
+	fenceModeStrict   = "strict"
+	fenceModeReadOnly = "read_only"
+	fenceModeGraceful = "graceful"
 )
 
 // Validate enforces structural invariants. Disabled is always OK.
@@ -282,6 +302,12 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.recovery.connect_retries must be >= 1, got %d",
 			c.Recovery.ConnectRetries)
 	}
+	switch c.Fencing.Mode {
+	case fenceModeStrict, fenceModeReadOnly, fenceModeGraceful:
+	default:
+		return fmt.Errorf("cluster.fencing.mode must be %q, %q or %q, got %q",
+			fenceModeStrict, fenceModeReadOnly, fenceModeGraceful, c.Fencing.Mode)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -336,5 +362,8 @@ func applyClusterDefaults(c *ClusterConfig) {
 	c.Recovery = ClusterRecoveryConfig{
 		ConnectTimeout: 5 * time.Second,
 		ConnectRetries: 3,
+	}
+	c.Fencing = ClusterFencingConfig{
+		Mode: fenceModeReadOnly, // §4.15 acceptance: minority blocks writes, reads continue
 	}
 }
