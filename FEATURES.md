@@ -635,7 +635,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Cosign signature verification** (RSA, ECDSA, Ed25519; KeyID-based key management). Source: `pkg/module/verify/`. _Reasoning: cryptographic supply chain baseline._
 - **SHA-256 content addressing** (CAS storage in `~/.kscore/modules/<hash>/`). _Reasoning: dedup + integrity._
 - **Module resolver** (semver constraints; DAG with cycle detection; minimum-version-selection conflict resolution). Source: `pkg/module/resolver/`. _Reasoning: reproducible builds._
-- **Module lockfile** (`module.lock`: pinned versions + hashes; reproducible across team). _Reasoning: avoid "works on my machine"._
+- **Module lockfile** (`module.lock`: pinned versions + hashes; reproducible across team). Source: `pkg/module/manifest/`. _Reasoning: avoid "works on my machine"._
 - **Filesystem-backed registry** (Go-mod-style HTTP endpoints: `/@v/list`, `/@v/{ver}.info`, `/@v/{ver}.mod`, `/@v/{ver}.zip`). Source: `pkg/module/registry/`, `cmd/kscore-registry/`. _Reasoning: simple, proven pattern (matches Go modules); cloud backends slip to v1.x._
 - **Module loader pipeline** (parse manifest → verify → policy check → capability validation → runtime init → register granted capabilities). Source: `pkg/module/loader/`. _Reasoning: clear lifecycle._
 - **Module audit logging** (every capability invocation: module, version, capability, op, success/failure, duration). Source: `pkg/module/audit/`. _Reasoning: compliance._
