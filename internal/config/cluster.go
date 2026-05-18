@@ -37,6 +37,9 @@ import (
 //	    cooldown: 10s
 //	    agent_batch: 100
 //	    job_batch: 50
+//	  recovery:
+//	    connect_timeout: 5s
+//	    connect_retries: 3
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -52,6 +55,20 @@ type ClusterConfig struct {
 	Shard      ClusterShardConfig      `koanf:"shard"`
 	Health     ClusterHealthConfig     `koanf:"health"`
 	Failover   ClusterFailoverConfig   `koanf:"failover"`
+	Recovery   ClusterRecoveryConfig   `koanf:"recovery"`
+}
+
+// ClusterRecoveryConfig is the operator-facing restart-recovery
+// config (Epic 13 task 10). The runtime equivalent is
+// cluster.RecoveryManagerConfig; boot wiring (later task) maps onto
+// it.
+type ClusterRecoveryConfig struct {
+	// ConnectTimeout bounds each etcd reachability probe during
+	// the CONNECTING phase.
+	ConnectTimeout time.Duration `koanf:"connect_timeout"`
+	// ConnectRetries is how many times CONNECTING retries the
+	// probe before recovery fails.
+	ConnectRetries int `koanf:"connect_retries"`
 }
 
 // ClusterFailoverConfig is the operator-facing failover config
@@ -257,6 +274,14 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.failover.job_batch must be >= 1, got %d",
 			c.Failover.JobBatch)
 	}
+	if c.Recovery.ConnectTimeout <= 0 {
+		return fmt.Errorf("cluster.recovery.connect_timeout must be > 0, got %v",
+			c.Recovery.ConnectTimeout)
+	}
+	if c.Recovery.ConnectRetries < 1 {
+		return fmt.Errorf("cluster.recovery.connect_retries must be >= 1, got %d",
+			c.Recovery.ConnectRetries)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -307,5 +332,9 @@ func applyClusterDefaults(c *ClusterConfig) {
 		Cooldown:   10 * time.Second, // §4.15 default
 		AgentBatch: 100,              // §4.15 default
 		JobBatch:   50,               // §4.15 default
+	}
+	c.Recovery = ClusterRecoveryConfig{
+		ConnectTimeout: 5 * time.Second,
+		ConnectRetries: 3,
 	}
 }
