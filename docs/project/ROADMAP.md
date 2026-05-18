@@ -1000,6 +1000,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a module signed by the real `cosign` CLI in keyless mode verifies through an extended trust policy with a Rekor inclusion check; `kscore-module sign` can load a cosign-encrypted `cosign.key`.
 - **References**: `pkg/module/verify` (task 4, landed — keyed/stdlib); epic 14 "Scope (out)" (SumDB v1.2); companion of "WASM module runtime".
 
+#### Module registry publish authentication
+
+- **Priority**: v1.x
+- **What**: Epic 14 task 9 ships `cmd/kscore-registry` with an unauthenticated `POST /publish` (multipart manifest + module ZIP). Deferred: authenticating publishers (API key / mTLS client cert / signed-publish token) and per-namespace publish authorization so only an owner can publish under `vendor/*`.
+- **Why deferred**: §4.18's v1.0 trust model is the **TLS-trusted registry transport + Cosign verification at load time** (the loader/task-4's job), and the v1.0 filesystem registry runs on a trusted boundary (local / trusted network); the epic gives no publish-auth acceptance criterion. Read integrity is already covered (content-addressed hashes + signature verification at install). Publisher identity is an additive concern that does not change the artifact format.
+- **Acceptance**: `POST /publish` requires a valid credential (API key or mTLS); an unauthenticated publish is rejected 401/403; a publish under a namespace the credential does not own is rejected; existing read endpoints are unaffected.
+- **References**: `pkg/module/registry/handler.go` (`publish`), `cmd/kscore-registry` (task 9, landed — unauthenticated); companion of "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop".
+
 #### TUI monitor (`kscore-monitor`)
 
 - **Priority**: v1.x

@@ -1,10 +1,12 @@
 package registry_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -168,5 +170,107 @@ func TestHTTPEndpoints(t *testing.T) {
 	// Traversal in the module segment is rejected by name validation.
 	if code, _ := get("/../../etc/@v/list"); code != http.StatusBadRequest {
 		t.Fatalf("traversal module = %d, want 400", code)
+	}
+}
+
+// multipartBody builds a publish form with the given parts (omit a
+// part by passing nil).
+func multipartBody(t *testing.T, manifestYAML, zip []byte) (string, *bytes.Buffer) {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	add := func(field, fname string, data []byte) {
+		if data == nil {
+			return
+		}
+		fw, err := mw.CreateFormFile(field, fname)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fw.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("manifest", "manifest.yaml", manifestYAML)
+	add("module", "module.zip", zip)
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return mw.FormDataContentType(), &buf
+}
+
+func TestHTTPPublish(t *testing.T) {
+	r := newReg(t)
+	mux := http.NewServeMux()
+	registry.NewHandler(r).Register(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	post := func(ct string, body io.Reader) (int, string) {
+		resp, err := srv.Client().Post(srv.URL+"/publish", ct, body)
+		if err != nil {
+			t.Fatalf("POST /publish: %v", err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return resp.StatusCode, string(b)
+	}
+
+	man := manYAML("acme/widget", "1.0.0", nil)
+
+	// Success → 201, then it's served by the read endpoints.
+	ct, body := multipartBody(t, man, []byte("ZIPBYTES"))
+	if code, b := post(ct, body); code != http.StatusCreated {
+		t.Fatalf("publish = %d %q, want 201", code, b)
+	}
+	resp, err := srv.Client().Get(srv.URL + "/acme/widget/@v/list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lb, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if !strings.Contains(string(lb), "1.0.0") {
+		t.Fatalf("published module not listed: %q", lb)
+	}
+
+	// Re-publish same version → 409.
+	ct, body = multipartBody(t, man, []byte("ZIPBYTES"))
+	if code, _ := post(ct, body); code != http.StatusConflict {
+		t.Fatalf("re-publish = %d, want 409", code)
+	}
+
+	// Non-namespaced manifest → 400.
+	ct, body = multipartBody(t, manYAML("bare", "1.0.0", nil), []byte("z"))
+	if code, _ := post(ct, body); code != http.StatusBadRequest {
+		t.Fatalf("bad manifest = %d, want 400", code)
+	}
+
+	// Missing the module part → 400.
+	ct, body = multipartBody(t, man, nil)
+	if code, _ := post(ct, body); code != http.StatusBadRequest {
+		t.Fatalf("missing module part = %d, want 400", code)
+	}
+
+	// Not multipart → 400.
+	if code, _ := post("application/json", strings.NewReader("{}")); code != http.StatusBadRequest {
+		t.Fatalf("non-multipart = %d, want 400", code)
+	}
+}
+
+func TestHTTPPublish_BodyTooLarge(t *testing.T) {
+	r := newReg(t)
+	mux := http.NewServeMux()
+	registry.NewHandlerWithLimit(r, 16).Register(mux) // 16-byte cap
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	ct, body := multipartBody(t, manYAML("acme/widget", "1.0.0", nil), []byte("ZIPBYTES-bigger-than-16-bytes"))
+	resp, err := srv.Client().Post(srv.URL+"/publish", ct, body)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("oversize publish = %d, want 400", resp.StatusCode)
 	}
 }

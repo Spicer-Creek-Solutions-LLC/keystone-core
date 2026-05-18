@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -15,14 +16,81 @@ import (
 // Module names contain '/', so a single catch-all handler splits
 // the request path on the "/@v/" infix (the Go proxy convention):
 // left = module, right = list | <ver>.info | <ver>.mod | <ver>.zip.
-type Handler struct{ reg *Registry }
+// POST /publish (task 9) accepts a multipart upload.
+type Handler struct {
+	reg       *Registry
+	maxUpload int64
+}
 
-// NewHandler returns an HTTP handler over reg.
-func NewHandler(reg *Registry) *Handler { return &Handler{reg: reg} }
+// DefaultMaxUpload bounds a publish request body (64 MiB).
+const DefaultMaxUpload int64 = 64 << 20
 
-// Register mounts the catch-all proxy route.
+// NewHandler returns an HTTP handler over reg with the default
+// upload cap.
+func NewHandler(reg *Registry) *Handler { return &Handler{reg: reg, maxUpload: DefaultMaxUpload} }
+
+// NewHandlerWithLimit is NewHandler with an explicit publish body
+// cap (≤0 → the default).
+func NewHandlerWithLimit(reg *Registry, maxUpload int64) *Handler {
+	if maxUpload <= 0 {
+		maxUpload = DefaultMaxUpload
+	}
+	return &Handler{reg: reg, maxUpload: maxUpload}
+}
+
+// Register mounts the read-only Go-proxy routes plus POST /publish
+// (Epic 14 task 9 — the kscore-module publish target).
 func (h *Handler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /publish", h.publish)
 	mux.HandleFunc("GET /", h.serve)
+}
+
+// publish accepts a multipart/form-data upload with a `manifest`
+// (YAML) part and a `module` (ZIP) part. v1.0 publish is
+// unauthenticated — trust is the TLS-trusted registry transport +
+// Cosign verification at load time (deferred auth: see the
+// "Module registry publish authentication" ROADMAP entry).
+func (h *Handler) publish(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxUpload)
+	// Body is bounded by MaxBytesReader above; ParseMultipartForm
+	// reads through that cap and errors if exceeded.
+	if err := r.ParseMultipartForm(h.maxUpload); err != nil { //nolint:gosec // G120: bounded by MaxBytesReader
+		http.Error(w, "invalid multipart body (or too large)", http.StatusBadRequest)
+		return
+	}
+	manifestYAML, ok := h.formPart(w, r, "manifest")
+	if !ok {
+		return
+	}
+	zip, ok := h.formPart(w, r, "module")
+	if !ok {
+		return
+	}
+	switch err := h.reg.Publish(r.Context(), manifestYAML, zip); {
+	case err == nil:
+		w.WriteHeader(http.StatusCreated)
+	case errors.Is(err, ErrVersionExists):
+		http.Error(w, "version already exists", http.StatusConflict)
+	case errors.Is(err, ErrInvalidModule):
+		http.Error(w, "invalid module: "+err.Error(), http.StatusBadRequest)
+	default:
+		http.Error(w, "registry error", http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) formPart(w http.ResponseWriter, r *http.Request, name string) ([]byte, bool) {
+	f, _, err := r.FormFile(name)
+	if err != nil {
+		http.Error(w, "missing "+name+" part", http.StatusBadRequest)
+		return nil, false
+	}
+	defer func() { _ = f.Close() }()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		http.Error(w, "read "+name+" part", http.StatusBadRequest)
+		return nil, false
+	}
+	return b, true
 }
 
 const vSep = "/@v/"

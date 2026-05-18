@@ -125,6 +125,7 @@ v1.x:
   - "Windows agent (native service)"
   - "WASM module runtime"
   - "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop"
+  - "Module registry publish authentication"
   - "TUI monitor (`kscore-monitor`)"
   - "macOS agent"
   - "SPIRE-backed identity provider"
