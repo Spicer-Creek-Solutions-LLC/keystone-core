@@ -904,6 +904,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-audit export --redaction-config redaction.yaml` loads `{redact_metadata_keys, redact_patterns, redact_user, replacement}` into `audit.NewRedactionConfig`; flags, when also given, layer over / override the file; a malformed file or bad regex fails loudly before the first entry is written.
 - **References**: `internal/cli/audit/export.go` (flag-driven `RedactionConfigInput`); `internal/audit/redaction.go` `NewRedactionConfig` (landed); Epic 12 task 15 (landed).
 
+#### kscore-cluster-backup schedule + kscore-cluster watch subcommands
+
+- **Priority**: v1.x
+- **What**: Epic 13 task 16 shipped `kscore-cluster` (`status|members|leader|add|remove|transfer-leader|rebalance|backup|restore`) and `kscore-cluster-backup` (`backup|restore|list|verify`). Two subcommands from the §4.15 / epic surface are deferred: **`kscore-cluster-backup schedule`** (automated periodic snapshots) — the epic explicitly tags backup scheduling/automation as a future release (epic lines 47/60); and a **`kscore-cluster watch`** (live membership/leadership tail over the existing `WatchMembership`/`WatchLeadership` server-streams) — not in the FEATURES/acceptance CLI list, the same stream-CLI gap deferred for kscore-events/kscore-audit.
+- **Why deferred**: `schedule` is out of v1.0 epic scope by the epic's own wording (no acceptance line; needs a scheduler/retention design — overlaps the general backup-automation deferral); `watch` is pure CLI sugar over RPCs that already exist server-side (the stream handlers landed in task 15) — it earns its keep once operators ask for a live cluster tail, mirroring the kscore-audit `watch` rationale. The acceptance-critical surface (`status`, `backup --output`, `restore --input --force`) all shipped.
+- **Acceptance**: `watch` — `kscore-cluster watch [--leadership]` consumes `ClusterServiceClient.WatchMembership`/`WatchLeadership` and renders events until interrupted, like `kscore-events watch`. `schedule` — TBD from trial demand; likely `kscore-cluster-backup schedule add --cron … --output-dir …` registering a periodic snapshot job with retention.
+- **References**: `internal/cli/cluster` (landed: the 13 shipped subcommands); `pkg/api/v1` `ClusterServiceClient.WatchMembership`/`WatchLeadership` (landed in Epic 13 task 15, not yet CLI-exposed); Epic 13 task 16 (landed); companion: the general backup automation/scheduling deferral.
+
 #### Strict audit-on-access via Auditor.Emit error return
 
 - **Priority**: v1.x
