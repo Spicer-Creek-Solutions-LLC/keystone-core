@@ -46,7 +46,10 @@ const (
 	CapLog          = "log"
 )
 
-func knownCapability(name string) bool {
+// KnownCapability reports whether name is one of the 9 core v1.0
+// capabilities. Single source of truth for the capability registry
+// + backends (Epic 14 tasks 2/3).
+func KnownCapability(name string) bool {
 	switch name {
 	case CapFSRead, CapFSWrite, CapHTTPGet, CapHTTPPost, CapExec,
 		CapSecretsRead, CapSecretsWrite, CapKV, CapLog:
@@ -153,7 +156,7 @@ func (m *Manifest) Validate() error {
 		return fmt.Errorf("manifest: entrypoint is required")
 	}
 	for name, cc := range m.Capabilities {
-		if !knownCapability(name) {
+		if !KnownCapability(name) {
 			return fmt.Errorf("manifest: unknown capability %q", name)
 		}
 		if err := cc.validate(name); err != nil {
