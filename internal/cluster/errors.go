@@ -73,6 +73,11 @@ var (
 	// operation is blocked because this node is fenced (in a
 	// minority partition or running under a stale epoch).
 	ErrFenced = errors.New("cluster: operation fenced (split-brain protection)")
+
+	// ErrInvalidSnapshot is returned when a cluster backup blob
+	// fails envelope validation (bad magic or unknown format
+	// version).
+	ErrInvalidSnapshot = errors.New("cluster: invalid backup snapshot")
 )
 
 // isLeaseNotFound reports whether err is etcd's "lease not found".

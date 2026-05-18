@@ -1130,11 +1130,16 @@ func (x *CreateBackupRequest) GetDestination() string {
 }
 
 type CreateBackupResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	BackupId      string                 `protobuf:"bytes,1,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
-	Location      string                 `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	BackupId  string                 `protobuf:"bytes,1,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
+	Location  string                 `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	SizeBytes int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	// Epic 13 task 15 addition: the versioned binary snapshot
+	// (magic + format-version + JSON body) the client writes to
+	// its --output file. Returned in-band so no server-side path
+	// is needed.
+	Snapshot      []byte `protobuf:"bytes,5,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1197,12 +1202,23 @@ func (x *CreateBackupResponse) GetSizeBytes() int64 {
 	return 0
 }
 
+func (x *CreateBackupResponse) GetSnapshot() []byte {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
 type RestoreBackupRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	BackupId string                 `protobuf:"bytes,1,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
 	// Optional alternate location override.
-	Location      string `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
-	DryRun        bool   `protobuf:"varint,3,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	Location string `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
+	DryRun   bool   `protobuf:"varint,3,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	// Epic 13 task 15 additions: the snapshot bytes the client
+	// read from --input, and the --force overwrite flag.
+	Snapshot      []byte `protobuf:"bytes,4,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Force         bool   `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1254,6 +1270,20 @@ func (x *RestoreBackupRequest) GetLocation() string {
 func (x *RestoreBackupRequest) GetDryRun() bool {
 	if x != nil {
 		return x.DryRun
+	}
+	return false
+}
+
+func (x *RestoreBackupRequest) GetSnapshot() []byte {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
+func (x *RestoreBackupRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
 	}
 	return false
 }
@@ -1576,18 +1606,21 @@ const file_keystone_core_v1_cluster_proto_rawDesc = "" +
 	"\x06detail\x18\x02 \x01(\tR\x06detail\"Y\n" +
 	"\x13CreateBackupRequest\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12 \n" +
-	"\vdestination\x18\x02 \x01(\tR\vdestination\"\xa9\x01\n" +
+	"\vdestination\x18\x02 \x01(\tR\vdestination\"\xc5\x01\n" +
 	"\x14CreateBackupResponse\x12\x1b\n" +
 	"\tbackup_id\x18\x01 \x01(\tR\bbackupId\x12\x1a\n" +
 	"\blocation\x18\x02 \x01(\tR\blocation\x129\n" +
 	"\n" +
 	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"h\n" +
+	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\x12\x1a\n" +
+	"\bsnapshot\x18\x05 \x01(\fR\bsnapshot\"\x9a\x01\n" +
 	"\x14RestoreBackupRequest\x12\x1b\n" +
 	"\tbackup_id\x18\x01 \x01(\tR\bbackupId\x12\x1a\n" +
 	"\blocation\x18\x02 \x01(\tR\blocation\x12\x17\n" +
-	"\adry_run\x18\x03 \x01(\bR\x06dryRun\"I\n" +
+	"\adry_run\x18\x03 \x01(\bR\x06dryRun\x12\x1a\n" +
+	"\bsnapshot\x18\x04 \x01(\fR\bsnapshot\x12\x14\n" +
+	"\x05force\x18\x05 \x01(\bR\x05force\"I\n" +
 	"\x15RestoreBackupResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x16\n" +
 	"\x06detail\x18\x02 \x01(\tR\x06detail\"7\n" +

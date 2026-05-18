@@ -153,6 +153,11 @@ message CreateBackupResponse {
   string location = 2;
   google.protobuf.Timestamp created_at = 3;
   int64 size_bytes = 4;
+  // Epic 13 task 15 addition: the versioned binary snapshot
+  // (magic + format-version + JSON body) the client writes to
+  // its --output file. Returned in-band so no server-side path
+  // is needed.
+  bytes snapshot = 5;
 }
 
 message RestoreBackupRequest {
@@ -160,6 +165,10 @@ message RestoreBackupRequest {
   // Optional alternate location override.
   string location = 2;
   bool dry_run = 3;
+  // Epic 13 task 15 additions: the snapshot bytes the client
+  // read from --input, and the --force overwrite flag.
+  bytes snapshot = 4;
+  bool force = 5;
 }
 
 message RestoreBackupResponse {

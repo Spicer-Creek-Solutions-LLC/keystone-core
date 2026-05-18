@@ -1063,9 +1063,9 @@ no leader → CAMPAIGNING → ELECTED → (TRANSFERRED|LOST) → CAMPAIGNING
 - Modes: `STRICT` (block all), `READ_ONLY` (allow reads), `GRACEFUL` (finish in-flight then block).
 
 **APIs**:
-- gRPC `ClusterService`: GetClusterStatus, ListMembers, GetMember, AddMember, RemoveMember, GetLeader, TransferLeader, Rebalance, CreateBackup, RestoreBackup, WatchMembership (stream), WatchLeadership (stream).
+- gRPC `ClusterService`: GetClusterStatus, ListMembers, GetMember, AddMember, RemoveMember, GetLeader, TransferLeader, Rebalance, CreateBackup, RestoreBackup, WatchMembership (stream), WatchLeadership (stream). **Landed Epic 13 task 15** (`internal/controlplane/grpc_cluster_server.go`; `cluster.proto` realigned additively for backup-blob in/out, `buf generate`): all 12 RPCs over nilable cluster providers (nil ⇒ codes.Unavailable); `AddMember`/`Rebalance{DryRun}`→`Unimplemented` by contract (members self-register; rebalance planning is v1.1), `TransferLeader` off-leader→`FailedPrecondition`, `GetMember` miss→`NotFound`; `CreateBackup` leader-gated (`FailedPrecondition` off-leader — ordering), `RestoreBackup` validates (`ErrInvalidSnapshot`→`InvalidArgument`, `DryRun` validate-only); `WatchMembership`/`WatchLeadership` buffered drop-if-full streams.
 - gRPC `CoordinationService` (mTLS-only): ClusterHealth, GetLeader, NATSStatus, RecoveryCoordinate, Heartbeat, PropagateState.
-- REST: `/api/v1/cluster/{status,members,members/{id},leader,leader/transfer,rebalance,backup,restore}`.
+- REST: `/api/v1/cluster/{status,members,members/{id},leader,leader/transfer,rebalance,backup,restore}`. **Landed Epic 13 task 15** (`pkg/api/cluster/handler.go`, rewritten from the Epic-03 501-stub): nilable `ClusterProviders` (each → 503), leader-guarded `POST leader/transfer` (409 off-leader), `POST members`→501 by contract, `backup` octet-stream + `restore` JSON (`ErrInvalidSnapshot`→400), lowercase-status DTO (events/policy REST convention); watch streams stay gRPC-only. Real provider + Evictor wiring at kscore-server boot is the deferred `gate-v1.0` boot-registration ROADMAP item — until then routes 503.
 - CLI: `kscore-cluster status|members|leader|add|remove|transfer-leader|rebalance|backup|restore`. `kscore-cluster-backup backup|restore|list|verify|schedule`.
 
 **Config**:
@@ -1108,7 +1108,7 @@ cluster:
 - etcd disk full → read-only → cluster freezes. Monitor.
 - Connection storms after failover — rate limit + stagger reconnect.
 - Clock skew across servers → unexpected lease expiry. NTP is mandatory.
-- Backup at point-in-time may catch mid-commit state — leader-initiated backup ensures ordering.
+- Backup at point-in-time may catch mid-commit state — leader-initiated backup ensures ordering. **Landed Epic 13 task 15** (`internal/cluster/backup.go`): self-describing snapshot envelope `magic[16]||formatV1||JSON` (`ClusterSnapshot{Meta,Members,Shards,ConfigJSON}`), `MarshalSnapshot`/`UnmarshalSnapshot` (bad magic/version/body → `ErrInvalidSnapshot`), `BuildSnapshot`, `RestoreShards` (force ⇒ Assign-overwrite-all; else AssignIf create-only, skip `ErrVersionConflict`) — pure/etcd-free; `CreateBackup` is leader-gated at the gRPC layer so the blob is point-in-time-ordered.
 
 ---
 
