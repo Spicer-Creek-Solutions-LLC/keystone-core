@@ -1,0 +1,10 @@
+name: keystone/kvcache
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: In-process key/value cache + counter using the kv and log capabilities.
+author: Keystone Core
+license: Apache-2.0
+capabilities:
+  kv: {}
+  log: {}

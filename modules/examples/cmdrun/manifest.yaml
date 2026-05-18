@@ -1,0 +1,14 @@
+name: keystone/cmdrun
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Runs an allowlisted command — the day-2 ops automation shape.
+author: Keystone Core
+license: Apache-2.0
+capabilities:
+  exec:
+    commands:
+      - echo
+      - uname
+    working_dir: /tmp
+    timeout: 5s

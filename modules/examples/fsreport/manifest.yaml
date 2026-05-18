@@ -1,0 +1,20 @@
+name: keystone/fsreport
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Reads a text file and writes a summary, scoped to an allowed path.
+author: Keystone Core
+license: Apache-2.0
+capabilities:
+  fs.read:
+    paths:
+      - "**/sandbox/**"
+    denied_paths:
+      - "**/.git/**"
+    max_file_size: 1MiB
+  fs.write:
+    paths:
+      - "**/sandbox/**"
+    max_file_size: 1MiB
+limits:
+  timeout: 5s

@@ -1,0 +1,15 @@
+name: keystone/secretsync
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Reads a credential from one scoped secret path and writes a rotated copy to another.
+author: Keystone Core
+license: Apache-2.0
+capabilities:
+  secrets.read:
+    secret_paths:
+      - "app/source/*"
+  secrets.write:
+    secret_paths:
+      - "app/dest/*"
+  log: {}

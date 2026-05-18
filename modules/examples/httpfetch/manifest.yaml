@@ -1,0 +1,16 @@
+name: keystone/httpfetch
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Fetches an HTTP resource, scoped to an allowed domain set.
+author: Keystone Core
+license: Apache-2.0
+capabilities:
+  http.get:
+    domains:
+      - "api.example.com"
+      - "*.githubusercontent.com"
+    max_response_size: 1MiB
+    timeout: 5s
+limits:
+  timeout: 10s

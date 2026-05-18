@@ -1,0 +1,7 @@
+name: keystone/hello
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Minimal zero-capability greeting module — the canonical starting point.
+author: Keystone Core
+license: Apache-2.0

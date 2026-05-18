@@ -1,0 +1,13 @@
+name: keystone/opsbundle
+version: 1.0.0
+type: starlark
+entrypoint: main.star
+description: Composite day-2 ops module that pins companion modules as dependencies.
+author: Keystone Core
+license: Apache-2.0
+dependencies:
+  keystone/httpfetch: ">=1.0.0"
+  keystone/cmdrun: ">=1.0.0"
+capabilities:
+  kv: {}
+  log: {}
