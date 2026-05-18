@@ -124,6 +124,7 @@ v1.x:
   - "Trust federation (cross-domain bundle endpoint)"
   - "Windows agent (native service)"
   - "WASM module runtime"
+  - "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop"
   - "TUI monitor (`kscore-monitor`)"
   - "macOS agent"
   - "SPIRE-backed identity provider"

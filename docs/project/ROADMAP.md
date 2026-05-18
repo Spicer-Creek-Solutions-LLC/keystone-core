@@ -992,6 +992,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `pkg/plugin/runtime/wasm` loads + runs a signed wasm module via the same `Runtime` interface as Starlark.
 - **References**: Epic 00 deferred list (line 69).
 
+#### Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop
+
+- **Priority**: v1.x
+- **What**: Epic 14 task 4 ships `pkg/module/verify` as a pure-stdlib, cosign-*compatible* **keyed** detached-blob verifier (RSA/ECDSA/Ed25519, KeyID-indexed trust policy) — explicitly Option C, no `sigstore/cosign` dependency. Deferred: (a) cosign **keyless** signing/verification (Fulcio-issued short-lived certs + OIDC identity); (b) **Rekor** transparency-log inclusion proofs; (c) reading the **encrypted cosign keyfile** format that `cosign generate-key-pair` emits (scrypt + nacl/secretbox), so `kscore-module sign` could consume an existing `cosign.key`. v1.0 `kscore-module sign` uses a plain PKCS8/SEC1 PEM ("local.key").
+- **Why deferred**: the epic's v0.1 decision is "Cosign-only verification, no SumDB transparency log" and OCI is v1.1; keyless/Rekor pull the full `sigstore/cosign` + Fulcio/Rekor/TUF dependency tree (Kubernetes-scale) for capability that is entirely post-v1.0 scope. Keyed verification + a TLS-trusted registry is the v1.0 supply-chain baseline; the stdlib verifier is forward-compatible (the trust policy / `Signature` types extend to a keyless issuer without an API break).
+- **Acceptance**: a module signed by the real `cosign` CLI in keyless mode verifies through an extended trust policy with a Rekor inclusion check; `kscore-module sign` can load a cosign-encrypted `cosign.key`.
+- **References**: `pkg/module/verify` (task 4, landed — keyed/stdlib); epic 14 "Scope (out)" (SumDB v1.2); companion of "WASM module runtime".
+
 #### TUI monitor (`kscore-monitor`)
 
 - **Priority**: v1.x
