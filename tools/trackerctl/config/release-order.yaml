@@ -129,6 +129,8 @@ v1.x:
   - "Module registry publish authentication"
   - "Starlark hard heap-bytes cap"
   - "Per-capability-call context propagation in the Starlark SDK"
+  - "Module test framework: injectable record/replay http/exec/secrets test hosts"
+  - "Module test framework: multi-file module tests via Starlark `load()`"
   - "TUI monitor (`kscore-monitor`)"
   - "macOS agent"
   - "SPIRE-backed identity provider"

@@ -1032,6 +1032,22 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a capability call (e.g. `http.get`) observes the module execution context's deadline/cancellation directly (verified by cancelling mid-call and asserting the backend received a cancelled ctx), with the module-level watchdog unchanged.
 - **References**: `modules/sdk/starlark/sdk.go` (`guard` uses `context.Background()`); `pkg/module/runtime/starlark` (task-11 thread watchdog); Epic 14 task 12; companion of "Starlark hard heap-bytes cap".
 
+#### Module test framework: injectable record/replay http/exec/secrets test hosts
+
+- **Priority**: v1.x
+- **What**: Epic 14 task-15 `pkg/module/testing` wires os-backed `fs` + a discard `Logger` for test runs but leaves `http`/`exec`/`secrets` hosts nil (fail-closed + audited if a module both requested and uses them). Add injectable, deterministic record/replay hosts so a module's unit tests can exercise its `http`/`exec`/`secrets` capability paths without real network/process/secret-store side effects.
+- **Why deferred**: network/process/secret side effects in unit tests are an anti-pattern; for v1.0 a module's pure logic + `kv`/`log`/`fs`-scope behaviour is unit-testable, and the nil-host fail-closed path is itself testable and demonstrates the security contract. Record/replay fixtures are an ergonomics follow-up, not a v1.0 correctness gap (`Options.Hosts` already lets a caller inject fakes today — this is about a built-in fixture format).
+- **Acceptance**: `kscore-module test` can run a module whose tests call `http.get`/`exec`/`secrets.read` against a declared fixture (recorded responses), with the capability scoping + audit trail unchanged.
+- **References**: `pkg/module/testing/hosts.go` (`defaultHosts`), `pkg/module/testing/runner.go` (`Options.Hosts`); Epic 14 task 15.
+
+#### Module test framework: multi-file module tests via Starlark `load()`
+
+- **Priority**: v1.x
+- **What**: the task-15 runner uses the single-entrypoint module model — a `*_test.star` reaches the module's functions via a merged predeclared environment, with no Starlark `load()` support. Add a module-aware `load()` so a multi-file module (helpers split across `.star` files) can be tested with the same import graph the runtime would use.
+- **Why deferred**: v1.0 modules are single-entrypoint (the manifest declares one `entrypoint`); the merged-predeclared approach gives tests full access to module-level definitions for that model. `load()` requires a thread `Load` resolver + cycle handling that only matters once multi-file modules are supported (itself post-v1.0).
+- **Acceptance**: a module split across multiple `.star` files, loaded via `load()`, is testable end-to-end through `kscore-module test` with deterministic, cycle-safe resolution.
+- **References**: `pkg/module/testing/runner.go` (`mergeDicts`, entrypoint exec); Epic 14 task 15; companion of "Module test framework: injectable record/replay http/exec/secrets test hosts".
+
 #### TUI monitor (`kscore-monitor`)
 
 - **Priority**: v1.x
