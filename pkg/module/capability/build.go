@@ -9,7 +9,7 @@ import (
 // BuildCapabilities constructs the scoped backend for every
 // capability the (validated) manifest requested, wired to hosts.
 // The returned map is keyed by capability name; each value is the
-// concrete scoped type (*FSRead, *FSWrite, *httpCap, *Exec,
+// concrete scoped type (*FSRead, *FSWrite, *HTTPCap, *Exec,
 // *SecretsRead, *SecretsWrite, *KV, *Log). The task-10 loader hands
 // this to the runtime; task-12 exposes them as Starlark builtins.
 //

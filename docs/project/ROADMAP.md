@@ -1024,6 +1024,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a module exceeding `limits.memory` is terminated with a typed error before exhausting host memory; verified by a high-allocation test module.
 - **References**: `pkg/module/runtime/starlark` (task 11, landed — step+time bounds); `pkg/module/manifest` `Limits.Memory` (task 1, parsed); go.starlark.net `Thread`; companion of "WASM module runtime".
 
+#### Per-capability-call context propagation in the Starlark SDK
+
+- **Priority**: v1.x
+- **What**: Epic 14 task 12's `modules/sdk/starlark` capability builtins call their backends with `context.Background()` — Starlark builtins receive a `*starlark.Thread`, not a `context.Context`, so the per-call ctx (deadline/cancellation) is not threaded into individual capability invocations (e.g. an `http.get` does not inherit a caller deadline beyond the module-wide bound). Add propagation of the module-execution context (and any per-call deadline) into each capability call.
+- **Why deferred**: the task-11 thread watchdog (`thread.Cancel` on timeout/ctx-cancel) already aborts the *entire* Starlark execution mid-call, so a runaway or hung capability call is still bounded at the module level for v1.0; fine-grained per-call ctx only changes *which* call observes the cancellation first, not whether execution is bounded. Threading ctx requires either a thread-local convention (`thread.SetLocal`) set by the runtime before `Call` or a signature change, and is a clean follow-up rather than a v1.0 correctness gap.
+- **Acceptance**: a capability call (e.g. `http.get`) observes the module execution context's deadline/cancellation directly (verified by cancelling mid-call and asserting the backend received a cancelled ctx), with the module-level watchdog unchanged.
+- **References**: `modules/sdk/starlark/sdk.go` (`guard` uses `context.Background()`); `pkg/module/runtime/starlark` (task-11 thread watchdog); Epic 14 task 12; companion of "Starlark hard heap-bytes cap".
+
 #### TUI monitor (`kscore-monitor`)
 
 - **Priority**: v1.x

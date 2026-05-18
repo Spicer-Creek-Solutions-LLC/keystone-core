@@ -129,7 +129,7 @@ type instance struct {
 
 // Execute calls main(input) under the step + timeout limits.
 func (i *instance) Execute(ctx context.Context, input map[string]any) (*loader.ExecuteResult, error) {
-	arg, err := toStarlark(input)
+	arg, err := ToValue(input)
 	if err != nil {
 		return nil, fmt.Errorf("starlark: input: %w", err)
 	}
@@ -191,7 +191,7 @@ func (i *instance) Execute(ctx context.Context, input map[string]any) (*loader.E
 			}
 			return nil, fmt.Errorf("%w: %v", ErrExec, rr.err)
 		}
-		out, cerr := fromStarlark(rr.v)
+		out, cerr := FromValue(rr.v)
 		if cerr != nil {
 			return nil, fmt.Errorf("starlark: output: %w", cerr)
 		}

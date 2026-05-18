@@ -128,6 +128,7 @@ v1.x:
   - "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop"
   - "Module registry publish authentication"
   - "Starlark hard heap-bytes cap"
+  - "Per-capability-call context propagation in the Starlark SDK"
   - "TUI monitor (`kscore-monitor`)"
   - "macOS agent"
   - "SPIRE-backed identity provider"

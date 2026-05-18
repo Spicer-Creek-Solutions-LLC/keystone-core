@@ -7,11 +7,11 @@ import (
 	star "go.starlark.net/starlark"
 )
 
-// toStarlark converts a JSON-ish Go value to a Starlark value.
+// ToValue converts a JSON-ish Go value to a Starlark value.
 // Supported: nil, bool, int/int8..int64/uint..., float64/float32,
 // string, []any, map[string]any. Anything else errors (modules
 // receive structured, JSON-shaped input only).
-func toStarlark(v any) (star.Value, error) {
+func ToValue(v any) (star.Value, error) {
 	switch x := v.(type) {
 	case nil:
 		return star.None, nil
@@ -38,7 +38,7 @@ func toStarlark(v any) (star.Value, error) {
 	case []any:
 		elems := make([]star.Value, 0, len(x))
 		for _, e := range x {
-			sv, err := toStarlark(e)
+			sv, err := ToValue(e)
 			if err != nil {
 				return nil, err
 			}
@@ -53,7 +53,7 @@ func toStarlark(v any) (star.Value, error) {
 		}
 		sort.Strings(keys) // deterministic insertion order
 		for _, k := range keys {
-			sv, err := toStarlark(x[k])
+			sv, err := ToValue(x[k])
 			if err != nil {
 				return nil, err
 			}
@@ -84,11 +84,11 @@ func toUint64(v any) uint64 {
 	}
 }
 
-// fromStarlark converts a Starlark value back to a JSON-ish Go
+// FromValue converts a Starlark value back to a JSON-ish Go
 // value. None→nil, Bool→bool, Int→int64, Float→float64,
 // String→string, List/Tuple→[]any, Dict→map[string]any (string
 // keys). Other types fall back to their Starlark string form.
-func fromStarlark(v star.Value) (any, error) {
+func FromValue(v star.Value) (any, error) {
 	switch x := v.(type) {
 	case star.NoneType:
 		return nil, nil
@@ -112,7 +112,7 @@ func fromStarlark(v star.Value) (any, error) {
 			if !ok {
 				return nil, fmt.Errorf("dict key %s is not a string", item[0].String())
 			}
-			ev, err := fromStarlark(item[1])
+			ev, err := FromValue(item[1])
 			if err != nil {
 				return nil, err
 			}
@@ -127,7 +127,7 @@ func fromStarlark(v star.Value) (any, error) {
 func seqToSlice(n int, index func(int) star.Value) ([]any, error) {
 	out := make([]any, 0, n)
 	for i := 0; i < n; i++ {
-		ev, err := fromStarlark(index(i))
+		ev, err := FromValue(index(i))
 		if err != nil {
 			return nil, err
 		}

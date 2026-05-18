@@ -13,11 +13,11 @@ import (
 	"go.keystone-core.io/keystone-core/pkg/module/manifest"
 )
 
-// httpCap is the shared scoped HTTP capability (http.get / http.post
+// HTTPCap is the shared scoped HTTP capability (http.get / http.post
 // differ only by method). Enforces: request host ∈ domain
 // allowlist; request/response body ≤ limits; rate limit; per-call
 // timeout.
-type httpCap struct {
+type HTTPCap struct {
 	method  string
 	domains []glob.Glob
 	maxReq  int64
@@ -27,7 +27,7 @@ type httpCap struct {
 	host    HTTPHost
 }
 
-func newHTTPCap(method string, cfg manifest.CapabilityConfig, host HTTPHost) (*httpCap, error) {
+func newHTTPCap(method string, cfg manifest.CapabilityConfig, host HTTPHost) (*HTTPCap, error) {
 	// Domains are host patterns ("example.com", "*.example.com") —
 	// no path separator, so `*` may span dots.
 	doms := make([]glob.Glob, 0, len(cfg.Domains))
@@ -56,13 +56,13 @@ func newHTTPCap(method string, cfg manifest.CapabilityConfig, host HTTPHost) (*h
 			return nil, fmt.Errorf("http timeout: %w", err)
 		}
 	}
-	return &httpCap{
+	return &HTTPCap{
 		method: method, domains: doms, maxReq: maxReq, maxResp: maxResp,
 		timeout: to, limiter: lim, host: host,
 	}, nil
 }
 
-func (c *httpCap) domainAllowed(hostName string) bool {
+func (c *HTTPCap) domainAllowed(hostName string) bool {
 	for _, g := range c.domains {
 		if g.Match(hostName) {
 			return true
@@ -73,7 +73,7 @@ func (c *httpCap) domainAllowed(hostName string) bool {
 
 // Call performs the request to url with the optional body, enforcing
 // every scope. Returns the response body (already size-checked).
-func (c *httpCap) Call(ctx context.Context, url string, body []byte) ([]byte, int, error) {
+func (c *HTTPCap) Call(ctx context.Context, url string, body []byte) ([]byte, int, error) {
 	if c.host == nil {
 		return nil, 0, fmt.Errorf("http: %w", ErrHostUnavailable)
 	}
@@ -122,10 +122,10 @@ func (c *httpCap) Call(ctx context.Context, url string, body []byte) ([]byte, in
 }
 
 // NewHTTPGet / NewHTTPPost are the public constructors.
-func NewHTTPGet(cfg manifest.CapabilityConfig, host HTTPHost) (*httpCap, error) {
+func NewHTTPGet(cfg manifest.CapabilityConfig, host HTTPHost) (*HTTPCap, error) {
 	return newHTTPCap(http.MethodGet, cfg, host)
 }
 
-func NewHTTPPost(cfg manifest.CapabilityConfig, host HTTPHost) (*httpCap, error) {
+func NewHTTPPost(cfg manifest.CapabilityConfig, host HTTPHost) (*HTTPCap, error) {
 	return newHTTPCap(http.MethodPost, cfg, host)
 }
