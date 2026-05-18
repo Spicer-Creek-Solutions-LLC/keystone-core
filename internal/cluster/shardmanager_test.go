@@ -224,14 +224,22 @@ func TestShardManager_RebalanceCooldownSpacing(t *testing.T) {
 		mu.Unlock()
 	}))
 
-	// node-b join then quick leave: two topology changes that both
-	// produce moves; the cooldown must space the two rebalances.
-	b := registered(t, ec, "node-b")
-	bID := b.Self().ID
-	waitFor(t, func() bool { return ownersByMember(t, ss)[bID] > 0 }, "join rebalance")
-	if err := b.Stop(ctx); err != nil {
-		t.Fatalf("b.Stop: %v", err)
-	}
+	// Inject the two topology changes directly via the observer
+	// (ShardManager *is* a MembershipObserver) rather than through
+	// the real etcd-watch path: that keeps this test about the
+	// debounce/cooldown spacing of the rebalance loop and removes
+	// watch-propagation latency, which flakes under full-suite
+	// `-race` load. Both changes move agents (→ observer fires);
+	// the cooldown must space the two rebalances.
+	const bID = "node-b-synthetic"
+	sm.OnMembershipChange(MemberEvent{Type: MemberJoined, Member: Member{ID: bID, Status: MemberHealthy}})
+	waitFor(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(times) >= 1
+	}, "join rebalance")
+
+	sm.OnMembershipChange(MemberEvent{Type: MemberLeft, Member: Member{ID: bID}})
 	waitFor(t, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
@@ -241,7 +249,7 @@ func TestShardManager_RebalanceCooldownSpacing(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	gap := times[1].Sub(times[0])
-	if gap < 200*time.Millisecond { // ~cooldown, small slack
+	if gap < 200*time.Millisecond { // ~cooldown (250ms), small slack
 		t.Fatalf("rebalances spaced %v, want >= cooldown (250ms)", gap)
 	}
 }

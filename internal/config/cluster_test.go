@@ -71,6 +71,9 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"health check_interval zero", func(c *ClusterConfig) { c.Health.CheckInterval = 0 }, "check_interval must be > 0"},
 		{"health failure_threshold too low", func(c *ClusterConfig) { c.Health.FailureThreshold = 0 }, "failure_threshold must be >= 1"},
 		{"health latency_window too low", func(c *ClusterConfig) { c.Health.LatencyWindow = 0 }, "latency_window must be >= 1"},
+		{"failover negative cooldown", func(c *ClusterConfig) { c.Failover.Cooldown = -time.Second }, "failover.cooldown must be non-negative"},
+		{"failover agent_batch too low", func(c *ClusterConfig) { c.Failover.AgentBatch = 0 }, "agent_batch must be >= 1"},
+		{"failover job_batch too low", func(c *ClusterConfig) { c.Failover.JobBatch = 0 }, "job_batch must be >= 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

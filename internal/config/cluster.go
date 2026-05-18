@@ -33,6 +33,10 @@ import (
 //	    check_interval: 5s
 //	    failure_threshold: 3
 //	    latency_window: 100
+//	  failover:
+//	    cooldown: 10s
+//	    agent_batch: 100
+//	    job_batch: 50
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -47,6 +51,24 @@ type ClusterConfig struct {
 	Election   ClusterElectionConfig   `koanf:"election"`
 	Shard      ClusterShardConfig      `koanf:"shard"`
 	Health     ClusterHealthConfig     `koanf:"health"`
+	Failover   ClusterFailoverConfig   `koanf:"failover"`
+}
+
+// ClusterFailoverConfig is the operator-facing failover config
+// (Epic 13 task 8). The runtime equivalent is
+// cluster.FailoverManagerConfig; boot wiring (later task) maps onto
+// it.
+type ClusterFailoverConfig struct {
+	// Cooldown is the minimum spacing between failover episodes
+	// (rapid flapping members coalesce). §4.15 default 10s —
+	// distinct from the shard rebalance cooldown (5s).
+	Cooldown time.Duration `koanf:"cooldown"`
+	// AgentBatch is the agent-reassignment batch size. §4.15
+	// default 100.
+	AgentBatch int `koanf:"agent_batch"`
+	// JobBatch is the job-reassignment batch size. §4.15 default
+	// 50.
+	JobBatch int `koanf:"job_batch"`
 }
 
 // ClusterHealthConfig is the operator-facing health-monitor config
@@ -223,6 +245,18 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.health.latency_window must be >= 1, got %d",
 			c.Health.LatencyWindow)
 	}
+	if c.Failover.Cooldown < 0 {
+		return fmt.Errorf("cluster.failover.cooldown must be non-negative, got %v",
+			c.Failover.Cooldown)
+	}
+	if c.Failover.AgentBatch < 1 {
+		return fmt.Errorf("cluster.failover.agent_batch must be >= 1, got %d",
+			c.Failover.AgentBatch)
+	}
+	if c.Failover.JobBatch < 1 {
+		return fmt.Errorf("cluster.failover.job_batch must be >= 1, got %d",
+			c.Failover.JobBatch)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -268,5 +302,10 @@ func applyClusterDefaults(c *ClusterConfig) {
 		CheckInterval:    5 * time.Second,
 		FailureThreshold: 3, // §4.15 default
 		LatencyWindow:    100,
+	}
+	c.Failover = ClusterFailoverConfig{
+		Cooldown:   10 * time.Second, // §4.15 default
+		AgentBatch: 100,              // §4.15 default
+		JobBatch:   50,               // §4.15 default
 	}
 }
