@@ -32,6 +32,7 @@ gate-v0.5:
   - "Encrypt CA material at rest"
 
 gate-v1.0:
+  - "Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)"
   - "Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener)"
   - "Fencing guard wired around server write paths"
   - "Cluster leader-check boot wiring (kscore-server)"

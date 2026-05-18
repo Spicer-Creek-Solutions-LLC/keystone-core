@@ -222,6 +222,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
+#### Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 14 builds the plugin/module system as runtime-agnostic, all-seams (the recurring dep-light pattern): task 3's capability backends take injected `capability.Hosts` (real `internal/secrets`/`os-exec`/`net-http`); task 4's verifier takes an injected `*verify.TrustPolicy`; task 10's `loader.ModuleLoader` takes an injected `PolicyChecker` (the production impl = an adapter over the Epic-12 `internal/policy.Engine`), a `*verify.Verifier`, the `Hosts`, and a `RuntimeRegistry`. None of these seams is wired at `cmd/kscore-server` / `cmd/kscore-module` boot yet — until then the loader can parse/verify/policy-check/runtime-init only with explicitly supplied seams (unit/fake-tested), and a server cannot load+execute a published module end-to-end.
+- **Why deferred**: same root as the other boot-wiring items — the seams are intentionally injected so `pkg/module/*` stays dependency-light and unit-testable; production construction (trust policy from config, Hosts from the live secrets/exec/http stacks, the `internal/policy`→`PolicyChecker` adapter, the Starlark runtime registered for `manifest.TypeStarlark`) lands with the kscore-module CLI (task 14, which wires its own seams for the author/install flow) and the server-lifecycle boot integration, so all module wiring happens in one coherent place.
+- **Acceptance for unblock**: `kscore-module` (task 14) constructs a `ModuleLoader` with the real verifier+trust-policy, the `internal/policy` `PolicyChecker` adapter, real `capability.Hosts`, and the Starlark runtime (task 11) registered — and `kscore-module install`→`run` loads, verifies, policy-checks, and executes a signed published module end-to-end; the same wiring is available to `kscore-server` for server-side module execution.
+- **References**: `pkg/module/loader` (task 10, landed — seams); `pkg/module/capability` `Hosts` (task 3); `pkg/module/verify` `TrustPolicy` (task 4); `internal/policy.Engine` (Epic 12, the `PolicyChecker` production impl); Epic 14 tasks 3/4/10, forward 11/12/14; companion of "Cluster gRPC services boot registration …".
+
 #### Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener)
 
 - **Priority**: gate-v1.0
