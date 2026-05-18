@@ -526,7 +526,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Cluster backup/restore** (binary + JSON snapshot; cluster metadata, shard assignments, config). Source: `cmd/kscore-cluster-backup/`. _Reasoning: DR baseline._
 - **`ClusterService` gRPC + REST** (status, members CRUD, leader transfer, rebalance, backup/restore, watch streams). _Reasoning: full ops surface._
 - **`kscore-cluster` CLI** (`status`, `members`, `leader`, `add`, `remove`, `transfer-leader`, `rebalance`, `backup`, `restore`). Source: `cmd/kscore-cluster/` (shared `internal/cli/cluster`). _Reasoning: ops UX._
-- **HA resilience tests in CI** (NATS failure, etcd failure, network partition, split-brain). Source: `test/e2e/ha_*_test.go`. _Reasoning: prove the promise._
+- **HA resilience tests in CI** (NATS failure, etcd failure, network partition, split-brain). Source: `test/e2e/ha/` (`//go:build integration`). _Reasoning: prove the promise._
 - **Performance targets**: cluster forms <10s; first leader <3s; failover detection <5s; agent reassign <10s; minority blocks writes <1s. _Reasoning: documented SLOs._
 
 ### v1.x (deferred)

@@ -1099,7 +1099,7 @@ cluster:
 - Recovery (restart): < 15s.
 - Zero job loss/duplication during failover (idempotency keys).
 
-**HA resilience tests** (`test/e2e/ha_*_test.go`): NATS-failure, etcd-failure, network-partition, split-brain. CI must run these on every release.
+**HA resilience tests** (`test/e2e/ha/`): NATS-failure, etcd-failure, network-partition, split-brain. CI must run these on every release. **Landed Epic 13 task 17** (`test/e2e/ha/`, `//go:build integration`, no new dep): in-process component-level HA E2E against the real `internal/cluster` stack + real `CoordinationGRPCServer` over a real mTLS listener + real embedded etcd + (DB scenario) real Postgres — cluster-forms/single-leader-invariant, consistent-hash minimal rebalance, leader-kill failover (idempotent), NATS-down coordination channel + non-mTLS rejection, minority-partition-blocks-writes-<1s + split-brain-no-double-leader + etcd-fails-safe, stable-ID shard reclaim, `KSCORE_TEST_POSTGRES_DSN`-gated DB-failover reconnect. Runs on every PR via the existing `make test-integration` CI job. Functional correctness; SLO *numbers* are task 18. The literal multi-process / real-iptables form + the full server-boot-integrated assertions remain gated by the `gate-v1.0` boot-registration entries (this suite is the harness they graduate against; a dedicated ROADMAP entry tracks the multi-process form).
 
 **Gotchas**:
 - Embedded etcd → ≤3 members; use external etcd for 5+.
