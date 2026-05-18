@@ -79,6 +79,11 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"fencing bad mode", func(c *ClusterConfig) { c.Fencing.Mode = "halt" }, "fencing.mode must be"},
 		{"fencing strict ok", func(c *ClusterConfig) { c.Fencing.Mode = "strict" }, ""},
 		{"fencing graceful ok", func(c *ClusterConfig) { c.Fencing.Mode = "graceful" }, ""},
+		{"coord heartbeat_interval zero", func(c *ClusterConfig) { c.Coordination.HeartbeatInterval = 0 }, "coordination.heartbeat_interval must be > 0"},
+		{"coord heartbeat_timeout zero", func(c *ClusterConfig) { c.Coordination.HeartbeatTimeout = 0 }, "coordination.heartbeat_timeout must be > 0"},
+		{"coord failure_threshold low", func(c *ClusterConfig) { c.Coordination.FailureThreshold = 0 }, "coordination.failure_threshold must be >= 1"},
+		{"coord retry_max low", func(c *ClusterConfig) { c.Coordination.RetryMax = 0 }, "coordination.retry_max must be >= 1"},
+		{"coord base>max delay", func(c *ClusterConfig) { c.Coordination.RetryBaseDelay = 3 * time.Second; c.Coordination.RetryMaxDelay = time.Second }, "retry_base_delay"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -42,6 +42,13 @@ import (
 //	    connect_retries: 3
 //	  fencing:
 //	    mode: read_only           # strict | read_only | graceful
+//	  coordination:
+//	    heartbeat_interval: 5s
+//	    heartbeat_timeout: 2s
+//	    failure_threshold: 3
+//	    retry_max: 4
+//	    retry_base_delay: 100ms
+//	    retry_max_delay: 2s
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -50,15 +57,35 @@ import (
 // into a running internal/cluster.EtcdClient lands with a later
 // Epic 13 task; Task 1 ships the config surface + validation.
 type ClusterConfig struct {
-	Enabled    bool                    `koanf:"enabled"`
-	Etcd       ClusterEtcdConfig       `koanf:"etcd"`
-	Membership ClusterMembershipConfig `koanf:"membership"`
-	Election   ClusterElectionConfig   `koanf:"election"`
-	Shard      ClusterShardConfig      `koanf:"shard"`
-	Health     ClusterHealthConfig     `koanf:"health"`
-	Failover   ClusterFailoverConfig   `koanf:"failover"`
-	Recovery   ClusterRecoveryConfig   `koanf:"recovery"`
-	Fencing    ClusterFencingConfig    `koanf:"fencing"`
+	Enabled      bool                      `koanf:"enabled"`
+	Etcd         ClusterEtcdConfig         `koanf:"etcd"`
+	Membership   ClusterMembershipConfig   `koanf:"membership"`
+	Election     ClusterElectionConfig     `koanf:"election"`
+	Shard        ClusterShardConfig        `koanf:"shard"`
+	Health       ClusterHealthConfig       `koanf:"health"`
+	Failover     ClusterFailoverConfig     `koanf:"failover"`
+	Recovery     ClusterRecoveryConfig     `koanf:"recovery"`
+	Fencing      ClusterFencingConfig      `koanf:"fencing"`
+	Coordination ClusterCoordinationConfig `koanf:"coordination"`
+}
+
+// ClusterCoordinationConfig is the operator-facing server↔server
+// CoordinationClient config (Epic 13 task 13). The runtime
+// equivalent is controlplane.CoordinationClientConfig; boot wiring
+// (later task) maps onto it.
+type ClusterCoordinationConfig struct {
+	// HeartbeatInterval is how often each peer is NodeHeartbeat'd.
+	HeartbeatInterval time.Duration `koanf:"heartbeat_interval"`
+	// HeartbeatTimeout bounds each heartbeat RPC.
+	HeartbeatTimeout time.Duration `koanf:"heartbeat_timeout"`
+	// FailureThreshold is the consecutive heartbeat failures after
+	// which a peer is marked unreachable.
+	FailureThreshold int `koanf:"failure_threshold"`
+	// RetryMax is the max attempts per coordination RPC.
+	RetryMax int `koanf:"retry_max"`
+	// RetryBaseDelay / RetryMaxDelay bound the exponential backoff.
+	RetryBaseDelay time.Duration `koanf:"retry_base_delay"`
+	RetryMaxDelay  time.Duration `koanf:"retry_max_delay"`
 }
 
 // ClusterFencingConfig is the operator-facing split-brain fencing
@@ -308,6 +335,29 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.fencing.mode must be %q, %q or %q, got %q",
 			fenceModeStrict, fenceModeReadOnly, fenceModeGraceful, c.Fencing.Mode)
 	}
+	if c.Coordination.HeartbeatInterval <= 0 {
+		return fmt.Errorf("cluster.coordination.heartbeat_interval must be > 0, got %v",
+			c.Coordination.HeartbeatInterval)
+	}
+	if c.Coordination.HeartbeatTimeout <= 0 {
+		return fmt.Errorf("cluster.coordination.heartbeat_timeout must be > 0, got %v",
+			c.Coordination.HeartbeatTimeout)
+	}
+	if c.Coordination.FailureThreshold < 1 {
+		return fmt.Errorf("cluster.coordination.failure_threshold must be >= 1, got %d",
+			c.Coordination.FailureThreshold)
+	}
+	if c.Coordination.RetryMax < 1 {
+		return fmt.Errorf("cluster.coordination.retry_max must be >= 1, got %d",
+			c.Coordination.RetryMax)
+	}
+	if c.Coordination.RetryBaseDelay < 0 || c.Coordination.RetryMaxDelay < 0 {
+		return fmt.Errorf("cluster.coordination retry delays must be non-negative")
+	}
+	if c.Coordination.RetryBaseDelay > c.Coordination.RetryMaxDelay {
+		return fmt.Errorf("cluster.coordination.retry_base_delay (%v) must be <= retry_max_delay (%v)",
+			c.Coordination.RetryBaseDelay, c.Coordination.RetryMaxDelay)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -365,5 +415,13 @@ func applyClusterDefaults(c *ClusterConfig) {
 	}
 	c.Fencing = ClusterFencingConfig{
 		Mode: fenceModeReadOnly, // §4.15 acceptance: minority blocks writes, reads continue
+	}
+	c.Coordination = ClusterCoordinationConfig{
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  2 * time.Second,
+		FailureThreshold:  3,
+		RetryMax:          4,
+		RetryBaseDelay:    100 * time.Millisecond,
+		RetryMaxDelay:     2 * time.Second,
 	}
 }
