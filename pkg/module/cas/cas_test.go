@@ -235,6 +235,43 @@ func TestHasAndDeleteEdgeCases(t *testing.T) {
 	}
 }
 
+func TestEntries(t *testing.T) {
+	s := newStore(t)
+	root := filepathRoot(t, s)
+
+	if es, err := s.Entries(); err != nil || len(es) != 0 {
+		t.Fatalf("empty Entries = %v,%v", es, err)
+	}
+	ha, _ := s.Put(strings.NewReader("aaaa"))
+	hb, _ := s.Put(strings.NewReader("bbbbbb"))
+
+	// Junk in the root must be skipped, not error.
+	if err := os.WriteFile(filepath.Join(root, ".put-leftover"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "not-a-hex-dir"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	es, err := s.Entries()
+	if err != nil {
+		t.Fatalf("Entries: %v", err)
+	}
+	if len(es) != 2 {
+		t.Fatalf("Entries len = %d, want 2 (junk skipped): %+v", len(es), es)
+	}
+	bySize := map[int64]string{}
+	for _, e := range es {
+		bySize[e.Size] = e.Hash
+		if e.ModTime.IsZero() {
+			t.Fatalf("entry %s has zero ModTime", e.Hash)
+		}
+	}
+	if bySize[4] != ha || bySize[6] != hb {
+		t.Fatalf("Entries size/hash mismatch: %+v (ha=%s hb=%s)", es, ha, hb)
+	}
+}
+
 func TestDefaultRoot(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	r := cas.DefaultRoot()

@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -237,4 +238,38 @@ func (s *Store) Delete(hash string) error {
 		return fmt.Errorf("cas: delete: %w", err)
 	}
 	return nil
+}
+
+// Entry describes one stored blob (used by the task-7 cache to
+// enforce its size/age policy without duplicating the layout).
+type Entry struct {
+	Hash    string
+	Size    int64
+	ModTime time.Time
+}
+
+// Entries lists every stored blob with its size + modtime.
+// Non-conforming root children (temp files, stray dirs without a
+// valid <hex>/content) are skipped, not an error.
+func (s *Store) Entries() ([]Entry, error) {
+	ds, err := os.ReadDir(s.root)
+	if err != nil {
+		return nil, fmt.Errorf("cas: list: %w", err)
+	}
+	out := make([]Entry, 0, len(ds))
+	for _, d := range ds {
+		if !d.IsDir() || !hexRE.MatchString(d.Name()) {
+			continue
+		}
+		fi, err := os.Stat(s.blob(d.Name()))
+		if err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		out = append(out, Entry{
+			Hash:    hashPrefix + d.Name(),
+			Size:    fi.Size(),
+			ModTime: fi.ModTime(),
+		})
+	}
+	return out, nil
 }
