@@ -1053,6 +1053,8 @@ no leader → CAMPAIGNING → ELECTED → (TRANSFERRED|LOST) → CAMPAIGNING
 4. DEREGISTERING — drain in-flight, remove member key (timeout 30s).
 5. COMPLETED.
 
+**Landed Epic 13 task 14** (`internal/cluster/shutdown.go`): one-shot `GracefulShutdown.Shutdown(ctx)` driving the 5-phase machine (terminal FAILED only if Deregister errors — the member key must come out). DRAINING = `StopAccepting` hook then `Membership.SetStatus(LEAVING)` (ShardManager rebalances this node's agents to peers before exit → "no agent disconnections"); TRANSFERRING = `Leadership.TransferLeadership` if leader; DEREGISTERING = `Drainer.Drain` (FencingManager GRACEFUL, best-effort within `cluster.shutdown.timeout` 30s — a slow drain never blocks key removal) then `Membership.Deregister`. Narrow nilable collaborator interfaces; single-use; `ShutdownObserver`. The cmd/kscore-server SIGTERM→Shutdown hookup + real StopAccepting is the deferred boot-integration ROADMAP item.
+
 **Split-brain prevention**:
 - Quorum size = N/2 + 1 (3-node → 2; 5-node → 3).
 - Minority partition: writes blocked within 1s; reads continue.

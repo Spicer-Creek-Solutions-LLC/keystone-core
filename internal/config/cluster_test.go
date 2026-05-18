@@ -84,6 +84,7 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"coord failure_threshold low", func(c *ClusterConfig) { c.Coordination.FailureThreshold = 0 }, "coordination.failure_threshold must be >= 1"},
 		{"coord retry_max low", func(c *ClusterConfig) { c.Coordination.RetryMax = 0 }, "coordination.retry_max must be >= 1"},
 		{"coord base>max delay", func(c *ClusterConfig) { c.Coordination.RetryBaseDelay = 3 * time.Second; c.Coordination.RetryMaxDelay = time.Second }, "retry_base_delay"},
+		{"shutdown timeout zero", func(c *ClusterConfig) { c.Shutdown.Timeout = 0 }, "shutdown.timeout must be > 0"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

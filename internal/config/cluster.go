@@ -49,6 +49,8 @@ import (
 //	    retry_max: 4
 //	    retry_base_delay: 100ms
 //	    retry_max_delay: 2s
+//	  shutdown:
+//	    timeout: 30s
 //
 // Enabled defaults to false: the single-node path stays the default
 // and clustering is strictly opt-in. When disabled, no etcd is
@@ -67,6 +69,17 @@ type ClusterConfig struct {
 	Recovery     ClusterRecoveryConfig     `koanf:"recovery"`
 	Fencing      ClusterFencingConfig      `koanf:"fencing"`
 	Coordination ClusterCoordinationConfig `koanf:"coordination"`
+	Shutdown     ClusterShutdownConfig     `koanf:"shutdown"`
+}
+
+// ClusterShutdownConfig is the operator-facing graceful-shutdown
+// config (Epic 13 task 14). The runtime equivalent is
+// cluster.GracefulShutdownConfig; boot wiring (later task) maps
+// onto it.
+type ClusterShutdownConfig struct {
+	// Timeout bounds the DEREGISTERING phase (in-flight drain +
+	// member-key removal). §4.15 default 30s.
+	Timeout time.Duration `koanf:"timeout"`
 }
 
 // ClusterCoordinationConfig is the operator-facing server↔server
@@ -358,6 +371,9 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.coordination.retry_base_delay (%v) must be <= retry_max_delay (%v)",
 			c.Coordination.RetryBaseDelay, c.Coordination.RetryMaxDelay)
 	}
+	if c.Shutdown.Timeout <= 0 {
+		return fmt.Errorf("cluster.shutdown.timeout must be > 0, got %v", c.Shutdown.Timeout)
+	}
 	// Anti-flap: lease TTL must be ≥ 3× the heartbeat interval.
 	// Compare in seconds (etcd lease granularity); round the
 	// heartbeat up so sub-second intervals can't sneak under.
@@ -423,5 +439,8 @@ func applyClusterDefaults(c *ClusterConfig) {
 		RetryMax:          4,
 		RetryBaseDelay:    100 * time.Millisecond,
 		RetryMaxDelay:     2 * time.Second,
+	}
+	c.Shutdown = ClusterShutdownConfig{
+		Timeout: 30 * time.Second, // §4.15 DEREGISTERING budget
 	}
 }
