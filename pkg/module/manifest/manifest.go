@@ -113,6 +113,11 @@ type Manifest struct {
 // namespacing — guards namespace squatting).
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$`)
 
+// ValidModuleName reports whether name is a well-formed namespaced
+// `vendor/pkg` module name. Single source of truth for the registry
+// + publish path (Epic 14 task 8), shared with [Manifest.Validate].
+func ValidModuleName(name string) bool { return nameRE.MatchString(name) }
+
 // MarshalManifest renders m as YAML.
 func MarshalManifest(m *Manifest) ([]byte, error) {
 	if m == nil {
