@@ -66,7 +66,13 @@ func (h *Handler) publish(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	switch err := h.reg.Publish(r.Context(), manifestYAML, zip); {
+	// Optional detached signature part.
+	var sig []byte
+	if f, _, ferr := r.FormFile("signature"); ferr == nil {
+		sig, _ = io.ReadAll(f)
+		_ = f.Close()
+	}
+	switch err := h.reg.PublishSigned(r.Context(), manifestYAML, zip, sig); {
 	case err == nil:
 		w.WriteHeader(http.StatusCreated)
 	case errors.Is(err, ErrVersionExists):
@@ -158,6 +164,18 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/zip")
 		_, _ = w.Write(b)
+
+	case strings.HasSuffix(action, ".sig"):
+		ver := strings.TrimSuffix(action, ".sig")
+		b, err := h.reg.SignatureBytes(ctx, module, ver)
+		if err != nil {
+			h.fail(w, err) // ErrNotFound for an unsigned module
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		// b is a stored JSON signature artifact served as
+		// application/json — not an HTML/XSS sink.
+		_, _ = w.Write(b) //nolint:gosec // G705: JSON artifact, not HTML
 
 	default:
 		http.Error(w, "unknown action", http.StatusBadRequest)

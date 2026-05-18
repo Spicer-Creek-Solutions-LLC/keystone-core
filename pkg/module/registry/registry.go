@@ -51,6 +51,7 @@ func New(st storage.Storage) *Registry { return &Registry{st: st} }
 func manifestKey(mod, ver string) string { return path.Join(mod, ver, "manifest.yaml") }
 func zipKey(mod, ver string) string      { return path.Join(mod, ver, "module.zip") }
 func infoKey(mod, ver string) string     { return path.Join(mod, ver, "info.json") }
+func sigKey(mod, ver string) string      { return path.Join(mod, ver, "module.sig") }
 
 // versionInfo is the stored per-version metadata. The HTTP .info
 // endpoint exposes only {Version, Time}; Hash is internal (the
@@ -61,10 +62,15 @@ type versionInfo struct {
 	Hash    string    `json:"hash"`
 }
 
-// Publish validates the manifest and stores the manifest, ZIP, and
-// version metadata. Re-publishing an existing version is rejected
-// (immutability).
+// Publish stores an unsigned module (manifest + ZIP + metadata).
 func (r *Registry) Publish(ctx context.Context, manifestYAML, zip []byte) error {
+	return r.PublishSigned(ctx, manifestYAML, zip, nil)
+}
+
+// PublishSigned is Publish with an optional detached signature
+// artifact (verify.MarshalSignature bytes). Re-publishing an
+// existing version is rejected (immutability).
+func (r *Registry) PublishSigned(ctx context.Context, manifestYAML, zip, sig []byte) error {
 	m, err := manifest.UnmarshalManifest(manifestYAML)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidModule, err)
@@ -97,7 +103,21 @@ func (r *Registry) Publish(ctx context.Context, manifestYAML, zip []byte) error 
 	if err := r.st.Put(ctx, zipKey(mod, ver), bytes.NewReader(zip)); err != nil {
 		return err
 	}
+	if len(sig) > 0 {
+		if err := r.st.Put(ctx, sigKey(mod, ver), bytes.NewReader(sig)); err != nil {
+			return err
+		}
+	}
 	return r.st.Put(ctx, infoKey(mod, ver), bytes.NewReader(infoJSON))
+}
+
+// SignatureBytes returns the stored detached signature artifact for
+// a module version, or ErrNotFound if it was published unsigned.
+func (r *Registry) SignatureBytes(ctx context.Context, mod, ver string) ([]byte, error) {
+	if !manifest.ValidModuleName(mod) {
+		return nil, fmt.Errorf("%w: bad module name %q", ErrNotFound, mod)
+	}
+	return r.getBytes(ctx, sigKey(mod, ver))
 }
 
 // versions returns the published version strings for mod (sorted
