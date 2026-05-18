@@ -630,8 +630,8 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 
 - **Starlark runtime** (Python-like sandboxed scripting via `go.starlark.net`; deterministic mode with random/time disabled by default). Source: `pkg/module/runtime/starlark/`. _Reasoning: pure Go, simpler than WASM, sufficient for trial extensibility._
 - **Module manifest format** (`module.yaml`: name namespaced `vendor/pkg`, version semver, type, entrypoint, capabilities, limits, dependencies). Source: `pkg/module/manifest/`. _Reasoning: schema is shared with v1.x WASM modules._
-- **Capability-based security (7 core capabilities)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. _Reasoning: covers ~90% of use cases. Per-syscall granularity is v1.x._
-- **Capability scoping** (path globs, domain allowlists, command allowlists, secret-path scoping, rate limits, timeouts). _Reasoning: not just on/off — actually safe defaults._
+- **Capability-based security (9 core capabilities)**: `fs.read`, `fs.write`, `http.get`, `http.post`, `exec`, `secrets.read`, `secrets.write`, `kv`, `log`. Source: `pkg/module/capability/`. _Reasoning: covers ~90% of use cases. Per-syscall granularity is v1.x._
+- **Capability scoping** (path globs, domain allowlists, command allowlists, secret-path scoping, rate limits, timeouts). Source: `pkg/module/capability/`. _Reasoning: not just on/off — actually safe defaults._
 - **Cosign signature verification** (RSA, ECDSA, Ed25519; KeyID-based key management). Source: `pkg/module/verify/`. _Reasoning: cryptographic supply chain baseline._
 - **SHA-256 content addressing** (CAS storage in `~/.kscore/modules/<hash>/`). _Reasoning: dedup + integrity._
 - **Module resolver** (semver constraints; DAG with cycle detection; minimum-version-selection conflict resolution). Source: `pkg/module/resolver/`. _Reasoning: reproducible builds._
