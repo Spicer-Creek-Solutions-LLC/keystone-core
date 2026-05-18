@@ -222,6 +222,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
+#### Cluster leader-check boot wiring (kscore-server)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 13 tasks 6/8/9 expose leader-gate seams — `ShardManager.LeaderCheck`, `FailoverManager.LeaderCheck`, and the canonical `SingletonTaskManager.LeaderCheck()` — plus the long-standing `WithRetentionLeaderCheck` seam on the `internal/audit` + `internal/events` `RetentionEnforcer`s (default `AlwaysLeader`). The actual wiring (`cfg.LeaderCheck = le.IsLeader` / registering the RetentionEnforcers as `StartStopTask`s on the `SingletonTaskManager`) is a `cmd/kscore-server` boot concern and depends on clustering being constructed at server boot, which is itself deferred (Epic 13 task 1 left boot wiring out). Until then a clustered deployment runs those leader-only side-effects on every node (audit/events retention deletes, shard rebalance writes, failover orchestration) — correctness-safe (idempotent / CAS-guarded) but duplicated work.
+- **Why deferred**: there is no cluster→kscore-server boot wiring yet; this lands with the server-lifecycle/boot integration (Epic 13 task 14 graceful-shutdown wires into the Epic 04 server lifecycle, or a dedicated boot task) so all clustering components are constructed and wired in one coherent place.
+- **Acceptance for unblock**: kscore-server boot constructs the `LeaderElector` + `SingletonTaskManager`; `ShardManager`/`FailoverManager` configs receive `stm.LeaderCheck()`; the audit + events `RetentionEnforcer`s are constructed `WithRetentionLeaderCheck(stm.LeaderCheck())` (or registered as `StartStopTask`s); a 3-node cluster runs each leader-only task on exactly one node (verified by the HA E2E suite, task 17).
+- **References**: `internal/cluster/singleton.go` (`SingletonTaskManager.LeaderCheck`); `internal/cluster/{shardmanager,failover}.go` (`LeaderCheck` seam); `internal/audit/retention.go` + `internal/events/retention.go` (`WithRetentionLeaderCheck`/`AlwaysLeader`); Epic 13 tasks 6/8/9.
+
 #### Pre-rotation signing-CA retention in the bootstrap trust bundle
 
 - **Priority**: gate-v1.0
