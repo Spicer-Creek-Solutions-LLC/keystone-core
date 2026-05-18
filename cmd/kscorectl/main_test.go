@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -20,5 +24,39 @@ func TestNewCommand(t *testing.T) {
 func TestRun_ReturnsImmediately(t *testing.T) {
 	if err := run(context.Background(), nil, nil); err != nil {
 		t.Fatalf("run returned error: %v", err)
+	}
+}
+
+func TestRunCLI(t *testing.T) {
+	// --help → cobra prints usage, exit 0.
+	var out, errb bytes.Buffer
+	if code := runCLI([]string{"--help"}, nil, &out, &errb); code != 0 {
+		t.Fatalf("--help exit = %d, want 0", code)
+	}
+	if !strings.Contains(out.String()+errb.String(), "kscorectl") {
+		t.Fatalf("--help output missing usage: %q %q", out.String(), errb.String())
+	}
+
+	// Unknown subcommand with no plugin → cobra error, exit 1.
+	t.Setenv("PATH", t.TempDir()) // no kscore-* here
+	if code := runCLI([]string{"ghost"}, nil, &bytes.Buffer{}, &bytes.Buffer{}); code != 1 {
+		t.Fatalf("unknown subcommand exit = %d, want 1", code)
+	}
+
+	// Git-style plugin dispatch: kscore-demo on PATH → exit code
+	// forwarded.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "kscore-demo"),
+		[]byte("#!/bin/sh\necho \"demo:$1\"\nexit 5\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	var pout bytes.Buffer
+	code := runCLI([]string{"demo", "arg1"}, nil, &pout, &errb)
+	if code != 5 {
+		t.Fatalf("plugin exit = %d, want 5 (forwarded)", code)
+	}
+	if strings.TrimSpace(pout.String()) != "demo:arg1" {
+		t.Fatalf("plugin stdout = %q", pout.String())
 	}
 }
