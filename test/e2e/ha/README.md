@@ -64,10 +64,34 @@ measured by `make test-coverage` (no `-tags=integration`). This
 suite is additive behavioural verification — it is not
 coverage-counted.
 
-## SLO numbers
+## SLO numbers (Task 18)
 
-Task 17 asserts **functional correctness** with CI-safe budgets.
-The tight SLO numbers (`<3s` leader, `<10s` failover, `<15s`
-recovery) are **Task 18** (performance verification). The one tight
-bound asserted here is the `<1s` minority-block — fast fencing is a
-correctness property — measured with margin.
+The functional scenarios above (`//go:build integration`) assert
+correctness with CI-safe budgets. The tight §4.15 SLO numbers are a
+separate gate: `slo_test.go` (`//go:build slo`), run by **`make
+slo`** WITHOUT `-race` (race instrumentation inflates wall-clock
+2–10×, which would make the asserted numbers meaningless).
+
+```sh
+make slo                                  # the SLO gate (no -race)
+go test -tags=slo ./test/e2e/ha/...       # same, directly
+```
+
+`make slo` is its own required CI job (the `slo:` step in
+`.woodpecker/ci.yml` and `.github/workflows/ci.yml`) — no Postgres
+sidecar, runs on every PR, failures block merge. Bounds asserted:
+first leader `<3s`, cluster forms `<10s`, failover detection `<5s` /
+completion `<10s`, agent reassignment `<10s`, minority blocks writes
+`<1s`, recovery (restart) `<15s`, zero failover duplication. Each
+sub-test logs its measured value even when green, so a regression
+that still passes the bound is visible in CI output.
+
+The shared harness compiles under `integration || slo`; the
+functional-only helpers live in `harness_integration_test.go`
+(`integration` only) so the `slo` build has no unused symbols.
+
+These verify the SLOs of the real in-process mechanisms. The
+server-integrated numbers (agent-reconnect latency through a running
+multi-process `kscore-server`, graceful-shutdown zero-disconnect
+timing) ride with the `gate-v1.0` "HA E2E multi-process /
+iptables-partition form" ROADMAP entry.

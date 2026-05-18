@@ -41,6 +41,17 @@ steps:
     commands:
       - make test-coverage
 
+  # Epic 13 task 18 performance-SLO gate. Separate from `integration`
+  # because SLOs are wall-clock bounds and `make test-integration`
+  # runs -race (which inflates wall-clock 2–10×). `make slo` runs
+  # without -race. No Postgres sidecar — the SLOs are etcd /
+  # in-process. Failures block the PR like every other step.
+  slo:
+    image: golang:1.26
+    depends_on: []
+    commands:
+      - make slo
+
   integration:
     image: golang:1.26
     depends_on: []

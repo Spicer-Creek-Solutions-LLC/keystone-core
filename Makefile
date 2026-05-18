@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage test-integration test-cross-distro check \
+        test test-verbose test-coverage test-integration slo test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -117,6 +117,16 @@ test-integration: ## Run integration tests (-tags=integration)
 	# in different packages share the KSCORE_TEST_POSTGRES_DSN target
 	# and would otherwise race on TRUNCATE / seed / read.
 	CGO_ENABLED=1 go test -race -tags=integration -p=1 ./...
+
+slo: ## Verify Epic 13 §4.15 performance SLOs (-tags=slo, NO -race)
+	# Epic 13 task 18. Wall-clock SLO bounds (first leader <3s,
+	# failover <5s/10s, minority-block <1s, recovery <15s, …)
+	# measured against the real in-process cluster mechanisms.
+	# Deliberately NOT -race: race instrumentation inflates
+	# wall-clock 2–10×, which would make the asserted numbers
+	# meaningless. The functional in-`-race` smoke lives in the
+	# task-17 integration suite (`make test-integration`).
+	CGO_ENABLED=1 go test -tags=slo -count=1 -timeout=300s ./test/e2e/ha/...
 
 test-cross-distro: ## Run state stdlib smoke across the v0.5 distro matrix (docker-compose; gated)
 	# Layer C of Epic 08 task 13 — exercises the modules that touch

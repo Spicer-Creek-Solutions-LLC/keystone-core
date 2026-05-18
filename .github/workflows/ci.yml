@@ -53,6 +53,20 @@ jobs:
       - name: test (race + coverage)
         run: make test-coverage
 
+  # Epic 13 task 18 performance-SLO gate. Separate from `integration`
+  # (which runs -race, inflating wall-clock 2–10×); `make slo` runs
+  # without -race. No Postgres service — SLOs are etcd / in-process.
+  slo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: performance SLOs (no -race)
+        run: make slo
+
   integration:
     runs-on: ubuntu-latest
     # Forgejo Actions runs each job inside a container by default, so
