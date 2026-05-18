@@ -1,12 +1,17 @@
-// CoordinationService — server↔server-only RPCs. mTLS-required: the
-// auth interceptor (epic 03 task 4) rejects non-mTLS callers per
-// PROJECT-DETAILS §4.5 ("CoordinationService requires mTLS"). Refined
-// in epic 13 (Clustering / HA).
+// CoordinationService — server↔server-only RPCs, the NATS-down
+// recovery channel (PROJECT-DETAILS §4.15 Clustering & HA).
+// mTLS-required: the CoordinationServer rejects callers without a
+// verified client certificate (codes.Unauthenticated) per the
+// Epic 13 acceptance criterion.
 //
-// Naming note: NodeHeartbeat and LookupLeader rather than the
-// spec-natural Heartbeat / GetLeader to keep message-type names unique
-// within keystone.core.v1 (AgentService owns Heartbeat,
-// ClusterService owns GetLeader).
+// Naming note: NodeHeartbeat / LookupLeader (not the spec-natural
+// Heartbeat / GetLeader) keep message-type names unique within
+// keystone.core.v1 (AgentService owns Heartbeat, ClusterService
+// owns GetLeader).
+//
+// Epic 13 task 12 realigned this to the real cluster surface
+// purely ADDITIVELY (new fields/messages; no removals or renames)
+// so it stays wire-compatible with the Epic-03 placeholder.
 
 syntax = "proto3";
 
@@ -25,6 +30,21 @@ service CoordinationService {
   rpc PropagateState(PropagateStateRequest) returns (PropagateStateResponse);
 }
 
+// ---- shared --------------------------------------------------------------
+
+message MemberInfo {
+  string id = 1;
+  string name = 2;
+  string addr = 3;
+  string status = 4; // canonical lowercase MemberStatus
+}
+
+message ShardAssignmentInfo {
+  string agent_id = 1;
+  string member_id = 2;
+  int64 version = 3;
+}
+
 // ---- ClusterHealth --------------------------------------------------------
 
 message ClusterHealthRequest {
@@ -37,6 +57,11 @@ message ClusterHealthResponse {
   bool nats_healthy = 3;
   bool storage_healthy = 4;
   google.protobuf.Timestamp at = 5;
+  // Epic 13 additions.
+  string member_status = 6; // canonical lowercase MemberStatus
+  string quorum = 7;        // "quorum" | "minority"
+  int32 member_count = 8;
+  string leader_id = 9;
 }
 
 // ---- LookupLeader ---------------------------------------------------------
@@ -47,6 +72,9 @@ message LookupLeaderResponse {
   string leader_id = 1;
   string leader_address = 2;
   int32 term = 3;
+  // Epic 13 additions.
+  bool is_self = 4;
+  int64 epoch = 5;
 }
 
 // ---- NATSStatus -----------------------------------------------------------
@@ -61,12 +89,15 @@ message NATSStatusResponse {
   int64 in_bytes = 5;
   int64 out_bytes = 6;
   int32 reconnects = 7;
+  // Epic 13 addition.
+  string detail = 8;
 }
 
 // ---- RecoveryCoordinate ---------------------------------------------------
 
-// RecoveryCoordinate communicates phase transitions in the
-// recovery-state machine documented in PROJECT-DETAILS §4.13.
+// RecoveryCoordinate is the NATS-down recovery channel: a recovering
+// peer reports its phase and receives the cluster snapshot it needs
+// (leader + members + shard map) to drive RecoveryManager.
 message RecoveryCoordinateRequest {
   string from_node_id = 1;
   RecoveryPhase phase = 2;
@@ -74,6 +105,10 @@ message RecoveryCoordinateRequest {
 
 message RecoveryCoordinateResponse {
   bool acknowledged = 1;
+  // Epic 13 additions: the snapshot for peer-assisted recovery.
+  string leader_id = 2;
+  repeated MemberInfo members = 3;
+  repeated ShardAssignmentInfo shard_assignments = 4;
 }
 
 enum RecoveryPhase {
@@ -92,21 +127,29 @@ enum RecoveryPhase {
 message NodeHeartbeatRequest {
   string from_node_id = 1;
   google.protobuf.Timestamp at = 2;
+  // Epic 13 addition: the sender's fencing epoch.
+  int64 epoch = 3;
 }
 
 message NodeHeartbeatResponse {
   google.protobuf.Timestamp server_time = 1;
+  // Epic 13 additions.
+  string member_id = 2;
+  string status = 3; // canonical lowercase MemberStatus
+  int64 epoch = 4;
 }
 
 // ---- PropagateState -------------------------------------------------------
 
 // PropagateState is the inter-node fan-out for cluster snapshot
-// updates. Payload is a serialized snapshot blob; format is internal
-// to the cluster epic.
+// updates when NATS is unavailable. Payload is a serialized snapshot
+// blob; format is internal to the cluster epic.
 message PropagateStateRequest {
   string from_node_id = 1;
   bytes snapshot = 2;
   int64 version = 3;
+  // Epic 13 addition: discriminates the snapshot kind.
+  string kind = 4;
 }
 
 message PropagateStateResponse {

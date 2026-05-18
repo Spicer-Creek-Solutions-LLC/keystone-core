@@ -222,6 +222,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
+#### Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 13 task 12 ships `CoordinationGRPCServer` (the server↔server NATS-down recovery channel; mTLS-only — rejects callers without a verified client cert). It is **not registered at `cmd/kscore-server` boot**, and the forward `ClusterService` (task 15) will need registration too. CoordinationService specifically needs a **dedicated mTLS server↔server listener** (separate from the agent/operator surface). Until wired, the implementations exist + are unit/bufconn-tested but peers cannot actually reach each other over this channel, so NATS-down recovery falls back to slower etcd-only paths.
+- **Why deferred**: same root as the other cluster boot-wiring items — there is no cluster→kscore-server boot wiring yet (deferred since Epic 13 task 1). Server registration + the mTLS listener land with the server-lifecycle/boot integration (Epic 13 task 14 or a dedicated boot task) so all clustering wiring happens in one coherent place.
+- **Acceptance for unblock**: kscore-server boot registers `CoordinationGRPCServer` on a dedicated mTLS-only listener and `ClusterGRPCServer` (task 15) on the operator/API surface; a 3-node cluster exchanges health/leader/recovery over CoordinationService with NATS down (verified by the HA NATS-failure E2E, task 17).
+- **References**: `internal/controlplane/grpc_coordination_server.go`; `api/proto/keystone/core/v1/coordination.proto`; Epic 13 tasks 12/13/15; companions: "Cluster leader-check boot wiring (kscore-server)", "Fencing guard wired around server write paths".
+
 #### Fencing guard wired around server write paths
 
 - **Priority**: gate-v1.0
