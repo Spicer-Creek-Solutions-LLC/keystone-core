@@ -31,6 +31,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.6.11
 	go.etcd.io/etcd/client/v3 v3.6.11
 	go.etcd.io/etcd/server/v3 v3.6.11
+	go.starlark.net v0.0.0-20251222184526-15019ee33dea
 	go.uber.org/goleak v1.3.0
 	go.yaml.in/yaml/v3 v3.0.4
 	google.golang.org/grpc v1.81.0

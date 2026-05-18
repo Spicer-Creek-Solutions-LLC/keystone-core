@@ -1016,6 +1016,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `POST /publish` requires a valid credential (API key or mTLS); an unauthenticated publish is rejected 401/403; a publish under a namespace the credential does not own is rejected; existing read endpoints are unaffected.
 - **References**: `pkg/module/registry/handler.go` (`publish`), `cmd/kscore-registry` (task 9, landed — unauthenticated); companion of "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop".
 
+#### Starlark hard heap-bytes cap
+
+- **Priority**: v1.x
+- **What**: Epic 14 task 11's Starlark runtime bounds a module by an execution-step cap (`thread.SetMaxExecutionSteps`), a wall-clock timeout (`thread.Cancel`), and Starlark's intrinsic recursion / no-`while` strictness. §4.18 also lists "memory heap limits"; go.starlark.net has **no public allocation/heap-bytes ceiling API**, so v1.0 approximates it via the step+time bounds. Add a true per-execution heap-bytes cap once upstream exposes one (the long-proposed `thread.SetMaxAllocs`/allocation accounting) or via an out-of-process / cgroup memory bound for module execution.
+- **Why deferred**: the step + wall-clock bounds already prevent unbounded CPU and runaway loops (the practical DoS vectors); a precise heap ceiling needs runtime support that go.starlark.net does not currently provide, and re-implementing allocation accounting is out of v1.0 scope. The manifest already carries `limits.memory` (parsed, task 1) so the contract is forward-compatible — only the enforcement is deferred.
+- **Acceptance**: a module exceeding `limits.memory` is terminated with a typed error before exhausting host memory; verified by a high-allocation test module.
+- **References**: `pkg/module/runtime/starlark` (task 11, landed — step+time bounds); `pkg/module/manifest` `Limits.Memory` (task 1, parsed); go.starlark.net `Thread`; companion of "WASM module runtime".
+
 #### TUI monitor (`kscore-monitor`)
 
 - **Priority**: v1.x
