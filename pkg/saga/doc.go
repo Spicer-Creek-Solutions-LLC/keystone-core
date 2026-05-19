@@ -28,11 +28,14 @@
 //   - [Coordinator.Run] — forward-execute + reverse-compensate.
 //   - [Log] interface + [NewInMemoryLog] for in-process tests and
 //     the default coordinator hookup.
+//   - [NewSQLiteLog] — durable SQLite-backed [Log] (audit trail /
+//     list-executions). NOTE its round-trip is lossy: `Data` decodes
+//     to a generic value and errors rehydrate as flat [errors.New]
+//     (wrap chain lost). See that constructor's doc.
 //   - [Coordinator.Clock] injection for deterministic tests.
 //
 // # What's deferred to v0.x → v1.x (see docs/project/ROADMAP.md)
 //
-//   - SQLite [Log] implementation (`pkg/saga/log_sqlite`).
 //   - Checkpoint-resume — a saga that crashes mid-forward can be
 //     re-loaded and continue from the last completed step, with the
 //     pre-step data restored from the log.

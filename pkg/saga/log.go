@@ -12,13 +12,14 @@ var ErrNotFound = errors.New("saga: execution not found")
 
 // Log persists [Execution] records.
 //
-// v0.1 ships [NewInMemoryLog] only. A SQLite implementation
-// (`pkg/saga/log_sqlite`) is in the v0.x roadmap and is the
-// prerequisite for the v1.x checkpoint-resume feature — that
-// implementation will record per-step transitions so a crashed
-// saga can be re-loaded and continued. v0.1's [Coordinator.Run]
-// records the initial Pending→Running state once and the terminal
-// state once.
+// Two implementations ship: [NewInMemoryLog] (default, in-process)
+// and [NewSQLiteLog] (durable). Both record the initial
+// Pending→Running state once and the terminal state once —
+// [Coordinator.Run] is not checkpointed. Per-step transition
+// recording so a crashed saga can be re-loaded and continued is the
+// separate v1.x checkpoint-resume feature (see docs/project/ROADMAP.md).
+// The SQLite log's save/load round-trip is lossy for the `any` Data
+// and `error` fields — see [NewSQLiteLog].
 type Log interface {
 	// SaveExecution writes the [Execution] under its ID. Successive
 	// calls with the same ID overwrite. Returns an error only on
