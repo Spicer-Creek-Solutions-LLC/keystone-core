@@ -117,10 +117,10 @@ kscore.{cluster}.discovery
 | Metrics | `prometheus/client_golang` | Standard. |
 | Storage | `modernc.org/sqlite`, `lib/pq` | Pure-Go drivers. |
 | Cluster | `go.etcd.io/etcd/{client/v3,server/v3,api/v3}` (v3.6.11) | Embedded etcd for HA. Added Epic 13 task 1: `internal/cluster.EtcdClient` wraps etcd v3 in **embedded** (in-process server via `server/v3/embed`, client wired straight to it with `etcdserver/api/v3client` — no network hop) or **external** mode; owns lifecycle + lease (grant/keepalive/revoke) + thin KV/Watch/Txn passthrough; `Client()` exposes `*clientv3.Client` so the Task 3 LeaderElector layers `concurrency.Election` without re-dialing. Only credible embeddable strongly-consistent (Raft quorum) coordination backend in Go — gossip (serf/memberlist) can't satisfy the split-brain/fencing acceptance criteria. Clustering is opt-in (`cluster.enabled: false` default). |
-| GitOps | `go-git/go-git/v5`, `argoproj/argo-cd/v3` | Webhook + reconcile. |
+| GitOps | `go-git/go-git/v5` (v5.19.1) | Git-revert rollback executor (Epic 16 task 7): clone + revert-to-tree commit + push, pure-Go/cgo-free, isolated in `internal/gitops/rollback/gitexec`. **`argoproj/argo-cd/v3` rejected** — that module drags controller-runtime + `k8s.io/*` and version-lockstep pain for two API calls; the ArgoCD executor instead uses a thin stdlib-`net/http` REST client against the ArgoCD API server (`internal/gitops/rollback/argoexec`, no dep). |
 | Policy | `open-policy-agent/opa` (v1.16.2), `google/cel-go` | Dual engine, audit-mode v1. OPA added Epic 12 task 6: embedded `opa/v1/rego` SDK (in-process; no subprocess/sidecar — only credible embeddable Rego engine in Go). Rego v1 syntax; fixed package `keystone.policy` (query `data.keystone.policy.{allow,violations,warnings}`); restricted capability set denies `http.send`/`net.*`/`opa.runtime` (operator-supplied policies must be pure decision logic — SSRF/exfil guard); compiled queries cached by `policyID+sha256(Code)`. |
 | WASM | `tetratelabs/wazero` | Pure-Go WASM runtime. |
-| K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (post-v1.0) and K8s exec. |
+| K8s | `k8s.io/client-go`, `apimachinery`, `api` | For operator (post-v1.0) and K8s exec. **Deferred — not yet in go.mod.** Epic 16 task 7 ships the K8s rollout-undo executor against a narrow `K8sRolloutClient` seam (fake-tested); the concrete client-go adapter is bucketed under the gate-v1.0 ROADMAP entry and added when wired at boot, to avoid the heavy 3-module lockstep until it's actually needed. |
 | Cloud | AWS SDK v2, GCP, Azure SDKs | Initially used by secrets+identity; broader v2.x+. |
 | TUI | `charmbracelet/bubbletea`, `lipgloss` | Monitor binary (post-v1.0). |
 | Targeting | `github.com/expr-lang/expr`, `github.com/gobwas/glob` | Compiled-VM expressions for `--target` selectors with a `match()` glob function. Chosen in Epic 07 task 1 over CEL (heavy, proto-centric) and a custom RD parser. |
@@ -921,11 +921,11 @@ secrets:
 - REST: `/api/v1/gitops/verifications` (GET list, get), `/api/v1/gitops/rollback` (POST), `/api/v1/gitops/rollbacks` (GET list, get), `/api/v1/gitops/rollbacks/{id}/approve` (POST).
 - CLI: `kscore-gitops verify <workflow-file>` (flags: --parallel, --timeout, --output), `kscore-gitops rollback --app X --strategy previous|specific|last-known-good --revision Y --reason Z`. post-v1.0 adds `promote`, `status`, `repo`, `deploy`, `git-sync`.
 
-**External clients**:
-- `argocd.Client` — gRPC; sync, rollback, get app status.
-- `github.Client` — REST (`google/go-github`); deployment status updates.
-- `gitlab.Client` — REST (`xanzy/go-gitlab`); commit status, MR ops.
-- `gitsync.Syncer` — go-git; clone, pull, commit, branch, MR/PR creation.
+**External clients** (Epic 16 task 7 — behind narrow seams in `internal/gitops/rollback`):
+- ArgoCD — **thin stdlib REST** client (`rollback/argoexec`, no `argo-cd/v3` dep): get application status+history, sync-to-revision. (v0 spec said gRPC `argo-cd/v3`; rejected — module bloat / k8s lockstep for two calls.)
+- Git — `go-git/v5` (`rollback/gitexec`): clone, revert-to-revision commit, push; previous-revision + tag-based last-known-good.
+- K8s rollout-undo — `K8sRolloutClient` seam; concrete `client-go` adapter deferred to boot (gate-v1.0 ROADMAP).
+- `github.Client` / `gitlab.Client` (deployment/commit status) — post-v1.0.
 
 **Gotchas**:
 - Webhook signed-replay: HMAC only — capture+replay is possible. post-v1.0 adds timestamp window + nonce dedup.

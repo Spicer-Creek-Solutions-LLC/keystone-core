@@ -38,6 +38,7 @@ gate-v1.0:
   - "Cluster leader-check boot wiring (kscore-server)"
   - "HA E2E multi-process / iptables-partition form"
   - "GitOps webhook receiver boot registration (kscore-server)"
+  - "K8s rollout-undo client-go adapter + GitOps rollback boot wiring"
   - "Pre-rotation signing-CA retention in the bootstrap trust bundle"
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
   - "Unified single + batch dispatch persistence"

@@ -104,7 +104,7 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 - [ ] `kscorectl gitops verify webhook-verify.yaml --parallel --timeout 2m` runs HTTP + gRPC + cmd verifiers.
 - [ ] `kscorectl gitops rollback --app web --strategy previous --reason "hotfix"` triggers rollback.
 - [ ] Rollback with `RequireApproval=true` waits at Pending; `kscorectl gitops rollback approve <id>` proceeds.
-- [ ] Git-revert executor commits revert and pushes (in test env).
+- [x] Git-revert executor commits revert and pushes (in test env). _(task 7: `rollback/gitexec` go-git v5; `TestClient_Revert_CommitsAndPushes` seeds a bare remote, reverts to a prior commit, pushes, re-clones and asserts the revert commit's parent + tree + restored file content.)_
 
 ### Outbound webhooks
 
