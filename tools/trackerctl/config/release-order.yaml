@@ -37,6 +37,7 @@ gate-v1.0:
   - "Fencing guard wired around server write paths"
   - "Cluster leader-check boot wiring (kscore-server)"
   - "HA E2E multi-process / iptables-partition form"
+  - "GitOps webhook receiver boot registration (kscore-server)"
   - "Pre-rotation signing-CA retention in the bootstrap trust bundle"
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
   - "Unified single + batch dispatch persistence"

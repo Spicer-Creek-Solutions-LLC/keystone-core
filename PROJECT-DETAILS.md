@@ -889,7 +889,7 @@ secrets:
 **Purpose**: Bridge GitOps deployers (ArgoCD/Flux) and Git providers (GitHub/GitLab) to Keystone Core's runtime control plane. v1.0 ships the basics: ingest, verify, manual rollback. Promotion + canary slip to post-v1.0/post-v1.0.
 
 **Webhook ingest** (`internal/gitops/webhook/`):
-- HTTP server (default `:8080/webhooks`).
+- HTTP server (default `:8081/webhooks`) — distinct from the main REST API on `server.httpport` (`:8080`); colliding the two wedges boot.
 - `Handler` interface — `Type()`, `Parse(request, body) → Event`. Concrete: ArgoCD, Flux, GitHub, GitLab.
 - `Authenticator` interface — `HMACAuthenticator` (SHA-256 HMAC; secret per source), `BearerAuthenticator`, `NoneAuthenticator`.
 - Source auto-detection by header (`X-GitHub-Event`, `X-Gitlab-Event`, `X-Argo-CD-Webhook`, `X-Flux-Event`).

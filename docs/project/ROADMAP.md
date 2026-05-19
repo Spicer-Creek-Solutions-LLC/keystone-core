@@ -294,6 +294,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: `production-cluster` applied via the blueprint executor against a docker-compose topology brings up etcd + Postgres + a NATS cluster and the suite asserts the services are actually reachable/healthy, not just that declarations were dispatched.
 - **References**: `test/e2e/blueprint/e2e_test.go` (in-process form, landed); `test/e2e/state/docker-compose.yml` + `run.sh` (compose-harness precedent); Epic 13 "HA E2E multi-process / iptables-partition form" (companion deferral); Epic 15 task 13; Epic 19 (E2E hardening).
 
+#### GitOps webhook receiver boot registration (kscore-server)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 16 task 1 ships `internal/gitops/webhook` — the inbound webhook HTTP `Receiver` (its own `http.Server`, default `:8081/webhooks`, body-capped), the `Handler` interface + `Registry`, and the four v1.0 provider handlers (ArgoCD/Flux/GitHub/GitLab) with a `NewDefaultRegistry`. The `Receiver` is constructed-and-startable and `config.GitOpsConfig` gates it (`gitops.webhook.enabled`, default off), but it is **not** registered in the `cmd/kscore-server` boot sequence — there is no event bus wired to it yet (emission is task 4) and provider selection is still the interim `?source=` query param (header auto-detection is task 2, auth is task 3). Until wired, the receiver runs only when started directly (unit/httptest-tested); a running kscore-server does not expose `:8081/webhooks`.
+- **Why deferred**: same root as the Epic 13/15 dark-until-boot deferrals — the receiver has no value until its dependent tasks land (header auto-detect, `Authenticator`, `ToKscoreEvent` event-bus emission). Boot registration belongs with the server-lifecycle integration once tasks 2–4 supply auto-detection + auth + a wired event publisher, so all GitOps webhook wiring happens in one coherent place.
+- **Acceptance for unblock**: kscore-server boot constructs the `Receiver` from `config.GitOpsConfig` with the default registry, header-based provider auto-detection (task 2), a configured `Authenticator` (task 3), and the live event publisher (task 4); a signed ArgoCD/GitHub webhook to a running server's `:8081/webhooks` is authenticated, parsed, and re-emitted on the bus as `gitops.<provider>.*`.
+- **References**: `internal/gitops/webhook/{receiver,handler,register,event}.go`; `internal/config/gitops.go` (`GitOpsConfig`); Epic 16 tasks 1 (landed), forward 2/3/4/10; companions: the cluster/blueprint/runbook boot-wiring entries.
+
 #### Pre-rotation signing-CA retention in the bootstrap trust bundle
 
 - **Priority**: gate-v1.0
