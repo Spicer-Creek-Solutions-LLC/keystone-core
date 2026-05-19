@@ -162,8 +162,9 @@ func CountForCategory(c Category) int {
 }
 
 // AllCategoriesWithCounts returns a fresh map of every known
-// category → its canonical event count. Sums to 29 across all 7
-// v1.0 categories. Useful for CLI/operator-facing taxonomy
+// category → its canonical event count. Sums to 29 across the 8
+// v1.0 categories (gitops contributes 0 — its subtypes are
+// provider-driven and not enumerated). Useful for CLI/operator-facing taxonomy
 // summary surfaces (the deferred `kscore-events types --by-category`
 // flag).
 func AllCategoriesWithCounts() map[Category]int {

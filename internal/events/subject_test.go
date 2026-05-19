@@ -74,6 +74,7 @@ func TestSubjectPatternForCategory_KnownCategories(t *testing.T) {
 		{CategorySystem, "kscore.default.events.system.*"},
 		{CategoryUser, "kscore.default.events.user.*"},
 		{CategoryPolicy, "kscore.default.events.policy.*"},
+		{CategoryGitops, "kscore.default.events.gitops.*"},
 	}
 	for _, c := range cases {
 		got, err := SubjectPatternForCategory("default", c.cat)

@@ -10,6 +10,7 @@ func TestCategory_IsKnown(t *testing.T) {
 	known := []Category{
 		CategoryAgent, CategoryJob, CategoryState,
 		CategorySystem, CategoryUser, CategoryPolicy, CategoryRunbook,
+		CategoryGitops,
 	}
 	for _, c := range known {
 		if !c.IsKnown() {
@@ -77,6 +78,7 @@ func TestKnownCategories(t *testing.T) {
 	want := []Category{
 		CategoryAgent, CategoryJob, CategoryState,
 		CategorySystem, CategoryUser, CategoryPolicy, CategoryRunbook,
+		CategoryGitops,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d", len(got), len(want))

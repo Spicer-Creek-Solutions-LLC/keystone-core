@@ -45,6 +45,14 @@ const (
 	// execute.start/done/fail, step.start/done/fail/skip
 	// (Epic 15 task 9).
 	CategoryRunbook Category = "runbook"
+
+	// CategoryGitops groups events about inbound GitOps webhooks
+	// (Epic 16 task 4): subtypes are `<provider>.<outcome>` for
+	// provider ∈ {argocd, flux, github, gitlab}. Unlike the other
+	// categories the subtypes are provider-driven and intentionally
+	// not enumerated as canonical constants — provider statuses are
+	// open-ended, so the free-form-subtype contract applies.
+	CategoryGitops Category = "gitops"
 )
 
 // knownCategorySet is the membership oracle for [Category.IsKnown]
@@ -58,12 +66,13 @@ var knownCategorySet = map[Category]struct{}{
 	CategoryUser:    {},
 	CategoryPolicy:  {},
 	CategoryRunbook: {},
+	CategoryGitops:  {},
 }
 
-// KnownCategories returns the seven v1.0 categories in the
+// KnownCategories returns the eight v1.0 categories in the
 // documentation order from §4.9 (agent, job, state, system, user,
-// policy, runbook). The returned slice is a fresh copy; callers may
-// mutate without affecting subsequent calls.
+// policy, runbook, gitops). The returned slice is a fresh copy;
+// callers may mutate without affecting subsequent calls.
 func KnownCategories() []Category {
 	return []Category{
 		CategoryAgent,
@@ -73,6 +82,7 @@ func KnownCategories() []Category {
 		CategoryUser,
 		CategoryPolicy,
 		CategoryRunbook,
+		CategoryGitops,
 	}
 }
 

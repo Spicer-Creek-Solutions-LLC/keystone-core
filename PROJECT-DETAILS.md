@@ -656,7 +656,7 @@ Event{
 }
 ```
 
-**Event taxonomy (v1.0 — 29 types, 7 categories)**:
+**Event taxonomy (v1.0 — 29 canonical types, 8 categories)**:
 - `agent.{connect, disconnect, heartbeat, heartbeat_failed, error}` (5)
 - `job.{start, complete, fail, output}` (4)
 - `state.{apply.start, apply.done, apply.fail, change, drift}` (5)
@@ -664,6 +664,7 @@ Event{
 - `user.{login, command, error}` (3)
 - `policy.{pass, violation}` (2) — audit-mode only in v1.0
 - `runbook.{execute.start, execute.done, execute.fail, step.start, step.done, step.fail, step.skip}` (7) — Epic 15 task 9
+- `gitops.{argocd|flux|github|gitlab}.*` (0 canonical) — Epic 16 task 4; subtypes are provider-driven and intentionally **not** enumerated (provider statuses are open-ended), so the closed-category / free-form-subtype contract applies — `gitops` is a known category, its subtypes are not
 
 **Filter expressions**: in v0.1 we **adopt `google/cel-go`** (existing project rolls a homegrown parser; rebuild should use cel-go from the start — saves ongoing maintenance and gives a richer feature set for free). Filter on: type, source, severity, time range, tags.*, data.* (nested JSON path), regex, glob.
 

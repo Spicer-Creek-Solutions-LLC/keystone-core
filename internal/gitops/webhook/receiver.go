@@ -27,6 +27,15 @@ type ReceiverConfig struct {
 	// in production (config.ProductionWarnings). Build it with
 	// [BuildAuthenticators].
 	Authenticators map[Provider]Authenticator
+	// Emitter re-emits each accepted webhook on the Keystone event
+	// bus as `gitops.<provider>.<subtype>`. Nil disables emission
+	// (the receiver still authenticates, parses, and 202s) — the
+	// dark-until-boot default until the publisher is wired at
+	// kscore-server boot.
+	Emitter EventEmitter
+	// EventSource is the emitted event's Source field (e.g. the
+	// server node name). Defaults to "gitops-webhook" when empty.
+	EventSource string
 }
 
 // DefaultMaxBodyBytes bounds an inbound webhook body (1 MiB). GitHub
@@ -42,8 +51,9 @@ const shutdownTimeout = 5 * time.Second
 // *http.Server (separate from the main REST API on :8080), auto-detects
 // the source provider from request headers via [Registry.Detect],
 // reads the body once size-capped, authenticates it with the source's
-// [Authenticator], dispatches to the matching [Handler], and returns
-// 202 on a successful parse.
+// [Authenticator], dispatches to the matching [Handler], re-emits the
+// normalized event on the Keystone bus (when an [EventEmitter] is
+// configured), and returns 202 on a successful parse.
 type Receiver struct {
 	cfg    ReceiverConfig
 	reg    *Registry
@@ -65,6 +75,9 @@ func New(cfg ReceiverConfig, reg *Registry, logger *slog.Logger) *Receiver {
 	}
 	if cfg.Path == "" {
 		cfg.Path = "/webhooks"
+	}
+	if cfg.EventSource == "" {
+		cfg.EventSource = "gitops-webhook"
 	}
 	if logger == nil {
 		logger = slog.Default()
@@ -181,7 +194,31 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 		slog.String("provider", ev.Provider.String()),
 		slog.String("application", ev.Application),
 		slog.String("status", ev.Status))
+	r.emit(req.Context(), ev)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// emit re-publishes an accepted webhook on the event bus. Best-effort
+// and synchronous (the runbook-observer precedent): a nil emitter or a
+// publish error is logged but does not change the 202 — a sender must
+// not be made to retry over an internal bus hiccup once its webhook is
+// authenticated and parsed.
+func (r *Receiver) emit(ctx context.Context, ev Event) {
+	if r.cfg.Emitter == nil {
+		return
+	}
+	kev, err := ToKscoreEvent(ev, r.cfg.EventSource)
+	if err != nil {
+		r.logger.Warn("gitops webhook event build failed",
+			slog.String("provider", ev.Provider.String()),
+			slog.String("error", err.Error()))
+		return
+	}
+	if pubErr := r.cfg.Emitter.Publish(ctx, kev); pubErr != nil {
+		r.logger.Warn("gitops webhook event publish failed",
+			slog.String("type", kev.Type.String()),
+			slog.String("error", pubErr.Error()))
+	}
 }
 
 // authFor returns the configured authenticator for provider, or

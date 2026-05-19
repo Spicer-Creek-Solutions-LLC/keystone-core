@@ -173,6 +173,66 @@ func TestReceiver_Authentication(t *testing.T) {
 	})
 }
 
+func TestReceiver_EmitsEvent(t *testing.T) {
+	t.Parallel()
+	fe := &fakeEmitter{}
+	r := New(ReceiverConfig{
+		Addr: "127.0.0.1:0", Path: "/webhooks", Emitter: fe, EventSource: "node-x",
+	}, NewDefaultRegistry(), nil)
+	if err := r.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = r.Stop(context.Background()) })
+
+	got := post(t, "http://"+r.Addr()+"/webhooks",
+		map[string]string{HeaderArgoCD: "true"},
+		`{"app":{"metadata":{"name":"web","namespace":"prod"},"status":{"sync":{"status":"Synced","revision":"abc"}}}}`)
+	if got != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", got)
+	}
+	// Emission is synchronous within the request, so it is observable
+	// once the response returns.
+	evs := fe.events()
+	if len(evs) != 1 {
+		t.Fatalf("emitted %d events, want 1", len(evs))
+	}
+	e := evs[0]
+	if e.Type != "gitops.argocd.sync_succeeded" {
+		t.Errorf("Type = %q, want gitops.argocd.sync_succeeded (acceptance 102)", e.Type)
+	}
+	if e.Source != "node-x" || e.Tags["application"] != "web" || e.Tags["revision"] != "abc" {
+		t.Errorf("unexpected event fields: source=%q tags=%v", e.Source, e.Tags)
+	}
+}
+
+func TestReceiver_EmitFailureStill202(t *testing.T) {
+	t.Parallel()
+	fe := &fakeEmitter{err: errTestPublish}
+	r := New(ReceiverConfig{Addr: "127.0.0.1:0", Path: "/webhooks", Emitter: fe},
+		NewDefaultRegistry(), nil)
+	if err := r.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = r.Stop(context.Background()) })
+	got := post(t, "http://"+r.Addr()+"/webhooks",
+		map[string]string{HeaderGitHub: "push"},
+		`{"repository":{"full_name":"acme/web"},"after":"abc"}`)
+	if got != http.StatusAccepted {
+		t.Errorf("status = %d, want 202 (publish error is best-effort)", got)
+	}
+}
+
+func TestReceiver_NilEmitterStill202(t *testing.T) {
+	t.Parallel()
+	r := startReceiver(t, NewDefaultRegistry(), 0) // no Emitter
+	got := post(t, "http://"+r.Addr()+"/webhooks",
+		map[string]string{HeaderGitHub: "push"},
+		`{"repository":{"full_name":"acme/web"},"after":"abc"}`)
+	if got != http.StatusAccepted {
+		t.Errorf("status = %d, want 202", got)
+	}
+}
+
 func TestReceiver_UnregisteredProviderHeader(t *testing.T) {
 	t.Parallel()
 	// Registry holds only the ArgoCD handler; Detect scans only

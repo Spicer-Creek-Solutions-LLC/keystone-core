@@ -22,9 +22,9 @@ func TestCanonicalEventTypes_CountAndContents(t *testing.T) {
 		byCategory[typ.Category()]++
 	}
 	want := map[Category]int{
-		CategoryAgent:  5,
-		CategoryJob:    4,
-		CategoryState:  5,
+		CategoryAgent:   5,
+		CategoryJob:     4,
+		CategoryState:   5,
 		CategorySystem:  3,
 		CategoryUser:    3,
 		CategoryPolicy:  2,
@@ -179,13 +179,14 @@ func TestAllCategoriesWithCounts(t *testing.T) {
 	t.Parallel()
 	got := AllCategoriesWithCounts()
 	want := map[Category]int{
-		CategoryAgent:  5,
-		CategoryJob:    4,
-		CategoryState:  5,
+		CategoryAgent:   5,
+		CategoryJob:     4,
+		CategoryState:   5,
 		CategorySystem:  3,
 		CategoryUser:    3,
 		CategoryPolicy:  2,
 		CategoryRunbook: 7,
+		CategoryGitops:  0, // known category, provider-driven subtypes (Epic 16 task 4)
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)

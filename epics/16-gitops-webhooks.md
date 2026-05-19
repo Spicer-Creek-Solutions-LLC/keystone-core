@@ -99,8 +99,8 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 
 ### GitOps
 
-- [ ] ArgoCD webhook with valid HMAC ingested → emits `gitops.argocd.sync_succeeded` event.
-- [ ] GitHub webhook with valid HMAC + GitHub event header parsed correctly.
+- [x] ArgoCD webhook with valid HMAC ingested → emits `gitops.argocd.sync_succeeded` event. _(tasks 1-4: receiver→HMAC auth→parse→`ToKscoreEvent`; verified end-to-end via httptest receiver + fake emitter asserting the exact type. Live-server form is boot-gated — see the gate-v1.0 "GitOps webhook receiver boot registration" ROADMAP entry.)_
+- [x] GitHub webhook with valid HMAC + GitHub event header parsed correctly. _(task 1 GitHub handler + task 3 HMAC; receiver httptest-verified.)_
 - [ ] `kscorectl gitops verify webhook-verify.yaml --parallel --timeout 2m` runs HTTP + gRPC + cmd verifiers.
 - [ ] `kscorectl gitops rollback --app web --strategy previous --reason "hotfix"` triggers rollback.
 - [ ] Rollback with `RequireApproval=true` waits at Pending; `kscorectl gitops rollback approve <id>` proceeds.
