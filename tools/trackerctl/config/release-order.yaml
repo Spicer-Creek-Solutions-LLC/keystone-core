@@ -73,6 +73,8 @@ gate-v1.0:
   - "Config: no per-endpoint TLS overrides"
   - "Cluster-wide HMAC secret (vs per-agent)"
   - "Blueprint applied-runs store (durable)"
+  - "Remote / distributed blueprint apply wiring"
+  - "Durable runbook execution store"
 
 v0.x:
   - "Persist dispatch principal on CommandRecord for audit-log User field"

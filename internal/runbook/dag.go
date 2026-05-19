@@ -11,6 +11,16 @@ import (
 // The error message includes the offending path (e.g. "a -> b -> a").
 var ErrStepCycle = errors.New("runbook: step dependency cycle")
 
+// CheckDAG validates the step dependency graph: it builds the
+// topological order and reports ErrStepCycle (with the offending
+// path) if the DependsOn graph contains a cycle. Used by
+// `kscore-runbook test` for a static, non-executing check on top of
+// Validate. Assumes Validate has confirmed DependsOn closure.
+func (rb *Runbook) CheckDAG() error {
+	_, err := resolveOrder(rb.Spec.Steps)
+	return err
+}
+
 // resolveOrder returns step names in dependencies-first order: a step
 // always appears after every step it DependsOn. Traversal is
 // deterministic (sorted) so a given runbook always runs its steps in
