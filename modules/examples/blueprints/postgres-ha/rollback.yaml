@@ -1,0 +1,13 @@
+metadata:
+  name: postgres-ha-rollback
+  version: "1.0"
+
+service:
+  postgres-exporter:
+    state: stopped
+  postgresql:
+    state: stopped
+
+file:
+  /etc/postgresql/replication.conf:
+    state: absent

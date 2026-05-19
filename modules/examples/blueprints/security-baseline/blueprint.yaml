@@ -1,0 +1,39 @@
+metadata:
+  name: security-baseline
+  version: 1.0.0
+  description: CIS-aligned host hardening — sysctl, firewall, SSH policy.
+  labels:
+    tier: security
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+parameters:
+  ssh_port:
+    type: integer
+    description: SSH listen port.
+    default: 22
+    min: 1
+    max: 65535
+
+features:
+  disable_root_ssh:
+    description: Enforce PermitRootLogin no via a managed sshd drop-in.
+    default: true
+    states:
+      - "ssh:/etc/ssh/sshd_config.d/10-no-root.conf"
+  strict_firewall:
+    description: Default-deny firewall posture.
+    default: true
+    states:
+      - "firewall:default-deny"
+
+entrypoints:
+  default: apply.yaml
+
+outputs:
+  posture:
+    description: Summary of the applied posture.
+    value: "ssh:{{ .Params.ssh_port }} hardened baseline applied"

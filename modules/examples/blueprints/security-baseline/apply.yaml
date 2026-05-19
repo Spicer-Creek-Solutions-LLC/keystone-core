@@ -1,0 +1,28 @@
+metadata:
+  name: security-baseline-apply
+  version: "1.0"
+
+sysctl:
+  net.ipv4.conf.all.rp_filter:
+    state: present
+    value: "1"
+  kernel.randomize_va_space:
+    state: present
+    value: "2"
+
+firewall:
+  default-deny:
+    state: present
+    policy: drop
+  allow-ssh:
+    state: present
+    port: "{{ .Params.ssh_port }}"
+    proto: tcp
+    require:
+      - firewall: default-deny
+
+ssh:
+  /etc/ssh/sshd_config.d/10-no-root.conf:
+    state: present
+    setting: PermitRootLogin
+    value: "no"

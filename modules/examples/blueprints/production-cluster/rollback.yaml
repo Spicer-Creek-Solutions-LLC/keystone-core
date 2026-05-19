@@ -1,0 +1,17 @@
+metadata:
+  name: production-cluster-rollback
+  version: "1.0"
+
+service:
+  nats-server:
+    state: stopped
+  postgresql:
+    state: stopped
+  etcd:
+    state: stopped
+
+file:
+  /etc/keystone/cluster.marker:
+    state: absent
+  /etc/keystone/postgres.env:
+    state: absent

@@ -1,0 +1,24 @@
+metadata:
+  name: nats-cluster-apply
+  version: "1.0"
+
+package:
+  nats-server:
+    state: installed
+
+file:
+  /etc/nats/nats.conf:
+    state: present
+    mode: "0644"
+    content: |
+      jetstream { store_dir: {{ .Params.store_dir }} }
+      cluster { name: keystone-nats }
+    require:
+      - package: nats-server
+
+service:
+  nats-server:
+    state: running
+    require:
+      - package: nats-server
+      - file: /etc/nats/nats.conf

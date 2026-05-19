@@ -1,0 +1,36 @@
+metadata:
+  name: monitoring-stack-apply
+  version: "1.0"
+
+package:
+  prometheus:
+    state: installed
+  grafana:
+    state: installed
+  loki:
+    state: installed
+
+file:
+  /etc/prometheus/retention.conf:
+    state: present
+    mode: "0644"
+    content: "--storage.tsdb.retention.time={{ .Params.retention_days }}d\n"
+    require:
+      - package: prometheus
+
+service:
+  prometheus:
+    state: running
+    require:
+      - package: prometheus
+      - file: /etc/prometheus/retention.conf
+  loki:
+    state: running
+    require:
+      - package: loki
+  grafana:
+    state: running
+    require:
+      - package: grafana
+      - service: prometheus
+      - service: loki

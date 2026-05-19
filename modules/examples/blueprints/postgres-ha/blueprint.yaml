@@ -1,0 +1,39 @@
+metadata:
+  name: postgres-ha
+  version: 1.0.0
+  description: Postgres with WAL replication and monitoring integration.
+  labels:
+    tier: data
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+dependencies:
+  requires:
+    - monitoring-stack
+
+parameters:
+  replicas:
+    type: integer
+    description: Number of streaming replicas.
+    default: 2
+    min: 1
+    max: 5
+  wal_level:
+    type: string
+    description: Postgres wal_level setting.
+    default: replica
+    enum:
+      - replica
+      - logical
+
+entrypoints:
+  default: apply.yaml
+  rollback: rollback.yaml
+
+outputs:
+  topology:
+    description: Replication topology summary.
+    value: "1 primary + {{ .Params.replicas }} replicas (wal_level={{ .Params.wal_level }})"

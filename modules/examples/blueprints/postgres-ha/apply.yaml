@@ -1,0 +1,29 @@
+metadata:
+  name: postgres-ha-apply
+  version: "1.0"
+
+package:
+  postgresql:
+    state: installed
+  postgres-exporter:
+    state: installed
+
+file:
+  /etc/postgresql/replication.conf:
+    state: present
+    mode: "0644"
+    content: "wal_level={{ .Params.wal_level }}\nmax_wal_senders={{ .Params.replicas }}\n"
+    require:
+      - package: postgresql
+
+service:
+  postgresql:
+    state: running
+    require:
+      - package: postgresql
+      - file: /etc/postgresql/replication.conf
+  postgres-exporter:
+    state: running
+    require:
+      - package: postgres-exporter
+      - service: postgresql

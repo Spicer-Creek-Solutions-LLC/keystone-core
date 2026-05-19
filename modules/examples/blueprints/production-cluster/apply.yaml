@@ -1,0 +1,50 @@
+metadata:
+  name: production-cluster-apply
+  version: "1.0"
+
+package:
+  etcd:
+    state: installed
+  postgresql:
+    state: installed
+  nats-server:
+    state: installed
+
+sysctl:
+  net.core.somaxconn:
+    state: present
+    value: "4096"
+
+file:
+  /etc/keystone/postgres.env:
+    state: present
+    mode: "0600"
+    content: "PGPASSWORD={{ .Params.postgres_password }}\nPGCLUSTER={{ .Params.cluster_name }}\n"
+    require:
+      - package: postgresql
+  /etc/keystone/nats-jetstream.conf:
+    state: present
+    mode: "0644"
+    content: "jetstream { store_dir: /var/lib/nats }\n"
+    require:
+      - package: nats-server
+  /etc/keystone/cluster.marker:
+    state: present
+    content: "cluster={{ .Params.cluster_name }} nodes={{ .Params.node_count }}\n"
+
+service:
+  etcd:
+    state: running
+    require:
+      - package: etcd
+      - sysctl: net.core.somaxconn
+  postgresql:
+    state: running
+    require:
+      - package: postgresql
+      - file: /etc/keystone/postgres.env
+  nats-server:
+    state: running
+    require:
+      - package: nats-server
+      - file: /etc/keystone/nats-jetstream.conf

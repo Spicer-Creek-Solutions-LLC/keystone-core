@@ -1,0 +1,37 @@
+metadata:
+  name: demo
+  version: 1.0.0
+  description: Single-node demo deployment — one package, one service, one managed file.
+  labels:
+    tier: demo
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+parameters:
+  app_name:
+    type: string
+    description: Logical application name; rendered into the managed file content.
+    default: keystone-demo
+  package_name:
+    type: string
+    description: OS package to install and run as a service.
+    default: nginx
+
+features:
+  marker_file:
+    description: Write a /etc/keystone-demo.deployed marker file.
+    default: true
+    states:
+      - "file:/etc/keystone-demo.deployed"
+
+entrypoints:
+  default: apply.yaml
+  rollback: rollback.yaml
+
+outputs:
+  summary:
+    description: One-line human summary of what was deployed.
+    value: "deployed {{ .Params.app_name }} ({{ .Params.package_name }})"

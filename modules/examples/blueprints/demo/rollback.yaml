@@ -1,0 +1,11 @@
+metadata:
+  name: demo-rollback
+  version: "1.0"
+
+file:
+  /etc/keystone-demo.deployed:
+    state: absent
+
+service:
+  "{{ .Params.package_name }}":
+    state: stopped

@@ -1,0 +1,31 @@
+metadata:
+  name: monitoring-stack
+  version: 1.0.0
+  description: Prometheus + Grafana + Loki observability stack.
+  labels:
+    tier: observability
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+parameters:
+  retention_days:
+    type: integer
+    description: Metrics retention window in days.
+    default: 15
+    min: 1
+    max: 365
+  grafana_admin:
+    type: string
+    description: Grafana admin username.
+    default: admin
+
+entrypoints:
+  default: apply.yaml
+
+outputs:
+  grafana_url:
+    description: Local Grafana URL.
+    value: "http://localhost:3000 (admin: {{ .Params.grafana_admin }})"

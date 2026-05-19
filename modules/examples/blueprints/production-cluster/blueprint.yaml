@@ -1,0 +1,50 @@
+metadata:
+  name: production-cluster
+  version: 1.0.0
+  description: HA control-plane skeleton — embedded etcd, Postgres, and a NATS cluster.
+  labels:
+    tier: production
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+parameters:
+  cluster_name:
+    type: string
+    description: Cluster identifier; rendered into config and the marker file.
+    default: keystone
+    pattern: "^[a-z][a-z0-9-]*$"
+  node_count:
+    type: integer
+    description: Number of control-plane nodes.
+    default: 3
+    min: 1
+    max: 7
+  postgres_password:
+    type: string
+    description: Postgres superuser password. Supply as a secret reference.
+    sensitive: true
+    source: secret
+    required: true
+
+features:
+  nats_jetstream:
+    description: Enable JetStream persistence on the NATS cluster.
+    default: true
+    states:
+      - "file:/etc/keystone/nats-jetstream.conf"
+
+entrypoints:
+  default: apply.yaml
+  rollback: rollback.yaml
+
+hooks:
+  pre_apply:
+    - hooks/preflight.yaml
+
+outputs:
+  endpoint:
+    description: Advertised cluster endpoint.
+    value: "{{ .Params.cluster_name }}.keystone.internal"

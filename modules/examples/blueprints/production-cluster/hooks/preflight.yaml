@@ -1,0 +1,20 @@
+metadata:
+  name: production-cluster-preflight
+  version: 1.0.0
+  annotations:
+    purpose: Pre-apply preflight checks for the production-cluster blueprint.
+
+spec:
+  inputs:
+    - name: params
+      description: The resolved blueprint parameters.
+  timeout: 2m
+  steps:
+    - type: noop
+      name: check-disk
+      description: Placeholder for a disk-space preflight check.
+    - type: noop
+      name: check-quorum
+      description: Placeholder for an odd-node-count quorum check.
+      depends_on:
+        - check-disk

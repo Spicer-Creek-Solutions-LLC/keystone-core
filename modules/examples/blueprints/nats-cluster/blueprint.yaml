@@ -1,0 +1,32 @@
+metadata:
+  name: nats-cluster
+  version: 1.0.0
+  description: NATS cluster with JetStream persistence.
+  labels:
+    tier: messaging
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+parameters:
+  cluster_size:
+    type: integer
+    description: Number of NATS nodes in the cluster.
+    default: 3
+    min: 1
+    max: 9
+  store_dir:
+    type: string
+    description: JetStream store directory.
+    default: /var/lib/nats
+
+entrypoints:
+  default: apply.yaml
+  rollback: rollback.yaml
+
+outputs:
+  cluster:
+    description: Cluster summary.
+    value: "{{ .Params.cluster_size }}-node NATS, JetStream store {{ .Params.store_dir }}"

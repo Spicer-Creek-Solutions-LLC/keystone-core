@@ -1,0 +1,21 @@
+metadata:
+  name: demo-apply
+  version: "1.0"
+
+package:
+  "{{ .Params.package_name }}":
+    state: installed
+
+service:
+  "{{ .Params.package_name }}":
+    state: running
+    require:
+      - package: "{{ .Params.package_name }}"
+
+file:
+  /etc/keystone-demo.deployed:
+    state: present
+    content: "{{ .Params.app_name }} deployed by the keystone-core demo blueprint\n"
+    mode: "0644"
+    require:
+      - service: "{{ .Params.package_name }}"
