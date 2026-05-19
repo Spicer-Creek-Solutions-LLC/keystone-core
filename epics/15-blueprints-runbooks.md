@@ -75,6 +75,8 @@ See `PROJECT-DETAILS.md §4.17`.
 
 ## Tasks
 
+> **Execution order**: 1, 2, 3, 4, 7, 8, 9, 5, 6, 10, 11, 12, 13. The blueprint executor (5) runs blueprint hooks *as runbooks*, so the runbook engine (7–9) is built first and the executor wires a real runbook-backed hook runner instead of a stub. The numbered list below is the dependency-grouped plan, not the execution sequence.
+
 1. **`pkg/statemachine`** — generic FSM implementation with all listed features + tests.
 2. **`pkg/saga`** — Step + Execution + log interface + in-memory + SQLite impls + tests.
 3. **`internal/blueprint/`** — Manifest types, loader, validator, parameter validation w/ JSON-Schema, dependency resolver w/ cycle detection.
