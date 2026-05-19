@@ -14,18 +14,18 @@ import (
 // retention enforcer uses. Records every ApplyRetention call so
 // tests can assert against policy lists + call counts.
 type retentionStubStore struct {
-	mu             sync.Mutex
-	applyCalls     int
-	lastPolicies   []RetentionPolicy
-	deleteCount    int           // value returned per call
-	err            error         // optional error returned per call
-	applySignaled  chan struct{} // optional notify on each call
-	applyHook      func()        // called inside ApplyRetention (for slow / blocking tests)
+	mu            sync.Mutex
+	applyCalls    int
+	lastPolicies  []RetentionPolicy
+	deleteCount   int           // value returned per call
+	err           error         // optional error returned per call
+	applySignaled chan struct{} // optional notify on each call
+	applyHook     func()        // called inside ApplyRetention (for slow / blocking tests)
 }
 
-func (s *retentionStubStore) Store(context.Context, Event) error          { return nil }
-func (s *retentionStubStore) StoreBatch(context.Context, []Event) error   { return nil }
-func (s *retentionStubStore) Get(context.Context, string) (Event, error)  { return Event{}, nil }
+func (s *retentionStubStore) Store(context.Context, Event) error         { return nil }
+func (s *retentionStubStore) StoreBatch(context.Context, []Event) error  { return nil }
+func (s *retentionStubStore) Get(context.Context, string) (Event, error) { return Event{}, nil }
 func (s *retentionStubStore) Query(context.Context, EventQuery) (EventPage, error) {
 	return EventPage{}, nil
 }

@@ -300,4 +300,3 @@ func (a *AuditEmitter) EmitAsync(ctx context.Context, in AuditEventInput) error 
 func (a *AuditEmitter) FailedPublishes() int64 {
 	return a.failedPublishes.Load()
 }
-

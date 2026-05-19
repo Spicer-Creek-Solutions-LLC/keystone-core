@@ -13,9 +13,9 @@ import (
 func TestParseEventType_Valid(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		s        string
-		wantCat  Category
-		wantSub  string
+		s       string
+		wantCat Category
+		wantSub string
 	}{
 		{"agent.connect", CategoryAgent, "connect"},
 		{"agent.heartbeat_failed", CategoryAgent, "heartbeat_failed"},
@@ -271,7 +271,7 @@ func TestEvent_Clone(t *testing.T) {
 	orig.Data = map[string]any{
 		"count": 7,
 		"nested": map[string]any{
-			"k": "v",
+			"k":    "v",
 			"list": []any{1, "two", map[string]any{"deep": true}},
 		},
 	}

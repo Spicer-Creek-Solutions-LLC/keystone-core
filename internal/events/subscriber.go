@@ -89,12 +89,12 @@ type EventSubscriber interface {
 type SubscribeOption func(*subscribeConfig)
 
 type subscribeConfig struct {
-	queueGroup       string
-	filter           func(Event) bool
-	replay           time.Duration
-	durableName      string
-	maxRedeliveries  int
-	ackTimeout       time.Duration
+	queueGroup      string
+	filter          func(Event) bool
+	replay          time.Duration
+	durableName     string
+	maxRedeliveries int
+	ackTimeout      time.Duration
 }
 
 func defaultSubscribeConfig() subscribeConfig {
@@ -177,9 +177,9 @@ func WithAckTimeout(d time.Duration) SubscribeOption {
 type SubscriberOption func(*subscriberConfig)
 
 type subscriberConfig struct {
-	store      EventStore
-	logger     *slog.Logger
-	dedupSize  int
+	store     EventStore
+	logger    *slog.Logger
+	dedupSize int
 }
 
 func defaultSubscriberConfig() subscriberConfig {
