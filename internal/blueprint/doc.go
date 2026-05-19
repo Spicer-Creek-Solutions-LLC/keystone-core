@@ -20,9 +20,18 @@
 //     that reports the offending path, and a dependencies-first
 //     topological order.
 //
+// Epic 15 task 4 adds the pure transforms the executor composes:
+//
+//   - [EvaluateFeatures] + [FilterStateFile] — `features:` flag
+//     evaluation and conditional (per-declaration) state inclusion.
+//   - [RenderState] / [RenderContext] — Go-template rendering of
+//     state files against the parameter + feature context, reusing
+//     statemgmt's renderer (one template dialect product-wide).
+//   - [Namespace] + [DetectCollisions] — multi-instance `as:`
+//     state-identity namespacing with collision detection.
+//
 // # Deliberately out of scope for this package/task
 //
-//   - Feature-flag evaluation + template rendering — Epic 15 task 4.
 //   - The blueprint executor + Epic 10 SecretBroker credential
 //     lookup for `source: secret` params — Epic 15 task 5.
 //     [Manifest.ResolveParams] *identifies* secret-sourced
