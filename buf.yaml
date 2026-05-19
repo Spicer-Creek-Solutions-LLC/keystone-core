@@ -40,13 +40,3 @@ lint:
 breaking:
   use:
     - FILE
-  ignore:
-    # waiver: RollbackState response renamed ApplyStateResponse →
-    # RollbackStateResponse to satisfy buf STANDARD
-    # RPC_REQUEST_RESPONSE_UNIQUE (pre-existing violation, v0.x
-    # reconstruction cleanup). Wire-compatible (identical fields /
-    # numbers). Remove this ignore entry in the next commit.
-    # (buf v2 breaking waivers are path-based `ignore`, not `except`
-    # — the prior buf.yaml note predated the v2 schema. Paths are
-    # workspace-root relative.)
-    - api/proto/keystone/core/v1/state.proto
