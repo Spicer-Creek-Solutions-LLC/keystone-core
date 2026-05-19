@@ -276,7 +276,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **What**: `kscore-blueprint apply` / `rollback` (Epic 15 task 10) drive `internal/blueprint.Executor` against an injected `StateRunner`. `cmd/kscore-blueprint` wires a **local-host** StateRunner (statemgmt + stdlib) so single-node apply works; a `--target` selecting remote agents has no wired distributed StateRunner and returns a clear "remote apply not configured" error. Until wired, `kscorectl blueprint apply demo --target id:agent-1` works only for the local host, not a remote agent fleet.
 - **Why deferred**: same root as the cluster/module boot-wiring items — distributed apply needs the blueprint executor hooked to the remote-execution path (Epic 07) at `kscore-server` boot, which is the deferred server-lifecycle integration. The local path is enough for the v0.5 single-node trial.
 - **Acceptance for unblock**: `kscorectl blueprint apply <bp> --target id:<agent>` applies the rendered state collection on a remote agent and records the AppliedRun; rollback targets the same fleet.
-- **References**: `internal/cli/blueprint/apply.go`; `cmd/kscore-blueprint/main.go`; `internal/blueprint/executor.go`; Epic 15 task 10; companion of the cluster boot-wiring entries.
+- **References**: `internal/cli/blueprint/apply.go`; `cmd/kscore-blueprint/main.go`; `internal/blueprint/executor.go`; `pkg/api/blueprint/handler.go` (task 11 — REST routes ship with empty `Providers`, return 503 until this boot wiring supplies `BlueprintCatalog`/`BlueprintApplier`); Epic 15 tasks 10/11; companion of the cluster boot-wiring entries.
 
 #### Durable runbook execution store
 
@@ -284,7 +284,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **What**: Epic 15 task 10 ships `kscore-runbook status` / `list-executions` / `audit` against an `ExecutionStore` interface + in-memory implementation only. The runbook engine (task 7) keeps an in-memory `Execution`; task 9 added audit/event emission but not a queryable run store. With the in-memory store, `status`/`list-executions` only see runs from the current process — a CLI invocation after the run cannot query it.
 - **Why deferred**: mirrors the `pkg/saga` / blueprint applied-store precedent (ships in-memory, durable backend later). A durable runbook execution store is a real persistence surface (schema, sensitive-input masking at rest, integration with the SQLite/state store) orthogonal to the engine; the v1.0 minimum is enough for the trial flow where execute + inspect happen in one process.
 - **Acceptance for unblock**: a runbook executed by one process is queryable via `kscore-runbook status <id>` / `list-executions` from a later process; sensitive inputs are masked in the persisted record.
-- **References**: `internal/cli/runbook/query.go`; `internal/runbook/engine.go` (`Execution`); `pkg/saga/log_sqlite.go` (durable-store precedent); Epic 15 task 10.
+- **References**: `internal/cli/runbook/query.go`; `internal/runbook/engine.go` (`Execution`); `pkg/api/runbook/handler.go` (task 11 — `GET /api/v1/executions/{id}` + list/execute ship with empty `Providers`, return 503 until this boot wiring supplies `RunbookCatalog`/`RunbookRunner`/`ExecutionStore`); `pkg/saga/log_sqlite.go` (durable-store precedent); Epic 15 tasks 10/11.
 
 #### Pre-rotation signing-CA retention in the bootstrap trust bundle
 

@@ -8,6 +8,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/pkg/api/agents"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
+	blueprintapi "go.keystone-core.io/keystone-core/pkg/api/blueprint"
 	"go.keystone-core.io/keystone-core/pkg/api/cluster"
 	"go.keystone-core.io/keystone-core/pkg/api/events"
 	"go.keystone-core.io/keystone-core/pkg/api/execution"
@@ -112,6 +113,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	agents.NewHandler().Register(mux)
 	apikeys.NewHandler(s.store).Register(mux)
+	blueprintapi.NewHandler(blueprintapi.Providers{}).Register(mux)
 	// Real providers are wired when clustering is constructed at
 	// boot (deferred — see the "Cluster gRPC services boot
 	// registration" ROADMAP entry); until then routes 503.
@@ -121,7 +123,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	gitops.NewHandler().Register(mux)
 	maintenance.NewHandler().Register(mux)
 	policy.NewHandler(s.policyEngine, s.policyReports, s.policyAuditLog, s.policyAuditor).Register(mux)
-	runbook.NewHandler().Register(mux)
+	runbook.NewHandler(runbook.Providers{}).Register(mux)
 	schedule.NewHandler().Register(mux)
 	secrets.NewHandler(s.secretsBroker, s.secretsTransit, s.secretsLeases).Register(mux)
 	stateapi.NewHandler().Register(mux)
