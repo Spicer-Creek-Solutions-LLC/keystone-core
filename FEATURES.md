@@ -304,7 +304,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 ### v1.0 (in scope)
 
 - **Event bus on NATS JetStream** (KSCORE_EVENTS stream, `kscore.events.>` subjects). Source: `internal/events/`. _Reasoning: fan-out + replay foundation._
-- **Event types**: 22 across 6 categories (agent×5, job×4, state×5, system×3, user×3, policy×2). _Reasoning: covers v1 emit needs from all domains._
+- **Event types**: 29 across 7 categories (agent×5, job×4, state×5, system×3, user×3, policy×2, runbook×7). _Reasoning: covers v1 emit needs from all domains; runbook×7 added in Epic 15 task 9 for runbook lifecycle/step observability._
 - **Event struct** (ID, Type, Source, Time, Severity, CorrelationID, Tags, Data, Subject). _Reasoning: standard event envelope._
 - **EventStore** (SQL-backed; query, retention, batching). _Reasoning: long-term query + compliance._
 - **EventPublisher / EventSubscriber interfaces**. _Reasoning: pluggable transport._

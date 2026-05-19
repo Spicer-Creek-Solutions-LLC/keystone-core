@@ -5,8 +5,8 @@ import "testing"
 func TestCanonicalEventTypes_CountAndContents(t *testing.T) {
 	t.Parallel()
 	got := CanonicalEventTypes()
-	if len(got) != 22 {
-		t.Fatalf("len(CanonicalEventTypes()) = %d, want 22 (§4.9)", len(got))
+	if len(got) != 29 {
+		t.Fatalf("len(CanonicalEventTypes()) = %d, want 29 (§4.9)", len(got))
 	}
 
 	// Each constant validates through ParseEventType.
@@ -25,9 +25,10 @@ func TestCanonicalEventTypes_CountAndContents(t *testing.T) {
 		CategoryAgent:  5,
 		CategoryJob:    4,
 		CategoryState:  5,
-		CategorySystem: 3,
-		CategoryUser:   3,
-		CategoryPolicy: 2,
+		CategorySystem:  3,
+		CategoryUser:    3,
+		CategoryPolicy:  2,
+		CategoryRunbook: 7,
 	}
 	for cat, n := range want {
 		if byCategory[cat] != n {
@@ -181,9 +182,10 @@ func TestAllCategoriesWithCounts(t *testing.T) {
 		CategoryAgent:  5,
 		CategoryJob:    4,
 		CategoryState:  5,
-		CategorySystem: 3,
-		CategoryUser:   3,
-		CategoryPolicy: 2,
+		CategorySystem:  3,
+		CategoryUser:    3,
+		CategoryPolicy:  2,
+		CategoryRunbook: 7,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)
@@ -195,8 +197,8 @@ func TestAllCategoriesWithCounts(t *testing.T) {
 		}
 		total += n
 	}
-	if total != 22 {
-		t.Errorf("sum = %d, want 22 (§4.9 canonical taxonomy size)", total)
+	if total != 29 {
+		t.Errorf("sum = %d, want 29 (§4.9 canonical taxonomy size)", total)
 	}
 
 	// Returned map is fresh per call — mutating the result must
@@ -212,7 +214,7 @@ func TestEventTypesForCategory_PartitionsCanonical(t *testing.T) {
 	t.Parallel()
 	// Every canonical type must appear in EXACTLY one category's
 	// per-category slice; the union must equal CanonicalEventTypes.
-	seen := make(map[EventType]Category, 22)
+	seen := make(map[EventType]Category, 29)
 	for _, c := range KnownCategories() {
 		for _, typ := range EventTypesForCategory(c) {
 			if prev, ok := seen[typ]; ok {
@@ -221,8 +223,8 @@ func TestEventTypesForCategory_PartitionsCanonical(t *testing.T) {
 			seen[typ] = c
 		}
 	}
-	if len(seen) != 22 {
-		t.Errorf("partition size = %d, want 22", len(seen))
+	if len(seen) != 29 {
+		t.Errorf("partition size = %d, want 29", len(seen))
 	}
 	for _, typ := range CanonicalEventTypes() {
 		if _, ok := seen[typ]; !ok {
@@ -245,6 +247,9 @@ func TestCanonicalEventTypes_ExactSpellings(t *testing.T) {
 		"system.startup": {}, "system.shutdown": {}, "system.error": {},
 		"user.login": {}, "user.command": {}, "user.error": {},
 		"policy.pass": {}, "policy.violation": {},
+		"runbook.execute.start": {}, "runbook.execute.done": {}, "runbook.execute.fail": {},
+		"runbook.step.start": {}, "runbook.step.done": {}, "runbook.step.fail": {},
+		"runbook.step.skip": {},
 	}
 	got := CanonicalEventTypes()
 	if len(expected) != len(got) {

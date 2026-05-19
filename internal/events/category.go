@@ -40,24 +40,30 @@ const (
 	// CategoryPolicy groups events about policy evaluation outcomes:
 	// pass, violation. Audit-mode only in v1.0.
 	CategoryPolicy Category = "policy"
+
+	// CategoryRunbook groups events about runbook workflow execution:
+	// execute.start/done/fail, step.start/done/fail/skip
+	// (Epic 15 task 9).
+	CategoryRunbook Category = "runbook"
 )
 
 // knownCategorySet is the membership oracle for [Category.IsKnown]
 // and [ParseCategory]. Order is irrelevant for lookup; the canonical
 // emission order lives in [KnownCategories].
 var knownCategorySet = map[Category]struct{}{
-	CategoryAgent:  {},
-	CategoryJob:    {},
-	CategoryState:  {},
-	CategorySystem: {},
-	CategoryUser:   {},
-	CategoryPolicy: {},
+	CategoryAgent:   {},
+	CategoryJob:     {},
+	CategoryState:   {},
+	CategorySystem:  {},
+	CategoryUser:    {},
+	CategoryPolicy:  {},
+	CategoryRunbook: {},
 }
 
-// KnownCategories returns the six v1.0 categories in the
+// KnownCategories returns the seven v1.0 categories in the
 // documentation order from §4.9 (agent, job, state, system, user,
-// policy). The returned slice is a fresh copy; callers may mutate
-// without affecting subsequent calls.
+// policy, runbook). The returned slice is a fresh copy; callers may
+// mutate without affecting subsequent calls.
 func KnownCategories() []Category {
 	return []Category{
 		CategoryAgent,
@@ -66,6 +72,7 @@ func KnownCategories() []Category {
 		CategorySystem,
 		CategoryUser,
 		CategoryPolicy,
+		CategoryRunbook,
 	}
 }
 

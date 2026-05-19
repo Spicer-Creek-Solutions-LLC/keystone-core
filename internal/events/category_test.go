@@ -9,7 +9,7 @@ func TestCategory_IsKnown(t *testing.T) {
 	t.Parallel()
 	known := []Category{
 		CategoryAgent, CategoryJob, CategoryState,
-		CategorySystem, CategoryUser, CategoryPolicy,
+		CategorySystem, CategoryUser, CategoryPolicy, CategoryRunbook,
 	}
 	for _, c := range known {
 		if !c.IsKnown() {
@@ -76,7 +76,7 @@ func TestKnownCategories(t *testing.T) {
 	got := KnownCategories()
 	want := []Category{
 		CategoryAgent, CategoryJob, CategoryState,
-		CategorySystem, CategoryUser, CategoryPolicy,
+		CategorySystem, CategoryUser, CategoryPolicy, CategoryRunbook,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d", len(got), len(want))

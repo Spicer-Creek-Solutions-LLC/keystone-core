@@ -1,6 +1,6 @@
 package events
 
-// The 22 v1.0 event type constants per PROJECT-DETAILS §4.9. These
+// The 29 v1.0 event type constants per PROJECT-DETAILS §4.9. These
 // are the documented spellings — [IsCanonical] reports whether a
 // given [EventType] matches one of them. Operators and post-v1.0 plugins
 // (Epic 14) MAY emit other subtypes within a known [Category]
@@ -44,10 +44,19 @@ const (
 	// policy x2 — policy evaluation outcomes (audit-mode only in v1.0)
 	EventTypePolicyPass      EventType = "policy.pass"
 	EventTypePolicyViolation EventType = "policy.violation"
+
+	// runbook x7 — runbook workflow execution (Epic 15 task 9)
+	EventTypeRunbookExecuteStart EventType = "runbook.execute.start"
+	EventTypeRunbookExecuteDone  EventType = "runbook.execute.done"
+	EventTypeRunbookExecuteFail  EventType = "runbook.execute.fail"
+	EventTypeRunbookStepStart    EventType = "runbook.step.start"
+	EventTypeRunbookStepDone     EventType = "runbook.step.done"
+	EventTypeRunbookStepFail     EventType = "runbook.step.fail"
+	EventTypeRunbookStepSkip     EventType = "runbook.step.skip"
 )
 
 // canonicalEventTypeSet is the membership oracle for [IsCanonical].
-// Built from the 22 constants at init time; lookup is O(1).
+// Built from the 29 constants at init time; lookup is O(1).
 var canonicalEventTypeSet = map[EventType]struct{}{
 	EventTypeAgentConnect:         {},
 	EventTypeAgentDisconnect:      {},
@@ -71,9 +80,16 @@ var canonicalEventTypeSet = map[EventType]struct{}{
 	EventTypeUserError:            {},
 	EventTypePolicyPass:           {},
 	EventTypePolicyViolation:      {},
+	EventTypeRunbookExecuteStart:  {},
+	EventTypeRunbookExecuteDone:   {},
+	EventTypeRunbookExecuteFail:   {},
+	EventTypeRunbookStepStart:     {},
+	EventTypeRunbookStepDone:      {},
+	EventTypeRunbookStepFail:      {},
+	EventTypeRunbookStepSkip:      {},
 }
 
-// IsCanonical reports whether the receiver is one of the 22 v1.0
+// IsCanonical reports whether the receiver is one of the 29 v1.0
 // documented event types from §4.9. Operators MAY use other
 // subtypes within a known category (the parser accepts them); this
 // helper exists for documentation, CLI completion, and a future
@@ -84,7 +100,7 @@ func IsCanonical(t EventType) bool {
 	return ok
 }
 
-// canonicalByCategory groups the 22 canonical constants by their
+// canonicalByCategory groups the 29 canonical constants by their
 // owning [Category] in §4.9 documentation order. Built once at
 // package init via the loop in [canonicalByCategoryInit]; queried
 // by [EventTypesForCategory] / [CountForCategory] /
@@ -146,7 +162,7 @@ func CountForCategory(c Category) int {
 }
 
 // AllCategoriesWithCounts returns a fresh map of every known
-// category → its canonical event count. Sums to 22 across all 6
+// category → its canonical event count. Sums to 29 across all 7
 // v1.0 categories. Useful for CLI/operator-facing taxonomy
 // summary surfaces (the deferred `kscore-events types --by-category`
 // flag).
@@ -158,7 +174,7 @@ func AllCategoriesWithCounts() map[Category]int {
 	return out
 }
 
-// CanonicalEventTypes returns the 22 v1.0 constants in the
+// CanonicalEventTypes returns the 29 v1.0 constants in the
 // documentation order from §4.9. Consumed by
 // `EventService.GetEventTypes` (task 9) and by the CLI's `list`
 // command for completion. Returned slice is a fresh copy; callers
@@ -187,5 +203,12 @@ func CanonicalEventTypes() []EventType {
 		EventTypeUserError,
 		EventTypePolicyPass,
 		EventTypePolicyViolation,
+		EventTypeRunbookExecuteStart,
+		EventTypeRunbookExecuteDone,
+		EventTypeRunbookExecuteFail,
+		EventTypeRunbookStepStart,
+		EventTypeRunbookStepDone,
+		EventTypeRunbookStepFail,
+		EventTypeRunbookStepSkip,
 	}
 }

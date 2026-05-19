@@ -49,6 +49,17 @@ type Executor struct {
 	BackoffBase time.Duration
 	BackoffCap  time.Duration
 	NewID       func() string
+
+	// Observer receives every execution/step status transition (the
+	// same points the audit Trail is appended). nil = no-op.
+	Observer Observer
+}
+
+func (e *Executor) obs() Observer {
+	if e.Observer != nil {
+		return e.Observer
+	}
+	return noopObserver{}
 }
 
 func (e *Executor) now() time.Time {
@@ -126,7 +137,7 @@ func (e *Executor) Execute(ctx context.Context, rb *Runbook, inputs map[string]a
 	}
 
 	_ = machine.Fire(ctx, string(evStart))
-	e.trail(exec, "", StatusPending, StatusRunning, "execution started")
+	e.trail(ctx, exec, "", StatusPending, StatusRunning, "execution started")
 	exec.Status = StatusRunning
 
 	// completed step views for templating.
@@ -150,7 +161,7 @@ func (e *Executor) Execute(ctx context.Context, rb *Runbook, inputs map[string]a
 
 	if failErr != nil {
 		_ = machine.Fire(ctx, string(evFail))
-		e.trail(exec, "", StatusRunning, StatusFailed, "a step failed")
+		e.trail(ctx, exec, "", StatusRunning, StatusFailed, "a step failed")
 		exec.Status = StatusFailed
 		exec.Error = fmt.Errorf("%w: %w", ErrExecutionFailed, failErr)
 		e.runChain(ctx, exec, rb.Spec.OnFailure, byName, rc, resolved, stepsCtx, resultIdx)
@@ -159,7 +170,7 @@ func (e *Executor) Execute(ctx context.Context, rb *Runbook, inputs map[string]a
 	}
 
 	_ = machine.Fire(ctx, string(evSucceed))
-	e.trail(exec, "", StatusRunning, StatusSucceeded, "all steps succeeded")
+	e.trail(ctx, exec, "", StatusRunning, StatusSucceeded, "all steps succeeded")
 	exec.Status = StatusSucceeded
 	e.runChain(ctx, exec, rb.Spec.OnSuccess, byName, rc, resolved, stepsCtx, resultIdx)
 	exec.EndedAt = e.now()
@@ -214,27 +225,27 @@ func (e *Executor) runStep(ctx context.Context, exec *Execution, step *Step, rc 
 	if step.Condition != "" {
 		cond, err := renderString(step.Condition, rr)
 		if err != nil {
-			return e.failStep(exec, res, err)
+			return e.failStep(ctx, exec, res, err)
 		}
 		if !truthy(cond) {
 			res.Status = StatusSkipped
 			res.Duration = e.now().Sub(res.StartedAt)
-			e.trail(exec, step.Name, StatusPending, StatusSkipped, "condition falsey")
+			e.trail(ctx, exec, step.Name, StatusPending, StatusSkipped, "condition falsey")
 			return res
 		}
 	}
 
 	cfg, err := renderConfig(step.Config, rr)
 	if err != nil {
-		return e.failStep(exec, res, err)
+		return e.failStep(ctx, exec, res, err)
 	}
 
 	ex, ok := e.Registry.Lookup(step.Type)
 	if !ok {
-		return e.failStep(exec, res, fmt.Errorf("%w: %q", ErrUnknownStepType, step.Type))
+		return e.failStep(ctx, exec, res, fmt.Errorf("%w: %q", ErrUnknownStepType, step.Type))
 	}
 
-	e.trail(exec, step.Name, StatusPending, StatusRunning, "step started")
+	e.trail(ctx, exec, step.Name, StatusPending, StatusRunning, "step started")
 	maxAttempts := 1 + retriesFor(step, rc)
 	timeout := timeoutFor(step, rc)
 
@@ -257,7 +268,7 @@ func (e *Executor) runStep(ctx context.Context, exec *Execution, step *Step, rc 
 			res.Status = StatusSucceeded
 			res.Output = out.Outputs
 			res.Duration = e.now().Sub(res.StartedAt)
-			e.trail(exec, step.Name, StatusRunning, StatusSucceeded, fmt.Sprintf("ok (attempt %d)", attempt))
+			e.trail(ctx, exec, step.Name, StatusRunning, StatusSucceeded, fmt.Sprintf("ok (attempt %d)", attempt))
 			return res
 		}
 		lastErr = runErr
@@ -269,14 +280,14 @@ func (e *Executor) runStep(ctx context.Context, exec *Execution, step *Step, rc 
 		}
 	}
 	res.Attempts = maxAttempts
-	return e.failStep(exec, res, lastErr)
+	return e.failStep(ctx, exec, res, lastErr)
 }
 
-func (e *Executor) failStep(exec *Execution, res StepResult, err error) StepResult {
+func (e *Executor) failStep(ctx context.Context, exec *Execution, res StepResult, err error) StepResult {
 	res.Status = StatusFailed
 	res.Error = err
 	res.Duration = e.now().Sub(res.StartedAt)
-	e.trail(exec, res.Name, StatusRunning, StatusFailed, err.Error())
+	e.trail(ctx, exec, res.Name, StatusRunning, StatusFailed, err.Error())
 	return res
 }
 
@@ -298,8 +309,18 @@ func timeoutFor(step *Step, rc runCfg) time.Duration {
 	return rc.specTimeout
 }
 
-func (e *Executor) trail(exec *Execution, step string, from, to Status, note string) {
-	exec.Trail = append(exec.Trail, TrailEntry{At: e.now(), Step: step, From: from, To: to, Note: note})
+func (e *Executor) trail(ctx context.Context, exec *Execution, step string, from, to Status, note string) {
+	at := e.now()
+	exec.Trail = append(exec.Trail, TrailEntry{At: at, Step: step, From: from, To: to, Note: note})
+	e.obs().OnTransition(ctx, ObserverEvent{
+		ExecutionID: exec.ID,
+		Runbook:     exec.Runbook,
+		Step:        step,
+		From:        from,
+		To:          to,
+		Note:        note,
+		At:          at,
+	})
 }
 
 // resolveInputs applies declared defaults, enforces required, and

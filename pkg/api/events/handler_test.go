@@ -368,8 +368,8 @@ func TestREST_Types(t *testing.T) {
 		Types []string `json:"types"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&out)
-	if len(out.Types) != 22 {
-		t.Errorf("len = %d, want 22 (§4.9 canonical)", len(out.Types))
+	if len(out.Types) != 29 {
+		t.Errorf("len = %d, want 29 (§4.9 canonical)", len(out.Types))
 	}
 }
 
