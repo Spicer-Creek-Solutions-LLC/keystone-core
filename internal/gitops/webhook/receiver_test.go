@@ -23,6 +23,16 @@ func startReceiver(t *testing.T, reg *Registry, maxBody int64) *Receiver {
 	return r
 }
 
+// testClient avoids the shared http.DefaultClient connection pool:
+// under the whole-suite (`go test ./...`) parallel load, a pooled
+// connection could stall a request long enough to hit the receiver's
+// 5s ReadHeaderTimeout and flake. Keep-alives off + explicit timeout
+// isolates each call.
+var testClient = &http.Client{
+	Timeout:   10 * time.Second,
+	Transport: &http.Transport{DisableKeepAlives: true},
+}
+
 // post POSTs body with the given headers and returns the status code,
 // closing the response body before returning (callers assert on status).
 func post(t *testing.T, url string, headers map[string]string, body string) int {
@@ -35,7 +45,7 @@ func post(t *testing.T, url string, headers map[string]string, body string) int 
 	for k, v := range headers {
 		httpReq.Header.Set(k, v)
 	}
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := testClient.Do(httpReq)
 	if err != nil {
 		t.Fatalf("POST %s: %v", url, err)
 	}
@@ -106,6 +116,63 @@ func TestReceiver_HeaderDetection(t *testing.T) {
 	}
 }
 
+func TestReceiver_Authentication(t *testing.T) {
+	t.Parallel()
+	const secret = "topsecret"
+	body := `{"app":{"metadata":{"name":"web"},"status":{"sync":{"status":"Synced"}}}}`
+	auths, err := BuildAuthenticators(map[Provider]AuthSpec{
+		ProviderArgoCD: {Method: AuthHMAC, Secret: secret},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := New(ReceiverConfig{
+		Addr: "127.0.0.1:0", Path: "/webhooks", Authenticators: auths,
+	}, NewDefaultRegistry(), nil)
+	if startErr := r.Start(context.Background()); startErr != nil {
+		t.Fatalf("Start: %v", startErr)
+	}
+	t.Cleanup(func() { _ = r.Stop(context.Background()) })
+	url := "http://" + r.Addr() + "/webhooks"
+
+	t.Run("valid signature accepted", func(t *testing.T) {
+		t.Parallel()
+		got := post(t, url, map[string]string{
+			HeaderArgoCD:  "true",
+			"X-Signature": "sha256=" + signHMAC(secret, body),
+		}, body)
+		if got != http.StatusAccepted {
+			t.Errorf("status = %d, want 202", got)
+		}
+	})
+	t.Run("bad signature rejected", func(t *testing.T) {
+		t.Parallel()
+		got := post(t, url, map[string]string{
+			HeaderArgoCD:  "true",
+			"X-Signature": "sha256=deadbeef",
+		}, body)
+		if got != http.StatusUnauthorized {
+			t.Errorf("status = %d, want 401", got)
+		}
+	})
+	t.Run("missing signature rejected", func(t *testing.T) {
+		t.Parallel()
+		got := post(t, url, map[string]string{HeaderArgoCD: "true"}, body)
+		if got != http.StatusUnauthorized {
+			t.Errorf("status = %d, want 401", got)
+		}
+	})
+	t.Run("unconfigured provider defaults to None (accepted)", func(t *testing.T) {
+		t.Parallel()
+		// github has no authenticator → NoneAuthenticator → 202.
+		got := post(t, url, map[string]string{HeaderGitHub: "push"},
+			`{"repository":{"full_name":"acme/web"},"after":"abc"}`)
+		if got != http.StatusAccepted {
+			t.Errorf("status = %d, want 202", got)
+		}
+	})
+}
+
 func TestReceiver_UnregisteredProviderHeader(t *testing.T) {
 	t.Parallel()
 	// Registry holds only the ArgoCD handler; Detect scans only
@@ -137,7 +204,7 @@ func TestReceiver_BodyTooLarge(t *testing.T) {
 func TestReceiver_GetIsNotRouted(t *testing.T) {
 	t.Parallel()
 	r := startReceiver(t, NewDefaultRegistry(), 0)
-	resp, err := http.Get("http://" + r.Addr() + "/webhooks")
+	resp, err := testClient.Get("http://" + r.Addr() + "/webhooks")
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}

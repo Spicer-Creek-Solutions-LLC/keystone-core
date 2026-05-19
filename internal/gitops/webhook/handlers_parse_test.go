@@ -18,13 +18,13 @@ func req(t *testing.T, headers map[string]string) *http.Request {
 func TestArgoCDHandler_Parse(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name        string
-		body        string
-		wantErr     bool
-		wantApp     string
-		wantNS      string
-		wantRev     string
-		wantStatus  string
+		name       string
+		body       string
+		wantErr    bool
+		wantApp    string
+		wantNS     string
+		wantRev    string
+		wantStatus string
 	}{
 		{
 			name:       "sync succeeded",

@@ -20,10 +20,10 @@ func TestRegistry_Detect(t *testing.T) {
 	t.Parallel()
 	reg := NewDefaultRegistry()
 	cases := []struct {
-		name     string
-		headers  map[string]string
-		want     Provider
-		wantErr  error
+		name    string
+		headers map[string]string
+		want    Provider
+		wantErr error
 	}{
 		{"github", map[string]string{HeaderGitHub: "push"}, ProviderGitHub, nil},
 		{"gitlab", map[string]string{HeaderGitLab: "Push Hook"}, ProviderGitLab, nil},

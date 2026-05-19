@@ -359,7 +359,7 @@ CORS  →  Rate-Limit  →  Auth  →  Handler
 **Optional components (gated by config)**:
 - Cluster mode (etcd) — gated by `cluster.enabled`. If enabled but etcd init fails, refuse to start (fail fast, do not silently disable). v1.0: cluster is opt-in but supported.
 - Policy engine — gated by `policy.enabled`. v1.0: audit mode only.
-- Webhook receiver (port 8081) — gated by `webhook.enabled`.
+- Webhook receiver (port 8081) — gated by `gitops.webhook.enabled`.
 - Profiling (port 6060) — gated by `profiling.enabled`. Default off.
 - Tracing exporters — gated by `tracing.enabled`.
 

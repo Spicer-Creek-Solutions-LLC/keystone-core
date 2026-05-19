@@ -23,8 +23,8 @@ type gitLabPayload struct {
 	Ref         string `json:"ref"`
 	CheckoutSHA string `json:"checkout_sha"`
 	// deployment hook (top-level status/sha/ref)
-	Status string `json:"status"`
-	SHA    string `json:"sha"`
+	Status  string `json:"status"`
+	SHA     string `json:"sha"`
 	Project struct {
 		PathWithNamespace string `json:"path_with_namespace"`
 	} `json:"project"`

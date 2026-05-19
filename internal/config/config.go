@@ -6,6 +6,7 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -252,6 +253,10 @@ func (c *Config) ProductionWarnings() []string {
 				break
 			}
 		}
+	}
+	if open := c.GitOps.UnauthenticatedWebhookSources(); len(open) > 0 {
+		sort.Strings(open)
+		w = append(w, fmt.Sprintf("gitops webhook receiver enabled with unauthenticated sources %v in production (set gitops.webhook.sources.<provider>.method to hmac or bearer)", open))
 	}
 	return w
 }

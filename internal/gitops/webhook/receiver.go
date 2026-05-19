@@ -21,6 +21,12 @@ type ReceiverConfig struct {
 	Path string
 	// MaxBodyBytes caps the request body; larger requests get 413.
 	MaxBodyBytes int64
+	// Authenticators is the per-source authenticator, keyed by
+	// provider. A provider absent from the map (or a nil map) is
+	// authenticated with [NoneAuthenticator] — operators are warned
+	// in production (config.ProductionWarnings). Build it with
+	// [BuildAuthenticators].
+	Authenticators map[Provider]Authenticator
 }
 
 // DefaultMaxBodyBytes bounds an inbound webhook body (1 MiB). GitHub
@@ -35,8 +41,9 @@ const shutdownTimeout = 5 * time.Second
 // Receiver is the GitOps inbound webhook HTTP server. It owns its own
 // *http.Server (separate from the main REST API on :8080), auto-detects
 // the source provider from request headers via [Registry.Detect],
-// reads the body once size-capped, dispatches to the matching
-// [Handler], and returns 202 on a successful parse.
+// reads the body once size-capped, authenticates it with the source's
+// [Authenticator], dispatches to the matching [Handler], and returns
+// 202 on a successful parse.
 type Receiver struct {
 	cfg    ReceiverConfig
 	reg    *Registry
@@ -152,6 +159,15 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	auth := r.authFor(provider)
+	if authErr := auth.Authenticate(req, body); authErr != nil {
+		r.logger.Warn("gitops webhook authentication failed",
+			slog.String("provider", provider.String()),
+			slog.String("method", string(auth.Method())))
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	ev, err := h.Parse(req, body)
 	if err != nil {
 		r.logger.Warn("gitops webhook parse failed",
@@ -166,4 +182,14 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 		slog.String("application", ev.Application),
 		slog.String("status", ev.Status))
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// authFor returns the configured authenticator for provider, or
+// [NoneAuthenticator] when none is configured (default-open; operators
+// are warned in production via config.ProductionWarnings).
+func (r *Receiver) authFor(p Provider) Authenticator {
+	if a, ok := r.cfg.Authenticators[p]; ok && a != nil {
+		return a
+	}
+	return NoneAuthenticator{}
 }

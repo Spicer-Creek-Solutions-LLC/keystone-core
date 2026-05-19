@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -85,5 +86,88 @@ func TestGitOpsConfig_Validate_Enabled(t *testing.T) {
 				t.Fatalf("error %q does not contain %q", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestGitOpsConfig_Validate_Sources(t *testing.T) {
+	t.Parallel()
+	base := GitOpsWebhookConfig{Enabled: true, Addr: ":8081", Path: "/webhooks", MaxBodyBytes: 1024}
+	cases := []struct {
+		name    string
+		sources map[string]GitOpsSourceAuthConfig
+		wantErr string
+	}{
+		{"valid hmac", map[string]GitOpsSourceAuthConfig{"github": {Method: "hmac", Secret: "x"}}, ""},
+		{"valid none no secret", map[string]GitOpsSourceAuthConfig{"flux": {Method: "none"}}, ""},
+		{"unknown provider", map[string]GitOpsSourceAuthConfig{"bitbucket": {Method: "none"}}, "unknown provider"},
+		{"missing method", map[string]GitOpsSourceAuthConfig{"github": {Method: ""}}, "method is required"},
+		{"unknown method", map[string]GitOpsSourceAuthConfig{"github": {Method: "mtls"}}, "unknown method"},
+		{"hmac no secret", map[string]GitOpsSourceAuthConfig{"github": {Method: "hmac"}}, "requires a non-empty secret"},
+		{"bearer no secret", map[string]GitOpsSourceAuthConfig{"gitlab": {Method: "bearer"}}, "requires a non-empty secret"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			wc := base
+			wc.Sources = tc.sources
+			err := (&GitOpsConfig{Webhook: wc}).Validate()
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Fatalf("unexpected error: %v", err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Fatalf("err = %v, want containing %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestGitOpsConfig_UnauthenticatedWebhookSources(t *testing.T) {
+	t.Parallel()
+	if got := (&GitOpsConfig{Webhook: GitOpsWebhookConfig{Enabled: false}}).UnauthenticatedWebhookSources(); got != nil {
+		t.Errorf("disabled = %v, want nil", got)
+	}
+
+	c := &GitOpsConfig{Webhook: GitOpsWebhookConfig{
+		Enabled: true,
+		Sources: map[string]GitOpsSourceAuthConfig{
+			"github": {Method: "hmac", Secret: "x"},
+			"gitlab": {Method: "none"},
+		},
+	}}
+	got := c.UnauthenticatedWebhookSources()
+	slices.Sort(got)
+	want := []string{"argocd", "flux", "gitlab"} // github authed; gitlab none; argocd/flux absent
+	if !slices.Equal(got, want) {
+		t.Errorf("open = %v, want %v", got, want)
+	}
+}
+
+func TestProductionWarnings_GitOpsUnauthenticated(t *testing.T) {
+	t.Parallel()
+	c := defaultConfig()
+	c.Mode = ModeProduction
+	c.GitOps.Webhook.Enabled = true
+	c.GitOps.Webhook.Sources = map[string]GitOpsSourceAuthConfig{
+		"github": {Method: "hmac", Secret: "x"},
+		"gitlab": {Method: "hmac", Secret: "y"},
+		"argocd": {Method: "hmac", Secret: "z"},
+		"flux":   {Method: "hmac", Secret: "w"},
+	}
+	for _, msg := range c.ProductionWarnings() {
+		if strings.Contains(msg, "gitops webhook") {
+			t.Fatalf("unexpected gitops warning when all sources authed: %q", msg)
+		}
+	}
+
+	c.GitOps.Webhook.Sources["flux"] = GitOpsSourceAuthConfig{Method: "none"}
+	var found bool
+	for _, msg := range c.ProductionWarnings() {
+		if strings.Contains(msg, "gitops webhook receiver enabled with unauthenticated sources") &&
+			strings.Contains(msg, "flux") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want gitops unauthenticated warning naming flux, warnings = %v", c.ProductionWarnings())
 	}
 }
