@@ -61,7 +61,10 @@ func TestClusterConfig_Validate(t *testing.T) {
 		},
 		{
 			"anti-flap: sub-second heartbeat rounds up",
-			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 2; c.Membership.HeartbeatInterval = 900 * time.Millisecond },
+			func(c *ClusterConfig) {
+				c.Etcd.LeaseTTLSeconds = 2
+				c.Membership.HeartbeatInterval = 900 * time.Millisecond
+			},
 			"must be >= 3x", // 900ms rounds to 1s → need ttl ≥ 3
 		},
 		{"election session_ttl too low", func(c *ClusterConfig) { c.Election.SessionTTLSeconds = 0 }, "session_ttl_seconds must be >="},
@@ -83,7 +86,10 @@ func TestClusterConfig_Validate(t *testing.T) {
 		{"coord heartbeat_timeout zero", func(c *ClusterConfig) { c.Coordination.HeartbeatTimeout = 0 }, "coordination.heartbeat_timeout must be > 0"},
 		{"coord failure_threshold low", func(c *ClusterConfig) { c.Coordination.FailureThreshold = 0 }, "coordination.failure_threshold must be >= 1"},
 		{"coord retry_max low", func(c *ClusterConfig) { c.Coordination.RetryMax = 0 }, "coordination.retry_max must be >= 1"},
-		{"coord base>max delay", func(c *ClusterConfig) { c.Coordination.RetryBaseDelay = 3 * time.Second; c.Coordination.RetryMaxDelay = time.Second }, "retry_base_delay"},
+		{"coord base>max delay", func(c *ClusterConfig) {
+			c.Coordination.RetryBaseDelay = 3 * time.Second
+			c.Coordination.RetryMaxDelay = time.Second
+		}, "retry_base_delay"},
 		{"shutdown timeout zero", func(c *ClusterConfig) { c.Shutdown.Timeout = 0 }, "shutdown.timeout must be > 0"},
 	}
 	for _, tt := range tests {

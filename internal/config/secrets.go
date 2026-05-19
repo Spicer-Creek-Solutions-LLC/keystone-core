@@ -61,9 +61,9 @@ type SecretsAuditConfig struct {
 // SecretsBackendConfig is one operator-declared backend instance.
 // Exactly one of [File] / [Vault] must be set and must match [Type].
 type SecretsBackendConfig struct {
-	Name  string                    `koanf:"name"`
-	Type  string                    `koanf:"type"` // "encrypted_file" | "vault"
-	File  *SecretsFileBackendConfig `koanf:"file"`
+	Name  string                     `koanf:"name"`
+	Type  string                     `koanf:"type"` // "encrypted_file" | "vault"
+	File  *SecretsFileBackendConfig  `koanf:"file"`
 	Vault *SecretsVaultBackendConfig `koanf:"vault"`
 }
 
@@ -85,16 +85,16 @@ type SecretsFileBackendConfig struct {
 // SecretsVaultBackendConfig drives the Vault backend
 // (internal/secrets/vault).
 type SecretsVaultBackendConfig struct {
-	Address    string                   `koanf:"address"`
-	Namespace  string                   `koanf:"namespace"`
-	AuthMethod string                   `koanf:"auth_method"`
-	Token      string                   `koanf:"token"` // for auth_method = token
+	Address    string                     `koanf:"address"`
+	Namespace  string                     `koanf:"namespace"`
+	AuthMethod string                     `koanf:"auth_method"`
+	Token      string                     `koanf:"token"` // for auth_method = token
 	AppRole    *SecretsVaultAppRoleConfig `koanf:"approle"`
 	Kubernetes *SecretsVaultK8sConfig     `koanf:"kubernetes"`
 	LDAP       *SecretsVaultLDAPConfig    `koanf:"ldap"`
-	TLS        SecretsVaultTLSConfig    `koanf:"tls"`
-	Timeout    time.Duration            `koanf:"timeout"`
-	Mounts     []SecretsVaultMountConfig `koanf:"mounts"`
+	TLS        SecretsVaultTLSConfig      `koanf:"tls"`
+	Timeout    time.Duration              `koanf:"timeout"`
+	Mounts     []SecretsVaultMountConfig  `koanf:"mounts"`
 }
 
 // SecretsVaultAppRoleConfig — RoleID + SecretID. SecretID may itself
