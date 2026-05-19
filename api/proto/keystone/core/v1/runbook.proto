@@ -1,0 +1,75 @@
+// RunbookService — minimal runbook query + execute RPCs (Epic 15
+// task 12). v1.0 ships query (list/get), execute, and execution
+// status; richer surfaces are post-v1.0.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service RunbookService {
+  rpc ListRunbooks(ListRunbooksRequest) returns (ListRunbooksResponse);
+  rpc GetRunbook(GetRunbookRequest) returns (GetRunbookResponse);
+  rpc ExecuteRunbook(ExecuteRunbookRequest) returns (ExecuteRunbookResponse);
+  rpc GetRunbookExecution(GetRunbookExecutionRequest) returns (GetRunbookExecutionResponse);
+}
+
+// ---- Runbook types --------------------------------------------------------
+
+message RunbookSummary {
+  string name = 1;
+  string namespace = 2;
+  string version = 3;
+  repeated string steps = 4;
+}
+
+message RunbookStepView {
+  string name = 1;
+  string type = 2;
+  string status = 3;
+  int32 attempts = 4;
+  string error = 5;
+}
+
+message RunbookExecutionView {
+  string id = 1;
+  string runbook = 2;
+  string status = 3;
+  repeated RunbookStepView steps = 4;
+  string error = 5;
+}
+
+// ---- RPC messages ---------------------------------------------------------
+
+message ListRunbooksRequest {}
+
+message ListRunbooksResponse {
+  repeated RunbookSummary runbooks = 1;
+  int32 total_count = 2;
+}
+
+message GetRunbookRequest {
+  string id = 1;
+}
+
+message GetRunbookResponse {
+  RunbookSummary runbook = 1;
+}
+
+message ExecuteRunbookRequest {
+  string runbook = 1;
+  map<string, string> inputs = 2;
+}
+
+message ExecuteRunbookResponse {
+  RunbookExecutionView execution = 1;
+}
+
+message GetRunbookExecutionRequest {
+  string id = 1;
+}
+
+message GetRunbookExecutionResponse {
+  RunbookExecutionView execution = 1;
+}

@@ -1,0 +1,65 @@
+// BlueprintService — minimal operator-facing blueprint query +
+// apply RPCs (Epic 15 task 12). v1.0 ships query (list/get) and
+// execute (apply); richer surfaces are post-v1.0.
+
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
+
+service BlueprintService {
+  rpc ListBlueprints(ListBlueprintsRequest) returns (ListBlueprintsResponse);
+  rpc GetBlueprint(GetBlueprintRequest) returns (GetBlueprintResponse);
+  rpc ApplyBlueprint(ApplyBlueprintRequest) returns (ApplyBlueprintResponse);
+}
+
+// ---- Blueprint types ------------------------------------------------------
+
+message BlueprintSummary {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  repeated string parameters = 4; // parameter names only — values are never exposed
+  repeated string features = 5;
+  repeated string entrypoints = 6;
+}
+
+message ApplyReport {
+  int32 total = 1;
+  int32 changed = 2;
+  int32 failed = 3;
+}
+
+// ---- RPC messages ---------------------------------------------------------
+
+message ListBlueprintsRequest {}
+
+message ListBlueprintsResponse {
+  repeated BlueprintSummary blueprints = 1;
+  int32 total_count = 2;
+}
+
+message GetBlueprintRequest {
+  string name = 1;
+}
+
+message GetBlueprintResponse {
+  BlueprintSummary blueprint = 1;
+}
+
+message ApplyBlueprintRequest {
+  string name = 1;
+  map<string, string> params = 2;
+  repeated string enable = 3;
+  repeated string disable = 4;
+  string as = 5;
+  string entrypoint = 6;
+}
+
+message ApplyBlueprintResponse {
+  string run_id = 1;
+  string status = 2;
+  map<string, string> outputs = 3;
+  ApplyReport report = 4;
+}
