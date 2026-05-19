@@ -286,6 +286,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: a runbook executed by one process is queryable via `kscore-runbook status <id>` / `list-executions` from a later process; sensitive inputs are masked in the persisted record.
 - **References**: `internal/cli/runbook/query.go`; `internal/runbook/engine.go` (`Execution`); `pkg/api/runbook/handler.go` + `internal/controlplane/grpc_runbook_server.go` (tasks 11/12 — REST + gRPC `RunbookService` ship with empty providers, return 503 / `codes.Unavailable` until this boot wiring supplies `RunbookCatalog`/`RunbookRunner`/`ExecutionStore`); `pkg/saga/log_sqlite.go` (durable-store precedent); Epic 15 tasks 10/11/12.
 
+#### Blueprint e2e real docker-compose convergence form
+
+- **Priority**: gate-v1.0
+- **What**: Epic 15 task 13 ships `test/e2e/blueprint/` as a build-tagged in-process suite that drives the real Epic-15 engines against the real catalog with a recording State Runner (it asserts every resolved declaration is dispatched + hooks run + rollback reverts). It does not converge `production-cluster`'s etcd/postgres/nats packages+services on real hosts/containers — that is not CI-safe with the v1.0 stdlib modules and is orthogonal to proving the integration wiring.
+- **Why deferred**: same shape as the Epic 13 "HA E2E multi-process / iptables-partition form" deferral — the in-process suite proves the mechanism; the multi-container form needs a docker-compose harness (cf. the shell-driven, v0.5-gated `test/e2e/state/`) plus provider modules able to converge real services, which is a separate hardening surface (Epic 19).
+- **Acceptance for unblock**: `production-cluster` applied via the blueprint executor against a docker-compose topology brings up etcd + Postgres + a NATS cluster and the suite asserts the services are actually reachable/healthy, not just that declarations were dispatched.
+- **References**: `test/e2e/blueprint/e2e_test.go` (in-process form, landed); `test/e2e/state/docker-compose.yml` + `run.sh` (compose-harness precedent); Epic 13 "HA E2E multi-process / iptables-partition form" (companion deferral); Epic 15 task 13; Epic 19 (E2E hardening).
+
 #### Pre-rotation signing-CA retention in the bootstrap trust bundle
 
 - **Priority**: gate-v1.0

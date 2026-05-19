@@ -75,6 +75,7 @@ gate-v1.0:
   - "Blueprint applied-runs store (durable)"
   - "Remote / distributed blueprint apply wiring"
   - "Durable runbook execution store"
+  - "Blueprint e2e real docker-compose convergence form"
 
 v0.x:
   - "Persist dispatch principal on CommandRecord for audit-log User field"
