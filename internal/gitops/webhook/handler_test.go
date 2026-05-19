@@ -8,7 +8,8 @@ import (
 // badHandler reports an invalid provider, exercising Register's guard.
 type badHandler struct{}
 
-func (badHandler) Type() Provider                            { return Provider("nope") }
+func (badHandler) Type() Provider                             { return Provider("nope") }
+func (badHandler) DetectHeader() string                       { return "X-Nope" }
 func (badHandler) Parse(*http.Request, []byte) (Event, error) { return Event{}, nil }
 
 func TestRegistry_RegisterLookup(t *testing.T) {

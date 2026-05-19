@@ -17,6 +17,9 @@ type GitHubHandler struct{}
 // Type implements [Handler].
 func (GitHubHandler) Type() Provider { return ProviderGitHub }
 
+// DetectHeader implements [Handler].
+func (GitHubHandler) DetectHeader() string { return HeaderGitHub }
+
 type gitHubPayload struct {
 	Ref        string `json:"ref"`
 	After      string `json:"after"`

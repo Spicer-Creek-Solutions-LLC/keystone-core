@@ -5,12 +5,11 @@
 // unified [Event], and (from Epic 16 task 4 onward) re-emits it on the
 // Keystone event bus as `gitops.{argocd|flux|github|gitlab}.*`.
 //
-// Task 1 scope: the HTTP [Receiver], the [Handler] interface + its
-// [Registry], and the four concrete provider handlers — parsing only.
-// Header-based source auto-detection (task 2), request authentication
+// Tasks 1-2: the HTTP [Receiver], the [Handler] interface + its
+// [Registry], the four concrete provider handlers, and header-based
+// source auto-detection ([Registry.Detect]). Request authentication
 // (task 3) and event-bus emission (task 4) land in their own tasks;
-// until then the receiver selects a handler from an explicit
-// `?source=<provider>` query parameter.
+// until task 4 a successfully parsed webhook is acknowledged with 202.
 package webhook
 
 import "encoding/json"

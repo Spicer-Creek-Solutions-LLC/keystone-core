@@ -17,6 +17,9 @@ type ArgoCDHandler struct{}
 // Type implements [Handler].
 func (ArgoCDHandler) Type() Provider { return ProviderArgoCD }
 
+// DetectHeader implements [Handler].
+func (ArgoCDHandler) DetectHeader() string { return HeaderArgoCD }
+
 type argoCDPayload struct {
 	App struct {
 		Metadata struct {

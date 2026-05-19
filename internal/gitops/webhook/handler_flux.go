@@ -16,6 +16,9 @@ type FluxHandler struct{}
 // Type implements [Handler].
 func (FluxHandler) Type() Provider { return ProviderFlux }
 
+// DetectHeader implements [Handler].
+func (FluxHandler) DetectHeader() string { return HeaderFlux }
+
 type fluxPayload struct {
 	InvolvedObject struct {
 		Kind      string `json:"kind"`

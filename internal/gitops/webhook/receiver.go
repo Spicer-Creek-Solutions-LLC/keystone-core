@@ -33,13 +33,10 @@ const DefaultMaxBodyBytes = 1 << 20
 const shutdownTimeout = 5 * time.Second
 
 // Receiver is the GitOps inbound webhook HTTP server. It owns its own
-// *http.Server (separate from the main REST API on :8080), reads the
-// body once size-capped, resolves a [Handler] via resolveProvider, and
-// returns 202 on a successful parse.
-//
-// Task 1: resolveProvider reads the `?source=<provider>` query param.
-// Task 2 swaps that single hook for header-based auto-detection with
-// no handler or lifecycle churn.
+// *http.Server (separate from the main REST API on :8080), auto-detects
+// the source provider from request headers via [Registry.Detect],
+// reads the body once size-capped, dispatches to the matching
+// [Handler], and returns 202 on a successful parse.
 type Receiver struct {
 	cfg    ReceiverConfig
 	reg    *Registry
@@ -128,14 +125,14 @@ func (r *Receiver) Stop(ctx context.Context) error {
 	return err
 }
 
-// handle is the single POST route. It enforces the body cap, resolves
-// the provider, dispatches to the handler, and maps the outcome to an
-// HTTP status. Event-bus emission lands in task 4; for now a parsed
-// event is acknowledged with 202.
+// handle is the single POST route. It auto-detects the provider from
+// request headers, enforces the body cap, dispatches to the handler,
+// and maps the outcome to an HTTP status. Event-bus emission lands in
+// task 4; for now a parsed event is acknowledged with 202.
 func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
-	provider, ok := r.resolveProvider(req)
-	if !ok {
-		http.Error(w, "missing or unknown ?source= provider", http.StatusBadRequest)
+	provider, err := r.reg.Detect(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	h, ok := r.reg.Lookup(provider)
@@ -169,17 +166,4 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 		slog.String("application", ev.Application),
 		slog.String("status", ev.Status))
 	w.WriteHeader(http.StatusAccepted)
-}
-
-// resolveProvider selects the handler for a request. Task 1 interim:
-// the explicit `?source=<provider>` query parameter. Task 2 replaces
-// this body with header-based auto-detection (X-GitHub-Event,
-// X-Gitlab-Event, X-Argo-CD-Webhook, X-Flux-Event) — the only seam
-// that changes.
-func (r *Receiver) resolveProvider(req *http.Request) (Provider, bool) {
-	p := Provider(req.URL.Query().Get("source"))
-	if !p.Valid() {
-		return "", false
-	}
-	return p, true
 }

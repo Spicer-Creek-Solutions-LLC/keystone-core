@@ -22,6 +22,10 @@ var ErrUnknownProvider = errors.New("gitops/webhook: unknown provider")
 type Handler interface {
 	// Type returns the provider this handler parses.
 	Type() Provider
+	// DetectHeader returns the request header whose presence
+	// identifies this provider (e.g. "X-GitHub-Event"). The
+	// [Registry.Detect] auto-detection scans these.
+	DetectHeader() string
 	// Parse maps the request + body to a normalized Event.
 	Parse(r *http.Request, body []byte) (Event, error)
 }

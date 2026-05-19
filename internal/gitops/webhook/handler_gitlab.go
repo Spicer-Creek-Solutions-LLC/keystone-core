@@ -15,6 +15,9 @@ type GitLabHandler struct{}
 // Type implements [Handler].
 func (GitLabHandler) Type() Provider { return ProviderGitLab }
 
+// DetectHeader implements [Handler].
+func (GitLabHandler) DetectHeader() string { return HeaderGitLab }
+
 type gitLabPayload struct {
 	ObjectKind  string `json:"object_kind"`
 	Ref         string `json:"ref"`
