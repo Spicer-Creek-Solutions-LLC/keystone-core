@@ -101,9 +101,9 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 
 - [x] ArgoCD webhook with valid HMAC ingested → emits `gitops.argocd.sync_succeeded` event. _(tasks 1-4: receiver→HMAC auth→parse→`ToKscoreEvent`; verified end-to-end via httptest receiver + fake emitter asserting the exact type. Live-server form is boot-gated — see the gate-v1.0 "GitOps webhook receiver boot registration" ROADMAP entry.)_
 - [x] GitHub webhook with valid HMAC + GitHub event header parsed correctly. _(task 1 GitHub handler + task 3 HMAC; receiver httptest-verified.)_
-- [ ] `kscorectl gitops verify webhook-verify.yaml --parallel --timeout 2m` runs HTTP + gRPC + cmd verifiers.
-- [ ] `kscorectl gitops rollback --app web --strategy previous --reason "hotfix"` triggers rollback.
-- [ ] Rollback with `RequireApproval=true` waits at Pending; `kscorectl gitops rollback approve <id>` proceeds.
+- [x] `kscorectl gitops verify webhook-verify.yaml --parallel --timeout 2m` runs HTTP + gRPC + cmd verifiers. _(task 10: `cmd/kscore-gitops verify <file>` loads YAML → `verification.Workflow`, `--parallel`/`--timeout` override the file, all three verifier types exercised by `TestVerify_AllThreeVerifierTypes_FlagOverrides`.)_
+- [x] `kscorectl gitops rollback --app web --strategy previous --reason "hotfix"` triggers rollback. _(task 10: top-level `rollback` command resolves the strategy via the executor seam; `TestRollback_StrategyWithoutSubcommand` drives `--strategy previous` end-to-end via the rollback engine.)_
+- [x] Rollback with `RequireApproval=true` waits at Pending; `kscorectl gitops rollback approve <id>` proceeds. _(task 10: persistent `--store` SQLite carries the Pending record + the persisted Config across CLI invocations — see the task-10 fix to `Rollback.Config` persistence; `TestRollback_ExecuteAndApprove_PersistsConfig` exercises the full gate.)_
 - [x] Git-revert executor commits revert and pushes (in test env). _(task 7: `rollback/gitexec` go-git v5; `TestClient_Revert_CommitsAndPushes` seeds a bare remote, reverts to a prior commit, pushes, re-clones and asserts the revert commit's parent + tree + restored file content.)_
 
 ### Outbound webhooks

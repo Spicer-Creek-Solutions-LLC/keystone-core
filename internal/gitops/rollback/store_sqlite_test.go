@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"go.keystone-core.io/keystone-core/pkg/dbutil"
 )
 
 func newSQLiteStore(t *testing.T) *SQLiteStore {
@@ -45,6 +47,7 @@ func sampleRollback(id string) *Rollback {
 			{From: StatePending, To: StateApproved, Event: EventApprove, At: ts},
 			{From: StateApproved, To: StateInProgress, Event: EventStart, At: ts},
 		},
+		Config:    Config{"repo_url": "https://example.com/repo.git", "branch": "main"},
 		CreatedAt: ts,
 		UpdatedAt: ts,
 	}
@@ -75,6 +78,9 @@ func TestSQLiteStore_SaveGet(t *testing.T) {
 	}
 	if len(got.Transitions) != 2 || got.Transitions[1].Event != EventStart {
 		t.Errorf("transitions round-trip wrong: %+v", got.Transitions)
+	}
+	if got.Config["repo_url"] != "https://example.com/repo.git" || got.Config["branch"] != "main" {
+		t.Errorf("config round-trip wrong: %+v", got.Config)
 	}
 	if !got.CreatedAt.Equal(in.CreatedAt) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, in.CreatedAt)
@@ -164,3 +170,62 @@ func TestSQLiteStore_NilResultRoundTrips(t *testing.T) {
 }
 
 var _ RollbackStore = (*SQLiteStore)(nil)
+
+func TestSQLiteStore_AddConfigColumnGuard(t *testing.T) {
+	t.Parallel()
+	// Open a DB with the pre-task-10 schema (no `config` column),
+	// then re-open with NewSQLiteStore — the idempotent ALTER guard
+	// must add the column so a record with Config saves + loads.
+	path := filepath.Join(t.TempDir(), "preT10.db")
+
+	{
+		legacy, err := dbutil.OpenSQLite(path)
+		if err != nil {
+			t.Fatalf("open legacy: %v", err)
+		}
+		const preSchema = `
+CREATE TABLE IF NOT EXISTS gitops_rollbacks (
+	id               TEXT PRIMARY KEY,
+	seq              INTEGER NOT NULL,
+	application      TEXT NOT NULL DEFAULT '',
+	executor_type    TEXT NOT NULL DEFAULT '',
+	strategy         TEXT NOT NULL DEFAULT '',
+	revision         TEXT NOT NULL DEFAULT '',
+	reason           TEXT NOT NULL DEFAULT '',
+	require_approval INTEGER NOT NULL DEFAULT 0,
+	state            TEXT NOT NULL,
+	from_revision    TEXT NOT NULL DEFAULT '',
+	to_revision      TEXT NOT NULL DEFAULT '',
+	approver         TEXT NOT NULL DEFAULT '',
+	error            TEXT NOT NULL DEFAULT '',
+	result           TEXT NOT NULL DEFAULT '',
+	transitions      TEXT NOT NULL DEFAULT '[]',
+	created_at       TEXT NOT NULL,
+	updated_at       TEXT NOT NULL
+);`
+		if _, err := legacy.ExecContext(context.Background(), preSchema); err != nil {
+			t.Fatalf("seed legacy schema: %v", err)
+		}
+		_ = legacy.Close()
+	}
+
+	s, err := NewSQLiteStore(path)
+	if err != nil {
+		t.Fatalf("re-open with migration: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	if err := s.Save(context.Background(), sampleRollback("after-alter")); err != nil {
+		t.Fatalf("Save after ALTER: %v", err)
+	}
+	got, ok, _ := s.Get(context.Background(), "after-alter")
+	if !ok || got.Config["repo_url"] != "https://example.com/repo.git" {
+		t.Errorf("ALTER guard didn't take: ok=%v config=%+v", ok, got.Config)
+	}
+
+	// Idempotent: a second open must not re-ALTER or break.
+	s2, err := NewSQLiteStore(path)
+	if err != nil {
+		t.Fatalf("third open: %v", err)
+	}
+	_ = s2.Close()
+}

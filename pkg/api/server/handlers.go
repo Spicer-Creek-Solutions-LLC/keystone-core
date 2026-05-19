@@ -120,7 +120,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	cluster.NewHandler(cluster.ClusterProviders{}).Register(mux)
 	events.NewHandler(s.eventStore, s.eventPublisher).Register(mux)
 	execution.NewHandler().Register(mux)
-	gitops.NewHandler().Register(mux)
+	gitops.NewHandler(gitops.Providers{}).Register(mux)
 	maintenance.NewHandler().Register(mux)
 	policy.NewHandler(s.policyEngine, s.policyReports, s.policyAuditLog, s.policyAuditor).Register(mux)
 	runbook.NewHandler(runbook.Providers{}).Register(mux)

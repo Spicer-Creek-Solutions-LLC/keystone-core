@@ -7,20 +7,25 @@ import (
 	"time"
 )
 
-// fakeExec is a configurable rollback.Executor for engine tests.
+// fakeExec is a configurable rollback.Executor for engine tests. It
+// captures the Config it was called with so tests can assert the
+// engine forwarded the rollback's persisted Config across the
+// approval gate.
 type fakeExec struct {
-	typ string
-	res Result
+	typ    string
+	res    Result
+	gotCfg Config
 }
 
-func (f fakeExec) Type() string { return f.typ }
-func (f fakeExec) Execute(context.Context, Config, Request) Result {
+func (f *fakeExec) Type() string { return f.typ }
+func (f *fakeExec) Execute(_ context.Context, cfg Config, _ Request) Result {
+	f.gotCfg = cfg
 	return f.res
 }
-func (f fakeExec) GetPreviousRevision(context.Context, Config, Request) (string, error) {
+func (f *fakeExec) GetPreviousRevision(context.Context, Config, Request) (string, error) {
 	return "prev", nil
 }
-func (f fakeExec) GetLastKnownGood(context.Context, Config, Request) (string, error) {
+func (f *fakeExec) GetLastKnownGood(context.Context, Config, Request) (string, error) {
 	return "lkg", nil
 }
 
@@ -52,7 +57,7 @@ func okSpec() RollbackSpec {
 
 func TestEngine_Execute_NoApproval_Completed(t *testing.T) {
 	t.Parallel()
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true, FromRevision: "c2", ToRevision: "c1"}})
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true, FromRevision: "c2", ToRevision: "c1"}})
 	rb, err := e.Execute(context.Background(), okSpec())
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -75,7 +80,7 @@ func TestEngine_Execute_NoApproval_Completed(t *testing.T) {
 
 func TestEngine_ApprovalGate(t *testing.T) {
 	t.Parallel()
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}})
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}})
 	spec := okSpec()
 	spec.RequireApproval = true
 
@@ -98,7 +103,7 @@ func TestEngine_ApprovalGate(t *testing.T) {
 
 func TestEngine_Reject(t *testing.T) {
 	t.Parallel()
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}})
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}})
 	spec := okSpec()
 	spec.RequireApproval = true
 	rb, _ := e.Execute(context.Background(), spec)
@@ -117,7 +122,7 @@ func TestEngine_Reject(t *testing.T) {
 
 func TestEngine_ExecutorFailure(t *testing.T) {
 	t.Parallel()
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: false, Error: errors.New("push denied")}})
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: false, Error: errors.New("push denied")}})
 	rb, err := e.Execute(context.Background(), okSpec())
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -135,7 +140,7 @@ func TestEngine_PostVerification(t *testing.T) {
 
 	t.Run("verified", func(t *testing.T) {
 		t.Parallel()
-		e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{ok: true}))
+		e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{ok: true}))
 		rb, _ := e.Execute(context.Background(), okSpec())
 		if rb.State != StateVerified {
 			t.Fatalf("State = %s, want verified", rb.State)
@@ -144,7 +149,7 @@ func TestEngine_PostVerification(t *testing.T) {
 
 	t.Run("verification failed", func(t *testing.T) {
 		t.Parallel()
-		e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{ok: false}))
+		e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{ok: false}))
 		rb, _ := e.Execute(context.Background(), okSpec())
 		if rb.State != StateVerificationFailed {
 			t.Fatalf("State = %s, want verification_failed", rb.State)
@@ -153,7 +158,7 @@ func TestEngine_PostVerification(t *testing.T) {
 
 	t.Run("verifier error", func(t *testing.T) {
 		t.Parallel()
-		e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{err: errors.New("probe down")}))
+		e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}}, WithPostVerifier(fakeVerifier{err: errors.New("probe down")}))
 		rb, _ := e.Execute(context.Background(), okSpec())
 		if rb.State != StateVerificationFailed || rb.Error == "" {
 			t.Fatalf("state=%s err=%q, want verification_failed + error", rb.State, rb.Error)
@@ -171,7 +176,7 @@ func TestEngine_UnknownExecutor(t *testing.T) {
 
 func TestEngine_DoubleApprove(t *testing.T) {
 	t.Parallel()
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}})
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}})
 	rb, _ := e.Execute(context.Background(), okSpec()) // no approval → already Completed
 	_, err := e.ApproveRollback(context.Background(), rb.ID, "x")
 	if !errors.Is(err, ErrInvalidTransition) {
@@ -195,7 +200,7 @@ func TestEngine_ListAndDeterministicIDClock(t *testing.T) {
 	t.Parallel()
 	fixed := time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)
 	n := 0
-	e := newEngine(t, fakeExec{typ: "git", res: Result{Success: true}},
+	e := newEngine(t, &fakeExec{typ: "git", res: Result{Success: true}},
 		WithClock(func() time.Time { return fixed }),
 		WithIDGenerator(func() string { n++; return "rb-" + string(rune('0'+n)) }))
 	r1, _ := e.Execute(context.Background(), okSpec())
@@ -228,5 +233,37 @@ func TestMemoryStore_ReturnsCopies(t *testing.T) {
 	}
 	if err := s.Save(context.Background(), &Rollback{}); err == nil {
 		t.Error("Save(empty id) = nil, want error")
+	}
+}
+
+func TestEngine_ApprovalGate_UsesPersistedConfig(t *testing.T) {
+	t.Parallel()
+	// Bug surfaced by task 10: an approval-gated rollback that returns
+	// at Pending must, on Approve, re-drive the executor with the
+	// Config supplied at Execute (otherwise the rollback can't run —
+	// the executor needs e.g. repo_url). Task 10 fix: persist Config
+	// on the Rollback record and reuse it in ApproveRollback.
+	fe := &fakeExec{typ: "git", res: Result{Success: true}}
+	e := newEngine(t, fe)
+	spec := okSpec()
+	spec.RequireApproval = true
+
+	rb, _ := e.Execute(context.Background(), spec)
+	if rb.State != StatePending {
+		t.Fatalf("State = %s, want pending", rb.State)
+	}
+	if rb.Config["repo_url"] != "https://r" {
+		t.Errorf("Config not persisted on Pending record: %+v", rb.Config)
+	}
+
+	done, err := e.ApproveRollback(context.Background(), rb.ID, "alice")
+	if err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	if done.State != StateCompleted {
+		t.Fatalf("State = %s, want completed", done.State)
+	}
+	if fe.gotCfg["repo_url"] != "https://r" {
+		t.Errorf("executor on Approve got cfg %+v, want repo_url=https://r (Config dropped across approval gate)", fe.gotCfg)
 	}
 }

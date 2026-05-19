@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS gitops_rollbacks (
 	error            TEXT NOT NULL DEFAULT '',
 	result           TEXT NOT NULL DEFAULT '',
 	transitions      TEXT NOT NULL DEFAULT '[]',
+	config           TEXT NOT NULL DEFAULT '{}',
 	created_at       TEXT NOT NULL,
 	updated_at       TEXT NOT NULL
 );
@@ -66,7 +67,43 @@ func NewSQLiteStore(path string, opts ...dbutil.Option) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("rollback: apply schema: %w", err)
 	}
+	if err := ensureConfigColumn(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("rollback: migrate config column: %w", err)
+	}
 	return &SQLiteStore{db: db}, nil
+}
+
+// ensureConfigColumn brings any pre-task-10 DB up to the current
+// schema (the config column was added in task 10 to persist the
+// rollback's executor-specific configuration). Idempotent — for a
+// freshly-created DB the column already exists and this is a no-op.
+// A formal migration framework is the deferred
+// "Schema versioning via golang-migrate" ROADMAP item.
+func ensureConfigColumn(db *sql.DB) error {
+	rows, err := db.QueryContext(context.Background(), `PRAGMA table_info(gitops_rollbacks)`)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == "config" {
+			return rows.Err()
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = db.ExecContext(context.Background(),
+		`ALTER TABLE gitops_rollbacks ADD COLUMN config TEXT NOT NULL DEFAULT '{}'`)
+	return err
 }
 
 // Close releases the underlying database. Safe on a nil receiver.
@@ -161,6 +198,14 @@ func (s *SQLiteStore) Save(ctx context.Context, rb *Rollback) error {
 	if err != nil {
 		return fmt.Errorf("rollback: marshal transitions: %w", err)
 	}
+	cfg := rb.Config
+	if cfg == nil {
+		cfg = Config{}
+	}
+	cfgJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("rollback: marshal config: %w", err)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -169,10 +214,10 @@ func (s *SQLiteStore) Save(ctx context.Context, rb *Rollback) error {
 INSERT INTO gitops_rollbacks
 	(id, seq, application, executor_type, strategy, revision, reason,
 	 require_approval, state, from_revision, to_revision, approver,
-	 error, result, transitions, created_at, updated_at)
+	 error, result, transitions, config, created_at, updated_at)
 VALUES
 	(?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM gitops_rollbacks),
-	 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
 	application      = excluded.application,
 	executor_type    = excluded.executor_type,
@@ -187,6 +232,7 @@ ON CONFLICT(id) DO UPDATE SET
 	error            = excluded.error,
 	result           = excluded.result,
 	transitions      = excluded.transitions,
+	config           = excluded.config,
 	updated_at       = excluded.updated_at`
 
 	_, err = s.db.ExecContext(ctx, q,
@@ -204,6 +250,7 @@ ON CONFLICT(id) DO UPDATE SET
 		rb.Error,
 		resultJSON,
 		string(transJSON),
+		string(cfgJSON),
 		rb.CreatedAt.UTC().Format(time.RFC3339Nano),
 		rb.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	)
@@ -222,7 +269,7 @@ func (s *SQLiteStore) Get(ctx context.Context, id string) (*Rollback, bool, erro
 	const q = `
 SELECT application, executor_type, strategy, revision, reason,
 	require_approval, state, from_revision, to_revision, approver,
-	error, result, transitions, created_at, updated_at
+	error, result, transitions, config, created_at, updated_at
 FROM gitops_rollbacks WHERE id = ?`
 	rb, err := scanRollback(id, rowScanner(s.db.QueryRowContext(ctx, q, id).Scan))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -242,7 +289,7 @@ func (s *SQLiteStore) List(ctx context.Context) ([]*Rollback, error) {
 	const q = `
 SELECT id, application, executor_type, strategy, revision, reason,
 	require_approval, state, from_revision, to_revision, approver,
-	error, result, transitions, created_at, updated_at
+	error, result, transitions, config, created_at, updated_at
 FROM gitops_rollbacks ORDER BY seq ASC`
 	rows, err := s.db.QueryContext(ctx, q)
 	if err != nil {
@@ -277,11 +324,11 @@ func scanRollback(id string, scan rowScanner) (*Rollback, error) {
 		app, exec, strat, rev, reason           string
 		reqApproval                             int
 		state, fromRev, toRev, approver, errStr string
-		resultJSON, transJSON                   string
+		resultJSON, transJSON, cfgJSON          string
 		createdAt, updatedAt                    string
 	)
 	if err := scan(&app, &exec, &strat, &rev, &reason, &reqApproval, &state,
-		&fromRev, &toRev, &approver, &errStr, &resultJSON, &transJSON,
+		&fromRev, &toRev, &approver, &errStr, &resultJSON, &transJSON, &cfgJSON,
 		&createdAt, &updatedAt); err != nil {
 		return nil, err
 	}
@@ -293,6 +340,15 @@ func scanRollback(id string, scan rowScanner) (*Rollback, error) {
 	var transitions []TransitionRecord
 	if err := json.Unmarshal([]byte(transJSON), &transitions); err != nil {
 		return nil, fmt.Errorf("rollback: unmarshal transitions: %w", err)
+	}
+	var cfg Config
+	if cfgJSON != "" {
+		if err := json.Unmarshal([]byte(cfgJSON), &cfg); err != nil {
+			return nil, fmt.Errorf("rollback: unmarshal config: %w", err)
+		}
+	}
+	if len(cfg) == 0 {
+		cfg = nil
 	}
 	created, err := parseStoreTime(createdAt)
 	if err != nil {
@@ -312,6 +368,7 @@ func scanRollback(id string, scan rowScanner) (*Rollback, error) {
 		Reason:          reason,
 		RequireApproval: reqApproval != 0,
 		State:           RollbackState(state),
+		Config:          cfg,
 		FromRevision:    fromRev,
 		ToRevision:      toRev,
 		Result:          result,

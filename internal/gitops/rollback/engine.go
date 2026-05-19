@@ -27,22 +27,29 @@ type TransitionRecord struct {
 // lifecycle. State is the source of truth across process boundaries;
 // the FSM is rebuilt from it for each operation.
 type Rollback struct {
-	ID              string             `json:"id"`
-	Application     string             `json:"application"`
-	ExecutorType    string             `json:"executor_type"`
-	Strategy        Strategy           `json:"strategy"`
-	Revision        string             `json:"revision,omitempty"`
-	Reason          string             `json:"reason,omitempty"`
-	RequireApproval bool               `json:"require_approval"`
-	State           RollbackState      `json:"state"`
-	FromRevision    string             `json:"from_revision,omitempty"`
-	ToRevision      string             `json:"to_revision,omitempty"`
-	Result          *Result            `json:"result,omitempty"`
-	Approver        string             `json:"approver,omitempty"`
-	Error           string             `json:"error,omitempty"`
-	Transitions     []TransitionRecord `json:"transitions,omitempty"`
-	CreatedAt       time.Time          `json:"created_at"`
-	UpdatedAt       time.Time          `json:"updated_at"`
+	ID              string        `json:"id"`
+	Application     string        `json:"application"`
+	ExecutorType    string        `json:"executor_type"`
+	Strategy        Strategy      `json:"strategy"`
+	Revision        string        `json:"revision,omitempty"`
+	Reason          string        `json:"reason,omitempty"`
+	RequireApproval bool          `json:"require_approval"`
+	State           RollbackState `json:"state"`
+	// Config is the executor-specific configuration the rollback was
+	// launched with (repo_url, argo_server, deployment, …). Persisted
+	// so an approval-gated rollback can be resumed (Engine.Approve
+	// reuses it). v1.0 stores it plaintext — secret-bearing keys
+	// (auth tokens) belong out-of-band; richer secret handling is
+	// Epic 10's domain.
+	Config       Config             `json:"config,omitempty"`
+	FromRevision string             `json:"from_revision,omitempty"`
+	ToRevision   string             `json:"to_revision,omitempty"`
+	Result       *Result            `json:"result,omitempty"`
+	Approver     string             `json:"approver,omitempty"`
+	Error        string             `json:"error,omitempty"`
+	Transitions  []TransitionRecord `json:"transitions,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
 }
 
 // RollbackSpec is the input to [Engine.Execute].
@@ -93,8 +100,23 @@ func (s *MemoryStore) Save(_ context.Context, rb *Rollback) error {
 	defer s.mu.Unlock()
 	cp := *rb
 	cp.Transitions = append([]TransitionRecord(nil), rb.Transitions...)
+	cp.Config = cloneConfig(rb.Config)
 	s.m[rb.ID] = cp
 	return nil
+}
+
+// cloneConfig is a shallow copy of a Config map (callers must not
+// mutate stored state via the pointer; map values are not deep-cloned
+// because Config holds simple JSON-decoded values).
+func cloneConfig(c Config) Config {
+	if c == nil {
+		return nil
+	}
+	out := make(Config, len(c))
+	for k, v := range c {
+		out[k] = v
+	}
+	return out
 }
 
 // Get implements [RollbackStore].
@@ -106,6 +128,7 @@ func (s *MemoryStore) Get(_ context.Context, id string) (*Rollback, bool, error)
 		return nil, false, nil
 	}
 	rb.Transitions = append([]TransitionRecord(nil), rb.Transitions...)
+	rb.Config = cloneConfig(rb.Config)
 	return &rb, true, nil
 }
 
@@ -118,6 +141,7 @@ func (s *MemoryStore) List(_ context.Context) ([]*Rollback, error) {
 	for _, rb := range s.m {
 		c := rb
 		c.Transitions = append([]TransitionRecord(nil), rb.Transitions...)
+		c.Config = cloneConfig(rb.Config)
 		out = append(out, &c)
 	}
 	return out, nil
@@ -183,6 +207,7 @@ func (e *Engine) Execute(ctx context.Context, spec RollbackSpec) (*Rollback, err
 		Reason:          spec.Request.Reason,
 		RequireApproval: spec.RequireApproval,
 		State:           StatePending,
+		Config:          spec.Config,
 		CreatedAt:       ts,
 		UpdatedAt:       ts,
 	}
@@ -211,6 +236,7 @@ func (e *Engine) ApproveRollback(ctx context.Context, id, approver string) (*Rol
 	}
 	spec := RollbackSpec{
 		ExecutorType: rb.ExecutorType,
+		Config:       rb.Config,
 		Request: Request{
 			Application: rb.Application,
 			Strategy:    rb.Strategy,
