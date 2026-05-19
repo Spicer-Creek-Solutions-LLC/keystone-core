@@ -262,6 +262,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: with the boot-wiring entries landed, a containerised 3×`kscore-server` cluster forms; an `iptables`/netem partition makes the minority reject writes within 1s while the majority serves; killing the leader process elects a new leader and completes failover; stopping the etcd/NATS/Postgres containers and restarting them recovers with zero data loss — all asserted through the running servers' gRPC/REST surfaces and run in CI. **The server-integrated SLO numbers also ride here**: Epic 13 task 18 ships the `slo` gate (`make slo`, `test/e2e/ha/slo_test.go`) verifying the §4.15 SLOs against the in-process mechanisms; the *server-integrated* SLO measurements (agent-reconnect latency through a running multi-process kscore-server, graceful-shutdown zero-disconnect timing) land with this multi-process form.
 - **References**: `test/e2e/ha/` (task 17, landed — in-process form); `test/e2e/ha/slo_test.go` + `make slo` (task 18, landed — in-process SLO gate); `test/e2e/state/` (docker-compose harness precedent); companions: "Cluster gRPC services boot registration …", "Fencing guard wired around server write paths", "Cluster leader-check boot wiring (kscore-server)"; Epic 13 tasks 17/18.
 
+#### Blueprint applied-runs store (durable)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 15 task 5 ships the blueprint `Executor` with an `AppliedStore` interface + in-memory implementation only. `kscorectl blueprint rollback <run-id>` resolves the recorded apply (blueprint, version, namespace, resolved entrypoint, redacted params) from this store; with the in-memory impl a server restart loses every applied-run record, so rollback only works within the lifetime of the process that ran the apply.
+- **Why deferred**: matches the `pkg/saga` precedent (ships in-memory, durable backend later). A durable applied-runs store is a real persistence surface (schema, migration, masking of sensitive params at rest, integration with the existing SQLite/state store) that is orthogonal to the executor logic itself; the v1.0 minimum is enough for the trial flow where apply + rollback happen in one server lifetime.
+- **Acceptance for unblock**: a blueprint applied on one server process is rollback-able from a *restarted* process via `kscorectl blueprint rollback <run-id>`; sensitive (`source: secret` / `sensitive: true`) params are masked in the persisted record.
+- **References**: `internal/blueprint/applied_store.go` (`AppliedStore` + `NewMemoryAppliedStore`); `internal/blueprint/executor.go`; `pkg/saga/log_sqlite.go` (durable-store precedent); Epic 15 task 5.
+
 #### Pre-rotation signing-CA retention in the bootstrap trust bundle
 
 - **Priority**: gate-v1.0

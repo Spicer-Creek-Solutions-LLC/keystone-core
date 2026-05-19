@@ -72,6 +72,7 @@ gate-v1.0:
   - "Dedicated `keystone-core` system user auto-creation"
   - "Config: no per-endpoint TLS overrides"
   - "Cluster-wide HMAC secret (vs per-agent)"
+  - "Blueprint applied-runs store (durable)"
 
 v0.x:
   - "Persist dispatch principal on CommandRecord for audit-log User field"

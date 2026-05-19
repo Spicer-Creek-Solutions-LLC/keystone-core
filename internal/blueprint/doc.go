@@ -30,12 +30,22 @@
 //   - [Namespace] + [DetectCollisions] — multi-instance `as:`
 //     state-identity namespacing with collision detection.
 //
+// Epic 15 task 5 adds the [Executor]: it resolves parameters
+// (substituting `source: secret` values via a [SecretResolver]),
+// evaluates features, runs pre/post hooks as runbooks (via a
+// [HookRunner]), renders + filters + namespaces + resolves the
+// entrypoint state collection and runs it through a [StateRunner],
+// renders [Manifest] outputs, and records an [AppliedRun] so
+// [Executor.Rollback] can revert by run ID. All collaborators are
+// interfaces; the in-memory [AppliedStore] ships now (a durable
+// backend is the gate-v1.0 ROADMAP item "Blueprint applied-runs
+// store (durable)").
+//
 // # Deliberately out of scope for this package/task
 //
-//   - The blueprint executor + Epic 10 SecretBroker credential
-//     lookup for `source: secret` params — Epic 15 task 5.
-//     [Manifest.ResolveParams] *identifies* secret-sourced
-//     parameters ([ResolvedParams.Secret]) but does NOT fetch them.
+//   - Wiring the [Executor] into a running kscore-server (the
+//     concrete State Runner / SecretBroker / runbook registry are
+//     injected at server composition) — Epic 15 task 10+.
 //   - The 6-blueprint v1.0 catalog — Epic 15 task 6.
 //
 // # Sensitive parameters
